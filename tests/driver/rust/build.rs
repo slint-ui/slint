@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+use rayon::prelude::*;
 use std::collections::HashMap;
 use std::ffi::{OsStr, OsString};
 use std::fs::File;
@@ -94,72 +95,28 @@ fn main() -> std::io::Result<()> {
 
     let mut generated_files = make_generator_files()?;
 
-    for testcase in test_driver_lib::collect_test_cases("cases")? {
+    let testcases = test_driver_lib::collect_test_cases("cases")?;
+
+    // Generate the per-case modules on all cores: with the build-time feature,
+    // each case runs the Slint compiler (twice with deterministic-output),
+    // which dominates the build script's runtime.
+    let module_lines = rayon::ThreadPoolBuilder::new()
+        .stack_size(512 * 1024)
+        .build()
+        .expect("failed to create thread pool")
+        .install(|| {
+            testcases
+                .par_iter()
+                .map(|testcase| process_case(testcase, live_preview))
+                .collect::<std::io::Result<Vec<String>>>()
+        })?;
+
+    // Write the module declarations serially, in collection order, so the
+    // including files don't depend on thread scheduling.
+    for (testcase, module_line) in testcases.iter().zip(module_lines) {
         let generated_file =
-            generated_file_for_test(&testcase, &mut generated_files, &mut generated_file)?;
-
-        println!("cargo:rerun-if-changed={}", testcase.absolute_path.display());
-        let mut module_name = testcase.identifier();
-        if module_name.starts_with(|c: char| !c.is_ascii_alphabetic()) {
-            module_name.insert(0, '_');
-        }
-        writeln!(generated_file, "#[path=\"{module_name}.rs\"] pub mod r#{module_name};")?;
-        let source = std::fs::read_to_string(&testcase.absolute_path)?;
-        let ignored = if testcase.is_ignored("rust") {
-            "#[ignore = \"testcase ignored for rust\"]"
-        } else if (cfg!(not(feature = "build-time")) || live_preview)
-            && source.contains("//bundle-translations")
-        {
-            "#[ignore = \"translation bundle not working with the macro\"]"
-        } else if live_preview && testcase.is_ignored("js") {
-            "#[ignore = \"Ignored JS testcases ignored in live-preview mode\"]"
-        } else if live_preview && testcase.is_ignored("live-preview") {
-            "#[ignore = \"testcase ignored in live-preview mode\"]"
-        } else if live_preview && source.contains("#3464") {
-            "#[ignore = \"issue #3464 not fixed with the interpreter\"]"
-        } else if live_preview && module_name.contains("write_to_model") {
-            "#[ignore = \"Interpreted model don't forward to underlying models for anonymous structs\"]"
-        } else {
-            ""
-        };
-
-        let mut output = BufWriter::new(File::create(
-            Path::new(&std::env::var_os("OUT_DIR").unwrap()).join(format!("{module_name}.rs")),
-        )?);
-
-        output.write_all(
-            b"#![deny(warnings)]\n#![deny(rust_2018_idioms)]\n#![deny(unsafe_code)]\n",
-        )?;
-
-        #[cfg(not(feature = "build-time"))]
-        if !generate_macro(&source, &mut output, testcase)? {
-            continue;
-        }
-        #[cfg(feature = "build-time")]
-        generate_source(&source, &mut output, testcase)?;
-
-        for (i, x) in test_driver_lib::extract_test_functions(&source)
-            .filter(|x| x.language_id == "rust")
-            .enumerate()
-        {
-            write!(
-                output,
-                r"
-#[rust_analyzer::skip]
-#[test] {} fn t_{}() -> ::std::result::Result<(), ::std::boxed::Box<dyn ::std::error::Error>> {{
-    use i_slint_backend_testing as slint_testing;
-    slint_testing::init_no_event_loop();
-    slint_testing::configure_test_fonts();
-    {}
-    Ok(())
-}}",
-                ignored,
-                i,
-                x.source.replace('\n', "\n    ")
-            )?;
-        }
-
-        output.flush()?;
+            generated_file_for_test(testcase, &mut generated_files, &mut generated_file)?;
+        writeln!(generated_file, "{module_line}")?;
     }
 
     generated_file.flush()?;
@@ -180,11 +137,81 @@ fn main() -> std::io::Result<()> {
     Ok(())
 }
 
+/// Write the `{module_name}.rs` file for the test case into OUT_DIR and return
+/// the module declaration that includes it.
+fn process_case(
+    testcase: &test_driver_lib::TestCase,
+    live_preview: bool,
+) -> std::io::Result<String> {
+    println!("cargo:rerun-if-changed={}", testcase.absolute_path.display());
+    let mut module_name = testcase.identifier();
+    if module_name.starts_with(|c: char| !c.is_ascii_alphabetic()) {
+        module_name.insert(0, '_');
+    }
+    let module_line = format!("#[path=\"{module_name}.rs\"] pub mod r#{module_name};");
+    let source = std::fs::read_to_string(&testcase.absolute_path)?;
+    let ignored = if testcase.is_ignored("rust") {
+        "#[ignore = \"testcase ignored for rust\"]"
+    } else if (cfg!(not(feature = "build-time")) || live_preview)
+        && source.contains("//bundle-translations")
+    {
+        "#[ignore = \"translation bundle not working with the macro\"]"
+    } else if live_preview && testcase.is_ignored("js") {
+        "#[ignore = \"Ignored JS testcases ignored in live-preview mode\"]"
+    } else if live_preview && testcase.is_ignored("live-preview") {
+        "#[ignore = \"testcase ignored in live-preview mode\"]"
+    } else if live_preview && source.contains("#3464") {
+        "#[ignore = \"issue #3464 not fixed with the interpreter\"]"
+    } else if live_preview && module_name.contains("write_to_model") {
+        "#[ignore = \"Interpreted model don't forward to underlying models for anonymous structs\"]"
+    } else {
+        ""
+    };
+
+    let mut output = BufWriter::new(File::create(
+        Path::new(&std::env::var_os("OUT_DIR").unwrap()).join(format!("{module_name}.rs")),
+    )?);
+
+    output.write_all(b"#![deny(warnings)]\n#![deny(rust_2018_idioms)]\n#![deny(unsafe_code)]\n")?;
+
+    #[cfg(not(feature = "build-time"))]
+    if !generate_macro(&source, &mut output, testcase)? {
+        output.flush()?;
+        return Ok(module_line);
+    }
+    #[cfg(feature = "build-time")]
+    generate_source(&source, &mut output, testcase)?;
+
+    for (i, x) in test_driver_lib::extract_test_functions(&source)
+        .filter(|x| x.language_id == "rust")
+        .enumerate()
+    {
+        write!(
+            output,
+            r"
+#[rust_analyzer::skip]
+#[test] {} fn t_{}() -> ::std::result::Result<(), ::std::boxed::Box<dyn ::std::error::Error>> {{
+    use i_slint_backend_testing as slint_testing;
+    slint_testing::init_no_event_loop();
+    slint_testing::configure_test_fonts();
+    {}
+    Ok(())
+}}",
+            ignored,
+            i,
+            x.source.replace('\n', "\n    ")
+        )?;
+    }
+
+    output.flush()?;
+    Ok(module_line)
+}
+
 #[cfg(not(feature = "build-time"))]
 fn generate_macro(
     source: &str,
     output: &mut dyn Write,
-    testcase: test_driver_lib::TestCase,
+    testcase: &test_driver_lib::TestCase,
 ) -> Result<bool, std::io::Error> {
     if source.contains("\\{") {
         // Unfortunately, \{ is not valid in a rust string so it cannot be used in a slint! macro
@@ -227,7 +254,7 @@ fn generate_macro(
         output.write_all(b"\"#]\n")?;
     }
 
-    let mut abs_path = testcase.absolute_path;
+    let mut abs_path = testcase.absolute_path.clone();
     abs_path.pop();
     output.write_all(b"#[include_path=r#\"")?;
     output.write_all(abs_path.to_string_lossy().as_bytes())?;
@@ -241,15 +268,15 @@ fn generate_macro(
 fn generate_source(
     source: &str,
     output: &mut impl Write,
-    testcase: test_driver_lib::TestCase,
+    testcase: &test_driver_lib::TestCase,
 ) -> Result<(), std::io::Error> {
     println!("cargo::rerun-if-env-changed=SLINT_LIVE_PREVIEW");
 
-    let generated = compile_and_generate(source, &testcase)?;
+    let generated = compile_and_generate(source, testcase)?;
 
     #[cfg(feature = "deterministic-output")]
     {
-        let second = compile_and_generate(source, &testcase)?;
+        let second = compile_and_generate(source, testcase)?;
         let expect_utf8 =
             |bytes| std::str::from_utf8(bytes).expect("generated Rust is valid UTF-8");
         assert_eq!(
@@ -266,24 +293,6 @@ fn generate_source(
 
 #[cfg(feature = "build-time")]
 fn compile_and_generate(
-    source: &str,
-    testcase: &test_driver_lib::TestCase,
-) -> Result<Vec<u8>, std::io::Error> {
-    // Run the compiler in a thread with a reduced stack size to catch excessive
-    // stack usage, which would break compilation in environments with small
-    // default stack sizes.
-    std::thread::scope(|scope| {
-        std::thread::Builder::new()
-            .stack_size(512 * 1024)
-            .spawn_scoped(scope, || compile_and_generate_impl(source, testcase))
-            .expect("failed to spawn compiler thread")
-            .join()
-            .expect("compiler thread panicked")
-    })
-}
-
-#[cfg(feature = "build-time")]
-fn compile_and_generate_impl(
     source: &str,
     testcase: &test_driver_lib::TestCase,
 ) -> Result<Vec<u8>, std::io::Error> {
