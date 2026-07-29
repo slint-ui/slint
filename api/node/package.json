@@ -44,7 +44,7 @@
     "docs": "pnpm build && pnpm -C ../../docs/nodejs run build",
     "docs:dev": "pnpm build && pnpm -C ../../docs/nodejs run dev",
     "docs:debug": "pnpm build:debug && pnpm -C ../../docs/nodejs run build",
-    "type-check": "tsc -p __test__/tsconfig.json && tsc -p tsconfig.e2e.json",
+    "type-check": "tsc -p tsconfig.bindings.json && tsc -p __test__/tsconfig.json && tsc -p tsconfig.e2e.json",
     "check": "biome check",
     "format": "biome format",
     "format:fix": "biome format --write",

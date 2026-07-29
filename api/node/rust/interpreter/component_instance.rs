@@ -193,7 +193,7 @@ impl JsComponentInstance {
         env: &Env,
         mut this: This<Object<'_>>,
         callback_name: String,
-        callback: DynFunction<'_>,
+        #[napi(ts_arg_type = "(...args: any[]) => any")] callback: DynFunction<'_>,
     ) -> Result<()> {
         let (ty, _) = self
             .inner
@@ -236,7 +236,7 @@ impl JsComponentInstance {
         mut this: This<Object<'_>>,
         global_name: String,
         callback_name: String,
-        callback: DynFunction<'_>,
+        #[napi(ts_arg_type = "(...args: any[]) => any")] callback: DynFunction<'_>,
     ) -> Result<()> {
         let (ty, _) = self
             .inner

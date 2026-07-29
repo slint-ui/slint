@@ -76,7 +76,10 @@ pub fn process_events() -> napi::Result<ProcessEventsResult> {
 }
 
 #[napi]
-pub fn invoke_from_event_loop(env: &Env, callback: DynFunction<'_>) -> napi::Result<()> {
+pub fn invoke_from_event_loop(
+    env: &Env,
+    #[napi(ts_arg_type = "() => void")] callback: DynFunction<'_>,
+) -> napi::Result<()> {
     i_slint_backend_selector::with_platform(|_b| {
         // Nothing to do, just make sure a backend was created
         Ok(())
