@@ -446,9 +446,9 @@ fn password_input_is_cached() {
 fn composition_is_shaped_through_the_cache() {
     let window = setup();
 
-    // An IME composition is part of the displayed text, so the paths that don't draw shape it
-    // like any other text and can share the cache entry. Only drawing bakes the composition's
-    // decoration into the glyphs, and it excludes itself through the selection check.
+    // An IME composition is part of the displayed text, so every path shapes it like any other
+    // text and shares one cache entry -- drawing included, now that the composition's decoration
+    // is applied by clipping at draw time instead of being baked into the glyph brushes.
     //
     // The input is sized by hand, so no layout pass measures it once the composition starts: the
     // cursor rect query is then the only thing that shapes the composed text, and the cache miss
@@ -505,9 +505,9 @@ fn composition_is_shaped_through_the_cache() {
         after_cursor_rect, 1,
         "the cursor rect should shape the composition through the cache"
     );
-    // Drawing shapes fresh -- it bakes the composition's own brush in -- but leaves the entry
-    // alone, so it neither adds a miss nor costs the next query its hit.
-    assert_eq!(after_render, 1, "drawing the composition should leave the cache entry alone");
+    // Drawing is served by that same entry, so it neither adds a miss nor costs the next query
+    // its hit.
+    assert_eq!(after_render, 1, "drawing the composition should reuse the cache entry");
 
     assert!(
         ui.get_cursor_x() > without_composition,
@@ -520,8 +520,9 @@ fn composition_is_shaped_through_the_cache() {
 fn text_input_selection_still_colors_text() {
     let window = setup();
 
-    // A selection bakes its foreground color into the shaped glyphs, so the selected run must be
-    // shaped fresh rather than served from the (selection-free) cache entry.
+    // The selection foreground is applied when drawing, by clipping the runs the selection covers,
+    // so the selected text is served from the very same cache entry as the unselected text and has
+    // to come out red all the same.
     slint::slint! {
         export component TestComponent inherits Window {
             background: white;
@@ -545,6 +546,61 @@ fn text_input_selection_still_colors_text() {
     ui.invoke_select();
     window.request_redraw();
     assert!(render_and_count_red(&window) > 0, "selection foreground color was lost");
+}
+
+#[test]
+fn text_input_selection_change_does_not_reshape() {
+    let window = setup();
+
+    // Selecting is not a shaping input: the shaped glyphs are identical with and without a
+    // selection, which is what keeps a drag-select from re-shaping the whole document on every
+    // mouse move. Moving the cursor is the same story.
+    slint::slint! {
+        export component TestComponent inherits Window {
+            in property <string> content: "Hello World";
+            callback select(start: int, end: int);
+            input := TextInput {
+                text: content;
+            }
+            select(start, end) => {
+                input.set-selection-offsets(start, end);
+            }
+        }
+    }
+
+    let ui = TestComponent::new().unwrap();
+    ui.show().unwrap();
+
+    let mut miss_count = 0u64;
+    assert!(window.draw_if_needed(|renderer| {
+        miss_count = render_and_get_miss_count(renderer);
+    }));
+
+    // As in `text_input_cache_hit_avoids_reshaping`, the first render may find the text already
+    // shaped by the layout pass before it, so provoke a miss rather than assuming one. It also
+    // shows this input's draw is on the cache at all, and can therefore miss it.
+    //
+    // What the zero-miss assertions below catch is a selection becoming a shaping input again:
+    // baking the selection colors into the glyphs makes the selection properties dependencies of
+    // the entry, and each change then invalidates it. They cannot catch shaping that deliberately
+    // side-steps the cache, since that records no miss to count.
+    ui.set_content("Hello World!".into());
+    window.request_redraw();
+    assert!(window.draw_if_needed(|renderer| {
+        miss_count = render_and_get_miss_count(renderer);
+    }));
+    assert!(miss_count > 0, "Expected a cache miss after the text changed");
+
+    for (start, end, what) in
+        [(0, 5, "selecting"), (0, 8, "extending the selection"), (3, 8, "moving the selection")]
+    {
+        ui.invoke_select(start, end);
+        window.request_redraw();
+        assert!(window.draw_if_needed(|renderer| {
+            miss_count = render_and_get_miss_count(renderer);
+        }));
+        assert_eq!(miss_count, 0, "{what} should not cause reshaping");
+    }
 }
 
 #[test]
