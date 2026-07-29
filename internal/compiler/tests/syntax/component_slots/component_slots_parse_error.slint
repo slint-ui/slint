@@ -5,3 +5,8 @@ export component Fail inherits Rectangle {
     header << ;
 //            ^error{invalid expression}
 }
+
+export component FailMissingSlotName inherits Rectangle {
+    slot;
+//      ^error{Syntax error: expected Identifier}
+}
