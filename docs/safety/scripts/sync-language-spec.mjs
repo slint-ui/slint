@@ -9,11 +9,18 @@
 //
 // The chapters use relative links so that they resolve in both sites. Links
 // that point outside the specification differ per site and are rewritten via
-// LINK_MAP below.
+// LINK_MAP below. The copies written here then get every link rewritten from
+// the site base, because starlight-links-validator skips relative links
+// entirely: a relative link would go unchecked and could rot into a dead one
+// unnoticed.
 
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { SAFETY_DOCS_BASE_PATH } from "../src/safety-site-config.mjs";
+
+// The path this site is served under, with a trailing `/`.
+const BASE = `/${SAFETY_DOCS_BASE_PATH.replace(/^\/+|\/+$/g, "")}/`.replace("//", "/");
 
 // Links that leave the specification directory: canonical (docs/astro) form
 // on the left, safety-manual form on the right.
@@ -27,9 +34,29 @@ function isNotInSC(content) {
 // Drop `<NotInSC>` blocks entirely. The manual omits them at runtime anyway,
 // but MDX evaluates a component's children eagerly, so a throwing component
 // left inside one (e.g. CodeSnippetMD referencing a main-docs-only image)
-// would still break the build here. Removing them leaves only the SC content.
+// would still break the build here. Removing them leaves only the SC content,
+// and with it only links this site can resolve: a block outside the subset
+// links to chapters the manual doesn't serve, which link validation would
+// reject once the links are written from the site base.
 function stripNotInSC(content) {
     return content.replace(/<NotInSC>[\s\S]*?<\/NotInSC>\n?/g, "");
+}
+
+// Rewrite the markdown links of a page served at `pageUrl` from the site base,
+// so that starlight-links-validator checks them. Resolving against the page's
+// own URL keeps the sources readable: they stay relative, and only the copies
+// this script writes carry the site's layout.
+function linksFromBase(content, pageUrl) {
+    return content.replace(/\]\((\.\.?\/[^)]*)\)/g, (_, url) => {
+        const resolved = new URL(url, `https://slint.dev${pageUrl}`);
+        return `](${resolved.pathname}${resolved.hash})`;
+    });
+}
+
+// URL of a synced page below `sectionUrl`; an index page heads its section.
+function pageUrl(sectionUrl, entry) {
+    const stem = entry.replace(/\.mdx?$/, "");
+    return stem === "index" ? sectionUrl : `${sectionUrl}${stem}/`;
 }
 
 // Copy the files under `sourceDir` accepted by `accept` into `targetDir`,
@@ -47,7 +74,7 @@ function syncDir(sourceDir, targetDir, accept, transform = (c) => c) {
             continue;
         }
         wanted.add(entry);
-        const out = transform(content);
+        const out = transform(content, entry);
         const targetFile = join(targetDir, entry);
         if (!existsSync(targetFile) || readFileSync(targetFile, "utf-8") !== out) {
             writeFileSync(targetFile, out);
@@ -82,6 +109,7 @@ for (const entry of readdirSync(source)) {
     for (const [from, to] of LINK_MAP) {
         content = content.replaceAll(from, to);
     }
+    content = linksFromBase(stripNotInSC(content), pageUrl(`${BASE}language/`, entry));
     const targetFile = join(target, entry);
     if (!existsSync(targetFile) || readFileSync(targetFile, "utf-8") !== content) {
         writeFileSync(targetFile, content);
@@ -101,7 +129,11 @@ syncDir(
     join(here, "../../astro/src/content/docs/reference/property-types"),
     join(here, "../src/content/docs/reference/property-types"),
     (content) => !isNotInSC(content),
-    stripNotInSC,
+    (content, entry) =>
+        linksFromBase(
+            stripNotInSC(content),
+            pageUrl(`${BASE}reference/property-types/`, entry),
+        ),
 );
 
 console.log(`Synced language specification from ${source}`);
