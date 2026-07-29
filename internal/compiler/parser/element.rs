@@ -67,7 +67,9 @@ pub fn parse_element_content(p: &mut impl Parser) {
             SyntaxKind::RBrace => return,
             SyntaxKind::Eof => return,
             SyntaxKind::Identifier => match p.nth(1).kind() {
-                _ if p.peek().as_str() == "slot" => parse_slot_declaration(&mut *p),
+                SyntaxKind::Identifier | SyntaxKind::Semicolon if p.peek().as_str() == "slot" => {
+                    parse_slot_declaration(&mut *p)
+                }
                 SyntaxKind::Colon => parse_property_binding(&mut *p),
                 SyntaxKind::DoubleLess => {
                     had_parse_error |= !parse_slot_assignment_or_forwarding(&mut *p)
