@@ -230,6 +230,7 @@ fract
 framebuffers
 freetype
 frontends
+frontmatter
 Fsvg
 fullsize
 Fullwidth

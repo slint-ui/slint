@@ -39,9 +39,9 @@ const TEST_ROOTS: &[(&str, &str)] =
 /// Handwritten safety-manual pages may also state requirements.
 const SAFETY_DOCS_DIR: &str = "docs/safety/src/content/docs";
 
-/// The property-types reference, part of the SC corpus except for pages marked
-/// `notInSC: true`. Anchors are scanned from this canonical location; the
-/// safety manual syncs and serves the SC ones under `reference/property-types/`.
+/// The property-types reference; the pages that opt into the SC corpus with
+/// `SC: true` are part of it. Anchors are scanned from this canonical location;
+/// the safety manual syncs and serves the SC ones under `reference/property-types/`.
 const PROPERTY_TYPES_DIR: &str = "docs/astro/src/content/docs/reference/property-types";
 
 /// Subdirectories of [`SAFETY_DOCS_DIR`] whose anchors are already scanned
@@ -72,9 +72,9 @@ struct SpecPage {
     anchors: Vec<(String, usize)>,
     /// Draft pages aren't published, so their anchors don't exist.
     draft: bool,
-    /// Covers the full language only: the safety manual leaves the chapter
-    /// out, so its anchors, if any, aren't part of the traceability corpus.
-    not_in_sc: bool,
+    /// Whether the page opts into the safety corpus with `SC: true`. Only the
+    /// content it wraps in `<SC>` is certified; other pages are left out.
+    sc: bool,
     /// States requirements, the default. A navigational page like a section
     /// landing page sets `normative: false`; rehype-sls-ids.mjs drops its
     /// markers rather than turning them into anchors, so citing one here
@@ -196,13 +196,16 @@ fn parse_spec_page(file: &str, text: &str) -> (SpecPage, Option<String>) {
         top_level: false,
         anchors: Vec::new(),
         draft: false,
-        not_in_sc: false,
+        sc: false,
         normative: true,
     };
     let mut in_comment = false;
     let mut in_fence = false;
-    // `<NotInSC>` regions aren't published in the safety manual, so whatever
-    // they enclose states no requirement. See rehype-not-in-sc.mjs.
+    // <SC> and the <OnlyInSC> that nests inside it are certified; a <NotInSC>
+    // nested in either opts a part back out. Count nesting depth so a closing
+    // </OnlyInSC> doesn't end the enclosing <SC>. See the SC/OnlyInSC/NotInSC
+    // components and rehype-sls-ids.mjs.
+    let mut sc_depth = 0u32;
     let mut in_not_in_sc = false;
     let mut frontmatter_delimiters = 0;
     for (i, line) in text.lines().enumerate() {
@@ -216,8 +219,8 @@ fn parse_spec_page(file: &str, text: &str) -> (SpecPage, Option<String>) {
                 slug = Some(s.trim().to_string());
             } else if t == "draft: true" {
                 page.draft = true;
-            } else if t == "notInSC: true" {
-                page.not_in_sc = true;
+            } else if t == "SC: true" {
+                page.sc = true;
             } else if t == "normative: false" {
                 page.normative = false;
             }
@@ -234,6 +237,14 @@ fn parse_spec_page(file: &str, text: &str) -> (SpecPage, Option<String>) {
         if in_fence {
             continue;
         }
+        if t == "<SC>" || t == "<OnlyInSC>" {
+            sc_depth += 1;
+            continue;
+        }
+        if t == "</SC>" || t == "</OnlyInSC>" {
+            sc_depth = sc_depth.saturating_sub(1);
+            continue;
+        }
         if t == "<NotInSC>" {
             in_not_in_sc = true;
             continue;
@@ -242,7 +253,11 @@ fn parse_spec_page(file: &str, text: &str) -> (SpecPage, Option<String>) {
             in_not_in_sc = false;
             continue;
         }
-        if in_not_in_sc {
+        // On an `SC: true` page anchors count only inside an <SC>/<OnlyInSC>
+        // block (and not inside a nested <NotInSC>). Generated reference pages
+        // carry no such wrapper -- the whole page is certified -- so they count
+        // every anchor outside a <NotInSC>.
+        if in_not_in_sc || (page.sc && sc_depth == 0) {
             continue;
         }
         // Both comment forms: markdown pages use `<!-- -->`, MDX `{/* */}`.
@@ -288,7 +303,7 @@ fn scan_spec_pages(dir: &Path) -> Result<Vec<SpecPage>, Box<dyn std::error::Erro
         let text = std::fs::read_to_string(&path).context(format!("error reading {path:?}"))?;
         let file = path.file_name().unwrap_or_default().to_string_lossy();
         let (mut page, _) = parse_spec_page(&format!("{SPEC_DIR}/{file}"), &text);
-        if page.not_in_sc {
+        if !page.sc {
             continue;
         }
         // The index page is served at the root of the specification.
@@ -303,9 +318,8 @@ fn scan_spec_pages(dir: &Path) -> Result<Vec<SpecPage>, Box<dyn std::error::Erro
 }
 
 /// Parse the property-types reference pages under [`PROPERTY_TYPES_DIR`] for
-/// their anchors. Pages marked `notInSC: true` cover the full language only, so
-/// they carry no requirements; the rest are served in the safety manual under
-/// `reference/property-types/`.
+/// their anchors. Only pages that opt in with `SC: true` carry requirements;
+/// those are served in the safety manual under `reference/property-types/`.
 fn scan_property_type_pages(root: &Path) -> Result<Vec<SpecPage>, Box<dyn std::error::Error>> {
     let dir = root.join(PROPERTY_TYPES_DIR);
     let mut paths: Vec<std::path::PathBuf> = std::fs::read_dir(&dir)
@@ -321,7 +335,7 @@ fn scan_property_type_pages(root: &Path) -> Result<Vec<SpecPage>, Box<dyn std::e
         let stem = path.file_stem().unwrap_or_default().to_string_lossy().into_owned();
         let file = repo_relative(&path, root);
         let (mut page, _) = parse_spec_page(&file, &text);
-        if page.not_in_sc || page.anchors.is_empty() || page.draft {
+        if !page.sc || page.anchors.is_empty() || page.draft {
             continue;
         }
         page.base = format!("/reference/property-types/{stem}/");
@@ -622,14 +636,33 @@ Another paragraph. {#sls.two}
     assert!(draft.draft);
     assert_eq!(draft.anchors, [("sls.d".to_string(), 5)]);
 
-    assert!(!page.not_in_sc);
-    // The flag is parsed; scan_spec_pages skips such pages, anchors and all.
-    let (flagged, _) = parse_spec_page(
-        "spec/functions.mdx",
-        "---\ntitle: Functions\nnotInSC: true\n---\nFull-language prose. \\{#sls.fn.decl}\n",
-    );
-    assert!(flagged.not_in_sc);
-    assert_eq!(flagged.anchors, [("sls.fn.decl".to_string(), 5)]);
+    // A page without `SC: true` isn't part of the corpus, but its anchors are
+    // still parsed (the generated reference and safety pages rely on that).
+    assert!(!page.sc);
+    // On an `SC: true` page only anchors inside an <SC>/<OnlyInSC> block count;
+    // a nested <NotInSC> opts back out, and content outside is uncertified.
+    let sc_text = r#"---
+title: Geometry
+SC: true
+---
+
+<SC>
+Certified. {#sls.a}
+
+<OnlyInSC>
+Safety only. {#sls.b}
+</OnlyInSC>
+
+<NotInSC>
+Main only. {#sls.c}
+</NotInSC>
+</SC>
+
+Uncertified. {#sls.d}
+"#;
+    let (sc_page, _) = parse_spec_page("spec/geometry.mdx", sc_text);
+    assert!(sc_page.sc);
+    assert_eq!(sc_page.anchors, [("sls.a".to_string(), 7), ("sls.b".to_string(), 10)]);
 
     let (reference, slug) = parse_spec_page(
         "generated/elements/rectangle.mdx",
@@ -648,7 +681,7 @@ fn test_check_reports_all_errors() {
         top_level: false,
         anchors: anchors.iter().map(|(id, line)| (id.to_string(), *line)).collect(),
         draft: false,
-        not_in_sc: false,
+        sc: false,
         normative: true,
     };
     let test_ref = |id: &str, file: &str, line| TestRef {

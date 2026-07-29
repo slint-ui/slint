@@ -183,8 +183,8 @@ export default defineConfig({
                             label: "File Structure",
                             slug: "language/file-structure",
                         },
-                        // The Imports chapter is marked notInSC; list it here
-                        // once imports come into the SC subset.
+                        // The Imports chapter isn't in the SC subset yet (no
+                        // `SC: true`); list it here once it joins.
                         {
                             label: "Exports",
                             slug: "language/exports",

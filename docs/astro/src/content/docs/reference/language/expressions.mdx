@@ -1,19 +1,21 @@
 ---
 title: Expressions
 description: The expression forms and what they evaluate to.
+SC: true
 ---
 
-import NotInSC from '@slint/common-files/src/components/NotInSC.astro';
+import SC from '@slint/common-files/src/components/SC.astro';
 
+<SC>
 An expression is a color literal or a length literal. \{#sls.expr.forms}
+</SC>
 
-<NotInSC>
 Further expression forms exist:
 [operators](../operators/), [member access](../operators/#member-access-and-indexing),
 function and callback calls, and the literals of the other
 [built-in types](../../property-types/).
-</NotInSC>
 
+<SC>
 ## Color Literals
 
 A color literal consists of `#` followed by 3, 4, 6, or 8 hexadecimal digits:
@@ -47,10 +49,11 @@ The number shall be integral: `10.5px` is an error. \{#sls.expr.length.integral}
 
 `px` is the only unit.
 A number literal with another unit, or without a unit, is an error. \{#sls.expr.length.px-only}
+</SC>
 
-<NotInSC>
 These restrictions apply to Slint SC.
 The full Slint language accepts fractional values and other units.
-</NotInSC>
 
+<SC>
 A length literal evaluates to a value of type `length`. \{#sls.expr.length.type}
+</SC>

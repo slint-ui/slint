@@ -1,8 +1,12 @@
 ---
 title: File Structure
 description: Top-level structure of a Slint source file and the basic form of component definitions.
+SC: true
 ---
 
+import SC from '@slint/common-files/src/components/SC.astro';
+
+<SC>
 ## A Slint Source File
 
 A `.slint` source file is a sequence of zero or more *top-level items*, separated only by whitespace and comments. \{#sls.file.source-file}
@@ -65,3 +69,4 @@ export component Hello inherits Window {
 ```
 
 It exports one component, `Hello`, which inherits from `Window` and whose body contains two top-level `Rectangle` instantiations. \{#sls.file.example.description}
+</SC>

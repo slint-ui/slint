@@ -4,8 +4,8 @@
 // Sync the language-specification chapters from their canonical location in
 // the main Slint docs (docs/astro/src/content/docs/reference/language/) into
 // this site's src/content/docs/language/ directory, which is gitignored.
-// Chapters with `notInSC: true` in their frontmatter cover the full language
-// only and are left out.
+// Only chapters that opt into the SC subset with `SC: true` in their
+// frontmatter are brought over, and only the content they wrap in <SC>.
 //
 // The chapters use relative links so that they resolve in both sites. Links
 // that point outside the specification differ per site and are rewritten via
@@ -22,20 +22,51 @@ import { fileURLToPath } from "node:url";
 // on the left, safety-manual form on the right.
 const LINK_MAP = new Map([["](../overview/)", "](../reference/)"]]);
 
-function isNotInSC(content) {
+function isSC(content) {
     const frontmatter = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
-    return frontmatter != null && /^notInSC:\s*true\s*$/m.test(frontmatter[1]);
+    return frontmatter != null && /^SC:\s*true\s*$/m.test(frontmatter[1]);
 }
 
-// Drop `<NotInSC>` blocks entirely. The manual omits them at runtime anyway,
-// but MDX evaluates a component's children eagerly, so a throwing component
-// left inside one (e.g. CodeSnippetMD referencing a main-docs-only image)
-// would still break the build here. Removing them leaves only the SC content,
-// and with it only links this site can resolve: a block outside the subset
-// links to chapters the manual doesn't serve, which link validation would
-// reject once the links are written from the site base.
-function stripNotInSC(content) {
-    return content.replace(/<NotInSC>[\s\S]*?<\/NotInSC>\n?/g, "");
+// Keep only the certified content: the frontmatter, the imports, and the
+// <SC>/<OnlyInSC> blocks (an <SC> block may contain a nested <NotInSC> that the
+// manual omits at runtime). Everything outside a block is main-documentation
+// only and is dropped, so nothing uncertified reaches the safety manual -- and
+// with it only links this site can resolve (a dropped block outside the subset
+// links to chapters the manual doesn't serve, which link validation rejects),
+// and no throwing component in the dropped part (e.g. a CodeSnippetMD for a
+// main-docs-only image) can break the build here.
+//
+// An <OnlyInSC> nests inside an <SC>, so count nesting depth rather than a
+// single block, or the inner </OnlyInSC> would end the outer <SC> early.
+function keepOnlySC(content) {
+    const out = [];
+    let delimiters = 0;
+    let depth = 0;
+    for (const line of content.split("\n")) {
+        const t = line.trim();
+        if (delimiters < 2) {
+            out.push(line);
+            if (t === "---") delimiters++;
+            continue;
+        }
+        if (depth > 0) {
+            out.push(line);
+            if (t === "<SC>" || t === "<OnlyInSC>") depth++;
+            else if (t === "</SC>" || t === "</OnlyInSC>") depth--;
+            continue;
+        }
+        if (t === "<SC>" || t === "<OnlyInSC>") {
+            out.push(line);
+            depth++;
+            continue;
+        }
+        // Outside a certified block keep only imports and blank lines (for
+        // spacing); drop the main-docs-only content.
+        if (t === "" || t.startsWith("import ") || t.startsWith("{/*")) {
+            out.push(line);
+        }
+    }
+    return out.join("\n");
 }
 
 // Rewrite the markdown links of a page served at `pageUrl` from the site root,
@@ -99,14 +130,14 @@ for (const entry of readdirSync(source)) {
         continue;
     }
     let content = readFileSync(join(source, entry), "utf-8");
-    if (isNotInSC(content)) {
+    if (!isSC(content)) {
         continue;
     }
     wanted.add(entry);
     for (const [from, to] of LINK_MAP) {
         content = content.replaceAll(from, to);
     }
-    content = linksFromRoot(stripNotInSC(content), pageUrl("/language/", entry));
+    content = linksFromRoot(keepOnlySC(content), pageUrl("/language/", entry));
     const targetFile = join(target, entry);
     if (!existsSync(targetFile) || readFileSync(targetFile, "utf-8") !== content) {
         writeFileSync(targetFile, content);
@@ -119,15 +150,15 @@ for (const entry of readdirSync(target)) {
 }
 
 // Bring the SC property-types reference pages into the manual, where they are
-// served under reference/property-types/ (see astro.config.mjs). Pages marked
-// `notInSC: true` cover the full language only and are left out, just like the
-// specification chapters above.
+// served under reference/property-types/ (see astro.config.mjs). Only pages
+// that opt in with `SC: true` are brought over, just like the specification
+// chapters above.
 syncDir(
     join(here, "../../astro/src/content/docs/reference/property-types"),
     join(here, "../src/content/docs/reference/property-types"),
-    (content) => !isNotInSC(content),
+    (content) => isSC(content),
     (content, entry) =>
-        linksFromRoot(stripNotInSC(content), pageUrl("/reference/property-types/", entry)),
+        linksFromRoot(keepOnlySC(content), pageUrl("/reference/property-types/", entry)),
 );
 
 console.log(`Synced language specification from ${source}`);
