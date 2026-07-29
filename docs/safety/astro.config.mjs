@@ -52,7 +52,7 @@ export default defineConfig({
                 Header: "@slint/common-files/src/components/Header.astro",
                 Banner: "@slint/common-files/src/components/Banner.astro",
             },
-            plugins: [slintStarlightLinksValidatorPlugin({ errorOnRelativeLinks: false })],
+            plugins: [slintStarlightLinksValidatorPlugin({ errorOnRelativeLinks: true })],
             social: slintStarlightSocial,
             sidebar: [
                 { label: "Slint SC Safety Manual", slug: "index" },
