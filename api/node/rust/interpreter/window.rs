@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use crate::types::{JsWindowEvent, SlintPoint, SlintSize};
+use crate::types::{JsWindowEvent, JsWindowEventDispatchResult, SlintPoint, SlintSize};
 use i_slint_core::{platform::WindowEvent, window::WindowAdapterRc};
 use slint_interpreter::{LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize};
 
@@ -126,15 +126,18 @@ impl JsWindow {
 
     /// Dispatch a window event to the scene.
     #[napi(js_name = "dispatchEvent")]
-    pub fn dispatch_event(&self, event: JsWindowEvent) -> napi::Result<()> {
+    pub fn dispatch_event(
+        &self,
+        event: JsWindowEvent,
+    ) -> napi::Result<JsWindowEventDispatchResult> {
         let event = WindowEvent::from(event);
 
-        self.inner
+        Ok(self
+            .inner
             .window()
             .dispatch_event_with_result(event)
-            .map_err(|_| napi::Error::from_reason("Cannot dispatch event".to_string()))?;
-
-        Ok(())
+            .map_err(|_| napi::Error::from_reason("Cannot dispatch event".to_string()))?
+            .into())
     }
 
     /// Returns if the window is currently fullscreen

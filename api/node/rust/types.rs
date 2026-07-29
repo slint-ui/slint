@@ -30,3 +30,6 @@ pub use styled_text::*;
 
 mod window_event;
 pub use window_event::*;
+
+mod window_display_result;
+pub use window_display_result::*;

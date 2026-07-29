@@ -3,25 +3,14 @@
 
 use i_slint_core::items::PointerEventButton;
 
-/// This enum describes the different types of buttons for a pointer event, typically on a mouse or a pencil.
 #[non_exhaustive]
 #[napi(js_name = "PointerEventButton", string_enum)]
 pub enum JsPointerEventButton {
-    /// A button that is none of left, right, middle, back or forward. For example, this is used for the task button on a mouse with many buttons.
     Other,
-
-    /// The left button.
     Left,
-    /// The right button.
     Right,
-
-    /// The center button.
     Middle,
-
-    /// The back button.
     Back,
-
-    /// The forward button.
     Forward,
 }
 

@@ -6,7 +6,6 @@ use slint_interpreter::{LogicalPosition, LogicalSize};
 
 use crate::types::{JsPointerEventButton, SlintPoint, SlintSize};
 
-#[non_exhaustive]
 #[repr(u32)]
 #[napi(js_name = "WindowEvent", discriminant_case = "kebab-case")]
 pub enum JsWindowEvent {
