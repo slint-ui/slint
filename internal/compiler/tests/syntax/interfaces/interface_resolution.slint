@@ -72,3 +72,43 @@ export component NoInterfaceName {
 //  >       <error{Unknown property implement}
     base := PlainComponent { }
 }
+
+export component CallbackNamedImplement {
+    callback implement();
+    implement => { }
+}
+
+export component CallbackWithParametersNamedImplement {
+    callback implement(int);
+    implement(i) => { }
+}
+
+export component FunctionNamedImplement {
+    pure public function implement() -> int { 42 }
+    out property <int> foo: implement();
+}
+
+component PropertyNamedImplement {
+    in-out property <int> implement;
+}
+
+export component ChildIdImplement {
+    implement := PropertyNamedImplement {
+        implement: 42;
+    }
+}
+
+export component TwoWayBindingToPropertyNamedImplement {
+    in-out property <int> implement;
+    implement <=> child.foo;
+
+    child := Rectangle {
+        in-out property <int> foo;
+    }
+}
+
+component implement { }
+
+export component UsesImplementComponent {
+    implement { }
+}
