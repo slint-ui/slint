@@ -41,3 +41,19 @@ export component FailUnusedSlotDeclaration inherits Rectangle {
     slot header;
 //       >    <error{The slot 'header' is declared but not used}
 }
+
+export interface InterfacesCannotHaveSlots {
+    slot header;
+//  >          <error{An interface cannot have slots}
+
+    header {}
+//  >       <error{An interface cannot have sub elements}
+}
+
+export global GlobalsCannotHaveSlots {
+    slot header;
+//  >          <error{A global component cannot have slots}
+
+    header {}
+//  >       <error{A global component cannot have sub elements}
+}

@@ -581,6 +581,9 @@ impl Component {
         if !diagnostics.enable_experimental {
             return;
         }
+        if self.is_global() || self.is_interface() {
+            return;
+        }
         let mut declared_slot_nodes = BTreeMap::<SmolStr, SyntaxNode>::new();
         for slot in self.declared_slots.borrow().iter() {
             if slot.name == "children" {
@@ -1315,6 +1318,7 @@ impl Element {
                 }
             });
             node.MatchElement().for_each(|n| error_on(&n, "match statements"));
+            node.SlotDeclaration().for_each(|n| error_on(&n, "slots"));
 
             if parent_type == ElementType::Interface {
                 node.Binding().for_each(|n| error_on(&n, "bindings"));
