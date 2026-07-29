@@ -18,7 +18,9 @@ use std::path::Path;
 use std::pin::Pin;
 use std::rc::Rc;
 
+use i_slint_common::physical_key_codes::physical_key_name_from_xkb;
 use i_slint_core::api::LogicalPosition;
+use i_slint_core::input::KeyEvent;
 use i_slint_core::lengths::logical_point_from_api;
 use i_slint_core::platform::{PlatformError, PointerEventButton, WindowEvent};
 use i_slint_core::window::{WindowAdapter, WindowInner};
@@ -318,7 +320,8 @@ impl<'a> calloop::EventSource for LibInputHandler<'a> {
                 },
                 input::Event::Keyboard(input::event::KeyboardEvent::Key(key_event)) => {
                     // On Linux key codes have a fixed offset of 8: https://docs.rs/xkbcommon/0.6.0/xkbcommon/xkb/struct.Keycode.html
-                    let key_code = xkb::Keycode::new(key_event.key() + 8);
+                    let xkb_keycode = key_event.key() + 8;
+                    let key_code = xkb::Keycode::new(xkb_keycode);
                     let state = key_event.key_state();
 
                     let xkb_key_state = self.keystate.get_or_insert_with(|| {
@@ -365,11 +368,23 @@ impl<'a> calloop::EventSource for LibInputHandler<'a> {
                     }
 
                     if let Some(text) = map_key_sym(sym) {
-                        let event = match state {
-                            KeyState::Pressed => WindowEvent::KeyPressed { text },
-                            KeyState::Released => WindowEvent::KeyReleased { text },
+                        let mut key_event = KeyEvent::default();
+                        key_event.text = text;
+                        key_event.physical_key =
+                            physical_key_name_from_xkb(xkb_keycode).unwrap_or_default().into();
+                        let event_type = match state {
+                            KeyState::Pressed => {
+                                i_slint_core::platform::WindowKeyEventType::Pressed
+                            }
+                            KeyState::Released => {
+                                i_slint_core::platform::WindowKeyEventType::Released
+                            }
                         };
-                        window.dispatch_event_with_result(event).map_err(Self::Error::other)?;
+                        let key_event =
+                            i_slint_core::platform::WindowKeyEvent::new(event_type, key_event);
+                        window
+                            .dispatch_event_with_result(WindowEvent::Key(key_event))
+                            .map_err(Self::Error::other)?;
                     }
                 }
                 _ => {}

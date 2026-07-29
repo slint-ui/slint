@@ -7,7 +7,7 @@ from slint.language import KeyboardModifiers, KeyEvent, StandardListViewItem
 
 NAMED_TUPLES = [
     (StandardListViewItem, {"text": ""}),
-    (KeyEvent, {"text": "", "modifiers": None, "repeat": False}),
+    (KeyEvent, {"text": "", "physical_key": "", "modifiers": None, "repeat": False}),
     (
         KeyboardModifiers,
         {"shift": False, "control": False, "alt": False, "meta": False},

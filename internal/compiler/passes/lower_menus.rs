@@ -663,6 +663,16 @@ fn lower_menu_items(
                         &*binding,
                     );
                 }
+                if in_menubar
+                    && let Some(binding) = element.borrow().binding("shortcut")
+                    && matches!(&binding.expression.ignore_debug_hooks(), Expression::Keys(k) if k.is_physical)
+                {
+                    diag.push_error(
+                        "@physical-keys(..) in MenuItem shortcuts are not supported.\nUse @keys(...) for menu shortcuts instead"
+                            .into(),
+                        &*binding,
+                    );
+                }
 
                 if element.borrow().base_type.type_name() == Some("MenuSeparator") {
                     element.borrow_mut().bindings.insert(
