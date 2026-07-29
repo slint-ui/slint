@@ -17,10 +17,6 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { SAFETY_DOCS_BASE_PATH } from "../src/safety-site-config.mjs";
-
-// The path this site is served under, with a trailing `/`.
-const BASE = `/${SAFETY_DOCS_BASE_PATH.replace(/^\/+|\/+$/g, "")}/`.replace("//", "/");
 
 // Links that leave the specification directory: canonical (docs/astro) form
 // on the left, safety-manual form on the right.
@@ -42,11 +38,12 @@ function stripNotInSC(content) {
     return content.replace(/<NotInSC>[\s\S]*?<\/NotInSC>\n?/g, "");
 }
 
-// Rewrite the markdown links of a page served at `pageUrl` from the site base,
-// so that starlight-links-validator checks them. Resolving against the page's
-// own URL keeps the sources readable: they stay relative, and only the copies
-// this script writes carry the site's layout.
-function linksFromBase(content, pageUrl) {
+// Rewrite the markdown links of a page served at `pageUrl` from the site root,
+// so that starlight-links-validator checks them: it skips relative links
+// rather than resolving them. Resolving against the page's own URL keeps the
+// sources readable, since they stay relative. remark-base-links.mjs adds the
+// base at build time.
+function linksFromRoot(content, pageUrl) {
     return content.replace(/\]\((\.\.?\/[^)]*)\)/g, (_, url) => {
         const resolved = new URL(url, `https://slint.dev${pageUrl}`);
         return `](${resolved.pathname}${resolved.hash})`;
@@ -109,7 +106,7 @@ for (const entry of readdirSync(source)) {
     for (const [from, to] of LINK_MAP) {
         content = content.replaceAll(from, to);
     }
-    content = linksFromBase(stripNotInSC(content), pageUrl(`${BASE}language/`, entry));
+    content = linksFromRoot(stripNotInSC(content), pageUrl("/language/", entry));
     const targetFile = join(target, entry);
     if (!existsSync(targetFile) || readFileSync(targetFile, "utf-8") !== content) {
         writeFileSync(targetFile, content);
@@ -130,10 +127,7 @@ syncDir(
     join(here, "../src/content/docs/reference/property-types"),
     (content) => !isNotInSC(content),
     (content, entry) =>
-        linksFromBase(
-            stripNotInSC(content),
-            pageUrl(`${BASE}reference/property-types/`, entry),
-        ),
+        linksFromRoot(stripNotInSC(content), pageUrl("/reference/property-types/", entry)),
 );
 
 console.log(`Synced language specification from ${source}`);
