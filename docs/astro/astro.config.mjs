@@ -226,6 +226,13 @@ export default defineConfig({
                                             },
                                             "guide/platforms/desktop/macos",
                                             "guide/platforms/desktop/linux",
+                                            {
+                                                label: "Packaging",
+                                                collapsed: true,
+                                                items: [
+                                                    "guide/platforms/packaging/linux-packaging",
+                                                ],
+                                            },
                                         ],
                                     },
                                     "guide/platforms/embedded",
