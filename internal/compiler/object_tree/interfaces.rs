@@ -274,18 +274,15 @@ fn validate_interface_member_implementation(
     }
 
     let lookup_result = element.lookup_property(member_name);
-    if lookup_result.property_type == Type::Invalid {
-        return Some(InterfaceMemberDiagnostics::from(missing_type_error(
-            member_name,
-            interface_member,
-        )));
-    }
-
     let Err(conflicts) =
         property_matches_interface(&lookup_result, interface_member, member_name, None)
     else {
         return None;
     };
+
+    if !lookup_result.is_valid() {
+        return Some(InterfaceMemberDiagnostics::from(conflicts));
+    }
 
     if !lookup_result.is_local_to_component {
         if let Err(message) =
