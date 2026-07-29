@@ -151,6 +151,9 @@ export component ChildImplicitlyImplements {
 // A forwarded member must not clash with a member already declared on the parent.
 export component OverridesDeclaration {
     implement ValidInterface <=> base;
+//            >             <note{'ValidInterface' declares 'reset' as 'pure public function reset() { }'}
+//            >             <^note{'ValidInterface' declares 'speak' as 'callback speak();'}
+//            >             <^^note{'ValidInterface' declares 'value' as 'in-out property <int> value;'}
     base := ValidBase { }
 
     in-out property <int> value;

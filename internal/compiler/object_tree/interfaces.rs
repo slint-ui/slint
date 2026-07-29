@@ -393,6 +393,13 @@ pub(super) fn apply_child_implement_statements(
                     format!("Cannot override '{}' from '{}'", name, interface_name),
                     &source,
                 );
+                diagnostics.push_note(
+                    format!(
+                        "'{interface_name}' declares '{name}' as '{}'",
+                        syntax_for(&prop_decl, name)
+                    ),
+                    &node.QualifiedName(),
+                );
                 continue;
             }
 
