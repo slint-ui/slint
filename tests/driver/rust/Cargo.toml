@@ -39,5 +39,6 @@ i-slint-backend-qt = { workspace = true }
 [build-dependencies]
 i-slint-compiler = { workspace = true, features = ["default", "rust", "display-diagnostics", "bundle-translations"], optional = true }
 
+rayon = { workspace = true }
 spin_on = { workspace = true, optional = true }
 test_driver_lib = { path = "../driverlib" }
