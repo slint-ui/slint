@@ -443,6 +443,80 @@ fn password_input_is_cached() {
 }
 
 #[test]
+fn composition_is_shaped_through_the_cache() {
+    let window = setup();
+
+    // An IME composition is part of the displayed text, so the paths that don't draw shape it
+    // like any other text and can share the cache entry. Only drawing bakes the composition's
+    // decoration into the glyphs, and it excludes itself through the selection check.
+    //
+    // The input is sized by hand, so no layout pass measures it once the composition starts: the
+    // cursor rect query is then the only thing that shapes the composed text, and the cache miss
+    // it accounts for is what tells the two apart.
+    slint::slint! {
+        export component CursorComponent inherits Window {
+            forward-focus: input;
+            out property <length> cursor-x;
+            out property <length> text-width: input.preferred-width;
+            input := TextInput {
+                x: 0; y: 0; width: 180px; height: 40px;
+                text: "ab";
+                wrap: no-wrap;
+                cursor-position-changed(position) => { root.cursor-x = position.x; }
+            }
+        }
+    }
+
+    let ui = CursorComponent::new().unwrap();
+    ui.show().unwrap();
+    ui.window().dispatch_event(slint::platform::WindowEvent::WindowActiveChanged(true));
+
+    // Render once so everything is shaped and settled, then start counting from zero.
+    let mut buf = vec![TestPixel(false); WIDTH * HEIGHT];
+    window.request_redraw();
+    assert!(window.draw_if_needed(|renderer| {
+        renderer.render(buf.as_mut_slice(), WIDTH);
+        renderer.text_layout_cache().reset_cache_miss_count();
+    }));
+    // Where the text ends without a composition, i.e. the width of "ab".
+    let without_composition = ui.get_text_width();
+
+    // Updating the composition moves the cursor, and the cursor rect is the first thing to shape
+    // the composed text.
+    let mut event = InternalKeyEvent::default();
+    event.event_type = KeyEventType::UpdateComposition;
+    event.preedit_text = "WWWWWWWWWW".into();
+    // Where the IME puts the cursor: at the end of the composition.
+    event.cursor_position = Some(2 + "WWWWWWWWWW".len() as i32);
+    WindowInner::from_pub(ui.window()).process_key_input(event);
+
+    // Read the counter before rendering, so it only covers the cursor rect query above, and again
+    // afterwards to see what drawing the composition adds.
+    let (mut after_cursor_rect, mut after_render) = (0u64, 0u64);
+    window.request_redraw();
+    assert!(window.draw_if_needed(|renderer| {
+        after_cursor_rect = renderer.text_layout_cache().cache_miss_count();
+        renderer.render(buf.as_mut_slice(), WIDTH);
+        after_render = renderer.text_layout_cache().cache_miss_count();
+    }));
+
+    // One miss, not none: the cursor rect went through the cache rather than shaping beside it.
+    assert_eq!(
+        after_cursor_rect, 1,
+        "the cursor rect should shape the composition through the cache"
+    );
+    // Drawing shapes fresh -- it bakes the composition's own brush in -- but leaves the entry
+    // alone, so it neither adds a miss nor costs the next query its hit.
+    assert_eq!(after_render, 1, "drawing the composition should leave the cache entry alone");
+
+    assert!(
+        ui.get_cursor_x() > without_composition,
+        "the cursor should sit past the composition ({} with, text ends at {without_composition})",
+        ui.get_cursor_x()
+    );
+}
+
+#[test]
 fn text_input_selection_still_colors_text() {
     let window = setup();
 
