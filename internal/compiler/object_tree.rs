@@ -2939,6 +2939,14 @@ impl Element {
         }
     }
 
+    /// Return the node declaring `name` in this element or one of its bases, if there is one.
+    pub fn property_declaration_node(&self, name: &str) -> Option<SyntaxNode> {
+        self.property_declarations
+            .get(name)
+            .and_then(|declaration| declaration.node.clone())
+            .or_else(|| self.base_type.property_declaration_node(name))
+    }
+
     fn slot_forwarding_expr_identifier(expression: &SyntaxNode) -> Option<SmolStr> {
         if expression.kind() != SyntaxKind::Expression {
             return None;
