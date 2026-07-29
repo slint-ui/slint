@@ -242,7 +242,6 @@ impl<B: GraphicsBackend> FemtoVGRenderer<B> {
                 self.graphics_cache.clear_cache_if_scale_factor_changed(window);
                 self.layer_cache.clear_cache_if_scale_factor_changed(window);
                 self.box_shadow_cache.clear_cache_if_scale_factor_changed(window);
-                self.text_layout_cache.clear_cache_if_scale_factor_changed(window);
 
                 let mut item_renderer = self::itemrenderer::GLItemRenderer::new(
                     &canvas,

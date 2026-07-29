@@ -68,9 +68,10 @@ fn blinking_cursor_does_not_reshape() {
     slint::slint! {
         export component BlinkComponent inherits Window {
             forward-focus: input;
+            in property <string> label: "Hello World, a somewhat longer line of text";
             VerticalLayout {
                 input := TextInput {
-                    text: "Hello World, a somewhat longer line of text";
+                    text: label;
                     wrap: word-wrap;
                 }
             }
@@ -82,7 +83,14 @@ fn blinking_cursor_does_not_reshape() {
     // Focus the input so that its cursor starts blinking.
     ui.window().dispatch_event(slint::platform::WindowEvent::WindowActiveChanged(true));
 
-    assert!(render_and_get_miss_count(&window) > 0, "expected a cache miss on the first render");
+    render_and_get_miss_count(&window);
+
+    // The first render may well find the text already shaped by the layout pass that preceded it,
+    // so provoke a reshape rather than assuming one -- otherwise the blink checks below could pass
+    // simply because nothing ever counts as a miss.
+    ui.set_label("Goodbye World, a somewhat longer line of text".into());
+    window.request_redraw();
+    assert!(render_and_get_miss_count(&window) > 0, "expected a cache miss after the text changed");
 
     for blink in 0..4 {
         advance(FLASH_CYCLE);

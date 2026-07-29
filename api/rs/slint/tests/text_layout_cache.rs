@@ -303,6 +303,46 @@ fn color_change_does_not_reshape() {
 }
 
 #[test]
+fn scale_factor_change_invalidates_cache() {
+    let window = setup();
+
+    // Shaped glyph advances are in physical pixels, so an entry is only good for the scale factor
+    // it was shaped at. The renderers drop the cache when they notice a new scale factor, but that
+    // happens when rendering starts -- and the layout pass that follows the change measures first.
+    slint::slint! {
+        export component ScaleComponent inherits Window {
+            out property <length> preferred: label.preferred-width;
+            HorizontalLayout {
+                alignment: start;
+                label := Text {
+                    text: "Hello World";
+                }
+            }
+        }
+    }
+
+    let ui = ScaleComponent::new().unwrap();
+    ui.show().unwrap();
+
+    // Render once at 1x so that the cache holds paragraphs shaped for that scale factor.
+    window.draw_if_needed(|renderer| {
+        render_and_get_miss_count(renderer);
+    });
+    let at_one = ui.get_preferred();
+    assert!(at_one > 0.);
+
+    // Measure at the new scale factor before rendering again, the way a real layout pass does.
+    ui.window()
+        .dispatch_event(slint::platform::WindowEvent::ScaleFactorChanged { scale_factor: 2.0 });
+    let at_two = ui.get_preferred();
+
+    assert!(
+        (at_two - at_one).abs() <= at_one * 0.05,
+        "the logical width must not follow the scale factor ({at_one} at 1x, {at_two} at 2x)"
+    );
+}
+
+#[test]
 fn link_color_survives_measuring() {
     let window = setup();
 
@@ -333,8 +373,9 @@ fn text_input_cache_hit_avoids_reshaping() {
 
     slint::slint! {
         export component TestComponent inherits Window {
+            in property <string> label: "Hello World";
             TextInput {
-                text: "Hello World";
+                text: label;
             }
         }
     }
@@ -346,7 +387,15 @@ fn text_input_cache_hit_avoids_reshaping() {
     assert!(window.draw_if_needed(|renderer| {
         miss_count = render_and_get_miss_count(renderer);
     }));
-    assert!(miss_count > 0, "Expected at least one cache miss on first render");
+
+    // The first render may well find the text already shaped by the layout pass that preceded it,
+    // so provoke a reshape rather than assuming one, and only then check that a redraw reuses it.
+    ui.set_label("Goodbye World".into());
+    window.request_redraw();
+    assert!(window.draw_if_needed(|renderer| {
+        miss_count = render_and_get_miss_count(renderer);
+    }));
+    assert!(miss_count > 0, "Expected a cache miss after the text changed");
 
     window.request_redraw();
     assert!(window.draw_if_needed(|renderer| {
