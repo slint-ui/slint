@@ -17,7 +17,9 @@ let mut x = TestCase::new();
 //#sls.type.length
 assert_eq!(x.get_width_input(), 0);
 assert_eq!(x.get_tint(), slint_sc::Color::default());
-assert_eq!(x.get_tint().alpha(), 0);
+//#sls.type.color
+let default_tint = x.get_tint();
+assert_eq!((default_tint.red(), default_tint.green(), default_tint.blue(), default_tint.alpha()), (0, 0, 0, 0));
 //#sls.prop.decl.form
 //#sls.prop.decl.out
 assert_eq!(x.get_gap(), 5);
@@ -32,6 +34,7 @@ assert_eq!(x.get_width_input(), 42);
 x.set_offset(7);
 assert_eq!(x.get_offset(), 7);
 //#sls.gen.prop.types
+//#sls.type.color
 x.set_tint(slint_sc::Color::from_rgb_u8(1, 2, 3));
 let tint = x.get_tint();
 assert_eq!((tint.red(), tint.green(), tint.blue(), tint.alpha()), (1, 2, 3, 0xff));
