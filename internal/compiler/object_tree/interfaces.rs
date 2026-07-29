@@ -217,30 +217,14 @@ pub(super) fn validate_self_implement_statements(
     diagnostics: &mut BuildDiagnostics,
 ) {
     for ImplementedInterface { interface, node, interface_name, .. } in implemented_interfaces {
-        let mut errors = Vec::new();
-        let mut notes = Vec::new();
-        for (member_name, member_declaration) in interface.borrow().property_declarations.iter() {
-            if let Some(mut conflict) = validate_interface_member_implementation(
-                element,
-                member_name,
-                member_declaration,
-                interface_name,
-            ) {
-                errors.push(conflict.error);
-                notes.append(&mut conflict.notes);
-            };
-        }
-
-        if !errors.is_empty() {
-            diagnostics.push_error(
-                format!("Cannot implement '{interface_name}'.\n{}", errors.join("\n")),
-                &node.QualifiedName(),
-            );
-
-            for note in notes {
-                diagnostics.push_note(note.note, &note.source);
-            }
-        }
+        validate_interface_implementation(
+            element,
+            interface,
+            interface_name,
+            &node.QualifiedName(),
+            None,
+            diagnostics,
+        );
     }
 }
 
@@ -260,11 +244,52 @@ impl From<String> for InterfaceMemberDiagnostics {
     }
 }
 
+fn validate_interface_implementation(
+    element: &Element,
+    interface: &ElementRc,
+    interface_name: &SmolStr,
+    node: &SyntaxNode,
+    child_id: Option<&SmolStr>,
+    diagnostics: &mut BuildDiagnostics,
+) -> bool {
+    let mut errors = Vec::new();
+    let mut notes = Vec::new();
+    for (member_name, member_declaration) in interface.borrow().property_declarations.iter() {
+        if let Some(mut conflict) = validate_interface_member_implementation(
+            element,
+            member_name,
+            member_declaration,
+            interface_name,
+            child_id,
+        ) {
+            errors.push(conflict.error);
+            notes.append(&mut conflict.notes);
+        };
+    }
+
+    if !errors.is_empty() {
+        let based_on = match child_id {
+            Some(child_id) => format!(" based on '{child_id}'"),
+            None => String::new(),
+        };
+        diagnostics.push_error(
+            format!("Cannot implement '{interface_name}'{based_on}.\n{}", errors.join("\n")),
+            node,
+        );
+
+        for note in notes {
+            diagnostics.push_note(note.note, &note.source);
+        }
+    }
+    errors.is_empty()
+}
+
 fn validate_interface_member_implementation(
     element: &Element,
     member_name: &SmolStr,
     interface_member: &PropertyDeclaration,
     interface_name: &SmolStr,
+    child_id: Option<&SmolStr>,
 ) -> Option<InterfaceMemberDiagnostics> {
     if matches!(interface_member.property_type, Type::Invalid) {
         // The interface's own declaration is invalid (e.g. an unknown property type). A diagnostic
@@ -275,7 +300,7 @@ fn validate_interface_member_implementation(
 
     let lookup_result = element.lookup_property(member_name);
     let Err(conflicts) =
-        property_matches_interface(&lookup_result, interface_member, member_name, None)
+        property_matches_interface(&lookup_result, interface_member, member_name, child_id)
     else {
         return None;
     };
@@ -284,7 +309,7 @@ fn validate_interface_member_implementation(
         return Some(InterfaceMemberDiagnostics::from(conflicts));
     }
 
-    let conflicts = if lookup_result.is_local_to_component {
+    let conflicts = if lookup_result.is_local_to_component || child_id.is_some() {
         conflicts
     } else {
         check_property_declaration_conflicts(&lookup_result, &element.base_type)
@@ -318,12 +343,12 @@ pub(super) fn apply_child_implement_statements(
             continue;
         };
 
-        if !element_implements_interface(
-            &child,
+        if !validate_interface_implementation(
+            &child.borrow(),
             &interface,
-            &child_id,
             &interface_name,
-            &node,
+            &node.DeclaredIdentifier(),
+            Some(&child_id),
             diagnostics,
         ) {
             continue;
@@ -391,42 +416,6 @@ pub(super) fn apply_child_implement_statements(
             );
         }
     }
-}
-
-fn element_implements_interface(
-    element: &ElementRc,
-    interface: &ElementRc,
-    child_id: &SmolStr,
-    interface_name: &SmolStr,
-    implement_node: &syntax_nodes::ImplementStatement,
-    diagnostics: &mut BuildDiagnostics,
-) -> bool {
-    let mut errors = Vec::new();
-    let mut check = |property_name: &SmolStr, property_declaration: &PropertyDeclaration| {
-        let lookup_result = element.borrow().lookup_property(property_name);
-        if let Err(conflicts) = property_matches_interface(
-            &lookup_result,
-            property_declaration,
-            property_name,
-            Some(child_id),
-        ) {
-            errors.push(conflicts);
-        }
-    };
-
-    for (property_name, property_declaration) in interface.borrow().property_declarations.iter() {
-        check(property_name, property_declaration);
-    }
-
-    if !errors.is_empty() {
-        let errors = errors.join("\n");
-        diagnostics.push_error(
-            format!("Cannot implement '{}' based on '{}'.\n{}", interface_name, child_id, errors),
-            &implement_node.DeclaredIdentifier(),
-        );
-    }
-
-    errors.is_empty()
 }
 
 fn purity_description(purity: &Option<bool>) -> &str {

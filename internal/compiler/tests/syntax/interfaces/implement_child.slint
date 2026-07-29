@@ -28,6 +28,7 @@ export component ChildMissingMembers {
 // Member present but with the wrong visibility / type / callback signature / purity / arguments.
 component IncorrectVisibility {
     out property <int> value;
+//  >                       <note{'value' does not satisfy 'ValidInterface'}
     callback speak();
     public pure function reset() {}
 }
@@ -40,6 +41,7 @@ export component ChildWrongVisibility {
 
 component IncorrectType {
     in-out property <float> value;
+//  >                            <note{'value' does not satisfy 'ValidInterface'}
     callback speak();
     public pure function reset() {}
 }
@@ -53,6 +55,7 @@ export component ChildWrongType {
 component IncorrectCallback {
     in-out property <int> value;
     callback speak() -> string;
+//  >                         <note{'speak' does not satisfy 'ValidInterface'}
     public pure function reset() {}
 }
 
@@ -84,8 +87,10 @@ interface ImpureFunctionInterface {
 
 component IncorrectPurity {
     public function foo(i: int, s: string) -> bool {
+//  >note{'foo' does not satisfy 'FunctionInterface'}
         return false;
     }
+//  <note{'foo' does not satisfy 'FunctionInterface'}
 
     // Implementation is pure, interface is not - this should not raise an error
     public pure function bar(i: int, s: string) -> bool {
@@ -103,8 +108,10 @@ export component ChildWrongPurity {
 
 component IncorrectArguments {
     pure public function foo(i: int, s: int) -> bool {
+//  >note{'foo' does not satisfy 'FunctionInterface'}
         return false;
     }
+//  <note{'foo' does not satisfy 'FunctionInterface'}
 }
 
 export component ChildWrongArguments {
@@ -116,8 +123,11 @@ export component ChildWrongArguments {
 // Each member of the child declared as the wrong kind.
 component CrossKindImpl {
     callback value();
+//  >               <note{'value' does not satisfy 'ValidInterface'}
     in-out property <int> speak;
+//  >                          <note{'speak' does not satisfy 'ValidInterface'}
     in-out property <int> reset;
+//  >                          <note{'reset' does not satisfy 'ValidInterface'}
 }
 
 export component ChildCrossKind {
