@@ -1910,9 +1910,13 @@ pub fn draw_text_input(
 }
 
 /// Shapes a text input's visual text, reusing the `TextLayoutCache` where the shaped result is
-/// a pure function of the text and font properties. A selection or preedit bakes extra brushes
-/// into the glyphs, so those shape fresh and leave the cache entry alone. A password field is
-/// cacheable: it shapes a substituted text, but the substitution is the same everywhere.
+/// a pure function of the text and font properties.
+///
+/// A selection bakes an extra brush into the glyphs, so a selected text shapes fresh and leaves
+/// the cache entry alone. An IME composition is drawn as one, and is excluded by the same check;
+/// the paths that don't draw ask for no selection and shape the composition like any other text,
+/// which is what they display. A password field shapes a substituted text, but the substitution
+/// is the same everywhere, so it is cacheable too.
 fn cached_text_input_paragraphs<'a>(
     cache: Option<&'a TextLayoutCache>,
     item_rc: &crate::item_tree::ItemRc,
@@ -1924,7 +1928,7 @@ fn cached_text_input_paragraphs<'a>(
     window: &crate::api::Window,
     font_context: &mut parley::FontContext,
 ) -> CachedParagraphsGuard<'a> {
-    let cacheable = selection_and_color.is_none() && visual_representation.preedit_range.is_empty();
+    let cacheable = selection_and_color.is_none();
     cached_paragraphs(
         cache.filter(|_| cacheable),
         Some(item_rc),
