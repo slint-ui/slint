@@ -110,6 +110,11 @@ impl i_slint_core::platform::Platform for AndroidPlatform {
                     None => frame_duration,
                 })
             }
+            // `request_redraw()` only raises the flag, so a request issued outside the
+            // poll would otherwise wait here for an unrelated wakeup.
+            if self.window.pending_redraw.get() {
+                timeout = Some(Duration::ZERO);
+            }
             let mut r = Ok(ControlFlow::Continue(()));
             self.app.poll_events(timeout, |e| {
                 i_slint_core::platform::update_timers_and_animations();
