@@ -28,6 +28,16 @@ export component InstantiateComponentNamedSlot {
     slot { }
 }
 
+export component Header { }
+
+export component WarnThatSlotShadowsComponent inherits Rectangle {
+    slot Header;
+    VerticalLayout {
+        Header { }
+//      >        <warning{The slot 'Header' shadows an element type of the same name. This element is a slot placeholder, not an instance of 'Header'}
+    }
+}
+
 export component ChildIdentifierSlot {
     slot := PropertyNamedSlot {
         slot: 42;
