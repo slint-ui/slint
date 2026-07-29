@@ -49,52 +49,7 @@ fn process_expression(
             process_codeblock(expr.into_iter().peekable(), toplevel, ty, ctx, symbol_counters)
         }
         Expression::Condition { condition, true_expr, false_expr } => {
-            let te = process_expression(*true_expr, false, ctx, ty, symbol_counters);
-            let fe = process_expression(*false_expr, false, ctx, ty, symbol_counters);
-            match (te, fe) {
-                (ExpressionResult::Just(te), ExpressionResult::Just(fe)) => {
-                    Expression::Condition { condition, true_expr: te.into(), false_expr: fe.into() }
-                        .into()
-                }
-                (ExpressionResult::Just(te), ExpressionResult::Return(fe)) => {
-                    ExpressionResult::MaybeReturn {
-                        pre_statements: Vec::new(),
-                        condition: *condition,
-                        returned_value: fe,
-                        actual_value: cleanup_empty_block(te),
-                    }
-                }
-                (ExpressionResult::Return(te), ExpressionResult::Just(fe)) => {
-                    ExpressionResult::MaybeReturn {
-                        pre_statements: Vec::new(),
-                        condition: Expression::UnaryOp { sub: condition, op: '!' },
-                        returned_value: te,
-                        actual_value: cleanup_empty_block(fe),
-                    }
-                }
-                (ExpressionResult::Return(te), ExpressionResult::Return(fe)) => {
-                    ExpressionResult::Return(Some(Expression::Condition {
-                        condition,
-                        true_expr: te.unwrap_or(Expression::CodeBlock(Vec::new())).into(),
-                        false_expr: fe.unwrap_or(Expression::CodeBlock(Vec::new())).into(),
-                    }))
-                }
-                (te, fe) => {
-                    let has_value = has_value(ty) && (te.has_value() || fe.has_value());
-                    let ty = if has_value { ty } else { &Type::Void };
-                    let te = te.into_return_object(ty, &ctx.ret_ty, symbol_counters);
-                    let fe = fe.into_return_object(ty, &ctx.ret_ty, symbol_counters);
-                    ExpressionResult::ReturnObject {
-                        has_value,
-                        has_return_value: self::has_value(&ctx.ret_ty),
-                        value: Expression::Condition {
-                            condition,
-                            true_expr: te.into(),
-                            false_expr: fe.into(),
-                        },
-                    }
-                }
-            }
+            process_condition(condition, true_expr, false_expr, ctx, ty, symbol_counters)
         }
         Expression::Cast { from, to } => {
             let ty = if !has_value(ty) { ty.clone() } else { from.ty() };
@@ -102,58 +57,7 @@ fn process_expression(
                 .map_value(symbol_counters, |e| Expression::Cast { from: e.into(), to })
         }
         Expression::StoreLocalVariable { name, value } => {
-            let inner_ty = value.ty();
-            match process_expression(*value, false, ctx, &inner_ty, symbol_counters) {
-                ExpressionResult::Just(e) => {
-                    ExpressionResult::Just(Expression::StoreLocalVariable {
-                        name,
-                        value: Box::new(e),
-                    })
-                }
-                ExpressionResult::Return(r) => ExpressionResult::Return(r),
-                ExpressionResult::MaybeReturn {
-                    pre_statements,
-                    condition,
-                    returned_value,
-                    actual_value,
-                } => ExpressionResult::MaybeReturn {
-                    pre_statements,
-                    condition,
-                    returned_value,
-                    actual_value: Some(Expression::StoreLocalVariable {
-                        name,
-                        value: Box::new(
-                            actual_value.unwrap_or(Expression::default_value_for_type(&inner_ty)),
-                        ),
-                    }),
-                },
-                ExpressionResult::ReturnObject { value, has_return_value, .. } => {
-                    let tmp_name: SmolStr = symbol_counters.generate_name("return_check_store");
-                    let value_ty = value.ty();
-                    let load = |field: &str| Expression::StructFieldAccess {
-                        base: Box::new(Expression::ReadLocalVariable {
-                            name: tmp_name.clone(),
-                            ty: value_ty.clone(),
-                        }),
-                        name: field.into(),
-                    };
-                    let condition = load(FIELD_CONDITION);
-                    let returned_value = has_return_value.then(|| load(FIELD_RETURNED));
-                    let actual_value = Some(Expression::StoreLocalVariable {
-                        name,
-                        value: Box::new(load(FIELD_ACTUAL)),
-                    });
-                    ExpressionResult::MaybeReturn {
-                        pre_statements: vec![Expression::StoreLocalVariable {
-                            name: tmp_name,
-                            value: Box::new(value),
-                        }],
-                        condition,
-                        returned_value,
-                        actual_value,
-                    }
-                }
-            }
+            process_store_local_variable(name, value, ctx, symbol_counters)
         }
         e => {
             // Normally there shouldn't be any 'return' statements in there since return are not allowed in arbitrary expressions
@@ -162,6 +66,127 @@ fn process_expression(
                 e.visit_recursive(&mut |e| assert!(!matches!(e, Expression::ReturnStatement(_))));
             }
             ExpressionResult::Just(e)
+        }
+    }
+}
+
+fn process_condition(
+    condition: Box<Expression>,
+    true_expr: Box<Expression>,
+    false_expr: Box<Expression>,
+    ctx: &RemoveReturnContext,
+    ty: &Type,
+    symbol_counters: &SymbolCounters,
+) -> ExpressionResult {
+    let te = process_expression(*true_expr, false, ctx, ty, symbol_counters);
+    let fe = process_expression(*false_expr, false, ctx, ty, symbol_counters);
+    merge_condition_branches(condition, te, fe, ctx, ty, symbol_counters)
+}
+
+fn merge_condition_branches(
+    condition: Box<Expression>,
+    te: ExpressionResult,
+    fe: ExpressionResult,
+    ctx: &RemoveReturnContext,
+    ty: &Type,
+    symbol_counters: &SymbolCounters,
+) -> ExpressionResult {
+    match (te, fe) {
+        (ExpressionResult::Just(te), ExpressionResult::Just(fe)) => {
+            Expression::Condition { condition, true_expr: te.into(), false_expr: fe.into() }.into()
+        }
+        (ExpressionResult::Just(te), ExpressionResult::Return(fe)) => {
+            ExpressionResult::MaybeReturn {
+                pre_statements: Vec::new(),
+                condition: *condition,
+                returned_value: fe,
+                actual_value: cleanup_empty_block(te),
+            }
+        }
+        (ExpressionResult::Return(te), ExpressionResult::Just(fe)) => {
+            ExpressionResult::MaybeReturn {
+                pre_statements: Vec::new(),
+                condition: Expression::UnaryOp { sub: condition, op: '!' },
+                returned_value: te,
+                actual_value: cleanup_empty_block(fe),
+            }
+        }
+        (ExpressionResult::Return(te), ExpressionResult::Return(fe)) => {
+            ExpressionResult::Return(Some(Expression::Condition {
+                condition,
+                true_expr: te.unwrap_or(Expression::CodeBlock(Vec::new())).into(),
+                false_expr: fe.unwrap_or(Expression::CodeBlock(Vec::new())).into(),
+            }))
+        }
+        (te, fe) => {
+            let has_value = has_value(ty) && (te.has_value() || fe.has_value());
+            let ty = if has_value { ty } else { &Type::Void };
+            let te = te.into_return_object(ty, &ctx.ret_ty, symbol_counters);
+            let fe = fe.into_return_object(ty, &ctx.ret_ty, symbol_counters);
+            ExpressionResult::ReturnObject {
+                has_value,
+                has_return_value: self::has_value(&ctx.ret_ty),
+                value: Expression::Condition {
+                    condition,
+                    true_expr: te.into(),
+                    false_expr: fe.into(),
+                },
+            }
+        }
+    }
+}
+
+fn process_store_local_variable(
+    name: SmolStr,
+    value: Box<Expression>,
+    ctx: &RemoveReturnContext,
+    symbol_counters: &SymbolCounters,
+) -> ExpressionResult {
+    let inner_ty = value.ty();
+    match process_expression(*value, false, ctx, &inner_ty, symbol_counters) {
+        ExpressionResult::Just(e) => {
+            ExpressionResult::Just(Expression::StoreLocalVariable { name, value: Box::new(e) })
+        }
+        ExpressionResult::Return(r) => ExpressionResult::Return(r),
+        ExpressionResult::MaybeReturn {
+            pre_statements,
+            condition,
+            returned_value,
+            actual_value,
+        } => ExpressionResult::MaybeReturn {
+            pre_statements,
+            condition,
+            returned_value,
+            actual_value: Some(Expression::StoreLocalVariable {
+                name,
+                value: Box::new(
+                    actual_value.unwrap_or(Expression::default_value_for_type(&inner_ty)),
+                ),
+            }),
+        },
+        ExpressionResult::ReturnObject { value, has_return_value, .. } => {
+            let tmp_name: SmolStr = symbol_counters.generate_name("return_check_store");
+            let value_ty = value.ty();
+            let load = |field: &str| Expression::StructFieldAccess {
+                base: Box::new(Expression::ReadLocalVariable {
+                    name: tmp_name.clone(),
+                    ty: value_ty.clone(),
+                }),
+                name: field.into(),
+            };
+            let condition = load(FIELD_CONDITION);
+            let returned_value = has_return_value.then(|| load(FIELD_RETURNED));
+            let actual_value =
+                Some(Expression::StoreLocalVariable { name, value: Box::new(load(FIELD_ACTUAL)) });
+            ExpressionResult::MaybeReturn {
+                pre_statements: vec![Expression::StoreLocalVariable {
+                    name: tmp_name,
+                    value: Box::new(value),
+                }],
+                condition,
+                returned_value,
+                actual_value,
+            }
         }
     }
 }
