@@ -8,19 +8,22 @@ description: Package a desktop Slint app for distribution on Linux, using Flatpa
 import { Aside } from '@astrojs/starlight/components';
 import { Tabs, TabItem } from '@astrojs/starlight/components';
 
-Linux, unlike other platforms, has countless ways to distribute applications. Each of these has its own pros and cons, different supported distros, etc. For this article, we will focus on [Flatpak](https://flatpak.org/). Here is an incomplete list of the alternatives, with the reason that we think they are less well-suited to our purposes here than Flatpak:
-
-- Distro-native package managers (`pacman`, `apt`, `dnf`, etc)
-  - Requires building and testing your application on many different systems, in particular different versions of host packages such as glibc
-- [Snap](https://snapcraft.io/)
-  - Tied to the Canonical ecosystem, usually the best option when distributing a GUI application for Ubuntu and derivatives but far less popular on other distros
-- [AppImage](https://appimage.org/)
-  - Less well-supported than Snap and Flatpak, the runtime is not shared between applications so the package size is larger compared to Flatpak and Snap. Additionally, AppImage does not provide sandboxing. Since Slint applications can run seamlessly inside Flatpak/Snap's sandbox, so the increased security of a sandbox doesn't require any tradeoff
-
-Flatpaks are sandboxed, cross-platform, and they are relatively straightforward to create.
+Distribution on Linux can take a few forms, but for our purposes the easiest to get started with is [Flatpak](https://flatpak.org/), and so we will focus on that here.
 
 <Aside type="note">
-Your application may come with different trade-offs, and so you may want to make another choice.
+Depending on your application, you may want to use a different distribution method. Here is an incomplete list of alternatives, with some pros and cons in relation to Flatpak:
+
+- Distro-native package managers (`pacman`, `apt`, `dnf`, etc)
+  - Pro: Most-seamless installation/upgrade experience. Also reuses system dependencies which may save space, as well as improve performance on distros with tuned package repositories (e.g. CachyOS)
+  - Con: Requires building and testing your application on many different systems, in particular different versions of host packages such as glibc
+- [Snap](https://snapcraft.io/)
+  - Pro: Full support from Canonical, usually the best option when distributing a GUI application for Ubuntu and derivatives
+  - Con: Somewhat tied to the Canonical ecosystem, far less popular outside of Ubuntu
+- [AppImage](https://appimage.org/)
+  - Pro: Fast startup, the lack of permissioning/sandboxing can reduce development friction so long as your users trust your application
+  - Con: Less well-supported than Snap and Flatpak, the runtime is not shared between applications so the package size is larger compared to Flatpak and Snap
+
+Packaging your application in these formats is left as an exercise for the reader.
 </Aside>
 
 ## Prerequisites
