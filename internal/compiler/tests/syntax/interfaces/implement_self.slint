@@ -226,7 +226,9 @@ export component CannotOverrideFunction {
 // Conflicts with an inherited (non-local) member: property, callback and function variants.
 component BaseWithMembers {
     in-out property <float> value;
+//  >                            <note{'value' does not satisfy 'ValidInterface'}
     callback speak(string);
+//  >                     <note{'speak' does not satisfy 'ValidInterface'}
     public function reset() {}
     @children
 }
@@ -242,6 +244,7 @@ interface CallbackInterface {
 
 component BaseWithFunction {
     public function action() {}
+//  >                         <note{'action' does not satisfy 'CallbackInterface'}
     @children
 }
 

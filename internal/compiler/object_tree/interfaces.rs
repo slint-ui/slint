@@ -284,22 +284,16 @@ fn validate_interface_member_implementation(
         return Some(InterfaceMemberDiagnostics::from(conflicts));
     }
 
-    if !lookup_result.is_local_to_component {
-        if let Err(message) =
-            check_property_declaration_conflicts(&lookup_result, &element.base_type)
-        {
-            return Some(InterfaceMemberDiagnostics::from(message));
-        }
-        return None;
-    }
+    let conflicts = if lookup_result.is_local_to_component {
+        conflicts
+    } else {
+        check_property_declaration_conflicts(&lookup_result, &element.base_type)
+            .err()
+            .unwrap_or(conflicts)
+    };
 
     let mut conflicts = InterfaceMemberDiagnostics::from(conflicts);
-    let source = element
-        .property_declarations
-        .get(member_name)
-        .and_then(|declaration| declaration.node.clone());
-
-    if let Some(source) = source {
+    if let Some(source) = element.property_declaration_node(member_name) {
         conflicts.notes.push(NoteWithSource {
             note: format!("'{member_name}' does not satisfy '{interface_name}'"),
             source,
