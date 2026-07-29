@@ -164,8 +164,11 @@ export component OverridesDeclaration {
 // A forwarded member must not clash with a member inherited by the parent from its own base.
 component BaseWithConflicts {
     in-out property <int> value;
+//  >                          <note{'value' does not satisfy 'ValidInterface'}
     callback speak();
+//  >               <note{'speak' does not satisfy 'ValidInterface'}
     public pure function reset() {}
+//  >                             <note{'reset' does not satisfy 'ValidInterface'}
     @children
 }
 

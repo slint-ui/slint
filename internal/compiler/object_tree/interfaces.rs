@@ -355,12 +355,19 @@ pub(super) fn apply_child_implement_statements(
         }
 
         let mut conflicts = Vec::new();
+        let mut notes = Vec::new();
         for (name, prop_decl) in interface.borrow().property_declarations.iter() {
             let lookup_result = element.borrow().base_type.lookup_property(name);
             if let Err(message) =
                 check_property_declaration_conflicts(&lookup_result, &element.borrow().base_type)
             {
                 conflicts.push(message);
+                if let Some(source) = element.borrow().property_declaration_node(name) {
+                    notes.push(NoteWithSource {
+                        note: format!("'{name}' does not satisfy '{interface_name}'"),
+                        source,
+                    });
+                }
                 continue;
             }
 
@@ -414,6 +421,9 @@ pub(super) fn apply_child_implement_statements(
                 ),
                 &node.QualifiedName(),
             );
+            for note in notes {
+                diagnostics.push_note(note.note, &note.source);
+            }
         }
     }
 }
