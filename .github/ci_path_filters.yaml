@@ -46,18 +46,11 @@ integration: &integration
  - 'internal/renderers/{skia,software}/**'
  - 'internal/backends/winit/**'
 
-# Runtime, compiler and Rust API: changes here can break the examples and
-# demos, unlike changes to the tools or to the examples themselves.
-framework: &framework
- - *integration
- - 'internal/renderers/**'
- - 'internal/backends/**'
-
 # Everything the root-workspace `cargo test` covers: all of internal/ (also
 # what the groups above exclude), the tools, and the screenshots that the
 # testing backend and the viewer tests embed.
 slint:
- - *framework
+ - *integration
  - 'internal/**'
  - 'tests/screenshots/**'
  - 'tools/compiler/**'
