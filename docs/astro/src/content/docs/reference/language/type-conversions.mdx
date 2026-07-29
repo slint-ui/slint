@@ -50,11 +50,11 @@ export component Example {
 ### Converting Between Numbers and Strings
 
 `int` and `float` convert implicitly to `string`.
-To control how many digits appear in the result, use the [`to-fixed()` and `to-precision()`](../numeric-types/#to-fixeddigits-int---string)
+To control how many digits appear in the result, use the [`to-fixed()` and `to-precision()`](../../property-types/numeric-types/#to-fixeddigits-int---string)
 member functions instead of the implicit conversion.
-To always use a dot as decimal separator regardless of the locale, use [`to-string-unlocalized()`](../numeric-types/#to-string-unlocalized---string).
+To always use a dot as decimal separator regardless of the locale, use [`to-string-unlocalized()`](../../property-types/numeric-types/#to-string-unlocalized---string).
 
-For the other direction, convert a `string` to a number with the [`to-float()`](../strings/#to-float---float) member function,
+For the other direction, convert a `string` to a number with the [`to-float()`](../../property-types/strings/#to-float---float) member function,
 and check whether a string holds a valid number with `is-float()`.
 
 All these conversions use the decimal separator of the current locale,

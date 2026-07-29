@@ -249,7 +249,7 @@
         "href": "reference/property-types/"
     },
     "NumberStringConversion": {
-        "href": "reference/property-types/type-conversions/#converting-between-numbers-and-strings"
+        "href": "reference/language/type-conversions/#converting-between-numbers-and-strings"
     },
     "VerticalBox": {
         "href": "reference/std-widgets/layouts/verticalbox/"

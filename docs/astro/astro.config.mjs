@@ -44,6 +44,7 @@ export default defineConfig({
         "/reference/colors-and-brushes/": `${BASE_PATH}reference/property-types/colors-and-brushes/`,
         "/reference/language/builtin-types/": `${BASE_PATH}reference/property-types/numeric-types/`,
         "/reference/property-types/builtin-types/": `${BASE_PATH}reference/property-types/`,
+        "/reference/property-types/type-conversions/": `${BASE_PATH}reference/language/type-conversions/`,
         "/reference/language/colors-and-brushes/": `${BASE_PATH}reference/property-types/colors-and-brushes/`,
         "/reference/language/arrays-and-models/": `${BASE_PATH}reference/property-types/arrays-and-models/`,
         "/reference/global-structs-enums/": `${BASE_PATH}reference/property-types/builtin-structs/`,
@@ -334,6 +335,10 @@ export default defineConfig({
                                         slug: "reference/language/operators",
                                     },
                                     {
+                                        label: "Type Conversions",
+                                        slug: "reference/language/type-conversions",
+                                    },
+                                    {
                                         label: "Statements",
                                         slug: "reference/language/statements",
                                     },
@@ -418,10 +423,6 @@ export default defineConfig({
                                     {
                                         label: "Other",
                                         slug: "reference/property-types/other-types",
-                                    },
-                                    {
-                                        label: "Type Conversions",
-                                        slug: "reference/property-types/type-conversions",
                                     },
                                 ],
                             },
@@ -545,10 +546,6 @@ export default defineConfig({
                                         slug: "reference/global-functions/math",
                                     },
                                     {
-                                        label: "animation-tick() / debug()",
-                                        slug: "reference/global-functions/builtinfunctions",
-                                    },
-                                    {
                                         label: "Platform",
                                         slug: "reference/platform",
                                     },
@@ -557,6 +554,10 @@ export default defineConfig({
                                         slug: "reference/global-namespaces/font-weight",
                                     },
                                 ],
+                            },
+                            {
+                                label: "Global Functions",
+                                slug: "reference/global-functions/builtinfunctions",
                             },
                             {
                                 label: "Std-Widgets",
