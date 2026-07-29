@@ -115,10 +115,10 @@ modules:
         SKIA_BINARIES_URL: file:///run/build/slint-test-package/deps/vendor/skia/skia-binaries-a25a0fdb7d90429aa2d1-x86_64-unknown-linux-gnu-gl-jpegd-jpege-pdf-textlayout-vulkan.tar.gz
     build-commands:
       - cargo --offline fetch --manifest-path Cargo.toml --verbose
-      # For the sake of this example, we assume that this build command produces a binary 
+      # For the sake of this example, we assume that this build command produces a binary
       # named `slint-test-package`.
       - cargo build --release --offline
-      # The right-hand side of this must be `${FLATPAK_DEST}/bin/your-command`, where 
+      # The right-hand side of this must be `${FLATPAK_DEST}/bin/your-command`, where
       # `your-command` matches the top-level `command` field mentioned in the previous
       # section
       - install -Dm0755 target/release/slint-test-package ${FLATPAK_DEST}/bin/slint-test-package
