@@ -15,8 +15,8 @@
 // The assertions are font-independent (fixed sizes), so they hold on nodejs too.
 
 component Card {
-    in property <length> boxh;
-    VerticalLayout { Rectangle { height: root.boxh; } }
+    in property <length> box-height;
+    VerticalLayout { Rectangle { height: root.box-height; } }
 }
 
 export component TestCase inherits Window {
@@ -31,7 +31,7 @@ export component TestCase inherits Window {
     FlexboxLayout {
         width: 100px; height: 300px;
         flex-direction: horizontal ? FlexboxLayoutDirection.row : FlexboxLayoutDirection.column;
-        for i in [0, 1]: Card { boxh: outer-h; }
+        for i in [0, 1]: Card { box-height: outer-h; }
         anchor := Rectangle { width: 5px; height: 5px; }
     }
 
