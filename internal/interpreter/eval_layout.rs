@@ -283,7 +283,7 @@ pub(crate) fn solve_flexbox_layout(
         _ => None,
     };
 
-    let (cells_h, cells_v, repeated_indices) = flexbox_layout_data(
+    let (cells_h, cells_v, flex_props, repeated_indices) = flexbox_layout_data(
         flexbox_layout,
         component,
         &expr_eval,
@@ -337,6 +337,7 @@ pub(crate) fn solve_flexbox_layout(
         flex_wrap,
         cells_h: Slice::from(cells_h.as_slice()),
         cells_v: Slice::from(cells_v.as_slice()),
+        flex_props: Slice::from(flex_props.as_slice()),
     };
     let ri = Slice::from(repeated_indices.as_slice());
 
@@ -583,7 +584,7 @@ pub(crate) fn compute_flexbox_layout_info(
             padding_and_spacing(&flexbox_layout.geometry, Orientation::Vertical, &expr_eval);
         h - pad_v.begin - pad_v.end
     });
-    let (cells_h, cells_v, _repeated_indices) = flexbox_layout_data(
+    let (cells_h, cells_v, flex_props, _repeated_indices) = flexbox_layout_data(
         flexbox_layout,
         component,
         &expr_eval,
@@ -624,6 +625,7 @@ pub(crate) fn compute_flexbox_layout_info(
         };
         core_layout::flexbox_layout_info_main_axis(
             Slice::from(cells.as_slice()),
+            Slice::from(flex_props.as_slice()),
             spacing,
             padding,
             flex_wrap,
@@ -646,6 +648,7 @@ pub(crate) fn compute_flexbox_layout_info(
         core_layout::flexbox_layout_info_cross_axis(
             Slice::from(cells_h.as_slice()),
             Slice::from(cells_v.as_slice()),
+            Slice::from(flex_props.as_slice()),
             spacing_h,
             spacing_v,
             &padding_h,
@@ -665,22 +668,19 @@ fn flexbox_layout_data(
     _local_context: &mut EvalLocalContext,
     width_override: Option<f32>,
     height_override: Option<f32>,
-) -> (Vec<core_layout::FlexboxLayoutItemInfo>, Vec<core_layout::FlexboxLayoutItemInfo>, Vec<u32>) {
+) -> (
+    Vec<core_layout::LayoutItemInfo>,
+    Vec<core_layout::LayoutItemInfo>,
+    Vec<core_layout::FlexItemProps>,
+    Vec<u32>,
+) {
     let window_adapter = component.window_adapter();
     let mut cells_h = Vec::with_capacity(flexbox_layout.elems.len());
     let mut cells_v = Vec::with_capacity(flexbox_layout.elems.len());
     let mut repeated_indices = Vec::new();
 
     // First pass: collect horizontal layout_info for all children (no cycle risk)
-    // and flex properties. Store element refs for the second pass.
-    struct ChildInfo {
-        flex_grow: f32,
-        flex_shrink: f32,
-        flex_basis: f32,
-        flex_align_self: i_slint_core::items::FlexboxLayoutAlignSelf,
-        flex_order: i32,
-    }
-    let mut static_children: Vec<Option<ChildInfo>> = Vec::new(); // None = repeater
+    // and flex properties.
     // Instances of each repeater, in `elems` order, so the second pass doesn't walk them again.
     let mut repeater_instance_vecs: Vec<Vec<crate::dynamic_item_tree::DynamicComponentVRc>> =
         Vec::new();
@@ -705,10 +705,12 @@ fn flexbox_layout_data(
                 cells_v.resize_with(cells_v.len() + component_vec.len(), Default::default);
             } else {
                 cells_v.extend(component_vec.iter().map(|x| {
-                    x.as_pin_ref().flexbox_layout_item_info(to_runtime(Orientation::Vertical), None)
+                    let info = x
+                        .as_pin_ref()
+                        .flexbox_layout_item_info(to_runtime(Orientation::Vertical), None);
+                    core_layout::LayoutItemInfo { constraint: info.constraint }
                 }));
             }
-            static_children.resize_with(static_children.len() + component_vec.len(), || None);
             repeater_instance_vecs.push(component_vec);
         } else {
             // Dispatch via `layoutinfo-h-with-constraint` for cells that
@@ -755,21 +757,16 @@ fn flexbox_layout_data(
             let order = layout_elem.order.as_ref().map(expr_eval).unwrap_or(0.0) as i32;
             cells_h.push(core_layout::FlexboxLayoutItemInfo {
                 constraint: layout_info_h,
-                flex_grow,
-                flex_shrink,
-                flex_basis,
-                flex_align_self: align_self,
-                flex_order: order,
+                props: core_layout::FlexItemProps {
+                    flex_grow,
+                    flex_shrink,
+                    flex_basis,
+                    flex_align_self: align_self,
+                    flex_order: order,
+                },
             });
             // Placeholder for cells_v — filled in second pass
-            cells_v.push(core_layout::FlexboxLayoutItemInfo::default());
-            static_children.push(Some(ChildInfo {
-                flex_grow,
-                flex_shrink,
-                flex_basis,
-                flex_align_self: align_self,
-                flex_order: order,
-            }));
+            cells_v.push(core_layout::LayoutItemInfo::default());
         }
     }
 
@@ -829,16 +826,9 @@ fn flexbox_layout_data(
                         Orientation::Vertical,
                         &instance_expr_eval,
                     );
-                    // cells_v was deferred in the first pass; take the flex props
-                    // from cells_h (they are orientation-independent).
-                    cells_v[cell_idx] = core_layout::FlexboxLayoutItemInfo {
-                        constraint: layout_info_v,
-                        flex_grow: cells_h[cell_idx].flex_grow,
-                        flex_shrink: cells_h[cell_idx].flex_shrink,
-                        flex_basis: cells_h[cell_idx].flex_basis,
-                        flex_align_self: cells_h[cell_idx].flex_align_self,
-                        flex_order: cells_h[cell_idx].flex_order,
-                    };
+                    // cells_v was deferred in the first pass; fill in its constraint.
+                    // The flex props live in their own array, split from cells_h.
+                    cells_v[cell_idx] = core_layout::LayoutItemInfo { constraint: layout_info_v };
                 }
                 cell_idx += 1;
             }
@@ -867,21 +857,19 @@ fn flexbox_layout_data(
                 Orientation::Vertical,
                 expr_eval,
             );
-            if let Some(info) = &static_children[cell_idx] {
-                cells_v[cell_idx] = core_layout::FlexboxLayoutItemInfo {
-                    constraint: layout_info_v,
-                    flex_grow: info.flex_grow,
-                    flex_shrink: info.flex_shrink,
-                    flex_basis: info.flex_basis,
-                    flex_align_self: info.flex_align_self,
-                    flex_order: info.flex_order,
-                };
-            }
+            cells_v[cell_idx] = core_layout::LayoutItemInfo { constraint: layout_info_v };
             cell_idx += 1;
         }
     }
 
-    (cells_h, cells_v, repeated_indices)
+    // cells_h still bundles constraint + flex props; split it into the parallel
+    // arrays the runtime takes. cells_v already holds constraint-only cells.
+    let flex_props = cells_h.iter().map(|c| c.props).collect();
+    let cells_h = cells_h
+        .into_iter()
+        .map(|c| core_layout::LayoutItemInfo { constraint: c.constraint })
+        .collect();
+    (cells_h, cells_v, flex_props, repeated_indices)
 }
 
 /// Determine the evaluated padding and spacing values from the layout geometry
@@ -1382,7 +1370,7 @@ fn clamp_wrapping_flex_cross_preferred(
         return;
     }
 
-    let (cells_h, cells_v, _ri) =
+    let (cells_h, cells_v, flex_props, _ri) =
         flexbox_layout_data(&fl, component, expr_eval, local_context, None, None);
     let (cells, padding, spacing) = match orientation {
         Orientation::Horizontal => {
@@ -1398,6 +1386,7 @@ fn clamp_wrapping_flex_cross_preferred(
     };
     let unwrapped = core_layout::flexbox_layout_unwrapped_main(
         Slice::from(cells.as_slice()),
+        Slice::from(flex_props.as_slice()),
         spacing,
         &padding,
     );

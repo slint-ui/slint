@@ -472,6 +472,11 @@ fn gen_corelib(
         "Rect",
         "BitmapFont",
         "DataTransferOpaque",
+        // Return type of the ItemTree vtable's flexbox_layout_item_info* methods.
+        // cbindgen can't see those (not extern "C"), and it is no longer reachable
+        // from an FFI function since the bulk cell data was split into
+        // LayoutItemInfo + FlexItemProps, so emit it explicitly.
+        "FlexboxLayoutItemInfo",
     ]
     .iter()
     .chain(items.iter())
