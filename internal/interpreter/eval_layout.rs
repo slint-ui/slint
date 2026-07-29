@@ -362,27 +362,50 @@ pub(crate) fn solve_flexbox_layout(
         /// returns trivial info that doesn't reflect the aggregated
         /// constraints; we read the aggregated property directly.
         has_aggregated_info: bool,
+        /// For a repeated cell, the instance to query — its constrained
+        /// layout-info function lives in the instance's own item tree, not in
+        /// the parent `component`. `None` for a static cell.
+        repeated_instance: Option<crate::dynamic_item_tree::DynamicComponentVRc>,
     }
     let mut child_elems: Vec<Option<ChildElem>> = Vec::new();
     for layout_elem in &flexbox_layout.elems {
-        if layout_elem.item.element.borrow().repeated.is_some() {
+        let placeholder = layout_elem.item.element.borrow();
+        let repeated = placeholder.repeated.is_some();
+        // For a repeated cell, query against the repeated component's root
+        // element (where its `layoutinfo-*-with-constraint` is reachable) in the
+        // instance's own item tree; for a static cell, against the cell element
+        // in the parent `component`.
+        let query_elem = if repeated {
+            placeholder.base_type.as_component().root_element.clone()
+        } else {
+            layout_elem.item.element.clone()
+        };
+        drop(placeholder);
+        let qe = query_elem.borrow();
+        let has_constrained_layoutinfo_v = qe.inherited_layout_info_v_with_constraint().is_some();
+        let has_constrained_layoutinfo_h = qe.inherited_layout_info_h_with_constraint().is_some();
+        let has_aggregated_info = qe.layout_info_prop.is_some();
+        drop(qe);
+        if repeated {
+            // One entry per instance: each is re-measured through its own item
+            // tree at the assigned cross size.
             let component_vec = repeater_instances(component, &layout_elem.item.element);
-            for _ in 0..component_vec.len() {
-                child_elems.push(None);
+            for instance in component_vec {
+                child_elems.push(Some(ChildElem {
+                    elem: query_elem.clone(),
+                    has_constrained_layoutinfo_v,
+                    has_constrained_layoutinfo_h,
+                    has_aggregated_info,
+                    repeated_instance: Some(instance),
+                }));
             }
         } else {
-            let elem_b = layout_elem.item.element.borrow();
-            let has_constrained_layoutinfo_v =
-                elem_b.inherited_layout_info_v_with_constraint().is_some();
-            let has_constrained_layoutinfo_h =
-                elem_b.inherited_layout_info_h_with_constraint().is_some();
-            let has_aggregated_info = elem_b.layout_info_prop.is_some();
-            drop(elem_b);
             child_elems.push(Some(ChildElem {
-                elem: layout_elem.item.element.clone(),
+                elem: query_elem,
                 has_constrained_layoutinfo_v,
                 has_constrained_layoutinfo_h,
                 has_aggregated_info,
+                repeated_instance: None,
             }));
         }
     }
@@ -410,21 +433,51 @@ pub(crate) fn solve_flexbox_layout(
             || ce.has_constrained_layoutinfo_v
             || ce.has_constrained_layoutinfo_h;
 
-        if known_w.is_some() && known_h.is_none() {
-            if use_property_lookup {
-                let v_info = get_layout_info_with_constraint(
+        // Query the cell's constrained layout-info. A repeated cell lives in
+        // its own instance's item tree (where its `layoutinfo-*-with-constraint`
+        // function is), so re-measure it there at the assigned cross size; a
+        // static cell is queried through the parent `component`.
+        let query = |orientation, constraint: Option<f32>| -> core_layout::LayoutInfo {
+            match &ce.repeated_instance {
+                Some(instance) => {
+                    generativity::make_guard!(guard);
+                    let unerased = instance.unerase(guard);
+                    get_layout_info_with_constraint(
+                        &ce.elem,
+                        unerased.borrow_instance(),
+                        &window_adapter,
+                        orientation,
+                        constraint,
+                    )
+                }
+                None => get_layout_info_with_constraint(
                     &ce.elem,
                     component,
                     &window_adapter,
-                    Orientation::Vertical,
-                    ce.has_constrained_layoutinfo_v.then_some(w),
-                );
+                    orientation,
+                    constraint,
+                ),
+            }
+        };
+
+        if known_w.is_some() && known_h.is_none() {
+            if use_property_lookup {
+                let v_info =
+                    query(Orientation::Vertical, ce.has_constrained_layoutinfo_v.then_some(w));
                 return (w, v_info.preferred_bounded());
             }
-            // Builtin path (Text, Image): use the Item vtable's
-            // layout_info, which honors the cross-axis constraint.
-            let elem_id = ce.elem.borrow().id.clone();
-            if let Some(item_within) = component.description.items.get(elem_id.as_str()) {
+            // Builtin path (Text, Image): use the Item vtable's layout_info,
+            // which honors the cross-axis constraint. This resolves the item in
+            // the parent `component`'s item tree, so it does not apply to a
+            // repeated cell (which lives in its own instance): a
+            // height-for-width repeated cell takes the `query` path above, and a
+            // non-height-for-width one keeps its width-independent default `h`.
+            if let Some(item_within) = ce
+                .repeated_instance
+                .is_none()
+                .then(|| component.description.items.get(ce.elem.borrow().id.as_str()))
+                .flatten()
+            {
                 let item_comp = component.self_weak().get().unwrap().upgrade().unwrap();
                 let item_rc =
                     ItemRc::new(vtable::VRc::into_dyn(item_comp), item_within.item_index());
@@ -441,17 +494,18 @@ pub(crate) fn solve_flexbox_layout(
         }
         if known_h.is_some() && known_w.is_none() {
             if use_property_lookup {
-                let h_info = get_layout_info_with_constraint(
-                    &ce.elem,
-                    component,
-                    &window_adapter,
-                    Orientation::Horizontal,
-                    ce.has_constrained_layoutinfo_h.then_some(h),
-                );
+                let h_info =
+                    query(Orientation::Horizontal, ce.has_constrained_layoutinfo_h.then_some(h));
                 return (h_info.preferred_bounded(), h);
             }
-            let elem_id = ce.elem.borrow().id.clone();
-            if let Some(item_within) = component.description.items.get(elem_id.as_str()) {
+            // Builtin path, symmetric to the known-w branch above: parent-tree
+            // lookup only, so it is skipped for a repeated cell.
+            if let Some(item_within) = ce
+                .repeated_instance
+                .is_none()
+                .then(|| component.description.items.get(ce.elem.borrow().id.as_str()))
+                .flatten()
+            {
                 let item_comp = component.self_weak().get().unwrap().upgrade().unwrap();
                 let item_rc =
                     ItemRc::new(vtable::VRc::into_dyn(item_comp), item_within.item_index());
@@ -627,6 +681,9 @@ fn flexbox_layout_data(
         flex_order: i32,
     }
     let mut static_children: Vec<Option<ChildInfo>> = Vec::new(); // None = repeater
+    // Instances of each repeater, in `elems` order, so the second pass doesn't walk them again.
+    let mut repeater_instance_vecs: Vec<Vec<crate::dynamic_item_tree::DynamicComponentVRc>> =
+        Vec::new();
 
     for layout_elem in &flexbox_layout.elems {
         if layout_elem.item.element.borrow().repeated.is_some() {
@@ -636,12 +693,23 @@ fn flexbox_layout_data(
             cells_h.extend(component_vec.iter().map(|x| {
                 x.as_pin_ref().flexbox_layout_item_info(to_runtime(Orientation::Horizontal), None)
             }));
-            cells_v.extend(component_vec.iter().map(|x| {
-                x.as_pin_ref().flexbox_layout_item_info(to_runtime(Orientation::Vertical), None)
-            }));
-            for _ in 0..component_vec.len() {
-                static_children.push(None);
+            // A height-for-width repeated instance (e.g. a component forwarding a
+            // wrapped Text's min-height) must not have its vertical info read here at
+            // the still-unsolved width — that would cycle, just like the static branch
+            // warns below. Defer it to the second pass, which measures at the width
+            // constraint and copies the flex props from cells_h. Other repeated cells
+            // are safe to measure now.
+            let rep_root =
+                layout_elem.item.element.borrow().base_type.as_component().root_element.clone();
+            if rep_root.borrow().inherited_layout_info_v_with_constraint().is_some() {
+                cells_v.resize_with(cells_v.len() + component_vec.len(), Default::default);
+            } else {
+                cells_v.extend(component_vec.iter().map(|x| {
+                    x.as_pin_ref().flexbox_layout_item_info(to_runtime(Orientation::Vertical), None)
+                }));
             }
+            static_children.resize_with(static_children.len() + component_vec.len(), || None);
+            repeater_instance_vecs.push(component_vec);
         } else {
             // Dispatch via `layoutinfo-h-with-constraint` for cells that
             // have one, avoiding the `self.height` read that would cycle.
@@ -709,11 +777,71 @@ fn flexbox_layout_data(
     // For column direction, use the container width (items get stretched to it).
     // Otherwise use the item's horizontal preferred size.
     let mut cell_idx = 0usize;
+    let mut repeater_idx = 0usize;
     for layout_elem in &flexbox_layout.elems {
         if layout_elem.item.element.borrow().repeated.is_some() {
-            let component_vec = repeater_instances(component, &layout_elem.item.element);
-            cell_idx += component_vec.len();
-            // repeater cells_v already filled in first pass
+            // Re-measure each height-for-width repeated instance at the width
+            // constraint (container width for a column flex), mirroring the
+            // static branch below — the first pass filled cells_v at the
+            // instance's preferred width (single line). Keep the flex props set
+            // in the first pass; only overwrite the vertical constraint.
+            let rep_root =
+                layout_elem.item.element.borrow().base_type.as_component().root_element.clone();
+            let is_height_for_width =
+                rep_root.borrow().inherited_layout_info_v_with_constraint().is_some();
+            let component_vec = &repeater_instance_vecs[repeater_idx];
+            repeater_idx += 1;
+            for instance in component_vec {
+                if is_height_for_width {
+                    let width_constraint = width_override
+                        .unwrap_or_else(|| cells_h[cell_idx].constraint.preferred_bounded());
+                    generativity::make_guard!(guard);
+                    let unerased = instance.unerase(guard);
+                    let instance_ref = unerased.borrow_instance();
+                    let mut layout_info_v = get_layout_info_with_constraint(
+                        &rep_root,
+                        instance_ref,
+                        &window_adapter,
+                        Orientation::Vertical,
+                        Some(width_constraint),
+                    );
+                    // The constraints' NamedReferences point to elements inside
+                    // the repeated sub-component, so evaluate them in that
+                    // instance's context, not the outer component's.
+                    let instance_expr_eval = |nr: &NamedReference| -> f32 {
+                        eval::load_property(instance_ref, &nr.element(), nr.name())
+                            .unwrap()
+                            .try_into()
+                            .unwrap()
+                    };
+                    // Apply only the constraints not already merged into the cell's
+                    // own layout-info (see the static branch below): an inherited
+                    // forwarded min/max/preferred-height is in the value above, and
+                    // re-reading it unconstrained would reintroduce a height-for-width
+                    // loop through the flex solve.
+                    let effective = layout_elem
+                        .item
+                        .constraints
+                        .to_apply(&layout_elem.item.element, Orientation::Vertical);
+                    fill_layout_info_constraints(
+                        &mut layout_info_v,
+                        &effective,
+                        Orientation::Vertical,
+                        &instance_expr_eval,
+                    );
+                    // cells_v was deferred in the first pass; take the flex props
+                    // from cells_h (they are orientation-independent).
+                    cells_v[cell_idx] = core_layout::FlexboxLayoutItemInfo {
+                        constraint: layout_info_v,
+                        flex_grow: cells_h[cell_idx].flex_grow,
+                        flex_shrink: cells_h[cell_idx].flex_shrink,
+                        flex_basis: cells_h[cell_idx].flex_basis,
+                        flex_align_self: cells_h[cell_idx].flex_align_self,
+                        flex_order: cells_h[cell_idx].flex_order,
+                    };
+                }
+                cell_idx += 1;
+            }
         } else {
             let width_constraint =
                 width_override.unwrap_or_else(|| cells_h[cell_idx].constraint.preferred_bounded());
@@ -724,9 +852,18 @@ fn flexbox_layout_data(
                 Orientation::Vertical,
                 Some(width_constraint),
             );
+            // Apply only the constraints not already merged into the cell's own
+            // layout-info: an inherited intrinsic min/max/preferred-height is in
+            // the value above, and re-reading it unconstrained would reintroduce
+            // a height-for-width loop through the flex solve. Locally-set overrides
+            // (`WrapCol { min-height: 70px }`) are kept.
+            let effective = layout_elem
+                .item
+                .constraints
+                .to_apply(&layout_elem.item.element, Orientation::Vertical);
             fill_layout_info_constraints(
                 &mut layout_info_v,
-                &layout_elem.item.constraints,
+                &effective,
                 Orientation::Vertical,
                 expr_eval,
             );

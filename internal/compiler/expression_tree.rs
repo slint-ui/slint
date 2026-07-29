@@ -170,6 +170,7 @@ pub enum BuiltinMacroFunction {
     ArrayPush,
     ArrayRemove,
     ArrayInsert,
+    CustomMouseCursor,
 }
 
 macro_rules! declare_builtin_function_types {
@@ -242,49 +243,37 @@ declare_builtin_function_types!(
     StringEndsWith: (Type::String, Type::String) -> Type::Bool,
     KeysToString: (Type::Keys) -> Type::String,
     ImplicitLayoutInfo(..): (Type::ElementReference, Type::Float32) -> typeregister::layout_info_type().into(),
-    ColorRgbaStruct: (Type::Color) -> Type::Struct(Rc::new(Struct {
-        fields: IntoIterator::into_iter([
+    ColorRgbaStruct: (Type::Color) -> Type::Struct(Rc::new(Struct::new(IntoIterator::into_iter([
             (SmolStr::new_static("red"), Type::Int32),
             (SmolStr::new_static("green"), Type::Int32),
             (SmolStr::new_static("blue"), Type::Int32),
             (SmolStr::new_static("alpha"), Type::Int32),
         ])
-        .collect(),
-        name: BuiltinStruct::Color.into(),
-    })),
-    ColorHsvaStruct: (Type::Color) -> Type::Struct(Rc::new(Struct {
-        fields: IntoIterator::into_iter([
+        .collect(), BuiltinStruct::Color))),
+    ColorHsvaStruct: (Type::Color) -> Type::Struct(Rc::new(Struct::new(IntoIterator::into_iter([
             (SmolStr::new_static("hue"), Type::Float32),
             (SmolStr::new_static("saturation"), Type::Float32),
             (SmolStr::new_static("value"), Type::Float32),
             (SmolStr::new_static("alpha"), Type::Float32),
         ])
-        .collect(),
-        name: BuiltinStruct::Color.into(),
-    })),
-    ColorOklchStruct: (Type::Color) -> Type::Struct(Rc::new(Struct {
-        fields: IntoIterator::into_iter([
+        .collect(), BuiltinStruct::Color))),
+    ColorOklchStruct: (Type::Color) -> Type::Struct(Rc::new(Struct::new(IntoIterator::into_iter([
             (SmolStr::new_static("lightness"), Type::Float32),
             (SmolStr::new_static("chroma"), Type::Float32),
             (SmolStr::new_static("hue"), Type::Float32),
             (SmolStr::new_static("alpha"), Type::Float32),
         ])
-        .collect(),
-        name: BuiltinStruct::Color.into(),
-    })),
+        .collect(), BuiltinStruct::Color))),
     ColorBrighter: (Type::Brush, Type::Float32) -> Type::Brush,
     ColorDarker: (Type::Brush, Type::Float32) -> Type::Brush,
     ColorTransparentize: (Type::Brush, Type::Float32) -> Type::Brush,
     ColorWithAlpha: (Type::Brush, Type::Float32) -> Type::Brush,
     ColorMix: (Type::Color, Type::Color, Type::Float32) -> Type::Color,
-    ImageSize: (Type::Image) -> Type::Struct(Rc::new(Struct {
-        fields: IntoIterator::into_iter([
+    ImageSize: (Type::Image) -> Type::Struct(Rc::new(Struct::new(IntoIterator::into_iter([
             (SmolStr::new_static("width"), Type::Int32),
             (SmolStr::new_static("height"), Type::Int32),
         ])
-        .collect(),
-        name: crate::langtype::BuiltinStruct::Size.into(),
-    })),
+        .collect(), crate::langtype::BuiltinStruct::Size))),
     ArrayLength: (Type::Model) -> Type::Int32,
     // Using Type::InferredProperty as there is currently no valid type for the data argument.
     ArrayPush: (Type::Model, Type::InferredProperty) -> Type::Void,
@@ -416,14 +405,10 @@ impl BuiltinFunction {
             | BuiltinFunction::ColorTransparentize
             | BuiltinFunction::ColorMix
             | BuiltinFunction::ColorWithAlpha => true,
-            // ImageSize is pure, except when loading images via the network. Then the initial size will be 0/0 and
-            // we need to make sure that calls to this function stay within a binding, so that the property
-            // notification when updating kicks in. Only SlintPad (wasm-interpreter) loads images via the network,
-            // which is when this code is targeting wasm.
-            #[cfg(not(target_arch = "wasm32"))]
-            BuiltinFunction::ImageSize => true,
-            #[cfg(target_arch = "wasm32")]
-            BuiltinFunction::ImageSize => false,
+            // On the web, the browser loads images asynchronously, so the size is initially 0/0
+            // and updates once the image is loaded. Calls to this function must stay within a
+            // binding so that the property notification kicks in when the code may run on the web.
+            BuiltinFunction::ImageSize => global_analysis.is_some_and(|x| x.const_image_sizes),
             BuiltinFunction::ArrayLength => true,
             BuiltinFunction::ArrayPush
             | BuiltinFunction::ArrayRemove
@@ -873,6 +858,8 @@ pub enum Expression {
 
     EmptyDataTransfer,
 
+    MouseCursor(MouseCursorInner),
+
     LinearGradient {
         angle: Box<Expression>,
         /// First expression in the tuple is a color, second expression is the stop position
@@ -987,6 +974,9 @@ pub enum Expression {
     DebugHook {
         expression: Box<Expression>,
         id: SmolStr,
+        /// True if this hook was materialized for a property that had no binding in the source.
+        /// Passes should treat a synthetic hook as "no binding" — the same as `Expression::Invalid`.
+        synthetic: bool,
     },
 
     EmptyComponentFactory,
@@ -1097,6 +1087,7 @@ impl Expression {
             Expression::StoreLocalVariable { .. } => Type::Void,
             Expression::ReadLocalVariable { ty, .. } => ty.clone(),
             Expression::EasingCurve(_) => Type::Easing,
+            Expression::MouseCursor(_) => Type::MouseCursor,
             Expression::LinearGradient { .. } => Type::Brush,
             Expression::RadialGradient { .. } => Type::Brush,
             Expression::ConicGradient { .. } => Type::Brush,
@@ -1184,6 +1175,14 @@ impl Expression {
             Expression::StoreLocalVariable { value, .. } => visitor(value),
             Expression::ReadLocalVariable { .. } => {}
             Expression::EasingCurve(_) => {}
+            Expression::MouseCursor(cursor) => match cursor {
+                MouseCursorInner::CustomMouseCursor { image, hotspot_x, hotspot_y } => {
+                    visitor(image);
+                    visitor(hotspot_x);
+                    visitor(hotspot_y);
+                }
+                MouseCursorInner::BuiltIn(e) => visitor(e),
+            },
             Expression::LinearGradient { angle, stops } => {
                 visitor(angle);
                 for (c, s) in stops {
@@ -1320,6 +1319,14 @@ impl Expression {
             Expression::StoreLocalVariable { value, .. } => visitor(value),
             Expression::ReadLocalVariable { .. } => {}
             Expression::EasingCurve(_) => {}
+            Expression::MouseCursor(cursor) => match cursor {
+                MouseCursorInner::CustomMouseCursor { image, hotspot_x, hotspot_y } => {
+                    visitor(image);
+                    visitor(hotspot_x);
+                    visitor(hotspot_y);
+                }
+                MouseCursorInner::BuiltIn(e) => visitor(e),
+            },
             Expression::LinearGradient { angle, stops } => {
                 visitor(angle);
                 for (c, s) in stops {
@@ -1469,6 +1476,12 @@ impl Expression {
             // We only load what we store, and stores are already checked
             Expression::ReadLocalVariable { .. } => true,
             Expression::EasingCurve(_) => true,
+            Expression::MouseCursor(cursor) => match cursor {
+                MouseCursorInner::BuiltIn(cursor) => cursor.is_constant(ga),
+                MouseCursorInner::CustomMouseCursor { image, hotspot_x, hotspot_y } => {
+                    image.is_constant(ga) && hotspot_x.is_constant(ga) && hotspot_y.is_constant(ga)
+                }
+            },
             Expression::LinearGradient { angle, stops } => {
                 angle.is_constant(ga)
                     && stops.iter().all(|(c, s)| c.is_constant(ga) && s.is_constant(ga))
@@ -1550,7 +1563,7 @@ impl Expression {
                         let mut new_values = BTreeMap::new();
                         for (key, ty) in &right.fields {
                             let (key, expression) = values.remove_entry(key).map_or_else(
-                                || (key.clone(), Expression::default_value_for_type(ty)),
+                                || (key.clone(), right.default_value_for_field(key)),
                                 |(k, e)| {
                                     (k, e.maybe_convert_to(ty.clone(), node, diag, symbol_counters))
                                 },
@@ -1577,7 +1590,7 @@ impl Expression {
                                 symbol_counters,
                             )
                         } else {
-                            Expression::default_value_for_type(ty)
+                            right.default_value_for_field(key)
                         };
                         new_values.insert(key.clone(), expression);
                     }
@@ -1669,8 +1682,9 @@ impl Expression {
                     return self;
                 }
             }
-            for (f, t) in fields {
-                new_values.insert(f, Expression::default_value_for_type(&t));
+            for f in fields.into_keys() {
+                let default_value = struct_type.default_value_for_field(&f);
+                new_values.insert(f, default_value);
             }
             Expression::Struct { ty: struct_type.clone(), values: new_values }
         } else {
@@ -1743,11 +1757,17 @@ impl Expression {
                 ty: s.clone(),
                 values: s
                     .fields
-                    .iter()
-                    .map(|(k, v)| (k.clone(), Expression::default_value_for_type(v)))
+                    .keys()
+                    .map(|k| (k.clone(), s.default_value_for_field(k)))
                     .collect(),
             },
             Type::Easing => Expression::EasingCurve(EasingCurve::default()),
+            Type::MouseCursor => {
+                let e = crate::typeregister::BUILTIN.with(|e| e.enums.BuiltInMouseCursor.clone());
+                Expression::MouseCursor(MouseCursorInner::BuiltIn(Box::new(
+                    Expression::EnumerationValue(e.default_value()),
+                )))
+            }
             Type::Brush => Expression::Cast {
                 from: Box::new(Expression::default_value_for_type(&Type::Color)),
                 to: Type::Brush,
@@ -1815,7 +1835,7 @@ impl Expression {
                     true
                 } else {
                     ctx.diag.push_error(
-                        format!("{what} on a {} property", lookup.property_visibility),
+                        format!("{what} on an {} property", lookup.property_visibility),
                         node,
                     );
                     false
@@ -1837,6 +1857,19 @@ impl Expression {
             Expression::DebugHook { expression, .. } => expression.as_ref(),
             _ => self,
         }
+    }
+
+    pub fn ignore_debug_hooks_mut(&mut self) -> &mut Expression {
+        match self {
+            Expression::DebugHook { expression, .. } => expression.as_mut(),
+            _ => self,
+        }
+    }
+
+    /// Returns true if this is a synthetic debug hook — i.e. a hook materialized for a property
+    /// that had no binding in the source. Passes should treat this like `Expression::Invalid`.
+    pub fn is_synthetic_debug_hook(&self) -> bool {
+        matches!(self, Expression::DebugHook { synthetic: true, .. })
     }
 }
 
@@ -1988,7 +2021,8 @@ impl BindingExpression {
     }
 
     /// Merge the other into this one. Normally, &self is kept intact (has priority)
-    /// unless the expression is invalid, in which case the other one is taken.
+    /// unless the expression is invalid or a synthetic debug hook, in which case the
+    /// other one is taken.
     ///
     /// Also the animation is taken if the other don't have one, and the two ways binding
     /// are taken into account.
@@ -2000,18 +2034,46 @@ impl BindingExpression {
         }
         let has_binding = self.has_binding();
         self.two_way_bindings.extend_from_slice(&other.two_way_bindings);
-        if !has_binding {
-            self.priority = other.priority;
-            self.expression = other.expression.clone();
-            true
-        } else {
-            false
+        if has_binding {
+            return false;
         }
+        // A synthetic debug hook is equivalent to "no binding", but the hook wrapper (and
+        // its id) must survive the merge so the property stays live-editable on this
+        // element: upgrade the hook in place with the other side's real expression.
+        if let Expression::DebugHook { expression, synthetic, .. } = &mut self.expression {
+            debug_assert!(*synthetic, "has_binding() returned false for a non-synthetic hook");
+            if !matches!(other.expression, Expression::Invalid)
+                && !other.expression.is_synthetic_debug_hook()
+            {
+                **expression = other.expression.clone();
+                *synthetic = false;
+                self.priority = other.priority;
+                return true;
+            }
+            if self.two_way_bindings.is_empty() {
+                // Nothing real to adopt from the other side: keep the synthetic placeholder.
+                return false;
+            }
+            // Two-way bindings now drive this property. The synthetic default must not
+            // become the two-way's initial value, so the hook is dropped (the property is
+            // then edited through the two-way target instead).
+            self.expression = Expression::Invalid;
+            self.priority = other.priority;
+            return true;
+        }
+        self.priority = other.priority;
+        self.expression = other.expression.clone();
+        true
     }
 
     /// returns false if there is no expression or two way binding
+    ///
+    /// A synthetic debug hook (a materialized placeholder for an unbound property) counts
+    /// as "no expression".
     pub fn has_binding(&self) -> bool {
-        !matches!(self.expression, Expression::Invalid) || !self.two_way_bindings.is_empty()
+        (!matches!(self.expression, Expression::Invalid)
+            && !self.expression.is_synthetic_debug_hook())
+            || !self.two_way_bindings.is_empty()
     }
 }
 
@@ -2063,6 +2125,20 @@ pub enum EasingCurve {
     EaseInOutBounce,
     // CubicBezierNonConst([Box<Expression>; 4]),
     // Custom(Box<dyn Fn(f32)->f32>),
+}
+
+/// The compiled `mouse-cursor` value: either a built-in cursor or a custom one built from an
+/// image. Generic over the expression type so both the tree and the LLR reuse the same shape.
+#[derive(Clone, Debug)]
+pub enum MouseCursorInner<E = Expression> {
+    BuiltIn(Box<E>),
+    CustomMouseCursor { image: Box<E>, hotspot_x: Box<E>, hotspot_y: Box<E> },
+}
+
+impl<E: Default> Default for MouseCursorInner<E> {
+    fn default() -> Self {
+        Self::BuiltIn(Box::default())
+    }
 }
 
 // The compiler resolves every `@image-url("foo.png")` into a `Path`, `Url`, or
@@ -2227,6 +2303,7 @@ pub fn pretty_print(f: &mut dyn std::fmt::Write, expression: &Expression) -> std
         Expression::PathData(data) => write!(f, "{data:?}"),
         Expression::EmptyDataTransfer => write!(f, "{{ }}"),
         Expression::EasingCurve(e) => write!(f, "{e:?}"),
+        Expression::MouseCursor(m) => write!(f, "{m:?}"),
         Expression::LinearGradient { angle, stops } => {
             write!(f, "@linear-gradient(")?;
             pretty_print(f, angle)?;
@@ -2343,9 +2420,12 @@ pub fn pretty_print(f: &mut dyn std::fmt::Write, expression: &Expression) -> std
             write!(f, ")")
         }
         Expression::EmptyComponentFactory => write!(f, "<empty-component-factory>"),
-        Expression::DebugHook { expression, id } => {
+        Expression::DebugHook { expression, id, synthetic } => {
             write!(f, "debug-hook(")?;
             pretty_print(f, expression)?;
+            if *synthetic {
+                write!(f, " SYNTHETIC")?;
+            }
             write!(f, "\"{id}\")")
         }
     }

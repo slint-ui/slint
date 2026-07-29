@@ -12,15 +12,29 @@ use crate::items::{ItemRc, TextWrap};
 use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalSize, ScaleFactor};
 use crate::window::WindowAdapter;
 
-/// Result of a single rendering attempt. WGPU-backed renderers can report `Occluded` or
-/// `Timeout` instead of rendering a frame; in those cases the caller should re-arm a
-/// redraw rather than wait for the next external event.
+/// Result of a single rendering attempt. WGPU-backed renderers can report `Occluded`,
+/// `Timeout` or `Skipped` instead of rendering a frame; in those cases the caller should
+/// re-arm a redraw rather than wait for the next external event.
 #[must_use]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DrawOutcome {
     Success,
     Occluded,
     Timeout,
+    /// The renderer wasn't ready to draw yet (e.g. the WGPU surface is still being set up
+    /// asynchronously). No frame was produced; the caller should re-arm a redraw.
+    Skipped,
+}
+
+/// The content widths of a text, as used for its layout constraints.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct ContentWidths {
+    /// The width of the widest chunk that cannot be broken up: the longest word for
+    /// word-wrap. A wrapping text cannot be laid out narrower than this without breaking
+    /// words apart.
+    pub min: LogicalLength,
+    /// The width the text takes without wrapping.
+    pub max: LogicalLength,
 }
 
 /// This trait represents a Renderer that can render a slint scene.
@@ -45,6 +59,20 @@ pub trait RendererSealed {
         max_width: Option<LogicalLength>,
         text_wrap: TextWrap,
     ) -> LogicalSize;
+
+    /// Returns the content widths of the text, or None if the renderer can't measure them,
+    /// in which case the caller falls back to `text_size` without a lower bound.
+    ///
+    /// These are intrinsic to the text and don't depend on its `wrap` mode: `min` is the
+    /// longest word, `max` is the unwrapped width.
+    fn text_content_widths(
+        &self,
+        text_item: Pin<&dyn crate::item_rendering::RenderString>,
+        item_rc: &crate::item_tree::ItemRc,
+    ) -> Option<ContentWidths> {
+        let _ = (text_item, item_rc);
+        None
+    }
 
     /// Returns the size of the individual character in logical pixels.
     fn char_size(

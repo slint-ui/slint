@@ -21,15 +21,18 @@ export component TestCase inherits Window {
                 shortcut: @keys(Control + M);
                 activated => { root.minimized = true; }
             }
+
             MenuItem {
                 title: "Zoom";
                 activated => { root.maximized = !root.maximized; }
             }
+
             MenuItem {
                 title: "Close";
                 shortcut: @keys(Control + W);
                 activated => { root.close(); }
             }
+
             MenuItem {
                 title: "Enter Full Screen";
                 shortcut: @keys(Control + Meta + F);
@@ -147,4 +150,41 @@ instance.win_full_screen = true;
 assert(instance.win_full_screen);
 ```
 
+```rust
+use slint::*;
+use i_slint_core::api::WindowEventDispatchResult::*;
+
+let instance = TestCase::new().unwrap();
+let window = instance.window();
+
+// CloseRequested rejected as the callback keeps the window open
+window.on_close_requested(|| slint::CloseRequestResponse::KeepWindowShown);
+let res = window.dispatch_event_with_result(platform::WindowEvent::CloseRequested);
+assert_eq!(res.unwrap(), Rejected);
+
+// CloseRequested accepted when the callback allows closing
+window.on_close_requested(|| slint::CloseRequestResponse::HideWindow);
+let res = window.dispatch_event_with_result(platform::WindowEvent::CloseRequested);
+assert_eq!(res.unwrap(), Accepted);
+instance.show().unwrap();
+
+// Window scaling and PointerExited always accepted
+let res = window.dispatch_event_with_result(platform::WindowEvent::ScaleFactorChanged { scale_factor: 1.0 });
+assert_eq!(res.unwrap(), Accepted);
+let res = window.dispatch_event_with_result(platform::WindowEvent::Resized { size: slint::LogicalSize::new(400., 300.) });
+assert_eq!(res.unwrap(), Accepted);
+let res = window.dispatch_event_with_result(platform::WindowEvent::WindowActiveChanged(false));
+assert_eq!(res.unwrap(), Accepted);
+let res = window.dispatch_event_with_result(platform::WindowEvent::WindowActiveChanged(true));
+assert_eq!(res.unwrap(), Accepted);
+let res = window.dispatch_event_with_result(platform::WindowEvent::PointerExited);
+assert_eq!(res.unwrap(), Accepted);
+
+// Ignored for pointer/scroll
+let pos = slint::LogicalPosition::new(200., 150.);
+let res = window.dispatch_event_with_result(platform::WindowEvent::PointerMoved { position: pos });
+assert_eq!(res.unwrap(), Ignored);
+let res = window.dispatch_event_with_result(platform::WindowEvent::PointerScrolled { position: pos, delta_x: 0., delta_y: -50. });
+assert_eq!(res.unwrap(), Ignored);
+```
 */

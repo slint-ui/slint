@@ -13,11 +13,11 @@ export component TestCase inherits Window {
         y: 10phx;
         width: parent.width - 20phx;
         height: parent.height - 20phx;
-        viewport_width: 2100phx;
-        viewport_height: 2100phx;
+        content_width: 2100phx;
+        content_height: 2100phx;
 
         flicked => {
-            root.flicked += self.viewport_x/1phx * 100000 + self.viewport_y/1phx;
+            root.flicked += self.content_x/1phx * 100000 + self.content_y/1phx;
         }
 
         inner_ta := TouchArea {
@@ -38,8 +38,8 @@ export component TestCase inherits Window {
 
     }
 
-    in-out property<length> offset_x: -f.viewport_x;
-    in-out property<length> offset_y: -f.viewport_y;
+    in-out property<length> offset_x: -f.content_x;
+    in-out property<length> offset_y: -f.content_y;
     in-out property<bool> inner_ta_pressed: inner_ta.pressed;
     in-out property<bool> inner_ta_has_hover: inner_ta.has_hover;
     in-out property<int> clicked;

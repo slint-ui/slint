@@ -1,0 +1,129 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company <info@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Regression test for #11168: a component that forwards a height-for-width
+// layout's min-height (the AboutSlint pattern `min-height: inner.min-height`
+// over a wrapped Text/Image) panicked with "Recursion detected" when placed in
+// a FlexboxLayout — on every backend. The flex gathers both axes before solving,
+// so the forwarded min-height read self.width while the width was still unsolved.
+//
+// The assertions are font-independent (no wrapped-text metrics), so they hold on
+// the nodejs backend too.
+
+component Card {
+    // The AboutSlint pattern: forward the inner height-for-width layout's min-height.
+    min-height: inner.min-height;
+    in property <string> txt;
+    inner := VerticalLayout {
+        Text { text: root.txt; wrap: word-wrap; }
+    }
+}
+
+export component TestCase inherits Window {
+    width: 200px;
+    height: 400px;
+
+    property <string> long: "a long text that wraps onto multiple lines when the width is narrow";
+    property <[{t: string, h: length}]> overrides: [{ t: long, h: 60px }, { t: long, h: 60px }];
+
+    // A: forwarded min-height in a FlexboxLayout. Reading `flAnchor.y` forces the
+    // flex to solve — which used to recurse. No panic, and the Card is laid out.
+    FlexboxLayout {
+        x: 0; y: 0; width: 100px; height: 200px;
+        flex-direction: column;
+        Card { txt: long; }
+        flAnchor := Rectangle { width: 5px; height: 5px; }
+    }
+
+    // B: an explicit per-instance `min-height` override on such a cell must still
+    // win (it is not carried by the cell's own layout-info, so it is applied on
+    // top of the measured value).
+    FlexboxLayout {
+        x: 0; y: 200px; width: 100px; height: 200px;
+        flex-direction: column;
+        Card { txt: long; min-height: 150px; }
+        ovrAnchor := Rectangle { width: 5px; height: 5px; }
+    }
+
+    // C: the same forwarded min-height on a *repeated* cell. The repeater path is
+    // measured separately from the static one and used to keep recursing after B
+    // was fixed. Reading `repAnchor.y` forces the flex solve.
+    FlexboxLayout {
+        x: 100px; y: 0; width: 100px; height: 200px;
+        flex-direction: column;
+        for it in [long, long]: Card { txt: it; }
+        repAnchor := Rectangle { width: 5px; height: 5px; }
+    }
+
+    // D: a per-instance `min-height` override on a repeated forwarded cell must win
+    // too. Font-independent, so nodejs checks it: two 60px cells push the anchor
+    // past 119px.
+    FlexboxLayout {
+        x: 100px; y: 200px; width: 100px; height: 200px;
+        flex-direction: column;
+        for it in overrides: Card { txt: it.t; min-height: it.h; }
+        repOvrAnchor := Rectangle { width: 5px; height: 5px; }
+    }
+
+    // E: a forwarded min-height cell in a *row* flex. Here the cross axis is
+    // vertical with no container width-override, so the width comes from the cell's
+    // own preferred size. Reading `rowCard.height` forces the height-for-width
+    // measurement that used to recurse.
+    FlexboxLayout {
+        x: 0; y: 0; width: 200px; height: 40px;
+        flex-direction: row;
+        rowCard := Card { txt: long; }
+    }
+
+    out property <length> forwarded-y: flAnchor.y;
+    out property <length> override-y: ovrAnchor.y;
+    out property <length> rep-y: repAnchor.y;
+    out property <length> rep-override-y: repOvrAnchor.y;
+    out property <length> row-card-h: rowCard.height;
+
+    // No binding loop, and the forwarded-min-height Card was laid out.
+    out property <bool> no_loop: forwarded-y > 5px;
+    // The 150px override pushes the anchor below it.
+    out property <bool> override_ok: override-y >= 149px;
+    // Repeated forwarded cells were laid out (both stacked above the anchor).
+    out property <bool> rep_no_loop: rep-y > 5px;
+    // Both 60px overrides apply, pushing the anchor past their sum.
+    out property <bool> rep_override_ok: rep-override-y >= 119px;
+    // The row-direction forwarded cell got a real height-for-width height.
+    out property <bool> row_ok: row-card-h > 5px;
+
+    out property <bool> test: no_loop && override_ok && rep_no_loop && rep_override_ok && row_ok;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_no_loop(), "forwarded-min-height Card not laid out (forwarded_y={})", instance.get_forwarded_y());
+assert!(instance.get_override_ok(), "min-height override dropped (override_y={})", instance.get_override_y());
+assert!(instance.get_rep_no_loop(), "repeated forwarded-min-height Card not laid out (rep_y={})", instance.get_rep_y());
+assert!(instance.get_rep_override_ok(), "repeated min-height override dropped (rep_override_y={})", instance.get_rep_override_y());
+assert!(instance.get_row_ok(), "row-direction forwarded-min-height Card not laid out (row_card_h={})", instance.get_row_card_h());
+assert!(instance.get_test());
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_no_loop());
+assert(instance.get_override_ok());
+assert(instance.get_rep_no_loop());
+assert(instance.get_rep_override_ok());
+assert(instance.get_row_ok());
+assert(instance.get_test());
+```
+
+```js
+// nodejs has no test fonts, so the wrapped Text may have zero height and the
+// `*_no_loop` / `row_ok` checks (which need a nonzero wrapped size) need not hold.
+// The override checks are font-independent, and reading `override-y` /
+// `rep-override-y` still forces the flex solves that used to recurse.
+var instance = new slint.TestCase({});
+assert(instance.override_ok);
+assert(instance.rep_override_ok);
+```
+*/

@@ -101,16 +101,13 @@ impl ServerNotifier {
                 queue.insert(id.clone(), OutgoingRequest::Pending(ctx.waker().clone()));
                 Poll::Pending
             }
-            OutgoingRequest::Done(d) => {
-                if let Some(err) = d.error {
-                    Poll::Ready(Err(err.message.into()))
-                } else {
-                    Poll::Ready(
-                        serde_json::from_value(d.result.unwrap_or_default())
-                            .map_err(|e| format!("cannot deserialize response: {e:?}").into()),
-                    )
-                }
-            }
+            OutgoingRequest::Done(d) => match d.response_result {
+                Err(err) => Poll::Ready(Err(err.message.into())),
+                Ok(result) => Poll::Ready(
+                    serde_json::from_value(result)
+                        .map_err(|e| format!("cannot deserialize response: {e:?}").into()),
+                ),
+            },
         }))
     }
 
@@ -145,8 +142,7 @@ fn start_processing_lsp_messages_thread(
     // process messages before the event loop was running.
     let selector = slint::BackendSelector::new();
     // On macOS, request a unified title bar: the editor content extends underneath
-    // a transparent title bar. The title-bar metrics are reported back to the UI
-    // via the `Api` global (see `preview::macos_titlebar`).
+    // a transparent title bar (see `preview::macos_titlebar`).
     #[cfg(target_os = "macos")]
     let selector = selector
         .with_winit_window_attributes_hook(crate::preview::macos_titlebar::apply_unified_titlebar);

@@ -348,13 +348,13 @@ declare_syntax! {
     {
         Document -> [ *Component, *ExportsList, *ImportSpecifier, *StructDeclaration, *EnumDeclaration ],
         /// `DeclaredIdentifier := Element { ... }`
-        Component -> [ DeclaredIdentifier, ?UsesSpecifier, ?ImplementsSpecifier, Element ],
+        Component -> [ DeclaredIdentifier, Element ],
         /// `id := Element { ... }`
         SubElement -> [ Element ],
         Element -> [ ?QualifiedName, *PropertyDeclaration, *Binding, *CallbackConnection,
                      *CallbackDeclaration, *ConditionalElement, *MatchElement, *Function, *SubElement,
                      *RepeatedElement, *PropertyAnimation, *PropertyChangedCallback,
-                     *TwoWayBinding, *States, *Transitions, ?ChildrenPlaceholder ],
+                     *TwoWayBinding, *States, *Transitions, *ImplementStatement, ?ChildrenPlaceholder ],
         RepeatedElement -> [ ?DeclaredIdentifier, ?RepeatedIndex, Expression , SubElement],
         RepeatedIndex -> [],
         ConditionalElement -> [ Expression , SubElement],
@@ -373,7 +373,10 @@ declare_syntax! {
         ReturnType -> [Type],
         CallbackConnection -> [ *DeclaredIdentifier, ?CodeBlock, ?Expression ],
         /// Declaration of a property.
-        PropertyDeclaration-> [ ?Type , DeclaredIdentifier, ?BindingExpression, ?TwoWayBinding ],
+        PropertyDeclaration-> [ ?PropertyDeprecation, ?Type , DeclaredIdentifier, ?BindingExpression, ?TwoWayBinding ],
+        /// `@deprecated` or `@deprecated("message")` prefixing a PropertyDeclaration.
+        /// The optional message is a StringLiteral token child.
+        PropertyDeprecation -> [],
         /// QualifiedName are the properties name
         PropertyAnimation-> [ *QualifiedName, *Binding ],
         /// `changed xxx => {...}`  where `xxx` is the DeclaredIdentifier
@@ -386,6 +389,8 @@ declare_syntax! {
         Binding-> [ BindingExpression ],
         /// `xxx <=> something`
         TwoWayBinding -> [ Expression ],
+        /// `implement Interface <=> target;`
+        ImplementStatement -> [ QualifiedName, DeclaredIdentifier ],
         /// the right-hand-side of a binding
         // Fixme: the test should be a or
         BindingExpression-> [ ?CodeBlock, ?Expression ],
@@ -462,8 +467,8 @@ declare_syntax! {
         Type -> [ ?QualifiedName, ?ObjectType, ?ArrayType ],
         /// `{foo: string, bar: string} `
         ObjectType ->[ *ObjectTypeMember ],
-        /// `foo: type` inside an ObjectType
-        ObjectTypeMember -> [ Type ],
+        /// `foo: type` or `foo: type = default-value` inside an ObjectType
+        ObjectTypeMember -> [ Type, ?Expression ],
         /// `[ type ]`
         ArrayType -> [ Type ],
         /// `struct Foo { ... }`
@@ -474,12 +479,6 @@ declare_syntax! {
         EnumValue -> [],
         /// `@rust-attr(...)`
         AtRustAttr -> [],
-        /// `uses { Foo from Bar, Baz from Qux }`
-        UsesSpecifier -> [ *UsesIdentifier ],
-        /// `Interface.Foo from bar`
-        UsesIdentifier -> [QualifiedName, DeclaredIdentifier],
-        /// `implements Interface.Foo`
-        ImplementsSpecifier -> [ QualifiedName ],
     }
 }
 

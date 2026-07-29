@@ -8,7 +8,7 @@ build-backend = "maturin"
 
 [project]
 name = "slint-dev"
-version = "1.18.0b2"
+version = "1.18.0b1"
 requires-python = ">= 3.12"
 authors = [{ name = "Slint Team", email = "info@slint.dev" }]
 classifiers = [

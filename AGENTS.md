@@ -41,7 +41,7 @@ cmake --build .
 
 ### Node.js Build
 ```sh
-cd api/node && pnpm install
+cd api/node && pnpm install && pnpm build
 ```
 
 ## Testing
@@ -73,8 +73,8 @@ Only drop the filter for a final full-suite run before committing.
 
 ### Writing Slint Test Cases
 
-The `test` property in `tests/cases/*.slint` must be declared `out property<bool> test: ...;`.
-Without `out`, the compiler treats it as private and the driver passes the test vacuously.
+The `test` property in `tests/cases/*.slint` must be declared `out` or `in-out`
+(e.g. `out property<bool> test: ...;`), otherwise the driver passes the test vacuously.
 
 ### Syntax Tests (Compiler Errors)
 ```sh
@@ -125,7 +125,7 @@ Rust (`rs/slint/`, `rs/macros/` for `slint!`, `rs/build/`), C++ (`cpp/`, CMake),
 
 ### Tools (`tools/`)
 
-`lsp/` (LSP server), `compiler/` (CLI), `viewer/` (hot-reload `.slint` viewer), `slintpad/` (web playground), `figma_import/`, `tr-extractor/` (i18n), `updater/` (version migration).
+`lsp/` (LSP server), `compiler/` (CLI), `viewer/` (hot-reload `.slint` viewer), `slintpad/` (web playground), `figma_import/` (Figma-to-Slint conversion), `figma-inspector/` (Figma plugin: shows Slint markup for a selected design element), `tr-extractor/` (i18n).
 
 ### Editor Support (`editors/`)
 

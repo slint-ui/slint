@@ -16,6 +16,7 @@ use euclid::approxeq::ApproxEq;
 
 #[cfg(muda)]
 use i_slint_core::api::LogicalPosition;
+use i_slint_core::cursor::{MouseCursorInner, scaled_hotspot};
 use i_slint_core::lengths::{PhysicalPx, ScaleFactor};
 use i_slint_core::renderer::DrawOutcome;
 use winit::event_loop::ActiveEventLoop;
@@ -32,7 +33,7 @@ use crate::winit_compat::WindowSurfaceSizeExt;
 use corelib::item_tree::ItemTreeRc;
 #[cfg(enable_accesskit)]
 use corelib::item_tree::{ItemTreeRef, ItemTreeRefPin};
-use corelib::items::{ColorScheme, MouseCursor};
+use corelib::items::{BuiltInMouseCursor, ColorScheme};
 #[cfg(enable_accesskit)]
 use corelib::items::{ItemRc, ItemRef};
 
@@ -48,7 +49,7 @@ use corelib::{Coord, graphics::*};
 use i_slint_core::{self as corelib};
 #[cfg(any(enable_accesskit, muda))]
 use winit::event_loop::EventLoopProxy;
-use winit::window::{WindowAttributes, WindowButtons};
+use winit::window::{CustomCursor, CustomCursorSource, WindowAttributes, WindowButtons};
 
 pub(crate) fn position_to_winit(pos: &corelib::api::WindowPosition) -> winit::dpi::Position {
     match pos {
@@ -372,6 +373,8 @@ pub struct WinitWindowAdapter {
     /// Winit's window_icon API has no way of checking if the window icon is
     /// the same as a previously set one, so keep track of that here.
     window_icon_cache_key: RefCell<Option<ImageCacheKey>>,
+
+    pub(crate) custom_cursor_source: Cell<Option<CustomCursorSource>>,
 }
 
 impl WinitWindowAdapter {
@@ -415,6 +418,7 @@ impl WinitWindowAdapter {
             #[cfg(all(muda, target_os = "macos"))]
             muda_enable_default_menu_bar,
             window_icon_cache_key: Default::default(),
+            custom_cursor_source: Cell::new(None),
         });
 
         self_rc.shared_backend_data.register_inactive_window((self_rc.clone()) as _);
@@ -424,6 +428,25 @@ impl WinitWindowAdapter {
 
     pub(crate) fn renderer(&self) -> &dyn WinitCompatibleRenderer {
         self.renderer.as_ref()
+    }
+
+    /// The preferred logical size of the component, or None if it has no positive preferred size.
+    fn preferred_size(&self) -> Option<winit::dpi::LogicalSize<Coord>> {
+        let runtime_window = WindowInner::from_pub(self.window());
+        let component_rc = runtime_window.try_component()?;
+        let component = ItemTreeRc::borrow_pin(&component_rc);
+        let layout_info_h = component.as_ref().layout_info(Orientation::Horizontal);
+        if let Some(window_item) = runtime_window.window_item() {
+            // Setting the width to its preferred size before querying the vertical layout info
+            // is important in case the height depends on the width
+            window_item.width.set(LogicalLength::new(layout_info_h.preferred_bounded()));
+        }
+        let layout_info_v = component.as_ref().layout_info(Orientation::Vertical);
+        let size = winit::dpi::LogicalSize::new(
+            layout_info_h.preferred_bounded(),
+            layout_info_v.preferred_bounded(),
+        );
+        (size.width > 0 as Coord && size.height > 0 as Coord).then_some(size)
     }
 
     pub fn ensure_window(
@@ -473,7 +496,17 @@ impl WinitWindowAdapter {
             window_attributes = window_attributes.with_transparent(false);
         }
 
-        let winit_window = self.renderer.resume(active_event_loop, window_attributes)?;
+        // Create the window at its preferred size: the renderer's surface is created together
+        // with the window, and on Wayland resizing it afterwards only takes effect after the
+        // next present, so the first frame would be rendered at the pre-show size.
+        if !self.has_explicit_size.get() && window_attributes.fullscreen.is_none() {
+            if let Some(preferred_size) = self.preferred_size() {
+                window_attributes.inner_size = Some(preferred_size.into());
+            }
+        }
+
+        let winit_window =
+            self.renderer.resume(active_event_loop, window_attributes, self.self_weak.clone())?;
 
         // Push the host shell's color scheme and accent color to the SlintContext.
         // With `xdg_desktop_settings` the backend-wide portal watcher (spawned in
@@ -504,7 +537,8 @@ impl WinitWindowAdapter {
 
         let scale_factor =
             overriding_scale_factor.unwrap_or_else(|| winit_window.scale_factor() as f32);
-        self.window().try_dispatch_event(WindowEvent::ScaleFactorChanged { scale_factor })?;
+        self.window()
+            .dispatch_event_with_result(WindowEvent::ScaleFactorChanged { scale_factor })?;
 
         #[cfg(target_os = "ios")]
         let (content_view, keyboard_curve_self) = {
@@ -832,7 +866,7 @@ impl WinitWindowAdapter {
             let scale_factor = WindowInner::from_pub(self.window()).scale_factor();
 
             let size = physical_size.to_logical(scale_factor);
-            self.window().try_dispatch_event(WindowEvent::Resized { size })?;
+            self.window().dispatch_event_with_result(WindowEvent::Resized { size })?;
 
             WindowInner::from_pub(self.window())
                 .set_window_item_safe_area(self.safe_area_inset().to_logical(scale_factor));
@@ -882,7 +916,14 @@ impl WinitWindowAdapter {
                 let b = ((colorref >> 16) & 0xFF) as u8;
                 Color::from_argb_u8(255, r, g, b)
             } else if #[cfg(target_os = "macos")] {
+                use objc2::ClassType;
                 use objc2_app_kit::{NSColor, NSColorType};
+                // controlAccentColor is only available on macOS 10.14 and later.
+                // Probe for it so that older systems fall back to the default palette
+                // instead of aborting with an unrecognized-selector exception.
+                if !NSColor::class().responds_to(objc2::sel!(controlAccentColor)) {
+                    return Color::default();
+                }
                 let color = NSColor::controlAccentColor();
                 color.colorUsingType(NSColorType::ComponentBased).map(|c| {
                     let r = c.redComponent() as f32;
@@ -1028,7 +1069,7 @@ impl WinitWindowAdapter {
         // We don't render popups as separate windows yet, so treat
         // focus to be the same as being active.
         if have_focus != runtime_window.active() {
-            slint_window.try_dispatch_event(
+            slint_window.dispatch_event_with_result(
                 corelib::platform::WindowEvent::WindowActiveChanged(have_focus),
             )?;
         }
@@ -1079,21 +1120,8 @@ impl WinitWindowAdapter {
 
             let scale_factor = runtime_window.scale_factor() as f64;
 
-            let component_rc = runtime_window.component();
-            let component = ItemTreeRc::borrow_pin(&component_rc);
-
-            let layout_info_h = component.as_ref().layout_info(Orientation::Horizontal);
-            if let Some(window_item) = runtime_window.window_item() {
-                // Setting the width to its preferred size before querying the vertical layout info
-                // is important in case the height depends on the width
-                window_item.width.set(LogicalLength::new(layout_info_h.preferred_bounded()));
-            }
-            let layout_info_v = component.as_ref().layout_info(Orientation::Vertical);
             #[allow(unused_mut)]
-            let mut preferred_size = winit::dpi::LogicalSize::new(
-                layout_info_h.preferred_bounded(),
-                layout_info_v.preferred_bounded(),
-            );
+            let mut preferred_size = self.preferred_size().unwrap_or_default();
 
             #[cfg(target_arch = "wasm32")]
             if let Some(html_canvas) = winit_window.canvas() {
@@ -1363,7 +1391,7 @@ impl WindowAdapter for WinitWindowAdapter {
 
         if must_resize {
             self.window()
-                .try_dispatch_event(WindowEvent::Resized {
+                .dispatch_event_with_result(WindowEvent::Resized {
                     size: i_slint_core::api::LogicalSize::new(width, height),
                 })
                 .unwrap();
@@ -1448,42 +1476,79 @@ impl WindowAdapter for WinitWindowAdapter {
 }
 
 impl WindowAdapterInternal for WinitWindowAdapter {
-    fn set_mouse_cursor(&self, cursor: MouseCursor) {
-        let winit_cursor = match cursor {
-            MouseCursor::Default => winit::window::CursorIcon::Default,
-            MouseCursor::None => winit::window::CursorIcon::Default,
-            MouseCursor::Help => winit::window::CursorIcon::Help,
-            MouseCursor::Pointer => winit::window::CursorIcon::Pointer,
-            MouseCursor::Progress => winit::window::CursorIcon::Progress,
-            MouseCursor::Wait => winit::window::CursorIcon::Wait,
-            MouseCursor::Crosshair => winit::window::CursorIcon::Crosshair,
-            MouseCursor::Text => winit::window::CursorIcon::Text,
-            MouseCursor::Alias => winit::window::CursorIcon::Alias,
-            MouseCursor::Copy => winit::window::CursorIcon::Copy,
-            MouseCursor::Move => winit::window::CursorIcon::Move,
-            MouseCursor::NoDrop => winit::window::CursorIcon::NoDrop,
-            MouseCursor::NotAllowed => winit::window::CursorIcon::NotAllowed,
-            MouseCursor::Grab => winit::window::CursorIcon::Grab,
-            MouseCursor::Grabbing => winit::window::CursorIcon::Grabbing,
-            MouseCursor::ColResize => winit::window::CursorIcon::ColResize,
-            MouseCursor::RowResize => winit::window::CursorIcon::RowResize,
-            MouseCursor::NResize => winit::window::CursorIcon::NResize,
-            MouseCursor::EResize => winit::window::CursorIcon::EResize,
-            MouseCursor::SResize => winit::window::CursorIcon::SResize,
-            MouseCursor::WResize => winit::window::CursorIcon::WResize,
-            MouseCursor::NeResize => winit::window::CursorIcon::NeResize,
-            MouseCursor::NwResize => winit::window::CursorIcon::NwResize,
-            MouseCursor::SeResize => winit::window::CursorIcon::SeResize,
-            MouseCursor::SwResize => winit::window::CursorIcon::SwResize,
-            MouseCursor::EwResize => winit::window::CursorIcon::EwResize,
-            MouseCursor::NsResize => winit::window::CursorIcon::NsResize,
-            MouseCursor::NeswResize => winit::window::CursorIcon::NeswResize,
-            MouseCursor::NwseResize => winit::window::CursorIcon::NwseResize,
-            _ => winit::window::CursorIcon::Default,
+    fn start_window_move(&self) {
+        if let Some(winit_window) = self.winit_window_or_none.borrow().as_window() {
+            let _ = winit_window.drag_window();
+        }
+    }
+
+    fn set_mouse_cursor(&self, cursor: MouseCursorInner) {
+        let winit_cursor = match &cursor {
+            MouseCursorInner::BuiltIn(cursor) => Some(match cursor {
+                BuiltInMouseCursor::Default => winit::window::CursorIcon::Default,
+                BuiltInMouseCursor::None => winit::window::CursorIcon::Default,
+                BuiltInMouseCursor::Help => winit::window::CursorIcon::Help,
+                BuiltInMouseCursor::Pointer => winit::window::CursorIcon::Pointer,
+                BuiltInMouseCursor::Progress => winit::window::CursorIcon::Progress,
+                BuiltInMouseCursor::Wait => winit::window::CursorIcon::Wait,
+                BuiltInMouseCursor::Crosshair => winit::window::CursorIcon::Crosshair,
+                BuiltInMouseCursor::Text => winit::window::CursorIcon::Text,
+                BuiltInMouseCursor::Alias => winit::window::CursorIcon::Alias,
+                BuiltInMouseCursor::Copy => winit::window::CursorIcon::Copy,
+                BuiltInMouseCursor::Move => winit::window::CursorIcon::Move,
+                BuiltInMouseCursor::NoDrop => winit::window::CursorIcon::NoDrop,
+                BuiltInMouseCursor::NotAllowed => winit::window::CursorIcon::NotAllowed,
+                BuiltInMouseCursor::Grab => winit::window::CursorIcon::Grab,
+                BuiltInMouseCursor::Grabbing => winit::window::CursorIcon::Grabbing,
+                BuiltInMouseCursor::ColResize => winit::window::CursorIcon::ColResize,
+                BuiltInMouseCursor::RowResize => winit::window::CursorIcon::RowResize,
+                BuiltInMouseCursor::NResize => winit::window::CursorIcon::NResize,
+                BuiltInMouseCursor::EResize => winit::window::CursorIcon::EResize,
+                BuiltInMouseCursor::SResize => winit::window::CursorIcon::SResize,
+                BuiltInMouseCursor::WResize => winit::window::CursorIcon::WResize,
+                BuiltInMouseCursor::NeResize => winit::window::CursorIcon::NeResize,
+                BuiltInMouseCursor::NwResize => winit::window::CursorIcon::NwResize,
+                BuiltInMouseCursor::SeResize => winit::window::CursorIcon::SeResize,
+                BuiltInMouseCursor::SwResize => winit::window::CursorIcon::SwResize,
+                BuiltInMouseCursor::EwResize => winit::window::CursorIcon::EwResize,
+                BuiltInMouseCursor::NsResize => winit::window::CursorIcon::NsResize,
+                BuiltInMouseCursor::NeswResize => winit::window::CursorIcon::NeswResize,
+                BuiltInMouseCursor::NwseResize => winit::window::CursorIcon::NwseResize,
+                _ => winit::window::CursorIcon::Default,
+            }),
+            MouseCursorInner::CustomMouseCursor { image, hotspot_x, hotspot_y } => {
+                // Render scalable sources (SVG) at the display resolution so the cursor stays crisp.
+                let scale = self.window().scale_factor();
+                let source_size = image.size();
+                let target_size = IntSize::new(
+                    (source_size.width as f32 * scale) as u32,
+                    (source_size.height as f32 * scale) as u32,
+                );
+                if let Some(rgba8) = image.to_rgba8_with_target_size(target_size) {
+                    let (width, height) = (rgba8.width(), rgba8.height());
+                    // winit rejects a hotspot that lies outside the image, so clamp it inside.
+                    let source = CustomCursor::from_rgba(
+                        rgba8.as_bytes(),
+                        width as u16,
+                        height as u16,
+                        scaled_hotspot(*hotspot_x, source_size.width, width) as u16,
+                        scaled_hotspot(*hotspot_y, source_size.height, height) as u16,
+                    );
+
+                    // Custom cursors have to be set during the event loop
+                    self.custom_cursor_source.set(source.ok());
+                }
+                None
+            }
+            _ => None,
         };
         if let Some(winit_window) = self.winit_window_or_none.borrow().as_window() {
-            winit_window.set_cursor_visible(cursor != MouseCursor::None);
-            winit_window.set_cursor(winit_cursor);
+            winit_window
+                .set_cursor_visible(cursor != MouseCursorInner::BuiltIn(BuiltInMouseCursor::None));
+
+            if let Some(cursor) = winit_cursor {
+                winit_window.set_cursor(cursor);
+            }
         }
     }
 

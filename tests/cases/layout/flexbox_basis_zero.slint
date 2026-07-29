@@ -1,0 +1,79 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// An explicit `flex-basis: 0` (the CSS `flex: 1 1 0` idiom) distributes the
+// whole main size by flex-grow, ignoring the items' preferred sizes.
+
+component BasisZeroStatic inherits Rectangle {
+    width: 400px;
+    height: 50px;
+    FlexboxLayout {
+        flex-wrap: no-wrap;
+        r1 := Rectangle {
+            flex-grow: 1;
+            flex-basis: 0px;
+            preferred-width: 50px;
+            height: 50px;
+        }
+        r2 := Rectangle {
+            flex-grow: 1;
+            flex-basis: 0px;
+            preferred-width: 250px;
+            height: 50px;
+        }
+    }
+
+    // Both grow from a zero base, so the preferred sizes don't matter.
+    out property <bool> test: r1.width == 200px && r2.width == 200px;
+}
+
+component BasisZeroRepeated inherits Rectangle {
+    width: 400px;
+    height: 50px;
+    FlexboxLayout {
+        flex-wrap: no-wrap;
+        r1 := Rectangle {
+            flex-grow: 1;
+            flex-basis: 0px;
+            preferred-width: 50px;
+            height: 50px;
+        }
+        for w in [250px]: Rectangle {
+            flex-grow: 1;
+            flex-basis: 0px;
+            preferred-width: w;
+            height: 50px;
+        }
+    }
+
+    out property <bool> test: r1.width == 200px;
+}
+
+export component TestCase inherits Window {
+    width: 400px;
+    height: 400px;
+
+    VerticalLayout {
+        t1 := BasisZeroStatic { }
+        t2 := BasisZeroRepeated { }
+    }
+
+    out property <bool> test: t1.test && t2.test;
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+assert(handle->get_test());
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+```js
+var instance = new slint.TestCase();
+assert(instance.test);
+```
+*/

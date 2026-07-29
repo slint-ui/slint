@@ -23,7 +23,7 @@
 #[macro_export]
 macro_rules! for_each_enums {
     ($macro:ident) => {
-        $macro![
+        $macro! {
             /// This enum describes the different types of alignment of text along the horizontal axis of a `Text` or `StyledText` element.
             #[non_exhaustive]
             enum TextHorizontalAlignment {
@@ -79,6 +79,20 @@ macro_rules! for_each_enums {
                 Outside,
                 /// The center line of the stroke is at the outer edge of the text, like in Adobe Illustrator.
                 Center,
+            }
+
+            /// This enum describes the auto-capitalization behavior that the input method
+            /// (e.g. a soft keyboard) should apply while text is entered in a `TextInput`.
+            #[non_exhaustive]
+            pub enum CapitalizationMode {
+                /// No auto-capitalization.
+                None,
+                /// Capitalize the first character of each sentence.
+                Sentences,
+                /// Capitalize the first character of each word.
+                Words,
+                /// Capitalize all characters.
+                Characters,
             }
 
             /// This enum describes whether an event was rejected or accepted by an event handler.
@@ -197,11 +211,11 @@ macro_rules! for_each_enums {
                 Forward,
             }
 
-            /// This enum represents different types of mouse cursors. It's a subset of the mouse cursors available in CSS.
+            /// Represents different types of mouse cursors. It's a subset of the mouse cursors available in CSS.
             /// For details and pictograms see the [MDN Documentation for cursor](https://developer.mozilla.org/en-US/docs/Web/CSS/cursor#values).
             /// Depending on the backend and used OS unidirectional resize cursors may be replaced with bidirectional ones.
             #[non_exhaustive]
-            enum MouseCursor {
+            enum BuiltInMouseCursor {
                 /// The systems default cursor.
                 Default,
                 /// No cursor is displayed.
@@ -684,6 +698,6 @@ macro_rules! for_each_enums {
                 /// This variant is reported when the operating system is none of the above.
                 Other,
             }
-        ];
+        }
     };
 }

@@ -472,6 +472,7 @@ mod phase_breakdown {
             &mut diag,
             &type_registry,
             false,
+            &loader.symbol_counters,
         ));
     }
 
@@ -498,6 +499,7 @@ mod phase_breakdown {
             &mut diag,
             &type_registry,
             false,
+            &loader.symbol_counters,
         );
 
         // Benchmark just run_passes

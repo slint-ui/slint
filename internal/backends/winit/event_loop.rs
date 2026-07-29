@@ -9,7 +9,7 @@
 */
 use crate::EventResult;
 use crate::drag_resize_window::{handle_cursor_move_for_resize, handle_resize};
-use crate::winitwindowadapter::WindowVisibility;
+use crate::winitwindowadapter::{WindowVisibility, WinitWindowAdapter};
 use crate::{SharedBackendData, SlintEvent};
 use corelib::SharedString;
 use corelib::graphics::euclid;
@@ -210,6 +210,7 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
         }
 
         let runtime_window = WindowInner::from_pub(window.window());
+        self.maybe_set_custom_cursor(&window, event_loop);
         if !matches!(event, WindowEvent::CursorMoved { .. } | WindowEvent::AxisMotion { .. }) {
             self.flush_pending_mouse_move();
         }
@@ -240,7 +241,7 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
             WindowEvent::CloseRequested => {
                 self.loop_error = window
                     .window()
-                    .try_dispatch_event(corelib::platform::WindowEvent::CloseRequested)
+                    .dispatch_event_with_result(corelib::platform::WindowEvent::CloseRequested)
                     .err();
             }
             WindowEvent::Focused(have_focus) => {
@@ -491,9 +492,11 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
                 if std::env::var("SLINT_SCALE_FACTOR").is_err() {
                     self.loop_error = window
                         .window()
-                        .try_dispatch_event(corelib::platform::WindowEvent::ScaleFactorChanged {
-                            scale_factor: scale_factor as f32,
-                        })
+                        .dispatch_event_with_result(
+                            corelib::platform::WindowEvent::ScaleFactorChanged {
+                                scale_factor: scale_factor as f32,
+                            },
+                        )
                         .err();
                     // TODO: send a resize event or try to keep the logical size the same.
                     //window.resize_event(inner_size_writer.???)?;
@@ -716,6 +719,19 @@ impl EventLoopState {
                 }
                 Ok(self)
             }
+        }
+    }
+
+    /// Sets the cursor to a custom source, if it needs to be set.
+    pub fn maybe_set_custom_cursor(
+        &self,
+        window: &WinitWindowAdapter,
+        event_loop: &ActiveEventLoop,
+    ) {
+        // If there is a new custom cursor, update it.
+        let custom_cursor_source = window.custom_cursor_source.take();
+        if let (Some(source), Some(winit_window)) = (custom_cursor_source, window.winit_window()) {
+            winit_window.set_cursor(event_loop.create_custom_cursor(source));
         }
     }
 

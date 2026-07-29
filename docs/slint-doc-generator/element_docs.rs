@@ -782,8 +782,8 @@ pub fn generate(cfg: &Config) -> Result<(), Box<dyn std::error::Error>> {
         &i_slint_compiler::symbol_counters::SymbolCounters::shared(),
     );
     let register = register.borrow();
-    let generated_dir = &cfg.generated_dir;
-    create_dir_all(generated_dir)?;
+    let generated_dir = cfg.reference_dir();
+    create_dir_all(&generated_dir)?;
 
     // Include all types for resolution, regardless of experimental or SC flag,
     // so property types still resolve their kind even when the target page
@@ -823,7 +823,9 @@ pub fn generate(cfg: &Config) -> Result<(), Box<dyn std::error::Error>> {
             continue;
         }
 
-        let group = extract_group(&mut description);
+        // The SC reference is small, so it presents one flat list without
+        // the group subdirectories used by the main docs site.
+        let group = extract_group(&mut description).filter(|_| !cfg.sc_only);
         let draft = strip_annotation(&mut description, "\\draft");
         if draft {
             continue;
@@ -881,7 +883,8 @@ pub fn generate(cfg: &Config) -> Result<(), Box<dyn std::error::Error>> {
                 || all_text.contains(&format!("<{sname}/>"))
             {
                 extra_imports.push(format!(
-                    "import {sname} from '/src/content/docs/reference/generated/structs/_{sname}.md';"
+                    "import {sname} from '/src/{}/reference/structs/_{sname}.md';",
+                    crate::GENERATED_DIR
                 ));
             }
         }
@@ -890,7 +893,8 @@ pub fn generate(cfg: &Config) -> Result<(), Box<dyn std::error::Error>> {
                 || all_text.contains(&format!("<{ename}/>"))
             {
                 extra_imports.push(format!(
-                    "import {ename} from '/src/content/docs/reference/generated/enums/_{ename}.md';"
+                    "import {ename} from '/src/{}/reference/enums/_{ename}.md';",
+                    crate::GENERATED_DIR
                 ));
             }
         }
@@ -900,6 +904,18 @@ pub fn generate(cfg: &Config) -> Result<(), Box<dyn std::error::Error>> {
         }
         if all_text.contains("<Link ") {
             writeln!(file, "import Link from '@slint/common-files/src/components/Link.astro';")?;
+        }
+        if all_text.contains("<NotInSC>") {
+            writeln!(
+                file,
+                "import NotInSC from '@slint/common-files/src/components/NotInSC.astro';"
+            )?;
+        }
+        if all_text.contains("<OnlyInSC>") {
+            writeln!(
+                file,
+                "import OnlyInSC from '@slint/common-files/src/components/OnlyInSC.astro';"
+            )?;
         }
         if all_text.contains("<Tabs ") || all_text.contains("<TabItem ") {
             writeln!(file, "import {{ Tabs, TabItem }} from '@astrojs/starlight/components';")?;

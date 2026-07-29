@@ -54,15 +54,8 @@ pub fn init_compiler(connection: Weak<Connection>) -> slint_interpreter::Compile
                     .extension()
                     .and_then(|e| e.to_str())
                     .unwrap_or("png");
-                let mime_type = match extension {
-                    "svg" | "svgz" => "image/svg+xml",
-                    "png" => "image/png",
-                    "jpg" | "jpeg" => "image/jpeg",
-                    "gif" => "image/gif",
-                    "bmp" => "image/bmp",
-                    "webp" => "image/webp",
-                    _ => "application/octet-stream",
-                };
+                let mime_type = i_slint_core::graphics::image_mime_type_from_extension(extension)
+                    .unwrap_or("application/octet-stream");
                 let file_content = connection.request_file(url).await.ok()?;
 
                 use base64::Engine as _;

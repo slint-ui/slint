@@ -10,7 +10,7 @@ build-backend = "maturin"
 
 [project]
 name = "slint"
-version = "1.18.0b2"
+version = "1.18.0b1"
 requires-python = ">= 3.12"
 authors = [{ name = "Slint Team", email = "info@slint.dev" }]
 classifiers = [
@@ -45,7 +45,7 @@ Tracker = "https://github.com/slint-ui/slint/issues"
 # `slint-dev` ships the development binary (system-testing and MCP support); it
 # is loaded only when SLINT_TEST_SERVER or SLINT_MCP_PORT is set. Its version is
 # pinned to match slint and is kept in sync by upgrade_version.yaml.
-dev = ["pytest", "numpy>=2.3.2", "pillow>=11.3.0", "aiohttp>=3.12.15", "slint-dev==1.18.0b2"]
+dev = ["pytest", "numpy>=2.3.2", "pillow>=11.3.0", "aiohttp>=3.12.15", "slint-dev==1.18.0b1"]
 
 [dependency-groups]
 dev = ["pytest>=8.3.4", "ruff>=0.9.6", "pillow>=11.3.0", "numpy>=2.3.2", "aiohttp>=3.12.15"]

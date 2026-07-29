@@ -7,7 +7,8 @@ use std::rc::Rc;
 
 use crate::diagnostics::{BuildDiagnostics, Spanned};
 use crate::expression_tree::{
-    BuiltinFunction, BuiltinMacroFunction, Callable, EasingCurve, Expression, Unit,
+    BuiltinFunction, BuiltinMacroFunction, Callable, EasingCurve, Expression, MouseCursorInner,
+    Unit,
 };
 use crate::langtype::{ElementType, Enumeration, EnumerationValue, Type};
 use crate::namedreference::NamedReference;
@@ -15,7 +16,7 @@ use crate::object_tree::{ElementRc, PropertyVisibility};
 use crate::parser::NodeOrToken;
 use crate::symbol_counters::SymbolCounters;
 use crate::typeregister::TypeRegister;
-use smol_str::{SmolStr, ToSmolStr};
+use smol_str::{SmolStr, ToSmolStr, format_smolstr};
 use std::cell::RefCell;
 
 pub use i_slint_common::color_parsing::named_colors;
@@ -28,6 +29,12 @@ pub struct LookupCtx<'a> {
     /// the type of the property for which this expression refers.
     /// (some property come in the scope)
     pub property_type: Type,
+
+    /// The expected type at the current position within the expression, updated as the
+    /// resolver descends into struct fields, array elements and call arguments. Unlike
+    /// `property_type` (the whole binding's type) it drives type-directed name resolution
+    /// (color/easing/enum literals) at that exact position.
+    pub expected_type: Type,
 
     /// Here is the stack in which id applies. (the last element in the scope is looked up first)
     pub component_scope: &'a [ElementRc],
@@ -65,6 +72,7 @@ impl<'a> LookupCtx<'a> {
         Self {
             property_name: Default::default(),
             property_type: Default::default(),
+            expected_type: Default::default(),
             component_scope: Default::default(),
             diag,
             symbol_counters,
@@ -81,6 +89,14 @@ impl<'a> LookupCtx<'a> {
             Type::Callback(f) | Type::Function(f) => &f.return_type,
             _ => &self.property_type,
         }
+    }
+
+    /// Run `f` with `expected_type` temporarily set to `ty`, restoring it afterwards.
+    pub fn with_expected_type<R>(&mut self, ty: Type, f: impl FnOnce(&mut Self) -> R) -> R {
+        let old = std::mem::replace(&mut self.expected_type, ty);
+        let r = f(self);
+        self.expected_type = old;
+        r
     }
 
     pub fn is_legacy_component(&self) -> bool {
@@ -101,8 +117,9 @@ impl<'a> LookupCtx<'a> {
 pub enum LookupResult {
     Expression {
         expression: Expression,
-        /// When set, this is deprecated, and the string is the new name
-        deprecated: Option<String>,
+        /// When set, this is deprecated, and the string is the hint message shown after
+        /// "The property 'xxx' has been deprecated." (e.g. "Please use 'yyy' instead")
+        deprecated: Option<SmolStr>,
     },
     Enumeration(Rc<Enumeration>),
     Namespace(BuiltinNamespace),
@@ -129,6 +146,7 @@ pub enum BuiltinNamespace {
     Math,
     Key,
     FontWeight,
+    MouseCursor,
     SlintInternal,
 }
 
@@ -213,6 +231,9 @@ impl LookupObject for LookupResult {
             LookupResult::Namespace(BuiltinNamespace::FontWeight) => {
                 FontWeightLookup.for_each_entry(ctx, f)
             }
+            LookupResult::Namespace(BuiltinNamespace::MouseCursor) => {
+                MouseCursorSpecific.for_each_entry(ctx, f)
+            }
             LookupResult::Namespace(BuiltinNamespace::SlintInternal) => {
                 SlintInternal.for_each_entry(ctx, f)
             }
@@ -232,6 +253,9 @@ impl LookupObject for LookupResult {
             LookupResult::Namespace(BuiltinNamespace::Key) => KeysLookup.lookup(ctx, name),
             LookupResult::Namespace(BuiltinNamespace::FontWeight) => {
                 FontWeightLookup.lookup(ctx, name)
+            }
+            LookupResult::Namespace(BuiltinNamespace::MouseCursor) => {
+                MouseCursorSpecific.lookup(ctx, name)
             }
             LookupResult::Namespace(BuiltinNamespace::SlintInternal) => {
                 SlintInternal.lookup(ctx, name)
@@ -501,7 +525,15 @@ impl LookupObject for ElementRc {
                 || lookup_result.property_visibility != PropertyVisibility::Private)
         {
             let deprecated = (lookup_result.resolved_name != name.as_str())
-                .then(|| lookup_result.resolved_name.to_string())
+                .then(|| format_smolstr!("Please use '{}' instead", lookup_result.resolved_name))
+                .or_else(|| {
+                    // Only warn about `@deprecated` properties when accessed from outside the
+                    // component that declares them
+                    lookup_result
+                        .deprecated
+                        .clone()
+                        .filter(|_| !lookup_result.is_local_to_component)
+                })
                 .or_else(|| check_extra_deprecated(self, ctx, name));
             Some(expression_from_reference(
                 NamedReference::new(self, lookup_result.resolved_name.to_smolstr()),
@@ -514,13 +546,17 @@ impl LookupObject for ElementRc {
     }
 }
 
+/// Returns the deprecation hint message for some hardcoded deprecated properties
 pub fn check_extra_deprecated(
     elem: &ElementRc,
     ctx: &LookupCtx<'_>,
     name: &SmolStr,
-) -> Option<String> {
+) -> Option<SmolStr> {
     if crate::typeregister::DEPRECATED_ROTATION_ORIGIN_PROPERTIES.iter().any(|(p, _)| p == name) {
-        return Some(format!("transform-origin.{}", &name[name.len() - 1..]));
+        return Some(format_smolstr!(
+            "Please use 'transform-origin.{}' instead",
+            &name[name.len() - 1..]
+        ));
     }
     let borrow = elem.borrow();
     (!ctx.type_register.expose_internal_types
@@ -534,13 +570,13 @@ pub fn check_extra_deprecated(
             .and_then(|x| x.node.source_file())
             .is_none_or(|x| x.path().starts_with("builtin:"))
         && !name.starts_with("layout-"))
-    .then(|| format!("Palette.{name}"))
+    .then(|| format_smolstr!("Please use 'Palette.{name}' instead"))
 }
 
 fn expression_from_reference(
     n: NamedReference,
     ty: &Type,
-    deprecated: Option<String>,
+    deprecated: Option<SmolStr>,
 ) -> LookupResult {
     match ty {
         Type::Callback { .. } => Callable::Callback(n).into(),
@@ -618,28 +654,30 @@ impl LookupType {
     }
 }
 
-/// Lookup for things specific to the return type (eg: colors or enums)
-pub struct ReturnTypeSpecificLookup;
-impl LookupObject for ReturnTypeSpecificLookup {
+/// Lookup for things specific to the expected type (eg: colors or enums)
+pub struct TypeSpecificLookup;
+impl LookupObject for TypeSpecificLookup {
     fn for_each_entry<R>(
         &self,
         ctx: &LookupCtx,
         f: &mut impl FnMut(&SmolStr, LookupResult) -> Option<R>,
     ) -> Option<R> {
-        match ctx.return_type() {
+        match &ctx.expected_type {
             Type::Color => ColorSpecific.for_each_entry(ctx, f),
             Type::Brush => ColorSpecific.for_each_entry(ctx, f),
             Type::Easing => EasingSpecific.for_each_entry(ctx, f),
+            Type::MouseCursor => MouseCursorSpecific.for_each_entry(ctx, f),
             Type::Enumeration(enumeration) => enumeration.clone().for_each_entry(ctx, f),
             _ => None,
         }
     }
 
     fn lookup(&self, ctx: &LookupCtx, name: &SmolStr) -> Option<LookupResult> {
-        match ctx.return_type() {
+        match &ctx.expected_type {
             Type::Color => ColorSpecific.lookup(ctx, name),
             Type::Brush => ColorSpecific.lookup(ctx, name),
             Type::Easing => EasingSpecific.lookup(ctx, name),
+            Type::MouseCursor => MouseCursorSpecific.lookup(ctx, name),
             Type::Enumeration(enumeration) => enumeration.clone().lookup(ctx, name),
             _ => None,
         }
@@ -817,6 +855,27 @@ impl LookupObject for MathFunctions {
     }
 }
 
+struct MouseCursorSpecific;
+impl LookupObject for MouseCursorSpecific {
+    fn for_each_entry<R>(
+        &self,
+        _ctx: &LookupCtx,
+        f: &mut impl FnMut(&SmolStr, LookupResult) -> Option<R>,
+    ) -> Option<R> {
+        let e = crate::typeregister::BUILTIN.with(|e| e.enums.BuiltInMouseCursor.clone());
+        let mut cursor = |n, e| f(n, Expression::MouseCursor(MouseCursorInner::BuiltIn(e)).into());
+        let mut r = None;
+        for value in &e.values {
+            if let Some(enum_value) = e.clone().try_value_from_string(value.as_str()) {
+                r = r.or_else(|| cursor(value, Box::new(Expression::EnumerationValue(enum_value))));
+            }
+        }
+        r.or_else(|| {
+            f(&SmolStr::new_static("custom"), BuiltinMacroFunction::CustomMouseCursor.into())
+        })
+    }
+}
+
 struct SlintInternal;
 impl LookupObject for SlintInternal {
     fn for_each_entry<R>(
@@ -929,6 +988,7 @@ impl LookupObject for BuiltinNamespaceLookup {
                     None
                 }
             })
+            .or_else(|| f("MouseCursor", LookupResult::Namespace(BuiltinNamespace::MouseCursor)))
     }
 }
 
@@ -945,10 +1005,7 @@ pub fn global_lookup() -> impl LookupObject {
                         InScopeLookup,
                         (
                             LookupType,
-                            (
-                                BuiltinNamespaceLookup,
-                                (ReturnTypeSpecificLookup, BuiltinFunctionLookup),
-                            ),
+                            (BuiltinNamespaceLookup, (TypeSpecificLookup, BuiltinFunctionLookup)),
                         ),
                     ),
                 ),

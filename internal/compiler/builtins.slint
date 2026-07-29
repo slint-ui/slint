@@ -34,7 +34,9 @@
 }
 
 component Rectangle inherits Empty {
-    /// The background brush of this `Rectangle`.
+    /// The background brush of this `Rectangle`, filling its geometry. \{#sls.ref.rectangle.background}
+    ///
+    /// Without a `background` and without a border, the `Rectangle` paints nothing. \{#sls.ref.rectangle.empty}
     ///
     /// ```slint imageAlt="rectangle background" width="200" height="400"
     /// property <brush> rainbow-gradient: @linear-gradient(40deg, rgba(255, 0, 0, 1) 0%, rgba(255, 154, 0, 1) 10%, rgba(208, 222, 33, 1) 20%,rgba(79, 220, 74, 1) 30%, rgba(63, 218, 216, 1) 40%, rgba(47, 201, 226, 1) 50%, rgba(28, 127, 238, 1) 60%, rgba(95, 21, 242, 1) 70%, rgba(186, 12, 248, 1) 80%, rgba(251, 7, 217, 1) 90%, rgba(255, 0, 0, 1) 100%);
@@ -144,9 +146,11 @@ component BasicBorderRectangle inherits Rectangle {
 }
 
 /// By default, a `Rectangle` is just an empty item that shows nothing. By setting a color or configuring a border,
-/// it's then possible to draw a rectangle on the screen.
+/// it's then possible to draw a rectangle on the screen. \{#sls.meta.rectangle.purpose}
 ///
+/// <NotInSC>
 /// When not part of a layout, its width and height default to 100% of the parent element.
+/// </NotInSC>
 ///
 /// ```slint playground imageAlt="rectangle example"
 /// export component ExampleRectangle inherits Window {
@@ -551,6 +555,11 @@ component SimpleText inherits Empty {
     /// }
     /// ```
     in property <TextHorizontalAlignment> horizontal-alignment;
+    /// The maximum number of lines to display. Wrapped lines count towards the limit, and
+    /// with `overflow` set to `elide`, the ellipsis is placed on the last visible line.
+    /// Values less than or equal to zero don't limit the number of lines.
+    /// \default 0
+    in property <int> max-lines;
     /// The text rendered.
     /// \default ""
     in property <string> text;
@@ -742,6 +751,10 @@ component StyledTextItem inherits Empty {
     in property <TextHorizontalAlignment> horizontal-alignment;
     /// The color used for rendering links in the text.
     in property <color> link-color: #00f;
+    /// The maximum number of lines to display. Wrapped lines count towards the limit.
+    /// Values less than or equal to zero don't limit the number of lines.
+    /// \default 0
+    in property <int> max-lines;
     /// The styled text rendered, using CommonMark markup with additional HTML tags for styling.
     /// \default ""
     in property <styled-text> text;
@@ -818,7 +831,7 @@ export component TouchArea {
     in property <bool> enabled: true;
     /// Set to true when the mouse is over the `TouchArea` area.
     out property <bool> has_hover;
-    /// The mouse cursor type when the mouse is hovering the `TouchArea`.
+    /// The mouse cursor when the mouse is hovering the `TouchArea`.
     in property <MouseCursor> mouse-cursor;
     /// Set by the `TouchArea` to the position of the mouse within it.
     out property <length> mouse_x;
@@ -963,7 +976,7 @@ component KeyBinding {
 ///     height: 100px;
 ///
 ///     Flickable {
-///         viewport-height: 300px;
+///         content-height: 300px;
 ///         Text {
 ///             x:0;
 ///             y: 150px;
@@ -975,14 +988,14 @@ component KeyBinding {
 ///
 /// The `Flickable` is a low-level element that is the base for scrollable
 /// widgets, such as the <Link type="ScrollView"/> or <Link type="ListView"/>.
-/// When the `viewport-width` or the `viewport-height` is greater than the parent's `width` or `height`
+/// When the `content-width` or the `content-height` is greater than the parent's `width` or `height`
 /// respectively, the element becomes scrollable.
 ///
-/// When unset, the `viewport-width` and `viewport-height` are
+/// When unset, the `content-width` and `content-height` are
 /// calculated automatically based on the `Flickable`'s children. This isn't the
 /// case when using a `for` loop to populate the elements. This is a bug tracked in
 /// issue [#407](https://github.com/slint-ui/slint/issues/407).
-/// The maximum and preferred size of the `Flickable` are based on the viewport.
+/// The maximum and preferred size of the `Flickable` are based on the content size.
 ///
 /// Note that the `Flickable` doesn't create a scrollbar.
 /// You can use a <Link type="ScrollView"/> instead or add your own scroll bars.
@@ -1029,21 +1042,25 @@ export component Flickable inherits Empty {
     ///     interactive: false;
     /// }
     /// ```
-    /// When false, the viewport can't be panned by the user, neither by dragging with the mouse
+    /// When false, the content can't be panned by the user, neither by dragging with the mouse
     /// nor with touch.
     in property <bool> interactive: true;
-    /// When true, the viewport can be scrolled by clicking on it and dragging it with the cursor.
+    /// When true, the content can be scrolled by clicking on it and dragging it with the cursor.
     /// Panning with a touch screen is only affected by `interactive`.
     in property <bool> mouse-drag-pan-enabled: true;
-    /// The total width of the scrollable element.
-    in property <length> viewport-width;
-    /// The total height of the scrollable element.
-    in property <length> viewport-height;
-    /// The position of the scrollable element relative to the `Flickable`. This is usually a negative value.
-    in-out property <length> viewport-x;
-    /// The position of the scrollable element relative to the `Flickable`. This is usually a negative value.
-    in-out property <length> viewport-y;
-    /// Invoked when `viewport-x` or `viewport-y` is changed by a user action (dragging, scrolling).
+    /// The total width of the scrollable content.
+    in property <length> content-width;
+    /// The total height of the scrollable content.
+    in property <length> content-height;
+    /// The position of the scrollable content relative to the `Flickable`. This is usually a negative value.
+    in-out property <length> content-x;
+    /// The position of the scrollable content relative to the `Flickable`. This is usually a negative value.
+    in-out property <length> content-y;
+    in property <length> viewport-width <=> content-width;
+    in property <length> viewport-height <=> content-height;
+    in-out property <length> viewport-x <=> content-x;
+    in-out property <length> viewport-y <=> content-y;
+    /// Invoked when `content-x` or `content-y` is changed by a user action (dragging, scrolling).
     callback flicked();
     //-default_size_binding:expands_to_parent_geometry
 }
@@ -1527,7 +1544,8 @@ component WindowItem {
     /// Whether the window is maximized. Setting this to true maximizes the window.
     //-shadowable
     in-out property <bool> maximized;
-    /// The background brush of the `Window`.
+    /// The background brush of the `Window`. It is painted first, covering the whole window. \{#sls.ref.window.background}
+    /// \sc
     /// \default depends on the style
     in property <brush> background; // StyleMetrics.background  set in apply_default_properties_from_style
     in property <brush> color <=> background;
@@ -1570,17 +1588,67 @@ component WindowItem {
     }
 }
 
-/// `Window` is the root of the tree of elements that are visible on the screen.
+/// `Window` is the root of the tree of elements that are visible on the screen. \{#sls.meta.window.purpose}
 ///
+/// <NotInSC>
 /// The `Window` geometry will be restricted by its layout constraints: Setting the `width` will result in a fixed width,
 /// and the window manager will respect the `min-width` and `max-width` so the window can't be resized bigger
 /// or smaller. The initial width can be controlled with the `preferred-width` property. The same applies to the `Window`s height.
+/// </NotInSC>
 ///
+/// <NotInSC>
 /// Use the <Link type="MenuBar" /> element to declare a menu bar for the window.
+/// </NotInSC>
 /// \group:window
 /// \sc
 export component Window inherits WindowItem {
     MenuBar { }
+}
+
+/// Use `WindowMoveArea` to let the user move the window by dragging a region of your UI,
+/// such as a custom title bar in a window without native decorations (`no-frame: true`).
+///
+/// The move starts when the user presses the left mouse button inside the area and drags past a small threshold.
+/// A plain click doesn't move the window, so child elements like <Link type="TouchArea" /> stay interactive.
+///
+/// The windowing system performs the move.
+/// It requires a backend and platform with support for it (winit on Windows, macOS, X11, and Wayland; Qt).
+/// On platforms without support, the element does nothing.
+///
+/// When not part of a layout, its width and height default to 100% of the parent element.
+///
+/// ```slint playground
+/// export component Example inherits Window {
+///     no-frame: true;
+///     preferred-width: 400px;
+///     preferred-height: 300px;
+///     VerticalLayout {
+///         Rectangle {
+///             height: 32px;
+///             background: #444444;
+///             WindowMoveArea {
+///                 HorizontalLayout {
+///                     Text {
+///                         text: "My Application";
+///                         color: white;
+///                         vertical-alignment: center;
+///                         horizontal-alignment: center;
+///                     }
+///                 }
+///             }
+///         }
+///         Rectangle {
+///             background: white;
+///         }
+///     }
+/// }
+/// ```
+/// \group:window
+export component WindowMoveArea {
+    /// Set to `false` to stop the `WindowMoveArea` from initiating window moves.
+    /// Events still reach the child elements.
+    in property <bool> enabled: true;
+    //-default_size_binding:expands_to_parent_geometry
 }
 
 export component BoxShadow inherits Empty {
@@ -1683,6 +1751,9 @@ export component TextInput {
     ///  Use this to configure `TextInput` for editing special input, such as password fields.
     /// \default text
     in property <InputType> input-type;
+    /// Hints for the platform's input method (such as a soft keyboard), for example to configure auto-capitalization.
+    /// The input method may take these hints into account, but might also ignore them.
+    in property <InputMethodHints> input-method-hints;
     // Internal, undocumented property, only exposed for tests.
     out property <int> cursor-position_byte-offset;
     // Internal, undocumented property, only exposed for tests.
@@ -1754,6 +1825,7 @@ export component Clip {
     in property <length> border-bottom-right-radius;
     in property <length> border-width;
     in property <bool> clip;
+    in property <bool> is-visibility-clip;
     //-default_size_binding:expands_to_parent_geometry
     //-is_internal
 }
@@ -2319,42 +2391,35 @@ export component Path {
     //! If non-zero, the path will be scaled to fit into the specified height.
     //! </SlintProperty>
     //!
+    in property <string> commands;  // 'fake' hardcoded in typeregister.rs
+    /// Defines how the path's view box is scaled to fit the element's width and height.
+    /// If no view box is defined, the implicit bounding rectangle is used.
+    /// \default contain
+    in property <ImageFit> fit: contain;
+    /// By default, when a path has a view box defined and the elements render
+    /// outside of it, they are still rendered. When this property is set to `true`, then rendering will be
+    /// clipped at the boundaries of the view box.
+    /// \default false
+    in property <bool> clip;
+    ///  By default, the fill and stroke of a path is rendered with anti-aliasing, for best quality. Some GPUs
+    ///  have performance issues when rendering with anti-aliasing and animation. Setting the value to `false`
+    ///  might improve the frame-rate at the expense of a smoother looking path.
+    /// \default true
+    in property <bool> anti-alias: true;
     //! ## Viewbox Properties
-    //! ### viewbox-x
-    //! <SlintProperty propName="viewbox-x" typeName="float"/>
-    //!
-    //! ### viewbox-y
-    //! <SlintProperty propName="viewbox-y" typeName="float"/>
-    //!
-    //! ### viewbox-width
-    //! <SlintProperty propName="viewbox-width" typeName="float"/>
-    //!
-    //! ### viewbox-height
-    //! <SlintProperty propName="viewbox-height" typeName="float"/>
     //!
     //! These four properties allow defining the position and size of the viewport of the path in path coordinates.
     //!
     //! If the `viewbox-width` or `viewbox-height` is less or equal than zero, the viewbox properties are
     //! ignored and instead the bounding rectangle of all path elements is used to define the view port.
-    in property <string> commands;  // 'fake' hardcoded in typeregister.rs
+    ///
     in property <float> viewbox-x;
+    ///
     in property <float> viewbox-y;
+    ///
     in property <float> viewbox-width;
+    ///
     in property <float> viewbox-height;
-    /// Defines how the path's view box is scaled to fit the element's width and height.
-    /// If no view box is defined, the implicit bounding rectangle is used.
-    /// \default contain
-    in property <ImageFit> fit: contain;
-    /// \default false
-    in property <bool> clip;
-    //!  By default, when a path has a view box defined and the elements render
-    //! outside of it, they are still rendered. When this property is set to `true`, then rendering will be
-    //! clipped at the boundaries of the view box.
-    /// \default true
-    in property <bool> anti-alias: true;
-    //!  By default, the fill and stroke of a path is rendered with anti-aliasing, for best quality. Some GPUs
-    //!  have performance issues when rendering with anti-aliasing and animation. Setting the value to `false`
-    //!  might improve the frame-rate at the expense of a smoother looking path.
     //!
     //! ## Path Using SVG Commands
     //!

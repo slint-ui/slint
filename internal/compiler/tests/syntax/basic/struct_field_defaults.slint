@@ -1,0 +1,64 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+struct Ok1 {
+    a: int = 42,
+    b: string = "hello",
+    c: float = 0.5 * 2,
+    d: duration = -2s,
+}
+
+struct Ok2 {
+    nested: Ok1 = { a: 1 },
+    tags: [string] = ["x"],
+}
+
+struct WrongType {
+    a: int = "hello",
+//           >     <error{Cannot convert string to int}
+}
+
+struct NotConstant {
+    a: string = some-function(),
+//              >           <error{Unknown unqualified identifier 'some-function'}
+    b: duration = animation-tick(),
+//                >              <error{The default value of a struct field must be a constant expression: functions are not evaluated at compile time}
+}
+
+global SomeGlobal {
+    out property <int> some-value: 42;
+    pure public function some-const-function() -> int {
+        return 7;
+    }
+}
+
+struct NotConstantGlobals {
+    a: int = SomeGlobal.some-value,
+//           >                   <error{The default value of a struct field must be a constant expression: it references the property 'some-value'}
+    b: int = SomeGlobal.some-const-function(),
+//           >                              <error{The default value of a struct field must be a constant expression: it calls the function 'some-const-function'}
+}
+
+struct NotConstantRuntime {
+    a: string = @tr("foobar"),
+//              >           <error{The default value of a struct field must be a constant expression: the translation is selected at run-time}
+    b: length = 44phx,
+//              >   <error{The default value of a struct field must be a constant expression: the conversion to logical pixels depends on the window's scale factor}
+    c: length = 3rem,
+//              >  <error{The default value of a struct field must be a constant expression: the conversion from 'rem' depends on the window's default font size}
+    d: int = min(42, Math.sqrt(100)),
+//           >                     <error{The default value of a struct field must be a constant expression: functions are not evaluated at compile time}
+}
+
+struct ForwardReference {
+    e: LaterEnum = LaterEnum.x,
+//     >        <error{Unknown type 'LaterEnum'}
+//                 >         <^error{Cannot access id 'LaterEnum'}
+}
+
+enum LaterEnum { x, y }
+
+export component Foo {
+    in property <{a: int = 1}> anonymous;
+//                         ^error{Field default values are only supported in named struct declarations}
+}

@@ -1,0 +1,179 @@
+// Copyright © 2026 Klarälvdalens Datakonsult AB, a KDAB Group company <info@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A conditional `opacity`/`visible`/… binding on a repeated FlexboxLayout cell
+// injects a wrapper (Opacity/Clip/…) as the new repeated root. The wrapper must
+// keep reporting the cell as height-for-width / width-for-height, otherwise the
+// flex skips the constrained re-measure and falls back to reading the cell's own
+// width/height — which the parent flex is still computing, so the layout either
+// panics with "Recursion detected" or overflows the stack.
+//
+// `inherited_layout_info_*_with_constraint` walks the base-type chain, and after
+// the injection the element carrying those functions is the wrapper's *child*,
+// so they have to be re-declared on the wrapper.
+
+// A wrapping column flex is width-for-height: 4 boxes of 30px stack into a single
+// 40px column when tall enough, and into two 80px columns at 70px tall.
+component WrapCol {
+    FlexboxLayout {
+        flex-direction: column;
+        flex-wrap: wrap;
+        spacing: 0px;
+        padding: 0px;
+        align-content: start;
+        Rectangle { width: 40px; height: 30px; background: red; }
+        Rectangle { width: 40px; height: 30px; background: green; }
+        Rectangle { width: 40px; height: 30px; background: blue; }
+        Rectangle { width: 40px; height: 30px; background: yellow; }
+    }
+}
+
+// A word-wrapping Text is height-for-width.
+component Card inherits Rectangle {
+    in property <string> label;
+    VerticalLayout {
+        Text { text: root.label; wrap: word-wrap; }
+    }
+}
+
+export component TestCase inherits Window {
+    width: 1000px;
+    height: 600px;
+
+    in-out property <bool> cond: true;
+    property <string> long: "A really long card text that will almost certainly need to wrap onto two or more lines when the flex space is tight";
+
+    // Single-line reference, so the height assertions stay font-independent
+    // (the nodejs backend has no test fonts).
+    refLine := Text { x: -3000px; text: "Short"; wrap: no-wrap; }
+    out property <length> line-height: refLine.height;
+
+    // --- width-for-height cells in a wrapping column flex ---
+    // Each flex is 70px tall: the WrapCol fills the first column on its own and
+    // the anchor is pushed to the second, so `anchor.x` is the solved WrapCol width.
+
+    // Static reference, no repeater, no wrapper.
+    FlexboxLayout {
+        x: 0; y: 0; width: 300px; height: 70px;
+        flex-direction: column;
+        flex-wrap: wrap;
+        spacing: 0px; padding: 0px;
+        align-content: start;
+        cross-axis-alignment: stretch;
+        WrapCol { min-height: 70px; max-height: 70px; }
+        wStatic := Rectangle { width: 5px; height: 5px; }
+    }
+
+    // Repeated cell wrapped by Opacity.
+    FlexboxLayout {
+        x: 300px; y: 0; width: 300px; height: 70px;
+        flex-direction: column;
+        flex-wrap: wrap;
+        spacing: 0px; padding: 0px;
+        align-content: start;
+        cross-axis-alignment: stretch;
+        for x in [1]: WrapCol { min-height: 70px; max-height: 70px; opacity: cond ? 1.0 : 0.4; }
+        wOpacity := Rectangle { width: 5px; height: 5px; }
+    }
+
+    // Repeated cell wrapped by Clip (via `visible`).
+    FlexboxLayout {
+        x: 600px; y: 0; width: 300px; height: 70px;
+        flex-direction: column;
+        flex-wrap: wrap;
+        spacing: 0px; padding: 0px;
+        align-content: start;
+        cross-axis-alignment: stretch;
+        for x in [1]: WrapCol { min-height: 70px; max-height: 70px; visible: cond; }
+        wVisible := Rectangle { width: 5px; height: 5px; }
+    }
+
+    // --- height-for-width cells in a wrapping row flex ---
+    // The card takes line 1 and the 150px-wide anchor is pushed to line 2, so
+    // `anchor.y` is the solved card height.
+
+    // Static reference, no repeater, no wrapper.
+    FlexboxLayout {
+        x: 0; y: 100px; width: 150px; height: 400px;
+        flex-direction: row;
+        flex-wrap: wrap;
+        spacing: 0px; padding: 0px;
+        align-content: start;
+        cross-axis-alignment: start;
+        Card { label: long; flex-shrink: 0; flex-basis: 150px; }
+        hStatic := Rectangle { width: 150px; height: 5px; }
+    }
+
+    // Repeated cell wrapped by Opacity.
+    FlexboxLayout {
+        x: 200px; y: 100px; width: 150px; height: 400px;
+        flex-direction: row;
+        flex-wrap: wrap;
+        spacing: 0px; padding: 0px;
+        align-content: start;
+        cross-axis-alignment: start;
+        for s in [long]: Card { label: s; flex-shrink: 0; flex-basis: 150px; opacity: cond ? 1.0 : 0.4; }
+        hOpacity := Rectangle { width: 150px; height: 5px; }
+    }
+
+    // Repeated cell wrapped by Clip (via `visible`).
+    FlexboxLayout {
+        x: 400px; y: 100px; width: 150px; height: 400px;
+        flex-direction: row;
+        flex-wrap: wrap;
+        spacing: 0px; padding: 0px;
+        align-content: start;
+        cross-axis-alignment: start;
+        for s in [long]: Card { label: s; flex-shrink: 0; flex-basis: 150px; visible: cond; }
+        hVisible := Rectangle { width: 150px; height: 5px; }
+    }
+
+    // `x`/`y` are relative to the enclosing flexbox, so they are the solved
+    // cell width/height directly.
+    out property <length> w-static: wStatic.x;
+    out property <length> h-static: hStatic.y;
+
+    // The reference cells really did wrap, otherwise the equalities below would
+    // hold trivially.
+    out property <bool> w-wrapped: w-static > 60px;
+    out property <bool> h-wrapped: h-static > line-height * 1.5;
+
+    out property <bool> w-opacity-ok: abs(wOpacity.x - w-static) < 1px;
+    out property <bool> w-visible-ok: abs(wVisible.x - w-static) < 1px;
+    out property <bool> h-opacity-ok: abs(hOpacity.y - h-static) < 1px;
+    out property <bool> h-visible-ok: abs(hVisible.y - h-static) < 1px;
+
+    out property <bool> test: w-wrapped && h-wrapped
+        && w-opacity-ok && w-visible-ok && h-opacity-ok && h-visible-ok;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_w_wrapped(), "width-for-height reference cell did not wrap");
+assert!(instance.get_h_wrapped(), "height-for-width reference card did not wrap");
+assert!(instance.get_w_opacity_ok(), "opacity-wrapped repeated width-for-height cell not re-measured");
+assert!(instance.get_w_visible_ok(), "visible-wrapped repeated width-for-height cell not re-measured");
+assert!(instance.get_h_opacity_ok(), "opacity-wrapped repeated height-for-width cell not re-measured");
+assert!(instance.get_h_visible_ok(), "visible-wrapped repeated height-for-width cell not re-measured");
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_w_wrapped());
+assert(instance.get_h_wrapped());
+assert(instance.get_w_opacity_ok());
+assert(instance.get_w_visible_ok());
+assert(instance.get_h_opacity_ok());
+assert(instance.get_h_visible_ok());
+```
+
+```js
+var instance = new slint.TestCase({});
+assert(instance.w_opacity_ok);
+assert(instance.w_visible_ok);
+assert(instance.h_opacity_ok);
+assert(instance.h_visible_ok);
+```
+*/

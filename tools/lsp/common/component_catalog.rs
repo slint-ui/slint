@@ -48,6 +48,7 @@ fn builtin_component_info(name: &str) -> ComponentInformation {
         is_layout,
         is_interactive,
         is_exported: true,
+        is_interface: false,
         defined_at: None,
         default_properties,
     }
@@ -81,6 +82,7 @@ fn std_widgets_info(name: &str, is_global: bool) -> ComponentInformation {
         is_layout,
         is_interactive: false,
         is_exported: true,
+        is_interface: false,
         defined_at: None,
         default_properties,
     }
@@ -89,6 +91,7 @@ fn std_widgets_info(name: &str, is_global: bool) -> ComponentInformation {
 fn exported_project_component_info(
     name: &str,
     is_global: bool,
+    is_interface: bool,
     position: Position,
 ) -> ComponentInformation {
     ComponentInformation {
@@ -100,6 +103,7 @@ fn exported_project_component_info(
         is_layout: false,
         is_interactive: false,
         is_exported: true,
+        is_interface,
         defined_at: Some(position),
         default_properties: Vec::new(),
     }
@@ -110,6 +114,7 @@ fn file_local_component_info(
     name: &str,
     position: Position,
     is_global: bool,
+    is_interface: bool,
 ) -> ComponentInformation {
     ComponentInformation {
         name: name.to_string(),
@@ -120,6 +125,7 @@ fn file_local_component_info(
         is_layout: false,
         is_interactive: false,
         is_exported: false,
+        is_interface,
         defined_at: Some(position),
         default_properties: Vec::new(),
     }
@@ -196,6 +202,7 @@ pub fn all_exported_components(
                 Some(exported_project_component_info(
                     exported_name.as_str(),
                     c.is_global(),
+                    c.is_interface(),
                     Position { url: url.clone(), offset },
                 ))
             } else {
@@ -296,6 +303,7 @@ pub fn file_local_components(
                 &component.id,
                 Position { url: url.clone(), offset },
                 component.is_global(),
+                component.is_interface(),
             ));
         }
     }

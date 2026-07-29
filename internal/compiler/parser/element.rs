@@ -49,6 +49,7 @@ pub fn parse_element(p: &mut impl Parser) -> bool {
 /// animate someProp { }
 /// animate * { }
 /// @children
+/// @deprecated property alias <=> two.way;
 /// double_binding <=> element.property;
 /// public pure function foo() {}
 /// changed foo => {}
@@ -140,6 +141,9 @@ pub fn parse_element_content(p: &mut impl Parser) {
                 SyntaxKind::LBracket if p.peek().as_str() == "transitions" => {
                     parse_transitions(&mut *p);
                 }
+                SyntaxKind::Identifier if p.peek().as_str() == "implement" => {
+                    parse_implement_statement(&mut *p);
+                }
                 _ => {
                     if p.peek().as_str() == "changed" {
                         // Try to recover some errors
@@ -154,6 +158,10 @@ pub fn parse_element_content(p: &mut impl Parser) {
                 }
             },
             SyntaxKind::At => {
+                if p.nth(1).as_str() == "deprecated" {
+                    parse_property_declaration(&mut *p);
+                    continue;
+                }
                 let checkpoint = p.checkpoint();
                 p.consume();
                 if p.peek().as_str() == "children" {
@@ -438,6 +446,27 @@ fn parse_two_way_binding(p: &mut impl Parser) {
 }
 
 #[cfg_attr(test, parser_test)]
+/// ```test,ImplementStatement
+/// implement Foo <=> self;
+/// implement Foo <=> root;
+/// implement Foo <=> parent;
+/// implement Foo <=> inner;
+/// implement Qualified.Foo <=> self;
+/// ```
+fn parse_implement_statement(p: &mut impl Parser) {
+    debug_assert_eq!(p.peek().as_str(), "implement");
+    let mut p = p.start_node(SyntaxKind::ImplementStatement);
+    p.expect(SyntaxKind::Identifier); // "implement"
+    parse_qualified_name(&mut *p);
+    p.expect(SyntaxKind::DoubleArrow);
+    {
+        let mut p = p.start_node(SyntaxKind::DeclaredIdentifier);
+        p.expect(SyntaxKind::Identifier);
+    }
+    p.expect(SyntaxKind::Semicolon);
+}
+
+#[cfg_attr(test, parser_test)]
 /// ```test,CallbackDeclaration
 /// callback foobar;
 /// callback my_callback();
@@ -511,14 +540,40 @@ fn parse_callback_declaration(p: &mut impl Parser) {
 /// property<string> text: "Something";
 /// property<string> text <=> two.way;
 /// property alias <=> two.way;
+/// @deprecated property alias <=> two.way;
+/// @deprecated("Use 'two.way' instead") in-out property <string> text <=> two.way;
 /// ```
 fn parse_property_declaration(p: &mut impl Parser) {
     let checkpoint = p.checkpoint();
+    let has_deprecation = p.peek().kind() == SyntaxKind::At;
+    if has_deprecation {
+        let mut p = p.start_node(SyntaxKind::PropertyDeprecation);
+        p.consume(); // "@"
+        debug_assert_eq!(p.peek().as_str(), "deprecated");
+        p.consume(); // "deprecated"
+        if p.test(SyntaxKind::LParent) {
+            let peek = p.peek();
+            if peek.kind() != SyntaxKind::StringLiteral
+                || !peek.as_str().starts_with('"')
+                || !peek.as_str().ends_with('"')
+            {
+                p.error("@deprecated message must be a plain string literal, without any '\\{}' expressions");
+                p.until(SyntaxKind::RParent);
+            } else {
+                p.expect(SyntaxKind::StringLiteral);
+                p.expect(SyntaxKind::RParent);
+            }
+        }
+    }
     while matches!(p.peek().as_str(), "in" | "out" | "in-out" | "in_out" | "private") {
         p.consume();
     }
     if p.peek().as_str() != "property" {
-        p.error("Expected 'property' keyword");
+        if has_deprecation {
+            p.error("@deprecated can only be applied to property declarations");
+        } else {
+            p.error("Expected 'property' keyword");
+        }
         return;
     }
     let mut p = p.start_node_at(checkpoint, SyntaxKind::PropertyDeclaration);

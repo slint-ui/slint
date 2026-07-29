@@ -150,6 +150,16 @@ use super::RequestedGraphicsAPI;
 /// This is used to determine if we should fall back to software rendering (instead of using WGPU
 /// software rendering, such as DX12's Warp adapter)
 pub fn any_wgpu29_adapters_with_gpu(requested_graphics_api: Option<RequestedGraphicsAPI>) -> bool {
+    // On WASM the wgpu init path uses
+    // `wgpu::util::new_instance_with_webgpu_detection`, which probes
+    // `navigator.gpu.requestAdapter()` asynchronously and falls through
+    // to the WebGL backend (compiled in via the wgpu-29 `webgl` feature)
+    // when no WebGPU adapter is reachable. So a hardware-accelerated
+    // adapter is effectively always available; assume yes here and
+    // let the actual init surface a real error if both fail.
+    if cfg!(target_family = "wasm") {
+        return true;
+    }
     let allow_cpu = std::env::var("SLINT_WGPU_CPU").is_ok();
     if allow_cpu {
         return true;
@@ -160,26 +170,17 @@ pub fn any_wgpu29_adapters_with_gpu(requested_graphics_api: Option<RequestedGrap
             (instance, wgpu::Backends::all())
         }
         #[cfg(feature = "unstable-wgpu-29")]
-        Some(RequestedGraphicsAPI::WGPU29(api::WGPUConfiguration::Automatic(wgpu29_settings))) => {
-            if cfg!(target_family = "wasm") {
-                return true;
-            }
-            (
-                wgpu::Instance::new(wgpu::InstanceDescriptor {
-                    backends: wgpu29_settings.backends,
-                    flags: wgpu29_settings.instance_flags,
-                    backend_options: wgpu29_settings.backend_options,
-                    memory_budget_thresholds: wgpu29_settings.instance_memory_budget_thresholds,
-                    display: None,
-                }),
-                wgpu29_settings.backends,
-            )
-        }
+        Some(RequestedGraphicsAPI::WGPU29(api::WGPUConfiguration::Automatic(wgpu29_settings))) => (
+            wgpu::Instance::new(wgpu::InstanceDescriptor {
+                backends: wgpu29_settings.backends,
+                flags: wgpu29_settings.instance_flags,
+                backend_options: wgpu29_settings.backend_options,
+                memory_budget_thresholds: wgpu29_settings.instance_memory_budget_thresholds,
+                display: None,
+            }),
+            wgpu29_settings.backends,
+        ),
         None => {
-            if cfg!(target_family = "wasm") {
-                return true;
-            }
-
             let backends = wgpu::Backends::from_env().unwrap_or_default();
 
             (
@@ -215,9 +216,9 @@ impl From<Box<dyn wgpu::DisplayAndWindowHandle + 'static>> for SurfaceTarget {
     }
 }
 
-/// Internal helper function to initialize the wgpu instance/adapter/device/queue from either scratch or
+/// Internal async helper function to initialize the wgpu instance/adapter/device/queue from either scratch or
 /// developer-provided config. This is called by any renderer intending to support WGPU.
-pub fn init_instance_adapter_device_queue_surface(
+pub async fn async_init_instance_adapter_device_queue_surface(
     surface_target: impl Into<SurfaceTarget>,
     requested_graphics_api: Option<RequestedGraphicsAPI>,
     backends_to_avoid: wgpu::Backends,
@@ -265,9 +266,7 @@ pub fn init_instance_adapter_device_queue_surface(
         }
         #[cfg(feature = "unstable-wgpu-29")]
         Some(RequestedGraphicsAPI::WGPU29(api::WGPUConfiguration::Automatic(wgpu29_settings))) => {
-            // wgpu uses async here, but the returned future is ready on first poll on all platforms except WASM,
-            // which we don't support right now.
-            let instance = poll_once(async {
+            let instance =
                 wgpu::util::new_instance_with_webgpu_detection(wgpu::InstanceDescriptor {
                     backends: wgpu29_settings.backends & !backends_to_avoid,
                     flags: wgpu29_settings.instance_flags,
@@ -275,57 +274,51 @@ pub fn init_instance_adapter_device_queue_surface(
                     memory_budget_thresholds: wgpu29_settings.instance_memory_budget_thresholds,
                     display: None,
                 })
-                .await
-            })
-            .expect("internal error: wgpu instance creation is not expected to be async");
+                .await;
 
             let surface = create_surface(&instance)?;
 
-            // wgpu uses async here, but the returned future is ready on first poll on all platforms except WASM,
-            // which we don't support right now.
-            let adapter = poll_once(async {
-                match wgpu::util::initialize_adapter_from_env(&instance, Some(&surface)).await {
-                    Ok(adapter) => Ok(adapter),
-                    Err(_) => {
-                        instance
-                            .request_adapter(&wgpu::RequestAdapterOptions {
-                                power_preference: wgpu29_settings.power_preference,
-                                force_fallback_adapter: false,
-                                compatible_surface: Some(&surface),
-                            })
-                            .await
-                    }
+            let adapter = match wgpu::util::initialize_adapter_from_env(&instance, Some(&surface))
+                .await
+            {
+                Ok(adapter) => Ok(adapter),
+                Err(_) => {
+                    instance
+                        .request_adapter(&wgpu::RequestAdapterOptions {
+                            power_preference: wgpu29_settings.power_preference,
+                            force_fallback_adapter: false,
+                            compatible_surface: Some(&surface),
+                        })
+                        .await
                 }
-                .expect("Failed to find an appropriate adapter")
-            })
-            .expect("internal error: wgpu adapter creation is not expected to be async");
+            }
+            .map_err(|e| -> Box<dyn std::error::Error + Send + Sync + 'static> {
+                alloc::format!("Failed to find an appropriate adapter: {e}").into()
+            })?;
 
-            let (device, queue) = poll_once(async {
-                adapter
-                    .request_device(&wgpu::DeviceDescriptor {
-                        label: wgpu29_settings.device_label.as_deref(),
-                        required_features: wgpu29_settings.device_required_features,
-                        // Make sure we use the texture resolution limits from the adapter, so we can support images the size of the swapchain.
-                        required_limits: wgpu29_settings
-                            .device_required_limits
-                            .using_resolution(adapter.limits()),
-                        experimental_features: wgpu29_settings.device_experimental_features,
-                        memory_hints: wgpu29_settings.device_memory_hints,
-                        trace: wgpu::Trace::default(),
-                    })
-                    .await
-                    .expect("Failed to create device")
-            })
-            .expect("internal error: wgpu device creation is not expected to be async");
+            let (device, queue) = adapter
+                .request_device(&wgpu::DeviceDescriptor {
+                    label: wgpu29_settings.device_label.as_deref(),
+                    required_features: wgpu29_settings.device_required_features,
+                    // Make sure we use the texture resolution limits from the adapter, so we can support images the size of the swapchain.
+                    required_limits: wgpu29_settings
+                        .device_required_limits
+                        .using_resolution(adapter.limits()),
+                    experimental_features: wgpu29_settings.device_experimental_features,
+                    memory_hints: wgpu29_settings.device_memory_hints,
+                    trace: wgpu::Trace::default(),
+                })
+                .await
+                .map_err(|e| -> Box<dyn std::error::Error + Send + Sync + 'static> {
+                    alloc::format!("Failed to create device: {e}").into()
+                })?;
 
             (instance, adapter, device, queue, surface)
         }
         None => {
             let backends = wgpu::Backends::from_env().unwrap_or_default() & !backends_to_avoid;
 
-            // wgpu uses async here, but the returned future is ready on first poll on all platforms except WASM,
-            // which we don't support right now.
-            let instance = poll_once(async {
+            let instance =
                 wgpu::util::new_instance_with_webgpu_detection(wgpu::InstanceDescriptor {
                     backends,
                     flags: wgpu::InstanceFlags::from_build_config().with_env(),
@@ -333,38 +326,32 @@ pub fn init_instance_adapter_device_queue_surface(
                     memory_budget_thresholds: wgpu::MemoryBudgetThresholds::default(),
                     display: None,
                 })
-                .await
-            })
-            .expect("internal error: wgpu instance creation is not expected to be async");
+                .await;
 
             let surface = create_surface(&instance)?;
 
-            // wgpu uses async here, but the returned future is ready on first poll on all platforms except WASM,
-            // which we don't support right now.
-            let adapter = poll_once(async {
+            let adapter =
                 wgpu::util::initialize_adapter_from_env_or_default(&instance, Some(&surface))
                     .await
-                    .expect("Failed to find an appropriate adapter")
-            })
-            .expect("internal error: wgpu adapter creation is not expected to be async");
+                    .map_err(|e| -> Box<dyn std::error::Error + Send + Sync + 'static> {
+                        alloc::format!("Failed to find an appropriate adapter: {e}").into()
+                    })?;
 
-            let (device, queue) = poll_once(async {
-                adapter
-                    .request_device(&wgpu::DeviceDescriptor {
-                        label: None,
-                        // Request all non-experimental features the adapter supports,
-                        // so that embedders like Bevy can use full GPU capabilities.
-                        required_features: adapter.features()
-                            - wgpu::Features::all_experimental_mask(),
-                        required_limits: adapter.limits(),
-                        experimental_features: wgpu::ExperimentalFeatures::disabled(),
-                        memory_hints: wgpu::MemoryHints::MemoryUsage,
-                        trace: wgpu::Trace::default(),
-                    })
-                    .await
-                    .expect("Failed to create device")
-            })
-            .expect("internal error: wgpu device creation is not expected to be async");
+            let (device, queue) = adapter
+                .request_device(&wgpu::DeviceDescriptor {
+                    label: None,
+                    // Request all non-experimental features the adapter supports,
+                    // so that embedders like Bevy can use full GPU capabilities.
+                    required_features: adapter.features() - wgpu::Features::all_experimental_mask(),
+                    required_limits: adapter.limits(),
+                    experimental_features: wgpu::ExperimentalFeatures::disabled(),
+                    memory_hints: wgpu::MemoryHints::MemoryUsage,
+                    trace: wgpu::Trace::default(),
+                })
+                .await
+                .map_err(|e| -> Box<dyn std::error::Error + Send + Sync + 'static> {
+                    alloc::format!("Failed to create device: {e}").into()
+                })?;
             (instance, adapter, device, queue, surface)
         }
         Some(_) => {
@@ -375,6 +362,87 @@ pub fn init_instance_adapter_device_queue_surface(
         }
     };
     Ok((instance, adapter, device, queue, surface))
+}
+
+/// Blocking wrapper around [`async_init_instance_adapter_device_queue_surface`] that uses
+/// `poll_once` to synchronously drive the future. This works on all platforms except WASM
+/// where the wgpu futures don't resolve on first poll.
+pub fn init_instance_adapter_device_queue_surface(
+    surface_target: impl Into<SurfaceTarget>,
+    requested_graphics_api: Option<RequestedGraphicsAPI>,
+    backends_to_avoid: wgpu::Backends,
+) -> Result<
+    (
+        wgpu_29::Instance,
+        wgpu_29::Adapter,
+        wgpu_29::Device,
+        wgpu_29::Queue,
+        wgpu_29::Surface<'static>,
+    ),
+    Box<dyn std::error::Error + Send + Sync + 'static>,
+> {
+    poll_once(async_init_instance_adapter_device_queue_surface(
+        surface_target,
+        requested_graphics_api,
+        backends_to_avoid,
+    ))
+    .expect("internal error: wgpu setup is not expected to be async")
+}
+
+/// Runs [`async_init_instance_adapter_device_queue_surface`] and passes the created
+/// objects on to `finalize`. On most platforms the initialization future resolves on
+/// the first poll, so this happens synchronously and errors (including `finalize`'s)
+/// are returned to the caller. On WASM the initialization does real async work (the
+/// WebGPU adapter probe is a JsFuture), so the future is spawned on the event loop
+/// via `context`, `finalize` runs when it resolves, and errors can only be logged.
+pub fn init_instance_adapter_device_queue_surface_then(
+    context: &crate::SlintContext,
+    surface_target: impl Into<SurfaceTarget> + 'static,
+    requested_graphics_api: Option<RequestedGraphicsAPI>,
+    backends_to_avoid: wgpu::Backends,
+    finalize: impl FnOnce(
+        wgpu_29::Instance,
+        wgpu_29::Adapter,
+        wgpu_29::Device,
+        wgpu_29::Queue,
+        wgpu_29::Surface<'static>,
+    ) -> Result<(), crate::api::PlatformError>
+    + 'static,
+) -> Result<(), crate::api::PlatformError> {
+    let init_future = async move {
+        let (instance, adapter, device, queue, surface) =
+            async_init_instance_adapter_device_queue_surface(
+                surface_target,
+                requested_graphics_api,
+                backends_to_avoid,
+            )
+            .await
+            .map_err(|e| {
+                crate::api::PlatformError::from(alloc::format!("WGPU initialization failed: {e}"))
+            })?;
+        finalize(instance, adapter, device, queue, surface)
+    };
+
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        let _ = context;
+        poll_once(init_future).expect("internal error: wgpu setup is not expected to be async")
+    }
+    #[cfg(target_arch = "wasm32")]
+    {
+        context
+            .spawn_local(async move {
+                if let Err(e) = init_future.await {
+                    crate::debug_log!("{e}");
+                }
+            })
+            .map_err(|e| {
+                crate::api::PlatformError::from(alloc::format!(
+                    "Error spawning async wgpu initialization: {e}"
+                ))
+            })?;
+        Ok(())
+    }
 }
 
 // Helper function to poll a future once. Remove once the suspension API uses async.

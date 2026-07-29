@@ -1,0 +1,21 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// `Foo_Bar` and `Foo-Bar` are the same identifier, so the second component
+// collides with the first, and likewise the element ids `a_b` and `a-b`.
+// The diagnostics print the canonical kebab-case form for both spellings.
+//#sls.lex.identifier.normalization-example
+//#sls.lex.identifier.canonical-form
+
+export component Foo_Bar inherits Window {}
+//               >     <error{Duplicated export 'Foo-Bar'}
+//     >                                  <^warning{Component is neither used nor exported}
+export component Foo-Bar inherits Window {
+//               >     <error{Multiple exported components per file are not supported in Slint SC}
+//               >     <^warning{Component 'Foo-Bar' is replacing a previously defined component with the same name}
+//               >     <^^error{Duplicated export 'Foo-Bar'}
+    a_b := Rectangle {}
+//         >        <error{duplicated element id 'a-b'}
+    a-b := Rectangle {}
+//         >        <error{duplicated element id 'a-b'}
+}

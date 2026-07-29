@@ -55,7 +55,7 @@ use i_slint_core::{Brush, Color, ImageInner, StaticTextures};
 use num_traits::Float;
 use num_traits::NumCast;
 
-pub use draw_functions::{PremultipliedRgbaColor, Rgb565Pixel, TargetPixel};
+pub use draw_functions::{PremultipliedRgbaColor, Rgb565BigEndianPixel, Rgb565Pixel, TargetPixel};
 
 type PhysicalLength = euclid::Length<i16, PhysicalPx>;
 type PhysicalRect = euclid::Rect<i16, PhysicalPx>;
@@ -830,6 +830,7 @@ impl RendererSealed for SoftwareRenderer {
             .unwrap_or_default();
         }
 
+        let max_lines = text_item.line_limit();
         let string = match &content {
             PlainOrStyledText::Plain(string) => alloc::borrow::Cow::Borrowed(string.as_str()),
             PlainOrStyledText::Styled(styled_text) => {
@@ -844,6 +845,7 @@ impl RendererSealed for SoftwareRenderer {
                     &string,
                     max_width.map(|max_width| (max_width.cast() * scale_factor).cast()),
                     text_wrap,
+                    max_lines,
                 )
             }
             fonts::Font::PixelFont(pf) => {
@@ -852,10 +854,65 @@ impl RendererSealed for SoftwareRenderer {
                     &string,
                     max_width.map(|max_width| (max_width.cast() * scale_factor).cast()),
                     text_wrap,
+                    max_lines,
                 )
             }
         };
         (PhysicalSize::from_lengths(longest_line_width, height).cast() / scale_factor).cast()
+    }
+
+    // Mirrors the font selection in text_size(), so both widths always come from the
+    // same font as what is rendered. The bitmap path measures word breaks only, which is
+    // all the caller asks for: char-wrap has no minimum and never reaches here.
+    fn text_content_widths(
+        &self,
+        text_item: Pin<&dyn i_slint_core::item_rendering::RenderString>,
+        item_rc: &i_slint_core::item_tree::ItemRc,
+    ) -> Option<i_slint_core::renderer::ContentWidths> {
+        let scale_factor = self.scale_factor()?;
+        let font_request = text_item.font_request(item_rc);
+        // Evaluate text() before borrowing font_context, as in text_size().
+        let content = text_item.text();
+        #[cfg(feature = "systemfonts")]
+        let slint_ctx = self.slint_context()?;
+        let font = {
+            #[cfg(feature = "systemfonts")]
+            let mut font_ctx = slint_ctx.font_context().borrow_mut();
+            fonts::match_font(
+                &font_request,
+                scale_factor,
+                #[cfg(feature = "systemfonts")]
+                &mut font_ctx,
+            )
+        };
+
+        #[cfg(feature = "systemfonts")]
+        if matches!(font, fonts::Font::VectorFont(_)) && !parley_disabled() {
+            return sharedparley::text_content_widths(self, text_item, item_rc);
+        }
+
+        let max_lines = text_item.line_limit();
+        let string = match &content {
+            PlainOrStyledText::Plain(string) => alloc::borrow::Cow::Borrowed(string.as_str()),
+            PlainOrStyledText::Styled(styled_text) => {
+                i_slint_core::styled_text::get_raw_text(styled_text)
+            }
+        };
+        let (min, max) = match &font {
+            #[cfg(feature = "systemfonts")]
+            fonts::Font::VectorFont(vf) => {
+                fonts::text_layout_for_font(vf, &font_request, scale_factor)
+                    .content_widths(&string, max_lines)
+            }
+            fonts::Font::PixelFont(pf) => {
+                fonts::text_layout_for_font(pf, &font_request, scale_factor)
+                    .content_widths(&string, max_lines)
+            }
+        };
+        Some(i_slint_core::renderer::ContentWidths {
+            min: (min.cast() / scale_factor).cast(),
+            max: (max.cast() / scale_factor).cast(),
+        })
     }
 
     fn char_size(
@@ -894,7 +951,7 @@ impl RendererSealed for SoftwareRenderer {
                 let mut buf = [0u8, 0u8, 0u8, 0u8];
                 let layout = fonts::text_layout_for_font(&vf, &font_request, scale_factor);
                 let (longest_line_width, height) =
-                    layout.text_size(ch.encode_utf8(&mut buf), None, TextWrap::NoWrap);
+                    layout.text_size(ch.encode_utf8(&mut buf), None, TextWrap::NoWrap, None);
                 (PhysicalSize::from_lengths(longest_line_width, height).cast() / scale_factor)
                     .cast()
             }
@@ -902,7 +959,7 @@ impl RendererSealed for SoftwareRenderer {
                 let mut buf = [0u8, 0u8, 0u8, 0u8];
                 let layout = fonts::text_layout_for_font(&pf, &font_request, scale_factor);
                 let (longest_line_width, height) =
-                    layout.text_size(ch.encode_utf8(&mut buf), None, TextWrap::NoWrap);
+                    layout.text_size(ch.encode_utf8(&mut buf), None, TextWrap::NoWrap, None);
                 (PhysicalSize::from_lengths(longest_line_width, height).cast() / scale_factor)
                     .cast()
             }
@@ -1017,6 +1074,7 @@ impl RendererSealed for SoftwareRenderer {
                     wrap: text_input.wrap(),
                     overflow: TextOverflow::Clip,
                     single_line: false,
+                    max_lines: None,
                 };
 
                 visual_representation.map_byte_offset_from_visual_text_to_actual_text(
@@ -1045,6 +1103,7 @@ impl RendererSealed for SoftwareRenderer {
                     wrap: text_input.wrap(),
                     overflow: TextOverflow::Clip,
                     single_line: false,
+                    max_lines: None,
                 };
 
                 visual_representation.map_byte_offset_from_visual_text_to_actual_text(
@@ -1108,6 +1167,7 @@ impl RendererSealed for SoftwareRenderer {
                     wrap: text_input.wrap(),
                     overflow: TextOverflow::Clip,
                     single_line: false,
+                    max_lines: None,
                 };
 
                 let cursor_position = paragraph.cursor_pos_for_byte_offset(byte_offset);
@@ -1142,6 +1202,7 @@ impl RendererSealed for SoftwareRenderer {
                     wrap: text_input.wrap(),
                     overflow: TextOverflow::Clip,
                     single_line: false,
+                    max_lines: None,
                 };
 
                 let cursor_position = paragraph.cursor_pos_for_byte_offset(byte_offset);
@@ -2804,6 +2865,7 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
         let offset = self.current_state.offset.to_vector().cast() * self.scale_factor;
 
         let (horizontal_alignment, vertical_alignment) = text.alignment();
+        let max_lines = text.line_limit();
 
         match &font {
             fonts::Font::PixelFont(pf) => {
@@ -2818,6 +2880,7 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
                     wrap: text.wrap(),
                     overflow: text.overflow(),
                     single_line: false,
+                    max_lines,
                 };
 
                 self.draw_text_paragraph(&paragraph, physical_clip, offset, color, None);
@@ -2835,6 +2898,7 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
                     wrap: text.wrap(),
                     overflow: text.overflow(),
                     single_line: false,
+                    max_lines,
                 };
 
                 self.draw_text_paragraph(&paragraph, physical_clip, offset, color, None);
@@ -2906,6 +2970,7 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
                     wrap: text_input.wrap(),
                     overflow: TextOverflow::Clip,
                     single_line: text_input.single_line(),
+                    max_lines: None,
                 };
 
                 self.draw_text_paragraph(&paragraph, physical_clip, offset, color, selection);
@@ -2976,6 +3041,7 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
                     wrap: text_input.wrap(),
                     overflow: TextOverflow::Clip,
                     single_line: text_input.single_line(),
+                    max_lines: None,
                 };
 
                 self.draw_text_paragraph(&paragraph, physical_clip, offset, color, selection);
@@ -3243,6 +3309,7 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
                     wrap: Default::default(),
                     overflow: Default::default(),
                     single_line: false,
+                    max_lines: None,
                 };
 
                 self.draw_text_paragraph(&paragraph, clip, Default::default(), color, None);
@@ -3260,6 +3327,7 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
                     wrap: Default::default(),
                     overflow: Default::default(),
                     single_line: false,
+                    max_lines: None,
                 };
 
                 self.draw_text_paragraph(&paragraph, clip, Default::default(), color, None);
@@ -3393,29 +3461,40 @@ impl<T: ProcessScene> sharedparley::GlyphRenderer for SceneBuilder<'_, T> {
             normalized_coords,
         );
 
-        let global_offset =
-            (self.current_state.offset.to_vector().cast() * self.scale_factor).cast();
+        let global_offset: euclid::Vector2D<f32, PhysicalPx> =
+            self.current_state.offset.to_vector().cast() * self.scale_factor;
+
+        const SUBPIXEL_BINS: i32 = fonts::vectorfont::SUBPIXEL_BIN_COUNT;
 
         for positioned_glyph in glyphs_it {
-            let Some(glyph) = std::num::NonZero::new(positioned_glyph.id as u16)
-                .and_then(|id| font.render_vector_glyph(id, slint_context))
-            else {
+            let Some(id) = std::num::NonZero::new(positioned_glyph.id as u16) else {
                 continue;
             };
 
-            let glyph_offset: euclid::Vector2D<i16, PhysicalPx> = euclid::Vector2D::from_lengths(
-                euclid::Length::new(positioned_glyph.x),
-                euclid::Length::new(positioned_glyph.y) + y_offset,
-            )
-            .cast();
+            // Absolute, sub-pixel-accurate device position of the pen for this glyph.
+            let abs_x = global_offset.x + positioned_glyph.x;
+            let abs_y = global_offset.y + positioned_glyph.y + y_offset.get();
+
+            // Quantize the horizontal position to SUBPIXEL_BINS positions per pixel.
+            // The integer part is the blit origin; the fractional part is rendered
+            // into the glyph coverage (see `render_vector_glyph`) instead of being
+            // discarded. This keeps inter-glyph spacing even: snapping the pen to a
+            // whole pixel (truncate or round) redistributes the sub-pixel advances
+            // unevenly between neighboring glyph pairs.
+            let quantized_x = (abs_x * SUBPIXEL_BINS as f32).round() as i32;
+            let dst_int_x = quantized_x.div_euclid(SUBPIXEL_BINS);
+            let subpixel_bin = quantized_x.rem_euclid(SUBPIXEL_BINS) as u8;
+
+            let Some(glyph) = font.render_vector_glyph(id, subpixel_bin, slint_context) else {
+                continue;
+            };
 
             let gl_y = PhysicalLength::new(glyph.y.truncate() as i16);
             let target_rect: PhysicalRect = euclid::Rect::<f32, PhysicalPx>::new(
-                (PhysicalPoint::from_lengths(PhysicalLength::new(0), -gl_y - glyph.height)
-                    + global_offset
-                    + glyph_offset)
-                    .cast()
-                    + euclid::vec2(glyph.glyph_origin_x, 0.0),
+                euclid::Point2D::new(
+                    dst_int_x as f32 + glyph.glyph_origin_x,
+                    abs_y.round() + (-gl_y - glyph.height).get() as f32,
+                ),
                 glyph.size().cast(),
             )
             .cast()

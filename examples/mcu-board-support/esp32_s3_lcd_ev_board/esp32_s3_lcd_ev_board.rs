@@ -320,21 +320,22 @@ impl slint::platform::Platform for EspBackend {
                         PhysicalPosition::new(x as i32, y as i32).to_logical(window.scale_factor());
                     if let Some(prev) = last_touch.replace(pos) {
                         if prev != pos {
-                            window
-                                .try_dispatch_event(WindowEvent::PointerMoved { position: pos })?;
+                            window.dispatch_event_with_result(WindowEvent::PointerMoved {
+                                position: pos,
+                            })?;
                         }
                     } else {
-                        window.try_dispatch_event(WindowEvent::PointerPressed {
+                        window.dispatch_event_with_result(WindowEvent::PointerPressed {
                             position: pos,
                             button: PointerEventButton::Left,
                         })?;
                     }
                 } else if let Some(pos) = last_touch.take() {
-                    window.try_dispatch_event(WindowEvent::PointerReleased {
+                    window.dispatch_event_with_result(WindowEvent::PointerReleased {
                         position: pos,
                         button: PointerEventButton::Left,
                     })?;
-                    window.try_dispatch_event(WindowEvent::PointerExited)?;
+                    window.dispatch_event_with_result(WindowEvent::PointerExited)?;
                 }
 
                 // 2) Render the UI into Slint's software renderer buffer

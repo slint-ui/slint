@@ -79,6 +79,8 @@ compile_error!(
 );
 
 mod api;
+#[cfg(feature = "internal")]
+mod debug_hook;
 mod dynamic_item_tree;
 mod dynamic_type;
 mod eval;
@@ -98,7 +100,7 @@ pub use api::*;
 
 #[cfg(feature = "internal")]
 #[doc(hidden)]
-pub use eval::default_value_for_type;
+pub use eval::{default_value_for_struct_field, default_value_for_type};
 
 #[cfg(test)]
 mod tests;

@@ -1,8 +1,12 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+# CI configuration that affects most jobs. Reusable workflows used by a single
+# job belong in the group gating that job instead.
 ci_config: &ci_config
- - '.github/**'
+ - '.github/workflows/ci.yaml'
+ - '.github/ci_path_filters.yaml'
+ - '.github/actions/**'
  - '.mise/**'
  # We count changes to Cargo.lock as a "CI config" level change, as we need to ensure that all CI jobs will work correctly with the updated lock file.
  # Otherwise, later job runs may run into issues that have nothing to do with their changes.
@@ -19,22 +23,49 @@ js_config: &js_config
  - '.npmrc'
  - 'pnpm-lock.yaml'
 
-slint:
- - 'api/rs/**'
- - 'cmake/**'
- - 'demos/**'
+# Compiler and runtime shared by all language APIs; they need the Qt widgets
+# and the testing backend, but no renderer. Language-specific generators and
+# the compiler's own test data are left to the api_* and `slint` groups.
+internal: &internal
+ - 'internal/!({compiler,renderers,backends}/**)'
+ - 'internal/compiler/!({tests,generator}/**)'
+ - 'internal/compiler/generator/!(cpp*|python*|rust*|slint_sc*){,/**}'
+ - 'internal/backends/qt/**'
+ - 'internal/backends/testing/**'
  - 'helper_crates/**'
+ - 'Cargo.toml' # the root Cargo.toml
+ - '.cargo/**'
+ - *ci_config
+
+# What the integration tests in the tests/ workspace build against.
+integration: &integration
+ - *internal
+ - '.github/workflows/build_and_test_reusable.yaml'
+ - 'api/rs/**'
+ - 'internal/compiler/generator/rust*{,/**}'
+ - 'internal/renderers/{skia,software}/**'
+ - 'internal/backends/winit/**'
+
+# Runtime, compiler and Rust API: changes here can break the examples and
+# demos, unlike changes to the tools or to the examples themselves.
+framework: &framework
+ - *integration
+ - 'internal/renderers/**'
+ - 'internal/backends/**'
+
+# Everything the root-workspace `cargo test` covers: all of internal/ (also
+# what the groups above exclude), the tools, and the screenshots that the
+# testing backend and the viewer tests embed.
+slint:
+ - *framework
  - 'internal/**'
- - 'tests/**'
+ - 'tests/screenshots/**'
  - 'tools/compiler/**'
  - 'tools/figma_import/**'
  - 'tools/lsp/**'
  - 'tools/tr-extractor/**'
  - 'tools/viewer/**'
  - 'xtask/**'
- - 'Cargo.toml'
- - '.cargo/**'
- - *ci_config
 
 # Qt backend and widget definitions — gates the Qt test step in build_and_test
 qt:
@@ -44,6 +75,7 @@ qt:
 
 # Docs build needs most Rust code because it also checks for doc warnings
 docs_build:
+ - '.github/workflows/build_docs.yaml'
  - 'docs/**'
  - 'api/**'
  - 'internal/**'
@@ -58,6 +90,7 @@ docs_build:
 # Tree-sitter grammar
 # Needs to be re-tested if the Tree-Sitter grammr or any Slint files in the corpus change
 tree_sitter:
+ - '.github/workflows/tree_sitter.yaml'
  - 'editors/tree-sitter-slint/**'
  - 'editors/zed/languages/slint/*.scm'
  - 'tests/cases/**/*.slint'
@@ -71,26 +104,17 @@ figma_inspector:
  - *ci_config
 
 material_components:
+ - '.github/workflows/material.yaml'
  - 'ui-libraries/material/**'
  - 'docs/common/**'
  - *js_config
  - *ci_config
 
-
-internal: &internal
- # The API specific tests don't depends on renderer or backend, but they do depend on the Qt widgets and the testing backend
- - 'internal/!({renderers,backends}/**)'
- - 'internal/backends/qt/**'
- - 'internal/backends/testing/**'
- - 'helper_crates/**'
- - 'Cargo.toml' # the root Cargo.toml
- - '.cargo/**'
- - *ci_config
-
 api_cpp:
  - 'api/cpp/**'
+ - 'cmake/**'
  - 'tools/compiler/**'
- - 'internal/compiler/generator/cpp*'
+ - 'internal/compiler/generator/cpp*{,/**}'
  # The renderers are not part of the `internal` group, but are exposed in the C++ API
  - 'internal/renderers/{skia,software}/**'
 
@@ -99,6 +123,7 @@ android_backend:
 
 api_python:
  - 'api/python/**'
+ - 'internal/compiler/generator/python*{,/**}'
  - '.github/workflows/python_test_reusable.yaml'
 
 api_node:
@@ -109,15 +134,17 @@ api_node:
 api_rs:
  - 'api/rs/**'
  - 'Cargo.toml'
- - 'internal/compiler/generator/rust*'
+ - 'internal/compiler/generator/rust*{,/**}'
 
+# All the test drivers except doctests, which only the docs build runs.
 tests:
- - 'tests/**'
+ - 'tests/!(doctests/**)'
 
 examples:
  # Some examples are tested separately and can be excluded from here
  - 'examples/!({servo,bevy,*mcu*,uefi-demo,}/**)'
  - 'demos/**'
+ - '.github/workflows/wasm_demos.yaml'
 
 examples_mcu:
  - 'examples/*mcu*/**'
@@ -133,6 +160,7 @@ vsce:
 
 slintpad:
  - *internal
+ - '.github/workflows/wasm_editor_and_interpreter.yaml'
  - 'tools/slintpad/**'
  - 'api/wasm-interpreter/**'
  - 'tools/lsp/**'

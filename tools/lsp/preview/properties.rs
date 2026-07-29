@@ -324,12 +324,12 @@ fn insert_property_definitions(
             return Expression::Invalid;
         }
 
-        if let Some(binding) = element.borrow().bindings.get(prop) {
-            let e = binding.borrow().expression.clone();
+        if let Some(binding) = element.borrow().binding(prop) {
+            let e = binding.expression.ignore_debug_hooks().clone();
             if !matches!(e, Expression::Invalid) {
                 return e;
             }
-            for twb in &binding.borrow().two_way_bindings {
+            for twb in &binding.two_way_bindings {
                 let (mut e, field_access) = match twb {
                     TwoWayBinding::Property { property, field_access } => {
                         (binding_value(&property.element(), property.name(), count), field_access)

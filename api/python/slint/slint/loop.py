@@ -1,14 +1,15 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-from ._native import native
-import asyncio.selector_events
 import asyncio
 import asyncio.events
+import asyncio.selector_events
+import datetime
 import selectors
 import typing
 from collections.abc import Mapping
-import datetime
+
+from ._native import native
 
 
 class HasFileno(typing.Protocol):
@@ -42,9 +43,9 @@ class _SlintSelectorMapping(Mapping[typing.Any, selectors.SelectorKey]):
 
 class _SlintSelector(selectors.BaseSelector):
     def __init__(self) -> None:
-        self.fd_to_selector_key: typing.Dict[typing.Any, selectors.SelectorKey] = {}
+        self.fd_to_selector_key: dict[typing.Any, selectors.SelectorKey] = {}
         self.mapping = _SlintSelectorMapping(self)
-        self.adapters: typing.Dict[int, native.AsyncAdapter] = {}
+        self.adapters: dict[int, native.AsyncAdapter] = {}
 
     def register(
         self, fileobj: typing.Any, events: typing.Any, data: typing.Any = None
@@ -91,7 +92,7 @@ class _SlintSelector(selectors.BaseSelector):
 
     def select(
         self, timeout: float | None = None
-    ) -> typing.List[typing.Tuple[selectors.SelectorKey, int]]:
+    ) -> list[tuple[selectors.SelectorKey, int]]:
         raise NotImplementedError
 
     def close(self) -> None:
@@ -102,21 +103,54 @@ class _SlintSelector(selectors.BaseSelector):
 
     def read_notify(self, fd: int) -> None:
         key = self.fd_to_selector_key[fd]
-        (reader, writer) = key.data
+        (reader, _writer) = key.data
         reader._run()
 
     def write_notify(self, fd: int) -> None:
         key = self.fd_to_selector_key[fd]
-        (reader, writer) = key.data
+        (_reader, writer) = key.data
         writer._run()
+
+
+class _SlintTimerHandle(asyncio.TimerHandle):
+    """A `TimerHandle` that disarms the native timer backing it when cancelled.
+
+    `asyncio.TimerHandle.cancel()` only marks the handle. The native timer would stay
+    armed until its original deadline, wake the event loop just to find the handle dead,
+    and keep itself and its callback alive until then - for `call_later(3600, ...)`,
+    an hour.
+    """
+
+    __slots__ = ("_slint_key", "_slint_timers")
+
+    def __init__(
+        self,
+        when: float,
+        callback: typing.Callable[..., typing.Any],
+        args: typing.Sequence[typing.Any],
+        loop: asyncio.AbstractEventLoop,
+        context: typing.Any,
+        timers: dict[int, native.Timer],
+        key: int,
+    ) -> None:
+        super().__init__(when, callback, args, loop, context)
+        self._slint_timers = timers
+        self._slint_key = key
+
+    def cancel(self) -> None:
+        super().cancel()
+        timer = self._slint_timers.pop(self._slint_key, None)
+        if timer is not None:
+            timer.stop()
 
 
 class SlintEventLoop(asyncio.SelectorEventLoop):
     def __init__(self) -> None:
         self._is_running = False
-        self._timers: typing.Set[native.Timer] = set()
+        self._timers: dict[int, native.Timer] = {}
+        self._timer_serial = 0
         self.stop_run_forever_event = asyncio.Event()
-        self._soon_tasks: typing.List[asyncio.TimerHandle] = []
+        self._soon_tasks: list[asyncio.TimerHandle] = []
         super().__init__(_SlintSelector())
 
     def run_forever(self) -> None:
@@ -180,18 +214,26 @@ class SlintEventLoop(asyncio.SelectorEventLoop):
     def call_later(self, delay, callback, *args, context=None) -> asyncio.TimerHandle:
         timer = native.Timer()
 
-        handle = asyncio.TimerHandle(
+        timers = self._timers
+        self._timer_serial += 1
+        key = self._timer_serial
+
+        handle = _SlintTimerHandle(
             when=self.time() + delay,
             callback=callback,
             args=args,
             loop=self,
             context=context,
+            timers=timers,
+            key=key,
         )
 
-        timers = self._timers
-
+        # The callback below must key into `timers` rather than capture `timer`: capturing
+        # it makes the timer and its callback keep each other alive. `Timer.__traverse__`
+        # makes that cycle collectable, but only by a full GC pass, and this runs on every
+        # await. Keyed by a serial, so a freed timer's key can never alias a live one.
         def timer_done_cb() -> None:
-            timers.remove(timer)
+            timers.pop(key, None)
             if not handle._cancelled:
                 handle._run()
 
@@ -201,7 +243,7 @@ class SlintEventLoop(asyncio.SelectorEventLoop):
             callback=timer_done_cb,
         )
 
-        timers.add(timer)
+        timers[key] = timer
 
         return handle
 

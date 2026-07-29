@@ -7,13 +7,13 @@ use i_slint_common::unicode_utils::{
     byte_offset_to_utf16_offset, utf16_offset_to_byte_offset_clamped,
 };
 use i_slint_core::SharedString;
-use i_slint_core::api::{PhysicalPosition, PhysicalSize};
+use i_slint_core::api::{PhysicalPosition, PhysicalSize, WindowEventDispatchResult};
 use i_slint_core::graphics::{Color, euclid};
 use i_slint_core::input::{InternalKeyEvent, KeyEvent, KeyEventType};
 use i_slint_core::item_rendering::HasFont;
-use i_slint_core::items::{ColorScheme, InputType};
+use i_slint_core::items::{CapitalizationMode, ColorScheme, InputType};
 use i_slint_core::lengths::{LogicalLength, PhysicalEdges};
-use i_slint_core::platform::WindowAdapter;
+use i_slint_core::platform::{Key, WindowAdapter, WindowEvent};
 use jni::objects::{JClass, JClassLoader, JString, LoaderContext};
 use jni::sys::{jfloat, jint};
 use jni::{Env, JavaVM, bind_java_type};
@@ -62,6 +62,10 @@ bind_java_type! {
             name = "get_view_rect",
             sig = () -> AndroidRect,
         },
+        fn finish_activity {
+            name = "finish_activity",
+            sig = (),
+        },
         fn hide_keyboard {
             name = "hide_keyboard",
             sig = (),
@@ -105,6 +109,10 @@ bind_java_type! {
         pub static fn move_cursor_handle {
             sig = (id: jint, pos_x: jint, pos_y: jint) -> (),
             fn = callback_move_cursor_handle,
+        },
+        pub static fn on_back_invoked {
+            sig = () -> (),
+            fn = callback_on_back_invoked,
         },
         pub static fn popup_menu_action {
             sig = (id: jint) -> (),
@@ -215,6 +223,31 @@ bind_java_type! {
         static TYPE_NUMBER_FLAG_DECIMAL {
             sig = jint,
             get = TYPE_NUMBER_FLAG_DECIMAL,
+        },
+        #[allow(non_snake_case)]
+        static TYPE_TEXT_FLAG_CAP_SENTENCES {
+            sig = jint,
+            get = TYPE_TEXT_FLAG_CAP_SENTENCES,
+        },
+        #[allow(non_snake_case)]
+        static TYPE_TEXT_FLAG_CAP_WORDS {
+            sig = jint,
+            get = TYPE_TEXT_FLAG_CAP_WORDS,
+        },
+        #[allow(non_snake_case)]
+        static TYPE_TEXT_FLAG_CAP_CHARACTERS {
+            sig = jint,
+            get = TYPE_TEXT_FLAG_CAP_CHARACTERS,
+        },
+        #[allow(non_snake_case)]
+        static TYPE_TEXT_FLAG_AUTO_CORRECT {
+            sig = jint,
+            get = TYPE_TEXT_FLAG_AUTO_CORRECT,
+        },
+        #[allow(non_snake_case)]
+        static TYPE_TEXT_FLAG_AUTO_COMPLETE {
+            sig = jint,
+            get = TYPE_TEXT_FLAG_AUTO_COMPLETE,
         },
     }
 }
@@ -388,7 +421,36 @@ impl JavaHelper {
             let text = JString::new(env, text.as_str())?;
 
             let input_type = match data.input_type {
-                InputType::Text | InputType::Search => AndroidInputType::TYPE_CLASS_TEXT(env)?,
+                InputType::Text | InputType::Search => {
+                    let hints = &data.input_method_hints;
+                    let capitalization_flag = match hints.capitalization {
+                        CapitalizationMode::None => 0 as jint,
+                        CapitalizationMode::Sentences => {
+                            AndroidInputType::TYPE_TEXT_FLAG_CAP_SENTENCES(env)?
+                        }
+                        CapitalizationMode::Words => {
+                            AndroidInputType::TYPE_TEXT_FLAG_CAP_WORDS(env)?
+                        }
+                        CapitalizationMode::Characters => {
+                            AndroidInputType::TYPE_TEXT_FLAG_CAP_CHARACTERS(env)?
+                        }
+                        _ => 0 as jint,
+                    };
+                    let auto_correct_flag = if hints.auto_correct {
+                        AndroidInputType::TYPE_TEXT_FLAG_AUTO_CORRECT(env)?
+                    } else {
+                        0 as jint
+                    };
+                    let auto_complete_flag = if hints.auto_complete {
+                        AndroidInputType::TYPE_TEXT_FLAG_AUTO_COMPLETE(env)?
+                    } else {
+                        0 as jint
+                    };
+                    AndroidInputType::TYPE_CLASS_TEXT(env)?
+                        | capitalization_flag
+                        | auto_correct_flag
+                        | auto_complete_flag
+                }
                 InputType::Password => {
                     AndroidInputType::TYPE_TEXT_VARIATION_PASSWORD(env)?
                         | AndroidInputType::TYPE_CLASS_TEXT(env)?
@@ -405,12 +467,18 @@ impl JavaHelper {
             let anchor_origin = data.anchor_point.to_physical(scale_factor);
             let cur_size = data.cursor_rect_size.to_physical(scale_factor);
 
-            let cur_visible = data.clip_rect.map_or(true, |r| {
+            // A caret at the last column or on the last line sits exactly on the clip rect's max
+            // edge (e.g. every right-aligned field), where the exclusive `Rect::contains` reports
+            // it invisible and the handle gets sent off-screen. Inflate the rect by one pixel so
+            // the max edge counts as visible.
+            let clip_rect = data.clip_rect.map(|r| r.inflate(1., 1.));
+
+            let cur_visible = clip_rect.map_or(true, |r| {
                 r.contains(i_slint_core::lengths::logical_point_from_api(data.cursor_rect_origin))
             });
-            let anchor_visible = data.clip_rect.map_or(true, |r| {
-                // anchor_point is `origin + cursor_size` for handle placement; check the
-                // anchor cursor's origin so we don't spuriously fail on the clip rect's edge.
+            let anchor_visible = clip_rect.map_or(true, |r| {
+                // anchor_point is `origin + cursor_size` for handle placement; check the anchor
+                // cursor's origin instead.
                 let anchor_origin =
                     i_slint_core::lengths::logical_point_from_api(data.anchor_point)
                         - i_slint_core::lengths::logical_size_from_api(data.cursor_rect_size)
@@ -496,6 +564,14 @@ impl JavaHelper {
 
     pub fn get_clipboard(&self) -> Result<String, jni::errors::Error> {
         self.with_jni_env(|env, helper| Ok(helper.get_clipboard(env)?.to_string()))
+    }
+
+    /// Ask the Activity to finish. Used from `callback_on_back_invoked` when
+    /// Slint's key dispatch reports the Back key as unhandled so we preserve
+    /// the legacy Back-closes-the-activity behavior even under the
+    /// OnBackInvokedCallback flow.
+    pub fn finish_activity(&self) -> Result<(), jni::errors::Error> {
+        self.with_jni_env(|env, helper| helper.finish_activity(env))
     }
 }
 
@@ -706,6 +782,32 @@ fn callback_popup_menu_action<'local>(
         }
     })
     .unwrap();
+    Ok(())
+}
+
+fn callback_on_back_invoked<'local>(
+    _env: &mut Env<'local>,
+    _class: JClass<'local>,
+) -> Result<(), jni::errors::Error> {
+    // Forward Back as a Key.Back KeyPressed + KeyReleased pair; fall back to
+    // Activity.finish() if unhandled.
+    let _ = i_slint_core::api::invoke_from_event_loop(move || {
+        if let Some(adaptor) = CURRENT_WINDOW.with_borrow(|x| x.upgrade()) {
+            let text: SharedString = Key::Back.into();
+            let pressed = adaptor
+                .window
+                .dispatch_event_with_result(WindowEvent::KeyPressed { text: text.clone() });
+            let released =
+                adaptor.window.dispatch_event_with_result(WindowEvent::KeyReleased { text });
+            let handled = matches!(pressed, Ok(WindowEventDispatchResult::Accepted))
+                || matches!(released, Ok(WindowEventDispatchResult::Accepted));
+            if !handled {
+                if let Err(e) = adaptor.java_helper.finish_activity() {
+                    i_slint_core::debug_log!("finish_activity failed: {e:#?}");
+                }
+            }
+        }
+    });
     Ok(())
 }
 

@@ -32,11 +32,11 @@ fn lower_to_llr(source: &str) {
 }
 
 #[test]
-fn custom_listview_without_viewport_height_does_not_crash() {
+fn custom_listview_without_content_height_does_not_crash() {
     // A component named `ListView` that contains a `for` repeater used to crash the LLR
     // lowering: the ListView magic was triggered purely by the base type being named
-    // "ListView", so the compiler fabricated references to viewport-height/-width/-y +
-    // visible-* without checking they exist. This custom ScrollView lacks `viewport-height`,
+    // "ListView", so the compiler fabricated references to content-height/-width/-y +
+    // visible-* without checking they exist. This custom ScrollView lacks `content-height`,
     // so it must not get the ListView treatment (which references that property), and must
     // lower cleanly.
     lower_to_llr(
@@ -44,9 +44,9 @@ fn custom_listview_without_viewport_height_does_not_crash() {
 component ScrollView {
     out property <length> visible-width;
     out property <length> visible-height;
-    in-out property <length> viewport-width;
-    in-out property <length> viewport-x;
-    in-out property <length> viewport-y;
+    in-out property <length> content-width;
+    in-out property <length> content-x;
+    in-out property <length> content-y;
     Rectangle { @children }
 }
 component ListView inherits ScrollView { }

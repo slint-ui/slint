@@ -59,13 +59,13 @@ pub mod vulkan_surface;
 #[cfg(any(not(target_vendor = "apple"), target_os = "macos"))]
 pub mod opengl_surface;
 
-#[cfg(feature = "wgpu-28")]
-pub mod wgpu_28_surface;
 #[cfg(feature = "wgpu-29")]
 pub mod wgpu_29_surface;
-#[cfg(feature = "wgpu-29")]
+#[cfg(feature = "wgpu-30")]
+pub mod wgpu_30_surface;
+#[cfg(any(feature = "wgpu-29", feature = "wgpu-30"))]
 mod wgpu_renderer;
-#[cfg(feature = "wgpu-29")]
+#[cfg(any(feature = "wgpu-29", feature = "wgpu-30"))]
 pub use wgpu_renderer::SkiaWGPURenderer;
 
 use i_slint_core::items::{ItemRc, TextWrap};
@@ -171,6 +171,7 @@ pub struct SkiaRenderer {
     image_cache: ItemCache<Option<skia_safe::Image>>,
     layer_cache: ItemCache<Option<(PhysicalPoint, skia_safe::Image)>>,
     path_cache: ItemCache<Option<(Vector2D<f32, PhysicalPx>, skia_safe::Path)>>,
+    box_shadow_cache: itemrenderer::SkiaBoxShadowCache,
     text_layout_cache: sharedparley::TextLayoutCache,
     rendering_metrics_collector: RefCell<Option<Rc<RenderingMetricsCollector>>>,
     rendering_first_time: Cell<bool>,
@@ -199,6 +200,7 @@ impl SkiaRenderer {
             image_cache: Default::default(),
             layer_cache: Default::default(),
             path_cache: Default::default(),
+            box_shadow_cache: Default::default(),
             text_layout_cache: Default::default(),
             rendering_metrics_collector: Default::default(),
             rendering_first_time: Default::default(),
@@ -221,6 +223,7 @@ impl SkiaRenderer {
             image_cache: Default::default(),
             layer_cache: Default::default(),
             path_cache: Default::default(),
+            box_shadow_cache: Default::default(),
             text_layout_cache: Default::default(),
             rendering_metrics_collector: Default::default(),
             rendering_first_time: Default::default(),
@@ -256,6 +259,7 @@ impl SkiaRenderer {
             image_cache: Default::default(),
             layer_cache: Default::default(),
             path_cache: Default::default(),
+            box_shadow_cache: Default::default(),
             text_layout_cache: Default::default(),
             rendering_metrics_collector: Default::default(),
             rendering_first_time: Default::default(),
@@ -291,6 +295,7 @@ impl SkiaRenderer {
             image_cache: Default::default(),
             layer_cache: Default::default(),
             path_cache: Default::default(),
+            box_shadow_cache: Default::default(),
             text_layout_cache: Default::default(),
             rendering_metrics_collector: Default::default(),
             rendering_first_time: Default::default(),
@@ -326,6 +331,7 @@ impl SkiaRenderer {
             image_cache: Default::default(),
             layer_cache: Default::default(),
             path_cache: Default::default(),
+            box_shadow_cache: Default::default(),
             text_layout_cache: Default::default(),
             rendering_metrics_collector: Default::default(),
             rendering_first_time: Default::default(),
@@ -361,6 +367,7 @@ impl SkiaRenderer {
             image_cache: Default::default(),
             layer_cache: Default::default(),
             path_cache: Default::default(),
+            box_shadow_cache: Default::default(),
             text_layout_cache: Default::default(),
             rendering_metrics_collector: Default::default(),
             rendering_first_time: Default::default(),
@@ -387,15 +394,16 @@ impl SkiaRenderer {
         }
     }
 
-    #[cfg(feature = "unstable-wgpu-28")]
-    /// Creates a new SkiaRenderer that will always use Skia's WGPU 28.x renderer.
-    pub fn default_wgpu_28(context: &SkiaSharedContext) -> Self {
+    #[cfg(feature = "unstable-wgpu-30")]
+    /// Creates a new SkiaRenderer that will always use Skia's WGPU 30.x renderer.
+    pub fn default_wgpu_30(context: &SkiaSharedContext) -> Self {
         Self {
             maybe_window_adapter: Default::default(),
             rendering_notifier: Default::default(),
             image_cache: Default::default(),
             layer_cache: Default::default(),
             path_cache: Default::default(),
+            box_shadow_cache: Default::default(),
             text_layout_cache: Default::default(),
             rendering_metrics_collector: Default::default(),
             rendering_first_time: Default::default(),
@@ -405,7 +413,7 @@ impl SkiaRenderer {
                               display_handle,
                               size,
                               requested_graphics_api| {
-                wgpu_28_surface::WGPUSurface::new(
+                wgpu_30_surface::WGPUSurface::new(
                     context,
                     window_handle,
                     display_handle,
@@ -431,6 +439,7 @@ impl SkiaRenderer {
             image_cache: Default::default(),
             layer_cache: Default::default(),
             path_cache: Default::default(),
+            box_shadow_cache: Default::default(),
             text_layout_cache: Default::default(),
             rendering_metrics_collector: Default::default(),
             rendering_first_time: Default::default(),
@@ -482,6 +491,7 @@ impl SkiaRenderer {
             image_cache: Default::default(),
             layer_cache: Default::default(),
             path_cache: Default::default(),
+            box_shadow_cache: Default::default(),
             text_layout_cache: Default::default(),
             rendering_metrics_collector: Default::default(),
             rendering_first_time: Cell::new(true),
@@ -501,6 +511,7 @@ impl SkiaRenderer {
     pub fn set_surface(&self, surface: Box<dyn Surface + 'static>) {
         self.image_cache.clear_all();
         self.path_cache.clear_all();
+        self.box_shadow_cache.clear();
         self.text_layout_cache.clear_all();
         self.rendering_first_time.set(true);
         *self.surface.borrow_mut() = Some(surface);
@@ -533,6 +544,7 @@ impl SkiaRenderer {
     pub fn suspend(&self) -> Result<(), PlatformError> {
         self.image_cache.clear_all();
         self.path_cache.clear_all();
+        self.box_shadow_cache.clear();
         self.text_layout_cache.clear_all();
         // Destroy the old surface before allocating the new one, to work around
         // the vivante drivers using zwp_linux_explicit_synchronization_v1 and
@@ -678,10 +690,9 @@ impl SkiaRenderer {
         let window_inner = WindowInner::from_pub(window);
         let window_adapter = window_inner.window_adapter();
 
-        let mut box_shadow_cache = Default::default();
-
         self.image_cache.clear_cache_if_scale_factor_changed(window);
         self.path_cache.clear_cache_if_scale_factor_changed(window);
+        self.box_shadow_cache.clear_cache_if_scale_factor_changed(window);
         self.text_layout_cache.clear_cache_if_scale_factor_changed(window);
 
         let mut skia_item_renderer = itemrenderer::SkiaItemRenderer::new(
@@ -692,7 +703,7 @@ impl SkiaRenderer {
             &self.layer_cache,
             &self.path_cache,
             &self.text_layout_cache,
-            &mut box_shadow_cache,
+            &self.box_shadow_cache,
         );
 
         let scale_factor = ScaleFactor::new(window_inner.scale_factor());
@@ -883,6 +894,14 @@ impl i_slint_core::renderer::RendererSealed for SkiaRenderer {
         .unwrap_or_default()
     }
 
+    fn text_content_widths(
+        &self,
+        text_item: Pin<&dyn i_slint_core::item_rendering::RenderString>,
+        item_rc: &ItemRc,
+    ) -> Option<i_slint_core::renderer::ContentWidths> {
+        sharedparley::text_content_widths(self, text_item, item_rc)
+    }
+
     fn char_size(
         &self,
         text_item: Pin<&dyn i_slint_core::item_rendering::HasFont>,
@@ -979,6 +998,7 @@ impl i_slint_core::renderer::RendererSealed for SkiaRenderer {
         *self.maybe_window_adapter.borrow_mut() = Some(Rc::downgrade(window_adapter));
         self.image_cache.clear_all();
         self.path_cache.clear_all();
+        self.box_shadow_cache.clear();
         self.text_layout_cache.clear_all();
 
         if let Some(partial_rendering_state) = self.partial_rendering_state() {
@@ -1111,7 +1131,7 @@ pub trait Surface {
         None
     }
 
-    #[cfg(any(feature = "unstable-wgpu-28", feature = "unstable-wgpu-29"))]
+    #[cfg(any(feature = "unstable-wgpu-29", feature = "unstable-wgpu-30"))]
     fn import_wgpu_texture(
         &self,
         _canvas: &skia_safe::Canvas,

@@ -180,6 +180,7 @@ impl super::WinitCompatibleRenderer for WinitSoftwareRenderer {
         &self,
         active_event_loop: &ActiveEventLoop,
         window_attributes: winit::window::WindowAttributes,
+        _window_adapter_weak: std::rc::Weak<crate::winitwindowadapter::WinitWindowAdapter>,
     ) -> Result<Arc<winit::window::Window>, PlatformError> {
         let winit_window =
             active_event_loop.create_window(window_attributes).map_err(|winit_os_error| {

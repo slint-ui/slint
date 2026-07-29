@@ -6,8 +6,28 @@ use anyhow::Context;
 use std::fs::create_dir_all;
 use std::io::{BufWriter, Write};
 
+/// Whether `dir` is the directory this tool generates into, and may therefore
+/// delete wholesale: everything below it is machine-written. A `Config`
+/// pointing anywhere else would take hand-written content with it.
+fn is_generated_dir(dir: &std::path::Path, astro_dir: &std::path::Path) -> bool {
+    dir.starts_with(astro_dir) && dir.file_name().is_some_and(|name| name == "generated")
+}
+
 /// Generate all markdown/mdx documentation files.
 pub fn generate(cfg: &Config) -> Result<(), Box<dyn std::error::Error>> {
+    // Start from an empty directory: a page left behind by an earlier run
+    // (of a version that named or grouped it differently) still renders, and
+    // its paragraph ids still count as duplicates of the current ones.
+    assert!(
+        is_generated_dir(&cfg.generated_dir, &cfg.astro_dir),
+        "refusing to clear {:?}: not a `generated` directory inside {:?}",
+        cfg.generated_dir,
+        cfg.astro_dir,
+    );
+    if cfg.generated_dir.exists() {
+        std::fs::remove_dir_all(&cfg.generated_dir)
+            .context(format!("error clearing {:?}", cfg.generated_dir))?;
+    }
     generate_enum_docs(cfg)?;
     generate_builtin_struct_docs(cfg)?;
     if !cfg.sc_only {
@@ -21,6 +41,10 @@ pub fn generate(cfg: &Config) -> Result<(), Box<dyn std::error::Error>> {
         write_global_structs_enums_index(cfg, &structs, &enums)?;
     }
 
+    if cfg.sc_only {
+        crate::traceability::generate(cfg)?;
+    }
+
     Ok(())
 }
 
@@ -29,8 +53,8 @@ fn write_global_structs_enums_index(
     structs: &std::collections::BTreeMap<String, StructDoc>,
     enums: &std::collections::BTreeMap<String, EnumDoc>,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let generated_dir = &cfg.generated_dir;
-    create_dir_all(generated_dir)?;
+    let generated_dir = cfg.reference_dir();
+    create_dir_all(&generated_dir)?;
     let path = generated_dir.join("global-structs-enums.mdx");
     let mut file =
         BufWriter::new(std::fs::File::create(&path).context(format!("error creating {path:?}"))?);
@@ -48,8 +72,9 @@ slug: reference/global-structs-enums
     for name in structs.keys() {
         writeln!(
             file,
-            "import {0} from \"/src/content/docs/reference/generated/structs/_{0}.md\"",
-            name
+            "import {0} from \"/src/{1}/reference/structs/_{0}.md\"",
+            name,
+            crate::GENERATED_DIR
         )?;
     }
 
@@ -62,10 +87,15 @@ slug: reference/global-structs-enums
         if name == "keys" {
             continue;
         }
+        // Documented in the MouseCursor type.
+        if name == "BuiltInMouseCursor" {
+            continue;
+        }
         writeln!(
             file,
-            "import {0} from \"/src/content/docs/reference/generated/enums/_{0}.md\"",
-            name
+            "import {0} from \"/src/{1}/reference/enums/_{0}.md\"",
+            name,
+            crate::GENERATED_DIR
         )?;
     }
 
@@ -86,6 +116,9 @@ slug: reference/global-structs-enums
         if name == "keys" {
             continue;
         }
+        if name == "BuiltInMouseCursor" {
+            continue;
+        }
         writeln!(file, "### {name}")?;
         writeln!(file, "<{name} />")?;
         writeln!(file)?;
@@ -100,7 +133,7 @@ fn write_individual_enum_files(
     cfg: &Config,
     enums: &std::collections::BTreeMap<String, EnumDoc>,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let enums_dir = cfg.generated_dir.join("enums");
+    let enums_dir = cfg.reference_dir().join("enums");
     create_dir_all(&enums_dir).context(format!(
         "Failed to create folder holding individual enum doc files {enums_dir:?}"
     ))?;
@@ -120,12 +153,15 @@ description: {0} content
 
 <!-- Generated with slint-doc-generator from internal/commons/enums.rs -->
 
-`{0}`
-
-{1}
 "#,
-            k, e.description
+            k
         )?;
+        // BuiltInMouseCursor is embedded inline in the MouseCursor type documentation, where its
+        // internal name must not appear; emit only the description and the values.
+        if k != "BuiltInMouseCursor" {
+            writeln!(file, "`{k}`\n")?;
+        }
+        writeln!(file, "{}", e.description)?;
         for v in &e.values {
             writeln!(file, r#"* **`{}`**: {}"#, v.key, v.description)?;
         }
@@ -184,19 +220,11 @@ pub fn extract_enum_docs(
 
     if sc_only {
         enums.retain(|_, e| crate::element_docs::is_sc_covered(&e.description));
-        for e in enums.values_mut() {
-            e.description = crate::element_docs::strip_sc(&e.description);
-            for v in &mut e.values {
-                v.description = crate::element_docs::strip_sc(&v.description);
-            }
-        }
-    } else {
-        // Even outside SC mode, the marker should never leak into output.
-        for e in enums.values_mut() {
-            e.description = crate::element_docs::strip_sc(&e.description);
-            for v in &mut e.values {
-                v.description = crate::element_docs::strip_sc(&v.description);
-            }
+    }
+    for e in enums.values_mut() {
+        e.description = crate::element_docs::strip_sc(&e.description);
+        for v in &mut e.values {
+            v.description = crate::element_docs::strip_sc(&v.description);
         }
     }
 
@@ -296,7 +324,7 @@ pub fn extract_builtin_structs(
             $(#[non_exhaustive])?
             $(#[derive(Copy, Eq)])?
             $vis:vis struct $Name:ident {
-                $( $(#[doc = $field_doc:literal])* $field:ident : $field_type:ident, )*
+                $( $(#[doc = $field_doc:literal])* $field:ident : $field_type:ident $(= $field_default:expr)?, )*
             }
         )*) => {
             $(
@@ -341,7 +369,7 @@ fn write_individual_struct_files(
     cfg: &Config,
     structs: std::collections::BTreeMap<String, StructDoc>,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let structs_dir = cfg.generated_dir.join("structs");
+    let structs_dir = cfg.reference_dir().join("structs");
     create_dir_all(&structs_dir).context(format!(
         "Failed to create folder holding individual structs doc files {structs_dir:?}"
     ))?;
@@ -400,7 +428,7 @@ pub fn to_kebab_case(str: &str) -> String {
 }
 
 fn generate_keys_docs(cfg: &Config) -> Result<(), Box<dyn std::error::Error>> {
-    let enums_dir = cfg.generated_dir.join("enums");
+    let enums_dir = cfg.reference_dir().join("enums");
     create_dir_all(&enums_dir).context(format!(
         "Failed to create folder holding individual enum doc files {enums_dir:?}"
     ))?;
@@ -429,4 +457,15 @@ fn generate_keys_docs(cfg: &Config) -> Result<(), Box<dyn std::error::Error>> {
     file.flush()?;
 
     Ok(())
+}
+
+#[test]
+fn test_is_generated_dir() {
+    let astro = std::path::Path::new("/repo/docs/astro");
+    assert!(is_generated_dir(&astro.join("src/content/docs/reference/generated"), astro));
+    // Hand-written content, an empty path, and a directory of another
+    // project are all refused.
+    assert!(!is_generated_dir(&astro.join("src/content/docs/reference"), astro));
+    assert!(!is_generated_dir(std::path::Path::new(""), astro));
+    assert!(!is_generated_dir(std::path::Path::new("/elsewhere/generated"), astro));
 }

@@ -7,6 +7,12 @@
     "./loader": "./rust-module-dev.cjs",
     "./package.json": "./package.json"
   },
+  "files": [
+    "index.cjs",
+    "rust-module-dev.cjs",
+    "README.md",
+    "LICENSE.md"
+  ],
   "homepage": "https://github.com/slint-ui/slint",
   "license": "SEE LICENSE IN LICENSE.md",
   "repository": {

@@ -560,6 +560,11 @@ impl ItemTreeDescription<'_> {
         self.original.id.as_str()
     }
 
+    #[cfg(feature = "internal")]
+    pub(crate) fn compiled_globals(&self) -> Option<Rc<CompiledGlobalCollection>> {
+        self.compiled_globals.clone()
+    }
+
     /// List of publicly declared properties or callbacks
     ///
     /// We try to preserve the dashes and underscore as written in the property declaration
@@ -806,13 +811,12 @@ extern "C" fn visit_children_item(
     let instance_ref = unsafe { InstanceRef::from_pin_ref(component, guard) };
     let comp_rc = instance_ref.self_weak().get().unwrap().upgrade().unwrap();
     i_slint_core::item_tree::visit_item_tree(
-        instance_ref.instance,
         &vtable::VRc::into_dyn(comp_rc),
         get_item_tree(component).as_slice(),
         index,
         order,
         v,
-        |_, order, visitor, index| {
+        &mut |order, visitor, index| {
             if index as usize >= instance_ref.description.repeater.len() {
                 // Do nothing: We are ComponentContainer and Our parent already did all the work!
                 VisitChildrenResult::CONTINUE
@@ -1039,6 +1043,7 @@ fn generate_rtti() -> HashMap<&'static str, Rc<ItemRTTI>> {
             rtti_for::<Layer>(),
             rtti_for::<DragArea>(),
             rtti_for::<DropArea>(),
+            rtti_for::<WindowMoveArea>(),
             rtti_for::<ContextMenu>(),
             rtti_for::<MenuItem>(),
             rtti_for::<SystemTrayIcon>(),
@@ -1076,8 +1081,6 @@ pub(crate) fn generate_item_tree<'id>(
     is_popup_menu_impl: bool,
     guard: generativity::Guard<'id>,
 ) -> Rc<ItemTreeDescription<'id>> {
-    //dbg!(&*component.root_element.borrow());
-
     thread_local! {
         static RTTI: Lazy<HashMap<&'static str, Rc<ItemRTTI>>> = Lazy::new(generate_rtti);
     }
@@ -1093,6 +1096,7 @@ pub(crate) fn generate_item_tree<'id>(
         repeater_names: HashMap<SmolStr, usize>,
         change_callbacks: Vec<(NamedReference, Expression)>,
         popup_menu_description: PopupMenuDescription,
+        compiled_globals: Option<Rc<CompiledGlobalCollection>>,
     }
     impl generator::ItemTreeBuilder for TreeBuilder<'_> {
         type SubComponentState = ();
@@ -1115,7 +1119,7 @@ pub(crate) fn generate_item_tree<'id>(
                 RepeaterWithinItemTree {
                     item_tree_to_repeat: generate_item_tree(
                         base_component,
-                        None,
+                        self.compiled_globals.clone(),
                         self.popup_menu_description.clone(),
                         false,
                         guard,
@@ -1202,6 +1206,7 @@ pub(crate) fn generate_item_tree<'id>(
         repeater_names: HashMap::new(),
         change_callbacks: Vec::new(),
         popup_menu_description,
+        compiled_globals: compiled_globals.clone(),
     };
 
     if !component.is_global() {
@@ -1272,6 +1277,7 @@ pub(crate) fn generate_item_tree<'id>(
             Type::Struct(_) => property_info::<Value>(),
             Type::Array(_) => property_info::<Value>(),
             Type::Easing => property_info::<i_slint_core::animations::EasingCurve>(),
+            Type::MouseCursor => property_info::<i_slint_core::cursor::MouseCursorInner>(),
             Type::Percent => animated_property_info::<f32>(),
             Type::Enumeration(e) => {
                 macro_rules! match_enum_type {
@@ -2200,11 +2206,17 @@ extern "C" fn ensure_instantiated(component: ItemTreeRefPin) -> bool {
         {
             let assume_property_logical_length =
                 |prop| unsafe { Pin::new_unchecked(&*(prop as *const Property<LogicalLength>)) };
+            let content_width = lv.content_width.as_ref().map(|content_width| {
+                assume_property_logical_length(get_property_ptr(content_width, instance_ref))
+            });
+            let content_height = lv.content_height.as_ref().map(|content_height| {
+                assume_property_logical_length(get_property_ptr(content_height, instance_ref))
+            });
             changed |= repeater.ensure_updated_listview(
                 init,
-                assume_property_logical_length(get_property_ptr(&lv.viewport_width, instance_ref)),
-                assume_property_logical_length(get_property_ptr(&lv.viewport_height, instance_ref)),
-                assume_property_logical_length(get_property_ptr(&lv.viewport_y, instance_ref)),
+                content_width,
+                content_height,
+                assume_property_logical_length(get_property_ptr(&lv.content_y, instance_ref)),
                 eval::load_property(
                     instance_ref,
                     &lv.listview_width.element(),
@@ -2971,6 +2983,11 @@ pub fn update_timers(instance: InstanceRef) {
 }
 
 pub fn restart_timer(element: ElementWeak, instance: InstanceRef) {
+    // The calling expression can be in a repeated or conditional child of the
+    // component that declares the timer.
+    let element_rc = element.upgrade().unwrap();
+    generativity::make_guard!(guard);
+    let instance = eval::enclosing_component_for_element(&element_rc, instance, guard);
     let timers = instance.description.original.timers.borrow();
     if let Some((_, offset)) = timers
         .iter()

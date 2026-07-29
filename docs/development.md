@@ -22,54 +22,45 @@ mise generate git-pre-commit --write --task=ci:autofix:fix
 
 ## Repository structures
 
+For the crate/directory map of `internal/`, `api/`, `tools/`, and `editors/`, see the
+Architecture section of [AGENTS.md](../AGENTS.md) — kept there as the single source of truth
+so this file doesn't drift out of sync with it. `internal/compiler/tests/` holds the syntax
+tests, which test that the compiler reports the right error for invalid input.
+
+This section covers the rest of the repository layout that AGENTS.md doesn't:
+
 ### `helper_crates`
 
 A set of crates that are somehow not strictly related to Slint, and that could be moved to
 their own repository and have their own version release at some point.
 
-### `internal`
-
-`internal` contains code that isn't meant to be used directly by a user of Slint.
-
-#### `compiler`
-
-The main library for the compiler for .slint.
-
-Nothing in there should depend on the runtime crates.
-
-There is a **`test`** subdirectory that contains the syntax tests.
-These tests allow you to test the proper error conditions.
-
-#### Runtime libraries
-
-The library crates that are used at runtime.
-
-* **`core`** is the main library. It's meant to be used for all front-ends. Ideally it should
-  be kept as small as possible. **`core-macros`** contains some procedural macro used by core library.
-* **`backends`** contains the different backends for the different platforms (winit, qt, linuxkms, android-activity, etc.), separated from
-  core library.
-* **`interpreter`** is the library used by the more dynamic languages backend to compile and
-  interpret .slint files. It links both against core library and the compiler lib
-
-### `tools`
-
-* **`compiler`** is the tool to generate the target language (e.g. c++) from the .slint files for
-  frontend that have a compilation step and generated code.
-* **`viewer`** is a tool that allow to open and view a .slint file.
-
-### `api`
-
-Here one can find the frontend for different languages.
-
 ### `tests`
 
-The integration test that are testing a bunch of .slint with different front-ends
+The integration tests that exercise a set of `.slint` files across the different front-ends
+(Rust, C++, interpreter, Node.js, Python). See [testing.md](./testing.md). This is its own
+Cargo workspace, as are `examples/`, `demos/`, and `ui-libraries/material/` (see
+[building.md](./building.md#workspace-layout)).
 
-See [testing.md](./testing.md)
+### `examples` and `demos`
 
-### `examples`
+Small, manually-run examples (`examples/`) and full demo applications (`demos/`), showing how
+to use the Slint markup language and interact with a UI from each supported host language.
 
-Some manual tests
+### `ui-libraries`
+
+Widget libraries shipped separately from the compiler's built-in widgets, currently
+`material` (a Material Design implementation and its gallery).
+
+### `xtask`
+
+Repository maintenance tasks run via `cargo xtask <task>`: license-header checks, REUSE
+compliance, generating the cbindgen headers the C++ docs need, and Node package prep.
+Run `cargo xtask --help` for the full list.
+
+### `ai-plugins`
+
+The Slint skill and marketplace manifests shipped to AI coding assistants (Claude Code,
+Cursor); see [ai-plugins/skills/slint/SKILL.md](../ai-plugins/skills/slint/SKILL.md).
 
 ## Documentation
 

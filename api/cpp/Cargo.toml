@@ -52,6 +52,8 @@ mcp = ["std", "i-slint-backend-selector/mcp"]
 
 std = [
   "i-slint-core/default",
+  "i-slint-core/image-decoders",
+  "i-slint-core/svg",
   "i-slint-core/image-default-formats",
   "i-slint-backend-selector",
   "i-slint-backend-selector/backend-android-activity",

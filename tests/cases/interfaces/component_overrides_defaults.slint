@@ -11,7 +11,13 @@ interface InterfaceWithDefaults {
     callback checked();
 }
 
-export component TestCase implements InterfaceWithDefaults {
+export component TestCase {
+    implement InterfaceWithDefaults <=> self;
+
+    in-out property <string> text;
+    out property <bool> enabled;
+    in property <int> precision;
+    callback checked();
 
     out property <bool> test: self.text == "" && !self.enabled && self.precision == 0 && self.confidence == 0.5;
 
@@ -19,7 +25,7 @@ export component TestCase implements InterfaceWithDefaults {
         text.character-count
     }
 
-    confidence: 0.5;
+    in property <float> confidence: 0.5;
 }
 
 /*

@@ -14,12 +14,12 @@ component Compo inherits Rectangle {
             priv2 = 78;
             output1 = input1;
             input1 = 75;
-//          >         <error{Assignment on a input property}
+//          >         <error{Assignment on an in property}
             inout1 = 75;
         }
 
         pressed: true;
-//      >     <error{Cannot assign to output property 'pressed'}
+//      >     <error{Cannot assign to out property 'pressed'}
 
     }
 
@@ -29,13 +29,13 @@ component Compo inherits Rectangle {
             priv2: 55;
             output1: 55;
             input1: 12;
-//          >    <error{'input1' cannot be set in a state because it is input}
+//          >    <error{'input1' cannot be set in a state because it is in}
             inout1: 78;
         }
     ]
 
     animate input1 {}
-//          >     <error{Cannot animate input property 'input1'}
+//          >     <error{Cannot animate in property 'input1'}
 }
 
 OldCompo := Rectangle {
@@ -53,7 +53,7 @@ OldCompo := Rectangle {
             priv2 = 78;
             output1 = input1;
             input1 = 75;
-//          >         <error{Assignment on a input property}
+//          >         <error{Assignment on an in property}
             inout1 = 75;
         }
     }
@@ -66,12 +66,12 @@ export component Foo inherits Rectangle {
         priv2: 55;
 //      >   <error{Cannot assign to private property 'priv2'}
         output1: 855;
-//      >     <error{Cannot assign to output property 'output1'}
+//      >     <error{Cannot assign to out property 'output1'}
         input1: 12;
         inout1: 78;
 
         animate output1 {}
-//              >      <error{Cannot animate output property 'output1'}
+//              >      <error{Cannot animate out property 'output1'}
 
         animate priv2 {}
 //              >    <error{Cannot animate private property 'priv2'}
@@ -84,7 +84,7 @@ export component Foo inherits Rectangle {
         priv2: 55;
 //      >   <error{Cannot assign to private property 'priv2'}
         output1: 585;
-//      >     <error{Cannot assign to output property 'output1'}
+//      >     <error{Cannot assign to out property 'output1'}
         input1: 12;
         inout1: 78;
     }
@@ -98,7 +98,7 @@ export component Foo inherits Rectangle {
 //          >      <error{'c1.priv2' cannot be set in a state because it is private}
 
             c2.output1: 55;
-//          >        <error{'c2.output1' cannot be set in a state because it is output}
+//          >        <error{'c2.output1' cannot be set in a state because it is out}
         }
     ]
 

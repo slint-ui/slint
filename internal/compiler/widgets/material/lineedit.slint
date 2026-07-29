@@ -7,7 +7,8 @@ import { LineEditBase, LineEditClearIcon, LineEditPasswordIcon } from "../common
 import { LineEditInterface } from "../common/std-widget-interfaces.slint";
 
 // Single line text input field with Material Design Outline TextField look and feel.
-export component LineEdit uses { LineEditInterface from base } {
+export component LineEdit {
+    implement LineEditInterface <=> base;
 
     accessible-role: text-input;
     accessible-enabled: root.enabled;

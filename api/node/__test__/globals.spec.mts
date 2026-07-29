@@ -5,6 +5,8 @@ import { test, expect } from "vitest";
 
 import { private_api } from "../dist/index.js";
 
+private_api.initTesting();
+
 test("get/set global properties", () => {
     const compiler = new private_api.ComponentCompiler();
     const definition = compiler.buildFromSource(

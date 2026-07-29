@@ -41,12 +41,12 @@ pub fn materialize_fake_properties(component: &Rc<Component>) {
     recurse_elem_including_sub_components_no_borrow(component, &(), &mut |elem, _| {
         for prop in elem.borrow().bindings.keys() {
             let nr = NamedReference::new(elem, prop.clone());
-            if let std::collections::hash_map::Entry::Vacant(e) = to_materialize.entry(nr) {
+            if let std::collections::hash_map::Entry::Vacant(entry) = to_materialize.entry(nr) {
                 let elem = elem.borrow();
                 if let Some(ty) =
                     should_materialize(&elem.property_declarations, &elem.base_type, prop)
                 {
-                    e.insert(ty);
+                    entry.insert(ty);
                 }
             }
         }
@@ -55,6 +55,13 @@ pub fn materialize_fake_properties(component: &Rc<Component>) {
     for (nr, ty) in to_materialize {
         let elem = nr.element();
 
+        // Note: a DebugHook binding must materialize like the binding it wraps would.
+        // A referenced property whose binding is a *synthetic* hook counts as uninitialized
+        // (see `must_initialize`), so `initialize` below upgrades the hook in place with the
+        // computed default — e.g. geometry_props references (geometry_props.x → img.x) reach
+        // this for unbound geometry, and the Transform element's two-way reference reaches it
+        // for the injected `transform-rotation`. Skipping hooked properties here instead would
+        // leave a binding on a property that never exists at runtime.
         elem.borrow_mut().property_declarations.insert(
             nr.name().clone(),
             PropertyDeclaration { property_type: ty, ..PropertyDeclaration::default() },
@@ -76,23 +83,34 @@ pub fn materialize_fake_properties(component: &Rc<Component>) {
                     e.insert(binding.into());
                 }
                 std::collections::btree_map::Entry::Occupied(mut e) => {
-                    e.get_mut().get_mut().expression = init_expr;
+                    // A synthetic debug hook may occupy the slot (must_initialize treats it as
+                    // uninitialized): upgrade it in place — keep the wrapper and id so the
+                    // property stays live-editable.
+                    let mut binding_expression = &mut e.get_mut().get_mut().expression;
+                    if let Expression::DebugHook { expression, synthetic, .. } = binding_expression
+                    {
+                        *synthetic = false;
+                        binding_expression = &mut **expression;
+                    }
+                    *binding_expression = init_expr;
                 }
             }
         }
     }
 }
 
-// One must initialize if there is an actual expression for that binding
+// One must initialize if there is no real expression for that binding.
 fn must_initialize(elem: &Element, prop: &str) -> bool {
-    match elem.bindings.get(prop) {
+    match elem.binding(prop) {
         None => true,
-        Some(b) => matches!(b.borrow().expression, Expression::Invalid),
+        Some(b) => {
+            matches!(b.expression.ignore_debug_hooks(), Expression::Invalid)
+        }
     }
 }
 
 /// Returns a type if the property needs to be materialized.
-fn should_materialize(
+pub(crate) fn should_materialize(
     property_declarations: &BTreeMap<SmolStr, PropertyDeclaration>,
     base_type: &ElementType,
     prop: &str,

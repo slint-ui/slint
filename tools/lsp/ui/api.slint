@@ -323,9 +323,6 @@ export global Api {
     // control, but command on macOS
     in-out property <string> control-key-name: "control";
 
-    // Start an interactive window drag (implemented by the editor host on macOS).
-    callback request-window-drag();
-
     // ## Log Output
     in-out property <[LogMessage]> log-output;
     in-out property <bool> auto-clear-console: true;

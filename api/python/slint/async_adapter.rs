@@ -4,6 +4,7 @@
 use std::rc::Rc;
 
 use pyo3::prelude::*;
+use pyo3::{PyTraverseError, gc::PyVisit};
 
 #[cfg(unix)]
 struct PyFdWrapper(std::os::fd::RawFd);
@@ -64,6 +65,30 @@ impl AsyncAdapter {
             inner.writable_callback.replace(callback);
         });
     }
+
+    fn __traverse__(&self, visit: PyVisit<'_>) -> Result<(), PyTraverseError> {
+        // The callbacks live behind an `Rc` that Python's cyclic GC can't see. Report them
+        // here, so that a selector registering its own bound methods - which is what
+        // `_SlintSelector.register()` does, while holding on to the adapter - stays
+        // collectable.
+        if let Some(inner) = self.inner.as_ref() {
+            for callback in
+                [&inner.readable_callback, &inner.writable_callback].into_iter().flatten()
+            {
+                visit.call(callback)?;
+            }
+        }
+        Ok(())
+    }
+
+    fn __clear__(&mut self) {
+        // The polling task holds only a `Weak`, so dropping the last strong reference both
+        // releases the callbacks and makes the task finish on its next wake-up.
+        if let Some(task) = self.task.take() {
+            task.abort();
+        }
+        self.inner = None;
+    }
 }
 
 impl AsyncAdapter {
@@ -74,7 +99,11 @@ impl AsyncAdapter {
 
         // This detaches and basically makes any existing future that might get woke up fail when
         // trying to upgrade the weak.
-        let mut inner = Rc::into_inner(self.inner.take().unwrap()).unwrap();
+        let Some(inner) = self.inner.take() else {
+            // Released by `__clear__`; the adapter is unreachable garbage at this point.
+            return;
+        };
+        let mut inner = Rc::into_inner(inner).unwrap();
 
         callback(&mut inner);
 

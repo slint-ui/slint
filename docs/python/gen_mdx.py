@@ -106,7 +106,7 @@ def load_stdlib_inventory(docs_url: str) -> dict[str, str]:
     fetch failure aborts the build rather than silently dropping links."""
     inventory_url = docs_url + "objects.inv"
     try:
-        raw = urllib.request.urlopen(inventory_url, timeout=30).read()  # noqa: S310
+        raw = urllib.request.urlopen(inventory_url, timeout=30).read()
     except OSError as exc:
         raise SystemExit(f"error: could not fetch {inventory_url}: {exc}") from exc
     return parse_inventory(raw, docs_url)
@@ -271,7 +271,7 @@ def reexport_target(attr: griffe.Attribute) -> griffe.Object | None:
         return None
     try:
         target: griffe.Object | griffe.Alias = attr.modules_collection[canonical]
-    except Exception:
+    except KeyError:
         return None
     seen: set[str] = set()
     while isinstance(target, griffe.Alias):
@@ -280,7 +280,7 @@ def reexport_target(attr: griffe.Attribute) -> griffe.Object | None:
         seen.add(target.path)
         try:
             target = target.final_target
-        except Exception:
+        except (griffe.AliasResolutionError, griffe.CyclicAliasError):
             return None
     if not target.path.startswith(PACKAGE + "."):
         return None
@@ -299,7 +299,7 @@ def resolve(obj: griffe.Object | griffe.Alias) -> griffe.Object | None:
         return obj
     try:
         target = obj.final_target
-    except Exception:
+    except (griffe.AliasResolutionError, griffe.CyclicAliasError):
         return None
     if not target.path.startswith(PACKAGE + "."):
         return None

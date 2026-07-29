@@ -1,0 +1,47 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { LineEdit } from "std-widgets.slint";
+
+export component TestCase inherits Window {
+    in-out property<bool> input-parent-visible: true;
+
+    callback focus-and-hide-input-parent();
+    focus-and-hide-input-parent => {
+        input.focus();
+        hide-timer.start();
+    }
+
+    hide-timer := Timer {
+        interval: 1ms;
+        triggered => {
+            input-parent-visible = false;
+        }
+    }
+
+    Rectangle {
+        visible: root.input-parent-visible;
+
+        input := LineEdit {}
+    }
+
+    out property<bool> item-focused: input.has-focus;
+    out property<bool> text-input-focused: TextInputInterface.text-input-focused;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(!instance.get_item_focused());
+assert!(!instance.get_text_input_focused());
+
+instance.invoke_focus_and_hide_input_parent();
+assert!(instance.get_item_focused());
+assert!(instance.get_text_input_focused());
+
+slint_testing::mock_elapsed_time(10);
+
+assert!(!instance.get_item_focused());
+assert!(!instance.get_text_input_focused());
+```
+*/

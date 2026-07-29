@@ -20,8 +20,19 @@ pub fn handle_visible(
 ) {
     // SystemTrayIcon uses `visible` as a real reactive property (toggling the tray
     // icon's presence) rather than the lower-to-Clip layout sugar. Skip the
-    // warning + lowering for tray-rooted components.
+    // warning + lowering for tray-rooted components. The language bindings'
+    // `show()`/`hide()` write `visible` directly on the native item, behind the
+    // compiler's back — mark it as externally set so bindings reading it aren't
+    // const-folded to its initial value.
     if component.inherits_system_tray_icon() {
+        component
+            .root_element
+            .borrow()
+            .property_analysis
+            .borrow_mut()
+            .entry(SmolStr::new_static("visible"))
+            .or_default()
+            .is_set_externally = true;
         return;
     }
 
@@ -88,26 +99,31 @@ pub fn handle_visible(
 }
 
 fn create_visibility_element(child: &ElementRc, native_clip: &Rc<NativeClass>) -> ElementRc {
-    let child_grid_layout_cell = child.borrow_mut().grid_layout_cell.take();
     let element = Element {
         id: format_smolstr!("{}-visibility", child.borrow().id),
         base_type: ElementType::Native(native_clip.clone()),
         enclosing_component: child.borrow().enclosing_component.clone(),
-        bindings: std::iter::once((
-            SmolStr::new_static("clip"),
-            RefCell::new(
-                Expression::UnaryOp {
-                    sub: Box::new(Expression::PropertyReference(NamedReference::new(
-                        child,
-                        SmolStr::new_static("visible"),
-                    ))),
-                    op: '!',
-                }
-                .into(),
+        bindings: [
+            (
+                SmolStr::new_static("clip"),
+                RefCell::new(
+                    Expression::UnaryOp {
+                        sub: Box::new(Expression::PropertyReference(NamedReference::new(
+                            child,
+                            SmolStr::new_static("visible"),
+                        ))),
+                        op: '!',
+                    }
+                    .into(),
+                ),
             ),
-        ))
+            (
+                SmolStr::new_static("is-visibility-clip"),
+                RefCell::new(Expression::BoolLiteral(true).into()),
+            ),
+        ]
+        .into_iter()
         .collect(),
-        grid_layout_cell: child_grid_layout_cell,
         ..Default::default()
     };
     Element::make_rc(element)

@@ -76,6 +76,10 @@ include_dir = { version = "0.7", optional = true }
 i-slint-renderer-software = { workspace = true, optional = true }
 i-slint-renderer-skia = { workspace = true, default-features = false, optional = true }
 
+# The browser decodes images on the web; decode with the image and resvg crates elsewhere.
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+i-slint-core = { workspace = true, features = ["image-decoders", "svg"] }
+
 [build-dependencies]
 cfg_aliases = { workspace = true }
 prost = { version = "0.14", optional = true }

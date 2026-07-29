@@ -15,6 +15,8 @@ import {
     type Model,
 } from "../dist/index.js";
 
+private_api.initTesting();
+
 const filename = fileURLToPath(import.meta.url).replace("build", "__test__");
 const dirname = path.dirname(filename);
 

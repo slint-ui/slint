@@ -732,7 +732,8 @@ class EventLoop {
             }
         }
 
-        // Fallback for Windows, Deno, and runtimes without uv_backend_fd().
+        // Fallback for Deno and runtimes where libuv's I/O source
+        // can't be watched.
         {
             const nodejsPollInterval = 16;
             const id = setInterval(() => {
@@ -782,13 +783,13 @@ var globalEventLoop: EventLoop = new EventLoop();
  *                          on its own under the default, so set this to `false` only when an
  *                          application must run without any visible UI. (default true).
  *
- * On Linux and macOS with Node.js,
- * Slint uses an efficient event loop integration that watches libuv's backend
- * file descriptor from a background thread.
+ * On Linux, macOS, and Windows with Node.js,
+ * Slint uses an efficient event loop integration that watches libuv's
+ * I/O source from a background thread.
  * This provides zero idle CPU usage and near-instant response to both UI and
  * JavaScript events.
  *
- * On Windows and other runtimes (Deno),
+ * On other runtimes (Deno),
  * the integration falls back to polling at 16 millisecond intervals,
  * which consumes a small amount of CPU when idle.
  */

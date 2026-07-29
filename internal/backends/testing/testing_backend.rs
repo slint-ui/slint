@@ -195,6 +195,7 @@ impl i_slint_core::platform::Platform for TestingBackend {
             native_popup: Cell::new(false),
             simulate_native_drag: Cell::new(false),
             native_drag: Default::default(),
+            window_move_requests: Default::default(),
             #[cfg(supports_headless)]
             renderer_name: self.renderer_name.clone(),
             #[cfg(supports_headless)]
@@ -288,7 +289,7 @@ pub struct TestingWindow {
     window: i_slint_core::api::Window,
     size: Cell<PhysicalSize>,
     pub ime_requests: RefCell<Vec<InputMethodRequest>>,
-    mouse_cursor: Cell<i_slint_core::items::MouseCursor>,
+    mouse_cursor: RefCell<i_slint_core::cursor::MouseCursorInner>,
     all_item_trees: CheckAllItemTreesUnregistered,
     pub open_url: Rc<RefCell<Option<SharedString>>>,
     pub debug_logs: Rc<RefCell<Vec<String>>>,
@@ -297,6 +298,7 @@ pub struct TestingWindow {
     /// Payload and allowed actions recorded by `start_drag` while simulating a native drag,
     /// so the receive-side helpers can build the drop they deliver to a target window.
     native_drag: RefCell<Option<(i_slint_core::data_transfer::DataTransfer, AllowedDragActions)>>,
+    window_move_requests: Cell<usize>,
     /// Remembered for child popups, so they pick the same rasterizer.
     #[cfg(supports_headless)]
     renderer_name: Option<SharedString>,
@@ -313,8 +315,13 @@ impl TestingWindow {
     }
 
     #[allow(dead_code)] // Used by various tests
-    pub fn mouse_cursor(&self) -> i_slint_core::items::MouseCursor {
-        self.mouse_cursor.get()
+    pub fn mouse_cursor(&self) -> i_slint_core::cursor::MouseCursorInner {
+        self.mouse_cursor.borrow().clone()
+    }
+
+    /// Number of interactive window moves requested via `WindowMoveArea`.
+    pub fn window_move_request_count(&self) -> usize {
+        self.window_move_requests.get()
     }
 
     #[allow(dead_code)]
@@ -396,8 +403,12 @@ impl WindowAdapterInternal for TestingWindow {
         true
     }
 
-    fn set_mouse_cursor(&self, cursor: i_slint_core::items::MouseCursor) {
-        self.mouse_cursor.set(cursor);
+    fn start_window_move(&self) {
+        self.window_move_requests.set(self.window_move_requests.get() + 1);
+    }
+
+    fn set_mouse_cursor(&self, cursor: i_slint_core::cursor::MouseCursorInner) {
+        self.mouse_cursor.replace(cursor);
     }
 
     fn register_item_tree(&self, item_tree: i_slint_core::item_tree::ItemTreeRefPin) {
@@ -438,6 +449,7 @@ impl WindowAdapterInternal for TestingWindow {
                 native_popup: self.native_popup.clone(),
                 simulate_native_drag: self.simulate_native_drag.clone(),
                 native_drag: Default::default(),
+                window_move_requests: Default::default(),
                 #[cfg(supports_headless)]
                 renderer_name: self.renderer_name.clone(),
                 #[cfg(supports_headless)]
@@ -503,14 +515,47 @@ impl RendererSealed for TestingWindow {
                     i_slint_core::styled_text::get_raw_text(&s).into_owned()
                 }
             };
-            let max_line_len = text.lines().map(|l: &str| l.len()).max().unwrap_or(0);
-            let num_lines = text.lines().count().max(1);
+            // Whitespace-separated words rather than real line breaking, and byte lengths
+            // rather than character counts, to match text_size() above.
+            let max_lines = text_item.line_limit().unwrap_or(usize::MAX);
+            let (max_line_len, num_lines) = text
+                .lines()
+                .take(max_lines)
+                .fold((0, 0), |(len, count), line| (len.max(line.len()), count + 1));
             let width = max_line_len as f32 * pixel_size;
-            let height = num_lines as f32 * pixel_size;
+            let height = num_lines.max(1) as f32 * pixel_size;
             LogicalSize::new(width, height)
         } else {
             sharedparley::text_size(self, text_item, item_rc, max_width, text_wrap, None)
                 .unwrap_or_default()
+        }
+    }
+
+    fn text_content_widths(
+        &self,
+        text_item: Pin<&dyn i_slint_core::item_rendering::RenderString>,
+        item_rc: &i_slint_core::item_tree::ItemRc,
+    ) -> Option<i_slint_core::renderer::ContentWidths> {
+        let font_request = text_item.font_request(item_rc);
+        if is_fixed_test_font(&font_request.family) {
+            let pixel_size = font_request.pixel_size.map_or(10., |s| s.get());
+            let text: String = match text_item.text() {
+                i_slint_core::item_rendering::PlainOrStyledText::Plain(s) => s.to_string(),
+                i_slint_core::item_rendering::PlainOrStyledText::Styled(s) => {
+                    i_slint_core::styled_text::get_raw_text(&s).into_owned()
+                }
+            };
+            let max_lines = text_item.line_limit().unwrap_or(usize::MAX);
+            let lines = text.lines().take(max_lines);
+            let longest_word =
+                lines.clone().flat_map(str::split_whitespace).map(str::len).max().unwrap_or(0);
+            let longest_line = lines.map(str::len).max().unwrap_or(0);
+            Some(i_slint_core::renderer::ContentWidths {
+                min: LogicalLength::new(longest_word as f32 * pixel_size),
+                max: LogicalLength::new(longest_line as f32 * pixel_size),
+            })
+        } else {
+            sharedparley::text_content_widths(self, text_item, item_rc)
         }
     }
 

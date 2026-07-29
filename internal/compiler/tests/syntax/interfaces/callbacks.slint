@@ -5,12 +5,17 @@ interface Inverter {
     pure callback invert(bool) -> bool;
 }
 
-export component InverterDuplicate implements Inverter {
+export component InverterDuplicate {
+    implement Inverter <=> self;
+
     callback invert(bool) -> bool;
-//  >                            <error{Conflict with 'Inverter' which declares a callback with the same name}
+//  >                            <error{Incorrect implementation of 'invert' from 'Inverter' - expected purity declaration: 'true'}
 }
 
-export component InverterAliases implements Inverter {
+export component InverterAliases {
+    implement Inverter <=> self;
+
+    pure callback invert(bool) -> bool;
     pure callback invert-alias <=> invert;
 }
 
@@ -24,5 +29,19 @@ interface Clickable {
     callback clicked();
 }
 
-export component MyClicker implements Clickable inherits TouchArea { }
-//                                    >        <error{Cannot implement interface 'Clickable' because 'moved' conflicts with an existing callback in 'TouchArea'}
+export component MyClicker inherits TouchArea {
+    implement Clickable <=> self;
+//            >        <error{Cannot implement interface 'Clickable' because 'moved' conflicts with an existing callback in 'TouchArea'}
+}
+
+export component InverterMissingCallback {
+    implement Inverter <=> self;
+//            >       <error{Missing 'invert' from 'Inverter'}
+}
+
+export component InverterImpure {
+    implement Inverter <=> self;
+
+    callback invert(bool) -> bool;
+//  >                            <error{Incorrect implementation of 'invert' from 'Inverter' - expected purity declaration: 'true'}
+}

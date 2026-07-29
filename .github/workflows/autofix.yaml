@@ -25,7 +25,7 @@ jobs:
         runs-on: ubuntu-latest
         timeout-minutes: 5
         steps:
-            - uses: actions/checkout@v6
+            - uses: actions/checkout@v7
             - uses: jdx/mise-action@v4
               with:
                 version: 2025.9.18
@@ -41,7 +41,7 @@ jobs:
         runs-on: ubuntu-latest
         timeout-minutes: 5
         steps:
-            - uses: actions/checkout@v6
+            - uses: actions/checkout@v7
             - uses: jdx/mise-action@v4
               with:
                 version: 2025.9.18

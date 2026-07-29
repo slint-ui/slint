@@ -604,6 +604,8 @@ pub struct ComponentInformation {
     pub is_std_widget: bool,
     /// This type was exported
     pub is_exported: bool,
+    /// This type is an interface
+    pub is_interface: bool,
     /// This is a primitive element that reacts to events in some way
     pub is_interactive: bool,
     /// This is a layout

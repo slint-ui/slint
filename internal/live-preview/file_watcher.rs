@@ -104,6 +104,10 @@ impl FileWatcherImpl for notify::RecommendedWatcher {
 pub struct FileWatcher<Impl: FileWatcherImpl = notify::RecommendedWatcher> {
     tx: mpsc::Sender<WorkerMessage<Impl>>,
 
+    /// Base for resolving relative watch paths, captured at startup so it stays stable if the
+    /// process later changes its working directory.
+    base: PathBuf,
+
     /// Use a worker thread for processing file events and updating watches.
     ///
     /// `notify` already invokes callbacks from backend-managed threads/event loops, but
@@ -167,7 +171,11 @@ impl<Impl: FileWatcherImpl> FileWatcher<Impl> {
         });
 
         match startup_rx.recv() {
-            Ok(Ok(())) => Ok(Self { tx, worker: Some(worker) }),
+            Ok(Ok(())) => Ok(Self {
+                tx,
+                worker: Some(worker),
+                base: std::env::current_dir().unwrap_or_default(),
+            }),
             Ok(Err(err)) => {
                 let _ = worker.join();
                 Err(err)
@@ -180,13 +188,19 @@ impl<Impl: FileWatcherImpl> FileWatcher<Impl> {
     }
 
     /// Replaces the watched path set with `paths`.
+    ///
+    /// Relative paths are resolved against the working directory captured at watcher startup,
+    /// so that they compare equal to the absolute paths the backend reports for events.
     pub fn update_watched_paths<I>(&mut self, paths: I) -> Result<(), Impl::Error>
     where
         I: IntoIterator<Item = PathBuf>,
     {
         let watched_files = paths
             .into_iter()
-            .map(|path| i_slint_compiler::pathutils::clean_path(&path))
+            .map(|path| {
+                let path = i_slint_compiler::pathutils::join(&self.base, &path).unwrap_or(path);
+                i_slint_compiler::pathutils::clean_path(&path)
+            })
             .collect::<HashSet<_>>();
 
         let (response_tx, response_rx) = mpsc::sync_channel(1);
@@ -565,7 +579,7 @@ mod tests {
     use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
     const WATCHER_SETTLE_DELAY: Duration = Duration::from_millis(50);
-    const EVENT_TIMEOUT: Duration = Duration::from_millis(100);
+    const EVENT_TIMEOUT: Duration = Duration::from_secs(1);
     const QUIET_TIMEOUT: Duration = Duration::from_millis(50);
 
     fn new_test_root() -> PathBuf {

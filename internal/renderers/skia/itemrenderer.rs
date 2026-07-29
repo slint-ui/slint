@@ -43,7 +43,7 @@ pub struct SkiaItemRenderer<'a> {
     layer_cache: &'a ItemCache<Option<(PhysicalPoint, skia_safe::Image)>>,
     path_cache: &'a ItemCache<Option<(Vector2D<f32, PhysicalPx>, skia_safe::Path)>>,
     text_layout_cache: &'a sharedparley::TextLayoutCache,
-    box_shadow_cache: &'a mut SkiaBoxShadowCache,
+    box_shadow_cache: &'a SkiaBoxShadowCache,
 }
 
 impl<'a> SkiaItemRenderer<'a> {
@@ -55,7 +55,7 @@ impl<'a> SkiaItemRenderer<'a> {
         layer_cache: &'a ItemCache<Option<(PhysicalPoint, skia_safe::Image)>>,
         path_cache: &'a ItemCache<Option<(Vector2D<f32, PhysicalPx>, skia_safe::Path)>>,
         text_layout_cache: &'a sharedparley::TextLayoutCache,
-        box_shadow_cache: &'a mut SkiaBoxShadowCache,
+        box_shadow_cache: &'a SkiaBoxShadowCache,
     ) -> Self {
         Self {
             canvas,

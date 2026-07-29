@@ -72,6 +72,7 @@ pub enum Type {
     ArrayOfU16,
 
     StyledText,
+    MouseCursor,
 }
 
 impl core::cmp::PartialEq for Type {
@@ -103,6 +104,7 @@ impl core::cmp::PartialEq for Type {
             Type::Model => matches!(other, Type::Model),
             Type::PathData => matches!(other, Type::PathData),
             Type::Easing => matches!(other, Type::Easing),
+            Type::MouseCursor => matches!(other, Type::MouseCursor),
             Type::Brush => matches!(other, Type::Brush),
             Type::Array(a) => matches!(other, Type::Array(b) if a == b),
             Type::Struct(lhs) => {
@@ -128,30 +130,11 @@ impl Display for Type {
             Type::InferredProperty => write!(f, "?"),
             Type::InferredCallback => write!(f, "callback"),
             Type::Callback(callback) => {
-                write!(f, "callback")?;
-                if !callback.args.is_empty() {
-                    write!(f, "(")?;
-                    for (i, arg) in callback.args.iter().enumerate() {
-                        if i > 0 {
-                            write!(f, ",")?;
-                        }
-                        write!(f, "{arg}")?;
-                    }
-                    write!(f, ")")?
-                }
-                write!(f, "-> {}", callback.return_type)?;
-                Ok(())
+                write!(f, "callback{}", callback)
             }
             Type::ComponentFactory => write!(f, "component-factory"),
             Type::Function(function) => {
-                write!(f, "function(")?;
-                for (i, arg) in function.args.iter().enumerate() {
-                    if i > 0 {
-                        write!(f, ",")?;
-                    }
-                    write!(f, "{arg}")?;
-                }
-                write!(f, ") -> {}", function.return_type)
+                write!(f, "function{}", function)
             }
             Type::Float32 => write!(f, "float"),
             Type::Int32 => write!(f, "int"),
@@ -170,6 +153,7 @@ impl Display for Type {
             Type::Struct(t) => write!(f, "{t}"),
             Type::PathData => write!(f, "pathdata"),
             Type::Easing => write!(f, "easing"),
+            Type::MouseCursor => write!(f, "MouseCursor"),
             Type::Brush => write!(f, "brush"),
             Type::Enumeration(enumeration) => write!(f, "enum {}", enumeration.name),
             Type::Keys => write!(f, "keys"),
@@ -205,6 +189,12 @@ impl From<Rc<Struct>> for Type {
 }
 
 impl Type {
+    /// Whether the type is part of the Slint SC subset
+    #[cfg(feature = "slint-sc")]
+    pub fn is_slint_sc(&self) -> bool {
+        matches!(self, Self::LogicalLength | Self::Color)
+    }
+
     /// valid type for properties
     pub fn is_property_type(&self) -> bool {
         matches!(
@@ -223,6 +213,7 @@ impl Type {
                 | Self::Image
                 | Self::Bool
                 | Self::Easing
+                | Self::MouseCursor
                 | Self::Enumeration(_)
                 | Self::Keys
                 | Self::DataTransfer
@@ -326,6 +317,7 @@ impl Type {
             Type::Model => None,
             Type::PathData => None,
             Type::Easing => None,
+            Type::MouseCursor => None,
             Type::Brush => None,
             Type::Array(_) => None,
             Type::Struct { .. } => None,
@@ -384,6 +376,10 @@ pub struct BuiltinPropertyInfo {
     pub property_visibility: PropertyVisibility,
     /// Raw `///` doc comment from builtins.slint, if any.
     pub docs: Option<String>,
+    /// Whether the property is part of the Slint SC subset
+    /// (`\sc` marker in its doc comment). Set by [`Self::set_docs`].
+    #[cfg(feature = "slint-sc")]
+    pub slint_sc: bool,
     /// True when a component may declare a member of the same name, shadowing this one
     /// (`//-shadowable` annotation in builtins.slint).
     /// Members added to a builtin element after its initial release should be marked
@@ -401,7 +397,19 @@ impl BuiltinPropertyInfo {
             property_visibility: PropertyVisibility::InOut,
             docs: None,
             shadowable: false,
+            #[cfg(feature = "slint-sc")]
+            slint_sc: false,
         }
+    }
+
+    /// Set the doc comment, deriving the Slint SC subset flag from its
+    /// `\sc` marker.
+    pub fn set_docs(&mut self, docs: Option<String>) {
+        #[cfg(feature = "slint-sc")]
+        {
+            self.slint_sc = docs.as_deref().is_some_and(crate::load_builtins::has_sc_marker);
+        }
+        self.docs = docs;
     }
 
     pub fn is_native_output(&self) -> bool {
@@ -417,6 +425,8 @@ impl From<BuiltinFunction> for BuiltinPropertyInfo {
             property_visibility: PropertyVisibility::Public,
             docs: None,
             shadowable: false,
+            #[cfg(feature = "slint-sc")]
+            slint_sc: false,
         }
     }
 }
@@ -484,6 +494,9 @@ impl ElementType {
                             BuiltinPropertyDefault::BuiltinFunction(f) => Some(f.clone()),
                             _ => None,
                         },
+                        #[cfg(feature = "slint-sc")]
+                        is_slint_sc: p.slint_sc,
+                        deprecated: None,
                     },
                 }
             }
@@ -504,6 +517,9 @@ impl ElementType {
                     is_in_direct_base: false,
                     is_shadowable: false,
                     builtin_function: None,
+                    #[cfg(feature = "slint-sc")]
+                    is_slint_sc: false,
+                    deprecated: None,
                 }
             }
             _ => PropertyLookupResult::invalid(Cow::Borrowed(name)),
@@ -685,7 +701,7 @@ macro_rules! define_builtin_struct_enum {
     ($(
         $(#[$attr:meta])*
         $vis:vis struct $Name:ident {
-            $( $(#[$field_attr:meta])* $field:ident : $field_type:ty, )*
+            $( $(#[$field_attr:meta])* $field:ident : $field_type:ty $(= $field_default:expr)?, )*
         }
     )*) => {
         #[derive(Debug, Clone, PartialEq, strum::EnumString, strum::IntoStaticStr)]
@@ -894,6 +910,16 @@ pub struct PropertyLookupResult<'a> {
 
     /// If the property is a builtin function
     pub builtin_function: Option<BuiltinFunction>,
+
+    /// Whether the property is part of the Slint SC subset
+    /// (`\sc` marker in its doc comment in builtins.slint).
+    #[cfg(feature = "slint-sc")]
+    pub is_slint_sc: bool,
+
+    /// Some if the property was declared with `@deprecated`: the hint message shown after
+    /// "The property 'xxx' has been deprecated." in the warning.
+    /// (Only set for properties declared in a component; builtin aliases use `resolved_name` instead.)
+    pub deprecated: Option<SmolStr>,
 }
 
 impl<'a> PropertyLookupResult<'a> {
@@ -921,6 +947,9 @@ impl<'a> PropertyLookupResult<'a> {
             is_in_direct_base: false,
             is_shadowable: false,
             builtin_function: None,
+            #[cfg(feature = "slint-sc")]
+            is_slint_sc: false,
+            deprecated: None,
         }
     }
 }
@@ -932,6 +961,19 @@ pub struct Function {
     /// The optional names of the arguments (empty string means not set).
     /// The names are not technically part of the type, but it is good to have them available for auto-completion
     pub arg_names: Vec<SmolStr>,
+}
+
+impl Display for Function {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(formatter, "(")?;
+        for (i, arg) in self.args.iter().enumerate() {
+            if i > 0 {
+                write!(formatter, ", ")?;
+            }
+            write!(formatter, "{arg}")?;
+        }
+        write!(formatter, ") -> {}", self.return_type)
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -993,14 +1035,125 @@ impl From<BuiltinStruct> for StructName {
 #[derive(Debug, Clone)]
 pub struct Struct {
     pub fields: BTreeMap<SmolStr, Type>,
+    /// Default values for the fields.
+    /// The expressions are resolved, converted to the field type, and constant-folded.
+    /// Like the syntax node in `name`, this is ignored by `Type`'s equality comparison.
+    pub field_defaults: BTreeMap<SmolStr, ConstantExpression>,
     pub name: StructName,
 }
 
 impl Struct {
+    /// Create a struct without declared field default values.
+    pub fn new(fields: BTreeMap<SmolStr, Type>, name: impl Into<StructName>) -> Self {
+        Self { fields, field_defaults: Default::default(), name: name.into() }
+    }
+
     pub fn node(&self) -> Option<&syntax_nodes::ObjectType> {
         match &self.name {
             StructName::User { node, .. } => Some(node),
             _ => None,
+        }
+    }
+
+    /// The default value for the given field: the user-declared default if there is one,
+    /// otherwise the default value for the field's type.
+    pub fn default_value_for_field(&self, name: &SmolStr) -> Expression {
+        self.field_defaults.get(name).map(ConstantExpression::to_expression).unwrap_or_else(|| {
+            Expression::default_value_for_type(
+                self.fields.get(name).expect("default value requested for unknown struct field"),
+            )
+        })
+    }
+}
+
+/// A constant expression, used for the default values of struct fields
+/// (see [`Struct::field_defaults`]).
+///
+/// This is deliberately neither [`Expression`] nor an llr expression:
+/// unlike those, it cannot reference any properties, elements, or syntax nodes,
+/// so a [`Struct`] carrying one can safely outlive the object tree.
+/// The variants are the subset that every consumer can materialize.
+/// Keep the matches over this type exhaustive,
+/// so that adding a variant is a compile error in each consumer:
+/// the conversion to an expression tree ([`Self::to_expression`]),
+/// the lowering for the code generators (`lower_constant_expression` in the llr module),
+/// and the interpreter's evaluator (`eval_constant_expression` there).
+#[derive(Debug, Clone)]
+pub enum ConstantExpression {
+    StringLiteral(SmolStr),
+    /// A number and its unit, in normalized form
+    NumberLiteral(f64, Unit),
+    BoolLiteral(bool),
+    EnumerationValue(EnumerationValue),
+    Cast {
+        from: Box<ConstantExpression>,
+        to: Type,
+    },
+    UnaryOp {
+        sub: Box<ConstantExpression>,
+        op: char,
+    },
+    Struct {
+        ty: Rc<Struct>,
+        values: BTreeMap<SmolStr, ConstantExpression>,
+    },
+    Array {
+        element_ty: Type,
+        values: Vec<ConstantExpression>,
+    },
+}
+
+impl ConstantExpression {
+    /// Create a constant expression from a resolved, converted, and constant-folded
+    /// expression, or `None` if the expression is not in the constant subset.
+    pub fn from_expression(expression: &Expression) -> Option<Self> {
+        Some(match expression {
+            Expression::StringLiteral(s) => Self::StringLiteral(s.clone()),
+            Expression::NumberLiteral(n, unit) => Self::NumberLiteral(*n, *unit),
+            Expression::BoolLiteral(b) => Self::BoolLiteral(*b),
+            Expression::EnumerationValue(e) => Self::EnumerationValue(e.clone()),
+            Expression::Cast { from, to } => {
+                Self::Cast { from: Box::new(Self::from_expression(from)?), to: to.clone() }
+            }
+            Expression::UnaryOp { sub, op } => {
+                Self::UnaryOp { sub: Box::new(Self::from_expression(sub)?), op: *op }
+            }
+            Expression::Struct { ty, values } => Self::Struct {
+                ty: ty.clone(),
+                values: values
+                    .iter()
+                    .map(|(k, v)| Some((k.clone(), Self::from_expression(v)?)))
+                    .collect::<Option<_>>()?,
+            },
+            Expression::Array { element_ty, values } => Self::Array {
+                element_ty: element_ty.clone(),
+                values: values.iter().map(Self::from_expression).collect::<Option<_>>()?,
+            },
+            _ => return None,
+        })
+    }
+
+    /// The expression tree form, for splicing the constant into bindings at compile time
+    pub fn to_expression(&self) -> Expression {
+        match self {
+            Self::StringLiteral(s) => Expression::StringLiteral(s.clone()),
+            Self::NumberLiteral(n, unit) => Expression::NumberLiteral(*n, *unit),
+            Self::BoolLiteral(b) => Expression::BoolLiteral(*b),
+            Self::EnumerationValue(e) => Expression::EnumerationValue(e.clone()),
+            Self::Cast { from, to } => {
+                Expression::Cast { from: Box::new(from.to_expression()), to: to.clone() }
+            }
+            Self::UnaryOp { sub, op } => {
+                Expression::UnaryOp { sub: Box::new(sub.to_expression()), op: *op }
+            }
+            Self::Struct { ty, values } => Expression::Struct {
+                ty: ty.clone(),
+                values: values.iter().map(|(k, v)| (k.clone(), v.to_expression())).collect(),
+            },
+            Self::Array { element_ty, values } => Expression::Array {
+                element_ty: element_ty.clone(),
+                values: values.iter().map(Self::to_expression).collect(),
+            },
         }
     }
 }

@@ -11,6 +11,7 @@
 members = [
   'energy-monitor',
   'home-automation/rust',
+  'launcher',
   'printerdemo/rust',
   'printerdemo_mcu',
   'usecases/rust',
