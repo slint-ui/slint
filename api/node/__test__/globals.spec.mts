@@ -156,7 +156,7 @@ test("invoke global callback", () => {
         expect(thrownError.message).toBe("Global MyGlobal not found");
     }
 
-    let speakTest: string;
+    let speakTest: string | undefined;
     instance!.setGlobalCallback(
         "Global",
         "great",
