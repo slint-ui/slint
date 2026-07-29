@@ -3,7 +3,7 @@
         "href": "reference/common/#accessibility-properties"
     },
     "AnimationRef": {
-        "href": "reference/property-types/builtin-types/#animation"
+        "href": "reference/property-types/other-types/#animation"
     },
     "AnimationTick": {
         "href": "reference/global-functions/builtinfunctions/#animation-tick---duration"
@@ -12,13 +12,13 @@
         "href": "reference/property-types/numeric-types/#angle"
     },
     "bool": {
-        "href": "reference/property-types/builtin-types/#bool"
+        "href": "reference/property-types/numeric-types/#bool"
     },
     "brush": {
         "href": "reference/property-types/colors-and-brushes/#brush"
     },
     "BuiltInMouseCursor": {
-        "href": "reference/property-types/builtin-types/#mousecursor"
+        "href": "reference/property-types/other-types/#mousecursor"
     },
     "BorderRadiusRectangle": {
         "href": "reference/elements/rectangle/#border-radius-properties"
@@ -36,7 +36,7 @@
         "href": "guide/development/drag-and-drop/"
     },
     "data_transfer": {
-        "href": "reference/property-types/builtin-types/#data-transfer"
+        "href": "reference/property-types/other-types/#data-transfer"
     },
     "DragAction": {
         "href": "reference/property-types/builtin-enums/#dragaction"
@@ -63,7 +63,7 @@
         "href": "reference/global-functions/builtinfunctions/#debug"
     },
     "easing": {
-        "href": "reference/property-types/builtin-types/#easing"
+        "href": "reference/property-types/other-types/#easing"
     },
     "Edges": {
         "href": "reference/property-types/builtin-structs/#edges"
@@ -126,7 +126,7 @@
         "href": "reference/keyboard-input/focusscope/#keybinding"
     },
     "keys": {
-        "href": "reference/property-types/builtin-types/#keys"
+        "href": "reference/property-types/other-types/#keys"
     },
     "length": {
         "href": "reference/property-types/numeric-types/#length"
@@ -156,7 +156,7 @@
         "href": "reference/global-functions/math/"
     },
     "MouseCursor": {
-        "href": "reference/property-types/builtin-types/#mousecursor"
+        "href": "reference/property-types/other-types/#mousecursor"
     },
     "NumericTypes": {
         "href": "reference/property-types/numeric-types/#numeric-types"
@@ -246,7 +246,7 @@
         "href": "reference/timer/"
     },
     "Types": {
-        "href": "reference/property-types/builtin-types/"
+        "href": "reference/property-types/"
     },
     "NumberStringConversion": {
         "href": "reference/property-types/type-conversions/#converting-between-numbers-and-strings"

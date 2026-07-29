@@ -40,9 +40,10 @@ export default defineConfig({
     // routes under the base path but uses the destinations verbatim, so they
     // need the prefix.
     redirects: {
-        "/reference/primitive-types/": `${BASE_PATH}reference/property-types/builtin-types/`,
+        "/reference/primitive-types/": `${BASE_PATH}reference/property-types/numeric-types/`,
         "/reference/colors-and-brushes/": `${BASE_PATH}reference/property-types/colors-and-brushes/`,
-        "/reference/language/builtin-types/": `${BASE_PATH}reference/property-types/builtin-types/`,
+        "/reference/language/builtin-types/": `${BASE_PATH}reference/property-types/numeric-types/`,
+        "/reference/property-types/builtin-types/": `${BASE_PATH}reference/property-types/`,
         "/reference/language/colors-and-brushes/": `${BASE_PATH}reference/property-types/colors-and-brushes/`,
         "/reference/language/arrays-and-models/": `${BASE_PATH}reference/property-types/arrays-and-models/`,
         "/reference/global-structs-enums/": `${BASE_PATH}reference/property-types/builtin-structs/`,
@@ -379,7 +380,7 @@ export default defineConfig({
                                 ],
                             },
                             {
-                                label: "Property Types",
+                                label: "Types",
                                 collapsed: true,
                                 items: [
                                     {
@@ -387,16 +388,12 @@ export default defineConfig({
                                         slug: "reference/property-types",
                                     },
                                     {
-                                        label: "Built-in Types",
-                                        slug: "reference/property-types/builtin-types",
+                                        label: "Primitive & Numeric Types",
+                                        slug: "reference/property-types/numeric-types",
                                     },
                                     {
                                         label: "Strings",
                                         slug: "reference/property-types/strings",
-                                    },
-                                    {
-                                        label: "Numeric Types",
-                                        slug: "reference/property-types/numeric-types",
                                     },
                                     {
                                         label: "Colors & Brushes",
@@ -417,6 +414,10 @@ export default defineConfig({
                                     {
                                         label: "Arrays and Models",
                                         slug: "reference/property-types/arrays-and-models",
+                                    },
+                                    {
+                                        label: "Other",
+                                        slug: "reference/property-types/other-types",
                                     },
                                     {
                                         label: "Type Conversions",
