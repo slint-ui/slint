@@ -1,9 +1,11 @@
 ---
 title: Colors and Brushes
 description: Color literals, the Colors namespace, color functions, and gradients.
+SC: true
 ---
 {/* cSpell: ignore rgbacolor */}
 
+import SC from '@slint/common-files/src/components/SC.astro';
 import Link from '@slint/common-files/src/components/Link.astro';
 import CodeSnippetMD from "@slint/common-files/src/components/CodeSnippetMD.astro";
 import SlintProperty from '@slint/common-files/src/components/SlintProperty.astro';
@@ -11,7 +13,6 @@ import { Tabs, TabItem } from '@astrojs/starlight/components';
 import LangRefLink from '@slint/common-files/src/components/LangRefLink.astro';
 import NotInSC from '@slint/common-files/src/components/NotInSC.astro';
 
-<NotInSC>
 Color literals follow the syntax of CSS:
 
 ```slint
@@ -28,7 +29,8 @@ draw the outline.
 
 CSS color names are in scope wherever a `color` or `brush` value is expected, including struct
 fields, array elements and function arguments. Elsewhere, access colors from the `Colors` namespace.
-</NotInSC>
+
+<SC>
 
 ## Types
 
@@ -83,8 +85,7 @@ In Python, properties or struct fields of the color type are mapped to <LangRefL
 </Tabs>
 </NotInSC>
 </SlintProperty>
-
-<NotInSC>
+</SC>
 
 ## Color Properties
 
@@ -321,5 +322,3 @@ Instead, use one of these workarounds:
 - Use variables: `property <angle> start: -90deg;` then use `start` in the gradient
 - Use explicit subtraction: `#ff0000 0deg - 90deg`
 :::
-
-</NotInSC>

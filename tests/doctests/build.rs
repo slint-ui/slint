@@ -39,17 +39,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         writeln!(tests_file, "\nmod {stem} {{")?;
 
         // Language Specification examples are additionally compiled in
-        // Slint SC mode, unless the fence carries `no-sc-test` or the whole
-        // chapter is marked `notInSC: true` in its frontmatter.
-        let not_in_sc = file.starts_with("---\n")
+        // Slint SC mode when the chapter opts into the certified subset with
+        // `SC: true` in its frontmatter, unless the fence carries `no-sc-test`.
+        let sc_chapter = file.starts_with("---\n")
             && file[4..]
                 .split("\n---\n")
                 .next()
-                .is_some_and(|fm| fm.lines().any(|l| l.trim() == "notInSC: true"));
+                .is_some_and(|fm| fm.lines().any(|l| l.trim() == "SC: true"));
         let language_spec = path
             .strip_prefix(&prefix)?
             .starts_with("docs/astro/src/content/docs/reference/language")
-            && !not_in_sc;
+            && sc_chapter;
 
         let mut lines = file.lines().enumerate();
         while let Some((n, opening)) = lines.next() {

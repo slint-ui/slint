@@ -16,10 +16,10 @@ export const collections = {
         loader: glob({ base: "src/content/docs", pattern: docsPattern }),
         schema: docsSchema({
             extend: z.object({
-                // Language-specification chapter that is not part of the
-                // Slint SC subset: the safety manual doesn't include it, and
-                // its `{#sls.…}` identifiers, if any, are dropped.
-                notInSC: z.boolean().optional(),
+                // Chapter that opts into the Slint SC subset: the safety
+                // manual includes the content it wraps in <SC>, and the
+                // `{#sls.…}` identifiers there become traceable anchors.
+                SC: z.boolean().optional(),
             }),
         }),
     }),

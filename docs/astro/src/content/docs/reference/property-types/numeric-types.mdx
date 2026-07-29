@@ -1,24 +1,26 @@
 ---
 title: Primitive & Numeric Types
 description: The boolean, numeric, and unit types of the Slint language.
+SC: true
 ---
 
+import SC from '@slint/common-files/src/components/SC.astro';
 import SlintProperty from '@slint/common-files/src/components/SlintProperty.astro';
 import Link from '@slint/common-files/src/components/Link.astro';
 import NotInSC from '@slint/common-files/src/components/NotInSC.astro';
 
-<NotInSC>
 ## Primitive Types
 
 ### bool
 <SlintProperty propName="bool" typeName="bool" defaultValue='false'>
 boolean whose value can be either `true` or `false`.
 </SlintProperty>
-</NotInSC>
+
+<SC>
 
 ## Numeric Types
 
-<NotInSC>
+</SC>
 
 ### angle
 <SlintProperty propName="angle" typeName="angle" defaultValue='0deg'>
@@ -69,7 +71,8 @@ Returns a string representation of the number but not localized. This means the 
 <SlintProperty propName="int" typeName="int" defaultValue='0'>
 Signed integral number.
 </SlintProperty>
-</NotInSC>
+
+<SC>
 
 ### length
 <SlintProperty propName="length" typeName="length" defaultValue='0px'>
@@ -81,7 +84,7 @@ The type used for `x`, `y`, `width` and `height` coordinates. Corresponds to a l
 A `length` is a distance.
 The default `length` is zero. \{#sls.type.length}
 
-<NotInSC>
+</SC>
 
 ### percent
 <SlintProperty propName="percent" typeName="percent" defaultValue='0%'>
@@ -101,4 +104,3 @@ Relative font size factor that is multiplied with the `Window.default-font-size`
 
 
 Please see the language specific API references how these types are mapped to the APIs of the different programming languages.
-</NotInSC>

@@ -15,6 +15,9 @@ export const collections = {
                 // `reference/`, which the completeness check in
                 // rehype-sls-ids.mjs holds to the corpus rules.
                 normative: z.boolean().optional(),
+                // Carried over by the synced specification and property-types
+                // chapters: the manual includes the content they wrap in <SC>.
+                SC: z.boolean().optional(),
             }),
         }),
     }),

@@ -18,22 +18,23 @@
 // That keeps every producer of markers (the specification, builtins.slint doc
 // comments, and whatever else grows one) free to write them unconditionally.
 //
-// The pages that do carry identifiers are the language specification and, in
-// the safety manual, everything under `reference/`: the generated SC API
-// reference and the chapters the manual writes itself, like rendering and
-// generated code. Pass `{ referenceRequiresIds: true }` for those. They are
-// also checked for completeness -- a normative paragraph without an
-// identifier fails the build -- covering top-level paragraphs of the
-// specification and of the manual's own chapters (nested ones are asides and
-// list items) and every paragraph of the generated and property-types
-// reference. A page states no requirements, and so drops its markers instead
-// of assigning them, in two cases: a specification chapter with
-// `notInSC: true` covers the full language only, so the safety manual leaves
-// it out, and a page with `normative: false` is navigational, like a section
-// landing page. Dropping keeps the corpus and the traceability matrix in
-// step: the matrix cites neither kind of page, and an anchor it never cites
-// dead-links from nowhere and hides a marker that should have been checked.
-// The markers stay in the source for when a chapter joins the subset.
+// The pages that do carry identifiers are the specification and property-type
+// chapters that opt into the safety corpus with `SC: true` and, in the safety
+// manual, everything under `reference/`: the generated SC API reference and the
+// chapters the manual writes itself, like rendering and generated code. Pass
+// `{ referenceRequiresIds: true }` for the latter. They are also checked for
+// completeness -- a normative paragraph without an identifier fails the build
+// -- covering the paragraphs an `SC: true` page wraps in <SC>/<OnlyInSC>, the
+// top-level paragraphs of the manual's own chapters (nested ones are asides and
+// list items), and every paragraph of the generated reference. A page states no
+// requirements, and so drops its markers instead of assigning them, in two
+// cases: a specification chapter without `SC: true` documents the full language
+// only, so the safety manual leaves it out, and a page with `normative: false`
+// is navigational, like a section landing page. Dropping keeps the corpus and
+// the traceability matrix in step: the matrix cites neither kind of page, and
+// an anchor it never cites dead-links from nowhere and hides a marker that
+// should have been checked. The markers stay in the source for when a chapter
+// joins the subset.
 //
 // The same marker format lives in `split_marker` in
 // docs/slint-doc-generator/traceability.rs and in the `.sls-id` styling in
@@ -46,11 +47,11 @@
 
 const ID_MARKER = /\s*\{#(sls\.[a-z0-9.\-_]+)\}\s*$/;
 
-// The specification chapters and the property-types reference are the SC
-// corpus: their paragraphs carry identifiers unless a page opts out with
-// `notInSC: true`. Separator-agnostic so the checks also hold on Windows
-// paths, and anchored on `content/docs/` so an unrelated directory in the
-// checkout path can't match.
+// The specification and property-types chapters. A page in either joins the SC
+// corpus by setting `SC: true`; this path also tells such a chapter apart from
+// the generated and manual reference. Separator-agnostic so the checks also
+// hold on Windows paths, and anchored on `content/docs/` so an unrelated
+// directory in the checkout path can't match.
 const SPEC_PATH =
     /[\\/]content[\\/]docs[\\/](reference[\\/])?(language|property-types)[\\/]/;
 const GENERATED_REFERENCE_PATH =
@@ -66,14 +67,25 @@ const MANUAL_REFERENCE_PATH = /[\\/]content[\\/]docs[\\/]reference[\\/]/;
 // component: the safety manual renders nothing for it, but rehype runs before
 // any component does, so the paragraphs are still here to be skipped.
 const NOT_IN_SC = "NotInSC";
+// Certified content is wrapped in <SC>. Inside it, <OnlyInSC> marks wording
+// that holds for Slint SC alone (shown only in the safety manual); it is the
+// counterpart of <NotInSC>, which opts a nested part back out (shown only in
+// the main docs, e.g. a type description within a <SlintProperty>). Both <SC>
+// and <OnlyInSC> bound a certified block.
+const SC_TAGS = new Set(["SC", "OnlyInSC"]);
 
-function walk(node, fn, depth = 0, inNotInSc = false) {
-    if (node.type === "element") fn(node, depth, inNotInSc);
-    const nested =
-        inNotInSc ||
-        (node.type === "mdxJsxFlowElement" && node.name === NOT_IN_SC);
+function walk(node, fn, depth = 0, inNotInSc = false, scDepth = null) {
+    if (node.type === "element") fn(node, depth, inNotInSc, scDepth);
+    let childNotInSc = inNotInSc;
+    let childScDepth = scDepth;
+    if (node.type === "mdxJsxFlowElement") {
+        if (node.name === NOT_IN_SC) childNotInSc = true;
+        // Track the nearest enclosing certified block, so a paragraph directly
+        // inside an <OnlyInSC> nested in an <SC> is still checked.
+        if (SC_TAGS.has(node.name)) childScDepth = depth;
+    }
     for (const child of node.children ?? []) {
-        walk(child, fn, depth + 1, nested);
+        walk(child, fn, depth + 1, childNotInSc, childScDepth);
     }
 }
 
@@ -118,27 +130,23 @@ export default function rehypeSlsIds({
         const isManualReference =
             isReference && MANUAL_REFERENCE_PATH.test(sourcePath);
         const frontmatter = file?.data?.astro?.frontmatter;
-        // A chapter outside the SC subset, and a navigational page like a
-        // section landing page, both state no requirements: they carry no
-        // identifiers and their markers are dropped.
-        const statesNoRequirements =
-            (isSpec && Boolean(frontmatter?.notInSC)) ||
-            frontmatter?.normative === false;
+        // A spec/property-types chapter opts into the safety corpus with
+        // `SC: true`; only the content it then wraps in <SC> is certified.
+        const isSC = isSpec && frontmatter?.SC === true;
+        // A navigational page like a section landing page states no
+        // requirements: it carries no identifiers and its markers are dropped.
+        const statesNoRequirements = frontmatter?.normative === false;
         const assignsIds =
-            (isSpec || isGeneratedReference || isManualReference) &&
+            (isSC || isGeneratedReference || isManualReference) &&
             !statesNoRequirements;
         // Draft pages aren't published, so they need no ids.
         const requireIds = assignsIds && !frontmatter?.draft;
-        // In the language specification and the manual's own reference
-        // chapters, only top-level paragraphs are normative: nested ones are
-        // asides and list items. The generated SC reference and the
-        // property-types reference are normative at any depth -- both wrap
-        // normative prose in components like <SlintProperty>, so an untagged
-        // nested paragraph there is a mistake and fails the build rather than
-        // slipping through.
-        const isPropertyTypes =
-            isSpec && /[\\/]property-types[\\/]/.test(sourcePath);
-        const requiredAtAnyDepth = isGeneratedReference || isPropertyTypes;
+        // The generated SC reference is normative at any depth. On an `SC: true`
+        // page the normative paragraphs are the ones directly inside an
+        // <SC>/<OnlyInSC> block; in the manual's own reference chapters, the
+        // top-level paragraphs. Deeper paragraphs are asides and list items,
+        // and a <NotInSC> nested inside a certified block is exempt.
+        const requiredAtAnyDepth = isGeneratedReference;
 
         // Tracks ids claimed during *this* invocation, so re-processing the
         // same file (dev-mode hot reload) re-claims its own ids cleanly while
@@ -146,7 +154,7 @@ export default function rehypeSlsIds({
         const claimedHere = new Set();
         const missing = [];
 
-        walk(tree, (node, depth, inNotInSc) => {
+        walk(tree, (node, depth, inNotInSc, scDepth) => {
             if (node.tagName !== "p") return;
             // Such a paragraph documents what Slint SC leaves out, so it
             // states no requirement and carries no identifier.
@@ -155,7 +163,11 @@ export default function rehypeSlsIds({
             const match =
                 last?.type === "text" ? last.value.match(ID_MARKER) : null;
             if (!match) {
-                if (requireIds && (requiredAtAnyDepth || depth === 1)) {
+                const normative =
+                    requiredAtAnyDepth ||
+                    (isManualReference && depth === 1) ||
+                    (isSC && scDepth !== null && depth === scDepth + 1);
+                if (requireIds && normative) {
                     missing.push(node);
                 }
                 return;
