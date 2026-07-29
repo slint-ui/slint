@@ -1789,7 +1789,6 @@ pub fn draw_text_input(
     text_input: Pin<&crate::items::TextInput>,
     item_rc: &crate::item_tree::ItemRc,
     size: LogicalSize,
-    password_character: Option<fn() -> char>,
     cache: &TextLayoutCache,
 ) {
     let width = size.width_length();
@@ -1798,7 +1797,7 @@ pub fn draw_text_input(
         return;
     }
 
-    let visual_representation = text_input.visual_representation(password_character);
+    let visual_representation = text_input.visual_representation();
 
     let text_color = visual_representation.text_color.color();
     let Some(platform_fill_brush) =
@@ -1912,8 +1911,8 @@ pub fn draw_text_input(
 
 /// Shapes a text input's visual text, reusing the `TextLayoutCache` where the shaped result is
 /// a pure function of the text and font properties. A selection or preedit bakes extra brushes
-/// into the glyphs, and a password field shapes a substituted text whose masking character is
-/// renderer-specific, so all three shape fresh and leave the cache entry alone.
+/// into the glyphs, so those shape fresh and leave the cache entry alone. A password field is
+/// cacheable: it shapes a substituted text, but the substitution is the same everywhere.
 fn cached_text_input_paragraphs<'a>(
     cache: Option<&'a TextLayoutCache>,
     item_rc: &crate::item_tree::ItemRc,
@@ -1925,9 +1924,7 @@ fn cached_text_input_paragraphs<'a>(
     window: &crate::api::Window,
     font_context: &mut parley::FontContext,
 ) -> CachedParagraphsGuard<'a> {
-    let cacheable = selection_and_color.is_none()
-        && visual_representation.preedit_range.is_empty()
-        && !text_input.is_password();
+    let cacheable = selection_and_color.is_none() && visual_representation.preedit_range.is_empty();
     cached_paragraphs(
         cache.filter(|_| cacheable),
         Some(item_rc),
@@ -2151,7 +2148,7 @@ pub fn text_input_byte_offset_for_position(
         None,
         scale_factor,
     );
-    let visual_representation = text_input.visual_representation(None);
+    let visual_representation = text_input.visual_representation();
 
     let (Some(window_adapter), Some(ctx)) = (renderer.window_adapter(), renderer.slint_context())
     else {
@@ -2210,7 +2207,7 @@ pub fn text_input_cursor_rect_for_byte_offset(
         );
     }
 
-    let visual_representation = text_input.visual_representation(None);
+    let visual_representation = text_input.visual_representation();
     let cursor_width = text_input.text_cursor_width() * scale_factor;
 
     let (Some(window_adapter), Some(ctx)) = (renderer.window_adapter(), renderer.slint_context())

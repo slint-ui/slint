@@ -918,14 +918,7 @@ impl ItemRenderer for QtItemRenderer<'_> {
     ) {
         self.save_state();
         self.pixel_align_origin();
-        sharedparley::draw_text_input(
-            self,
-            text_input,
-            self_rc,
-            size,
-            Some(qt_password_character),
-            self.text_layout_cache,
-        );
+        sharedparley::draw_text_input(self, text_input, self_rc, size, self.text_layout_cache);
         self.restore_state();
     }
 
@@ -3104,11 +3097,4 @@ pub(crate) mod ffi {
                 win.widget_ptr().cast::<c_void>().as_ptr()
             })
     }
-}
-
-fn qt_password_character() -> char {
-    char::from_u32(cpp! { unsafe [] -> i32 as "int" {
-        return qApp->style()->styleHint(QStyle::SH_LineEdit_PasswordCharacter, nullptr, nullptr);
-    }} as u32)
-    .unwrap_or('●')
 }

@@ -405,6 +405,44 @@ fn text_input_cache_hit_avoids_reshaping() {
 }
 
 #[test]
+fn password_input_is_cached() {
+    let window = setup();
+
+    // A password field shapes a substituted text, but the substitution is the same on every path,
+    // so the result is a pure function of its properties like any other text.
+    slint::slint! {
+        export component TestComponent inherits Window {
+            in property <string> secret: "hunter2";
+            TextInput {
+                text: secret;
+                input-type: password;
+            }
+        }
+    }
+
+    let ui = TestComponent::new().unwrap();
+    ui.show().unwrap();
+
+    let mut miss_count = 0u64;
+    assert!(window.draw_if_needed(|renderer| {
+        miss_count = render_and_get_miss_count(renderer);
+    }));
+
+    ui.set_secret("correct horse".into());
+    window.request_redraw();
+    assert!(window.draw_if_needed(|renderer| {
+        miss_count = render_and_get_miss_count(renderer);
+    }));
+    assert!(miss_count > 0, "Expected a cache miss after the text changed");
+
+    window.request_redraw();
+    assert!(window.draw_if_needed(|renderer| {
+        miss_count = render_and_get_miss_count(renderer);
+    }));
+    assert_eq!(miss_count, 0, "Expected zero cache misses on re-render without changes");
+}
+
+#[test]
 fn text_input_selection_still_colors_text() {
     let window = setup();
 

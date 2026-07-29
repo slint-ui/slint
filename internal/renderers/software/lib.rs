@@ -1055,7 +1055,7 @@ impl RendererSealed for SoftwareRenderer {
             }
             #[cfg(feature = "systemfonts")]
             (fonts::Font::VectorFont(vf), true) => {
-                let visual_representation = text_input.visual_representation(None);
+                let visual_representation = text_input.visual_representation();
 
                 let width = (text_input.width().cast() * scale_factor).cast();
                 let height = (text_input.height().cast() * scale_factor).cast();
@@ -1084,7 +1084,7 @@ impl RendererSealed for SoftwareRenderer {
                 )
             }
             (fonts::Font::PixelFont(pf), _) => {
-                let visual_representation = text_input.visual_representation(None);
+                let visual_representation = text_input.visual_representation();
 
                 let width = (text_input.width().cast() * scale_factor).cast();
                 let height = (text_input.height().cast() * scale_factor).cast();
@@ -1153,7 +1153,7 @@ impl RendererSealed for SoftwareRenderer {
             }
             #[cfg(feature = "systemfonts")]
             (fonts::Font::VectorFont(vf), true) => {
-                let visual_representation = text_input.visual_representation(None);
+                let visual_representation = text_input.visual_representation();
 
                 let width = (text_input.width().cast() * scale_factor).cast();
                 let height = (text_input.height().cast() * scale_factor).cast();
@@ -1188,7 +1188,7 @@ impl RendererSealed for SoftwareRenderer {
                     .cast()
             }
             (fonts::Font::PixelFont(pf), _) => {
-                let visual_representation = text_input.visual_representation(None);
+                let visual_representation = text_input.visual_representation();
 
                 let width = (text_input.width().cast() * scale_factor).cast();
                 let height = (text_input.height().cast() * scale_factor).cast();
@@ -2934,7 +2934,6 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
                     text_input,
                     self_rc,
                     size,
-                    None,
                     self.text_layout_cache,
                 );
             }
@@ -2958,7 +2957,7 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
                     };
                 let offset = self.current_state.offset.to_vector().cast() * self.scale_factor;
 
-                let text_visual_representation = text_input.visual_representation(None);
+                let text_visual_representation = text_input.visual_representation();
                 let color = self.alpha_color(text_visual_representation.text_color.color());
 
                 let selection = (!text_visual_representation.selection_range.is_empty()).then_some(
@@ -3029,7 +3028,7 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
                     };
                 let offset = self.current_state.offset.to_vector().cast() * self.scale_factor;
 
-                let text_visual_representation = text_input.visual_representation(None);
+                let text_visual_representation = text_input.visual_representation();
                 let color = self.alpha_color(text_visual_representation.text_color.color());
 
                 let selection = (!text_visual_representation.selection_range.is_empty()).then_some(
