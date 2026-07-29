@@ -516,6 +516,9 @@ pub fn has_integrated_event_loop(env: Env) -> bool {
 }
 
 #[napi]
-pub fn start_integrated_event_loop(env: &Env, on_exit: crate::DynFunction<'_>) -> napi::Result<()> {
+pub fn start_integrated_event_loop(
+    env: &Env,
+    #[napi(ts_arg_type = "() => void")] on_exit: crate::DynFunction<'_>,
+) -> napi::Result<()> {
     platform::start_integrated_event_loop_impl(env, on_exit)
 }
