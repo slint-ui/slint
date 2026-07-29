@@ -1579,14 +1579,12 @@ impl Element {
             node.Binding().filter_map(|b| {
                 Some((b.child_token(SyntaxKind::Identifier)?, b.BindingExpression().into()))
             }),
-            true,
             is_legacy_syntax,
             diag,
         );
         r.parse_bindings(
             node.TwoWayBinding()
                 .filter_map(|b| Some((b.child_token(SyntaxKind::Identifier)?, b.into()))),
-            false,
             is_legacy_syntax,
             diag,
         );
@@ -2698,7 +2696,6 @@ impl Element {
     fn parse_bindings(
         &mut self,
         bindings: impl Iterator<Item = (crate::parser::SyntaxToken, SyntaxNode)>,
-        _allow_slot_forwarding: bool,
         is_in_legacy_component: bool,
         diag: &mut BuildDiagnostics,
     ) {
@@ -3377,7 +3374,6 @@ fn animation_element_from_node(
             anim.Binding().filter_map(|b| {
                 Some((b.child_token(SyntaxKind::Identifier)?, b.BindingExpression().into()))
             }),
-            false,
             false,
             diag,
         );
