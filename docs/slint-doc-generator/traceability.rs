@@ -53,6 +53,12 @@ const SAFETY_DOCS_EXCLUDE: &[&str] = &["generated", "language"];
 /// [`Config::qualification_plan_dir`], the section it belongs to.
 const MATRIX_FILE: &str = "traceability-matrix.mdx";
 
+/// Where the safety manual declares the path it is served under. The matrix
+/// links from that base rather than relatively, because
+/// starlight-links-validator skips relative links: a relative one here would
+/// go unchecked, and could rot into a dead anchor unnoticed.
+const SAFETY_SITE_CONFIG: &str = "docs/safety/src/safety-site-config.mjs";
+
 const REPO_URL: &str = env!("CARGO_PKG_REPOSITORY");
 
 struct SpecPage {
@@ -60,8 +66,8 @@ struct SpecPage {
     file: String,
     /// From the frontmatter.
     title: String,
-    /// Site-relative URL of the page, for linking its anchors from the matrix.
-    /// The matrix sits two levels deep, so it starts with `../../`.
+    /// URL of the page from the site base, for linking its anchors from the
+    /// matrix. See [`SAFETY_SITE_CONFIG`] for why it isn't relative.
     base: String,
     /// The specification index heads its section; every other page nests
     /// under one.
@@ -98,10 +104,11 @@ impl TestRef {
 
 pub fn generate(cfg: &Config) -> Result<(), Box<dyn std::error::Error>> {
     let root = crate::root_dir();
-    let mut spec_pages = scan_spec_pages(&root.join(SPEC_DIR))?;
-    spec_pages.extend(scan_property_type_pages(&root)?);
-    let reference_pages = scan_reference_pages(cfg, &root)?;
-    let safety_pages = scan_safety_pages(&root)?;
+    let base = safety_base(&root)?;
+    let mut spec_pages = scan_spec_pages(&root.join(SPEC_DIR), &base)?;
+    spec_pages.extend(scan_property_type_pages(&root, &base)?);
+    let reference_pages = scan_reference_pages(cfg, &root, &base)?;
+    let safety_pages = scan_safety_pages(&root, &base)?;
 
     let mut refs = Vec::new();
     for kind in TEST_ROOTS {
@@ -125,7 +132,7 @@ pub fn generate(cfg: &Config) -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    write_matrix(cfg, &root, &spec_pages, &reference_pages, &safety_pages, &tests_by_id)
+    write_matrix(cfg, &root, &base, &spec_pages, &reference_pages, &safety_pages, &tests_by_id)
 }
 
 /// Validate the parsed pages and test references, returning one message per
@@ -259,6 +266,19 @@ fn parse_spec_page(file: &str, text: &str) -> (SpecPage, Option<String>) {
     (page, slug)
 }
 
+/// The path the safety manual is served under, with leading and trailing `/`.
+fn safety_base(repo_root: &Path) -> Result<String, Box<dyn std::error::Error>> {
+    let path = repo_root.join(SAFETY_SITE_CONFIG);
+    let text = std::fs::read_to_string(&path).context(format!("error reading {path:?}"))?;
+    let value = text
+        .lines()
+        .find_map(|line| line.trim().strip_prefix("export const SAFETY_DOCS_BASE_PATH ="))
+        .map(|value| value.trim().trim_end_matches(';').trim().trim_matches('"'))
+        .ok_or_else(|| anyhow::anyhow!("{SAFETY_SITE_CONFIG}: no SAFETY_DOCS_BASE_PATH"))?;
+    let trimmed = value.trim_matches('/');
+    Ok(if trimmed.is_empty() { "/".to_string() } else { format!("/{trimmed}/") })
+}
+
 /// Repository-relative path with `/` separators.
 fn repo_relative(path: &Path, repo_root: &Path) -> String {
     let relative = path.strip_prefix(repo_root).unwrap_or(path).to_string_lossy().into_owned();
@@ -269,7 +289,7 @@ fn repo_relative(path: &Path, repo_root: &Path) -> String {
     }
 }
 
-fn scan_spec_pages(dir: &Path) -> Result<Vec<SpecPage>, Box<dyn std::error::Error>> {
+fn scan_spec_pages(dir: &Path, base: &str) -> Result<Vec<SpecPage>, Box<dyn std::error::Error>> {
     let mut paths: Vec<std::path::PathBuf> = std::fs::read_dir(dir)
         .context(format!("error reading {dir:?}"))?
         .filter_map(|e| Some(e.ok()?.path()))
@@ -292,9 +312,9 @@ fn scan_spec_pages(dir: &Path) -> Result<Vec<SpecPage>, Box<dyn std::error::Erro
         // The index page is served at the root of the specification.
         page.top_level = stem == "index";
         page.base = if page.top_level {
-            "../../language/".to_string()
+            format!("{base}language/")
         } else {
-            format!("../../language/{stem}/")
+            format!("{base}language/{stem}/")
         };
         if !page.draft {
             pages.push(page);
@@ -307,7 +327,10 @@ fn scan_spec_pages(dir: &Path) -> Result<Vec<SpecPage>, Box<dyn std::error::Erro
 /// their anchors. Pages marked `notInSC: true` cover the full language only, so
 /// they carry no requirements; the rest are served in the safety manual under
 /// `reference/property-types/`.
-fn scan_property_type_pages(root: &Path) -> Result<Vec<SpecPage>, Box<dyn std::error::Error>> {
+fn scan_property_type_pages(
+    root: &Path,
+    base: &str,
+) -> Result<Vec<SpecPage>, Box<dyn std::error::Error>> {
     let dir = root.join(PROPERTY_TYPES_DIR);
     let mut paths: Vec<std::path::PathBuf> = std::fs::read_dir(&dir)
         .context(format!("error reading {dir:?}"))?
@@ -325,7 +348,7 @@ fn scan_property_type_pages(root: &Path) -> Result<Vec<SpecPage>, Box<dyn std::e
         if page.not_in_sc || page.anchors.is_empty() || page.draft {
             continue;
         }
-        page.base = format!("../../reference/property-types/{stem}/");
+        page.base = format!("{base}reference/property-types/{stem}/");
         pages.push(page);
     }
     Ok(pages)
@@ -336,6 +359,7 @@ fn scan_property_type_pages(root: &Path) -> Result<Vec<SpecPage>, Box<dyn std::e
 fn scan_reference_pages(
     cfg: &Config,
     repo_root: &Path,
+    base: &str,
 ) -> Result<Vec<SpecPage>, Box<dyn std::error::Error>> {
     let mut pages = Vec::new();
     for entry in walkdir::WalkDir::new(cfg.reference_dir()).sort_by_file_name() {
@@ -355,7 +379,7 @@ fn scan_reference_pages(
         // couldn't link to the anchors it just found.
         let slug = slug
             .ok_or_else(|| anyhow::anyhow!("{file}: generated page carries anchors but no slug"))?;
-        page.base = format!("../../{slug}/");
+        page.base = format!("{base}{slug}/");
         pages.push(page);
     }
     Ok(pages)
@@ -370,7 +394,10 @@ fn safety_page_slug(relative: &str) -> &str {
 }
 
 /// Parse the handwritten safety-manual pages for their anchors.
-fn scan_safety_pages(repo_root: &Path) -> Result<Vec<SpecPage>, Box<dyn std::error::Error>> {
+fn scan_safety_pages(
+    repo_root: &Path,
+    base: &str,
+) -> Result<Vec<SpecPage>, Box<dyn std::error::Error>> {
     let dir = repo_root.join(SAFETY_DOCS_DIR);
     let mut pages = Vec::new();
     for entry in walkdir::WalkDir::new(&dir)
@@ -401,7 +428,7 @@ fn scan_safety_pages(repo_root: &Path) -> Result<Vec<SpecPage>, Box<dyn std::err
         }
         let relative = repo_relative(path, &dir);
         let slug = slug.unwrap_or_else(|| safety_page_slug(&relative).to_string());
-        page.base = format!("../../{slug}/");
+        page.base = format!("{base}{slug}/");
         pages.push(page);
     }
     Ok(pages)
@@ -457,6 +484,7 @@ fn git_head(repo_root: &Path) -> String {
 fn write_matrix(
     cfg: &Config,
     repo_root: &Path,
+    base: &str,
     spec_pages: &[SpecPage],
     reference_pages: &[SpecPage],
     safety_pages: &[SpecPage],
@@ -484,7 +512,7 @@ description: Mapping between the requirement paragraphs of the Language Specific
 slug: qualification-plan/traceability-matrix
 ---
 
-Each requirement paragraph in the [Language Specification](../../language/), the [SC API Reference](../../reference/), and the other chapters of this manual carries a unique identifier,
+Each requirement paragraph in the [Language Specification]({base}language/), the [SC API Reference]({base}reference/), and the other chapters of this manual carries a unique identifier,
 shown as a `[sls.…]` badge at the end of the paragraph.
 A test case declares which requirements it verifies by listing their identifiers in `//#sls.…` comments.
 This matrix lists every requirement paragraph with the test cases that declare it.
