@@ -73,6 +73,11 @@ struct SpecPage {
     /// Covers the full language only: the safety manual leaves the chapter
     /// out, so its anchors, if any, aren't part of the traceability corpus.
     not_in_sc: bool,
+    /// States requirements, the default. A navigational page like a section
+    /// landing page sets `normative: false`; rehype-sls-ids.mjs drops its
+    /// markers rather than turning them into anchors, so citing one here
+    /// would dead-link.
+    normative: bool,
 }
 
 struct TestRef {
@@ -190,6 +195,7 @@ fn parse_spec_page(file: &str, text: &str) -> (SpecPage, Option<String>) {
         anchors: Vec::new(),
         draft: false,
         not_in_sc: false,
+        normative: true,
     };
     let mut in_comment = false;
     let mut in_fence = false;
@@ -210,6 +216,8 @@ fn parse_spec_page(file: &str, text: &str) -> (SpecPage, Option<String>) {
                 page.draft = true;
             } else if t == "notInSC: true" {
                 page.not_in_sc = true;
+            } else if t == "normative: false" {
+                page.normative = false;
             }
             continue;
         }
@@ -388,7 +396,7 @@ fn scan_safety_pages(repo_root: &Path) -> Result<Vec<SpecPage>, Box<dyn std::err
             continue;
         }
         let (mut page, slug) = parse_spec_page(&file, &text);
-        if page.anchors.is_empty() || page.draft {
+        if page.anchors.is_empty() || page.draft || !page.normative {
             continue;
         }
         let relative = repo_relative(path, &dir);
@@ -642,6 +650,7 @@ fn test_check_reports_all_errors() {
         anchors: anchors.iter().map(|(id, line)| (id.to_string(), *line)).collect(),
         draft: false,
         not_in_sc: false,
+        normative: true,
     };
     let test_ref = |id: &str, file: &str, line| TestRef {
         id: id.to_string(),

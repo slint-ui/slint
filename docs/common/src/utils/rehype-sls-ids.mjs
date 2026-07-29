@@ -19,17 +19,21 @@
 // comments, and whatever else grows one) free to write them unconditionally.
 //
 // The pages that do carry identifiers are the language specification and, in
-// the safety manual, the generated SC API reference: pass
-// `{ generatedReferenceRequiresIds: true }` for the latter. Those pages are
+// the safety manual, everything under `reference/`: the generated SC API
+// reference and the chapters the manual writes itself, like rendering and
+// generated code. Pass `{ referenceRequiresIds: true }` for those. They are
 // also checked for completeness -- a normative paragraph without an
 // identifier fails the build -- covering top-level paragraphs of the
-// specification (nested ones are asides and list items) and every paragraph
-// of the generated reference. A specification chapter with `notInSC: true`
-// in its frontmatter covers the full language only: the safety manual leaves
-// it out, so it states no requirements and its markers are dropped like on
-// any other page that carries no identifiers -- an anchor there would
-// dead-link from the traceability matrix. The markers stay in the source for
-// when the chapter joins the subset.
+// specification and of the manual's own chapters (nested ones are asides and
+// list items) and every paragraph of the generated and property-types
+// reference. A page states no requirements, and so drops its markers instead
+// of assigning them, in two cases: a specification chapter with
+// `notInSC: true` covers the full language only, so the safety manual leaves
+// it out, and a page with `normative: false` is navigational, like a section
+// landing page. Dropping keeps the corpus and the traceability matrix in
+// step: the matrix cites neither kind of page, and an anchor it never cites
+// dead-links from nowhere and hides a marker that should have been checked.
+// The markers stay in the source for when a chapter joins the subset.
 //
 // The same marker format lives in `split_marker` in
 // docs/slint-doc-generator/traceability.rs and in the `.sls-id` styling in
@@ -51,6 +55,12 @@ const SPEC_PATH =
     /[\\/]content[\\/]docs[\\/](reference[\\/])?(language|property-types)[\\/]/;
 const GENERATED_REFERENCE_PATH =
     /[\\/]content[\\/]docs[\\/]generated[\\/]reference[\\/]/;
+// The reference chapters the safety manual writes itself. The main
+// documentation serves a much larger `reference/` that states no
+// requirements, so this only applies where `referenceRequiresIds` is set. The
+// manual's synced property-types pages sit below this path too, but they
+// match SPEC_PATH first.
+const MANUAL_REFERENCE_PATH = /[\\/]content[\\/]docs[\\/]reference[\\/]/;
 
 // A feature outside the certified subset is wrapped in the `<NotInSC>`
 // component: the safety manual renders nothing for it, but rehype runs before
@@ -80,7 +90,7 @@ function textPreview(node) {
 }
 
 export default function rehypeSlsIds({
-    generatedReferenceRequiresIds = false,
+    referenceRequiresIds = false,
     renderBadge = true,
 } = {}) {
     // Closure-scoped: persists across files in one build, so a duplicate
@@ -100,28 +110,35 @@ export default function rehypeSlsIds({
         const isOwnPage = !siteRoot || sourcePath.startsWith(siteRoot);
         const isSpec = isOwnPage && SPEC_PATH.test(sourcePath);
         // Both sites generate the reference from the same doc comments, but
-        // only the safety manual treats it as normative.
-        const isNormativeReference =
-            generatedReferenceRequiresIds &&
-            isOwnPage &&
-            !isSpec &&
-            GENERATED_REFERENCE_PATH.test(sourcePath);
+        // only the safety manual treats it, and the reference chapters it
+        // writes itself, as normative.
+        const isReference = referenceRequiresIds && isOwnPage && !isSpec;
+        const isGeneratedReference =
+            isReference && GENERATED_REFERENCE_PATH.test(sourcePath);
+        const isManualReference =
+            isReference && MANUAL_REFERENCE_PATH.test(sourcePath);
         const frontmatter = file?.data?.astro?.frontmatter;
-        // A `notInSC: true` chapter is outside the safety corpus, so it
-        // carries no identifiers and its markers are dropped.
-        const notInSC = isSpec && Boolean(frontmatter?.notInSC);
-        const assignsIds = (isSpec && !notInSC) || isNormativeReference;
+        // A chapter outside the SC subset, and a navigational page like a
+        // section landing page, both state no requirements: they carry no
+        // identifiers and their markers are dropped.
+        const statesNoRequirements =
+            (isSpec && Boolean(frontmatter?.notInSC)) ||
+            frontmatter?.normative === false;
+        const assignsIds =
+            (isSpec || isGeneratedReference || isManualReference) &&
+            !statesNoRequirements;
         // Draft pages aren't published, so they need no ids.
         const requireIds = assignsIds && !frontmatter?.draft;
-        // In the language specification, only top-level paragraphs are
-        // normative: nested ones are asides and list items. The generated SC
-        // reference and the property-types reference are normative at any depth
-        // -- the latter wraps normative prose in components like
-        // <SlintProperty>, so an untagged nested paragraph there is a mistake
-        // and fails the build rather than slipping through.
+        // In the language specification and the manual's own reference
+        // chapters, only top-level paragraphs are normative: nested ones are
+        // asides and list items. The generated SC reference and the
+        // property-types reference are normative at any depth -- both wrap
+        // normative prose in components like <SlintProperty>, so an untagged
+        // nested paragraph there is a mistake and fails the build rather than
+        // slipping through.
         const isPropertyTypes =
             isSpec && /[\\/]property-types[\\/]/.test(sourcePath);
-        const requiredAtAnyDepth = isNormativeReference || isPropertyTypes;
+        const requiredAtAnyDepth = isGeneratedReference || isPropertyTypes;
 
         // Tracks ids claimed during *this* invocation, so re-processing the
         // same file (dev-mode hot reload) re-claims its own ids cleanly while
