@@ -2118,6 +2118,7 @@ impl Element {
                         &r,
                         component_child_insertion_points,
                         diag,
+                        tr,
                     );
                     continue;
                 }
@@ -2427,6 +2428,7 @@ impl Element {
         parent: &ElementRc,
         component_child_insertion_points: &mut BTreeMap<String, ChildrenInsertionPoint>,
         diagnostics: &mut BuildDiagnostics,
+        type_register: &TypeRegister,
     ) {
         Self::assert_experimental_slots(diagnostics, node, "named slots");
         if let Some(existing) = component_child_insertion_points.get(slot_name.as_str()) {
@@ -2447,6 +2449,15 @@ impl Element {
                 );
             }
             return;
+        }
+        if type_register.lookup_element(slot_name.as_str()).is_ok() {
+            diagnostics.push_warning(
+                format!(
+                    "{} shadows an element type of the same name. This element is a slot placeholder, not an instance of '{slot_name}'",
+                    slot_error_subject(&slot_name)
+                ),
+                node,
+            );
         }
         let insertion_index = parent.borrow().children.len();
         component_child_insertion_points.insert(
