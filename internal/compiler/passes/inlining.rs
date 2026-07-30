@@ -9,7 +9,6 @@ use crate::diagnostics::{BuildDiagnostics, Spanned};
 use crate::expression_tree::{BindingExpression, Expression, NamedReference};
 use crate::langtype::{ElementType, Type};
 use crate::object_tree::*;
-use crate::parser::SyntaxNode;
 use by_address::ByAddress;
 use smol_str::SmolStr;
 use std::cell::RefCell;
@@ -159,7 +158,7 @@ fn inline_element(
             ChildrenInsertionPoint {
                 parent: inlined_component.root_element.clone(),
                 insertion_index: inlined_component.root_element.borrow().children.len(),
-                node: cip_node,
+                node: ChildInsertionPointNode::DefaultChildrenPlaceHolder(cip_node),
             },
         );
     }
@@ -212,7 +211,7 @@ fn inline_element(
     struct SlotInsertion {
         slot_name: SmolStr,
         insertion_index: usize,
-        node: SyntaxNode,
+        node: ChildInsertionPointNode,
         insertion_element: ElementRc,
         children: Vec<ElementRc>,
     }
