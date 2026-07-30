@@ -385,6 +385,9 @@ fn compile(
         .arg(out_path)
         .arg("-L")
         .arg(deps_dir)
+        // slint-sc is the only `--extern`, so the generated code fails to build
+        // if it references any other crate.
+        //#sls.gen.output
         .arg("--extern")
         .arg(format!("slint_sc={}", config.slint_sc_rlib.display()));
 
