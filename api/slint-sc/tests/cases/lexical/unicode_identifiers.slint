@@ -1,0 +1,22 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Software-3.0
+
+// A component and its properties may be named with non-ASCII identifiers, as
+// long as the characters are Unicode identifier characters (see Lexical Structure).
+// cSpell:ignore Größe Größ café
+//#sls.lex.identifier.classes
+export component Größe inherits Window {
+    in-out property <length> café: 5px;
+    in-out property <length> 名前: 7px;
+}
+/*
+```rust
+let mut x = Größe::new();
+assert_eq!(x.get_café(), 5);
+assert_eq!(x.get_名前(), 7);
+x.set_café(9);
+x.set_名前(11);
+assert_eq!(x.get_café(), 9);
+assert_eq!(x.get_名前(), 11);
+```
+*/
