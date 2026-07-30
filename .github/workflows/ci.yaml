@@ -219,6 +219,9 @@ jobs:
             - uses: ./.github/actions/setup-rust
               with:
                   toolchain: ${{ matrix.rust_version }}
+                  # Corrosion runs cargo with a target directory inside the
+                  # CMake build tree, which the default cache misses
+                  cache-directories: ${{ runner.workspace }}/cppbuild/cargo
             - uses: ilammy/msvc-dev-cmd@v1
             - name: Select MSVC (windows)
               if: runner.os == 'Windows'
@@ -471,6 +474,9 @@ jobs:
             - uses: Swatinem/rust-cache@v2
               with:
                 save-if: ${{ github.ref == 'refs/heads/master' }}
+                # Corrosion runs cargo with a target directory inside the
+                # CMake build tree, which the default cache misses
+                cache-directories: demos/printerdemo_mcu/esp-idf/build/cargo
             - name: Build and Test Printer demo
               shell: bash
               working-directory: demos/printerdemo_mcu/esp-idf
