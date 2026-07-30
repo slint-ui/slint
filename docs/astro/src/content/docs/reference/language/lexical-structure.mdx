@@ -29,7 +29,7 @@ Unicode Standard Annex #31: \{#sls.lex.identifier.classes}
 
 - The first character shall have the `XID_Start` property or be `U+005F` (LOW LINE, `_`).
 - Each subsequent character shall have the `XID_Continue` property or be `U+002D` (HYPHEN-MINUS, `-`).
-- A character with neither property, such as `U+00BD` (VULGAR FRACTION ONE HALF, `½`), is not part of an identifier.
+- A character with neither property is not part of an identifier.
 
 A decimal digit has the `XID_Continue` property but not `XID_Start`,
 so it may appear in an identifier but not as its first character;
