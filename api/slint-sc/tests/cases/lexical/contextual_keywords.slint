@@ -1,0 +1,67 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Software-3.0
+
+export component component inherits Window {
+    in-out property <length> property: 1px;
+    in-out property <length> component: 2px;
+    in-out property <color> callback: #010203;
+    in-out property <length> inherits;
+    in-out property <length> import;
+    in-out property <length> if;
+    in-out property <color> export;
+    in-out property <length> global;
+    in-out property <color> in;
+    in-out property <length> out;
+    in-out property <length> in-out;
+    in-out property <color> for;
+    in-out property <length> states;
+    in-out property <color> animate;
+    in-out property <length> function;
+    in-out property <color> struct;
+    in-out property <length> enum;
+    in-out property <length> pure;
+    in-out property <length> private;
+    in-out property <color> from;
+    in-out property <length> when;
+    in-out property <length> transitions;
+    in-out property <color> changed;
+    in-out property <length> else;
+    in-out property <length> return;
+    in-out property <length> root;
+    in-out property <length> self;
+    in-out property <length> parent;
+    in-out property <length> true;
+    in-out property <color> false;
+}
+
+/*
+```rust
+//#sls.lex.contextual-keywords
+let mut x = component::new();
+assert_eq!(x.get_property(), 1);
+assert_eq!(x.get_component(), 2);
+assert_eq!(x.get_callback(), slint_sc::Color::from_rgb_u8(1, 2, 3));
+x.set_if(4);
+assert_eq!(x.get_if(), 4);
+x.set_inherits(5);
+assert_eq!(x.get_inherits(), 5);
+x.set_import(6);
+assert_eq!(x.get_import(), 6);
+x.set_in_out(7);
+assert_eq!(x.get_in_out(), 7);
+x.set_pure(8);
+assert_eq!(x.get_pure(), 8);
+x.set_when(9);
+assert_eq!(x.get_when(), 9);
+x.set_else(10);
+assert_eq!(x.get_else(), 10);
+x.set_return(11);
+assert_eq!(x.get_return(), 11);
+x.set_self(12);
+assert_eq!(x.get_self(), 12);
+x.set_true(13);
+assert_eq!(x.get_true(), 13);
+x.set_false(slint_sc::Color::from_rgb_u8(4, 5, 6));
+assert_eq!(x.get_false(), slint_sc::Color::from_rgb_u8(4, 5, 6));
+```
+*/
