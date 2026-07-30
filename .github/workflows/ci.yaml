@@ -9,7 +9,11 @@ on:
             full:
                 type: boolean
                 default: true
-                description: "Run full CI including extended tests (false only runs the jobs matching the `changes` input, which autofix.ci computes for PRs)"
+                description: "Run full CI including extended tests (false only runs the jobs matching the `changes` input)"
+            changes:
+                description: "JSON list of the matched groups from ci_path_filters.yaml (computed by autofix.ci for PRs)"
+                type: string
+                default: '[]'
     workflow_call:
       inputs:
         full:
@@ -188,7 +192,7 @@ jobs:
               # Windows runs for internal, api_cpp, or examples changes
               # macOS and Ubuntu only run when api_cpp changed
               entries='[{"os":"windows-2022","rust_version":"nightly"}]'
-              if [ "${{ inputs.full }}" = "true" ] || [ "${{ contains(fromJSON(inputs.changes), 'api_cpp') }}" = "true" ]; then
+              if [ "${{ inputs.full || contains(fromJSON(inputs.changes), 'api_cpp') }}" = "true" ]; then
                 entries='[{"os":"windows-2022","rust_version":"nightly"},{"os":"macos-14","rust_version":"1.92"},{"os":"ubuntu-22.04","rust_version":"stable"}]'
               fi
               echo "matrix={\"include\":$entries}" >> "$GITHUB_OUTPUT"

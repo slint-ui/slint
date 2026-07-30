@@ -31,11 +31,15 @@ jobs:
         outputs:
             changes: ${{ steps.filter.outputs.changes }}
         steps:
+            # paths-filter only reads the filter file from the working tree;
+            # the changed files come from the GitHub API.
             - uses: actions/checkout@v7
+              with:
+                  sparse-checkout: .github/ci_path_filters.yaml
+                  sparse-checkout-cone-mode: false
             - uses: dorny/paths-filter@v4
               id: filter
               with:
-                  token: ${{ github.token }}
                   filters: .github/ci_path_filters.yaml
 
     format_fix:
@@ -77,7 +81,6 @@ jobs:
         permissions:
             contents: read
             deployments: write
-            pull-requests: read
         uses: ./.github/workflows/ci.yaml
         with:
             full: false

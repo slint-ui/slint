@@ -5,6 +5,8 @@
 # job belong in the group gating that job instead.
 ci_config: &ci_config
  - '.github/workflows/ci.yaml'
+ # autofix.yaml computes the changed groups that gate all ci.yaml jobs
+ - '.github/workflows/autofix.yaml'
  - '.github/ci_path_filters.yaml'
  - '.github/actions/**'
  - '.mise/**'
