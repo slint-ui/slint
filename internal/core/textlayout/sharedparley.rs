@@ -767,18 +767,43 @@ fn shape_paragraphs(
     create_text_paragraphs(&builder, font_context, text.text(), text.link_color())
 }
 
-fn get_or_create_text_paragraphs<'a>(
-    cache: Option<&'a TextLayoutCache>,
+/// Lays out the shaped text of an item and runs `f` over the result.
+///
+/// This is the one place that checks paragraphs out of a [`TextLayoutCache`] entry and hands them
+/// back: `f` only borrows the [`Layout`], so no caller can lose the shaped paragraphs and cost the
+/// next use of the entry a reshape.
+///
+/// The font context is borrowed from `window`'s Slint context for shaping and layout only, and
+/// released before `f` runs -- glyph drawing inside `f` re-enters it, and property bindings
+/// evaluated under `f` must not find it borrowed. The wrap mode and scale factor the cache entry
+/// is keyed on come from `layout_builder`, so shaping and layout cannot disagree about either.
+///
+/// Returns `None` only when `window` has no Slint context yet.
+fn with_text_layout<R>(
+    cache: Option<&TextLayoutCache>,
     item_rc: Option<&crate::item_tree::ItemRc>,
     text: Pin<&dyn crate::item_rendering::RenderString>,
-    text_wrap: TextWrap,
-    scale_factor: ScaleFactor,
+    layout_builder: &LayoutWithoutLineBreaksBuilder,
+    options: LayoutOptions,
     window: &crate::api::Window,
-    font_context: &mut parley::FontContext,
-) -> CachedParagraphsGuard<'a> {
-    cached_paragraphs(cache, item_rc, text_wrap, window, font_context, &|font_context| {
-        shape_paragraphs(text, item_rc, text_wrap, scale_factor, font_context)
-    })
+    f: impl FnOnce(&Layout) -> R,
+) -> Option<R> {
+    let ctx = crate::window::WindowInner::from_pub(window).try_context()?;
+    let mut font_ctx = ctx.font_context().borrow_mut();
+
+    let text_wrap = layout_builder.text_wrap;
+    let scale_factor = layout_builder.scale_factor;
+    let mut guard =
+        cached_paragraphs(cache, item_rc, text_wrap, window, &mut font_ctx, &|font_context| {
+            shape_paragraphs(text, item_rc, text_wrap, scale_factor, font_context)
+        });
+
+    let layout = layout(layout_builder, &mut font_ctx, guard.take(), scale_factor, options);
+    drop(font_ctx);
+
+    let result = f(&layout);
+    guard.restore(layout.paragraphs);
+    Some(result)
 }
 
 struct ElisionInfo {
@@ -1826,79 +1851,67 @@ pub fn draw_text(
     );
 
     let window_adapter = item_renderer.window().window_adapter();
-    let mut font_ctx = item_renderer.window().context().font_context().borrow_mut();
-
-    let mut guard = get_or_create_text_paragraphs(
-        cache,
-        item_rc,
-        text,
-        text.wrap(),
-        scale_factor,
-        window_adapter.window(),
-        &mut font_ctx,
-    );
 
     let (horizontal_align, vertical_align) = text.alignment();
     let text_overflow = text.overflow();
+    let text_color = text.color().color();
 
-    let layout = layout(
+    let _ = with_text_layout(
+        cache,
+        item_rc,
+        text,
         &layout_builder,
-        &mut font_ctx,
-        guard.take(),
-        scale_factor,
         LayoutOptions {
             horizontal_align,
             vertical_align,
             max_height: Some(max_height),
             max_width: Some(max_width),
             max_lines: text.line_limit(),
-            text_overflow: text.overflow(),
+            text_overflow,
+        },
+        window_adapter.window(),
+        |layout| {
+            // When `overflow: elide` can't even fit the first line, the line is still drawn
+            // (rather than dropped, which would render nothing) but its vertical overflow needs
+            // to be clipped like `overflow: clip` would. Horizontal elision still applies, so a
+            // line that is both too tall and too wide is clipped vertically and gets an ellipsis
+            // horizontally.
+            let clip_overflowing_first_line =
+                text_overflow == TextOverflow::Elide && layout.first_line_exceeds_height();
+
+            let render = if text_overflow == TextOverflow::Clip || clip_overflowing_first_line {
+                item_renderer.save_state();
+
+                item_renderer.combine_clip(
+                    LogicalRect::new(LogicalPoint::default(), size),
+                    LogicalBorderRadius::zero(),
+                    LogicalLength::zero(),
+                )
+            } else {
+                true
+            };
+
+            if render {
+                layout.draw(
+                    item_renderer,
+                    platform_fill_brush,
+                    platform_stroke_brush,
+                    text_color,
+                    // `Text` has no selection today; the machinery is shared so wiring one up
+                    // later is a matter of passing spans here.
+                    None,
+                );
+            }
+
+            if text_overflow == TextOverflow::Clip || clip_overflowing_first_line {
+                item_renderer.restore_state();
+            }
         },
     );
-
-    drop(font_ctx);
-
-    // When `overflow: elide` can't even fit the first line, the line is still drawn (rather than
-    // dropped, which would render nothing) but its vertical overflow needs to be clipped like
-    // `overflow: clip` would. Horizontal elision still applies, so a line that is both too tall
-    // and too wide is clipped vertically and gets an ellipsis horizontally.
-    let clip_overflowing_first_line =
-        text_overflow == TextOverflow::Elide && layout.first_line_exceeds_height();
-
-    let render = if text_overflow == TextOverflow::Clip || clip_overflowing_first_line {
-        item_renderer.save_state();
-
-        item_renderer.combine_clip(
-            LogicalRect::new(LogicalPoint::default(), size),
-            LogicalBorderRadius::zero(),
-            LogicalLength::zero(),
-        )
-    } else {
-        true
-    };
-
-    if render {
-        layout.draw(
-            item_renderer,
-            platform_fill_brush,
-            platform_stroke_brush,
-            text.color().color(),
-            // `Text` has no selection today; the machinery is shared so wiring one up later is
-            // a matter of passing spans here.
-            None,
-        );
-    }
-
-    if text_overflow == TextOverflow::Clip || clip_overflowing_first_line {
-        item_renderer.restore_state();
-    }
-
-    guard.restore(layout.paragraphs);
 }
 
 #[cfg(feature = "std")]
 pub fn link_under_cursor(
-    font_context: &mut parley::FontContext,
     scale_factor: ScaleFactor,
     text: Pin<&dyn crate::item_rendering::RenderText>,
     item_rc: &crate::item_tree::ItemRc,
@@ -1914,23 +1927,13 @@ pub fn link_under_cursor(
         scale_factor,
     );
 
-    let mut guard = get_or_create_text_paragraphs(
+    let (horizontal_align, vertical_align) = text.alignment();
+
+    with_text_layout(
         cache,
         Some(item_rc),
         text,
-        text.wrap(),
-        scale_factor,
-        window,
-        font_context,
-    );
-
-    let (horizontal_align, vertical_align) = text.alignment();
-
-    let layout = layout(
         &layout_builder,
-        font_context,
-        guard.take(),
-        scale_factor,
         LayoutOptions {
             horizontal_align,
             vertical_align,
@@ -1939,9 +1942,14 @@ pub fn link_under_cursor(
             max_lines: text.line_limit(),
             text_overflow: text.overflow(),
         },
-    );
+        window,
+        |layout| link_in_layout(layout, cursor),
+    )
+    .flatten()
+}
 
-    let result = layout.paragraph_by_y(cursor.y_length()).and_then(|paragraph| {
+fn link_in_layout(layout: &Layout, cursor: PhysicalPoint) -> Option<std::string::String> {
+    layout.paragraph_by_y(cursor.y_length()).and_then(|paragraph| {
         let paragraph_y: f64 = paragraph.y.cast::<f64>().get();
 
         paragraph
@@ -1973,11 +1981,7 @@ pub fn link_under_cursor(
                 clicked
             })
             .map(|(_, link)| link.clone())
-    });
-
-    guard.restore(layout.paragraphs);
-
-    result
+    })
 }
 
 pub fn draw_text_input(
@@ -2018,111 +2022,84 @@ pub fn draw_text_input(
     );
 
     let window_adapter = item_renderer.window().window_adapter();
-    let mut font_ctx = item_renderer.window().context().font_context().borrow_mut();
 
-    let mut guard = cached_text_input_paragraphs(
+    // The visual text shapes through the shared cache entry like any other text: a selection
+    // doesn't make the entry unshareable, because it is applied when drawing, by clipping the
+    // runs it cuts across, and never reaches shaping. Cluster ranges and advances are identical
+    // with and without one, so a selected `TextInput` hits the same entry as an unselected one --
+    // which is what keeps dragging a selection, or composing with an IME, from re-shaping the
+    // document on every event. A password field shapes a substituted text, but the substitution
+    // is the same everywhere, so it is cacheable too.
+    let _ = with_text_layout(
         Some(cache),
-        item_rc,
-        text_input,
-        text_input.wrap(),
-        scale_factor,
-        window_adapter.window(),
-        &mut font_ctx,
-    );
-
-    let layout = layout(
-        &layout_builder,
-        &mut font_ctx,
-        guard.take(),
-        scale_factor,
-        LayoutOptions::new_from_textinput(text_input, Some(width), Some(height)),
-    );
-
-    drop(font_ctx);
-
-    // When a piece of text is first selected, it gets an empty range like `1..1`. If the text
-    // starts with a multi-byte character then this selection would be within that character and
-    // parley would panic, so empty ranges are filtered out.
-    let selection_spans = if selection_range.is_empty() {
-        SelectionSpans::default()
-    } else {
-        layout.selection_geometry(selection_range)
-    };
-
-    item_renderer.save_state();
-
-    let render = item_renderer.combine_clip(
-        LogicalRect::new(LogicalPoint::default(), size),
-        LogicalBorderRadius::zero(),
-        LogicalLength::zero(),
-    );
-
-    if render {
-        // Inside the clip, like the glyphs it sits under: a line box taller than the item would
-        // otherwise paint the highlight over whatever follows the input.
-        for background in selection_spans.backgrounds() {
-            item_renderer
-                .fill_rectangle_with_color(background, text_input.selection_background_color());
-        }
-
-        // Selected glyphs are recolored by clipping, not by restyling the layout, so that a
-        // boundary landing inside a ligature cuts the glyph instead of recoloring all of it.
-        let selection = (!selection_spans.is_empty())
-            .then(|| {
-                item_renderer
-                    .platform_brush_for_color(&text_input.selection_foreground_color())
-                    .map(|foreground| SelectionRendering { spans: &selection_spans, foreground })
-            })
-            .flatten();
-
-        layout.draw(item_renderer, platform_fill_brush, None, text_color, selection.as_ref());
-
-        if let Some(cursor_pos) = visual_representation.cursor_position {
-            let cursor_rect = layout.cursor_rect_for_byte_offset(
-                cursor_pos,
-                text_input.text_cursor_width() * scale_factor,
-            );
-            item_renderer
-                .fill_rectangle_with_color(cursor_rect, visual_representation.cursor_color);
-        }
-    }
-
-    item_renderer.restore_state();
-
-    guard.restore(layout.paragraphs);
-}
-
-/// Shapes a text input's visual text, reusing the `TextLayoutCache` where the shaped result is
-/// a pure function of the text and font properties.
-///
-/// A selection doesn't make an entry unshareable: it is applied when drawing, by clipping the runs
-/// it cuts across, and never reaches shaping. Cluster ranges and advances are identical with and
-/// without one, so a selected `TextInput` hits the same entry as an unselected one -- which is what
-/// keeps dragging a selection, or composing with an IME, from re-shaping the document on every
-/// event. A password field shapes a substituted text, but the substitution is the same everywhere,
-/// so it is cacheable too.
-fn cached_text_input_paragraphs<'a>(
-    cache: Option<&'a TextLayoutCache>,
-    item_rc: &crate::item_tree::ItemRc,
-    text_input: Pin<&crate::items::TextInput>,
-    text_wrap: TextWrap,
-    scale_factor: ScaleFactor,
-    window: &crate::api::Window,
-    font_context: &mut parley::FontContext,
-) -> CachedParagraphsGuard<'a> {
-    // `TextInput` shapes like any other `RenderString`: through the very function the measuring
-    // path uses, so that the two register the same dependencies. Were this to shape anything
-    // narrower, a draw could fill the entry with a tracker that a later measurement then trusts,
-    // and that measurement would miss whatever the draw didn't look at.
-    get_or_create_text_paragraphs(
-        cache,
         Some(item_rc),
         text_input,
-        text_wrap,
-        scale_factor,
-        window,
-        font_context,
-    )
+        &layout_builder,
+        LayoutOptions::new_from_textinput(text_input, Some(width), Some(height)),
+        window_adapter.window(),
+        |layout| {
+            // When a piece of text is first selected, it gets an empty range like `1..1`. If the
+            // text starts with a multi-byte character then this selection would be within that
+            // character and parley would panic, so empty ranges are filtered out.
+            let selection_spans = if selection_range.is_empty() {
+                SelectionSpans::default()
+            } else {
+                layout.selection_geometry(selection_range)
+            };
+
+            item_renderer.save_state();
+
+            let render = item_renderer.combine_clip(
+                LogicalRect::new(LogicalPoint::default(), size),
+                LogicalBorderRadius::zero(),
+                LogicalLength::zero(),
+            );
+
+            if render {
+                // Inside the clip, like the glyphs it sits under: a line box taller than the item
+                // would otherwise paint the highlight over whatever follows the input.
+                for background in selection_spans.backgrounds() {
+                    item_renderer.fill_rectangle_with_color(
+                        background,
+                        text_input.selection_background_color(),
+                    );
+                }
+
+                // Selected glyphs are recolored by clipping, not by restyling the layout, so that
+                // a boundary landing inside a ligature cuts the glyph instead of recoloring all
+                // of it.
+                let selection = (!selection_spans.is_empty())
+                    .then(|| {
+                        item_renderer
+                            .platform_brush_for_color(&text_input.selection_foreground_color())
+                            .map(|foreground| SelectionRendering {
+                                spans: &selection_spans,
+                                foreground,
+                            })
+                    })
+                    .flatten();
+
+                layout.draw(
+                    item_renderer,
+                    platform_fill_brush,
+                    None,
+                    text_color,
+                    selection.as_ref(),
+                );
+
+                if let Some(cursor_pos) = visual_representation.cursor_position {
+                    let cursor_rect = layout.cursor_rect_for_byte_offset(
+                        cursor_pos,
+                        text_input.text_cursor_width() * scale_factor,
+                    );
+                    item_renderer
+                        .fill_rectangle_with_color(cursor_rect, visual_representation.cursor_color);
+                }
+            }
+
+            item_renderer.restore_state();
+        },
+    );
 }
 
 pub fn text_size(
@@ -2145,27 +2122,15 @@ pub fn text_size(
     let _ = text_item.text();
 
     let window_adapter = renderer.window_adapter()?;
-    let ctx = renderer.slint_context()?;
-    let mut font_ctx = ctx.font_context().borrow_mut();
 
     // Only `layout()`'s elision glyph reads this, and `TextOverflow::Clip` never asks for one.
     let layout_builder = shaping_builder(text_item, Some(item_rc), text_wrap, scale_factor);
 
-    let mut guard = get_or_create_text_paragraphs(
+    with_text_layout(
         cache,
         Some(item_rc),
         text_item,
-        text_wrap,
-        scale_factor,
-        window_adapter.window(),
-        &mut font_ctx,
-    );
-
-    let layout = layout(
         &layout_builder,
-        &mut font_ctx,
-        guard.take(),
-        scale_factor,
         LayoutOptions {
             max_width,
             max_height: None,
@@ -2174,10 +2139,9 @@ pub fn text_size(
             vertical_align: TextVerticalAlignment::Top,
             text_overflow: TextOverflow::Clip,
         },
-    );
-    let size = PhysicalSize::from_lengths(layout.max_width, layout.height) / scale_factor;
-    guard.restore(layout.paragraphs);
-    Some(size)
+        window_adapter.window(),
+        |layout| PhysicalSize::from_lengths(layout.max_width, layout.height) / scale_factor,
+    )
 }
 
 /// The content widths of the text. See [`crate::renderer::ContentWidths`].
@@ -2318,31 +2282,20 @@ pub fn text_input_byte_offset_for_position(
     );
     let visual_representation = text_input.visual_representation();
 
-    let (Some(window_adapter), Some(ctx)) = (renderer.window_adapter(), renderer.slint_context())
-    else {
+    let Some(window_adapter) = renderer.window_adapter() else {
         return 0;
     };
-    let mut font_ctx = ctx.font_context().borrow_mut();
 
-    let mut guard = cached_text_input_paragraphs(
+    let byte_offset = with_text_layout(
         cache,
-        item_rc,
+        Some(item_rc),
         text_input,
-        text_input.wrap(),
-        scale_factor,
-        window_adapter.window(),
-        &mut font_ctx,
-    );
-
-    let layout = layout(
         &layout_builder,
-        &mut font_ctx,
-        guard.take(),
-        scale_factor,
         LayoutOptions::new_from_textinput(text_input, Some(width), Some(height)),
-    );
-    let byte_offset = layout.byte_offset_from_point(pos);
-    guard.restore(layout.paragraphs);
+        window_adapter.window(),
+        |layout| layout.byte_offset_from_point(pos),
+    )
+    .unwrap_or(0);
     visual_representation.map_byte_offset_from_visual_text_to_actual_text(byte_offset)
 }
 
@@ -2376,35 +2329,22 @@ pub fn text_input_cursor_rect_for_byte_offset(
     let visual_representation = text_input.visual_representation();
     let cursor_width = text_input.text_cursor_width() * scale_factor;
 
-    let (Some(window_adapter), Some(ctx)) = (renderer.window_adapter(), renderer.slint_context())
-    else {
+    let Some(window_adapter) = renderer.window_adapter() else {
         return LogicalRect::default();
     };
 
-    let mut font_ctx = ctx.font_context().borrow_mut();
-
     let byte_offset = visual_representation.map_byte_offset_from_actual_to_visual_text(byte_offset);
 
-    let mut guard = cached_text_input_paragraphs(
+    with_text_layout(
         cache,
-        item_rc,
+        Some(item_rc),
         text_input,
-        text_input.wrap(),
-        scale_factor,
-        window_adapter.window(),
-        &mut font_ctx,
-    );
-
-    let layout = layout(
         &layout_builder,
-        &mut font_ctx,
-        guard.take(),
-        scale_factor,
         LayoutOptions::new_from_textinput(text_input, Some(width), Some(height)),
-    );
-    let cursor_rect = layout.cursor_rect_for_byte_offset(byte_offset, cursor_width);
-    guard.restore(layout.paragraphs);
-    cursor_rect / scale_factor
+        window_adapter.window(),
+        |layout| layout.cursor_rect_for_byte_offset(byte_offset, cursor_width) / scale_factor,
+    )
+    .unwrap_or_default()
 }
 
 #[cfg(test)]
