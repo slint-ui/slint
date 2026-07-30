@@ -116,17 +116,14 @@ impl Document {
              #[cfg(feature = "slint-sc")] is_exported: bool| {
                 // Globals already get their own "Globals are not supported" message
                 #[cfg(feature = "slint-sc")]
-                if n.child_text(SyntaxKind::Identifier).as_deref() != Some("global") {
-                    if !is_exported {
-                        diag.slint_sc_error("Component declarations are", &n.DeclaredIdentifier());
-                    } else {
-                        *sc_exported_count += 1;
-                        if *sc_exported_count > 1 {
-                            diag.slint_sc_error(
-                                "Multiple exported components per file are",
-                                &n.DeclaredIdentifier(),
-                            );
-                        }
+                if n.child_text(SyntaxKind::Identifier).as_deref() != Some("global") && is_exported
+                {
+                    *sc_exported_count += 1;
+                    if *sc_exported_count > 1 {
+                        diag.slint_sc_error(
+                            "Multiple exported components per file are",
+                            &n.DeclaredIdentifier(),
+                        );
                     }
                 }
                 let compo = Component::from_node(n, diag, local_registry);
@@ -1216,21 +1213,16 @@ impl Element {
                     ElementType::Error
                 }
                 Ok(ty) => {
+                    // Window children, including through a component that
+                    // inherits Window, error in warn_about_child_windows.
                     #[cfg(feature = "slint-sc")]
-                    match &ty {
-                        ElementType::Builtin(b) if !b.slint_sc => {
-                            diag.slint_sc_error(
-                                &format!("The builtin element '{}' is", b.name),
-                                &base_node,
-                            );
-                        }
-                        ElementType::Component(_) => {
-                            diag.slint_sc_error(
-                                "Inheriting from user-defined components is",
-                                &base_node,
-                            );
-                        }
-                        _ => {}
+                    if let ElementType::Builtin(b) = &ty
+                        && !b.slint_sc
+                    {
+                        diag.slint_sc_error(
+                            &format!("The builtin element '{}' is", b.name),
+                            &base_node,
+                        );
                     }
                     ty
                 }

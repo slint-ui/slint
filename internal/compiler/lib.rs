@@ -248,6 +248,13 @@ impl CompilerConfiguration {
             Err(_) => output_format == OutputFormat::Interpreter,
         };
 
+        // The Slint SC generator flattens the exported component's element
+        // tree, so user-defined components must be inlined away. This
+        // overrides a SLINT_INLINING=false env override.
+        #[cfg(feature = "slint-sc")]
+        let inline_all_elements =
+            inline_all_elements || matches!(output_format, OutputFormat::SlintSc);
+
         let const_scale_factor = std::env::var("SLINT_SCALE_FACTOR")
             .ok()
             .and_then(|x| x.parse::<f32>().ok())

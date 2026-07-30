@@ -178,6 +178,19 @@ pub fn warn_about_child_windows(doc: &crate::object_tree::Document, diag: &mut B
                     "".to_owned()
                 };
                 if matches!(builtin.name.as_str(), "Window" | "WindowItem") {
+                    // The SC generator renders Window only as the root, so
+                    // the compatibility warning is a hard error there.
+                    #[cfg(feature = "slint-sc")]
+                    if diag.slint_sc {
+                        diag.push_error(
+                            format!(
+                                "Instantiating Window as an element is not supported in Slint SC\
+                                {inheritance_hint}"
+                            ),
+                            &*elem,
+                        );
+                        return;
+                    }
                     diag.push_warning(
                         format!(
                             "Window elements as children do not create separate windows (this may change in the future)\n\
