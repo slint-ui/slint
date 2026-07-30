@@ -31,10 +31,17 @@ const SPEC_PAGE_ORDER: &[&str] = &[
     "geometry",
 ];
 
-/// Directories scanned for `.slint` test cases with `//#sls.…` references,
-/// as (kind label shown in the matrix, path relative to the repository root).
-const TEST_ROOTS: &[(&str, &str)] =
-    &[("case", "api/slint-sc/tests/cases"), ("syntax", "internal/compiler/tests/syntax/slint-sc")];
+/// Roots scanned for `//#sls.…` references, as (kind label shown in the
+/// matrix, path relative to the repository root, file extension). The
+/// `.slint` cases and syntax tests carry them in `//#` comments; the Rust of
+/// the `slint-sc` crate and its test driver carry them where the code enforces
+/// a requirement -- e.g. the driver links the generated code against the
+/// `slint-sc` rlib alone, which is what verifies `sls.gen.output`.
+const TEST_ROOTS: &[(&str, &str, &str)] = &[
+    ("case", "api/slint-sc/tests/cases", "slint"),
+    ("syntax", "internal/compiler/tests/syntax/slint-sc", "slint"),
+    ("rust", "api/slint-sc", "rs"),
+];
 
 /// Handwritten safety-manual pages may also state requirements.
 const SAFETY_DOCS_DIR: &str = "docs/safety/src/content/docs";
@@ -88,7 +95,7 @@ struct TestRef {
     file: String,
     line: usize,
     /// The [`TEST_ROOTS`] entry the file was found under.
-    kind: &'static (&'static str, &'static str),
+    kind: &'static (&'static str, &'static str, &'static str),
 }
 
 impl TestRef {
@@ -422,12 +429,12 @@ fn scan_safety_pages(repo_root: &Path) -> Result<Vec<SpecPage>, Box<dyn std::err
 
 fn scan_test_refs(
     repo_root: &Path,
-    kind: &'static (&'static str, &'static str),
+    kind: &'static (&'static str, &'static str, &'static str),
     refs: &mut Vec<TestRef>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     for entry in walkdir::WalkDir::new(repo_root.join(kind.1)).sort_by_file_name() {
         let entry = entry?;
-        if !entry.file_type().is_file() || entry.path().extension().is_none_or(|e| e != "slint") {
+        if !entry.file_type().is_file() || entry.path().extension().is_none_or(|e| e != kind.2) {
             continue;
         }
         let text = std::fs::read_to_string(entry.path())
@@ -506,11 +513,13 @@ Informative paragraphs — the document conventions (`sls.meta.…`) and example
 the examples are compiled by the doctests test instead.
 
 Tests marked `case:` are executed test cases from `{case_root}/`,
-tests marked `syntax:` are compiler syntax tests from `{syntax_root}/`.
+`syntax:` are compiler syntax tests from `{syntax_root}/`,
+and `rust:` are Rust tests and the test driver of the `{rust_root}/` crate.
 
 **Coverage: {covered} of {total} requirement paragraphs are covered by at least one test.**"#,
         case_root = TEST_ROOTS[0].1,
         syntax_root = TEST_ROOTS[1].1,
+        rust_root = TEST_ROOTS[2].1,
     )?;
 
     for page in spec_pages {
