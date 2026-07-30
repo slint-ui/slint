@@ -31,18 +31,31 @@ const SPEC_PAGE_ORDER: &[&str] = &[
     "geometry",
 ];
 
-/// Roots scanned for `//#sls.…` references, as (kind label shown in the
-/// matrix, path relative to the repository root, file extension). The
-/// `.slint` cases and syntax tests carry them in `//#` comments; the Rust of
-/// the `slint-sc` crate and the compiler carry them where the code enforces a
-/// requirement -- e.g. the test driver links the generated code against the
-/// `slint-sc` rlib alone (verifying `sls.gen.output`), and the lexer unit
-/// tests exercise the token rules (verifying `sls.lex.…`).
-const TEST_ROOTS: &[(&str, &str, &str)] = &[
-    ("case", "api/slint-sc/tests/cases", "slint"),
-    ("syntax", "internal/compiler/tests/syntax/slint-sc", "slint"),
-    ("rust", "api/slint-sc", "rs"),
-    ("rust", "internal/compiler", "rs"),
+/// A tree scanned for `//#sls.…` references.
+struct TestRoot {
+    /// The label shown in the matrix (`case`, `syntax`, `rust`).
+    label: &'static str,
+    /// Path relative to the repository root.
+    path: &'static str,
+    /// Extension of the files that carry the references.
+    extension: &'static str,
+}
+
+/// Roots scanned for `//#sls.…` references. The `.slint` cases and syntax
+/// tests carry them in `//#` comments; the Rust of the `slint-sc` crate and
+/// the compiler carry them where the code enforces a requirement -- e.g. the
+/// test driver links the generated code against the `slint-sc` rlib alone
+/// (verifying `sls.gen.output`), and the lexer unit tests exercise the token
+/// rules (verifying `sls.lex.…`).
+const TEST_ROOTS: &[TestRoot] = &[
+    TestRoot { label: "case", path: "api/slint-sc/tests/cases", extension: "slint" },
+    TestRoot {
+        label: "syntax",
+        path: "internal/compiler/tests/syntax/slint-sc",
+        extension: "slint",
+    },
+    TestRoot { label: "rust", path: "api/slint-sc", extension: "rs" },
+    TestRoot { label: "rust", path: "internal/compiler", extension: "rs" },
 ];
 
 /// Handwritten safety-manual pages may also state requirements.
@@ -97,13 +110,13 @@ struct TestRef {
     file: String,
     line: usize,
     /// The [`TEST_ROOTS`] entry the file was found under.
-    kind: &'static (&'static str, &'static str, &'static str),
+    kind: &'static TestRoot,
 }
 
 impl TestRef {
     /// Path relative to the test root, for display.
     fn short(&self) -> &str {
-        &self.file[self.kind.1.len() + 1..]
+        &self.file[self.kind.path.len() + 1..]
     }
 }
 
@@ -431,12 +444,14 @@ fn scan_safety_pages(repo_root: &Path) -> Result<Vec<SpecPage>, Box<dyn std::err
 
 fn scan_test_refs(
     repo_root: &Path,
-    kind: &'static (&'static str, &'static str, &'static str),
+    kind: &'static TestRoot,
     refs: &mut Vec<TestRef>,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    for entry in walkdir::WalkDir::new(repo_root.join(kind.1)).sort_by_file_name() {
+    for entry in walkdir::WalkDir::new(repo_root.join(kind.path)).sort_by_file_name() {
         let entry = entry?;
-        if !entry.file_type().is_file() || entry.path().extension().is_none_or(|e| e != kind.2) {
+        if !entry.file_type().is_file()
+            || entry.path().extension().is_none_or(|e| e != kind.extension)
+        {
             continue;
         }
         let text = std::fs::read_to_string(entry.path())
@@ -519,8 +534,8 @@ Tests marked `case:` are executed test cases from `{case_root}/`,
 and `rust:` are Rust unit tests and test drivers of the `slint-sc` crate and the compiler.
 
 **Coverage: {covered} of {total} requirement paragraphs are covered by at least one test.**"#,
-        case_root = TEST_ROOTS[0].1,
-        syntax_root = TEST_ROOTS[1].1,
+        case_root = TEST_ROOTS[0].path,
+        syntax_root = TEST_ROOTS[1].path,
     )?;
 
     for page in spec_pages {
@@ -570,7 +585,7 @@ fn write_page(
             Some(files) => files
                 .iter()
                 .map(|t| {
-                    format!("[`{}: {}`]({REPO_URL}/blob/{sha}/{})", t.kind.0, t.short(), t.file)
+                    format!("[`{}: {}`]({REPO_URL}/blob/{sha}/{})", t.kind.label, t.short(), t.file)
                 })
                 .collect::<Vec<_>>()
                 .join("<br/>"),
