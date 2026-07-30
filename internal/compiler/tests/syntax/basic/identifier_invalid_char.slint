@@ -1,0 +1,10 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// `½` is alphanumeric but not a Unicode identifier character, so it cannot
+// appear in an identifier and is reported at the lexing/parsing phase.
+export component Win inherits Window {
+    in property <length> x½: 1px;
+//                        ><error{Syntax error: expected ';'}
+//                        ><^error{Parse error}
+}

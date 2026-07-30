@@ -147,6 +147,9 @@ depends = ["prepare:pnpm-install"]
 hide = true
 run = "pnpm install --frozen-lockfile"
 depends = ["fix:pnpm:lock"]
+# The reuse check fails on gitignored files (node_modules, .astro) that
+# appear while it runs, so everything that generates them waits for it.
+wait_for = ["lint:legal:reuse"]
 
 
 ### CI

@@ -63,6 +63,7 @@ i-slint-common = { workspace = true, features = ["default", "color-parsing", "ma
 
 num_enum = "0.7"
 icu_normalizer = { workspace = true }
+icu_properties = { workspace = true }
 unicode-segmentation = { workspace = true }
 strum = { workspace = true }
 rowan = { version = "0.16.1" }

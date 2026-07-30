@@ -178,10 +178,23 @@ pub fn lex_color(text: &str, _: &mut LexState) -> usize {
 }
 
 pub fn lex_identifier(text: &str, _: &mut LexState) -> usize {
+    // Identifiers follow the Unicode identifier properties (UAX #31): the first
+    // character has XID_Start (or is `_`), each following one has XID_Continue
+    // (or is the Slint-specific kebab-case `-`). That is the character set the
+    // generated Rust and C++ can represent, so any character accepted here is a
+    // valid identifier there; a character outside it (e.g. `½`) is not consumed
+    // and surfaces as an error token.
+    let xid_start = icu_properties::CodePointSetData::new::<icu_properties::props::XidStart>();
+    let xid_continue =
+        icu_properties::CodePointSetData::new::<icu_properties::props::XidContinue>();
     let mut len = 0;
-    let chars = text.chars();
-    for c in chars {
-        if !c.is_alphanumeric() && c != '_' && (c != '-' || len == 0) {
+    for c in text.chars() {
+        let valid = if len == 0 {
+            c == '_' || xid_start.contains(c)
+        } else {
+            c == '-' || xid_continue.contains(c)
+        };
+        if !valid {
             break;
         }
         len += c.len_utf8();
@@ -323,6 +336,51 @@ fn basic_lexer_test() {
         r#""\ޱ"#,
         &[(SyntaxKind::Error, "\""), (SyntaxKind::Error, "\\"), (SyntaxKind::Identifier, "ޱ")],
     );
+}
+
+/// The identifier and number token rules of the Slint SC language
+/// specification (docs/.../language/lexical-structure.mdx).
+#[test]
+fn identifier_and_number_tokens() {
+    let kinds = |source: &str| lex(source).iter().map(|t| t.kind).collect::<Vec<_>>();
+    let single = |source: &str| {
+        let k = kinds(source);
+        assert_eq!(k.len(), 1, "{source:?} lexed into {k:?}, expected a single token");
+        k[0]
+    };
+
+    // An identifier is drawn from Unicode identifier characters, `_`, and a
+    // non-leading `-`; non-ASCII letters are allowed.
+    // cSpell:ignore Über
+    //#sls.lex.identifier.classes
+    for id in ["foo", "_foo", "foo-bar", "snake_case", "x1", "café", "Über", "λ", "名前"] {
+        assert_eq!(single(id), SyntaxKind::Identifier, "{id:?}");
+    }
+
+    // A number is one or more decimal digits, an optional fractional part, and
+    // an optional unit or `%` suffix.
+    //#sls.lex.number
+    for n in ["45", "1.5", "100%", "10px", "1.5deg"] {
+        assert_eq!(single(n), SyntaxKind::NumberLiteral, "{n:?}");
+    }
+
+    // The token kinds are tried in a fixed order, so a run that begins with a
+    // decimal digit is a number even though a digit also starts an identifier.
+    //#sls.lex.tokens
+    //#sls.lex.identifier.no-leading-digit
+    assert_eq!(single("1abc"), SyntaxKind::NumberLiteral);
+    assert_eq!(single("42"), SyntaxKind::NumberLiteral);
+
+    // A leading `-` is a separate token, not part of the identifier.
+    //#sls.lex.identifier.no-leading-hyphen
+    assert_eq!(kinds("-foo"), [SyntaxKind::Minus, SyntaxKind::Identifier]);
+
+    // A character that is alphanumeric but lacks the Unicode identifier
+    // properties (here `½`) is not part of an identifier; it does not start
+    // one, and ends one it appears in, surfacing as an error token.
+    //#sls.lex.identifier.classes
+    assert_eq!(kinds("x½"), [SyntaxKind::Identifier, SyntaxKind::Error]);
+    assert_eq!(kinds("½x"), [SyntaxKind::Error, SyntaxKind::Identifier]);
 }
 
 /// Given the source of a rust file, find the occurrence of each `slint!(...)`macro.

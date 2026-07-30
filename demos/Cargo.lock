@@ -2518,6 +2518,7 @@ dependencies = [
  "derive_more",
  "i-slint-common",
  "icu_normalizer",
+ "icu_properties",
  "image",
  "itertools 0.15.0",
  "linked_hash_set",
