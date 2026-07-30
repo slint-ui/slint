@@ -37,11 +37,11 @@ pub(super) struct LayoutWithoutLineBreaksBuilder {
     pub(super) pixel_size: LogicalLength,
     /// When false, overlong words are not broken up. Only used to measure the
     /// min-content width (the longest word), never to lay text out for display.
-    pub(super) overflow_wrap_anywhere: bool,
+    overflow_wrap_anywhere: bool,
 }
 
 impl LayoutWithoutLineBreaksBuilder {
-    pub(super) fn new(
+    fn new(
         font_request: Option<FontRequest>,
         text_wrap: TextWrap,
         stroke: Option<TextStrokeStyle>,
@@ -331,6 +331,35 @@ pub(super) fn shaping_builder(
         (!stroke_brush.is_transparent()).then_some(stroke_style),
         scale_factor,
     )
+}
+
+/// The builder for measuring content widths, without an item to derive one from.
+///
+/// `WordWrap` gives `WordBreak::Normal`, so the min-content width becomes the longest word.
+/// Content widths are intrinsic to the text, so they don't depend on the item's actual wrap mode.
+/// `overflow_wrap_anywhere` is off because parley may otherwise break anywhere to keep overlong
+/// words from overflowing, which would make the min-content width a single character instead of
+/// the longest word.
+pub(super) fn content_widths_builder(
+    font_request: FontRequest,
+    scale_factor: ScaleFactor,
+) -> LayoutWithoutLineBreaksBuilder {
+    let mut builder = LayoutWithoutLineBreaksBuilder::new(
+        Some(font_request),
+        TextWrap::WordWrap,
+        None,
+        scale_factor,
+    );
+    builder.overflow_wrap_anywhere = false;
+    builder
+}
+
+/// A builder for tests, which have no item to derive one from. Everything else obtains its
+/// builder through [`shaping_builder`] or [`content_widths_builder`], so that it cannot disagree
+/// with what the item's cache entry was shaped with.
+#[cfg(test)]
+pub(super) fn plain_builder_for_tests() -> LayoutWithoutLineBreaksBuilder {
+    LayoutWithoutLineBreaksBuilder::new(None, TextWrap::NoWrap, None, ScaleFactor::new(1.0))
 }
 
 /// Shapes `text` the way both the drawing and the measuring paths need it, so that they can share

@@ -5,7 +5,6 @@
 pub use parley;
 pub use parley::fontique;
 
-use crate::item_rendering::HasFont;
 use crate::{
     Color,
     graphics::FontRequest,
@@ -158,13 +157,7 @@ pub fn draw_text(
         None
     };
 
-    // The layout_builder is still needed for the elision glyph in layout().
-    let layout_builder = LayoutWithoutLineBreaksBuilder::new(
-        item_rc.map(|item_rc| text.font_request(item_rc)),
-        text.wrap(),
-        platform_stroke_brush.is_some().then_some(stroke_style),
-        scale_factor,
-    );
+    let layout_builder = shaping_builder(text, item_rc, text.wrap(), scale_factor);
 
     let window_adapter = item_renderer.window().window_adapter();
 
@@ -236,12 +229,7 @@ pub fn link_under_cursor(
     window: &crate::api::Window,
     cache: Option<&TextLayoutCache>,
 ) -> Option<std::string::String> {
-    let layout_builder = LayoutWithoutLineBreaksBuilder::new(
-        Some(text.font_request(item_rc)),
-        text.wrap(),
-        None,
-        scale_factor,
-    );
+    let layout_builder = shaping_builder(text, Some(item_rc), text.wrap(), scale_factor);
 
     let (horizontal_align, vertical_align) = text.alignment();
 
@@ -330,12 +318,8 @@ pub fn draw_text_input(
 
     let scale_factor = ScaleFactor::new(item_renderer.scale_factor());
 
-    let layout_builder = LayoutWithoutLineBreaksBuilder::new(
-        Some(text_input.font_request(item_rc)),
-        text_input.wrap(),
-        None,
-        scale_factor,
-    );
+    let layout_builder =
+        shaping_builder(text_input, Some(item_rc), text_input.wrap(), scale_factor);
 
     let window_adapter = item_renderer.window().window_adapter();
 
@@ -475,17 +459,7 @@ pub fn text_content_widths(
     let ctx = renderer.slint_context()?;
     let mut font_ctx = ctx.font_context().borrow_mut();
 
-    // WordWrap gives WordBreak::Normal, so `min` becomes the longest word. Content widths
-    // are intrinsic to the text, so they don't depend on the item's actual wrap mode.
-    let mut layout_builder = LayoutWithoutLineBreaksBuilder::new(
-        Some(font_request),
-        TextWrap::WordWrap,
-        None,
-        scale_factor,
-    );
-    // Without this, parley may break anywhere to keep overlong words from overflowing,
-    // which makes the min-content width a single character instead of the longest word.
-    layout_builder.overflow_wrap_anywhere = false;
+    let layout_builder = shaping::content_widths_builder(font_request, scale_factor);
 
     let paragraphs_without_linebreaks =
         create_text_paragraphs(&layout_builder, &mut font_ctx, text, Color::default());
@@ -590,12 +564,8 @@ pub fn text_input_byte_offset_for_position(
         return 0;
     }
 
-    let layout_builder = LayoutWithoutLineBreaksBuilder::new(
-        Some(text_input.font_request(item_rc)),
-        text_input.wrap(),
-        None,
-        scale_factor,
-    );
+    let layout_builder =
+        shaping_builder(text_input, Some(item_rc), text_input.wrap(), scale_factor);
     let visual_representation = text_input.visual_representation();
 
     let Some(window_adapter) = renderer.window_adapter() else {
@@ -626,12 +596,8 @@ pub fn text_input_cursor_rect_for_byte_offset(
         return LogicalRect::default();
     };
 
-    let layout_builder = LayoutWithoutLineBreaksBuilder::new(
-        Some(text_input.font_request(item_rc)),
-        text_input.wrap(),
-        None,
-        scale_factor,
-    );
+    let layout_builder =
+        shaping_builder(text_input, Some(item_rc), text_input.wrap(), scale_factor);
 
     let width = text_input.width();
     let height = text_input.height();
