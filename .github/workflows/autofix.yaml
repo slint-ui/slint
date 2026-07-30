@@ -21,6 +21,23 @@ env:
     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
 jobs:
+    # Runs concurrently with the two gate jobs below, so the jobs in the ci
+    # workflow can be scheduled as soon as the gate passes.
+    files-changed:
+        runs-on: ubuntu-latest
+        timeout-minutes: 2
+        permissions:
+            pull-requests: read
+        outputs:
+            changes: ${{ steps.filter.outputs.changes }}
+        steps:
+            - uses: actions/checkout@v7
+            - uses: dorny/paths-filter@v4
+              id: filter
+              with:
+                  token: ${{ github.token }}
+                  filters: .github/ci_path_filters.yaml
+
     format_fix:
         runs-on: ubuntu-latest
         timeout-minutes: 5
@@ -56,7 +73,7 @@ jobs:
                 incremental_files_only: true
 
     ci:
-        needs: [format_fix, lint_typecheck]
+        needs: [files-changed, format_fix, lint_typecheck]
         permissions:
             contents: read
             deployments: write
@@ -64,6 +81,7 @@ jobs:
         uses: ./.github/workflows/ci.yaml
         with:
             full: false
+            changes: ${{ needs.files-changed.outputs.changes }}
         secrets:
             ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
             ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
@@ -78,7 +96,7 @@ jobs:
         # task is never just "skipped", which would count as success().
         # Instead, make the task fail depending on whether there is any failure
         # in the ci workflow.
-        needs: [ci, format_fix, lint_typecheck]
+        needs: [ci, files-changed, format_fix, lint_typecheck]
         if: ${{ always() }}
         name: done
         runs-on: ubuntu-latest
