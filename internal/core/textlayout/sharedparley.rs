@@ -2110,19 +2110,18 @@ fn cached_text_input_paragraphs<'a>(
     window: &crate::api::Window,
     font_context: &mut parley::FontContext,
 ) -> CachedParagraphsGuard<'a> {
-    cached_paragraphs(
+    // `TextInput` shapes like any other `RenderString`: through the very function the measuring
+    // path uses, so that the two register the same dependencies. Were this to shape anything
+    // narrower, a draw could fill the entry with a tracker that a later measurement then trusts,
+    // and that measurement would miss whatever the draw didn't look at.
+    get_or_create_text_paragraphs(
         cache,
         Some(item_rc),
+        text_input,
         text_wrap,
+        scale_factor,
         window,
         font_context,
-        // Shape through the very function the measuring path uses, so that the two register the
-        // same dependencies. Were this to read anything narrower, a draw could fill the entry with
-        // a tracker that a later measurement then trusts, and that measurement would miss whatever
-        // the draw didn't look at.
-        &|font_context| {
-            shape_paragraphs(text_input, Some(item_rc), text_wrap, scale_factor, font_context)
-        },
     )
 }
 
