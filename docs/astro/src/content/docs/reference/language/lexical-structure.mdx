@@ -12,13 +12,13 @@ import SC from '@slint/common-files/src/components/SC.astro';
 After whitespace and comments are removed (see [Source Files](../source-files/)),
 the remaining input is a sequence of tokens.
 The token kinds are tried in a fixed order and the first that matches at the current position is taken,
-so a run that could be read as either a number or an identifier is a number. \{#sls.lex.tokens}
+so an input that could be read as either a number or an identifier is a number. \{#sls.lex.tokens}
 
 ## Numbers
 
 A number begins with a decimal digit (`U+0030`–`U+0039`),
 and consists of one or more decimal digits, an optional fractional part introduced by a `U+002E` (FULL STOP, `.`),
-and an optional suffix that is either a run of ASCII letters (a unit)
+and an optional suffix that is either a sequence of ASCII letters (a unit)
 or a single `U+0025` (PERCENT SIGN, `%`). \{#sls.lex.number}
 
 ## Identifiers
@@ -29,10 +29,7 @@ Unicode Standard Annex #31: \{#sls.lex.identifier.classes}
 
 - The first character shall have the `XID_Start` property or be `U+005F` (LOW LINE, `_`).
 - Each subsequent character shall have the `XID_Continue` property or be `U+002D` (HYPHEN-MINUS, `-`).
-
-These are the characters the generated code can represent as an identifier;
-a character outside them, such as `U+00BD` (VULGAR FRACTION ONE HALF, `½`),
-is rejected. \{#sls.lex.identifier.representable}
+- A character with neither property, such as `U+00BD` (VULGAR FRACTION ONE HALF, `½`), is not part of an identifier.
 
 A decimal digit has the `XID_Continue` property but not `XID_Start`,
 so it may appear in an identifier but not as its first character;

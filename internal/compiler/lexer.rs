@@ -349,8 +349,9 @@ fn identifier_and_number_tokens() {
         k[0]
     };
 
-    // An identifier is drawn from Unicode alphanumeric characters, `_`, and a
+    // An identifier is drawn from Unicode identifier characters, `_`, and a
     // non-leading `-`; non-ASCII letters are allowed.
+    // cSpell:ignore Über
     //#sls.lex.identifier.classes
     for id in ["foo", "_foo", "foo-bar", "snake_case", "x1", "café", "Über", "λ", "名前"] {
         assert_eq!(single(id), SyntaxKind::Identifier, "{id:?}");
@@ -377,7 +378,7 @@ fn identifier_and_number_tokens() {
     // A character that is alphanumeric but lacks the Unicode identifier
     // properties (here `½`, U+00BD) is not part of an identifier; it does not
     // start one, and ends one it appears in, surfacing as an error token.
-    //#sls.lex.identifier.representable
+    //#sls.lex.identifier.classes
     assert_eq!(kinds("x½"), [SyntaxKind::Identifier, SyntaxKind::Error]);
     assert_eq!(kinds("½x"), [SyntaxKind::Error, SyntaxKind::Identifier]);
 }
