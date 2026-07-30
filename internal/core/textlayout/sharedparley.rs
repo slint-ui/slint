@@ -13,7 +13,7 @@ use crate::{
     items::TextStrokeStyle,
     lengths::{
         LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalRect, LogicalSize, PhysicalPx,
-        PointLengths, ScaleFactor, SizeLengths,
+        PointLengths, RectLengths, ScaleFactor, SizeLengths,
     },
     renderer::RendererSealed,
     textlayout::{TextHorizontalAlignment, TextOverflow, TextVerticalAlignment, TextWrap},
@@ -815,16 +815,6 @@ impl TextParagraph {
         default_stroke_brush: &Option<<R as GlyphRenderer>::PlatformBrush>,
         default_text_color: Color,
         selection: Option<&SelectionRendering<'_, R>>,
-        draw_glyphs: &mut dyn FnMut(
-            &mut R,
-            &parley::FontData,
-            PhysicalLength,
-            &[i16],               // normalized variation coords
-            &fontique::Synthesis, // design-space variation settings
-            <R as GlyphRenderer>::PlatformBrush,
-            PhysicalLength, // y offset for paragraph
-            &mut dyn Iterator<Item = parley::layout::Glyph>,
-        ),
     ) {
         let para_y = layout.y_offset + self.y;
 
@@ -893,9 +883,8 @@ impl TextParagraph {
                                 default_stroke_brush,
                                 para_y,
                                 &mut truncated_glyphs.into_iter(),
-                                selection,
+                                selection.map(|selection| &selection.foreground),
                                 line_spans.unwrap_or_default(),
-                                draw_glyphs,
                             );
                             ellipsis
                         } else {
@@ -906,17 +895,15 @@ impl TextParagraph {
                                 default_stroke_brush,
                                 para_y,
                                 &mut glyph_run.positioned_glyphs(),
-                                selection,
+                                selection.map(|selection| &selection.foreground),
                                 line_spans.unwrap_or_default(),
-                                draw_glyphs,
                             );
                             None
                         };
 
                         if let Some((ellipsis_glyph, ellipsis_font, font_size)) = ellipsis {
                             let run = glyph_run.run();
-                            draw_glyphs(
-                                item_renderer,
+                            item_renderer.draw_glyph_run(
                                 &ellipsis_font,
                                 font_size,
                                 run.normalized_coords(),
@@ -1053,7 +1040,6 @@ impl TextParagraph {
     /// -- draw exactly once with no clip, so an enormous selection costs no more than a tiny one.
     /// Only the at most two runs per selection edge that actually straddle a boundary are drawn
     /// twice against a clip, and that is precisely where a ligature has to be cut in half.
-    #[allow(clippy::too_many_arguments)]
     fn draw_glyph_run_with_selection<R: GlyphRenderer>(
         glyph_run: &parley::layout::GlyphRun<Brush>,
         item_renderer: &mut R,
@@ -1061,30 +1047,15 @@ impl TextParagraph {
         default_stroke_brush: &Option<<R as GlyphRenderer>::PlatformBrush>,
         para_y: PhysicalLength,
         glyphs_it: &mut dyn Iterator<Item = parley::layout::Glyph>,
-        selection: Option<&SelectionRendering<'_, R>>,
+        // The selection foreground, and the spans it covers on this run's line. Both empty when
+        // there is no selection, which `run_coverage` reports as `Unselected`.
+        selection_brush: Option<&<R as GlyphRenderer>::PlatformBrush>,
         line_spans: &[SelectionSpan],
-        draw_glyphs: &mut dyn FnMut(
-            &mut R,
-            &parley::FontData,
-            PhysicalLength,
-            &[i16],
-            &fontique::Synthesis,
-            <R as GlyphRenderer>::PlatformBrush,
-            PhysicalLength,
-            &mut dyn Iterator<Item = parley::layout::Glyph>,
-        ),
     ) {
         let run_x = glyph_run.offset()..glyph_run.offset() + glyph_run.advance();
 
-        let coverage = match selection {
-            Some(_) => run_coverage(&run_x, line_spans),
-            None => RunCoverage::None,
-        };
-
-        let selection_brush = selection.map(|selection| &selection.foreground);
-
-        match coverage {
-            RunCoverage::None => Self::draw_glyph_run(
+        match run_coverage(&run_x, line_spans) {
+            RunCoverage::Unselected => Self::draw_glyph_run(
                 glyph_run,
                 item_renderer,
                 default_fill_brush,
@@ -1092,8 +1063,6 @@ impl TextParagraph {
                 para_y,
                 glyphs_it,
                 None,
-                None,
-                draw_glyphs,
             ),
             RunCoverage::Full => Self::draw_glyph_run(
                 glyph_run,
@@ -1103,26 +1072,25 @@ impl TextParagraph {
                 para_y,
                 glyphs_it,
                 selection_brush,
-                None,
-                draw_glyphs,
             ),
-            RunCoverage::Partial(spans) => {
+            RunCoverage::Partial => {
                 // The run has to be rasterized once per segment, so the glyphs can't stay behind
                 // a one-shot iterator.
                 let glyphs = glyphs_it.collect::<alloc::vec::Vec<_>>();
 
                 // Walk the run left to right, alternating unselected and selected segments. This
-                // relies on `spans` being ascending in x, which [`SelectionSpans`] guarantees.
+                // relies on the spans being ascending in x, which [`SelectionSpans`] guarantees.
                 let mut x = run_x.start;
-                for span in spans {
-                    if span.x.end <= run_x.start {
+                for span in line_spans {
+                    let span_x = span.x();
+                    if span_x.end <= run_x.start {
                         continue;
                     }
-                    if span.x.start >= run_x.end {
+                    if span_x.start >= run_x.end {
                         break;
                     }
-                    let start = span.x.start.max(run_x.start);
-                    let end = span.x.end.min(run_x.end);
+                    let start = span_x.start.max(run_x.start);
+                    let end = span_x.end.min(run_x.end);
                     for (segment, brush) in [(x..start, None), (start..end, selection_brush)] {
                         Self::draw_glyph_run_segment(
                             glyph_run,
@@ -1133,7 +1101,6 @@ impl TextParagraph {
                             &glyphs,
                             segment,
                             brush,
-                            draw_glyphs,
                         );
                     }
                     x = end;
@@ -1147,7 +1114,6 @@ impl TextParagraph {
                     &glyphs,
                     x..run_x.end,
                     None,
-                    draw_glyphs,
                 );
             }
         }
@@ -1155,7 +1121,6 @@ impl TextParagraph {
 
     /// Draws `glyphs` clipped to the horizontal band `x`, so that a glyph straddling the band's
     /// edge is cut rather than recolored as a whole.
-    #[allow(clippy::too_many_arguments)]
     fn draw_glyph_run_segment<R: GlyphRenderer>(
         glyph_run: &parley::layout::GlyphRun<Brush>,
         item_renderer: &mut R,
@@ -1165,16 +1130,6 @@ impl TextParagraph {
         glyphs: &[parley::layout::Glyph],
         x: Range<f32>,
         override_fill_brush: Option<&<R as GlyphRenderer>::PlatformBrush>,
-        draw_glyphs: &mut dyn FnMut(
-            &mut R,
-            &parley::FontData,
-            PhysicalLength,
-            &[i16],
-            &fontique::Synthesis,
-            <R as GlyphRenderer>::PlatformBrush,
-            PhysicalLength,
-            &mut dyn Iterator<Item = parley::layout::Glyph>,
-        ),
     ) {
         if x.end <= x.start {
             return;
@@ -1184,33 +1139,38 @@ impl TextParagraph {
 
         // Clip horizontally only: the vertical extent stays whatever is already in effect, so
         // accents and descenders reaching outside the line box are never sheared off.
-        let scale_factor = item_renderer.scale_factor();
+        let scale_factor = ScaleFactor::new(item_renderer.scale_factor());
         let current_clip = item_renderer.get_current_clip();
-        item_renderer.combine_clip(
+        let render = item_renderer.combine_clip(
             LogicalRect::new(
-                LogicalPoint::new(x.start / scale_factor, current_clip.origin.y),
-                LogicalSize::new((x.end - x.start) / scale_factor, current_clip.size.height),
+                LogicalPoint::from_lengths(
+                    PhysicalLength::new(x.start) / scale_factor,
+                    current_clip.origin.y_length(),
+                ),
+                LogicalSize::from_lengths(
+                    PhysicalLength::new(x.end - x.start) / scale_factor,
+                    current_clip.height_length(),
+                ),
             ),
             LogicalBorderRadius::zero(),
             LogicalLength::zero(),
         );
 
-        Self::draw_glyph_run(
-            glyph_run,
-            item_renderer,
-            default_fill_brush,
-            default_stroke_brush,
-            para_y,
-            &mut glyphs.iter().cloned(),
-            override_fill_brush,
-            Some(&x),
-            draw_glyphs,
-        );
+        if render {
+            Self::draw_glyph_run(
+                glyph_run,
+                item_renderer,
+                default_fill_brush,
+                default_stroke_brush,
+                para_y,
+                &mut glyphs.iter().cloned(),
+                override_fill_brush,
+            );
+        }
 
         item_renderer.restore_state();
     }
 
-    #[allow(clippy::too_many_arguments)]
     fn draw_glyph_run<R: GlyphRenderer>(
         glyph_run: &parley::layout::GlyphRun<Brush>,
         item_renderer: &mut R,
@@ -1220,21 +1180,6 @@ impl TextParagraph {
         glyphs_it: &mut dyn Iterator<Item = parley::layout::Glyph>,
         // Forced fill for selected glyphs, overriding the run's own brush.
         override_fill_brush: Option<&<R as GlyphRenderer>::PlatformBrush>,
-        // Horizontal band this call is confined to, when the run is split across a selection
-        // boundary. The glyphs are cut by the renderer clip; the underline and strikethrough
-        // rectangles are clamped arithmetically as well, so that their edges land on the span
-        // edge itself instead of wherever the backend's clip rounding puts it.
-        x_clamp: Option<&Range<f32>>,
-        draw_glyphs: &mut dyn FnMut(
-            &mut R,
-            &parley::FontData,
-            PhysicalLength,
-            &[i16],               // normalized variation coords
-            &fontique::Synthesis, // design-space variation settings
-            <R as GlyphRenderer>::PlatformBrush,
-            PhysicalLength,
-            &mut dyn Iterator<Item = parley::layout::Glyph>,
-        ),
     ) {
         let run = glyph_run.run();
         let normalized_coords = run.normalized_coords();
@@ -1267,8 +1212,7 @@ impl TextParagraph {
                 let glyphs = glyphs_it.collect::<alloc::vec::Vec<_>>();
 
                 if let Some(stroke_brush) = default_stroke_brush.clone() {
-                    draw_glyphs(
-                        item_renderer,
+                    item_renderer.draw_glyph_run(
                         run.font(),
                         PhysicalLength::new(run.font_size()),
                         normalized_coords,
@@ -1279,8 +1223,7 @@ impl TextParagraph {
                     );
                 }
 
-                draw_glyphs(
-                    item_renderer,
+                item_renderer.draw_glyph_run(
                     run.font(),
                     PhysicalLength::new(run.font_size()),
                     normalized_coords,
@@ -1293,8 +1236,7 @@ impl TextParagraph {
             Some(TextStrokeStyle::Center) => {
                 let glyphs = glyphs_it.collect::<alloc::vec::Vec<_>>();
 
-                draw_glyphs(
-                    item_renderer,
+                item_renderer.draw_glyph_run(
                     run.font(),
                     PhysicalLength::new(run.font_size()),
                     normalized_coords,
@@ -1305,8 +1247,7 @@ impl TextParagraph {
                 );
 
                 if let Some(stroke_brush) = default_stroke_brush.clone() {
-                    draw_glyphs(
-                        item_renderer,
+                    item_renderer.draw_glyph_run(
                         run.font(),
                         PhysicalLength::new(run.font_size()),
                         normalized_coords,
@@ -1318,8 +1259,7 @@ impl TextParagraph {
                 }
             }
             None => {
-                draw_glyphs(
-                    item_renderer,
+                item_renderer.draw_glyph_run(
                     run.font(),
                     PhysicalLength::new(run.font_size()),
                     normalized_coords,
@@ -1333,52 +1273,40 @@ impl TextParagraph {
 
         let metrics = run.metrics();
 
-        // Horizontal extent of the decorations, narrowed to the band this call owns.
-        let decoration_x = {
-            let full = glyph_run.offset()..glyph_run.offset() + glyph_run.advance();
-            match x_clamp {
-                Some(clamp) => full.start.max(clamp.start)..full.end.min(clamp.end),
-                None => full,
-            }
-        };
-        let decoration_width = decoration_x.end - decoration_x.start;
-
-        if decoration_width > 0.0 {
-            if glyph_run.style().underline.is_some() {
-                item_renderer.fill_rectangle(
-                    PhysicalRect::new(
-                        PhysicalPoint::from_lengths(
-                            PhysicalLength::new(decoration_x.start),
-                            para_y
-                                + PhysicalLength::new(
-                                    glyph_run.baseline() - metrics.underline_offset,
-                                ),
-                        ),
-                        PhysicalSize::new(decoration_width, metrics.underline_size),
+        // A decoration spans the whole run. Where a selection boundary cuts through it, the
+        // renderer clip that cuts the glyphs cuts the rectangle too.
+        if glyph_run.style().underline.is_some() {
+            item_renderer.fill_rectangle(
+                PhysicalRect::new(
+                    PhysicalPoint::from_lengths(
+                        PhysicalLength::new(glyph_run.offset()),
+                        para_y
+                            + PhysicalLength::new(glyph_run.baseline() - metrics.underline_offset),
                     ),
-                    fill_brush.clone(),
-                    PhysicalLength::zero(),
-                    None,
-                );
-            }
+                    PhysicalSize::new(glyph_run.advance(), metrics.underline_size),
+                ),
+                fill_brush.clone(),
+                PhysicalLength::zero(),
+                None,
+            );
+        }
 
-            if glyph_run.style().strikethrough.is_some() {
-                item_renderer.fill_rectangle(
-                    PhysicalRect::new(
-                        PhysicalPoint::from_lengths(
-                            PhysicalLength::new(decoration_x.start),
-                            para_y
-                                + PhysicalLength::new(
-                                    glyph_run.baseline() - metrics.strikethrough_offset,
-                                ),
-                        ),
-                        PhysicalSize::new(decoration_width, metrics.strikethrough_size),
+        if glyph_run.style().strikethrough.is_some() {
+            item_renderer.fill_rectangle(
+                PhysicalRect::new(
+                    PhysicalPoint::from_lengths(
+                        PhysicalLength::new(glyph_run.offset()),
+                        para_y
+                            + PhysicalLength::new(
+                                glyph_run.baseline() - metrics.strikethrough_offset,
+                            ),
                     ),
-                    fill_brush,
-                    PhysicalLength::zero(),
-                    None,
-                );
-            }
+                    PhysicalSize::new(glyph_run.advance(), metrics.strikethrough_size),
+                ),
+                fill_brush,
+                PhysicalLength::zero(),
+                None,
+            );
         }
     }
 }
@@ -1398,13 +1326,18 @@ struct SelectionSpan {
     paragraph: usize,
     /// Line within that paragraph.
     line: usize,
-    /// Horizontal extent in the same coordinate space as `GlyphRun::offset()`, rounded to whole
-    /// device pixels. The background rectangle below is built from these same rounded edges, so
-    /// the highlight edge and the glyph clip edge can never disagree and leave a sliver of
-    /// wrongly-colored glyph on top of the highlight.
-    x: Range<f32>,
-    /// Highlight rectangle in item coordinates, ready to fill.
+    /// Highlight rectangle in item coordinates, ready to fill. Its horizontal edges are snapped to
+    /// whole device pixels where they are computed, and [`Self::x`] hands the very same edges to
+    /// the glyph clip -- so the highlight edge and the clip edge cannot disagree and leave a sliver
+    /// of wrongly-colored glyph on top of the highlight.
     background: PhysicalRect,
+}
+
+impl SelectionSpan {
+    /// Horizontal extent of the highlight, in the same coordinate space as `GlyphRun::offset()`.
+    fn x(&self) -> Range<f32> {
+        self.background.min_x()..self.background.max_x()
+    }
 }
 
 /// Sorted by `(paragraph, line, x.start)`: the spans belonging to one line form a contiguous slice,
@@ -1442,31 +1375,32 @@ struct SelectionRendering<'a, R: GlyphRenderer> {
 }
 
 /// How much of one glyph run a selection covers.
-enum RunCoverage<'a> {
+enum RunCoverage {
     /// No selected pixels: draw once, in the run's own brush.
-    None,
+    Unselected,
     /// Fully selected: draw once, in the selection foreground. No clip needed.
     Full,
-    /// A boundary falls inside the run — possibly inside a ligature. Each of these spans has to
-    /// be drawn separately, clipped to its own horizontal band.
-    Partial(&'a [SelectionSpan]),
+    /// A boundary falls inside the run — possibly inside a ligature. The line's spans have to be
+    /// drawn separately, each clipped to its own horizontal band.
+    Partial,
 }
 
 /// Classifies `run_x` against the selection spans of the line it sits on.
-fn run_coverage<'a>(run_x: &Range<f32>, spans: &'a [SelectionSpan]) -> RunCoverage<'a> {
+fn run_coverage(run_x: &Range<f32>, spans: &[SelectionSpan]) -> RunCoverage {
     // Empty runs (and the degenerate zero-advance runs parley emits for ligature tails) can't
     // show a boundary.
     if spans.is_empty() || run_x.end <= run_x.start {
-        return RunCoverage::None;
+        return RunCoverage::Unselected;
     }
-    let overlapping = spans.iter().any(|span| span.x.start < run_x.end && span.x.end > run_x.start);
-    if !overlapping {
-        return RunCoverage::None;
+    let mut overlapping = false;
+    for span in spans {
+        let span_x = span.x();
+        if span_x.start <= run_x.start && span_x.end >= run_x.end {
+            return RunCoverage::Full;
+        }
+        overlapping |= span_x.start < run_x.end && span_x.end > run_x.start;
     }
-    if spans.iter().any(|span| span.x.start <= run_x.start && span.x.end >= run_x.end) {
-        return RunCoverage::Full;
-    }
-    RunCoverage::Partial(spans)
+    if overlapping { RunCoverage::Partial } else { RunCoverage::Unselected }
 }
 
 /// Where `overflow: elide` cuts text off, computed across all paragraphs (each explicit `\n`
@@ -1692,7 +1626,7 @@ impl Layout {
                     ),
                     PhysicalSize::new(x.end - x.start, rect.height() as _),
                 );
-                spans.push(SelectionSpan { paragraph: paragraph_index, line, x, background });
+                spans.push(SelectionSpan { paragraph: paragraph_index, line, background });
             });
         }
 
@@ -1705,7 +1639,7 @@ impl Layout {
         spans.sort_by(|a, b| {
             (a.paragraph, a.line)
                 .cmp(&(b.paragraph, b.line))
-                .then_with(|| a.x.start.total_cmp(&b.x.start))
+                .then_with(|| a.x().start.total_cmp(&b.x().start))
         });
 
         SelectionSpans(spans)
@@ -1825,16 +1759,6 @@ impl Layout {
         default_stroke_brush: Option<<R as GlyphRenderer>::PlatformBrush>,
         default_text_color: Color,
         selection: Option<&SelectionRendering<'_, R>>,
-        draw_glyphs: &mut dyn FnMut(
-            &mut R,
-            &parley::FontData,
-            PhysicalLength,
-            &[i16],               // normalized variation coords
-            &fontique::Synthesis, // design-space variation settings
-            <R as GlyphRenderer>::PlatformBrush,
-            PhysicalLength, // y offset for paragraph
-            &mut dyn Iterator<Item = parley::layout::Glyph>,
-        ),
     ) {
         // Compute the cut once: explicit `\n` breaks produce one paragraph each, but they must
         // elide as a single block (drop lines below the box, ellipsis on the last visible one).
@@ -1849,7 +1773,6 @@ impl Layout {
                 &default_stroke_brush,
                 default_text_color,
                 selection,
-                draw_glyphs,
             );
         }
     }
@@ -1963,24 +1886,6 @@ pub fn draw_text(
             // `Text` has no selection today; the machinery is shared so wiring one up later is
             // a matter of passing spans here.
             None,
-            &mut |item_renderer: &mut _,
-                  font,
-                  font_size,
-                  normalized_coords,
-                  synthesis,
-                  brush,
-                  y_offset,
-                  glyphs_it| {
-                item_renderer.draw_glyph_run(
-                    font,
-                    font_size,
-                    normalized_coords,
-                    synthesis,
-                    brush,
-                    y_offset,
-                    glyphs_it,
-                );
-            },
         );
     }
 
@@ -2170,31 +2075,7 @@ pub fn draw_text_input(
             })
             .flatten();
 
-        layout.draw(
-            item_renderer,
-            platform_fill_brush,
-            None,
-            text_color,
-            selection.as_ref(),
-            &mut |item_renderer: &mut _,
-                  font,
-                  font_size,
-                  normalized_coords,
-                  synthesis,
-                  brush,
-                  y_offset,
-                  glyphs_it| {
-                item_renderer.draw_glyph_run(
-                    font,
-                    font_size,
-                    normalized_coords,
-                    synthesis,
-                    brush,
-                    y_offset,
-                    glyphs_it,
-                );
-            },
-        );
+        layout.draw(item_renderer, platform_fill_brush, None, text_color, selection.as_ref());
 
         if let Some(cursor_pos) = visual_representation.cursor_position {
             let cursor_rect = layout.cursor_rect_for_byte_offset(
@@ -2214,16 +2095,12 @@ pub fn draw_text_input(
 /// Shapes a text input's visual text, reusing the `TextLayoutCache` where the shaped result is
 /// a pure function of the text and font properties.
 ///
-/// A selection bakes an extra brush into the glyphs, so a selected text shapes fresh and leaves
-/// the cache entry alone. An IME composition is drawn as one, and is excluded by the same check;
-/// the paths that don't draw ask for no selection and shape the composition like any other text,
-/// which is what they display. A password field shapes a substituted text, but the substitution
-/// is the same everywhere, so it is cacheable too.
-///
-/// A selection no longer makes an entry unshareable: it is applied when drawing, by clipping the
-/// runs it cuts across, and never reaches shaping. Cluster ranges and advances are identical with
-/// and without one, so a selected `TextInput` hits the same entry as an unselected one -- which is
-/// what keeps dragging a selection from re-shaping the document on every mouse move.
+/// A selection doesn't make an entry unshareable: it is applied when drawing, by clipping the runs
+/// it cuts across, and never reaches shaping. Cluster ranges and advances are identical with and
+/// without one, so a selected `TextInput` hits the same entry as an unselected one -- which is what
+/// keeps dragging a selection, or composing with an IME, from re-shaping the document on every
+/// event. A password field shapes a substituted text, but the substitution is the same everywhere,
+/// so it is cacheable too.
 fn cached_text_input_paragraphs<'a>(
     cache: Option<&'a TextLayoutCache>,
     item_rc: &crate::item_tree::ItemRc,
@@ -2601,10 +2478,10 @@ mod tests {
                         continue;
                     }
                     assert!(
-                        left.x.start <= right.x.start,
+                        left.x().start <= right.x().start,
                         "spans of {start}..{end} are out of order: {:?} before {:?}",
-                        left.x,
-                        right.x
+                        left.x(),
+                        right.x()
                     );
                 }
             }
