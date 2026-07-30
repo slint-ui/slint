@@ -1,0 +1,18 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Skia font rendering is not consistent across platforms
+//ignore:skia
+// SIZE=320x200
+
+export component TestCase inherits Window {
+    width: 320px;
+    height: 200px;
+    background: white;
+    StyledText {
+        width: 100%;
+        height: 100%;
+        text: @markdown("# Heading 1\n## Heading 2\n### Heading 3\nBody text\n*Italic* body");
+        default-color: #025;
+    }
+}

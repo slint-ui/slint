@@ -1089,7 +1089,7 @@ impl Expression {
         let probe = markdown.replace(PLACEHOLDER, PROBE);
 
         let (_, parse_errors) = i_slint_common::styled_text::parse_interpolated::<
-            &[i_slint_common::styled_text::StyledTextParagraph],
+            &[i_slint_common::styled_text::ParagraphBlock],
         >(&probe, &[]);
 
         let mut color_indices = std::collections::BTreeSet::new();

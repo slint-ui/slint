@@ -127,7 +127,8 @@ assert_eq!(plain2, md2);
 assert_eq!(instance.get_foo_bar(), StyledText::from_plain_text("foo bar"));
 
 // Public API: from_markdown rejects unsupported syntax
-assert!(StyledText::from_markdown("# heading").is_err());
+assert!(StyledText::from_markdown("# heading").is_ok());
+assert!(StyledText::from_markdown("---").is_ok());
 ```
 ```cpp
 auto handle = TestCase::create();
@@ -167,8 +168,10 @@ assert(plain2 == *md2);
 assert(instance.get_foo_bar() == slint::StyledText::from_plain_text("foo bar"));
 
 // from_markdown returns nullopt for unsupported syntax
-auto bad = slint::StyledText::from_markdown("# heading");
-assert(!bad.has_value());
+auto heading = slint::StyledText::from_markdown("# heading");
+assert(heading.has_value());
+auto hr = slint::StyledText::from_markdown("---");
+assert(hr.has_value());
 ```
 ```js
 var instance = new slint.TestCase({});
@@ -201,10 +204,8 @@ assert(plain2.equals(md2));
 // @markdown("foo bar") in .slint equals fromPlainText("foo bar")
 assert(instance.foo_bar.equals(StyledText.fromPlainText("foo bar")));
 
-// fromMarkdown throws for unsupported syntax
-let threw = false;
-try { StyledText.fromMarkdown("# heading"); } catch(e) { threw = true; }
-assert(threw);
+assert(StyledText.fromMarkdown("# heading") instanceof StyledText);
+assert(StyledText.fromMarkdown("---") instanceof StyledText);
 ```
 ```python
 instance = TestCase()
@@ -236,12 +237,7 @@ assert plain2 == md2
 # @markdown("foo bar") in .slint equals from_plain_text("foo bar")
 assert instance.foo_bar == slint.StyledText.from_plain_text("foo bar")
 
-# from_markdown raises for unsupported syntax
-threw = False
-try:
-    slint.StyledText.from_markdown("# heading")
-except ValueError:
-    threw = True
-assert threw
+assert isinstance(slint.StyledText.from_markdown("# heading"), slint.StyledText)
+assert isinstance(slint.StyledText.from_markdown("---"), slint.StyledText)
 ```
 */

@@ -18,6 +18,7 @@ use crate::{
     renderer::RendererSealed,
     textlayout::{TextHorizontalAlignment, TextOverflow, TextVerticalAlignment, TextWrap},
 };
+use alloc::boxed::Box;
 use alloc::vec::Vec;
 use core::ops::Range;
 use core::pin::Pin;
@@ -174,6 +175,14 @@ pub use super::DEFAULT_FONT_SIZE;
 /// text. Matches the convention used by GitHub-style markdown renderers — the
 /// glyphs sit a little smaller than body text, inside a translucent capsule
 /// that visually marks them as code.
+pub enum BlockType {
+    Normal,
+    Heading(u8),
+    CodeBlock,
+}
+
+const HEADING_FONT_SCALES: [f32; 6] = [2.0, 1.5, 1.17, 1.0, 0.83, 0.67];
+
 const INLINE_CODE_FONT_SCALE: f32 = 0.85;
 
 std::thread_local! {
@@ -358,6 +367,7 @@ impl LayoutWithoutLineBreaksBuilder {
         selection: Option<(Range<usize>, Color)>,
         formatting: impl IntoIterator<Item = i_slint_common::styled_text::FormattedSpan>,
         link_color: Option<Color>,
+        block_type: BlockType,
     ) -> parley::Layout<Brush> {
         use i_slint_common::styled_text::Style;
 
@@ -375,6 +385,26 @@ impl LayoutWithoutLineBreaksBuilder {
                         selection_range,
                     );
                 }
+            }
+
+            match block_type {
+                BlockType::Heading(level) => {
+                    let scale = HEADING_FONT_SCALES[level as usize - 1];
+                    builder.push_default(parley::StyleProperty::FontSize(
+                        self.pixel_size.get() * scale,
+                    ));
+                    builder.push_default(parley::StyleProperty::FontWeight(
+                        parley::style::FontWeight::BOLD,
+                    ));
+                }
+                BlockType::CodeBlock => {
+                    builder.push_default(parley::StyleProperty::FontFamily(
+                        parley::style::FontFamily::Single(parley::style::FontFamilyName::Generic(
+                            parley::style::GenericFamily::Monospace,
+                        )),
+                    ));
+                }
+                BlockType::Normal => {}
             }
 
             // filter empty ranges otherwise parley will panic on assert
@@ -438,6 +468,34 @@ impl LayoutWithoutLineBreaksBuilder {
                             span.range,
                         );
                     }
+                    Style::Math => {
+                        builder.push(
+                            parley::StyleProperty::FontFamily(parley::style::FontFamily::Single(
+                                parley::style::FontFamilyName::Generic(
+                                    parley::style::GenericFamily::Monospace,
+                                ),
+                            )),
+                            span.range.clone(),
+                        );
+                        builder.push(
+                            parley::StyleProperty::FontSize(
+                                self.pixel_size.get() * INLINE_CODE_FONT_SCALE,
+                            ),
+                            span.range,
+                        );
+                    }
+                    Style::Superscript => {
+                        builder.push(
+                            parley::StyleProperty::FontSize(self.pixel_size.get() * 0.7),
+                            span.range,
+                        );
+                    }
+                    Style::Subscript => {
+                        builder.push(
+                            parley::StyleProperty::FontSize(self.pixel_size.get() * 0.7),
+                            span.range,
+                        );
+                    }
                 }
             }
 
@@ -466,35 +524,62 @@ fn create_text_paragraphs(
     selection: Option<(Range<usize>, Color)>,
     link_color: Color,
 ) -> Vec<TextParagraph> {
-    let paragraph_from_text =
-        |font_context: &mut parley::FontContext,
-         text: &str,
-         range: std::ops::Range<usize>,
-         formatting: Vec<i_slint_common::styled_text::FormattedSpan>,
-         links: Vec<(std::ops::Range<usize>, std::string::String)>| {
-            let selection = selection.clone().and_then(|(selection, selection_color)| {
-                let sel_start = selection.start.max(range.start);
-                let sel_end = selection.end.min(range.end);
+    let paragraph_from_text = |font_context: &mut parley::FontContext,
+                               text: &str,
+                               range: std::ops::Range<usize>,
+                               formatting: Vec<i_slint_common::styled_text::FormattedSpan>,
+                               links: Vec<(std::ops::Range<usize>, std::string::String)>,
+                               kind: ParagraphKind,
+                               block_quote_level: u8| {
+        let selection = selection.clone().and_then(|(selection, selection_color)| {
+            let sel_start = selection.start.max(range.start);
+            let sel_end = selection.end.min(range.end);
 
-                if sel_start < sel_end {
-                    let local_selection = (sel_start - range.start)..(sel_end - range.start);
-                    Some((local_selection, selection_color))
-                } else {
-                    None
-                }
-            });
+            if sel_start < sel_end {
+                let local_selection = (sel_start - range.start)..(sel_end - range.start);
+                Some((local_selection, selection_color))
+            } else {
+                None
+            }
+        });
 
-            let code_ranges: alloc::vec::Vec<Range<usize>> = formatting
-                .iter()
-                .filter(|s| matches!(s.style, i_slint_common::styled_text::Style::Code))
-                .map(|s| s.range.clone())
-                .collect();
+        let code_ranges: alloc::vec::Vec<Range<usize>> = formatting
+            .iter()
+            .filter(|s| {
+                matches!(
+                    s.style,
+                    i_slint_common::styled_text::Style::Code
+                        | i_slint_common::styled_text::Style::Math
+                )
+            })
+            .map(|s| s.range.clone())
+            .collect();
 
-            let layout =
-                layout_builder.build(font_context, text, selection, formatting, Some(link_color));
-
-            TextParagraph { range, y: PhysicalLength::default(), layout, links, code_ranges }
+        let block_type = match kind {
+            ParagraphKind::Heading(level) => BlockType::Heading(level),
+            ParagraphKind::CodeBlock => BlockType::CodeBlock,
+            _ => BlockType::Normal,
         };
+
+        let layout = layout_builder.build(
+            font_context,
+            text,
+            selection,
+            formatting,
+            Some(link_color),
+            block_type,
+        );
+
+        TextParagraph {
+            range,
+            y: PhysicalLength::default(),
+            layout,
+            links,
+            code_ranges,
+            kind,
+            block_quote_level,
+        }
+    };
 
     let mut paragraphs = Vec::with_capacity(1);
 
@@ -507,18 +592,309 @@ fn create_text_paragraphs(
                     range,
                     Default::default(),
                     Default::default(),
+                    ParagraphKind::Normal,
+                    0,
                 ));
             }
         }
         PlainOrStyledText::Styled(rich_text) => {
-            for paragraph in rich_text.paragraphs {
-                paragraphs.push(paragraph_from_text(
-                    font_context,
-                    &paragraph.text,
-                    0..0,
-                    paragraph.formatting,
-                    paragraph.links,
-                ));
+            for block in rich_text.paragraphs {
+                match block {
+                    i_slint_common::styled_text::ParagraphBlock::Text(content) => {
+                        paragraphs.push(paragraph_from_text(
+                            font_context,
+                            &content.text,
+                            0..0,
+                            content.formatting.clone(),
+                            content.links.clone(),
+                            ParagraphKind::Normal,
+                            0,
+                        ));
+                    }
+                    i_slint_common::styled_text::ParagraphBlock::Heading { level, content } => {
+                        paragraphs.push(paragraph_from_text(
+                            font_context,
+                            &content.text,
+                            0..0,
+                            content.formatting.clone(),
+                            content.links.clone(),
+                            ParagraphKind::Heading(level),
+                            0,
+                        ));
+                    }
+                    i_slint_common::styled_text::ParagraphBlock::BlockQuote { level, content } => {
+                        let indent_str = " ".repeat(level as usize + 2);
+                        let indented_text = alloc::format!("{}{}", indent_str, content.text);
+                        let shifted_formatting: Vec<_> = content
+                            .formatting
+                            .iter()
+                            .map(|s| i_slint_common::styled_text::FormattedSpan {
+                                range: (s.range.start + indent_str.len())
+                                    ..(s.range.end + indent_str.len()),
+                                style: s.style.clone(),
+                            })
+                            .collect();
+                        paragraphs.push(paragraph_from_text(
+                            font_context,
+                            &indented_text,
+                            0..0,
+                            shifted_formatting,
+                            content.links.clone(),
+                            ParagraphKind::Normal,
+                            level,
+                        ));
+                    }
+                    i_slint_common::styled_text::ParagraphBlock::HorizontalRule => {
+                        paragraphs.push(paragraph_from_text(
+                            font_context,
+                            "",
+                            0..0,
+                            Default::default(),
+                            Default::default(),
+                            ParagraphKind::HorizontalRule,
+                            0,
+                        ));
+                    }
+                    i_slint_common::styled_text::ParagraphBlock::CodeBlock { text, .. } => {
+                        paragraphs.push(paragraph_from_text(
+                            font_context,
+                            &text,
+                            0..0,
+                            Vec::new(),
+                            Vec::new(),
+                            ParagraphKind::CodeBlock,
+                            0,
+                        ));
+                    }
+                    i_slint_common::styled_text::ParagraphBlock::Table {
+                        columns,
+                        header,
+                        body,
+                        ..
+                    } => {
+                        let cell_border_spacing = PhysicalLength::new(8.0);
+                        let padding = PhysicalLength::new(4.0);
+                        let mut max_col_widths: Vec<PhysicalLength> = alloc::vec::Vec::new();
+                        max_col_widths.resize(columns, PhysicalLength::zero());
+
+                        let mut table_header_data: Vec<Vec<TableCellData>> = Vec::new();
+                        let mut table_body_data: Vec<Vec<TableCellData>> = Vec::new();
+
+                        for row in &header {
+                            let mut row_data = Vec::new();
+                            for (col, cell) in row.iter().enumerate() {
+                                if col < columns {
+                                    let mut cell_layout = layout_builder.build(
+                                        font_context,
+                                        &cell.content.text,
+                                        None,
+                                        cell.content.formatting.iter().cloned(),
+                                        None,
+                                        BlockType::Normal,
+                                    );
+                                    cell_layout.break_all_lines(None);
+                                    let w = PhysicalLength::new(cell_layout.full_width())
+                                        + cell_border_spacing;
+                                    max_col_widths[col] = max_col_widths[col].max(w);
+                                    row_data.push(TableCellData {
+                                        text: cell.content.text.clone(),
+                                        formatting: cell.content.formatting.clone(),
+                                    });
+                                }
+                            }
+                            table_header_data.push(row_data);
+                        }
+
+                        for row in &body {
+                            let mut row_data = Vec::new();
+                            for (col, cell) in row.iter().enumerate() {
+                                if col < columns {
+                                    let mut cell_layout = layout_builder.build(
+                                        font_context,
+                                        &cell.content.text,
+                                        None,
+                                        cell.content.formatting.iter().cloned(),
+                                        None,
+                                        BlockType::Normal,
+                                    );
+                                    cell_layout.break_all_lines(None);
+                                    let w = PhysicalLength::new(cell_layout.full_width())
+                                        + cell_border_spacing;
+                                    max_col_widths[col] = max_col_widths[col].max(w);
+                                    row_data.push(TableCellData {
+                                        text: cell.content.text.clone(),
+                                        formatting: cell.content.formatting.clone(),
+                                    });
+                                }
+                            }
+                            table_body_data.push(row_data);
+                        }
+
+                        let mut x = PhysicalLength::zero();
+                        let mut column_positions = Vec::with_capacity(columns);
+                        let mut column_widths_resolved = Vec::with_capacity(columns);
+                        for w in &max_col_widths {
+                            column_positions.push(x);
+                            column_widths_resolved.push(*w);
+                            x += *w;
+                        }
+                        let total_width = x;
+
+                        let mut row_heights = Vec::new();
+                        let mut row_positions = Vec::new();
+                        let mut current_y = PhysicalLength::zero();
+
+                        for row in &table_header_data {
+                            let mut max_h = PhysicalLength::new(layout_builder.pixel_size.get());
+                            for (col, cell) in row.iter().enumerate() {
+                                if col >= column_widths_resolved.len() {
+                                    break;
+                                }
+                                let available_width =
+                                    column_widths_resolved[col].get() - cell_border_spacing.get();
+                                let mut cell_layout = layout_builder.build(
+                                    font_context,
+                                    &cell.text,
+                                    None,
+                                    cell.formatting.iter().cloned(),
+                                    None,
+                                    BlockType::Normal,
+                                );
+                                if available_width > 0.0 {
+                                    cell_layout.break_all_lines(Some(available_width));
+                                } else {
+                                    cell_layout.break_all_lines(None);
+                                }
+                                let h = PhysicalLength::new(cell_layout.height());
+                                max_h = max_h.max(h);
+                            }
+                            max_h += padding * 2.0;
+                            row_positions.push(current_y);
+                            row_heights.push(max_h);
+                            current_y += max_h;
+                        }
+                        for row in &table_body_data {
+                            let mut max_h = PhysicalLength::new(layout_builder.pixel_size.get());
+                            for (col, cell) in row.iter().enumerate() {
+                                if col >= column_widths_resolved.len() {
+                                    break;
+                                }
+                                let available_width =
+                                    column_widths_resolved[col].get() - cell_border_spacing.get();
+                                let mut cell_layout = layout_builder.build(
+                                    font_context,
+                                    &cell.text,
+                                    None,
+                                    cell.formatting.iter().cloned(),
+                                    None,
+                                    BlockType::Normal,
+                                );
+                                if available_width > 0.0 {
+                                    cell_layout.break_all_lines(Some(available_width));
+                                } else {
+                                    cell_layout.break_all_lines(None);
+                                }
+                                let h = PhysicalLength::new(cell_layout.height());
+                                max_h = max_h.max(h);
+                            }
+                            max_h += padding * 2.0;
+                            row_positions.push(current_y);
+                            row_heights.push(max_h);
+                            current_y += max_h;
+                        }
+                        let total_height = current_y;
+
+                        // Shape header cell layouts with correct column widths
+                        let header_layouts: Vec<Vec<parley::Layout<Brush>>> = table_header_data
+                            .iter()
+                            .map(|row| {
+                                row.iter()
+                                    .enumerate()
+                                    .map(|(col, cell)| {
+                                        let cell_width = if col < column_widths_resolved.len() {
+                                            column_widths_resolved[col].get() - 8.0
+                                        } else {
+                                            0.0
+                                        };
+                                        let mut layout = layout_builder.build(
+                                            font_context,
+                                            &cell.text,
+                                            None,
+                                            cell.formatting.iter().cloned(),
+                                            None,
+                                            BlockType::Normal,
+                                        );
+                                        if cell_width > 0.0 {
+                                            layout.break_all_lines(Some(cell_width));
+                                        } else {
+                                            layout.break_all_lines(None);
+                                        }
+                                        layout
+                                    })
+                                    .collect()
+                            })
+                            .collect();
+
+                        // Shape body cell layouts with correct column widths
+                        let body_layouts: Vec<Vec<parley::Layout<Brush>>> = table_body_data
+                            .iter()
+                            .map(|row| {
+                                row.iter()
+                                    .enumerate()
+                                    .map(|(col, cell)| {
+                                        let cell_width = if col < column_widths_resolved.len() {
+                                            column_widths_resolved[col].get() - 8.0
+                                        } else {
+                                            0.0
+                                        };
+                                        let mut layout = layout_builder.build(
+                                            font_context,
+                                            &cell.text,
+                                            None,
+                                            cell.formatting.iter().cloned(),
+                                            None,
+                                            BlockType::Normal,
+                                        );
+                                        if cell_width > 0.0 {
+                                            layout.break_all_lines(Some(cell_width));
+                                        } else {
+                                            layout.break_all_lines(None);
+                                        }
+                                        layout
+                                    })
+                                    .collect()
+                            })
+                            .collect();
+
+                        paragraphs.push(TextParagraph {
+                            range: 0..0,
+                            y: PhysicalLength::default(),
+                            layout: layout_builder.build(
+                                font_context,
+                                "",
+                                None,
+                                None,
+                                None,
+                                BlockType::Normal,
+                            ),
+                            links: Vec::new(),
+                            code_ranges: Vec::new(),
+                            kind: ParagraphKind::Table(Box::new(TableLayout {
+                                column_widths: column_widths_resolved,
+                                column_positions,
+                                total_width,
+                                header: table_header_data,
+                                body: table_body_data,
+                                row_heights,
+                                row_positions,
+                                total_height,
+                                header_layouts,
+                                body_layouts,
+                            })),
+                            block_quote_level: 0,
+                        });
+                    }
+                }
             }
         }
     };
@@ -542,7 +918,8 @@ fn layout(
 
     // Returned None if failed to get the ellipsis glyph for some rare reason.
     let get_ellipsis_glyph = |font_context: &mut parley::FontContext| {
-        let mut layout = layout_builder.build(font_context, "…", None, None, None);
+        let mut layout =
+            layout_builder.build(font_context, "…", None, None, None, BlockType::Normal);
         layout.break_all_lines(None);
         let line = layout.lines().next()?;
         let item = line.items().next()?;
@@ -564,24 +941,68 @@ fn layout(
         None
     };
 
-    let mut para_y = 0.0;
-    for para in paragraphs.iter_mut() {
-        para.layout.break_all_lines(max_physical_width.map(|width| width.get()));
-        para.layout.align(
-            match options.horizontal_align {
-                TextHorizontalAlignment::Start | TextHorizontalAlignment::Left => {
-                    parley::Alignment::Left
-                }
-                TextHorizontalAlignment::Center => parley::Alignment::Center,
-                TextHorizontalAlignment::End | TextHorizontalAlignment::Right => {
-                    parley::Alignment::Right
-                }
-            },
-            parley::AlignmentOptions::default(),
-        );
+    let body_font_size = layout_builder.pixel_size.get();
+    let scale = scale_factor.get();
+    let rule_height = PhysicalLength::new(body_font_size * 0.8 * scale);
+    let rule_margin = PhysicalLength::new(body_font_size * 0.3 * scale);
 
-        para.y = PhysicalLength::new(para_y);
-        para_y += para.layout.height();
+    let mut para_y = 0.0;
+    let mut prev_kind = ParagraphKind::Normal;
+    let mut prev_block_quote_level: u8 = 0;
+    for para in paragraphs.iter_mut() {
+        // FIXME: Improve the hacky spacing logic
+        let spacing = if para_y == 0.0
+            || matches!(para.kind, ParagraphKind::Heading(_))
+            || !matches!(prev_kind, ParagraphKind::Heading(_))
+        {
+            // heading spacing is already handled
+            0.0
+        } else if matches!(para.kind, ParagraphKind::CodeBlock)
+            && !matches!(prev_kind, ParagraphKind::CodeBlock)
+        {
+            body_font_size * 1.0
+        } else if (para.block_quote_level > 0 && prev_block_quote_level == 0)
+            || (matches!(prev_kind, ParagraphKind::CodeBlock)
+                && !matches!(para.kind, ParagraphKind::CodeBlock))
+            || (matches!(para.kind, ParagraphKind::Table(_))
+                && !matches!(prev_kind, ParagraphKind::Table(_)))
+        {
+            body_font_size * 0.5
+        } else {
+            body_font_size * 0.3
+        };
+
+        para_y += spacing;
+
+        if para.is_horizontal_rule() {
+            para.layout.break_all_lines(None);
+            para.y = PhysicalLength::new(para_y);
+            para_y += rule_height.get();
+        } else if let ParagraphKind::Table(table_info) = &para.kind {
+            para.layout.break_all_lines(None);
+            para.y = PhysicalLength::new(para_y);
+            para_y += table_info.total_height.get();
+        } else {
+            para.layout.break_all_lines(max_physical_width.map(|width| width.get()));
+            para.layout.align(
+                match options.horizontal_align {
+                    TextHorizontalAlignment::Start | TextHorizontalAlignment::Left => {
+                        parley::Alignment::Left
+                    }
+                    TextHorizontalAlignment::Center => parley::Alignment::Center,
+                    TextHorizontalAlignment::End | TextHorizontalAlignment::Right => {
+                        parley::Alignment::Right
+                    }
+                },
+                parley::AlignmentOptions::default(),
+            );
+
+            para.y = PhysicalLength::new(para_y);
+            para_y += para.layout.height();
+        }
+
+        prev_kind = para.kind.clone();
+        prev_block_quote_level = para.block_quote_level;
     }
 
     let line_limit_cut =
@@ -627,9 +1048,11 @@ fn layout(
                 .expect("line_limit_cut returns an existing line index");
             para.y + PhysicalLength::new(line.metrics().block_max_coord)
         }
-        None => paragraphs
-            .last()
-            .map_or(PhysicalLength::zero(), |p| p.y + PhysicalLength::new(p.layout.height())),
+        None => paragraphs.last().map_or(PhysicalLength::zero(), |p| match &p.kind {
+            ParagraphKind::HorizontalRule => p.y + rule_height,
+            ParagraphKind::Table(table_info) => p.y + table_info.total_height,
+            _ => p.y + PhysicalLength::new(p.layout.height()),
+        }),
     };
 
     let y_offset = match (max_physical_height, options.vertical_align) {
@@ -646,6 +1069,7 @@ fn layout(
         height,
         max_physical_height,
         line_limit_cut,
+        rule_margin,
     }
 }
 
@@ -737,6 +1161,35 @@ fn line_fits_height(block_max_coord: f32, max_physical_height: PhysicalLength) -
     max_physical_height.get().ceil() >= block_max_coord
 }
 
+#[derive(Clone)]
+struct TableCellData {
+    text: std::string::String,
+    formatting: std::vec::Vec<i_slint_common::styled_text::FormattedSpan>,
+}
+
+#[derive(Clone)]
+struct TableLayout {
+    column_widths: Vec<PhysicalLength>,
+    column_positions: Vec<PhysicalLength>,
+    total_width: PhysicalLength,
+    header: Vec<Vec<TableCellData>>,
+    body: Vec<Vec<TableCellData>>,
+    row_heights: Vec<PhysicalLength>,
+    row_positions: Vec<PhysicalLength>,
+    total_height: PhysicalLength,
+    header_layouts: Vec<Vec<parley::Layout<Brush>>>,
+    body_layouts: Vec<Vec<parley::Layout<Brush>>>,
+}
+
+#[derive(Clone)]
+enum ParagraphKind {
+    Normal,
+    Heading(u8),
+    HorizontalRule,
+    CodeBlock,
+    Table(Box<TableLayout>),
+}
+
 struct TextParagraph {
     range: Range<usize>,
     y: PhysicalLength,
@@ -746,6 +1199,25 @@ struct TextParagraph {
     /// translucent rounded background by `draw` for visual parity with common markdown
     /// renderers.
     code_ranges: std::vec::Vec<Range<usize>>,
+    kind: ParagraphKind,
+    block_quote_level: u8,
+}
+
+impl TextParagraph {
+    fn heading_level(&self) -> u8 {
+        match &self.kind {
+            ParagraphKind::Heading(level) => *level,
+            _ => 0,
+        }
+    }
+
+    fn is_code_block(&self) -> bool {
+        matches!(self.kind, ParagraphKind::CodeBlock)
+    }
+
+    fn is_horizontal_rule(&self) -> bool {
+        matches!(self.kind, ParagraphKind::HorizontalRule)
+    }
 }
 
 impl TextParagraph {
@@ -1152,6 +1624,7 @@ struct Layout {
     /// Where an active `max-lines` limit drops lines, in the same coordinates as [`ElisionCut`]:
     /// the (paragraph index, line index) of the last kept line. See [`line_limit_cut`].
     line_limit_cut: Option<(usize, usize)>,
+    rule_margin: PhysicalLength,
 }
 
 impl Layout {
@@ -1293,7 +1766,13 @@ impl Layout {
         let idx = self.visible_paragraphs().binary_search_by(|paragraph| {
             if y < paragraph.y {
                 core::cmp::Ordering::Greater
-            } else if y >= paragraph.y + PhysicalLength::new(paragraph.layout.height()) {
+            } else if y
+                >= paragraph.y
+                    + match &paragraph.kind {
+                        ParagraphKind::Table(table_info) => table_info.total_height,
+                        _ => PhysicalLength::new(paragraph.layout.height()),
+                    }
+            {
                 core::cmp::Ordering::Less
             } else {
                 core::cmp::Ordering::Equal
@@ -1473,6 +1952,166 @@ impl Layout {
         // elide as a single block (drop lines below the box, ellipsis on the last visible one).
         let visible_extent = self.visible_extent();
         for (paragraph_index, paragraph) in self.paragraphs.iter().enumerate() {
+            if paragraph.is_horizontal_rule() {
+                if let Some(cut) = visible_extent
+                    && paragraph_index > cut.last_paragraph
+                {
+                    continue;
+                }
+                let y = self.y_offset + paragraph.y;
+                let line_y = y.get() + self.rule_margin.get();
+                let rect = PhysicalRect::new(
+                    PhysicalPoint::new(0.0, line_y),
+                    PhysicalSize::new(self.max_width.get(), 1.0),
+                );
+                item_renderer.fill_rectangle_with_color(rect, default_text_color);
+                continue;
+            }
+            if let ParagraphKind::Table(table_info) = &paragraph.kind {
+                if let Some(cut) = visible_extent
+                    && paragraph_index > cut.last_paragraph
+                {
+                    continue;
+                }
+                let table_y = self.y_offset + paragraph.y;
+                let border_color = default_text_color.transparentize(0.8);
+                let header_bg = default_text_color.transparentize(0.85);
+                let padding = PhysicalLength::new(4.0);
+
+                // Draw header row background
+                if let Some(first_row_h) = table_info.row_heights.first() {
+                    let header_rect = PhysicalRect::new(
+                        PhysicalPoint::new(0.0, table_y.get()),
+                        PhysicalSize::new(table_info.total_width.get(), first_row_h.get()),
+                    );
+                    item_renderer.fill_rectangle_with_color(header_rect, header_bg);
+                }
+
+                // Draw cell text
+                for (section_idx, (layouts_section, data_section)) in
+                    [&table_info.header_layouts, &table_info.body_layouts]
+                        .iter()
+                        .zip([&table_info.header, &table_info.body].iter())
+                        .enumerate()
+                {
+                    for (row_idx, (row_layouts, _row_data)) in
+                        layouts_section.iter().zip(data_section.iter()).enumerate()
+                    {
+                        let flat_row_idx = if section_idx == 0 {
+                            row_idx
+                        } else {
+                            table_info.header_layouts.len() + row_idx
+                        };
+                        let row_y = table_y
+                            + *table_info
+                                .row_positions
+                                .get(flat_row_idx)
+                                .unwrap_or(&PhysicalLength::zero());
+
+                        for (col, cell_layout) in row_layouts.iter().enumerate() {
+                            let col_x = table_info
+                                .column_positions
+                                .get(col)
+                                .copied()
+                                .unwrap_or(PhysicalLength::zero());
+                            let cell_x = col_x + padding;
+
+                            for line in cell_layout.lines() {
+                                for item in line.items() {
+                                    if let parley::PositionedLayoutItem::GlyphRun(run) = item {
+                                        draw_glyphs(
+                                            item_renderer,
+                                            run.run().font(),
+                                            PhysicalLength::new(run.run().font_size()),
+                                            run.run().normalized_coords(),
+                                            &run.run().synthesis(),
+                                            default_fill_brush.clone(),
+                                            row_y,
+                                            &mut run.positioned_glyphs().map(|g| {
+                                                let mut adjusted = g;
+                                                adjusted.x += cell_x.get();
+                                                adjusted
+                                            }),
+                                        );
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Draw horizontal grid lines
+                for row_idx in 0..=table_info.row_heights.len() {
+                    let y = table_y
+                        + table_info
+                            .row_positions
+                            .get(row_idx)
+                            .copied()
+                            .unwrap_or(table_info.total_height);
+                    let line = PhysicalRect::new(
+                        PhysicalPoint::new(0.0, y.get()),
+                        PhysicalSize::new(table_info.total_width.get(), 1.0),
+                    );
+                    item_renderer.fill_rectangle_with_color(line, border_color);
+                }
+
+                // Draw vertical grid lines
+                for col in 0..=table_info.column_widths.len() {
+                    let x = if col == 0 {
+                        PhysicalLength::zero()
+                    } else if col > 0 && col <= table_info.column_positions.len() {
+                        table_info.column_positions[col - 1] + table_info.column_widths[col - 1]
+                    } else {
+                        table_info.total_width
+                    };
+                    let line = PhysicalRect::new(
+                        PhysicalPoint::new(x.get(), table_y.get()),
+                        PhysicalSize::new(1.0, table_info.total_height.get()),
+                    );
+                    item_renderer.fill_rectangle_with_color(line, border_color);
+                }
+
+                continue;
+            }
+            if paragraph.is_code_block() {
+                if let Some(cut) = visible_extent
+                    && paragraph_index > cut.last_paragraph
+                {
+                    continue;
+                }
+                let y = self.y_offset + paragraph.y;
+                let para_height = PhysicalLength::new(paragraph.layout.height());
+                let bg_color = default_text_color.transparentize(0.9);
+                let bg_rect = PhysicalRect::new(
+                    PhysicalPoint::new(0.0, y.get()),
+                    PhysicalSize::new(self.max_width.get(), para_height.get()),
+                );
+                item_renderer.fill_rectangle_with_color(bg_rect, bg_color);
+            }
+            if paragraph.block_quote_level > 0 {
+                let bar_width = PhysicalLength::new(3.0);
+                let bar_x = PhysicalLength::new(4.0 * paragraph.block_quote_level as f32);
+                let y = self.y_offset + paragraph.y;
+                let para_height = PhysicalLength::new(paragraph.layout.height());
+                let rect = PhysicalRect::new(
+                    PhysicalPoint::new(bar_x.get(), y.get()),
+                    PhysicalSize::new(bar_width.get(), para_height.get()),
+                );
+                let color = default_text_color.transparentize(2.0 / 3.0);
+                item_renderer.fill_rectangle_with_color(rect, color);
+            }
+            let hl = paragraph.heading_level();
+            if hl == 1 || hl == 2 {
+                let y =
+                    self.y_offset + paragraph.y + PhysicalLength::new(paragraph.layout.height());
+                let line_y = y.get() + 4.0;
+                let line_color = default_text_color.transparentize(0.7);
+                let rect = PhysicalRect::new(
+                    PhysicalPoint::new(0.0, line_y),
+                    PhysicalSize::new(self.max_width.get(), 1.0),
+                );
+                item_renderer.fill_rectangle_with_color(rect, line_color);
+            }
             paragraph.draw(
                 self,
                 paragraph_index,
