@@ -472,10 +472,11 @@ fn scan_test_refs(
 }
 
 /// Whether a paragraph is informative rather than a testable requirement:
-/// the document conventions (`sls.meta.…`) and examples. These are excluded
-/// from the matrix; examples are compiled by the doctests test instead.
+/// ids with a `meta` segment (document conventions, definitional prose) and
+/// examples. These are excluded from the matrix; examples are compiled by
+/// the doctests test instead.
 fn informative(id: &str) -> bool {
-    id.starts_with("sls.meta.") || id.split('.').any(|s| s == "example")
+    id.split('.').any(|s| s == "meta" || s == "example")
 }
 
 /// The commit to link test files to on GitHub.
@@ -526,7 +527,7 @@ shown as a `[sls.…]` badge at the end of the paragraph.
 A test case declares which requirements it verifies by listing their identifiers in `//#sls.…` comments.
 This matrix lists every requirement paragraph with the test cases that declare it.
 Requirements not yet covered by any test are marked ❌.
-Informative paragraphs — the document conventions (`sls.meta.…`) and examples — are not listed;
+Informative paragraphs — those whose identifier contains a `meta` segment, and examples — are not listed;
 the examples are compiled by the doctests test instead.
 
 Tests marked `case:` are executed test cases from `{case_root}/`,
@@ -612,8 +613,11 @@ fn test_informative() {
     assert!(informative("sls.meta.purpose"));
     assert!(informative("sls.file.example.intro"));
     assert!(informative("sls.file.example.description"));
+    assert!(informative("sls.source.file-extension.meta"));
+    assert!(informative("sls.source.whitespace.meta.chars"));
     assert!(!informative("sls.lex.identifier.normalization-example"));
     assert!(!informative("sls.file.component.body"));
+    assert!(!informative("sls.source.metadata"));
 }
 
 #[test]
