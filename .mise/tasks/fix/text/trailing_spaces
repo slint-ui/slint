@@ -3,8 +3,10 @@
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 #MISE description="Run trailing WS fix on all files"
+# Touches every text file, so don't run concurrently with the other fixers
+#MISE wait_for=["fix:cpp:format", "fix:legal:copyright", "fix:pnpm:dedupe", "fix:pnpm:lock", "fix:python:format", "fix:rust:format:all", "fix:toml:format", "fix:ts:biome", "fix:ts:format"]
 
-# cSpell: ignore OSTYPE INPLACE
+# cSpell: ignore OSTYPE INPLACE dedupe
 
 set -e
 
