@@ -1,0 +1,12 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// The base must be defined before the component that inherits it.
+
+//#sls.file.component.inherits.base
+export component Test inherits Later {
+//                             >    <error{Unknown element 'Later'}
+}
+
+component Later inherits Window { }
+//>                                 <<<warning{Component is neither used nor exported}

@@ -42,8 +42,7 @@ The component has the properties of `Base` in addition to those [declared](../pr
 and a binding in the component body may bind them. \{#sls.file.component.inherits.properties}
 
 <OnlyInSC>
-The identifier `Base` shall resolve to a built-in element;
-inheriting from a user-defined component is not supported. \{#sls.file.component.inherits.base}
+The identifier `Base` shall resolve to a built-in element or to a component defined earlier in the file. \{#sls.file.component.inherits.base}
 </OnlyInSC>
 </SC>
 
@@ -68,6 +67,15 @@ TypeName { /* element body */ }
 
 The identifier `TypeName` shall resolve to a built-in or user-defined component. \{#sls.file.element.instantiation-typename}
 
+<OnlyInSC>
+Neither `Window` nor a component that directly or indirectly inherits `Window` shall be instantiated as an element. \{#sls.file.element.no-window-instantiation}
+</OnlyInSC>
+</SC>
+
+Instantiating `Window`, or a component that inherits `Window`, as an element is deprecated:
+it does not create a separate window.
+
+<SC>
 The braces delimit the *element body*.
 An element body is a sequence of zero or more nested element instantiations and [bindings](../bindings/), separated only by whitespace and comments. \{#sls.file.element.body}
 
