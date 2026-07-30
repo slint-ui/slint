@@ -308,9 +308,6 @@ jobs:
             - name: Run pnpm install
               working-directory: editors/vscode
               run: pnpm install --frozen-lockfile
-            - name: vscode prebuild
-              working-directory: editors/vscode
-              run: pnpm vscode:prepublish
             - name: Build VS Code extension
               working-directory: editors/vscode
               run: pnpm local-package
