@@ -151,8 +151,28 @@ fn resolve_match_elements(
             match_element.cases.iter().map(|case| CaseValue::new(&case.value)).collect();
         check_duplicate_cases(&match_element.cases, &values, diag);
         check_exhaustiveness(match_element, &values, diag);
+
+        let subject_property_name = compute_match_subject_property_name(elem);
+        elem.borrow_mut().property_declarations.insert(
+            subject_property_name.clone(),
+            PropertyDeclaration { property_type: case_type, ..PropertyDeclaration::default() },
+        );
+        let subject = std::mem::replace(
+            &mut match_element.subject,
+            Expression::PropertyReference(NamedReference::new(elem, subject_property_name.clone())),
+        );
+        elem.borrow_mut().set_binding(subject_property_name, subject.into());
+
         match_element.lower_to_conditional_elements();
     }
+}
+
+fn compute_match_subject_property_name(elem: &ElementRc) -> SmolStr {
+    let mut name = "match-subject".to_owned();
+    while elem.borrow().lookup_property(name.as_ref()).property_type != Type::Invalid {
+        name += "-";
+    }
+    name.into()
 }
 
 /// Confirms that each case is a literal value and matches the type of the subject
