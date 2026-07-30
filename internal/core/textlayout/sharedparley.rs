@@ -1220,9 +1220,9 @@ impl TextParagraph {
         // Forced fill for selected glyphs, overriding the run's own brush.
         override_fill_brush: Option<&<R as GlyphRenderer>::PlatformBrush>,
         // Horizontal band this call is confined to, when the run is split across a selection
-        // boundary. Glyphs are cut by the renderer clip, but `fill_rectangle` does not honor
-        // the clip state in every backend, so the underline and strikethrough rectangles are
-        // clamped arithmetically instead.
+        // boundary. The glyphs are cut by the renderer clip; the underline and strikethrough
+        // rectangles are clamped arithmetically as well, so that their edges land on the span
+        // edge itself instead of wherever the backend's clip rounding puts it.
         x_clamp: Option<&Range<f32>>,
         draw_glyphs: &mut dyn FnMut(
             &mut R,
@@ -2134,11 +2134,6 @@ pub fn draw_text_input(
         layout.selection_geometry(selection_range)
     };
 
-    for background in selection_spans.backgrounds() {
-        item_renderer
-            .fill_rectangle_with_color(background, text_input.selection_background_color());
-    }
-
     item_renderer.save_state();
 
     let render = item_renderer.combine_clip(
@@ -2148,6 +2143,13 @@ pub fn draw_text_input(
     );
 
     if render {
+        // Inside the clip, like the glyphs it sits under: a line box taller than the item would
+        // otherwise paint the highlight over whatever follows the input.
+        for background in selection_spans.backgrounds() {
+            item_renderer
+                .fill_rectangle_with_color(background, text_input.selection_background_color());
+        }
+
         // Selected glyphs are recolored by clipping, not by restyling the layout, so that a
         // boundary landing inside a ligature cuts the glyph instead of recoloring all of it.
         let selection = (!selection_spans.is_empty())
