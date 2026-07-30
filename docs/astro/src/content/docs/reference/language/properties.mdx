@@ -8,8 +8,15 @@ import SC from '@slint/common-files/src/components/SC.astro';
 import OnlyInSC from '@slint/common-files/src/components/OnlyInSC.astro';
 
 <SC>
-An element has a set of named *properties*, determined by the type of the element.
-A property holds a value. \{#sls.prop.def}
+An element has a set of named *properties*, determined by the type of the element:
+the element's type provides properties — including those of the base it
+[inherits](../file-structure/#sls.file.component.inherits) from —
+and [property declarations](#property-declaration) in the element's body add more. \{#sls.prop.def}
+
+A property holds a value of the property's type;
+reading the property yields its current value. \{#sls.prop.def.value}
+
+## Property Declaration
 
 A *property declaration* adds a property to the element in whose body it appears.
 It consists of the keyword `property`, the type in angle brackets, and a name,
