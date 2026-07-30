@@ -308,9 +308,6 @@ jobs:
             - name: Run pnpm install
               working-directory: editors/vscode
               run: pnpm install --frozen-lockfile
-            - name: vscode prebuild
-              working-directory: editors/vscode
-              run: pnpm vscode:prepublish
             - name: Build VS Code extension
               working-directory: editors/vscode
               run: pnpm local-package
@@ -388,6 +385,8 @@ jobs:
     slintpad:
         if: ${{ !inputs.full && contains(fromJSON(inputs.changes), 'slintpad') }}
         uses: ./.github/workflows/wasm_editor_and_interpreter.yaml
+        with:
+            release: false
 
     wasm_demo:
         if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'internal') || contains(fromJSON(inputs.changes), 'examples') || contains(fromJSON(inputs.changes), 'api_rs') }}

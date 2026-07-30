@@ -33,7 +33,7 @@ jobs:
             - name: Printerdemo WASM build
               run: |
                   sed -i "s/#wasm# //" Cargo.toml
-                  wasm-pack build --release --target web
+                  wasm-pack build ${{ inputs.build_artifacts && '--release' || '--dev' }} --target web
               working-directory:  demos/printerdemo/rust
             - name: Gallery WASM build
               if: ${{ inputs.build_artifacts }}
@@ -50,7 +50,7 @@ jobs:
                   for demo in demos/printerdemo/rust demos/usecases/rust examples/todo/rust examples/todo-mvc/rust examples/carousel/rust examples/slide_puzzle examples/memory examples/dnd-kanban examples/imagefilter/rust examples/plotter examples/opengl_underlay demos/home-automation/rust examples/speedometer/rust; do
                       pushd $demo
                       sed -i "s/#wasm# //" Cargo.toml
-                      wasm-pack build --release --target web
+                      wasm-pack build ${{ inputs.build_artifacts && '--release' || '--dev' }} --target web
                       popd
                   done
             - name: Energy Monitor example WASM build
