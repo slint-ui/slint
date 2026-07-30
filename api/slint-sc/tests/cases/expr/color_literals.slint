@@ -1,0 +1,40 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Software-3.0
+
+export component ColorLiterals inherits Window {
+    // A short form duplicates each digit, and an absent alpha channel is opaque.
+    out property <color> short: #18f;
+    out property <color> long: #1188ff;
+    out property <color> short-alpha: #18fc;
+    out property <color> long-alpha: #1188ffcc;
+    out property <color> opaque-six: #123456;
+    out property <color> with-alpha: #11223344;
+}
+/*
+```rust
+let x = ColorLiterals::new();
+
+// `#18f` duplicates each digit, so it is the same color as `#1188ff`.
+//#sls.expr.color.short-forms
+assert_eq!(x.get_short(), x.get_long());
+assert_eq!(x.get_short(), slint_sc::Color::from_argb_encoded(0xff1188ff));
+// The 4-digit short form duplicates the alpha digit too: `#18fc` == `#1188ffcc`.
+assert_eq!(x.get_short_alpha(), x.get_long_alpha());
+assert_eq!(x.get_short_alpha(), slint_sc::Color::from_argb_encoded(0xcc1188ff));
+// Negative: each digit is duplicated, not left in the high nibble with a zero
+// low nibble (that would make `#18f` the color `#1080f0`, `#18fc` `#1080f0c0`).
+assert_ne!(x.get_short(), slint_sc::Color::from_argb_encoded(0xff1080f0));
+assert_ne!(x.get_short_alpha(), slint_sc::Color::from_argb_encoded(0xc01080f0));
+
+// With no alpha channel the color is fully opaque (0xff); a present alpha is kept.
+//#sls.expr.color.channels
+assert_eq!(x.get_long().alpha(), 0xff);
+assert_eq!(x.get_opaque_six().alpha(), 0xff);
+assert_eq!(x.get_with_alpha().alpha(), 0x44);
+assert_eq!(x.get_short_alpha().alpha(), 0xcc);
+// Negative: an absent alpha is opaque, not transparent, and a present alpha is
+// honored rather than forced opaque.
+assert_ne!(x.get_long().alpha(), 0x00);
+assert_ne!(x.get_with_alpha().alpha(), 0xff);
+```
+*/
