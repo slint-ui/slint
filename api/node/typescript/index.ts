@@ -10,6 +10,7 @@ export {
     DataTransfer,
     StyledText,
     Keys,
+    WindowEventDispatchResult,
 } from "../binding.cjs";
 
 import { Model } from "./models";
