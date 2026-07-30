@@ -2181,8 +2181,8 @@ impl QtWindow {
             MouseEvent::Wheel { position, delta_x, delta_y, .. } => {
                 Some(WindowEvent::PointerScrolled {
                     position: logical_position_to_api(*position),
-                    delta_x: *delta_x as f32,
-                    delta_y: *delta_y as f32,
+                    delta_x: *delta_x,
+                    delta_y: *delta_y,
                 })
             }
             MouseEvent::Exit => Some(WindowEvent::PointerExited),
