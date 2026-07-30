@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell: ignore RAII uncacheable unrepresentable unshareable
+// cSpell: ignore bidi RAII uncacheable unrepresentable unshareable
 pub use parley;
 pub use parley::fontique;
 
@@ -1111,7 +1111,8 @@ impl TextParagraph {
                 // a one-shot iterator.
                 let glyphs = glyphs_it.collect::<alloc::vec::Vec<_>>();
 
-                // Walk the run left to right, alternating unselected and selected segments.
+                // Walk the run left to right, alternating unselected and selected segments. This
+                // relies on `spans` being ascending in x, which [`SelectionSpans`] guarantees.
                 let mut x = run_x.start;
                 for span in spans {
                     if span.x.end <= run_x.start {
@@ -1406,7 +1407,9 @@ struct SelectionSpan {
     background: PhysicalRect,
 }
 
-/// Sorted by `(paragraph, line)`, so the spans belonging to one line form a contiguous slice.
+/// Sorted by `(paragraph, line, x.start)`: the spans belonging to one line form a contiguous slice,
+/// and within that slice they run left to right. Both halves are load-bearing -- see
+/// [`Self::for_line`] and the segment walk in `draw_glyph_run_with_selection`.
 #[derive(Clone, Debug, Default)]
 struct SelectionSpans(Vec<SelectionSpan>);
 
@@ -1693,10 +1696,17 @@ impl Layout {
             });
         }
 
-        // `geometry_with` walks lines in order within a paragraph and paragraphs are visited in
-        // order, so this is already sorted; sort defensively so `for_line` stays correct if
-        // parley ever changes its traversal.
-        spans.sort_by_key(|span| (span.paragraph, span.line));
+        // Already in this order: paragraphs are visited in order, `geometry_with` walks a
+        // paragraph's lines in order, and within a line it accumulates x left to right over
+        // visually reordered items -- so even a bidi line yields ascending spans. Sort defensively
+        // anyway, since both consumers depend on it and neither would fail loudly: `for_line`
+        // needs the `(paragraph, line)` grouping, and the segment walk in
+        // `draw_glyph_run_with_selection` needs ascending x within a line.
+        spans.sort_by(|a, b| {
+            (a.paragraph, a.line)
+                .cmp(&(b.paragraph, b.line))
+                .then_with(|| a.x.start.total_cmp(&b.x.start))
+        });
 
         SelectionSpans(spans)
     }
@@ -2567,6 +2577,40 @@ mod tests {
 
     fn visual_line_count(text: &str) -> usize {
         layout_text(text).paragraphs.iter().map(|p| p.layout.lines().len()).sum()
+    }
+
+    #[test]
+    fn bidi_selection_spans_are_ascending_in_x() {
+        // The segment walk in `draw_glyph_run_with_selection` steps through a line's spans left to
+        // right, so they have to arrive ascending in x. A bidi line is where that could plausibly
+        // break: a logically contiguous selection reaching into an RTL run maps to several
+        // disjoint visual rects, and the second one can be the *leftmost* on screen.
+        let text = "abc\u{5d0}\u{5d1}\u{5d2}def";
+        let layout = layout_text(text);
+        let mut saw_line_with_several_spans = false;
+        for start in [0, 2, 3, 4] {
+            for end in [4, 6, 8, text.len()] {
+                if start >= end {
+                    continue;
+                }
+                let spans = layout.selection_geometry(start..end);
+                saw_line_with_several_spans |= spans.0.len() > 1;
+                for pair in spans.0.windows(2) {
+                    let (left, right) = (&pair[0], &pair[1]);
+                    if (left.paragraph, left.line) != (right.paragraph, right.line) {
+                        continue;
+                    }
+                    assert!(
+                        left.x.start <= right.x.start,
+                        "spans of {start}..{end} are out of order: {:?} before {:?}",
+                        left.x,
+                        right.x
+                    );
+                }
+            }
+        }
+        // Otherwise the ranges above stopped producing a split line and this proves nothing.
+        assert!(saw_line_with_several_spans, "expected a bidi selection to split into spans");
     }
 
     #[test]
