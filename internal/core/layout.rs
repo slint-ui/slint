@@ -50,7 +50,9 @@ impl Default for LayoutInfo {
 }
 
 impl LayoutInfo {
-    // Note: This "logic" is duplicated in the cpp generator's generated code for merging layout infos.
+    // Note: This "logic" is duplicated in the cpp generator's generated code for merging layout
+    // infos, and in the compiler's const_propagation pass, which folds merges of constant
+    // layout infos at compile time.
     #[must_use]
     pub fn merge(&self, other: &LayoutInfo) -> Self {
         Self {
