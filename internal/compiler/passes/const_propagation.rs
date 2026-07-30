@@ -150,6 +150,30 @@ fn fold_binary_expression(
         ('+', Expression::NumberLiteral(a, un1), Expression::NumberLiteral(b, _)) => {
             Some(Expression::NumberLiteral(*a + *b, *un1))
         }
+        // `LayoutInfo + LayoutInfo` merges layout constraints, mirroring
+        // `impl Add for LayoutInfo` in internal/core/layout.rs. Fold it when
+        // every field of both operands is a number literal; merging only
+        // selects one of the two literals, so the folded value is exactly
+        // what the runtime merge would produce.
+        ('+', Expression::Struct { ty, values: a }, Expression::Struct { values: b, .. })
+            if matches!(ty.name, StructName::Builtin(BuiltinStruct::LayoutInfo)) =>
+        {
+            let ty = ty.clone();
+            ty.fields
+                .keys()
+                .map(|name| {
+                    let Some(Expression::NumberLiteral(x, u)) = a.get(name) else { return None };
+                    let Some(Expression::NumberLiteral(y, _)) = b.get(name) else { return None };
+                    let v = match name.as_str() {
+                        "min" | "min_percent" | "preferred" => x.max(*y),
+                        "max" | "max_percent" | "stretch" => x.min(*y),
+                        _ => return None,
+                    };
+                    Some((name.clone(), Expression::NumberLiteral(v, *u)))
+                })
+                .collect::<Option<_>>()
+                .map(|values| Expression::Struct { ty, values })
+        }
         ('-', Expression::NumberLiteral(a, un1), Expression::NumberLiteral(b, _)) => {
             Some(Expression::NumberLiteral(*a - *b, *un1))
         }
@@ -848,4 +872,58 @@ fn test_unit_normalization() {
     // Equality folds for numbers (now via the ordering arm) and bools.
     assert!(matches!(fold("bool", "1px != 2px"), Expression::BoolLiteral(true)));
     assert!(matches!(fold("bool", "true == false"), Expression::BoolLiteral(false)));
+}
+
+#[test]
+fn test_fold_layout_info_merge() {
+    use smol_str::SmolStr;
+    let ty = crate::typeregister::layout_info_type();
+    let info = |min: f64, max: f64, preferred: f64, stretch: f64| Expression::Struct {
+        ty: ty.clone(),
+        values: IntoIterator::into_iter([
+            ("min", Expression::NumberLiteral(min, Unit::Px)),
+            ("max", Expression::NumberLiteral(max, Unit::Px)),
+            ("preferred", Expression::NumberLiteral(preferred, Unit::Px)),
+            ("min_percent", Expression::NumberLiteral(0., Unit::None)),
+            ("max_percent", Expression::NumberLiteral(100., Unit::None)),
+            ("stretch", Expression::NumberLiteral(stretch, Unit::None)),
+        ])
+        .map(|(k, v)| (SmolStr::new_static(k), v))
+        .collect(),
+    };
+
+    let mut expr = Expression::BinaryExpression {
+        lhs: Box::new(info(10., 200., 50., 1.)),
+        rhs: Box::new(info(20., 100., 30., 0.)),
+        op: '+',
+    };
+    fold_const_expression(&mut expr);
+    // The merge takes the max of the lower bounds and the preferred size,
+    // and the min of the upper bounds and the stretch.
+    let Expression::Struct { values, .. } = expr else { panic!("not folded: {expr:?}") };
+    let field = |name: &str| match values.get(name) {
+        Some(Expression::NumberLiteral(v, _)) => *v,
+        other => panic!("field {name} not a literal: {other:?}"),
+    };
+    assert_eq!(field("min"), 20.);
+    assert_eq!(field("max"), 100.);
+    assert_eq!(field("preferred"), 50.);
+    assert_eq!(field("stretch"), 0.);
+
+    // A non-literal field keeps the merge unfolded.
+    let non_literal = Expression::Struct {
+        ty: ty.clone(),
+        values: IntoIterator::into_iter([(
+            SmolStr::new_static("min"),
+            Expression::FunctionParameterReference { index: 0, ty: Type::LogicalLength },
+        )])
+        .collect(),
+    };
+    let mut expr = Expression::BinaryExpression {
+        lhs: Box::new(info(10., 200., 50., 1.)),
+        rhs: Box::new(non_literal),
+        op: '+',
+    };
+    fold_const_expression(&mut expr);
+    assert!(matches!(expr, Expression::BinaryExpression { .. }), "{expr:?}");
 }
