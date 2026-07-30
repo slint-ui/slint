@@ -3,6 +3,7 @@
 
 #pragma once
 #include "slint-testing.h"
+#include <cmath>
 #include <iostream>
 
 // this file contains function useful for internal testing
@@ -91,7 +92,7 @@ void assert_eq_impl(const A &a, const B &b, const char *a_str, const char *b_str
         nok = T(a) != T(b);
     } else if constexpr (std::is_floating_point_v<A> && std::is_floating_point_v<B>) {
         const double dEpsilon = 0.000001; // or some other small number
-        nok = fabs(a - b) > dEpsilon * fabs(a);
+        nok = std::fabs(a - b) > dEpsilon * std::fabs(a);
     } else {
         nok = a != b;
     }
