@@ -23,13 +23,12 @@ A `U+002D` (`-`) shall not appear as the first character of an identifier. \{#sl
 ## Identifier Normalization
 
 Two identifiers are considered the same if and only if their *normalized forms* are equal.
-The normalized form of an identifier is obtained by applying the following replacements in order over the characters of the source identifier: \{#sls.lex.identifier.normalization}
+The normalized form of an identifier is obtained by applying the following replacements over the characters of the source identifier: \{#sls.lex.identifier.normalization}
 
-- The first character, if it is `U+005F` (`_`) or `U+002D` (`-`), is replaced with `U+005F` (`_`).
-- Each subsequent `U+005F` (`_`) is replaced with `U+002D` (`-`).
+- Each `U+005F` (`_`) is replaced with `U+002D` (`-`), except as the first character.
 - All other characters are left unchanged.
 
-For example, `foo_bar` and `foo-bar` are the same identifier; `_foo_bar` and `-foo-bar` are the same identifier. \{#sls.lex.identifier.normalization-example}
+For example, `foo_bar` and `foo-bar` are the same identifier, and so are `_foo_bar` and `_foo-bar`. \{#sls.lex.identifier.normalization-example}
 
 The kebab-case form (with `U+002D`) is the canonical written form. \{#sls.lex.identifier.canonical-form}
 
