@@ -3404,6 +3404,7 @@ dependencies = [
  "i-slint-common",
  "i-slint-parser-test-macro",
  "icu_normalizer",
+ "icu_properties",
  "image",
  "itertools 0.15.0",
  "linked_hash_set",

@@ -34,13 +34,15 @@ const SPEC_PAGE_ORDER: &[&str] = &[
 /// Roots scanned for `//#sls.…` references, as (kind label shown in the
 /// matrix, path relative to the repository root, file extension). The
 /// `.slint` cases and syntax tests carry them in `//#` comments; the Rust of
-/// the `slint-sc` crate and its test driver carry them where the code enforces
-/// a requirement -- e.g. the driver links the generated code against the
-/// `slint-sc` rlib alone, which is what verifies `sls.gen.output`.
+/// the `slint-sc` crate and the compiler carry them where the code enforces a
+/// requirement -- e.g. the test driver links the generated code against the
+/// `slint-sc` rlib alone (verifying `sls.gen.output`), and the lexer unit
+/// tests exercise the token rules (verifying `sls.lex.…`).
 const TEST_ROOTS: &[(&str, &str, &str)] = &[
     ("case", "api/slint-sc/tests/cases", "slint"),
     ("syntax", "internal/compiler/tests/syntax/slint-sc", "slint"),
     ("rust", "api/slint-sc", "rs"),
+    ("rust", "internal/compiler", "rs"),
 ];
 
 /// Handwritten safety-manual pages may also state requirements.
@@ -441,14 +443,14 @@ fn scan_test_refs(
             .context(format!("error reading {:?}", entry.path()))?;
         let file = repo_relative(entry.path(), repo_root);
         for (i, line) in text.lines().enumerate() {
-            if let Some(id) = line.trim().strip_prefix("//#") {
-                refs.push(TestRef {
-                    id: id.trim().to_string(),
-                    file: file.clone(),
-                    line: i + 1,
-                    kind,
-                });
+            // `//#sls.…` marks a covered requirement. Rust sources also carry
+            // unrelated `//#` comments (a commented-out `//#[cfg(…)]`), so
+            // require the `sls.` prefix rather than taking every `//#` line.
+            let Some(id) = line.trim().strip_prefix("//#").map(str::trim) else { continue };
+            if !id.starts_with("sls.") {
+                continue;
             }
+            refs.push(TestRef { id: id.to_string(), file: file.clone(), line: i + 1, kind });
         }
     }
     Ok(())
@@ -514,12 +516,11 @@ the examples are compiled by the doctests test instead.
 
 Tests marked `case:` are executed test cases from `{case_root}/`,
 `syntax:` are compiler syntax tests from `{syntax_root}/`,
-and `rust:` are Rust tests and the test driver of the `{rust_root}/` crate.
+and `rust:` are Rust unit tests and test drivers of the `slint-sc` crate and the compiler.
 
 **Coverage: {covered} of {total} requirement paragraphs are covered by at least one test.**"#,
         case_root = TEST_ROOTS[0].1,
         syntax_root = TEST_ROOTS[1].1,
-        rust_root = TEST_ROOTS[2].1,
     )?;
 
     for page in spec_pages {
