@@ -139,7 +139,6 @@ jobs:
               with:
                   toolchain: stable
                   target: aarch64-linux-android
-                  cache: false
             - name: "Install Node dependencies"
               run: pnpm i --frozen-lockfile
             - name: Extract Version from Cargo.toml
@@ -236,7 +235,6 @@ jobs:
               with:
                   toolchain: stable
                   target: aarch64-linux-android
-                  cache: false
             - name: Install uv
               uses: astral-sh/setup-uv@v7
             - name: "Install Node dependencies"
