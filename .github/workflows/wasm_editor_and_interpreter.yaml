@@ -6,7 +6,16 @@ name: Build and test the slintpad and required WASM binaries
 
 on:
     workflow_dispatch:
+        inputs:
+            release:
+                type: boolean
+                default: true
+                description: "Build the WASM binaries with the release profile"
     workflow_call:
+        inputs:
+            release:
+                type: boolean
+                default: true
 jobs:
     wasm:
         env:
@@ -32,13 +41,13 @@ jobs:
               run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
 
             - name: Compile slint-wasm-interpreter
-              run: wasm-pack build --release --target web -- --features console_error_panic_hook
+              run: wasm-pack build ${{ inputs.release && '--release' || '--dev' }} --target web -- --features console_error_panic_hook
               working-directory: api/wasm-interpreter
 
             - name: Build slint-wasm-lsp
               env:
                   SLINT_STYLE: fluent-light
-              run: pnpm build:wasm_lsp-release
+              run: pnpm ${{ inputs.release && 'build:wasm_lsp-release' || 'build:wasm_lsp' }}
               working-directory: tools/slintpad
 
             - name: "Upload wasm Artifacts"

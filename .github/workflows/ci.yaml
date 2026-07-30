@@ -388,6 +388,8 @@ jobs:
     slintpad:
         if: ${{ !inputs.full && contains(fromJSON(inputs.changes), 'slintpad') }}
         uses: ./.github/workflows/wasm_editor_and_interpreter.yaml
+        with:
+            release: false
 
     wasm_demo:
         if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'internal') || contains(fromJSON(inputs.changes), 'examples') || contains(fromJSON(inputs.changes), 'api_rs') }}
