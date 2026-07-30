@@ -26,8 +26,7 @@ fn layout_text_with_options(text: &str, options: LayoutOptions) -> Layout {
         fontique::GenericFamily::SansSerif,
         families.iter().map(|(id, _)| *id),
     );
-    let builder =
-        LayoutWithoutLineBreaksBuilder::new(None, TextWrap::NoWrap, None, ScaleFactor::new(1.0));
+    let builder = super::shaping::plain_builder_for_tests();
     let paragraphs = create_text_paragraphs(
         &builder,
         &mut font_ctx,
