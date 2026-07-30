@@ -66,7 +66,7 @@ pub enum WindowKind {
 ///
 /// - When receiving messages from the windowing system about state changes, such as the window being resized,
 ///   the user requested the window to be closed, input being received, etc. you need to create a
-///   [`WindowEvent`](crate::platform::WindowEvent) and send it to Slint via [`Window::dispatch_event_with_result()`].
+///   [`WindowEvent`] and send it to Slint via [`Window::dispatch_event_with_result()`].
 ///
 /// - Slint sends requests to change visibility, position, size, etc. via functions such as [`Self::set_visible`],
 ///   [`Self::set_size`], [`Self::set_position`], or [`Self::update_window_properties()`]. Re-implement these functions
@@ -118,7 +118,7 @@ pub trait WindowAdapter {
     /// The default implementation does nothing
     ///
     /// This function should sent the size to the Windowing system. If the window size actually changes, you
-    /// should dispatch a [`WindowEvent::Resized`](crate::platform::WindowEvent::Resized) using
+    /// should dispatch a [`WindowEvent::Resized`] using
     /// [`Window::dispatch_event()`] to propagate the new size to the slint view
     fn set_size(&self, _size: WindowSize) {}
 
