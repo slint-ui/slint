@@ -16,6 +16,10 @@ module.exports = grammar({
 
   externals: ($) => [$.block_comment],
 
+  // Substituted into their call sites: as rules of their own they would add a
+  // reduction that conflicts with $.anon_struct_assignment.
+  inline: ($) => [$._statement_identifier, $._statement_type_identifier],
+
   rules: {
     sourcefile: ($) => repeat($._definition),
 
@@ -72,8 +76,8 @@ module.exports = grammar({
 
     component: ($) =>
       seq(
-        optional(seq(field("id", $.simple_identifier), ":=")),
-        field("type", $.user_type_identifier),
+        optional(seq(field("id", $._statement_identifier), ":=")),
+        field("type", $._statement_type_identifier),
         $.block,
       ),
 
@@ -156,7 +160,7 @@ module.exports = grammar({
         field("deprecation", optional($.property_deprecation)),
         field("visibility", optional($.property_visibility)),
         optional("property"),
-        field("name", $.simple_identifier),
+        field("name", $._statement_identifier),
         "<=>",
         field("alias", $.expression),
         ";",
@@ -288,15 +292,26 @@ module.exports = grammar({
     slot_declaration: ($) =>
       seq("slot", field("name", $.simple_identifier), ";"),
 
+    // `slot` is a contextual keyword: it only introduces a slot declaration when a
+    // name follows it, so it stays a valid identifier everywhere else. As with
+    // "changed" in $.callback_event, the lexer would otherwise always prefer the
+    // "slot" keyword over the identifier regex, so alias it back to an identifier
+    // in every statement that may start with one.
+    _statement_identifier: ($) =>
+      choice($.simple_identifier, alias("slot", $.simple_identifier)),
+
+    _statement_type_identifier: ($) =>
+      choice($.user_type_identifier, alias("slot", $.user_type_identifier)),
+
     slot_assignment: ($) =>
-      seq(field("name", $.simple_identifier), "<<", $.component),
+      seq(field("name", $._statement_identifier), "<<", $.component),
 
     slot_forwarding: ($) =>
-      seq(field("name", $.simple_identifier), "<<", field("value", $.expression), ";"),
+      seq(field("name", $._statement_identifier), "<<", field("value", $.expression), ";"),
 
     property_assignment: ($) =>
       seq(
-        field("property", $.simple_identifier),
+        field("property", $._statement_identifier),
         ":",
         field(
           "value",
@@ -657,7 +672,7 @@ module.exports = grammar({
     // By using the alias here we can force Tree-sitter to treat it also as an identifier.
     callback_event: ($) =>
       seq(
-        field("name", choice($.simple_identifier, alias("changed", $.simple_identifier))),
+        field("name", choice($._statement_identifier, alias("changed", $.simple_identifier))),
         optional(field("arguments", $.arguments)),
         "=>",
         field("action", $._binding),
