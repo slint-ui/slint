@@ -32,6 +32,10 @@ inputs:
         description: "Condition to save the cache"
         required: false
         default: ${{ github.ref == 'refs/heads/master' }}
+    cache-directories:
+        description: "Additional directories for Swatinem/rust-cache, eg cargo target directories managed by CMake"
+        required: false
+        default: ""
 
 runs:
     using: composite
@@ -70,6 +74,7 @@ runs:
           if: inputs.cache == 'true'
           with:
               key: ${{ inputs.key }}-1
+              cache-directories: ${{ inputs.cache-directories }}
               # Workaround for https://github.com/Swatinem/rust-cache/issues/341:
               # on the updated macOS runner image, cache-bin's restored cargo/rustc
               # dispatches as rustup-init and fails with "unexpected argument".
