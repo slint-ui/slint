@@ -730,7 +730,8 @@ jobs:
                   # the target's CFLAGS, so this augments rather than replaces its include flags.
                   CFLAGS: -msse2
                   CXXFLAGS: -msse2
-              run: cargo xwin build --target i686-pc-windows-msvc --locked --workspace --exclude doctests --exclude slint-node --exclude pyslint --exclude test-driver-node --exclude test-driver-nodejs --exclude test-driver-cpp --exclude test-driver-python --exclude mcu-board-support --exclude mcu-embassy --exclude printerdemo_mcu --exclude uefi-demo --exclude slint-cpp --exclude slint-python --exclude slint-sc --exclude ffmpeg --exclude gstreamer-player --exclude material-gallery --exclude test-driver-screenshots --exclude slint-doc-generator --exclude i-slint-renderer-skia
+              # The excluded crates need a dedicated toolchain or don't cross-compile here.
+              run: cargo xwin build --target i686-pc-windows-msvc --locked --workspace --exclude slint-node --exclude slint-cpp --exclude slint-python --exclude slint-sc --exclude slint-doc-generator --exclude i-slint-renderer-skia
 
     qa-tree-sitter-latest:
         if: ${{ inputs.full }}
