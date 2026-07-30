@@ -1,0 +1,53 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Software-3.0
+
+// Both component definition forms, instantiated like built-in elements.
+//#sls.file.component.definition-forms
+
+component Frame inherits Rectangle {
+    width: 24px;
+    height: 24px;
+    background: #444444;
+}
+
+component Led {
+    width: 20px;
+    height: 20px;
+    Rectangle {
+        x: 2px;
+        y: 2px;
+        width: 16px;
+        height: 16px;
+        background: #ff0000;
+    }
+}
+
+export component UserComponent inherits Window {
+    background: #202020;
+    //#sls.file.element.instantiation-typename
+    Frame {
+        x: 8px;
+        y: 8px;
+        Led { x: 2px; y: 2px; }
+    }
+    Frame {
+        x: 40px;
+        y: 8px;
+        background: #006600;
+        Led { x: 2px; y: 2px; }
+    }
+}
+
+/*
+```rust
+let x = UserComponent::new();
+screenshot!(x);
+```
+
+Only the exported component names a generated struct:
+```rust compile_fail
+//#sls.gen.component
+let _ = Led::new();
+//~ ERROR undeclared type `Led`
+```
+*/

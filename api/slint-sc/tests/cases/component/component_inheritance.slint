@@ -1,0 +1,31 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Software-3.0
+
+// A base resolves to a component previously defined, through a chain
+// reaching a built-in element; instances may override inherited bindings.
+//#sls.file.component.inherits.base
+//#sls.file.component.inherits.meaning
+
+component Tile inherits Rectangle {
+    width: 16px;
+    height: 16px;
+    background: #333333;
+}
+
+component GreenTile inherits Tile {
+    background: #00aa00;
+}
+
+export component ComponentInheritance inherits Window {
+    background: #101010;
+    Tile { x: 4px; y: 4px; }
+    GreenTile { x: 24px; y: 4px; }
+    GreenTile { x: 44px; y: 4px; background: #aa0000; }
+}
+
+/*
+```rust
+let x = ComponentInheritance::new();
+screenshot!(x);
+```
+*/
