@@ -204,7 +204,7 @@ export interface Window {
     requestRedraw(): void;
 
     /** Dispatch a window event to the scene. **/
-    dispatchEvent(event: WindowEvent): void;
+    dispatchEvent(event: WindowEvent): napi.WindowEventDispatchResult;
 }
 
 /**

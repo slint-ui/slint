@@ -4,7 +4,7 @@
 use i_slint_core::items::PointerEventButton;
 
 #[non_exhaustive]
-#[napi(js_name = "PointerEventButton", string_enum)]
+#[napi(js_name = "PointerEventButton", string_enum = "lowercase")]
 pub enum JsPointerEventButton {
     Other,
     Left,

@@ -4,6 +4,7 @@
 import { test, expect } from "vitest";
 
 import { private_api } from "../dist/index.js";
+import type { Window } from "../dist/index.d.ts";
 
 private_api.initTesting();
 
@@ -70,27 +71,27 @@ test("Window dispatch pointer event", () => {
     const instance = definition.App!.create();
     expect(instance).not.toBeNull();
 
-    const window = instance!.window();
+    const window = instance!.window() as Window;
     window.dispatchEvent({
         type: "pointer-pressed",
-        button: "Left",
+        button: "left",
         position: { x: 51, y: 51 },
     });
     window.dispatchEvent({
         type: "pointer-released",
-        button: "Left",
+        button: "left",
         position: { x: 51, y: 51 },
     });
     expect(instance.getProperty("clicked")).toBe(false);
 
     window.dispatchEvent({
         type: "pointer-pressed",
-        button: "Left",
+        button: "left",
         position: { x: 49, y: 49 },
     });
     window.dispatchEvent({
         type: "pointer-released",
-        button: "Left",
+        button: "left",
         position: { x: 49, y: 49 },
     });
     expect(instance.getProperty("clicked")).toBe(true);
@@ -118,11 +119,11 @@ test("Window dispatch pointer moved event", () => {
     const instance = definition.App!.create();
     expect(instance).not.toBeNull();
 
-    const window = instance!.window();
+    const window = instance!.window() as Window;
 
     window.dispatchEvent({
         type: "pointer-pressed",
-        button: "Left",
+        button: "left",
         position: { x: 1, y: 1 },
     });
     window.dispatchEvent({
@@ -167,7 +168,7 @@ test("Window dispatch pointer scrolled event", () => {
     const instance = definition.App!.create();
     expect(instance).not.toBeNull();
 
-    const window = instance!.window();
+    const window = instance!.window() as Window;
 
     window.dispatchEvent({
         type: "pointer-scrolled",
@@ -210,7 +211,7 @@ test("Window dispatch key events", () => {
     const instance = definition.App!.create();
     expect(instance).not.toBeNull();
 
-    const window = instance!.window();
+    const window = instance!.window() as Window;
     expect(instance.getProperty("text-pressed")).toBe("");
     expect(instance.getProperty("text-released")).toBe("");
 

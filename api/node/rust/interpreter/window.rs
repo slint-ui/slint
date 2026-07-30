@@ -125,10 +125,10 @@ impl JsWindow {
     }
 
     /// Dispatch a window event to the scene.
-    #[napi(js_name = "dispatchEvent")]
+    #[napi(js_name = "dispatchEvent", ts_return_type = "WindowEventDispatchResult")]
     pub fn dispatch_event(
         &self,
-        event: JsWindowEvent,
+        #[napi(ts_arg_type = "WindowEvent")] event: JsWindowEvent,
     ) -> napi::Result<JsWindowEventDispatchResult> {
         let event = WindowEvent::from(event);
 
