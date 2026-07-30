@@ -380,16 +380,45 @@ pub fn slot_error_subject(name: &str) -> String {
 }
 
 #[derive(Clone, Debug)]
+pub enum ChildInsertionPointNode {
+    DefaultChildrenPlaceHolder(SyntaxNode),
+    ChildrenPlaceHolder(syntax_nodes::ChildrenPlaceholder),
+    SlotPlaceholder(syntax_nodes::SubElement),
+    SlotForwarding(syntax_nodes::Expression),
+}
+
+impl ChildInsertionPointNode {
+    pub fn syntax_node(&self) -> &SyntaxNode {
+        match self {
+            Self::DefaultChildrenPlaceHolder(node) => node,
+            Self::ChildrenPlaceHolder(node) => node,
+            Self::SlotPlaceholder(node) => node,
+            Self::SlotForwarding(node) => node,
+        }
+    }
+}
+
+impl Spanned for ChildInsertionPointNode {
+    fn span(&self) -> crate::diagnostics::Span {
+        self.syntax_node().span()
+    }
+
+    fn source_file(&self) -> Option<&crate::diagnostics::SourceFile> {
+        self.syntax_node().source_file()
+    }
+}
+
+#[derive(Clone, Debug)]
 pub struct ChildrenInsertionPoint {
     pub parent: ElementRc,
     pub insertion_index: usize,
-    pub node: SyntaxNode,
+    pub node: ChildInsertionPointNode,
 }
 
 #[derive(Clone, Debug)]
 pub struct DeclaredSlot {
     pub name: SmolStr,
-    pub name_ident: SyntaxNode,
+    pub name_node: syntax_nodes::DeclaredIdentifier,
     has_rejected_placeholder: bool,
 }
 
@@ -397,7 +426,7 @@ pub struct DeclaredSlot {
 pub struct SlotForwarding {
     pub target: SmolStr,
     pub source: SmolStr,
-    pub node: SyntaxNode,
+    pub expression_node: syntax_nodes::Expression,
 }
 
 /// Used sub types for a root component
@@ -584,7 +613,7 @@ impl Component {
         if self.is_global() || self.is_interface() {
             return;
         }
-        let mut declared_slot_nodes = BTreeMap::<SmolStr, SyntaxNode>::new();
+        let mut declared_slot_nodes = BTreeMap::<SmolStr, syntax_nodes::DeclaredIdentifier>::new();
         for slot in self.declared_slots.borrow().iter() {
             if slot.name == "children" {
                 diagnostics.push_error(
@@ -592,14 +621,14 @@ impl Component {
                         "The name '{}' is reserved for the default slot. Use @children instead",
                         slot.name
                     ),
-                    &slot.name_ident,
+                    &slot.name_node,
                 );
                 continue;
             }
-            if declared_slot_nodes.insert(slot.name.clone(), slot.name_ident.clone()).is_some() {
+            if declared_slot_nodes.insert(slot.name.clone(), slot.name_node.clone()).is_some() {
                 diagnostics.push_error(
                     format!("Duplicate slot declaration '{}'", slot.name),
-                    &slot.name_ident,
+                    &slot.name_node,
                 );
             }
         }
@@ -2040,17 +2069,17 @@ impl Element {
                 }
             }
 
-            let Some(expr_node) = se.child_node(SyntaxKind::Expression) else {
+            let Some(expression_node) = se.child_node(SyntaxKind::Expression) else {
                 diag.push_error(
                     "Slot forwarding requires a slot identifier on the right-hand side".into(),
                     &se,
                 );
                 continue;
             };
-            let Some(source) = Self::slot_forwarding_expr_identifier(&expr_node) else {
+            let Some(source) = Self::slot_forwarding_expr_identifier(&expression_node) else {
                 diag.push_error(
                     "Slot forwarding requires a slot identifier on the right-hand side".into(),
-                    &expr_node,
+                    &expression_node,
                 );
                 continue;
             };
@@ -2060,7 +2089,7 @@ impl Element {
                     format!(
                         "The name '{source}' is reserved for the default slot. Use @children instead"
                     ),
-                    &expr_node,
+                    &expression_node,
                 );
                 continue;
             }
@@ -2068,19 +2097,19 @@ impl Element {
             r.borrow_mut().forwarded_slots.push(SlotForwarding {
                 target,
                 source,
-                node: expr_node.clone(),
+                expression_node: expression_node.into(),
             });
         }
 
         for forwarding in r.borrow().forwarded_slots.clone() {
             let source = forwarding.source.clone();
             if let Some(existing_cip) = component_child_insertion_points.get(source.as_str()) {
-                if matches!(existing_cip.node.kind(), SyntaxKind::SubElement) {
+                if matches!(existing_cip.node, ChildInsertionPointNode::SlotPlaceholder(_)) {
                     diag.push_error(
                         format!(
                             "The slot '{source}' cannot be forwarded and used as a placeholder in the same component"
                         ),
-                        &forwarding.node,
+                        &forwarding.expression_node,
                     );
                 } else {
                     diag.push_error(
@@ -2088,7 +2117,7 @@ impl Element {
                             "{} can only appear once in an element",
                             slot_error_subject(&source)
                         ),
-                        &forwarding.node,
+                        &forwarding.expression_node,
                     );
                 }
                 continue;
@@ -2098,7 +2127,7 @@ impl Element {
                 ChildrenInsertionPoint {
                     parent: r.clone(),
                     insertion_index: 0,
-                    node: forwarding.node.clone(),
+                    node: ChildInsertionPointNode::SlotForwarding(forwarding.expression_node),
                 },
             );
         }
@@ -2201,18 +2230,18 @@ impl Element {
                         ChildrenInsertionPoint {
                             parent: r.clone(),
                             insertion_index: r.borrow().children.len(),
-                            node: se,
+                            node: ChildInsertionPointNode::ChildrenPlaceHolder(se.into()),
                         },
                     );
                 }
             } else if se.kind() == SyntaxKind::SlotDeclaration {
                 Self::assert_experimental_slots(diag, &se, "named slots");
                 let decl: syntax_nodes::SlotDeclaration = se.into();
-                let name_ident = decl.DeclaredIdentifier();
-                let name = parser::identifier_text(&name_ident).unwrap_or_default();
+                let name_node = decl.DeclaredIdentifier();
+                let name = parser::identifier_text(&name_node).unwrap_or_default();
                 declared_slots.push(DeclaredSlot {
                     name,
-                    name_ident: name_ident.into(),
+                    name_node,
                     has_rejected_placeholder: false,
                 });
             } else if se.kind() == SyntaxKind::SlotAssignment {
@@ -2430,7 +2459,7 @@ impl Element {
     ) {
         Self::assert_experimental_slots(diagnostics, node, "named slots");
         if let Some(existing) = component_child_insertion_points.get(slot_name.as_str()) {
-            if existing.node.kind() == SyntaxKind::Expression {
+            if matches!(existing.node, ChildInsertionPointNode::SlotForwarding(_)) {
                 diagnostics.push_error(
                     format!(
                         "The slot '{slot_name}' cannot be forwarded and used as a placeholder in the same component"
@@ -2460,7 +2489,11 @@ impl Element {
         let insertion_index = parent.borrow().children.len();
         component_child_insertion_points.insert(
             slot_name.to_string(),
-            ChildrenInsertionPoint { parent: parent.clone(), insertion_index, node: node.clone() },
+            ChildrenInsertionPoint {
+                parent: parent.clone(),
+                insertion_index,
+                node: ChildInsertionPointNode::SlotPlaceholder(node.clone().into()),
+            },
         );
     }
 
