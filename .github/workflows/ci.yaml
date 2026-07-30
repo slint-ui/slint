@@ -209,8 +209,12 @@ jobs:
             - uses: ./.github/actions/setup-rust
               with:
                   target: i686-unknown-linux-gnu
+            # Both steps build with the live-preview feature so the second one
+            # reuses the build: the codegen mode is selected at runtime by the
+            # SLINT_LIVE_PREVIEW environment variable, the feature only adds
+            # the live-preview support code to the library.
             - name: Run tests
-              run: cargo test --manifest-path tests/Cargo.toml -p test-driver-cpp --target i686-unknown-linux-gnu --no-default-features
+              run: cargo test --manifest-path tests/Cargo.toml -p test-driver-cpp --target i686-unknown-linux-gnu --no-default-features --features live-preview
             - name: Run tests with live-preview
               env:
                   SLINT_LIVE_PREVIEW: 1
