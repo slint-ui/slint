@@ -2,6 +2,9 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Software-3.0
 
 export component TestCase inherits Window {
+    // The children render at their absolute x/y because the root's own x/y are
+    // meaningless: the window's content origin is its top-left corner.
+    //#sls.geom.window.root
     //#sls.ref.window.background
     background: #123456;
     //#sls.ref.rectangle.empty
