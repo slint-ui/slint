@@ -53,6 +53,11 @@ on:
                 required: false
                 type: boolean
                 default: true
+            test_rust_driver:
+                description: 'Run the rust test driver in the integration tests'
+                required: false
+                type: boolean
+                default: true
             build_examples:
                 description: 'Build the examples and demos workspaces'
                 required: false
@@ -143,7 +148,7 @@ jobs:
             # The C++/Node/Python drivers and doctests are run by dedicated jobs in ci.yaml.
             - name: Run integration tests
               if: inputs.test_integration
-              run: "cargo test --locked --verbose --all-features --workspace --timings --manifest-path tests/Cargo.toml ${{ inputs.extra_args }} --exclude doctests --exclude test-driver-nodejs --exclude test-driver-cpp --exclude test-driver-python -- --skip=qt::"
+              run: "cargo test --locked --verbose --all-features --workspace --timings --manifest-path tests/Cargo.toml ${{ inputs.extra_args }} ${{ !inputs.test_rust_driver && '--exclude test-driver-rust' || '' }} --exclude doctests --exclude test-driver-nodejs --exclude test-driver-cpp --exclude test-driver-python -- --skip=qt::"
               env:
                   SLINT_CREATE_SCREENSHOTS: 1
               shell: bash
@@ -163,8 +168,10 @@ jobs:
               if: inputs.build_examples
               run: "cargo test --locked --verbose --all-features --workspace --timings --manifest-path demos/Cargo.toml ${{ inputs.extra_args }} --exclude printerdemo_mcu"
               shell: bash
+            # One platform is enough for live-preview; Windows because the
+            # macOS job is the slower of the two.
             - name: live-preview for rust test
-              if: runner.os == 'macOS' && inputs.test_integration
+              if: runner.os == 'Windows' && inputs.test_integration
               env:
                 SLINT_LIVE_PREVIEW: 1
               run: cargo test --locked --verbose --all-features --manifest-path tests/Cargo.toml --features slint/live-preview -p test-driver-rust -- --skip=_qt::t
