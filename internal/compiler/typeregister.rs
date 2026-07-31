@@ -625,12 +625,6 @@ impl TypeRegister {
         register.elements.remove("ComponentContainer").unwrap();
         register.types.remove("component-factory").unwrap();
 
-        register.elements.remove("FlexboxLayout").unwrap();
-        register.types.remove("FlexboxLayoutDirection").unwrap();
-        register.types.remove("CrossAxisLineAlignment").unwrap();
-        register.types.remove("FlexboxLayoutWrap").unwrap();
-        register.types.remove("FlexboxLayoutAlignSelf").unwrap();
-
         Rc::new(RefCell::new(register))
     }
 
