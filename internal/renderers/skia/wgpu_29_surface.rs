@@ -9,7 +9,7 @@ use i_slint_core::partial_renderer::DirtyRegion;
 use i_slint_core::platform::PlatformError;
 use i_slint_core::renderer::DrawOutcome;
 
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::sync::Arc;
 
 use wgpu_29 as wgpu;
@@ -31,6 +31,9 @@ pub struct WGPUSurface {
     device: wgpu::Device,
     queue: wgpu::Queue,
     surface_config: RefCell<Option<wgpu::SurfaceConfiguration>>,
+    /// Set when `resize_event` changed the surface configuration; the surface is
+    /// reconfigured lazily in `render`.
+    surface_config_dirty: Cell<bool>,
     surface: Option<wgpu::Surface<'static>>,
     textures_to_transition_for_sampling: RefCell<Vec<wgpu::Texture>>,
     pub(crate) backend: Backend,
@@ -83,6 +86,7 @@ impl WGPUSurface {
             device,
             queue,
             surface_config: Some(surface_config).into(),
+            surface_config_dirty: Cell::new(false),
             surface: Some(surface),
             textures_to_transition_for_sampling: RefCell::new(Vec::new()),
             backend,
@@ -104,6 +108,7 @@ impl WGPUSurface {
             device,
             queue,
             surface_config: None.into(),
+            surface_config_dirty: Cell::new(false),
             surface: None,
             textures_to_transition_for_sampling: RefCell::new(Vec::new()),
             backend,
@@ -156,8 +161,7 @@ impl crate::Surface for WGPUSurface {
 
     fn resize_event(&self, size: PhysicalWindowSize) -> Result<(), PlatformError> {
         let mut surface_config_opt = self.surface_config.borrow_mut();
-        let (Some(surface_config), Some(surface)) = (surface_config_opt.as_mut(), &self.surface)
-        else {
+        let Some(surface_config) = surface_config_opt.as_mut() else {
             return Ok(());
         };
 
@@ -167,19 +171,12 @@ impl crate::Surface for WGPUSurface {
             return Ok(());
         }
 
-        {
-            let gr_context = &mut self.gr_context.borrow_mut();
-            // This is brute force, but for the lack of access to the fences this seems to work: Avoid any pending work so that
-            // IDXGISwapChain::ResizeBuffers doesn't complain that the surface is still in use.
-            gr_context.flush_submit_and_sync_cpu();
-        }
-
         // Prefer FIFO modes over possible Mailbox setting for frame pacing and better energy efficiency.
         surface_config.present_mode = wgpu::PresentMode::AutoVsync;
         surface_config.width = size.width;
         surface_config.height = size.height;
 
-        surface.configure(&self.device, surface_config);
+        self.surface_config_dirty.set(true);
         Ok(())
     }
 
@@ -200,6 +197,18 @@ impl crate::Surface for WGPUSurface {
         };
 
         let gr_context = &mut self.gr_context.borrow_mut();
+
+        // resize_event only records the new size; apply it here, right before acquiring
+        // the frame. Interactive resize can deliver resize events faster than frames (on
+        // Wayland they arrive at pointer-motion rate), and every `configure` recreates
+        // the swapchain — on Vulkan draining the whole GPU with vkDeviceWaitIdle.
+        // Deferring coalesces a burst of resize events into one reconfigure per frame.
+        if self.surface_config_dirty.take() {
+            // This is brute force, but for the lack of access to the fences this seems to work: Avoid any pending work so that
+            // IDXGISwapChain::ResizeBuffers doesn't complain that the surface is still in use.
+            gr_context.flush_submit_and_sync_cpu();
+            surface.configure(&self.device, surface_config);
+        }
 
         let frame = match surface.get_current_texture() {
             wgpu::CurrentSurfaceTexture::Success(t) => t,

@@ -2,7 +2,11 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 // cSpell: ignore readback Texel unpadded
-use std::{cell::RefCell, pin::Pin, rc::Rc};
+use std::{
+    cell::{Cell, RefCell},
+    pin::Pin,
+    rc::Rc,
+};
 
 use i_slint_core::platform::PlatformError;
 use i_slint_core::renderer::RendererSealed;
@@ -19,6 +23,9 @@ pub struct WGPUBackend {
     device: RefCell<Option<wgpu::Device>>,
     queue: RefCell<Option<wgpu::Queue>>,
     surface_config: RefCell<Option<wgpu::SurfaceConfiguration>>,
+    /// Set when `resize` changed the surface configuration; the surface is
+    /// reconfigured lazily in `begin_surface_rendering`.
+    surface_config_dirty: Cell<bool>,
     surface: RefCell<Option<wgpu::Surface<'static>>>,
     snapshot_output: RefCell<Option<femtovg::renderer::WGPURenderOutput>>,
 }
@@ -166,6 +173,7 @@ impl GraphicsBackend for WGPUBackend {
             device: Default::default(),
             queue: Default::default(),
             surface_config: Default::default(),
+            surface_config_dirty: Default::default(),
             surface: Default::default(),
             snapshot_output: Default::default(),
         }
@@ -173,6 +181,7 @@ impl GraphicsBackend for WGPUBackend {
 
     fn clear_graphics_context(&self) {
         self.surface_config.borrow_mut().take();
+        self.surface_config_dirty.set(false);
         self.surface.borrow_mut().take();
         self.queue.borrow_mut().take();
         self.device.borrow_mut().take();
@@ -201,6 +210,17 @@ impl GraphicsBackend for WGPUBackend {
         if !self.surface_config.borrow().as_ref().is_some_and(|cfg| cfg.width > 0 && cfg.height > 0)
         {
             return Ok(BeginRendering::Skipped(DrawOutcome::Skipped));
+        }
+        // `resize` only records the new size; apply it here, right before acquiring the
+        // frame. Interactive resize can deliver resize events faster than frames (on
+        // Wayland they arrive at pointer-motion rate), and every `configure` recreates
+        // the swapchain — on Vulkan draining the whole GPU with vkDeviceWaitIdle.
+        // Deferring coalesces a burst of resize events into one reconfigure per frame.
+        if self.surface_config_dirty.take() {
+            surface.configure(
+                self.device.borrow().as_ref().unwrap(),
+                self.surface_config.borrow().as_ref().unwrap(),
+            );
         }
         let frame = match surface.get_current_texture() {
             wgpu::CurrentSurfaceTexture::Success(t) => t,
@@ -304,20 +324,20 @@ impl GraphicsBackend for WGPUBackend {
         width: std::num::NonZeroU32,
         height: std::num::NonZeroU32,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        // Try to get hold of the wgpu types, but if we receive the resize event while suspended, ignore it.
+        // If we receive the resize event while suspended, ignore it.
         let mut surface_config = self.surface_config.borrow_mut();
         let Some(surface_config) = surface_config.as_mut() else { return Ok(()) };
-        let mut device = self.device.borrow_mut();
-        let Some(device) = device.as_mut() else { return Ok(()) };
-        let mut surface = self.surface.borrow_mut();
-        let Some(surface) = surface.as_mut() else { return Ok(()) };
+
+        if surface_config.width == width.get() && surface_config.height == height.get() {
+            return Ok(());
+        }
 
         // Prefer FIFO modes over possible Mailbox setting for frame pacing and better energy efficiency.
         surface_config.present_mode = wgpu::PresentMode::AutoVsync;
         surface_config.width = width.get();
         surface_config.height = height.get();
 
-        surface.configure(device, surface_config);
+        self.surface_config_dirty.set(true);
         Ok(())
     }
 }
