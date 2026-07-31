@@ -492,3 +492,6 @@ Invoked when the user requests to decrement the value.
 
 ### accessible-action-expand()
 Invoked when the user requests to expand the widget, such as disclose the list of available choices for a combo box.
+
+### accessible-action-set-selection(int, int)
+Invoked when the user wants to change the selected text. The arguments are the UTF-8 offsets of the selection's anchor and focus: the focus may precede the anchor when the selection was made backwards, and the two are equal when only the cursor moved.

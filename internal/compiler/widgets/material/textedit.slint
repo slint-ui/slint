@@ -37,6 +37,7 @@ export component TextEdit {
     accessible-value <=> text;
     accessible-placeholder-text: placeholder-text;
     accessible-read-only: root.read-only;
+    accessible-action-set-selection(anchor, focus) => { base.set-selection-offsets(anchor, focus); }
 
     public function set-selection-offsets(start: int, end: int) {
         base.set-selection-offsets(start, end);

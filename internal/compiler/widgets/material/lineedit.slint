@@ -16,6 +16,7 @@ export component LineEdit {
     accessible-placeholder-text: placeholder-text;
     accessible-read-only: root.read-only;
     accessible-action-set-value(v) => { text = v; edited(v); }
+    accessible-action-set-selection(anchor, focus) => { base.set-selection-offsets(anchor, focus); }
 
     min-width: max(120px, layout.min-width);
     min-height: max(56px, layout.min-height);

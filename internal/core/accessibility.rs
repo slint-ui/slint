@@ -51,6 +51,12 @@ pub enum AccessibilityAction {
     /// This is currently unused
     ReplaceSelectedText(SharedString),
     SetValue(SharedString),
+    /// Select the text between two UTF-8 offsets: `anchor` is the end that stays put, `focus` the
+    /// end being moved.
+    SetSelection {
+        anchor: i32,
+        focus: i32,
+    },
 }
 
 bitflags! {
@@ -64,6 +70,7 @@ bitflags! {
         const Expand = 1 << 3;
         const ReplaceSelectedText = 1 << 4;
         const SetValue = 1 << 5;
+        const SetSelection = 1 << 6;
     }
 }
 
