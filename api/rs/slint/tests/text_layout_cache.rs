@@ -649,3 +649,84 @@ fn ime_composition_is_not_served_a_stale_size() {
         ui.get_preferred()
     );
 }
+
+fn render_and_get_layout_miss_count(renderer: &SoftwareRenderer) -> u64 {
+    renderer.text_layout_cache().reset_layout_miss_count();
+    let mut buf = vec![TestPixel(false); WIDTH * HEIGHT];
+    renderer.render(buf.as_mut_slice(), WIDTH);
+    renderer.text_layout_cache().layout_miss_count()
+}
+
+#[test]
+fn unchanged_layout_inputs_reuse_the_line_breaking() {
+    let window = setup();
+
+    // Line breaking is retained in the cache entry alongside the shaped paragraphs: a draw whose
+    // breaking inputs (width, horizontal alignment, max-lines, overflow) match the retained state
+    // reuses it wholesale. Anything else -- moving the item, vertical alignment -- must not break
+    // lines again.
+    slint::slint! {
+        export component TestComponent inherits Window {
+            in property <length> item-x: 0px;
+            in property <length> w: 180px;
+            in property <bool> align-right: false;
+            in property <bool> align-bottom: false;
+            in property <string> content: "Hello World this text wraps across several lines";
+            TextInput {
+                x: item-x; y: 0; width: w; height: 80px;
+                horizontal-alignment: align-right ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
+                vertical-alignment: align-bottom ? TextVerticalAlignment.bottom : TextVerticalAlignment.top;
+                text: content;
+                wrap: word-wrap;
+            }
+        }
+    }
+
+    let ui = TestComponent::new().unwrap();
+    ui.show().unwrap();
+
+    let mut count = 0u64;
+    assert!(window.draw_if_needed(|renderer| {
+        count = render_and_get_layout_miss_count(renderer);
+    }));
+
+    // Moving the item redraws it at the same width: the retained breaking must be reused.
+    ui.set_item_x(5.0);
+    window.request_redraw();
+    assert!(window.draw_if_needed(|renderer| {
+        count = render_and_get_layout_miss_count(renderer);
+    }));
+    assert_eq!(count, 0, "moving the item must not break its lines again");
+
+    // The width is a breaking input.
+    ui.set_w(120.0);
+    window.request_redraw();
+    assert!(window.draw_if_needed(|renderer| {
+        count = render_and_get_layout_miss_count(renderer);
+    }));
+    assert!(count > 0, "a width change must break lines again");
+
+    // So is the horizontal alignment (parley bakes it into the line layout).
+    ui.set_align_right(true);
+    window.request_redraw();
+    assert!(window.draw_if_needed(|renderer| {
+        count = render_and_get_layout_miss_count(renderer);
+    }));
+    assert!(count > 0, "an alignment change must break lines again");
+
+    // Vertical alignment only moves the finished block; deliberately not a breaking input.
+    ui.set_align_bottom(true);
+    window.request_redraw();
+    assert!(window.draw_if_needed(|renderer| {
+        count = render_and_get_layout_miss_count(renderer);
+    }));
+    assert_eq!(count, 0, "vertical alignment must not break lines again");
+
+    // A text change reshapes, which discards the retained breaking with the entry.
+    ui.set_content("Different text that also wraps across several lines".into());
+    window.request_redraw();
+    assert!(window.draw_if_needed(|renderer| {
+        count = render_and_get_layout_miss_count(renderer);
+    }));
+    assert!(count > 0, "a text change must break lines again");
+}
