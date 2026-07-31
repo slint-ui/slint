@@ -12,9 +12,8 @@ export component Foo_Bar inherits Window {}
 //               >     <error{Duplicated export 'Foo-Bar'}
 //     >                                  <^warning{Component is neither used nor exported}
 export component Foo-Bar inherits Window {
-//               >     <error{Multiple exported components per file are not supported in Slint SC}
-//               >     <^warning{Component 'Foo-Bar' is replacing a previously defined component with the same name}
-//               >     <^^error{Duplicated export 'Foo-Bar'}
+//               >     <warning{Component 'Foo-Bar' is replacing a previously defined component with the same name}
+//               >     <^error{Duplicated export 'Foo-Bar'}
     a_b := Rectangle {}
 //         >        <error{duplicated element id 'a-b'}
     a-b := Rectangle {}
