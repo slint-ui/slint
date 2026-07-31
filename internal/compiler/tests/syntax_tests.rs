@@ -434,12 +434,15 @@ fn process_file_source(
         i_slint_compiler::parser::parse(source.clone(), Some(path), &mut parse_diagnostics);
 
     let has_parse_error = parse_diagnostics.has_errors();
+    // Only the tests in the `slint-sc` directory are Slint SC tests; don't
+    // match the whole path, which depends on the name of the checkout.
     #[cfg(feature = "slint-sc")]
-    let output_format = if path.to_str().unwrap_or("").contains("slint-sc") {
-        i_slint_compiler::generator::OutputFormat::SlintSc
-    } else {
-        i_slint_compiler::generator::OutputFormat::Interpreter
-    };
+    let output_format =
+        if path.parent().and_then(|p| p.file_name()).is_some_and(|n| n == "slint-sc") {
+            i_slint_compiler::generator::OutputFormat::SlintSc
+        } else {
+            i_slint_compiler::generator::OutputFormat::Interpreter
+        };
     #[cfg(not(feature = "slint-sc"))]
     let output_format = i_slint_compiler::generator::OutputFormat::Interpreter;
     #[cfg(feature = "slint-sc")]

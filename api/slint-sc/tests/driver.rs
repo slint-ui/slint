@@ -34,7 +34,7 @@ fn main() {
     let target_dir = find_target_dir();
     let rustc = std::env::var("RUSTC").unwrap_or_else(|_| "rustc".into());
     let instrument_coverage = std::env::var_os("LLVM_PROFILE_FILE").is_some();
-    let compiler = build_compiler(&target_dir, instrument_coverage);
+    let compiler = build_compiler(&target_dir);
     let slint_sc_rlib = find_slint_sc_rlib(&target_dir);
     let rx = Regex::new(r"(?sU)\r?\n```rust( compile_fail)?\r?\n(.+)\r?\n```\r?\n").unwrap();
 
@@ -101,7 +101,7 @@ fn find_target_dir() -> PathBuf {
         .to_path_buf()
 }
 
-fn build_compiler(target_dir: &Path, instrument_coverage: bool) -> PathBuf {
+fn build_compiler(target_dir: &Path) -> PathBuf {
     let cargo = std::env::var("CARGO").unwrap_or_else(|_| "cargo".into());
     let mut cmd = Command::new(&cargo);
     cmd.args(["build", "-p", "slint-compiler", "--no-default-features", "--features", "slint-sc"]);
@@ -111,9 +111,12 @@ fn build_compiler(target_dir: &Path, instrument_coverage: bool) -> PathBuf {
     if let Some(parent) = target_dir.parent() {
         cmd.arg("--target-dir").arg(parent);
     }
-    if instrument_coverage {
-        cmd.env("RUSTFLAGS", "-Cinstrument-coverage");
-    }
+    // Coverage measures the slint-sc runtime alone, so the compiler builds
+    // uninstrumented: clear the rustc wrapper cargo-llvm-cov injects the
+    // instrumentation with, and the flag variables older versions used.
+    cmd.env_remove("RUSTC_WRAPPER");
+    cmd.env_remove("RUSTFLAGS");
+    cmd.env_remove("CARGO_ENCODED_RUSTFLAGS");
     let status = cmd.status().expect("Failed to run cargo build for slint-compiler");
     assert!(status.success(), "Failed to build slint-compiler");
     let compiler = target_dir.join("slint-compiler");

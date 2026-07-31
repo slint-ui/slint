@@ -62,6 +62,7 @@ jobs:
         with:
           release: ${{ github.event.inputs.mode == 'release' }}
           app-id: ${{ vars.READ_WRITE_APP_ID }}
+          slint-sc-coverage: true
 
     wasm_demo:
         uses: ./.github/workflows/wasm_demos.yaml

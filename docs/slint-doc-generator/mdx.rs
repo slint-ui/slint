@@ -43,6 +43,7 @@ pub fn generate(cfg: &Config) -> Result<(), Box<dyn std::error::Error>> {
 
     if cfg.sc_only {
         crate::traceability::generate(cfg)?;
+        crate::coverage::generate(cfg)?;
     }
 
     Ok(())
