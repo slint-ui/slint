@@ -167,7 +167,9 @@ fn parse_export(text: &str) -> anyhow::Result<Vec<FileCoverage>> {
     let mut files = Vec::new();
     for f in data.get("files").and_then(Value::as_array).context("missing `files`")? {
         let filename = f.get("filename").and_then(Value::as_str).context("missing `filename`")?;
-        if Path::new(filename).is_absolute() {
+        // Not is_absolute(): a rooted unix path isn't "absolute" on Windows,
+        // but isn't repository-relative either.
+        if Path::new(filename).has_root() {
             continue;
         }
         let path = filename.replace(std::path::MAIN_SEPARATOR, "/");
