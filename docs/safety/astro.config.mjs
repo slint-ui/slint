@@ -54,7 +54,14 @@ export default defineConfig({
                 Header: "@slint/common-files/src/components/Header.astro",
                 Banner: "@slint/common-files/src/components/Banner.astro",
             },
-            plugins: [slintStarlightLinksValidatorPlugin({ errorOnRelativeLinks: true })],
+            plugins: [
+                slintStarlightLinksValidatorPlugin({
+                    errorOnRelativeLinks: true,
+                    // The llvm-cov HTML report the Test Coverage chapter links
+                    // into is a static asset under public/, not Starlight pages.
+                    exclude: ["/coverage/**"],
+                }),
+            ],
             social: slintStarlightSocial,
             sidebar: [
                 { label: "Slint SC Safety Manual", slug: "index" },
@@ -164,6 +171,10 @@ export default defineConfig({
                         {
                             label: "Traceability Matrix",
                             slug: "qualification-plan/traceability-matrix",
+                        },
+                        {
+                            label: "Test Coverage",
+                            slug: "qualification-plan/test-coverage",
                         },
                     ],
                 },

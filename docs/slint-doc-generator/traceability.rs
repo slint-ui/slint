@@ -75,7 +75,7 @@ const SAFETY_DOCS_EXCLUDE: &[&str] = &["generated", "language"];
 /// [`Config::qualification_plan_dir`], the section it belongs to.
 const MATRIX_FILE: &str = "traceability-matrix.mdx";
 
-const REPO_URL: &str = env!("CARGO_PKG_REPOSITORY");
+pub(crate) const REPO_URL: &str = env!("CARGO_PKG_REPOSITORY");
 
 struct SpecPage {
     /// Repository-relative path with `/` separators, for error messages.
@@ -480,7 +480,7 @@ fn informative(id: &str) -> bool {
 }
 
 /// The commit to link test files to on GitHub.
-fn git_head(repo_root: &Path) -> String {
+pub(crate) fn git_head(repo_root: &Path) -> String {
     std::process::Command::new("git")
         .args(["rev-parse", "HEAD"])
         .current_dir(repo_root)

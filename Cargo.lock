@@ -7361,6 +7361,7 @@ dependencies = [
  "i-slint-renderer-skia",
  "image",
  "itertools 0.15.0",
+ "serde_json",
  "slint-interpreter",
  "spin_on",
  "termcolor",

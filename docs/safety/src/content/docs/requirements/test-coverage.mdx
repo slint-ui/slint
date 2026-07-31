@@ -5,4 +5,6 @@ description: Test coverage requirement for Slint SC.
 
 Slint SC must support headless or offline automated testing frameworks capable of running on CI/CD pipelines to verify layout engines, event propagation, and state transitions.
 
-Code coverage is highly measurable in Rust using LLVM source-based coverage tools such as `cargo-tarpaulin` or `grcov`. The goal for ASIL D is typically strict structural coverage, requiring >90% statement/branch coverage and often Modified Condition/Decision Coverage (MC/DC).
+Code coverage is measured with LLVM source-based coverage via `cargo-llvm-cov`.
+The measured coverage of the current test suite is reported in the [Test Coverage](/qualification-plan/test-coverage/) chapter of the qualification plan.
+The goal for ASIL D is typically strict structural coverage, requiring >90% statement/branch coverage and often Modified Condition/Decision Coverage (MC/DC).

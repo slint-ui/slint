@@ -172,9 +172,17 @@ bevy_examples:
  - '.github/workflows/bevy_examples.yaml'
 
 slint_sc:
+ - 'internal/common/**'
  - 'internal/compiler/**'
  - 'api/slint-sc/**'
  - 'tools/compiler/**'
+ - *ci_config
+
+# Safety manual and the generator that produces it, incl. the coverage chapter
+safety_docs:
+ - 'docs/safety/**'
+ - 'docs/slint-doc-generator/**'
+ - '.github/workflows/build_docs.yaml'
  - *ci_config
 
 rust_files:

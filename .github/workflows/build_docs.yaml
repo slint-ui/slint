@@ -23,6 +23,11 @@ on:
         app-id:
           type: string
           required: true
+        slint-sc-coverage:
+          type: boolean
+          default: false
+          required: false
+          description: "Measure slint-sc test coverage and include it in the Safety Manual"
 
 jobs:
     # Job 1: Build Rust and C++ documentation
@@ -140,6 +145,12 @@ jobs:
               with:
                   toolchain: stable
                   target: aarch64-linux-android
+            - name: Install llvm-tools for slint-sc coverage
+              if: ${{ inputs['slint-sc-coverage'] }}
+              run: rustup component add llvm-tools-preview
+            - name: Install cargo-llvm-cov
+              if: ${{ inputs['slint-sc-coverage'] }}
+              uses: taiki-e/install-action@cargo-llvm-cov
             - name: "Install Node dependencies"
               run: pnpm i --frozen-lockfile
             - name: Extract Version from Cargo.toml
@@ -177,8 +188,16 @@ jobs:
                   EXTRA_FLAGS="--experimental"
                 fi
                 cargo run --release -p slint-doc-generator -- $EXTRA_FLAGS
+            - name: "Measure slint-sc test coverage"
+              if: ${{ inputs['slint-sc-coverage'] }}
+              run: scripts/measure_slint_sc_coverage.sh coverage
             - name: "Generate SC API reference"
-              run: cargo run --release -p slint-doc-generator -- --slint-sc generate-mdx
+              run: |
+                  COVERAGE_FLAGS=""
+                  if [ "${{ inputs['slint-sc-coverage'] }}" = "true" ]; then
+                      COVERAGE_FLAGS="--coverage-json coverage/coverage.json --coverage-html coverage/html"
+                  fi
+                  cargo run --release -p slint-doc-generator -- --slint-sc $COVERAGE_FLAGS generate-mdx
             - name: "Compile Slint snippets in Markdown (doctests)"
               run: cargo test --manifest-path tests/Cargo.toml -p doctests
             - name: "Build Safety Manual"
