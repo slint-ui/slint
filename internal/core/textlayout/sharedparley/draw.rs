@@ -75,12 +75,24 @@ pub trait GlyphRenderer: crate::item_rendering::ItemRenderer {
     );
 }
 
+/// The vertical extent the renderer clip lets anything be drawn in, as a physical y range in the
+/// current item's coordinates. A conservative superset of what is visible -- see
+/// [`crate::item_rendering::ItemRenderer::get_current_clip`] -- so it is a safe bound for
+/// skipping draw work, never for layout decisions.
+pub(super) fn visible_band(item_renderer: &impl GlyphRenderer) -> Range<PhysicalLength> {
+    let scale_factor = ScaleFactor::new(item_renderer.scale_factor());
+    let clip = item_renderer.get_current_clip();
+    let top = clip.origin.y_length() * scale_factor;
+    top..(top + clip.height_length() * scale_factor)
+}
+
 impl TextParagraph {
     fn draw<R: GlyphRenderer>(
         &self,
         layout: &Layout,
         paragraph_index: usize,
         visible_extent: Option<ElisionCut>,
+        visible_band: &Range<PhysicalLength>,
         item_renderer: &mut R,
         default_fill_brush: &<R as GlyphRenderer>::PlatformBrush,
         default_stroke_brush: &Option<<R as GlyphRenderer>::PlatformBrush>,
@@ -119,6 +131,24 @@ impl TextParagraph {
                 break;
             }
             let metrics = line.metrics();
+
+            // Skip lines that can't reach the visible band. Ink may overhang the line's metrics
+            // box (stacked diacritics, swashes), so pad by one line height on each side before
+            // excluding -- the pad scales with the line itself. Lines are in block order, so the
+            // first line past the band ends the walk.
+            let line_height =
+                PhysicalLength::new(metrics.block_max_coord - metrics.block_min_coord);
+            if para_y + PhysicalLength::new(metrics.block_max_coord) + line_height
+                < visible_band.start
+            {
+                continue;
+            }
+            if para_y + PhysicalLength::new(metrics.block_min_coord) - line_height
+                > visible_band.end
+            {
+                break;
+            }
+
             // The kept line is always drawn, even when it slightly exceeds the box (#12197); other
             // lines are kept only while they fall within the box, taking vertical alignment into
             // account (bottom/center alignment clips lines off the top, not the bottom).
@@ -594,11 +624,35 @@ impl Layout {
         // Compute the cut once: explicit `\n` breaks produce one paragraph each, but they must
         // elide as a single block (drop lines below the box, ellipsis on the last visible one).
         let visible_extent = self.visible_extent();
-        for (paragraph_index, paragraph) in self.paragraphs.iter().enumerate() {
+
+        // Everything drawn below is cut to the renderer clip anyway, so lines that can't reach
+        // it are skipped instead of submitted: the clip is a bounding box of everything still
+        // drawable (see [`crate::item_rendering::ItemRenderer::get_current_clip`]), which makes
+        // skipping what lies outside it safe under any transform. The band only filters what is
+        // *drawn*; it never influences elision or `max-lines` accounting.
+        let visible_band = visible_band(item_renderer);
+
+        // Paragraphs are stacked in order, so binary-search the first one whose box reaches the
+        // band. Start one paragraph earlier and stop one past the band: glyph ink may overhang
+        // its line's metrics box, and the line-level cull in [`TextParagraph::draw`] trims those
+        // two edge paragraphs down to their edge lines.
+        let first = self
+            .paragraphs
+            .partition_point(|p| {
+                self.y_offset + p.y + PhysicalLength::new(p.layout.height()) < visible_band.start
+            })
+            .saturating_sub(1);
+        let mut past_band = false;
+        for (paragraph_index, paragraph) in self.paragraphs.iter().enumerate().skip(first) {
+            if past_band {
+                break;
+            }
+            past_band = self.y_offset + paragraph.y > visible_band.end;
             paragraph.draw(
                 self,
                 paragraph_index,
                 visible_extent,
+                &visible_band,
                 item_renderer,
                 &default_fill_brush,
                 &default_stroke_brush,
