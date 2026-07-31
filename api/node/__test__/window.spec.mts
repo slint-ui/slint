@@ -3,7 +3,7 @@
 
 import { test, expect } from "vitest";
 
-import { private_api } from "../dist/index.js";
+import { private_api, WindowEventDispatchResult } from "../dist/index.js";
 import type { Window } from "../dist/index.d.ts";
 
 private_api.initTesting();
@@ -227,4 +227,58 @@ test("Window dispatch key events", () => {
         text: "b",
     });
     expect(instance.getProperty("text-released")).toBe("b");
+});
+
+test("Window dispatch event result", () => {
+    const compiler = new private_api.ComponentCompiler();
+    const definition = compiler.buildFromSource(
+        `
+    export component App inherits Window {
+        width: 100px;
+        height: 100px;
+
+        TouchArea {
+            x: 0;
+            y: 0;
+            width: 50px;
+            height: 50px;
+        }
+    }`,
+        "",
+    );
+    expect(definition.App).not.toBeNull();
+
+    const instance = definition.App!.create();
+    expect(instance).not.toBeNull();
+
+    const window = instance!.window() as Window;
+
+    expect(window.dispatchEvent({ type: "pointer-exited" })).toBe(
+        WindowEventDispatchResult.Accepted,
+    );
+
+    expect(
+        window.dispatchEvent({
+            type: "pointer-pressed",
+            button: "left",
+            position: { x: 10, y: 10 },
+        }),
+    ).toBe(WindowEventDispatchResult.Accepted);
+    window.dispatchEvent({
+        type: "pointer-released",
+        button: "left",
+        position: { x: 10, y: 10 },
+    });
+
+    expect(
+        window.dispatchEvent({
+            type: "pointer-pressed",
+            button: "left",
+            position: { x: 90, y: 90 },
+        }),
+    ).toBe(WindowEventDispatchResult.Ignored);
+
+    expect(window.dispatchEvent({ type: "key-pressed", text: "a" })).toBe(
+        WindowEventDispatchResult.Ignored,
+    );
 });
