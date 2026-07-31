@@ -51,8 +51,8 @@ pub enum AccessibilityAction {
     /// This is currently unused
     ReplaceSelectedText(SharedString),
     SetValue(SharedString),
-    /// Select the text between two UTF-8 offsets: `anchor` is the end that stays put, `focus` the
-    /// end being moved.
+    /// Select the text between two UTF-8 offsets into the element's text: `anchor` is the end that
+    /// stays put, `focus` the end being moved.
     SetSelection {
         anchor: i32,
         focus: i32,
