@@ -91,7 +91,8 @@ export default defineConfig({
             // typedoc-plugin-markdown nests namespaces under the parent module on disk
             // (`api/slint-ui/namespaces/…`), not at `api/namespaces/…` where the
             // auto-sidebar looks. We define the API sidebar manually so the `language`
-            // variable expands to its struct/enum types.
+            // variable expands to its struct/enum types and the `platform` namespace
+            // expands to its window event types.
             sidebar: [
                 { label: "Overview", slug: "index" },
                 {
@@ -134,6 +135,30 @@ export default defineConfig({
                                     autogenerate: {
                                         directory: "api/interfaces",
                                     },
+                                },
+                            ],
+                        },
+                        {
+                            label: "Namespaces",
+                            collapsed: true,
+                            items: [
+                                {
+                                    label: "platform",
+                                    collapsed: true,
+                                    items: [
+                                        {
+                                            autogenerate: {
+                                                directory:
+                                                    "api/slint-ui/namespaces/platform/type-aliases",
+                                            },
+                                        },
+                                        {
+                                            autogenerate: {
+                                                directory:
+                                                    "api/slint-ui/namespaces/platform/interfaces",
+                                            },
+                                        },
+                                    ],
                                 },
                             ],
                         },
