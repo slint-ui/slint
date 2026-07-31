@@ -78,7 +78,8 @@ use cache::cached_paragraphs;
 use layout::{Layout, LayoutOptions, layout};
 use selection::{SelectionRendering, SelectionSpans};
 use shaping::{
-    LayoutWithoutLineBreaksBuilder, create_text_paragraphs, shape_paragraphs, shaping_builder,
+    Brush, LayoutWithoutLineBreaksBuilder, create_text_paragraphs, shape_paragraphs,
+    shaping_builder,
 };
 
 /// Lays out the shaped text of an item and runs `f` over the result.
@@ -711,6 +712,119 @@ fn text_input_cursor_rect_for_byte_offset_impl(
     .unwrap_or_default()
 }
 
+/// A `TextInput`'s laid-out text, lent to a [`TextInputLayoutVisitor`] for the duration of one call.
+#[allow(dead_code)]
+pub struct TextInputLayout<'a> {
+    layout: &'a Layout,
+    /// The string the paragraphs were shaped from, which [`TextInputParagraph::range`] indexes.
+    text: &'a str,
+}
+
+#[allow(dead_code)]
+impl<'a> TextInputLayout<'a> {
+    /// The paragraphs, top to bottom. A hard line break separates two of them and belongs to
+    /// neither, since Slint splits the text at `\n` before shaping.
+    pub(crate) fn paragraphs(&self) -> impl Iterator<Item = TextInputParagraph<'a>> {
+        let (text, y_offset) = (self.text, self.layout.y_offset);
+        self.layout.paragraphs.iter().map(move |para| TextInputParagraph {
+            range: para.range.clone(),
+            text: &text[para.range.clone()],
+            layout: &para.layout,
+            y: y_offset + para.y,
+        })
+    }
+}
+
+/// One paragraph of a [`TextInputLayout`].
+#[allow(dead_code)]
+pub(crate) struct TextInputParagraph<'a> {
+    /// Byte range within [`TextInputLayout::text`].
+    range: Range<usize>,
+    /// The slice of that text this paragraph covers.
+    text: &'a str,
+    /// Its shaped, line-broken and aligned glyphs.
+    layout: &'a parley::Layout<Brush>,
+    /// Physical y of its top edge, relative to the item's.
+    y: PhysicalLength,
+}
+
+/// Receives the laid-out text of a `TextInput` from
+/// [`crate::renderer::RendererSealed::visit_text_input_layout`].
+pub trait TextInputLayoutVisitor {
+    /// Must not lay text out itself: the cache entry stays checked out for the call, and
+    /// re-entering it panics.
+    fn visit(&mut self, layout: TextInputLayout<'_>);
+}
+
+/// Lays `text_input` out the way it is drawn and lends the result to `visitor`.
+///
+/// Returns false if the renderer can't lay text out, so the caller can tell that apart from an
+/// empty layout.
+pub fn visit_text_input_layout(
+    renderer: &(impl RendererSealed + ?Sized),
+    text_input: Pin<&crate::items::TextInput>,
+    item_rc: &crate::item_tree::ItemRc,
+    size: LogicalSize,
+    cache: Option<&TextLayoutCache>,
+    visitor: &mut dyn TextInputLayoutVisitor,
+) -> bool {
+    visit_text_input_layout_impl(
+        renderer.scale_factor(),
+        renderer.window_adapter(),
+        text_input,
+        item_rc,
+        size,
+        cache,
+        visitor,
+    )
+}
+
+fn visit_text_input_layout_impl(
+    scale_factor: Option<ScaleFactor>,
+    window_adapter: Option<Rc<dyn WindowAdapter>>,
+    text_input: Pin<&crate::items::TextInput>,
+    item_rc: &crate::item_tree::ItemRc,
+    size: LogicalSize,
+    cache: Option<&TextLayoutCache>,
+    visitor: &mut dyn TextInputLayoutVisitor,
+) -> bool {
+    let Some(scale_factor) = scale_factor else {
+        return false;
+    };
+    let Some(window_adapter) = window_adapter else {
+        return false;
+    };
+
+    let layout_builder =
+        shaping_builder(text_input, Some(item_rc), text_input.wrap(), scale_factor);
+
+    // `RenderString for TextInput` yields plain text; a styled input doesn't exist.
+    let PlainOrStyledText::Plain(text) = crate::item_rendering::RenderString::text(text_input)
+    else {
+        return false;
+    };
+
+    with_text_layout(
+        cache,
+        Some(item_rc),
+        text_input,
+        &layout_builder,
+        LayoutOptions::new_from_textinput(
+            text_input,
+            Some(size.width_length()),
+            Some(size.height_length()),
+        ),
+        window_adapter.window(),
+        |layout| visitor.visit(TextInputLayout { layout, text: &text }),
+    )
+    .is_some()
+}
+
+#[cfg(feature = "accessibility-text")]
+mod accessibility;
+#[cfg(feature = "accessibility-text")]
+pub use accessibility::CachedTextInputAccessibilityState;
+
 #[cfg(all(test, feature = "accessibility-text"))]
 mod accessibility_tests {
     use super::*;
@@ -718,42 +832,34 @@ mod accessibility_tests {
     use parley::LayoutAccessibility;
 
     fn empty_tree_update() -> TreeUpdate {
-        TreeUpdate { nodes: alloc::vec::Vec::new(), tree: None, tree_id: TreeId::ROOT, focus: NodeId(0) }
+        TreeUpdate {
+            nodes: alloc::vec::Vec::new(),
+            tree: None,
+            tree_id: TreeId::ROOT,
+            focus: NodeId(0),
+        }
     }
 
-    fn build_one_paragraph(text: &str, max_width: f32) -> parley::Layout<Brush> {
-        let scale_factor = ScaleFactor::new(1.0);
-        let builder = LayoutWithoutLineBreaksBuilder::new(
-            None,
-            TextWrap::WordWrap,
-            None,
-            scale_factor,
-        );
+    fn build_one_paragraph(text: &str) -> parley::Layout<Brush> {
+        let builder = shaping::plain_builder_for_tests();
         let collection = i_slint_common::sharedfontique::create_collection(false);
         let mut font_ctx = parley::FontContext {
             collection: collection.inner,
             source_cache: collection.source_cache,
         };
         let mut layout = builder.build(&mut font_ctx, text, std::iter::empty(), None);
-        apply_line_break_and_align(
-            &mut layout,
-            Some(PhysicalLength::new(max_width)),
-            TextHorizontalAlignment::Left,
-        );
+        layout.break_all_lines(None);
+        layout.align(parley::Alignment::Left, parley::AlignmentOptions::default());
         layout
     }
 
     fn collect_text_runs(update: &TreeUpdate) -> Vec<&Node> {
-        update
-            .nodes
-            .iter()
-            .filter_map(|(_, n)| (n.role() == Role::TextRun).then_some(n))
-            .collect()
+        update.nodes.iter().filter_map(|(_, n)| (n.role() == Role::TextRun).then_some(n)).collect()
     }
 
     #[test]
     fn build_nodes_emits_text_run_for_plain_paragraph() {
-        let layout = build_one_paragraph("Hello", 200.0);
+        let layout = build_one_paragraph("Hello");
         let mut layout_access = LayoutAccessibility::default();
         let mut update = empty_tree_update();
         let mut parent_node = Node::new(Role::TextInput);
@@ -792,7 +898,7 @@ mod accessibility_tests {
         // (e.g. text ending with `\n` produces a trailing empty paragraph).
         // parley emits a placeholder TextRun for cursor positioning; we just
         // need the call not to panic and not emit characters.
-        let layout = build_one_paragraph("", 200.0);
+        let layout = build_one_paragraph("");
         let mut layout_access = LayoutAccessibility::default();
         let mut update = empty_tree_update();
         let mut parent_node = Node::new(Role::TextInput);
@@ -827,7 +933,7 @@ mod accessibility_tests {
         // Stable NodeIds across rebuilds are the entire point of holding
         // `LayoutAccessibility` in a cache that survives shape changes:
         // when the same `ClusterPath` reappears, the same `NodeId` is reused.
-        let layout1 = build_one_paragraph("Hello", 200.0);
+        let layout1 = build_one_paragraph("Hello");
         let mut layout_access = LayoutAccessibility::default();
         let mut update1 = empty_tree_update();
         let mut parent1 = Node::new(Role::TextInput);
@@ -846,12 +952,15 @@ mod accessibility_tests {
             0.0,
             |_, _| {},
         );
-        let first_pass_ids: Vec<NodeId> =
-            update1.nodes.iter().filter_map(|(id, n)| (n.role() == Role::TextRun).then_some(*id)).collect();
+        let first_pass_ids: Vec<NodeId> = update1
+            .nodes
+            .iter()
+            .filter_map(|(id, n)| (n.role() == Role::TextRun).then_some(*id))
+            .collect();
 
         // Re-run on a fresh Layout for the same text. NodeIds for the same
         // cluster paths must be reused.
-        let layout2 = build_one_paragraph("Hello", 200.0);
+        let layout2 = build_one_paragraph("Hello");
         let mut update2 = empty_tree_update();
         let mut parent2 = Node::new(Role::TextInput);
         layout_access.build_nodes(
@@ -868,8 +977,11 @@ mod accessibility_tests {
             0.0,
             |_, _| {},
         );
-        let second_pass_ids: Vec<NodeId> =
-            update2.nodes.iter().filter_map(|(id, n)| (n.role() == Role::TextRun).then_some(*id)).collect();
+        let second_pass_ids: Vec<NodeId> = update2
+            .nodes
+            .iter()
+            .filter_map(|(id, n)| (n.role() == Role::TextRun).then_some(*id))
+            .collect();
 
         assert_eq!(
             first_pass_ids, second_pass_ids,
@@ -881,7 +993,7 @@ mod accessibility_tests {
     fn cursor_to_access_position_round_trips() {
         // `Cursor::to_access_position` requires that `build_nodes` ran first,
         // because it consults `LayoutAccessibility::span_paths_by_cluster_path`.
-        let layout = build_one_paragraph("ab", 200.0);
+        let layout = build_one_paragraph("ab");
         let mut layout_access = LayoutAccessibility::default();
         let mut update = empty_tree_update();
         let mut parent = Node::new(Role::TextInput);
@@ -902,8 +1014,10 @@ mod accessibility_tests {
         );
 
         // Round-trip the start-of-buffer cursor through the AT representation.
-        let cursor = parley::Cursor::from_byte_index(&layout, 0, parley::layout::Affinity::Downstream);
-        let pos = cursor.to_access_position(&layout, &layout_access).expect("position for cursor at 0");
+        let cursor =
+            parley::Cursor::from_byte_index(&layout, 0, parley::layout::Affinity::Downstream);
+        let pos =
+            cursor.to_access_position(&layout, &layout_access).expect("position for cursor at 0");
         let recovered = parley::Cursor::from_access_position(&pos, &layout, &layout_access)
             .expect("cursor for AT position");
         assert_eq!(recovered.index(), cursor.index());
