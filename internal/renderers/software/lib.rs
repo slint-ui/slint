@@ -3238,8 +3238,8 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
         self.current_state = self.state_stack.pop().unwrap();
     }
 
-    fn scale_factor(&self) -> f32 {
-        self.scale_factor.0
+    fn scale_factor(&self) -> ScaleFactor {
+        self.scale_factor
     }
 
     fn draw_cached_pixmap(

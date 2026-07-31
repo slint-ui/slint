@@ -935,8 +935,8 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
         self.canvas.restore();
     }
 
-    fn scale_factor(&self) -> f32 {
-        self.scale_factor.get()
+    fn scale_factor(&self) -> ScaleFactor {
+        self.scale_factor
     }
 
     fn draw_cached_pixmap(
@@ -974,7 +974,7 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
             self,
             std::pin::pin!((SharedString::from(string), Brush::from(color))),
             None,
-            logical_size_from_api(self.window.size().to_logical(self.scale_factor())),
+            logical_size_from_api(self.window.size().to_logical(self.scale_factor().get())),
             None,
         );
     }
