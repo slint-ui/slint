@@ -75,13 +75,13 @@ export interface Window {
     /** Gets or sets the physical size of the window on the screen, */
     physicalSize: Size;
 
-    /** Gets or sets the window's fullscreen state **/
+    /** Gets or sets the window's fullscreen state. */
     fullscreen: boolean;
 
-    /** Gets or sets the window's maximized state **/
+    /** Gets or sets the window's maximized state. */
     maximized: boolean;
 
-    /** Gets or sets the window's minimized state **/
+    /** Gets or sets the window's minimized state. */
     minimized: boolean;
 
     /**
