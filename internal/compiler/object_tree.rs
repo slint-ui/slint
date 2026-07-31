@@ -105,27 +105,10 @@ impl Document {
             }
         }
 
-        #[cfg(feature = "slint-sc")]
-        let mut sc_exported_count: u32 = 0;
-
         let mut process_component =
             |n: syntax_nodes::Component,
              diag: &mut BuildDiagnostics,
-             local_registry: &mut TypeRegister,
-             #[cfg(feature = "slint-sc")] sc_exported_count: &mut u32,
-             #[cfg(feature = "slint-sc")] is_exported: bool| {
-                // Globals already get their own "Globals are not supported" message
-                #[cfg(feature = "slint-sc")]
-                if n.child_text(SyntaxKind::Identifier).as_deref() != Some("global") && is_exported
-                {
-                    *sc_exported_count += 1;
-                    if *sc_exported_count > 1 {
-                        diag.slint_sc_error(
-                            "Multiple exported components per file are",
-                            &n.DeclaredIdentifier(),
-                        );
-                    }
-                }
+             local_registry: &mut TypeRegister| {
                 let compo = Component::from_node(n, diag, local_registry);
                 if !local_registry.add(compo.clone()) {
                     diag.push_warning(format!("Component '{}' is replacing a previously defined component with the same name", compo.id), &compo.node.clone().unwrap().DeclaredIdentifier());
@@ -214,15 +197,7 @@ impl Document {
         for n in node.children() {
             match n.kind() {
                 SyntaxKind::Component => {
-                    process_component(
-                        n.into(),
-                        diag,
-                        &mut local_registry,
-                        #[cfg(feature = "slint-sc")]
-                        &mut sc_exported_count,
-                        #[cfg(feature = "slint-sc")]
-                        false,
-                    );
+                    process_component(n.into(), diag, &mut local_registry);
                 }
                 SyntaxKind::StructDeclaration => {
                     process_struct(n.into(), diag, &mut local_registry, &mut inner_types)
@@ -233,15 +208,9 @@ impl Document {
                 SyntaxKind::ExportsList => {
                     for n in n.children() {
                         match n.kind() {
-                            SyntaxKind::Component => process_component(
-                                n.into(),
-                                diag,
-                                &mut local_registry,
-                                #[cfg(feature = "slint-sc")]
-                                &mut sc_exported_count,
-                                #[cfg(feature = "slint-sc")]
-                                true,
-                            ),
+                            SyntaxKind::Component => {
+                                process_component(n.into(), diag, &mut local_registry)
+                            }
                             SyntaxKind::StructDeclaration => process_struct(
                                 n.into(),
                                 diag,
@@ -3663,8 +3632,6 @@ impl Exports {
                 .filter(|exports| exports.ExportModule().is_none())
                 .flat_map(|exports| exports.ExportSpecifier())
                 .filter_map(|export_specifier| {
-                    #[cfg(feature = "slint-sc")]
-                    diag.slint_sc_error("Export specifiers are", &export_specifier);
                     let (internal_name, exported_name) =
                         ExportedName::from_export_specifier(&export_specifier);
                     Some((

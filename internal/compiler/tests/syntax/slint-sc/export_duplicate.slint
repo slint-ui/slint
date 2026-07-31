@@ -1,0 +1,12 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A source file shall not export the same external name more than once,
+// including the combination of a declaration-site export and an export list.
+//#sls.export.no-duplicates
+
+export component Dup inherits Window { }
+//               > <error{Duplicated export 'Dup'}
+
+export { Dup }
+//       > <error{Duplicated export 'Dup'}
