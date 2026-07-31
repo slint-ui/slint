@@ -4,7 +4,7 @@
 //! Pass that lowers synthetic `accessible-*` properties
 
 use crate::diagnostics::BuildDiagnostics;
-use crate::expression_tree::{Callable, Expression, NamedReference};
+use crate::expression_tree::{BuiltinFunction, Callable, Expression, NamedReference};
 use crate::langtype::{EnumerationValue, Type};
 use crate::object_tree::{Component, ElementRc};
 
@@ -117,6 +117,19 @@ fn apply_builtin(e: &ElementRc) {
                         source_location: None,
                     },
                 ])
+            });
+        }
+        {
+            e.borrow_mut().set_binding_if_not_set("accessible-action-set-selection".into(), || {
+                Expression::FunctionCall {
+                    function: Callable::Builtin(BuiltinFunction::SetSelectionOffsets),
+                    arguments: vec![
+                        Expression::ElementReference(Rc::downgrade(e)),
+                        Expression::FunctionParameterReference { index: 0, ty: Type::Int32 },
+                        Expression::FunctionParameterReference { index: 1, ty: Type::Int32 },
+                    ],
+                    source_location: None,
+                }
             });
         }
     } else if bty.name == "Image" {

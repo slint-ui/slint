@@ -13,9 +13,6 @@ export component TestCase inherits Window {
 
     ti := TextInput {
         text: "Hello World";
-        accessible-action-set-selection(anchor, focus) => {
-            ti.set-selection-offsets(anchor, focus);
-        }
     }
 }
 
