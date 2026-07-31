@@ -33,7 +33,7 @@ fn layout_text_with_options(text: &str, options: LayoutOptions) -> Layout {
         PlainOrStyledText::Plain(text.into()),
         Color::default(),
     );
-    layout(&builder, &mut font_ctx, paragraphs, ScaleFactor::new(1.0), options)
+    layout(&builder, &mut font_ctx, paragraphs, ScaleFactor::new(1.0), options, None)
 }
 
 fn layout_text(text: &str) -> Layout {

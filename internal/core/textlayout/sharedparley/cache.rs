@@ -10,6 +10,7 @@
 //! [`cached_paragraphs`] is only meant to be called through `with_text_layout`, which pairs it
 //! with the one shaping function every path must share.
 
+use super::layout::RetainedLineBreaking;
 use super::shaping::TextParagraph;
 use super::*;
 
@@ -24,6 +25,10 @@ use super::*;
 /// handled by the cache as a whole.
 struct CachedParagraphs {
     wrap: TextWrap,
+    /// What [`super::layout::layout`] derived when it last broke these paragraphs, so an
+    /// unchanged-input call can skip the breaking. `None` after a reshape (fresh entries
+    /// start without one) and while checked out through the guard.
+    line_breaking: Option<RetainedLineBreaking>,
     /// `None` while a [`CachedParagraphsGuard`] has the paragraphs checked out; the guard puts
     /// them back when it drops. Finding `None` here therefore means the previous caller returned
     /// without handing them back, and the entry has to be reshaped rather than served empty.
@@ -37,6 +42,8 @@ pub struct TextLayoutCache {
     inner: InnerTextLayoutCache,
     #[cfg(feature = "testing")]
     cache_miss_count: std::cell::Cell<u64>,
+    #[cfg(feature = "testing")]
+    layout_miss_count: std::cell::Cell<u64>,
 }
 
 #[allow(clippy::derivable_impls)] // clippy doesn't see the feature = "testing" code
@@ -46,6 +53,8 @@ impl Default for TextLayoutCache {
             inner: Default::default(),
             #[cfg(feature = "testing")]
             cache_miss_count: std::cell::Cell::new(0),
+            #[cfg(feature = "testing")]
+            layout_miss_count: std::cell::Cell::new(0),
         }
     }
 }
@@ -74,11 +83,23 @@ impl TextLayoutCache {
     pub fn reset_cache_miss_count(&self) {
         self.cache_miss_count.set(0);
     }
+    /// How many times a layout pass had to break the lines of a cached item again rather than
+    /// reuse the retained breaking.
+    pub fn layout_miss_count(&self) -> u64 {
+        self.layout_miss_count.get()
+    }
+    pub fn reset_layout_miss_count(&self) {
+        self.layout_miss_count.set(0);
+    }
+    pub(super) fn count_layout_miss(&self) {
+        self.layout_miss_count.set(self.layout_miss_count.get() + 1);
+    }
 }
 
 /// RAII guard: takes the shaped paragraphs out of the cache on creation, puts them back on drop.
 pub(super) struct CachedParagraphsGuard<'a> {
     paragraphs: Option<Vec<TextParagraph>>,
+    line_breaking: Option<RetainedLineBreaking>,
     container: Option<std::cell::RefMut<'a, CachedParagraphs>>,
 }
 
@@ -88,16 +109,32 @@ impl CachedParagraphsGuard<'_> {
         self.paragraphs.take().unwrap_or_default()
     }
 
-    /// Returns the paragraphs, so that the next caller reuses the shaping.
-    pub(super) fn restore(&mut self, paragraphs: Vec<TextParagraph>) {
+    /// Hands the retained breaking to [`layout`], which decides whether it still applies.
+    pub(super) fn take_line_breaking(&mut self) -> Option<RetainedLineBreaking> {
+        self.container.as_mut().and_then(|container| container.line_breaking.take())
+    }
+
+    /// Returns the paragraphs and the line breaking they carry, so that the next caller reuses
+    /// both the shaping and, with unchanged inputs, the breaking.
+    pub(super) fn restore(
+        &mut self,
+        paragraphs: Vec<TextParagraph>,
+        line_breaking: RetainedLineBreaking,
+    ) {
         self.paragraphs = Some(paragraphs);
+        self.line_breaking = Some(line_breaking);
     }
 }
 
 impl Drop for CachedParagraphsGuard<'_> {
     fn drop(&mut self) {
-        if let (Some(paragraphs), Some(container)) = (self.paragraphs.take(), &mut self.container) {
-            container.paragraphs = Some(paragraphs);
+        if let Some(container) = &mut self.container {
+            if let Some(paragraphs) = self.paragraphs.take() {
+                container.paragraphs = Some(paragraphs);
+            }
+            if let Some(line_breaking) = self.line_breaking.take() {
+                container.line_breaking = Some(line_breaking);
+            }
         }
     }
 }
@@ -118,7 +155,11 @@ pub(super) fn cached_paragraphs<'a>(
     shape: &dyn Fn(&mut parley::FontContext) -> Vec<TextParagraph>,
 ) -> CachedParagraphsGuard<'a> {
     let Some((cache, item_rc)) = cache.zip(item_rc) else {
-        return CachedParagraphsGuard { paragraphs: Some(shape(font_context)), container: None };
+        return CachedParagraphsGuard {
+            paragraphs: Some(shape(font_context)),
+            line_breaking: None,
+            container: None,
+        };
     };
 
     cache.clear_if_scale_factor_changed(window);
@@ -141,8 +182,12 @@ pub(super) fn cached_paragraphs<'a>(
     let mut entry = cache.inner.get_or_update_cache_entry_ref(item_rc, || {
         #[cfg(feature = "testing")]
         cache.cache_miss_count.set(cache.cache_miss_count.get() + 1);
-        CachedParagraphs { wrap, paragraphs: Some(shape(font_context)) }
+        CachedParagraphs { wrap, paragraphs: Some(shape(font_context)), line_breaking: None }
     });
     let paragraphs = entry.paragraphs.take().unwrap_or_default();
-    CachedParagraphsGuard { paragraphs: Some(paragraphs), container: Some(entry) }
+    CachedParagraphsGuard {
+        paragraphs: Some(paragraphs),
+        line_breaking: None,
+        container: Some(entry),
+    }
 }

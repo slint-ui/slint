@@ -110,11 +110,21 @@ fn with_text_layout<R>(
             shape_paragraphs(text, item_rc, text_wrap, scale_factor, font_context)
         });
 
-    let layout = layout(layout_builder, &mut font_ctx, guard.take(), scale_factor, options);
+    let line_breaking = guard.take_line_breaking();
+    let layout =
+        layout(layout_builder, &mut font_ctx, guard.take(), scale_factor, options, line_breaking);
     drop(font_ctx);
 
+    if layout.broke_lines {
+        #[cfg(feature = "testing")]
+        if let Some(cache) = cache {
+            cache.count_layout_miss();
+        }
+    }
+
     let result = f(&layout);
-    guard.restore(layout.paragraphs);
+    let (paragraphs, line_breaking) = layout.dismantle();
+    guard.restore(paragraphs, line_breaking);
     Some(result)
 }
 

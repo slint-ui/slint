@@ -35,15 +35,96 @@ impl LayoutOptions {
     }
 }
 
+/// The inputs the line breaking and its derived metrics depend on. Two [`layout`] calls with
+/// equal inputs produce identical breaking for the same shaped paragraphs, so a matching
+/// [`RetainedLineBreaking`] lets [`layout`] skip re-breaking every paragraph. Deliberately absent:
+/// `max_height` and the vertical alignment, which only feed the per-call `y_offset` and the
+/// height-based elision cut, both computed on the [`Layout`] itself.
+#[derive(Clone, Copy, PartialEq)]
+struct LineBreakingInputs {
+    max_physical_width: Option<PhysicalLength>,
+    /// The alignment as parley receives it, so `Start` and `Left` don't spuriously differ.
+    alignment: parley::Alignment,
+    max_lines: Option<usize>,
+    text_overflow: TextOverflow,
+}
+
+impl LineBreakingInputs {
+    fn new(options: &LayoutOptions, max_physical_width: Option<PhysicalLength>) -> Self {
+        Self {
+            max_physical_width,
+            alignment: match options.horizontal_align {
+                TextHorizontalAlignment::Start | TextHorizontalAlignment::Left => {
+                    parley::Alignment::Left
+                }
+                TextHorizontalAlignment::Center => parley::Alignment::Center,
+                TextHorizontalAlignment::End | TextHorizontalAlignment::Right => {
+                    parley::Alignment::Right
+                }
+            },
+            max_lines: options.max_lines,
+            text_overflow: options.text_overflow,
+        }
+    }
+}
+
+/// What a full [`layout`] pass computed, retained in the cache entry alongside the shaped
+/// paragraphs. The parley layouts already hold their broken lines and every `TextParagraph::y`
+/// its position, so together with these metrics the next [`layout`] call with equal
+/// [`LineBreakingInputs`] has nothing left to do.
+pub(super) struct RetainedLineBreaking {
+    inputs: LineBreakingInputs,
+    line_limit_cut: Option<(usize, usize)>,
+    max_width: PhysicalLength,
+    height: PhysicalLength,
+    elision_info: Option<ElisionInfo>,
+}
+
+/// Where vertical alignment puts the text within the box. Per call, not retained: it depends on
+/// `max_height`, which changes freely (e.g. during a resize) without affecting the breaking.
+fn vertical_offset(
+    max_physical_height: Option<PhysicalLength>,
+    vertical_align: TextVerticalAlignment,
+    height: PhysicalLength,
+) -> PhysicalLength {
+    match (max_physical_height, vertical_align) {
+        (Some(max_height), TextVerticalAlignment::Center) => (max_height - height) / 2.0,
+        (Some(max_height), TextVerticalAlignment::Bottom) => max_height - height,
+        (None, _) | (Some(_), TextVerticalAlignment::Top) => PhysicalLength::new(0.0),
+    }
+}
+
 pub(super) fn layout(
     layout_builder: &LayoutWithoutLineBreaksBuilder,
     font_context: &mut parley::FontContext,
     mut paragraphs: Vec<TextParagraph>,
     scale_factor: ScaleFactor,
     options: LayoutOptions,
+    line_breaking: Option<RetainedLineBreaking>,
 ) -> Layout {
     let max_physical_width = options.max_width.map(|max_width| max_width * scale_factor);
     let max_physical_height = options.max_height.map(|max_height| max_height * scale_factor);
+
+    let inputs = LineBreakingInputs::new(&options, max_physical_width);
+    if let Some(line_breaking) =
+        line_breaking.filter(|line_breaking| line_breaking.inputs == inputs)
+    {
+        return Layout {
+            y_offset: vertical_offset(
+                max_physical_height,
+                options.vertical_align,
+                line_breaking.height,
+            ),
+            paragraphs,
+            max_width: line_breaking.max_width,
+            height: line_breaking.height,
+            max_physical_height,
+            elision_info: line_breaking.elision_info,
+            line_limit_cut: line_breaking.line_limit_cut,
+            line_breaking_inputs: inputs,
+            broke_lines: false,
+        };
+    }
 
     // Returned None if failed to get the ellipsis glyph for some rare reason.
     let get_ellipsis_glyph = |font_context: &mut parley::FontContext| {
@@ -72,18 +153,7 @@ pub(super) fn layout(
     let mut para_y = 0.0;
     for para in paragraphs.iter_mut() {
         para.layout.break_all_lines(max_physical_width.map(|width| width.get()));
-        para.layout.align(
-            match options.horizontal_align {
-                TextHorizontalAlignment::Start | TextHorizontalAlignment::Left => {
-                    parley::Alignment::Left
-                }
-                TextHorizontalAlignment::Center => parley::Alignment::Center,
-                TextHorizontalAlignment::End | TextHorizontalAlignment::Right => {
-                    parley::Alignment::Right
-                }
-            },
-            parley::AlignmentOptions::default(),
-        );
+        para.layout.align(inputs.alignment, parley::AlignmentOptions::default());
 
         para.y = PhysicalLength::new(para_y);
         para_y += para.layout.height();
@@ -137,11 +207,7 @@ pub(super) fn layout(
             .map_or(PhysicalLength::zero(), |p| p.y + PhysicalLength::new(p.layout.height())),
     };
 
-    let y_offset = match (max_physical_height, options.vertical_align) {
-        (Some(max_height), TextVerticalAlignment::Center) => (max_height - height) / 2.0,
-        (Some(max_height), TextVerticalAlignment::Bottom) => max_height - height,
-        (None, _) | (Some(_), TextVerticalAlignment::Top) => PhysicalLength::new(0.0),
-    };
+    let y_offset = vertical_offset(max_physical_height, options.vertical_align, height);
 
     Layout {
         paragraphs,
@@ -151,6 +217,8 @@ pub(super) fn layout(
         height,
         max_physical_height,
         line_limit_cut,
+        line_breaking_inputs: inputs,
+        broke_lines: true,
     }
 }
 
@@ -210,6 +278,29 @@ pub(super) struct Layout {
     /// Where an active `max-lines` limit drops lines, in the same coordinates as [`ElisionCut`]:
     /// the (paragraph index, line index) of the last kept line. See [`line_limit_cut`].
     pub(super) line_limit_cut: Option<(usize, usize)>,
+    /// What the paragraphs' lines are currently broken for; travels back into the cache entry.
+    line_breaking_inputs: LineBreakingInputs,
+    /// Whether this layout ran the full breaking pass rather than reusing a [`RetainedLineBreaking`].
+    /// Read by the `layout_miss_count` test counter.
+    pub(super) broke_lines: bool,
+}
+
+impl Layout {
+    /// Takes the layout apart into what the cache entry retains: the paragraphs (holding their
+    /// broken lines and y positions) and the [`RetainedLineBreaking`] that lets the next [`layout`] call
+    /// with equal inputs skip the breaking.
+    pub(super) fn dismantle(self) -> (Vec<TextParagraph>, RetainedLineBreaking) {
+        (
+            self.paragraphs,
+            RetainedLineBreaking {
+                inputs: self.line_breaking_inputs,
+                line_limit_cut: self.line_limit_cut,
+                max_width: self.max_width,
+                height: self.height,
+                elision_info: self.elision_info,
+            },
+        )
+    }
 }
 
 impl Layout {
