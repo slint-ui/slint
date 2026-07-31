@@ -58,7 +58,10 @@ fn bidi_selection_spans_are_ascending_in_x() {
             if start >= end {
                 continue;
             }
-            let spans = layout.selection_geometry(start..end);
+            let spans = layout.selection_geometry(
+                start..end,
+                &(PhysicalLength::new(f32::NEG_INFINITY)..PhysicalLength::new(f32::INFINITY)),
+            );
             saw_line_with_several_spans |= spans.0.len() > 1;
             for pair in spans.0.windows(2) {
                 let (left, right) = (&pair[0], &pair[1]);
