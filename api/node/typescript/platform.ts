@@ -1,10 +1,14 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import type { Size, Point } from "./index.ts";
+import type { Size, Point, Window } from "./index.ts";
 import type { language } from "./generated/language";
 
-/** A pointer was pressed. */
+/**
+ * A pointer was pressed.
+ *
+ * @see {@link Window.dispatchEvent}
+ */
 export interface PointerPressedEvent {
     type: "pointer-pressed";
     /** The position of the pointer, in logical pixels relative to the top left corner of the window. */
@@ -13,7 +17,11 @@ export interface PointerPressedEvent {
     button: language.PointerEventButton;
 }
 
-/** A pointer was released. */
+/**
+ * A pointer was released.
+ *
+ * @see {@link Window.dispatchEvent}
+ */
 export interface PointerReleasedEvent {
     type: "pointer-released";
     /** The position of the pointer, in logical pixels relative to the top left corner of the window. */
@@ -22,14 +30,22 @@ export interface PointerReleasedEvent {
     button: language.PointerEventButton;
 }
 
-/** The position of the pointer has changed. */
+/**
+ * The position of the pointer has changed.
+ *
+ * @see {@link Window.dispatchEvent}
+ */
 export interface PointerMovedEvent {
     type: "pointer-moved";
     /** The new position of the pointer, in logical pixels relative to the top left corner of the window. */
     position: Point;
 }
 
-/** The wheel button of a mouse was rotated to initiate scrolling. */
+/**
+ * The wheel button of a mouse was rotated to initiate scrolling.
+ *
+ * @see {@link Window.dispatchEvent}
+ */
 export interface PointerScrolledEvent {
     type: "pointer-scrolled";
     /** The position of the pointer when the scroll occurred. */
@@ -44,26 +60,40 @@ export interface PointerScrolledEvent {
  * The pointer exited the window.
  *
  * Dispatching this event always returns `Accepted`.
+ *
+ * @see {@link Window.dispatchEvent}
  */
 export interface PointerExitedEvent {
     type: "pointer-exited";
 }
 
-/** A key was pressed. */
+/**
+ * A key was pressed.
+ *
+ * @see {@link Window.dispatchEvent}
+ */
 export interface KeyPressedEvent {
     type: "key-pressed";
     /** The unicode representation of the key pressed. */
     text: string;
 }
 
-/** A key press was auto-repeated. */
+/**
+ * A key press was auto-repeated.
+ *
+ * @see {@link Window.dispatchEvent}
+ */
 export interface KeyPressRepeatedEvent {
     type: "key-press-repeated";
     /** The unicode representation of the key pressed. */
     text: string;
 }
 
-/** A key was released. */
+/**
+ * A key was released.
+ *
+ * @see {@link Window.dispatchEvent}
+ */
 export interface KeyReleasedEvent {
     type: "key-released";
     /** The unicode representation of the key released. */
@@ -75,6 +105,8 @@ export interface KeyReleasedEvent {
  * This can happen for example when the display's resolution changes,
  * the user selects a new scale factor in the system settings,
  * or the window is moved to a different screen.
+ *
+ * @see {@link Window.dispatchEvent}
  */
 export interface ScaleFactorChangedEvent {
     type: "scale-factor-changed";
@@ -86,6 +118,8 @@ export interface ScaleFactorChangedEvent {
  * The window was resized.
  *
  * Dispatching this event updates the `width` and `height` properties of the root window element.
+ *
+ * @see {@link Window.dispatchEvent}
  */
 export interface ResizedEvent {
     type: "resized";
@@ -98,12 +132,18 @@ export interface ResizedEvent {
  *
  * Dispatching this event invokes the `close-requested` callback of the window element,
  * and hides the window unless that callback returns `reject`.
+ *
+ * @see {@link Window.dispatchEvent}
  */
 export interface CloseRequestedEvent {
     type: "close-requested";
 }
 
-/** The window was activated or de-activated. */
+/**
+ * The window was activated or de-activated.
+ *
+ * @see {@link Window.dispatchEvent}
+ */
 export interface WindowActiveChangedEvent {
     type: "window-active-changed";
     /** True when the window gained focus, false when it lost focus. */
