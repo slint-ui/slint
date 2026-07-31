@@ -9,6 +9,8 @@ export component TestCase inherits Window {
 ```rust
 let x = TestCase::new();
 screenshot!(x);
+// The application renders by calling render_rgb8 itself.
+//#sls.paint.invocation
 //#sls.gen.render-rgb8
 let mut frame_buffer = [0u8; 64 * 64 * 3];
 x.render_rgb8(64, 64, &mut frame_buffer)?;
