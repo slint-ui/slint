@@ -3,7 +3,11 @@
 
 import { test, expect } from "vitest";
 
-import { private_api, WindowEventDispatchResult } from "../dist/index.js";
+import {
+    language,
+    private_api,
+    WindowEventDispatchResult,
+} from "../dist/index.js";
 import type { Window } from "../dist/index.d.ts";
 
 private_api.initTesting();
@@ -74,24 +78,24 @@ test("Window dispatch pointer event", () => {
     const window = instance!.window() as Window;
     window.dispatchEvent({
         type: "pointer-pressed",
-        button: "left",
+        button: language.PointerEventButton.Left,
         position: { x: 51, y: 51 },
     });
     window.dispatchEvent({
         type: "pointer-released",
-        button: "left",
+        button: language.PointerEventButton.Left,
         position: { x: 51, y: 51 },
     });
     expect(instance.getProperty("clicked")).toBe(false);
 
     window.dispatchEvent({
         type: "pointer-pressed",
-        button: "left",
+        button: language.PointerEventButton.Left,
         position: { x: 49, y: 49 },
     });
     window.dispatchEvent({
         type: "pointer-released",
-        button: "left",
+        button: language.PointerEventButton.Left,
         position: { x: 49, y: 49 },
     });
     expect(instance.getProperty("clicked")).toBe(true);
@@ -123,7 +127,7 @@ test("Window dispatch pointer moved event", () => {
 
     window.dispatchEvent({
         type: "pointer-pressed",
-        button: "left",
+        button: language.PointerEventButton.Left,
         position: { x: 1, y: 1 },
     });
     window.dispatchEvent({
@@ -260,20 +264,20 @@ test("Window dispatch event result", () => {
     expect(
         window.dispatchEvent({
             type: "pointer-pressed",
-            button: "left",
+            button: language.PointerEventButton.Left,
             position: { x: 10, y: 10 },
         }),
     ).toBe(WindowEventDispatchResult.Accepted);
     window.dispatchEvent({
         type: "pointer-released",
-        button: "left",
+        button: language.PointerEventButton.Left,
         position: { x: 10, y: 10 },
     });
 
     expect(
         window.dispatchEvent({
             type: "pointer-pressed",
-            button: "left",
+            button: language.PointerEventButton.Left,
             position: { x: 90, y: 90 },
         }),
     ).toBe(WindowEventDispatchResult.Ignored);
