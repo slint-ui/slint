@@ -1480,15 +1480,26 @@ fn generate_sub_component(
         let e = compile_expression(&expr.borrow(), &ctx);
         if what == "Role" {
             accessible_role_branch.push(quote!(#index => #e,));
-        } else if let Some(what) = what.strip_prefix("Action") {
-            let what = ident(what);
-            let has_args = matches!(&*expr.borrow(), Expression::CallBackCall { arguments, .. } if !arguments.is_empty());
-            accessibility_action_branch.push(if has_args {
-                quote!((#index, sp::AccessibilityAction::#what(args)) => { let args = (args,); #e })
-            } else {
-                quote!((#index, sp::AccessibilityAction::#what) => { #e })
-            });
-            supported_accessibility_actions.entry(*index).or_default().insert(what);
+        } else if let Some(what_str) = what.strip_prefix("Action") {
+            let what_ident = ident(what_str);
+            let branch = match what_str {
+                "SetSelection" => quote!(
+                    (#index, sp::AccessibilityAction::SetSelection { anchor, focus }) => {
+                        let args = (anchor, focus);
+                        #e
+                    }
+                ),
+                _ => {
+                    let has_args = matches!(&*expr.borrow(), Expression::CallBackCall { arguments, .. } if !arguments.is_empty());
+                    if has_args {
+                        quote!((#index, sp::AccessibilityAction::#what_ident(args)) => { let args = (args,); #e })
+                    } else {
+                        quote!((#index, sp::AccessibilityAction::#what_ident) => { #e })
+                    }
+                }
+            };
+            accessibility_action_branch.push(branch);
+            supported_accessibility_actions.entry(*index).or_default().insert(what_ident);
         } else {
             let what = ident(what);
             accessible_string_property_branch

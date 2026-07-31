@@ -407,6 +407,32 @@ public:
         return std::nullopt;
     }
 
+    /// Selects the text between two UTF-8 offsets.
+    ///
+    /// This will invoke the `accessible-action-set-selection` callback.
+    void set_accessible_selection(int anchor, int focus) const
+    {
+        if (inner.element_index != 0)
+            return;
+        if (auto item = private_api::upgrade_item_weak(inner.item)) {
+            union SetSelectionHelper {
+                cbindgen_private::AccessibilityAction action;
+                SetSelectionHelper(int anchor, int focus)
+                {
+                    new (&action.set_selection)
+                            cbindgen_private::AccessibilityAction::SetSelection_Body {
+                                cbindgen_private::AccessibilityAction::Tag::SetSelection, anchor,
+                                focus
+                            };
+                }
+                ~SetSelectionHelper() { }
+
+            } action(anchor, focus);
+            item->item_tree.vtable()->accessibility_action(item->item_tree.borrow(), item->index,
+                                                           &action.action);
+        }
+    }
+
     /// Invokes the expand accessibility action of that element
     /// (`accessible-action-expand`).
     void invoke_accessible_expand_action() const

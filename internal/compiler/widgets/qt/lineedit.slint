@@ -14,6 +14,7 @@ export component LineEdit {
     accessible-placeholder-text: placeholder-text;
     accessible-read-only: root.read-only;
     accessible-action-set-value(v) => { text = v; edited(v); }
+    accessible-action-set-selection(anchor, focus) => { inner.set-selection-offsets(anchor, focus); }
 
     forward-focus: inner;
     horizontal-stretch: 1;

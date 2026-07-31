@@ -2729,14 +2729,28 @@ fn generate_sub_component(
         if what == "Role" {
             accessible_role_cases.push(format!("    case {index}: return {e};"));
         } else if let Some(what) = what.strip_prefix("Action") {
-            let has_args = matches!(&*expr.borrow(), llr::Expression::CallBackCall { arguments, .. } if !arguments.is_empty());
-
-            accessibility_action_cases.push(if has_args {
-                let member = ident(&crate::generator::to_kebab_case(what));
-                format!("    case ({index} << 8) | uintptr_t(slint::cbindgen_private::AccessibilityAction::Tag::{what}): {{ auto arg_0 = action.{member}._0; return {e}; }}")
-            } else {
-                format!("    case ({index} << 8) | uintptr_t(slint::cbindgen_private::AccessibilityAction::Tag::{what}): return {e};")
-            });
+            let case = match what {
+                "SetSelection" => {
+                    let member = ident(&crate::generator::to_kebab_case(what));
+                    format!(
+                        "    case ({index} << 8) | uintptr_t(slint::cbindgen_private::AccessibilityAction::Tag::{what}): {{ auto arg_0 = action.{member}.anchor; auto arg_1 = action.{member}.focus; return {e}; }}"
+                    )
+                }
+                _ => {
+                    let has_args = matches!(&*expr.borrow(), llr::Expression::CallBackCall { arguments, .. } if !arguments.is_empty());
+                    if has_args {
+                        let member = ident(&crate::generator::to_kebab_case(what));
+                        format!(
+                            "    case ({index} << 8) | uintptr_t(slint::cbindgen_private::AccessibilityAction::Tag::{what}): {{ auto arg_0 = action.{member}._0; return {e}; }}"
+                        )
+                    } else {
+                        format!(
+                            "    case ({index} << 8) | uintptr_t(slint::cbindgen_private::AccessibilityAction::Tag::{what}): return {e};"
+                        )
+                    }
+                }
+            };
+            accessibility_action_cases.push(case);
             supported_accessibility_actions
                 .entry(*index)
                 .or_default()
