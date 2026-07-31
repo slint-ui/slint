@@ -8,8 +8,7 @@
       "ignoreFiles": ["editors/tree-sitter-slint/grammar.js"]
     },
     "api/node": {
-      "project": ["typescript/**/*.ts", "__test__/**/*.{ts,mts}"],
-      "ignoreExportsUsedInFile": true
+      "project": ["typescript/**/*.ts", "__test__/**/*.{ts,mts}"]
     },
     "editors/vscode": {
       "entry": ["src/extension.ts", "src/browser.ts", "src/browser-lsp-worker.ts"],
