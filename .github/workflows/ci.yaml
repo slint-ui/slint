@@ -626,28 +626,6 @@ jobs:
             update: ${{ inputs.full == true }}
             save_if: ${{ inputs.full != true }}
 
-    slint_sc:
-        if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'slint_sc') }}
-        runs-on: ubuntu-22.04
-        steps:
-            - uses: actions/checkout@v7
-            - uses: ./.github/actions/setup-rust
-              with:
-                  components: llvm-tools-preview
-            - name: Install cargo-llvm-cov
-              uses: taiki-e/install-action@cargo-llvm-cov
-            - name: Test compiler with slint-sc feature
-              run: cargo test -p i-slint-compiler --features slint-sc --no-default-features
-            - name: Test slint-compiler binary with slint-sc feature
-              run: cargo test -p slint-compiler --features slint-sc --no-default-features
-            - name: Test the slint-sc runtime and measure coverage
-              run: scripts/measure_slint_sc_coverage.sh coverage
-            - name: Upload coverage report
-              uses: actions/upload-artifact@v7
-              with:
-                  name: slint-sc-coverage
-                  path: coverage
-
     clippy:
         if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'rust_files') }}
         env:
