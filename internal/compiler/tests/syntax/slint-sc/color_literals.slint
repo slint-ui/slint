@@ -72,4 +72,13 @@ export component Test inherits Window {
         background: #12g4;
 //                  >   <error{Invalid color literal}
     }
+
+    // A color literal has the type color: it binds to a color property
+    // directly, and not to a length property.
+    //#sls.expr.color.type
+    property <color> c: #123456;
+    Rectangle {
+        width: #123456;
+//             >      <error{Cannot convert color to length}
+    }
 }
