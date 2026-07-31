@@ -18,6 +18,7 @@ packages:
   - examples/memory
   - examples/slide_puzzle
   - examples/system-tray
+  - examples/virtual_keyboard/node
   - docs/astro
   - docs/common
   - docs/safety

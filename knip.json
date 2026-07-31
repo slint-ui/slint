@@ -74,6 +74,7 @@
     "examples/memory": { "ignoreBinaries": ["compile"] },
     "examples/slide_puzzle": { "ignoreBinaries": ["compile"] },
     "examples/system-tray": { "ignoreBinaries": ["compile"] },
+    "examples/virtual_keyboard/node": { "ignoreBinaries": ["compile"] },
     "docs/common": {
       "ignoreFiles": [
         "src/styles/starlight-slint-custom.css",

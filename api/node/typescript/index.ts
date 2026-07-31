@@ -5,6 +5,7 @@ import * as napi from "../binding.cjs";
 export {
     Diagnostic,
     DiagnosticLevel,
+    WindowEventDispatchResult,
     RgbaColor,
     Brush,
     DataTransfer,
@@ -18,6 +19,9 @@ export { Model };
 export { ArrayModel } from "./models";
 
 export { language } from "./generated/language";
+
+import * as platform from "./platform";
+export { platform };
 
 import { Diagnostic } from "../binding.cjs";
 
@@ -71,13 +75,13 @@ export interface Window {
     /** Gets or sets the physical size of the window on the screen, */
     physicalSize: Size;
 
-    /** Gets or sets the window's fullscreen state **/
+    /** Gets or sets the window's fullscreen state. */
     fullscreen: boolean;
 
-    /** Gets or sets the window's maximized state **/
+    /** Gets or sets the window's maximized state. */
     maximized: boolean;
 
-    /** Gets or sets the window's minimized state **/
+    /** Gets or sets the window's minimized state. */
     minimized: boolean;
 
     /**
@@ -97,6 +101,13 @@ export interface Window {
 
     /** Issues a request to the windowing system to re-render the contents of the window. */
     requestRedraw(): void;
+
+    /**
+     * Dispatches a window event to the scene.
+     *
+     * Returns whether the scene accepted the event, actively rejected it, or left it unhandled.
+     */
+    dispatchEvent(event: platform.WindowEvent): napi.WindowEventDispatchResult;
 }
 
 /**
