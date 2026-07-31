@@ -148,7 +148,7 @@ pub fn draw_text(
         return;
     };
 
-    let scale_factor = ScaleFactor::new(item_renderer.scale_factor());
+    let scale_factor = item_renderer.scale_factor();
 
     let (stroke_brush, stroke_width, stroke_style) = text.stroke();
     let platform_stroke_brush = if !stroke_brush.is_transparent() {
@@ -326,7 +326,7 @@ pub fn draw_text_input(
         visual_representation.selection_range.start..visual_representation.selection_range.end
     };
 
-    let scale_factor = ScaleFactor::new(item_renderer.scale_factor());
+    let scale_factor = item_renderer.scale_factor();
 
     let layout_builder =
         shaping_builder(text_input, Some(item_rc), text_input.wrap(), scale_factor);

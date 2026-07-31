@@ -26,7 +26,7 @@ use crate::items::Path;
 use crate::items::{BoxShadow, Clip, ItemRc, ItemRef, Layer, Opacity, RenderingResult, TextInput};
 use crate::lengths::{
     ItemTransform, LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalPx, LogicalRect,
-    LogicalSize, LogicalVector,
+    LogicalSize, LogicalVector, ScaleFactor,
 };
 use crate::properties::PropertyTracker;
 use crate::window::WindowAdapter;
@@ -723,7 +723,7 @@ impl<T: ItemRenderer + ItemRendererFeatures> ItemRenderer for PartialRenderer<'_
         self.actual_renderer.restore_state()
     }
 
-    fn scale_factor(&self) -> f32 {
+    fn scale_factor(&self) -> ScaleFactor {
         self.actual_renderer.scale_factor()
     }
 

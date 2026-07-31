@@ -60,7 +60,7 @@ macro_rules! fn_render {
     ($this:ident $dpr:ident $size:ident $painter:ident $widget:ident $initial_state:ident => $($tt:tt)*) => {
         fn render(self: Pin<&Self>, backend: &mut &mut dyn ItemRenderer, item_rc: &ItemRc, size: LogicalSize) -> RenderingResult {
             self.animation_tracker();
-            let $dpr: f32 = backend.scale_factor();
+            let $dpr: f32 = backend.scale_factor().get();
 
             let active: bool = backend.window().active();
             // This should include self.enabled() as well, but not every native widget

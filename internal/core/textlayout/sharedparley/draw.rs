@@ -80,7 +80,7 @@ pub trait GlyphRenderer: crate::item_rendering::ItemRenderer {
 /// [`crate::item_rendering::ItemRenderer::get_current_clip`] -- so it is a safe bound for
 /// skipping draw work, never for layout decisions.
 pub(super) fn visible_band(item_renderer: &impl GlyphRenderer) -> Range<PhysicalLength> {
-    let scale_factor = ScaleFactor::new(item_renderer.scale_factor());
+    let scale_factor = item_renderer.scale_factor();
     let clip = item_renderer.get_current_clip();
     let top = clip.origin.y_length() * scale_factor;
     top..(top + clip.height_length() * scale_factor)
@@ -260,7 +260,7 @@ impl TextParagraph {
         // so the capsule edge doesn't sit flush against tall glyphs.
         const VERTICAL_PADDING_RATIO: f32 = 0.15;
 
-        let scale_factor = ScaleFactor::new(item_renderer.scale_factor());
+        let scale_factor = item_renderer.scale_factor();
         let border_width = BORDER_WIDTH * scale_factor;
 
         // Capsules only under lines that are drawn: lines past the visible-extent cut
@@ -440,7 +440,7 @@ impl TextParagraph {
 
         // Clip horizontally only: the vertical extent stays whatever is already in effect, so
         // accents and descenders reaching outside the line box are never sheared off.
-        let scale_factor = ScaleFactor::new(item_renderer.scale_factor());
+        let scale_factor = item_renderer.scale_factor();
         let current_clip = item_renderer.get_current_clip();
         let render = item_renderer.combine_clip(
             LogicalRect::new(

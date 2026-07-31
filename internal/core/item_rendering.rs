@@ -10,6 +10,7 @@ use crate::item_tree::ItemTreeRc;
 use crate::item_tree::{ItemVisitor, ItemVisitorVTable, VisitChildrenResult};
 use crate::lengths::{
     LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector,
+    ScaleFactor,
 };
 pub use crate::partial_renderer::CachedRenderingData;
 use crate::window::WindowAdapterRc;
@@ -568,7 +569,7 @@ pub trait ItemRenderer {
     fn restore_state(&mut self);
 
     /// Returns the scale factor
-    fn scale_factor(&self) -> f32;
+    fn scale_factor(&self) -> ScaleFactor;
 
     /// Draw a pixmap in position indicated by the `pos`.
     /// The pixmap will be taken from cache if the cache is valid, otherwise, update_fn will be called
@@ -657,7 +658,7 @@ where
     R: LayerRenderer<'cache> + ?Sized + 'cache,
 {
     let cache = renderer.layer_cache();
-    let scale_factor = crate::lengths::ScaleFactor::new(renderer.scale_factor());
+    let scale_factor = renderer.scale_factor();
 
     let compute_bounds = |r: &R| -> LogicalRect {
         item_children_bounding_rect(item_rc, &r.window().window_adapter())

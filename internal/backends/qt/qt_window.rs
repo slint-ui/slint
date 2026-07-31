@@ -1180,8 +1180,8 @@ impl ItemRenderer for QtItemRenderer<'_> {
         self.painter.restore()
     }
 
-    fn scale_factor(&self) -> f32 {
-        1.
+    fn scale_factor(&self) -> ScaleFactor {
+        ScaleFactor::new(1.)
         /* cpp! { unsafe [painter as "QPainterPtr*"] -> f32 as "float" {
             return (*painter)->paintEngine()->paintDevice()->devicePixelRatioF();
         }} */
@@ -1207,7 +1207,7 @@ impl ItemRenderer for QtItemRenderer<'_> {
             self,
             std::pin::pin!((SharedString::from(string), Brush::from(color))),
             None,
-            logical_size_from_api(self.window.size().to_logical(self.scale_factor())),
+            logical_size_from_api(self.window.size().to_logical(self.scale_factor().get())),
             None,
         );
     }
@@ -1217,7 +1217,7 @@ impl ItemRenderer for QtItemRenderer<'_> {
         if source_size.is_empty() {
             return;
         }
-        let scale_factor = ScaleFactor::new(self.scale_factor());
+        let scale_factor = self.scale_factor();
         let target_size = LogicalSize::from_untyped(source_size.cast()) * scale_factor;
         let image_inner: &ImageInner = (&image).into();
         // Rasterize scalable sources at scale_factor so SVGs are crisp on high-DPI displays
@@ -1708,7 +1708,7 @@ impl QtItemRenderer<'_> {
                     // Source size & clipping is not implemented yet
                     None
                 } else {
-                    let scale_factor = ScaleFactor::new(self.scale_factor());
+                    let scale_factor = self.scale_factor();
                     let actual_target_size = i_slint_core::graphics::fit(
                         image.image_fit(),
                         // Query target_width/height here again to ensure that changes will invalidate the item rendering cache.
@@ -1757,7 +1757,7 @@ impl QtItemRenderer<'_> {
         let image_size = pixmap.size();
         let source_rect = source_rect
             .unwrap_or_else(|| euclid::rect(0, 0, image_size.width as _, image_size.height as _));
-        let scale_factor = ScaleFactor::new(self.scale_factor());
+        let scale_factor = self.scale_factor();
 
         let fit = if let ImageInner::NineSlice(nine) = <&ImageInner>::from(&image.source()) {
             i_slint_core::graphics::fit9slice(
