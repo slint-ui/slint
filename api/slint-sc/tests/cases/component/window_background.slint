@@ -16,6 +16,8 @@ let mut frame_buffer = [0u8; 64 * 64 * 3];
 x.render_rgb8(64, 64, &mut frame_buffer)?;
 assert!(frame_buffer.chunks(3).all(|pixel| pixel == [0xff, 0x00, 0x00]));
 //#sls.gen.render-error
-assert_eq!(x.render_rgb8(64, 64, &mut [0u8; 8]), Err(slint_sc::RenderError::InvalidFrameBufferSize));
+let error = x.render_rgb8(64, 64, &mut [0u8; 8]).unwrap_err();
+assert_eq!(error, slint_sc::RenderError::InvalidFrameBufferSize);
+assert_eq!(std::format!("{error}"), "the frame buffer size doesn't match the requested width and height");
 ```
 */
