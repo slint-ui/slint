@@ -422,10 +422,10 @@ impl ItemRc {
         let mut visibility_clips = Vec::new();
         let mut current = Some(self.clone());
         while let Some(item) = current {
-            if let Some(clip) = item.downcast::<crate::items::Clip>() {
-                if clip.as_pin_ref().is_visibility_clip() {
-                    visibility_clips.push(VRcMapped::downgrade(&clip));
-                }
+            if let Some(clip) = item.downcast::<crate::items::Clip>()
+                && clip.as_pin_ref().is_visibility_clip()
+            {
+                visibility_clips.push(VRcMapped::downgrade(&clip));
             }
             current = item.parent_item(ParentItemTraversalMode::StopAtPopups);
         }

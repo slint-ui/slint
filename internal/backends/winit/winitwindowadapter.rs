@@ -499,10 +499,11 @@ impl WinitWindowAdapter {
         // Create the window at its preferred size: the renderer's surface is created together
         // with the window, and on Wayland resizing it afterwards only takes effect after the
         // next present, so the first frame would be rendered at the pre-show size.
-        if !self.has_explicit_size.get() && window_attributes.fullscreen.is_none() {
-            if let Some(preferred_size) = self.preferred_size() {
-                window_attributes.inner_size = Some(preferred_size.into());
-            }
+        if !self.has_explicit_size.get()
+            && window_attributes.fullscreen.is_none()
+            && let Some(preferred_size) = self.preferred_size()
+        {
+            window_attributes.inner_size = Some(preferred_size.into());
         }
 
         let winit_window =

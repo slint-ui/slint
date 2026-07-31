@@ -309,7 +309,7 @@ fn validate_interface_member_implementation(
             source,
         });
     }
-    return Some(conflicts);
+    Some(conflicts)
 }
 
 pub(super) fn apply_child_implement_statements(
@@ -471,7 +471,7 @@ fn missing_type_description(interface_declaration: &PropertyDeclaration) -> Stri
 
 fn syntax_for(interface_declaration: &PropertyDeclaration, name: &SmolStr) -> String {
     let display_args = |arguments: &Vec<Type>| -> String {
-        arguments.iter().map(|t| t.to_string()).join(", ").into()
+        arguments.iter().map(|t| t.to_string()).join(", ")
     };
     let return_type = |return_type: &Type| -> String {
         if *return_type == Type::Void { String::new() } else { format!(" -> {return_type}") }

@@ -2021,9 +2021,7 @@ pub fn get_layout_info_h_constrained_for_repeated(
     element: &ElementRc,
     constraints: &crate::layout::LayoutConstraints,
 ) -> Option<llr_Expression> {
-    if element.borrow().inherited_layout_info_h_with_constraint().is_none() {
-        return None;
-    }
+    element.borrow().inherited_layout_info_h_with_constraint()?;
     // Unbounded, the same default static width-for-height cells use: the
     // natural, unwrapped width. A flex re-measures at the height it really
     // assigns via `get_layout_info_h_at_cross_height_for_repeated`.
@@ -2055,9 +2053,7 @@ pub fn get_layout_info_h_at_cross_height_for_repeated(
     element: &ElementRc,
     constraints: &crate::layout::LayoutConstraints,
 ) -> Option<llr_Expression> {
-    if element.borrow().inherited_layout_info_h_with_constraint().is_none() {
-        return None;
-    }
+    element.borrow().inherited_layout_info_h_with_constraint()?;
     let height_constraint = crate::expression_tree::Expression::ReadLocalVariable {
         name: FLEX_CROSS_HEIGHT_LOCAL.into(),
         ty: Type::LogicalLength,

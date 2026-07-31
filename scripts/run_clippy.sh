@@ -4,6 +4,8 @@
 #
 # Run cargo clippy (this script is used by CI)
 
+set -e
+
 export RUSTFLAGS="-D warnings"
 export CARGO_INCREMENTAL=false
 export CARGO_PROFILE_DEV_DEBUG=0

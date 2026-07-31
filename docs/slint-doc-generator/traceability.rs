@@ -331,7 +331,7 @@ fn scan_spec_pages(dir: &Path) -> Result<Vec<SpecPage>, Box<dyn std::error::Erro
         // The index page is served at the root of the specification.
         page.top_level = stem == "index";
         page.base =
-            if page.top_level { format!("/language/") } else { format!("/language/{stem}/") };
+            if page.top_level { "/language/".to_string() } else { format!("/language/{stem}/") };
         if !page.draft {
             pages.push(page);
         }

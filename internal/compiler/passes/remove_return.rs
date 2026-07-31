@@ -49,7 +49,7 @@ fn process_expression(
             process_codeblock(expr.into_iter().peekable(), toplevel, ty, ctx, symbol_counters)
         }
         Expression::Condition { condition, true_expr, false_expr } => {
-            process_condition(condition, true_expr, false_expr, ctx, ty, symbol_counters)
+            process_condition(condition, *true_expr, *false_expr, ctx, ty, symbol_counters)
         }
         Expression::Cast { from, to } => {
             let ty = if !has_value(ty) { ty.clone() } else { from.ty() };
@@ -57,7 +57,7 @@ fn process_expression(
                 .map_value(symbol_counters, |e| Expression::Cast { from: e.into(), to })
         }
         Expression::StoreLocalVariable { name, value } => {
-            process_store_local_variable(name, value, ctx, symbol_counters)
+            process_store_local_variable(name, *value, ctx, symbol_counters)
         }
         e => {
             // Normally there shouldn't be any 'return' statements in there since return are not allowed in arbitrary expressions
@@ -72,14 +72,14 @@ fn process_expression(
 
 fn process_condition(
     condition: Box<Expression>,
-    true_expr: Box<Expression>,
-    false_expr: Box<Expression>,
+    true_expr: Expression,
+    false_expr: Expression,
     ctx: &RemoveReturnContext,
     ty: &Type,
     symbol_counters: &SymbolCounters,
 ) -> ExpressionResult {
-    let te = process_expression(*true_expr, false, ctx, ty, symbol_counters);
-    let fe = process_expression(*false_expr, false, ctx, ty, symbol_counters);
+    let te = process_expression(true_expr, false, ctx, ty, symbol_counters);
+    let fe = process_expression(false_expr, false, ctx, ty, symbol_counters);
     merge_condition_branches(condition, te, fe, ctx, ty, symbol_counters)
 }
 
@@ -138,12 +138,12 @@ fn merge_condition_branches(
 
 fn process_store_local_variable(
     name: SmolStr,
-    value: Box<Expression>,
+    value: Expression,
     ctx: &RemoveReturnContext,
     symbol_counters: &SymbolCounters,
 ) -> ExpressionResult {
     let inner_ty = value.ty();
-    match process_expression(*value, false, ctx, &inner_ty, symbol_counters) {
+    match process_expression(value, false, ctx, &inner_ty, symbol_counters) {
         ExpressionResult::Just(e) => {
             ExpressionResult::Just(Expression::StoreLocalVariable { name, value: Box::new(e) })
         }
