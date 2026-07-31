@@ -186,8 +186,33 @@ impl CachedTextInputAccessibilityState {
     ) -> Option<(usize, usize)> {
         let mut decoder = Decoder { state: self, anchor, focus, decoded: None };
         renderer.visit_text_input_layout(text_input, item_rc, size, &mut decoder);
-        decoder.decoded
+        let (anchor, focus) = decoder.decoded?;
+        Some((to_actual_offset(text_input, anchor), to_actual_offset(text_input, focus)))
     }
+}
+
+/// Maps a byte offset in the text the input *displays* back to one in the text it *holds*.
+///
+/// A password field displays [`crate::items::PASSWORD_CHARACTER`] per character, and that character
+/// is three bytes in UTF-8 where the ones it stands in for are often one, so the two run out of step
+/// as soon as anything past the first character is selected. The offsets an assistive technology
+/// hands back index the displayed text, while `TextInput::set-selection-offsets` indexes the held
+/// text, so they have to be converted on the way through.
+///
+/// This is what `TextInputVisualRepresentation::map_byte_offset_from_visual_text_to_actual_text`
+/// does for the renderer's hit-testing; the accessibility pass can't reuse it, because reaching a
+/// `TextInputVisualRepresentation` means reading `cursor_visible` and dirtying the AT subtree on
+/// every blink.
+fn to_actual_offset(text_input: Pin<&crate::items::TextInput>, displayed_offset: usize) -> usize {
+    if !text_input.is_password() {
+        return displayed_offset;
+    }
+    // One mask character per character of the text, so the offset divides out to an index.
+    let unmasked = text_input.text_with_preedit().0;
+    unmasked
+        .char_indices()
+        .nth(displayed_offset / crate::items::PASSWORD_CHARACTER.len_utf8())
+        .map_or(unmasked.len(), |(offset, _)| offset)
 }
 
 /// See [`CachedTextInputAccessibilityState::decode_selection`].
