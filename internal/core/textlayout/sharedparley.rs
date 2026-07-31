@@ -338,15 +338,6 @@ pub fn draw_text_input(
         LayoutOptions::new_from_textinput(text_input, Some(width), Some(height)),
         window_adapter.window(),
         |layout| {
-            // When a piece of text is first selected, it gets an empty range like `1..1`. If the
-            // text starts with a multi-byte character then this selection would be within that
-            // character and parley would panic, so empty ranges are filtered out.
-            let selection_spans = if selection_range.is_empty() {
-                SelectionSpans::default()
-            } else {
-                layout.selection_geometry(selection_range)
-            };
-
             item_renderer.save_state();
 
             let render = item_renderer.combine_clip(
@@ -356,6 +347,16 @@ pub fn draw_text_input(
             );
 
             if render {
+                // When a piece of text is first selected, it gets an empty range like `1..1`. If
+                // the text starts with a multi-byte character then this selection would be within
+                // that character and parley would panic, so empty ranges are filtered out. The
+                // spans only feed drawing (the highlight fill and the glyph clip), so only the
+                // lines the clip lets through need any.
+                let selection_spans = if selection_range.is_empty() {
+                    SelectionSpans::default()
+                } else {
+                    layout.selection_geometry(selection_range, &draw::visible_band(item_renderer))
+                };
                 // Inside the clip, like the glyphs it sits under: a line box taller than the item
                 // would otherwise paint the highlight over whatever follows the input.
                 for background in selection_spans.backgrounds() {

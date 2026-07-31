@@ -103,16 +103,33 @@ pub(super) fn run_coverage(run_x: &Range<f32>, spans: &[SelectionSpan]) -> RunCo
 }
 
 impl Layout {
-    /// Resolves `selection_range` into per-line horizontal spans.
+    /// Resolves `selection_range` into per-line horizontal spans, for the lines whose boxes may
+    /// intersect `visible_band` (a physical y range in item coordinates; spans feed drawing only,
+    /// so off-screen lines need none). Pass an unbounded band to resolve everything.
     ///
     /// Parley already splits a ligature into one cluster per character and apportions the
     /// advance between them, so the geometry it reports is accurate to sub-glyph precision --
     /// selecting the `i` of an `fi` ligature yields exactly the ligature's right half. That
     /// precision is what makes clip-based selection drawing possible; see [`SelectionSpan`].
-    pub(super) fn selection_geometry(&self, selection_range: Range<usize>) -> SelectionSpans {
+    pub(super) fn selection_geometry(
+        &self,
+        selection_range: Range<usize>,
+        visible_band: &Range<PhysicalLength>,
+    ) -> SelectionSpans {
         let mut spans = Vec::new();
 
         for (paragraph_index, paragraph) in self.visible_paragraphs().iter().enumerate() {
+            // Like the draw cull, padded by an (average) line height for ink that overhangs its
+            // line box: such a line still draws, so it still needs its spans.
+            let paragraph_top = self.y_offset + paragraph.y;
+            let paragraph_height = PhysicalLength::new(paragraph.layout.height());
+            let line_pad = paragraph_height / paragraph.layout.lines().len().max(1) as f32;
+            if paragraph_top + paragraph_height + line_pad < visible_band.start
+                || paragraph_top - line_pad > visible_band.end
+            {
+                continue;
+            }
+
             let selection_start = selection_range.start.max(paragraph.range.start);
             let selection_end = selection_range.end.min(paragraph.range.end);
 
@@ -143,10 +160,17 @@ impl Layout {
                 if x.end <= x.start {
                     return;
                 }
+                // A giant wrapped paragraph passes the paragraph test above with all its lines;
+                // keep only the ones that can reach the band.
+                let top = PhysicalLength::new(rect.y0 as _) + paragraph_top;
+                let bottom = PhysicalLength::new(rect.y1 as _) + paragraph_top;
+                if bottom + line_pad < visible_band.start || top - line_pad > visible_band.end {
+                    return;
+                }
                 let background = PhysicalRect::new(
                     PhysicalPoint::from_lengths(
                         PhysicalLength::new(x.start),
-                        PhysicalLength::new(rect.y0 as _) + self.y_offset + paragraph.y,
+                        PhysicalLength::new(rect.y0 as _) + paragraph_top,
                     ),
                     PhysicalSize::new(x.end - x.start, rect.height() as _),
                 );
