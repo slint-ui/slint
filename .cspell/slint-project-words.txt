@@ -345,6 +345,7 @@ libslint
 libstdc
 libudev
 libuv
+libtest
 libx
 libxcb
 libxcursor
@@ -520,6 +521,7 @@ rlib
 Roboto
 RODATA
 rowcol
+rsplit
 rspolib
 rsvg
 rtti
@@ -649,6 +651,7 @@ unhinted
 unicodes
 uninit
 Unitless
+unittests
 unmaximize
 UNORM
 unpark

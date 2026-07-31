@@ -7504,6 +7504,7 @@ dependencies = [
  "image",
  "rayon",
  "regex",
+ "serde_json",
  "tempfile",
 ]
 

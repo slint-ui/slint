@@ -187,15 +187,9 @@ jobs:
                   EXTRA_FLAGS="--experimental"
                 fi
                 cargo run --release -p slint-doc-generator -- $EXTRA_FLAGS
-            - name: "Test compiler with slint-sc feature"
+            - name: "Run the slint-sc test suites and measure coverage"
               if: ${{ inputs['slint-sc-coverage'] }}
-              run: cargo test -p i-slint-compiler --features slint-sc --no-default-features
-            - name: "Test slint-compiler binary with slint-sc feature"
-              if: ${{ inputs['slint-sc-coverage'] }}
-              run: cargo test -p slint-compiler --features slint-sc --no-default-features
-            - name: "Measure slint-sc test coverage"
-              if: ${{ inputs['slint-sc-coverage'] }}
-              run: scripts/measure_slint_sc_coverage.sh coverage
+              run: scripts/slint_sc_test_suite.sh coverage
             - name: "Upload slint-sc coverage report"
               if: ${{ inputs['slint-sc-coverage'] }}
               uses: actions/upload-artifact@v7
@@ -206,7 +200,7 @@ jobs:
               run: |
                   COVERAGE_FLAGS=""
                   if [ "${{ inputs['slint-sc-coverage'] }}" = "true" ]; then
-                      COVERAGE_FLAGS="--coverage-json coverage/coverage.json --coverage-html coverage/html"
+                      COVERAGE_FLAGS="--coverage-json coverage/coverage.json --coverage-html coverage/html --test-results coverage/test-results"
                   fi
                   cargo run --release -p slint-doc-generator -- --slint-sc $COVERAGE_FLAGS generate-mdx
             - name: "Compile Slint snippets in Markdown (doctests)"

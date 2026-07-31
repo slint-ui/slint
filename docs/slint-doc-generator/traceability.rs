@@ -8,7 +8,7 @@
 use crate::Config;
 use anyhow::Context;
 use std::collections::HashMap;
-use std::io::{BufWriter, Write};
+use std::io::Write;
 use std::path::Path;
 
 /// Canonical location of the specification chapters, relative to the
@@ -479,6 +479,12 @@ fn informative(id: &str) -> bool {
     id.split('.').any(|s| s == "meta" || s == "example")
 }
 
+/// `Generated from commit ...` page header line, linking the commit on
+/// GitHub with a shortened sha as the text.
+pub(crate) fn commit_line(sha: &str) -> String {
+    format!("Generated from commit [`{}`]({REPO_URL}/tree/{sha}).", &sha[..sha.len().min(10)])
+}
+
 /// The commit to link test files to on GitHub.
 pub(crate) fn git_head(repo_root: &Path) -> String {
     std::process::Command::new("git")
@@ -501,11 +507,7 @@ fn write_matrix(
     tests_by_id: &HashMap<&str, Vec<&TestRef>>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let sha = git_head(repo_root);
-    let dir = cfg.qualification_plan_dir();
-    std::fs::create_dir_all(&dir)?;
-    let path = dir.join(MATRIX_FILE);
-    let mut file =
-        BufWriter::new(std::fs::File::create(&path).context(format!("error creating {path:?}"))?);
+    let mut file = cfg.qualification_page(MATRIX_FILE)?;
 
     let all = || spec_pages.iter().chain(reference_pages).chain(safety_pages);
     let total = all().flat_map(|p| &p.anchors).filter(|(id, _)| !informative(id)).count();
