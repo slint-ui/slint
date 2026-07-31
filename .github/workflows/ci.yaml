@@ -347,12 +347,12 @@ jobs:
                   buildtargets: esp32
                   ldproxy: false
             - name: Check pico-st7789
-              if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'internal') || contains(fromJSON(inputs.changes), 'examples_mcu') || contains(fromJSON(inputs.changes), 'api_rs') }}
+              if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'examples_mcu') || contains(fromJSON(inputs.changes), 'api_rs') }}
               env:
                   RUSTFLAGS: --cfg slint_int_coord -D warnings
               run: cargo check --target=thumbv6m-none-eabi --manifest-path demos/Cargo.toml -p printerdemo_mcu --no-default-features --features=mcu-board-support/pico-st7789 --release
             - name: Check mcu-embassy
-              if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'internal') || contains(fromJSON(inputs.changes), 'examples_mcu') || contains(fromJSON(inputs.changes), 'api_rs') }}
+              if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'examples_mcu') || contains(fromJSON(inputs.changes), 'api_rs') }}
               env:
                   RUSTFLAGS: --cfg slint_int_coord -D warnings
               run: cargo check --bin ui_mcu --target=thumbv8m.main-none-eabihf --no-default-features --features="mcu-embassy/mcu" --release
@@ -397,7 +397,7 @@ jobs:
             release: false
 
     wasm_demo:
-        if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'internal') || contains(fromJSON(inputs.changes), 'examples') || contains(fromJSON(inputs.changes), 'api_rs') }}
+        if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'examples') || contains(fromJSON(inputs.changes), 'api_rs') }}
         uses: ./.github/workflows/wasm_demos.yaml
         with:
           build_artifacts: false
@@ -505,7 +505,7 @@ jobs:
                   idf.py build
 
     android:
-        if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'internal') || contains(fromJSON(inputs.changes), 'api_rs') || contains(fromJSON(inputs.changes), 'examples') || contains(fromJSON(inputs.changes), 'android_backend') }}
+        if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'api_rs') || contains(fromJSON(inputs.changes), 'examples') || contains(fromJSON(inputs.changes), 'android_backend') }}
         runs-on: ubuntu-latest
         env:
             RUSTFLAGS: -D warnings

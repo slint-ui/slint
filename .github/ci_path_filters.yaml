@@ -111,6 +111,7 @@ material_components:
  - *ci_config
 
 api_cpp:
+ - *compiler
  - 'api/cpp/**'
  - 'cmake/**'
  - 'tools/compiler/**'
@@ -132,9 +133,11 @@ api_node:
  - '.github/workflows/node_test_reusable.yaml'
 
 api_rs:
+ - *compiler
  - 'api/rs/**'
- - 'Cargo.toml'
  - 'internal/compiler/generator/rust*{,/**}'
+ # The slint crate re-exports i-slint-core as its api
+ - 'internal/core{,-macros}/**'
 
 # The test drivers (doctests are run by the docs build) and the testing
 # backend they use.
@@ -162,6 +165,9 @@ vsce:
 
 slintpad:
  - *internal
+ # The wasm build compiles the winit backend and the femtovg renderer
+ - 'internal/backends/winit/**'
+ - 'internal/renderers/femtovg/**'
  - '.github/workflows/wasm_editor_and_interpreter.yaml'
  - 'tools/slintpad/**'
  - 'api/wasm-interpreter/**'
