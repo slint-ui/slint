@@ -25,19 +25,24 @@ js_config: &js_config
  - '.npmrc'
  - 'pnpm-lock.yaml'
 
-# Compiler and runtime shared by all language APIs; they need the Qt widgets
-# and the testing backend, but no renderer. Language-specific generators and
-# the compiler's own test data are left to the api_* and `slint` groups.
-internal: &internal
- - 'internal/!({compiler,renderers,backends}/**)'
+# The compiler library and i-slint-common, without the language-specific
+# generator backends and the compiler's own test data.
+compiler: &compiler
+ - 'internal/common/**'
  - 'internal/compiler/!({tests,generator}/**)'
  - 'internal/compiler/generator/!(cpp*|python*|rust*|slint_sc*){,/**}'
- - 'internal/backends/qt/**'
- - 'internal/backends/testing/**'
- - 'helper_crates/**'
  - 'Cargo.toml' # the root Cargo.toml
  - '.cargo/**'
  - *ci_config
+
+# Compiler and runtime shared by all language APIs; they need the Qt widgets
+# and the testing backend, but no renderer.
+internal: &internal
+ - *compiler
+ - 'internal/!({compiler,renderers,backends}/**)'
+ - 'internal/backends/qt/**'
+ - 'internal/backends/testing/**'
+ - 'helper_crates/**'
 
 # What the integration tests in the tests/ workspace build against.
 integration: &integration
@@ -106,6 +111,7 @@ material_components:
  - *ci_config
 
 api_cpp:
+ - *compiler
  - 'api/cpp/**'
  - 'cmake/**'
  - 'tools/compiler/**'
@@ -127,13 +133,17 @@ api_node:
  - '.github/workflows/node_test_reusable.yaml'
 
 api_rs:
+ - *compiler
  - 'api/rs/**'
- - 'Cargo.toml'
  - 'internal/compiler/generator/rust*{,/**}'
+ # The slint crate re-exports i-slint-core as its api
+ - 'internal/core{,-macros}/**'
 
-# All the test drivers except doctests, which only the docs build runs.
+# The test drivers (doctests are run by the docs build) and the testing
+# backend they use.
 tests:
  - 'tests/!(doctests/**)'
+ - 'internal/backends/testing/**'
 
 examples:
  # Some examples are tested separately and can be excluded from here
@@ -155,6 +165,9 @@ vsce:
 
 slintpad:
  - *internal
+ # The wasm build compiles the winit backend and the femtovg renderer
+ - 'internal/backends/winit/**'
+ - 'internal/renderers/femtovg/**'
  - '.github/workflows/wasm_editor_and_interpreter.yaml'
  - 'tools/slintpad/**'
  - 'api/wasm-interpreter/**'
@@ -171,9 +184,12 @@ bevy_examples:
  - 'examples/bevy/**'
  - '.github/workflows/bevy_examples.yaml'
 
+# internal/compiler/tests because the job runs the compiler's own tests.
 slint_sc:
  - 'internal/common/**'
- - 'internal/compiler/**'
+ - *compiler
+ - 'internal/compiler/generator/slint_sc*{,/**}'
+ - 'internal/compiler/tests/**'
  - 'api/slint-sc/**'
  - 'tools/compiler/**'
  - *ci_config
@@ -183,7 +199,6 @@ safety_docs:
  - 'docs/safety/**'
  - 'docs/slint-doc-generator/**'
  - '.github/workflows/build_docs.yaml'
- - *ci_config
 
 rust_files:
  - '**/*.rs'

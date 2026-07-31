@@ -57,7 +57,8 @@ jobs:
                     - os: windows-2022
                       name: "Windows 2022 1.92"
                       rust_version: "1.92"
-                      extra_args: "--exclude ffmpeg --exclude gstreamer-player --exclude material-gallery"
+                      # The platform-independent interpreter test driver only runs on macOS
+                      extra_args: "--exclude ffmpeg --exclude gstreamer-player --exclude material-gallery --exclude test-driver-interpreter"
                     - os: macos-14
                       name: "MacOS 14 beta"
                       rust_version: "beta"
@@ -71,6 +72,9 @@ jobs:
             run_qt: ${{ inputs.full || contains(fromJSON(inputs.changes), 'qt') }}
             test_workspace: ${{ inputs.full || contains(fromJSON(inputs.changes), 'slint') }}
             test_integration: ${{ inputs.full || contains(fromJSON(inputs.changes), 'integration') || contains(fromJSON(inputs.changes), 'tests') }}
+            # macOS only runs the rust driver when its inputs changed;
+            # Windows always does, for the live-preview test.
+            test_rust_driver: ${{ !startsWith(matrix.os, 'macos') || inputs.full || contains(fromJSON(inputs.changes), 'api_rs') || contains(fromJSON(inputs.changes), 'tests') || contains(fromJSON(inputs.changes), 'qt') }}
             build_examples: ${{ inputs.full || contains(fromJSON(inputs.changes), 'integration') || contains(fromJSON(inputs.changes), 'examples') }}
             save_if: ${{ github.ref == 'refs/heads/master' }}
 
@@ -343,12 +347,12 @@ jobs:
                   buildtargets: esp32
                   ldproxy: false
             - name: Check pico-st7789
-              if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'internal') || contains(fromJSON(inputs.changes), 'examples_mcu') || contains(fromJSON(inputs.changes), 'api_rs') }}
+              if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'examples_mcu') || contains(fromJSON(inputs.changes), 'api_rs') }}
               env:
                   RUSTFLAGS: --cfg slint_int_coord -D warnings
               run: cargo check --target=thumbv6m-none-eabi --manifest-path demos/Cargo.toml -p printerdemo_mcu --no-default-features --features=mcu-board-support/pico-st7789 --release
             - name: Check mcu-embassy
-              if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'internal') || contains(fromJSON(inputs.changes), 'examples_mcu') || contains(fromJSON(inputs.changes), 'api_rs') }}
+              if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'examples_mcu') || contains(fromJSON(inputs.changes), 'api_rs') }}
               env:
                   RUSTFLAGS: --cfg slint_int_coord -D warnings
               run: cargo check --bin ui_mcu --target=thumbv8m.main-none-eabihf --no-default-features --features="mcu-embassy/mcu" --release
@@ -393,7 +397,7 @@ jobs:
             release: false
 
     wasm_demo:
-        if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'internal') || contains(fromJSON(inputs.changes), 'examples') || contains(fromJSON(inputs.changes), 'api_rs') }}
+        if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'examples') || contains(fromJSON(inputs.changes), 'api_rs') }}
         uses: ./.github/workflows/wasm_demos.yaml
         with:
           build_artifacts: false
@@ -501,7 +505,7 @@ jobs:
                   idf.py build
 
     android:
-        if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'internal') || contains(fromJSON(inputs.changes), 'api_rs') || contains(fromJSON(inputs.changes), 'examples') || contains(fromJSON(inputs.changes), 'android_backend') }}
+        if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'api_rs') || contains(fromJSON(inputs.changes), 'examples') || contains(fromJSON(inputs.changes), 'android_backend') }}
         runs-on: ubuntu-latest
         env:
             RUSTFLAGS: -D warnings
