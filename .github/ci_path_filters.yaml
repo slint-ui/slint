@@ -1,17 +1,18 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-# The files that define the CI jobs. Referenced by every filter group: a
-# change here can alter any job's steps, so no job may merge unexercised.
-# Reusable workflows used by a single job belong in the group gating that
-# job instead.
-ci_files: &ci_files
+# CI configuration that affects most jobs. Reusable workflows used by a single
+# job belong in the group gating that job instead.
+ci_config: &ci_config
  - '.github/workflows/ci.yaml'
  # autofix.yaml computes the changed groups that gate all ci.yaml jobs
  - '.github/workflows/autofix.yaml'
  - '.github/ci_path_filters.yaml'
  - '.github/actions/**'
  - '.mise/**'
+ # We count changes to Cargo.lock as a "CI config" level change, as we need to ensure that all CI jobs will work correctly with the updated lock file.
+ # Otherwise, later job runs may run into issues that have nothing to do with their changes.
+ - 'Cargo.lock'
 
 files_in_root: &files_in_root
  - '*!(/)' # changes in the root, such as cspell.json or pnpm-lock.yaml
@@ -35,10 +36,8 @@ internal: &internal
  - 'internal/backends/testing/**'
  - 'helper_crates/**'
  - 'Cargo.toml' # the root Cargo.toml
- # All these jobs build against the root workspace lockfile
- - 'Cargo.lock'
  - '.cargo/**'
- - *ci_files
+ - *ci_config
 
 # What the integration tests in the tests/ workspace build against.
 integration: &integration
@@ -68,7 +67,6 @@ qt:
  - 'internal/backends/qt/**'
  - 'internal/compiler/widgets/qt/**'
  - 'tests/cases/widgets/**'
- - *ci_files
 
 # Docs build needs most Rust code because it also checks for doc warnings
 docs_build:
@@ -81,9 +79,8 @@ docs_build:
  - 'tests/doctests/**'
  # The doctests compile the slint snippets in the skill files
  - 'skills/**'
- - 'Cargo.lock'
  - *js_config
- - *ci_files
+ - *ci_config
 
 # Tree-sitter grammar
 # Needs to be re-tested if the Tree-Sitter grammr or any Slint files in the corpus change
@@ -94,19 +91,19 @@ tree_sitter:
  - 'tests/cases/**/*.slint'
  - 'examples/**/*.slint'
  - 'demos/**/*.slint'
- - *ci_files
+ - *ci_config
 
 figma_inspector:
  - 'tools/figma-inspector/**'
  - *js_config
- - *ci_files
+ - *ci_config
 
 material_components:
  - '.github/workflows/material.yaml'
  - 'ui-libraries/material/**'
  - 'docs/common/**'
  - *js_config
- - *ci_files
+ - *ci_config
 
 api_cpp:
  - 'api/cpp/**'
@@ -115,46 +112,38 @@ api_cpp:
  - 'internal/compiler/generator/cpp*{,/**}'
  # The renderers are not part of the `internal` group, but are exposed in the C++ API
  - 'internal/renderers/{skia,software}/**'
- - *ci_files
 
 android_backend:
  - 'internal/backends/android-activity/**'
- - *ci_files
 
 api_python:
  - 'api/python/**'
  - 'internal/compiler/generator/python*{,/**}'
  - '.github/workflows/python_test_reusable.yaml'
- - *ci_files
 
 api_node:
  - 'api/node/**'
  - *js_config
  - '.github/workflows/node_test_reusable.yaml'
- - *ci_files
 
 api_rs:
  - 'api/rs/**'
  - 'Cargo.toml'
  - 'internal/compiler/generator/rust*{,/**}'
- - *ci_files
 
 # All the test drivers except doctests, which only the docs build runs.
 tests:
  - 'tests/!(doctests/**)'
- - *ci_files
 
 examples:
  # Some examples are tested separately and can be excluded from here
  - 'examples/!({servo,bevy,*mcu*,uefi-demo,}/**)'
  - 'demos/**'
  - '.github/workflows/wasm_demos.yaml'
- - *ci_files
 
 examples_mcu:
  - 'examples/*mcu*/**'
  - 'internal/renderers/software/**'
- - *ci_files
 
 vsce:
  - *internal
@@ -177,22 +166,18 @@ slintpad:
 servo_example:
  - 'examples/servo/**'
  - '.github/workflows/servo_example.yaml'
- - *ci_files
 
 bevy_examples:
  - 'examples/bevy/**'
  - '.github/workflows/bevy_examples.yaml'
- - *ci_files
 
 slint_sc:
  - 'internal/compiler/**'
  - 'api/slint-sc/**'
  - 'tools/compiler/**'
- - 'Cargo.lock'
- - *ci_files
+ - *ci_config
 
 rust_files:
  - '**/*.rs'
  - '**/Cargo.toml'
  - '.clippy.toml'
- - *ci_files
