@@ -31,15 +31,16 @@ enum ListItemType {
     Unordered,
 }
 
-/// A section of styled text, split up by a linebreak
-#[derive(Clone, Debug, PartialEq)]
-pub struct StyledTextParagraph {
-    /// The raw paragraph text
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct RichText {
     pub text: alloc::string::String,
-    /// Formatting styles and spans
     pub formatting: alloc::vec::Vec<FormattedSpan>,
-    /// Locations of clickable links within the paragraph
     pub links: alloc::vec::Vec<(core::ops::Range<usize>, alloc::string::String)>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum ParagraphBlock {
+    Text(RichText),
 }
 
 /// Error returned by markdown styled text parsing
@@ -129,8 +130,12 @@ pub fn invalid_color_value(error: &StyledTextParseError) -> Option<&str> {
 }
 
 #[cfg(feature = "markdown")]
-pub fn paragraph_from_plain_text(text: alloc::string::String) -> StyledTextParagraph {
-    StyledTextParagraph { text, formatting: Default::default(), links: Default::default() }
+pub fn paragraph_from_plain_text(text: alloc::string::String) -> ParagraphBlock {
+    ParagraphBlock::Text(RichText {
+        text,
+        formatting: Default::default(),
+        links: Default::default(),
+    })
 }
 
 #[cfg(feature = "markdown")]
@@ -138,7 +143,7 @@ pub fn paragraph_from_plain_text(text: alloc::string::String) -> StyledTextParag
 pub const MARKDOWN_INTERPOLATION_PLACEHOLDER: char = '\u{e541}';
 
 #[cfg(feature = "markdown")]
-fn begin_paragraph(indentation: u32, list_item_type: Option<ListItemType>) -> StyledTextParagraph {
+fn begin_paragraph(indentation: u32, list_item_type: Option<ListItemType>) -> ParagraphBlock {
     let mut text = alloc::string::String::with_capacity(indentation as usize * 4);
     for _ in 0..indentation {
         text.push_str("    ");
@@ -146,22 +151,32 @@ fn begin_paragraph(indentation: u32, list_item_type: Option<ListItemType>) -> St
     match list_item_type {
         Some(ListItemType::Unordered) => {
             let remainder = indentation % 3;
-            if remainder == 0 {
-                text.push_str("• ")
+            text.push_str(if remainder == 0 {
+                "• "
             } else if remainder == 1 {
-                text.push_str("◦ ")
+                "◦ "
             } else {
-                text.push_str("▪ ")
-            }
+                "▪ "
+            });
         }
         Some(ListItemType::Ordered(num)) => text.push_str(&alloc::format!("{}. ", num)),
         None => {}
     };
-    StyledTextParagraph { text, formatting: Default::default(), links: Default::default() }
+    ParagraphBlock::Text(RichText {
+        text,
+        formatting: Default::default(),
+        links: Default::default(),
+    })
+}
+
+pub fn rich_text_content(block: &ParagraphBlock) -> Option<&RichText> {
+    match block {
+        ParagraphBlock::Text(content) => Some(content),
+    }
 }
 
 #[cfg(feature = "markdown")]
-fn append_paragraph(target: &mut StyledTextParagraph, source: &StyledTextParagraph) {
+fn append_rich_text(target: &mut RichText, source: &RichText) {
     let offset = target.text.len();
     target.text.push_str(&source.text);
     target.formatting.extend(source.formatting.iter().cloned().map(|mut f| {
@@ -177,8 +192,8 @@ fn append_paragraph(target: &mut StyledTextParagraph, source: &StyledTextParagra
 }
 
 #[cfg(feature = "markdown")]
-fn substitute<S: AsRef<[StyledTextParagraph]>>(
-    paragraph: &mut StyledTextParagraph,
+fn substitute<S: AsRef<[ParagraphBlock]>>(
+    paragraph: &mut ParagraphBlock,
     string: &str,
     args: &[S],
     arg_index: &mut usize,
@@ -186,21 +201,28 @@ fn substitute<S: AsRef<[StyledTextParagraph]>>(
     event_range: &core::ops::Range<usize>,
 ) {
     use StyledTextParseErrorKind as E;
+    let ParagraphBlock::Text(rt) = paragraph else { return };
     let mut pos = 0;
     while let Some(mut p) = string[pos..].find(MARKDOWN_INTERPOLATION_PLACEHOLDER) {
         p += pos;
-        paragraph.text.push_str(&string[pos..p]);
+        rt.text.push_str(&string[pos..p]);
 
         if let Some(arg) = args.get(*arg_index) {
             match arg.as_ref() {
-                [source] => append_paragraph(paragraph, source),
+                [source] => {
+                    if let Some(source_rt) = rich_text_content(source) {
+                        append_rich_text(rt, source_rt);
+                    }
+                }
                 [] => {}
                 [first, ..] => {
                     errors.push(StyledTextParseError::new(
                         E::MultiParagraphInterpolation,
                         event_range.clone(),
                     ));
-                    append_paragraph(paragraph, first);
+                    if let Some(source_rt) = rich_text_content(first) {
+                        append_rich_text(rt, source_rt);
+                    }
                 }
             }
         } else {
@@ -215,11 +237,11 @@ fn substitute<S: AsRef<[StyledTextParagraph]>>(
         p += MARKDOWN_INTERPOLATION_PLACEHOLDER.len_utf8();
         pos = p;
     }
-    paragraph.text.push_str(&string[pos..]);
+    rt.text.push_str(&string[pos..]);
 }
 
 #[cfg(feature = "markdown")]
-fn substitute_in_string<S: AsRef<[StyledTextParagraph]>>(
+fn substitute_in_string<S: AsRef<[ParagraphBlock]>>(
     string: &str,
     args: &[S],
     arg_index: &mut usize,
@@ -234,14 +256,20 @@ fn substitute_in_string<S: AsRef<[StyledTextParagraph]>>(
         result.push_str(&string[pos..p]);
         if let Some(arg) = args.get(*arg_index) {
             match arg.as_ref() {
-                [arg_paragraph] => result.push_str(&arg_paragraph.text),
+                [arg_paragraph] => {
+                    if let Some(rt) = rich_text_content(arg_paragraph) {
+                        result.push_str(&rt.text);
+                    }
+                }
                 [] => {}
                 [first, ..] => {
                     errors.push(StyledTextParseError::new(
                         E::MultiParagraphInterpolation,
                         event_range.clone(),
                     ));
-                    result.push_str(&first.text);
+                    if let Some(rt) = rich_text_content(first) {
+                        result.push_str(&rt.text);
+                    }
                 }
             }
         } else {
@@ -260,18 +288,18 @@ fn substitute_in_string<S: AsRef<[StyledTextParagraph]>>(
 
 #[cfg(feature = "markdown")]
 fn get_or_create_paragraph<'a>(
-    current_paragraph: &'a mut Option<StyledTextParagraph>,
+    current_paragraph: &'a mut Option<ParagraphBlock>,
     errors: &mut alloc::vec::Vec<StyledTextParseError>,
     event_range: &core::ops::Range<usize>,
-) -> &'a mut StyledTextParagraph {
+) -> &'a mut ParagraphBlock {
     use StyledTextParseErrorKind as E;
     if current_paragraph.is_none() {
         errors.push(StyledTextParseError::new(E::ParagraphNotStarted, event_range.clone()));
-        *current_paragraph = Some(StyledTextParagraph {
+        *current_paragraph = Some(ParagraphBlock::Text(RichText {
             text: Default::default(),
             formatting: Default::default(),
             links: Default::default(),
-        });
+        }));
     }
     current_paragraph.as_mut().unwrap()
 }
@@ -311,10 +339,10 @@ fn unsupported_event_name(event: &pulldown_cmark::Event<'_>) -> alloc::string::S
 }
 
 #[cfg(feature = "markdown")]
-pub fn parse_interpolated<S: AsRef<[StyledTextParagraph]>>(
+pub fn parse_interpolated<S: AsRef<[ParagraphBlock]>>(
     format_string: &str,
     args: &[S],
-) -> (alloc::vec::Vec<StyledTextParagraph>, alloc::vec::Vec<StyledTextParseError>) {
+) -> (alloc::vec::Vec<ParagraphBlock>, alloc::vec::Vec<StyledTextParseError>) {
     use StyledTextParseErrorKind as E;
 
     let parser = pulldown_cmark::Parser::new_ext(
@@ -334,7 +362,7 @@ pub fn parse_interpolated<S: AsRef<[StyledTextParagraph]>>(
     let mut skip_end_count: usize = 0;
     let mut interleaved_count: usize = 0;
 
-    let mut current_paragraph: Option<StyledTextParagraph> = None;
+    let mut current_paragraph: Option<ParagraphBlock> = None;
 
     for (event, event_range) in parser.into_offset_iter() {
         let indentation = list_state_stack.len().saturating_sub(1) as _;
@@ -411,7 +439,6 @@ pub fn parse_interpolated<S: AsRef<[StyledTextParagraph]>>(
                         skip_end_count += 1;
                         continue;
                     }
-
                     ref unsupported => {
                         errors.push(StyledTextParseError::new(
                             E::UnsupportedMarkdown(unsupported_tag_name(unsupported)),
@@ -422,10 +449,13 @@ pub fn parse_interpolated<S: AsRef<[StyledTextParagraph]>>(
                     }
                 };
 
-                let paragraph =
-                    get_or_create_paragraph(&mut current_paragraph, &mut errors, &event_range);
+                let ParagraphBlock::Text(rt) =
+                    get_or_create_paragraph(&mut current_paragraph, &mut errors, &event_range)
+                else {
+                    unreachable!()
+                };
 
-                style_stack.push((style, paragraph.text.len()));
+                style_stack.push((style, rt.text.len()));
             }
             pulldown_cmark::Event::Text(text) => {
                 let paragraph =
@@ -446,7 +476,7 @@ pub fn parse_interpolated<S: AsRef<[StyledTextParagraph]>>(
 
                 let paragraph =
                     get_or_create_paragraph(&mut current_paragraph, &mut errors, &event_range);
-                let end = paragraph.text.len();
+                let end = rich_text_content(paragraph).map(|r| r.text.len()).unwrap_or(0);
 
                 if let Some(url) = current_url.take() {
                     let url = if url.contains(MARKDOWN_INTERPOLATION_PLACEHOLDER) {
@@ -454,20 +484,25 @@ pub fn parse_interpolated<S: AsRef<[StyledTextParagraph]>>(
                     } else {
                         url.into()
                     };
-                    paragraph.links.push((start..end, url));
+                    if let ParagraphBlock::Text(rt) = paragraph {
+                        rt.links.push((start..end, url));
+                    }
                 }
 
-                paragraph.formatting.push(FormattedSpan { range: start..end, style });
+                if let ParagraphBlock::Text(rt) = paragraph {
+                    rt.formatting.push(FormattedSpan { range: start..end, style });
+                }
             }
             pulldown_cmark::Event::Code(text) => {
                 let paragraph =
                     get_or_create_paragraph(&mut current_paragraph, &mut errors, &event_range);
-                let start = paragraph.text.len();
+                let start = rich_text_content(paragraph).map(|r| r.text.len()).unwrap_or(0);
 
                 substitute(paragraph, &text, args, &mut arg_index, &mut errors, &event_range);
-                paragraph
-                    .formatting
-                    .push(FormattedSpan { range: start..paragraph.text.len(), style: Style::Code });
+                if let ParagraphBlock::Text(rt) = paragraph {
+                    rt.formatting
+                        .push(FormattedSpan { range: start..rt.text.len(), style: Style::Code });
+                }
             }
             pulldown_cmark::Event::InlineHtml(html) => {
                 if html.starts_with("</") {
@@ -508,9 +543,10 @@ pub fn parse_interpolated<S: AsRef<[StyledTextParagraph]>>(
 
                     let paragraph =
                         get_or_create_paragraph(&mut current_paragraph, &mut errors, &event_range);
-
-                    let end = paragraph.text.len();
-                    paragraph.formatting.push(FormattedSpan { range: start..end, style });
+                    let end = rich_text_content(paragraph).map(|r| r.text.len()).unwrap_or(0);
+                    if let ParagraphBlock::Text(rt) = paragraph {
+                        rt.formatting.push(FormattedSpan { range: start..end, style });
+                    }
                 } else {
                     let mut expecting_color_attribute = false;
                     let mut push_skip = false;
@@ -532,7 +568,10 @@ pub fn parse_interpolated<S: AsRef<[StyledTextParagraph]>>(
                                         &mut errors,
                                         &event_range,
                                     );
-                                    style_stack.push((Style::Underline, paragraph.text.len()));
+                                    let len = rich_text_content(paragraph)
+                                        .map(|r| r.text.len())
+                                        .unwrap_or(0);
+                                    style_stack.push((Style::Underline, len));
                                 }
                                 "font" => {
                                     expecting_color_attribute = true;
@@ -592,8 +631,10 @@ pub fn parse_interpolated<S: AsRef<[StyledTextParagraph]>>(
                                                 &mut errors,
                                                 &event_range,
                                             );
-                                            style_stack
-                                                .push((Style::Color(value), paragraph.text.len()));
+                                            let len = rich_text_content(paragraph)
+                                                .map(|r| r.text.len())
+                                                .unwrap_or(0);
+                                            style_stack.push((Style::Color(value), len));
                                         }
                                         None => {
                                             let r = base + span.start()..base + span.end();
@@ -608,8 +649,10 @@ pub fn parse_interpolated<S: AsRef<[StyledTextParagraph]>>(
                                                 &mut errors,
                                                 &event_range,
                                             );
-                                            style_stack
-                                                .push((Style::Color(0), paragraph.text.len()));
+                                            let len = rich_text_content(paragraph)
+                                                .map(|r| r.text.len())
+                                                .unwrap_or(0);
+                                            style_stack.push((Style::Color(0), len));
                                         }
                                     }
                                 }
@@ -682,8 +725,8 @@ pub fn parse_interpolated<S: AsRef<[StyledTextParagraph]>>(
 
 #[cfg(all(feature = "markdown", test))]
 fn assert_no_errors(
-    result: (alloc::vec::Vec<StyledTextParagraph>, alloc::vec::Vec<StyledTextParseError>),
-) -> alloc::vec::Vec<StyledTextParagraph> {
+    result: (alloc::vec::Vec<ParagraphBlock>, alloc::vec::Vec<StyledTextParseError>),
+) -> alloc::vec::Vec<ParagraphBlock> {
     let (paragraphs, errors) = result;
     assert!(errors.is_empty(), "Unexpected errors: {errors:?}");
     paragraphs
@@ -694,11 +737,11 @@ fn assert_no_errors(
 fn markdown_parsing() {
     assert_eq!(
         assert_no_errors(parse_interpolated::<&[_]>("hello *world*", &[])),
-        [StyledTextParagraph {
+        [ParagraphBlock::Text(RichText {
             text: "hello world".into(),
             formatting: alloc::vec![FormattedSpan { range: 6..11, style: Style::Emphasis }],
             links: alloc::vec::Vec::new()
-        }]
+        })]
     );
 
     assert_eq!(
@@ -710,16 +753,16 @@ fn markdown_parsing() {
             &[]
         )),
         [
-            StyledTextParagraph {
+            ParagraphBlock::Text(RichText {
                 text: "• line 1".into(),
                 formatting: alloc::vec::Vec::new(),
                 links: alloc::vec::Vec::new()
-            },
-            StyledTextParagraph {
+            }),
+            ParagraphBlock::Text(RichText {
                 text: "• line 2".into(),
                 formatting: alloc::vec::Vec::new(),
                 links: alloc::vec::Vec::new()
-            }
+            })
         ]
     );
 
@@ -733,21 +776,21 @@ fn markdown_parsing() {
             &[]
         )),
         [
-            StyledTextParagraph {
+            ParagraphBlock::Text(RichText {
                 text: "1. a".into(),
                 formatting: alloc::vec::Vec::new(),
                 links: alloc::vec::Vec::new()
-            },
-            StyledTextParagraph {
+            }),
+            ParagraphBlock::Text(RichText {
                 text: "2. b".into(),
                 formatting: alloc::vec::Vec::new(),
                 links: alloc::vec::Vec::new()
-            },
-            StyledTextParagraph {
+            }),
+            ParagraphBlock::Text(RichText {
                 text: "3. c".into(),
                 formatting: alloc::vec::Vec::new(),
                 links: alloc::vec::Vec::new()
-            }
+            })
         ]
     );
 
@@ -760,7 +803,7 @@ new *line*
             &[]
         )),
         [
-            StyledTextParagraph {
+            ParagraphBlock::Text(RichText {
                 text: "Normal italic strong strikethrough code".into(),
                 formatting: alloc::vec![
                     FormattedSpan { range: 7..13, style: Style::Emphasis },
@@ -769,12 +812,12 @@ new *line*
                     FormattedSpan { range: 35..39, style: Style::Code }
                 ],
                 links: alloc::vec::Vec::new()
-            },
-            StyledTextParagraph {
+            }),
+            ParagraphBlock::Text(RichText {
                 text: "new line".into(),
                 formatting: alloc::vec![FormattedSpan { range: 4..8, style: Style::Emphasis },],
                 links: alloc::vec::Vec::new()
-            }
+            })
         ]
     );
 
@@ -789,48 +832,48 @@ new *line*
             &[]
         )),
         [
-            StyledTextParagraph {
+            ParagraphBlock::Text(RichText {
                 text: "• root".into(),
                 formatting: alloc::vec::Vec::new(),
                 links: alloc::vec::Vec::new()
-            },
-            StyledTextParagraph {
+            }),
+            ParagraphBlock::Text(RichText {
                 text: "    ◦ child".into(),
                 formatting: alloc::vec::Vec::new(),
                 links: alloc::vec::Vec::new()
-            },
-            StyledTextParagraph {
+            }),
+            ParagraphBlock::Text(RichText {
                 text: "        ▪ grandchild".into(),
                 formatting: alloc::vec::Vec::new(),
                 links: alloc::vec::Vec::new()
-            },
-            StyledTextParagraph {
+            }),
+            ParagraphBlock::Text(RichText {
                 text: "            • great grandchild".into(),
                 formatting: alloc::vec::Vec::new(),
                 links: alloc::vec::Vec::new()
-            },
+            }),
         ]
     );
 
     assert_eq!(
         assert_no_errors(parse_interpolated::<&[_]>("hello [*world*](https://example.com)", &[])),
-        [StyledTextParagraph {
+        [ParagraphBlock::Text(RichText {
             text: "hello world".into(),
             formatting: alloc::vec![
                 FormattedSpan { range: 6..11, style: Style::Emphasis },
                 FormattedSpan { range: 6..11, style: Style::Link }
             ],
             links: alloc::vec![(6..11, "https://example.com".into())]
-        }]
+        })]
     );
 
     assert_eq!(
         assert_no_errors(parse_interpolated::<&[_]>("<u>hello world</u>", &[])),
-        [StyledTextParagraph {
+        [ParagraphBlock::Text(RichText {
             text: "hello world".into(),
             formatting: alloc::vec![FormattedSpan { range: 0..11, style: Style::Underline },],
             links: alloc::vec::Vec::new()
-        }]
+        })]
     );
 
     assert_eq!(
@@ -838,14 +881,14 @@ new *line*
             r#"<font color="blue">hello world</font>"#,
             &[]
         )),
-        [StyledTextParagraph {
+        [ParagraphBlock::Text(RichText {
             text: "hello world".into(),
             formatting: alloc::vec![FormattedSpan {
                 range: 0..11,
                 style: Style::Color(0xff_00_00_ff)
             },],
             links: alloc::vec::Vec::new()
-        }]
+        })]
     );
 
     assert_eq!(
@@ -853,14 +896,14 @@ new *line*
             r#"<u><font color="red">hello world</font></u>"#,
             &[]
         )),
-        [StyledTextParagraph {
+        [ParagraphBlock::Text(RichText {
             text: "hello world".into(),
             formatting: alloc::vec![
                 FormattedSpan { range: 0..11, style: Style::Color(0xff_ff_00_00) },
                 FormattedSpan { range: 0..11, style: Style::Underline },
             ],
             links: alloc::vec::Vec::new()
-        }]
+        })]
     );
 
     // Invalid color: text still renders, error is reported
@@ -869,14 +912,14 @@ new *line*
             parse_interpolated::<&[_]>(r#"<u><font color="\#a">hello world</font></u>"#, &[]);
         assert_eq!(
             paragraphs,
-            [StyledTextParagraph {
+            [ParagraphBlock::Text(RichText {
                 text: "hello world".into(),
                 formatting: alloc::vec![
                     FormattedSpan { range: 0..11, style: Style::Color(0) },
                     FormattedSpan { range: 0..11, style: Style::Underline },
                 ],
                 links: alloc::vec::Vec::new()
-            }]
+            })]
         );
         assert_eq!(errors.len(), 1);
         assert_eq!(errors[0].to_string(), r"Invalid color value '\#a'");
@@ -892,33 +935,33 @@ fn markdown_parsing_interpolated() {
             &format!("Text: *{MARKDOWN_INTERPOLATION_PLACEHOLDER}*"),
             &[&[paragraph_from_plain_text("italic".into())]]
         )),
-        [StyledTextParagraph {
+        [ParagraphBlock::Text(RichText {
             text: "Text: italic".into(),
             formatting: alloc::vec![FormattedSpan { range: 6..12, style: Style::Emphasis }],
             links: alloc::vec![]
-        }]
+        })]
     );
     assert_eq!(
         assert_no_errors(parse_interpolated(
             &format!("Escaped text: {MARKDOWN_INTERPOLATION_PLACEHOLDER}"),
             &[&[paragraph_from_plain_text("*bold*".into())]]
         )),
-        [StyledTextParagraph {
+        [ParagraphBlock::Text(RichText {
             text: "Escaped text: *bold*".into(),
             formatting: alloc::vec![],
             links: alloc::vec![]
-        }]
+        })]
     );
     assert_eq!(
         assert_no_errors(parse_interpolated(
             &format!("Code block text: `{MARKDOWN_INTERPOLATION_PLACEHOLDER}`"),
             &[&[paragraph_from_plain_text("*bold*".into())]]
         )),
-        [StyledTextParagraph {
+        [ParagraphBlock::Text(RichText {
             text: "Code block text: *bold*".into(),
             formatting: alloc::vec![FormattedSpan { range: 17..23, style: Style::Code }],
             links: alloc::vec![]
-        }]
+        })]
     );
     assert_eq!(
         assert_no_errors(parse_interpolated(
@@ -930,28 +973,28 @@ fn markdown_parsing_interpolated() {
                 parse_interpolated::<&[_]>("*World*", &[]).0
             ]
         )),
-        [StyledTextParagraph {
+        [ParagraphBlock::Text(RichText {
             text: "Hello World".into(),
             formatting: alloc::vec![
                 FormattedSpan { range: 0..5, style: Style::Strong },
                 FormattedSpan { range: 6..11, style: Style::Emphasis }
             ],
             links: alloc::vec![]
-        }]
+        })]
     );
     assert_eq!(
         assert_no_errors(parse_interpolated(
             &format!("<u>{MARKDOWN_INTERPOLATION_PLACEHOLDER}</u>"),
             &[parse_interpolated::<&[_]>("*underline_and_italic*", &[]).0]
         )),
-        [StyledTextParagraph {
+        [ParagraphBlock::Text(RichText {
             text: "underline_and_italic".into(),
             formatting: alloc::vec![
                 FormattedSpan { range: 0..20, style: Style::Emphasis },
                 FormattedSpan { range: 0..20, style: Style::Underline },
             ],
             links: alloc::vec![]
-        }]
+        })]
     );
     // Empty paragraph list might be caused by a StyledText::default()
     assert_eq!(
@@ -959,7 +1002,11 @@ fn markdown_parsing_interpolated() {
             &format!("{MARKDOWN_INTERPOLATION_PLACEHOLDER}"),
             &[[]]
         )),
-        [StyledTextParagraph { text: "".into(), formatting: alloc::vec![], links: alloc::vec![] }]
+        [ParagraphBlock::Text(RichText {
+            text: "".into(),
+            formatting: alloc::vec![],
+            links: alloc::vec![]
+        })]
     );
     // Interpolation in link URL
     assert_eq!(
@@ -967,11 +1014,11 @@ fn markdown_parsing_interpolated() {
             &format!("[Click here]({MARKDOWN_INTERPOLATION_PLACEHOLDER})"),
             &[&[paragraph_from_plain_text("https://example.com".into())]]
         )),
-        [StyledTextParagraph {
+        [ParagraphBlock::Text(RichText {
             text: "Click here".into(),
             formatting: alloc::vec![FormattedSpan { range: 0..10, style: Style::Link }],
             links: alloc::vec![(0..10, "https://example.com".into())]
-        }]
+        })]
     );
     // Interpolation in link URL with surrounding text
     assert_eq!(
@@ -979,11 +1026,11 @@ fn markdown_parsing_interpolated() {
             &format!("[link](https://{MARKDOWN_INTERPOLATION_PLACEHOLDER}/path) after"),
             &[&[paragraph_from_plain_text("example.com".into())]]
         )),
-        [StyledTextParagraph {
+        [ParagraphBlock::Text(RichText {
             text: "link after".into(),
             formatting: alloc::vec![FormattedSpan { range: 0..4, style: Style::Link }],
             links: alloc::vec![(0..4, "https://example.com/path".into())]
-        }]
+        })]
     );
 }
 
