@@ -470,9 +470,8 @@ fn missing_type_description(interface_declaration: &PropertyDeclaration) -> Stri
 }
 
 fn syntax_for(interface_declaration: &PropertyDeclaration, name: &SmolStr) -> String {
-    let display_args = |arguments: &Vec<Type>| -> String {
-        arguments.iter().map(|t| t.to_string()).join(", ")
-    };
+    let display_args =
+        |arguments: &Vec<Type>| -> String { arguments.iter().map(|t| t.to_string()).join(", ") };
     let return_type = |return_type: &Type| -> String {
         if *return_type == Type::Void { String::new() } else { format!(" -> {return_type}") }
     };
