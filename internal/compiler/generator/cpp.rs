@@ -70,8 +70,7 @@ fn access_item_rc(pr: &llr::MemberReference, ctx: &EvaluationContext) -> String 
     let llr::MemberReference::Relative { parent_level, local_reference } = pr else {
         unreachable!()
     };
-    let llr::LocalMemberIndex::Native { item_index, prop_name: _, .. } = &local_reference.reference
-    else {
+    let llr::LocalMemberIndex::Native { item_index, .. } = &local_reference.reference else {
         unreachable!()
     };
 
@@ -95,7 +94,7 @@ fn access_item_rc(pr: &llr::MemberReference, ctx: &EvaluationContext) -> String 
         format!("{component_access}tree_index_of_first_child + {item_index_in_tree} - 1")
     };
 
-    format!("{}, {}", &component_rc, item_index)
+    format!("{component_rc}, {item_index}")
 }
 
 /// This module contains some data structure that helps represent a C++ code.
@@ -1693,7 +1692,7 @@ fn generate_item_tree(
                     "{{ {}, {} offsetof({}, {}) }}",
                     item.ty.cpp_vtable_getter,
                     compo_offset,
-                    &ident(&sub_component.name),
+                    ident(&sub_component.name),
                     field_name(&item.name),
                 ));
             }
@@ -1797,19 +1796,19 @@ fn generate_item_tree(
                 // weak (matches the Rust backend).
                 vec![
                     format!("auto self = reinterpret_cast<const {item_tree_class_name}*>(component.instance);"),
-                    format!("if (auto parent = self->parent.lock()) {{"),
+                    "if (auto parent = self->parent.lock()) {".to_string(),
                     // TODO: store popup index in ctx and set it here instead of 0?
-                    format!("    *result = {{ (*parent)->self_weak, 0 }};"),
-                    format!("}}"),
+                    "    *result = { (*parent)->self_weak, 0 };".to_string(),
+                    "}".to_string(),
                     ]
                 }, |idx| {
                 let current_sub_component = &root.sub_components[parent.sub_component];
                 let parent_index = current_sub_component.repeated[idx].index_in_tree;
                 vec![
                     format!("auto self = reinterpret_cast<const {item_tree_class_name}*>(component.instance);"),
-                    format!("if (auto parent = self->parent.lock()) {{"),
+                    "if (auto parent = self->parent.lock()) {".to_string(),
                     format!("    *result = {{ (*parent)->self_weak, (*parent)->tree_index_of_first_child + {} }};", parent_index - 1),
-                    format!("}}"),
+                    "}".to_string(),
                 ]
             })
         })
@@ -2155,8 +2154,8 @@ fn generate_item_tree(
         }),
     ));
 
-    let destructor = vec![format!(
-        "if (auto &window = globals->m_window) window->window_handle().unregister_item_tree(this, item_array());"
+    let destructor = vec![String::from(
+        "if (auto &window = globals->m_window) window->window_handle().unregister_item_tree(this, item_array());",
     )];
 
     target_struct.members.push((
@@ -3362,7 +3361,7 @@ fn generate_global(
         )
     }
 
-    for (i, _) in global.change_callbacks.iter() {
+    for i in global.change_callbacks.keys() {
         global_struct.members.push((
             Access::Private,
             Declaration::Var(Var {
@@ -3607,7 +3606,7 @@ fn generate_public_api_for_properties(
                 Access::Public,
                 Declaration::Function(Function {
                     name: accessor_names::cpp_accessor_name(name, AccessorKind::Getter),
-                    signature: format!("() const -> {}", &cpp_property_type),
+                    signature: format!("() const -> {cpp_property_type}"),
                     statements: Some(prop_getter),
                     ..Default::default()
                 }),
@@ -3623,7 +3622,7 @@ fn generate_public_api_for_properties(
                     Access::Public,
                     Declaration::Function(Function {
                         name: accessor_names::cpp_accessor_name(name, AccessorKind::Setter),
-                        signature: format!("(const {} &value) const -> void", &cpp_property_type),
+                        signature: format!("(const {cpp_property_type} &value) const -> void"),
                         statements: Some(prop_setter),
                         ..Default::default()
                     }),
@@ -3789,7 +3788,7 @@ fn access_member(reference: &llr::MemberReference, ctx: &EvaluationContext) -> M
                     field(&global.callbacks[*callback_index].name)
                 }
                 llr::LocalMemberIndex::Function(function_index) => {
-                    ident(&format!("fn_{}", &global.functions[*function_index].name))
+                    ident(&format!("fn_{}", global.functions[*function_index].name))
                 }
                 _ => unreachable!(),
             };

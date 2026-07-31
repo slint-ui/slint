@@ -79,7 +79,8 @@ pub fn take_screenshot(args: &Cli) -> Result<()> {
     let (pixels, color) = if format.writing_enabled() && format != image::ImageFormat::Jpeg {
         (buffer.as_bytes().to_vec(), image::ExtendedColorType::Rgba8)
     } else {
-        let rgb = buffer.as_bytes().chunks_exact(4).flat_map(|p| [p[0], p[1], p[2]]).collect();
+        let rgb =
+            buffer.as_bytes().as_chunks::<4>().0.iter().flat_map(|p| [p[0], p[1], p[2]]).collect();
         (rgb, image::ExtendedColorType::Rgb8)
     };
 

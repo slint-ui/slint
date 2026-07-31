@@ -242,7 +242,7 @@ fn image_to_argb_icon(image: &Image) -> Result<::ksni::Icon, Error> {
     let mut data = pixel_buffer.as_bytes().to_vec();
     let width = pixel_buffer.width() as i32;
     let height = pixel_buffer.height() as i32;
-    for pixel in data.chunks_exact_mut(4) {
+    for pixel in data.as_chunks_mut::<4>().0 {
         pixel.rotate_right(1) // rgba to argb
     }
     Ok(::ksni::Icon { width, height, data })

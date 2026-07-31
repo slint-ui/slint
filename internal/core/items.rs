@@ -1435,13 +1435,9 @@ impl WindowItem {
                 return Some(result);
             }
 
-            match window_item_rc
+            window_item_rc = window_item_rc
                 .parent_item(crate::item_tree::ParentItemTraversalMode::FindAllParents)
-                .and_then(|p| next_window_item(&p))
-            {
-                Some(item) => window_item_rc = item,
-                None => return None,
-            }
+                .and_then(|p| next_window_item(&p))?;
         }
     }
 
