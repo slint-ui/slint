@@ -7,6 +7,7 @@ node_modules
 *.code-workspace
 /build
 /build-release
+/build-debug-mold
 /_deps
 .DS_Store
 Pipfile.lock
