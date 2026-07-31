@@ -2,12 +2,11 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 #
-# Build the Slint SC Safety Manual with the measured code coverage of the
-# slint-sc test suite in its Test Coverage chapter.
+# Build the Slint SC Safety Manual with the slint-sc test results and the
+# measured code coverage in its Test Results and Test Coverage chapters.
 #
-# Runs the test suite under LLVM source-based coverage instrumentation,
-# exports the results, generates the manual's content with the coverage
-# report, and builds the site into docs/safety/dist/.
+# Runs the test suites, exports the results and coverage, generates the
+# manual's content, and builds the site into docs/safety/dist/.
 # An HTML report with per-line detail is also written for local inspection.
 #
 # Requires cargo-llvm-cov, the llvm-tools-preview rustup component, and pnpm.
@@ -17,11 +16,12 @@ cd "$(dirname "$0")/.."
 
 coverage_dir=target/slint-sc-coverage
 
-scripts/measure_slint_sc_coverage.sh "$coverage_dir"
+scripts/slint_sc_test_suite.sh "$coverage_dir"
 
 cargo run -p slint-doc-generator -- --slint-sc \
     --coverage-json "$coverage_dir/coverage.json" \
     --coverage-html "$coverage_dir/html" \
+    --test-results "$coverage_dir/test-results" \
     generate-mdx
 
 pnpm install --frozen-lockfile --ignore-scripts

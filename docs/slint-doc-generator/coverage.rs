@@ -9,7 +9,7 @@ use crate::Config;
 use crate::traceability::REPO_URL;
 use anyhow::Context;
 use serde_json::Value;
-use std::io::{BufWriter, Write};
+use std::io::Write;
 use std::path::{Path, PathBuf};
 
 /// Name of the page this module writes into
@@ -96,11 +96,7 @@ impl DetailReport {
 }
 
 pub fn generate(cfg: &Config) -> Result<(), Box<dyn std::error::Error>> {
-    let dir = cfg.qualification_plan_dir();
-    std::fs::create_dir_all(&dir)?;
-    let path = dir.join(PAGE_FILE);
-    let mut out =
-        BufWriter::new(std::fs::File::create(&path).context(format!("error creating {path:?}"))?);
+    let mut out = cfg.qualification_page(PAGE_FILE)?;
 
     writeln!(
         out,
@@ -342,9 +338,9 @@ fn write_report(
 ) -> std::io::Result<()> {
     writeln!(
         out,
-        "\nGenerated from commit [`{short}`]({REPO_URL}/tree/{sha}).\n\n\
+        "\n{commit}\n\n\
          **Line coverage: {lines}. Function coverage: {functions}. Region coverage: {regions}.**",
-        short = &sha[..sha.len().min(10)],
+        commit = crate::traceability::commit_line(sha),
         lines = sum(files, |s| &s.lines).cell(),
         functions = sum(files, |s| &s.functions).cell(),
         regions = sum(files, |s| &s.regions).cell(),

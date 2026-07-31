@@ -78,9 +78,53 @@ fn main() {
     eprintln!();
     eprintln!("{passed} passed, {failed} failed");
 
+    if let Some(path) = std::env::var_os("SLINT_TEST_REPORT") {
+        let outcomes: Vec<(String, String, bool)> = results
+            .iter()
+            // The repository-relative source of each case, for linking.
+            .map(|(name, result)| {
+                (name.clone(), format!("api/slint-sc/tests/cases/{name}.slint"), result.is_ok())
+            })
+            .collect();
+        write_report(&outcomes, "slint-sc-driver", Path::new(&path))
+            .unwrap_or_else(|e| panic!("failed to write test report: {e}"));
+    }
+
     if failed > 0 {
         std::process::exit(1);
     }
+}
+
+/// Write the per-case `(name, source path, passed)` results as CTRF-style
+/// JSON, for the safety manual's Test Results page.
+fn write_report(
+    results: &[(String, String, bool)],
+    tool: &str,
+    path: &std::path::Path,
+) -> std::io::Result<()> {
+    let tests: Vec<_> = results
+        .iter()
+        .map(|(name, file_path, ok)| {
+            serde_json::json!({
+                "name": name,
+                "filePath": file_path,
+                "status": if *ok { "passed" } else { "failed" },
+            })
+        })
+        .collect();
+    let failed = results.iter().filter(|(_, _, ok)| !ok).count();
+    let report = serde_json::json!({
+        "results": {
+            "tool": { "name": tool },
+            "summary": {
+                "tests": results.len(),
+                "passed": results.len() - failed,
+                "failed": failed,
+            },
+            "tests": tests,
+        }
+    });
+    std::fs::write(path, serde_json::to_string_pretty(&report).unwrap())
 }
 
 struct TestConfig<'a> {

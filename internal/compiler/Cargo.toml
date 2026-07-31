@@ -106,6 +106,7 @@ data-url = "0.3.2"
 i-slint-parser-test-macro = { path = "./parser-test-macro" }
 
 regex = "1.3.7"
+serde_json = { workspace = true }
 spin_on = { workspace = true }
 rayon = { workspace = true }
 divan = "0.1.14"

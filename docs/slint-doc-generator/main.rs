@@ -8,6 +8,7 @@ mod element_docs;
 mod headless;
 mod mdx;
 mod screenshots;
+mod test_results;
 mod traceability;
 
 use clap::Parser;
@@ -36,6 +37,12 @@ struct Cli {
     /// and link its per-line pages from the Test Coverage chapter.
     #[arg(long, value_name = "DIR", requires = "coverage_json")]
     coverage_html: Option<PathBuf>,
+
+    /// Report the test outcomes collected in this directory by
+    /// scripts/slint_sc_test_suite.sh in the safety manual's Test Results
+    /// chapter. Without it the chapter is a placeholder.
+    #[arg(long, value_name = "DIR")]
+    test_results: Option<PathBuf>,
 
     #[command(subcommand)]
     command: Option<Command>,
@@ -81,6 +88,10 @@ pub struct Config {
     /// `cargo llvm-cov report --html` report to ship with the manual for
     /// per-line detail.
     pub coverage_html: Option<PathBuf>,
+    /// Test outcomes collected by scripts/slint_sc_test_suite.sh, for the
+    /// safety manual's Test Results chapter; without them the chapter is a
+    /// placeholder.
+    pub test_results: Option<PathBuf>,
 }
 
 /// Path of the generated content root, relative to the site's `src` directory.
@@ -99,6 +110,7 @@ impl Config {
             include_experimental,
             coverage_json: None,
             coverage_html: None,
+            test_results: None,
         }
     }
     pub fn safety_manual(include_experimental: bool) -> Self {
@@ -111,6 +123,7 @@ impl Config {
             include_experimental,
             coverage_json: None,
             coverage_html: None,
+            test_results: None,
         }
     }
 
@@ -122,6 +135,20 @@ impl Config {
     /// Generated pages of the qualification plan (safety manual only).
     pub fn qualification_plan_dir(&self) -> PathBuf {
         self.generated_dir.join("qualification-plan")
+    }
+
+    /// Create a page of the qualification plan, ready for writing.
+    pub fn qualification_page(
+        &self,
+        file_name: &str,
+    ) -> anyhow::Result<std::io::BufWriter<std::fs::File>> {
+        use anyhow::Context;
+        let dir = self.qualification_plan_dir();
+        std::fs::create_dir_all(&dir).with_context(|| format!("error creating {dir:?}"))?;
+        let path = dir.join(file_name);
+        Ok(std::io::BufWriter::new(
+            std::fs::File::create(&path).with_context(|| format!("error creating {path:?}"))?,
+        ))
     }
 }
 
@@ -147,6 +174,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
     cfg.coverage_json = args.coverage_json;
     cfg.coverage_html = args.coverage_html;
+    cfg.test_results = args.test_results;
 
     match args.command {
         Some(Command::GenerateMdx) => {

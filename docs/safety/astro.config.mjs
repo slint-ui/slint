@@ -176,6 +176,10 @@ export default defineConfig({
                             label: "Test Coverage",
                             slug: "qualification-plan/test-coverage",
                         },
+                        {
+                            label: "Test Results",
+                            slug: "qualification-plan/test-results",
+                        },
                     ],
                 },
                 {

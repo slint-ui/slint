@@ -56,8 +56,9 @@ fn syntax_tests() -> std::io::Result<()> {
 
     let pattern = std::env::var("SLINT_TEST_FILTER").ok().map(|p| regex::Regex::new(&p).unwrap());
 
+    let syntax_dir = format!("{}/tests/syntax", env!("CARGO_MANIFEST_DIR"));
     let mut test_entries = Vec::new();
-    for entry in std::fs::read_dir(format!("{}/tests/syntax", env!("CARGO_MANIFEST_DIR")))? {
+    for entry in std::fs::read_dir(&syntax_dir)? {
         let entry = entry?;
         if entry.file_type().is_ok_and(|f| f.is_dir()) {
             let path = entry.path();
@@ -79,20 +80,63 @@ fn syntax_tests() -> std::io::Result<()> {
         }
     }
 
-    let success = test_entries
+    let results: Vec<(String, bool)> = test_entries
         .par_iter()
-        .try_fold(
-            || true,
-            |mut success, path| {
-                success &= process_file(path, update)?;
-                Ok::<bool, std::io::Error>(success)
-            },
-        )
-        .try_reduce(|| true, |success, result| Ok(success & result))?;
+        .map(|path| {
+            let ok = process_file(path, update)?;
+            let name = path
+                .strip_prefix(&syntax_dir)
+                .unwrap_or(path)
+                .to_string_lossy()
+                .replace(std::path::MAIN_SEPARATOR, "/");
+            Ok::<_, std::io::Error>((name, ok))
+        })
+        .collect::<Result<_, _>>()?;
 
-    assert!(success);
+    if let Some(report) = std::env::var_os("SLINT_TEST_REPORT") {
+        let entries: Vec<(String, String, bool)> = results
+            .iter()
+            // The repository-relative source of each test file, for linking.
+            .map(|(name, ok)| (name.clone(), format!("internal/compiler/tests/syntax/{name}"), *ok))
+            .collect();
+        write_report(&entries, "syntax-tests", std::path::Path::new(&report))?;
+    }
+
+    assert!(results.iter().all(|(_, ok)| *ok));
 
     Ok(())
+}
+
+/// Write the per-case `(name, source path, passed)` results as CTRF-style
+/// JSON, for the safety manual's Test Results page.
+fn write_report(
+    results: &[(String, String, bool)],
+    tool: &str,
+    path: &std::path::Path,
+) -> std::io::Result<()> {
+    let tests: Vec<_> = results
+        .iter()
+        .map(|(name, file_path, ok)| {
+            serde_json::json!({
+                "name": name,
+                "filePath": file_path,
+                "status": if *ok { "passed" } else { "failed" },
+            })
+        })
+        .collect();
+    let failed = results.iter().filter(|(_, _, ok)| !ok).count();
+    let report = serde_json::json!({
+        "results": {
+            "tool": { "name": tool },
+            "summary": {
+                "tests": results.len(),
+                "passed": results.len() - failed,
+                "failed": failed,
+            },
+            "tests": tests,
+        }
+    });
+    std::fs::write(path, serde_json::to_string_pretty(&report).unwrap())
 }
 
 fn process_file(path: &std::path::Path, update: bool) -> std::io::Result<bool> {
