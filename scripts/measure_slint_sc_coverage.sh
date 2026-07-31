@@ -8,9 +8,8 @@
 #
 # Only the runtime crate is measured: its unit tests and the test driver,
 # which compiles and runs the .slint test cases against the instrumented
-# runtime. The slint_sc CI job, the docs build, and
-# build_safety_manual_coverage.sh all call this script so the measured
-# suite can't drift between them.
+# runtime. The docs build and build_safety_manual_coverage.sh both call
+# this script so the measured suite can't drift between them.
 #
 # Requires cargo-llvm-cov and the llvm-tools-preview rustup component.
 

@@ -27,7 +27,7 @@ on:
           type: boolean
           default: false
           required: false
-          description: "Measure slint-sc test coverage and include it in the Safety Manual"
+          description: "Run the slint-sc tests and include the measured coverage in the Safety Manual"
 
 jobs:
     # Job 1: Build Rust and C++ documentation
@@ -188,9 +188,21 @@ jobs:
                   EXTRA_FLAGS="--experimental"
                 fi
                 cargo run --release -p slint-doc-generator -- $EXTRA_FLAGS
+            - name: "Test compiler with slint-sc feature"
+              if: ${{ inputs['slint-sc-coverage'] }}
+              run: cargo test -p i-slint-compiler --features slint-sc --no-default-features
+            - name: "Test slint-compiler binary with slint-sc feature"
+              if: ${{ inputs['slint-sc-coverage'] }}
+              run: cargo test -p slint-compiler --features slint-sc --no-default-features
             - name: "Measure slint-sc test coverage"
               if: ${{ inputs['slint-sc-coverage'] }}
               run: scripts/measure_slint_sc_coverage.sh coverage
+            - name: "Upload slint-sc coverage report"
+              if: ${{ inputs['slint-sc-coverage'] }}
+              uses: actions/upload-artifact@v7
+              with:
+                  name: slint-sc-coverage
+                  path: coverage
             - name: "Generate SC API reference"
               run: |
                   COVERAGE_FLAGS=""
