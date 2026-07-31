@@ -279,6 +279,17 @@ const NODE_ID_INDEX_BITS: u32 = 16;
 const NODE_ID_INDEX_MASK: u64 = (1 << NODE_ID_INDEX_BITS) - 1; // 0xFFFF
 const NODE_ID_COMPONENT_MASK: u64 = (1 << 22) - 1; // 0x3FFFFF
 
+fn is_text_input_role(role: Role) -> bool {
+    matches!(
+        role,
+        Role::TextInput
+            | Role::MultilineTextInput
+            | Role::PasswordInput
+            | Role::SearchInput
+            | Role::NumberInput
+    )
+}
+
 struct NodeCollection {
     next_component_id: u32,
     free_component_ids: Vec<u32>,
@@ -658,10 +669,9 @@ impl NodeCollection {
         }
 
         if let Some(value) = item.accessible_string_property(AccessibleStringProperty::Value) {
-            if let Ok(value) = value.parse() {
-                node.set_numeric_value(value);
-            } else {
-                node.set_value(value.to_string());
+            match value.parse() {
+                Ok(numeric) if !is_text_input_role(role) => node.set_numeric_value(numeric),
+                _ => node.set_value(value.to_string()),
             }
         }
 
