@@ -7,6 +7,7 @@ import type { language } from "./generated/language";
 /** A pointer was pressed. */
 export interface PointerPressedEvent {
     type: "pointer-pressed";
+    /** The position of the pointer, in logical pixels relative to the top left corner of the window. */
     position: Point;
     /** The button that was pressed. */
     button: language.PointerEventButton;
@@ -15,6 +16,7 @@ export interface PointerPressedEvent {
 /** A pointer was released. */
 export interface PointerReleasedEvent {
     type: "pointer-released";
+    /** The position of the pointer, in logical pixels relative to the top left corner of the window. */
     position: Point;
     /** The button that was released. */
     button: language.PointerEventButton;
@@ -23,6 +25,7 @@ export interface PointerReleasedEvent {
 /** The position of the pointer has changed. */
 export interface PointerMovedEvent {
     type: "pointer-moved";
+    /** The new position of the pointer, in logical pixels relative to the top left corner of the window. */
     position: Point;
 }
 
@@ -37,7 +40,11 @@ export interface PointerScrolledEvent {
     deltaY: number;
 }
 
-/** The pointer exited the window. */
+/**
+ * The pointer exited the window.
+ *
+ * Dispatching this event always returns `Accepted`.
+ */
 export interface PointerExitedEvent {
     type: "pointer-exited";
 }
@@ -64,9 +71,10 @@ export interface KeyReleasedEvent {
 }
 
 /**
- * The window's scale factor has changed. This can happen for example when the display's resolution
- *  changes, the user selects a new scale factor in the system settings, or the window is moved to a
- * different screen.
+ * The window's scale factor has changed.
+ * This can happen for example when the display's resolution changes,
+ * the user selects a new scale factor in the system settings,
+ * or the window is moved to a different screen.
  */
 export interface ScaleFactorChangedEvent {
     type: "scale-factor-changed";
@@ -74,25 +82,56 @@ export interface ScaleFactorChangedEvent {
     scaleFactor: number;
 }
 
-/** The window was resized. */
+/**
+ * The window was resized.
+ *
+ * Dispatching this event updates the `width` and `height` properties of the root window element.
+ */
 export interface ResizedEvent {
     type: "resized";
-    /** The new logical size of the window */
+    /** The new logical size of the window. */
     size: Size;
 }
 
-/** The user requested to close the window. */
+/**
+ * The user requested to close the window.
+ *
+ * Dispatching this event invokes the `close-requested` callback of the window element,
+ * and hides the window unless that callback returns `reject`.
+ */
 export interface CloseRequestedEvent {
     type: "close-requested";
 }
 
-/** The Window was activated or de-activated. */
+/** The window was activated or de-activated. */
 export interface WindowActiveChangedEvent {
     type: "window-active-changed";
+    /** True when the window gained focus, false when it lost focus. */
     active: boolean;
 }
 
-/** A event that describes user input or windowing system events. */
+/**
+ * An event that describes user input or a windowing system change.
+ *
+ * The `type` field selects the variant and determines which other fields apply.
+ * Dispatch an event to a window with `Window.dispatchEvent`,
+ * which reports whether the scene accepted, rejected, or ignored it.
+ *
+ * @example
+ * ```js
+ * import * as slint from "slint-ui";
+ *
+ * const result = window.dispatchEvent({
+ *     type: "pointer-pressed",
+ *     position: { x: 51, y: 51 },
+ *     button: "left",
+ * });
+ *
+ * if (result === slint.WindowEventDispatchResult.Accepted) {
+ *     console.log("the scene handled the press");
+ * }
+ * ```
+ */
 export type WindowEvent =
     | PointerPressedEvent
     | PointerReleasedEvent

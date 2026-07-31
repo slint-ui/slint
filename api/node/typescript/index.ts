@@ -102,7 +102,11 @@ export interface Window {
     /** Issues a request to the windowing system to re-render the contents of the window. */
     requestRedraw(): void;
 
-    /** Dispatch a window event to the scene. **/
+    /**
+     * Dispatches a window event to the scene.
+     *
+     * Returns whether the scene accepted the event, actively rejected it, or left it unhandled.
+     */
     dispatchEvent(event: platform.WindowEvent): napi.WindowEventDispatchResult;
 }
 
