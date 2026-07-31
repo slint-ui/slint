@@ -76,10 +76,9 @@ export default defineConfig({
                             // starlight-typedoc deletes every subdirectory README.md but
                             // typedoc-plugin-markdown still emits a "Namespaces" link to
                             // the deleted file in the parent README. The namespace's
-                            // type-alias sub-pages and the language variable page at
-                            // /api/variables/language/ cover the same content.
-                            p.endsWith(
-                                "/api/slint-ui/namespaces/language/readme/",
+                            // own sub-pages cover the same content.
+                            /\/api\/slint-ui\/namespaces\/[^/]+\/readme\/$/.test(
+                                p,
                             )
                         );
                     },
