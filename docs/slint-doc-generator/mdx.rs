@@ -185,7 +185,7 @@ pub struct EnumDoc {
 }
 
 pub fn extract_enum_docs(
-    include_experimental: bool,
+    _include_experimental: bool,
     sc_only: bool,
 ) -> std::collections::BTreeMap<String, EnumDoc> {
     let mut enums: std::collections::BTreeMap<String, EnumDoc> = std::collections::BTreeMap::new();
@@ -215,10 +215,6 @@ pub fn extract_enum_docs(
     #[allow(unused)] // for 'has_val'
     {
         i_slint_common::for_each_enums!(gen_enums);
-    }
-
-    if !include_experimental {
-        enums.retain(|name, _| !name.starts_with("FlexboxLayout"));
     }
 
     if sc_only {
