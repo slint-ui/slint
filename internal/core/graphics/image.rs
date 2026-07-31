@@ -473,25 +473,23 @@ impl ImageInner {
                         let source = &ts.data[t.index + y * rect.width() * t.format.bpp()..];
                         match t.format {
                             TexturePixelFormat::Rgb => {
-                                let mut iter = source.chunks_exact(3).map(|p| Rgba8Pixel {
-                                    r: p[0],
-                                    g: p[1],
-                                    b: p[2],
-                                    a: 255,
-                                });
+                                let mut iter = source
+                                    .as_chunks::<3>()
+                                    .0
+                                    .iter()
+                                    .map(|p| Rgba8Pixel { r: p[0], g: p[1], b: p[2], a: 255 });
                                 slice.fill_with(|| iter.next().unwrap());
                             }
                             TexturePixelFormat::RgbaPremultiplied => {
-                                let mut iter = source.chunks_exact(4).map(|p| Rgba8Pixel {
-                                    r: p[0],
-                                    g: p[1],
-                                    b: p[2],
-                                    a: p[3],
-                                });
+                                let mut iter = source
+                                    .as_chunks::<4>()
+                                    .0
+                                    .iter()
+                                    .map(|p| Rgba8Pixel { r: p[0], g: p[1], b: p[2], a: p[3] });
                                 slice.fill_with(|| iter.next().unwrap());
                             }
                             TexturePixelFormat::Rgba => {
-                                let mut iter = source.chunks_exact(4).map(|p| {
+                                let mut iter = source.as_chunks::<4>().0.iter().map(|p| {
                                     let a = p[3];
                                     Rgba8Pixel {
                                         r: (p[0] as u16 * a as u16 / 255) as u8,

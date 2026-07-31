@@ -117,7 +117,7 @@ fn image_buffer_to_skia_image(buffer: &SharedImageBuffer) -> Option<skia_safe::I
     // order of magnitude slower than writes. The scan happens once per image;
     // the resulting skia_safe::Image is cached.
     fn opaque_or(rgba_bytes: &[u8], alpha_type: skia_safe::AlphaType) -> skia_safe::AlphaType {
-        if rgba_bytes.chunks_exact(4).all(|px| px[3] == 255) {
+        if rgba_bytes.as_chunks::<4>().0.iter().all(|px| px[3] == 255) {
             skia_safe::AlphaType::Opaque
         } else {
             alpha_type

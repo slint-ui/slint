@@ -22,8 +22,8 @@ pub fn fill_rect(
     let rgb = [color.red(), color.green(), color.blue()];
     for row in y0..y1 {
         let row_range = row * stride + x0 * 3..row * stride + x1 * 3;
-        for pixel in frame_buffer[row_range].chunks_exact_mut(3) {
-            pixel.copy_from_slice(&rgb);
+        for pixel in frame_buffer[row_range].as_chunks_mut::<3>().0 {
+            *pixel = rgb;
         }
     }
 }
