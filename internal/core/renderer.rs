@@ -229,6 +229,29 @@ pub trait RendererSealed {
         )
     }
 
+    /// Lays `text_input` out the way this renderer draws it and lends the result to `visitor`.
+    ///
+    /// Returns false if this renderer lays no text out through parley.
+    ///
+    /// The default implementation uses the shared parley text layout with [`Self::text_layout_cache`].
+    #[cfg(feature = "shared-parley")]
+    fn visit_text_input_layout(
+        &self,
+        text_input: Pin<&crate::items::TextInput>,
+        item_rc: &ItemRc,
+        size: LogicalSize,
+        visitor: &mut dyn crate::textlayout::sharedparley::TextInputLayoutVisitor,
+    ) -> bool {
+        crate::textlayout::sharedparley::visit_text_input_layout(
+            self,
+            text_input,
+            item_rc,
+            size,
+            self.text_layout_cache(),
+            visitor,
+        )
+    }
+
     /// Clear the caches for the items that are being removed
     fn free_graphics_resources(
         &self,

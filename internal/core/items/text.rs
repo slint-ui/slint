@@ -1428,10 +1428,10 @@ pub struct TextInputVisualRepresentation {
 
 /// What the characters of a password field are displayed as. The same everywhere, so that
 /// measuring, hit-testing and drawing agree on the shaped text and can share it.
-const PASSWORD_CHARACTER: char = '\u{25cf}';
+pub(crate) const PASSWORD_CHARACTER: char = '\u{25cf}';
 
 /// Replaces every character of `text` with [`PASSWORD_CHARACTER`].
-fn mask_password(text: &str) -> SharedString {
+pub(crate) fn mask_password(text: &str) -> SharedString {
     core::iter::repeat_n(PASSWORD_CHARACTER, text.chars().count()).collect()
 }
 
@@ -2064,7 +2064,7 @@ impl TextInput {
     /// Deliberately reads less than [`Self::visual_representation`]: neither the cursor visibility
     /// nor the selection nor the colors, so that callers which only need the string -- sizing above
     /// all -- don't end up making the layout depend on the blinking cursor.
-    fn text_with_preedit(self: Pin<&Self>) -> (SharedString, core::ops::Range<usize>) {
+    pub(crate) fn text_with_preedit(self: Pin<&Self>) -> (SharedString, core::ops::Range<usize>) {
         let text = self.text();
         let preedit_text = self.preedit_text();
         if preedit_text.is_empty() {
