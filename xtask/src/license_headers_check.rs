@@ -944,7 +944,7 @@ impl LicenseHeaderCheck {
         for path in &collect_files()? {
             let result = self
                 .check_file(path.as_path())
-                .with_context(|| format!("checking {}", &path.to_string_lossy()));
+                .with_context(|| format!("checking {}", path.to_string_lossy()));
 
             if result.is_err() {
                 seen_errors = true;

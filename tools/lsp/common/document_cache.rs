@@ -502,7 +502,7 @@ mod tests {
     ) -> Option<String> {
         let result = dc.element_at_position(url, &lsp_types::Position { line, character })?;
         let element = result.element.borrow();
-        Some(format!("{}", &element.base_type))
+        Some(element.base_type.to_string())
     }
 
     #[test]

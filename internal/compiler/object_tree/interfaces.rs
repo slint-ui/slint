@@ -155,7 +155,7 @@ fn filter_conflicting_implement_statements(
             seen_interfaces.push(stmt.interface.clone());
 
             let mut valid = true;
-            for (prop_name, _) in stmt.interface.borrow().property_declarations.iter() {
+            for prop_name in stmt.interface.borrow().property_declarations.keys() {
                 if let Some(existing_interface) = seen_interface_api.get(prop_name) {
                     diagnostics.push_error(
                         format!(

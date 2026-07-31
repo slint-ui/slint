@@ -144,11 +144,7 @@ pub fn find_element_indent(element: &common::ElementRcNode) -> Option<String> {
 /// ```
 pub fn lookup_current_element_type(mut node: SyntaxNode, tr: &TypeRegister) -> Option<ElementType> {
     while node.kind() != SyntaxKind::Element {
-        if let Some(parent) = node.parent() {
-            node = parent
-        } else {
-            return None;
-        }
+        node = node.parent()?;
     }
 
     let parent = node.parent()?;
