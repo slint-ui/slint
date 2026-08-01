@@ -72,6 +72,24 @@ use i_slint_core::items::{ItemRc, TextWrap};
 use itemrenderer::to_skia_rect;
 pub use skia_safe;
 
+/// Returns the color space for Slint colors, unencoded pixel buffers, and render targets.
+///
+/// The working color space remains linear for a physical sRGB render target because the GPU
+/// attachment applies the sRGB transfer function when it stores the rendered values.
+pub(crate) fn linear_srgb_color_space() -> skia_safe::ColorSpace {
+    skia_safe::ColorSpace::new_srgb_linear()
+}
+
+#[cfg(any(feature = "wgpu-29", feature = "wgpu-30"))]
+pub(crate) fn srgb_color_space() -> skia_safe::ColorSpace {
+    skia_safe::ColorSpace::new_srgb()
+}
+
+#[cfg(any(feature = "wgpu-29", feature = "wgpu-30"))]
+pub(crate) fn texture_color_space(is_srgb: bool) -> skia_safe::ColorSpace {
+    if is_srgb { srgb_color_space() } else { linear_srgb_color_space() }
+}
+
 cfg_if::cfg_if! {
     if #[cfg(skia_backend_vulkan)] {
         type DefaultSurface = vulkan_surface::VulkanSurface;
@@ -613,7 +631,12 @@ impl SkiaRenderer {
                 let window_item =
                     window_item_rc.downcast::<i_slint_core::items::WindowItem>().unwrap();
                 if let Brush::SolidColor(clear_color) = window_item.as_pin_ref().background() {
-                    skia_canvas.clear(itemrenderer::to_skia_color(&clear_color));
+                    let mut paint = skia_safe::Paint::new(
+                        itemrenderer::to_skia_color4f(&clear_color),
+                        &linear_srgb_color_space(),
+                    );
+                    paint.set_blend_mode(skia_safe::BlendMode::Src);
+                    skia_canvas.draw_paint(&paint);
                 } else {
                     // Draws the window background as gradient
                     item_renderer.draw_rectangle(
@@ -886,7 +909,7 @@ impl i_slint_core::renderer::RendererSealed for SkiaRenderer {
                 (width as i32, height as i32),
                 skia_safe::ColorType::RGBA8888,
                 skia_safe::AlphaType::Opaque,
-                None,
+                linear_srgb_color_space(),
             ),
             target_buffer.make_mut_bytes(),
             None,

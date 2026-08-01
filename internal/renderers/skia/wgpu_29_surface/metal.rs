@@ -26,7 +26,7 @@ unsafe fn wrap_metal_texture(
             &backend_render_target,
             skia_safe::gpu::SurfaceOrigin::TopLeft,
             color_type,
-            None,
+            crate::linear_srgb_color_space(),
             None,
         )
     }
@@ -61,6 +61,7 @@ pub unsafe fn import_metal_texture(
     texture: wgpu::Texture,
 ) -> Option<skia_safe::Image> {
     unsafe {
+        let color_space = crate::texture_color_space(texture.format().is_srgb());
         let metal_texture = texture.as_hal::<wgpu::wgc::api::Metal>();
 
         let texture_info = mtl::TextureInfo::new(metal_texture.unwrap().raw_handle()
@@ -85,7 +86,7 @@ pub unsafe fn import_metal_texture(
                     _ => return None,
                 },
                 skia_safe::AlphaType::Unpremul,
-                None,
+                color_space,
             )
             .unwrap(),
         )
