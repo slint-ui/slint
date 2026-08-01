@@ -222,8 +222,11 @@ export component ControlsPage inherits Page {
                     checked <=> tabGroup.show-tab-3;
                 }
             }
+            Text {
+                text: "current-index: " + twConditional.current-index;
+            }
 
-            TabWidget {
+            twConditional := TabWidget {
                 if tabGroup.show-tab-1: Tab {
                     title: @tr("Tab 1");
 
@@ -297,8 +300,11 @@ export component ControlsPage inherits Page {
                     }
                 }
             }
+            Text {
+                text: "current-index: " + twDynamic.current-index;
+            }
 
-            TabWidget {
+            twDynamic := TabWidget {
                 for tab-name[idx] in editableTabs.tab-names: Tab {
                     title: tab-name;
                     VerticalBox {
@@ -312,6 +318,67 @@ export component ControlsPage inherits Page {
                 }
             }
         }
+
+        mixedTabs := VerticalBox {
+            in-out property <string> tab-text: "Two,Three";
+            in-out property <[string]> tab-names: ["Two", "Three"];
+
+            HorizontalBox {
+                padding-top: 10px;
+                padding-bottom: 10px;
+
+                Text {
+                    text: "Tabs (comma separated):";
+                    vertical-alignment: center;
+                }
+                LineEdit {
+                    text <=> mixedTabs.tab-text;
+                    edited(value) => {
+                        mixedTabs.tab-names = ControlsPageLogic.split-string(value);
+                    }
+                }
+            }
+            Text {
+                text: "current-index: " + twMixed.current-index;
+            }
+
+            twMixed := TabWidget {
+                Tab {
+                    title: "First";
+                    VerticalBox {
+                        alignment: center;
+                        Text {
+                            text: "Always the first tab";
+                            font-size: 32px;
+                            horizontal-alignment: center;
+                        }
+                    }
+                }
+                for tab-name[idx] in mixedTabs.tab-names: Tab {
+                    title: tab-name;
+                    VerticalBox {
+                        alignment: center;
+                        Text {
+                            text: tab-name;
+                            font-size: 32px;
+                            horizontal-alignment: center;
+                        }
+                    }
+                }
+                Tab {
+                    title: "Last";
+                    VerticalBox {
+                        alignment: center;
+                        Text {
+                            text: "Always the last tab";
+                            font-size: 32px;
+                            horizontal-alignment: center;
+                        }
+                    }
+                }
+            }
+        }
+
     }
 
     time-picker := TimePickerPopup {

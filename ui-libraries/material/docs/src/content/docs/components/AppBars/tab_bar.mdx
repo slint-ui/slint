@@ -31,7 +31,9 @@ A `TabBar` displays a row of tabs for navigation between different views or cont
 
 ### current-index
 <SlintProperty propName="current-index" typeName="int" propertyVisibility="in-out">
-The index of the currently selected tab.
+The index of the currently selected tab. This is a 0-based index that includes only
+visible tabs. If tabs are dynamically allocated or are conditionally hidden, then
+they will be ignored for counting the value of `current-index`.
 </SlintProperty>
 
 ### items
