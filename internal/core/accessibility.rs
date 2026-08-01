@@ -8,7 +8,7 @@ use crate::{
     item_tree::ItemTreeVTable,
     items::{ItemRc, TextInput},
 };
-use alloc::{vec, vec::Vec};
+use alloc::vec::Vec;
 use bitflags::bitflags;
 use vtable::VRcMapped;
 
@@ -113,37 +113,18 @@ pub fn accessible_descendents(root_item: &ItemRc) -> impl Iterator<Item = ItemRc
     })
 }
 
-/// Find the first built-in `TextInput` in the descendents of `item`.
+/// Find the first built-in `TextInput` in `item` or its descendents.
 pub fn find_text_input(item: &ItemRc) -> Option<VRcMapped<ItemTreeVTable, TextInput>> {
-    fn try_candidate_or_find_next_descendent(
-        candidate: ItemRc,
-        descendent_candidates: &mut Vec<ItemRc>,
-    ) -> Option<VRcMapped<ItemTreeVTable, TextInput>> {
-        if let Some(input) = candidate.downcast::<TextInput>() {
-            return Some(input);
-        }
-
-        candidate.first_child().and_then(|child| {
-            if let Some(next) = child.next_sibling() {
-                descendent_candidates.push(next);
-            }
-            try_candidate_or_find_next_descendent(child, descendent_candidates)
-        })
+    if let Some(input) = item.clone().downcast::<TextInput>() {
+        return Some(input);
     }
 
-    let mut descendent_candidates = vec![item.clone()];
-
-    loop {
-        let candidate = descendent_candidates.pop()?;
-
-        if let Some(next_candidate) = candidate.next_sibling() {
-            descendent_candidates.push(next_candidate);
-        }
-
-        if let Some(input) =
-            try_candidate_or_find_next_descendent(candidate, &mut descendent_candidates)
-        {
+    let mut child = item.first_child();
+    while let Some(candidate) = child {
+        child = candidate.next_sibling();
+        if let Some(input) = find_text_input(&candidate) {
             return Some(input);
         }
     }
+    None
 }
