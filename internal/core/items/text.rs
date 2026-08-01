@@ -309,8 +309,10 @@ impl Item for StyledTextItem {
             MouseEvent::Released {
                 position,
                 button: PointerEventButton::Left,
-                click_count: _,
-                touch_finger_id: _,
+                // Following a link is an action, so a window-activating click
+                // (macOS "first mouse") only updates the cursor.
+                is_activation_click: false,
+                ..
             } => {
                 if let Some(link) = find_link(position) {
                     *cursor = super::MouseCursorInner::BuiltIn(super::BuiltInMouseCursor::Pointer);

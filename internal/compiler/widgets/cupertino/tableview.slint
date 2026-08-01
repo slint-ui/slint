@@ -104,6 +104,8 @@ component TableViewRow inherits Rectangle {
     ]
 
     touch-area := TouchArea {
+        accepts-activation-clicks: true;
+
         pointer-event(pe) => {
             root.pointer-event(pe, {
                 x: self.absolute-position.x + self.mouse-x,

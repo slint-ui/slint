@@ -75,6 +75,8 @@ export component StandardTableView {
         for row[i] in rows : Rectangle {
             width: max(row-layout.preferred-width, scroll-view.visible-width);
             row-ta := TouchArea {
+                accepts-activation-clicks: true;
+
                 clicked => {
                     root.focus();
                     root.set-current-row(i);

@@ -83,6 +83,9 @@ macro_rules! for_each_builtin_structs {
                 modifiers: KeyboardModifiers,
                 /// The unique ID of the touch point, indicating the finger ID. 0 means it's not a touch event (e.g., mouse).
                 touch_finger_id: i32,
+                /// True when this press or release belongs to the click that activated the window
+                /// (called "first mouse" on macOS). Always false on other platforms and for other event kinds.
+                is_activation_click: bool,
             }
 
             /// Represents a Pointer scroll (or wheel) event sent by the windowing system.

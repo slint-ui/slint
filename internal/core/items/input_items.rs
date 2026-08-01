@@ -45,6 +45,7 @@ pub struct TouchArea {
     pub mouse_x: Property<LogicalLength>,
     pub mouse_y: Property<LogicalLength>,
     pub mouse_cursor: Property<MouseCursorInner>,
+    pub accepts_activation_clicks: Property<bool>,
     pub clicked: Callback<VoidArg>,
     pub double_clicked: Callback<VoidArg>,
     pub moved: Callback<VoidArg>,
@@ -54,6 +55,9 @@ pub struct TouchArea {
     pub cached_rendering_data: CachedRenderingData,
     /// true when we are currently grabbing the mouse
     grabbed: Cell<bool>,
+    /// true when the current grab originates from a window-activating press
+    /// that is suppressed because `accepts-activation-clicks` is false
+    suppressed_grab: Cell<bool>,
 }
 
 impl Item for TouchArea {
@@ -81,12 +85,14 @@ impl Item for TouchArea {
         if !self.enabled() {
             self.has_hover.set(false);
             if self.grabbed.replace(false) {
+                self.suppressed_grab.set(false);
                 self.pressed.set(false);
                 Self::FIELD_OFFSETS.pointer_event().apply_pin(self).call(&(PointerEvent {
                     button: PointerEventButton::Other,
                     kind: PointerEventKind::Cancel,
                     modifiers: window_adapter.window().0.context().0.modifiers.get().into(),
                     touch_finger_id: 0,
+                    is_activation_click: false,
                 },));
             }
             return InputEventFilterResult::ForwardAndIgnore;
@@ -121,9 +127,17 @@ impl Item for TouchArea {
             return InputEventResult::EventIgnored;
         }
         match event {
-            MouseEvent::Pressed { position, button, touch_finger_id, .. } => {
+            MouseEvent::Pressed {
+                position, button, touch_finger_id, is_activation_click, ..
+            } => {
+                // A window-activating click (macOS "first mouse") should not
+                // trigger actions by default: keep the grab so the matching
+                // release still arrives here and `pointer-event` still fires,
+                // but don't enter the pressed state that `clicked` depends on.
+                let suppressed = *is_activation_click && !self.accepts_activation_clicks();
                 self.grabbed.set(true);
-                if *button == PointerEventButton::Left {
+                self.suppressed_grab.set(suppressed);
+                if *button == PointerEventButton::Left && !suppressed {
                     Self::FIELD_OFFSETS.pressed_x().apply_pin(self).set(position.x_length());
                     Self::FIELD_OFFSETS.pressed_y().apply_pin(self).set(position.y_length());
                     Self::FIELD_OFFSETS.pressed().apply_pin(self).set(true);
@@ -133,6 +147,7 @@ impl Item for TouchArea {
                     kind: PointerEventKind::Down,
                     modifiers: window_adapter.window().0.context().0.modifiers.get().into(),
                     touch_finger_id: *touch_finger_id,
+                    is_activation_click: *is_activation_click,
                 },));
 
                 InputEventResult::GrabMouse
@@ -140,18 +155,26 @@ impl Item for TouchArea {
             MouseEvent::Exit => {
                 Self::FIELD_OFFSETS.pressed().apply_pin(self).set(false);
                 if self.grabbed.replace(false) {
+                    self.suppressed_grab.set(false);
                     Self::FIELD_OFFSETS.pointer_event().apply_pin(self).call(&(PointerEvent {
                         button: PointerEventButton::Other,
                         kind: PointerEventKind::Cancel,
                         modifiers: window_adapter.window().0.context().0.modifiers.get().into(),
                         touch_finger_id: 0,
+                        is_activation_click: false,
                     },));
                 }
 
                 InputEventResult::EventAccepted
             }
 
-            MouseEvent::Released { button, position, click_count, touch_finger_id } => {
+            MouseEvent::Released {
+                button,
+                position,
+                click_count,
+                touch_finger_id,
+                is_activation_click,
+            } => {
                 let geometry = self_rc.geometry();
                 if *button == PointerEventButton::Left
                     && LogicalRect::new(LogicalPoint::default(), geometry.size).contains(*position)
@@ -164,6 +187,7 @@ impl Item for TouchArea {
                 }
 
                 self.grabbed.set(false);
+                self.suppressed_grab.set(false);
                 if *button == PointerEventButton::Left {
                     Self::FIELD_OFFSETS.pressed().apply_pin(self).set(false);
                 }
@@ -172,6 +196,7 @@ impl Item for TouchArea {
                     kind: PointerEventKind::Up,
                     modifiers: window_adapter.window().0.context().0.modifiers.get().into(),
                     touch_finger_id: *touch_finger_id,
+                    is_activation_click: *is_activation_click,
                 },));
 
                 InputEventResult::EventAccepted
@@ -182,9 +207,15 @@ impl Item for TouchArea {
                     kind: PointerEventKind::Move,
                     modifiers: window_adapter.window().0.context().0.modifiers.get().into(),
                     touch_finger_id: *touch_finger_id,
+                    is_activation_click: false,
                 },));
                 if self.grabbed.get() {
-                    Self::FIELD_OFFSETS.moved().apply_pin(self).call(&());
+                    // A grab from a suppressed activation press never
+                    // initialized `pressed-x`/`pressed-y`, so don't report
+                    // drags relative to them.
+                    if !self.suppressed_grab.get() {
+                        Self::FIELD_OFFSETS.moved().apply_pin(self).call(&());
+                    }
                     InputEventResult::GrabMouse
                 } else {
                     InputEventResult::EventAccepted
