@@ -108,13 +108,15 @@ jobs:
               with:
                   target: ${{ matrix.rust-target }}
                   key: ${{ matrix.rust-target }}
-            - uses: pnpm/action-setup@v6.0.9
             # Setup .npmrc file to publish to npm
+            # node before pnpm: the musl containers ship no node/npm, and the
+            # pnpm self-installer needs npm.
             - uses: actions/setup-node@v7
               with:
                   node-version: "24"
                   registry-url: "https://registry.npmjs.org"
                   package-manager-cache: false
+            - uses: pnpm/action-setup@v6.0.9
             - name: Set version
               working-directory: api/node
               shell: bash
