@@ -474,7 +474,7 @@ pub(super) fn solve_flexbox_layout(
                     } else {
                         None
                     };
-                    let v_info = get_layout_info(
+                    let v_info = get_flex_cell_layout_info(
                         elem,
                         ctx,
                         &li.item.constraints,
@@ -490,7 +490,7 @@ pub(super) fn solve_flexbox_layout(
                                 )
                             },
                         );
-                    let h_info = get_layout_info(
+                    let h_info = get_flex_cell_layout_info(
                         elem,
                         ctx,
                         &li.item.constraints,
@@ -542,7 +542,7 @@ fn measure_cells_for(
                     ty: Type::LogicalLength,
                 }
             });
-            let v_info = get_layout_info(
+            let v_info = get_flex_cell_layout_info(
                 elem,
                 ctx,
                 &li.item.constraints,
@@ -556,7 +556,7 @@ fn measure_cells_for(
                         ty: Type::LogicalLength,
                     }
                 });
-            let h_info = get_layout_info(
+            let h_info = get_flex_cell_layout_info(
                 elem,
                 ctx,
                 &li.item.constraints,
@@ -929,7 +929,7 @@ fn flexbox_layout_data(
                 .iter()
                 .map(|li| {
                     let constraint = cell_h_constraint(&li.item.element);
-                    let layout_info_h = get_layout_info(
+                    let layout_info_h = get_flex_cell_layout_info(
                         &li.item.element,
                         ctx,
                         &li.item.constraints,
@@ -953,7 +953,7 @@ fn flexbox_layout_data(
                 .iter()
                 .map(|li| {
                     let constraint = cell_v_constraint(&li.item.element);
-                    let layout_info_v = get_layout_info(
+                    let layout_info_v = get_flex_cell_layout_info(
                         &li.item.element,
                         ctx,
                         &li.item.constraints,
@@ -997,7 +997,7 @@ fn flexbox_layout_data(
             } else {
                 // For static elements, we need both orientations
                 let h_constraint = cell_h_constraint(&item.item.element);
-                let layout_info_h = get_layout_info(
+                let layout_info_h = get_flex_cell_layout_info(
                     &item.item.element,
                     ctx,
                     &item.item.constraints,
@@ -1005,7 +1005,7 @@ fn flexbox_layout_data(
                     h_constraint,
                 );
                 let constraint = cell_v_constraint(&item.item.element);
-                let layout_info_v = get_layout_info(
+                let layout_info_v = get_flex_cell_layout_info(
                     &item.item.element,
                     ctx,
                     &item.item.constraints,
@@ -1744,6 +1744,27 @@ fn layout_geometry_size(
     }
 }
 
+/// A flex cell's `LayoutInfo`: same as [`get_layout_info`] but keeps only the
+/// cell's *locally-set* constraints on top of the measured layout-info. An
+/// inherited intrinsic min/max/preferred is already included in `layout_info`
+/// (via the parametrized `layoutinfo-{h,v}-with-constraint`), and re-reading it
+/// unconstrained would reintroduce a height-for-width loop through the flex
+/// solve. Only flex callers need this: box/grid measure the cell without the
+/// cross-axis being under solve, so re-applying inherited constraints there
+/// doesn't cycle — and it's necessary, because those inherited constraints
+/// aren't merged into the layout-info of a cell with a fixed size binding
+/// (see `default_geometry::gen_layout_info_prop`).
+pub fn get_flex_cell_layout_info(
+    elem: &ElementRc,
+    ctx: &mut ExpressionLoweringCtx,
+    constraints: &crate::layout::LayoutConstraints,
+    orientation: Orientation,
+    constraint: Option<crate::expression_tree::Expression>,
+) -> llr_Expression {
+    let effective = constraints.to_apply(elem, orientation);
+    get_layout_info(elem, ctx, &effective, orientation, constraint)
+}
+
 pub fn get_layout_info(
     elem: &ElementRc,
     ctx: &mut ExpressionLoweringCtx,
@@ -1781,11 +1802,6 @@ pub fn get_layout_info(
         )
     };
 
-    // Apply only the cell's locally-set constraints on top of the measured
-    // layout-info: an inherited intrinsic min/max/preferred is already included
-    // in `layout_info`, and re-reading it unconstrained would reintroduce a
-    // height-for-width loop through the layout solve.
-    let constraints = constraints.to_apply(elem, orientation);
     if constraints.has_explicit_restrictions(orientation) {
         let store = llr_Expression::StoreLocalVariable {
             name: "layout_info".into(),
@@ -1981,7 +1997,13 @@ pub fn get_layout_info_v_constrained_for_repeated(
             crate::expression_tree::Unit::Px,
         )
     });
-    Some(get_layout_info(element, ctx, constraints, Orientation::Vertical, Some(width_constraint)))
+    Some(get_flex_cell_layout_info(
+        element,
+        ctx,
+        constraints,
+        Orientation::Vertical,
+        Some(width_constraint),
+    ))
 }
 
 /// Name of the local that carries the cross-axis (container) width into the
@@ -2006,7 +2028,13 @@ pub fn get_layout_info_v_at_cross_width_for_repeated(
         name: FLEX_CROSS_WIDTH_LOCAL.into(),
         ty: Type::LogicalLength,
     };
-    Some(get_layout_info(element, ctx, constraints, Orientation::Vertical, Some(width_constraint)))
+    Some(get_flex_cell_layout_info(
+        element,
+        ctx,
+        constraints,
+        Orientation::Vertical,
+        Some(width_constraint),
+    ))
 }
 
 /// Horizontal `LayoutInfo` for a repeated element, computed with an unbounded
@@ -2029,7 +2057,7 @@ pub fn get_layout_info_h_constrained_for_repeated(
         f32::MAX as f64,
         crate::expression_tree::Unit::Px,
     );
-    Some(get_layout_info(
+    Some(get_flex_cell_layout_info(
         element,
         ctx,
         constraints,
@@ -2058,7 +2086,7 @@ pub fn get_layout_info_h_at_cross_height_for_repeated(
         name: FLEX_CROSS_HEIGHT_LOCAL.into(),
         ty: Type::LogicalLength,
     };
-    Some(get_layout_info(
+    Some(get_flex_cell_layout_info(
         element,
         ctx,
         constraints,
