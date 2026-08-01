@@ -1,0 +1,137 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Test the handling of window-activating clicks (macOS "first mouse").
+// A `TouchArea` suppresses them by default, unless `accepts-activation-clicks`
+// is set. The `pointer-event` callback fires either way and reports the
+// activation state in `is-activation-click`.
+
+export component TestCase {
+    in-out property <string> log;
+    in-out property <int> clicks;
+    in-out property <int> double-clicks;
+    in-out property <int> moves;
+    in-out property <int> accepting-clicks;
+    out property <bool> is-pressed <=> default-ta.pressed;
+    out property <bool> accepting-is-pressed <=> accepting-ta.pressed;
+
+    default-ta := TouchArea {
+        x: 0phx;
+        y: 0phx;
+        width: 100phx;
+        height: 100phx;
+        clicked => { clicks += 1; }
+        double-clicked => { double-clicks += 1; }
+        moved => { moves += 1; }
+        pointer-event(e) => {
+            if (e.kind == PointerEventKind.down) {
+                log += e.is-activation-click ? "D*" : "D";
+            } else if (e.kind == PointerEventKind.up) {
+                log += e.is-activation-click ? "U*" : "U";
+            }
+        }
+    }
+
+    in-out property <int> accepting-double-clicks;
+
+    accepting-ta := TouchArea {
+        x: 100phx;
+        y: 0phx;
+        width: 100phx;
+        height: 100phx;
+        accepts-activation-clicks: true;
+        clicked => { accepting-clicks += 1; }
+        double-clicked => { accepting-double-clicks += 1; }
+    }
+}
+
+/*
+```rust
+use slint_testing::{LogicalPoint, MouseEvent, PointerEventButton, WindowInner};
+
+fn press(x: f32, y: f32, is_activation_click: bool) -> MouseEvent {
+    MouseEvent::Pressed {
+        position: LogicalPoint::new(x, y),
+        button: PointerEventButton::Left,
+        click_count: 0,
+        touch_finger_id: 0,
+        is_activation_click,
+    }
+}
+
+fn release(x: f32, y: f32, is_activation_click: bool) -> MouseEvent {
+    MouseEvent::Released {
+        position: LogicalPoint::new(x, y),
+        button: PointerEventButton::Left,
+        click_count: 0,
+        touch_finger_id: 0,
+        is_activation_click,
+    }
+}
+
+let instance = TestCase::new().unwrap();
+let window = instance.window();
+let inner = WindowInner::from_pub(&window);
+
+// An activation click is suppressed by default: `pressed` stays false, no
+// `clicked`, but `pointer-event` fires with the activation flag on both ends.
+inner.process_mouse_input(press(50., 50., true));
+assert!(!instance.get_is_pressed());
+inner.process_mouse_input(release(50., 50., true));
+assert_eq!(instance.get_clicks(), 0);
+assert_eq!(instance.get_log().as_str(), "D*U*");
+
+// The grab of a suppressed press withholds the `moved` callback (it would
+// report drags relative to uninitialized pressed-x/y).
+inner.process_mouse_input(press(50., 50., true));
+inner.process_mouse_input(MouseEvent::Moved { position: LogicalPoint::new(60., 60.), touch_finger_id: 0 });
+assert_eq!(instance.get_moves(), 0);
+assert!(!instance.get_is_pressed());
+inner.process_mouse_input(release(60., 60., true));
+assert_eq!(instance.get_clicks(), 0);
+
+// A suppressed activation click doesn't start a multi-click sequence: a quick
+// follow-up click is a single click, not a double-click.
+instance.set_log("".into());
+inner.process_mouse_input(press(50., 50., true));
+inner.process_mouse_input(release(50., 50., true));
+inner.process_mouse_input(press(50., 50., false));
+inner.process_mouse_input(release(50., 50., false));
+assert_eq!(instance.get_clicks(), 1);
+assert_eq!(instance.get_double_clicks(), 0);
+assert_eq!(instance.get_log().as_str(), "D*U*DU");
+
+// ... while two quick normal clicks are still a double-click.
+slint_testing::mock_elapsed_time(1000);
+inner.process_mouse_input(press(50., 50., false));
+inner.process_mouse_input(release(50., 50., false));
+inner.process_mouse_input(press(50., 50., false));
+inner.process_mouse_input(release(50., 50., false));
+assert_eq!(instance.get_clicks(), 3);
+assert_eq!(instance.get_double_clicks(), 1);
+
+// `accepts-activation-clicks: true` processes the activation click normally.
+inner.process_mouse_input(press(150., 50., true));
+assert!(instance.get_accepting_is_pressed());
+inner.process_mouse_input(release(150., 50., true));
+assert_eq!(instance.get_accepting_clicks(), 1);
+
+// Even on an accepting surface, an activation click doesn't start a
+// multi-click sequence: activation click + quick second click are two single
+// clicks, not a double-click. (Deliberate divergence from e.g. Finder's
+// open-on-double-click, see the discussion in #10451.)
+inner.process_mouse_input(press(150., 50., false));
+inner.process_mouse_input(release(150., 50., false));
+assert_eq!(instance.get_accepting_clicks(), 2);
+assert_eq!(instance.get_accepting_double_clicks(), 0);
+
+// Normal clicks on the default TouchArea are unaffected.
+slint_testing::mock_elapsed_time(1000);
+inner.process_mouse_input(press(50., 50., false));
+assert!(instance.get_is_pressed());
+inner.process_mouse_input(MouseEvent::Moved { position: LogicalPoint::new(60., 60.), touch_finger_id: 0 });
+assert!(instance.get_moves() > 0);
+inner.process_mouse_input(release(60., 60., false));
+assert_eq!(instance.get_clicks(), 4);
+```
+*/
