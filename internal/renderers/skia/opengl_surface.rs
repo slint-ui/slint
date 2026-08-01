@@ -209,7 +209,7 @@ impl super::Surface for OpenGLSurface {
                 },
                 skia_safe::ColorType::RGBA8888,
                 skia_safe::AlphaType::Unpremul,
-                None,
+                crate::linear_srgb_color_space(),
             )
         }
     }
@@ -493,7 +493,7 @@ impl OpenGLSurface {
             &backend_render_target,
             skia_safe::gpu::SurfaceOrigin::BottomLeft,
             skia_safe::ColorType::RGBA8888,
-            None,
+            crate::linear_srgb_color_space(),
             None,
         ) {
             Some(surface) => Ok(surface),

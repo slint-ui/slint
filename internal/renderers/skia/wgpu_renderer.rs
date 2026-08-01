@@ -80,8 +80,9 @@ impl SkiaWGPURenderer {
     /// Render the scene to the given texture.
     ///
     /// The texture must have been created with `RENDER_ATTACHMENT` usage and have a supported
-    /// format. Supported formats depend on the GPU backend: `Rgba8Unorm` and `Rgba8UnormSrgb`
-    /// are supported on all backends; `Bgra8Unorm` is additionally supported on Metal and Vulkan.
+    /// format.
+    /// Supported formats depend on the GPU backend: `Rgba8Unorm` and `Rgba8UnormSrgb` are
+    /// supported on all backends; `Bgra8Unorm` is additionally supported on Metal and Vulkan.
     pub fn render_to_texture(&self, texture: &wgpu::Texture) -> Result<(), PlatformError> {
         self.renderer.invoke_rendering_notifier_setup(&self.surface)?;
 
