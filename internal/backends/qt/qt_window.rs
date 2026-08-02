@@ -12,7 +12,7 @@ use i_slint_core::graphics::rendering_metrics_collector::{
 };
 use i_slint_core::graphics::{
     Brush, Color, ImageCacheKey, IntRect, Point, Rgba8Pixel, SharedImageBuffer, SharedPixelBuffer,
-    euclid,
+    adjust_rect_and_border_for_inner_drawing, euclid,
 };
 use i_slint_core::input::{InternalKeyEvent, KeyEvent, KeyEventType, MouseEvent, TouchPhase};
 use i_slint_core::item_rendering::{
@@ -823,16 +823,6 @@ macro_rules! check_geometry {
     }};
 }
 
-fn adjust_rect_and_border_for_inner_drawing(rect: &mut qttypes::QRectF, border_width: &mut f32) {
-    // If the border width exceeds the width, just fill the rectangle.
-    *border_width = border_width.min((rect.width as f32) / 2.);
-    // adjust the size so that the border is drawn within the geometry
-    rect.x += *border_width as f64 / 2.;
-    rect.y += *border_width as f64 / 2.;
-    rect.width -= *border_width as f64;
-    rect.height -= *border_width as f64;
-}
-
 struct QtItemRenderer<'a> {
     painter: QPainterPtr,
     cache: &'a ItemCache<qttypes::QPixmap>,
@@ -1126,18 +1116,17 @@ impl ItemRenderer for QtItemRenderer<'_> {
 
     fn combine_clip(
         &mut self,
-        rect: LogicalRect,
+        mut rect: LogicalRect,
         radius: LogicalBorderRadius,
-        border_width: LogicalLength,
+        mut border_width: LogicalLength,
     ) -> bool {
-        let mut border_width: f32 = border_width.get();
-        let mut clip_rect = qttypes::QRectF {
+        adjust_rect_and_border_for_inner_drawing(&mut rect, &mut border_width);
+        let clip_rect = qttypes::QRectF {
             x: rect.min_x() as _,
             y: rect.min_y() as _,
             width: rect.width() as _,
             height: rect.height() as _,
         };
-        adjust_rect_and_border_for_inner_drawing(&mut clip_rect, &mut border_width);
         let painter: &mut QPainterPtr = &mut self.painter;
         let top_left_radius = radius.top_left;
         let top_right_radius = radius.top_right;

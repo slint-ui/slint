@@ -5,6 +5,7 @@ use std::pin::Pin;
 use std::sync::Arc;
 
 use anyrender::PaintScene;
+use i_slint_core::graphics::adjust_rect_and_border_for_inner_drawing;
 use i_slint_core::graphics::euclid;
 use i_slint_core::graphics::{Image, ImageCacheKey, IntRect, SharedImageBuffer, SharedPixelBuffer};
 use i_slint_core::item_rendering::{
@@ -14,7 +15,7 @@ use i_slint_core::item_rendering::{
 use i_slint_core::items::{self, FillRule, ImageFit, ImageRendering, ItemRc};
 use i_slint_core::lengths::{
     LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector,
-    PhysicalBorderRadius, RectLengths, ScaleFactor, logical_size_from_api,
+    PhysicalBorderRadius, ScaleFactor, logical_size_from_api,
 };
 use i_slint_core::textlayout::sharedparley::{self, GlyphRenderer, fontique, parley};
 use i_slint_core::{Brush, Color, ImageInner, SharedString};
@@ -1204,17 +1205,6 @@ fn sanitize_color_stops<'a>(
             .collect(),
     );
     (stops, extent)
-}
-
-fn adjust_rect_and_border_for_inner_drawing(
-    rect: &mut PhysicalRect,
-    border_width: &mut PhysicalLength,
-) {
-    // If the border width exceeds the width, just fill the rectangle.
-    *border_width = border_width.min(rect.width_length() / 2.);
-    // Adjust the size so that the border is drawn within the geometry.
-    rect.origin += PhysicalSize::from_lengths(*border_width / 2., *border_width / 2.);
-    rect.size -= PhysicalSize::from_lengths(*border_width, *border_width);
 }
 
 /// Untyped because that is what [`i_slint_core::graphics::line_for_angle`]

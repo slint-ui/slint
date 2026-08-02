@@ -62,6 +62,22 @@ pub mod wgpu_29;
 #[cfg(feature = "wgpu-30")]
 pub mod wgpu_30;
 
+/// Adjusts a rectangle and a border width for drawing the border entirely inside the
+/// rectangle's geometry: renderers stroke a border centered on the path, so the rectangle
+/// is inset by half the border width. If the border width exceeds half of the rectangle's
+/// width, it is clamped so that the border just fills the rectangle.
+pub fn adjust_rect_and_border_for_inner_drawing<U>(
+    rect: &mut euclid::Rect<f32, U>,
+    border_width: &mut euclid::Length<f32, U>,
+) {
+    use crate::lengths::RectLengths;
+    // If the border width exceeds the width, just fill the rectangle.
+    *border_width = border_width.min(rect.width_length() / 2.);
+    // adjust the size so that the border is drawn within the geometry
+    rect.origin += euclid::Size2D::from_lengths(*border_width / 2., *border_width / 2.);
+    rect.size -= euclid::Size2D::from_lengths(*border_width, *border_width);
+}
+
 /// CachedGraphicsData allows the graphics backend to store an arbitrary piece of data associated with
 /// an item, which is typically computed by accessing properties. The dependency_tracker is used to allow
 /// for a lazy computation. Typically, back ends store either compute intensive data or handles that refer to
