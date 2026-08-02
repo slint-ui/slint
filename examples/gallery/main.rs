@@ -93,8 +93,18 @@ pub fn main() {
 
     app.global::<TableViewPageAdapter>().set_row_data(row_data.clone().into());
     app.global::<TableViewPageAdapter>().on_filter_sort_model(filter_sort_model);
+    app.global::<ControlsPageLogic>().on_split_string(split_string);
 
     app.run().unwrap();
+}
+
+fn split_string(input: slint::SharedString) -> slint::ModelRc<slint::SharedString> {
+    let items: Vec<slint::SharedString> = input
+        .split(',')
+        .map(|s| slint::SharedString::from(s.trim()))
+        .filter(|s| !s.is_empty())
+        .collect();
+    slint::ModelRc::new(slint::VecModel::from(items))
 }
 
 fn filter_sort_model(

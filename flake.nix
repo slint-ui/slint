@@ -37,6 +37,7 @@
       in
         mkShell {
           nativeBuildInputs = [
+            cargo
             pkg-config
           ] ++ (lib.optional pkgs.stdenv.hostPlatform.isLinux perf);
           hardeningDisable = ["fortify"];
