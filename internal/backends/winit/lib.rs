@@ -98,6 +98,8 @@ mod renderer {
 
     #[cfg(feature = "renderer-software")]
     pub(crate) mod sw;
+    #[cfg(feature = "renderer-vello")]
+    pub(crate) mod vello;
 }
 
 #[cfg(enable_accesskit)]
@@ -117,8 +119,10 @@ cfg_if::cfg_if! {
         const DEFAULT_RENDERER_NAME: &str = "Skia";
     } else if #[cfg(feature = "renderer-software")] {
         const DEFAULT_RENDERER_NAME: &str = "Software";
+    } else if #[cfg(feature = "renderer-vello")] {
+        const DEFAULT_RENDERER_NAME: &str = "Vello";
     } else {
-        compile_error!("Please select a feature to build with the winit backend: `renderer-femtovg`, `renderer-skia`, `renderer-skia-opengl`, `renderer-skia-vulkan` or `renderer-software`");
+        compile_error!("Please select a feature to build with the winit backend: `renderer-femtovg`, `renderer-skia`, `renderer-skia-opengl`, `renderer-skia-vulkan`, `renderer-software` or `renderer-vello`");
     }
 }
 
@@ -134,8 +138,12 @@ fn default_renderer_factory(
             renderer::femtovg::GlutinFemtoVGRenderer::new_suspended(shared_backend_data)
         } else if #[cfg(feature = "renderer-software")] {
             renderer::sw::WinitSoftwareRenderer::new_suspended(shared_backend_data)
+        } else if #[cfg(feature = "renderer-vello")] {
+            // Last in the chain: vello is opt-in and only becomes the default
+            // when it is the only renderer built in.
+            renderer::vello::WinitVelloRenderer::new_suspended(shared_backend_data)
         } else {
-            compile_error!("Please select a feature to build with the winit backend: `renderer-femtovg`, `renderer-skia`, `renderer-skia-opengl`, `renderer-skia-vulkan` or `renderer-software`");
+            compile_error!("Please select a feature to build with the winit backend: `renderer-femtovg`, `renderer-skia`, `renderer-skia-opengl`, `renderer-skia-vulkan`, `renderer-software` or `renderer-vello`");
         }
     }
 }
@@ -163,6 +171,8 @@ fn try_create_window_with_fallback_renderer(
         renderer::femtovg::GlutinFemtoVGRenderer::new_suspended,
         #[cfg(feature = "renderer-software")]
         renderer::sw::WinitSoftwareRenderer::new_suspended,
+        #[cfg(feature = "renderer-vello")]
+        renderer::vello::WinitVelloRenderer::new_suspended,
     ]
     .into_iter()
     .find_map(|renderer_factory| {
@@ -1233,6 +1243,19 @@ fn create_renderer(
         (Some("sw"), None) | (Some("software"), None) => {
             renderer::sw::WinitSoftwareRenderer::new_suspended(shared_data)
         }
+        #[cfg(feature = "renderer-vello")]
+        (Some("vello"), maybe_graphics_api) => {
+            // vello renders through WGPU 29; anything else was not created by
+            // this renderer and cannot be adopted.
+            if let Some(api) = maybe_graphics_api
+                && !matches!(api, RequestedGraphicsAPI::WGPU29(..))
+            {
+                return Err(
+                    "The vello renderer only supports the WGPU29 graphics API selection".into()
+                );
+            }
+            renderer::vello::WinitVelloRenderer::new_suspended(shared_data)
+        }
         (None, None) => default_renderer_factory(shared_data),
         (Some(renderer_name), _) => {
             if shared_data.allow_fallback {
@@ -1249,8 +1272,10 @@ fn create_renderer(
             cfg_if::cfg_if! {
                 if #[cfg(enable_skia_renderer)] {
                     renderer::skia::WinitSkiaRenderer::new_wgpu_29_suspended(shared_data)
+                } else if #[cfg(feature = "renderer-vello")] {
+                    renderer::vello::WinitVelloRenderer::new_suspended(shared_data)
                 } else {
-                    Err("unstable-wgpu-29 was enabled but no renderer was selected. Please select renderer-skia*".into())
+                    Err("unstable-wgpu-29 was enabled but no renderer was selected. Please select renderer-skia* or renderer-vello".into())
                 }
             }
         }

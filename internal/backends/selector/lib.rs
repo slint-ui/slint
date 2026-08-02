@@ -158,6 +158,7 @@ pub fn parse_backend_env_var(backend_config: &str) -> (&str, &str) {
         "femtovg" => ("winit", "femtovg"),
         "skia" => ("winit", "skia"),
         "sw" | "software" => ("winit", "software"),
+        "vello" => ("winit", "vello"),
         "linuxkms" => ("linuxkms", ""),
         x => (x, ""),
     })
