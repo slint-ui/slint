@@ -223,6 +223,14 @@ renderer-vello = ["i-slint-backend-selector/renderer-vello", "renderer-vello-cpu
 ## [`BackendSelector::renderer_name()`](crate::BackendSelector::renderer_name()).
 renderer-vello-cpu = ["i-slint-backend-selector/renderer-vello-cpu", "std"]
 
+## Render using [vello_hybrid](https://crates.io/crates/vello_hybrid) on WebGL2, for `wasm32`
+## targets. vello_hybrid leaves only rendering and compositing to the GPU and needs no compute
+## shaders, so unlike `renderer-vello` it runs in browsers without WebGPU.
+##
+## This renderer is experimental. Select it with `SLINT_BACKEND=winit-vello` or
+## [`BackendSelector::renderer_name()`](crate::BackendSelector::renderer_name()).
+renderer-vello-hybrid = ["i-slint-backend-selector/renderer-vello-hybrid", "std"]
+
 ## KMS with Vulkan or EGL and libinput on Linux are used to render the application in full screen mode, without any
 ## windowing system. Requires libseat. If you don't have libseat, select `backend-linuxkms-noseat` instead.
 backend-linuxkms = ["i-slint-backend-selector/backend-linuxkms", "std"]

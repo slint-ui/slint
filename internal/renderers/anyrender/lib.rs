@@ -50,30 +50,39 @@ pub(crate) type PhysicalSize = euclid::Size2D<f32, PhysicalPx>;
 mod imagecache;
 mod itemrenderer;
 mod recording;
-#[cfg(feature = "vello")]
+#[cfg(all(feature = "vello", not(target_arch = "wasm32")))]
 mod vello;
 #[cfg(feature = "vello-cpu")]
 mod vello_cpu;
+#[cfg(all(feature = "vello-hybrid", target_arch = "wasm32"))]
+mod vello_hybrid;
 
 pub use imagecache::{ImageConversionCache, SharedImageData};
 pub use itemrenderer::AnyrenderItemRenderer;
 pub use recording::RecordingWindowRenderer;
-#[cfg(feature = "vello")]
+#[cfg(all(feature = "vello", not(target_arch = "wasm32")))]
 pub use vello::VelloWindowRenderer;
 #[cfg(feature = "vello-cpu")]
 pub use vello_cpu::VelloCpuWindowRenderer;
 
 /// A Slint renderer rendering through vello on WGPU.
-#[cfg(feature = "vello")]
+#[cfg(all(feature = "vello", not(target_arch = "wasm32")))]
 pub type VelloRenderer = AnyrenderSlintRenderer<VelloWindowRenderer>;
 
 /// A Slint renderer rasterizing on the CPU with vello_cpu.
 #[cfg(feature = "vello-cpu")]
 pub type VelloCpuRenderer = AnyrenderSlintRenderer<VelloCpuWindowRenderer>;
 
+#[cfg(all(feature = "vello-hybrid", target_arch = "wasm32"))]
+pub use vello_hybrid::VelloHybridWindowRenderer;
+
+/// A Slint renderer rendering through vello_hybrid on WebGL2.
+#[cfg(all(feature = "vello-hybrid", target_arch = "wasm32"))]
+pub type VelloHybridRenderer = AnyrenderSlintRenderer<VelloHybridWindowRenderer>;
+
 /// vello rasterizes with premultiplied alpha, while [`SharedPixelBuffer`] of
 /// [`Rgba8Pixel`] is unpremultiplied.
-#[cfg(any(feature = "vello", feature = "vello-cpu"))]
+#[cfg(feature = "vello-cpu")]
 pub(crate) fn unpremultiply_rgba(buffer: &mut [u8]) {
     for pixel in buffer.chunks_exact_mut(4) {
         let alpha = pixel[3];
@@ -86,7 +95,7 @@ pub(crate) fn unpremultiply_rgba(buffer: &mut [u8]) {
     }
 }
 
-#[cfg(all(test, any(feature = "vello", feature = "vello-cpu")))]
+#[cfg(all(test, feature = "vello-cpu"))]
 mod tests {
     #[test]
     fn unpremultiply_roundtrip() {

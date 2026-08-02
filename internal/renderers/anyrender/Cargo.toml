@@ -24,6 +24,15 @@ default = []
 vello = ["dep:anyrender_vello", "dep:vello", "i-slint-core/unstable-wgpu-29", "vello-cpu"]
 ## Rasterize on the CPU with vello_cpu.
 vello-cpu = ["dep:anyrender_vello_cpu", "dep:vello_cpu"]
+## Render through vello_hybrid on WebGL2. Only has an effect on `wasm32`,
+## where it replaces the WGPU based vello renderer.
+vello-hybrid = [
+  "dep:anyrender_vello_hybrid",
+  "dep:vello_hybrid",
+  "dep:vello_common",
+  "dep:rustc-hash",
+  "dep:web-sys",
+]
 
 [dependencies]
 i-slint-core = { workspace = true, features = ["default", "shared-fontique", "shared-parley", "image-decoders", "svg"] }
@@ -35,16 +44,26 @@ rgb = "0.8.27"
 peniko = { version = "0.6" }
 kurbo = { version = "0.13" }
 
+rustc-hash = { version = "2", optional = true }
+
 # anyrender asserts the size of FilterEffect for a 64-bit layout on every target except
 # wasm32, so it doesn't compile on i686/armv7 either. See the matching `cfg` in lib.rs.
 [target.'cfg(any(target_pointer_width = "64", target_arch = "wasm32"))'.dependencies]
 anyrender = { version = "0.12" }
+anyrender_vello_cpu = { version = "0.15", optional = true, default-features = false }
+vello_cpu = { version = "0.0.9", optional = true }
+
+[target.'cfg(all(not(target_arch = "wasm32"), target_pointer_width = "64"))'.dependencies]
 # Only the scene recording is used from anyrender_vello; the WGPU setup is
 # Slint's own, see vello.rs.
 anyrender_vello = { version = "0.13", optional = true, default-features = false }
 vello = { version = "0.9", optional = true }
-anyrender_vello_cpu = { version = "0.15", optional = true, default-features = false }
-vello_cpu = { version = "0.0.9", optional = true }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+anyrender_vello_hybrid = { version = "0.9", optional = true, default-features = false, features = ["webgl"] }
+vello_hybrid = { version = "0.0.9", optional = true, features = ["webgl"] }
+vello_common = { version = "0.0.9", optional = true }
+web-sys = { version = "0.3", optional = true, features = ["HtmlCanvasElement"] }
 
 [package.metadata.docs.rs]
 rustdoc-args = ["--generate-link-to-definition"]

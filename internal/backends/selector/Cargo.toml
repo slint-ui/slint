@@ -58,6 +58,7 @@ renderer-software = [
 ]
 renderer-vello = ["i-slint-backend-winit?/renderer-vello"]
 renderer-vello-cpu = ["i-slint-backend-winit?/renderer-vello-cpu"]
+renderer-vello-hybrid = ["i-slint-backend-winit?/renderer-vello-hybrid"]
 
 rtti = ["i-slint-core/rtti", "i-slint-backend-qt?/rtti"]
 accessibility = ["i-slint-backend-winit?/accessibility"]

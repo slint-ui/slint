@@ -372,6 +372,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "anyrender_vello_hybrid"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2789c41d9e636dc601b325ebe27ce321b523a11a71a1bf15f4044a34966d1ed2"
+dependencies = [
+ "anyrender",
+ "debug_timer",
+ "futures-channel",
+ "glifo",
+ "kurbo",
+ "peniko",
+ "pollster",
+ "rustc-hash 2.1.3",
+ "vello_common",
+ "vello_hybrid",
+ "wasm-bindgen-futures",
+ "wgpu 29.0.4",
+ "wgpu_context",
+]
+
+[[package]]
 name = "approx"
 version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3665,14 +3686,19 @@ dependencies = [
  "anyrender",
  "anyrender_vello",
  "anyrender_vello_cpu",
+ "anyrender_vello_hybrid",
  "i-slint-core",
  "kurbo",
  "lyon_path",
  "peniko",
  "rgb",
+ "rustc-hash 2.1.3",
  "vello",
+ "vello_common",
  "vello_cpu",
+ "vello_hybrid",
  "vtable",
+ "web-sys",
 ]
 
 [[package]]
@@ -9061,6 +9087,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "vello_hybrid"
+version = "0.0.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "86ca7acbf6e59ae8c354c524732c73da45239a3a8ee03d0c8a9ad66a6622e488"
+dependencies = [
+ "bytemuck",
+ "glifo",
+ "hashbrown 0.17.1",
+ "js-sys",
+ "log",
+ "thiserror 2.0.19",
+ "vello_common",
+ "vello_sparse_shaders",
+ "web-sys",
+ "wgpu 29.0.4",
+]
+
+[[package]]
 name = "vello_shaders"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -9071,6 +9115,15 @@ dependencies = [
  "naga 29.0.4",
  "thiserror 2.0.19",
  "vello_encoding",
+]
+
+[[package]]
+name = "vello_sparse_shaders"
+version = "0.0.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e004cfe28eb71738643f60460b9cae2236eba57b351afebf244148256ff25d8b"
+dependencies = [
+ "naga 29.0.4",
 ]
 
 [[package]]

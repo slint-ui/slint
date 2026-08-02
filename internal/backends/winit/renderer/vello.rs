@@ -16,23 +16,32 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::Arc;
 
-#[cfg(feature = "renderer-vello")]
+#[cfg(all(feature = "renderer-vello", not(target_arch = "wasm32")))]
 use i_slint_core::graphics::RequestedGraphicsAPI;
 use i_slint_core::platform::PlatformError;
 use i_slint_core::renderer::{DrawOutcome, Renderer};
+#[cfg(feature = "renderer-vello-cpu")]
 use i_slint_renderer_anyrender::VelloCpuRenderer;
-#[cfg(feature = "renderer-vello")]
+#[cfg(all(feature = "renderer-vello-hybrid", target_arch = "wasm32"))]
+use i_slint_renderer_anyrender::VelloHybridRenderer;
+#[cfg(all(feature = "renderer-vello", not(target_arch = "wasm32")))]
 use i_slint_renderer_anyrender::VelloRenderer;
 use winit::event_loop::ActiveEventLoop;
 
 use super::WinitCompatibleRenderer;
 
+#[cfg(feature = "renderer-vello-cpu")]
 type SoftbufferSurface =
     softbuffer::Surface<Arc<winit::window::Window>, Arc<winit::window::Window>>;
 
 enum Backend {
-    #[cfg(feature = "renderer-vello")]
+    #[cfg(all(feature = "renderer-vello", not(target_arch = "wasm32")))]
     Gpu(Box<VelloRenderer>),
+    /// In the browser vello_hybrid takes the place of the WGPU based vello:
+    /// it renders through WebGL2, which vello's compute pipelines cannot use.
+    #[cfg(all(feature = "renderer-vello-hybrid", target_arch = "wasm32"))]
+    Hybrid(Box<VelloHybridRenderer>),
+    #[cfg(feature = "renderer-vello-cpu")]
     Cpu {
         renderer: Box<VelloCpuRenderer>,
         // The context must outlive the surface, so it is dropped after it.
@@ -42,6 +51,7 @@ enum Backend {
 }
 
 impl Backend {
+    #[cfg(feature = "renderer-vello-cpu")]
     fn cpu() -> Self {
         Self::Cpu {
             renderer: Box::new(VelloCpuRenderer::new_vello_cpu()),
@@ -53,14 +63,21 @@ impl Backend {
 
 pub struct WinitVelloRenderer {
     backend: Backend,
-    #[cfg(feature = "renderer-vello")]
+    #[cfg(all(feature = "renderer-vello", not(target_arch = "wasm32")))]
     requested_graphics_api: Option<RequestedGraphicsAPI>,
 }
 
 impl WinitVelloRenderer {
     /// Render with vello on the GPU, falling back to vello_cpu when WGPU
     /// reports no usable adapter.
-    #[cfg(feature = "renderer-vello")]
+    #[cfg(all(feature = "renderer-vello-hybrid", target_arch = "wasm32"))]
+    pub fn new_suspended(
+        _shared_backend_data: &Rc<crate::SharedBackendData>,
+    ) -> Result<Box<dyn WinitCompatibleRenderer>, PlatformError> {
+        Ok(Box::new(Self { backend: Backend::Hybrid(Box::new(VelloHybridRenderer::new_vello_hybrid())) }))
+    }
+
+    #[cfg(all(feature = "renderer-vello", not(target_arch = "wasm32")))]
     pub fn new_suspended(
         shared_backend_data: &Rc<crate::SharedBackendData>,
     ) -> Result<Box<dyn WinitCompatibleRenderer>, PlatformError> {
@@ -87,17 +104,19 @@ impl WinitVelloRenderer {
     }
 
     /// Rasterize with vello_cpu, without looking for a GPU at all.
+    #[cfg(feature = "renderer-vello-cpu")]
     pub fn new_cpu_suspended(
         _shared_backend_data: &Rc<crate::SharedBackendData>,
     ) -> Result<Box<dyn WinitCompatibleRenderer>, PlatformError> {
         Ok(Box::new(Self {
             backend: Backend::cpu(),
-            #[cfg(feature = "renderer-vello")]
+            #[cfg(all(feature = "renderer-vello", not(target_arch = "wasm32")))]
             requested_graphics_api: None,
         }))
     }
 
     /// Copy the rasterized frame into the softbuffer surface and present it.
+    #[cfg(feature = "renderer-vello-cpu")]
     fn present_cpu_frame(
         renderer: &VelloCpuRenderer,
         surface: &RefCell<Option<SoftbufferSurface>>,
@@ -147,13 +166,16 @@ impl WinitVelloRenderer {
 }
 
 impl WinitCompatibleRenderer for WinitVelloRenderer {
-    fn render(&self, window: &i_slint_core::api::Window) -> Result<DrawOutcome, PlatformError> {
+    fn render(&self, _window: &i_slint_core::api::Window) -> Result<DrawOutcome, PlatformError> {
         match &self.backend {
-            #[cfg(feature = "renderer-vello")]
+            #[cfg(all(feature = "renderer-vello", not(target_arch = "wasm32")))]
             Backend::Gpu(renderer) => renderer.render()?,
+            #[cfg(all(feature = "renderer-vello-hybrid", target_arch = "wasm32"))]
+            Backend::Hybrid(renderer) => renderer.render()?,
+            #[cfg(feature = "renderer-vello-cpu")]
             Backend::Cpu { renderer, surface, .. } => {
                 renderer.render()?;
-                Self::present_cpu_frame(renderer, surface, window)?;
+                Self::present_cpu_frame(renderer, surface, _window)?;
             }
         }
         // vello submits the whole scene every frame, so there is no partially
@@ -163,20 +185,26 @@ impl WinitCompatibleRenderer for WinitVelloRenderer {
 
     fn as_core_renderer(&self) -> &dyn Renderer {
         match &self.backend {
-            #[cfg(feature = "renderer-vello")]
+            #[cfg(all(feature = "renderer-vello", not(target_arch = "wasm32")))]
             Backend::Gpu(renderer) => renderer.as_ref(),
+            #[cfg(all(feature = "renderer-vello-hybrid", target_arch = "wasm32"))]
+            Backend::Hybrid(renderer) => renderer.as_ref(),
+            #[cfg(feature = "renderer-vello-cpu")]
             Backend::Cpu { renderer, .. } => renderer.as_ref(),
         }
     }
 
     fn suspend(&self) -> Result<(), PlatformError> {
         match &self.backend {
-            #[cfg(feature = "renderer-vello")]
+            #[cfg(all(feature = "renderer-vello", not(target_arch = "wasm32")))]
             Backend::Gpu(renderer) => {
                 // Also releases the winit window the callback holds on to.
                 renderer.set_pre_present_callback(None);
                 renderer.suspend_window();
             }
+            #[cfg(all(feature = "renderer-vello-hybrid", target_arch = "wasm32"))]
+            Backend::Hybrid(renderer) => renderer.clear_canvas(),
+            #[cfg(feature = "renderer-vello-cpu")]
             Backend::Cpu { surface, context, .. } => {
                 drop(surface.borrow_mut().take());
                 drop(context.borrow_mut().take());
@@ -204,7 +232,7 @@ impl WinitCompatibleRenderer for WinitVelloRenderer {
         let size = winit_window.inner_size();
 
         match &self.backend {
-            #[cfg(feature = "renderer-vello")]
+            #[cfg(all(feature = "renderer-vello", not(target_arch = "wasm32")))]
             Backend::Gpu(renderer) => {
                 renderer.resume_window(
                     winit_window.clone(),
@@ -221,6 +249,15 @@ impl WinitCompatibleRenderer for WinitVelloRenderer {
                     }
                 })));
             }
+            #[cfg(all(feature = "renderer-vello-hybrid", target_arch = "wasm32"))]
+            Backend::Hybrid(renderer) => {
+                use winit::platform::web::WindowExtWebSys;
+                let canvas = winit_window
+                    .canvas()
+                    .ok_or_else(|| PlatformError::from("vello_hybrid: winit did not return a canvas"))?;
+                renderer.set_canvas(canvas, size.width.max(1), size.height.max(1))?;
+            }
+            #[cfg(feature = "renderer-vello-cpu")]
             Backend::Cpu { renderer, surface, context } => {
                 let softbuffer_context = softbuffer::Context::new(winit_window.clone())
                     .map_err(|e| format!("Error creating softbuffer context: {e}"))?;

@@ -94,7 +94,7 @@ mod renderer {
 
     #[cfg(feature = "renderer-software")]
     pub(crate) mod sw;
-    #[cfg(feature = "renderer-vello-cpu")]
+    #[cfg(any(feature = "renderer-vello-cpu", feature = "renderer-vello-hybrid"))]
     pub(crate) mod vello;
 }
 
@@ -117,10 +117,12 @@ cfg_if::cfg_if! {
         const DEFAULT_RENDERER_NAME: &str = "Software";
     } else if #[cfg(feature = "renderer-vello")] {
         const DEFAULT_RENDERER_NAME: &str = "Vello";
+    } else if #[cfg(all(feature = "renderer-vello-hybrid", target_arch = "wasm32"))] {
+        const DEFAULT_RENDERER_NAME: &str = "VelloHybrid";
     } else if #[cfg(feature = "renderer-vello-cpu")] {
         const DEFAULT_RENDERER_NAME: &str = "VelloCpu";
     } else {
-        compile_error!("Please select a feature to build with the winit backend: `renderer-femtovg`, `renderer-skia`, `renderer-skia-opengl`, `renderer-skia-vulkan`, `renderer-software`, `renderer-vello` or `renderer-vello-cpu`");
+        compile_error!("Please select a feature to build with the winit backend: `renderer-femtovg`, `renderer-skia`, `renderer-skia-opengl`, `renderer-skia-vulkan`, `renderer-software`, `renderer-vello`, `renderer-vello-cpu` or `renderer-vello-hybrid`");
     }
 }
 
@@ -136,14 +138,17 @@ fn default_renderer_factory(
             renderer::femtovg::GlutinFemtoVGRenderer::new_suspended(shared_backend_data)
         } else if #[cfg(feature = "renderer-software")] {
             renderer::sw::WinitSoftwareRenderer::new_suspended(shared_backend_data)
-        } else if #[cfg(feature = "renderer-vello")] {
+        } else if #[cfg(any(
+            all(feature = "renderer-vello", not(target_arch = "wasm32")),
+            all(feature = "renderer-vello-hybrid", target_arch = "wasm32")
+        ))] {
             // Last in the chain: vello is opt-in and only becomes the default
             // when it is the only renderer built in.
             renderer::vello::WinitVelloRenderer::new_suspended(shared_backend_data)
         } else if #[cfg(feature = "renderer-vello-cpu")] {
             renderer::vello::WinitVelloRenderer::new_cpu_suspended(shared_backend_data)
         } else {
-            compile_error!("Please select a feature to build with the winit backend: `renderer-femtovg`, `renderer-skia`, `renderer-skia-opengl`, `renderer-skia-vulkan`, `renderer-software`, `renderer-vello` or `renderer-vello-cpu`");
+            compile_error!("Please select a feature to build with the winit backend: `renderer-femtovg`, `renderer-skia`, `renderer-skia-opengl`, `renderer-skia-vulkan`, `renderer-software`, `renderer-vello`, `renderer-vello-cpu` or `renderer-vello-hybrid`");
         }
     }
 }
@@ -171,9 +176,18 @@ fn try_create_window_with_fallback_renderer(
         renderer::femtovg::GlutinFemtoVGRenderer::new_suspended,
         #[cfg(feature = "renderer-software")]
         renderer::sw::WinitSoftwareRenderer::new_suspended,
-        #[cfg(feature = "renderer-vello")]
+        #[cfg(any(
+            all(feature = "renderer-vello", not(target_arch = "wasm32")),
+            all(feature = "renderer-vello-hybrid", target_arch = "wasm32")
+        ))]
         renderer::vello::WinitVelloRenderer::new_suspended,
-        #[cfg(all(feature = "renderer-vello-cpu", not(feature = "renderer-vello")))]
+        #[cfg(all(
+            feature = "renderer-vello-cpu",
+            not(any(
+                all(feature = "renderer-vello", not(target_arch = "wasm32")),
+                all(feature = "renderer-vello-hybrid", target_arch = "wasm32")
+            ))
+        ))]
         renderer::vello::WinitVelloRenderer::new_cpu_suspended,
     ]
     .into_iter()
@@ -1211,7 +1225,9 @@ fn create_renderer(
         (Some("sw"), None) | (Some("software"), None) => {
             renderer::sw::WinitSoftwareRenderer::new_suspended(shared_data)
         }
-        #[cfg(feature = "renderer-vello")]
+        #[cfg(all(feature = "renderer-vello-hybrid", target_arch = "wasm32"))]
+        (Some("vello"), None) => renderer::vello::WinitVelloRenderer::new_suspended(shared_data),
+        #[cfg(all(feature = "renderer-vello", not(target_arch = "wasm32")))]
         (Some("vello"), maybe_graphics_api) => {
             // vello renders through WGPU 29; anything else was not created by
             // this renderer and cannot be adopted.

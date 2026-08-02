@@ -46,6 +46,10 @@ renderer-femtovg = ["i-slint-renderer-femtovg/opengl", "dep:glutin", "dep:glutin
 renderer-femtovg-wgpu = ["i-slint-renderer-femtovg/wgpu", "dep:i-slint-renderer-femtovg", "unstable-wgpu-30"]
 renderer-skia = ["i-slint-renderer-skia"]
 renderer-vello = ["renderer-vello-cpu", "i-slint-renderer-anyrender/vello", "unstable-wgpu-29"]
+renderer-vello-hybrid = [
+  "dep:i-slint-renderer-anyrender",
+  "i-slint-renderer-anyrender/vello-hybrid",
+]
 renderer-vello-cpu = [
   "dep:i-slint-renderer-anyrender",
   "i-slint-renderer-anyrender/vello-cpu",
