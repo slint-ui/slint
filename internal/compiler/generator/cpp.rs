@@ -2738,7 +2738,7 @@ fn generate_sub_component(
             } else {
                 let member = ident(&crate::generator::to_kebab_case(what));
                 let args = (0..arg_count)
-                    .map(|i| format!("auto arg_{i} = action.{member}._{i}; "))
+                    .map(|i| format!("[[maybe_unused]] auto arg_{i} = action.{member}._{i}; "))
                     .join("");
                 format!("{label} {{ {args}return {e}; }}")
             });
