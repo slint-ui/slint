@@ -1,57 +1,187 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-//! Delegate the rendering to vello, through
-//! [`i_slint_renderer_anyrender::VelloRenderer`].
+//! Delegate the rendering to vello.
+//!
+//! On the GPU that is [`i_slint_renderer_anyrender::VelloRenderer`] on WGPU;
+//! when no GPU is available it is
+//! [`i_slint_renderer_anyrender::VelloCpuRenderer`], which rasterizes on the
+//! CPU and is presented through softbuffer like the software renderer.
+//!
+//! Which one it is, is decided when the renderer is created and stays fixed
+//! for its lifetime: the window adapter hands out `&dyn Renderer` from the
+//! moment it is constructed, so the core renderer cannot be exchanged later.
 
+use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::Arc;
 
+#[cfg(feature = "renderer-vello")]
 use i_slint_core::graphics::RequestedGraphicsAPI;
 use i_slint_core::platform::PlatformError;
 use i_slint_core::renderer::{DrawOutcome, Renderer};
+use i_slint_renderer_anyrender::VelloCpuRenderer;
+#[cfg(feature = "renderer-vello")]
 use i_slint_renderer_anyrender::VelloRenderer;
 use winit::event_loop::ActiveEventLoop;
 
 use super::WinitCompatibleRenderer;
 
+type SoftbufferSurface =
+    softbuffer::Surface<Arc<winit::window::Window>, Arc<winit::window::Window>>;
+
+enum Backend {
+    #[cfg(feature = "renderer-vello")]
+    Gpu(Box<VelloRenderer>),
+    Cpu {
+        renderer: Box<VelloCpuRenderer>,
+        // The context must outlive the surface, so it is dropped after it.
+        surface: RefCell<Option<SoftbufferSurface>>,
+        context: RefCell<Option<softbuffer::Context<Arc<winit::window::Window>>>>,
+    },
+}
+
+impl Backend {
+    fn cpu() -> Self {
+        Self::Cpu {
+            renderer: Box::new(VelloCpuRenderer::new_vello_cpu()),
+            surface: RefCell::new(None),
+            context: RefCell::new(None),
+        }
+    }
+}
+
 pub struct WinitVelloRenderer {
-    renderer: VelloRenderer,
+    backend: Backend,
+    #[cfg(feature = "renderer-vello")]
     requested_graphics_api: Option<RequestedGraphicsAPI>,
 }
 
 impl WinitVelloRenderer {
+    /// Render with vello on the GPU, falling back to vello_cpu when WGPU
+    /// reports no usable adapter.
+    #[cfg(feature = "renderer-vello")]
     pub fn new_suspended(
         shared_backend_data: &Rc<crate::SharedBackendData>,
     ) -> Result<Box<dyn WinitCompatibleRenderer>, PlatformError> {
-        if !i_slint_core::graphics::wgpu_29::any_wgpu29_adapters_with_gpu(
-            shared_backend_data.requested_graphics_api.clone(),
+        let requested_graphics_api = shared_backend_data.requested_graphics_api.clone();
+
+        // The adapter probe is the last point where the fallback can still be
+        // chosen; a failure later, when the surface is created, can only be
+        // reported as an error.
+        let backend = if i_slint_core::graphics::wgpu_29::any_wgpu29_adapters_with_gpu(
+            requested_graphics_api.clone(),
         ) {
-            return Err(PlatformError::from("WGPU: No GPU adapters found"));
-        }
+            Backend::Gpu(Box::new(VelloRenderer::new_vello()))
+        } else if requested_graphics_api.is_some() {
+            // The application asked for a specific WGPU device, so silently
+            // rasterizing on the CPU instead would ignore that request.
+            return Err(PlatformError::from(
+                "WGPU: No GPU adapters found for the requested graphics API",
+            ));
+        } else {
+            Backend::cpu()
+        };
+
+        Ok(Box::new(Self { backend, requested_graphics_api }))
+    }
+
+    /// Rasterize with vello_cpu, without looking for a GPU at all.
+    pub fn new_cpu_suspended(
+        _shared_backend_data: &Rc<crate::SharedBackendData>,
+    ) -> Result<Box<dyn WinitCompatibleRenderer>, PlatformError> {
         Ok(Box::new(Self {
-            renderer: VelloRenderer::new_vello(),
-            requested_graphics_api: shared_backend_data.requested_graphics_api.clone(),
+            backend: Backend::cpu(),
+            #[cfg(feature = "renderer-vello")]
+            requested_graphics_api: None,
         }))
+    }
+
+    /// Copy the rasterized frame into the softbuffer surface and present it.
+    fn present_cpu_frame(
+        renderer: &VelloCpuRenderer,
+        surface: &RefCell<Option<SoftbufferSurface>>,
+        window: &i_slint_core::api::Window,
+    ) -> Result<(), PlatformError> {
+        let size = window.size();
+        let Some((width, height)) = size.width.try_into().ok().zip(size.height.try_into().ok())
+        else {
+            return Ok(());
+        };
+
+        let mut borrowed_surface = surface.borrow_mut();
+        let Some(surface) = borrowed_surface.as_mut() else {
+            return Ok(());
+        };
+
+        surface
+            .resize(width, height)
+            .map_err(|e| format!("Error resizing softbuffer surface: {e}"))?;
+        let winit_window = surface.window().clone();
+        let mut target_buffer = surface
+            .buffer_mut()
+            .map_err(|e| format!("Error retrieving softbuffer rendering buffer: {e}"))?;
+
+        renderer.with_frame_buffer(|buffer, buffer_width, buffer_height| {
+            let rows = buffer_height.min(height.get()) as usize;
+            let columns = buffer_width.min(width.get()) as usize;
+            for row in 0..rows {
+                let source = &buffer[row * buffer_width as usize * 4..];
+                let destination = &mut target_buffer[row * width.get() as usize..];
+                for column in 0..columns {
+                    let pixel = &source[column * 4..column * 4 + 4];
+                    // softbuffer expects 0RGB; vello_cpu's alpha is
+                    // premultiplied, which for the opaque window background is
+                    // the same as the straight color.
+                    destination[column] = ((pixel[0] as u32) << 16)
+                        | ((pixel[1] as u32) << 8)
+                        | (pixel[2] as u32);
+                }
+            }
+        });
+
+        winit_window.pre_present_notify();
+        target_buffer.present().map_err(|e| format!("Error presenting softbuffer buffer: {e}"))?;
+        Ok(())
     }
 }
 
 impl WinitCompatibleRenderer for WinitVelloRenderer {
-    fn render(&self, _window: &i_slint_core::api::Window) -> Result<DrawOutcome, PlatformError> {
-        self.renderer.render()?;
+    fn render(&self, window: &i_slint_core::api::Window) -> Result<DrawOutcome, PlatformError> {
+        match &self.backend {
+            #[cfg(feature = "renderer-vello")]
+            Backend::Gpu(renderer) => renderer.render()?,
+            Backend::Cpu { renderer, surface, .. } => {
+                renderer.render()?;
+                Self::present_cpu_frame(renderer, surface, window)?;
+            }
+        }
         // vello submits the whole scene every frame, so there is no partially
         // rendered outcome to report.
         Ok(DrawOutcome::Success)
     }
 
     fn as_core_renderer(&self) -> &dyn Renderer {
-        &self.renderer
+        match &self.backend {
+            #[cfg(feature = "renderer-vello")]
+            Backend::Gpu(renderer) => renderer.as_ref(),
+            Backend::Cpu { renderer, .. } => renderer.as_ref(),
+        }
     }
 
     fn suspend(&self) -> Result<(), PlatformError> {
-        // Also releases the winit window the callback holds on to.
-        self.renderer.set_pre_present_callback(None);
-        self.renderer.suspend_window();
+        match &self.backend {
+            #[cfg(feature = "renderer-vello")]
+            Backend::Gpu(renderer) => {
+                // Also releases the winit window the callback holds on to.
+                renderer.set_pre_present_callback(None);
+                renderer.suspend_window();
+            }
+            Backend::Cpu { surface, context, .. } => {
+                drop(surface.borrow_mut().take());
+                drop(context.borrow_mut().take());
+            }
+        }
         Ok(())
     }
 
@@ -61,7 +191,7 @@ impl WinitCompatibleRenderer for WinitVelloRenderer {
         window_attributes: winit::window::WindowAttributes,
         _window_adapter_weak: std::rc::Weak<crate::winitwindowadapter::WinitWindowAdapter>,
     ) -> Result<Arc<winit::window::Window>, PlatformError> {
-        let transparent = window_attributes.transparent;
+        let _transparent = window_attributes.transparent;
 
         let winit_window = Arc::new(active_event_loop.create_window(window_attributes).map_err(
             |winit_os_error| {
@@ -72,20 +202,38 @@ impl WinitCompatibleRenderer for WinitVelloRenderer {
         )?);
 
         let size = winit_window.inner_size();
-        self.renderer.resume_window(
-            winit_window.clone(),
-            size.width.max(1),
-            size.height.max(1),
-            transparent,
-            self.requested_graphics_api.clone(),
-        )?;
 
-        self.renderer.set_pre_present_callback(Some(Box::new({
-            let winit_window = winit_window.clone();
-            move || {
-                winit_window.pre_present_notify();
+        match &self.backend {
+            #[cfg(feature = "renderer-vello")]
+            Backend::Gpu(renderer) => {
+                renderer.resume_window(
+                    winit_window.clone(),
+                    size.width.max(1),
+                    size.height.max(1),
+                    _transparent,
+                    self.requested_graphics_api.clone(),
+                )?;
+
+                renderer.set_pre_present_callback(Some(Box::new({
+                    let winit_window = winit_window.clone();
+                    move || {
+                        winit_window.pre_present_notify();
+                    }
+                })));
             }
-        })));
+            Backend::Cpu { renderer, surface, context } => {
+                let softbuffer_context = softbuffer::Context::new(winit_window.clone())
+                    .map_err(|e| format!("Error creating softbuffer context: {e}"))?;
+                let softbuffer_surface =
+                    softbuffer::Surface::new(&softbuffer_context, winit_window.clone())
+                        .map_err(|e| format!("Error creating softbuffer surface: {e}"))?;
+
+                renderer.set_surface_size(size.width.max(1), size.height.max(1));
+
+                *context.borrow_mut() = Some(softbuffer_context);
+                *surface.borrow_mut() = Some(softbuffer_surface);
+            }
+        }
 
         Ok(winit_window)
     }

@@ -52,16 +52,53 @@ mod itemrenderer;
 mod recording;
 #[cfg(feature = "vello")]
 mod vello;
+#[cfg(feature = "vello-cpu")]
+mod vello_cpu;
 
 pub use imagecache::{ImageConversionCache, SharedImageData};
 pub use itemrenderer::AnyrenderItemRenderer;
 pub use recording::RecordingWindowRenderer;
 #[cfg(feature = "vello")]
 pub use vello::VelloWindowRenderer;
+#[cfg(feature = "vello-cpu")]
+pub use vello_cpu::VelloCpuWindowRenderer;
 
 /// A Slint renderer rendering through vello on WGPU.
 #[cfg(feature = "vello")]
 pub type VelloRenderer = AnyrenderSlintRenderer<VelloWindowRenderer>;
+
+/// A Slint renderer rasterizing on the CPU with vello_cpu.
+#[cfg(feature = "vello-cpu")]
+pub type VelloCpuRenderer = AnyrenderSlintRenderer<VelloCpuWindowRenderer>;
+
+/// vello rasterizes with premultiplied alpha, while [`SharedPixelBuffer`] of
+/// [`Rgba8Pixel`] is unpremultiplied.
+#[cfg(any(feature = "vello", feature = "vello-cpu"))]
+pub(crate) fn unpremultiply_rgba(buffer: &mut [u8]) {
+    for pixel in buffer.chunks_exact_mut(4) {
+        let alpha = pixel[3];
+        if alpha == 0 || alpha == u8::MAX {
+            continue;
+        }
+        for channel in &mut pixel[..3] {
+            *channel = ((*channel as u32 * 255 + alpha as u32 / 2) / alpha as u32).min(255) as u8;
+        }
+    }
+}
+
+#[cfg(all(test, any(feature = "vello", feature = "vello-cpu")))]
+mod tests {
+    #[test]
+    fn unpremultiply_roundtrip() {
+        // Opaque and fully transparent pixels pass through untouched, and a
+        // half-transparent white stays white instead of turning grey.
+        let mut buffer = [255, 128, 0, 255, 10, 20, 30, 0, 128, 128, 128, 128];
+        super::unpremultiply_rgba(&mut buffer);
+        assert_eq!(buffer[..4], [255, 128, 0, 255]);
+        assert_eq!(buffer[4..8], [10, 20, 30, 0]);
+        assert_eq!(buffer[8..], [255, 255, 255, 128]);
+    }
+}
 
 /// Slint-side extension to [`anyrender::WindowRenderer`].
 ///

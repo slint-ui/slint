@@ -94,7 +94,7 @@ mod renderer {
 
     #[cfg(feature = "renderer-software")]
     pub(crate) mod sw;
-    #[cfg(feature = "renderer-vello")]
+    #[cfg(feature = "renderer-vello-cpu")]
     pub(crate) mod vello;
 }
 
@@ -117,8 +117,10 @@ cfg_if::cfg_if! {
         const DEFAULT_RENDERER_NAME: &str = "Software";
     } else if #[cfg(feature = "renderer-vello")] {
         const DEFAULT_RENDERER_NAME: &str = "Vello";
+    } else if #[cfg(feature = "renderer-vello-cpu")] {
+        const DEFAULT_RENDERER_NAME: &str = "VelloCpu";
     } else {
-        compile_error!("Please select a feature to build with the winit backend: `renderer-femtovg`, `renderer-skia`, `renderer-skia-opengl`, `renderer-skia-vulkan`, `renderer-software` or `renderer-vello`");
+        compile_error!("Please select a feature to build with the winit backend: `renderer-femtovg`, `renderer-skia`, `renderer-skia-opengl`, `renderer-skia-vulkan`, `renderer-software`, `renderer-vello` or `renderer-vello-cpu`");
     }
 }
 
@@ -138,8 +140,10 @@ fn default_renderer_factory(
             // Last in the chain: vello is opt-in and only becomes the default
             // when it is the only renderer built in.
             renderer::vello::WinitVelloRenderer::new_suspended(shared_backend_data)
+        } else if #[cfg(feature = "renderer-vello-cpu")] {
+            renderer::vello::WinitVelloRenderer::new_cpu_suspended(shared_backend_data)
         } else {
-            compile_error!("Please select a feature to build with the winit backend: `renderer-femtovg`, `renderer-skia`, `renderer-skia-opengl`, `renderer-skia-vulkan`, `renderer-software` or `renderer-vello`");
+            compile_error!("Please select a feature to build with the winit backend: `renderer-femtovg`, `renderer-skia`, `renderer-skia-opengl`, `renderer-skia-vulkan`, `renderer-software`, `renderer-vello` or `renderer-vello-cpu`");
         }
     }
 }
@@ -169,6 +173,8 @@ fn try_create_window_with_fallback_renderer(
         renderer::sw::WinitSoftwareRenderer::new_suspended,
         #[cfg(feature = "renderer-vello")]
         renderer::vello::WinitVelloRenderer::new_suspended,
+        #[cfg(all(feature = "renderer-vello-cpu", not(feature = "renderer-vello")))]
+        renderer::vello::WinitVelloRenderer::new_cpu_suspended,
     ]
     .into_iter()
     .find_map(|renderer_factory| {
@@ -1217,6 +1223,10 @@ fn create_renderer(
                 );
             }
             renderer::vello::WinitVelloRenderer::new_suspended(shared_data)
+        }
+        #[cfg(feature = "renderer-vello-cpu")]
+        (Some("vello-cpu"), None) => {
+            renderer::vello::WinitVelloRenderer::new_cpu_suspended(shared_data)
         }
         (None, None) => default_renderer_factory(shared_data),
         (Some(renderer_name), _) => {

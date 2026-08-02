@@ -45,7 +45,12 @@ x11 = [
 renderer-femtovg = ["i-slint-renderer-femtovg/opengl", "dep:glutin", "dep:glutin-winit"]
 renderer-femtovg-wgpu = ["i-slint-renderer-femtovg/wgpu", "dep:i-slint-renderer-femtovg", "unstable-wgpu-30"]
 renderer-skia = ["i-slint-renderer-skia"]
-renderer-vello = ["dep:i-slint-renderer-anyrender", "i-slint-renderer-anyrender/vello", "unstable-wgpu-29"]
+renderer-vello = ["renderer-vello-cpu", "i-slint-renderer-anyrender/vello", "unstable-wgpu-29"]
+renderer-vello-cpu = [
+  "dep:i-slint-renderer-anyrender",
+  "i-slint-renderer-anyrender/vello-cpu",
+  "dep:softbuffer",
+]
 renderer-skia-opengl = ["renderer-skia", "i-slint-renderer-skia/opengl"]
 renderer-skia-vulkan = ["renderer-skia", "i-slint-renderer-skia/vulkan"]
 renderer-software = [

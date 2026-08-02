@@ -154,6 +154,8 @@ system-testing = ["std", "i-slint-backend-selector/system-testing"]
 #!  * `SLINT_BACKEND=winit-femtovg` selects the winit backend with the FemtoVG renderer
 #!  * `SLINT_BACKEND=winit-skia` selects the winit backend with the skia renderer
 #!  * `SLINT_BACKEND=winit-software` selects the winit backend with the software renderer
+#!  * `SLINT_BACKEND=winit-vello` selects the winit backend with the vello renderer
+#!  * `SLINT_BACKEND=winit-vello-cpu` selects the winit backend with the vello_cpu renderer
 #!
 #! If the selected backend is not available, the default will be used.
 #!
@@ -207,12 +209,19 @@ renderer-skia-vulkan = ["i-slint-backend-selector/renderer-skia-vulkan", "dep:i-
 ## Render using the software renderer.
 renderer-software = ["i-slint-backend-selector/renderer-software", "dep:i-slint-renderer-software"]
 
-## Render using [vello](https://crates.io/crates/vello) on [WGPU](http://wgpu.rs).
+## Render using [vello](https://crates.io/crates/vello) on [WGPU](http://wgpu.rs), falling back to
+## `renderer-vello-cpu` when no GPU is available.
 ##
 ## This renderer is experimental: it is never selected automatically when another renderer is
 ## also enabled. Select it with `SLINT_BACKEND=winit-vello` or
 ## [`BackendSelector::renderer_name()`](crate::BackendSelector::renderer_name()).
-renderer-vello = ["i-slint-backend-selector/renderer-vello", "std"]
+renderer-vello = ["i-slint-backend-selector/renderer-vello", "renderer-vello-cpu", "std"]
+
+## Render using [vello_cpu](https://crates.io/crates/vello_cpu), rasterizing on the CPU.
+##
+## This renderer is experimental. Select it with `SLINT_BACKEND=winit-vello-cpu` or
+## [`BackendSelector::renderer_name()`](crate::BackendSelector::renderer_name()).
+renderer-vello-cpu = ["i-slint-backend-selector/renderer-vello-cpu", "std"]
 
 ## KMS with Vulkan or EGL and libinput on Linux are used to render the application in full screen mode, without any
 ## windowing system. Requires libseat. If you don't have libseat, select `backend-linuxkms-noseat` instead.

@@ -473,22 +473,8 @@ impl SlintWindowRenderer for VelloWindowRenderer {
         drop(mapped);
         readback_buffer.unmap();
 
-        unpremultiply_rgba(pixels.make_mut_bytes());
+        crate::unpremultiply_rgba(pixels.make_mut_bytes());
         Ok(pixels)
-    }
-}
-
-/// vello renders with premultiplied alpha, while [`SharedPixelBuffer`] of
-/// [`Rgba8Pixel`] is unpremultiplied.
-fn unpremultiply_rgba(buffer: &mut [u8]) {
-    for pixel in buffer.chunks_exact_mut(4) {
-        let alpha = pixel[3];
-        if alpha == 0 || alpha == u8::MAX {
-            continue;
-        }
-        for channel in &mut pixel[..3] {
-            *channel = ((*channel as u32 * 255 + alpha as u32 / 2) / alpha as u32).min(255) as u8;
-        }
     }
 }
 
@@ -537,19 +523,5 @@ impl AnyrenderSlintRenderer<VelloWindowRenderer> {
     /// Set the callback invoked right before a frame is presented.
     pub fn set_pre_present_callback(&self, callback: Option<Box<dyn Fn()>>) {
         self.window_renderer().set_pre_present_callback(callback);
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn unpremultiply_roundtrip() {
-        // Opaque and fully transparent pixels pass through untouched, and a
-        // half-transparent white stays white instead of turning grey.
-        let mut buffer = [255, 128, 0, 255, 10, 20, 30, 0, 128, 128, 128, 128];
-        super::unpremultiply_rgba(&mut buffer);
-        assert_eq!(buffer[..4], [255, 128, 0, 255]);
-        assert_eq!(buffer[4..8], [10, 20, 30, 0]);
-        assert_eq!(buffer[8..], [255, 255, 255, 128]);
     }
 }
