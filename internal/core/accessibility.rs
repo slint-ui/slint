@@ -41,6 +41,11 @@ pub enum AccessibleStringProperty {
 }
 
 /// The argument of an accessible action.
+///
+/// Every variant mirrors one of the `accessible-action-*` callbacks declared in the compiler's
+/// type register, with one (unnamed) field per callback argument. The generated code relies on
+/// that: it binds the fields positionally, so a new action only needs to be added here and in
+/// the type register.
 #[repr(u32)]
 #[derive(PartialEq, Clone)]
 pub enum AccessibilityAction {
@@ -51,12 +56,9 @@ pub enum AccessibilityAction {
     /// This is currently unused
     ReplaceSelectedText(SharedString),
     SetValue(SharedString),
-    /// Select the text between two UTF-8 offsets into the element's text: `anchor` is the end that
-    /// stays put, `focus` the end being moved.
-    SetSelection {
-        anchor: i32,
-        focus: i32,
-    },
+    /// Select the text between two UTF-8 offsets into the element's text: the first offset is the
+    /// anchor, the end that stays put, the second one the focus, the end being moved.
+    SetSelection(i32, i32),
 }
 
 bitflags! {
