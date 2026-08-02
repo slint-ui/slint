@@ -38,6 +38,7 @@ use i_slint_core::item_rendering::ItemCache;
 use i_slint_core::item_tree::ItemTreeWeak;
 use i_slint_core::lengths::PhysicalPx;
 use i_slint_core::platform::PlatformError;
+use i_slint_core::renderer::DrawOutcome;
 use i_slint_core::renderer::RendererSealed;
 use i_slint_core::textlayout::sharedparley;
 use i_slint_core::window::{WindowAdapter, WindowInner};
@@ -51,10 +52,18 @@ pub(crate) type PhysicalSize = euclid::Size2D<f32, PhysicalPx>;
 mod imagecache;
 mod itemrenderer;
 mod recording;
+#[cfg(feature = "vello")]
+mod vello;
 
 pub use imagecache::{ImageConversionCache, SharedImageData};
 pub use itemrenderer::AnyrenderItemRenderer;
 pub use recording::RecordingWindowRenderer;
+#[cfg(feature = "vello")]
+pub use vello::VelloWindowRenderer;
+
+/// A Slint renderer rendering through vello on WGPU.
+#[cfg(feature = "vello")]
+pub type VelloRenderer = AnyrenderSlintRenderer<VelloWindowRenderer>;
 
 /// Slint-side extension to [`anyrender::WindowRenderer`].
 ///
@@ -66,12 +75,16 @@ pub trait SlintWindowRenderer: anyrender::WindowRenderer {
     /// Render one frame of `surface_size` and present it. The surface starts
     /// out filled with `base_color`; `draw` then paints the window's items on
     /// top of it. Errors from `draw` are propagated to the caller.
+    ///
+    /// Returns what happened to the frame. Anything but
+    /// [`DrawOutcome::Success`] means nothing was presented and `draw` may not
+    /// have run at all, so the caller has to ask for another frame.
     fn slint_render<F>(
         &mut self,
         surface_size: i_slint_core::api::PhysicalSize,
         base_color: peniko::color::AlphaColor<peniko::color::Srgb>,
         draw: F,
-    ) -> Result<(), PlatformError>
+    ) -> Result<DrawOutcome, PlatformError>
     where
         F: FnOnce(&mut Self::ScenePainter<'_>) -> Result<(), PlatformError>;
 
@@ -130,7 +143,7 @@ impl<W: SlintWindowRenderer> AnyrenderSlintRenderer<W> {
         self.window_renderer.borrow_mut()
     }
 
-    pub fn render(&self) -> Result<(), PlatformError> {
+    pub fn render(&self) -> Result<DrawOutcome, PlatformError> {
         self.render_with_options(0., (0., 0.), None)
     }
 
@@ -143,13 +156,13 @@ impl<W: SlintWindowRenderer> AnyrenderSlintRenderer<W> {
         rotation_angle_degrees: f32,
         translation: (f32, f32),
         post_render_cb: Option<&dyn Fn(&mut dyn i_slint_core::item_rendering::ItemRenderer)>,
-    ) -> Result<(), PlatformError> {
+    ) -> Result<DrawOutcome, PlatformError> {
         let window_adapter = self.try_window_adapter()?;
         let window = window_adapter.window();
         let surface_size = window.size();
 
         if surface_size.width == 0 || surface_size.height == 0 {
-            return Ok(());
+            return Ok(DrawOutcome::Skipped);
         }
 
         let window_inner = WindowInner::from_pub(window);

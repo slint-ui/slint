@@ -56,6 +56,7 @@ renderer-software = [
   "i-slint-backend-linuxkms?/renderer-software",
   "i-slint-backend-testing?/renderer-software",
 ]
+renderer-vello = ["i-slint-backend-winit?/renderer-vello"]
 
 rtti = ["i-slint-core/rtti", "i-slint-backend-qt?/rtti"]
 accessibility = ["i-slint-backend-winit?/accessibility"]
