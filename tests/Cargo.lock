@@ -326,9 +326,9 @@ checksum = "330a5ed07fa54e4702c9d6c4174f74427fc0ef6e214bbd677ae50a5099946470"
 
 [[package]]
 name = "anyrender"
-version = "0.11.1"
+version = "0.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5c79ab67fa5a03a47b088c5c9dfc8ad727e2a3a1921517cdf4b642433f925d50"
+checksum = "aea77d85ae0be665528618c97164c2b510dc635e80b805e9a9df9a9fe72da423"
 dependencies = [
  "kurbo",
  "peniko",
@@ -339,9 +339,9 @@ dependencies = [
 
 [[package]]
 name = "anyrender_serialize"
-version = "0.5.0"
+version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6f47703d7625775c9d3080d1c4039380ccab53225e63ae810f3ed9dcca3d03cf"
+checksum = "63cb21f769a5cec45e3910516dae38d7d4958ffd83a6b506142d872909baabfd"
 dependencies = [
  "anyrender",
  "image",
@@ -358,9 +358,9 @@ dependencies = [
 
 [[package]]
 name = "anyrender_vello_cpu"
-version = "0.14.0"
+version = "0.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "545d02c58581dc659b65bab63aef1aebcbcc442c96a49a599019c93ac03b1e42"
+checksum = "eb1f023da10af98c41042bb628bb7ff292d5d1058585a06fa54ccfcc592d3180"
 dependencies = [
  "anyrender",
  "debug_timer",

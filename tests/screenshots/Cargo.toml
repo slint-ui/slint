@@ -53,9 +53,9 @@ i-slint-core = { workspace = true, features = ["unicode", "std"] }
 
 i-slint-renderer-skia = { workspace = true, optional = true }
 i-slint-renderer-anyrender = { workspace = true, optional = true }
-anyrender = { version = "0.11", optional = true }
-anyrender_serialize = { version = "0.5", optional = true }
-anyrender_vello_cpu = { version = "0.14", optional = true }
+anyrender = { version = "0.12", optional = true }
+anyrender_serialize = { version = "0.6", optional = true }
+anyrender_vello_cpu = { version = "0.15", optional = true }
 kurbo = { version = "0.13", optional = true }
 peniko = { version = "0.6", optional = true }
 serde_json = { version = "1", optional = true }
