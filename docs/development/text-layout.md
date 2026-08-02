@@ -28,7 +28,7 @@ Slint's text layout system handles the complex process of converting text string
 | `internal/core/textlayout/glyphclusters.rs` | Glyph cluster grouping |
 | `internal/core/textlayout/linebreak_unicode.rs` | Unicode line break algorithm |
 | `internal/core/styled_text.rs` | Public `StyledText` API, FFI |
-| `internal/common/styled_text.rs` | Markdown/HTML parsing, `Style`/`FormattedSpan`/`StyledTextParagraph` |
+| `internal/common/styled_text.rs` | Markdown/HTML parsing, `Style`/`FormattedSpan`/`ParagraphBlock` |
 
 ## Text Layout Pipeline
 
@@ -365,10 +365,10 @@ pub fn byte_offset_for_position(
 
 ## Styled Text
 
-`Style`, `FormattedSpan`, and `StyledTextParagraph` are defined in
-`internal/common/styled_text.rs` (crate `i-slint-common`, behind the `markdown` feature),
-not `internal/core/styled_text.rs` — the core file only re-exports `StyledTextParagraph`
-and adds the public `StyledText` API and FFI.
+`Style`, `FormattedSpan`, `RichText`, and `ParagraphBlock` are defined in
+ `internal/common/styled_text.rs` (crate `i-slint-common`, behind the `markdown` feature),
+ not `internal/core/styled_text.rs` — the core file only re-exports `ParagraphBlock`
+ and adds the public `StyledText` API and FFI.
 
 ### Style Types
 
@@ -384,26 +384,40 @@ pub enum Style {
 }
 ```
 
-### StyledTextParagraph
+### ParagraphBlock and RichText
 
 ```rust
-pub struct StyledTextParagraph {
+pub struct RichText {
     pub text: String,                              // Raw text
     pub formatting: Vec<FormattedSpan>,            // Style ranges
     pub links: Vec<(Range<usize>, String)>,        // Link destinations
+}
+
+pub enum ParagraphBlock {
+    Text(RichText),          // A regular paragraph
+    Heading { level: u8, content: RichText },   // `#` to `######` headings
+    HorizontalRule,          // `---`, `<hr>`, rendered as a horizontal line
 }
 
 pub struct FormattedSpan {
     pub range: Range<usize>,  // Byte range in text
     pub style: Style,
 }
+
+// The text content of a block, if it has any (`HorizontalRule` yields None).
+pub fn rich_text_content(block: &ParagraphBlock) -> Option<&RichText>;
 ```
+
+`StyledText.paragraphs` holds a `SharedVector<ParagraphBlock>`. Each block is laid out and
+drawn independently: headings get scaled font sizes (see the heading scales in
+`internal/core/textlayout/sharedparley.rs`), and `HorizontalRule` blocks are drawn as a
+horizontal line spanning the text width instead of glyphs.
 
 ### StyledText
 
 ```rust
 pub struct StyledText {
-    pub(crate) paragraphs: SharedVector<StyledTextParagraph>,
+    pub(crate) paragraphs: SharedVector<ParagraphBlock>,
 }
 
 impl StyledText {
@@ -416,12 +430,16 @@ impl StyledText {
 ```
 
 **Supported Markdown:**
+- `# Heading 1` through `###### Heading 6`
+- Horizontal rules (`---`, `***`, `___`)
 - `*emphasis*` / `_emphasis_`
 - `**strong**` / `__strong__`
 - `~~strikethrough~~`
 - `[link](url)`
-- Lists (ordered and unordered)
+- Lists (ordered and unordered) — flattened into regular `Text` paragraphs
 - Soft/hard breaks
+
+Block quotes and tables are not supported and produce an error.
 
 **Supported HTML:**
 - `<u>underline</u>`
