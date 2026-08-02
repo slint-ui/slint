@@ -207,6 +207,13 @@ renderer-skia-vulkan = ["i-slint-backend-selector/renderer-skia-vulkan", "dep:i-
 ## Render using the software renderer.
 renderer-software = ["i-slint-backend-selector/renderer-software", "dep:i-slint-renderer-software"]
 
+## Render using [vello](https://crates.io/crates/vello) on [WGPU](http://wgpu.rs).
+##
+## This renderer is experimental: it is never selected automatically when another renderer is
+## also enabled. Select it with `SLINT_BACKEND=winit-vello` or
+## [`BackendSelector::renderer_name()`](crate::BackendSelector::renderer_name()).
+renderer-vello = ["i-slint-backend-selector/renderer-vello", "std"]
+
 ## KMS with Vulkan or EGL and libinput on Linux are used to render the application in full screen mode, without any
 ## windowing system. Requires libseat. If you don't have libseat, select `backend-linuxkms-noseat` instead.
 backend-linuxkms = ["i-slint-backend-selector/backend-linuxkms", "std"]

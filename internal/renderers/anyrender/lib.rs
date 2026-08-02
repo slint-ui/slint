@@ -50,10 +50,18 @@ pub(crate) type PhysicalSize = euclid::Size2D<f32, PhysicalPx>;
 mod imagecache;
 mod itemrenderer;
 mod recording;
+#[cfg(feature = "vello")]
+mod vello;
 
 pub use imagecache::{ImageConversionCache, SharedImageData};
 pub use itemrenderer::AnyrenderItemRenderer;
 pub use recording::RecordingWindowRenderer;
+#[cfg(feature = "vello")]
+pub use vello::VelloWindowRenderer;
+
+/// A Slint renderer rendering through vello on WGPU.
+#[cfg(feature = "vello")]
+pub type VelloRenderer = AnyrenderSlintRenderer<VelloWindowRenderer>;
 
 /// Slint-side extension to [`anyrender::WindowRenderer`].
 ///
