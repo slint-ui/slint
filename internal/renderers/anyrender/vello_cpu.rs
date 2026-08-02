@@ -207,7 +207,9 @@ impl SlintWindowRenderer for VelloCpuWindowRenderer {
             draw,
         )?;
 
-        crate::unpremultiply_rgba(pixels.make_mut_bytes());
+        if crate::is_translucent(base_color) {
+            crate::unpremultiply_rgba(pixels.make_mut_bytes());
+        }
         Ok(pixels)
     }
 }

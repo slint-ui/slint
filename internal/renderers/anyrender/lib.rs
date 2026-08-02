@@ -80,8 +80,13 @@ pub use vello_hybrid::VelloHybridWindowRenderer;
 #[cfg(all(feature = "vello-hybrid", target_arch = "wasm32"))]
 pub type VelloHybridRenderer = AnyrenderSlintRenderer<VelloHybridWindowRenderer>;
 
-/// vello rasterizes with premultiplied alpha, while [`SharedPixelBuffer`] of
-/// [`Rgba8Pixel`] is unpremultiplied.
+/// Convert `buffer` from premultiplied alpha, which vello rasterizes with, to
+/// the straight alpha of [`Rgba8Pixel`].
+///
+/// Only needed when the frame can contain translucent pixels at all, see
+/// [`is_translucent`]: everything is composited over the window's base color,
+/// so an opaque base color leaves every pixel opaque and the conversion a
+/// no-op.
 #[cfg(feature = "vello-cpu")]
 pub(crate) fn unpremultiply_rgba(buffer: &mut [u8]) {
     for pixel in buffer.chunks_exact_mut(4) {
@@ -95,8 +100,25 @@ pub(crate) fn unpremultiply_rgba(buffer: &mut [u8]) {
     }
 }
 
+/// Whether a frame rendered on top of `base_color` can contain translucent
+/// pixels.
+#[cfg(feature = "vello-cpu")]
+pub(crate) fn is_translucent(
+    base_color: peniko::color::AlphaColor<peniko::color::Srgb>,
+) -> bool {
+    base_color.components[3] < 1.0
+}
+
 #[cfg(all(test, feature = "vello-cpu"))]
 mod tests {
+    #[test]
+    fn opaque_base_color_needs_no_conversion() {
+        use peniko::color::palette::css;
+        assert!(!super::is_translucent(css::WHITE));
+        assert!(super::is_translucent(css::WHITE.with_alpha(0.5)));
+        assert!(super::is_translucent(css::TRANSPARENT));
+    }
+
     #[test]
     fn unpremultiply_roundtrip() {
         // Opaque and fully transparent pixels pass through untouched, and a
