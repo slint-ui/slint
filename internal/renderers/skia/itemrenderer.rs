@@ -7,6 +7,7 @@ use std::pin::Pin;
 
 use super::{PhysicalBorderRadius, PhysicalLength, PhysicalPoint, PhysicalRect, PhysicalSize};
 use i_slint_core::graphics::ApproxEq;
+use i_slint_core::graphics::adjust_rect_and_border_for_inner_drawing;
 use i_slint_core::graphics::boxshadowcache::BoxShadowCache;
 use i_slint_core::graphics::euclid::num::Zero;
 use i_slint_core::graphics::euclid::{self, Vector2D};
@@ -1265,16 +1266,4 @@ pub fn to_skia_size(size: &PhysicalSize) -> skia_safe::Size {
 
 pub fn to_skia_color(col: &Color) -> skia_safe::Color {
     skia_safe::Color::from_argb(col.alpha(), col.red(), col.green(), col.blue())
-}
-
-fn adjust_rect_and_border_for_inner_drawing(
-    rect: &mut PhysicalRect,
-    border_width: &mut PhysicalLength,
-) {
-    // If the border width exceeds the width, just fill the rectangle.
-    *border_width = border_width.min(rect.width_length() / 2.);
-    // adjust the size so that the border is drawn within the geometry
-
-    rect.origin += PhysicalSize::from_lengths(*border_width / 2., *border_width / 2.);
-    rect.size -= PhysicalSize::from_lengths(*border_width, *border_width);
 }
