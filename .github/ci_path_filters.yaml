@@ -50,7 +50,7 @@ integration: &integration
  - '.github/workflows/build_and_test_reusable.yaml'
  - 'api/rs/**'
  - 'internal/compiler/generator/rust*{,/**}'
- - 'internal/renderers/{skia,software}/**'
+ - 'internal/renderers/{anyrender,skia,software}/**'
  - 'internal/backends/winit/**'
 
 # Everything the root-workspace `cargo test` covers: all of internal/ (also
