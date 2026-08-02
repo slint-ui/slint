@@ -2570,7 +2570,7 @@ extern "C" fn accessibility_action(
         AccessibilityAction::SetValue(a) => {
             perform("accessible-action-set-value", &[Value::String(a.clone())])
         }
-        AccessibilityAction::SetSelection { anchor, focus } => perform(
+        AccessibilityAction::SetSelection(anchor, focus) => perform(
             "accessible-action-set-selection",
             &[Value::Number(*anchor as f64), Value::Number(*focus as f64)],
         ),

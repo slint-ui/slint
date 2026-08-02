@@ -521,6 +521,24 @@ pub fn to_kebab_case(str: &str) -> String {
     String::from_utf8(result).unwrap()
 }
 
+/// The number of arguments taken by the accessibility action of the given name, where the name
+/// is the `AccessibilityAction` variant in pascal case (such as `SetSelection`).
+///
+/// The `AccessibilityAction` enum of the run-time library mirrors the `accessible-action-*`
+/// callbacks declared in the type register: a variant has one field per callback argument, so
+/// that the generators can bind the fields without knowing about any particular action.
+pub fn accessibility_action_argument_count(action: &str) -> usize {
+    let property_name = format!("accessible-action-{}", to_kebab_case(action));
+    crate::typeregister::reserved_accessibility_properties()
+        .find_map(|(name, ty)| match ty {
+            crate::langtype::Type::Callback(function) if name == property_name => {
+                Some(function.args.len())
+            }
+            _ => None,
+        })
+        .unwrap_or_else(|| panic!("Unknown accessibility action {action}"))
+}
+
 #[test]
 fn case_conversions() {
     assert_eq!(to_kebab_case("HelloWorld"), "hello-world");

@@ -651,7 +651,7 @@ impl ElementHandle {
             return;
         }
         if let Some(item) = self.item.upgrade() {
-            item.accessible_action(&AccessibilityAction::SetSelection { anchor, focus })
+            item.accessible_action(&AccessibilityAction::SetSelection(anchor, focus))
         }
     }
 
