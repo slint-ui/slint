@@ -1487,7 +1487,7 @@ fn generate_sub_component(
                 quote!((#index, sp::AccessibilityAction::#what) => { #e })
             } else {
                 let arg = (0..arg_count).map(|i| format_ident!("arg_{i}")).collect::<Vec<_>>();
-                quote!((#index, sp::AccessibilityAction::#what(#(#arg),*)) => { let args = (#(#arg,)*); #e })
+                quote!((#index, sp::AccessibilityAction::#what(#(#arg),*)) => { #[allow(unused_variables)] let args = (#(#arg,)*); #e })
             });
             supported_accessibility_actions.entry(*index).or_default().insert(what);
         } else {
