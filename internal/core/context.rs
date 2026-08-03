@@ -69,6 +69,10 @@ pub(crate) struct SlintContextInner {
     #[cfg(feature = "shared-swash")]
     pub(crate) swash_scale_context: core::cell::RefCell<swash::scale::ScaleContext>,
     pub(crate) modifiers: Cell<InternalKeyboardModifierState>,
+
+    /// The timers registered on this context. Shared, so that `Timer` handles can hold a
+    /// `Weak` to the list they registered in without knowing which context owns it.
+    pub(crate) timers: crate::timers::TimerListRc,
 }
 
 /// This context is meant to hold the state and the backend.
@@ -120,6 +124,10 @@ impl SlintContext {
             #[cfg(feature = "shared-swash")]
             swash_scale_context: core::cell::RefCell::new(swash::scale::ScaleContext::new()),
             modifiers: Cell::new(Default::default()),
+            // Timers started before this thread had a context registered in the pending
+            // list; take it over so those timers keep working. It is the very list they
+            // hold a `Weak` to, so nothing needs fixing up.
+            timers: crate::timers::take_pending_timers(),
         }))
     }
 
