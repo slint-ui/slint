@@ -11,15 +11,25 @@
     IgnorableNamespaces="uap uap2 uap3 uap10 desktop desktop6 rescap uap5"
     xmlns:uap5="http://schemas.microsoft.com/appx/manifest/uap/windows10/5"
 >
-  <!-- Cargo version has 3 fields, MSIX version has 4 fields, so we just unconditionally add `.0` -->
+  <!--
+    `Name` and `Publisher` are the identity reserved for this app in Partner
+    Center and have to match it exactly, otherwise the Store rejects the
+    submission. The publisher GUID is not a secret: it is part of every
+    published package.
+
+    Cargo version has 3 fields, MSIX version has 4 fields, so we just
+    unconditionally add `.0`. The Store reserves that last field and requires
+    it to be 0, so every submission needs its own cargo version.
+  -->
   <Identity
-        Name="slintvisualeditor"
-        Publisher="CN=sixtyfps"
+        Name="Slint.SlintVisualEditor"
+        Publisher="CN=5B95CD31-D8E6-4E15-9577-6F0D625F4F1C"
         Version="{{cargo.version}}.0"
     />
   <Properties>
     <DisplayName>Slint Visual Editor</DisplayName>
-    <PublisherDisplayName>SixtyFPS GmbH</PublisherDisplayName>
+    <!-- Has to match the publisher display name of the Partner Center account. -->
+    <PublisherDisplayName>Slint</PublisherDisplayName>
     <Logo>packaging\windows-appx\SlintVisualEditor-Logo.png</Logo>
   </Properties>
   <Dependencies>

@@ -85,12 +85,14 @@ jobs:
             -o Package.appxmanifest
           winapp pack ./dist
 
-          $msix = "tools/lsp/slintvisualeditor_${{ steps.get_cargo_version.outputs.cargo_version }}.0_x64.msix"
+          # `winapp pack` names the package after `Identity/Name` in the
+          # manifest, so match on the extension instead of hardcoding the name.
           Set-Location $env:GITHUB_WORKSPACE
-          if (-not (Test-Path $msix)) {
-            throw "winapp pack did not produce $msix"
+          $msix = @(Get-ChildItem tools/lsp -Filter *.msix)
+          if ($msix.Count -ne 1) {
+            throw "expected exactly one .msix in tools/lsp, found $($msix.Count)"
           }
-          "msix_path=$msix" >> $env:GITHUB_OUTPUT
+          "msix_path=tools/lsp/$($msix[0].Name)" >> $env:GITHUB_OUTPUT
 
       - name: Upload MSIX artifact
         uses: actions/upload-artifact@v7
