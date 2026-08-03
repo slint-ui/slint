@@ -18,6 +18,7 @@ unsafe fn wrap_dx12_texture(
     resource: ID3D12Resource,
     dxgi_format: windows::Win32::Graphics::Dxgi::Common::DXGI_FORMAT,
     color_type: skia_safe::ColorType,
+    color_space: skia_safe::ColorSpace,
 ) -> Option<skia_safe::Surface> {
     unsafe {
         let texture_info = skia_safe::gpu::d3d::TextureResourceInfo {
@@ -37,7 +38,7 @@ unsafe fn wrap_dx12_texture(
             &backend_render_target,
             skia_safe::gpu::SurfaceOrigin::TopLeft,
             color_type,
-            crate::linear_srgb_color_space(),
+            color_space,
             None,
         )
     }
@@ -77,6 +78,7 @@ pub unsafe fn make_dx12_surface(
             resource,
             dxgi_format,
             color_type,
+            crate::attachment_color_space(texture.format().is_srgb()),
         )
     }
 }

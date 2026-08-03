@@ -16,6 +16,7 @@ unsafe fn wrap_metal_texture(
     gr_context: &mut skia_safe::gpu::DirectContext,
     metal_handle: mtl::Handle,
     color_type: skia_safe::ColorType,
+    color_space: skia_safe::ColorSpace,
 ) -> Option<skia_safe::Surface> {
     unsafe {
         let texture_info = mtl::TextureInfo::new(metal_handle);
@@ -26,7 +27,7 @@ unsafe fn wrap_metal_texture(
             &backend_render_target,
             skia_safe::gpu::SurfaceOrigin::TopLeft,
             color_type,
-            crate::linear_srgb_color_space(),
+            color_space,
             None,
         )
     }
@@ -52,7 +53,14 @@ pub unsafe fn make_metal_surface(
             wgpu::TextureFormat::Rgba8UnormSrgb => skia_safe::ColorType::SRGBA8888,
             _ => return None,
         };
-        wrap_metal_texture(size.width as i32, size.height as i32, gr_context, handle, color_type)
+        wrap_metal_texture(
+            size.width as i32,
+            size.height as i32,
+            gr_context,
+            handle,
+            color_type,
+            crate::attachment_color_space(texture.format().is_srgb()),
+        )
     }
 }
 

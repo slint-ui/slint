@@ -72,17 +72,28 @@ use i_slint_core::items::{ItemRc, TextWrap};
 use itemrenderer::to_skia_rect;
 pub use skia_safe;
 
-/// Returns the color space for Slint colors, unencoded pixel buffers, and render targets.
+/// Returns the color space for Slint colors, decoded image pixels and raster buffers.
 ///
-/// The working color space remains linear for a physical sRGB render target because the GPU
-/// attachment applies the sRGB transfer function when it stores the rendered values.
+/// The components of a `slint::Color` are gamma encoded sRGB, not linear.
+/// The same holds for the pixels of decoded images and for the 8-bit buffers Skia renders into,
+/// which have no hardware transfer function of their own.
+pub(crate) fn srgb_color_space() -> skia_safe::ColorSpace {
+    skia_safe::ColorSpace::new_srgb()
+}
+
+#[cfg(any(feature = "wgpu-29", feature = "wgpu-30"))]
 pub(crate) fn linear_srgb_color_space() -> skia_safe::ColorSpace {
     skia_safe::ColorSpace::new_srgb_linear()
 }
 
+/// Returns the color space to give Skia for a render target with the given format.
+///
+/// An sRGB attachment applies the transfer function when storing, so Skia has to hand it linear
+/// values. A UNORM attachment stores what it is given, so Skia keeps working in gamma encoded
+/// sRGB and no conversion happens at all.
 #[cfg(any(feature = "wgpu-29", feature = "wgpu-30"))]
-pub(crate) fn srgb_color_space() -> skia_safe::ColorSpace {
-    skia_safe::ColorSpace::new_srgb()
+pub(crate) fn attachment_color_space(format_is_srgb: bool) -> skia_safe::ColorSpace {
+    if format_is_srgb { linear_srgb_color_space() } else { srgb_color_space() }
 }
 
 #[cfg(any(feature = "wgpu-29", feature = "wgpu-30"))]
@@ -633,7 +644,7 @@ impl SkiaRenderer {
                 if let Brush::SolidColor(clear_color) = window_item.as_pin_ref().background() {
                     let mut paint = skia_safe::Paint::new(
                         itemrenderer::to_skia_color4f(&clear_color),
-                        &linear_srgb_color_space(),
+                        &srgb_color_space(),
                     );
                     paint.set_blend_mode(skia_safe::BlendMode::Src);
                     skia_canvas.draw_paint(&paint);
@@ -909,7 +920,7 @@ impl i_slint_core::renderer::RendererSealed for SkiaRenderer {
                 (width as i32, height as i32),
                 skia_safe::ColorType::RGBA8888,
                 skia_safe::AlphaType::Opaque,
-                linear_srgb_color_space(),
+                srgb_color_space(),
             ),
             target_buffer.make_mut_bytes(),
             None,
