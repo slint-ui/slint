@@ -74,8 +74,10 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force tools/lsp/dist
           New-Item -ItemType Directory -Force tools/lsp/dist/Assets
+          # Every asset the manifest references has to end up inside the
+          # package layout, otherwise only `winapp pack` can resolve it.
           Copy-Item `
-            $(ls tools/lsp/packaging/windows-appx/SlintVisualEditor-Logo-*.png | % {$_.FullName}) `
+            $(ls tools/lsp/packaging/windows-appx/SlintVisualEditor-Logo*.png | % {$_.FullName}) `
             tools/lsp/dist/Assets/
           Copy-Item target/x86_64-pc-windows-msvc/package-release/slint-visual-editor.exe tools/lsp/dist/slint-visual-editor.exe
           Set-Location tools/lsp
