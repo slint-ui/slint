@@ -261,13 +261,20 @@ pub fn remove_aliases(doc: &Document, diag: &mut BuildDiagnostics) {
                 }
                 let target_elem = property.element();
                 let mut target_elem = target_elem.borrow_mut();
-                let entry = target_elem
-                    .bindings
-                    .entry(property.name().clone())
-                    .or_insert_with(|| BindingExpression::new_two_way(to.clone().into()).into());
-                let mut b = entry.borrow_mut();
-                if !b.two_way_bindings.iter().any(|x| x.property() == Some(&to)) {
-                    b.two_way_bindings.push(to.clone().into());
+                let mut target_binding = if let Some(b) = target_elem.binding_mut(property.name()) {
+                    // need to unwrap manually here so the borrow checker understands that
+                    // target_elem is no longer borrowed in the `else` path.
+                    b
+                } else {
+                    target_elem.set_binding(
+                        property.name().clone(),
+                        BindingExpression::new_two_way(to.clone().into()),
+                    );
+                    target_elem.binding_mut(property.name()).unwrap()
+                };
+                // let b = target_elem.binding_mut(property.name()).expect("Binding was just set");
+                if !target_binding.two_way_bindings.iter().any(|x| x.property() == Some(&to)) {
+                    target_binding.two_way_bindings.push(to.clone().into());
                 }
                 // drop from old_binding so the merge below won't carry it onto the global
                 false
