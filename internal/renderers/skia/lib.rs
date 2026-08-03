@@ -707,9 +707,7 @@ impl SkiaRenderer {
                 let window_item =
                     window_item_rc.downcast::<i_slint_core::items::WindowItem>().unwrap();
                 if let Brush::SolidColor(clear_color) = window_item.as_pin_ref().background() {
-                    let mut paint = solid_paint(&clear_color);
-                    paint.set_blend_mode(skia_safe::BlendMode::Src);
-                    skia_canvas.draw_paint(&paint);
+                    skia_canvas.clear(itemrenderer::to_skia_color(&clear_color));
                 } else {
                     // Draws the window background as gradient
                     item_renderer.draw_rectangle(
