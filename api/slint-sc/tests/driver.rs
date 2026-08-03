@@ -38,6 +38,15 @@ fn main() {
     let slint_sc_rlib = find_slint_sc_rlib(&target_dir);
     let rx = Regex::new(r"(?sU)\r?\n```rust( compile_fail)?\r?\n(.+)\r?\n```\r?\n").unwrap();
 
+    // The runtime code a case exercises is compiled into its own test binary,
+    // so its coverage lives in that binary rather than the crate's own build.
+    // When one is requested, keep the binaries here for the report step to
+    // pass to llvm-cov; otherwise they live in the per-case tempdir.
+    let cov_bin_dir = std::env::var_os("SLINT_SC_COV_BIN_DIR").map(PathBuf::from);
+    if let Some(dir) = &cov_bin_dir {
+        std::fs::create_dir_all(dir).expect("failed to create SLINT_SC_COV_BIN_DIR");
+    }
+
     let config = TestConfig {
         compiler: &compiler,
         slint_sc_rlib: &slint_sc_rlib,
@@ -45,6 +54,7 @@ fn main() {
         instrument_coverage,
         create_screenshots: std::env::var("SLINT_CREATE_SCREENSHOTS").is_ok_and(|var| var == "1"),
         rx: &rx,
+        cov_bin_dir: cov_bin_dir.as_deref(),
     };
 
     let results: Vec<(String, Result<(), String>)> = test_files
@@ -134,6 +144,9 @@ struct TestConfig<'a> {
     instrument_coverage: bool,
     create_screenshots: bool,
     rx: &'a Regex,
+    /// Where to keep each case's test binary so the coverage report can reach
+    /// it; `None` outside a coverage run, when the tempdir is enough.
+    cov_bin_dir: Option<&'a Path>,
 }
 
 fn find_target_dir() -> PathBuf {
@@ -216,8 +229,13 @@ fn run_test(slint_path: &Path, rel: &Path, config: &TestConfig) -> Result<(), St
     std::fs::write(&test_rs, assemble_program(&gen_path, &test_code))
         .map_err(|e| format!("write test.rs: {e}"))?;
 
-    // Step 4: Compile with rustc
-    let test_bin = tmp.path().join("test_bin");
+    // Step 4: Compile with rustc. During a coverage run the binary must
+    // outlive the tempdir so the report step can read its coverage map, so
+    // give it a stable per-case name in the kept directory.
+    let test_bin = match config.cov_bin_dir {
+        Some(dir) => dir.join(rel.with_extension("").to_string_lossy().replace(['/', '\\'], "_")),
+        None => tmp.path().join("test_bin"),
+    };
     let rustc_output = compile(config, &test_rs, &test_bin)?;
     if !rustc_output.status.success() {
         let stderr = String::from_utf8_lossy(&rustc_output.stderr);
