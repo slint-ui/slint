@@ -600,6 +600,7 @@ styledtext
 styledtextprop
 styledval
 stylemetrics
+subcomponent
 subcomponents
 subelement
 subfolders
