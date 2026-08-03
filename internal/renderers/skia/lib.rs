@@ -115,6 +115,29 @@ pub(crate) fn image_info(
     skia_safe::ImageInfo::new(size, color_type, alpha_type, srgb_color_space())
 }
 
+/// Builds a paint filled with a Slint color, tagged as sRGB.
+pub(crate) fn solid_paint(color: &i_slint_core::Color) -> skia_safe::Paint {
+    skia_safe::Paint::new(itemrenderer::to_skia_color4f(color), &srgb_color_space())
+}
+
+/// Builds a shader of a single Slint color, tagged as sRGB.
+pub(crate) fn color_shader(color: &i_slint_core::Color) -> skia_safe::Shader {
+    skia_safe::shaders::color_in_space(itemrenderer::to_skia_color4f(color), srgb_color_space())
+}
+
+/// Builds the stops of a gradient, tagged as sRGB.
+pub(crate) fn gradient_colors<'a>(
+    colors: &'a [skia_safe::Color4f],
+    pos: &'a [f32],
+) -> skia_safe::gradient::Colors<'a> {
+    skia_safe::gradient::Colors::new(
+        colors,
+        Some(pos),
+        skia_safe::TileMode::Clamp,
+        srgb_color_space(),
+    )
+}
+
 cfg_if::cfg_if! {
     if #[cfg(skia_backend_vulkan)] {
         type DefaultSurface = vulkan_surface::VulkanSurface;
@@ -656,10 +679,7 @@ impl SkiaRenderer {
                 let window_item =
                     window_item_rc.downcast::<i_slint_core::items::WindowItem>().unwrap();
                 if let Brush::SolidColor(clear_color) = window_item.as_pin_ref().background() {
-                    let mut paint = skia_safe::Paint::new(
-                        itemrenderer::to_skia_color4f(&clear_color),
-                        &srgb_color_space(),
-                    );
+                    let mut paint = solid_paint(&clear_color);
                     paint.set_blend_mode(skia_safe::BlendMode::Src);
                     skia_canvas.draw_paint(&paint);
                 } else {
