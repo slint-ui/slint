@@ -41,3 +41,5 @@ export component Example {
 Predicates are the only form of closure in the Slint language, and they are only accepted
 as the argument of `any` and `all`.
 A predicate cannot be stored in a property, passed to a function or callback, or called directly.
+The predicate must be written inline in the call to `any` or `all`;
+passing a closure stored in a local variable is rejected with an error.

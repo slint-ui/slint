@@ -2075,6 +2075,11 @@ impl Expression {
     /// `from_closure_node` with the expected argument type. Otherwise fall back to the
     /// generic expression resolver, in which case any closure encountered inside has no
     /// expected argument type.
+    ///
+    /// A closure-typed argument that is not written inline (for example a local variable
+    /// holding a closure) is rejected: the code generators and the interpreter evaluate
+    /// the closure body directly at the call site, so they require the argument to be a
+    /// literal [`Expression::Closure`].
     fn from_argument_expression_node(
         node: syntax_nodes::Expression,
         ctx: &mut LookupCtx,
@@ -2101,7 +2106,18 @@ impl Expression {
                 }
             }
         }
-        Self::from_expression_node(node, ctx)
+        let expression = Self::from_expression_node(node.clone(), ctx);
+        if expected_closure_arg_type.is_some()
+            && expression.ty() == Type::Closure
+            && !matches!(expression, Expression::Closure { .. })
+        {
+            ctx.diag.push_error(
+                "Closures must be written inline as the argument of 'any' or 'all'".into(),
+                &node,
+            );
+            return Expression::Invalid;
+        }
+        expression
     }
 
     fn from_string_template_node(

@@ -49,6 +49,15 @@ export component Test inherits Window {
         let useless = (x) => x + 1;
         // Closure as a regular sub-expression: same story, body is unconstrained.
         let still-useless = ((y) => y);
+
+        // A stored closure cannot be passed to `any`/`all`: the code generators and the
+        // interpreter evaluate the closure body at the call site, so the argument must
+        // be a closure written inline.
+        let not-useless = (x) => x == 3;
+        debug(ints.any(not-useless));
+//                     >         <error{Closures must be written inline as the argument of 'any' or 'all'}
+        ints.all((not-useless));
+//               >           <error{Closures must be written inline as the argument of 'any' or 'all'}
     }
 
     // Closure as the right-hand side of a non-array property still produces a single
