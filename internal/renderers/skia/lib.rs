@@ -138,14 +138,19 @@ pub(crate) fn image_info(
     skia_safe::ImageInfo::new(size, color_type, alpha_type, srgb_color_space())
 }
 
-/// Builds a paint filled with a Slint color, tagged as sRGB.
+/// Builds a paint filled with a Slint color.
+///
+/// A paint holds its color as sRGB, per the `setColor` docs in Skia's `SkPaint.h`, which is the
+/// space a `slint::Color` is already in. Skia converts from there to the target when drawing.
 pub(crate) fn solid_paint(color: &i_slint_core::Color) -> skia_safe::Paint {
-    skia_safe::Paint::new(itemrenderer::to_skia_color4f(color), &srgb_color_space())
+    let mut paint = skia_safe::Paint::default();
+    paint.set_color(itemrenderer::to_skia_color(color));
+    paint
 }
 
-/// Builds a shader of a single Slint color, tagged as sRGB.
+/// Builds a shader of a single Slint color, see [`solid_paint`] for the color space.
 pub(crate) fn color_shader(color: &i_slint_core::Color) -> skia_safe::Shader {
-    skia_safe::shaders::color_in_space(itemrenderer::to_skia_color4f(color), srgb_color_space())
+    skia_safe::shaders::color(itemrenderer::to_skia_color(color))
 }
 
 /// Builds the stops of a gradient, tagged as sRGB.
