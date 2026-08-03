@@ -19,6 +19,10 @@
 //! in their own crates and only need to implement `SlintWindowRenderer`.
 
 #![doc(html_logo_url = "https://slint.dev/logo/slint-logo-square-light.svg")]
+// anyrender doesn't compile on 32-bit targets, so this crate is empty there. The upstream
+// fix is https://github.com/DioxusLabs/anyrender/pull/74; drop this once it's released and
+// we've updated. See also the target dependency in Cargo.toml.
+#![cfg(any(target_pointer_width = "64", target_arch = "wasm32"))]
 
 use std::cell::{OnceCell, RefCell};
 use std::num::NonZeroU32;
