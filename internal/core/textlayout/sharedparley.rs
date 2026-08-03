@@ -16,7 +16,9 @@ use crate::{
     },
     renderer::RendererSealed,
     textlayout::{TextHorizontalAlignment, TextOverflow, TextVerticalAlignment, TextWrap},
+    window::WindowAdapter,
 };
+use alloc::rc::Rc;
 use alloc::vec::Vec;
 use core::ops::Range;
 use core::pin::Pin;
@@ -413,6 +415,10 @@ pub fn draw_text_input(
     );
 }
 
+// The public entry points taking a renderer are generic so that RendererSealed's default
+// implementations can pass self. Each is a thin shim that extracts what it needs from the
+// renderer and forwards to a monomorphic inner function, so that the layout code is not
+// instantiated (and duplicated in the binary) once per renderer type.
 pub fn text_size(
     renderer: &(impl RendererSealed + ?Sized),
     text_item: Pin<&dyn crate::item_rendering::RenderString>,
@@ -421,7 +427,27 @@ pub fn text_size(
     text_wrap: TextWrap,
     cache: Option<&TextLayoutCache>,
 ) -> Option<LogicalSize> {
-    let scale_factor = renderer.scale_factor()?;
+    text_size_impl(
+        renderer.scale_factor(),
+        renderer.window_adapter(),
+        text_item,
+        item_rc,
+        max_width,
+        text_wrap,
+        cache,
+    )
+}
+
+fn text_size_impl(
+    scale_factor: Option<ScaleFactor>,
+    window_adapter: Option<Rc<dyn WindowAdapter>>,
+    text_item: Pin<&dyn crate::item_rendering::RenderString>,
+    item_rc: &crate::item_tree::ItemRc,
+    max_width: Option<LogicalLength>,
+    text_wrap: TextWrap,
+    cache: Option<&TextLayoutCache>,
+) -> Option<LogicalSize> {
+    let scale_factor = scale_factor?;
 
     // Evaluate the properties that `shape_paragraphs` reads before borrowing font_context: they
     // can trigger property bindings that re-enter text_size for other elements, which would panic
@@ -432,7 +458,7 @@ pub fn text_size(
     let _ = text_item.link_color();
     let _ = text_item.text();
 
-    let window_adapter = renderer.window_adapter()?;
+    let window_adapter = window_adapter?;
 
     // Only `layout()`'s elision glyph reads this, and `TextOverflow::Clip` never asks for one.
     let layout_builder = shaping_builder(text_item, Some(item_rc), text_wrap, scale_factor);
@@ -461,13 +487,22 @@ pub fn text_content_widths(
     text_item: Pin<&dyn crate::item_rendering::RenderString>,
     item_rc: &crate::item_tree::ItemRc,
 ) -> Option<crate::renderer::ContentWidths> {
-    let scale_factor = renderer.scale_factor()?;
+    text_content_widths_impl(renderer.scale_factor(), renderer.slint_context(), text_item, item_rc)
+}
+
+fn text_content_widths_impl(
+    scale_factor: Option<ScaleFactor>,
+    ctx: Option<crate::SlintContext>,
+    text_item: Pin<&dyn crate::item_rendering::RenderString>,
+    item_rc: &crate::item_tree::ItemRc,
+) -> Option<crate::renderer::ContentWidths> {
+    let scale_factor = scale_factor?;
 
     // See text_size(): evaluate properties before borrowing font_context.
     let font_request = text_item.font_request(item_rc);
     let text = text_item.text();
 
-    let ctx = renderer.slint_context()?;
+    let ctx = ctx?;
     let mut font_ctx = ctx.font_context().borrow_mut();
 
     let layout_builder = shaping::content_widths_builder(font_request, scale_factor);
@@ -564,7 +599,25 @@ pub fn text_input_byte_offset_for_position(
     pos: LogicalPoint,
     cache: Option<&TextLayoutCache>,
 ) -> usize {
-    let Some(scale_factor) = renderer.scale_factor() else {
+    text_input_byte_offset_for_position_impl(
+        renderer.scale_factor(),
+        renderer.window_adapter(),
+        text_input,
+        item_rc,
+        pos,
+        cache,
+    )
+}
+
+fn text_input_byte_offset_for_position_impl(
+    scale_factor: Option<ScaleFactor>,
+    window_adapter: Option<Rc<dyn WindowAdapter>>,
+    text_input: Pin<&crate::items::TextInput>,
+    item_rc: &crate::item_tree::ItemRc,
+    pos: LogicalPoint,
+    cache: Option<&TextLayoutCache>,
+) -> usize {
+    let Some(scale_factor) = scale_factor else {
         return 0;
     };
     let pos: PhysicalPoint = pos * scale_factor;
@@ -579,7 +632,7 @@ pub fn text_input_byte_offset_for_position(
         shaping_builder(text_input, Some(item_rc), text_input.wrap(), scale_factor);
     let visual_representation = text_input.visual_representation();
 
-    let Some(window_adapter) = renderer.window_adapter() else {
+    let Some(window_adapter) = window_adapter else {
         return 0;
     };
 
@@ -603,7 +656,25 @@ pub fn text_input_cursor_rect_for_byte_offset(
     byte_offset: usize,
     cache: Option<&TextLayoutCache>,
 ) -> LogicalRect {
-    let Some(scale_factor) = renderer.scale_factor() else {
+    text_input_cursor_rect_for_byte_offset_impl(
+        renderer.scale_factor(),
+        renderer.window_adapter(),
+        text_input,
+        item_rc,
+        byte_offset,
+        cache,
+    )
+}
+
+fn text_input_cursor_rect_for_byte_offset_impl(
+    scale_factor: Option<ScaleFactor>,
+    window_adapter: Option<Rc<dyn WindowAdapter>>,
+    text_input: Pin<&crate::items::TextInput>,
+    item_rc: &crate::item_tree::ItemRc,
+    byte_offset: usize,
+    cache: Option<&TextLayoutCache>,
+) -> LogicalRect {
+    let Some(scale_factor) = scale_factor else {
         return LogicalRect::default();
     };
 
@@ -622,7 +693,7 @@ pub fn text_input_cursor_rect_for_byte_offset(
     let visual_representation = text_input.visual_representation();
     let cursor_width = text_input.text_cursor_width() * scale_factor;
 
-    let Some(window_adapter) = renderer.window_adapter() else {
+    let Some(window_adapter) = window_adapter else {
         return LogicalRect::default();
     };
 
