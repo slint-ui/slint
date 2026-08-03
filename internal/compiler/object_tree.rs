@@ -1362,13 +1362,17 @@ impl MatchElementInfo {
             }
         }
         if let WildcardMatchCaseInfo::Element(wildcard) = &self.wildcard {
-            let condition =
-                self.cases.iter().map(|case| compare(&case.value, '!')).reduce(|lhs, rhs| {
-                    Expression::BinaryExpression { lhs: Box::new(lhs), rhs: Box::new(rhs), op: '&' }
-                });
-            if let Some(condition) = condition {
-                show_when(wildcard, condition);
-            }
+            let condition = self
+                .cases
+                .iter()
+                .map(|case| compare(&case.value, '!'))
+                .reduce(|lhs, rhs| Expression::BinaryExpression {
+                    lhs: Box::new(lhs),
+                    rhs: Box::new(rhs),
+                    op: '&',
+                })
+                .unwrap_or(Expression::BoolLiteral(true));
+            show_when(wildcard, condition);
         }
     }
 }
