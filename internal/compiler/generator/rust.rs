@@ -3840,7 +3840,8 @@ fn compile_binary_expression(expr: &Expression, ctx: &EvaluationContext) -> Toke
     let mut result = compile_expression_to_value_no_parenthesis(node, ctx);
     let mut result_ty = node.ty(ctx);
     for (rhs, op) in spine.into_iter().rev() {
-        result = compile_binary_operator(result, &result_ty, rhs, op, ctx);
+        let rsh_ty = rhs.ty(ctx);
+        result = compile_binary_operator(result, &result_ty, rhs, &rsh_ty, op, ctx);
         result_ty = llr::binary_expression_ty(op, || result_ty);
     }
     result
@@ -3850,6 +3851,7 @@ fn compile_binary_operator(
     lhs: TokenStream,
     lhs_ty: &Type,
     rhs: &Expression,
+    rhs_ty: &Type,
     op: char,
     ctx: &EvaluationContext,
 ) -> TokenStream {
@@ -3858,6 +3860,15 @@ fn compile_binary_operator(
     if lhs_ty.as_unit_product().is_some() && (op == '=' || op == '!') {
         let maybe_negate = if op == '!' { quote!(!) } else { quote!() };
         quote!(#maybe_negate sp::ApproxEq::<f64>::approx_eq(&(#lhs as f64), &(#rhs as f64)))
+    } else if let Type::Array(element_ty) = &lhs_ty
+        && **element_ty == *rhs_ty
+        && (op == '+')
+    {
+        quote!({
+            let model = #lhs;
+            model.push_row(#rhs);
+            model
+        })
     } else {
         let (conv1, conv2) = match crate::expression_tree::operator_class(op) {
             OperatorClass::ArithmeticOp => match lhs_ty {

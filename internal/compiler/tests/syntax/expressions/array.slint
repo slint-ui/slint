@@ -38,4 +38,19 @@ export component Test {
         a.insert("string", 1);
 //               >      <error{Cannot convert string to int}
     }
+
+    public function test_plus_operator_with_array() {
+        a += [1];
+//           > <error{Cannot convert [float] to int}
+    }
+
+    public function append-wrong-type() {
+        a += "string";
+//           >      <error{Cannot convert string to int}
+    }
+
+    public function append-out-module() {
+        a += 10;
+    }
+
 }

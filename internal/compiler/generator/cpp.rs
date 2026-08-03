@@ -4347,6 +4347,13 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                 format!(
                     "(std::abs(float({lhs_str} - {rhs_str})) {op} std::numeric_limits<float>::epsilon())"
                 )
+            } else if let Type::Array(element_ty) = &lhs_ty
+                && **element_ty == rhs.ty(ctx)
+                && *op == '+'
+            {
+                format!(
+                    "[&](auto model, const auto &value) {{ slint::private_api::model_push(model, value); return model; }}({lhs_str}, {rhs_str})"
+                )
             } else {
                 let mut buffer = [0; 3];
                 format!(
