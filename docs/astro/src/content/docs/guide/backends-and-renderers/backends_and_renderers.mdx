@@ -2,7 +2,7 @@
 title: "Backends & Renderers"
 description: "Backends & Renderers"
 ---
-{/* cSpell: ignore linuxkms mfloat BINDGEN OECORE CCARGS xcrun gnueabi Foobj fontmgr Wunused cortexa skunicode cdecl */}
+{/* cSpell: ignore linuxkms mfloat BINDGEN OECORE CCARGS xcrun gnueabi Foobj fontmgr Wunused cortexa skunicode cdecl harfbuzz */}
 
 import Link from '@slint/common-files/src/components/Link.astro';
 import LangRefLink from '@slint/common-files/src/components/LangRefLink.astro';
@@ -119,6 +119,21 @@ issues we're aware of and how to resolve them.
   The error happens when that path contains spaces. By default that's in `%HOMEPATH%\.cargo`,
   which contains spaces if the login name contains spaces. To resolve this issue, set the `CARGO_HOME`
   environment variable to a path without spaces, such as `c:\cargo_home`.
+
+##### Compilation error on Windows about a file name that's too long
+
+  You may see this error when Skia is built from source:
+
+  ```
+   GetFullPathNameA(../../../../../../../../cargo/registry/src/index.crates.io-1949cf8c6b5b557f/skia-bindings-0.99.0/skia/third_party/externals/harfbuzz/src/...): The filename or extension is too long.
+   ninja: build stopped: subcommand failed.
+  ```
+
+  The Skia build resolves the include paths that the compiler reports with a Windows API that's
+  limited to 260 characters, and it resolves them relative to the build directory. Deep paths for
+  the Cargo target directory or for `CARGO_HOME` exceed that limit. To resolve this issue, move both
+  close to the root of the drive, by setting the `CARGO_TARGET_DIR` environment variable to `c:\t`
+  and the `CARGO_HOME` environment variable to `c:\cargo_home`.
 
 ##### Compilation error when compiling for ARMv7 with hardware floating-point support
 
