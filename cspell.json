@@ -114,6 +114,7 @@
     "Argb",
     "armv",
     "astrojs",
+    "autouse", // pytest.fixture(autouse=True)
     "Bezier",
     "Bézier",
     "cbindgen",
