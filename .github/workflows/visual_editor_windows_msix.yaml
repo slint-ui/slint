@@ -6,6 +6,12 @@ name: Visual Editor Windows MSIX
 on:
   workflow_dispatch:
     inputs:
+      version:
+        # The Store keeps a version reserved even after the package using it is
+        # deleted again, so test uploads would otherwise burn release versions.
+        description: "Three-part version to package instead of the slint-lsp one, e.g. 1.99.0"
+        required: false
+        type: string
       save_if:
         description: "Condition to save the cache"
         required: false
@@ -98,15 +104,25 @@ jobs:
           pattern: slint-visual-editor-*
           path: exe
 
-      - name: Get cargo version
+      - name: Determine the package version
         id: get_cargo_version
         shell: pwsh
         run: |
-          $cargoversion = cargo metadata --manifest-path tools/lsp/Cargo.toml --offline --format-version 1 --no-deps |
-            ConvertFrom-Json |
-            select -exp packages |
-            where name -eq "slint-lsp" |
-            select -exp version
+          $cargoversion = "${{ inputs.version }}"
+          if ($cargoversion) {
+            Write-Host "Packaging $cargoversion instead of the slint-lsp version"
+          } else {
+            $cargoversion = cargo metadata --manifest-path tools/lsp/Cargo.toml --offline --format-version 1 --no-deps |
+              ConvertFrom-Json |
+              select -exp packages |
+              where name -eq "slint-lsp" |
+              select -exp version
+          }
+          # The fourth field is added below and reserved by the Store, so the
+          # three fields here are all that keeps a submission unique.
+          if ($cargoversion -notmatch "^\d+\.\d+\.\d+$") {
+            throw "version '$cargoversion' is not three numeric fields"
+          }
           "cargo_version=$cargoversion" >> $env:GITHUB_OUTPUT
 
       - name: Render the manifest
