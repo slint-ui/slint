@@ -237,6 +237,32 @@ impl crate::Surface for WGPUSurface {
             }
         };
 
+        // Skia renders through the raw backend queue, invisible to wgpu's usage
+        // tracking, so `Queue::present` would treat the frame as never written
+        // and clear it. Clear it through wgpu instead before Skia draws; the
+        // in-order queue keeps Skia's later-committed work on top.
+        let view = frame.texture.create_view(&wgpu::TextureViewDescriptor::default());
+        let mut encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+            label: Some("Slint frame init"),
+        });
+        encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            label: Some("Slint frame init"),
+            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                view: &view,
+                depth_slice: None,
+                resolve_target: None,
+                ops: wgpu::Operations {
+                    load: wgpu::LoadOp::Clear(wgpu::Color::TRANSPARENT),
+                    store: wgpu::StoreOp::Store,
+                },
+            })],
+            depth_stencil_attachment: None,
+            timestamp_writes: None,
+            occlusion_query_set: None,
+            multiview_mask: None,
+        });
+        self.queue.submit(Some(encoder.finish()));
+
         let skia_surface = self.backend.make_surface(gr_context, &frame.texture);
 
         let mut skia_surface = skia_surface
