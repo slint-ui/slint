@@ -32,6 +32,7 @@ unsafe fn wrap_vulkan_texture(
     vk_image_raw: u64,
     vk_format: skia_safe::gpu::vk::Format,
     color_type: skia_safe::ColorType,
+    color_space: skia_safe::ColorSpace,
 ) -> Option<skia_safe::Surface> {
     unsafe {
         let texture_info = &skia_safe::gpu::vk::ImageInfo::new(
@@ -53,7 +54,7 @@ unsafe fn wrap_vulkan_texture(
             &backend_render_target,
             skia_safe::gpu::SurfaceOrigin::TopLeft,
             color_type,
-            crate::linear_srgb_color_space(),
+            color_space,
             None,
         )
     }
@@ -80,6 +81,7 @@ pub unsafe fn make_vulkan_surface(
             vk_image_raw,
             vk_format,
             color_type,
+            crate::attachment_color_space(texture.format().is_srgb()),
         )
     }
 }

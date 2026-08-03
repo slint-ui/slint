@@ -198,7 +198,7 @@ impl super::Surface for SoftwareSurface {
                         (width.get() as i32, height.get() as i32),
                         pixel_format,
                         skia_safe::AlphaType::Opaque,
-                        crate::linear_srgb_color_space(),
+                        crate::srgb_color_space(),
                     ),
                     pixels,
                     None,

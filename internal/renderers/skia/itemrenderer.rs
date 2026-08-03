@@ -108,7 +108,7 @@ impl<'a> SkiaItemRenderer<'a> {
             canvas_size.to_ceil(),
             skia_safe::ColorType::RGBA8888,
             skia_safe::AlphaType::Premul,
-            crate::linear_srgb_color_space(),
+            crate::srgb_color_space(),
         );
 
         // The shape is centered in the canvas with `blur` padding on all sides so the Gaussian blur
@@ -119,8 +119,7 @@ impl<'a> SkiaItemRenderer<'a> {
         );
 
         let mut paint = skia_safe::Paint::default();
-        paint
-            .set_color4f(to_skia_color4f(&shadow_options.color), &crate::linear_srgb_color_space());
+        paint.set_color4f(to_skia_color4f(&shadow_options.color), &crate::srgb_color_space());
         paint.set_anti_alias(true);
         if blur > 0. {
             paint.set_mask_filter(skia_safe::MaskFilter::blur(
@@ -159,7 +158,7 @@ impl<'a> SkiaItemRenderer<'a> {
             canvas_size,
             skia_safe::ColorType::RGBA8888,
             skia_safe::AlphaType::Premul,
-            crate::linear_srgb_color_space(),
+            crate::srgb_color_space(),
         );
 
         let geometry_rrect = to_skia_rrect(
@@ -197,8 +196,7 @@ impl<'a> SkiaItemRenderer<'a> {
         let path = path_builder.detach();
 
         let mut paint = skia_safe::Paint::default();
-        paint
-            .set_color4f(to_skia_color4f(&shadow_options.color), &crate::linear_srgb_color_space());
+        paint.set_color4f(to_skia_color4f(&shadow_options.color), &crate::srgb_color_space());
         paint.set_anti_alias(true);
         if blur > 0. {
             paint.set_mask_filter(skia_safe::MaskFilter::blur(
@@ -248,7 +246,7 @@ impl<'a> SkiaItemRenderer<'a> {
         match brush {
             Brush::SolidColor(color) => Some(skia_safe::shaders::color_in_space(
                 to_skia_color4f(&color),
-                crate::linear_srgb_color_space(),
+                crate::srgb_color_space(),
             )),
 
             Brush::LinearGradient(g) => {
@@ -265,7 +263,7 @@ impl<'a> SkiaItemRenderer<'a> {
                     &colors,
                     Some(&*pos),
                     TileMode::Clamp,
-                    crate::linear_srgb_color_space(),
+                    crate::srgb_color_space(),
                 );
                 let gradient = skia_safe::gradient::Gradient::new(
                     gradient_colors,
@@ -293,7 +291,7 @@ impl<'a> SkiaItemRenderer<'a> {
                     &colors,
                     Some(&*pos),
                     TileMode::Clamp,
-                    crate::linear_srgb_color_space(),
+                    crate::srgb_color_space(),
                 );
                 let gradient = skia_safe::gradient::Gradient::new(
                     gradient_colors,
@@ -324,7 +322,7 @@ impl<'a> SkiaItemRenderer<'a> {
                     &colors,
                     Some(&*pos),
                     TileMode::Clamp,
-                    crate::linear_srgb_color_space(),
+                    crate::srgb_color_space(),
                 );
                 let gradient = skia_safe::gradient::Gradient::new(
                     gradient_colors,
@@ -351,7 +349,7 @@ impl<'a> SkiaItemRenderer<'a> {
             image.dimensions(),
             skia_safe::ColorType::RGBA8888,
             skia_safe::AlphaType::Premul,
-            crate::linear_srgb_color_space(),
+            crate::srgb_color_space(),
         );
 
         Self::brush_to_shader(
@@ -963,7 +961,7 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
                     skia_safe::ISize::new(width as i32, height as i32),
                     skia_safe::ColorType::RGBA8888,
                     skia_safe::AlphaType::Premul,
-                    crate::linear_srgb_color_space(),
+                    crate::srgb_color_space(),
                 );
                 cached_image = skia_safe::images::raster_from_data(
                     &image_info,
@@ -1083,7 +1081,7 @@ impl<'a> LayerRenderer<'a> for SkiaItemRenderer<'a> {
             to_skia_size(&physical_size).to_ceil(),
             skia_safe::ColorType::RGBA8888,
             skia_safe::AlphaType::Premul,
-            crate::linear_srgb_color_space(),
+            crate::srgb_color_space(),
         );
         self.canvas.new_surface(&image_info, None)
     }
@@ -1145,7 +1143,7 @@ impl GlyphRenderer for SkiaItemRenderer<'_> {
             let mut paint = self.default_paint().unwrap_or_default();
             paint.set_shader(skia_safe::shaders::color_in_space(
                 to_skia_color4f(color),
-                crate::linear_srgb_color_space(),
+                crate::srgb_color_space(),
             ));
             Some(paint)
         }
