@@ -115,8 +115,9 @@ slint_testing::mock_elapsed_time(500);
 assert_eq!(instance.get_ux(), 50.0);
 assert_eq!(instance.get_uy(), 100.0);
 slint_testing::mock_elapsed_time(500);
-assert_eq!(instance.get_ux(), 0.0);
-assert_eq!(instance.get_uy(), 0.0);
+// u == 2.0 exactly: end of the double path
+assert_eq!(instance.get_ux(), 100.0);
+assert_eq!(instance.get_uy(), 100.0);
 
 // Animating v from 2 down to 0 traverses the path twice backwards: positions
 // mirror the forward trace above, retreating back towards the path's start.
@@ -213,8 +214,9 @@ slint_testing::mock_elapsed_time(500);
 assert_eq(instance.get_ux(), 50.0);
 assert_eq(instance.get_uy(), 100.0);
 slint_testing::mock_elapsed_time(500);
-assert_eq(instance.get_ux(), 0.0);
-assert_eq(instance.get_uy(), 0.0);
+// u == 2.0 exactly: end of the double path
+assert_eq(instance.get_ux(), 100.0);
+assert_eq(instance.get_uy(), 100.0);
 
 // Animating v from 2 down to 0 traverses the path twice backwards: positions
 // mirror the forward trace above, retreating back towards the path's start.
@@ -309,8 +311,9 @@ slintlib.private_api.mock_elapsed_time(500);
 assert.equal(instance.ux, 50.0);
 assert.equal(instance.uy, 100.0);
 slintlib.private_api.mock_elapsed_time(500);
-assert.equal(instance.ux, 0.0);
-assert.equal(instance.uy, 0.0);
+// u == 2.0 exactly: end of the double path
+assert.equal(instance.ux, 100.0);
+assert.equal(instance.uy, 100.0);
 
 // Animating v from 2 down to 0 traverses the path twice backwards: positions
 // mirror the forward trace above, retreating back towards the path's start.

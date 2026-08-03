@@ -304,13 +304,16 @@ impl FittedPath {
     pub fn sample_at(&self, percent: f32) -> Option<(Point2D<f32, LogicalPx>, f32)> {
         use lyon_algorithms::measure::SampleType;
 
-        // rem_euclid maps 1.0 to 0.0 so if the path isn't closed this would otherwise error
-        let percent = if percent == 1.0 { 1.0 } else { percent.rem_euclid(1.) };
+        let mut rem = percent.rem_euclid(1.);
+        if rem == 0.0 && percent != 0.0 {
+            // This makes the path end at the end and not the start
+            rem = 1.0;
+        }
         if self.measurements.length() <= 0. {
             return None;
         }
         let mut sampler = self.measurements.create_sampler(&self.path, SampleType::Normalized);
-        let sample = sampler.sample(percent);
+        let sample = sampler.sample(rem);
         let pos = Point2D::new(sample.position().x, sample.position().y);
         let angle = sample.tangent().angle_from_x_axis().to_degrees();
         Some((pos + self.offset, angle))
