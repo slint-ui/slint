@@ -25,7 +25,6 @@ use i_slint_core::item_tree::{
 use i_slint_core::items::{
     self, AllowedDragActions, BuiltInMouseCursor, DragAction, DropEvent, FillRule, ImageRendering,
     ItemRc, ItemRef, Layer, LineCap, LineJoin, Opacity, PointerEventButton, RenderingResult,
-    TextWrap,
 };
 use i_slint_core::layout::Orientation;
 use i_slint_core::lengths::{
@@ -2789,106 +2788,8 @@ impl WindowAdapterInternal for QtWindow {
 }
 
 impl i_slint_core::renderer::RendererSealed for QtWindow {
-    fn text_size(
-        &self,
-        text_item: Pin<&dyn i_slint_core::item_rendering::RenderString>,
-        item_rc: &ItemRc,
-        max_width: Option<LogicalLength>,
-        text_wrap: TextWrap,
-    ) -> LogicalSize {
-        sharedparley::text_size(
-            self,
-            text_item,
-            item_rc,
-            max_width,
-            text_wrap,
-            Some(&self.text_layout_cache),
-        )
-        .unwrap_or_default()
-    }
-
-    fn text_content_widths(
-        &self,
-        text_item: Pin<&dyn i_slint_core::item_rendering::RenderString>,
-        item_rc: &ItemRc,
-    ) -> Option<i_slint_core::renderer::ContentWidths> {
-        sharedparley::text_content_widths(self, text_item, item_rc)
-    }
-
-    fn char_size(
-        &self,
-        text_item: Pin<&dyn i_slint_core::item_rendering::HasFont>,
-        item_rc: &i_slint_core::item_tree::ItemRc,
-        ch: char,
-    ) -> LogicalSize {
-        self.slint_context()
-            .and_then(|ctx| {
-                let mut font_ctx = ctx.font_context().borrow_mut();
-                sharedparley::char_size(&mut font_ctx, text_item, item_rc, ch)
-            })
-            .unwrap_or_default()
-    }
-
-    fn font_metrics(
-        &self,
-        font_request: i_slint_core::graphics::FontRequest,
-    ) -> i_slint_core::items::FontMetrics {
-        self.slint_context()
-            .map(|ctx| {
-                let mut font_ctx = ctx.font_context().borrow_mut();
-                sharedparley::font_metrics(&mut font_ctx, font_request)
-            })
-            .unwrap_or_default()
-    }
-
-    fn text_input_byte_offset_for_position(
-        &self,
-        text_input: Pin<&i_slint_core::items::TextInput>,
-        item_rc: &i_slint_core::item_tree::ItemRc,
-        pos: LogicalPoint,
-    ) -> usize {
-        sharedparley::text_input_byte_offset_for_position(
-            self,
-            text_input,
-            item_rc,
-            pos,
-            Some(&self.text_layout_cache),
-        )
-    }
-
-    fn text_input_cursor_rect_for_byte_offset(
-        &self,
-        text_input: Pin<&i_slint_core::items::TextInput>,
-        item_rc: &i_slint_core::item_tree::ItemRc,
-        byte_offset: usize,
-    ) -> LogicalRect {
-        sharedparley::text_input_cursor_rect_for_byte_offset(
-            self,
-            text_input,
-            item_rc,
-            byte_offset,
-            Some(&self.text_layout_cache),
-        )
-    }
-
-    fn register_font_from_memory(
-        &self,
-        data: &'static [u8],
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        let ctx = self.slint_context().ok_or("slint platform not initialized")?;
-        ctx.font_context().borrow_mut().register_static_font(data);
-        Ok(())
-    }
-
-    fn register_font_from_path(
-        &self,
-        path: &std::path::Path,
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        let requested_path = path.canonicalize().unwrap_or_else(|_| path.into());
-        let contents = std::fs::read(requested_path)?;
-        let ctx = self.slint_context().ok_or("slint platform not initialized")?;
-        ctx.font_context().borrow_mut().collection.register_fonts(contents.into(), None);
-        Ok(())
+    fn text_layout_cache(&self) -> Option<&sharedparley::TextLayoutCache> {
+        Some(&self.text_layout_cache)
     }
 
     fn free_graphics_resources(
