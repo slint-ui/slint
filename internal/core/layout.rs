@@ -2077,7 +2077,10 @@ pub fn flexbox_layout_info_main_axis(
             let size = f.hypothetical_main_size(&c.constraint);
             acc += if started { spacing + size } else { size };
             started = true;
-            if acc >= target {
+            // `acc` is the real row width (no trailing gap), but `target` budgets
+            // a gap per item, so add one back before comparing — else a row grabs
+            // one item too many near an integer sqrt.
+            if acc + spacing >= target {
                 break;
             }
         }
