@@ -80,7 +80,7 @@ jobs:
   package:
     # The bundle is deliberately left unsigned: the Microsoft Store signs it on
     # ingestion. For that to be accepted, `Identity/Publisher` in
-    # tools/lsp/Package.appxmanifest.hbs has to match the publisher identity
+    # tools/lsp/Package.appxmanifest.in has to match the publisher identity
     # assigned by Partner Center.
     name: Package MSIX bundle
     needs: build
@@ -89,12 +89,8 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      # For `cargo -Zscript`
-      - uses: ./.github/actions/setup-rust
-        with:
-          key: visual-editor-windows-msix-package
-          toolchain: nightly
-          save_if: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository || inputs.save_if }}
+      # No toolchain is set up here: this job only reads the crate version, and
+      # `windows-latest` comes with cargo.
 
       - uses: microsoft/setup-WinAppCli@v0.1
 
@@ -125,14 +121,23 @@ jobs:
           }
           "cargo_version=$cargoversion" >> $env:GITHUB_OUTPUT
 
-      - name: Render the manifest
+      - name: Set the version in the manifest
         shell: pwsh
         run: |
           Set-Location tools/lsp
-          cargo +nightly -Zscript -q ../../scripts/handlebars.rs `
-            -v cargo.version=${{ steps.get_cargo_version.outputs.cargo_version }} `
-            -i Package.appxmanifest.hbs `
-            -o Package.appxmanifest
+          $manifest = New-Object System.Xml.XmlDocument
+          $manifest.Load((Join-Path $PWD "Package.appxmanifest.in"))
+          $manifest.Package.Identity.Version = "${{ steps.get_cargo_version.outputs.cargo_version }}.0"
+
+          # Writing the document back out reflows it, so indent it and keep the
+          # byte order mark out of a file that other tools have to read.
+          $settings = New-Object System.Xml.XmlWriterSettings
+          $settings.Indent = $true
+          $settings.Encoding = New-Object System.Text.UTF8Encoding($false)
+          $writer = [System.Xml.XmlWriter]::Create((Join-Path $PWD "Package.appxmanifest"), $settings)
+          try { $manifest.Save($writer) } finally { $writer.Dispose() }
+
+          Write-Host "Packaging version $($manifest.Package.Identity.Version)"
 
       - name: Assemble package layouts
         shell: pwsh

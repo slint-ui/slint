@@ -17,14 +17,15 @@
     submission. The publisher GUID is not a secret: it is part of every
     published package.
 
-    Cargo version has 3 fields, MSIX version has 4 fields, so we just
-    unconditionally add `.0`. The Store reserves that last field and requires
-    it to be 0, so every submission needs its own cargo version.
+    `Version` is filled in from the crate version when packaging, which is why
+    it reads 0.0.0.0 here. Cargo versions have three fields and MSIX versions
+    have four, and the Store reserves the fourth and requires it to be 0, so
+    every submission needs its own crate version.
   -->
   <Identity
         Name="Slint.SlintVisualEditor"
         Publisher="CN=5B95CD31-D8E6-4E15-9577-6F0D625F4F1C"
-        Version="{{cargo.version}}.0"
+        Version="0.0.0.0"
     />
   <Properties>
     <DisplayName>Slint Visual Editor</DisplayName>
