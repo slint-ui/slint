@@ -51,5 +51,8 @@ jobs:
             - name: Cargo update
               if: ${{ inputs.update }}
               run: cargo update --manifest-path examples/Cargo.toml --package bevy-example --package bevy-hosts-slint --package bevy-hosts-slint-gpu
+            # wgpu_texture is included so Cargo unifies its slint/unstable-wgpu-30
+            # feature with the bevy examples' slint/unstable-wgpu-29, guarding the
+            # per-version SkiaWGPU*Renderer API against regressions (#12747).
             - name: Build Bevy Examples
-              run: cargo build --locked --manifest-path examples/Cargo.toml --package bevy-example --package bevy-hosts-slint --package bevy-hosts-slint-gpu
+              run: cargo build --locked --manifest-path examples/Cargo.toml --package bevy-example --package bevy-hosts-slint --package bevy-hosts-slint-gpu --package wgpu_texture

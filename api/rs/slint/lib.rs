@@ -479,9 +479,10 @@ pub mod platform {
         /// Renders into wgpu 30 textures ([`slint::wgpu_30`](crate::wgpu_30)).
         #[cfg(feature = "unstable-wgpu-30")]
         pub use i_slint_renderer_skia::SkiaWGPU30Renderer;
-        /// Renders into textures of the newest enabled wgpu version. Use the
-        /// version-specific renderers below when both `unstable-wgpu-*` features may be
-        /// enabled in the final application.
+        /// Compatibility alias for the newest enabled wgpu version.
+        /// Prefer the versioned renderers above in new code; they don't change meaning
+        /// when another `unstable-wgpu-*` feature gets enabled elsewhere in the final
+        /// application's dependency graph.
         pub use i_slint_renderer_skia::SkiaWGPURenderer;
     }
 

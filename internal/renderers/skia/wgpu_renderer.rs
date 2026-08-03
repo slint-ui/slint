@@ -19,9 +19,9 @@ use crate::{SkiaRenderer, SkiaSharedContext};
 /// quality through platform-native text rasterizers.
 ///
 /// This type is generic over the wgpu version, one instantiation per enabled
-/// `unstable-wgpu-*` feature. Use it through the version-specific aliases:
-/// `SkiaWGPU29Renderer` for wgpu 29, `SkiaWGPU30Renderer` for wgpu 30, or
-/// `SkiaWGPURenderer` for the newest enabled version.
+/// `unstable-wgpu-*` feature. Use it through the version-specific aliases,
+/// `SkiaWGPU29Renderer` for wgpu 29 and `SkiaWGPU30Renderer` for wgpu 30 —
+/// they stay unambiguous when several wgpu versions are enabled at once.
 ///
 /// Rendering notifier callbacks registered via
 /// [`Window::set_rendering_notifier()`](i_slint_core::api::Window::set_rendering_notifier)
@@ -41,16 +41,18 @@ pub type SkiaWGPU29Renderer = SkiaWGPURendererGeneric<crate::wgpu_29_surface::WG
 #[cfg(feature = "wgpu-30")]
 pub type SkiaWGPU30Renderer = SkiaWGPURendererGeneric<crate::wgpu_30_surface::WGPUSurface>;
 
-/// Renders into textures of the newest enabled wgpu version: wgpu 30 when the
-/// `unstable-wgpu-30` feature is enabled, wgpu 29 otherwise. Use `SkiaWGPU29Renderer` or
-/// `SkiaWGPU30Renderer` to select a version explicitly — necessary when both features are
-/// enabled and the wgpu 29 API is wanted.
+/// Compatibility alias for the newest enabled wgpu version: wgpu 30 when the
+/// `unstable-wgpu-30` feature is enabled, wgpu 29 otherwise.
+/// Prefer the versioned names, `SkiaWGPU29Renderer` or `SkiaWGPU30Renderer`, in new code;
+/// they don't change meaning when another `unstable-wgpu-*` feature gets enabled elsewhere
+/// in the dependency graph.
 #[cfg(feature = "wgpu-30")]
 pub type SkiaWGPURenderer = SkiaWGPU30Renderer;
-/// Renders into textures of the newest enabled wgpu version: wgpu 30 when the
-/// `unstable-wgpu-30` feature is enabled, wgpu 29 otherwise. Use `SkiaWGPU29Renderer` or
-/// `SkiaWGPU30Renderer` to select a version explicitly — necessary when both features are
-/// enabled and the wgpu 29 API is wanted.
+/// Compatibility alias for the newest enabled wgpu version: wgpu 30 when the
+/// `unstable-wgpu-30` feature is enabled, wgpu 29 otherwise.
+/// Prefer the versioned names, `SkiaWGPU29Renderer` or `SkiaWGPU30Renderer`, in new code;
+/// they don't change meaning when another `unstable-wgpu-*` feature gets enabled elsewhere
+/// in the dependency graph.
 #[cfg(all(feature = "wgpu-29", not(feature = "wgpu-30")))]
 pub type SkiaWGPURenderer = SkiaWGPU29Renderer;
 
