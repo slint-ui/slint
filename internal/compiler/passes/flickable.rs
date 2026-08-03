@@ -209,7 +209,12 @@ fn set_binding_if_not_explicit(
     expression: impl FnOnce() -> Option<Expression>,
 ) {
     // we can't use `set_binding_if_not_set` directly because `expression()` may borrow `elem`
-    if elem.borrow().binding(property).is_none()
+    //
+    // Be careful to check both that a binding exists and that the BindingExpression actually has a
+    // binding by using is_binding_set instead of binding().is_none().
+    // Otherwise an animation on the property would prevent setting the binding, even if the binding
+    // is not set, but just animated.
+    if !elem.borrow().is_binding_set(property, false)
         && let Some(e) = expression()
     {
         elem.borrow_mut().set_binding_if_not_set(property.into(), || e);
