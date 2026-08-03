@@ -80,8 +80,8 @@ jobs:
   package:
     # The bundle is deliberately left unsigned: the Microsoft Store signs it on
     # ingestion. For that to be accepted, `Identity/Publisher` in
-    # tools/lsp/Package.appxmanifest.in has to match the publisher identity
-    # assigned by Partner Center.
+    # tools/lsp/packaging/windows-appx/Package.appxmanifest.in has to match the
+    # publisher identity assigned by Partner Center.
     name: Package MSIX bundle
     needs: build
     runs-on: windows-latest
@@ -124,7 +124,7 @@ jobs:
       - name: Set the version in the manifest
         shell: pwsh
         run: |
-          Set-Location tools/lsp
+          Set-Location tools/lsp/packaging/windows-appx
           $manifest = New-Object System.Xml.XmlDocument
           $manifest.Load((Join-Path $PWD "Package.appxmanifest.in"))
           $manifest.Package.Identity.Version = "${{ steps.get_cargo_version.outputs.cargo_version }}.0"
@@ -163,7 +163,7 @@ jobs:
           foreach ($arch in "x64", "arm64") {
             # `winapp pack` detects the architecture from the executable's PE
             # header and sets `ProcessorArchitecture` accordingly.
-            winapp pack --manifest Package.appxmanifest "./dist/$arch"
+            winapp pack --manifest packaging/windows-appx/Package.appxmanifest "./dist/$arch"
             if ($LASTEXITCODE -ne 0) { throw "winapp pack failed for $arch" }
           }
 
@@ -184,7 +184,7 @@ jobs:
             Select-Object -First 1 -ExpandProperty FullName
           if (-not $makeappx) { throw "makeappx.exe was not found in the Windows SDK." }
 
-          $name = ([xml](Get-Content Package.appxmanifest)).Package.Identity.Name
+          $name = ([xml](Get-Content packaging/windows-appx/Package.appxmanifest)).Package.Identity.Name
           $bundle = "${name}_${version}_arm64_x64.msixbundle"
           & $makeappx bundle /d bundle-src /p $bundle /bv $version /o
           if ($LASTEXITCODE -ne 0) { throw "makeappx bundle failed" }
