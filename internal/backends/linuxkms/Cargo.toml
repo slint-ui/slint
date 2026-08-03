@@ -27,6 +27,13 @@ renderer-skia-opengl = ["i-slint-renderer-skia/opengl", "drm", "gbm", "glutin", 
 renderer-femtovg = ["i-slint-renderer-femtovg/opengl", "drm", "gbm", "glutin", "raw-window-handle"]
 renderer-femtovg-wgpu = ["i-slint-renderer-femtovg/wgpu", "drm", "dep:wgpu-30"]
 renderer-software = ["i-slint-renderer-software/std", "drm", "dep:bytemuck", "dep:memmap2"]
+renderer-vello = [
+  "dep:i-slint-renderer-anyrender",
+  "i-slint-renderer-anyrender/vello",
+  "i-slint-core/unstable-wgpu-29",
+  "drm",
+  "dep:memmap2",
+]
 libseat = ["dep:libseat"]
 
 default = []
@@ -35,6 +42,7 @@ default = []
 i-slint-core = { workspace = true, features = ["default", "image-decoders", "svg"] }
 i-slint-common = { workspace = true, features = ["default"] }
 i-slint-renderer-skia = { workspace = true, features = ["default", "kms"], optional = true }
+i-slint-renderer-anyrender = { workspace = true, optional = true }
 i-slint-renderer-femtovg = { workspace = true, features = ["default"], optional = true }
 i-slint-renderer-software = { workspace = true, optional = true }
 # Direct dependency only to enable wgpu's `drm` feature, which gates

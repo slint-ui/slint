@@ -56,7 +56,10 @@ renderer-software = [
   "i-slint-backend-linuxkms?/renderer-software",
   "i-slint-backend-testing?/renderer-software",
 ]
-renderer-vello = ["i-slint-backend-winit?/renderer-vello"]
+renderer-vello = [
+  "i-slint-backend-winit?/renderer-vello",
+  "i-slint-backend-linuxkms?/renderer-vello",
+]
 renderer-vello-cpu = ["i-slint-backend-winit?/renderer-vello-cpu"]
 renderer-vello-hybrid = ["i-slint-backend-winit?/renderer-vello-hybrid"]
 

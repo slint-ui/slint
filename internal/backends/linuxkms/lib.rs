@@ -37,6 +37,8 @@ mod renderer {
 
     #[cfg(feature = "renderer-software")]
     pub mod sw;
+    #[cfg(feature = "renderer-vello")]
+    pub mod vello;
 
     pub fn try_skia_then_femtovg_then_software(
         device_opener: &crate::DeviceOpener,
@@ -58,6 +60,8 @@ mod renderer {
             ("FemtoVG", femtovg::FemtoVGRendererAdapter::new as FactoryFn),
             #[cfg(feature = "renderer-femtovg-wgpu")]
             ("FemtoVG wgpu", femtovg_wgpu::FemtoVGWgpuRendererAdapter::new as FactoryFn),
+            #[cfg(feature = "renderer-vello")]
+            ("vello", vello::VelloRendererAdapter::new as FactoryFn),
             #[cfg(feature = "renderer-software")]
             ("Software", sw::SoftwareRendererAdapter::new as FactoryFn),
             ("", |_, _| Err(PlatformError::NoPlatform)),

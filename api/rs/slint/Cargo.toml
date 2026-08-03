@@ -212,8 +212,10 @@ renderer-software = ["i-slint-backend-selector/renderer-software", "dep:i-slint-
 ## Render using [vello](https://crates.io/crates/vello) on [WGPU](http://wgpu.rs), falling back to
 ## `renderer-vello-cpu` when no GPU is available.
 ##
+## Also available with the linuxkms backend, where it renders onto a DRM plane.
+##
 ## This renderer is experimental: it is never selected automatically when another renderer is
-## also enabled. Select it with `SLINT_BACKEND=winit-vello` or
+## also enabled. Select it with `SLINT_BACKEND=winit-vello`, `SLINT_BACKEND=linuxkms-vello` or
 ## [`BackendSelector::renderer_name()`](crate::BackendSelector::renderer_name()).
 renderer-vello = ["i-slint-backend-selector/renderer-vello", "renderer-vello-cpu", "std"]
 
