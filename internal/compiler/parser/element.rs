@@ -371,18 +371,6 @@ fn parse_match_element(p: &mut impl Parser) {
     if !p.test(SyntaxKind::LBrace) {
         p.error("Expected '{' to start cases");
     }
-    if p.peek().kind() == SyntaxKind::Star {
-        p.error("Expected at least one case before wildcard case");
-        {
-            p.test(SyntaxKind::Star);
-            p.test(SyntaxKind::Colon);
-            let mut p = p.start_node(SyntaxKind::MatchCase);
-            drop(p.start_node(SyntaxKind::Expression));
-            parse_sub_element(&mut *p);
-            p.test(SyntaxKind::RBrace);
-        }
-        return;
-    }
     while ![SyntaxKind::RBrace, SyntaxKind::Star, SyntaxKind::Eof].contains(&p.peek().kind()) {
         parse_match_case(&mut *p);
     }

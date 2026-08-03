@@ -1516,13 +1516,17 @@ impl MatchElementInfo {
             }
         }
         if let WildcardMatchCaseInfo::Element(wildcard) = &self.wildcard {
-            let condition =
-                self.cases.iter().map(|case| compare(&case.value, '!')).reduce(|lhs, rhs| {
-                    Expression::BinaryExpression { lhs: Box::new(lhs), rhs: Box::new(rhs), op: '&' }
-                });
-            if let Some(condition) = condition {
-                show_when(wildcard, condition);
-            }
+            let condition = self
+                .cases
+                .iter()
+                .map(|case| compare(&case.value, '!'))
+                .reduce(|lhs, rhs| Expression::BinaryExpression {
+                    lhs: Box::new(lhs),
+                    rhs: Box::new(rhs),
+                    op: '&',
+                })
+                .unwrap_or(Expression::BoolLiteral(true));
+            show_when(wildcard, condition);
         }
     }
 }
@@ -2929,6 +2933,14 @@ impl Element {
         }
         if node.MatchCase().next().is_none() && node.WildcardMatchCase().is_none() {
             diag.push_error("Expected at least one case".into(), &node);
+        }
+        if let Some(wildcard) = node.WildcardMatchCase()
+            && node.MatchCase().next().is_none()
+        {
+            diag.push_warning(
+                "Unnecessary match statement always matches the '*' case".into(),
+                &wildcard,
+            );
         }
         let mut element_of = |sub_element| {
             Element::from_sub_element_node(
