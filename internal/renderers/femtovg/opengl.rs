@@ -130,8 +130,14 @@ impl OpenGLBackend {
                 context_2d.set_font("20px serif");
                 // We don't know if we're rendering on dark or white background, so choose a "color" in the middle for the text.
                 context_2d.set_fill_style_str("red");
+                let max_width = html_canvas.width().max(1) as f64;
                 context_2d
-                    .fill_text("Slint requires WebGL to be enabled in your browser", 0., 30.)
+                    .fill_text_with_max_width(
+                        "Slint requires WebGL to be enabled in your browser",
+                        0.,
+                        30.,
+                        max_width,
+                    )
                     .unwrap();
                 panic!("Cannot proceed without WebGL - aborting")
             }
