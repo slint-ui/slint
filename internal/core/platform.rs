@@ -65,11 +65,13 @@ pub trait Platform {
         Err(PlatformError::NoEventLoopProvider)
     }
 
-    /// Called once by `set_platform` immediately after the [`crate::SlintContext`]
-    /// has been constructed, to give the platform a weak handle to its own context.
-    /// Platforms can stash the handle and later use it to spawn futures or write
-    /// process-wide state without going through a window adapter. The default impl
-    /// drops the handle.
+    /// Called once by [`crate::SlintContext::new`], as the context that owns this platform
+    /// finishes construction, to give the platform a weak handle to it. Platforms can stash
+    /// the handle and later use it to spawn futures or write context-wide state without
+    /// going through a window adapter. The default impl drops the handle.
+    ///
+    /// Every context binds its own platform, not only the one installed as the thread's
+    /// global context, so a backend driving a context can always find it.
     #[doc(hidden)]
     fn bind_context(&self, _ctx: crate::SlintContextWeak, _: crate::InternalToken) {}
 
@@ -273,8 +275,6 @@ pub fn set_platform(platform: Box<dyn Platform + 'static>) -> Result<(), SetPlat
             .set(crate::SlintContext::new(platform))
             .map_err(|_| SetPlatformError::AlreadySet)
             .unwrap();
-        let ctx = instance.get().unwrap();
-        ctx.platform().bind_context(ctx.downgrade(), crate::InternalToken);
         // Ensure a sane starting point for the animation tick.
         update_timers_and_animations();
         Ok(())
