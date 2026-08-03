@@ -120,12 +120,21 @@ jobs:
             - name: Setup headless display
               if: runner.os != 'macOS'
               uses: pyvista/setup-headless-display-action@v4
+            # Skia is built from source here, and ninja resolves cl.exe's relative
+            # includes with the ANSI GetFullPathNameA, so the paths have to stay
+            # below MAX_PATH; the default target directory is one character too
+            # long. Forward slashes keep it usable from the bash steps below.
+            - name: Shorten the target directory to fit the Skia build under MAX_PATH
+              if: runner.os == 'Windows'
+              shell: bash
+              run: echo "CARGO_TARGET_DIR=${RUNNER_WORKSPACE//\\//}/t" >> $GITHUB_ENV
             - uses: ./.github/actions/setup-rust
               with:
                   toolchain: ${{ inputs.rust_version }}
                   key: x-v3
                   save_if: ${{ inputs.save_if }}
                   cache: ${{ inputs.cache }}
+                  cache-workspaces: ${{ runner.os == 'Windows' && '. -> ../t' || '' }}
             - name: Cargo update
               if: inputs.update
               # Ignore rust_version for stable/nightly to test with latest dependencies
@@ -184,7 +193,11 @@ jobs:
               if: always()
               shell: bash
               run: |
-                  for dir in target/*/build/skia-bindings-*/out; do
+                  # Cargo used to name the directory build/skia-bindings-<hash>/out
+                  # and nightly now splits it into build/skia-bindings/<hash>/out,
+                  # so match both layouts.
+                  target_dir="${CARGO_TARGET_DIR:-target}"
+                  for dir in "$target_dir"/*/build/skia-bindings-*/out "$target_dir"/*/build/skia-bindings/*/out; do
                       [ -d "$dir" ] || continue
                       find "$dir/skia" -mindepth 1 -maxdepth 1 -type d -exec rm -rf {} + 2>/dev/null || true
                       rm -rf "$dir/.cache"
@@ -198,7 +211,7 @@ jobs:
                   # here. Upload the whole directory to keep all of them (the plain
                   # cargo-timing.html is overwritten by each successive build).
                   name: cargo-timings-${{ inputs.os }}-${{ inputs.rust_version }}
-                  path: target/cargo-timings/
+                  path: ${{ env.CARGO_TARGET_DIR || 'target' }}/cargo-timings/
                   if-no-files-found: ignore
             - name: Archive screenshots after failed tests
               if: ${{ failure() }}

@@ -36,6 +36,10 @@ inputs:
         description: "Additional directories for Swatinem/rust-cache, eg cargo target directories managed by CMake"
         required: false
         default: ""
+    cache-workspaces:
+        description: "Swatinem/rust-cache `workspaces` mapping, needed when CARGO_TARGET_DIR points outside the checkout"
+        required: false
+        default: ""
 
 runs:
     using: composite
@@ -75,6 +79,9 @@ runs:
           with:
               key: ${{ inputs.key }}-1
               cache-directories: ${{ inputs.cache-directories }}
+              # rust-cache resolves the target of each workspace relative to its
+              # root, so it needs to be told about a relocated CARGO_TARGET_DIR.
+              workspaces: ${{ inputs.cache-workspaces }}
               # Workaround for https://github.com/Swatinem/rust-cache/issues/341:
               # on the updated macOS runner image, cache-bin's restored cargo/rustc
               # dispatches as rustup-init and fails with "unexpected argument".
