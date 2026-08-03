@@ -182,6 +182,14 @@ impl Timer {
             .unwrap_or_default()
     }
 
+    /// A timer that will register in `timers` when started, rather than in whichever list
+    /// is current at that point. Backs [`SlintContext::new_timer`](crate::SlintContext::new_timer).
+    pub(crate) fn with_list(timers: &TimerListRc) -> Self {
+        let timer = Self::default();
+        timer.set_ids(list_handle(timers), None);
+        timer
+    }
+
     /// Decodes `id` into the list this timer belongs to and its slot in that list.
     ///
     /// `None` when the timer has no list at all, or when that list has gone away with the
@@ -277,7 +285,7 @@ impl TimerList {
 
     /// The timeout of the timer in this list that should fire the soonest, or None if
     /// none is active.
-    fn first_timeout(&self) -> Option<Instant> {
+    pub(crate) fn first_timeout(&self) -> Option<Instant> {
         self.active_timers.first().map(|first_active_timer| first_active_timer.timeout)
     }
 
@@ -286,7 +294,7 @@ impl TimerList {
     ///
     /// Takes the list by `&RefCell` rather than `&mut self` because the borrow has to be
     /// released around every callback: a callback may start, stop or drop timers.
-    fn activate_expired(timers: &RefCell<Self>, now: Instant) -> bool {
+    pub(crate) fn activate_expired(timers: &RefCell<Self>, now: Instant) -> bool {
         // Shortcut: Is there any timer worth activating?
         if timers.borrow().first_timeout().map(|timeout| now < timeout).unwrap_or(false) {
             return false;
@@ -1316,3 +1324,93 @@ assert_eq!(CALL2_COUNT.load(std::sync::atomic::Ordering::SeqCst), 1);
  */
 #[cfg(doctest)]
 const _TIMER_AT_EXIT: () = ();
+
+/**
+ * A timer created from a context registers on that context: driving the current (global)
+ * context leaves it alone, and driving its own fires it.
+```rust
+use i_slint_core::platform::*;
+struct DummyBackend;
+impl Platform for DummyBackend {
+    fn create_window_adapter(&self) -> Result<std::rc::Rc<dyn WindowAdapter>, PlatformError> {
+        Err(PlatformError::Other("not implemented".into()))
+    }
+    fn duration_since_start(&self) -> core::time::Duration {
+        core::time::Duration::from_millis(0)
+    }
+}
+
+// Establishes the *global* context for this thread.
+i_slint_backend_testing::init_no_event_loop();
+// ... and a second one, which never becomes current.
+let ctx = i_slint_core::SlintContext::new(Box::new(DummyBackend));
+
+let fired = std::rc::Rc::new(std::cell::Cell::new(0));
+let fired_ = fired.clone();
+let timer = ctx.new_timer();
+timer.start(slint::TimerMode::Repeated, std::time::Duration::from_millis(10), move || {
+    fired_.set(fired_.get() + 1);
+});
+
+// It is not in the global context's list, so driving that one does nothing...
+i_slint_backend_testing::mock_elapsed_time(500);
+assert_eq!(fired.get(), 0);
+assert_eq!(i_slint_core::timers::TimerList::next_timeout(), None);
+
+// ... while driving its own context fires it.
+assert!(ctx.next_timer_timeout().is_some());
+assert!(ctx.maybe_activate_timers(i_slint_core::animations::Instant(10_000)));
+assert_eq!(fired.get(), 1);
+```
+ */
+#[cfg(doctest)]
+const _TIMER_ON_ITS_OWN_CONTEXT: () = ();
+
+/**
+ * A timer outliving its context goes inert rather than indexing a list that no longer
+ * exists, and can be restarted onto the current context afterwards.
+```rust
+use i_slint_core::platform::*;
+struct DummyBackend;
+impl Platform for DummyBackend {
+    fn create_window_adapter(&self) -> Result<std::rc::Rc<dyn WindowAdapter>, PlatformError> {
+        Err(PlatformError::Other("not implemented".into()))
+    }
+    fn duration_since_start(&self) -> core::time::Duration {
+        core::time::Duration::from_millis(0)
+    }
+}
+i_slint_backend_testing::init_no_event_loop();
+
+let fired = std::rc::Rc::new(std::cell::Cell::new(0));
+let fired_ = fired.clone();
+let timer = {
+    let ctx = i_slint_core::SlintContext::new(Box::new(DummyBackend));
+    let timer = ctx.new_timer();
+    timer.start(slint::TimerMode::Repeated, std::time::Duration::from_millis(10), move || {
+        fired_.set(fired_.get() + 1);
+    });
+    assert!(timer.running());
+    timer
+}; // the context, and with it the list holding the callback, is dropped here
+
+assert!(!timer.running());
+assert_eq!(timer.interval(), std::time::Duration::default());
+timer.stop();
+timer.restart();
+i_slint_backend_testing::mock_elapsed_time(500);
+assert_eq!(fired.get(), 0);
+
+// Starting it again moves it to the current context.
+let fired_ = fired.clone();
+timer.start(slint::TimerMode::Repeated, std::time::Duration::from_millis(10), move || {
+    fired_.set(fired_.get() + 1);
+});
+i_slint_backend_testing::mock_elapsed_time(50);
+assert_eq!(fired.get(), 1);
+
+drop(timer); // must not panic
+```
+ */
+#[cfg(doctest)]
+const _TIMER_OUTLIVING_ITS_CONTEXT: () = ();
