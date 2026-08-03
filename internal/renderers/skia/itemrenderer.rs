@@ -269,6 +269,7 @@ impl<'a> SkiaItemRenderer<'a> {
                     gradient_colors,
                     skia_safe::gradient::Interpolation {
                         in_premul: skia_safe::gradient::interpolation::InPremul::Yes,
+                        color_space: skia_safe::gradient::interpolation::ColorSpace::SRGB,
                         ..Default::default()
                     },
                 );
@@ -297,6 +298,7 @@ impl<'a> SkiaItemRenderer<'a> {
                     gradient_colors,
                     skia_safe::gradient::Interpolation {
                         in_premul: skia_safe::gradient::interpolation::InPremul::Yes,
+                        color_space: skia_safe::gradient::interpolation::ColorSpace::SRGB,
                         ..Default::default()
                     },
                 );
@@ -326,7 +328,10 @@ impl<'a> SkiaItemRenderer<'a> {
                 );
                 let gradient = skia_safe::gradient::Gradient::new(
                     gradient_colors,
-                    skia_safe::gradient::Interpolation::default(),
+                    skia_safe::gradient::Interpolation {
+                        color_space: skia_safe::gradient::interpolation::ColorSpace::SRGB,
+                        ..Default::default()
+                    },
                 );
                 skia_safe::gradient::shaders::sweep_gradient(
                     center,
