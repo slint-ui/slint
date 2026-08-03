@@ -473,6 +473,15 @@ pub mod platform {
         )
     ))]
     pub mod skia_renderer {
+        /// Renders into wgpu 29 textures ([`slint::wgpu_29`](crate::wgpu_29)).
+        #[cfg(feature = "unstable-wgpu-29")]
+        pub use i_slint_renderer_skia::SkiaWGPU29Renderer;
+        /// Renders into wgpu 30 textures ([`slint::wgpu_30`](crate::wgpu_30)).
+        #[cfg(feature = "unstable-wgpu-30")]
+        pub use i_slint_renderer_skia::SkiaWGPU30Renderer;
+        /// Renders into textures of the newest enabled wgpu version. Use the
+        /// version-specific renderers below when both `unstable-wgpu-*` features may be
+        /// enabled in the final application.
         pub use i_slint_renderer_skia::SkiaWGPURenderer;
     }
 
@@ -551,6 +560,10 @@ pub mod wgpu_29 {
     //! WGPU major version (29 vs 30) and the corresponding feature/selector/API names (`unstable-wgpu-29`,
     //! [`slint::BackendSelector::require_wgpu_29()`](i_slint_backend_selector::api::BackendSelector::require_wgpu_29()),
     //! [`slint::GraphicsAPI::WGPU29`](i_slint_core::api::GraphicsAPI::WGPU29)).
+    //!
+    //! When rendering offscreen with the Skia renderer, use `slint::platform::skia_renderer::SkiaWGPU29Renderer`
+    //! to select the wgpu 29 API explicitly, even if `unstable-wgpu-30` also ends up enabled through
+    //! Cargo feature unification.
     pub use i_slint_core::graphics::wgpu_29::api::*;
 }
 

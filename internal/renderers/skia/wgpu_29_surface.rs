@@ -103,8 +103,6 @@ impl WGPUSurface {
         })
     }
 
-    // Only used by SkiaWGPURenderer, which is compiled against the newest enabled wgpu version.
-    #[cfg(not(feature = "wgpu-30"))]
     pub(crate) fn new_offscreen(
         instance: wgpu::Instance,
         device: wgpu::Device,
