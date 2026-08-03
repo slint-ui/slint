@@ -188,6 +188,30 @@ impl SlintContext {
         crate::timers::Timer::with_list(&self.0.timers)
     }
 
+    /// Advances this context's animations and timers to its own clock, and runs any change
+    /// handlers that fall out of it.
+    ///
+    /// This is what an event loop driving this context should call at the top of each
+    /// iteration. [`crate::platform::update_timers_and_animations`] is the same thing for
+    /// whichever context is this thread's global one.
+    pub fn update_timers_and_animations(&self) {
+        let now = crate::animations::Instant::now(self);
+        crate::animations::update_animations(now);
+        self.maybe_activate_timers(now);
+        crate::properties::ChangeTracker::run_change_handlers();
+    }
+
+    /// How long this context can go to sleep before its next timer is due, or `None` when it
+    /// has no active timer.
+    ///
+    /// The deadline and the clock it is measured against both come from this context, so
+    /// they cannot disagree.
+    pub fn duration_until_next_timer_update(&self) -> Option<core::time::Duration> {
+        let timeout = self.next_timer_timeout()?;
+        let now = crate::animations::Instant::now(self);
+        Some(core::time::Duration::from_millis(timeout.0.saturating_sub(now.0)))
+    }
+
     /// Fires the callbacks of this context's timers that have expired by `now`, and returns
     /// whether any of them was activated.
     pub fn maybe_activate_timers(&self, now: crate::animations::Instant) -> bool {
