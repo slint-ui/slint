@@ -47,7 +47,7 @@ jobs:
         timeout-minutes: 5
         steps:
             - uses: actions/checkout@v7
-            - uses: jdx/mise-action@v4
+            - uses: jdx/mise-action@v4.2.3
               with:
                 version: 2025.9.18
                 log_level: debug
@@ -63,7 +63,7 @@ jobs:
         timeout-minutes: 5
         steps:
             - uses: actions/checkout@v7
-            - uses: jdx/mise-action@v4
+            - uses: jdx/mise-action@v4.2.3
               with:
                 version: 2025.9.18
                 log_level: debug
