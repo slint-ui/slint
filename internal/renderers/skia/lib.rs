@@ -77,33 +77,56 @@ pub use skia_safe;
 /// The components of a `slint::Color` are gamma encoded sRGB, not linear.
 /// The same holds for the pixels of decoded images and for the 8-bit buffers Skia renders into,
 /// which have no hardware transfer function of their own.
-pub(crate) fn srgb_color_space() -> skia_safe::ColorSpace {
+fn srgb_color_space() -> skia_safe::ColorSpace {
     skia_safe::ColorSpace::new_srgb()
 }
 
-#[cfg(any(feature = "wgpu-29", feature = "wgpu-30"))]
-pub(crate) fn linear_srgb_color_space() -> skia_safe::ColorSpace {
+fn linear_srgb_color_space() -> skia_safe::ColorSpace {
     skia_safe::ColorSpace::new_srgb_linear()
 }
 
-/// Returns the color space to give Skia for a render target with the given format.
+/// How a texture's format encodes the values it stores.
+// Only WGPU hands us sRGB formats, so `Srgb` is unreachable in a build without it.
+#[allow(dead_code)]
+#[derive(Clone, Copy)]
+pub(crate) enum TextureEncoding {
+    /// A UNORM format: the bytes are gamma encoded sRGB and the GPU converts nothing.
+    Unorm,
+    /// An sRGB format: the GPU decodes when sampling and encodes when storing.
+    Srgb,
+}
+
+impl TextureEncoding {
+    #[cfg(any(feature = "wgpu-29", feature = "wgpu-30"))]
+    pub(crate) fn from_format_is_srgb(is_srgb: bool) -> Self {
+        if is_srgb { Self::Srgb } else { Self::Unorm }
+    }
+}
+
+/// Returns the color space to give Skia for a render target.
 ///
 /// An sRGB attachment applies the transfer function when storing, so Skia has to hand it linear
 /// values. A UNORM attachment stores what it is given, so Skia keeps working in gamma encoded
 /// sRGB and no conversion happens at all.
-#[cfg(any(feature = "wgpu-29", feature = "wgpu-30"))]
-pub(crate) fn attachment_color_space(format_is_srgb: bool) -> skia_safe::ColorSpace {
-    if format_is_srgb { linear_srgb_color_space() } else { srgb_color_space() }
+pub(crate) fn attachment_color_space(encoding: TextureEncoding) -> skia_safe::ColorSpace {
+    match encoding {
+        TextureEncoding::Srgb => linear_srgb_color_space(),
+        TextureEncoding::Unorm => srgb_color_space(),
+    }
 }
 
-/// Returns the color space to give Skia for a texture it samples from, with the given format.
+/// Returns the color space to give Skia for a texture it samples from.
 ///
 /// Sampling an sRGB texture decodes the transfer function in hardware, so the values that reach
 /// Skia are linear. A UNORM texture is handed over untouched and its bytes are gamma encoded
 /// sRGB by convention.
-#[cfg(any(feature = "wgpu-29", feature = "wgpu-30"))]
-pub(crate) fn sampled_texture_color_space(format_is_srgb: bool) -> skia_safe::ColorSpace {
-    if format_is_srgb { linear_srgb_color_space() } else { srgb_color_space() }
+// Outside of WGPU the only caller is the OpenGL texture import, which iOS doesn't compile.
+#[allow(dead_code)]
+pub(crate) fn sampled_texture_color_space(encoding: TextureEncoding) -> skia_safe::ColorSpace {
+    match encoding {
+        TextureEncoding::Srgb => linear_srgb_color_space(),
+        TextureEncoding::Unorm => srgb_color_space(),
+    }
 }
 
 /// Describes a raster buffer to Skia, tagged as sRGB.
