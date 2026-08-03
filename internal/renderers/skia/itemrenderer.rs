@@ -1253,11 +1253,12 @@ pub fn to_skia_size(size: &PhysicalSize) -> skia_safe::Size {
     skia_safe::Size::new(size.width, size.height)
 }
 
+/// The result is gamma encoded sRGB, like the `slint::Color` it comes from.
+pub fn to_skia_color(col: &Color) -> skia_safe::Color {
+    skia_safe::Color::from_argb(col.alpha(), col.red(), col.green(), col.blue())
+}
+
+/// Gamma encoded sRGB as well, see [`to_skia_color`].
 pub fn to_skia_color4f(col: &Color) -> skia_safe::Color4f {
-    skia_safe::Color4f::new(
-        col.red() as f32 / 255.,
-        col.green() as f32 / 255.,
-        col.blue() as f32 / 255.,
-        col.alpha() as f32 / 255.,
-    )
+    to_skia_color(col).into()
 }
