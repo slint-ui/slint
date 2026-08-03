@@ -132,6 +132,20 @@ impl VelloWindowRenderer {
         self.transparent = transparent;
     }
 
+    /// Create the surface and everything derived from it, see
+    /// [`AnyrenderSlintRenderer::set_surface`].
+    pub(crate) fn set_state_from_surface_target(
+        &mut self,
+        surface_target: impl Into<i_slint_core::graphics::wgpu_29::SurfaceTarget>,
+        width: u32,
+        height: u32,
+    ) -> Result<(), PlatformError> {
+        let state = self.create_state(surface_target, width, height)?;
+        self.state = Some(state);
+        self.resume_error = None;
+        Ok(())
+    }
+
     fn create_state(
         &self,
         surface_target: impl Into<i_slint_core::graphics::wgpu_29::SurfaceTarget>,
@@ -543,6 +557,21 @@ impl AnyrenderSlintRenderer<VelloWindowRenderer> {
                 .unwrap_or_else(|| "the vello renderer did not become active".to_string())
                 .into())
         }
+    }
+
+    /// Render to `surface_target` directly, for windowing systems that hand
+    /// out a WGPU surface target rather than a window handle - linuxkms, which
+    /// renders to a DRM plane.
+    pub fn set_surface(
+        &self,
+        surface_target: impl Into<i_slint_core::graphics::wgpu_29::SurfaceTarget>,
+        width: u32,
+        height: u32,
+        requested_graphics_api: Option<RequestedGraphicsAPI>,
+    ) -> Result<(), PlatformError> {
+        let mut window_renderer = self.window_renderer();
+        window_renderer.set_requested_graphics_api(requested_graphics_api);
+        window_renderer.set_state_from_surface_target(surface_target, width, height)
     }
 
     /// Release the WGPU surface, for example when the windowing system takes
