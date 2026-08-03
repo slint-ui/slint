@@ -160,6 +160,20 @@ struct SharedString
         return out;
     }
 
+    /// Returns the string with all instances of `from` replaced with `to`, as a new SharedString.
+    ///
+    /// For example:
+    /// \code
+    ///     auto str = slint::SharedString("Hello");
+    ///     auto str2 = str.replace("l", "L"); // creates "HeLLo"
+    /// \endcode
+    SharedString replace(const SharedString &from, const SharedString &to) const
+    {
+        auto out = SharedString();
+        cbindgen_private::slint_shared_string_replace(&out, this, &from, &to);
+        return out;
+    }
+
     /// Returns true if \a a is equal to \a b; otherwise returns false.
     friend bool operator==(const SharedString &a, const SharedString &b)
     {

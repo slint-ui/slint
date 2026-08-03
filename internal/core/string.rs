@@ -77,6 +77,20 @@ impl SharedString {
         }
     }
 
+    /// Replaces all occurrences of `find` with `replace`
+    pub fn replace(&self, find: &str, replace: &str) -> SharedString {
+        let mut result = SharedString::default();
+        let mut iter = self.as_str().split(find);
+        if let Some(first) = iter.next() {
+            result.push_str(first);
+            for part in iter {
+                result.push_str(replace);
+                result.push_str(part);
+            }
+        }
+        result
+    }
+
     /// Replace in this string characters equal to `from` with the character `to` `count` times
     pub(crate) fn replace_characters(&mut self, from: char, to: char, count: usize) {
         let mut from_buffer = [0u8; 4];
@@ -793,6 +807,28 @@ pub(crate) mod ffi {
             slint_shared_string_to_uppercase(&mut out, &s);
         }
         assert_eq!(out.as_str(), "HELLO");
+    }
+
+    #[unsafe(no_mangle)]
+    pub unsafe extern "C" fn slint_shared_string_replace(
+        out: &mut SharedString,
+        ss: &SharedString,
+        from: &SharedString,
+        to: &SharedString,
+    ) {
+        *out = SharedString::from(ss.replace(from, to));
+    }
+    #[test]
+    fn test_slint_shared_string_replace() {
+        let s = SharedString::from("Hello");
+        let from = SharedString::from("l");
+        let to = SharedString::from("L");
+        let mut out = SharedString::default();
+
+        unsafe {
+            slint_shared_string_replace(&mut out, &s, &from, &to);
+        }
+        assert_eq!(out.as_str(), "HeLLo");
     }
 }
 

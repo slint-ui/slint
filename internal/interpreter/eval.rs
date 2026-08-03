@@ -1358,6 +1358,24 @@ fn call_builtin_function(
                 panic!("First argument not a string");
             }
         }
+        BuiltinFunction::StringReplace => {
+            if arguments.len() != 3 {
+                panic!("internal error: incorrect argument count to StringReplace")
+            }
+            if let Value::String(s) = eval_expression(&arguments[0], local_context) {
+                if let Value::String(from) = eval_expression(&arguments[1], local_context) {
+                    if let Value::String(to) = eval_expression(&arguments[2], local_context) {
+                        Value::String(s.replace(from.as_str(), to.as_str()))
+                    } else {
+                        panic!("Third argument not a string");
+                    }
+                } else {
+                    panic!("Second argument not a string");
+                }
+            } else {
+                panic!("First argument not a string");
+            }
+        }
         BuiltinFunction::KeysToString => {
             if arguments.len() != 1 {
                 panic!("internal error: incorrect argument count to KeysToString")
