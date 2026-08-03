@@ -24,38 +24,79 @@ env:
   SLINT_BUILD_NUMBER: ${{ github.run_number }}
 
 jobs:
-  msix:
-    # The package is deliberately left unsigned: the Microsoft Store signs it on
-    # ingestion. For that to be accepted, `Identity/Publisher` in
-    # tools/lsp/Package.appxmanifest.hbs has to match the publisher identity
-    # assigned by Partner Center.
-    name: Build MSIX
-    runs-on: windows-latest
+  build:
+    name: Build ${{ matrix.arch }}
+    strategy:
+      # Report both architectures instead of hiding one behind the other's failure.
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x64
+            runner: windows-latest
+            target: x86_64-pc-windows-msvc
+          - arch: arm64
+            # arm64 runners are free for public repositories, but the label does
+            # not resolve in private ones.
+            runner: windows-11-arm
+            target: aarch64-pc-windows-msvc
+    runs-on: ${{ matrix.runner }}
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v6
 
-      # Installing stable toolchain isn't necessary on `windows-latest`
-
-      # For `cargo -Zscript`
       - uses: ./.github/actions/setup-rust
         with:
-          key: visual-editor-windows-msix
-          toolchain: nightly
+          key: visual-editor-windows-msix-${{ matrix.arch }}
+          toolchain: stable
+          target: ${{ matrix.target }}
           save_if: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository || inputs.save_if }}
-
-      - uses: microsoft/setup-WinAppCli@v0.1
 
       - name: Build app for Windows
         shell: pwsh
         run: |
           cargo +stable build `
             --manifest-path tools/lsp/Cargo.toml `
-            --target x86_64-pc-windows-msvc `
+            --target ${{ matrix.target }} `
             --bin slint-visual-editor `
             --profile package-release `
             --no-default-features `
             --features backend-winit,renderer-skia
+
+      # Only the executable differs per architecture. The packaging job builds
+      # the layouts around it, so the assets are not shipped back and forth.
+      - name: Upload executable
+        uses: actions/upload-artifact@v7
+        with:
+          name: slint-visual-editor-${{ matrix.arch }}
+          path: target/${{ matrix.target }}/package-release/slint-visual-editor.exe
+          if-no-files-found: error
+
+  package:
+    # The bundle is deliberately left unsigned: the Microsoft Store signs it on
+    # ingestion. For that to be accepted, `Identity/Publisher` in
+    # tools/lsp/Package.appxmanifest.hbs has to match the publisher identity
+    # assigned by Partner Center.
+    name: Package MSIX bundle
+    needs: build
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+
+      # For `cargo -Zscript`
+      - uses: ./.github/actions/setup-rust
+        with:
+          key: visual-editor-windows-msix-package
+          toolchain: nightly
+          save_if: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository || inputs.save_if }}
+
+      - uses: microsoft/setup-WinAppCli@v0.1
+
+      - name: Download executables
+        uses: actions/download-artifact@v8
+        with:
+          pattern: slint-visual-editor-*
+          path: exe
 
       - name: Get cargo version
         id: get_cargo_version
@@ -68,37 +109,46 @@ jobs:
             select -exp version
           "cargo_version=$cargoversion" >> $env:GITHUB_OUTPUT
 
-      - name: Package app as MSIX
+      - name: Assemble package layouts
+        shell: pwsh
+        run: |
+          foreach ($arch in "x64", "arm64") {
+            $dist = "tools/lsp/dist/$arch"
+            New-Item -ItemType Directory -Force "$dist/Assets" | Out-Null
+            # Every asset the manifest references has to end up inside the
+            # package layout, otherwise only `winapp pack` can resolve it.
+            Copy-Item `
+              $(ls tools/lsp/packaging/windows-appx/SlintVisualEditor-Logo*.png | % {$_.FullName}) `
+              "$dist/Assets/"
+            Copy-Item "exe/slint-visual-editor-$arch/slint-visual-editor.exe" "$dist/slint-visual-editor.exe"
+          }
+
+      - name: Package app as MSIX bundle
         id: package_msix
         shell: pwsh
         run: |
-          New-Item -ItemType Directory -Force tools/lsp/dist
-          New-Item -ItemType Directory -Force tools/lsp/dist/Assets
-          # Every asset the manifest references has to end up inside the
-          # package layout, otherwise only `winapp pack` can resolve it.
-          Copy-Item `
-            $(ls tools/lsp/packaging/windows-appx/SlintVisualEditor-Logo*.png | % {$_.FullName}) `
-            tools/lsp/dist/Assets/
-          Copy-Item target/x86_64-pc-windows-msvc/package-release/slint-visual-editor.exe tools/lsp/dist/slint-visual-editor.exe
           Set-Location tools/lsp
           cargo +nightly -Zscript -q ../../scripts/handlebars.rs `
             -v cargo.version=${{ steps.get_cargo_version.outputs.cargo_version }} `
             -i Package.appxmanifest.hbs `
             -o Package.appxmanifest
-          winapp pack ./dist
+          # One manifest for every slice: `winapp pack` detects each folder's
+          # architecture from the executable's PE header and sets
+          # `ProcessorArchitecture` accordingly.
+          winapp pack --manifest Package.appxmanifest ./dist/x64 ./dist/arm64
 
-          # `winapp pack` names the package after `Identity/Name` in the
+          # `winapp pack` names the bundle after `Identity/Name` in the
           # manifest, so match on the extension instead of hardcoding the name.
           Set-Location $env:GITHUB_WORKSPACE
-          $msix = @(Get-ChildItem tools/lsp -Filter *.msix)
-          if ($msix.Count -ne 1) {
-            throw "expected exactly one .msix in tools/lsp, found $($msix.Count)"
+          $bundle = @(Get-ChildItem tools/lsp -Filter *.msixbundle)
+          if ($bundle.Count -ne 1) {
+            throw "expected exactly one .msixbundle in tools/lsp, found $($bundle.Count)"
           }
-          "msix_path=tools/lsp/$($msix[0].Name)" >> $env:GITHUB_OUTPUT
+          "msixbundle_path=tools/lsp/$($bundle[0].Name)" >> $env:GITHUB_OUTPUT
 
-      - name: Upload MSIX artifact
+      - name: Upload MSIX bundle artifact
         uses: actions/upload-artifact@v7
         with:
-          name: slint-visual-editor-windows-msix
-          path: ${{ steps.package_msix.outputs.msix_path }}
+          name: slint-visual-editor-windows-msixbundle
+          path: ${{ steps.package_msix.outputs.msixbundle_path }}
           if-no-files-found: error
