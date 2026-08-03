@@ -60,10 +60,21 @@ pub enum TimerMode {
 /// ```
 #[derive(Default)]
 pub struct Timer {
+    /// Identifies both the list this timer belongs to and its slot in that list, packed
+    /// into one word. See [`Timer::resolve`] for the encoding.
     id: Cell<Option<NonZeroUsize>>,
     /// The timer cannot be moved between treads
     _phantom: core::marker::PhantomData<*mut ()>,
 }
+
+/// `Timer` must stay exactly one pointer wide: the C++ `slint::Timer` mirrors it by hand as
+/// a single `uintptr_t` (see `api/cpp/include/private/slint_timer.h`), and native items such
+/// as `TooltipArea` and `ContextMenu` embed it in structs that C++ lays out. Widening it
+/// silently corrupts those items rather than failing to build, so pin the size here.
+const _: () = assert!(
+    core::mem::size_of::<Timer>() == core::mem::size_of::<usize>(),
+    "Timer must stay one word wide to match the hand-written C++ slint::Timer"
+);
 
 impl Timer {
     /// Starts the timer with the given mode and interval, in order for the callback to called when the
@@ -81,15 +92,24 @@ impl Timer {
         interval: core::time::Duration,
         callback: impl FnMut() + 'static,
     ) {
-        if let Some(timers) = current_timers() {
-            let id = timers.borrow_mut().start_or_restart_timer(
-                self.id(),
-                mode,
-                interval,
-                CallbackVariant::MultiFire(Box::new(callback)),
-            );
-            self.set_id(Some(id));
-        }
+        // Keep firing on the list this timer already belongs to. Only a timer that was
+        // never started, or whose list went away with its context, picks a new one.
+        let (timers, slot) = match self.resolve() {
+            Some(resolved) => resolved,
+            None => {
+                let Some(timers) = current_timers() else { return };
+                (timers, None)
+            }
+        };
+
+        let handle = list_handle(&timers);
+        let slot = timers.borrow_mut().start_or_restart_timer(
+            slot,
+            mode,
+            interval,
+            CallbackVariant::MultiFire(Box::new(callback)),
+        );
+        self.set_ids(handle, Some(slot));
     }
 
     /// Starts the timer with the duration and the callback to called when the
@@ -120,10 +140,8 @@ impl Timer {
 
     /// Stops the previously started timer. Does nothing if the timer has never been started.
     pub fn stop(&self) {
-        if let Some(id) = self.id() {
-            if let Some(timers) = current_timers() {
-                timers.borrow_mut().deactivate_timer(id);
-            }
+        if let Some((timers, slot)) = self.started() {
+            timers.borrow_mut().deactivate_timer(slot);
         }
     }
 
@@ -133,21 +151,15 @@ impl Timer {
     ///
     /// Does nothing if the timer was never started.
     pub fn restart(&self) {
-        if let Some(id) = self.id() {
-            if let Some(timers) = current_timers() {
-                timers.borrow_mut().deactivate_timer(id);
-                timers.borrow_mut().activate_timer(id);
-            }
+        if let Some((timers, slot)) = self.started() {
+            timers.borrow_mut().deactivate_timer(slot);
+            timers.borrow_mut().activate_timer(slot);
         }
     }
 
     /// Returns true if the timer is running; false otherwise.
     pub fn running(&self) -> bool {
-        self.id()
-            .and_then(|timer_id| {
-                current_timers().map(|timers| timers.borrow().timers[timer_id].running)
-            })
-            .unwrap_or(false)
+        self.started().is_some_and(|(timers, slot)| timers.borrow().timers[slot].running)
     }
 
     /// Change the duration of timer. If the timer was is running (see [`Self::running()`]),
@@ -158,45 +170,57 @@ impl Timer {
     /// * `interval`: The duration from now until when the timer should fire. And the period of that timer
     ///   for [`Repeated`](TimerMode::Repeated) timers.
     pub fn set_interval(&self, interval: core::time::Duration) {
-        if let Some(id) = self.id() {
-            if let Some(timers) = current_timers() {
-                timers.borrow_mut().set_interval(id, interval);
-            }
+        if let Some((timers, slot)) = self.started() {
+            timers.borrow_mut().set_interval(slot, interval);
         }
     }
 
     /// Returns the interval of the timer. If the timer was never started, the returned duration is 0ms.
     pub fn interval(&self) -> core::time::Duration {
-        self.id()
-            .and_then(|timer_id| {
-                current_timers().map(|timers| timers.borrow().timers[timer_id].duration)
-            })
+        self.started()
+            .map(|(timers, slot)| timers.borrow().timers[slot].duration)
             .unwrap_or_default()
     }
 
-    fn id(&self) -> Option<usize> {
-        self.id.get().map(|v| usize::from(v) - 1)
+    /// Decodes `id` into the list this timer belongs to and its slot in that list.
+    ///
+    /// `None` when the timer has no list at all, or when that list has gone away with the
+    /// context owning it — in which case the slot it names no longer means anything, and
+    /// every operation but [`Self::start`] does nothing. The inner `Option` is `None` for a
+    /// timer that has a list but was never started, as [`Self::with_list`] produces.
+    fn resolve(&self) -> Option<(TimerListRc, Option<usize>)> {
+        let id = usize::from(self.id.get()?);
+        let timers = list_from_handle(id >> LIST_SHIFT)?;
+        Some((timers, (id & SLOT_MASK).checked_sub(1)))
     }
 
-    fn set_id(&self, id: Option<usize>) {
-        self.id.set(id.and_then(|v| NonZeroUsize::new(v + 1)));
+    /// The list and slot of a timer that has been started and whose list is still alive.
+    /// `None` in every other case, which is what all operations but [`Self::start`] want.
+    fn started(&self) -> Option<(TimerListRc, usize)> {
+        let (timers, slot) = self.resolve()?;
+        Some((timers, slot?))
+    }
+
+    fn set_ids(&self, list: usize, slot: Option<usize>) {
+        let slot = slot.map_or(0, |slot| slot + 1);
+        debug_assert!(slot <= SLOT_MASK, "too many timers in one list");
+        debug_assert!(list <= usize::MAX >> LIST_SHIFT, "too many timer lists");
+        self.id.set(NonZeroUsize::new((list << LIST_SHIFT) | slot));
     }
 }
 
 impl Drop for Timer {
     fn drop(&mut self) {
-        if let Some(id) = self.id() {
-            if let Some(timers) = current_timers() {
-                #[cfg(target_os = "android")]
-                if timers.borrow().timers.is_empty() {
-                    // There seems to be a bug in android thread_local where try_with recreates the already thread local.
-                    // But we are called from the drop of another thread local, just ignore the drop then
-                    return;
-                }
-                let callback = timers.borrow_mut().remove_timer(id);
-                // drop the callback without having the list borrowed
-                drop(callback);
+        if let Some((timers, slot)) = self.started() {
+            #[cfg(target_os = "android")]
+            if timers.borrow().timers.is_empty() {
+                // There seems to be a bug in android thread_local where try_with recreates the already thread local.
+                // But we are called from the drop of another thread local, just ignore the drop then
+                return;
             }
+            let callback = timers.borrow_mut().remove_timer(slot);
+            // drop the callback without having the list borrowed
+            drop(callback);
         }
     }
 }
@@ -233,6 +257,9 @@ pub struct TimerList {
     active_timers: Vec<ActiveTimer>,
     /// If a callback is currently running, this is the id of the currently running callback
     callback_active: Option<usize>,
+    /// This list's index in [`ThreadTimers::lists`], assigned the first time a timer id naming it
+    /// is handed out. Cached here so encoding an id doesn't have to search the registry.
+    handle: Option<usize>,
 }
 
 impl TimerList {
@@ -434,7 +461,62 @@ impl TimerList {
 /// without needing to know who owns it.
 pub(crate) type TimerListRc = alloc::rc::Rc<RefCell<TimerList>>;
 
-crate::thread_local!(static PENDING_TIMERS : RefCell<Option<TimerListRc>> = RefCell::default());
+/// How a [`Timer`]'s `id` splits into the list it belongs to and its slot in that list.
+///
+/// The high part is the list's index in [`ThreadTimers::lists`] plus one, so the whole word
+/// is never zero; the low part is the slot plus one, or zero for a timer that has a list but
+/// hasn't been started. Packing both into the existing word is what keeps `Timer` one
+/// pointer wide, which the C++ ABI requires — see the assertion next to the struct.
+const LIST_SHIFT: u32 = if usize::BITS >= 64 { 32 } else { 20 };
+const SLOT_MASK: usize = (1 << LIST_SHIFT) - 1;
+
+/// This thread's timer bookkeeping: which list a handle names, and who owns the list that
+/// no context has taken over yet.
+#[derive(Default)]
+struct ThreadTimers {
+    /// The lists this thread has handed out ids for, weakly so that a context's list dies
+    /// with it. Slots are never reused: a stale id must resolve to nothing rather than to
+    /// some later list that happens to sit at the same index. Dead entries are emptied in
+    /// [`list_handle`] so they don't pin the allocation of a list that is already gone.
+    lists: Vec<alloc::rc::Weak<RefCell<TimerList>>>,
+    /// Owns the list that timers register in before this thread has a context, until the
+    /// first context adopts it. Nothing else would keep it alive: `lists` is weak, and a
+    /// `Timer` holds an id rather than a reference.
+    pending: Option<TimerListRc>,
+}
+
+crate::thread_local!(static TIMERS : RefCell<ThreadTimers> = RefCell::default());
+
+/// The handle identifying `timers` in an id, registering it on first use. Handles are the
+/// registry index plus one, so that the high part of an id is never zero.
+fn list_handle(timers: &TimerListRc) -> usize {
+    *timers.borrow_mut().handle.get_or_insert_with(|| {
+        TIMERS.with(|thread_timers| {
+            let lists = &mut thread_timers.borrow_mut().lists;
+            // A `Weak` to a list whose context is gone keeps that list's allocation alive
+            // even though its contents were dropped with the context. Registering happens
+            // once per context, so take the opportunity to release those. The slots stay
+            // occupied: reusing an index would let a stale id name a different list.
+            for entry in lists.iter_mut() {
+                if entry.strong_count() == 0 {
+                    *entry = alloc::rc::Weak::new();
+                }
+            }
+            lists.push(alloc::rc::Rc::downgrade(timers));
+            lists.len()
+        })
+    })
+}
+
+/// The list a handle refers to, or `None` once it has been dropped.
+fn list_from_handle(handle: usize) -> Option<TimerListRc> {
+    TIMERS
+        .try_with(|thread_timers| {
+            thread_timers.borrow().lists.get(handle - 1).and_then(alloc::rc::Weak::upgrade)
+        })
+        .ok()
+        .flatten()
+}
 
 /// The list that timers started on this thread register in: this thread's context's list,
 /// or the pending one when there is no context yet.
@@ -448,8 +530,10 @@ fn current_timers() -> Option<TimerListRc> {
     if on_context.is_some() {
         return on_context;
     }
-    PENDING_TIMERS
-        .try_with(|pending| pending.borrow_mut().get_or_insert_with(Default::default).clone())
+    TIMERS
+        .try_with(|thread_timers| {
+            thread_timers.borrow_mut().pending.get_or_insert_with(Default::default).clone()
+        })
         .ok()
 }
 
@@ -458,8 +542,8 @@ fn current_timers() -> Option<TimerListRc> {
 ///
 /// The next context to be created starts from an empty list.
 pub(crate) fn take_pending_timers() -> TimerListRc {
-    PENDING_TIMERS
-        .try_with(|pending| pending.borrow_mut().take())
+    TIMERS
+        .try_with(|thread_timers| thread_timers.borrow_mut().pending.take())
         .ok()
         .flatten()
         .unwrap_or_default()
@@ -471,6 +555,23 @@ pub(crate) mod ffi {
 
     use super::*;
     use core::ffi::c_void;
+
+    /// A handle to the timer `id`, which names both its list and its slot. An id of 0 means
+    /// "no timer yet", so C++ can pass one straight back to `slint_timer_start`.
+    fn timer_from_id(id: usize) -> Timer {
+        let timer = Timer::default();
+        timer.id.set(NonZeroUsize::new(id));
+        timer
+    }
+
+    /// Runs `f` on the timer `id` names, without unregistering it when the borrowed handle
+    /// goes away: C++ owns the timer and calls `slint_timer_destroy` in its destructor.
+    fn with_timer<R>(id: usize, f: impl FnOnce(&Timer) -> R) -> R {
+        let timer = timer_from_id(id);
+        let result = f(&timer);
+        timer.id.take();
+        result
+    }
 
     struct WrapFn {
         callback: extern "C" fn(*mut c_void),
@@ -506,10 +607,7 @@ pub(crate) mod ffi {
         drop_user_data: Option<extern "C" fn(*mut c_void)>,
     ) -> usize {
         let wrap = WrapFn { callback, user_data, drop_user_data };
-        let timer = Timer::default();
-        if id != 0 {
-            timer.id.set(NonZeroUsize::new(id));
-        }
+        let timer = timer_from_id(id);
         if duration > i64::MAX as u64 {
             // negative duration? stop the timer
             timer.stop();
@@ -534,57 +632,31 @@ pub(crate) mod ffi {
     /// Stop a timer and free its raw data
     #[unsafe(no_mangle)]
     pub extern "C" fn slint_timer_destroy(id: usize) {
-        if id == 0 {
-            return;
-        }
-        let timer = Timer { id: Cell::new(NonZeroUsize::new(id)), _phantom: Default::default() };
-        drop(timer);
+        drop(timer_from_id(id));
     }
 
     /// Stop a timer
     #[unsafe(no_mangle)]
     pub extern "C" fn slint_timer_stop(id: usize) {
-        if id == 0 {
-            return;
-        }
-        let timer = Timer { id: Cell::new(NonZeroUsize::new(id)), _phantom: Default::default() };
-        timer.stop();
-        timer.id.take(); // Make sure that dropping the Timer doesn't unregister it. C++ will call destroy() in the destructor.
+        with_timer(id, Timer::stop)
     }
 
     /// Restart a repeated timer
     #[unsafe(no_mangle)]
     pub extern "C" fn slint_timer_restart(id: usize) {
-        if id == 0 {
-            return;
-        }
-        let timer = Timer { id: Cell::new(NonZeroUsize::new(id)), _phantom: Default::default() };
-        timer.restart();
-        timer.id.take(); // Make sure that dropping the Timer doesn't unregister it. C++ will call destroy() in the destructor.
+        with_timer(id, Timer::restart)
     }
 
     /// Returns true if the timer is running; false otherwise.
     #[unsafe(no_mangle)]
     pub extern "C" fn slint_timer_running(id: usize) -> bool {
-        if id == 0 {
-            return false;
-        }
-        let timer = Timer { id: Cell::new(NonZeroUsize::new(id)), _phantom: Default::default() };
-        let running = timer.running();
-        timer.id.take(); // Make sure that dropping the Timer doesn't unregister it. C++ will call destroy() in the destructor.
-        running
+        with_timer(id, Timer::running)
     }
 
     /// Returns the interval in milliseconds. 0 when the timer was never started.
     #[unsafe(no_mangle)]
     pub extern "C" fn slint_timer_interval(id: usize) -> u64 {
-        if id == 0 {
-            return 0;
-        }
-        let timer = Timer { id: Cell::new(NonZeroUsize::new(id)), _phantom: Default::default() };
-        let val = timer.interval().as_millis() as u64;
-        timer.id.take(); // Make sure that dropping the Timer doesn't unregister it. C++ will call destroy() in the destructor.
-        val
+        with_timer(id, |timer| timer.interval().as_millis() as u64)
     }
 }
 
