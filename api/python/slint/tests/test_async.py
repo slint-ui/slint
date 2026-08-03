@@ -245,6 +245,23 @@ def test_exception_thrown() -> None:
 # defined in the stdlib stubs.
 if sys.platform != "win32":
 
+    def _start_quit_watchdog(done: list[bool]) -> None:
+        """Ends the loop if the signal a test is waiting for never arrives.
+
+        The queue outlives the loop, so the watchdog mustn't quit once the test
+        no longer needs it: that quit would sit in the queue and cut a later
+        test's loop short.
+        """
+        import threading
+        import time
+
+        def watchdog() -> None:
+            time.sleep(5)
+            if not done[0]:
+                native.invoke_from_event_loop(slint.quit_event_loop)
+
+        threading.Thread(target=watchdog, daemon=True).start()
+
     def test_add_signal_handler() -> None:
         import os
         import signal
@@ -282,11 +299,6 @@ if sys.platform != "win32":
             time.sleep(0.2)
             os.kill(os.getpid(), signal.SIGUSR1)
 
-        def watchdog() -> None:
-            time.sleep(5)
-            if not handler_called[0]:
-                native.invoke_from_event_loop(slint.quit_event_loop)
-
         async def run() -> None:
             loop = asyncio.get_running_loop()
 
@@ -297,7 +309,7 @@ if sys.platform != "win32":
             loop.add_signal_handler(signal.SIGUSR1, handler)
 
             threading.Thread(target=deliver_signal_later, daemon=True).start()
-            threading.Thread(target=watchdog, daemon=True).start()
+            _start_quit_watchdog(handler_called)
 
             await asyncio.Event().wait()
 
@@ -315,21 +327,22 @@ if sys.platform != "win32":
         import threading
         import time
 
+        interrupted = [False]
+
         def deliver_sigint_later() -> None:
             time.sleep(0.2)
             os.kill(os.getpid(), signal.SIGINT)
 
-        def watchdog() -> None:
-            time.sleep(5)
-            native.invoke_from_event_loop(slint.quit_event_loop)
-
         async def run() -> None:
             threading.Thread(target=deliver_sigint_later, daemon=True).start()
-            threading.Thread(target=watchdog, daemon=True).start()
+            _start_quit_watchdog(interrupted)
             await asyncio.Event().wait()
 
-        with pytest.raises(KeyboardInterrupt):
-            slint.run_event_loop(run())
+        try:
+            with pytest.raises(KeyboardInterrupt):
+                slint.run_event_loop(run())
+        finally:
+            interrupted[0] = True
 
 
 def test_sleep_does_not_leak_timers() -> None:
