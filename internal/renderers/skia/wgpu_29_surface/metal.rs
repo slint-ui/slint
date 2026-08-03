@@ -59,7 +59,7 @@ pub unsafe fn make_metal_surface(
             gr_context,
             handle,
             color_type,
-            crate::attachment_color_space(texture.format().is_srgb()),
+            super::attachment_color_space(texture),
         )
     }
 }
@@ -69,7 +69,7 @@ pub unsafe fn import_metal_texture(
     texture: wgpu::Texture,
 ) -> Option<skia_safe::Image> {
     unsafe {
-        let color_space = crate::texture_color_space(texture.format().is_srgb());
+        let color_space = super::sampled_texture_color_space(&texture);
         let metal_texture = texture.as_hal::<wgpu::wgc::api::Metal>();
 
         let texture_info = mtl::TextureInfo::new(metal_texture.unwrap().raw_handle()

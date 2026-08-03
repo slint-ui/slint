@@ -78,7 +78,7 @@ pub unsafe fn make_dx12_surface(
             resource,
             dxgi_format,
             color_type,
-            crate::attachment_color_space(texture.format().is_srgb()),
+            super::attachment_color_space(texture),
         )
     }
 }
@@ -89,7 +89,7 @@ pub unsafe fn import_dx12_texture(
     texture: wgpu::Texture,
 ) -> Option<skia_safe::Image> {
     unsafe {
-        let color_space = crate::texture_color_space(texture.format().is_srgb());
+        let color_space = super::sampled_texture_color_space(&texture);
         let dx12_texture = texture.as_hal::<wgpu::wgc::api::Dx12>();
 
         let resource: ID3D12Resource = windows_core::Interface::from_raw(

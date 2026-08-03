@@ -23,6 +23,16 @@ mod metal;
 #[cfg(all(target_family = "unix", not(target_vendor = "apple")))]
 mod vulkan;
 
+/// See [`crate::attachment_color_space`].
+pub(crate) fn attachment_color_space(texture: &wgpu::Texture) -> skia_safe::ColorSpace {
+    crate::attachment_color_space(texture.format().is_srgb())
+}
+
+/// See [`crate::sampled_texture_color_space`].
+pub(crate) fn sampled_texture_color_space(texture: &wgpu::Texture) -> skia_safe::ColorSpace {
+    crate::sampled_texture_color_space(texture.format().is_srgb())
+}
+
 /// Skia rendering surface backed by WGPU. Supports both on-screen rendering (with a
 /// window surface) and offscreen rendering into caller-provided textures.
 pub struct WGPUSurface {

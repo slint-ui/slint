@@ -81,7 +81,7 @@ pub unsafe fn make_vulkan_surface(
             vk_image_raw,
             vk_format,
             color_type,
-            crate::attachment_color_space(texture.format().is_srgb()),
+            super::attachment_color_space(texture),
         )
     }
 }
@@ -91,7 +91,7 @@ pub unsafe fn import_vulkan_texture(
     texture: wgpu::Texture,
 ) -> Option<skia_safe::Image> {
     unsafe {
-        let color_space = crate::texture_color_space(texture.format().is_srgb());
+        let color_space = super::sampled_texture_color_space(&texture);
         let vulkan_texture = texture.as_hal::<wgpu::wgc::api::Vulkan>();
 
         let alloc = skia_safe::gpu::vk::Alloc::default();

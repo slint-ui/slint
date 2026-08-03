@@ -96,9 +96,14 @@ pub(crate) fn attachment_color_space(format_is_srgb: bool) -> skia_safe::ColorSp
     if format_is_srgb { linear_srgb_color_space() } else { srgb_color_space() }
 }
 
+/// Returns the color space to give Skia for a texture it samples from, with the given format.
+///
+/// Sampling an sRGB texture decodes the transfer function in hardware, so the values that reach
+/// Skia are linear. A UNORM texture is handed over untouched and its bytes are gamma encoded
+/// sRGB by convention.
 #[cfg(any(feature = "wgpu-29", feature = "wgpu-30"))]
-pub(crate) fn texture_color_space(is_srgb: bool) -> skia_safe::ColorSpace {
-    if is_srgb { srgb_color_space() } else { linear_srgb_color_space() }
+pub(crate) fn sampled_texture_color_space(format_is_srgb: bool) -> skia_safe::ColorSpace {
+    if format_is_srgb { linear_srgb_color_space() } else { srgb_color_space() }
 }
 
 cfg_if::cfg_if! {
