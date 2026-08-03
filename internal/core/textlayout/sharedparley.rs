@@ -414,7 +414,7 @@ pub fn draw_text_input(
 }
 
 pub fn text_size(
-    renderer: &dyn RendererSealed,
+    renderer: &(impl RendererSealed + ?Sized),
     text_item: Pin<&dyn crate::item_rendering::RenderString>,
     item_rc: &crate::item_tree::ItemRc,
     max_width: Option<LogicalLength>,
@@ -457,7 +457,7 @@ pub fn text_size(
 
 /// The content widths of the text. See [`crate::renderer::ContentWidths`].
 pub fn text_content_widths(
-    renderer: &dyn RendererSealed,
+    renderer: &(impl RendererSealed + ?Sized),
     text_item: Pin<&dyn crate::item_rendering::RenderString>,
     item_rc: &crate::item_tree::ItemRc,
 ) -> Option<crate::renderer::ContentWidths> {
@@ -558,7 +558,7 @@ pub fn font_metrics(
 }
 
 pub fn text_input_byte_offset_for_position(
-    renderer: &dyn RendererSealed,
+    renderer: &(impl RendererSealed + ?Sized),
     text_input: Pin<&crate::items::TextInput>,
     item_rc: &crate::item_tree::ItemRc,
     pos: LogicalPoint,
@@ -597,7 +597,7 @@ pub fn text_input_byte_offset_for_position(
 }
 
 pub fn text_input_cursor_rect_for_byte_offset(
-    renderer: &dyn RendererSealed,
+    renderer: &(impl RendererSealed + ?Sized),
     text_input: Pin<&crate::items::TextInput>,
     item_rc: &crate::item_tree::ItemRc,
     byte_offset: usize,
