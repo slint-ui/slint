@@ -244,17 +244,6 @@ impl<W: SlintWindowRenderer> RendererSealed for AnyrenderSlintRenderer<W> {
         Some(&self.text_layout_cache)
     }
 
-    // FIXME: remove this override to measure content widths through the shared default
-    // implementation like the other renderers; requires updating the wrapped-text
-    // min-width goldens.
-    fn text_content_widths(
-        &self,
-        _text_item: std::pin::Pin<&dyn i_slint_core::item_rendering::RenderString>,
-        _item_rc: &i_slint_core::items::ItemRc,
-    ) -> Option<i_slint_core::renderer::ContentWidths> {
-        None
-    }
-
     fn set_rendering_notifier(
         &self,
         _callback: Box<dyn i_slint_core::api::RenderingNotifier>,
