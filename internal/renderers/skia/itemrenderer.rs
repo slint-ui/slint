@@ -117,8 +117,7 @@ impl<'a> SkiaItemRenderer<'a> {
             &shape_radius,
         );
 
-        let mut paint = skia_safe::Paint::default();
-        paint.set_color4f(to_skia_color4f(&shadow_options.color), &crate::srgb_color_space());
+        let mut paint = crate::solid_paint(&shadow_options.color);
         paint.set_anti_alias(true);
         if blur > 0. {
             paint.set_mask_filter(skia_safe::MaskFilter::blur(
@@ -193,8 +192,7 @@ impl<'a> SkiaItemRenderer<'a> {
         path_builder.add_rrect(inner_rrect, None, None);
         let path = path_builder.detach();
 
-        let mut paint = skia_safe::Paint::default();
-        paint.set_color4f(to_skia_color4f(&shadow_options.color), &crate::srgb_color_space());
+        let mut paint = crate::solid_paint(&shadow_options.color);
         paint.set_anti_alias(true);
         if blur > 0. {
             paint.set_mask_filter(skia_safe::MaskFilter::blur(
@@ -242,10 +240,7 @@ impl<'a> SkiaItemRenderer<'a> {
         }
 
         match brush {
-            Brush::SolidColor(color) => Some(skia_safe::shaders::color_in_space(
-                to_skia_color4f(&color),
-                crate::srgb_color_space(),
-            )),
+            Brush::SolidColor(color) => Some(crate::color_shader(&color)),
 
             Brush::LinearGradient(g) => {
                 let (start, end) = i_slint_core::graphics::line_for_angle(
@@ -257,12 +252,7 @@ impl<'a> SkiaItemRenderer<'a> {
 
                 paint.set_dither(true);
 
-                let gradient_colors = skia_safe::gradient::Colors::new(
-                    &colors,
-                    Some(&*pos),
-                    TileMode::Clamp,
-                    crate::srgb_color_space(),
-                );
+                let gradient_colors = crate::gradient_colors(&colors, &pos);
                 let gradient = skia_safe::gradient::Gradient::new(
                     gradient_colors,
                     skia_safe::gradient::Interpolation {
@@ -286,12 +276,7 @@ impl<'a> SkiaItemRenderer<'a> {
 
                 paint.set_dither(true);
 
-                let gradient_colors = skia_safe::gradient::Colors::new(
-                    &colors,
-                    Some(&*pos),
-                    TileMode::Clamp,
-                    crate::srgb_color_space(),
-                );
+                let gradient_colors = crate::gradient_colors(&colors, &pos);
                 let gradient = skia_safe::gradient::Gradient::new(
                     gradient_colors,
                     skia_safe::gradient::Interpolation {
@@ -318,12 +303,7 @@ impl<'a> SkiaItemRenderer<'a> {
                 // Skia's sweep gradient uses 0 degrees at 3 o'clock (east)
                 // We want 0 degrees at 12 o'clock (north), so we need to rotate by -90 degrees
                 let center = skia_safe::Point::new(cx, cy);
-                let gradient_colors = skia_safe::gradient::Colors::new(
-                    &colors,
-                    Some(&*pos),
-                    TileMode::Clamp,
-                    crate::srgb_color_space(),
-                );
+                let gradient_colors = crate::gradient_colors(&colors, &pos);
                 let gradient = skia_safe::gradient::Gradient::new(
                     gradient_colors,
                     skia_safe::gradient::Interpolation {
@@ -1141,10 +1121,7 @@ impl GlyphRenderer for SkiaItemRenderer<'_> {
             None
         } else {
             let mut paint = self.default_paint().unwrap_or_default();
-            paint.set_shader(skia_safe::shaders::color_in_space(
-                to_skia_color4f(color),
-                crate::srgb_color_space(),
-            ));
+            paint.set_shader(crate::color_shader(color));
             Some(paint)
         }
     }
