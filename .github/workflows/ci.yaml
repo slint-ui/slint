@@ -563,7 +563,7 @@ jobs:
               with:
                   distribution: temurin
                   java-version: '17'
-            - uses: gradle/actions/setup-gradle@v6
+            - uses: gradle/actions/setup-gradle@v6.2.0
             - name: Build usecases demo APK (Gradle end-to-end)
               working-directory: demos/usecases/cpp/android
               env:

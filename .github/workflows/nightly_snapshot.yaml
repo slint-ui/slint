@@ -810,7 +810,7 @@ jobs:
                   distribution: temurin
                   java-version: "17"
             - name: Set up Gradle
-              uses: gradle/actions/setup-gradle@v6
+              uses: gradle/actions/setup-gradle@v6.2.0
               with:
                   # Installs Gradle on PATH; the AAB project has no wrapper jar.
                   gradle-version: "8.11.1"
