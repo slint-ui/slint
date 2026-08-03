@@ -81,16 +81,15 @@ impl Timer {
         interval: core::time::Duration,
         callback: impl FnMut() + 'static,
     ) {
-        let _ = CURRENT_TIMERS.try_with(|timers| {
-            let mut timers = timers.borrow_mut();
-            let id = timers.start_or_restart_timer(
+        if let Some(timers) = current_timers() {
+            let id = timers.borrow_mut().start_or_restart_timer(
                 self.id(),
                 mode,
                 interval,
                 CallbackVariant::MultiFire(Box::new(callback)),
             );
             self.set_id(Some(id));
-        });
+        }
     }
 
     /// Starts the timer with the duration and the callback to called when the
@@ -109,23 +108,22 @@ impl Timer {
     /// });
     /// ```
     pub fn single_shot(duration: core::time::Duration, callback: impl FnOnce() + 'static) {
-        let _ = CURRENT_TIMERS.try_with(|timers| {
-            let mut timers = timers.borrow_mut();
-            timers.start_or_restart_timer(
+        if let Some(timers) = current_timers() {
+            timers.borrow_mut().start_or_restart_timer(
                 None,
                 TimerMode::SingleShot,
                 duration,
                 CallbackVariant::SingleShot(Box::new(callback)),
             );
-        });
+        }
     }
 
     /// Stops the previously started timer. Does nothing if the timer has never been started.
     pub fn stop(&self) {
         if let Some(id) = self.id() {
-            let _ = CURRENT_TIMERS.try_with(|timers| {
+            if let Some(timers) = current_timers() {
                 timers.borrow_mut().deactivate_timer(id);
-            });
+            }
         }
     }
 
@@ -136,10 +134,10 @@ impl Timer {
     /// Does nothing if the timer was never started.
     pub fn restart(&self) {
         if let Some(id) = self.id() {
-            let _ = CURRENT_TIMERS.try_with(|timers| {
+            if let Some(timers) = current_timers() {
                 timers.borrow_mut().deactivate_timer(id);
                 timers.borrow_mut().activate_timer(id);
-            });
+            }
         }
     }
 
@@ -147,7 +145,7 @@ impl Timer {
     pub fn running(&self) -> bool {
         self.id()
             .and_then(|timer_id| {
-                CURRENT_TIMERS.try_with(|timers| timers.borrow().timers[timer_id].running).ok()
+                current_timers().map(|timers| timers.borrow().timers[timer_id].running)
             })
             .unwrap_or(false)
     }
@@ -161,9 +159,9 @@ impl Timer {
     ///   for [`Repeated`](TimerMode::Repeated) timers.
     pub fn set_interval(&self, interval: core::time::Duration) {
         if let Some(id) = self.id() {
-            let _ = CURRENT_TIMERS.try_with(|timers| {
+            if let Some(timers) = current_timers() {
                 timers.borrow_mut().set_interval(id, interval);
-            });
+            }
         }
     }
 
@@ -171,7 +169,7 @@ impl Timer {
     pub fn interval(&self) -> core::time::Duration {
         self.id()
             .and_then(|timer_id| {
-                CURRENT_TIMERS.try_with(|timers| timers.borrow().timers[timer_id].duration).ok()
+                current_timers().map(|timers| timers.borrow().timers[timer_id].duration)
             })
             .unwrap_or_default()
     }
@@ -188,7 +186,7 @@ impl Timer {
 impl Drop for Timer {
     fn drop(&mut self) {
         if let Some(id) = self.id() {
-            let _ = CURRENT_TIMERS.try_with(|timers| {
+            if let Some(timers) = current_timers() {
                 #[cfg(target_os = "android")]
                 if timers.borrow().timers.is_empty() {
                     // There seems to be a bug in android thread_local where try_with recreates the already thread local.
@@ -196,9 +194,9 @@ impl Drop for Timer {
                     return;
                 }
                 let callback = timers.borrow_mut().remove_timer(id);
-                // drop the callback without having CURRENT_TIMERS borrowed
+                // drop the callback without having the list borrowed
                 drop(callback);
-            });
+            }
         }
     }
 }
@@ -241,13 +239,13 @@ impl TimerList {
     /// Returns the timeout of the timer that should fire the soonest, or None if there
     /// is no timer active.
     pub fn next_timeout() -> Option<Instant> {
-        CURRENT_TIMERS.with(|timers| timers.borrow().first_timeout())
+        current_timers().and_then(|timers| timers.borrow().first_timeout())
     }
 
     /// Activates any expired timers by calling their callback function. Returns true if any timers were
     /// activated; false otherwise.
     pub fn maybe_activate_timers(now: Instant) -> bool {
-        CURRENT_TIMERS.with(|timers| Self::activate_expired(timers, now))
+        current_timers().is_some_and(|timers| Self::activate_expired(&timers, now))
     }
 
     /// The timeout of the timer in this list that should fire the soonest, or None if
@@ -432,7 +430,40 @@ impl TimerList {
     }
 }
 
-crate::thread_local!(static CURRENT_TIMERS : RefCell<TimerList> = RefCell::default());
+/// A timer list, shared so that [`Timer`] handles can point at the one they registered in
+/// without needing to know who owns it.
+pub(crate) type TimerListRc = alloc::rc::Rc<RefCell<TimerList>>;
+
+crate::thread_local!(static PENDING_TIMERS : RefCell<Option<TimerListRc>> = RefCell::default());
+
+/// The list that timers started on this thread register in: this thread's context's list,
+/// or the pending one when there is no context yet.
+///
+/// Returns `None` only when thread-local storage is already being torn down, hence the
+/// `try_with`: `Timer::drop` runs during thread exit.
+fn current_timers() -> Option<TimerListRc> {
+    let on_context = crate::context::GLOBAL_CONTEXT
+        .try_with(|ctx| ctx.get().map(|ctx| ctx.0.timers.clone()))
+        .ok()?;
+    if on_context.is_some() {
+        return on_context;
+    }
+    PENDING_TIMERS
+        .try_with(|pending| pending.borrow_mut().get_or_insert_with(Default::default).clone())
+        .ok()
+}
+
+/// Hands the pending list over to a context being constructed, so that timers started
+/// before this thread had one keep working — they hold a `Weak` to this very list.
+///
+/// The next context to be created starts from an empty list.
+pub(crate) fn take_pending_timers() -> TimerListRc {
+    PENDING_TIMERS
+        .try_with(|pending| pending.borrow_mut().take())
+        .ok()
+        .flatten()
+        .unwrap_or_default()
+}
 
 #[cfg(feature = "ffi")]
 pub(crate) mod ffi {
