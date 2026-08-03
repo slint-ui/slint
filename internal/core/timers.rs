@@ -241,108 +241,115 @@ impl TimerList {
     /// Returns the timeout of the timer that should fire the soonest, or None if there
     /// is no timer active.
     pub fn next_timeout() -> Option<Instant> {
-        CURRENT_TIMERS.with(|timers| {
-            timers
-                .borrow()
-                .active_timers
-                .first()
-                .map(|first_active_timer| first_active_timer.timeout)
-        })
+        CURRENT_TIMERS.with(|timers| timers.borrow().first_timeout())
     }
 
     /// Activates any expired timers by calling their callback function. Returns true if any timers were
     /// activated; false otherwise.
     pub fn maybe_activate_timers(now: Instant) -> bool {
+        CURRENT_TIMERS.with(|timers| Self::activate_expired(timers, now))
+    }
+
+    /// The timeout of the timer in this list that should fire the soonest, or None if
+    /// none is active.
+    fn first_timeout(&self) -> Option<Instant> {
+        self.active_timers.first().map(|first_active_timer| first_active_timer.timeout)
+    }
+
+    /// Activates the timers in `timers` that have expired by `now`. Returns true if any
+    /// timer was activated; false otherwise.
+    ///
+    /// Takes the list by `&RefCell` rather than `&mut self` because the borrow has to be
+    /// released around every callback: a callback may start, stop or drop timers.
+    fn activate_expired(timers: &RefCell<Self>, now: Instant) -> bool {
         // Shortcut: Is there any timer worth activating?
-        if TimerList::next_timeout().map(|timeout| now < timeout).unwrap_or(false) {
+        if timers.borrow().first_timeout().map(|timeout| now < timeout).unwrap_or(false) {
             return false;
         }
 
-        CURRENT_TIMERS.with(|timers| {
-            assert!(timers.borrow().callback_active.is_none(), "Recursion in timer code");
+        assert!(timers.borrow().callback_active.is_none(), "Recursion in timer code");
 
-            // Re-register all timers that expired but are repeating, as well as all that haven't expired yet. This is
-            // done in one shot to ensure a consistent state by the time the callbacks are invoked.
-            let expired_timers = {
-                let mut timers = timers.borrow_mut();
+        // Re-register all timers that expired but are repeating, as well as all that haven't expired yet. This is
+        // done in one shot to ensure a consistent state by the time the callbacks are invoked.
+        let expired_timers = {
+            let mut timers = timers.borrow_mut();
 
-                // Empty active_timers and rebuild it, to preserve insertion order across expired and not expired timers.
-                let mut active_timers = core::mem::take(&mut timers.active_timers);
+            // Empty active_timers and rebuild it, to preserve insertion order across expired and not expired timers.
+            let mut active_timers = core::mem::take(&mut timers.active_timers);
 
-                let expired_vs_remaining_timers_partition_point =
-                    active_timers.partition_point(|active_timer| active_timer.timeout <= now);
+            let expired_vs_remaining_timers_partition_point =
+                active_timers.partition_point(|active_timer| active_timer.timeout <= now);
 
-                let (expired_timers, timers_not_activated_this_time) =
-                    active_timers.split_at(expired_vs_remaining_timers_partition_point);
+            let (expired_timers, timers_not_activated_this_time) =
+                active_timers.split_at(expired_vs_remaining_timers_partition_point);
 
-                for expired_timer in expired_timers {
-                    let timer = &mut timers.timers[expired_timer.id];
-                    assert!(!timer.being_activated);
-                    timer.being_activated = true;
+            for expired_timer in expired_timers {
+                let timer = &mut timers.timers[expired_timer.id];
+                assert!(!timer.being_activated);
+                timer.being_activated = true;
 
-                    if matches!(timers.timers[expired_timer.id].mode, TimerMode::Repeated) {
-                        timers.activate_timer(expired_timer.id);
-                    } else {
-                        timers.timers[expired_timer.id].running = false;
-                    }
-                }
-
-                for future_timer in timers_not_activated_this_time.iter() {
-                    timers.register_active_timer(*future_timer);
-                }
-
-                // turn `expired_timers` slice into a truncated vec.
-                active_timers.truncate(expired_vs_remaining_timers_partition_point);
-                active_timers
-            };
-
-            let any_activated = !expired_timers.is_empty();
-
-            for active_timer in expired_timers.into_iter() {
-                let mut callback = {
-                    let mut timers = timers.borrow_mut();
-
-                    timers.callback_active = Some(active_timer.id);
-
-                    // have to release the borrow on `timers` before invoking the callback,
-                    // so here we temporarily move the callback out of its permanent place
-                    core::mem::replace(
-                        &mut timers.timers[active_timer.id].callback,
-                        CallbackVariant::Empty,
-                    )
-                };
-
-                match callback {
-                    CallbackVariant::Empty => (),
-                    CallbackVariant::MultiFire(ref mut cb) => cb(),
-                    CallbackVariant::SingleShot(cb) => {
-                        cb();
-                        timers.borrow_mut().callback_active = None;
-                        timers.borrow_mut().timers.remove(active_timer.id);
-                        continue;
-                    }
-                };
-
-                let mut timers = timers.borrow_mut();
-
-                let callback_register = &mut timers.timers[active_timer.id].callback;
-
-                // only emplace back the callback if its permanent store is still Empty:
-                // if not, it means the invoked callback has restarted its own timer with a new callback
-                if matches!(callback_register, CallbackVariant::Empty) {
-                    *callback_register = callback;
-                }
-
-                timers.callback_active = None;
-                let t = &mut timers.timers[active_timer.id];
-                if t.removed {
-                    timers.timers.remove(active_timer.id);
+                if matches!(timers.timers[expired_timer.id].mode, TimerMode::Repeated) {
+                    timers.activate_timer(expired_timer.id);
                 } else {
-                    t.being_activated = false;
+                    timers.timers[expired_timer.id].running = false;
                 }
             }
-            any_activated
-        })
+
+            for future_timer in timers_not_activated_this_time.iter() {
+                timers.register_active_timer(*future_timer);
+            }
+
+            // turn `expired_timers` slice into a truncated vec.
+            active_timers.truncate(expired_vs_remaining_timers_partition_point);
+            active_timers
+        };
+
+        let any_activated = !expired_timers.is_empty();
+
+        for active_timer in expired_timers.into_iter() {
+            let mut callback = {
+                let mut timers = timers.borrow_mut();
+
+                timers.callback_active = Some(active_timer.id);
+
+                // have to release the borrow on `timers` before invoking the callback,
+                // so here we temporarily move the callback out of its permanent place
+                core::mem::replace(
+                    &mut timers.timers[active_timer.id].callback,
+                    CallbackVariant::Empty,
+                )
+            };
+
+            match callback {
+                CallbackVariant::Empty => (),
+                CallbackVariant::MultiFire(ref mut cb) => cb(),
+                CallbackVariant::SingleShot(cb) => {
+                    cb();
+                    timers.borrow_mut().callback_active = None;
+                    timers.borrow_mut().timers.remove(active_timer.id);
+                    continue;
+                }
+            };
+
+            let mut timers = timers.borrow_mut();
+
+            let callback_register = &mut timers.timers[active_timer.id].callback;
+
+            // only emplace back the callback if its permanent store is still Empty:
+            // if not, it means the invoked callback has restarted its own timer with a new callback
+            if matches!(callback_register, CallbackVariant::Empty) {
+                *callback_register = callback;
+            }
+
+            timers.callback_active = None;
+            let t = &mut timers.timers[active_timer.id];
+            if t.removed {
+                timers.timers.remove(active_timer.id);
+            } else {
+                t.being_activated = false;
+            }
+        }
+        any_activated
     }
 
     fn start_or_restart_timer(
