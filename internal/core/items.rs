@@ -1628,12 +1628,11 @@ impl Item for ContextMenu {
             MouseEvent::Pressed { position, button: PointerEventButton::Left, .. } => {
                 let self_weak = _self_rc.downgrade();
                 let position = *position;
-                self.long_press_timer.start(
+                let ctx = WindowInner::from_pub(_window_adapter.window()).context();
+                self.long_press_timer.start_on(
+                    ctx,
                     crate::timers::TimerMode::SingleShot,
-                    WindowInner::from_pub(_window_adapter.window())
-                        .context()
-                        .platform()
-                        .long_press_interval(crate::InternalToken),
+                    ctx.platform().long_press_interval(crate::InternalToken),
                     move || {
                         let Some(self_rc) = self_weak.upgrade() else { return };
                         let Some(self_) = self_rc.downcast::<ContextMenu>() else { return };
@@ -2116,7 +2115,12 @@ impl TooltipArea {
         }
 
         let self_weak = self_rc.downgrade();
-        self.timer.start(
+        // Start on the context this item's window belongs to, not on whichever one is
+        // current: a component built with `new_with_context` must keep its timers there.
+        let Some(window_adapter) = self_rc.window_adapter() else { return };
+        let ctx = crate::window::WindowInner::from_pub(window_adapter.window()).context();
+        self.timer.start_on(
+            ctx,
             crate::timers::TimerMode::SingleShot,
             Duration::from_millis(delay_ms),
             move || {

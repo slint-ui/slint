@@ -175,6 +175,8 @@ struct MenuDirtyHandler {
 impl crate::properties::PropertyDirtyHandler for MenuDirtyHandler {
     fn notify(self: Pin<&Self>) {
         let self_weak = self.self_weak.clone();
+        // A tray icon has no window, so there is no context to reach from the item: this
+        // one deliberately registers on whichever context is current.
         crate::timers::Timer::single_shot(Default::default(), move || {
             let Some(item_rc) = self_weak.upgrade() else { return };
             let Some(tray) = item_rc.downcast::<SystemTrayIcon>() else { return };

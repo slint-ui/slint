@@ -457,11 +457,15 @@ struct WindowPropertiesTracker {
 impl crate::properties::PropertyDirtyHandler for WindowPropertiesTracker {
     fn notify(self: Pin<&Self>) {
         let win = self.window_adapter_weak.clone();
-        crate::timers::Timer::single_shot(Default::default(), move || {
-            if let Some(window_adapter) = win.upgrade() {
-                WindowInner::from_pub(window_adapter.window()).update_window_properties();
-            };
-        })
+        let Some(adapter) = win.upgrade() else { return };
+        WindowInner::from_pub(adapter.window()).context().single_shot(
+            Default::default(),
+            move || {
+                if let Some(window_adapter) = win.upgrade() {
+                    WindowInner::from_pub(window_adapter.window()).update_window_properties();
+                };
+            },
+        )
     }
 }
 
@@ -476,13 +480,18 @@ impl crate::properties::PropertyDirtyHandler for PopupWindowPropertiesTracker {
     fn notify(self: Pin<&Self>) {
         let parent = self.parent_window_adapter_weak.clone();
         let popup_id = self.popup_id;
+        let Some(parent_adapter) = parent.upgrade() else { return };
         // Use a timer here, so if we change multiple properties at the same time not multiple notifications are send
         // This timer will delay for the next evaluation
-        crate::timers::Timer::single_shot(Default::default(), move || {
-            if let Some(parent_adapter) = parent.upgrade() {
-                WindowInner::from_pub(parent_adapter.window()).update_popup_properties(popup_id);
-            }
-        });
+        WindowInner::from_pub(parent_adapter.window()).context().single_shot(
+            Default::default(),
+            move || {
+                if let Some(parent_adapter) = parent.upgrade() {
+                    WindowInner::from_pub(parent_adapter.window())
+                        .update_popup_properties(popup_id);
+                }
+            },
+        );
     }
 }
 
@@ -701,7 +710,7 @@ impl WindowInner {
         self.set_window_item_safe_area(inset.to_logical(scale_factor));
         window_adapter.request_redraw();
         let weak = Rc::downgrade(&window_adapter);
-        crate::timers::Timer::single_shot(Default::default(), move || {
+        self.context().single_shot(Default::default(), move || {
             if let Some(window_adapter) = weak.upgrade() {
                 WindowInner::from_pub(window_adapter.window()).update_window_properties();
             }
@@ -1357,11 +1366,8 @@ impl WindowInner {
             new_blinker
         });
 
-        TextCursorBlinker::set_binding(
-            blinker,
-            prop,
-            self.context().platform().cursor_flash_cycle(),
-        );
+        let ctx = self.context();
+        TextCursorBlinker::set_binding(blinker, prop, ctx, ctx.platform().cursor_flash_cycle());
     }
 
     /// Sets the focus to the item pointed to by item_ptr. This will remove the focus from any
