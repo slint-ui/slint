@@ -287,14 +287,16 @@ pub fn set_platform(platform: Box<dyn Platform + 'static>) -> Result<(), SetPlat
 /// This function should be called before rendering or processing input event, at the
 /// beginning of each event loop iteration.
 pub fn update_timers_and_animations() {
-    // The zero fallback keeps the pre-platform behaviour: without a context there is no
-    // clock, so only zero-duration timers are due.
-    let now = crate::context::GLOBAL_CONTEXT
-        .with(|ctx| ctx.get().map(crate::animations::Instant::now))
-        .unwrap_or_default();
-    crate::animations::update_animations(now);
-    crate::timers::TimerList::maybe_activate_timers(now);
-    crate::properties::ChangeTracker::run_change_handlers();
+    match crate::context::GLOBAL_CONTEXT.with(|ctx| ctx.get().cloned()) {
+        Some(ctx) => ctx.update_timers_and_animations(),
+        None => {
+            // Pre-platform behavior: with no context there is no clock either, so only
+            // zero-duration timers in the pending list are due.
+            crate::animations::update_animations(Default::default());
+            crate::timers::TimerList::maybe_activate_timers(Default::default());
+            crate::properties::ChangeTracker::run_change_handlers();
+        }
+    }
 }
 
 /// Returns the duration before the next timer is expected to be activated. This is the
@@ -307,14 +309,12 @@ pub fn update_timers_and_animations() {
 /// Only go to sleep if [`Window::has_active_animations()`](crate::api::Window::has_active_animations())
 /// returns false.
 pub fn duration_until_next_timer_update() -> Option<core::time::Duration> {
-    crate::timers::TimerList::next_timeout().map(|timeout| {
-        let duration_since_start = crate::context::GLOBAL_CONTEXT
-            .with(|p| p.get().map(|p| p.platform().duration_since_start()))
-            .unwrap_or_default();
-        core::time::Duration::from_millis(
-            timeout.0.saturating_sub(duration_since_start.as_millis() as u64),
-        )
-    })
+    match crate::context::GLOBAL_CONTEXT.with(|ctx| ctx.get().cloned()) {
+        Some(ctx) => ctx.duration_until_next_timer_update(),
+        // No context, hence no clock: the deadline is measured from a zero origin.
+        None => crate::timers::TimerList::next_timeout()
+            .map(|timeout| core::time::Duration::from_millis(timeout.0)),
+    }
 }
 
 // reexport key enum to the public api
