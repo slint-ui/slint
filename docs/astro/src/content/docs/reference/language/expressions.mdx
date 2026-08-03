@@ -12,18 +12,8 @@ An expression is a color literal or a length literal. \{#sls.expr.forms}
 
 Further expression forms exist:
 [operators](../operators/), [member access](../operators/#member-access-and-indexing),
-function and callback calls, [predicates](#predicates), and the literals of the other
+function and callback calls, and the literals of the other
 [built-in types](../../property-types/).
-
-## Predicates
-
-A predicate expression has the form `(name) => condition`.
-It binds `name` to a value and evaluates `condition`, which must be a `bool`.
-The name is in scope only inside `condition`.
-
-Predicates are passed to the array operations
-[`any` and `all`](../../property-types/arrays-and-models/#predicates),
-which supply each element in turn as `name`.
 
 <SC>
 ## Color Literals
