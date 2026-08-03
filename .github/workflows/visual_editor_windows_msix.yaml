@@ -109,6 +109,15 @@ jobs:
             select -exp version
           "cargo_version=$cargoversion" >> $env:GITHUB_OUTPUT
 
+      - name: Render the manifest
+        shell: pwsh
+        run: |
+          Set-Location tools/lsp
+          cargo +nightly -Zscript -q ../../scripts/handlebars.rs `
+            -v cargo.version=${{ steps.get_cargo_version.outputs.cargo_version }} `
+            -i Package.appxmanifest.hbs `
+            -o Package.appxmanifest
+
       - name: Assemble package layouts
         shell: pwsh
         run: |
@@ -127,24 +136,40 @@ jobs:
         id: package_msix
         shell: pwsh
         run: |
+          $version = "${{ steps.get_cargo_version.outputs.cargo_version }}.0"
           Set-Location tools/lsp
-          cargo +nightly -Zscript -q ../../scripts/handlebars.rs `
-            -v cargo.version=${{ steps.get_cargo_version.outputs.cargo_version }} `
-            -i Package.appxmanifest.hbs `
-            -o Package.appxmanifest
-          # One manifest for every slice: `winapp pack` detects each folder's
-          # architecture from the executable's PE header and sets
-          # `ProcessorArchitecture` accordingly.
-          winapp pack --manifest Package.appxmanifest ./dist/x64 ./dist/arm64
 
-          # `winapp pack` names the bundle after `Identity/Name` in the
-          # manifest, so match on the extension instead of hardcoding the name.
-          Set-Location $env:GITHUB_WORKSPACE
-          $bundle = @(Get-ChildItem tools/lsp -Filter *.msixbundle)
-          if ($bundle.Count -ne 1) {
-            throw "expected exactly one .msixbundle in tools/lsp, found $($bundle.Count)"
+          foreach ($arch in "x64", "arm64") {
+            # `winapp pack` detects the architecture from the executable's PE
+            # header and sets `ProcessorArchitecture` accordingly.
+            winapp pack --manifest Package.appxmanifest "./dist/$arch"
+            if ($LASTEXITCODE -ne 0) { throw "winapp pack failed for $arch" }
           }
-          "msixbundle_path=tools/lsp/$($bundle[0].Name)" >> $env:GITHUB_OUTPUT
+
+          $slices = @(Get-ChildItem -Filter *.msix)
+          if ($slices.Count -ne 2) {
+            throw "expected one .msix per architecture, found $($slices.Count)"
+          }
+          New-Item -ItemType Directory -Force bundle-src | Out-Null
+          $slices | Move-Item -Destination bundle-src/
+
+          # Bundling through `winapp pack` instead would version the bundle
+          # after the clock: it leaves the version to `makeappx`, which falls
+          # back to the current date and time when it is not given one. Partner
+          # Center tracks a submission by the version of the bundle, so pass the
+          # version the slices already carry.
+          $makeappx = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin" -Recurse -Filter makeappx.exe |
+            Sort-Object FullName -Descending |
+            Select-Object -First 1 -ExpandProperty FullName
+          if (-not $makeappx) { throw "makeappx.exe was not found in the Windows SDK." }
+
+          $name = ([xml](Get-Content Package.appxmanifest)).Package.Identity.Name
+          $bundle = "${name}_${version}_arm64_x64.msixbundle"
+          & $makeappx bundle /d bundle-src /p $bundle /bv $version /o
+          if ($LASTEXITCODE -ne 0) { throw "makeappx bundle failed" }
+
+          Set-Location $env:GITHUB_WORKSPACE
+          "msixbundle_path=tools/lsp/$bundle" >> $env:GITHUB_OUTPUT
 
       - name: Upload MSIX bundle artifact
         uses: actions/upload-artifact@v7
