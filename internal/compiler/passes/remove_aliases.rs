@@ -155,9 +155,8 @@ pub fn remove_aliases(doc: &Document, diag: &mut BuildDiagnostics) {
                     let elem = elem.borrow();
                     let carries_local_state = elem.change_callbacks.contains_key(x.name())
                         || elem
-                            .bindings
-                            .get(x.name())
-                            .is_some_and(|b| b.borrow().animation.is_some());
+                            .binding(x.name())
+                            .is_some_and(|binding| binding.animation.is_some());
                     if best_is_global
                         && !elem.enclosing_component.upgrade().unwrap().is_global()
                         && carries_local_state
