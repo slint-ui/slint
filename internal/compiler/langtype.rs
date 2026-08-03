@@ -986,7 +986,12 @@ impl Display for Function {
             }
             write!(formatter, "{arg}")?;
         }
-        write!(formatter, ") -> {}", self.return_type)
+        let return_type = if self.return_type == Type::Void {
+            String::new()
+        } else {
+            format!(" -> {}", self.return_type)
+        };
+        write!(formatter, "){}", return_type)
     }
 }
 
