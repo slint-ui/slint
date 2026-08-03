@@ -112,6 +112,24 @@ impl Timer {
         self.set_ids(handle, Some(slot));
     }
 
+    /// Starts the timer on `ctx` rather than on whichever context happens to be current.
+    ///
+    /// A timer that already belongs to a live context keeps firing on that one; this only
+    /// decides where a timer that has never been started registers. Used by items, which
+    /// own their `Timer` as a field but can reach their window's context when they start it.
+    pub(crate) fn start_on(
+        &self,
+        ctx: &crate::SlintContext,
+        mode: TimerMode,
+        interval: core::time::Duration,
+        callback: impl FnMut() + 'static,
+    ) {
+        if self.resolve().is_none() {
+            self.set_ids(list_handle(&ctx.0.timers), None);
+        }
+        self.start(mode, interval, callback);
+    }
+
     /// Starts the timer with the duration and the callback to called when the
     /// timer fires. It is fired only once and then deleted.
     ///
@@ -215,6 +233,21 @@ impl Timer {
         debug_assert!(list <= usize::MAX >> LIST_SHIFT, "too many timer lists");
         self.id.set(NonZeroUsize::new((list << LIST_SHIFT) | slot));
     }
+}
+
+/// Registers a single-shot timer in `timers` rather than in whichever list is current.
+/// Backs [`SlintContext::single_shot`](crate::SlintContext::single_shot).
+pub(crate) fn single_shot_on(
+    timers: &TimerListRc,
+    duration: core::time::Duration,
+    callback: impl FnOnce() + 'static,
+) {
+    timers.borrow_mut().start_or_restart_timer(
+        None,
+        TimerMode::SingleShot,
+        duration,
+        CallbackVariant::SingleShot(Box::new(callback)),
+    );
 }
 
 impl Drop for Timer {

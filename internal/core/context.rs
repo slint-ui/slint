@@ -188,6 +188,14 @@ impl SlintContext {
         crate::timers::Timer::with_list(&self.0.timers)
     }
 
+    /// Runs `callback` once, `duration` from now, on this context.
+    ///
+    /// The context-bound counterpart of [`Timer::single_shot`](crate::timers::Timer::single_shot),
+    /// which registers on whichever context is current instead.
+    pub fn single_shot(&self, duration: core::time::Duration, callback: impl FnOnce() + 'static) {
+        crate::timers::single_shot_on(&self.0.timers, duration, callback);
+    }
+
     /// Advances this context's animations and timers to its own clock, and runs any change
     /// handlers that fall out of it.
     ///

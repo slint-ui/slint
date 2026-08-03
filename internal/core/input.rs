@@ -15,7 +15,6 @@ use crate::items::{
 };
 pub use crate::items::{FocusReason, KeyEvent, KeyboardModifiers, PointerEventButton};
 use crate::lengths::{ItemTransform, LogicalPoint, LogicalVector};
-use crate::timers::Timer;
 use crate::window::{WindowAdapter, WindowInner};
 use crate::{Coord, Property, SharedString};
 use alloc::rc::Rc;
@@ -1688,7 +1687,7 @@ fn send_mouse_event_to_item(
         InputEventFilterResult::Intercept => (false, false),
         InputEventFilterResult::DelayForwarding(_) if ignore_delays => (true, false),
         InputEventFilterResult::DelayForwarding(duration) => {
-            let timer = Timer::default();
+            let timer = WindowInner::from_pub(window_adapter.window()).context().new_timer();
             let w = Rc::downgrade(window_adapter);
             timer.start(
                 crate::timers::TimerMode::SingleShot,
@@ -1825,11 +1824,12 @@ impl TextCursorBlinker {
     pub fn set_binding(
         instance: Pin<Rc<TextCursorBlinker>>,
         prop: &Property<bool>,
+        ctx: &crate::SlintContext,
         cycle_duration: Duration,
     ) {
         instance.as_ref().cursor_visible.set(true);
         // Re-start timer, in case.
-        Self::start(&instance, cycle_duration);
+        Self::start(&instance, ctx, cycle_duration);
         prop.set_binding(move || {
             TextCursorBlinker::FIELD_OFFSETS.cursor_visible().apply_pin(instance.as_ref()).get()
         });
@@ -1837,7 +1837,7 @@ impl TextCursorBlinker {
 
     /// Starts the blinking cursor timer that will toggle the cursor and update all bindings that
     /// were installed on properties with set_binding call.
-    pub fn start(self: &Pin<Rc<Self>>, cycle_duration: Duration) {
+    pub fn start(self: &Pin<Rc<Self>>, ctx: &crate::SlintContext, cycle_duration: Duration) {
         if self.cursor_blink_timer.running() {
             self.cursor_blink_timer.restart();
         } else {
@@ -1854,7 +1854,8 @@ impl TextCursorBlinker {
                 }
             };
             if !cycle_duration.is_zero() {
-                self.cursor_blink_timer.start(
+                self.cursor_blink_timer.start_on(
+                    ctx,
                     crate::timers::TimerMode::Repeated,
                     cycle_duration / 2,
                     toggle_cursor,
