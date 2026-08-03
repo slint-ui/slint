@@ -3400,7 +3400,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             let s = s.as_str();
             quote!(sp::SharedString::from(#s))
         }
-        Expression::KeysLiteral(keys) => compile_keys_literal(&keys),
+        Expression::KeysLiteral(keys) => compile_keys_literal(keys),
         Expression::NumberLiteral(n) => {
             if n.is_nan() {
                 quote!(f64::NAN)
