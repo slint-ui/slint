@@ -287,8 +287,13 @@ pub fn set_platform(platform: Box<dyn Platform + 'static>) -> Result<(), SetPlat
 /// This function should be called before rendering or processing input event, at the
 /// beginning of each event loop iteration.
 pub fn update_timers_and_animations() {
-    crate::animations::update_animations();
-    crate::timers::TimerList::maybe_activate_timers(crate::animations::Instant::now());
+    // The zero fallback keeps the pre-platform behaviour: without a context there is no
+    // clock, so only zero-duration timers are due.
+    let now = crate::context::GLOBAL_CONTEXT
+        .with(|ctx| ctx.get().map(crate::animations::Instant::now))
+        .unwrap_or_default();
+    crate::animations::update_animations(now);
+    crate::timers::TimerList::maybe_activate_timers(now);
     crate::properties::ChangeTracker::run_change_handlers();
 }
 

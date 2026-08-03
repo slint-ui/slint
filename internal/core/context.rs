@@ -87,7 +87,7 @@ impl SlintContext {
         #[cfg(feature = "shared-parley")]
         let collection = i_slint_common::sharedfontique::create_collection(true);
 
-        Self(Rc::pin(SlintContextInner {
+        let this = Self(Rc::pin(SlintContextInner {
             platform,
             window_count: 0.into(),
 
@@ -128,7 +128,11 @@ impl SlintContext {
             // list; take it over so those timers keep working. It is the very list they
             // hold a `Weak` to, so nothing needs fixing up.
             timers: crate::timers::take_pending_timers(),
-        }))
+        }));
+        // The list's deadlines are measured on this context's clock from now on. Done after
+        // construction because it needs a handle to the context that owns it.
+        crate::timers::set_owning_context(&this.0.timers, &this);
+        this
     }
 
     /// Return a reference to the platform abstraction

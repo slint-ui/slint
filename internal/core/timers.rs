@@ -268,6 +268,10 @@ pub struct TimerList {
     /// This list's index in [`ThreadTimers::lists`], assigned the first time a timer id naming it
     /// is handed out. Cached here so encoding an id doesn't have to search the registry.
     handle: Option<usize>,
+    /// The context this list belongs to, so that a deadline is computed on the same clock it
+    /// is later compared against. `None` until a context takes the list over — the origin is
+    /// the platform's start time, and without a platform there is no origin.
+    context: Option<crate::SlintContextWeak>,
 }
 
 impl TimerList {
@@ -281,6 +285,16 @@ impl TimerList {
     /// activated; false otherwise.
     pub fn maybe_activate_timers(now: Instant) -> bool {
         current_timers().is_some_and(|timers| Self::activate_expired(&timers, now))
+    }
+
+    /// The current instant on this list's clock, or the zero origin while no context owns
+    /// it — the same origin the deadlines of any timer started that early were computed
+    /// against, so they stay consistent until a context adopts them.
+    fn now(&self) -> Instant {
+        self.context
+            .as_ref()
+            .and_then(|ctx| ctx.upgrade())
+            .map_or_else(Instant::default, |ctx| Instant::now(&ctx))
     }
 
     /// The timeout of the timer in this list that should fire the soonest, or None if
@@ -429,7 +443,7 @@ impl TimerList {
     fn activate_timer(&mut self, id: usize) {
         self.register_active_timer(ActiveTimer {
             id,
-            timeout: Instant::now() + self.timers[id].duration,
+            timeout: self.now() + self.timers[id].duration,
         });
     }
 
@@ -549,6 +563,12 @@ fn current_timers() -> Option<TimerListRc> {
 /// before this thread had one keep working — they hold a `Weak` to this very list.
 ///
 /// The next context to be created starts from an empty list.
+/// Points `timers` at the context that now owns it, so its deadlines are measured on that
+/// context's clock.
+pub(crate) fn set_owning_context(timers: &TimerListRc, ctx: &crate::SlintContext) {
+    timers.borrow_mut().context = Some(ctx.downgrade());
+}
+
 pub(crate) fn take_pending_timers() -> TimerListRc {
     TIMERS
         .try_with(|thread_timers| thread_timers.borrow_mut().pending.take())

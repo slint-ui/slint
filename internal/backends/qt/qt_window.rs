@@ -2092,7 +2092,9 @@ impl QtWindow {
         let runtime_window = WindowInner::from_pub(&self.window);
         let window_adapter = runtime_window.window_adapter();
         runtime_window.draw_contents(|components, post_render| {
-            i_slint_core::animations::update_animations();
+            i_slint_core::animations::update_animations(i_slint_core::animations::Instant::now(
+                runtime_window.context(),
+            ));
 
             let mut renderer = QtItemRenderer {
                 painter,
@@ -2203,7 +2205,9 @@ impl QtWindow {
     }
 
     fn key_event(&self, key: i32, text: qttypes::QString, released: bool, repeat: bool) {
-        i_slint_core::animations::update_animations();
+        i_slint_core::animations::update_animations(i_slint_core::animations::Instant::now(
+            WindowInner::from_pub(&self.window).context(),
+        ));
         let text: String = text.into();
 
         let text = qt_key_to_string(key as key_generated::Qt_Key, text);
