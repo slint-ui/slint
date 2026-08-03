@@ -15,7 +15,8 @@ use crate::expression_tree::{BindingExpression, Callable, Expression};
 use crate::langtype::{ElementType, Function, PropertyLookupResult, Type};
 use crate::namedreference::NamedReference;
 use crate::object_tree::{
-    Element, ElementRc, PropertyDeclaration, QualifiedTypeName, find_element_by_id,
+    Element, ElementRc, PropertyDeclaration, PropertyVisibility, QualifiedTypeName,
+    find_element_by_id,
 };
 use crate::parser::{self, SyntaxNode, SyntaxToken};
 use crate::parser::{SyntaxKind, syntax_nodes};
@@ -539,36 +540,49 @@ fn missing_type_description(interface_declaration: &PropertyDeclaration) -> Stri
     }
 }
 
-fn syntax_for(interface_declaration: &PropertyDeclaration, name: &SmolStr) -> String {
+fn syntax_for(
+    name: &SmolStr,
+    property_type: &Type,
+    pure: &Option<bool>,
+    visibility: &PropertyVisibility,
+) -> String {
     let display_args =
         |arguments: &Vec<Type>| -> String { arguments.iter().map(|t| t.to_string()).join(", ") };
     let return_type = |return_type: &Type| -> String {
         if *return_type == Type::Void { String::new() } else { format!(" -> {return_type}") }
     };
-    match &interface_declaration.property_type {
+    match property_type {
         Type::Function(function) => format!(
             "{}{} function {name}({}){} {{ }}",
-            purity_description(&interface_declaration.pure),
-            interface_declaration.visibility,
+            purity_description(pure),
+            visibility,
             display_args(&function.args),
             return_type(&function.return_type)
         ),
         Type::Callback(function) => format!(
             "{}callback {name}({}){};",
-            purity_description(&interface_declaration.pure),
+            purity_description(pure),
             display_args(&function.args),
             return_type(&function.return_type)
         ),
-        _ if interface_declaration.property_type.is_property_type() => format!(
-            "{} property <{}> {name};",
-            interface_declaration.visibility, interface_declaration.property_type
-        ),
+        _ if property_type.is_property_type() => {
+            format!("{} property <{}> {name};", visibility, property_type)
+        }
         _ => name.to_string(),
     }
 }
 
+fn syntax_for_declaration(interface_declaration: &PropertyDeclaration, name: &SmolStr) -> String {
+    syntax_for(
+        name,
+        &interface_declaration.property_type,
+        &interface_declaration.pure,
+        &interface_declaration.visibility,
+    )
+}
+
 fn missing_type_error(name: &SmolStr, interface_declaration: &PropertyDeclaration) -> String {
-    format!("- missing '{}'", syntax_for(interface_declaration, name))
+    format!("- missing '{}'", syntax_for_declaration(interface_declaration, name))
 }
 
 fn declares_as_note(
@@ -576,7 +590,10 @@ fn declares_as_note(
     name: &SmolStr,
     interface_declaration: &PropertyDeclaration,
 ) -> String {
-    format!("'{interface_name}' declares '{name}' as '{}'", syntax_for(interface_declaration, name))
+    format!(
+        "'{interface_name}' declares '{name}' as '{}'",
+        syntax_for_declaration(interface_declaration, name)
+    )
 }
 
 fn signature_anchor(interface_declaration: &Function, declaration: &Function) -> DeclarationAnchor {
