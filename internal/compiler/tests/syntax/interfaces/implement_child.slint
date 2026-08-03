@@ -61,7 +61,7 @@ component IncorrectCallback {
 
 export component ChildWrongCallback {
     implement ValidInterface <=> impl;
-//                               >  <error{Cannot implement 'ValidInterface' based on 'impl'.↵- 'impl.speak' must be a 'callback() -> void' (found a 'callback() -> string')}
+//                               >  <error{Cannot implement 'ValidInterface' based on 'impl'.↵- 'impl.speak' must be 'callback speak();' (found 'callback speak() -> string;')}
     impl := IncorrectCallback { }
 }
 
@@ -114,7 +114,7 @@ component IncorrectArguments {
 
 export component ChildWrongArguments {
     implement FunctionInterface <=> base;
-//                                  >  <error{Cannot implement 'FunctionInterface' based on 'base'.↵- 'base.foo' must be a 'function(int, string) -> bool' (found a 'function(int, int) -> bool')}
+//                                  >  <error{Cannot implement 'FunctionInterface' based on 'base'.↵- 'base.foo' must be 'pure public function foo(int, string) -> bool { }' (found 'pure public function foo(int, int) -> bool { }')}
     base := IncorrectArguments { }
 }
 
@@ -130,7 +130,7 @@ component CrossKindImpl {
 
 export component ChildCrossKind {
     implement ValidInterface <=> impl;
-//                               >  <error{Cannot implement 'ValidInterface' based on 'impl'.↵- 'impl.reset' must be a 'public pure function() -> void' (found a 'int' property)↵- 'impl.speak' must be a 'callback() -> void' (found a 'int' property)↵- 'impl.value' must be an in-out 'int' property (found a 'callback() -> void')}
+//                               >  <error{Cannot implement 'ValidInterface' based on 'impl'.↵- 'impl.reset' must be 'pure public function reset() { }' (found a 'int' property)↵- 'impl.speak' must be 'callback speak();' (found a 'int' property)↵- 'impl.value' must be 'in-out property <int> value;' (found 'callback value();')}
     impl := CrossKindImpl { }
 }
 

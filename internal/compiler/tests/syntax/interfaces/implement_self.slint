@@ -100,7 +100,7 @@ export component IncorrectPropertyType {
 
 export component IncorrectCallbackType {
     implement ValidInterface <=> self;
-//            >             <error{Cannot implement 'ValidInterface'.↵- 'speak' must be a 'callback() -> void' (found a 'callback(string) -> void')}
+//            >             <error{Cannot implement 'ValidInterface'.↵- 'speak' must be 'callback speak();' (found 'callback speak(string);')}
 
     in-out property <int> value;
     callback speak(string);
@@ -155,7 +155,7 @@ export component ImpureFunction {
 
 export component IncorrectFunctionArguments {
     implement Calculator <=> self;
-//            >         <error{Cannot implement 'Calculator'.↵- 'format' must be a 'function(int) -> string' (found a 'function(string, int) -> string')}
+//            >         <error{Cannot implement 'Calculator'.↵- 'format' must be 'public function format(int) -> string { }' (found 'public function format(string, int) -> string { }')}
 
     in-out property <int> value;
     callback notify();
@@ -173,7 +173,7 @@ export component IncorrectFunctionArguments {
 // Too few arguments: there is no offending argument to point at, so the note falls back to the name.
 export component MissingFunctionArguments {
     implement Calculator <=> self;
-//            >         <error{Cannot implement 'Calculator'.↵- 'add' must be a 'function(int, int) -> int' (found a 'function(int) -> int')}
+//            >         <error{Cannot implement 'Calculator'.↵- 'add' must be 'pure public function add(int, int) -> int { }' (found 'pure public function add(int) -> int { }')}
 
     in-out property <int> value;
     callback notify();
@@ -190,7 +190,7 @@ export component MissingFunctionArguments {
 
 export component IncorrectFunctionReturnType {
     implement Calculator <=> self;
-//            >         <error{Cannot implement 'Calculator'.↵- 'format' must be a 'function(int) -> string' (found a 'function(int) -> void')}
+//            >         <error{Cannot implement 'Calculator'.↵- 'format' must be 'public function format(int) -> string { }' (found 'public function format(int) { }')}
 
     in-out property <int> value;
     callback notify();
@@ -224,7 +224,7 @@ export component IncorrectFunctionVisibility {
 // A member name resolving to the wrong kind (function name declared as a property / callback).
 export component CannotOverrideFunction {
     implement Calculator <=> self;
-//            >         <error{Cannot implement 'Calculator'.↵- 'format' must be a 'public function(int) -> string' (found a 'string' property)↵- 'reset' must be a 'public function() -> void' (found a 'callback() -> void')}
+//            >         <error{Cannot implement 'Calculator'.↵- 'format' must be 'public function format(int) -> string { }' (found a 'string' property)↵- 'reset' must be 'public function reset() { }' (found 'callback reset();')}
 
     in-out property <int> value;
     callback notify();
@@ -271,7 +271,7 @@ export component ImplementFunctionConflict inherits BaseWithFunction {
 // Each member declared as the wrong kind of member.
 export component CrossKindMismatch {
     implement ValidInterface <=> self;
-//            >             <error{Cannot implement 'ValidInterface'.↵- 'reset' must be a 'public function() -> void' (found a 'int' property)↵- 'speak' must be a 'callback() -> void' (found a 'int' property)↵- 'value' must be an in-out 'int' property (found a 'callback() -> void')}
+//            >             <error{Cannot implement 'ValidInterface'.↵- 'reset' must be 'public function reset() { }' (found a 'int' property)↵- 'speak' must be 'callback speak();' (found a 'int' property)↵- 'value' must be 'in-out property <int> value;' (found 'callback value();')}
 
     callback value();
 //           >   <note{'ValidInterface' declares 'value' as 'in-out property <int> value;'}

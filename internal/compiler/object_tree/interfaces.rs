@@ -515,31 +515,6 @@ fn purity_description(purity: &Option<bool>) -> &str {
     if purity.unwrap_or(false) { "pure " } else { "" }
 }
 
-fn missing_type_description(interface_declaration: &PropertyDeclaration) -> String {
-    match interface_declaration.property_type {
-        Type::Callback(..) => {
-            format!(
-                "a '{}{}'",
-                purity_description(&interface_declaration.pure),
-                interface_declaration.property_type
-            )
-        }
-        Type::Function(..) => {
-            format!(
-                "a 'public {}{}'",
-                purity_description(&interface_declaration.pure),
-                interface_declaration.property_type
-            )
-        }
-        _ => {
-            format!(
-                "an {} '{}' property",
-                interface_declaration.visibility, interface_declaration.property_type
-            )
-        }
-    }
-}
-
 fn syntax_for(
     name: &SmolStr,
     property_type: &Type,
@@ -578,6 +553,15 @@ fn syntax_for_declaration(interface_declaration: &PropertyDeclaration, name: &Sm
         &interface_declaration.property_type,
         &interface_declaration.pure,
         &interface_declaration.visibility,
+    )
+}
+
+fn syntax_for_lookup_result(lookup_result: &PropertyLookupResult, name: &SmolStr) -> String {
+    syntax_for(
+        name,
+        &lookup_result.property_type,
+        &lookup_result.declared_pure,
+        &lookup_result.property_visibility,
     )
 }
 
@@ -657,25 +641,20 @@ fn property_matches_interface(
             (lhs, rhs) => lhs.is_property_type() && rhs.is_property_type(),
         };
 
-        let type_description = |property_type: &Type| match property_type {
-            Type::Callback(..) => {
-                format!("a '{}'", property_type)
-            }
-            Type::Function(..) => {
-                format!("a '{}'", property_type)
-            }
-            _ => {
-                format!("a '{}' property", property_type)
-            }
-        };
+        let property_description = |property_type: &Type| format!("a '{}' property", property_type);
 
-        let expected = if !is_same_type {
-            missing_type_description(interface_declaration)
+        let expected = if is_same_type && interface_declaration.property_type.is_property_type() {
+            property_description(&interface_declaration.property_type)
         } else {
-            type_description(&interface_declaration.property_type)
+            format!("'{}'", syntax_for_declaration(interface_declaration, name))
         };
 
-        let actual = type_description(&property.property_type);
+        let actual = if property.property_type.is_property_type() {
+            property_description(&property.property_type)
+        } else {
+            format!("'{}'", syntax_for_lookup_result(property, name))
+        };
+
         let error = format!("- '{member_name}' must be {expected} (found {actual})");
 
         if !is_same_type {
