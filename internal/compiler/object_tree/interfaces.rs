@@ -521,25 +521,13 @@ fn syntax_for(
     pure: &Option<bool>,
     visibility: &PropertyVisibility,
 ) -> String {
-    let display_args =
-        |arguments: &Vec<Type>| -> String { arguments.iter().map(|t| t.to_string()).join(", ") };
-    let return_type = |return_type: &Type| -> String {
-        if *return_type == Type::Void { String::new() } else { format!(" -> {return_type}") }
-    };
     match property_type {
-        Type::Function(function) => format!(
-            "{}{} function {name}({}){} {{ }}",
-            purity_description(pure),
-            visibility,
-            display_args(&function.args),
-            return_type(&function.return_type)
-        ),
-        Type::Callback(function) => format!(
-            "{}callback {name}({}){};",
-            purity_description(pure),
-            display_args(&function.args),
-            return_type(&function.return_type)
-        ),
+        Type::Function(function) => {
+            format!("{}{} function {name}{} {{ }}", purity_description(pure), visibility, function)
+        }
+        Type::Callback(function) => {
+            format!("{}callback {name}{};", purity_description(pure), function)
+        }
         _ if property_type.is_property_type() => {
             format!("{} property <{}> {name};", visibility, property_type)
         }
