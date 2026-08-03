@@ -104,11 +104,10 @@ impl<'a> SkiaItemRenderer<'a> {
 
         let canvas_size: skia_safe::Size = (shape_w + 2. * blur, shape_h + 2. * blur).into();
 
-        let image_info = skia_safe::ImageInfo::new(
+        let image_info = crate::image_info(
             canvas_size.to_ceil(),
             skia_safe::ColorType::RGBA8888,
             skia_safe::AlphaType::Premul,
-            crate::srgb_color_space(),
         );
 
         // The shape is centered in the canvas with `blur` padding on all sides so the Gaussian blur
@@ -154,11 +153,10 @@ impl<'a> SkiaItemRenderer<'a> {
         // Image is sized to the rectangle's geometry; the geometry rrect serves as the clip so the
         // outer blurred edge stays hidden.
         let canvas_size = skia_safe::ISize::new(width.ceil() as i32, height.ceil() as i32);
-        let image_info = skia_safe::ImageInfo::new(
+        let image_info = crate::image_info(
             canvas_size,
             skia_safe::ColorType::RGBA8888,
             skia_safe::AlphaType::Premul,
-            crate::srgb_color_space(),
         );
 
         let geometry_rrect = to_skia_rrect(
@@ -350,11 +348,10 @@ impl<'a> SkiaItemRenderer<'a> {
         image: skia_safe::Image,
         colorize_brush: Brush,
     ) -> Option<skia_safe::Image> {
-        let image_info = skia_safe::ImageInfo::new(
+        let image_info = crate::image_info(
             image.dimensions(),
             skia_safe::ColorType::RGBA8888,
             skia_safe::AlphaType::Premul,
-            crate::srgb_color_space(),
         );
 
         Self::brush_to_shader(
@@ -962,11 +959,10 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
         let skia_image = self.image_cache.get_or_update_cache_entry(item_rc, || {
             let mut cached_image = None;
             update_fn(&mut |width: u32, height: u32, data: &[u8]| {
-                let image_info = skia_safe::ImageInfo::new(
+                let image_info = crate::image_info(
                     skia_safe::ISize::new(width as i32, height as i32),
                     skia_safe::ColorType::RGBA8888,
                     skia_safe::AlphaType::Premul,
-                    crate::srgb_color_space(),
                 );
                 cached_image = skia_safe::images::raster_from_data(
                     &image_info,
@@ -1082,11 +1078,10 @@ impl<'a> LayerRenderer<'a> for SkiaItemRenderer<'a> {
         _item_rc: &ItemRc,
         physical_size: euclid::Size2D<f32, PhysicalPx>,
     ) -> Option<Self::LayerTarget> {
-        let image_info = skia_safe::ImageInfo::new(
+        let image_info = crate::image_info(
             to_skia_size(&physical_size).to_ceil(),
             skia_safe::ColorType::RGBA8888,
             skia_safe::AlphaType::Premul,
-            crate::srgb_color_space(),
         );
         self.canvas.new_surface(&image_info, None)
     }
