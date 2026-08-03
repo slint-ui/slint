@@ -176,13 +176,7 @@ pub struct SkiaRenderer {
     rendering_metrics_collector: RefCell<Option<Rc<RenderingMetricsCollector>>>,
     rendering_first_time: Cell<bool>,
     surface: RefCell<Option<Box<dyn Surface>>>,
-    surface_factory: fn(
-        &SkiaSharedContext,
-        window_handle: Arc<dyn raw_window_handle::HasWindowHandle + Send + Sync>,
-        display_handle: Arc<dyn raw_window_handle::HasDisplayHandle + Send + Sync>,
-        size: PhysicalWindowSize,
-        requested_graphics_api: Option<RequestedGraphicsAPI>,
-    ) -> Result<Box<dyn Surface>, PlatformError>,
+    surface_factory: SurfaceFactoryFn,
     pre_present_callback: RefCell<Option<Box<dyn FnMut()>>>,
     partial_rendering_state: Option<PartialRenderingState>,
     dirty_region_debug_mode: DirtyRegionDebugMode,
@@ -191,8 +185,16 @@ pub struct SkiaRenderer {
     shared_context: SkiaSharedContext,
 }
 
-/// Creates a boxed surface of the concrete type `S`, in the shape of
-/// [`SkiaRenderer`]'s `surface_factory` function pointer.
+/// Function pointer for creating the surface to render on, when needed.
+type SurfaceFactoryFn = fn(
+    &SkiaSharedContext,
+    window_handle: Arc<dyn raw_window_handle::HasWindowHandle + Send + Sync>,
+    display_handle: Arc<dyn raw_window_handle::HasDisplayHandle + Send + Sync>,
+    size: PhysicalWindowSize,
+    requested_graphics_api: Option<RequestedGraphicsAPI>,
+) -> Result<Box<dyn Surface>, PlatformError>;
+
+/// Creates a boxed surface of the concrete type `S`, in the shape of [`SurfaceFactoryFn`].
 fn surface_factory<S: Surface + 'static>(
     context: &SkiaSharedContext,
     window_handle: Arc<dyn raw_window_handle::HasWindowHandle + Send + Sync>,
@@ -207,13 +209,7 @@ fn surface_factory<S: Surface + 'static>(
 impl SkiaRenderer {
     fn new_with_surface_factory(
         context: &SkiaSharedContext,
-        surface_factory: fn(
-            &SkiaSharedContext,
-            Arc<dyn raw_window_handle::HasWindowHandle + Send + Sync>,
-            Arc<dyn raw_window_handle::HasDisplayHandle + Send + Sync>,
-            PhysicalWindowSize,
-            Option<RequestedGraphicsAPI>,
-        ) -> Result<Box<dyn Surface>, PlatformError>,
+        surface_factory: SurfaceFactoryFn,
         partial_rendering_state: Option<PartialRenderingState>,
     ) -> Self {
         Self {
