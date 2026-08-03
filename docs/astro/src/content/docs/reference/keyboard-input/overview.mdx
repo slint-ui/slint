@@ -30,11 +30,13 @@ Slint's <Link type="KeyBinding" label="KeyBinding"/> elements and the built-in <
 Use the <Link type="KeyBinding" label="KeyBinding element"/> inside a `FocusScope` to declare key bindings (or keyboard shortcuts).
 The `KeyBinding`'s `keys` property takes an instance of the <Link label="keys type" type="keys"/> and invokes the `activated` callback when the key combination is detected.
 
-The `keys` type represents a key, combined with modifiers and is constructed with either the `@keys` macro for logical keys or the `@physical-keys` macro for physical key positions.
+The `keys` type represents a key, combined with modifiers and is constructed with either the `@keys` macro for logical keys or the `@physical-keys` macro for [physical key positions](#physical-key-bindings).
 
-Key bindings in Slint are based on **logical keys** — the character a keypress produces on the current keyboard layout — not the physical position of a key.
+Key bindings created with `@keys` are based on **logical keys** — the character a keypress produces on the current keyboard layout — not the physical position of a key.
 This means, for example, that `@keys(Control + Z)` activates when the user presses the key that produces `z` on their layout, regardless of where that key sits on the keyboard.
 As a consequence, numpad digit keys are not distinguished from the main row digit keys, and `AltGr` isn't available as a modifier (it is consumed by the OS to produce characters).
+
+See the [section on physical keys](#physical-key-bindings) if you need to match a key binding based on the keys position instead.
 
 The `@keys(..)` macro accepts a key from the [`Key` namespace](#key-namespace), combined with any of these modifiers:
 
