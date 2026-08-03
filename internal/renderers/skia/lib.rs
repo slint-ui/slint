@@ -106,6 +106,15 @@ pub(crate) fn sampled_texture_color_space(format_is_srgb: bool) -> skia_safe::Co
     if format_is_srgb { linear_srgb_color_space() } else { srgb_color_space() }
 }
 
+/// Describes a raster buffer to Skia, tagged as sRGB.
+pub(crate) fn image_info(
+    size: impl Into<skia_safe::ISize>,
+    color_type: skia_safe::ColorType,
+    alpha_type: skia_safe::AlphaType,
+) -> skia_safe::ImageInfo {
+    skia_safe::ImageInfo::new(size, color_type, alpha_type, srgb_color_space())
+}
+
 cfg_if::cfg_if! {
     if #[cfg(skia_backend_vulkan)] {
         type DefaultSurface = vulkan_surface::VulkanSurface;
@@ -921,11 +930,10 @@ impl i_slint_core::renderer::RendererSealed for SkiaRenderer {
             SharedPixelBuffer::<i_slint_core::graphics::Rgba8Pixel>::new(width, height);
 
         let mut surface_borrow = skia_safe::surfaces::wrap_pixels(
-            &skia_safe::ImageInfo::new(
+            &image_info(
                 (width as i32, height as i32),
                 skia_safe::ColorType::RGBA8888,
                 skia_safe::AlphaType::Opaque,
-                srgb_color_space(),
             ),
             target_buffer.make_mut_bytes(),
             None,
