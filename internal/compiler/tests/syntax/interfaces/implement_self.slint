@@ -93,7 +93,7 @@ export component IncorrectPropertyType {
 //            >             <error{Cannot implement 'ValidInterface'.↵- 'value' must be a 'int' property (found a 'float' property)}
 
     in-out property <float> value;
-//  >                            <note{'value' does not satisfy 'ValidInterface'}
+//                   >   <note{'ValidInterface' declares 'value' as 'in-out property <int> value;'}
     callback speak();
     public function reset() {}
 }
@@ -104,7 +104,7 @@ export component IncorrectCallbackType {
 
     in-out property <int> value;
     callback speak(string);
-//  >                     <note{'speak' does not satisfy 'ValidInterface'}
+//                 >    <note{'ValidInterface' declares 'speak' as 'callback speak();'}
     public function reset() {}
 }
 
@@ -113,7 +113,7 @@ export component IncorrectPropertyVisibility {
 //            >               <error{Cannot implement 'OutOnlyInterface'.↵- 'count' must be 'out' (found 'in-out')}
 
     in-out property <int> count;
-//  >                          <note{'count' does not satisfy 'OutOnlyInterface'}
+//  >    <note{'OutOnlyInterface' declares 'count' as 'out property <int> count;'}
 }
 
 
@@ -127,7 +127,7 @@ export component IncorrectCallbackPurity {
     implement ImpureFunctionInterface <=> self;
 
     callback invert(bool) -> bool;
-//  >                            <note{'invert' does not satisfy 'Inverter'}
+//           >    <note{'Inverter' declares 'invert' as 'pure callback invert(bool) -> bool;'}
 
     // Implementation is pure, interface is not - this should not raise an error
     public pure function bar(i: int, s: string) -> bool {
@@ -144,10 +144,9 @@ export component ImpureFunction {
     callback notify();
 
     public function add(a: int, b: int) -> int {
-//  >note{'add' does not satisfy 'Calculator'}
+//                  > <note{'Calculator' declares 'add' as 'pure public function add(int, int) -> int { }'}
         return a + b;
     }
-//  <note{'add' does not satisfy 'Calculator'}
     public function format(value: int) -> string {
         return "";
     }
@@ -165,10 +164,27 @@ export component IncorrectFunctionArguments {
         return a + b;
     }
     public function format(fmt: string, value: int) -> string {
-//  >note{'format' does not satisfy 'Calculator'}
+//                              >    <note{'Calculator' declares 'format' as 'public function format(int) -> string { }'}
         return "";
     }
-//  <note{'format' does not satisfy 'Calculator'}
+    public function reset() {}
+}
+
+// Too few arguments: there is no offending argument to point at, so the note falls back to the name.
+export component MissingFunctionArguments {
+    implement Calculator <=> self;
+//            >         <error{Cannot implement 'Calculator'.↵- 'add' must be a 'function(int, int) -> int' (found a 'function(int) -> int')}
+
+    in-out property <int> value;
+    callback notify();
+
+    pure public function add(a: int) -> int {
+//                       > <note{'Calculator' declares 'add' as 'pure public function add(int, int) -> int { }'}
+        return a;
+    }
+    public function format(value: int) -> string {
+        return "";
+    }
     public function reset() {}
 }
 
@@ -183,9 +199,8 @@ export component IncorrectFunctionReturnType {
         return a + b;
     }
     public function format(value: int) {
-//  >note{'format' does not satisfy 'Calculator'}
+//                  >    <note{'Calculator' declares 'format' as 'public function format(int) -> string { }'}
     }
-//  <note{'format' does not satisfy 'Calculator'}
     public function reset() {}
 }
 
@@ -203,7 +218,7 @@ export component IncorrectFunctionVisibility {
         return "";
     }
     protected function reset() {}
-//  >                           <note{'reset' does not satisfy 'Calculator'}
+//  >       <note{'Calculator' declares 'reset' as 'public function reset() { }'}
 }
 
 // A member name resolving to the wrong kind (function name declared as a property / callback).
@@ -218,17 +233,17 @@ export component CannotOverrideFunction {
         return a + b;
     }
     in property <string> format;
-//  >                          <note{'format' does not satisfy 'Calculator'}
+//                       >    <note{'Calculator' declares 'format' as 'public function format(int) -> string { }'}
     callback reset();
-//  >               <note{'reset' does not satisfy 'Calculator'}
+//           >   <note{'Calculator' declares 'reset' as 'public function reset() { }'}
 }
 
 // Conflicts with an inherited (non-local) member: property, callback and function variants.
 component BaseWithMembers {
     in-out property <float> value;
-//  >                            <note{'value' does not satisfy 'ValidInterface'}
+//                   >   <note{'ValidInterface' declares 'value' as 'in-out property <int> value;'}
     callback speak(string);
-//  >                     <note{'speak' does not satisfy 'ValidInterface'}
+//                 >    <note{'ValidInterface' declares 'speak' as 'callback speak();'}
     public function reset() {}
     @children
 }
@@ -244,7 +259,7 @@ interface CallbackInterface {
 
 component BaseWithFunction {
     public function action() {}
-//  >                         <note{'action' does not satisfy 'CallbackInterface'}
+//                  >    <note{'CallbackInterface' declares 'action' as 'callback action();'}
     @children
 }
 
@@ -259,11 +274,11 @@ export component CrossKindMismatch {
 //            >             <error{Cannot implement 'ValidInterface'.↵- 'reset' must be a 'public function() -> void' (found a 'int' property)↵- 'speak' must be a 'callback() -> void' (found a 'int' property)↵- 'value' must be an in-out 'int' property (found a 'callback() -> void')}
 
     callback value();
-//  >               <note{'value' does not satisfy 'ValidInterface'}
+//           >   <note{'ValidInterface' declares 'value' as 'in-out property <int> value;'}
     in-out property <int> speak;
-//  >                          <note{'speak' does not satisfy 'ValidInterface'}
+//                        >   <note{'ValidInterface' declares 'speak' as 'callback speak();'}
     in-out property <int> reset;
-//  >                          <note{'reset' does not satisfy 'ValidInterface'}
+//                        >   <note{'ValidInterface' declares 'reset' as 'public function reset() { }'}
 }
 
 // A single member that violates several constraints at once, joined into one message.
@@ -272,5 +287,6 @@ export component MultipleViolations {
 //            >               <error{Cannot implement 'OutOnlyInterface'.↵- 'count' must be a 'int' property (found a 'float' property)↵- 'count' must be 'out' (found 'in-out')}
 
     in-out property <float> count;
-//  >                            <note{'count' does not satisfy 'OutOnlyInterface'}
+//                   >   <note{'OutOnlyInterface' declares 'count' as 'out property <int> count;'}
+//  >    <^note{'OutOnlyInterface' declares 'count' as 'out property <int> count;'}
 }
