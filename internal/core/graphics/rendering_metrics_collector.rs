@@ -61,6 +61,15 @@ pub struct RenderingMetricsCollector {
     output_overlay: bool,
 }
 
+/// The instant used to stamp frames.
+///
+/// This collector only ever compares its own timestamps against each other, and is enabled
+/// by `SLINT_DEBUG_PERFORMANCE` alone, so it reads the global context's clock rather than
+/// threading a context through every renderer's render path.
+fn now() -> Instant {
+    crate::context::GLOBAL_CONTEXT.with(|ctx| ctx.get().map(Instant::now)).unwrap_or_default()
+}
+
 impl RenderingMetricsCollector {
     /// Returns a new instance of the counter if requested by the user (via `SLINT_DEBUG_PERFORMANCE` environment variable).
     /// The environment variable holds a comma separated list of options:
@@ -157,7 +166,7 @@ impl RenderingMetricsCollector {
 
     fn trim_frame_data_to_second_boundary(self: &Rc<Self>) {
         let mut frame_times = self.collected_frame_data_since_second_ago.borrow_mut();
-        let now = Instant::now();
+        let now = now();
         frame_times.retain(|frame| {
             now.duration_since(frame.timestamp) <= core::time::Duration::from_secs(1)
         });
@@ -172,7 +181,7 @@ impl RenderingMetricsCollector {
     ) {
         self.collected_frame_data_since_second_ago
             .borrow_mut()
-            .push(FrameData { timestamp: Instant::now(), metrics });
+            .push(FrameData { timestamp: now(), metrics });
         if matches!(self.refresh_mode, RefreshMode::FullSpeed) {
             crate::animations::CURRENT_ANIMATION_DRIVER
                 .with(|driver| driver.set_has_active_animations());

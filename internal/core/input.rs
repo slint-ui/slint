@@ -1179,9 +1179,14 @@ pub struct ClickState {
 
 impl ClickState {
     /// Resets the timer and count.
-    fn restart(&self, position: LogicalPoint, button: PointerEventButton) {
+    fn restart(
+        &self,
+        position: LogicalPoint,
+        button: PointerEventButton,
+        now: crate::animations::Instant,
+    ) {
         self.click_count.set(0);
-        self.click_count_time_stamp.set(Some(crate::animations::Instant::now()));
+        self.click_count_time_stamp.set(Some(now));
         self.click_position.set(position);
         self.click_button.set(button);
     }
@@ -1193,10 +1198,13 @@ impl ClickState {
     }
 
     /// Check if the click is repeated.
-    pub fn check_repeat(&self, mouse_event: MouseEvent, click_interval: Duration) -> MouseEvent {
+    /// Takes the context rather than just the interval: the timestamps it compares have to
+    /// come from the same clock, which only the context can name.
+    pub fn check_repeat(&self, mouse_event: MouseEvent, ctx: &crate::SlintContext) -> MouseEvent {
+        let click_interval = ctx.platform().click_interval();
         match mouse_event {
             MouseEvent::Pressed { position, button, touch_finger_id, .. } => {
-                let instant_now = crate::animations::Instant::now();
+                let instant_now = crate::animations::Instant::now(ctx);
 
                 if let Some(click_count_time_stamp) = self.click_count_time_stamp.get() {
                     if instant_now - click_count_time_stamp < click_interval
@@ -1206,10 +1214,10 @@ impl ClickState {
                         self.click_count.set(self.click_count.get().wrapping_add(1));
                         self.click_count_time_stamp.set(Some(instant_now));
                     } else {
-                        self.restart(position, button);
+                        self.restart(position, button, instant_now);
                     }
                 } else {
-                    self.restart(position, button);
+                    self.restart(position, button, instant_now);
                 }
 
                 return MouseEvent::Pressed {

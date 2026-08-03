@@ -762,7 +762,7 @@ impl WindowInner {
     /// `Exit` (if not). The reported `accepted` reflects the rewritten event, so a
     /// `Released` that completes a drop on a non-accepting target reports `accepted = false`.
     pub fn process_mouse_input(&self, mut event: MouseEvent) -> Option<MouseDispatchResult> {
-        crate::animations::update_animations();
+        crate::animations::update_animations(crate::animations::Instant::now(self.context()));
 
         let item_tree = self.try_component()?;
         self.ensure_tree_instantiated();
@@ -776,7 +776,7 @@ impl WindowInner {
         }
 
         // handle multiple press release
-        event = self.click_state.check_repeat(event, self.context().platform().click_interval());
+        event = self.click_state.check_repeat(event, self.context());
 
         let window_adapter = self.window_adapter();
         let mut mouse_input_state = self.mouse_input_state.take();
@@ -1014,7 +1014,7 @@ impl WindowInner {
 
         if last_top_item != mouse_input_state.top_item_including_delayed() {
             self.click_state.reset();
-            self.click_state.check_repeat(event, self.context().platform().click_interval());
+            self.click_state.check_repeat(event, self.context());
         }
 
         if !had_delay && mouse_input_state.has_delayed_event() {
