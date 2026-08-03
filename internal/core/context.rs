@@ -169,6 +169,28 @@ impl SlintContext {
         self.0.platform.run_event_loop()
     }
 
+    /// Creates a [`Timer`](crate::timers::Timer) that registers on this context rather than
+    /// on whichever one is current when it is started.
+    ///
+    /// For the context that a thread runs its event loop on this is the same as
+    /// `Timer::default()`, and the event loop activates the timer as usual. A context that
+    /// isn't the current one has no event loop driving it, so its owner is responsible for
+    /// calling [`Self::maybe_activate_timers`].
+    pub fn new_timer(&self) -> crate::timers::Timer {
+        crate::timers::Timer::with_list(&self.0.timers)
+    }
+
+    /// Fires the callbacks of this context's timers that have expired by `now`, and returns
+    /// whether any of them was activated.
+    pub fn maybe_activate_timers(&self, now: crate::animations::Instant) -> bool {
+        crate::timers::TimerList::activate_expired(&self.0.timers, now)
+    }
+
+    /// Returns when this context's next timer is due, or `None` if it has no active timer.
+    pub fn next_timer_timeout(&self) -> Option<crate::animations::Instant> {
+        self.0.timers.borrow().first_timeout()
+    }
+
     /// Returns the effective color scheme for the given component root, or the
     /// process-wide scheme when `root` is `None`. A `SystemTrayIcon`-rooted
     /// component resolves against the tray's own scheme first, falling back to
