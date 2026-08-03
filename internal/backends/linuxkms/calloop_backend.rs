@@ -102,6 +102,8 @@ impl Backend {
             Some("femtovg-wgpu") => crate::renderer::femtovg_wgpu::FemtoVGWgpuRendererAdapter::new,
             #[cfg(feature = "renderer-software")]
             Some("software") => crate::renderer::sw::SoftwareRendererAdapter::new,
+            #[cfg(feature = "renderer-vello")]
+            Some("vello") => crate::renderer::vello::VelloRendererAdapter::new,
             None => crate::renderer::try_skia_then_femtovg_then_software,
             Some(renderer_name) => {
                 eprintln!(

@@ -28,10 +28,14 @@ fn main() {
             feature = "unstable-wgpu-29",
             not(any(feature = "renderer-skia-vulkan", feature = "unstable-wgpu-30"))
         ) },
+        // The DRM wgpu-29 surface target is not skia specific: the vello
+        // renderer uses it too.
+        wgpu_29_surface_target: { any(feature = "unstable-wgpu-29", feature = "renderer-vello") },
         wgpu_surface: { any(
             feature = "unstable-wgpu-29",
             feature = "renderer-femtovg-wgpu",
-            feature = "unstable-wgpu-30"
+            feature = "unstable-wgpu-30",
+            feature = "renderer-vello"
         ) },
     }
 }
