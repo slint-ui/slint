@@ -1,0 +1,76 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+name: Visual Editor Linux package
+
+on:
+  workflow_dispatch:
+    inputs:
+      save_if:
+        description: "Condition to save the cache"
+        required: false
+        type: boolean
+        default: true
+
+  pull_request:
+    branches:
+      - visual-editor
+
+permissions:
+  contents: read
+
+env:
+  SLINT_BUILD_NUMBER: ${{ github.run_number }}
+
+jobs:
+  flatpak:
+    name: Build flatpak
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/flathub-infra/flatpak-github-actions:gnome-48
+      options: --privileged
+    timeout-minutes: 90
+    env:
+      CARGO_PROFILE: package-release
+      FLATPAK_CARGO_GENERATOR_URL: https://raw.githubusercontent.com/flatpak/flatpak-builder-tools/737c0085912f9f7dabf9341d4608e2a77a51a73a/cargo/flatpak-cargo-generator.py
+      FLATPAK_CARGO_GENERATOR_PATH: /tmp/flatpak-cargo-generator.py
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Restore flatpak-builder state
+        uses: actions/cache@v4
+        with:
+          key: slint-visual-editor-linux-flatpak
+          path: .flatpak-builder
+
+      - name: Download flatpak helper script + dependencies
+        run: |
+          curl -o ${FLATPAK_CARGO_GENERATOR_PATH} \
+                  ${FLATPAK_CARGO_GENERATOR_URL}
+          chmod +x ${FLATPAK_CARGO_GENERATOR_PATH}
+
+      - name: Fix dubious ownership warnings
+        # TODO: Why is this necessary?
+        run: git config --global --add safe.directory '*'
+
+      - uses: ./.github/actions/setup-rust
+        with:
+          key: visual-editor-linux-flatpak-rust
+          save_if: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository || inputs.save_if }}
+      # For `cargo -Zscript`
+      - uses: ./.github/actions/setup-rust
+        with:
+          toolchain: nightly
+          key: visual-editor-linux-flatpak-rust-nightly
+          save_if: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository || inputs.save_if }}
+
+      - name: Generate flatpak manifest
+        run: scripts/generate_visual_editor_flatpak_manifest.bash
+
+      - uses: flatpak/flatpak-github-actions/flatpak-builder@v6.7
+        with:
+          bundle: slint-visual-editor.flatpak
+          manifest-path: tools/lsp/org.sixtyfps.SlintVisualEditor.yml
+          cache-key: flatpak-builder-${{ github.sha }}
+          state-dir: .flatpak-builder
+          upload-artifact: true

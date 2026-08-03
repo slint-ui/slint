@@ -1,0 +1,52 @@
+#! See scripts/visual_editor_linux_flatpak.bash, which fills this template out and populates `cargo-sources.json`
+
+{{#if (eq cargo.profile 'dev')}}
+  {{var 'profile_dir' 'debug'}}
+{{else}}
+  {{var 'profile_dir' cargo.profile}}
+{{/if}}
+
+id: org.sixtyfps.SlintVisualEditor
+runtime: org.freedesktop.Platform
+runtime-version: "25.08"
+sdk: org.freedesktop.Sdk
+command: slint-visual-editor
+sdk-extensions:
+  - org.freedesktop.Sdk.Extension.rust-stable
+finish-args:
+  - --device=dri
+  - --share=ipc
+  - --socket=wayland
+  - --socket=fallback-x11
+modules:
+  - name: slint-visual-editor
+    buildsystem: simple
+    build-options:
+      append-path: /usr/lib/sdk/rust-stable/bin
+      env:
+        CARGO_HOME: /run/build/slint-visual-editor/cargo
+        CARGO_NET_OFFLINE: "true"
+        SKIA_BINARIES_URL: file:///run/build/slint-visual-editor/deps/vendor/skia/skia-binaries-a25a0fdb7d90429aa2d1-x86_64-unknown-linux-gnu-gl-jpegd-jpege-pdf-textlayout-vulkan.tar.gz
+    build-commands:
+      - cargo --offline fetch --manifest-path Cargo.toml --verbose
+      - cargo build -p slint-lsp --bin slint-visual-editor --profile {{cargo.profile}} --offline --features backend-winit,renderer-skia
+      - install -Dm0755 target/{{val 'profile_dir'}}/slint-visual-editor ${FLATPAK_DEST}/bin/slint-visual-editor
+      - install -Dm0644 tools/lsp/packaging/linux/SlintVisualEditor-Logo-512x512.png ${FLATPAK_DEST}/share/icons/hicolor/512x512/apps/${FLATPAK_ID}.png
+      - install -Dm0644 tools/lsp/packaging/linux/${FLATPAK_ID}.desktop ${FLATPAK_DEST}/share/applications/${FLATPAK_ID}.desktop
+      - install -Dm0644 tools/lsp/${FLATPAK_ID}.metainfo.xml ${FLATPAK_DEST}/share/metainfo/${FLATPAK_ID}.metainfo.xml
+    sources:
+      {{#if git.remote}}
+      - type: git
+        url: {{git.remote}}
+        commit: {{git.commit}}
+      {{/if}}
+      {{#if git.local}}
+      - type: git
+        path: {{git.local}}
+        commit: {{git.commit}}
+      {{/if}}
+      - {{cargo.sources}}
+      - type: file
+        url: https://github.com/rust-skia/skia-binaries/releases/download/0.99.0/skia-binaries-a25a0fdb7d90429aa2d1-x86_64-unknown-linux-gnu-gl-jpegd-jpege-pdf-textlayout-vulkan.tar.gz
+        dest: deps/vendor/skia
+        sha256: 097e78d775c9156dc4b070b9cca7008dbab587513ecb1924baf4cf9620f3119b
