@@ -132,6 +132,10 @@ impl SlintContext {
         // The list's deadlines are measured on this context's clock from now on. Done after
         // construction because it needs a handle to the context that owns it.
         crate::timers::set_owning_context(&this.0.timers, &this);
+        // Every context tells its platform which context it belongs to, not just the one
+        // that becomes this thread's global: a platform is owned by exactly one context, and
+        // a backend driving a context needs to be able to find it.
+        this.platform().bind_context(this.downgrade(), crate::InternalToken);
         this
     }
 
