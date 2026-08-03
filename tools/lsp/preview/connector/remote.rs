@@ -259,11 +259,7 @@ impl RemoteLspToPreview {
         // component, so the viewer leaves its idle screen on its own.
         let _ = shared
             .preview_to_lsp_sender
-            // TODO: Settings
-            .send(PreviewToLspMessage::RequestState {
-                files: Vec::new(),
-                settings: Default::default(),
-            });
+            .send(PreviewToLspMessage::RequestState { files: Vec::new(), settings: Vec::new() });
 
         Ok(())
     }
