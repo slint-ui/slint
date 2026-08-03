@@ -1,7 +1,7 @@
 [
   {
     "PushClipLayer": {
-      "clip": "M0,0 L60,0 L60,64 L0,64 Z",
+      "clip": "M0,0 L56,0 L56,64 L0,64 Z",
       "transform": [
         1.0,
         0.0,
@@ -205,13 +205,13 @@
   "PopLayer",
   {
     "PushClipLayer": {
-      "clip": "M0,0 L4,0 L4,64 L0,64 Z",
+      "clip": "M0,0 L8,0 L8,64 L0,64 Z",
       "transform": [
         1.0,
         0.0,
         0.0,
         1.0,
-        60.0,
+        56.0,
         0.0
       ]
     }
@@ -244,96 +244,16 @@
           "id": 74,
           "x": 0.0,
           "y": 10.69
-        }
-      ],
-      "hint": false,
-      "normalized_coords": [],
-      "style": {
-        "Fill": "NonZero"
-      },
-      "transform": [
-        1.0,
-        0.0,
-        0.0,
-        1.0,
-        60.0,
-        0.0
-      ]
-    }
-  },
-  {
-    "GlyphRun": {
-      "brush": {
-        "Solid": {
-          "components": [
-            0.0,
-            0.0,
-            1.0,
-            1.0
-          ]
-        }
-      },
-      "brush_alpha": 1.0,
-      "embolden": {
-        "x": 0.0,
-        "y": 0.0
-      },
-      "font_data": {
-        "index": 0,
-        "resource_id": 0
-      },
-      "font_size": 10.0,
-      "glyph_transform": null,
-      "glyphs": [
+        },
         {
           "id": 74,
-          "x": 0.0,
-          "y": 24.31
-        }
-      ],
-      "hint": false,
-      "normalized_coords": [],
-      "style": {
-        "Fill": "NonZero"
-      },
-      "transform": [
-        1.0,
-        0.0,
-        0.0,
-        1.0,
-        60.0,
-        0.0
-      ]
-    }
-  },
-  {
-    "GlyphRun": {
-      "brush": {
-        "Solid": {
-          "components": [
-            0.0,
-            0.0,
-            1.0,
-            1.0
-          ]
-        }
-      },
-      "brush_alpha": 1.0,
-      "embolden": {
-        "x": 0.0,
-        "y": 0.0
-      },
-      "font_data": {
-        "index": 0,
-        "resource_id": 0
-      },
-      "font_size": 10.0,
-      "glyph_transform": null,
-      "glyphs": [
+          "x": 2.58,
+          "y": 10.69
+        },
         {
           "id": 74,
-          "x": 0.0,
-          "y": 37.93
+          "x": 5.16,
+          "y": 10.69
         }
       ],
       "hint": false,
@@ -346,7 +266,7 @@
         0.0,
         0.0,
         1.0,
-        60.0,
+        56.0,
         0.0
       ]
     }
