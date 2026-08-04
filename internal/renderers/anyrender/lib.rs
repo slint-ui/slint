@@ -43,6 +43,7 @@ use i_slint_core::textlayout::sharedparley;
 use i_slint_core::window::{WindowAdapter, WindowInner};
 
 pub(crate) type PhysicalLength = euclid::Length<f32, PhysicalPx>;
+pub(crate) type PhysicalPoint = euclid::Point2D<f32, PhysicalPx>;
 pub(crate) type PhysicalRect = euclid::Rect<f32, PhysicalPx>;
 pub(crate) type PhysicalSize = euclid::Size2D<f32, PhysicalPx>;
 
