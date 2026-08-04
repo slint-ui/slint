@@ -872,6 +872,20 @@ public:
         cbindgen_private::slint_software_renderer_set_rendering_rotation(
                 inner, static_cast<int>(rotation));
     }
+
+    /// Align dirty regions to the specified physical pixel grid.
+    ///
+    /// Use this for display controllers that require aligned address windows. The pixels the
+    /// alignment adds are repainted, so the returned region can be sent to the display as it is.
+    ///
+    /// The screen dimensions must be multiples of their corresponding alignment after applying
+    /// RenderingRotation; otherwise the block at the far edge is clipped to the screen and stays
+    /// shorter than the alignment. Values of zero are treated as one.
+    void set_dirty_region_alignment(uint16_t horizontal, uint16_t vertical)
+    {
+        cbindgen_private::slint_software_renderer_set_dirty_region_alignment(inner, horizontal,
+                                                                             vertical);
+    }
 };
 #endif
 
