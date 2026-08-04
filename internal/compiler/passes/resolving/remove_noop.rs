@@ -127,6 +127,7 @@ fn without_side_effects(expression: &Expression) -> bool {
         Expression::DebugHook { .. } => false,
         Expression::EmptyComponentFactory => false,
         Expression::EmptyDataTransfer => false,
-        Expression::Closure { expression, .. } => without_side_effects(expression),
+        // A closure that is not called has no side effect, regardless of what its body does.
+        Expression::Closure { .. } => true,
     }
 }
