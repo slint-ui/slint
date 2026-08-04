@@ -597,9 +597,9 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
 
         let (background_rect, border_rect) = if opaque_border {
             // In CSS the border is entirely towards the inside of the boundary
-            // geometry, while in femtovg the line with for a stroke is 50% in-
-            // and 50% outwards. We choose the CSS model, so the inner rectangle
-            // is adjusted accordingly.
+            // geometry, while Skia strokes centered on the path, 50% in- and
+            // 50% outwards. We choose the CSS model, so the inner rectangle is
+            // adjusted accordingly.
             adjust_rect_and_border_for_inner_drawing(&mut geometry, &mut border_width);
 
             let rounded_rect = to_skia_rrect(&geometry, &stroke_border_radius);
@@ -609,9 +609,9 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
             let background_rect = to_skia_rrect(&geometry, &fill_radius);
 
             // In CSS the border is entirely towards the inside of the boundary
-            // geometry, while in femtovg the line with for a stroke is 50% in-
-            // and 50% outwards. We choose the CSS model, so the inner rectangle
-            // is adjusted accordingly.
+            // geometry, while Skia strokes centered on the path, 50% in- and
+            // 50% outwards. We choose the CSS model, so the inner rectangle is
+            // adjusted accordingly.
             adjust_rect_and_border_for_inner_drawing(&mut geometry, &mut border_width);
 
             let border_rect = to_skia_rrect(&geometry, &stroke_border_radius);
@@ -649,7 +649,8 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
         _size: LogicalSize,
         _cache: &CachedRenderingData,
     ) {
-        // The background is drawn directly by FemtoVG renderer (via clear_color, if necessary).
+        // The window background is cleared (solid color) or drawn (gradient)
+        // by SkiaRenderer before the item tree is rendered.
     }
 
     fn draw_image(
@@ -877,9 +878,9 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
         let mut rect = rect * self.scale_factor;
         let mut border_width = border_width * self.scale_factor;
         // In CSS the border is entirely towards the inside of the boundary
-        // geometry, while in femtovg the line with for a stroke is 50% in-
-        // and 50% outwards. We choose the CSS model, so the inner rectangle
-        // is adjusted accordingly.
+        // geometry, while Skia strokes centered on the path, 50% in- and
+        // 50% outwards. We choose the CSS model, so the inner rectangle is
+        // adjusted accordingly.
         adjust_rect_and_border_for_inner_drawing(&mut rect, &mut border_width);
 
         let radius = radius * self.scale_factor;

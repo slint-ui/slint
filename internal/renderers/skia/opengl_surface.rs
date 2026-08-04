@@ -433,7 +433,7 @@ impl OpenGLSurface {
 
         let context = not_current_gl_context.make_current(&surface)
             .map_err(|glutin_error: glutin::error::Error| -> PlatformError {
-                format!("FemtoVG Renderer: Failed to make newly created OpenGL context current: {glutin_error}")
+                format!("Skia Renderer: Failed to make newly created OpenGL context current: {glutin_error}")
                 .into()
         })?;
 
