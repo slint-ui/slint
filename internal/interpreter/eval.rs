@@ -1937,8 +1937,7 @@ fn call_builtin_function(
             if let Expression::ElementReference(item) = &arguments[0] {
                 let item_rc = item_rc_for_element(item, component);
 
-                let t: f32 =
-                    eval_expression(&arguments[1], local_context).try_into().unwrap();
+                let t: f32 = eval_expression(&arguments[1], local_context).try_into().unwrap();
 
                 item_rc
                     .downcast::<corelib::items::Path>()
@@ -1957,8 +1956,7 @@ fn call_builtin_function(
             if let Expression::ElementReference(item) = &arguments[0] {
                 let item_rc = item_rc_for_element(item, component);
 
-                let t: f32 =
-                    eval_expression(&arguments[1], local_context).try_into().unwrap();
+                let t: f32 = eval_expression(&arguments[1], local_context).try_into().unwrap();
 
                 item_rc
                     .downcast::<corelib::items::Path>()
