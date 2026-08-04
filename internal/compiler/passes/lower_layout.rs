@@ -1852,7 +1852,8 @@ fn lower_flexbox_layout(layout_element: &ElementRc, diag: &mut BuildDiagnostics)
     }
 
     let direction = crate::layout::binding_reference(layout_element, "flex-direction");
-    let align_content = crate::layout::binding_reference(layout_element, "align-content");
+    let cross_axis_line_alignment =
+        crate::layout::binding_reference(layout_element, "cross-axis-line-alignment");
     let cross_axis_alignment =
         crate::layout::binding_reference(layout_element, "cross-axis-alignment");
     let flex_wrap = crate::layout::binding_reference(layout_element, "flex-wrap");
@@ -1861,7 +1862,7 @@ fn lower_flexbox_layout(layout_element: &ElementRc, diag: &mut BuildDiagnostics)
         elems: Default::default(),
         geometry: LayoutGeometry::new(layout_element),
         direction,
-        align_content,
+        cross_axis_line_alignment,
         cross_axis_alignment,
         flex_wrap,
     };

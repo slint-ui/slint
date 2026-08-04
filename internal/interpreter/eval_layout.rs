@@ -299,10 +299,10 @@ pub(crate) fn solve_flexbox_layout(
         .map_or(i_slint_core::items::LayoutAlignment::default(), |nr| {
             eval::load_property(component, &nr.element(), nr.name()).unwrap().try_into().unwrap()
         });
-    let align_content = flexbox_layout
-        .align_content
+    let cross_axis_line_alignment = flexbox_layout
+        .cross_axis_line_alignment
         .as_ref()
-        .map_or(i_slint_core::items::FlexboxLayoutAlignContent::default(), |nr| {
+        .map_or(i_slint_core::items::CrossAxisLineAlignment::default(), |nr| {
             eval::load_property(component, &nr.element(), nr.name()).unwrap().try_into().unwrap()
         });
     let cross_axis_alignment = flexbox_layout
@@ -332,7 +332,7 @@ pub(crate) fn solve_flexbox_layout(
         padding_v,
         alignment,
         direction,
-        align_content,
+        cross_axis_line_alignment,
         cross_axis_alignment,
         flex_wrap,
         cells_h: Slice::from(cells_h.as_slice()),

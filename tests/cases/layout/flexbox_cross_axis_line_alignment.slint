@@ -1,8 +1,8 @@
 // Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// Test FlexboxLayout align-content property for row and column directions
-// align-content controls how flex lines are distributed along the cross axis.
+// Test FlexboxLayout cross-axis-line-alignment property for row and column directions
+// cross-axis-line-alignment controls how flex lines are distributed along the cross axis.
 
 component VisibleRect inherits Rectangle {
     border-width: 1px;
@@ -11,12 +11,12 @@ component VisibleRect inherits Rectangle {
 
 // === Row direction tests ===
 
-// Test 1: align-content: start (row) — rows packed at top
-component TestAlignContentStartRow inherits VisibleRect {
+// Test 1: cross-axis-line-alignment: start (row) — rows packed at top
+component TestLineAlignmentStartRow inherits VisibleRect {
     width: 200px;
     height: 200px;
     FlexboxLayout {
-        align-content: start;
+        cross-axis-line-alignment: start;
         spacing: 5px;
 
         r1 := Rectangle {
@@ -39,18 +39,18 @@ component TestAlignContentStartRow inherits VisibleRect {
         // Row 2: r3 alone
     }
 
-    // With align-content: start, rows pack at y=0
+    // With cross-axis-line-alignment: start, rows pack at y=0
     // Row 1: y=0, Row 2: y=35 (30+5)
     out property <bool> test: r1.y == 0px && r2.y == 0px && r3.y == 35px;
 }
 
-    // Test 2: align-content: end (row) — rows packed at bottom
-component TestAlignContentEndRow inherits VisibleRect {
+    // Test 2: cross-axis-line-alignment: end (row) — rows packed at bottom
+component TestLineAlignmentEndRow inherits VisibleRect {
     width: 200px;
     height: 200px;
 
     FlexboxLayout {
-        align-content: end;
+        cross-axis-line-alignment: end;
         spacing: 5px;
 
         r1 := Rectangle {
@@ -72,19 +72,19 @@ component TestAlignContentEndRow inherits VisibleRect {
         }
     }
 
-    // With align-content: end, rows pack at the bottom
+    // With cross-axis-line-alignment: end, rows pack at the bottom
     // Total content height: 30+5+30 = 65
     // Offset: 200-65 = 135
     out property <bool> test: r1.y == 135px && r2.y == 135px && r3.y == 170px;
 }
 
-    // Test 3: align-content: center (row) — rows centered vertically
-component TestAlignContentCenterRow inherits VisibleRect {
+    // Test 3: cross-axis-line-alignment: center (row) — rows centered vertically
+component TestLineAlignmentCenterRow inherits VisibleRect {
     width: 200px;
     height: 200px;
 
     FlexboxLayout {
-        align-content: center;
+        cross-axis-line-alignment: center;
         spacing: 5px;
 
         r1 := Rectangle {
@@ -106,7 +106,7 @@ component TestAlignContentCenterRow inherits VisibleRect {
         }
     }
 
-    // With align-content: center, rows centered
+    // With cross-axis-line-alignment: center, rows centered
     // Total content height: 30+5+30 = 65
     // Offset: (200-65)/2 = 67.5 ≈ 68
     out property <bool> test_r1: r1.y >= 67px && r1.y <= 68px;
@@ -114,13 +114,13 @@ component TestAlignContentCenterRow inherits VisibleRect {
     out property <bool> test: test_r1 && test_r3;
 }
 
-    // Test 4: align-content: stretch (row, the default) — rows stretched to fill
-component TestAlignContentStretchRow inherits VisibleRect {
+    // Test 4: cross-axis-line-alignment: stretch (row, the default) — rows stretched to fill
+component TestLineAlignmentStretchRow inherits VisibleRect {
     width: 200px;
     height: 200px;
 
     FlexboxLayout {
-        align-content: stretch;
+        cross-axis-line-alignment: stretch;
         spacing: 5px;
 
         r1 := Rectangle {
@@ -142,21 +142,21 @@ component TestAlignContentStretchRow inherits VisibleRect {
         }
     }
 
-    // With align-content: stretch, rows are stretched to fill the 200px height.
+    // With cross-axis-line-alignment: stretch, rows are stretched to fill the 200px height.
     // Row 2 starts well below row 1 since the remaining 135px is distributed.
     out property <bool> test: r1.y == 0px && r3.y > 35px;
 }
 
     // === Column direction tests ===
 
-// Test 5: align-content: start (column) — columns packed at left
-component TestAlignContentStartCol inherits VisibleRect {
+// Test 5: cross-axis-line-alignment: start (column) — columns packed at left
+component TestLineAlignmentStartCol inherits VisibleRect {
     width: 200px;
     height: 200px;
 
     FlexboxLayout {
         flex-direction: column;
-        align-content: start;
+        cross-axis-line-alignment: start;
         spacing: 5px;
 
         r1 := Rectangle {
@@ -179,19 +179,19 @@ component TestAlignContentStartCol inherits VisibleRect {
         // Col 2: r3 alone
     }
 
-    // With align-content: start, columns pack at x=0
+    // With cross-axis-line-alignment: start, columns pack at x=0
     // Col 1: x=0, Col 2: x=35 (30+5)
     out property <bool> test: r1.x == 0px && r2.x == 0px && r3.x == 35px;
 }
 
-    // Test 6: align-content: end (column) — columns packed at right
-component TestAlignContentEndCol inherits VisibleRect {
+    // Test 6: cross-axis-line-alignment: end (column) — columns packed at right
+component TestLineAlignmentEndCol inherits VisibleRect {
     width: 200px;
     height: 200px;
 
     FlexboxLayout {
         flex-direction: column;
-        align-content: end;
+        cross-axis-line-alignment: end;
         spacing: 5px;
 
         r1 := Rectangle {
@@ -213,20 +213,20 @@ component TestAlignContentEndCol inherits VisibleRect {
         }
     }
 
-    // With align-content: end, columns pack at the right
+    // With cross-axis-line-alignment: end, columns pack at the right
     // Total content width: 30+5+30 = 65
     // Offset: 200-65 = 135
     out property <bool> test: r1.x == 135px && r2.x == 135px && r3.x == 170px;
 }
 
-    // Test 7: align-content: center (column) — columns centered horizontally
-component TestAlignContentCenterCol inherits VisibleRect {
+    // Test 7: cross-axis-line-alignment: center (column) — columns centered horizontally
+component TestLineAlignmentCenterCol inherits VisibleRect {
     width: 200px;
     height: 200px;
 
     FlexboxLayout {
         flex-direction: column;
-        align-content: center;
+        cross-axis-line-alignment: center;
         spacing: 5px;
 
         r1 := Rectangle {
@@ -248,7 +248,7 @@ component TestAlignContentCenterCol inherits VisibleRect {
         }
     }
 
-    // With align-content: center, columns centered
+    // With cross-axis-line-alignment: center, columns centered
     // Total content width: 30+5+30 = 65
     // Offset: (200-65)/2 = 67.5 ≈ 68
     out property <bool> test_r1: r1.x >= 67px && r1.x <= 68px;
@@ -256,14 +256,14 @@ component TestAlignContentCenterCol inherits VisibleRect {
     out property <bool> test: test_r1 && test_r3;
 }
 
-    // Test 8: align-content: stretch (column, the default) — columns stretched to fill
-component TestAlignContentStretchCol inherits VisibleRect {
+    // Test 8: cross-axis-line-alignment: stretch (column, the default) — columns stretched to fill
+component TestLineAlignmentStretchCol inherits VisibleRect {
     width: 200px;
     height: 200px;
 
     FlexboxLayout {
         flex-direction: column;
-        align-content: stretch;
+        cross-axis-line-alignment: stretch;
         spacing: 5px;
 
         r1 := Rectangle {
@@ -285,19 +285,19 @@ component TestAlignContentStretchCol inherits VisibleRect {
         }
     }
 
-    // With align-content: stretch, columns are stretched to fill the 200px width.
+    // With cross-axis-line-alignment: stretch, columns are stretched to fill the 200px width.
     // Column 2 starts well to the right of column 1 since the remaining 135px is distributed.
     out property <bool> test: r1.x == 0px && r3.x > 35px;
 }
 
 // === Row direction: space-between/around/evenly tests ===
 
-// Test 9: align-content: space-between (row) — first line at top, last at bottom
-component TestAlignContentSpaceBetweenRow inherits VisibleRect {
+// Test 9: cross-axis-line-alignment: space-between (row) — first line at top, last at bottom
+component TestLineAlignmentSpaceBetweenRow inherits VisibleRect {
     width: 200px;
     height: 200px;
     FlexboxLayout {
-        align-content: space-between;
+        cross-axis-line-alignment: space-between;
 
         r1 := Rectangle {
             width: 80px;
@@ -322,12 +322,12 @@ component TestAlignContentSpaceBetweenRow inherits VisibleRect {
     out property <bool> test: r1.y == 0px && r2.y == 0px && r3.y == 170px;
 }
 
-// Test 10: align-content: space-around (row) — equal space around each line
-component TestAlignContentSpaceAroundRow inherits VisibleRect {
+// Test 10: cross-axis-line-alignment: space-around (row) — equal space around each line
+component TestLineAlignmentSpaceAroundRow inherits VisibleRect {
     width: 200px;
     height: 200px;
     FlexboxLayout {
-        align-content: space-around;
+        cross-axis-line-alignment: space-around;
 
         r1 := Rectangle {
             width: 80px;
@@ -351,12 +351,12 @@ component TestAlignContentSpaceAroundRow inherits VisibleRect {
     out property <bool> test: r1.y == 35px && r2.y == 35px && r3.y == 135px;
 }
 
-// Test 11: align-content: space-evenly (row) — equal gaps everywhere
-component TestAlignContentSpaceEvenlyRow inherits VisibleRect {
+// Test 11: cross-axis-line-alignment: space-evenly (row) — equal gaps everywhere
+component TestLineAlignmentSpaceEvenlyRow inherits VisibleRect {
     width: 200px;
     height: 200px;
     FlexboxLayout {
-        align-content: space-evenly;
+        cross-axis-line-alignment: space-evenly;
 
         r1 := Rectangle {
             width: 80px;
@@ -384,13 +384,13 @@ component TestAlignContentSpaceEvenlyRow inherits VisibleRect {
 
 // === Column direction: space-between/around/evenly tests ===
 
-// Test 12: align-content: space-between (column)
-component TestAlignContentSpaceBetweenCol inherits VisibleRect {
+// Test 12: cross-axis-line-alignment: space-between (column)
+component TestLineAlignmentSpaceBetweenCol inherits VisibleRect {
     width: 200px;
     height: 200px;
     FlexboxLayout {
         flex-direction: column;
-        align-content: space-between;
+        cross-axis-line-alignment: space-between;
 
         r1 := Rectangle {
             width: 30px;
@@ -415,13 +415,13 @@ component TestAlignContentSpaceBetweenCol inherits VisibleRect {
     out property <bool> test: r1.x == 0px && r2.x == 0px && r3.x == 170px;
 }
 
-// Test 13: align-content: space-around (column)
-component TestAlignContentSpaceAroundCol inherits VisibleRect {
+// Test 13: cross-axis-line-alignment: space-around (column)
+component TestLineAlignmentSpaceAroundCol inherits VisibleRect {
     width: 200px;
     height: 200px;
     FlexboxLayout {
         flex-direction: column;
-        align-content: space-around;
+        cross-axis-line-alignment: space-around;
 
         r1 := Rectangle {
             width: 30px;
@@ -445,13 +445,13 @@ component TestAlignContentSpaceAroundCol inherits VisibleRect {
     out property <bool> test: r1.x == 35px && r2.x == 35px && r3.x == 135px;
 }
 
-// Test 14: align-content: space-evenly (column)
-component TestAlignContentSpaceEvenlyCol inherits VisibleRect {
+// Test 14: cross-axis-line-alignment: space-evenly (column)
+component TestLineAlignmentSpaceEvenlyCol inherits VisibleRect {
     width: 200px;
     height: 200px;
     FlexboxLayout {
         flex-direction: column;
-        align-content: space-evenly;
+        cross-axis-line-alignment: space-evenly;
 
         r1 := Rectangle {
             width: 30px;
@@ -487,25 +487,25 @@ export component TestCase inherits Window {
         VerticalLayout {
             spacing: 10px;
             padding: 10px;
-            t1 := TestAlignContentStartRow { }
-            t2 := TestAlignContentEndRow { }
-            t3 := TestAlignContentCenterRow { }
-            t4 := TestAlignContentStretchRow { }
-            t9 := TestAlignContentSpaceBetweenRow { }
-            t10 := TestAlignContentSpaceAroundRow { }
-            t11 := TestAlignContentSpaceEvenlyRow { }
+            t1 := TestLineAlignmentStartRow { }
+            t2 := TestLineAlignmentEndRow { }
+            t3 := TestLineAlignmentCenterRow { }
+            t4 := TestLineAlignmentStretchRow { }
+            t9 := TestLineAlignmentSpaceBetweenRow { }
+            t10 := TestLineAlignmentSpaceAroundRow { }
+            t11 := TestLineAlignmentSpaceEvenlyRow { }
         }
 
         VerticalLayout {
             spacing: 10px;
             padding: 10px;
-            t5 := TestAlignContentStartCol { }
-            t6 := TestAlignContentEndCol { }
-            t7 := TestAlignContentCenterCol { }
-            t8 := TestAlignContentStretchCol { }
-            t12 := TestAlignContentSpaceBetweenCol { }
-            t13 := TestAlignContentSpaceAroundCol { }
-            t14 := TestAlignContentSpaceEvenlyCol { }
+            t5 := TestLineAlignmentStartCol { }
+            t6 := TestLineAlignmentEndCol { }
+            t7 := TestLineAlignmentCenterCol { }
+            t8 := TestLineAlignmentStretchCol { }
+            t12 := TestLineAlignmentSpaceBetweenCol { }
+            t13 := TestLineAlignmentSpaceAroundCol { }
+            t14 := TestLineAlignmentSpaceEvenlyCol { }
         }
     }
 
