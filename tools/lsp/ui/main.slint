@@ -7,7 +7,7 @@ import { Button, TabWidget, Palette, Switch, ScrollView} from "std-widgets.slint
 import { Api, ComponentItem, DiagnosticSummary, PreviewMode, RemoteConnectionState } from "api.slint";
 
 import { EditorUi } from "./editor.slint";
-import { EditorSizeSettings, EditorSpaceSettings, Icons, PickerStyles, ConsoleStyles } from "./components/styling.slint";
+import { EditorSizeSettings, EditorSpaceSettings, Icons, PickerStyles, ConsoleStyles, Brand } from "./components/styling.slint";
 import { StatusLine } from "./components/status-line.slint";
 import { HeaderView } from "./views/header-view.slint";
 import { LibraryView } from "./views/library-view.slint";
@@ -52,7 +52,16 @@ export component PreviewUi inherits Window {
     title: @tr("Slint Live-Preview");
     icon: @image-url("assets/slint-logo-small-light.png");
     always-on-top <=> Api.always-on-top;
+    // Brand the chrome with the dark slint.dev look, matching the editor.
+    // runs-in-slintpad is set by the host after construction, so force the
+    // scheme both on init and reactively when it flips true.
+    property <bool> is-slintpad: Api.runs-in-slintpad;
+    property <bool> brand-dark: is-slintpad && Palette.color-scheme == ColorScheme.dark;
+    background: brand-dark ? Brand.ink : Palette.background;
     init => {
+        if is-slintpad {
+            Palette.color-scheme = ColorScheme.dark;
+        }
         WindowGlobal.window-width = self.width;
         WindowGlobal.window-height = self.height;
         initial-floating-x = (self.width - PickerStyles.picker-width - 350px).max(0);
@@ -302,7 +311,7 @@ export component PreviewUi inherits Window {
                         right-panel-border := Rectangle {
                             x: 0px;
                             width: 2px;
-                            background: Palette.border;
+                            background: root.brand-dark ? Brand.line : Palette.border;
                         }
 
                         property <float> ratio1: 0.5;
@@ -336,7 +345,7 @@ export component PreviewUi inherits Window {
                             }
                             mouse-cursor: ns-resize;
                             Rectangle {
-                                background: Palette.border;
+                                background: root.brand-dark ? Brand.line : Palette.border;
                             }
                         }
 
@@ -360,7 +369,7 @@ export component PreviewUi inherits Window {
                             }
                             mouse-cursor: ns-resize;
                             Rectangle {
-                                background: Palette.border;
+                                background: root.brand-dark ? Brand.line : Palette.border;
                             }
                         }
 

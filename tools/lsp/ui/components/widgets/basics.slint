@@ -25,9 +25,11 @@ export component NameLabel inherits HorizontalLayout {
         height: root.property-name != "" ? self.preferred-height : 0;
         text: root.property-name;
         font-size: 1rem;
-        font-weight: root.property-value.code != "" ? FontWeight.normal : FontWeight.thin;
+        // Unset properties stay distinguishable (lighter weight + italic) but
+        // must remain readable on the dark panel, so keep the opacity high.
+        font-weight: root.property-value.code != "" ? FontWeight.normal : FontWeight.light;
         font-italic: root.property-value.code == "";
-        opacity: root.property-value.code != "" ? 1.0 : 0.5;
+        opacity: root.property-value.code != "" ? 1.0 : 0.75;
 
         overflow: elide;
     }
