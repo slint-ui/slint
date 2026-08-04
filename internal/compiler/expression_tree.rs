@@ -22,8 +22,9 @@ use std::sync::Arc;
 pub use crate::namedreference::NamedReference;
 pub use crate::passes::resolving;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-/// A function built into the run-time
+#[derive(Debug, Clone, PartialEq, Eq, strum::EnumString)]
+/// A function built into the run-time.
+/// Member functions in `builtins.slint` bind to a variant by naming it as their body.
 pub enum BuiltinFunction {
     GetWindowScaleFactor,
     GetWindowDefaultFontSize,
@@ -119,6 +120,7 @@ pub enum BuiltinFunction {
     ParseDate,
     TextInputFocused,
     SetTextInputFocused,
+    #[strum(disabled)]
     ImplicitLayoutInfo(Orientation),
     ItemAbsolutePosition,
     RegisterCustomFontByPath,

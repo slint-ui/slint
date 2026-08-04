@@ -11,7 +11,7 @@ use std::collections::HashMap;
 use std::rc::Rc;
 use std::sync::Arc;
 
-use crate::expression_tree::Expression;
+use crate::expression_tree::{BuiltinFunction, Expression};
 use crate::langtype::{
     BuiltinElement, BuiltinPropertyDefault, BuiltinPropertyInfo, BuiltinStruct, DefaultSizeBinding,
     ElementType, Function, NativeClass, Type,
@@ -37,6 +37,34 @@ pub(crate) fn load_builtins(
     }
 
     assert_eq!(node.kind(), crate::parser::SyntaxKind::Document);
+
+    // A mistyped annotation key would otherwise be silently ignored.
+    const ANNOTATION_KEYS: [&str; 10] = [
+        "accepts_focus",
+        "builtin_struct",
+        "can_be_declared_without_children_slot",
+        "constexpr",
+        "default_size_binding",
+        "disallow_global_types_as_child_elements",
+        "fake",
+        "is_internal",
+        "is_non_item_type",
+        "shadowable",
+    ];
+    if cfg!(debug_assertions) {
+        for token in node.node.descendants_with_tokens().filter_map(|t| t.into_token()) {
+            if token.kind() == SyntaxKind::Comment
+                && let Some(rest) = token.text().strip_prefix("//-")
+            {
+                let key = rest.trim_end().split(':').next().unwrap();
+                assert!(
+                    ANNOTATION_KEYS.contains(&key),
+                    "unknown annotation `//-{key}` in builtins.slint"
+                );
+            }
+        }
+    }
+
     let doc: syntax_nodes::Document = node.into();
 
     let mut natives = HashMap::<SmolStr, Rc<BuiltinElement>>::new();
@@ -97,8 +125,14 @@ pub(crate) fn load_builtins(
                         }
                     }
 
+                    if member_annotation(&p, "constexpr") {
+                        info.property_visibility = PropertyVisibility::Constexpr;
+                    } else if member_annotation(&p, "fake") {
+                        info.property_visibility = PropertyVisibility::Fake;
+                    }
+
                     info.set_docs(docs::doc_comment(&p));
-                    info.shadowable = has_shadowable_annotation(&p);
+                    info.shadowable = member_annotation(&p, "shadowable");
 
                     if let Some(e) = p.BindingExpression() {
                         assert!(!info.shadowable, "shadowable property {id}::{prop_name} can't have a default value as it would end up on the shadowing declaration");
@@ -130,7 +164,7 @@ pub(crate) fn load_builtins(
                             .collect()
                     })));
                     info.set_docs(docs::doc_comment(&s));
-                    info.shadowable = has_shadowable_annotation(&s);
+                    info.shadowable = member_annotation(&s, "shadowable");
                     (identifier_text(&s.DeclaredIdentifier()).unwrap(), info)
                 }))
         );
@@ -182,11 +216,34 @@ pub(crate) fn load_builtins(
                 args.push(object_tree::type_from_node(a.Type(), *diag.borrow_mut(), register));
                 arg_names.push(identifier_text(&a.DeclaredIdentifier()).unwrap_or_default());
             }
-            let mut info = BuiltinPropertyInfo::new(Type::Function(
-                Function { return_type, args, arg_names }.into(),
-            ));
+            let mut info = match builtin_function_body(&f, &id, &name) {
+                Some(function) => {
+                    // The BuiltinFunction type prepends implicit ElementReference arguments.
+                    let ty = function.ty();
+                    let implicit = ty.args.len().saturating_sub(args.len());
+                    debug_assert!(
+                        ty.args.len() >= args.len()
+                            && ty.args[..implicit]
+                                .iter()
+                                .all(|t| matches!(t, Type::ElementReference))
+                            && ty.args[implicit..] == args[..]
+                            && ty.return_type == return_type,
+                        "the declared signature of {id}::{name} doesn't match {function:?}: {ty:?}"
+                    );
+                    let mut merged = (*ty).clone();
+                    merged.arg_names = std::iter::repeat_n(SmolStr::default(), implicit)
+                        .chain(arg_names)
+                        .collect();
+                    let mut info = BuiltinPropertyInfo::from(function);
+                    info.ty = Type::Function(Arc::new(merged));
+                    info
+                }
+                None => BuiltinPropertyInfo::new(Type::Function(
+                    Function { return_type, args, arg_names }.into(),
+                )),
+            };
             info.set_docs(docs::doc_comment(&f));
-            info.shadowable = has_shadowable_annotation(&f);
+            info.shadowable = member_annotation(&f, "shadowable");
             (name, info)
         }));
 
@@ -299,16 +356,14 @@ fn compiled(
     e
 }
 
-/// Check for a `//-shadowable` annotation in the comments immediately before a
-/// member declaration. Marks members that a component may shadow with a local
-/// declaration of the same name.
-fn has_shadowable_annotation(node: &SyntaxNode) -> bool {
+/// Return true when the member declaration is preceded by a `//-key` comment.
+fn member_annotation(node: &SyntaxNode, key: &str) -> bool {
     let mut cursor = node.node.prev_sibling_or_token();
     while let Some(cur) = cursor {
         match cur.kind() {
             SyntaxKind::Whitespace => {}
             SyntaxKind::Comment => {
-                if cur.as_token().unwrap().text().trim_end() == "//-shadowable" {
+                if cur.as_token().unwrap().text().trim_end().strip_prefix("//-") == Some(key) {
                     return true;
                 }
             }
@@ -317,6 +372,30 @@ fn has_shadowable_annotation(node: &SyntaxNode) -> bool {
         cursor = cur.prev_sibling_or_token();
     }
     false
+}
+
+/// Return the [`BuiltinFunction`] named by a member function's body, like
+/// `function start() { BuiltinFunction.StartTimer }`. `None` for an empty body.
+fn builtin_function_body(
+    f: &syntax_nodes::Function,
+    id: &SmolStr,
+    name: &SmolStr,
+) -> Option<BuiltinFunction> {
+    let expr = f.CodeBlock()?.Expression().next()?;
+    let function = expr.QualifiedName().and_then(|qn| {
+        match QualifiedTypeName::from_node(qn).members.as_slice() {
+            [namespace, variant] if namespace == "BuiltinFunction" => {
+                variant.parse::<BuiltinFunction>().ok()
+            }
+            _ => None,
+        }
+    });
+    let Some(function) = function else {
+        panic!(
+            "the body of {id}::{name} must name the BuiltinFunction variant that implements it, like `BuiltinFunction.StartTimer`"
+        )
+    };
+    Some(function)
 }
 
 /// Find out if there are comments that starts with `//-key` and returns `None`
