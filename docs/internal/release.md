@@ -12,6 +12,10 @@ This document describes the Slint release process
 
 * Verify that the list of supported platforms in docs/astro/src/content/docs/guide/platforms/desktop.mdx matches what we * Publish the helper_crates, if needed
 
+* If a new crate was added since the last release, publish a dummy 0.0.0 version manually so
+  that the crate exists on crates.io, then configure trusted publishing
+  (see the comment in `scripts/publish.sh`)
+
 * Update version number in the documentation  (Only for major release)
   - Crate documentation have sample .toml files (api/rs/lib.rs, api/rs/build/lib.rs, api/rs/README)
       - `sed --follow-symlinks -i 's/^\(slint.*\) = ".*"$/\1 = "1.16.0"/' **/*.rs **/*.md`
@@ -76,11 +80,6 @@ In the mean time, the version in the master branch can be updated
  - **Trigger a build of binary artifacts** (docs, demos, etc.) on https://github.com/slint-ui/slint/actions/workflows/nightly_snapshot.yaml
     Select the right `pre-release/x.y` branch, and choose `release` for the mode.
     As a result artifacts will be built and made available for download, a new VS code extension be built and uploaded to the market places (open-vsx.org and microsoft), and the Android viewer uploaded to Google Play as a draft.
-
- - **Publish to crates.io** using the `./scripts/publish.sh`.
-    (This can be done in parallel to the nightly_snapshot build)
-    Before running the script, make sure that your working directory is clean and that you are checked out on the same commit as the one for which the nightly_snapshot.
-    - If new crates were uploaded to crates.io, go to the crates.io settings and send permission invitations
 
  - **Approve to Python Package Index Uploads:** The nightly snapshot workflow also kicks off the different uploads for the Python Package Index. When completed,
    the deployments from the following jobs will need to be approved (GitHub notifies about pending approvals):
