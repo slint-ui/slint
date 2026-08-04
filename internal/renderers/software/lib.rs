@@ -299,6 +299,31 @@ impl PhysicalRegion {
     }
 }
 
+fn to_physical_region(
+    dirty_region: &DirtyRegion,
+    factor: ScaleFactor,
+    rotation: RotationInfo,
+    size: PhysicalSize,
+) -> PhysicalRegion {
+    let screen_rect = PhysicalRect::from_size(size);
+    let mut physical_region = PhysicalRegion::default();
+    for dirty_box in dirty_region.iter() {
+        let Some(rect) =
+            (dirty_box.cast() * factor).to_rect().round_out().cast().intersection(&screen_rect)
+        else {
+            continue;
+        };
+        let physical_box = rect.transformed(rotation).to_box2d();
+        if physical_box.is_empty() {
+            continue;
+        }
+        debug_assert!(physical_region.count < PHYSICAL_REGION_MAX_SIZE);
+        physical_region.rectangles[physical_region.count] = physical_box;
+        physical_region.count += 1;
+    }
+    physical_region
+}
+
 #[test]
 fn region_iter() {
     let mut region = PhysicalRegion::default();
@@ -332,6 +357,24 @@ fn region_iter() {
     assert_eq!(iter.next(), Some(r(0, 10, 10, 5)));
     assert_eq!(iter.next(), Some(r(6, 15, 3, 7)));
     assert_eq!(iter.next(), None);
+}
+
+#[test]
+fn physical_region_count_excludes_clipped_rectangles() {
+    use i_slint_core::lengths::LogicalRect;
+
+    let factor = ScaleFactor::new(1.0);
+    let size = euclid::size2(64, 64);
+    let rotation = RotationInfo { orientation: RenderingRotation::NoRotation, screen_size: size };
+    let mut dirty_region = DirtyRegion::default();
+    dirty_region
+        .add_rect(LogicalRect::new(euclid::point2(100.0, 100.0), euclid::size2(10.0, 10.0)));
+    dirty_region.add_rect(LogicalRect::new(euclid::point2(3.0, 5.0), euclid::size2(7.0, 9.0)));
+
+    let physical = to_physical_region(&dirty_region, factor, rotation, size);
+    assert_eq!(physical.count, 1);
+    assert_eq!(physical.rectangles[0].min, euclid::point2(3, 5));
+    assert_eq!(physical.rectangles[0].max, euclid::point2(10, 14));
 }
 
 /// Computes what are the x ranges that intersects the region for specified y line.
@@ -645,21 +688,8 @@ impl SoftwareRenderer {
                 }
 
                 let rotation = RotationInfo { orientation: rotation, screen_size: size };
-                let screen_rect = PhysicalRect::from_size(size);
-                let mut i = renderer.dirty_region.iter().filter_map(|r| {
-                    (r.cast() * factor)
-                        .to_rect()
-                        .round_out()
-                        .cast()
-                        .intersection(&screen_rect)?
-                        .transformed(rotation)
-                        .into()
-                });
-                let dirty_region = PhysicalRegion {
-                    rectangles: core::array::from_fn(|_| i.next().unwrap_or_default().to_box2d()),
-                    count: renderer.dirty_region.iter().count(),
-                };
-                drop(i);
+                let dirty_region =
+                    to_physical_region(&renderer.dirty_region, factor, rotation, size);
 
                 renderer.actual_renderer.processor.dirty_region = dirty_region.clone();
                 if !renderer
@@ -1545,21 +1575,7 @@ fn prepare_scene(
 
         let rotation =
             RotationInfo { orientation: software_renderer.rotation.get(), screen_size: size };
-        let screen_rect = PhysicalRect::from_size(size);
-        let mut i = renderer.dirty_region.iter().filter_map(|r| {
-            (r.cast() * factor)
-                .to_rect()
-                .round_out()
-                .cast()
-                .intersection(&screen_rect)?
-                .transformed(rotation)
-                .into()
-        });
-        dirty_region = PhysicalRegion {
-            rectangles: core::array::from_fn(|_| i.next().unwrap_or_default().to_box2d()),
-            count: renderer.dirty_region.iter().count(),
-        };
-        drop(i);
+        dirty_region = to_physical_region(&renderer.dirty_region, factor, rotation, size);
 
         let partial = software_renderer.repaint_buffer_type.get() != RepaintBufferType::NewBuffer;
         for (component, origin) in components {
