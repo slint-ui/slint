@@ -2,6 +2,22 @@
 # Changelog
 All notable changes to this project are documented in this file.
 
+## [Unreleased]
+
+### General
+
+ - SoftwareRenderer: Fixed the dirty region bounding box including rectangles
+   that were entirely clipped out by the screen bounds.
+
+### Rust
+
+ - SoftwareRenderer: Added `set_dirty_region_alignment` to align dirty regions to a physical pixel grid,
+   for display controllers that require aligned address windows. (#12656)
+
+### C++
+
+ - SoftwareRenderer: Added `set_dirty_region_alignment`. (#12656)
+
 ## [1.17.1] - 2026-07-07
 
  - Fixed a panic/crash on startup when a global reads `Palette.color-scheme` (or accent-color) during its initialization.
