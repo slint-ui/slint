@@ -588,70 +588,12 @@ impl FemtoVGWGPURenderer {
 
 #[doc(hidden)]
 impl RendererSealed for FemtoVGWGPURenderer {
-    fn text_size(
+    // The text and font registration functions use their default implementations, which
+    // reach the inner renderer's state through this accessor and window_adapter().
+    fn text_layout_cache(
         &self,
-        text_item: Pin<&dyn i_slint_core::item_rendering::RenderString>,
-        item_rc: &i_slint_core::items::ItemRc,
-        max_width: Option<i_slint_core::lengths::LogicalLength>,
-        text_wrap: i_slint_core::items::TextWrap,
-    ) -> i_slint_core::lengths::LogicalSize {
-        self.0.text_size(text_item, item_rc, max_width, text_wrap)
-    }
-
-    fn text_content_widths(
-        &self,
-        text_item: Pin<&dyn i_slint_core::item_rendering::RenderString>,
-        item_rc: &i_slint_core::items::ItemRc,
-    ) -> Option<i_slint_core::renderer::ContentWidths> {
-        self.0.text_content_widths(text_item, item_rc)
-    }
-
-    fn char_size(
-        &self,
-        text_item: Pin<&dyn i_slint_core::item_rendering::HasFont>,
-        item_rc: &i_slint_core::items::ItemRc,
-        ch: char,
-    ) -> i_slint_core::lengths::LogicalSize {
-        self.0.char_size(text_item, item_rc, ch)
-    }
-
-    fn font_metrics(
-        &self,
-        font_request: i_slint_core::graphics::FontRequest,
-    ) -> i_slint_core::items::FontMetrics {
-        self.0.font_metrics(font_request)
-    }
-
-    fn text_input_byte_offset_for_position(
-        &self,
-        text_input: Pin<&i_slint_core::items::TextInput>,
-        item_rc: &i_slint_core::items::ItemRc,
-        pos: i_slint_core::lengths::LogicalPoint,
-    ) -> usize {
-        self.0.text_input_byte_offset_for_position(text_input, item_rc, pos)
-    }
-
-    fn text_input_cursor_rect_for_byte_offset(
-        &self,
-        text_input: Pin<&i_slint_core::items::TextInput>,
-        item_rc: &i_slint_core::items::ItemRc,
-        byte_offset: usize,
-    ) -> i_slint_core::lengths::LogicalRect {
-        self.0.text_input_cursor_rect_for_byte_offset(text_input, item_rc, byte_offset)
-    }
-
-    fn register_font_from_memory(
-        &self,
-        data: &'static [u8],
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        self.0.register_font_from_memory(data)
-    }
-
-    fn register_font_from_path(
-        &self,
-        path: &std::path::Path,
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        self.0.register_font_from_path(path)
+    ) -> Option<&i_slint_core::textlayout::sharedparley::TextLayoutCache> {
+        RendererSealed::text_layout_cache(&self.0)
     }
 
     fn set_rendering_notifier(
