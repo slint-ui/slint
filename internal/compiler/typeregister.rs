@@ -625,6 +625,9 @@ impl TypeRegister {
         register.elements.remove("ComponentContainer").unwrap();
         register.types.remove("component-factory").unwrap();
 
+        // Only used by the experimental `flex-align-self`, so don't freeze its name either.
+        register.types.remove("FlexboxLayoutAlignSelf").unwrap();
+
         Rc::new(RefCell::new(register))
     }
 
