@@ -40,8 +40,8 @@ use i_slint_core::graphics::rendering_metrics_collector::{RefreshMode, Rendering
 use i_slint_core::graphics::{BorderRadius, SharedImageBuffer, SharedPixelBuffer};
 use i_slint_core::item_rendering::HasFont;
 use i_slint_core::item_rendering::{
-    CachedRenderingData, ItemRenderer, PlainOrStyledText, RenderBorderRectangle, RenderImage,
-    RenderRectangle,
+    CachedRenderingData, ItemRenderer, ItemRendererFeatures, PlainOrStyledText,
+    RenderBorderRectangle, RenderImage, RenderRectangle,
 };
 use i_slint_core::item_tree::ItemTreeWeak;
 use i_slint_core::items::{ItemRc, TextOverflow, TextWrap};
@@ -49,7 +49,7 @@ use i_slint_core::lengths::{
     LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector,
     PhysicalPx, PointLengths, RectLengths, ScaleFactor, SizeLengths,
 };
-use i_slint_core::partial_renderer::{DirtyRegion, PartialRenderingState};
+use i_slint_core::partial_renderer::{DirtyRegion, PartialRenderer, PartialRenderingState};
 use i_slint_core::renderer::RendererSealed;
 use i_slint_core::textlayout::{AbstractFont, FontMetrics, TextParagraphLayout};
 use i_slint_core::window::{WindowAdapter, WindowInner};
@@ -304,6 +304,31 @@ impl PhysicalRegion {
     }
 }
 
+fn to_physical_region(
+    dirty_region: &DirtyRegion,
+    factor: ScaleFactor,
+    rotation: RotationInfo,
+    size: PhysicalSize,
+) -> PhysicalRegion {
+    let screen_rect = PhysicalRect::from_size(size);
+    let mut physical_region = PhysicalRegion::default();
+    for dirty_box in dirty_region.iter() {
+        let Some(rect) =
+            (dirty_box.cast() * factor).to_rect().round_out().cast().intersection(&screen_rect)
+        else {
+            continue;
+        };
+        let physical_box = rect.transformed(rotation).to_box2d();
+        if physical_box.is_empty() {
+            continue;
+        }
+        debug_assert!(physical_region.count < PHYSICAL_REGION_MAX_SIZE);
+        physical_region.rectangles[physical_region.count] = physical_box;
+        physical_region.count += 1;
+    }
+    physical_region
+}
+
 #[test]
 fn region_iter() {
     let mut region = PhysicalRegion::default();
@@ -337,6 +362,24 @@ fn region_iter() {
     assert_eq!(iter.next(), Some(r(0, 10, 10, 5)));
     assert_eq!(iter.next(), Some(r(6, 15, 3, 7)));
     assert_eq!(iter.next(), None);
+}
+
+#[test]
+fn physical_region_count_excludes_clipped_rectangles() {
+    use i_slint_core::lengths::LogicalRect;
+
+    let factor = ScaleFactor::new(1.0);
+    let size = euclid::size2(64, 64);
+    let rotation = RotationInfo { orientation: RenderingRotation::NoRotation, screen_size: size };
+    let mut dirty_region = DirtyRegion::default();
+    dirty_region
+        .add_rect(LogicalRect::new(euclid::point2(100.0, 100.0), euclid::size2(10.0, 10.0)));
+    dirty_region.add_rect(LogicalRect::new(euclid::point2(3.0, 5.0), euclid::size2(7.0, 9.0)));
+
+    let physical = to_physical_region(&dirty_region, factor, rotation, size);
+    assert_eq!(physical.count, 1);
+    assert_eq!(physical.rectangles[0].min, euclid::point2(3, 5));
+    assert_eq!(physical.rectangles[0].max, euclid::point2(10, 14));
 }
 
 /// Computes what are the x ranges that intersects the region for specified y line.
@@ -624,47 +667,13 @@ impl SoftwareRenderer {
             .draw_contents(|components, post_render| {
                 let logical_size = (size.cast() / factor).cast();
 
-                match self.repaint_buffer_type.get() {
-                    RepaintBufferType::NewBuffer => {
-                        renderer.dirty_region = LogicalRect::from_size(logical_size).into();
-                        self.partial_rendering_state.clear_cache();
-                    }
-                    RepaintBufferType::ReusedBuffer => {
-                        self.partial_rendering_state.apply_dirty_region(
-                            &mut renderer,
-                            components,
-                            logical_size,
-                            None,
-                        );
-                    }
-                    RepaintBufferType::SwappedBuffers => {
-                        let dirty_region_for_this_frame =
-                            self.partial_rendering_state.apply_dirty_region(
-                                &mut renderer,
-                                components,
-                                logical_size,
-                                Some(self.prev_frame_dirty.take()),
-                            );
-                        self.prev_frame_dirty.set(dirty_region_for_this_frame);
-                    }
-                }
-
-                let rotation = RotationInfo { orientation: rotation, screen_size: size };
-                let screen_rect = PhysicalRect::from_size(size);
-                let mut i = renderer.dirty_region.iter().filter_map(|r| {
-                    (r.cast() * factor)
-                        .to_rect()
-                        .round_out()
-                        .cast()
-                        .intersection(&screen_rect)?
-                        .transformed(rotation)
-                        .into()
-                });
-                let dirty_region = PhysicalRegion {
-                    rectangles: core::array::from_fn(|_| i.next().unwrap_or_default().to_box2d()),
-                    count: renderer.dirty_region.iter().count(),
-                };
-                drop(i);
+                let dirty_region = self.compute_frame_dirty_region(
+                    &mut renderer,
+                    components,
+                    logical_size,
+                    factor,
+                    size,
+                );
 
                 renderer.actual_renderer.processor.dirty_region = dirty_region.clone();
                 if !renderer
@@ -707,6 +716,49 @@ impl SoftwareRenderer {
                 dirty_region
             })
             .unwrap_or_default()
+    }
+
+    /// Computes the dirty region for this frame according to the repaint buffer type, and
+    /// converts it to the physical region to return to the caller.
+    ///
+    /// This runs before the items are drawn, so `renderer`'s dirty region is what the partial
+    /// renderer culls against.
+    fn compute_frame_dirty_region<T: ItemRenderer + ItemRendererFeatures>(
+        &self,
+        renderer: &mut PartialRenderer<'_, T>,
+        components: &[(ItemTreeWeak, LogicalPoint)],
+        logical_size: LogicalSize,
+        factor: ScaleFactor,
+        size: PhysicalSize,
+    ) -> PhysicalRegion {
+        match self.repaint_buffer_type.get() {
+            RepaintBufferType::NewBuffer => {
+                // NewBuffer always redraws the full screen, so skip dirty region
+                // tracking to avoid unbounded growth of the partial rendering cache.
+                renderer.dirty_region = LogicalRect::from_size(logical_size).into();
+                self.partial_rendering_state.clear_cache();
+            }
+            RepaintBufferType::ReusedBuffer => {
+                self.partial_rendering_state.apply_dirty_region(
+                    renderer,
+                    components,
+                    logical_size,
+                    None,
+                );
+            }
+            RepaintBufferType::SwappedBuffers => {
+                let dirty_region_for_this_frame = self.partial_rendering_state.apply_dirty_region(
+                    renderer,
+                    components,
+                    logical_size,
+                    Some(self.prev_frame_dirty.take()),
+                );
+                self.prev_frame_dirty.set(dirty_region_for_this_frame);
+            }
+        }
+
+        let rotation = RotationInfo { orientation: self.rotation.get(), screen_size: size };
+        to_physical_region(&renderer.dirty_region, factor, rotation, size)
     }
 
     fn measure_frame_rendered(&self, renderer: &mut dyn ItemRenderer) {
@@ -1489,50 +1541,13 @@ fn prepare_scene(
     window.draw_contents(|components, post_render| {
         let logical_size = (size.cast() / factor).cast();
 
-        match software_renderer.repaint_buffer_type.get() {
-            RepaintBufferType::NewBuffer => {
-                // NewBuffer always redraws the full screen, so skip dirty region
-                // tracking to avoid unbounded growth of the partial rendering cache.
-                renderer.dirty_region = LogicalRect::from_size(logical_size).into();
-                software_renderer.partial_rendering_state.clear_cache();
-            }
-            RepaintBufferType::ReusedBuffer => {
-                software_renderer.partial_rendering_state.apply_dirty_region(
-                    &mut renderer,
-                    components,
-                    logical_size,
-                    None,
-                );
-            }
-            RepaintBufferType::SwappedBuffers => {
-                let dirty_region_for_this_frame =
-                    software_renderer.partial_rendering_state.apply_dirty_region(
-                        &mut renderer,
-                        components,
-                        logical_size,
-                        Some(software_renderer.prev_frame_dirty.take()),
-                    );
-                software_renderer.prev_frame_dirty.set(dirty_region_for_this_frame);
-            }
-        }
-
-        let rotation =
-            RotationInfo { orientation: software_renderer.rotation.get(), screen_size: size };
-        let screen_rect = PhysicalRect::from_size(size);
-        let mut i = renderer.dirty_region.iter().filter_map(|r| {
-            (r.cast() * factor)
-                .to_rect()
-                .round_out()
-                .cast()
-                .intersection(&screen_rect)?
-                .transformed(rotation)
-                .into()
-        });
-        dirty_region = PhysicalRegion {
-            rectangles: core::array::from_fn(|_| i.next().unwrap_or_default().to_box2d()),
-            count: renderer.dirty_region.iter().count(),
-        };
-        drop(i);
+        dirty_region = software_renderer.compute_frame_dirty_region(
+            &mut renderer,
+            components,
+            logical_size,
+            factor,
+            size,
+        );
 
         let partial = software_renderer.repaint_buffer_type.get() != RepaintBufferType::NewBuffer;
         for (component, origin) in components {
