@@ -271,6 +271,10 @@ export default defineConfig({
                                                   label: "Deprecated Properties",
                                                   slug: "guide/experimental/deprecated",
                                               },
+                                              {
+                                                  label: "Flexbox Item Properties",
+                                                  slug: "guide/experimental/flexbox-item-properties",
+                                              },
                                           ],
                                       },
                                   ]

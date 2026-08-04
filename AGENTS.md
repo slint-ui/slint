@@ -147,7 +147,7 @@ Slint's `.slint` language intentionally stays close to CSS syntax for visual pro
 Examples already in place:
 - **Color literals** follow CSS syntax (`#rrggbb`, `#rgb`, named colors, `rgb()`, `rgba()`, `hsl()`, `hsla()`).
 - **Gradient syntax** mirrors CSS: `@linear-gradient(angle, color stop, ...)`, `@radial-gradient(...)`.
-- **FlexboxLayout** implements the CSS flexbox model (via the `taffy` crate); property names map closely to their CSS counterparts.
+- **FlexboxLayout** implements the CSS flexbox model (via the `taffy` crate). Its property names follow CSS only where that doesn't clash with Slint's own naming: `gap` is `spacing`, `justify-content` is `alignment`, `align-content` is `cross-axis-line-alignment`.
 - **Filter/shadow properties** (`drop-shadow`, `box-shadow`, `blur`) follow CSS conventions.
 
 When this principle applies: any time you design syntax for a new visual or layout property, check how CSS spells it first. Deviate only when Slint's type system or consistency with existing Slint naming requires it, and document the divergence.

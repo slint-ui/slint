@@ -540,6 +540,7 @@ fn is_reserved_prop_valid(
     prop: &str,
     element_type: &ElementType,
     parent_element_type: Option<&ElementType>,
+    enable_experimental: bool,
 ) -> bool {
     let name_of = |t: &ElementType| -> Option<SmolStr> {
         match t {
@@ -559,7 +560,8 @@ fn is_reserved_prop_valid(
     if prop == "flex-align-self"
         || name_in(i_slint_compiler::typeregister::RESERVED_FLEXBOXLAYOUT_PROPERTIES)
     {
-        return parent_name == Some("FlexboxLayout");
+        // Not stable API yet, the compiler only accepts them as an experimental feature.
+        return enable_experimental && parent_name == Some("FlexboxLayout");
     }
     if name_in(i_slint_compiler::typeregister::RESERVED_DROP_SHADOW_PROPERTIES) {
         return name_of(element_type).as_deref() == Some("Rectangle");
@@ -582,6 +584,7 @@ fn properties_for_changed_callbacks(
         }
         node = node.parent()?;
     };
+    let enable_experimental = document_cache.compiler_configuration().enable_experimental;
     let global_tr = document_cache.global_type_registry();
     let tr = element
         .source_file()
@@ -612,7 +615,12 @@ fn properties_for_changed_callbacks(
             if !ty.is_property_type() {
                 return None;
             }
-            if !is_reserved_prop_valid(k, &element_type, parent_element_type.as_ref()) {
+            if !is_reserved_prop_valid(
+                k,
+                &element_type,
+                parent_element_type.as_ref(),
+                enable_experimental,
+            ) {
                 return None;
             }
             let mut c = CompletionItem::new_simple(k.into(), ty.to_string());
@@ -644,6 +652,7 @@ fn resolve_element_scope(
             }
         };
 
+    let enable_experimental = document_cache.compiler_configuration().enable_experimental;
     let global_tr = document_cache.global_type_registry();
     let tr = element
         .source_file()
@@ -750,7 +759,12 @@ fn resolve_element_scope(
                     if matches!(ty, Type::Function { .. }) {
                         return None;
                     }
-                    if !is_reserved_prop_valid(k, &element_type, parent_element_type.as_ref()) {
+                    if !is_reserved_prop_valid(
+                        k,
+                        &element_type,
+                        parent_element_type.as_ref(),
+                        enable_experimental,
+                    ) {
                         return None;
                     }
                     let c = CompletionItem::new_simple(k.into(), ty.to_string());
@@ -2910,6 +2924,35 @@ component Foo {
         // Nothing typed after `implement` at all, cut off at EOF.
         let results = get_completions_experimental("component Foo { implement 🔺").unwrap();
         assert!(results.iter().any(|completion| completion.label == "property"));
+    }
+
+    #[test]
+    fn flex_item_properties_require_experimental() {
+        let source = r#"
+export component Foo {
+    FlexboxLayout {
+        Rectangle {
+            🔺
+        }
+    }
+}
+"#;
+        let results = get_completions_experimental(source).unwrap();
+        // flex-align-self is registered separately from the other four, so check each one.
+        for prop in
+            ["flex-grow", "flex-shrink", "flex-basis", "flex-align-self", "flex-order"].iter()
+        {
+            assert!(
+                results.iter().any(|completion| completion.label == *prop),
+                "no '{prop}' completion with experimental features"
+            );
+        }
+
+        let results = get_completions(source).unwrap();
+        assert!(
+            !results.iter().any(|completion| completion.label.starts_with("flex-")),
+            "flex-* completions offered without experimental features"
+        );
     }
 
     #[test]

@@ -2161,41 +2161,6 @@ export component HorizontalLayout {
 /// In row direction, items are placed from left to right. When the available width is exceeded, items automatically wrap to the next row. In column direction, items are placed from top to bottom and wrap to the next column when the available height is exceeded.
 ///
 /// \footer
-/// ## Per-Item Properties
-///
-/// The following properties can be set on individual children of a `FlexboxLayout`:
-///
-/// ### flex-grow
-/// <SlintProperty propName="flex-grow" typeName="float">
-/// Controls how much an item grows relative to other flex items when there is extra space along the main axis.
-/// A value of `0` (default) means the item does not grow. Items with higher values receive proportionally more extra space.
-/// </SlintProperty>
-///
-/// ### flex-shrink
-/// <SlintProperty propName="flex-shrink" typeName="float">
-/// Controls how much an item shrinks relative to other flex items when items overflow the container along the main axis.
-/// Default is `1` (matching CSS behavior). A value of `0` means the item does not shrink. Items with higher values shrink proportionally more.
-/// </SlintProperty>
-///
-/// ### flex-basis
-/// <SlintProperty propName="flex-basis" typeName="length">
-/// Sets the initial main size of a flex item before growing or shrinking is applied.
-/// If not set, the item's `preferred-width` (row) or `preferred-height` (column) is used.
-/// </SlintProperty>
-///
-/// ### flex-align-self
-/// <SlintProperty propName="flex-align-self" typeName="enum" enumName="FlexboxLayoutAlignSelf">
-/// Overrides the container's `cross-axis-alignment` for this specific item.
-/// The default value is `auto`, which inherits the container's `cross-axis-alignment` setting.
-/// </SlintProperty>
-///
-/// ### flex-order
-/// <SlintProperty propName="flex-order" typeName="int">
-/// Controls the visual order of flex items. Items with lower values appear first.
-/// Items with the same order value preserve their declaration order.
-/// The default value is `0`.
-/// </SlintProperty>
-///
 /// ## Layout Behavior
 ///
 /// The layouting algorithm for FlexboxLayout is entirely implemented by <a href="https://github.com/DioxusLabs/taffy">taffy</a>
