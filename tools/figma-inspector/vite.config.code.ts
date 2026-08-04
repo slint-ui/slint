@@ -8,14 +8,16 @@ import { figmaCodePlugin } from "vite-figma-plugin";
 export default defineConfig({
     plugins: [figmaCodePlugin()],
     build: {
+        // cannot use oxc for minification as it is still buggy.
+        minify: "esbuild",
         emptyOutDir: false,
         outDir: ".tmp",
         target: "chrome58",
         rollupOptions: {
+            input: "./backend/code.ts",
             output: {
                 entryFileNames: "code.js",
             },
-            input: "./backend/code.ts",
         },
     },
 });

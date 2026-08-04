@@ -6,6 +6,10 @@
 import { listenTS, dispatchTS } from "./utils/code-utils.js";
 import { generateSlintSnippet } from "./utils/property-parsing.js";
 import { exportFigmaVariablesToSeparateFiles } from "./utils/export-variables.js";
+import {
+    saveVariableCollectionsToFile,
+    createSlintExport,
+} from "./utils/experimental-export.js";
 
 if (figma.editorType === "dev" && figma.mode === "codegen") {
     figma.codegen.on("generate", async ({ node }: { node: SceneNode }) => {
@@ -96,8 +100,8 @@ listenTS("exportToFiles", async (message) => {
         );
 
         // Send to UI for downloading
-        figma.ui.postMessage({
-            type: "exportedFiles",
+        dispatchTS("exportedFiles", {
+            zipFilename: "figma-variables",
             files: files,
         });
 
@@ -231,3 +235,29 @@ async function checkVariableChanges(isInitialRun = false) {
         });
     }
 }
+
+listenTS("getTestData", async () => {
+    try {
+        const testData = await saveVariableCollectionsToFile();
+
+        dispatchTS("saveTextFile", {
+            filename: "figma-test-data.json",
+            content: testData,
+        });
+
+        figma.notify("Test data ready for download!");
+    } catch (error) {
+        console.error("Error getting test data:", error);
+        figma.notify("Failed to get test data", { error: true });
+    }
+});
+
+listenTS("createSlintExport", async () => {
+    try {
+        await createSlintExport();
+        figma.notify("Slint export ready!");
+    } catch (error) {
+        console.error("Error creating Slint export:", error);
+        figma.notify("Failed to create Slint export", { error: true });
+    }
+});
