@@ -2,6 +2,13 @@
 # Changelog
 All notable changes to this project are documented in this file.
 
+## [1.18.0] - Unreleased
+
+### Slint language
+
+ - Added the `FlexboxLayout` element, which arranges its children in rows or columns and wraps them
+   to the next line when they don't fit.
+
 ## [1.17.1] - 2026-07-07
 
  - Fixed a panic/crash on startup when a global reads `Palette.color-scheme` (or accent-color) during its initialization.
