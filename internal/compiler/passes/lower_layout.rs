@@ -498,7 +498,7 @@ fn lower_element_layout(
         None
     };
 
-    check_no_layout_properties(elem, &layout_type, parent_layout_type, diag);
+    check_no_layout_properties(elem, &layout_type, parent_layout_type, type_register, diag);
 
     match layout_type.as_ref()?.as_str() {
         "Row" => return layout_type,
@@ -2526,11 +2526,12 @@ fn recognized_layout_types() -> &'static [&'static str] {
     &["Row", "GridLayout", "HorizontalLayout", "VerticalLayout", "FlexboxLayout", "Dialog"]
 }
 
-/// Checks that there are no grid-layout specific properties used wrongly
+/// Checks that there are no layout specific properties used wrongly
 fn check_no_layout_properties(
     item: &ElementRc,
     layout_type: &Option<SmolStr>,
     parent_layout_type: &Option<SmolStr>,
+    type_register: &TypeRegister,
     diag: &mut BuildDiagnostics,
 ) {
     let elem = item.borrow();
@@ -2540,13 +2541,17 @@ fn check_no_layout_properties(
         {
             diag.push_error(format!("{prop} used outside of a GridLayout's cell"), &*expr.borrow());
         }
-        if parent_layout_type.as_deref() != Some("FlexboxLayout")
-            && matches!(
-                prop.as_ref(),
-                "flex-grow" | "flex-shrink" | "flex-basis" | "flex-align-self" | "flex-order"
-            )
-        {
-            diag.push_error(format!("{prop} used outside of a FlexboxLayout"), &*expr.borrow());
+        if matches!(
+            prop.as_ref(),
+            "flex-grow" | "flex-shrink" | "flex-basis" | "flex-align-self" | "flex-order"
+        ) {
+            if parent_layout_type.as_deref() != Some("FlexboxLayout") {
+                diag.push_error(format!("{prop} used outside of a FlexboxLayout"), &*expr.borrow());
+            } else {
+                // These are not stable API yet: whether they should rather be expressed with
+                // the properties the other layouts already use is still being discussed.
+                crate::reject_experimental_feature(diag, type_register, prop, &*expr.borrow());
+            }
         }
         if parent_layout_type.as_deref() != Some("Dialog")
             && matches!(prop.as_ref(), "dialog-button-role")
