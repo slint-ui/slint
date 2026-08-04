@@ -5531,6 +5531,28 @@ fn compile_builtin_function_call(
             let color = a.next().unwrap();
             format!("slint::private_api::color_to_styled_text({})", color)
         }
+        BuiltinFunction::PathPointAt => {
+            if let [llr::Expression::PropertyReference(pr), t] = arguments {
+                let item_rc = access_item_rc(pr, ctx);
+                let t = compile_expression(t, ctx);
+                format!(
+                    "slint::LogicalPosition(slint::cbindgen_private::slint_path_point_at(&{item_rc}, static_cast<float>({t})))"
+                )
+            } else {
+                panic!("internal error: invalid args to PathPointAt {arguments:?}")
+            }
+        }
+        BuiltinFunction::PathAngleAt => {
+            if let [llr::Expression::PropertyReference(pr), t] = arguments {
+                let item_rc = access_item_rc(pr, ctx);
+                let t = compile_expression(t, ctx);
+                format!(
+                    "slint::cbindgen_private::slint_path_angle_at(&{item_rc}, static_cast<float>({t}))"
+                )
+            } else {
+                panic!("internal error: invalid args to PathAngleAt {arguments:?}")
+            }
+        }
     }
 }
 
