@@ -139,17 +139,50 @@ jobs:
 
           Write-Host "Packaging version $($manifest.Package.Identity.Version)"
 
+      - name: Render the tile images
+        shell: pwsh
+        run: |
+          $backdrops = "tools/lsp/packaging/windows-appx"
+          $tiles = Join-Path $env:RUNNER_TEMP "tiles"
+          New-Item -ItemType Directory -Force $tiles | Out-Null
+
+          # Render the logo far larger than any tile and trim it to its ink, so
+          # that it can be scaled to a share of the tile rather than of the
+          # padding its own viewBox happens to carry.
+          $logo = Join-Path $env:RUNNER_TEMP "logo.png"
+          magick -background none -density 1152 logo/slint-logo-small-dark.svg -trim +repage $logo
+          if ($LASTEXITCODE -ne 0) { throw "rendering the logo failed" }
+
+          function Render($backdrop, $width, $height, $name) {
+            $out = Join-Path $tiles $name
+            $mark = Join-Path $env:RUNNER_TEMP "mark.png"
+            # The logo covers two thirds of the height of every tile, wide ones
+            # included, and sits in the middle.
+            magick $logo -resize "x$([int]($height * 0.67))" $mark
+            if ($LASTEXITCODE -ne 0) { throw "scaling the logo failed" }
+            magick -background none $backdrop -resize "${width}x${height}" `
+              $mark -gravity center -composite $out
+            if ($LASTEXITCODE -ne 0) { throw "compositing $name failed" }
+          }
+
+          foreach ($size in 44, 71, 150, 310) {
+            Render "$backdrops/tile-backdrop.svg" $size $size "SlintVisualEditor-Logo-${size}x${size}.png"
+          }
+          Render "$backdrops/tile-backdrop.svg" 512 512 "SlintVisualEditor-Logo.png"
+          Render "$backdrops/tile-backdrop-wide.svg" 310 150 "SlintVisualEditor-Logo-310x150.png"
+
+          Get-ChildItem $tiles | ForEach-Object { "  {0,-40} {1,7} bytes" -f $_.Name, $_.Length }
+
       - name: Assemble package layouts
         shell: pwsh
         run: |
+          $tiles = Join-Path $env:RUNNER_TEMP "tiles"
           foreach ($arch in "x64", "arm64") {
             $dist = "tools/lsp/dist/$arch"
             New-Item -ItemType Directory -Force "$dist/Assets" | Out-Null
             # Every asset the manifest references has to end up inside the
             # package layout, otherwise only `winapp pack` can resolve it.
-            Copy-Item `
-              $(ls tools/lsp/packaging/windows-appx/SlintVisualEditor-Logo*.png | % {$_.FullName}) `
-              "$dist/Assets/"
+            Copy-Item "$tiles/*.png" "$dist/Assets/"
             Copy-Item "exe/slint-visual-editor-$arch/slint-visual-editor.exe" "$dist/slint-visual-editor.exe"
           }
 
