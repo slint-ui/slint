@@ -7,6 +7,7 @@ use std::pin::Pin;
 
 use super::{PhysicalBorderRadius, PhysicalLength, PhysicalPoint, PhysicalRect, PhysicalSize};
 use i_slint_core::graphics::ApproxEq;
+use i_slint_core::graphics::ResolvedBrush;
 use i_slint_core::graphics::adjust_rect_and_border_for_inner_drawing;
 use i_slint_core::graphics::boxshadowcache::BoxShadowCache;
 use i_slint_core::graphics::euclid::num::Zero;
@@ -221,7 +222,7 @@ impl<'a> SkiaItemRenderer<'a> {
             brush,
             width,
             height,
-            self.scale_factor.get(),
+            self.scale_factor,
         )?;
         paint.set_shader(Some(shader));
 
@@ -233,92 +234,74 @@ impl<'a> SkiaItemRenderer<'a> {
         brush: Brush,
         width: PhysicalLength,
         height: PhysicalLength,
-        scale_factor: f32,
+        scale_factor: ScaleFactor,
     ) -> Option<(skia_safe::Paint, skia_safe::Shader)> {
-        if brush.is_transparent() {
-            return None;
+        let resolved = i_slint_core::graphics::resolve_brush(
+            &brush,
+            euclid::Size2D::from_lengths(width, height),
+            scale_factor,
+        )?;
+
+        fn gradient<'g>(
+            colors: &'g [skia_safe::Color4f],
+            pos: &'g [f32],
+            in_premul: skia_safe::gradient::interpolation::InPremul,
+        ) -> skia_safe::gradient::Gradient<'g> {
+            skia_safe::gradient::Gradient::new(
+                crate::gradient_colors(colors, pos),
+                skia_safe::gradient::Interpolation {
+                    in_premul,
+                    color_space: skia_safe::gradient::interpolation::ColorSpace::SRGB,
+                    ..Default::default()
+                },
+            )
         }
 
-        match brush {
-            Brush::SolidColor(color) => Some(crate::color_shader(&color)),
+        match resolved {
+            ResolvedBrush::SolidColor(color) => Some(crate::color_shader(&color)),
 
-            Brush::LinearGradient(g) => {
-                let (start, end) = i_slint_core::graphics::line_for_angle(
-                    g.angle(),
-                    [width.get(), height.get()].into(),
-                );
-                let (colors, pos): (Vec<skia_safe::Color4f>, Vec<_>) =
-                    g.stops().map(|s| (to_skia_color4f(&s.color), s.position)).unzip();
+            ResolvedBrush::LinearGradient(g) => {
+                let (colors, pos) = to_skia_stops(&g.stops);
 
                 paint.set_dither(true);
 
-                let gradient_colors = crate::gradient_colors(&colors, &pos);
-                let gradient = skia_safe::gradient::Gradient::new(
-                    gradient_colors,
-                    skia_safe::gradient::Interpolation {
-                        in_premul: skia_safe::gradient::interpolation::InPremul::Yes,
-                        color_space: skia_safe::gradient::interpolation::ColorSpace::SRGB,
-                        ..Default::default()
-                    },
-                );
                 skia_safe::gradient::shaders::linear_gradient(
-                    (skia_safe::Point::new(start.x, start.y), skia_safe::Point::new(end.x, end.y)),
-                    &gradient,
+                    (
+                        skia_safe::Point::new(g.start.x, g.start.y),
+                        skia_safe::Point::new(g.end.x, g.end.y),
+                    ),
+                    &gradient(&colors, &pos, skia_safe::gradient::interpolation::InPremul::Yes),
                     None,
                 )
             }
-            Brush::RadialGradient(g) => {
-                let (colors, pos): (Vec<skia_safe::Color4f>, Vec<_>) =
-                    g.stops().map(|s| (to_skia_color4f(&s.color), s.position)).unzip();
-                let (cx, cy) = g.center_or_default_scaled(width.get(), height.get(), scale_factor);
-                let circle_scale =
-                    g.radius_or_default_scaled(width.get(), height.get(), scale_factor);
+            ResolvedBrush::RadialGradient(g) => {
+                let (colors, pos) = to_skia_stops(&g.stops);
 
                 paint.set_dither(true);
 
-                let gradient_colors = crate::gradient_colors(&colors, &pos);
-                let gradient = skia_safe::gradient::Gradient::new(
-                    gradient_colors,
-                    skia_safe::gradient::Interpolation {
-                        in_premul: skia_safe::gradient::interpolation::InPremul::Yes,
-                        color_space: skia_safe::gradient::interpolation::ColorSpace::SRGB,
-                        ..Default::default()
-                    },
-                );
-                let mut local_matrix = skia_safe::Matrix::scale((circle_scale, circle_scale));
-                local_matrix.post_translate((cx, cy));
+                let mut local_matrix = skia_safe::Matrix::scale((g.radius.get(), g.radius.get()));
+                local_matrix.post_translate((g.center.x, g.center.y));
                 skia_safe::gradient::shaders::radial_gradient(
                     (skia_safe::Point::new(0., 0.), 1.),
-                    &gradient,
+                    &gradient(&colors, &pos, skia_safe::gradient::interpolation::InPremul::Yes),
                     &local_matrix,
                 )
             }
-            Brush::ConicGradient(g) => {
-                let (colors, pos): (Vec<skia_safe::Color4f>, Vec<_>) =
-                    g.stops().map(|s| (to_skia_color4f(&s.color), s.position)).unzip();
-                let (cx, cy) = g.center_or_default_scaled(width.get(), height.get(), scale_factor);
+            ResolvedBrush::ConicGradient(g) => {
+                let (colors, pos) = to_skia_stops(&g.stops);
 
                 paint.set_dither(true);
 
                 // Skia's sweep gradient uses 0 degrees at 3 o'clock (east)
                 // We want 0 degrees at 12 o'clock (north), so we need to rotate by -90 degrees
-                let center = skia_safe::Point::new(cx, cy);
-                let gradient_colors = crate::gradient_colors(&colors, &pos);
-                let gradient = skia_safe::gradient::Gradient::new(
-                    gradient_colors,
-                    skia_safe::gradient::Interpolation {
-                        color_space: skia_safe::gradient::interpolation::ColorSpace::SRGB,
-                        ..Default::default()
-                    },
-                );
+                let center = skia_safe::Point::new(g.center.x, g.center.y);
                 skia_safe::gradient::shaders::sweep_gradient(
                     center,
                     (0.0, 360.0),
-                    &gradient,
+                    &gradient(&colors, &pos, skia_safe::gradient::interpolation::InPremul::No),
                     &skia_safe::Matrix::rotate_deg_pivot(-90.0, center),
                 )
             }
-            _ => None,
         }
         .map(|shader| (paint, shader))
     }
@@ -339,7 +322,7 @@ impl<'a> SkiaItemRenderer<'a> {
             colorize_brush,
             PhysicalLength::new(image.width() as f32),
             PhysicalLength::new(image.height() as f32),
-            self.scale_factor.get(),
+            self.scale_factor,
         )
         .map(|(mut paint, colorize_shader)| {
             let mut surface = self.canvas.new_surface(&image_info, None)?;
@@ -773,7 +756,7 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
                 path.fill(),
                 PhysicalLength::new(viewbox_width),
                 PhysicalLength::new(viewbox_height),
-                1.0,
+                ScaleFactor::new(1.0),
             ) {
                 // Apply the viewbox transformation to the shader
                 let transform = skia_safe::Matrix::scale((scale_x, scale_y));
@@ -1255,6 +1238,12 @@ pub fn to_skia_size(size: &PhysicalSize) -> skia_safe::Size {
 }
 
 /// The result is gamma encoded sRGB, like the `slint::Color` it comes from.
+fn to_skia_stops(
+    stops: &[i_slint_core::graphics::GradientStop],
+) -> (Vec<skia_safe::Color4f>, Vec<f32>) {
+    stops.iter().map(|s| (to_skia_color4f(&s.color), s.position)).unzip()
+}
+
 pub fn to_skia_color(col: &Color) -> skia_safe::Color {
     skia_safe::Color::from_argb(col.alpha(), col.red(), col.green(), col.blue())
 }
