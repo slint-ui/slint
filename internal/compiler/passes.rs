@@ -359,6 +359,10 @@ pub async fn run_passes(
                 diag,
             );
         }
+        #[cfg(feature = "renderer-software")]
+        crate::EmbedResourcesKind::EmbedTexturesOnly => {
+            // Don't do anything, we will get fonts from outside
+        }
         _ => {
             // Create font registration calls for custom fonts, unless we're embedding pre-rendered glyphs
             collect_custom_fonts::collect_custom_fonts(
