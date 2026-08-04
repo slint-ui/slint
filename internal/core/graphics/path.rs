@@ -300,12 +300,12 @@ pub struct FittedPath {
 }
 
 impl FittedPath {
-    /// Samples the fitted path at a given percent. Returns None if the path length is 0
-    pub fn sample_at(&self, percent: f32) -> Option<(Point2D<f32, LogicalPx>, f32)> {
+    /// Samples the fitted path at a given `t`. Returns None if the path length is 0
+    pub fn sample_at(&self, t: f32) -> Option<(Point2D<f32, LogicalPx>, f32)> {
         use lyon_algorithms::measure::SampleType;
 
-        let mut rem = percent.rem_euclid(1.);
-        if rem == 0.0 && percent != 0.0 {
+        let mut rem = t.rem_euclid(1.);
+        if rem == 0.0 && t != 0.0 {
             // This makes the path end at the end and not the start
             rem = 1.0;
         }
