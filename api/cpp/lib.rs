@@ -130,6 +130,11 @@ pub unsafe extern "C" fn slint_post_event(
     unsafe impl Send for UserData {}
     let ud = UserData { user_data, drop_user_data };
 
+    // Install the default platform if none is set yet, so that posting events works even
+    // before the event loop runs. From a non-main thread this errors and the platform
+    // installed by another thread provides the event loop proxy below.
+    let _ = with_platform(|_| Ok(()));
+
     i_slint_core::api::invoke_from_event_loop(move || {
         let ud = &ud;
         event(ud.user_data);
