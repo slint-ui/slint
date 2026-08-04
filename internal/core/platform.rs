@@ -10,6 +10,7 @@ The backend is the abstraction for crates that need to do the actual drawing and
 use crate::SharedString;
 pub use crate::api::PlatformError;
 use crate::api::{LogicalPosition, LogicalSize};
+use crate::input::KeyEvent;
 pub use crate::renderer::Renderer;
 #[cfg(all(not(feature = "std"), feature = "unsafe-single-threaded"))]
 use crate::unsafe_single_threaded::OnceCell;
@@ -356,6 +357,8 @@ pub enum WindowEvent {
     ///
     /// Always reported as [`Accepted`](crate::api::WindowEventDispatchResult::Accepted).
     PointerExited,
+    /// A key was pressed or released.
+    Key(WindowKeyEvent),
     /// A key was pressed.
     KeyPressed {
         /// The unicode representation of the key pressed.
@@ -419,6 +422,39 @@ pub enum WindowEvent {
     /// The backend should dispatch this event with true when the window gains focus
     /// and false when the window loses focus.
     WindowActiveChanged(bool),
+}
+
+/// The kind of key event delivered through [`WindowEvent::Key`].
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[repr(u8)]
+#[non_exhaustive]
+pub enum WindowKeyEventType {
+    /// A key was pressed.
+    Pressed,
+    /// A key was released.
+    Released,
+}
+
+/// A platform key event delivered through [`WindowEvent::Key`].
+#[derive(Clone, Debug, PartialEq)]
+#[repr(C)]
+#[non_exhaustive]
+pub struct WindowKeyEvent {
+    /// Whether the key was pressed or released.
+    pub event_type: WindowKeyEventType,
+    /// The key event details.
+    pub event: KeyEvent,
+}
+
+impl WindowKeyEvent {
+    /// Construct a new WindowKeyEvent with the given type and key event
+    ///
+    /// Note: The KeyEvent::modifiers are ignored when processing the event and are overwritten with
+    /// the current modifier state tracked by the window!
+    pub fn new(event_type: WindowKeyEventType, event: KeyEvent) -> Self {
+        // The WindowKeyEvent struct needs a constructor function, as it is #[non_exhaustive].
+        Self { event_type, event }
+    }
 }
 
 impl WindowEvent {

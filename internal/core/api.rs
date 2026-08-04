@@ -736,6 +736,17 @@ impl Window {
                 self.0.process_mouse_input(MouseEvent::Exit);
                 WindowEventDispatchResult::Accepted
             }
+            crate::platform::WindowEvent::Key(event) => self
+                .0
+                .process_key_input(InternalKeyEvent {
+                    event_type: match event.event_type {
+                        crate::platform::WindowKeyEventType::Pressed => KeyEventType::KeyPressed,
+                        crate::platform::WindowKeyEventType::Released => KeyEventType::KeyReleased,
+                    },
+                    key_event: event.event,
+                    ..Default::default()
+                })
+                .into(),
 
             crate::platform::WindowEvent::KeyPressed { text } => self
                 .0

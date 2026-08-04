@@ -1,0 +1,13 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component SuperSimple {
+    property <[keys]> unknown_physical_keys_list: [
+        @physical-keys(a),
+//                     ^error{a is not supported by @physical-keys↵Use a physical key name such as A, Digit1, BackQuote, or LeftArrow}
+        @physical-keys(FooBar),
+//                     >    <error{FooBar is not supported by @physical-keys↵Use a physical key name such as A, Digit1, BackQuote, or LeftArrow}
+        @physical-keys("a"),
+//                     > <error{String literals are not supported in @physical-keys (use a key name such as A or LeftArrow)}
+    ];
+}
