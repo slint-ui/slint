@@ -1937,14 +1937,14 @@ fn call_builtin_function(
             if let Expression::ElementReference(item) = &arguments[0] {
                 let item_rc = item_rc_for_element(item, component);
 
-                let percent: f32 =
+                let t: f32 =
                     eval_expression(&arguments[1], local_context).try_into().unwrap();
 
                 item_rc
                     .downcast::<corelib::items::Path>()
                     .unwrap()
                     .as_pin_ref()
-                    .point_at(&item_rc, percent)
+                    .point_at(&item_rc, t)
                     .to_untyped()
                     .into()
             } else {
@@ -1957,14 +1957,14 @@ fn call_builtin_function(
             if let Expression::ElementReference(item) = &arguments[0] {
                 let item_rc = item_rc_for_element(item, component);
 
-                let percent: f32 =
+                let t: f32 =
                     eval_expression(&arguments[1], local_context).try_into().unwrap();
 
                 item_rc
                     .downcast::<corelib::items::Path>()
                     .unwrap()
                     .as_pin_ref()
-                    .angle_at(&item_rc, percent)
+                    .angle_at(&item_rc, t)
                     .into()
             } else {
                 panic!("internal error: argument to PathAngleAt must be an element")

@@ -201,7 +201,7 @@ impl Path {
     fn sample_at(
         self: Pin<&Self>,
         self_rc: &ItemRc,
-        percent: f32,
+        t: f32,
     ) -> Option<(Point2D<f32, LogicalPx>, f32)> {
         if let Some(new_path) =
             Path::FIELD_OFFSETS.tracker().apply_pin(self).evaluate_if_dirty(|| {
@@ -211,14 +211,14 @@ impl Path {
         {
             *self.fitted_path.borrow_mut() = new_path;
         }
-        self.fitted_path.borrow().as_ref()?.sample_at(percent)
+        self.fitted_path.borrow().as_ref()?.sample_at(t)
     }
 
-    pub fn point_at(self: Pin<&Self>, self_rc: &ItemRc, percent: f32) -> Point2D<f32, LogicalPx> {
-        self.sample_at(self_rc, percent).map(|(pos, _)| pos).unwrap_or_default()
+    pub fn point_at(self: Pin<&Self>, self_rc: &ItemRc, t: f32) -> Point2D<f32, LogicalPx> {
+        self.sample_at(self_rc, t).map(|(pos, _)| pos).unwrap_or_default()
     }
-    pub fn angle_at(self: Pin<&Self>, self_rc: &ItemRc, percent: f32) -> f32 {
-        self.sample_at(self_rc, percent).map(|(_, tangent)| tangent).unwrap_or_default()
+    pub fn angle_at(self: Pin<&Self>, self_rc: &ItemRc, t: f32) -> f32 {
+        self.sample_at(self_rc, t).map(|(_, tangent)| tangent).unwrap_or_default()
     }
 }
 
@@ -287,10 +287,10 @@ pub unsafe extern "C" fn slint_path_fitted_cache_free(cache: *mut FittedPathBox)
 pub unsafe extern "C" fn slint_path_point_at(
     self_component: &vtable::VRc<crate::item_tree::ItemTreeVTable>,
     self_index: u32,
-    percent: f32,
+    t: f32,
 ) -> crate::lengths::LogicalPoint {
     let self_rc = ItemRc::new(self_component.clone(), self_index);
-    self_rc.downcast::<Path>().unwrap().as_pin_ref().point_at(&self_rc, percent)
+    self_rc.downcast::<Path>().unwrap().as_pin_ref().point_at(&self_rc, t)
 }
 
 #[cfg(feature = "ffi")]
@@ -298,8 +298,8 @@ pub unsafe extern "C" fn slint_path_point_at(
 pub unsafe extern "C" fn slint_path_angle_at(
     self_component: &vtable::VRc<crate::item_tree::ItemTreeVTable>,
     self_index: u32,
-    percent: f32,
+    t: f32,
 ) -> f32 {
     let self_rc = ItemRc::new(self_component.clone(), self_index);
-    self_rc.downcast::<Path>().unwrap().as_pin_ref().angle_at(&self_rc, percent)
+    self_rc.downcast::<Path>().unwrap().as_pin_ref().angle_at(&self_rc, t)
 }

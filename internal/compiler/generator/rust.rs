@@ -5020,9 +5020,9 @@ fn compile_builtin_function_call(
             quote!(sp::color_to_styled_text(#color))
         }
         BuiltinFunction::PathPointAt => {
-            if let [Expression::PropertyReference(pr), percent] = arguments {
+            if let [Expression::PropertyReference(pr), t] = arguments {
                 let item_rc = access_item_rc(pr, ctx);
-                let percent = compile_expression(percent, ctx);
+                let t = compile_expression(t, ctx);
                 quote!({
                     let item_rc = #item_rc;
                     sp::logical_position_to_api(
@@ -5030,7 +5030,7 @@ fn compile_builtin_function_call(
                             .downcast::<sp::Path>()
                             .unwrap()
                             .as_pin_ref()
-                            .point_at(&item_rc, #percent as f32),
+                            .point_at(&item_rc, #t as f32),
                     )
                 })
             } else {
@@ -5038,16 +5038,16 @@ fn compile_builtin_function_call(
             }
         }
         BuiltinFunction::PathAngleAt => {
-            if let [Expression::PropertyReference(pr), percent] = arguments {
+            if let [Expression::PropertyReference(pr), t] = arguments {
                 let item_rc = access_item_rc(pr, ctx);
-                let percent = compile_expression(percent, ctx);
+                let t = compile_expression(t, ctx);
                 quote!({
                     let item_rc = #item_rc;
                     item_rc
                         .downcast::<sp::Path>()
                         .unwrap()
                         .as_pin_ref()
-                        .angle_at(&item_rc, #percent as f32)
+                        .angle_at(&item_rc, #t as f32)
                 })
             } else {
                 panic!("internal error: invalid args to PathAngleAt {arguments:?}")
