@@ -82,7 +82,13 @@ pub(crate) struct SlintContextInner {
 pub struct SlintContext(pub(crate) core::pin::Pin<Rc<SlintContextInner>>);
 
 impl SlintContext {
-    /// Create a new context with a given platform
+    /// Create a new context with a given platform.
+    ///
+    /// If this thread has no context yet, the new one becomes it — first come, first
+    /// served. That is what the ambient APIs resolve to: [`crate::timers::Timer`],
+    /// `spawn_local`, `quit_event_loop` and friends. Contexts created afterwards are
+    /// perfectly usable, but are not the thread's current one, so code holding such a
+    /// context has to be explicit about it (e.g. [`Self::new_timer`]).
     pub fn new(platform: Box<dyn Platform + 'static>) -> Self {
         #[cfg(feature = "shared-parley")]
         let collection = i_slint_common::sharedfontique::create_collection(true);
@@ -132,6 +138,12 @@ impl SlintContext {
         // The list's deadlines are measured on this context's clock from now on. Done after
         // construction because it needs a handle to the context that owns it.
         crate::timers::set_owning_context(&this.0.timers, &this);
+        // Claim this thread's context slot if it is still free, so that the ambient APIs
+        // resolve here rather than to a list nothing drives. Fails harmlessly when the
+        // thread already has a context: that one stays current.
+        GLOBAL_CONTEXT.with(|slot| {
+            let _ = slot.set(this.clone());
+        });
         // Every context tells its platform which context it belongs to, not just the one
         // that becomes this thread's global: a platform is owned by exactly one context, and
         // a backend driving a context needs to be able to find it.

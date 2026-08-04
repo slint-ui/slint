@@ -271,10 +271,10 @@ pub fn set_platform(platform: Box<dyn Platform + 'static>) -> Result<(), SetPlat
                 *EVENTLOOP_PROXY.lock().unwrap() = Some(proxy);
             }
         }
-        instance
-            .set(crate::SlintContext::new(platform))
-            .map_err(|_| SetPlatformError::AlreadySet)
-            .unwrap();
+        // The slot is free, so this claims it. The returned handle is dropped here; the
+        // context stays alive because the slot holds it.
+        drop(crate::SlintContext::new(platform));
+        debug_assert!(instance.get().is_some(), "SlintContext::new claims a free slot");
         // Ensure a sane starting point for the animation tick.
         update_timers_and_animations();
         Ok(())
