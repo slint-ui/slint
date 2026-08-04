@@ -306,7 +306,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
         _size: LogicalSize,
         _cache: &CachedRenderingData,
     ) {
-        // register a dependency for the partial renderer's dirty tracker. The actual rendering is done earlier in SkiaRenderer.
+        // Register a dependency for the dirty tracking; the actual rendering is done earlier in FemtoVGRenderer.
         let _ = rect.background();
     }
 
