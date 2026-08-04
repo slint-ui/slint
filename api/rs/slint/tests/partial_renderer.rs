@@ -1400,6 +1400,9 @@ fn partial_rendering_popup_position_size_change() {
             in-out property<length> popup-y: 0px;
             in-out property<length> popup-width: 100px;
             in-out property<length> popup-height: 200px;
+
+            in-out property <int> update-popup: 0;
+            in-out property <int> popup-increment: 0;
         }
 
         export component Ui inherits Window {
@@ -1431,6 +1434,12 @@ fn partial_rendering_popup_position_size_change() {
                 MyProperty.popup-height = 30px;
             }
 
+            callback increment_properties();
+            increment_properties() => {
+                MyProperty.popup-increment += 1;
+                debug("Increment called: ", MyProperty.popup-increment);
+            }
+
             popup:= PopupWindow {
                 x: MyProperty.popup-x;
                 y: MyProperty.popup-y;
@@ -1438,10 +1447,26 @@ fn partial_rendering_popup_position_size_change() {
                 height: MyProperty.popup-height;
                 close-policy: PopupClosePolicy.no-auto-close;
 
+                property <int> click-count: 0;
+                property <int> properties-change <=> MyProperty.popup-increment;
+
                 TouchArea {
                     clicked => {
-                        change_popup();
+                        if click-count == 0 {
+                            change_popup();
+                        } else {
+                            increment_properties();
+                        }
+                        click-count += 1;
                     }
+                }
+
+                changed properties-change => {
+                    debug("Popup properties-change: ", properties-change);
+                    self.x += 10px;
+                    self.y += 20px;
+                    self.width += 30px;
+                    self.height += 40px;
                 }
 
                 changed width => {
@@ -1545,6 +1570,46 @@ fn partial_rendering_popup_position_size_change() {
         const POPUP_POS_Y: usize = 20;
         const POPUP_WIDTH: usize = 150;
         const POPUP_HEIGHT: usize = 30;
+        for v_pixel in 0..WINDOW_HEIGHT {
+            for h_pixel in 0..WINDOW_WIDTH {
+                let pixel_idx = WINDOW_WIDTH * v_pixel + h_pixel;
+
+                if h_pixel >= POPUP_POS_X
+                    && h_pixel < POPUP_POS_X + POPUP_WIDTH
+                    && v_pixel >= POPUP_POS_Y
+                    && v_pixel < POPUP_POS_Y + POPUP_HEIGHT
+                {
+                    let rgb = get_pixel_values(pixel_idx);
+                    assert_eq!(
+                        rgb, RGB_COLOR_POPUP,
+                        "Wrong color at pixel ({h_pixel}, {v_pixel}). Expected popup color."
+                    );
+                } else {
+                    let rgb = get_pixel_values(pixel_idx);
+                    assert_eq!(
+                        rgb, RGB_COLOR_WINDOW,
+                        "Wrong color at pixel ({h_pixel}, {v_pixel}). Expected window color"
+                    );
+                }
+            }
+        }
+    }
+
+    ui.invoke_increment_properties();
+    // The popup properties change trigger a tracker with a timer we have to process before the next draw.
+    slint::platform::update_timers_and_animations();
+    slint::platform::update_timers_and_animations();
+    assert!(window.draw_if_needed());
+    slint::platform::update_timers_and_animations();
+    assert!(!window.draw_if_needed());
+
+    // Increment
+    {
+        // New popup properties
+        const POPUP_POS_X: usize = 10 + 10;
+        const POPUP_POS_Y: usize = 20 + 20;
+        const POPUP_WIDTH: usize = 150 + 30;
+        const POPUP_HEIGHT: usize = 30 + 40;
         for v_pixel in 0..WINDOW_HEIGHT {
             for h_pixel in 0..WINDOW_WIDTH {
                 let pixel_idx = WINDOW_WIDTH * v_pixel + h_pixel;
