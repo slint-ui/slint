@@ -43,7 +43,7 @@ export component TestCase inherits Window {
     // `cross-axis-alignment` is NOT stretch. Here the container aligns items to
     // the start (so plain items keep their preferred 100px width), but s3 opts
     // into stretch and must therefore fill its flex line's cross size, which the
-    // default `align-content: stretch` grows wider than 100px.
+    // default `cross-axis-line-alignment: stretch` grows wider than 100px.
     Rectangle { x: 0; y: 200px; width: 300px; height: 96px; border-width: 1px; border-color: gray; }
     flex2 := FlexboxLayout {
         flex-direction: column;

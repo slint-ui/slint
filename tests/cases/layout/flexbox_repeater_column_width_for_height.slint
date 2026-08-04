@@ -18,7 +18,7 @@ component WrapCol {
         flex-wrap: wrap;
         spacing: 0px;
         padding: 0px;
-        align-content: start;
+        cross-axis-line-alignment: start;
         Rectangle { width: 40px; height: 30px; background: red; }
         Rectangle { width: 40px; height: 30px; background: green; }
         Rectangle { width: 40px; height: 30px; background: blue; }
@@ -44,7 +44,7 @@ export component TestCase inherits Window {
         flex-direction: column;
         flex-wrap: wrap;
         spacing: 0px; padding: 0px;
-        align-content: start;
+        cross-axis-line-alignment: start;
         cross-axis-alignment: stretch;
         for x in [1]: WrapCol { min-height: 70px; max-height: 70px; }
         aAnchor := Rectangle { width: 5px; height: 5px; }
@@ -56,7 +56,7 @@ export component TestCase inherits Window {
         flex-direction: column;
         flex-wrap: wrap;
         spacing: 0px; padding: 0px;
-        align-content: start;
+        cross-axis-line-alignment: start;
         cross-axis-alignment: stretch;
         WrapCol { min-height: 70px; max-height: 70px; }
         bAnchor := Rectangle { width: 5px; height: 5px; }
@@ -69,7 +69,7 @@ export component TestCase inherits Window {
         flex-direction: column;
         flex-wrap: wrap;
         spacing: 0px; padding: 0px;
-        align-content: start;
+        cross-axis-line-alignment: start;
         cross-axis-alignment: stretch;
         WrapCol { min-height: 70px; max-height: 70px; }
         cAnchor := Rectangle { width: 5px; height: 5px; }
@@ -83,7 +83,7 @@ export component TestCase inherits Window {
         flex-direction: column;
         flex-wrap: wrap;
         spacing: 0px; padding: 0px;
-        align-content: start;
+        cross-axis-line-alignment: start;
         cross-axis-alignment: stretch;
         for x in [1, 2]: Rectangle { width: 0px; height: 0px; }
         WrapCol { min-height: 70px; max-height: 70px; }
@@ -98,7 +98,7 @@ export component TestCase inherits Window {
         flex-direction: column;
         flex-wrap: wrap;
         spacing: 0px; padding: 0px;
-        align-content: start;
+        cross-axis-line-alignment: start;
         cross-axis-alignment: stretch;
         for x in [1, 2]: WrapCol { min-height: 70px; max-height: 70px; }
         eAnchor := Rectangle { width: 5px; height: 5px; }
@@ -111,7 +111,7 @@ export component TestCase inherits Window {
         flex-direction: column;
         flex-wrap: wrap;
         spacing: 0px; padding: 0px;
-        align-content: start;
+        cross-axis-line-alignment: start;
         cross-axis-alignment: stretch;
         if true: WrapCol { min-height: 70px; max-height: 70px; }
         fAnchor := Rectangle { width: 5px; height: 5px; }
@@ -124,7 +124,7 @@ export component TestCase inherits Window {
         flex-direction: column;
         flex-wrap: wrap;
         spacing: 0px; padding: 0px;
-        align-content: start;
+        cross-axis-line-alignment: start;
         cross-axis-alignment: stretch;
         for x in empty-model: Rectangle { width: 0px; height: 0px; }
         WrapCol { min-height: 70px; max-height: 70px; }

@@ -20,7 +20,7 @@ component WrapCol {
         flex-wrap: wrap;
         spacing: 0px;
         padding: 0px;
-        align-content: start;
+        cross-axis-line-alignment: start;
         Rectangle { width: 40px; height: 30px; background: red; }
         Rectangle { width: 40px; height: 30px; background: green; }
         Rectangle { width: 40px; height: 30px; background: blue; }
@@ -58,7 +58,7 @@ export component TestCase inherits Window {
         flex-direction: column;
         flex-wrap: wrap;
         spacing: 0px; padding: 0px;
-        align-content: start;
+        cross-axis-line-alignment: start;
         cross-axis-alignment: stretch;
         WrapCol { min-height: 70px; max-height: 70px; }
         wStatic := Rectangle { width: 5px; height: 5px; }
@@ -70,7 +70,7 @@ export component TestCase inherits Window {
         flex-direction: column;
         flex-wrap: wrap;
         spacing: 0px; padding: 0px;
-        align-content: start;
+        cross-axis-line-alignment: start;
         cross-axis-alignment: stretch;
         for x in [1]: WrapCol { min-height: 70px; max-height: 70px; opacity: cond ? 1.0 : 0.4; }
         wOpacity := Rectangle { width: 5px; height: 5px; }
@@ -82,7 +82,7 @@ export component TestCase inherits Window {
         flex-direction: column;
         flex-wrap: wrap;
         spacing: 0px; padding: 0px;
-        align-content: start;
+        cross-axis-line-alignment: start;
         cross-axis-alignment: stretch;
         for x in [1]: WrapCol { min-height: 70px; max-height: 70px; visible: cond; }
         wVisible := Rectangle { width: 5px; height: 5px; }
@@ -98,7 +98,7 @@ export component TestCase inherits Window {
         flex-direction: row;
         flex-wrap: wrap;
         spacing: 0px; padding: 0px;
-        align-content: start;
+        cross-axis-line-alignment: start;
         cross-axis-alignment: start;
         Card { label: long; flex-shrink: 0; flex-basis: 150px; }
         hStatic := Rectangle { width: 150px; height: 5px; }
@@ -110,7 +110,7 @@ export component TestCase inherits Window {
         flex-direction: row;
         flex-wrap: wrap;
         spacing: 0px; padding: 0px;
-        align-content: start;
+        cross-axis-line-alignment: start;
         cross-axis-alignment: start;
         for s in [long]: Card { label: s; flex-shrink: 0; flex-basis: 150px; opacity: cond ? 1.0 : 0.4; }
         hOpacity := Rectangle { width: 150px; height: 5px; }
@@ -122,7 +122,7 @@ export component TestCase inherits Window {
         flex-direction: row;
         flex-wrap: wrap;
         spacing: 0px; padding: 0px;
-        align-content: start;
+        cross-axis-line-alignment: start;
         cross-axis-alignment: start;
         for s in [long]: Card { label: s; flex-shrink: 0; flex-basis: 150px; visible: cond; }
         hVisible := Rectangle { width: 150px; height: 5px; }

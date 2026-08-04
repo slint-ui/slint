@@ -2243,9 +2243,10 @@ export component FlexboxLayout {
     /// The primary direction in which items are placed. Set to `row` to place items horizontally left-to-right (default), or `column` to place items vertically top-to-bottom.
     /// It also supports `row-reverse` and `column-reverse` which invert the flow: `row-reverse` places items right-to-left (starting at the right edge), and `column-reverse` places items bottom-to-top (starting at the bottom edge).
     in property <FlexboxLayoutDirection> flex-direction;
-    /// Set the distribution of flex lines along the cross axis.
+    /// Set the distribution of flex lines along the cross axis. CSS Flexbox calls this "align-content";
+    /// the name here pairs with `cross-axis-alignment`, which aligns the items within one line.
     /// The default value is `stretch`.
-    in property <FlexboxLayoutAlignContent> align-content;
+    in property <CrossAxisLineAlignment> cross-axis-line-alignment;
     /// Set the alignment of individual items along the cross axis within each flex line.
     /// The default value is `stretch`.
     in property <CrossAxisAlignment> cross-axis-alignment;

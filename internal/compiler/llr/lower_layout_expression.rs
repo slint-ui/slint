@@ -386,11 +386,11 @@ pub(super) fn solve_flexbox_layout(
                 fld.direction,
             ),
             (
-                "align_content",
+                "cross_axis_line_alignment",
                 Type::Enumeration(
-                    crate::typeregister::BUILTIN.enums.FlexboxLayoutAlignContent.clone(),
+                    crate::typeregister::BUILTIN.enums.CrossAxisLineAlignment.clone(),
                 ),
-                fld.align_content,
+                fld.cross_axis_line_alignment,
             ),
             (
                 "cross_axis_alignment",
@@ -783,7 +783,7 @@ fn compute_flexbox_layout_info_for_direction(
 struct FlexboxLayoutDataResult {
     alignment: llr_Expression,
     direction: llr_Expression,
-    align_content: llr_Expression,
+    cross_axis_line_alignment: llr_Expression,
     cross_axis_alignment: llr_Expression,
     flex_wrap: llr_Expression,
     cells_h: llr_Expression,
@@ -828,10 +828,10 @@ fn flexbox_layout_data(
         })
     };
 
-    let align_content = if let Some(expr) = &layout.align_content {
+    let cross_axis_line_alignment = if let Some(expr) = &layout.cross_axis_line_alignment {
         llr_Expression::PropertyReference(ctx.map_property_reference(expr))
     } else {
-        let e = crate::typeregister::BUILTIN.enums.FlexboxLayoutAlignContent.clone();
+        let e = crate::typeregister::BUILTIN.enums.CrossAxisLineAlignment.clone();
         llr_Expression::EnumerationValue(EnumerationValue {
             value: e.default_value,
             enumeration: e,
@@ -994,7 +994,7 @@ fn flexbox_layout_data(
         FlexboxLayoutDataResult {
             alignment,
             direction,
-            align_content,
+            cross_axis_line_alignment,
             cross_axis_alignment,
             flex_wrap,
             cells_h,
@@ -1059,7 +1059,7 @@ fn flexbox_layout_data(
         FlexboxLayoutDataResult {
             alignment,
             direction,
-            align_content,
+            cross_axis_line_alignment,
             cross_axis_alignment,
             flex_wrap,
             cells_h,

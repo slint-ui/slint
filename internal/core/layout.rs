@@ -6,7 +6,7 @@
 // cspell:ignore coord
 
 use crate::items::{
-    CrossAxisAlignment, DialogButtonRole, FlexboxLayoutAlignContent, FlexboxLayoutAlignSelf,
+    CrossAxisAlignment, CrossAxisLineAlignment, DialogButtonRole, FlexboxLayoutAlignSelf,
     FlexboxLayoutDirection, FlexboxLayoutWrap, LayoutAlignment,
 };
 use crate::{Coord, SharedVector, slice::Slice};
@@ -1151,7 +1151,7 @@ pub struct FlexboxLayoutData<'a> {
     pub padding_v: Padding,
     pub alignment: LayoutAlignment,
     pub direction: FlexboxLayoutDirection,
-    pub align_content: FlexboxLayoutAlignContent,
+    pub cross_axis_line_alignment: CrossAxisLineAlignment,
     pub cross_axis_alignment: CrossAxisAlignment,
     pub flex_wrap: FlexboxLayoutWrap,
     /// Horizontal constraints (width) for each cell
@@ -1437,9 +1437,9 @@ pub fn box_layout_info_ortho(cells: Slice<LayoutItemInfo>, padding: &Padding) ->
 /// Helper module for taffy-based flexbox layout
 mod flexbox_taffy {
     use super::{
-        Coord, CrossAxisAlignment, FlexItemProps, FlexboxLayoutAlignContent,
-        FlexboxLayoutAlignSelf, FlexboxLayoutWrap as SlintFlexboxLayoutWrap, LayoutAlignment,
-        LayoutInfo, LayoutItemInfo, Padding, Slice,
+        Coord, CrossAxisAlignment, CrossAxisLineAlignment, FlexItemProps, FlexboxLayoutAlignSelf,
+        FlexboxLayoutWrap as SlintFlexboxLayoutWrap, LayoutAlignment, LayoutInfo, LayoutItemInfo,
+        Padding, Slice,
     };
     use alloc::vec::Vec;
     pub use taffy::prelude::FlexDirection as TaffyFlexDirection;
@@ -1455,7 +1455,7 @@ mod flexbox_taffy {
         pub padding_h: &'a Padding,
         pub padding_v: &'a Padding,
         pub alignment: LayoutAlignment,
-        pub align_content: FlexboxLayoutAlignContent,
+        pub cross_axis_line_alignment: CrossAxisLineAlignment,
         pub cross_axis_alignment: CrossAxisAlignment,
         pub flex_wrap: SlintFlexboxLayoutWrap,
         pub flex_direction: TaffyFlexDirection,
@@ -1697,14 +1697,14 @@ mod flexbox_taffy {
                             CrossAxisAlignment::End => AlignItems::FlexEnd,
                             CrossAxisAlignment::Center => AlignItems::Center,
                         }),
-                        align_content: Some(match params.align_content {
-                            FlexboxLayoutAlignContent::Stretch => AlignContent::Stretch,
-                            FlexboxLayoutAlignContent::Start => AlignContent::FlexStart,
-                            FlexboxLayoutAlignContent::End => AlignContent::FlexEnd,
-                            FlexboxLayoutAlignContent::Center => AlignContent::Center,
-                            FlexboxLayoutAlignContent::SpaceBetween => AlignContent::SpaceBetween,
-                            FlexboxLayoutAlignContent::SpaceAround => AlignContent::SpaceAround,
-                            FlexboxLayoutAlignContent::SpaceEvenly => AlignContent::SpaceEvenly,
+                        align_content: Some(match params.cross_axis_line_alignment {
+                            CrossAxisLineAlignment::Stretch => AlignContent::Stretch,
+                            CrossAxisLineAlignment::Start => AlignContent::FlexStart,
+                            CrossAxisLineAlignment::End => AlignContent::FlexEnd,
+                            CrossAxisLineAlignment::Center => AlignContent::Center,
+                            CrossAxisLineAlignment::SpaceBetween => AlignContent::SpaceBetween,
+                            CrossAxisLineAlignment::SpaceAround => AlignContent::SpaceAround,
+                            CrossAxisLineAlignment::SpaceEvenly => AlignContent::SpaceEvenly,
                         }),
                         gap: Size {
                             width: LengthPercentage::length(params.spacing_h as _),
@@ -1945,7 +1945,7 @@ pub fn solve_flexbox_layout_with_measure(
         padding_h: &data.padding_h,
         padding_v: &data.padding_v,
         alignment: data.alignment,
-        align_content: data.align_content,
+        cross_axis_line_alignment: data.cross_axis_line_alignment,
         cross_axis_alignment: data.cross_axis_alignment,
         flex_wrap: data.flex_wrap,
         flex_direction: taffy_direction,
@@ -2210,7 +2210,7 @@ pub fn flexbox_layout_info_cross_axis(
         padding_h,
         padding_v,
         alignment: LayoutAlignment::Start,
-        align_content: FlexboxLayoutAlignContent::Stretch,
+        cross_axis_line_alignment: CrossAxisLineAlignment::Stretch,
         cross_axis_alignment: CrossAxisAlignment::Stretch,
         flex_wrap,
         flex_direction: taffy_direction,
@@ -3111,7 +3111,7 @@ mod tests {
                     padding_h: &pad,
                     padding_v: &pad,
                     alignment: LayoutAlignment::Start,
-                    align_content: FlexboxLayoutAlignContent::Stretch,
+                    cross_axis_line_alignment: CrossAxisLineAlignment::Stretch,
                     cross_axis_alignment: CrossAxisAlignment::Stretch,
                     flex_wrap: FlexboxLayoutWrap::NoWrap,
                     flex_direction: flexbox_taffy::TaffyFlexDirection::Row,
@@ -3213,7 +3213,7 @@ mod tests {
                     padding_h: &pad,
                     padding_v: &pad,
                     alignment: LayoutAlignment::Start,
-                    align_content: FlexboxLayoutAlignContent::Stretch,
+                    cross_axis_line_alignment: CrossAxisLineAlignment::Stretch,
                     cross_axis_alignment: CrossAxisAlignment::Stretch,
                     flex_wrap: FlexboxLayoutWrap::NoWrap,
                     flex_direction: flexbox_taffy::TaffyFlexDirection::Column,
@@ -3323,7 +3323,7 @@ mod tests {
                 padding_h: &pad,
                 padding_v: &pad,
                 alignment: LayoutAlignment::Start,
-                align_content: FlexboxLayoutAlignContent::Stretch,
+                cross_axis_line_alignment: CrossAxisLineAlignment::Stretch,
                 cross_axis_alignment: CrossAxisAlignment::Stretch,
                 flex_wrap: FlexboxLayoutWrap::NoWrap,
                 flex_direction: flexbox_taffy::TaffyFlexDirection::Row,

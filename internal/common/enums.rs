@@ -399,8 +399,9 @@ macro_rules! for_each_enums {
             }
 
             /// Controls the distribution of flex lines along the cross axis in a flex container.
+            /// Used as the `cross-axis-line-alignment` property of `FlexboxLayout`.
             #[non_exhaustive]
-            enum FlexboxLayoutAlignContent {
+            enum CrossAxisLineAlignment {
                 /// Lines are stretched to fill the container along the cross axis.
                 Stretch,
                 /// Lines are placed at the start of the cross axis.
