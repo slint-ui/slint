@@ -7,10 +7,11 @@ use crate::CompilerConfiguration;
 use crate::expression_tree::{Expression, Unit};
 use crate::langtype::Type;
 use crate::namedreference::NamedReference;
-use crate::object_tree::{Document, ElementRc};
+use crate::object_tree::{Document, ElementRc, PropertyVisibility};
 use itertools::Either;
-use proc_macro2::TokenStream;
+use proc_macro2::{Ident, TokenStream};
 use quote::{format_ident, quote};
+use std::rc::Rc;
 
 /// Public entry point called from `generator::generate`.
 pub fn generate(
@@ -28,34 +29,53 @@ pub fn generate(
         let render_tree = emit_element(root, root);
         let properties = declared_properties(root);
         let name = format_ident!("{}", export_name.name.as_str());
-        let (struct_decl, new_body) = if properties.is_empty() {
-            (quote!(pub struct #name;), quote!(Self))
-        } else {
-            let fields = properties.iter().map(|p| {
-                let (field, ty) = (&p.field, &p.ty);
-                quote!(#field: #ty,)
+        let has_fields = properties.iter().any(|p| p.field.is_some());
+        let (struct_decl, new_body) = if has_fields {
+            let fields = properties.iter().filter_map(|p| {
+                let (field, ty) = (p.field.as_ref()?, &p.ty);
+                // A settable bound property is stored in an `Option`, `None`
+                // until set; anything else is stored directly.
+                Some(match p.kind {
+                    PropertyKind::Binding(_) => quote!(#field: Option<#ty>,),
+                    PropertyKind::Stored(_) => quote!(#field: #ty,),
+                })
             });
-            let init = properties.iter().map(|p| {
-                let (field, init) = (&p.field, &p.init);
-                quote!(#field: #init,)
+            let init = properties.iter().filter_map(|p| {
+                let field = p.field.as_ref()?;
+                Some(match &p.kind {
+                    PropertyKind::Stored(init) => quote!(#field: #init,),
+                    PropertyKind::Binding(_) => quote!(#field: None,),
+                })
             });
             (quote!(pub struct #name { #(#fields)* }), quote!(Self { #(#init)* }))
+        } else {
+            (quote!(pub struct #name;), quote!(Self))
         };
         let accessors = properties.iter().map(|p| {
-            let (field, ty) = (&p.field, &p.ty);
+            let ty = &p.ty;
             let getter = p.getter.as_ref().map(|getter| {
-                quote! {
-                    pub fn #getter(&self) -> #ty {
-                        self.#field
+                let body = match &p.kind {
+                    PropertyKind::Stored(_) => {
+                        let field = p.field.as_ref().unwrap();
+                        quote!(self.#field)
                     }
-                }
+                    // A settable bound property falls back to the binding until
+                    // set; a non-settable one always evaluates it.
+                    PropertyKind::Binding(default) if p.setter.is_some() => {
+                        let field = p.field.as_ref().unwrap();
+                        quote!(self.#field.unwrap_or_else(|| #default))
+                    }
+                    PropertyKind::Binding(default) => quote!(#default),
+                };
+                quote!(pub fn #getter(&self) -> #ty { #body })
             });
             let setter = p.setter.as_ref().map(|setter| {
-                quote! {
-                    pub fn #setter(&mut self, value: #ty) {
-                        self.#field = value;
-                    }
-                }
+                let field = p.field.as_ref().expect("a setter belongs to a field");
+                let assign = match p.kind {
+                    PropertyKind::Binding(_) => quote!(self.#field = Some(value);),
+                    PropertyKind::Stored(_) => quote!(self.#field = value;),
+                };
+                quote!(pub fn #setter(&mut self, value: #ty) { #assign })
             });
             quote!(#getter #setter)
         });
@@ -87,44 +107,67 @@ pub fn generate(
 }
 
 struct DeclaredProperty {
-    /// The struct field holding the value, `property_foo`.
-    field: proc_macro2::Ident,
-    /// `get_foo`, unless the property is private.
-    getter: Option<proc_macro2::Ident>,
-    /// `set_foo`, for `in` and `in-out` properties.
-    setter: Option<proc_macro2::Ident>,
-    /// The Rust type: `i32` for a length, `slint_sc::Color` for a color.
+    /// The value type `T`: `i32` for a length, `slint_sc::Color` for a color.
     ty: TokenStream,
-    /// The initial value: the property's binding, or the type's default.
-    init: TokenStream,
+    /// The struct field `property_foo`.
+    /// A non-settable bound property has none: nothing can set it, so the getter
+    /// always evaluates the binding.
+    field: Option<Ident>,
+    kind: PropertyKind,
+    /// `get_foo`, unless the property is private.
+    getter: Option<Ident>,
+    /// `set_foo`, for an `in` or `in-out` property.
+    setter: Option<Ident>,
+}
+
+/// How a declared property is stored and read.
+///
+/// The binding, if any, lives in the getter (which has `self`), never in the
+/// field's initial value, so `new()` never needs to evaluate it.
+enum PropertyKind {
+    /// No binding: a `T` field the getter reads and the setter writes, its
+    /// initial value the type default. The token is that default.
+    Stored(TokenStream),
+    /// A binding. A settable property holds it in an `Option<T>` field, `None`
+    /// until set, so the getter falls back to the binding and the property
+    /// tracks it until set; a non-settable one evaluates the binding on read.
+    /// The token is the compiled binding.
+    Binding(TokenStream),
+}
+
+/// Whether a property with this visibility is settable (`in`/`in-out`).
+fn is_settable(visibility: &PropertyVisibility) -> bool {
+    matches!(visibility, PropertyVisibility::Input | PropertyVisibility::InOut)
 }
 
 /// The properties declared in the source on the component's root element.
 /// Compiler-introduced declarations have no syntax node and are skipped.
 fn declared_properties(root: &ElementRc) -> Vec<DeclaredProperty> {
-    use crate::object_tree::PropertyVisibility;
     let root_borrowed = root.borrow();
     root_borrowed
         .property_declarations
         .iter()
         .filter(|(_, decl)| decl.node.is_some())
         .map(|(name, decl)| {
-            let init = root_borrowed
-                .binding_cell_including_synthetic(name)
-                .map(|b| compile_expression(&b.borrow().expression, root))
-                .unwrap_or_else(|| default_value(&decl.property_type));
             let snake = name.replace('-', "_");
-            let (getter, setter) = match decl.visibility {
-                PropertyVisibility::Input | PropertyVisibility::InOut => (true, true),
-                PropertyVisibility::Output => (true, false),
-                _ => (false, false),
+            let ty = rust_type(&decl.property_type);
+            let settable = is_settable(&decl.visibility);
+            let has_getter = matches!(
+                decl.visibility,
+                PropertyVisibility::Input | PropertyVisibility::Output | PropertyVisibility::InOut
+            );
+            let kind = match root_borrowed.binding_cell_including_synthetic(name) {
+                Some(b) => PropertyKind::Binding(compile_expression(&b.borrow().expression, root)),
+                None => PropertyKind::Stored(default_value(&decl.property_type)),
             };
+            // A non-settable binding is never stored, so it needs no field.
+            let has_field = settable || matches!(kind, PropertyKind::Stored(_));
             DeclaredProperty {
-                field: format_ident!("property_{snake}"),
-                getter: getter.then(|| format_ident!("get_{snake}")),
-                setter: setter.then(|| format_ident!("set_{snake}")),
-                ty: rust_type(&decl.property_type),
-                init,
+                field: has_field.then(|| format_ident!("property_{snake}")),
+                getter: has_getter.then(|| format_ident!("get_{snake}")),
+                setter: settable.then(|| format_ident!("set_{snake}")),
+                ty,
+                kind,
             }
         })
         .collect()
@@ -168,7 +211,8 @@ fn compile_expression(expr: &Expression, root: &ElementRc) -> TokenStream {
             from => compile_expression(from, root),
         },
         Expression::PropertyReference(nr) => {
-            compile_property_reference(nr, root).expect("reference to an unresolved property")
+            // An unbound property has its type's default value.
+            compile_property_reference(nr, root).unwrap_or_else(|| default_value(&nr.ty()))
         }
         Expression::BinaryExpression { lhs, rhs, op } => {
             let lhs = compile_expression(lhs, root);
@@ -206,7 +250,7 @@ fn emit_element(elem: &ElementRc, root: &ElementRc) -> TokenStream {
         .binding_cell_including_synthetic("background")
         .map(|b| b.borrow().expression.clone());
     let mut color = background.map(|expr| compile_expression(&expr, root));
-    if std::rc::Rc::ptr_eq(elem, root) {
+    if Rc::ptr_eq(elem, root) {
         // The window background defaults to black, so that the whole frame
         // buffer is always painted
         color = Some(
@@ -234,17 +278,33 @@ fn emit_element(elem: &ElementRc, root: &ElementRc) -> TokenStream {
     }
 }
 
-/// Compile a reference to a property: its compiled binding, or the window
-/// size for the root's unbound width and height.
+/// Compile a reference to a property.
 fn compile_property_reference(nr: &NamedReference, root: &ElementRc) -> Option<TokenStream> {
     let element = nr.element();
-    let binding = element
-        .borrow()
-        .binding_cell_including_synthetic(nr.name())
-        .map(|b| b.borrow().expression.clone());
-    match binding {
-        Some(expr) => Some(compile_expression(&expr, root)),
-        None if std::rc::Rc::ptr_eq(&element, root) => match nr.name().as_str() {
+    let is_root = Rc::ptr_eq(&element, root);
+    if is_root {
+        let root_borrowed = root.borrow();
+        if let Some(decl) =
+            root_borrowed.property_declarations.get(nr.name()).filter(|d| d.node.is_some())
+        {
+            let binding = root_borrowed.binding_cell_including_synthetic(nr.name());
+            let snake = nr.name().replace('-', "_");
+            return Some(match binding {
+                None => {
+                    let field = format_ident!("property_{snake}");
+                    quote!(self.#field)
+                }
+                Some(_) if is_settable(&decl.visibility) => {
+                    let getter = format_ident!("get_{snake}");
+                    quote!(self.#getter())
+                }
+                Some(b) => compile_expression(&b.borrow().expression, root),
+            });
+        }
+    }
+    match element.borrow().binding_cell_including_synthetic(nr.name()) {
+        Some(b) => Some(compile_expression(&b.borrow().expression, root)),
+        None if is_root => match nr.name().as_str() {
             "width" => Some(quote!((width as i32))),
             "height" => Some(quote!((height as i32))),
             _ => None,

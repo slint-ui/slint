@@ -1,0 +1,69 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Software-3.0
+
+// A property declaration follows the same binding rules as any binding.
+// An `out` property with a binding is derived: reading it evaluates the binding.
+// An `in-out` property's binding is its default: it tracks the referenced
+// property until the application sets it, then holds the set value.
+// The second rectangle takes its width from a set input, its height from
+// another element by id, and its color from a set input, so those values reach
+// the rendering.
+
+export component TestCase inherits Window {
+    in property <length> base;
+    out property <length> derived: root.base;
+    in-out property <length> mirror: root.base;
+    in property <color> tint;
+    out property <color> derived-color: root.tint;
+    in property <length> box-size;
+
+    background: #000000;
+    source := Rectangle {
+        x: 4px;
+        y: 4px;
+        width: 40px;
+        height: 20px;
+        background: #1188ff;
+    }
+    Rectangle {
+        x: 4px;
+        y: 32px;
+        width: root.box-size;
+        height: source.height;
+        background: root.tint;
+    }
+}
+
+/*
+```rust
+let mut x = TestCase::new();
+// A binding is evaluated on each read, so a derived property reflects the
+// referenced property's current value and type.
+//#sls.expr.ref.value
+assert_eq!(x.get_derived(), 0);
+x.set_base(42);
+assert_eq!(x.get_derived(), 42);
+x.set_tint(slint_sc::Color::from_rgb_u8(1, 2, 3));
+let c = x.get_derived_color();
+assert_eq!((c.red(), c.green(), c.blue(), c.alpha()), (1, 2, 3, 0xff));
+
+// `mirror` tracks `base` until it is set, then holds the set value.
+assert_eq!(x.get_mirror(), 42);
+x.set_mirror(99);
+assert_eq!(x.get_mirror(), 99);
+x.set_base(7);
+assert_eq!(x.get_mirror(), 99);
+
+// The set input values and the cross-element size reach the rendering.
+x.set_box_size(40);
+x.set_tint(slint_sc::Color::from_rgb_u8(0xff, 0x88, 0x00));
+screenshot!(x);
+```
+
+An `out` property is derived from its binding and has no setter:
+```rust compile_fail
+let mut x = TestCase::new();
+x.set_derived(1);
+//~ ERROR no method named `set_derived`
+```
+*/
