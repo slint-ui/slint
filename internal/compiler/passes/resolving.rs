@@ -483,9 +483,10 @@ impl Expression {
                         return Self::from_at_keys_node(node.into(), ctx);
                     }
                     SyntaxKind::QualifiedName => {
+                        let expr = Self::from_qualified_name_node(node.clone().into(), ctx);
                         #[cfg(feature = "slint-sc")]
-                        ctx.diag.slint_sc_error("Identifier references are", &node);
-                        return Self::from_qualified_name_node(node.clone().into(), ctx);
+                        check_slint_sc_reference(&expr, &node, ctx);
+                        return expr;
                     }
                     SyntaxKind::FunctionCallExpression => {
                         #[cfg(feature = "slint-sc")]
@@ -3048,5 +3049,21 @@ fn check_callback_alias_validity(
                 &node.child_token(SyntaxKind::Identifier).unwrap(),
             );
         }
+    }
+}
+
+/// Validate an identifier reference against the Slint SC subset.
+///
+/// The accepted reference is a read of a property of an SC type, on any element
+/// reached by `self`, `parent`, `root`, or an element `id`. A reference to a
+/// non-SC type, or to something other than a property, is rejected. A property
+/// declaration's binding follows the same rules.
+#[cfg(feature = "slint-sc")]
+fn check_slint_sc_reference(expr: &Expression, node: &SyntaxNode, ctx: &mut LookupCtx) {
+    match expr {
+        // A parse or name-resolution error was already reported for this node.
+        Expression::Invalid => {}
+        Expression::PropertyReference(nr) if nr.ty().is_slint_sc() => {}
+        _ => ctx.diag.slint_sc_error("Identifier references are", node),
     }
 }

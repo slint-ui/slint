@@ -1,7 +1,11 @@
 ---
 title: Name Resolution
 description: Element names, pre-defined names, and lookup rules.
+SC: true
 ---
+
+import SC from '@slint/common-files/src/components/SC.astro';
+import OnlyInSC from '@slint/common-files/src/components/OnlyInSC.astro';
 
 Name resolution decides which declaration an identifier in an expression refers to.
 Properties, callbacks, and functions share the same rules.
@@ -10,7 +14,7 @@ Properties, callbacks, and functions share the same rules.
 
 The `:=` syntax gives an element a name, also called its *id*:
 
-```slint
+```slint no-sc-test
 export component MyApp inherits Window {
     hello := Text {
         text: "hello";
@@ -39,7 +43,17 @@ Some elements are reachable under pre-defined names:
 
 `true` and `false` are pre-defined names for the boolean literals and can't be redefined.
 
+<SC>
 ## Lookup Rules
+
+<OnlyInSC>
+An unqualified identifier refers to a declared property,
+found by searching from the current element outward to the root. \{#sls.name.lookup}
+
+A qualified name refers to the named member of the element reached by the qualifier,
+and does not fall back to ancestor elements. \{#sls.name.lookup.qualified}
+</OnlyInSC>
+</SC>
 
 When an identifier is used without a qualifier, it is resolved by trying the following, in order, and taking the first match:
 
@@ -76,7 +90,7 @@ A [global](../globals/)'s members are reached through its name, as in `Name.prop
 Because a declared member is looked up starting from the current element and moving outward, a member declared on an inner element shadows a same-named member declared on an enclosing element.
 Multiple functions with the same name are allowed in one component as long as they are declared on different elements, and an inner one shadows an outer one for unqualified calls made within its subtree:
 
-```slint
+```slint no-sc-test
 export component Example {
     property <int> secret_number: my-function();
     public pure function my-function() -> int {
