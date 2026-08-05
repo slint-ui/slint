@@ -3,7 +3,8 @@
 
 //! Custom test driver for the Slint SC (safety-critical) subset.
 //!
-//! For each `.slint` file under `tests/cases/`, this driver:
+//! For each `.slint` file under `tests/cases/`, except those in a directory
+//! named `imported/`, which hold the files that cases import, this driver:
 //! 1. Runs `slint-compiler --slint-sc` to generate Rust code
 //! 2. Extracts test code from `` ```rust `` blocks in comments
 //! 3. Calls `rustc` directly to compile the generated + test code
@@ -462,6 +463,11 @@ fn collect_slint_files_recursive(dir: &Path, results: &mut Vec<PathBuf>) {
     for entry in entries.flatten() {
         let path = entry.path();
         if path.is_dir() {
+            // The files a case imports are not cases themselves: they have no
+            // test code and need not compile on their own.
+            if path.file_name().is_some_and(|name| name == "imported") {
+                continue;
+            }
             collect_slint_files_recursive(&path, results);
         } else if path.extension().is_some_and(|e| e == "slint") {
             results.push(path);

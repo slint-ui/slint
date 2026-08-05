@@ -1,9 +1,18 @@
 ---
 title: Imports
 description: Bringing declarations from other files into scope.
+SC: true
 ---
 
+import SC from '@slint/common-files/src/components/SC.astro';
+import OnlyInSC from '@slint/common-files/src/components/OnlyInSC.astro';
+
+<SC>
 An import statement brings exported declarations from another file into the importing file's namespace. \{#sls.import.semantics}
+
+<OnlyInSC>
+An imported source file shall itself conform to this specification. \{#sls.import.subset}
+</OnlyInSC>
 
 ## Placement
 
@@ -11,6 +20,10 @@ Import statements appear at the top level of a `.slint` source file,
 interleaved with [component definitions](../file-structure/#sls.file.component.definition-forms) and [exports](../exports/). \{#sls.import.placement}
 
 ## Named Imports
+
+<OnlyInSC>
+Every import statement is a named import. \{#sls.import.named-only}
+</OnlyInSC>
 
 A named import has the form: \{#sls.import.forms}
 
@@ -33,23 +46,37 @@ The original name `Name` is not introduced. \{#sls.import.rename}
 
 The name on the left of `as` must be exported by the imported file. \{#sls.import.left-must-exist}
 
-An imported name refers to a component, struct, enum, or global. \{#sls.import.kinds}
-
 Two import items in the same source file can't introduce the same name. \{#sls.import.no-clash}
 
+<OnlyInSC>
+An imported name refers to a component. \{#sls.import.kinds}
+</OnlyInSC>
+</SC>
+
+An imported name refers to a component, struct, enum, or global.
+
+<SC>
 ## Import Paths
 
-An import path is a double-quoted string literal.
-Backslash escape sequences are recognized as in any other string literal. \{#sls.import.path-literal}
+An import path is a double-quoted string literal. \{#sls.import.path-literal}
+
+<OnlyInSC>
+The path is resolved relative to the directory of the importing source file. \{#sls.import.path-relative}
+</OnlyInSC>
+</SC>
+
+Backslash escape sequences are recognized as in any other string literal.
 
 If the path begins with the character `@`, it is a *library import*:
-the remainder of the path is resolved against the [component libraries](../../../guide/language/coding/file/#component-libraries) configured in the build system. \{#sls.import.path-library}
+the remainder of the path is resolved against the [component libraries](../../../guide/language/coding/file/#component-libraries) configured in the build system.
 
 Otherwise, the path is resolved first relative to the directory of the importing source file,
 then against the compiler's configured include paths.
-The first match in this search order is used. \{#sls.import.path-relative}
+The first match in this search order is used.
 
+<SC>
 The referenced file must exist. \{#sls.import.path-must-exist}
+</SC>
 
 ## File Imports
 

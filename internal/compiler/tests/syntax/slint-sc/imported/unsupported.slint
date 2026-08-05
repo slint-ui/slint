@@ -1,0 +1,10 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Imported by import_subset.slint: a file outside the subset stays outside it
+// when it's imported rather than compiled directly.
+
+export component Knob inherits Rectangle {
+    callback turned();
+//  >                <error{Callback declarations are not supported in Slint SC}
+}

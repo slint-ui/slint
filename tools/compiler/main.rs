@@ -154,6 +154,9 @@ fn main() -> std::io::Result<()> {
         };
         reject(args.format.is_some(), "--format");
         reject(args.style.is_some(), "--style");
+        // An import resolves relative to the importing file only.
+        reject(!args.include_paths.is_empty(), "-I");
+        reject(!args.library_paths.is_empty(), "-L");
         reject(args.scale_factor.is_some(), "--scale-factor");
         reject(args.embed_resources.is_some(), "--embed-resources");
         reject(args.translation_domain.is_some(), "--translation-domain");

@@ -1,0 +1,66 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Software-3.0
+
+// A named import brings components exported by another file into scope, under
+// their own name or under a new one. The path resolves relative to this file.
+
+//#sls.file.top-level-item
+//#sls.import.semantics
+//#sls.import.forms
+//#sls.import.list
+//#sls.import.item
+//#sls.import.same-name
+//#sls.import.path-literal
+//#sls.import.path-relative
+//#sls.import.kinds
+import { Frame, Led, } from "./imported/shapes.slint";
+
+// An imported component can be the base of a local one.
+//#sls.file.component.inherits.base
+component Panel inherits Frame {
+    background: #202020;
+}
+
+// An import statement may follow a component definition.
+//#sls.import.placement
+//#sls.import.rename
+import { Led as Lamp } from "./imported/shapes.slint";
+
+export component Imports inherits Window {
+    Panel {
+        width: 64px;
+        height: 64px;
+    }
+    Frame {
+        x: 4px;
+        y: 4px;
+        Led {
+            x: 4px;
+            y: 4px;
+        }
+    }
+    Frame {
+        x: 36px;
+        y: 4px;
+        // The same component under its new name.
+        Lamp {
+            x: 4px;
+            y: 4px;
+        }
+    }
+}
+
+/*
+```rust
+let x = Imports::new();
+// The two frames render identically: Lamp is Led under another name.
+let mut frame_buffer = [0u8; 64 * 64 * 3];
+x.render_rgb8(64, 64, &mut frame_buffer)?;
+for row in 0..64 {
+    let left = &frame_buffer[(row * 64 + 4) * 3..(row * 64 + 28) * 3];
+    let right = &frame_buffer[(row * 64 + 36) * 3..(row * 64 + 60) * 3];
+    assert_eq!(left, right);
+}
+screenshot!(x);
+```
+*/
