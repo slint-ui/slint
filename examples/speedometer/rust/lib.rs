@@ -15,13 +15,13 @@ slint::slint! {
 }
 
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen(start))]
-pub fn main() {
+pub fn main() -> Result<(), slint::PlatformError> {
     // This provides better error messages in debug mode.
     // It's disabled in release mode so it doesn't bloat up the file size.
     #[cfg(all(debug_assertions, target_arch = "wasm32"))]
     console_error_panic_hook::set_once();
 
-    let app = MainWindow::new().expect("MainWindow::new() failed");
+    let app = MainWindow::new()?;
 
-    app.run().expect("MainWindow::run() failed");
+    app.run()
 }
