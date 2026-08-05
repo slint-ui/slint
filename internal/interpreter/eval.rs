@@ -1863,18 +1863,15 @@ fn call_builtin_function(
             if arguments.len() != 3 {
                 panic!("internal error: incorrect argument count to StringReplace")
             }
-            if let Value::String(s) = eval_expression(&arguments[0], local_context) {
-                if let Value::String(from) = eval_expression(&arguments[1], local_context) {
-                    if let Value::String(to) = eval_expression(&arguments[2], local_context) {
-                        Value::String(s.replace(from.as_str(), to.as_str()))
-                    } else {
-                        panic!("Third argument not a string");
-                    }
-                } else {
-                    panic!("Second argument not a string");
-                }
+
+            if let (Value::String(s), Value::String(from), Value::String(to)) = (
+                eval_expression(&arguments[0], local_context),
+                eval_expression(&arguments[1], local_context),
+                eval_expression(&arguments[2], local_context),
+            ) {
+                Value::String(s.replace(from.as_str(), to.as_str()).into())
             } else {
-                panic!("First argument not a string");
+                panic!("Not all arguments are strings");
             }
         }
         BuiltinFunction::KeysToString => {
