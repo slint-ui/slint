@@ -38,9 +38,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         writeln!(tests_file, "\nmod {stem} {{")?;
 
-        // Language Specification examples are additionally compiled in
-        // Slint SC mode when the chapter opts into the certified subset with
-        // `SC: true` in its frontmatter, unless the fence carries `no-sc-test`.
+        // Language Specification examples are additionally compiled in Slint SC
+        // mode when the chapter opts into the certified subset with `SC: true`
+        // in its frontmatter. Only fences inside an <SC>/<OnlyInSC> block are the
+        // certified surface, so a fence in the surrounding full-language prose is
+        // not compiled in SC mode. `no-sc-test` opts an SC fence out on top of that.
         let sc_chapter = file.starts_with("---\n")
             && file[4..]
                 .split("\n---\n")
@@ -52,8 +54,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             && sc_chapter;
 
         let mut lines = file.lines().enumerate();
+        // Nesting depth of <SC>/<OnlyInSC> blocks, and of any inner <NotInSC>
+        // (which is excluded from the certified surface even inside an <SC>).
+        let mut sc_depth = 0i32;
+        let mut not_in_sc_depth = 0i32;
         while let Some((n, opening)) = lines.next() {
             let trimmed = opening.trim_start();
+            match opening.trim() {
+                "<SC>" | "<OnlyInSC>" => sc_depth += 1,
+                "</SC>" | "</OnlyInSC>" => sc_depth -= 1,
+                "<NotInSC>" => not_in_sc_depth += 1,
+                "</NotInSC>" => not_in_sc_depth -= 1,
+                _ => {}
+            }
+            let in_sc_block = sc_depth > 0 && not_in_sc_depth == 0;
             let Some(info) = trimmed.strip_prefix("```slint") else {
                 continue;
             };
@@ -102,7 +116,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 path.to_string_lossy().escape_default()
             )?;
 
-            if language_spec && !info.contains("no-sc-test") {
+            if language_spec && in_sc_block && !info.contains("no-sc-test") {
                 write!(
                     tests_file,
                     r##"

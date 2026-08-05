@@ -210,9 +210,11 @@ fn compile_expression(expr: &Expression, root: &ElementRc) -> TokenStream {
             }
             from => compile_expression(from, root),
         },
-        // A unit-less literal is `float`-typed and cast to `int` where an `int`
-        // is expected; it lowers to the same `i32`.
-        Expression::Cast { from, to: Type::Int32 } => compile_expression(from, root),
+        // `int`, `float`, and `length` are all `i32` at runtime, so a cast
+        // between them lowers to the operand itself.
+        Expression::Cast { from, to: Type::Int32 | Type::Float32 } => {
+            compile_expression(from, root)
+        }
         Expression::PropertyReference(nr) => {
             // An unbound property has its type's default value.
             compile_property_reference(nr, root).unwrap_or_else(|| default_value(&nr.ty()))
@@ -220,13 +222,40 @@ fn compile_expression(expr: &Expression, root: &ElementRc) -> TokenStream {
         Expression::BinaryExpression { lhs, rhs, op } => {
             let lhs = compile_expression(lhs, root);
             let rhs = compile_expression(rhs, root);
+            // Arithmetic saturates at the `i32` bounds. `/` only comes from
+            // compiler-synthesized geometry, whose divisor is a non-zero constant
+            // (`saturating_div` still panics on a zero divisor).
             match op {
-                '+' => quote!((#lhs + #rhs)),
-                '-' => quote!((#lhs - #rhs)),
-                '*' => quote!((#lhs * #rhs)),
-                '/' => quote!((#lhs / #rhs)),
+                '+' => quote!((#lhs).saturating_add(#rhs)),
+                '-' => quote!((#lhs).saturating_sub(#rhs)),
+                '*' => quote!((#lhs).saturating_mul(#rhs)),
+                '/' => quote!((#lhs).saturating_div(#rhs)),
                 _ => unreachable!(),
             }
+        }
+        Expression::UnaryOp { sub, op } => {
+            let sub = compile_expression(sub, root);
+            match op {
+                // Negation saturates so that negating `i32::MIN` is defined.
+                '-' => quote!((#sub).saturating_neg()),
+                '+' => sub,
+                _ => unreachable!(),
+            }
+        }
+        // A property read that appears more than once is hoisted into a local
+        // variable, so a code block evaluates it once and reads it back.
+        Expression::CodeBlock(statements) => {
+            let statements = statements.iter().map(|s| compile_expression(s, root));
+            quote!({ #(#statements)* })
+        }
+        Expression::StoreLocalVariable { name, value } => {
+            let name = format_ident!("{}", name.replace('-', "_"));
+            let value = compile_expression(value, root);
+            quote!(let #name = #value;)
+        }
+        Expression::ReadLocalVariable { name, .. } => {
+            let name = format_ident!("{}", name.replace('-', "_"));
+            quote!(#name)
         }
         // Everything else was rejected by the compiler
         _ => unreachable!(),

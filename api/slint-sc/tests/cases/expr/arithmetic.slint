@@ -1,0 +1,95 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Software-3.0
+
+// Arithmetic combines operands with `+`, `-`, and `*`. `+` and `-` are
+// left-associative and `*` binds tighter; parentheses group. The result
+// saturates at the `i32` bounds.
+
+export component TestCase inherits Window {
+    in property <int> a;
+    in property <int> b;
+    in property <int> c;
+    in property <int> d;
+
+    out property <int> product: a * b;
+    out property <int> chain_mul: a * b * c;
+    out property <int> chain_sub: a - b - c - d;
+    out property <int> chain_add: a + b + c + d;
+    out property <int> mixed: a - b + c - d;
+    out property <int> combined: a + b * 2;
+    out property <int> sub_mul: a - b * c;
+    out property <int> two_products: a * b - c * d;
+    out property <int> grouped: (a + b) * 2;
+    out property <int> nested: (a - b) * (c + d);
+    out property <int> negative: c - a;
+
+    in property <length> w1;
+    in property <length> w2;
+    out property <length> len_sum: w1 + w2;
+    out property <length> len_scaled: w1 * 3;
+    out property <length> len_expr: w1 * 3 - w2;
+    out property <length> len_grouped: (w1 - w2) * 2;
+    out property <length> len_literal: w1 + 4px;
+    out property <length> len_times_int: w1 * a;
+    out property <length> int_times_len: a * w1;
+    out property <length> len_int_int: w1 * a * b;
+    out property <length> len_times_sum: w1 * (a + b);
+    out property <length> len_products_sub: w1 * a - w2 * b;
+}
+
+/*
+```rust
+let mut x = TestCase::new();
+x.set_a(10);
+x.set_b(3);
+x.set_c(2);
+x.set_d(1);
+
+// `*` multiplies; it is left-associative when chained.
+//#sls.op.multiplicative
+assert_eq!(x.get_product(), 10 * 3);
+assert_eq!(x.get_chain_mul(), 10 * 3 * 2);
+
+// `+` and `-` require the same-typed operands and are left-associative.
+//#sls.op.additive
+assert_eq!(x.get_chain_sub(), 10 - 3 - 2 - 1);
+assert_eq!(x.get_chain_add(), 10 + 3 + 2 + 1);
+assert_eq!(x.get_mixed(), 10 - 3 + 2 - 1);
+assert_eq!(x.get_negative(), 2 - 10);
+
+// `*` binds tighter than `+` and `-`.
+//#sls.op.precedence
+assert_eq!(x.get_combined(), 10 + 3 * 2);
+assert_eq!(x.get_sub_mul(), 10 - 3 * 2);
+assert_eq!(x.get_two_products(), 10 * 3 - 2 * 1);
+
+// Parentheses group a nested expression, overriding the precedence.
+//#sls.expr.grouping
+assert_eq!(x.get_grouped(), (10 + 3) * 2);
+assert_eq!(x.get_nested(), (10 - 3) * (2 + 1));
+
+// The same operators apply to lengths: `length` +/- `length` is a `length`,
+// and `length` * number scales it. A `px` literal is a `length`.
+x.set_w1(100);
+x.set_w2(30);
+assert_eq!(x.get_len_sum(), 100 + 30);
+assert_eq!(x.get_len_scaled(), 100 * 3);
+assert_eq!(x.get_len_expr(), 100 * 3 - 30);
+assert_eq!(x.get_len_grouped(), (100 - 30) * 2);
+assert_eq!(x.get_len_literal(), 104);
+
+// A length times an int (in either order), and mixed with `+`/`-`, stays a length.
+//#sls.op.multiplicative
+assert_eq!(x.get_len_times_int(), 100 * 10);
+assert_eq!(x.get_int_times_len(), 10 * 100);
+assert_eq!(x.get_len_int_int(), 100 * 10 * 3);
+assert_eq!(x.get_len_times_sum(), 100 * (10 + 3));
+assert_eq!(x.get_len_products_sub(), 100 * 10 - 30 * 3);
+
+// The multiplication saturates at `i32::MAX` rather than overflowing.
+//#sls.op.saturating
+x.set_a(2_000_000_000);
+x.set_b(2_000_000_000);
+assert_eq!(x.get_product(), i32::MAX);
+```
+*/

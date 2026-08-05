@@ -8,7 +8,7 @@ import SC from '@slint/common-files/src/components/SC.astro';
 import OnlyInSC from '@slint/common-files/src/components/OnlyInSC.astro';
 
 <OnlyInSC>
-An expression is a color literal, a length literal, an integer literal, or a property reference. \{#sls.expr.forms}
+An expression is a color literal, a length literal, an integer literal, an arithmetic or unary expression, or a property reference. \{#sls.expr.forms}
 </OnlyInSC>
 
 An expression produces a value.
@@ -20,6 +20,8 @@ a [member access or index](../operators/#member-access-and-indexing), a function
 an array or struct literal, and a macro such as `@image-url` or `@tr`.
 
 <SC>
+Parentheses group a nested expression. \{#sls.expr.grouping}
+
 ## Color Literals
 
 A color literal consists of `#` followed by 3, 4, 6, or 8 hexadecimal digits:
