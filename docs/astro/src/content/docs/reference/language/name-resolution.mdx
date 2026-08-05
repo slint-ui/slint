@@ -14,7 +14,7 @@ Properties, callbacks, and functions share the same rules.
 
 The `:=` syntax gives an element a name, also called its *id*:
 
-```slint no-sc-test
+```slint
 export component MyApp inherits Window {
     hello := Text {
         text: "hello";
@@ -90,7 +90,7 @@ A [global](../globals/)'s members are reached through its name, as in `Name.prop
 Because a declared member is looked up starting from the current element and moving outward, a member declared on an inner element shadows a same-named member declared on an enclosing element.
 Multiple functions with the same name are allowed in one component as long as they are declared on different elements, and an inner one shadows an outer one for unqualified calls made within its subtree:
 
-```slint no-sc-test
+```slint
 export component Example {
     property <int> secret_number: my-function();
     public pure function my-function() -> int {
