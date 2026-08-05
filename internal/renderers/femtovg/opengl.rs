@@ -65,6 +65,29 @@ unsafe impl OpenGLInterface for WebGLNeedsNoCurrentContext {
     }
 }
 
+#[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
+const WEBGL_REQUIRED: &str = "Slint requires WebGL to be enabled in your browser";
+
+#[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
+pub fn preemptively_create_webgl_context(
+    canvas: &web_sys::HtmlCanvasElement,
+) -> Result<(), PlatformError> {
+    use wasm_bindgen::JsCast;
+
+    // attributes used by femtovg::renderer::OpenGl::new_from_html_canvas().
+    // if attributes used there change, then this may break things, because we are in charge of
+    // initializing the canvas with the correct attributes. their attributes will be ignored
+    // and get_context_with_context_options will just return the existing context
+    let attrs = web_sys::WebGlContextAttributes::new();
+    attrs.set_stencil(true);
+    attrs.set_antialias(false);
+
+    match canvas.get_context_with_context_options("webgl2", &attrs) {
+        Ok(Some(context)) if context.is_instance_of::<web_sys::WebGl2RenderingContext>() => Ok(()),
+        _ => Err(PlatformError::Other(WEBGL_REQUIRED.into())),
+    }
+}
+
 struct SuspendedRenderer {}
 
 unsafe impl OpenGLInterface for SuspendedRenderer {
@@ -130,24 +153,7 @@ impl OpenGLBackend {
         #[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
         let gl_renderer = match femtovg::renderer::OpenGl::new_from_html_canvas(&html_canvas) {
             Ok(gl_renderer) => gl_renderer,
-            Err(_) => {
-                use wasm_bindgen::JsCast;
-
-                // I don't believe that there's a way of disabling the 2D canvas.
-                let context_2d = html_canvas
-                    .get_context("2d")
-                    .unwrap()
-                    .unwrap()
-                    .dyn_into::<web_sys::CanvasRenderingContext2d>()
-                    .unwrap();
-                context_2d.set_font("20px serif");
-                // We don't know if we're rendering on dark or white background, so choose a "color" in the middle for the text.
-                context_2d.set_fill_style_str("red");
-                context_2d
-                    .fill_text("Slint requires WebGL to be enabled in your browser", 0., 30.)
-                    .unwrap();
-                panic!("Cannot proceed without WebGL - aborting")
-            }
+            Err(_) => return Err(PlatformError::Other(WEBGL_REQUIRED.into())),
         };
 
         let femtovg_canvas = femtovg::Canvas::new_with_text_context(

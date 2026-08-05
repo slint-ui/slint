@@ -961,15 +961,7 @@ impl WinitWindowAdapter {
         {
             use winit::platform::web::WindowAttributesExtWebSys;
 
-            use wasm_bindgen::JsCast;
-
-            if let Some(html_canvas) = web_sys::window()
-                .ok_or_else(|| "winit backend: Could not retrieve DOM window".to_string())?
-                .document()
-                .ok_or_else(|| "winit backend: Could not retrieve DOM document".to_string())?
-                .get_element_by_id("canvas")
-                .and_then(|canvas_elem| canvas_elem.dyn_into::<web_sys::HtmlCanvasElement>().ok())
-            {
+            if let Some(html_canvas) = crate::web::find_html_canvas()? {
                 attrs = attrs
                     .with_canvas(Some(html_canvas))
                     // Don't activate the window by default, as that will cause the page to scroll,

@@ -55,6 +55,14 @@ impl GlutinFemtoVGRenderer {
             }
         }
 
+        // create the webgl context early so that we can report errors about webgl support
+        // immediately and give more helpful error popup messages. when the event loop is already
+        // running, we just panic if this fails, which gives an unhelpful popup message
+        #[cfg(target_arch = "wasm32")]
+        if let Some(html_canvas) = crate::web::find_html_canvas()? {
+            opengl::preemptively_create_webgl_context(&html_canvas)?;
+        }
+
         Ok(Box::new(Self {
             renderer: FemtoVGRenderer::new_suspended(),
             _requested_graphics_api: shared_backend_data.requested_graphics_api.clone(),
@@ -101,12 +109,14 @@ impl super::WinitCompatibleRenderer for GlutinFemtoVGRenderer {
             .canvas()
             .ok_or_else(|| "FemtoVG Renderer: winit didn't return a canvas")?;
 
-        self.renderer.set_opengl_context(
-            #[cfg(not(target_arch = "wasm32"))]
-            opengl_context,
-            #[cfg(target_arch = "wasm32")]
-            html_canvas.clone(),
-        )?;
+        #[cfg(not(target_arch = "wasm32"))]
+        self.renderer.set_opengl_context(opengl_context)?;
+
+        #[cfg(target_arch = "wasm32")]
+        if let Err(e) = self.renderer.set_opengl_context(html_canvas.clone()) {
+            crate::web::canvas_draw_error_message(&html_canvas, &e.to_string());
+            panic!("Cannot proceed without WebGL - aborting")
+        }
 
         #[cfg(target_family = "wasm")]
         self.setup_webgl_context_loss_handlers(winit_window.id(), html_canvas);

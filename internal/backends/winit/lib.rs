@@ -129,6 +129,8 @@ mod xdg_desktop_settings;
 
 #[cfg(target_arch = "wasm32")]
 pub(crate) mod wasm_input_helper;
+#[cfg(target_arch = "wasm32")]
+pub(crate) mod web;
 
 core::cfg_select! {
     enable_femtovg_renderer => {
@@ -941,7 +943,14 @@ impl i_slint_core::platform::Platform for Backend {
                     #[cfg(all(muda, target_os = "macos"))]
                     self.muda_enable_default_menu_bar_bar,
                 )
-                .ok_or_else(|| format!("Winit backend failed to find a suitable renderer: {e}"))
+                .ok_or_else(|| {
+                    let message = format!("Winit backend failed to find a suitable renderer: {e}");
+                    #[cfg(target_arch = "wasm32")]
+                    if let Ok(Some(html_canvas)) = web::find_html_canvas() {
+                        web::canvas_draw_error_message(&html_canvas, &message);
+                    }
+                    message
+                })
             },
             |renderer| {
                 Ok(WinitWindowAdapter::new(
