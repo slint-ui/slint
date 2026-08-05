@@ -23,7 +23,7 @@ use i_slint_core::items::{
 };
 use i_slint_core::lengths::{
     LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector,
-    ScaleFactor, logical_size_from_api,
+    RectLengths, ScaleFactor, SizeLengths, logical_size_from_api,
 };
 use i_slint_core::textlayout::sharedparley::{self, GlyphRenderer, fontique, parley};
 use i_slint_core::{Brush, Color, ImageInner, SharedString};
@@ -209,7 +209,11 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
         }
         // TODO: cache path in item to avoid re-tesselation
         let path = rect_to_path(geometry);
-        let paint = match self.brush_to_paint(rect.background(), &path) {
+        let paint = match self.brush_to_paint(
+            rect.background(),
+            geometry.width_length(),
+            geometry.height_length(),
+        ) {
             Some(paint) => paint,
             None => return,
         }
@@ -253,35 +257,37 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
         // In case of a transparent border, we want the background to cover the whole rectangle, which is
         // not how femtovg's stroke works. So fill the background separately in the else branch if the
         // border is not opaque.
-        let (mut background_path, mut maybe_border_path) = if opaque_border {
-            // In CSS the border is entirely towards the inside of the boundary
-            // geometry, while in femtovg the line with for a stroke is 50% in-
-            // and 50% outwards. We choose the CSS model, so the inner rectangle
-            // is adjusted accordingly.
-            adjust_rect_and_border_for_inner_drawing(&mut geometry, &mut border_width);
+        let (mut background_path, mut maybe_border_path, background_bounds, border_bounds) =
+            if opaque_border {
+                // In CSS the border is entirely towards the inside of the boundary
+                // geometry, while in femtovg the line with for a stroke is 50% in-
+                // and 50% outwards. We choose the CSS model, so the inner rectangle
+                // is adjusted accordingly.
+                adjust_rect_and_border_for_inner_drawing(&mut geometry, &mut border_width);
 
-            (rect_with_radius_to_path(geometry, stroke_border_radius), None)
-        } else {
-            let background_path = rect_with_radius_to_path(geometry, fill_radius);
+                let bounds = (geometry.width_length(), geometry.height_length());
+                (rect_with_radius_to_path(geometry, stroke_border_radius), None, bounds, bounds)
+            } else {
+                let background_path = rect_with_radius_to_path(geometry, fill_radius);
+                let background_bounds = (geometry.width_length(), geometry.height_length());
 
-            // In CSS the border is entirely towards the inside of the boundary
-            // geometry, while in femtovg the line with for a stroke is 50% in-
-            // and 50% outwards. We choose the CSS model, so the inner rectangle
-            // is adjusted accordingly.
-            adjust_rect_and_border_for_inner_drawing(&mut geometry, &mut border_width);
+                // In CSS the border is entirely towards the inside of the boundary
+                // geometry, while in femtovg the line with for a stroke is 50% in-
+                // and 50% outwards. We choose the CSS model, so the inner rectangle
+                // is adjusted accordingly.
+                adjust_rect_and_border_for_inner_drawing(&mut geometry, &mut border_width);
 
-            let border_path = rect_with_radius_to_path(geometry, stroke_border_radius);
+                let border_path = rect_with_radius_to_path(geometry, stroke_border_radius);
+                let border_bounds = (geometry.width_length(), geometry.height_length());
 
-            (background_path, Some(border_path))
-        };
+                (background_path, Some(border_path), background_bounds, border_bounds)
+            };
 
-        let fill_paint = self.brush_to_paint(rect.background(), &background_path);
+        let fill_paint =
+            self.brush_to_paint(rect.background(), background_bounds.0, background_bounds.1);
 
         let border_paint = self
-            .brush_to_paint(
-                rect.border_color(),
-                maybe_border_path.as_ref().unwrap_or(&background_path),
-            )
+            .brush_to_paint(rect.border_color(), border_bounds.0, border_bounds.1)
             .map(|mut paint| {
                 paint.set_line_width(border_width.get());
                 paint
@@ -347,10 +353,14 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
         sharedparley::draw_text_input(self, text_input, self_rc, size, self.text_layout_cache);
     }
 
-    fn draw_path(&mut self, path: Pin<&items::Path>, item_rc: &ItemRc, _size: LogicalSize) {
+    fn draw_path(&mut self, path: Pin<&items::Path>, item_rc: &ItemRc, size: LogicalSize) {
         if self.global_alpha_transparent() {
             return;
         }
+
+        let physical_size = size * self.scale_factor;
+        let (width, height) =
+            (PhysicalLength::new(physical_size.width), PhysicalLength::new(physical_size.height));
 
         let (offset, path_events) = match path.fitted_path_events(item_rc) {
             Some(offset_and_events) => offset_and_events,
@@ -433,7 +443,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
 
         let anti_alias = path.anti_alias();
 
-        let fill_paint = self.brush_to_paint(path.fill(), &femtovg_path).map(|mut fill_paint| {
+        let fill_paint = self.brush_to_paint(path.fill(), width, height).map(|mut fill_paint| {
             fill_paint.set_fill_rule(match path.fill_rule() {
                 FillRule::Evenodd => femtovg::FillRule::EvenOdd,
                 FillRule::Nonzero | _ => femtovg::FillRule::NonZero,
@@ -442,7 +452,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
             fill_paint
         });
 
-        let border_paint = self.brush_to_paint(path.stroke(), &femtovg_path).map(|mut paint| {
+        let border_paint = self.brush_to_paint(path.stroke(), width, height).map(|mut paint| {
             paint.set_line_width((path.stroke_width() * self.scale_factor).get());
             paint.set_line_cap(match path.stroke_line_cap() {
                 items::LineCap::Round => femtovg::LineCap::Round,
@@ -945,8 +955,9 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GlyphRenderer for GLItemRendere
         brush: Brush,
         size: LogicalSize,
     ) -> Option<Self::PlatformBrush> {
-        let text_path = rect_to_path((size * self.scale_factor).into());
-        self.brush_to_paint(brush, &text_path).map(GlyphBrush::Fill)
+        let physical_size = size * self.scale_factor;
+        self.brush_to_paint(brush, physical_size.width_length(), physical_size.height_length())
+            .map(GlyphBrush::Fill)
     }
 
     fn platform_brush_for_color(
@@ -966,8 +977,12 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GlyphRenderer for GLItemRendere
         physical_stroke_width: f32,
         size: LogicalSize,
     ) -> Option<Self::PlatformBrush> {
-        let text_path = rect_to_path((size * self.scale_factor).into());
-        match self.brush_to_paint(stroke_brush.clone(), &text_path) {
+        let physical_size = size * self.scale_factor;
+        match self.brush_to_paint(
+            stroke_brush.clone(),
+            physical_size.width_length(),
+            physical_size.height_length(),
+        ) {
             Some(mut paint) => {
                 paint.set_line_width(physical_stroke_width);
                 Some(GlyphBrush::Stroke(paint))
@@ -1259,7 +1274,11 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
         image_rect.rect(0., 0., image_size.width, image_size.height);
 
         // We fill the entire image, there is no need to apply anti-aliasing around the edges
-        let brush_paint = match self.brush_to_paint(colorize_brush, &image_rect) {
+        let brush_paint = match self.brush_to_paint(
+            colorize_brush,
+            PhysicalLength::new(image_size.width),
+            PhysicalLength::new(image_size.height),
+        ) {
             Some(paint) => paint.with_anti_alias(false),
             None => return original_cache_entry,
         };
@@ -1505,21 +1524,21 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
         }
     }
 
-    fn brush_to_paint(&self, brush: Brush, path: &femtovg::Path) -> Option<femtovg::Paint> {
+    fn brush_to_paint(
+        &self,
+        brush: Brush,
+        width: PhysicalLength,
+        height: PhysicalLength,
+    ) -> Option<femtovg::Paint> {
         if brush.is_transparent() {
             return None;
         }
         Some(match brush {
             Brush::SolidColor(color) => femtovg::Paint::color(to_femtovg_color(&color)),
             Brush::LinearGradient(gradient) => {
-                let path_bounds = path_bounding_box(&self.canvas, path);
-
-                let path_width = path_bounds.width();
-                let path_height = path_bounds.height();
-
                 let (start, end) = i_slint_core::graphics::line_for_angle(
                     gradient.angle(),
-                    [path_width, path_height].into(),
+                    [width.get(), height.get()].into(),
                 );
 
                 let mut stops: Vec<_> = gradient
@@ -1537,19 +1556,14 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
                 femtovg::Paint::linear_gradient_stops(start.x, start.y, end.x, end.y, stops)
             }
             Brush::RadialGradient(gradient) => {
-                let path_bounds = path_bounding_box(&self.canvas, path);
-
-                let path_width = path_bounds.width();
-                let path_height = path_bounds.height();
-
                 let (cx, cy) = gradient.center_or_default_scaled(
-                    path_width,
-                    path_height,
+                    width.get(),
+                    height.get(),
                     self.scale_factor.get(),
                 );
                 let radius = gradient.radius_or_default_scaled(
-                    path_width,
-                    path_height,
+                    width.get(),
+                    height.get(),
                     self.scale_factor.get(),
                 );
 
@@ -1568,14 +1582,9 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
                 femtovg::Paint::radial_gradient_stops(cx, cy, 0., radius, stops)
             }
             Brush::ConicGradient(gradient) => {
-                let path_bounds = path_bounding_box(&self.canvas, path);
-
-                let path_width = path_bounds.width();
-                let path_height = path_bounds.height();
-
                 let (cx, cy) = gradient.center_or_default_scaled(
-                    path_width,
-                    path_height,
+                    width.get(),
+                    height.get(),
                     self.scale_factor.get(),
                 );
 
