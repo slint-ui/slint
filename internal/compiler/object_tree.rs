@@ -95,13 +95,19 @@ impl Document {
         let mut inner_components = Vec::new();
         let mut inner_types = Vec::new();
 
+        // Named imports are part of the subset, the other two forms aren't.
+        // The path rules are enforced in the type loader, which is where a
+        // path is resolved.
         #[cfg(feature = "slint-sc")]
         for import in &imports {
-            if matches!(
-                import.import_kind,
-                ImportKind::ImportList(_) | ImportKind::ModuleReexport(_)
-            ) {
-                diag.slint_sc_error("Imports are", &import.import_uri_token);
+            match import.import_kind {
+                ImportKind::ImportList(_) => {}
+                ImportKind::FileImport => {
+                    diag.slint_sc_error("File imports are", &import.import_uri_token)
+                }
+                ImportKind::ModuleReexport(_) => {
+                    diag.slint_sc_error("Re-exports are", &import.import_uri_token)
+                }
             }
         }
 

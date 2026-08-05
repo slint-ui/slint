@@ -1081,6 +1081,19 @@ impl TypeLoader {
         let mut imports = Vec::new();
         let mut dependencies_futures = Vec::new();
         for mut import in Self::collect_dependencies(state, doc) {
+            // Reject a library import before the library search path is
+            // consulted, so that the only diagnostic is the Slint SC one. No
+            // builtin file uses a library import, so skipping the load can't
+            // leave a builtin document half-loaded.
+            #[cfg(feature = "slint-sc")]
+            if state.borrow().diag.slint_sc && import.file.starts_with('@') {
+                state
+                    .borrow_mut()
+                    .diag
+                    .slint_sc_error("Library imports are", &import.import_uri_token);
+                continue;
+            }
+
             if matches!(import.import_kind, ImportKind::FileImport) {
                 if let Some((path, _)) = state.borrow().tl.resolve_import_path(
                     Some(&import.import_uri_token.clone().into()),
@@ -1171,6 +1184,19 @@ impl TypeLoader {
                 let Some(doc) = state.tl.get_document(&doc_path) else {
                     panic!("Just loaded document not available")
                 };
+
+                // The widget library and the styles are built into the
+                // compiler and aren't part of the subset. Their own imports
+                // reach this too, but the error is suppressed for a builtin
+                // referencing file.
+                #[cfg(feature = "slint-sc")]
+                if doc_path.starts_with("builtin:") {
+                    state.diag.slint_sc_error(
+                        &format!("Importing the builtin file '{}' is", import.file),
+                        &import.import_uri_token,
+                    );
+                }
+
                 match &import.import_kind {
                     ImportKind::ImportList(imported_types) => {
                         let mut imported_types = ImportedName::extract_imported_names(imported_types).peekable();
@@ -1663,7 +1689,11 @@ impl TypeLoader {
                 }
             };
 
-            match imported_type {
+            #[cfg(feature = "slint-sc")]
+            let internal_name = import_name.internal_name.clone();
+
+            #[cfg_attr(not(feature = "slint-sc"), allow(unused_variables))]
+            let inserted = match imported_type {
                 itertools::Either::Left(c) => {
                     registry_to_populate.borrow_mut().add_with_name(import_name.internal_name, c)
                 }
@@ -1671,6 +1701,16 @@ impl TypeLoader {
                     .borrow_mut()
                     .insert_type_with_name(ty, import_name.internal_name),
             };
+
+            // Regular Slint lets a later import replace an earlier one of the
+            // same name; Slint SC requires each name to be introduced once.
+            #[cfg(feature = "slint-sc")]
+            if !inserted {
+                build_diagnostics.slint_sc_error(
+                    &format!("Importing the name '{internal_name}' more than once is"),
+                    &import.import_uri_token,
+                );
+            }
         }
     }
 

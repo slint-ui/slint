@@ -42,6 +42,7 @@ function keepOnlySC(content) {
     const out = [];
     let delimiters = 0;
     let depth = 0;
+    let inFence = false;
     for (const line of content.split("\n")) {
         const t = line.trim();
         if (delimiters < 2) {
@@ -58,6 +59,16 @@ function keepOnlySC(content) {
         if (t === "<SC>" || t === "<OnlyInSC>") {
             out.push(line);
             depth++;
+            continue;
+        }
+        // The lines of a dropped code block are content, not MDX: a Slint
+        // example that starts with `import` must not be taken for one of the
+        // component imports kept below.
+        if (t.startsWith("```")) {
+            inFence = !inFence;
+            continue;
+        }
+        if (inFence) {
             continue;
         }
         // Outside a certified block keep only imports and blank lines (for

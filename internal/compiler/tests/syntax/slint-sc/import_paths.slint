@@ -1,0 +1,20 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// An import path names a file relative to the importing file. There's no
+// library search path, and the widget library built into the compiler isn't
+// part of the subset.
+
+//#sls.import.path-must-exist
+import { Frame } from "./imported/does_not_exist.slint";
+//                    >                               <error{Cannot find requested import "./imported/does_not_exist.slint" in the include search path}
+
+//#sls.import.path-relative
+import { Frame } from "@library/shapes.slint";
+//                    >                     <error{Library imports are not supported in Slint SC}
+
+//#sls.import.path-relative
+import { Button } from "std-widgets.slint";
+//                     >                 <error{Importing the builtin file 'std-widgets.slint' is not supported in Slint SC}
+
+export component Test inherits Window { }
