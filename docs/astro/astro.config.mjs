@@ -264,6 +264,10 @@ export default defineConfig({
                                                   slug: "guide/experimental/match-elements",
                                               },
                                               {
+                                                  label: "Array Predicates",
+                                                  slug: "guide/experimental/array-predicates",
+                                              },
+                                              {
                                                   label: "Named Slots",
                                                   slug: "guide/experimental/named-slots",
                                               },

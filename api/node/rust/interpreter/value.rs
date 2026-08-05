@@ -387,7 +387,8 @@ pub fn to_value(
         | Type::LayoutCache
         | Type::ArrayOfU16
         | Type::ElementReference
-        | Type::MouseCursor => Err(napi::Error::from_reason("reason")),
+        | Type::MouseCursor
+        | Type::Closure => Err(napi::Error::from_reason("reason")),
         Type::StyledText => {
             let obj = unknown.coerce_to_object()?;
             let styled_instance: ClassInstance<SlintStyledText> =

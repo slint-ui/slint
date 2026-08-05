@@ -135,7 +135,10 @@ pub enum LookupResultCallable {
     MemberFunction {
         /// This becomes the first argument of the function call
         base: Expression,
-        base_node: Option<NodeOrToken>,
+        /// Syntax node used as the diagnostic source span for `base`. In practice this is
+        /// often the node that originated the member-function lookup (e.g. the `.focus`
+        /// token), not the node of `base` itself.
+        source_node: Option<NodeOrToken>,
         member: Box<LookupResultCallable>,
     },
 }
@@ -273,8 +276,8 @@ impl LookupObject for LocalVariableLookup {
         ctx: &LookupCtx,
         f: &mut impl FnMut(&SmolStr, LookupResult) -> Option<R>,
     ) -> Option<R> {
-        for scope in ctx.local_variables.iter() {
-            for (name, ty) in scope {
+        for scope in ctx.local_variables.iter().rev() {
+            for (name, ty) in scope.iter().rev() {
                 if let Some(r) = f(
                     // we need to strip the "local_" prefix because a lookup call will not include it
                     &name.strip_prefix("local_").unwrap_or(name).into(),
@@ -590,7 +593,7 @@ fn expression_from_reference(
             if matches!(function.args.first(), Some(Type::ElementReference)) {
                 LookupResult::Callable(LookupResultCallable::MemberFunction {
                     base: Expression::ElementReference(base_expr),
-                    base_node: None,
+                    source_node: None,
                     member: Box::new(LookupResultCallable::Callable(callable)),
                 })
             } else {
@@ -1128,7 +1131,7 @@ impl LookupObject for ColorExpression<'_> {
             };
             LookupResult::Callable(LookupResultCallable::MemberFunction {
                 base,
-                base_node: ctx.current_token.clone(), // Note that this is not the base_node, but the function's node
+                source_node: ctx.current_token.clone(),
                 member: Box::new(LookupResultCallable::Callable(Callable::Builtin(f))),
             })
         };
@@ -1193,6 +1196,13 @@ impl LookupObject for ArrayExpression<'_> {
         ctx: &LookupCtx,
         f: &mut impl FnMut(&SmolStr, LookupResult) -> Option<R>,
     ) -> Option<R> {
+        let member_function = |f: BuiltinFunction| {
+            LookupResult::Callable(LookupResultCallable::MemberFunction {
+                base: self.0.clone(),
+                source_node: ctx.current_token.clone(),
+                member: LookupResultCallable::Callable(Callable::Builtin(f)).into(),
+            })
+        };
         let function_call = |f: BuiltinFunction| {
             LookupResult::from(Expression::FunctionCall {
                 function: Callable::Builtin(f),
@@ -1207,6 +1217,14 @@ impl LookupObject for ArrayExpression<'_> {
             .or_else(|| f("push", member_macro(BuiltinMacroFunction::ArrayPush)))
             .or_else(|| f("remove", member_macro(BuiltinMacroFunction::ArrayRemove)))
             .or_else(|| f("insert", member_macro(BuiltinMacroFunction::ArrayInsert)))
+            .or_else(|| {
+                // `any` and `all` take a closure argument; closures are experimental.
+                if !ctx.diag.enable_experimental && !ctx.type_register.expose_internal_types {
+                    return None;
+                }
+                f("any", member_function(BuiltinFunction::ArrayAny))
+                    .or_else(|| f("all", member_function(BuiltinFunction::ArrayAll)))
+            })
     }
 }
 
@@ -1250,7 +1268,7 @@ fn builtin_member_function_generator<'a>(
     move |func: BuiltinFunction| {
         LookupResult::Callable(LookupResultCallable::MemberFunction {
             base: base.clone(),
-            base_node: ctx.current_token.clone(),
+            source_node: ctx.current_token.clone(),
             member: Box::new(LookupResultCallable::Callable(Callable::Builtin(func))),
         })
     }
@@ -1258,12 +1276,12 @@ fn builtin_member_function_generator<'a>(
 
 fn member_macro_generator(
     base: Expression,
-    base_node: Option<NodeOrToken>,
+    source_node: Option<NodeOrToken>,
 ) -> impl FnMut(BuiltinMacroFunction) -> LookupResult {
     move |func: BuiltinMacroFunction| {
         LookupResult::Callable(LookupResultCallable::MemberFunction {
             base: base.clone(),
-            base_node: base_node.clone(),
+            source_node: source_node.clone(),
             member: Box::new(LookupResultCallable::Macro(func)),
         })
     }

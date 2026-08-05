@@ -739,6 +739,9 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
 
             eval_expression(expression, local_context)
         }
+        Expression::Closure { .. } => unreachable!(
+            "closures are dispatched by their consuming builtin and should not go through eval_expression"
+        ),
     }
 }
 
@@ -1968,6 +1971,33 @@ fn call_builtin_function(
                 panic!("internal error: argument to PathAngleAt must be an element")
             }
         }
+        BuiltinFunction::ArrayAny | BuiltinFunction::ArrayAll => {
+            let is_all = matches!(f, BuiltinFunction::ArrayAll);
+            let model: ModelRc<Value> =
+                eval_expression(&arguments[0], local_context).try_into().unwrap();
+            let Expression::Closure { arg_name, expression } = &arguments[1] else {
+                panic!("internal error: Array.any/all expects a closure as second argument")
+            };
+            model.model_tracker().track_row_count_changes();
+            for row in 0..model.row_count() {
+                let x = model.row_data_tracked(row).unwrap_or_default();
+                let previous = local_context.local_variables.insert(arg_name.clone(), x);
+                let result: bool = eval_expression(expression, local_context).try_into().unwrap();
+                match previous {
+                    Some(prev) => {
+                        local_context.local_variables.insert(arg_name.clone(), prev);
+                    }
+                    None => {
+                        local_context.local_variables.remove(arg_name);
+                    }
+                }
+                // `all` short-circuits on false, `any` short-circuits on true.
+                if result != is_all {
+                    return Value::Bool(!is_all);
+                }
+            }
+            Value::Bool(is_all)
+        }
     }
 }
 
@@ -2267,7 +2297,8 @@ fn check_value_type(value: &mut Value, ty: &Type) -> bool {
         | Type::InferredCallback
         | Type::Callback { .. }
         | Type::Function { .. }
-        | Type::ElementReference => panic!("not valid property type"),
+        | Type::ElementReference
+        | Type::Closure => panic!("not valid property type"),
         Type::Float32 => matches!(value, Value::Number(_)),
         Type::Int32 => matches!(value, Value::Number(_)),
         Type::String => matches!(value, Value::String(_)),
@@ -2669,7 +2700,8 @@ pub fn default_value_for_type(ty: &Type) -> Value {
         Type::InferredProperty
         | Type::InferredCallback
         | Type::ElementReference
-        | Type::Function { .. } => {
+        | Type::Function { .. }
+        | Type::Closure => {
             panic!("There can't be such property")
         }
         Type::StyledText => Value::StyledText(Default::default()),
