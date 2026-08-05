@@ -36,7 +36,7 @@ For each case, the driver in `api/slint-sc/tests/driver.rs`:
 2. Extracts the test body from the fenced `rust` blocks in the case's comments.
 3. Compiles the generated code and that body with `rustc`.
 4. Runs the resulting binary.
-5. Compares any screenshots it took against the PNG references in `api/slint-sc/tests/references/`.
+5. Compares the screenshots the case took, if it took any, against the PNG references in `api/slint-sc/tests/references/`.
 
 Step 3 is itself a test.
 The runtime is the only `--extern` passed to `rustc`,
@@ -50,7 +50,8 @@ let _ = Hidden::new();
 //~ ERROR undeclared type `Hidden`
 ```
 
-The `screenshot!` macro renders the component into a fixed 64x64 RGB buffer and writes it out for the driver to compare.
+A case that verifies what the runtime draws calls the `screenshot!` macro, which renders the component into a fixed 64x64 RGB buffer and writes it out for the driver to compare.
+Others assert in Rust alone and take no screenshot.
 The comparison is byte for byte against the reference, with no tolerance threshold,
 which the runtime's determinism makes possible: no dynamic allocation, no external dependencies, and a caller-provided frame buffer.
 A single differing pixel fails the case.
