@@ -42,9 +42,22 @@ pub fn generate(cfg: &Config) -> Result<(), Box<dyn std::error::Error>> {
     }
 
     if cfg.sc_only {
-        crate::traceability::generate(cfg)?;
-        crate::coverage::generate(cfg)?;
+        // Both chapters are written before any gap is reported, so the failure
+        // lists every gap at once and the generated pages are there to inspect.
+        let mut gaps = crate::traceability::generate(cfg)?;
+        gaps.extend(crate::coverage::generate(cfg)?);
         crate::test_results::generate(cfg)?;
+        if cfg.fail_on_gaps && !gaps.is_empty() {
+            eprintln!("error: the safety manual has {} gap(s):", gaps.len());
+            for gap in &gaps {
+                eprintln!("  {gap}");
+            }
+            return Err(anyhow::anyhow!(
+                "{} gap(s): the runtime must stay completely covered and every requirement must be declared by a test",
+                gaps.len()
+            )
+            .into());
+        }
     }
 
     Ok(())

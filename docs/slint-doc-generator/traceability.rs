@@ -120,7 +120,9 @@ impl TestRef {
     }
 }
 
-pub fn generate(cfg: &Config) -> Result<(), Box<dyn std::error::Error>> {
+/// Writes the matrix and returns the gaps it shows: the requirement
+/// paragraphs that no test declares.
+pub fn generate(cfg: &Config) -> Result<Vec<String>, Box<dyn std::error::Error>> {
     let root = crate::root_dir();
     let mut spec_pages = scan_spec_pages(&root.join(SPEC_DIR))?;
     spec_pages.extend(scan_property_type_pages(&root)?);
@@ -149,7 +151,28 @@ pub fn generate(cfg: &Config) -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    write_matrix(cfg, &root, &spec_pages, &reference_pages, &safety_pages, &tests_by_id)
+    let page_sets: [&[SpecPage]; 3] = [&spec_pages, &reference_pages, &safety_pages];
+    let gaps = uncovered(&page_sets, &tests_by_id);
+    write_matrix(cfg, &root, &spec_pages, &reference_pages, &safety_pages, &tests_by_id)?;
+    Ok(gaps)
+}
+
+/// The requirement paragraphs no test declares -- the ❌ rows of the matrix --
+/// one message per paragraph. Informative paragraphs state no requirement, so
+/// they need no test and don't count.
+fn uncovered(page_sets: &[&[SpecPage]], tests_by_id: &HashMap<&str, Vec<&TestRef>>) -> Vec<String> {
+    let mut gaps = Vec::new();
+    for page in page_sets.iter().flat_map(|set| set.iter()) {
+        for (id, line) in &page.anchors {
+            if !informative(id) && !tests_by_id.contains_key(id.as_str()) {
+                gaps.push(format!(
+                    "{}:{line}: requirement `{id}` is declared by no test; reference it from a test with a `//#{id}` comment",
+                    page.file
+                ));
+            }
+        }
+    }
+    gaps
 }
 
 /// Validate the parsed pages and test references, returning one message per
@@ -754,6 +777,33 @@ fn test_check_reports_all_errors() {
     let errors = check(&[&clean_pages, &reference], &[test_ref("sls.ref.covered", "t.slint", 1)]);
     assert_eq!(errors.len(), 1);
     assert!(errors[0].contains("{#sls.one}"), "{}", errors[0]);
+}
+
+#[test]
+fn test_uncovered() {
+    let page = SpecPage {
+        file: "spec/chapter.md".into(),
+        title: String::new(),
+        base: String::new(),
+        top_level: false,
+        anchors: [("sls.tested", 5), ("sls.untested", 9), ("sls.meta.note", 12)]
+            .map(|(id, line)| (id.to_string(), line))
+            .into(),
+        draft: false,
+        sc: false,
+        normative: true,
+    };
+    let test_ref =
+        TestRef { id: "sls.tested".into(), file: "t.slint".into(), line: 1, kind: &TEST_ROOTS[0] };
+    let tests_by_id = HashMap::from([("sls.tested", vec![&test_ref])]);
+
+    // The informative paragraph needs no test, so only `sls.untested` is a gap.
+    let gaps = uncovered(&[&[page]], &tests_by_id);
+    assert_eq!(gaps.len(), 1, "{gaps:?}");
+    assert!(gaps[0].contains("spec/chapter.md:9"), "{}", gaps[0]);
+    assert!(gaps[0].contains("sls.untested"), "{}", gaps[0]);
+
+    assert!(uncovered(&[], &tests_by_id).is_empty());
 }
 
 #[test]
