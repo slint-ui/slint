@@ -11,8 +11,8 @@ use std::sync::Arc;
 
 use crate::expression_tree::BuiltinFunction;
 use crate::langtype::{
-    BuiltinElement, BuiltinPropertyDefault, BuiltinPropertyInfo, BuiltinStruct, ElementType,
-    Enumeration, Function, PropertyLookupResult, Struct, Type,
+    BuiltinElement, BuiltinPropertyDefault, BuiltinStruct, ElementType, Enumeration, Function,
+    PropertyLookupResult, Struct, Type,
 };
 use crate::object_tree::{Component, PropertyVisibility};
 use crate::typeloader;
@@ -573,66 +573,6 @@ impl TypeRegister {
             }
         }
 
-        match &mut register.elements.get_mut("PopupWindow").unwrap() {
-            ElementType::Builtin(b) => {
-                let popup = Rc::get_mut(b).unwrap();
-                popup.properties.insert(
-                    "show".into(),
-                    BuiltinPropertyInfo::from(BuiltinFunction::ShowPopupWindow),
-                );
-
-                popup.properties.insert(
-                    "close".into(),
-                    BuiltinPropertyInfo::from(BuiltinFunction::ClosePopupWindow),
-                );
-
-                popup.properties.get_mut("close-on-click").unwrap().property_visibility =
-                    PropertyVisibility::Constexpr;
-
-                popup.properties.get_mut("close-policy").unwrap().property_visibility =
-                    PropertyVisibility::Constexpr;
-            }
-            _ => unreachable!(),
-        };
-
-        match &mut register.elements.get_mut("Timer").unwrap() {
-            ElementType::Builtin(b) => {
-                let timer = Rc::get_mut(b).unwrap();
-                // `start` / `stop` / `restart` are declared as stub
-                // functions in `builtins.slint` so their doc comments get
-                // picked up, then replaced here with the real builtin
-                // implementations. Carry the docs over onto the
-                // replacements.
-                for (name, func) in [
-                    ("start", BuiltinFunction::StartTimer),
-                    ("stop", BuiltinFunction::StopTimer),
-                    ("restart", BuiltinFunction::RestartTimer),
-                ] {
-                    let existing_docs = timer.properties.get(name).and_then(|p| p.docs.clone());
-                    let mut info = BuiltinPropertyInfo::from(func);
-                    info.docs = existing_docs;
-                    timer.properties.insert(name.into(), info);
-                }
-            }
-            _ => unreachable!(),
-        }
-
-        match &mut register.elements.get_mut("Path").unwrap() {
-            ElementType::Builtin(b) => {
-                let path = Rc::get_mut(b).unwrap();
-                for (name, func) in [
-                    ("point-at", BuiltinFunction::PathPointAt),
-                    ("angle-at", BuiltinFunction::PathAngleAt),
-                ] {
-                    let existing_docs = path.properties.get(name).and_then(|p| p.docs.clone());
-                    let mut info = BuiltinPropertyInfo::from(func);
-                    info.docs = existing_docs;
-                    path.properties.insert(name.into(), info);
-                }
-            }
-            _ => unreachable!(),
-        }
-
         let font_metrics_prop = crate::langtype::BuiltinPropertyInfo {
             property_visibility: PropertyVisibility::Output,
             default_value: BuiltinPropertyDefault::WithElement(|elem| {
@@ -650,26 +590,6 @@ impl TypeRegister {
         match &mut register.elements.get_mut("TextInput").unwrap() {
             ElementType::Builtin(b) => {
                 let text_input = Rc::get_mut(b).unwrap();
-                // Replace the stub function with the real builtin
-                // implementation, carrying over docs and arg names.
-                let existing = text_input.properties.get("set-selection-offsets");
-                let existing_docs = existing.and_then(|p| p.docs.clone());
-                let arg_names = existing.and_then(|p| {
-                    if let Type::Function(f) = &p.ty { Some(f.arg_names.clone()) } else { None }
-                });
-                let mut info = BuiltinPropertyInfo::from(BuiltinFunction::SetSelectionOffsets);
-                info.docs = existing_docs;
-                if let (Some(names), Type::Function(f)) = (arg_names, &info.ty) {
-                    let mut func = (**f).clone();
-                    // The BuiltinFunction type includes an implicit ElementReference
-                    // first arg; skip it to match the public-facing arg names.
-                    func.arg_names =
-                        std::iter::repeat_n(SmolStr::default(), func.args.len() - names.len())
-                            .chain(names)
-                            .collect();
-                    info.ty = Type::Function(Arc::new(func));
-                }
-                text_input.properties.insert("set-selection-offsets".into(), info);
                 text_input.properties.insert("font-metrics".into(), font_metrics_prop.clone());
             }
 
@@ -684,25 +604,6 @@ impl TypeRegister {
 
             _ => unreachable!(),
         };
-
-        match &mut register.elements.get_mut("Path").unwrap() {
-            ElementType::Builtin(b) => {
-                let path = Rc::get_mut(b).unwrap();
-                path.properties.get_mut("commands").unwrap().property_visibility =
-                    PropertyVisibility::Fake;
-            }
-
-            _ => unreachable!(),
-        };
-
-        match &mut register.elements.get_mut("TabWidget").unwrap() {
-            ElementType::Builtin(b) => {
-                let tabwidget = Rc::get_mut(b).unwrap();
-                tabwidget.properties.get_mut("orientation").unwrap().property_visibility =
-                    PropertyVisibility::Constexpr;
-            }
-            _ => unreachable!(),
-        }
 
         register
     }
