@@ -3351,6 +3351,7 @@ dependencies = [
  "i-slint-renderer-software",
  "imgref",
  "itertools 0.15.0",
+ "js-sys",
  "lyon_path",
  "muda",
  "objc2 0.6.5",

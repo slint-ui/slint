@@ -51,10 +51,22 @@
     </a>
   </p>
   <script type="module">
-    import init from './pkg/energy_monitor.js';
-    init().finally(() => {
+    import init, { slint_is_event_loop_exception } from './pkg/energy_monitor.js';
+    try {
+      await init();
+    } catch (error) {
+      let isEventLoopException = false;
+      try {
+        isEventLoopException = slint_is_event_loop_exception(error);
+      } catch {
+        // In this case, module loading failed entirely
+      }
+      if (!isEventLoopException) {
+        alert('Error loading WASM: ' + error);
+      }
+    } finally {
       document.getElementById("spinner").remove();
-    });
+    }
   </script>
 </body>
 

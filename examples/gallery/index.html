@@ -122,12 +122,18 @@
           await loadFontForLanguage(module, browserLang);
 
           // Start the application
-          module.main();
+          try {
+            module.main();
+          } catch (error) {
+            if (!module.slint_is_event_loop_exception(error)) {
+              throw error;
+            }
+          }
 
           document.getElementById("canvas").hidden = false;
           document.getElementById("spinner").hidden = true;
         }).catch(error => {
-          console.error('Failed to initialize gallery:', error);
+          alert('Error loading WASM: ' + error);
           document.getElementById("spinner").hidden = true;
         });
       }

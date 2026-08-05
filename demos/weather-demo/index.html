@@ -30,8 +30,20 @@
             <canvas id="canvas" data-slint-auto-resize-to-preferred="true" unselectable="on"></canvas>
             <script type="module">
                 // import the generated file.
-                import init from "./pkg/weather_demo.js";
-                init();
+                import init, { slint_is_event_loop_exception } from "./pkg/weather_demo.js";
+                try {
+                    await init();
+                } catch (error) {
+                    let isEventLoopException = false;
+                    try {
+                        isEventLoopException = slint_is_event_loop_exception(error);
+                    } catch {
+                        // In this case, module loading failed entirely
+                    }
+                    if (!isEventLoopException) {
+                        alert('Error loading WASM: ' + error);
+                    }
+                }
             </script>
         </div>
     </body>

@@ -4,6 +4,18 @@
 use i_slint_core::platform::PlatformError;
 use wasm_bindgen::JsCast;
 
+const WINIT_EVENT_LOOP_EXCEPTION: &str =
+    "Using exceptions for control flow, don't mind me. This isn't actually an error!";
+
+/// Returns whether or not the given value is an exception that looks like one that the winit even
+/// loop would throw to yield out of wasm init(), indicating a successful initialization
+#[wasm_bindgen::prelude::wasm_bindgen]
+pub fn slint_is_event_loop_exception(error: wasm_bindgen::JsValue) -> bool {
+    error
+        .dyn_ref::<js_sys::Error>()
+        .is_some_and(|error| String::from(error.message()) == WINIT_EVENT_LOOP_EXCEPTION)
+}
+
 /// Get the current webpage's id="canvas" element if one exists
 pub fn find_html_canvas() -> Result<Option<web_sys::HtmlCanvasElement>, PlatformError> {
     Ok(web_sys::window()
