@@ -9,6 +9,9 @@
 # manual's content, and builds the site into docs/safety/dist/.
 # An HTML report with per-line detail is also written for local inspection.
 #
+# Fails when the runtime isn't completely covered or a requirement paragraph
+# is declared by no test, so run this before pushing a change to slint-sc.
+#
 # Requires cargo-llvm-cov, the llvm-tools-preview rustup component, and pnpm.
 
 set -euo pipefail
@@ -22,6 +25,7 @@ cargo run -p slint-doc-generator -- --slint-sc \
     --coverage-json "$coverage_dir/coverage.json" \
     --coverage-html "$coverage_dir/html" \
     --test-results "$coverage_dir/test-results" \
+    --fail-on-gaps \
     generate-mdx
 
 pnpm install --frozen-lockfile --ignore-scripts

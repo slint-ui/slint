@@ -70,6 +70,9 @@ struct FileCoverage {
     path: String,
     summary: Summary,
     fn_stats: FnStats,
+    /// Start of each code region that never executed, in document order, for
+    /// pointing at the gap rather than only counting it.
+    uncovered_regions: Vec<(u64, u64)>,
 }
 
 /// The llvm-cov HTML report installed under the site's `public/` directory,
@@ -95,7 +98,10 @@ impl DetailReport {
     }
 }
 
-pub fn generate(cfg: &Config) -> Result<(), Box<dyn std::error::Error>> {
+/// Writes the chapter and returns the gaps it shows: the files that aren't
+/// completely covered. A build without a coverage export measures nothing, so
+/// it reports no gaps.
+pub fn generate(cfg: &Config) -> Result<Vec<String>, Box<dyn std::error::Error>> {
     let mut out = cfg.qualification_page(PAGE_FILE)?;
 
     writeln!(
@@ -113,7 +119,10 @@ A function counts as fully tested when every code region in it was executed, as 
     )?;
 
     match &cfg.coverage_json {
-        None => write_placeholder(&mut out)?,
+        None => {
+            write_placeholder(&mut out)?;
+            Ok(Vec::new())
+        }
         Some(json) => {
             let text = std::fs::read_to_string(json)
                 .context(format!("error reading coverage export {json:?}"))?;
@@ -137,9 +146,43 @@ A function counts as fully tested when every code region in it was executed, as 
             }
             let sha = crate::traceability::git_head(&crate::root_dir());
             write_report(&mut out, &files, &sha, detail.as_ref())?;
+            Ok(shortfalls(&files))
         }
     }
-    Ok(())
+}
+
+/// The files that aren't completely covered, one message per file naming the
+/// metrics that fall short and where the code that never executed is. The
+/// qualification plan admits no exceptions, so any shortfall is a gap.
+fn shortfalls(files: &[FileCoverage]) -> Vec<String> {
+    let mut gaps = Vec::new();
+    for f in files {
+        let metrics = [
+            ("line", &f.summary.lines),
+            ("function", &f.summary.functions),
+            ("region", &f.summary.regions),
+        ];
+        let short: Vec<String> = metrics
+            .iter()
+            .filter(|(_, c)| c.covered < c.count)
+            .map(|(name, c)| format!("{name} coverage {}", c.cell()))
+            .collect();
+        if short.is_empty() {
+            continue;
+        }
+        let mut msg = format!("{}: {}", f.path, short.join(", "));
+        if !f.uncovered_regions.is_empty() {
+            let at: Vec<String> = f
+                .uncovered_regions
+                .iter()
+                .map(|(line, col)| format!("{}:{line}:{col}", f.path))
+                .collect();
+            msg.push_str("; never executed at ");
+            msg.push_str(&at.join(", "));
+        }
+        gaps.push(msg);
+    }
+    gaps
 }
 
 /// Body of the chapter in a build without a coverage export, e.g. the
@@ -177,6 +220,7 @@ fn parse_export(text: &str) -> anyhow::Result<Vec<FileCoverage>> {
             path,
             summary: parse_summary(summary)?,
             fn_stats: FnStats::default(),
+            uncovered_regions: Vec::new(),
         });
     }
     anyhow::ensure!(!files.is_empty(), "no repository-relative files in the coverage export");
@@ -221,14 +265,21 @@ fn parse_fn_stats(data: &Value, files: &mut [FileCoverage]) -> anyhow::Result<()
         }
     }
     for ((idx, _), counts) in merged {
-        let stats = &mut files[idx].fn_stats;
+        let file = &mut files[idx];
         if counts.values().all(|c| *c == 0) {
-            stats.untested += 1;
+            file.fn_stats.untested += 1;
         } else if counts.values().all(|c| *c > 0) {
-            stats.full += 1;
+            file.fn_stats.full += 1;
         } else {
-            stats.partial += 1;
+            file.fn_stats.partial += 1;
         }
+        file.uncovered_regions.extend(
+            counts.iter().filter(|(_, c)| **c == 0).map(|((line, col, ..), _)| (*line, *col)),
+        );
+    }
+    for file in files.iter_mut() {
+        file.uncovered_regions.sort_unstable();
+        file.uncovered_regions.dedup();
     }
     Ok(())
 }
@@ -404,6 +455,37 @@ fn write_report(
 }
 
 #[test]
+fn test_shortfalls() {
+    let file = |path: &str, covered: u64, uncovered_regions: &[(u64, u64)]| FileCoverage {
+        path: path.into(),
+        summary: Summary {
+            lines: Counts { count: 10, covered },
+            functions: Counts { count: 2, covered: 2 },
+            regions: Counts { count: 10, covered },
+        },
+        fn_stats: FnStats::default(),
+        uncovered_regions: uncovered_regions.to_vec(),
+    };
+
+    // A completely covered file is no gap.
+    assert!(shortfalls(&[file("api/slint-sc/lib.rs", 10, &[])]).is_empty());
+
+    // A shortfall names the metrics that fall short and where the code that
+    // never executed is; the complete metric isn't mentioned.
+    let gaps = shortfalls(&[file("api/slint-sc/lib.rs", 8, &[(30, 1)])]);
+    assert_eq!(gaps.len(), 1, "{gaps:?}");
+    assert_eq!(
+        gaps[0],
+        "api/slint-sc/lib.rs: line coverage 80.0% (8/10), region coverage 80.0% (8/10); \
+         never executed at api/slint-sc/lib.rs:30:1"
+    );
+    assert!(!gaps[0].contains("function coverage"), "{}", gaps[0]);
+
+    // Every incomplete file is reported, not just the first.
+    assert_eq!(shortfalls(&[file("a.rs", 8, &[]), file("b.rs", 9, &[])]).len(), 2);
+}
+
+#[test]
 fn test_cell() {
     assert_eq!(Counts { count: 0, covered: 0 }.cell(), "-");
     assert_eq!(Counts { count: 252, covered: 240 }.cell(), "95.2% (240/252)");
@@ -473,6 +555,10 @@ fn test_parse_export() {
     let stats = files[0].fn_stats;
     assert_eq!((stats.full, stats.partial, stats.untested), (1, 1, 1));
     assert_eq!(fn_stats_sentence(&stats), "1 fully tested, 1 partially tested, 1 untested");
+
+    // `b`'s unexecuted region and `c`, which never ran, are located for the
+    // gap message; `a`'s regions all executed once merged.
+    assert_eq!(files[0].uncovered_regions, [(12, 1), (30, 1)]);
 
     // An export without any repository file is an error, not an empty page.
     let empty = r#"{"data": [{"files": [], "totals": {}}]}"#;

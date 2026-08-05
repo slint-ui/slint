@@ -44,6 +44,13 @@ struct Cli {
     #[arg(long, value_name = "DIR")]
     test_results: Option<PathBuf>,
 
+    /// Fail instead of only reporting when the safety manual shows a gap: a
+    /// runtime source file below 100% line, function, or region coverage, or a
+    /// requirement paragraph that no test declares. Requires a coverage export
+    /// to check the coverage half against.
+    #[arg(long, action, requires = "coverage_json")]
+    fail_on_gaps: bool,
+
     #[command(subcommand)]
     command: Option<Command>,
 }
@@ -92,6 +99,10 @@ pub struct Config {
     /// safety manual's Test Results chapter; without them the chapter is a
     /// placeholder.
     pub test_results: Option<PathBuf>,
+    /// Turn the gaps the generated chapters report into an error, so a change
+    /// can't land while the runtime is below 100% coverage or a requirement
+    /// has no test.
+    pub fail_on_gaps: bool,
 }
 
 /// Path of the generated content root, relative to the site's `src` directory.
@@ -111,6 +122,7 @@ impl Config {
             coverage_json: None,
             coverage_html: None,
             test_results: None,
+            fail_on_gaps: false,
         }
     }
     pub fn safety_manual(include_experimental: bool) -> Self {
@@ -124,6 +136,7 @@ impl Config {
             coverage_json: None,
             coverage_html: None,
             test_results: None,
+            fail_on_gaps: false,
         }
     }
 
@@ -175,6 +188,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     cfg.coverage_json = args.coverage_json;
     cfg.coverage_html = args.coverage_html;
     cfg.test_results = args.test_results;
+    cfg.fail_on_gaps = args.fail_on_gaps;
 
     match args.command {
         Some(Command::GenerateMdx) => {

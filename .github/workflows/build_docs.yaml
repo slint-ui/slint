@@ -200,7 +200,10 @@ jobs:
               run: |
                   COVERAGE_FLAGS=""
                   if [ "${{ inputs['slint-sc-coverage'] }}" = "true" ]; then
-                      COVERAGE_FLAGS="--coverage-json coverage/coverage.json --coverage-html coverage/html --test-results coverage/test-results"
+                      # --fail-on-gaps holds the runtime at complete coverage and
+                      # every requirement paragraph at one test or more. It needs
+                      # the coverage export, so it only applies to these runs.
+                      COVERAGE_FLAGS="--coverage-json coverage/coverage.json --coverage-html coverage/html --test-results coverage/test-results --fail-on-gaps"
                   fi
                   cargo run --release -p slint-doc-generator -- --slint-sc $COVERAGE_FLAGS generate-mdx
             - name: "Compile Slint snippets in Markdown (doctests)"
