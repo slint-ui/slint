@@ -672,7 +672,7 @@ fn gen_corelib(
                 "PHYSICAL_REGION_MAX_SIZE",
             ],
             "slint_image_internal.h",
-            "#include \"private/slint_color.h\"\nnamespace slint::cbindgen_private { struct ParsedSVG{}; struct HTMLImage{}; struct PhysicalPx; using namespace vtable; namespace types{ struct NineSliceImage{}; } }",
+            "#include \"private/slint_color.h\"\n#include \"private/slint_rgb565pixel.h\"\nnamespace slint::cbindgen_private { struct ParsedSVG{}; struct HTMLImage{}; struct PhysicalPx; using namespace vtable; namespace types{ struct NineSliceImage{}; using slint::Rgb565Pixel; } }",
         ),
         (
             vec!["Color", "slint_color_brighter", "slint_color_darker",
@@ -818,6 +818,8 @@ fn gen_corelib(
             "slint_windowrc_nsview_appkit",
             "GradientStop",
             "ConicGradientBrush",
+            // Handwritten in private/slint_rgb565pixel.h
+            "Rgb565Pixel",
             "slint_conic_gradient_normalize_stops",
             "slint_conic_gradient_apply_rotation",
             "slint_brush_compare_equal",
@@ -1192,9 +1194,9 @@ fn gen_platform(
         .with_include("private/slint_internal.h")
         .with_after_include(
             r"
-namespace slint::platform { struct Rgb565Pixel; }
+namespace slint { struct Rgb565Pixel; }
 namespace slint::cbindgen_private {
-    struct WindowProperties; using slint::platform::Rgb565Pixel;
+    struct WindowProperties; using slint::Rgb565Pixel;
     using slint::cbindgen_private::types::TexturePixelFormat;
     struct DrawTextureArgs;
     struct DrawRectangleArgs;
