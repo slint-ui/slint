@@ -231,6 +231,30 @@ fn compile_expression(expr: &Expression, root: &ElementRc) -> TokenStream {
                 _ => unreachable!(),
             }
         }
+        Expression::UnaryOp { sub, op } => {
+            let sub = compile_expression(sub, root);
+            match op {
+                // Negation saturates so that negating `i32::MIN` is defined.
+                '-' => quote!((#sub).saturating_neg()),
+                '+' => sub,
+                _ => unreachable!(),
+            }
+        }
+        // A property read that appears more than once is hoisted into a local
+        // variable, so a code block evaluates it once and reads it back.
+        Expression::CodeBlock(statements) => {
+            let statements = statements.iter().map(|s| compile_expression(s, root));
+            quote!({ #(#statements)* })
+        }
+        Expression::StoreLocalVariable { name, value } => {
+            let name = format_ident!("{}", name.replace('-', "_"));
+            let value = compile_expression(value, root);
+            quote!(let #name = #value;)
+        }
+        Expression::ReadLocalVariable { name, .. } => {
+            let name = format_ident!("{}", name.replace('-', "_"));
+            quote!(#name)
+        }
         // Everything else was rejected by the compiler
         _ => unreachable!(),
     }

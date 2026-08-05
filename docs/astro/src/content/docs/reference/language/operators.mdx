@@ -115,7 +115,20 @@ The binary operators `&&` (and) and `||` (or) take two `bool` operands and produ
 The unary `!` operator negates a `bool`.
 Operands of these operators must be `bool`; no other type is coerced to `bool`.
 
+<SC>
 ## Unary operators
+
+<OnlyInSC>
+A unary `-` or `+` applies to a number or a length; `-` negates it. \{#sls.op.unary}
+</OnlyInSC>
+
+```slint
+export component Example inherits Window {
+    in property <length> w;
+    out property <length> negated: -w;
+}
+```
+</SC>
 
 The prefix operators are `+`, `-`, and `!`.
 

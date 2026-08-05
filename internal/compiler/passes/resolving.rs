@@ -528,9 +528,21 @@ impl Expression {
                         return expr;
                     }
                     SyntaxKind::UnaryOpExpression => {
+                        let expr = Self::from_unaryop_expression_node(node.clone().into(), ctx);
+                        // In Slint SC, unary `+` and `-` on a number or length are
+                        // in the subset; `!` and other results are not.
                         #[cfg(feature = "slint-sc")]
-                        ctx.diag.slint_sc_error("Unary expressions are", &node);
-                        return Self::from_unaryop_expression_node(node.into(), ctx);
+                        match &expr {
+                            Expression::Invalid => {}
+                            Expression::UnaryOp { op, .. }
+                                if matches!(*op, '+' | '-')
+                                    && matches!(
+                                        expr.ty(),
+                                        Type::Int32 | Type::Float32 | Type::LogicalLength
+                                    ) => {}
+                            _ => ctx.diag.slint_sc_error("Unary expressions are", &node),
+                        }
+                        return expr;
                     }
                     SyntaxKind::ConditionalExpression => {
                         #[cfg(feature = "slint-sc")]
