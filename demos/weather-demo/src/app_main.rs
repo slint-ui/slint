@@ -52,6 +52,7 @@ impl AppHandler {
         }
     }
 
+    #[cfg_attr(target_arch = "wasm32", allow(dead_code))]
     pub fn save(&self) {
         log::debug!("Saving state");
         if let Err(e) = self.weather_controller.lock().unwrap().save() {
