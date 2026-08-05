@@ -2508,6 +2508,7 @@ dependencies = [
  "async-channel",
  "auto_enums",
  "bitflags 2.13.1",
+ "bytemuck",
  "cfg-if",
  "chrono",
  "clru",

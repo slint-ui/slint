@@ -491,6 +491,12 @@ impl SharedBufferCommand {
                     extra: self.extra,
                 }
             }
+            SharedBufferData::SharedImage(SharedImageBuffer::RGB565(b)) => SceneTexture {
+                data: &b.as_bytes()[start * 2..end * 2],
+                pixel_stride: stride as u16,
+                format: TexturePixelFormat::Rgb565,
+                extra: self.extra,
+            },
             SharedBufferData::AlphaMap { data, width } => SceneTexture {
                 data: &data[start..end],
                 pixel_stride: *width,

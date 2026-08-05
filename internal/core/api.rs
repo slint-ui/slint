@@ -16,7 +16,7 @@ pub use crate::data_transfer::DataTransfer;
 #[cfg(target_has_atomic = "ptr")]
 pub use crate::future::*;
 pub use crate::graphics::{
-    Brush, Color, Image, LoadImageError, OklchColor, Rgb8Pixel, Rgba8Pixel, RgbaColor,
+    Brush, Color, Image, LoadImageError, OklchColor, Rgb8Pixel, Rgb565Pixel, Rgba8Pixel, RgbaColor,
     SharedPixelBuffer,
 };
 pub use crate::input::Keys;

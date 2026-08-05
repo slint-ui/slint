@@ -70,6 +70,7 @@ pub(crate) fn as_skia_image(
                 SharedImageBuffer::RGB8(_) => unreachable!(),
                 SharedImageBuffer::RGBA8(_) => unreachable!(),
                 SharedImageBuffer::RGBA8Premultiplied(pixels) => pixels,
+                SharedImageBuffer::RGB565(_) => unreachable!(),
             };
 
             let image_info = crate::image_info(
@@ -152,6 +153,13 @@ fn image_buffer_to_skia_image(buffer: &SharedImageBuffer) -> Option<skia_safe::I
             pixels.size(),
             skia_safe::ColorType::RGBA8888,
             opaque_or(pixels.as_bytes(), skia_safe::AlphaType::Premul),
+        ),
+        SharedImageBuffer::RGB565(pixels) => (
+            skia_safe::Data::new_copy(pixels.as_bytes()),
+            pixels.width() as usize * 2,
+            pixels.size(),
+            skia_safe::ColorType::RGB565,
+            skia_safe::AlphaType::Opaque,
         ),
     };
     let image_info = crate::image_info(

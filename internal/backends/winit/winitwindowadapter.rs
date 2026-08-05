@@ -131,6 +131,9 @@ fn icon_to_winit(
             .flat_map(|rgb| IntoIterator::into_iter([rgb[0], rgb[1], rgb[2], 255]))
             .collect(),
         SharedImageBuffer::RGBA8(pixels) => pixels.as_bytes().to_vec(),
+        SharedImageBuffer::RGB565(pixels) => {
+            pixels.as_slice().iter().flat_map(|p| [p.red(), p.green(), p.blue(), 255]).collect()
+        }
         SharedImageBuffer::RGBA8Premultiplied(pixels) => pixels
             .as_bytes()
             .chunks(4)
