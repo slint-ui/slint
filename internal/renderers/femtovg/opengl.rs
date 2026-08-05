@@ -65,6 +65,56 @@ unsafe impl OpenGLInterface for WebGLNeedsNoCurrentContext {
     }
 }
 
+#[cfg(target_arch = "wasm32")]
+pub fn preemptively_create_webgl_context(
+    canvas: &web_sys::HtmlCanvasElement,
+) -> Result<(), PlatformError> {
+    use wasm_bindgen::JsCast;
+
+    // attributes used by femtovg::renderer::OpenGl::new_from_html_canvas().
+    // if attributes used there change, then this may break things, because we are in charge of
+    // initializing the canvas with the correct attributes. their attributes will be ignored
+    // and get_context_with_context_options will just return the existing context
+    let attrs = web_sys::WebGlContextAttributes::new();
+    attrs.set_stencil(true);
+    attrs.set_antialias(false);
+
+    match canvas.get_context_with_context_options("webgl2", &attrs) {
+        Ok(Some(context)) if context.is_instance_of::<web_sys::WebGl2RenderingContext>() => Ok(()),
+        _ => {
+            canvas_display_webgl_error(canvas);
+            Err(PlatformError::Other(
+                "Slint requires WebGL to be enabled in your browser".to_string(),
+            ))
+        }
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+pub fn canvas_display_webgl_error(html_canvas: &web_sys::HtmlCanvasElement) {
+    use wasm_bindgen::JsCast;
+
+    // I don't believe that there's a way of disabling the 2D canvas.
+    let context_2d = html_canvas
+        .get_context("2d")
+        .unwrap()
+        .unwrap()
+        .dyn_into::<web_sys::CanvasRenderingContext2d>()
+        .unwrap();
+    context_2d.set_font("20px serif");
+    // We don't know if we're rendering on dark or white background, so choose a "color" in the middle for the text.
+    context_2d.set_fill_style_str("red");
+    let max_width = html_canvas.width().max(1) as f64;
+    context_2d
+        .fill_text_with_max_width(
+            "Slint requires WebGL to be enabled in your browser",
+            0.,
+            30.,
+            max_width,
+        )
+        .unwrap();
+}
+
 struct SuspendedRenderer {}
 
 unsafe impl OpenGLInterface for SuspendedRenderer {
@@ -118,27 +168,7 @@ impl OpenGLBackend {
         let gl_renderer = match femtovg::renderer::OpenGl::new_from_html_canvas(&html_canvas) {
             Ok(gl_renderer) => gl_renderer,
             Err(_) => {
-                use wasm_bindgen::JsCast;
-
-                // I don't believe that there's a way of disabling the 2D canvas.
-                let context_2d = html_canvas
-                    .get_context("2d")
-                    .unwrap()
-                    .unwrap()
-                    .dyn_into::<web_sys::CanvasRenderingContext2d>()
-                    .unwrap();
-                context_2d.set_font("20px serif");
-                // We don't know if we're rendering on dark or white background, so choose a "color" in the middle for the text.
-                context_2d.set_fill_style_str("red");
-                let max_width = html_canvas.width().max(1) as f64;
-                context_2d
-                    .fill_text_with_max_width(
-                        "Slint requires WebGL to be enabled in your browser",
-                        0.,
-                        30.,
-                        max_width,
-                    )
-                    .unwrap();
+                canvas_display_webgl_error(&html_canvas);
                 panic!("Cannot proceed without WebGL - aborting")
             }
         };
