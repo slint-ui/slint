@@ -197,6 +197,7 @@ jobs:
                   name: slint-sc-coverage
                   path: coverage
             - name: "Generate SC API reference"
+              id: sc-reference
               run: |
                   COVERAGE_FLAGS=""
                   if [ "${{ inputs['slint-sc-coverage'] }}" = "true" ]; then
@@ -205,7 +206,18 @@ jobs:
                       # the coverage export, so it only applies to these runs.
                       COVERAGE_FLAGS="--coverage-json coverage/coverage.json --coverage-html coverage/html --test-results coverage/test-results --fail-on-gaps"
                   fi
+                  # A gap exits 2 with the chapters written, so record it and let
+                  # the job build and upload the manual. The last step fails the
+                  # run. Any other non-zero exit is a real failure: stop here.
+                  set +e
                   cargo run --release -p slint-doc-generator -- --slint-sc $COVERAGE_FLAGS generate-mdx
+                  status=$?
+                  set -e
+                  if [ $status -eq 2 ]; then
+                      echo "gaps=true" >> "$GITHUB_OUTPUT"
+                  elif [ $status -ne 0 ]; then
+                      exit $status
+                  fi
             - name: "Compile Slint snippets in Markdown (doctests)"
               run: cargo test --manifest-path tests/Cargo.toml -p doctests
             - name: "Build Safety Manual"
@@ -245,6 +257,12 @@ jobs:
               with:
                 name: docs-astro
                 path: artifact
+            # Last, so the manual is built and uploaded before the run fails.
+            - name: "Fail on slint-sc coverage or traceability gaps"
+              if: ${{ steps.sc-reference.outputs.gaps == 'true' }}
+              run: |
+                echo "The safety manual has gaps. See the \"Generate SC API reference\" step for the list."
+                exit 1
 
     # Job 3: Build Node and Python documentation
     node-python-docs:

@@ -44,10 +44,11 @@ struct Cli {
     #[arg(long, value_name = "DIR")]
     test_results: Option<PathBuf>,
 
-    /// Fail instead of only reporting when the safety manual shows a gap: a
+    /// Exit with [`GAPS_EXIT_CODE`] when the safety manual shows a gap: a
     /// runtime source file below 100% line, function, or region coverage, or a
-    /// requirement paragraph that no test declares. Requires a coverage export
-    /// to check the coverage half against.
+    /// requirement paragraph that no test declares. The pages are written and
+    /// the site is built either way. Requires a coverage export to check the
+    /// coverage half against.
     #[arg(long, action, requires = "coverage_json")]
     fail_on_gaps: bool,
 
@@ -99,10 +100,6 @@ pub struct Config {
     /// safety manual's Test Results chapter; without them the chapter is a
     /// placeholder.
     pub test_results: Option<PathBuf>,
-    /// Turn the gaps the generated chapters report into an error, so a change
-    /// can't land while the runtime is below 100% coverage or a requirement
-    /// has no test.
-    pub fail_on_gaps: bool,
 }
 
 /// Path of the generated content root, relative to the site's `src` directory.
@@ -122,7 +119,6 @@ impl Config {
             coverage_json: None,
             coverage_html: None,
             test_results: None,
-            fail_on_gaps: false,
         }
     }
     pub fn safety_manual(include_experimental: bool) -> Self {
@@ -136,7 +132,6 @@ impl Config {
             coverage_json: None,
             coverage_html: None,
             test_results: None,
-            fail_on_gaps: false,
         }
     }
 
@@ -177,7 +172,12 @@ fn build_astro(cfg: &Config) -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// Exit code of a run that found gaps, distinct from the `1` of a run that
+/// failed. Everything is written and built by then, so a caller can publish
+/// the documentation it produced and still fail its build afterwards.
+pub const GAPS_EXIT_CODE: u8 = 2;
+
+fn main() -> Result<std::process::ExitCode, Box<dyn std::error::Error>> {
     let args = Cli::parse();
     let experimental = args.experimental;
     let mut cfg = if args.slint_sc {
@@ -188,11 +188,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     cfg.coverage_json = args.coverage_json;
     cfg.coverage_html = args.coverage_html;
     cfg.test_results = args.test_results;
-    cfg.fail_on_gaps = args.fail_on_gaps;
 
+    let mut gaps = Vec::new();
     match args.command {
         Some(Command::GenerateMdx) => {
-            mdx::generate(&cfg)?;
+            gaps = mdx::generate(&cfg)?;
         }
         Some(Command::Screenshots(args)) => {
             screenshots::run(args)?;
@@ -202,7 +202,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         None => {
             // Generate mdx first because screenshots reads them.
-            mdx::generate(&cfg)?;
+            gaps = mdx::generate(&cfg)?;
             if !cfg.skip_screenshots {
                 let docs_folder = cfg.astro_dir.join("src/content");
                 let reference_elements = cfg.astro_dir.join("src/content/docs/reference/elements");
@@ -219,5 +219,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    Ok(())
+    if args.fail_on_gaps && !gaps.is_empty() {
+        eprintln!("error: the safety manual has {} gap(s):", gaps.len());
+        for gap in &gaps {
+            eprintln!("  {gap}");
+        }
+        eprintln!(
+            "the runtime must stay completely covered and every requirement must be declared by a test"
+        );
+        return Ok(std::process::ExitCode::from(GAPS_EXIT_CODE));
+    }
+
+    Ok(std::process::ExitCode::SUCCESS)
 }
