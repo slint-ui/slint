@@ -4698,7 +4698,7 @@ fn compile_builtin_function_call(
         }
         BuiltinFunction::StringReplace => {
             let (s, from, to) = (a.next().unwrap(), a.next().unwrap(), a.next().unwrap());
-            quote!(#s.replace(#from.as_str(), #to.as_str()))
+            quote!(sp::SharedString::from(#s.as_str().replace(#from.as_str(), #to.as_str())))
         }
         BuiltinFunction::KeysToString => quote!(sp::ToSharedString::to_shared_string(&#(#a)*)),
         BuiltinFunction::ColorRgbaStruct => quote!( #(#a)*.to_argb_u8()),

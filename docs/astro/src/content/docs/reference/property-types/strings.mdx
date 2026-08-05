@@ -155,12 +155,14 @@ export component StringToFloat {
 
 #### replace(from: string, to: string) -> string
 
-Returns a string with all instances of `from` replaced with `to`
+Returns a string with all instances of `from` replaced with `to`.
 
 ```slint
 export component StringToReplace {
     property<string> basic: "hello".replace("l", "L"); // "heLLo"
     property<string> repeated: "abcabcabc".replace("abc", "x"); // "xxx"
+    property<string> replace-empty-find: "abc".replace("", "-"); // "-a-b-c-"
+    property<string> empty-haystack: "".replace("a", "b"); // ""
     property<string> no-match: "hello".replace("z", "Z"); // "hello"
     property<string> hiragana: "あいうえお".replace("い", "亜"); // "あ亜うえお"
 }

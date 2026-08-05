@@ -492,6 +492,20 @@ fn handle_builtin_function(
                 Value::Void
             }
         }
+        BuiltinFunction::StringReplace => {
+            if arguments.len() != 3 {
+                return Value::Void;
+            }
+            if let (Value::String(s), Value::String(from), Value::String(to)) = (
+                eval_expression(&arguments[0], local_context, None),
+                eval_expression(&arguments[1], local_context, None),
+                eval_expression(&arguments[2], local_context, None),
+            ) {
+                Value::String(s.replace(from.as_str(), to.as_str()).into())
+            } else {
+                Value::Void
+            }
+        }
         BuiltinFunction::ColorRgbaStruct => {
             if arguments.len() != 1 {
                 return Value::Void;

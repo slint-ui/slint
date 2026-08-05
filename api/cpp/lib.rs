@@ -203,6 +203,16 @@ pub extern "C" fn slint_string_character_count(string: &SharedString) -> usize {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn slint_string_replace(
+    string: &SharedString,
+    from: &SharedString,
+    to: &SharedString,
+    out: &mut SharedString,
+) {
+    *out = SharedString::from(string.replace(from.as_str(), to.as_str()));
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn slint_string_to_usize(string: &SharedString, value: &mut usize) -> bool {
     match string.as_str().parse::<usize>() {
         Ok(v) => {
