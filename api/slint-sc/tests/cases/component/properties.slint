@@ -8,6 +8,8 @@ export component TestCase inherits Window {
     out property <color> shade: #12345678;
     in-out property <length> offset;
     property <color> internal: #ff0000;
+    in property <int> count: 42;
+    in-out property <int> counter;
 }
 
 /*
@@ -39,6 +41,15 @@ assert_eq!(x.get_offset(), 7);
 x.set_tint(slint_sc::Color::from_rgb_u8(1, 2, 3));
 let tint = x.get_tint();
 assert_eq!((tint.red(), tint.green(), tint.blue(), tint.alpha()), (1, 2, 3, 0xff));
+
+// A whole number without a unit is an `int` literal; the default `int` is zero.
+//#sls.type.int
+//#sls.expr.int.form
+//#sls.expr.int.type
+assert_eq!(x.get_count(), 42);
+assert_eq!(x.get_counter(), 0);
+x.set_counter(9);
+assert_eq!(x.get_counter(), 9);
 ```
 
 An out property has no setter:
