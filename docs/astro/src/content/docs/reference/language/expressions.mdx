@@ -77,15 +77,11 @@ export component Example inherits Window {
 }
 ```
 
-A property reference reads a property.
+A property reference refers to a property.
 It is a property name, optionally preceded by an element reference and a `.`. \{#sls.expr.ref.form}
 
 The element reference is `self` for the enclosing element, `parent` for its parent,
 `root` for the component's root element, or an element `id`. \{#sls.expr.ref.element}
-
-<OnlyInSC>
-A name without an element reference refers to a property of the root element. \{#sls.expr.ref.unqualified}
-</OnlyInSC>
 </SC>
 
 A name without an element reference follows the [lookup rules](../name-resolution/#lookup-rules):
@@ -95,7 +91,7 @@ reached by searching from the enclosing element outward to the root.
 <SC>
 The name shall refer to a property of the referenced element. \{#sls.expr.ref.target}
 
-A property reference evaluates to the value of the referenced property,
+When reading, a property reference evaluates to the value of the referenced property,
 and has that property's type. \{#sls.expr.ref.value}
 </SC>
 
