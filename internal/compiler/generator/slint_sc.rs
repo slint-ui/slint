@@ -212,7 +212,9 @@ fn compile_expression(expr: &Expression, root: &ElementRc) -> TokenStream {
         },
         // `int`, `float`, and `length` are all `i32` at runtime, so a cast
         // between them lowers to the operand itself.
-        Expression::Cast { from, to: Type::Int32 | Type::Float32 } => compile_expression(from, root),
+        Expression::Cast { from, to: Type::Int32 | Type::Float32 } => {
+            compile_expression(from, root)
+        }
         Expression::PropertyReference(nr) => {
             // An unbound property has its type's default value.
             compile_property_reference(nr, root).unwrap_or_else(|| default_value(&nr.ty()))
