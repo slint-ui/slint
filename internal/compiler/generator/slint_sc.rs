@@ -176,7 +176,7 @@ fn declared_properties(root: &ElementRc) -> Vec<DeclaredProperty> {
 /// The Rust type holding a value of the given Slint type.
 fn rust_type(ty: &Type) -> TokenStream {
     match ty {
-        Type::LogicalLength => quote!(i32),
+        Type::Int32 | Type::LogicalLength => quote!(i32),
         Type::Color => quote!(slint_sc::Color),
         // brush is not a declarable property type, and every other type was
         // rejected by the compiler
@@ -187,7 +187,7 @@ fn rust_type(ty: &Type) -> TokenStream {
 /// The Rust value a property of the given type defaults to.
 fn default_value(ty: &Type) -> TokenStream {
     match ty {
-        Type::LogicalLength => quote!(0i32),
+        Type::Int32 | Type::LogicalLength => quote!(0i32),
         Type::Color => quote!(slint_sc::Color::default()),
         _ => unreachable!(),
     }
@@ -210,6 +210,9 @@ fn compile_expression(expr: &Expression, root: &ElementRc) -> TokenStream {
             }
             from => compile_expression(from, root),
         },
+        // A unit-less literal is `float`-typed and cast to `int` where an `int`
+        // is expected; it lowers to the same `i32`.
+        Expression::Cast { from, to: Type::Int32 } => compile_expression(from, root),
         Expression::PropertyReference(nr) => {
             // An unbound property has its type's default value.
             compile_property_reference(nr, root).unwrap_or_else(|| default_value(&nr.ty()))

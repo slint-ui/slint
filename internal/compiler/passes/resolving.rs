@@ -571,10 +571,12 @@ impl Expression {
                                             .diag
                                             .slint_sc_error("Non-integral lengths are", &token),
                                         WrittenUnit::Px => {}
-                                        WrittenUnit::None => ctx.diag.slint_sc_error(
-                                            "Number literals without a unit are",
-                                            &token,
-                                        ),
+                                        // A unit-less integer is an `int` literal; a
+                                        // fractional one would be a `float`.
+                                        WrittenUnit::None if value.fract() != 0. => ctx
+                                            .diag
+                                            .slint_sc_error("Non-integral numbers are", &token),
+                                        WrittenUnit::None => {}
                                         _ => ctx.diag.slint_sc_error(
                                             &format!("Number literals with the unit '{unit}' are"),
                                             &token,

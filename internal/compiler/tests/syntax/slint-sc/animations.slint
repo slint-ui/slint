@@ -5,7 +5,6 @@
 
 export component Test inherits Window {
     in-out property <int> val;
-//                   > <error{The type 'int' is not supported in Slint SC}
     animate val { duration: 100ms; }
 //  >                              <error{Animations are not supported in Slint SC}
 //                >      <^error{The property 'duration' is not supported in Slint SC}

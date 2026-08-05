@@ -8,7 +8,7 @@ import SC from '@slint/common-files/src/components/SC.astro';
 import OnlyInSC from '@slint/common-files/src/components/OnlyInSC.astro';
 
 <OnlyInSC>
-An expression is a color literal, a length literal, or a property reference. \{#sls.expr.forms}
+An expression is a color literal, a length literal, an integer literal, or a property reference. \{#sls.expr.forms}
 </OnlyInSC>
 
 An expression produces a value.
@@ -55,7 +55,7 @@ export component Example inherits Window {
 The number shall be integral: `10.5px` is an error. \{#sls.expr.length.integral}
 
 `px` is the only unit.
-A number literal with another unit, or without a unit, is an error. \{#sls.expr.length.px-only}
+A number literal with another unit is an error. \{#sls.expr.length.px-only}
 </OnlyInSC>
 
 The number may be fractional, as in `10.5px`.
@@ -63,6 +63,16 @@ Length units include `px`, `phx`, `cm`, `mm`, `in`, `pt`, and `rem`.
 
 <SC>
 A length literal evaluates to a value of type `length`. \{#sls.expr.length.type}
+
+## Integer Literals
+
+An integer literal is a whole number written without a unit, for example `42`. \{#sls.expr.int.form}
+
+An integer literal evaluates to a value of type `int`. \{#sls.expr.int.type}
+
+<OnlyInSC>
+A number with a fractional part but no unit is an error. \{#sls.expr.int.fractional}
+</OnlyInSC>
 
 ## References
 
