@@ -509,9 +509,23 @@ impl Expression {
                         return Self::from_self_assignment_node(node.into(), ctx);
                     }
                     SyntaxKind::BinaryExpression => {
+                        let expr = Self::from_binary_expression_node(node.clone().into(), ctx);
+                        // In Slint SC, `+`, `-`, and `*` producing a number or a
+                        // length are in the subset; division, comparison, a unit
+                        // product, and other results are not (an invalid expression
+                        // was already reported).
                         #[cfg(feature = "slint-sc")]
-                        ctx.diag.slint_sc_error("Binary expressions are", &node);
-                        return Self::from_binary_expression_node(node.into(), ctx);
+                        match &expr {
+                            Expression::Invalid => {}
+                            Expression::BinaryExpression { op, .. }
+                                if matches!(*op, '+' | '-' | '*')
+                                    && matches!(
+                                        expr.ty(),
+                                        Type::Int32 | Type::Float32 | Type::LogicalLength
+                                    ) => {}
+                            _ => ctx.diag.slint_sc_error("Binary expressions are", &node),
+                        }
+                        return expr;
                     }
                     SyntaxKind::UnaryOpExpression => {
                         #[cfg(feature = "slint-sc")]
