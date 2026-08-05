@@ -13,8 +13,11 @@ fn is_generated_dir(dir: &std::path::Path, astro_dir: &std::path::Path) -> bool 
     dir.starts_with(astro_dir) && dir.file_name().is_some_and(|name| name == "generated")
 }
 
-/// Generate all markdown/mdx documentation files.
-pub fn generate(cfg: &Config) -> Result<(), Box<dyn std::error::Error>> {
+/// Generate all markdown/mdx documentation files, and return the gaps the
+/// safety manual shows: the runtime files that aren't completely covered and
+/// the requirement paragraphs that no test declares. Every page is written
+/// first, so a build can publish the manual and act on the gaps afterwards.
+pub fn generate(cfg: &Config) -> Result<Vec<String>, Box<dyn std::error::Error>> {
     // Start from an empty directory: a page left behind by an earlier run
     // (of a version that named or grouped it differently) still renders, and
     // its paragraph ids still count as duplicates of the current ones.
@@ -41,26 +44,14 @@ pub fn generate(cfg: &Config) -> Result<(), Box<dyn std::error::Error>> {
         write_builtin_structs_and_enums(cfg, &structs, &enums)?;
     }
 
+    let mut gaps = Vec::new();
     if cfg.sc_only {
-        // Both chapters are written before any gap is reported, so the failure
-        // lists every gap at once and the generated pages are there to inspect.
-        let mut gaps = crate::traceability::generate(cfg)?;
+        gaps = crate::traceability::generate(cfg)?;
         gaps.extend(crate::coverage::generate(cfg)?);
         crate::test_results::generate(cfg)?;
-        if cfg.fail_on_gaps && !gaps.is_empty() {
-            eprintln!("error: the safety manual has {} gap(s):", gaps.len());
-            for gap in &gaps {
-                eprintln!("  {gap}");
-            }
-            return Err(anyhow::anyhow!(
-                "{} gap(s): the runtime must stay completely covered and every requirement must be declared by a test",
-                gaps.len()
-            )
-            .into());
-        }
     }
 
-    Ok(())
+    Ok(gaps)
 }
 
 /// An enum documented on its own type page rather than in the Builtin Enums list.
