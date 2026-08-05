@@ -1574,9 +1574,10 @@ impl Expression {
             }
             return Self::Invalid;
         };
-        // For `.any(predicate)` / `.all(predicate)` the closure's argument type is
-        // structurally derived from the base array's element type. Compute it here
-        // so we can hand it to the closure when resolving that specific argument.
+        // For `.any(predicate)` / `.all(predicate)` / `.find-index(predicate)` the
+        // closure's argument type is structurally derived from the base array's
+        // element type. Compute it here so we can hand it to the closure when
+        // resolving that specific argument.
         let expected_closure_arg_type = match &function {
             Some(LookupResult::Callable(LookupResultCallable::MemberFunction {
                 base,
@@ -1585,7 +1586,9 @@ impl Expression {
             })) if matches!(
                 **member,
                 LookupResultCallable::Callable(Callable::Builtin(
-                    BuiltinFunction::ArrayAny | BuiltinFunction::ArrayAll
+                    BuiltinFunction::ArrayAny
+                        | BuiltinFunction::ArrayAll
+                        | BuiltinFunction::ArrayFindIndex
                 ))
             ) =>
             {
@@ -2112,7 +2115,8 @@ impl Expression {
             && !matches!(expression, Expression::Closure { .. })
         {
             ctx.diag.push_error(
-                "Closures must be written inline as the argument of 'any' or 'all'".into(),
+                "Closures must be written inline as the argument of 'any', 'all' or 'find-index'"
+                    .into(),
                 &node,
             );
             return Expression::Invalid;
