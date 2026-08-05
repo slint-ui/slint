@@ -198,9 +198,7 @@ impl SkiaWGPU30Renderer {
 
 #[doc(hidden)]
 impl<Surface> RendererSealed for SkiaWGPURendererGeneric<Surface> {
-    fn text_size(
-        &self,
-    ) -> Option<&i_slint_core::textlayout::sharedparley::TextLayoutCache> {
+    fn text_size(&self) -> Option<&i_slint_core::textlayout::sharedparley::TextLayoutCache> {
         RendererSealed::text_layout_cache(&self.renderer)
     }
 
