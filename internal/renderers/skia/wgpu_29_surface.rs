@@ -48,6 +48,7 @@ pub struct WGPUSurface {
     surface: Option<wgpu::Surface<'static>>,
     textures_to_transition_for_sampling: RefCell<Vec<wgpu::Texture>>,
     pub(crate) backend: Backend,
+    alpha_modes: Vec<wgpu::CompositeAlphaMode>,
 }
 
 impl WGPUSurface {
@@ -100,6 +101,7 @@ impl WGPUSurface {
             surface: Some(surface),
             textures_to_transition_for_sampling: RefCell::new(Vec::new()),
             backend,
+            alpha_modes: swapchain_capabilities.alpha_modes,
         })
     }
 
@@ -121,6 +123,7 @@ impl WGPUSurface {
             surface: None,
             textures_to_transition_for_sampling: RefCell::new(Vec::new()),
             backend,
+            alpha_modes: vec![],
         }
     }
 
@@ -300,6 +303,27 @@ impl crate::Surface for WGPUSurface {
         self.textures_to_transition_for_sampling.borrow_mut().push(texture.clone());
 
         self.backend.import_texture(canvas, texture)
+    }
+
+    fn set_transparent(&self, transparent: bool) -> Result<(), PlatformError> {
+        if transparent {
+            // The default `Opaque` discards the scene's alpha; pick a translucent mode if offered.
+            // Metal (CAMetalLayer) only offers `PostMultiplied`, so it must be a fallback.
+            use wgpu::CompositeAlphaMode::{PostMultiplied, PreMultiplied};
+            if let Some(mode) =
+                [PreMultiplied, PostMultiplied].into_iter().find(|m| self.alpha_modes.contains(m))
+            {
+                let mut surface_config_opt = self.surface_config.borrow_mut();
+                let (Some(surface_config), Some(surface)) =
+                    (surface_config_opt.as_mut(), &self.surface)
+                else {
+                    return Ok(());
+                };
+                surface_config.alpha_mode = mode;
+                surface.configure(&self.device, surface_config);
+            }
+        }
+        Ok(())
     }
 }
 
