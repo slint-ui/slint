@@ -14,12 +14,32 @@ export component TestCase {
 
     out property<bool> test: num_ints == 5 && operations == 10
         && hello_world == (["", "world"])[1] && empty_model.length == 0 && empty_model[45].a.length == 0
-        && array_of_array[1][1] == 2 && [].length == 0 && ninth_int == 0 && minus_int == 0 && decimal_check;
+        && array_of_array[1][1] == 2 && [].length == 0 && ninth_int == 0 && minus_int == 0 && decimal_check
+        && index_of_three == 2 && index_of_missing == -1 && empty_index_of == -1
+        && index_of_hundred == -1;
     out property<int> third_int: ints[2];
     out property<int> ninth_int: ints[8];
     out property<int> minus_int: ints[-1];
     out property<bool> decimal_check: ints[-0.5] == 1 && ints[2.9] == 3 && ints[-1.3] == 0;
     out property<string> hello_world: [{t: "hello"}, {t: "world"}][1].t;
+    // `index-of` is stable (not experimental): it takes a plain value, not a
+    // predicate closure, unlike the experimental `find-index`/`any`/`all`.
+    out property<int> index-of-three: ints.index-of(3);
+    out property<int> index-of-missing: ints.index-of(99);
+    out property<int> empty-index-of: empty_ints.index-of(0);
+    out property<int> index-of-hundred: ints.index-of(100);
+
+    // `index-of`'s value argument must be evaluated exactly once, before the search —
+    // not re-embedded in the per-row equality check, which would run it once per row
+    // (and not at all against an empty array).
+    in-out property<int> index-of-value-calls: 0;
+    public function index-of-value-with-side-effect() -> int {
+        self.index-of-value-calls += 1;
+        return 3;
+    }
+    public function index-of-with-side-effect() -> int {
+        return self.ints.index-of(self.index-of-value-with-side-effect());
+    }
 
     public function push_one(val: int) { ints.push(val) }
     public function remove_one(index: int) { ints.remove(index) }
@@ -43,6 +63,12 @@ assert_eq(instance.get_third_int(), 3);
 assert_eq(instance.get_ninth_int(), 0);
 assert_eq(instance.get_minus_int(), 0);
 assert_eq(instance.get_test(), true);
+assert_eq(instance.get_index_of_three(), 2);
+assert_eq(instance.get_index_of_missing(), -1);
+assert_eq(instance.get_empty_index_of(), -1);
+
+assert_eq(instance.invoke_index_of_with_side_effect(), 2);
+assert_eq(instance.get_index_of_value_calls(), 1);
 
 auto model = std::make_shared<slint::VectorModel<int>>(std::vector<int>{1, 2, 3, 4, 5, 6, 7});
 instance.set_ints(model);
@@ -52,6 +78,8 @@ model->push_back(8);
 assert_eq(instance.get_num_ints(), 8);
 model->set_row_data(2, 100);
 assert_eq(instance.get_third_int(), 100);
+// `index-of` reacts to the row-data change: 100 is now found where 3 used to be.
+assert_eq(instance.get_index_of_hundred(), 2);
 assert_eq(instance.get_ninth_int(), 0);
 assert_eq(instance.get_minus_int(), 0);
 
@@ -119,6 +147,12 @@ assert_eq!(instance.get_third_int(), 3);
 assert_eq!(instance.get_ninth_int(), 0);
 assert_eq!(instance.get_minus_int(), 0);
 assert_eq!(instance.get_test(), true);
+assert_eq!(instance.get_index_of_three(), 2);
+assert_eq!(instance.get_index_of_missing(), -1);
+assert_eq!(instance.get_empty_index_of(), -1);
+
+assert_eq!(instance.invoke_index_of_with_side_effect(), 2);
+assert_eq!(instance.get_index_of_value_calls(), 1);
 
 let model: std::rc::Rc<slint::VecModel<i32>> = std::rc::Rc::new(vec![1, 2, 3, 4, 5, 6, 7].into());
 instance.set_ints(slint::ModelRc::from(model.clone()));
@@ -128,6 +162,8 @@ model.push(8);
 assert_eq!(instance.get_num_ints(), 8);
 model.set_row_data(2, 100);
 assert_eq!(instance.get_third_int(), 100);
+// `index-of` reacts to the row-data change: 100 is now found where 3 used to be.
+assert_eq!(instance.get_index_of_hundred(), 2);
 assert_eq!(instance.get_ninth_int(), 0);
 assert_eq!(instance.get_minus_int(), 0);
 
@@ -188,6 +224,12 @@ assert.equal(instance.third_int, 3);
 assert.equal(instance.ninth_int, 0);
 assert.equal(instance.minus_int, 0);
 assert(instance.test);
+assert.equal(instance.index_of_three, 2);
+assert.equal(instance.index_of_missing, -1);
+assert.equal(instance.empty_index_of, -1);
+
+assert.equal(instance.index_of_with_side_effect(), 2);
+assert.equal(instance.index_of_value_calls, 1);
 
 let model = new slintlib.ArrayModel([1, 2, 3, 4, 5, 6, 7]);
 instance.ints = model;
@@ -197,6 +239,8 @@ model.push(8);
 assert.equal(instance.num_ints, 8);
 model.setRowData(2, 100);
 assert.equal(instance.third_int, 100);
+// `index-of` reacts to the row-data change: 100 is now found where 3 used to be.
+assert.equal(instance.index_of_hundred, 2);
 assert.equal(instance.ninth_int, 0);
 assert.equal(instance.minus_int, 0);
 

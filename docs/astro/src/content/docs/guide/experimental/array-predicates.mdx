@@ -29,6 +29,11 @@ and its type is inferred from the array element type.
 `any` returns `false` for an empty array, `all` returns `true` for an empty array, and
 `find-index` returns `-1` for an empty array.
 
+For a plain value-equality lookup, prefer the stable
+[`array.index-of(value)`](../../property-types/arrays-and-models/#operations) over
+`find-index((name) => name == value)`: it needs no predicate and isn't experimental.
+Reach for `find-index` when the match condition is more than equality against a single value.
+
 ## Example
 
 ```slint no-test
@@ -37,7 +42,7 @@ export component Example {
 
     out property <bool> contains-two: list-of-int.any((value) => value == 2);   // true
     out property <bool> all-positive: list-of-int.all((value) => value > 0);    // true
-    out property <int> index-of-two: list-of-int.find-index((value) => value == 2); // 1
+    out property <int> index-of-first-even: list-of-int.find-index((value) => mod(value, 2) == 0); // 1
 }
 ```
 
