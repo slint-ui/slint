@@ -473,6 +473,10 @@ pub mod platform {
         )
     ))]
     pub mod skia_renderer {
+        #[cfg(feature = "unstable-wgpu-29")]
+        pub use i_slint_renderer_skia::SkiaWGPU29Renderer;
+        #[cfg(feature = "unstable-wgpu-30")]
+        pub use i_slint_renderer_skia::SkiaWGPU30Renderer;
         pub use i_slint_renderer_skia::SkiaWGPURenderer;
     }
 
@@ -551,6 +555,10 @@ pub mod wgpu_29 {
     //! WGPU major version (29 vs 30) and the corresponding feature/selector/API names (`unstable-wgpu-29`,
     //! [`slint::BackendSelector::require_wgpu_29()`](i_slint_backend_selector::api::BackendSelector::require_wgpu_29()),
     //! [`slint::GraphicsAPI::WGPU29`](i_slint_core::api::GraphicsAPI::WGPU29)).
+    //!
+    //! When rendering offscreen with the Skia renderer, use `slint::platform::skia_renderer::SkiaWGPU29Renderer`
+    //! to select the wgpu 29 API explicitly, even if `unstable-wgpu-30` also ends up enabled through
+    //! Cargo feature unification.
     pub use i_slint_core::graphics::wgpu_29::api::*;
 }
 
