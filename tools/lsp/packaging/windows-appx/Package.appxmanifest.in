@@ -58,7 +58,7 @@
   <Applications>
     <Application
             Id="slintvisualeditor"
-            Executable="$targetnametoken$.exe"
+            Executable="slint-visual-editor.exe"
             uap10:TrustLevel="mediumIL"
             EntryPoint="Windows.FullTrustApplication"
         >

@@ -92,8 +92,6 @@ jobs:
       # No toolchain is set up here: this job only reads the crate version, and
       # `windows-latest` comes with cargo.
 
-      - uses: microsoft/setup-WinAppCli@v0.1
-
       - name: Download executables
         uses: actions/download-artifact@v8
         with:
@@ -120,24 +118,6 @@ jobs:
             throw "version '$cargoversion' is not three numeric fields"
           }
           "cargo_version=$cargoversion" >> $env:GITHUB_OUTPUT
-
-      - name: Set the version in the manifest
-        shell: pwsh
-        run: |
-          Set-Location tools/lsp/packaging/windows-appx
-          $manifest = New-Object System.Xml.XmlDocument
-          $manifest.Load((Join-Path $PWD "Package.appxmanifest.in"))
-          $manifest.Package.Identity.Version = "${{ steps.get_cargo_version.outputs.cargo_version }}.0"
-
-          # Writing the document back out reflows it, so indent it and keep the
-          # byte order mark out of a file that other tools have to read.
-          $settings = New-Object System.Xml.XmlWriterSettings
-          $settings.Indent = $true
-          $settings.Encoding = New-Object System.Text.UTF8Encoding($false)
-          $writer = [System.Xml.XmlWriter]::Create((Join-Path $PWD "Package.appxmanifest"), $settings)
-          try { $manifest.Save($writer) } finally { $writer.Dispose() }
-
-          Write-Host "Packaging version $($manifest.Package.Identity.Version)"
 
       - name: Render the tile images
         shell: pwsh
@@ -176,48 +156,59 @@ jobs:
       - name: Assemble package layouts
         shell: pwsh
         run: |
+          $version = "${{ steps.get_cargo_version.outputs.cargo_version }}.0"
           $tiles = Join-Path $env:RUNNER_TEMP "tiles"
+
           foreach ($arch in "x64", "arm64") {
             $dist = "tools/lsp/dist/$arch"
             New-Item -ItemType Directory -Force "$dist/Assets" | Out-Null
-            # Every asset the manifest references has to end up inside the
-            # package layout, otherwise only `winapp pack` can resolve it.
+            # Everything the manifest refers to has to be inside the layout:
+            # `makeappx` resolves those paths within the package, not on disk.
             Copy-Item "$tiles/*.png" "$dist/Assets/"
             Copy-Item "exe/slint-visual-editor-$arch/slint-visual-editor.exe" "$dist/slint-visual-editor.exe"
+
+            # Each slice carries its own manifest, naming the version and the
+            # architecture it was built for. Everything else about the slices
+            # has to be identical for them to bundle together.
+            $manifest = New-Object System.Xml.XmlDocument
+            $manifest.Load((Join-Path $PWD "tools/lsp/packaging/windows-appx/Package.appxmanifest.in"))
+            $manifest.Package.Identity.Version = $version
+            $manifest.Package.Identity.SetAttribute("ProcessorArchitecture", $arch)
+
+            # Writing the document back out reflows it, so indent it and keep
+            # the byte order mark out of a file that other tools have to read.
+            $settings = New-Object System.Xml.XmlWriterSettings
+            $settings.Indent = $true
+            $settings.Encoding = New-Object System.Text.UTF8Encoding($false)
+            $writer = [System.Xml.XmlWriter]::Create((Join-Path $PWD "$dist/AppxManifest.xml"), $settings)
+            try { $manifest.Save($writer) } finally { $writer.Dispose() }
           }
+
+          Write-Host "Packaging version $version"
 
       - name: Package app as MSIX bundle
         id: package_msix
         shell: pwsh
         run: |
           $version = "${{ steps.get_cargo_version.outputs.cargo_version }}.0"
-          Set-Location tools/lsp
 
-          foreach ($arch in "x64", "arm64") {
-            # `winapp pack` detects the architecture from the executable's PE
-            # header and sets `ProcessorArchitecture` accordingly.
-            winapp pack --manifest packaging/windows-appx/Package.appxmanifest "./dist/$arch"
-            if ($LASTEXITCODE -ne 0) { throw "winapp pack failed for $arch" }
-          }
-
-          $slices = @(Get-ChildItem -Filter *.msix)
-          if ($slices.Count -ne 2) {
-            throw "expected one .msix per architecture, found $($slices.Count)"
-          }
-          New-Item -ItemType Directory -Force bundle-src | Out-Null
-          $slices | Move-Item -Destination bundle-src/
-
-          # Bundling through `winapp pack` instead would version the bundle
-          # after the clock: it leaves the version to `makeappx`, which falls
-          # back to the current date and time when it is not given one. Partner
-          # Center tracks a submission by the version of the bundle, so pass the
-          # version the slices already carry.
           $makeappx = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin" -Recurse -Filter makeappx.exe |
             Sort-Object FullName -Descending |
             Select-Object -First 1 -ExpandProperty FullName
           if (-not $makeappx) { throw "makeappx.exe was not found in the Windows SDK." }
 
-          $name = ([xml](Get-Content packaging/windows-appx/Package.appxmanifest)).Package.Identity.Name
+          Set-Location tools/lsp
+          $name = ([xml](Get-Content "dist/x64/AppxManifest.xml")).Package.Identity.Name
+          New-Item -ItemType Directory -Force bundle-src | Out-Null
+
+          foreach ($arch in "x64", "arm64") {
+            & $makeappx pack /d "dist/$arch" /p "bundle-src/${name}_${version}_$arch.msix" /o
+            if ($LASTEXITCODE -ne 0) { throw "packing $arch failed" }
+          }
+
+          # Without /bv the bundle is versioned after the clock rather than
+          # after what it contains, and the version of the bundle is the one an
+          # app is known by once it is submitted.
           $bundle = "${name}_${version}_arm64_x64.msixbundle"
           & $makeappx bundle /d bundle-src /p $bundle /bv $version /o
           if ($LASTEXITCODE -ne 0) { throw "makeappx bundle failed" }
