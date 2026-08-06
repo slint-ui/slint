@@ -315,8 +315,25 @@ pub async fn async_init_instance_adapter_device_queue_surface(
 
             (instance, adapter, device, queue, surface)
         }
-        None => {
-            let backends = wgpu::Backends::from_env().unwrap_or_default() & !backends_to_avoid;
+        maybe_native_api @ (None
+        | Some(
+            RequestedGraphicsAPI::Metal
+            | RequestedGraphicsAPI::Vulkan
+            | RequestedGraphicsAPI::Direct3D,
+        )) => {
+            let requested_backends = match &maybe_native_api {
+                Some(RequestedGraphicsAPI::Metal) => wgpu::Backends::METAL,
+                Some(RequestedGraphicsAPI::Vulkan) => wgpu::Backends::VULKAN,
+                Some(RequestedGraphicsAPI::Direct3D) => wgpu::Backends::DX12,
+                _ => wgpu::Backends::from_env().unwrap_or_default(),
+            };
+            let backends = requested_backends & !backends_to_avoid;
+            if backends.is_empty() {
+                return Err(alloc::format!(
+                    "The requested graphics API ({maybe_native_api:?}) is not supported under wgpu on this platform"
+                )
+                .into());
+            }
 
             let instance =
                 wgpu::util::new_instance_with_webgpu_detection(wgpu::InstanceDescriptor {
@@ -354,11 +371,11 @@ pub async fn async_init_instance_adapter_device_queue_surface(
                 })?;
             (instance, adapter, device, queue, surface)
         }
-        Some(_) => {
-            return Err(
-                "The FemtoVG WGPU renderer does not implement renderer selection by graphics API"
-                    .into(),
-            );
+        Some(other) => {
+            return Err(alloc::format!(
+                "The requested graphics API ({other:?}) is not supported under wgpu"
+            )
+            .into());
         }
     };
     Ok((instance, adapter, device, queue, surface))

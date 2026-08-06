@@ -31,6 +31,7 @@ pub(crate) fn attachment_color_space(texture: &wgpu::Texture) -> skia_safe::Colo
 }
 
 /// See [`crate::sampled_texture_color_space`].
+#[cfg_attr(not(feature = "unstable-wgpu-30"), allow(dead_code))]
 pub(crate) fn sampled_texture_color_space(texture: &wgpu::Texture) -> skia_safe::ColorSpace {
     crate::sampled_texture_color_space(crate::TextureEncoding::from_format_is_srgb(
         texture.format().is_srgb(),
@@ -41,6 +42,7 @@ pub(crate) fn sampled_texture_color_space(texture: &wgpu::Texture) -> skia_safe:
 /// window surface) and offscreen rendering into caller-provided textures.
 pub struct WGPUSurface {
     pub(crate) gr_context: RefCell<skia_safe::gpu::DirectContext>,
+    #[cfg_attr(not(feature = "unstable-wgpu-30"), allow(dead_code))]
     instance: wgpu::Instance,
     device: wgpu::Device,
     queue: wgpu::Queue,
@@ -435,6 +437,7 @@ impl Backend {
         }
     }
 
+    #[cfg_attr(not(feature = "unstable-wgpu-30"), allow(dead_code))]
     pub(crate) fn import_texture(
         &self,
         canvas: &skia_safe::Canvas,

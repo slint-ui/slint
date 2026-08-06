@@ -952,7 +952,7 @@ impl WinitWindowAdapter {
         WindowInner::from_pub(self.window()).context().set_color_scheme(scheme);
 
         // Update the menubar theme
-        #[cfg(target_os = "windows")]
+        #[cfg(all(target_os = "windows", muda))]
         if let WinitWindowOrNone::HasWindow {
             window: winit_window,
             muda_adapter: maybe_muda_adapter,

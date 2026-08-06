@@ -1144,49 +1144,22 @@ fn create_renderer(
             }
             renderer::skia::WinitSkiaRenderer::new_opengl_suspended(shared_data)
         }
-        #[cfg(all(
-            enable_skia_renderer,
-            any(feature = "unstable-wgpu-29", feature = "unstable-wgpu-30")
-        ))]
-        (Some("skia-wgpu"), maybe_graphics_api) => {
-            if let Some(selected_renderer) = maybe_graphics_api.map_or_else(
-                || {
-                    #[cfg(feature = "unstable-wgpu-30")]
-                    {
-                        return Some(renderer::skia::WinitSkiaRenderer::new_wgpu_30_suspended(
-                            shared_data,
-                        ));
-                    }
-                    #[cfg(all(feature = "unstable-wgpu-29", not(feature = "unstable-wgpu-30")))]
-                    {
-                        return Some(renderer::skia::WinitSkiaRenderer::new_wgpu_29_suspended(
-                            shared_data,
-                        ));
-                    }
-                    #[allow(unreachable_code)]
-                    None
-                },
-                |_api| {
-                    #[cfg(feature = "unstable-wgpu-30")]
-                    if matches!(_api, RequestedGraphicsAPI::WGPU30(..)) {
-                        return Some(renderer::skia::WinitSkiaRenderer::new_wgpu_30_suspended(
-                            shared_data,
-                        ));
-                    }
-                    #[cfg(feature = "unstable-wgpu-29")]
-                    if matches!(_api, RequestedGraphicsAPI::WGPU29(..)) {
-                        return Some(renderer::skia::WinitSkiaRenderer::new_wgpu_29_suspended(
-                            shared_data,
-                        ));
-                    }
-                    None
-                },
-            ) {
-                selected_renderer
-            } else {
+        #[cfg(enable_skia_renderer)]
+        (Some("skia-wgpu"), maybe_graphics_api) => match maybe_graphics_api {
+            None => renderer::skia::WinitSkiaRenderer::new_wgpu_30_suspended(shared_data),
+            #[cfg(feature = "unstable-wgpu-30")]
+            // this is always enabled when skia is enabled, but rust-analyzer can get confused
+            Some(RequestedGraphicsAPI::WGPU30(..)) => {
+                renderer::skia::WinitSkiaRenderer::new_wgpu_30_suspended(shared_data)
+            }
+            #[cfg(feature = "unstable-wgpu-29")]
+            Some(RequestedGraphicsAPI::WGPU29(..)) => {
+                renderer::skia::WinitSkiaRenderer::new_wgpu_29_suspended(shared_data)
+            }
+            Some(_) => {
                 Err("Skia with WGPU doesn't support non-WGPU graphics API".to_string().into())
             }
-        }
+        },
         #[cfg(all(enable_skia_renderer, not(target_os = "android")))]
         (Some("skia-software"), None) => {
             renderer::skia::WinitSkiaRenderer::new_software_suspended(shared_data)

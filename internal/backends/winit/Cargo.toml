@@ -46,7 +46,10 @@ renderer-femtovg = ["i-slint-renderer-femtovg/opengl", "dep:glutin", "dep:glutin
 renderer-femtovg-wgpu = ["i-slint-renderer-femtovg/wgpu", "dep:i-slint-renderer-femtovg", "unstable-wgpu-30"]
 renderer-skia = ["i-slint-renderer-skia"]
 renderer-skia-opengl = ["renderer-skia", "i-slint-renderer-skia/opengl"]
-renderer-skia-vulkan = ["renderer-skia", "i-slint-renderer-skia/vulkan"]
+# Deprecated: Vulkan support now comes from enabling renderer-skia and wgpu
+# (the latter is on by default). WGPU will automatically use Vulkan on the
+# platforms we support using Vulkan on
+renderer-skia-vulkan = ["renderer-skia"]
 renderer-software = [
   "dep:softbuffer",
   "dep:imgref",

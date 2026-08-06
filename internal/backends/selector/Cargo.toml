@@ -46,10 +46,13 @@ renderer-skia-opengl = [
   "i-slint-backend-linuxkms?/renderer-skia-opengl",
   "i-slint-renderer-skia/opengl",
 ]
+# Deprecated: Vulkan support now comes from enabling renderer-skia and wgpu
+# (the latter is on by default). WGPU will automatically use Vulkan on the
+# platforms we support using Vulkan on
 renderer-skia-vulkan = [
   "i-slint-backend-winit?/renderer-skia-vulkan",
   "i-slint-backend-linuxkms?/renderer-skia-vulkan",
-  "i-slint-renderer-skia/vulkan",
+  "renderer-skia",
 ]
 renderer-software = [
   "i-slint-backend-winit?/renderer-software",

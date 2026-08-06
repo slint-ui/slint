@@ -64,6 +64,7 @@ pub unsafe fn make_metal_surface(
     }
 }
 
+#[cfg_attr(not(feature = "unstable-wgpu-29"), allow(dead_code))]
 pub unsafe fn import_metal_texture(
     canvas: &skia_safe::Canvas,
     texture: wgpu::Texture,
