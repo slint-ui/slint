@@ -549,9 +549,17 @@ impl Expression {
                         return expr;
                     }
                     SyntaxKind::ConditionalExpression => {
+                        let expr = Self::from_conditional_expression_node(node.clone().into(), ctx);
+                        // In Slint SC, a conditional is in the subset when it
+                        // produces a value of the subset; the condition is a
+                        // boolean and both branches share the result's type.
                         #[cfg(feature = "slint-sc")]
-                        ctx.diag.slint_sc_error("Conditional expressions are", &node);
-                        return Self::from_conditional_expression_node(node.into(), ctx);
+                        match &expr {
+                            Expression::Invalid => {}
+                            Expression::Condition { .. } if expr.ty().is_slint_sc_value() => {}
+                            _ => ctx.diag.slint_sc_error("Conditional expressions are", &node),
+                        }
+                        return expr;
                     }
                     SyntaxKind::ObjectLiteral => {
                         #[cfg(feature = "slint-sc")]
