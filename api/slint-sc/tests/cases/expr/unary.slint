@@ -14,6 +14,8 @@ export component TestCase inherits Window {
     out property <int> neg_doubled: -(a + a);
     in property <length> w;
     out property <length> neg_len: -w;
+    in property <bool> flag;
+    out property <bool> not_flag: !flag;
 }
 
 /*
@@ -22,10 +24,13 @@ let mut x = TestCase::new();
 x.set_a(10);
 x.set_b(3);
 
-// `-` negates, `+` leaves the value unchanged.
+// The prefix operators are `-`, `+`, and `!`.
+//#sls.op.prefix
 //#sls.op.unary
 assert_eq!(x.get_neg(), -10);
 assert_eq!(x.get_pos(), 10);
+x.set_flag(false);
+assert_eq!(x.get_not_flag(), true);
 // `a - -b` subtracts a negated operand.
 assert_eq!(x.get_sub_neg(), 10 - -3);
 assert_eq!(x.get_neg_sum(), -(10 + 3));

@@ -1,0 +1,43 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Software-3.0
+
+// `&&` and `||` combine two booleans, `!` negates one. They compose with
+// parentheses to override precedence.
+
+export component TestCase inherits Window {
+    in property <bool> a;
+    in property <bool> b;
+    //#sls.op.logical
+    out property <bool> both: a && b;
+    out property <bool> either: a || b;
+    //#sls.op.not
+    out property <bool> not_a: !a;
+    out property <bool> neither: !a && !b;
+    out property <bool> not_both: !(a && b);
+    out property <bool> grouped: (a || b) && !(a && b);
+}
+
+/*
+```rust
+let mut x = TestCase::new();
+
+for (a, b) in [(false, false), (false, true), (true, false), (true, true)] {
+    x.set_a(a);
+    x.set_b(b);
+
+    // `&&` is true when both operands are true, `||` when either is.
+    //#sls.op.logical
+    assert_eq!(x.get_both(), a && b);
+    assert_eq!(x.get_either(), a || b);
+
+    // `!` negates a boolean.
+    //#sls.op.not
+    assert_eq!(x.get_not_a(), !a);
+    assert_eq!(x.get_neither(), !a && !b);
+    assert_eq!(x.get_not_both(), !(a && b));
+
+    // Parentheses override precedence: exclusive-or built from the primitives.
+    assert_eq!(x.get_grouped(), (a || b) && !(a && b));
+}
+```
+*/

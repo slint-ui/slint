@@ -6,6 +6,7 @@ SC: true
 
 import SC from '@slint/common-files/src/components/SC.astro';
 import OnlyInSC from '@slint/common-files/src/components/OnlyInSC.astro';
+import NotInSC from '@slint/common-files/src/components/NotInSC.astro';
 
 Slint has arithmetic, comparison, logical, and ternary operators, plus member access and indexing.
 Every operator requires operands of specific types; Slint applies no implicit coercions beyond the
@@ -57,16 +58,7 @@ An arithmetic expression combines two operands with `+`, `-`, or `*`. \{#sls.op.
 
 Arithmetic saturates at the bounds of the value's type. \{#sls.op.saturating}
 </OnlyInSC>
-
-```slint
-export component Example inherits Window {
-    in property <length> a;
-    in property <length> b;
-    out property <length> total: a + b * 2;
-}
-```
-</SC>
-
+<NotInSC>
 The binary operators `+`, `-`, `*`, and `/` operate on numbers (`int`, `float`, `percent`) and on
 types that carry a unit (`length`, `physical-length`, `duration`, `angle`, `rem`).
 
@@ -76,6 +68,16 @@ types that carry a unit (`length`, `physical-length`, `duration`, `angle`, `rem`
   (for example `1px * 1px` has type `px²`).
 - `/` divides a value by a number, or by another value.
   Dividing two values of the same unit yields a plain number, so `self.width / 1px` is the width as a `float`.
+</NotInSC>
+
+```slint
+export component Example inherits Window {
+    in property <length> a;
+    in property <length> b;
+    out property <length> total: a + b * 2;
+}
+```
+</SC>
 
 ```slint
 export component Example {
@@ -109,38 +111,52 @@ Both operands must resolve to a common type.
 
 Comparison operators do not chain; parenthesize to combine them.
 
+<SC>
 ## Logical operators
 
-The binary operators `&&` (and) and `||` (or) take two `bool` operands and produce a `bool`.
-The unary `!` operator negates a `bool`.
-Operands of these operators must be `bool`; no other type is coerced to `bool`.
+The binary operators `&&` and `||` combine two boolean operands into a boolean:
+`&&` is true when both operands are true, `||` when either is. \{#sls.op.logical}
 
-<SC>
-## Unary operators
+The unary operator `!` negates a boolean. \{#sls.op.not}
 
-<OnlyInSC>
-A unary `-` or `+` applies to a number or a length; `-` negates it. \{#sls.op.unary}
-</OnlyInSC>
+The operands must be `bool`; no other type is coerced to `bool`. \{#sls.op.bool-operands}
 
 ```slint
 export component Example inherits Window {
-    in property <length> w;
-    out property <length> negated: -w;
+    in property <bool> a;
+    in property <bool> b;
+    out property <bool> both: a && b;
+    out property <bool> either: a || b;
+    out property <bool> neither: !a && !b;
 }
 ```
 </SC>
 
-The prefix operators are `+`, `-`, and `!`.
+<NotInSC>
+`&&` and `||` short-circuit: the right operand is evaluated only when the left does not already determine the result.
+</NotInSC>
 
-- `+` and `-` apply to numbers and unit-bearing types.
-- `!` applies to `bool`.
+<SC>
+## Unary operators
+
+The prefix operators are `+`, `-`, and `!`. \{#sls.op.prefix}
+
+<OnlyInSC>
+A unary `+` or `-` applies to a number or a length, and `-` negates it. \{#sls.op.unary}
+</OnlyInSC>
+<NotInSC>
+`+` and `-` apply to numbers and unit-bearing types, and `!` applies to `bool`.
+</NotInSC>
 
 ```slint
-export component Example {
-    in-out property <int> a: -5;
-    in-out property <bool> b: !true;
+export component Example inherits Window {
+    in property <length> w;
+    in property <bool> flag;
+    out property <length> negated: -w;
+    out property <bool> toggled: !flag;
 }
 ```
+</SC>
 
 ## Ternary operator
 
