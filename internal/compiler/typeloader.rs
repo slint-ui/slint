@@ -1081,17 +1081,24 @@ impl TypeLoader {
         let mut imports = Vec::new();
         let mut dependencies_futures = Vec::new();
         for mut import in Self::collect_dependencies(state, doc) {
-            // Reject a library import before the library search path is
-            // consulted, so that the only diagnostic is the Slint SC one. No
-            // builtin file uses a library import, so skipping the load can't
-            // leave a builtin document half-loaded.
+            // The path shapes that don't resolve relative to the importing
+            // file. Rejecting them here, before any search path is consulted,
+            // keeps the Slint SC error the only diagnostic and leaves the
+            // named file unread. No builtin file imports this way, so skipping
+            // the load can't leave a builtin document half-loaded.
             #[cfg(feature = "slint-sc")]
-            if state.borrow().diag.slint_sc && import.file.starts_with('@') {
-                state
-                    .borrow_mut()
-                    .diag
-                    .slint_sc_error("Library imports are", &import.import_uri_token);
-                continue;
+            if state.borrow().diag.slint_sc {
+                let rejected = if import.file.starts_with('@') {
+                    Some("Library imports are")
+                } else if crate::pathutils::is_absolute(Path::new(import.file.as_str())) {
+                    Some("Absolute import paths are")
+                } else {
+                    None
+                };
+                if let Some(feature) = rejected {
+                    state.borrow_mut().diag.slint_sc_error(feature, &import.import_uri_token);
+                    continue;
+                }
             }
 
             if matches!(import.import_kind, ImportKind::FileImport) {
