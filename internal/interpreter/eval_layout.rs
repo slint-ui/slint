@@ -373,6 +373,12 @@ struct ChildElem {
     /// returns trivial info that doesn't reflect the aggregated
     /// constraints; we read the aggregated property directly.
     has_aggregated_info: bool,
+    /// True for a builtin whose height depends on its width (wrapped Text,
+    /// Image): only those are worth re-measuring through the Item vtable.
+    /// For other builtins the vtable returns trivial info, dropping the
+    /// element-level constraints (e.g. `preferred-height`) already in the
+    /// pre-computed cell.
+    builtin_height_for_width: bool,
     /// For a repeated cell, the instance to query — its constrained
     /// layout-info function lives in the instance's own item tree, not in
     /// the parent `component`. `None` for a static cell.
@@ -405,6 +411,7 @@ fn collect_flexbox_child_elems(
         let has_constrained_layoutinfo_v = qe.inherited_layout_info_v_with_constraint().is_some();
         let has_constrained_layoutinfo_h = qe.inherited_layout_info_h_with_constraint().is_some();
         let has_aggregated_info = qe.layout_info_prop.is_some();
+        let builtin_height_for_width = qe.is_builtin_height_for_width();
         drop(qe);
         if repeated {
             // One entry per instance: each is re-measured through its own item
@@ -416,6 +423,7 @@ fn collect_flexbox_child_elems(
                     has_constrained_layoutinfo_v,
                     has_constrained_layoutinfo_h,
                     has_aggregated_info,
+                    builtin_height_for_width,
                     repeated_instance: Some(instance),
                 }));
             }
@@ -425,6 +433,7 @@ fn collect_flexbox_child_elems(
                 has_constrained_layoutinfo_v,
                 has_constrained_layoutinfo_h,
                 has_aggregated_info,
+                builtin_height_for_width,
                 repeated_instance: None,
             }));
         }
@@ -491,7 +500,8 @@ fn measure_flexbox_cell(
         }
     };
 
-    if known_w.is_some() && known_h.is_none() {
+    // Compute the cell's vertical info at the width `w`.
+    let measure_height = || -> (f32, f32) {
         if use_property_lookup {
             let v_info = query(Orientation::Vertical, ce.has_constrained_layoutinfo_v.then_some(w));
             return (w, v_info.preferred_bounded());
@@ -502,9 +512,7 @@ fn measure_flexbox_cell(
         // repeated cell (which lives in its own instance): a
         // height-for-width repeated cell takes the `query` path above, and a
         // non-height-for-width one keeps its width-independent default `h`.
-        if let Some(item_within) = ce
-            .repeated_instance
-            .is_none()
+        if let Some(item_within) = (ce.repeated_instance.is_none() && ce.builtin_height_for_width)
             .then(|| component.description.items.get(ce.elem.borrow().id.as_str()))
             .flatten()
         {
@@ -519,36 +527,39 @@ fn measure_flexbox_cell(
             );
             return (w, v_info.preferred_bounded());
         }
-        return (w, h);
-    }
-    if known_h.is_some() && known_w.is_none() {
+        (w, h)
+    };
+    // Compute the cell's horizontal info at the height `h`.
+    let measure_width = || -> (f32, f32) {
         if use_property_lookup {
             let h_info =
                 query(Orientation::Horizontal, ce.has_constrained_layoutinfo_h.then_some(h));
             return (h_info.preferred_bounded(), h);
         }
-        // Builtin path, symmetric to the known-w branch above: parent-tree
-        // lookup only, so it is skipped for a repeated cell.
-        if let Some(item_within) = ce
-            .repeated_instance
-            .is_none()
-            .then(|| component.description.items.get(ce.elem.borrow().id.as_str()))
-            .flatten()
-        {
-            let item_comp = component.self_weak().get().unwrap().upgrade().unwrap();
-            let item_rc = ItemRc::new(vtable::VRc::into_dyn(item_comp), item_within.item_index());
-            let item = unsafe { item_within.item_from_item_tree(component.as_ptr()) };
-            let h_info = item.as_ref().layout_info(
-                to_runtime(Orientation::Horizontal),
-                h,
-                window_adapter,
-                &item_rc,
-            );
-            return (h_info.preferred_bounded(), h);
+        // No builtin path here, unlike measure_height: no builtin derives its
+        // width from its height (even Image's horizontal layout_info ignores
+        // the cross-axis constraint), so the Item vtable could only return
+        // trivial info and drop element-level constraints like
+        // `preferred-width`. Keep the pre-computed default.
+        (w, h)
+    };
+
+    match (known_w, known_h) {
+        (Some(_), Some(_)) => (w, h),
+        (Some(_), None) => measure_height(),
+        (None, Some(_)) => measure_width(),
+        // A (None, None) call asks for the content size. The returned pair
+        // must be self-consistent — the height must be the height *at the
+        // returned width* — because taffy caches the result and reuses the
+        // height for a later query with that width known. So measure the free
+        // axis at the returned default size: the vertical axis for a
+        // height-for-width cell, or the horizontal one for a
+        // width-for-height-only cell (a vertical measure couldn't help it).
+        (None, None) => {
+            let w4h_only = ce.has_constrained_layoutinfo_h && !ce.has_constrained_layoutinfo_v;
+            if w4h_only { measure_width() } else { measure_height() }
         }
-        return (w, h);
     }
-    (w, h)
 }
 
 fn flexbox_layout_direction(
@@ -669,7 +680,27 @@ pub(crate) fn compute_flexbox_layout_info(
                 width_ref.as_ref().map(&expr_eval).unwrap_or(0.)
             }
         });
-        core_layout::flexbox_layout_info_cross_axis(
+        // Re-measure height-for-width cells at the main-axis size taffy
+        // assigns them, not at the container width the cells were
+        // pre-measured at: e.g. a nested wrapping flexbox laid out at its
+        // preferred width can be taller than when given the full container
+        // width.
+        let window_adapter = component.window_adapter();
+        let child_elems = collect_flexbox_child_elems(flexbox_layout, component);
+        let mut measure =
+            |child_index: usize, known_w: Option<f32>, known_h: Option<f32>| -> (f32, f32) {
+                measure_flexbox_cell(
+                    &child_elems,
+                    component,
+                    &window_adapter,
+                    &cells_h,
+                    &cells_v,
+                    child_index,
+                    known_w,
+                    known_h,
+                )
+            };
+        core_layout::flexbox_layout_info_cross_axis_with_measure(
             Slice::from(cells_h.as_slice()),
             Slice::from(cells_v.as_slice()),
             Slice::from(flex_props.as_slice()),
@@ -680,6 +711,7 @@ pub(crate) fn compute_flexbox_layout_info(
             direction,
             flex_wrap,
             constraint_size,
+            Some(&mut measure),
         )
         .into()
     }
