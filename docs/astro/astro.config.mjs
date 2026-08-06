@@ -206,6 +206,13 @@ export default defineConfig({
                                 collapsed: true,
                                 items: [
                                     "guide/platforms/desktop",
+                                    {
+                                        label: "Packaging",
+                                        collapsed: true,
+                                        items: [
+                                            "guide/platforms/packaging/windows-packaging",
+                                        ],
+                                    },
                                     "guide/platforms/embedded",
                                     {
                                         label: "Mobile",
