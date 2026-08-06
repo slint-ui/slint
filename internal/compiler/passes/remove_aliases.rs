@@ -226,7 +226,9 @@ pub fn remove_aliases(doc: &Document, diag: &mut BuildDiagnostics) {
                     *b = old_binding;
                 }
             } else {
-                if (same_component || both_global) && old_binding.has_binding() {
+                if (same_component || both_global)
+                    && (old_binding.has_binding() || old_binding.animation.is_some())
+                {
                     to_elem.set_binding(to.name().clone(), old_binding);
                 }
             }
