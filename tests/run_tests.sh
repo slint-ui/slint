@@ -7,7 +7,7 @@ unset CDPATH
 export RUSTFLAGS='-D warnings'
 
 usage() {
-  echo "Usage: $0 <rust|cpp|interpreter|python|nodejs> [<filter>] [<cargo test args>...]" >&2
+  echo "Usage: $0 <all|rust|cpp|interpreter|python|nodejs> [<filter>] [<cargo test args>...]" >&2
 }
 
 fatal() {
@@ -24,7 +24,7 @@ fi
 driver="$1"
 
 case "$driver" in
-  rust|cpp|interpreter|python|nodejs) ;;
+  all|rust|cpp|interpreter|python|nodejs) ;;
   *)
     fatal "Invalid driver: $driver"
     ;;
@@ -35,6 +35,21 @@ filter=""
 if [ "$#" -ge 1 ]; then
   filter="$1"
   shift || true
+fi
+
+if [ "$driver" = "all" ]; then
+  drivers="rust cpp interpreter python nodejs"
+
+  for d in $drivers; do
+    echo "==> Building driver: $d" >&2
+    "$0" "$d" "$filter" --no-run "$@"
+  done
+
+  for d in $drivers; do
+    echo "==> Running tests for driver: $d" >&2
+    "$0" "$d" "$filter" "$@"
+  done
+  exit 0
 fi
 
 # For the rust driver, auto-detect the --test <category> from the filter to avoid
