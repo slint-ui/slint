@@ -25,7 +25,7 @@ x11 = ["glutin/x11", "glutin/glx", "softbuffer/x11", "softbuffer/x11-dlopen"]
 opengl = []
 # for backwards compatibility with people using vulkan feature, potentially with wgpu disabled. now, we get
 # vulkan through wgpu
-vulkan = ["wgpu-30"] 
+vulkan = ["wgpu-30"]
 kms = ["softbuffer/kms"]
 # wgpu-{29,30} enables the wgpu surface module for internal use (e.g. linuxkms DRM rendering), as well as
 # the explicit graphics APIs: Direct3D 12 on Windows, Metal on Apple, Vulkan on other unix
