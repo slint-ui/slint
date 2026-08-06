@@ -128,9 +128,13 @@ jobs:
 
           # Render the logo far larger than any tile and trim it to its ink, so
           # that it can be scaled to a share of the tile rather than of the
-          # padding its own viewBox happens to carry.
-          $logo = Join-Path $env:RUNNER_TEMP "logo.png"
-          magick -background none -density 1152 logo/slint-logo-small-dark.svg -trim +repage $logo
+          # padding its own viewBox happens to carry. The white one goes on the
+          # tiles and on dark taskbars, the blue one on light taskbars.
+          $onDark = Join-Path $env:RUNNER_TEMP "logo-on-dark.png"
+          $onLight = Join-Path $env:RUNNER_TEMP "logo-on-light.png"
+          magick -background none -density 1152 logo/slint-logo-small-dark.svg -trim +repage $onDark
+          if ($LASTEXITCODE -ne 0) { throw "rendering the logo failed" }
+          magick -background none -density 1152 logo/slint-logo-small-light.svg -trim +repage $onLight
           if ($LASTEXITCODE -ne 0) { throw "rendering the logo failed" }
 
           function Render($backdrop, $width, $height, $name) {
@@ -138,10 +142,21 @@ jobs:
             $mark = Join-Path $env:RUNNER_TEMP "mark.png"
             # The logo covers two thirds of the height of every tile, wide ones
             # included, and sits in the middle.
-            magick $logo -resize "x$([int]($height * 0.67))" $mark
+            magick $onDark -resize "x$([int]($height * 0.67))" $mark
             if ($LASTEXITCODE -ne 0) { throw "scaling the logo failed" }
             magick -background none $backdrop -resize "${width}x${height}" `
               $mark -gravity center -composite $out
+            if ($LASTEXITCODE -ne 0) { throw "compositing $name failed" }
+          }
+
+          function Unplated($logo, $size, $name) {
+            $out = Join-Path $tiles $name
+            $mark = Join-Path $env:RUNNER_TEMP "mark.png"
+            # Nothing is drawn behind these, so the logo stands alone and is
+            # given a little room rather than running to the edges.
+            magick $logo -resize "x$([int]($size * 0.8))" $mark
+            if ($LASTEXITCODE -ne 0) { throw "scaling the logo failed" }
+            magick -size "${size}x${size}" xc:none $mark -gravity center -composite $out
             if ($LASTEXITCODE -ne 0) { throw "compositing $name failed" }
           }
 
@@ -151,7 +166,18 @@ jobs:
           Render "$backdrops/tile-backdrop.svg" 512 512 "SlintVisualEditor-Logo.png"
           Render "$backdrops/tile-backdrop-wide.svg" 310 150 "SlintVisualEditor-Logo-310x150.png"
 
-          Get-ChildItem $tiles | ForEach-Object { "  {0,-40} {1,7} bytes" -f $_.Name, $_.Length }
+          # Windows draws the small logo on a plate of its own making unless the
+          # package offers it an unplated one, which is why the icon in the task
+          # bar is otherwise a square of accent colour around a tile that
+          # already has a background of its own.
+          $base = "SlintVisualEditor-Logo-44x44"
+          foreach ($size in 16, 24, 32, 48, 256) {
+            Render "$backdrops/tile-backdrop.svg" $size $size "$base.targetsize-$size.png"
+            Unplated $onDark  $size "$base.targetsize-${size}_altform-unplated.png"
+            Unplated $onLight $size "$base.targetsize-${size}_altform-lightunplated.png"
+          }
+
+          Get-ChildItem $tiles | ForEach-Object { "  {0,-56} {1,7} bytes" -f $_.Name, $_.Length }
 
       - name: Assemble package layouts
         shell: pwsh
@@ -197,11 +223,26 @@ jobs:
             Select-Object -First 1 -ExpandProperty FullName
           if (-not $makeappx) { throw "makeappx.exe was not found in the Windows SDK." }
 
+          $makepri = Join-Path (Split-Path $makeappx) "makepri.exe"
+          if (-not (Test-Path $makepri)) { throw "makepri.exe was not found next to makeappx.exe." }
+
           Set-Location tools/lsp
           $name = ([xml](Get-Content "dist/x64/AppxManifest.xml")).Package.Identity.Name
           New-Item -ItemType Directory -Force bundle-src | Out-Null
 
+          # The qualifiers in the asset file names mean nothing without an index
+          # to resolve them through, so build one. Its config lives outside the
+          # layout, or it would be packaged along with everything else there.
+          $priconfig = Join-Path $env:RUNNER_TEMP "priconfig.xml"
+          & $makepri createconfig /cf $priconfig /dq en-US /o
+          if ($LASTEXITCODE -ne 0) { throw "makepri createconfig failed" }
+
           foreach ($arch in "x64", "arm64") {
+            $pri = Join-Path $env:RUNNER_TEMP "resources-$arch.pri"
+            & $makepri new /pr "dist/$arch" /cf $priconfig /of $pri /o
+            if ($LASTEXITCODE -ne 0) { throw "makepri new failed for $arch" }
+            Copy-Item $pri "dist/$arch/resources.pri"
+
             & $makeappx pack /d "dist/$arch" /p "bundle-src/${name}_${version}_$arch.msix" /o
             if ($LASTEXITCODE -ne 0) { throw "packing $arch failed" }
           }
