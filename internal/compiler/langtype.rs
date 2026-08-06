@@ -198,6 +198,14 @@ impl Type {
         matches!(self, Self::Int32 | Self::LogicalLength | Self::Color | Self::Bool)
     }
 
+    /// Whether an expression of this type evaluates to a value of the Slint SC
+    /// subset. A bare integer is typed `Float32` but lowers to an `i32`, so it
+    /// is accepted here even though `float` is not a declarable SC type.
+    #[cfg(feature = "slint-sc")]
+    pub fn is_slint_sc_value(&self) -> bool {
+        self.is_slint_sc() || matches!(self, Self::Float32)
+    }
+
     /// valid type for properties
     pub fn is_property_type(&self) -> bool {
         matches!(

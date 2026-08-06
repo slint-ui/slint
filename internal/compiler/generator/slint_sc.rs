@@ -249,6 +249,12 @@ fn compile_expression(expr: &Expression, root: &ElementRc) -> TokenStream {
                 _ => unreachable!(),
             }
         }
+        Expression::Condition { condition, true_expr, false_expr } => {
+            let condition = compile_expression(condition, root);
+            let true_expr = compile_expression(true_expr, root);
+            let false_expr = compile_expression(false_expr, root);
+            quote!(if #condition { #true_expr } else { #false_expr })
+        }
         // A property read that appears more than once is hoisted into a local
         // variable, so a code block evaluates it once and reads it back.
         Expression::CodeBlock(statements) => {

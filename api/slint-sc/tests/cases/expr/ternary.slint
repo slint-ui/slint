@@ -1,0 +1,49 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Software-3.0
+
+// `condition ? a : b` yields one of two branches of the same type. It nests to
+// the right and the branches can be any type of the subset.
+
+export component TestCase inherits Window {
+    in property <bool> a;
+    in property <bool> b;
+    in property <int> lo;
+    in property <int> hi;
+    //#sls.op.ternary
+    out property <int> pick: a ? hi : lo;
+    //#sls.op.ternary.type
+    out property <length> len: a ? 10px : 20px;
+    // A chained conditional associates to the right.
+    //#sls.op.ternary.assoc
+    out property <int> rank: a ? 2 : b ? 1 : 0;
+    // The condition can be a logical expression.
+    out property <int> both: (a && b) ? hi : lo;
+}
+
+/*
+```rust
+let mut x = TestCase::new();
+x.set_lo(3);
+x.set_hi(7);
+
+for (a, b) in [(false, false), (false, true), (true, false), (true, true)] {
+    x.set_a(a);
+    x.set_b(b);
+
+    // The condition selects one of the two branches.
+    //#sls.op.ternary
+    assert_eq!(x.get_pick(), if a { 7 } else { 3 });
+
+    // Both branches share the expression's type.
+    //#sls.op.ternary.type
+    assert_eq!(x.get_len(), if a { 10 } else { 20 });
+
+    // `a ? 2 : b ? 1 : 0` associates to the right as `a ? 2 : (b ? 1 : 0)`.
+    //#sls.op.ternary.assoc
+    assert_eq!(x.get_rank(), if a { 2 } else if b { 1 } else { 0 });
+
+    // A logical expression drives the condition.
+    assert_eq!(x.get_both(), if a && b { 7 } else { 3 });
+}
+```
+*/

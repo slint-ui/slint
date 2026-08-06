@@ -158,28 +158,26 @@ export component Example inherits Window {
 ```
 </SC>
 
+<SC>
 ## Ternary operator
 
-The ternary operator `condition ? value1 : value2` evaluates `condition`, which must be a `bool`, and
-yields `value1` when it is true and `value2` otherwise.
-Both branches must resolve to a common type, which becomes the type of the whole expression.
-It associates to the right, so chained conditions read as nested `else` branches:
+`condition ? value1 : value2` evaluates `condition`, a boolean,
+and yields `value1` when it is true and `value2` otherwise. \{#sls.op.ternary}
+
+Both branches have the same type, which becomes the type of the whole expression. \{#sls.op.ternary.type}
+
+A conditional associates to the right,
+so `a ? b : c ? d : e` groups as `a ? b : (c ? d : e)`. \{#sls.op.ternary.assoc}
 
 ```slint
 export component Example inherits Window {
-    preferred-width: 100px;
-    preferred-height: 100px;
-
-    Rectangle {
-        touch := TouchArea {}
-        background: touch.pressed ? #111 : #eee;
-        border-width: 5px;
-        border-color: !touch.enabled ? #888
-            : touch.pressed ? #aaa
-            : #555;
-    }
+    in property <bool> on;
+    in property <color> active;
+    in property <color> idle;
+    out property <color> tint: on ? active : idle;
 }
 ```
+</SC>
 
 ## Member access and indexing
 
