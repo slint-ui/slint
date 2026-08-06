@@ -233,6 +233,9 @@ fn compile_expression(expr: &Expression, root: &ElementRc) -> TokenStream {
                 '-' => quote!((#lhs).saturating_sub(#rhs)),
                 '*' => quote!((#lhs).saturating_mul(#rhs)),
                 '/' => quote!((#lhs).saturating_div(#rhs)),
+                // `&&` is `'&'` and `||` is `'|'`.
+                '&' => quote!((#lhs) && (#rhs)),
+                '|' => quote!((#lhs) || (#rhs)),
                 _ => unreachable!(),
             }
         }
@@ -242,6 +245,7 @@ fn compile_expression(expr: &Expression, root: &ElementRc) -> TokenStream {
                 // Negation saturates so that negating `i32::MIN` is defined.
                 '-' => quote!((#sub).saturating_neg()),
                 '+' => sub,
+                '!' => quote!(!(#sub)),
                 _ => unreachable!(),
             }
         }

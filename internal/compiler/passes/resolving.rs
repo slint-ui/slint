@@ -511,9 +511,10 @@ impl Expression {
                     SyntaxKind::BinaryExpression => {
                         let expr = Self::from_binary_expression_node(node.clone().into(), ctx);
                         // In Slint SC, `+`, `-`, and `*` producing a number or a
-                        // length are in the subset; division, comparison, a unit
-                        // product, and other results are not (an invalid expression
-                        // was already reported).
+                        // length, and `&&`/`||` producing a boolean, are in the
+                        // subset; division, comparison, a unit product, and other
+                        // results are not (an invalid expression was already
+                        // reported). `&&` is `'&'` and `||` is `'|'`.
                         #[cfg(feature = "slint-sc")]
                         match &expr {
                             Expression::Invalid => {}
@@ -523,14 +524,16 @@ impl Expression {
                                         expr.ty(),
                                         Type::Int32 | Type::Float32 | Type::LogicalLength
                                     ) => {}
+                            Expression::BinaryExpression { op, .. }
+                                if matches!(*op, '&' | '|') && expr.ty() == Type::Bool => {}
                             _ => ctx.diag.slint_sc_error("Binary expressions are", &node),
                         }
                         return expr;
                     }
                     SyntaxKind::UnaryOpExpression => {
                         let expr = Self::from_unaryop_expression_node(node.clone().into(), ctx);
-                        // In Slint SC, unary `+` and `-` on a number or length are
-                        // in the subset; `!` and other results are not.
+                        // In Slint SC, unary `+` and `-` on a number or length, and
+                        // `!` on a boolean, are in the subset; other results are not.
                         #[cfg(feature = "slint-sc")]
                         match &expr {
                             Expression::Invalid => {}
@@ -540,6 +543,7 @@ impl Expression {
                                         expr.ty(),
                                         Type::Int32 | Type::Float32 | Type::LogicalLength
                                     ) => {}
+                            Expression::UnaryOp { op: '!', .. } if expr.ty() == Type::Bool => {}
                             _ => ctx.diag.slint_sc_error("Unary expressions are", &node),
                         }
                         return expr;
