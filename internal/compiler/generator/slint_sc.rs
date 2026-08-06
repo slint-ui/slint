@@ -177,6 +177,7 @@ fn declared_properties(root: &ElementRc) -> Vec<DeclaredProperty> {
 fn rust_type(ty: &Type) -> TokenStream {
     match ty {
         Type::Int32 | Type::LogicalLength => quote!(i32),
+        Type::Bool => quote!(bool),
         Type::Color => quote!(slint_sc::Color),
         // brush is not a declarable property type, and every other type was
         // rejected by the compiler
@@ -188,6 +189,7 @@ fn rust_type(ty: &Type) -> TokenStream {
 fn default_value(ty: &Type) -> TokenStream {
     match ty {
         Type::Int32 | Type::LogicalLength => quote!(0i32),
+        Type::Bool => quote!(false),
         Type::Color => quote!(slint_sc::Color::default()),
         _ => unreachable!(),
     }
@@ -203,6 +205,7 @@ fn compile_expression(expr: &Expression, root: &ElementRc) -> TokenStream {
             let value = *value as i32;
             quote!(#value)
         }
+        Expression::BoolLiteral(value) => quote!(#value),
         Expression::Cast { from, to: Type::Color | Type::Brush } => match from.as_ref() {
             Expression::NumberLiteral(value, _) => {
                 let argb = *value as u32;

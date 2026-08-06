@@ -3092,6 +3092,9 @@ fn check_slint_sc_reference(expr: &Expression, node: &SyntaxNode, ctx: &mut Look
         // A parse or name-resolution error was already reported for this node.
         Expression::Invalid => {}
         Expression::PropertyReference(nr) if nr.ty().is_slint_sc() => {}
+        // The predefined names `true` and `false` resolve to a boolean value
+        // (a property of the same name would shadow them and resolve above).
+        Expression::BoolLiteral(_) => {}
         _ => ctx.diag.slint_sc_error("Identifier references are", node),
     }
 }

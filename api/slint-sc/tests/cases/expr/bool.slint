@@ -1,0 +1,35 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Software-3.0
+
+// A `bool` property holds `true` or `false`, defaults to `false`, and can be
+// bound to a boolean value or read from another boolean property.
+
+export component TestCase inherits Window {
+    in property <bool> a;
+    out property <bool> unset;
+    //#sls.expr.bool
+    out property <bool> yes: true;
+    out property <bool> no: false;
+    //#sls.expr.ref.value
+    out property <bool> copy: root.a;
+}
+
+/*
+```rust
+let mut x = TestCase::new();
+
+// A `bool` property defaults to `false`.
+//#sls.type.bool
+assert!(!x.get_unset());
+
+// `true` and `false` are the two boolean values.
+//#sls.expr.bool
+assert!(x.get_yes());
+assert!(!x.get_no());
+
+// A reference reads another boolean property.
+assert!(!x.get_copy());
+x.set_a(true);
+assert!(x.get_copy());
+```
+*/
