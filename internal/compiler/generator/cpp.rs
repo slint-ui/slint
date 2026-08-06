@@ -5016,7 +5016,7 @@ fn compile_builtin_function_call(
             format!("{}.ends_with({})", a.next().unwrap(), a.next().unwrap())
         }
         BuiltinFunction::StringReplace => {
-            format!("[](const auto &s, const auto &from, const auto &to){{ auto out = slint::SharedString(); slint::cbindgen_private::slint_string_replace(&s, &from, &to, &out); return out; }}({}, {}, {})",
+            format!("[](const auto &s, const auto &from, const auto &to){{ auto out = slint::SharedString(); slint::cbindgen_private::slint_shared_string_replace(&out, &s, slint::private_api::string_to_slice(from), slint::private_api::string_to_slice(to)); return out; }}({}, {}, {})",
                 a.next().unwrap(), a.next().unwrap(), a.next().unwrap(),
             )
         }
