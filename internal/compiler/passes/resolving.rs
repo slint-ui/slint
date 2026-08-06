@@ -3063,10 +3063,11 @@ fn check_callback_alias_validity(
 
 /// Validate an identifier reference against the Slint SC subset.
 ///
-/// The accepted reference is a read of a property of an SC type, on any element
-/// reached by `self`, `parent`, `root`, or an element `id`. A reference to a
-/// non-SC type, or to something other than a property, is rejected. A property
-/// declaration's binding follows the same rules.
+/// The accepted references are a read of a property of an SC type, on any
+/// element reached by `self`, `parent`, `root`, or an element `id`, a boolean
+/// literal, and a value of a user-declared enum. A reference to a non-SC type,
+/// or to something else, is rejected. A property declaration's binding follows
+/// the same rules.
 #[cfg(feature = "slint-sc")]
 fn check_slint_sc_reference(expr: &Expression, node: &SyntaxNode, ctx: &mut LookupCtx) {
     match expr {
@@ -3076,6 +3077,8 @@ fn check_slint_sc_reference(expr: &Expression, node: &SyntaxNode, ctx: &mut Look
         // The predefined names `true` and `false` resolve to a boolean value
         // (a property of the same name would shadow them and resolve above).
         Expression::BoolLiteral(_) => {}
+        // A value of a user-declared enum, written `EnumName.value`.
+        Expression::EnumerationValue(ev) if ev.enumeration.node.is_some() => {}
         _ => ctx.diag.slint_sc_error("Identifier references are", node),
     }
 }

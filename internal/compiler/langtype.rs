@@ -195,7 +195,15 @@ impl Type {
     /// Whether the type is part of the Slint SC subset
     #[cfg(feature = "slint-sc")]
     pub fn is_slint_sc(&self) -> bool {
-        matches!(self, Self::Int32 | Self::LogicalLength | Self::Color | Self::Bool)
+        match self {
+            Self::Int32 | Self::LogicalLength | Self::Color | Self::Bool => true,
+            // A user-declared enum.
+            Self::Enumeration(en) => en.node.is_some(),
+            // A user-declared struct. Its field types were validated where the
+            // struct was declared, so they need no re-check here.
+            Self::Struct(s) => matches!(&s.name, StructName::User { .. }),
+            _ => false,
+        }
     }
 
     /// valid type for properties

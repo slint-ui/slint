@@ -125,8 +125,6 @@ impl Document {
                               diag: &mut BuildDiagnostics,
                               local_registry: &mut TypeRegister,
                               inner_types: &mut Vec<Type>| {
-            #[cfg(feature = "slint-sc")]
-            diag.slint_sc_error("Struct declarations are", &n.DeclaredIdentifier());
             let ty = type_struct_from_node(
                 n.ObjectType(),
                 diag,
@@ -149,8 +147,6 @@ impl Document {
                             diag: &mut BuildDiagnostics,
                             local_registry: &mut TypeRegister,
                             inner_types: &mut Vec<Type>| {
-            #[cfg(feature = "slint-sc")]
-            diag.slint_sc_error("Enum declarations are", &n.DeclaredIdentifier());
             let Some(name) = parser::identifier_text(&n.DeclaredIdentifier()) else {
                 assert!(diag.has_errors());
                 return;
@@ -3429,6 +3425,8 @@ fn resolve_struct_field_default_value(
     tr: &TypeRegister,
     symbol_counters: &Rc<crate::symbol_counters::SymbolCounters>,
 ) -> Option<crate::langtype::ConstantExpression> {
+    #[cfg(feature = "slint-sc")]
+    diag.slint_sc_error("Struct field default values are", &node);
     let mut expr = {
         let mut ctx = crate::lookup::LookupCtx::empty_context(tr, diag, symbol_counters.clone());
         ctx.property_type = field_ty.clone();
