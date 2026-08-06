@@ -1081,6 +1081,21 @@ impl TypeLoader {
         let mut imports = Vec::new();
         let mut dependencies_futures = Vec::new();
         for mut import in Self::collect_dependencies(state, doc) {
+            // The embedded files import each other by that path, so only a
+            // document outside them is rejected.
+            if import.file.starts_with("builtin:")
+                && !import.import_uri_token.source_file.path().starts_with("builtin:")
+            {
+                state.borrow_mut().diag.push_error(
+                    format!(
+                        "Cannot import \"{}\": the files built into the compiler are internal. Import the widgets from \"std-widgets.slint\"",
+                        import.file
+                    ),
+                    &import.import_uri_token,
+                );
+                continue;
+            }
+
             // The path shapes that don't resolve relative to the importing
             // file. Rejecting them here, before any search path is consulted,
             // keeps the Slint SC error the only diagnostic and leaves the
@@ -1193,9 +1208,11 @@ impl TypeLoader {
                 };
 
                 // The widget library and the styles are built into the
-                // compiler and aren't part of the subset. Their own imports
-                // reach this too, but the error is suppressed for a builtin
-                // referencing file.
+                // compiler and aren't part of the subset. This catches the
+                // "std-widgets.slint" spelling, which only becomes a builtin
+                // path here; naming the embedded path is rejected earlier, for
+                // every mode. Their own imports reach this too, but the error
+                // is suppressed for a builtin referencing file.
                 #[cfg(feature = "slint-sc")]
                 if doc_path.starts_with("builtin:") {
                     state.diag.slint_sc_error(
