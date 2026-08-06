@@ -1,0 +1,109 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Software-3.0
+
+export component TestCase inherits Window {
+    // The window background is opaque, so every pixel of the frame buffer is
+    // painted before anything blends with it
+    //#sls.paint.window-opaque
+    background: #000000;
+
+    // A backdrop to blend against, covering the top half
+    Rectangle {
+        x: 0px;
+        y: 0px;
+        width: 64px;
+        height: 32px;
+        background: #0000ff;
+    }
+
+    // Half-transparent red straddling the edge of that backdrop: the same
+    // color gives a different result over the blue and over the black below it
+    //#sls.paint.blend
+    //#sls.paint.blend.formula
+    //#sls.type.color.alpha
+    //#sls.ref.rectangle.translucent
+    Rectangle {
+        x: 8px;
+        y: 16px;
+        width: 16px;
+        height: 32px;
+        background: #ff000080;
+    }
+
+    // A translucent rectangle blends against whatever the frame buffer holds
+    // when it paints, rather than against a layer shared with its children:
+    // there is no group opacity, so the alpha of the two accumulates
+    //#sls.paint.no-group-opacity
+    Rectangle {
+        x: 36px;
+        y: 36px;
+        width: 20px;
+        height: 20px;
+        background: #00ff0080;
+        Rectangle {
+            x: 4px;
+            y: 4px;
+            width: 8px;
+            height: 8px;
+            background: #00ff0080;
+        }
+    }
+
+    // A fully transparent rectangle paints nothing at all
+    //#sls.paint.blend.transparent
+    Rectangle {
+        x: 48px;
+        y: 8px;
+        width: 12px;
+        height: 12px;
+        background: #ffffff00;
+    }
+
+    // A fully opaque one replaces the pixels underneath
+    //#sls.paint.blend.opaque
+    Rectangle {
+        x: 4px;
+        y: 52px;
+        width: 12px;
+        height: 8px;
+        background: #ffff00ff;
+    }
+}
+
+/*
+```rust
+let x = TestCase::new();
+screenshot!(x);
+
+let mut frame_buffer = [0u8; 64 * 64 * 3];
+x.render_rgb8(64, 64, &mut frame_buffer)?;
+let pixel = |px: usize, py: usize| {
+    let i = (py * 64 + px) * 3;
+    [frame_buffer[i], frame_buffer[i + 1], frame_buffer[i + 2]]
+};
+
+// Each channel blends as round(src * alpha / 255 + dst * (255 - alpha) / 255).
+//#sls.paint.blend.formula
+// Half-transparent red (alpha 0x80) over the opaque blue backdrop:
+// red   255 * 128 + 0 * 127 + 127 == 32767, and 32767 / 255 == 128
+// blue    0 * 128 + 255 * 127 + 127 == 32512, and 32512 / 255 == 127
+assert_eq!(pixel(12, 20), [128, 0, 127]);
+// The same rectangle over the black window background keeps the red alone
+//#sls.paint.blend
+assert_eq!(pixel(12, 40), [128, 0, 0]);
+// Half-transparent green over the black window background, and the nested
+// rectangle of the same color over that result: the two accumulate instead of
+// compositing once as a group.
+//#sls.paint.no-group-opacity
+assert_eq!(pixel(38, 38), [0, 128, 0]);
+// 255 * 128 + 128 * 127 + 127 == 49023, and 49023 / 255 == 192
+assert_eq!(pixel(44, 44), [0, 192, 0]);
+
+// A fully transparent rectangle leaves the blue backdrop as it was
+//#sls.paint.blend.transparent
+assert_eq!(pixel(52, 12), [0, 0, 0xff]);
+// A fully opaque one replaces the window background exactly
+//#sls.paint.blend.opaque
+assert_eq!(pixel(8, 56), [0xff, 0xff, 0]);
+```
+*/

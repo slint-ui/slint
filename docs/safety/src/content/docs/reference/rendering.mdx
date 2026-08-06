@@ -23,6 +23,61 @@ paints before its children:
 an element that comes later in a sequence, or is nested deeper, appears on
 top. \{#sls.paint.order}
 
+## Blending
+
+An element's background is composited over what the frame buffer already holds
+where the element paints, so the content underneath shows through in
+proportion to the alpha channel of that background. \{#sls.paint.blend}
+
+The red, green, and blue channels each blend on their own.
+Writing `src` for a channel of the background, `dst` for the channel already
+in the frame buffer, and `alpha` for the alpha channel of the background, all
+of them whole numbers from 0 to 255, the value written back is
+`(src * alpha + dst * (255 - alpha) + 127) / 255`, an integer division.
+That's `src * alpha / 255 + dst * (255 - alpha) / 255` rounded to the nearest
+whole number. \{#sls.paint.blend.formula}
+
+A background whose alpha channel is 0 paints nothing, and the pixels it covers
+keep the value they had. \{#sls.paint.blend.transparent}
+
+A background whose alpha channel is 255 replaces the pixels it covers.
+\{#sls.paint.blend.opaque}
+
+An element blends with the frame buffer on its own, and an element and its
+children don't share an intermediate layer that would blend as a group.
+Nested translucent elements accumulate: each blends with the result the ones
+before it left behind. \{#sls.paint.no-group-opacity}
+
+The background of the window is opaque, so that rendering writes every pixel
+of the frame buffer and a rendered frame doesn't depend on what the buffer
+held beforehand.
+A window background that the compiler can't see to be opaque, because it isn't
+a color literal or because its alpha channel isn't 255, is an error.
+\{#sls.paint.window-opaque}
+
+```slint
+export component Example inherits Window {
+    background: #d0d8e8;
+    // Half of this green shows, and half of the window background below it
+    Rectangle {
+        x: 20px;
+        y: 20px;
+        width: 120px;
+        height: 80px;
+        background: #2a6e3f80;
+        // Nested and translucent as well, so it blends with the result above
+        // rather than with the window background
+        Rectangle {
+            x: 10px;
+            y: 10px;
+            width: 60px;
+            height: 40px;
+            background: #dfe98b80;
+        }
+    }
+}
+```
+
 ## Clipping
 
 Painting is clipped to the frame buffer. \{#sls.paint.clip}
