@@ -82,6 +82,8 @@ fn expression_cost(exp: &Expression, ctx: &EvaluationContext) -> isize {
         // The body cost is added by the visit() walk below; returning the body
         // cost here would double-count it.
         Expression::Closure { .. } => 0,
+        // Don't inline: that could duplicate or relocate the hook.
+        Expression::DebugHook { .. } => return isize::MAX,
     };
 
     exp.visit(|e| cost = cost.saturating_add(expression_cost(e, ctx)));
