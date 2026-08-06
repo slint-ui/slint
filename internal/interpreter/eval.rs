@@ -2000,8 +2000,9 @@ fn call_builtin_function(
             let Expression::Closure { arg_name, expression } = &arguments[1] else {
                 panic!("internal error: Array.any/all expects a closure as second argument")
             };
-            let predicate =
-                |row_value| eval_array_row_predicate(arg_name, expression, local_context, row_value);
+            let predicate = |row_value| {
+                eval_array_row_predicate(arg_name, expression, local_context, row_value)
+            };
             Value::Bool(if matches!(f, BuiltinFunction::ArrayAll) {
                 corelib::model::model_all(&model, predicate)
             } else {
