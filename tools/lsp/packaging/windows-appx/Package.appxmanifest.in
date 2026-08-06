@@ -39,6 +39,18 @@
             MinVersion="10.0.18362.0"
             MaxVersionTested="10.0.26200.0"
         />
+    <!--
+      Skia is C++ and links against the Visual C++ runtime, so the executable
+      imports MSVCP140.dll and VCRUNTIME140.dll, which a clean Windows install
+      does not have. Depending on the framework package that carries them lets
+      the Store install them along with the app, instead of the app failing to
+      start until the user finds the redistributable themselves.
+    -->
+    <PackageDependency
+            Name="Microsoft.VCLibs.140.00.UWPDesktop"
+            MinVersion="14.0.30704.0"
+            Publisher="CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond, S=Washington, C=US"
+        />
   </Dependencies>
   <Resources>
     <Resource Language="en-us" />
