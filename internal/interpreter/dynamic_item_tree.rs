@@ -233,10 +233,11 @@ impl RepeatedItemTree for ErasedItemTreeBox {
             } else {
                 -1.0
             };
-        let flex_align_self = eval::load_property(instance_ref, root_element, "flex-align-self")
-            .ok()
-            .and_then(|v| v.try_into().ok())
-            .unwrap_or(i_slint_core::items::FlexboxLayoutAlignSelf::Auto);
+        let cross_axis_self_alignment =
+            eval::load_property(instance_ref, root_element, "cross-axis-self-alignment")
+                .ok()
+                .and_then(|v| v.try_into().ok())
+                .unwrap_or(i_slint_core::items::CrossAxisSelfAlignment::Auto);
         let flex_order = load_f32("flex-order") as i32;
 
         i_slint_core::layout::FlexboxLayoutItemInfo {
@@ -245,7 +246,7 @@ impl RepeatedItemTree for ErasedItemTreeBox {
                 flex_grow,
                 flex_shrink,
                 flex_basis,
-                flex_align_self,
+                cross_axis_self_alignment,
                 flex_order,
             },
         }

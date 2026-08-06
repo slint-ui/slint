@@ -1,9 +1,9 @@
 // Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// Test FlexboxLayout align-self per-item property
+// Test the per-item cross-axis-self-alignment property of FlexboxLayout
 
-// Test 1: align-self overrides container cross-axis-alignment
+// Test 1: cross-axis-self-alignment overrides container cross-axis-alignment
 // Container has cross-axis-alignment: start, but r2 overrides to end
 component TestAlignSelfOverride inherits Rectangle {
     width: 300px;
@@ -20,7 +20,7 @@ component TestAlignSelfOverride inherits Rectangle {
         r2 := Rectangle {
             width: 80px;
             height: 30px;
-            flex-align-self: end;
+            cross-axis-self-alignment: end;
             background: green;
         }
         r3 := Rectangle {
@@ -31,14 +31,14 @@ component TestAlignSelfOverride inherits Rectangle {
     }
 
     // r1 and r3: cross-axis-alignment: start → y=0
-    // r2: flex-align-self: end → y=70 (100-30)
+    // r2: cross-axis-self-alignment: end → y=70 (100-30)
     out property <bool> test_r1: r1.y == 0px;
     out property <bool> test_r2: r2.y == 70px;
     out property <bool> test_r3: r3.y == 0px;
     out property <bool> test: test_r1 && test_r2 && test_r3;
 }
 
-// Test 2: flex-align-self: center
+// Test 2: cross-axis-self-alignment: center
 component TestAlignSelfCenter inherits Rectangle {
     width: 300px;
     height: 100px;
@@ -54,7 +54,7 @@ component TestAlignSelfCenter inherits Rectangle {
         r2 := Rectangle {
             width: 80px;
             height: 30px;
-            flex-align-self: center;
+            cross-axis-self-alignment: center;
             background: green;
         }
     }
@@ -66,7 +66,7 @@ component TestAlignSelfCenter inherits Rectangle {
     out property <bool> test: test_r1 && test_r2;
 }
 
-// Test 3: flex-align-self: stretch overrides container's start
+// Test 3: cross-axis-self-alignment: stretch overrides container's start
 component TestAlignSelfStretch inherits Rectangle {
     width: 300px;
     height: 100px;
@@ -81,7 +81,7 @@ component TestAlignSelfStretch inherits Rectangle {
         }
         r2 := Rectangle {
             width: 80px;
-            flex-align-self: stretch;
+            cross-axis-self-alignment: stretch;
             background: green;
         }
     }
@@ -93,7 +93,7 @@ component TestAlignSelfStretch inherits Rectangle {
     out property <bool> test: test_r1 && test_r2;
 }
 
-// Test 4: flex-align-self: auto (default) inherits from container
+// Test 4: cross-axis-self-alignment: auto (default) inherits from container
 component TestAlignSelfAuto inherits Rectangle {
     width: 300px;
     height: 100px;
@@ -104,7 +104,7 @@ component TestAlignSelfAuto inherits Rectangle {
         r1 := Rectangle {
             width: 80px;
             height: 30px;
-            flex-align-self: auto;
+            cross-axis-self-alignment: auto;
             background: red;
         }
         r2 := Rectangle {

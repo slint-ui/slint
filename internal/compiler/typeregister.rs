@@ -48,8 +48,8 @@ pub const RESERVED_GRIDLAYOUT_PROPERTIES: &[(&str, Type)] = &[
     ("rowspan", Type::Int32),
 ];
 
-// Note: flex-align-self is also a flexbox property but is added in reserved_properties()
-// because Type::Enumeration requires a runtime Arc allocation.
+// Note: cross-axis-self-alignment is also a flexbox property but is added in
+// reserved_properties() because Type::Enumeration requires a runtime Arc allocation.
 pub const RESERVED_FLEXBOXLAYOUT_PROPERTIES: &[(&str, Type)] = &[
     ("flex-grow", Type::Float32),
     ("flex-shrink", Type::Float32),
@@ -121,7 +121,7 @@ impl BuiltinTypes {
             BuiltinStruct::LayoutInfo,
         ));
         let enums = BuiltinEnums::new();
-        let flex_align_self_type = Type::Enumeration(enums.FlexboxLayoutAlignSelf.clone());
+        let align_self_type = Type::Enumeration(enums.CrossAxisSelfAlignment.clone());
         // Shared by `flex_item_props_type` and nested as `props` in
         // `flexbox_layout_item_info_type`, so the field list is defined once.
         let flex_item_props_struct = Arc::new(Struct::new(
@@ -129,7 +129,7 @@ impl BuiltinTypes {
                 ("flex-grow".into(), Type::Float32),
                 ("flex-shrink".into(), Type::Float32),
                 ("flex-basis".into(), Type::Float32),
-                ("flex-align-self".into(), flex_align_self_type),
+                ("cross-axis-self-alignment".into(), align_self_type),
                 ("flex-order".into(), Type::Int32),
             ])
             .collect(),
@@ -329,11 +329,11 @@ pub fn reserved_properties() -> impl Iterator<Item = (&'static str, Type, Proper
                 .iter()
                 .map(|(k, v)| (*k, v.clone(), PropertyVisibility::Input)),
         )
-        // flex-align-self is a flexbox-layout property but can't be in the const array
-        // because Type::Enumeration requires a runtime Arc allocation.
+        // cross-axis-self-alignment is a flexbox-layout property but can't be in the const
+        // array because Type::Enumeration requires a runtime Arc allocation.
         .chain(std::iter::once((
-            "flex-align-self",
-            Type::Enumeration(BUILTIN.enums.FlexboxLayoutAlignSelf.clone()),
+            "cross-axis-self-alignment",
+            Type::Enumeration(BUILTIN.enums.CrossAxisSelfAlignment.clone()),
             PropertyVisibility::Input,
         )))
         .chain(IntoIterator::into_iter([
@@ -624,9 +624,6 @@ impl TypeRegister {
 
         register.elements.remove("ComponentContainer").unwrap();
         register.types.remove("component-factory").unwrap();
-
-        // Only used by the experimental `flex-align-self`, so don't freeze its name either.
-        register.types.remove("FlexboxLayoutAlignSelf").unwrap();
 
         Rc::new(RefCell::new(register))
     }

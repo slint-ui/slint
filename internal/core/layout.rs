@@ -6,7 +6,7 @@
 // cspell:ignore coord
 
 use crate::items::{
-    CrossAxisAlignment, CrossAxisLineAlignment, DialogButtonRole, FlexboxLayoutAlignSelf,
+    CrossAxisAlignment, CrossAxisLineAlignment, CrossAxisSelfAlignment, DialogButtonRole,
     FlexboxLayoutDirection, FlexboxLayoutWrap, LayoutAlignment,
 };
 use crate::{Coord, SharedVector, slice::Slice};
@@ -1184,7 +1184,7 @@ pub struct FlexItemProps {
     /// Flex basis in logical pixels (-1 = auto, meaning use preferred size; default)
     pub flex_basis: Coord,
     /// Per-item cross-axis alignment override (Auto = use container's cross-axis-alignment)
-    pub flex_align_self: FlexboxLayoutAlignSelf,
+    pub cross_axis_self_alignment: CrossAxisSelfAlignment,
     /// Visual ordering of flex items (lower values appear first, default 0)
     pub flex_order: i32,
 }
@@ -1195,7 +1195,7 @@ impl Default for FlexItemProps {
             flex_grow: 0.0,
             flex_shrink: 1.0,
             flex_basis: -1 as Coord,
-            flex_align_self: FlexboxLayoutAlignSelf::Auto,
+            cross_axis_self_alignment: CrossAxisSelfAlignment::Auto,
             flex_order: 0,
         }
     }
@@ -1437,7 +1437,7 @@ pub fn box_layout_info_ortho(cells: Slice<LayoutItemInfo>, padding: &Padding) ->
 /// Helper module for taffy-based flexbox layout
 mod flexbox_taffy {
     use super::{
-        Coord, CrossAxisAlignment, CrossAxisLineAlignment, FlexItemProps, FlexboxLayoutAlignSelf,
+        Coord, CrossAxisAlignment, CrossAxisLineAlignment, CrossAxisSelfAlignment, FlexItemProps,
         FlexboxLayoutWrap as SlintFlexboxLayoutWrap, LayoutAlignment, LayoutInfo, LayoutItemInfo,
         Padding, Slice,
     };
@@ -1585,14 +1585,14 @@ mod flexbox_taffy {
                                             // Stretching items get `auto` width so they
                                             // size to their flex *line's* cross size (the
                                             // per-column width when wrapped), not the whole
-                                            // container. A per-item `flex-align-self`
+                                            // container. A per-item `cross-axis-self-alignment`
                                             // overrides the container's alignment.
-                                            let stretches = match flex.flex_align_self {
-                                                FlexboxLayoutAlignSelf::Auto => {
+                                            let stretches = match flex.cross_axis_self_alignment {
+                                                CrossAxisSelfAlignment::Auto => {
                                                     params.cross_axis_alignment
                                                         == CrossAxisAlignment::Stretch
                                                 }
-                                                FlexboxLayoutAlignSelf::Stretch => true,
+                                                CrossAxisSelfAlignment::Stretch => true,
                                                 _ => false,
                                             };
                                             if stretches {
@@ -1640,12 +1640,12 @@ mod flexbox_taffy {
                                 },
                                 flex_grow: flex.flex_grow,
                                 flex_shrink: flex.flex_shrink,
-                                align_self: match flex.flex_align_self {
-                                    FlexboxLayoutAlignSelf::Auto => None,
-                                    FlexboxLayoutAlignSelf::Stretch => Some(AlignSelf::Stretch),
-                                    FlexboxLayoutAlignSelf::Start => Some(AlignSelf::FlexStart),
-                                    FlexboxLayoutAlignSelf::End => Some(AlignSelf::FlexEnd),
-                                    FlexboxLayoutAlignSelf::Center => Some(AlignSelf::Center),
+                                align_self: match flex.cross_axis_self_alignment {
+                                    CrossAxisSelfAlignment::Auto => None,
+                                    CrossAxisSelfAlignment::Stretch => Some(AlignSelf::Stretch),
+                                    CrossAxisSelfAlignment::Start => Some(AlignSelf::FlexStart),
+                                    CrossAxisSelfAlignment::End => Some(AlignSelf::FlexEnd),
+                                    CrossAxisSelfAlignment::Center => Some(AlignSelf::Center),
                                 },
                                 ..Default::default()
                             },

@@ -3,20 +3,16 @@
 
 //! The per-item `flex-*` properties of a `FlexboxLayout` are not stable API yet, so they are only
 //! accepted with experimental features enabled. The syntax tests can't cover this because they
-//! always enable them.
+//! always enable them. This also hosts the stable-API tests for `cross-axis-self-alignment`,
+//! which needs the same experimental-features control.
 
 use i_slint_compiler::diagnostics::{BuildDiagnostics, DiagnosticLevel};
 use i_slint_compiler::generator::OutputFormat;
 use i_slint_compiler::parser::parse;
 use i_slint_compiler::{CompilerConfiguration, compile_syntax_node};
 
-const FLEX_ITEM_PROPERTIES: &[&str] = &[
-    "flex-grow: 1",
-    "flex-shrink: 2",
-    "flex-basis: 100px",
-    "flex-align-self: center",
-    "flex-order: 3",
-];
+const FLEX_ITEM_PROPERTIES: &[&str] =
+    &["flex-grow: 1", "flex-shrink: 2", "flex-basis: 100px", "flex-order: 3"];
 
 /// Compile `source` and return its errors (warnings are not of interest here).
 fn errors(source: String, enable_experimental: bool) -> Vec<String> {
@@ -69,12 +65,20 @@ fn flex_item_properties_accepted_with_experimental() {
     }
 }
 
+/// `cross-axis-self-alignment` is stable API, usable without experimental features.
+#[test]
+fn cross_axis_self_alignment_is_stable() {
+    assert_eq!(in_flexbox("cross-axis-self-alignment: center", false), Vec::<String>::new());
+}
+
 /// Outside of a `FlexboxLayout` the property is wrong regardless of the experimental features, so
 /// only that error is reported: being sent to a construct that would then reject them for another
 /// reason would be confusing.
 #[test]
 fn used_outside_of_a_flexbox_reports_only_that() {
-    for binding in FLEX_ITEM_PROPERTIES {
+    for binding in
+        FLEX_ITEM_PROPERTIES.iter().chain(std::iter::once(&"cross-axis-self-alignment: center"))
+    {
         let source = format!(
             r#"
 export component TestCase inherits Window {{
@@ -106,4 +110,19 @@ export component TestCase inherits Window {{
         );
         assert_eq!(errors(source, false), ["'flex-grow' is an experimental feature"]);
     }
+}
+
+/// The `CrossAxisSelfAlignment` enum is in the stable type register:
+/// nameable as a type and as a qualified value without experimental features.
+#[test]
+fn cross_axis_self_alignment_enum_is_stable() {
+    let source = r#"
+export component TestCase inherits Window {
+    in property <CrossAxisSelfAlignment> a: CrossAxisSelfAlignment.center;
+    FlexboxLayout {
+        Rectangle { cross-axis-self-alignment: root.a; }
+    }
+}
+"#;
+    assert_eq!(errors(source.into(), false), Vec::<String>::new());
 }
