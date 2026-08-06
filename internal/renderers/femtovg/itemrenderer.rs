@@ -16,8 +16,8 @@ use i_slint_core::graphics::euclid::{self};
 use i_slint_core::graphics::rendering_metrics_collector::RenderingMetrics;
 use i_slint_core::graphics::{IntRect, Point, Size};
 use i_slint_core::item_rendering::{
-    CachedRenderingData, ItemCache, ItemRenderer, LayerRenderer, RenderBorderRectangle,
-    RenderImage, RenderRectangle, RenderText,
+    BorderRectLayout, CachedRenderingData, ItemCache, ItemRenderer, LayerRenderer,
+    RenderBorderRectangle, RenderImage, RenderRectangle, RenderText,
 };
 use i_slint_core::items::{
     self, Clip, FillRule, ImageRendering, ImageTiling, ItemRc, Layer, Opacity, RenderingResult,
@@ -227,75 +227,33 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
         size: LogicalSize,
         _: &CachedRenderingData,
     ) {
-        let mut geometry = PhysicalRect::from(size * self.scale_factor);
-        if geometry.is_empty() {
+        let Some(layout) = BorderRectLayout::new(rect, size, self.scale_factor) else {
             return;
-        }
+        };
         if self.global_alpha_transparent() {
             return;
         }
 
-        // Gradients are positioned on the border box, before the geometry is shrunk
-        // below for inner border drawing.
-        let brush_size = geometry.size;
+        let fill_paint = self.brush_to_paint(rect.background(), layout.brush_size);
 
-        let border_color = rect.border_color();
-        let opaque_border = border_color.is_opaque();
-        let mut border_width = if border_color.is_transparent() {
-            PhysicalLength::new(0.)
+        let border_paint = if layout.border_width.get() > 0.0 {
+            self.brush_to_paint(layout.border_color, layout.brush_size).map(|mut paint| {
+                paint.set_line_width(layout.border_width.get());
+                paint
+            })
         } else {
-            rect.border_width() * self.scale_factor
+            None
         };
-
-        // Radius of rounded rect if we were to just fill the rectangle, without a border.
-        let mut fill_radius = rect.border_radius() * self.scale_factor;
-
-        // FemtoVG's border radius on stroke is in the middle of the border. But we want it to be the radius of the rectangle itself.
-        // This is incorrect if fill_radius < border_width/2, but this can't be fixed. Better to have a radius a bit too big than no radius at all
-        fill_radius = fill_radius.outer(border_width / 2. + PhysicalLength::new(1.));
-        let stroke_border_radius = fill_radius.inner(border_width / 2.);
-
-        // In case of a transparent border, we want the background to cover the whole rectangle, which is
-        // not how femtovg's stroke works. So fill the background separately in the else branch if the
-        // border is not opaque.
-        let (mut background_path, mut maybe_border_path) = if opaque_border {
-            // In CSS the border is entirely towards the inside of the boundary
-            // geometry, while in femtovg the line with for a stroke is 50% in-
-            // and 50% outwards. We choose the CSS model, so the inner rectangle
-            // is adjusted accordingly.
-            adjust_rect_and_border_for_inner_drawing(&mut geometry, &mut border_width);
-
-            (rect_with_radius_to_path(geometry, stroke_border_radius), None)
-        } else {
-            let background_path = rect_with_radius_to_path(geometry, fill_radius);
-
-            // In CSS the border is entirely towards the inside of the boundary
-            // geometry, while in femtovg the line with for a stroke is 50% in-
-            // and 50% outwards. We choose the CSS model, so the inner rectangle
-            // is adjusted accordingly.
-            adjust_rect_and_border_for_inner_drawing(&mut geometry, &mut border_width);
-
-            let border_path = rect_with_radius_to_path(geometry, stroke_border_radius);
-
-            (background_path, Some(border_path))
-        };
-
-        let fill_paint = self.brush_to_paint(rect.background(), brush_size);
-
-        let border_paint = self.brush_to_paint(rect.border_color(), brush_size).map(|mut paint| {
-            paint.set_line_width(border_width.get());
-            paint
-        });
 
         let mut canvas = self.canvas.borrow_mut();
         if let Some(paint) = fill_paint {
+            let background_path =
+                rect_with_radius_to_path(layout.background_rect, layout.background_radius);
             canvas.fill_path(&background_path, &paint);
         }
         if let Some(border_paint) = border_paint {
-            canvas.stroke_path(
-                maybe_border_path.as_mut().unwrap_or(&mut background_path),
-                &border_paint,
-            );
+            let border_path = rect_with_radius_to_path(layout.border_rect, layout.border_radius);
+            canvas.stroke_path(&border_path, &border_paint);
         }
     }
 
