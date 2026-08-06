@@ -2012,6 +2012,15 @@ export component GridLayout {
 /// Places its children next to each other vertically.
 /// The size of elements can either be fixed with the `width` or `height` property, or if they aren't set
 /// they will be computed by the layout respecting the minimum and maximum sizes and the stretch factor.
+/// \footer
+/// ## Cell elements
+/// Cell elements inside a `VerticalLayout` obtain the following new property:
+///
+/// ### cross-axis-self-alignment
+/// <SlintProperty propName="cross-axis-self-alignment" typeName="enum" enumName="CrossAxisSelfAlignment" defaultValue="auto">
+/// Overrides the container's `cross-axis-alignment` for this element.
+/// The default value `auto` uses the container's `cross-axis-alignment`.
+/// </SlintProperty>
 /// \group:layouts
 export component VerticalLayout {
     //! ## Spacing Properties
@@ -2077,6 +2086,15 @@ export component VerticalLayout {
 /// Places its children next to each other horizontally.
 /// The size of elements can either be fixed with the `width` or `height` property, or if they aren't set
 /// they will be computed by the layout respecting the minimum and maximum sizes and the stretch factor.
+/// \footer
+/// ## Cell elements
+/// Cell elements inside a `HorizontalLayout` obtain the following new property:
+///
+/// ### cross-axis-self-alignment
+/// <SlintProperty propName="cross-axis-self-alignment" typeName="enum" enumName="CrossAxisSelfAlignment" defaultValue="auto">
+/// Overrides the container's `cross-axis-alignment` for this element.
+/// The default value `auto` uses the container's `cross-axis-alignment`.
+/// </SlintProperty>
 /// \group:layouts
 export component HorizontalLayout {
     //! ## Spacing Properties

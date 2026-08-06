@@ -1,0 +1,501 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// C++ live preview: no element search (wrapper has no item tree)
+//ignore: cpp-live-preview
+
+// Test the per-item cross-axis-self-alignment property of HorizontalLayout and VerticalLayout
+//
+// Reading the rendered window: each gray-outlined band is one layout. Blue
+// cells carry a cross-axis-self-alignment (their label is its value), gray
+// cells don't and follow the container. The caption above each band says where
+// the cells must sit.
+//
+// The cells keep their exact geometry: the labels set `x` so they stay out of
+// their parent's layout-info (see gen_layout_info_prop in default_geometry.rs),
+// and the captions live outside the bands. The assertions are unchanged.
+
+// Test 1: overrides in a HorizontalLayout without cross-axis-alignment (default: stretch).
+// The per-item property alone must switch the layout to the ortho solver.
+component TestDefaultContainer inherits Rectangle {
+    width: 520px;
+    height: 130px;
+    VerticalLayout {
+        alignment: start;
+        spacing: 4px;
+        Text { text: "container stretches by default: end → bottom, center → middle, no override → top / fills"; font-size: 11px; }
+        Rectangle {
+            width: 300px;
+            height: 100px;
+            border-width: 1px;
+            border-color: #c8c8c8;
+            HorizontalLayout {
+                r1 := Rectangle {
+                    width: 60px;
+                    height: 30px;
+                    background: #dcdcdc;
+                    border-width: 1px;
+                    border-color: #a0a0a0;
+                    Text { x: 0px; width: 100%; height: 100%; text: "fixed 30"; font-size: 10px; color: #333333;
+                        horizontal-alignment: center; vertical-alignment: center; }
+                }
+                r2 := Rectangle {
+                    width: 60px;
+                    height: 30px;
+                    cross-axis-self-alignment: end;
+                    background: #cce6ff;
+                    border-width: 1px;
+                    border-color: #5b8db8;
+                    Text { x: 0px; width: 100%; height: 100%; text: "end"; font-size: 10px; color: #003366;
+                        horizontal-alignment: center; vertical-alignment: center; }
+                }
+                r3 := Rectangle {
+                    width: 60px;
+                    height: 30px;
+                    cross-axis-self-alignment: center;
+                    background: #cce6ff;
+                    border-width: 1px;
+                    border-color: #5b8db8;
+                    Text { x: 0px; width: 100%; height: 100%; text: "center"; font-size: 10px; color: #003366;
+                        horizontal-alignment: center; vertical-alignment: center; }
+                }
+                r4 := Rectangle {
+                    width: 60px;
+                    background: #dcdcdc;
+                    border-width: 1px;
+                    border-color: #a0a0a0;
+                    Text { x: 0px; width: 100%; height: 100%; text: "fills"; font-size: 10px; color: #333333;
+                        horizontal-alignment: center; vertical-alignment: center; }
+                }
+            }
+        }
+    }
+
+    // r1: no override, fixed height → y=0
+    // r2: end → y=70 (100-30), r3: center → y=35
+    // r4: no override, no fixed height → stretches to 100
+    out property <bool> test_r1: r1.y == 0px;
+    out property <bool> test_r2: r2.y == 70px;
+    out property <bool> test_r3: r3.y == 35px;
+    out property <bool> test_r4: r4.height == 100px;
+    out property <bool> test: test_r1 && test_r2 && test_r3 && test_r4;
+}
+
+// Test 2: stretch override under a non-stretching container:
+// a separator fills the height while the other items stay centered.
+component TestStretchOverride inherits Rectangle {
+    width: 520px;
+    height: 130px;
+    VerticalLayout {
+        alignment: start;
+        spacing: 4px;
+        Text { text: "container centers everything; the 2px separator overrides with stretch and fills the height"; font-size: 11px; }
+        Rectangle {
+            width: 300px;
+            height: 100px;
+            border-width: 1px;
+            border-color: #c8c8c8;
+            HorizontalLayout {
+                cross-axis-alignment: center;
+
+                s1 := Rectangle {
+                    width: 60px;
+                    preferred-height: 30px;
+                    background: #dcdcdc;
+                    border-width: 1px;
+                    border-color: #a0a0a0;
+                    Text { x: 0px; width: 100%; height: 100%; text: "centered"; font-size: 10px; color: #333333;
+                        horizontal-alignment: center; vertical-alignment: center; }
+                }
+                s2 := Rectangle {
+                    width: 2px;
+                    cross-axis-self-alignment: stretch;
+                    background: #5b8db8;
+                }
+                s3 := Rectangle {
+                    width: 60px;
+                    preferred-height: 30px;
+                    cross-axis-self-alignment: auto;
+                    background: #cce6ff;
+                    border-width: 1px;
+                    border-color: #5b8db8;
+                    Text { x: 0px; width: 100%; height: 100%; text: "auto"; font-size: 10px; color: #003366;
+                        horizontal-alignment: center; vertical-alignment: center; }
+                }
+            }
+        }
+    }
+
+    // s1: centered → height 30, y=35; s2: stretch → height 100, y=0
+    // s3: auto inherits center → y=35
+    out property <bool> test_s1: s1.height == 30px && s1.y == 35px;
+    out property <bool> test_s2: s2.height == 100px && s2.y == 0px;
+    out property <bool> test_s3: s3.y == 35px;
+    out property <bool> test: test_s1 && test_s2 && test_s3;
+}
+
+// Test 3: VerticalLayout, the cross axis is horizontal.
+component TestVertical inherits Rectangle {
+    width: 520px;
+    height: 150px;
+    VerticalLayout {
+        alignment: start;
+        spacing: 4px;
+        Text { text: "VerticalLayout, cross axis is horizontal, container aligns start: end → right, center → middle"; font-size: 11px; }
+        Rectangle {
+            width: 100px;
+            height: 120px;
+            border-width: 1px;
+            border-color: #c8c8c8;
+            VerticalLayout {
+                cross-axis-alignment: start;
+
+                v1 := Rectangle {
+                    height: 40px;
+                    width: 30px;
+                    background: #dcdcdc;
+                    border-width: 1px;
+                    border-color: #a0a0a0;
+                    Text { x: 0px; width: 100%; height: 100%; text: "left"; font-size: 10px; color: #333333;
+                        horizontal-alignment: center; vertical-alignment: center; }
+                }
+                v2 := Rectangle {
+                    height: 40px;
+                    width: 30px;
+                    cross-axis-self-alignment: end;
+                    background: #cce6ff;
+                    border-width: 1px;
+                    border-color: #5b8db8;
+                    Text { x: 0px; width: 100%; height: 100%; text: "end"; font-size: 10px; color: #003366;
+                        horizontal-alignment: center; vertical-alignment: center; }
+                }
+                v3 := Rectangle {
+                    height: 40px;
+                    width: 30px;
+                    cross-axis-self-alignment: center;
+                    background: #cce6ff;
+                    border-width: 1px;
+                    border-color: #5b8db8;
+                    Text { x: 0px; width: 100%; height: 100%; text: "center"; font-size: 10px; color: #003366;
+                        horizontal-alignment: center; vertical-alignment: center; }
+                }
+            }
+        }
+    }
+
+    // v1: start → x=0; v2: end → x=70 (100-30); v3: center → x=35
+    out property <bool> test_v1: v1.x == 0px;
+    out property <bool> test_v2: v2.x == 70px;
+    out property <bool> test_v3: v3.x == 35px;
+    out property <bool> test: test_v1 && test_v2 && test_v3;
+}
+
+export component TestCase inherits Window {
+
+    in property <bool> show-conditional: true;
+    in property <bool> flip: false;
+
+    VerticalLayout {
+        alignment: start;
+        spacing: 8px;
+        padding: 8px;
+        Text {
+            text: "blue = cell with a cross-axis-self-alignment (label = its value)\ngray = cell without one, it follows the container; gray outline = the layout's area";
+            font-size: 11px;
+            color: #555555;
+        }
+        t1 := TestDefaultContainer { }
+        t2 := TestStretchOverride { }
+        t3 := TestVertical { }
+
+        // Test 4: repeated cells carry the property through the item-info accessor.
+        Text { text: "repeated cells: end → bottom; the static center cell sits in the middle"; font-size: 11px; }
+        wrap4 := Rectangle {
+            width: 300px;
+            height: 100px;
+            border-width: 1px;
+            border-color: #c8c8c8;
+            HorizontalLayout {
+                // end → not stretched: height stays at the preferred 30px
+                for i in [0, 1]: rep-end := Rectangle {
+                    width: 60px;
+                    preferred-height: 30px;
+                    cross-axis-self-alignment: end;
+                    background: #cce6ff;
+                    border-width: 1px;
+                    border-color: #5b8db8;
+                    Text { x: 0px; width: 100%; height: 100%; text: "end"; font-size: 10px; color: #003366;
+                        horizontal-alignment: center; vertical-alignment: center; }
+                }
+                // A static item mixed with repeaters uses the same solve.
+                anchor4 := Rectangle {
+                    width: 60px;
+                    preferred-height: 30px;
+                    cross-axis-self-alignment: center;
+                    background: #cce6ff;
+                    border-width: 1px;
+                    border-color: #5b8db8;
+                    Text { x: 0px; width: 100%; height: 100%; text: "center"; font-size: 10px; color: #003366;
+                        horizontal-alignment: center; vertical-alignment: center; }
+                }
+            }
+        }
+
+        // Test 5: repeated cell stretches while the container doesn't.
+        Text { text: "container aligns start; the repeated cell overrides with stretch and fills"; font-size: 11px; }
+        wrap5 := Rectangle {
+            width: 300px;
+            height: 100px;
+            border-width: 1px;
+            border-color: #c8c8c8;
+            HorizontalLayout {
+                cross-axis-alignment: start;
+                for i in [0]: reps := Rectangle {
+                    width: 60px;
+                    preferred-height: 30px;
+                    cross-axis-self-alignment: stretch;
+                    background: #cce6ff;
+                    border-width: 1px;
+                    border-color: #5b8db8;
+                    Text { x: 0px; width: 100%; height: 100%; text: "stretch"; font-size: 10px; color: #003366;
+                        horizontal-alignment: center; vertical-alignment: center; }
+                }
+                anchor5 := Rectangle {
+                    width: 60px;
+                    preferred-height: 30px;
+                    background: #dcdcdc;
+                    border-width: 1px;
+                    border-color: #a0a0a0;
+                    Text { x: 0px; width: 100%; height: 100%; text: "top"; font-size: 10px; color: #333333;
+                        horizontal-alignment: center; vertical-alignment: center; }
+                }
+            }
+        }
+
+        // Test 6: a repeated cell is the only reason to run the ortho solver:
+        // no container cross-axis-alignment, no static cell with the property.
+        Text { text: "a repeated cell is the only override: bottom; its plain sibling still fills"; font-size: 11px; }
+        wrap6 := Rectangle {
+            width: 300px;
+            height: 100px;
+            border-width: 1px;
+            border-color: #c8c8c8;
+            HorizontalLayout {
+                for i in [0]: repo := Rectangle {
+                    width: 60px;
+                    preferred-height: 30px;
+                    cross-axis-self-alignment: end;
+                    background: #cce6ff;
+                    border-width: 1px;
+                    border-color: #5b8db8;
+                    Text { x: 0px; width: 100%; height: 100%; text: "end"; font-size: 10px; color: #003366;
+                        horizontal-alignment: center; vertical-alignment: center; }
+                }
+                anchor6 := Rectangle {
+                    width: 60px;
+                    preferred-height: 30px;
+                    background: #dcdcdc;
+                    border-width: 1px;
+                    border-color: #a0a0a0;
+                    Text { x: 0px; width: 100%; height: 100%; text: "fills"; font-size: 10px; color: #333333;
+                        horizontal-alignment: center; vertical-alignment: center; }
+                }
+            }
+        }
+
+        // Test 7: conditional cell with the property.
+        Text { text: "conditional cell overrides with stretch and fills; the plain sibling stays at the top"; font-size: 11px; }
+        wrap7 := Rectangle {
+            width: 300px;
+            height: 100px;
+            border-width: 1px;
+            border-color: #c8c8c8;
+            HorizontalLayout {
+                cross-axis-alignment: start;
+                if show-conditional: conditional := Rectangle {
+                    width: 60px;
+                    preferred-height: 30px;
+                    cross-axis-self-alignment: stretch;
+                    background: #cce6ff;
+                    border-width: 1px;
+                    border-color: #5b8db8;
+                    Text { x: 0px; width: 100%; height: 100%; text: "stretch"; font-size: 10px; color: #003366;
+                        horizontal-alignment: center; vertical-alignment: center; }
+                }
+                anchor7 := Rectangle {
+                    width: 60px;
+                    preferred-height: 30px;
+                    background: #dcdcdc;
+                    border-width: 1px;
+                    border-color: #a0a0a0;
+                    Text { x: 0px; width: 100%; height: 100%; text: "top"; font-size: 10px; color: #333333;
+                        horizontal-alignment: center; vertical-alignment: center; }
+                }
+            }
+        }
+
+        // Test 8: dynamic alignment bindings, toggled at runtime by the drivers.
+        Text { text: "dynamic: setting 'flip' moves both cells from the top to the bottom (the drivers toggle it)"; font-size: 11px; }
+        wrap8 := Rectangle {
+            width: 300px;
+            height: 100px;
+            border-width: 1px;
+            border-color: #c8c8c8;
+            HorizontalLayout {
+                dyn1 := Rectangle {
+                    width: 60px;
+                    preferred-height: 30px;
+                    cross-axis-self-alignment: root.flip ? CrossAxisSelfAlignment.end : CrossAxisSelfAlignment.start;
+                    background: #cce6ff;
+                    border-width: 1px;
+                    border-color: #5b8db8;
+                    Text { x: 0px; width: 100%; height: 100%; text: root.flip ? "end" : "start"; font-size: 10px; color: #003366;
+                        horizontal-alignment: center; vertical-alignment: center; }
+                }
+                for i in [0]: rep-dyn := Rectangle {
+                    width: 60px;
+                    preferred-height: 30px;
+                    cross-axis-self-alignment: root.flip ? CrossAxisSelfAlignment.end : CrossAxisSelfAlignment.start;
+                    background: #cce6ff;
+                    border-width: 1px;
+                    border-color: #5b8db8;
+                    Text { x: 0px; width: 100%; height: 100%; text: root.flip ? "end" : "start"; font-size: 10px; color: #003366;
+                        horizontal-alignment: center; vertical-alignment: center; }
+                }
+            }
+        }
+
+        // Test 9: `opacity` wraps the repeated cell in an injected element; the
+        // property must be linked onto that wrapper to reach the solver.
+        Text { text: "repeated translucent cell: the injected opacity wrapper forwards end → bottom"; font-size: 11px; }
+        wrap9 := Rectangle {
+            width: 300px;
+            height: 100px;
+            border-width: 1px;
+            border-color: #c8c8c8;
+            HorizontalLayout {
+                for i in [0]: rep-wrapped := Rectangle {
+                    width: 60px;
+                    preferred-height: 30px;
+                    opacity: 0.5;
+                    cross-axis-self-alignment: end;
+                    background: #cce6ff;
+                    border-width: 1px;
+                    border-color: #5b8db8;
+                    Text { x: 0px; width: 100%; height: 100%; text: "end"; font-size: 10px; color: #003366;
+                        horizontal-alignment: center; vertical-alignment: center; }
+                }
+                anchor9 := Rectangle {
+                    width: 60px;
+                    preferred-height: 30px;
+                    background: #dcdcdc;
+                    border-width: 1px;
+                    border-color: #a0a0a0;
+                    Text { x: 0px; width: 100%; height: 100%; text: "fills"; font-size: 10px; color: #333333;
+                        horizontal-alignment: center; vertical-alignment: center; }
+                }
+            }
+        }
+    }
+
+    out property <bool> test_anchor4: anchor4.y == 35px && anchor4.height == 30px;
+    out property <bool> test_anchor5: anchor5.y == 0px && anchor5.height == 30px;
+    // anchor6 has no override: it still stretches under the repeated-only trigger.
+    out property <bool> test_anchor6: anchor6.y == 0px && anchor6.height == 100px;
+    out property <bool> test_anchor7: anchor7.y == 0px && anchor7.height == 30px;
+    out property <length> dyn1_y: dyn1.y;
+    out property <bool> test_anchor9: anchor9.y == 0px && anchor9.height == 100px;
+    out property <bool> test: t1.test && t2.test && t3.test
+        && test_anchor4 && test_anchor5 && test_anchor6 && test_anchor7 && test_anchor9
+        && dyn1_y == 0px && dyn1.height == 30px;
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+
+// The repeated cells can't be referenced from slint code; query them by element id.
+auto rep_end = slint::testing::ElementHandle::find_by_element_id(handle, "TestCase::rep-end");
+assert_eq(rep_end.size(), 2);
+auto wrap4 = slint::testing::ElementHandle::find_by_element_id(handle, "TestCase::wrap4")[0];
+for (auto e : rep_end) {
+    assert_eq(e.size().height, 30.0);
+    assert_eq(e.absolute_position().y - wrap4.absolute_position().y, 70.0);
+}
+auto reps = slint::testing::ElementHandle::find_by_element_id(handle, "TestCase::reps")[0];
+assert_eq(reps.size().height, 100.0);
+
+// A repeated cell alone triggers the ortho solver.
+auto repo = slint::testing::ElementHandle::find_by_element_id(handle, "TestCase::repo")[0];
+auto wrap6 = slint::testing::ElementHandle::find_by_element_id(handle, "TestCase::wrap6")[0];
+assert_eq(repo.size().height, 30.0);
+assert_eq(repo.absolute_position().y - wrap6.absolute_position().y, 70.0);
+
+// Conditional cell stretches while the container doesn't.
+auto conditional = slint::testing::ElementHandle::find_by_element_id(handle, "TestCase::conditional")[0];
+assert_eq(conditional.size().height, 100.0);
+
+// The property reaches the solver through the injected opacity wrapper.
+auto rep_wrapped = slint::testing::ElementHandle::find_by_element_id(handle, "TestCase::rep-wrapped")[0];
+auto wrap9 = slint::testing::ElementHandle::find_by_element_id(handle, "TestCase::wrap9")[0];
+assert_eq(rep_wrapped.size().height, 30.0);
+assert_eq(rep_wrapped.absolute_position().y - wrap9.absolute_position().y, 70.0);
+
+// Dynamic alignment bindings re-solve on change.
+auto wrap8 = slint::testing::ElementHandle::find_by_element_id(handle, "TestCase::wrap8")[0];
+auto rep_dyn = slint::testing::ElementHandle::find_by_element_id(handle, "TestCase::rep-dyn")[0];
+assert_eq(rep_dyn.absolute_position().y - wrap8.absolute_position().y, 0.0);
+instance.set_flip(true);
+assert_eq(instance.get_dyn1_y(), 70.0);
+assert_eq(rep_dyn.absolute_position().y - wrap8.absolute_position().y, 70.0);
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+
+// The repeated cells can't be referenced from slint code; query them by element id.
+let rep_end: Vec<_> = slint_testing::ElementHandle::find_by_element_id(&instance, "TestCase::rep-end").collect();
+assert_eq!(rep_end.len(), 2);
+let wrap4 = slint_testing::ElementHandle::find_by_element_id(&instance, "TestCase::wrap4").next().unwrap();
+for e in rep_end {
+    assert_eq!(e.size().height, 30.0, "repeated end-aligned cell keeps its preferred height");
+    assert_eq!(e.absolute_position().y - wrap4.absolute_position().y, 70.0, "repeated cell aligned to the bottom");
+}
+let reps = slint_testing::ElementHandle::find_by_element_id(&instance, "TestCase::reps").next().unwrap();
+assert_eq!(reps.size().height, 100.0, "repeated stretch cell fills the height of a non-stretching container");
+
+// A repeated cell alone triggers the ortho solver.
+let repo = slint_testing::ElementHandle::find_by_element_id(&instance, "TestCase::repo").next().unwrap();
+let wrap6 = slint_testing::ElementHandle::find_by_element_id(&instance, "TestCase::wrap6").next().unwrap();
+assert_eq!(repo.size().height, 30.0, "repeated cell must not stretch");
+assert_eq!(repo.absolute_position().y - wrap6.absolute_position().y, 70.0, "repeated cell aligned to the bottom");
+
+// Conditional cell stretches while the container doesn't.
+let conditional = slint_testing::ElementHandle::find_by_element_id(&instance, "TestCase::conditional").next().unwrap();
+assert_eq!(conditional.size().height, 100.0, "conditional stretch cell fills the height");
+
+// The property reaches the solver through the injected opacity wrapper.
+let rep_wrapped = slint_testing::ElementHandle::find_by_element_id(&instance, "TestCase::rep-wrapped").next().unwrap();
+let wrap9 = slint_testing::ElementHandle::find_by_element_id(&instance, "TestCase::wrap9").next().unwrap();
+assert_eq!(rep_wrapped.size().height, 30.0, "wrapped repeated cell must not stretch");
+assert_eq!(rep_wrapped.absolute_position().y - wrap9.absolute_position().y, 70.0, "wrapped repeated cell aligned to the bottom");
+
+// Dynamic alignment bindings re-solve on change.
+let wrap8 = slint_testing::ElementHandle::find_by_element_id(&instance, "TestCase::wrap8").next().unwrap();
+let rep_dyn = slint_testing::ElementHandle::find_by_element_id(&instance, "TestCase::rep-dyn").next().unwrap();
+assert_eq!(rep_dyn.absolute_position().y - wrap8.absolute_position().y, 0.0);
+instance.set_flip(true);
+assert_eq!(instance.get_dyn1_y(), 70.0, "static cell moved to the bottom after the toggle");
+assert_eq!(rep_dyn.absolute_position().y - wrap8.absolute_position().y, 70.0, "repeated cell moved to the bottom after the toggle");
+```
+
+```js
+var instance = new slint.TestCase();
+assert(instance.test);
+instance.flip = true;
+assert.equal(instance.dyn1_y, 70);
+```
+*/

@@ -1167,6 +1167,9 @@ pub struct FlexboxLayoutData<'a> {
 /// The information about a single item in a box or grid layout
 pub struct LayoutItemInfo {
     pub constraint: LayoutInfo,
+    /// Per-item cross-axis alignment override for box layouts
+    /// (`Auto` = use the container's `cross-axis-alignment`)
+    pub cross_axis_self_alignment: CrossAxisSelfAlignment,
 }
 
 /// The per-item flex properties of a FlexboxLayout cell.
@@ -1261,7 +1264,13 @@ pub struct FlexboxLayoutItemInfo {
 
 impl From<LayoutItemInfo> for FlexboxLayoutItemInfo {
     fn from(info: LayoutItemInfo) -> Self {
-        Self { constraint: info.constraint, ..Default::default() }
+        Self {
+            constraint: info.constraint,
+            props: FlexItemProps {
+                cross_axis_self_alignment: info.cross_axis_self_alignment,
+                ..Default::default()
+            },
+        }
     }
 }
 
@@ -1364,17 +1373,24 @@ pub fn solve_box_layout_ortho(
     let size_without_padding = data.size - data.padding.begin - data.padding.end;
     let mut generator = LayoutCacheGenerator::new(&repeater_indices, &mut result);
     for c in data.cells.iter() {
+        let alignment = match c.cross_axis_self_alignment {
+            CrossAxisSelfAlignment::Auto => data.cross_axis_alignment,
+            CrossAxisSelfAlignment::Stretch => CrossAxisAlignment::Stretch,
+            CrossAxisSelfAlignment::Start => CrossAxisAlignment::Start,
+            CrossAxisSelfAlignment::End => CrossAxisAlignment::End,
+            CrossAxisSelfAlignment::Center => CrossAxisAlignment::Center,
+        };
         let min =
             c.constraint.min.max(c.constraint.min_percent * size_without_padding / 100 as Coord);
         let max =
             c.constraint.max.min(c.constraint.max_percent * size_without_padding / 100 as Coord);
-        let size = match data.cross_axis_alignment {
+        let size = match alignment {
             CrossAxisAlignment::Stretch => size_without_padding,
             _ => c.constraint.preferred,
         }
         .min(max)
         .max(min);
-        let pos = match data.cross_axis_alignment {
+        let pos = match alignment {
             CrossAxisAlignment::Stretch | CrossAxisAlignment::Start => data.padding.begin,
             CrossAxisAlignment::End => data.padding.begin + size_without_padding - size,
             CrossAxisAlignment::Center => {
@@ -3081,7 +3097,13 @@ mod tests {
         /// arrays the runtime takes.
         fn split(cells: &[FlexboxLayoutItemInfo]) -> (Vec<LayoutItemInfo>, Vec<FlexItemProps>) {
             (
-                cells.iter().map(|c| LayoutItemInfo { constraint: c.constraint.clone() }).collect(),
+                cells
+                    .iter()
+                    .map(|c| LayoutItemInfo {
+                        constraint: c.constraint.clone(),
+                        ..Default::default()
+                    })
+                    .collect(),
                 cells.iter().map(|c| c.props).collect(),
             )
         }
@@ -3095,6 +3117,7 @@ mod tests {
                 .iter()
                 .map(|_| LayoutItemInfo {
                     constraint: LayoutInfo { max: Coord::MAX, ..Default::default() },
+                    ..Default::default()
                 })
                 .collect();
             let cells_h = Slice::from_slice(&main);
@@ -3197,6 +3220,7 @@ mod tests {
                 .iter()
                 .map(|_| LayoutItemInfo {
                     constraint: LayoutInfo { max: Coord::MAX, ..Default::default() },
+                    ..Default::default()
                 })
                 .collect();
             let cells_h = Slice::from_slice(&h);
@@ -3303,6 +3327,7 @@ mod tests {
                 max: Coord::MAX,
                 ..Default::default()
             },
+            ..Default::default()
         }];
         let cells_v = [LayoutItemInfo {
             constraint: LayoutInfo {
@@ -3310,6 +3335,7 @@ mod tests {
                 max: Coord::MAX,
                 ..Default::default()
             },
+            ..Default::default()
         }];
         let flex_props = [FlexItemProps::default()];
         let pad = Padding::default();
