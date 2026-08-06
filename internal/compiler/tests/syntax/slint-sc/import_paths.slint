@@ -2,8 +2,9 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 // An import path names a file relative to the importing file. There's no
-// library search path, and the widget library built into the compiler isn't
-// part of the subset.
+// library search path, an absolute path is out of the subset whether or not it
+// names a file, and the widget library built into the compiler isn't part of
+// it either.
 
 //#sls.import.path-must-exist
 import { Frame } from "./imported/does_not_exist.slint";
@@ -12,6 +13,16 @@ import { Frame } from "./imported/does_not_exist.slint";
 //#sls.import.path-relative
 import { Frame } from "@library/shapes.slint";
 //                    >                     <error{Library imports are not supported in Slint SC}
+
+// The file is never opened: it's rejected for the shape of its path.
+//#sls.import.path-relative
+import { XX } from "/etc/hosts";
+//                 >          <error{Absolute import paths are not supported in Slint SC}
+
+// A drive letter roots a path on every platform, not just on Windows.
+//#sls.import.path-relative
+import { XX } from "C:/Windows/win.ini";
+//                 >                  <error{Absolute import paths are not supported in Slint SC}
 
 //#sls.import.path-relative
 import { Button } from "std-widgets.slint";
