@@ -1,0 +1,42 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Software-3.0
+
+// A property may be named `true` or `false`, but the predefined boolean values
+// come first in the lookup order, so a bare `true` or `false` is always the
+// boolean value. The property is reached only through a qualifier.
+
+export component TestCase inherits Window {
+    // These properties hold the opposite of their name.
+    out property <bool> true: false;
+    out property <bool> false: true;
+
+    //#sls.name.lookup
+    //#sls.expr.ref.lookup
+    out property <bool> bare_true: true;
+    out property <bool> bare_false: false;
+
+    //#sls.expr.ref.element
+    out property <bool> qualified_true: self.true;
+    out property <bool> qualified_false: root.false;
+}
+
+/*
+```rust
+let x = TestCase::new();
+
+// A bare `true` or `false` is always the boolean value, never the same-named
+// property, because the predefined names come first in the lookup order.
+//#sls.name.lookup
+//#sls.expr.ref.lookup
+assert!(x.get_bare_true());
+assert!(!x.get_bare_false());
+
+// The properties named `true` and `false` hold the opposite value, and a
+// qualifier reaches them.
+//#sls.expr.ref.element
+assert!(!x.get_true());
+assert!(x.get_false());
+assert!(!x.get_qualified_true()); // self.true is the property, which is false
+assert!(x.get_qualified_false()); // root.false is the property, which is true
+```
+*/

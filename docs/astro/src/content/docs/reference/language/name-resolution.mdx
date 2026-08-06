@@ -41,14 +41,15 @@ Some elements are reachable under pre-defined names:
 `root` is the automatic id of every component's outermost element; an element named `root` explicitly is a reserved-id error.
 `self`, `parent`, and `root` are element references and are used to qualify a member, as in `self.width` or `root.some-property`.
 
-`true` and `false` are pre-defined names for the boolean literals and can't be redefined.
+`true` and `false` are pre-defined names for the two boolean values and can't be redefined.
 
 <SC>
 ## Lookup Rules
 
 <OnlyInSC>
-An unqualified identifier refers to a declared property,
-found by searching from the current element outward to the root. \{#sls.name.lookup}
+An unqualified identifier is resolved by trying, in order, `self`, `parent`, `true`, or `false`;
+an element id; then a declared property, searching from the current element outward to the root.
+The first match wins. \{#sls.name.lookup}
 
 A qualified name refers to the named member of the element reached by the qualifier,
 and does not fall back to ancestor elements. \{#sls.name.lookup.qualified}

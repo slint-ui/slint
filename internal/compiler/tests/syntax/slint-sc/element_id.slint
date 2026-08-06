@@ -29,4 +29,13 @@ export component Test inherits Window {
 //  >    <error{'parent' is a reserved id}
     root := Rectangle { }
 //  >  <error{'root' is a reserved id}
+
+    // Unlike the reserved names, `true` and `false` may be used as an id, but
+    // a bare `true`/`false` is the boolean value, so the element is unreachable.
+    //#sls.name.lookup
+    true := Rectangle { width: 10px; }
+    Rectangle {
+        width: true.width;
+//                  >   <error{Cannot access the field 'width' of bool}
+    }
 }
