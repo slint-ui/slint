@@ -1,14 +1,34 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// Struct declarations are rejected in Slint SC mode.
+// A user-declared struct with subset field types is accepted and can be a property type.
 
 //#sls.file.top-level-item
-struct MyStruct {
-//     >      <error{Struct declarations are not supported in Slint SC}
-    x: int,
-    y: int,
+//#sls.struct.decl
+struct Palette {
+    fill: color,
+    gap: length,
+    count: int,
+}
+
+// A struct with no fields is allowed.
+struct Empty { }
+
+// A field type outside the subset is rejected.
+//#sls.struct.field-type
+struct Bad {
+    label: string,
+//         >    <error{The type 'string' is not supported in Slint SC}
+}
+
+// A field default value is rejected.
+//#sls.struct.no-field-default
+struct Defaulted {
+    n: int = 3,
+//           ^error{Struct field default values are not supported in Slint SC}
 }
 
 export component Test inherits Window {
+    //#sls.prop.decl.types
+    in-out property <Palette> palette;
 }

@@ -1,11 +1,35 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// Enum declarations are rejected in Slint SC mode.
+// A user-declared enum is accepted, can be a property type, and a value is written `Enum.value`.
 
 //#sls.file.top-level-item
-enum MyEnum { a, b, c }
-//   >    <error{Enum declarations are not supported in Slint SC}
+//#sls.enum.decl
+enum Direction { up, down, left, right }
+
+// An enum must have at least one value.
+//#sls.enum.nonempty
+enum Empty { }
+//>            <<<error{Enums must have at least one value}
+
+// A value may not have the same name as the enum.
+//#sls.enum.value-name
+enum SameName { SameName, other }
+//              >      <error{Enum 'SameName' can't have a value with the same name}
+
+// `-` and `_` are the same character, so these name one value.
+//#sls.enum.distinct
+enum Duplicates { hello-world, hello_world }
+//                             >         <error{Duplicated enum value 'hello-world'}
+
+// Different values that map to the same generated name cannot coexist.
+//#sls.enum.name-collision
+enum Collision { hello-world, HelloWorld }
+//                            >        <error{Duplicated enum value 'HelloWorld'}
 
 export component Test inherits Window {
+    //#sls.prop.decl.types
+    in-out property <Direction> direction;
+    //#sls.enum.value
+    out property <Direction> fixed: Direction.down;
 }
