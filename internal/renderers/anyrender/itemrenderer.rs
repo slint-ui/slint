@@ -10,8 +10,8 @@ use i_slint_core::graphics::adjust_rect_and_border_for_inner_drawing;
 use i_slint_core::graphics::euclid;
 use i_slint_core::graphics::{Image, ImageCacheKey, IntRect, SharedImageBuffer, SharedPixelBuffer};
 use i_slint_core::item_rendering::{
-    CachedRenderingData, ItemCache, ItemRenderer, RenderBorderRectangle, RenderImage,
-    RenderRectangle, RenderText,
+    BorderRectLayout, CachedRenderingData, ItemCache, ItemRenderer, RenderBorderRectangle,
+    RenderImage, RenderRectangle, RenderText,
 };
 use i_slint_core::items::{self, FillRule, ImageFit, ImageRendering, ItemRc};
 use i_slint_core::lengths::{
@@ -136,67 +136,26 @@ impl<'a, S: PaintScene> ItemRenderer for AnyrenderItemRenderer<'a, S> {
         size: LogicalSize,
         _: &CachedRenderingData,
     ) {
-        let mut geometry = PhysicalRect::from(size * self.scale_factor);
-        if geometry.is_empty() {
+        let Some(layout) = BorderRectLayout::new(rect, size, self.scale_factor) else {
             return;
-        }
-
-        // Save the original element bounds for gradient positioning. The CSS
-        // model positions gradients relative to the border box (full element),
-        // but adjust_rect_and_border_for_inner_drawing shrinks the geometry,
-        // which would shift the gradient center inward.
-        let brush_size = geometry.size;
-
-        let border_color = rect.border_color();
-        let opaque_border = border_color.is_opaque();
-        let mut border_width = if border_color.is_transparent() {
-            PhysicalLength::new(0.)
-        } else {
-            rect.border_width() * self.scale_factor
-        };
-
-        let mut fill_radius = rect.border_radius() * self.scale_factor;
-        // The stroke is centered on the path (50% inside, 50% outside). We want
-        // the CSS model where the border is entirely inside. Adjust the outer
-        // radius so that corners with a positive radius are at least
-        // border_width/2. This is incorrect if the radius is smaller than
-        // border_width/2, but that can't be helped - better a radius a bit
-        // too big than no radius at all.
-        let radius_epsilon = PhysicalLength::new(0.01);
-        fill_radius = fill_radius.outer(border_width / 2. + radius_epsilon);
-        let stroke_border_radius = fill_radius.inner(border_width / 2.);
-
-        let (background_shape, border_shape) = if opaque_border {
-            // When the border is opaque, the fill doesn't need to extend under it,
-            // so both fill and stroke use the same adjusted (inset) geometry.
-            adjust_rect_and_border_for_inner_drawing(&mut geometry, &mut border_width);
-            let shape = phys_rect_shape(geometry, stroke_border_radius);
-            (shape, shape)
-        } else {
-            // When the border is transparent/semi-transparent, the fill must cover
-            // the full outer rectangle so the background shows through.
-            let background_shape = phys_rect_shape(geometry, fill_radius);
-            adjust_rect_and_border_for_inner_drawing(&mut geometry, &mut border_width);
-            let border_shape = phys_rect_shape(geometry, stroke_border_radius);
-            (background_shape, border_shape)
         };
 
         let transform = self.current_state.transform;
         self.fill_with_brush(
             rect.background(),
-            brush_size,
+            layout.brush_size,
             transform,
             peniko::Fill::default(),
-            &background_shape,
+            &phys_rect_shape(layout.background_rect, layout.background_radius),
         );
 
-        if border_width.get() > 0.0 {
+        if layout.border_width.get() > 0.0 {
             self.stroke_with_brush(
-                border_color,
-                brush_size,
+                layout.border_color,
+                layout.brush_size,
                 transform,
-                &kurbo::Stroke::new(border_width.get() as f64),
-                &border_shape,
+                &kurbo::Stroke::new(layout.border_width.get() as f64),
+                &phys_rect_shape(layout.border_rect, layout.border_radius),
             );
         }
     }

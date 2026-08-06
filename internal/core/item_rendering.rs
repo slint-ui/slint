@@ -5,12 +5,14 @@
 //! module for rendering the tree of items
 
 use super::items::*;
-use crate::graphics::{Color, FontRequest, Image, IntRect};
+use crate::graphics::{
+    Color, FontRequest, Image, IntRect, adjust_rect_and_border_for_inner_drawing,
+};
 use crate::item_tree::ItemTreeRc;
 use crate::item_tree::{ItemVisitor, ItemVisitorVTable, VisitChildrenResult};
 use crate::lengths::{
     LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector,
-    ScaleFactor,
+    PhysicalBorderRadius, PhysicalPx, ScaleFactor,
 };
 pub use crate::partial_renderer::CachedRenderingData;
 use crate::window::WindowAdapterRc;
@@ -333,6 +335,84 @@ pub trait RenderBorderRectangle {
     fn border_width(self: Pin<&Self>) -> LogicalLength;
     fn border_radius(self: Pin<&Self>) -> LogicalBorderRadius;
     fn border_color(self: Pin<&Self>) -> Brush;
+}
+
+/// The geometry for drawing a [`RenderBorderRectangle`] in the CSS box model, shared by
+/// the renderers that stroke the border centered on a path: the border is drawn entirely
+/// inside the item's geometry, the background doesn't extend under an opaque border, and
+/// brushes are resolved against the full border box.
+pub struct BorderRectLayout {
+    /// The size of the border box, for resolving the background and border brushes.
+    pub brush_size: euclid::Size2D<f32, PhysicalPx>,
+    /// The rectangle to fill with the background brush.
+    pub background_rect: euclid::Rect<f32, PhysicalPx>,
+    /// The corner radii of `background_rect`.
+    pub background_radius: PhysicalBorderRadius,
+    /// The rectangle to stroke with `border_color` when `border_width` is positive.
+    pub border_rect: euclid::Rect<f32, PhysicalPx>,
+    /// The corner radii of `border_rect`.
+    pub border_radius: PhysicalBorderRadius,
+    /// The stroke width of the border; zero for transparent borders.
+    pub border_width: euclid::Length<f32, PhysicalPx>,
+    /// The border brush.
+    pub border_color: Brush,
+}
+
+impl BorderRectLayout {
+    /// Computes the layout for a border rectangle of `size`, or `None` when the
+    /// geometry is empty.
+    pub fn new(
+        rect: Pin<&dyn RenderBorderRectangle>,
+        size: LogicalSize,
+        scale_factor: ScaleFactor,
+    ) -> Option<Self> {
+        // `cast()`: the logical Coord type can be i32, the physical geometry is f32.
+        let mut geometry = euclid::Rect::from_size(size.cast() * scale_factor);
+        if geometry.is_empty() {
+            return None;
+        }
+        let brush_size = geometry.size;
+
+        let border_color = rect.border_color();
+        let opaque_border = border_color.is_opaque();
+        let mut border_width = if border_color.is_transparent() {
+            euclid::Length::new(0.)
+        } else {
+            rect.border_width().cast() * scale_factor
+        };
+
+        // The stroke is centered on the path (50% inside, 50% outside), while in CSS the
+        // border is entirely inside the geometry. Ensure positive corner radii are at
+        // least half the border width, so that the outer edge keeps a radius at all;
+        // this is incorrect when the radius is smaller than that, but that can't be
+        // helped - better a radius a bit too big than no radius.
+        let fill_radius = (rect.border_radius().cast() * scale_factor)
+            .outer(border_width / 2. + euclid::Length::new(0.01));
+        let border_radius = fill_radius.inner(border_width / 2.);
+
+        let (background_rect, background_radius) = if opaque_border {
+            // The fill doesn't need to extend under an opaque border, so fill and
+            // stroke share the inset geometry.
+            adjust_rect_and_border_for_inner_drawing(&mut geometry, &mut border_width);
+            (geometry, border_radius)
+        } else {
+            // A (semi-)transparent border must not cover the background, so the fill
+            // covers the full rectangle.
+            let background = (geometry, fill_radius);
+            adjust_rect_and_border_for_inner_drawing(&mut geometry, &mut border_width);
+            background
+        };
+
+        Some(Self {
+            brush_size,
+            background_rect,
+            background_radius,
+            border_rect: geometry,
+            border_radius,
+            border_width,
+            border_color,
+        })
+    }
 }
 
 /// Trait for an item that represents an Image towards the renderer
