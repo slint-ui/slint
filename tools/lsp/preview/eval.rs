@@ -501,7 +501,11 @@ fn handle_builtin_function(
                 eval_expression(&arguments[1], local_context, None),
                 eval_expression(&arguments[2], local_context, None),
             ) {
-                Value::String(s.replace(from.as_str(), to.as_str()).into())
+                Value::String(i_slint_core::string::shared_string_replace(
+                    s.as_str(),
+                    from.as_str(),
+                    to.as_str(),
+                ))
             } else {
                 Value::Void
             }
