@@ -33,11 +33,13 @@ pub struct SkiaWGPURendererGeneric<Surface> {
     surface: Surface,
 }
 
-/// Renders into wgpu 29 textures. Available with the `unstable-wgpu-29` feature.
+/// Renders into wgpu 29 textures. Available with the `unstable-wgpu-29` feature;
+/// the matching wgpu API types are re-exported in the `slint::wgpu_29` module.
 #[cfg(feature = "wgpu-29")]
 pub type SkiaWGPU29Renderer = SkiaWGPURendererGeneric<crate::wgpu_29_surface::WGPUSurface>;
 
-/// Renders into wgpu 30 textures. Available with the `unstable-wgpu-30` feature.
+/// Renders into wgpu 30 textures. Available with the `unstable-wgpu-30` feature;
+/// the matching wgpu API types are re-exported in the `slint::wgpu_30` module.
 #[cfg(feature = "wgpu-30")]
 pub type SkiaWGPU30Renderer = SkiaWGPURendererGeneric<crate::wgpu_30_surface::WGPUSurface>;
 
