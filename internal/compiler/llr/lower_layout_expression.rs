@@ -1084,7 +1084,7 @@ struct BoxLayoutDataResult {
 }
 
 fn default_align_self() -> (Type, llr_Expression) {
-    let e = crate::typeregister::BUILTIN.enums.FlexboxLayoutAlignSelf.clone();
+    let e = crate::typeregister::BUILTIN.enums.CrossAxisSelfAlignment.clone();
     (
         Type::Enumeration(e.clone()),
         llr_Expression::EnumerationValue(EnumerationValue {
@@ -1118,7 +1118,7 @@ fn make_flex_props_struct(fp: FlexItemProps) -> llr_Expression {
             ("flex-grow", Type::Float32, fp.grow),
             ("flex-shrink", Type::Float32, fp.shrink),
             ("flex-basis", Type::Float32, fp.basis),
-            ("flex-align-self", align_self_ty, fp.align_self),
+            ("cross-axis-self-alignment", align_self_ty, fp.align_self),
             ("flex-order", Type::Int32, fp.order),
         ],
     )
@@ -1991,7 +1991,7 @@ pub fn get_flexbox_layout_item_info_for_repeated(
     let grow = prop_ref("flex-grow").unwrap_or(llr_Expression::NumberLiteral(0.0));
     let shrink = prop_ref("flex-shrink").unwrap_or(llr_Expression::NumberLiteral(1.0));
     let basis = prop_ref("flex-basis").unwrap_or(llr_Expression::NumberLiteral(-1.0));
-    let align_self = prop_ref("flex-align-self").unwrap_or(align_self_default);
+    let align_self = prop_ref("cross-axis-self-alignment").unwrap_or(align_self_default);
     let order = prop_ref("flex-order").unwrap_or(llr_Expression::NumberLiteral(0.0));
 
     make_struct(

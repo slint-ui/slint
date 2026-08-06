@@ -557,9 +557,10 @@ fn is_reserved_prop_valid(
     if name_in(i_slint_compiler::typeregister::RESERVED_GRIDLAYOUT_PROPERTIES) {
         return matches!(parent_name, Some("GridLayout" | "Row"));
     }
-    if prop == "flex-align-self"
-        || name_in(i_slint_compiler::typeregister::RESERVED_FLEXBOXLAYOUT_PROPERTIES)
-    {
+    if prop == "cross-axis-self-alignment" {
+        return parent_name == Some("FlexboxLayout");
+    }
+    if name_in(i_slint_compiler::typeregister::RESERVED_FLEXBOXLAYOUT_PROPERTIES) {
         // Not stable API yet, the compiler only accepts them as an experimental feature.
         return enable_experimental && parent_name == Some("FlexboxLayout");
     }
@@ -1817,7 +1818,7 @@ mod tests {
         assert!(res.iter().any(|ci| ci.label == "spacing-vertical"));
         assert!(res.iter().any(|ci| ci.label == "padding"));
         assert!(!res.iter().any(|ci| ci.label == "flex-grow"));
-        assert!(!res.iter().any(|ci| ci.label == "flex-align-self"));
+        assert!(!res.iter().any(|ci| ci.label == "cross-axis-self-alignment"));
     }
 
     #[test]
@@ -2938,10 +2939,7 @@ export component Foo {
 }
 "#;
         let results = get_completions_experimental(source).unwrap();
-        // flex-align-self is registered separately from the other four, so check each one.
-        for prop in
-            ["flex-grow", "flex-shrink", "flex-basis", "flex-align-self", "flex-order"].iter()
-        {
+        for prop in ["flex-grow", "flex-shrink", "flex-basis", "flex-order"].iter() {
             assert!(
                 results.iter().any(|completion| completion.label == *prop),
                 "no '{prop}' completion with experimental features"
@@ -2952,6 +2950,11 @@ export component Foo {
         assert!(
             !results.iter().any(|completion| completion.label.starts_with("flex-")),
             "flex-* completions offered without experimental features"
+        );
+        // cross-axis-self-alignment is stable, so it completes without experimental features.
+        assert!(
+            results.iter().any(|completion| completion.label == "cross-axis-self-alignment"),
+            "no 'cross-axis-self-alignment' completion"
         );
     }
 

@@ -1,7 +1,7 @@
 // Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// Test that flex item properties (flex-grow, align-self, order) work on repeated items.
+// Test that flex item properties (flex-grow, cross-axis-self-alignment, flex-order) work on repeated items.
 
 // Test 1: flex-grow on a repeated item pushes a static item to the right.
 // Repeated item with flex-grow:1 before a 60px static item:
@@ -53,7 +53,7 @@ component TestOrderRepeater inherits Rectangle {
     out property <bool> test: r_static.x == 100px;
 }
 
-// Test 3: align-self on static item works when mixed with repeaters.
+// Test 3: cross-axis-self-alignment on static item works when mixed with repeaters.
 component TestAlignSelfWithRepeater inherits Rectangle {
     width: 300px;
     height: 100px;
@@ -64,7 +64,7 @@ component TestAlignSelfWithRepeater inherits Rectangle {
         r_static := Rectangle {
             width: 80px;
             height: 30px;
-            flex-align-self: end;
+            cross-axis-self-alignment: end;
             background: gray;
         }
         for item in [1]: Rectangle {
@@ -74,18 +74,35 @@ component TestAlignSelfWithRepeater inherits Rectangle {
         }
     }
 
-    // Static item: flex-align-self:end → y=70 (100-30)
+    // Static item: cross-axis-self-alignment:end → y=70 (100-30)
     out property <bool> test: r_static.y == 70px;
 }
 
 export component TestCase inherits Window {
     width: 400px;
-    height: 300px;
+    height: 400px;
 
     VerticalLayout {
         t1 := TestFlexGrowRepeater { }
         t2 := TestOrderRepeater { }
         t3 := TestAlignSelfWithRepeater { }
+
+        // Test 4: cross-axis-self-alignment on the repeated item itself.
+        wrap4 := Rectangle {
+            width: 300px;
+            height: 100px;
+            FlexboxLayout {
+                flex-wrap: no-wrap;
+                cross-axis-alignment: start;
+
+                for item in [1, 2]: rep := Rectangle {
+                    width: 80px;
+                    height: 30px;
+                    cross-axis-self-alignment: end;
+                    background: red;
+                }
+            }
+        }
     }
 
     out property <bool> test_flex_grow: t1.test;
@@ -100,6 +117,14 @@ auto handle = TestCase::create();
 assert(handle->get_test_flex_grow());
 assert(handle->get_test_order());
 assert(handle->get_test_align_self());
+
+// The repeated items can't be referenced from slint code; query them by element id.
+auto rep = slint::testing::ElementHandle::find_by_element_id(handle, "TestCase::rep");
+assert_eq(rep.size(), 2);
+auto wrap4 = slint::testing::ElementHandle::find_by_element_id(handle, "TestCase::wrap4")[0];
+for (auto e : rep) {
+    assert_eq(e.absolute_position().y - wrap4.absolute_position().y, 70.0);
+}
 ```
 
 ```rust
@@ -107,6 +132,14 @@ let instance = TestCase::new().unwrap();
 assert!(instance.get_test_flex_grow());
 assert!(instance.get_test_order());
 assert!(instance.get_test_align_self());
+
+// The repeated items can't be referenced from slint code; query them by element id.
+let rep: Vec<_> = slint_testing::ElementHandle::find_by_element_id(&instance, "TestCase::rep").collect();
+assert_eq!(rep.len(), 2);
+let wrap4 = slint_testing::ElementHandle::find_by_element_id(&instance, "TestCase::wrap4").next().unwrap();
+for e in rep {
+    assert_eq!(e.absolute_position().y - wrap4.absolute_position().y, 70.0, "repeated item aligned to the bottom");
+}
 ```
 
 ```js

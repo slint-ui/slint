@@ -753,7 +753,7 @@ fn flexbox_layout_data(
                         .try_into()
                         .unwrap()
                 })
-                .unwrap_or(i_slint_core::items::FlexboxLayoutAlignSelf::default());
+                .unwrap_or(i_slint_core::items::CrossAxisSelfAlignment::default());
             let order = layout_elem.order.as_ref().map(expr_eval).unwrap_or(0.0) as i32;
             cells_h.push(core_layout::FlexboxLayoutItemInfo {
                 constraint: layout_info_h,
@@ -761,7 +761,7 @@ fn flexbox_layout_data(
                     flex_grow,
                     flex_shrink,
                     flex_basis,
-                    flex_align_self: align_self,
+                    cross_axis_self_alignment: align_self,
                     flex_order: order,
                 },
             });

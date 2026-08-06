@@ -433,9 +433,10 @@ macro_rules! for_each_enums {
                 Center,
             }
 
-            /// Overrides the container's `cross-axis-alignment` for a specific flex item.
+            /// Overrides the container's `cross-axis-alignment` for a single item.
+            /// Used as the `cross-axis-self-alignment` property of the children of a `FlexboxLayout`.
             #[non_exhaustive]
-            enum FlexboxLayoutAlignSelf {
+            enum CrossAxisSelfAlignment {
                 /// Use the container's `cross-axis-alignment` value (default).
                 Auto,
                 /// The item is stretched to fill the line along the cross axis.

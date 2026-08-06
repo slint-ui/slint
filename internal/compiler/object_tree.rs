@@ -4427,12 +4427,13 @@ pub fn inject_element_as_repeated_element(repeated_element: &ElementRc, new_root
     // generated on the wrapper the layout actually calls it on.
     if old_root.borrow().child_of_flexbox {
         new_root.borrow_mut().child_of_flexbox = true;
-        // That accessor reads the flex-* properties from the repeated root (now the
+        // That accessor reads the flex item properties from the repeated root (now the
         // wrapper). Link them to the inner element that still carries the bindings
         // (and the FlexboxLayout's captured references keeping them alive), rather
         // than moving them, which would leave those references dangling.
         for prop in
-            ["flex-grow", "flex-shrink", "flex-basis", "flex-order", "flex-align-self"].iter()
+            ["flex-grow", "flex-shrink", "flex-basis", "flex-order", "cross-axis-self-alignment"]
+                .iter()
         {
             if old_root.borrow().binding(prop).is_some() {
                 new_root.borrow_mut().set_binding(
