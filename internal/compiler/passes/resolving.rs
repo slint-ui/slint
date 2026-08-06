@@ -509,57 +509,17 @@ impl Expression {
                         return Self::from_self_assignment_node(node.into(), ctx);
                     }
                     SyntaxKind::BinaryExpression => {
-                        let expr = Self::from_binary_expression_node(node.clone().into(), ctx);
-                        // In Slint SC, `+`, `-`, and `*` producing a number or a
-                        // length, and `&&`/`||` producing a boolean, are in the
-                        // subset; division, comparison, a unit product, and other
-                        // results are not (an invalid expression was already
-                        // reported). `&&` is `'&'` and `||` is `'|'`.
-                        #[cfg(feature = "slint-sc")]
-                        match &expr {
-                            Expression::Invalid => {}
-                            Expression::BinaryExpression { op, .. }
-                                if matches!(*op, '+' | '-' | '*')
-                                    && matches!(
-                                        expr.ty(),
-                                        Type::Int32 | Type::Float32 | Type::LogicalLength
-                                    ) => {}
-                            Expression::BinaryExpression { op, .. }
-                                if matches!(*op, '&' | '|') && expr.ty() == Type::Bool => {}
-                            _ => ctx.diag.slint_sc_error("Binary expressions are", &node),
-                        }
-                        return expr;
+                        return Self::from_binary_expression_node(node.into(), ctx);
                     }
                     SyntaxKind::UnaryOpExpression => {
-                        let expr = Self::from_unaryop_expression_node(node.clone().into(), ctx);
-                        // In Slint SC, unary `+` and `-` on a number or length, and
-                        // `!` on a boolean, are in the subset; other results are not.
-                        #[cfg(feature = "slint-sc")]
-                        match &expr {
-                            Expression::Invalid => {}
-                            Expression::UnaryOp { op, .. }
-                                if matches!(*op, '+' | '-')
-                                    && matches!(
-                                        expr.ty(),
-                                        Type::Int32 | Type::Float32 | Type::LogicalLength
-                                    ) => {}
-                            Expression::UnaryOp { op: '!', .. } if expr.ty() == Type::Bool => {}
-                            _ => ctx.diag.slint_sc_error("Unary expressions are", &node),
-                        }
-                        return expr;
+                        // Every unary operator (`+`, `-`, `!`) is in the Slint SC
+                        // subset, so there is nothing to reject here.
+                        return Self::from_unaryop_expression_node(node.into(), ctx);
                     }
                     SyntaxKind::ConditionalExpression => {
-                        let expr = Self::from_conditional_expression_node(node.clone().into(), ctx);
-                        // In Slint SC, a conditional is in the subset when it
-                        // produces a value of the subset; the condition is a
-                        // boolean and both branches share the result's type.
-                        #[cfg(feature = "slint-sc")]
-                        match &expr {
-                            Expression::Invalid => {}
-                            Expression::Condition { .. } if expr.ty().is_slint_sc_value() => {}
-                            _ => ctx.diag.slint_sc_error("Conditional expressions are", &node),
-                        }
-                        return expr;
+                        // A conditional is in the Slint SC subset; its condition,
+                        // branches, and result type are each restricted on their own.
+                        return Self::from_conditional_expression_node(node.into(), ctx);
                     }
                     SyntaxKind::ObjectLiteral => {
                         #[cfg(feature = "slint-sc")]
@@ -1842,6 +1802,15 @@ impl Expression {
             })
             .unwrap_or('_');
 
+        // In Slint SC, `+`, `-`, `*` (arithmetic) and `&&`/`||` (logical) are in
+        // the subset; `/` and comparison are not. Operands are checked as they
+        // resolve, and a result that leaves the subset (a `length * length` unit
+        // product) is rejected where it is used. `&&` is `'&'`, `||` is `'|'`.
+        #[cfg(feature = "slint-sc")]
+        if !matches!(op, '+' | '-' | '*' | '&' | '|') {
+            ctx.diag.slint_sc_error(&format!("Operator '{}'", binary_operator_name(op)), &node);
+        }
+
         let op_class = operator_class(op);
         let (lhs_n, rhs_n) = node.Expression();
         // `&&`/`||` operands are bool; a comparison's rhs takes the lhs type. Setting the
@@ -3108,5 +3077,20 @@ fn check_slint_sc_reference(expr: &Expression, node: &SyntaxNode, ctx: &mut Look
         // (a property of the same name would shadow them and resolve above).
         Expression::BoolLiteral(_) => {}
         _ => ctx.diag.slint_sc_error("Identifier references are", node),
+    }
+}
+
+/// The source spelling of a binary operator, for diagnostics. The compiler
+/// stores each as a single character, some of which differ from what is typed.
+#[cfg(feature = "slint-sc")]
+fn binary_operator_name(op: char) -> String {
+    match op {
+        '=' => "==".into(),
+        '!' => "!=".into(),
+        '≤' => "<=".into(),
+        '≥' => ">=".into(),
+        '&' => "&&".into(),
+        '|' => "||".into(),
+        other => other.to_string(),
     }
 }

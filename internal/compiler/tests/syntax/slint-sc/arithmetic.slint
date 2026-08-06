@@ -23,10 +23,9 @@ export component Test inherits Window {
 
     // Division is not in the subset.
     out property <length> quotient: w / a;
-//                                  >   <error{Binary expressions are not supported in Slint SC}
+//                                  >   <error{Operator '/' not supported in Slint SC}
 
     // A length times a length is a unit product, not a length.
     out property <length> area: w * w;
-//                              >   <error{Binary expressions are not supported in Slint SC}
-//                              >    <^error{Cannot convert (px²) to length}
+//                              >    <error{Cannot convert (px²) to length}
 }
