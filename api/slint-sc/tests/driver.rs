@@ -3,8 +3,8 @@
 
 //! Custom test driver for the Slint SC (safety-critical) subset.
 //!
-//! For each `.slint` file under `tests/cases/`, except those in a directory
-//! named `imported/`, which hold the files that cases import, this driver:
+//! For each test case, a `.slint` file in a group directory of `tests/cases/`,
+//! this driver:
 //! 1. Runs `slint-compiler --slint-sc` to generate Rust code
 //! 2. Extracts test code from `` ```rust `` blocks in comments
 //! 3. Calls `rustc` directly to compile the generated + test code
@@ -449,28 +449,29 @@ fn compile(
     rustc_cmd.output().map_err(|e| format!("rustc spawn: {e}"))
 }
 
+/// The cases are the `.slint` files one level below `dir`, in a group
+/// directory. The walk stops there, like the compiler's syntax test driver, so
+/// a group can keep the files its cases import in a subdirectory of its own.
 fn collect_slint_files(dir: &Path) -> Vec<PathBuf> {
     let mut results = Vec::new();
-    collect_slint_files_recursive(dir, &mut results);
+    let Ok(groups) = std::fs::read_dir(dir) else {
+        return results;
+    };
+    for group in groups.flatten() {
+        let group = group.path();
+        if !group.is_dir() {
+            continue;
+        }
+        let Ok(entries) = std::fs::read_dir(&group) else {
+            continue;
+        };
+        results.extend(
+            entries
+                .flatten()
+                .map(|entry| entry.path())
+                .filter(|path| path.extension().is_some_and(|e| e == "slint")),
+        );
+    }
     results.sort();
     results
-}
-
-fn collect_slint_files_recursive(dir: &Path, results: &mut Vec<PathBuf>) {
-    let Ok(entries) = std::fs::read_dir(dir) else {
-        return;
-    };
-    for entry in entries.flatten() {
-        let path = entry.path();
-        if path.is_dir() {
-            // The files a case imports are not cases themselves: they have no
-            // test code and need not compile on their own.
-            if path.file_name().is_some_and(|name| name == "imported") {
-                continue;
-            }
-            collect_slint_files_recursive(&path, results);
-        } else if path.extension().is_some_and(|e| e == "slint") {
-            results.push(path);
-        }
-    }
 }
