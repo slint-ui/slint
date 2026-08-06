@@ -13,9 +13,11 @@ export component Test inherits Window {
     // so it may reference another property.
     out property <length> derived: root.len;
 
-    // A qualified name reaches a property through an element reference.
-    //#sls.expr.ref.form
-    background: root.tint;
+    Rectangle {
+        // A qualified name reaches a property through an element reference.
+        //#sls.expr.ref.form
+        background: root.tint;
+    }
 
     Rectangle {
         // A bare name (no element reference) resolves to a root property.
