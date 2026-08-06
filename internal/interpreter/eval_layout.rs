@@ -343,31 +343,50 @@ pub(crate) fn solve_flexbox_layout(
 
     let window_adapter = component.window_adapter();
 
-    // Build measure callback that computes constrained layout_info for items
-    // that support height-for-width (Text with wrap, Image with aspect ratio,
-    // and component instances with a synthesized
-    // `layoutinfo-{v,h}-with-constraint`).
-    //
-    // Collect `(element, has_constrained_layoutinfo_{v,h})` so we can
-    // dispatch component instances through the parametrized layout-info
-    // function rather than through the Item vtable (which returns trivial
-    // info for the Empty wrapper of a sub-component instance).
-    struct ChildElem {
-        elem: ElementRc,
-        has_constrained_layoutinfo_v: bool,
-        has_constrained_layoutinfo_h: bool,
-        /// True when the cell aggregates layoutinfo from its own subtree
-        /// (set by `default_geometry::gen_layout_info_prop`) — typical for
-        /// component-wrappers like a Rectangle containing a layout. In
-        /// that case the Item vtable's `layout_info` on the wrapper item
-        /// returns trivial info that doesn't reflect the aggregated
-        /// constraints; we read the aggregated property directly.
-        has_aggregated_info: bool,
-        /// For a repeated cell, the instance to query — its constrained
-        /// layout-info function lives in the instance's own item tree, not in
-        /// the parent `component`. `None` for a static cell.
-        repeated_instance: Option<crate::dynamic_item_tree::DynamicComponentVRc>,
-    }
+    let child_elems = collect_flexbox_child_elems(flexbox_layout, component);
+    let mut measure =
+        |child_index: usize, known_w: Option<f32>, known_h: Option<f32>| -> (f32, f32) {
+            measure_flexbox_cell(
+                &child_elems,
+                component,
+                &window_adapter,
+                &cells_h,
+                &cells_v,
+                child_index,
+                known_w,
+                known_h,
+            )
+        };
+
+    core_layout::solve_flexbox_layout_with_measure(&data, ri, Some(&mut measure)).into()
+}
+
+/// One flexbox cell as seen by the measure callback.
+struct ChildElem {
+    elem: ElementRc,
+    has_constrained_layoutinfo_v: bool,
+    has_constrained_layoutinfo_h: bool,
+    /// True when the cell aggregates layoutinfo from its own subtree
+    /// (set by `default_geometry::gen_layout_info_prop`) — typical for
+    /// component-wrappers like a Rectangle containing a layout. In
+    /// that case the Item vtable's `layout_info` on the wrapper item
+    /// returns trivial info that doesn't reflect the aggregated
+    /// constraints; we read the aggregated property directly.
+    has_aggregated_info: bool,
+    /// For a repeated cell, the instance to query — its constrained
+    /// layout-info function lives in the instance's own item tree, not in
+    /// the parent `component`. `None` for a static cell.
+    repeated_instance: Option<crate::dynamic_item_tree::DynamicComponentVRc>,
+}
+
+/// Collect `(element, has_constrained_layoutinfo_{v,h})` so we can
+/// dispatch component instances through the parametrized layout-info
+/// function rather than through the Item vtable (which returns trivial
+/// info for the Empty wrapper of a sub-component instance).
+fn collect_flexbox_child_elems(
+    flexbox_layout: &i_slint_compiler::layout::FlexboxLayout,
+    component: InstanceRef,
+) -> Vec<Option<ChildElem>> {
     let mut child_elems: Vec<Option<ChildElem>> = Vec::new();
     for layout_elem in &flexbox_layout.elems {
         let placeholder = layout_elem.item.element.borrow();
@@ -410,121 +429,126 @@ pub(crate) fn solve_flexbox_layout(
             }));
         }
     }
+    child_elems
+}
 
-    let mut measure = |child_index: usize,
-                       known_w: Option<f32>,
-                       known_h: Option<f32>|
-     -> (f32, f32) {
-        let default_w = cells_h.get(child_index).map_or(0., |c| c.constraint.preferred_bounded());
-        let default_h = cells_v.get(child_index).map_or(0., |c| c.constraint.preferred_bounded());
-        let w = known_w.unwrap_or(default_w);
-        let h = known_h.unwrap_or(default_h);
+/// Measure callback body: compute constrained layout_info for cells that
+/// support height-for-width (Text with wrap, Image with aspect ratio, and
+/// component instances with a synthesized `layoutinfo-{v,h}-with-constraint`).
+fn measure_flexbox_cell(
+    child_elems: &[Option<ChildElem>],
+    component: InstanceRef,
+    window_adapter: &Rc<dyn WindowAdapter>,
+    cells_h: &[core_layout::LayoutItemInfo],
+    cells_v: &[core_layout::LayoutItemInfo],
+    child_index: usize,
+    known_w: Option<f32>,
+    known_h: Option<f32>,
+) -> (f32, f32) {
+    let default_w = cells_h.get(child_index).map_or(0., |c| c.constraint.preferred_bounded());
+    let default_h = cells_v.get(child_index).map_or(0., |c| c.constraint.preferred_bounded());
+    let w = known_w.unwrap_or(default_w);
+    let h = known_h.unwrap_or(default_h);
 
-        let ce = match child_elems.get(child_index) {
-            Some(Some(c)) => c,
-            _ => return (w, h),
-        };
-
-        // Cells whose layoutinfo aggregates from a sub-tree (set by
-        // default_geometry) or that have a parametrized layout-info
-        // function need to be queried by NamedReference. The Item
-        // vtable's `layout_info` on the wrapper item returns trivial
-        // info that ignores the aggregated children.
-        let use_property_lookup = ce.has_aggregated_info
-            || ce.has_constrained_layoutinfo_v
-            || ce.has_constrained_layoutinfo_h;
-
-        // Query the cell's constrained layout-info. A repeated cell lives in
-        // its own instance's item tree (where its `layoutinfo-*-with-constraint`
-        // function is), so re-measure it there at the assigned cross size; a
-        // static cell is queried through the parent `component`.
-        let query = |orientation, constraint: Option<f32>| -> core_layout::LayoutInfo {
-            match &ce.repeated_instance {
-                Some(instance) => {
-                    generativity::make_guard!(guard);
-                    let unerased = instance.unerase(guard);
-                    get_layout_info_with_constraint(
-                        &ce.elem,
-                        unerased.borrow_instance(),
-                        &window_adapter,
-                        orientation,
-                        constraint,
-                    )
-                }
-                None => get_layout_info_with_constraint(
-                    &ce.elem,
-                    component,
-                    &window_adapter,
-                    orientation,
-                    constraint,
-                ),
-            }
-        };
-
-        if known_w.is_some() && known_h.is_none() {
-            if use_property_lookup {
-                let v_info =
-                    query(Orientation::Vertical, ce.has_constrained_layoutinfo_v.then_some(w));
-                return (w, v_info.preferred_bounded());
-            }
-            // Builtin path (Text, Image): use the Item vtable's layout_info,
-            // which honors the cross-axis constraint. This resolves the item in
-            // the parent `component`'s item tree, so it does not apply to a
-            // repeated cell (which lives in its own instance): a
-            // height-for-width repeated cell takes the `query` path above, and a
-            // non-height-for-width one keeps its width-independent default `h`.
-            if let Some(item_within) = ce
-                .repeated_instance
-                .is_none()
-                .then(|| component.description.items.get(ce.elem.borrow().id.as_str()))
-                .flatten()
-            {
-                let item_comp = component.self_weak().get().unwrap().upgrade().unwrap();
-                let item_rc =
-                    ItemRc::new(vtable::VRc::into_dyn(item_comp), item_within.item_index());
-                let item = unsafe { item_within.item_from_item_tree(component.as_ptr()) };
-                let v_info = item.as_ref().layout_info(
-                    to_runtime(Orientation::Vertical),
-                    w,
-                    &window_adapter,
-                    &item_rc,
-                );
-                return (w, v_info.preferred_bounded());
-            }
-            return (w, h);
-        }
-        if known_h.is_some() && known_w.is_none() {
-            if use_property_lookup {
-                let h_info =
-                    query(Orientation::Horizontal, ce.has_constrained_layoutinfo_h.then_some(h));
-                return (h_info.preferred_bounded(), h);
-            }
-            // Builtin path, symmetric to the known-w branch above: parent-tree
-            // lookup only, so it is skipped for a repeated cell.
-            if let Some(item_within) = ce
-                .repeated_instance
-                .is_none()
-                .then(|| component.description.items.get(ce.elem.borrow().id.as_str()))
-                .flatten()
-            {
-                let item_comp = component.self_weak().get().unwrap().upgrade().unwrap();
-                let item_rc =
-                    ItemRc::new(vtable::VRc::into_dyn(item_comp), item_within.item_index());
-                let item = unsafe { item_within.item_from_item_tree(component.as_ptr()) };
-                let h_info = item.as_ref().layout_info(
-                    to_runtime(Orientation::Horizontal),
-                    h,
-                    &window_adapter,
-                    &item_rc,
-                );
-                return (h_info.preferred_bounded(), h);
-            }
-            return (w, h);
-        }
-        (w, h)
+    let ce = match child_elems.get(child_index) {
+        Some(Some(c)) => c,
+        _ => return (w, h),
     };
 
-    core_layout::solve_flexbox_layout_with_measure(&data, ri, Some(&mut measure)).into()
+    // Cells whose layoutinfo aggregates from a sub-tree (set by
+    // default_geometry) or that have a parametrized layout-info
+    // function need to be queried by NamedReference. The Item
+    // vtable's `layout_info` on the wrapper item returns trivial
+    // info that ignores the aggregated children.
+    let use_property_lookup = ce.has_aggregated_info
+        || ce.has_constrained_layoutinfo_v
+        || ce.has_constrained_layoutinfo_h;
+
+    // Query the cell's constrained layout-info. A repeated cell lives in
+    // its own instance's item tree (where its `layoutinfo-*-with-constraint`
+    // function is), so re-measure it there at the assigned cross size; a
+    // static cell is queried through the parent `component`.
+    let query = |orientation, constraint: Option<f32>| -> core_layout::LayoutInfo {
+        match &ce.repeated_instance {
+            Some(instance) => {
+                generativity::make_guard!(guard);
+                let unerased = instance.unerase(guard);
+                get_layout_info_with_constraint(
+                    &ce.elem,
+                    unerased.borrow_instance(),
+                    window_adapter,
+                    orientation,
+                    constraint,
+                )
+            }
+            None => get_layout_info_with_constraint(
+                &ce.elem,
+                component,
+                window_adapter,
+                orientation,
+                constraint,
+            ),
+        }
+    };
+
+    if known_w.is_some() && known_h.is_none() {
+        if use_property_lookup {
+            let v_info = query(Orientation::Vertical, ce.has_constrained_layoutinfo_v.then_some(w));
+            return (w, v_info.preferred_bounded());
+        }
+        // Builtin path (Text, Image): use the Item vtable's layout_info,
+        // which honors the cross-axis constraint. This resolves the item in
+        // the parent `component`'s item tree, so it does not apply to a
+        // repeated cell (which lives in its own instance): a
+        // height-for-width repeated cell takes the `query` path above, and a
+        // non-height-for-width one keeps its width-independent default `h`.
+        if let Some(item_within) = ce
+            .repeated_instance
+            .is_none()
+            .then(|| component.description.items.get(ce.elem.borrow().id.as_str()))
+            .flatten()
+        {
+            let item_comp = component.self_weak().get().unwrap().upgrade().unwrap();
+            let item_rc = ItemRc::new(vtable::VRc::into_dyn(item_comp), item_within.item_index());
+            let item = unsafe { item_within.item_from_item_tree(component.as_ptr()) };
+            let v_info = item.as_ref().layout_info(
+                to_runtime(Orientation::Vertical),
+                w,
+                window_adapter,
+                &item_rc,
+            );
+            return (w, v_info.preferred_bounded());
+        }
+        return (w, h);
+    }
+    if known_h.is_some() && known_w.is_none() {
+        if use_property_lookup {
+            let h_info =
+                query(Orientation::Horizontal, ce.has_constrained_layoutinfo_h.then_some(h));
+            return (h_info.preferred_bounded(), h);
+        }
+        // Builtin path, symmetric to the known-w branch above: parent-tree
+        // lookup only, so it is skipped for a repeated cell.
+        if let Some(item_within) = ce
+            .repeated_instance
+            .is_none()
+            .then(|| component.description.items.get(ce.elem.borrow().id.as_str()))
+            .flatten()
+        {
+            let item_comp = component.self_weak().get().unwrap().upgrade().unwrap();
+            let item_rc = ItemRc::new(vtable::VRc::into_dyn(item_comp), item_within.item_index());
+            let item = unsafe { item_within.item_from_item_tree(component.as_ptr()) };
+            let h_info = item.as_ref().layout_info(
+                to_runtime(Orientation::Horizontal),
+                h,
+                window_adapter,
+                &item_rc,
+            );
+            return (h_info.preferred_bounded(), h);
+        }
+        return (w, h);
+    }
+    (w, h)
 }
 
 fn flexbox_layout_direction(
