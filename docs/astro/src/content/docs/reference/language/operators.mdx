@@ -100,16 +100,33 @@ export component Example {
 }
 ```
 
+<SC>
 ## Comparison operators
 
-The operators `==`, `!=`, `<`, `>`, `<=`, and `>=` compare two values and produce a `bool`.
-Both operands must resolve to a common type.
+The operators `==`, `!=`, `<`, `>`, `<=`, and `>=` compare two operands of a common type and
+produce a `bool`. \{#sls.op.comparison}
 
-- `==` and `!=` apply to any comparable common type.
-- `<`, `>`, `<=`, and `>=` apply only to numbers, unit-bearing types, and `string`;
-  ordering values of any other type is an error.
+`==` and `!=` test whether the operands are equal. \{#sls.op.comparison.equality}
 
-Comparison operators do not chain; parenthesize to combine them.
+<OnlyInSC>
+`<`, `>`, `<=`, and `>=` order two numbers or lengths. \{#sls.op.comparison.ordering}
+</OnlyInSC>
+<NotInSC>
+`<`, `>`, `<=`, and `>=` order numbers, unit-bearing types, and strings; ordering values of any
+other type is an error.
+</NotInSC>
+
+```slint
+export component Example inherits Window {
+    in property <int> a;
+    in property <length> w;
+    in property <length> h;
+    out property <bool> equal: a == 0;
+    out property <bool> different: a != 0;
+    out property <bool> wider: w > h;
+}
+```
+</SC>
 
 <SC>
 ## Logical operators

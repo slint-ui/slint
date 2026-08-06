@@ -236,6 +236,14 @@ fn compile_expression(expr: &Expression, root: &ElementRc) -> TokenStream {
                 // `&&` is `'&'` and `||` is `'|'`.
                 '&' => quote!((#lhs) && (#rhs)),
                 '|' => quote!((#lhs) || (#rhs)),
+                // Comparison produces a `bool`. `==` is `'='` and `!=` is `'!'`;
+                // `<=` is `'≤'` and `>=` is `'≥'`.
+                '=' => quote!((#lhs) == (#rhs)),
+                '!' => quote!((#lhs) != (#rhs)),
+                '<' => quote!((#lhs) < (#rhs)),
+                '>' => quote!((#lhs) > (#rhs)),
+                '≤' => quote!((#lhs) <= (#rhs)),
+                '≥' => quote!((#lhs) >= (#rhs)),
                 _ => unreachable!(),
             }
         }

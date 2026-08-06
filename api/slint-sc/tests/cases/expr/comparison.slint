@@ -1,0 +1,63 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Software-3.0
+
+// `==` and `!=` test equality of a common type; `<`, `>`, `<=`, and `>=`
+// order two numbers or lengths. Each comparison produces a `bool`.
+
+export component TestCase inherits Window {
+    in property <int> a;
+    in property <int> b;
+    in property <length> w;
+    in property <length> h;
+    in property <bool> flag;
+
+    //#sls.op.comparison
+    //#sls.op.comparison.equality
+    out property <bool> equal: a == b;
+    out property <bool> different: a != b;
+    // Equality also applies to a non-numeric common type.
+    out property <bool> flag_set: flag == true;
+
+    //#sls.op.comparison.ordering
+    out property <bool> less: a < b;
+    out property <bool> greater: a > b;
+    out property <bool> at_most: a <= b;
+    out property <bool> at_least: a >= b;
+    out property <bool> wider: w > h;
+}
+
+/*
+```rust
+let mut x = TestCase::new();
+
+for (a, b) in [(1, 1), (1, 2), (2, 1)] {
+    x.set_a(a);
+    x.set_b(b);
+
+    // `==` and `!=` produce a `bool` telling whether the operands are equal.
+    //#sls.op.comparison
+    //#sls.op.comparison.equality
+    assert_eq!(x.get_equal(), a == b);
+    assert_eq!(x.get_different(), a != b);
+
+    // Equality also applies to a non-numeric common type.
+    x.set_flag(true);
+    assert!(x.get_flag_set());
+    x.set_flag(false);
+    assert!(!x.get_flag_set());
+
+    // `<`, `>`, `<=`, and `>=` order two numbers.
+    //#sls.op.comparison.ordering
+    assert_eq!(x.get_less(), a < b);
+    assert_eq!(x.get_greater(), a > b);
+    assert_eq!(x.get_at_most(), a <= b);
+    assert_eq!(x.get_at_least(), a >= b);
+}
+
+// Ordering also applies to lengths.
+//#sls.op.comparison.ordering
+x.set_w(50);
+x.set_h(20);
+assert!(x.get_wider());
+```
+*/

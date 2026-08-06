@@ -1802,13 +1802,13 @@ impl Expression {
             })
             .unwrap_or('_');
 
-        // In Slint SC, `+`, `-`, `*` (arithmetic) and `&&`/`||` (logical) are in
-        // the subset; `/` and comparison are not. Operands are checked as they
-        // resolve, and a result that leaves the subset (a `length * length` unit
-        // product) is rejected where it is used. `&&` is `'&'`, `||` is `'|'`.
+        // In Slint SC, arithmetic (`+`, `-`, `*`), logical (`&&`, `||`), and
+        // comparison (`==`, `!=`, `<`, `>`, `<=`, `>=`) are in the subset; `/` is
+        // not. Operands are checked as they resolve, and a result that leaves the
+        // subset (a `length * length` unit product) is rejected where it is used.
         #[cfg(feature = "slint-sc")]
-        if !matches!(op, '+' | '-' | '*' | '&' | '|') {
-            ctx.diag.slint_sc_error(&format!("Operator '{}'", binary_operator_name(op)), &node);
+        if op == '/' {
+            ctx.diag.slint_sc_error("Operator '/'", &node);
         }
 
         let op_class = operator_class(op);
@@ -3077,20 +3077,5 @@ fn check_slint_sc_reference(expr: &Expression, node: &SyntaxNode, ctx: &mut Look
         // (a property of the same name would shadow them and resolve above).
         Expression::BoolLiteral(_) => {}
         _ => ctx.diag.slint_sc_error("Identifier references are", node),
-    }
-}
-
-/// The source spelling of a binary operator, for diagnostics. The compiler
-/// stores each as a single character, some of which differ from what is typed.
-#[cfg(feature = "slint-sc")]
-fn binary_operator_name(op: char) -> String {
-    match op {
-        '=' => "==".into(),
-        '!' => "!=".into(),
-        '≤' => "<=".into(),
-        '≥' => ">=".into(),
-        '&' => "&&".into(),
-        '|' => "||".into(),
-        other => other.to_string(),
     }
 }
