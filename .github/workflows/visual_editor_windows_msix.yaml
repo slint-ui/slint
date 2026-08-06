@@ -1,0 +1,265 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+name: Visual Editor Windows MSIX
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        # The Store keeps a version reserved even after the package using it is
+        # deleted again, so test uploads would otherwise burn release versions.
+        description: "Three-part version to package instead of the slint-lsp one, e.g. 1.99.0"
+        required: false
+        type: string
+      save_if:
+        description: "Condition to save the cache"
+        required: false
+        type: boolean
+        default: true
+
+  pull_request:
+    branches:
+      - visual-editor
+
+permissions:
+  contents: read
+
+env:
+  CARGO_INCREMENTAL: false
+  SLINT_BUILD_NUMBER: ${{ github.run_number }}
+
+jobs:
+  build:
+    name: Build ${{ matrix.arch }}
+    strategy:
+      # Report both architectures instead of hiding one behind the other's failure.
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x64
+            runner: windows-latest
+            target: x86_64-pc-windows-msvc
+          - arch: arm64
+            # arm64 runners are free for public repositories, but the label does
+            # not resolve in private ones.
+            runner: windows-11-arm
+            target: aarch64-pc-windows-msvc
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: ./.github/actions/setup-rust
+        with:
+          key: visual-editor-windows-msix-${{ matrix.arch }}
+          toolchain: stable
+          target: ${{ matrix.target }}
+          save_if: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository || inputs.save_if }}
+
+      - name: Build app for Windows
+        shell: pwsh
+        run: |
+          cargo +stable build `
+            --manifest-path tools/lsp/Cargo.toml `
+            --target ${{ matrix.target }} `
+            --bin slint-visual-editor `
+            --profile package-release `
+            --no-default-features `
+            --features backend-winit,renderer-skia
+
+      # Only the executable differs per architecture. The packaging job builds
+      # the layouts around it, so the assets are not shipped back and forth.
+      - name: Upload executable
+        uses: actions/upload-artifact@v7
+        with:
+          name: slint-visual-editor-${{ matrix.arch }}
+          path: target/${{ matrix.target }}/package-release/slint-visual-editor.exe
+          if-no-files-found: error
+
+  package:
+    # The bundle is deliberately left unsigned: the Microsoft Store signs it on
+    # ingestion. For that to be accepted, `Identity/Publisher` in
+    # tools/lsp/packaging/windows-appx/Package.appxmanifest.in has to match the
+    # publisher identity assigned by Partner Center.
+    name: Package MSIX bundle
+    needs: build
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+
+      # No toolchain is set up here: this job only reads the crate version, and
+      # `windows-latest` comes with cargo.
+
+      - name: Download executables
+        uses: actions/download-artifact@v8
+        with:
+          pattern: slint-visual-editor-*
+          path: exe
+
+      - name: Determine the package version
+        id: get_cargo_version
+        shell: pwsh
+        run: |
+          $cargoversion = "${{ inputs.version }}"
+          if ($cargoversion) {
+            Write-Host "Packaging $cargoversion instead of the slint-lsp version"
+          } else {
+            $cargoversion = cargo metadata --manifest-path tools/lsp/Cargo.toml --offline --format-version 1 --no-deps |
+              ConvertFrom-Json |
+              select -exp packages |
+              where name -eq "slint-lsp" |
+              select -exp version
+          }
+          # The fourth field is added below and reserved by the Store, so the
+          # three fields here are all that keeps a submission unique.
+          if ($cargoversion -notmatch "^\d+\.\d+\.\d+$") {
+            throw "version '$cargoversion' is not three numeric fields"
+          }
+          "cargo_version=$cargoversion" >> $env:GITHUB_OUTPUT
+
+      - name: Render the tile images
+        shell: pwsh
+        run: |
+          $backdrops = "tools/lsp/packaging/windows-appx"
+          $tiles = Join-Path $env:RUNNER_TEMP "tiles"
+          New-Item -ItemType Directory -Force $tiles | Out-Null
+
+          # Render the logo far larger than any tile and trim it to its ink, so
+          # that it can be scaled to a share of the tile rather than of the
+          # padding its own viewBox happens to carry. The white one goes on the
+          # tiles and on dark taskbars, the blue one on light taskbars.
+          $onDark = Join-Path $env:RUNNER_TEMP "logo-on-dark.png"
+          $onLight = Join-Path $env:RUNNER_TEMP "logo-on-light.png"
+          magick -background none -density 1152 logo/slint-logo-small-dark.svg -trim +repage $onDark
+          if ($LASTEXITCODE -ne 0) { throw "rendering the logo failed" }
+          magick -background none -density 1152 logo/slint-logo-small-light.svg -trim +repage $onLight
+          if ($LASTEXITCODE -ne 0) { throw "rendering the logo failed" }
+
+          function Render($backdrop, $width, $height, $name) {
+            $out = Join-Path $tiles $name
+            $mark = Join-Path $env:RUNNER_TEMP "mark.png"
+            # The logo covers two thirds of the height of every tile, wide ones
+            # included, and sits in the middle.
+            magick $onDark -resize "x$([int]($height * 0.67))" $mark
+            if ($LASTEXITCODE -ne 0) { throw "scaling the logo failed" }
+            magick -background none $backdrop -resize "${width}x${height}" `
+              $mark -gravity center -composite $out
+            if ($LASTEXITCODE -ne 0) { throw "compositing $name failed" }
+          }
+
+          function Unplated($logo, $size, $name) {
+            $out = Join-Path $tiles $name
+            $mark = Join-Path $env:RUNNER_TEMP "mark.png"
+            # Nothing is drawn behind these, so the logo stands alone and is
+            # given a little room rather than running to the edges.
+            magick $logo -resize "x$([int]($size * 0.8))" $mark
+            if ($LASTEXITCODE -ne 0) { throw "scaling the logo failed" }
+            magick -size "${size}x${size}" xc:none $mark -gravity center -composite $out
+            if ($LASTEXITCODE -ne 0) { throw "compositing $name failed" }
+          }
+
+          foreach ($size in 44, 71, 150, 310) {
+            Render "$backdrops/tile-backdrop.svg" $size $size "SlintVisualEditor-Logo-${size}x${size}.png"
+          }
+          Render "$backdrops/tile-backdrop.svg" 512 512 "SlintVisualEditor-Logo.png"
+          Render "$backdrops/tile-backdrop-wide.svg" 310 150 "SlintVisualEditor-Logo-310x150.png"
+
+          # Windows draws the small logo on a plate of its own making unless the
+          # package offers it an unplated one, which is why the icon in the task
+          # bar is otherwise a square of accent colour around a tile that
+          # already has a background of its own.
+          $base = "SlintVisualEditor-Logo-44x44"
+          foreach ($size in 16, 24, 32, 48, 256) {
+            Render "$backdrops/tile-backdrop.svg" $size $size "$base.targetsize-$size.png"
+            Unplated $onDark  $size "$base.targetsize-${size}_altform-unplated.png"
+            Unplated $onLight $size "$base.targetsize-${size}_altform-lightunplated.png"
+          }
+
+          Get-ChildItem $tiles | ForEach-Object { "  {0,-56} {1,7} bytes" -f $_.Name, $_.Length }
+
+      - name: Assemble package layouts
+        shell: pwsh
+        run: |
+          $version = "${{ steps.get_cargo_version.outputs.cargo_version }}.0"
+          $tiles = Join-Path $env:RUNNER_TEMP "tiles"
+
+          foreach ($arch in "x64", "arm64") {
+            $dist = "tools/lsp/dist/$arch"
+            New-Item -ItemType Directory -Force "$dist/Assets" | Out-Null
+            # Everything the manifest refers to has to be inside the layout:
+            # `makeappx` resolves those paths within the package, not on disk.
+            Copy-Item "$tiles/*.png" "$dist/Assets/"
+            Copy-Item "exe/slint-visual-editor-$arch/slint-visual-editor.exe" "$dist/slint-visual-editor.exe"
+
+            # Each slice carries its own manifest, naming the version and the
+            # architecture it was built for. Everything else about the slices
+            # has to be identical for them to bundle together.
+            $manifest = New-Object System.Xml.XmlDocument
+            $manifest.Load((Join-Path $PWD "tools/lsp/packaging/windows-appx/Package.appxmanifest.in"))
+            $manifest.Package.Identity.Version = $version
+            $manifest.Package.Identity.SetAttribute("ProcessorArchitecture", $arch)
+
+            # Writing the document back out reflows it, so indent it and keep
+            # the byte order mark out of a file that other tools have to read.
+            $settings = New-Object System.Xml.XmlWriterSettings
+            $settings.Indent = $true
+            $settings.Encoding = New-Object System.Text.UTF8Encoding($false)
+            $writer = [System.Xml.XmlWriter]::Create((Join-Path $PWD "$dist/AppxManifest.xml"), $settings)
+            try { $manifest.Save($writer) } finally { $writer.Dispose() }
+          }
+
+          Write-Host "Packaging version $version"
+
+      - name: Package app as MSIX bundle
+        id: package_msix
+        shell: pwsh
+        run: |
+          $version = "${{ steps.get_cargo_version.outputs.cargo_version }}.0"
+
+          $makeappx = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin" -Recurse -Filter makeappx.exe |
+            Sort-Object FullName -Descending |
+            Select-Object -First 1 -ExpandProperty FullName
+          if (-not $makeappx) { throw "makeappx.exe was not found in the Windows SDK." }
+
+          $makepri = Join-Path (Split-Path $makeappx) "makepri.exe"
+          if (-not (Test-Path $makepri)) { throw "makepri.exe was not found next to makeappx.exe." }
+
+          Set-Location tools/lsp
+          $name = ([xml](Get-Content "dist/x64/AppxManifest.xml")).Package.Identity.Name
+          New-Item -ItemType Directory -Force bundle-src | Out-Null
+
+          # The qualifiers in the asset file names mean nothing without an index
+          # to resolve them through, so build one. Its config lives outside the
+          # layout, or it would be packaged along with everything else there.
+          $priconfig = Join-Path $env:RUNNER_TEMP "priconfig.xml"
+          & $makepri createconfig /cf $priconfig /dq en-US /o
+          if ($LASTEXITCODE -ne 0) { throw "makepri createconfig failed" }
+
+          foreach ($arch in "x64", "arm64") {
+            $pri = Join-Path $env:RUNNER_TEMP "resources-$arch.pri"
+            & $makepri new /pr "dist/$arch" /cf $priconfig /of $pri /o
+            if ($LASTEXITCODE -ne 0) { throw "makepri new failed for $arch" }
+            Copy-Item $pri "dist/$arch/resources.pri"
+
+            & $makeappx pack /d "dist/$arch" /p "bundle-src/${name}_${version}_$arch.msix" /o
+            if ($LASTEXITCODE -ne 0) { throw "packing $arch failed" }
+          }
+
+          # Without /bv the bundle is versioned after the clock rather than
+          # after what it contains, and the version of the bundle is the one an
+          # app is known by once it is submitted.
+          $bundle = "${name}_${version}_arm64_x64.msixbundle"
+          & $makeappx bundle /d bundle-src /p $bundle /bv $version /o
+          if ($LASTEXITCODE -ne 0) { throw "makeappx bundle failed" }
+
+          Set-Location $env:GITHUB_WORKSPACE
+          "msixbundle_path=tools/lsp/$bundle" >> $env:GITHUB_OUTPUT
+
+      - name: Upload MSIX bundle artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: slint-visual-editor-windows-msixbundle
+          path: ${{ steps.package_msix.outputs.msixbundle_path }}
+          if-no-files-found: error
