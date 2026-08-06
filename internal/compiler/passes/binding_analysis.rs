@@ -421,10 +421,13 @@ fn analyze_binding(
     let mut process_prop = |prop: &PropertyPath, r, context: &mut AnalysisContext| {
         depends_on_external |=
             process_property(&current.relative(prop), r, context, reverse_aliases, diag);
-        for x in reverse_aliases.get(&prop.prop).unwrap_or(&Default::default()) {
-            if x != &current.prop && x != &prop.prop {
+        for x in find_alias_targets(prop, reverse_aliases) {
+            // Unlike `x == prop.prop` (a plain duplicate, skipped below), `x == current.prop`
+            // is kept: it re-enters the binding being analyzed through its own alias, which is
+            // how a loop like `foo <=> bar` plus `foo: bar` gets caught.
+            if x.prop != prop.prop {
                 depends_on_external |= process_property(
-                    &current.relative(&x.clone().into()),
+                    &current.relative(&x),
                     ReadType::PropertyRead,
                     context,
                     reverse_aliases,
@@ -471,6 +474,43 @@ fn analyze_binding(
     assert_eq!(&o.unwrap(), current);
 
     depends_on_external
+}
+
+/// Find properties two-way-bound (via `<=>`) to `prop`, ascending through base components
+/// when the alias was declared there rather than on `prop`'s own element.
+fn find_alias_targets(prop: &PropertyPath, reverse_aliases: &ReverseAliases) -> Vec<PropertyPath> {
+    // Alias declared on prop's own element, so return the target(s) verbatim without rebasing
+    if let Some(v) = reverse_aliases.get(&prop.prop) {
+        return v
+            .iter()
+            .map(|x| PropertyPath { elements: prop.elements.clone(), prop: x.clone() })
+            .collect();
+    }
+
+    let start_element = prop.elements.first().map_or_else(|| prop.prop.element(), |e| e.0.clone());
+    let mut cur = prop.prop.clone();
+    loop {
+        let element = cur.element();
+        if element.borrow().binding(cur.name()).is_some() {
+            return Vec::new();
+        }
+        let next = match &element.borrow().base_type {
+            ElementType::Component(base) => {
+                if element.borrow().property_declarations.contains_key(cur.name()) {
+                    return Vec::new();
+                }
+                base.root_element.clone()
+            }
+            _ => return Vec::new(),
+        };
+        cur = NamedReference::new(&next, cur.name().clone());
+        if let Some(v) = reverse_aliases.get(&cur) {
+            return v
+                .iter()
+                .map(|x| PropertyPath::from(NamedReference::new(&start_element, x.name().clone())))
+                .collect();
+        }
+    }
 }
 
 #[derive(Copy, Clone, Eq, PartialEq)]
