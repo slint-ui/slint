@@ -1584,6 +1584,28 @@ impl Expression {
                 (ref from_ty @ Type::Struct(ref left), Type::Struct(right))
                     if left.fields != right.fields =>
                 {
+                    // Slint SC converts a struct only when the source names
+                    // exactly the target's fields: no defaulting of an omitted
+                    // field and no dropping of an extra member.
+                    #[cfg(feature = "slint-sc")]
+                    if diag.slint_sc {
+                        for f in left.fields.keys() {
+                            if !right.fields.contains_key(f) {
+                                diag.slint_sc_error(
+                                    &format!("Providing the extra struct member '{f}' is"),
+                                    node,
+                                );
+                            }
+                        }
+                        for f in right.fields.keys() {
+                            if !left.fields.contains_key(f) {
+                                diag.slint_sc_error(
+                                    &format!("Omitting the struct field '{f}' is"),
+                                    node,
+                                );
+                            }
+                        }
+                    }
                     if let Expression::Struct { mut values, .. } = self {
                         let mut new_values = BTreeMap::new();
                         for (key, ty) in &right.fields {

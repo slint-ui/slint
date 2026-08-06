@@ -37,27 +37,32 @@ Declaring a struct whose name matches an already-defined type replaces the earli
 
 ### Constructing and accessing
 
-A struct value is written as a struct literal that initializes fields by name:
-`{ field1: expression1, field2: expression2 }`.
-A trailing comma after the last member is permitted.
-A field is read with the `.` operator: `player.name`.
+<SC>
+A struct value is written as a struct literal that initializes fields by name,
+`{ field1: value1, field2: value2 }`, with an optional trailing comma. \{#sls.struct.literal}
+
+<OnlyInSC>
+A struct literal shall initialize every field of the struct exactly once,
+and shall not name a member that the struct does not have. \{#sls.struct.literal.exact}
+</OnlyInSC>
+
+A field is read with the `.` operator, as in `palette.fill`. \{#sls.struct.field-access}
 
 ```slint
-export struct Player {
-    name: string,
-    score: int,
+export struct Palette {
+    fill: color,
+    gap: length,
 }
 
-export component Example {
-    in-out property<Player> player: { name: "Foo", score: 100 };
-    out property<string> who: player.name;
+export component Example inherits Window {
+    out property <Palette> palette: { fill: #f00, gap: 2px };
+    out property <color> tint: palette.fill;
 }
 ```
+</SC>
 
-A struct literal need not list every field.
-When a literal is assigned where a named struct is expected, each member is resolved against the type
-of the matching field, omitted fields take their default value, and members that don't name a field of the
-target struct are ignored.
+A struct literal need not list every field; an omitted field takes its default value,
+and members that don't name a field of the target struct are ignored.
 
 The default value of a struct has every field set to its own default value, unless the field declares its own.
 

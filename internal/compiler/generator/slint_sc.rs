@@ -295,6 +295,27 @@ fn compile_expression(expr: &Expression, root: &ElementRc) -> TokenStream {
             let variant = format_ident!("{}", ev.to_pascal_case());
             quote!(#enum_name::#variant)
         }
+        // A struct literal builds a value of a user struct; conversion has
+        // already filled every field, so each field is emitted in order.
+        Expression::Struct { ty, values } => {
+            let StructName::User { name, field_order, .. } = &ty.name else { unreachable!() };
+            let name = format_ident!("{}", name.as_str());
+            let fields = field_order.iter().map(|f| {
+                let field = format_ident!("{}", f.replace('-', "_"));
+                let value = match values.get(f) {
+                    Some(v) => compile_expression(v, root),
+                    None => default_value(&ty.fields[f]),
+                };
+                quote!(#field: #value,)
+            });
+            quote!(#name { #(#fields)* })
+        }
+        // Field access reads a field out of a struct value.
+        Expression::StructFieldAccess { base, name } => {
+            let base = compile_expression(base, root);
+            let field = format_ident!("{}", name.replace('-', "_"));
+            quote!((#base).#field)
+        }
         Expression::BinaryExpression { lhs, rhs, op } => {
             let lhs = compile_expression(lhs, root);
             let rhs = compile_expression(rhs, root);
