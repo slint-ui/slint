@@ -1,0 +1,287 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A dark-themed embedded status panel, representative of what the software renderer
+// draws on a small device screen: light text of several sizes and weights on a black
+// background, next to thin strokes and gradients. Text on a dark background is where
+// coverage blending is most visible, so this case is the reference for the overall
+// weight and sharpness of anti-aliased text, not for any single element.
+
+// Skia font rendering is not consistent across platforms
+//ignore: skia
+// SIZE=320x240
+// ROTATION_THRESHOLD=70  - the gradient fills of the metric bars are imprecise in rotation
+
+component StateItem {
+    in property <string> name;
+    in property <bool> is-ok;
+    in property <string> value;
+    in property <string> secondary-value;
+    in property <color> icon-color: #4a4a4a;
+
+    HorizontalLayout {
+        padding-left: 9px;
+        padding-right: 9px;
+        spacing: 10px;
+
+        // Stands in for the status icon: the case deliberately contains no images so
+        // that it exercises the vector font path only.
+        VerticalLayout {
+            padding-top: 8px;
+            Rectangle {
+                width: 24px;
+                height: 24px;
+                border-radius: 5px;
+                background: root.icon-color;
+            }
+        }
+
+        Text {
+            font-weight: 400;
+            vertical-alignment: center;
+            font-size: 20px;
+            color: white;
+            text: root.name;
+        }
+
+        Rectangle {
+            horizontal-stretch: 1;
+        }
+
+        Rectangle {
+            height: 39px;
+            VerticalLayout {
+                alignment: center;
+                Text {
+                    horizontal-alignment: right;
+                    font-size: 17px;
+                    color: root.is-ok ? white : grey;
+                    text: root.value;
+                }
+
+                if root.secondary-value != "": Text {
+                    horizontal-alignment: right;
+                    font-size: 13px;
+                    color: root.is-ok ? white : grey;
+                    text: root.secondary-value;
+                }
+            }
+        }
+    }
+}
+
+component Separator {
+    HorizontalLayout {
+        padding-left: 42px;
+        Rectangle {
+            height: 1px;
+            background: grey;
+        }
+    }
+}
+
+component BarItem {
+    in property <float> value; // 0.0 - 1.0
+    in property <string> text;
+    in property <brush> color1; // gradient @ 0%
+    in property <brush> color2; // gradient @ 100%
+
+    width: 44px;
+    height: 20px;
+
+    VerticalLayout {
+        spacing: 2px;
+        Rectangle {
+            width: parent.width;
+            height: 6px;
+            border-width: 1px;
+            border-radius: 2px;
+            border-color: #66666680;
+            background: #00000040;
+
+            Rectangle {
+                x: 0;
+                width: parent.width * Math.clamp(root.value, 0.0, 1.0);
+                height: parent.height;
+                border-radius: 2px;
+                background: @linear-gradient(90deg, root.color1 0%, root.color2 100%);
+            }
+        }
+
+        Text {
+            font-size: 10px;
+            color: #ffffffcc;
+            text: root.text;
+        }
+    }
+}
+
+component MetricsBars {
+    GridLayout {
+        spacing: 4px;
+        padding-top: 4px;
+        padding-left: 4px;
+        padding-right: 4px;
+
+        Row {
+            BarItem {
+                value: 0.37;
+                text: "CPU 37%";
+                color1: #f3c4b2cc;
+                color2: #ff0000cc;
+            }
+
+            Rectangle {
+                width: 1px;
+                height: 20px;
+                background: #ffffff33;
+            }
+
+            BarItem {
+                value: 0.52;
+                text: "TMP 52°C";
+                color1: #ffd9aacc;
+                color2: #ff9966cc;
+            }
+        }
+
+        Row {
+            BarItem {
+                value: 0.86;
+                text: "PWR 5.1V";
+                color1: #aac1ffcc;
+                color2: #6b66ffcc;
+            }
+
+            Rectangle {
+                width: 1px;
+                height: 20px;
+                background: #ffffff33;
+            }
+
+            BarItem {
+                value: 0.61;
+                text: "RAM 61%";
+                color1: #aaffaacc;
+                color2: #66ff66cc;
+            }
+        }
+    }
+}
+
+export component TestCase inherits Window {
+    width: 320px;
+    height: 240px;
+    background: black;
+
+    // Stands in for the product logo, for the same reason as the status icons above.
+    Rectangle {
+        x: 20px;
+        y: 20px;
+        width: 30px;
+        height: 30px;
+        border-radius: 7px;
+        background: #2379f4;
+    }
+
+    Text {
+        text: "Slint Test";
+        x: 60px;
+        y: 8px;
+        font-size: 21px;
+        font-weight: 600;
+        color: white;
+    }
+
+    Text {
+        text: "https://slint.dev/";
+        x: 60px;
+        y: 34px;
+        font-size: 17px;
+        font-weight: 400;
+        color: lightskyblue;
+    }
+
+    Text {
+        text: "V1.18.0";
+        horizontal-alignment: left;
+        x: 172px;
+        y: 11px;
+        width: 100px;
+        font-size: 12px;
+        font-weight: 400;
+        color: white;
+    }
+
+    MetricsBars {
+        x: 210px;
+        y: 8px;
+    }
+
+    property <int> number-of-tabs: 2;
+
+    VerticalLayout {
+        padding-top: 58px;
+        spacing: 3px;
+
+        VerticalLayout {
+            padding-left: 20px;
+            padding-right: 20px;
+            alignment: start;
+            spacing: 2px;
+
+            StateItem {
+                name: "Ethernet";
+                is-ok: true;
+                value: "192.168.1.42";
+                icon-color: #3d5a80;
+            }
+
+            Separator { }
+
+            StateItem {
+                name: "WLAN";
+                is-ok: true;
+                value: "10.0.0.17";
+                secondary-value: "slint-guest";
+                icon-color: #40704a;
+            }
+
+            Separator { }
+
+            StateItem {
+                name: "USB";
+                is-ok: false;
+                value: "Not Connected";
+                icon-color: #4a4a4a;
+            }
+
+            Separator { }
+
+            StateItem {
+                name: "HDMI";
+                is-ok: true;
+                value: "1920x1080";
+                secondary-value: "60 Hz";
+                icon-color: #7a5230;
+            }
+        }
+
+        HorizontalLayout {
+            height: 12px;
+            alignment: center;
+            spacing: 5px;
+
+            for index in root.number-of-tabs: VerticalLayout {
+                height: parent.height;
+                alignment: center;
+                Rectangle {
+                    width: index == 0 ? 10px : 5px;
+                    height: 5px;
+                    border-radius: self.width / 2;
+                    background: index == 0 ? #ffffff : #5f5f5f;
+                }
+            }
+        }
+    }
+}
