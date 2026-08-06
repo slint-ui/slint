@@ -261,8 +261,7 @@ protected:
     void notify_row_changed(size_t row)
     {
         private_api::assert_main_thread();
-        if (all_rows_tracked
-            || std::binary_search(tracked_rows.begin(), tracked_rows.end(), row)) {
+        if (all_rows_tracked || std::binary_search(tracked_rows.begin(), tracked_rows.end(), row)) {
             model_row_data_dirty_property.mark_dirty();
         }
         for_each_peers([=](auto peer) { peer->row_changed(row); });

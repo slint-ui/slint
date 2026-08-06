@@ -53,8 +53,7 @@ impl ModelNotify {
     /// Notify the peers that a specific row was changed
     pub fn row_changed(&self, row: usize) {
         let inner = &self.inner;
-        if inner.all_rows_tracked.get() || inner.tracked_rows.borrow().binary_search(&row).is_ok()
-        {
+        if inner.all_rows_tracked.get() || inner.tracked_rows.borrow().binary_search(&row).is_ok() {
             inner.model_row_data_dirty_property.mark_dirty();
         }
         inner.as_ref().project_ref().peers.for_each(|p| {
