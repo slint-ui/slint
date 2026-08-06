@@ -173,6 +173,11 @@ objc2 = { version = "0.6.3" }
 # Not updated because of https://github.com/gluon-lang/lsp-types/issues/284
 lsp-types = "0.95.0"
 
+# swash with ScalerBuilder::hint_target (pending upstream), needed by the
+# software renderer's grayscale-targeted glyph hinting.
+[patch.crates-io]
+swash = { git = "https://github.com/showier-drastic/swash", rev = "db0117a58b47b43ee003c9f216ceac4ba8983f1c" }
+
 [profile.release]
 panic = "abort"
 
