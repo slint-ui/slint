@@ -2,6 +2,9 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 #![allow(dead_code)]
+// Keep Windows from opening a console behind the editor. Debug builds keep
+// theirs, so that printing something still reaches somewhere visible.
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod common;
 #[cfg(feature = "preview")]
