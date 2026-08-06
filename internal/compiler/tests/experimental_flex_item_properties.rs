@@ -65,10 +65,41 @@ fn flex_item_properties_accepted_with_experimental() {
     }
 }
 
-/// `cross-axis-self-alignment` is stable API, usable without experimental features.
+/// `cross-axis-self-alignment` is stable API, usable without experimental features
+/// in a FlexboxLayout and in the box layouts.
 #[test]
 fn cross_axis_self_alignment_is_stable() {
     assert_eq!(in_flexbox("cross-axis-self-alignment: center", false), Vec::<String>::new());
+    for layout in ["HorizontalLayout", "VerticalLayout"] {
+        let source = format!(
+            r#"
+export component TestCase inherits Window {{
+    {layout} {{
+        Rectangle {{ cross-axis-self-alignment: center; }}
+    }}
+}}
+"#
+        );
+        assert_eq!(errors(source, false), Vec::<String>::new());
+    }
+}
+
+/// In a GridLayout (or outside of any layout) the property is rejected.
+#[test]
+fn cross_axis_self_alignment_rejected_in_grid() {
+    let source = r#"
+export component TestCase inherits Window {
+    GridLayout {
+        Rectangle { cross-axis-self-alignment: center; }
+    }
+}
+"#;
+    assert_eq!(
+        errors(source.into(), false),
+        [
+            "cross-axis-self-alignment used outside of a FlexboxLayout, HorizontalLayout, or VerticalLayout"
+        ]
+    );
 }
 
 /// Outside of a `FlexboxLayout` the property is wrong regardless of the experimental features, so
@@ -76,9 +107,7 @@ fn cross_axis_self_alignment_is_stable() {
 /// reason would be confusing.
 #[test]
 fn used_outside_of_a_flexbox_reports_only_that() {
-    for binding in
-        FLEX_ITEM_PROPERTIES.iter().chain(std::iter::once(&"cross-axis-self-alignment: center"))
-    {
+    for binding in FLEX_ITEM_PROPERTIES {
         let source = format!(
             r#"
 export component TestCase inherits Window {{

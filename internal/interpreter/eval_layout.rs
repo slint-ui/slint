@@ -46,7 +46,14 @@ fn to_cells(v: &Value) -> Vec<LayoutItemInfo> {
         .filter_map(|i| {
             let Value::Struct(s) = m.row_data(i)? else { return None };
             let c = s.get_field("constraint")?;
-            Some(LayoutItemInfo { constraint: c.clone().try_into().unwrap_or_default() })
+            Some(LayoutItemInfo {
+                constraint: c.clone().try_into().unwrap_or_default(),
+                // Only set for a box layout's cross-axis cells; absent means `auto`.
+                cross_axis_self_alignment: s
+                    .get_field("cross-axis-self-alignment")
+                    .map(to_enum)
+                    .unwrap_or_default(),
+            })
         })
         .collect()
 }

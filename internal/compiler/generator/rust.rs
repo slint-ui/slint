@@ -1742,6 +1742,20 @@ fn generate_sub_component(
             }
         });
 
+    let cross_axis_self_alignment_for_repeated_fn =
+        component.cross_axis_self_alignment_for_repeated.as_ref().map(|(_, expr)| {
+            let expr = compile_expression(&expr.borrow(), &ctx);
+            quote! {
+                fn cross_axis_self_alignment_for_repeated(
+                    self: ::core::pin::Pin<&Self>,
+                ) -> sp::CrossAxisSelfAlignment {
+                    #![allow(unused)]
+                    let _self = self;
+                    #expr
+                }
+            }
+        });
+
     // FIXME! this is only public because of the ComponentHandle::WeakInner. we should find another way
     let visibility = parent_ctx.is_none().then(|| quote!(pub));
 
@@ -1902,6 +1916,8 @@ fn generate_sub_component(
             #grid_layout_input_for_repeated_fn
 
             #flexbox_layout_item_info_for_repeated_fn
+
+            #cross_axis_self_alignment_for_repeated_fn
 
             fn subtree_range(self: ::core::pin::Pin<&Self>, dyn_index: u32) -> sp::IndexRange {
                 #![allow(unused)]
@@ -2715,9 +2731,27 @@ fn generate_repeated_component(
             }
         }
     } else {
+        // The cell's `cross-axis-self-alignment` in a box layout, filled into the
+        // returned LayoutItemInfo for the cross axis only, so the main-axis cache
+        // stays independent of it; the remaining literals default it to `auto`.
+        let align_self_field =
+            root_sc.cross_axis_self_alignment_for_repeated.as_ref().map(|(cross_o, _)| {
+                let cross_o = match cross_o {
+                    Orientation::Horizontal => quote!(sp::Orientation::Horizontal),
+                    Orientation::Vertical => quote!(sp::Orientation::Vertical),
+                };
+                quote!(cross_axis_self_alignment: if o == #cross_o {
+                    self.as_ref().cross_axis_self_alignment_for_repeated()
+                } else {
+                    ::core::default::Default::default()
+                },)
+            });
         let layout_item_info_fn = root_sc.child_of_layout.then(|| {
             // Generate layout_item_info (from the RepeatedItemTree trait) in terms of ItemTree::layout_info
             if root_sc.is_repeated_row {
+                // Repeated grid Rows cannot carry cross-axis-self-alignment; the
+                // row-scan literals below default the field.
+                debug_assert!(root_sc.cross_axis_self_alignment_for_repeated.is_none());
                 // Create a context with proper global_access for compiling layout info expressions
                 let layout_ctx = EvaluationContext {
                     compilation_unit: unit,
@@ -2756,6 +2790,7 @@ fn generate_repeated_component(
                                                 sp::Orientation::Horizontal => #layout_info_h_code,
                                                 sp::Orientation::Vertical => #layout_info_v_code,
                                             },
+                                            ..::core::default::Default::default()
                                         };
                                     }
                                     #advance
@@ -2773,6 +2808,7 @@ fn generate_repeated_component(
                                             if let Some(inner) = _self.#inner_rep_id.instance_at(index - count) {
                                                 return sp::LayoutItemInfo {
                                                     constraint: inner.as_pin_ref().layout_info(o),
+                                                    ..::core::default::Default::default()
                                                 };
                                             }
                                         }
@@ -2791,12 +2827,12 @@ fn generate_repeated_component(
                             #(#scan_steps)*
                             sp::LayoutItemInfo::default()
                         } else {
-                            sp::LayoutItemInfo { constraint: self.as_ref().layout_info(o) }
+                            sp::LayoutItemInfo { constraint: self.as_ref().layout_info(o), #align_self_field ..::core::default::Default::default() }
                         }
                     }
                 } else {
                     quote! {
-                        sp::LayoutItemInfo { constraint: self.as_ref().layout_info(o) }
+                        sp::LayoutItemInfo { constraint: self.as_ref().layout_info(o), #align_self_field ..::core::default::Default::default() }
                     }
                 };
 
@@ -2816,7 +2852,7 @@ fn generate_repeated_component(
                         o: sp::Orientation,
                         _child_index: sp::Option<usize>,
                     ) -> sp::LayoutItemInfo {
-                        sp::LayoutItemInfo { constraint: self.as_ref().layout_info(o) }
+                        sp::LayoutItemInfo { constraint: self.as_ref().layout_info(o), #align_self_field ..::core::default::Default::default() }
                     }
                 }
             }
@@ -5556,8 +5592,8 @@ fn generate_with_flexbox_layout_item_info(
                         let info_h = sub_comp.as_pin_ref().flexbox_layout_item_info(sp::Orientation::Horizontal, None);
                         let info_v = #v_query;
                         items_vec_flex.push(info_h.props);
-                        items_vec_h.push(sp::LayoutItemInfo { constraint: info_h.constraint });
-                        items_vec_v.push(sp::LayoutItemInfo { constraint: info_v.constraint });
+                        items_vec_h.push(sp::LayoutItemInfo { constraint: info_h.constraint, ..::core::default::Default::default() });
+                        items_vec_v.push(sp::LayoutItemInfo { constraint: info_v.constraint, ..::core::default::Default::default() });
                     } else {
                         // Not-yet-instantiated slot: push placeholder cells so the cell
                         // count stays in sync with the repeater length written above.
