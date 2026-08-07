@@ -12,9 +12,9 @@ export component Foo {
 //      >  <error{Cannot convert string to int}
         str_num: Rectangle { }
 //      >     <error{Cannot convert string to int}
-//      >     <^error{Match expressions must be literal values}
+//      >     <^error{Cases must be literal values}
         num_2: Rectangle { }
-//      >   <error{Match expressions must be literal values}
+//      >   <error{Cases must be literal values}
     }
 }
 
@@ -30,7 +30,7 @@ export component Bar {
         num: Rectangle { }
 //      > <error{Cannot perform type conversion}
         str_num_2: Rectangle { }
-//      >       <error{Match expressions must be literal values}
+//      >       <error{Cases must be literal values}
     }
 }
 
@@ -47,8 +47,24 @@ export component Baz {
 //      >   <error{Cannot convert color to string}
         @markdown("hello"): Rectangle {}
 //      >                <error{Cannot convert styled-text to string}
-//      >                <^error{Match expressions must be literal values}
+//      >                <^error{Cases must be literal values}
         MyEnum.val2 : Rectangle {}
 //      >          <error{Cannot convert MyEnum to string}
+    }
+}
+
+export component CastWithWildcard {
+    in property <int> num: 42;
+    in property <int> num_2: 42;
+    in property <string> str_num: "42";
+
+    match num {
+        42: Rectangle { }
+        "42": Rectangle { }
+//      >  <error{Cannot convert string to int}
+        str_num: Rectangle { }
+//      >     <error{Cannot convert string to int}
+//      >     <^error{Cases must be literal values}
+        *: Rectangle { }
     }
 }

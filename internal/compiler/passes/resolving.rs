@@ -110,65 +110,203 @@ fn resolve_expression(
             Expression::DebugHook { expression, .. } => **expression = new_expr,
             _ => *expr = new_expr,
         }
-    // Specifically used to resolve match expressions
-    } else if let Expression::BinaryExpression { lhs, rhs, op } = expr {
-        let op = *op;
-        let rhs_node =
-            if let Expression::Uncompiled(node) = rhs.as_ref() { Some(node.clone()) } else { None };
+    }
+}
 
+/// Resolve the subject and the case values to create a standard conditional element
+fn resolve_match_elements(
+    elem: &ElementRc,
+    scope: &[ElementRc],
+    type_register: &TypeRegister,
+    type_loader: &crate::typeloader::TypeLoader,
+    diag: &mut BuildDiagnostics,
+) {
+    let mut match_elements = std::mem::take(&mut elem.borrow_mut().match_elements);
+    for match_element in &mut match_elements {
         resolve_expression(
             elem,
-            lhs,
-            property_name,
+            &mut match_element.subject,
+            None,
             Type::Invalid,
             scope,
             type_register,
             type_loader,
             diag,
         );
-        resolve_expression(
-            elem,
-            rhs,
-            property_name,
-            lhs.ty(),
-            scope,
-            type_register,
-            type_loader,
-            diag,
-        );
-        if op == '=' {
-            let is_literal = matches!(
-                rhs.as_ref(),
-                Expression::NumberLiteral(..)
-                    | Expression::StringLiteral(..)
-                    | Expression::BoolLiteral(..)
-                    | Expression::EnumerationValue(..)
+        let case_type = match_element.subject.ty();
+        for case in &mut match_element.cases {
+            resolve_expression(
+                elem,
+                &mut case.value,
+                None,
+                case_type.clone(),
+                scope,
+                type_register,
+                type_loader,
+                diag,
             );
-            let is_cast = matches!(rhs.as_ref(), Expression::Cast { .. });
-            let is_valid_cast = matches!(
-                rhs.as_ref(),
-                Expression::Cast { from, to, .. }
-                    if matches!(from.as_ref(), Expression::NumberLiteral(..))
-                        && matches!(to, Type::Color | Type::Int32)
-            );
-            if let Expression::NumberLiteral(val, unit) = rhs.as_ref()
-                && *unit == Unit::None
-                && val.fract() != 0.0
-                && let Some(node) = &rhs_node
-            {
-                diag.push_warning("Floating point comparison is not recommended".into(), node);
-            }
-
-            if let Some(node) = rhs_node {
-                if is_literal || is_valid_cast {
-                    // pass
-                } else if is_cast {
-                    diag.push_error("Cannot perform type conversion".into(), &node);
-                } else {
-                    diag.push_error("Match expressions must be literal values".into(), &node);
-                }
-            }
+            check_case_value(&case.value, &case.node, diag);
         }
+        let values: Vec<Option<CaseValue>> =
+            match_element.cases.iter().map(|case| CaseValue::new(&case.value)).collect();
+        check_duplicate_cases(&match_element.cases, &values, diag);
+        check_exhaustiveness(match_element, &values, diag);
+
+        let subject_property_name = compute_match_subject_property_name(elem);
+        elem.borrow_mut().property_declarations.insert(
+            subject_property_name.clone(),
+            PropertyDeclaration { property_type: case_type, ..PropertyDeclaration::default() },
+        );
+        let subject = std::mem::replace(
+            &mut match_element.subject,
+            Expression::PropertyReference(NamedReference::new(elem, subject_property_name.clone())),
+        );
+        elem.borrow_mut().set_binding(subject_property_name, subject.into());
+
+        match_element.lower_to_conditional_elements();
+    }
+}
+
+fn compute_match_subject_property_name(elem: &ElementRc) -> SmolStr {
+    let mut name = "match-subject".to_owned();
+    while elem.borrow().lookup_property(name.as_ref()).property_type != Type::Invalid {
+        name += "-";
+    }
+    name.into()
+}
+
+/// Confirms that each case is a literal value and matches the type of the subject
+fn check_case_value(value: &Expression, node: &SyntaxNode, diag: &mut BuildDiagnostics) {
+    let is_literal = matches!(
+        value,
+        Expression::NumberLiteral(..)
+            | Expression::StringLiteral(..)
+            | Expression::BoolLiteral(..)
+            | Expression::EnumerationValue(..)
+    );
+    let is_valid_cast = matches!(
+        value,
+        Expression::Cast { from, to, .. }
+            if matches!(from.as_ref(), Expression::NumberLiteral(..))
+                && matches!(to, Type::Color | Type::Int32)
+    );
+
+    if let Expression::NumberLiteral(number, Unit::None) = value
+        && number.fract() != 0.0
+    {
+        diag.push_warning("Floating point comparison is not recommended".into(), node);
+    }
+
+    if is_literal || is_valid_cast {
+        // pass
+    } else if matches!(value, Expression::Cast { .. }) {
+        diag.push_error("Cannot perform type conversion".into(), node);
+    } else {
+        diag.push_error("Cases must be literal values".into(), node);
+    }
+}
+
+#[derive(PartialEq)]
+enum CaseValue {
+    Number(f64, Unit),
+    String(SmolStr),
+    Bool(bool),
+    Enumeration(langtype::EnumerationValue),
+}
+
+impl CaseValue {
+    fn new(value: &Expression) -> Option<Self> {
+        match value {
+            Expression::Cast { from, .. } => Self::new(from),
+            Expression::NumberLiteral(number, unit) => Some(Self::Number(*number, *unit)),
+            Expression::StringLiteral(string) => Some(Self::String(string.clone())),
+            Expression::BoolLiteral(boolean) => Some(Self::Bool(*boolean)),
+            Expression::EnumerationValue(value) => Some(Self::Enumeration(value.clone())),
+            _ => None, // For invalid non-literals
+        }
+    }
+}
+
+/// Reports every case whose value is already covered by an earlier case
+fn check_duplicate_cases(
+    cases: &[MatchCaseInfo],
+    values: &[Option<CaseValue>],
+    diag: &mut BuildDiagnostics,
+) {
+    let mut seen: Vec<&CaseValue> = Vec::with_capacity(values.len());
+    for (case, value) in cases.iter().zip(values) {
+        let Some(value) = value else {
+            continue; // not a valid literal
+        };
+        if seen.contains(&value) {
+            diag.push_error("Duplicate case value".into(), &case.node);
+        } else {
+            seen.push(value);
+        }
+    }
+}
+
+impl std::fmt::Display for CaseValue {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            CaseValue::Number(number, _) => write!(f, "{number}"),
+            CaseValue::String(string) => write!(f, "{string:?}"),
+            CaseValue::Bool(boolean) => write!(f, "{boolean}"),
+            CaseValue::Enumeration(value) => write!(f, "{value}"),
+        }
+    }
+}
+
+/// Reports a match element that does not cover every value its subject can take
+fn check_exhaustiveness(
+    match_element: &MatchElementInfo,
+    values: &[Option<CaseValue>],
+    diag: &mut BuildDiagnostics,
+) {
+    if !matches!(match_element.wildcard, WildcardMatchCaseInfo::None) {
+        return;
+    }
+    // Prevents duplicated errors if both not a literal and not exhaustive
+    let mut covered: Vec<&CaseValue> = Vec::with_capacity(values.len());
+    for value in values {
+        let Some(value) = value else {
+            return;
+        };
+        covered.push(value);
+    }
+    let subject_node = match_element.node.Expression();
+    let subject_type = match_element.subject.ty();
+    let expected: Vec<CaseValue> = match &subject_type {
+        Type::Bool => vec![CaseValue::Bool(true), CaseValue::Bool(false)],
+        Type::Enumeration(enumeration) => (0..enumeration.values.len())
+            .map(|value| {
+                CaseValue::Enumeration(langtype::EnumerationValue {
+                    value,
+                    enumeration: enumeration.clone(),
+                })
+            })
+            .collect(),
+        Type::Invalid => return,
+        _ => {
+            diag.push_error(
+                format!("Non-exhaustive match on {subject_type}: a '*' case is required"),
+                &subject_node,
+            );
+            return;
+        }
+    };
+
+    let mut missing = Vec::new();
+    for value in &expected {
+        if !covered.contains(&value) {
+            missing.push(value.to_string());
+        }
+    }
+    if !missing.is_empty() {
+        diag.push_error(
+            format!("Non-exhaustive match on {subject_type}: missing {}", missing.join(", ")),
+            &subject_node,
+        );
     }
 }
 
@@ -218,6 +356,8 @@ pub fn resolve_expressions(
                         );
                     });
                 }
+
+                resolve_match_elements(elem, &scope.0, &doc.local_registry, type_loader, diag);
 
                 resolve_two_way_bindings_for_element(elem, &scope.0, &doc.local_registry, diag);
 

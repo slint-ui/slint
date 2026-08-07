@@ -29,11 +29,11 @@ export interface InvalidContent {
 //  >            <error{An interface cannot have an 'init' callback}
 
     match i {
-//  >error{An interface cannot have match statements}
+//  >error{An interface cannot have match elements}
         1: Rectangle { }
         *: { }
     }
-//  <error{An interface cannot have match statements}
+//  <error{An interface cannot have match elements}
 
     init => {
 //  >error{An interface cannot have an 'init' callback}
