@@ -97,20 +97,26 @@ mod cubic_bezier {
 
             // Newton's method.
             let mut t = (x - from) / (to - from);
+            let mut degenerate = false;
             for _ in 0..8 {
                 let x2 = self.x(t);
-
-                if S::abs(x2 - x) <= tolerance {
-                    return t;
-                }
-
                 let dx = self.dx(t);
 
                 if dx <= S::EPSILON {
+                    degenerate = true;
                     break;
                 }
 
-                t -= (x2 - x) / dx;
+                let step = (x2 - x) / dx;
+                t -= step;
+
+                if S::abs(step) <= tolerance {
+                    return t.max(t_range.start).min(t_range.end);
+                }
+            }
+
+            if !degenerate {
+                return t.max(t_range.start).min(t_range.end);
             }
 
             // Fall back to binary search.
