@@ -233,16 +233,14 @@ impl WasmInputHelper {
         let input = h.input.clone();
         h.add_event_listener("compositionend", move |e: web_sys::CompositionEvent| {
             if let (Some(window_adapter), Some(data)) = (win.upgrade(), e.data()) {
-                let window_inner = WindowInner::from_pub(window_adapter.window());
-
                 let mut key_event = KeyEvent::default();
                 key_event.text = data.into();
 
-                window_inner.process_key_input(InternalKeyEvent {
+                window_adapter.window().dispatch_event(WindowEvent::internal(InternalKeyEvent {
                     key_event,
                     event_type: KeyEventType::CommitComposition,
                     ..Default::default()
-                });
+                }));
                 input.set_value("");
             }
         });
@@ -250,12 +248,11 @@ impl WasmInputHelper {
         let win = window_adapter.clone();
         h.add_event_listener("compositionupdate", move |e: web_sys::CompositionEvent| {
             if let (Some(window_adapter), Some(data)) = (win.upgrade(), e.data()) {
-                let window_inner = WindowInner::from_pub(window_adapter.window());
-                window_inner.process_key_input(InternalKeyEvent {
+                window_adapter.window().dispatch_event(WindowEvent::internal(InternalKeyEvent {
                     preedit_text: data.into(),
                     event_type: KeyEventType::UpdateComposition,
                     ..Default::default()
-                });
+                }));
             }
         });
 

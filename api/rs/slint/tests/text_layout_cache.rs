@@ -4,7 +4,6 @@
 mod common;
 
 use i_slint_core::input::{InternalKeyEvent, KeyEventType};
-use i_slint_core::window::WindowInner;
 use slint::platform::software_renderer::{
     MinimalSoftwareWindow, PremultipliedRgbaColor, SoftwareRenderer, TargetPixel,
 };
@@ -488,7 +487,7 @@ fn composition_is_shaped_through_the_cache() {
     event.preedit_text = "WWWWWWWWWW".into();
     // Where the IME puts the cursor: at the end of the composition.
     event.cursor_position = Some(2 + "WWWWWWWWWW".len() as i32);
-    WindowInner::from_pub(ui.window()).process_key_input(event);
+    ui.window().dispatch_event(slint::platform::WindowEvent::internal(event));
 
     // Read the counter before rendering, so it only covers the cursor rect query above, and again
     // afterwards to see what drawing the composition adds.
@@ -637,7 +636,7 @@ fn ime_composition_is_not_served_a_stale_size() {
     let mut event = InternalKeyEvent::default();
     event.event_type = KeyEventType::UpdateComposition;
     event.preedit_text = "WWWWWWWWWW".into();
-    WindowInner::from_pub(ui.window()).process_key_input(event);
+    ui.window().dispatch_event(slint::platform::WindowEvent::internal(event));
 
     window.request_redraw();
     window.draw_if_needed(|renderer| {

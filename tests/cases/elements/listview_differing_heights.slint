@@ -68,7 +68,6 @@ impl ScrollDirection {
 
 let instance = Test::new().unwrap();
 let window = instance.window();
-let inner = slint_testing::WindowInner::from_pub(&window);
 let scroll_position = LogicalPoint::new(300.0, 300.0);
 
 let send_event = |event| {
@@ -94,12 +93,12 @@ let send_moved_event = |x, y| {
 };
 
 let send_wheel_event = |delta_y, phase| {
-    inner.process_mouse_input(MouseEvent::Wheel {
+    send_event(WindowEvent::internal(MouseEvent::Wheel {
         position: scroll_position,
         delta_x: 0.0,
         delta_y,
         phase,
-    });
+    }));
 };
 
 let probe_index = |direction| {
