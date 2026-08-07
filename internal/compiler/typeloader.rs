@@ -481,6 +481,11 @@ impl Snapshotter {
                         (nr.snapshot(self), sl.clone(), self.create_and_snapshot_element(el))
                     })
                     .collect(),
+                catch_all_property_animations: t
+                    .catch_all_property_animations
+                    .iter()
+                    .map(|(sl, el)| (sl.clone(), self.create_and_snapshot_element(el)))
+                    .collect(),
                 node: t.node.clone(),
             })
             .collect();
