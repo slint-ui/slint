@@ -63,6 +63,10 @@ An import path is a double-quoted string literal. \{#sls.import.path-literal}
 <OnlyInSC>
 The path is resolved relative to the directory of the importing source file. \{#sls.import.path-relative}
 </OnlyInSC>
+
+The characters between the quotes are taken verbatim: escape sequences aren't decoded.
+Both `/` and `\` are directory separators,
+so a backslash separates directories rather than escaping the next character. \{#sls.import.path-verbatim}
 </SC>
 
 If the path begins with the character `@`, it is a *library import*:
