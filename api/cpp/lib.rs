@@ -16,6 +16,8 @@ use i_slint_core::styled_text::StyledText;
 use i_slint_core::window::{WindowAdapter, ffi::WindowAdapterRcOpaque};
 
 pub mod platform;
+#[cfg(feature = "unstable-wgpu-30")]
+pub mod vulkan;
 
 #[cfg(all(target_os = "emscripten", feature = "std"))]
 mod emscripten;

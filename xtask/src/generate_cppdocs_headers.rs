@@ -38,6 +38,7 @@ pub fn generate(experimental: bool) -> Result<(), Box<dyn std::error::Error>> {
         renderer_skia_software: false,
         renderer_skia_vulkan: false,
         renderer_software: true,
+        unstable_wgpu_30: true,
         gettext: true,
         image_pixel_format_rgb565: true,
         image_pixel_format_gray8: true,

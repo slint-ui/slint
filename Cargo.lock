@@ -7289,6 +7289,7 @@ name = "slint-cpp"
 version = "1.19.0"
 dependencies = [
  "anyhow",
+ "ash",
  "cbindgen",
  "esp-backtrace",
  "esp-println",

@@ -63,5 +63,15 @@ set(_IMPORT_PREFIX)
 
 include("${CMAKE_CURRENT_LIST_DIR}/SlintTargets.cmake")
 
+# `slint-vulkan.h` is typed with the real Vulkan types. Look them up here, on the machine
+# consuming Slint, rather than baking in a path from wherever Slint was built. This is
+# deliberately not a `find_dependency`: only that one header needs the Vulkan headers, so
+# missing them must not fail everyone else's configure step.
+find_package(Vulkan QUIET)
+if(Vulkan_FOUND)
+    set_property(TARGET Slint::Slint APPEND PROPERTY
+        INTERFACE_INCLUDE_DIRECTORIES ${Vulkan_INCLUDE_DIRS})
+endif()
+
 set(SLINT_STYLE @_SLINT_STYLE@ CACHE STRING "The Slint widget style")
 set_property(GLOBAL PROPERTY SLINT_STYLE ${SLINT_STYLE})
