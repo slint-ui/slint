@@ -53,6 +53,15 @@ pub struct WGPUSurface {
     alpha_modes: Vec<wgpu::CompositeAlphaMode>,
 }
 
+fn backends_to_avoid() -> wgpu::Backends {
+    wgpu::Backends::GL /* we're not mapping that to skia because we can't save/restore state */
+        .union(if cfg!(target_os = "windows") {
+            wgpu::Backends::VULKAN
+        } else {
+            wgpu::Backends::empty()
+        })
+}
+
 impl WGPUSurface {
     pub fn new_with_surface(
         surface_target: impl Into<i_slint_core::graphics::wgpu_29::SurfaceTarget>,
@@ -63,18 +72,26 @@ impl WGPUSurface {
             i_slint_core::graphics::wgpu_29::init_instance_adapter_device_queue_surface(
                 surface_target,
                 requested_graphics_api,
-                wgpu::Backends::GL /* we're not mapping that to skia because we can't save/restore state */
-                    .union(if cfg!(target_os = "windows") {
-                        wgpu::Backends::VULKAN
-                    } else {
-                        wgpu::Backends::empty()
-                    }),
+                backends_to_avoid(),
             )?;
+        Self::init_with_parts(instance, &adapter, device, queue, surface, size)
+    }
+
+    fn init_with_parts(
+        instance: wgpu::Instance,
+        adapter: &wgpu::Adapter,
+        device: wgpu::Device,
+        queue: wgpu::Queue,
+        surface: wgpu::Surface<'static>,
+        size: PhysicalWindowSize,
+    ) -> Result<Self, PlatformError> {
+        #[cfg(target_vendor = "apple")]
+        metal::set_layer_contents_gravity(&surface);
 
         let mut surface_config =
-            surface.get_default_config(&adapter, size.width, size.height).unwrap();
+            surface.get_default_config(adapter, size.width, size.height).unwrap();
 
-        let swapchain_capabilities = surface.get_capabilities(&adapter);
+        let swapchain_capabilities = surface.get_capabilities(adapter);
         let swapchain_format = swapchain_capabilities
             .formats
             .iter()
@@ -88,7 +105,7 @@ impl WGPUSurface {
 
         let backend: Backend = adapter.get_info().backend.try_into()?;
 
-        let gr_context = backend.make_context(&adapter, &device, &queue);
+        let gr_context = backend.make_context(adapter, &device, &queue);
 
         Ok(Self {
             gr_context: RefCell::new(
@@ -151,20 +168,126 @@ impl WGPUSurface {
     }
 }
 
+/// These resources are cached for the first window and future windows with
+/// matching settings will use them instead of creating new ones. if the
+/// settings don't match, then a newly created window will overwrite the shared
+/// primitives with its own newly-initialized ones
+#[derive(Clone)]
+pub(crate) struct SharedWgpuState {
+    instance: wgpu::Instance,
+    adapter: wgpu::Adapter,
+    device: wgpu::Device,
+    queue: wgpu::Queue,
+    // None if default device descriptor was used
+    #[cfg(feature = "unstable-wgpu-29")]
+    settings: Option<i_slint_core::graphics::wgpu_29::api::WGPUSettings>,
+}
+
+fn adapter_matches_graphics_api_request(
+    adapter: &wgpu::Adapter,
+    requested_graphics_api: Option<&RequestedGraphicsAPI>,
+) -> bool {
+    let backend = adapter.get_info().backend;
+    match requested_graphics_api {
+        None => true,
+        Some(RequestedGraphicsAPI::Metal) => backend == wgpu::Backend::Metal,
+        Some(RequestedGraphicsAPI::Vulkan) => backend == wgpu::Backend::Vulkan,
+        Some(RequestedGraphicsAPI::Direct3D) => backend == wgpu::Backend::Dx12,
+        #[cfg(feature = "unstable-wgpu-29")]
+        Some(RequestedGraphicsAPI::WGPU29(
+            i_slint_core::graphics::wgpu_29::api::WGPUConfiguration::Automatic(settings),
+        )) => {
+            let backend_bit = match backend {
+                wgpu::Backend::Vulkan => wgpu::Backends::VULKAN,
+                wgpu::Backend::Metal => wgpu::Backends::METAL,
+                wgpu::Backend::Dx12 => wgpu::Backends::DX12,
+                wgpu::Backend::Gl => wgpu::Backends::GL,
+                wgpu::Backend::BrowserWebGpu => wgpu::Backends::BROWSER_WEBGPU,
+                _ => return false,
+            };
+            settings.backends.contains(backend_bit)
+        }
+        Some(_) => false,
+    }
+}
+
 impl crate::Surface for WGPUSurface {
     fn new(
-        _shared_context: &SkiaSharedContext,
+        shared_context: &SkiaSharedContext,
         window_handle: Arc<dyn raw_window_handle::HasWindowHandle + Send + Sync>,
         display_handle: Arc<dyn raw_window_handle::HasDisplayHandle + Send + Sync>,
         size: PhysicalWindowSize,
         requested_graphics_api: Option<RequestedGraphicsAPI>,
     ) -> Result<Self, PlatformError> {
-        Self::new_with_surface(
-            Box::new(WindowAndDisplayHandle(window_handle, display_handle))
-                as Box<dyn wgpu::DisplayAndWindowHandle + 'static>,
-            size,
-            requested_graphics_api,
-        )
+        let make_target = || -> Box<dyn wgpu::DisplayAndWindowHandle + 'static> {
+            Box::new(WindowAndDisplayHandle(window_handle.clone(), display_handle.clone()))
+        };
+
+        #[cfg(feature = "unstable-wgpu-29")]
+        let manual_configuration = matches!(
+            &requested_graphics_api,
+            Some(RequestedGraphicsAPI::WGPU29(
+                i_slint_core::graphics::wgpu_29::api::WGPUConfiguration::Manual { .. }
+            ))
+        );
+        #[cfg(not(feature = "unstable-wgpu-29"))]
+        let manual_configuration = false;
+
+        // The settings the device would be created with, when the request carries any.
+        #[cfg(feature = "unstable-wgpu-29")]
+        let requested_settings = match &requested_graphics_api {
+            Some(RequestedGraphicsAPI::WGPU29(
+                i_slint_core::graphics::wgpu_29::api::WGPUConfiguration::Automatic(settings),
+            )) => Some(settings.clone()),
+            _ => None,
+        };
+
+        // try to reuse old / shared graphics primitives from previous windows with matching
+        // settings
+        if !manual_configuration {
+            let shared_state = shared_context.0.wgpu_29_state.borrow().clone();
+            if let Some(shared) = shared_state {
+                #[cfg(feature = "unstable-wgpu-29")]
+                let settings_compatible = shared.settings == requested_settings;
+                #[cfg(not(feature = "unstable-wgpu-29"))]
+                let settings_compatible = true;
+                if settings_compatible
+                    && adapter_matches_graphics_api_request(
+                        &shared.adapter,
+                        requested_graphics_api.as_ref(),
+                    )
+                    && let Ok(surface) = shared.instance.create_surface(make_target())
+                    && shared.adapter.is_surface_supported(&surface)
+                {
+                    return Self::init_with_parts(
+                        shared.instance,
+                        &shared.adapter,
+                        shared.device,
+                        shared.queue,
+                        surface,
+                        size,
+                    );
+                }
+            }
+        }
+
+        let (instance, adapter, device, queue, surface) =
+            i_slint_core::graphics::wgpu_29::init_instance_adapter_device_queue_surface(
+                make_target(),
+                requested_graphics_api,
+                backends_to_avoid(),
+            )?;
+        if !manual_configuration {
+            *shared_context.0.wgpu_29_state.borrow_mut() = Some(SharedWgpuState {
+                instance: instance.clone(),
+                adapter: adapter.clone(),
+                device: device.clone(),
+                queue: queue.clone(),
+                #[cfg(feature = "unstable-wgpu-29")]
+                settings: requested_settings,
+            });
+        }
+        Self::init_with_parts(instance, &adapter, device, queue, surface, size)
     }
 
     fn name(&self) -> &'static str {

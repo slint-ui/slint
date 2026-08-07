@@ -335,7 +335,12 @@ fn create_partial_renderer_state(
 }
 
 #[derive(Default)]
-struct SkiaSharedContextInner {}
+struct SkiaSharedContextInner {
+    #[cfg(feature = "wgpu-29")]
+    wgpu_29_state: RefCell<Option<wgpu_29_surface::SharedWgpuState>>,
+    #[cfg(feature = "wgpu-30")]
+    wgpu_30_state: RefCell<Option<wgpu_30_surface::SharedWgpuState>>,
+}
 
 /// This data structure contains data that's intended to be shared across several instances of SkiaRenderer.
 /// For example, for Vulkan rendering, this shares the Vulkan instance.
