@@ -277,10 +277,6 @@ mod tests {
         fn glyph_for_char(&self, _ch: char) -> Option<Glyph<Self::Length>> {
             None
         }
-
-        fn max_lines(&self, max_height: Self::Length, line_height: Self::Length) -> usize {
-            (max_height.get() / line_height.get()) as usize
-        }
     }
 
     #[test]

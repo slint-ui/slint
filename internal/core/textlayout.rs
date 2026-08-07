@@ -215,8 +215,7 @@ impl<Font: AbstractFont> TextParagraphLayout<'_, Font> {
         // overflow is trimmed; horizontal elision still places an ellipsis if it is too
         // wide. Mirrors the parley path, which always keeps line index 0.
         let line_height = self.layout.line_height();
-        let max_lines_from_height =
-            elide.then(|| self.layout.font.max_lines(self.max_height, line_height).max(1));
+        let max_lines_from_height = elide.then(|| self.max_lines_that_fit(line_height).max(1));
         let max_lines = [self.max_lines, max_lines_from_height].into_iter().flatten().min();
 
         let new_line_break_iter = || {
@@ -416,6 +415,18 @@ impl<Font: AbstractFont> TextParagraphLayout<'_, Font> {
         Ok(baseline_y)
     }
 
+    /// How many lines of `line_height` fit within `self.max_height`, rounded down. `line_height`
+    /// is always positive (see `TextLayout::line_height`), so this terminates.
+    fn max_lines_that_fit(&self, line_height: Font::Length) -> usize {
+        let mut lines = 0usize;
+        let mut height = Font::Length::zero();
+        while height + line_height <= self.max_height {
+            height += line_height;
+            lines += 1;
+        }
+        lines
+    }
+
     /// Returns the leading edge of the glyph at the given byte offset
     pub fn cursor_pos_for_byte_offset(&self, byte_offset: usize) -> (Font::Length, Font::Length) {
         let mut last_glyph_right_edge = Font::Length::zero();
@@ -537,10 +548,6 @@ impl TextShaper for FixedTestFont {
             text_byte_offset: 0,
         }
         .into()
-    }
-
-    fn max_lines(&self, max_height: f32, line_height: f32) -> usize {
-        (max_height / line_height).floor() as _
     }
 }
 
