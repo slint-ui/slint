@@ -115,12 +115,32 @@ pub struct MouseInputState {
 
 ## Event Processing Flow
 
+### Backend Entry Point
+
+Every event a backend delivers goes through `Window::dispatch_event_with_result()`.
+Events that the public `WindowEvent` variants can't express travel as `WindowEvent::Internal(InternalEvent)`,
+a doc-hidden variant that carries the runtime's own `MouseEvent`, `InternalKeyEvent` or touch point.
+The dispatch reports them to the window event hook as the public event they correspond to,
+or not at all when there is none (gestures, touch, input method composition).
+
+`WindowInner::process_mouse_input()`, `process_key_input()` and `process_touch_input()` are crate-private,
+so backends can't bypass that funnel and each event is observed exactly once.
+Drag and drop is the exception: it uses `WindowInner::process_drag_event()`,
+because the backend needs the negotiated `DragAction` back, which the public dispatch result can't express.
+
 ### Mouse Event Flow
 
 ```
 ┌─────────────────┐
 │  Platform       │  (winit, Qt, etc.)
 │  WindowEvent    │
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│  Window::       │  Single entry point for backend input
+│  dispatch_event │  Notifies the window event hook
+│  _with_result() │
 └────────┬────────┘
          │
          ▼
@@ -325,6 +345,9 @@ pub mod key_codes {
 
 ```
 Platform KeyEvent
+       │
+       ▼
+Window::dispatch_event_with_result()
        │
        ▼
 WindowInner::process_key_input()

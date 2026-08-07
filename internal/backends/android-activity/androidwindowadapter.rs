@@ -17,7 +17,7 @@ use i_slint_core::api::{
 use i_slint_core::input::{InternalKeyEvent, KeyEvent, KeyEventType, TouchPhase};
 use i_slint_core::lengths::PhysicalEdges;
 use i_slint_core::platform::{
-    Key, PointerEventButton, WindowAdapter, WindowEvent, WindowProperties,
+    InternalEvent, Key, PointerEventButton, WindowAdapter, WindowEvent, WindowProperties,
 };
 use i_slint_core::timers::{Timer, TimerMode};
 use i_slint_core::window::{InputMethodRequest, WindowInner};
@@ -345,22 +345,26 @@ impl AndroidWindowAdapter {
                             );
                             self.long_press.replace(Some(LongPressDetection { position, _timer }));
                             if let Some(p) = motion_event.pointers().next() {
-                                WindowInner::from_pub(&self.window).process_touch_input(
-                                    p.pointer_id(),
-                                    touch_pos(&p),
-                                    TouchPhase::Started,
-                                );
+                                self.window.dispatch_event(WindowEvent::internal(
+                                    InternalEvent::Touch {
+                                        id: p.pointer_id(),
+                                        position: touch_pos(&p),
+                                        phase: TouchPhase::Started,
+                                    },
+                                ));
                             }
                             InputStatus::Handled
                         }
                         MotionAction::Up => {
                             self.long_press.take();
                             if let Some(p) = motion_event.pointers().next() {
-                                WindowInner::from_pub(&self.window).process_touch_input(
-                                    p.pointer_id(),
-                                    touch_pos(&p),
-                                    TouchPhase::Ended,
-                                );
+                                self.window.dispatch_event(WindowEvent::internal(
+                                    InternalEvent::Touch {
+                                        id: p.pointer_id(),
+                                        position: touch_pos(&p),
+                                        phase: TouchPhase::Ended,
+                                    },
+                                ));
                             }
                             InputStatus::Handled
                         }
@@ -377,13 +381,14 @@ impl AndroidWindowAdapter {
                             }
                             drop(lp);
 
-                            let runtime_window = WindowInner::from_pub(&self.window);
                             for p in motion_event.pointers() {
-                                runtime_window.process_touch_input(
-                                    p.pointer_id(),
-                                    touch_pos(&p),
-                                    TouchPhase::Moved,
-                                );
+                                self.window.dispatch_event(WindowEvent::internal(
+                                    InternalEvent::Touch {
+                                        id: p.pointer_id(),
+                                        position: touch_pos(&p),
+                                        phase: TouchPhase::Moved,
+                                    },
+                                ));
                             }
                             InputStatus::Handled
                         }
@@ -392,22 +397,26 @@ impl AndroidWindowAdapter {
                             self.long_press.take();
                             let idx = motion_event.pointer_index();
                             if let Some(p) = motion_event.pointers().nth(idx) {
-                                WindowInner::from_pub(&self.window).process_touch_input(
-                                    p.pointer_id(),
-                                    touch_pos(&p),
-                                    TouchPhase::Started,
-                                );
+                                self.window.dispatch_event(WindowEvent::internal(
+                                    InternalEvent::Touch {
+                                        id: p.pointer_id(),
+                                        position: touch_pos(&p),
+                                        phase: TouchPhase::Started,
+                                    },
+                                ));
                             }
                             InputStatus::Handled
                         }
                         MotionAction::PointerUp => {
                             let idx = motion_event.pointer_index();
                             if let Some(p) = motion_event.pointers().nth(idx) {
-                                WindowInner::from_pub(&self.window).process_touch_input(
-                                    p.pointer_id(),
-                                    touch_pos(&p),
-                                    TouchPhase::Ended,
-                                );
+                                self.window.dispatch_event(WindowEvent::internal(
+                                    InternalEvent::Touch {
+                                        id: p.pointer_id(),
+                                        position: touch_pos(&p),
+                                        phase: TouchPhase::Ended,
+                                    },
+                                ));
                             }
                             InputStatus::Handled
                         }
@@ -420,13 +429,14 @@ impl AndroidWindowAdapter {
                         }
                         MotionAction::Cancel | MotionAction::Outside => {
                             self.long_press.take();
-                            let runtime_window = WindowInner::from_pub(&self.window);
                             for p in motion_event.pointers() {
-                                runtime_window.process_touch_input(
-                                    p.pointer_id(),
-                                    touch_pos(&p),
-                                    TouchPhase::Cancelled,
-                                );
+                                self.window.dispatch_event(WindowEvent::internal(
+                                    InternalEvent::Touch {
+                                        id: p.pointer_id(),
+                                        position: touch_pos(&p),
+                                        phase: TouchPhase::Cancelled,
+                                    },
+                                ));
                             }
                             InputStatus::Handled
                         }
@@ -439,7 +449,6 @@ impl AndroidWindowAdapter {
                 }
                 InputEvent::TextEvent(state) => {
                     self.show_cursor_handles.set(false);
-                    let runtime_window = WindowInner::from_pub(&self.window);
                     // remove the pre_edit
                     let event = if let Some(r) = state.compose_region {
                         let adjust =
@@ -473,7 +482,7 @@ impl AndroidWindowAdapter {
                             ..Default::default()
                         }
                     };
-                    runtime_window.process_key_input(event);
+                    self.window.dispatch_event(WindowEvent::internal(event));
                     InputStatus::Handled
                 }
                 _ => InputStatus::Unhandled,

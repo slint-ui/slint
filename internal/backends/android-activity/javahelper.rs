@@ -596,7 +596,6 @@ fn callback_update_text<'local>(
     i_slint_core::api::invoke_from_event_loop(move || {
         if let Some(adaptor) = CURRENT_WINDOW.with_borrow(|x| x.upgrade()) {
             adaptor.show_cursor_handles.set(false);
-            let runtime_window = i_slint_core::window::WindowInner::from_pub(&adaptor.window);
             let event = if preedit_start != preedit_end {
                 let adjust = |pos| {
                     if pos <= preedit_start {
@@ -634,7 +633,7 @@ fn callback_update_text<'local>(
                     ..Default::default()
                 }
             };
-            runtime_window.process_key_input(event);
+            adaptor.window.dispatch_event(i_slint_core::platform::WindowEvent::internal(event));
         }
     })
     .unwrap();
