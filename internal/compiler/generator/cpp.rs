@@ -2592,18 +2592,12 @@ fn generate_sub_component(
             update_timers.push(format!(
                 "   if (!self->{name}.running() || self->{name}.interval() != interval) {{"
             ));
-            update_timers.push(format!(
-                "      if ({repeat}) {{"
-            ));
+            update_timers.push(format!("      if ({repeat}) {{"));
             update_timers.push(format!("          self->{name}.start(slint::TimerMode::Repeated, interval, [self] {{ {callback}; }});"));
-            update_timers.push(
-                "      } else {".into()
-            );
+            update_timers.push("      } else {".into());
             update_timers.push(format!("          self->{name}.start(slint::TimerMode::SingleShot, interval, [self] {{ {callback}; }});"));
-            update_timers.push(
-                "      }".into());
-            update_timers.push(
-                "   }".into());
+            update_timers.push("      }".into());
+            update_timers.push("   }".into());
 
             update_timers.push(format!("}} else {{ self->{name}.stop(); }} }}"));
             target_struct.members.push((
