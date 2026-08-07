@@ -17,7 +17,7 @@ pub fn check_expressions(doc: &crate::object_tree::Document, diag: &mut BuildDia
     for component in &doc.inner_components {
         visit_all_expressions(component, |e, _| check_expression(component, e, diag));
         recurse_elem_including_sub_components(component, &(), &mut |elem, _| {
-            for binding in elem.borrow().bindings.values() {
+            for (_, binding) in elem.borrow().real_bindings() {
                 if let Some(anim) = &binding.borrow().animation {
                     check_animation(anim, diag);
                 }
@@ -51,9 +51,9 @@ fn check_spring_animation_fields(anim_element: &ElementRc, diag: &mut BuildDiagn
         Unknown,
     }
 
-    let easing_kind = match anim_element.bindings.get("easing") {
+    let easing_kind = match anim_element.binding("easing") {
         None => EasingKind::Missing,
-        Some(curve) => match &curve.borrow().expression {
+        Some(curve) => match &curve.expression {
             Expression::EasingCurve(EasingCurve::Spring) => EasingKind::Spring,
             Expression::EasingCurve(_) => EasingKind::NonSpring,
             _ => EasingKind::Unknown,
@@ -64,16 +64,15 @@ fn check_spring_animation_fields(anim_element: &ElementRc, diag: &mut BuildDiagn
         return;
     }
 
-    let has = |name: &str| anim_element.bindings.contains_key(name);
-    let span_for = |name: &str| {
-        anim_element.bindings.get(name).and_then(|b| b.borrow().span.clone()).unwrap_or_default()
-    };
+    let has = |name: &str| anim_element.binding(name).is_some();
+    let span_for =
+        |name: &str| anim_element.binding(name).and_then(|b| b.span.clone()).unwrap_or_default();
 
     if !matches!(easing_kind, EasingKind::Spring) {
         let mut check_binding = |name: &str| {
             if has(name) {
                 diag.push_error_with_span(
-                    format!("Cannot have '{name}' with a non Spring easing curve").into(),
+                    format!("Cannot have '{name}' with a non Spring easing curve"),
                     span_for(name),
                 );
             }
