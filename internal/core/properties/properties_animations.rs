@@ -63,14 +63,14 @@ where
 
 pub(super) struct PropertyValueAnimationData<T> {
     from_value: T,
-    to_value: T,
+    to_value: Option<T>,
     details: PropertyAnimation,
     start_time: crate::animations::Instant,
     state: AnimationState,
 }
 
 impl<T: InterpolatedPropertyValue + Clone> PropertyValueAnimationData<T> {
-    pub fn new(from_value: T, to_value: T, details: PropertyAnimation) -> Self {
+    pub fn new(from_value: T, to_value: Option<T>, details: PropertyAnimation) -> Self {
         let start_time = crate::animations::current_tick();
 
         Self { from_value, to_value, details, start_time, state: AnimationState::Delaying }
@@ -79,8 +79,9 @@ impl<T: InterpolatedPropertyValue + Clone> PropertyValueAnimationData<T> {
     /// Single iteration of the animation
     pub fn compute_interpolated_value(&mut self) -> (T, bool) {
         // If animation is disabled, immediately return the target value
+        let to_value = self.to_value.clone().expect("The animation should have a to_value");
         if !self.details.enabled {
-            return (self.to_value.clone(), true);
+            return (to_value, true);
         }
 
         let new_tick = crate::animations::current_tick();
@@ -105,11 +106,7 @@ impl<T: InterpolatedPropertyValue + Clone> PropertyValueAnimationData<T> {
                 let delay = self.details.delay as u64;
 
                 if time_progress < delay {
-                    if reversed(0) {
-                        (self.to_value.clone(), false)
-                    } else {
-                        (self.from_value.clone(), false)
-                    }
+                    if reversed(0) { (to_value, false) } else { (self.from_value.clone(), false) }
                 } else {
                     self.start_time =
                         new_tick - core::time::Duration::from_millis(time_progress - delay);
@@ -145,7 +142,7 @@ impl<T: InterpolatedPropertyValue + Clone> PropertyValueAnimationData<T> {
                         if reversed(current_iteration) { 1. - progress } else { progress }
                     };
                     let t = crate::animations::easing_curve(&self.details.easing, progress);
-                    let val = self.from_value.interpolate(&self.to_value, t);
+                    let val = self.from_value.interpolate(&to_value, t);
 
                     (val, false)
                 } else {
@@ -158,15 +155,10 @@ impl<T: InterpolatedPropertyValue + Clone> PropertyValueAnimationData<T> {
                 if reversed(iteration_count) {
                     (self.from_value.clone(), true)
                 } else {
-                    (self.to_value.clone(), true)
+                    (to_value, true)
                 }
             }
         }
-    }
-
-    fn reset(&mut self) {
-        self.state = AnimationState::Delaying;
-        self.start_time = crate::animations::current_tick();
     }
 }
 
@@ -184,6 +176,8 @@ pub(super) struct AnimatedBindingCallable<T, A> {
     pub(super) state: Cell<AnimatedBindingState>,
     pub(super) animation_data: RefCell<PropertyValueAnimationData<T>>,
     pub(super) compute_animation_details: A,
+    /// Tick captured by `mark_dirty`
+    pub(super) dirty_time: Cell<crate::animations::Instant>,
 }
 
 pub(super) type AnimationDetail = (PropertyAnimation, Option<crate::animations::Instant>);
@@ -213,18 +207,32 @@ unsafe impl<T: InterpolatedPropertyValue + Clone, A: Fn() -> AnimationDetail> Bi
                 unsafe { self.original_binding.update(value as *mut T) };
             }
             AnimatedBindingState::ShouldStart => {
-                self.state.set(AnimatedBindingState::Animating);
                 let mut animation_data = self.animation_data.borrow_mut();
-                // animation_data.details.iteration_count = 1.;
-                animation_data.from_value = value.clone();
-                let (details, start_time) = (self.compute_animation_details)();
-                if let Some(start_time) = start_time {
-                    animation_data.start_time = start_time;
-                }
-                animation_data.details = details;
 
-                // Safety: `animation_data.to_value` is a valid mutable reference
-                unsafe { self.original_binding.update((&mut animation_data.to_value) as *mut T) };
+                // Since `mark_dirty` fires when dependencies of `original_binding` changes
+                // if the change doesn't actually affect the computed value, it shouldn't restart
+                // the animation
+                let previous_to_value = animation_data.to_value.clone();
+                let mut new_to_value = T::default();
+                // Safety: `new_to_value` is a valid mutable reference matching the
+                // original binding's value type
+                unsafe { self.original_binding.update(&mut new_to_value as *mut T) };
+                animation_data.to_value = Some(new_to_value);
+
+                if animation_data.to_value != previous_to_value {
+                    animation_data.state = AnimationState::Delaying;
+                    // Anchor timing to when the change was first signalled
+                    animation_data.start_time = self.dirty_time.get();
+                    // animation_data.details.iteration_count = 1.;
+                    animation_data.from_value = value.clone();
+                    let (details, start_time) = (self.compute_animation_details)();
+                    if let Some(start_time) = start_time {
+                        animation_data.start_time = start_time;
+                    }
+                    animation_data.details = details;
+                }
+
+                self.state.set(AnimatedBindingState::Animating);
                 let (val, finished) = animation_data.compute_interpolated_value();
                 *value = val;
                 if finished {
@@ -244,7 +252,7 @@ unsafe impl<T: InterpolatedPropertyValue + Clone, A: Fn() -> AnimationDetail> Bi
         let original_dirty = self.original_binding.access(|b| b.unwrap().dirty.get());
         if original_dirty {
             self.state.set(AnimatedBindingState::ShouldStart);
-            self.animation_data.borrow_mut().reset();
+            self.dirty_time.set(crate::animations::current_tick());
         }
     }
 }
@@ -313,7 +321,7 @@ impl<T: Clone + InterpolatedPropertyValue + 'static> Property<T> {
     pub fn set_animated_value(self: Pin<&Self>, value: T, animation_data: PropertyAnimation) {
         let d = RefCell::new(properties_animations::PropertyValueAnimationData::new(
             self.get(),
-            value,
+            Some(value),
             animation_data,
         ));
         // Safety: the BindingCallable will cast its argument to T
@@ -361,10 +369,11 @@ impl<T: Clone + InterpolatedPropertyValue + 'static> Property<T> {
             state: Cell::new(properties_animations::AnimatedBindingState::NotAnimating),
             animation_data: RefCell::new(properties_animations::PropertyValueAnimationData::new(
                 T::default(),
-                T::default(),
+                None,
                 PropertyAnimation::default(),
             )),
             compute_animation_details,
+            dirty_time: Cell::new(crate::animations::current_tick()),
         };
 
         // Safety: the `AnimatedBindingCallable`'s type match the property type
@@ -990,6 +999,61 @@ mod animation_tests {
             .with(|driver| driver.update_animations(start_time + DELAY + DURATION + DURATION / 2));
         assert_eq!(get_prop_value(&compo.width), 200);
         assert_eq!(get_prop_value(&compo.width_times_two), 400);
+    }
+
+    #[test]
+    fn properties_test_animation_triggered_by_binding_with_unrelated_dirty() {
+        // Reproduces the dependency not changing target bug: the binding driving the
+        // animated property (`row.1`) never changes, but an *unrelated* field of the
+        // same source value (`row.0`) is rewritten every frame, like a repeated item's
+        // model row being touched by `VecModel::set_row_data` every tick.
+        #[derive(Default)]
+        struct Component {
+            width: Property<i32>,
+            row: Property<(i32, bool)>,
+        }
+
+        let compo = Rc::pin(Component::default());
+
+        let animation_details = PropertyAnimation {
+            duration: DURATION.as_millis() as _,
+            iteration_count: 1.,
+            ..PropertyAnimation::default()
+        };
+
+        let w = PinWeak::downgrade(compo.clone());
+        compo.width.set_animated_binding(
+            move || {
+                let compo = w.upgrade().unwrap();
+                if get_prop_value(&compo.row).1 { 200 } else { 40 }
+            },
+            move || (animation_details.clone(), None),
+        );
+
+        compo.row.set((0, false));
+        assert_eq!(get_prop_value(&compo.width), 40);
+
+        let start_time = crate::animations::current_tick();
+
+        // Flip the field the animation depends on: this should kick off a 40 -> 200
+        // animation over DURATION.
+        compo.row.set((0, true));
+        assert_eq!(get_prop_value(&compo.width), 40);
+
+        // Simulate ~700 real frames (16ms each -- more than DURATION worth of real time
+        // in total)
+        let tick = core::time::Duration::from_millis(16);
+        for i in 1..=700u32 {
+            compo.row.set((i as i32, true));
+            crate::animations::CURRENT_ANIMATION_DRIVER
+                .with(|driver| driver.update_animations(start_time + tick * i));
+            // Poll every frame like a real renderer repainting
+            let _ = get_prop_value(&compo.width);
+        }
+
+        // After more than DURATION worth of real time has elapsed, the animation should
+        // have completed regardless of the unrelated per-frame writes to `row.0`.
+        assert_eq!(get_prop_value(&compo.width), 200);
     }
 
     #[test]
