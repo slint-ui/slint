@@ -350,6 +350,23 @@ struct SkiaSharedContextInner {
 #[derive(Clone, Default)]
 pub struct SkiaSharedContext(#[allow(dead_code)] Rc<SkiaSharedContextInner>);
 
+impl SkiaSharedContext {
+    // TODO: remove this when we have https://github.com/gfx-rs/wgpu/pull/10030
+    // it is used to fix a crash when closing a window in debug mode
+    pub fn release_shared_gpu_state(&self) {
+        #[cfg(feature = "wgpu-29")]
+        {
+            let state = self.0.wgpu_29_state.borrow_mut().take();
+            drop(state);
+        }
+        #[cfg(feature = "wgpu-30")]
+        {
+            let state = self.0.wgpu_30_state.borrow_mut().take();
+            drop(state);
+        }
+    }
+}
+
 /// Use the SkiaRenderer when implementing a custom Slint platform where you deliver events to
 /// Slint and want the scene to be rendered using Skia as underlying graphics library.
 pub struct SkiaRenderer {

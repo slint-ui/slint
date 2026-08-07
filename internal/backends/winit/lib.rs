@@ -817,7 +817,12 @@ impl i_slint_core::platform::Platform for Backend {
         }
         // Note: fetch_add wraps around on overflow, which is what we want.
         self.shared_data.event_loop_generation.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-        let new_state = loop_state.run()?;
+        let result = loop_state.run();
+        // wgpu has some thread_local variables for tracing lock usage. until it is fixed upstream,
+        // we have to make sure we destroy our thread locals first, as they may access a wgpu lock
+        #[cfg(enable_skia_renderer)]
+        self.shared_data.skia_context.release_shared_gpu_state();
+        let new_state = result?;
         *self.event_loop_state.borrow_mut() = Some(new_state);
         Ok(())
     }
@@ -838,6 +843,9 @@ impl i_slint_core::platform::Platform for Backend {
                 Ok(core::ops::ControlFlow::Continue(()))
             }
             winit::platform::pump_events::PumpStatus::Exit(code) => {
+                // also see: run_event_loop
+                #[cfg(enable_skia_renderer)]
+                self.shared_data.skia_context.release_shared_gpu_state();
                 if code == 0 {
                     Ok(core::ops::ControlFlow::Break(()))
                 } else {
