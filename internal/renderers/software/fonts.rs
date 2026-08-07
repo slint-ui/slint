@@ -222,13 +222,12 @@ where
 {
     let letter_spacing =
         font_request.letter_spacing.map(|spacing| (spacing.cast() * scale_factor).cast());
-    let requested_pixel_size =
-        (font_request.pixel_size.unwrap_or(DEFAULT_FONT_SIZE).cast() * scale_factor).get();
     let line_height =
-        font_request.line_height_for_font_size(requested_pixel_size).map(|line_height| {
-            let line_height = num_traits::Float::round(line_height);
-            PhysicalLength::new(if line_height >= 1.0 { line_height as i16 } else { 1 })
-        });
+        font_request.line_height_for_natural_height(font.height().get() as f32).map(
+            |line_height| {
+                PhysicalLength::new(num_traits::Float::round(line_height).max(0.) as i16)
+            },
+        );
 
     TextLayout { font, letter_spacing, line_height }
 }
@@ -280,16 +279,29 @@ mod tests {
     }
 
     #[test]
-    fn custom_line_height_uses_requested_font_size() {
+    fn line_height_factor_scales_natural_height() {
         let font_request = FontRequest {
             pixel_size: Some(LogicalLength::new(20.)),
-            line_height_factor: Some(1.),
+            line_height_factor: Some(1.5),
             ..Default::default()
         };
 
         let layout = text_layout_for_font(&TestFont, &font_request, ScaleFactor::new(1.));
 
         assert_eq!(TestFont.height(), PhysicalLength::new(24));
-        assert_eq!(layout.line_height, Some(PhysicalLength::new(20)));
+        assert_eq!(layout.line_height, Some(PhysicalLength::new(36)));
+    }
+
+    #[test]
+    fn line_height_factor_zero_collapses_lines() {
+        let font_request = FontRequest {
+            pixel_size: Some(LogicalLength::new(20.)),
+            line_height_factor: Some(0.),
+            ..Default::default()
+        };
+
+        let layout = text_layout_for_font(&TestFont, &font_request, ScaleFactor::new(1.));
+
+        assert_eq!(layout.line_height, Some(PhysicalLength::new(0)));
     }
 }

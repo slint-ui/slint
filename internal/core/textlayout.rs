@@ -415,9 +415,13 @@ impl<Font: AbstractFont> TextParagraphLayout<'_, Font> {
         Ok(baseline_y)
     }
 
-    /// How many lines of `line_height` fit within `self.max_height`, rounded down. `line_height`
-    /// is always positive (see `TextLayout::line_height`), so this terminates.
+    /// How many lines of `line_height` fit within `self.max_height`, rounded down. A line
+    /// height of zero (from `line-height-factor: 0`) collapses all lines onto each other,
+    /// so any number of them fit.
     fn max_lines_that_fit(&self, line_height: Font::Length) -> usize {
+        if line_height <= Font::Length::zero() {
+            return usize::MAX;
+        }
         let mut lines = 0usize;
         let mut height = Font::Length::zero();
         while height + line_height <= self.max_height {

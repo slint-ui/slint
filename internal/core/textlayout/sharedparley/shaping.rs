@@ -70,12 +70,9 @@ impl LayoutWithoutLineBreaksBuilder {
     ) -> parley::RangedBuilder<'a, Brush> {
         // Use the requested font's natural line-height ratio for every run so fallback fonts,
         // such as the symbol font used for password characters, don't enlarge the line box.
-        // An explicit line height replaces this ratio.
+        // The line-height factor scales this natural ratio.
         // `FontSizeRelative` scales the result with each styled span's font size.
         let line_height_ratio = self.font_request.as_ref().and_then(|font_request| {
-            if let Some(factor) = font_request.line_height_factor {
-                return Some(factor);
-            }
             let font = font_request
                 .clone()
                 .query_fontique(&mut font_ctx.collection, &mut font_ctx.source_cache)?;
@@ -85,6 +82,11 @@ impl LayoutWithoutLineBreaksBuilder {
             let units_per_em = metrics.units_per_em as f32;
             (units_per_em > 0.0)
                 .then(|| (metrics.ascent - metrics.descent + metrics.leading) / units_per_em)
+                .map(|natural_ratio| {
+                    font_request
+                        .line_height_for_natural_height(natural_ratio)
+                        .unwrap_or(natural_ratio)
+                })
         });
 
         let mut builder = layout_ctx.ranged_builder(font_ctx, text, self.scale_factor.get(), false);

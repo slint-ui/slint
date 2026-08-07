@@ -115,18 +115,18 @@ pub struct FontRequest {
     /// The additional spacing (or shrinking if negative) between glyphs. This is usually not submitted to
     /// the font-subsystem but collected here for API convenience
     pub letter_spacing: Option<LogicalLength>,
-    /// The line height as a factor applied to the font size.
-    /// `None` uses the font's natural line height.
+    /// The line height as a factor applied to the font's natural line height.
+    /// `None` uses the natural line height unchanged (a factor of 1).
     pub line_height_factor: Option<f32>,
     /// Whether to select an italic face of the font family.
     pub italic: bool,
 }
 
 impl FontRequest {
-    /// Returns the configured line height in the same unit as `font_size`,
-    /// or `None` when the font's natural line height applies.
-    pub fn line_height_for_font_size(&self, font_size: f32) -> Option<f32> {
-        self.line_height_factor.map(|factor| font_size * factor)
+    /// Returns the configured line height given the font's natural line height
+    /// (in any unit), or `None` when the natural line height applies unchanged.
+    pub fn line_height_for_natural_height(&self, natural_line_height: f32) -> Option<f32> {
+        self.line_height_factor.map(|factor| natural_line_height * factor)
     }
 }
 
