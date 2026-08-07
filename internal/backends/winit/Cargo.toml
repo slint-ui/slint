@@ -63,6 +63,11 @@ unstable-wgpu-30 = [
   "i-slint-renderer-femtovg?/unstable-wgpu-30",
   "i-slint-renderer-skia?/unstable-wgpu-30",
 ]
+wgpu-30-vulkan-portability = [
+  "unstable-wgpu-30",
+  "renderer-skia",
+  "i-slint-renderer-skia/wgpu-30-vulkan-portability",
+]
 default = []
 
 [dependencies]

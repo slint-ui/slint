@@ -80,6 +80,11 @@ unstable-wgpu-30 = [
   "i-slint-backend-linuxkms?/unstable-wgpu-30",
 ]
 
+wgpu-30-vulkan-portability = [
+  "unstable-wgpu-30",
+  "i-slint-backend-winit?/wgpu-30-vulkan-portability",
+]
+
 unstable-winit-030 = ["i-slint-backend-winit"]
 
 unstable-libinput-09 = ["dep:input"]

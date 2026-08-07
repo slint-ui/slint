@@ -266,6 +266,15 @@ unstable-wgpu-30 = [
   "dep:wgpu-30",
 ]
 
+## Build the WGPU Vulkan backend on Apple platforms, where it runs on top of MoltenVK.
+## Metal remains the default there; this is meant for exercising the Skia/WGPU Vulkan
+## interop against the Vulkan validation layers on macOS. Select it at runtime with
+## `WGPU_BACKEND=vulkan`.
+wgpu-30-vulkan-portability = [
+  "unstable-wgpu-30",
+  "i-slint-backend-selector/wgpu-30-vulkan-portability",
+]
+
 ## APIs guarded with this feature are *NOT* subject to the usual Slint API stability guarantees, because winit releases new major
 ## versions more frequently than Slint. This feature as well as the APIs changed or removed in future minor releases of Slint, likely to be replaced
 ## by a feature with a similar name but the winit version suffix being bumped.

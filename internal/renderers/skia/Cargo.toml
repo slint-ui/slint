@@ -31,6 +31,10 @@ wgpu-29 = ["i-slint-core/wgpu-29", "dep:wgpu-29", "dep:spin_on", "dep:ash", "dep
 unstable-wgpu-29 = ["i-slint-core/unstable-wgpu-29", "wgpu-29"]
 wgpu-30 = ["i-slint-core/wgpu-30", "dep:wgpu-30", "dep:spin_on", "dep:ash", "dep:windows-core", "dep:wgpu-hal-30"]
 unstable-wgpu-30 = ["i-slint-core/unstable-wgpu-30", "wgpu-30"]
+# Build the wgpu Vulkan backend on Apple platforms, where it runs on top of MoltenVK.
+# Off by default: Metal is the native choice there, this is for exercising the Skia/wgpu
+# Vulkan interop against the Vulkan validation layers on macOS.
+wgpu-30-vulkan-portability = ["wgpu-30", "wgpu-30/vulkan-portability", "skia-safe/vulkan"]
 default = ["softbuffer"]
 
 [dependencies]
