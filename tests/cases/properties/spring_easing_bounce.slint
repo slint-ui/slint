@@ -1,4 +1,4 @@
-// Copyright © SixtyFPS GmbH <info@slint.dev>
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company , info@kdab.com, author Robin Cramer <robin.cramer@kdab.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 // Tests the `spring` easing curve driven by `bounce` (duration/bounce style,
@@ -9,23 +9,20 @@ export component TestCase inherits Rectangle {
     animate critical {
         duration: 1000ms;
         easing: spring;
-        bounce: 0;
     }
 
     // bounce: 1 -> undamped, oscillates forever without settling (over one period here).
     in-out property <float> undamped: 0;
     animate undamped {
         duration: 1000ms;
-        easing: spring;
-        bounce: 1;
+        easing: spring(1.0);
     }
 
     // bounce: -1 -> overdamped, approaches the target even slower than critical damping.
     in-out property <float> overdamped: 0;
     animate overdamped {
         duration: 1000ms;
-        easing: spring;
-        bounce: -1;
+        easing: spring(-1);
     }
 }
 

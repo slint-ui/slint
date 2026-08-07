@@ -161,8 +161,9 @@ pub enum EasingCurve {
     EaseOutBounce,
     /// Easing curve as defined at: <https://easings.net/#easeInOutBounce>
     EaseInOutBounce,
-    /// A spring animation, configured via `PropertyAnimation`'s `bounce` and `duration` or `mass`/`stiffness`/`damping`
-    Spring,
+    /// A spring animation, configured via `PropertyAnimation`'s `duration`, and the passed in
+    /// `bounce`
+    Spring(f32),
     // Custom(Box<dyn Fn(f32) -> f32>),
 }
 
@@ -329,8 +330,6 @@ pub fn spring_settle_progress(
 }
 
 /// map a value between 0 and 1 to another value between 0 and 1 according to the curve
-///
-/// `spring` must be `Some` when `curve` is `EasingCurve::Spring`.
 pub fn easing_curve(curve: &EasingCurve, value: f32) -> f32 {
     match curve {
         EasingCurve::Linear => value,
@@ -393,7 +392,7 @@ pub fn easing_curve(curve: &EasingCurve, value: f32) -> f32 {
                 (1.0 + ease_out_bounce_curve(2.0 * value - 1.0)) / 2.0
             }
         }
-        EasingCurve::Spring => {
+        EasingCurve::Spring(_) => {
             panic!("Springs are handled separately");
         }
     }

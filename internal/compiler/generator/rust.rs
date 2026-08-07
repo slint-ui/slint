@@ -3509,6 +3509,9 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
         Expression::EasingCurve(EasingCurve::CubicBezier(a, b, c, d)) => {
             quote!(sp::EasingCurve::CubicBezier([#a, #b, #c, #d]))
         }
+        Expression::EasingCurve(EasingCurve::Spring(a)) => {
+            quote!(sp::EasingCurve::Spring(#a))
+        }
         // The other curves have no parameters and map to a runtime variant with the same name.
         Expression::EasingCurve(e) => {
             let ident = format_ident!("{e:?}");

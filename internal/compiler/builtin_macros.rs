@@ -143,6 +143,37 @@ pub fn lower_macro(
 
             expr
         }
+        BuiltinMacroFunction::Spring => {
+            let mut has_error = None;
+            let expected_argument_type_error = "Arguments to spring curve must be number literal";
+            let mut a = || match sub_expr.next() {
+                None => 0.,
+                Some((Expression::NumberLiteral(val, Unit::None), _)) => val as f32,
+                // handle negative numbers
+                Some((Expression::UnaryOp { sub, op: '-' }, n)) => match *sub {
+                    Expression::NumberLiteral(val, Unit::None) => -val as f32,
+                    _ => {
+                        has_error
+                            .get_or_insert((n.to_source_location(), expected_argument_type_error));
+                        0.
+                    }
+                },
+                Some((_, n)) => {
+                    has_error.get_or_insert((n.to_source_location(), expected_argument_type_error));
+                    0.
+                }
+            };
+            let expr = Expression::EasingCurve(EasingCurve::Spring(a()));
+            if let Some((_, n)) = sub_expr.next() {
+                has_error
+                    .get_or_insert((n.to_source_location(), "Too many argument for spring curve"));
+            }
+            if let Some((n, msg)) = has_error {
+                diag.push_error(msg.into(), &n);
+            }
+
+            expr
+        }
     }
 }
 
