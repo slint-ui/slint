@@ -11,11 +11,17 @@
 
 mod androidwindowadapter;
 mod javahelper;
+mod vsync;
 
 #[cfg(all(not(feature = "aa-06"), feature = "aa-05"))]
 pub use android_activity_05 as android_activity;
 #[cfg(feature = "aa-06")]
 pub use android_activity_06 as android_activity;
+
+#[cfg(all(not(feature = "aa-06"), feature = "aa-05"))]
+use ndk_08 as ndk;
+#[cfg(feature = "aa-06")]
+use ndk_09 as ndk;
 
 pub use android_activity::AndroidApp;
 use android_activity::PollEvent;
@@ -100,15 +106,18 @@ impl i_slint_core::platform::Platform for AndroidPlatform {
         Ok(self.window.clone())
     }
     fn run_event_loop(&self) -> Result<(), PlatformError> {
+        let vsync = vsync::VsyncDriver::new(self.app.create_waker());
         loop {
             let mut timeout = i_slint_core::platform::duration_until_next_timer_update();
-            if self.window.window.has_active_animations() {
-                // FIXME: we should not hardcode a value here
+            // While animating, the vsync thread wakes this loop at each display refresh
+            // so rendering tracks the refresh rate instead of a fixed poll timeout.
+            let animating = self.window.window.has_active_animations();
+            vsync.set_animating(animating);
+            if animating && !vsync.is_driving() {
+                // The vsync thread is not driving frames (still starting, or unavailable);
+                // fall back to a periodic wakeup so animations still advance.
                 let frame_duration = Duration::from_millis(10);
-                timeout = Some(match timeout {
-                    Some(x) => x.min(frame_duration),
-                    None => frame_duration,
-                })
+                timeout = Some(timeout.map_or(frame_duration, |x| x.min(frame_duration)));
             }
             // `request_redraw()` only raises the flag, so a request issued outside the
             // poll would otherwise wait here for an unrelated wakeup.
