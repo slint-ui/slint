@@ -9,7 +9,10 @@ This example draws with plain Vulkan into a texture and shows that texture in a 
 3. Slint renders the scene, with the texture shown in the `Image`.
 
 It's the same effect as the `opengl_texture` and `wgpu_texture` examples next door, so the three
-can be compared side by side.
+can be compared side by side. There are two versions of it, `main.rs` and `main.cpp`, sharing the
+scene and the shaders. They differ in who owns the texture, which is worth comparing too: the Rust
+one lets wgpu allocate it, while the C++ one allocates the `VkImage` itself, the way an
+application with its own allocator would.
 
 ## Where the Vulkan handles come from
 
@@ -61,6 +64,43 @@ The render pass also spells out its dependency on `VK_SUBPASS_EXTERNAL`. Both th
 previous frame and Skia's sampling of it ran on the same queue, and the implicit dependency starts
 at `TOP_OF_PIPE`, which would order the drawing after neither.
 
+## The C++ version
+
+`main.cpp` builds with CMake, along with the rest of the examples:
+
+```sh
+cmake -B build -DSLINT_BUILD_EXAMPLES=ON -DSLINT_FEATURE_RENDERER_SKIA=ON
+cmake --build build --target vulkan_texture
+```
+
+It uses `slint::vulkan` from `slint-vulkan.h`, which needs the Vulkan headers. Slint finds them
+where you build your application, and only that one header needs them - nothing else in Slint
+does, and Slint never links the Vulkan loader.
+
+The two halves of the handover are the same as in the Rust version, just spelled differently:
+
+```cpp
+// once per image
+texture = slint::vulkan::Texture::import(*api, {
+    .image = image, .width = w, .height = h,
+    .format = slint::vulkan::TextureFormat::Rgba8UnormSrgb,
+    .on_released = [=] { vkDestroyImage(device, image, nullptr); ... },
+});
+
+// every frame
+texture->begin_render();
+// ... record and submit, on api->queue() ...
+app->set_texture(texture->to_image());
+```
+
+`begin_render()` is what tells Slint about writes it can't see, in place of the
+`transition_resources` call the Rust version makes directly. `on_released` is what makes the
+image safe to destroy: an image set on the scene outlives the frame it was set in, so a resize
+can't free the old one straight away. It arrives on the event loop's thread.
+
+Import once per image and keep the `Texture`. Importing per frame would restart Slint's tracking
+of the image each time, which is what the barriers depend on.
+
 ## Running it
 
 The example asks for `wgpu::Backends::VULKAN`, so no backend selection is needed:
@@ -75,16 +115,18 @@ On macOS and iOS Vulkan runs on MoltenVK, through wgpu's `vulkan-portability` fe
 a bare `libvulkan.dylib`, which dyld doesn't look for in `/usr/local/lib` on its own.
 
 ```sh
-env DYLD_LIBRARY_PATH=/usr/local/lib cargo run -p vulkan_texture
+env DYLD_FALLBACK_LIBRARY_PATH=/usr/local/lib cargo run -p vulkan_texture
 ```
 
 Use `env`, not an exported variable: macOS strips `DYLD_*` from the environment of protected
-binaries such as the shell itself.
+binaries such as the shell itself. Prefer `DYLD_FALLBACK_LIBRARY_PATH` over `DYLD_LIBRARY_PATH`:
+the latter takes precedence over an executable's own rpath, so if a copy of Slint is installed in
+`/usr/local/lib` it gets loaded instead of the one you just built.
 
 ## Checking it against the validation layers
 
 ```sh
-env DYLD_LIBRARY_PATH=/usr/local/lib \
+env DYLD_FALLBACK_LIBRARY_PATH=/usr/local/lib \
     VK_LOADER_LAYERS_ENABLE=VK_LAYER_KHRONOS_validation \
     VK_LAYER_SETTINGS_PATH=vk_layer_settings.txt \
     cargo run -p vulkan_texture
