@@ -222,12 +222,9 @@ where
 {
     let letter_spacing =
         font_request.letter_spacing.map(|spacing| (spacing.cast() * scale_factor).cast());
-    let line_height =
-        font_request.line_height_for_natural_height(font.height().get() as f32).map(
-            |line_height| {
-                PhysicalLength::new(num_traits::Float::round(line_height).max(0.) as i16)
-            },
-        );
+    let line_height = font_request.line_height_for_natural_height(font.height().get() as f32).map(
+        |line_height| PhysicalLength::new(num_traits::Float::round(line_height).max(0.) as i16),
+    );
 
     TextLayout { font, letter_spacing, line_height }
 }

@@ -82,7 +82,9 @@ impl LayoutWithoutLineBreaksBuilder {
             let units_per_em = metrics.units_per_em as f32;
             let natural_ratio = (units_per_em > 0.0)
                 .then(|| (metrics.ascent - metrics.descent + metrics.leading) / units_per_em)?;
-            Some(font_request.line_height_for_natural_height(natural_ratio).unwrap_or(natural_ratio))
+            Some(
+                font_request.line_height_for_natural_height(natural_ratio).unwrap_or(natural_ratio),
+            )
         });
 
         let mut builder = layout_ctx.ranged_builder(font_ctx, text, self.scale_factor.get(), false);
