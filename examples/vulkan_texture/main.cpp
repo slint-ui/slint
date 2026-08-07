@@ -14,6 +14,7 @@
 #include <chrono>
 #include <cstdio>
 #include <fstream>
+#include <memory>
 #include <optional>
 #include <vector>
 
@@ -453,17 +454,19 @@ int main()
 {
     auto app = App::create();
 
+    // Set once the renderer turns out to be on Vulkan. A renderer that isn't on wgpu at all never
+    // reports a graphics API, so the notifier below is simply never called and there would
+    // otherwise be nothing to see but an empty image.
+    auto on_vulkan = std::make_shared<bool>(false);
+
     auto weak = slint::ComponentWeakHandle(app);
     auto error = slint::vulkan::set_rendering_notifier(
             app->window(),
-            [weak, renderer = std::unique_ptr<VulkanRenderer>()](
+            [weak, on_vulkan, renderer = std::unique_ptr<VulkanRenderer>()](
                     slint::RenderingState state, const slint::vulkan::Api *api) mutable {
-                if (!api) {
-                    if (state == slint::RenderingState::RenderingSetup)
-                        std::fprintf(stderr,
-                                     "This example needs the renderer to be running on Vulkan.\n");
+                if (!api)
                     return;
-                }
+                *on_vulkan = true;
 
                 switch (state) {
                 case slint::RenderingState::RenderingSetup:
@@ -496,6 +499,15 @@ int main()
         std::fprintf(stderr, "Cannot install a rendering notifier on this renderer.\n");
         return 1;
     }
+
+    slint::Timer::single_shot(std::chrono::milliseconds(500), [on_vulkan] {
+        if (!*on_vulkan) {
+            std::fprintf(stderr,
+                         "This example needs the Skia renderer on wgpu's Vulkan backend, and "
+                         "draws nothing without it.\nRun it with SLINT_BACKEND=winit-skia-wgpu "
+                         "and WGPU_BACKEND=vulkan set.\n");
+        }
+    });
 
     app->run();
 }

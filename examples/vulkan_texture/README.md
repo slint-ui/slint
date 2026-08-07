@@ -66,12 +66,15 @@ at `TOP_OF_PIPE`, which would order the drawing after neither.
 
 ## The C++ version
 
-`main.cpp` builds with CMake, along with the rest of the examples:
+`main.cpp` builds with CMake, along with the rest of the examples. From the repository root:
 
 ```sh
 cmake -B build -DSLINT_BUILD_EXAMPLES=ON -DSLINT_FEATURE_RENDERER_SKIA=ON
 cmake --build build --target vulkan_texture
 ```
+
+which leaves the binary in `build/examples/vulkan_texture/vulkan_texture`. `SLINT_BUILD_EXAMPLES`
+defaults to off, so without it the target doesn't exist.
 
 It uses `slint::vulkan` from `slint-vulkan.h`, which needs the Vulkan headers. Slint finds them
 where you build your application, and only that one header needs them - nothing else in Slint
@@ -103,27 +106,45 @@ of the image each time, which is what the barriers depend on.
 
 ## Running it
 
-The example asks for `wgpu::Backends::VULKAN`, so no backend selection is needed:
+The Rust version asks for `wgpu::Backends::VULKAN` itself, so it needs no backend selection:
 
 ```sh
 cargo run -p vulkan_texture
 ```
 
+The C++ version has no equivalent of `BackendSelector` yet, so it has to be told twice over:
+which renderer, and which backend under it. Without both it comes up on whatever the platform
+prefers - Metal on macOS - where it draws nothing at all. A renderer that isn't on wgpu never
+reports a graphics API, so there is no callback to fail in; the example notices half a second in
+and says what to set instead.
+
+```sh
+env SLINT_BACKEND=winit-skia-wgpu WGPU_BACKEND=vulkan \
+    build/examples/vulkan_texture/vulkan_texture
+```
+
 On macOS and iOS Vulkan runs on MoltenVK, through wgpu's `vulkan-portability` feature, which the
-`slint/wgpu-30-vulkan-portability` feature in `Cargo.toml` turns on. It needs the
-[Vulkan SDK](https://vulkan.lunarg.com/) installed, and the loader has to be findable: `ash` opens
-a bare `libvulkan.dylib`, which dyld doesn't look for in `/usr/local/lib` on its own.
+`slint/wgpu-30-vulkan-portability` feature in `Cargo.toml` turns on for Rust, and `renderer-skia`
+turns on for C++. It needs the [Vulkan SDK](https://vulkan.lunarg.com/) installed, and the loader
+has to be findable: `ash` opens a bare `libvulkan.dylib`, which dyld doesn't look for in
+`/usr/local/lib` on its own.
 
 ```sh
 env DYLD_FALLBACK_LIBRARY_PATH=/usr/local/lib cargo run -p vulkan_texture
+
+env DYLD_FALLBACK_LIBRARY_PATH=/usr/local/lib SLINT_BACKEND=winit-skia-wgpu WGPU_BACKEND=vulkan \
+    build/examples/vulkan_texture/vulkan_texture
 ```
 
 Use `env`, not an exported variable: macOS strips `DYLD_*` from the environment of protected
 binaries such as the shell itself. Prefer `DYLD_FALLBACK_LIBRARY_PATH` over `DYLD_LIBRARY_PATH`:
 the latter takes precedence over an executable's own rpath, so if a copy of Slint is installed in
-`/usr/local/lib` it gets loaded instead of the one you just built.
+`/usr/local/lib` it gets loaded instead of the one you just built. For the C++ version that shows
+up as `dyld: Symbol not found`, from loading a stale `libslint_cpp.dylib`.
 
 ## Checking it against the validation layers
+
+Same for either version, with the run command of your choice:
 
 ```sh
 env DYLD_FALLBACK_LIBRARY_PATH=/usr/local/lib \
