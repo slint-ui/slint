@@ -86,6 +86,12 @@ pub unsafe fn make_vulkan_surface(
     }
 }
 
+/// Extension names as `String`, for [`vk::BackendContextBuilder::with_extensions`]. Vulkan
+/// extension names are ASCII, so the lossy conversion can't lose anything.
+fn cstr_names(names: &[&'static std::ffi::CStr]) -> Vec<String> {
+    names.iter().map(|name| name.to_string_lossy().into_owned()).collect()
+}
+
 pub unsafe fn import_vulkan_texture(
     canvas: &skia_safe::Canvas,
     texture: wgpu::Texture,
@@ -174,6 +180,13 @@ pub unsafe fn make_vulkan_context(
             }
         };
 
+        // Skia gates features on the extensions it's told about, and rejects anything it
+        // considers unsupported: without `VK_KHR_swapchain` in this list it refuses to wrap an
+        // image that's in `PRESENT_SRC_KHR` layout, which is how wgpu hands out swapchain
+        // images. Hand it what wgpu actually enabled, no more.
+        let instance_extensions = cstr_names(vulkan_device.shared_instance().extensions());
+        let device_extensions = cstr_names(vulkan_device.enabled_device_extensions());
+
         // WGPU 29 is locked to vulkan 1.3 and skia assumes the highest vulkan API version of the
         // physical device is chosen, causing it to ask for unsupported features/functions.
         let backend = vk::BackendContext::new_builder(
@@ -183,6 +196,10 @@ pub unsafe fn make_vulkan_context(
             (vulkan_queue_raw.as_raw() as _, vulkan_device.queue_family_index() as _),
             &get_proc,
             Some(vk::Version::new(1, 3, 0)),
+        )
+        .with_extensions(
+            &instance_extensions.iter().map(String::as_str).collect::<Vec<_>>(),
+            &device_extensions.iter().map(String::as_str).collect::<Vec<_>>(),
         )
         .build();
 
