@@ -3212,12 +3212,7 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
         // TODO
     }
 
-    fn combine_clip(
-        &mut self,
-        other: LogicalRect,
-        _radius: LogicalBorderRadius,
-        _border_width: LogicalLength,
-    ) -> bool {
+    fn combine_clip(&mut self, other: LogicalRect, _radius: LogicalBorderRadius) -> bool {
         match self.current_state.clip.intersection(&other) {
             Some(r) => {
                 self.current_state.clip = r;
@@ -3228,7 +3223,7 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
                 false
             }
         }
-        // TODO: handle radius and border
+        // TODO: handle radius
     }
 
     fn get_current_clip(&self) -> LogicalRect {

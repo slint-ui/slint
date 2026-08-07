@@ -12,7 +12,7 @@ use crate::item_tree::ItemTreeRc;
 use crate::item_tree::{ItemVisitor, ItemVisitorVTable, VisitChildrenResult};
 use crate::lengths::{
     LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector,
-    PhysicalBorderRadius, PhysicalPx, ScaleFactor,
+    PhysicalBorderRadius, PhysicalPx, ScaleFactor, SizeLengths,
 };
 pub use crate::partial_renderer::CachedRenderingData;
 use crate::window::WindowAdapterRc;
@@ -415,6 +415,31 @@ impl BorderRectLayout {
     }
 }
 
+/// The region children are clipped to when `clip` is enabled on an element with a
+/// border: the rectangle inside the border ring, with the corner radii reduced
+/// accordingly. See <https://github.com/slint-ui/slint/issues/1988>.
+pub fn clip_content_box(
+    size: LogicalSize,
+    radius: LogicalBorderRadius,
+    border_width: LogicalLength,
+) -> (LogicalRect, LogicalBorderRadius) {
+    // A border covering half the size or more leaves no content region. Integer
+    // arithmetic, as the logical Coord type can be i32.
+    let two = 2 as crate::Coord;
+    let border_width = border_width
+        .max(LogicalLength::default())
+        .min(size.width_length() / two)
+        .min(size.height_length() / two);
+    let rect = LogicalRect::new(
+        LogicalPoint::from_lengths(border_width, border_width),
+        LogicalSize::from_lengths(
+            size.width_length() - border_width * two,
+            size.height_length() - border_width * two,
+        ),
+    );
+    (rect, radius.inner(border_width))
+}
+
 /// Trait for an item that represents an Image towards the renderer
 #[allow(missing_docs)]
 pub trait RenderImage {
@@ -605,11 +630,9 @@ pub trait ItemRenderer {
         size: LogicalSize,
     ) -> RenderingResult {
         if clip_item.clip() {
-            let clip_region_valid = self.combine_clip(
-                LogicalRect::new(LogicalPoint::default(), size),
-                clip_item.logical_border_radius(),
-                clip_item.border_width(),
-            );
+            let (clip_rect, clip_radius) =
+                clip_content_box(size, clip_item.logical_border_radius(), clip_item.border_width());
+            let clip_region_valid = self.combine_clip(clip_rect, clip_radius);
 
             // If clipping is enabled but the clip element is outside the visible range, then we don't
             // need to bother doing anything, not even rendering the children.
@@ -621,16 +644,10 @@ pub trait ItemRenderer {
     }
 
     /// Clip the further call until restore_state.
-    /// radius/border_width can be used for border rectangle clip.
-    /// (FIXME: consider removing radius/border_width and have another  function that take a path instead)
+    /// (FIXME: consider removing radius and have another function that take a path instead)
     /// Returns a boolean indicating the state of the new clip region: true if the clip region covers
     /// an area; false if the clip region is empty.
-    fn combine_clip(
-        &mut self,
-        rect: LogicalRect,
-        radius: LogicalBorderRadius,
-        border_width: LogicalLength,
-    ) -> bool;
+    fn combine_clip(&mut self, rect: LogicalRect, radius: LogicalBorderRadius) -> bool;
     /// Get the current clip bounding box in the current transformed coordinate.
     fn get_current_clip(&self) -> LogicalRect;
 

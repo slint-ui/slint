@@ -454,7 +454,6 @@ impl TextParagraph {
                 ),
             ),
             LogicalBorderRadius::zero(),
-            LogicalLength::zero(),
         );
 
         if render {
