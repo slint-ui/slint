@@ -113,7 +113,10 @@ pub unsafe fn import_vulkan_texture(
             vulkan_texture.unwrap().raw_handle().as_raw() as _,
             alloc,
             skia_safe::gpu::vk::ImageTiling::OPTIMAL,
-            skia_safe::gpu::vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL,
+            // `flush_and_submit` transitions imported textures to `TextureUses::RESOURCE` and
+            // submits that ahead of Skia's own commands, so this is the layout the image is in
+            // by the time Skia samples it.
+            skia_safe::gpu::vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
             vk_format,
             1,
             None,
