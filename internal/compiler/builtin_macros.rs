@@ -161,6 +161,15 @@ pub fn lower_macro(
                         0.
                     }
                 },
+                // handle positive numbers
+                Some((Expression::UnaryOp { sub, op: '+' }, n)) => match *sub {
+                    Expression::NumberLiteral(val, Unit::None) => val as f32,
+                    _ => {
+                        has_error
+                            .get_or_insert((n.to_source_location(), expected_argument_type_error));
+                        0.
+                    }
+                },
                 Some((_, n)) => {
                     has_error.get_or_insert((n.to_source_location(), expected_argument_type_error));
                     0.

@@ -146,9 +146,8 @@
 </style>
 
 <script>
-    // Mirrors the closed-form solution in internal/core/animations/physics_simulation.rs
-    // (SpringRegime::new / SpringRegime::evaluate), so the plotted curve matches what
-    // Slint actually renders for the same duration/bounce values.
+    // Mirrors the closed-form solution in (SpringRegime::new / SpringRegime::evaluate),
+    // so the plotted curve matches what Slint actually renders for the same duration/bounce values.
     const CRITICAL_ZETA_EPSILON = 1e-3;
 
     interface Regime {
