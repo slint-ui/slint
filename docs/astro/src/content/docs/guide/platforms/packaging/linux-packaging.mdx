@@ -1,0 +1,313 @@
+---
+title: Linux
+description: Package a desktop Slint app for distribution on Linux, using Flatpak
+---
+
+{/* cSpell: ignore Flatpaks yourorganization pulseaudio jpegd jpege Metainfo metainfo Flathub launchable pacman */}
+
+import { Aside } from '@astrojs/starlight/components';
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+Distribution on Linux can take a few forms, but for our purposes the easiest to get started with is [Flatpak](https://flatpak.org/), and so we will focus on that here. Flatpaks are sandboxed, cross-platform, and relatively straightforward to create.
+
+<Aside type="note">
+Depending on your application, you may want to use a different distribution method. Here is an incomplete list of alternatives, with some pros and cons in relation to Flatpak:
+
+- Distro-native package managers (`pacman`, `apt`, `dnf`, etc)
+  - Pro: Most-seamless installation/upgrade experience. Also reuses system dependencies which may save space, as well as improve performance on distros with tuned package repositories (e.g. CachyOS)
+  - Con: Requires building and testing your application on many different systems, in particular different versions of host packages such as glibc
+- [Snap](https://snapcraft.io/)
+  - Pro: Full support from Canonical, usually the best option when distributing a GUI application for Ubuntu and derivatives
+  - Con: Somewhat tied to the Canonical ecosystem, far less popular outside of Ubuntu
+- [AppImage](https://appimage.org/)
+  - Pro: Fast startup, the lack of permissioning/sandboxing can reduce development friction so long as your users trust your application
+  - Con: Less well-supported than Snap and Flatpak, the runtime is not shared between applications so the package size is larger compared to Flatpak and Snap
+
+Packaging your application in these formats is left as an exercise for the reader.
+</Aside>
+
+## Prerequisites
+
+The tools needed are the `flatpak` and `flatpak-builder` tools. Additionally, depending on your application's programming language, you may need a tool which converts your build tool's lockfile into a set of dependencies that `flatpak-builder` understands. The Flatpak build process is sandboxed, just like Flatpaks themselves, and any tools running inside the build environment do not have network access. Any dependencies that need to be downloaded via the network need to be specified in the Flatpak dependency format.
+
+Lockfile conversion scripts are available for all programming languages supported by Slint:
+
+- Rust
+  - [`cargo`](https://github.com/flatpak/flatpak-builder-tools/tree/master/cargo)
+- NodeJS
+  - [`node`](https://github.com/flatpak/flatpak-builder-tools/tree/master/node) - this is the recommended method, supporting `npm`, `yarn` and `pnpm`
+  - [`npm`](https://github.com/flatpak/flatpak-builder-tools/tree/master/npm) (if the `node` script does not work)
+  - [`yarn`](https://github.com/flatpak/flatpak-builder-tools/tree/master/yarn) (if the `node` script does not work)
+- Deno
+  - [`deno`](https://github.com/flatpak/flatpak-builder-tools/tree/master/deno)
+- Python
+  - [`pip`](https://github.com/flatpak/flatpak-builder-tools/tree/master/pip)
+  - [`poetry`](https://github.com/flatpak/flatpak-builder-tools/tree/master/poetry)
+
+C++ has no standard, cross-platform package manager, and for C++ projects the only officially-supported method of including dependencies is via vendoring. Bun is supported by Slint, but not by Flatpak.
+
+## Creating a build file
+
+Flatpak build files are named after the package ID. For most projects, the package ID will be `com.yourorganization.YourProject`. For this example, we'll use `com.slint.TestPackage`, meaning that the build script will be named `com.slint.TestPackage.yml`.
+
+```yaml
+# The ID, explained above.
+id: com.slint.TestPackage
+
+# The "runtime" to use. For desktop applications, this will almost always be
+# `org.freedesktop.Platform`
+runtime: org.freedesktop.Platform
+runtime-version: "25.08"
+
+# This will be explained below
+command: slint-test-package
+
+# The "sdk" to use. Again, this will almost always be `org.freedesktop.Sdk`
+sdk: org.freedesktop.Sdk
+
+# The set of permissions that this application requires
+finish-args:
+  # OpenGL/Vulkan rendering
+  - --device=dri
+  # Allow use of IPC (required by Wayland and X11)
+  - --share=ipc
+  # Allow using Wayland via the Freedesktop sandbox protocol extensions
+  - --socket=wayland
+  # Use X11 as a fallback. There is also `--socket=x11` for applications
+  # that require X11, but `--socket=fallback-x11` overrides it
+  - --socket=fallback-x11
+```
+
+The permissions specified above are the minimum required for all Slint applications, but in case you require further permissions you can check [Flatpak's official documentation](https://docs.flatpak.org/en/latest/sandbox-permissions.html). Notable permissions are `--share=network` for network access, `--socket=pulseaudio` for audio I/O, and `--allow=bluetooth` for Bluetooth connectivity.
+
+## Specifying the build process
+
+Along with the basic metadata, you will then need to specify your dependencies and build process. This will depend on the language used.
+
+<Tabs syncKey="dev-language">
+<TabItem label="Rust" icon="seti:rust">
+
+First, you need to run the [`flatpak-cargo-generator.py`](https://github.com/flatpak/flatpak-builder-tools/tree/master/cargo) script, mentioned above. This will create a file named `cargo-sources.json`.
+
+```yaml
+# ...
+
+# This ensures that the Rust toolchain is installed inside the build environment.
+sdk-extensions:
+  - org.freedesktop.Sdk.Extension.rust-stable
+
+modules:
+  # The module name is arbitrary, but Flatpak will create a `/run/build/your-module-name`
+  # directory and build the package inside of it, so it should match any `/run/build/..`
+  # paths in the build config. It does not need to match the command name.
+  - name: slint-test-package
+    # This tells Flatpak that you will be writing the build commands out manually, in
+    # `build-commands` (see below)
+    buildsystem: simple
+    build-options:
+      # This adds the Rust SDK to your PATH
+      append-path: /usr/lib/sdk/rust-stable/bin
+      env:
+        # Required to keep the Cargo build artifacts inside Flatpak's sandboxed build
+        # directory
+        CARGO_HOME: /run/build/slint-test-package/cargo
+        CARGO_NET_OFFLINE: "true"
+        # This is required for Slint's Skia backend, and should match the source below.
+        # With the FemtoVG backend, you can remove this line and the relevant source.
+        # `slint-test-package` should be replaced with the name of your module
+        SKIA_BINARIES_URL: file:///run/build/slint-test-package/deps/vendor/skia/skia-binaries-a25a0fdb7d90429aa2d1-x86_64-unknown-linux-gnu-gl-jpegd-jpege-pdf-textlayout-vulkan.tar.gz
+    build-commands:
+      - cargo --offline fetch --manifest-path Cargo.toml --verbose
+      # For the sake of this example, we assume that this build command produces a binary
+      # named `slint-test-package`.
+      - cargo build --release --offline
+      # The right-hand side of this must be `${FLATPAK_DEST}/bin/your-command`, where
+      # `your-command` matches the top-level `command` field mentioned in the previous
+      # section
+      - install -Dm0755 target/release/slint-test-package ${FLATPAK_DEST}/bin/slint-test-package
+    sources:
+      - type: git
+        # This assumes that this yaml file is in the root of your project. This may not
+        # be what you want, see below for some other options.
+        path: ./
+        # This should be the current git commit hash, or the git commit hash that you
+        # want to build
+        commit: 1234deadbeef
+      # If you named your generated sources file something different, or put it somewhere
+      # other than in the same directory as this file, you should specify the path to it
+      # here
+      - cargo-sources.json
+      # The below lines (and the `SKIA_BINARIES_URL` environment variable, specified above)
+      # are required to use the `renderer-skia` feature. If your application uses
+      # `renderer-femtovg`, you can remove it
+      - type: file
+        url: https://github.com/rust-skia/skia-binaries/releases/download/0.99.0/skia-binaries-a25a0fdb7d90429aa2d1-x86_64-unknown-linux-gnu-gl-jpegd-jpege-pdf-textlayout-vulkan.tar.gz
+        dest: deps/vendor/skia
+        sha256: 097e78d775c9156dc4b070b9cca7008dbab587513ecb1924baf4cf9620f3119b
+```
+
+As mentioned in the comments above, to use `renderer-skia` you must include the relevant Skia binaries as an explicit dependency. At the time of writing, this is `0.99.0`. You can use the following command to check the version of `skia-safe` in use (requires `jq` to be installed):
+
+```bash
+cargo metadata --format-version 1 | jq -er '.packages | .[] | select(.name == "skia-safe").version'
+```
+
+If this is not `0.99.0`, check [the releases page](https://github.com/rust-skia/skia-binaries/tags) for `rust-skia/skia-binaries`, finding the one that has the `x86_64-unknown-linux-gnu` target triple and the `gl-jpegd-jpege-pdf-textlayout-vulkan` feature set. You can also copy the hash and put it in the `sha256` field, mentioned above.
+
+</TabItem>
+</Tabs>
+
+## Icons and desktop metadata
+
+To ensure that your application shows up in the launcher, create a `.desktop` file, along with an icon file. In our case, this will look like so:
+
+```ini
+[Desktop Entry]
+Encoding=UTF-8
+Version=1.0
+Type=Application
+Terminal=false
+# This should be the same as the binary specified in the `command` section
+# of your build `.yaml`
+Exec=/app/bin/slint-test-package
+# This should be the human-readable name of your application
+Name=Slint Test Package
+# This should be the same as your Flatpak package ID, see below for details
+Icon=com.slint.TestPackage
+```
+
+You then need to add a command that puts this in the correct place to your `build-commands`, like so:
+
+```yaml
+# ...
+    build-commands:
+      # ...
+      - install -Dm0644 path/to/${FLATPAK_ID}.desktop ${FLATPAK_DEST}/share/applications/${FLATPAK_ID}.desktop
+      # ...
+```
+
+For the icon, you have a few options. Flatpak will search the following folders (here specified as you would in the build script):
+
+- `.png` files in `${FLATPAK_DEST}/share/icons/hicolor/WIDTHxHEIGHT/apps/`, where `WIDTHxHEIGHT` matches the width and height of your image (up to 512)
+- `.svg` files in `${FLATPAK_DEST}/share/icons/hicolor/scalable/apps/`
+
+Whether your choose `.png` or `.svg`, the file should be named the same as your Flatpak package ID, and you should add an `install` command to `build-commands` that outputs the file to the correct directory, with the same name as your Flatpak package ID. For example:
+
+```yaml
+# ...
+    build-commands:
+      # ...
+      # Replace 512x512 with the width and height of your icon
+      - install -Dm0644 path/to/icon.png ${FLATPAK_DEST}/share/icons/hicolor/512x512/apps/${FLATPAK_ID}.png
+      # ..or...
+      - install -Dm0644 path/to/icon.svg ${FLATPAK_DEST}/share/icons/hicolor/scalable/apps/${FLATPAK_ID}.svg
+      # ...
+```
+
+## Metainfo
+
+Finally, Flatpak expects your package to include a `.metainfo.xml` file, which specifies some Flatpak-specific metadata used by the package manager and by Flathub. The [full specification of this file](https://docs.flathub.org/docs/for-app-authors/metainfo-guidelines) is out of scope for this document, but below is the minimum required fields that must be specified in order for validation to succeed:
+
+```xml
+<?xml version="1.0" encoding="UTF-8" ?>
+<component type="desktop-application">
+    <id>com.slint.TestPackage</id>
+
+    <name>Slint Test Package</name>
+    <summary>Example package to explain how to create a Flatpak for a Slint project</summary>
+
+    <categories>
+        <category>Development</category>
+    </categories>
+
+    <keywords>
+        <keyword>development</keyword>
+    </keywords>
+
+    <developer id="com.slint">
+        <name>Slint</name>
+    </developer>
+
+    <icon type="stock">com.slint.TestPackage</icon>
+
+    <metadata_license>MIT</metadata_license>
+    <project_license>MIT</project_license>
+
+    <description>
+        <p>Example package to explain how to create a Flatpak for a Slint project</p>
+    </description>
+
+    <url type="homepage">https://slint.dev/</url>
+
+    <launchable
+        type="desktop-id"
+    >com.slint.TestPackage</launchable>
+
+    <screenshots>
+    <!--
+    Flathub requires at least one screenshot, but an empty screenshot section
+    is allowed when building locally.
+    -->
+    </screenshots>
+
+    <releases>
+        <release version="1.0" date="2026-07-07">
+            <description translatable="no">
+            </description>
+        </release>
+    </releases>
+</component>
+```
+
+## Putting it all together
+
+The build `.yaml` was specified in fragments, so below is a complete example package manifest with the annotations removed, that you can copy and modify for your own project.
+
+<Tabs syncKey="dev-language">
+<TabItem label="Rust" icon="seti:rust">
+
+```yaml
+id: com.slint.TestPackage
+
+runtime: org.freedesktop.Platform
+runtime-version: "25.08"
+
+command: slint-test-package
+
+sdk: org.freedesktop.Sdk
+
+sdk-extensions:
+  - org.freedesktop.Sdk.Extension.rust-stable
+
+finish-args:
+  - --device=dri
+  - --share=ipc
+  - --socket=wayland
+  - --socket=fallback-x11
+
+modules:
+  - name: slint-test-package
+    buildsystem: simple
+    build-options:
+      append-path: /usr/lib/sdk/rust-stable/bin
+      env:
+        CARGO_HOME: /run/build/slint-test-package/cargo
+        CARGO_NET_OFFLINE: "true"
+        SKIA_BINARIES_URL: file:///run/build/slint-test-package/deps/vendor/skia/skia-binaries-a25a0fdb7d90429aa2d1-x86_64-unknown-linux-gnu-gl-jpegd-jpege-pdf-textlayout-vulkan.tar.gz
+    build-commands:
+      - cargo --offline fetch --manifest-path Cargo.toml --verbose
+      - cargo build --release --offline
+      - install -Dm0755 target/release/slint-test-package ${FLATPAK_DEST}/bin/slint-test-package
+    sources:
+      - type: git
+        path: ./
+        commit: 1234deadbeef
+      - cargo-sources.json
+      - type: file
+        url: https://github.com/rust-skia/skia-binaries/releases/download/0.99.0/skia-binaries-a25a0fdb7d90429aa2d1-x86_64-unknown-linux-gnu-gl-jpegd-jpege-pdf-textlayout-vulkan.tar.gz
+        dest: deps/vendor/skia
+        sha256: 097e78d775c9156dc4b070b9cca7008dbab587513ecb1924baf4cf9620f3119b
+```
+
+</TabItem>
+</Tabs>
