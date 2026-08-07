@@ -1831,61 +1831,24 @@ fn call_builtin_function(
         BuiltinFunction::StringToUppercase => {
             Value::String(to_string(ctx, &arguments[0]).to_uppercase().into())
         }
-        BuiltinFunction::StringStartsWith => {
-            if arguments.len() != 2 {
-                panic!("internal error: incorrect argument count to StringStartsWith")
-            }
-            if let Value::String(s) = eval_expression(&arguments[0], local_context) {
-                if let Value::String(pat) = eval_expression(&arguments[1], local_context) {
-                    Value::Bool(s.starts_with(pat.as_str()))
-                } else {
-                    panic!("Second argument not a string");
-                }
-            } else {
-                panic!("First argument not a string");
-            }
-        }
-        BuiltinFunction::StringEndsWith => {
-            if arguments.len() != 2 {
-                panic!("internal error: incorrect argument count to StringEndsWith")
-            }
-            if let Value::String(s) = eval_expression(&arguments[0], local_context) {
-                if let Value::String(pat) = eval_expression(&arguments[1], local_context) {
-                    Value::Bool(s.ends_with(pat.as_str()))
-                } else {
-                    panic!("Second argument not a string");
-                }
-            } else {
-                panic!("First argument not a string");
-            }
-        }
-        BuiltinFunction::StringReplace => {
+        BuiltinFunction::StringReplaceAll => {
             if arguments.len() != 3 {
-                panic!("internal error: incorrect argument count to StringReplace")
+                panic!("internal error: incorrect argument count to StringReplaceAll")
             }
 
             if let (Value::String(s), Value::String(from), Value::String(to)) = (
-                eval_expression(&arguments[0], local_context),
-                eval_expression(&arguments[1], local_context),
-                eval_expression(&arguments[2], local_context),
+                eval_expression(ctx, &arguments[0]),
+                eval_expression(ctx, &arguments[1]),
+                eval_expression(ctx, &arguments[2]),
             ) {
-                Value::String(i_slint_core::string::shared_string_replace(
-                    s.as_str(),
+                Value::String(i_slint_core::string::shared_string_replace_all(
+                    &s,
                     from.as_str(),
                     to.as_str(),
                 ))
             } else {
                 panic!("Not all arguments are strings");
             }
-        }
-        BuiltinFunction::KeysToString => {
-            if arguments.len() != 1 {
-                panic!("internal error: incorrect argument count to KeysToString")
-            }
-            let Value::Keys(keys) = eval_expression(&arguments[0], local_context) else {
-                panic!("Argument is not of type keys");
-            };
-            Value::String(ToSharedString::to_shared_string(&keys))
         }
         BuiltinFunction::ColorRgbaStruct => {
             if let Value::Brush(brush) = eval_expression(ctx, &arguments[0]) {

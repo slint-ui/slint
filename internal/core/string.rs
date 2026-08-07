@@ -412,18 +412,16 @@ pub fn shared_string_from_number_precision(n: f64, precision: usize) -> SharedSt
 
 /// Replaces all matches of `from` with `to` in `s` and returns the result as a new
 /// `SharedString`.
-pub fn shared_string_replace(s: &str, from: &str, to: &str) -> SharedString {
-    let count = s.matches(from).count();
-    if count == 0 {
-        return SharedString::from(s);
-    }
+pub fn shared_string_replace_all(s: &SharedString, from: &str, to: &str) -> SharedString {
+    let mut matches = s.match_indices(from);
+    let Some((first, _)) = matches.next() else {
+        return s.clone();
+    };
 
-    let new_len = s.len() - count * from.len() + count * to.len();
-    let mut result = SharedString::default();
-    result.inner.reserve(new_len + 1);
-
-    let mut last_end = 0;
-    for (start, _) in s.match_indices(from) {
+    let mut result = SharedString::from(&s[..first]);
+    result.push_str(to);
+    let mut last_end = first + from.len();
+    for (start, _) in matches {
         result.push_str(&s[last_end..start]);
         result.push_str(to);
         last_end = start + from.len();
@@ -818,7 +816,7 @@ pub(crate) mod ffi {
     }
 
     #[unsafe(no_mangle)]
-    pub extern "C" fn slint_shared_string_replace(
+    pub extern "C" fn slint_shared_string_replace_all(
         out: &mut SharedString,
         ss: &SharedString,
         from: crate::slice::Slice<u8>,
@@ -827,16 +825,16 @@ pub(crate) mod ffi {
         // Safety: the caller must pass valid utf-8 slices.
         let from = unsafe { core::str::from_utf8_unchecked(from.as_slice()) };
         let to = unsafe { core::str::from_utf8_unchecked(to.as_slice()) };
-        *out = super::shared_string_replace(ss.as_str(), from, to);
+        *out = super::shared_string_replace_all(ss, from, to);
     }
     #[test]
-    fn test_slint_shared_string_replace() {
+    fn test_slint_shared_string_replace_all() {
         let s = SharedString::from("Hello");
         let from = SharedString::from("l");
         let to = SharedString::from("L");
         let mut out = SharedString::default();
 
-        slint_shared_string_replace(
+        slint_shared_string_replace_all(
             &mut out,
             &s,
             crate::slice::Slice::from_slice(from.as_bytes()),
