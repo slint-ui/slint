@@ -136,7 +136,7 @@ pub async fn run_passes(
             &palette,
             diag,
         );
-        lower_states::lower_states(component, &symbol_counters, &mut forwarded_references, diag);
+        lower_states::lower_states(component, &doc.local_registry, &symbol_counters, &mut forwarded_references, diag);
         lower_text_input_interface::lower_text_input_interface(component);
         compile_paths::compile_paths(component, &doc.local_registry, diag);
         repeater_component::process_repeater_components(component);
