@@ -841,6 +841,12 @@ module.exports = grammar({
           "\\",
           '"',
           seq("{", $.expression, "}"),
+          // The lexer accepts a backslash before any character; an escape it
+          // doesn't recognize is a semantic error, not a syntax one. Keeping
+          // such a backslash lets it act as a path separator in an import or
+          // @image-url address. The already-handled characters are excluded so
+          // this doesn't compete with them.
+          /[^"n{\\]/,
         ),
       ),
     /////////////////////////////////////////////////////////////////////
