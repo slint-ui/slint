@@ -7305,6 +7305,7 @@ dependencies = [
  "proc-macro2",
  "raw-window-handle",
  "slint-interpreter",
+ "wgpu-hal 30.0.1",
 ]
 
 [[package]]
