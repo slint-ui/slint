@@ -189,10 +189,14 @@ impl<R: femtovg::Renderer + TextureImporter> Texture<R> {
                     .unwrap()
             }
             #[cfg(feature = "unstable-wgpu-30")]
-            ImageInner::WGPUTexture(i_slint_core::graphics::WGPUTexture::WGPU30Texture(
-                texture,
-            )) => {
-                let texture = texture.clone();
+            ImageInner::WGPUTexture(any_wgpu_texture) => {
+                let texture = match &**any_wgpu_texture {
+                    i_slint_core::graphics::WGPUTexture::WGPU30Texture(texture) => texture.clone(),
+                    // `i_slint_core`'s texture enum grows a variant per wgpu version it was
+                    // built with; this renderer only handles the one it was built against.
+                    #[allow(unreachable_patterns)]
+                    _ => return None,
+                };
                 let size = texture.size();
 
                 canvas

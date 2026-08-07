@@ -51,6 +51,12 @@ OpaqueImageVTable_static! {
     pub static NINE_SLICE_VT for NineSliceImage
 }
 
+#[cfg(any(feature = "unstable-wgpu-29", feature = "unstable-wgpu-30"))]
+OpaqueImageVTable_static! {
+    /// VTable for the RC wrapped texture imported from the application.
+    pub static WGPU_TEXTURE_VT for WGPUTexture
+}
+
 /// SharedPixelBuffer is a container for storing image data as pixels. It is
 /// internally reference counted and cheap to clone.
 ///
@@ -434,9 +440,21 @@ pub enum ImageInner {
     #[cfg(not(target_arch = "wasm32"))]
     BorrowedOpenGLTexture(BorrowedOpenGLTexture) = 6,
     NineSlice(vtable::VRc<OpaqueImageVTable, NineSliceImage>) = 7,
+    // Behind a `VRc` like the other non-trivial variants: a `wgpu::Texture` inline would make
+    // `ImageInner` bigger when the wgpu features are on, and this type's size is part of the
+    // C++ ABI (`slint::Image` stores it by value).
     #[cfg(any(feature = "unstable-wgpu-29", feature = "unstable-wgpu-30"))]
-    WGPUTexture(WGPUTexture) = 8,
+    WGPUTexture(vtable::VRc<OpaqueImageVTable, WGPUTexture>) = 8,
 }
+
+/// `slint::Image` stores an `ImageInner` by value in C++, so its size is part of that ABI and
+/// must not depend on which optional features are enabled. Keep every variant that holds a
+/// non-trivial payload behind a `VRc`.
+#[cfg(any(feature = "unstable-wgpu-29", feature = "unstable-wgpu-30"))]
+const _: () = assert!(
+    core::mem::size_of::<vtable::VRc<OpaqueImageVTable, WGPUTexture>>()
+        == core::mem::size_of::<vtable::VRc<OpaqueImageVTable>>()
+);
 
 impl ImageInner {
     /// Return or render the image into a buffer
@@ -949,7 +967,11 @@ impl Image {
     #[cfg(feature = "unstable-wgpu-29")]
     pub fn to_wgpu_29_texture(&self) -> Option<wgpu_29::Texture> {
         match &self.0 {
-            ImageInner::WGPUTexture(WGPUTexture::WGPU29Texture(texture)) => Some(texture.clone()),
+            ImageInner::WGPUTexture(texture) => match &**texture {
+                WGPUTexture::WGPU29Texture(texture) => Some(texture.clone()),
+                #[cfg(feature = "unstable-wgpu-30")]
+                _ => None,
+            },
             _ => None,
         }
     }
@@ -962,7 +984,11 @@ impl Image {
     #[cfg(feature = "unstable-wgpu-30")]
     pub fn to_wgpu_30_texture(&self) -> Option<wgpu_30::Texture> {
         match &self.0 {
-            ImageInner::WGPUTexture(WGPUTexture::WGPU30Texture(texture)) => Some(texture.clone()),
+            ImageInner::WGPUTexture(texture) => match &**texture {
+                WGPUTexture::WGPU30Texture(texture) => Some(texture.clone()),
+                #[cfg(feature = "unstable-wgpu-29")]
+                _ => None,
+            },
             _ => None,
         }
     }
