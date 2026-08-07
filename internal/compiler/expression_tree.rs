@@ -95,6 +95,7 @@ pub enum BuiltinFunction {
     ArrayInsert,
     ArrayAny,
     ArrayAll,
+    ArrayFindIndex,
     Rgb,
     Hsv,
     Oklch,
@@ -288,6 +289,7 @@ declare_builtin_function_types!(
     ArrayInsert: (Type::Model, Type::Int32, Type::InferredProperty) -> Type::Void,
     ArrayAny: (Type::Model, Type::Closure) -> Type::Bool,
     ArrayAll: (Type::Model, Type::Closure) -> Type::Bool,
+    ArrayFindIndex: (Type::Model, Type::Closure) -> Type::Int32,
     Rgb: (Type::Int32, Type::Int32, Type::Int32, Type::Float32) -> Type::Color,
     Hsv: (Type::Float32, Type::Float32, Type::Float32, Type::Float32) -> Type::Color,
     Oklch: (Type::Float32, Type::Float32, Type::Float32, Type::Float32) -> Type::Color,
@@ -447,7 +449,9 @@ impl BuiltinFunction {
             BuiltinFunction::MacosBringAllWindowsToFront => false,
             BuiltinFunction::PathPointAt => true,
             BuiltinFunction::PathAngleAt => true,
-            BuiltinFunction::ArrayAny | BuiltinFunction::ArrayAll => true,
+            BuiltinFunction::ArrayAny
+            | BuiltinFunction::ArrayAll
+            | BuiltinFunction::ArrayFindIndex => true,
         }
     }
 
@@ -544,7 +548,9 @@ impl BuiltinFunction {
             BuiltinFunction::MacosBringAllWindowsToFront => false,
             BuiltinFunction::PathPointAt => true,
             BuiltinFunction::PathAngleAt => true,
-            BuiltinFunction::ArrayAny | BuiltinFunction::ArrayAll => true,
+            BuiltinFunction::ArrayAny
+            | BuiltinFunction::ArrayAll
+            | BuiltinFunction::ArrayFindIndex => true,
         }
     }
 }

@@ -5565,6 +5565,13 @@ fn compile_builtin_function_call(
         BuiltinFunction::ArrayAll => {
             format!("slint::private_api::model_all({}, {})", a.next().unwrap(), a.next().unwrap())
         },
+        BuiltinFunction::ArrayFindIndex => {
+            format!(
+                "slint::private_api::model_find_index({}, {})",
+                a.next().unwrap(),
+                a.next().unwrap()
+            )
+        },
     }
 }
 
