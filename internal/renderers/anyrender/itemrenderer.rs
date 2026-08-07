@@ -6,7 +6,6 @@ use std::sync::Arc;
 
 use anyrender::PaintScene;
 use i_slint_core::graphics::ResolvedBrush;
-use i_slint_core::graphics::adjust_rect_and_border_for_inner_drawing;
 use i_slint_core::graphics::euclid;
 use i_slint_core::graphics::{Image, ImageCacheKey, IntRect, SharedImageBuffer, SharedPixelBuffer};
 use i_slint_core::item_rendering::{
@@ -15,7 +14,7 @@ use i_slint_core::item_rendering::{
 };
 use i_slint_core::items::{self, FillRule, ImageFit, ImageRendering, ItemRc};
 use i_slint_core::lengths::{
-    LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector,
+    LogicalBorderRadius, LogicalPoint, LogicalRect, LogicalSize, LogicalVector,
     PhysicalBorderRadius, ScaleFactor, logical_size_from_api,
 };
 use i_slint_core::textlayout::sharedparley::{self, GlyphRenderer, fontique, parley};
@@ -558,22 +557,9 @@ impl<'a, S: PaintScene> ItemRenderer for AnyrenderItemRenderer<'a, S> {
         }
     }
 
-    fn combine_clip(
-        &mut self,
-        clip_rect: LogicalRect,
-        radius: LogicalBorderRadius,
-        border_width: LogicalLength,
-    ) -> bool {
-        let mut phys_rect = clip_rect * self.scale_factor;
-        let mut phys_border_width = border_width * self.scale_factor;
-        // In CSS the border is entirely towards the inside of the boundary
-        // geometry, so the clip applies to the region inside the border -
-        // same adjustment as the skia and femtovg renderers.
-        adjust_rect_and_border_for_inner_drawing(&mut phys_rect, &mut phys_border_width);
-
-        let adjusted_clip_rect = phys_rect / self.scale_factor;
+    fn combine_clip(&mut self, clip_rect: LogicalRect, radius: LogicalBorderRadius) -> bool {
         let clip = &mut self.current_state.clip_rect;
-        let clip_region_valid = match clip.intersection(&adjusted_clip_rect) {
+        let clip_region_valid = match clip.intersection(&clip_rect) {
             Some(r) => {
                 *clip = r;
                 true
@@ -584,7 +570,7 @@ impl<'a, S: PaintScene> ItemRenderer for AnyrenderItemRenderer<'a, S> {
             }
         };
 
-        let clip_shape = phys_rect_shape(phys_rect, radius * self.scale_factor);
+        let clip_shape = phys_rect_shape(clip_rect * self.scale_factor, radius * self.scale_factor);
 
         self.scene.push_clip_layer(self.current_state.transform, &clip_shape);
         self.current_state.layer_count += 1;

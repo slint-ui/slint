@@ -12,7 +12,7 @@ use i_slint_core::graphics::rendering_metrics_collector::{
 };
 use i_slint_core::graphics::{
     Brush, Color, ImageCacheKey, IntRect, Point, Rgba8Pixel, SharedImageBuffer, SharedPixelBuffer,
-    adjust_rect_and_border_for_inner_drawing, euclid,
+    euclid,
 };
 use i_slint_core::input::{InternalKeyEvent, KeyEvent, KeyEventType, MouseEvent, TouchPhase};
 use i_slint_core::item_rendering::{
@@ -1113,13 +1113,7 @@ impl ItemRenderer for QtItemRenderer<'_> {
         }
     }
 
-    fn combine_clip(
-        &mut self,
-        mut rect: LogicalRect,
-        radius: LogicalBorderRadius,
-        mut border_width: LogicalLength,
-    ) -> bool {
-        adjust_rect_and_border_for_inner_drawing(&mut rect, &mut border_width);
+    fn combine_clip(&mut self, rect: LogicalRect, radius: LogicalBorderRadius) -> bool {
         let clip_rect = qttypes::QRectF {
             x: rect.min_x() as _,
             y: rect.min_y() as _,

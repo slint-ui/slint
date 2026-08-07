@@ -9,7 +9,6 @@ use std::rc::Rc;
 use euclid::approxeq::ApproxEq;
 use femtovg::Transform2D;
 use i_slint_core::graphics::ResolvedBrush;
-use i_slint_core::graphics::adjust_rect_and_border_for_inner_drawing;
 use i_slint_core::graphics::boxshadowcache::BoxShadowCache;
 use i_slint_core::graphics::euclid::num::Zero;
 use i_slint_core::graphics::euclid::{self};
@@ -77,8 +76,6 @@ impl<R: femtovg::Renderer + TextureImporter> ItemGraphicsCacheEntry<R> {
 pub(super) type ItemGraphicsCache<R> = ItemCache<Option<ItemGraphicsCacheEntry<R>>>;
 pub(super) type LayerCache<R> = ItemCache<Option<(PhysicalPoint, Rc<Texture<R>>)>>;
 
-const KAPPA90: f32 = 0.55228;
-
 #[derive(Clone)]
 struct State {
     scissor: LogicalRect,
@@ -139,48 +136,6 @@ fn rect_with_radius_to_path(
 
 fn rect_to_path(r: PhysicalRect) -> femtovg::Path {
     rect_with_radius_to_path(r, PhysicalBorderRadius::default())
-}
-
-fn path_bounding_box<R: femtovg::Renderer>(
-    canvas: &CanvasRc<R>,
-    path: &femtovg::Path,
-) -> euclid::default::Box2D<f32> {
-    // `canvas.path_bbox()` applies the current transform. However we're not interested in that, since
-    // we operate in item local coordinates with the `path` parameter as well as the resulting
-    // paint.
-    let mut canvas = canvas.borrow_mut();
-    canvas.save();
-    canvas.reset_transform();
-    let bounding_box = canvas.path_bbox(path);
-    canvas.restore();
-    euclid::default::Box2D::new(
-        [bounding_box.minx, bounding_box.miny].into(),
-        [bounding_box.maxx, bounding_box.maxy].into(),
-    )
-}
-
-// Return a femtovg::Path (in physical pixels) that represents the clip_rect, radius and border_width (all logical!)
-fn clip_path_for_rect_alike_item(
-    clip_rect: LogicalRect,
-    mut radius: LogicalBorderRadius,
-    mut border_width: LogicalLength,
-    scale_factor: ScaleFactor,
-) -> femtovg::Path {
-    // Femtovg renders evenly 50% inside and 50% outside of the border width. The
-    // adjust_rect_and_border_for_inner_drawing adjusts the rect so that for drawing it
-    // would be entirely an *inner* border. However for clipping we want the rect that's
-    // entirely inside, hence the doubling of the width and consequently radius adjustment.
-    radius -= LogicalBorderRadius::new_uniform(border_width.get() * KAPPA90);
-    border_width *= 2.;
-
-    // Convert from logical to physical pixels
-    let mut border_width = border_width * scale_factor;
-    let radius = radius * scale_factor;
-    let mut clip_rect = clip_rect * scale_factor;
-
-    adjust_rect_and_border_for_inner_drawing(&mut clip_rect, &mut border_width);
-
-    rect_with_radius_to_path(clip_rect, radius)
 }
 
 impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
@@ -618,18 +573,19 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
         }
 
         // Note: This is correct, combine_clip and get_current_clip operate on logical coordinates.
-        let geometry = LogicalRect::from(size);
+        let (clip_rect, clip_radius) = i_slint_core::item_rendering::clip_content_box(
+            size,
+            clip_item.logical_border_radius(),
+            clip_item.border_width(),
+        );
 
         // If clipping is enabled but the clip element is outside the visible range, then we don't
         // need to bother doing anything, not even rendering the children.
-        if !self.get_current_clip().intersects(&geometry) {
+        if !self.get_current_clip().intersects(&clip_rect) {
             return RenderingResult::ContinueRenderingWithoutChildren;
         }
 
-        let radius = clip_item.logical_border_radius();
-        let border_width = clip_item.border_width();
-
-        if !radius.is_zero() {
+        if !clip_radius.is_zero() {
             if let Some((layer_origin, layer_image)) =
                 i_slint_core::item_rendering::render_layer(self, item_rc)
                 && let Some(layer_image_size) = layer_image.size()
@@ -646,11 +602,9 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
                     1.0,
                 );
 
-                let layer_path = clip_path_for_rect_alike_item(
-                    geometry,
-                    radius,
-                    border_width,
-                    self.scale_factor,
+                let layer_path = rect_with_radius_to_path(
+                    clip_rect * self.scale_factor,
+                    clip_radius * self.scale_factor,
                 );
 
                 self.canvas.borrow_mut().save_with(|canvas| {
@@ -670,17 +624,12 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
             RenderingResult::ContinueRenderingWithoutChildren
         } else {
             self.layer_cache.release(item_rc);
-            self.combine_clip(geometry, radius, border_width);
+            self.combine_clip(clip_rect, clip_radius);
             RenderingResult::ContinueRenderingChildren
         }
     }
 
-    fn combine_clip(
-        &mut self,
-        clip_rect: LogicalRect,
-        radius: LogicalBorderRadius,
-        border_width: LogicalLength,
-    ) -> bool {
+    fn combine_clip(&mut self, clip_rect: LogicalRect, radius: LogicalBorderRadius) -> bool {
         let clip = &mut self.state.last_mut().unwrap().scissor;
         let clip_region_valid = match clip.intersection(&clip_rect) {
             Some(r) => {
@@ -693,20 +642,16 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
             }
         };
 
-        let clip_path =
-            clip_path_for_rect_alike_item(clip_rect, radius, border_width, self.scale_factor);
-
-        let clip_path_bounds = path_bounding_box(&self.canvas, &clip_path);
-
+        let phys_rect = clip_rect * self.scale_factor;
         self.canvas.borrow_mut().intersect_scissor(
-            clip_path_bounds.min.x,
-            clip_path_bounds.min.y,
-            clip_path_bounds.width(),
-            clip_path_bounds.height(),
+            phys_rect.origin.x,
+            phys_rect.origin.y,
+            phys_rect.size.width,
+            phys_rect.size.height,
         );
 
-        // femtovg only supports rectangular clipping. Non-rectangular clips must be handled via `apply_clip`,
-        // which can render children into a layer.
+        // femtovg only supports rectangular clipping. Non-rectangular clips must be handled via
+        // `visit_clip`, which renders children into a layer.
         debug_assert!(radius.is_zero());
 
         clip_region_valid

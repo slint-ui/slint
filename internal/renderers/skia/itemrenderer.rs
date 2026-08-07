@@ -8,7 +8,6 @@ use std::pin::Pin;
 use super::{PhysicalBorderRadius, PhysicalLength, PhysicalPoint, PhysicalRect, PhysicalSize};
 use i_slint_core::graphics::ApproxEq;
 use i_slint_core::graphics::ResolvedBrush;
-use i_slint_core::graphics::adjust_rect_and_border_for_inner_drawing;
 use i_slint_core::graphics::boxshadowcache::BoxShadowCache;
 use i_slint_core::graphics::euclid::num::Zero;
 use i_slint_core::graphics::euclid::{self, Vector2D};
@@ -810,22 +809,9 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
         }
     }
 
-    fn combine_clip(
-        &mut self,
-        rect: LogicalRect,
-        radius: LogicalBorderRadius,
-        border_width: LogicalLength,
-    ) -> bool {
-        let mut rect = rect * self.scale_factor;
-        let mut border_width = border_width * self.scale_factor;
-        // In CSS the border is entirely towards the inside of the boundary
-        // geometry, while Skia strokes centered on the path, 50% in- and
-        // 50% outwards. We choose the CSS model, so the inner rectangle is
-        // adjusted accordingly.
-        adjust_rect_and_border_for_inner_drawing(&mut rect, &mut border_width);
-
-        let radius = radius * self.scale_factor;
-        let rounded_rect = to_skia_rrect(&rect, &radius);
+    fn combine_clip(&mut self, rect: LogicalRect, radius: LogicalBorderRadius) -> bool {
+        let rounded_rect =
+            to_skia_rrect(&(rect * self.scale_factor), &(radius * self.scale_factor));
         self.canvas.clip_rrect(rounded_rect, None, true);
         self.canvas.local_clip_bounds().is_some()
     }
