@@ -1,0 +1,9 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// The @image-url path is a string literal whose escapes are decoded (unlike an
+// import path), so a lone backslash is an unknown escape rather than a separator.
+export component Test {
+    in property <image> i: @image-url("images\icon.png");
+//                                           ><error{Unknown escape sequence. Use '\\' to escape a literal backslash}
+}
