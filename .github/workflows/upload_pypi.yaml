@@ -42,22 +42,49 @@ jobs:
                     - runner: ubuntu-22.04
                       target: armv7
                       container: "ghcr.io/slint-ui/slint/armv7-unknown-linux-gnueabihf"
+                    # musl wheels: cross-compiled in the musl cross containers
+                    # against their Alpine sysroot. maturin applies the
+                    # musllinux tag directly, so no auditwheel repair step.
+                    - runner: ubuntu-22.04
+                      target: x86_64-unknown-linux-musl
+                      container: "ghcr.io/slint-ui/slint/x86_64-unknown-linux-musl"
+                      manylinux: musllinux_1_2
+                    - runner: ubuntu-22.04
+                      target: aarch64-unknown-linux-musl
+                      container: "ghcr.io/slint-ui/slint/aarch64-unknown-linux-musl"
+                      manylinux: musllinux_1_2
         runs-on: ${{ matrix.platform.runner }}
         steps:
-            - uses: actions/checkout@v6
+            - uses: actions/checkout@v7
             - uses: ./.github/actions/install-linux-dependencies
               if: runner.os == 'Linux'
-            - uses: actions/setup-python@v6
+            - uses: actions/setup-python@v7
               with:
                 python-version: '3.12'
             - uses: ./.github/actions/setup-rust
+              with:
+                  key: ${{ matrix.platform.target }}
             - name: Build a binary wheel
               uses: PyO3/maturin-action@v1
               with:
                   working-directory: api/python/slint
                   target: ${{ matrix.platform.target }}
-                  args: --release --out wheelhouse --find-interpreter
+                  args: --release --out wheelhouse --find-interpreter --auditwheel skip
                   container: ${{ matrix.platform.container }}
+                  manylinux: ${{ matrix.platform.manylinux }}
+            # Don't vendor shared libraries: a bundled libgbm crashes on
+            # gbm_create_device (slint-ui/slint#12522). `--exclude '*'` keeps
+            # them as DT_NEEDED from the host while still applying the manylinux
+            # tag; grafting nothing, it also works for the cross-built wheels.
+            - name: Repair wheel without bundling libraries
+              if: ${{ runner.os == 'Linux' && !contains(matrix.platform.target, 'musl') }}
+              working-directory: api/python/slint
+              run: |
+                  python3 -m pip install auditwheel patchelf
+                  python3 -m auditwheel repair --exclude '*' -w repaired wheelhouse/*.whl
+                  # The aarch64/armv7 wheels are built by maturin in a container
+                  # as root, so the wheelhouse is root-owned; swap as root.
+                  sudo rm wheelhouse/*.whl && sudo mv repaired/*.whl wheelhouse/
             - name: Store the distribution packages
               uses: actions/upload-artifact@v7
               with:
@@ -74,8 +101,18 @@ jobs:
               with:
                   working-directory: api/python/slint-dev
                   target: ${{ matrix.platform.target }}
-                  args: --release --out wheelhouse --find-interpreter
+                  args: --release --out wheelhouse --find-interpreter --auditwheel skip
                   container: ${{ matrix.platform.container }}
+                  manylinux: ${{ matrix.platform.manylinux }}
+            - name: Repair wheel without bundling libraries (slint-dev)
+              if: ${{ runner.os == 'Linux' && !contains(matrix.platform.target, 'musl') }}
+              working-directory: api/python/slint-dev
+              run: |
+                  python3 -m pip install auditwheel patchelf
+                  python3 -m auditwheel repair --exclude '*' -w repaired wheelhouse/*.whl
+                  # The aarch64/armv7 wheels are built by maturin in a container
+                  # as root, so the wheelhouse is root-owned; swap as root.
+                  sudo rm wheelhouse/*.whl && sudo mv repaired/*.whl wheelhouse/
             - name: Store the development distribution packages
               uses: actions/upload-artifact@v7
               with:
@@ -86,12 +123,12 @@ jobs:
     ios_binaries:
         runs-on: macos-14
         steps:
-            - uses: actions/checkout@v6
+            - uses: actions/checkout@v7
             - uses: ./.github/actions/setup-rust
               with:
                   target: "aarch64-apple-ios aarch64-apple-ios-sim"
             - name: Build iOS wheels
-              uses: pypa/cibuildwheel@v4.0.0
+              uses: pypa/cibuildwheel@v4.1.1
               with:
                   package-dir: api/python/slint
                   output-dir: wheelhouse
@@ -110,7 +147,7 @@ jobs:
         name: Build source package
         runs-on: ubuntu-latest
         steps:
-            - uses: actions/checkout@v6
+            - uses: actions/checkout@v7
             - name: Build source package
               uses: PyO3/maturin-action@v1
               with:
@@ -133,8 +170,8 @@ jobs:
         needs: [build_binaries, ios_binaries, build_source_package]
         runs-on: ubuntu-22.04
         steps:
-            - uses: actions/checkout@v6
-            - uses: actions/setup-python@v6
+            - uses: actions/checkout@v7
+            - uses: actions/setup-python@v7
               with:
                 python-version: '3.12'
             - name: Install uv
@@ -144,8 +181,14 @@ jobs:
             # (dlopened at runtime, so not bundled into the manylinux wheel).
             - name: Setup headless display
               uses: pyvista/setup-headless-display-action@v4
-            - name: Install libxkbcommon-x11
-              run: sudo apt-get update && sudo apt-get install -y libxkbcommon-x11-0
+            # The wheels no longer vendor their dependencies, so provide the
+            # extension's direct DT_NEEDED libraries; apt pulls the rest.
+            - name: Install runtime system libraries
+              run: |
+                  sudo timeout 300 apt-get update
+                  sudo timeout 300 apt-get install -y \
+                    libxkbcommon-x11-0 libxkbcommon0 libgbm1 libinput10 \
+                    libfontconfig1 libfreetype6
             - uses: actions/download-artifact@v8
               with:
                 pattern: python-package-distributions-*

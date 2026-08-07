@@ -430,6 +430,20 @@ pub fn update_all_translations() {
 pub mod platform {
     pub use i_slint_core::platform::*;
 
+    /// Set the Slint platform abstraction.
+    ///
+    /// If the platform abstraction was already set this will return `Err`.
+    pub fn set_platform(
+        platform: alloc::boxed::Box<dyn Platform + 'static>,
+    ) -> Result<(), SetPlatformError> {
+        i_slint_core::platform::set_platform(platform)?;
+        // Custom platforms bypass the backend selector, so start the embedded testing/MCP
+        // backends here to match applications that go through it.
+        #[cfg(any(feature = "mcp", feature = "system-testing"))]
+        i_slint_backend_selector::init_testing_backends();
+        Ok(())
+    }
+
     /// This module contains the [`femtovg_renderer::FemtoVGRenderer`] and related types.
     ///
     /// It is only enabled when the `renderer-femtovg` Slint feature is enabled.
@@ -441,7 +455,7 @@ pub mod platform {
         #[cfg(feature = "renderer-femtovg")]
         pub use i_slint_renderer_femtovg::FemtoVGOpenGLRenderer as FemtoVGRenderer;
         /// Use this type to render to a WGPU texture using FemtoVG.
-        #[cfg(feature = "unstable-wgpu-29")]
+        #[cfg(feature = "unstable-wgpu-30")]
         pub use i_slint_renderer_femtovg::FemtoVGWGPURenderer;
         #[cfg(feature = "renderer-femtovg")]
         pub use i_slint_renderer_femtovg::opengl::OpenGLInterface;
@@ -451,7 +465,7 @@ pub mod platform {
     ///
     /// It is only enabled when the `renderer-skia` Slint feature is enabled.
     #[cfg(all(
-        feature = "unstable-wgpu-29",
+        any(feature = "unstable-wgpu-29", feature = "unstable-wgpu-30"),
         any(
             feature = "renderer-skia",
             feature = "renderer-skia-opengl",
@@ -459,6 +473,10 @@ pub mod platform {
         )
     ))]
     pub mod skia_renderer {
+        #[cfg(feature = "unstable-wgpu-29")]
+        pub use i_slint_renderer_skia::SkiaWGPU29Renderer;
+        #[cfg(feature = "unstable-wgpu-30")]
+        pub use i_slint_renderer_skia::SkiaWGPU30Renderer;
         pub use i_slint_renderer_skia::SkiaWGPURenderer;
     }
 
@@ -480,7 +498,7 @@ pub mod language {
         ($(
             $(#[$attr:meta])*
             $vis:vis struct $Name:ident {
-                $( $(#[$field_attr:meta])* $field:ident : $field_type:ty, )*
+                $( $(#[$field_attr:meta])* $field:ident : $field_type:ty $(= $field_default:expr)?, )*
             }
         )*) => {
             $( #[allow(unused_imports)] $vis use i_slint_core::items::$Name; )*
@@ -516,27 +534,13 @@ pub mod android;
 /// Helper type that helps checking that the generated code is generated for the right version
 #[doc(hidden)]
 #[allow(non_camel_case_types)]
-pub struct VersionCheck_1_17_1;
+pub struct VersionCheck_1_18_0;
 
 #[cfg(doctest)]
 mod compile_fail_tests;
 
 #[cfg(doc)]
 pub mod docs;
-
-#[cfg(feature = "unstable-wgpu-28")]
-pub mod wgpu_28 {
-    //! WGPU 28.x specific types and re-exports.
-    //!
-    //! *Note*: This module is behind a feature flag and may be removed or changed in future minor releases,
-    //!         as new major WGPU releases become available.
-    //!
-    //! See the [`wgpu_29`](crate::wgpu_29) module documentation for usage; the only difference is the
-    //! WGPU major version (28 vs 29) and the corresponding feature/selector/API names (`unstable-wgpu-28`,
-    //! [`slint::BackendSelector::require_wgpu_28()`](i_slint_backend_selector::api::BackendSelector::require_wgpu_28()),
-    //! [`slint::GraphicsAPI::WGPU28`](i_slint_core::api::GraphicsAPI::WGPU28)).
-    pub use i_slint_core::graphics::wgpu_28::api::*;
-}
 
 #[cfg(feature = "unstable-wgpu-29")]
 pub mod wgpu_29 {
@@ -545,15 +549,35 @@ pub mod wgpu_29 {
     //! *Note*: This module is behind a feature flag and may be removed or changed in future minor releases,
     //!         as new major WGPU releases become available.
     //!
+    //! This module exists for interoperability with ecosystems that are still on WGPU 29.x, such as bevy 0.19.
+    //!
+    //! See the [`wgpu_30`](crate::wgpu_30) module documentation for usage; the only difference is the
+    //! WGPU major version (29 vs 30) and the corresponding feature/selector/API names (`unstable-wgpu-29`,
+    //! [`slint::BackendSelector::require_wgpu_29()`](i_slint_backend_selector::api::BackendSelector::require_wgpu_29()),
+    //! [`slint::GraphicsAPI::WGPU29`](i_slint_core::api::GraphicsAPI::WGPU29)).
+    //!
+    //! When rendering offscreen with the Skia renderer, use `slint::platform::skia_renderer::SkiaWGPU29Renderer`
+    //! to select the wgpu 29 API explicitly, even if `unstable-wgpu-30` also ends up enabled through
+    //! Cargo feature unification.
+    pub use i_slint_core::graphics::wgpu_29::api::*;
+}
+
+#[cfg(feature = "unstable-wgpu-30")]
+pub mod wgpu_30 {
+    //! WGPU 30.x specific types and re-exports.
+    //!
+    //! *Note*: This module is behind a feature flag and may be removed or changed in future minor releases,
+    //!         as new major WGPU releases become available.
+    //!
     //! Use the types in this module in combination with other APIs to integrate external, WGPU-based rendering engines
     //! into a UI with Slint.
     //!
-    //! First, ensure that WGPU is used for rendering with Slint by using [`slint::BackendSelector::require_wgpu_29()`](i_slint_backend_selector::api::BackendSelector::require_wgpu_29()).
+    //! First, ensure that WGPU is used for rendering with Slint by using [`slint::BackendSelector::require_wgpu_30()`](i_slint_backend_selector::api::BackendSelector::require_wgpu_30()).
     //! This function accepts a pre-configured WGPU setup or configuration hints such as required features or memory limits.
     //!
     //! For rendering, it's crucial that you're using the same [`wgpu::Device`] and [`wgpu::Queue`] for allocating textures or submitting commands as Slint. Obtain the same queue
     //! by either using [`WGPUConfiguration::Manual`] to make Slint use an existing WGPU configuration, or use [`slint::Window::set_rendering_notifier()`](i_slint_core::api::Window::set_rendering_notifier())
-    //! to let Slint invoke a callback that provides access device, queue, etc. in [`slint::GraphicsAPI::WGPU29`](i_slint_core::api::GraphicsAPI::WGPU29).
+    //! to let Slint invoke a callback that provides access device, queue, etc. in [`slint::GraphicsAPI::WGPU30`](i_slint_core::api::GraphicsAPI::WGPU30).
     //!
     //! To integrate rendering content into a scene shared with a Slint UI, use either [`slint::Window::set_rendering_notifier()`](i_slint_core::api::Window::set_rendering_notifier()) to render an underlay
     //! or overlay, or integrate externally produced [`wgpu::Texture`]s using [`slint::Image::try_from<wgpu::Texture>()`](i_slint_core::graphics::Image::try_from).
@@ -562,13 +586,13 @@ pub mod wgpu_29 {
     //!
     //! `Cargo.toml`:
     //! ```toml
-    //! slint = { version = "~1.17", features = ["unstable-wgpu-29"] }
+    //! slint = { version = "~1.18", features = ["unstable-wgpu-30"] }
     //! ```
     //!
     //! `main.rs`:
     //!```rust,no_run
     //!
-    //! use slint::wgpu_29::wgpu;
+    //! use slint::wgpu_30::wgpu;
     //! use wgpu::util::DeviceExt;
     //!
     //!slint::slint!{
@@ -587,14 +611,14 @@ pub mod wgpu_29 {
     //!}
     //!fn main() -> Result<(), Box<dyn std::error::Error>> {
     //!    slint::BackendSelector::new()
-    //!        .require_wgpu_29(slint::wgpu_29::WGPUConfiguration::default())
+    //!        .require_wgpu_30(slint::wgpu_30::WGPUConfiguration::default())
     //!        .select()?;
     //!    let app = HelloWorld::new()?;
     //!
     //!    let app_weak = app.as_weak();
     //!
     //!    app.window().set_rendering_notifier(move |state, graphics_api| {
-    //!        let (Some(app), slint::RenderingState::RenderingSetup, slint::GraphicsAPI::WGPU29{ device, queue, ..}) = (app_weak.upgrade(), state, graphics_api) else {
+    //!        let (Some(app), slint::RenderingState::RenderingSetup, slint::GraphicsAPI::WGPU30{ device, queue, ..}) = (app_weak.upgrade(), state, graphics_api) else {
     //!            return;
     //!        };
     //!
@@ -632,7 +656,7 @@ pub mod wgpu_29 {
     //!}
     //!```
     //!
-    pub use i_slint_core::graphics::wgpu_29::api::*;
+    pub use i_slint_core::graphics::wgpu_30::api::*;
 }
 
 #[cfg(feature = "unstable-winit-030")]
@@ -649,7 +673,7 @@ pub mod winit_030 {
     //!
     //! `Cargo.toml`:
     //! ```toml
-    //! slint = { version = "~1.17", features = ["unstable-winit-030"] }
+    //! slint = { version = "~1.18", features = ["unstable-winit-030"] }
     //! ```
     //!
     //! `main.rs`:
@@ -705,9 +729,9 @@ pub mod winit_030 {
     pub type WinitWindowEventResult = EventResult;
 }
 
-#[cfg(feature = "unstable-fontique-010")]
-pub mod fontique_010 {
-    //! Fontique 0.10 specific types and re-exports.
+#[cfg(feature = "unstable-fontique-011")]
+pub mod fontique_011 {
+    //! Fontique 0.11 specific types and re-exports.
     //!
     //! *Note*: This module is behind a feature flag and may be removed or changed in future minor releases,
     //!         as new major Fontique releases become available.
@@ -730,18 +754,18 @@ pub mod fontique_010 {
     ///
     /// `Cargo.toml`:
     /// ```toml
-    /// slint = { version = "~1.17", features = ["unstable-fontique-010"] }
+    /// slint = { version = "~1.18", features = ["unstable-fontique-011"] }
     /// ```
     ///
     /// `main.rs`:
     /// ```rust,no_run
-    /// use slint::fontique_010::fontique;
+    /// use slint::fontique_011::fontique;
     ///
     /// fn main() {
     ///     // ...
     ///     let downloaded_font: Vec<u8> = todo!("Download https://somewebsite.com/font.ttf");
     ///     let blob = fontique::Blob::new(std::sync::Arc::new(downloaded_font));
-    ///     let mut collection = slint::fontique_010::shared_collection();
+    ///     let mut collection = slint::fontique_011::shared_collection();
     ///     let fonts = collection.register_fonts(blob, None);
     ///     collection
     ///         .append_fallbacks(fontique::FallbackKey::new(fontique::Script::from_str_unchecked("Hira"), None), fonts.iter().map(|x| x.0));

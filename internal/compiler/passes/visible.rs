@@ -6,6 +6,7 @@
 use smol_str::{SmolStr, format_smolstr};
 use std::cell::RefCell;
 use std::rc::Rc;
+use std::sync::Arc;
 
 use crate::diagnostics::BuildDiagnostics;
 use crate::expression_tree::{Expression, NamedReference};
@@ -20,16 +21,27 @@ pub fn handle_visible(
 ) {
     // SystemTrayIcon uses `visible` as a real reactive property (toggling the tray
     // icon's presence) rather than the lower-to-Clip layout sugar. Skip the
-    // warning + lowering for tray-rooted components.
+    // warning + lowering for tray-rooted components. The language bindings'
+    // `show()`/`hide()` write `visible` directly on the native item, behind the
+    // compiler's back — mark it as externally set so bindings reading it aren't
+    // const-folded to its initial value.
     if component.inherits_system_tray_icon() {
+        component
+            .root_element
+            .borrow()
+            .property_analysis
+            .borrow_mut()
+            .entry(SmolStr::new_static("visible"))
+            .or_default()
+            .is_set_externally = true;
         return;
     }
 
-    if let Some(b) = component.root_element.borrow().bindings.get("visible") {
+    if let Some(b) = component.root_element.borrow().binding("visible") {
         diag.push_warning(
             "The visible property cannot be used on the root element, it will not be applied"
                 .into(),
-            &*b.borrow(),
+            &*b,
         );
     }
 
@@ -41,7 +53,7 @@ pub fn handle_visible(
         &(),
         &mut |elem: &ElementRc, _| {
             let is_lowered_from_visible_property = elem.borrow().native_class().is_some_and(|n| {
-                Rc::ptr_eq(&n, &native_clip) && elem.borrow().id.ends_with("-visibility")
+                Arc::ptr_eq(&n, &native_clip) && elem.borrow().id.ends_with("-visibility")
             });
             if is_lowered_from_visible_property {
                 // This is the element we just created. Skip it.
@@ -56,7 +68,7 @@ pub fn handle_visible(
 
             let has_visible_binding = |e: &ElementRc| {
                 e.borrow().base_type.lookup_property("visible").property_type != Type::Invalid
-                    && (e.borrow().bindings.contains_key("visible")
+                    && (e.borrow().binding("visible").is_some()
                         || e.borrow()
                             .property_analysis
                             .borrow()
@@ -87,27 +99,32 @@ pub fn handle_visible(
     );
 }
 
-fn create_visibility_element(child: &ElementRc, native_clip: &Rc<NativeClass>) -> ElementRc {
-    let child_grid_layout_cell = child.borrow_mut().grid_layout_cell.take();
+fn create_visibility_element(child: &ElementRc, native_clip: &Arc<NativeClass>) -> ElementRc {
     let element = Element {
         id: format_smolstr!("{}-visibility", child.borrow().id),
         base_type: ElementType::Native(native_clip.clone()),
         enclosing_component: child.borrow().enclosing_component.clone(),
-        bindings: std::iter::once((
-            SmolStr::new_static("clip"),
-            RefCell::new(
-                Expression::UnaryOp {
-                    sub: Box::new(Expression::PropertyReference(NamedReference::new(
-                        child,
-                        SmolStr::new_static("visible"),
-                    ))),
-                    op: '!',
-                }
-                .into(),
+        bindings: [
+            (
+                SmolStr::new_static("clip"),
+                RefCell::new(
+                    Expression::UnaryOp {
+                        sub: Box::new(Expression::PropertyReference(NamedReference::new(
+                            child,
+                            SmolStr::new_static("visible"),
+                        ))),
+                        op: '!',
+                    }
+                    .into(),
+                ),
             ),
-        ))
+            (
+                SmolStr::new_static("is-visibility-clip"),
+                RefCell::new(Expression::BoolLiteral(true).into()),
+            ),
+        ]
+        .into_iter()
         .collect(),
-        grid_layout_cell: child_grid_layout_cell,
         ..Default::default()
     };
     Element::make_rc(element)

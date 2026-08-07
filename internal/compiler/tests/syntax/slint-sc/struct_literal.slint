@@ -1,0 +1,15 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A struct literal must set exactly the struct's fields: no missing, no extra.
+
+struct Point { x: length, y: length }
+
+export component Test inherits Window {
+    //#sls.struct.literal.exact
+    out property <Point> ok: { x: 1px, y: 2px };
+    out property <Point> missing: { x: 1px };
+//                                >         <error{Omitting the struct field 'y' is not supported in Slint SC}
+    out property <Point> extra: { x: 1px, y: 2px, z: 3px };
+//                              >                         <error{Providing the extra struct member 'z' is not supported in Slint SC}
+}

@@ -98,11 +98,17 @@ fn format_node(
         SyntaxKind::PropertyDeclaration => {
             return format_property_declaration(node, writer, state);
         }
+        SyntaxKind::PropertyDeprecation => {
+            return format_property_deprecation(node, writer, state);
+        }
         SyntaxKind::Binding => {
             return format_binding(node, writer, state);
         }
         SyntaxKind::TwoWayBinding => {
             return format_two_way_binding(node, writer, state);
+        }
+        SyntaxKind::ImplementStatement => {
+            return format_implement_statement(node, writer, state);
         }
         SyntaxKind::CallbackConnection => {
             return format_callback_connection(node, writer, state);
@@ -143,11 +149,20 @@ fn format_node(
         SyntaxKind::ChildrenPlaceholder => {
             return format_children_placeholder(node, writer, state);
         }
+        SyntaxKind::SlotDeclaration => {
+            return format_slot_declaration(node, writer, state);
+        }
         SyntaxKind::RepeatedElement => {
             return format_repeated_element(node, writer, state);
         }
         SyntaxKind::RepeatedIndex => {
             return format_repeated_index(node, writer, state);
+        }
+        SyntaxKind::MatchElement => {
+            return format_match_element(node, writer, state);
+        }
+        SyntaxKind::MatchCase | SyntaxKind::WildcardMatchCase => {
+            return format_match_case(node, writer, state);
         }
         SyntaxKind::Array => {
             return format_array(node, writer, state);
@@ -197,11 +212,8 @@ fn format_node(
         SyntaxKind::ImportSpecifier => {
             return format_import_specifier(node, writer, state);
         }
-        SyntaxKind::UsesSpecifier => {
-            return format_uses_specifier(node, writer, state);
-        }
-        SyntaxKind::ImplementsSpecifier => {
-            return format_implements_specifier(node, writer, state);
+        SyntaxKind::Closure => {
+            return format_closure(node, writer, state);
         }
         _ => (),
     }
@@ -411,7 +423,7 @@ fn format_component(
             && whitespace_to(&mut sub, SyntaxKind::DeclaredIdentifier, writer, state, " ")?;
         let r = whitespace_to_one_of(
             &mut sub,
-            &[SyntaxKind::Identifier, SyntaxKind::UsesSpecifier, SyntaxKind::Element],
+            &[SyntaxKind::Identifier, SyntaxKind::Element],
             writer,
             state,
             " ",
@@ -584,6 +596,26 @@ fn format_property_declaration(
     Ok(())
 }
 
+fn format_property_deprecation(
+    node: &SyntaxNode,
+    writer: &mut impl TokenWriter,
+    state: &mut FormatState,
+) -> Result<(), std::io::Error> {
+    let mut sub = node.children_with_tokens();
+    whitespace_to(&mut sub, SyntaxKind::At, writer, state, "")?;
+    // The "deprecated" keyword and an optional `("message")`.
+    whitespace_to(&mut sub, SyntaxKind::Identifier, writer, state, "")?;
+    if node.child_token(SyntaxKind::LParent).is_some() {
+        let _ok = whitespace_to(&mut sub, SyntaxKind::LParent, writer, state, "")?
+            && whitespace_to(&mut sub, SyntaxKind::StringLiteral, writer, state, "")?
+            && whitespace_to(&mut sub, SyntaxKind::RParent, writer, state, "")?;
+    }
+    // Drop the whitespace between the deprecation and the property; the caller
+    // inserts a single space before the following keyword.
+    state.skip_all_whitespace = true;
+    Ok(())
+}
+
 fn format_binding(
     node: &SyntaxNode,
     writer: &mut impl TokenWriter,
@@ -612,6 +644,26 @@ fn format_two_way_binding(
     }
     let _ok = whitespace_to(&mut sub, SyntaxKind::DoubleArrow, writer, state, " ")?
         && whitespace_to(&mut sub, SyntaxKind::Expression, writer, state, " ")?;
+    if node.child_token(SyntaxKind::Semicolon).is_some() {
+        whitespace_to(&mut sub, SyntaxKind::Semicolon, writer, state, "")?;
+        state.new_line();
+    }
+    for s in sub {
+        fold(s, writer, state)?;
+    }
+    Ok(())
+}
+
+fn format_implement_statement(
+    node: &SyntaxNode,
+    writer: &mut impl TokenWriter,
+    state: &mut FormatState,
+) -> Result<(), std::io::Error> {
+    let mut sub = node.children_with_tokens();
+    whitespace_to(&mut sub, SyntaxKind::Identifier, writer, state, "")?; // "implement"
+    let _ok = whitespace_to(&mut sub, SyntaxKind::QualifiedName, writer, state, " ")?
+        && whitespace_to(&mut sub, SyntaxKind::DoubleArrow, writer, state, " ")?
+        && whitespace_to(&mut sub, SyntaxKind::DeclaredIdentifier, writer, state, " ")?;
     if node.child_token(SyntaxKind::Semicolon).is_some() {
         whitespace_to(&mut sub, SyntaxKind::Semicolon, writer, state, "")?;
         state.new_line();
@@ -773,24 +825,6 @@ fn format_qualified_name(
         state.skip_all_whitespace = true;
         fold(n, writer, state)?;
     }
-    /*if !node
-        .last_token()
-        .and_then(|x| x.next_token())
-        .map(|x| {
-            matches!(
-                x.kind(),
-                SyntaxKind::LParent
-                    | SyntaxKind::RParent
-                    | SyntaxKind::Semicolon
-                    | SyntaxKind::Comma
-            )
-        })
-        .unwrap_or(false)
-    {
-        state.insert_whitespace(" ");
-    } else {
-        state.skip_all_whitespace = true;
-    }*/
     Ok(())
 }
 
@@ -1144,7 +1178,7 @@ fn format_return_statement(
     let mut sub = node.children_with_tokens();
     whitespace_to(&mut sub, SyntaxKind::Identifier, writer, state, "")?;
     if node.child_node(SyntaxKind::Expression).is_some() {
-        whitespace_to(&mut sub, SyntaxKind::Identifier, writer, state, " ")?;
+        whitespace_to(&mut sub, SyntaxKind::Expression, writer, state, " ")?;
     }
     whitespace_to(&mut sub, SyntaxKind::Semicolon, writer, state, "")?;
     state.new_line();
@@ -1207,6 +1241,20 @@ fn format_children_placeholder(
     Ok(())
 }
 
+fn format_slot_declaration(
+    node: &SyntaxNode,
+    writer: &mut impl TokenWriter,
+    state: &mut FormatState,
+) -> Result<(), std::io::Error> {
+    let mut sub = node.children_with_tokens();
+    let _ok = whitespace_to(&mut sub, SyntaxKind::Identifier, writer, state, "")?
+        && whitespace_to(&mut sub, SyntaxKind::DeclaredIdentifier, writer, state, " ")?
+        && whitespace_to(&mut sub, SyntaxKind::Semicolon, writer, state, "")?;
+    finish_node(sub, writer, state)?;
+    state.new_line();
+    Ok(())
+}
+
 fn format_repeated_element(
     node: &SyntaxNode,
     writer: &mut impl TokenWriter,
@@ -1234,6 +1282,56 @@ fn format_repeated_element(
 
     for s in sub {
         fold(s, writer, state)?;
+    }
+    Ok(())
+}
+
+fn format_match_element(
+    node: &SyntaxNode,
+    writer: &mut impl TokenWriter,
+    state: &mut FormatState,
+) -> Result<(), std::io::Error> {
+    let mut sub = node.children_with_tokens();
+    whitespace_to(&mut sub, SyntaxKind::Identifier, writer, state, "")?;
+    whitespace_to(&mut sub, SyntaxKind::Expression, writer, state, " ")?;
+    whitespace_to(&mut sub, SyntaxKind::LBrace, writer, state, " ")?;
+
+    state.indentation_level += 1;
+    state.new_line();
+
+    for s in sub {
+        if s.kind() == SyntaxKind::RBrace {
+            state.indentation_level -= 1;
+            state.whitespace_to_add = None;
+            state.new_line();
+            fold(s, writer, state)?;
+            state.new_line();
+        } else {
+            fold(s, writer, state)?;
+        }
+    }
+    Ok(())
+}
+
+fn format_match_case(
+    node: &SyntaxNode,
+    writer: &mut impl TokenWriter,
+    state: &mut FormatState,
+) -> Result<(), std::io::Error> {
+    let mut sub = node.children_with_tokens().peekable();
+    whitespace_to(&mut sub, SyntaxKind::Expression, writer, state, "")?;
+    whitespace_to(&mut sub, SyntaxKind::Colon, writer, state, "")?;
+    if node.child_node(SyntaxKind::SubElement).is_none() {
+        whitespace_to(&mut sub, SyntaxKind::LBrace, writer, state, " ")?;
+        whitespace_to(&mut sub, SyntaxKind::RBrace, writer, state, " ")?;
+        state.skip_all_whitespace = true;
+        state.new_line();
+    } else {
+        state.insert_whitespace(" ");
+        state.skip_all_whitespace = true;
+        for s in sub {
+            fold(s, writer, state)?;
+        }
     }
     Ok(())
 }
@@ -1983,11 +2081,16 @@ fn format_object_type_member(
     writer: &mut impl TokenWriter,
     state: &mut FormatState,
 ) -> Result<(), std::io::Error> {
-    // Format a single struct field: `name: Type` (comma handled if present).
+    // Format a single struct field: `name: Type` or `name: Type = default-value`
+    // (comma handled if present).
     let mut sub = node.children_with_tokens();
     let _ok = whitespace_to(&mut sub, SyntaxKind::Identifier, writer, state, "")?
         && whitespace_to(&mut sub, SyntaxKind::Colon, writer, state, "")?
         && whitespace_to(&mut sub, SyntaxKind::Type, writer, state, " ")?;
+    if node.child_token(SyntaxKind::Equal).is_some() {
+        let _ok = whitespace_to(&mut sub, SyntaxKind::Equal, writer, state, " ")?
+            && whitespace_to(&mut sub, SyntaxKind::Expression, writer, state, " ")?;
+    }
     if node.child_token(SyntaxKind::Comma).is_some() {
         whitespace_to(&mut sub, SyntaxKind::Comma, writer, state, "")?;
     }
@@ -2076,6 +2179,26 @@ fn format_import_specifier(
             _ => {
                 fold(n, writer, state)?;
             }
+        }
+    }
+
+    Ok(())
+}
+
+fn format_closure(
+    node: &SyntaxNode,
+    writer: &mut impl TokenWriter,
+    state: &mut FormatState,
+) -> Result<(), std::io::Error> {
+    for s in node.children_with_tokens() {
+        state.skip_all_whitespace = true;
+        match s.kind() {
+            SyntaxKind::FatArrow => {
+                state.insert_whitespace(" ");
+                fold(s, writer, state)?;
+                state.insert_whitespace(" ");
+            }
+            _ => fold(s, writer, state)?,
         }
     }
 
@@ -2182,71 +2305,6 @@ fn format_import_identifier(
             }
             _ => {
                 state.skip_all_whitespace = true;
-                fold(n, writer, state)?;
-            }
-        }
-    }
-    Ok(())
-}
-
-/// Formats a uses specifier.
-///
-/// Ensures that the QualifiedName and `from` Identifier are separated by a space.
-fn format_uses_specifier(
-    node: &SyntaxNode,
-    writer: &mut impl TokenWriter,
-    state: &mut FormatState,
-) -> Result<(), std::io::Error> {
-    let sub = node.children_with_tokens();
-    for n in sub {
-        match n.kind() {
-            SyntaxKind::Whitespace => {
-                fold(n, writer, state)?;
-            }
-            SyntaxKind::LBrace => {
-                fold(n, writer, state)?;
-            }
-            SyntaxKind::UsesIdentifier => {
-                if let Some(uses_node) = n.as_node() {
-                    state.skip_all_whitespace = true;
-                    for child in uses_node.children_with_tokens() {
-                        match child.kind() {
-                            SyntaxKind::Identifier => {
-                                state.whitespace_to_add = Some(" ".into());
-                                fold(child, writer, state)?;
-                            }
-                            _ => {
-                                fold(child, writer, state)?;
-                            }
-                        }
-                    }
-                }
-            }
-            SyntaxKind::RBrace => {
-                fold(n, writer, state)?;
-            }
-            _ => {
-                state.skip_all_whitespace = true;
-                fold(n, writer, state)?;
-            }
-        }
-    }
-    Ok(())
-}
-
-fn format_implements_specifier(
-    node: &SyntaxNode,
-    writer: &mut impl TokenWriter,
-    state: &mut FormatState,
-) -> Result<(), std::io::Error> {
-    let sub = node.children_with_tokens();
-    for n in sub {
-        match n.kind() {
-            SyntaxKind::Identifier | SyntaxKind::QualifiedName => {
-                fold(n, writer, state)?;
-                state.insert_whitespace(" ");
-            }
-            _ => {
                 fold(n, writer, state)?;
             }
         }
@@ -2362,6 +2420,32 @@ Main := Window {
 
     pure callback some-fn({x: int}, string);
     in property <int> foo: 42;
+}
+"#,
+        );
+    }
+
+    #[test]
+    fn deprecated_property() {
+        assert_formatting(
+            r#"
+component W {
+    in-out property <int> new-prop;
+    @deprecated  in-out    property   <int>   old-prop   <=>   new-prop;
+    @deprecated
+
+        in-out property <int> spaced-prop <=> new-prop;
+    @deprecated (   "Use 'new-prop' instead"   )   in-out property <int> older-prop <=> new-prop;
+    @deprecated("msg")in-out property<int>compact<=>new-prop;
+}
+"#,
+            r#"
+component W {
+    in-out property <int> new-prop;
+    @deprecated in-out property <int> old-prop <=> new-prop;
+    @deprecated in-out property <int> spaced-prop <=> new-prop;
+    @deprecated("Use 'new-prop' instead") in-out property <int> older-prop <=> new-prop;
+    @deprecated("msg") in-out property <int> compact <=> new-prop;
 }
 "#,
         );
@@ -3221,6 +3305,28 @@ component HelloWorld {
     }
 
     #[test]
+    fn struct_field_default_values() {
+        assert_formatting(
+            r#"
+struct Foo {
+    a: int=42,
+    b: string    =   "hello",
+    c: color= #ff0000,
+    d: int,
+}
+"#,
+            r#"
+struct Foo {
+    a: int = 42,
+    b: string = "hello",
+    c: color = #ff0000,
+    d: int,
+}
+"#,
+        );
+    }
+
+    #[test]
     fn preserve_top_level_comment_spacing() {
         assert_formatting(
             r#"
@@ -3347,6 +3453,17 @@ export component MainWindow2 inherits Rectangle {
     }
 
     #[test]
+    fn implement_statement() {
+        assert_formatting(
+            "export component Foobar{implement   Foo<=>self ;}",
+            r#"export component Foobar {
+    implement Foo <=> self;
+}
+"#,
+        );
+    }
+
+    #[test]
     fn callback_connection() {
         assert_formatting(
             "export component Foobar{ init=>{  debug (1 );} \n\nfoo=>{}  clicked =>   debug(2) ; TouchArea { clicked => root.clicked(); moved=>{debug(3)};\n\n//some comment\n        bar=>{} }  }",
@@ -3465,6 +3582,20 @@ export component MainWindow2 inherits Rectangle {
             r#"component X {
     // function foo() {
     // }
+}
+"#,
+        );
+    }
+
+    #[test]
+    fn closure() {
+        assert_formatting(
+            "component X { property <[int]> arr: [1, 2, 3, 4, 5]; function foo() { arr.any((x)\n     =>   x         ==  1     ); } }",
+            r#"component X {
+    property <[int]> arr: [1, 2, 3, 4, 5];
+    function foo() {
+        arr.any((x) => x == 1);
+    }
 }
 "#,
         );
@@ -3682,6 +3813,27 @@ export component MainWindow2 inherits Rectangle {
     Tar,
     Jar,
 } from "./here.slint";"#,
+        );
+    }
+
+    #[test]
+    fn nested_closure() {
+        assert_formatting(
+            "component X { property <[[int]]> arr: [[1, 2, 3, 4, 5]]; function foo() { arr.any((x)     =>   x.all((y)   => y   ==  7     )      ); } }",
+            r#"component X {
+    property <[[int]]> arr: [[1, 2, 3, 4, 5]];
+    function foo() { arr.any((x) => x.all((y) => y == 7)); }
+}
+"#,
+        );
+
+        assert_formatting(
+            "component X { property <[[{age: int}]]> groups: []; function foo() { groups.any((group)     =>   group.any((person)   => person.age   >  20     ) && group.length == 2      ); } }",
+            r#"component X {
+    property <[[{age: int}]]> groups: [];
+    function foo() { groups.any((group) => group.any((person) => person.age > 20) && group.length == 2); }
+}
+"#,
         );
     }
 }

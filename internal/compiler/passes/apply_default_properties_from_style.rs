@@ -19,6 +19,12 @@ pub fn apply_default_properties_from_style(
     palette: &Rc<Component>,
     _diag: &mut BuildDiagnostics,
 ) {
+    // There are no styles in Slint SC; the defaults are part of the
+    // generated code
+    #[cfg(feature = "slint-sc")]
+    if _diag.slint_sc {
+        return;
+    }
     crate::object_tree::recurse_elem_including_sub_components(
         root_component,
         &(),

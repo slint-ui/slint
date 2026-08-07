@@ -194,11 +194,10 @@ impl super::Surface for SoftwareSurface {
             size,
             &mut |width, height, pixel_format, age, pixels| {
                 let mut surface_borrow = skia_safe::surfaces::wrap_pixels(
-                    &skia_safe::ImageInfo::new(
+                    &crate::image_info(
                         (width.get() as i32, height.get() as i32),
                         pixel_format,
                         skia_safe::AlphaType::Opaque,
-                        None,
                     ),
                     pixels,
                     None,

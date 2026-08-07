@@ -3,6 +3,7 @@
 
 use crate::api::{SetPropertyError, Struct, Value};
 use crate::dynamic_item_tree::{CallbackHandler, InstanceRef};
+use core::cell::RefCell;
 use core::ffi::c_void;
 use core::pin::Pin;
 use corelib::graphics::{
@@ -17,17 +18,17 @@ use corelib::window::{WindowInner, WindowKind};
 use corelib::{Brush, Color, PathData, SharedString, SharedVector};
 use i_slint_compiler::diagnostics::Spanned;
 use i_slint_compiler::expression_tree::{
-    BuiltinFunction, Callable, EasingCurve, Expression, MinMaxOp, Path as ExprPath,
-    PathElement as ExprPathElement,
+    BuiltinFunction, Callable, EasingCurve, Expression, MinMaxOp, MouseCursorInner,
+    Path as ExprPath, PathElement as ExprPathElement,
 };
-use i_slint_compiler::langtype::Type;
+use i_slint_compiler::langtype::{ConstantExpression, Type};
 use i_slint_compiler::namedreference::NamedReference;
-use i_slint_compiler::object_tree::ElementRc;
+use i_slint_compiler::object_tree::{Element, ElementRc};
 use i_slint_core::api::ToSharedString;
 use i_slint_core::{self as corelib};
 use smol_str::SmolStr;
 use std::collections::HashMap;
-use std::rc::Rc;
+use std::rc::{Rc, Weak};
 
 pub trait ErasedPropertyInfo {
     fn get(&self, item: Pin<ItemRef>) -> Value;
@@ -202,7 +203,7 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
         Expression::Invalid => panic!("invalid expression while evaluating"),
         Expression::Uncompiled(_) => panic!("uncompiled expression while evaluating"),
         Expression::StringLiteral(s) => Value::String(s.as_str().into()),
-        Expression::NumberLiteral(n, unit) => Value::Number(unit.normalize(*n)),
+        Expression::NumberLiteral(n, _unit) => Value::Number(*n),
         Expression::BoolLiteral(b) => Value::Bool(*b),
         Expression::ElementReference(_) => todo!(
             "Element references are only supported in the context of built-in function calls at the moment"
@@ -253,19 +254,7 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
                 _ => Value::Void,
             }
         }
-        Expression::Cast { from, to } => {
-            let value = eval_expression(from, local_context);
-            match (value, to) {
-                (Value::Number(n), Type::Int32) => Value::Number(n.trunc()),
-                (Value::Number(n), Type::String) => {
-                    Value::String(i_slint_core::string::shared_string_from_number(n))
-                }
-                (Value::Number(n), Type::Color) => Color::from_argb_encoded(n as u32).into(),
-                (Value::Brush(brush), Type::Color) => brush.color().into(),
-                (Value::EnumerationValue(_, val), Type::String) => Value::String(val.into()),
-                (v, _) => v,
-            }
-        }
+        Expression::Cast { from, to } => cast_value(eval_expression(from, local_context), to),
         Expression::CodeBlock(sub) => {
             let mut v = Value::Void;
             for e in sub {
@@ -321,6 +310,13 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
         }
         Expression::BinaryExpression { lhs, rhs, op } => {
             let lhs = eval_expression(lhs, local_context);
+            // && and || short circuit like in the generated code, or else side
+            // effects in the rhs would run in the interpreter only
+            match (op, &lhs) {
+                ('&', Value::Bool(false)) => return Value::Bool(false),
+                ('|', Value::Bool(true)) => return Value::Bool(true),
+                _ => {}
+            }
             let rhs = eval_expression(rhs, local_context);
 
             match (op, lhs, rhs) {
@@ -358,21 +354,17 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
         }
         Expression::UnaryOp { sub, op } => {
             let sub = eval_expression(sub, local_context);
-            match (sub, op) {
-                (Value::Number(a), '+') => Value::Number(a),
-                (Value::Number(a), '-') => Value::Number(-a),
-                (Value::Bool(a), '!') => Value::Bool(!a),
-                (sub, op) => panic!("unsupported {op} {sub:?}"),
-            }
+            eval_unary_op(sub, *op).unwrap_or_else(|sub| panic!("unsupported {op} {sub:?}"))
         }
         Expression::ImageReference { resource_ref, nine_slice, .. } => {
             let mut image = match resource_ref {
                 i_slint_compiler::expression_tree::ImageReference::None => Ok(Default::default()),
-                i_slint_compiler::expression_tree::ImageReference::DataUri(data) => {
-                    i_slint_compiler::data_uri::decode_data_uri(data)
+                i_slint_compiler::expression_tree::ImageReference::DataUri(data_uri) => {
+                    i_slint_compiler::data_uri::decode_data_uri(data_uri)
                         .ok()
                         .and_then(|(data, extension)| {
-                            corelib::graphics::load_image_from_dynamic_data(&data, &extension).ok()
+                            corelib::graphics::load_image_from_data_uri(data_uri, &data, &extension)
+                                .ok()
                         })
                         .ok_or_else(Default::default)
                 }
@@ -395,7 +387,16 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
                     corelib::graphics::Image::load_from_path(std::path::Path::new(path))
                 }
                 i_slint_compiler::expression_tree::ImageReference::Url(url) => {
-                    corelib::graphics::Image::load_from_path(std::path::Path::new(url.as_str()))
+                    #[cfg(target_arch = "wasm32")]
+                    {
+                        corelib::graphics::load_as_html_image(url.as_str())
+                    }
+                    // URL image references only work on the web, where the browser fetches them.
+                    #[cfg(not(target_arch = "wasm32"))]
+                    {
+                        let _ = url;
+                        Err(Default::default())
+                    }
                 }
                 i_slint_compiler::expression_tree::ImageReference::EmbeddedData { .. } => {
                     todo!()
@@ -456,6 +457,18 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
             EasingCurve::EaseInOutBounce => corelib::animations::EasingCurve::EaseInOutBounce,
             EasingCurve::CubicBezier(a, b, c, d) => {
                 corelib::animations::EasingCurve::CubicBezier([*a, *b, *c, *d])
+            }
+        }),
+        Expression::MouseCursor(cursor) => Value::MouseCursorInner(match cursor {
+            MouseCursorInner::BuiltIn(cursor) => corelib::cursor::MouseCursorInner::BuiltIn(
+                eval_expression(cursor, local_context).try_into().unwrap(),
+            ),
+            MouseCursorInner::CustomMouseCursor { image, hotspot_x, hotspot_y } => {
+                let image = eval_expression(image, local_context).try_into().unwrap();
+                let hotspot_x = eval_expression(hotspot_x, local_context).try_into().unwrap();
+                let hotspot_y = eval_expression(hotspot_y, local_context).try_into().unwrap();
+
+                corelib::cursor::MouseCursorInner::CustomMouseCursor { image, hotspot_x, hotspot_y }
             }
         }),
         Expression::LinearGradient { angle, stops } => {
@@ -713,16 +726,22 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
         }
         Expression::EmptyComponentFactory => Value::ComponentFactory(Default::default()),
         Expression::EmptyDataTransfer => Value::DataTransfer(Default::default()),
-        Expression::DebugHook { expression, id: _id } => {
-            let value = eval_expression(expression, local_context);
-            #[cfg(feature = "internal-highlight")]
-            let value = crate::debug_hook::debug_hook_triggered(
-                &local_context.component_instance,
-                _id.clone(),
-                value,
-            );
-            value
+        Expression::DebugHook { expression, id: _id, .. } => {
+            #[cfg(feature = "internal")]
+            {
+                if let Some(hook_value) = crate::debug_hook::trigger_debug_hook(
+                    &local_context.component_instance,
+                    _id.clone(),
+                ) {
+                    return hook_value;
+                }
+            }
+
+            eval_expression(expression, local_context)
         }
+        Expression::Closure { .. } => unreachable!(
+            "closures are dispatched by their consuming builtin and should not go through eval_expression"
+        ),
     }
 }
 
@@ -1311,6 +1330,34 @@ fn call_builtin_function(
                 panic!("Argument not a string");
             }
         }
+        BuiltinFunction::StringStartsWith => {
+            if arguments.len() != 2 {
+                panic!("internal error: incorrect argument count to StringStartsWith")
+            }
+            if let Value::String(s) = eval_expression(&arguments[0], local_context) {
+                if let Value::String(pat) = eval_expression(&arguments[1], local_context) {
+                    Value::Bool(s.starts_with(pat.as_str()))
+                } else {
+                    panic!("Second argument not a string");
+                }
+            } else {
+                panic!("First argument not a string");
+            }
+        }
+        BuiltinFunction::StringEndsWith => {
+            if arguments.len() != 2 {
+                panic!("internal error: incorrect argument count to StringEndsWith")
+            }
+            if let Value::String(s) = eval_expression(&arguments[0], local_context) {
+                if let Value::String(pat) = eval_expression(&arguments[1], local_context) {
+                    Value::Bool(s.ends_with(pat.as_str()))
+                } else {
+                    panic!("Second argument not a string");
+                }
+            } else {
+                panic!("First argument not a string");
+            }
+        }
         BuiltinFunction::KeysToString => {
             if arguments.len() != 1 {
                 panic!("internal error: incorrect argument count to KeysToString")
@@ -1489,6 +1536,59 @@ fn call_builtin_function(
                     panic!("First argument not an array: {:?}", arguments[0]);
                 }
             }
+        }
+        BuiltinFunction::ArrayPush => {
+            if arguments.len() != 2 {
+                panic!("internal error: incorrect argument count to ArrayPush")
+            }
+
+            let model = match eval_expression(&arguments[0], local_context) {
+                Value::Model(m) => m,
+                _ => panic!("First argument not an array: {:?}", arguments[0]),
+            };
+            let value = eval_expression(&arguments[1], local_context);
+
+            model.push_row(value);
+
+            Value::Void
+        }
+        BuiltinFunction::ArrayRemove => {
+            if arguments.len() != 2 {
+                panic!("internal error: incorrect argument count to ArrayRemove")
+            }
+
+            let model = match eval_expression(&arguments[0], local_context) {
+                Value::Model(m) => m,
+                _ => panic!("First argument not an array: {:?}", arguments[0]),
+            };
+            let index = match eval_expression(&arguments[1], local_context) {
+                Value::Number(i) => i,
+                _ => panic!("Second argument not an integer: {:?}", arguments[1]),
+            };
+
+            model.remove_row(index as isize);
+
+            Value::Void
+        }
+
+        BuiltinFunction::ArrayInsert => {
+            if arguments.len() != 3 {
+                panic!("internal error: incorrect argument count to ArrayInsert")
+            }
+
+            let model = match eval_expression(&arguments[0], local_context) {
+                Value::Model(m) => m,
+                _ => panic!("First argument not an array: {:?}", arguments[0]),
+            };
+            let index = match eval_expression(&arguments[1], local_context) {
+                Value::Number(i) => i,
+                _ => panic!("Second argument not an integer: {:?}", arguments[1]),
+            };
+
+            let value = eval_expression(&arguments[2], local_context);
+            model.insert_row(index as isize, value);
+
+            Value::Void
         }
         BuiltinFunction::Rgb => {
             let r: i32 = eval_expression(&arguments[0], local_context).try_into().unwrap();
@@ -1721,22 +1821,11 @@ fn call_builtin_function(
             let component = local_context.component_instance;
 
             if let Expression::ElementReference(item) = &arguments[0] {
-                generativity::make_guard!(guard);
+                let item_rc = item_rc_for_element(item, component);
 
-                let item = item.upgrade().unwrap();
-                let enclosing_component = enclosing_component_for_element(&item, component, guard);
-                let description = enclosing_component.description;
-
-                let item_info = &description.items[item.borrow().id.as_str()];
-
-                let item_comp = enclosing_component.self_weak().get().unwrap().upgrade().unwrap();
-
-                let item_rc = corelib::items::ItemRc::new(
-                    vtable::VRc::into_dyn(item_comp),
-                    item_info.item_index(),
-                );
-
-                item_rc.map_to_window(Default::default()).to_untyped().into()
+                // Map the item's own geometry origin through the ancestor transforms so the
+                // result is the item's absolute position (not its parent's).
+                item_rc.map_to_window(item_rc.geometry().origin).to_untyped().into()
             } else {
                 panic!("internal error: argument to SetFocusItem must be an element")
             }
@@ -1747,13 +1836,19 @@ fn call_builtin_function(
             }
             let component = local_context.component_instance;
             if let Value::String(s) = eval_expression(&arguments[0], local_context) {
-                if let Some(err) = component
-                    .window_adapter()
-                    .renderer()
-                    .register_font_from_path(&std::path::PathBuf::from(s.as_str()))
-                    .err()
-                {
-                    corelib::debug_log!("Error loading custom font {}: {}", s.as_str(), err);
+                // If the window adapter can't be created, log and skip the registration
+                // instead of panicking: the same error resurfaces when the window is
+                // actually used.
+                let result = component.try_window_adapter().map_err(|e| e.to_string()).and_then(
+                    |window_adapter| {
+                        window_adapter
+                            .renderer()
+                            .register_font_from_path(&std::path::PathBuf::from(s.as_str()))
+                            .map_err(|e| format!("Cannot load custom font {}: {e}", s.as_str()))
+                    },
+                );
+                if let Err(err) = result {
+                    corelib::debug_log!("{err}");
                 }
                 Value::Void
             } else {
@@ -1839,7 +1934,87 @@ fn call_builtin_function(
                 eval_expression(&arguments[0], local_context).try_into().unwrap();
             Value::StyledText(corelib::styled_text::color_to_styled_text(color))
         }
+        BuiltinFunction::PathPointAt => {
+            let component = local_context.component_instance;
+
+            if let Expression::ElementReference(item) = &arguments[0] {
+                let item_rc = item_rc_for_element(item, component);
+
+                let t: f32 = eval_expression(&arguments[1], local_context).try_into().unwrap();
+
+                item_rc
+                    .downcast::<corelib::items::Path>()
+                    .unwrap()
+                    .as_pin_ref()
+                    .point_at(&item_rc, t)
+                    .to_untyped()
+                    .into()
+            } else {
+                panic!("internal error: argument to PathPointAt must be an element")
+            }
+        }
+        BuiltinFunction::PathAngleAt => {
+            let component = local_context.component_instance;
+
+            if let Expression::ElementReference(item) = &arguments[0] {
+                let item_rc = item_rc_for_element(item, component);
+
+                let t: f32 = eval_expression(&arguments[1], local_context).try_into().unwrap();
+
+                item_rc
+                    .downcast::<corelib::items::Path>()
+                    .unwrap()
+                    .as_pin_ref()
+                    .angle_at(&item_rc, t)
+                    .into()
+            } else {
+                panic!("internal error: argument to PathAngleAt must be an element")
+            }
+        }
+        BuiltinFunction::ArrayAny | BuiltinFunction::ArrayAll => {
+            let is_all = matches!(f, BuiltinFunction::ArrayAll);
+            let model: ModelRc<Value> =
+                eval_expression(&arguments[0], local_context).try_into().unwrap();
+            let Expression::Closure { arg_name, expression } = &arguments[1] else {
+                panic!("internal error: Array.any/all expects a closure as second argument")
+            };
+            model.model_tracker().track_row_count_changes();
+            for row in 0..model.row_count() {
+                let x = model.row_data_tracked(row).unwrap_or_default();
+                let previous = local_context.local_variables.insert(arg_name.clone(), x);
+                let result: bool = eval_expression(expression, local_context).try_into().unwrap();
+                match previous {
+                    Some(prev) => {
+                        local_context.local_variables.insert(arg_name.clone(), prev);
+                    }
+                    None => {
+                        local_context.local_variables.remove(arg_name);
+                    }
+                }
+                // `all` short-circuits on false, `any` short-circuits on true.
+                if result != is_all {
+                    return Value::Bool(!is_all);
+                }
+            }
+            Value::Bool(is_all)
+        }
     }
+}
+
+fn item_rc_for_element(
+    item: &Weak<RefCell<Element>>,
+    component: InstanceRef,
+) -> corelib::items::ItemRc {
+    generativity::make_guard!(guard);
+    let item = item.upgrade().unwrap();
+    let enclosing_component = enclosing_component_for_element(&item, component, guard);
+    let description = enclosing_component.description;
+
+    let item_info = &description.items[item.borrow().id.as_str()];
+
+    let item_comp = enclosing_component.self_weak().get().unwrap().upgrade().unwrap();
+
+    corelib::items::ItemRc::new(vtable::VRc::into_dyn(item_comp), item_info.item_index())
 }
 
 fn call_item_member_function(nr: &NamedReference, local_context: &mut EvalLocalContext) -> Value {
@@ -1925,29 +2100,14 @@ fn eval_assignment(lhs: &Expression, op: char, rhs: Value, local_context: &mut E
 
             match enclosing_component {
                 ComponentInstance::InstanceRef(enclosing_component) => {
-                    if op == '=' {
-                        store_property(enclosing_component, &element, nr.name(), rhs).unwrap();
-                        return;
-                    }
-
-                    let component = element.borrow().enclosing_component.upgrade().unwrap();
-                    if element.borrow().id == component.root_element.borrow().id
-                        && let Some(x) =
-                            enclosing_component.description.custom_properties.get(nr.name())
-                    {
-                        unsafe {
-                            let p =
-                                Pin::new_unchecked(&*enclosing_component.as_ptr().add(x.offset));
-                            x.prop.set(p, eval(x.prop.get(p).unwrap()), None).unwrap();
-                        }
-                        return;
-                    }
-                    let item_info =
-                        &enclosing_component.description.items[element.borrow().id.as_str()];
-                    let item =
-                        unsafe { item_info.item_from_item_tree(enclosing_component.as_ptr()) };
-                    let p = &item_info.rtti.properties[nr.name().as_str()];
-                    p.set(item, eval(p.get(item)), None).unwrap();
+                    // Go through `store_property` (also for compound assignments) so the
+                    // property's animation is applied, instead of setting it directly.
+                    let value = if op == '=' {
+                        rhs
+                    } else {
+                        eval(load_property(enclosing_component, &element, nr.name()).unwrap())
+                    };
+                    store_property(enclosing_component, &element, nr.name(), value).unwrap();
                 }
                 ComponentInstance::GlobalComponent(global) => {
                     let val = if op == '=' {
@@ -2078,7 +2238,7 @@ pub fn store_property(
         guard,
     ) {
         ComponentInstance::InstanceRef(enclosing_component) => {
-            let maybe_animation = match element.borrow().bindings.get(name) {
+            let maybe_animation = match element.borrow().binding_cell_including_synthetic(name) {
                 Some(b) => crate::dynamic_item_tree::animation_for_property(
                     enclosing_component,
                     &b.borrow().animation,
@@ -2137,7 +2297,8 @@ fn check_value_type(value: &mut Value, ty: &Type) -> bool {
         | Type::InferredCallback
         | Type::Callback { .. }
         | Type::Function { .. }
-        | Type::ElementReference => panic!("not valid property type"),
+        | Type::ElementReference
+        | Type::Closure => panic!("not valid property type"),
         Type::Float32 => matches!(value, Value::Number(_)),
         Type::Int32 => matches!(value, Value::Number(_)),
         Type::String => matches!(value, Value::String(_)),
@@ -2156,6 +2317,7 @@ fn check_value_type(value: &mut Value, ty: &Type) -> bool {
         }
         Type::PathData => matches!(value, Value::PathData(_)),
         Type::Easing => matches!(value, Value::EasingCurve(_)),
+        Type::MouseCursor => matches!(value, Value::MouseCursorInner(_)),
         Type::Brush => matches!(value, Value::Brush(_)),
         Type::Array(inner) => {
             matches!(value, Value::Model(m) if m.iter().all(|mut v| check_value_type(&mut v, inner)))
@@ -2169,8 +2331,8 @@ fn check_value_type(value: &mut Value, ty: &Type) -> bool {
             {
                 return false;
             }
-            for (k, v) in &s.fields {
-                str.0.entry(k.clone()).or_insert_with(|| default_value_for_type(v));
+            for k in s.fields.keys() {
+                str.0.entry(k.clone()).or_insert_with(|| default_value_for_struct_field(s, k));
             }
             true
         }
@@ -2309,7 +2471,11 @@ pub(crate) fn call_function(
                 .expect("component must be alive while invoking functions");
             let mut ctx = EvalLocalContext::from_function_arguments(c, args);
             eval_expression(
-                &element.borrow().bindings.get(function_name)?.borrow().expression,
+                &element
+                    .borrow()
+                    .binding_cell_including_synthetic(function_name)?
+                    .borrow()
+                    .expression,
                 &mut ctx,
             )
             .into()
@@ -2380,13 +2546,39 @@ pub(crate) fn enclosing_component_instance_for_element<'a, 'new_id>(
     }
 }
 
+/// Look up a binding by property name across the two binding containers the interpreter builds
+/// structs from: an element's sealed [`Bindings`](i_slint_compiler::object_tree::Bindings) and a
+/// `PathElement`'s raw binding map.
+pub(crate) trait BindingLookup {
+    fn lookup_binding(
+        &self,
+        name: &str,
+    ) -> Option<&std::cell::RefCell<i_slint_compiler::expression_tree::BindingExpression>>;
+}
+impl BindingLookup for i_slint_compiler::object_tree::BindingsMap {
+    fn lookup_binding(
+        &self,
+        name: &str,
+    ) -> Option<&std::cell::RefCell<i_slint_compiler::expression_tree::BindingExpression>> {
+        self.get(name)
+    }
+}
+impl BindingLookup for i_slint_compiler::object_tree::Bindings {
+    fn lookup_binding(
+        &self,
+        name: &str,
+    ) -> Option<&std::cell::RefCell<i_slint_compiler::expression_tree::BindingExpression>> {
+        self.binding_cell_including_synthetic(name)
+    }
+}
+
 pub fn new_struct_with_bindings<ElementType: 'static + Default + corelib::rtti::BuiltinItem>(
-    bindings: &i_slint_compiler::object_tree::BindingsMap,
+    bindings: &impl BindingLookup,
     local_context: &mut EvalLocalContext,
 ) -> ElementType {
     let mut element = ElementType::default();
     for (prop, info) in ElementType::fields::<Value>().into_iter() {
-        if let Some(binding) = &bindings.get(prop) {
+        if let Some(binding) = bindings.lookup_binding(prop) {
             let value = eval_expression(&binding.borrow(), local_context);
             info.set_field(&mut element, value).unwrap();
         }
@@ -2485,8 +2677,8 @@ pub fn default_value_for_type(ty: &Type) -> Value {
         Type::Callback { .. } => Value::Void,
         Type::Struct(s) => Value::Struct(
             s.fields
-                .iter()
-                .map(|(n, t)| (n.to_string(), default_value_for_type(t)))
+                .keys()
+                .map(|n| (n.to_string(), default_value_for_struct_field(s, n)))
                 .collect::<Struct>(),
         ),
         Type::Array(_) | Type::Model => Value::Model(Default::default()),
@@ -2498,6 +2690,7 @@ pub fn default_value_for_type(ty: &Type) -> Value {
         Type::Keys => Value::Keys(Default::default()),
         Type::DataTransfer => Value::DataTransfer(Default::default()),
         Type::Easing => Value::EasingCurve(Default::default()),
+        Type::MouseCursor => Value::MouseCursorInner(Default::default()),
         Type::Void | Type::Invalid => Value::Void,
         Type::UnitProduct(_) => Value::Number(0.),
         Type::PathData => Value::PathData(Default::default()),
@@ -2507,10 +2700,82 @@ pub fn default_value_for_type(ty: &Type) -> Value {
         Type::InferredProperty
         | Type::InferredCallback
         | Type::ElementReference
-        | Type::Function { .. } => {
+        | Type::Function { .. }
+        | Type::Closure => {
             panic!("There can't be such property")
         }
         Type::StyledText => Value::StyledText(Default::default()),
+    }
+}
+
+/// Create a value for the default of a struct field:
+/// the user-declared default value (`struct Foo { bar: int = 42 }`) if there is one,
+/// otherwise the default value for the field's type.
+pub fn default_value_for_struct_field(
+    s: &i_slint_compiler::langtype::Struct,
+    field_name: &str,
+) -> Value {
+    match s.field_defaults.get(field_name) {
+        Some(expr) => eval_constant_expression(expr),
+        None => default_value_for_type(
+            s.fields.get(field_name).expect("default value requested for unknown struct field"),
+        ),
+    }
+}
+
+/// Convert a value to the given type, as [`Expression::Cast`] does
+fn cast_value(value: Value, to: &Type) -> Value {
+    match (value, to) {
+        (Value::Number(n), Type::Int32) => Value::Number(n.trunc()),
+        (Value::Number(n), Type::String) => {
+            Value::String(i_slint_core::string::shared_string_from_number(n))
+        }
+        (Value::Number(n), Type::Color) => Color::from_argb_encoded(n as u32).into(),
+        (Value::Brush(brush), Type::Color) => brush.color().into(),
+        (Value::EnumerationValue(_, val), Type::String) => Value::String(val.into()),
+        (v, _) => v,
+    }
+}
+
+/// Apply a unary operator to a value; returns the unmodified value as the error
+/// for unsupported combinations
+fn eval_unary_op(sub: Value, op: char) -> Result<Value, Value> {
+    match (sub, op) {
+        (Value::Number(a), '+') => Ok(Value::Number(a)),
+        (Value::Number(a), '-') => Ok(Value::Number(-a)),
+        (Value::Bool(a), '!') => Ok(Value::Bool(!a)),
+        (sub, _) => Err(sub),
+    }
+}
+
+/// Evaluate a constant expression as stored in [`i_slint_compiler::langtype::Struct::field_defaults`],
+/// which needs no evaluation context.
+/// Mirrors [`eval_expression`] for the corresponding expressions.
+fn eval_constant_expression(expr: &ConstantExpression) -> Value {
+    match expr {
+        ConstantExpression::StringLiteral(s) => Value::String(s.as_str().into()),
+        ConstantExpression::NumberLiteral(n, _unit) => Value::Number(*n),
+        ConstantExpression::BoolLiteral(b) => Value::Bool(*b),
+        ConstantExpression::EnumerationValue(value) => {
+            Value::EnumerationValue(value.enumeration.name.to_string(), value.to_string())
+        }
+        ConstantExpression::Cast { from, to } => cast_value(eval_constant_expression(from), to),
+        ConstantExpression::UnaryOp { sub, op } => {
+            // The resolver only accepts the unary operators on matching operand types
+            eval_unary_op(eval_constant_expression(sub), *op)
+                .unwrap_or_else(|sub| panic!("unsupported {op} {sub:?}"))
+        }
+        ConstantExpression::Struct { values, .. } => Value::Struct(
+            values
+                .iter()
+                .map(|(k, v)| (k.to_string(), eval_constant_expression(v)))
+                .collect::<Struct>(),
+        ),
+        ConstantExpression::Array { values, .. } => {
+            Value::Model(ModelRc::new(corelib::model::SharedVectorModel::from(
+                values.iter().map(eval_constant_expression).collect::<SharedVector<_>>(),
+            )))
+        }
     }
 }
 

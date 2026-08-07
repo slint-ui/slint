@@ -290,7 +290,7 @@ fn find_property_binding_offset(
 
     let element = element.element.borrow();
 
-    if let Some(v) = element.bindings.get(property_name)
+    if let Some(v) = element.binding_cell_including_synthetic(property_name)
         && let Some(span) = &v.borrow().span
     {
         let offset = span.span().offset as u32;
@@ -324,12 +324,12 @@ fn insert_property_definitions(
             return Expression::Invalid;
         }
 
-        if let Some(binding) = element.borrow().bindings.get(prop) {
-            let e = binding.borrow().expression.clone();
+        if let Some(binding) = element.borrow().binding(prop) {
+            let e = binding.expression.ignore_debug_hooks().clone();
             if !matches!(e, Expression::Invalid) {
                 return e;
             }
-            for twb in &binding.borrow().two_way_bindings {
+            for twb in &binding.two_way_bindings {
                 let (mut e, field_access) = match twb {
                     TwoWayBinding::Property { property, field_access } => {
                         (binding_value(&property.element(), property.name(), count), field_access)
@@ -576,7 +576,7 @@ pub(super) fn get_properties(
             name: "accessible-role".into(),
             priority: DEFAULT_PRIORITY - 100,
             ty: Type::Enumeration(
-                i_slint_compiler::typeregister::BUILTIN.with(|e| e.enums.AccessibleRole.clone()),
+                i_slint_compiler::typeregister::BUILTIN.enums.AccessibleRole.clone(),
             ),
             visibility: PropertyVisibility::InOut,
             declared_at: None,
@@ -833,7 +833,7 @@ fn element_at_source_code_position(
         util::text_size_to_lsp_position(&source_file, position.offset(), document_cache.format);
 
     Ok(document_cache.element_at_position(position.url(), &element_position).ok_or_else(|| {
-        format!("No element found at the given start position {:?}", &element_position)
+        format!("No element found at the given start position {element_position:?}")
     })?)
 }
 
@@ -1002,7 +1002,7 @@ pub mod tests {
         // reserved properties:
         assert_eq!(
             &find_property(&result, "accessible-role").unwrap().ty.to_string(),
-            "enum AccessibleRole"
+            "AccessibleRole"
         );
         // Accessible property should not be present since the role is none
         assert!(find_property(&result, "accessible-label").is_none());

@@ -1,0 +1,18 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Software-3.0
+
+//#sls.file.component.name
+export component Widget inherits Window {}
+/*
+The generated struct carries the identifier that follows `component`:
+```rust
+//#sls.gen.component
+let _ = Widget::new();
+```
+
+The file name is not the component's name:
+```rust compile_fail
+let _ = Name::new();
+//~ ERROR use of undeclared type `Name`
+```
+*/

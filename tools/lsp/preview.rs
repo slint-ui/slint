@@ -2508,18 +2508,13 @@ fn update_preview_area(
                     {
                         let overrides = shared_overrides.clone();
                         instance.set_debug_hook_callback(Some(Box::new(
-                            move |id: &str,
-                                  value: slint_interpreter::Value|
-                                  -> slint_interpreter::Value {
+                            move |id: &str| -> Option<slint_interpreter::Value> {
                                 let mut m = (*overrides).borrow_mut();
                                 let p = m.entry(SmolStr::from(id)).or_insert_with(|| {
                                     tracing::trace!("Inserting Property override: {id}");
                                     Box::pin(i_slint_core::Property::new(None))
                                 });
-                                match p.as_ref().get() {
-                                    Some(v) => v,
-                                    None => value,
-                                }
+                                p.as_ref().get()
                             },
                         )));
                     }

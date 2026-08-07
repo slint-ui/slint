@@ -30,6 +30,12 @@ fn main() -> std::io::Result<()> {
     #[cfg(feature = "software-embed-assets")]
     gen_software_embed_assets(&mut generated_file)?;
 
+    #[cfg(feature = "anyrender")]
+    gen_anyrender(&mut generated_file)?;
+
+    #[cfg(feature = "anyrender")]
+    gen_vello_cpu(&mut generated_file)?;
+
     generated_file.flush()?;
 
     Ok(())
@@ -277,6 +283,80 @@ fn gen_skia(generated_file: &mut impl Write) -> Result<(), std::io::Error> {
 #[test] {ignored}
 fn skia_{identifier}() -> Result<(), Box<dyn std::error::Error>> {{
     crate::skia::run_test(crate::skia::TestCase {{
+        absolute_path: std::path::PathBuf::from(r#"{absolute_path}"#),
+        relative_path: std::path::PathBuf::from(r#"{relative_path}"#),
+        reference_path: std::path::PathBuf::from(r#"{reference_path}"#),
+    }})
+}}"##,
+        )?;
+    }
+
+    Ok(())
+}
+
+// Snapshot-tests the command stream recorded by i-slint-renderer-anyrender for each case against
+// a JSON golden in `references/anyrender/`. No rasterization happens in the test itself.
+#[cfg(feature = "anyrender")]
+fn gen_anyrender(generated_file: &mut impl Write) -> Result<(), std::io::Error> {
+    let references_root_dir: std::path::PathBuf =
+        [env!("CARGO_MANIFEST_DIR"), "references", "anyrender"].iter().collect();
+
+    for testcase in test_driver_lib::collect_test_cases("screenshots/cases")? {
+        let reference_path = references_root_dir
+            .join(testcase.relative_path.clone())
+            .with_extension("json")
+            .to_string_lossy()
+            .into_owned();
+        let absolute_path = testcase.absolute_path.to_string_lossy();
+        let relative_path = testcase.relative_path.to_string_lossy();
+
+        let identifier = testcase.identifier();
+        let ignored = if testcase.is_ignored("anyrender") { "#[ignore]" } else { "" };
+
+        write!(
+            generated_file,
+            r##"
+#[test] {ignored}
+fn anyrender_{identifier}() -> Result<(), Box<dyn std::error::Error>> {{
+    crate::anyrender::run_test(crate::anyrender::TestCase {{
+        absolute_path: std::path::PathBuf::from(r#"{absolute_path}"#),
+        relative_path: std::path::PathBuf::from(r#"{relative_path}"#),
+        reference_path: std::path::PathBuf::from(r#"{reference_path}"#),
+    }})
+}}"##,
+        )?;
+    }
+
+    Ok(())
+}
+
+// Pixel tests through the vello_cpu rasterizer: each case's recorded command stream is rendered
+// with anyrender_vello_cpu and compared against a PNG in `references/vello_cpu/`. vello_cpu's
+// output is bit-identical across OSes and architectures, so one reference set serves all
+// platforms. SLINT_CREATE_SCREENSHOTS=1 (re)creates the references.
+#[cfg(feature = "anyrender")]
+fn gen_vello_cpu(generated_file: &mut impl Write) -> Result<(), std::io::Error> {
+    let references_root_dir: std::path::PathBuf =
+        [env!("CARGO_MANIFEST_DIR"), "references", "vello_cpu"].iter().collect();
+
+    for testcase in test_driver_lib::collect_test_cases("screenshots/cases")? {
+        let reference_path = references_root_dir
+            .join(testcase.relative_path.clone())
+            .with_extension("png")
+            .to_string_lossy()
+            .into_owned();
+        let absolute_path = testcase.absolute_path.to_string_lossy();
+        let relative_path = testcase.relative_path.to_string_lossy();
+
+        let identifier = testcase.identifier();
+        let ignored = if testcase.is_ignored("vello_cpu") { "#[ignore]" } else { "" };
+
+        write!(
+            generated_file,
+            r##"
+#[test] {ignored}
+fn vello_cpu_{identifier}() -> Result<(), Box<dyn std::error::Error>> {{
+    crate::anyrender::run_pixel_test(crate::anyrender::TestCase {{
         absolute_path: std::path::PathBuf::from(r#"{absolute_path}"#),
         relative_path: std::path::PathBuf::from(r#"{relative_path}"#),
         reference_path: std::path::PathBuf::from(r#"{reference_path}"#),

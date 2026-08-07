@@ -81,8 +81,8 @@ export component TestCase inherits Window {
         ? "FlexboxLayout — fill: flex.width \{round(flex.width / 1px)}px (preferred \{round(flex.preferred-width / 1px)}px)"
         : "FlexboxLayout — fit: preferred-width \{round(flex.preferred-width / 1px)}px";
 
-    in-out property <int> item-count: 32;
-    in-out property <int> spacing-px: 0;
+    in-out property <int> item-count: 16;
+    in-out property <int> spacing-px: 10;
     in-out property <bool> fill-window: false;
     property <[color]> palette: [#e6194b, #3cb44b, #4363d8, #f58231, #911eb4, #008080];
 
@@ -120,7 +120,7 @@ export component TestCase inherits Window {
         HorizontalLayout {
             alignment: root.fill-window ? LayoutAlignment.stretch : LayoutAlignment.start;
             flex := FlexboxLayout {
-                align-content: start;
+                cross-axis-line-alignment: start;
                 spacing: root.spacing-px * 1px;
                 vertical-stretch: 0;
                 horizontal-stretch: root.fill-window ? 1.0 : 0.0;
@@ -144,10 +144,13 @@ export component TestCase inherits Window {
         Rectangle { } // soak up remaining vertical space
     }
 
-    // Automated check at the default state (32 items, 50px, spacing 0, no padding):
-    // sqrt(32 * 50²) ≈ 283 → snaps to 6 items per row (6×50 = 300px); 32 items
-    // wrap into 6 rows. The widest single item (50px) sets min-width.
-    out property <bool> test: flex.preferred-width == 300px && flex.min-width == 50px;
+    // Automated check at the default state (16 items, 50px, spacing 10, no padding):
+    // sqrt(16 * 60²) = 240 → a square 4 items per row (4×50 + 3×10 = 230px); 16
+    // items wrap into 4 rows. With non-zero spacing this also pins the wrapping
+    // fix: the target counts a trailing gap per item but a row has none after its
+    // last item, so before the fix a fifth ragged column crept in (290px). The
+    // widest single item (50px) sets min-width.
+    out property <bool> test: flex.preferred-width == 230px && flex.min-width == 50px;
 }
 
 /*

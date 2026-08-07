@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell: ignore theproperty underscoresanddashespreserved xreadonly
+// cSpell: ignore theproperty underscoresanddashespreserved xreadonly noregress
 use crate::dynamic_item_tree::{ErasedItemTreeBox, WindowOptions};
 use i_slint_compiler::langtype::Type as LangType;
 use i_slint_core::PathData;
@@ -19,6 +19,8 @@ use std::collections::HashMap;
 use std::future::Future;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
+#[cfg(test)]
+use std::sync::Arc;
 
 #[doc(inline)]
 pub use i_slint_compiler::diagnostics::{Diagnostic, DiagnosticLevel};
@@ -138,6 +140,9 @@ pub enum Value {
     Keys(Keys) = 15,
     /// Correspond to the `data-transfer` type in .slint
     DataTransfer(DataTransfer) = 16,
+    #[doc(hidden)]
+    /// A mouse cursor.
+    MouseCursorInner(i_slint_core::cursor::MouseCursorInner) = 17,
 }
 
 impl Value {
@@ -193,6 +198,9 @@ impl PartialEq for Value {
             Value::DataTransfer(lhs) => {
                 matches!(other, Value::DataTransfer(rhs) if lhs == rhs)
             }
+            Value::MouseCursorInner(lhs) => {
+                matches!(other, Value::MouseCursorInner(rhs) if lhs == rhs)
+            }
         }
     }
 }
@@ -223,6 +231,7 @@ impl std::fmt::Debug for Value {
             }
             Value::Keys(ks) => write!(f, "Value::Keys({ks:?})"),
             Value::DataTransfer(cd) => write!(f, "Value::DataTransfer({cd:?})"),
+            Value::MouseCursorInner(m) => write!(f, "Value::MouseCursor({m:?})"),
         }
     }
 }
@@ -269,6 +278,7 @@ declare_value_conversion!(StyledText => [StyledText] );
 declare_value_conversion!(ArrayOfU16 => [SharedVector<u16>] );
 declare_value_conversion!(Keys => [Keys]);
 declare_value_conversion!(DataTransfer => [DataTransfer]);
+declare_value_conversion!(MouseCursorInner => [i_slint_core::cursor::MouseCursorInner]);
 
 /// Implement From / TryFrom for Value that convert a `struct` to/from `Value::Struct`
 macro_rules! declare_value_struct_conversion {
@@ -301,7 +311,7 @@ macro_rules! declare_value_struct_conversion {
     ($(
         $(#[$struct_attr:meta])*
         $vis:vis struct $Name:ident {
-            $( $(#[$field_attr:meta])* $field:ident : $field_type:ty, )*
+            $( $(#[$field_attr:meta])* $field:ident : $field_type:ty $(= $field_default:expr)?, )*
         }
     )*) => {
         $(
@@ -321,6 +331,8 @@ macro_rules! declare_value_struct_conversion {
                             type Ty = $Name;
                             #[allow(unused)]
                             let mut res: Ty = Ty::default();
+                            // Every field is required and overwritten, so declared field
+                            // defaults do not apply to this conversion
                             $(res.$field = x.get_field(stringify!($field)).ok_or(())?.clone().try_into().map_err(|_|())?;)*
                             Ok(res)
                         }
@@ -1402,6 +1414,21 @@ impl ComponentInstance {
         self.inner.unerase(guard).description().original.inherits_system_tray_icon()
     }
 
+    /// Set `visible` directly on the root SystemTrayIcon native item, mirroring
+    /// what the Rust/C++ generators emit for tray-rooted public components:
+    /// the change-tracker on the item dispatches the value to the platform handle.
+    fn set_tray_icon_visible(&self, visible: bool) {
+        generativity::make_guard!(guard);
+        let description = self.inner.unerase(guard).description();
+        let item_info = &description.items[description.original.root_element.borrow().id.as_str()];
+        let item_rc =
+            ItemRc::new(vtable::VRc::into_dyn(self.inner.clone()), item_info.item_index());
+        let tray = item_rc
+            .downcast::<SystemTrayIcon>()
+            .expect("the root item of a SystemTrayIcon-rooted component is a SystemTrayIcon");
+        tray.as_pin_ref().visible.set(visible);
+    }
+
     /// Return the value for a public property of this component.
     ///
     /// ## Examples
@@ -1700,7 +1727,7 @@ impl ComponentInstance {
     }
 
     /// Set a callback triggered by `Expression::DebugHook``.
-    #[cfg(feature = "internal-highlight")]
+    #[cfg(feature = "internal")]
     pub fn set_debug_hook_callback(&self, callback: Option<crate::debug_hook::DebugHookCallback>) {
         generativity::make_guard!(guard);
         let comp = self.inner.unerase(guard);
@@ -1730,12 +1757,7 @@ impl ComponentHandle for ComponentInstance {
 
     fn show(&self) -> Result<(), PlatformError> {
         if self.is_system_tray_rooted() {
-            // Mirror what the Rust/C++ generators emit for tray-rooted public
-            // components: toggle the `visible` property; the change-tracker on
-            // the SystemTrayIcon native item dispatches to the platform handle.
-            self.set_property("visible", Value::Bool(true)).expect(
-                "setting `visible` on a SystemTrayIcon-rooted component should always succeed",
-            );
+            self.set_tray_icon_visible(true);
             return Ok(());
         }
         self.inner.window_adapter_ref()?.window().show()
@@ -1743,9 +1765,7 @@ impl ComponentHandle for ComponentInstance {
 
     fn hide(&self) -> Result<(), PlatformError> {
         if self.is_system_tray_rooted() {
-            self.set_property("visible", Value::Bool(false)).expect(
-                "setting `visible` on a SystemTrayIcon-rooted component should always succeed",
-            );
+            self.set_tray_icon_visible(false);
             return Ok(());
         }
         self.inner.window_adapter_ref()?.window().hide()
@@ -2238,13 +2258,13 @@ fn lang_type_to_value_type() {
     assert_eq!(ValueType::from(LangType::String), ValueType::String);
     assert_eq!(ValueType::from(LangType::Color), ValueType::Brush);
     assert_eq!(ValueType::from(LangType::Brush), ValueType::Brush);
-    assert_eq!(ValueType::from(LangType::Array(Rc::new(LangType::Void))), ValueType::Model);
+    assert_eq!(ValueType::from(LangType::Array(Arc::new(LangType::Void))), ValueType::Model);
     assert_eq!(ValueType::from(LangType::Bool), ValueType::Bool);
     assert_eq!(
-        ValueType::from(LangType::Struct(Rc::new(LangStruct {
-            fields: BTreeMap::default(),
-            name: i_slint_compiler::langtype::StructName::None,
-        }))),
+        ValueType::from(LangType::Struct(Arc::new(LangStruct::new(
+            BTreeMap::default(),
+            i_slint_compiler::langtype::StructName::None
+        )))),
         ValueType::Struct
     );
     assert_eq!(ValueType::from(LangType::Image), ValueType::Image);
@@ -2365,164 +2385,3 @@ export component Foo2 inherits Window  {
         }
     }
 }
-
-// Validates the "live drag" mechanism the visual editor relies on: with `debug_hooks`
-// enabled, a `set_debug_hook_callback` that reads a per-id `Property<Option<Value>>` lets the
-// editor reactively override a property's value (and revert it) without touching the source.
-// Setting the override property re-evaluates the hooked binding via Slint's dependency tracker.
-#[cfg(all(test, feature = "internal", feature = "internal-highlight"))]
-#[test]
-fn test_debug_hook_live_override() {
-    use i_slint_core::Property;
-    use std::cell::RefCell;
-    use std::collections::HashMap;
-    use std::pin::Pin;
-    use std::rc::Rc;
-
-    i_slint_backend_testing::init_no_event_loop();
-
-    let code = r#"
-export component Win inherits Window {
-    width: 300px;
-    height: 300px;
-    rect := Rectangle {
-        x: 10px;
-        y: 20px;
-        width: 30px;
-        height: 40px;
-    }
-}"#;
-    let path = PathBuf::from("/tmp/debug_hook_test.slint");
-
-    let mut compiler = Compiler::default();
-    compiler.set_style("fluent".into());
-    compiler.compiler_configuration(i_slint_core::InternalToken).debug_hooks =
-        Some(std::hash::RandomState::new());
-    let compile_result =
-        spin_on::spin_on(compiler.build_from_source(code.to_string(), path.clone()));
-    assert!(!compile_result.has_errors(), "{:?}", compile_result.diagnostics);
-    let instance = compile_result.components().next().unwrap().create().unwrap();
-
-    // Resolve the `rect` element and the hash used to build its hook ids.
-    let offset = code.find("Rectangle").unwrap() as u32;
-    let (element, debug_index) = instance
-        .element_node_at_source_code_position(&path, offset)
-        .first()
-        .cloned()
-        .expect("element resolved");
-    let element_hash = element.borrow().debug[debug_index].element_hash;
-    assert_ne!(element_hash, 0, "debug_hooks should populate element_hash");
-
-    // Editor-style override store + callback (must be installed before the first evaluation so
-    // the hooked bindings register a dependency on the override properties while still `None`).
-    type Store = Rc<RefCell<HashMap<SmolStr, Pin<Box<Property<Option<Value>>>>>>>;
-    let store: Store = Default::default();
-    {
-        let store = store.clone();
-        instance.set_debug_hook_callback(Some(Box::new(move |id: &str, value: Value| -> Value {
-            let mut m = (*store).borrow_mut();
-            let p = m.entry(SmolStr::from(id)).or_insert_with(|| Box::pin(Property::new(None)));
-            match p.as_ref().get() {
-                Some(v) => v,
-                None => value,
-            }
-        })));
-    }
-
-    let set_override = |name: &str, value: Option<f64>| {
-        let id = i_slint_compiler::passes::property_id(element_hash, &SmolStr::from(name));
-        let mut m = (*store).borrow_mut();
-        let p = m.entry(id).or_insert_with(|| Box::pin(Property::new(None)));
-        (&**p).set(value.map(Value::Number));
-    };
-
-    // Baseline: evaluates the bindings (registering the dependency) with no overrides.
-    let base = instance.element_positions(&element).first().expect("geometry").rect;
-
-    // Override x and width: the hooked bindings must re-evaluate to the new values.
-    set_override("x", Some(100.0));
-    set_override("width", Some(70.0));
-    let after = instance.element_positions(&element).first().expect("geometry").rect;
-    assert!(
-        (after.origin.x - base.origin.x - 90.0).abs() < 0.5,
-        "x override should shift the element by 90px (base {}, after {})",
-        base.origin.x,
-        after.origin.x
-    );
-    assert!(
-        (after.size.width - base.size.width - 40.0).abs() < 0.5,
-        "width override should grow the element by 40px (base {}, after {})",
-        base.size.width,
-        after.size.width
-    );
-
-    // Revert: setting the overrides back to None restores the original geometry.
-    set_override("x", None);
-    set_override("width", None);
-    let reverted = instance.element_positions(&element).first().expect("geometry").rect;
-    assert!((reverted.origin.x - base.origin.x).abs() < 0.5, "x should revert");
-    assert!((reverted.size.width - base.size.width).abs() < 0.5, "width should revert");
-}
-
-// Enabling debug_hooks now also materializes hooked default bindings for unbound properties.
-// This must NOT change the rendered result when no override is set: wrapping default-geometry
-// bindings must preserve fill/implicit sizing, and injecting the type-default for unbound props
-// must equal their unbound value (e.g. the font sentinel that drives Window inheritance).
-#[cfg(all(test, feature = "internal", feature = "internal-highlight"))]
-#[test]
-fn test_debug_hooks_preserve_geometry() {
-    i_slint_backend_testing::init_no_event_loop();
-
-    let code = r#"
-export component Win inherits Window {
-    width: 300px;
-    height: 200px;
-    rect := Rectangle { }            // no explicit geometry -> fills the parent
-    txt := Text { text: "Hello"; }   // implicit (font-dependent) size, inherited font
-}"#;
-    let path = PathBuf::from("/tmp/debug_hook_noregress.slint");
-
-    let geometries = |debug_hooks: bool| -> Vec<(f32, f32, f32, f32)> {
-        let mut compiler = Compiler::default();
-        compiler.set_style("fluent".into());
-        if debug_hooks {
-            compiler.compiler_configuration(i_slint_core::InternalToken).debug_hooks =
-                Some(std::hash::RandomState::new());
-        }
-        let r = spin_on::spin_on(compiler.build_from_source(code.to_string(), path.clone()));
-        assert!(!r.has_errors(), "{:?}", r.diagnostics);
-        let instance = r.components().next().unwrap().create().unwrap();
-        [code.find("Rectangle").unwrap(), code.find("Text").unwrap()]
-            .into_iter()
-            .map(|off| {
-                let (elem, _) = instance
-                    .element_node_at_source_code_position(&path, off as u32)
-                    .first()
-                    .cloned()
-                    .expect("element");
-                let g = instance.element_positions(&elem).first().expect("geometry").rect;
-                (g.origin.x, g.origin.y, g.size.width, g.size.height)
-            })
-            .collect()
-    };
-
-    let without = geometries(false);
-    let with = geometries(true);
-    for (a, b) in without.iter().zip(with.iter()) {
-        assert!(
-            (a.0 - b.0).abs() < 0.5
-                && (a.1 - b.1).abs() < 0.5
-                && (a.2 - b.2).abs() < 0.5
-                && (a.3 - b.3).abs() < 0.5,
-            "geometry differs with vs without debug_hooks: {a:?} vs {b:?}"
-        );
-    }
-    // Sanity: the Rectangle actually filled the 300x200 window (so we know we compared real sizes).
-    assert!((with[0].2 - 300.0).abs() < 0.5 && (with[0].3 - 200.0).abs() < 0.5);
-}
-
-#[cfg(feature = "ffi")]
-#[doc(hidden)]
-#[allow(missing_docs)]
-#[path = "ffi.rs"]
-pub mod ffi;

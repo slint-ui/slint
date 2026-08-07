@@ -11,7 +11,6 @@ import * as vscode from "vscode";
 import { SlintTelemetrySender } from "./telemetry";
 import * as common from "./common";
 import { NotificationType } from "vscode-languageclient";
-import * as lsp_commands from "./lsp_commands";
 
 import {
     LanguageClient,

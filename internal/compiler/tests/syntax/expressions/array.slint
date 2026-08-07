@@ -1,0 +1,41 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component Test {
+    property <[int]> a: [];
+
+    public function test_no_args() {
+        a.push();
+//        >  <error{This method needs 1 argument, but 0 were provided}
+        a.remove();
+//        >    <error{This method needs 1 argument, but 0 were provided}
+        a.insert();
+//        >    <error{This method needs 2 arguments, but 0 were provided}
+        a.insert(1);
+//        >    <error{This method needs 2 arguments, but 1 were provided}
+    }
+
+    public function test_too_many_args() {
+        a.push(1, 2);
+//        >  <error{This method needs 1 argument, but 2 were provided}
+        a.remove(1, 2, 3);
+//        >    <error{This method needs 1 argument, but 3 were provided}
+        a.insert(1, 2, 3, 4);
+//        >    <error{This method needs 2 arguments, but 4 were provided}
+    }
+
+    public function test_arg_incorrect_type() {
+        a.push("string");
+//             >      <error{Cannot convert string to int}
+        a.insert(1, "string");
+//                  >      <error{Cannot convert string to int}
+
+    }
+
+    public function test_index_arg_not_int() {
+        a.remove("string");
+//               >      <error{Cannot convert string to int}
+        a.insert("string", 1);
+//               >      <error{Cannot convert string to int}
+    }
+}

@@ -124,13 +124,14 @@ fn builtin_structs(path: &Path) -> anyhow::Result<()> {
     writeln!(structs_priv, "#include \"private/slint_keys.h\"")?;
     writeln!(structs_priv, "namespace slint::cbindgen_private {{")?;
     writeln!(structs_priv, "enum class KeyEventType : uint8_t;")?;
+
     macro_rules! print_structs {
         ($(
             $(#[doc = $struct_doc:literal])*
             $(#[non_exhaustive])?
             $(#[derive(Copy, Eq)])?
             $vis:vis struct $Name:ident {
-                $( $(#[doc = $field_doc:literal])* $field:ident : $field_type:ty, )*
+                $( $(#[doc = $field_doc:literal])* $field:ident : $field_type:ty $(= $field_default:expr)?, )*
             }
         )*) => {
             $(
@@ -149,7 +150,7 @@ fn builtin_structs(path: &Path) -> anyhow::Result<()> {
                         "f32" | "Coord" => "float",
                         other => other,
                     };
-                    writeln!(file, "    {} {};", field_type, stringify!($field))?;
+                    writeln!(file, "    {} {}{{ {} }};", field_type, stringify!($field), stringify!($($field_default)*))?;
                 )*
                 writeln!(file, "    /// \\private")?;
                 writeln!(file, "    {}", format!("friend bool operator==(const {name}&, const {name}&) = default;", name = stringify!($Name)))?;
@@ -259,7 +260,7 @@ fn live_preview_enums(path: &Path) -> anyhow::Result<()> {
     let mut structs: Vec<(String, Vec<String>)> = Vec::new();
     macro_rules! collect_structs {
         ($( $(#[$attr:meta])* $vis:vis struct $Name:ident {
-            $( $(#[$field_attr:meta])* $field:ident : $ty:ty,)*
+            $( $(#[$field_attr:meta])* $field:ident : $ty:ty $(= $field_default:expr)?,)*
         })*) => {
             $(
                 if stringify!($vis) == "pub"
@@ -368,8 +369,8 @@ fn default_config() -> cbindgen::Config {
         ("target_arch = wasm32".into(), "SLINT_TARGET_WASM".into()),
         ("target_os = android".into(), "__ANDROID__".into()),
         // Disable Rust WGPU specific API feature
-        ("feature = unstable-wgpu-28".into(), "SLINT_DISABLED_CODE".into()),
         ("feature = unstable-wgpu-29".into(), "SLINT_DISABLED_CODE".into()),
+        ("feature = unstable-wgpu-30".into(), "SLINT_DISABLED_CODE".into()),
     ]
     .iter()
     .cloned()
@@ -417,6 +418,7 @@ fn gen_corelib(
         "BorderRectangle",
         "DragArea",
         "DropArea",
+        "WindowMoveArea",
         "ImageItem",
         "ClippedImage",
         "TouchArea",
@@ -456,8 +458,9 @@ fn gen_corelib(
         "TextWrap",
         "ImageFit",
         "FillRule",
-        "MouseCursor",
+        "MouseCursorInner",
         "InputType",
+        "CapitalizationMode",
         "StandardButtonKind",
         "DialogButtonRole",
         "FocusReason",
@@ -469,6 +472,11 @@ fn gen_corelib(
         "Rect",
         "BitmapFont",
         "DataTransferOpaque",
+        // Return type of the ItemTree vtable's flexbox_layout_item_info* methods.
+        // cbindgen can't see those (not extern "C"), and it is no longer reachable
+        // from an FFI function since the bulk cell data was split into
+        // LayoutItemInfo + FlexItemProps, so emit it explicitly.
+        "FlexboxLayoutItemInfo",
     ]
     .iter()
     .chain(items.iter())
@@ -501,17 +509,21 @@ fn gen_corelib(
         "PathElement",
         "Brush",
         "DataTransfer",
+        "PathValueType",
         "slint_data_transfer_init_default",
         "slint_data_transfer_drop",
         "slint_data_transfer_clone",
         "slint_data_transfer_eq",
         "slint_data_transfer_set_plain_text",
         "slint_data_transfer_set_image",
+        "slint_data_transfer_set_file_paths",
         "slint_data_transfer_has_plain_text",
         "slint_data_transfer_has_image",
+        "slint_data_transfer_has_file_paths",
         "slint_data_transfer_is_empty",
         "slint_data_transfer_plain_text",
         "slint_data_transfer_image",
+        "slint_data_transfer_file_paths",
         "slint_data_transfer_set_user_data",
         "slint_data_transfer_user_data",
         "slint_data_transfer_clear_user_data",
@@ -524,6 +536,7 @@ fn gen_corelib(
         "Callback",
         "slint_property_listener_scope_evaluate",
         "slint_property_listener_scope_is_dirty",
+        "PropertyTracker",
         "PropertyTrackerOpaque",
         "CallbackOpaque",
         "ChangeTracker",
@@ -634,6 +647,7 @@ fn gen_corelib(
                 "slint_image_path",
                 "slint_image_load_from_path",
                 "slint_image_load_from_embedded_data",
+                "slint_image_load_from_data",
                 "slint_image_from_embedded_textures",
                 "slint_image_compare_equal",
                 "slint_image_set_nine_slice_edges",
@@ -683,17 +697,37 @@ fn gen_corelib(
                 "slint_data_transfer_eq",
                 "slint_data_transfer_set_plain_text",
                 "slint_data_transfer_set_image",
+                "slint_data_transfer_set_file_paths",
                 "slint_data_transfer_has_plain_text",
                 "slint_data_transfer_has_image",
+                "slint_data_transfer_has_file_paths",
                 "slint_data_transfer_is_empty",
                 "slint_data_transfer_plain_text",
                 "slint_data_transfer_image",
+                "slint_data_transfer_file_paths",
                 "slint_data_transfer_set_user_data",
                 "slint_data_transfer_user_data",
                 "slint_data_transfer_clear_user_data",
             ],
             "slint_data_transfer_internal.h",
-            "namespace slint { struct DataTransfer; struct SharedString; }",
+            "#include \"private/slint_sharedvector.h\"\n\
+            #ifndef SLINT_FEATURE_FREESTANDING\n\
+            #    include <filesystem>\n\
+            #endif\n\
+            namespace slint { struct DataTransfer; struct SharedString; }\n\
+            namespace slint::cbindgen_private::types {\n\
+            #ifndef SLINT_FEATURE_FREESTANDING\n\
+            using PathValueType = std::filesystem::path::value_type;\n\
+            // The Rust side uses u16 path units on Windows and u8 elsewhere.\n\
+            #    ifdef _WIN32\n\
+            static_assert(sizeof(PathValueType) == 2);\n\
+            #    else\n\
+            static_assert(sizeof(PathValueType) == 1);\n\
+            #    endif\n\
+            #else\n\
+            using PathValueType = uint8_t;\n\
+            #endif\n\
+            }",
         ),
         (
             vec!["MouseEvent", "TouchPhase"],
@@ -920,6 +954,8 @@ fn gen_corelib(
         .body
         .insert("Flickable".to_owned(), "    inline Flickable(); inline ~Flickable();".into());
     config.export.pre_body.insert("FlickableDataBox".to_owned(), "struct FlickableData;".into());
+    config.export.body.insert("Path".to_owned(), "    inline Path(); inline ~Path();".into());
+    config.export.pre_body.insert("FittedPathBox".to_owned(), "struct FittedPathInner;".into());
     config.export.body.insert(
         "SystemTrayIcon".to_owned(),
         "    inline SystemTrayIcon(); inline ~SystemTrayIcon();".into(),
@@ -928,6 +964,49 @@ fn gen_corelib(
         .export
         .pre_body
         .insert("SystemTrayIconDataBox".to_owned(), "struct SystemTrayIconData;".into());
+    // cbindgen only derives the special member functions and equality for tagged enums in the
+    // separate special-config pass, not for the types generated here, so they are provided by
+    // hand. The `CustomMouseCursor` variant holds a non-trivial `Image`, so the active union
+    // member must be copied, compared and destroyed according to the tag.
+    config.export.body.insert(
+        "MouseCursorInner".to_owned(),
+        "    constexpr MouseCursorInner() : tag(Tag::BuiltIn), built_in{} {}
+    explicit MouseCursorInner(BuiltInMouseCursor cursor) : tag(Tag::BuiltIn), built_in{cursor} {}
+    explicit MouseCursorInner(Image image, int hotspot_x, int hotspot_y) : tag(Tag::CustomMouseCursor), custom_mouse_cursor{image, hotspot_x, hotspot_y} {}
+    MouseCursorInner(const MouseCursorInner &other) : tag(other.tag) {
+        switch (tag) {
+            case Tag::BuiltIn: new (&built_in) BuiltIn_Body(other.built_in); break;
+            case Tag::CustomMouseCursor: new (&custom_mouse_cursor) CustomMouseCursor_Body(other.custom_mouse_cursor); break;
+        }
+    }
+    MouseCursorInner &operator=(const MouseCursorInner &other) {
+        if (this != &other) {
+            this->~MouseCursorInner();
+            new (this) MouseCursorInner(other);
+        }
+        return *this;
+    }
+    ~MouseCursorInner() {
+        if (tag == Tag::CustomMouseCursor) {
+            custom_mouse_cursor.~CustomMouseCursor_Body();
+        }
+    }
+    bool operator==(const MouseCursorInner &other) const {
+        if (tag != other.tag) {
+            return false;
+        }
+        switch (tag) {
+            case Tag::BuiltIn:
+                return built_in._0 == other.built_in._0;
+            case Tag::CustomMouseCursor:
+                return custom_mouse_cursor.image == other.custom_mouse_cursor.image
+                    && custom_mouse_cursor.hotspot_x == other.custom_mouse_cursor.hotspot_x
+                    && custom_mouse_cursor.hotspot_y == other.custom_mouse_cursor.hotspot_y;
+        }
+        return false;
+    }
+        ".into()
+    );
 
     cbindgen::Builder::new()
         .with_config(config)
@@ -959,6 +1038,7 @@ namespace slint {
         using slint::private_api::WindowAdapterRc;
         using namespace vtable;
         using private_api::Property;
+        using private_api::PropertyTracker;
         using private_api::PathData;
         using private_api::Point;
         struct ItemTreeVTable;
@@ -966,6 +1046,15 @@ namespace slint {
         using types::IntRect;
         using types::Size;
         using types::MouseEvent;
+
+        template<typename T> struct Option;
+        // This specialization provides a concrete C++ type for Option types
+        template<typename T>
+        struct Option<T *> {
+            T *ptr = nullptr;
+            Option() noexcept = default;
+            Option(T *p) noexcept : ptr(p) {}
+        };
     }
     template<typename ModelData> class Model;
 }",

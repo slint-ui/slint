@@ -1,11 +1,13 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import pytest
-from slint import slint as native
-from slint.slint import Image, Color, Brush, StyledText
 import os
 from pathlib import Path
+
+import pytest
+
+from slint import slint as native
+from slint.slint import Brush, Color, Image, StyledText
 
 
 def test_property_access() -> None:

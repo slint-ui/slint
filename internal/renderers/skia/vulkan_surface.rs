@@ -396,7 +396,7 @@ impl super::Surface for VulkanSurface {
             render_target,
             skia_safe::gpu::SurfaceOrigin::TopLeft,
             color_type,
-            None,
+            crate::attachment_color_space(crate::TextureEncoding::Unorm),
             None,
         )
         .ok_or_else(|| "Error creating Skia Vulkan surface".to_string())?;

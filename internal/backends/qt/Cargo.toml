@@ -35,6 +35,10 @@ pin-project = { version = "1", optional = true }
 pin-weak = { version = "1", optional = true }
 qttypes = { version = "0.2.7", default-features = false, optional = true }
 
+# The browser decodes images on the web; decode with the image and resvg crates elsewhere.
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+i-slint-core = { workspace = true, features = ["image-decoders", "svg"] }
+
 [build-dependencies]
 cpp_build = { version = "0.5.5", optional = true }
 

@@ -48,32 +48,22 @@ fn lower_popup_window(
     window_type: &ElementType,
     diag: &mut BuildDiagnostics,
 ) {
-    if let Some(binding) = popup_window_element.borrow().bindings.get(CLOSE_ON_CLICK) {
-        if popup_window_element.borrow().bindings.contains_key(CLOSE_POLICY) {
+    if let Some(binding) = popup_window_element.borrow().binding(CLOSE_ON_CLICK) {
+        if popup_window_element.borrow().binding(CLOSE_POLICY).is_some() {
             diag.push_error(
                 "close-policy and close-on-click cannot be set at the same time".into(),
-                &binding.borrow().span,
+                &binding.span,
             );
         } else {
-            diag.push_property_deprecation_warning(
-                CLOSE_ON_CLICK,
-                CLOSE_POLICY,
-                &binding.borrow().span,
-            );
-            if !matches!(
-                super::ignore_debug_hooks(&binding.borrow().expression),
-                Expression::BoolLiteral(_)
-            ) {
-                report_const_error(CLOSE_ON_CLICK, &binding.borrow().span, diag);
+            diag.push_property_deprecation_warning(CLOSE_ON_CLICK, CLOSE_POLICY, &binding.span);
+            if !matches!(binding.value_expression(), Expression::BoolLiteral(_)) {
+                report_const_error(CLOSE_ON_CLICK, &binding.span, diag);
             }
         }
-    } else if let Some(binding) = popup_window_element.borrow().bindings.get(CLOSE_POLICY)
-        && !matches!(
-            super::ignore_debug_hooks(&binding.borrow().expression),
-            Expression::EnumerationValue(_)
-        )
+    } else if let Some(binding) = popup_window_element.borrow().binding(CLOSE_POLICY)
+        && !matches!(binding.value_expression(), Expression::EnumerationValue(_))
     {
-        report_const_error(CLOSE_POLICY, &binding.borrow().span, diag);
+        report_const_error(CLOSE_POLICY, &binding.span, diag);
     }
 
     let parent_component = popup_window_element.borrow().enclosing_component.upgrade().unwrap();
@@ -106,11 +96,10 @@ fn lower_popup_window(
     parent_element_borrowed.children.remove(index);
     parent_element_borrowed.has_popup_child = true;
     drop(parent_element_borrowed);
-    if let Some(parent_cip) = &mut *parent_component.child_insertion_point.borrow_mut()
-        && Rc::ptr_eq(&parent_cip.parent, parent_element)
-        && parent_cip.insertion_index > index
-    {
-        parent_cip.insertion_index -= 1;
+    for parent_cip in parent_component.child_insertion_points.borrow_mut().values_mut() {
+        if Rc::ptr_eq(&parent_cip.parent, parent_element) && parent_cip.insertion_index > index {
+            parent_cip.insertion_index -= 1;
+        }
     }
 
     let map_close_on_click_value = |b: &BindingExpression| {
@@ -118,7 +107,7 @@ fn lower_popup_window(
             assert!(diag.has_errors());
             return None;
         };
-        let enum_ty = crate::typeregister::BUILTIN.with(|e| e.enums.PopupClosePolicy.clone());
+        let enum_ty = crate::typeregister::BUILTIN.enums.PopupClosePolicy.clone();
         let s = if *v { "close-on-click" } else { "no-auto-close" };
         Some(EnumerationValue {
             value: enum_ty.values.iter().position(|v| v == s).unwrap(),
@@ -126,23 +115,20 @@ fn lower_popup_window(
         })
     };
 
-    let close_policy =
-        popup_window_element.borrow_mut().bindings.remove(CLOSE_POLICY).and_then(|b| {
-            let b = b.into_inner();
-            if let Expression::EnumerationValue(v) = super::ignore_debug_hooks(&b.expression) {
-                Some(v.clone())
-            } else {
-                assert!(diag.has_errors());
-                None
-            }
-        });
+    let close_policy = popup_window_element.borrow_mut().take_binding(CLOSE_POLICY).and_then(|b| {
+        if let Expression::EnumerationValue(v) = super::ignore_debug_hooks(&b.expression) {
+            Some(v.clone())
+        } else {
+            assert!(diag.has_errors());
+            None
+        }
+    });
     let close_policy = close_policy
         .or_else(|| {
             popup_window_element
                 .borrow_mut()
-                .bindings
-                .remove(CLOSE_ON_CLICK)
-                .and_then(|b| map_close_on_click_value(&b.borrow()))
+                .take_binding(CLOSE_ON_CLICK)
+                .and_then(|b| map_close_on_click_value(&b))
         })
         .or_else(|| {
             // check bases
@@ -151,11 +137,9 @@ fn lower_popup_window(
                 let base_policy = b
                     .root_element
                     .borrow()
-                    .bindings
-                    .get(CLOSE_POLICY)
+                    .binding(CLOSE_POLICY)
                     .and_then(|b| {
-                        let b = b.borrow();
-                        if let Expression::EnumerationValue(v) = &b.expression {
+                        if let Expression::EnumerationValue(v) = b.value_expression() {
                             return Some(v.clone());
                         }
                         assert!(diag.has_errors());
@@ -164,9 +148,8 @@ fn lower_popup_window(
                     .or_else(|| {
                         b.root_element
                             .borrow()
-                            .bindings
-                            .get(CLOSE_ON_CLICK)
-                            .and_then(|b| map_close_on_click_value(&b.borrow()))
+                            .binding(CLOSE_ON_CLICK)
+                            .and_then(|b| map_close_on_click_value(&b))
                     });
                 if let Some(base_policy) = base_policy {
                     return Some(base_policy);
@@ -177,7 +160,7 @@ fn lower_popup_window(
         })
         .unwrap_or_else(|| EnumerationValue {
             value: 0,
-            enumeration: crate::typeregister::BUILTIN.with(|e| e.enums.PopupClosePolicy.clone()),
+            enumeration: crate::typeregister::BUILTIN.enums.PopupClosePolicy.clone(),
         });
 
     let popup_comp = Rc::new(Component {

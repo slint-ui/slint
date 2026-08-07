@@ -1,5 +1,3 @@
-# The servo example requires a lock file as servo only builds with pinned dependencies.
-!examples/servo/Cargo.lock
 tsconfig.tsbuildinfo
 /target
 node_modules
@@ -10,6 +8,7 @@ node_modules
 *.code-workspace
 /build
 /build-release
+/build-debug-mold
 /_deps
 .DS_Store
 Pipfile.lock
@@ -47,3 +46,8 @@ uv.lock
 .python-version
 
 MODULE.bazel.lock
+
+# Ignore Xcode projects created by xcodegen
+*.xcodeproj
+*.xcworkspace
+Info.plist

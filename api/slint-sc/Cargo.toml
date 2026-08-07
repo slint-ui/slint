@@ -20,7 +20,9 @@ path = "lib.rs"
 default = []
 
 [dev-dependencies]
+image = { workspace = true }
 rayon = { workspace = true }
+serde_json = { workspace = true }
 tempfile = "3"
 regex = "1"
 

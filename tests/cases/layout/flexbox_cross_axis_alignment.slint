@@ -18,7 +18,7 @@ component TestAlignItemsStartRow inherits VisibleRect {
     height: 300px;
 
     FlexboxLayout {
-        align-content: start;
+        cross-axis-line-alignment: start;
         cross-axis-alignment: start;
 
         r1 := Rectangle {
@@ -51,7 +51,7 @@ component TestAlignItemsEndRow inherits VisibleRect {
     height: 300px;
 
     FlexboxLayout {
-        align-content: start;
+        cross-axis-line-alignment: start;
         cross-axis-alignment: end;
 
         r1 := Rectangle {
@@ -84,7 +84,7 @@ component TestAlignItemsCenterRow inherits VisibleRect {
     height: 300px;
 
     FlexboxLayout {
-        align-content: start;
+        cross-axis-line-alignment: start;
         cross-axis-alignment: center;
 
         r1 := Rectangle {
@@ -117,7 +117,7 @@ component TestAlignItemsStretchRow inherits VisibleRect {
     height: 300px;
 
     FlexboxLayout {
-        // align-content: stretch (default) — single line fills container height
+        // cross-axis-line-alignment: stretch (default) — single line fills container height
         // cross-axis-alignment: stretch (default) — items stretch to line height
         r1 := Rectangle {
             width: 50px;
@@ -149,7 +149,7 @@ component TestAlignItemsStartColumn inherits VisibleRect {
 
     FlexboxLayout {
         flex-direction: column;
-        align-content: start;
+        cross-axis-line-alignment: start;
         cross-axis-alignment: start;
 
         r1 := Rectangle {
@@ -183,7 +183,7 @@ component TestAlignItemsEndColumn inherits VisibleRect {
 
     FlexboxLayout {
         flex-direction: column;
-        align-content: start;
+        cross-axis-line-alignment: start;
         cross-axis-alignment: end;
 
         r1 := Rectangle {
@@ -217,7 +217,7 @@ component TestAlignItemsCenterColumn inherits VisibleRect {
 
     FlexboxLayout {
         flex-direction: column;
-        align-content: start;
+        cross-axis-line-alignment: start;
         cross-axis-alignment: center;
 
         r1 := Rectangle {
@@ -251,7 +251,7 @@ component TestAlignItemsStretchColumn inherits VisibleRect {
 
     FlexboxLayout {
         flex-direction: column;
-        // align-content: stretch (default) — single column fills container width
+        // cross-axis-line-alignment: stretch (default) — single column fills container width
         // cross-axis-alignment: stretch (default) — items stretch to column width
         r1 := Rectangle {
             height: 50px;

@@ -1,6 +1,9 @@
 // Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
 // SPDX-License-Identifier: MIT
 
+// The per-item flex-* properties are experimental, so this needs
+// SLINT_ENABLE_EXPERIMENTAL_FEATURES=1 in the environment of the viewer.
+
 import { ComboBox } from "std-widgets.slint";
 
 component Cell inherits Rectangle {
@@ -57,7 +60,7 @@ export component MainWindow inherits Window {
         LayoutAlignment.space-around,
         LayoutAlignment.space-evenly
     ];
-    property <[string]> align_content_options: [
+    property <[string]> cross_axis_line_alignment_options: [
         "Stretch",
         "Start",
         "End",
@@ -66,14 +69,14 @@ export component MainWindow inherits Window {
         "Space Around",
         "Space Evenly"
     ];
-    property <[FlexboxLayoutAlignContent]> align_content_values: [
-        FlexboxLayoutAlignContent.stretch,
-        FlexboxLayoutAlignContent.start,
-        FlexboxLayoutAlignContent.end,
-        FlexboxLayoutAlignContent.center,
-        FlexboxLayoutAlignContent.space-between,
-        FlexboxLayoutAlignContent.space-around,
-        FlexboxLayoutAlignContent.space-evenly
+    property <[CrossAxisLineAlignment]> cross_axis_line_alignment_values: [
+        CrossAxisLineAlignment.stretch,
+        CrossAxisLineAlignment.start,
+        CrossAxisLineAlignment.end,
+        CrossAxisLineAlignment.center,
+        CrossAxisLineAlignment.space-between,
+        CrossAxisLineAlignment.space-around,
+        CrossAxisLineAlignment.space-evenly
     ];
     property <[string]> cross_axis_alignment_options: ["Stretch", "Start", "End", "Center"];
     property <[CrossAxisAlignment]> cross_axis_alignment_values: [
@@ -125,12 +128,12 @@ export component MainWindow inherits Window {
         HorizontalLayout {
             spacing: 10phx;
             Text {
-                text: "Align Content:";
+                text: "Cross Axis Line Alignment:";
                 vertical-alignment: center;
             }
 
-            align_content_combo := ComboBox {
-                model: align_content_options;
+            cross_axis_line_alignment_combo := ComboBox {
+                model: cross_axis_line_alignment_options;
                 current-index: 0;
             }
 
@@ -154,7 +157,7 @@ export component MainWindow inherits Window {
             FlexboxLayout {
                 flex-direction: direction_values[direction_combo.current-index];
                 alignment: alignment_values[alignment_combo.current-index];
-                align-content: align_content_values[align_content_combo.current-index];
+                cross-axis-line-alignment: cross_axis_line_alignment_values[cross_axis_line_alignment_combo.current-index];
                 cross-axis-alignment: cross_axis_alignment_values[cross_axis_alignment_combo.current-index];
                 flex-wrap: flex_wrap_values[flex_wrap_combo.current-index];
                 padding: 10phx;
@@ -224,17 +227,17 @@ export component MainWindow inherits Window {
                     width: 80phx;
                     height: 40phx;
                 }
-                // flex-align-self: orange item overrides the container's cross-axis-alignment
+                // cross-axis-self-alignment: orange item overrides the container's cross-axis-alignment
                 FlexCell {
                     cell_text: "S self:end";
-                    flex-align-self: end;
+                    cross-axis-self-alignment: end;
                     height: 30phx;
                     background: #e67e22;
                 }
 
                 FlexCell {
                     cell_text: "T self:center";
-                    flex-align-self: center;
+                    cross-axis-self-alignment: center;
                     height: 30phx;
                     background: #d35400;
                 }

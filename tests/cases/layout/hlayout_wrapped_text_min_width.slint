@@ -1,0 +1,71 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A word-wrapping Text reports a min width of 0, so a HorizontalLayout that has
+// to shrink squeezes a short text down to nothing (or to one character per line)
+// while the long texts next to it keep most of the space.
+// A wrapping Text must never shrink below its longest word.
+//
+// The shrinking is split equally in absolute pixels over the three texts, so
+// "Short" runs out first: it hits 0 while the long texts have barely moved.
+// The width must stay below the point where shrinking starts (~91% of the sum
+// of the preferred widths) in every font the test drivers use.
+
+export component TestCase inherits Window {
+    width: 800px;
+    height: 200px;
+
+    VerticalLayout {
+        // "Short" at its natural, unwrapped width, for a font-independent reference.
+        HorizontalLayout {
+            alignment: start;
+            reference := Text {
+                text: "Short";
+            }
+        }
+
+        HorizontalLayout {
+            padding: 0px;
+            spacing: 0px;
+            long := Text {
+                text: "Left column: this is a fairly long text that should word-wrap into multiple lines when narrow";
+                wrap: word-wrap;
+                color: #1a7f37;
+            }
+            short := Text {
+                text: "Short";
+                wrap: word-wrap;
+                color: #cf222e;
+            }
+            long2 := Text {
+                text: "Right column: this is a fairly long text that should word-wrap into multiple lines when narrow";
+                wrap: word-wrap;
+                color: #0969da;
+            }
+        }
+    }
+
+    // "Short" is a single word, so its longest word is the whole string.
+    out property <bool> test_short_not_squeezed: short.width >= reference.width;
+    // The long text is still the one giving up the space.
+    out property <bool> test_long_gets_rest: long.width > short.width;
+
+    out property <bool> test: test_short_not_squeezed && test_long_gets_rest;
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+assert(handle->get_test());
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+```js
+var instance = new slint.TestCase({});
+assert(instance.test_short_not_squeezed);
+```
+*/

@@ -19,7 +19,7 @@ global ExportedGlobal  {
     in-out property<int> abc: 1001;
 }
 
-component TestCase inherits Rectangle {
+export component TestCase inherits Rectangle {
     ug := UseGlobal {}
     in-out property<int> p1: ug.used42;
     in-out property<int> p2: ug.used44;

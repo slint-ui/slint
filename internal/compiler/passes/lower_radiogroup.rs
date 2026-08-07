@@ -14,7 +14,7 @@ use crate::expression_tree::{Callable, Expression, NamedReference, Unit};
 use crate::langtype::{ElementType, Type};
 use crate::object_tree::*;
 use smol_str::SmolStr;
-use std::cell::RefCell;
+use std::collections::HashSet;
 use std::rc::Rc;
 
 pub async fn lower_radiogroup(
@@ -22,15 +22,21 @@ pub async fn lower_radiogroup(
     type_loader: &mut crate::typeloader::TypeLoader,
     diag: &mut BuildDiagnostics,
 ) {
-    let mut has_radiogroup = false;
+    // Collect before lowering: lowering rewrites base_type, which would hide
+    // other RadioGroup elements from builtin_type() (an instance and the style
+    // wrapper both match). Dedup a sub-component root visited more than once.
+    let mut seen = HashSet::new();
+    let mut radio_groups = Vec::new();
     doc.visit_all_used_components(|component| {
         recurse_elem_including_sub_components_no_borrow(component, &(), &mut |elem, _| {
-            if matches!(&elem.borrow().builtin_type(), Some(b) if b.name == "RadioGroup") {
-                has_radiogroup = true;
+            if matches!(&elem.borrow().builtin_type(), Some(b) if b.name == "RadioGroup")
+                && seen.insert(Rc::as_ptr(elem))
+            {
+                radio_groups.push(elem.clone());
             }
         })
     });
-    if !has_radiogroup {
+    if radio_groups.is_empty() {
         return;
     }
 
@@ -44,18 +50,14 @@ pub async fn lower_radiogroup(
         .await
         .expect("RadioButtonImpl should be in std-widgets-impl.slint");
 
-    doc.visit_all_used_components(|component| {
-        recurse_elem_including_sub_components_no_borrow(component, &(), &mut |elem, _| {
-            if matches!(&elem.borrow().builtin_type(), Some(b) if b.name == "RadioGroup") {
-                process_radiogroup(
-                    elem,
-                    ElementType::Component(radio_group_impl.clone()),
-                    ElementType::Component(radio_button_impl.clone()),
-                    diag,
-                );
-            }
-        })
-    });
+    for elem in &radio_groups {
+        process_radiogroup(
+            elem,
+            ElementType::Component(radio_group_impl.clone()),
+            ElementType::Component(radio_button_impl.clone()),
+            diag,
+        );
+    }
 }
 
 fn process_radiogroup(
@@ -64,19 +66,11 @@ fn process_radiogroup(
     radio_button_impl: ElementType,
     diag: &mut BuildDiagnostics,
 ) {
-    // Skip the style's re-export wrapper, which has the builtin RadioGroup as a
-    // direct base_type. Only the user instance is processed.
-    if matches!(&elem.borrow().base_type, ElementType::Builtin(_)) {
-        return;
-    }
-
     // Borrow the children read-only for validation; do not take them out of
     // the element yet, so that any early-return error path leaves the element
     // intact for downstream passes (LSP/live-preview keep going past errors).
     let children = elem.borrow().children.clone();
 
-    // Validate: every direct child must be a RadioButton, plain or wrapped in a
-    // `for` / `if` repeater.
     for child in &children {
         if !matches!(&child.borrow().base_type, ElementType::Builtin(b) if b.name == "RadioButton")
         {
@@ -125,9 +119,6 @@ fn process_radiogroup(
 
     elem.borrow_mut().base_type = radio_group_impl;
 
-    // item-count: model length for the sole-`for` case, otherwise the static
-    // children count. item-index: the repeater index for `for`, otherwise the
-    // child's source position.
     let count_expr = match children.first().and_then(|c| c.borrow().repeated.clone()) {
         Some(rep) if children.len() == 1 => Expression::FunctionCall {
             function: Callable::Builtin(crate::expression_tree::BuiltinFunction::ArrayLength),
@@ -136,9 +127,7 @@ fn process_radiogroup(
         },
         _ => Expression::NumberLiteral(children.len() as f64, Unit::None),
     };
-    elem.borrow_mut()
-        .bindings
-        .insert(SmolStr::new_static("item-count"), RefCell::new(count_expr.into()));
+    elem.borrow_mut().set_binding(SmolStr::new_static("item-count"), count_expr.into());
 
     for (position, child) in children.iter().enumerate() {
         let item_index_expr = match &child.borrow().repeated {
@@ -157,22 +146,19 @@ fn wire_radio_button(
 ) {
     child.borrow_mut().base_type = radio_button_impl.clone();
 
-    child
-        .borrow_mut()
-        .bindings
-        .insert(SmolStr::new_static("item-index"), RefCell::new(item_index_expr.into()));
+    child.borrow_mut().set_binding(SmolStr::new_static("item-index"), item_index_expr.into());
 
-    child.borrow_mut().bindings.insert(
+    child.borrow_mut().set_binding(
         SmolStr::new_static("group-enabled"),
-        RefCell::new(
-            Expression::PropertyReference(NamedReference::new(group, "enabled".into())).into(),
-        ),
+        Expression::PropertyReference(NamedReference::new(group, "enabled".into())).into(),
     );
 
     // row / col for the parent GridLayout — stack vertically (column 0,
     // increasing rows) for vertical orientation, otherwise stack horizontally.
     let orientation_vertical = crate::typeregister::BUILTIN
-        .with(|e| e.enums.Orientation.clone())
+        .enums
+        .Orientation
+        .clone()
         .try_value_from_string("vertical")
         .unwrap();
     let is_vertical = Expression::BinaryExpression {
@@ -192,8 +178,8 @@ fn wire_radio_button(
         true_expr: Expression::NumberLiteral(0.0, Unit::None).into(),
         false_expr: item_index_ref().into(),
     };
-    child.borrow_mut().bindings.insert(SmolStr::new_static("row"), RefCell::new(row_expr.into()));
-    child.borrow_mut().bindings.insert(SmolStr::new_static("col"), RefCell::new(col_expr.into()));
+    child.borrow_mut().set_binding(SmolStr::new_static("row"), row_expr.into());
+    child.borrow_mut().set_binding(SmolStr::new_static("col"), col_expr.into());
 
     // Bind `group-current-index` rather than `checked` directly: the latter
     // is `in-out` so users can toggle it from outside, and an imperative
@@ -202,10 +188,9 @@ fn wire_radio_button(
     // for syncing `checked`.
     let group_current_index_expr =
         Expression::PropertyReference(NamedReference::new(group, "current-index".into()));
-    child.borrow_mut().bindings.insert(
-        SmolStr::new_static("group-current-index"),
-        RefCell::new(group_current_index_expr.into()),
-    );
+    child
+        .borrow_mut()
+        .set_binding(SmolStr::new_static("group-current-index"), group_current_index_expr.into());
 
     let select_call = Expression::FunctionCall {
         function: Callable::Function(NamedReference::new(group, "select".into())),
@@ -215,18 +200,12 @@ fn wire_radio_button(
         ],
         source_location: None,
     };
-    child
-        .borrow_mut()
-        .bindings
-        .insert(SmolStr::new_static("group-select"), RefCell::new(select_call.into()));
+    child.borrow_mut().set_binding(SmolStr::new_static("group-select"), select_call.into());
 
     let focus_call = Expression::FunctionCall {
         function: Callable::Function(NamedReference::new(group, "on-focus-change".into())),
         arguments: vec![Expression::FunctionParameterReference { index: 0, ty: Type::Bool }],
         source_location: None,
     };
-    child
-        .borrow_mut()
-        .bindings
-        .insert(SmolStr::new_static("focus-change"), RefCell::new(focus_call.into()));
+    child.borrow_mut().set_binding(SmolStr::new_static("focus-change"), focus_call.into());
 }

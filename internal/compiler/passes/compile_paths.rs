@@ -14,8 +14,8 @@ use crate::expression_tree::*;
 use crate::langtype::{BuiltinStruct, Struct, Type};
 use crate::object_tree::*;
 use smol_str::SmolStr;
-use std::cell::RefCell;
 use std::rc::Rc;
+use std::sync::Arc;
 
 pub fn compile_paths(
     component: &Rc<Component>,
@@ -32,8 +32,7 @@ pub fn compile_paths(
 
         let element_types = &path_type.additional_accepted_child_types;
 
-        let commands_binding =
-            elem_.borrow_mut().bindings.remove("commands").map(RefCell::into_inner);
+        let commands_binding = elem_.borrow_mut().take_binding("commands");
 
         let path_data_binding = if let Some(commands_expr) = commands_binding {
             if let Some(path_child) = elem_.borrow().children.iter().find(|child| {
@@ -96,8 +95,8 @@ pub fn compile_paths(
                         {
                             let mut child = child.borrow_mut();
                             for k in element_type.properties.keys() {
-                                if let Some(binding) = child.bindings.remove(k) {
-                                    bindings.insert(k.clone(), binding);
+                                if let Some(binding) = child.take_binding(k) {
+                                    bindings.insert(k.clone(), binding.into());
                                 }
                             }
                         }
@@ -127,10 +126,7 @@ pub fn compile_paths(
             Expression::PathData(crate::expression_tree::Path::Elements(path_data)).into()
         };
 
-        elem_
-            .borrow_mut()
-            .bindings
-            .insert(SmolStr::new_static("elements"), RefCell::new(path_data_binding));
+        elem_.borrow_mut().set_binding(SmolStr::new_static("elements"), path_data_binding);
     });
 }
 
@@ -146,15 +142,15 @@ fn compile_path_from_string_literal(
     )?;
     let path = builder.build();
 
-    let event_enum = crate::typeregister::BUILTIN.with(|e| e.enums.PathEvent.clone());
-    let point_type = Rc::new(Struct {
-        fields: IntoIterator::into_iter([
+    let event_enum = crate::typeregister::BUILTIN.enums.PathEvent.clone();
+    let point_type = Arc::new(Struct::new(
+        IntoIterator::into_iter([
             (SmolStr::new_static("x"), Type::Float32),
             (SmolStr::new_static("y"), Type::Float32),
         ])
         .collect(),
-        name: BuiltinStruct::Point.into(),
-    });
+        BuiltinStruct::Point,
+    ));
 
     let mut points = Vec::new();
     let events = path

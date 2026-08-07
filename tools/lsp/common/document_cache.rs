@@ -198,6 +198,11 @@ impl DocumentCache {
         self.type_loader.get_document(&path)
     }
 
+    /// Iterator over every fully-loaded `object_tree::Document` in the cache.
+    pub fn all_documents(&self) -> impl Iterator<Item = &Document> + '_ {
+        self.type_loader.all_documents()
+    }
+
     fn uses_widgets_impl(&self, doc_path: PathBuf, dedup: &mut HashSet<PathBuf>) -> bool {
         if dedup.contains(&doc_path) {
             return false;
@@ -497,7 +502,7 @@ mod tests {
     ) -> Option<String> {
         let result = dc.element_at_position(url, &lsp_types::Position { line, character })?;
         let element = result.element.borrow();
-        Some(format!("{}", &element.base_type))
+        Some(element.base_type.to_string())
     }
 
     #[test]

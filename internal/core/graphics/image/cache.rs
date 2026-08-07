@@ -5,7 +5,9 @@
 This module contains image and caching related types for the run-time library.
 */
 
-use super::{CachedPath, Image, ImageCacheKey, ImageInner, SharedImageBuffer};
+#[cfg(not(target_arch = "wasm32"))]
+use super::CachedPath;
+use super::{Image, ImageCacheKey, ImageInner, SharedImageBuffer};
 use crate::{SharedString, slice::Slice};
 
 struct ImageWeightInBytes;
@@ -20,7 +22,7 @@ impl clru::WeightScale<ImageCacheKey, ImageInner> for ImageWeightInBytes {
                 SharedImageBuffer::RGBA8Premultiplied(pixels) => pixels.as_bytes().len(),
             },
             #[cfg(feature = "svg")]
-            ImageInner::Svg(_) => 512, // Don't know how to measure the size of the parsed SVG tree...
+            ImageInner::Svg(svg) => svg.weight_in_bytes(),
             #[cfg(target_arch = "wasm32")]
             ImageInner::HTMLImage(_) => 512, // Something... the web browser maintainers its own cache. The purpose of this cache is to reduce the amount of DOM elements.
             ImageInner::StaticTextures(_) => 0,
@@ -28,7 +30,7 @@ impl clru::WeightScale<ImageCacheKey, ImageInner> for ImageWeightInBytes {
             #[cfg(not(target_arch = "wasm32"))]
             ImageInner::BorrowedOpenGLTexture(..) => 0, // Assume storage in GPU memory
             ImageInner::NineSlice(nine) => self.weight(_key, &nine.0),
-            #[cfg(any(feature = "unstable-wgpu-28", feature = "unstable-wgpu-29"))]
+            #[cfg(any(feature = "unstable-wgpu-29", feature = "unstable-wgpu-30"))]
             ImageInner::WGPUTexture(..) => 0, // The texture is imported from the application and will never reside in our cache.
         }
     }
@@ -72,20 +74,20 @@ impl ImageCache {
         }))
     }
 
+    #[cfg(target_arch = "wasm32")]
+    pub(crate) fn load_image_from_path(&mut self, _path: &SharedString) -> Option<Image> {
+        None
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
     pub(crate) fn load_image_from_path(&mut self, path: &SharedString) -> Option<Image> {
         if path.is_empty() {
             return None;
         }
         let cache_key = ImageCacheKey::Path(CachedPath::new(path.as_str()));
-        #[cfg(target_arch = "wasm32")]
-        return self.lookup_image_in_cache_or_create(cache_key, |_| {
-            return Some(ImageInner::HTMLImage(vtable::VRc::new(
-                super::htmlimage::HTMLImage::new(&path),
-            )));
-        });
-        #[cfg(not(target_arch = "wasm32"))]
-        return self.lookup_image_in_cache_or_create(cache_key, |cache_key| {
-            if cfg!(feature = "svg") && (path.ends_with(".svg") || path.ends_with(".svgz")) {
+        self.lookup_image_in_cache_or_create(cache_key, |cache_key| {
+            #[cfg(feature = "svg")]
+            if path.ends_with(".svg") || path.ends_with(".svgz") {
                 return Some(ImageInner::Svg(vtable::VRc::new(
                     super::svg::load_from_path(path, cache_key).map_or_else(
                         |err| {
@@ -109,7 +111,20 @@ impl ImageCache {
                     })
                 },
             )
-        });
+        })
+    }
+
+    /// Load an image by handing its URL to an `<img>` element for the browser to
+    /// fetch. This is a web-only slintpad mechanism, not general network loading.
+    #[cfg(target_arch = "wasm32")]
+    pub(crate) fn load_as_html_image(&mut self, url: &str) -> Option<Image> {
+        if url.is_empty() {
+            return None;
+        }
+        let cache_key = ImageCacheKey::URL(url.into());
+        self.lookup_image_in_cache_or_create(cache_key, |_| {
+            Some(ImageInner::HTMLImage(vtable::VRc::new(super::htmlimage::HTMLImage::new(url))))
+        })
     }
 
     pub(crate) fn load_image_from_embedded_data(
@@ -120,6 +135,23 @@ impl ImageCache {
         let cache_key = ImageCacheKey::from_embedded_image_data(data.as_slice());
         self.lookup_image_in_cache_or_create(cache_key, |cache_key| {
             ImageInner::load_from_data_with_cache_key(cache_key, data, format)
+        })
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    pub(crate) fn load_image_from_data_uri(
+        &mut self,
+        uri: &str,
+        data: &[u8],
+        format: &str,
+    ) -> Option<Image> {
+        let cache_key = ImageCacheKey::URL(uri.into());
+        self.lookup_image_in_cache_or_create(cache_key, |cache_key| {
+            ImageInner::load_from_data_with_cache_key(
+                cache_key,
+                data.into(),
+                format.as_bytes().into(),
+            )
         })
     }
 }
@@ -133,7 +165,7 @@ pub fn replace_cached_image(key: ImageCacheKey, value: ImageInner) {
         IMAGE_CACHE.with(|global_cache| global_cache.borrow_mut().0.put_with_weight(key, value));
 }
 
-#[cfg(all(test, feature = "std"))]
+#[cfg(all(test, feature = "image-decoders"))]
 mod tests {
     use crate::graphics::Rgba8Pixel;
 

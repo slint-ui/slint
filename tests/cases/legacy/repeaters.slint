@@ -24,8 +24,9 @@ TestCase := Rectangle {
     width: 300phx;
     height: 300phx;
     property clicked <=> c.clicked;
+    property <bool> show: false;
     Text {
-        if (false): TouchArea {
+        if (root.show): TouchArea {
         }
     }
     c := SubCompo {

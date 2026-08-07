@@ -6,10 +6,12 @@
 */
 #![warn(missing_docs)]
 
+use crate::cursor::MouseCursorInner;
 use crate::item_tree::ItemTreeRc;
 use crate::item_tree::{ItemRc, ItemWeak, VisitChildrenResult};
 use crate::items::{
-    AllowedDragActions, DropEvent, ItemRef, MouseCursor, OperatingSystemType, TextCursorDirection,
+    AllowedDragActions, BuiltInMouseCursor, DropEvent, ItemRef, OperatingSystemType,
+    TextCursorDirection,
 };
 pub use crate::items::{FocusReason, KeyEvent, KeyboardModifiers, PointerEventButton};
 use crate::lengths::{ItemTransform, LogicalPoint, LogicalVector};
@@ -118,6 +120,12 @@ impl MouseEvent {
             MouseEvent::Moved { touch_finger_id, .. } => *touch_finger_id,
             _ => 0,
         }
+    }
+
+    /// Whether the event originates from a touch screen rather than a mouse.
+    pub fn is_from_touch(&self) -> bool {
+        // touch events carry the finger id + 1, events from a mouse carry 0
+        self.touch_finger_id() != 0
     }
 
     /// The position of the cursor for this event, if any
@@ -1263,13 +1271,28 @@ pub struct MouseInputState {
     pub(crate) drop_target: Option<ItemWeak>,
     delayed: Option<(crate::timers::Timer, MouseEvent)>,
     delayed_exit_items: Vec<ItemWeak>,
-    pub(crate) cursor: MouseCursor,
+    pub(crate) cursor: MouseCursorInner,
 }
 
 impl MouseInputState {
     /// Return the item in the top of the stack
     fn top_item(&self) -> Option<ItemRc> {
         self.item_stack.last().and_then(|x| x.0.upgrade())
+    }
+
+    /// Arm the in-window drag: seed `drag_data`/`drag_source` from `drag_area` at `seed_position`
+    /// and mark it dragging.
+    pub(crate) fn arm_in_window_drag(
+        &mut self,
+        drag_area: core::pin::Pin<&crate::items::DragArea>,
+        source: ItemWeak,
+        seed_position: crate::api::LogicalPosition,
+    ) {
+        let (mut drop_event, allowed) = drag_area.initial_drop_event();
+        drop_event.position = seed_position;
+        self.drag_data = Some(DragData { event: drop_event, allowed });
+        self.drag_source = Some(source);
+        drag_area.dragging.set(true);
     }
 
     /// Returns the item in the top of the stack, if there is a delayed event, this would be the top of the delayed stack
@@ -1302,6 +1325,41 @@ pub(crate) struct MouseGrabResult {
     /// Whether the grabber consumed the original event before any follow-up event was
     /// synthesized for hover/grab refresh.
     pub accepted: bool,
+}
+
+/// Start a drag from `drag_area`, preferring a native (OS-level) drag and falling back to the
+/// in-window drag (armed on `state`) when no backend takes over.
+fn offer_native_drag(
+    window_adapter: &Rc<dyn WindowAdapter>,
+    drag_area: core::pin::Pin<&crate::items::DragArea>,
+    source: ItemWeak,
+    seed_position: crate::api::LogicalPosition,
+    state: &mut MouseInputState,
+) {
+    let data = drag_area.data();
+    // A native drag only carries serializable data, so offer it only when there's some.
+    if data.has_plain_text() || data.has_image() {
+        let request = crate::window::DragRequest {
+            data: data.clone(),
+            allowed: drag_area.allowed_actions(),
+            drag_image: drag_area.drag_image(),
+            drag_image_offset: euclid::vec2(
+                drag_area.drag_image_offset_x(),
+                drag_area.drag_image_offset_y(),
+            ),
+        };
+        if window_adapter.internal(crate::InternalToken).is_some_and(|i| i.start_drag(&request)) {
+            // The backend took over (and defers the actual drag). Stash it so it can report
+            // completion or fall back, and so a drop back onto this window restores the data.
+            let drag = crate::window::NativePendingDrag { request, source, seed_position };
+            crate::window::WindowInner::from_pub(window_adapter.window())
+                .set_native_drag(Some(drag));
+            drag_area.dragging.set(true);
+            return;
+        }
+    }
+    // No backend took over: fall back to the in-window drag.
+    state.arm_in_window_drag(drag_area, source, seed_position);
 }
 
 /// Try to handle the mouse grabber.
@@ -1382,16 +1440,19 @@ pub(crate) fn handle_mouse_grab(
             mouse_input_state.grabbed = false;
             let drag_area_item = grabber.downcast::<crate::items::DragArea>().unwrap();
             let drag_area = drag_area_item.as_pin_ref();
-            let (mut drop_event, allowed) = drag_area.initial_drop_event();
             // Seed the drag position from the event that crossed the drag threshold so
             // the renderer can place the drag-image overlay before the first DragMove.
-            drop_event.position = mouse_event
+            let seed_position = mouse_event
                 .position()
                 .map(crate::lengths::logical_position_to_api)
                 .unwrap_or_default();
-            mouse_input_state.drag_data = Some(DragData { event: drop_event, allowed });
-            mouse_input_state.drag_source = Some(grabber.downgrade());
-            drag_area.dragging.set(true);
+            offer_native_drag(
+                window_adapter,
+                drag_area,
+                grabber.downgrade(),
+                seed_position,
+                mouse_input_state,
+            );
             MouseGrabResult { event: None, accepted: true }
         }
         InputEventResult::EventAccepted | InputEventResult::EventIgnored => {
@@ -1414,7 +1475,7 @@ pub(crate) fn send_exit_events(
     window_adapter: &Rc<dyn WindowAdapter>,
 ) {
     // Note that exit events can't actually change the cursor from default so we'll ignore the result
-    let cursor = &mut MouseCursor::Default;
+    let cursor = &mut MouseCursorInner::BuiltIn(BuiltInMouseCursor::Default);
 
     for it in core::mem::take(&mut new_input_state.delayed_exit_items) {
         let Some(item) = it.upgrade() else { continue };
@@ -1492,7 +1553,7 @@ pub fn process_mouse_input(
         drag_data: mouse_input_state.drag_data.clone(),
         drag_source: mouse_input_state.drag_source.clone(),
         drop_target: mouse_input_state.drop_target.clone(),
-        cursor: mouse_input_state.cursor,
+        cursor: mouse_input_state.cursor.clone(),
         ..Default::default()
     };
     let r = send_mouse_event_to_item(
@@ -1706,19 +1767,22 @@ fn send_mouse_event_to_item(
             result.grabbed = false;
             let drag_area_item = item_rc.downcast::<crate::items::DragArea>().unwrap();
             let drag_area = drag_area_item.as_pin_ref();
-            let (mut drop_event, allowed) = drag_area.initial_drop_event();
             // `mouse_event` here is in the parent item's coords (this function is called
             // recursively); translate into the DragArea's local coords, then map back to
             // window coords so the drag-image overlay places at the right spot from the start.
-            drop_event.position = mouse_event
+            let seed_position = mouse_event
                 .position()
                 .map(|p| p - geom.origin.to_vector())
                 .map(|p| item_rc.map_to_window(p))
                 .map(crate::lengths::logical_position_to_api)
                 .unwrap_or_default();
-            result.drag_data = Some(DragData { event: drop_event, allowed });
-            result.drag_source = Some(item_rc.downgrade());
-            drag_area.dragging.set(true);
+            offer_native_drag(
+                window_adapter,
+                drag_area,
+                item_rc.downgrade(),
+                seed_position,
+                result,
+            );
             VisitChildrenResult::abort(item_rc.index(), 0)
         }
     }

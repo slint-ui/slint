@@ -25,6 +25,7 @@ i-slint-renderer-skia = { workspace = true, features = ["default", "wayland"] }
 anyhow = "1.0"
 clap = { workspace = true }
 itertools = { workspace = true }
+serde_json = { workspace = true }
 spin_on = { workspace = true }
 termcolor = { version = "1.4.1" }
 walkdir = { version = "2.5" }

@@ -3,10 +3,13 @@
 
 #![cfg(not(target_os = "android"))]
 
+mod coverage;
 mod element_docs;
 mod headless;
 mod mdx;
 mod screenshots;
+mod test_results;
+mod traceability;
 
 use clap::Parser;
 use std::path::PathBuf;
@@ -24,6 +27,31 @@ struct Cli {
     #[arg(long, action)]
     slint_sc: bool,
 
+    /// Report the coverage from this `cargo llvm-cov report --json` export in
+    /// the safety manual's Test Coverage chapter. Without it the chapter is a
+    /// placeholder explaining how to build with coverage.
+    #[arg(long, value_name = "FILE")]
+    coverage_json: Option<PathBuf>,
+
+    /// Also ship this `cargo llvm-cov report --html` report with the manual
+    /// and link its per-line pages from the Test Coverage chapter.
+    #[arg(long, value_name = "DIR", requires = "coverage_json")]
+    coverage_html: Option<PathBuf>,
+
+    /// Report the test outcomes collected in this directory by
+    /// scripts/slint_sc_test_suite.sh in the safety manual's Test Results
+    /// chapter. Without it the chapter is a placeholder.
+    #[arg(long, value_name = "DIR")]
+    test_results: Option<PathBuf>,
+
+    /// Exit with [`GAPS_EXIT_CODE`] when the safety manual shows a gap: a
+    /// runtime source file below 100% line, function, or region coverage, or a
+    /// requirement paragraph that no test declares. The pages are written and
+    /// the site is built either way. Requires a coverage export to check the
+    /// coverage half against.
+    #[arg(long, action, requires = "coverage_json")]
+    fail_on_gaps: bool,
+
     #[command(subcommand)]
     command: Option<Command>,
 }
@@ -39,7 +67,7 @@ enum Command {
 }
 
 /// Find the root of the git repository.
-fn root_dir() -> PathBuf {
+pub(crate) fn root_dir() -> PathBuf {
     let mut root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     root.pop(); // docs/slint-doc-generator -> docs
     root.pop(); // docs -> root
@@ -51,7 +79,10 @@ fn root_dir() -> PathBuf {
 pub struct Config {
     /// Absolute path to the Astro project root (containing `package.json`).
     pub astro_dir: PathBuf,
-    /// Absolute path to the `reference/generated` directory to write into.
+    /// Absolute path to the root of the generated content. Everything below
+    /// it is written by this tool and gitignored; one subdirectory per section
+    /// of the site the pages belong to. Pages carry an explicit `slug`, so
+    /// this location doesn't determine their URL.
     pub generated_dir: PathBuf,
     /// Skip items that don't carry a `\sc` marker in their doc comment.
     pub sc_only: bool,
@@ -59,28 +90,73 @@ pub struct Config {
     /// `<CodeSnippetMD>`.
     pub skip_screenshots: bool,
     pub include_experimental: bool,
+    /// `cargo llvm-cov report --json` export to report in the safety manual's
+    /// Test Coverage chapter; without it the chapter is a placeholder.
+    pub coverage_json: Option<PathBuf>,
+    /// `cargo llvm-cov report --html` report to ship with the manual for
+    /// per-line detail.
+    pub coverage_html: Option<PathBuf>,
+    /// Test outcomes collected by scripts/slint_sc_test_suite.sh, for the
+    /// safety manual's Test Results chapter; without them the chapter is a
+    /// placeholder.
+    pub test_results: Option<PathBuf>,
 }
+
+/// Path of the generated content root, relative to the site's `src` directory.
+/// Also the prefix of the `import` paths the generated pages use, and the sole
+/// entry each site's `.gitignore` needs for generated content.
+pub const GENERATED_DIR: &str = "content/docs/generated";
 
 impl Config {
     pub fn slint_docs(include_experimental: bool) -> Self {
         let astro_dir = root_dir().join("docs/astro");
         Self {
-            generated_dir: astro_dir.join("src/content/docs/reference/generated"),
+            generated_dir: astro_dir.join("src").join(GENERATED_DIR),
             astro_dir,
             sc_only: false,
             skip_screenshots: false,
             include_experimental,
+            coverage_json: None,
+            coverage_html: None,
+            test_results: None,
         }
     }
     pub fn safety_manual(include_experimental: bool) -> Self {
         let astro_dir = root_dir().join("docs/safety");
         Self {
-            generated_dir: astro_dir.join("src/content/docs/reference/generated"),
+            generated_dir: astro_dir.join("src").join(GENERATED_DIR),
             astro_dir,
             sc_only: true,
             skip_screenshots: true,
             include_experimental,
+            coverage_json: None,
+            coverage_html: None,
+            test_results: None,
         }
+    }
+
+    /// Generated pages of the API reference.
+    pub fn reference_dir(&self) -> PathBuf {
+        self.generated_dir.join("reference")
+    }
+
+    /// Generated pages of the qualification plan (safety manual only).
+    pub fn qualification_plan_dir(&self) -> PathBuf {
+        self.generated_dir.join("qualification-plan")
+    }
+
+    /// Create a page of the qualification plan, ready for writing.
+    pub fn qualification_page(
+        &self,
+        file_name: &str,
+    ) -> anyhow::Result<std::io::BufWriter<std::fs::File>> {
+        use anyhow::Context;
+        let dir = self.qualification_plan_dir();
+        std::fs::create_dir_all(&dir).with_context(|| format!("error creating {dir:?}"))?;
+        let path = dir.join(file_name);
+        Ok(std::io::BufWriter::new(
+            std::fs::File::create(&path).with_context(|| format!("error creating {path:?}"))?,
+        ))
     }
 }
 
@@ -96,18 +172,27 @@ fn build_astro(cfg: &Config) -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// Exit code of a run that found gaps, distinct from the `1` of a run that
+/// failed. Everything is written and built by then, so a caller can publish
+/// the documentation it produced and still fail its build afterwards.
+pub const GAPS_EXIT_CODE: u8 = 2;
+
+fn main() -> Result<std::process::ExitCode, Box<dyn std::error::Error>> {
     let args = Cli::parse();
     let experimental = args.experimental;
-    let cfg = if args.slint_sc {
+    let mut cfg = if args.slint_sc {
         Config::safety_manual(experimental)
     } else {
         Config::slint_docs(experimental)
     };
+    cfg.coverage_json = args.coverage_json;
+    cfg.coverage_html = args.coverage_html;
+    cfg.test_results = args.test_results;
 
+    let mut gaps = Vec::new();
     match args.command {
         Some(Command::GenerateMdx) => {
-            mdx::generate(&cfg)?;
+            gaps = mdx::generate(&cfg)?;
         }
         Some(Command::Screenshots(args)) => {
             screenshots::run(args)?;
@@ -117,7 +202,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         None => {
             // Generate mdx first because screenshots reads them.
-            mdx::generate(&cfg)?;
+            gaps = mdx::generate(&cfg)?;
             if !cfg.skip_screenshots {
                 let docs_folder = cfg.astro_dir.join("src/content");
                 let reference_elements = cfg.astro_dir.join("src/content/docs/reference/elements");
@@ -134,5 +219,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    Ok(())
+    if args.fail_on_gaps && !gaps.is_empty() {
+        eprintln!("error: the safety manual has {} gap(s):", gaps.len());
+        for gap in &gaps {
+            eprintln!("  {gap}");
+        }
+        eprintln!(
+            "the runtime must stay completely covered and every requirement must be declared by a test"
+        );
+        return Ok(std::process::ExitCode::from(GAPS_EXIT_CODE));
+    }
+
+    Ok(std::process::ExitCode::SUCCESS)
 }

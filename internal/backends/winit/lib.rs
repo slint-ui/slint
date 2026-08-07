@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell: ignore binfmt dlsym GETNONCLIENTMETRICS NONCLIENTMETRICSW testui
+// cSpell: ignore binfmt dlsym GETNONCLIENTMETRICS NONCLIENTMETRICSW RTLD testui
 #![doc = include_str!("README.md")]
 #![doc(html_logo_url = "https://slint.dev/logo/slint-logo-square-light.svg")]
 #![warn(missing_docs)]
@@ -62,6 +62,7 @@ pub enum EventResult {
 }
 
 mod renderer {
+    use std::rc::Weak;
     use std::sync::Arc;
 
     use i_slint_core::platform::PlatformError;
@@ -82,6 +83,7 @@ mod renderer {
             &self,
             active_event_loop: &ActiveEventLoop,
             window_attributes: winit::window::WindowAttributes,
+            window_adapter_weak: Weak<crate::winitwindowadapter::WinitWindowAdapter>,
         ) -> Result<Arc<winit::window::Window>, PlatformError>;
     }
 
@@ -685,25 +687,35 @@ const DEFAULT_CURSOR_FLASH_CYCLE: core::time::Duration = core::time::Duration::f
 
 #[cfg(any(target_os = "macos", target_os = "ios"))]
 fn prefers_non_blinking_text_insertion_indicator() -> Option<bool> {
-    use core::ffi::{c_char, c_void};
-
-    #[link(name = "Accessibility", kind = "framework")]
-    unsafe extern "C" {}
+    use core::ffi::{c_char, c_int, c_void};
 
     unsafe extern "C" {
+        fn dlopen(path: *const c_char, mode: c_int) -> *mut c_void;
         fn dlsym(handle: *mut c_void, symbol: *const c_char) -> *mut c_void;
     }
 
     type AxPrefersNonBlinkingTextInsertionIndicator =
         unsafe extern "C" fn() -> objc2::runtime::Bool;
 
-    // AXPrefersNonBlinkingTextInsertionIndicator is available starting with macOS 15 and iOS 18.
-    // Look it up dynamically so older systems don't fail to load because of a strong symbol
-    // reference. On older systems dlsym returns null, so the accessibility setting is
-    // unavailable and we keep the existing cursor blink behavior.
-    let symbol = unsafe {
-        dlsym((-2isize) as *mut c_void, c"AXPrefersNonBlinkingTextInsertionIndicator".as_ptr())
+    // AXPrefersNonBlinkingTextInsertionIndicator is available starting with macOS 15 and iOS 18,
+    // and the Accessibility framework itself only exists since macOS 11 and iOS 14.
+    // Load both dynamically: a `#[link]` attribute would emit a strong load command that makes
+    // dyld abort before main() on older systems. When the framework or the symbol is
+    // unavailable, the accessibility setting is unavailable and we keep the existing cursor
+    // blink behavior.
+    const RTLD_LAZY: c_int = 0x1;
+    let framework = unsafe {
+        dlopen(
+            c"/System/Library/Frameworks/Accessibility.framework/Accessibility".as_ptr(),
+            RTLD_LAZY,
+        )
     };
+    if framework.is_null() {
+        return None;
+    }
+
+    let symbol =
+        unsafe { dlsym(framework, c"AXPrefersNonBlinkingTextInsertionIndicator".as_ptr()) };
     if symbol.is_null() {
         return None;
     }
@@ -1108,10 +1120,10 @@ fn create_renderer(
         #[cfg(feature = "renderer-femtovg-wgpu")]
         (Some("femtovg-wgpu"), maybe_graphics_api) => {
             if let Some(_api) = maybe_graphics_api {
-                #[cfg(feature = "unstable-wgpu-29")]
-                if !matches!(_api, RequestedGraphicsAPI::WGPU29(..)) {
+                #[cfg(feature = "unstable-wgpu-30")]
+                if !matches!(_api, RequestedGraphicsAPI::WGPU30(..)) {
                     return Err(
-                        "The FemtoVG WGPU renderer only supports the WGPU29 graphics API selection"
+                        "The FemtoVG WGPU renderer only supports the WGPU30 graphics API selection"
                             .into(),
                     );
                 }
@@ -1134,20 +1146,20 @@ fn create_renderer(
         }
         #[cfg(all(
             enable_skia_renderer,
-            any(feature = "unstable-wgpu-28", feature = "unstable-wgpu-29")
+            any(feature = "unstable-wgpu-29", feature = "unstable-wgpu-30")
         ))]
         (Some("skia-wgpu"), maybe_graphics_api) => {
             if let Some(selected_renderer) = maybe_graphics_api.map_or_else(
                 || {
-                    #[cfg(feature = "unstable-wgpu-29")]
+                    #[cfg(feature = "unstable-wgpu-30")]
                     {
-                        return Some(renderer::skia::WinitSkiaRenderer::new_wgpu_29_suspended(
+                        return Some(renderer::skia::WinitSkiaRenderer::new_wgpu_30_suspended(
                             shared_data,
                         ));
                     }
-                    #[cfg(all(feature = "unstable-wgpu-28", not(feature = "unstable-wgpu-29")))]
+                    #[cfg(all(feature = "unstable-wgpu-29", not(feature = "unstable-wgpu-30")))]
                     {
-                        return Some(renderer::skia::WinitSkiaRenderer::new_wgpu_28_suspended(
+                        return Some(renderer::skia::WinitSkiaRenderer::new_wgpu_29_suspended(
                             shared_data,
                         ));
                     }
@@ -1155,15 +1167,15 @@ fn create_renderer(
                     None
                 },
                 |_api| {
-                    #[cfg(feature = "unstable-wgpu-29")]
-                    if matches!(_api, RequestedGraphicsAPI::WGPU29(..)) {
-                        return Some(renderer::skia::WinitSkiaRenderer::new_wgpu_29_suspended(
+                    #[cfg(feature = "unstable-wgpu-30")]
+                    if matches!(_api, RequestedGraphicsAPI::WGPU30(..)) {
+                        return Some(renderer::skia::WinitSkiaRenderer::new_wgpu_30_suspended(
                             shared_data,
                         ));
                     }
-                    #[cfg(feature = "unstable-wgpu-28")]
-                    if matches!(_api, RequestedGraphicsAPI::WGPU28(..)) {
-                        return Some(renderer::skia::WinitSkiaRenderer::new_wgpu_28_suspended(
+                    #[cfg(feature = "unstable-wgpu-29")]
+                    if matches!(_api, RequestedGraphicsAPI::WGPU29(..)) {
+                        return Some(renderer::skia::WinitSkiaRenderer::new_wgpu_29_suspended(
                             shared_data,
                         ));
                     }
@@ -1194,25 +1206,25 @@ fn create_renderer(
                 Err(PlatformError::NoPlatform)
             }
         }
-        #[cfg(feature = "unstable-wgpu-28")]
-        (None, Some(RequestedGraphicsAPI::WGPU28(..))) => {
-            cfg_if::cfg_if! {
-                if #[cfg(enable_skia_renderer)] {
-                    renderer::skia::WinitSkiaRenderer::new_wgpu_28_suspended(shared_data)
-                } else {
-                    Err("unstable-wgpu-28 was enabled but no renderer was selected. Please select renderer-skia*".into())
-                }
-            }
-        }
         #[cfg(feature = "unstable-wgpu-29")]
         (None, Some(RequestedGraphicsAPI::WGPU29(..))) => {
             cfg_if::cfg_if! {
                 if #[cfg(enable_skia_renderer)] {
                     renderer::skia::WinitSkiaRenderer::new_wgpu_29_suspended(shared_data)
+                } else {
+                    Err("unstable-wgpu-29 was enabled but no renderer was selected. Please select renderer-skia*".into())
+                }
+            }
+        }
+        #[cfg(feature = "unstable-wgpu-30")]
+        (None, Some(RequestedGraphicsAPI::WGPU30(..))) => {
+            cfg_if::cfg_if! {
+                if #[cfg(enable_skia_renderer)] {
+                    renderer::skia::WinitSkiaRenderer::new_wgpu_30_suspended(shared_data)
                 } else if #[cfg(feature = "renderer-femtovg-wgpu")] {
                     renderer::femtovg::WGPUFemtoVGRenderer::new_suspended(shared_data)
                 } else {
-                    Err("unstable-wgpu-29 was enabled but no renderer was selected. Please select either renderer-skia* or renderer-femtovg-wgpu".into())
+                    Err("unstable-wgpu-30 was enabled but no renderer was selected. Please select either renderer-skia* or renderer-femtovg-wgpu".into())
                 }
             }
         }

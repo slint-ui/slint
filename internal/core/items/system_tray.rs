@@ -9,15 +9,14 @@
 
 #![allow(unsafe_code)]
 
+use crate::cursor::MouseCursorInner;
 use crate::graphics::Image;
 use crate::input::{
     FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, InternalKeyEvent,
     KeyEventResult, MouseEvent,
 };
 use crate::item_rendering::CachedRenderingData;
-use crate::items::{
-    ColorScheme, Item, ItemConsts, ItemRc, MouseCursor, Orientation, RenderingResult, VoidArg,
-};
+use crate::items::{ColorScheme, Item, ItemConsts, ItemRc, Orientation, RenderingResult, VoidArg};
 use crate::layout::LayoutInfo;
 use crate::lengths::{LogicalRect, LogicalSize};
 #[cfg(feature = "rtti")]
@@ -63,10 +62,14 @@ pub struct Params<'a> {
 pub enum Error {
     #[display("Failed to create a rgba8 buffer from an icon image")]
     Rgba8,
-    #[display("{}", 0)]
+    #[display("{_0}")]
     PlatformError(crate::platform::PlatformError),
-    #[display("{}", 0)]
+    #[display("{_0}")]
     EventLoopError(crate::api::EventLoopError),
+    #[display(
+        "no system tray backend compiled in (missing `system-tray` feature or unsupported platform)"
+    )]
+    Unsupported,
 }
 
 /// Owning handle to a live platform tray icon. Dropping it removes the icon.
@@ -395,7 +398,7 @@ impl Item for SystemTrayIcon {
         _: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
-        _: &mut MouseCursor,
+        _: &mut MouseCursorInner,
     ) -> InputEventFilterResult {
         InputEventFilterResult::ForwardAndIgnore
     }
@@ -405,7 +408,7 @@ impl Item for SystemTrayIcon {
         _: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
-        _: &mut MouseCursor,
+        _: &mut MouseCursorInner,
     ) -> InputEventResult {
         InputEventResult::EventIgnored
     }

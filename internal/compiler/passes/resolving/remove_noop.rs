@@ -83,6 +83,7 @@ fn without_side_effects(expression: &Expression) -> bool {
         Expression::Struct { ty: _, values } => values.values().all(without_side_effects),
         Expression::PathData(_) => true,
         Expression::EasingCurve(_) => true,
+        Expression::MouseCursor(_) => true,
         Expression::LinearGradient { angle, stops } => {
             without_side_effects(angle)
                 && stops
@@ -126,5 +127,7 @@ fn without_side_effects(expression: &Expression) -> bool {
         Expression::DebugHook { .. } => false,
         Expression::EmptyComponentFactory => false,
         Expression::EmptyDataTransfer => false,
+        // A closure that is not called has no side effect, regardless of what its body does.
+        Expression::Closure { .. } => true,
     }
 }

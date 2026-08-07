@@ -19,6 +19,8 @@ use crate::langtype::{BuiltinStruct, ElementType, StructName};
 use crate::namedreference::NamedReference;
 use crate::object_tree::{Component, Document, ElementRc};
 
+pub mod accessor_names;
+
 #[cfg(feature = "cpp")]
 pub mod cpp;
 #[cfg(feature = "cpp")]
@@ -392,7 +394,7 @@ pub fn handle_property_bindings_init(
                 if let Expression::PropertyReference(nr) = e {
                     let elem = nr.element();
                     if Weak::ptr_eq(&elem.borrow().enclosing_component, component)
-                        && let Some(be) = elem.borrow().bindings.get(nr.name())
+                        && let Some(be) = elem.borrow().binding_cell_including_synthetic(nr.name())
                     {
                         handle_property_inner(
                             component,
@@ -411,7 +413,7 @@ pub fn handle_property_bindings_init(
 
     let mut processed = HashSet::new();
     crate::object_tree::recurse_elem(&component.root_element, &(), &mut |elem: &ElementRc, ()| {
-        for (prop_name, binding_expression) in &elem.borrow().bindings {
+        for (prop_name, binding_expression) in elem.borrow().bindings_including_synthetic() {
             handle_property_inner(
                 &Rc::downgrade(component),
                 elem,
@@ -459,7 +461,8 @@ pub fn for_each_const_properties(
                                 .iter()
                                 .filter(|(k, x)| {
                                     x.ty.is_property_type()
-                                        && !k.starts_with("viewport-")
+                                        && (n.class_name != "Flickable"
+                                            || !k.starts_with("content-"))
                                         && k.as_str() != "commands"
                                 })
                                 .map(|(k, _)| k.clone()),
@@ -516,6 +519,24 @@ pub fn to_kebab_case(str: &str) -> String {
         }
     }
     String::from_utf8(result).unwrap()
+}
+
+/// The number of arguments taken by the accessibility action of the given name, where the name
+/// is the `AccessibilityAction` variant in pascal case (such as `SetSelection`).
+///
+/// The `AccessibilityAction` enum of the run-time library mirrors the `accessible-action-*`
+/// callbacks declared in the type register: a variant has one field per callback argument, so
+/// that the generators can bind the fields without knowing about any particular action.
+pub fn accessibility_action_argument_count(action: &str) -> usize {
+    let property_name = format!("accessible-action-{}", to_kebab_case(action));
+    crate::typeregister::reserved_accessibility_properties()
+        .find_map(|(name, ty)| match ty {
+            crate::langtype::Type::Callback(function) if name == property_name => {
+                Some(function.args.len())
+            }
+            _ => None,
+        })
+        .unwrap_or_else(|| panic!("Unknown accessibility action {action}"))
 }
 
 #[test]

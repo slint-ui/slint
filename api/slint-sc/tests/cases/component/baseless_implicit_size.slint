@@ -1,0 +1,27 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Software-3.0
+
+// A base-less component without an explicit size is zero-sized, so its
+// default-centered child extends 5px up and left of the instance position,
+// exactly as in regular Slint.
+
+component Dot {
+    //#sls.geom.default-position
+    Rectangle {
+        width: 10px;
+        height: 10px;
+        background: #ffffff;
+    }
+}
+
+export component BaselessImplicitSize inherits Window {
+    background: #000000;
+    Dot { x: 20px; y: 20px; }
+}
+
+/*
+```rust
+let x = BaselessImplicitSize::new();
+screenshot!(x);
+```
+*/

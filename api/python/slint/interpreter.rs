@@ -6,6 +6,7 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::rc::Rc;
+use std::sync::Arc;
 
 use i_slint_compiler::generator::python::ident;
 use pyo3::IntoPyObjectExt;
@@ -182,14 +183,12 @@ impl CompilationResult {
             match struct_or_enum {
                 Type::Struct(s) if s.node().is_some() => {
                     let struct_instance = self.type_collection.struct_to_py(
-                        slint_interpreter::Struct::from_iter(s.fields.iter().map(
-                            |(name, field_type)| {
-                                (
-                                    ident(&name).into(),
-                                    slint_interpreter::default_value_for_type(field_type),
-                                )
-                            },
-                        )),
+                        slint_interpreter::Struct::from_iter(s.fields.keys().map(|name| {
+                            (
+                                ident(&name).into(),
+                                slint_interpreter::default_value_for_struct_field(s, name),
+                            )
+                        })),
                         None,
                     );
 
@@ -251,7 +250,7 @@ impl CompilationResult {
 fn lookup_signature(
     definition: &slint_interpreter::ComponentDefinition,
     name: &str,
-) -> Option<Rc<SlintFunction>> {
+) -> Option<Arc<SlintFunction>> {
     let normalized = normalize_identifier(name);
     definition.properties_and_callbacks().find_map(|(prop_name, (ty, _))| {
         (normalize_identifier(&prop_name) == normalized)
@@ -268,7 +267,7 @@ fn lookup_global_signature(
     definition: &slint_interpreter::ComponentDefinition,
     global_name: &str,
     name: &str,
-) -> Option<Rc<SlintFunction>> {
+) -> Option<Arc<SlintFunction>> {
     let normalized = normalize_identifier(name);
     definition.global_properties_and_callbacks(global_name)?.find_map(|(prop_name, (ty, _))| {
         (normalize_identifier(&prop_name) == normalized)
@@ -410,6 +409,7 @@ pub enum PyValueType {
     StyledText,
     Enumeration,
     Keys,
+    MouseCursor,
 }
 
 impl From<i_slint_compiler::langtype::Type> for PyValueType {
@@ -436,6 +436,7 @@ impl From<i_slint_compiler::langtype::Type> for PyValueType {
             Type::StyledText => PyValueType::StyledText,
             Type::Enumeration(..) => PyValueType::Enumeration,
             Type::Keys => PyValueType::Keys,
+            Type::MouseCursor => PyValueType::MouseCursor,
             _ => unimplemented!(),
         }
     }
@@ -653,7 +654,7 @@ impl GcVisibleCallbacks {
         &self,
         name: String,
         callable: Py<PyAny>,
-        signature: Option<Rc<SlintFunction>>,
+        signature: Option<Arc<SlintFunction>>,
     ) -> impl Fn(&[Value]) -> Value + 'static {
         self.callables.borrow_mut().insert(name.clone(), callable);
 

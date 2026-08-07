@@ -1,0 +1,36 @@
+---
+title: Flexbox Item Properties
+description: Experimental per-item properties for FlexboxLayout children.
+---
+
+The children of a `FlexboxLayout` can set `flex-grow`, `flex-shrink`, `flex-basis`
+and `flex-order` to control how the layout treats them individually.
+
+> **Note**: these properties are experimental and subject to change.
+> Per-item properties shouldn't be specific to `FlexboxLayout` — they should work in
+> `HorizontalLayout`, `VerticalLayout` and `GridLayout` too, and preferably reuse the existing
+> `horizontal-stretch`/`vertical-stretch` and min/max/preferred size properties. That design
+> discussion is still open, which is why these four are not part of the stable API yet.
+> Expect them to be renamed, or replaced by the properties the other layouts already use.
+>
+> The Experimental Features overview page explains how to enable them.
+
+```slint no-test
+FlexboxLayout {
+    Rectangle { flex-grow: 1; }
+    Rectangle { flex-grow: 2; }
+}
+```
+
+Each one behaves like the CSS property of the same name, with the same default, so refer to the CSS
+flexbox documentation for what they do:
+
+| Property      | CSS property  | Default |
+| ------------- | ------------- | ------- |
+| `flex-grow`   | `flex-grow`   | `0`     |
+| `flex-shrink` | `flex-shrink` | `1`     |
+| `flex-basis`  | `flex-basis`  | `auto`  |
+| `flex-order`  | `order`       | `0`     |
+
+One difference: an `auto` `flex-basis` uses the item's `preferred-width` (row direction) or
+`preferred-height` (column direction), rather than sizing it from its content.

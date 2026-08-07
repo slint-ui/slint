@@ -49,23 +49,26 @@ export component Example {
 
 ### Formatting
 
-The `@tr` macro replaces each `{}` placeholder in the string marked for translation with the corresponding argument.
-It's also possible to re-order the arguments using `{0}`, `{1}`, and so on. Translators can use ordered
-placeholders even if the original string did not.
+Each `{}` placeholder in the format string is replaced with the corresponding argument, in order.
+A placeholder can name a zero-based position, as in `{0}` or `{1}`, to pick an argument explicitly.
+Positional and non-positional placeholders can't be mixed in one format string.
+A translation may use positional placeholders even when the source string doesn't.
 
-You can include the literal characters `{` and `}` in a string by preceding them with the same character.
-For example, escaping the `{` character with `{{` and the `}` character with `}}`.
+Write a literal `{` or `}` by doubling it, as `{{` or `}}`.
+An unterminated placeholder, an unescaped `{` or `}`, or more placeholders than arguments is an error.
 
 ### Plurals
 
-Use plural formatting when the translation of text involving a variable number of elements should change
-depending on whether there is a single element or multiple.
+A plural form picks between two format strings based on a count.
+Write it with `|` between the two string literals and `%` before the count expression:
 
-Given `count` and an expression that represents the count of something, form the plural with the `|` and `%` symbols like so:
+```slint no-test
+@tr("I have {n} item" | "I have {n} items" % count)
+```
 
-`@tr("I have {n} item" | "I have {n} items" % count)`.
-
-Use `{n}` in the format string to access the expression after the `%`.
+Both sides of the `|` must be plain string literals, and the count expression is converted to `int`.
+The `{n}` placeholder refers to the count and is only valid in a plural form.
+Other placeholders still refer to the arguments after the count:
 
 ```slint
 export component Example inherits Text {
@@ -75,28 +78,25 @@ export component Example inherits Text {
 }
 ```
 
-### Context
+### Contexts
 
-Disambiguate translations for strings with the same source text but different contextual meanings by adding a context
-to the `@tr(...)` macro using the `"..." =>` syntax.
-
-Use the context to provide additional context information to translators, ensuring accurate and contextually appropriate translations.
-
-The context must be a plain string literal and it appears as `msgctx` in the `.pot` files. If not specified, the context defaults
-to the name of the surrounding component.
+A context disambiguates strings that share the same source text but differ in meaning.
+Write it as a plain string literal followed by `=>` before the format string:
 
 ```slint
 export component MenuItem {
-    property <string> name : @tr("Default Name"); // Default: `MenuItem` will be the context.
-    property <string> tooltip : @tr("ToolTip" => "ToolTip for {}", name); // Specified: The context will be `ToolTip`.
+    property <string> name: @tr("Default Name"); // context: `MenuItem`
+    property <string> tooltip: @tr("ToolTip" => "ToolTip for {}", name); // context: `ToolTip`
 }
 ```
+
+Without a context, it defaults to the name of the enclosing component.
 
 Pass the `--no-default-translation-context` flag to `slint-tr-extractor` if you don't want the component name to be the default context. The same option needs to be passed to the Slint compiler:
 
 <Tabs syncKey="dev-language">
 <TabItem label="Rust" icon="seti:rust">
-With <LangRefLink lang="rust-slint-build" relpath="struct.compilerconfiguration#method.set_default_translation_context">`slint_build::CompilerConfiguration::set_default_translation_context(slint_build::DefaultTranslationContext::None)`</LangRefLink>
+With <LangRefLink lang="rust-slint-build" relpath="struct.compilerconfiguration#method.with_default_translation_context">`slint_build::CompilerConfiguration::with_default_translation_context(slint_build::DefaultTranslationContext::None)`</LangRefLink>
 when using a build script.
 With <LangRefLink lang="rust-slint-interpreter" relpath="struct.compiler#method.set_default_translation_context">`slint_interpreter::Compiler::set_default_translation_context(slint_interpreter::DefaultTranslationContext::None)`</LangRefLink>
 when using the `slint-interpreter` crate.

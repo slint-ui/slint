@@ -68,7 +68,10 @@ Both grid and box layouts use the same core algorithm in `layout_items()`:
 2. Calculate total size needed
 
 3. If total > available space:
-   → Shrink items proportionally (respecting min constraints)
+   → Shrink items weighted by their stretch factors, respecting min constraints.
+     With no stretch factor set anywhere, each item gives up the same number of
+     pixels, so a small item runs out long before a large one. Items that reach
+     their min are frozen and the rest is re-split over the others.
 
 4. If total < available space:
    → Grow items proportionally based on stretch factors
@@ -334,10 +337,15 @@ the code generators compile to the appropriate runtime access pattern.
 
 ## Testing Layout Changes
 
+`test-driver-rust` and `test-driver-interpreter` live in the separate `tests/` Cargo
+workspace, and `gallery` lives in the separate `examples/` workspace, so these need an
+explicit `--manifest-path` when run from the repository root (`tests/run_tests.sh`
+already handles this for you):
+
 ```sh
 # Run all layout-specific tests
-cargo test -p test-driver-rust --test layout
-cargo test -p test-driver-interpreter layout
+cargo test --manifest-path tests/Cargo.toml -p test-driver-rust --test layout
+cargo test --manifest-path tests/Cargo.toml -p test-driver-interpreter layout
 
 # Run a specific test case, filtered by substring (don't prepend sh/bash, run_tests.sh is executable)
 tests/run_tests.sh rust grid_conditional_row
@@ -345,8 +353,8 @@ tests/run_tests.sh interpreter grid_conditional_row
 tests/run_tests.sh cpp grid_conditional_row
 
 # Run all interpreter tests (fast)
-cargo test -p test-driver-interpreter
+cargo test --manifest-path tests/Cargo.toml -p test-driver-interpreter
 
 # Visual verification (for humans)
-cargo run -p gallery
+cargo run --manifest-path examples/Cargo.toml -p gallery
 ```

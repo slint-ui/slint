@@ -18,9 +18,10 @@ name = "slint-compiler"
 path = "main.rs"
 
 [features]
-software-renderer = ["i-slint-compiler/software-renderer"]
+renderer-software = ["i-slint-compiler/renderer-software"]
+image-default-formats = ["i-slint-compiler/image-default-formats"]
 jemalloc = ["dep:tikv-jemallocator"]
-sdf-fonts = ["i-slint-compiler/sdf-fonts"]
+sdf-fonts = ["renderer-software", "i-slint-compiler/sdf-fonts"]
 fontconfig-dlopen = ["i-slint-common/fontconfig-dlopen"]
 
 # Code generators and translation support
@@ -32,7 +33,7 @@ python = ["i-slint-compiler/python"]
 slint-sc = ["i-slint-compiler/slint-sc"]
 
 # Keep defaults in sync with defaults applied in api/cpp/CMakeLists.txt for slint-compiler
-default = ["software-renderer", "jemalloc", "bundle-translations", "cpp", "rust", "python"]
+default = ["renderer-software", "image-default-formats", "jemalloc", "bundle-translations", "cpp", "rust", "python"]
 
 [dependencies]
 i-slint-compiler = { workspace = true, features = ["default", "display-diagnostics"] }

@@ -12,7 +12,7 @@ component Foo inherits Rectangle {
     are := TouchArea { }
 }
 
-component TestCase inherits Rectangle {
+export component TestCase inherits Rectangle {
 
     pure callback foo1_alias <=> foo1.hallo_alias;
     pure callback foo2_alias <=> foo2.hallo_alias;

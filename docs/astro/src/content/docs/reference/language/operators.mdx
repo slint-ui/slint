@@ -1,0 +1,214 @@
+---
+title: Operators
+description: The operators of the Slint language.
+SC: true
+---
+
+import SC from '@slint/common-files/src/components/SC.astro';
+import OnlyInSC from '@slint/common-files/src/components/OnlyInSC.astro';
+import NotInSC from '@slint/common-files/src/components/NotInSC.astro';
+
+Slint has arithmetic, comparison, logical, and ternary operators, plus member access and indexing.
+Every operator requires operands of specific types; Slint applies no implicit coercions beyond the
+few listed here, and mismatched operand types are a compile error.
+
+## Precedence and associativity
+
+The following table lists all operators from loosest to tightest binding.
+Operators on the same row share a precedence level.
+
+| Operators              | Description                          | Associativity   |
+| ---------------------- | ------------------------------------ | --------------- |
+| `? :`                  | Ternary conditional                  | right           |
+| `\|\|` `&&`            | Logical *or*, logical *and*          | non-associative |
+| `==` `!=` `<` `>` `<=` `>=` | Comparison                     | non-associative |
+| `+` `-`                | Addition/concatenation, subtraction  | left            |
+| `*` `/`                | Multiplication, division             | left            |
+| `+` `-` `!` (unary)    | Plus, negation, logical *not*        | prefix          |
+| `.` `[]`               | Member access, indexing              | left            |
+
+Parentheses group a nested expression to override precedence.
+There is no modulo operator; use [`Math.mod`](../../global-functions/math/) instead.
+A `%` after a number is a unit (percent), not an operator.
+Slint has no bitwise, shift, increment, decrement, or assignment operators; a binding uses `:` and a
+[two-way binding](../two-way-bindings/) uses `<=>`.
+
+Comparison operators are non-associative: writing `a == b == c` or `a < b < c` is an error, and the
+operands must be parenthesized to disambiguate.
+`&&` and `||` are likewise non-associative with respect to each other: `a && b || c` is an error, and
+one side must be parenthesized.
+
+```slint
+export component Example {
+    in-out property <int> p: 1 * 2 + 3 * 4; // same as (1 * 2) + (3 * 4)
+}
+```
+
+<SC>
+## Arithmetic operators
+
+<OnlyInSC>
+An arithmetic expression combines two operands with `+`, `-`, or `*`. \{#sls.op.form}
+
+`+` and `-` require both operands to have the same type. \{#sls.op.additive}
+
+`*` multiplies a value by a number. \{#sls.op.multiplicative}
+
+`*` binds tighter than `+` and `-`. \{#sls.op.precedence}
+
+Arithmetic saturates at the bounds of the value's type. \{#sls.op.saturating}
+</OnlyInSC>
+<NotInSC>
+The binary operators `+`, `-`, `*`, and `/` operate on numbers (`int`, `float`, `percent`) and on
+types that carry a unit (`length`, `physical-length`, `duration`, `angle`, `rem`).
+
+- `+` and `-` require both operands to be the same type, or one operand to be a plain number.
+  Values of two different units cannot be added or subtracted.
+- `*` multiplies a value by a number, or two values with units, producing a unit product
+  (for example `1px * 1px` has type `px²`).
+- `/` divides a value by a number, or by another value.
+  Dividing two values of the same unit yields a plain number, so `self.width / 1px` is the width as a `float`.
+</NotInSC>
+
+```slint
+export component Example inherits Window {
+    in property <length> a;
+    in property <length> b;
+    out property <length> total: a + b * 2;
+}
+```
+</SC>
+
+```slint
+export component Example {
+    in-out property <length> w: 10px + 2px;      // ok, same unit
+    in-out property <length> h: 10px * 2;        // ok, length times number
+    in-out property <float>  r: self.w / self.h; // ok, length over length
+}
+```
+
+## String concatenation
+
+The `+` operator also concatenates strings: if either operand is a `string`, the result is a `string`.
+A number operand (`int` or `float`) is converted to its string form.
+No other type is coerced to `string`, so combining a `string` with, for example, a `length` is an error;
+use a [string template](../../property-types/strings/#string) to interpolate other types.
+
+```slint
+export component Example {
+    out property <string> s: "count: " + 42; // "count: 42"
+}
+```
+
+<SC>
+## Comparison operators
+
+The operators `==`, `!=`, `<`, `>`, `<=`, and `>=` compare two operands of a common type and
+produce a `bool`. \{#sls.op.comparison}
+
+`==` and `!=` test whether the operands are equal. \{#sls.op.comparison.equality}
+
+<OnlyInSC>
+`<`, `>`, `<=`, and `>=` order two numbers or lengths. \{#sls.op.comparison.ordering}
+</OnlyInSC>
+<NotInSC>
+`<`, `>`, `<=`, and `>=` order numbers, unit-bearing types, and strings; ordering values of any
+other type is an error.
+</NotInSC>
+
+```slint
+export component Example inherits Window {
+    in property <int> a;
+    in property <length> w;
+    in property <length> h;
+    out property <bool> equal: a == 0;
+    out property <bool> different: a != 0;
+    out property <bool> wider: w > h;
+}
+```
+</SC>
+
+<SC>
+## Logical operators
+
+The binary operators `&&` and `||` combine two boolean operands into a boolean:
+`&&` is true when both operands are true, `||` when either is. \{#sls.op.logical}
+
+The unary operator `!` negates a boolean. \{#sls.op.not}
+
+The operands must be `bool`; no other type is coerced to `bool`. \{#sls.op.bool-operands}
+
+```slint
+export component Example inherits Window {
+    in property <bool> a;
+    in property <bool> b;
+    out property <bool> both: a && b;
+    out property <bool> either: a || b;
+    out property <bool> neither: !a && !b;
+}
+```
+</SC>
+
+<NotInSC>
+`&&` and `||` short-circuit: the right operand is evaluated only when the left does not already determine the result.
+</NotInSC>
+
+<SC>
+## Unary operators
+
+The prefix operators are `+`, `-`, and `!`. \{#sls.op.prefix}
+
+<OnlyInSC>
+A unary `+` or `-` applies to a number or a length, and `-` negates it. \{#sls.op.unary}
+</OnlyInSC>
+<NotInSC>
+`+` and `-` apply to numbers and unit-bearing types, and `!` applies to `bool`.
+</NotInSC>
+
+```slint
+export component Example inherits Window {
+    in property <length> w;
+    in property <bool> flag;
+    out property <length> negated: -w;
+    out property <bool> toggled: !flag;
+}
+```
+</SC>
+
+<SC>
+## Ternary operator
+
+`condition ? value1 : value2` evaluates `condition`, a boolean,
+and yields `value1` when it is true and `value2` otherwise. \{#sls.op.ternary}
+
+Both branches have the same type, which becomes the type of the whole expression. \{#sls.op.ternary.type}
+
+A conditional associates to the right,
+so `a ? b : c ? d : e` groups as `a ? b : (c ? d : e)`. \{#sls.op.ternary.assoc}
+
+```slint
+export component Example inherits Window {
+    in property <bool> on;
+    in property <color> active;
+    in property <color> idle;
+    out property <color> tint: on ? active : idle;
+}
+```
+</SC>
+
+## Member access and indexing
+
+A `.` accesses a property, function, or callback of an element by [name](../name-resolution/),
+and a field of a [struct](../structs-and-enums/) value:
+
+```slint
+export component Example {
+    foo := Rectangle {
+        x: 42px;
+    }
+    x: foo.x;
+}
+```
+
+An `[index]` in square brackets accesses an element of an [array](../../property-types/arrays-and-models/) by
+a zero-based integer index.

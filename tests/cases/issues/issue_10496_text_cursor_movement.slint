@@ -7,7 +7,7 @@ export component TestCase inherits Window {
     width: 80px;
     height: 32px;
     forward-focus: edit;
-    out property viewport-y <=> edit.viewport-y;
+    out property content-y <=> edit.content-y;
 
     public function set-selection-offsets(start: int, end: int) {
         edit.set-selection-offsets(start, end);
@@ -29,10 +29,10 @@ instance.invoke_set_selection_offsets(11, 11);
 
 slint_testing::send_keyboard_string_sequence(&instance, "a");
 
-let y = instance.get_viewport_y();
+let y = instance.get_content_y();
 
 slint_testing::send_keyboard_string_sequence(&instance, "b");
 
-assert_eq!(instance.get_viewport_y(), y);
+assert_eq!(instance.get_content_y(), y);
 ```
 */

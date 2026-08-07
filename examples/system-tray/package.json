@@ -1,6 +1,6 @@
 {
     "name": "system-tray",
-    "version": "1.17.1",
+    "version": "1.18.0",
     "main": "main.js",
     "type": "module",
     "dependencies": {

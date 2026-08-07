@@ -8,7 +8,7 @@ import { Tabs, TabItem } from '@astrojs/starlight/components';
 Use <Link type="DragArea" /> and <Link type="DropArea" /> to move data between parts of the UI with a drag-and-drop gesture.
 On platforms that support it, a <Link type="DropArea" /> also accepts drops from other applications.
 
-The payload is a `data-transfer` value, which abstracts over the file-type transfer mechanisms supported by each platform.
+The payload is a <Link type="data_transfer" label="data-transfer" code /> value, which abstracts over the file-type transfer mechanisms supported by each platform.
 `data-transfer` values are opaque in Slint code:
 construct and read them via callbacks implemented in the host language.
 

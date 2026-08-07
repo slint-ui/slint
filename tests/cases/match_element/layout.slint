@@ -1,0 +1,129 @@
+// Copyright © 2026 Klarälvdalens Datakonsult AB, a KDAB Group company <info@kdab.com>, author Nicholas Turner <nicholas.turner@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component TestCase inherits Window {
+    width: 200px;
+    height: 100px;
+    in-out property <int> mode: 0;
+    in-out property <string> tab: "home";
+
+    HorizontalLayout {
+        alignment: start;
+        Rectangle {
+            background: red;
+            width: 5px;
+        }
+
+        match mode {
+            0: TouchArea {
+                width: 5px;
+                clicked => {
+                    tab = "menu";
+                }
+            }
+            1: TouchArea {
+                width: 5px;
+                clicked => {
+                    tab = "profile";
+                }
+            }
+            2: TouchArea {
+                width: 5px;
+                clicked => {
+                    tab = "store";
+                }
+            }
+            *: TouchArea {
+                width: 5px;
+                clicked => {
+                    tab = "settings";
+                }
+            }
+        }
+        Rectangle {
+            background: green;
+            width: 5px;
+            TouchArea {
+                width: 5px;
+                clicked => {
+                    mode += 1;
+                }
+            }
+        }
+    }
+
+    in-out property <bool> test: mode == 0 && tab == "home";
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+
+assert_eq(instance.get_mode(), 0);
+assert_eq(instance.get_tab(), "home");
+
+slint_testing::send_mouse_click(&instance, 7., 50.);
+assert_eq(instance.get_mode(), 0);
+assert_eq(instance.get_tab(), "menu");
+
+slint_testing::send_mouse_click(&instance, 12., 50.);
+assert_eq(instance.get_mode(), 1);
+assert_eq(instance.get_tab(), "menu");
+
+slint_testing::send_mouse_click(&instance, 7., 50.);
+assert_eq(instance.get_mode(), 1);
+assert_eq(instance.get_tab(), "profile");
+
+slint_testing::send_mouse_click(&instance, 12., 50.);
+assert_eq(instance.get_mode(), 2);
+assert_eq(instance.get_tab(), "profile");
+
+slint_testing::send_mouse_click(&instance, 7., 50.);
+assert_eq(instance.get_mode(), 2);
+assert_eq(instance.get_tab(), "store");
+
+slint_testing::send_mouse_click(&instance, 12., 50.);
+assert_eq(instance.get_mode(), 3);
+assert_eq(instance.get_tab(), "store");
+
+slint_testing::send_mouse_click(&instance, 7., 50.);
+assert_eq(instance.get_mode(), 3);
+assert_eq(instance.get_tab(), "settings");
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+
+assert_eq!(instance.get_mode(), 0);
+assert_eq!(instance.get_tab(), "home");
+
+slint_testing::send_mouse_click(&instance, 7., 50.);
+assert_eq!(instance.get_mode(), 0);
+assert_eq!(instance.get_tab(), "menu");
+
+slint_testing::send_mouse_click(&instance, 12., 50.);
+assert_eq!(instance.get_mode(), 1);
+assert_eq!(instance.get_tab(), "menu");
+
+slint_testing::send_mouse_click(&instance, 7., 50.);
+assert_eq!(instance.get_mode(), 1);
+assert_eq!(instance.get_tab(), "profile");
+
+slint_testing::send_mouse_click(&instance, 12., 50.);
+assert_eq!(instance.get_mode(), 2);
+assert_eq!(instance.get_tab(), "profile");
+
+slint_testing::send_mouse_click(&instance, 7., 50.);
+assert_eq!(instance.get_mode(), 2);
+assert_eq!(instance.get_tab(), "store");
+
+slint_testing::send_mouse_click(&instance, 12., 50.);
+assert_eq!(instance.get_mode(), 3);
+assert_eq!(instance.get_tab(), "store");
+
+slint_testing::send_mouse_click(&instance, 7., 50.);
+assert_eq!(instance.get_mode(), 3);
+assert_eq!(instance.get_tab(), "settings");
+```
+*/

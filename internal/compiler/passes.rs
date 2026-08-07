@@ -16,11 +16,11 @@ mod collect_libraries;
 mod collect_structs_and_enums;
 mod collect_subcomponents;
 mod compile_paths;
-mod const_propagation;
+pub(crate) mod const_propagation;
 mod deduplicate_property_read;
 mod default_geometry;
 mod deprecated_rotation_origin;
-#[cfg(feature = "software-renderer")]
+#[cfg(feature = "renderer-software")]
 mod embed_glyphs;
 mod embed_images;
 mod flickable;
@@ -34,7 +34,7 @@ mod key_bindings;
 mod lower_absolute_coordinates;
 mod lower_accessibility;
 mod lower_component_container;
-mod lower_layout;
+pub(crate) mod lower_layout;
 mod lower_menus;
 mod lower_platform;
 mod lower_popups;
@@ -52,6 +52,7 @@ pub mod move_declarations;
 mod optimize_useless_rectangles;
 mod purity_check;
 mod remove_aliases;
+mod remove_constant_conditions;
 mod remove_return;
 mod remove_unused_properties;
 mod repeater_component;
@@ -115,6 +116,14 @@ pub async fn run_passes(
     let raw_type_loader =
         keep_raw.then(|| crate::typeloader::snapshot_with_extra_doc(type_loader, doc).unwrap());
 
+    // Inject debug hooks early — before any lowering or inlining — so source element identity
+    // is preserved and hooks can be attributed to the correct source location.
+    if let Some(random_state) = &type_loader.compiler_config.debug_hooks {
+        for root_component in doc.exported_roots() {
+            inject_debug_hooks::inject_debug_hooks(&root_component, random_state);
+        }
+    }
+
     collect_libraries::collect_libraries(doc);
     collect_subcomponents::collect_subcomponents(doc);
     lower_tooltips::lower_tooltips(doc, type_loader, diag).await;
@@ -158,6 +167,7 @@ pub async fn run_passes(
         flickable::handle_flickable(component, &global_type_registry.borrow());
         lower_layout::lower_layouts(component, type_loader, &style_metrics, diag);
         default_geometry::default_geometry(component, diag, &symbol_counters);
+        lower_layout::optimize_single_cell_layouts(component);
         lower_layout::synthesize_layoutinfo_v_with_constraint(component);
         lower_layout::synthesize_layoutinfo_h_with_constraint(component);
         lower_absolute_coordinates::lower_absolute_coordinates(component);
@@ -198,16 +208,17 @@ pub async fn run_passes(
     for root_component in doc.exported_roots() {
         lower_layout::check_window_layout(&root_component);
     }
-    if let Some(random_state) = &type_loader.compiler_config.debug_hooks {
-        for root_component in doc.exported_roots() {
-            inject_debug_hooks::inject_debug_hooks(&root_component, random_state);
-        }
-    }
     collect_globals::collect_globals(doc, diag);
     // Must be done before passes that rely on `NamedReference::is_constant`.
     collect_globals::mark_library_globals(doc);
 
-    if type_loader.compiler_config.inline_all_elements {
+    // Debug hooks rely on full inlining: the synthetic hooks injected on component-instance
+    // elements are only upgraded with the component's real default bindings when the component
+    // is inlined (see `BindingExpression::merge_with`). Without inlining they would shadow the
+    // definition's defaults at runtime. This overrides a `SLINT_INLINING=false` env override.
+    if type_loader.compiler_config.inline_all_elements
+        || type_loader.compiler_config.debug_hooks.is_some()
+    {
         inlining::inline(doc, inlining::InlineSelection::InlineAllComponents, diag);
         doc.used_types.borrow_mut().sub_components.clear();
     }
@@ -224,7 +235,11 @@ pub async fn run_passes(
         // item tree ends up with a hierarchy where certain items have children that aren't child elements
         // but siblings or sibling children. We need a new data structure to perform a correct element tree
         // traversal.
-        if !type_loader.compiler_config.debug_info {
+        // Also keep the rectangles when debug hooks are enabled: their (synthetic) hooks are
+        // what makes the elements live-editable, and removing the element would drop them.
+        if !type_loader.compiler_config.debug_info
+            && type_loader.compiler_config.debug_hooks.is_none()
+        {
             optimize_useless_rectangles::optimize_useless_rectangles(component);
         }
         move_declarations::move_declarations(component);
@@ -237,6 +252,7 @@ pub async fn run_passes(
         if !diag.has_errors() {
             // binding loop causes panics in const_propagation
             const_propagation::const_propagation(component, &global_analysis);
+            remove_constant_conditions::remove_constant_conditions(component);
         }
         deduplicate_property_read::deduplicate_property_read(component);
         if !component.is_global() && !component.is_interface() {
@@ -245,6 +261,18 @@ pub async fn run_passes(
     });
 
     remove_unused_properties::remove_unused_properties(doc);
+
+    // With debug hooks enabled, every synthetic hook must by now either have been upgraded
+    // (by a pass computing the property's value or by inlining merging the definition's
+    // default) or sit on a property that exists at runtime. An orphan would abort the
+    // interpreter at instantiation ("unknown property ..."); catch it here with a source
+    // location instead.
+    if type_loader.compiler_config.debug_hooks.is_some() && !diag.has_errors() {
+        doc.visit_all_used_components(|component| {
+            inject_debug_hooks::validate_no_orphan_synthetic_hooks(component);
+        });
+    }
+
     // collect globals once more: After optimizations we might have less globals
     collect_globals::collect_globals(doc, diag);
     collect_structs_and_enums::collect_structs_and_enums(doc);
@@ -257,7 +285,7 @@ pub async fn run_passes(
 
     // The fonts (system + imported) used to embed glyphs and rasterize SVG text are
     // shared between `embed_images` and `embed_glyphs`, so the system is scanned once.
-    #[cfg(feature = "software-renderer")]
+    #[cfg(feature = "renderer-software")]
     let font_collection = (type_loader.compiler_config.embed_resources
         == crate::EmbedResourcesKind::EmbedTextures)
         .then(|| {
@@ -267,7 +295,7 @@ pub async fn run_passes(
             );
             embed_glyphs::shared_font_collection(custom)
         });
-    #[cfg(not(feature = "software-renderer"))]
+    #[cfg(not(feature = "renderer-software"))]
     let font_collection: Option<embed_images::SharedFontCollection> = None;
 
     embed_images::embed_images(
@@ -299,7 +327,7 @@ pub async fn run_passes(
     }
 
     match type_loader.compiler_config.embed_resources {
-        #[cfg(feature = "software-renderer")]
+        #[cfg(feature = "renderer-software")]
         crate::EmbedResourcesKind::EmbedTextures => {
             let mut characters_seen = std::collections::HashSet::new();
 

@@ -47,7 +47,7 @@ jobs:
 
         runs-on: ${{ matrix.os }}
         steps:
-            - uses: actions/checkout@v6
+            - uses: actions/checkout@v7
             - uses: ./.github/actions/install-linux-dependencies
             - name: Install Qt (Ubuntu)
               uses: jurplel/install-qt-action@v4
@@ -94,13 +94,13 @@ jobs:
 
         runs-on: ubuntu-22.04
         steps:
-            - uses: actions/checkout@v6
+            - uses: actions/checkout@v7
             - uses: ./.github/actions/install-linux-dependencies
             - uses: ./.github/actions/setup-rust
               with:
                   target: ${{ matrix.target }}
             - name: Install GNU Arm Embedded Toolchain
-              run: sudo apt-get update && sudo apt-get install gcc-arm-none-eabi
+              run: sudo timeout 300 apt-get update && sudo timeout 300 apt-get install gcc-arm-none-eabi
             - name: Prepare licenses
               run: bash -x ../../scripts/prepare_binary_package.sh ${{ runner.workspace }}/cppbuild
               working-directory: api/cpp/
@@ -139,7 +139,7 @@ jobs:
 
         runs-on: ubuntu-22.04
         steps:
-            - uses: actions/checkout@v6
+            - uses: actions/checkout@v7
             - uses: ./.github/actions/install-linux-dependencies
             - uses: dtolnay/rust-toolchain@stable
             - uses: cargo-bins/cargo-binstall@main
@@ -197,7 +197,7 @@ jobs:
         runs-on: ubuntu-22.04
         container: ghcr.io/slint-ui/slint/${{ matrix.rust_target }}-cpp
         steps:
-            - uses: actions/checkout@v6
+            - uses: actions/checkout@v7
             - name: Prepare licenses
               run: bash -x ../../scripts/prepare_binary_package.sh ../../build
               working-directory: api/cpp/
@@ -241,7 +241,7 @@ jobs:
 
         runs-on: ${{ matrix.os }}
         steps:
-            - uses: actions/checkout@v6
+            - uses: actions/checkout@v7
             - uses: ./.github/actions/install-linux-dependencies
             - uses: ./.github/actions/setup-rust
             - uses: ilammy/msvc-dev-cmd@v1

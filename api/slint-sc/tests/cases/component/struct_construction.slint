@@ -1,0 +1,37 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Software-3.0
+
+// A struct is built with a struct literal, and a field is read with `.`.
+
+struct Point {
+    x: length,
+    y: length,
+}
+
+export component TestCase inherits Window {
+    // A struct literal sets every field of the struct.
+    out property <Point> origin: { x: 3px, y: 4px };
+    // Field access reads a field, here off a literal-built property.
+    out property <length> origin-x: origin.x;
+    // Field access off a settable input property.
+    in property <Point> input;
+    out property <length> input-y: input.y;
+}
+
+/*
+```rust
+let x = TestCase::new();
+
+// A struct literal builds the struct.
+//#sls.struct.literal
+assert_eq!(x.get_origin(), Point { x: 3, y: 4 });
+
+// Field access reads a field of a struct value.
+//#sls.struct.field-access
+assert_eq!(x.get_origin_x(), 3);
+
+let mut x = x;
+x.set_input(Point { x: 10, y: 20 });
+assert_eq!(x.get_input_y(), 20);
+```
+*/

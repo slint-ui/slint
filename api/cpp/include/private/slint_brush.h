@@ -426,7 +426,7 @@ inline void Property<slint::Brush>::set_animated_value(
         const slint::Brush &new_value,
         const cbindgen_private::PropertyAnimation &animation_data) const
 {
-    cbindgen_private::slint_property_set_animated_value_brush(&inner, &value, &new_value,
+    cbindgen_private::slint_property_set_animated_value_brush(&inner, &get(), &new_value,
                                                               &animation_data);
 }
 

@@ -117,9 +117,15 @@ where
         let find_font = find_font.clone();
         let registered = registered.clone();
         move |font: &usvg::Font, db: &mut Arc<fontdb::Database>| -> Option<fontdb::ID> {
-            // No generic fallback, so a missing named family reaches the real fallback below.
-            let families: Vec<fontique::QueryFamily> =
-                font.families().iter().map(to_fontique_family).collect();
+            // usvg drops a span whose base font stays unresolved (`select_fallback`
+            // below only covers missing glyphs), so chain the generic families
+            // rather than returning None for an unknown named family.
+            let families: Vec<fontique::QueryFamily> = font
+                .families()
+                .iter()
+                .map(to_fontique_family)
+                .chain(super::FALLBACK_FAMILIES.iter().copied().map(fontique::QueryFamily::Generic))
+                .collect();
             let found = find_font(&families, to_fontique_attributes(font), None)?;
             register(db, &found, &registered)
         }

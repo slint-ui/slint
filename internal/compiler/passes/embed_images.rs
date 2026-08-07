@@ -6,7 +6,7 @@ use crate::diagnostics::BuildDiagnostics;
 use crate::embedded_resources::*;
 use crate::expression_tree::{Expression, ImageReference};
 use crate::object_tree::*;
-#[cfg(feature = "software-renderer")]
+#[cfg(feature = "renderer-software")]
 use image::GenericImageView;
 use smol_str::SmolStr;
 use std::cell::RefCell;
@@ -16,9 +16,9 @@ use url::Url;
 
 /// The fonts shared with `embed_glyphs` to rasterize SVG `<text>`. Only the
 /// software renderer embeds textures, so elsewhere this is an unused placeholder.
-#[cfg(feature = "software-renderer")]
+#[cfg(feature = "renderer-software")]
 pub(crate) type SharedFontCollection = super::embed_glyphs::SharedFontCollection;
-#[cfg(not(feature = "software-renderer"))]
+#[cfg(not(feature = "renderer-software"))]
 pub(crate) type SharedFontCollection = ();
 
 pub async fn embed_images(
@@ -216,7 +216,7 @@ fn embed_image(
 
     if let Some(&resource_id) = path_to_id.get(path) {
         return match global_embedded_resources.borrow()[resource_id].kind {
-            #[cfg(feature = "software-renderer")]
+            #[cfg(feature = "renderer-software")]
             EmbeddedResourcesKind::TextureData { .. } => {
                 ImageReference::EmbeddedTexture { resource_id }
             }
@@ -241,7 +241,7 @@ fn embed_image(
         return ImageReference::None;
     };
 
-    #[cfg(feature = "software-renderer")]
+    #[cfg(feature = "renderer-software")]
     if embed_files == EmbedResourcesKind::EmbedTextures {
         return match load_image(_file, _scale_factor, _font_collection) {
             Ok((img, source_format, original_size)) => {
@@ -263,13 +263,13 @@ fn embed_image(
     ImageReference::EmbeddedData { resource_id, extension: extension() }
 }
 
-#[cfg(feature = "software-renderer")]
+#[cfg(feature = "renderer-software")]
 trait Pixel {
     //fn alpha(&self) -> f32;
     //fn rgb(&self) -> (u8, u8, u8);
     fn is_transparent(&self) -> bool;
 }
-#[cfg(feature = "software-renderer")]
+#[cfg(feature = "renderer-software")]
 impl Pixel for image::Rgba<u8> {
     /*fn alpha(&self) -> f32 { self[3] as f32 / 255. }
     fn rgb(&self) -> (u8, u8, u8) { (self[0], self[1], self[2]) }*/
@@ -278,7 +278,7 @@ impl Pixel for image::Rgba<u8> {
     }
 }
 
-#[cfg(feature = "software-renderer")]
+#[cfg(feature = "renderer-software")]
 fn generate_texture(
     image: image::RgbaImage,
     source_format: SourceFormat,
@@ -383,7 +383,7 @@ fn generate_texture(
     }
 }
 
-#[cfg(feature = "software-renderer")]
+#[cfg(feature = "renderer-software")]
 fn convert_image(
     image: image::RgbaImage,
     source_format: SourceFormat,
@@ -423,7 +423,7 @@ fn convert_image(
     }
 }
 
-#[cfg(feature = "software-renderer")]
+#[cfg(feature = "renderer-software")]
 enum SourceFormat {
     RgbaPremultiplied,
     Rgba,
@@ -432,7 +432,7 @@ enum SourceFormat {
 /// usvg renders SVG `<text>` against its own font database. The compiler has no
 /// `SlintContext`, so resolve those fonts against the collection shared with
 /// `embed_glyphs` (system fonts plus imported fonts) through the shared bridge.
-#[cfg(feature = "software-renderer")]
+#[cfg(feature = "renderer-software")]
 fn svg_font_options(
     font_collection: Option<&SharedFontCollection>,
 ) -> resvg::usvg::Options<'static> {
@@ -454,7 +454,7 @@ fn svg_font_options(
     })
 }
 
-#[cfg(feature = "software-renderer")]
+#[cfg(feature = "renderer-software")]
 fn load_image_from_bytes(
     data: &[u8],
     extension: Option<&str>,
@@ -527,7 +527,7 @@ fn load_image_from_bytes(
     })
 }
 
-#[cfg(feature = "software-renderer")]
+#[cfg(feature = "renderer-software")]
 fn load_image(
     file: crate::fileaccess::VirtualFile,
     scale_factor: f32,
@@ -559,7 +559,7 @@ fn embed_data_uri(
     if let Some(&resource_id) = path_to_id.get(data_uri) {
         let resources = global_embedded_resources.borrow();
         return match &resources[resource_id].kind {
-            #[cfg(feature = "software-renderer")]
+            #[cfg(feature = "renderer-software")]
             EmbeddedResourcesKind::TextureData { .. } => {
                 ImageReference::EmbeddedTexture { resource_id }
             }
@@ -585,7 +585,7 @@ fn embed_data_uri(
         id
     };
 
-    #[cfg(feature = "software-renderer")]
+    #[cfg(feature = "renderer-software")]
     if _embed_files == EmbedResourcesKind::EmbedTextures {
         match load_image_from_bytes(
             &decoded_data,

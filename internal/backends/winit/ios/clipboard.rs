@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use copypasta::ClipboardProvider;
+use crate::clipboard::ClipboardProvider;
 use objc2_foundation::NSString;
 use objc2_ui_kit::UIPasteboard;
 

@@ -1,0 +1,15 @@
+// Copyright © 2026 Klarälvdalens Datakonsult AB, a KDAB Group company <info@kdab.com>, author Nicholas Turner <nicholas.turner@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component Foo {
+    in property <float> pi: 3.1;
+
+    match pi {
+        2.9: Rectangle { }
+//      > <warning{Floating point comparison is not recommended}
+        3.1: Rectangle { }
+//      > <warning{Floating point comparison is not recommended}
+        3.2: Rectangle { }
+//      > <warning{Floating point comparison is not recommended}
+    }
+}

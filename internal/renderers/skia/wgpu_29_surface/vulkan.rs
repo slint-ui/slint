@@ -32,6 +32,7 @@ unsafe fn wrap_vulkan_texture(
     vk_image_raw: u64,
     vk_format: skia_safe::gpu::vk::Format,
     color_type: skia_safe::ColorType,
+    color_space: skia_safe::ColorSpace,
 ) -> Option<skia_safe::Surface> {
     unsafe {
         let texture_info = &skia_safe::gpu::vk::ImageInfo::new(
@@ -53,7 +54,7 @@ unsafe fn wrap_vulkan_texture(
             &backend_render_target,
             skia_safe::gpu::SurfaceOrigin::TopLeft,
             color_type,
-            None,
+            color_space,
             None,
         )
     }
@@ -80,6 +81,7 @@ pub unsafe fn make_vulkan_surface(
             vk_image_raw,
             vk_format,
             color_type,
+            super::attachment_color_space(texture),
         )
     }
 }
@@ -89,6 +91,7 @@ pub unsafe fn import_vulkan_texture(
     texture: wgpu::Texture,
 ) -> Option<skia_safe::Image> {
     unsafe {
+        let color_space = super::sampled_texture_color_space(&texture);
         let vulkan_texture = texture.as_hal::<wgpu::wgc::api::Vulkan>();
 
         let alloc = skia_safe::gpu::vk::Alloc::default();
@@ -133,7 +136,7 @@ pub unsafe fn import_vulkan_texture(
                 skia_safe::gpu::SurfaceOrigin::TopLeft,
                 color_type,
                 skia_safe::AlphaType::Unpremul,
-                None,
+                color_space,
             )
             .unwrap(),
         )

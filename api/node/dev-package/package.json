@@ -1,12 +1,18 @@
 {
   "name": "slint-ui-dev",
-  "version": "1.17.1",
+  "version": "1.18.0",
   "main": "index.cjs",
   "exports": {
     ".": "./index.cjs",
     "./loader": "./rust-module-dev.cjs",
     "./package.json": "./package.json"
   },
+  "files": [
+    "index.cjs",
+    "rust-module-dev.cjs",
+    "README.md",
+    "LICENSE.md"
+  ],
   "homepage": "https://github.com/slint-ui/slint",
   "license": "SEE LICENSE IN LICENSE.md",
   "repository": {

@@ -10,7 +10,7 @@ import { ColorButton } from "../helper_components/test_button.slint";
 import { Button } from "std-widgets.slint";
 import { TestButton as ReExportedButton } from "re_export.slint";
 import { Main_Window } from "main_window.slint";
-component TestCase inherits Rectangle {
+export component TestCase inherits Rectangle {
     RealButton {} // aliased from external file
     ColorButton {} // from external file
     ReExportedButton {} // from external file re-exported

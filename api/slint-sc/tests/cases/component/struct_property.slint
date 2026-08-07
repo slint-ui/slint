@@ -1,0 +1,44 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Software-3.0
+
+// A user-declared struct is a valid property type; its fields are SC types.
+
+struct Palette {
+    fill: color,
+    line-width: length,
+    count: int,
+}
+
+export component TestCase inherits Window {
+    in-out property <Palette> palette;
+    out property <Palette> derived: palette;
+}
+
+/*
+```rust
+let mut x = TestCase::new();
+
+// A struct declaration generates a Rust struct with public, snake_case fields.
+//#sls.struct.decl
+//#sls.gen.types
+//#sls.gen.types.struct
+// Without a binding, every field holds its own default.
+//#sls.struct.default
+let p = x.get_palette();
+assert_eq!(p, Palette::default());
+// The kebab-case field `line-width` becomes `line_width`.
+assert_eq!((p.fill, p.line_width, p.count), (slint_sc::Color::default(), 0, 0));
+
+// The struct is set and read back as a whole.
+x.set_palette(Palette { fill: slint_sc::Color::from_rgb_u8(1, 2, 3), line_width: 5, count: 7 });
+let p = x.get_palette();
+assert_eq!((p.line_width, p.count), (5, 7));
+
+// The generated struct derives Clone, and (via `assert_eq!`) PartialEq and Debug.
+assert_eq!(p.clone(), p);
+assert_eq!((p.fill.red(), p.fill.green(), p.fill.blue()), (1, 2, 3));
+
+// A property that references another struct property reads its value.
+assert_eq!(x.get_derived(), x.get_palette());
+```
+*/

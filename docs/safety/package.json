@@ -1,11 +1,12 @@
 {
   "name": "slint-safety-manual",
   "type": "module",
-  "version": "1.17.1",
+  "version": "1.18.0",
   "scripts": {
-    "dev": "astro dev",
-    "start": "astro dev",
-    "build": "astro check && astro build",
+    "sync-language-spec": "node scripts/sync-language-spec.mjs",
+    "dev": "node scripts/sync-language-spec.mjs && SLINT_SC_SAFETY_MANUAL=1 astro dev",
+    "start": "node scripts/sync-language-spec.mjs && SLINT_SC_SAFETY_MANUAL=1 astro dev",
+    "build": "node scripts/sync-language-spec.mjs && SLINT_SC_SAFETY_MANUAL=1 astro check && SLINT_SC_SAFETY_MANUAL=1 astro build",
     "preview": "astro preview",
     "astro": "astro",
     "format": "biome format",
@@ -20,8 +21,8 @@
     "@slint/common-files": "workspace:*",
     "@types/node": "catalog:",
     "astro": "catalog:",
-    "astro-mermaid": "2.0.4",
-    "mermaid": "11.15.0",
+    "astro-mermaid": "2.1.0",
+    "mermaid": "11.16.0",
     "sharp": "catalog:",
     "typescript": "catalog:"
   }

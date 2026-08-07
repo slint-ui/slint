@@ -26,7 +26,7 @@ struct Font {
 /// The fontique collection shared by `embed_glyphs` and `embed_images`, together
 /// with the imported fonts' file paths (the collection only knows them as in-memory
 /// blobs, so the paths are tracked separately for embedding).
-#[cfg(feature = "software-renderer")]
+#[cfg(feature = "renderer-software")]
 pub struct FontCollection {
     pub collection: sharedfontique::Collection,
     pub custom_font_paths: HashMap<fontique::FamilyId, std::path::PathBuf>,
@@ -36,7 +36,7 @@ pub struct FontCollection {
 /// Built once and shared (by reference) between the font and image passes. The
 /// `LazyLock` defers the system-font scan to the first lookup, so a build with no
 /// glyphs or text SVGs to embed never scans.
-#[cfg(feature = "software-renderer")]
+#[cfg(feature = "renderer-software")]
 pub type SharedFontCollection = std::sync::Arc<
     std::sync::LazyLock<
         std::sync::Mutex<FontCollection>,
@@ -46,7 +46,7 @@ pub type SharedFontCollection = std::sync::Arc<
 
 /// Reads every imported (`import "...ttf"`) font file, reporting load errors with
 /// their import span. The bytes feed [`shared_font_collection`].
-#[cfg(feature = "software-renderer")]
+#[cfg(feature = "renderer-software")]
 pub fn read_custom_fonts<'a>(
     all_docs: impl Iterator<Item = &'a Document>,
     diag: &mut BuildDiagnostics,
@@ -64,7 +64,7 @@ pub fn read_custom_fonts<'a>(
 }
 
 /// Wraps the system fonts plus the imported `custom_fonts` into a [`SharedFontCollection`].
-#[cfg(feature = "software-renderer")]
+#[cfg(feature = "renderer-software")]
 pub fn shared_font_collection(
     custom_fonts: Vec<(std::path::PathBuf, Vec<u8>)>,
 ) -> SharedFontCollection {
@@ -178,11 +178,10 @@ pub fn embed_glyphs(
             let (family, source_location) = c
                 .root_element
                 .borrow()
-                .bindings
-                .get("default-font-family")
-                .and_then(|binding| match &binding.borrow().expression {
+                .binding("default-font-family")
+                .and_then(|binding| match binding.value_expression() {
                     Expression::StringLiteral(family) => {
-                        Some((Some(family.clone()), binding.borrow().span.clone()))
+                        Some((Some(family.clone()), binding.span.clone()))
                     }
                     _ => None,
                 })
@@ -672,15 +671,13 @@ fn try_extract_literal_from_element(
     property_name: &str,
     unit: Unit,
 ) -> Option<f64> {
-    elem.borrow().bindings.get(property_name).and_then(|expression| {
-        match &expression.borrow().expression {
+    elem.borrow().binding(property_name).and_then(|binding| match binding.value_expression() {
+        Expression::NumberLiteral(value, u) if *u == unit => Some(*value),
+        Expression::Cast { from, .. } => match from.as_ref() {
             Expression::NumberLiteral(value, u) if *u == unit => Some(*value),
-            Expression::Cast { from, .. } => match from.as_ref() {
-                Expression::NumberLiteral(value, u) if *u == unit => Some(*value),
-                _ => None,
-            },
             _ => None,
-        }
+        },
+        _ => None,
     })
 }
 

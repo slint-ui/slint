@@ -10,7 +10,10 @@ use std::cell::Cell;
 use std::path::Path;
 use std::rc::Rc;
 
-use crate::{Cli, Error, Result, extract_component, init_compiler, poll_ready, setup_instance};
+use crate::{
+    Cli, Error, Result, extract_component, init_compiler, poll_ready, reject_non_window_component,
+    setup_instance,
+};
 
 /// Build the best headless renderer compiled into the viewer. Skia's software
 /// rasterizer is preferred when available; otherwise we fall back to Slint's
@@ -62,6 +65,7 @@ pub fn take_screenshot(args: &Cli) -> Result<()> {
     let Some(c) = extract_component(&result, args) else {
         std::process::exit(1);
     };
+    reject_non_window_component(&c);
 
     let component = c.create()?;
     setup_instance(&component, &args.on, args.load_data.as_deref())?;
@@ -75,7 +79,8 @@ pub fn take_screenshot(args: &Cli) -> Result<()> {
     let (pixels, color) = if format.writing_enabled() && format != image::ImageFormat::Jpeg {
         (buffer.as_bytes().to_vec(), image::ExtendedColorType::Rgba8)
     } else {
-        let rgb = buffer.as_bytes().chunks_exact(4).flat_map(|p| [p[0], p[1], p[2]]).collect();
+        let rgb =
+            buffer.as_bytes().as_chunks::<4>().0.iter().flat_map(|p| [p[0], p[1], p[2]]).collect();
         (rgb, image::ExtendedColorType::Rgb8)
     };
 

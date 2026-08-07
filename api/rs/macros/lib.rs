@@ -114,7 +114,17 @@ fn fill_token_vec(stream: impl Iterator<Item = TokenTree>, vec: &mut Vec<parser:
                     }
                     '*' => SyntaxKind::Star,
                     '/' => SyntaxKind::Div,
-                    '<' => SyntaxKind::LAngle,
+                    '<' => {
+                        if let Some(last) = vec.last_mut()
+                            && last.kind == SyntaxKind::LAngle
+                            && prev_spacing == Spacing::Joint
+                        {
+                            last.kind = SyntaxKind::DoubleLess;
+                            last.text = "<<".into();
+                            continue;
+                        }
+                        SyntaxKind::LAngle
+                    }
                     '>' => {
                         if let Some(last) = vec.last_mut() {
                             if last.kind == SyntaxKind::LessEqual && prev_spacing == Spacing::Joint

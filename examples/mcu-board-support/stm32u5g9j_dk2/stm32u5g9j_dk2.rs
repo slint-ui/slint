@@ -10,7 +10,7 @@ use slint::platform::{PointerEventButton, WindowEvent, software_renderer};
 use crate::embassy::{EmbassyBackend, PlatformBackend};
 use embassy_stm32::{Config, rcc};
 use embassy_stm32::{
-    bind_interrupts,
+    bind_interrupts, dma,
     gpio::{Level, Output, Speed},
     hspi::{ChipSelectHighTime, FIFOThresholdLevel, Hspi, MemorySize, MemoryType, WrapSize},
     i2c::I2c,
@@ -34,6 +34,7 @@ static mut HEAP: [u8; HEAP_SIZE] = [0; HEAP_SIZE];
 bind_interrupts!(struct Irqs {
     LTDC => ltdc::InterruptHandler<peripherals::LTDC>;
     RNG => rng::InterruptHandler<peripherals::RNG>;
+    GPDMA1_CHANNEL7 => dma::InterruptHandler<peripherals::GPDMA1_CH7>;
 });
 
 const DISPLAY_WIDTH: usize = 800;
@@ -131,6 +132,7 @@ pub fn init() {
         p.PH9,
         p.PI2,
         p.GPDMA1_CH7,
+        Irqs,
         flash_config,
     );
 
@@ -216,8 +218,8 @@ pub fn init() {
 
     // used for the touch events
     // NOTE: Async i2c communication returns a Timeout error so we will use blocking i2c until this is fixed
-    let mut i2c: I2c<'_, embassy_stm32::mode::Blocking> =
-        I2c::new_blocking(p.I2C2, p.PF1, p.PF0, Hertz(100_000), Default::default());
+    let mut i2c: I2c<'_, embassy_stm32::mode::Blocking, embassy_stm32::i2c::Master> =
+        I2c::new_blocking(p.I2C2, p.PF1, p.PF0, Default::default());
 
     let touch = gt911::Gt911Blocking::default();
     touch.init(&mut i2c).unwrap();
@@ -262,8 +264,11 @@ static mut FB2: [TargetPixel; DISPLAY_WIDTH * DISPLAY_HEIGHT] =
 
 struct StmBackendInner {
     _flash: hspi::OctaDtrFlashMemory<'static, embassy_stm32::peripherals::HSPI1>,
-    touch: gt911::Gt911Blocking<I2c<'static, embassy_stm32::mode::Blocking>>,
-    i2c: embassy_stm32::i2c::I2c<'static, embassy_stm32::mode::Blocking>,
+    touch: gt911::Gt911Blocking<
+        I2c<'static, embassy_stm32::mode::Blocking, embassy_stm32::i2c::Master>,
+    >,
+    i2c:
+        embassy_stm32::i2c::I2c<'static, embassy_stm32::mode::Blocking, embassy_stm32::i2c::Master>,
     ltdc: embassy_stm32::ltdc::Ltdc<'static, embassy_stm32::peripherals::LTDC>,
     _ltdc_display_enable: embassy_stm32::gpio::Output<'static>,
     _ltdc_backlight_control: embassy_stm32::gpio::Output<'static>,

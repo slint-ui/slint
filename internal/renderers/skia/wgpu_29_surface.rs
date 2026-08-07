@@ -23,6 +23,20 @@ mod metal;
 #[cfg(all(target_family = "unix", not(target_vendor = "apple")))]
 mod vulkan;
 
+/// See [`crate::attachment_color_space`].
+pub(crate) fn attachment_color_space(texture: &wgpu::Texture) -> skia_safe::ColorSpace {
+    crate::attachment_color_space(crate::TextureEncoding::from_format_is_srgb(
+        texture.format().is_srgb(),
+    ))
+}
+
+/// See [`crate::sampled_texture_color_space`].
+pub(crate) fn sampled_texture_color_space(texture: &wgpu::Texture) -> skia_safe::ColorSpace {
+    crate::sampled_texture_color_space(crate::TextureEncoding::from_format_is_srgb(
+        texture.format().is_srgb(),
+    ))
+}
+
 /// Skia rendering surface backed by WGPU. Supports both on-screen rendering (with a
 /// window surface) and offscreen rendering into caller-provided textures.
 pub struct WGPUSurface {
@@ -34,6 +48,7 @@ pub struct WGPUSurface {
     surface: Option<wgpu::Surface<'static>>,
     textures_to_transition_for_sampling: RefCell<Vec<wgpu::Texture>>,
     pub(crate) backend: Backend,
+    alpha_modes: Vec<wgpu::CompositeAlphaMode>,
 }
 
 impl WGPUSurface {
@@ -42,48 +57,16 @@ impl WGPUSurface {
         size: PhysicalWindowSize,
         requested_graphics_api: Option<RequestedGraphicsAPI>,
     ) -> Result<Self, PlatformError> {
-        let backends_to_avoid = wgpu::Backends::GL /* we're not mapping that to skia because we can't save/restore state */
-            .union(if cfg!(target_os = "windows") {
-                wgpu::Backends::VULKAN
-            } else {
-                wgpu::Backends::empty()
-            });
-
-        // On Metal, build wgpu's device from a command queue we allocate ourselves, so we can hand
-        // the same `MTLCommandQueue` to Skia. Metal's automatic hazard tracking only synchronizes
-        // accesses within a single queue, so sharing the queue lets it order wgpu's work (e.g. a
-        // texture render) before Skia samples it; otherwise Skia can read not-yet-produced content
-        // (magenta under Metal validation). wgpu 29 doesn't expose the queue it would create itself.
-        #[cfg(target_vendor = "apple")]
-        let mut shared_metal_queue: Option<
-            objc2::rc::Retained<objc2::runtime::ProtocolObject<dyn objc2_metal::MTLCommandQueue>>,
-        > = None;
-        #[cfg(target_vendor = "apple")]
-        let mut metal_factory =
-            |adapter: &wgpu::Adapter, descriptor: &wgpu::DeviceDescriptor<'_>| {
-                (adapter.get_info().backend == wgpu::Backend::Metal).then(|| {
-                    metal::create_shared_metal_device_queue(
-                        adapter,
-                        descriptor,
-                        &mut shared_metal_queue,
-                    )
-                })
-            };
-        #[cfg(target_vendor = "apple")]
-        let device_queue_factory: Option<
-            &mut i_slint_core::graphics::wgpu_29::DeviceQueueFactory,
-        > = Some(&mut metal_factory);
-        #[cfg(not(target_vendor = "apple"))]
-        let device_queue_factory: Option<
-            &mut i_slint_core::graphics::wgpu_29::DeviceQueueFactory,
-        > = None;
-
         let (instance, adapter, device, queue, surface) =
             i_slint_core::graphics::wgpu_29::init_instance_adapter_device_queue_surface(
                 surface_target,
                 requested_graphics_api,
-                backends_to_avoid,
-                device_queue_factory,
+                wgpu::Backends::GL /* we're not mapping that to skia because we can't save/restore state */
+                    .union(if cfg!(target_os = "windows") {
+                        wgpu::Backends::VULKAN
+                    } else {
+                        wgpu::Backends::empty()
+                    }),
             )?;
 
         let mut surface_config =
@@ -103,18 +86,7 @@ impl WGPUSurface {
 
         let backend: Backend = adapter.get_info().backend.try_into()?;
 
-        // The command queue we shared with wgpu (if any). `shared_metal_queue` is kept alive until
-        // after `make_context`, which retains it into Skia's backend context; wgpu's device retains
-        // it too via the queue.
-        #[cfg(target_vendor = "apple")]
-        let shared_command_queue_handle: Option<*const core::ffi::c_void> = shared_metal_queue
-            .as_ref()
-            .map(|q| objc2::rc::Retained::as_ptr(q) as *const core::ffi::c_void);
-        #[cfg(not(target_vendor = "apple"))]
-        let shared_command_queue_handle: Option<*const core::ffi::c_void> = None;
-
-        let gr_context =
-            backend.make_context(&adapter, &device, &queue, shared_command_queue_handle);
+        let gr_context = backend.make_context(&adapter, &device, &queue);
 
         Ok(Self {
             gr_context: RefCell::new(
@@ -129,6 +101,7 @@ impl WGPUSurface {
             surface: Some(surface),
             textures_to_transition_for_sampling: RefCell::new(Vec::new()),
             backend,
+            alpha_modes: swapchain_capabilities.alpha_modes,
         })
     }
 
@@ -148,6 +121,7 @@ impl WGPUSurface {
             surface: None,
             textures_to_transition_for_sampling: RefCell::new(Vec::new()),
             backend,
+            alpha_modes: vec![],
         }
     }
 
@@ -309,32 +283,45 @@ impl crate::Surface for WGPUSurface {
         callback(api)
     }
 
-    #[cfg(any(feature = "unstable-wgpu-28", feature = "unstable-wgpu-29"))]
+    #[cfg(any(feature = "unstable-wgpu-29", feature = "unstable-wgpu-30"))]
     fn import_wgpu_texture(
         &self,
         canvas: &skia_safe::Canvas,
         any_wgpu_texture: &i_slint_core::graphics::WGPUTexture,
     ) -> Option<skia_safe::Image> {
         let texture = match any_wgpu_texture {
-            #[cfg(feature = "unstable-wgpu-28")]
-            i_slint_core::graphics::WGPUTexture::WGPU28Texture(..) => return None,
             #[cfg(feature = "unstable-wgpu-29")]
             i_slint_core::graphics::WGPUTexture::WGPU29Texture(texture) => texture.clone(),
+            #[cfg(feature = "unstable-wgpu-30")]
+            i_slint_core::graphics::WGPUTexture::WGPU30Texture(..) => return None,
         };
-
-        // NOTE: correct synchronization here relies on Skia sharing wgpu's command queue, so that
-        // Metal's per-queue hazard tracking orders the producing work before Skia's sample. That
-        // sharing only happens when Slint creates the device itself (`Automatic`). With a
-        // developer-provided device/queue (`Manual` config or `SkiaWGPURenderer`), Skia runs on its
-        // own queue and this sample can race the producer, since wgpu 29 exposes neither the queue
-        // to share (`Queue::as_raw`) nor an event to synchronize across queues. Both are restored on
-        // wgpu trunk; revisit once a release ships them.
 
         // Skia won't submit commands right away, so remember the texture and transition before
         // submitting.
         self.textures_to_transition_for_sampling.borrow_mut().push(texture.clone());
 
         self.backend.import_texture(canvas, texture)
+    }
+
+    fn set_transparent(&self, transparent: bool) -> Result<(), PlatformError> {
+        if transparent {
+            // The default `Opaque` discards the scene's alpha; pick a translucent mode if offered.
+            // Metal (CAMetalLayer) only offers `PostMultiplied`, so it must be a fallback.
+            use wgpu::CompositeAlphaMode::{PostMultiplied, PreMultiplied};
+            if let Some(mode) =
+                [PreMultiplied, PostMultiplied].into_iter().find(|m| self.alpha_modes.contains(m))
+            {
+                let mut surface_config_opt = self.surface_config.borrow_mut();
+                let (Some(surface_config), Some(surface)) =
+                    (surface_config_opt.as_mut(), &self.surface)
+                else {
+                    return Ok(());
+                };
+                surface_config.alpha_mode = mode;
+                surface.configure(&self.device, surface_config);
+            }
+        }
+        Ok(())
     }
 }
 
@@ -396,13 +383,10 @@ impl Backend {
         _adapter: &wgpu::Adapter,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
-        // On Metal, the `MTLCommandQueue` we shared with wgpu (see `make_metal_context`). `None` on
-        // other backends and when we didn't create the device ourselves.
-        _shared_metal_command_queue: Option<*const core::ffi::c_void>,
     ) -> Option<skia_safe::gpu::DirectContext> {
         match self {
             #[cfg(target_vendor = "apple")]
-            Self::Metal => metal::make_metal_context(device, queue, _shared_metal_command_queue),
+            Self::Metal => metal::make_metal_context(device, queue),
             #[cfg(target_family = "windows")]
             Self::Dx12 => unsafe { dx12::make_dx12_context(&_adapter, &device, &queue) },
             #[cfg(all(target_family = "unix", not(target_vendor = "apple")))]

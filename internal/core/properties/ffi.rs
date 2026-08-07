@@ -212,7 +212,7 @@ fn c_set_animated_value<T: InterpolatedPropertyValue + Clone>(
 ) {
     let d = RefCell::new(properties_animations::PropertyValueAnimationData::new(
         from,
-        to,
+        Some(to),
         animation_data.clone(),
     ));
     // Safety: The BindingCallable is for type T
@@ -305,7 +305,7 @@ unsafe fn c_set_animated_binding<T: InterpolatedPropertyValue + Clone>(
         };
         let animation_data = RefCell::new(properties_animations::PropertyValueAnimationData::new(
             T::default(),
-            T::default(),
+            None,
             PropertyAnimation::default(),
         ));
 
@@ -330,6 +330,7 @@ unsafe fn c_set_animated_binding<T: InterpolatedPropertyValue + Clone>(
                 };
                 (anim, start_instant)
             },
+            dirty_time: Cell::new(crate::animations::current_tick()),
         });
         handle.0.mark_dirty();
     }

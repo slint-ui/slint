@@ -116,6 +116,9 @@ export default defineConfig({
         domains: ["cdn.pixabay.com"],
     },
     vite: {
+        build: {
+            cssMinify: false,
+        },
         resolve: {
             alias: {
                 "~": path.resolve(__dirname, "./src"),

@@ -19,7 +19,7 @@ Slint's input system handles mouse, touch, keyboard events and focus management.
 
 | File | Purpose |
 |------|---------|
-| `internal/core/input.rs` | MouseEvent, KeyEvent, event processing |
+| `internal/core/input.rs` | MouseEvent, event processing (re-exports `KeyEvent`/`KeyboardModifiers` from `internal/common/builtin_structs.rs`) |
 | `internal/core/item_focus.rs` | Focus chain navigation |
 | `internal/core/window.rs` | Window-level event dispatch |
 | `internal/core/items.rs` | Item event handlers (input_event, etc.) |
@@ -35,7 +35,7 @@ pub enum MouseEvent {
         position: LogicalPoint,
         button: PointerEventButton,
         click_count: u8,
-        is_touch: bool,
+        touch_finger_id: i32,  // Set for touch input, 0 for mouse
     },
 
     /// Mouse/finger released
@@ -43,20 +43,26 @@ pub enum MouseEvent {
         position: LogicalPoint,
         button: PointerEventButton,
         click_count: u8,
-        is_touch: bool,
+        touch_finger_id: i32,
     },
 
     /// Pointer moved
-    Moved { position: LogicalPoint, is_touch: bool },
+    Moved { position: LogicalPoint, touch_finger_id: i32 },
 
-    /// Mouse wheel
-    Wheel { position: LogicalPoint, delta_x: Coord, delta_y: Coord },
+    /// Mouse wheel or touchpad scroll
+    Wheel { position: LogicalPoint, delta_x: Coord, delta_y: Coord, phase: TouchPhase },
 
     /// Drag operation in progress over item
-    DragMove(DropEvent),
+    DragMove { event: DropEvent, allowed: AllowedDragActions },
 
     /// Drop occurred on item
-    Drop(DropEvent),
+    Drop { event: DropEvent, allowed: AllowedDragActions },
+
+    /// A platform-recognized pinch gesture (macOS/iOS trackpad, Qt)
+    PinchGesture { position: LogicalPoint, delta: f32, phase: TouchPhase },
+
+    /// A platform-recognized rotation gesture (macOS/iOS trackpad, Qt)
+    RotationGesture { position: LogicalPoint, delta: f32, phase: TouchPhase },
 
     /// Mouse exited the item
     Exit,
@@ -97,7 +103,7 @@ pub struct MouseInputState {
     grabbed: bool,
 
     /// Active drag-drop data
-    pub(crate) drag_data: Option<DropEvent>,
+    pub(crate) drag_data: Option<DragData>,
 
     /// Delayed event (for Flickable touch handling)
     delayed: Option<(Timer, MouseEvent)>,
@@ -248,11 +254,7 @@ Only `DragArea` items can start drags:
 // DragArea returns StartDrag from input_event
 InputEventResult::StartDrag => {
     mouse_input_state.grabbed = false;
-    mouse_input_state.drag_data = Some(DropEvent {
-        mime_type: drag_area.mime_type(),
-        data: drag_area.data(),
-        position: Default::default(),
-    });
+    mouse_input_state.drag_data = Some(DragData { ... });
 }
 ```
 
@@ -261,7 +263,7 @@ InputEventResult::StartDrag => {
 Items receive `DragMove` events:
 
 ```rust
-MouseEvent::DragMove(DropEvent { mime_type, data, position })
+MouseEvent::DragMove { event: DropEvent { mime_type, data, position }, allowed }
 ```
 
 Items return `EventAccepted` to indicate they can receive the drop.
@@ -271,7 +273,7 @@ Items return `EventAccepted` to indicate they can receive the drop.
 When mouse is released during drag:
 
 ```rust
-MouseEvent::Drop(DropEvent { mime_type, data, position })
+MouseEvent::Drop { event: DropEvent { mime_type, data, position }, allowed }
 ```
 
 ## Keyboard Events
@@ -388,13 +390,18 @@ pub fn set_focus_item(
 ### FocusReason
 
 ```rust
+#[non_exhaustive]
 pub enum FocusReason {
-    /// Focus changed via click
-    PointerAction,
-    /// Focus changed via Tab key
+    /// A built-in function invocation caused the event (`.focus()`, `.clear-focus()`)
+    Programmatic,
+    /// Keyboard navigation caused the event (tabbing)
     TabNavigation,
-    /// Focus changed via code (forward-focus, etc.)
-    Other,
+    /// A mouse click caused the event
+    PointerClick,
+    /// A popup caused the event
+    PopupActivation,
+    /// The window manager changed the active window and caused the event
+    WindowActivation,
 }
 ```
 

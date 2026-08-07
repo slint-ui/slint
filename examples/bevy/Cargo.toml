@@ -1,7 +1,0 @@
-# Copyright © SixtyFPS GmbH <info@slint.dev>
-# SPDX-License-Identifier: MIT
-
-[workspace]
-members = ['slint-hosts-bevy', 'bevy-hosts-slint', 'bevy-hosts-slint-gpu']
-
-resolver = "3"

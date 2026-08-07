@@ -209,27 +209,38 @@ pub fn unregister_item_tree<Base>(
     item_array: &[vtable::VOffset<Base, ItemVTable, vtable::AllowPin>],
     window_adapter: &WindowAdapterRc,
 ) {
-    item_array.iter().for_each(|item| {
-        item.apply_pin(base).as_ref().deinit(window_adapter);
-    });
-    window_adapter.renderer().free_graphics_resources(item_tree, &mut item_array.iter().map(|item| item.apply_pin(base))).expect(
-        "Fatal error encountered when freeing graphics resources while destroying Slint component",
-    );
+    // Only resolving the items via `apply_pin` needs `Base`; keep the rest in a non-generic
+    // helper so it isn't duplicated per component. Each consumer walks the items once.
+    fn unregister_item_tree_impl(
+        item_tree: ItemTreeRef,
+        items_to_deinit: &mut dyn Iterator<Item = Pin<ItemRef<'_>>>,
+        items_to_free: &mut dyn Iterator<Item = Pin<ItemRef<'_>>>,
+        items_to_unregister: &mut dyn Iterator<Item = Pin<ItemRef<'_>>>,
+        window_adapter: &WindowAdapterRc,
+    ) {
+        items_to_deinit.for_each(|item| item.as_ref().deinit(window_adapter));
+        window_adapter.renderer().free_graphics_resources(item_tree, items_to_free).expect(
+            "Fatal error encountered when freeing graphics resources while destroying Slint component",
+        );
 
-    if let Some(w) = window_adapter.internal(crate::InternalToken) {
-        w.unregister_item_tree(item_tree, &mut item_array.iter().map(|item| item.apply_pin(base)));
+        if let Some(w) = window_adapter.internal(crate::InternalToken) {
+            w.unregister_item_tree(item_tree, items_to_unregister);
+        }
+
+        // Close popups that were part of a component that just got deleted
+        let window_inner = crate::window::WindowInner::from_pub(window_adapter.window());
+        let to_close_popups = window_inner
+            .active_popups()
+            .iter()
+            .filter_map(|p| p.parent_item.upgrade().is_none().then_some(p.popup_id))
+            .collect::<Vec<_>>();
+        for popup_id in to_close_popups {
+            window_inner.close_popup(popup_id);
+        }
     }
 
-    // Close popups that were part of a component that just got deleted
-    let window_inner = crate::window::WindowInner::from_pub(window_adapter.window());
-    let to_close_popups = window_inner
-        .active_popups()
-        .iter()
-        .filter_map(|p| p.parent_item.upgrade().is_none().then_some(p.popup_id))
-        .collect::<Vec<_>>();
-    for popup_id in to_close_popups {
-        window_inner.close_popup(popup_id);
-    }
+    let items = || item_array.iter().map(|item| item.apply_pin(base));
+    unregister_item_tree_impl(item_tree, &mut items(), &mut items(), &mut items(), window_adapter)
 }
 
 fn find_sibling_outside_repeater(
@@ -405,6 +416,20 @@ impl ItemRc {
             && clip.max.y >= geometry.min.y
             && clip.min.x <= geometry.max.x
             && clip.min.y <= geometry.max.y
+    }
+
+    pub(crate) fn visibility_clips(&self) -> Vec<VWeakMapped<ItemTreeVTable, crate::items::Clip>> {
+        let mut visibility_clips = Vec::new();
+        let mut current = Some(self.clone());
+        while let Some(item) = current {
+            if let Some(clip) = item.downcast::<crate::items::Clip>()
+                && clip.as_pin_ref().is_visibility_clip()
+            {
+                visibility_clips.push(VRcMapped::downgrade(&clip));
+            }
+            current = item.parent_item(ParentItemTraversalMode::StopAtPopups);
+        }
+        visibility_clips
     }
 
     /// Returns true if this item is visible or only clipped away by a `Flickable`.
@@ -1015,15 +1040,15 @@ impl ItemRc {
                     &[
                         self.map_to_ancestor(
                             LogicalPoint::new(
-                                geo.origin.x - flickable.viewport_x().0,
-                                geo.origin.y - flickable.viewport_y().0,
+                                geo.origin.x - flickable.content_x().0,
+                                geo.origin.y - flickable.content_y().0,
                             ),
                             item_rc,
                         ),
                         self.map_to_ancestor(
                             LogicalPoint::new(
-                                geo.max_x() - flickable.viewport_x().0,
-                                geo.max_y() - flickable.viewport_y().0,
+                                geo.max_x() - flickable.content_x().0,
+                                geo.max_y() - flickable.content_y().0,
                             ),
                             item_rc,
                         ),
@@ -1332,20 +1357,20 @@ fn visit_internal<State>(
 /// Visit the children within an array of ItemTreeNode
 ///
 /// The dynamic visitor is called for the dynamic nodes, its signature is
-/// `fn(base: &Base, visitor: vtable::VRefMut<ItemVisitorVTable>, dyn_index: usize)`
+/// `fn(order: TraversalOrder, visitor: vtable::VRefMut<ItemVisitorVTable>, dyn_index: u32)`.
+/// It is a `dyn` callback (capturing the component) rather than generic, so this function is
+/// not duplicated per component type.
 ///
 /// FIXME: the design of this use lots of indirection and stack frame in recursive functions
 /// Need to check if the compiler is able to optimize away some of it.
 /// Possibly we should generate code that directly call the visitor instead
-pub fn visit_item_tree<Base>(
-    base: Pin<&Base>,
+pub fn visit_item_tree(
     item_tree: &ItemTreeRc,
     item_tree_array: &[ItemTreeNode],
     index: isize,
     order: TraversalOrder,
     mut visitor: vtable::VRefMut<ItemVisitorVTable>,
-    visit_dynamic: impl Fn(
-        Pin<&Base>,
+    visit_dynamic: &mut dyn FnMut(
         TraversalOrder,
         vtable::VRefMut<ItemVisitorVTable>,
         u32,
@@ -1359,7 +1384,7 @@ pub fn visit_item_tree<Base>(
             }
             ItemTreeNode::DynamicTree { index, .. } => {
                 if let Some(sub_idx) =
-                    visit_dynamic(base, order, visitor.borrow_mut(), *index).aborted_index()
+                    visit_dynamic(order, visitor.borrow_mut(), *index).aborted_index()
                 {
                     VisitChildrenResult::abort(idx, sub_idx)
                 } else {
@@ -1444,14 +1469,14 @@ pub(crate) mod ffi {
             dyn_index: u32,
         ) -> VisitChildrenResult,
     ) -> VisitChildrenResult {
+        let base = VRc::as_pin_ref(item_tree).get_ref() as *const vtable::Dyn as *const c_void;
         crate::item_tree::visit_item_tree(
-            VRc::as_pin_ref(item_tree),
             item_tree,
             item_tree_array.as_slice(),
             index,
             order,
             visitor,
-            |a, b, c, d| visit_dynamic(a.get_ref() as *const vtable::Dyn as *const c_void, b, c, d),
+            &mut |order, visitor, dyn_index| visit_dynamic(base, order, visitor, dyn_index),
         )
     }
 }

@@ -1,0 +1,214 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A column FlexboxLayout that is a child of a HorizontalLayout with a
+// non-stretch cross-axis-alignment (start) must wrap into extra columns only
+// when there isn't enough height. With room it stays a single natural-height
+// column. Its reported width must match the columns it lays out, so it never
+// overlaps a sibling. Fixed-size Rectangles keep the geometry deterministic
+// across backends (no fonts).
+//
+// unwrapped single-line height = 40 + 5 + 40 + 5 + 40 = 130px.
+//
+// The rotated cases below mirror this 90°: a row FlexboxLayout that is a child
+// of a VerticalLayout. There the flex main axis is horizontal, so it must wrap
+// into extra rows only when there isn't enough width, and its reported height
+// must match the rows it lays out so it never overlaps a sibling below it.
+// unwrapped single-line width = 40 + 5 + 40 + 5 + 40 = 130px, row height 50px.
+//
+// Visual aids: the magenta outline is each flex's reported box; the sibling is
+// translucent orange. Before the fix the flex reserved less than it drew, so
+// items spilled past the outline into the sibling; now the outline hugs the
+// items and stops before the sibling.
+
+export component TestCase inherits Window {
+    width: 800px;
+    height: 490px;
+
+    // Column of "flex-direction: column" cases on the left, "flex-direction:
+    // row" cases on the right, each under a title.
+    Text {
+        x: 0; y: 0; width: 400px; height: 35px;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+        font-size: 15px;
+        text: "flex-direction: column (in a HorizontalLayout)";
+    }
+    Text {
+        x: 400px; y: 0; width: 400px; height: 35px;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+        font-size: 15px;
+        text: "flex-direction: row (in a VerticalLayout)";
+    }
+
+    // --- Tall: 300px is more than the 130px the column needs -> no wrap ---
+    tallFlexBg := Rectangle {
+        x: 0; y: 40px; width: 400px; height: 300px;
+        border-color: gray;
+        border-width: 1px;
+        HorizontalLayout {
+            alignment: start;
+            cross-axis-alignment: start;
+            spacing: 10px;
+            tallFlex := FlexboxLayout {
+                flex-direction: column;
+                spacing: 5px;
+                t1 := Rectangle { width: 50px; height: 40px; background: #c33; }
+                t2 := Rectangle { width: 50px; height: 40px; background: #3c3; }
+                t3 := Rectangle { width: 50px; height: 40px; background: #36c; }
+            }
+            tallSibling := Rectangle { min-width: 100px; height: 130px; background: #ffa50080; }
+        }
+        // Outline of the flex's reported box: it must contain all items and not
+        // reach into the (translucent) sibling.
+        Rectangle {
+            x: tallFlex.x; y: tallFlex.y; width: tallFlex.width; height: tallFlex.height;
+            background: transparent; border-color: #f0f; border-width: 2px;
+        }
+    }
+
+    // --- Short: 90px only fits two items -> the third wraps to a 2nd column ---
+    shortFlexBg := Rectangle {
+        x: 0; y: 340px; width: 400px; height: 90px;
+        border-color: gray;
+        border-width: 1px;
+        HorizontalLayout {
+            alignment: start;
+            cross-axis-alignment: start;
+            spacing: 10px;
+            shortFlex := FlexboxLayout {
+                flex-direction: column;
+                spacing: 5px;
+                s1 := Rectangle { width: 50px; height: 40px; background: #c33; }
+                s2 := Rectangle { width: 50px; height: 40px; background: #3c3; }
+                s3 := Rectangle { width: 50px; height: 40px; background: #36c; }
+            }
+            shortSibling := Rectangle { min-width: 100px; height: 80px; background: #ffa50080; }
+        }
+        Rectangle {
+            x: shortFlex.x; y: shortFlex.y; width: shortFlex.width; height: shortFlex.height;
+            background: transparent; border-color: #f0f; border-width: 2px;
+        }
+    }
+
+    // --- Wide: 300px is more than the 130px the row needs -> no wrap ---
+    wideFlexBg := Rectangle {
+        x: 400px; y: 40px; width: 300px; height: 200px;
+        border-color: gray;
+        border-width: 1px;
+        VerticalLayout {
+            alignment: start;
+            cross-axis-alignment: start;
+            spacing: 10px;
+            wideFlex := FlexboxLayout {
+                flex-direction: row;
+                spacing: 5px;
+                w1 := Rectangle { width: 40px; height: 50px; background: #c33; }
+                w2 := Rectangle { width: 40px; height: 50px; background: #3c3; }
+                w3 := Rectangle { width: 40px; height: 50px; background: #36c; }
+            }
+            wideSibling := Rectangle { min-height: 100px; width: 130px; background: #ffa50080; }
+        }
+        Rectangle {
+            x: wideFlex.x; y: wideFlex.y; width: wideFlex.width; height: wideFlex.height;
+            background: transparent; border-color: #f0f; border-width: 2px;
+        }
+    }
+
+    // --- Narrow: 90px only fits two items -> the third wraps to a 2nd row ---
+    // Tall enough (240px) to hold the 2-row flex (105px) + spacing (10px) + the
+    // sibling (min 100px) = 215px, so the sibling stays inside the container.
+    narrowFlexBg := Rectangle {
+        x: 400px; y: 240px; width: 90px; height: 240px;
+        border-color: gray;
+        border-width: 1px;
+        VerticalLayout {
+            alignment: start;
+            cross-axis-alignment: start;
+            spacing: 10px;
+            narrowFlex := FlexboxLayout {
+                flex-direction: row;
+                spacing: 5px;
+                n1 := Rectangle { width: 40px; height: 50px; background: #c33; }
+                n2 := Rectangle { width: 40px; height: 50px; background: #3c3; }
+                n3 := Rectangle { width: 40px; height: 50px; background: #36c; }
+            }
+            narrowSibling := Rectangle { min-height: 100px; width: 85px; background: #ffa50080; }
+        }
+        Rectangle {
+            x: narrowFlex.x; y: narrowFlex.y; width: narrowFlex.width; height: narrowFlex.height;
+            background: transparent; border-color: #f0f; border-width: 2px;
+        }
+    }
+
+    // Tall: the three items form a single column (same x, increasing y) and the
+    // flex stays one column wide.
+    out property <bool> tall_single_column: t1.x == t2.x && t2.x == t3.x
+        && t1.y < t2.y && t2.y < t3.y
+        && tallFlex.width == 50px;
+    // The sibling sits to the right of the flex, no overlap.
+    out property <bool> tall_no_overlap: tallSibling.x >= tallFlex.x + tallFlex.width;
+
+    // Short: the third item wrapped into a second column, so the flex is wider
+    // than a single column.
+    out property <bool> short_wraps: s3.x > s1.x && shortFlex.width > 50px;
+    out property <bool> short_no_overlap: shortSibling.x >= shortFlex.x + shortFlex.width;
+
+    // Rotated: wide row forms a single row (same y, increasing x) and the flex
+    // stays one row tall.
+    out property <bool> wide_single_row: w1.y == w2.y && w2.y == w3.y
+        && w1.x < w2.x && w2.x < w3.x
+        && wideFlex.height == 50px;
+    // The sibling sits below the flex, no overlap.
+    out property <bool> wide_no_overlap: wideSibling.y >= wideFlex.y + wideFlex.height;
+
+    // Rotated narrow: the third item wrapped into a second row, so the flex is
+    // taller than a single row.
+    out property <bool> narrow_wraps: n3.y > n1.y && narrowFlex.height > 50px;
+    out property <bool> narrow_no_overlap: narrowSibling.y >= narrowFlex.y + narrowFlex.height;
+
+    out property <bool> test: tall_single_column && tall_no_overlap && short_wraps && short_no_overlap
+        && wide_single_row && wide_no_overlap && narrow_wraps && narrow_no_overlap;
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+assert(handle->get_tall_single_column());
+assert(handle->get_tall_no_overlap());
+assert(handle->get_short_wraps());
+assert(handle->get_short_no_overlap());
+assert(handle->get_wide_single_row());
+assert(handle->get_wide_no_overlap());
+assert(handle->get_narrow_wraps());
+assert(handle->get_narrow_no_overlap());
+assert(handle->get_test());
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_tall_single_column(), "tall column flex must not wrap");
+assert!(instance.get_tall_no_overlap(), "tall flex overlaps its sibling");
+assert!(instance.get_short_wraps(), "short column flex must wrap into a 2nd column");
+assert!(instance.get_short_no_overlap(), "short flex overlaps its sibling");
+assert!(instance.get_wide_single_row(), "wide row flex must not wrap");
+assert!(instance.get_wide_no_overlap(), "wide flex overlaps its sibling");
+assert!(instance.get_narrow_wraps(), "narrow row flex must wrap into a 2nd row");
+assert!(instance.get_narrow_no_overlap(), "narrow flex overlaps its sibling");
+assert!(instance.get_test());
+```
+
+```js
+var instance = new slint.TestCase();
+assert(instance.tall_single_column);
+assert(instance.tall_no_overlap);
+assert(instance.short_wraps);
+assert(instance.short_no_overlap);
+assert(instance.wide_single_row);
+assert(instance.wide_no_overlap);
+assert(instance.narrow_wraps);
+assert(instance.narrow_no_overlap);
+assert(instance.test);
+```
+*/

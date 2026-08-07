@@ -17,13 +17,13 @@ val (major, minor, patch) = slintVersion.substringBefore('-').split('.').map(Str
 // and the cargo-apk APK match.
 android {
     namespace = "dev.slint.viewer"
-    compileSdk = 35
-    buildToolsVersion = "35.0.1"
+    compileSdk = 36
+    buildToolsVersion = "36.0.0"
 
     defaultConfig {
         applicationId = "dev.slint.viewer"
         minSdk = 26
-        targetSdk = 35
+        targetSdk = 36
         versionCode = System.getenv("SLINT_BUILD_NUMBER")?.toIntOrNull()
             ?: (major * 10000 + minor * 100 + patch)
         versionName = slintVersion

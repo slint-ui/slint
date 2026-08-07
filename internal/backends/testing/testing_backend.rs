@@ -13,7 +13,9 @@ use i_slint_core::window::{
 };
 
 use i_slint_core::SharedString;
-use i_slint_core::items::TextWrap;
+use i_slint_core::api::LogicalPosition;
+use i_slint_core::input::MouseEvent;
+use i_slint_core::items::{AllowedDragActions, DragAction, DropEvent, TextWrap};
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::pin::Pin;
@@ -191,6 +193,9 @@ impl i_slint_core::platform::Platform for TestingBackend {
             open_url: self.open_url.clone(),
             debug_logs: self.debug_logs.clone(),
             native_popup: Cell::new(false),
+            simulate_native_drag: Cell::new(false),
+            native_drag: Default::default(),
+            window_move_requests: Default::default(),
             #[cfg(supports_headless)]
             renderer_name: self.renderer_name.clone(),
             #[cfg(supports_headless)]
@@ -284,11 +289,16 @@ pub struct TestingWindow {
     window: i_slint_core::api::Window,
     size: Cell<PhysicalSize>,
     pub ime_requests: RefCell<Vec<InputMethodRequest>>,
-    mouse_cursor: Cell<i_slint_core::items::MouseCursor>,
+    mouse_cursor: RefCell<i_slint_core::cursor::MouseCursorInner>,
     all_item_trees: CheckAllItemTreesUnregistered,
     pub open_url: Rc<RefCell<Option<SharedString>>>,
     pub debug_logs: Rc<RefCell<Vec<String>>>,
     native_popup: Cell<bool>,
+    simulate_native_drag: Cell<bool>,
+    /// Payload and allowed actions recorded by `start_drag` while simulating a native drag,
+    /// so the receive-side helpers can build the drop they deliver to a target window.
+    native_drag: RefCell<Option<(i_slint_core::data_transfer::DataTransfer, AllowedDragActions)>>,
+    window_move_requests: Cell<usize>,
     /// Remembered for child popups, so they pick the same rasterizer.
     #[cfg(supports_headless)]
     renderer_name: Option<SharedString>,
@@ -305,8 +315,13 @@ impl TestingWindow {
     }
 
     #[allow(dead_code)] // Used by various tests
-    pub fn mouse_cursor(&self) -> i_slint_core::items::MouseCursor {
-        self.mouse_cursor.get()
+    pub fn mouse_cursor(&self) -> i_slint_core::cursor::MouseCursorInner {
+        self.mouse_cursor.borrow().clone()
+    }
+
+    /// Number of interactive window moves requested via `WindowMoveArea`.
+    pub fn window_move_request_count(&self) -> usize {
+        self.window_move_requests.get()
     }
 
     #[allow(dead_code)]
@@ -318,6 +333,61 @@ impl TestingWindow {
     pub fn take_debug_log(&self) -> Vec<String> {
         self.debug_logs.borrow_mut().drain(..).collect()
     }
+
+    /// Enable simulating native (OS-level) drag-and-drop. Once enabled, `start_drag` takes the
+    /// drag over as a real backend does (instead of declining it and using the in-window
+    /// fallback), recording the payload so [`Self::simulate_native_drag_move`] and
+    /// [`Self::simulate_native_drop`] can drive the receive side.
+    pub fn set_simulate_native_drag(&self, enabled: bool) {
+        self.simulate_native_drag.set(enabled);
+    }
+
+    /// Move the in-flight simulated native drag over `target` at `position`, as a backend does
+    /// when the OS drags across a window. Returns the action the target's `DropArea` proposes.
+    pub fn simulate_native_drag_move(
+        &self,
+        target: &i_slint_core::api::Window,
+        position: LogicalPosition,
+    ) -> DragAction {
+        self.deliver_native_drag(target, position, false)
+    }
+
+    /// Drop the in-flight simulated native drag onto `target` at `position`, then report
+    /// completion back to this source window, as a backend does when the OS drag ends. Returns
+    /// the final negotiated action.
+    pub fn simulate_native_drop(
+        &self,
+        target: &i_slint_core::api::Window,
+        position: LogicalPosition,
+    ) -> DragAction {
+        let action = self.deliver_native_drag(target, position, true);
+        WindowInner::from_pub(&self.window).report_drag_finished(action);
+        action
+    }
+
+    fn deliver_native_drag(
+        &self,
+        target: &i_slint_core::api::Window,
+        position: LogicalPosition,
+        drop: bool,
+    ) -> DragAction {
+        let (data, allowed) =
+            self.native_drag.borrow().clone().expect("no simulated native drag in flight");
+        let mut event = DropEvent::default();
+        event.data = data;
+        event.position = position;
+        event.proposed_action =
+            i_slint_core::items::compute_proposed_action(Default::default(), allowed);
+        let event = if drop {
+            MouseEvent::Drop { event, allowed }
+        } else {
+            MouseEvent::DragMove { event, allowed }
+        };
+        WindowInner::from_pub(target)
+            .process_mouse_input(event)
+            .and_then(|r| r.drag_action)
+            .unwrap_or(DragAction::None)
+    }
 }
 
 impl WindowAdapterInternal for TestingWindow {
@@ -325,8 +395,20 @@ impl WindowAdapterInternal for TestingWindow {
         self.ime_requests.borrow_mut().push(request)
     }
 
-    fn set_mouse_cursor(&self, cursor: i_slint_core::items::MouseCursor) {
-        self.mouse_cursor.set(cursor);
+    fn start_drag(&self, request: &i_slint_core::window::DragRequest) -> bool {
+        if !self.simulate_native_drag.get() {
+            return false;
+        }
+        *self.native_drag.borrow_mut() = Some((request.data().clone(), request.allowed_actions()));
+        true
+    }
+
+    fn start_window_move(&self) {
+        self.window_move_requests.set(self.window_move_requests.get() + 1);
+    }
+
+    fn set_mouse_cursor(&self, cursor: i_slint_core::cursor::MouseCursorInner) {
+        self.mouse_cursor.replace(cursor);
     }
 
     fn register_item_tree(&self, item_tree: i_slint_core::item_tree::ItemTreeRefPin) {
@@ -365,6 +447,9 @@ impl WindowAdapterInternal for TestingWindow {
                 open_url: self.open_url.clone(),
                 debug_logs: self.debug_logs.clone(),
                 native_popup: self.native_popup.clone(),
+                simulate_native_drag: self.simulate_native_drag.clone(),
+                native_drag: Default::default(),
+                window_move_requests: Default::default(),
                 #[cfg(supports_headless)]
                 renderer_name: self.renderer_name.clone(),
                 #[cfg(supports_headless)]
@@ -430,14 +515,47 @@ impl RendererSealed for TestingWindow {
                     i_slint_core::styled_text::get_raw_text(&s).into_owned()
                 }
             };
-            let max_line_len = text.lines().map(|l: &str| l.len()).max().unwrap_or(0);
-            let num_lines = text.lines().count().max(1);
+            // Whitespace-separated words rather than real line breaking, and byte lengths
+            // rather than character counts, to match text_size() above.
+            let max_lines = text_item.line_limit().unwrap_or(usize::MAX);
+            let (max_line_len, num_lines) = text
+                .lines()
+                .take(max_lines)
+                .fold((0, 0), |(len, count), line| (len.max(line.len()), count + 1));
             let width = max_line_len as f32 * pixel_size;
-            let height = num_lines as f32 * pixel_size;
+            let height = num_lines.max(1) as f32 * pixel_size;
             LogicalSize::new(width, height)
         } else {
             sharedparley::text_size(self, text_item, item_rc, max_width, text_wrap, None)
                 .unwrap_or_default()
+        }
+    }
+
+    fn text_content_widths(
+        &self,
+        text_item: Pin<&dyn i_slint_core::item_rendering::RenderString>,
+        item_rc: &i_slint_core::item_tree::ItemRc,
+    ) -> Option<i_slint_core::renderer::ContentWidths> {
+        let font_request = text_item.font_request(item_rc);
+        if is_fixed_test_font(&font_request.family) {
+            let pixel_size = font_request.pixel_size.map_or(10., |s| s.get());
+            let text: String = match text_item.text() {
+                i_slint_core::item_rendering::PlainOrStyledText::Plain(s) => s.to_string(),
+                i_slint_core::item_rendering::PlainOrStyledText::Styled(s) => {
+                    i_slint_core::styled_text::get_raw_text(&s).into_owned()
+                }
+            };
+            let max_lines = text_item.line_limit().unwrap_or(usize::MAX);
+            let lines = text.lines().take(max_lines);
+            let longest_word =
+                lines.clone().flat_map(str::split_whitespace).map(str::len).max().unwrap_or(0);
+            let longest_line = lines.map(str::len).max().unwrap_or(0);
+            Some(i_slint_core::renderer::ContentWidths {
+                min: LogicalLength::new(longest_word as f32 * pixel_size),
+                max: LogicalLength::new(longest_line as f32 * pixel_size),
+            })
+        } else {
+            sharedparley::text_content_widths(self, text_item, item_rc)
         }
     }
 
@@ -506,7 +624,7 @@ impl RendererSealed for TestingWindow {
             let column = ((pos.x / pixel_size).max(0.) as usize).min(line.len());
             offset + column
         } else {
-            sharedparley::text_input_byte_offset_for_position(self, text_input, item_rc, pos)
+            sharedparley::text_input_byte_offset_for_position(self, text_input, item_rc, pos, None)
         }
     }
 
@@ -532,28 +650,9 @@ impl RendererSealed for TestingWindow {
                 text_input,
                 item_rc,
                 byte_offset,
+                None,
             )
         }
-    }
-
-    fn register_font_from_memory(
-        &self,
-        data: &'static [u8],
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        let ctx = self.slint_context().ok_or("slint platform not initialized")?;
-        ctx.font_context().borrow_mut().register_static_font(data);
-        Ok(())
-    }
-
-    fn register_font_from_path(
-        &self,
-        path: &std::path::Path,
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        let requested_path = path.canonicalize().unwrap_or_else(|_| path.into());
-        let contents = std::fs::read(requested_path)?;
-        let ctx = self.slint_context().ok_or("slint platform not initialized")?;
-        ctx.font_context().borrow_mut().collection.register_fonts(contents.into(), None);
-        Ok(())
     }
 
     fn set_window_adapter(&self, _window_adapter: &Rc<dyn WindowAdapter>) {

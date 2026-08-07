@@ -313,6 +313,8 @@ pub unsafe extern "C" fn slint_platform_register(
         invoke_from_event_loop,
     };
     i_slint_core::platform::set_platform(Box::new(p)).unwrap();
+    #[cfg(any(feature = "mcp", feature = "system-testing"))]
+    i_slint_backend_selector::init_testing_backends();
 }
 
 #[unsafe(no_mangle)]

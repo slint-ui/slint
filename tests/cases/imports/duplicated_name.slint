@@ -19,7 +19,7 @@ component TestButton inherits Rectangle {
     in-out property <string> abc: "hello";
 }
 
-component TestCase inherits Rectangle {
+export component TestCase inherits Rectangle {
     ColorButton { button_color: red; }
     TestButtonImpl { abc: 4; }
     TestButton { abc: "world"; }

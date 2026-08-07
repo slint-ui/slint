@@ -549,6 +549,7 @@ static LICENSE_LOCATION_FOR_FILE: LazyLock<Vec<(regex::Regex, LicenseLocation)>>
             ("\\.conf$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
             ("\\.cpp$", LicenseLocation::Tag(LicenseTagStyle::cpp_style_comment_style())),
             ("\\.css$", LicenseLocation::NoLicense),
+            ("\\.dict$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
             ("\\.gitattributes$", LicenseLocation::NoLicense),
             ("\\.gitignore$", LicenseLocation::NoLicense),
             ("\\.gltf$", LicenseLocation::NoLicense),
@@ -943,7 +944,7 @@ impl LicenseHeaderCheck {
         for path in &collect_files()? {
             let result = self
                 .check_file(path.as_path())
-                .with_context(|| format!("checking {}", &path.to_string_lossy()));
+                .with_context(|| format!("checking {}", path.to_string_lossy()));
 
             if result.is_err() {
                 seen_errors = true;

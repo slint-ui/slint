@@ -1,0 +1,117 @@
+---
+title: Animations
+description: Animating property changes with the animate keyword.
+---
+
+import SlintProperty from '@slint/common-files/src/components/SlintProperty.astro';
+import Link from '@slint/common-files/src/components/Link.astro';
+
+An `animate` block attaches an animation to a property.
+Whenever that property's value changes, the value moves to its target over time rather than jumping to it at once:
+
+```slint
+export component Example inherits Window {
+    background: area.pressed ? blue : red;
+    animate background {
+        duration: 250ms;
+    }
+    area := TouchArea {}
+}
+```
+
+An `animate` block is a statement inside an element's body.
+It may appear on any element — the root, a child, or a sub-component's root.
+A [global](../globals/) may not contain an `animate` block; doing so is a compile error.
+
+## Shape
+
+The `animate` keyword is followed by one or more property names and a brace-delimited body of bindings:
+
+```slint no-test
+animate <property> {
+    // field: value;
+}
+```
+
+- Each name refers to a property of the element the `animate` block sits on.
+  A qualified name such as `other.property` is not allowed here; it is a compile error to refer to a property of another element.
+- The body may contain only bindings of the form `field: value;`.
+  Any other statement is a compile error.
+- The only fields are `delay`, `duration`, `easing`, `iteration-count`, `direction`, and `enabled`.
+  Binding any other name is a compile error.
+  Every field is optional.
+
+Attaching two `animate` blocks to the same property is a compile error.
+
+## Animatable properties
+
+A property can be animated only when its type is one of:
+`int`, `float`, `length`, `physical-length`, `color`, `brush`, or `angle`.
+Animating a property of any other type — for example a `string`, `bool`, `image`, or struct property — is a compile error.
+
+The property must also be settable on the element.
+Animating a property that cannot be assigned, such as a private property of another component, is a compile error.
+
+## Animating several properties
+
+Listing several comma-separated names applies the same animation to each:
+
+```slint no-test
+animate x, y { duration: 100ms; easing: ease-out-bounce; }
+```
+
+is equivalent to:
+
+```slint no-test
+animate x { duration: 100ms; easing: ease-out-bounce; }
+animate y { duration: 100ms; easing: ease-out-bounce; }
+```
+
+Each named property must be animatable and settable, subject to the rules above.
+
+## Fields
+
+### delay
+<SlintProperty propName="delay" typeName="duration">
+The amount of time to wait before the animation starts.
+</SlintProperty>
+
+### duration
+
+<SlintProperty propName="duration" typeName="duration">
+The amount of time the animation takes to complete.
+</SlintProperty>
+
+### iteration-count
+
+<SlintProperty propName="iteration-count" typeName="float" defaultValue="1">
+The number of times the animation runs.
+A negative value runs it forever.
+Fractional values are allowed.
+For a continuously running value independent of property changes, see <Link type="AnimationTick" label="`animation-tick()`" />.
+</SlintProperty>
+
+### easing
+
+<SlintProperty propName="easing" typeName="easing">
+The <Link type="easing" label="easing curve" /> applied over the animation's duration.
+See [`easings.net`](https://easings.net/) for a visual reference.
+</SlintProperty>
+
+### direction
+<SlintProperty propName="direction" typeName="enum" enumName="AnimationDirection">
+The direction in which each iteration plays.
+</SlintProperty>
+
+### enabled
+<SlintProperty propName="enabled" typeName="bool" defaultValue="true">
+Whether the animation runs.
+When `false`, a change sets the property to its target value at once, with no delay, easing, or iteration.
+</SlintProperty>
+
+## Transitions
+
+Inside a [transition](../states-and-transitions/) an `animate` block instead describes how the property moves when the state changes.
+There a name may be qualified, as in `animate root.background { ... }`, so a transition can animate properties of nested elements.
+The fields are the same as above.
+See [States and Transitions](../states-and-transitions/) for where transitions are written and how they select which animation applies.

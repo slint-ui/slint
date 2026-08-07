@@ -63,7 +63,7 @@ fn uses_member_on_root(component: &Rc<Component>, name: &str) -> bool {
     // bindings and change callbacks refer to the property by name,
     // everything else goes through a NamedReference
     root.named_references.is_referenced(name)
-        || root.bindings.contains_key(name)
+        || root.real_bindings().any(|(binding_name, _)| binding_name == name)
         || root.change_callbacks.contains_key(name)
 }
 

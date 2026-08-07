@@ -9,10 +9,10 @@ When adding an item or a property, it needs to be kept in sync with different pl
 Lookup the [`crate::items`] module documentation.
 */
 use super::{
-    EventResult, FontMetrics, InputType, Item, ItemConsts, ItemRc, ItemRef, KeyEventArg,
-    KeyEventResult, KeyEventType, PointArg, PointerEventButton, RenderingResult, StringArg,
-    TextHorizontalAlignment, TextOverflow, TextStrokeStyle, TextVerticalAlignment, TextWrap,
-    VoidArg,
+    EventResult, FontMetrics, InputMethodHints, InputType, Item, ItemConsts, ItemRc, ItemRef,
+    KeyEventArg, KeyEventResult, KeyEventType, PointArg, PointerEventButton, RenderingResult,
+    StringArg, TextHorizontalAlignment, TextOverflow, TextStrokeStyle, TextVerticalAlignment,
+    TextWrap, VoidArg,
 };
 use crate::graphics::{Brush, Color, FontRequest};
 use crate::input::{
@@ -52,6 +52,7 @@ pub struct ComplexText {
     pub color: Property<Brush>,
     pub horizontal_alignment: Property<TextHorizontalAlignment>,
     pub vertical_alignment: Property<TextVerticalAlignment>,
+    pub max_lines: Property<i32>,
 
     pub font_family: Property<SharedString>,
     pub font_italic: Property<bool>,
@@ -91,7 +92,7 @@ impl Item for ComplexText {
         _: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
-        _: &mut super::MouseCursor,
+        _: &mut super::MouseCursorInner,
     ) -> InputEventFilterResult {
         InputEventFilterResult::ForwardAndIgnore
     }
@@ -101,7 +102,7 @@ impl Item for ComplexText {
         _: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
-        _: &mut super::MouseCursor,
+        _: &mut super::MouseCursorInner,
     ) -> InputEventResult {
         InputEventResult::EventIgnored
     }
@@ -181,6 +182,14 @@ impl RenderString for ComplexText {
     fn text(self: Pin<&Self>) -> PlainOrStyledText {
         PlainOrStyledText::Plain(self.text())
     }
+
+    fn max_lines(self: Pin<&Self>) -> i32 {
+        Self::FIELD_OFFSETS.max_lines().apply_pin(self).get()
+    }
+
+    fn stroke(self: Pin<&Self>) -> (Brush, LogicalLength, TextStrokeStyle) {
+        (self.stroke(), self.stroke_width(), self.stroke_style())
+    }
 }
 
 impl RenderText for ComplexText {
@@ -190,10 +199,6 @@ impl RenderText for ComplexText {
 
     fn color(self: Pin<&Self>) -> Brush {
         self.color()
-    }
-
-    fn link_color(self: Pin<&Self>) -> Color {
-        Default::default()
     }
 
     fn alignment(
@@ -208,10 +213,6 @@ impl RenderText for ComplexText {
 
     fn overflow(self: Pin<&Self>) -> TextOverflow {
         self.overflow()
-    }
-
-    fn stroke(self: Pin<&Self>) -> (Brush, LogicalLength, TextStrokeStyle) {
-        (self.stroke(), self.stroke_width(), self.stroke_style())
     }
 
     fn is_markdown(self: Pin<&Self>) -> bool {
@@ -243,6 +244,7 @@ pub struct StyledTextItem {
     pub default_font_family: Property<SharedString>,
     pub horizontal_alignment: Property<TextHorizontalAlignment>,
     pub vertical_alignment: Property<TextVerticalAlignment>,
+    pub max_lines: Property<i32>,
     pub link_clicked: Callback<StringArg>,
     pub link_color: Property<Color>,
     pub cached_rendering_data: CachedRenderingData,
@@ -275,7 +277,7 @@ impl Item for StyledTextItem {
         _: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
-        _: &mut super::MouseCursor,
+        _: &mut super::MouseCursorInner,
     ) -> InputEventFilterResult {
         InputEventFilterResult::ForwardEvent
     }
@@ -286,19 +288,19 @@ impl Item for StyledTextItem {
         event: &MouseEvent,
         window_adapter: &Rc<dyn WindowAdapter>,
         self_rc: &ItemRc,
-        cursor: &mut super::MouseCursor,
+        cursor: &mut super::MouseCursorInner,
     ) -> InputEventResult {
         #[cfg(feature = "shared-parley")]
         let find_link = |position: &LogicalPoint| {
             let window_inner = WindowInner::from_pub(window_adapter.window());
             let scale_factor = crate::lengths::ScaleFactor::new(window_inner.scale_factor());
             crate::textlayout::sharedparley::link_under_cursor(
-                &mut window_inner.context().font_context().borrow_mut(),
                 scale_factor,
                 self,
                 self_rc,
                 LogicalSize::from_lengths(self.width(), self.height()),
                 *position * scale_factor,
+                window_adapter.window(),
                 None,
             )
         };
@@ -311,7 +313,7 @@ impl Item for StyledTextItem {
                 touch_finger_id: _,
             } => {
                 if let Some(link) = find_link(position) {
-                    *cursor = super::MouseCursor::Pointer;
+                    *cursor = super::MouseCursorInner::BuiltIn(super::BuiltInMouseCursor::Pointer);
                     Self::FIELD_OFFSETS.link_clicked().apply_pin(self).call(&(link.into(),));
                 }
                 InputEventResult::EventAccepted
@@ -321,7 +323,7 @@ impl Item for StyledTextItem {
             | MouseEvent::Pressed { position, .. }
             | MouseEvent::Released { position, .. } => {
                 if find_link(position).is_some() {
-                    *cursor = super::MouseCursor::Pointer;
+                    *cursor = super::MouseCursorInner::BuiltIn(super::BuiltInMouseCursor::Pointer);
                 }
                 InputEventResult::EventAccepted
             }
@@ -404,6 +406,14 @@ impl RenderString for StyledTextItem {
     fn text(self: Pin<&Self>) -> PlainOrStyledText {
         PlainOrStyledText::Styled(self.text())
     }
+
+    fn max_lines(self: Pin<&Self>) -> i32 {
+        Self::FIELD_OFFSETS.max_lines().apply_pin(self).get()
+    }
+
+    fn link_color(self: Pin<&Self>) -> Color {
+        self.link_color()
+    }
 }
 
 impl RenderText for StyledTextItem {
@@ -413,10 +423,6 @@ impl RenderText for StyledTextItem {
 
     fn color(self: Pin<&Self>) -> Brush {
         self.default_color()
-    }
-
-    fn link_color(self: Pin<&Self>) -> Color {
-        self.link_color()
     }
 
     fn alignment(
@@ -431,10 +437,6 @@ impl RenderText for StyledTextItem {
 
     fn overflow(self: Pin<&Self>) -> TextOverflow {
         TextOverflow::Clip
-    }
-
-    fn stroke(self: Pin<&Self>) -> (Brush, LogicalLength, TextStrokeStyle) {
-        Default::default()
     }
 
     fn is_markdown(self: Pin<&Self>) -> bool {
@@ -466,6 +468,7 @@ pub struct SimpleText {
     pub color: Property<Brush>,
     pub horizontal_alignment: Property<TextHorizontalAlignment>,
     pub vertical_alignment: Property<TextVerticalAlignment>,
+    pub max_lines: Property<i32>,
 
     pub cached_rendering_data: CachedRenderingData,
 }
@@ -497,7 +500,7 @@ impl Item for SimpleText {
         _: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
-        _: &mut super::MouseCursor,
+        _: &mut super::MouseCursorInner,
     ) -> InputEventFilterResult {
         InputEventFilterResult::ForwardAndIgnore
     }
@@ -507,7 +510,7 @@ impl Item for SimpleText {
         _: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
-        _: &mut super::MouseCursor,
+        _: &mut super::MouseCursorInner,
     ) -> InputEventResult {
         InputEventResult::EventIgnored
     }
@@ -587,6 +590,10 @@ impl RenderString for SimpleText {
     fn text(self: Pin<&Self>) -> PlainOrStyledText {
         PlainOrStyledText::Plain(self.text())
     }
+
+    fn max_lines(self: Pin<&Self>) -> i32 {
+        Self::FIELD_OFFSETS.max_lines().apply_pin(self).get()
+    }
 }
 
 impl RenderText for SimpleText {
@@ -596,10 +603,6 @@ impl RenderText for SimpleText {
 
     fn color(self: Pin<&Self>) -> Brush {
         self.color()
-    }
-
-    fn link_color(self: Pin<&Self>) -> Color {
-        Default::default()
     }
 
     fn alignment(
@@ -614,10 +617,6 @@ impl RenderText for SimpleText {
 
     fn overflow(self: Pin<&Self>) -> TextOverflow {
         TextOverflow::default()
-    }
-
-    fn stroke(self: Pin<&Self>) -> (Brush, LogicalLength, TextStrokeStyle) {
-        Default::default()
     }
 
     fn is_markdown(self: Pin<&Self>) -> bool {
@@ -635,6 +634,8 @@ impl SimpleText {
     }
 }
 
+// The compiler's single-cell box layout lowering relies on text and image
+// items keeping the default stretch of 0 in their layout info.
 fn text_layout_info(
     text: Pin<&dyn RenderText>,
     self_rc: &ItemRc,
@@ -652,21 +653,31 @@ fn text_layout_info(
     // letters will be cut off, apply the ceiling here.
     match orientation {
         Orientation::Horizontal => {
-            let implicit_size = implicit_size(None, TextWrap::NoWrap);
-            let min = match text.overflow() {
-                TextOverflow::Elide => implicit_size
-                    .width
-                    .min(window_adapter.renderer().char_size(text, self_rc, '…').width),
-                TextOverflow::Clip => match text.wrap() {
-                    TextWrap::NoWrap => implicit_size.width,
-                    TextWrap::WordWrap | TextWrap::CharWrap => 0 as Coord,
-                },
+            // A word-wrapping text mustn't be squeezed below its longest word. One
+            // content-widths measurement gives both that minimum and the single-line
+            // preferred width, so this replaces the plain measurement below.
+            let word_wrap_widths =
+                matches!((text.overflow(), text.wrap()), (TextOverflow::Clip, TextWrap::WordWrap))
+                    .then(|| window_adapter.renderer().text_content_widths(text, self_rc))
+                    .flatten();
+
+            let (min, preferred) = match word_wrap_widths {
+                Some(widths) => (widths.min.get(), widths.max.get()),
+                None => {
+                    let unwrapped_width = implicit_size(None, TextWrap::NoWrap).width;
+                    let min = match text.overflow() {
+                        TextOverflow::Elide => unwrapped_width
+                            .min(window_adapter.renderer().char_size(text, self_rc, '…').width),
+                        TextOverflow::Clip => match text.wrap() {
+                            TextWrap::NoWrap => unwrapped_width,
+                            // char-wrap can break anywhere, so it keeps no lower bound.
+                            TextWrap::WordWrap | TextWrap::CharWrap => 0 as Coord,
+                        },
+                    };
+                    (min, unwrapped_width)
+                }
             };
-            LayoutInfo {
-                min: min.ceil(),
-                preferred: implicit_size.width.ceil(),
-                ..LayoutInfo::default()
-            }
+            LayoutInfo { min: min.ceil(), preferred: preferred.ceil(), ..LayoutInfo::default() }
         }
         Orientation::Vertical => {
             let h = match text.wrap() {
@@ -743,6 +754,7 @@ pub struct TextInput {
     pub vertical_alignment: Property<TextVerticalAlignment>,
     pub wrap: Property<TextWrap>,
     pub input_type: Property<InputType>,
+    pub input_method_hints: Property<InputMethodHints>,
     pub letter_spacing: Property<LogicalLength>,
     pub width: Property<LogicalLength>,
     pub height: Property<LogicalLength>,
@@ -857,7 +869,7 @@ impl Item for TextInput {
         _: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
-        _: &mut super::MouseCursor,
+        _: &mut super::MouseCursorInner,
     ) -> InputEventFilterResult {
         InputEventFilterResult::ForwardEvent
     }
@@ -867,13 +879,13 @@ impl Item for TextInput {
         event: &MouseEvent,
         window_adapter: &Rc<dyn WindowAdapter>,
         self_rc: &ItemRc,
-        cursor: &mut super::MouseCursor,
+        cursor: &mut super::MouseCursorInner,
     ) -> InputEventResult {
         if !self.enabled() {
             return InputEventResult::EventIgnored;
         }
 
-        *cursor = super::MouseCursor::Text;
+        *cursor = super::MouseCursorInner::BuiltIn(super::BuiltInMouseCursor::Text);
 
         match event {
             MouseEvent::Pressed {
@@ -887,7 +899,7 @@ impl Item for TextInput {
                     self.as_ref().anchor_position_byte_offset.set(clicked_offset);
                 }
 
-                #[cfg(not(target_os = "android"))]
+                #[cfg(not(any(target_os = "android", target_os = "ios")))]
                 self.ensure_focus_and_ime(window_adapter, self_rc);
 
                 match click_count % 3 {
@@ -906,13 +918,13 @@ impl Item for TextInput {
                 return InputEventResult::GrabMouse;
             }
             MouseEvent::Pressed { button: PointerEventButton::Middle, .. } => {
-                #[cfg(not(target_os = "android"))]
+                #[cfg(not(any(target_os = "android", target_os = "ios")))]
                 self.ensure_focus_and_ime(window_adapter, self_rc);
             }
             MouseEvent::Released { button: PointerEventButton::Left, .. } => {
                 self.as_ref().pressed.set(0);
                 self.copy_clipboard(window_adapter, Clipboard::SelectionClipboard);
-                #[cfg(target_os = "android")]
+                #[cfg(any(target_os = "android", target_os = "ios"))]
                 self.ensure_focus_and_ime(window_adapter, self_rc);
             }
             MouseEvent::Released { position, button: PointerEventButton::Middle, .. } => {
@@ -1301,7 +1313,10 @@ impl HasFont for TextInput {
 
 impl RenderString for TextInput {
     fn text(self: Pin<&Self>) -> PlainOrStyledText {
-        PlainOrStyledText::Plain(self.as_ref().visual_representation(None).text.clone())
+        // Deliberately not `visual_representation`, which would size the item off the cursor and
+        // the selection too -- see `text_with_preedit`.
+        let text = self.text_with_preedit().0;
+        PlainOrStyledText::Plain(if self.is_password() { mask_password(&text) } else { text })
     }
 }
 
@@ -1336,10 +1351,10 @@ impl core::convert::TryFrom<char> for TextCursorDirection {
             key_codes::DownArrow => Self::NextLine,
             key_codes::PageUp => Self::PageUp,
             key_codes::PageDown => Self::PageDown,
-            // On macos this scrolls to the top or the bottom of the page
-            #[cfg(not(target_os = "macos"))]
+            // On macOS and iOS this scrolls to the top or the bottom of the page
+            #[cfg(not(target_vendor = "apple"))]
             key_codes::Home => Self::StartOfLine,
-            #[cfg(not(target_os = "macos"))]
+            #[cfg(not(target_vendor = "apple"))]
             key_codes::End => Self::EndOfLine,
             _ => return Err(()),
         })
@@ -1409,41 +1424,38 @@ pub struct TextInputVisualRepresentation {
     /// The color of the blinking cursor
     pub cursor_color: Color,
     text_without_password: Option<SharedString>,
-    password_character: char,
+}
+
+/// What the characters of a password field are displayed as. The same everywhere, so that
+/// measuring, hit-testing and drawing agree on the shaped text and can share it.
+const PASSWORD_CHARACTER: char = '\u{25cf}';
+
+/// Replaces every character of `text` with [`PASSWORD_CHARACTER`].
+fn mask_password(text: &str) -> SharedString {
+    core::iter::repeat_n(PASSWORD_CHARACTER, text.chars().count()).collect()
 }
 
 impl TextInputVisualRepresentation {
     /// If the given `TextInput` renders a password, then all characters in this `TextInputVisualRepresentation` are replaced
-    /// with the password character and the selection/preedit-ranges/cursor position are adjusted.
-    /// If `password_character_fn` is Some, it is called lazily to query the password character, otherwise a default is used.
-    fn apply_password_character_substitution(
-        &mut self,
-        text_input: Pin<&TextInput>,
-        password_character_fn: Option<fn() -> char>,
-    ) {
-        if !matches!(text_input.input_type(), InputType::Password) {
+    /// with [`PASSWORD_CHARACTER`] and the selection/preedit-ranges/cursor position are adjusted.
+    fn apply_password_character_substitution(&mut self, text_input: Pin<&TextInput>) {
+        if !text_input.is_password() {
             return;
         }
-
-        let password_character = password_character_fn.map_or('●', |f| f());
 
         let text = &mut self.text;
         let fixup_range = |r: &mut core::ops::Range<usize>| {
             if !core::ops::Range::is_empty(r) {
-                r.start = text[..r.start].chars().count() * password_character.len_utf8();
-                r.end = text[..r.end].chars().count() * password_character.len_utf8();
+                r.start = text[..r.start].chars().count() * PASSWORD_CHARACTER.len_utf8();
+                r.end = text[..r.end].chars().count() * PASSWORD_CHARACTER.len_utf8();
             }
         };
         fixup_range(&mut self.preedit_range);
         fixup_range(&mut self.selection_range);
         if let Some(cursor_pos) = self.cursor_position.as_mut() {
-            *cursor_pos = text[..*cursor_pos].chars().count() * password_character.len_utf8();
+            *cursor_pos = text[..*cursor_pos].chars().count() * PASSWORD_CHARACTER.len_utf8();
         }
-        self.text_without_password = Some(core::mem::replace(
-            text,
-            core::iter::repeat_n(password_character, text.chars().count()).collect(),
-        ));
-        self.password_character = password_character;
+        self.text_without_password = Some(core::mem::replace(text, mask_password(text)));
     }
 
     /// Use this function to make a byte offset in the visual text (used for rendering) back to a byte offset in the
@@ -1452,7 +1464,7 @@ impl TextInputVisualRepresentation {
         if let Some(text_without_password) = self.text_without_password.as_ref() {
             text_without_password
                 .char_indices()
-                .nth(byte_offset / self.password_character.len_utf8())
+                .nth(byte_offset / PASSWORD_CHARACTER.len_utf8())
                 .map_or(text_without_password.len(), |(r, _)| r)
         } else {
             byte_offset
@@ -1463,8 +1475,7 @@ impl TextInputVisualRepresentation {
     /// This is the opposite of `map_byte_offset_from_byte_offset_in_visual_text`.
     pub fn map_byte_offset_from_actual_to_visual_text(&self, byte_offset: usize) -> usize {
         if let Some(text_without_password) = self.text_without_password.as_ref() {
-            text_without_password[..byte_offset].chars().count()
-                * self.password_character.len_utf8()
+            text_without_password[..byte_offset].chars().count() * PASSWORD_CHARACTER.len_utf8()
         } else {
             byte_offset
         }
@@ -1794,6 +1805,11 @@ impl TextInput {
         safe_byte_offset(self.anchor_position_byte_offset(), text)
     }
 
+    /// Whether this input masks what is typed into it.
+    pub fn is_password(self: Pin<&Self>) -> bool {
+        matches!(self.input_type(), InputType::Password)
+    }
+
     pub fn cursor_position(self: Pin<&Self>, text: &str) -> usize {
         safe_byte_offset(self.cursor_position_byte_offset(), text)
     }
@@ -1837,6 +1853,7 @@ impl TextInput {
             cursor_rect_size,
             anchor_point,
             input_type: self.input_type(),
+            input_method_hints: self.input_method_hints(),
             clip_rect,
         }
     }
@@ -2037,33 +2054,48 @@ impl TextInput {
         }
     }
 
+    /// Returns the `text` property with the IME composition (preedit) inserted at the cursor, and
+    /// the byte range that composition occupies within the returned string. The range is empty
+    /// when no composition is in progress, in which case the text is returned unchanged.
+    ///
+    /// Password fields are *not* masked here; callers that render or measure the text apply the
+    /// substitution themselves, because the masking character is renderer-specific.
+    ///
+    /// Deliberately reads less than [`Self::visual_representation`]: neither the cursor visibility
+    /// nor the selection nor the colors, so that callers which only need the string -- sizing above
+    /// all -- don't end up making the layout depend on the blinking cursor.
+    fn text_with_preedit(self: Pin<&Self>) -> (SharedString, core::ops::Range<usize>) {
+        let text = self.text();
+        let preedit_text = self.preedit_text();
+        if preedit_text.is_empty() {
+            return (text, Default::default());
+        }
+        let cursor_position = self.cursor_position(&text);
+        (
+            [&text[..cursor_position], &preedit_text, &text[cursor_position..]].concat().into(),
+            cursor_position..cursor_position + preedit_text.len(),
+        )
+    }
+
     /// Returns a [`TextInputVisualRepresentation`] struct that contains all the fields necessary for rendering the text input,
     /// after making adjustments such as applying a substitution of characters for password input fields, or making sure
     /// that the selection start is always less or equal than the selection end.
-    pub fn visual_representation(
-        self: Pin<&Self>,
-        password_character_fn: Option<fn() -> char>,
-    ) -> TextInputVisualRepresentation {
-        let mut text = self.text();
+    pub fn visual_representation(self: Pin<&Self>) -> TextInputVisualRepresentation {
+        let (text, composition) = self.text_with_preedit();
 
-        let preedit_text = self.preedit_text();
-        let (preedit_range, selection_range, cursor_position) = if !preedit_text.is_empty() {
-            let cursor_position = self.cursor_position(&text);
-
-            text =
-                [&text[..cursor_position], &preedit_text, &text[cursor_position..]].concat().into();
-            let preedit_range = cursor_position..cursor_position + preedit_text.len();
+        let (preedit_range, selection_range, cursor_position) = if !composition.is_empty() {
+            // Where the composition was inserted, i.e. the cursor within the pre-composition text.
+            let cursor_position = composition.start;
 
             if let Some(preedit_sel) = self.preedit_selection().as_option() {
                 let preedit_selection = cursor_position + preedit_sel.start as usize
                     ..cursor_position + preedit_sel.end as usize;
-                (preedit_range, preedit_selection, Some(cursor_position + preedit_sel.end as usize))
+                (composition, preedit_selection, Some(cursor_position + preedit_sel.end as usize))
             } else {
-                let cur = preedit_range.end;
-                (preedit_range, cur..cur, None)
+                let cur = composition.end;
+                (composition, cur..cur, None)
             }
         } else {
-            let preedit_range = Default::default();
             let (selection_anchor_pos, selection_cursor_pos) = self.selection_anchor_and_cursor();
             let selection_range = selection_anchor_pos..selection_cursor_pos;
             let cursor_position = self.cursor_position(&text);
@@ -2073,7 +2105,7 @@ impl TextInput {
             } else {
                 None
             };
-            (preedit_range, selection_range, cursor_position)
+            (composition, selection_range, cursor_position)
         };
 
         let text_color = self.color();
@@ -2095,11 +2127,10 @@ impl TextInput {
             selection_range,
             cursor_position,
             text_without_password: None,
-            password_character: Default::default(),
             text_color,
             cursor_color,
         };
-        repr.apply_password_character_substitution(self, password_character_fn);
+        repr.apply_password_character_substitution(self);
         repr
     }
 
@@ -2499,11 +2530,12 @@ pub unsafe extern "C" fn slint_cpp_text_item_fontmetrics(
     window_adapter: *const crate::window::ffi::WindowAdapterRcOpaque,
     self_component: &vtable::VRc<crate::item_tree::ItemTreeVTable>,
     self_index: u32,
-) -> FontMetrics {
+    out: *mut FontMetrics,
+) {
     unsafe {
         let window_adapter = &*(window_adapter as *const Rc<dyn WindowAdapter>);
         let self_rc = ItemRc::new(self_component.clone(), self_index);
         let self_ref = self_rc.borrow();
-        slint_text_item_fontmetrics(window_adapter, self_ref, &self_rc)
+        core::ptr::write(out, slint_text_item_fontmetrics(window_adapter, self_ref, &self_rc));
     }
 }

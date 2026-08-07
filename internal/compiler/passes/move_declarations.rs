@@ -102,7 +102,7 @@ fn do_move_declarations(component: &Rc<Component>, renames: &RenameMap) {
         }
 
         // take the bindings so we do not keep the borrow_mut of the element
-        let bindings = core::mem::take(&mut elem.borrow_mut().bindings);
+        let bindings = elem.borrow_mut().take_bindings_including_synthetic();
         let mut new_bindings = BindingsMap::default();
         for (k, e) in bindings {
             let will_be_moved = elem.borrow().property_declarations.contains_key(&k);
@@ -112,7 +112,7 @@ fn do_move_declarations(component: &Rc<Component>, renames: &RenameMap) {
                 new_bindings.insert(k, e);
             }
         }
-        elem.borrow_mut().bindings = new_bindings;
+        elem.borrow_mut().extend_bindings_including_synthetic(new_bindings);
 
         let property_analysis = elem.borrow().property_analysis.take();
         let mut new_property_analysis = BTreeMap::new();
@@ -192,7 +192,7 @@ fn do_move_declarations(component: &Rc<Component>, renames: &RenameMap) {
     {
         let mut r = component.root_element.borrow_mut();
         r.property_declarations = decl.property_declarations;
-        r.bindings.extend(new_root_bindings);
+        r.extend_bindings_including_synthetic(new_root_bindings);
         r.property_analysis.borrow_mut().extend(new_root_property_analysis);
         r.change_callbacks.extend(new_root_change_callbacks);
     }

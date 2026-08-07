@@ -27,6 +27,34 @@ fn get_default_value<'py>(py: Python<'py>, ty: &str) -> PyResult<Bound<'py, PyAn
     }
 }
 
+/// The Python value of a field default declared in builtin_structs.rs.
+/// Enum defaults resolve to the already registered enum member,
+/// so `register_structs` must run after `register_enums`.
+fn declared_default_value<'py>(
+    py: Python<'py>,
+    m: &Bound<'py, PyModule>,
+    tokens: &str,
+    rust_ty: &str,
+) -> PyResult<Bound<'py, PyAny>> {
+    let text: String =
+        tokens.chars().filter(|c| !c.is_whitespace() && *c != '(' && *c != ')').collect();
+    if let Some((enum_name, variant)) = text.split_once("::") {
+        let member = to_kebab_case(variant.trim_start_matches("r#")).replace('-', "_");
+        return language_submodule(py, m)?.getattr(enum_name)?.getattr(member.as_str());
+    }
+    if let Ok(b) = text.parse::<bool>() {
+        return b.into_bound_py_any(py);
+    }
+    let value = text
+        .parse::<f64>()
+        .unwrap_or_else(|_| panic!("unsupported builtin struct field default `{tokens}`"));
+    if rust_ty == "i32" {
+        (value as i32).into_bound_py_any(py)
+    } else {
+        value.into_bound_py_any(py)
+    }
+}
+
 /// Returns the `slint.language` submodule, creating and registering it on the parent
 /// module + `sys.modules` on first call so `from slint.language import …` works.
 fn language_submodule<'py>(
@@ -53,7 +81,7 @@ fn register_named_tuple(
     m: &Bound<'_, PyModule>,
     class_name: &str,
     class_doc: &str,
-    fields: &[(&str, &str, String)], // name, rust_type, doc
+    fields: &[(&str, &str, String, Option<&str>)], // name, rust_type, doc, declared default
 ) -> PyResult<()> {
     let collections = py.import("collections")?;
     let namedtuple = collections.getattr("namedtuple")?;
@@ -62,9 +90,12 @@ fn register_named_tuple(
     let mut defaults = Vec::new();
     let mut full_doc = class_doc.to_string();
 
-    for (name, rust_ty, doc) in fields {
+    for (name, rust_ty, doc, declared) in fields {
         field_names.push(*name);
-        defaults.push(get_default_value(py, rust_ty)?);
+        defaults.push(match declared {
+            Some(tokens) => declared_default_value(py, m, tokens, rust_ty)?,
+            None => get_default_value(py, rust_ty)?,
+        });
         if !doc.is_empty() {
             use std::fmt::Write;
             let _ = write!(full_doc, "\n\n:param {name}: {doc}");
@@ -127,7 +158,7 @@ macro_rules! declare_python_public_structs {
         $(#[non_exhaustive])?
         $(#[derive(Copy, Eq)])?
         $vis:vis struct $Name:ident {
-            $( $(#[doc = $field_doc:literal])* $field:ident : $field_type:ident, )*
+            $( $(#[doc = $field_doc:literal])* $field:ident : $field_type:ident $(= $field_default:expr)?, )*
         }
     )*) => {
         fn register_structs(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
@@ -136,7 +167,8 @@ macro_rules! declare_python_public_structs {
                     let class_doc = [ $($struct_doc),* ].join("\n");
                     let fields = vec![
                         $(
-                            (stringify!($field), stringify!($field_type), [ $($field_doc),* ].join("\n")),
+                            (stringify!($field), stringify!($field_type), [ $($field_doc),* ].join("\n"),
+                                i_slint_common::builtin_struct_field_default_tokens!($($field_default)?)),
                         )*
                     ];
                     register_named_tuple(py, m, stringify!($Name), &class_doc, &fields)?;
@@ -199,7 +231,8 @@ i_slint_common::for_each_enums!(declare_python_public_enums);
 
 /// Entry point called once from `lib.rs` during module initialization.
 pub fn register_all(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
-    register_structs(py, m)?;
+    // Enums first: struct field defaults may reference their members
     register_enums(py, m)?;
+    register_structs(py, m)?;
     Ok(())
 }

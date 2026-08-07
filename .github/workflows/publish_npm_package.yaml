@@ -36,11 +36,9 @@ jobs:
         outputs:
             PKG_VERSION: ${{ steps.mkversion.outputs.PKG_VERSION }}
         steps:
-            - uses: actions/checkout@v6
-            - uses: pnpm/action-setup@v6.0.8
-              with:
-                version: 10.29.3
-            - uses: actions/setup-node@v6
+            - uses: actions/checkout@v7
+            - uses: pnpm/action-setup@v6.0.9
+            - uses: actions/setup-node@v7
               with:
                 package-manager-cache: false
             - name: Determine version
@@ -49,7 +47,7 @@ jobs:
                   RELEASE_INPUT: ${{ github.event.inputs.release }}
               working-directory: api/node
               run: |
-                  version=`pnpm pkg get version | jq -r`
+                  version=`pnpm pkg get version`
                   if [ "$RELEASE_INPUT" != "true" ]; then
                       nightly_version_suffix=`git log -1 --format=%cd --date="format:%Y%m%d%H"`
                       version="$version-nightly.$nightly_version_suffix"
@@ -82,11 +80,25 @@ jobs:
                       rust-target: aarch64-pc-windows-msvc
                       napi-rs-target: win32-arm64-msvc
                       msvc-arch: arm64
+                    # musl binaries: cross-compiled in the musl cross containers
+                    # against their Alpine sysroot (which also provides the
+                    # build dependencies, so install-linux-dependencies is skipped).
+                    - os: ubuntu-22.04
+                      rust-target: x86_64-unknown-linux-musl
+                      napi-rs-target: linux-x64-musl
+                      container: ghcr.io/slint-ui/slint/x86_64-unknown-linux-musl
+                    - os: ubuntu-22.04
+                      rust-target: aarch64-unknown-linux-musl
+                      napi-rs-target: linux-arm64-musl
+                      container: ghcr.io/slint-ui/slint/aarch64-unknown-linux-musl
         needs: determine_version
         runs-on: ${{ matrix.os }}
+        container: ${{ matrix.container }}
         steps:
-            - uses: actions/checkout@v6
+            - uses: actions/checkout@v7
+            # The musl containers bring their own dependencies (and no sudo).
             - uses: ./.github/actions/install-linux-dependencies
+              if: ${{ !matrix.container }}
             - uses: ./.github/actions/install-skia-dependencies
             - uses: ilammy/msvc-dev-cmd@v1
               if: runner.os == 'Windows'
@@ -95,24 +107,22 @@ jobs:
             - uses: ./.github/actions/setup-rust
               with:
                   target: ${{ matrix.rust-target }}
-            - uses: pnpm/action-setup@v6.0.8
-              with:
-                version: 10.29.3
+                  key: ${{ matrix.rust-target }}
             # Setup .npmrc file to publish to npm
-            - uses: actions/setup-node@v6
+            # node before pnpm: the musl containers ship no node/npm, and the
+            # pnpm self-installer needs npm.
+            - uses: actions/setup-node@v7
               with:
                   node-version: "24"
                   registry-url: "https://registry.npmjs.org"
                   package-manager-cache: false
-            - uses: pnpm/action-setup@v6.0.8
-              with:
-                version: 10.29.3
+            - uses: pnpm/action-setup@v6.0.9
             - name: Set version
               working-directory: api/node
               shell: bash
               run: |
                   if [ "$RELEASE_INPUT" != "true" ]; then
-                      pnpm version $PKG_VERSION
+                      pnpm version --no-git-tag-version $PKG_VERSION
                   fi
             - name: Build binary
               shell: bash
@@ -146,14 +156,12 @@ jobs:
             PKG_VERSION: ${{ needs.determine_version.outputs.PKG_VERSION }}
             RELEASE_INPUT: ${{ github.event.inputs.release }}
         steps:
-            - uses: actions/checkout@v6
+            - uses: actions/checkout@v7
             - uses: ./.github/actions/install-linux-dependencies
             - uses: ./.github/actions/setup-rust
-            - uses: pnpm/action-setup@v6.0.8
-              with:
-                version: 10.29.3
+            - uses: pnpm/action-setup@v6.0.9
             # Setup .npmrc file to publish to npm
-            - uses: actions/setup-node@v6
+            - uses: actions/setup-node@v7
               with:
                   node-version: "24"
                   registry-url: "https://registry.npmjs.org"
@@ -164,7 +172,7 @@ jobs:
               working-directory: api/node
               run: |
                   if [ "$RELEASE_INPUT" != "true" ]; then
-                      pnpm version $PKG_VERSION
+                      pnpm version --no-git-tag-version $PKG_VERSION
                   fi
             - name: Select git revision
               if: github.event.inputs.release != 'true'
@@ -190,28 +198,9 @@ jobs:
             - name: Download artifacts
               uses: actions/download-artifact@v8
               with:
-                  name: binaries-x86_64-unknown-linux-gnu
+                  pattern: binaries-*
                   path: api/node/
-            - name: Download artifacts
-              uses: actions/download-artifact@v8
-              with:
-                  name: binaries-aarch64-unknown-linux-gnu
-                  path: api/node/
-            - name: Download artifacts
-              uses: actions/download-artifact@v8
-              with:
-                  name: binaries-aarch64-apple-darwin
-                  path: api/node/
-            - name: Download artifacts
-              uses: actions/download-artifact@v8
-              with:
-                  name: binaries-x86_64-pc-windows-msvc
-                  path: api/node/
-            - name: Download artifacts
-              uses: actions/download-artifact@v8
-              with:
-                  name: binaries-aarch64-pc-windows-msvc
-                  path: api/node/
+                  merge-multiple: true
             - name: Add binary dependencies
               working-directory: api/node
               run: |

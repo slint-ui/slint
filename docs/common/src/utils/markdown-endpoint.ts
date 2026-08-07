@@ -56,9 +56,17 @@ export interface MarkdownEndpointOptions {
  */
 export function markdownStaticPaths(entries: MarkdownDocEntry[]) {
     return entries.map((entry) => ({
-        params: { slug: entry.id === "" ? "index" : entry.id },
+        params: { slug: `${markdownRouteContentPath(entry.id)}.md` },
         props: { entry },
     }));
+}
+
+function markdownRouteContentPath(id: string): string {
+    if (id === "") {
+        return "index";
+    }
+    // cspell:ignore mkdn mdwn
+    return id.replace(/\.(?:md|mdx|markdown|mdown|mkdn|mkd|mdwn)$/i, "");
 }
 
 /** Build the `text/markdown` Response for a single doc entry. */

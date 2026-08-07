@@ -179,7 +179,7 @@ impl super::Surface for MetalSurface {
                     &backend_render_target,
                     skia_safe::gpu::SurfaceOrigin::TopLeft,
                     skia_safe::ColorType::BGRA8888,
-                    None,
+                    crate::attachment_color_space(crate::TextureEncoding::Unorm),
                     None,
                 )
                 .unwrap()

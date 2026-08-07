@@ -11,12 +11,11 @@ use crate::langtype::ElementType;
 use crate::langtype::Type;
 use crate::object_tree::*;
 use smol_str::SmolStr;
-use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::rc::{Rc, Weak};
 
 pub fn lower_states(component: &Rc<Component>, diag: &mut BuildDiagnostics) {
-    let state_info_type = crate::typeregister::BUILTIN.with(|b| b.state_info_type.clone().into());
+    let state_info_type = crate::typeregister::BUILTIN.state_info_type.clone().into();
     recurse_elem(&component.root_element, &(), &mut |elem, _| {
         lower_state_in_element(elem, &state_info_type, diag)
     });
@@ -57,13 +56,13 @@ fn lower_state_in_element(
                 false_expr: Box::new(std::mem::take(&mut state_value)),
             };
         }
-        for (ne, expr, node) in state.property_changes {
-            affected_properties.insert(ne.clone());
-            let e = ne.element();
-            let property_expr = match expression_for_property(&e, ne.name()) {
+        for (property_reference, expr, node) in state.property_changes {
+            affected_properties.insert(property_reference.clone());
+            let element = property_reference.element();
+            let property_expr = match expression_for_property(&element, property_reference.name()) {
                 ExpressionForProperty::TwoWayBinding => {
                     diag.push_error(
-                    format!("Cannot change the property '{}' in a state because it is initialized with a two-way binding", ne.name()),
+                    format!("Cannot change the property '{}' in a state because it is initialized with a two-way binding", property_reference.name()),
                     &node
                 );
                     continue;
@@ -71,7 +70,7 @@ fn lower_state_in_element(
                 ExpressionForProperty::Expression(e) => e,
                 ExpressionForProperty::InvalidBecauseOfIssue1461 => {
                     diag.push_error(
-                        format!("Internal error: The expression for the default state currently cannot be represented: https://github.com/slint-ui/slint/issues/1461\nAs a workaround, add a binding for property {}", ne.name()),
+                        format!("Internal error: The expression for the default state currently cannot be represented: https://github.com/slint-ui/slint/issues/1461\nAs a workaround, add a binding for property {}", property_reference.name()),
                         &node
                     );
                     continue;
@@ -86,16 +85,17 @@ fn lower_state_in_element(
                 true_expr: Box::new(expr),
                 false_expr: Box::new(property_expr),
             };
-            match e.borrow_mut().bindings.entry(ne.name().clone()) {
-                std::collections::btree_map::Entry::Occupied(mut e) => {
-                    e.get_mut().get_mut().expression = new_expr
-                }
-                std::collections::btree_map::Entry::Vacant(e) => {
-                    let mut r = BindingExpression::from(new_expr);
-                    r.priority = 1;
-                    e.insert(r.into());
-                }
-            };
+
+            let name = property_reference.name();
+            if let Some(cell) = element.borrow().binding_cell_including_synthetic(name) {
+                // A synthetic hook is upgraded in place; a real binding's hook survives inside
+                // `property_expr` (the false-branch of `new_expr`), so replacing it is correct.
+                cell.borrow_mut().set_value_expression(new_expr);
+            } else {
+                let mut r = BindingExpression::from(new_expr);
+                r.priority = 1;
+                element.borrow_mut().set_binding(name.clone(), r);
+            }
         }
         states_id.insert(state.id, idx as i32 + 1);
     }
@@ -107,10 +107,7 @@ fn lower_state_in_element(
             ..PropertyDeclaration::default()
         },
     );
-    root_element
-        .borrow_mut()
-        .bindings
-        .insert(state_property_name, RefCell::new(state_value.into()));
+    root_element.borrow_mut().set_binding(state_property_name, state_value.into());
 
     lower_transitions_in_element(
         root_element,
@@ -165,7 +162,7 @@ fn lower_transitions_in_element(
     for (ne, (span, animations)) in props {
         let e = ne.element();
         // We check earlier that the property is in the set of changed properties, so a binding bust have been assigned
-        let old_anim = e.borrow().bindings.get(ne.name()).unwrap().borrow_mut().animation.replace(
+        let old_anim = e.borrow().binding_mut(ne.name()).unwrap().animation.replace(
             PropertyAnimation::Transition { state_ref: state_property.clone(), animations },
         );
         if old_anim.is_some() {
@@ -203,8 +200,7 @@ fn expression_for_property(element: &ElementRc, name: &str) -> ExpressionForProp
     let mut element_it = Some(element.clone());
     let mut in_base = false;
     while let Some(elem) = element_it {
-        if let Some(e) = elem.borrow().bindings.get(name) {
-            let e = e.borrow();
+        if let Some(e) = elem.borrow().binding(name) {
             if !e.two_way_bindings.is_empty() {
                 return ExpressionForProperty::TwoWayBinding;
             }

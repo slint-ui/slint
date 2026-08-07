@@ -105,7 +105,7 @@ fn build_tooltip_content(
         id: format_smolstr!("{}-content", popup_id),
         base_type: tooltip_impl_type.clone(),
         enclosing_component: enclosing_component.clone(),
-        bindings,
+        bindings: bindings.into(),
         children,
         ..Default::default()
     }
@@ -116,48 +116,36 @@ fn bind_popup_effective_size_from_content(
     popup_window_rc: &ElementRc,
     tooltip_content_rc: &ElementRc,
 ) {
-    let content_has_width = tooltip_content_rc.borrow().bindings.contains_key(WIDTH);
-    let content_has_height = tooltip_content_rc.borrow().bindings.contains_key(HEIGHT);
+    let content_has_width = tooltip_content_rc.borrow().binding(WIDTH).is_some();
+    let content_has_height = tooltip_content_rc.borrow().binding(HEIGHT).is_some();
 
     if content_has_width {
         let explicit_width = NamedReference::new(tooltip_content_rc, SmolStr::new_static(WIDTH));
         let mut width_binding: BindingExpression =
             Expression::PropertyReference(explicit_width).into();
         width_binding.priority = 1;
-        popup_window_rc
-            .borrow_mut()
-            .bindings
-            .insert(SmolStr::new_static(WIDTH), RefCell::new(width_binding));
+        popup_window_rc.borrow_mut().set_binding(SmolStr::new_static(WIDTH), width_binding);
     } else {
         let preferred_width =
             NamedReference::new(tooltip_content_rc, SmolStr::new_static("preferred-width"));
         let mut width_binding: BindingExpression =
             Expression::PropertyReference(preferred_width).into();
         width_binding.priority = 1;
-        popup_window_rc
-            .borrow_mut()
-            .bindings
-            .insert(SmolStr::new_static(WIDTH), RefCell::new(width_binding));
+        popup_window_rc.borrow_mut().set_binding(SmolStr::new_static(WIDTH), width_binding);
     }
     if content_has_height {
         let explicit_height = NamedReference::new(tooltip_content_rc, SmolStr::new_static(HEIGHT));
         let mut height_binding: BindingExpression =
             Expression::PropertyReference(explicit_height).into();
         height_binding.priority = 1;
-        popup_window_rc
-            .borrow_mut()
-            .bindings
-            .insert(SmolStr::new_static(HEIGHT), RefCell::new(height_binding));
+        popup_window_rc.borrow_mut().set_binding(SmolStr::new_static(HEIGHT), height_binding);
     } else {
         let preferred_height =
             NamedReference::new(tooltip_content_rc, SmolStr::new_static("preferred-height"));
         let mut height_binding: BindingExpression =
             Expression::PropertyReference(preferred_height).into();
         height_binding.priority = 1;
-        popup_window_rc
-            .borrow_mut()
-            .bindings
-            .insert(SmolStr::new_static(HEIGHT), RefCell::new(height_binding));
+        popup_window_rc.borrow_mut().set_binding(SmolStr::new_static(HEIGHT), height_binding);
     }
 }
 
@@ -217,11 +205,11 @@ fn wire_tooltip_placement(
 
     let mut x_binding: BindingExpression = x_pointer.into();
     x_binding.priority = 1;
-    popup_window_rc.borrow_mut().bindings.insert(SmolStr::new_static("x"), RefCell::new(x_binding));
+    popup_window_rc.borrow_mut().set_binding(SmolStr::new_static("x"), x_binding);
 
     let mut y_binding: BindingExpression = y_pointer.into();
     y_binding.priority = 1;
-    popup_window_rc.borrow_mut().bindings.insert(SmolStr::new_static("y"), RefCell::new(y_binding));
+    popup_window_rc.borrow_mut().set_binding(SmolStr::new_static("y"), y_binding);
 }
 
 fn wire_tooltip_visibility_behavior(
@@ -242,14 +230,12 @@ fn wire_tooltip_visibility_behavior(
         source_location: None,
     };
 
-    tooltip_area.borrow_mut().bindings.insert(
-        SmolStr::new_static("show"),
-        RefCell::new(Expression::CodeBlock(vec![show_popup]).into()),
-    );
-    tooltip_area.borrow_mut().bindings.insert(
-        SmolStr::new_static("hide"),
-        RefCell::new(Expression::CodeBlock(vec![close_popup]).into()),
-    );
+    tooltip_area
+        .borrow_mut()
+        .set_binding(SmolStr::new_static("show"), Expression::CodeBlock(vec![show_popup]).into());
+    tooltip_area
+        .borrow_mut()
+        .set_binding(SmolStr::new_static("hide"), Expression::CodeBlock(vec![close_popup]).into());
 
     // Make the PopupWindow a child of the TooltipArea so that the popup's bindings
     // (`x`/`y` referring to `TooltipArea.mouse-x`/`mouse-y`) and the conditional
@@ -268,7 +254,7 @@ fn lower_tooltips_in_component(
     let tooltip_area_type = type_register.lookup_builtin_element(TOOLTIP_AREA_ELEMENT).unwrap();
     let popup_window_type = type_register.lookup_builtin_element(POPUP_WINDOW_ELEMENT).unwrap();
 
-    let popup_close_policy_enum = BUILTIN.with(|e| e.enums.PopupClosePolicy.clone());
+    let popup_close_policy_enum = BUILTIN.enums.PopupClosePolicy.clone();
     let popup_close_policy_no_auto_close = EnumerationValue {
         value: popup_close_policy_enum.values.iter().position(|v| v == "no-auto-close").unwrap(),
         enumeration: popup_close_policy_enum,
@@ -352,7 +338,7 @@ fn lower_tooltips_in_component(
         }
 
         let has_custom_content = !tooltip_candidate.borrow().children.is_empty();
-        let has_text_binding = tooltip_candidate.borrow().bindings.contains_key("text");
+        let has_text_binding = tooltip_candidate.borrow().binding("text").is_some();
         if has_custom_content && has_text_binding {
             diag.push_error(
                 "Tooltip cannot have both text and custom content".into(),
@@ -402,11 +388,8 @@ fn lower_tooltips_in_component(
         // `TooltipArea`, keyed by the same property name. Currently only `text` is shared,
         // but the helper is kept so adding more shared properties later is a one-liner.
         let copy_binding = |property: &str| {
-            if let Some(binding) = tooltip_config.borrow().bindings.get(property) {
-                tooltip_area
-                    .borrow_mut()
-                    .bindings
-                    .insert(SmolStr::new(property), RefCell::new(binding.borrow().clone()));
+            if let Some(binding) = tooltip_config.borrow().binding(property) {
+                tooltip_area.borrow_mut().set_binding(SmolStr::new(property), binding.clone());
             }
         };
         if has_text_binding {

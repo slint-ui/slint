@@ -79,12 +79,15 @@ compile_error!(
 );
 
 mod api;
-#[cfg(feature = "internal-highlight")]
+#[cfg(feature = "internal")]
 mod debug_hook;
 mod dynamic_item_tree;
 mod dynamic_type;
 mod eval;
 mod eval_layout;
+#[cfg(feature = "ffi")]
+#[doc(hidden)]
+pub mod ffi;
 mod global_component;
 #[cfg(feature = "internal-highlight")]
 pub mod highlight;
@@ -97,7 +100,7 @@ pub use api::*;
 
 #[cfg(feature = "internal")]
 #[doc(hidden)]
-pub use eval::default_value_for_type;
+pub use eval::{default_value_for_struct_field, default_value_for_type};
 
 #[cfg(test)]
 mod tests;

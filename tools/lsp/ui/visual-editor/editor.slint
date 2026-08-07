@@ -468,13 +468,7 @@ export component EditorUi inherits Window {
     Rectangle {
         y: 0;
         height: EditorMetrics.top-bar-height;
-        drag-area := TouchArea {
-            moved => {
-                if self.pressed {
-                    Api.request-window-drag();
-                }
-            }
-        }
+        WindowMoveArea { }
     }
 
     if !Api.startup-wizard-visible: editor := FocusScope {

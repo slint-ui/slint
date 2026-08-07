@@ -14,6 +14,7 @@ use super::r#type::parse_type;
 /// Item { }
 /// Item { property: value; SubElement { } }
 /// Item { if true: Rectangle {} }
+/// Item { match foo { 1: Rectangle {} } }
 /// ```
 pub fn parse_element(p: &mut impl Parser) -> bool {
     let mut p = p.start_node(SyntaxKind::Element);
@@ -48,9 +49,16 @@ pub fn parse_element(p: &mut impl Parser) -> bool {
 /// animate someProp { }
 /// animate * { }
 /// @children
+/// @deprecated property alias <=> two.way;
 /// double_binding <=> element.property;
 /// public pure function foo() {}
 /// changed foo => {}
+/// match (foo) { 1: Elem { } }
+/// match bar.property { 1: Elem { } }
+/// slot header;
+/// header {}
+/// header << HeaderComponent {}
+/// header << parentHeader;
 /// ```
 pub fn parse_element_content(p: &mut impl Parser) {
     let mut had_parse_error = false;
@@ -59,11 +67,19 @@ pub fn parse_element_content(p: &mut impl Parser) {
             SyntaxKind::RBrace => return,
             SyntaxKind::Eof => return,
             SyntaxKind::Identifier => match p.nth(1).kind() {
-                SyntaxKind::Colon => parse_property_binding(&mut *p),
-                SyntaxKind::ColonEqual | SyntaxKind::LBrace => {
-                    had_parse_error |= !parse_sub_element(&mut *p)
+                SyntaxKind::Identifier | SyntaxKind::Semicolon if p.peek().as_str() == "slot" => {
+                    parse_slot_declaration(&mut *p)
                 }
-                SyntaxKind::FatArrow | SyntaxKind::LParent if p.peek().as_str() != "if" => {
+                SyntaxKind::Colon => parse_property_binding(&mut *p),
+                SyntaxKind::DoubleLess => {
+                    had_parse_error |= !parse_slot_assignment_or_forwarding(&mut *p)
+                }
+                SyntaxKind::ColonEqual | SyntaxKind::LBrace => {
+                    had_parse_error |= !parse_sub_element(&mut *p);
+                }
+                SyntaxKind::FatArrow | SyntaxKind::LParent
+                    if !["if", "match"].contains(&p.peek().as_str()) =>
+                {
                     parse_callback_connection(&mut *p)
                 }
                 SyntaxKind::DoubleArrow => parse_two_way_binding(&mut *p),
@@ -106,11 +122,37 @@ pub fn parse_element_content(p: &mut impl Parser) {
                 _ if p.peek().as_str() == "if" => {
                     parse_if_element(&mut *p);
                 }
+                SyntaxKind::Identifier | SyntaxKind::LParent if p.peek().as_str() == "match" => {
+                    let mut i = 2;
+                    loop {
+                        match p.nth(i).kind() {
+                            SyntaxKind::FatArrow => {
+                                parse_callback_connection(&mut *p);
+                                break;
+                            }
+                            SyntaxKind::LBrace => {
+                                parse_match_element(&mut *p);
+                                break;
+                            }
+                            SyntaxKind::Eof => {
+                                if !had_parse_error {
+                                    p.error("Error: Expected '{'");
+                                    had_parse_error = true;
+                                }
+                                break;
+                            }
+                            _ => i += 1,
+                        }
+                    }
+                }
                 SyntaxKind::LBracket if p.peek().as_str() == "states" => {
                     parse_states(&mut *p);
                 }
                 SyntaxKind::LBracket if p.peek().as_str() == "transitions" => {
                     parse_transitions(&mut *p);
+                }
+                SyntaxKind::Identifier if p.peek().as_str() == "implement" => {
+                    parse_implement_statement(&mut *p);
                 }
                 _ => {
                     if p.peek().as_str() == "changed" {
@@ -126,6 +168,10 @@ pub fn parse_element_content(p: &mut impl Parser) {
                 }
             },
             SyntaxKind::At => {
+                if p.nth(1).as_str() == "deprecated" {
+                    parse_property_declaration(&mut *p);
+                    continue;
+                }
                 let checkpoint = p.checkpoint();
                 p.consume();
                 if p.peek().as_str() == "children" {
@@ -162,6 +208,68 @@ fn parse_sub_element(p: &mut impl Parser) -> bool {
         p.expect(SyntaxKind::ColonEqual);
     }
     parse_element(&mut *p)
+}
+
+#[cfg_attr(test, parser_test)]
+/// ```test,SlotDeclaration
+/// slot header;
+/// ```
+fn parse_slot_declaration(p: &mut impl Parser) {
+    debug_assert_eq!(p.peek().as_str(), "slot");
+    let mut p = p.start_node(SyntaxKind::SlotDeclaration);
+    p.expect(SyntaxKind::Identifier); // "slot"
+    {
+        let mut p = p.start_node(SyntaxKind::DeclaredIdentifier);
+        p.expect(SyntaxKind::Identifier);
+    }
+    p.expect(SyntaxKind::Semicolon);
+}
+
+#[cfg_attr(test, parser_test)]
+/// ```test,SlotAssignment
+/// header << HeaderComponent {}
+/// ```
+fn parse_slot_assignment(p: &mut impl Parser) -> bool {
+    let mut p = p.start_node(SyntaxKind::SlotAssignment);
+    {
+        let mut p = p.start_node(SyntaxKind::DeclaredIdentifier);
+        p.expect(SyntaxKind::Identifier);
+    }
+    p.expect(SyntaxKind::DoubleLess);
+    if !parse_sub_element(&mut *p) {
+        p.error("Expected element after '<<'");
+        return false;
+    }
+    true
+}
+
+#[cfg_attr(test, parser_test)]
+/// ```test,SlotForwarding
+/// hostHeader << header;
+/// hostHeader << header + 1;
+/// ```
+fn parse_slot_forwarding(p: &mut impl Parser) -> bool {
+    let mut p = p.start_node(SyntaxKind::SlotForwarding);
+    {
+        let mut p = p.start_node(SyntaxKind::DeclaredIdentifier);
+        p.expect(SyntaxKind::Identifier);
+    }
+    p.expect(SyntaxKind::DoubleLess);
+    if !parse_expression(&mut *p) {
+        return false;
+    }
+    p.expect(SyntaxKind::Semicolon)
+}
+
+fn parse_slot_assignment_or_forwarding(p: &mut impl Parser) -> bool {
+    debug_assert_eq!(p.nth(1).kind(), SyntaxKind::DoubleLess);
+    let rhs_first = p.nth(2).kind();
+    let rhs_second = p.nth(3).kind();
+
+    let is_slot_assignment = rhs_first == SyntaxKind::Identifier
+        && matches!(rhs_second, SyntaxKind::LBrace | SyntaxKind::ColonEqual);
+
+    if is_slot_assignment { parse_slot_assignment(p) } else { parse_slot_forwarding(p) }
 }
 
 #[cfg_attr(test, parser_test)]
@@ -213,6 +321,96 @@ fn parse_if_element(p: &mut impl Parser) {
     parse_expression(&mut *p);
     if !p.expect(SyntaxKind::Colon) {
         drop(p.start_node(SyntaxKind::SubElement).start_node(SyntaxKind::Element));
+        return;
+    }
+    parse_sub_element(&mut *p);
+}
+
+#[cfg_attr(test, parser_test)]
+/// ```test,MatchElement
+/// match (foo) { one_case: Elem { } }
+/// match foo { one_case: Elem { } another_case: Elem { } }
+/// match (foo) { one_case: Elem { } another_case: Elem { } *: Elem { } }
+/// ```
+fn parse_match_element(p: &mut impl Parser) {
+    debug_assert_eq!(p.peek().as_str(), "match");
+    let mut p = p.start_node(SyntaxKind::MatchElement);
+    p.expect(SyntaxKind::Identifier); // "match"
+    parse_expression(&mut *p);
+    if !p.test(SyntaxKind::LBrace) {
+        p.error("Expected '{' to start cases");
+    }
+    if p.peek().kind() == SyntaxKind::Star {
+        p.error("Expected at least one case before wildcard case");
+        {
+            p.test(SyntaxKind::Star);
+            p.test(SyntaxKind::Colon);
+            let mut p = p.start_node(SyntaxKind::MatchCase);
+            drop(p.start_node(SyntaxKind::Expression));
+            parse_sub_element(&mut *p);
+            p.test(SyntaxKind::RBrace);
+        }
+        return;
+    }
+    while ![SyntaxKind::RBrace, SyntaxKind::Star, SyntaxKind::Eof].contains(&p.peek().kind()) {
+        parse_match_case(&mut *p);
+    }
+    if p.peek().kind() == SyntaxKind::Star {
+        parse_wildcard_case(&mut *p);
+    }
+    p.expect(SyntaxKind::RBrace);
+}
+
+#[cfg_attr(test, parser_test)]
+/// ```test,MatchCase
+/// foo: Elem { }
+/// (foo): Elem { }
+/// foo: { }
+/// ```
+fn parse_match_case(p: &mut impl Parser) {
+    let mut p = p.start_node(SyntaxKind::MatchCase);
+    parse_expression(&mut *p);
+    if !p.test(SyntaxKind::Colon) {
+        p.error("Expected ':' after match case expression");
+        if p.peek().kind() != SyntaxKind::Identifier {
+            p.consume();
+        }
+    }
+    if p.peek().kind() == SyntaxKind::LBrace {
+        // pass case
+        p.expect(SyntaxKind::LBrace);
+        if p.peek().kind() == SyntaxKind::Identifier {
+            p.error("Remove '{ }' around case element");
+            parse_sub_element(&mut *p);
+        }
+        p.expect(SyntaxKind::RBrace);
+        return;
+    }
+    parse_sub_element(&mut *p);
+}
+
+#[cfg_attr(test, parser_test)]
+/// ```test,WildcardMatchCase
+/// *: Elem { }
+/// ```
+fn parse_wildcard_case(p: &mut impl Parser) {
+    debug_assert_eq!(p.peek().kind(), SyntaxKind::Star);
+    let mut p = p.start_node(SyntaxKind::WildcardMatchCase);
+    p.expect(SyntaxKind::Star);
+    if !p.test(SyntaxKind::Colon) {
+        p.error("Expected ':' after '*'");
+        if p.peek().kind() != SyntaxKind::Identifier {
+            p.consume();
+        }
+    };
+    if p.peek().kind() == SyntaxKind::LBrace {
+        // pass case
+        p.expect(SyntaxKind::LBrace);
+        if p.peek().kind() == SyntaxKind::Identifier {
+            p.error("Remove '{ }' around case element");
+            return;
+        }
+        p.expect(SyntaxKind::RBrace);
         return;
     }
     parse_sub_element(&mut *p);
@@ -320,6 +518,27 @@ fn parse_two_way_binding(p: &mut impl Parser) {
 }
 
 #[cfg_attr(test, parser_test)]
+/// ```test,ImplementStatement
+/// implement Foo <=> self;
+/// implement Foo <=> root;
+/// implement Foo <=> parent;
+/// implement Foo <=> inner;
+/// implement Qualified.Foo <=> self;
+/// ```
+fn parse_implement_statement(p: &mut impl Parser) {
+    debug_assert_eq!(p.peek().as_str(), "implement");
+    let mut p = p.start_node(SyntaxKind::ImplementStatement);
+    p.expect(SyntaxKind::Identifier); // "implement"
+    parse_qualified_name(&mut *p);
+    p.expect(SyntaxKind::DoubleArrow);
+    {
+        let mut p = p.start_node(SyntaxKind::DeclaredIdentifier);
+        p.expect(SyntaxKind::Identifier);
+    }
+    p.expect(SyntaxKind::Semicolon);
+}
+
+#[cfg_attr(test, parser_test)]
 /// ```test,CallbackDeclaration
 /// callback foobar;
 /// callback my_callback();
@@ -393,14 +612,40 @@ fn parse_callback_declaration(p: &mut impl Parser) {
 /// property<string> text: "Something";
 /// property<string> text <=> two.way;
 /// property alias <=> two.way;
+/// @deprecated property alias <=> two.way;
+/// @deprecated("Use 'two.way' instead") in-out property <string> text <=> two.way;
 /// ```
 fn parse_property_declaration(p: &mut impl Parser) {
     let checkpoint = p.checkpoint();
+    let has_deprecation = p.peek().kind() == SyntaxKind::At;
+    if has_deprecation {
+        let mut p = p.start_node(SyntaxKind::PropertyDeprecation);
+        p.consume(); // "@"
+        debug_assert_eq!(p.peek().as_str(), "deprecated");
+        p.consume(); // "deprecated"
+        if p.test(SyntaxKind::LParent) {
+            let peek = p.peek();
+            if peek.kind() != SyntaxKind::StringLiteral
+                || !peek.as_str().starts_with('"')
+                || !peek.as_str().ends_with('"')
+            {
+                p.error("@deprecated message must be a plain string literal, without any '\\{}' expressions");
+                p.until(SyntaxKind::RParent);
+            } else {
+                p.expect(SyntaxKind::StringLiteral);
+                p.expect(SyntaxKind::RParent);
+            }
+        }
+    }
     while matches!(p.peek().as_str(), "in" | "out" | "in-out" | "in_out" | "private") {
         p.consume();
     }
     if p.peek().as_str() != "property" {
-        p.error("Expected 'property' keyword");
+        if has_deprecation {
+            p.error("@deprecated can only be applied to property declarations");
+        } else {
+            p.error("Expected 'property' keyword");
+        }
         return;
     }
     let mut p = p.start_node_at(checkpoint, SyntaxKind::PropertyDeclaration);

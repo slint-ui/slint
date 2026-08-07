@@ -1,0 +1,1 @@
+../../../../LICENSES/LicenseRef-Slint-Software-3.0.md

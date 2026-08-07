@@ -54,11 +54,13 @@ jobs:
                     core.setOutput('pr_number', pr.number);
                     core.setOutput('head_sha', pr.head.sha);
 
-            - uses: pnpm/action-setup@v6.0.8
+            # This job has no checkout, so there is no packageManager field to
+            # read the version from. Keep it in sync with package.json.
+            - uses: pnpm/action-setup@v6.0.9
               with:
-                version: 10.29.3
+                version: 11.17.0
 
-            - uses: actions/setup-node@v6
+            - uses: actions/setup-node@v7
               with:
                 node-version: 24
                 package-manager-cache: false
@@ -165,7 +167,7 @@ jobs:
               working-directory: preview-deploy
               run: |
                 set +e
-                OUTPUT=$(pnpm dlx wrangler@4 versions upload 2>&1)
+                OUTPUT=$(pnpm dlx --allow-build=workerd wrangler@4 versions upload 2>&1)
                 STATUS=$?
                 set -e
                 echo "=== wrangler output ==="

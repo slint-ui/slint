@@ -138,7 +138,7 @@ avahi-sys = "LGPL-3.0-or-later"
 [package.metadata.android]
 package = "dev.slint.viewer"
 min_sdk_version = 26
-target_sdk_version = 35
+target_sdk_version = 36
 
 [package.metadata.android.application]
 label = "Slint Viewer"

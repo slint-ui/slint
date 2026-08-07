@@ -7,6 +7,8 @@ use std::pin::Pin;
 
 use super::{PhysicalBorderRadius, PhysicalLength, PhysicalPoint, PhysicalRect, PhysicalSize};
 use i_slint_core::graphics::ApproxEq;
+use i_slint_core::graphics::ResolvedBrush;
+use i_slint_core::graphics::adjust_rect_and_border_for_inner_drawing;
 use i_slint_core::graphics::boxshadowcache::BoxShadowCache;
 use i_slint_core::graphics::euclid::num::Zero;
 use i_slint_core::graphics::euclid::{self, Vector2D};
@@ -43,7 +45,7 @@ pub struct SkiaItemRenderer<'a> {
     layer_cache: &'a ItemCache<Option<(PhysicalPoint, skia_safe::Image)>>,
     path_cache: &'a ItemCache<Option<(Vector2D<f32, PhysicalPx>, skia_safe::Path)>>,
     text_layout_cache: &'a sharedparley::TextLayoutCache,
-    box_shadow_cache: &'a mut SkiaBoxShadowCache,
+    box_shadow_cache: &'a SkiaBoxShadowCache,
 }
 
 impl<'a> SkiaItemRenderer<'a> {
@@ -55,7 +57,7 @@ impl<'a> SkiaItemRenderer<'a> {
         layer_cache: &'a ItemCache<Option<(PhysicalPoint, skia_safe::Image)>>,
         path_cache: &'a ItemCache<Option<(Vector2D<f32, PhysicalPx>, skia_safe::Path)>>,
         text_layout_cache: &'a sharedparley::TextLayoutCache,
-        box_shadow_cache: &'a mut SkiaBoxShadowCache,
+        box_shadow_cache: &'a SkiaBoxShadowCache,
     ) -> Self {
         Self {
             canvas,
@@ -103,11 +105,10 @@ impl<'a> SkiaItemRenderer<'a> {
 
         let canvas_size: skia_safe::Size = (shape_w + 2. * blur, shape_h + 2. * blur).into();
 
-        let image_info = skia_safe::ImageInfo::new(
+        let image_info = crate::image_info(
             canvas_size.to_ceil(),
             skia_safe::ColorType::RGBA8888,
             skia_safe::AlphaType::Premul,
-            None,
         );
 
         // The shape is centered in the canvas with `blur` padding on all sides so the Gaussian blur
@@ -117,8 +118,7 @@ impl<'a> SkiaItemRenderer<'a> {
             &shape_radius,
         );
 
-        let mut paint = skia_safe::Paint::default();
-        paint.set_color(to_skia_color(&shadow_options.color));
+        let mut paint = crate::solid_paint(&shadow_options.color);
         paint.set_anti_alias(true);
         if blur > 0. {
             paint.set_mask_filter(skia_safe::MaskFilter::blur(
@@ -153,11 +153,10 @@ impl<'a> SkiaItemRenderer<'a> {
         // Image is sized to the rectangle's geometry; the geometry rrect serves as the clip so the
         // outer blurred edge stays hidden.
         let canvas_size = skia_safe::ISize::new(width.ceil() as i32, height.ceil() as i32);
-        let image_info = skia_safe::ImageInfo::new(
+        let image_info = crate::image_info(
             canvas_size,
             skia_safe::ColorType::RGBA8888,
             skia_safe::AlphaType::Premul,
-            None,
         );
 
         let geometry_rrect = to_skia_rrect(
@@ -194,8 +193,7 @@ impl<'a> SkiaItemRenderer<'a> {
         path_builder.add_rrect(inner_rrect, None, None);
         let path = path_builder.detach();
 
-        let mut paint = skia_safe::Paint::default();
-        paint.set_color(to_skia_color(&shadow_options.color));
+        let mut paint = crate::solid_paint(&shadow_options.color);
         paint.set_anti_alias(true);
         if blur > 0. {
             paint.set_mask_filter(skia_safe::MaskFilter::blur(
@@ -224,7 +222,7 @@ impl<'a> SkiaItemRenderer<'a> {
             brush,
             width,
             height,
-            self.scale_factor.get(),
+            self.scale_factor,
         )?;
         paint.set_shader(Some(shader));
 
@@ -236,96 +234,74 @@ impl<'a> SkiaItemRenderer<'a> {
         brush: Brush,
         width: PhysicalLength,
         height: PhysicalLength,
-        scale_factor: f32,
+        scale_factor: ScaleFactor,
     ) -> Option<(skia_safe::Paint, skia_safe::Shader)> {
-        if brush.is_transparent() {
-            return None;
+        let resolved = i_slint_core::graphics::resolve_brush(
+            &brush,
+            euclid::Size2D::from_lengths(width, height),
+            scale_factor,
+        )?;
+
+        fn gradient<'g>(
+            colors: &'g [skia_safe::Color4f],
+            pos: &'g [f32],
+            in_premul: skia_safe::gradient::interpolation::InPremul,
+        ) -> skia_safe::gradient::Gradient<'g> {
+            skia_safe::gradient::Gradient::new(
+                crate::gradient_colors(colors, pos),
+                skia_safe::gradient::Interpolation {
+                    in_premul,
+                    color_space: skia_safe::gradient::interpolation::ColorSpace::SRGB,
+                    ..Default::default()
+                },
+            )
         }
 
-        match brush {
-            Brush::SolidColor(color) => Some(skia_safe::shaders::color(to_skia_color(&color))),
+        match resolved {
+            ResolvedBrush::SolidColor(color) => Some(crate::color_shader(&color)),
 
-            Brush::LinearGradient(g) => {
-                let (start, end) = i_slint_core::graphics::line_for_angle(
-                    g.angle(),
-                    [width.get(), height.get()].into(),
-                );
-                let (colors, pos): (Vec<skia_safe::Color4f>, Vec<_>) = g
-                    .stops()
-                    .map(|s| (skia_safe::Color4f::from(to_skia_color(&s.color)), s.position))
-                    .unzip();
+            ResolvedBrush::LinearGradient(g) => {
+                let (colors, pos) = to_skia_stops(&g.stops);
 
                 paint.set_dither(true);
 
-                let gradient_colors =
-                    skia_safe::gradient::Colors::new(&colors, Some(&*pos), TileMode::Clamp, None);
-                let gradient = skia_safe::gradient::Gradient::new(
-                    gradient_colors,
-                    skia_safe::gradient::Interpolation {
-                        in_premul: skia_safe::gradient::interpolation::InPremul::Yes,
-                        ..Default::default()
-                    },
-                );
                 skia_safe::gradient::shaders::linear_gradient(
-                    (skia_safe::Point::new(start.x, start.y), skia_safe::Point::new(end.x, end.y)),
-                    &gradient,
+                    (
+                        skia_safe::Point::new(g.start.x, g.start.y),
+                        skia_safe::Point::new(g.end.x, g.end.y),
+                    ),
+                    &gradient(&colors, &pos, skia_safe::gradient::interpolation::InPremul::Yes),
                     None,
                 )
             }
-            Brush::RadialGradient(g) => {
-                let (colors, pos): (Vec<skia_safe::Color4f>, Vec<_>) = g
-                    .stops()
-                    .map(|s| (skia_safe::Color4f::from(to_skia_color(&s.color)), s.position))
-                    .unzip();
-                let (cx, cy) = g.center_or_default_scaled(width.get(), height.get(), scale_factor);
-                let circle_scale =
-                    g.radius_or_default_scaled(width.get(), height.get(), scale_factor);
+            ResolvedBrush::RadialGradient(g) => {
+                let (colors, pos) = to_skia_stops(&g.stops);
 
                 paint.set_dither(true);
 
-                let gradient_colors =
-                    skia_safe::gradient::Colors::new(&colors, Some(&*pos), TileMode::Clamp, None);
-                let gradient = skia_safe::gradient::Gradient::new(
-                    gradient_colors,
-                    skia_safe::gradient::Interpolation {
-                        in_premul: skia_safe::gradient::interpolation::InPremul::Yes,
-                        ..Default::default()
-                    },
-                );
-                let mut local_matrix = skia_safe::Matrix::scale((circle_scale, circle_scale));
-                local_matrix.post_translate((cx, cy));
+                let mut local_matrix = skia_safe::Matrix::scale((g.radius.get(), g.radius.get()));
+                local_matrix.post_translate((g.center.x, g.center.y));
                 skia_safe::gradient::shaders::radial_gradient(
                     (skia_safe::Point::new(0., 0.), 1.),
-                    &gradient,
+                    &gradient(&colors, &pos, skia_safe::gradient::interpolation::InPremul::Yes),
                     &local_matrix,
                 )
             }
-            Brush::ConicGradient(g) => {
-                let (colors, pos): (Vec<skia_safe::Color4f>, Vec<_>) = g
-                    .stops()
-                    .map(|s| (skia_safe::Color4f::from(to_skia_color(&s.color)), s.position))
-                    .unzip();
-                let (cx, cy) = g.center_or_default_scaled(width.get(), height.get(), scale_factor);
+            ResolvedBrush::ConicGradient(g) => {
+                let (colors, pos) = to_skia_stops(&g.stops);
 
                 paint.set_dither(true);
 
                 // Skia's sweep gradient uses 0 degrees at 3 o'clock (east)
                 // We want 0 degrees at 12 o'clock (north), so we need to rotate by -90 degrees
-                let center = skia_safe::Point::new(cx, cy);
-                let gradient_colors =
-                    skia_safe::gradient::Colors::new(&colors, Some(&*pos), TileMode::Clamp, None);
-                let gradient = skia_safe::gradient::Gradient::new(
-                    gradient_colors,
-                    skia_safe::gradient::Interpolation::default(),
-                );
+                let center = skia_safe::Point::new(g.center.x, g.center.y);
                 skia_safe::gradient::shaders::sweep_gradient(
                     center,
                     (0.0, 360.0),
-                    &gradient,
+                    &gradient(&colors, &pos, skia_safe::gradient::interpolation::InPremul::No),
                     &skia_safe::Matrix::rotate_deg_pivot(-90.0, center),
                 )
             }
-            _ => None,
         }
         .map(|shader| (paint, shader))
     }
@@ -335,11 +311,10 @@ impl<'a> SkiaItemRenderer<'a> {
         image: skia_safe::Image,
         colorize_brush: Brush,
     ) -> Option<skia_safe::Image> {
-        let image_info = skia_safe::ImageInfo::new(
+        let image_info = crate::image_info(
             image.dimensions(),
             skia_safe::ColorType::RGBA8888,
             skia_safe::AlphaType::Premul,
-            None,
         );
 
         Self::brush_to_shader(
@@ -347,7 +322,7 @@ impl<'a> SkiaItemRenderer<'a> {
             colorize_brush,
             PhysicalLength::new(image.width() as f32),
             PhysicalLength::new(image.height() as f32),
-            self.scale_factor.get(),
+            self.scale_factor,
         )
         .map(|(mut paint, colorize_shader)| {
             let mut surface = self.canvas.new_surface(&image_info, None)?;
@@ -605,9 +580,9 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
 
         let (background_rect, border_rect) = if opaque_border {
             // In CSS the border is entirely towards the inside of the boundary
-            // geometry, while in femtovg the line with for a stroke is 50% in-
-            // and 50% outwards. We choose the CSS model, so the inner rectangle
-            // is adjusted accordingly.
+            // geometry, while Skia strokes centered on the path, 50% in- and
+            // 50% outwards. We choose the CSS model, so the inner rectangle is
+            // adjusted accordingly.
             adjust_rect_and_border_for_inner_drawing(&mut geometry, &mut border_width);
 
             let rounded_rect = to_skia_rrect(&geometry, &stroke_border_radius);
@@ -617,9 +592,9 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
             let background_rect = to_skia_rrect(&geometry, &fill_radius);
 
             // In CSS the border is entirely towards the inside of the boundary
-            // geometry, while in femtovg the line with for a stroke is 50% in-
-            // and 50% outwards. We choose the CSS model, so the inner rectangle
-            // is adjusted accordingly.
+            // geometry, while Skia strokes centered on the path, 50% in- and
+            // 50% outwards. We choose the CSS model, so the inner rectangle is
+            // adjusted accordingly.
             adjust_rect_and_border_for_inner_drawing(&mut geometry, &mut border_width);
 
             let border_rect = to_skia_rrect(&geometry, &stroke_border_radius);
@@ -657,7 +632,8 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
         _size: LogicalSize,
         _cache: &CachedRenderingData,
     ) {
-        // The background is drawn directly by FemtoVG renderer (via clear_color, if necessary).
+        // The window background is cleared (solid color) or drawn (gradient)
+        // by SkiaRenderer before the item tree is rendered.
     }
 
     fn draw_image(
@@ -695,7 +671,7 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
         size: LogicalSize,
     ) {
         let restore = self.save_canvas_and_pixel_align_origin();
-        sharedparley::draw_text_input(self, text_input, self_rc, size, None);
+        sharedparley::draw_text_input(self, text_input, self_rc, size, self.text_layout_cache);
         if restore {
             self.canvas.restore();
         }
@@ -780,7 +756,7 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
                 path.fill(),
                 PhysicalLength::new(viewbox_width),
                 PhysicalLength::new(viewbox_height),
-                1.0,
+                ScaleFactor::new(1.0),
             ) {
                 // Apply the viewbox transformation to the shader
                 let transform = skia_safe::Matrix::scale((scale_x, scale_y));
@@ -885,9 +861,9 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
         let mut rect = rect * self.scale_factor;
         let mut border_width = border_width * self.scale_factor;
         // In CSS the border is entirely towards the inside of the boundary
-        // geometry, while in femtovg the line with for a stroke is 50% in-
-        // and 50% outwards. We choose the CSS model, so the inner rectangle
-        // is adjusted accordingly.
+        // geometry, while Skia strokes centered on the path, 50% in- and
+        // 50% outwards. We choose the CSS model, so the inner rectangle is
+        // adjusted accordingly.
         adjust_rect_and_border_for_inner_drawing(&mut rect, &mut border_width);
 
         let radius = radius * self.scale_factor;
@@ -935,8 +911,8 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
         self.canvas.restore();
     }
 
-    fn scale_factor(&self) -> f32 {
-        self.scale_factor.get()
+    fn scale_factor(&self) -> ScaleFactor {
+        self.scale_factor
     }
 
     fn draw_cached_pixmap(
@@ -947,11 +923,10 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
         let skia_image = self.image_cache.get_or_update_cache_entry(item_rc, || {
             let mut cached_image = None;
             update_fn(&mut |width: u32, height: u32, data: &[u8]| {
-                let image_info = skia_safe::ImageInfo::new(
+                let image_info = crate::image_info(
                     skia_safe::ISize::new(width as i32, height as i32),
                     skia_safe::ColorType::RGBA8888,
                     skia_safe::AlphaType::Premul,
-                    None,
                 );
                 cached_image = skia_safe::images::raster_from_data(
                     &image_info,
@@ -974,7 +949,7 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
             self,
             std::pin::pin!((SharedString::from(string), Brush::from(color))),
             None,
-            logical_size_from_api(self.window.size().to_logical(self.scale_factor())),
+            logical_size_from_api(self.window.size().to_logical(self.scale_factor().get())),
             None,
         );
     }
@@ -1067,11 +1042,10 @@ impl<'a> LayerRenderer<'a> for SkiaItemRenderer<'a> {
         _item_rc: &ItemRc,
         physical_size: euclid::Size2D<f32, PhysicalPx>,
     ) -> Option<Self::LayerTarget> {
-        let image_info = skia_safe::ImageInfo::new(
+        let image_info = crate::image_info(
             to_skia_size(&physical_size).to_ceil(),
             skia_safe::ColorType::RGBA8888,
             skia_safe::AlphaType::Premul,
-            None,
         );
         self.canvas.new_surface(&image_info, None)
     }
@@ -1131,7 +1105,7 @@ impl GlyphRenderer for SkiaItemRenderer<'_> {
             None
         } else {
             let mut paint = self.default_paint().unwrap_or_default();
-            paint.set_shader(skia_safe::shaders::color(to_skia_color(color)));
+            paint.set_shader(crate::color_shader(color));
             Some(paint)
         }
     }
@@ -1196,16 +1170,32 @@ impl GlyphRenderer for SkiaItemRenderer<'_> {
         &mut self,
         physical_rect: sharedparley::PhysicalRect,
         paint: Self::PlatformBrush,
+        radius: sharedparley::PhysicalLength,
+        border: Option<sharedparley::RectangleBorder<Self::PlatformBrush>>,
     ) {
-        self.canvas.draw_rect(
-            skia_safe::Rect::from_xywh(
-                physical_rect.min_x(),
-                physical_rect.min_y(),
-                physical_rect.width(),
-                physical_rect.height(),
-            ),
-            &paint,
+        let rect = skia_safe::Rect::from_xywh(
+            physical_rect.min_x(),
+            physical_rect.min_y(),
+            physical_rect.width(),
+            physical_rect.height(),
         );
+
+        if radius.get() <= 0.0 && border.is_none() {
+            self.canvas.draw_rect(rect, &paint);
+            return;
+        }
+
+        let rrect = skia_safe::RRect::new_rect_xy(rect, radius.get(), radius.get());
+        self.canvas.draw_rrect(rrect, &paint);
+
+        if let Some(sharedparley::RectangleBorder { brush: mut stroke_paint, width }) = border
+            && width.get() > 0.0
+        {
+            stroke_paint.set_style(skia_safe::PaintStyle::Stroke);
+            stroke_paint.set_stroke_width(width.get());
+            stroke_paint.set_anti_alias(true);
+            self.canvas.draw_rrect(rrect, &stroke_paint);
+        }
     }
 }
 
@@ -1247,18 +1237,18 @@ pub fn to_skia_size(size: &PhysicalSize) -> skia_safe::Size {
     skia_safe::Size::new(size.width, size.height)
 }
 
+/// The result is gamma encoded sRGB, like the `slint::Color` it comes from.
+fn to_skia_stops(
+    stops: &[i_slint_core::graphics::GradientStop],
+) -> (Vec<skia_safe::Color4f>, Vec<f32>) {
+    stops.iter().map(|s| (to_skia_color4f(&s.color), s.position)).unzip()
+}
+
 pub fn to_skia_color(col: &Color) -> skia_safe::Color {
     skia_safe::Color::from_argb(col.alpha(), col.red(), col.green(), col.blue())
 }
 
-fn adjust_rect_and_border_for_inner_drawing(
-    rect: &mut PhysicalRect,
-    border_width: &mut PhysicalLength,
-) {
-    // If the border width exceeds the width, just fill the rectangle.
-    *border_width = border_width.min(rect.width_length() / 2.);
-    // adjust the size so that the border is drawn within the geometry
-
-    rect.origin += PhysicalSize::from_lengths(*border_width / 2., *border_width / 2.);
-    rect.size -= PhysicalSize::from_lengths(*border_width, *border_width);
+/// Gamma encoded sRGB as well, see [`to_skia_color`].
+pub fn to_skia_color4f(col: &Color) -> skia_safe::Color4f {
+    to_skia_color(col).into()
 }

@@ -245,6 +245,8 @@ fn main() -> Result<()> {
             args.component.clone(),
         )?;
 
+        reject_non_window_component(&live.borrow().instance().definition());
+
         setup_instance(live.borrow().instance(), &args.on, args.load_data.as_deref())?;
 
         {
@@ -272,6 +274,7 @@ fn main() -> Result<()> {
         let Some(c) = extract_component(&result, &args) else {
             std::process::exit(-1);
         };
+        reject_non_window_component(&c);
 
         select_backend(args.backend.as_deref())?;
         install_log_message_handler()?;
@@ -374,16 +377,19 @@ fn init_dialog(instance: &ComponentInstance) {
 }
 
 fn watchable_path(path: &Path) -> Option<PathBuf> {
-    // Filter out `-` for stdin
-    (path != Path::new("-")).then(|| {
-        if path.is_absolute() {
-            path.to_path_buf()
-        } else {
-            std::env::current_dir()
-                .map(|current_dir| current_dir.join(path))
-                .unwrap_or_else(|_| path.to_path_buf())
-        }
-    })
+    // Filter out `-` for stdin; the file watcher resolves relative paths.
+    (path != Path::new("-")).then(|| path.to_path_buf())
+}
+
+/// Exit with an error if the component has no window to display (e.g. a `SystemTrayIcon` root).
+fn reject_non_window_component(definition: &ComponentDefinition) {
+    if !definition.is_window() {
+        eprintln!(
+            "Component '{}' is a SystemTrayIcon, which the viewer cannot display.",
+            definition.name()
+        );
+        std::process::exit(-1);
+    }
 }
 
 /// Extract the component to show from the compilation result, and print an error if it cannot be found

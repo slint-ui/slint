@@ -633,9 +633,9 @@ export component InspectorPane inherits Rectangle {
         y: 0px;
         width: root.width - root.content-x;
         height: root.inspector-height;
-        viewport-width: self.width;
-        viewport-height: content.height;
-        viewport-y <=> root.inspector-scroll-y;
+        content-width: self.width;
+        content-height: content.height;
+        content-y <=> root.inspector-scroll-y;
         mouse-drag-pan-enabled: false;
         vertical-scrollbar-policy: ScrollBarPolicy.always-off;
         horizontal-scrollbar-policy: ScrollBarPolicy.always-off;

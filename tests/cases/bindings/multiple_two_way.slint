@@ -7,7 +7,7 @@ component O inherits Text {
     in-out property <int> a: val + 1;
 }
 
-component TestCase inherits Window {
+export component TestCase inherits Window {
     in-out property <int> val: condition ? 2 : 4;
     in-out property <bool> condition : false;
     HorizontalLayout {

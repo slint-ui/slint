@@ -23,6 +23,11 @@ on:
         app-id:
           type: string
           required: true
+        slint-sc-coverage:
+          type: boolean
+          default: false
+          required: false
+          description: "Run the slint-sc tests and include the measured coverage in the Safety Manual"
 
 jobs:
     # Job 1: Build Rust and C++ documentation
@@ -38,16 +43,14 @@ jobs:
             RELEASE_INPUT: ${{ inputs.release }}
             BRANCH_NAME: ${{ github.ref_name }}
         steps:
-            - uses: actions/checkout@v6
+            - uses: actions/checkout@v7
             - name: Set up crate rustdoc link
               run: |
                   rgb_version=`grep 'rgb = '  internal/core/Cargo.toml | sed 's/^.*"\(.*\)"/\1/'`
-                  echo "RUSTDOCFLAGS=$RUSTDOCFLAGS --extern-html-root-url rgb=https://docs.rs/rgb/$rgb_version/ --extern-html-root-url android_activity=https://docs.rs/android-activity/0.5/ --extern-html-root-url raw_window_handle=https://docs.rs/raw_window_handle/0.6 --extern-html-root-url winit=https://docs.rs/winit/0.30 --extern-html-root-url wgpu=https://docs.rs/wgpu/26 --extern-html-root-url input=https://docs.rs/input/0.9 --extern-html-root-url fontique=https://docs.rs/fontique/0.8" >> $GITHUB_ENV
+                  echo "RUSTDOCFLAGS=$RUSTDOCFLAGS --extern-html-root-url rgb=https://docs.rs/rgb/$rgb_version/ --extern-html-root-url android_activity=https://docs.rs/android-activity/0.5/ --extern-html-root-url raw_window_handle=https://docs.rs/raw_window_handle/0.6 --extern-html-root-url winit=https://docs.rs/winit/0.30 --extern-html-root-url wgpu=https://docs.rs/wgpu/30 --extern-html-root-url input=https://docs.rs/input/0.9 --extern-html-root-url fontique=https://docs.rs/fontique/0.8" >> $GITHUB_ENV
             - uses: ./.github/actions/install-linux-dependencies
-            - uses: pnpm/action-setup@v6.0.8
-              with:
-                version: 10.29.3
-            - uses: actions/setup-node@v6
+            - uses: pnpm/action-setup@v6.0.9
+            - uses: actions/setup-node@v7
               with:
                 node-version: 24
                 package-manager-cache: false
@@ -56,7 +59,7 @@ jobs:
                   toolchain: nightly
                   target: aarch64-linux-android
             - name: Install apt dependencies
-              run: sudo apt-get install doxygen
+              run: sudo timeout 300 apt-get install doxygen
             - name: "Install Node dependencies"
               run: pnpm i --frozen-lockfile
             - name: Test Cpp docs converter
@@ -111,7 +114,8 @@ jobs:
                   name: docs-rust-cpp
                   path: artifact
             - name: "Check for docs warnings in internal crates"
-              run: cargo doc --workspace --no-deps --all-features --exclude slint-node --exclude pyslint --exclude mcu-board-support --exclude mcu-embassy --exclude printerdemo_mcu --exclude carousel --exclude test-* --exclude plotter --exclude uefi-demo --exclude ffmpeg --exclude gstreamer-player --exclude slint-cpp --exclude slint-python
+              # The excluded crates need a dedicated toolchain (node/python/cpp).
+              run: cargo doc --workspace --no-deps --all-features --exclude slint-node --exclude slint-cpp --exclude slint-python
 
     # Job 2: Build Astro docs and run tests
     astro-docs-tests:
@@ -120,17 +124,14 @@ jobs:
             version: ${{ steps.version.outputs.VERSION }}
         env:
             RUSTFLAGS: -D warnings -W deprecated
-            RUSTDOCFLAGS: --html-in-header=/home/runner/work/slint/slint/docs/astro/src/utils/slint-docs-highlight.html -D warnings -W deprecated --cfg docsrs -Zunstable-options --generate-link-to-definition
             SLINT_NO_QT: 1
             CARGO_INCREMENTAL: false
             RELEASE_INPUT: ${{ inputs.release }}
             BRANCH_NAME: ${{ github.ref_name }}
         steps:
-            - uses: actions/checkout@v6
-            - uses: pnpm/action-setup@v6.0.8
-              with:
-                version: 10.29.3
-            - uses: actions/setup-node@v6
+            - uses: actions/checkout@v7
+            - uses: pnpm/action-setup@v6.0.9
+            - uses: actions/setup-node@v7
               with:
                 node-version: 24
                 package-manager-cache: false
@@ -138,12 +139,17 @@ jobs:
             - name: Install MS fonts for comic sans needed by one of the screenshots in the docs
               run: |
                   echo ttf-mscorefonts-installer msttcorefonts/accepted-mscorefonts-eula select true | sudo debconf-set-selections
-                  sudo apt-get install ttf-mscorefonts-installer -y
+                  sudo timeout 300 apt-get install ttf-mscorefonts-installer -y
             - uses: ./.github/actions/setup-rust
               with:
                   toolchain: stable
                   target: aarch64-linux-android
-                  cache: false
+            - name: Install llvm-tools for slint-sc coverage
+              if: ${{ inputs['slint-sc-coverage'] }}
+              run: rustup component add llvm-tools-preview
+            - name: Install cargo-llvm-cov
+              if: ${{ inputs['slint-sc-coverage'] }}
+              uses: taiki-e/install-action@cargo-llvm-cov
             - name: "Install Node dependencies"
               run: pnpm i --frozen-lockfile
             - name: Extract Version from Cargo.toml
@@ -181,10 +187,39 @@ jobs:
                   EXTRA_FLAGS="--experimental"
                 fi
                 cargo run --release -p slint-doc-generator -- $EXTRA_FLAGS
+            - name: "Run the slint-sc test suites and measure coverage"
+              if: ${{ inputs['slint-sc-coverage'] }}
+              run: scripts/slint_sc_test_suite.sh coverage
+            - name: "Upload slint-sc coverage report"
+              if: ${{ inputs['slint-sc-coverage'] }}
+              uses: actions/upload-artifact@v7
+              with:
+                  name: slint-sc-coverage
+                  path: coverage
             - name: "Generate SC API reference"
-              run: cargo run --release -p slint-doc-generator -- --slint-sc generate-mdx
+              id: sc-reference
+              run: |
+                  COVERAGE_FLAGS=""
+                  if [ "${{ inputs['slint-sc-coverage'] }}" = "true" ]; then
+                      # --fail-on-gaps holds the runtime at complete coverage and
+                      # every requirement paragraph at one test or more. It needs
+                      # the coverage export, so it only applies to these runs.
+                      COVERAGE_FLAGS="--coverage-json coverage/coverage.json --coverage-html coverage/html --test-results coverage/test-results --fail-on-gaps"
+                  fi
+                  # A gap exits 2 with the chapters written, so record it and let
+                  # the job build and upload the manual. The last step fails the
+                  # run. Any other non-zero exit is a real failure: stop here.
+                  set +e
+                  cargo run --release -p slint-doc-generator -- --slint-sc $COVERAGE_FLAGS generate-mdx
+                  status=$?
+                  set -e
+                  if [ $status -eq 2 ]; then
+                      echo "gaps=true" >> "$GITHUB_OUTPUT"
+                  elif [ $status -ne 0 ]; then
+                      exit $status
+                  fi
             - name: "Compile Slint snippets in Markdown (doctests)"
-              run: cargo test -p doctests
+              run: cargo test --manifest-path tests/Cargo.toml -p doctests
             - name: "Build Safety Manual"
               working-directory: docs/safety
               run: pnpm build
@@ -222,6 +257,12 @@ jobs:
               with:
                 name: docs-astro
                 path: artifact
+            # Last, so the manual is built and uploaded before the run fails.
+            - name: "Fail on slint-sc coverage or traceability gaps"
+              if: ${{ steps.sc-reference.outputs.gaps == 'true' }}
+              run: |
+                echo "The safety manual has gaps. See the \"Generate SC API reference\" step for the list."
+                exit 1
 
     # Job 3: Build Node and Python documentation
     node-python-docs:
@@ -229,11 +270,9 @@ jobs:
         env:
             RELEASE_INPUT: ${{ inputs.release }}
         steps:
-            - uses: actions/checkout@v6
-            - uses: pnpm/action-setup@v6.0.8
-              with:
-                version: 10.29.3
-            - uses: actions/setup-node@v6
+            - uses: actions/checkout@v7
+            - uses: pnpm/action-setup@v6.0.9
+            - uses: actions/setup-node@v7
               with:
                 node-version: 24
                 package-manager-cache: false
@@ -242,7 +281,6 @@ jobs:
               with:
                   toolchain: stable
                   target: aarch64-linux-android
-                  cache: false
             - name: Install uv
               uses: astral-sh/setup-uv@v7
             - name: "Install Node dependencies"
@@ -290,7 +328,7 @@ jobs:
               run: uv run pytest
               working-directory: docs/python
             - name: "Lint the Python docs generator"
-              run: uv tool run ruff check
+              run: uv tool run ruff@0.16.0 check
               working-directory: docs/python
             - name: "Type-check the Python docs generator"
               run: uvx ty check

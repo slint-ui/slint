@@ -15,6 +15,7 @@ amdgpu
 amet
 Amoled
 androideabi
+anyrender
 Appbar
 appicon
 appiconset
@@ -42,6 +43,7 @@ Baselining
 baudrate
 bdata
 Belappetit
+bezpath
 BGRA
 BGRX
 bindgen
@@ -87,6 +89,7 @@ codepoint
 codepoints
 codesign
 codingame
+coeffs
 coldict
 colorspace
 colour
@@ -178,6 +181,7 @@ endforeach
 endfunction
 endrst
 enim
+epoll
 entrancy
 enummember
 eprintln
@@ -229,6 +233,7 @@ fract
 framebuffers
 freetype
 frontends
+frontmatter
 Fsvg
 fullsize
 Fullwidth
@@ -245,6 +250,7 @@ gltf
 glutin
 glyphclusters
 gnueabihf
+goldens
 grcov
 Grimme
 Grotesk
@@ -261,6 +267,7 @@ hlayout
 hmenu
 horizontalbox
 horizontallayout
+hotplug
 hspace
 HSPI
 HSYNC
@@ -284,6 +291,7 @@ incpath
 inputchip
 intprop
 intval
+iocp
 IRAM
 Irqs
 isinstance
@@ -305,6 +313,7 @@ kitware
 Klarälvdalens
 kqueue
 ksni
+kurbo
 labore
 laboris
 langtype
@@ -332,6 +341,7 @@ libglx
 libgstreamer
 libgstrtspserver
 Libinput
+libintl
 libloading
 libm
 librsvg
@@ -339,6 +349,8 @@ libseat
 libslint
 libstdc
 libudev
+libuv
+libtest
 libx
 libxcb
 libxcursor
@@ -348,6 +360,7 @@ libxrandr
 lightimg
 limax
 linearprogressindicator
+linebender
 linebreaker
 linuxkms
 lipo
@@ -382,6 +395,7 @@ mimxrt
 minmax
 MIPI
 mipidsi
+miscompile
 modalnavigationdrawer
 modelprop
 MOSI
@@ -447,6 +461,7 @@ pathlib
 pbjson
 PCLK
 pdoc
+peniko
 picotool
 pixabay
 pixelcolor
@@ -494,7 +509,9 @@ Raleway
 Randriana
 rasterizer
 rasterizes
+rasterizing
 RBUTTONUP
+recompiles
 rects
 redoable
 REFR
@@ -512,6 +529,7 @@ rlib
 Roboto
 RODATA
 rowcol
+rsplit
 rspolib
 rsvg
 rtti
@@ -561,6 +579,7 @@ srcroot
 SRCS
 SRGBA
 standardbutton
+startswith
 staticlib
 staticmethod
 stdset
@@ -581,6 +600,7 @@ styledtext
 styledtextprop
 styledval
 stylemetrics
+subcomponent
 subcomponents
 subelement
 subfolders
@@ -603,6 +623,7 @@ targetstruct
 Tdefmt
 tempor
 termcolor
+texels
 texteditor
 textinput
 textinputinterface
@@ -635,25 +656,29 @@ udisksctl
 udivdi
 uintptr
 ullamco
+unclipped
 unfocusable
 unhinted
 unicodes
 uninit
 Unitless
+unittests
 unmaximize
 UNORM
 unpark
 unparseable
 unpic
 Unpremul
+unpremultiply
 unsendable
 usbc
-userconfig
 usecases
+userconfig
 usize
 usvg
 vbus
 vecmodel
+vello
 veniam
 venv
 verticalbox

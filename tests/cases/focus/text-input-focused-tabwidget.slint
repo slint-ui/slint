@@ -1,0 +1,82 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Switching a TabWidget away from a tab that holds the focused LineEdit must
+// drop the input focus, so that `TextInputInterface.text-input-focused` becomes
+// false and the platform tears the input method down (hides the virtual
+// keyboard and, on Android, the native text-selection/caret handle popups).
+//
+//   The Android selection/caret handles are native PopupWindows tied to the
+//   focused TextInput. They are dismissed via:
+//       FocusOut -> set_text_input_focused(false)
+//                -> InputMethodRequest::Disable
+//                -> show_or_hide_soft_input(false)
+//                -> Java hide_keyboard() -> setCursorPos(..., 0)   (hides handles)
+//   So they only go away when the TextInput loses focus.
+//
+//   A TabWidget switch does NOT cause a FocusOut. lower_tabwidget.rs gives
+//   each Tab's content a `visible: <current-index == n>` binding (it explicitly
+//   forbids the user setting `visible` on a Tab), so the non-current tab's
+//   LineEdit is merely hidden — the element stays alive and keeps the focus.
+//
+//   Slint resets focus held by an invisible item lazily, when the next input
+//   event arrives. The key-event handler did this already; a tab is switched
+//   with a pointer tap, not a key press, so WindowInner::process_mouse_input()
+//   now performs the same check (see window.rs).
+//
+//   Contrast text-input-focused-condition-disable.slint: there the LineEdit
+//   lives under an `if`, so disabling the condition *destroys* the element, and
+//   destruction releases its focus. A TabWidget keeps the element.
+
+import { LineEdit, TabWidget } from "std-widgets.slint";
+
+export component TestCase inherits Window {
+    width: 300px;
+    height: 300px;
+
+    in-out property <int> current-tab: 0;
+
+    callback focus-the-line-edit();
+    focus-the-line-edit => {
+        le.focus();
+    }
+
+    TabWidget {
+        current-index <=> root.current-tab;
+        Tab {
+            title: "One";
+            le := LineEdit { }
+        }
+        Tab {
+            title: "Two";
+            Rectangle { }
+        }
+    }
+
+    out property <bool> le-has-focus <=> le.has-focus;
+    out property <bool> focused: TextInputInterface.text-input-focused;
+}
+
+/*
+```rust
+use slint::{platform::WindowEvent, LogicalPosition};
+
+let instance = TestCase::new().unwrap();
+// A pointer event makes the runtime traverse the item tree (as in the other
+// text-input-focused tests).
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(0., 0.) });
+assert!(!instance.get_focused());
+
+instance.invoke_focus_the_line_edit();
+assert!(instance.get_le_has_focus());
+assert!(instance.get_focused());
+
+// Switch to the second tab: the first tab (and its LineEdit) becomes invisible,
+// but the element is not destroyed.
+instance.set_current_tab(1);
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(0., 0.) });
+
+// The LineEdit is no longer visible, so it must no longer hold the input focus.
+assert!(!instance.get_focused());
+```
+*/

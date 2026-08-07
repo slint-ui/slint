@@ -16,6 +16,10 @@ module.exports = grammar({
 
   externals: ($) => [$.block_comment],
 
+  // Substituted into their call sites: as rules of their own they would add a
+  // reduction that conflicts with $.anon_struct_assignment.
+  inline: ($) => [$._statement_identifier, $._statement_type_identifier],
+
   rules: {
     sourcefile: ($) => repeat($._definition),
 
@@ -72,8 +76,8 @@ module.exports = grammar({
 
     component: ($) =>
       seq(
-        optional(seq(field("id", $.simple_identifier), ":=")),
-        field("type", $.user_type_identifier),
+        optional(seq(field("id", $._statement_identifier), ":=")),
+        field("type", $._statement_type_identifier),
         $.block,
       ),
 
@@ -96,30 +100,7 @@ module.exports = grammar({
         $.block,
       ),
 
-    component_modifier: ($) =>
-      choice(
-        $.uses_clause,
-        $.implements_clause,
-        seq("inherits", field("base_type", $.user_type_identifier)),
-      ),
-
-    uses_clause: ($) =>
-      seq(
-        "uses",
-        "{",
-        commaSep1($.used_interface),
-        optional(","),
-        "}",
-      ),
-
-    used_interface: ($) =>
-      seq(
-        field("interface", $.user_type_identifier),
-        "from",
-        field("source", $.simple_identifier),
-      ),
-
-    implements_clause: ($) => seq("implements", commaSep1($.user_type_identifier)),
+    component_modifier: ($) => seq("inherits", field("base_type", $.user_type_identifier)),
 
     _property_type: ($) => seq("<", field("type", $.type), ">"),
 
@@ -152,8 +133,15 @@ module.exports = grammar({
         choice(seq($.imperative_block, optional(";")), seq($.expression, ";")),
       ),
 
+    property_deprecation: ($) =>
+      seq(
+        "@deprecated",
+        optional(seq("(", field("message", $.string_value), ")")),
+      ),
+
     property: ($) =>
       seq(
+        field("deprecation", optional($.property_deprecation)),
         field("visibility", optional($.property_visibility)),
         "property",
         seq(
@@ -169,11 +157,21 @@ module.exports = grammar({
 
     binding_alias: ($) =>
       seq(
+        field("deprecation", optional($.property_deprecation)),
         field("visibility", optional($.property_visibility)),
         optional("property"),
-        field("name", $.simple_identifier),
+        field("name", $._statement_identifier),
         "<=>",
         field("alias", $.expression),
+        ";",
+      ),
+
+    implement_statement: ($) =>
+      seq(
+        "implement",
+        field("interface", $.user_type_identifier),
+        "<=>",
+        field("target", $.simple_identifier),
         ";",
       ),
 
@@ -213,7 +211,12 @@ module.exports = grammar({
       seq("interface", field("name", $.user_type_identifier), $.interface_block),
 
     struct_field_definition: ($) =>
-      seq(field("name", $.simple_identifier), ":", field("type", $.type)),
+      seq(
+        field("name", $.simple_identifier),
+        ":",
+        field("type", $.type),
+        optional(seq("=", field("default_value", $.expression))),
+      ),
 
     struct_block: ($) =>
       seq(
@@ -275,15 +278,40 @@ module.exports = grammar({
         $.for_loop,
         $.function_definition,
         $.if_statement,
+        $.implement_statement,
+        $.match_statement,
         $.property,
         $.property_assignment,
+        $.slot_declaration,
+        $.slot_assignment,
+        $.slot_forwarding,
         $.states_definition,
         $.transitions_definition,
       ),
 
+    slot_declaration: ($) =>
+      seq("slot", field("name", $.simple_identifier), ";"),
+
+    // `slot` is a contextual keyword: it only introduces a slot declaration when a
+    // name follows it, so it stays a valid identifier everywhere else. As with
+    // "changed" in $.callback_event, the lexer would otherwise always prefer the
+    // "slot" keyword over the identifier regex, so alias it back to an identifier
+    // in every statement that may start with one.
+    _statement_identifier: ($) =>
+      choice($.simple_identifier, alias("slot", $.simple_identifier)),
+
+    _statement_type_identifier: ($) =>
+      choice($.user_type_identifier, alias("slot", $.user_type_identifier)),
+
+    slot_assignment: ($) =>
+      seq(field("name", $._statement_identifier), "<<", $.component),
+
+    slot_forwarding: ($) =>
+      seq(field("name", $._statement_identifier), "<<", field("value", $.expression), ";"),
+
     property_assignment: ($) =>
       seq(
-        field("property", $.simple_identifier),
+        field("property", $._statement_identifier),
         ":",
         field(
           "value",
@@ -370,6 +398,26 @@ module.exports = grammar({
 
     for_range: ($) => choice($.value_list, $.expression),
 
+    match_statement: ($) =>
+      seq("match",
+        field("value", $.simple_identifier),
+        "{",
+        repeat($.match_case),
+        optional($.wildcard_match_case),
+        "}",
+      ),
+
+    match_case: ($) =>
+      seq(
+        field("case", choice($._basic_value,
+          seq($.user_type_identifier, ".", $.user_type_identifier))),
+        ":",
+        choice($.component, seq("{", "}"))
+      ),
+
+    wildcard_match_case: ($) =>
+      seq("*", ":", $.component),
+
     type_list: ($) => seq("[", commaSep($.type), optional(","), "]"),
 
     type: ($) => choice($._type_identifier, $.type_list, $.struct_block),
@@ -398,6 +446,7 @@ module.exports = grammar({
     expression: ($) =>
       prec.right(
         choice(
+          $.closure_expression,
           $.keys,
           $.parens_op,
           $.index_op,
@@ -418,6 +467,21 @@ module.exports = grammar({
       ),
 
     parens_op: ($) => seq("(", field("left", $.expression), ")"),
+
+    closure_expression: ($) =>
+      prec.right(
+        1,
+        seq(
+          "(",
+          field("argument", $.simple_identifier),
+          $._closure_arrow,
+          field("body", $.expression),
+        ),
+      ),
+
+    // Keep `)` and `=>` together so `(foo)` remains a parenthesized expression
+    // when no arrow follows.
+    _closure_arrow: (_) => token(seq(")", /[\s\r\n]*/, "=>")),
 
     index_op: ($) =>
       prec(
@@ -624,7 +688,7 @@ module.exports = grammar({
     // By using the alias here we can force Tree-sitter to treat it also as an identifier.
     callback_event: ($) =>
       seq(
-        field("name", choice($.simple_identifier, alias("changed", $.simple_identifier))),
+        field("name", choice($._statement_identifier, alias("changed", $.simple_identifier))),
         optional(field("arguments", $.arguments)),
         "=>",
         field("action", $._binding),
@@ -777,6 +841,12 @@ module.exports = grammar({
           "\\",
           '"',
           seq("{", $.expression, "}"),
+          // The lexer accepts a backslash before any character; an escape it
+          // doesn't recognize is a semantic error, not a syntax one. Keeping
+          // such a backslash lets it act as a path separator in an import or
+          // @image-url address. The already-handled characters are excluded so
+          // this doesn't compete with them.
+          /[^"n{\\]/,
         ),
       ),
     /////////////////////////////////////////////////////////////////////

@@ -1,0 +1,30 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Software-3.0
+
+//#sls.file.component.inherits
+export component TestCase inherits Window {
+    // `background` is a property of the Window base, `declared` is added by
+    // the declaration in the body.
+    //#sls.file.component.inherits.properties
+    background: #336699;
+    in-out property <length> declared: 7px;
+
+    Rectangle {
+        x: 0px;
+        y: 0px;
+        width: 16px;
+        height: 16px;
+        background: #ff0000;
+    }
+}
+
+/*
+```rust
+//#sls.prop.def
+let mut x = TestCase::new();
+x.set_declared(8);
+assert_eq!(x.get_declared(), 8);
+//#sls.file.component.inherits.body-applies
+screenshot!(x);
+```
+*/

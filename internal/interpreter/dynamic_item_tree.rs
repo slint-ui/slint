@@ -227,24 +227,28 @@ impl RepeatedItemTree for ErasedItemTreeBox {
 
         let flex_grow = load_f32("flex-grow");
         let flex_shrink = load_f32("flex-shrink");
-        let flex_basis = if root_element.borrow().bindings.contains_key("flex-basis") {
-            load_f32("flex-basis")
-        } else {
-            -1.0
-        };
-        let flex_align_self = eval::load_property(instance_ref, root_element, "flex-align-self")
-            .ok()
-            .and_then(|v| v.try_into().ok())
-            .unwrap_or(i_slint_core::items::FlexboxLayoutAlignSelf::Auto);
+        let flex_basis =
+            if root_element.borrow().binding_cell_including_synthetic("flex-basis").is_some() {
+                load_f32("flex-basis")
+            } else {
+                -1.0
+            };
+        let cross_axis_self_alignment =
+            eval::load_property(instance_ref, root_element, "cross-axis-self-alignment")
+                .ok()
+                .and_then(|v| v.try_into().ok())
+                .unwrap_or(i_slint_core::items::CrossAxisSelfAlignment::Auto);
         let flex_order = load_f32("flex-order") as i32;
 
         i_slint_core::layout::FlexboxLayoutItemInfo {
             constraint: self.layout_item_info(o, child_index).constraint,
-            flex_grow,
-            flex_shrink,
-            flex_basis,
-            flex_align_self,
-            flex_order,
+            props: i_slint_core::layout::FlexItemProps {
+                flex_grow,
+                flex_shrink,
+                flex_basis,
+                cross_axis_self_alignment,
+                flex_order,
+            },
         }
     }
 }
@@ -492,7 +496,7 @@ pub struct ItemTreeDescription<'id> {
     pub(crate) popup_menu_description: PopupMenuDescription,
 
     /// The collection of compiled globals
-    pub(crate) compiled_globals: Option<Rc<CompiledGlobalCollection>>,
+    compiled_globals: Option<Rc<CompiledGlobalCollection>>,
 
     /// The type loader, which will be available only on the top-most `ItemTreeDescription`.
     /// All other `ItemTreeDescription`s have `None` here.
@@ -558,6 +562,11 @@ impl ItemTreeDescription<'_> {
     /// The name of this Component as written in the .slint file
     pub fn id(&self) -> &str {
         self.original.id.as_str()
+    }
+
+    #[cfg(feature = "internal")]
+    pub(crate) fn compiled_globals(&self) -> Option<Rc<CompiledGlobalCollection>> {
+        self.compiled_globals.clone()
     }
 
     /// List of publicly declared properties or callbacks
@@ -806,13 +815,12 @@ extern "C" fn visit_children_item(
     let instance_ref = unsafe { InstanceRef::from_pin_ref(component, guard) };
     let comp_rc = instance_ref.self_weak().get().unwrap().upgrade().unwrap();
     i_slint_core::item_tree::visit_item_tree(
-        instance_ref.instance,
         &vtable::VRc::into_dyn(comp_rc),
         get_item_tree(component).as_slice(),
         index,
         order,
         v,
-        |_, order, visitor, index| {
+        &mut |order, visitor, index| {
             if index as usize >= instance_ref.description.repeater.len() {
                 // Do nothing: We are ComponentContainer and Our parent already did all the work!
                 VisitChildrenResult::CONTINUE
@@ -837,7 +845,7 @@ pub(crate) struct ItemRTTI {
 fn rtti_for<T: 'static + Default + rtti::BuiltinItem + vtable::HasStaticVTable<ItemVTable>>()
 -> (&'static str, Rc<ItemRTTI>) {
     let rtti = ItemRTTI {
-        vtable: T::static_vtable(),
+        vtable: T::STATIC_VTABLE,
         type_info: dynamic_type::StaticTypeInfo::new::<T>(),
         properties: T::properties()
             .into_iter()
@@ -1039,6 +1047,7 @@ fn generate_rtti() -> HashMap<&'static str, Rc<ItemRTTI>> {
             rtti_for::<Layer>(),
             rtti_for::<DragArea>(),
             rtti_for::<DropArea>(),
+            rtti_for::<WindowMoveArea>(),
             rtti_for::<ContextMenu>(),
             rtti_for::<MenuItem>(),
             rtti_for::<SystemTrayIcon>(),
@@ -1076,8 +1085,6 @@ pub(crate) fn generate_item_tree<'id>(
     is_popup_menu_impl: bool,
     guard: generativity::Guard<'id>,
 ) -> Rc<ItemTreeDescription<'id>> {
-    //dbg!(&*component.root_element.borrow());
-
     thread_local! {
         static RTTI: Lazy<HashMap<&'static str, Rc<ItemRTTI>>> = Lazy::new(generate_rtti);
     }
@@ -1274,6 +1281,7 @@ pub(crate) fn generate_item_tree<'id>(
             Type::Struct(_) => property_info::<Value>(),
             Type::Array(_) => property_info::<Value>(),
             Type::Easing => property_info::<i_slint_core::animations::EasingCurve>(),
+            Type::MouseCursor => property_info::<i_slint_core::cursor::MouseCursorInner>(),
             Type::Percent => animated_property_info::<f32>(),
             Type::Enumeration(e) => {
                 macro_rules! match_enum_type {
@@ -1307,7 +1315,8 @@ pub(crate) fn generate_item_tree<'id>(
             | Type::Model
             | Type::PathData
             | Type::UnitProduct(_)
-            | Type::ElementReference => panic!("bad type {ty:?} for property {name}"),
+            | Type::ElementReference
+            | Type::Closure => panic!("bad type {ty:?} for property {name}"),
         })
     }
 
@@ -2202,11 +2211,17 @@ extern "C" fn ensure_instantiated(component: ItemTreeRefPin) -> bool {
         {
             let assume_property_logical_length =
                 |prop| unsafe { Pin::new_unchecked(&*(prop as *const Property<LogicalLength>)) };
+            let content_width = lv.content_width.as_ref().map(|content_width| {
+                assume_property_logical_length(get_property_ptr(content_width, instance_ref))
+            });
+            let content_height = lv.content_height.as_ref().map(|content_height| {
+                assume_property_logical_length(get_property_ptr(content_height, instance_ref))
+            });
             changed |= repeater.ensure_updated_listview(
                 init,
-                assume_property_logical_length(get_property_ptr(&lv.viewport_width, instance_ref)),
-                assume_property_logical_length(get_property_ptr(&lv.viewport_height, instance_ref)),
-                assume_property_logical_length(get_property_ptr(&lv.viewport_y, instance_ref)),
+                content_width,
+                content_height,
+                assume_property_logical_length(get_property_ptr(&lv.content_y, instance_ref)),
                 eval::load_property(
                     instance_ref,
                     &lv.listview_width.element(),
@@ -2560,6 +2575,10 @@ extern "C" fn accessibility_action(
         AccessibilityAction::SetValue(a) => {
             perform("accessible-action-set-value", &[Value::String(a.clone())])
         }
+        AccessibilityAction::SetSelection(anchor, focus) => perform(
+            "accessible-action-set-selection",
+            &[Value::Number(*anchor as f64), Value::Number(*focus as f64)],
+        ),
     };
 }
 
@@ -2681,18 +2700,11 @@ impl<'a, 'id> InstanceRef<'a, 'id> {
     }
 
     pub fn window_adapter(&self) -> WindowAdapterRc {
-        let root_weak = vtable::VWeak::into_dyn(self.root_weak().clone());
-        let root = self.root_weak().upgrade().unwrap();
-        generativity::make_guard!(guard);
-        let comp = root.unerase(guard);
-        Self::get_or_init_window_adapter_ref(
-            &comp.description,
-            root_weak,
-            true,
-            comp.instance.as_pin_ref().get_ref(),
-        )
-        .unwrap()
-        .clone()
+        self.try_window_adapter().unwrap()
+    }
+
+    pub fn try_window_adapter(&self) -> Result<WindowAdapterRc, PlatformError> {
+        self.root_weak().upgrade().unwrap().window_adapter_ref().cloned()
     }
 
     pub fn get_or_init_window_adapter_ref<'b, 'id2>(
@@ -2980,6 +2992,11 @@ pub fn update_timers(instance: InstanceRef) {
 }
 
 pub fn restart_timer(element: ElementWeak, instance: InstanceRef) {
+    // The calling expression can be in a repeated or conditional child of the
+    // component that declares the timer.
+    let element_rc = element.upgrade().unwrap();
+    generativity::make_guard!(guard);
+    let instance = eval::enclosing_component_for_element(&element_rc, instance, guard);
     let timers = instance.description.original.timers.borrow();
     if let Some((_, offset)) = timers
         .iter()

@@ -6,7 +6,8 @@
 
 use crate::diagnostics::{BuildDiagnostics, Spanned};
 use crate::expression_tree::{
-    BuiltinFunction, BuiltinMacroFunction, Callable, EasingCurve, Expression, MinMaxOp, Unit,
+    BuiltinFunction, BuiltinMacroFunction, Callable, EasingCurve, Expression, MinMaxOp,
+    MouseCursorInner, Unit,
 };
 use crate::langtype::Type;
 use crate::parser::NodeOrToken;
@@ -91,6 +92,57 @@ pub fn lower_macro(
         BuiltinMacroFunction::Rgb => rgb_macro(n, sub_expr.collect(), diag, symbol_counters),
         BuiltinMacroFunction::Hsv => hsv_macro(n, sub_expr.collect(), diag, symbol_counters),
         BuiltinMacroFunction::Oklch => oklch_macro(n, sub_expr.collect(), diag, symbol_counters),
+        BuiltinMacroFunction::ArrayPush => {
+            array_push_macro(n, sub_expr.collect(), diag, symbol_counters)
+        }
+        BuiltinMacroFunction::ArrayRemove => {
+            array_remove_macro(n, sub_expr.collect(), diag, symbol_counters)
+        }
+        BuiltinMacroFunction::ArrayInsert => {
+            array_insert_macro(n, sub_expr.collect(), diag, symbol_counters)
+        }
+        BuiltinMacroFunction::CustomMouseCursor => {
+            let mut has_error = None;
+            let hotspot_type_error = "The last two arguments to custom cursor must be an integer";
+
+            // Take the next argument if it passes `valid`, otherwise record an error.
+            let mut next_arg =
+                |valid: fn(&Type) -> bool, type_error: &'static str| match sub_expr.next() {
+                    Some((e, _)) if valid(&e.ty()) => e,
+                    Some(_) => {
+                        has_error.get_or_insert((n.to_source_location(), type_error));
+                        Expression::Invalid
+                    }
+                    None => {
+                        has_error.get_or_insert((n.to_source_location(), "Not enough arguments"));
+                        Expression::Invalid
+                    }
+                };
+
+            let image = next_arg(
+                |t| matches!(t, Type::Image),
+                "The first argument to custom cursor must be image",
+            );
+            let hotspot_x = next_arg(|t| t.can_convert(&Type::Int32), hotspot_type_error);
+            let hotspot_y = next_arg(|t| t.can_convert(&Type::Int32), hotspot_type_error);
+
+            let expr = Expression::MouseCursor(MouseCursorInner::CustomMouseCursor {
+                image: Box::new(image),
+                hotspot_x: Box::new(hotspot_x),
+                hotspot_y: Box::new(hotspot_y),
+            });
+            if let Some((_, n)) = sub_expr.next() {
+                has_error.get_or_insert((
+                    n.to_source_location(),
+                    "Too many arguments for custom cursor",
+                ));
+            }
+            if let Some((n, msg)) = has_error {
+                diag.push_error(msg.into(), &n);
+            }
+
+            expr
+        }
     }
 }
 
@@ -399,6 +451,86 @@ fn debug_macro(
     }
 }
 
+fn array_push_macro(
+    node: &dyn Spanned,
+    mut args: Vec<(Expression, Option<NodeOrToken>)>,
+    diag: &mut BuildDiagnostics,
+    symbol_counters: &SymbolCounters,
+) -> Expression {
+    if args.len() != 2 {
+        diag.push_error(
+            format!("This method needs 1 argument, but {} were provided", args.len() - 1),
+            node,
+        );
+        return Expression::Invalid;
+    }
+
+    let element_type =
+        if let Type::Array(t) = args[0].0.ty() { (*t).clone() } else { Type::Invalid };
+
+    let (model_expr, _) = args.remove(0);
+    let (value_expr, value_node) = args.remove(0);
+    let value = value_expr.maybe_convert_to(element_type, &value_node, diag, symbol_counters);
+    Expression::FunctionCall {
+        function: Callable::Builtin(BuiltinFunction::ArrayPush),
+        arguments: vec![model_expr, value],
+        source_location: Some(node.to_source_location()),
+    }
+}
+
+fn array_remove_macro(
+    node: &dyn Spanned,
+    mut args: Vec<(Expression, Option<NodeOrToken>)>,
+    diag: &mut BuildDiagnostics,
+    symbol_counters: &SymbolCounters,
+) -> Expression {
+    if args.len() != 2 {
+        diag.push_error(
+            format!("This method needs 1 argument, but {} were provided", args.len() - 1),
+            node,
+        );
+        return Expression::Invalid;
+    }
+
+    let (model_expr, _) = args.remove(0);
+    let (index_expr, index_node) = args.remove(0);
+    let index = index_expr.maybe_convert_to(Type::Int32, &index_node, diag, symbol_counters);
+    Expression::FunctionCall {
+        function: Callable::Builtin(BuiltinFunction::ArrayRemove),
+        arguments: vec![model_expr, index],
+        source_location: Some(node.to_source_location()),
+    }
+}
+
+fn array_insert_macro(
+    node: &dyn Spanned,
+    mut args: Vec<(Expression, Option<NodeOrToken>)>,
+    diag: &mut BuildDiagnostics,
+    symbol_counters: &SymbolCounters,
+) -> Expression {
+    if args.len() != 3 {
+        diag.push_error(
+            format!("This method needs 2 arguments, but {} were provided", args.len() - 1),
+            node,
+        );
+        return Expression::Invalid;
+    }
+
+    let element_type =
+        if let Type::Array(t) = args[0].0.ty() { (*t).clone() } else { Type::Invalid };
+
+    let (model_expr, _) = args.remove(0);
+    let (index_expr, index_node) = args.remove(0);
+    let (value_expr, value_node) = args.remove(0);
+    let index = index_expr.maybe_convert_to(Type::Int32, &index_node, diag, symbol_counters);
+    let value = value_expr.maybe_convert_to(element_type, &value_node, diag, symbol_counters);
+    Expression::FunctionCall {
+        function: Callable::Builtin(BuiltinFunction::ArrayInsert),
+        arguments: vec![model_expr, index, value],
+        source_location: Some(node.to_source_location()),
+    }
+}
+
 fn to_debug_string(
     expr: Expression,
     node: &dyn Spanned,
@@ -418,7 +550,8 @@ fn to_debug_string(
         | Type::LayoutCache
         | Type::ArrayOfU16
         | Type::Model
-        | Type::PathData => {
+        | Type::PathData
+        | Type::Closure => {
             diag.push_error("Cannot debug this expression".into(), node);
             Expression::Invalid
         }
@@ -431,6 +564,7 @@ fn to_debug_string(
         | Type::Brush
         | Type::Image
         | Type::Easing
+        | Type::MouseCursor
         | Type::StyledText
         | Type::Array(_)
         | Type::DataTransfer => {

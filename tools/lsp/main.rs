@@ -175,16 +175,13 @@ impl ServerNotifier {
                 queue.insert(id.clone(), OutgoingRequest::Pending(ctx.waker().clone()));
                 Poll::Pending
             }
-            OutgoingRequest::Done(d) => {
-                if let Some(err) = d.error {
-                    Poll::Ready(Err(err.message.into()))
-                } else {
-                    Poll::Ready(
-                        serde_json::from_value(d.result.unwrap_or_default())
-                            .map_err(|e| format!("cannot deserialize response: {e:?}").into()),
-                    )
-                }
-            }
+            OutgoingRequest::Done(d) => match d.response_result {
+                Err(err) => Poll::Ready(Err(err.message.into())),
+                Ok(result) => Poll::Ready(
+                    serde_json::from_value(result)
+                        .map_err(|e| format!("cannot deserialize response: {e:?}").into()),
+                ),
+            },
         }))
     }
 
@@ -238,7 +235,7 @@ fn run_preview(args: &LivePreview) -> std::result::Result<(), slint::PlatformErr
     let to_lsp: Rc<dyn common::PreviewToLsp> =
         Rc::new(preview::connector::RemoteControlledPreviewToLsp::new());
 
-    preview::run(to_lsp, args.fullscreen, preview::PreviewUiKind::Viewer, None)
+    preview::run(to_lsp, args.fullscreen, preview::PreviewUiKind::Viewer)
 }
 
 fn main() {
@@ -540,6 +537,7 @@ async fn run_main_loop(
         open_urls: Default::default(),
         to_preview,
         pending_recompile: Default::default(),
+        host_language_rename_dont_ask_again: Default::default(),
     };
 
     let connection = Arc::new(connection);
@@ -866,18 +864,9 @@ async fn handle_preview_to_lsp_message(
             tracing::debug!("Preview asked to connect remote at {addresses:?}:{port}");
             #[cfg(feature = "preview-remote")]
             if let Some(remote) = ctx.to_preview.remote() {
-                // `connect()` emits Connecting / Connected / Failed itself and
-                // rejects empty `addresses` up front.
-                let preview_to_lsp_sender = ctx.preview_to_lsp_sender.clone();
-                let future = remote.connect(addresses, port);
-                crate::common::spawn_local(async move {
-                    if future.await.is_ok() {
-                        let _ = preview_to_lsp_sender.send(PreviewToLspMessage::RequestState {
-                            files: Vec::new(),
-                            settings: Vec::new(),
-                        });
-                    }
-                });
+                // `connect()` owns the dialog state and has the preview
+                // state pushed once connected.
+                crate::common::spawn_local(remote.connect(addresses, port));
             }
         }
         M::DisconnectRemote => {

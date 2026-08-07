@@ -1,0 +1,14 @@
+// Copyright © 2026 Klarälvdalens Datakonsult AB, a KDAB Group company <info@kdab.com>, author Nicholas Turner <nicholas.turner@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export global Palette {
+    in-out property <color> primary: blue;
+
+    match primary {
+//  >error{A global component cannot have match statements}
+        Colors.blue: Rectangle { background: orange; }
+        Colors.red: Rectangle { background: green; }
+        *: Rectangle { background: black; }
+    }
+//  <error{A global component cannot have match statements}
+}

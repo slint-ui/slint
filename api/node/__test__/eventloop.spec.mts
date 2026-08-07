@@ -18,6 +18,14 @@ afterEach(() => {
     quitEventLoop();
 });
 
+test.sequential("integrated event loop is available", () => {
+    // On Windows the IOCP handle is read at a fixed uv_loop_t offset
+    // and validated at runtime; a Node/libuv layout change silently
+    // falls back to 16ms polling. This assertion turns that fallback
+    // into a CI failure.
+    expect(hasIntegratedEventLoop()).toBe(true);
+});
+
 test.sequential("merged event loops with timer", async () => {
     let invoked = false;
 
@@ -31,7 +39,10 @@ test.sequential("merged event loops with timer", async () => {
 });
 
 test.sequential("merged event loops with networking", async () => {
-    const listener = (request, result) => {
+    const listener = (
+        request: http.IncomingMessage,
+        result: http.ServerResponse,
+    ) => {
         result.writeHead(200);
         result.end("Hello World");
     };

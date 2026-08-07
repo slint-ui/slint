@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell:ignore dialable undialable
+
 //! Remote-preview discovery, run inside the preview process.
 //!
 //! The mDNS daemon is created on first use, so the OS firewall prompt only
@@ -378,15 +380,7 @@ fn to_remote_viewer_info(resolved: mdns_sd::ResolvedService) -> RemoteViewerInfo
     let (compatible, incompatible_reason) =
         check_compatibility(viewer_protocols.as_deref(), viewer_slint_version.as_deref());
 
-    let addresses: Vec<SharedString> = resolved
-        .addresses
-        .into_iter()
-        .filter_map(|addr| match addr {
-            mdns_sd::ScopedIp::V4(ip) => Some(ip.addr().to_string().into()),
-            mdns_sd::ScopedIp::V6(ip) => Some(format!("[{}]", ip.addr()).into()),
-            _ => None,
-        })
-        .collect();
+    let addresses = dialable_addresses(resolved.addresses);
 
     RemoteViewerInfo {
         fullname: resolved.fullname.into(),
@@ -397,6 +391,30 @@ fn to_remote_viewer_info(resolved: mdns_sd::ResolvedService) -> RemoteViewerInfo
         compatible,
         incompatible_reason: incompatible_reason.into(),
         last_seen_secs: now_secs(),
+    }
+}
+
+/// Convert resolved mDNS addresses into strings the connector can dial.
+fn dialable_addresses(addresses: impl IntoIterator<Item = mdns_sd::ScopedIp>) -> Vec<SharedString> {
+    addresses
+        .into_iter()
+        .filter_map(|addr| match addr {
+            mdns_sd::ScopedIp::V4(ip) => Some(ip.addr().to_string().into()),
+            mdns_sd::ScopedIp::V6(ip) => dialable_v6(ip.addr(), ip.scope_id().index),
+            _ => None,
+        })
+        .collect()
+}
+
+/// Format an IPv6 address so the connector can dial it. Link-local needs a
+/// zone id, and only the numeric form (`[fe80::1%1]`) survives the ws://
+/// stack. `scope_index` is the local interface the mDNS record arrived on;
+/// 0 means unknown, which makes link-local undialable, so drop it.
+fn dialable_v6(addr: &std::net::Ipv6Addr, scope_index: u32) -> Option<SharedString> {
+    if addr.is_unicast_link_local() {
+        (scope_index != 0).then(|| format!("[{addr}%{scope_index}]").into())
+    } else {
+        Some(format!("[{addr}]").into())
     }
 }
 
@@ -433,6 +451,44 @@ fn now_secs() -> i32 {
     use std::time::Instant;
     static START: OnceLock<Instant> = OnceLock::new();
     START.get_or_init(Instant::now).elapsed().as_secs() as i32
+}
+
+#[cfg(test)]
+mod dialable_addresses_tests {
+    use super::*;
+    use std::net::{IpAddr, Ipv6Addr};
+
+    fn scoped(ip: &str) -> mdns_sd::ScopedIp {
+        mdns_sd::ScopedIp::from(ip.parse::<IpAddr>().unwrap())
+    }
+
+    fn v6(ip: &str) -> Ipv6Addr {
+        ip.parse().unwrap()
+    }
+
+    #[test]
+    fn link_local_gets_numeric_zone() {
+        assert_eq!(dialable_v6(&v6("fe80::1"), 1), Some("[fe80::1%1]".into()));
+    }
+
+    #[test]
+    fn link_local_without_interface_index_is_dropped() {
+        assert_eq!(dialable_v6(&v6("fe80::1"), 0), None);
+    }
+
+    #[test]
+    fn global_ipv6_needs_no_zone() {
+        assert_eq!(dialable_v6(&v6("2001:db8::5"), 0), Some("[2001:db8::5]".into()));
+        assert_eq!(dialable_v6(&v6("2001:db8::5"), 16), Some("[2001:db8::5]".into()));
+    }
+
+    #[test]
+    fn keeps_ipv4() {
+        // `From<IpAddr>` yields interface index 0, so the link-local
+        // address is dropped here.
+        let addresses = dialable_addresses([scoped("192.168.1.57"), scoped("fe80::1")]);
+        assert_eq!(addresses, vec![SharedString::from("192.168.1.57")]);
+    }
 }
 
 #[cfg(test)]
