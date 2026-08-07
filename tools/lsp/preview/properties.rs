@@ -995,7 +995,7 @@ pub mod tests {
         // reserved properties:
         assert_eq!(
             &find_property(&result, "accessible-role").unwrap().ty.to_string(),
-            "enum AccessibleRole"
+            "AccessibleRole"
         );
         // Accessible property should not be present since the role is none
         assert!(find_property(&result, "accessible-label").is_none());

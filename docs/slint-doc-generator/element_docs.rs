@@ -293,15 +293,6 @@ fn transform_code_fences(text: &str, counter: &mut ScreenshotCounter) -> String 
 
 // -- Type formatting helpers --
 
-/// Format a type name for documentation output. Same as `Type::Display`
-/// except enumerations omit the `enum` prefix.
-fn format_type_name(ty: &Type) -> String {
-    match ty {
-        Type::Enumeration(e) => e.name.to_string(),
-        _ => ty.to_string(),
-    }
-}
-
 /// Format a default value expression for documentation output.
 fn format_default_expr(expr: &i_slint_compiler::expression_tree::Expression) -> String {
     use i_slint_compiler::expression_tree::Expression;
@@ -335,16 +326,16 @@ fn format_signature(func: &i_slint_compiler::langtype::Function) -> String {
         .filter(|(_, ty)| !matches!(ty, Type::ElementReference))
         .map(|(name, ty)| {
             if name.is_empty() {
-                format_type_name(ty)
+                ty.to_string()
             } else {
-                format!("{name}: {}", format_type_name(ty))
+                format!("{name}: {ty}")
             }
         })
         .collect();
     let ret = if matches!(func.return_type, Type::Void) {
         String::new()
     } else {
-        format!(" -> {}", format_type_name(&func.return_type))
+        format!(" -> {}", func.return_type)
     };
     format!("({}){ret}", params.join(", "))
 }
@@ -456,7 +447,7 @@ fn write_slint_property(
     structs: &HashSet<String>,
     sc: &mut ScreenshotCounter,
 ) -> std::io::Result<()> {
-    let type_name = format_type_name(&info.ty);
+    let type_name = info.ty.to_string();
     let raw_doc = info.docs.as_deref().unwrap_or("");
     let (description, doc_default) = extract_default(raw_doc);
     let mut default_value = match &info.default_value {
