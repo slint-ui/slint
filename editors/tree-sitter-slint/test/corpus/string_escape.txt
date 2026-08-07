@@ -1,0 +1,243 @@
+================================================================================
+Recognized escape sequences
+================================================================================
+
+export component X {
+    a: "back\\slash";
+    b: "new\nline";
+    c: "quo\"te";
+    d: "uni\u{1F600}code";
+}
+--------------------------------------------------------------------------------
+
+(sourcefile
+  (exported_definition
+    (component_definition
+      (user_type_identifier)
+      (block
+        (property_assignment
+          (simple_identifier)
+          (expression
+            (value
+              (string_value
+                (escape_sequence)))))
+        (property_assignment
+          (simple_identifier)
+          (expression
+            (value
+              (string_value
+                (escape_sequence)))))
+        (property_assignment
+          (simple_identifier)
+          (expression
+            (value
+              (string_value
+                (escape_sequence)))))
+        (property_assignment
+          (simple_identifier)
+          (expression
+            (value
+              (string_value
+                (escape_sequence)))))))))
+
+================================================================================
+String interpolation
+================================================================================
+
+export component X {
+    a: "sum\{1+2}end";
+}
+--------------------------------------------------------------------------------
+
+(sourcefile
+  (exported_definition
+    (component_definition
+      (user_type_identifier)
+      (block
+        (property_assignment
+          (simple_identifier)
+          (expression
+            (value
+              (string_value
+                (escape_sequence
+                  (expression
+                    (binary_expression
+                      (expression
+                        (value
+                          (int_value)))
+                      (add_prec_operator)
+                      (expression
+                        (value
+                          (int_value))))))))))))))
+
+================================================================================
+String interpolation with whitespace around the expression
+================================================================================
+
+export component X {
+    a: "sum\{ 1 + 2 }end";
+    b: "sum\{
+        1 + 2
+    }end";
+}
+--------------------------------------------------------------------------------
+
+(sourcefile
+  (exported_definition
+    (component_definition
+      (user_type_identifier)
+      (block
+        (property_assignment
+          (simple_identifier)
+          (expression
+            (value
+              (string_value
+                (escape_sequence
+                  (expression
+                    (binary_expression
+                      (expression
+                        (value
+                          (int_value)))
+                      (add_prec_operator)
+                      (expression
+                        (value
+                          (int_value))))))))))
+        (property_assignment
+          (simple_identifier)
+          (expression
+            (value
+              (string_value
+                (escape_sequence
+                  (expression
+                    (binary_expression
+                      (expression
+                        (value
+                          (int_value)))
+                      (add_prec_operator)
+                      (expression
+                        (value
+                          (int_value))))))))))))))
+
+================================================================================
+A backslash that starts no known escape is a lone escape sequence
+================================================================================
+
+export component X {
+    a: "stray\xbackslash";
+    b: "path\to\file";
+}
+--------------------------------------------------------------------------------
+
+(sourcefile
+  (exported_definition
+    (component_definition
+      (user_type_identifier)
+      (block
+        (property_assignment
+          (simple_identifier)
+          (expression
+            (value
+              (string_value
+                (escape_sequence)))))
+        (property_assignment
+          (simple_identifier)
+          (expression
+            (value
+              (string_value
+                (escape_sequence)
+                (escape_sequence)))))))))
+
+================================================================================
+Whitespace after a backslash is not part of an escape sequence
+================================================================================
+
+export component X {
+    a: "sp\ n";
+}
+--------------------------------------------------------------------------------
+
+(sourcefile
+  (exported_definition
+    (component_definition
+      (user_type_identifier)
+      (block
+        (property_assignment
+          (simple_identifier)
+          (expression
+            (value
+              (string_value
+                (escape_sequence)))))))))
+
+================================================================================
+A malformed unicode escape is a lone escape sequence
+================================================================================
+
+export component X {
+    a: "malformed\u{ZZZ}tail";
+    b: "bare\utail";
+}
+--------------------------------------------------------------------------------
+
+(sourcefile
+  (exported_definition
+    (component_definition
+      (user_type_identifier)
+      (block
+        (property_assignment
+          (simple_identifier)
+          (expression
+            (value
+              (string_value
+                (escape_sequence)))))
+        (property_assignment
+          (simple_identifier)
+          (expression
+            (value
+              (string_value
+                (escape_sequence)))))))))
+
+================================================================================
+Backslashes in an import path are not escape sequences
+================================================================================
+
+import { A } from "path\to\file.slint";
+import { B } from "\"x";
+import { C } from "p\\q";
+--------------------------------------------------------------------------------
+
+(sourcefile
+  (import_statement
+    (import_type
+      (user_type_identifier))
+    (string_value))
+  (import_statement
+    (import_type
+      (user_type_identifier))
+    (string_value))
+  (import_statement
+    (import_type
+      (user_type_identifier))
+    (string_value)))
+
+================================================================================
+Backslashes in a re-export path are not escape sequences
+================================================================================
+
+export { A } from "path\to\file.slint";
+export { B } from "\"x";
+export { C } from "p\\q";
+--------------------------------------------------------------------------------
+
+(sourcefile
+  (export_statement
+    (export_type
+      (user_type_identifier))
+    (string_value))
+  (export_statement
+    (export_type
+      (user_type_identifier))
+    (string_value))
+  (export_statement
+    (export_type
+      (user_type_identifier))
+    (string_value)))
