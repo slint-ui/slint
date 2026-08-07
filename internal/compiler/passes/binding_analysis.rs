@@ -986,18 +986,23 @@ fn visit_implicit_layout_info_dependencies(
                 vis(&NamedReference::new(item, SmolStr::new_static("single-line")).into(), N);
             } else {
                 vis(&NamedReference::new(item, SmolStr::new_static("overflow")).into(), N);
+                // A line dropped by the limit is also excluded from the content widths, so
+                // `max-lines` is a dependency of both orientations, not just the height.
+                vis(&NamedReference::new(item, SmolStr::new_static("max-lines")).into(), N);
             }
         }
         "StyledText" => {
             vis(&NamedReference::new(item, SmolStr::new_static("text")).into(), N);
             vis(&NamedReference::new(item, SmolStr::new_static("default-font-family")).into(), N);
             vis(&NamedReference::new(item, SmolStr::new_static("default-font-size")).into(), N);
+            // A line dropped by the limit is also excluded from the content widths, so
+            // `max-lines` is a dependency of both orientations, not just the height.
+            vis(&NamedReference::new(item, SmolStr::new_static("max-lines")).into(), N);
             if orientation == Orientation::Vertical {
                 vis(
                     &NamedReference::new(item, SmolStr::new_static("line-height-factor")).into(),
                     N,
                 );
-                vis(&NamedReference::new(item, SmolStr::new_static("max-lines")).into(), N);
                 // StyledText always word-wraps, so its height depends on the width.
                 vis(&NamedReference::new(item, SmolStr::new_static("width")).into(), N);
             }
