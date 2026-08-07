@@ -34,8 +34,6 @@ version = "1.17.0"
 [profile.release]
 panic = "abort"
 
-[profile.dev]
-panic = "abort"
 
 # Always build resvg and its hot-path dependencies with optimizations,
 # as it otherwise causes freezes to load large SVGs in debug builds.
