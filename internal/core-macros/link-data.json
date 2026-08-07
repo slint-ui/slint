@@ -197,6 +197,9 @@
     "Size": {
         "href": "reference/property-types/builtin-structs/#size"
     },
+    "Spring Animation": {
+        "href": "reference/language/animations/#spring-animations"
+    },
     "slintFile": {
         "href": "guide/language/coding/file/"
     },

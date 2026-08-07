@@ -5,28 +5,9 @@
 
 <spring-graph>
     <div class="spring-graph not-content">
-        <div class="spring-graph-tabs" role="tablist">
-            <button
-                type="button"
-                role="tab"
-                data-mode="duration-bounce"
-                aria-selected="true"
-            >
-                duration / bounce
-            </button>
-            <button
-                type="button"
-                role="tab"
-                data-mode="physical"
-                aria-selected="false"
-            >
-                mass / stiffness / damping
-            </button>
-        </div>
-
         <div class="spring-graph-body">
             <div class="spring-graph-controls">
-                <div class="spring-graph-panel" data-panel="duration-bounce">
+                <div class="spring-graph-panel">
                     <label>
                         <span class="param-row">
                             <span class="param-name">duration</span>
@@ -53,50 +34,6 @@
                             max="1"
                             step="0.01"
                             value="0.3"
-                        />
-                    </label>
-                </div>
-                <div class="spring-graph-panel" data-panel="physical" hidden>
-                    <label>
-                        <span class="param-row">
-                            <span class="param-name">mass</span>
-                            <output data-out="mass"></output>
-                        </span>
-                        <input
-                            type="range"
-                            data-param="mass"
-                            min="0.1"
-                            max="10"
-                            step="0.1"
-                            value="1"
-                        />
-                    </label>
-                    <label>
-                        <span class="param-row">
-                            <span class="param-name">stiffness</span>
-                            <output data-out="stiffness"></output>
-                        </span>
-                        <input
-                            type="range"
-                            data-param="stiffness"
-                            min="1"
-                            max="500"
-                            step="1"
-                            value="120"
-                        />
-                    </label>
-                    <label>
-                        <span class="param-row">
-                            <span class="param-name">damping</span>
-                            <output data-out="damping"></output>
-                        </span>
-                        <input
-                            type="range"
-                            data-param="damping"
-                            min="0"
-                            max="60"
-                            step="0.5"
-                            value="14"
                         />
                     </label>
                 </div>
@@ -127,29 +64,6 @@
         background: var(--sl-color-bg-nav);
     }
 
-    .spring-graph-tabs {
-        display: flex;
-        gap: 0.5rem;
-        margin-bottom: 1rem;
-    }
-
-    .spring-graph-tabs button {
-        font: inherit;
-        font-size: var(--sl-text-sm);
-        cursor: pointer;
-        border: 1px solid var(--sl-color-hairline);
-        background: transparent;
-        color: var(--sl-color-text);
-        border-radius: 0.4rem;
-        padding: 0.35rem 0.75rem;
-    }
-
-    .spring-graph-tabs button[aria-selected="true"] {
-        background: var(--sl-color-accent);
-        border-color: var(--sl-color-accent);
-        color: #fff;
-    }
-
     .spring-graph-body {
         display: grid;
         grid-template-columns: minmax(14rem, 1fr) 2fr;
@@ -175,10 +89,6 @@
         display: flex;
         flex-direction: column;
         gap: 0.75rem;
-    }
-
-    .spring-graph-panel[hidden] {
-        display: none;
     }
 
     .spring-graph-panel label {
@@ -238,7 +148,7 @@
 <script>
     // Mirrors the closed-form solution in internal/core/animations/physics_simulation.rs
     // (SpringRegime::new / SpringRegime::evaluate), so the plotted curve matches what
-    // Slint actually renders for the same duration/bounce or mass/stiffness/damping values.
+    // Slint actually renders for the same duration/bounce values.
     const CRITICAL_ZETA_EPSILON = 1e-3;
 
     interface Regime {
@@ -302,28 +212,6 @@
         return { wn: (2 * Math.PI) / durationSecs, zeta: 1 - bounce };
     }
 
-    function physicalToWnZeta(mass: number, stiffness: number, damping: number) {
-        const wn = Math.sqrt(stiffness / mass);
-        const critical = 2 * Math.sqrt(mass * stiffness);
-        return { wn, zeta: critical > 0 ? damping / critical : 0 };
-    }
-
-    function wnZetaToDurationBounce(wn: number, zeta: number) {
-        return { duration: (2 * Math.PI) / wn, bounce: 1 - zeta };
-    }
-
-    // Mass isn't observable from (wn, zeta) alone, so the caller supplies one (the value
-    // already sitting in the physical panel) and stiffness/damping are solved around it.
-    function wnZetaToPhysical(wn: number, zeta: number, mass: number) {
-        const stiffness = wn * wn * mass;
-        const damping = zeta * 2 * Math.sqrt(mass * stiffness);
-        return { mass, stiffness, damping };
-    }
-
-    function clamp(value: number, min: number, max: number): number {
-        return Math.min(Math.max(value, min), max);
-    }
-
     function regimeLabel(zeta: number): string {
         if (Math.abs(zeta - 1) < CRITICAL_ZETA_EPSILON) {
             return "critically damped";
@@ -348,31 +236,14 @@
     }
 
     class SpringGraph extends HTMLElement {
-        mode: "duration-bounce" | "physical" = "duration-bounce";
-
         connectedCallback() {
             const root = this.querySelector(".spring-graph") as HTMLElement;
-            const tabs = Array.from(root.querySelectorAll<HTMLButtonElement>("[data-mode]"));
-            const panels = Array.from(root.querySelectorAll<HTMLElement>("[data-panel]"));
             const inputs = Array.from(root.querySelectorAll<HTMLInputElement>("input[data-param]"));
             const svg = root.querySelector("svg") as SVGSVGElement;
             const regimeOut = root.querySelector('[data-out="regime"]') as HTMLElement;
             const formulaOut = root.querySelector('[data-out="formula"]') as HTMLElement;
 
             const redraw = () => this.render(root, svg, regimeOut, formulaOut);
-
-            for (const tab of tabs) {
-                tab.addEventListener("click", () => {
-                    this.mode = tab.dataset.mode as "duration-bounce" | "physical";
-                    for (const t of tabs) {
-                        t.setAttribute("aria-selected", String(t === tab));
-                    }
-                    for (const panel of panels) {
-                        panel.hidden = panel.dataset.panel !== this.mode;
-                    }
-                    redraw();
-                });
-            }
 
             for (const input of inputs) {
                 input.addEventListener("input", redraw);
@@ -397,50 +268,16 @@
                     out.textContent = text;
                 }
             };
-            // Writes the derived value into the *other* mode's slider (clamped to its
-            // range) so switching tabs shows the equivalent spring instead of stale
-            // defaults, and returns the clamped number so the label matches the thumb.
-            const setInput = (name: string, value: number) => {
-                const input = root.querySelector(`input[data-param="${name}"]`) as HTMLInputElement;
-                const clamped = clamp(value, Number.parseFloat(input.min), Number.parseFloat(input.max));
-                input.value = String(clamped);
-                return clamped;
-            };
-
             let wn: number;
             let zeta: number;
             let durationMarker: number | null = null;
 
-            if (this.mode === "duration-bounce") {
-                const duration = get("duration");
-                const bounce = get("bounce");
-                ({ wn, zeta } = durationBounceToWnZeta(duration, bounce));
-                setOut("duration", `${Math.round(duration * 1000)} ms`);
-                setOut("bounce", bounce.toFixed(2));
-                durationMarker = duration;
-
-                const mass = get("mass");
-                const { stiffness, damping } = wnZetaToPhysical(wn, zeta, mass);
-                const clampedStiffness = setInput("stiffness", stiffness);
-                const clampedDamping = setInput("damping", damping);
-                setOut("mass", mass.toFixed(1));
-                setOut("stiffness", clampedStiffness.toFixed(0));
-                setOut("damping", clampedDamping.toFixed(1));
-            } else {
-                const mass = get("mass");
-                const stiffness = get("stiffness");
-                const damping = get("damping");
-                ({ wn, zeta } = physicalToWnZeta(mass, stiffness, damping));
-                setOut("mass", mass.toFixed(1));
-                setOut("stiffness", stiffness.toFixed(0));
-                setOut("damping", damping.toFixed(1));
-
-                const { duration, bounce } = wnZetaToDurationBounce(wn, zeta);
-                const clampedDuration = setInput("duration", duration);
-                const clampedBounce = setInput("bounce", bounce);
-                setOut("duration", `${Math.round(clampedDuration * 1000)} ms`);
-                setOut("bounce", clampedBounce.toFixed(2));
-            }
+            const duration = get("duration");
+            const bounce = get("bounce");
+            ({ wn, zeta } = durationBounceToWnZeta(duration, bounce));
+            setOut("duration", `${Math.round(duration * 1000)} ms`);
+            setOut("bounce", bounce.toFixed(2));
+            durationMarker = duration;
 
             // Start at 0, target at 1: x_rel(0) = start - target = -1.
             const x0 = -1;

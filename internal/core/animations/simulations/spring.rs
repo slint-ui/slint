@@ -48,6 +48,7 @@ impl SpringParameters for SpringDurationBounceParameters {
 }
 
 /// `mass`/`stiffness`/`damping`-style spring configuration
+#[allow(dead_code)] // leaving in case a physical-spring curve is added
 #[derive(Debug, Clone, Copy)]
 pub struct SpringPhysicalParameters {
     /// The mass attached to the spring
@@ -60,6 +61,7 @@ pub struct SpringPhysicalParameters {
 
 impl SpringPhysicalParameters {
     /// Creates new `mass`/`stiffness`/`damping`-style spring parameters.
+    #[allow(dead_code)] // leaving in case a physical-spring curve is added
     pub fn new(mass: f32, stiffness: f32, damping: f32) -> Self {
         Self { mass, stiffness, damping }
     }
