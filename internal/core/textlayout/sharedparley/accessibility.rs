@@ -16,36 +16,18 @@ use parley::{Cursor, LayoutAccessibility};
 /// always the one on screen.
 pub struct CachedTextInputAccessibilityState {
     layout_access: Vec<LayoutAccessibility>,
-    /// Never reset, so that a later emission can't reuse an index for an unrelated span.
+    /// Never reset while this state lives, so that a later emission can't reuse an index for a
+    /// span an assistive technology may still remember.
     next_sub_index: u32,
-    text_input: crate::item_tree::ItemWeak,
 }
 
 impl Default for CachedTextInputAccessibilityState {
     fn default() -> Self {
-        Self { layout_access: Vec::new(), next_sub_index: 1, text_input: Default::default() }
+        Self { layout_access: Vec::new(), next_sub_index: 1 }
     }
 }
 
 impl CachedTextInputAccessibilityState {
-    /// The `TextInput` inside the accessible element `item`.
-    pub fn text_input(
-        &mut self,
-        item: &crate::item_tree::ItemRc,
-    ) -> Option<(
-        crate::item_tree::ItemRc,
-        vtable::VRcMapped<crate::item_tree::ItemTreeVTable, crate::items::TextInput>,
-    )> {
-        if let Some(item_rc) = self.text_input.upgrade()
-            && let Some(text_input) = item_rc.clone().downcast::<crate::items::TextInput>()
-        {
-            return Some((item_rc, text_input));
-        }
-        let found = crate::accessibility::find_text_input_with_rc(item)?;
-        self.text_input = found.0.downgrade();
-        Some(found)
-    }
-
     /// Emits TextRun children of `parent_node` describing the input's text, and sets its value and
     /// selection.
     ///
@@ -65,7 +47,7 @@ impl CachedTextInputAccessibilityState {
     ) -> bool {
         let (visible_anchor, visible_cursor) = selection_offsets(text_input);
 
-        // Before the visitor, so it survives a renderer with no layout to lend. The displayed
+        // Before the layout, so it survives a renderer with none to lend. The displayed
         // text, not `accessible-value`: that one is the raw `text`, which for a password field
         // would hand out the characters themselves.
         if let PlainOrStyledText::Plain(displayed) =
@@ -74,106 +56,77 @@ impl CachedTextInputAccessibilityState {
             parent_node.set_value(displayed.as_str().to_string());
         }
 
-        let mut emitter = Emitter {
-            state: self,
-            visible_anchor,
-            visible_cursor,
-            update,
-            parent_node,
-            parent_id,
-            physical_offset,
-            encode_sub_node_id,
-        };
-        renderer.visit_text_input_layout(text_input, item_rc, size, &mut emitter)
-    }
-}
+        with_text_input_layout(renderer, text_input, item_rc, size, |layout| {
+            let paragraphs: alloc::vec::Vec<_> = layout.paragraphs().collect();
 
-/// See [`CachedTextInputAccessibilityState::emit`].
-struct Emitter<'a, F> {
-    state: &'a mut CachedTextInputAccessibilityState,
-    visible_anchor: usize,
-    visible_cursor: usize,
-    update: &'a mut TreeUpdate,
-    parent_node: &'a mut Node,
-    parent_id: NodeId,
-    physical_offset: (f64, f64),
-    encode_sub_node_id: F,
-}
+            // Grow or shrink to one entry per paragraph; the ones that stay keep their NodeIds.
+            self.layout_access.resize_with(paragraphs.len(), Default::default);
 
-impl<F: Fn(NodeId, u32) -> NodeId> TextInputLayoutVisitor for Emitter<'_, F> {
-    fn visit(&mut self, layout: TextInputLayout<'_>) {
-        let paragraphs: alloc::vec::Vec<_> = layout.paragraphs().collect();
+            // Captures the persistent counter, so the indices keep growing across emissions.
+            let next_sub_index = &mut self.next_sub_index;
+            let mut allocate_sub = || {
+                let sub = *next_sub_index;
+                *next_sub_index = next_sub_index.saturating_add(1);
+                encode_sub_node_id(parent_id, sub)
+            };
 
-        // Grow or shrink to one entry per paragraph; the ones that stay keep their NodeIds.
-        self.state.layout_access.resize_with(paragraphs.len(), Default::default);
-
-        // Captures the persistent counter, so the indices keep growing across emissions.
-        let next_sub_index = &mut self.state.next_sub_index;
-        let (parent_id, encode_sub_node_id) = (self.parent_id, &self.encode_sub_node_id);
-        let mut allocate_sub = || {
-            let sub = *next_sub_index;
-            *next_sub_index = next_sub_index.saturating_add(1);
-            encode_sub_node_id(parent_id, sub)
-        };
-
-        let total_paragraphs = paragraphs.len();
-        for (i, (para, la)) in
-            paragraphs.iter().zip(self.state.layout_access.iter_mut()).enumerate()
-        {
-            let para_y_offset = self.physical_offset.1 + para.y.get() as f64;
-            let nodes_before = self.update.nodes.len();
-            la.build_nodes(
-                para.text,
-                para.layout,
-                self.update,
-                self.parent_node,
-                &mut allocate_sub,
-                self.physical_offset.0,
-                para_y_offset,
-                // A `TextInput`'s text is plain, so it carries no styled spans.
-                |_node, _style| {},
-            );
-
-            // We split the text at `\n` before shaping, so parley never sees the newline as
-            // a cluster. AccessKit expects it in the paragraph's last TextRun, otherwise a caret
-            // crossing the break announces the next line's first character instead.
-            if i + 1 < total_paragraphs
-                && self.update.nodes.len() > nodes_before
-                && let Some((_, node)) = self.update.nodes.last_mut()
+            let total_paragraphs = paragraphs.len();
+            for (i, (para, la)) in paragraphs.iter().zip(self.layout_access.iter_mut()).enumerate()
             {
-                let mut value = node.value().map(|s| s.to_string()).unwrap_or_default();
-                let mut lengths: alloc::vec::Vec<u8> = node.character_lengths().to_vec();
-                let mut widths: alloc::vec::Vec<f32> =
-                    node.character_widths().map(|s| s.to_vec()).unwrap_or_default();
-                let mut positions: alloc::vec::Vec<f32> =
-                    node.character_positions().map(|s| s.to_vec()).unwrap_or_default();
+                let para_y_offset = physical_offset.1 + para.y.get() as f64;
+                let nodes_before = update.nodes.len();
+                la.build_nodes(
+                    para.text,
+                    para.layout,
+                    update,
+                    parent_node,
+                    &mut allocate_sub,
+                    physical_offset.0,
+                    para_y_offset,
+                    // A `TextInput`'s text is plain, so it carries no styled spans.
+                    |_node, _style| {},
+                );
 
-                let last_x = positions.last().copied().unwrap_or(0.0)
-                    + widths.last().copied().unwrap_or(0.0);
-                value.push('\n');
-                lengths.push(1);
-                positions.push(last_x);
-                widths.push(0.0);
+                // We split the text at `\n` before shaping, so parley never sees the newline as
+                // a cluster. AccessKit expects it in the paragraph's last TextRun, otherwise a
+                // caret crossing the break announces the next line's first character instead.
+                if i + 1 < total_paragraphs
+                    && update.nodes.len() > nodes_before
+                    && let Some((_, node)) = update.nodes.last_mut()
+                {
+                    let mut value = node.value().map(|s| s.to_string()).unwrap_or_default();
+                    let mut lengths: alloc::vec::Vec<u8> = node.character_lengths().to_vec();
+                    let mut widths: alloc::vec::Vec<f32> =
+                        node.character_widths().map(|s| s.to_vec()).unwrap_or_default();
+                    let mut positions: alloc::vec::Vec<f32> =
+                        node.character_positions().map(|s| s.to_vec()).unwrap_or_default();
 
-                node.set_value(value);
-                node.set_character_lengths(lengths);
-                node.set_character_widths(widths);
-                node.set_character_positions(positions);
+                    let last_x = positions.last().copied().unwrap_or(0.0)
+                        + widths.last().copied().unwrap_or(0.0);
+                    value.push('\n');
+                    lengths.push(1);
+                    positions.push(last_x);
+                    widths.push(0.0);
+
+                    node.set_value(value);
+                    node.set_character_lengths(lengths);
+                    node.set_character_widths(widths);
+                    node.set_character_positions(positions);
+                }
             }
-        }
 
-        if let Some(selection) = compose_text_selection(
-            &paragraphs,
-            &self.state.layout_access,
-            self.visible_anchor,
-            self.visible_cursor,
-        ) {
-            self.parent_node.set_text_selection(selection);
-        }
+            if let Some(selection) = compose_text_selection(
+                &paragraphs,
+                &self.layout_access,
+                visible_anchor,
+                visible_cursor,
+            ) {
+                parent_node.set_text_selection(selection);
+            }
+        })
+        .is_some()
     }
-}
 
-impl CachedTextInputAccessibilityState {
     /// Translates an incoming selection into byte offsets in the input's text.
     pub fn decode_selection(
         &self,
@@ -184,10 +137,27 @@ impl CachedTextInputAccessibilityState {
         anchor: &TextPosition,
         focus: &TextPosition,
     ) -> Option<(usize, usize)> {
-        let mut decoder = Decoder { state: self, anchor, focus, decoded: None };
-        renderer.visit_text_input_layout(text_input, item_rc, size, &mut decoder);
-        let (anchor, focus) = decoder.decoded?;
+        let (anchor, focus) =
+            with_text_input_layout(renderer, text_input, item_rc, size, |layout| {
+                let paragraphs: alloc::vec::Vec<_> = layout.paragraphs().collect();
+                // Both ends have to resolve, or the selection means nothing.
+                self.byte_offset(&paragraphs, anchor).zip(self.byte_offset(&paragraphs, focus))
+            })
+            .flatten()?;
         Some((to_actual_offset(text_input, anchor), to_actual_offset(text_input, focus)))
+    }
+
+    fn byte_offset(
+        &self,
+        paragraphs: &[TextInputParagraph<'_>],
+        pos: &TextPosition,
+    ) -> Option<usize> {
+        for (para, la) in paragraphs.iter().zip(self.layout_access.iter()) {
+            if let Some(cursor) = Cursor::from_access_position(pos, para.layout, la) {
+                return Some(para.range.start + cursor.index());
+            }
+        }
+        None
     }
 }
 
@@ -213,39 +183,6 @@ fn to_actual_offset(text_input: Pin<&crate::items::TextInput>, displayed_offset:
         .char_indices()
         .nth(displayed_offset / crate::items::PASSWORD_CHARACTER.len_utf8())
         .map_or(unmasked.len(), |(offset, _)| offset)
-}
-
-/// See [`CachedTextInputAccessibilityState::decode_selection`].
-struct Decoder<'a> {
-    state: &'a CachedTextInputAccessibilityState,
-    anchor: &'a TextPosition,
-    focus: &'a TextPosition,
-    decoded: Option<(usize, usize)>,
-}
-
-impl Decoder<'_> {
-    fn byte_offset(
-        &self,
-        paragraphs: &[TextInputParagraph<'_>],
-        pos: &TextPosition,
-    ) -> Option<usize> {
-        for (para, la) in paragraphs.iter().zip(self.state.layout_access.iter()) {
-            if let Some(cursor) = Cursor::from_access_position(pos, para.layout, la) {
-                return Some(para.range.start + cursor.index());
-            }
-        }
-        None
-    }
-}
-
-impl TextInputLayoutVisitor for Decoder<'_> {
-    fn visit(&mut self, layout: TextInputLayout<'_>) {
-        let paragraphs: alloc::vec::Vec<_> = layout.paragraphs().collect();
-        // Both ends have to resolve, or the selection means nothing.
-        self.decoded = self
-            .byte_offset(&paragraphs, self.anchor)
-            .zip(self.byte_offset(&paragraphs, self.focus));
-    }
 }
 
 /// The selection anchor and cursor, as byte offsets into the text the input displays.

@@ -783,6 +783,11 @@ impl SoftwareRenderer {
 
 #[doc(hidden)]
 impl RendererSealed for SoftwareRenderer {
+    #[cfg(feature = "systemfonts")]
+    fn text_layout_cache(&self) -> Option<&sharedparley::TextLayoutCache> {
+        Some(&self.text_layout_cache)
+    }
+
     fn text_size(
         &self,
         text_item: Pin<&dyn i_slint_core::item_rendering::RenderString>,
@@ -1115,13 +1120,13 @@ impl RendererSealed for SoftwareRenderer {
         }
     }
 
+    // Keep in sync with the `draw_text_input` arm that takes the shared parley path, or the
+    // accessibility tree describes a layout that isn't the one drawn.
     #[cfg(feature = "systemfonts")]
-    fn visit_text_input_layout(
+    fn text_input_has_parley_layout(
         &self,
         text_input: Pin<&i_slint_core::items::TextInput>,
         item_rc: &ItemRc,
-        size: LogicalSize,
-        visitor: &mut dyn sharedparley::TextInputLayoutVisitor,
     ) -> bool {
         let (Some(scale_factor), Some(slint_ctx)) = (self.scale_factor(), self.slint_context())
         else {
@@ -1133,17 +1138,7 @@ impl RendererSealed for SoftwareRenderer {
             fonts::match_font(&font_request, scale_factor, &mut font_ctx)
         };
 
-        match (font, parley_disabled()) {
-            (fonts::Font::VectorFont(_), false) => sharedparley::visit_text_input_layout(
-                self,
-                text_input,
-                item_rc,
-                size,
-                Some(&self.text_layout_cache),
-                visitor,
-            ),
-            _ => false,
-        }
+        matches!(font, fonts::Font::VectorFont(_)) && !parley_disabled()
     }
 
     fn text_input_cursor_rect_for_byte_offset(
@@ -2957,6 +2952,7 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
         );
 
         match (font, parley_disabled()) {
+            // `SoftwareRenderer::text_input_has_parley_layout` must agree on this arm.
             #[cfg(feature = "systemfonts")]
             (fonts::Font::VectorFont(_), false) => {
                 drop(font_ctx);
