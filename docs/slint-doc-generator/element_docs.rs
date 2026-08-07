@@ -324,13 +324,7 @@ fn format_signature(func: &i_slint_compiler::langtype::Function) -> String {
         .iter()
         .zip(func.args.iter())
         .filter(|(_, ty)| !matches!(ty, Type::ElementReference))
-        .map(|(name, ty)| {
-            if name.is_empty() {
-                ty.to_string()
-            } else {
-                format!("{name}: {ty}")
-            }
-        })
+        .map(|(name, ty)| if name.is_empty() { ty.to_string() } else { format!("{name}: {ty}") })
         .collect();
     let ret = if matches!(func.return_type, Type::Void) {
         String::new()
