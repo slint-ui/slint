@@ -79,7 +79,7 @@ pub enum BuiltinFunction {
     StringToUppercase,
     StringStartsWith,
     StringEndsWith,
-    StringReplace,
+    StringReplaceAll,
     KeysToString,
     ColorRgbaStruct,
     ColorHsvaStruct,
@@ -249,7 +249,7 @@ declare_builtin_function_types!(
     StringToUppercase: (Type::String) -> Type::String,
     StringStartsWith: (Type::String, Type::String) -> Type::Bool,
     StringEndsWith: (Type::String, Type::String) -> Type::Bool,
-    StringReplace: (Type::String, Type::String, Type::String) -> Type::String,
+    StringReplaceAll: (Type::String, Type::String, Type::String) -> Type::String,
     KeysToString: (Type::Keys) -> Type::String,
     ImplicitLayoutInfo(..): (Type::ElementReference, Type::Float32) -> typeregister::layout_info_type().into(),
     ColorRgbaStruct: (Type::Color) -> Type::Struct(Arc::new(Struct::new(IntoIterator::into_iter([
@@ -408,7 +408,7 @@ impl BuiltinFunction {
             | BuiltinFunction::StringToUppercase
             | BuiltinFunction::StringStartsWith
             | BuiltinFunction::StringEndsWith
-            | BuiltinFunction::StringReplace
+            | BuiltinFunction::StringReplaceAll
             | BuiltinFunction::KeysToString => true,
             BuiltinFunction::ColorRgbaStruct
             | BuiltinFunction::ColorHsvaStruct
@@ -509,7 +509,7 @@ impl BuiltinFunction {
             | BuiltinFunction::StringToUppercase
             | BuiltinFunction::StringStartsWith
             | BuiltinFunction::StringEndsWith
-            | BuiltinFunction::StringReplace
+            | BuiltinFunction::StringReplaceAll
             | BuiltinFunction::KeysToString => true,
             BuiltinFunction::ColorRgbaStruct
             | BuiltinFunction::ColorHsvaStruct

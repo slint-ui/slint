@@ -4,19 +4,19 @@
 // cSpell: ignore xyzb
 
 export component TestCase  {
-    out property<string> basic: "hello".replace("l", "L");
-    out property<string> repeated: "abcabcabc".replace("abc", "x");
-    out property<string> overlapping: "aaaa".replace("aa", "b");
-    out property<string> no-match: "hello".replace("z", "Z");
-    out property<string> replace-with-empty: "hello".replace("l", "");
-    out property<string> replace-empty-find: "abc".replace("", "-");
-    out property<string> full-match: "hello".replace("hello", "hi");
-    out property<string> empty-haystack: "".replace("a", "b");
-    out property<string> case-sensitive: "Hello".replace("hello", "x");
-    out property<string> longer-replacement: "ab".replace("a", "xyz");
-    out property<string> hiragana: "あいうえお".replace("い", "亜");
-    out property<string> surrogate-pair: "😊𩸽".replace("😊", "X");
-    out property<string> surrogate-pair-repeated: "😊😊😊".replace("😊", "X");
+    out property<string> basic: "hello".replace-all("l", "L");
+    out property<string> repeated: "abcabcabc".replace_all("abc", "x");
+    out property<string> overlapping: "aaaa".replace-all("aa", "b");
+    out property<string> no-match: "hello".replace_all("z", "Z");
+    out property<string> replace-with-empty: "hello".replace-all("l", "");
+    out property<string> replace-empty-find: "abc".replace_all("", "-");
+    out property<string> full-match: "hello".replace-all("hello", "hi");
+    out property<string> empty-haystack: "".replace-all("a", "b");
+    out property<string> case-sensitive: "Hello".replace-all("hello", "x");
+    out property<string> longer-replacement: "ab".replace-all("a", "xyz");
+    out property<string> hiragana: "あいうえお".replace-all("い", "亜");
+    out property<string> surrogate-pair: "😊𩸽".replace-all("😊", "X");
+    out property<string> surrogate-pair-repeated: "😊😊😊".replace-all("😊", "X");
 }
 
 

@@ -199,7 +199,7 @@ pub mod re_exports {
     pub use i_slint_core::string::shared_string_from_number_fixed;
     pub use i_slint_core::string::shared_string_from_number_precision;
     pub use i_slint_core::string::shared_string_from_number_unlocalized;
-    pub use i_slint_core::string::shared_string_replace;
+    pub use i_slint_core::string::shared_string_replace_all;
     pub use i_slint_core::timers::{Timer, TimerMode};
     pub use i_slint_core::translations::{
         set_bundled_languages, translate_from_bundle, translate_from_bundle_with_plural,
