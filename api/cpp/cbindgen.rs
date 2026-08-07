@@ -1185,6 +1185,8 @@ namespace slint::platform { struct Rgb565Pixel; }
 namespace slint::cbindgen_private {
     struct WindowProperties; using slint::platform::Rgb565Pixel;
     using slint::cbindgen_private::types::TexturePixelFormat;
+    // Otherwise `Image` in this namespace finds the public `slint::Image` class instead.
+    using types::Image;
     struct DrawTextureArgs;
     struct DrawRectangleArgs;
     using types::PhysicalRegion;

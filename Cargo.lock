@@ -7391,6 +7391,7 @@ dependencies = [
  "raw-window-handle",
  "slint-interpreter",
  "unicode-segmentation",
+ "wgpu-hal 30.0.0",
 ]
 
 [[package]]
