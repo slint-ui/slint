@@ -5,10 +5,7 @@ use super::*;
 use crate::{
     animations::simulations::{
         Parameter, Simulation,
-        spring::{
-            SpringDurationBounceParameters, SpringParameters, SpringPhysicalParameters,
-            SpringRegime,
-        },
+        spring::{SpringDurationBounceParameters, SpringParameters, SpringRegime},
     },
     items::{AnimationDirection, PropertyAnimation},
     lengths::LogicalLength,
@@ -100,22 +97,16 @@ impl<T: InterpolatedPropertyValue + Clone> PropertyValueAnimationData<T> {
         to_value: &Option<T>,
         initial_velocity: f32,
     ) -> Option<SpringRegime> {
-        matches!(details.easing, crate::animations::EasingCurve::Spring)
+        matches!(details.easing, crate::animations::EasingCurve::Spring(_))
             .then(|| {
-                let (w_n, zeta) = if details.mass > 0. {
-                    Some(
-                        SpringPhysicalParameters::new(
-                            details.mass,
-                            details.stiffness,
-                            details.damping,
-                        )
-                        .to_natural_frequency_and_damping_ratio(),
-                    )
-                } else if details.duration > 0 {
+                let crate::animations::EasingCurve::Spring(bounce) = details.easing else {
+                    return None;
+                };
+                let (w_n, zeta) = if details.duration > 0 {
                     Some(
                         SpringDurationBounceParameters::new(
                             details.duration as f32 / 1000.0,
-                            details.bounce,
+                            bounce,
                         )
                         .to_natural_frequency_and_damping_ratio(),
                     )
@@ -188,7 +179,7 @@ impl<T: InterpolatedPropertyValue + Clone> PropertyValueAnimationData<T> {
             }
             AnimationState::Animating { mut current_iteration } => {
                 // A spring runs in real time and ends only once it settles.
-                if matches!(self.details.easing, crate::animations::EasingCurve::Spring) {
+                if matches!(self.details.easing, crate::animations::EasingCurve::Spring(_)) {
                     return if let Some(spring) = self.spring.as_ref() {
                         let elapsed_secs = time_progress as f32 / 1000.0;
                         let (t, settled) =
@@ -1337,8 +1328,7 @@ mod animation_tests {
 
         let spring_details = PropertyAnimation {
             duration: 1000,
-            bounce: 0.0,
-            easing: crate::animations::EasingCurve::Spring,
+            easing: crate::animations::EasingCurve::Spring(0.0),
             ..PropertyAnimation::default()
         };
 
@@ -1387,8 +1377,7 @@ mod animation_tests {
 
         let spring_details = PropertyAnimation {
             duration: 1000,
-            bounce: 0.0,
-            easing: crate::animations::EasingCurve::Spring,
+            easing: crate::animations::EasingCurve::Spring(0.0),
             ..PropertyAnimation::default()
         };
 
@@ -1447,10 +1436,8 @@ mod animation_tests {
         let compo = Component::new_test_component();
 
         let spring_details = PropertyAnimation {
-            mass: 1.0,
-            stiffness: 2.0,
-            damping: 0.7,
-            easing: crate::animations::EasingCurve::Spring,
+            duration: 1000,
+            easing: crate::animations::EasingCurve::Spring(0.7),
             ..PropertyAnimation::default()
         };
 

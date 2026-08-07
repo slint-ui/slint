@@ -4461,6 +4461,9 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
         Expression::EasingCurve(EasingCurve::CubicBezier(a, b, c, d)) => format!(
             "slint::cbindgen_private::EasingCurve(slint::cbindgen_private::EasingCurve::Tag::CubicBezier, {a}, {b}, {c}, {d})"
         ),
+        Expression::EasingCurve(EasingCurve::Spring(a)) => format!(
+            "slint::cbindgen_private::EasingCurve(slint::cbindgen_private::EasingCurve::Tag::Spring, {a})"
+        ),
         // The other curves have no parameters and their C++ Tag matches the variant name.
         Expression::EasingCurve(e) => {
             format!("slint::cbindgen_private::EasingCurve::Tag::{e:?}")

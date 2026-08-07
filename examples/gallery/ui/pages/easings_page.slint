@@ -8,7 +8,6 @@ component EaseTest {
     in property <string> label: "None";
     in property <easing> easing: linear;
     in property <int> duration: 1000;
-    in property <float> bounce: 0;
 
     public function animate() {
         if (ball.x == 0) {
@@ -44,7 +43,7 @@ component EaseTest {
                     border-radius: 5px;
                     background: Palette.accent-background;
 
-                    animate x { duration: duration * 1ms; easing: easing; bounce: bounce; }
+                    animate x { duration: duration * 1ms; easing: easing; }
                 }
             }
         }
@@ -156,8 +155,8 @@ export component EasingsPage inherits Page {
             ease-in-out-bounce-test := EaseTest { label: "ease-in-out-bounce"; easing: ease-in-out-bounce; duration: curr-duration; }
 
             spring-default-test := EaseTest { label: "Default spring"; easing: spring; duration: curr-duration; }
-            spring-bouncy-test := EaseTest { label: "Bouncy spring"; easing: spring; duration: curr-duration; bounce: 0.3; }
-            spring-slow-test := EaseTest { label: "Slow spring"; easing: spring; duration: curr-duration; bounce: -0.3; }
+            spring-bouncy-test := EaseTest { label: "Bouncy spring"; easing: spring(0.3); duration: curr-duration; }
+            spring-slow-test := EaseTest { label: "Slow spring"; easing: spring(-0.3); duration: curr-duration; }
         }
     }
 }

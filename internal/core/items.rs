@@ -1236,15 +1236,6 @@ pub struct PropertyAnimation {
     pub easing: crate::animations::EasingCurve,
     #[rtti_field]
     pub enabled: bool,
-    /// The `bounce` parameter for the `spring` easing curve. Expected range `-1.0..=1.0`.
-    #[rtti_field]
-    pub bounce: f32,
-    #[rtti_field]
-    pub mass: f32,
-    #[rtti_field]
-    pub stiffness: f32,
-    #[rtti_field]
-    pub damping: f32,
 }
 
 impl Default for PropertyAnimation {
@@ -1258,10 +1249,6 @@ impl Default for PropertyAnimation {
             direction: Default::default(),
             easing: Default::default(),
             enabled: true,
-            bounce: 0.,
-            mass: 0.,
-            stiffness: 0.,
-            damping: 0.,
         }
     }
 }
