@@ -12,6 +12,7 @@ use accesskit::{
 use i_slint_core::SharedString;
 use i_slint_core::accessibility::{
     AccessibilityAction, AccessibleStringProperty, SupportedAccessibilityAction,
+    find_text_input_with_rc,
 };
 use i_slint_core::api::Window;
 use i_slint_core::input::FocusReason;
@@ -176,13 +177,16 @@ impl AccessKitAdapter {
                 };
                 // A TextPosition names a TextRun sub-NodeId, so decode it back to the wrapper.
                 let (wrapper_parent, _) = decode_sub_node_id(sel.focus.node)?;
+                if wrapper_parent != request.target_node {
+                    return None;
+                }
                 let wrapper_item = self.nodes.item_rc_for_node_id(wrapper_parent)?;
                 let window_adapter = self.window_adapter_weak.upgrade()?;
-                let mut state = self
+                let (inner_item_rc, text_input) = find_text_input_with_rc(&wrapper_item)?;
+                let state = self
                     .nodes
                     .text_state
-                    .get_or_update_cache_entry_ref(&wrapper_item, Default::default);
-                let (inner_item_rc, text_input) = state.text_input(&wrapper_item)?;
+                    .get_or_update_cache_entry_ref(&inner_item_rc, Default::default);
                 let (anchor, focus) = state.decode_selection(
                     window_adapter.renderer().as_core_renderer(),
                     text_input.as_pin_ref(),
@@ -382,10 +386,9 @@ struct NodeCollection {
     all_nodes: Vec<CachedNode>,
     root_node_id: NodeId,
     focused_node_tracker: Pin<Box<PropertyTracker<false, DelegateFocusPropertyTracker>>>,
-    /// Emission state per `TextInput`, keyed by the wrapper widget's `ItemRc`. Its per-entry
-    /// property tracker stays empty on purpose: the state has to outlive the edits it describes,
-    /// so that NodeIds stay stable and screen readers see "node updated" rather than "subtree
-    /// replaced".
+    /// Emission state, keyed by the inner `TextInput`'s `ItemRc`. Its per-entry property tracker
+    /// stays empty on purpose: the state has to outlive the edits it describes, so that NodeIds
+    /// stay stable and screen readers see "node updated" rather than "subtree replaced".
     text_state: i_slint_core::item_rendering::ItemCache<
         i_slint_core::textlayout::sharedparley::CachedTextInputAccessibilityState,
     >,
@@ -557,10 +560,11 @@ impl NodeCollection {
         if !is_text_input_role(wrapper_node.role()) {
             return;
         }
-        let mut state = self.text_state.get_or_update_cache_entry_ref(item, Default::default);
-        let Some((inner_item_rc, text_input)) = state.text_input(item) else {
+        let Some((inner_item_rc, text_input)) = find_text_input_with_rc(item) else {
             return;
         };
+        let mut state =
+            self.text_state.get_or_update_cache_entry_ref(&inner_item_rc, Default::default);
 
         // The inner `TextInput`'s geometry: a `LineEdit` insets it for its border, so measuring
         // from the wrapper's origin would place every TextRun off by the padding.
