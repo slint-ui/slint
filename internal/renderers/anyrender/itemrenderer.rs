@@ -149,11 +149,16 @@ impl<'a, S: PaintScene> ItemRenderer for AnyrenderItemRenderer<'a, S> {
         );
 
         if layout.border_width.get() > 0.0 {
+            // Miter joins, not kurbo's default round ones: a round join doesn't
+            // reach into sharp corners, leaving the corner tips of the border
+            // uncovered.
+            let stroke =
+                kurbo::Stroke::new(layout.border_width.get() as f64).with_join(kurbo::Join::Miter);
             self.stroke_with_brush(
                 layout.border_color,
                 layout.brush_size,
                 transform,
-                &kurbo::Stroke::new(layout.border_width.get() as f64),
+                &stroke,
                 &phys_rect_shape(layout.border_rect, layout.border_radius),
             );
         }
