@@ -144,7 +144,8 @@ fn is_fixed_test_font(family: &Option<SharedString>) -> bool {
 }
 
 fn fixed_test_font_line_height(font_request: &FontRequest, pixel_size: f32) -> f32 {
-    font_request.line_height_for_font_size(pixel_size).unwrap_or(pixel_size)
+    // The test font's natural line height is exactly the pixel size (ascent 0.7 + descent 0.3).
+    font_request.line_height_for_natural_height(pixel_size).unwrap_or(pixel_size)
 }
 
 #[derive(Default)]

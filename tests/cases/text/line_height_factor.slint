@@ -32,10 +32,30 @@ export component TestCase inherits Window {
             line-height-factor: 2;
         }
 
+        zero-text := Text {
+            text: "One\nTwo";
+            line-height-factor: 0;
+        }
+
+        negative-text := Text {
+            text: "One\nTwo";
+            line-height-factor: -1;
+        }
+
+        parley-default-text := Text {
+            text: "One\nTwo";
+            font-family: "Inter 24pt";
+        }
+
         parley-text := Text {
             text: "One\nTwo";
             font-family: "Inter 24pt";
             line-height-factor: 2;
+        }
+
+        parley-styled-default-text := StyledText {
+            text: @markdown("One");
+            default-font-family: "Inter 24pt";
         }
 
         parley-styled-text := StyledText {
@@ -56,12 +76,20 @@ export component TestCase inherits Window {
     }
 
     out property <int> hit-test-offset: hit-test-input.cursor-position-byte-offset;
+    // The factor scales the font's natural line height. FixedTestFont's natural line
+    // height equals the font size (10px), so two lines at factor 2 are 40phx tall; the
+    // Inter cases compare against an unset-factor element of the same font instead,
+    // since a real font's natural line height differs from the font size.
     out property <bool> test: default-text.height == 20phx
         && text.height == 40phx
         && text-input.height == 40phx
         && styled-text.height == 20phx
-        && parley-text.height == 40phx
-        && parley-styled-text.height == 20phx;
+        && zero-text.height == 0phx
+        && negative-text.height == 20phx
+        // Text-block heights are rounded up to whole physical pixels, so doubling the
+        // reference height can differ from the factor-2 height by up to 2 pixels.
+        && Math.abs((parley-text.height - 2 * parley-default-text.height) / 1phx) < 2
+        && Math.abs((parley-styled-text.height - 2 * parley-styled-default-text.height) / 1phx) < 2;
 }
 
 /*

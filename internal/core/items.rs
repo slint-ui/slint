@@ -1490,8 +1490,11 @@ impl WindowItem {
                 }
             },
             letter_spacing: Some(local_letter_spacing),
+            // 1 is neutral and negative or non-finite values behave like 1, all mapping to
+            // None (the font's natural line height); 0 is a valid factor and collapses lines.
             line_height_factor: (local_line_height_factor.is_finite()
-                && local_line_height_factor > 0.0)
+                && local_line_height_factor >= 0.0
+                && local_line_height_factor != 1.0)
                 .then_some(local_line_height_factor),
             italic: local_italic,
         }
