@@ -690,10 +690,16 @@ impl Window {
         event: crate::platform::WindowEvent,
     ) -> Result<WindowEventDispatchResult, PlatformError> {
         // Only clone the event when a hook is installed to avoid allocation on the hot path.
-        let event_for_hook = self
-            .0
-            .try_context()
-            .and_then(|ctx| ctx.0.window_event_hook.borrow().is_some().then(|| event.clone()));
+        // Events a backend delivers in the internal representation are reported as the public
+        // event they correspond to, if there is one.
+        let hook_installed =
+            self.0.try_context().is_some_and(|ctx| ctx.0.window_event_hook.borrow().is_some());
+        let event_for_hook = hook_installed
+            .then(|| match &event {
+                crate::platform::WindowEvent::Internal(event) => event.public_representation(),
+                event => Some(event.clone()),
+            })
+            .flatten();
         let dispatch_result = match event {
             crate::platform::WindowEvent::PointerPressed { position, button } => self
                 .0
@@ -785,6 +791,22 @@ impl Window {
                 self.0.set_active(bool);
                 WindowEventDispatchResult::Accepted
             }
+            crate::platform::WindowEvent::Internal(event) => match event.into_inner() {
+                crate::platform::InternalEvent::Mouse(MouseEvent::Exit) => {
+                    // Teardown event, always accepted like `WindowEvent::PointerExited`.
+                    self.0.process_mouse_input(MouseEvent::Exit);
+                    WindowEventDispatchResult::Accepted
+                }
+                crate::platform::InternalEvent::Mouse(event) => {
+                    self.0.process_mouse_input(event).into()
+                }
+                crate::platform::InternalEvent::Key(event) => {
+                    self.0.process_key_input(event).into()
+                }
+                crate::platform::InternalEvent::Touch { id, position, phase } => {
+                    self.0.process_touch_input(id, position, phase).into()
+                }
+            },
         };
         if let Some(event_for_hook) = event_for_hook
             && let Some(ctx) = self.0.try_context()

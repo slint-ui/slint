@@ -81,7 +81,7 @@ assert!(instance.get_content_y() != -200.0);
 ```rust
 // Panning the content: touch pans, mouse dragging doesn't (mouse-drag-pan-enabled defaults to false)
 use slint::{LogicalPosition, platform::{WindowEvent, PointerEventButton}};
-use slint_testing::{LogicalPoint, TouchPhase, WindowInner};
+use slint_testing::{InternalEvent, LogicalPoint, TouchPhase};
 
 let instance = TestCase::new().unwrap();
 
@@ -97,16 +97,14 @@ assert_eq!(instance.get_content_x(), 0.);
 assert_eq!(instance.get_content_y(), 0.);
 
 // Drag the content with a finger
-let window = instance.window();
-let inner = WindowInner::from_pub(&window);
-inner.process_touch_input(3, LogicalPoint::new(50.0, 50.0), TouchPhase::Started);
-inner.process_touch_input(3, LogicalPoint::new(50.0, 50.0), TouchPhase::Moved);
-inner.process_touch_input(3, LogicalPoint::new(20.0, 30.0), TouchPhase::Moved);
+instance.window().dispatch_event(WindowEvent::internal(InternalEvent::Touch { id: 3, position: LogicalPoint::new(50.0, 50.0), phase: TouchPhase::Started }));
+instance.window().dispatch_event(WindowEvent::internal(InternalEvent::Touch { id: 3, position: LogicalPoint::new(50.0, 50.0), phase: TouchPhase::Moved }));
+instance.window().dispatch_event(WindowEvent::internal(InternalEvent::Touch { id: 3, position: LogicalPoint::new(20.0, 30.0), phase: TouchPhase::Moved }));
 assert_eq!(instance.get_content_x(), -30.);
 assert_eq!(instance.get_content_y(), -20.);
 // Release long after the last move so no fling animation starts
 slint_testing::mock_elapsed_time(1000);
-inner.process_touch_input(3, LogicalPoint::new(20.0, 30.0), TouchPhase::Ended);
+instance.window().dispatch_event(WindowEvent::internal(InternalEvent::Touch { id: 3, position: LogicalPoint::new(20.0, 30.0), phase: TouchPhase::Ended }));
 slint_testing::mock_elapsed_time(1000);
 assert_eq!(instance.get_content_x(), -30.);
 assert_eq!(instance.get_content_y(), -20.);

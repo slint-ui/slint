@@ -1148,14 +1148,18 @@ fn test_accessibility_enum_mapping_complete() {
 // `WindowEventDispatchResult` honesty for pointer events: verify that
 // `Window::dispatch_event_with_result` reports `Accepted` only when an item consumed the
 // event, and `Ignored` otherwise. Tests install the window-event hook directly
-// since that's the consumer the public contract is for.
+// since that's the consumer the public contract is for. The same goes for the events the
+// backends deliver in the internal representation: they're reported as the public event they
+// correspond to, or not at all when there is none.
 
 #[cfg(test)]
 mod dispatch_result_tests {
     use i_slint_core::api::LogicalPosition;
     use i_slint_core::api::WindowEventDispatchResult;
+    use i_slint_core::input::{InternalKeyEvent, KeyEvent, KeyEventType, MouseEvent, TouchPhase};
     use i_slint_core::items::PointerEventButton;
-    use i_slint_core::platform::WindowEvent;
+    use i_slint_core::lengths::LogicalPoint;
+    use i_slint_core::platform::{InternalEvent, WindowEvent};
     use std::cell::RefCell;
     use std::rc::Rc;
 
@@ -1197,6 +1201,18 @@ mod dispatch_result_tests {
         let captured = captured.borrow();
         assert_eq!(captured.len(), 1);
         assert_eq!(captured[0].1, expected);
+    }
+
+    /// Dispatch `event` to `window` with a recording hook installed and return what the hook
+    /// observed.
+    fn record_dispatch(
+        window: &i_slint_core::api::Window,
+        event: WindowEvent,
+    ) -> Vec<(WindowEvent, WindowEventDispatchResult)> {
+        let (_guard, captured) = capture_hook();
+        window.dispatch_event(event);
+        let recorded = captured.borrow().clone();
+        recorded
     }
 
     #[test]
@@ -1313,6 +1329,131 @@ mod dispatch_result_tests {
             WindowEvent::PointerExited,
             WindowEventDispatchResult::Accepted,
         );
+    }
+
+    #[test]
+    fn backend_pointer_event_is_recorded_as_public_event() {
+        crate::init_no_event_loop();
+        slint::slint! {
+            export component App inherits Window {
+                width: 200px;
+                height: 200px;
+                TouchArea { width: 100%; height: 100%; }
+            }
+        }
+        let app = App::new().unwrap();
+        assert_eq!(
+            record_dispatch(
+                app.window(),
+                WindowEvent::internal(MouseEvent::Pressed {
+                    position: LogicalPoint::new(50.0, 50.0),
+                    button: PointerEventButton::Left,
+                    click_count: 0,
+                    touch_finger_id: 0,
+                })
+            ),
+            vec![(
+                WindowEvent::PointerPressed {
+                    position: LogicalPosition::new(50.0, 50.0),
+                    button: PointerEventButton::Left,
+                },
+                WindowEventDispatchResult::Accepted
+            )]
+        );
+    }
+
+    #[test]
+    fn backend_pointer_exit_is_recorded_as_accepted() {
+        crate::init_no_event_loop();
+        slint::slint! {
+            export component App inherits Window {
+                width: 200px;
+                height: 200px;
+            }
+        }
+        let app = App::new().unwrap();
+        assert_eq!(
+            record_dispatch(app.window(), WindowEvent::internal(MouseEvent::Exit)),
+            vec![(WindowEvent::PointerExited, WindowEventDispatchResult::Accepted)]
+        );
+    }
+
+    #[test]
+    fn backend_key_event_is_recorded_with_its_result() {
+        crate::init_no_event_loop();
+        slint::slint! {
+            export component App inherits Window {
+                width: 200px;
+                height: 200px;
+            }
+        }
+        let app = App::new().unwrap();
+        let text = slint::SharedString::from("x");
+        let mut key_event = KeyEvent::default();
+        key_event.text = text.clone();
+        key_event.repeat = true;
+        assert_eq!(
+            record_dispatch(
+                app.window(),
+                WindowEvent::internal(InternalKeyEvent {
+                    event_type: KeyEventType::KeyPressed,
+                    key_event,
+                    ..Default::default()
+                })
+            ),
+            vec![(WindowEvent::KeyPressRepeated { text }, WindowEventDispatchResult::Ignored)]
+        );
+    }
+
+    #[test]
+    fn composition_events_are_not_recorded() {
+        // The public API can't express input method composition, so there is nothing to report.
+        crate::init_no_event_loop();
+        slint::slint! {
+            export component App inherits Window {
+                width: 200px;
+                height: 200px;
+            }
+        }
+        let app = App::new().unwrap();
+        assert!(
+            record_dispatch(
+                app.window(),
+                WindowEvent::internal(InternalKeyEvent {
+                    event_type: KeyEventType::UpdateComposition,
+                    preedit_text: "abc".into(),
+                    ..Default::default()
+                })
+            )
+            .is_empty()
+        );
+    }
+
+    #[test]
+    fn touch_events_reach_the_scene_but_are_not_recorded() {
+        // Touch has no public representation either, but it must still be dispatched.
+        crate::init_no_event_loop();
+        slint::slint! {
+            export component App inherits Window {
+                width: 200px;
+                height: 200px;
+                out property <bool> touched: touch-area.pressed;
+                touch-area := TouchArea { width: 100%; height: 100%; }
+            }
+        }
+        let app = App::new().unwrap();
+        assert!(
+            record_dispatch(
+                app.window(),
+                WindowEvent::internal(InternalEvent::Touch {
+                    id: 1,
+                    position: LogicalPoint::new(50.0, 50.0),
+                    phase: TouchPhase::Started,
+                })
+            )
+            .is_empty()
+        );
+        assert!(app.get_touched());
     }
 
     #[test]

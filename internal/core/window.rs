@@ -575,7 +575,7 @@ struct WindowPinnedFields {
 
 /// The outcome of dispatching a [`MouseEvent`] through [`WindowInner::process_mouse_input`].
 #[derive(Copy, Clone, Debug)]
-pub struct MouseDispatchResult {
+pub(crate) struct MouseDispatchResult {
     /// For `MouseEvent::DragMove` / `MouseEvent::Drop` events, the action negotiated with
     /// the accepting `DropArea` (or `None` if no `DropArea` accepted). Always `None` for
     /// other event kinds.
@@ -760,6 +760,11 @@ impl WindowInner {
     /// Receive a mouse event and pass it to the items of the component to
     /// change their state.
     ///
+    /// This is the runtime's entry point for pointer input.
+    /// Backends don't call it directly, they dispatch [`crate::platform::InternalEvent::Mouse`]
+    /// through [`crate::api::Window::dispatch_event_with_result()`],
+    /// so that every event they deliver takes the same path and is observed by the window event hook.
+    ///
     /// Returns `None` when there is no component to dispatch to; otherwise returns a
     /// [`MouseDispatchResult`] carrying:
     /// - `accepted`: whether an item consumed the event, and
@@ -770,7 +775,7 @@ impl WindowInner {
     /// `Drop` (if a `DropArea` had previously accepted the matching `DragMove`) or an
     /// `Exit` (if not). The reported `accepted` reflects the rewritten event, so a
     /// `Released` that completes a drop on a non-accepting target reports `accepted = false`.
-    pub fn process_mouse_input(&self, mut event: MouseEvent) -> Option<MouseDispatchResult> {
+    pub(crate) fn process_mouse_input(&self, mut event: MouseEvent) -> Option<MouseDispatchResult> {
         crate::animations::update_animations(crate::animations::Instant::now(self.context()));
 
         let item_tree = self.try_component()?;
@@ -1082,6 +1087,24 @@ impl WindowInner {
         Some(MouseDispatchResult { drag_action, accepted })
     }
 
+    /// Dispatch a drag and drop event: a `DragMove`, a `Drop`,
+    /// or the `Exit` that ends a drag hovering over the window.
+    /// Returns the action negotiated with the accepting `DropArea`, or `None` when none accepted.
+    ///
+    /// Drag and drop is the one kind of input that backends don't deliver through
+    /// [`crate::api::Window::dispatch_event_with_result()`]:
+    /// they need the negotiated action back, which [`crate::api::WindowEventDispatchResult`] can't express,
+    /// and a drag leaving the window isn't the pointer leaving the window.
+    /// These events have no [`crate::platform::WindowEvent`] representation either,
+    /// so nothing is lost for the window event hook.
+    pub fn process_drag_event(&self, event: MouseEvent) -> Option<crate::items::DragAction> {
+        debug_assert!(matches!(
+            event,
+            MouseEvent::DragMove { .. } | MouseEvent::Drop { .. } | MouseEvent::Exit
+        ));
+        self.process_mouse_input(event).and_then(|result| result.drag_action)
+    }
+
     /// Remember (or clear) the in-flight native drag, so a backend can report completion or fall
     /// back, and a drop back onto this window can restore the data. Set by `offer_native_drag`.
     pub(crate) fn set_native_drag(&self, drag: Option<NativePendingDrag>) {
@@ -1137,7 +1160,7 @@ impl WindowInner {
     /// `drag_action` reflects the current drop-target negotiation, not a per-event
     /// verdict to aggregate. For touch sequences that never produce a `DragMove`/`Drop`
     /// (the common case), this stays `None` throughout.
-    pub fn process_touch_input(
+    pub(crate) fn process_touch_input(
         &self,
         id: i32,
         position: LogicalPoint,
@@ -1169,7 +1192,7 @@ impl WindowInner {
     ///
     /// Arguments:
     /// * `event`: The key event received by the windowing system.
-    pub fn process_key_input(
+    pub(crate) fn process_key_input(
         &self,
         mut internal_key_event: InternalKeyEvent,
     ) -> crate::input::KeyEventResult {
@@ -2938,15 +2961,17 @@ pub mod ffi {
     ) {
         unsafe {
             let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
-            window_adapter.window().0.process_key_input(InternalKeyEvent {
-                event_type,
-                key_event: crate::items::KeyEvent {
-                    text: text.clone(),
-                    repeat,
+            window_adapter.window().dispatch_event(crate::platform::WindowEvent::internal(
+                InternalKeyEvent {
+                    event_type,
+                    key_event: crate::items::KeyEvent {
+                        text: text.clone(),
+                        repeat,
+                        ..Default::default()
+                    },
                     ..Default::default()
                 },
-                ..Default::default()
-            });
+            ));
         }
     }
 
@@ -2958,7 +2983,9 @@ pub mod ffi {
     ) {
         unsafe {
             let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
-            window_adapter.window().0.process_mouse_input(event.clone());
+            window_adapter
+                .window()
+                .dispatch_event(crate::platform::WindowEvent::internal(event.clone()));
         }
     }
 
