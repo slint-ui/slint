@@ -1,8 +1,6 @@
 // Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company , info@kdab.com, author Robin Cramer <robin.cramer@kdab.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// Tests the `spring` easing curve driven by `bounce` (duration/bounce style,
-// see `physics_simulation::SpringDurationBounceParameters`).
 export component TestCase inherits Rectangle {
     // bounce: 0 -> critically damped, approaches the target without ever overshooting it.
     in-out property <float> critical: 0;
