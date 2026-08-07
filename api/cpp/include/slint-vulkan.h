@@ -6,13 +6,11 @@
 #include "slint.h"
 
 #if !defined(SLINT_FEATURE_UNSTABLE_WGPU_30) && !defined(DOXYGEN)
-#    error                                                                                         \
-            "slint-vulkan.h needs Slint built with a Skia renderer (SLINT_FEATURE_RENDERER_SKIA)"
+#    error "slint-vulkan.h needs Slint built with a Skia renderer (SLINT_FEATURE_RENDERER_SKIA)"
 #endif
 
 #if !__has_include(<vulkan/vulkan.h>) && !defined(DOXYGEN)
-#    error                                                                                         \
-            "slint-vulkan.h needs the Vulkan headers (install the Vulkan SDK, or libvulkan-dev)"
+#    error "slint-vulkan.h needs the Vulkan headers (install the Vulkan SDK, or libvulkan-dev)"
 #endif
 
 #include <functional>

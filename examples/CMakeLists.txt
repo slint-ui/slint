@@ -35,6 +35,13 @@ if (TARGET Slint::slint-compiler AND (SLINT_FEATURE_BACKEND_WINIT OR SLINT_FEATU
         add_subdirectory(opengl_texture)
     endif()
 endif()
+if (TARGET Slint::slint-compiler AND SLINT_FEATURE_RENDERER_SKIA AND (SLINT_FEATURE_BACKEND_WINIT OR SLINT_FEATURE_BACKEND_WINIT_WAYLAND OR SLINT_FEATURE_BACKEND_WINIT_X11))
+    # Needs the Vulkan headers and loader, which Slint itself does not.
+    find_package(Vulkan QUIET)
+    if (Vulkan_FOUND)
+        add_subdirectory(vulkan_texture)
+    endif()
+endif()
 if (SLINT_FEATURE_INTERPRETER AND SLINT_FEATURE_BACKEND_QT)
 add_subdirectory(cpp/qt_viewer)
 endif()
