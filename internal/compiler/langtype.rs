@@ -13,6 +13,7 @@ use smol_str::SmolStr;
 
 use crate::expression_tree::{BuiltinFunction, Expression, Unit};
 use crate::object_tree::{Component, DEFAULT_SLOT_NAME, PropertyVisibility};
+use crate::parser::SyntaxNode;
 use crate::typeregister::TypeRegister;
 
 #[derive(Debug, Clone, Default)]
@@ -530,6 +531,14 @@ impl ElementType {
         }
     }
 
+    /// Return the node declaring `name` in this type or one of its bases, if there is one.
+    pub fn property_declaration_node(&self, name: &str) -> Option<SyntaxNode> {
+        match self {
+            Self::Component(c) => c.root_element.borrow().property_declaration_node(name),
+            _ => None,
+        }
+    }
+
     /// List of sub properties valid for the auto completion
     pub fn property_list(&self) -> Vec<(SmolStr, Type)> {
         match self {
@@ -977,7 +986,12 @@ impl Display for Function {
             }
             write!(formatter, "{arg}")?;
         }
-        write!(formatter, ") -> {}", self.return_type)
+        let return_type = if self.return_type == Type::Void {
+            String::new()
+        } else {
+            format!(" -> {}", self.return_type)
+        };
+        write!(formatter, "){}", return_type)
     }
 }
 
