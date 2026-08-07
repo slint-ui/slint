@@ -23,7 +23,6 @@ pub mod api {
 
     /// This data structure provides settings for initializing WGPU renderers.
     #[derive(Clone, Debug)]
-    #[non_exhaustive]
     pub struct WGPUSettings {
         /// The backends to use for the WGPU instance.
         pub backends: wgpu_30::Backends,
@@ -67,6 +66,146 @@ pub mod api {
                 device_experimental_features: wgpu_30::ExperimentalFeatures::disabled(),
                 device_memory_hints: wgpu_30::MemoryHints::MemoryUsage,
             }
+        }
+    }
+
+    /// Compares every field. Several of the nested wgpu types don't implement `PartialEq`
+    /// themselves; those are compared field by field through the helpers below. Used to
+    /// decide whether a WGPU device created with one settings value can be shared with a
+    /// renderer requesting another.
+    impl PartialEq for WGPUSettings {
+        fn eq(&self, other: &Self) -> bool {
+            let Self {
+                backends,
+                backend_options,
+                instance_flags,
+                instance_memory_budget_thresholds,
+                power_preference,
+                device_label,
+                device_required_features,
+                device_required_limits,
+                device_experimental_features,
+                device_memory_hints,
+            } = self;
+            *backends == other.backends
+                && backend_options_eq(backend_options, &other.backend_options)
+                && *instance_flags == other.instance_flags
+                && memory_budget_thresholds_eq(
+                    instance_memory_budget_thresholds,
+                    &other.instance_memory_budget_thresholds,
+                )
+                && *power_preference == other.power_preference
+                && *device_label == other.device_label
+                && *device_required_features == other.device_required_features
+                && *device_required_limits == other.device_required_limits
+                && device_experimental_features.is_enabled()
+                    == other.device_experimental_features.is_enabled()
+                && memory_hints_eq(device_memory_hints, &other.device_memory_hints)
+        }
+    }
+
+    fn backend_options_eq(a: &wgpu_30::BackendOptions, b: &wgpu_30::BackendOptions) -> bool {
+        let wgpu_30::BackendOptions { gl, dx12, noop } = a;
+        gl_backend_options_eq(gl, &b.gl)
+            && dx12_backend_options_eq(dx12, &b.dx12)
+            && noop_backend_options_eq(noop, &b.noop)
+    }
+
+    fn gl_backend_options_eq(a: &wgpu_30::GlBackendOptions, b: &wgpu_30::GlBackendOptions) -> bool {
+        let wgpu_30::GlBackendOptions { gles_minor_version, fence_behavior, debug_fns } = a;
+        *gles_minor_version == b.gles_minor_version
+            && *fence_behavior == b.fence_behavior
+            && *debug_fns == b.debug_fns
+    }
+
+    fn dx12_backend_options_eq(
+        a: &wgpu_30::Dx12BackendOptions,
+        b: &wgpu_30::Dx12BackendOptions,
+    ) -> bool {
+        let wgpu_30::Dx12BackendOptions {
+            shader_compiler,
+            presentation_system,
+            latency_waitable_object,
+            force_shader_model,
+            agility_sdk,
+        } = a;
+        dx12_compiler_eq(shader_compiler, &b.shader_compiler)
+            && *presentation_system == b.presentation_system
+            // Fieldless enum without `PartialEq`; the discriminant is the whole value.
+            && core::mem::discriminant(latency_waitable_object)
+                == core::mem::discriminant(&b.latency_waitable_object)
+            && dxc_shader_model_opt_eq(&force_shader_model.get(), &b.force_shader_model.get())
+            // `Dx12AgilitySDK` is not re-exported by the wgpu crate, so it is compared
+            // inline through field access instead of a named helper.
+            && match (agility_sdk, &b.agility_sdk) {
+                (None, None) => true,
+                (Some(a), Some(b)) => {
+                    a.sdk_version == b.sdk_version
+                        && a.sdk_path == b.sdk_path
+                        && a.on_load_failure == b.on_load_failure
+                }
+                _ => false,
+            }
+    }
+
+    fn dx12_compiler_eq(a: &wgpu_30::Dx12Compiler, b: &wgpu_30::Dx12Compiler) -> bool {
+        use wgpu_30::Dx12Compiler as C;
+        match (a, b) {
+            (C::Fxc, C::Fxc) | (C::StaticDxc, C::StaticDxc) | (C::Auto, C::Auto) => true,
+            (C::DynamicDxc { dxc_path: a }, C::DynamicDxc { dxc_path: b }) => a == b,
+            _ => false,
+        }
+    }
+
+    fn dxc_shader_model_opt_eq(
+        a: &Option<wgpu_30::DxcShaderModel>,
+        b: &Option<wgpu_30::DxcShaderModel>,
+    ) -> bool {
+        match (a, b) {
+            (None, None) => true,
+            // Fieldless enum without `PartialEq`; the discriminant is the whole value.
+            (Some(a), Some(b)) => core::mem::discriminant(a) == core::mem::discriminant(b),
+            _ => false,
+        }
+    }
+
+    fn noop_backend_options_eq(
+        a: &wgpu_30::NoopBackendOptions,
+        b: &wgpu_30::NoopBackendOptions,
+    ) -> bool {
+        let wgpu_30::NoopBackendOptions {
+            enable,
+            limits,
+            features,
+            device_type,
+            subgroup_min_size,
+            subgroup_max_size,
+        } = a;
+        *enable == b.enable
+            && *limits == b.limits
+            && *features == b.features
+            && *device_type == b.device_type
+            && *subgroup_min_size == b.subgroup_min_size
+            && *subgroup_max_size == b.subgroup_max_size
+    }
+
+    fn memory_budget_thresholds_eq(
+        a: &wgpu_30::MemoryBudgetThresholds,
+        b: &wgpu_30::MemoryBudgetThresholds,
+    ) -> bool {
+        let wgpu_30::MemoryBudgetThresholds { for_resource_creation, for_device_loss } = a;
+        *for_resource_creation == b.for_resource_creation && *for_device_loss == b.for_device_loss
+    }
+
+    fn memory_hints_eq(a: &wgpu_30::MemoryHints, b: &wgpu_30::MemoryHints) -> bool {
+        use wgpu_30::MemoryHints as M;
+        match (a, b) {
+            (M::Performance, M::Performance) | (M::MemoryUsage, M::MemoryUsage) => true,
+            (
+                M::Manual { suballocated_device_memory_block_size: a },
+                M::Manual { suballocated_device_memory_block_size: b },
+            ) => a == b,
+            _ => false,
         }
     }
 
@@ -216,6 +355,33 @@ impl From<Box<dyn wgpu::DisplayAndWindowHandle + 'static>> for SurfaceTarget {
     }
 }
 
+#[cfg(feature = "unstable-wgpu-30")]
+fn device_descriptor_from_settings<'a>(
+    settings: &'a api::WGPUSettings,
+    adapter: &wgpu::Adapter,
+) -> wgpu::DeviceDescriptor<'a> {
+    wgpu::DeviceDescriptor {
+        label: settings.device_label.as_deref(),
+        required_features: settings.device_required_features,
+        // support images the size of the swapchain
+        required_limits: settings.device_required_limits.clone().using_resolution(adapter.limits()),
+        experimental_features: settings.device_experimental_features,
+        memory_hints: settings.device_memory_hints.clone(),
+        trace: wgpu::Trace::default(),
+    }
+}
+
+fn default_device_descriptor(adapter: &wgpu::Adapter) -> wgpu::DeviceDescriptor<'static> {
+    wgpu::DeviceDescriptor {
+        label: None,
+        required_features: adapter.features() - wgpu::Features::all_experimental_mask(),
+        required_limits: adapter.limits(),
+        experimental_features: wgpu::ExperimentalFeatures::disabled(),
+        memory_hints: wgpu::MemoryHints::MemoryUsage,
+        trace: wgpu::Trace::default(),
+    }
+}
+
 /// Internal async helper function to initialize the wgpu instance/adapter/device/queue from either scratch or
 /// developer-provided config. This is called by any renderer intending to support WGPU.
 pub async fn async_init_instance_adapter_device_queue_surface(
@@ -270,7 +436,7 @@ pub async fn async_init_instance_adapter_device_queue_surface(
                 wgpu::util::new_instance_with_webgpu_detection(wgpu::InstanceDescriptor {
                     backends: wgpu30_settings.backends & !backends_to_avoid,
                     flags: wgpu30_settings.instance_flags,
-                    backend_options: wgpu30_settings.backend_options,
+                    backend_options: wgpu30_settings.backend_options.clone(),
                     memory_budget_thresholds: wgpu30_settings.instance_memory_budget_thresholds,
                     display: None,
                 })
@@ -298,17 +464,7 @@ pub async fn async_init_instance_adapter_device_queue_surface(
             })?;
 
             let (device, queue) = adapter
-                .request_device(&wgpu::DeviceDescriptor {
-                    label: wgpu30_settings.device_label.as_deref(),
-                    required_features: wgpu30_settings.device_required_features,
-                    // Make sure we use the texture resolution limits from the adapter, so we can support images the size of the swapchain.
-                    required_limits: wgpu30_settings
-                        .device_required_limits
-                        .using_resolution(adapter.limits()),
-                    experimental_features: wgpu30_settings.device_experimental_features,
-                    memory_hints: wgpu30_settings.device_memory_hints,
-                    trace: wgpu::Trace::default(),
-                })
+                .request_device(&device_descriptor_from_settings(&wgpu30_settings, &adapter))
                 .await
                 .map_err(|e| -> Box<dyn std::error::Error + Send + Sync + 'static> {
                     alloc::format!("Failed to create device: {e}").into()
@@ -316,8 +472,25 @@ pub async fn async_init_instance_adapter_device_queue_surface(
 
             (instance, adapter, device, queue, surface)
         }
-        None => {
-            let backends = wgpu::Backends::from_env().unwrap_or_default() & !backends_to_avoid;
+        maybe_native_api @ (None
+        | Some(
+            RequestedGraphicsAPI::Metal
+            | RequestedGraphicsAPI::Vulkan
+            | RequestedGraphicsAPI::Direct3D,
+        )) => {
+            let requested_backends = match &maybe_native_api {
+                Some(RequestedGraphicsAPI::Metal) => wgpu::Backends::METAL,
+                Some(RequestedGraphicsAPI::Vulkan) => wgpu::Backends::VULKAN,
+                Some(RequestedGraphicsAPI::Direct3D) => wgpu::Backends::DX12,
+                _ => wgpu::Backends::from_env().unwrap_or_default(),
+            };
+            let backends = requested_backends & !backends_to_avoid;
+            if backends.is_empty() {
+                return Err(alloc::format!(
+                    "The requested graphics API ({maybe_native_api:?}) is not supported under wgpu on this platform"
+                )
+                .into());
+            }
 
             let instance =
                 wgpu::util::new_instance_with_webgpu_detection(wgpu::InstanceDescriptor {
@@ -339,27 +512,18 @@ pub async fn async_init_instance_adapter_device_queue_surface(
                     })?;
 
             let (device, queue) = adapter
-                .request_device(&wgpu::DeviceDescriptor {
-                    label: None,
-                    // Request all non-experimental features the adapter supports,
-                    // so that embedders like Bevy can use full GPU capabilities.
-                    required_features: adapter.features() - wgpu::Features::all_experimental_mask(),
-                    required_limits: adapter.limits(),
-                    experimental_features: wgpu::ExperimentalFeatures::disabled(),
-                    memory_hints: wgpu::MemoryHints::MemoryUsage,
-                    trace: wgpu::Trace::default(),
-                })
+                .request_device(&default_device_descriptor(&adapter))
                 .await
                 .map_err(|e| -> Box<dyn std::error::Error + Send + Sync + 'static> {
                     alloc::format!("Failed to create device: {e}").into()
                 })?;
             (instance, adapter, device, queue, surface)
         }
-        Some(_) => {
-            return Err(
-                "The FemtoVG WGPU renderer does not implement renderer selection by graphics API"
-                    .into(),
-            );
+        Some(other) => {
+            return Err(alloc::format!(
+                "The requested graphics API ({other:?}) is not supported under wgpu"
+            )
+            .into());
         }
     };
     Ok((instance, adapter, device, queue, surface))
