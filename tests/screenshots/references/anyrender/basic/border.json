@@ -42,7 +42,7 @@
         "dash_offset": 0.0,
         "dash_pattern": [],
         "end_cap": "Round",
-        "join": "Round",
+        "join": "Miter",
         "miter_limit": 4.0,
         "start_cap": "Round",
         "width": 1.0
@@ -100,7 +100,7 @@
         "dash_offset": 0.0,
         "dash_pattern": [],
         "end_cap": "Round",
-        "join": "Round",
+        "join": "Miter",
         "miter_limit": 4.0,
         "start_cap": "Round",
         "width": 5.0
@@ -158,7 +158,7 @@
         "dash_offset": 0.0,
         "dash_pattern": [],
         "end_cap": "Round",
-        "join": "Round",
+        "join": "Miter",
         "miter_limit": 4.0,
         "start_cap": "Round",
         "width": 4.0
