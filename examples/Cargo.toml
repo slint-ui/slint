@@ -32,6 +32,7 @@ members = [
   'todo/rust',
   'todo-mvc/rust',
   'virtual_keyboard/rust',
+  'vulkan_texture',
   'wgpu_texture',
   'bevy/slint-hosts-bevy',
   'bevy/bevy-hosts-slint',

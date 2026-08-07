@@ -14117,6 +14117,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "vulkan_texture"
+version = "1.18.0"
+dependencies = [
+ "ash",
+ "slint",
+ "slint-build",
+ "wgpu 30.0.0",
+]
+
+[[package]]
 name = "walkdir"
 version = "2.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
