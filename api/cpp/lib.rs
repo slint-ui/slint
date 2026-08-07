@@ -18,6 +18,8 @@ use i_slint_core::styled_text::StyledText;
 use i_slint_core::window::{WindowAdapter, ffi::WindowAdapterRcOpaque};
 
 pub mod platform;
+#[cfg(feature = "unstable-wgpu-30")]
+pub mod vulkan;
 
 #[cfg(feature = "i-slint-backend-selector")]
 use i_slint_backend_selector::with_platform;

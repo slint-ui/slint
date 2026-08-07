@@ -38,7 +38,20 @@ backend-linuxkms = ["i-slint-backend-selector/backend-linuxkms", "std"]
 backend-linuxkms-noseat = ["i-slint-backend-selector/backend-linuxkms-noseat", "std"]
 renderer-femtovg = ["i-slint-backend-selector/renderer-femtovg"]
 renderer-femtovg-wgpu = ["i-slint-backend-selector/renderer-femtovg-wgpu"]
-renderer-skia = ["i-slint-backend-selector/renderer-skia", "i-slint-renderer-skia", "raw-window-handle"]
+# Skia renders through wgpu, and that is what makes the Vulkan handles in `slint-vulkan.h`
+# available, so it comes along implicitly rather than as a separate option.
+renderer-skia = [
+  "i-slint-backend-selector/renderer-skia",
+  "i-slint-renderer-skia",
+  "raw-window-handle",
+  "unstable-wgpu-30",
+]
+unstable-wgpu-30 = [
+  "dep:ash",
+  "i-slint-core/unstable-wgpu-30",
+  "i-slint-backend-selector/unstable-wgpu-30",
+  "i-slint-backend-selector/wgpu-30-vulkan-portability",
+]
 renderer-skia-opengl = ["i-slint-backend-selector/renderer-skia-opengl", "renderer-skia"]
 renderer-skia-vulkan = ["i-slint-backend-selector/renderer-skia-vulkan", "renderer-skia"]
 renderer-software = ["i-slint-backend-selector/renderer-software", "dep:i-slint-renderer-software"]
@@ -76,6 +89,8 @@ i-slint-core = { workspace = true, features = ["ffi"] }
 slint-interpreter = { workspace = true, features = ["ffi", "compat-1-2"], optional = true }
 i-slint-live-preview = { workspace = true, optional = true, features = ["ffi"] }
 raw-window-handle = { version = "0.6", optional = true }
+# For reading the Vulkan handles out of wgpu in `vulkan.rs`.
+ash = { version = "^0.38.0", optional = true }
 
 esp-backtrace = { version = "0.19.0", features = ["panic-handler", "println"], optional = true }
 esp-println = { version = "0.17.0", default-features = false, features = ["auto", "log-04"], optional = true }

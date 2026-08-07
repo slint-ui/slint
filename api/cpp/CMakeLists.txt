@@ -477,6 +477,18 @@ if (SLINT_BUILD_RUNTIME)
         $<INSTALL_INTERFACE:include/slint>
     )
 
+    # slint-vulkan.h is typed with the real Vulkan types, so it needs their headers. This is a
+    # header dependency only, never a library one: Slint loads Vulkan at run time. Nothing else
+    # in Slint needs them, so a missing SDK is not an error - including slint-vulkan.h without
+    # one is, and it says so. `BUILD_INTERFACE` keeps the absolute path out of the installed
+    # package, where SlintConfig.cmake looks the headers up on the consumer's machine instead.
+    if(SLINT_FEATURE_RENDERER_SKIA)
+        find_package(Vulkan QUIET)
+        if(Vulkan_FOUND)
+            target_include_directories(Slint INTERFACE $<BUILD_INTERFACE:${Vulkan_INCLUDE_DIRS}>)
+        endif()
+    endif()
+
 
     if(SLINT_FEATURE_COMPILER AND NOT SLINT_COMPILER)
         add_executable(Slint::slint-compiler ALIAS slint-compiler)

@@ -368,9 +368,10 @@ fn default_config() -> cbindgen::Config {
         // Disable any wasm guarded code in C++, too - so that there are no gaps in enums.
         ("target_arch = wasm32".into(), "SLINT_TARGET_WASM".into()),
         ("target_os = android".into(), "__ANDROID__".into()),
-        // Disable Rust WGPU specific API feature
+        // There is no C++ API for WGPU 29.
         ("feature = unstable-wgpu-29".into(), "SLINT_DISABLED_CODE".into()),
-        ("feature = unstable-wgpu-30".into(), "SLINT_DISABLED_CODE".into()),
+        // WGPU 30 is what `slint-vulkan.h` is built on, so this one tracks the real feature.
+        ("feature = unstable-wgpu-30".into(), "SLINT_FEATURE_UNSTABLE_WGPU_30".into()),
     ]
     .iter()
     .cloned()
@@ -662,7 +663,7 @@ fn gen_corelib(
                 "PHYSICAL_REGION_MAX_SIZE",
             ],
             "slint_image_internal.h",
-            "#include \"private/slint_color.h\"\nnamespace slint::cbindgen_private { struct ParsedSVG{}; struct HTMLImage{}; struct PhysicalPx; using namespace vtable; namespace types{ struct NineSliceImage{}; } }",
+            "#include \"private/slint_color.h\"\nnamespace slint::cbindgen_private { struct ParsedSVG{}; struct HTMLImage{}; struct PhysicalPx; using namespace vtable; namespace types{ struct NineSliceImage{}; struct WGPUTexture{}; } }",
         ),
         (
             vec!["Color", "slint_color_brighter", "slint_color_darker",
@@ -1319,6 +1320,7 @@ declare_features! {
     renderer_skia_opengl
     renderer_skia_vulkan
     renderer_software
+    unstable_wgpu_30
     gettext
     accessibility
     system_testing
