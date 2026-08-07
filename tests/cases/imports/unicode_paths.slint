@@ -1,0 +1,16 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Python is ignored because include paths aren't forwarded in the generated stubs.
+//ignore: pyi
+
+// A Unicode or emoji file name is taken verbatim and loads the matching file.
+//include_path: ../../helper_components
+import { UnicodeHelper } from "café.slint";
+import { EmojiHelper } from "party🎉.slint";
+
+export component TestCase inherits Rectangle {
+    u := UnicodeHelper {}
+    p := EmojiHelper {}
+    out property <bool> test: u.value == 2 && p.value == 3;
+}
