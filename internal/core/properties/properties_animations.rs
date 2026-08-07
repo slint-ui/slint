@@ -129,7 +129,7 @@ impl<T: InterpolatedPropertyValue + Clone> PropertyValueAnimationData<T> {
 
                 // -1 so that the spring knows to go to 0; re-express the carried-over velocity
                 // (in property units/sec) in the spring's -1..=0-relative units.
-                let delta = from_value.scalar_delta(to_value);
+                let delta = to_value.as_ref().map_or(0.0, |tv| from_value.scalar_delta(tv));
                 let v0 = if delta != 0.0 { initial_velocity / delta } else { 0.0 };
                 Some(SpringRegime::new(-1.0, v0, w_n, zeta))
             })
@@ -158,7 +158,8 @@ impl<T: InterpolatedPropertyValue + Clone> PropertyValueAnimationData<T> {
             crate::animations::current_tick().duration_since(self.start_time).as_millis() as f32
                 / 1000.0;
         let (_, rel_vel) = spring.evaluate(elapsed_secs);
-        Some(rel_vel * self.from_value.scalar_delta(&self.to_value))
+        let to_value = self.to_value.as_ref().expect("The animation should have a to_value");
+        Some(rel_vel * self.from_value.scalar_delta(to_value))
     }
 
     /// Single iteration of the animation
