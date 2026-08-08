@@ -383,10 +383,7 @@ impl TestingWindow {
         } else {
             MouseEvent::DragMove { event, allowed }
         };
-        WindowInner::from_pub(target)
-            .process_mouse_input(event)
-            .and_then(|r| r.drag_action)
-            .unwrap_or(DragAction::None)
+        WindowInner::from_pub(target).process_drag_event(event).unwrap_or(DragAction::None)
     }
 }
 

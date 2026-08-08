@@ -10,6 +10,7 @@ pub use i_slint_core::input::MouseEvent;
 pub use i_slint_core::input::TouchPhase;
 use i_slint_core::item_tree::ItemTreeVTable;
 pub use i_slint_core::lengths::LogicalPoint;
+pub use i_slint_core::platform::InternalEvent;
 use i_slint_core::platform::WindowEvent;
 pub use i_slint_core::window::PopupWindowLocation;
 pub use i_slint_core::window::WindowInner;
@@ -144,14 +145,15 @@ pub fn send_pinch_gesture<
     center_y: f32,
     phase: i_slint_core::input::TouchPhase,
 ) {
-    let inner = WindowInner::from_pub(component.window());
-    inner.process_mouse_input(i_slint_core::input::MouseEvent::PinchGesture {
-        position: i_slint_core::lengths::logical_point_from_api(
-            i_slint_core::api::LogicalPosition::new(center_x, center_y),
-        ),
-        delta,
-        phase,
-    });
+    component.window().dispatch_event(WindowEvent::internal(
+        i_slint_core::input::MouseEvent::PinchGesture {
+            position: i_slint_core::lengths::logical_point_from_api(
+                i_slint_core::api::LogicalPosition::new(center_x, center_y),
+            ),
+            delta,
+            phase,
+        },
+    ));
 }
 
 /// Send a rotation gesture event to the component's window.
@@ -168,14 +170,15 @@ pub fn send_rotation_gesture<
     center_y: f32,
     phase: i_slint_core::input::TouchPhase,
 ) {
-    let inner = WindowInner::from_pub(component.window());
-    inner.process_mouse_input(i_slint_core::input::MouseEvent::RotationGesture {
-        position: i_slint_core::lengths::logical_point_from_api(
-            i_slint_core::api::LogicalPosition::new(center_x, center_y),
-        ),
-        delta,
-        phase,
-    });
+    component.window().dispatch_event(WindowEvent::internal(
+        i_slint_core::input::MouseEvent::RotationGesture {
+            position: i_slint_core::lengths::logical_point_from_api(
+                i_slint_core::api::LogicalPosition::new(center_x, center_y),
+            ),
+            delta,
+            phase,
+        },
+    ));
 }
 
 pub fn access_testing_window<R>(
