@@ -2117,6 +2117,39 @@ pub fn flexbox_layout_info_cross_axis(
     flex_wrap: FlexboxLayoutWrap,
     constraint_size: Coord,
 ) -> LayoutInfo {
+    flexbox_layout_info_cross_axis_with_measure(
+        cells_h,
+        cells_v,
+        flex_props,
+        spacing_h,
+        spacing_v,
+        padding_h,
+        padding_v,
+        direction,
+        flex_wrap,
+        constraint_size,
+        None,
+    )
+}
+
+/// Same as [`flexbox_layout_info_cross_axis`], with a measure callback so
+/// height-for-width cells (e.g. a nested wrapping flexbox) are measured at the
+/// main-axis size taffy actually assigns them, not at the pre-computed cell
+/// size (which was measured at the container width).
+#[allow(clippy::too_many_arguments)]
+pub fn flexbox_layout_info_cross_axis_with_measure(
+    cells_h: Slice<LayoutItemInfo>,
+    cells_v: Slice<LayoutItemInfo>,
+    flex_props: Slice<FlexItemProps>,
+    spacing_h: Coord,
+    spacing_v: Coord,
+    padding_h: &Padding,
+    padding_v: &Padding,
+    direction: FlexboxLayoutDirection,
+    flex_wrap: FlexboxLayoutWrap,
+    constraint_size: Coord,
+    measure: FlexboxMeasureFn<'_>,
+) -> LayoutInfo {
     debug_assert_eq!(cells_h.len(), cells_v.len());
     debug_assert_eq!(cells_h.len(), flex_props.len());
     if cells_h.is_empty() {
@@ -2216,7 +2249,7 @@ pub fn flexbox_layout_info_cross_axis(
         flex_direction: taffy_direction,
         container_width,
         container_height,
-        use_measure_for_cross_axis: false,
+        use_measure_for_cross_axis: measure.is_some(),
     });
 
     let (available_width, available_height) = match direction {
@@ -2228,7 +2261,7 @@ pub fn flexbox_layout_info_cross_axis(
         }
     };
 
-    builder.compute_layout(available_width, available_height, None);
+    builder.compute_layout(available_width, available_height, measure);
 
     let (total_width, total_height) = builder.container_size();
     let cross_size = match direction {
