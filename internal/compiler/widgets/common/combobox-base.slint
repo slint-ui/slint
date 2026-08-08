@@ -80,22 +80,15 @@ export component ComboBoxBase {
         root.update-current-value();
     }
 
-    // A write to `current-value` (host or declarative) expresses "select the row with this
-    // value": look it up in `model` and resolve `current-index` — and, through it,
-    // `current-value` itself — to match, or to "" if not found. Uses the stable `index-of`,
-    // not the experimental `find-index` it lowers to, so ComboBox doesn't depend on an
-    // experimental feature.
+    // A write to `current-value` (host or imperatively from `.slint` code) expresses "select
+    // the row with this value": look it up in `model` and resolve `current-index` — and,
+    // through it, `current-value` itself — to match, or to "" if not found. Uses the stable
+    // `index-of`, not the experimental `find-index` it lowers to, so ComboBox doesn't depend
+    // on an experimental feature.
     // Only fires on an actual value change, so writing the value current-value already
     // holds is a no-op even when the "select the first match" contract says it shouldn't be.
     // See https://github.com/slint-ui/slint/issues/11970.
     changed current-value => {
-        root.reverse-lookup-current-value();
-    }
-
-    // `ComboBox { current-value: "..."; }` replaces the default binding above, so a
-    // declarative mismatch never fires `changed current-value` and needs the same
-    // resolution here, once, after the model and current-index have their initial values.
-    init => {
         root.reverse-lookup-current-value();
     }
 
