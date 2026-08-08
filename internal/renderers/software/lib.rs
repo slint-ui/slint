@@ -1200,10 +1200,10 @@ impl RendererSealed for SoftwareRenderer {
                 };
 
                 let cursor_position = paragraph.cursor_pos_for_byte_offset(byte_offset);
-                let cursor_height = vf.height();
+                let (band_offset, cursor_height) = paragraph.layout.cursor_band();
 
                 (PhysicalRect::new(
-                    PhysicalPoint::from_lengths(cursor_position.0, cursor_position.1),
+                    PhysicalPoint::from_lengths(cursor_position.0, cursor_position.1 + band_offset),
                     PhysicalSize::from_lengths(
                         (text_input.text_cursor_width().cast() * scale_factor).cast(),
                         cursor_height,
@@ -1235,10 +1235,10 @@ impl RendererSealed for SoftwareRenderer {
                 };
 
                 let cursor_position = paragraph.cursor_pos_for_byte_offset(byte_offset);
-                let cursor_height = pf.height();
+                let (band_offset, cursor_height) = paragraph.layout.cursor_band();
 
                 (PhysicalRect::new(
-                    PhysicalPoint::from_lengths(cursor_position.0, cursor_position.1),
+                    PhysicalPoint::from_lengths(cursor_position.0, cursor_position.1 + band_offset),
                     PhysicalSize::from_lengths(
                         (text_input.text_cursor_width().cast() * scale_factor).cast(),
                         cursor_height,
@@ -2504,13 +2504,15 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
         paragraph
             .layout_lines::<()>(
                 |glyphs, line_x, line_y, _, sel| {
-                    let baseline_y = line_y + paragraph.layout.font.ascent();
+                    let baseline_y =
+                        line_y + paragraph.layout.half_leading() + paragraph.layout.font.ascent();
                     if let (Some(sel), Some(selection)) = (sel, &selection) {
+                        let (band_offset, band_height) = paragraph.layout.cursor_band();
                         let geometry = euclid::rect(
                             line_x.get() + sel.start.get(),
-                            line_y.get(),
+                            (line_y + band_offset).get(),
                             (sel.end - sel.start).get(),
-                            paragraph.layout.font.height().get(),
+                            band_height.get(),
                         );
                         if let Some(clipped_src) = geometry.intersection(&physical_clip.cast()) {
                             let geometry =
@@ -3013,7 +3015,10 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
 
                 let cursor_pos_and_height =
                     text_visual_representation.cursor_position.map(|cursor_offset| {
-                        (paragraph.cursor_pos_for_byte_offset(cursor_offset), vf.height())
+                        let (band_offset, band_height) = paragraph.layout.cursor_band();
+                        let (cursor_x, cursor_y) =
+                            paragraph.cursor_pos_for_byte_offset(cursor_offset);
+                        ((cursor_x, cursor_y + band_offset), band_height)
                     });
 
                 if let Some(((cursor_x, cursor_y), cursor_height)) = cursor_pos_and_height {
@@ -3084,7 +3089,10 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
 
                 let cursor_pos_and_height =
                     text_visual_representation.cursor_position.map(|cursor_offset| {
-                        (paragraph.cursor_pos_for_byte_offset(cursor_offset), pf.height())
+                        let (band_offset, band_height) = paragraph.layout.cursor_band();
+                        let (cursor_x, cursor_y) =
+                            paragraph.cursor_pos_for_byte_offset(cursor_offset);
+                        ((cursor_x, cursor_y + band_offset), band_height)
                     });
 
                 if let Some(((cursor_x, cursor_y), cursor_height)) = cursor_pos_and_height {

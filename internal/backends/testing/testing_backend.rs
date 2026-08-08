@@ -2,7 +2,10 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use i_slint_core::api::PhysicalSize;
-use i_slint_core::graphics::euclid::{Point2D, Size2D};
+use i_slint_core::graphics::{
+    FontRequest,
+    euclid::{Point2D, Size2D},
+};
 use i_slint_core::item_rendering::HasFont;
 use i_slint_core::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalSize};
 use i_slint_core::platform::PlatformError;
@@ -138,6 +141,11 @@ const FIXED_TEST_FONT: &str = "FixedTestFont";
 
 fn is_fixed_test_font(family: &Option<SharedString>) -> bool {
     family.as_ref().is_some_and(|f| f == FIXED_TEST_FONT)
+}
+
+fn fixed_test_font_line_height(font_request: &FontRequest, pixel_size: f32) -> f32 {
+    // The test font's natural line height is exactly the pixel size (ascent 0.7 + descent 0.3).
+    font_request.line_height_for_natural_height(pixel_size).unwrap_or(pixel_size)
 }
 
 #[derive(Default)]
@@ -523,7 +531,8 @@ impl RendererSealed for TestingWindow {
                 .take(max_lines)
                 .fold((0, 0), |(len, count), line| (len.max(line.len()), count + 1));
             let width = max_line_len as f32 * pixel_size;
-            let height = num_lines.max(1) as f32 * pixel_size;
+            let height =
+                num_lines.max(1) as f32 * fixed_test_font_line_height(&font_request, pixel_size);
             LogicalSize::new(width, height)
         } else {
             sharedparley::text_size(self, text_item, item_rc, max_width, text_wrap, None)
@@ -568,7 +577,7 @@ impl RendererSealed for TestingWindow {
         let font_request = text_item.font_request(item_rc);
         if is_fixed_test_font(&font_request.family) {
             let pixel_size = font_request.pixel_size.map_or(10., |s| s.get());
-            LogicalSize::new(pixel_size, pixel_size)
+            LogicalSize::new(pixel_size, fixed_test_font_line_height(&font_request, pixel_size))
         } else {
             let Some(ctx) = self.slint_context() else {
                 return LogicalSize::default();
@@ -608,16 +617,13 @@ impl RendererSealed for TestingWindow {
         let font_request = text_input.font_request(item_rc);
         if is_fixed_test_font(&font_request.family) {
             let pixel_size = font_request.pixel_size.map_or(10., |s| s.get());
+            let line_height = fixed_test_font_line_height(&font_request, pixel_size);
             let text = text_input.text();
             if pos.y < 0. {
                 return 0;
             }
-            let line = (pos.y / pixel_size) as usize;
-            let offset = if line >= 1 {
-                text.split('\n').take(line - 1).map(|l| l.len() + 1).sum()
-            } else {
-                0
-            };
+            let line = (pos.y / line_height) as usize;
+            let offset: usize = text.split('\n').take(line).map(|l| l.len() + 1).sum();
             let Some(line) = text.split('\n').nth(line) else {
                 return text.len();
             };
@@ -637,12 +643,13 @@ impl RendererSealed for TestingWindow {
         let font_request = text_input.font_request(item_rc);
         if is_fixed_test_font(&font_request.family) {
             let pixel_size = font_request.pixel_size.map_or(10., |s| s.get());
+            let line_height = fixed_test_font_line_height(&font_request, pixel_size);
             let text = text_input.text();
             let line = text[..byte_offset].chars().filter(|c| *c == '\n').count();
             let column = text[..byte_offset].split('\n').nth(line).unwrap_or("").len();
             LogicalRect::new(
-                Point2D::new(column as f32 * pixel_size, line as f32 * pixel_size),
-                Size2D::new(1., pixel_size),
+                Point2D::new(column as f32 * pixel_size, line as f32 * line_height),
+                Size2D::new(1., line_height),
             )
         } else {
             sharedparley::text_input_cursor_rect_for_byte_offset(

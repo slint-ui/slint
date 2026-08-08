@@ -64,9 +64,34 @@ pub use linebreaker::TextLineBreaker;
 pub struct TextLayout<'a, Font: AbstractFont> {
     pub font: &'a Font,
     pub letter_spacing: Option<<Font as TextShaper>::Length>,
+    /// The absolute line height, or `None` to use [`FontMetrics::height`].
+    pub line_height: Option<<Font as TextShaper>::Length>,
 }
 
 impl<Font: AbstractFont> TextLayout<'_, Font> {
+    fn line_height(&self) -> Font::Length {
+        self.line_height.unwrap_or_else(|| self.font.height())
+    }
+
+    /// The offset from the top of a line box to the top of the glyph box within it: half of
+    /// the leading, following the CSS convention of centering the glyphs in the line box,
+    /// like the parley based layout. Negative when the line height is smaller than the
+    /// natural font height.
+    pub fn half_leading(&self) -> Font::Length {
+        let two = Font::LengthPrimitive::one() + Font::LengthPrimitive::one();
+        (self.line_height() - self.font.height()) / two
+    }
+
+    /// The origin (relative to the top of the line box) and height of cursor and selection
+    /// rectangles: the full line box, but never smaller than the glyph box, mirroring
+    /// parley's clamping for negative leading.
+    pub fn cursor_band(&self) -> (Font::Length, Font::Length) {
+        (
+            euclid::approxord::min(Font::Length::zero(), self.half_leading()),
+            euclid::approxord::max(self.line_height(), self.font.height()),
+        )
+    }
+
     // Measures the size of the given text when rendered with the specified font and optionally constrained
     // by the provided `max_width`.
     // Returns a tuple of the width of the longest line as well as height of all lines.
@@ -91,7 +116,7 @@ impl<Font: AbstractFont> TextLayout<'_, Font> {
             line_count += 1;
         }
 
-        (max_line_width, self.font.height() * line_count.into())
+        (max_line_width, self.line_height() * line_count.into())
     }
 
     // The min- and max-content width: the width of the widest chunk that cannot be broken
@@ -189,8 +214,8 @@ impl<Font: AbstractFont> TextParagraphLayout<'_, Font> {
         // The software renderer already clips glyphs to the Text geometry, so the vertical
         // overflow is trimmed; horizontal elision still places an ellipsis if it is too
         // wide. Mirrors the parley path, which always keeps line index 0.
-        let max_lines_from_height =
-            elide.then(|| self.layout.font.max_lines(self.max_height).max(1));
+        let line_height = self.layout.line_height();
+        let max_lines_from_height = elide.then(|| self.max_lines_that_fit(line_height).max(1));
         let max_lines = [self.max_lines, max_lines_from_height].into_iter().flatten().min();
 
         let new_line_break_iter = || {
@@ -206,10 +231,10 @@ impl<Font: AbstractFont> TextParagraphLayout<'_, Font> {
 
         let mut text_height = || {
             if self.single_line {
-                self.layout.font.height()
+                line_height
             } else {
                 text_lines = Some(new_line_break_iter().collect::<Vec<_>>());
-                self.layout.font.height() * (text_lines.as_ref().unwrap().len() as i16).into()
+                line_height * (text_lines.as_ref().unwrap().len() as i16).into()
             }
         };
 
@@ -232,7 +257,7 @@ impl<Font: AbstractFont> TextParagraphLayout<'_, Font> {
             let reached_line_limit = max_lines.is_some_and(|max_lines| line_index + 1 == max_lines);
             let elide_last_line = elide
                 && line.glyph_range.end < glyphs.len()
-                && (y + self.layout.font.height() * two > self.max_height || reached_line_limit);
+                && (y + line_height * two > self.max_height || reached_line_limit);
 
             // On a vertically truncated line the ellipsis is anchored right after the text by
             // ignoring trailing whitespace, so it reads "please…" rather than "please   …". The
@@ -363,7 +388,7 @@ impl<Font: AbstractFont> TextParagraphLayout<'_, Font> {
             {
                 return core::ops::ControlFlow::Break(break_val);
             }
-            y += self.layout.font.height();
+            y += line_height;
             line_index += 1;
 
             core::ops::ControlFlow::Continue(())
@@ -388,6 +413,22 @@ impl<Font: AbstractFont> TextParagraphLayout<'_, Font> {
         }
 
         Ok(baseline_y)
+    }
+
+    /// How many lines of `line_height` fit within `self.max_height`, rounded down. A line
+    /// height of zero (from `line-height-factor: 0`) collapses all lines onto each other,
+    /// so any number of them fit.
+    fn max_lines_that_fit(&self, line_height: Font::Length) -> usize {
+        if line_height <= Font::Length::zero() {
+            return usize::MAX;
+        }
+        let mut lines = 0usize;
+        let mut height = Font::Length::zero();
+        while height + line_height <= self.max_height {
+            height += line_height;
+            lines += 1;
+        }
+        lines
     }
 
     /// Returns the leading edge of the glyph at the given byte offset
@@ -431,7 +472,7 @@ impl<Font: AbstractFont> TextParagraphLayout<'_, Font> {
 
         match self.layout_lines(
             |glyphs, line_x, line_y, line, _| {
-                if pos_y >= line_y + self.layout.font.height() {
+                if pos_y >= line_y + self.layout.line_height() {
                     byte_offset = line.byte_range.end;
                     return core::ops::ControlFlow::Continue(());
                 }
@@ -512,11 +553,6 @@ impl TextShaper for FixedTestFont {
         }
         .into()
     }
-
-    fn max_lines(&self, max_height: f32) -> usize {
-        let height = self.ascent() - self.descent();
-        (max_height / height).floor() as _
-    }
 }
 
 #[cfg(test)]
@@ -547,7 +583,7 @@ fn test_elision() {
 
     let paragraph = TextParagraphLayout {
         string: text,
-        layout: TextLayout { font: &font, letter_spacing: None },
+        layout: TextLayout { font: &font, letter_spacing: None, line_height: None },
         max_width: 13. * 10.,
         max_height: 10.,
         horizontal_alignment: TextHorizontalAlignment::Left,
@@ -593,7 +629,7 @@ fn test_elision_vertical_truncation() {
 
     let paragraph = TextParagraphLayout {
         string: text,
-        layout: TextLayout { font: &font, letter_spacing: None },
+        layout: TextLayout { font: &font, letter_spacing: None, line_height: None },
         max_width: 4. * 10., // room for "AB…" (3 glyphs) and more
         max_height: 10.,     // one line tall
         horizontal_alignment: TextHorizontalAlignment::Left,
@@ -637,7 +673,7 @@ fn test_exact_fit() {
 
     let paragraph = TextParagraphLayout {
         string: text,
-        layout: TextLayout { font: &font, letter_spacing: None },
+        layout: TextLayout { font: &font, letter_spacing: None, line_height: None },
         max_width: 4. * 10.,
         max_height: 10.,
         horizontal_alignment: TextHorizontalAlignment::Left,
@@ -680,7 +716,7 @@ fn test_no_line_separators_characters_rendered() {
 
     let paragraph = TextParagraphLayout {
         string: text,
-        layout: TextLayout { font: &font, letter_spacing: None },
+        layout: TextLayout { font: &font, letter_spacing: None, line_height: None },
         max_width: 13. * 10.,
         max_height: 10.,
         horizontal_alignment: TextHorizontalAlignment::Left,
@@ -726,7 +762,7 @@ fn test_max_lines_limits_visible_lines() {
 
     let paragraph = TextParagraphLayout {
         string: text,
-        layout: TextLayout { font: &font, letter_spacing: None },
+        layout: TextLayout { font: &font, letter_spacing: None, line_height: None },
         max_width: 100. * 10.,
         max_height: 100.,
         horizontal_alignment: TextHorizontalAlignment::Left,
@@ -772,7 +808,7 @@ fn test_max_lines_with_word_wrap() {
 
     let paragraph = TextParagraphLayout {
         string: text,
-        layout: TextLayout { font: &font, letter_spacing: None },
+        layout: TextLayout { font: &font, letter_spacing: None, line_height: None },
         max_width: 6. * 10.,
         max_height: 100.,
         horizontal_alignment: TextHorizontalAlignment::Left,
@@ -794,7 +830,7 @@ fn test_max_lines_elide_marks_cut_line() {
     // with `overflow: elide` the ellipsis goes on the last kept line.
     let paragraph = TextParagraphLayout {
         string: text,
-        layout: TextLayout { font: &font, letter_spacing: None },
+        layout: TextLayout { font: &font, letter_spacing: None, line_height: None },
         max_width: 100. * 10.,
         max_height: 100.,
         horizontal_alignment: TextHorizontalAlignment::Left,
@@ -810,7 +846,7 @@ fn test_max_lines_elide_marks_cut_line() {
 #[test]
 fn test_text_size_with_max_lines() {
     let font = FixedTestFont;
-    let layout = TextLayout { font: &font, letter_spacing: None };
+    let layout = TextLayout { font: &font, letter_spacing: None, line_height: None };
     let text = "On\nFour\nLonger";
 
     let (width, height) = layout.text_size(text, None, TextWrap::NoWrap, None);
@@ -822,13 +858,62 @@ fn test_text_size_with_max_lines() {
 }
 
 #[test]
+fn test_line_height() {
+    let font = FixedTestFont;
+    let layout = TextLayout { font: &font, letter_spacing: None, line_height: Some(15.) };
+    let text = "One\nTwo";
+
+    assert_eq!(layout.text_size(text, None, TextWrap::NoWrap, None), (3. * 10., 2. * 15.));
+
+    // The extra leading is split half above, half below the glyphs, like the parley path.
+    assert_eq!(layout.half_leading(), 2.5);
+    assert_eq!(layout.cursor_band(), (0., 15.));
+
+    // With negative leading the cursor band is clamped to the glyph box.
+    let tight = TextLayout { font: &font, letter_spacing: None, line_height: Some(6.) };
+    assert_eq!(tight.half_leading(), -2.);
+    assert_eq!(tight.cursor_band(), (-2., 10.));
+
+    let paragraph = TextParagraphLayout {
+        string: text,
+        layout,
+        max_width: 100. * 10.,
+        max_height: 100.,
+        horizontal_alignment: TextHorizontalAlignment::Left,
+        vertical_alignment: TextVerticalAlignment::Top,
+        wrap: TextWrap::NoWrap,
+        overflow: TextOverflow::Clip,
+        single_line: false,
+        max_lines: None,
+    };
+
+    assert_eq!(paragraph.cursor_pos_for_byte_offset(4), (0., 15.));
+    assert_eq!(paragraph.byte_offset_for_position((0., 16.)), 4);
+
+    let paragraph = TextParagraphLayout {
+        string: "One\nTwo\nThree",
+        layout: TextLayout { font: &font, letter_spacing: None, line_height: Some(15.) },
+        max_width: 100. * 10.,
+        max_height: 29.,
+        horizontal_alignment: TextHorizontalAlignment::Left,
+        vertical_alignment: TextVerticalAlignment::Top,
+        wrap: TextWrap::NoWrap,
+        overflow: TextOverflow::Elide,
+        single_line: false,
+        max_lines: None,
+    };
+
+    assert_eq!(render_lines(&paragraph), std::vec!["One…"]);
+}
+
+#[test]
 fn test_cursor_position() {
     let font = FixedTestFont;
     let text = "Hello                    World";
 
     let paragraph = TextParagraphLayout {
         string: text,
-        layout: TextLayout { font: &font, letter_spacing: None },
+        layout: TextLayout { font: &font, letter_spacing: None, line_height: None },
         max_width: 10. * 10.,
         max_height: 10.,
         horizontal_alignment: TextHorizontalAlignment::Left,
@@ -869,7 +954,7 @@ fn test_cursor_position_with_newline() {
 
     let paragraph = TextParagraphLayout {
         string: text,
-        layout: TextLayout { font: &font, letter_spacing: None },
+        layout: TextLayout { font: &font, letter_spacing: None, line_height: None },
         max_width: 100. * 10.,
         max_height: 10.,
         horizontal_alignment: TextHorizontalAlignment::Left,
@@ -890,7 +975,7 @@ fn byte_offset_for_empty_line() {
 
     let paragraph = TextParagraphLayout {
         string: text,
-        layout: TextLayout { font: &font, letter_spacing: None },
+        layout: TextLayout { font: &font, letter_spacing: None, line_height: None },
         max_width: 100. * 10.,
         max_height: 10.,
         horizontal_alignment: TextHorizontalAlignment::Left,
@@ -913,7 +998,7 @@ fn test_byte_offset() {
 
     let paragraph = TextParagraphLayout {
         string: text,
-        layout: TextLayout { font: &font, letter_spacing: None },
+        layout: TextLayout { font: &font, letter_spacing: None, line_height: None },
         max_width: 10. * 10.,
         max_height: 10.,
         horizontal_alignment: TextHorizontalAlignment::Left,
@@ -976,7 +1061,7 @@ fn test_byte_offset() {
 fn test_content_widths() {
     // FixedTestFont: every glyph is 10 pixels wide.
     let font = FixedTestFont;
-    let layout = TextLayout { font: &font, letter_spacing: None };
+    let layout = TextLayout { font: &font, letter_spacing: None, line_height: None };
     let min = |text| layout.content_widths(text, None).0;
 
     // The longest word wins. The space after it is not part of its width,
@@ -1005,7 +1090,7 @@ fn test_content_widths() {
 #[test]
 fn test_content_widths_max_lines() {
     let font = FixedTestFont;
-    let layout = TextLayout { font: &font, letter_spacing: None };
+    let layout = TextLayout { font: &font, letter_spacing: None, line_height: None };
 
     // Only the first line is drawn, so neither width may account for the second one.
     let (min, max) = layout.content_widths("short\nlongestword", Some(1));
@@ -1026,7 +1111,7 @@ fn test_content_widths_max_lines() {
 #[test]
 fn test_content_widths_min_never_exceeds_max() {
     let font = FixedTestFont;
-    let layout = TextLayout { font: &font, letter_spacing: None };
+    let layout = TextLayout { font: &font, letter_spacing: None, line_height: None };
     // A minimum above the preferred width makes preferred_bounded() clamp the preferred
     // width back up, silently widening the item.
     for text in ["", "   ", "Hello", "a bb longest cc", "short\nlongestword", "aa\u{00a0}bb cc"] {
