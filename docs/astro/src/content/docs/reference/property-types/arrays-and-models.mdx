@@ -48,8 +48,10 @@ The following operations apply to a value of an array type.
 - `array.remove(index)` removes the element at `index`.
 - `array.insert(index, value)` inserts `value` before the element at `index`, shifting later elements up.
   `value` must have the element type.
+- `array.index-of(value)` returns the index of the first element equal to `value` as an `int`,
+  or `-1` if no element matches. `value` must have the element type.
 
-`length`, `push`, `remove`, and `insert` are members of the array; `index` is written with the `[ ]` operator.
+`length`, `push`, `remove`, `insert`, and `index-of` are members of the array; `index` is written with the `[ ]` operator.
 
 ## Out-of-bounds behavior
 
