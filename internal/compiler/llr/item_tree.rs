@@ -597,6 +597,7 @@ pub struct Timer {
     pub interval: MutExpression,
     pub running: MutExpression,
     pub triggered: MutExpression,
+    pub repeat: MutExpression,
 }
 
 #[derive(Debug, Clone)]
