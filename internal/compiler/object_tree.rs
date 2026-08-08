@@ -1040,7 +1040,7 @@ pub struct Element {
 
     pub states: Vec<State>,
     pub transitions: Vec<Transition>,
-
+    pub match_elements: Vec<MatchElementInfo>,
     /// true when this item's geometry is handled by a layout
     pub child_of_layout: bool,
     /// true when this item is a direct cell of a `FlexboxLayout`. Narrower
@@ -1298,6 +1298,81 @@ pub struct RepeatedElementInfo {
     pub is_listview: Option<ListViewInfo>,
 }
 
+/// Struct for a match element that later is resolved into standard conditional elements
+pub struct MatchElementInfo {
+    /// The match element node, used for diagnostics related to the match element as a whole
+    pub node: syntax_nodes::MatchElement,
+    /// The value that is matched on
+    pub subject: Expression,
+    /// Each case and the corresponding element
+    pub cases: Vec<MatchCaseInfo>,
+    /// The `*` case of the match element, if any
+    pub wildcard: WildcardMatchCaseInfo,
+}
+
+pub enum WildcardMatchCaseInfo {
+    None,
+    Empty,
+    Element(ElementRc),
+}
+
+/// One case of a match element
+pub struct MatchCaseInfo {
+    /// The value the subject is compared against
+    pub value: Expression,
+    /// The syntax node
+    pub node: syntax_nodes::Expression,
+    /// The element to potentially show. None for the empty case
+    pub element: Option<ElementRc>,
+}
+
+impl MatchElementInfo {
+    /// The elements of all the cases, skipping the empty cases
+    pub fn elements(&self) -> impl Iterator<Item = ElementRc> + '_ {
+        self.cases.iter().filter_map(|case| case.element.clone()).chain(match &self.wildcard {
+            WildcardMatchCaseInfo::Element(e) => Some(e.clone()),
+            WildcardMatchCaseInfo::None | WildcardMatchCaseInfo::Empty => None,
+        })
+    }
+
+    /// Make every case a conditional element
+    pub fn lower_to_conditional_elements(&self) {
+        let compare = |value: &Expression, op| Expression::BinaryExpression {
+            lhs: Box::new(self.subject.clone()),
+            rhs: Box::new(value.clone()),
+            op,
+        };
+        let show_when = |element: &ElementRc, condition| {
+            element.borrow_mut().repeated = Some(RepeatedElementInfo {
+                model: condition,
+                model_data_id: SmolStr::default(),
+                index_id: SmolStr::default(),
+                is_conditional_element: true,
+                is_listview: None,
+            });
+        };
+
+        for case in &self.cases {
+            if let Some(element) = &case.element {
+                show_when(element, compare(&case.value, '='));
+            }
+        }
+        if let WildcardMatchCaseInfo::Element(wildcard) = &self.wildcard {
+            let condition = self
+                .cases
+                .iter()
+                .map(|case| compare(&case.value, '!'))
+                .reduce(|lhs, rhs| Expression::BinaryExpression {
+                    lhs: Box::new(lhs),
+                    rhs: Box::new(rhs),
+                    op: '&',
+                })
+                .unwrap_or(Expression::BoolLiteral(true));
+            show_when(wildcard, condition);
+        }
+    }
+}
+
 pub type ElementRc = Rc<RefCell<Element>>;
 pub type ElementWeak = Weak<RefCell<Element>>;
 
@@ -1382,7 +1457,7 @@ impl Element {
                     error_on(&cb, "an 'init' callback")
                 }
             });
-            node.MatchElement().for_each(|n| error_on(&n, "match statements"));
+            node.MatchElement().for_each(|n| error_on(&n, "match elements"));
             node.SlotDeclaration().for_each(|n| error_on(&n, "slots"));
 
             if parent_type == ElementType::Interface {
@@ -2237,7 +2312,7 @@ impl Element {
                 r.borrow_mut().children.push(rep);
             } else if se.kind() == SyntaxKind::MatchElement {
                 let mut sub_child_insertion_points = BTreeMap::new();
-                let rep = Element::from_match_node(
+                let match_element = Element::from_match_node(
                     se.into(),
                     r.borrow().base_type.clone(),
                     &mut sub_child_insertion_points,
@@ -2252,7 +2327,9 @@ impl Element {
                     sub_child_insertion_points,
                     "a match element",
                 );
-                r.borrow_mut().children.extend(rep);
+                let mut r = r.borrow_mut();
+                r.children.extend(match_element.elements());
+                r.match_elements.push(match_element);
             } else if se.kind() == SyntaxKind::ChildrenPlaceholder {
                 #[cfg(feature = "slint-sc")]
                 diag.slint_sc_error("The @children placeholder is", &se);
@@ -2663,28 +2740,12 @@ impl Element {
         is_in_legacy_component: bool,
         diag: &mut BuildDiagnostics,
         tr: &TypeRegister,
-    ) -> Vec<ElementRc> {
+    ) -> MatchElementInfo {
         if !diag.enable_experimental {
-            diag.push_error("match statements are an experimental feature".into(), &node);
+            diag.push_error("match elements are an experimental feature".into(), &node);
         }
-        let mut cases: Vec<ElementRc> = Vec::new();
-        let expr = node.Expression();
-        for case in node.MatchCase() {
-            let Some(sub_element) = case.SubElement() else {
-                continue;
-            };
-            let rei = RepeatedElementInfo {
-                model: Expression::BinaryExpression {
-                    lhs: (Box::new(Expression::Uncompiled(expr.clone().into()))),
-                    rhs: Box::new(Expression::Uncompiled(case.Expression().into())),
-                    op: '=',
-                },
-                model_data_id: SmolStr::default(),
-                index_id: SmolStr::default(),
-                is_conditional_element: true,
-                is_listview: None,
-            };
-            let e: Rc<RefCell<Element>> = Element::from_sub_element_node(
+        let mut element_of = |sub_element| {
+            Element::from_sub_element_node(
                 sub_element,
                 parent_type.clone(),
                 component_child_insertion_points,
@@ -2692,50 +2753,33 @@ impl Element {
                 is_in_legacy_component,
                 diag,
                 tr,
-            );
-            e.borrow_mut().repeated = Some(rei);
-            cases.push(e);
+            )
+        };
+        // A case without a sub element is an empty case that shows nothing
+        let cases = node
+            .MatchCase()
+            .map(|case| {
+                let node = case.Expression();
+                MatchCaseInfo {
+                    value: Expression::Uncompiled(node.clone().into()),
+                    node,
+                    element: case.SubElement().map(&mut element_of),
+                }
+            })
+            .collect();
+        let wildcard = match node.WildcardMatchCase() {
+            None => WildcardMatchCaseInfo::None,
+            Some(w) => match w.SubElement().map(&mut element_of) {
+                None => WildcardMatchCaseInfo::Empty,
+                Some(element) => WildcardMatchCaseInfo::Element(element),
+            },
+        };
+        MatchElementInfo {
+            subject: Expression::Uncompiled(node.Expression().into()),
+            node,
+            cases,
+            wildcard,
         }
-        if let Some(wildcard) = node.WildcardMatchCase()
-            && let Some(sub_element) = wildcard.SubElement()
-        {
-            let case_exprs: Vec<_> = node.MatchCase().collect();
-            let mut condition = Expression::BinaryExpression {
-                lhs: Box::new(Expression::Uncompiled(expr.clone().into())),
-                rhs: Box::new(Expression::Uncompiled(case_exprs[0].Expression().into())),
-                op: '!',
-            };
-            for case in &case_exprs[1..] {
-                condition = Expression::BinaryExpression {
-                    lhs: Box::new(condition),
-                    rhs: Box::new(Expression::BinaryExpression {
-                        lhs: Box::new(Expression::Uncompiled(expr.clone().into())),
-                        rhs: Box::new(Expression::Uncompiled(case.Expression().into())),
-                        op: '!',
-                    }),
-                    op: '&',
-                };
-            }
-            let rei = RepeatedElementInfo {
-                model: condition,
-                model_data_id: SmolStr::default(),
-                index_id: SmolStr::default(),
-                is_conditional_element: true,
-                is_listview: None,
-            };
-            let e = Element::from_sub_element_node(
-                sub_element,
-                parent_type.clone(),
-                component_child_insertion_points,
-                declared_slots,
-                is_in_legacy_component,
-                diag,
-                tr,
-            );
-            e.borrow_mut().repeated = Some(rei);
-            cases.push(e);
-        }
-        cases
     }
 
     /// Return the type of a property in this element or its base, along with the final name, in case

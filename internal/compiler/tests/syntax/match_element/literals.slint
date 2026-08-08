@@ -10,11 +10,11 @@ export component Foo {
 
     match num {
         case0: Rectangle { }
-//      >   <error{Match expressions must be literal values}
+//      >   <error{Cases must be literal values}
         case1: Rectangle { }
-//      >   <error{Match expressions must be literal values}
+//      >   <error{Cases must be literal values}
         case2: Rectangle { }
-//      >   <error{Match expressions must be literal values}
+//      >   <error{Cases must be literal values}
         *: Rectangle { }
     }
 }
@@ -25,7 +25,7 @@ export component Bar {
     match greeting {
         "hello": Rectangle { }
         "hello " + "world": Rectangle { }
-//      >                <error{Match expressions must be literal values}
+//      >                <error{Cases must be literal values}
         *: Rectangle { }
     }
 }
@@ -38,7 +38,7 @@ export component Baz {
 
     match greeting {
         func(0): Rectangle { }
-//      >     <error{Match expressions must be literal values}
+//      >     <error{Cases must be literal values}
         *: Rectangle { }
     }
 }
@@ -49,7 +49,7 @@ export component FooBar {
 
     match greeting {
         "hello \{world}": Rectangle { }
-//      >              <error{Match expressions must be literal values}
+//      >              <error{Cases must be literal values}
         "hello": Rectangle { }
     }
 }

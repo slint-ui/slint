@@ -3,7 +3,7 @@ title: Match Elements
 description: Experimental match elements for conditional element rendering.
 ---
 
-A `match` element conditionally renders elements from a set of cases based on the value of an expression.
+A `match` element conditionally renders elements from a set of cases based on the value of an expression (the subject).
 It is a more readable alternative to a chain of `if` elements when you need to select between several mutually exclusive states.
 
 > **Note**: `match` is experimental and subject to change.
@@ -12,14 +12,14 @@ It is a more readable alternative to a chain of `if` elements when you need to s
 ## Syntax
 
 ```slint no-test
-match <match-value> {
+match <match-subject> {
     <case-value>: ElementType { /* ... */ }
     <case-value>: ElementType { /* ... */ }
     *: ElementType { /* ... */ }   // optional wildcard
 }
 ```
 
-Each `<case-value>` is a literal that is compared against the `<match_value>`. If a wildcard case `*` is present, it renders when none of the explicit cases match.
+Each `<case-value>` is a literal that is compared against the `<match-subject>`. If a wildcard case `*` is present, it renders when none of the explicit cases match.
 
 ## Examples
 
@@ -84,7 +84,7 @@ export component Greeting {
 
 ## Wildcard case
 
-The `*` case acts as a catch-all that renders when no explicit case matches the expression.
+The `*` case acts as a catch-all that renders when no explicit case matches the subject.
 It must appear as the last case, and there must be at least one explicit case before it.
 
 ```slint no-test
