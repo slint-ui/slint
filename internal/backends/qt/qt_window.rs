@@ -29,7 +29,7 @@ use i_slint_core::items::{
 use i_slint_core::layout::Orientation;
 use i_slint_core::lengths::{
     LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector,
-    PhysicalPx, ScaleFactor, logical_size_from_api,
+    PhysicalPx, ScaleFactor, logical_position_to_api, logical_size_from_api,
 };
 use i_slint_core::platform::{PlatformError, WindowEvent};
 use i_slint_core::string::ToSharedString;
@@ -346,7 +346,7 @@ cpp! {{
             if (!rust_window)
                 return;
             rust!(Slint_dragLeaveEvent [rust_window: &QtWindow as "void*"] {
-                rust_window.mouse_event(MouseEvent::Exit)
+                rust_window.drag_leave_event()
             });
         }
 
@@ -2150,7 +2150,43 @@ impl QtWindow {
     }
 
     fn mouse_event(&self, event: MouseEvent) {
-        WindowInner::from_pub(&self.window).process_mouse_input(event);
+        let recorded_event = match &event {
+            MouseEvent::Pressed { position, button, touch_finger_id: 0, .. } => {
+                Some(WindowEvent::PointerPressed {
+                    position: logical_position_to_api(*position),
+                    button: *button,
+                })
+            }
+            MouseEvent::Released { position, button, touch_finger_id: 0, .. } => {
+                Some(WindowEvent::PointerReleased {
+                    position: logical_position_to_api(*position),
+                    button: *button,
+                })
+            }
+            MouseEvent::Moved { position, touch_finger_id: 0 } => {
+                Some(WindowEvent::PointerMoved { position: logical_position_to_api(*position) })
+            }
+            MouseEvent::Wheel { position, delta_x, delta_y, .. } => {
+                Some(WindowEvent::PointerScrolled {
+                    position: logical_position_to_api(*position),
+                    delta_x: *delta_x,
+                    delta_y: *delta_y,
+                })
+            }
+            MouseEvent::Exit => Some(WindowEvent::PointerExited),
+            _ => None,
+        };
+        let runtime_window = WindowInner::from_pub(&self.window);
+        if let Some(recorded_event) = recorded_event {
+            runtime_window.process_mouse_input_and_notify(event, recorded_event);
+        } else {
+            runtime_window.process_mouse_input(event);
+        }
+        timer_event();
+    }
+
+    fn drag_leave_event(&self) {
+        WindowInner::from_pub(&self.window).process_mouse_input(MouseEvent::Exit);
         timer_event();
     }
 
