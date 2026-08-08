@@ -65,11 +65,13 @@ pub trait Platform {
         Err(PlatformError::NoEventLoopProvider)
     }
 
-    /// Called once by `set_platform` immediately after the [`crate::SlintContext`]
-    /// has been constructed, to give the platform a weak handle to its own context.
-    /// Platforms can stash the handle and later use it to spawn futures or write
-    /// process-wide state without going through a window adapter. The default impl
-    /// drops the handle.
+    /// Called once by [`crate::SlintContext::new`], as the context that owns this platform
+    /// finishes construction, to give the platform a weak handle to it. Platforms can stash
+    /// the handle and later use it to spawn futures or write context-wide state without
+    /// going through a window adapter. The default impl drops the handle.
+    ///
+    /// Every context binds its own platform, not only the one installed as the thread's
+    /// global context, so a backend driving a context can always find it.
     #[doc(hidden)]
     fn bind_context(&self, _ctx: crate::SlintContextWeak, _: crate::InternalToken) {}
 
@@ -269,12 +271,10 @@ pub fn set_platform(platform: Box<dyn Platform + 'static>) -> Result<(), SetPlat
                 *EVENTLOOP_PROXY.lock().unwrap() = Some(proxy);
             }
         }
-        instance
-            .set(crate::SlintContext::new(platform))
-            .map_err(|_| SetPlatformError::AlreadySet)
-            .unwrap();
-        let ctx = instance.get().unwrap();
-        ctx.platform().bind_context(ctx.downgrade(), crate::InternalToken);
+        // The slot is free, so this claims it. The returned handle is dropped here; the
+        // context stays alive because the slot holds it.
+        drop(crate::SlintContext::new(platform));
+        debug_assert!(instance.get().is_some(), "SlintContext::new claims a free slot");
         // Ensure a sane starting point for the animation tick.
         update_timers_and_animations();
         Ok(())
@@ -287,9 +287,16 @@ pub fn set_platform(platform: Box<dyn Platform + 'static>) -> Result<(), SetPlat
 /// This function should be called before rendering or processing input event, at the
 /// beginning of each event loop iteration.
 pub fn update_timers_and_animations() {
-    crate::animations::update_animations();
-    crate::timers::TimerList::maybe_activate_timers(crate::animations::Instant::now());
-    crate::properties::ChangeTracker::run_change_handlers();
+    match crate::context::GLOBAL_CONTEXT.with(|ctx| ctx.get().cloned()) {
+        Some(ctx) => ctx.update_timers_and_animations(),
+        None => {
+            // Pre-platform behavior: with no context there is no clock either, so only
+            // zero-duration timers in the pending list are due.
+            crate::animations::update_animations(Default::default());
+            crate::timers::TimerList::maybe_activate_timers(Default::default());
+            crate::properties::ChangeTracker::run_change_handlers();
+        }
+    }
 }
 
 /// Returns the duration before the next timer is expected to be activated. This is the
@@ -302,14 +309,12 @@ pub fn update_timers_and_animations() {
 /// Only go to sleep if [`Window::has_active_animations()`](crate::api::Window::has_active_animations())
 /// returns false.
 pub fn duration_until_next_timer_update() -> Option<core::time::Duration> {
-    crate::timers::TimerList::next_timeout().map(|timeout| {
-        let duration_since_start = crate::context::GLOBAL_CONTEXT
-            .with(|p| p.get().map(|p| p.platform().duration_since_start()))
-            .unwrap_or_default();
-        core::time::Duration::from_millis(
-            timeout.0.saturating_sub(duration_since_start.as_millis() as u64),
-        )
-    })
+    match crate::context::GLOBAL_CONTEXT.with(|ctx| ctx.get().cloned()) {
+        Some(ctx) => ctx.duration_until_next_timer_update(),
+        // No context, hence no clock: the deadline is measured from a zero origin.
+        None => crate::timers::TimerList::next_timeout()
+            .map(|timeout| core::time::Duration::from_millis(timeout.0)),
+    }
 }
 
 // reexport key enum to the public api
