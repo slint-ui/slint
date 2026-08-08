@@ -171,7 +171,7 @@ pub fn main() -> Result<(), slint::PlatformError> {
     #[cfg(all(debug_assertions, target_arch = "wasm32"))]
     console_error_panic_hook::set_once();
 
-    let main_window = MainWindow::new().unwrap();
+    let main_window = MainWindow::new()?;
 
     let state = Rc::new(RefCell::new(AppState {
         pieces: Rc::new(slint::VecModel::<Piece>::from(vec![Piece::default(); 15])),
@@ -230,6 +230,5 @@ pub fn main() -> Result<(), slint::PlatformError> {
             state_copy.borrow().auto_play_timer.stop();
         }
     });
-    main_window.run()?;
-    Ok(())
+    main_window.run()
 }

@@ -64,7 +64,7 @@ fn android_main(android_app: slint::android::AndroidApp) -> Result<(), slint::Pl
 // Wasm
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen::prelude::wasm_bindgen(start)]
-pub fn main() {
+pub fn main() -> Result<(), slint::PlatformError> {
     #[cfg(debug_assertions)]
     console_error_panic_hook::set_once();
 
@@ -80,11 +80,5 @@ pub fn main() {
 
     let res = app_handler.run();
     app_handler.save();
-
-    match res {
-        Ok(()) => {}
-        Err(e) => {
-            log::error!("Runtime error: {}", e);
-        }
-    }
+    res
 }
