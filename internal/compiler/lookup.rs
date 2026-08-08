@@ -1110,6 +1110,7 @@ impl LookupObject for StringExpression<'_> {
             .or_else(|| f("to-uppercase", member_function(BuiltinFunction::StringToUppercase)))
             .or_else(|| f("starts-with", member_function(BuiltinFunction::StringStartsWith)))
             .or_else(|| f("ends-with", member_function(BuiltinFunction::StringEndsWith)))
+            .or_else(|| f("replace-all", member_function(BuiltinFunction::StringReplaceAll)))
     }
 }
 
