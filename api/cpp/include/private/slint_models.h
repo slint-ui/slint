@@ -76,11 +76,14 @@ void model_insert(const std::shared_ptr<M> &model, std::ptrdiff_t index, const M
 template<typename M, typename P>
 bool model_any(const std::shared_ptr<M> &model, P predicate)
 {
-    long int count = model_length(model);
+    if (!model) {
+        return false;
+    }
+    model->track_any_change();
+    long int count = model->row_count();
 
     for (long int i = 0; i < count; ++i) {
-        auto data = access_array_index(model, i);
-        if (predicate(data)) {
+        if (const auto data = model->row_data(i); data && predicate(*data)) {
             return true;
         }
     }
@@ -91,16 +94,37 @@ bool model_any(const std::shared_ptr<M> &model, P predicate)
 template<typename M, typename P>
 bool model_all(const std::shared_ptr<M> &model, P predicate)
 {
-    long int count = model_length(model);
+    if (!model) {
+        return true;
+    }
+    model->track_any_change();
+    long int count = model->row_count();
 
     for (long int i = 0; i < count; ++i) {
-        auto data = access_array_index(model, i);
-        if (!predicate(data)) {
+        if (const auto data = model->row_data(i); !data || !predicate(*data)) {
             return false;
         }
     }
 
     return true;
+}
+
+template<typename M, typename P>
+int32_t model_find_index(const std::shared_ptr<M> &model, P predicate)
+{
+    if (!model) {
+        return -1;
+    }
+    model->track_any_change();
+    long int count = model->row_count();
+
+    for (long int i = 0; i < count; ++i) {
+        if (const auto data = model->row_data(i); data && predicate(*data)) {
+            return static_cast<int32_t>(i);
+        }
+    }
+
+    return -1;
 }
 
 } // namespace private_api
@@ -212,6 +236,17 @@ public:
     }
 
     /// \private
+    /// Internal function called from within bindings to register with the currently
+    /// evaluating dependency and get notified of any change to this model: the row
+    /// count as well as the data of any row.
+    void track_any_change() const
+    {
+        model_row_count_dirty_property.get();
+        all_rows_tracked = true;
+        model_row_data_dirty_property.get();
+    }
+
+    /// \private
     /// Convenience function that calls `track_row_data_changes` before returning `row_data`
     std::optional<ModelData> row_data_tracked(size_t row) const
     {
@@ -226,7 +261,7 @@ protected:
     void notify_row_changed(size_t row)
     {
         private_api::assert_main_thread();
-        if (std::binary_search(tracked_rows.begin(), tracked_rows.end(), row)) {
+        if (all_rows_tracked || std::binary_search(tracked_rows.begin(), tracked_rows.end(), row)) {
             model_row_data_dirty_property.mark_dirty();
         }
         for_each_peers([=](auto peer) { peer->row_changed(row); });
@@ -239,6 +274,7 @@ protected:
         private_api::assert_main_thread();
         model_row_count_dirty_property.mark_dirty();
         tracked_rows.clear();
+        all_rows_tracked = false;
         model_row_data_dirty_property.mark_dirty();
         for_each_peers([=](auto peer) { peer->row_added(index, count); });
     }
@@ -250,6 +286,7 @@ protected:
         private_api::assert_main_thread();
         model_row_count_dirty_property.mark_dirty();
         tracked_rows.clear();
+        all_rows_tracked = false;
         model_row_data_dirty_property.mark_dirty();
         for_each_peers([=](auto peer) { peer->row_removed(index, count); });
     }
@@ -262,6 +299,7 @@ protected:
         private_api::assert_main_thread();
         model_row_count_dirty_property.mark_dirty();
         tracked_rows.clear();
+        all_rows_tracked = false;
         model_row_data_dirty_property.mark_dirty();
         for_each_peers([=](auto peer) { peer->reset(); });
     }
@@ -302,6 +340,7 @@ private:
     private_api::Property<bool> model_row_count_dirty_property;
     private_api::Property<bool> model_row_data_dirty_property;
     mutable std::vector<size_t> tracked_rows;
+    mutable bool all_rows_tracked = false;
 };
 
 namespace private_api {

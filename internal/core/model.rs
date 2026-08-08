@@ -37,6 +37,21 @@ pub trait ModelTracker {
     /// Register a row as a dependency to the current binding being evaluated, so that
     /// it will be notified when the value of that row changes.
     fn track_row_data_changes(&self, row: usize);
+
+    /// Register the whole model as a dependency to the current binding being evaluated,
+    /// so that it will be notified of any change to the model: the row count as well as
+    /// the data of any of the `row_count` rows.
+    ///
+    /// This is equivalent to calling [`Self::track_row_count_changes`] and then
+    /// [`Self::track_row_data_changes`] for every row, which is what the default
+    /// implementation does, but implementations such as [`ModelNotify`] register a
+    /// single dependency whose cost is independent of the number of rows.
+    fn track_any_change(&self, row_count: usize) {
+        self.track_row_count_changes();
+        for row in 0..row_count {
+            self.track_row_data_changes(row);
+        }
+    }
 }
 
 impl ModelTracker for () {
@@ -44,6 +59,7 @@ impl ModelTracker for () {
 
     fn track_row_count_changes(&self) {}
     fn track_row_data_changes(&self, _row: usize) {}
+    fn track_any_change(&self, _row_count: usize) {}
 }
 
 /// A Model is providing Data for the repeated elements with `for` in the `.slint` language
@@ -342,26 +358,29 @@ pub trait ModelExt: Model {
 
 impl<T: Model> ModelExt for T {}
 
-pub fn model_any<T: Default>(
-    model: &dyn Model<Data = T>,
-    mut predicate: impl FnMut(T) -> bool,
-) -> bool {
-    model.model_tracker().track_row_count_changes();
-    (0..model.row_count()).any(|index| {
-        model.model_tracker().track_row_data_changes(index);
-        predicate(model.row_data(index).unwrap_or_default())
-    })
+pub fn model_any<T>(model: &dyn Model<Data = T>, mut predicate: impl FnMut(T) -> bool) -> bool {
+    let row_count = model.row_count();
+    model.model_tracker().track_any_change(row_count);
+    (0..row_count).any(|index| model.row_data(index).is_some_and(&mut predicate))
 }
 
-pub fn model_all<T: Default>(
+pub fn model_all<T>(model: &dyn Model<Data = T>, mut predicate: impl FnMut(T) -> bool) -> bool {
+    let row_count = model.row_count();
+    model.model_tracker().track_any_change(row_count);
+    (0..row_count).all(|index| model.row_data(index).is_some_and(&mut predicate))
+}
+
+/// Returns the index of the first row for which `predicate` returns `true`, or `-1`
+/// if no row matches.
+pub fn model_find_index<T>(
     model: &dyn Model<Data = T>,
     mut predicate: impl FnMut(T) -> bool,
-) -> bool {
-    model.model_tracker().track_row_count_changes();
-    (0..model.row_count()).all(|index| {
-        model.model_tracker().track_row_data_changes(index);
-        predicate(model.row_data(index).unwrap_or_default())
-    })
+) -> i32 {
+    let row_count = model.row_count();
+    model.model_tracker().track_any_change(row_count);
+    (0..row_count)
+        .find(|index| model.row_data(*index).is_some_and(&mut predicate))
+        .map_or(-1, |index| index as i32)
 }
 
 /// An iterator over the elements of a model.
@@ -1104,6 +1123,50 @@ mod tests {
 
         model.set_vec(Vec::new());
         assert!(tracker.is_dirty());
+    }
+
+    #[test]
+    fn test_any_change_tracking() {
+        let model: Rc<VecModel<u8>> = Rc::new(VecModel::from(vec![0, 1, 2, 3, 4]));
+        let handle = ModelRc::from(model.clone());
+        let tracker = Box::pin(<crate::properties::PropertyTracker>::default());
+        let find_two = || tracker.as_ref().evaluate(|| model_find_index(&handle, |x| x == 2));
+        assert_eq!(find_two(), 2);
+        assert!(!tracker.is_dirty());
+
+        // Any row change dirties the binding, including rows past the match,
+        // as track_any_change() tracks all rows regardless of short-circuiting.
+        model.set_row_data(4, 42);
+        assert!(tracker.is_dirty());
+        assert_eq!(find_two(), 2);
+        assert!(!tracker.is_dirty());
+
+        model.set_row_data(2, 22);
+        assert!(tracker.is_dirty());
+        assert_eq!(find_two(), -1);
+        assert!(!tracker.is_dirty());
+
+        model.push(2);
+        assert!(tracker.is_dirty());
+        assert_eq!(find_two(), 5);
+        assert!(!tracker.is_dirty());
+
+        model.remove(0);
+        assert!(tracker.is_dirty());
+        assert_eq!(find_two(), 4);
+        assert!(!tracker.is_dirty());
+
+        // A row change right after add/remove cleared the tracking state still
+        // dirties the binding, because the re-evaluation re-tracked the model.
+        model.set_row_data(0, 7);
+        assert!(tracker.is_dirty());
+        assert_eq!(find_two(), 4);
+        assert!(!tracker.is_dirty());
+
+        model.set_vec(Vec::new());
+        assert!(tracker.is_dirty());
+        assert_eq!(find_two(), -1);
+        assert!(!tracker.is_dirty());
     }
 
     #[derive(Default)]

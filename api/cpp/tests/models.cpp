@@ -691,3 +691,48 @@ TEST_CASE("VectorModel clear and replace")
     std::vector<int> new_data { 5, 6, 7, 8 };
     model->set_vector(new_data);
 }
+
+TEST_CASE("Model any-change tracking")
+{
+    auto model = std::make_shared<slint::VectorModel<int>>(std::vector<int> { 0, 1, 2, 3, 4 });
+
+    int evaluations = 0;
+    slint::private_api::Property<int32_t> find_two;
+    find_two.set_binding([&] {
+        ++evaluations;
+        return slint::private_api::model_find_index(model, [](int x) { return x == 2; });
+    });
+
+    REQUIRE(find_two.get() == 2);
+    REQUIRE(evaluations == 1);
+    REQUIRE(find_two.get() == 2);
+    REQUIRE(evaluations == 1);
+
+    // A change to a row past the match re-evaluates: track_any_change() registers a
+    // dependency on every row, regardless of where the search stopped.
+    model->set_row_data(4, 42);
+    REQUIRE(find_two.get() == 2);
+    REQUIRE(evaluations == 2);
+
+    model->set_row_data(2, 22);
+    REQUIRE(find_two.get() == -1);
+    REQUIRE(evaluations == 3);
+
+    model->push_back(2);
+    REQUIRE(find_two.get() == 5);
+    REQUIRE(evaluations == 4);
+
+    model->erase(0);
+    REQUIRE(find_two.get() == 4);
+    REQUIRE(evaluations == 5);
+
+    // A row change right after add/remove cleared the tracking state still notifies,
+    // because the re-evaluation above re-registered the whole-model dependency.
+    model->set_row_data(0, 7);
+    REQUIRE(find_two.get() == 4);
+    REQUIRE(evaluations == 6);
+
+    model->set_vector({});
+    REQUIRE(find_two.get() == -1);
+    REQUIRE(evaluations == 7);
+}

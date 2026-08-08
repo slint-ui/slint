@@ -34,6 +34,8 @@ struct ModelNotifyInner {
     peers: DependencyListHead,
     // Sorted list of rows that track_row_data_changes() was called for
     tracked_rows: RefCell<Vec<usize>>,
+    // Whether track_any_change() was called, making every row implicitly tracked
+    all_rows_tracked: core::cell::Cell<bool>,
 }
 
 /// Dispatch notifications from a [`Model`] to one or several [`ModelPeer`].
@@ -51,7 +53,7 @@ impl ModelNotify {
     /// Notify the peers that a specific row was changed
     pub fn row_changed(&self, row: usize) {
         let inner = &self.inner;
-        if inner.tracked_rows.borrow().binary_search(&row).is_ok() {
+        if inner.all_rows_tracked.get() || inner.tracked_rows.borrow().binary_search(&row).is_ok() {
             inner.model_row_data_dirty_property.mark_dirty();
         }
         inner.as_ref().project_ref().peers.for_each(|p| {
@@ -64,6 +66,7 @@ impl ModelNotify {
         let inner = &self.inner;
         inner.model_row_count_dirty_property.mark_dirty();
         inner.tracked_rows.borrow_mut().clear();
+        inner.all_rows_tracked.set(false);
         inner.model_row_data_dirty_property.mark_dirty();
         inner.as_ref().project_ref().peers.for_each(|p| {
             // Safety: The peers contain a list of pinned ModelChangedListener
@@ -75,6 +78,7 @@ impl ModelNotify {
         let inner = &self.inner;
         inner.model_row_count_dirty_property.mark_dirty();
         inner.tracked_rows.borrow_mut().clear();
+        inner.all_rows_tracked.set(false);
         inner.model_row_data_dirty_property.mark_dirty();
         inner.as_ref().project_ref().peers.for_each(|p| {
             // Safety: The peers contain a list of pinned ModelChangedListener
@@ -88,6 +92,7 @@ impl ModelNotify {
         let inner = &self.inner;
         inner.model_row_count_dirty_property.mark_dirty();
         inner.tracked_rows.borrow_mut().clear();
+        inner.all_rows_tracked.set(false);
         inner.model_row_data_dirty_property.mark_dirty();
         inner.as_ref().project_ref().peers.for_each(|p| {
             // Safety: The peers contain a list of pinned ModelChangedListener
@@ -115,6 +120,15 @@ impl ModelTracker for ModelNotify {
                 tracked_rows.insert(insertion_point, row);
             }
 
+            inner.model_row_data_dirty_property.get();
+        }
+    }
+
+    fn track_any_change(&self, _row_count: usize) {
+        let inner = self.inner().project_ref();
+        inner.model_row_count_dirty_property.get();
+        if crate::properties::is_currently_tracking() {
+            self.inner.all_rows_tracked.set(true);
             inner.model_row_data_dirty_property.get();
         }
     }
