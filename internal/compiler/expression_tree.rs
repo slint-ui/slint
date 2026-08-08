@@ -178,6 +178,7 @@ pub enum BuiltinMacroFunction {
     ArrayRemove,
     ArrayInsert,
     CustomMouseCursor,
+    Spring,
 }
 
 macro_rules! declare_builtin_function_types {
@@ -2197,6 +2198,7 @@ pub enum EasingCurve {
     EaseInBounce,
     EaseOutBounce,
     EaseInOutBounce,
+    Spring(f32),
     // CubicBezierNonConst([Box<Expression>; 4]),
     // Custom(Box<dyn Fn(f32)->f32>),
 }

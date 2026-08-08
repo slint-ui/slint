@@ -783,6 +783,7 @@ impl LookupObject for EasingSpecific {
         r.or_else(|| {
             f(&SmolStr::new_static("cubic-bezier"), BuiltinMacroFunction::CubicBezier.into())
         })
+        .or_else(|| f(&SmolStr::new_static("spring"), BuiltinMacroFunction::Spring.into()))
     }
 }
 
