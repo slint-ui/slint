@@ -9,6 +9,10 @@
 // (red border over blue background) all the way around. The purple ring also shows
 // that the background extends under the border.
 //
+// The child is translucent, so every pixel shows what it sits on: green over blue
+// inside the clip, and green over purple wherever the clip would wrongly leak into
+// the border ring.
+//
 // The third rectangle has a radius smaller than half its border width, where the
 // outer radius is clamped up to keep a rounded corner at all and the inner radius
 // clamps to zero.
@@ -34,7 +38,7 @@ export component TestCase inherits Window {
             y: -8px;
             width: 72px;
             height: 72px;
-            background: green;
+            background: #00800080;
         }
     }
 
@@ -52,7 +56,7 @@ export component TestCase inherits Window {
             y: -8px;
             width: 72px;
             height: 72px;
-            background: green;
+            background: #00800080;
         }
     }
 
@@ -71,7 +75,7 @@ export component TestCase inherits Window {
             y: -8px;
             width: 72px;
             height: 72px;
-            background: green;
+            background: #00800080;
         }
     }
 }
