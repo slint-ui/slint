@@ -46,6 +46,15 @@ For comments in source code — both internal implementation notes and public AP
    - A comment above a property, function, or type says what it does and why for the caller, not how it works inside.
    - Rationale: Callers shouldn't have to read the implementation, and implementation details in the comment go stale as the code evolves.
 
+## Diagnostics
+
+For diagnostics emitted by the Slint compiler:
+
+1. Use the `Display` implementation for Rust types, if they exists.
+   - Rationale: The displayed text is generated from one location, keeping it consistent and allowing it to be updated easily.
+2. Use single quotes around Slint syntax.
+   - Rationale: Emphasize the part of the diagnostic that either causes the error or provides a potential solution.
+
 ## Documentation, Blog, and Social
 
 For the documentation website, blog posts, and social media we also aim to sound like a small, human company rather than a corporation:
