@@ -86,6 +86,14 @@ pub struct DrawTextureArgs {
 
     /// If the texture is to be tiled, this contains the information about the tiling
     pub tiling: Option<TilingInfo>,
+
+    /// Set when the texture is the coverage mask of text glyphs (in which case
+    /// `colorize` contains the text color). When the `gamma-correction`
+    /// feature is enabled, the renderer applies a text-contrast gamma
+    /// correction to the coverage values of such textures when blending (see
+    /// the `mask_gamma` module); implementations of
+    /// [`TargetPixelBuffer::draw_texture`] should do the same.
+    pub text_mask: bool,
 }
 
 impl DrawTextureArgs {

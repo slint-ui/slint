@@ -18,6 +18,8 @@ extern crate std;
 mod draw_functions;
 mod fixed;
 mod fonts;
+#[cfg(feature = "gamma-correction")]
+mod mask_gamma;
 mod minimal_software_window;
 #[cfg(feature = "path")]
 mod path;
@@ -2416,6 +2418,7 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                         dst_height: target_rect.size.height as _,
                         rotation: self.rotation.orientation,
                         tiling,
+                        text_mask: false,
                     };
 
                     self.processor.process_target_texture(&t, clipped_target.cast());
@@ -2478,6 +2481,7 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                         dst_height: target_rect.size.height as _,
                         rotation: self.rotation.orientation,
                         tiling,
+                        text_mask: false,
                     };
 
                     self.processor.process_target_texture(&t, clipped_target.cast());
@@ -2603,6 +2607,7 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                                             dy: scale_delta,
                                             off_x: Fixed::try_from_fixed(off_x).unwrap(),
                                             off_y: Fixed::try_from_fixed(off_y).unwrap(),
+                                            text_mask: true,
                                         },
                                     };
                                     self.processor.process_scene_texture(
@@ -2647,6 +2652,7 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                             dst_height: target_rect.size.height as _,
                             rotation: self.rotation.orientation,
                             tiling: None,
+                            text_mask: true,
                         };
 
                         self.processor.process_target_texture(&t, clipped_target.cast());
@@ -3300,6 +3306,7 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
                     dst_height: height as _,
                     rotation: self.rotation.orientation,
                     tiling: None,
+                    text_mask: false,
                 };
                 self.processor
                     .process_target_texture(&t, geometry.cast().transformed(self.rotation));
@@ -3579,6 +3586,7 @@ impl<T: ProcessScene> sharedparley::GlyphRenderer for SceneBuilder<'_, T> {
                 dst_height: target_rect.size.height as _,
                 rotation: self.rotation.orientation,
                 tiling: None,
+                text_mask: true,
             };
 
             self.processor.process_target_texture(&t, physical_clip.cast());

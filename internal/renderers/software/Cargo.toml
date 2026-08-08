@@ -27,7 +27,12 @@ systemfonts = [
   "dep:clru",
 ]
 path = ["dep:zeno", "dep:lyon_path", "i-slint-core/path"]
-std = ["zeno?/std", "num-traits/std", "euclid/std", "i-slint-core/std", "path", "systemfonts", "swash?/std"]
+# Gamma-correct the coverage of text glyphs when blending, matching the Skia
+# renderer's output. Costs a table lookup per rendered text pixel and 2KiB of
+# tables in the binary; part of `std` so it is on by default, while `no_std`
+# builds can still opt in.
+gamma-correction = []
+std = ["zeno?/std", "num-traits/std", "euclid/std", "i-slint-core/std", "path", "systemfonts", "swash?/std", "gamma-correction"]
 libm = ["zeno?/libm", "num-traits/libm", "euclid/libm", "i-slint-core/libm", "swash?/libm"]
 
 experimental = []

@@ -30,8 +30,19 @@ pub(super) fn draw_texture_line(
         data,
         format,
         pixel_stride,
-        extra: super::SceneTextureExtra { colorize, alpha, rotation, dx, dy, off_x, off_y },
+        extra:
+            super::SceneTextureExtra { colorize, alpha, rotation, dx, dy, off_x, off_y, text_mask },
     } = *texture;
+
+    // Text glyph coverage gets gamma-corrected against the text color so that
+    // the linear blend in `TargetPixel::blend` produces the intended weight.
+    #[cfg(feature = "gamma-correction")]
+    let coverage_lut = text_mask.then(|| super::mask_gamma::coverage_table(colorize));
+    #[cfg(not(feature = "gamma-correction"))]
+    let coverage_lut: Option<&[u8; 256]> = {
+        let _ = text_mask;
+        None
+    };
 
     let source_size = texture.source_size().cast::<i32>();
     let len = line_buffer.len();
@@ -90,6 +101,7 @@ pub(super) fn draw_texture_line(
                 data,
                 alpha,
                 colorize,
+                coverage_lut,
                 (pixel_stride as usize, dy),
                 #[inline(always)]
                 |bpp| {
@@ -155,6 +167,7 @@ pub(super) fn draw_texture_line(
                 data,
                 alpha,
                 colorize,
+                coverage_lut,
                 (stride, dy),
                 #[inline(always)]
                 |_| {
@@ -189,6 +202,7 @@ pub(super) fn draw_texture_line(
         data: &[u8],
         alpha: u8,
         color: Color,
+        coverage_lut: Option<&[u8; 256]>,
         (stride, delta): (usize, Fixed<i32, 8>),
         mut pos: impl FnMut(usize) -> (usize, u8, u8),
     ) {
@@ -272,8 +286,12 @@ pub(super) fn draw_texture_line(
             TexturePixelFormat::AlphaMap => {
                 for pix in line_buffer {
                     let pos = pos(1).0;
+                    let mut coverage = data[pos];
+                    if let Some(lut) = coverage_lut {
+                        coverage = lut[coverage as usize];
+                    }
                     let c = PremultipliedRgbaColor::premultiply(Color::from_argb_u8(
-                        ((data[pos] as u16 * alpha as u16) / 255) as u8,
+                        ((coverage as u16 * alpha as u16) / 255) as u8,
                         color.red(),
                         color.green(),
                         color.blue(),
@@ -297,9 +315,12 @@ pub(super) fn draw_texture_line(
                     } else {
                         debug_assert_eq!(row_f, 0);
                     }
-                    let a = ((((dist >> 8) * factor) >> 16) + 128).clamp(0, 255) * alpha as i32;
+                    let mut coverage = ((((dist >> 8) * factor) >> 16) + 128).clamp(0, 255) as u8;
+                    if let Some(lut) = coverage_lut {
+                        coverage = lut[coverage as usize];
+                    }
                     let c = PremultipliedRgbaColor::premultiply(Color::from_argb_u8(
-                        (a / 255) as u8,
+                        ((coverage as u16 * alpha as u16) / 255) as u8,
                         color.red(),
                         color.green(),
                         color.blue(),
