@@ -208,6 +208,11 @@ pub struct CompilerConfiguration {
     /// safety-critical subset.
     #[cfg(feature = "slint-sc")]
     pub(crate) slint_sc: bool,
+
+    /// Set by tools such as `slint-viewer`, the LSP (editor diagnostics/preview), and the
+    /// live-reload runtime to indicate that the `.slint` file is being previewed rather than
+    /// driven by real host application logic.
+    pub is_preview: bool,
 }
 
 impl CompilerConfiguration {
@@ -316,6 +321,7 @@ impl CompilerConfiguration {
             rust_module: None,
             #[cfg(feature = "slint-sc")]
             slint_sc,
+            is_preview: false,
         }
     }
 }
