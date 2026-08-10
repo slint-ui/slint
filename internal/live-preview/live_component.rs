@@ -40,9 +40,6 @@ impl LiveReloadingComponent {
         component_name: Option<String>,
     ) -> Result<Rc<RefCell<Self>>, PlatformError> {
         compiler.set_embed_resources(i_slint_compiler::EmbedResourcesKind::ListAllResources);
-        // Hot-reloading a real app's UI is still a preview session: placeholder/mock data
-        // (see `Platform.is-app`) should keep showing while iterating, same as slint-viewer.
-        compiler.compiler_configuration(i_slint_core::InternalToken).is_preview = true;
 
         let self_rc = Rc::<RefCell<Self>>::new_cyclic(move |self_weak| {
             let watcher = Watcher::new(self_weak.clone());
