@@ -6,7 +6,7 @@
 
 use crate::Value;
 use crate::eval::{EvalContext, eval_expression};
-use i_slint_compiler::llr::Expression;
+use i_slint_compiler::llr::{Expression, FlexboxMeasureCellKind};
 use i_slint_core::SharedVector;
 use i_slint_core::layout::{
     BoxLayoutData, FlexboxLayoutData, FlexboxLayoutItemInfo, GridLayoutData, GridLayoutInputData,
@@ -393,11 +393,11 @@ pub(crate) fn solve_flexbox_layout_with_measure(ctx: &mut EvalContext, expr: &Ex
     }
     let mut flat: Vec<FlatCell> = Vec::with_capacity(measure_cells.len());
     for item in measure_cells {
-        match item {
-            itertools::Either::Left((h_info, v_info)) => {
+        match &item.kind {
+            FlexboxMeasureCellKind::Static { h_info, v_info } => {
                 flat.push(FlatCell::Static(h_info, v_info))
             }
-            itertools::Either::Right(repeater) => {
+            FlexboxMeasureCellKind::Repeated(repeater) => {
                 if let Some(current) = ctx.current.as_ref() {
                     let rep = &current.repeaters[repeater.repeater_index];
                     rep.track_instance_changes();

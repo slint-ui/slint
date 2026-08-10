@@ -14,6 +14,7 @@ use crate::langtype::{BuiltinStruct, EnumerationValue, Struct, Type};
 use crate::layout::{FlexboxAxisRelation, GridLayoutCell, Orientation, RowColExpr};
 use crate::llr::ArrayOutput as llr_ArrayOutput;
 use crate::llr::Expression as llr_Expression;
+use crate::llr::{FlexboxMeasureCell, FlexboxMeasureCellKind};
 use crate::namedreference::NamedReference;
 use crate::object_tree::ElementRc;
 
@@ -516,12 +517,12 @@ pub(super) fn solve_flexbox_layout(
 /// Per-element measure inputs for `SolveFlexboxLayoutWithMeasure`: the cell's
 /// `(h_info, v_info)` measured at the dimension taffy assigns, read from the
 /// `measure_known_w` / `measure_known_h` locals. A repeated element becomes a
-/// `Right`: its instances are only known at solve time, so the generated
-/// callback queries the instance directly.
+/// `FlexboxMeasureCellKind::Repeated`: its instances are only known at solve
+/// time, so the generated callback queries the instance directly.
 fn measure_cells_for(
     layout: &crate::layout::FlexboxLayout,
     ctx: &mut ExpressionLoweringCtx,
-) -> Vec<Either<(llr_Expression, llr_Expression), LayoutRepeatedElement>> {
+) -> Vec<FlexboxMeasureCell> {
     layout
         .elems
         .iter()
@@ -533,10 +534,12 @@ fn measure_cells_for(
                         LoweredElement::Repeated { repeated_index } => *repeated_index,
                         _ => panic!("repeated flexbox element not lowered as Repeated"),
                     };
-                return Either::Right(LayoutRepeatedElement {
-                    repeater_index,
-                    row_child_templates: None,
-                });
+                return FlexboxMeasureCell {
+                    kind: FlexboxMeasureCellKind::Repeated(LayoutRepeatedElement {
+                        repeater_index,
+                        row_child_templates: None,
+                    }),
+                };
             }
             let v_constraint = is_height_for_width_cell(elem).then(|| {
                 crate::expression_tree::Expression::ReadLocalVariable {
@@ -565,7 +568,7 @@ fn measure_cells_for(
                 Orientation::Horizontal,
                 h_constraint,
             );
-            Either::Left((h_info, v_info))
+            FlexboxMeasureCell { kind: FlexboxMeasureCellKind::Static { h_info, v_info } }
         })
         .collect()
 }
