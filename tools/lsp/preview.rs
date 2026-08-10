@@ -1166,6 +1166,111 @@ fn resize_selected_element(x: f32, y: f32, width: f32, height: f32) {
 
     send_workspace_edit(label, edit, true);
 }
+
+fn rotate_selected_element(angle: f32) {
+    let Some(element_selection) = &selected_element() else { return };
+    let Some(element_node) = element_selection.as_element_node() else { return };
+
+    let Some((edit, label)) =
+        rotate_selected_element_impl(&element_node, element_selection.instance_index, angle)
+    else {
+        return;
+    };
+
+    send_workspace_edit(label, edit, true);
+}
+
+fn rotate_selected_element_impl(
+    element_node: &ElementRcNode,
+    instance_index: usize,
+    angle: f32,
+) -> Option<(lsp_types::WorkspaceEdit, String)> {
+    let rotation = override_selected_element_rotation_impl(element_node, instance_index, angle)?;
+
+    let (path, offset) = element_node.path_and_offset();
+    let url = Url::from_file_path(&path).ok()?;
+    let document_cache = document_cache()?;
+
+    let version = document_cache.document_version(&url);
+
+    properties::update_element_properties(
+        &document_cache,
+        common::VersionedPosition::new(VersionedUrl::new(url, version), offset),
+        vec![common::PropertyChange::new("transform-rotation", format!("{rotation}deg"))],
+    )
+    .map(|edit| (edit, "Rotating element".to_owned()))
+}
+
+fn override_selected_element_rotation(angle: f32) {
+    let Some(element_selection) = &selected_element() else { return };
+    let Some(element_node) = element_selection.as_element_node() else { return };
+    let _ = override_selected_element_rotation_impl(
+        &element_node,
+        element_selection.instance_index,
+        angle,
+    );
+}
+
+/// Returns the applied parent-relative rotation in degrees, which the caller can commit to the
+/// source, or `None` when the element has no rotation debug hook to override.
+fn override_selected_element_rotation_impl(
+    element_node: &ElementRcNode,
+    instance_index: usize,
+    angle: f32,
+) -> Option<f64> {
+    tracing::trace!("Setting rotation preview angle: {angle}");
+
+    let component_instance = component_instance()?;
+
+    let element_hash = element_node
+        .element
+        .borrow()
+        .debug
+        .get(element_node.debug_index)
+        .map(|debug| debug.element_hash)
+        .unwrap_or(0);
+    if element_hash == 0 {
+        tracing::debug!("Element does not have a hash, cannot override rotation");
+        return None;
+    }
+
+    // `transform-rotation` is relative to the element's parent, so subtract the parent's
+    // absolute rotation. Like `parent_origin` for the geometry override, the parent's rotation
+    // rides along on the selected instance's geometry, so we don't have to guess which parent
+    // instance the element belongs to.
+    let Some(geometry) = element_node.geometries(&component_instance).get(instance_index).cloned()
+    else {
+        tracing::debug!("Selected element does not have geometry, refusing to override rotation");
+        return None;
+    };
+
+    // Round to whole degrees, matching the value committed on release.
+    let new_rotation = (angle - geometry.parent_rotation).round() as f64;
+    let current_rotation = (geometry.angle - geometry.parent_rotation).round() as f64;
+    if new_rotation == current_rotation {
+        return Some(new_rotation);
+    }
+
+    PREVIEW_STATE.with_borrow(|preview_state| {
+        let overrides = (*preview_state.debug_hook_overrides).borrow();
+        let id = i_slint_compiler::passes::property_id(
+            element_hash,
+            &SmolStr::from("transform-rotation"),
+        );
+        let Some(rotation_override) = overrides.get(&id) else {
+            tracing::debug!(
+                "Element does not have a transform-rotation debug hook, cannot override rotation"
+            );
+            return None;
+        };
+        (**rotation_override).set(Some(slint_interpreter::Value::Number(new_rotation)));
+        Some(())
+    })?;
+
+    component_instance.window().request_redraw();
+    Some(new_rotation)
+}
+
 fn override_selected_element_geometry(x: f32, y: f32, width: f32, height: f32) {
     let Some(element_selection) = &selected_element() else { return };
     let Some(element_node) = element_selection.as_element_node() else { return };
@@ -1217,6 +1322,12 @@ fn override_selected_element_geometry_impl(
         tracing::debug!("Selected element does not have geometry, refusing to override");
         return;
     };
+    // We don't support repositioning a rotated element (or one inside a rotated parent) for
+    // now: recovering the source x/y from root coordinates assumes an axis-aligned frame.
+    if geometry.angle.round() != 0.0 {
+        tracing::debug!("Refusing to override geometry of a rotated element");
+        return;
+    }
     let parent_position = geometry.parent_origin;
     let current_position = geometry.rect.origin;
 

@@ -300,10 +300,12 @@ pub fn create_ui(
         },
     );
     api.on_selected_element_resize(super::resize_selected_element);
+    api.on_selected_element_rotate(super::rotate_selected_element);
     api.on_selected_element_can_move_to(super::can_move_selected_element);
     api.on_selected_element_move(super::move_selected_element);
     api.on_selected_element_delete(super::delete_selected_element);
     api.on_override_selected_element_geometry(super::override_selected_element_geometry);
+    api.on_override_selected_element_rotation(super::override_selected_element_rotation);
     api.on_override_selected_element_border_radius(super::override_selected_element_border_radius);
     api.on_persist_selected_element_border_radius(super::persist_selected_element_border_radius);
 

@@ -27,6 +27,7 @@ export component MoveResizeFrame inherits Rectangle {
     private property <Point> free-resize-position: { x: 0px, y: 0px };
     private property <Size> free-resize-size: { width: 0px, height: 0px };
     in property <bool> resizable: true;
+    in property <bool> moveable: true;
     callback selected();
     callback interaction-started();
     callback interaction-ended();
@@ -246,6 +247,9 @@ export component MoveResizeFrame inherits Rectangle {
             }
 
             moved => {
+                if !root.moveable {
+                    return;
+                }
                 let pointer = root.local-point-to-parent({ x: self.mouse-x, y: self.mouse-y });
                 let delta = {
                     x: pointer.x - self.move-start-pointer.x,
@@ -333,6 +337,7 @@ export component MoveResizeFrame inherits Rectangle {
                             root.rotation-tooltip-position = root.local-point-to-parent(local-point);
                             root.rotation-tooltip-value = root.rotation;
                         } else {
+                            root.interaction-ended();
                             root.rotating = false;
                             root.rotation-tooltip-visible = false;
                         }

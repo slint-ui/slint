@@ -67,6 +67,8 @@ export component EditorCanvas inherits Rectangle {
     private property <bool> selection-move-active: false;
     private property <Point> selection-move-pointer;
     private property <bool> selection-radius-active: false;
+    private property <bool> selection-rotation-active: false;
+    private property <angle> selection-rotation;
 
     callback selected(CanvasSelectionKind);
     callback real-element-selected();
@@ -232,12 +234,31 @@ export component EditorCanvas inherits Rectangle {
                 : s.y + EditorMetrics.phone-outer-padding;
             width: root.selection-drag-active && primary ? root.selection-drag-size.width : s.width;
             height: root.selection-drag-active && primary ? root.selection-drag-size.height : s.height;
-            rotation: s.angle;
+            rotation: root.selection-rotation-active && primary ? root.selection-rotation : s.angle;
             active: true;
-            show-rotation-handles: false;
-            // Only allow resize for elements that have geometry outside a layout,
-            // and only when the element is not rotated (axis-aligned edits only).
+            show-rotation-handles: primary;
+            // Only allow move/resize for elements that have geometry outside a layout, and only
+            // when the element is not rotated (we don't support rotating + repositioning at once).
             resizable: primary && Api.selection.is-resizable && s.angle == 0deg;
+            moveable: primary && Api.selection.is-moveable && s.angle == 0deg;
+
+            rotated-to(rotation) => {
+                root.selection-rotation-active = true;
+                root.selection-rotation = rotation;
+                Api.override-selected-element-rotation(rotation);
+            }
+            interaction-started => {
+                root.selection-rotation-active = false;
+            }
+            changed rotation-tooltip-visible => {
+                root.rotation-tooltip-visible = self.rotation-tooltip-visible;
+            }
+            changed rotation-tooltip-position => {
+                root.rotation-tooltip-position = self.rotation-tooltip-position;
+            }
+            changed rotation-tooltip-value => {
+                root.rotation-tooltip-value = self.rotation-tooltip-value;
+            }
 
             resized-to(corner, position, size) => {
                 root.selection-drag-active = true;
@@ -301,6 +322,10 @@ export component EditorCanvas inherits Rectangle {
                         root.selection-drag-size.height,
                     );
                 }
+                if root.selection-rotation-active {
+                    Api.selected-element-rotate(root.selection-rotation);
+                    root.selection-rotation-active = false;
+                }
                 root.selection-drag-active = false;
             }
         }
@@ -319,16 +344,35 @@ export component EditorCanvas inherits Rectangle {
                 : s.y + EditorMetrics.phone-outer-padding;
             width: root.selection-drag-active && primary ? root.selection-drag-size.width : s.width;
             height: root.selection-drag-active && primary ? root.selection-drag-size.height : s.height;
-            rotation: s.angle;
+            rotation: root.selection-rotation-active && primary ? root.selection-rotation : s.angle;
             active: true;
-            show-rotation-handles: false;
+            show-rotation-handles: primary;
             top-left-radius: root.current-corner-radius("border-top-left-radius");
             top-right-radius: root.current-corner-radius("border-top-right-radius");
             bottom-right-radius: root.current-corner-radius("border-bottom-right-radius");
             bottom-left-radius: root.current-corner-radius("border-bottom-left-radius");
-            // Only allow resize for elements that have geometry outside a layout,
-            // and only when the element is not rotated (axis-aligned edits only).
+            // Only allow move/resize for elements that have geometry outside a layout, and only
+            // when the element is not rotated (we don't support rotating + repositioning at once).
             resizable: primary && Api.selection.is-resizable && s.angle == 0deg;
+            moveable: primary && Api.selection.is-moveable && s.angle == 0deg;
+
+            rotated-to(rotation) => {
+                root.selection-rotation-active = true;
+                root.selection-rotation = rotation;
+                Api.override-selected-element-rotation(rotation);
+            }
+            interaction-started => {
+                root.selection-rotation-active = false;
+            }
+            changed rotation-tooltip-visible => {
+                root.rotation-tooltip-visible = self.rotation-tooltip-visible;
+            }
+            changed rotation-tooltip-position => {
+                root.rotation-tooltip-position = self.rotation-tooltip-position;
+            }
+            changed rotation-tooltip-value => {
+                root.rotation-tooltip-value = self.rotation-tooltip-value;
+            }
 
             radius-changed(corner, radius, single-corner) => {
                 Api.override-selected-element-border-radius(corner, radius, single-corner);
@@ -395,6 +439,10 @@ export component EditorCanvas inherits Rectangle {
                         root.selection-drag-size.width,
                         root.selection-drag-size.height,
                     );
+                }
+                if root.selection-rotation-active {
+                    Api.selected-element-rotate(root.selection-rotation);
+                    root.selection-rotation-active = false;
                 }
                 root.selection-drag-active = false;
                 if self.radius-tooltip-visible {
