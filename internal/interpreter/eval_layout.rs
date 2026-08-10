@@ -358,6 +358,7 @@ fn eval_info(ctx: &mut EvalContext, e: &Expression) -> LayoutInfo {
 /// repeaters (a repeater contributes one entry per instance).
 struct FlatCell<'a> {
     kind: FlatCellKind<'a>,
+    w4h_only: bool,
 }
 
 enum FlatCellKind<'a> {
@@ -375,18 +376,18 @@ fn flatten_measure_cells<'a>(
     let mut flat: Vec<FlatCell> = Vec::with_capacity(measure_cells.len());
     for item in measure_cells {
         match &item.kind {
-            FlexboxMeasureCellKind::Static { h_info, v_info } => {
-                flat.push(FlatCell { kind: FlatCellKind::Static { h_info, v_info } })
-            }
+            FlexboxMeasureCellKind::Static { h_info, v_info } => flat.push(FlatCell {
+                kind: FlatCellKind::Static { h_info, v_info },
+                w4h_only: item.w4h_only,
+            }),
             FlexboxMeasureCellKind::Repeated(repeater) => {
                 if let Some(current) = ctx.current.as_ref() {
                     let rep = &current.repeaters[repeater.repeater_index];
                     rep.track_instance_changes();
-                    flat.extend(
-                        rep.instances_vec()
-                            .into_iter()
-                            .map(|instance| FlatCell { kind: FlatCellKind::Repeated(instance) }),
-                    );
+                    flat.extend(rep.instances_vec().into_iter().map(|instance| FlatCell {
+                        kind: FlatCellKind::Repeated(instance),
+                        w4h_only: item.w4h_only,
+                    }));
                 }
             }
         }
@@ -398,7 +399,9 @@ fn flatten_measure_cells<'a>(
 /// re-evaluate the cell's perpendicular layout info with the
 /// `measure_known_w` / `measure_known_h` local set to the dimension taffy
 /// assigned (a dimension it did not assign, `known_* == false`, arrives
-/// pre-resolved to the cell's preferred size).
+/// pre-resolved to the cell's preferred size). A probe with neither dimension
+/// known measures the cell's free axis at the default size (see
+/// `FlexboxMeasureFn` in i-slint-core).
 fn measure_flexbox_cell(
     ctx: &mut EvalContext,
     flat: &[FlatCell],
@@ -447,9 +450,13 @@ fn measure_flexbox_cell(
         (true, true) => (w, h),
         (true, false) => measure_height(ctx),
         (false, true) => measure_width(ctx),
-        // Neither dimension known (degenerate cell probe): the
-        // pre-resolved defaults.
-        (false, false) => (w, h),
+        (false, false) => {
+            if cell.w4h_only {
+                measure_width(ctx)
+            } else {
+                measure_height(ctx)
+            }
+        }
     }
 }
 
@@ -499,4 +506,39 @@ pub(crate) fn solve_flexbox_layout_with_measure(ctx: &mut EvalContext, expr: &Ex
         Slice::from_slice(&ri),
         Some(&mut measure),
     ))
+}
+
+/// Interpret [`Expression::FlexboxLayoutInfoCrossAxisWithMeasure`]: the
+/// `flexbox_layout_info_cross_axis` builtin plus the measure callback, so
+/// height-for-width cells are measured at the main-axis size taffy assigns
+/// them rather than at the container size the cells were pre-measured at.
+pub(crate) fn flexbox_layout_info_cross_axis_with_measure(
+    ctx: &mut EvalContext,
+    expr: &Expression,
+) -> Value {
+    let Expression::FlexboxLayoutInfoCrossAxisWithMeasure { arguments, measure_cells } = expr
+    else {
+        return Value::Void;
+    };
+    let a: Vec<Value> = arguments.iter().map(|e| eval_expression(ctx, e)).collect();
+    let (ch, cv) = (to_cells(&a[0]), to_cells(&a[1]));
+    let fp = to_flex_props(&a[2]);
+    let flat = flatten_measure_cells(ctx, measure_cells);
+    let mut measure = |index: usize, w: f32, h: f32, known_w: bool, known_h: bool| {
+        measure_flexbox_cell(ctx, &flat, index, w, h, known_w, known_h)
+    };
+    i_slint_core::layout::flexbox_layout_info_cross_axis_with_measure(
+        Slice::from_slice(&ch),
+        Slice::from_slice(&cv),
+        Slice::from_slice(&fp),
+        to_f32(&a[3]),
+        to_f32(&a[4]),
+        &to_padding(&a[5]),
+        &to_padding(&a[6]),
+        to_enum(&a[7]),
+        to_enum(&a[8]),
+        to_f32(&a[9]),
+        Some(&mut measure),
+    )
+    .into()
 }

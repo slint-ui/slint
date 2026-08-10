@@ -1898,6 +1898,11 @@ impl<'a> FlexboxLayoutCacheGenerator<'a> {
 /// `known_width`/`known_height` say whether taffy has already determined that
 /// dimension; a dimension it has not is pre-resolved to the cell's preferred
 /// size. Returns `(width, height)`.
+///
+/// A call with neither dimension known is a content-size probe. Its result
+/// must be a self-consistent pair (each dimension measured at the other):
+/// taffy caches it and reuses one dimension for a later query with the other
+/// one known.
 pub type FlexboxMeasureFn<'a> =
     Option<&'a mut dyn FnMut(usize, Coord, Coord, bool, bool) -> (Coord, Coord)>;
 
@@ -2143,6 +2148,39 @@ pub fn flexbox_layout_info_cross_axis(
     flex_wrap: FlexboxLayoutWrap,
     constraint_size: Coord,
 ) -> LayoutInfo {
+    flexbox_layout_info_cross_axis_with_measure(
+        cells_h,
+        cells_v,
+        flex_props,
+        spacing_h,
+        spacing_v,
+        padding_h,
+        padding_v,
+        direction,
+        flex_wrap,
+        constraint_size,
+        None,
+    )
+}
+
+/// Same as [`flexbox_layout_info_cross_axis`], with a measure callback so
+/// height-for-width cells (e.g. a nested wrapping flexbox) are measured at the
+/// main-axis size taffy actually assigns them, not at the pre-computed cell
+/// size (which was measured at the container width).
+#[allow(clippy::too_many_arguments)]
+pub fn flexbox_layout_info_cross_axis_with_measure(
+    cells_h: Slice<LayoutItemInfo>,
+    cells_v: Slice<LayoutItemInfo>,
+    flex_props: Slice<FlexItemProps>,
+    spacing_h: Coord,
+    spacing_v: Coord,
+    padding_h: &Padding,
+    padding_v: &Padding,
+    direction: FlexboxLayoutDirection,
+    flex_wrap: FlexboxLayoutWrap,
+    constraint_size: Coord,
+    measure: FlexboxMeasureFn<'_>,
+) -> LayoutInfo {
     debug_assert_eq!(cells_h.len(), cells_v.len());
     debug_assert_eq!(cells_h.len(), flex_props.len());
     if cells_h.is_empty() {
@@ -2242,7 +2280,7 @@ pub fn flexbox_layout_info_cross_axis(
         flex_direction: taffy_direction,
         container_width,
         container_height,
-        use_measure_for_cross_axis: false,
+        use_measure_for_cross_axis: measure.is_some(),
     });
 
     let (available_width, available_height) = match direction {
@@ -2254,7 +2292,8 @@ pub fn flexbox_layout_info_cross_axis(
         }
     };
 
-    builder.compute_layout(available_width, available_height, None);
+    let mut measure = measure.map(|m| resolve_measure_defaults(&cells_h, &cells_v, m));
+    builder.compute_layout(available_width, available_height, measure.as_mut().map(|m| m as _));
 
     let (total_width, total_height) = builder.container_size();
     let cross_size = match direction {
@@ -2503,6 +2542,41 @@ pub(crate) mod ffi {
             direction,
             flex_wrap,
             constraint_size,
+        )
+    }
+
+    #[unsafe(no_mangle)]
+    /// Like `slint_flexbox_layout_info_cross_axis`, with a measure callback so
+    /// height-for-width cells are re-measured at the size taffy assigns them.
+    pub extern "C" fn slint_flexbox_layout_info_cross_axis_with_measure(
+        cells_h: Slice<LayoutItemInfo>,
+        cells_v: Slice<LayoutItemInfo>,
+        flex_props: Slice<FlexItemProps>,
+        spacing_h: Coord,
+        spacing_v: Coord,
+        padding_h: &Padding,
+        padding_v: &Padding,
+        direction: FlexboxLayoutDirection,
+        flex_wrap: FlexboxLayoutWrap,
+        constraint_size: Coord,
+        measure_fn: *const core::ffi::c_void,
+        measure_user_data: *mut core::ffi::c_void,
+    ) -> LayoutInfo {
+        // Safety: the caller guarantees `measure_fn` is a valid `FlexboxMeasureFnC`
+        // when non-null (see `measure_closure_from_c`).
+        let mut measure = unsafe { measure_closure_from_c(measure_fn, measure_user_data) };
+        super::flexbox_layout_info_cross_axis_with_measure(
+            cells_h,
+            cells_v,
+            flex_props,
+            spacing_h,
+            spacing_v,
+            padding_h,
+            padding_v,
+            direction,
+            flex_wrap,
+            constraint_size,
+            measure.as_mut().map(|m| m as _),
         )
     }
 }
