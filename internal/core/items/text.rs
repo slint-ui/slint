@@ -1100,7 +1100,7 @@ impl Item for TextInput {
                     (self.cursor_position(&text), self.anchor_position(&text))
                 };
 
-                if !self.accept_text_input(event.key_event.text.as_str()) {
+                if !self.accept_text_input(event.key_event.text.as_str(), window_adapter) {
                     return KeyEventResult::EventIgnored;
                 }
 
@@ -1150,7 +1150,7 @@ impl Item for TextInput {
                 }
             }
             KeyEventType::UpdateComposition | KeyEventType::CommitComposition => {
-                if !self.accept_text_input(&event.key_event.text) {
+                if !self.accept_text_input(&event.key_event.text, window_adapter) {
                     return KeyEventResult::EventIgnored;
                 }
 
@@ -2310,7 +2310,11 @@ impl TextInput {
         window_adapter.renderer().font_metrics(font_request)
     }
 
-    fn accept_text_input(self: Pin<&Self>, text_to_insert: &str) -> bool {
+    fn accept_text_input(
+        self: Pin<&Self>,
+        text_to_insert: &str,
+        window_adapter: &Rc<dyn WindowAdapter>,
+    ) -> bool {
         let input_type = self.input_type();
 
         match input_type {
@@ -2320,23 +2324,26 @@ impl TextInput {
                 let current = self.text();
                 let candidate = [&current[..a], text_to_insert, &current[c..]].concat();
 
+                // What the user may type is what this window's locale spells, not what the
+                // thread's happens to.
+                let ctx = window_adapter.window().0.try_context();
+
                 // Allow localized ".", "-", "-." because otherwise the cannot start entering
-                if candidate.len() <= 2
-                    && crate::context::GLOBAL_CONTEXT.with(|ctx| {
-                        let sep =
-                            ctx.get().map(|ctx| ctx.locale_decimal_separator()).unwrap_or('.');
-                        let mut it = candidate.chars();
-                        match (it.next(), it.next()) {
-                            (Some('-'), None) => true,
-                            (Some('-'), Some(c2)) => c2 == sep,
-                            (Some(c1), None) => c1 == sep,
-                            _ => false,
-                        }
-                    })
-                {
-                    return true;
+                if candidate.len() <= 2 {
+                    let sep = ctx.map_or(i_slint_common::DEFAULT_DECIMAL_SEPARATOR, |ctx| {
+                        ctx.locale_decimal_separator()
+                    });
+                    let mut it = candidate.chars();
+                    if match (it.next(), it.next()) {
+                        (Some('-'), None) => true,
+                        (Some('-'), Some(c2)) => c2 == sep,
+                        (Some(c1), None) => c1 == sep,
+                        _ => false,
+                    } {
+                        return true;
+                    }
                 }
-                return string_to_float_in(None, &candidate).is_some();
+                return string_to_float_in(ctx, &candidate).is_some();
             }
             InputType::Password | InputType::Text | InputType::Search => (),
         }
