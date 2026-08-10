@@ -1734,6 +1734,23 @@ impl Expression {
                 new_values.insert(f, default_value);
             }
             Expression::Struct { ty: struct_type.clone(), values: new_values }
+        } else if let Expression::Condition { condition, true_expr, false_expr } = self {
+            // Recursive try to convert the conditional expressions to the target_type
+            Expression::Condition {
+                condition,
+                true_expr: Box::new(true_expr.maybe_convert_to(
+                    target_type.clone(),
+                    node,
+                    diag,
+                    symbol_counters,
+                )),
+                false_expr: Box::new(false_expr.maybe_convert_to(
+                    target_type,
+                    node,
+                    diag,
+                    symbol_counters,
+                )),
+            }
         } else {
             let mut message = format!("Cannot convert {ty} to {target_type}");
             // Explicit error message for unit conversion
