@@ -362,11 +362,14 @@ pub fn shared_string_from_number_unlocalized(n: f64) -> SharedString {
     crate::format!("{}", i_slint_common::FormattedNumber(n))
 }
 
-/// The decimal separator to format with, taken from `ctx` when the caller has one.
+/// The separator to format with: `ctx`'s when the caller has one, the thread's when it has
+/// not, and `.` when no context was ever created.
 ///
-/// `None` means the caller genuinely has no context to offer -- the C++ FFI shims, whose
-/// ABI carries none, and the interpreter's constant folding. Those fall back to the thread's
-/// context, which is what every caller used to do.
+/// The `None` arm is the only place the number formatting reads the thread's context. It is
+/// there for the callers whose ABI carries no context -- the C++ FFI shims -- and for the
+/// two runtime paths that hold an `Option`, where a component is evaluated before its window
+/// exists. Prefer [`crate::SlintContext::format_number`] and friends wherever a context is
+/// in hand.
 fn decimal_separator(ctx: Option<&crate::SlintContext>) -> char {
     match ctx {
         Some(ctx) => ctx.locale_decimal_separator(),
@@ -376,26 +379,24 @@ fn decimal_separator(ctx: Option<&crate::SlintContext>) -> char {
     }
 }
 
-/// Convert a f64 to a SharedString, formatted for the thread's context.
-///
-/// Prefer [`shared_string_from_number_in`] wherever a context is reachable.
-pub fn shared_string_from_number(n: f64) -> SharedString {
-    shared_string_from_number_in(None, n)
+/// Convert a f64 to a SharedString, spelling the separator `sep`.
+pub(crate) fn format_number(sep: char, n: f64) -> SharedString {
+    let mut result = shared_string_from_number_unlocalized(n);
+    localize_separator(&mut result, sep);
+    result
 }
 
 /// Convert a f64 to a SharedString, formatted for `ctx`.
 pub fn shared_string_from_number_in(ctx: Option<&crate::SlintContext>, n: f64) -> SharedString {
-    let mut result = shared_string_from_number_unlocalized(n);
-    localize_separator(&mut result, decimal_separator(ctx));
-    result
+    format_number(decimal_separator(ctx), n)
 }
 
 /// Convert a f64 to a SharedString with a fixed number of digits after the decimal point,
-/// formatted for the thread's context.
-///
-/// Prefer [`shared_string_from_number_fixed_in`] wherever a context is reachable.
-pub fn shared_string_from_number_fixed(n: f64, digits: usize) -> SharedString {
-    shared_string_from_number_fixed_in(None, n, digits)
+/// spelling the separator `sep`.
+pub(crate) fn format_number_fixed(sep: char, n: f64, digits: usize) -> SharedString {
+    let mut result = crate::format!("{number:.digits$}", number = n, digits = digits);
+    localize_separator(&mut result, sep);
+    result
 }
 
 /// Convert a f64 to a SharedString with a fixed number of digits after the decimal point,
@@ -405,9 +406,7 @@ pub fn shared_string_from_number_fixed_in(
     n: f64,
     digits: usize,
 ) -> SharedString {
-    let mut result = crate::format!("{number:.digits$}", number = n, digits = digits);
-    localize_separator(&mut result, decimal_separator(ctx));
-    result
+    format_number_fixed(decimal_separator(ctx), n, digits)
 }
 
 /// Replaces the '.' the formatting above produced, if the locale spells it differently.
@@ -418,11 +417,20 @@ fn localize_separator(result: &mut SharedString, separator: char) {
 }
 
 /// Convert a f64 to a SharedString following a similar logic as JavaScript's Number.toPrecision(),
-/// formatted for the thread's context.
-///
-/// Prefer [`shared_string_from_number_precision_in`] wherever a context is reachable.
-pub fn shared_string_from_number_precision(n: f64, precision: usize) -> SharedString {
-    shared_string_from_number_precision_in(None, n, precision)
+/// spelling the separator `sep`.
+pub(crate) fn format_number_precision(sep: char, n: f64, precision: usize) -> SharedString {
+    let exponent = f64::log10(n.abs()).floor() as isize;
+    if precision == 0 {
+        format_number(sep, n)
+    } else if exponent < -6 || (exponent >= 0 && exponent as usize >= precision) {
+        crate::format!(
+            "{number:.digits$e}",
+            number = n,
+            digits = precision.saturating_add_signed(-1)
+        )
+    } else {
+        format_number_fixed(sep, n, precision.saturating_add_signed(-(exponent + 1)))
+    }
 }
 
 /// Convert a f64 to a SharedString following a similar logic as JavaScript's Number.toPrecision(),
@@ -432,18 +440,7 @@ pub fn shared_string_from_number_precision_in(
     n: f64,
     precision: usize,
 ) -> SharedString {
-    let exponent = f64::log10(n.abs()).floor() as isize;
-    if precision == 0 {
-        shared_string_from_number_in(ctx, n)
-    } else if exponent < -6 || (exponent >= 0 && exponent as usize >= precision) {
-        crate::format!(
-            "{number:.digits$e}",
-            number = n,
-            digits = precision.saturating_add_signed(-1)
-        )
-    } else {
-        shared_string_from_number_fixed_in(ctx, n, precision.saturating_add_signed(-(exponent + 1)))
-    }
+    format_number_precision(decimal_separator(ctx), n, precision)
 }
 
 /// Replaces all matches of `from` with `to` in `s` and returns the result as a new
@@ -466,17 +463,13 @@ pub fn shared_string_replace_all(s: &SharedString, from: &str, to: &str) -> Shar
     result
 }
 
-/// Convert a string to a float, reading it as the thread's context spells numbers.
-///
-/// Prefer [`string_to_float_in`] wherever a context is reachable.
-pub fn string_to_float(string: &str) -> Option<f32> {
-    string_to_float_in(None, string)
-}
-
 /// Convert a string to a float, reading it as `ctx` spells numbers.
 pub fn string_to_float_in(ctx: Option<&crate::SlintContext>, string: &str) -> Option<f32> {
-    let sep = decimal_separator(ctx);
+    parse_number(decimal_separator(ctx), string)
+}
 
+/// Convert a string to a float, reading the separator as `sep`.
+pub(crate) fn parse_number(sep: char, string: &str) -> Option<f32> {
     if sep == '.' {
         string.parse::<f32>().ok()
     } else {
@@ -521,16 +514,21 @@ fn test_number_formatting_uses_the_given_context() {
     assert_eq!(string_to_float_in(Some(&other), "1.5"), Some(1.5));
     assert_eq!(string_to_float_in(Some(&other), "1,5"), None);
 
+    // The methods on the context itself agree with naming it.
+    assert_eq!(other.format_number(1.5), "1.5");
+    assert_eq!(other.format_number_fixed(1.5, 2), "1.50");
+    assert_eq!(other.format_number_precision(1.5, 3), "1.50");
+    assert_eq!(other.parse_number("1.5"), Some(1.5));
+    assert_eq!(other.parse_number("1,5"), None);
+    assert_eq!(thread_ctx.format_number(1.5), "1,5");
+    assert_eq!(thread_ctx.parse_number("1,5"), Some(1.5));
+
     // No context named: the thread's, which spells it differently.
     assert_eq!(shared_string_from_number_in(None, 1.5), "1,5");
     assert_eq!(shared_string_from_number_fixed_in(None, 1.5, 2), "1,50");
     assert_eq!(shared_string_from_number_precision_in(None, 1.5, 3), "1,50");
     assert_eq!(string_to_float_in(None, "1,5"), Some(1.5));
     assert_eq!(string_to_float_in(None, "1.5"), None);
-
-    // The ambient entry points keep deferring to the thread's context.
-    assert_eq!(shared_string_from_number(1.5), "1,5");
-    assert_eq!(string_to_float("1,5"), Some(1.5));
 }
 
 #[test]
@@ -549,7 +547,7 @@ fn test_string_to_float() {
     ];
 
     for (test_string, result) in TEST {
-        assert_eq!(string_to_float(test_string), *result);
+        assert_eq!(string_to_float_in(None, test_string), *result);
     }
 }
 
@@ -684,7 +682,7 @@ pub(crate) mod ffi {
     /// The resulting structure must be passed to slint_shared_string_drop
     #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_shared_string_from_number(out: *mut SharedString, n: f64) {
-        let str = shared_string_from_number(n);
+        let str = shared_string_from_number_in(None, n);
         unsafe { core::ptr::write(out, str) };
     }
 
@@ -722,7 +720,7 @@ pub(crate) mod ffi {
         n: f64,
         digits: usize,
     ) {
-        *out = shared_string_from_number_fixed(n, digits);
+        *out = shared_string_from_number_fixed_in(None, n, digits);
     }
 
     #[test]
@@ -773,7 +771,7 @@ pub(crate) mod ffi {
         n: f64,
         precision: usize,
     ) {
-        *out = shared_string_from_number_precision(n, precision);
+        *out = shared_string_from_number_precision_in(None, n, precision);
     }
 
     #[test]

@@ -27,7 +27,7 @@ use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalSize};
 use crate::platform::Clipboard;
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
-use crate::string::string_to_float;
+use crate::string::string_to_float_in;
 use crate::window::{InputMethodProperties, InputMethodRequest, WindowAdapter, WindowInner};
 use crate::{Callback, Coord, Property, SharedString, SharedVector};
 use alloc::{rc::Rc, string::String};
@@ -2336,7 +2336,7 @@ impl TextInput {
                 {
                     return true;
                 }
-                return string_to_float(&candidate).is_some();
+                return string_to_float_in(None, &candidate).is_some();
             }
             InputType::Password | InputType::Text | InputType::Search => (),
         }

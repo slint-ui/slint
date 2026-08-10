@@ -20,6 +20,15 @@ struct EvalLocalContext {
     window_adapter: Option<Rc<dyn slint::platform::WindowAdapter>>,
 }
 
+impl EvalLocalContext {
+    /// The context of the window the preview renders into, so that numbers are formatted the
+    /// way that window's locale spells them rather than the thread's.
+    fn slint_context(&self) -> Option<i_slint_core::SlintContext> {
+        let adapter = self.window_adapter.as_ref()?;
+        i_slint_core::window::WindowInner::from_pub(adapter.window()).try_context().cloned()
+    }
+}
+
 /// If we only care about a specified field
 ///
 /// For example, if we need to evaluate `<expression>.foo.bar` we would have something like
@@ -74,7 +83,10 @@ fn eval_expression(
             match (v, to) {
                 (Value::Number(n), langtype::Type::Int32) => Value::Number(n.trunc()),
                 (Value::Number(n), langtype::Type::String) => {
-                    Value::String(i_slint_core::string::shared_string_from_number(n))
+                    Value::String(i_slint_core::string::shared_string_from_number_in(
+                        local_context.slint_context().as_ref(),
+                        n,
+                    ))
                 }
                 (Value::Number(n), langtype::Type::Color) => {
                     slint::Color::from_argb_encoded(n as u32).into()
@@ -427,7 +439,11 @@ fn handle_builtin_function(
             let digits: i32 =
                 eval_expression(&arguments[1], local_context, None).try_into().unwrap_or_default();
             let digits: usize = digits.max(0) as usize;
-            Value::String(i_slint_core::string::shared_string_from_number_fixed(n, digits))
+            Value::String(i_slint_core::string::shared_string_from_number_fixed_in(
+                local_context.slint_context().as_ref(),
+                n,
+                digits,
+            ))
         }
         BuiltinFunction::ToPrecision => {
             let n: f64 =
@@ -435,7 +451,11 @@ fn handle_builtin_function(
             let precision: i32 =
                 eval_expression(&arguments[1], local_context, None).try_into().unwrap_or_default();
             let precision: usize = precision.max(0) as usize;
-            Value::String(i_slint_core::string::shared_string_from_number_precision(n, precision))
+            Value::String(i_slint_core::string::shared_string_from_number_precision_in(
+                local_context.slint_context().as_ref(),
+                n,
+                precision,
+            ))
         }
         BuiltinFunction::ToStringUnlocalized => {
             let n: f64 =

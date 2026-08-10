@@ -707,15 +707,16 @@ fn eval_constant_expression(expr: &ConstantExpression) -> Value {
 }
 
 /// Convert a value to the given type, as [`Expression::Cast`] does.
+///
+/// Nothing casts to a string here: `ConstantExpression::from_expression` rejects every cast
+/// to one, because rendering a number depends on the locale and a default value must not
+/// depend on it. The numbers that render the same in every locale are folded to a string
+/// literal before they reach the interpreter, so they arrive as a `StringLiteral` instead.
 fn cast_constant_value(value: Value, to: &Type) -> Value {
     match (value, to) {
         (Value::Number(n), Type::Int32) => Value::Number(n.trunc()),
-        (Value::Number(n), Type::String) => {
-            Value::String(i_slint_core::string::shared_string_from_number(n))
-        }
         (Value::Number(n), Type::Color) => Color::from_argb_encoded(n as u32).into(),
         (Value::Brush(brush), Type::Color) => brush.color().into(),
-        (Value::EnumerationValue(_, val), Type::String) => Value::String(val.into()),
         (v, _) => v,
     }
 }

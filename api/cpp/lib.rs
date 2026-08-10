@@ -189,7 +189,8 @@ pub unsafe extern "C" fn slint_register_bitmap_font(
 
 #[unsafe(no_mangle)]
 pub extern "C" fn slint_string_to_float(string: &SharedString, value: &mut f32) -> bool {
-    if let Some(v) = i_slint_core::string::string_to_float(string.as_str()) {
+    // The C++ ABI carries no context, so this falls back to the thread's.
+    if let Some(v) = i_slint_core::string::string_to_float_in(None, string.as_str()) {
         *value = v;
         true
     } else {
