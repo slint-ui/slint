@@ -1316,7 +1316,13 @@ pub mod compiled {
     #![allow(unsafe_code)]
     use super::*;
 
-    fn parts(vref: &ItemTreeRefPin<'_>) -> (&'static ItemTreeDescriptor, *const u8) {
+    /// The descriptor and instance pointer behind `vref`.
+    ///
+    /// The descriptor is borrowed for the lifetime of what `vref` points at,
+    /// not for `'static`: none of the entry functions below hand out data that
+    /// outlives the call, so `'static` would claim more than they use. Where
+    /// the descriptor is stored is a separate question — see the vtable field.
+    fn parts<'a>(vref: &ItemTreeRefPin<'a>) -> (&'a ItemTreeDescriptor, *const u8) {
         let descriptor = vref
             .get_vtable()
             .descriptor
