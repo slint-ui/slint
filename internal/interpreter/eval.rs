@@ -784,7 +784,10 @@ pub fn eval_expression(ctx: &mut EvalContext, expression: &Expression) -> Value 
             match (v, to) {
                 (Value::Number(n), Type::Int32) => Value::Number(n.trunc()),
                 (Value::Number(n), Type::String) => {
-                    Value::String(i_slint_core::string::shared_string_from_number(n))
+                    Value::String(i_slint_core::string::shared_string_from_number_in(
+                        maybe_context(ctx).as_ref(),
+                        n,
+                    ))
                 }
                 (Value::Number(n), Type::Color) => Color::from_argb_encoded(n as u32).into(),
                 (Value::Brush(brush), Type::Color) => brush.color().into(),
@@ -1843,7 +1846,8 @@ fn call_builtin_function(
         BuiltinFunction::ToFixed => {
             let n = to_num(ctx, &arguments[0]);
             let digits: i32 = eval_expression(ctx, &arguments[1]).try_into().unwrap_or_default();
-            Value::String(i_slint_core::string::shared_string_from_number_fixed(
+            Value::String(i_slint_core::string::shared_string_from_number_fixed_in(
+                maybe_context(ctx).as_ref(),
                 n,
                 digits.max(0) as usize,
             ))
@@ -1851,7 +1855,8 @@ fn call_builtin_function(
         BuiltinFunction::ToPrecision => {
             let n = to_num(ctx, &arguments[0]);
             let p: i32 = eval_expression(ctx, &arguments[1]).try_into().unwrap_or_default();
-            Value::String(i_slint_core::string::shared_string_from_number_precision(
+            Value::String(i_slint_core::string::shared_string_from_number_precision_in(
+                maybe_context(ctx).as_ref(),
                 n,
                 p.max(0) as usize,
             ))
@@ -2614,6 +2619,19 @@ pub(crate) fn find_window_adapter(
     ctx: &EvalContext,
 ) -> Option<i_slint_core::window::WindowAdapterRc> {
     find_root_instance(ctx)?.window_adapter_or_default()
+}
+
+/// The context the evaluated component belongs to, or `None` while it has no window.
+///
+/// Reads the window adapter cell directly rather than going through
+/// [`find_window_adapter`], which creates an adapter through the platform selector when
+/// there is none: formatting a number must not bring a window into being.
+///
+/// Reaches the instance through [`root_instance`] rather than [`find_root_instance`], so
+/// that an expression evaluated in a global's init code resolves too.
+fn maybe_context(ctx: &EvalContext) -> Option<i_slint_core::SlintContext> {
+    let adapter = root_instance(ctx)?.window_adapter.get().cloned()?;
+    i_slint_core::window::WindowInner::from_pub(adapter.window()).try_context().cloned()
 }
 
 /// Dispatch an `Expression::ItemMemberFunctionCall` (like
