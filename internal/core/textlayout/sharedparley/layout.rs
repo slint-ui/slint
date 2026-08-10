@@ -6,6 +6,25 @@
 
 use super::shaping::{Brush, TextParagraph};
 use super::*;
+use crate::items::TextCursorAffinity;
+
+impl From<TextCursorAffinity> for parley::layout::Affinity {
+    fn from(affinity: TextCursorAffinity) -> Self {
+        match affinity {
+            TextCursorAffinity::NextCharacter => Self::Downstream,
+            TextCursorAffinity::PreviousCharacter => Self::Upstream,
+        }
+    }
+}
+
+impl From<parley::layout::Affinity> for TextCursorAffinity {
+    fn from(affinity: parley::layout::Affinity) -> Self {
+        match affinity {
+            parley::layout::Affinity::Downstream => Self::NextCharacter,
+            parley::layout::Affinity::Upstream => Self::PreviousCharacter,
+        }
+    }
+}
 
 #[derive(Default)]
 pub(super) struct LayoutOptions {
@@ -455,21 +474,25 @@ impl Layout {
         }
     }
 
-    pub(super) fn byte_offset_from_point(&self, pos: PhysicalPoint) -> usize {
+    pub(super) fn byte_offset_from_point(
+        &self,
+        pos: PhysicalPoint,
+    ) -> (usize, crate::items::TextCursorAffinity) {
         let Some(paragraph) = self.paragraph_by_y(pos.y_length()) else {
-            return 0;
+            return (0, crate::items::TextCursorAffinity::NextCharacter);
         };
         let cursor = parley::editing::Cursor::from_point(
             &paragraph.layout,
             pos.x,
             (pos.y_length() - self.y_offset - paragraph.y).get(),
         );
-        paragraph.range.start + cursor.index()
+        (paragraph.range.start + cursor.index(), cursor.affinity().into())
     }
 
     pub(super) fn cursor_rect_for_byte_offset(
         &self,
         byte_offset: usize,
+        affinity: crate::items::TextCursorAffinity,
         cursor_width: PhysicalLength,
     ) -> PhysicalRect {
         let Some(paragraph) = self.paragraph_by_byte_offset(byte_offset) else {
@@ -480,7 +503,7 @@ impl Layout {
         let cursor = parley::editing::Cursor::from_byte_index(
             &paragraph.layout,
             local_offset,
-            Default::default(),
+            affinity.into(),
         );
         let rect = cursor.geometry(&paragraph.layout, cursor_width.get());
 

@@ -3080,7 +3080,7 @@ mod tests {
             _text_input: Pin<&crate::items::TextInput>,
             _item_rc: &ItemRc,
             _pos: LogicalPoint,
-        ) -> usize {
+        ) -> (usize, crate::items::TextCursorAffinity) {
             unimplemented!("Not required in this test");
         }
 
@@ -3089,6 +3089,7 @@ mod tests {
             _text_input: Pin<&crate::items::TextInput>,
             _item_rc: &ItemRc,
             _byte_offset: usize,
+            _affinity: crate::items::TextCursorAffinity,
         ) -> LogicalRect {
             unimplemented!("Not required in this test");
         }

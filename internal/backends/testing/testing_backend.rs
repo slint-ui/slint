@@ -620,22 +620,24 @@ impl RendererSealed for TestingWindow {
         text_input: Pin<&i_slint_core::items::TextInput>,
         item_rc: &i_slint_core::item_tree::ItemRc,
         pos: LogicalPoint,
-    ) -> usize {
+    ) -> (usize, i_slint_core::items::TextCursorAffinity) {
+        use i_slint_core::items::TextCursorAffinity;
         let font_request = text_input.font_request(item_rc);
         if is_fixed_test_font(&font_request.family) {
+            // The fixed test font never wraps, so the affinity is always next-character.
             let pixel_size = font_request.pixel_size.map_or(10., |s| s.get());
             let line_height = fixed_test_font_line_height(&font_request, pixel_size);
             let text = text_input.text();
             if pos.y < 0. {
-                return 0;
+                return (0, TextCursorAffinity::NextCharacter);
             }
             let line = (pos.y / line_height) as usize;
             let offset: usize = text.split('\n').take(line).map(|l| l.len() + 1).sum();
             let Some(line) = text.split('\n').nth(line) else {
-                return text.len();
+                return (text.len(), TextCursorAffinity::NextCharacter);
             };
             let column = ((pos.x / pixel_size).max(0.) as usize).min(line.len());
-            offset + column
+            (offset + column, TextCursorAffinity::NextCharacter)
         } else {
             sharedparley::text_input_byte_offset_for_position(self, text_input, item_rc, pos, None)
         }
@@ -646,6 +648,7 @@ impl RendererSealed for TestingWindow {
         text_input: Pin<&i_slint_core::items::TextInput>,
         item_rc: &i_slint_core::item_tree::ItemRc,
         byte_offset: usize,
+        affinity: i_slint_core::items::TextCursorAffinity,
     ) -> LogicalRect {
         let font_request = text_input.font_request(item_rc);
         if is_fixed_test_font(&font_request.family) {
@@ -664,6 +667,7 @@ impl RendererSealed for TestingWindow {
                 text_input,
                 item_rc,
                 byte_offset,
+                affinity,
                 None,
             )
         }
