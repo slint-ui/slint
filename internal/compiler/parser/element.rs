@@ -345,6 +345,21 @@ fn parse_match_element(p: &mut impl Parser) {
     }
     if p.peek().kind() == SyntaxKind::Star {
         parse_wildcard_case(&mut *p);
+        let mut reported = false;
+        while p.peek().kind() == SyntaxKind::Star
+            || (![SyntaxKind::RBrace, SyntaxKind::Eof].contains(&p.peek().kind())
+                && p.nth(1).kind() == SyntaxKind::Colon)
+        {
+            if !reported {
+                p.error("Cases after the '*' case are never hit");
+                reported = true;
+            }
+            if p.peek().kind() == SyntaxKind::Star {
+                parse_wildcard_case(&mut *p);
+            } else {
+                parse_match_case(&mut *p);
+            }
+        }
     }
     p.expect(SyntaxKind::RBrace);
 }
