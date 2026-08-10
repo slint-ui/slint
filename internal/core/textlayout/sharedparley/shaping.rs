@@ -368,6 +368,11 @@ pub(super) fn plain_builder_for_tests() -> LayoutWithoutLineBreaksBuilder {
     LayoutWithoutLineBreaksBuilder::new(None, TextWrap::NoWrap, None, ScaleFactor::new(1.0))
 }
 
+#[cfg(test)]
+pub(super) fn wrap_builder_for_tests() -> LayoutWithoutLineBreaksBuilder {
+    LayoutWithoutLineBreaksBuilder::new(None, TextWrap::WordWrap, None, ScaleFactor::new(1.0))
+}
+
 /// Shapes `text` the way both the drawing and the measuring paths need it, so that they can share
 /// one cache entry. `text_wrap` is passed separately because `text_size` measures the unwrapped
 /// width of items that are otherwise wrapped.

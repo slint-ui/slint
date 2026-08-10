@@ -711,15 +711,15 @@ fn callback_move_cursor_handle<'local>(
                             pos_x as f32 / scale_factor,
                             pos_y as f32 / scale_factor - size / 2.,
                         ) - focus_item.map_to_window(focus_item.geometry().origin).to_vector();
-                    let text_pos = text_input.as_pin_ref().byte_offset_for_position(
+                    let (text_pos, affinity) = text_input.as_pin_ref().byte_offset_for_position(
                         pos,
                         &adaptor,
                         &focus_item,
                     );
 
-                    let cur_pos = if id == 0 {
+                    let (cur_pos, cur_affinity) = if id == 0 {
                         text_input.anchor_position_byte_offset.set(text_pos as i32);
-                        text_pos as i32
+                        (text_pos as i32, affinity)
                     } else {
                         let current_cursor = text_input.as_pin_ref().cursor_position_byte_offset();
                         let current_anchor = text_input.as_pin_ref().anchor_position_byte_offset();
@@ -730,17 +730,18 @@ fn callback_move_cursor_handle<'local>(
                                 return;
                             }
                             text_input.anchor_position_byte_offset.set(text_pos as i32);
-                            current_cursor
+                            (current_cursor, text_input.as_pin_ref().cursor_position_affinity())
                         } else {
                             if current_anchor == text_pos as i32 {
                                 return;
                             }
-                            text_pos as i32
+                            (text_pos as i32, affinity)
                         }
                     };
 
-                    text_input.as_pin_ref().set_cursor_position(
+                    text_input.as_pin_ref().set_cursor_position_with_affinity(
                         cur_pos,
+                        cur_affinity,
                         true,
                         i_slint_core::items::TextChangeNotify::TriggerCallbacks,
                         &adaptor,

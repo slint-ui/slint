@@ -1027,9 +1027,9 @@ impl RendererSealed for SoftwareRenderer {
         text_input: Pin<&i_slint_core::items::TextInput>,
         item_rc: &ItemRc,
         pos: LogicalPoint,
-    ) -> usize {
+    ) -> (usize, i_slint_core::items::TextCursorAffinity) {
         let Some(scale_factor) = self.scale_factor() else {
-            return 0;
+            return Default::default();
         };
         let font_request = text_input.font_request(item_rc);
         #[cfg(feature = "systemfonts")]
@@ -1084,8 +1084,11 @@ impl RendererSealed for SoftwareRenderer {
                     max_lines: None,
                 };
 
-                visual_representation.map_byte_offset_from_visual_text_to_actual_text(
-                    paragraph.byte_offset_for_position((pos.x_length(), pos.y_length())),
+                (
+                    visual_representation.map_byte_offset_from_visual_text_to_actual_text(
+                        paragraph.byte_offset_for_position((pos.x_length(), pos.y_length())),
+                    ),
+                    i_slint_core::items::TextCursorAffinity::NextCharacter,
                 )
             }
             (fonts::Font::PixelFont(pf), _) => {
@@ -1113,8 +1116,11 @@ impl RendererSealed for SoftwareRenderer {
                     max_lines: None,
                 };
 
-                visual_representation.map_byte_offset_from_visual_text_to_actual_text(
-                    paragraph.byte_offset_for_position((pos.x_length(), pos.y_length())),
+                (
+                    visual_representation.map_byte_offset_from_visual_text_to_actual_text(
+                        paragraph.byte_offset_for_position((pos.x_length(), pos.y_length())),
+                    ),
+                    i_slint_core::items::TextCursorAffinity::NextCharacter,
                 )
             }
         }
@@ -1146,7 +1152,10 @@ impl RendererSealed for SoftwareRenderer {
         text_input: Pin<&i_slint_core::items::TextInput>,
         item_rc: &ItemRc,
         byte_offset: usize,
+        affinity: i_slint_core::items::TextCursorAffinity,
     ) -> LogicalRect {
+        #[cfg(not(feature = "systemfonts"))]
+        let _ = affinity;
         let Some(scale_factor) = self.scale_factor() else {
             return LogicalRect::default();
         };
@@ -1174,6 +1183,7 @@ impl RendererSealed for SoftwareRenderer {
                     text_input,
                     item_rc,
                     byte_offset,
+                    affinity,
                     Some(&self.text_layout_cache),
                 )
             }
