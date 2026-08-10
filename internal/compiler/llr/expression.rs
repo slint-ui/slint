@@ -23,6 +23,25 @@ pub enum ArrayOutput {
 
 pub use crate::expression_tree::MouseCursorInner;
 
+/// One cell of a generated flexbox measure callback: how to re-measure it at a
+/// taffy-assigned size. See [`Expression::SolveFlexboxLayoutWithMeasure`].
+#[derive(Debug, Clone)]
+pub struct FlexboxMeasureCell {
+    pub kind: FlexboxMeasureCellKind,
+}
+
+#[derive(Debug, Clone)]
+#[allow(clippy::large_enum_variant)]
+pub enum FlexboxMeasureCellKind {
+    /// A static cell, with its `LayoutInfo`-typed expressions reading the
+    /// `measure_known_h` / `measure_known_w` locals as their cross-axis
+    /// constraint.
+    Static { h_info: Expression, v_info: Expression },
+    /// A repeater: its instances are only known at run time, so the generated
+    /// callback queries the instance directly.
+    Repeated(LayoutRepeatedElement),
+}
+
 #[derive(Debug, Clone)]
 pub enum Expression {
     /// A string literal. The .0 is the content of the string, without the quotes
@@ -257,22 +276,22 @@ pub enum Expression {
     /// callback so the cross-axis size of height-for-width cells is recomputed
     /// at the width/height taffy actually assigns (rather than the cell's
     /// preferred size). `data` is the `FlexboxLayoutData`. For each static cell,
-    /// `measure_cells[i]` is `(h_info_given_known_h, v_info_given_known_w)`,
+    /// `measure_cells[i]` carries `(h_info_given_known_h, v_info_given_known_w)`,
     /// each a `LayoutInfo`-typed expression that reads
     /// `ReadLocalVariable("measure_known_w" / "measure_known_h")` (a `Float32`)
     /// as its cross-axis constraint. `default_cells[i]` is the cell's
     /// `(h_info, v_info)` at the default constraint (matching `data`'s cells);
     /// it provides the preferred size returned when taffy asks for a dimension
     /// without a known cross-axis size (mirroring the plain `solve_flexbox_layout`
-    /// measure). A repeater cell (the `Right` case) is measured by calling the
-    /// matching cross-axis accessor (`flexbox_layout_item_info_at_cross_width` or
-    /// `_at_cross_height`) on the instance taffy asks for.
+    /// measure). A repeater cell is measured by calling the matching cross-axis
+    /// accessor (`flexbox_layout_item_info_at_cross_width` or `_at_cross_height`)
+    /// on the instance taffy asks for.
     SolveFlexboxLayoutWithMeasure {
         /// The `FlexboxLayoutData` (built inline with the cell arrays, so its
         /// temporaries live for the duration of the solve call).
         data: Box<Expression>,
         repeater_indices: Box<Expression>,
-        measure_cells: Vec<Either<(Expression, Expression), LayoutRepeatedElement>>,
+        measure_cells: Vec<FlexboxMeasureCell>,
         /// Only used when `cells_variables` is `None`; empty otherwise.
         default_cells: Vec<Either<(Expression, Expression), LayoutRepeatedElement>>,
         /// Names of the flat `(cells_h, cells_v)` locals set up by the enclosing
@@ -621,9 +640,15 @@ macro_rules! visit_impl {
             } => {
                 $visitor(data);
                 $visitor(repeater_indices);
-                measure_cells.$iter().filter_map(|x| x.$as_ref().left()).for_each(|(h, v)| {
-                    $visitor(h);
-                    $visitor(v);
+                measure_cells.$iter().for_each(|x| {
+                    if let FlexboxMeasureCell {
+                        kind: FlexboxMeasureCellKind::Static { h_info, v_info },
+                        ..
+                    } = x
+                    {
+                        $visitor(h_info);
+                        $visitor(v_info);
+                    }
                 });
                 default_cells.$iter().filter_map(|x| x.$as_ref().left()).for_each(|(h, v)| {
                     $visitor(h);

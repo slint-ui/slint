@@ -4666,7 +4666,7 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                 let mut v_cases = String::new();
                 let mut h_cases = String::new();
                 for (i, item) in measure_cells.iter().enumerate() {
-                    if let Either::Left((h_info, v_info)) = item {
+                    if let llr::FlexboxMeasureCellKind::Static { h_info, v_info } = &item.kind {
                         let v = compile_expression(v_info, ctx);
                         let h = compile_expression(h_info, ctx);
                         v_cases.push_str(&format!(
@@ -4685,8 +4685,8 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                 let mut v_steps = String::new();
                 let mut h_steps = String::new();
                 for item in measure_cells {
-                    match item {
-                        Either::Left((h_info, v_info)) => {
+                    match &item.kind {
+                        llr::FlexboxMeasureCellKind::Static { h_info, v_info } => {
                             let v = compile_expression(v_info, ctx);
                             let h = compile_expression(h_info, ctx);
                             v_steps.push_str(&format!(
@@ -4698,7 +4698,7 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                                  cursor += 1;\n"
                             ));
                         }
-                        Either::Right(repeater) => {
+                        llr::FlexboxMeasureCellKind::Repeated(repeater) => {
                             let i = usize::from(repeater.repeater_index);
                             v_steps.push_str(&format!(
                                 "{{ auto len = self->repeater_{i}.len(); \

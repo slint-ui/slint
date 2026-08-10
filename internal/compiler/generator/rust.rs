@@ -5610,7 +5610,7 @@ fn generate_with_flexbox_layout_item_info(
 fn generate_solve_flexbox_layout_with_measure(
     data: &Expression,
     repeater_indices: &Expression,
-    measure_cells: &[Either<(Expression, Expression), llr::LayoutRepeatedElement>],
+    measure_cells: &[llr::FlexboxMeasureCell],
     default_cells: &[Either<(Expression, Expression), llr::LayoutRepeatedElement>],
     cells_variables: Option<&(SmolStr, SmolStr)>,
     ctx: &EvaluationContext,
@@ -5630,7 +5630,7 @@ fn generate_solve_flexbox_layout_with_measure(
         let mut v_arms = Vec::new();
         let mut h_arms = Vec::new();
         for (i, item) in measure_cells.iter().enumerate() {
-            if let Either::Left((h_info, v_info)) = item {
+            if let llr::FlexboxMeasureCellKind::Static { h_info, v_info } = &item.kind {
                 let idx = proc_macro2::Literal::usize_unsuffixed(i);
                 let v = compile_expression(v_info, ctx);
                 let h = compile_expression(h_info, ctx);
@@ -5643,8 +5643,8 @@ fn generate_solve_flexbox_layout_with_measure(
         let mut v_steps = Vec::new();
         let mut h_steps = Vec::new();
         for item in measure_cells {
-            match item {
-                Either::Left((h_info, v_info)) => {
+            match &item.kind {
+                llr::FlexboxMeasureCellKind::Static { h_info, v_info } => {
                     let v = compile_expression(v_info, ctx);
                     let h = compile_expression(h_info, ctx);
                     v_steps.push(quote!(
@@ -5656,7 +5656,7 @@ fn generate_solve_flexbox_layout_with_measure(
                         cursor += 1;
                     ));
                 }
-                Either::Right(repeater) => {
+                llr::FlexboxMeasureCellKind::Repeated(repeater) => {
                     let repeater_id =
                         format_ident!("repeater{}", usize::from(repeater.repeater_index));
                     v_steps.push(quote!(
