@@ -76,9 +76,9 @@ modules:
         --features backend-winit,renderer-skia
       - install -Dm0755 target/package-release/slint-visual-editor ${FLATPAK_DEST}/bin/slint-visual-editor
       - install -Dm0644 tools/lsp/packaging/linux/${FLATPAK_ID}.desktop ${FLATPAK_DEST}/share/applications/${FLATPAK_ID}.desktop
-      # The icon references the shared Slint logo, and librsvg only resolves
-      # references within the document's own directory
-      - cp logo/slint-logo-small-dark.svg tools/lsp/packaging/linux/
+      # The icon references the shared logo and tile backdrop, and librsvg only
+      # resolves references within the document's own directory
+      - cp logo/slint-logo-small-dark.svg tools/lsp/packaging/tile-backdrop.svg tools/lsp/packaging/linux/
       - >
         for size in 128 256 512; do
         rsvg-convert -w $size -h $size tools/lsp/packaging/linux/${FLATPAK_ID}.svg -o icon-$size.png || exit 1;

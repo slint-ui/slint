@@ -1,40 +1,13 @@
 <svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
   <!--
-    The Linux application icon: the same backdrop as the square Windows tile
-    (edge-to-edge with rounded corners, no baked-in shadow, because Linux
-    desktops draw icons as-is), with the Slint logo drawn on top at two thirds
-    of the height like on the other platforms. The logo is referenced rather
-    than copied; the package build puts logo/slint-logo-small-dark.svg next to
-    this file, because librsvg only resolves references within the document's
-    own directory.
+    The Linux application icon: the square tile backdrop the Windows package
+    also uses, with the Slint logo on top at two thirds of the height like on
+    the other platforms. Both parts are referenced rather than copied; the
+    package build puts them next to this file, because librsvg only resolves
+    references within the document's own directory.
   -->
-  <defs>
-    <linearGradient id="bg" x1="27" y1="8" x2="497" y2="532" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#25C9EF"/>
-      <stop offset="0.48" stop-color="#168DF4"/>
-      <stop offset="1" stop-color="#1162EF"/>
-    </linearGradient>
-    <linearGradient id="gridFade" x1="256" y1="18" x2="256" y2="516" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="white" stop-opacity="0.34"/>
-      <stop offset="1" stop-color="white" stop-opacity="0.13"/>
-    </linearGradient>
-    <clipPath id="clip">
-      <rect x="7" y="7" width="498" height="498" rx="91"/>
-    </clipPath>
-  </defs>
+  <image href="tile-backdrop.svg" width="512" height="512"/>
 
-  <rect x="7" y="7" width="498" height="498" rx="91" fill="url(#bg)"/>
-  <g clip-path="url(#clip)" stroke="url(#gridFade)" stroke-width="2.71">
-    <path d="M107 7V505"/>
-    <path d="M205 7V505"/>
-    <path d="M302 7V505"/>
-    <path d="M399 7V505"/>
-    <path d="M7 115H505"/>
-    <path d="M7 213H505"/>
-    <path d="M7 310H505"/>
-    <path d="M7 408H505"/>
-  </g>
-
-  <!-- The logo's 64-unit viewBox scaled to 7.2x, as on the other platforms -->
+  <!-- The logo's 64-unit viewBox scaled to 7.2x -->
   <image href="slint-logo-small-dark.svg" x="25.6" y="25.6" width="460.8" height="460.8"/>
 </svg>
