@@ -14,6 +14,7 @@ version.workspace = true
 
 [features]
 default = []
+ffi = []     # Make `remove_extern` keep the ABI; set via `i-slint-core/ffi`
 
 [lib]
 proc-macro = true
@@ -21,7 +22,7 @@ path = "lib.rs"
 
 [dependencies]
 quote = "1.0"
-syn = { version = "2.0", features = ["full", "visit-mut"] }
+syn = { version = "3.0", features = ["full", "visit-mut"] }
 serde_json = { workspace = true }
 
 [package.metadata.docs.rs]

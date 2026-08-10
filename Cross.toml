@@ -9,6 +9,10 @@ image = "ghcr.io/slint-ui/slint/armv7-unknown-linux-gnueabihf"
 image = "ghcr.io/slint-ui/slint/riscv64gc-unknown-linux-gnu"
 [target.x86_64-unknown-linux-gnu]
 image = "ghcr.io/slint-ui/slint/x86_64-unknown-linux-gnu"
+[target.x86_64-unknown-linux-musl]
+image = "ghcr.io/slint-ui/slint/x86_64-unknown-linux-musl"
+[target.aarch64-unknown-linux-musl]
+image = "ghcr.io/slint-ui/slint/aarch64-unknown-linux-musl"
 
 [build.env]
 passthrough = ["SLINT_NO_QT", "SLINT_STYLE", "SLINT_TEST_FILTER", "SLINT_INTERPRETER_ERROR_WHITELIST"]

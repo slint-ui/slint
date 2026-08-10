@@ -13,6 +13,9 @@ use smol_str::{SmolStr, ToSmolStr, format_smolstr};
 use std::cell::RefCell;
 use std::rc::{Rc, Weak};
 
+/// Number of slots a cell occupies in a box layout cache: position and size.
+pub const BOX_LAYOUT_CACHE_ENTRIES_PER_CELL: usize = 2;
+
 #[derive(Clone, Debug, Copy, Eq, PartialEq)]
 pub enum Orientation {
     Horizontal,
@@ -195,14 +198,49 @@ pub struct LayoutConstraints {
     pub vertical_stretch: Option<NamedReference>,
     pub fixed_width: bool,
     pub fixed_height: bool,
+    /// For each constraint, whether it is set directly on the element (an
+    /// override) rather than inherited from a base component. Inherited layout
+    /// constraints are already baked into an element's own `layoutinfo-*`, so a
+    /// parent layout that measured the cell through its layout-info must not
+    /// re-apply them (double-count / height-for-width loop); locally-set ones
+    /// must be applied. See [`Self::to_apply`].
+    pub local: LayoutConstraintLocality,
+}
+
+/// Which [`LayoutConstraints`] are set directly on the element (depth 0) rather
+/// than inherited from a base component.
+#[derive(Debug, Default, Clone)]
+pub struct LayoutConstraintLocality {
+    pub min_width: bool,
+    pub max_width: bool,
+    pub min_height: bool,
+    pub max_height: bool,
+    pub preferred_width: bool,
+    pub preferred_height: bool,
+    pub horizontal_stretch: bool,
+    pub vertical_stretch: bool,
+}
+
+/// The [`LayoutConstraints`] fields along one orientation.
+pub struct OrientationConstraints<'a> {
+    pub min: &'a Option<NamedReference>,
+    pub max: &'a Option<NamedReference>,
+    pub preferred: &'a Option<NamedReference>,
+    pub stretch: &'a Option<NamedReference>,
+    /// The size is set by an explicit `width`/`height` binding.
+    pub fixed: bool,
 }
 
 impl LayoutConstraints {
-    /// Build the constraints for the given element
+    /// Build the constraints for the given element.
     ///
-    /// Report diagnostics when both constraints and fixed size are set
-    /// (one can set the level to warning to keep compatibility to old version of Slint)
-    pub fn new(element: &ElementRc, diag: &mut BuildDiagnostics, level: DiagnosticLevel) -> Self {
+    /// When `diag` is `Some`, a redundant size constraint (e.g. both `width` and `min-width`) is
+    /// reported at the given level; pass `None` to compute the constraints without reporting (e.g.
+    /// when another pass owns that diagnostic).
+    pub fn new(
+        element: &ElementRc,
+        mut diag: Option<(&mut BuildDiagnostics, DiagnosticLevel)>,
+    ) -> Self {
         let mut constraints = Self {
             min_width: binding_reference(element, "min-width"),
             max_width: binding_reference(element, "max-width"),
@@ -214,6 +252,23 @@ impl LayoutConstraints {
             vertical_stretch: binding_reference(element, "vertical-stretch"),
             fixed_width: false,
             fixed_height: false,
+            local: LayoutConstraintLocality {
+                // min/max-{width,height} may be derived from a local fixed
+                // `width`/`height` binding (see below), which is just as local
+                // an override as an explicit min/max constraint.
+                min_width: is_local_binding(element, "min-width")
+                    || is_local_binding(element, "width"),
+                max_width: is_local_binding(element, "max-width")
+                    || is_local_binding(element, "width"),
+                min_height: is_local_binding(element, "min-height")
+                    || is_local_binding(element, "height"),
+                max_height: is_local_binding(element, "max-height")
+                    || is_local_binding(element, "height"),
+                preferred_width: is_local_binding(element, "preferred-width"),
+                preferred_height: is_local_binding(element, "preferred-height"),
+                horizontal_stretch: is_local_binding(element, "horizontal-stretch"),
+                vertical_stretch: is_local_binding(element, "vertical-stretch"),
+            },
         };
         let mut apply_size_constraint =
             |prop: &'static str,
@@ -226,7 +281,8 @@ impl LayoutConstraints {
                         &other_prop.element(),
                         other_prop.name(),
                         |old, enclosing2, d2| {
-                            if Weak::ptr_eq(enclosing1, enclosing2)
+                            if let Some((diag, level)) = &mut diag
+                                && Weak::ptr_eq(enclosing1, enclosing2)
                                 && old.priority.saturating_add(d2)
                                     <= binding.priority.saturating_add(depth)
                             {
@@ -236,7 +292,7 @@ impl LayoutConstraints {
                                         other_prop.name()
                                     ),
                                     binding.to_source_location(),
-                                    level,
+                                    *level,
                                 );
                             }
                         },
@@ -279,36 +335,92 @@ impl LayoutConstraints {
         }
     }
 
+    /// The constraints a parent layout should apply on top of a cell's measured
+    /// layout-info for `orientation`. Native items (whose layout-info doesn't
+    /// merge their constraints) keep everything. For elements whose `layoutinfo-*`
+    /// already includes their intrinsic constraints, only locally-set overrides
+    /// are kept — inherited constraints are already in the measured value, and
+    /// re-reading them unconstrained can reintroduce a height-for-width loop.
+    pub fn to_apply(&self, element: &ElementRc, orientation: Orientation) -> Self {
+        if !element.borrow().layout_info_includes_own_constraints(orientation) {
+            return self.clone();
+        }
+        let mut c = self.clone();
+        match orientation {
+            Orientation::Horizontal => {
+                if !self.local.min_width {
+                    c.min_width = None;
+                }
+                if !self.local.max_width {
+                    c.max_width = None;
+                }
+                if !self.local.preferred_width {
+                    c.preferred_width = None;
+                }
+                if !self.local.horizontal_stretch {
+                    c.horizontal_stretch = None;
+                }
+            }
+            Orientation::Vertical => {
+                if !self.local.min_height {
+                    c.min_height = None;
+                }
+                if !self.local.max_height {
+                    c.max_height = None;
+                }
+                if !self.local.preferred_height {
+                    c.preferred_height = None;
+                }
+                if !self.local.vertical_stretch {
+                    c.vertical_stretch = None;
+                }
+            }
+        }
+        c
+    }
+
+    pub fn for_orientation(&self, orientation: Orientation) -> OrientationConstraints<'_> {
+        match orientation {
+            Orientation::Horizontal => OrientationConstraints {
+                min: &self.min_width,
+                max: &self.max_width,
+                preferred: &self.preferred_width,
+                stretch: &self.horizontal_stretch,
+                fixed: self.fixed_width,
+            },
+            Orientation::Vertical => OrientationConstraints {
+                min: &self.min_height,
+                max: &self.max_height,
+                preferred: &self.preferred_height,
+                stretch: &self.vertical_stretch,
+                fixed: self.fixed_height,
+            },
+        }
+    }
+
     // Iterate over the constraint with a reference to a property, and the corresponding member in the i_slint_core::layout::LayoutInfo struct
     pub fn for_each_restrictions(
         &self,
         orientation: Orientation,
     ) -> impl Iterator<Item = (&NamedReference, &'static str)> {
-        let (min, max, preferred, stretch) = match orientation {
-            Orientation::Horizontal => {
-                (&self.min_width, &self.max_width, &self.preferred_width, &self.horizontal_stretch)
-            }
-            Orientation::Vertical => {
-                (&self.min_height, &self.max_height, &self.preferred_height, &self.vertical_stretch)
-            }
-        };
+        let c = self.for_orientation(orientation);
         std::iter::empty()
-            .chain(min.as_ref().map(|x| {
+            .chain(c.min.as_ref().map(|x| {
                 if Expression::PropertyReference(x.clone()).ty() != Type::Percent {
                     (x, "min")
                 } else {
                     (x, "min_percent")
                 }
             }))
-            .chain(max.as_ref().map(|x| {
+            .chain(c.max.as_ref().map(|x| {
                 if Expression::PropertyReference(x.clone()).ty() != Type::Percent {
                     (x, "max")
                 } else {
                     (x, "max_percent")
                 }
             }))
-            .chain(preferred.as_ref().map(|x| (x, "preferred")))
-            .chain(stretch.as_ref().map(|x| (x, "stretch")))
+            .chain(c.preferred.as_ref().map(|x| (x, "preferred")))
+            .chain(c.stretch.as_ref().map(|x| (x, "stretch")))
     }
 
     pub fn visit_named_references(&mut self, visitor: &mut impl FnMut(&mut NamedReference)) {
@@ -512,10 +624,10 @@ fn find_binding<R>(
     let mut element = element.clone();
     let mut depth = 0;
     loop {
-        if let Some(b) = element.borrow().bindings.get(name)
-            && b.borrow().has_binding()
+        if let Some(b) = element.borrow().binding(name)
+            && b.has_binding()
         {
-            return Some(f(&b.borrow(), &element.borrow().enclosing_component, depth));
+            return Some(f(&b, &element.borrow().enclosing_component, depth));
         }
         let e = match &element.borrow().base_type {
             ElementType::Component(base) => base.root_element.clone(),
@@ -531,13 +643,20 @@ pub fn binding_reference(element: &ElementRc, name: &'static str) -> Option<Name
     find_binding(element, name, |_, _, _| NamedReference::new(element, SmolStr::new_static(name)))
 }
 
+/// Whether `name`'s binding is set directly on `element` (depth 0) rather than
+/// inherited from a base component. Must be evaluated while the binding is still
+/// present (i.e. when building [`LayoutConstraints`]); later passes may move it.
+fn is_local_binding(element: &ElementRc, name: &str) -> bool {
+    find_binding(element, name, |_, _, depth| depth == 0) == Some(true)
+}
+
 fn init_fake_property(
     grid_layout_element: &ElementRc,
     name: &str,
     lazy_default: impl Fn() -> Option<NamedReference>,
 ) {
     if grid_layout_element.borrow().property_declarations.contains_key(name)
-        && !grid_layout_element.borrow().bindings.contains_key(name)
+        && grid_layout_element.borrow().binding(name).is_none()
         && let Some(e) = lazy_default()
     {
         if e.name() == name && Rc::ptr_eq(&e.element(), grid_layout_element) {
@@ -546,8 +665,7 @@ fn init_fake_property(
         }
         grid_layout_element
             .borrow_mut()
-            .bindings
-            .insert(name.into(), RefCell::new(Expression::PropertyReference(e).into()));
+            .set_binding(name.into(), Expression::PropertyReference(e).into());
     }
 }
 
@@ -615,7 +733,7 @@ pub struct BoxLayout {
     pub orientation: Orientation,
     pub elems: Vec<LayoutItem>,
     pub geometry: LayoutGeometry,
-    /// The `align-items` property, if set.
+    /// The `cross-axis-alignment` property, if set.
     pub cross_alignment: Option<NamedReference>,
 }
 
@@ -637,20 +755,43 @@ pub struct FlexboxLayout {
     pub elems: Vec<FlexboxLayoutItem>,
     pub geometry: LayoutGeometry,
     pub direction: Option<NamedReference>,
-    pub align_content: Option<NamedReference>,
-    pub align_items: Option<NamedReference>,
+    pub cross_axis_line_alignment: Option<NamedReference>,
+    pub cross_axis_alignment: Option<NamedReference>,
     pub flex_wrap: Option<NamedReference>,
 }
 
 impl FlexboxLayout {
+    /// If `elem` is a (lowered, inline) FlexboxLayout, return its layout
+    /// description. The struct is embedded in the synthesized
+    /// `layoutinfo-{h,v}` / `layout-cache` bindings on the element.
+    pub fn from_element(elem: &ElementRc) -> Option<FlexboxLayout> {
+        use crate::expression_tree::Expression;
+        // The `layoutinfo-{h,v}` property's binding (on this element or its
+        // base component's root) holds a `ComputeFlexboxLayoutInfo` with the
+        // layout when the element is a FlexboxLayout.
+        let nr = {
+            let eb = elem.borrow();
+            eb.layout_info_prop(Orientation::Vertical)
+                .or_else(|| eb.layout_info_prop(Orientation::Horizontal))
+                .cloned()
+        }?;
+        let target = nr.element();
+        let target = target.borrow();
+        let binding = target.binding(nr.name())?;
+        match binding.value_expression() {
+            Expression::ComputeFlexboxLayoutInfo { layout, .. } => Some(layout.clone()),
+            _ => None,
+        }
+    }
+
     /// Try to determine the flex direction at compile time from a constant binding.
     /// Returns None if the direction is set at runtime.
     fn compile_time_direction(&self) -> Option<FlexboxLayoutDirection> {
         match self.direction.as_ref() {
             None => Some(FlexboxLayoutDirection::Row),
-            Some(nr) => nr.element().borrow().bindings.get(nr.name()).and_then(|binding| {
+            Some(nr) => nr.element().borrow().binding(nr.name()).and_then(|binding| {
                 if let crate::expression_tree::Expression::EnumerationValue(ev) =
-                    &binding.borrow().expression
+                    binding.value_expression()
                 {
                     match ev.enumeration.values[ev.value].as_str() {
                         "row" => Some(FlexboxLayoutDirection::Row),
@@ -709,10 +850,10 @@ impl FlexboxLayout {
         if let Some(e) = self.direction.as_mut() {
             visitor(&mut *e)
         }
-        if let Some(e) = self.align_content.as_mut() {
+        if let Some(e) = self.cross_axis_line_alignment.as_mut() {
             visitor(&mut *e)
         }
-        if let Some(e) = self.align_items.as_mut() {
+        if let Some(e) = self.cross_axis_alignment.as_mut() {
             visitor(&mut *e)
         }
         if let Some(e) = self.flex_wrap.as_mut() {
@@ -839,6 +980,16 @@ pub fn implicit_layout_info_call(
             }),
         };
     }
+}
+
+/// The stretch factor of elements based on text or image items, which never
+/// stretch: their `layout_info` always reports stretch 0, and a layoutinfo
+/// property synthesized later can only merge it with smaller values.
+pub fn static_native_stretch(elem: &ElementRc) -> Option<Expression> {
+    elem.borrow()
+        .builtin_type()
+        .filter(|b| matches!(b.name.as_str(), "Text" | "StyledText" | "TextInput" | "Image"))
+        .map(|_| Expression::NumberLiteral(0., Unit::None))
 }
 
 /// Create a new property based on the name. (it might get a different name if that property exist)

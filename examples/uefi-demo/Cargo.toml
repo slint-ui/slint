@@ -2,9 +2,20 @@
 # SPDX-License-Identifier: MIT
 
 # cSpell: ignore minipng
+
+# Own workspace: all of uefi-demo's dependencies are `cfg(target_os = "uefi")`,
+# so it cannot build for the host and is kept out of the examples workspace. It
+# shares the repository `target/` directory via the root `.cargo/config.toml`,
+# and is built for the `x86_64-unknown-uefi` target in CI.
+[workspace]
+resolver = "3"
+
+[workspace.package]
+edition = "2024"
+
 [package]
 name = "uefi-demo"
-version = "1.17.0"
+version = "1.18.0"
 edition.workspace = true
 license = "MIT"
 build = "build.rs"
@@ -15,8 +26,8 @@ path = "main.rs"
 name = "uefi-demo"
 
 [target.'cfg(target_os = "uefi")'.dependencies]
-uefi = { version = "0.33", features = ["panic_handler", "global_allocator"] }
-minipng = "=0.1.1"
+uefi = { version = "0.37", features = ["panic_handler", "global_allocator"] }
+minipng = "1.0"
 
 slint = { path = "../../api/rs/slint", default-features = false, features = ["compat-1-2", "renderer-software", "libm", "log", "unsafe-single-threaded"] }
 log = "0.4.21"

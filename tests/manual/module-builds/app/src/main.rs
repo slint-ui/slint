@@ -52,3 +52,27 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Regression for the bug where the compiler treated library-global properties
+    /// as constants, inlining their defaults and ignoring external writes.
+    #[test]
+    fn library_global_property_binding_observes_external_writes() {
+        i_slint_backend_testing::init_no_event_loop();
+        let ui = AppWindow::new().unwrap();
+        let api = ui.global::<blogicb::BLogicBAPI>();
+
+        api.set_status(slint::SharedString::from("HelloFromRust"));
+
+        assert_eq!(
+            ui.get_test_status().as_str(),
+            "HelloFromRust",
+            "binding `test-status: BLogicBAPI.status` did not observe the \
+             Rust-side write — the imported library global's property was \
+             inlined as a constant"
+        );
+    }
+}

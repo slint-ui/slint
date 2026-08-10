@@ -1,0 +1,9 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// The exported component must inherit Window.
+
+//#sls.gen.window-root
+export component NotAWindow inherits Rectangle {
+//               >        <error{Exporting a component that doesn't inherit Window is not supported in Slint SC}
+}

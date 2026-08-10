@@ -193,7 +193,7 @@ impl JsComponentInstance {
         env: &Env,
         mut this: This<Object<'_>>,
         callback_name: String,
-        callback: DynFunction<'_>,
+        #[napi(ts_arg_type = "(...args: any[]) => any")] callback: DynFunction<'_>,
     ) -> Result<()> {
         let (ty, _) = self
             .inner
@@ -236,7 +236,7 @@ impl JsComponentInstance {
         mut this: This<Object<'_>>,
         global_name: String,
         callback_name: String,
-        callback: DynFunction<'_>,
+        #[napi(ts_arg_type = "(...args: any[]) => any")] callback: DynFunction<'_>,
     ) -> Result<()> {
         let (ty, _) = self
             .inner
@@ -425,6 +425,11 @@ impl JsComponentInstance {
 
     #[napi]
     pub fn window(&self) -> Result<JsWindow> {
+        if !self.inner.definition().is_window() {
+            return Err(napi::Error::from_reason(
+                "this component is not windowed (for example because it inherits from SystemTrayIcon) and has no window",
+            ));
+        }
         Ok(JsWindow { inner: WindowInner::from_pub(self.inner.window()).window_adapter() })
     }
 }

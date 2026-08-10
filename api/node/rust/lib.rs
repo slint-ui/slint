@@ -76,7 +76,10 @@ pub fn process_events() -> napi::Result<ProcessEventsResult> {
 }
 
 #[napi]
-pub fn invoke_from_event_loop(env: &Env, callback: DynFunction<'_>) -> napi::Result<()> {
+pub fn invoke_from_event_loop(
+    env: &Env,
+    #[napi(ts_arg_type = "() => void")] callback: DynFunction<'_>,
+) -> napi::Result<()> {
     i_slint_backend_selector::with_platform(|_b| {
         // Nothing to do, just make sure a backend was created
         Ok(())
@@ -120,6 +123,24 @@ pub fn set_quit_on_last_window_closed(quit_on_last_window_closed: bool) -> napi:
 pub fn init_testing() {
     #[cfg(feature = "testing")]
     i_slint_backend_testing::init_integration_test_with_mock_time();
+}
+
+/// Returns the list of optional capabilities that were compiled into the loaded
+/// native binary. This is how JavaScript can tell whether the "dev" binary
+/// (with system-testing and MCP support) was loaded, or just the default one.
+#[napi]
+pub fn build_features() -> Vec<String> {
+    let mut features = Vec::new();
+    if cfg!(feature = "testing") {
+        features.push("testing".to_string());
+    }
+    if cfg!(feature = "system-testing") {
+        features.push("system-testing".to_string());
+    }
+    if cfg!(feature = "mcp") {
+        features.push("mcp".to_string());
+    }
+    features
 }
 
 #[napi]

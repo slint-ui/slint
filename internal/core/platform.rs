@@ -150,7 +150,7 @@ pub trait Platform {
     /// should direct the output to some developer visible terminal. The default implementation
     /// uses stderr if available, or `console.log` when targeting wasm.
     fn debug_log(&self, _arguments: core::fmt::Arguments) {
-        crate::debug_log::default_debug_log(_arguments);
+        crate::debug_log::default_log_message(_arguments);
     }
 
     /// Opens the given URL in an external browser.
@@ -319,7 +319,7 @@ pub use crate::input::key_codes::Key;
 /// A event that describes user input or windowing system events.
 ///
 /// Slint backends typically receive events from the windowing system, translate them to this
-/// enum and deliver them to the scene of items via [`slint::Window::try_dispatch_event()`](`crate::api::Window::try_dispatch_event()`).
+/// enum and deliver them to the scene of items via [`slint::Window::dispatch_event_with_result()`](`crate::api::Window::dispatch_event_with_result()`).
 ///
 /// The pointer variants describe events originating from an input device such as a mouse
 /// or a contact point on a touch-enabled surface.
@@ -353,6 +353,8 @@ pub enum WindowEvent {
         delta_y: f32,
     },
     /// The pointer exited the window.
+    ///
+    /// Always reported as [`Accepted`](crate::api::WindowEventDispatchResult::Accepted).
     PointerExited,
     /// A key was pressed.
     KeyPressed {

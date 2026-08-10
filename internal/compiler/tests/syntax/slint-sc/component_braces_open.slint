@@ -1,0 +1,11 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// The braces delimit the component body: without the opening one there is no body.
+
+//#sls.file.component.body-braces
+export component Foo inherits Window
+    Rectangle {
+//  >       <error{Syntax error: expected '{'}
+    }
+}

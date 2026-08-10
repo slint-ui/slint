@@ -83,7 +83,7 @@ export component ListView {
                     select(index);
                 }
 
-                private property <length> offset: i-scroll-view.viewport-y + index * (self.height + parent.spacing);
+                private property <length> offset: i-scroll-view.content-y + index * (self.height + parent.spacing);
 
                 text: item.text;
                 selected: index == selected-index;

@@ -4,6 +4,7 @@
 //! This pass computes the layout constraint
 
 use lyon_path::geom::euclid::approxeq::ApproxEq;
+use std::sync::Arc;
 
 use crate::diagnostics::{BuildDiagnostics, DiagnosticLevel, Spanned};
 use crate::expression_tree::*;
@@ -21,12 +22,12 @@ use std::rc::Rc;
 /// Add a `pure function layoutinfo-v-with-constraint(width: length) -> LayoutInfo`
 /// to `elem` with the given `body`. The body reads
 /// `FunctionParameterReference { index: 0 }` for the width.
-fn synthesize_layoutinfo_v_with_constraint_on(
+pub(crate) fn synthesize_layoutinfo_v_with_constraint_on(
     elem: &ElementRc,
     span: crate::diagnostics::SourceLocation,
     body: Expression,
 ) {
-    let function_ty = Type::Function(Rc::new(crate::langtype::Function {
+    let function_ty = Type::Function(Arc::new(crate::langtype::Function {
         return_type: crate::typeregister::layout_info_type().into(),
         args: vec![Type::LogicalLength],
         arg_names: vec![SmolStr::new_static("width")],
@@ -44,7 +45,7 @@ fn synthesize_layoutinfo_v_with_constraint_on(
             ..Default::default()
         },
     );
-    elem_mut.bindings.insert(prop_name, BindingExpression::new_with_span(body, span).into());
+    elem_mut.set_binding(prop_name, BindingExpression::new_with_span(body, span));
     elem_mut.layout_info_v_with_constraint = Some(nr);
 }
 
@@ -117,6 +118,38 @@ fn rewrite_layoutinfo_v_for_constraint(expr: &mut Expression, width_param: &Expr
                     prop_nr.name() == nr.name() && Rc::ptr_eq(&prop_nr.element(), &target)
                 })
                 .unwrap_or(false);
+            // A forwarded scalar constraint (`min-height: inner.min-height`) reads
+            // the target's implicit min/preferred/max-height, which is its
+            // layoutinfo-v at the *unconstrained* width. Thread the cross-axis
+            // width through the target's parametrized function instead.
+            let constraint_field = match nr.name().as_str() {
+                "min-height" => Some("min"),
+                "preferred-height" => Some("preferred"),
+                "max-height" => Some("max"),
+                "vertical-stretch" => Some("stretch"),
+                _ => None,
+            };
+            if let Some(field) = constraint_field {
+                if let Some(constrained_nr) =
+                    target.borrow().inherited_layout_info_v_with_constraint()
+                {
+                    *sub = Expression::StructFieldAccess {
+                        base: Expression::FunctionCall {
+                            function: Callable::Function(
+                                crate::namedreference::NamedReference::new(
+                                    &target,
+                                    constrained_nr.name().clone(),
+                                ),
+                            ),
+                            arguments: vec![width_param.clone()],
+                            source_location: None,
+                        }
+                        .into(),
+                        name: field.into(),
+                    };
+                }
+                return;
+            }
             if !is_vertical_layout_info {
                 return;
             }
@@ -137,12 +170,12 @@ fn rewrite_layoutinfo_v_for_constraint(expr: &mut Expression, width_param: &Expr
 }
 
 /// Mirror of [`synthesize_layoutinfo_v_with_constraint_on`] for the horizontal axis.
-fn synthesize_layoutinfo_h_with_constraint_on(
+pub(crate) fn synthesize_layoutinfo_h_with_constraint_on(
     elem: &ElementRc,
     span: crate::diagnostics::SourceLocation,
     body: Expression,
 ) {
-    let function_ty = Type::Function(Rc::new(crate::langtype::Function {
+    let function_ty = Type::Function(Arc::new(crate::langtype::Function {
         return_type: crate::typeregister::layout_info_type().into(),
         args: vec![Type::LogicalLength],
         arg_names: vec![SmolStr::new_static("height")],
@@ -160,7 +193,7 @@ fn synthesize_layoutinfo_h_with_constraint_on(
             ..Default::default()
         },
     );
-    elem_mut.bindings.insert(prop_name, BindingExpression::new_with_span(body, span).into());
+    elem_mut.set_binding(prop_name, BindingExpression::new_with_span(body, span));
     elem_mut.layout_info_h_with_constraint = Some(nr);
 }
 
@@ -273,8 +306,7 @@ pub fn synthesize_layoutinfo_h_with_constraint(component: &Rc<Component>) {
         // bindings were moved to a new sub-component root by
         // `repeater_component`). Read from `elem` itself, which is the
         // current owner of the binding.
-        let Some(h_binding) = elem.borrow().bindings.get(h_nr.name()).map(|b| b.borrow().clone())
-        else {
+        let Some(h_binding) = elem.borrow().binding(h_nr.name()).map(|b| b.clone()) else {
             return has_h_cross;
         };
 
@@ -350,9 +382,10 @@ pub fn synthesize_layoutinfo_v_with_constraint(component: &Rc<Component>) {
         if !has_v_cross || already_synthesized {
             return has_v_cross;
         }
-        let Some(v_nr) = v_nr_clone else { return has_v_cross };
-        let Some(v_binding) = elem.borrow().bindings.get(v_nr.name()).map(|b| b.borrow().clone())
-        else {
+        let Some(v_nr) = v_nr_clone else {
+            return has_v_cross;
+        };
+        let Some(v_binding) = elem.borrow().binding(v_nr.name()).map(|b| b.clone()) else {
             return has_v_cross;
         };
 
@@ -393,7 +426,7 @@ pub fn lower_layouts(
     });
 
     *component.root_constraints.borrow_mut() =
-        LayoutConstraints::new(&component.root_element, diag, DiagnosticLevel::Error);
+        LayoutConstraints::new(&component.root_element, Some((diag, DiagnosticLevel::Error)));
 
     recurse_elem_including_sub_components(
         component,
@@ -401,11 +434,17 @@ pub fn lower_layouts(
         &mut |elem, parent_layout_type| {
             let component = elem.borrow().enclosing_component.upgrade().unwrap();
 
-            // Popups have their own layout constraints
-            for popup in component.popup_windows.borrow_mut().iter() {
-                let component = &popup.component;
-                *component.root_constraints.borrow_mut() =
-                    LayoutConstraints::new(&component.root_element, diag, DiagnosticLevel::Error);
+            // A popup is not visited as a component on its own (it can be nested in a sub-component),
+            // so set the constraints of its root here, once per component when visiting its root. A
+            // redundant size constraint on a popup root is only a warning (not an error like on a
+            // window root) for compatibility with older versions of Slint that did not report it.
+            if Rc::ptr_eq(elem, &component.root_element) {
+                for popup in component.popup_windows.borrow().iter() {
+                    *popup.component.root_constraints.borrow_mut() = LayoutConstraints::new(
+                        &popup.component.root_element,
+                        Some((&mut *diag, DiagnosticLevel::Warning)),
+                    );
+                }
             }
 
             lower_element_layout(
@@ -421,13 +460,12 @@ pub fn lower_layouts(
 }
 
 fn check_preferred_size_100(elem: &ElementRc, prop: &str, diag: &mut BuildDiagnostics) -> bool {
-    let ret = if let Some(p) = elem.borrow().bindings.get(prop) {
-        if p.borrow().expression.ty() == Type::Percent {
-            if !matches!(p.borrow().expression.ignore_debug_hooks(), Expression::NumberLiteral(val, _) if *val == 100.)
-            {
+    let ret = if let Some(p) = elem.borrow().binding(prop) {
+        if p.expression.ty() == Type::Percent {
+            if !matches!(p.value_expression(), Expression::NumberLiteral(val, _) if *val == 100.) {
                 diag.push_error(
                     format!("{prop} must either be a length, or the literal '100%'"),
-                    &*p.borrow(),
+                    &*p,
                 );
             }
             true
@@ -438,7 +476,7 @@ fn check_preferred_size_100(elem: &ElementRc, prop: &str, diag: &mut BuildDiagno
         false
     };
     if ret {
-        elem.borrow_mut().bindings.remove(prop).unwrap();
+        elem.borrow_mut().take_binding(prop).unwrap();
         return true;
     }
     false
@@ -460,7 +498,7 @@ fn lower_element_layout(
         None
     };
 
-    check_no_layout_properties(elem, &layout_type, parent_layout_type, diag);
+    check_no_layout_properties(elem, &layout_type, parent_layout_type, type_register, diag);
 
     match layout_type.as_ref()?.as_str() {
         "Row" => return layout_type,
@@ -612,10 +650,10 @@ fn lower_grid_layout(
             new_row = true;
             let row_children = std::mem::take(&mut layout_child.borrow_mut().children);
             for row_child in row_children {
-                if let Some(binding) = row_child.borrow_mut().bindings.get("row") {
+                if let Some(binding) = row_child.borrow_mut().binding("row") {
                     diag.push_warning(
                         "The 'row' property cannot be used for elements inside a Row. This was accepted by previous versions of Slint, but may become an error in the future".to_string(),
-                        &*binding.borrow(),
+                        &*binding,
                     );
                 }
                 grid.add_element(
@@ -658,15 +696,14 @@ fn lower_grid_layout(
     grid.uses_auto = numbering_type.strict == Some(RowColExpressionType::Auto);
     let span = grid_layout_element.borrow().to_source_location();
 
-    layout_organized_data_prop.element().borrow_mut().bindings.insert(
+    layout_organized_data_prop.element().borrow_mut().set_binding(
         layout_organized_data_prop.name().clone(),
         BindingExpression::new_with_span(
             Expression::OrganizeGridLayout(grid.clone()),
             span.clone(),
-        )
-        .into(),
+        ),
     );
-    layout_cache_prop_h.element().borrow_mut().bindings.insert(
+    layout_cache_prop_h.element().borrow_mut().set_binding(
         layout_cache_prop_h.name().clone(),
         BindingExpression::new_with_span(
             Expression::SolveGridLayout {
@@ -675,10 +712,9 @@ fn lower_grid_layout(
                 orientation: Orientation::Horizontal,
             },
             span.clone(),
-        )
-        .into(),
+        ),
     );
-    layout_cache_prop_v.element().borrow_mut().bindings.insert(
+    layout_cache_prop_v.element().borrow_mut().set_binding(
         layout_cache_prop_v.name().clone(),
         BindingExpression::new_with_span(
             Expression::SolveGridLayout {
@@ -687,10 +723,9 @@ fn lower_grid_layout(
                 orientation: Orientation::Vertical,
             },
             span.clone(),
-        )
-        .into(),
+        ),
     );
-    layout_info_prop_h.element().borrow_mut().bindings.insert(
+    layout_info_prop_h.element().borrow_mut().set_binding(
         layout_info_prop_h.name().clone(),
         BindingExpression::new_with_span(
             Expression::ComputeGridLayoutInfo {
@@ -700,10 +735,9 @@ fn lower_grid_layout(
                 cross_axis_size: None,
             },
             span.clone(),
-        )
-        .into(),
+        ),
     );
-    layout_info_prop_v.element().borrow_mut().bindings.insert(
+    layout_info_prop_v.element().borrow_mut().set_binding(
         layout_info_prop_v.name().clone(),
         BindingExpression::new_with_span(
             Expression::ComputeGridLayoutInfo {
@@ -713,8 +747,7 @@ fn lower_grid_layout(
                 cross_axis_size: None,
             },
             span,
-        )
-        .into(),
+        ),
     );
     grid_layout_element.borrow_mut().layout_info_prop =
         Some((layout_info_prop_h, layout_info_prop_v));
@@ -759,18 +792,12 @@ impl GridLayout {
             let mut check_expr = |name: &str| {
                 let mut is_number_literal = false;
                 let mut read = |elem: &ElementRc, lit: &mut bool| -> Option<Expression> {
-                    let b = elem.borrow().bindings.get(name).cloned()?;
-                    let b_borrow = b.borrow();
-                    if !b_borrow.has_binding() {
+                    let b = elem.borrow().binding(name).map(|b| b.clone())?;
+                    if !b.has_binding() {
                         return None;
                     }
-                    *lit = check_number_literal_is_positive_integer(
-                        &b_borrow.expression,
-                        name,
-                        &*b_borrow,
-                        diag,
-                    );
-                    Some(b_borrow.expression.clone())
+                    *lit = check_number_literal_is_positive_integer(&b.expression, name, &b, diag);
+                    Some(b.expression.clone())
                 };
                 let lenient = read(item_element, &mut is_number_literal);
                 let strict = if lenient.is_some() {
@@ -861,13 +888,13 @@ impl GridLayout {
                     }
                     _ => None,
                 };
-                let direct_binding = element_ref.bindings.get(prop_name).cloned();
-                let inner_binding =
-                    inner_borrow.as_ref().and_then(|e| e.borrow().bindings.get(prop_name).cloned());
+                let direct_binding = element_ref.binding(prop_name).map(|b| b.clone());
+                let inner_binding = inner_borrow
+                    .as_ref()
+                    .and_then(|e| e.borrow().binding(prop_name).map(|b| b.clone()));
                 let binding = direct_binding.or(inner_binding);
-                let binding_borrow = binding.as_ref().map(|b| b.borrow());
-                let span: &dyn Spanned = match &binding_borrow {
-                    Some(b) => &**b,
+                let span: &dyn Spanned = match &binding {
+                    Some(b) => b,
                     None => &*element_ref,
                 };
                 if is_error {
@@ -1041,7 +1068,9 @@ impl GridLayout {
                     rowspan_expr: rowspan_expr.unwrap_or(RowColExpr::Literal(1)),
                     child_items: None,
                 }));
-                child.borrow_mut().grid_layout_cell = Some(child_grid_cell);
+                // Attach to the element the solver reads: the sub-component root for an inner
+                // repeater (so it reports its own colspan/rowspan), or `child` for a static child.
+                sub_item.elem.borrow_mut().grid_layout_cell = Some(child_grid_cell);
 
                 // Compute the effective inner_rep_idx for this child:
                 // - For inner repeater items: cumulative_pos + model_index
@@ -1237,6 +1266,402 @@ impl GridLayout {
     }
 }
 
+/// Solve box layouts with a single non-repeated cell and constant alignment at
+/// compile time: closed-form bindings replace the layout-cache property, the
+/// runtime solver, and the layout info computation.
+///
+/// Runs after the default_geometry pass so that every cell's layout info
+/// property exists.
+pub fn optimize_single_cell_layouts(component: &Rc<Component>) {
+    recurse_elem_including_sub_components(component, &(), &mut |elem, _| {
+        // Collect first: the rewrite modifies the bindings.
+        let solves = elem
+            .borrow()
+            .real_bindings()
+            .filter_map(|(name, b)| match b.borrow().value_expression() {
+                Expression::SolveBoxLayout(l, o) if *o == l.orientation && l.elems.len() == 1 => {
+                    Some((name.clone(), l.clone()))
+                }
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        for (cache_name, layout) in solves {
+            optimize_single_cell_layout(elem, &cache_name, &layout);
+        }
+    });
+}
+
+fn optimize_single_cell_layout(
+    layout_element: &ElementRc,
+    cache_name: &SmolStr,
+    layout: &BoxLayout,
+) {
+    let Some(single_cell) = single_cell_box_layout(layout) else { return };
+    let orientation = layout.orientation;
+    let cell = &layout.elems[0].element;
+    let (pos, size) = match orientation {
+        Orientation::Horizontal => ("x", "width"),
+        Orientation::Vertical => ("y", "height"),
+    };
+    let replace = |prop: &str, expr: Expression| {
+        let elem = cell.borrow();
+        let mut binding = elem.binding_mut(prop).expect("the layout has set the cell's geometry");
+        let expression = &mut binding.expression;
+        debug_assert!(matches!(
+            expression.ignore_debug_hooks(),
+            Expression::LayoutCacheAccess { .. }
+        ));
+
+        *expression.ignore_debug_hooks_mut() = expr;
+    };
+    let pads = layout.geometry.padding.begin_end(orientation);
+    let available = || size_minus_padding(layout_element, size, pads);
+    let mut pos_expr = pads.0.map_or(Expression::NumberLiteral(0., Unit::Px), |nr| {
+        Expression::PropertyReference(nr.clone())
+    });
+    if single_cell.pos_factor != 0. {
+        // Read the size through the cell's property so the size expression
+        // isn't duplicated.
+        let cell_size =
+            Expression::PropertyReference(NamedReference::new(cell, SmolStr::new_static(size)));
+        let leftover = min_max(
+            MinMaxOp::Max,
+            Expression::NumberLiteral(0., Unit::Px),
+            bin('-', available(), cell_size),
+        );
+        let factor = Expression::NumberLiteral(single_cell.pos_factor, Unit::None);
+        pos_expr = bin('+', pos_expr, bin('*', leftover, factor));
+    }
+    replace(pos, pos_expr);
+    if let Some((min_expr, max_expr, pref_expr)) = &single_cell.size {
+        let mut size_expr = available();
+        if let Some(pref) = pref_expr {
+            size_expr = min_max(MinMaxOp::Min, size_expr, pref.clone());
+        }
+        // Clamp like the runtime solver: the minimum wins over the maximum.
+        size_expr = min_max(
+            MinMaxOp::Max,
+            min_max(MinMaxOp::Min, size_expr, max_expr.clone()),
+            min_expr.clone(),
+        );
+        replace(size, size_expr);
+    }
+    layout_element.borrow_mut().take_binding(cache_name);
+    layout_element.borrow_mut().property_declarations.remove(cache_name);
+    for o in [Orientation::Horizontal, Orientation::Vertical] {
+        let Some(nr) = layout_element.borrow().layout_info_prop(o).cloned() else { continue };
+        let Some(info) =
+            single_cell_layout_info_binding(layout, &layout.elems[0], o, single_cell.stretch)
+        else {
+            continue;
+        };
+        if let Some(mut binding) = nr.element().borrow().binding_mut(nr.name()) {
+            *binding.expression.ignore_debug_hooks_mut() = info;
+        }
+    }
+}
+
+/// Compile-time solution for a box layout with a single non-repeated cell and
+/// constant alignment: `size = clamp(min(available, preferred), min, max)`
+/// (no preferred term when stretching), `pos = padding + pos_factor * leftover`.
+struct SingleCellBoxLayout {
+    /// Whether the (constant) alignment is the default stretch.
+    stretch: bool,
+    /// Fraction of the leftover space placed before the cell:
+    /// 0 for stretch/start/space-between, ½ for center/space-around/space-evenly, 1 for end.
+    pos_factor: f64,
+    /// The `(min, max, preferred)` expressions clamping the size; the preferred
+    /// term is `None` when stretching. The whole option is `None` when the size
+    /// is fixed by an explicit binding that stays in place.
+    size: Option<(Expression, Expression, Option<Expression>)>,
+}
+
+fn single_cell_box_layout(layout: &BoxLayout) -> Option<SingleCellBoxLayout> {
+    let orientation = layout.orientation;
+    let [item] = layout.elems.as_slice() else { return None };
+    if item.element.borrow().repeated.is_some() {
+        return None;
+    }
+    // Cells with a cross-axis-parametrized layout info need the runtime cells machinery.
+    if orientation == Orientation::Horizontal
+        && item.element.borrow().inherited_layout_info_h_with_constraint().is_some()
+    {
+        return None;
+    }
+    // The alignment must be a compile-time constant. A state-dependent
+    // alignment was already rewritten into a condition by the lower_states pass.
+    let alignment = match &layout.geometry.alignment {
+        None => None,
+        Some(nr) => {
+            let elem = nr.element();
+            let elem = elem.borrow();
+            let analysis = elem.property_analysis.borrow();
+            if analysis.get(nr.name()).is_some_and(|a| a.is_set || a.is_set_externally) {
+                return None;
+            }
+            let binding = elem.binding(nr.name())?;
+            if !binding.two_way_bindings.is_empty() {
+                return None;
+            }
+            let Expression::EnumerationValue(ev) = binding.value_expression() else {
+                return None;
+            };
+            Some(ev.enumeration.values[ev.value].clone())
+        }
+    };
+    let (stretch, pos_factor) = match alignment.as_deref() {
+        None | Some("stretch") => (true, 0.),
+        Some("start" | "space-between") => (false, 0.),
+        Some("center" | "space-around" | "space-evenly") => (false, 0.5),
+        Some("end") => (false, 1.),
+        _ => return None,
+    };
+    let c = item.constraints.for_orientation(orientation);
+    // Percent constraints scale with the available size; leave them to the solver.
+    if [c.min, c.max, c.preferred].into_iter().flatten().any(|nr| nr.ty() == Type::Percent) {
+        return None;
+    }
+    if c.fixed {
+        return Some(SingleCellBoxLayout { stretch, pos_factor, size: None });
+    }
+    let implicit = cell_implicit_info(&item.element, orientation);
+    let side = |explicit: &Option<NamedReference>, name: &str| {
+        explicit
+            .clone()
+            .map(Expression::PropertyReference)
+            .or_else(|| implicit.as_ref().and_then(|info| implicit_info_field(info, name)))
+    };
+    let pref = if stretch { None } else { Some(side(c.preferred, "preferred")?) };
+    Some(SingleCellBoxLayout {
+        stretch,
+        pos_factor,
+        size: Some((side(c.min, "min")?, side(c.max, "max")?, pref)),
+    })
+}
+
+fn bin(op: char, lhs: Expression, rhs: Expression) -> Expression {
+    Expression::BinaryExpression { lhs: Box::new(lhs), rhs: Box::new(rhs), op }
+}
+
+fn min_max(op: MinMaxOp, lhs: Expression, rhs: Expression) -> Expression {
+    crate::builtin_macros::min_max_expression(lhs, rhs, op)
+}
+
+fn size_minus_padding(
+    layout_element: &ElementRc,
+    size_prop: &'static str,
+    (begin_padding, end_padding): (Option<&NamedReference>, Option<&NamedReference>),
+) -> Expression {
+    let mut e = Expression::PropertyReference(NamedReference::new(
+        layout_element,
+        SmolStr::new_static(size_prop),
+    ));
+    for p in [begin_padding, end_padding].into_iter().flatten() {
+        e = bin('-', e, Expression::PropertyReference(p.clone()));
+    }
+    e
+}
+
+/// Closed-form `layoutinfo-{h,v}` binding for a single-cell box layout: what
+/// `box_layout_info` / `box_layout_info_ortho` compute at runtime. `None` when
+/// a needed side of the cell's implicit layout info requires a runtime call.
+fn single_cell_layout_info_binding(
+    layout: &BoxLayout,
+    item: &LayoutItem,
+    o: Orientation,
+    stretch: bool,
+) -> Option<Expression> {
+    let c = item.constraints.for_orientation(o);
+    let size_prop = match o {
+        Orientation::Horizontal => "width",
+        Orientation::Vertical => "height",
+    };
+    let info_ty = crate::typeregister::layout_info_type();
+    // Literal fields for built-ins with static info; otherwise a local holding
+    // the cell's layout info property, stored only when a field is read.
+    enum Implicit {
+        Literal(std::collections::BTreeMap<SmolStr, Expression>),
+        Prop(Expression),
+        Expensive,
+    }
+    let implicit = match cell_implicit_info(&item.element, o) {
+        Some(Expression::Struct { values, .. }) => Implicit::Literal(values),
+        Some(base @ Expression::PropertyReference(_)) => Implicit::Prop(base),
+        _ => Implicit::Expensive,
+    };
+    let mut implicit_used = false;
+    let mut implicit_field = |name: &str| match &implicit {
+        Implicit::Literal(values) => values.get(name).cloned(),
+        Implicit::Prop(_) => {
+            implicit_used = true;
+            Some(Expression::StructFieldAccess {
+                base: Box::new(Expression::ReadLocalVariable {
+                    name: "cell_layout_info".into(),
+                    ty: info_ty.clone().into(),
+                }),
+                name: name.into(),
+            })
+        }
+        Implicit::Expensive => None,
+    };
+    // Percent constraints don't restrict the reported layout info.
+    let explicit = |nr: &Option<NamedReference>| {
+        nr.clone().filter(|nr| nr.ty() != Type::Percent).map(Expression::PropertyReference)
+    };
+    let (cell_min, cell_max, cell_pref) = if c.fixed {
+        let sz =
+            Expression::ReadLocalVariable { name: "cell_size".into(), ty: Type::LogicalLength };
+        (sz.clone(), sz.clone(), sz)
+    } else {
+        (
+            explicit(c.min).or_else(|| implicit_field("min"))?,
+            explicit(c.max).or_else(|| implicit_field("max"))?,
+            explicit(c.preferred).or_else(|| implicit_field("preferred"))?,
+        )
+    };
+    let cell_stretch = c
+        .stretch
+        .clone()
+        .map(Expression::PropertyReference)
+        .or_else(|| implicit_field("stretch"))
+        .or_else(|| static_native_stretch(&item.element))?;
+
+    let mut prelude = Vec::new();
+    if implicit_used && let Implicit::Prop(base) = implicit {
+        prelude.push(Expression::StoreLocalVariable {
+            name: "cell_layout_info".into(),
+            value: Box::new(base),
+        });
+    }
+    if c.fixed {
+        prelude.push(Expression::StoreLocalVariable {
+            name: "cell_size".into(),
+            value: Box::new(Expression::PropertyReference(NamedReference::new(
+                &item.element,
+                SmolStr::new_static(size_prop),
+            ))),
+        });
+    }
+    let (pad_begin, pad_end) = layout.geometry.padding.begin_end(o);
+    let pad_sum = [pad_begin, pad_end]
+        .into_iter()
+        .flatten()
+        .map(|nr| Expression::PropertyReference(nr.clone()))
+        .reduce(|lhs, rhs| bin('+', lhs, rhs));
+    if let Some(pad_sum) = pad_sum.clone() {
+        prelude.push(Expression::StoreLocalVariable {
+            name: "layout_padding".into(),
+            value: Box::new(pad_sum),
+        });
+    }
+    let plus_pads = |e: Expression| {
+        if pad_sum.is_none() {
+            e
+        } else {
+            let pads = Expression::ReadLocalVariable {
+                name: "layout_padding".into(),
+                ty: Type::LogicalLength,
+            };
+            bin('+', e, pads)
+        }
+    };
+    let (min, max, preferred) = if o == layout.orientation {
+        let min = plus_pads(cell_min.clone());
+        let max = if stretch {
+            min_max(MinMaxOp::Max, plus_pads(cell_max.clone()), min.clone())
+        } else {
+            Expression::NumberLiteral(f32::MAX as f64, Unit::Px)
+        };
+        let pref = plus_pads(min_max(
+            MinMaxOp::Max,
+            min_max(MinMaxOp::Min, cell_pref, cell_max),
+            cell_min,
+        ));
+        (min, max, pref)
+    } else {
+        let bounded_max = min_max(MinMaxOp::Max, cell_max, cell_min.clone());
+        let pref = plus_pads(min_max(
+            MinMaxOp::Max,
+            min_max(MinMaxOp::Min, cell_pref, bounded_max.clone()),
+            cell_min.clone(),
+        ));
+        (plus_pads(cell_min), plus_pads(bounded_max), pref)
+    };
+    let values = [
+        ("min", min),
+        ("max", max),
+        ("min_percent", Expression::NumberLiteral(0., Unit::None)),
+        ("max_percent", Expression::NumberLiteral(100., Unit::None)),
+        ("preferred", preferred),
+        ("stretch", cell_stretch),
+    ]
+    .into_iter()
+    .map(|(name, e)| (SmolStr::new_static(name), e))
+    .collect();
+    let info = Expression::Struct { ty: info_ty, values };
+    Some(if prelude.is_empty() {
+        info
+    } else {
+        prelude.push(info);
+        Expression::CodeBlock(prelude)
+    })
+}
+
+/// The implicit layout info of a layout cell, resolved like `get_layout_info`
+/// in the LLR lowering: the element's own layoutinfo property when it has one,
+/// otherwise [`implicit_layout_info_call`].
+fn cell_implicit_info(elem: &ElementRc, orientation: Orientation) -> Option<Expression> {
+    let own_info = elem.borrow().layout_info_prop(orientation).cloned();
+    match own_info {
+        Some(nr) => Some(Expression::PropertyReference(nr)),
+        None => implicit_layout_info_call(elem, orientation, BuiltinFilter::All, None),
+    }
+}
+
+/// A cheap expression for one field of a [`cell_implicit_info`] result.
+/// `None` when the info needs a runtime call.
+fn implicit_info_field(info: &Expression, name: &str) -> Option<Expression> {
+    match info {
+        Expression::Struct { values, .. } => values.get(name).cloned(),
+        base @ Expression::PropertyReference(_) => {
+            Some(Expression::StructFieldAccess { base: Box::new(base.clone()), name: name.into() })
+        }
+        _ => None,
+    }
+}
+
+/// Clamp a cross-axis stretch size to the cell's explicit min/max constraints,
+/// like the runtime solver: percent constraints scale with the available size,
+/// and the minimum wins over the maximum.
+///
+/// Implicit constraints are not consulted: an element's layout info may depend
+/// on its own geometry (a percent spacing, for example), and reading it from
+/// the geometry binding would create a binding loop.
+fn clamp_cross_stretch_size(
+    available: &Expression,
+    c: &LayoutConstraints,
+    ortho: Orientation,
+) -> Expression {
+    let c = c.for_orientation(ortho);
+    let side = |explicit: &Option<NamedReference>| match explicit {
+        Some(nr) if nr.ty() == Type::Percent => Some(bin(
+            '/',
+            bin('*', available.clone(), Expression::PropertyReference(nr.clone())),
+            Expression::NumberLiteral(100., Unit::None),
+        )),
+        Some(nr) => Some(Expression::PropertyReference(nr.clone())),
+        None => None,
+    };
+    let mut size_expr = available.clone();
+    if let Some(max_expr) = side(c.max) {
+        size_expr = min_max(MinMaxOp::Min, size_expr, max_expr);
+    }
+    if let Some(min_expr) = side(c.min) {
+        size_expr = min_max(MinMaxOp::Max, size_expr, min_expr);
+    }
+    size_expr
+}
+
 fn lower_box_layout(
     layout_element: &ElementRc,
     diag: &mut BuildDiagnostics,
@@ -1246,11 +1671,9 @@ fn lower_box_layout(
         orientation,
         elems: Default::default(),
         geometry: LayoutGeometry::new(layout_element),
-        cross_alignment: binding_reference(layout_element, "align-items"),
+        cross_alignment: binding_reference(layout_element, "cross-axis-alignment"),
     };
 
-    let layout_cache_prop =
-        create_new_prop(layout_element, SmolStr::new_static("layout-cache"), Type::LayoutCache);
     let layout_cache_ortho_prop = layout.cross_alignment.is_some().then(|| {
         create_new_prop(
             layout_element,
@@ -1275,34 +1698,19 @@ fn lower_box_layout(
         Orientation::Horizontal => ("x", "width", "y", "height"),
         Orientation::Vertical => ("y", "height", "x", "width"),
     };
-    // Default stretch bindings, only used when there is no `align-items`.
+
+    let layout_cache_prop =
+        create_new_prop(layout_element, SmolStr::new_static("layout-cache"), Type::LayoutCache);
+    // Default stretch bindings, only used when there is no `cross-axis-alignment`.
     let stretch_bindings = layout_cache_ortho_prop.is_none().then(|| {
-        let (begin_padding, end_padding) = match orientation {
-            Orientation::Horizontal => {
-                (&layout.geometry.padding.top, &layout.geometry.padding.bottom)
-            }
-            Orientation::Vertical => {
-                (&layout.geometry.padding.left, &layout.geometry.padding.right)
-            }
-        };
-        let pad_expr = begin_padding.clone().map(Expression::PropertyReference);
-        let mut size_expr = Expression::PropertyReference(NamedReference::new(
-            layout_element,
-            SmolStr::new_static(ortho),
-        ));
-        for p in [begin_padding, end_padding].into_iter().flatten() {
-            size_expr = Expression::BinaryExpression {
-                lhs: Box::new(std::mem::take(&mut size_expr)),
-                rhs: Box::new(Expression::PropertyReference(p.clone())),
-                op: '-',
-            };
-        }
-        (pad_expr, size_expr)
+        let pads = layout.geometry.padding.begin_end(orientation.orthogonal());
+        let pad_expr = pads.0.map(|nr| Expression::PropertyReference(nr.clone()));
+        (pad_expr, size_minus_padding(layout_element, ortho, pads))
     });
 
     for layout_child in &layout_children {
         let item = create_layout_item(layout_child, diag);
-        let index = layout.elems.len() * 2;
+        let index = layout.elems.len() * BOX_LAYOUT_CACHE_ENTRIES_PER_CELL;
         let rep_idx = &item.repeater_index;
         let (fixed_size, fixed_ortho) = match orientation {
             Orientation::Horizontal => {
@@ -1313,53 +1721,67 @@ fn lower_box_layout(
             }
         };
         let actual_elem = &item.elem;
-        set_prop_from_cache(actual_elem, pos, &layout_cache_prop, index, rep_idx, 2, diag);
+        let entries = BOX_LAYOUT_CACHE_ENTRIES_PER_CELL;
+        set_prop_from_cache(actual_elem, pos, &layout_cache_prop, index, rep_idx, entries, diag);
         if !fixed_size {
-            set_prop_from_cache(actual_elem, size, &layout_cache_prop, index + 1, rep_idx, 2, diag);
+            set_prop_from_cache(
+                actual_elem,
+                size,
+                &layout_cache_prop,
+                index + 1,
+                rep_idx,
+                entries,
+                diag,
+            );
         }
         if let Some(cache_ortho) = &layout_cache_ortho_prop {
-            set_prop_from_cache(actual_elem, pad, cache_ortho, index, rep_idx, 2, diag);
+            set_prop_from_cache(actual_elem, pad, cache_ortho, index, rep_idx, entries, diag);
             if !fixed_ortho {
-                set_prop_from_cache(actual_elem, ortho, cache_ortho, index + 1, rep_idx, 2, diag);
+                set_prop_from_cache(
+                    actual_elem,
+                    ortho,
+                    cache_ortho,
+                    index + 1,
+                    rep_idx,
+                    entries,
+                    diag,
+                );
             }
         } else {
             let (pad_expr, size_expr) = stretch_bindings.as_ref().unwrap();
             if let Some(pad_expr) = pad_expr {
-                actual_elem
-                    .borrow_mut()
-                    .bindings
-                    .insert(pad.into(), RefCell::new(pad_expr.clone().into()));
+                actual_elem.borrow_mut().set_binding(pad.into(), pad_expr.clone().into());
             }
             if !fixed_ortho {
-                actual_elem
-                    .borrow_mut()
-                    .bindings
-                    .insert(ortho.into(), RefCell::new(size_expr.clone().into()));
+                let clamped = clamp_cross_stretch_size(
+                    size_expr,
+                    &item.item.constraints,
+                    orientation.orthogonal(),
+                );
+                actual_elem.borrow_mut().set_binding(ortho.into(), clamped.into());
             }
         }
         layout.elems.push(item.item);
     }
     layout_element.borrow_mut().children = layout_children;
     let span = layout_element.borrow().to_source_location();
-    layout_cache_prop.element().borrow_mut().bindings.insert(
+    layout_cache_prop.element().borrow_mut().set_binding(
         layout_cache_prop.name().clone(),
         BindingExpression::new_with_span(
             Expression::SolveBoxLayout(layout.clone(), orientation),
             span.clone(),
-        )
-        .into(),
+        ),
     );
     if let Some(cache_ortho) = &layout_cache_ortho_prop {
-        cache_ortho.element().borrow_mut().bindings.insert(
+        cache_ortho.element().borrow_mut().set_binding(
             cache_ortho.name().clone(),
             BindingExpression::new_with_span(
                 Expression::SolveBoxLayout(layout.clone(), orientation.orthogonal()),
                 span.clone(),
-            )
-            .into(),
+            ),
         );
     }
-    layout_info_prop_h.element().borrow_mut().bindings.insert(
+    layout_info_prop_h.element().borrow_mut().set_binding(
         layout_info_prop_h.name().clone(),
         BindingExpression::new_with_span(
             Expression::ComputeBoxLayoutInfo {
@@ -1368,10 +1790,9 @@ fn lower_box_layout(
                 cross_axis_size: None,
             },
             span.clone(),
-        )
-        .into(),
+        ),
     );
-    layout_info_prop_v.element().borrow_mut().bindings.insert(
+    layout_info_prop_v.element().borrow_mut().set_binding(
         layout_info_prop_v.name().clone(),
         BindingExpression::new_with_span(
             Expression::ComputeBoxLayoutInfo {
@@ -1380,8 +1801,7 @@ fn lower_box_layout(
                 cross_axis_size: None,
             },
             span,
-        )
-        .into(),
+        ),
     );
     layout_element.borrow_mut().layout_info_prop = Some((layout_info_prop_h, layout_info_prop_v));
     for d in layout_element.borrow_mut().debug.iter_mut() {
@@ -1392,30 +1812,27 @@ fn lower_box_layout(
 fn lower_flexbox_layout(layout_element: &ElementRc, diag: &mut BuildDiagnostics) {
     // Warn if alignment is set to stretch, which behaves like start in flexbox
     // (CSS spec: justify-content:stretch acts as flex-start for flex items)
-    if let Some(binding) = layout_element.borrow().bindings.get("alignment") {
-        let binding = binding.borrow();
-        if matches!(binding.expression.ignore_debug_hooks(),
+    if let Some(binding) = layout_element.borrow().binding("alignment")
+        && matches!(binding.value_expression(),
             Expression::EnumerationValue(v) if v.enumeration.name == "LayoutAlignment"
                 && v.enumeration.values[v.value] == "stretch")
-        {
-            diag.push_warning(
-                "alignment: stretch has no effect on FlexboxLayout".into(),
-                &*binding,
-            );
-        }
+    {
+        diag.push_warning("alignment: stretch has no effect on FlexboxLayout".into(), &*binding);
     }
 
     let direction = crate::layout::binding_reference(layout_element, "flex-direction");
-    let align_content = crate::layout::binding_reference(layout_element, "align-content");
-    let align_items = crate::layout::binding_reference(layout_element, "align-items");
+    let cross_axis_line_alignment =
+        crate::layout::binding_reference(layout_element, "cross-axis-line-alignment");
+    let cross_axis_alignment =
+        crate::layout::binding_reference(layout_element, "cross-axis-alignment");
     let flex_wrap = crate::layout::binding_reference(layout_element, "flex-wrap");
 
     let mut layout = crate::layout::FlexboxLayout {
         elems: Default::default(),
         geometry: LayoutGeometry::new(layout_element),
         direction,
-        align_content,
-        align_items,
+        cross_axis_line_alignment,
+        cross_axis_alignment,
         flex_wrap,
     };
 
@@ -1440,6 +1857,7 @@ fn lower_flexbox_layout(layout_element: &ElementRc, diag: &mut BuildDiagnostics)
         let index = layout.elems.len() * 4; // 4 values per item: x, y, width, height
         let rep_idx = &item.repeater_index;
         let actual_elem = &item.elem;
+        actual_elem.borrow_mut().child_of_flexbox = true;
 
         // Set x from cache[index]
         set_prop_from_cache(actual_elem, "x", &layout_cache_prop, index, rep_idx, 4, diag);
@@ -1472,7 +1890,7 @@ fn lower_flexbox_layout(layout_element: &ElementRc, diag: &mut BuildDiagnostics)
         let flex_grow = crate::layout::binding_reference(actual_elem, "flex-grow");
         let flex_shrink = crate::layout::binding_reference(actual_elem, "flex-shrink");
         let flex_basis = crate::layout::binding_reference(actual_elem, "flex-basis");
-        let align_self = crate::layout::binding_reference(actual_elem, "flex-align-self");
+        let align_self = crate::layout::binding_reference(actual_elem, "cross-axis-self-alignment");
         let order = crate::layout::binding_reference(actual_elem, "flex-order");
         layout.elems.push(crate::layout::FlexboxLayoutItem {
             item: item.item,
@@ -1486,15 +1904,14 @@ fn lower_flexbox_layout(layout_element: &ElementRc, diag: &mut BuildDiagnostics)
     layout_element.borrow_mut().children = layout_children;
     let span = layout_element.borrow().to_source_location();
 
-    layout_cache_prop.element().borrow_mut().bindings.insert(
+    layout_cache_prop.element().borrow_mut().set_binding(
         layout_cache_prop.name().clone(),
         BindingExpression::new_with_span(
             Expression::SolveFlexboxLayout(layout.clone()),
             span.clone(),
-        )
-        .into(),
+        ),
     );
-    layout_info_prop_h.element().borrow_mut().bindings.insert(
+    layout_info_prop_h.element().borrow_mut().set_binding(
         layout_info_prop_h.name().clone(),
         BindingExpression::new_with_span(
             Expression::ComputeFlexboxLayoutInfo {
@@ -1503,10 +1920,9 @@ fn lower_flexbox_layout(layout_element: &ElementRc, diag: &mut BuildDiagnostics)
                 cross_axis_size: None,
             },
             span.clone(),
-        )
-        .into(),
+        ),
     );
-    layout_info_prop_v.element().borrow_mut().bindings.insert(
+    layout_info_prop_v.element().borrow_mut().set_binding(
         layout_info_prop_v.name().clone(),
         BindingExpression::new_with_span(
             Expression::ComputeFlexboxLayoutInfo {
@@ -1515,8 +1931,7 @@ fn lower_flexbox_layout(layout_element: &ElementRc, diag: &mut BuildDiagnostics)
                 cross_axis_size: None,
             },
             span,
-        )
-        .into(),
+        ),
     );
     layout_element.borrow_mut().layout_info_prop = Some((layout_info_prop_h, layout_info_prop_v));
     for d in layout_element.borrow_mut().debug.iter_mut() {
@@ -1588,9 +2003,8 @@ fn lower_dialog_layout(
     let layout_children = std::mem::take(&mut dialog_element.borrow_mut().children);
     for layout_child in &layout_children {
         let dialog_button_role_binding =
-            layout_child.borrow_mut().bindings.remove("dialog-button-role");
+            layout_child.borrow_mut().take_binding("dialog-button-role");
         let is_button = if let Some(role_binding) = dialog_button_role_binding {
-            let role_binding = role_binding.into_inner();
             if let Expression::EnumerationValue(val) =
                 super::ignore_debug_hooks(&role_binding.expression)
             {
@@ -1613,13 +2027,12 @@ fn lower_dialog_layout(
         } else if matches!(&layout_child.borrow().lookup_property("kind").property_type, Type::Enumeration(e) if e.name == "StandardButtonKind")
         {
             // layout_child is a StandardButton
-            match layout_child.borrow().bindings.get("kind") {
+            match layout_child.borrow().binding("kind") {
                 None => diag.push_error(
                     "The `kind` property of the StandardButton in a Dialog must be set".into(),
                     &*layout_child.borrow(),
                 ),
                 Some(binding) => {
-                    let binding = &*binding.borrow();
                     if let Expression::EnumerationValue(val) =
                         super::ignore_debug_hooks(&binding.expression)
                     {
@@ -1642,7 +2055,7 @@ fn lower_dialog_layout(
                         };
                         button_roles.push(role.into());
                         if !seen_buttons.insert(val.value) {
-                            diag.push_error("Duplicated `kind`: There are two StandardButton in this Dialog with the same kind".into(), binding);
+                            diag.push_error("Duplicated `kind`: There are two StandardButton in this Dialog with the same kind".into(), &*binding);
                         } else if Rc::ptr_eq(
                             dialog_element,
                             &dialog_element
@@ -1655,8 +2068,8 @@ fn lower_dialog_layout(
                             let clicked_ty =
                                 layout_child.borrow().lookup_property("clicked").property_type;
                             if matches!(&clicked_ty, Type::Callback { .. })
-                                && layout_child.borrow().bindings.get("clicked").is_none_or(|c| {
-                                    matches!(c.borrow().expression, Expression::Invalid)
+                                && layout_child.borrow().binding("clicked").is_none_or(|c| {
+                                    matches!(c.value_expression(), Expression::Invalid)
                                 })
                             {
                                 dialog_element
@@ -1673,6 +2086,8 @@ fn lower_dialog_layout(
                                         )),
                                         visibility: PropertyVisibility::InOut,
                                         pure: None,
+                                        shadows_builtin: false,
+                                        deprecated: None,
                                     });
                             }
                         }
@@ -1680,7 +2095,7 @@ fn lower_dialog_layout(
                         diag.push_error(
                             "The `kind` property of the StandardButton in a Dialog must be known at compile-time"
                                 .into(),
-                            binding,
+                            &*binding,
                         );
                     }
                 }
@@ -1732,15 +2147,14 @@ fn lower_dialog_layout(
     grid.dialog_button_roles = Some(button_roles);
 
     let span = dialog_element.borrow().to_source_location();
-    layout_organized_data_prop.element().borrow_mut().bindings.insert(
+    layout_organized_data_prop.element().borrow_mut().set_binding(
         layout_organized_data_prop.name().clone(),
         BindingExpression::new_with_span(
             Expression::OrganizeGridLayout(grid.clone()),
             span.clone(),
-        )
-        .into(),
+        ),
     );
-    layout_cache_prop_h.element().borrow_mut().bindings.insert(
+    layout_cache_prop_h.element().borrow_mut().set_binding(
         layout_cache_prop_h.name().clone(),
         BindingExpression::new_with_span(
             Expression::SolveGridLayout {
@@ -1749,10 +2163,9 @@ fn lower_dialog_layout(
                 orientation: Orientation::Horizontal,
             },
             span.clone(),
-        )
-        .into(),
+        ),
     );
-    layout_cache_prop_v.element().borrow_mut().bindings.insert(
+    layout_cache_prop_v.element().borrow_mut().set_binding(
         layout_cache_prop_v.name().clone(),
         BindingExpression::new_with_span(
             Expression::SolveGridLayout {
@@ -1761,10 +2174,9 @@ fn lower_dialog_layout(
                 orientation: Orientation::Vertical,
             },
             span.clone(),
-        )
-        .into(),
+        ),
     );
-    layout_info_prop_h.element().borrow_mut().bindings.insert(
+    layout_info_prop_h.element().borrow_mut().set_binding(
         layout_info_prop_h.name().clone(),
         BindingExpression::new_with_span(
             Expression::ComputeGridLayoutInfo {
@@ -1774,10 +2186,9 @@ fn lower_dialog_layout(
                 cross_axis_size: None,
             },
             span.clone(),
-        )
-        .into(),
+        ),
     );
-    layout_info_prop_v.element().borrow_mut().bindings.insert(
+    layout_info_prop_v.element().borrow_mut().set_binding(
         layout_info_prop_v.name().clone(),
         BindingExpression::new_with_span(
             Expression::ComputeGridLayoutInfo {
@@ -1787,8 +2198,7 @@ fn lower_dialog_layout(
                 cross_axis_size: None,
             },
             span,
-        )
-        .into(),
+        ),
     );
     dialog_element.borrow_mut().layout_info_prop = Some((layout_info_prop_h, layout_info_prop_v));
     for d in dialog_element.borrow_mut().debug.iter_mut() {
@@ -1808,7 +2218,7 @@ fn create_layout_item(
     diag: &mut BuildDiagnostics,
 ) -> CreateLayoutItemResult {
     let fix_explicit_percent = |prop: &str, item: &ElementRc| {
-        if !item.borrow().bindings.get(prop).is_some_and(|b| b.borrow().ty() == Type::Percent) {
+        if !item.borrow().binding(prop).is_some_and(|b| b.ty() == Type::Percent) {
             return;
         }
         let min_name = format_smolstr!("min-{}", prop);
@@ -1817,11 +2227,11 @@ fn create_layout_item(
             NamedReference::new(item, min_name.clone()),
         ));
         let mut item = item.borrow_mut();
-        let b = item.bindings.remove(prop).unwrap().into_inner();
+        let b = item.take_binding(prop).unwrap();
         min_ref.span = b.span.clone();
         min_ref.priority = b.priority;
-        item.bindings.insert(max_name.clone(), min_ref.into());
-        item.bindings.insert(min_name.clone(), b.into());
+        item.set_binding(max_name.clone(), min_ref);
+        item.set_binding(min_name.clone(), b);
         item.property_declarations.insert(
             min_name,
             PropertyDeclaration { property_type: Type::Percent, ..PropertyDeclaration::default() },
@@ -1840,8 +2250,10 @@ fn create_layout_item(
         fix_explicit_percent("width", &rep_comp.root_element);
         fix_explicit_percent("height", &rep_comp.root_element);
 
-        *rep_comp.root_constraints.borrow_mut() =
-            LayoutConstraints::new(&rep_comp.root_element, diag, DiagnosticLevel::Error);
+        *rep_comp.root_constraints.borrow_mut() = LayoutConstraints::new(
+            &rep_comp.root_element,
+            Some((&mut *diag, DiagnosticLevel::Error)),
+        );
         rep_comp.root_element.borrow_mut().child_of_layout = true;
         (
             Some(if r.is_conditional_element {
@@ -1855,7 +2267,7 @@ fn create_layout_item(
         (None, item_element.clone())
     };
 
-    let constraints = LayoutConstraints::new(&actual_elem, diag, DiagnosticLevel::Error);
+    let constraints = LayoutConstraints::new(&actual_elem, Some((diag, DiagnosticLevel::Error)));
     CreateLayoutItemResult {
         item: LayoutItem { element: item_element.clone(), constraints },
         elem: actual_elem,
@@ -1928,15 +2340,11 @@ fn insert_cache_prop_binding(
     layout_cache_prop: &NamedReference,
     diag: &mut BuildDiagnostics,
 ) {
-    let old = elem.borrow_mut().bindings.insert(
-        prop.into(),
-        BindingExpression::new_with_span(
-            expr,
-            layout_cache_prop.element().borrow().to_source_location(),
-        )
-        .into(),
+    let new_binding = BindingExpression::new_with_span(
+        expr,
+        layout_cache_prop.element().borrow().to_source_location(),
     );
-    if let Some(old) = old.map(RefCell::into_inner) {
+    if let Some(old) = elem.borrow_mut().set_binding(prop.into(), new_binding) {
         diag.push_error(
             format!("The property '{prop}' cannot be set for elements placed in this layout, because the layout is already setting it"),
             &old,
@@ -2118,25 +2526,32 @@ fn recognized_layout_types() -> &'static [&'static str] {
     &["Row", "GridLayout", "HorizontalLayout", "VerticalLayout", "FlexboxLayout", "Dialog"]
 }
 
-/// Checks that there are no grid-layout specific properties used wrongly
+/// Checks that there are no layout specific properties used wrongly
 fn check_no_layout_properties(
     item: &ElementRc,
     layout_type: &Option<SmolStr>,
     parent_layout_type: &Option<SmolStr>,
+    type_register: &TypeRegister,
     diag: &mut BuildDiagnostics,
 ) {
     let elem = item.borrow();
-    for (prop, expr) in elem.bindings.iter() {
+    for (prop, expr) in elem.real_bindings() {
         if !matches!(parent_layout_type.as_deref(), Some("GridLayout") | Some("Row"))
             && matches!(prop.as_ref(), "col" | "row" | "colspan" | "rowspan")
         {
             diag.push_error(format!("{prop} used outside of a GridLayout's cell"), &*expr.borrow());
         }
-        if parent_layout_type.as_deref() != Some("FlexboxLayout")
-            && matches!(
-                prop.as_ref(),
-                "flex-grow" | "flex-shrink" | "flex-basis" | "flex-align-self" | "flex-order"
-            )
+        if matches!(prop.as_ref(), "flex-grow" | "flex-shrink" | "flex-basis" | "flex-order") {
+            if parent_layout_type.as_deref() != Some("FlexboxLayout") {
+                diag.push_error(format!("{prop} used outside of a FlexboxLayout"), &*expr.borrow());
+            } else {
+                // These are not stable API yet: whether they should rather be expressed with
+                // the properties the other layouts already use is still being discussed.
+                crate::reject_experimental_feature(diag, type_register, prop, &*expr.borrow());
+            }
+        }
+        if prop == "cross-axis-self-alignment"
+            && parent_layout_type.as_deref() != Some("FlexboxLayout")
         {
             diag.push_error(format!("{prop} used outside of a FlexboxLayout"), &*expr.borrow());
         }
@@ -2194,7 +2609,7 @@ pub fn check_popup_layout(component: &Rc<Component>) {
             adjust_window_layout(&p.component, "height");
         }
 
-        if p.component.root_constraints.borrow().fixed_height {
+        if p.component.root_constraints.borrow().fixed_width {
             adjust_window_layout(&p.component, "width");
         }
     });
@@ -2208,18 +2623,15 @@ fn adjust_window_layout(component: &Rc<Component>, prop: &'static str) {
     );
     {
         let mut root = component.root_element.borrow_mut();
-        if let Some(b) = root.bindings.remove(prop) {
-            root.bindings.insert(new_prop.name().clone(), b);
+        if let Some(b) = root.take_binding(prop) {
+            root.set_binding(new_prop.name().clone(), b);
         };
         let mut analysis = root.property_analysis.borrow_mut();
         if let Some(a) = analysis.remove(prop) {
             analysis.insert(new_prop.name().clone(), a);
         };
         drop(analysis);
-        root.bindings.insert(
-            prop.into(),
-            RefCell::new(Expression::PropertyReference(new_prop.clone()).into()),
-        );
+        root.set_binding(prop.into(), Expression::PropertyReference(new_prop.clone()).into());
     }
 
     let old_prop = NamedReference::new(&component.root_element, SmolStr::new_static(prop));

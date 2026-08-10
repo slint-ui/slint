@@ -4,7 +4,7 @@
 # cSpell:ignore openweather urlencoding
 [package]
 name = "weather-demo"
-version = "1.17.0"
+version = "1.18.0"
 authors = ["FELGO GmbH <contact@felgo.com>"]
 edition.workspace = true
 build = "build.rs"
@@ -24,11 +24,11 @@ slint = { path = "../../api/rs/slint", features = ["backend-android-activity-06"
 env_logger = "0.11.3"
 
 [target.'cfg(target_os = "android")'.dependencies]
-android_logger = "0.14.1"
+android_logger = "0.15.1"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 futures = { version = "0.3", optional = true }
-reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"], optional = true }
+reqwest = { version = "0.13", default-features = false, features = ["json", "rustls"], optional = true }
 urlencoding = { version = "2", optional = true }
 tokio = { version = "1.37.0", features = ["rt-multi-thread"] }
 

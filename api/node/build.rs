@@ -54,7 +54,7 @@ fn generate_language_module() {
             $(#[non_exhaustive])?
             $(#[derive(Copy, Eq)])?
             $vis:vis struct $Name:ident {
-                $( $(#[doc = $field_doc:literal])* $field:ident : $field_type:ty, )*
+                $( $(#[doc = $field_doc:literal])* $field:ident : $field_type:ty $(= $field_default:expr)?, )*
             }
         )*) => {
             $(
@@ -63,7 +63,8 @@ fn generate_language_module() {
                         name: stringify!($Name),
                         docs: vec![$($struct_doc),*],
                         fields: vec![$(
-                            (stringify!($field), stringify!($field_type), vec![$($field_doc),*])
+                            (stringify!($field), stringify!($field_type), vec![$($field_doc),*],
+                                i_slint_common::builtin_struct_field_default_tokens!($($field_default)?))
                         ),*],
                     });
                 }
@@ -105,8 +106,9 @@ fn generate_language_module() {
     ts.push_str("// and internal/common/builtin_structs.rs. Do not edit.\n\n");
 
     // DataTransfer is referenced by DropEvent's `data` field; the type lives at the
-    // package top level rather than under `language`.
-    ts.push_str("import { DataTransfer } from \"../../rust-module.cjs\";\n\n");
+    // package top level rather than under `language`. Import it through the loader
+    // (binding.cjs) so it resolves whichever native binary variant was built.
+    ts.push_str("import { DataTransfer } from \"../../binding.cjs\";\n\n");
 
     ts.push_str("const _data = {\n");
     for entry in &enums {
@@ -179,7 +181,7 @@ fn generate_language_module() {
     for s in &structs {
         write_jsdoc(&mut ts, "    ", &s.docs);
         ts.push_str(&format!("    export type {name} = {{\n", name = s.name));
-        for (field, rust_ty, field_docs) in &s.fields {
+        for (field, rust_ty, field_docs, _) in &s.fields {
             write_jsdoc(&mut ts, "        ", field_docs);
             ts.push_str(&format!(
                 "        {field}: {ts_ty};\n",
@@ -221,14 +223,28 @@ fn map_field_type(rust_ty: &str, in_language: &HashSet<&'static str>) -> String 
     }
 }
 
-/// Compute the JS default expression for a struct field of the given Rust type. Primitives
-/// fall back to zero/empty/false; enum fields use the first-variant kebab string (matching
-/// the Rust `Default` impl); nested struct fields recurse via `_data.<Name>()`.
+/// Compute the JS default expression for a struct field of the given Rust type.
+/// A default value declared in builtin_structs.rs wins; otherwise primitives
+/// fall back to zero/empty/false, enum fields use the first-variant kebab string (matching
+/// the Rust `Default` impl), and nested struct fields recurse via `_data.<Name>()`.
 fn field_default(
     rust_ty: &str,
+    declared: Option<&str>,
     enum_defaults: &HashMap<&'static str, String>,
     structs: &HashSet<&'static str>,
 ) -> String {
+    if let Some(declared) = declared {
+        let text: String =
+            declared.chars().filter(|c| !c.is_whitespace() && *c != ')' && *c != '(').collect();
+        return match text.split_once("::") {
+            // Enum values are kebab-case strings in the JS API
+            Some((_, variant)) => {
+                format!("\"{}\"", to_kebab_case(variant.trim_start_matches("r#")))
+            }
+            // bool and number literals are the same in JS
+            None => text,
+        };
+    }
     let t = rust_ty.trim();
     match t {
         "bool" => "false".to_string(),
@@ -274,10 +290,10 @@ fn emit_struct_factory(
         "    {name}: (props?: Partial<language.{name}>): language.{name} => Object.freeze({{",
         name = s.name
     ));
-    for (field, rust_ty, _) in &s.fields {
+    for (field, rust_ty, _, declared_default) in &s.fields {
         out.push_str(&format!(
             " {field}: {default},",
-            default = field_default(rust_ty, enum_defaults, struct_names)
+            default = field_default(rust_ty, *declared_default, enum_defaults, struct_names)
         ));
     }
     out.push_str(" ...props }),\n");
@@ -288,7 +304,8 @@ fn emit_struct_factory(
 struct StructEntry {
     name: &'static str,
     docs: Vec<&'static str>,
-    fields: Vec<(&'static str, &'static str, Vec<&'static str>)>,
+    /// (name, rust type, docs, declared default value tokens)
+    fields: Vec<(&'static str, &'static str, Vec<&'static str>, Option<&'static str>)>,
 }
 
 /// Emit the rustdoc lines as a JSDoc block at the given indent. No-op if `docs` is empty.

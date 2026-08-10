@@ -29,6 +29,7 @@ export type KnownType =
     | "int"
     | "keys"
     | "length"
+    | "MouseCursor"
     | "percent"
     | "physical-length"
     | "Edges"
@@ -118,6 +119,11 @@ export function getTypeInfo(typeName: KnownType): TypeInfo {
             return {
                 href: linkMap.length.href,
                 defaultValue: "0px",
+            };
+        case "MouseCursor":
+            return {
+                href: linkMap.MouseCursor.href,
+                defaultValue: "default",
             };
         case "percent":
             return {

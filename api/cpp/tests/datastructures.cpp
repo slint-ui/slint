@@ -3,6 +3,9 @@
 
 #include <ranges>
 #include <chrono>
+#include <filesystem>
+#include <fstream>
+#include <vector>
 #define CATCH_CONFIG_MAIN
 #include "catch2/catch_all.hpp"
 
@@ -205,6 +208,27 @@ TEST_CASE("Image")
         REQUIRE(actual_path.has_value());
         REQUIRE(*actual_path == SOURCE_DIR "/../../../logo/slint-logo-square-light-128x128.png");
     }
+
+    {
+        std::ifstream file(SOURCE_DIR "/redpixel.png", std::ios::binary);
+        std::vector<uint8_t> data((std::istreambuf_iterator<char>(file)),
+                                  std::istreambuf_iterator<char>());
+        auto from_data = Image::load_from_data(data);
+        auto size = from_data.size();
+        REQUIRE(size.width == 1);
+        REQUIRE(size.height == 1);
+        REQUIRE(!from_data.path().has_value());
+    }
+
+    {
+        static constexpr unsigned char svg[] =
+                R"(<svg xmlns="http://www.w3.org/2000/svg" width="16" height="8"></svg>)";
+        // The format is guessed from the leading `<svg` tag.
+        auto from_data = Image::load_from_data(std::span(svg, sizeof(svg) - 1));
+        auto size = from_data.size();
+        REQUIRE(size.width == 16);
+        REQUIRE(size.height == 8);
+    }
 #endif
 
     img = Image(SharedPixelBuffer<Rgba8Pixel> {});
@@ -300,6 +324,33 @@ TEST_CASE("SharedVector")
     std::vector<SharedString> std_v(vec2.begin(), vec2.end());
     SharedVector<SharedString> vec6(std_v.begin(), std_v.end());
     REQUIRE(vec6 == vec2);
+}
+
+TEST_CASE("Slice comparison")
+{
+    using namespace slint;
+    using slint::cbindgen_private::Slice;
+
+    int a[] = { 1, 2, 3 };
+    int b[] = { 1, 2, 3 };
+    int c[] = { 1, 2, 4 };
+
+    // Compute the results outside of REQUIRE: Catch2's expression decomposition would
+    // call the comparison operators from its own namespace where ADL can't find them.
+    const bool equal_same = Slice<int> { a, 3 } == Slice<int> { b, 3 };
+    const bool notequal_same = Slice<int> { a, 3 } != Slice<int> { b, 3 };
+    REQUIRE(equal_same);
+    REQUIRE_FALSE(notequal_same);
+
+    const bool equal_diff = Slice<int> { a, 3 } == Slice<int> { c, 3 };
+    const bool notequal_diff = Slice<int> { a, 3 } != Slice<int> { c, 3 };
+    REQUIRE_FALSE(equal_diff);
+    REQUIRE(notequal_diff);
+
+    const bool equal_len = Slice<int> { a, 2 } == Slice<int> { a, 3 };
+    const bool notequal_len = Slice<int> { a, 2 } != Slice<int> { a, 3 };
+    REQUIRE_FALSE(equal_len);
+    REQUIRE(notequal_len);
 }
 
 TEST_CASE("StyledText")
@@ -499,6 +550,53 @@ TEST_CASE("DataTransfer")
         REQUIRE(a.has_plain_text());
         REQUIRE(a.has_image());
     }
+
+    SECTION("File paths round-trip")
+    {
+        DataTransfer a;
+        REQUIRE(!a.has_file_paths());
+        REQUIRE(!a.file_paths().has_value());
+
+        std::filesystem::path paths[] = { "/tmp/plain.txt", u8"/tmp/gr\u00fc\u00dfe.txt" };
+        a.set_file_paths(paths);
+        REQUIRE(a.has_file_paths());
+        REQUIRE(!a.is_empty());
+        auto fetched = a.file_paths();
+        REQUIRE(fetched.has_value());
+        REQUIRE(fetched->size() == 2);
+        REQUIRE((*fetched)[0] == paths[0]);
+        REQUIRE((*fetched)[1] == paths[1]);
+
+        a.set_file_paths({});
+        REQUIRE(!a.has_file_paths());
+        REQUIRE(a.is_empty());
+    }
+
+#ifdef _WIN32
+    SECTION("File paths keep unpaired surrogates")
+    {
+        // A lone surrogate is representable in a Windows filename; it must
+        // survive the conversion to Rust's WTF-8 encoded PathBuf and back.
+        std::filesystem::path lone_surrogate(L"C:\\tmp\\lone-\xD800.txt");
+        std::filesystem::path paths[] = { lone_surrogate };
+        DataTransfer a;
+        a.set_file_paths(paths);
+        auto fetched = a.file_paths();
+        REQUIRE(fetched.has_value());
+        REQUIRE((*fetched)[0].native() == lone_surrogate.native());
+    }
+#else
+    SECTION("File paths keep non-UTF-8 bytes")
+    {
+        std::filesystem::path invalid_utf8(std::string("/tmp/\xFF\xFE-invalid"));
+        std::filesystem::path paths[] = { invalid_utf8 };
+        DataTransfer a;
+        a.set_file_paths(paths);
+        auto fetched = a.file_paths();
+        REQUIRE(fetched.has_value());
+        REQUIRE((*fetched)[0].native() == invalid_utf8.native());
+    }
+#endif
 
     SECTION("User data round-trip")
     {

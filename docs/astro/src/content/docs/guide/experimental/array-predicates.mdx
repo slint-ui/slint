@@ -1,0 +1,45 @@
+---
+title: Array Predicates
+description: Experimental predicate expressions for the array operations any and all.
+---
+
+The array operations `any` and `all` test the elements of an array against a predicate expression.
+
+> **Note**: Array predicates are experimental and subject to change.
+> Tracking issue: [slint-ui/slint#12777](https://github.com/slint-ui/slint/issues/12777).
+
+## Syntax
+
+A predicate expression has the form `(name) => condition`.
+It binds `name` to a value and evaluates `condition`, which must be a `bool`.
+The name is in scope only inside `condition`.
+
+Predicates are passed to the array operations `any` and `all`,
+which supply each element in turn as `name`:
+
+- `array.any((name) => condition)` reads `true` if `condition` holds for at least one element.
+- `array.all((name) => condition)` reads `true` if `condition` holds for every element.
+
+The argument name is available only inside the predicate expression,
+and its type is inferred from the array element type.
+
+`any` returns `false` for an empty array, while `all` returns `true` for an empty array.
+
+## Example
+
+```slint no-test
+export component Example {
+    in-out property<[int]> list-of-int: [1, 2, 3];
+
+    out property <bool> contains-two: list-of-int.any((value) => value == 2);   // true
+    out property <bool> all-positive: list-of-int.all((value) => value > 0);    // true
+}
+```
+
+## Current Limitations
+
+Predicates are the only form of closure in the Slint language, and they are only accepted
+as the argument of `any` and `all`.
+A predicate cannot be stored in a property, passed to a function or callback, or called directly.
+The predicate must be written inline in the call to `any` or `all`;
+passing a closure stored in a local variable is rejected with an error.

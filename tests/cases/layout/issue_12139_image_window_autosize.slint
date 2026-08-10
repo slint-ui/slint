@@ -1,0 +1,39 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Issue #12139: an unsized Image used to give an auto-sizing window an unbounded
+// height (its aspect ratio scaled the unconstrained measuring width to infinity).
+// It should auto-size to the 128x128 image.
+export component TestCase inherits Window {
+    VerticalLayout {
+        Image { source: @image-url("../../../logo/slint-logo-square-light-128x128.png"); }
+    }
+}
+
+/*
+
+```cpp
+auto handle = TestCase::create();
+handle->show();
+auto size = handle->window().size();
+assert(size == slint::PhysicalSize({128, 128}));
+```
+
+
+```rust
+let instance = TestCase::new().unwrap();
+instance.show().unwrap();
+let size = instance.window().size();
+assert_eq!(size, slint::PhysicalSize::new(128, 128));
+```
+
+
+```js
+let instance = new slint.TestCase({});
+instance.window.show();
+let size = instance.window.physicalSize;
+assert.equal(size.width, 128);
+assert.equal(size.height, 128);
+```
+
+*/

@@ -122,6 +122,11 @@ pub enum ConnectionMessage {
         url: Option<Url>,
         offset: u32,
     },
+    /// The viewer should register this font with the renderer.
+    RegisterFont {
+        url: Url,
+        contents: Arc<[u8]>,
+    },
 }
 
 pub struct Connection {
@@ -138,6 +143,16 @@ pub struct Connection {
     /// name source resolved. On Apple, the initial value is the system hostname; the
     /// viewer overwrites it with the Bonjour-reported name once the service is registered.
     device_name: Mutex<String>,
+}
+
+/// Serialize a message into the wire format and queue it on the write half.
+fn encode_and_send(
+    sender: &UnboundedSender<Message>,
+    message: &impl Serialize,
+) -> anyhow::Result<()> {
+    let data: Vec<u8> = postcard::to_allocvec(message)?;
+    sender.send(Message::Binary(data.into()))?;
+    Ok(())
 }
 
 /// Whether the connection can act on this URL. The remote preview protocol only handles
@@ -206,11 +221,15 @@ impl Connection {
                                         Ok(stream) => {
                                             tracing::info!("Websocket established with {addr:?}");
                                             if let Some((_old_sink, old_handle)) = current_session.take() {
-                                                tracing::error!(
-                                                    "Second connection while we were already connected, dropping old connection"
-                                                );
-                                                old_handle.abort();
-                                                // The aborted task can't run its end-of-loop
+                                                // A finished handle is just a stale session left
+                                                // behind by an earlier disconnect, not a takeover.
+                                                if !old_handle.is_finished() {
+                                                    tracing::warn!(
+                                                        "Second connection while we were already connected, dropping old connection"
+                                                    );
+                                                    old_handle.abort();
+                                                }
+                                                // An aborted task can't run its end-of-loop
                                                 // cleanup, so reset the shared state here so
                                                 // the new client starts from a clean cache.
                                                 inner_file_cache.clear();
@@ -368,6 +387,18 @@ impl Connection {
                                             if !is_supported(url.url()) {
                                                 continue;
                                             }
+                                            // Fonts are registered with the renderer directly
+                                            // and not consulted by the compiler, so they don't
+                                            // go in the file cache.
+                                            if i_slint_compiler::pathutils::is_font_file(
+                                                url.url().path(),
+                                            ) {
+                                                message_handler(ConnectionMessage::RegisterFont {
+                                                    url: url.url().clone(),
+                                                    contents: contents.into(),
+                                                });
+                                                continue;
+                                            }
                                             let versioned_content = VersionedFileContent {
                                                 version: *url.version(),
                                                 contents: contents.into(),
@@ -416,6 +447,20 @@ impl Connection {
                                         LspToPreviewMessage::Quit => {
                                             break 'outer;
                                         }
+                                        LspToPreviewMessage::Ping => {
+                                            encode_and_send(
+                                                &message_sender,
+                                                &PreviewToLspMessage::Pong,
+                                            )
+                                            .ok();
+                                        }
+                                        // Internal LSP↔local-preview control message;
+                                        // never legitimately reaches a remote viewer.
+                                        LspToPreviewMessage::RemoteConnectionState { .. } => {
+                                            tracing::warn!(
+                                                "Ignoring unexpected RemoteConnectionState over WebSocket"
+                                            );
+                                        }
                                     }
                                 }
                                 Err(err) => {
@@ -431,6 +476,14 @@ impl Connection {
                             break;
                         }
                         Ok(Message::Frame(_)) => unreachable!(),
+                        Err(tokio_tungstenite::tungstenite::Error::Protocol(
+                            tokio_tungstenite::tungstenite::error::ProtocolError::ResetWithoutClosingHandshake,
+                        )) => {
+                            // The peer vanished without a close handshake (process killed,
+                            // network drop) — a normal way for a session to end.
+                            tracing::info!("Connection lost");
+                            break;
+                        }
                         Err(err) => {
                             tracing::error!("WebSocket error: {err}");
                             break;
@@ -447,10 +500,7 @@ impl Connection {
     }
 
     pub fn send(&self, data: impl Serialize) -> anyhow::Result<()> {
-        let data: Vec<u8> = postcard::to_allocvec(&data)?;
-        self.message_sender.send(Message::Binary(data.into()))?;
-
-        Ok(())
+        encode_and_send(&self.message_sender, &data)
     }
 
     pub async fn request_file(&self, url: Url) -> std::io::Result<VersionedFileContent> {
@@ -683,6 +733,47 @@ mod tests {
     fn sanitize_falls_back_for_empty_or_all_invalid() {
         assert_eq!(sanitize_dns_label(""), "slint-viewer");
         assert_eq!(sanitize_dns_label("@@@"), "slint-viewer");
+    }
+}
+
+#[cfg(test)]
+mod keepalive_tests {
+    use super::Connection;
+    use crate::protocol::{LspToPreviewMessage, PROTOCOL_SUBPROTOCOL, PreviewToLspMessage};
+    use futures_util::{SinkExt as _, StreamExt as _};
+    use tokio_tungstenite::tungstenite::{
+        client::IntoClientRequest as _,
+        http::{HeaderValue, header::SEC_WEBSOCKET_PROTOCOL},
+    };
+
+    #[tokio::test]
+    async fn ping_is_answered_with_pong() {
+        let connection =
+            Connection::listen(Some(std::net::SocketAddr::from(([127, 0, 0, 1], 0))), None, |_| {})
+                .await
+                .unwrap();
+
+        let mut request =
+            format!("ws://127.0.0.1:{}", connection.local_port()).into_client_request().unwrap();
+        request
+            .headers_mut()
+            .insert(SEC_WEBSOCKET_PROTOCOL, HeaderValue::from_static(PROTOCOL_SUBPROTOCOL));
+        let (mut stream, _) = tokio_tungstenite::connect_async(request).await.unwrap();
+
+        let ping = postcard::to_allocvec(&LspToPreviewMessage::Ping).unwrap();
+        stream.send(tokio_tungstenite::tungstenite::Message::Binary(ping.into())).await.unwrap();
+
+        let pong = tokio::time::timeout(std::time::Duration::from_secs(5), async {
+            loop {
+                let msg = stream.next().await.expect("stream ended without a pong").unwrap();
+                if let tokio_tungstenite::tungstenite::Message::Binary(bytes) = msg {
+                    return postcard::from_bytes::<PreviewToLspMessage>(&bytes).unwrap();
+                }
+            }
+        })
+        .await
+        .expect("no pong within 5 seconds");
+        assert!(matches!(pong, PreviewToLspMessage::Pong));
     }
 }
 

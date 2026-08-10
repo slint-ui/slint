@@ -224,6 +224,29 @@ If `SLINT_MCP_PORT` is not set, no server is started and there is no runtime ove
 Do not add `mcp` to the `[features]` section of your `Cargo.toml` — use the `--features`
 flag on the command line instead.
 
+### Running Without a Display
+
+On a machine with no display server (CI, container, agent sandbox) the regular
+backend can't open a window, so `take_screenshot` and the other tools won't
+work. Set `SLINT_BACKEND=headless` to run the app under a windowless,
+software-rasterized backend instead:
+
+```sh
+SLINT_EMIT_DEBUG_INFO=1 SLINT_MCP_PORT=8080 SLINT_BACKEND=headless \
+    cargo run -p my-slint-app --features slint/mcp
+```
+
+The headless backend uses Skia's software rasterizer when `slint/renderer-skia`
+is enabled, otherwise the built-in software renderer. Suffix the value
+(`headless-software`, `headless-skia`) to force a specific rasterizer. If
+`SLINT_BACKEND` is unset and the configured graphical backend fails to
+initialize (for example because no display is available), Slint falls back to
+the headless backend automatically.
+
+This is an unstable, MCP-oriented entry point — the exact value of
+`SLINT_BACKEND` may change between Slint releases. Use it from automation, not
+from production code.
+
 ### Usage with AI Agents
 
 The simplest approach is to tell the agent to run the application with both environment variables

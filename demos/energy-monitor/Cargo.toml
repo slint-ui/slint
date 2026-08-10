@@ -3,7 +3,7 @@
 
 [package]
 name = "energy-monitor"
-version = "1.17.0"
+version = "1.18.0"
 authors = ["Slint Developers <info@slint.dev>"]
 edition.workspace = true
 build = "build.rs"
@@ -17,7 +17,7 @@ crate-type = ["cdylib", "lib"]
 slint = { path = "../../api/rs/slint", default-features = false, features = ["compat-1-2"] }
 mcu-board-support = { path = "../../examples/mcu-board-support", optional = true }
 chrono = { version = "0.4.34", optional = true, default-features = false, features = ["clock", "std", "wasmbind"] }
-reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"], optional = true }
+reqwest = { version = "0.13", default-features = false, features = ["json", "rustls"], optional = true }
 serde = { version = "1.0", features = ["derive"], optional = true }
 tokio = { version = "1.25", optional = true, features = ["full"] }
 

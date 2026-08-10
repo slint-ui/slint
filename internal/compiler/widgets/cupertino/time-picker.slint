@@ -53,7 +53,7 @@ export component TimePickerPopup inherits PopupWindow {
                     foreground: CupertinoPalette.foreground,
                     foreground-selected: CupertinoPalette.foreground,
                     border-radius: 8px,
-                    font-size: 57 * 0.0625rem,
+                    font-size: 57pt * 1rem / 16pt,
                     font-weight: FontWeight.normal
                 },
                 period-selector-style: {
@@ -69,8 +69,6 @@ export component TimePickerPopup inherits PopupWindow {
                     }
                 },
                 title-style: {
-                    font-size: CupertinoFontSettings.body.font-size,
-                    font-weight: CupertinoFontSettings.body.font-weight,
                     foreground: CupertinoPalette.foreground,
                 },
             };

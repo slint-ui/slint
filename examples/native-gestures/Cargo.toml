@@ -4,7 +4,7 @@
 # cSpell: ignore nativegestures
 [package]
 name = "native-gestures"
-version = "1.17.0"
+version = "1.18.0"
 authors = ["Slint Developers <info@slint.dev>"]
 edition.workspace = true
 publish = false
@@ -22,7 +22,7 @@ path = "src/main.rs"
 slint = { path = "../../api/rs/slint", features = ["backend-android-activity-06"] }
 
 [target.'cfg(target_os = "android")'.dependencies]
-android_logger = "0.14.1"
+android_logger = "0.15.1"
 
 [build-dependencies]
 slint-build = { path = "../../api/rs/build" }

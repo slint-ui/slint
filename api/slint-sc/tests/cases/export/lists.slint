@@ -1,0 +1,41 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Software-3.0
+
+// An export list exports one or more names already defined in the file, with an
+// optional trailing comma. `Name as Other` exports under the external name.
+// A component that is not exported stays private and names no generated type.
+
+component Hidden inherits Window { background: #0000ff; }
+component Foo inherits Window { background: #ff0000; }
+component Bar inherits Window { background: #00ff00; }
+
+//#sls.export.forms
+//#sls.export.list
+//#sls.export.rename
+//#sls.export.no-duplicates
+export { Foo, Bar as Baz, }
+
+/*
+```rust
+// Foo is exported under its own name; Bar under the external name Baz. The two
+// external names are distinct, so the file exports no name more than once.
+let mut frame_buffer = [0u8; 8 * 8 * 3];
+Foo::new().render_rgb8(8, 8, &mut frame_buffer)?;
+assert!(frame_buffer.chunks(3).all(|pixel| pixel == [0xff, 0x00, 0x00]));
+Baz::new().render_rgb8(8, 8, &mut frame_buffer)?;
+assert!(frame_buffer.chunks(3).all(|pixel| pixel == [0x00, 0xff, 0x00]));
+```
+
+A name that is not exported names no generated type:
+```rust compile_fail
+//#sls.export.default-private
+let _ = Hidden::new();
+//~ ERROR undeclared type `Hidden`
+```
+
+The renamed component is reachable only under its external name:
+```rust compile_fail
+let _ = Bar::new();
+//~ ERROR undeclared type `Bar`
+```
+*/

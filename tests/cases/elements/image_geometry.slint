@@ -3,17 +3,19 @@
 
 //include_path: ../../../demos/printerdemo/ui/images/
 
-FixedWidthImage := Image {
+component FixedWidthImage inherits Image {
     source: @image-url("cat.jpg");
     width: 500phx;
 }
 
-TestCase := Rectangle {
+export component TestCase inherits Rectangle {
     fixed_image := Image {
+        x:0;y:0;
         width: 50phx;
         height: 50phx;
     }
     fixed_image_contain := Image {
+        x:0;y:0;
         width: 50phx;
         height: 50phx;
         image-fit: contain;
@@ -28,16 +30,19 @@ TestCase := Rectangle {
     }
 
     image_with_missing_height := FixedWidthImage {
+        x:0;y:0;
         property <bool> expected_height_ok: self.height == 750phx;
     }
 
     image_with_missing_width := Image {
+        x:0;y:0;
         source: @image-url("cat.jpg");
         height: 600phx;
         property <bool> expected_width_ok: self.width == 400phx;
     }
 
     image_with_missing_width_clipped := Image {
+        x:0;y:0;
         source: @image-url("cat.jpg");
         height: 600phx;
         source-clip-width: 20;
@@ -45,15 +50,15 @@ TestCase := Rectangle {
         property <bool> expected_width_ok: self.width == 600phx;
     }
 
-    property <bool> fixed_image_default_image_fit_ok: fixed_image.image-fit == ImageFit.fill;
-    property <bool> fixed_image_image_fit_override_ok: fixed_image_contain.image-fit == ImageFit.contain;
-    property <bool> image_in_layout_fit_ok: image_in_layout.image-fit == ImageFit.contain;
-    property <bool> image_in_layout_custom_fit_ok: image_in_layout_with_explicit_fit.image-fit == ImageFit.fill;
-    property <bool> image_with_missing_height_ok <=> image_with_missing_height.expected_height_ok;
-    property <bool> image_with_missing_width_ok <=> image_with_missing_width.expected_width_ok;
-    property <bool> image_with_missing_width_clipped_ok <=> image_with_missing_width.expected_width_ok;
+    in-out property <bool> fixed_image_default_image_fit_ok: fixed_image.image-fit == ImageFit.fill;
+    in-out property <bool> fixed_image_image_fit_override_ok: fixed_image_contain.image-fit == ImageFit.contain;
+    in-out property <bool> image_in_layout_fit_ok: image_in_layout.image-fit == ImageFit.contain;
+    in-out property <bool> image_in_layout_custom_fit_ok: image_in_layout_with_explicit_fit.image-fit == ImageFit.fill;
+    in-out property <bool> image_with_missing_height_ok <=> image_with_missing_height.expected_height_ok;
+    in-out property <bool> image_with_missing_width_ok <=> image_with_missing_width.expected_width_ok;
+    in-out property <bool> image_with_missing_width_clipped_ok <=> image_with_missing_width.expected_width_ok;
 
-    property <bool> test: fixed_image_default_image_fit_ok && fixed_image_image_fit_override_ok && image_in_layout_fit_ok && image_in_layout_custom_fit_ok && image_with_missing_height_ok && image_with_missing_width_ok && image_with_missing_width_clipped_ok;
+    in-out property <bool> test: fixed_image_default_image_fit_ok && fixed_image_image_fit_override_ok && image_in_layout_fit_ok && image_in_layout_custom_fit_ok && image_with_missing_height_ok && image_with_missing_width_ok && image_with_missing_width_clipped_ok;
 }
 
 /*

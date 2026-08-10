@@ -1,0 +1,59 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// An `animate` declaration at the use site of a child component's property
+// must interpolate assignments. The binding on `val` keeps the child from
+// being inlined, so the animation is registered in the enclosing component.
+
+component Inner {
+    in-out property <int> val;
+}
+
+export component TestCase {
+    inner := Inner {
+        val: 0;
+        animate val { duration: 1000ms; }
+    }
+
+    public function go() {
+        inner.val = 100;
+    }
+
+    out property <int> result: inner.val;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.get_result(), 0);
+instance.invoke_go();
+assert_eq!(instance.get_result(), 0);
+slint_testing::mock_elapsed_time(500);
+assert_eq!(instance.get_result(), 50);
+slint_testing::mock_elapsed_time(500);
+assert_eq!(instance.get_result(), 100);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert_eq(instance.get_result(), 0);
+instance.invoke_go();
+assert_eq(instance.get_result(), 0);
+slint_testing::mock_elapsed_time(500);
+assert_eq(instance.get_result(), 50);
+slint_testing::mock_elapsed_time(500);
+assert_eq(instance.get_result(), 100);
+```
+
+```js
+var instance = new slint.TestCase({});
+assert.equal(instance.result, 0);
+instance.go();
+assert.equal(instance.result, 0);
+slintlib.private_api.mock_elapsed_time(500);
+assert.equal(instance.result, 50);
+slintlib.private_api.mock_elapsed_time(500);
+assert.equal(instance.result, 100);
+```
+*/

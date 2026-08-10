@@ -30,13 +30,27 @@ pub enum TokenInfo {
     IncompleteNamedReference(ElementType, SmolStr),
 }
 
+/// Resolve a struct/enum declaration reference to its syntax node using the
+/// documents the language server already keeps loaded, so the compiled type does
+/// not need to carry a syntax tree.
+pub(crate) fn node_for_decl(
+    document_cache: &common::DocumentCache,
+    decl: &i_slint_compiler::langtype::DeclNode,
+) -> Option<SyntaxNode> {
+    let doc = document_cache.get_document_for_source_file(decl.source_file())?;
+    let node = doc.node.as_ref()?.covering_element(decl.text_range()).into_node()?;
+    Some(SyntaxNode { node, source_file: decl.source_file().clone() })
+}
+
 impl TokenInfo {
     /// Returns the node to the declaration of what the token represents, if it exists
-    pub fn declaration(&self) -> Option<SyntaxNode> {
+    pub fn declaration(&self, document_cache: &common::DocumentCache) -> Option<SyntaxNode> {
         match self {
             TokenInfo::Type(ty) => match ty {
-                Type::Struct(s) if s.node().is_some() => s.node().unwrap().parent().clone(),
-                Type::Enumeration(e) => e.node.as_deref().cloned(),
+                Type::Struct(s) => s.node().and_then(|n| node_for_decl(document_cache, n)),
+                Type::Enumeration(e) => {
+                    e.node.as_ref().and_then(|n| node_for_decl(document_cache, n))
+                }
                 _ => None,
             },
 
@@ -64,7 +78,9 @@ impl TokenInfo {
             }
 
             TokenInfo::EnumerationValue(v) => {
-                let enum_node = v.enumeration.node.as_ref()?;
+                let enum_node = i_slint_compiler::parser::syntax_nodes::EnumDeclaration::from(
+                    node_for_decl(document_cache, v.enumeration.node.as_ref()?)?,
+                );
                 enum_node.EnumValue().nth(v.value).map(|x| x.clone().into())
             }
 
@@ -304,7 +320,6 @@ pub fn token_info(document_cache: &common::DocumentCache, token: SyntaxToken) ->
                 match &ty {
                     Type::Struct(s)
                         if s.node()
-                            .and_then(|n| n.parent())
                             .map(|n| n.text_range().contains_range(token.text_range()))
                             .unwrap_or_default() =>
                     {

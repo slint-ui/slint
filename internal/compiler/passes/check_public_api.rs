@@ -39,6 +39,15 @@ pub fn check_public_api(
             // Warn about exported non-window (and remove them from the export unless it's the last for compatibility)
             if let Either::Left(c) = &export.1
                 && !c.is_global() && !super::windows::inherits_window(c) {
+                    #[cfg(feature = "slint-sc")]
+                    if diag.slint_sc {
+                        diag.slint_sc_error(
+                            "Exporting a component that doesn't inherit Window is",
+                            &export.0.name_ident,
+                        );
+                        // The error aborts compilation, no need to prune the export
+                        return true;
+                    }
                     let is_last = last.as_ref().is_some_and(|last| !Rc::ptr_eq(last, c));
 
                     if cfg!(feature = "experimental-library-module") && config.library_name.is_some() {

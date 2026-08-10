@@ -3,7 +3,7 @@
 
 use objc2::rc::Retained;
 use objc2::runtime::ProtocolObject;
-use objc2_metal::{MTLDevice, MTLTexture};
+use objc2_metal::{MTLCommandQueue, MTLTexture};
 use skia_safe::gpu::mtl;
 
 use wgpu_29 as wgpu;
@@ -16,6 +16,7 @@ unsafe fn wrap_metal_texture(
     gr_context: &mut skia_safe::gpu::DirectContext,
     metal_handle: mtl::Handle,
     color_type: skia_safe::ColorType,
+    color_space: skia_safe::ColorSpace,
 ) -> Option<skia_safe::Surface> {
     unsafe {
         let texture_info = mtl::TextureInfo::new(metal_handle);
@@ -26,7 +27,7 @@ unsafe fn wrap_metal_texture(
             &backend_render_target,
             skia_safe::gpu::SurfaceOrigin::TopLeft,
             color_type,
-            None,
+            color_space,
             None,
         )
     }
@@ -52,7 +53,14 @@ pub unsafe fn make_metal_surface(
             wgpu::TextureFormat::Rgba8UnormSrgb => skia_safe::ColorType::SRGBA8888,
             _ => return None,
         };
-        wrap_metal_texture(size.width as i32, size.height as i32, gr_context, handle, color_type)
+        wrap_metal_texture(
+            size.width as i32,
+            size.height as i32,
+            gr_context,
+            handle,
+            color_type,
+            super::attachment_color_space(texture),
+        )
     }
 }
 
@@ -61,6 +69,7 @@ pub unsafe fn import_metal_texture(
     texture: wgpu::Texture,
 ) -> Option<skia_safe::Image> {
     unsafe {
+        let color_space = super::sampled_texture_color_space(&texture);
         let metal_texture = texture.as_hal::<wgpu::wgc::api::Metal>();
 
         let texture_info = mtl::TextureInfo::new(metal_texture.unwrap().raw_handle()
@@ -85,7 +94,7 @@ pub unsafe fn import_metal_texture(
                     _ => return None,
                 },
                 skia_safe::AlphaType::Unpremul,
-                None,
+                color_space,
             )
             .unwrap(),
         )
@@ -94,18 +103,26 @@ pub unsafe fn import_metal_texture(
 
 pub fn make_metal_context(
     device: &wgpu::Device,
-    _queue: &wgpu::Queue,
+    queue: &wgpu::Queue,
 ) -> Option<skia_safe::gpu::DirectContext> {
     let backend = unsafe {
-        let metal_device = device.as_hal::<wgpu::wgc::api::Metal>()?;
-        let metal_device_raw: &Retained<ProtocolObject<dyn MTLDevice>> = metal_device.raw_device();
-        // wgpu-29's Metal `Queue` no longer exposes its underlying `MTLCommandQueue`,
-        // so create a dedicated queue from the same device for Skia to submit on.
-        let skia_command_queue = metal_device_raw.newCommandQueue()?;
-        mtl::BackendContext::new(
-            Retained::as_ptr(metal_device_raw) as mtl::Handle,
-            Retained::as_ptr(&skia_command_queue) as mtl::Handle,
-        )
+        let maybe_metal_device = device.as_hal::<wgpu::wgc::api::Metal>();
+        let maybe_metal_queue = queue.as_hal::<wgpu::wgc::api::Metal>();
+
+        maybe_metal_device.and_then(|metal_device| {
+            let metal_device_raw = metal_device.raw_device();
+
+            maybe_metal_queue.map(|metal_queue| {
+                // Share wgpu's command queue with Skia, so that Metal's per-queue hazard tracking
+                // orders wgpu's texture writes before Skia samples them.
+                let metal_queue_raw: *const ProtocolObject<dyn MTLCommandQueue> =
+                    metal_queue.as_raw();
+                mtl::BackendContext::new(
+                    Retained::as_ptr(metal_device_raw) as mtl::Handle,
+                    metal_queue_raw as mtl::Handle,
+                )
+            })
+        })?
     };
 
     skia_safe::gpu::direct_contexts::make_metal(&backend, None)

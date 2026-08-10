@@ -12,7 +12,10 @@ import {
     language,
     CompileError,
     StyledText,
+    private_api,
 } from "../dist/index.js";
+
+private_api.initTesting();
 
 const dirname = path.dirname(
     fileURLToPath(import.meta.url).replace("build", "__test__"),
@@ -32,27 +35,27 @@ test("loadFile", () => {
 
     const errorPath = path.join(dirname, "resources/error.slint");
 
-    let error: any;
+    let error: CompileError | undefined;
     try {
         loadFile(errorPath);
     } catch (e) {
-        error = e;
+        error = e as CompileError;
     }
     expect(error).toBeDefined();
     expect(error).toBeInstanceOf(CompileError);
 
-    const formattedDiagnostics = error.diagnostics
+    const formattedDiagnostics = error!.diagnostics
         .map(
             (d) =>
                 `[${d.fileName}:${d.lineNumber}:${d.columnNumber}] ${d.message}`,
         )
         .join("\n");
-    expect(error.message).toBe(
+    expect(error!.message).toBe(
         "Could not compile " +
             errorPath +
             `\nDiagnostics:\n${formattedDiagnostics}`,
     );
-    expect(error.diagnostics).toStrictEqual([
+    expect(error!.diagnostics).toStrictEqual([
         {
             columnNumber: 18,
             level: 0,
@@ -139,26 +142,26 @@ test("loadSource", () => {
         out property bool> check: "Test";
     }`;
 
-    let error: any;
+    let error: CompileError | undefined;
     try {
         loadSource(errorSource, path);
     } catch (e) {
-        error = e;
+        error = e as CompileError;
     }
     expect(error).toBeDefined();
     expect(error).toBeInstanceOf(CompileError);
 
-    const formattedDiagnostics = error.diagnostics
+    const formattedDiagnostics = error!.diagnostics
         .map(
             (d) =>
                 `[${d.fileName}:${d.lineNumber}:${d.columnNumber}] ${d.message}`,
         )
         .join("\n");
-    expect(error.message).toBe(
+    expect(error!.message).toBe(
         "Could not compile " + path + `\nDiagnostics:\n${formattedDiagnostics}`,
     );
     // console.log(error?.diagnostics)
-    expect(error.diagnostics).toStrictEqual([
+    expect(error!.diagnostics).toStrictEqual([
         {
             columnNumber: 22,
             level: 0,
@@ -184,7 +187,7 @@ test("loadSource", () => {
     ]);
 });
 
-test("non-windowed components have no `window` property", () => {
+test("accessing `window` on non-windowed components throws", () => {
     const source = `
         export component Win inherits Window {
             in-out property <string> name: "world";
@@ -198,8 +201,8 @@ test("non-windowed components have no `window` property", () => {
     const win = new mod.Win();
     const tray = new mod.Tray();
 
-    expect("window" in win).toBe(true);
-    expect("window" in tray).toBe(false);
+    expect(win.window).toBeDefined();
+    expect(() => tray.window).toThrow();
 });
 
 test("loadSource constructor parameters", () => {
@@ -386,15 +389,12 @@ test("language builtin structs: factory overrides", () => {
 });
 
 test("language.DropEvent: factory produces a fully-shaped object", () => {
-    const evt = language.DropEvent({ allow_copy: true });
-    expect(evt.allow_copy).toStrictEqual(true);
-    expect(evt.allow_move).toStrictEqual(false);
-    expect(evt.allow_link).toStrictEqual(false);
-    expect(evt.proposed_action).toStrictEqual("none");
+    const evt = language.DropEvent({ proposed_action: "copy" });
+    expect(evt.proposed_action).toStrictEqual("copy");
     expect(evt.position).toStrictEqual({ x: 0, y: 0 });
     // The TypeScript type alias is the strict shape.
     const typed: language.DropEvent = evt;
-    expect(typed.allow_copy).toStrictEqual(true);
+    expect(typed.proposed_action).toStrictEqual("copy");
 });
 
 test("loadSource styled-text property get/set", () => {

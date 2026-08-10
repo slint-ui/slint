@@ -1,0 +1,281 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Box layouts with a single cell: the compiler solves most of them at compile
+// time (constant alignment, cheap constraints), the rest keep the runtime
+// solver. Both must behave exactly the same.
+
+// Compile-time: stretch fills the available space, minus the padding.
+component TestStretchPadding inherits Rectangle {
+    width: 300phx;
+    height: 200phx;
+
+    VerticalLayout {
+        padding-top: 10phx;
+        padding-bottom: 30phx;
+        padding-left: 5phx;
+        padding-right: 15phx;
+        r := Rectangle { background: red; }
+    }
+
+    out property <bool> test:
+        r.x == 5phx && r.y == 10phx && r.width == 280phx && r.height == 160phx;
+}
+
+// Compile-time: stretch clamps to the cell's max.
+component TestStretchMaxClamp inherits Rectangle {
+    width: 300phx;
+    height: 200phx;
+
+    VerticalLayout {
+        padding: 0phx;
+        r := Rectangle { background: red; max-height: 150phx; }
+    }
+
+    out property <bool> test: r.y == 0phx && r.height == 150phx;
+}
+
+// Compile-time: the minimum wins when the layout is smaller.
+component TestStretchMinWins inherits Rectangle {
+    width: 100phx;
+    height: 100phx;
+
+    VerticalLayout {
+        padding: 0phx;
+        r := Rectangle { background: red; min-height: 150phx; }
+    }
+
+    out property <bool> test: r.y == 0phx && r.height == 150phx;
+}
+
+// Compile-time: center gives the cell its preferred size.
+component TestCenterPreferred inherits Rectangle {
+    width: 300phx;
+    height: 200phx;
+
+    VerticalLayout {
+        padding: 0phx;
+        alignment: center;
+        r := Rectangle { background: red; preferred-height: 50phx; }
+    }
+
+    out property <bool> test: r.y == 75phx && r.height == 50phx;
+}
+
+// Compile-time: center with a fixed size cell.
+component TestCenterFixed inherits Rectangle {
+    width: 300phx;
+    height: 200phx;
+
+    VerticalLayout {
+        padding-top: 20phx;
+        padding-bottom: 0phx;
+        alignment: center;
+        r := Rectangle { background: red; height: 60phx; }
+    }
+
+    // content box: 180phx starting at 20phx; leftover 120phx, half before the cell
+    out property <bool> test: r.y == 20phx + 60phx && r.height == 60phx;
+}
+
+// Compile-time: end alignment puts the leftover before the cell.
+component TestEnd inherits Rectangle {
+    width: 300phx;
+    height: 200phx;
+
+    VerticalLayout {
+        padding: 0phx;
+        alignment: end;
+        r := Rectangle { background: red; preferred-height: 50phx; }
+    }
+
+    out property <bool> test: r.y == 150phx && r.height == 50phx;
+}
+
+// Compile-time: a fixed-size text cell; text never stretches, so the layout
+// reports a fixed layout info and its sibling takes the remaining space.
+component TestFixedTextInfo inherits Rectangle {
+    width: 300phx;
+    height: 200phx;
+
+    HorizontalLayout {
+        padding: 0phx;
+        spacing: 0phx;
+        inner := VerticalLayout {
+            padding: 0phx;
+            alignment: center;
+            t := Text { width: 20phx; height: 10phx; text: "x"; }
+        }
+        sibling := Rectangle { background: green; }
+    }
+
+    out property <bool> test:
+        inner.width == 20phx && sibling.width == 280phx
+        && t.y == (200phx - 10phx) / 2 && t.height == 10phx;
+}
+
+// Compile-time: the constraint comes from the cell component's layout info.
+component ConstrainedPanel {
+    VerticalLayout {
+        padding: 0phx;
+        Rectangle { min-width: 70phx; }
+    }
+}
+component TestComponentMin inherits Rectangle {
+    width: 50phx;
+    height: 50phx;
+
+    HorizontalLayout {
+        padding: 0phx;
+        p := ConstrainedPanel { }
+    }
+
+    out property <bool> test: p.width == 70phx;
+}
+
+// Runtime solver: a percent size needs the solver.
+component TestPercentSize inherits Rectangle {
+    width: 300phx;
+    height: 200phx;
+
+    VerticalLayout {
+        padding: 0phx;
+        r := Rectangle { background: red; height: 25%; }
+    }
+
+    out property <bool> test: r.y == 0phx && r.height == 50phx;
+}
+
+// Runtime solver: the alignment is dynamic.
+component TestDynamicAlignment inherits Rectangle {
+    width: 300phx;
+    height: 200phx;
+
+    in property <bool> centered: true;
+
+    VerticalLayout {
+        padding: 0phx;
+        alignment: root.centered ? LayoutAlignment.center : LayoutAlignment.end;
+        r := Rectangle { background: red; preferred-height: 50phx; }
+    }
+
+    out property <bool> test: r.y == 75phx && r.height == 50phx;
+}
+
+// The cell constraints come from a wrapper's children.
+component TestWrapperMin inherits Rectangle {
+    width: 50phx;
+    height: 50phx;
+
+    HorizontalLayout {
+        padding: 0phx;
+        w := Rectangle {
+            VerticalLayout {
+                padding: 0phx;
+                Rectangle { min-width: 80phx; }
+            }
+        }
+    }
+
+    out property <bool> test: w.width == 80phx;
+}
+
+// The wrapper's maximum, coming from its children, caps the cell.
+component TestWrapperMax inherits Rectangle {
+    width: 300phx;
+    height: 200phx;
+
+    VerticalLayout {
+        padding: 0phx;
+        w := Rectangle {
+            VerticalLayout {
+                padding: 0phx;
+                Rectangle { max-height: 90phx; }
+            }
+        }
+    }
+
+    out property <bool> test: w.y == 0phx && w.height == 90phx;
+}
+
+// A directly nested layout as the single cell.
+component TestNestedLayoutCell inherits Rectangle {
+    width: 300phx;
+    height: 200phx;
+
+    VerticalLayout {
+        padding: 10phx;
+        inner := HorizontalLayout {
+            padding: 0phx;
+            Rectangle { background: red; }
+        }
+    }
+
+    out property <bool> test:
+        inner.x == 10phx && inner.y == 10phx
+        && inner.width == 280phx && inner.height == 180phx;
+}
+
+// Runtime solver: a repeated cell; its constraints still propagate.
+component TestRepeatedCell inherits Rectangle {
+    width: 300phx;
+    height: 200phx;
+
+    HorizontalLayout {
+        padding: 0phx;
+        spacing: 0phx;
+        il := VerticalLayout {
+            padding: 0phx;
+            for i in [0]: Rectangle { background: red; min-width: 200phx; }
+        }
+        sib := Rectangle { background: green; }
+    }
+
+    // the cell's minimum bounds il's starting size; the remaining 100phx is
+    // distributed evenly between the two stretching cells
+    out property <bool> test: il.width == 250phx && sib.width == 50phx;
+}
+
+export component TestCase inherits Rectangle {
+    stretch_pad := TestStretchPadding {}
+    stretch_max := TestStretchMaxClamp {}
+    stretch_min := TestStretchMinWins {}
+    center_pref := TestCenterPreferred {}
+    center_fixed := TestCenterFixed {}
+    end := TestEnd {}
+    fixed_text := TestFixedTextInfo {}
+    component_min := TestComponentMin {}
+    percent := TestPercentSize {}
+    dynamic := TestDynamicAlignment {}
+    wrapper_min := TestWrapperMin {}
+    wrapper_max := TestWrapperMax {}
+    nested := TestNestedLayoutCell {}
+    repeated := TestRepeatedCell {}
+
+    out property <bool> test:
+        stretch_pad.test && stretch_max.test && stretch_min.test
+        && center_pref.test && center_fixed.test && end.test
+        && fixed_text.test && component_min.test
+        && percent.test && dynamic.test && wrapper_min.test
+        && wrapper_max.test && nested.test && repeated.test;
+}
+
+/*
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+```js
+var instance = new slint.TestCase();
+assert(instance.test);
+```
+
+*/

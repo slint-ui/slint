@@ -105,7 +105,7 @@ fn find_binding_expression(
     let property_name = smol_str::SmolStr::from(property_name);
 
     let elem = element.borrow();
-    let be = elem.bindings.get(&property_name).map(|be| be.borrow().clone())?;
+    let be = elem.binding_cell_including_synthetic(&property_name).map(|be| be.borrow().clone())?;
     if matches!(be.expression, expression_tree::Expression::Invalid) {
         for twb in &be.two_way_bindings {
             let expression_tree::TwoWayBinding::Property { property, field_access } = twb else {
@@ -610,11 +610,11 @@ export component Main { }
                 init_param: Default::default(),
                 to_show: None,
                 open_urls: Default::default(),
-                to_preview: Rc::new(crate::common::SwitchableLspToPreview::with_one(
+                to_preview: crate::common::LspToPreviews::with_one(
                     crate::common::DummyLspToPreview::default(),
-                )),
+                ),
                 pending_recompile: Default::default(),
-                preview_to_lsp_sender: tokio::sync::mpsc::unbounded_channel().0,
+                host_language_rename_dont_ask_again: Default::default(),
             };
             let (url, _) = crate::language::test::load(
                 &mut ctx,

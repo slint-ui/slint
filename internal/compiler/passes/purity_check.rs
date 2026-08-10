@@ -70,7 +70,7 @@ fn ensure_pure(
                 }
                 None => {
                     if recursion_test.insert(nr.clone()) {
-                        match nr.element().borrow().bindings.get(nr.name()) {
+                        match nr.element().borrow().binding(nr.name()) {
                             None => {
                                 debug_assert!(
                                     diag.as_ref().is_none_or(|d| d.has_errors()),
@@ -78,12 +78,7 @@ fn ensure_pure(
                                 );
                             }
                             Some(binding) => {
-                                if !ensure_pure(
-                                    &binding.borrow().expression,
-                                    None,
-                                    level,
-                                    recursion_test,
-                                ) {
+                                if !ensure_pure(&binding.expression, None, level, recursion_test) {
                                     if let Some(diag) = diag.as_deref_mut() {
                                         diag.push_diagnostic(
                                             format!("Call of impure function '{}'", nr.name()),

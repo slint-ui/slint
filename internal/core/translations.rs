@@ -281,7 +281,9 @@ fn global_translation_property() -> usize {
 }
 
 pub fn mark_all_translations_dirty() {
-    #[cfg(all(feature = "gettext-rs", target_family = "unix"))]
+    // _nl_msg_cat_cntr is defined by glibc and the standalone GNU libintl, but not by musl,
+    // which provides its own gettext implementation without that cache counter.
+    #[cfg(all(feature = "gettext-rs", target_family = "unix", not(target_env = "musl")))]
     {
         // SAFETY: This trick from https://www.gnu.org/software/gettext/manual/html_node/gettext-grok.html
         // is merely incrementing a generational counter that will invalidate gettext's internal cache for translations.

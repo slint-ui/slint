@@ -21,7 +21,7 @@ use std::sync::{Arc, atomic::AtomicUsize};
 #[cfg(not(no_qt))]
 thread_local! {
     /// Set once by [`Backend::bind_context`]; read from rust!() callbacks fired by the
-    /// Qt event filter installed on `qApp` so palette/theme changes can push the new
+    /// Qt event filter installed on `qApp` so palette/theme/font changes can push the new
     /// values onto the process-wide [`i_slint_core::SlintContext`] without going through
     /// any specific [`qt_window::QtWindow`].
     static QT_CONTEXT: std::cell::OnceCell<i_slint_core::SlintContextWeak> =
@@ -182,11 +182,12 @@ impl i_slint_core::platform::Platform for Backend {
         });
         // Read the host shell's current values once and push them to the context, then
         // install an `qApp`-level event filter that re-pushes whenever Qt reports a
-        // theme/palette change. The previous design did the read in `QtWindow::new` and
+        // theme/palette/font change. The previous design did the read in `QtWindow::new` and
         // the change-tracking in each window's `changeEvent`, which is wasteful when
         // there are multiple windows and outright broken when there are zero windows.
         update_palette_state();
-        install_palette_observer();
+        update_font_state();
+        install_app_state_observer();
     }
 
     fn create_window_adapter(
@@ -422,22 +423,43 @@ fn update_palette_state() {
 }
 
 #[cfg(not(no_qt))]
-fn install_palette_observer() {
+fn update_font_state() {
+    use cpp::cpp;
+    let default_font_size = cpp! {unsafe [] -> i32 as "int" {
+        return QFontInfo(qApp->font()).pixelSize();
+    }};
+    QT_CONTEXT.with(|cell| {
+        if let Some(ctx) = cell.get().and_then(|w| w.upgrade()) {
+            ctx.set_platform_default_font_size(Some(i_slint_core::lengths::LogicalLength::new(
+                default_font_size as f32,
+            )));
+        }
+    });
+}
+
+#[cfg(not(no_qt))]
+fn install_app_state_observer() {
     use cpp::cpp;
     cpp! {{
         #include <QtCore/QEvent>
         #include <QtCore/QObject>
+        #include <QtGui/QFontInfo>
         #include <QtWidgets/QApplication>
 
-        struct SlintPaletteObserver : QObject {
+        struct SlintAppStateObserver : QObject {
             using QObject::QObject;
             bool eventFilter(QObject *watched, QEvent *event) override {
-                if (watched == qApp
-                    && (event->type() == QEvent::ApplicationPaletteChange
-                        || event->type() == QEvent::ThemeChange)) {
-                    rust!(Slint_qt_palette_changed [] {
-                        crate::update_palette_state();
-                    });
+                if (watched == qApp) {
+                    if (event->type() == QEvent::ApplicationPaletteChange
+                        || event->type() == QEvent::ThemeChange) {
+                        rust!(Slint_qt_palette_changed [] {
+                            crate::update_palette_state();
+                        });
+                    } else if (event->type() == QEvent::ApplicationFontChange) {
+                        rust!(Slint_qt_font_changed [] {
+                            crate::update_font_state();
+                        });
+                    }
                 }
                 return false;
             }
@@ -447,7 +469,7 @@ fn install_palette_observer() {
         ensure_initialized(true);
         // Parented to qApp so it lives as long as the application and is cleaned up
         // automatically on exit. installEventFilter doesn't take ownership.
-        auto *observer = new SlintPaletteObserver(qApp);
+        auto *observer = new SlintAppStateObserver(qApp);
         qApp->installEventFilter(observer);
     }};
 }

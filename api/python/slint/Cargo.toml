@@ -18,10 +18,6 @@ rust-version.workspace = true
 path = "lib.rs"
 crate-type = ["cdylib", "rlib"]
 
-[[bin]]
-name = "stub-gen"
-path = "stub-gen/main.rs"
-
 [features]
 # Keep in sync with features in nightly_snapshot.yaml, cpp_package.yaml, slint_tool_binary.yaml, and api/node/Cargo.toml
 default = ["backend-linuxkms-noseat", "backend-winit", "renderer-femtovg", "renderer-skia", "accessibility"]
@@ -33,6 +29,18 @@ backend-winit-wayland = ["slint-interpreter/backend-winit-wayland"]
 backend-linuxkms = ["slint-interpreter/backend-linuxkms"]
 backend-linuxkms-noseat = ["slint-interpreter/backend-linuxkms-noseat"]
 backend-testing = ["i-slint-backend-selector/backend-testing"]
+
+# The features below are additive and binary-compatible with the default build:
+# they don't change the PyO3 surface, only enabling extra runtime behavior, and
+# the servers auto-start (through the backend selector) when the matching
+# environment variable is set. `system-testing` (SLINT_TEST_SERVER) and `mcp`
+# (SLINT_MCP_PORT) are what the shipped "dev" wheel enables; see
+# ../slint-dev/pyproject.toml. `dev-dist` only renames the native module so the
+# dev wheel can ship its own binary alongside the lean one.
+system-testing = ["i-slint-backend-selector/system-testing"]
+mcp = ["i-slint-backend-selector/mcp"]
+dev-dist = []
+
 renderer-femtovg = ["slint-interpreter/renderer-femtovg"]
 renderer-femtovg-wgpu = ["slint-interpreter/renderer-femtovg-wgpu"]
 renderer-skia = ["slint-interpreter/renderer-skia"]
@@ -48,12 +56,11 @@ i-slint-common = { workspace = true }
 i-slint-core = { workspace = true, features = ["tr"] }
 slint-interpreter = { workspace = true, features = ["default", "display-diagnostics", "internal", "internal-highlight"] }
 i-slint-compiler = { workspace = true, features = ["python"] }
-pyo3 = { version = "0.28", features = ["extension-module", "indexmap", "chrono", "abi3-py311"] }
+pyo3 = { version = "0.29", features = ["extension-module", "indexmap", "chrono", "abi3-py311"] }
 indexmap = { version = "2.1.0" }
 chrono = "0.4"
 spin_on = { workspace = true }
 css-color-parser2 = { workspace = true }
-pyo3-stub-gen = { version = "0.18.0", default-features = false }
 smol = { version = "2.0.0" }
 
 [build-dependencies]

@@ -21,6 +21,7 @@ When adding an item or a property, it needs to be kept in sync with different pl
 #![allow(missing_docs)] // because documenting each property of items is redundant
 
 use crate::api::LogicalPosition;
+use crate::cursor::MouseCursorInner;
 use crate::data_transfer::DataTransfer;
 use crate::graphics::{Brush, Color, FontRequest, Image};
 use crate::input::{
@@ -95,7 +96,7 @@ macro_rules! declare_item_vtable {
         #[unsafe(no_mangle)]
         pub extern "C" fn $getter() -> *const ItemVTable {
             use vtable::HasStaticVTable;
-            <$item_ty>::static_vtable()
+            <$item_ty>::STATIC_VTABLE
         }
     };
 }
@@ -165,7 +166,7 @@ pub struct ItemVTable {
         &MouseEvent,
         window_adapter: &WindowAdapterRc,
         self_rc: &ItemRc,
-        cursor: &mut MouseCursor,
+        cursor: &mut MouseCursorInner,
     ) -> InputEventFilterResult,
 
     /// Handle input event for mouse and touch event
@@ -174,7 +175,7 @@ pub struct ItemVTable {
         &MouseEvent,
         window_adapter: &WindowAdapterRc,
         self_rc: &ItemRc,
-        cursor: &mut MouseCursor,
+        cursor: &mut MouseCursorInner,
     ) -> InputEventResult,
 
     pub focus_event: extern "C" fn(
@@ -251,7 +252,7 @@ impl Item for Empty {
         _: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
-        _: &mut MouseCursor,
+        _: &mut MouseCursorInner,
     ) -> InputEventFilterResult {
         InputEventFilterResult::ForwardAndIgnore
     }
@@ -261,7 +262,7 @@ impl Item for Empty {
         _: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
-        _: &mut MouseCursor,
+        _: &mut MouseCursorInner,
     ) -> InputEventResult {
         InputEventResult::EventIgnored
     }
@@ -357,7 +358,7 @@ impl Item for Rectangle {
         _: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
-        _: &mut MouseCursor,
+        _: &mut MouseCursorInner,
     ) -> InputEventFilterResult {
         InputEventFilterResult::ForwardAndIgnore
     }
@@ -367,7 +368,7 @@ impl Item for Rectangle {
         _: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
-        _: &mut MouseCursor,
+        _: &mut MouseCursorInner,
     ) -> InputEventResult {
         InputEventResult::EventIgnored
     }
@@ -472,7 +473,7 @@ impl Item for BasicBorderRectangle {
         _: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
-        _: &mut MouseCursor,
+        _: &mut MouseCursorInner,
     ) -> InputEventFilterResult {
         InputEventFilterResult::ForwardAndIgnore
     }
@@ -482,7 +483,7 @@ impl Item for BasicBorderRectangle {
         _: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
-        _: &mut MouseCursor,
+        _: &mut MouseCursorInner,
     ) -> InputEventResult {
         InputEventResult::EventIgnored
     }
@@ -600,7 +601,7 @@ impl Item for BorderRectangle {
         _: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
-        _: &mut MouseCursor,
+        _: &mut MouseCursorInner,
     ) -> InputEventFilterResult {
         InputEventFilterResult::ForwardAndIgnore
     }
@@ -610,7 +611,7 @@ impl Item for BorderRectangle {
         _: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
-        _: &mut MouseCursor,
+        _: &mut MouseCursorInner,
     ) -> InputEventResult {
         InputEventResult::EventIgnored
     }
@@ -729,6 +730,7 @@ pub struct Clip {
     pub border_width: Property<LogicalLength>,
     pub cached_rendering_data: CachedRenderingData,
     pub clip: Property<bool>,
+    pub is_visibility_clip: Property<bool>,
 }
 
 impl Item for Clip {
@@ -751,7 +753,7 @@ impl Item for Clip {
         event: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         self_rc: &ItemRc,
-        _: &mut MouseCursor,
+        _: &mut MouseCursorInner,
     ) -> InputEventFilterResult {
         if let Some(pos) = event.position() {
             let geometry = self_rc.geometry();
@@ -772,7 +774,7 @@ impl Item for Clip {
         _: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
-        _: &mut MouseCursor,
+        _: &mut MouseCursorInner,
     ) -> InputEventResult {
         InputEventResult::EventIgnored
     }
@@ -877,7 +879,7 @@ impl Item for Opacity {
         _: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
-        _: &mut MouseCursor,
+        _: &mut MouseCursorInner,
     ) -> InputEventFilterResult {
         InputEventFilterResult::ForwardAndIgnore
     }
@@ -887,7 +889,7 @@ impl Item for Opacity {
         _: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
-        _: &mut MouseCursor,
+        _: &mut MouseCursorInner,
     ) -> InputEventResult {
         InputEventResult::EventIgnored
     }
@@ -1009,7 +1011,7 @@ impl Item for Layer {
         _: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
-        _: &mut MouseCursor,
+        _: &mut MouseCursorInner,
     ) -> InputEventFilterResult {
         InputEventFilterResult::ForwardAndIgnore
     }
@@ -1019,7 +1021,7 @@ impl Item for Layer {
         _: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
-        _: &mut MouseCursor,
+        _: &mut MouseCursorInner,
     ) -> InputEventResult {
         InputEventResult::EventIgnored
     }
@@ -1118,7 +1120,7 @@ impl Item for Transform {
         _: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
-        _: &mut MouseCursor,
+        _: &mut MouseCursorInner,
     ) -> InputEventFilterResult {
         InputEventFilterResult::ForwardAndIgnore
     }
@@ -1128,7 +1130,7 @@ impl Item for Transform {
         _: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
-        _: &mut MouseCursor,
+        _: &mut MouseCursorInner,
     ) -> InputEventResult {
         InputEventResult::EventIgnored
     }
@@ -1211,6 +1213,10 @@ declare_item_vtable! {
     fn slint_get_DropAreaVTable() -> DropAreaVTable for DropArea
 }
 
+declare_item_vtable! {
+    fn slint_get_WindowMoveAreaVTable() -> WindowMoveAreaVTable for WindowMoveArea
+}
+
 /// The implementation of the `PropertyAnimation` element
 /// This animation has the time as animation limit
 #[repr(C)]
@@ -1228,6 +1234,8 @@ pub struct PropertyAnimation {
     pub direction: AnimationDirection,
     #[rtti_field]
     pub easing: crate::animations::EasingCurve,
+    #[rtti_field]
+    pub enabled: bool,
 }
 
 impl Default for PropertyAnimation {
@@ -1240,6 +1248,7 @@ impl Default for PropertyAnimation {
             iteration_count: 1.,
             direction: Default::default(),
             easing: Default::default(),
+            enabled: true,
         }
     }
 }
@@ -1292,7 +1301,7 @@ impl Item for WindowItem {
         _: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
-        _: &mut MouseCursor,
+        _: &mut MouseCursorInner,
     ) -> InputEventFilterResult {
         InputEventFilterResult::ForwardAndIgnore
     }
@@ -1302,7 +1311,7 @@ impl Item for WindowItem {
         _: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
-        _: &mut MouseCursor,
+        _: &mut MouseCursorInner,
     ) -> InputEventResult {
         InputEventResult::EventIgnored
     }
@@ -1401,7 +1410,18 @@ impl WindowItem {
         let first_item = ItemRc::new_root(item_tree);
         let window_item = next_window_item(&first_item).unwrap();
         Self::resolve_font_property(&window_item, Self::font_size)
-            .unwrap_or_else(|| first_item.window_adapter().unwrap().renderer().default_font_size())
+            .or_else(|| Self::platform_default_font_size(&first_item))
+            .unwrap_or(crate::textlayout::DEFAULT_FONT_SIZE)
+    }
+
+    /// Returns the default font size reported by the platform (e.g. iOS Dynamic Type),
+    /// or `None` when the backend doesn't report one. Used as fallback when no
+    /// `default-font-size` is set in the .slint code, before the renderer's built-in
+    /// default applies.
+    fn platform_default_font_size(item: &ItemRc) -> Option<LogicalLength> {
+        item.window_adapter().and_then(|adapter| {
+            WindowInner::from_pub(adapter.window()).context().platform_default_font_size()
+        })
     }
 
     fn resolve_font_property<T>(
@@ -1415,13 +1435,9 @@ impl WindowItem {
                 return Some(result);
             }
 
-            match window_item_rc
+            window_item_rc = window_item_rc
                 .parent_item(crate::item_tree::ParentItemTraversalMode::FindAllParents)
-                .and_then(|p| next_window_item(&p))
-            {
-                Some(item) => window_item_rc = item,
-                None => return None,
-            }
+                .and_then(|p| next_window_item(&p))?;
         }
     }
 
@@ -1467,6 +1483,7 @@ impl WindowItem {
                         &window_item_rc,
                         crate::items::WindowItem::font_size,
                     )
+                    .or_else(|| Self::platform_default_font_size(self_rc))
                 } else {
                     Some(local_font_size)
                 }
@@ -1485,12 +1502,11 @@ impl WindowItem {
             return false;
         }
         let inner = WindowInner::from_pub(window_adapter.window());
-        if inner.request_close()
-            && let Err(err) = inner.hide()
-        {
+        let accepted = inner.request_close();
+        if accepted && let Err(err) = inner.hide() {
             crate::debug_log!("Slint: Failed to hide window after close request: {err}");
         }
-        true
+        accepted
     }
 
     pub fn hide(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>, self_rc: &ItemRc) {
@@ -1588,7 +1604,7 @@ impl Item for ContextMenu {
         _: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
-        _: &mut MouseCursor,
+        _: &mut MouseCursorInner,
     ) -> InputEventFilterResult {
         InputEventFilterResult::ForwardEvent
     }
@@ -1598,7 +1614,7 @@ impl Item for ContextMenu {
         event: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
-        _: &mut MouseCursor,
+        _: &mut MouseCursorInner,
     ) -> InputEventResult {
         if !self.enabled() {
             return InputEventResult::EventIgnored;
@@ -1814,7 +1830,7 @@ impl Item for BoxShadow {
         _: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
-        _: &mut MouseCursor,
+        _: &mut MouseCursorInner,
     ) -> InputEventFilterResult {
         InputEventFilterResult::ForwardAndIgnore
     }
@@ -1824,7 +1840,7 @@ impl Item for BoxShadow {
         _: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
-        _: &mut MouseCursor,
+        _: &mut MouseCursorInner,
     ) -> InputEventResult {
         InputEventResult::EventIgnored
     }
@@ -1999,11 +2015,11 @@ impl Item for TooltipArea {
         event: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         self_rc: &ItemRc,
-        _: &mut MouseCursor,
+        _: &mut MouseCursorInner,
     ) -> InputEventFilterResult {
         // Track hover in the filter stage so enter/leave transitions are reliable,
         // independent of later input handling.
-        if matches!(event, MouseEvent::DragMove(..) | MouseEvent::Drop(..)) {
+        if matches!(event, MouseEvent::DragMove { .. } | MouseEvent::Drop { .. }) {
             self.set_hover_state(false, self_rc);
             return InputEventFilterResult::ForwardAndIgnore;
         }
@@ -2030,7 +2046,7 @@ impl Item for TooltipArea {
         event: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
-        _: &mut MouseCursor,
+        _: &mut MouseCursorInner,
     ) -> InputEventResult {
         if matches!(event, MouseEvent::Exit) {
             self.set_hover_state(false, _self_rc);
@@ -2148,15 +2164,31 @@ declare_item_vtable! {
     fn slint_get_TooltipAreaVTable() -> TooltipAreaVTable for TooltipArea
 }
 
+/// Expands to a builtin struct field's declared default value,
+/// or to the zero value of the field's type when no default is declared.
+/// Number literals for `Coord` fields are cast, because `Coord` is `f32` or `i32`
+/// depending on `cfg(slint_int_coord)`.
+macro_rules! builtin_struct_field_default {
+    (Coord, $default:expr) => {
+        ($default) as Coord
+    };
+    ($field_type:ident, $default:expr) => {
+        $default
+    };
+    ($field_type:ident) => {
+        ::core::default::Default::default()
+    };
+}
+
 macro_rules! declare_builtin_structs {
     ($(
         $(#[$struct_attr:meta])*
         $vis:vis struct $Name:ident {
-            $( $(#[$field_attr:meta])* $field:ident : $field_type:ty, )*
+            $( $(#[$field_attr:meta])* $field:ident : $field_type:ident $(= $field_default:expr)?, )*
         }
     )*) => {
         $(
-            #[derive(Clone, Debug, Default, PartialEq)]
+            #[derive(Clone, Debug, PartialEq)]
             #[repr(C)]
             $(#[$struct_attr])*
             pub struct $Name {
@@ -2165,11 +2197,39 @@ macro_rules! declare_builtin_structs {
                     pub $field : $field_type,
                 )*
             }
+
+            // Not derived, so that the fields take their declared default values
+            impl ::core::default::Default for $Name {
+                fn default() -> Self {
+                    Self {
+                        $($field: builtin_struct_field_default!($field_type $(, $field_default)?),)*
+                    }
+                }
+            }
         )*
     };
 }
 
 i_slint_common::for_each_builtin_structs!(declare_builtin_structs);
+
+#[test]
+fn builtin_struct_field_defaults() {
+    // Fields without a declared default value take the zero value of their type,
+    // like with derive(Default)
+    let table_column = TableColumn::default();
+    assert_eq!(table_column.sort_order, SortOrder::Unsorted);
+    assert_eq!(table_column.min_width, 0 as Coord);
+    assert_eq!(table_column.horizontal_stretch, 0.0);
+    assert_eq!(table_column.title, SharedString::default());
+    assert!(!KeyEvent::default().repeat);
+    assert_eq!(PointerEvent::default().touch_finger_id, 0);
+
+    // Fields with a declared default value take it
+    let hints = InputMethodHints::default();
+    assert_eq!(hints.capitalization, CapitalizationMode::Sentences);
+    assert!(hints.auto_correct);
+    assert!(hints.auto_complete);
+}
 
 #[cfg(feature = "ffi")]
 #[unsafe(no_mangle)]
@@ -2178,5 +2238,7 @@ pub unsafe extern "C" fn slint_item_absolute_position(
     self_index: u32,
 ) -> crate::lengths::LogicalPoint {
     let self_rc = ItemRc::new(self_component.clone(), self_index);
-    self_rc.map_to_window(Default::default())
+    // Map the item's own geometry origin through the ancestor transforms so the result is the
+    // item's absolute position, not its parent's.
+    self_rc.map_to_window(self_rc.geometry().origin)
 }

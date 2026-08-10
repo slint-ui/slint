@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 
-SubWithConstraints := Rectangle {
+component SubWithConstraints inherits Rectangle {
     min-height: 20px;
 }
 
@@ -43,9 +43,9 @@ export component TestCase inherits Rectangle {
 
     }
 
-    property <length> expected_y1: 300phx*0.3;
-    property <length> expected_y2: 300phx*0.3 + 20phx;
-    property <length> expected_x1: 30phx;
+    in-out property <length> expected_y1: 300phx*0.3;
+    in-out property <length> expected_y2: 300phx*0.3 + 20phx;
+    in-out property <length> expected_x1: 30phx;
 
     out property <bool> rect1_pos_ok: rect1.x == 0phx && rect1.y == 0phx && rect1.width == expected_x1 && rect1.height == expected_y1;
     out property <bool> rect2_pos_ok: rect2.x == expected_x1 && rect2.y == 0phx && rect2.width == 270phx && rect2.height == expected_y1;

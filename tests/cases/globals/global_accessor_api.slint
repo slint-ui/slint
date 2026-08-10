@@ -20,7 +20,7 @@ global InternalGlobal  {
 export { InternalGlobal as PublicGlobal }
 export { ReexportedGlobal }
 
-component TestCase inherits Rectangle {
+export component TestCase inherits Rectangle {
     in-out property <bool> test_global_prop_value: InternalGlobal.hello == 100;
     in-out property <int> test_call_callback: InternalGlobal.sum(6, 4);
 }

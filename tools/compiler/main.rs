@@ -39,13 +39,13 @@ enum Embedding {
     #[value(alias = "true")]
     EmbedFiles,
     /// Embed in a format optimized for the software renderer. This
-    /// option falls back to `embed-files` if the software-renderer is not
+    /// option falls back to `embed-files` if the renderer-software feature is not
     /// used
-    #[cfg(feature = "software-renderer")]
+    #[cfg(feature = "renderer-software")]
     EmbedForSoftwareRenderer,
     /// Same as "embed-files-for-software-renderer" but use Signed Distance Field (SDF) to render fonts.
     /// This produces smaller binaries, but may result in slightly inferior visual output and slower rendering.
-    #[cfg(all(feature = "software-renderer", feature = "sdf-fonts"))]
+    #[cfg(all(feature = "renderer-software", feature = "sdf-fonts"))]
     EmbedForSoftwareRendererWithSdf,
 }
 
@@ -154,6 +154,9 @@ fn main() -> std::io::Result<()> {
         };
         reject(args.format.is_some(), "--format");
         reject(args.style.is_some(), "--style");
+        // An import resolves relative to the importing file only.
+        reject(!args.include_paths.is_empty(), "-I");
+        reject(!args.library_paths.is_empty(), "-L");
         reject(args.scale_factor.is_some(), "--scale-factor");
         reject(args.embed_resources.is_some(), "--embed-resources");
         reject(args.translation_domain.is_some(), "--translation-domain");
@@ -233,9 +236,9 @@ fn main() -> std::io::Result<()> {
         compiler_config.embed_resources = match embed {
             Embedding::AsAbsolutePath => EmbedResourcesKind::OnlyBuiltinResources,
             Embedding::EmbedFiles => EmbedResourcesKind::EmbedAllResources,
-            #[cfg(feature = "software-renderer")]
+            #[cfg(feature = "renderer-software")]
             Embedding::EmbedForSoftwareRenderer => EmbedResourcesKind::EmbedTextures,
-            #[cfg(all(feature = "software-renderer", feature = "sdf-fonts"))]
+            #[cfg(all(feature = "renderer-software", feature = "sdf-fonts"))]
             Embedding::EmbedForSoftwareRendererWithSdf => {
                 compiler_config.use_sdf_fonts = true;
                 EmbedResourcesKind::EmbedTextures

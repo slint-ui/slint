@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-TestCase := Window {
+export component TestCase inherits Window {
     preferred-width: 500px;
     preferred-height: 500px;
     no-frame: false;
@@ -11,8 +11,8 @@ TestCase := Window {
         y: 10px;
         width: parent.width - 20px;
         height: parent.height - 20px;
-        viewport_width: 2100px;
-        viewport_height: 2100px;
+        content_width: 2100px;
+        content_height: 2100px;
 
         VerticalLayout {
             padding: 0;
@@ -45,8 +45,8 @@ TestCase := Window {
         fs.clear-focus();
     }
 
-    property <length> offset_x: -f.viewport_x;
-    property <length> offset_y: -f.viewport_y;
+    in-out property <length> offset_x: -f.content_x;
+    in-out property <length> offset_y: -f.content_y;
 }
 
 /*

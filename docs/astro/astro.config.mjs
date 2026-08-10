@@ -9,8 +9,9 @@ import { slintStarlightFaviconHead } from "@slint/common-files/src/utils/starlig
 import {
     SLINT_STARLIGHT_TRAILING_SLASH,
     slintStarlightLinksValidatorPlugin,
-    slintStarlightMarkdownRehypeExternalLinksOnly,
 } from "@slint/common-files/src/utils/starlight-site-defaults";
+import { rehypeExternalLinksSlint } from "@slint/common-files/src/utils/rehype-external-links-preset";
+import rehypeSlsIds from "@slint/common-files/src/utils/rehype-sls-ids.mjs";
 import { slintStarlightSocial } from "@slint/common-files/src/utils/starlight-social";
 import {
     BASE_PATH,
@@ -35,7 +36,31 @@ export default defineConfig({
     site: `${BASE_URL}${BASE_PATH}`,
     base: BASE_PATH,
     trailingSlash: SLINT_STARLIGHT_TRAILING_SLASH,
-    markdown: slintStarlightMarkdownRehypeExternalLinksOnly(),
+    // Pages that moved elsewhere in the tree. Astro serves the source routes
+    // under the base path but uses the destinations verbatim, so they need the
+    // prefix.
+    redirects: {
+        "/reference/primitive-types/": `${BASE_PATH}reference/property-types/numeric-types/`,
+        "/reference/colors-and-brushes/": `${BASE_PATH}reference/property-types/colors-and-brushes/`,
+        "/reference/language/builtin-types/": `${BASE_PATH}reference/property-types/numeric-types/`,
+        "/reference/property-types/builtin-types/": `${BASE_PATH}reference/property-types/`,
+        "/reference/property-types/type-conversions/": `${BASE_PATH}reference/language/type-conversions/`,
+        "/reference/language/colors-and-brushes/": `${BASE_PATH}reference/property-types/colors-and-brushes/`,
+        "/reference/language/arrays-and-models/": `${BASE_PATH}reference/property-types/arrays-and-models/`,
+        "/reference/global-structs-enums/": `${BASE_PATH}reference/property-types/builtin-structs/`,
+        "/guide/platforms/desktop/": `${BASE_PATH}guide/platforms/desktop/general/`,
+        "/guide/platforms/other/": `${BASE_PATH}guide/platforms/desktop/general/`,
+        "/guide/platforms/packaging/windows-packaging/": `${BASE_PATH}guide/platforms/desktop/windows/packaging/`,
+    },
+    markdown: {
+        gfm: true,
+        rehypePlugins: [
+            rehypeExternalLinksSlint,
+            // The traceability identifiers anchor the paragraphs here too, but
+            // only the safety manual displays them.
+            [rehypeSlsIds, { renderBadge: false }],
+        ],
+    },
     integrations: [
         sitemap(),
         starlight({
@@ -46,6 +71,7 @@ export default defineConfig({
             customCss: [
                 "@slint/common-files/src/styles/starlight-slint-custom.css",
                 "@slint/common-files/src/styles/starlight-slint-theme.css",
+                "@slint/common-files/src/styles/sls-ids.css",
             ],
 
             components: {
@@ -66,11 +92,11 @@ export default defineConfig({
                                 collapsed: true,
                                 items: [
                                     "guide/tooling/vscode",
+                                    "guide/tooling/manual-setup",
                                     {
                                         label: "Other Editors",
                                         collapsed: true,
                                         items: [
-                                            "guide/tooling/manual-setup",
                                             "guide/tooling/kate",
                                             "guide/tooling/qt-creator",
                                             "guide/tooling/helix",
@@ -81,7 +107,9 @@ export default defineConfig({
                                         ],
                                     },
                                     "guide/tooling/live-preview",
+                                    "guide/tooling/slint-viewer",
                                     "guide/tooling/figma-inspector",
+                                    "guide/tooling/ai-coding-assistants",
                                 ],
                             },
                             {
@@ -180,7 +208,26 @@ export default defineConfig({
                                 label: "Platforms",
                                 collapsed: true,
                                 items: [
-                                    "guide/platforms/desktop",
+                                    {
+                                        label: "Desktop",
+                                        collapsed: true,
+                                        items: [
+                                            "guide/platforms/desktop/general",
+                                            {
+                                                label: "Windows",
+                                                collapsed: true,
+                                                items: [
+                                                    {
+                                                        label: "Overview",
+                                                        slug: "guide/platforms/desktop/windows/general",
+                                                    },
+                                                    "guide/platforms/desktop/windows/packaging",
+                                                ],
+                                            },
+                                            "guide/platforms/desktop/macos",
+                                            "guide/platforms/desktop/linux",
+                                        ],
+                                    },
                                     "guide/platforms/embedded",
                                     {
                                         label: "Mobile",
@@ -192,7 +239,6 @@ export default defineConfig({
                                         ],
                                     },
                                     "guide/platforms/web",
-                                    "guide/platforms/other",
                                 ],
                             },
                             {
@@ -219,14 +265,6 @@ export default defineConfig({
                                                   slug: "guide/experimental/overview",
                                               },
                                               {
-                                                  label: "AI Coding Assistants",
-                                                  slug: "guide/experimental/ai-coding-assistants",
-                                              },
-                                              {
-                                                  label: "FlexboxLayout",
-                                                  slug: "guide/experimental/flexboxlayout",
-                                              },
-                                              {
                                                   label: "Interface",
                                                   slug: "guide/experimental/interface",
                                               },
@@ -237,6 +275,26 @@ export default defineConfig({
                                               {
                                                   label: "Library Modules",
                                                   slug: "guide/experimental/library-modules",
+                                              },
+                                              {
+                                                  label: "Match Elements",
+                                                  slug: "guide/experimental/match-elements",
+                                              },
+                                              {
+                                                  label: "Array Predicates",
+                                                  slug: "guide/experimental/array-predicates",
+                                              },
+                                              {
+                                                  label: "Named Slots",
+                                                  slug: "guide/experimental/named-slots",
+                                              },
+                                              {
+                                                  label: "Deprecated Properties",
+                                                  slug: "guide/experimental/deprecated",
+                                              },
+                                              {
+                                                  label: "Flexbox Item Properties",
+                                                  slug: "guide/experimental/flexbox-item-properties",
                                               },
                                           ],
                                       },
@@ -254,38 +312,164 @@ export default defineConfig({
                                 slug: "reference/overview",
                             },
                             {
-                                label: "Types and Properties",
+                                label: "Language Specification",
                                 collapsed: true,
                                 items: [
                                     {
-                                        label: "Primitive Types",
-                                        slug: "reference/primitive-types",
+                                        label: "Introduction",
+                                        slug: "reference/language",
                                     },
+                                    {
+                                        label: "Source Files",
+                                        slug: "reference/language/source-files",
+                                    },
+                                    {
+                                        label: "Lexical Structure",
+                                        slug: "reference/language/lexical-structure",
+                                    },
+                                    {
+                                        label: "File Structure",
+                                        slug: "reference/language/file-structure",
+                                    },
+                                    {
+                                        label: "Name Resolution",
+                                        slug: "reference/language/name-resolution",
+                                    },
+                                    {
+                                        label: "Imports",
+                                        slug: "reference/language/imports",
+                                    },
+                                    {
+                                        label: "Exports",
+                                        slug: "reference/language/exports",
+                                    },
+                                    {
+                                        label: "Properties",
+                                        slug: "reference/language/properties",
+                                    },
+                                    {
+                                        label: "Bindings",
+                                        slug: "reference/language/bindings",
+                                    },
+                                    {
+                                        label: "Two-Way Bindings",
+                                        slug: "reference/language/two-way-bindings",
+                                    },
+                                    {
+                                        label: "Expressions",
+                                        slug: "reference/language/expressions",
+                                    },
+                                    {
+                                        label: "Operators",
+                                        slug: "reference/language/operators",
+                                    },
+                                    {
+                                        label: "Type Conversions",
+                                        slug: "reference/language/type-conversions",
+                                    },
+                                    {
+                                        label: "Statements",
+                                        slug: "reference/language/statements",
+                                    },
+                                    {
+                                        label: "Functions",
+                                        slug: "reference/language/functions",
+                                    },
+                                    {
+                                        label: "Callbacks",
+                                        slug: "reference/language/callbacks",
+                                    },
+                                    {
+                                        label: "Evaluation and Purity",
+                                        slug: "reference/language/evaluation-and-purity",
+                                    },
+                                    {
+                                        label: "Structs and Enums",
+                                        slug: "reference/language/structs-and-enums",
+                                    },
+                                    {
+                                        label: "Globals",
+                                        slug: "reference/language/globals",
+                                    },
+                                    {
+                                        label: "Repetition and Conditional Elements",
+                                        slug: "reference/language/repetition-and-conditional-elements",
+                                    },
+                                    {
+                                        label: "Container Components",
+                                        slug: "reference/language/container-components",
+                                    },
+                                    {
+                                        label: "Animations",
+                                        slug: "reference/language/animations",
+                                    },
+                                    {
+                                        label: "States and Transitions",
+                                        slug: "reference/language/states-and-transitions",
+                                    },
+                                    {
+                                        label: "Geometry",
+                                        slug: "reference/language/geometry",
+                                    },
+                                ],
+                            },
+                            {
+                                label: "Types",
+                                collapsed: true,
+                                items: [
+                                    {
+                                        label: "Overview",
+                                        slug: "reference/property-types",
+                                    },
+                                    {
+                                        label: "Primitive & Numeric Types",
+                                        slug: "reference/property-types/numeric-types",
+                                    },
+                                    {
+                                        label: "Strings",
+                                        slug: "reference/property-types/strings",
+                                    },
+                                    {
+                                        label: "Colors & Brushes",
+                                        slug: "reference/property-types/colors-and-brushes",
+                                    },
+                                    {
+                                        label: "Images",
+                                        slug: "reference/property-types/images",
+                                    },
+                                    {
+                                        label: "Built-in Structs",
+                                        slug: "reference/property-types/builtin-structs",
+                                    },
+                                    {
+                                        label: "Built-in Enums",
+                                        slug: "reference/property-types/builtin-enums",
+                                    },
+                                    {
+                                        label: "Arrays and Models",
+                                        slug: "reference/property-types/arrays-and-models",
+                                    },
+                                    {
+                                        label: "Other",
+                                        slug: "reference/property-types/other-types",
+                                    },
+                                ],
+                            },
+                            {
+                                label: "Elements",
+                                collapsed: true,
+                                items: [
                                     {
                                         label: "Common Properties & Callbacks",
                                         slug: "reference/common",
                                     },
                                     {
-                                        label: "Colors & Brushes",
-                                        slug: "reference/colors-and-brushes",
-                                    },
-                                    {
-                                        label: "Timer",
-                                        slug: "reference/timer",
-                                    },
-                                ],
-                            },
-                            {
-                                label: "Visual Elements",
-                                collapsed: true,
-                                items: [
-                                    {
-                                        label: "Basic Elements",
+                                        label: "Basic Visual Elements",
                                         items: [
                                             {
                                                 autogenerate: {
                                                     directory:
-                                                        "reference/generated/elements",
+                                                        "generated/reference/elements",
                                                 },
                                             },
                                         ],
@@ -296,7 +480,7 @@ export default defineConfig({
                                             {
                                                 autogenerate: {
                                                     directory:
-                                                        "reference/generated/gestures",
+                                                        "generated/reference/gestures",
                                                 },
                                             },
                                         ],
@@ -307,7 +491,7 @@ export default defineConfig({
                                             {
                                                 autogenerate: {
                                                     directory:
-                                                        "reference/generated/drag-and-drop",
+                                                        "generated/reference/drag-and-drop",
                                                 },
                                             },
                                         ],
@@ -352,12 +536,10 @@ export default defineConfig({
                                                 label: "VerticalLayout",
                                                 slug: "reference/layouts/verticallayout",
                                             },
-                                            // FlexboxLayout is experimental. When it ships, drop
-                                            // `draft: true` from flexbox-layout.mdx and uncomment:
-                                            // {
-                                            //     label: "FlexboxLayout",
-                                            //     slug: "reference/layouts/flexboxlayout",
-                                            // },
+                                            {
+                                                label: "FlexboxLayout",
+                                                slug: "reference/layouts/flexboxlayout",
+                                            },
                                         ],
                                     },
                                     {
@@ -366,44 +548,43 @@ export default defineConfig({
                                             {
                                                 autogenerate: {
                                                     directory:
-                                                        "reference/generated/window",
+                                                        "generated/reference/window",
                                                 },
+                                            },
+                                        ],
+                                    },
+                                    {
+                                        label: "Non-Visual Elements",
+                                        items: [
+                                            {
+                                                label: "Timer",
+                                                slug: "reference/timer",
                                             },
                                         ],
                                     },
                                 ],
                             },
                             {
-                                label: "Globals",
+                                label: "Namespaces",
                                 collapsed: true,
                                 items: [
                                     {
-                                        label: "Global Structs and Enums",
-                                        slug: "reference/global-structs-enums",
+                                        label: "Math",
+                                        slug: "reference/global-functions/math",
                                     },
                                     {
-                                        label: "Global Functions",
-                                        collapsed: true,
-                                        items: [
-                                            {
-                                                label: "Math",
-                                                slug: "reference/global-functions/math",
-                                            },
-                                            {
-                                                label: "animation-tick() / debug()",
-                                                slug: "reference/global-functions/builtinfunctions",
-                                            },
-                                        ],
-                                    },
-                                    {
-                                        label: "Platform Namespace",
+                                        label: "Platform",
                                         slug: "reference/platform",
                                     },
                                     {
-                                        label: "FontWeight Namespace",
+                                        label: "FontWeight",
                                         slug: "reference/global-namespaces/font-weight",
                                     },
                                 ],
+                            },
+                            {
+                                label: "Global Functions",
+                                slug: "reference/global-functions/builtinfunctions",
                             },
                             {
                                 label: "Std-Widgets",
@@ -554,7 +735,13 @@ export default defineConfig({
                         ],
                     },
                 ]),
-                slintStarlightLinksValidatorPlugin(),
+                // The language-specification chapters under reference/language/
+                // are shared with the safety manual and therefore use relative
+                // links, which resolve in both sites. The validator still
+                // checks that relative links point to existing pages.
+                slintStarlightLinksValidatorPlugin({
+                    errorOnRelativeLinks: false,
+                }),
             ],
             social: slintStarlightSocial,
             favicon: "favicon.svg",

@@ -9,7 +9,7 @@ use crate::gl_bindings as gl;
 
 use gl::Gles2 as Gl;
 
-use slint::wgpu_29::wgpu::{self, hal};
+use slint::wgpu_30::wgpu::{self, hal};
 
 #[derive(thiserror::Error, Debug)]
 pub enum VulkanTextureError {
@@ -223,6 +223,9 @@ impl super::GPURenderingContext {
                         | wgpu::TextureUsages::RENDER_ATTACHMENT,
                     view_formats: &[],
                 },
+                // UNINITIALIZED is the tracker state wgpu 29 implicitly assigned to hal-imported
+                // textures; it only seeds barrier tracking and does not cause a zero-init clear.
+                wgpu::TextureUses::UNINITIALIZED,
             )
         };
 

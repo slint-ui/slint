@@ -18,7 +18,7 @@ use crate::common::Result;
 use editor::ServerNotifier;
 use lsp_types::Url;
 
-fn main() {
+fn main() -> std::result::Result<(), slint::PlatformError> {
     #[cfg(not(feature = "preview"))]
     panic!(
         "The visual editor was compiled without live-preview compiled in. Please compile with --features=preview to use it."

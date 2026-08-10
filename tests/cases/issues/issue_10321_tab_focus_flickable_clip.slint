@@ -21,7 +21,7 @@ export component TestCase inherits Window {
         flick := Flickable {
             width: 100%;
             height: 100%;
-            viewport-height: 420px;
+            content-height: 420px;
 
             VerticalLayout {
                 width: parent.width;
@@ -50,7 +50,7 @@ export component TestCase inherits Window {
     // Items inside a visible:false Flickable must not receive tab focus.
     Flickable {
         visible: false;
-        viewport-height: 200px;
+        content-height: 200px;
         FocusScope {
             height: 60px;
             focus-gained(_) => { root.focused-index = 100; }

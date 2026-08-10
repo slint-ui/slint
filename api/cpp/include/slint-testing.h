@@ -378,8 +378,9 @@ public:
     }
 
     /// Returns the accessible-orientation of that element, if any.
-    std::optional<Orientation> accessible_orientation() const
+    std::optional<slint::language::Orientation> accessible_orientation() const
     {
+        using slint::language::Orientation;
         if (auto str = get_accessible_string_property(
                     cbindgen_private::AccessibleStringProperty::Orientation)) {
             if (*str == "horizontal")
@@ -391,18 +392,45 @@ public:
     }
 
     /// Returns the accessible-live-region of that element, if any.
-    std::optional<AccessibleLiveRegion> accessible_live_region() const
+    std::optional<slint::language::AccessibleLiveness> accessible_live_region() const
     {
+        using slint::language::AccessibleLiveness;
         if (auto str = get_accessible_string_property(
                     cbindgen_private::AccessibleStringProperty::LiveRegion)) {
             if (*str == "off")
-                return AccessibleLiveRegion::Off;
+                return AccessibleLiveness::Off;
             if (*str == "polite")
-                return AccessibleLiveRegion::Polite;
+                return AccessibleLiveness::Polite;
             if (*str == "assertive")
-                return AccessibleLiveRegion::Assertive;
+                return AccessibleLiveness::Assertive;
         }
         return std::nullopt;
+    }
+
+    /// Selects the text between two UTF-8 offsets.
+    ///
+    /// This will invoke the `accessible-action-set-selection` callback.
+    void set_accessible_selection(int anchor, int focus) const
+    {
+        if (inner.element_index != 0)
+            return;
+        if (auto item = private_api::upgrade_item_weak(inner.item)) {
+            union SetSelectionHelper {
+                cbindgen_private::AccessibilityAction action;
+                SetSelectionHelper(int anchor, int focus)
+                {
+                    new (&action.set_selection)
+                            cbindgen_private::AccessibilityAction::SetSelection_Body {
+                                cbindgen_private::AccessibilityAction::Tag::SetSelection, anchor,
+                                focus
+                            };
+                }
+                ~SetSelectionHelper() { }
+
+            } action(anchor, focus);
+            item->item_tree.vtable()->accessibility_action(item->item_tree.borrow(), item->index,
+                                                           &action.action);
+        }
     }
 
     /// Invokes the expand accessibility action of that element
@@ -528,12 +556,12 @@ public:
     LogicalPosition absolute_position() const
     {
         if (auto item = private_api::upgrade_item_weak(inner.item)) {
-            cbindgen_private::LogicalRect rect =
-                    item->item_tree.vtable()->item_geometry(item->item_tree.borrow(), item->index);
+            // `slint_item_absolute_position` already returns the element's own absolute
+            // position (it maps the element's geometry origin through the ancestor transforms).
             cbindgen_private::LogicalPoint abs =
                     slint::cbindgen_private::slint_item_absolute_position(&item->item_tree,
                                                                           item->index);
-            return LogicalPosition({ abs.x + rect.x, abs.y + rect.y });
+            return LogicalPosition({ abs.x, abs.y });
         }
         return LogicalPosition({ 0, 0 });
     }

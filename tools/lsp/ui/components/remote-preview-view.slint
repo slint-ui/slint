@@ -1,0 +1,331 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Button, LineEdit, ListView, Palette } from "std-widgets.slint";
+import { Api, RemoteConnectionState } from "../api.slint";
+import { EditorSpaceSettings } from "styling.slint";
+
+component PhonePreview {
+    property <bool> dark-color-scheme: Palette.color-scheme == ColorScheme.dark;
+    in property <image> background-image;
+
+    width: 150px;
+    height: 300px;
+
+    Rectangle {
+        border-radius: 27px;
+        background: root.dark-color-scheme ? @linear-gradient(180deg, #1C1C1C, black) : @linear-gradient(0deg, #D7D9DD, white);
+        drop-shadow-blur: 10px;
+        drop-shadow-color: black.with-alpha(0.5);
+        clip: true;
+
+        Image {
+            y: parent.height - self.height;
+            width: 100%;
+            source: background-image;
+        }
+
+        Rectangle {
+            x: (parent.width - self.width) / 2;
+            y: 8px;
+            width: 49px;
+            height: 14px;
+            border-radius: 7px;
+            background: #111111;
+        }
+
+        VerticalLayout {
+            padding-left: 16px;
+            padding-right: 16px;
+            padding-top: 72px;
+            padding-bottom: 19px;
+            alignment: space-between;
+
+            VerticalLayout {
+                spacing: 6px;
+                Text {
+                    text: @tr("Slint Viewer");
+                    font-size: 13px;
+                    font-weight: FontWeight.extra-bold;
+                    color: root.dark-color-scheme ? #eeeeee : #333333;
+                }
+            }
+        }
+
+        Rectangle {
+            border-radius: parent.border-radius;
+            border-color: root.dark-color-scheme ? #232323 : #1f2025;
+            border-width: 5px;
+        }
+    }
+}
+
+export component RemotePreviewView inherits Rectangle {
+    background: Palette.background;
+    preferred-width: 850px;
+    preferred-height: 600px;
+    horizontal-stretch: 1;
+    vertical-stretch: 1;
+    clip: true;
+
+    property <int> selected-index: -1;
+    property <string> manual-entry;
+
+    property <bool> selection-is-compatible:
+        selected-index >= 0
+        && selected-index < Api.remote-discovered-viewers.length
+        && Api.remote-discovered-viewers[selected-index].compatible;
+
+    property <bool> connecting: Api.remote-connection-state == RemoteConnectionState.Connecting;
+
+    function connect-to-device(index: int) {
+        if !root.connecting
+            && index >= 0
+            && index < Api.remote-discovered-viewers.length
+            && Api.remote-discovered-viewers[index].compatible
+            && Api.remote-discovered-viewers[index].addresses.length > 0 {
+            Api.remote-connect(
+                Api.remote-discovered-viewers[index].addresses,
+                Api.remote-discovered-viewers[index].port);
+        }
+    }
+    property <bool> dark-color-scheme: Palette.color-scheme == ColorScheme.dark;
+    property <bool> landscape-layout: root.width > root.height;
+    property <image> background-image: root.dark-color-scheme ? @image-url("../assets/bg-frame.svg") : @image-url("../assets/bg-frame-light.svg");
+    property <image> background-mark-image: root.dark-color-scheme ? @image-url("../assets/bg-frame-mark.svg") : @image-url("../assets/bg-frame-mark-light.svg");
+    property <image> background-lines-image: root.dark-color-scheme ? @image-url("../assets/bg-frame-lines.svg") : @image-url("../assets/bg-frame-lines-light.svg");
+    property <string> best-device-name: Api.remote-discovered-viewers[selected-index].name != "" ? Api.remote-discovered-viewers[selected-index].name
+        : Api.remote-connection-target;
+
+    Rectangle {
+        background: root.dark-color-scheme ? @linear-gradient(180deg, #1C1C1C, black) : @linear-gradient(0deg, #D7D9DD, white);
+    }
+
+    if !root.landscape-layout: Image {
+        width: 100%;
+        height: 100%;
+        image-fit: cover;
+        source: background-image;
+    }
+
+    if root.landscape-layout: Image {
+        x: root.width - self.width;
+        y: root.height - self.height - root.height * 20%;
+        width: min(root.width * 0.36, 360px);
+        source: background-mark-image;
+    }
+
+    if root.landscape-layout: Image {
+        x: 0px;
+        y: root.height - self.height;
+        width: root.width;
+        source: background-lines-image;
+    }
+
+    VerticalLayout {
+        padding-left: 32px;
+        padding-right: 32px;
+        padding-top: 28px;
+        padding-bottom: 28px;
+        spacing: 22px;
+
+        HorizontalLayout {
+            vertical-stretch: 0;
+            alignment: space-between;
+
+            VerticalLayout {
+                spacing: 6px;
+                Text {
+                    text: Api.remote-connection-state == RemoteConnectionState.Connected
+                        ? @tr("Connected to {}.", best-device-name)
+                        : (Api.remote-discovered-viewers.length > 0 ? @tr("Select a discovered device to connect.")
+                        : @tr("Searching for a device…"));
+                    font-size: 24px;
+                    font-weight: FontWeight.bold;
+                    color: Palette.foreground;
+                }
+
+                Text {
+                    text: Api.remote-connection-state == RemoteConnectionState.Connected
+                        ? @tr("Live preview is running on the connected device.")
+                        : "";
+                    wrap: word-wrap;
+                    color: Palette.foreground;
+                    opacity: 0.72;
+                }
+            }
+
+            Rectangle {
+                width: 1px;
+            }
+        }
+
+        HorizontalLayout {
+            spacing: 28px;
+
+            devices-frame := Rectangle {
+                horizontal-stretch: 1;
+                vertical-stretch: 1;
+                background: Palette.background;
+                border-color: root.dark-color-scheme ? #323131 : #d3d3d3;
+                border-width: 1px;
+                border-radius: 8px;
+
+                inner-shadow-blur: 10px;
+                inner-shadow-color: black.with-alpha(0.1);
+                inner-shadow-offset-x: 3px;
+                inner-shadow-offset-y: 3px;
+                inner-shadow-spread: 1px;
+
+                VerticalLayout {
+                    padding: EditorSpaceSettings.default-padding * 2;
+                    spacing: EditorSpaceSettings.default-spacing;
+
+                    Text {
+                        text: @tr("Devices");
+                        font-weight: FontWeight.bold;
+                        color: Palette.foreground;
+                    }
+
+                    Rectangle {
+                        background: Palette.alternate-background;
+                        border-radius: 8px;
+                        border-width: 1px;
+                        border-color: Palette.border;
+                        vertical-stretch: 1;
+                        inner-shadow-blur: 5px;
+                        inner-shadow-color: black.with-alpha(0.1);
+                        inner-shadow-offset-x: 5px;
+                        inner-shadow-offset-y: 5px;
+                        clip: true;
+
+                        if Api.remote-discovered-viewers.length == 0: HorizontalLayout {
+                            alignment: start;
+                            spacing: EditorSpaceSettings.default-spacing * 2;
+                            padding: EditorSpaceSettings.default-padding * 2;
+
+                            PhonePreview {
+                                background-image: background-image;
+                            }
+
+                            VerticalLayout {
+                                padding: EditorSpaceSettings.default-padding * 2;
+                                Text {
+                                    text: @tr("Start Slint Viewer on your device using the same Wi-Fi.");
+                                    wrap: word-wrap;
+                                    color: Palette.foreground;
+                                    opacity: 0.80;
+                                    font-size: 14px;
+                                    width: 200px;
+                                    horizontal-alignment: left;
+                                }
+                            }
+                        }
+
+                        if Api.remote-discovered-viewers.length > 0: ListView {
+                            for device[i] in Api.remote-discovered-viewers: Rectangle {
+                                height: device-layout.preferred-height;
+                                background: i == root.selected-index
+                                    ? Palette.accent-background
+                                    : (touch.has-hover ? Palette.alternate-background : transparent);
+
+                                Rectangle {
+                                    y: parent.height - self.height;
+                                    height: 1px;
+                                    background: Palette.border.with-alpha(0.2);
+                                }
+
+                                touch := TouchArea {
+                                    clicked => {
+                                        root.selected-index = i;
+                                        root.manual-entry = "";
+                                    }
+                                    double-clicked => {
+                                        root.selected-index = i;
+                                        root.manual-entry = "";
+                                        root.connect-to-device(i);
+                                    }
+                                }
+
+                                device-layout := HorizontalLayout {
+                                    padding: EditorSpaceSettings.default-padding;
+                                    spacing: EditorSpaceSettings.default-spacing;
+                                    VerticalLayout {
+                                        horizontal-stretch: 1;
+                                        if device.name != "": Text {
+                                            text: device.name;
+                                            font-size: 14px;
+                                            color: i == root.selected-index ? Palette.accent-foreground : Palette.foreground;
+                                        }
+
+                                        if device.name == "": Text {
+                                            text: (device.addresses.length > 0 ? device.addresses[0] : device.host) + ":" + device.port;
+                                            color: i == root.selected-index ? Palette.accent-foreground : Palette.foreground;
+                                            opacity: 0.7;
+                                            font-size: 12px;
+                                        }
+
+                                        if !device.compatible: Text {
+                                            text: device.incompatible-reason;
+                                            color: #d33;
+                                            font-size: 11px;
+                                            wrap: word-wrap;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    Rectangle {
+                        border-radius: 4px;
+                        inner-shadow-blur: 5px;
+                        inner-shadow-color: black.with-alpha(0.15);
+                        inner-shadow-offset-x: 5px;
+                        inner-shadow-offset-y: 5px;
+                        background: root.dark-color-scheme ? #1C1C1C : #D7D9DD;
+                        min-width: manual-le.preferred-width;
+                        manual-le := LineEdit {
+                            width: 100%;
+                            placeholder-text: @tr("Manual host:port, for example 192.168.1.42:9000");
+                            text <=> root.manual-entry;
+                            edited => {
+                                root.selected-index = -1;
+                            }
+                        }
+                    }
+
+                    if root.connecting: Text {
+                        text: @tr("Connecting to {}…", Api.remote-connection-target);
+                        color: Palette.foreground;
+                    }
+                    if Api.remote-connection-state == RemoteConnectionState.Failed: Text {
+                        text: Api.remote-connection-error != ""
+                            ? Api.remote-connection-error
+                            : @tr("Connection failed");
+                        color: #d33;
+                        wrap: word-wrap;
+                    }
+
+                    HorizontalLayout {
+                        spacing: EditorSpaceSettings.default-spacing;
+                        alignment: end;
+
+                        Button {
+                            text: @tr("Connect");
+                            primary: true;
+                            enabled: !root.connecting && (root.selection-is-compatible || root.manual-entry != "");
+                            clicked => {
+                                if root.manual-entry != "" {
+                                    Api.remote-connect-manual(root.manual-entry);
+                                } else {
+                                    root.connect-to-device(root.selected-index);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

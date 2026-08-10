@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-#[cfg(feature = "software-renderer")]
+#[cfg(feature = "renderer-software")]
 pub use resvg::tiny_skia::IntRect as Rect;
 
 #[derive(Debug, Clone, Copy, Default)]
@@ -22,7 +22,7 @@ pub enum PixelFormat {
     AlphaMap([u8; 3]),
 }
 
-#[cfg(feature = "software-renderer")]
+#[cfg(feature = "renderer-software")]
 #[derive(Debug, Clone)]
 pub struct Texture {
     pub total_size: Size,
@@ -32,7 +32,7 @@ pub struct Texture {
     pub format: PixelFormat,
 }
 
-#[cfg(feature = "software-renderer")]
+#[cfg(feature = "renderer-software")]
 impl Texture {
     pub fn new_empty() -> Self {
         Self {
@@ -45,7 +45,7 @@ impl Texture {
     }
 }
 
-#[cfg(feature = "software-renderer")]
+#[cfg(feature = "renderer-software")]
 #[derive(Debug, Clone, Default)]
 pub struct BitmapGlyph {
     pub x: i16,
@@ -57,21 +57,21 @@ pub struct BitmapGlyph {
     pub data: Vec<u8>,
 }
 
-#[cfg(feature = "software-renderer")]
+#[cfg(feature = "renderer-software")]
 #[derive(Debug, Clone)]
 pub struct BitmapGlyphs {
     pub pixel_size: i16,
     pub glyph_data: Vec<BitmapGlyph>,
 }
 
-#[cfg(feature = "software-renderer")]
+#[cfg(feature = "renderer-software")]
 #[derive(Debug, Clone)]
 pub struct CharacterMapEntry {
     pub code_point: char,
     pub glyph_index: u16,
 }
 
-#[cfg(feature = "software-renderer")]
+#[cfg(feature = "renderer-software")]
 #[derive(Debug, Clone)]
 pub struct BitmapFont {
     pub family_name: String,
@@ -98,10 +98,10 @@ pub enum EmbeddedResourcesKind {
     /// Encoded payload from a data URI (bytes, extension)
     DataUriPayload(Vec<u8>, String),
     /// The data has been processed in a texture
-    #[cfg(feature = "software-renderer")]
+    #[cfg(feature = "renderer-software")]
     TextureData(Texture),
     /// A set of pre-rendered glyphs of a TrueType font
-    #[cfg(feature = "software-renderer")]
+    #[cfg(feature = "renderer-software")]
     BitmapFontData(BitmapFont),
 }
 

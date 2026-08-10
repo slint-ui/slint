@@ -45,10 +45,15 @@ renderer-software = ["i-slint-backend-selector/renderer-software", "dep:i-slint-
 software-renderer-path = ["i-slint-renderer-software/path"]
 gettext = ["i-slint-core/gettext-rs"]
 accessibility = ["i-slint-backend-selector/accessibility"]
+# Enable the `SystemTrayIcon` element (pulls `ksni` on Linux/BSD).
+system-tray = ["i-slint-core/system-tray"]
 system-testing = ["i-slint-backend-selector/system-testing"]
+mcp = ["std", "i-slint-backend-selector/mcp"]
 
 std = [
   "i-slint-core/default",
+  "i-slint-core/image-decoders",
+  "i-slint-core/svg",
   "i-slint-core/image-default-formats",
   "i-slint-backend-selector",
   "i-slint-backend-selector/backend-android-activity",
@@ -60,7 +65,7 @@ std = [
 freestanding = ["i-slint-core/libm", "i-slint-core/unsafe-single-threaded", "i-slint-renderer-software?/libm"]
 experimental = ["i-slint-renderer-software?/experimental"]
 
-default = ["std", "backend-winit", "renderer-femtovg"]
+default = ["std", "backend-winit", "renderer-femtovg", "system-tray"]
 
 [dependencies]
 i-slint-backend-selector = { workspace = true, optional = true }
@@ -72,8 +77,8 @@ slint-interpreter = { workspace = true, features = ["ffi", "compat-1-2"], option
 i-slint-live-preview = { workspace = true, optional = true, features = ["ffi"] }
 raw-window-handle = { version = "0.6", optional = true }
 
-esp-backtrace = { version = "0.17.0", features = ["panic-handler", "println"], optional = true }
-esp-println = { version = "0.15.0", default-features = false, features = ["auto", "log-04"], optional = true }
+esp-backtrace = { version = "0.19.0", features = ["panic-handler", "println"], optional = true }
+esp-println = { version = "0.17.0", default-features = false, features = ["auto", "log-04"], optional = true }
 unicode-segmentation = { workspace = true }
 
 [target.'cfg(target_os = "android")'.dependencies]

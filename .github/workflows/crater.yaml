@@ -10,6 +10,9 @@ on:
     workflow_dispatch:
 
 jobs:
+    # The crater matrix is split across two jobs (crater and crater_subpath) because GitHub
+    # limits a matrix to 256 jobs; the combined project list exceeds that. crater builds the
+    # projects that live at the repository root; crater_subpath builds those in a sub-directory.
     crater:
         env:
             SLINT_NO_QT: 1
@@ -22,20 +25,18 @@ jobs:
                     # from madewithslint
                     - "https://github.com/slint-ui/cargo-ui"
                     - "https://github.com/GaspardCulis/slint-tetris"
-                    #- "https://github.com/dngulin/gpcl" # depends on the winit backend
+                    - "https://github.com/dngulin/gpcl"
                     - "https://codeberg.org/flovansl/co_sl"
                     - "https://seed.radicle.garden/z3oxAZSLcyXgpa7fcvgtueF49jHpH.git" #vivi
                     #- "https://github.com/ElevenJune/mastermind_Rust" # Not upgraded to Slint 1.0
                     #- "https://github.com/Project-Trains/launcher" # Not upgraded to Slint 1.0
                     - "https://github.com/bjorn/raccoin"
-                    - "https://gitlab.com/floers/ordinary"  #  Has `zip="*"` in its Cargo.toml
-                    - "https://github.com/parchlinux/parch-welcome/"
-                    #- "https://github.com/boclair/fractal-explorer"  # RE-ENABLE WHEN https://github.com/arturoc/color-rs/pull/2 is released
+                    - "https://github.com/boclair/fractal-explorer"
                     - "https://github.com/arunpkio/tymoz"
                     - "https://github.com/Surrealism-All/surrealism-ui-template"
                     - https://github.com/raykavin/market-prices-rust
-                    - https://github.com/pezfisk/OxideManager
-                    - https://github.com/m4rz3r0/foruster
+                    #- https://github.com/pezfisk/OxideManager # ui/grid_view.slint is imported but missing from the repo
+                    #- https://github.com/m4rz3r0/foruster # went closed-source, the repo only contains documentation now
 
                     # from crates.io
                     - "https://codeberg.org/drendog/frametrix"
@@ -43,7 +44,6 @@ jobs:
                     - "https://github.com/zilongyang/rust_slint_todos"
                     - "https://github.com/gavinshox/chess-oxide"
                     - "https://github.com/Obscurely/falion"
-                    #- "https://github.com/abhay-n-j/warp-gui-app" (wrong edition in Cargo.toml)
                     - "https://github.com/dimas-fw/dimas"
                     - "https://github.com/vova-max-png/slintcalc"
                     - "https://github.com/moistpyro/land-calc"
@@ -52,10 +52,8 @@ jobs:
                     - "https://codeberg.org/waydeer/layer-shika"
                     - "https://github.com/limitcool/xm"
                     #- "https://github.com/vexide/vexide-slint"  # vexide somehow enable the error_in_core feature of snafu
-                    - "https://github.com/ChenhuiZhang/envsensor-demo"
                     - "https://github.com/arunkumar-mourougappane/gjallarhorn-rs"
                     - "https://github.com/3axap4ehko/litra"
-                    - "https://github.com/rezabani/modern-minesweeper"
                     - "https://github.com/guimath/phog"
                     - "https://github.com/mcbridejc/slint-evdev-input"
                     - "https://github.com/heathcliff26/turbo-clicker"
@@ -65,7 +63,6 @@ jobs:
                     - "https://github.com/Decodetalkers/haruhishot"
                     - "https://github.com/smalltext/trace-slint/"
                     # - "https://github.com/danrauch/thermocam" #  error: failed to run custom build command for `v4l2-sys-mit v0.2.0`
-                    - "https://github.com/saturn77/magnet"
 
                     # - "https://github.com/zzq0097/mmm_rs" # could not compile `netease-cloud-music-api` (lib)
                     - "https://github.com/CMahaff/lasim" # many stars
@@ -96,28 +93,24 @@ jobs:
                     - "https://github.com/nzhenev/vtbox"
                     #- "https://github.com/hambooooo/hamboo-rs" #uses nightly rust
                     # - "https://github.com/hambooooo/hamboo-embassy" #uses nightly rust
-                    #- "https://github.com/Kllngii/Wetterstation"  # can't check submodules
                     - "https://github.com/tredeneo/simple-inventary-management" #uses sqlx that needs database access
                     # - "https://github.com/xcodes2cn/Xviewer" #copies slint
                     - "https://github.com/olishmollie/radix"
                     - "https://github.com/zivit/watchlist"
-                    - "https://github.com/FelgoSDK/RustyWeather"
                     - "https://github.com/ThilinaTLM/docker_ui"
                     - "https://github.com/PlanetTeamSpeakk/Thermostat"
-                    - "https://github.com/develcooking/Reelix"
                     - "https://github.com/Albino-Client/AlbinoLauncher"
                     - "https://github.com/radev1924/profit-first-income-calculator-desktop"
                     - "https://github.com/JarrodDoyle/slint-fmeditor"
                     - "https://github.com/planet0104/slint-noframe-window"
                     #- "https://github.com/Dusk-Labs/kira" uses private API
                     # - "https://github.com/TuEmb/can-viewer"   # depends on a deleted repo
-                    # - "https://github.com/qhua948/anubis" # uses nightly rust
                     - "https://github.com/Surrealism-All/slimk"
                     - "https://github.com/BounceU/car_thang"
                     - "https://github.com/sloganking/codevis-gui"
                     - "https://github.com/CzNorbi/tic_tac_toe_ui"
                     - "https://github.com/remy2019/smtbr_gui"
-                    - "https://github.com/mrandal/PDFer"
+                    # - "https://github.com/mrandal/PDFer" # assigns to the read-only 'has-focus' output property
                     - "https://github.com/dhasoft-rs/7Seg-Slint-Widget"
                     # - "https://github.com/DraKraft/ozon-rs"  # Error: the trait `ToSql` is not implemented for `usize`
                     # - "https://github.com/SUP2Ak/Lur-Slint" # repo gone?
@@ -137,7 +130,6 @@ jobs:
                     - "https://github.com/kevinquillen/sysinfo"
                     - "https://github.com/home-cooked-firmware/hcui"
                     - "https://github.com/EinsPhoenix/MineSweeper-Rust"
-                    - "https://github.com/themkoi/Cosmic-Wanderer"
                     - "https://github.com/xcrong/slint_data_processer"
                     - "https://github.com/Newlifer/peditor"
                     - "https://github.com/spineda2019/tRust"
@@ -154,19 +146,58 @@ jobs:
                     - "https://github.com/Jaysmito101/slint-nav"
                     - "https://github.com/mq1/TinyWiiBackupManager"
                     - "https://github.com/jacquetc/qleany"
-                    - https://github.com/taichi765/Tsukuyomi
                     - https://github.com/Cheikh-Nakamoto/Generateur-d-architecture-
                     - https://github.com/Spencer-0003/aletheia
                     - https://github.com/engels74/EasyHDR
-                    - https://github.com/reedrosenbluth/oscen
-                    - https://github.com/futo-org/fcast
-                    - https://github.com/BiliRumble/Cloubit
 
-                    # Missing images
-                    # - "https://github.com/rurishigeo/Probe-Downloader"
+                    - "https://github.com/Erik7354/slint_minesweeper"
+                    # - "https://github.com/guimath/GeoQuiz" # @image-url assets are not checked into the repo
+
+                    # from madewithslint and github search (added 2026-06)
+                    - "https://github.com/heng30/slint-template"
+                    - "https://github.com/SulfurNitride/NaK"
+                    - "https://github.com/XDSEC/WebSocketReflectorX"
+                    - "https://github.com/mrFrok/LibreFastbootFirmwareFlasher"
+                    - "https://github.com/alexylon/ferrocrypt"
+                    - "https://github.com/etim66/querry"
+                    - "https://github.com/cangzhang/champ-r"
+                    - "https://github.com/Lee-matod/GProfiles"
+                    - "https://github.com/mooofin/Thalix"
+
+                    # from ecosystem survey (added 2026-07)
+                    - "https://github.com/jeff141/meatshell"
+                    - "https://github.com/qarmin/szyszka"
+                    - "https://github.com/rodgtr1/profit-first-income-calculator-desktop"
+                    - "https://github.com/waydeerwm/layer-shika"
+                    - "https://github.com/swedishembedded/sven"
+                    - "https://github.com/junelva/wl-gammarelay-applet"
+                    - "https://github.com/FelgoSDK/RustyWeather"
+                    - "https://github.com/masak1yu/winxmerge"
+                    - "https://github.com/IDE0224/rust-calendar-app"
+                    - "https://github.com/ninjitsuytber/Aegis-OTA"
+                    - "https://github.com/TuEmb/can-viewer-rs"
+                    - "https://github.com/tilladam/slint-node-editor"
+                    - "https://github.com/xiaoxinghaha/xiaoxingshell"
+                    - "https://github.com/nanowave-player/nanowave-ui"
+                    - "https://github.com/owu/aura-factory"
+                    - "https://github.com/mdabir1203/ShadowMap"
+                    - "https://github.com/okhsunrog/slint_realtime_plotting_experiments"
+                    - "https://github.com/draugvar/llaunchpad"
+                    - "https://github.com/PonderForge/LBProxy"
+                    - "https://github.com/noooob-coder/Codex-Resume-Loop"
+                    - "https://github.com/kirinonakar/rust_upscaler"
+                    - "https://github.com/BitcoinQnA/passport-nostr-signer"
+                    - "https://github.com/minavoii/sanctuary-seeder"
+                    - "https://github.com/yetalauncher/yetalauncher"
+                    - "https://github.com/burumdev/POVVER"
+                    - "https://github.com/runnning/dev-tool"
+                    - "https://github.com/4acha4a/slint-car-dashboard"
+                    - "https://github.com/dfaure/tunecall"
+                    - "https://github.com/vlisivka/slint_kanban"
+                    - "https://github.com/bu5hm4nn/gossip-slint"
+
+                    # Missing images (hardcoded absolute path)
                     # - "https://github.com/Tricked-dev/stardew-mod-manager"
-                    # - "https://github.com/Erik7354/slint_minesweeper"
-                    # - "https://github.com/guimath/GeoQuiz"
 
 
                     # Use our private API (eg: backend winit)
@@ -177,17 +208,12 @@ jobs:
                     # - "https://github.com/Hoverth/keyboardthing"
 
 
-                    # - "https://codeberg.org/moire/moire"  # Broken because of other dependencies.
+                    # - "https://codeberg.org/moire/moire"  # compile errors in its own moire-library crate
 
                     # Needs extra dependencies
-                    # - "https://github.com/nununoisy/gb-presenter-rs"
-                    # - "https://github.com/nununoisy/nsf-presenter-rs"
-                    # - "https://github.com/bombless/slint-tree"
+                    # - "https://github.com/bombless/slint-tree"  # path dependency on ../pdf-parser which is not in the repo
                     # "https://github.com/AaronGulman/Rusty-CryptoMonitor"  (lua54)
 
-                    #- "https://github.com/link9c/media_backup"  #(windows only (failed to resolve: use of undeclared crate or module `winres`))
-                    #- "https://github.com/Vadoola/ignition_npp_tools" #windows only
-                    #- "https://github.com/zloisupport/vanctrl" #windows only
                     #- "https://github.com/GRX005/McModManager-rs"
                     #- "https://github.com/un4ckn0wl3z/title-randomizer-rs"
 
@@ -202,6 +228,52 @@ jobs:
                 sub_path: ["."]
                 os: ["ubuntu-24.04"]
 
+        runs-on: "ubuntu-latest"
+        steps:
+            - uses: actions/checkout@v7
+            - uses: ./.github/actions/install-linux-dependencies
+              if: runner.os == 'Linux'
+              with:
+                  extra-packages: libpango1.0-dev libgtk-3-dev libatk1.0-dev libjack-jackd2-dev autoconf libxcb-xrm0 libxcb-xrm-dev automake  libxcb-keysyms1-dev libxcb-util0-dev libxcb-icccm4-dev libyajl-dev libstartup-notification0-dev libxcb-randr0-dev libev-dev libxcb-cursor-dev libxcb-xinerama0-dev libxcb-xkb-dev libxkbcommon-dev libxkbcommon-x11-dev libudev-dev clang pkg-config nasm libsoup2.4-dev libfuse3-dev libx11-xcb-dev  ${{ matrix.extra_packages }}
+            # Don't use the cache because we don't run this job often, and it would cache the .cargo/config.toml with extra keys
+            - uses: dtolnay/rust-toolchain@master
+              with:
+                  toolchain: ${{ matrix.toolchain || 'stable' }}
+            - name: setup patch
+              run: |
+                  echo "" >> ~/.cargo/config.toml
+                  echo [patch.crates-io] >> ~/.cargo/config.toml
+                  echo slint = { path = \"$GITHUB_WORKSPACE/api/rs/slint\" } >> ~/.cargo/config.toml
+                  echo slint-build = { path = \"$GITHUB_WORKSPACE/api/rs/build\" }  >> ~/.cargo/config.toml
+                  echo slint-interpreter = { path = \"$GITHUB_WORKSPACE/internal/interpreter\" }  >> ~/.cargo/config.toml
+                  echo i-slint-backend-winit = { path = \"$GITHUB_WORKSPACE/internal/backends/winit\" }  >> ~/.cargo/config.toml
+                  echo i-slint-core = { path = \"$GITHUB_WORKSPACE/internal/core\" }  >> ~/.cargo/config.toml
+                  echo i-slint-compiler = { path = \"$GITHUB_WORKSPACE/internal/compiler\" }  >> ~/.cargo/config.toml
+            - name: Checkout the repo
+              run: |
+                  cd $HOME
+                  git clone ${{ matrix.git_url }}  the_repo --depth 1
+                  cd the_repo
+                  git submodule update --init --recursive || true
+            - name: build
+              run: |
+                  cd $HOME/the_repo
+                  rm -r rust-toolchain.toml .cargo/config.toml || true
+                  cd ./${{ matrix.sub_path }}
+                  sed -i "s/{{project-name}}/the-project/" Cargo.toml
+                  ${{ matrix.extra_commands || 'cargo update' }}
+                  cargo check ${{ matrix.extra_args }}
+
+    # Projects whose Slint crate lives in a sub-directory of the repository. Kept in a separate
+    # job from crater so that neither matrix exceeds GitHub's 256-job limit (see crater above).
+    crater_subpath:
+        env:
+            SLINT_NO_QT: 1
+            CARGO_INCREMENTAL: false
+            RUST_BACKTRACE: 1
+        strategy:
+            fail-fast: false
+            matrix:
                 include:
                     - git_url: "https://github.com/jturcotte/chiptrack"
                       sub_path: "."
@@ -213,8 +285,8 @@ jobs:
                       sub_path: "slint"
                     #- git_url: "https://github.com/DanielMadmon/tasker"  # needs "themis dep"
                     #  sub_path: "bin/tasker_gui"
-                    # - git_url: "https://github.com/Kllngii/Wetterstation" # can't check submodules
-                    #  sub_path: "wetterstation-ui"
+                    - git_url: "https://github.com/Kllngii/Wetterstation"
+                      sub_path: "wetterstation-ui"
                     - git_url: "https://github.com/plule/theremotion"
                       sub_path: "theremotion-ui"
                     - git_url: "https://github.com/matthiasbeyer/deskodon"
@@ -250,9 +322,10 @@ jobs:
                     #- git_url: "https://github.com/LeeeSe/MessAuto"
                     #  os: macos-latest
                     #  sub_path: "."
-                    - git_url: "https://github.com/planet0104/USB-Screen/"
-                      extra_args: "--no-default-features --features=editor"
-                      sub_path: "."
+                    # the `editor` feature references undefined functions (pick_index_or_first / pick_map_value_or_first)
+                    # - git_url: "https://github.com/planet0104/USB-Screen/"
+                    #   extra_args: "--no-default-features --features=editor"
+                    #   sub_path: "."
                     - git_url: "https://github.com/newfla/daily-strip"
                       sub_path: "."
                       extra_args: "--no-default-features --features=slint_frontend"
@@ -272,8 +345,8 @@ jobs:
                     - git_url: "https://github.com/larus-breeze/sw_frontend_rs"
                       sub_path: "device/sim"
                       extra_packages: alsa-utils libasound2-dev libavcodec-dev libavformat-dev libavutil-dev libasound2-dev
-                    # - git_url: "https://github.com/gramistella/cornerstone"  # depends indirectly on old versions of crates (deno_ast/swc) that do not compile
-                    #  sub_path: "frontend_slint"
+                    - git_url: "https://github.com/gramistella/cornerstone"
+                      sub_path: "frontend_slint"
                     - git_url: "https://github.com/dilo145/password_generator"
                       sub_path: "password_generator_gui"
                     - git_url: "https://github.com/DiD92/map-generator"
@@ -282,9 +355,6 @@ jobs:
                       sub_path: "snake_bin_std"
                     - git_url: "https://github.com/Heng30/flymoon"
                       sub_path: "flymoon"
-                    - git_url: "https://github.com/gopher64/gopher64"
-                      sub_path: "."
-                      extra_packages: libpipewire-0.3-dev libwayland-dev libdecor-0-dev liburing-dev cmake ninja-build gnome-desktop-testing libasound2-dev libpulse-dev libaudio-dev libfribidi-dev libsndio-dev libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxfixes-dev libxi-dev libxss-dev libxtst-dev libxkbcommon-dev libdrm-dev libgbm-dev libgl1-mesa-dev libgles2-mesa-dev libegl1-mesa-dev libdbus-1-dev libibus-1.0-dev libudev-dev
                     - git_url: "https://github.com/PonasKovas/salix"
                       sub_path: "client-gui"
                     - git_url: "https://github.com/chrishengler/terraingen"
@@ -304,9 +374,6 @@ jobs:
                     - git_url: "https://github.com/Enn3Developer/n_music"
                       extra_packages: libasound2-dev libfontconfig-dev libfreetype-dev
                       sub_path: "n_player"
-                    - git_url: "https://github.com/BiliRumble/Cloubit"
-                      sub_path: "."
-                      extra_packages:  build-essential perl nasm libasound2-dev pkg-config
                     - git_url: "https://github.com/TsaoLun/always-blue"
                       sub_path: "."
                       extra_packages: libasound2-dev libfreetype-dev libfontconfig-dev
@@ -319,55 +386,278 @@ jobs:
                     - git_url: "https://github.com/laycookie/record"
                       sub_path: "."
                       extra_packages: alsa-utils libasound2-dev libavcodec-dev libavformat-dev libavutil-dev libasound2-dev
-                    - git_url: "https://github.com/Danila-Bain/wav-wav"
+                      toolchain: nightly # uses #![feature]
+                    - git_url: "https://github.com/qhua948/anubis"
                       sub_path: "."
-                      extra_packages: alsa-utils libasound2-dev libavcodec-dev libavformat-dev libavutil-dev libasound2-dev
-                    - git_url: "https://github.com/mackler/Lodge-Musician"
+                      toolchain: nightly # uses #![feature]
+                    - git_url: "https://github.com/abhay-n-j/warp-gui-app"
+                      sub_path: "."
+                      # invalid `edition = "2023"` in Cargo.toml
+                      extra_commands: |
+                          sed -i 's/edition = "2023"/edition = "2021"/' Cargo.toml
+                          cargo update
+                    - git_url: "https://github.com/nununoisy/nsf-presenter-rs"
+                      sub_path: "."
+                      extra_packages: libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev libavfilter-dev libavdevice-dev libpostproc-dev
+                    - git_url: "https://github.com/RustOtomeLab/RustEng"
+                      sub_path: "."
+                      extra_packages: alsa-utils libasound2-dev libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev libavfilter-dev libavdevice-dev libpostproc-dev
+                    - git_url: "https://github.com/vonnieda/dimple"
+                      sub_path: "dimple_ui_slint"
+                      # a dependency uses the unstable `c_variadic` feature, so build it with nightly
+                      toolchain: nightly
+                      extra_packages: alsa-utils libasound2-dev
+                    - git_url: "https://github.com/Danila-Bain/wav-wav"
                       sub_path: "."
                       extra_packages: alsa-utils libasound2-dev libavcodec-dev libavformat-dev libavutil-dev libasound2-dev
                     - git_url: "https://github.com/game-exchange-token/gxt"
                       sub_path: "gxt-cli"
                       extra_args: "--features=ui"
-                    - git_url: "https://github.com/paulusminus/lipl-display"
-                      sub_path: "crates/lipl-display-slint"
-                    - git_url: "https://github.com/vimyoung/spell"
-                      sub_path: "spell-framework"
+                    # implements sealed/internal i-slint-core traits (RendererSealed, with_buffer) and pins an old i-slint-core
+                    # - git_url: "https://github.com/vimyoung/spell"
+                    #   sub_path: "spell-framework"
                     - git_url: "https://github.com/Farmadupe/vid_dup_finder_lib"
                       sub_path: vid_dup_finder_app
                     - git_url: "https://github.com/simmsb/inkview-rs"
                       sub_path: inkview-slint
-                    - git_url: "https://codeberg.org/psylink/psylink"
+                    # uses the removed bincode::serde::decode_borrowed_from_slice API
+                    # - git_url: "https://codeberg.org/psylink/psylink"
                     - git_url: "https://github.com/shuntia/bestest"
                       extra_args: "--features=gui"
                     - git_url: https://github.com/Konstantin-Dudersky/rsiot
                       extra_args: "--features=cmp_slint"
-                    - git_url: https://github.com/Szybet/snake-slint/
-                      sub_path: "snake_bin_std"
+                      # the repo's .cargo/config.toml (which this workflow removes) sets tokio_unstable,
+                      # and the workspace has a path dependency on a ../rsiot-devices directory that is not in the repo
+                      extra_commands: |
+                          export RUSTFLAGS="--cfg tokio_unstable"
+                          cargo new --lib ../rsiot-devices
+                          cargo update
                     - git_url: https://github.com/maplibre/maplibre-native-slint
                       sub_path: rust
+                      extra_packages: glslang-dev glslang-tools libcurl4-openssl-dev libglfw3-dev libicu-dev libjpeg-turbo8-dev libpng-dev libssl-dev libuv1-dev libwebp-dev spirv-tools protobuf-compiler
                     - git_url: https://github.com/AgustinSRG/PersonalMediaVault
                       sub_path: launcher-gui
                     - git_url: https://github.com/MERCorg/merc
                       sub_path: tools/gui
-                    - git_url: https://github.com/guycorbaz/rbibli
-                      sub_path: frontend
-                    - git_url: https://github.com/tadghh/transparent-windows
-                      extra_args: "--features=tray-item/ksni"
+                    # repo is no longer publicly accessible (clone fails)
+                    # - git_url: https://github.com/guycorbaz/rbibli
+                    #   sub_path: frontend
                     - git_url: "https://codeberg.org/vivi-ui/lili"
                       extra_packages: alsa-utils libasound2-dev libavcodec-dev libavformat-dev libavutil-dev libasound2-dev
                     - git_url: "https://github.com/bandipapa/rsaber"
-                      extra_packages: alsa-utils libasound2-dev libavcodec-dev libavformat-dev libavutil-dev libasound2-dev
+                      extra_packages: alsa-utils libasound2-dev libavcodec-dev libavformat-dev libavutil-dev libgl1-mesa-dev libvulkan-dev libjsoncpp-dev libx11-dev libxxf86vm-dev libxrandr-dev libpipewire-0.3-dev
                     - git_url: "https://github.com/heng30/wayshot"
-                      extra_packages: alsa-utils libasound2-dev libavcodec-dev libavformat-dev libavutil-dev libasound2-dev
+                      extra_packages: alsa-utils libasound2-dev libavcodec-dev libavformat-dev libavutil-dev libpipewire-0.3-dev libx264-dev libavfilter-dev libavdevice-dev libswscale-dev libswresample-dev libpostproc-dev
                     - git_url: https://github.com/heng30/tasklog
                       sub_path: tasklog
                       extra_args: "--features=desktop"
+                    - git_url: "https://github.com/themkoi/Cosmic-Wanderer"
+                      sub_path: "cosmic-wanderer-ui"
+                    - git_url: https://github.com/taichi765/Tsukuyomi
+                      sub_path: "."
+                      extra_packages: protobuf-compiler
+                    - git_url: "https://gitlab.com/floers/ordinary"
+                      sub_path: "."
+                      # zip = "*" in its Cargo.toml, but the bundled epub lib needs the old zip API
+                      extra_commands: "cargo update && cargo update zip --precise 0.5.13"
+                    - git_url: "https://github.com/ChenhuiZhang/envsensor-demo"
+                      sub_path: "."
+                      # strum 0.27 only re-exports AsRefStr with the derive feature
+                      extra_commands: |
+                          sed -i 's/^strum = "0.27.2"/strum = { version = "0.27.2", features = ["derive"] }/' Cargo.toml
+                          cargo update
+                    - git_url: "https://github.com/borgbase/vykar"
+                      sub_path: "crates/vykar-gui"
+                    - git_url: "https://github.com/vicrodh/qbz"
+                      sub_path: "crates/qbz-ui"
+                    - git_url: "https://github.com/crabnebula-dev/cargo-packager"
+                      sub_path: "examples/slint"
+                    - git_url: "https://github.com/ancwrd1/snx-rs"
+                      sub_path: "apps/snx-rs-gui"
+                    - git_url: "https://github.com/snolab/CapsLockX"
+                      sub_path: "rs/tools/clx-prefs-slint"
+                    - git_url: "https://github.com/osvauld/osvauld"
+                      sub_path: "sthalam_shell"
+                    - git_url: "https://github.com/PhantomShift/nekotatsu"
+                      sub_path: "gui"
+                    - git_url: "https://github.com/msupply-foundation/open-msupply"
+                      sub_path: "server/test_connection"
+                    - git_url: "https://github.com/romaninsh/vantage"
+                      sub_path: "example_slint"
+                    - git_url: "https://github.com/waitaha/waitaha"
+                      sub_path: "waitaha-ui"
+                    - git_url: "https://github.com/RiskRunner0/blackshark-linux"
+                      sub_path: "crates/blackshark-gui"
+                    - git_url: "https://github.com/brianmay/robotica-rust"
+                      sub_path: "robotica-slint"
+                    - git_url: "https://github.com/eosin-platform/eov"
+                      sub_path: "app"
+                    - git_url: "https://github.com/temidaradev/chast"
+                      sub_path: "p2p-chat"
+                    - git_url: "https://github.com/aecs4u/rcompare"
+                      sub_path: "rcompare_gui"
+                    - git_url: "https://github.com/DatanoiseTV/ferroterm"
+                      sub_path: "apps/slint"
+                    - git_url: "https://github.com/mm12432/CodeExtractTools"
+                      sub_path: "code-extract-rust"
+                    - git_url: "https://github.com/windoze/clipper"
+                      sub_path: "clipper-slint"
+                    - git_url: "https://github.com/goten002/radiotrope"
+                      sub_path: "crates/radiotrope-app"
+                      extra_packages: alsa-utils libasound2-dev
+                    - git_url: "https://github.com/hsiatein/Helenium"
+                      sub_path: "heleny-gui"
+                    - git_url: "https://github.com/jcbantuelle/la-mulana-multiworld"
+                      sub_path: "launcher"
+                    - git_url: "https://github.com/BlackMIDIDevs/meridian"
+                      sub_path: "crates/meridian-ui"
+                      extra_packages: alsa-utils libasound2-dev
+                    - git_url: "https://github.com/Irminsul-dev/CheshireLane9"
+                      sub_path: "crates/cheshire-server-app"
+                      extra_packages: protobuf-compiler
+                    - git_url: "https://github.com/The-Geek-Freaks/NEOTH"
+                      sub_path: "SRC/neothd-gui"
+                    - git_url: "https://github.com/f321x/ntrack"
+                      sub_path: "app"
+                      extra_args: "--features=desktop"
+                    - git_url: "https://github.com/mailrs/mailrs"
+                      sub_path: "crates/mailrs-gui"
+                    - git_url: "https://github.com/suiflex/rdb"
+                      sub_path: "app"
+                    - git_url: "https://github.com/myst6re/mumba"
+                      sub_path: "gui"
+                    - git_url: "https://github.com/jpfaria/OpenRig"
+                      sub_path: "crates/adapter-gui"
+                      extra_packages: alsa-utils libasound2-dev
+                    - git_url: "https://github.com/yfn020/slintcn"
+                      sub_path: "examples/showcase"
+                    - git_url: "https://github.com/taichi765/TsukuyomiDMX"
+                      sub_path: "crates/tsukuyomidmx"
+                      extra_packages: protobuf-compiler
+                    - git_url: "https://github.com/PavelLizunov/suflyor"
+                      sub_path: "slint-experiment"
+                      extra_packages: alsa-utils libasound2-dev
+                    - git_url: "https://github.com/crypto-widget/crypto-hud"
+                      sub_path: "crates/crypto-hud"
+                    - git_url: "https://github.com/sullivant/eightyeighty"
+                      sub_path: "frontend"
+                    - git_url: "https://github.com/NigelBreslaw/MiSTer-MagiK"
+                      sub_path: "apps/mister"
+                    - git_url: "https://github.com/AndreasTar/Luna"
+                      sub_path: "luna_src"
 
-
-
+                    # Newly-added projects whose crater entry needed per-project setup to build:
+                    - git_url: "https://github.com/BiliRumble/Cloubit"
+                      sub_path: "."
+                      extra_packages: libasound2-dev
+                    - git_url: "https://github.com/JeninSutradhar/ffmpeg-VideoPlayer-Rust_Slint"
+                      sub_path: "."
+                      extra_packages: libasound2-dev libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev libavfilter-dev libavdevice-dev libpostproc-dev
+                    - git_url: "https://github.com/NateAGeek/SenToAni"
+                      sub_path: "."
+                      extra_packages: libasound2-dev libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev libavfilter-dev libavdevice-dev libpostproc-dev
+                    - git_url: "https://github.com/rahulkuzur3/KVPlayer"
+                      sub_path: "."
+                      extra_packages: libasound2-dev libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev libavfilter-dev libavdevice-dev libpostproc-dev
+                    - git_url: "https://github.com/wtvemac/mame_launcher"
+                      sub_path: "."
+                      extra_packages: libasound2-dev
+                    - git_url: "https://github.com/Jordan-Haidee/zeedle"
+                      sub_path: "."
+                      extra_packages: alsa-utils libasound2-dev
+                      extra_commands: |
+                          sed -i 's/version = "=1.17.1"/version = "1.17.1"/' Cargo.toml
+                          cargo update
+                    - git_url: "https://github.com/Trystan-SA/rproc"
+                      sub_path: "."
+                      extra_commands: |
+                          sed -i 's/version = "=1.16.1"/version = "1.16.1"/' Cargo.toml
+                          cargo update
+                    - git_url: "https://github.com/reco-project/video-stitcher"
+                      sub_path: "crates/reco-gui"
+                      extra_packages: libasound2-dev libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev libavfilter-dev libavdevice-dev libpostproc-dev
+                      extra_commands: |
+                          sed -i 's/version = "~1.15"/version = "1.15"/' Cargo.toml
+                          cargo update
+                    - git_url: "https://github.com/ruapotato/Flick"
+                      sub_path: "shell"
+                      extra_packages: libdisplay-info-dev
+                      extra_commands: |
+                          sed -i 's/version = "=1.7.2"/version = "1.7.2"/' Cargo.toml
+                          cargo update
+                    - git_url: "https://github.com/reciperium/temporis"
+                      sub_path: "."
+                      extra_packages: alsa-utils libasound2-dev
+                    - git_url: "https://github.com/FriederHannenheim/cthulock"
+                      sub_path: "."
+                      extra_packages: llvm-dev libclang-dev
+                    - git_url: "https://github.com/jaroslavszkandera/luminous"
+                      sub_path: "."
+                      extra_packages: libdav1d-dev
+                    - git_url: "https://github.com/taisho-guy/NeoUtl"
+                      sub_path: "."
+                      extra_packages: libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev
+                    - git_url: "https://github.com/Arian-p1/p1mplayer"
+                      sub_path: "."
+                      extra_packages: alsa-utils libasound2-dev
+                    - git_url: "https://github.com/GMAC-pl/gmacFTP"
+                      sub_path: "."
+                      extra_commands: |
+                          sed -i 's/"=1.16.1"/"1.16.1"/g' Cargo.toml
+                          cargo update
+                    - git_url: "https://github.com/petiaccja/sed-manager-rs"
+                      sub_path: "sed_manager_config_ui"
+                      extra_commands: |
+                          cargo add serde --features derive
+                          cargo add slint --features renderer-femtovg
+                          cargo update
+                    - git_url: "https://github.com/closure-studio/arkhost-ui-slint"
+                      sub_path: "."
+                      extra_packages: libwebkit2gtk-4.1-dev
+                      extra_args: "--features=desktop-app,renderer-femtovg"
+                    - git_url: "https://github.com/ShashlikMap/shashlik-map"
+                      sub_path: "winit-run"
+                      extra_commands: |
+                          export MAPTILER_API_KEY=ci_dummy_key
+                          cargo update
+                    - git_url: "https://github.com/gopher64/gopher64"
+                      sub_path: "."
+                      toolchain: nightly
+                      extra_packages: libpipewire-0.3-dev libwayland-dev libdecor-0-dev liburing-dev cmake ninja-build gnome-desktop-testing libasound2-dev libpulse-dev libaudio-dev libfribidi-dev libsndio-dev libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxfixes-dev libxi-dev libxss-dev libxtst-dev libxkbcommon-dev libdrm-dev libgbm-dev libgl1-mesa-dev libgles2-mesa-dev libegl1-mesa-dev libdbus-1-dev libibus-1.0-dev libudev-dev libthai-dev
+                      extra_commands: |
+                          export CC=clang CXX=clang++
+                          cargo update
+                    - git_url: "https://github.com/paulusminus/lipl-display"
+                      sub_path: "crates/lipl-display-slint"
+                      extra_commands: |
+                          printf '\n[workspace]\n' >> Cargo.toml
+                          cargo update
+                    - git_url: "https://github.com/holg/gldf-rs"
+                      sub_path: "crates/gldf-rs-slint"
+                      extra_commands: |
+                          printf '\n[workspace]\n' >> Cargo.toml
+                          cargo update
+                    - git_url: "https://github.com/Decodetalkers/marine_greetdm"
+                      sub_path: "examples/marine_gui"
+                      extra_commands: |
+                          printf '\n[workspace]\n' >> Cargo.toml
+                          cargo update
+                    - git_url: "https://github.com/Obsidian-Minecraft-Server-Portal/obsidian-server-panel"
+                      sub_path: "crates/installer/app"
+                      extra_commands: |
+                          printf '\n[workspace]\n' >> Cargo.toml
+                          cargo update
+                    - git_url: "https://github.com/chstc/NGSM"
+                      sub_path: "crates/servicemanager-gui"
+                      extra_commands: |
+                          cargo add rfd --features xdg-portal
+                          cargo update
+                    - git_url: "https://github.com/anton1615/PC-Audio-Stream-to-Phone"
+                      sub_path: "server"
+                      extra_packages: libasound2-dev
         runs-on: "ubuntu-latest"
         steps:
-            - uses: actions/checkout@v6
+            - uses: actions/checkout@v7
             - uses: ./.github/actions/install-linux-dependencies
               if: runner.os == 'Linux'
               with:
@@ -375,7 +665,7 @@ jobs:
             # Don't use the cache because we don't run this job often, and it would cache the .cargo/config.toml with extra keys
             - uses: dtolnay/rust-toolchain@master
               with:
-                  toolchain: stable
+                  toolchain: ${{ matrix.toolchain || 'stable' }}
             - name: setup patch
               run: |
                   echo "" >> ~/.cargo/config.toml
@@ -385,28 +675,399 @@ jobs:
                   echo slint-interpreter = { path = \"$GITHUB_WORKSPACE/internal/interpreter\" }  >> ~/.cargo/config.toml
                   echo i-slint-backend-winit = { path = \"$GITHUB_WORKSPACE/internal/backends/winit\" }  >> ~/.cargo/config.toml
                   echo i-slint-core = { path = \"$GITHUB_WORKSPACE/internal/core\" }  >> ~/.cargo/config.toml
+                  echo i-slint-compiler = { path = \"$GITHUB_WORKSPACE/internal/compiler\" }  >> ~/.cargo/config.toml
             - name: Checkout the repo
               run: |
                   cd $HOME
                   git clone ${{ matrix.git_url }}  the_repo --depth 1
                   cd the_repo
-                  git submodule update --init --recursive
+                  git submodule update --init --recursive || true
             - name: build
               run: |
                   cd $HOME/the_repo
                   rm -r rust-toolchain.toml .cargo/config.toml || true
                   cd ./${{ matrix.sub_path }}
                   sed -i "s/{{project-name}}/the-project/" Cargo.toml
-                  cargo update
+                  ${{ matrix.extra_commands || 'cargo update' }}
                   cargo check ${{ matrix.extra_args }}
 
+    # Windows-only projects: gated on cfg(windows) or using Windows-only crates, so they can
+    # only build on a Windows runner - which still exercises the Slint build on Windows.
+    crater_windows:
+        env:
+            SLINT_NO_QT: 1
+            CARGO_INCREMENTAL: false
+            RUST_BACKTRACE: 1
+        strategy:
+            fail-fast: false
+            matrix:
+                git_url:
+                    - "https://github.com/0hgawa/Clipo"
+                    - "https://github.com/0hgawa/vayou-slint"
+                    - "https://github.com/MelDxKviel/zapret-ui"
+                    - "https://github.com/kirinonakar/ocr_trans"
+                    - "https://github.com/chengbuilds/PetPhrase"
+                    - "https://github.com/WardLordRuby/elden_mod_loader_gui"
+                    - "https://github.com/Arkilo-Labs/NanoTrans"
+                    - "https://github.com/link9c/media_backup"
+                    - "https://github.com/Vadoola/ignition_npp_tools"
+                    - "https://github.com/zloisupport/vanctrl"
+                    - "https://github.com/owu/wsl-dashboard"
+                    - "https://github.com/gvastethecreator/panopticon"
+                    - "https://github.com/LinchenFur/rust-boundary-tool-box"
+                    - "https://github.com/ahmedmbarektorjmene/PASSX"
+                include:
+                    - git_url: "https://github.com/tadghh/transparent-windows"
+                      toolchain: nightly
+        runs-on: windows-2022
+        steps:
+            - uses: actions/checkout@v7
+            - uses: dtolnay/rust-toolchain@master
+              with:
+                  toolchain: ${{ matrix.toolchain || 'stable' }}
+            - name: setup patch
+              shell: bash
+              run: |
+                  ws="${GITHUB_WORKSPACE//\\//}"
+                  {
+                      echo ""
+                      echo "[patch.crates-io]"
+                      echo "slint = { path = \"$ws/api/rs/slint\" }"
+                      echo "slint-build = { path = \"$ws/api/rs/build\" }"
+                      echo "slint-interpreter = { path = \"$ws/internal/interpreter\" }"
+                      echo "i-slint-backend-winit = { path = \"$ws/internal/backends/winit\" }"
+                      echo "i-slint-core = { path = \"$ws/internal/core\" }"
+                  } >> ~/.cargo/config.toml
+            - name: Checkout the repo
+              shell: bash
+              run: |
+                  cd "$HOME"
+                  git clone ${{ matrix.git_url }} the_repo --depth 1
+                  cd the_repo
+                  git submodule update --init --recursive || true
+            - name: build
+              shell: bash
+              run: |
+                  cd "$HOME/the_repo"
+                  rm -f rust-toolchain.toml .cargo/config.toml || true
+                  cargo update
+                  cargo check
 
-# Slint only: how can we test them?
-# https://github.com/Surrealism-All/SurrealismUI
-# https://github.com/8yteDance/SlintSubMenu
+    # Build slint-compiler once and share it with the check_slint_only matrix below, instead of
+    # rebuilding it for every project.
+    build_slint_compiler:
+        runs-on: "ubuntu-latest"
+        steps:
+            - uses: actions/checkout@v7
+            - uses: ./.github/actions/install-linux-dependencies
+              if: runner.os == 'Linux'
+              with:
+                  extra-packages: clang pkg-config
+            - uses: dtolnay/rust-toolchain@master
+              with:
+                  toolchain: stable
+            - name: Build slint-compiler
+              run: cargo build -p slint-compiler
+            - uses: actions/upload-artifact@v7
+              with:
+                  name: slint-compiler
+                  path: target/debug/slint-compiler
+                  if-no-files-found: error
 
-# C++
-# https://github.com/LeVietXuanKG/TodoApp_Slint
-# https://github.com/NatnaelTaddese/slint_cpp_bilinear_interpolation
-# https://github.com/vudinhkhoa0/DEMO_DOAN_CTDL-GT
-# https://github.com/progzone122/micropad
+    # C++ and JavaScript projects are hard to build in CI, so instead of compiling the whole
+    # project, run the slint-compiler built above on their main .slint files. This catches
+    # language and compiler regressions that would break non-Rust users.
+    check_slint_only:
+        needs: build_slint_compiler
+        strategy:
+            fail-fast: false
+            matrix:
+                include:
+                    - git_url: "https://github.com/Isurwars/Correlation"
+                      files: "ui/AppWindow.slint"
+                    # Rust build fails on the crate's own ruler_core::pipeline::ConsumerPipe import
+                    - git_url: "https://github.com/ZeroAd-06/ArknightsCostBarRuler"
+                      files: "crates/ruler-app/ui/hud.slint crates/ruler-app/ui/menu.slint crates/ruler-app/ui/wizard.slint"
+                    # Rust dep baseview fails to build (unresolved x11rb imports)
+                    - git_url: "https://github.com/reedrosenbluth/oscen"
+                      files: "examples/electric-piano/ui/synth_window.slint"
+                    # Rust build error in the crate (ExifCache undefined)
+                    - git_url: "https://github.com/Sid-352/Project-Arbiter"
+                      files: "arbiter-forge/ui/forge.slint"
+                    # Rust dep tray-item fails to build (TrayItemImpl missing)
+                    - git_url: "https://github.com/Maeeen/emoji-picker"
+                      files: "ui/emoji-picker.slint"
+                    # Rust dep librespot-core fails to build (vergen trait bound)
+                    - git_url: "https://github.com/karmakarmeghdip/taan"
+                      files: "ui/main.slint"
+                    # source has an unresolved git merge-conflict marker
+                    - git_url: "https://github.com/elhijamuhammed/LanChGo"
+                      files: "ui/app-window.slint"
+                    # Rust dep brainflow build script panics
+                    - git_url: "https://github.com/Neirth/NeuralAnalytics"
+                      files: "packages/neural_analytics_gui/src/frames/main_frame.slint"
+                    # Rust build needs cmake >=3.31 and its bundled C++ fails to compile
+                    - git_url: "https://github.com/mollohq/mello"
+                      files: "client/ui/main.slint"
+                    # Rust dep ksni has conflicting tokio/async-io features
+                    - git_url: "https://github.com/dcog989/Cliptoo"
+                      files: "src/ui/ui/AppWindow.slint"
+                    # needs a nightly feature (array_chunks) removed from current nightly
+                    - git_url: "https://github.com/nic-obert/rusty-vm"
+                      files: "debugger/slint/app.slint"
+                    # component library: index.slint re-exports widgets that use %-relative sizing, so it
+                    # can't be compiled as a top-level component ("Cannot find parent property to apply relative length")
+                    #- git_url: "https://github.com/Surrealism-All/SurrealismUI"
+                    #  files: "index.slint"
+                    - git_url: "https://github.com/8yteDance/SlintSubMenu"
+                      files: "MenuBar.slint"
+                    - git_url: "https://github.com/NatnaelTaddese/slint_cpp_bilinear_interpolation"
+                      files: "ui/appwindow.slint"
+                    - git_url: "https://github.com/progzone122/micropad"
+                      files: "micropad_engine/ui/app.slint"
+                    # non-Rust projects (C++, JS/TS, pure Slint)
+                    - git_url: "https://codeberg.org/vivi-ui/vivi"
+                      files: "vivi/ui/magic/magic_window.slint"
+                    - git_url: "https://github.com/Aquaticat/Monochromatic"
+                      files: "package/desktop-app/terminal/ui/app.slint"
+                    - git_url: "https://github.com/CoreBedtime/playground"
+                      files: "configurator/tweak_editor.slint"
+                    - git_url: "https://github.com/Dominic485649/AWJimage"
+                      files: "ui/awj_studio.slint"
+                    - git_url: "https://github.com/FernTech-EU/qleany"
+                      files: "crates/slint_ui/ui/app.slint"
+                    - git_url: "https://github.com/GDATASoftwareAG/vaas"
+                      files: "rust/examples/kde_dolphin/ui/app.slint"
+                    - git_url: "https://github.com/Ibrahim-hikal/EUI-SIS_-upgraded-"
+                      files: "Features_and_Functions/Manage_Members/Manage_Members.slint"
+                    - git_url: "https://github.com/IcosagonZ/Stocks-Slint"
+                      files: "ui/main.slint"
+                    - git_url: "https://github.com/KDAB/KDDockWidgets"
+                      files: "src/core/layouting/examples/slint/ui/appwindow.slint"
+                    - git_url: "https://github.com/KDABLabs/mecaps"
+                      files: "demo/ui/app_window.slint"
+                    - git_url: "https://github.com/KaosSpectrum/Lorekeep"
+                      files: "ui/app-window.slint"
+                    - git_url: "https://github.com/KeibiSoft/KeibiDrop"
+                      files: "rust/src/ui.slint"
+                    - git_url: "https://github.com/LibrePCB/LibrePCB"
+                      files: "libs/librepcb/ui/windowsection.slint"
+                    - git_url: "https://github.com/Map1en/VRCX-0"
+                      files: "crates/vr-overlay/ui/overlay.slint"
+                    - git_url: "https://github.com/MeowKJ/BinaryKeyboard"
+                      files: "tools/meowisp/crates/meowisp-app/ui/app.slint"
+                    - git_url: "https://github.com/NhanPhan159/aliscut"
+                      files: "ui/app.slint"
+                    - git_url: "https://github.com/NigelBreslaw/slint-ui-for-github-cli"
+                      files: "app/src/ui/main.slint"
+                    - git_url: "https://github.com/SergioRibera/docker-rust-android"
+                      files: "examples/slint/ui/index.slint"
+                    - git_url: "https://github.com/SillyBeee/Robomaster_Phoenix_Custom_Client"
+                      files: "ui/mainwindow/app-window.slint"
+                    - git_url: "https://github.com/Szybet/InkWatchy"
+                      files: "components/rusty/crates/set_date/ui/window.slint"
+                    - git_url: "https://github.com/TEPOTPOH/slint-meteo-gui"
+                      files: "ui/appwindow.slint"
+                    - git_url: "https://github.com/XDagger/xdag-plus"
+                      files: "app/ui/app.slint"
+                    - git_url: "https://github.com/agg23/openfpga-litex"
+                      files: "lang/rust/examples/rough_fps/src/rough_fps.slint"
+                    - git_url: "https://github.com/ahsanu123/material-ui-slint"
+                      files: "ui/styling/material_schemes.slint"
+                    - git_url: "https://github.com/alexf13e/tv-remote"
+                      files: "main/ui/app-window.slint"
+                    - git_url: "https://github.com/apache/nuttx-apps"
+                      files: "examples/rust/slint/ui/app.slint"
+                    - git_url: "https://github.com/asuper0/cfg-ip"
+                      files: "ui/main-ui.slint"
+                    - git_url: "https://github.com/dotsem/CapyShell"
+                      files: "ui/panels/taskbar/activeWindow.slint"
+                    - git_url: "https://github.com/eggfly/CardputerZero-Examples"
+                      files: "Slint_HelloWorld/ui/appwindow.slint"
+                    - git_url: "https://github.com/egoitzro/SLINTQT"
+                      files: "ui/cute_floating_window.slint"
+                    - git_url: "https://github.com/elipsitz/gamebub"
+                      files: "firmware/handheld/res/ui/main.slint"
+                    - git_url: "https://github.com/fsim-ev/infoscreen-ng"
+                      files: "ui/app.slint"
+                    - git_url: "https://github.com/harvestwhisperer/hm64-decomp"
+                      files: "tools/modding/sprite_editor/ui/main_window.slint"
+                    - git_url: "https://github.com/heng30/stodo"
+                      files: "ui/desktop-window.slint"
+                    - git_url: "https://github.com/hxj0x/rs_slint_alterful"
+                      files: "ui/main.slint"
+                    - git_url: "https://github.com/lifeRobot/jui"
+                      files: "widgets/checkbox.slint"
+                    - git_url: "https://github.com/lonerOrz/slint-mt"
+                      files: "material-1.0/ui/styling/material_schemes.slint"
+                    - git_url: "https://github.com/mikezaby/blibliki"
+                      files: "apps/pi-display/ui/dashboard.slint"
+                    - git_url: "https://github.com/nash87/parkhub-rust"
+                      files: "ui/main.slint"
+                    - git_url: "https://github.com/open-vela/nuttx-apps"
+                      files: "examples/rust/slint/ui/app.slint"
+                    - git_url: "https://github.com/phytec/demo-slint"
+                      files: "ui/appwindow.slint"
+                    - git_url: "https://github.com/plexescor/HPR"
+                      files: "src/ui/app-window.slint"
+                    - git_url: "https://github.com/resonance-designs/rd-slint-ui-kit"
+                      files: "wasm-demo/ui/demo.slint"
+                    - git_url: "https://github.com/share121/s-photo"
+                      files: "ui/app.slint"
+                    - git_url: "https://github.com/signal-slot/qtpsd"
+                      files: "exports/text_param.exports/Slint/MainWindow.slint"
+                    - git_url: "https://github.com/skytron-anthony/aviation_hmi_slint"
+                      files: "ui/main.slint"
+                    - git_url: "https://github.com/slint-ui/material-components"
+                      files: "examples/gallery/ui/main.slint"
+                    - git_url: "https://github.com/themadorg/bedrud"
+                      files: "apps/desktop/ui/app.slint"
+                    - git_url: "https://github.com/torizon/vscode-torizon-templates"
+                      files: "rustSlint/ui/appwindow.slint"
+                    - git_url: "https://github.com/uAtomicBoolean/sleek-ui"
+                      files: "ui/app-logic.slint"
+                    - git_url: "https://github.com/wilmercampagna/slint-ui-system"
+                      files: "ui/demo.slint"
+                    - git_url: "https://github.com/xerolinux/xPackageManager"
+                      files: "crates/xpm-ui/ui/main.slint"
+                    # Rust projects whose full build fails on a dependency or is platform-specific, but whose .slint still compiles
+                    - git_url: "https://codeberg.org/psylink/psylink"
+                      files: "src/psylink.slint"
+                    - git_url: "https://github.com/DanielMadmon/tasker"
+                      files: "bin/tasker_gui/src/main_window.slint"
+                    - git_url: "https://github.com/Davide255/LVIE"
+                      files: "LVIE/ui/widgets/curve.slint"
+                    - git_url: "https://github.com/DraKraft/ozon-rs"
+                      files: "ui/app-window.slint"
+                    - git_url: "https://github.com/ElevenJune/mastermind_Rust"
+                      files: "ui/appwindow.slint"
+                    - git_url: "https://github.com/GRX005/McModManager-rs"
+                      files: "ui/mainWindow.slint"
+                    - git_url: "https://github.com/Heng30/bitbox"
+                      files: "bitbox/ui/dialog/setting/ui.slint"
+                    - git_url: "https://github.com/Heng30/solana-wallet-sollet"
+                      files: "ui/theme.slint"
+                    - git_url: "https://github.com/Hoverth/keyboardthing"
+                      files: "ui/app-window.slint"
+                    - git_url: "https://github.com/Martoni/QRNote"
+                      files: "qr-note/ui/appwindow.slint"
+                    - git_url: "https://github.com/Project-Trains/launcher"
+                      files: "src/ui/market.slint"
+                    - git_url: "https://github.com/SergioGasquez/espup-slint"
+                      files: "ui/pages/uninstall_page.slint"
+                    - git_url: "https://github.com/Tricked-dev/stardew-mod-manager"
+                      files: "ui/appwindow.slint"
+                    - git_url: "https://github.com/TuEmb/can-viewer"
+                      files: "ui/app.slint"
+                    - git_url: "https://github.com/colelawrence/here-now"
+                      files: "hn-desktop-ui/ui/main_window.slint"
+                    - git_url: "https://github.com/danrauch/thermocam"
+                      files: "src/ui/ui.slint"
+                    - git_url: "https://github.com/gsuyemoto/rust-bombfield"
+                      files: "ui.slint"
+                    - git_url: "https://github.com/guimath/GeoQuiz"
+                      files: "ui/app-window.slint"
+                    - git_url: "https://github.com/hambooooo/hamboo-embassy"
+                      files: "ui/ui.slint"
+                    - git_url: "https://github.com/hambooooo/hamboo-rs"
+                      files: "ui/ui.slint"
+                    - git_url: "https://github.com/interstellarfrog/OG3-Pack-Updater"
+                      files: "ui/ui.slint"
+                    - git_url: "https://github.com/jannes/han-cihui"
+                      files: "tagging_ui.slint"
+                    - git_url: "https://github.com/jenkinsmichpa/coconut_crab"
+                      files: "coconut_crab_client/ui/main.slint"
+                    - git_url: "https://github.com/mrandal/PDFer"
+                      files: "ui/common.slint"
+                    - git_url: "https://github.com/oreo3494/rockpaper.git"
+                      files: "ui/appwindow.slint"
+                    - git_url: "https://github.com/pezfisk/OxideManager"
+                      files: "ui/profile-state.slint"
+                    - git_url: "https://github.com/planet0104/USB-Screen"
+                      files: "view/main.slint"
+                    - git_url: "https://github.com/somantics/retrodungeon"
+                      files: "ui/old.slint"
+                    - git_url: "https://github.com/spades9/image-tools"
+                      files: "ui/main.slint"
+                    - git_url: "https://github.com/vexide/vexide-slint"
+                      files: "examples/ui/app.slint"
+                    - git_url: "https://github.com/vimyoung/spell"
+                      files: "spell-demo/ui/app-window.slint"
+                    - git_url: "https://github.com/xcodes2cn/Xviewer"
+                      files: "login/ui/app.slint"
+                    - git_url: "https://github.com/zzoe/liando"
+                      files: "ui/common.slint"
+                    - git_url: "https://github.com/zzq0097/mmm_rs"
+                      files: "ui/appwindow.slint"
+                    #- git_url: "https://github.com/vudinhkhoa0/DEMO_DOAN_CTDL-GT" # entry .slint file not identified yet
+                    # Cannot build in the crater matrix for a reason outside Slint (noted per entry):
+                    # build.rs needs the liboqs native library (not packaged)
+                    - git_url: "https://github.com/GurudattaRK/PQrypt"
+                      files: "desktop/ui/main.slint"
+                    # depends on Slint via git, so the crates.io patch does not apply
+                    - git_url: "https://github.com/Montel/ruqola-rust"
+                      files: "ruqola-rust-slint/src/slint/mainwindow.slint"
+                    # uses a path dependency on a sibling Slint checkout
+                    - git_url: "https://github.com/PasteBridge/PasteBridge"
+                      files: "crates/desktop/ui/app.slint"
+                    # the project's own code has a type error
+                    - git_url: "https://github.com/TuEmb/uds-client-rs"
+                      files: "examples/uds_client_ui/ui/appwindow.slint"
+                    # the project's own code fails to compile
+                    - git_url: "https://github.com/Vaider7/GigaCenter"
+                      files: "src/ui/ui.slint"
+                    # depends on Slint via git, so the crates.io patch does not apply
+                    - git_url: "https://github.com/WeaveITMeta/EustressEngine"
+                      files: "eustress/crates/engine/ui/slint/main.slint"
+                    # depends on Slint via git, so the crates.io patch does not apply
+                    - git_url: "https://github.com/ananyatimalsina/pbanki"
+                      files: "ui/main.slint"
+                    # depends on webusb-web, which only builds for wasm
+                    - git_url: "https://github.com/ciniml/axdl-rs"
+                      files: "axdl-gui/ui/app-window.slint"
+                    # unresolved import in the project's own crate
+                    - git_url: "https://github.com/fast-down/gui"
+                      files: "ui/app-window.slint"
+                    # depends on a Slint fork via git, so the patch does not apply
+                    - git_url: "https://github.com/futo-org/fcast"
+                      files: "senders/android/ui/main.slint"
+                    # build.rs compiles the SameBoy emulator from a submodule
+                    - git_url: "https://github.com/nununoisy/gb-presenter-rs"
+                      files: "src/gui/slint/main.slint"
+                    # depends on a Slint fork via git, so the patch does not apply
+                    - git_url: "https://github.com/okhsunrog/archinstall_zfs"
+                      files: "slint-ui/ui/app.slint"
+                    # pins/vendors i-slint-backend-winit 1.16.1, conflicting with the patched Slint
+                    - git_url: "https://github.com/tyuan919-dotcom/clipvault"
+                      files: "crates/app/ui/main.slint"
+                    # depends on a Slint fork via git, so the patch does not apply
+                    - git_url: "https://github.com/zeroeightysix/polymodo"
+                      files: "ui/ui.slint"
+        runs-on: "ubuntu-latest"
+        steps:
+            - uses: actions/download-artifact@v8
+              with:
+                  name: slint-compiler
+                  path: slint-compiler-bin
+            - name: Prepare slint-compiler
+              run: |
+                  chmod +x slint-compiler-bin/slint-compiler
+                  # Bound apt so a stuck dpkg lock or mirror stall fails in minutes instead of hanging the job.
+                  sudo timeout 300 apt-get update -qq
+                  sudo timeout 300 apt-get install -y --no-install-recommends libfontconfig1 libfreetype6
+            - name: Checkout the repo
+              run: |
+                  cd $HOME
+                  git clone ${{ matrix.git_url }} the_repo --depth 1
+                  cd the_repo
+                  git submodule update --init --recursive || true
+            - name: Compile the .slint files
+              run: |
+                  cd $HOME/the_repo
+                  ui_inc=""
+                  [ -d ui ] && ui_inc="-I ui"
+                  for f in ${{ matrix.files }}; do
+                      echo "::group::$f"
+                      SLINT_ENABLE_EXPERIMENTAL_FEATURES=1 "$GITHUB_WORKSPACE/slint-compiler-bin/slint-compiler" -f cpp -I "$(dirname "$f")" -I . $ui_inc "$f" -o /dev/null
+                      echo "::endgroup::"
+                  done

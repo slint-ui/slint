@@ -23,6 +23,20 @@ mod metal;
 #[cfg(all(target_family = "unix", not(target_vendor = "apple")))]
 mod vulkan;
 
+/// See [`crate::attachment_color_space`].
+pub(crate) fn attachment_color_space(texture: &wgpu::Texture) -> skia_safe::ColorSpace {
+    crate::attachment_color_space(crate::TextureEncoding::from_format_is_srgb(
+        texture.format().is_srgb(),
+    ))
+}
+
+/// See [`crate::sampled_texture_color_space`].
+pub(crate) fn sampled_texture_color_space(texture: &wgpu::Texture) -> skia_safe::ColorSpace {
+    crate::sampled_texture_color_space(crate::TextureEncoding::from_format_is_srgb(
+        texture.format().is_srgb(),
+    ))
+}
+
 /// Skia rendering surface backed by WGPU. Supports both on-screen rendering (with a
 /// window surface) and offscreen rendering into caller-provided textures.
 pub struct WGPUSurface {
@@ -34,6 +48,7 @@ pub struct WGPUSurface {
     surface: Option<wgpu::Surface<'static>>,
     textures_to_transition_for_sampling: RefCell<Vec<wgpu::Texture>>,
     pub(crate) backend: Backend,
+    alpha_modes: Vec<wgpu::CompositeAlphaMode>,
 }
 
 impl WGPUSurface {
@@ -86,6 +101,7 @@ impl WGPUSurface {
             surface: Some(surface),
             textures_to_transition_for_sampling: RefCell::new(Vec::new()),
             backend,
+            alpha_modes: swapchain_capabilities.alpha_modes,
         })
     }
 
@@ -105,6 +121,7 @@ impl WGPUSurface {
             surface: None,
             textures_to_transition_for_sampling: RefCell::new(Vec::new()),
             backend,
+            alpha_modes: vec![],
         }
     }
 
@@ -206,9 +223,15 @@ impl crate::Surface for WGPUSurface {
             wgpu::CurrentSurfaceTexture::Validation => {
                 return Err("WGPU surface validation error in get_current_texture".into());
             }
-            wgpu::CurrentSurfaceTexture::Outdated
+            stale @ (wgpu::CurrentSurfaceTexture::Outdated
             | wgpu::CurrentSurfaceTexture::Suboptimal(_)
-            | wgpu::CurrentSurfaceTexture::Lost => {
+            | wgpu::CurrentSurfaceTexture::Lost) => {
+                // `Suboptimal` carries a live `SurfaceTexture`; matched with `_` it is not bound,
+                // so the value returned by `get_current_texture()` keeps it alive across the
+                // `surface.configure()` below — which wgpu forbids ("`SurfaceOutput` must be
+                // dropped before a new `Surface` is made"), panicking on the first frame on
+                // Wayland. Drop it first. (`Outdated`/`Lost` carry nothing → no-op.)
+                drop(stale);
                 surface.configure(&self.device, surface_config);
                 match surface.get_current_texture() {
                     wgpu::CurrentSurfaceTexture::Success(t) => t,
@@ -260,17 +283,17 @@ impl crate::Surface for WGPUSurface {
         callback(api)
     }
 
-    #[cfg(any(feature = "unstable-wgpu-28", feature = "unstable-wgpu-29"))]
+    #[cfg(any(feature = "unstable-wgpu-29", feature = "unstable-wgpu-30"))]
     fn import_wgpu_texture(
         &self,
         canvas: &skia_safe::Canvas,
         any_wgpu_texture: &i_slint_core::graphics::WGPUTexture,
     ) -> Option<skia_safe::Image> {
         let texture = match any_wgpu_texture {
-            #[cfg(feature = "unstable-wgpu-28")]
-            i_slint_core::graphics::WGPUTexture::WGPU28Texture(..) => return None,
             #[cfg(feature = "unstable-wgpu-29")]
             i_slint_core::graphics::WGPUTexture::WGPU29Texture(texture) => texture.clone(),
+            #[cfg(feature = "unstable-wgpu-30")]
+            i_slint_core::graphics::WGPUTexture::WGPU30Texture(..) => return None,
         };
 
         // Skia won't submit commands right away, so remember the texture and transition before
@@ -278,6 +301,27 @@ impl crate::Surface for WGPUSurface {
         self.textures_to_transition_for_sampling.borrow_mut().push(texture.clone());
 
         self.backend.import_texture(canvas, texture)
+    }
+
+    fn set_transparent(&self, transparent: bool) -> Result<(), PlatformError> {
+        if transparent {
+            // The default `Opaque` discards the scene's alpha; pick a translucent mode if offered.
+            // Metal (CAMetalLayer) only offers `PostMultiplied`, so it must be a fallback.
+            use wgpu::CompositeAlphaMode::{PostMultiplied, PreMultiplied};
+            if let Some(mode) =
+                [PreMultiplied, PostMultiplied].into_iter().find(|m| self.alpha_modes.contains(m))
+            {
+                let mut surface_config_opt = self.surface_config.borrow_mut();
+                let (Some(surface_config), Some(surface)) =
+                    (surface_config_opt.as_mut(), &self.surface)
+                else {
+                    return Ok(());
+                };
+                surface_config.alpha_mode = mode;
+                surface.configure(&self.device, surface_config);
+            }
+        }
+        Ok(())
     }
 }
 

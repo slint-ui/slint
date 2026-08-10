@@ -313,6 +313,8 @@ pub unsafe extern "C" fn slint_platform_register(
         invoke_from_event_loop,
     };
     i_slint_core::platform::set_platform(Box::new(p)).unwrap();
+    #[cfg(any(feature = "mcp", feature = "system-testing"))]
+    i_slint_backend_selector::init_testing_backends();
 }
 
 #[unsafe(no_mangle)]
@@ -911,7 +913,10 @@ pub mod skia {
     #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_skia_renderer_render(r: SkiaRendererOpaque) {
         let r = unsafe { &*(r as *const SkiaRenderer) };
-        r.render().unwrap();
+        // There's now way right now of instantiating the Skia Renderer in C++
+        // with wgpu to produce the DrawOutput that'll require the caller to act,
+        // so ignore the Ok result.
+        let _ = r.render().unwrap();
     }
 
     #[unsafe(no_mangle)]

@@ -3,18 +3,23 @@
 
 //! Custom test driver for the Slint SC (safety-critical) subset.
 //!
-//! For each `.slint` file under `tests/cases/`, this driver:
+//! For each test case, a `.slint` file in a group directory of `tests/cases/`,
+//! this driver:
 //! 1. Runs `slint-compiler --slint-sc` to generate Rust code
 //! 2. Extracts test code from `` ```rust `` blocks in comments
 //! 3. Calls `rustc` directly to compile the generated + test code
-//! 4. Runs the resulting binary
+//! 4. Runs the resulting binary; `` ```rust compile_fail `` blocks are
+//!    compiled separately and must fail with every `//~ ERROR` substring in
+//!    the rustc output
+//! 5. Compares the screenshots taken with the `screenshot!` macro against the
+//!    PNG references in `tests/references/` (set `SLINT_CREATE_SCREENSHOTS=1`
+//!    to create or update them)
 //!
 //! Tests run in parallel via rayon.
 
 use rayon::prelude::*;
 use regex::Regex;
 use std::fmt::Write as _;
-use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
@@ -30,28 +35,26 @@ fn main() {
     let target_dir = find_target_dir();
     let rustc = std::env::var("RUSTC").unwrap_or_else(|_| "rustc".into());
     let instrument_coverage = std::env::var_os("LLVM_PROFILE_FILE").is_some();
-    let compiler = build_compiler(&target_dir, instrument_coverage);
+    let compiler = build_compiler(&target_dir);
     let slint_sc_rlib = find_slint_sc_rlib(&target_dir);
-    let rx = Regex::new(r"(?sU)\r?\n```rust\r?\n(.+)\r?\n```\r?\n").unwrap();
+    let rx = Regex::new(r"(?sU)\r?\n```rust( compile_fail)?\r?\n(.+)\r?\n```\r?\n").unwrap();
 
     let config = TestConfig {
         compiler: &compiler,
         slint_sc_rlib: &slint_sc_rlib,
         rustc: &rustc,
         instrument_coverage,
+        create_screenshots: std::env::var("SLINT_CREATE_SCREENSHOTS").is_ok_and(|var| var == "1"),
         rx: &rx,
     };
 
     let results: Vec<(String, Result<(), String>)> = test_files
         .par_iter()
         .map(|path| {
-            let name = path
-                .strip_prefix(&cases_dir)
-                .unwrap_or(path)
-                .with_extension("")
-                .to_string_lossy()
-                .replace(std::path::MAIN_SEPARATOR, "/");
-            let result = run_test(path, &config);
+            let rel = path.strip_prefix(&cases_dir).unwrap_or(path);
+            let name =
+                rel.with_extension("").to_string_lossy().replace(std::path::MAIN_SEPARATOR, "/");
+            let result = run_test(path, rel, &config);
             (name, result)
         })
         .collect();
@@ -76,9 +79,53 @@ fn main() {
     eprintln!();
     eprintln!("{passed} passed, {failed} failed");
 
+    if let Some(path) = std::env::var_os("SLINT_TEST_REPORT") {
+        let outcomes: Vec<(String, String, bool)> = results
+            .iter()
+            // The repository-relative source of each case, for linking.
+            .map(|(name, result)| {
+                (name.clone(), format!("api/slint-sc/tests/cases/{name}.slint"), result.is_ok())
+            })
+            .collect();
+        write_report(&outcomes, "slint-sc-driver", Path::new(&path))
+            .unwrap_or_else(|e| panic!("failed to write test report: {e}"));
+    }
+
     if failed > 0 {
         std::process::exit(1);
     }
+}
+
+/// Write the per-case `(name, source path, passed)` results as CTRF-style
+/// JSON, for the safety manual's Test Results page.
+fn write_report(
+    results: &[(String, String, bool)],
+    tool: &str,
+    path: &std::path::Path,
+) -> std::io::Result<()> {
+    let tests: Vec<_> = results
+        .iter()
+        .map(|(name, file_path, ok)| {
+            serde_json::json!({
+                "name": name,
+                "filePath": file_path,
+                "status": if *ok { "passed" } else { "failed" },
+            })
+        })
+        .collect();
+    let failed = results.iter().filter(|(_, _, ok)| !ok).count();
+    let report = serde_json::json!({
+        "results": {
+            "tool": { "name": tool },
+            "summary": {
+                "tests": results.len(),
+                "passed": results.len() - failed,
+                "failed": failed,
+            },
+            "tests": tests,
+        }
+    });
+    std::fs::write(path, serde_json::to_string_pretty(&report).unwrap())
 }
 
 struct TestConfig<'a> {
@@ -86,6 +133,7 @@ struct TestConfig<'a> {
     slint_sc_rlib: &'a Path,
     rustc: &'a str,
     instrument_coverage: bool,
+    create_screenshots: bool,
     rx: &'a Regex,
 }
 
@@ -98,7 +146,7 @@ fn find_target_dir() -> PathBuf {
         .to_path_buf()
 }
 
-fn build_compiler(target_dir: &Path, instrument_coverage: bool) -> PathBuf {
+fn build_compiler(target_dir: &Path) -> PathBuf {
     let cargo = std::env::var("CARGO").unwrap_or_else(|_| "cargo".into());
     let mut cmd = Command::new(&cargo);
     cmd.args(["build", "-p", "slint-compiler", "--no-default-features", "--features", "slint-sc"]);
@@ -108,9 +156,12 @@ fn build_compiler(target_dir: &Path, instrument_coverage: bool) -> PathBuf {
     if let Some(parent) = target_dir.parent() {
         cmd.arg("--target-dir").arg(parent);
     }
-    if instrument_coverage {
-        cmd.env("RUSTFLAGS", "-Cinstrument-coverage");
-    }
+    // Coverage measures the slint-sc runtime alone, so the compiler builds
+    // uninstrumented: clear the rustc wrapper cargo-llvm-cov injects the
+    // instrumentation with, and the flag variables older versions used.
+    cmd.env_remove("RUSTC_WRAPPER");
+    cmd.env_remove("RUSTFLAGS");
+    cmd.env_remove("CARGO_ENCODED_RUSTFLAGS");
     let status = cmd.status().expect("Failed to run cargo build for slint-compiler");
     assert!(status.success(), "Failed to build slint-compiler");
     let compiler = target_dir.join("slint-compiler");
@@ -134,7 +185,7 @@ fn find_slint_sc_rlib(target_dir: &Path) -> PathBuf {
     panic!("Could not find slint-sc rlib in {}", deps_dir.display());
 }
 
-fn run_test(slint_path: &Path, config: &TestConfig) -> Result<(), String> {
+fn run_test(slint_path: &Path, rel: &Path, config: &TestConfig) -> Result<(), String> {
     let tmp = tempfile::tempdir().map_err(|e| format!("tempdir: {e}"))?;
     let generated_rs = tmp.path().join("generated.rs");
 
@@ -155,37 +206,236 @@ fn run_test(slint_path: &Path, config: &TestConfig) -> Result<(), String> {
     // Step 2: Extract test code from ```rust blocks in comments
     let source = std::fs::read_to_string(slint_path)
         .map_err(|e| format!("read {}: {e}", slint_path.display()))?;
-    let test_code = extract_rust_test_code(&source, config.rx);
+    let (test_code, compile_fail_blocks) = extract_rust_test_code(&source, config.rx);
     if test_code.is_empty() {
         return Err("no ```rust test code found in comments".into());
     }
+    let gen_path = generated_rs.to_string_lossy().replace('\\', "/");
 
     // Step 3: Create test .rs file
     let test_rs = tmp.path().join("test.rs");
-    {
-        let mut f = std::fs::File::create(&test_rs).map_err(|e| format!("create test.rs: {e}"))?;
-        let gen_path = generated_rs.to_string_lossy().replace('\\', "/");
-        let mut content = String::new();
-        writeln!(content, r#"include!("{gen_path}");"#).unwrap();
-        writeln!(content).unwrap();
-        writeln!(content, "fn main() -> Result<(), Box<dyn std::error::Error>> {{").unwrap();
-        writeln!(content, "    {}", test_code.replace('\n', "\n    ")).unwrap();
-        writeln!(content, "    Ok(())").unwrap();
-        writeln!(content, "}}").unwrap();
-        f.write_all(content.as_bytes()).map_err(|e| format!("write test.rs: {e}"))?;
-    }
+    std::fs::write(&test_rs, assemble_program(&gen_path, &test_code))
+        .map_err(|e| format!("write test.rs: {e}"))?;
 
     // Step 4: Compile with rustc
     let test_bin = tmp.path().join("test_bin");
+    let rustc_output = compile(config, &test_rs, &test_bin)?;
+    if !rustc_output.status.success() {
+        let stderr = String::from_utf8_lossy(&rustc_output.stderr);
+        return Err(format!("rustc failed:\n{stderr}"));
+    }
+
+    // The compile_fail blocks must fail to compile with the expected errors
+    for (i, block) in compile_fail_blocks.iter().enumerate() {
+        let expected: Vec<&str> =
+            block.lines().filter_map(|l| l.trim().strip_prefix("//~ ERROR ")).collect();
+        if expected.is_empty() {
+            return Err(format!("compile_fail block {i} has no //~ ERROR line"));
+        }
+        let fail_rs = tmp.path().join(format!("compile_fail_{i}.rs"));
+        std::fs::write(&fail_rs, assemble_program(&gen_path, block))
+            .map_err(|e| format!("write compile_fail_{i}.rs: {e}"))?;
+        let output = compile(config, &fail_rs, &tmp.path().join(format!("compile_fail_{i}")))?;
+        if output.status.success() {
+            return Err(format!("compile_fail block {i} compiled successfully:\n{block}"));
+        }
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        for e in expected {
+            if !stderr.contains(e) {
+                return Err(format!(
+                    "compile_fail block {i} failed without the expected error `{e}`:\n{stderr}"
+                ));
+            }
+        }
+    }
+
+    // Step 5: Run the test binary
+    let run_output = Command::new(&test_bin)
+        .current_dir(tmp.path())
+        .env("SLINT_TEST_NAME", rel.file_stem().unwrap_or_default())
+        .output()
+        .map_err(|e| format!("test binary spawn: {e}"))?;
+
+    if !run_output.status.success() {
+        let stderr = String::from_utf8_lossy(&run_output.stderr);
+        let stdout = String::from_utf8_lossy(&run_output.stdout);
+        return Err(format!("test binary failed:\nstdout: {stdout}\nstderr: {stderr}"));
+    }
+
+    // Step 6: Compare the screenshots against the references
+    compare_screenshots(tmp.path(), rel, config.create_screenshots)
+}
+
+/// Compare the `*.ppm` screenshots that the test binary wrote in `tmp_dir`
+/// against the PNG references, which mirror the layout of the cases directory.
+fn compare_screenshots(tmp_dir: &Path, rel: &Path, create: bool) -> Result<(), String> {
+    let references_dir =
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/references").join(rel.parent().unwrap());
+    let mut screenshots: Vec<PathBuf> = std::fs::read_dir(tmp_dir)
+        .map_err(|e| format!("read_dir {}: {e}", tmp_dir.display()))?
+        .flatten()
+        .map(|entry| entry.path())
+        .filter(|path| path.extension().is_some_and(|e| e == "ppm"))
+        .collect();
+    screenshots.sort();
+
+    let mut errors = String::new();
+    for ppm_path in screenshots {
+        let reference = references_dir.join(ppm_path.file_name().unwrap()).with_extension("png");
+        let data =
+            std::fs::read(&ppm_path).map_err(|e| format!("read {}: {e}", ppm_path.display()))?;
+        let (width, height, pixels) =
+            parse_ppm(&data).ok_or_else(|| format!("invalid ppm file {}", ppm_path.display()))?;
+        if let Err(msg) = compare_with_reference(&reference, width, height, pixels) {
+            writeln!(errors, "{}: {msg}", reference.display()).unwrap();
+            if create {
+                std::fs::create_dir_all(&references_dir)
+                    .map_err(|e| format!("create_dir_all {}: {e}", references_dir.display()))?;
+                image::save_buffer(&reference, pixels, width, height, image::ColorType::Rgb8)
+                    .map_err(|e| format!("save {}: {e}", reference.display()))?;
+                writeln!(
+                    errors,
+                    "SLINT_CREATE_SCREENSHOTS=1: wrote reference image to {}",
+                    reference.display()
+                )
+                .unwrap();
+            }
+        }
+    }
+    // A reference for this test without a matching screenshot means the test
+    // no longer takes it
+    let stem = rel.file_stem().unwrap_or_default().to_string_lossy();
+    for entry in std::fs::read_dir(&references_dir).into_iter().flatten().flatten() {
+        let reference = entry.path();
+        if reference.extension().is_none_or(|e| e != "png") {
+            continue;
+        }
+        let ref_stem = reference.file_stem().unwrap_or_default().to_string_lossy();
+        let belongs_to_test = ref_stem
+            .strip_prefix(&*stem)
+            .is_some_and(|rest| rest.is_empty() || rest.starts_with('-'));
+        if belongs_to_test && !tmp_dir.join(&*ref_stem).with_extension("ppm").exists() {
+            writeln!(
+                errors,
+                "{}: reference exists but the test did not take a screenshot named {ref_stem}; \
+                 delete the file if this is intentional",
+                reference.display()
+            )
+            .unwrap();
+        }
+    }
+
+    if errors.is_empty() { Ok(()) } else { Err(errors) }
+}
+
+fn compare_with_reference(
+    reference: &Path,
+    width: u32,
+    height: u32,
+    pixels: &[u8],
+) -> Result<(), String> {
+    if !reference.exists() {
+        return Err("reference is missing, run with SLINT_CREATE_SCREENSHOTS=1 to create it".into());
+    }
+    let img =
+        image::open(reference).map_err(|e| format!("cannot read reference: {e}"))?.into_rgb8();
+    if (img.width(), img.height()) != (width, height) {
+        return Err(format!(
+            "reference size {}x{} does not match screenshot size {width}x{height}",
+            img.width(),
+            img.height()
+        ));
+    }
+    if let Some(byte) = pixels.iter().zip(img.as_raw()).position(|(a, b)| a != b) {
+        let pixel = byte / 3;
+        let index = pixel * 3;
+        let (x, y) = (pixel as u32 % width, pixel as u32 / width);
+        return Err(format!(
+            "screenshot differs from reference at pixel ({x}, {y}): \
+             expected #{:02x}{:02x}{:02x}, got #{:02x}{:02x}{:02x}",
+            img.as_raw()[index],
+            img.as_raw()[index + 1],
+            img.as_raw()[index + 2],
+            pixels[index],
+            pixels[index + 1],
+            pixels[index + 2],
+        ));
+    }
+    Ok(())
+}
+
+/// Parse a binary PPM image as written by the `screenshot!` macro in harness.rs
+fn parse_ppm(data: &[u8]) -> Option<(u32, u32, &[u8])> {
+    let rest = data.strip_prefix(b"P6\n")?;
+    let newline = rest.iter().position(|&b| b == b'\n')?;
+    let (dimensions, rest) = rest.split_at(newline);
+    let rest = rest[1..].strip_prefix(b"255\n")?;
+    let (width, height) = std::str::from_utf8(dimensions).ok()?.split_once(' ')?;
+    let (width, height) = (width.parse::<u32>().ok()?, height.parse::<u32>().ok()?);
+    (rest.len() == width as usize * height as usize * 3).then_some((width, height, rest))
+}
+
+/// The concatenated regular test code, and each compile_fail block separately.
+fn extract_rust_test_code(source: &str, rx: &Regex) -> (String, Vec<String>) {
+    let mut code = String::new();
+    let mut compile_fail = Vec::new();
+    for cap in rx.captures_iter(source) {
+        if cap.get(1).is_some() {
+            compile_fail.push(cap[2].to_string());
+        } else {
+            if !code.is_empty() {
+                code.push('\n');
+            }
+            code.push_str(&cap[2]);
+        }
+    }
+    (code, compile_fail)
+}
+
+/// A test program: the generated code, the harness, and `body` as the main
+/// function.
+fn assemble_program(gen_path: &str, body: &str) -> String {
+    let harness_path = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("tests/driver/harness.rs")
+        .to_string_lossy()
+        .replace('\\', "/");
+    let mut content = String::new();
+    // no_std so that accidental use of std in the generated code doesn't compile
+    writeln!(content, "#![no_std]").unwrap();
+    writeln!(content, "extern crate std;").unwrap();
+    writeln!(content).unwrap();
+    writeln!(content, "#[macro_use]").unwrap();
+    writeln!(content, r#"#[path = "{harness_path}"]"#).unwrap();
+    writeln!(content, "mod harness;").unwrap();
+    writeln!(content).unwrap();
+    writeln!(content, r#"include!("{gen_path}");"#).unwrap();
+    writeln!(content).unwrap();
+    writeln!(content, "fn main() -> Result<(), std::boxed::Box<dyn std::error::Error>> {{")
+        .unwrap();
+    writeln!(content, "    {}", body.replace('\n', "\n    ")).unwrap();
+    writeln!(content, "    Ok(())").unwrap();
+    writeln!(content, "}}").unwrap();
+    content
+}
+
+/// Invoke rustc on `rs_path`, linking against the slint-sc rlib.
+fn compile(
+    config: &TestConfig,
+    rs_path: &Path,
+    out_path: &Path,
+) -> Result<std::process::Output, String> {
     let deps_dir = config.slint_sc_rlib.parent().unwrap_or_else(|| Path::new("."));
     let mut rustc_cmd = Command::new(config.rustc);
     rustc_cmd
-        .arg(&test_rs)
+        .arg(rs_path)
         .arg("--edition=2024")
         .arg("-o")
-        .arg(&test_bin)
+        .arg(out_path)
         .arg("-L")
         .arg(deps_dir)
+        // slint-sc is the only `--extern`, so the generated code fails to build
+        // if it references any other crate.
+        //#sls.gen.output
         .arg("--extern")
         .arg(format!("slint_sc={}", config.slint_sc_rlib.display()));
 
@@ -196,54 +446,32 @@ fn run_test(slint_path: &Path, config: &TestConfig) -> Result<(), String> {
         rustc_cmd.arg("-Cinstrument-coverage");
     }
 
-    let rustc_output = rustc_cmd.output().map_err(|e| format!("rustc spawn: {e}"))?;
-
-    if !rustc_output.status.success() {
-        let stderr = String::from_utf8_lossy(&rustc_output.stderr);
-        return Err(format!("rustc failed:\n{stderr}"));
-    }
-
-    // Step 5: Run the test binary
-    let run_output =
-        Command::new(&test_bin).output().map_err(|e| format!("test binary spawn: {e}"))?;
-
-    if !run_output.status.success() {
-        let stderr = String::from_utf8_lossy(&run_output.stderr);
-        let stdout = String::from_utf8_lossy(&run_output.stdout);
-        return Err(format!("test binary failed:\nstdout: {stdout}\nstderr: {stderr}"));
-    }
-
-    Ok(())
+    rustc_cmd.output().map_err(|e| format!("rustc spawn: {e}"))
 }
 
-fn extract_rust_test_code(source: &str, rx: &Regex) -> String {
-    let mut code = String::new();
-    for cap in rx.captures_iter(source) {
-        if !code.is_empty() {
-            code.push('\n');
-        }
-        code.push_str(&cap[1]);
-    }
-    code
-}
-
+/// The cases are the `.slint` files one level below `dir`, in a group
+/// directory. The walk stops there, like the compiler's syntax test driver, so
+/// a group can keep the files its cases import in a subdirectory of its own.
 fn collect_slint_files(dir: &Path) -> Vec<PathBuf> {
     let mut results = Vec::new();
-    collect_slint_files_recursive(dir, &mut results);
+    let Ok(groups) = std::fs::read_dir(dir) else {
+        return results;
+    };
+    for group in groups.flatten() {
+        let group = group.path();
+        if !group.is_dir() {
+            continue;
+        }
+        let Ok(entries) = std::fs::read_dir(&group) else {
+            continue;
+        };
+        results.extend(
+            entries
+                .flatten()
+                .map(|entry| entry.path())
+                .filter(|path| path.extension().is_some_and(|e| e == "slint")),
+        );
+    }
     results.sort();
     results
-}
-
-fn collect_slint_files_recursive(dir: &Path, results: &mut Vec<PathBuf>) {
-    let Ok(entries) = std::fs::read_dir(dir) else {
-        return;
-    };
-    for entry in entries.flatten() {
-        let path = entry.path();
-        if path.is_dir() {
-            collect_slint_files_recursive(&path, results);
-        } else if path.extension().is_some_and(|e| e == "slint") {
-            results.push(path);
-        }
-    }
 }

@@ -26,10 +26,10 @@ By default, the styles automatically adapt to the system's dark or light color s
 
 The widget style is determined at your project's compile time. The method to select a style depends on how you use Slint.
 
-If no style is selected, `native` is the default.
+If no style is selected, `fluent` is the default on all platforms.
 
 <Tabs syncKey="dev-language">
-<TabItem label="Rust">
+<TabItem label="Rust" icon="seti:rust">
 
 You can select the style before starting your compilation by setting the `SLINT_STYLE` environment variable to the name of your chosen style.
 
@@ -37,7 +37,7 @@ When using the `slint_build` API, call the [`slint_build::compile_with_config()`
 
 When using the `slint_interpreter` API, call the [`slint_interpreter::ComponentCompiler::set_style()`](https://docs.rs/slint-interpreter/newest/slint_interpreter/struct.ComponentCompiler.html#method.set_style) function.
 </TabItem>
-<TabItem label="C++">
+<TabItem label="C++" icon="seti:cpp">
 
 Define a `SLINT_STYLE` CMake cache variable to contain the style name as a string. This can be done, for instance, on the command line:
 
@@ -45,7 +45,7 @@ Define a `SLINT_STYLE` CMake cache variable to contain the style name as a strin
 cmake -DSLINT_STYLE="material" /path/to/source
 ```
 </TabItem>
-<TabItem label="NodeJS">
+<TabItem label="NodeJS" icon="node">
 
 You can select the style by setting the `style` property in [`LoadFileOptions`](slint-node:interfaces/LoadFileOptions) passed to [`loadFile`](slint-node:functions/loadFile):
 
@@ -56,7 +56,7 @@ let main = new ui.Main();
 main.greeting = "Hello friends";
 ```
 </TabItem>
-<TabItem label="Python">
+<TabItem label="Python" icon="seti:python">
 
 You can specify the style by setting the `SLINT_STYLE` environment variable in the beginning of your Python script:
 

@@ -1,0 +1,116 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Flexbox analog of the GridLayout opacity/visible fixes (commits ad7f3e6f6d,
+// fc4743949f): a conditional opacity / visible / rotation / drop-shadow binding on
+// a repeated FlexboxLayout child injects a wrapper element (Opacity/Clip/…) as the
+// new repeated root. That wrapper must take over the `child_of_flexbox` role and
+// see the flex-* properties, otherwise the flex item-info accessor is not generated
+// on the element the layout calls it on, and the repeated item drops out of the
+// layout entirely (the static sibling collapses to x=0 instead of x=240).
+
+// Baseline: a repeated flex-grow:1 item takes 300-60=240, static sibling ends at x=240.
+component TestOpacity inherits Rectangle {
+    width: 300px;
+    height: 50px;
+    in-out property <bool> cond;
+    FlexboxLayout {
+        flex-wrap: no-wrap;
+        for x in [1]: Rectangle {
+            flex-grow: 1;
+            height: 50px;
+            opacity: cond ? 1.0 : 0.4;
+        }
+        r_static := Rectangle { width: 60px; height: 50px; }
+    }
+    out property <bool> test: r_static.x == 240px;
+}
+
+component TestVisible inherits Rectangle {
+    width: 300px;
+    height: 50px;
+    in-out property <bool> cond: true;
+    FlexboxLayout {
+        flex-wrap: no-wrap;
+        for x in [1]: Rectangle {
+            flex-grow: 1;
+            height: 50px;
+            visible: cond;
+        }
+        r_static := Rectangle { width: 60px; height: 50px; }
+    }
+    out property <bool> test: r_static.x == 240px;
+}
+
+component TestRotation inherits Rectangle {
+    width: 300px;
+    height: 50px;
+    in-out property <bool> cond;
+    FlexboxLayout {
+        flex-wrap: no-wrap;
+        for x in [1]: Rectangle {
+            flex-grow: 1;
+            height: 50px;
+            transform-rotation: cond ? 90deg : 0deg;
+        }
+        r_static := Rectangle { width: 60px; height: 50px; }
+    }
+    out property <bool> test: r_static.x == 240px;
+}
+
+component TestDropShadow inherits Rectangle {
+    width: 300px;
+    height: 50px;
+    in-out property <bool> cond;
+    FlexboxLayout {
+        flex-wrap: no-wrap;
+        for x in [1]: Rectangle {
+            flex-grow: 1;
+            height: 50px;
+            drop-shadow-blur: cond ? 4px : 2px;
+            drop-shadow-color: black;
+        }
+        r_static := Rectangle { width: 60px; height: 50px; }
+    }
+    out property <bool> test: r_static.x == 240px;
+}
+
+export component TestCase inherits Window {
+    width: 400px;
+    height: 300px;
+    VerticalLayout {
+        t_opacity := TestOpacity { }
+        t_visible := TestVisible { }
+        t_rotation := TestRotation { }
+        t_shadow := TestDropShadow { }
+    }
+    out property <bool> test_opacity: t_opacity.test;
+    out property <bool> test_visible: t_visible.test;
+    out property <bool> test_rotation: t_rotation.test;
+    out property <bool> test_shadow: t_shadow.test;
+    out property <bool> test: test_opacity && test_visible && test_rotation && test_shadow;
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test_opacity());
+assert(instance.get_test_visible());
+assert(instance.get_test_rotation());
+assert(instance.get_test_shadow());
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test_opacity());
+assert!(instance.get_test_visible());
+assert!(instance.get_test_rotation());
+assert!(instance.get_test_shadow());
+```
+
+```js
+var instance = new slint.TestCase({});
+assert(instance.test);
+```
+*/

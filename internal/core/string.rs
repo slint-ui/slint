@@ -166,8 +166,23 @@ impl<'de> serde::Deserialize<'de> for SharedString {
     where
         D: serde::Deserializer<'de>,
     {
-        let string: &str = serde::Deserialize::deserialize(deserializer)?;
-        Ok(SharedString::from(string))
+        struct SharedStringVisitor;
+
+        impl<'de> serde::de::Visitor<'de> for SharedStringVisitor {
+            type Value = SharedString;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+                formatter.write_str("a borrowed or owned string")
+            }
+
+            fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                Ok(SharedString::from(v))
+            }
+        }
+        deserializer.deserialize_str(SharedStringVisitor)
     }
 }
 
@@ -341,12 +356,16 @@ where
     }
 }
 
+/// Convert a f64 to a SharedString but unlocalized with "." as decimal separator
+#[inline]
+pub fn shared_string_from_number_unlocalized(n: f64) -> SharedString {
+    crate::format!("{}", i_slint_common::FormattedNumber(n))
+}
+
 /// Convert a f64 to a SharedString
 pub fn shared_string_from_number(n: f64) -> SharedString {
     crate::context::GLOBAL_CONTEXT.with(|ctx| {
-        // Number from which the increment of f32 is 1, so that we print enough precision to be able to represent all integers
-        let mut result =
-            if n < 16777216. { crate::format!("{}", n as f32) } else { crate::format!("{}", n) };
+        let mut result = shared_string_from_number_unlocalized(n);
 
         if let Some(ctx) = ctx.get() {
             let pinned = ctx.0.as_ref().project_ref();
@@ -542,6 +561,17 @@ pub(crate) mod ffi {
             let str = core::str::from_utf8(core::slice::from_raw_parts(bytes, len)).unwrap();
             core::ptr::write(out, SharedString::from(str));
         }
+    }
+
+    /// Create a string from a number but unlocalized.
+    /// The resulting structure must be passed to slint_shared_string_drop
+    #[unsafe(no_mangle)]
+    pub unsafe extern "C" fn slint_shared_string_from_number_unlocalized(
+        out: *mut SharedString,
+        n: f64,
+    ) {
+        let str = shared_string_from_number_unlocalized(n);
+        unsafe { core::ptr::write(out, str) };
     }
 
     /// Create a string from a number.
@@ -772,6 +802,15 @@ fn test_serialize_deserialize_sharedstring() {
     let v = SharedString::from("data");
     let serialized = serde_json::to_string(&v).unwrap();
     let deserialized: SharedString = serde_json::from_str(&serialized).unwrap();
+    assert_eq!(v, deserialized);
+}
+
+#[cfg(feature = "serde")]
+#[test]
+fn test_serialize_deserialize_sharedstring_from_reader() {
+    let v = SharedString::from("data");
+    let serialized = serde_json::to_string(&v).unwrap();
+    let deserialized: SharedString = serde_json::from_reader(serialized.as_bytes()).unwrap();
     assert_eq!(v, deserialized);
 }
 

@@ -1,6 +1,6 @@
 {
     "name": "slide-puzzle",
-    "version": "1.17.0",
+    "version": "1.18.0",
     "main": "main.js",
     "type": "module",
     "dependencies": {

@@ -126,58 +126,238 @@ fn inline_element(
         }),
     );
 
-    let mut move_children_into_popup = None;
+    // Copy insertion points so we can extend/adjust without mutating the source component.
+    let inlined_insertion_points_orig = inlined_component.child_insertion_points.borrow();
+    let mut inlined_insertion_points = inlined_insertion_points_orig.clone();
 
-    match inlined_component.child_insertion_point.borrow().as_ref() {
-        Some(inlined_cip) => {
-            let children = std::mem::take(&mut elem_mut.children);
-            let old_count = children.len();
-            if let Some(insertion_element) = mapping.get(&element_key(inlined_cip.parent.clone())) {
-                if old_count > 0 {
-                    if !Rc::ptr_eq(elem, insertion_element) {
-                        debug_assert!(std::rc::Weak::ptr_eq(
-                            &insertion_element.borrow().enclosing_component,
-                            &elem_mut.enclosing_component,
-                        ));
-                        insertion_element.borrow_mut().children.splice(
-                            inlined_cip.insertion_index..inlined_cip.insertion_index,
-                            children,
-                        );
-                    } else {
-                        new_children.splice(
-                            inlined_cip.insertion_index..inlined_cip.insertion_index,
-                            children,
-                        );
-                    }
-                }
-                let mut cip = root_component.child_insertion_point.borrow_mut();
-                if let Some(cip) = cip.as_mut() {
-                    if Rc::ptr_eq(&cip.parent, elem) {
-                        *cip = ChildrenInsertionPoint {
-                            parent: insertion_element.clone(),
-                            insertion_index: inlined_cip.insertion_index + cip.insertion_index,
-                            node: inlined_cip.node.clone(),
-                        };
-                    }
-                } else if Rc::ptr_eq(elem, &root_component.root_element) {
-                    *cip = Some(ChildrenInsertionPoint {
-                        parent: insertion_element.clone(),
-                        insertion_index: inlined_cip.insertion_index + old_count,
-                        node: inlined_cip.node.clone(),
-                    });
-                };
-            } else if old_count > 0 {
-                // @children was into a PopupWindow
-                debug_assert!(inlined_component.popup_windows.borrow().iter().any(|p| Rc::ptr_eq(
-                    &p.component,
-                    &inlined_cip.parent.borrow().enclosing_component.upgrade().unwrap()
-                )));
+    // Ensure @children CIP exists if it's missing but the component is a builtin that accepts children.
+    // This preserves the implicit-children behavior for builtins without explicit placeholders.
+    if !inlined_insertion_points.contains_key(DEFAULT_SLOT_NAME)
+        && let Some(builtin) = inlined_component.root_element.borrow().builtin_type()
+        && !builtin.is_non_item_type
+        && !builtin.disallow_global_types_as_child_elements
+    {
+        let cip_node = inlined_component
+            .node
+            .as_ref()
+            .map(|n| n.clone().into())
+            .or_else(|| {
+                inlined_component
+                    .root_element
+                    .borrow()
+                    .debug
+                    .first()
+                    .map(|debug| debug.node.clone().into())
+            })
+            .or_else(|| elem_mut.debug.first().map(|debug| debug.node.clone().into()))
+            .or_else(|| root_component.node.as_ref().map(|n| n.clone().into()))
+            .expect("Missing syntax node for implicit @children insertion point");
+
+        inlined_insertion_points.insert(
+            DEFAULT_SLOT_NAME.into(),
+            ChildrenInsertionPoint {
+                parent: inlined_component.root_element.clone(),
+                insertion_index: inlined_component.root_element.borrow().children.len(),
+                node: ChildInsertionPointNode::DefaultChildrenPlaceHolder(cip_node),
+            },
+        );
+    }
+
+    // Group instance children by slot target (named slot or the default slot).
+    // This preserves relative order within each slot and allows named slot validation.
+    let mut children_by_slot: HashMap<SmolStr, Vec<ElementRc>> = HashMap::new();
+    for child in std::mem::take(&mut elem_mut.children) {
+        let slot = child
+            .borrow()
+            .slot_target
+            .as_ref()
+            .map(|s| crate::parser::normalize_identifier(s))
+            .unwrap_or_else(|| DEFAULT_SLOT_NAME.into());
+
+        children_by_slot.entry(slot).or_default().push(child);
+    }
+
+    // Validate that all referenced slots exist on the inlined component.
+    let mut unknown_slots = Vec::new();
+    for (slot_name, children) in &children_by_slot {
+        if slot_name == DEFAULT_SLOT_NAME {
+            // Missing default slot diagnostics are emitted earlier while constructing the object tree.
+            // Keep the existing behavior and avoid reporting the default slot as an unknown named slot here.
+            continue;
+        }
+        if !inlined_insertion_points.contains_key(slot_name.as_str()) {
+            for child in children {
+                diag.push_error(
+                    format!("Unknown slot '{slot_name}' in '{}'", inlined_component.id),
+                    &*child.borrow(),
+                );
+            }
+            unknown_slots.push(slot_name.clone());
+        }
+    }
+    for slot_name in unknown_slots {
+        children_by_slot.remove(&slot_name);
+    }
+
+    let mut move_children_into_popup = None;
+    let forwarded_sources_by_target: HashMap<SmolStr, Vec<SmolStr>> =
+        elem_mut.forwarded_slots.iter().fold(HashMap::new(), |mut map, forwarding| {
+            map.entry(crate::parser::normalize_identifier(forwarding.target.as_str()))
+                .or_default()
+                .push(crate::parser::normalize_identifier(forwarding.source.as_str()));
+            map
+        });
+
+    struct SlotInsertion {
+        slot_name: SmolStr,
+        insertion_index: usize,
+        node: ChildInsertionPointNode,
+        insertion_element: ElementRc,
+        children: Vec<ElementRc>,
+    }
+
+    // Collect all insertions per parent element so we can insert in a stable order.
+    let mut insertions_by_parent: HashMap<ByAddress<ElementRc>, (ElementRc, Vec<SlotInsertion>)> =
+        HashMap::new();
+
+    for (slot_name, inlined_cip) in inlined_insertion_points.iter() {
+        let children = children_by_slot.remove(slot_name.as_str()).unwrap_or_default();
+        if let Some(insertion_element) = mapping.get(&element_key(inlined_cip.parent.clone())) {
+            insertions_by_parent
+                .entry(element_key(insertion_element.clone()))
+                .or_insert_with(|| (insertion_element.clone(), Vec::new()))
+                .1
+                .push(SlotInsertion {
+                    slot_name: slot_name.as_str().into(),
+                    insertion_index: inlined_cip.insertion_index,
+                    node: inlined_cip.node.clone(),
+                    insertion_element: insertion_element.clone(),
+                    children,
+                });
+        } else if !children.is_empty() {
+            // @children was into a PopupWindow (named slots inside popups are not supported).
+            debug_assert!(inlined_component.popup_windows.borrow().iter().any(|p| Rc::ptr_eq(
+                &p.component,
+                &inlined_cip.parent.borrow().enclosing_component.upgrade().unwrap()
+            )));
+            if slot_name == DEFAULT_SLOT_NAME {
                 move_children_into_popup = Some(children);
-            };
+            } else {
+                diag.push_error(
+                    format!("The slot '{slot_name}' cannot appear in a PopupWindow"),
+                    &inlined_cip.node,
+                );
+            }
         }
-        _ => {
-            new_children.append(&mut elem_mut.children);
-        }
+    }
+
+    // Insert slot children and keep root insertion points in sync.
+    let mut insertions_for_parent =
+        |insertion_element: &ElementRc, insertions: &mut Vec<SlotInsertion>| {
+            insertions.sort_by(|a, b| {
+                a.insertion_index
+                    .cmp(&b.insertion_index)
+                    .then_with(|| a.node.span().offset.cmp(&b.node.span().offset))
+                    .then_with(|| a.slot_name.cmp(&b.slot_name))
+            });
+
+            let mut offset = 0usize;
+            if Rc::ptr_eq(elem, insertion_element) {
+                // Insert into the new inlined root children vector.
+                for insertion in insertions.drain(..) {
+                    let adjusted_index = insertion.insertion_index + offset;
+                    let inserted_len = insertion.children.len();
+                    if inserted_len > 0 {
+                        new_children.splice(adjusted_index..adjusted_index, insertion.children);
+                    }
+
+                    let mut root_insertion_points =
+                        root_component.child_insertion_points.borrow_mut();
+                    for (root_slot_name, cip) in root_insertion_points.iter_mut() {
+                        let forwarded_match = forwarded_sources_by_target
+                            .get(insertion.slot_name.as_str())
+                            .is_some_and(|sources| {
+                                sources.iter().any(|source| source == root_slot_name)
+                            });
+                        if Rc::ptr_eq(&cip.parent, elem)
+                            && (root_slot_name.as_str() == insertion.slot_name.as_str()
+                                || forwarded_match)
+                        {
+                            *cip = ChildrenInsertionPoint {
+                                parent: insertion.insertion_element.clone(),
+                                insertion_index: adjusted_index + cip.insertion_index,
+                                node: insertion.node.clone(),
+                            };
+                        }
+                    }
+                    if root_insertion_points.is_empty()
+                        && Rc::ptr_eq(elem, &root_component.root_element)
+                        && insertion.slot_name == DEFAULT_SLOT_NAME
+                    {
+                        root_insertion_points.insert(
+                            DEFAULT_SLOT_NAME.into(),
+                            ChildrenInsertionPoint {
+                                parent: insertion.insertion_element.clone(),
+                                insertion_index: adjusted_index + inserted_len,
+                                node: insertion.node.clone(),
+                            },
+                        );
+                    }
+
+                    offset += inserted_len;
+                }
+            } else {
+                // Insert into a mapped child element (not the inlined root).
+                let mut insertion_element_mut = insertion_element.borrow_mut();
+                for insertion in insertions.drain(..) {
+                    let adjusted_index = insertion.insertion_index + offset;
+                    let inserted_len = insertion.children.len();
+                    if inserted_len > 0 {
+                        insertion_element_mut
+                            .children
+                            .splice(adjusted_index..adjusted_index, insertion.children);
+                    }
+
+                    let mut root_insertion_points =
+                        root_component.child_insertion_points.borrow_mut();
+                    for (root_slot_name, cip) in root_insertion_points.iter_mut() {
+                        let forwarded_match = forwarded_sources_by_target
+                            .get(insertion.slot_name.as_str())
+                            .is_some_and(|sources| {
+                                sources.iter().any(|source| source == root_slot_name)
+                            });
+                        if Rc::ptr_eq(&cip.parent, elem)
+                            && (root_slot_name.as_str() == insertion.slot_name.as_str()
+                                || forwarded_match)
+                        {
+                            *cip = ChildrenInsertionPoint {
+                                parent: insertion.insertion_element.clone(),
+                                insertion_index: adjusted_index + cip.insertion_index,
+                                node: insertion.node.clone(),
+                            };
+                        }
+                    }
+                    if root_insertion_points.is_empty()
+                        && Rc::ptr_eq(elem, &root_component.root_element)
+                        && insertion.slot_name == DEFAULT_SLOT_NAME
+                    {
+                        root_insertion_points.insert(
+                            DEFAULT_SLOT_NAME.into(),
+                            ChildrenInsertionPoint {
+                                parent: insertion.insertion_element.clone(),
+                                insertion_index: adjusted_index + inserted_len,
+                                node: insertion.node.clone(),
+                            },
+                        );
+                    }
+
+                    offset += inserted_len;
+                }
+            }
+        };
+
+    for (insertion_element, mut insertions) in insertions_by_parent.into_values() {
+        insertions_for_parent(&insertion_element, &mut insertions);
     }
 
     elem_mut.children = new_children;
@@ -219,8 +399,8 @@ fn inline_element(
 
     let mut moved_into_popup = HashSet::new();
     if let Some(children) = move_children_into_popup {
-        let child_insertion_point = inlined_component.child_insertion_point.borrow();
-        let inlined_cip = child_insertion_point.as_ref().unwrap();
+        let inlined_insertion_points = inlined_component.child_insertion_points.borrow();
+        let inlined_cip = inlined_insertion_points.get(DEFAULT_SLOT_NAME).unwrap();
 
         let insertion_element = mapping.get(&element_key(inlined_cip.parent.clone())).unwrap();
         debug_assert!(!std::rc::Weak::ptr_eq(
@@ -242,8 +422,8 @@ fn inline_element(
             .borrow_mut()
             .children
             .splice(inlined_cip.insertion_index..inlined_cip.insertion_index, children);
-        let mut cip = root_component.child_insertion_point.borrow_mut();
-        if let Some(cip) = cip.as_mut() {
+        let mut root_insertion_points = root_component.child_insertion_points.borrow_mut();
+        for cip in root_insertion_points.values_mut() {
             if Rc::ptr_eq(&cip.parent, elem) {
                 *cip = ChildrenInsertionPoint {
                     parent: insertion_element.clone(),
@@ -251,26 +431,33 @@ fn inline_element(
                     node: inlined_cip.node.clone(),
                 };
             }
-        } else {
-            *cip = Some(ChildrenInsertionPoint {
-                parent: insertion_element.clone(),
-                insertion_index: inlined_cip.insertion_index,
-                node: inlined_cip.node.clone(),
-            });
+        }
+        if root_insertion_points.is_empty() {
+            root_insertion_points.insert(
+                DEFAULT_SLOT_NAME.into(),
+                ChildrenInsertionPoint {
+                    parent: insertion_element.clone(),
+                    insertion_index: inlined_cip.insertion_index,
+                    node: inlined_cip.node.clone(),
+                },
+            );
         };
     }
 
-    for (k, val) in inlined_component.root_element.borrow().bindings.iter() {
-        match elem_mut.bindings.entry(k.clone()) {
-            std::collections::btree_map::Entry::Vacant(entry) => {
-                let priority = &mut entry.insert(val.clone()).get_mut().priority;
-                *priority = priority.saturating_add(priority_delta);
-            }
-            std::collections::btree_map::Entry::Occupied(mut entry) => {
-                let entry = entry.get_mut().get_mut();
-                if entry.merge_with(&val.borrow()) {
-                    entry.priority = entry.priority.saturating_add(priority_delta);
+    for (property, root_binding) in
+        inlined_component.root_element.borrow().bindings_including_synthetic()
+    {
+        match elem_mut.binding_cell_including_synthetic(property) {
+            Some(elem_binding) => {
+                let mut binding = elem_binding.borrow_mut();
+                if binding.merge_with(&root_binding.borrow()) {
+                    binding.priority = binding.priority.saturating_add(priority_delta);
                 }
+            }
+            None => {
+                let mut elem_binding = root_binding.borrow().clone();
+                elem_binding.priority = elem_binding.priority.saturating_add(priority_delta);
+                elem_mut.set_binding(property.clone(), elem_binding);
             }
         }
     }
@@ -350,6 +537,9 @@ fn inline_element(
     for p in root_component.popup_windows.borrow_mut().iter_mut() {
         fixup_reference(&mut p.x, &mapping);
         fixup_reference(&mut p.y, &mapping);
+        if let Some(is_open) = &mut p.is_open {
+            fixup_reference(is_open, &mapping);
+        }
     }
     for t in root_component.timers.borrow_mut().iter_mut() {
         fixup_reference(&mut t.interval, &mapping);
@@ -384,8 +574,7 @@ fn duplicate_element_with_mapping(
         property_declarations: elem.property_declarations.clone(),
         // We will do the fixup of the references in bindings later
         bindings: elem
-            .bindings
-            .iter()
+            .bindings_including_synthetic()
             .map(|b| duplicate_binding(b, mapping, root_component, priority_delta))
             .collect(),
         change_callbacks: elem.change_callbacks.clone(),
@@ -406,6 +595,7 @@ fn duplicate_element_with_mapping(
             .map(|t| duplicate_transition(t, mapping, root_component, priority_delta))
             .collect(),
         child_of_layout: elem.child_of_layout,
+        child_of_flexbox: elem.child_of_flexbox,
         layout_info_prop: elem.layout_info_prop.clone(),
         layout_info_v_with_constraint: elem.layout_info_v_with_constraint.clone(),
         layout_info_h_with_constraint: elem.layout_info_h_with_constraint.clone(),
@@ -415,11 +605,13 @@ fn duplicate_element_with_mapping(
         named_references: Default::default(),
         item_index: Default::default(), // Not determined yet
         item_index_of_first_children: Default::default(),
-        is_flickable_viewport: elem.is_flickable_viewport,
+        is_flickable_content: elem.is_flickable_content,
         has_popup_child: elem.has_popup_child,
         is_tooltip: elem.is_tooltip,
         is_legacy_syntax: elem.is_legacy_syntax,
         inline_depth: elem.inline_depth + 1,
+        slot_target: elem.slot_target.clone(),
+        forwarded_slots: elem.forwarded_slots.clone(),
         // Deep-clone grid_layout_cell to avoid sharing between original and inlined copies.
         // This is important because children_constraints contain NamedReferences that need
         // to be fixed up independently for each inlined copy.
@@ -473,7 +665,8 @@ fn duplicate_sub_component(
                 .collect(),
         ),
         root_constraints: component_to_duplicate.root_constraints.clone(),
-        child_insertion_point: component_to_duplicate.child_insertion_point.clone(),
+        child_insertion_points: component_to_duplicate.child_insertion_points.clone(),
+        declared_slots: component_to_duplicate.declared_slots.clone(),
         init_code: component_to_duplicate.init_code.clone(),
         popup_windows: Default::default(),
         timers: component_to_duplicate.timers.clone(),
@@ -502,11 +695,17 @@ fn duplicate_sub_component(
     for p in new_component.popup_windows.borrow_mut().iter_mut() {
         fixup_reference(&mut p.x, mapping);
         fixup_reference(&mut p.y, mapping);
+        if let Some(is_open) = &mut p.is_open {
+            fixup_reference(is_open, mapping);
+        }
     }
     for t in new_component.timers.borrow_mut().iter_mut() {
         fixup_reference(&mut t.interval, mapping);
         fixup_reference(&mut t.running, mapping);
         fixup_reference(&mut t.triggered, mapping);
+        if let Some(e) = mapping.get(&element_key(t.element.upgrade().unwrap())) {
+            t.element = Rc::downgrade(e);
+        }
     }
     *new_component.menu_item_tree.borrow_mut() = component_to_duplicate
         .menu_item_tree
@@ -540,6 +739,7 @@ fn duplicate_popup(p: &PopupWindow, mapping: &mut Mapping, priority_delta: i32) 
             .expect("Parent element must be in the mapping")
             .clone(),
         is_tooltip: p.is_tooltip,
+        is_open: p.is_open.clone(),
     }
 }
 
@@ -604,6 +804,27 @@ fn fixup_reference(nr: &mut NamedReference, mapping: &Mapping) {
     }
 }
 
+/// Remap all the element references stored in a grid layout (the cell items and
+/// the repeated-row child templates) through the inlining `mapping`.
+fn fixup_grid_layout(layout: &mut crate::layout::GridLayout, fxe: &impl Fn(&mut ElementRc)) {
+    for e in &mut layout.elems {
+        fxe(&mut e.item.element);
+    }
+    // Break the cell Rc sharing with the original before remapping the elements
+    // stored inside the repeated-row cells.
+    layout.clone_cells();
+    for elem in &mut layout.elems {
+        let mut cell = elem.cell.borrow_mut();
+        let Some(child_items) = &mut cell.child_items else { continue };
+        for child in child_items.iter_mut() {
+            fxe(&mut child.layout_item_mut().element);
+            if let crate::layout::RowChildTemplate::Repeated { repeated_element, .. } = child {
+                fxe(repeated_element);
+            }
+        }
+    }
+}
+
 fn fixup_element_references(expr: &mut Expression, mapping: &Mapping) {
     let fx = |element: &mut std::rc::Weak<RefCell<Element>>| {
         if let Some(e) = element.upgrade().and_then(|e| mapping.get(&element_key(e))) {
@@ -631,16 +852,10 @@ fn fixup_element_references(expr: &mut Expression, mapping: &Mapping) {
             }
         }
         Expression::SolveGridLayout { layout, .. } | Expression::OrganizeGridLayout(layout) => {
-            for e in &mut layout.elems {
-                fxe(&mut e.item.element);
-            }
-            layout.clone_cells();
+            fixup_grid_layout(layout, &fxe);
         }
         Expression::ComputeGridLayoutInfo { layout, cross_axis_size, .. } => {
-            for e in &mut layout.elems {
-                fxe(&mut e.item.element);
-            }
-            layout.clone_cells();
+            fixup_grid_layout(layout, &fxe);
             if let Some(cas) = cross_axis_size {
                 fixup_element_references(cas, mapping);
             }
@@ -696,12 +911,12 @@ fn component_requires_inlining(component: &Rc<Component>) -> bool {
         return true;
     }
 
-    for (prop, binding) in &root_element.borrow().bindings {
+    for (prop, binding) in root_element.borrow().real_bindings() {
         let binding = binding.borrow();
         // The passes that dp the drop shadow or the opacity currently won't allow this property
         // on the top level of a component. This could be changed in the future.
         if prop.starts_with("drop-shadow-")
-            || prop.starts_with("inset-shadow-")
+            || prop.starts_with("inner-shadow-")
             || prop == "opacity"
             || prop == "cache-rendering-hint"
             || prop == "visible"
@@ -737,12 +952,18 @@ fn element_require_inlining(elem: &ElementRc) -> bool {
         return true;
     }
 
+    if !elem.borrow().forwarded_slots.is_empty() {
+        // Slot forwarding relies on slot insertion points being materialized in this element's
+        // subtree, which currently only happens through inlining.
+        return true;
+    }
+
     // Popup windows need to be inlined for root.close() to work properly.
     if super::lower_popups::is_popup_window(elem) {
         return true;
     }
 
-    for (prop, binding) in &elem.borrow().bindings {
+    for (prop, binding) in elem.borrow().real_bindings() {
         if prop == "clip" {
             // otherwise the children of the clipped items won't get moved as child of the Clip element
             return true;

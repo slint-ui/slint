@@ -55,62 +55,6 @@ export class ClientHandle {
 
 const client = new ClientHandle();
 
-export type RemoteViewerInfo = {
-    id: string;
-
-    label: string;
-    detail: string;
-    description?: string;
-
-    value: {
-        addresses: string[];
-        port: number;
-    };
-
-    /// True when the viewer's protocol does not match the LSP build —
-    /// the picker shows it as a warning and refuses to connect.
-    incompatible?: boolean;
-    /// Human-readable reason populated when `incompatible` is true.
-    incompatibleReason?: string;
-
-    timer?: NodeJS.Timeout;
-};
-export const remote_viewers = new Map<string, RemoteViewerInfo>();
-
-let remoteViewerStatusBarItem: vscode.StatusBarItem | undefined;
-export function updateRemoteViewerStatusBarItem(newItem: vscode.StatusBarItem) {
-    remoteViewerStatusBarItem = newItem;
-}
-export enum RemoteViewerStatusBarItemState {
-    disconnected = 0,
-    connecting = 1,
-    connected = 2,
-}
-export function setRemoteViewerStatusBarItemState(
-    state: RemoteViewerStatusBarItemState,
-) {
-    if (remoteViewerStatusBarItem) {
-        switch (state) {
-            case RemoteViewerStatusBarItemState.disconnected:
-                remoteViewerStatusBarItem.text = "$(vm) Slint Remote Preview";
-                remoteViewerStatusBarItem.command = "slint.selectRemotePreview";
-                break;
-            case RemoteViewerStatusBarItemState.connecting:
-                remoteViewerStatusBarItem.text =
-                    "$(vm-connect) Slint Remote Preview";
-                remoteViewerStatusBarItem.command =
-                    "slint.disconnectRemotePreview";
-                break;
-            case RemoteViewerStatusBarItemState.connected:
-                remoteViewerStatusBarItem.text =
-                    "$(vm-active) Slint Remote Preview";
-                remoteViewerStatusBarItem.command =
-                    "slint.disconnectRemotePreview";
-                break;
-        }
-    }
-}
-
 // LSP related:
 
 // Set up our middleware. It is used to redirect/forward to the WASM preview
@@ -205,112 +149,6 @@ export function activate(
 
     client.add_updater((cl) => {
         wasm_preview.initClientForPreview(context, cl);
-        cl?.onNotification("slint/remote_viewer_discovered", (params) => {
-            // Friendly, user-assigned name (e.g. "Simon's iPhone") from the mDNS
-            // service instance name; fall back to the `.local` host for older viewers.
-            const name: string = params.name ?? params.host;
-            vscode.window.showInformationMessage(
-                `Remote viewer discovered: ${name}`,
-            );
-            cl.outputChannel.appendLine(
-                `Remote viewer discovered: ${name} (${params.host} ${params.addresses.join(", ")}:${params.port})`,
-            );
-            const old_entry = remote_viewers.get(params.host);
-            if (old_entry) {
-                clearTimeout(old_entry.timer);
-            }
-
-            const viewerProtocols: string | undefined = params.viewerProtocols;
-            const viewerSlintVersion: string | undefined =
-                params.viewerSlintVersion;
-            const lspProtocol: string = params.lspProtocol;
-            const lspSlintVersion: string = params.lspSlintVersion;
-
-            const supported = viewerProtocols
-                ? viewerProtocols.split(",").map((p: string) => p.trim())
-                : undefined;
-            const incompatible =
-                supported !== undefined && !supported.includes(lspProtocol);
-            const incompatibleReason = incompatible
-                ? `Slint ${viewerSlintVersion ?? "?"} viewer (extension needs Slint ${lspSlintVersion})`
-                : undefined;
-
-            const versionTag = viewerSlintVersion
-                ? `Slint ${viewerSlintVersion}${incompatible ? " — incompatible" : ""}`
-                : incompatible
-                  ? "incompatible"
-                  : undefined;
-            const labelPrefix = incompatible ? "$(warning) " : "";
-
-            const remote_viewer_entry: RemoteViewerInfo = {
-                id: params.host,
-
-                label: `${labelPrefix}${name}`,
-                detail: params.addresses.join(", "),
-                description: versionTag,
-
-                value: {
-                    addresses: params.addresses,
-                    port: params.port,
-                },
-                incompatible,
-                incompatibleReason,
-                timer: setTimeout(() => {
-                    remote_viewers.delete(params.host);
-                }, 60000),
-            };
-            remote_viewers.set(params.host, remote_viewer_entry);
-        });
-        cl?.onNotification("slint/remote_viewer_connection_state", (params) => {
-            const where = `${params.address}:${params.port}`;
-            switch (params.state) {
-                case "connected":
-                    vscode.window.showInformationMessage(
-                        `Remote viewer connected: ${where}`,
-                    );
-                    cl.outputChannel.appendLine(
-                        `Remote viewer connected: ${where}`,
-                    );
-                    setRemoteViewerStatusBarItemState(
-                        RemoteViewerStatusBarItemState.connected,
-                    );
-                    break;
-                case "disconnected":
-                    if (params.error) {
-                        vscode.window.showErrorMessage(
-                            `Remote viewer disconnected (${where}): ${params.error}`,
-                        );
-                        cl.outputChannel.appendLine(
-                            `Remote viewer disconnected (${where}): ${params.error}`,
-                        );
-                    } else {
-                        vscode.window.showInformationMessage(
-                            `Remote viewer disconnected: ${where}`,
-                        );
-                        cl.outputChannel.appendLine(
-                            `Remote viewer disconnected: ${where}`,
-                        );
-                    }
-                    setRemoteViewerStatusBarItemState(
-                        RemoteViewerStatusBarItemState.disconnected,
-                    );
-                    break;
-                case "connectAttemptFailed":
-                    vscode.window.showErrorMessage(
-                        `Failed to connect to remote viewer (${where}): ${params.error ?? "unknown error"}`,
-                    );
-                    cl.outputChannel.appendLine(
-                        `Failed to connect to remote viewer (${where}): ${params.error ?? "unknown error"}`,
-                    );
-                    // A previous connection is still active — restore the
-                    // status bar to connected (it was flipped to connecting
-                    // when the user clicked).
-                    setRemoteViewerStatusBarItemState(
-                        RemoteViewerStatusBarItemState.connected,
-                    );
-                    break;
-            }
-        });
     });
 
     vscode.workspace.onDidChangeConfiguration(async (ev) => {
@@ -398,10 +236,6 @@ export function deactivate(): Thenable<void> | undefined {
     if (!client.client) {
         return undefined;
     }
-    for (const viewer of remote_viewers.values()) {
-        clearTimeout(viewer.timer);
-    }
-    remote_viewers.clear();
     return client.stop();
 }
 

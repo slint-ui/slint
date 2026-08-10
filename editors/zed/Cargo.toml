@@ -3,12 +3,13 @@
 
 [package]
 name = "zed_slint"
-version = "1.17.0"
+version = "1.18.0"
 edition.workspace = true
 publish = false
 license = "MIT"
 
 [dependencies]
+# Don't update: a newer extension API requires a newer Zed.
 zed_extension_api = "0.6.0"
 
 [lib]

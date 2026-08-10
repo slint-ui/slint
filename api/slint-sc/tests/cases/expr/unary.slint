@@ -1,0 +1,48 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Software-3.0
+
+// Unary `-` negates a number or length and `+` leaves it unchanged. Negation
+// saturates, and a value read more than once is evaluated once.
+
+export component TestCase inherits Window {
+    in property <int> a;
+    in property <int> b;
+    out property <int> neg: -a;
+    out property <int> pos: +a;
+    out property <int> sub_neg: a - -b;
+    out property <int> neg_sum: -(a + b);
+    out property <int> neg_doubled: -(a + a);
+    in property <length> w;
+    out property <length> neg_len: -w;
+    in property <bool> flag;
+    out property <bool> not_flag: !flag;
+}
+
+/*
+```rust
+let mut x = TestCase::new();
+x.set_a(10);
+x.set_b(3);
+
+// The prefix operators are `-`, `+`, and `!`.
+//#sls.op.prefix
+//#sls.op.unary
+assert_eq!(x.get_neg(), -10);
+assert_eq!(x.get_pos(), 10);
+x.set_flag(false);
+assert_eq!(x.get_not_flag(), true);
+// `a - -b` subtracts a negated operand.
+assert_eq!(x.get_sub_neg(), 10 - -3);
+assert_eq!(x.get_neg_sum(), -(10 + 3));
+// `a` is read twice, so it is evaluated once into a local.
+assert_eq!(x.get_neg_doubled(), -(10 + 10));
+
+x.set_w(50);
+assert_eq!(x.get_neg_len(), -50);
+
+// Negation saturates: negating `i32::MIN` is `i32::MAX`, not an overflow.
+//#sls.op.saturating
+x.set_a(i32::MIN);
+assert_eq!(x.get_neg(), i32::MAX);
+```
+*/

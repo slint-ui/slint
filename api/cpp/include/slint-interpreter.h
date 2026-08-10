@@ -19,11 +19,11 @@ class QWidget;
 
 namespace slint::cbindgen_private {
 //  This has to stay opaque, but VRc don't compile if it is just forward declared
-struct ErasedItemTreeBox : vtable::Dyn
+struct Instance : vtable::Dyn
 {
-    ~ErasedItemTreeBox() = delete;
-    ErasedItemTreeBox() = delete;
-    ErasedItemTreeBox(ErasedItemTreeBox &) = delete;
+    ~Instance() = delete;
+    Instance() = delete;
+    Instance(Instance &) = delete;
 };
 }
 namespace slint::private_api::live_preview {
@@ -480,6 +480,18 @@ inline Value::Value(const std::shared_ptr<slint::Model<Value>> &model)
         Value v(std::move(value));
         reinterpret_cast<ModelWrapper *>(self.instance)->model->set_row_data(int(row), v);
     };
+    auto push_row = [](VRef<ModelAdaptorVTable> self, slint::cbindgen_private::Value *value) {
+        Value v(std::move(value));
+        reinterpret_cast<ModelWrapper *>(self.instance)->model->push_row(v);
+    };
+    auto remove_row = [](VRef<ModelAdaptorVTable> self, intptr_t row) {
+        reinterpret_cast<ModelWrapper *>(self.instance)->model->remove_row(row);
+    };
+    auto insert_row = [](VRef<ModelAdaptorVTable> self, intptr_t row,
+                         slint::cbindgen_private::Value *value) {
+        Value v(std::move(value));
+        reinterpret_cast<ModelWrapper *>(self.instance)->model->insert_row(row, v);
+    };
     auto get_notify =
             [](VRef<ModelAdaptorVTable> self) -> const cbindgen_private::ModelNotifyOpaque * {
         return &reinterpret_cast<ModelWrapper *>(self.instance)->notify;
@@ -488,7 +500,8 @@ inline Value::Value(const std::shared_ptr<slint::Model<Value>> &model)
         reinterpret_cast<ModelWrapper *>(self.instance)->self = nullptr;
     };
 
-    static const ModelAdaptorVTable vt { row_count, row_data, set_row_data, get_notify, drop };
+    static const ModelAdaptorVTable vt { row_count,  row_data,   set_row_data, push_row,
+                                         remove_row, insert_row, get_notify,   drop };
     inner = cbindgen_private::slint_interpreter_value_new_model(
             reinterpret_cast<uint8_t *>(wrapper.get()), &vt);
 }
@@ -557,11 +570,11 @@ class ComponentInstance : vtable::Dyn
     ComponentInstance &operator=(ComponentInstance &) = delete;
     friend class ComponentDefinition;
 
-    // ComponentHandle<ComponentInstance>  is in fact a VRc<ItemTreeVTable, ErasedItemTreeBox>
-    const cbindgen_private::ErasedItemTreeBox *inner() const
+    // ComponentHandle<ComponentInstance> is in fact a VRc<ItemTreeVTable, Instance>
+    const cbindgen_private::Instance *inner() const
     {
         slint::private_api::assert_main_thread();
-        return reinterpret_cast<const cbindgen_private::ErasedItemTreeBox *>(this);
+        return reinterpret_cast<const cbindgen_private::Instance *>(this);
     }
 
 public:

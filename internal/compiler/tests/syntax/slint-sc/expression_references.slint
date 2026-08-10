@@ -1,0 +1,53 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A property reference reads a property, on the element reached by `self`,
+// `parent`, `root`, or an element `id`.
+// A name that does not resolve to a property is an error.
+
+export component Test inherits Window {
+    in property <color> tint;
+    in property <length> len: 10px;
+
+    // A property declaration's binding follows the same rules as any binding,
+    // so it may reference another property.
+    out property <length> derived: root.len;
+
+    // A qualified name reaches a property through an element reference.
+    //#sls.expr.ref.form
+    background: root.tint;
+
+    Rectangle {
+        // A bare name (no element reference) resolves to a root property.
+        //#sls.name.lookup
+        background: tint;
+    }
+
+    rect1 := Rectangle {
+        // `self` reaches the enclosing element, `root` the root element.
+        //#sls.expr.ref.element
+        background: root.tint;
+        width: root.len;
+        height: self.width;
+    }
+
+    Rectangle {
+        // Another element is reached by its `id`.
+        //#sls.name.lookup.qualified
+        width: rect1.width;
+    }
+
+    Rectangle {
+        Rectangle {
+            // `parent` reaches the enclosing element.
+            width: parent.width;
+        }
+    }
+
+    Rectangle {
+        // The name shall refer to a property.
+        //#sls.expr.ref.target
+        width: nonexistent;
+//             >         <error{Unknown unqualified identifier 'nonexistent'}
+    }
+}

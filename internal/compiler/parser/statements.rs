@@ -60,6 +60,28 @@ pub fn parse_statement(p: &mut impl Parser) -> bool {
         return true;
     }
 
+    if p.nth(0).kind() == SyntaxKind::Identifier && p.nth(1).kind() == SyntaxKind::ColonEqual {
+        let name = p.nth(0).as_str().to_string();
+        // `foo := Identifier {` likely means a '}' is missing earlier; let the outer parser recover the element.
+        if p.nth(2).kind() == SyntaxKind::Identifier && p.nth(3).kind() == SyntaxKind::LBrace {
+            p.error("':=' is not valid in statements");
+            return false;
+        }
+        // Otherwise the user probably meant to declare a local variable.
+        p.error(format!(
+            "':=' is not valid in statements. Use 'let {name} = <expression>;' to declare a local variable"
+        ));
+        let mut p = p.start_node_at(checkpoint, SyntaxKind::LetStatement);
+        {
+            let mut p = p.start_node(SyntaxKind::DeclaredIdentifier);
+            p.expect(SyntaxKind::Identifier);
+        }
+        p.expect(SyntaxKind::ColonEqual);
+        parse_expression(&mut *p);
+        p.test(SyntaxKind::Semicolon);
+        return true;
+    }
+
     parse_expression(p);
     if matches!(
         p.nth(0).kind(),

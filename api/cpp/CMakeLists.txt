@@ -5,7 +5,7 @@
 cmake_minimum_required(VERSION 3.21)
 # Select C++ and C as languages, as Corrosion needs ${CMAKE_C_COMPILER}
 # for linking
-project(Slint HOMEPAGE_URL "https://slint.dev/" LANGUAGES C CXX VERSION 1.17.0)
+project(Slint HOMEPAGE_URL "https://slint.dev/" LANGUAGES C CXX VERSION 1.18.0)
 
 include(FeatureSummary)
 include(CMakeDependentOption)
@@ -147,7 +147,8 @@ define_cargo_dependent_feature(gettext "Enable support of translations using get
 define_cargo_dependent_feature(accessibility "Enable integration with operating system provided accessibility APIs" ON "NOT SLINT_FEATURE_FREESTANDING")
 define_cargo_dependent_feature(testing "Enable support for testing API (experimental)" ON "NOT SLINT_FEATURE_FREESTANDING")
 define_cargo_feature(experimental "Enable experimental features. (No backward compatibility guarantees)" OFF)
-define_cargo_dependent_feature(system-testing "Enable system testing support (experimental)" OFF "SLINT_FEATURE_EXPERIMENTAL AND NOT SLINT_FEATURE_FREESTANDING")
+define_cargo_dependent_feature(system-testing "Enable support for controlling the application from a system testing tool" OFF "NOT SLINT_FEATURE_FREESTANDING")
+define_cargo_dependent_feature(mcp "Enable the embedded MCP server for AI-assisted debugging" OFF "NOT SLINT_FEATURE_FREESTANDING")
 
 if (SLINT_BUILD_RUNTIME)
     if(SLINT_FEATURE_COMPILER AND NOT SLINT_COMPILER)
@@ -178,7 +179,7 @@ if(SLINT_FEATURE_COMPILER AND NOT SLINT_COMPILER)
         PROPERTY CORROSION_NO_DEFAULT_FEATURES
         ON
     )
-    list(APPEND slint_compiler_features "software-renderer" "bundle-translations" "cpp")
+    list(APPEND slint_compiler_features "renderer-software" "image-default-formats" "bundle-translations" "cpp")
 
     # Switch to dlopening fontconfig in the slint-compiler to avoid the issue that
     # for example in Yocto environments, PKG_CONFIG_PATH will be set to the target only

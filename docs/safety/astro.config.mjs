@@ -14,7 +14,8 @@ import {
     SAFETY_DOCS_BASE_URL,
     SAFETY_DOCS_BASE_PATH,
 } from "./src/safety-site-config.mjs";
-import rehypeSlsIds from "./src/rehype-sls-ids.mjs";
+import rehypeSlsIds from "@slint/common-files/src/utils/rehype-sls-ids.mjs";
+import remarkBaseLinks from "@slint/common-files/src/utils/remark-base-links.mjs";
 
 const _safetyOrigin = String(SAFETY_DOCS_BASE_URL).replace(/\/+$/, "");
 const _safetyAtRoot = SAFETY_DOCS_BASE_PATH === "/";
@@ -31,7 +32,13 @@ export default defineConfig({
     ...(_safetyBase ? { base: _safetyBase } : {}),
     trailingSlash: SLINT_STARLIGHT_TRAILING_SLASH,
     markdown: {
-        rehypePlugins: [rehypeExternalLinksSlint, rehypeSlsIds],
+        // Only SC-covered content reaches this site's generated reference, so
+        // every paragraph of it carries a traceability id.
+        remarkPlugins: [[remarkBaseLinks, { base: _safetyBase ?? "/" }]],
+        rehypePlugins: [
+            rehypeExternalLinksSlint,
+            [rehypeSlsIds, { referenceRequiresIds: true }],
+        ],
     },
     integrations: [
         mermaid(),
@@ -40,14 +47,21 @@ export default defineConfig({
             customCss: [
                 "@slint/common-files/src/styles/starlight-slint-custom.css",
                 "@slint/common-files/src/styles/starlight-slint-theme.css",
-                "./src/styles/sls-ids.css",
+                "@slint/common-files/src/styles/sls-ids.css",
             ],
             components: {
                 Footer: "@slint/common-files/src/components/Footer.astro",
                 Header: "@slint/common-files/src/components/Header.astro",
                 Banner: "@slint/common-files/src/components/Banner.astro",
             },
-            plugins: [slintStarlightLinksValidatorPlugin({ errorOnRelativeLinks: false })],
+            plugins: [
+                slintStarlightLinksValidatorPlugin({
+                    errorOnRelativeLinks: true,
+                    // The llvm-cov HTML report the Test Coverage chapter links
+                    // into is a static asset under public/, not Starlight pages.
+                    exclude: ["/coverage/**"],
+                }),
+            ],
             social: slintStarlightSocial,
             sidebar: [
                 { label: "Slint SC Safety Manual", slug: "index" },
@@ -103,13 +117,27 @@ export default defineConfig({
                     items: [
                         { label: "Overview", slug: "reference" },
                         {
+                            label: "Generated Code",
+                            slug: "reference/generated-code",
+                        },
+                        { label: "Rendering", slug: "reference/rendering" },
+                        {
                             label: "Elements",
                             items: [
+                                { label: "Rectangle", slug: "reference/rectangle" },
+                                { label: "Window", slug: "reference/window" },
+                            ],
+                        },
+                        {
+                            label: "Property Types",
+                            items: [
                                 {
-                                    autogenerate: {
-                                        directory:
-                                            "reference/generated/elements",
-                                    },
+                                    label: "Colors & Brushes",
+                                    slug: "reference/property-types/colors-and-brushes",
+                                },
+                                {
+                                    label: "Numeric Types",
+                                    slug: "reference/property-types/numeric-types",
                                 },
                             ],
                         },
@@ -140,6 +168,18 @@ export default defineConfig({
                             label: "Validation",
                             slug: "qualification-plan/validation",
                         },
+                        {
+                            label: "Traceability Matrix",
+                            slug: "qualification-plan/traceability-matrix",
+                        },
+                        {
+                            label: "Test Coverage",
+                            slug: "qualification-plan/test-coverage",
+                        },
+                        {
+                            label: "Test Results",
+                            slug: "qualification-plan/test-results",
+                        },
                     ],
                 },
                 {
@@ -158,13 +198,29 @@ export default defineConfig({
                             label: "File Structure",
                             slug: "language/file-structure",
                         },
-                        // {
-                        //     label: "Imports",
-                        //     slug: "language/imports",
-                        // },
+                        {
+                            label: "Imports",
+                            slug: "language/imports",
+                        },
                         {
                             label: "Exports",
                             slug: "language/exports",
+                        },
+                        {
+                            label: "Properties",
+                            slug: "language/properties",
+                        },
+                        {
+                            label: "Bindings",
+                            slug: "language/bindings",
+                        },
+                        {
+                            label: "Expressions",
+                            slug: "language/expressions",
+                        },
+                        {
+                            label: "Geometry",
+                            slug: "language/geometry",
                         },
                     ],
                 },

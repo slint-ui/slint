@@ -1,0 +1,69 @@
+---
+title: Properties
+description: Declaring properties on elements.
+SC: true
+---
+
+import SC from '@slint/common-files/src/components/SC.astro';
+import OnlyInSC from '@slint/common-files/src/components/OnlyInSC.astro';
+
+<SC>
+An element has a set of named *properties*, determined by the type of the element:
+the element's type provides properties — including those of the base it
+[inherits](../file-structure/#sls.file.component.inherits) from —
+and [property declarations](#property-declaration) in the element's body add more. \{#sls.prop.def}
+
+A property holds a value of the property's type;
+reading the property yields its current value. \{#sls.prop.def.value}
+
+## Property Declaration
+
+A *property declaration* adds a property to the element in whose body it appears.
+It consists of the keyword `property`, the type in angle brackets, and a name,
+optionally preceded by a visibility modifier,
+optionally followed by `:` and an expression that [binds](../bindings/) to the property,
+and ends with `;`. \{#sls.prop.decl.form}
+
+```slint
+export component Example inherits Window {
+    in property <color> tint;
+    in-out property <length> gap: 10px;
+}
+```
+
+The modifier declares the property's *visibility*:
+which side may read and set the property's value. \{#sls.prop.decl.visibility}
+
+An `in` property is an input of the component: the application sets its value. \{#sls.prop.decl.in}
+
+An `out` property is an output of the component:
+the component determines its value, and the application reads it. \{#sls.prop.decl.out}
+
+An `in-out` property is both: the application sets and reads its value. \{#sls.prop.decl.in-out}
+
+A `private` property is internal to the component:
+the application can neither set nor read it.
+Private is the default: a declaration without a modifier declares a private property. \{#sls.prop.decl.private}
+
+<OnlyInSC>
+Properties shall only be declared on the root element. \{#sls.prop.decl.root-only}
+</OnlyInSC>
+</SC>
+
+Properties can be declared on any element.
+
+<SC>
+<OnlyInSC>
+The declared type can be any valid property type. \{#sls.prop.decl.types}
+</OnlyInSC>
+</SC>
+
+Any [property type](../../property-types/) can be declared.
+
+<SC>
+Without a binding, the property has the default value of its
+type. \{#sls.prop.decl.default}
+</SC>
+
+A [change callback](../callbacks/#change-callbacks) reacts to a property's value changing,
+and a declaration with a [two-way binding](../two-way-bindings/) links the new property to an existing one.

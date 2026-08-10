@@ -60,7 +60,14 @@ on:
 
 env:
     MACOSX_DEPLOYMENT_TARGET: "11.0"
+    SLINT_BUILD_NUMBER: ${{ github.run_number }}
+    # Use fat LTO for distributed binaries: smaller size and better runtime perf.
+    # Workspace [profile.release] uses cargo defaults to keep dev release builds fast.
+    CARGO_PROFILE_RELEASE_LTO: "fat"
+    CARGO_PROFILE_RELEASE_CODEGEN_UNITS: "1"
 
+# Note: Make sure to always use the full Rust target name as suffix for the generated artifacts.
+# This way tools like `cargo binstall` can detect the binaries automatically from the release artifacts.
 jobs:
     build_windows:
         strategy:
@@ -69,19 +76,17 @@ jobs:
                 include:
                   - arch: x86_64-pc-windows-msvc
                     runner: windows-2022
-                    package_suffix: x86_64
                   - arch: aarch64-pc-windows-msvc
                     runner: windows-11-arm
-                    package_suffix: arm64
 
         runs-on: ${{ matrix.runner}}
         steps:
-            - uses: actions/checkout@v6
+            - uses: actions/checkout@v7
             - uses: ./.github/actions/setup-rust
               with:
                   target: ${{ matrix.arch }}
             - name: Build
-              run: cargo build --verbose --no-default-features --features ${{ github.event.inputs.features || inputs.features }} --release -p slint-${{ github.event.inputs.program || inputs.program }}
+              run: cargo build --verbose --no-default-features --features ${{ github.event.inputs.features || inputs.features }}${{ (github.event.inputs.program || inputs.program) == 'viewer' && ',remote' || '' }} --release -p slint-${{ github.event.inputs.program || inputs.program }}
             - name: Create artifact directory
               run: |
                   mkdir pkg
@@ -92,42 +97,42 @@ jobs:
                   cd ..
                   cd ..
                   cd tools\${{ github.event.inputs.program || inputs.program }}
-                  bash -x ../../scripts/prepare_binary_package.sh ..\..\pkg\slint-${{ github.event.inputs.program || inputs.program }} --no-default-features --features ${{ github.event.inputs.features || inputs.features }}
+                  bash -x ../../scripts/prepare_binary_package.sh ..\..\pkg\slint-${{ github.event.inputs.program || inputs.program }} --no-default-features --features ${{ github.event.inputs.features || inputs.features }}${{ (github.event.inputs.program || inputs.program) == 'viewer' && ',remote' || '' }}
             - name: Create archive
               shell: powershell
               run: |
                   cd pkg
-                  Compress-Archive -Path slint-${{ github.event.inputs.program || inputs.program }}\* -Destination ..\slint-${{ github.event.inputs.program || inputs.program }}-windows-${{ matrix.package_suffix }}.zip
+                  Compress-Archive -Path slint-${{ github.event.inputs.program || inputs.program }}\* -Destination ..\slint-${{ github.event.inputs.program || inputs.program }}-${{ matrix.arch }}.zip
             - name: Upload artifact
               uses: actions/upload-artifact@v7
               with:
-                  name: slint-${{ github.event.inputs.program || inputs.program }}-windows-${{ matrix.package_suffix }}
+                  name: slint-${{ github.event.inputs.program || inputs.program }}-${{ matrix.arch }}
                   path: |
-                      slint-${{ github.event.inputs.program || inputs.program }}-windows-${{ matrix.package_suffix }}.zip
+                      slint-${{ github.event.inputs.program || inputs.program }}-${{ matrix.arch }}.zip
 
     build_linux:
         runs-on: ubuntu-22.04
         steps:
-            - uses: actions/checkout@v6
+            - uses: actions/checkout@v7
             - uses: ./.github/actions/install-linux-dependencies
             - uses: ./.github/actions/setup-rust
               with:
                   target: x86_64-unknown-linux-gnu
             - name: Build
-              run: cargo build --verbose --no-default-features --features ${{ github.event.inputs.features || inputs.features }} --release -p slint-${{ github.event.inputs.program || inputs.program }}
+              run: cargo build --verbose --no-default-features --features ${{ github.event.inputs.features || inputs.features }}${{ (github.event.inputs.program || inputs.program) == 'viewer' && ',remote' || '' }} --release -p slint-${{ github.event.inputs.program || inputs.program }}
             - name: Create artifact directory
               run: |
                   mkdir -p slint-${{ github.event.inputs.program || inputs.program }}
                   cp target/release/slint-${{ github.event.inputs.program || inputs.program }} slint-${{ github.event.inputs.program || inputs.program }}/
                   cd tools/${{ github.event.inputs.program || inputs.program }}
-                  ../../scripts/prepare_binary_package.sh ../../slint-${{ github.event.inputs.program || inputs.program }} --no-default-features --features ${{ github.event.inputs.features || inputs.features }}
+                  ../../scripts/prepare_binary_package.sh ../../slint-${{ github.event.inputs.program || inputs.program }} --no-default-features --features ${{ github.event.inputs.features || inputs.features }}${{ (github.event.inputs.program || inputs.program) == 'viewer' && ',remote' || '' }}
             - name: Tar artifacts to preserve permissions
-              run: tar czvf slint-${{ github.event.inputs.program || inputs.program }}-linux.tar.gz slint-${{ github.event.inputs.program || inputs.program }}
+              run: tar czvf slint-${{ github.event.inputs.program || inputs.program }}-x86_64-unknown-linux-gnu.tar.gz slint-${{ github.event.inputs.program || inputs.program }}
             - name: Upload artifact
               uses: actions/upload-artifact@v7
               with:
-                  name: slint-${{ github.event.inputs.program || inputs.program }}-linux
-                  path: slint-${{ github.event.inputs.program || inputs.program }}-linux.tar.gz
+                  name: slint-${{ github.event.inputs.program || inputs.program }}-x86_64-unknown-linux-gnu
+                  path: slint-${{ github.event.inputs.program || inputs.program }}-x86_64-unknown-linux-gnu.tar.gz
 
     build_linux_arm:
       runs-on: ubuntu-22.04
@@ -137,7 +142,7 @@ jobs:
                 - armv7-unknown-linux-gnueabihf
                 - aarch64-unknown-linux-gnu
       steps:
-          - uses: actions/checkout@v6
+          - uses: actions/checkout@v7
           - uses: ./.github/actions/setup-rust
             with:
                 target: x86_64-unknown-linux-gnu
@@ -145,13 +150,13 @@ jobs:
             with:
                 crate: cross
           - name: Build
-            run: cross build --target=${{ matrix.target }} --no-default-features --features ${{ github.event.inputs.features || inputs.features }} --release -p slint-${{ github.event.inputs.program || inputs.program }}
+            run: cross build --target=${{ matrix.target }} --no-default-features --features ${{ github.event.inputs.features || inputs.features }}${{ (github.event.inputs.program || inputs.program) == 'viewer' && ',remote' || '' }} --release -p slint-${{ github.event.inputs.program || inputs.program }}
           - name: Create artifact directory
             run: |
                 mkdir -p slint-${{ github.event.inputs.program || inputs.program }}-${{ matrix.target }}
                 cp target//${{ matrix.target }}/release/slint-${{ github.event.inputs.program || inputs.program }} slint-${{ github.event.inputs.program || inputs.program }}-${{ matrix.target }}/
                 cd tools/${{ github.event.inputs.program || inputs.program }}
-                ../../scripts/prepare_binary_package.sh ../../slint-${{ github.event.inputs.program || inputs.program }}-${{ matrix.target }} --no-default-features --features ${{ github.event.inputs.features || inputs.features }}
+                ../../scripts/prepare_binary_package.sh ../../slint-${{ github.event.inputs.program || inputs.program }}-${{ matrix.target }} --no-default-features --features ${{ github.event.inputs.features || inputs.features }}${{ (github.event.inputs.program || inputs.program) == 'viewer' && ',remote' || '' }}
           - name: Tar artifacts to preserve permissions
             run: tar czvf slint-${{ github.event.inputs.program || inputs.program }}-${{ matrix.target }}.tar.gz slint-${{ github.event.inputs.program || inputs.program }}-${{ matrix.target }}
           - name: Upload artifact
@@ -163,7 +168,7 @@ jobs:
     build_macos:
         runs-on: macos-26
         steps:
-            - uses: actions/checkout@v6
+            - uses: actions/checkout@v7
             - uses: ./.github/actions/setup-rust
               with:
                   target: x86_64-apple-darwin
@@ -171,9 +176,9 @@ jobs:
               with:
                   target: aarch64-apple-darwin
             - name: Build x86-64
-              run: cargo build --verbose --target x86_64-apple-darwin --no-default-features --features ${{ github.event.inputs.features || inputs.features }} --release -p slint-${{ github.event.inputs.program || inputs.program }}
+              run: cargo build --verbose --target x86_64-apple-darwin --no-default-features --features ${{ github.event.inputs.features || inputs.features }}${{ (github.event.inputs.program || inputs.program) == 'viewer' && ',remote' || '' }} --release -p slint-${{ github.event.inputs.program || inputs.program }}
             - name: Build aarch64
-              run: cargo build --verbose --target aarch64-apple-darwin --no-default-features --features ${{ github.event.inputs.features || inputs.features }} --release -p slint-${{ github.event.inputs.program || inputs.program }}
+              run: cargo build --verbose --target aarch64-apple-darwin --no-default-features --features ${{ github.event.inputs.features || inputs.features }}${{ (github.event.inputs.program || inputs.program) == 'viewer' && ',remote' || '' }} --release -p slint-${{ github.event.inputs.program || inputs.program }}
             - name: Create artifact directory
               run: |
                   mkdir -p slint-${{ github.event.inputs.program || inputs.program }}
@@ -182,7 +187,7 @@ jobs:
                   install_name_tool -add_rpath @executable_path/. ./slint-${{ github.event.inputs.program || inputs.program }}
                   cd ..
                   cd tools/${{ github.event.inputs.program || inputs.program }}
-                  ../../scripts/prepare_binary_package.sh ../../slint-${{ github.event.inputs.program || inputs.program }} --no-default-features --features ${{ github.event.inputs.features || inputs.features }}
+                  ../../scripts/prepare_binary_package.sh ../../slint-${{ github.event.inputs.program || inputs.program }} --no-default-features --features ${{ github.event.inputs.features || inputs.features }}${{ (github.event.inputs.program || inputs.program) == 'viewer' && ',remote' || '' }}
             - uses: ./.github/actions/codesign
               if: ${{ github.event.inputs.codesign == 'true' }}
               with:
@@ -192,10 +197,9 @@ jobs:
                   keychain_password: ${{ github.event.inputs.keychain_password }}
                   developer_id: ${{ github.event.inputs.developer_id }}
             - name: Tar artifacts to preserve permissions
-              run: tar czvf slint-${{ github.event.inputs.program || inputs.program }}-macos.tar.gz slint-${{ github.event.inputs.program || inputs.program }}
+              run: tar czvf slint-${{ github.event.inputs.program || inputs.program }}-universal-apple-darwin.tar.gz slint-${{ github.event.inputs.program || inputs.program }}
             - name: Upload artifact
               uses: actions/upload-artifact@v7
               with:
-                  name: slint-${{ github.event.inputs.program || inputs.program }}-macos
-                  path: slint-${{ github.event.inputs.program || inputs.program }}-macos.tar.gz
-
+                  name: slint-${{ github.event.inputs.program || inputs.program }}-universal-apple-darwin
+                  path: slint-${{ github.event.inputs.program || inputs.program }}-universal-apple-darwin.tar.gz

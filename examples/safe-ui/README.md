@@ -82,6 +82,9 @@ of the `SlintSafeUi` CMake target. Implement these functions in your firmware.
 
 To run code on the Slint event loop thread from C firmware (including ISR context), use `slint_safeui_invoke_from_event_loop()`. This is ISR-safe: no heap allocation, no blocking, no FPU usage. It queues a function pointer and user data into a static queue under a critical section, then wakes the Slint event loop to execute the callback.
 
+Input events (touch, keyboard, resize) are dispatched from C into the Rust/Slint event loop via the types and function declared in [./core/src/slint-safeui-event.h](./core/src/slint-safeui-event.h).
+All coordinates are in physical pixels; the Rust conversion layer handles the physical-to-logical mapping using the configured scale factor.
+
 Once you've started your UI task, invoke `slint_app_main()` to start the Slint event loop and the UI safety layer.
 
 ## Simulation
@@ -89,7 +92,7 @@ Once you've started your UI task, invoke `slint_app_main()` to start the Slint e
 For convenience, this example provides a "simulator" binary target in [./simulator/src/main.rs](./simulator/src/main.rs), so that you can just run this on a desktop system passing the desired pixel format as cargo feature, e.g with
 
 ```
-cargo run -p slint-safeui-simulator --features pixel-bgra8888
+cargo run --manifest-path examples/safe-ui/simulator/Cargo.toml --features pixel-bgra8888
 ```
 
 The "simulator" implements the same C system interface and runs the Slint UI safety layer example in a secondary thread.

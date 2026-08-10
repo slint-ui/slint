@@ -211,6 +211,80 @@ impl i_slint_core::model::Model for PyModelShared {
         });
     }
 
+    fn push_row(&self, data: Self::Data) {
+        Python::try_attach(|py| {
+            let obj = self.self_ref.borrow();
+            let Some(obj) = obj.as_ref() else {
+                eprintln!("Python: Model implementation is lacking self object (in push_row)");
+                return;
+            };
+
+            let Some(type_collection) = self.type_collection.borrow().as_ref().cloned() else {
+                eprintln!("Python: Model implementation is lacking type collection (in push_row)");
+                return;
+            };
+
+            let element_type = self.element_type.borrow().clone();
+            if let Err(err) =
+                obj.call_method1(py, "append", (type_collection.to_py_value(data, element_type),))
+            {
+                crate::handle_unraisable(
+                    py,
+                    "Python: Model implementation of push_row(), named append(), threw an exception".into(),
+                    err,
+                );
+            };
+        });
+    }
+
+    fn remove_row(&self, row: isize) {
+        Python::try_attach(|py| {
+            let obj = self.self_ref.borrow();
+            let Some(obj) = obj.as_ref() else {
+                eprintln!("Python: Model implementation is lacking self object (in remove_row)");
+                return;
+            };
+
+            if let Err(err) = obj.call_method1(py, "remove_row", (row,)) {
+                crate::handle_unraisable(
+                    py,
+                    "Python: Model implementation of remove_row() threw an exception".into(),
+                    err,
+                );
+            };
+        });
+    }
+
+    fn insert_row(&self, row: isize, data: Self::Data) {
+        Python::try_attach(|py| {
+            let obj = self.self_ref.borrow();
+            let Some(obj) = obj.as_ref() else {
+                eprintln!("Python: Model implementation is lacking self object (in insert_row)");
+                return;
+            };
+
+            let Some(type_collection) = self.type_collection.borrow().as_ref().cloned() else {
+                eprintln!(
+                    "Python: Model implementation is lacking type collection (in insert_row)"
+                );
+                return;
+            };
+
+            let element_type = self.element_type.borrow().clone();
+            if let Err(err) = obj.call_method1(
+                py,
+                "insert_row",
+                (row, type_collection.to_py_value(data, element_type)),
+            ) {
+                crate::handle_unraisable(
+                    py,
+                    "Python: Model implementation of insert_row() threw an exception".into(),
+                    err,
+                );
+            };
+        });
+    }
+
     fn model_tracker(&self) -> &dyn i_slint_core::model::ModelTracker {
         &self.notify
     }

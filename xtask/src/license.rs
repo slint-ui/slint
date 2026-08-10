@@ -39,6 +39,21 @@ const ACCEPTED: &[&str] = &[
 /// Skip dependencies reachable only through dev-dependency edges.
 const IGNORE_DEV_DEPENDENCIES: bool = true;
 
+/// The output format of the generated listing.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
+pub enum Format {
+    /// Human-readable Markdown: a dependency table followed by the license texts.
+    #[default]
+    Markdown,
+    /// Machine-readable JSON: `{ "crates": [...], "licenses": [...] }`, consumed
+    /// by the Slint Viewer's in-app attribution page.
+    Json,
+    /// An iOS `Settings.bundle` directory (requires `-o`): a "Third-Party
+    /// Licenses" child pane listing every crate, each opening a page with its
+    /// author and license text. Surfaced in the system Settings app.
+    IosSettingsBundle,
+}
+
 #[derive(Debug, clap::Parser)]
 pub struct LicenseCommand {
     /// Path to the `Cargo.toml` whose dependencies should be analyzed.
@@ -54,6 +69,9 @@ pub struct LicenseCommand {
     /// Enable all features of the analyzed crate.
     #[arg(long)]
     all_features: bool,
+    /// The output format.
+    #[arg(long, value_enum, default_value_t)]
+    format: Format,
     /// Where to write the result. Writes to stdout when omitted.
     #[arg(short = 'o', long)]
     output: Option<PathBuf>,
@@ -72,6 +90,7 @@ impl LicenseCommand {
                 no_default_features: self.no_default_features,
                 all_features: self.all_features,
             },
+            format: self.format,
             output: self.output.clone(),
         })
     }
@@ -88,6 +107,7 @@ pub struct Features {
 pub struct GenerateArgs {
     pub manifest_path: PathBuf,
     pub features: Features,
+    pub format: Format,
     pub output: Option<PathBuf>,
 }
 
@@ -96,7 +116,7 @@ pub fn generate(args: &GenerateArgs) -> anyhow::Result<()> {
 
     fetch_dependencies(&args.manifest_path)?;
 
-    let packages = resolve_packages(&args.manifest_path, &args.features)?;
+    let (packages, allow) = resolve_packages(&args.manifest_path, &args.features)?;
 
     // Build one summary row per crate for the table, and collect every accepted
     // license id that appears so each one gets a body below (the table links to
@@ -128,7 +148,16 @@ pub fn generate(args: &GenerateArgs) -> anyhow::Result<()> {
                 format!("Cannot parse license `{expression}` of {} {}", pkg.name, pkg.version)
             })?;
 
-        if !expr.evaluate(|req| accepted.contains(license_string(req).as_str())) {
+        // A `[package.metadata.slint-license.allow]` entry in the analyzed
+        // crate's manifest extends the accepted set for *that one dependency
+        // only*, so an exceptional license (e.g. LGPL-3.0 via dynamic linking)
+        // is approved explicitly per-crate rather than relaxed project-wide.
+        let pkg_allow = allow.get(pkg.name.as_str()).map(String::as_str);
+        let pkg_accepted = |req: &spdx::LicenseReq| {
+            let id = license_string(req);
+            accepted.contains(id.as_str()) || pkg_allow == Some(id.as_str())
+        };
+        if !expr.evaluate(pkg_accepted) {
             bail!(
                 "License `{expression}` of crate {} {} is not in the accepted list",
                 pkg.name,
@@ -136,20 +165,31 @@ pub fn generate(args: &GenerateArgs) -> anyhow::Result<()> {
             );
         }
 
-        // Record the accepted license ids the crate uses, so each gets a body.
+        // Record the license ids the crate uses, so each gets a body.
         for req in expr.requirements() {
-            let id = license_string(&req.req);
-            if !accepted.contains(id.as_str()) {
+            if !pkg_accepted(&req.req) {
                 continue;
             }
+            let id = license_string(&req.req);
             license_names.entry(id.clone()).or_insert_with(|| license_full_name(&req.req));
             used_ids.insert(id);
         }
 
+        // The `authors` field is optional and newer crates increasingly omit
+        // it; salvage the copyright holder(s) from the license files shipped
+        // in the crate's package instead. The upstream-declared authors win
+        // over scraped copyright lines, which can name only the license's own
+        // author (e.g. the FSF for verbatim LGPL boilerplate).
+        let author = (!pkg.authors.is_empty())
+            .then(|| pkg.authors.join(", "))
+            .or(fallback_author)
+            .or_else(|| authors_from_license_files(pkg))
+            .unwrap_or_default();
+
         rows.push(CrateRow {
             name: pkg.name.to_string(),
             version: pkg.version.to_string(),
-            author: fallback_author.unwrap_or_else(|| pkg.authors.join(", ")),
+            author,
             license: expression,
         });
     }
@@ -167,23 +207,44 @@ pub fn generate(args: &GenerateArgs) -> anyhow::Result<()> {
         .collect();
     sections.sort_by(|a, b| a.name.cmp(&b.name));
 
-    let rendered = render_markdown(&rows, &sections);
+    rows.sort_by(|a, b| a.name.cmp(&b.name).then(a.version.cmp(&b.version)));
 
-    match &args.output {
-        Some(path) => {
-            if let Some(parent) = path.parent() {
-                std::fs::create_dir_all(parent).ok();
-            }
-            std::fs::write(path, rendered)
-                .with_context(|| format!("Cannot write {}", path.display()))?;
+    match args.format {
+        Format::Markdown => write_output(&args.output, render_markdown(&rows, &sections))?,
+        Format::Json => write_output(&args.output, render_json(&rows, &sections))?,
+        // Unlike the single-document formats, this writes a directory tree.
+        Format::IosSettingsBundle => {
+            let dir = args
+                .output
+                .as_deref()
+                .context("--format ios-settings-bundle requires -o <path to Settings.bundle>")?;
+            render_ios_settings_bundle(&rows, &sections, dir)?;
         }
-        None => print!("{rendered}"),
     }
 
     Ok(())
 }
 
-/// One crate's row in the dependency table.
+/// Write a rendered document to the output path, or stdout when none is given.
+fn write_output(output: &Option<PathBuf>, rendered: String) -> anyhow::Result<()> {
+    match output {
+        Some(path) => {
+            if let Some(parent) = path.parent() {
+                std::fs::create_dir_all(parent).ok();
+            }
+            std::fs::write(path, rendered)
+                .with_context(|| format!("Cannot write {}", path.display()))
+        }
+        None => {
+            print!("{rendered}");
+            Ok(())
+        }
+    }
+}
+
+/// One crate's row in the dependency table. The `Serialize` impl defines the
+/// `crates` entries of the JSON format.
+#[derive(serde::Serialize)]
 struct CrateRow {
     name: String,
     version: String,
@@ -191,7 +252,9 @@ struct CrateRow {
     license: String,
 }
 
-/// The canonical license body shown once under one license id.
+/// The canonical license body shown once under one license id. The
+/// `Serialize` impl defines the `licenses` entries of the JSON format.
+#[derive(serde::Serialize)]
 struct LicenseSection {
     id: String,
     name: String,
@@ -232,7 +295,7 @@ fn run_cargo(args: &[&str]) -> anyhow::Result<()> {
 fn resolve_packages(
     manifest_path: &Path,
     features: &Features,
-) -> anyhow::Result<Vec<cargo_metadata::Package>> {
+) -> anyhow::Result<(Vec<cargo_metadata::Package>, BTreeMap<String, String>)> {
     let mut cmd = cargo_metadata::MetadataCommand::new();
     cmd.manifest_path(manifest_path);
     if !features.features.is_empty() {
@@ -246,6 +309,7 @@ fn resolve_packages(
     }
     let metadata = cmd.exec()?;
 
+    let allow = root_allow_overrides(&metadata)?;
     let packages: HashMap<cargo_metadata::PackageId, cargo_metadata::Package> =
         metadata.packages.iter().map(|p| (p.id.clone(), p.clone())).collect();
 
@@ -275,7 +339,7 @@ fn resolve_packages(
             wanted.insert(id.clone());
         }
         let (Some(node), Some(parent)) = (nodes.get(&id), packages.get(&id)) else { continue };
-        let active: HashSet<&str> = node.features.iter().map(String::as_str).collect();
+        let active: HashSet<&str> = node.features.iter().map(|f| f.as_str()).collect();
         for dep in &node.deps {
             let non_dev: Vec<_> = dep
                 .dep_kinds
@@ -315,7 +379,34 @@ fn resolve_packages(
     }
 
     let mut packages = packages;
-    Ok(wanted.into_iter().filter_map(|id| packages.remove(&id)).collect())
+    Ok((wanted.into_iter().filter_map(|id| packages.remove(&id)).collect(), allow))
+}
+
+/// Read the `[package.metadata.slint-license.allow]` table from the analyzed
+/// crate's manifest: a map of crate name to an SPDX id additionally allowed
+/// for that crate only. Used to explicitly permit an unusual license (e.g.
+/// LGPL-3.0 via dynamic linking) for one specific dependency, without
+/// relaxing the project-wide allowlist.
+fn root_allow_overrides(
+    metadata: &cargo_metadata::Metadata,
+) -> anyhow::Result<BTreeMap<String, String>> {
+    let Some(root) = metadata.root_package() else {
+        return Ok(BTreeMap::new());
+    };
+    let Some(table) = root.metadata.get("slint-license").and_then(|v| v.get("allow")) else {
+        return Ok(BTreeMap::new());
+    };
+    let table = table.as_object().context(
+        "[package.metadata.slint-license.allow] must be a table of crate-name → SPDX id",
+    )?;
+    let mut out = BTreeMap::new();
+    for (name, value) in table {
+        let id = value.as_str().with_context(|| {
+            format!("[package.metadata.slint-license.allow.{name}] must be a string SPDX id")
+        })?;
+        out.insert(name.clone(), id.to_string());
+    }
+    Ok(out)
 }
 
 /// Whether a package is a proc-macro crate (compiled for the host and not
@@ -404,63 +495,104 @@ fn detect_from_license_file(
         ("Zlib", &["this software is provided 'as-is', without any express or implied warranty"]),
         ("Unlicense", &["this is free and unencumbered software released into the public domain"]),
         ("CC0-1.0", &["creative commons cc0 1.0 universal"]),
+        ("LGPL-3.0-or-later", &["gnu lesser general public license", "version 3, 29 june 2007"]),
     ];
     let id = FINGERPRINTS
         .iter()
         .find(|(_, needles)| needles.iter().all(|n| normalized.contains(n)))
         .map(|(id, _)| *id)
         .with_context(|| format!("Cannot recognize the contents of {path} as a known license"))?;
-    let copyright = copyright_holders(&text)
+    let copyright = copyright_holders([&text])
         .with_context(|| format!("Cannot find a copyright holder in {path}"))?;
     Ok((id, copyright))
 }
 
-/// Salvage any `Copyright …` lines from a license file. The leading
+/// Fallback author for crates whose manifest carries no `authors`: salvage
+/// the copyright holder(s) from the license files shipped in the crate's
+/// package (`LICENSE*` / `COPYING*` / `NOTICE*` next to its `Cargo.toml`).
+/// Returns `None` when no such file yields an attribution line.
+fn authors_from_license_files(pkg: &cargo_metadata::Package) -> Option<String> {
+    let dir = pkg.manifest_path.parent()?;
+    let mut paths: Vec<PathBuf> = std::fs::read_dir(dir)
+        .ok()?
+        .flatten()
+        .map(|entry| entry.path())
+        .filter(|path| {
+            path.is_file()
+                && path.file_name().and_then(|n| n.to_str()).is_some_and(|name| {
+                    let name = name.to_ascii_lowercase();
+                    ["license", "licence", "copying", "notice"]
+                        .iter()
+                        .any(|prefix| name.starts_with(prefix))
+                })
+        })
+        .collect();
+    paths.sort();
+    // Unreadable (e.g. non-UTF-8) files are skipped.
+    copyright_holders(paths.iter().filter_map(|path| std::fs::read_to_string(path).ok()))
+}
+
+/// Salvage any `Copyright …` lines from the given license texts. The leading
 /// `Copyright`, year and surrounding punctuation are stripped, leaving just
-/// the rights holders. Multiple matches are joined with `, `; returns `None`
-/// when no copyright line is found.
-fn copyright_holders(text: &str) -> Option<String> {
+/// the rights holders. Matches are deduplicated and joined with `, `; returns
+/// `None` when no copyright line is found.
+fn copyright_holders<T: AsRef<str>>(texts: impl IntoIterator<Item = T>) -> Option<String> {
     let mut holders: Vec<String> = Vec::new();
-    for raw in text.lines() {
-        let line = raw.trim().trim_end_matches('.');
-        let Some(rest) =
-            line.get(..9).filter(|s| s.eq_ignore_ascii_case("Copyright")).map(|_| &line[9..])
-        else {
-            continue;
-        };
-        // Strip an optional `(c)` / `©` marker first (only here may `c`/`C` be
-        // consumed), then a leading year or year-range and its separators.
-        let rest = rest
-            .trim_start()
-            .trim_start_matches(|c: char| "()cC©".contains(c))
-            .trim_start_matches(|c: char| {
-                c.is_ascii_digit() || c.is_ascii_whitespace() || ",-".contains(c)
-            })
-            .trim();
-        if !rest.is_empty() && !holders.iter().any(|h| h == rest) {
-            holders.push(rest.to_string());
+    for text in texts {
+        for raw in text.as_ref().lines() {
+            let line = raw.trim().trim_end_matches('.');
+            let Some(rest) =
+                line.get(..9).filter(|s| s.eq_ignore_ascii_case("Copyright")).map(|_| &line[9..])
+            else {
+                continue;
+            };
+            // Only lines where the keyword is followed by a `(c)`/`©` marker
+            // or a year carry an attribution. This skips license prose that
+            // merely mentions a "copyright license ..." as well as the
+            // Apache-2.0 appendix template
+            // `Copyright [yyyy] [name of copyright owner]`.
+            let rest = rest.trim_start();
+            if !rest.starts_with(['(', '©']) && !rest.starts_with(|c: char| c.is_ascii_digit()) {
+                continue;
+            }
+            // Strip an optional `(c)` / `©` marker first (only here may
+            // `c`/`C` be consumed), then a leading year or year-range and its
+            // separators.
+            let rest = rest
+                .trim_start_matches(|c: char| "()cC©".contains(c))
+                .trim_start_matches(|c: char| {
+                    c.is_ascii_digit() || c.is_ascii_whitespace() || ",-".contains(c)
+                })
+                .trim();
+            // License files wrap their lines, which can leave a holder-list
+            // entry ending in a dangling conjunction ("… Sun Microsystems
+            // or"). Drop it.
+            let rest = rest
+                .strip_suffix(" or")
+                .or_else(|| rest.strip_suffix(" and"))
+                .unwrap_or(rest)
+                .trim();
+            if !rest.is_empty() && !holders.iter().any(|h| h == rest) {
+                holders.push(rest.to_string());
+            }
         }
     }
     (!holders.is_empty()).then(|| holders.join(", "))
 }
 
-/// The canonical SPDX string for a requirement, e.g. `MIT` or
-/// `LicenseRef-Slint-Software-3.0`.
+/// The canonical SPDX string for a requirement's license, e.g. `MIT`,
+/// `LGPL-3.0-or-later` (spdx renders the `-or-later`/`+` modifier) or
+/// `LicenseRef-Slint-Software-3.0`. The `WITH <exception>` clause is
+/// intentionally omitted, as licenses are keyed by id alone.
 fn license_string(req: &spdx::LicenseReq) -> String {
-    match &req.license {
-        spdx::LicenseItem::Spdx { id, .. } => id.name.to_string(),
-        spdx::LicenseItem::Other { doc_ref, lic_ref } => match doc_ref {
-            Some(doc_ref) => format!("DocumentRef-{doc_ref}:LicenseRef-{lic_ref}"),
-            None => format!("LicenseRef-{lic_ref}"),
-        },
-    }
+    req.license.to_string()
 }
 
+/// The human-readable name for a requirement's license, e.g. `MIT License`,
+/// falling back to the SPDX id for `LicenseRef-` licenses with no entry.
 fn license_full_name(req: &spdx::LicenseReq) -> String {
-    match &req.license {
-        spdx::LicenseItem::Spdx { id, .. } => id.full_name.to_string(),
-        spdx::LicenseItem::Other { .. } => license_string(req),
-    }
+    let id = license_string(req);
+    spdx::license_id(&id).map(|l| l.full_name.to_string()).unwrap_or(id)
 }
 
 /// The crates.io page for the exact version of a crate.
@@ -510,6 +642,130 @@ fn render_markdown(rows: &[CrateRow], sections: &[LicenseSection]) -> String {
         out.push_str(&format!("```\n{}\n```\n\n", s.text.trim_end()));
     }
     out
+}
+
+/// Render the dependencies and license texts as JSON for the Slint Viewer's
+/// in-app attribution page:
+/// `{ "crates": [{ name, version, author, license }], "licenses": [{ id, name, text }] }`.
+/// `rows` and `sections` are expected pre-sorted by the caller.
+fn render_json(rows: &[CrateRow], sections: &[LicenseSection]) -> String {
+    let mut out = serde_json::to_string_pretty(&serde_json::json!({
+        "crates": rows,
+        "licenses": sections,
+    }))
+    // In-memory serialization of string-only data cannot fail.
+    .expect("serializing license data to JSON");
+    out.push('\n');
+    out
+}
+
+/// Write an iOS `Settings.bundle` at `out_dir` so the licenses appear in the
+/// system Settings app under the application. The root has a single
+/// "Third-Party Licenses" child pane (`Licenses.plist`) listing every crate;
+/// each crate links to its own page (`crate_NNNN.plist`) showing the author
+/// and the text of each license the crate uses.
+///
+/// `PSChildPaneSpecifier.File` references a plist by name at the bundle root
+/// (no subdirectory, no extension), so every page is a flat top-level file.
+fn render_ios_settings_bundle(
+    rows: &[CrateRow],
+    sections: &[LicenseSection],
+    out_dir: &Path,
+) -> anyhow::Result<()> {
+    std::fs::create_dir_all(out_dir)
+        .with_context(|| format!("Cannot create {}", out_dir.display()))?;
+
+    // Root: a header group plus the child pane holding the crate list.
+    let mut root = String::new();
+    plist_specifier(&mut root, &[("Type", "PSGroupSpecifier"), ("Title", "Slint Viewer")]);
+    plist_specifier(
+        &mut root,
+        &[
+            ("Type", "PSChildPaneSpecifier"),
+            ("Title", "Third-Party Licenses"),
+            ("File", "Licenses"),
+        ],
+    );
+    write_plist(&out_dir.join("Root.plist"), &root)?;
+
+    // For each crate: a child pane in the list (its `Title` becomes the pushed
+    // page's navigation-bar title) and the page itself, holding the author and
+    // the full text of each license the crate uses.
+    let mut list = String::new();
+    for (i, row) in rows.iter().enumerate() {
+        let page_file = format!("crate_{i:04}");
+        plist_specifier(
+            &mut list,
+            &[
+                ("Type", "PSChildPaneSpecifier"),
+                ("Title", &format!("{} {}", row.name, row.version)),
+                ("File", &page_file),
+            ],
+        );
+
+        let mut page = String::new();
+        if !row.author.is_empty() {
+            plist_specifier(
+                &mut page,
+                &[
+                    ("Type", "PSGroupSpecifier"),
+                    ("Title", "Copyright"),
+                    ("FooterText", &row.author),
+                ],
+            );
+        }
+        // The license ids the crate's SPDX expression references that have a
+        // body; iterate `sections` so they come out in the same sorted order.
+        let crate_ids: BTreeSet<String> =
+            match spdx::Expression::parse_mode(&row.license, spdx::ParseMode::LAX) {
+                Ok(expr) => expr.requirements().map(|r| license_string(&r.req)).collect(),
+                Err(_) => BTreeSet::new(),
+            };
+        for section in sections.iter().filter(|s| crate_ids.contains(&s.id)) {
+            plist_specifier(
+                &mut page,
+                &[
+                    ("Type", "PSGroupSpecifier"),
+                    ("Title", &section.name),
+                    ("FooterText", &section.text),
+                ],
+            );
+        }
+        write_plist(&out_dir.join(format!("{page_file}.plist")), &page)?;
+    }
+    write_plist(&out_dir.join("Licenses.plist"), &list)?;
+
+    Ok(())
+}
+
+/// Append one preference-specifier `<dict>` of string key/value pairs to a
+/// plist's `PreferenceSpecifiers` array.
+fn plist_specifier(out: &mut String, pairs: &[(&str, &str)]) {
+    out.push_str("    <dict>\n");
+    for (key, value) in pairs {
+        out.push_str(&format!(
+            "      <key>{}</key>\n      <string>{}</string>\n",
+            xml_escape(key),
+            xml_escape(value)
+        ));
+    }
+    out.push_str("    </dict>\n");
+}
+
+/// Wrap rendered preference specifiers in a complete XML plist and write it.
+fn write_plist(path: &Path, specifiers: &str) -> anyhow::Result<()> {
+    let document = format!(
+        "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n\
+         <!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\n\
+         <plist version=\"1.0\">\n\
+         <dict>\n  <key>PreferenceSpecifiers</key>\n  <array>\n{specifiers}  </array>\n</dict>\n</plist>\n"
+    );
+    std::fs::write(path, document).with_context(|| format!("Cannot write {}", path.display()))
+}
+
+/// Escape text for an XML plist body (`<string>`/`<key>` content).
+fn xml_escape(s: &str) -> String {
+    s.replace('&', "&amp;").replace('<', "&lt;").replace('>', "&gt;")
 }
 
 /// Turn each known SPDX license id in `expression` into a link to its text

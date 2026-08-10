@@ -55,12 +55,14 @@ macro_rules! declare_ValueType_2 {
             crate::component_factory::ComponentFactory,
             crate::api::LogicalPosition,
             crate::items::FontMetrics,
+            crate::items::InputMethodHints,
             crate::items::MenuEntry,
             crate::items::DropEvent,
             crate::model::ModelRc<crate::items::MenuEntry>,
             crate::styled_text::StyledText,
             crate::input::Keys,
             crate::data_transfer::DataTransfer,
+            crate::cursor::MouseCursorInner,
             $(crate::items::$Name,)*
         ];
     };
@@ -230,15 +232,15 @@ where
             if let Some(cp) = Property::check_common_property(p) {
                 return cp;
             }
-            // link_two_way sets a TwoWayBinding on p, which
-            // check_common_property can find on subsequent calls.
-            // Only safe when p has no binding yet (a pre-existing
-            // binding's intercept_set_binding may not accept this).
-            if !p.has_binding() {
-                let anchor = Rc::pin(Property::<Value>::default());
-                Property::link_two_way(anchor.as_ref(), p);
-                return Property::check_common_property(p).unwrap();
-            }
+            // link_two_way installs a TwoWayBinding on p (moving any
+            // existing binding into the shared common property), which
+            // check_common_property finds on subsequent calls. This keeps
+            // prepare_for_two_way_binding idempotent: when several fields of
+            // the same struct property are two-way bound, they must all share
+            // one common property instead of each creating its own.
+            let anchor = Rc::pin(Property::<Value>::default());
+            Property::link_two_way(anchor.as_ref(), p);
+            return Property::check_common_property(p).unwrap();
         }
 
         let p1 = self.apply_pin(item);

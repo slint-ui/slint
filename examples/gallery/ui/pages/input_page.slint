@@ -1,0 +1,118 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import {
+    Button,
+    HorizontalBox,
+    GroupBox,
+    LineEdit,
+    SpinBox,
+    TextEdit,
+    TimePickerPopup,
+    DatePickerPopup,
+} from "std-widgets.slint";
+import { GallerySettings } from "../gallery_settings.slint";
+import { Page } from "page.slint";
+
+export component InputPage inherits Page {
+    show-enable-read-only: true;
+    title: @tr("Input");
+    description: @tr("Widgets for entering and editing values, including text fields, numeric steppers, multi-line editors, and date and time pickers. The widgets can be imported from \"std-widgets.slint\".");
+
+    GroupBox {
+        title: @tr("LineEdit");
+        vertical-stretch: 0;
+
+        HorizontalBox {
+            alignment: start;
+            padding: 0px;
+
+            LineEdit {
+                placeholder-text: @tr("Enter some text");
+                enabled: GallerySettings.widgets-enabled;
+                read-only: GallerySettings.widgets-read-only;
+            }
+
+            LineEdit {
+                placeholder-text: @tr("Password");
+                enabled: GallerySettings.widgets-enabled;
+                read-only: GallerySettings.widgets-read-only;
+                input-type: InputType.password;
+            }
+        }
+    }
+
+    HorizontalBox {
+        GroupBox {
+            title: @tr("Date & Time");
+            vertical-stretch: 0;
+
+            HorizontalBox {
+                alignment: start;
+                padding: 0px;
+
+                Button {
+                    text: @tr("Open TimePickerPopup");
+                    enabled: GallerySettings.widgets-enabled;
+                    clicked => {
+                        time-picker.show();
+                    }
+                }
+
+                Button {
+                    text: @tr("Open DatePickerPopup");
+                    enabled: GallerySettings.widgets-enabled;
+                    clicked => {
+                        date-picker.show();
+                    }
+                }
+            }
+        }
+
+        GroupBox {
+            title: @tr("SpinBox");
+            vertical-stretch: 0;
+
+            SpinBox {
+                value: 42;
+                enabled: GallerySettings.widgets-enabled;
+                read-only: GallerySettings.widgets-read-only;
+            }
+        }
+    }
+
+    HorizontalBox {
+        GroupBox {
+            title: @tr("Word-Wrap");
+
+            te1 := TextEdit {
+                text: @tr("This is our TextEdit widget, which allows for editing text that spans over multiple paragraphs.\nFor example this line starts in a new paragraph.\n\nWhen the amount of lines - due to wrapping and number of paragraphs - exceeds the available vertical height, a vertical scrollbar is shown that allows scrolling.\nYou may want to enter a bit of text here then in order to make them visible.");
+                placeholder-text: @tr("Add some text");
+                wrap: word-wrap;
+                enabled: GallerySettings.widgets-enabled;
+                read-only: GallerySettings.widgets-read-only;
+            }
+        }
+
+        GroupBox {
+            title: @tr("No-Wrap");
+
+            te2 := TextEdit {
+                text <=> te1.text;
+                wrap: no-wrap;
+                enabled: GallerySettings.widgets-enabled;
+                read-only: GallerySettings.widgets-read-only;
+            }
+        }
+    }
+
+    time-picker := TimePickerPopup {
+        x: (root.width - self.width) / 2;
+        y: (root.height - self.height) / 2;
+    }
+
+    date-picker := DatePickerPopup {
+        x: (root.width - self.width) / 2;
+        y: (root.height - self.height) / 2;
+    }
+}

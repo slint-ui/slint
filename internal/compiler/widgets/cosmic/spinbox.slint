@@ -22,8 +22,6 @@ export component SpinBoxButton {
         animate background, border-color { duration: 150ms; }
 
         text := Text {
-            font-size: CosmicFontSettings.body.font-size;
-            font-weight: CosmicFontSettings.body.font-weight;
             horizontal-alignment: center;
             vertical-alignment: center;
             text: root.text;
@@ -92,8 +90,6 @@ export component SpinBox {
             base := SpinBoxBase {
                 width: 100%;
                 color: CosmicPalette.control-foreground;
-                font-size: CosmicFontSettings.body.font-size;
-                font-weight: CosmicFontSettings.body.font-weight;
                 selection-background-color: CosmicPalette.selection-background;
                 selection-foreground-color: CosmicPalette.accent-foreground;
                 horizontal-alignment: center;

@@ -7,8 +7,9 @@
 // cSpell:ignore cmath constexpr cstdlib decltype intptr itertools nullptr prepended struc subcomponent uintptr vals enumty fundecl pycompo pyenum structty
 
 use std::collections::HashMap;
+use std::collections::HashSet;
+use std::sync::Arc;
 use std::sync::OnceLock;
-use std::{collections::HashSet, rc::Rc};
 
 use smol_str::{SmolStr, StrExt, format_smolstr};
 
@@ -59,9 +60,9 @@ impl From<&PyProperty> for python_ast::Field {
     }
 }
 
-impl From<&llr::PublicProperty> for PyProperty {
-    fn from(llr_prop: &llr::PublicProperty) -> Self {
-        Self { name: ident(&llr_prop.name), ty: python_type_name(&llr_prop.ty) }
+impl From<(&SmolStr, &llr::PublicProperty)> for PyProperty {
+    fn from((name, llr_prop): (&SmolStr, &llr::PublicProperty)) -> Self {
+        Self { name: ident(name), ty: python_type_name(&llr_prop.ty) }
     }
 }
 
@@ -154,10 +155,10 @@ pub struct PyStruct {
 
 pub struct AnonymousStruct;
 
-impl TryFrom<&Rc<crate::langtype::Struct>> for PyStruct {
+impl TryFrom<&Arc<crate::langtype::Struct>> for PyStruct {
     type Error = AnonymousStruct;
 
-    fn try_from(structty: &Rc<crate::langtype::Struct>) -> Result<Self, Self::Error> {
+    fn try_from(structty: &Arc<crate::langtype::Struct>) -> Result<Self, Self::Error> {
         let StructName::User { name, .. } = &structty.name else {
             return Err(AnonymousStruct);
         };
@@ -234,8 +235,8 @@ pub struct PyEnum {
     aliases: Vec<SmolStr>,
 }
 
-impl From<&Rc<crate::langtype::Enumeration>> for PyEnum {
-    fn from(enumty: &Rc<crate::langtype::Enumeration>) -> Self {
+impl From<&Arc<crate::langtype::Enumeration>> for PyEnum {
+    fn from(enumty: &Arc<crate::langtype::Enumeration>) -> Self {
         Self {
             name: ident(&enumty.name),
             variants: enumty
@@ -705,6 +706,7 @@ fn python_type_name(ty: &Type) -> SmolStr {
         }
         Type::Keys => SmolStr::new_static("slint.Keys"),
         Type::DataTransfer => SmolStr::new_static("slint.DataTransfer"),
+        Type::MouseCursor => SmolStr::new_static("None"),
         ty => unimplemented!("implemented type conversion {:#?}", ty),
     }
 }

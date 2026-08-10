@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { FluentFontSettings, FluentPalette } from "styling.slint";
+import { FluentPalette } from "styling.slint";
 import { RadioButtonImplBase, RadioGroupImplBase } from "../common/radiogroup-base.slint";
 import { FocusBorder } from "components.slint";
 
@@ -61,8 +61,6 @@ export component RadioButtonImpl inherits RadioButtonImplBase {
         if root.text != "": Text {
             text: root.text;
             color: root.text-color;
-            font-size: FluentFontSettings.body.font-size;
-            font-weight: FluentFontSettings.body.font-weight;
             vertical-alignment: center;
             horizontal-alignment: left;
         }
@@ -75,8 +73,8 @@ export component RadioButtonImpl inherits RadioButtonImplBase {
 
 export component RadioGroupImpl inherits RadioGroupImplBase {
     title-color: !root.enabled ? FluentPalette.text-disabled : FluentPalette.control-foreground;
-    title-font-size: FluentFontSettings.body.font-size;
-    title-font-weight: FluentFontSettings.body.font-weight;
+    title-font-size: 1rem;
+    title-font-weight: FontWeight.normal;
 }
 
 export component RadioGroup inherits RadioGroup { }

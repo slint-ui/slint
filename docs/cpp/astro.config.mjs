@@ -42,6 +42,23 @@ export default defineConfig({
     ...(_cppBase ? { base: _cppBase } : {}),
     trailingSlash: SLINT_STARLIGHT_TRAILING_SLASH,
     markdown: slintStarlightMarkdownRehypeExternalLinksOnly(),
+    vite: {
+        resolve: {
+            // Swap our PagefindUI wrapper (which adds `processTerm`) in for
+            // `@pagefind/default-ui`, so qualified C++ identifier searches
+            // resolve. Exact-match `find` so subpath imports (the CSS, the
+            // wrapper's own import) are left alone.
+            alias: [
+                {
+                    find: /^@pagefind\/default-ui$/,
+                    replacement: new URL(
+                        "./src/pagefind-ui-override.mjs",
+                        import.meta.url,
+                    ).pathname,
+                },
+            ],
+        },
+    },
     integrations: [
         sitemap(),
         starlight({

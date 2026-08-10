@@ -223,7 +223,6 @@ impl TestingClient {
 pub fn init() -> Result<(), EventLoopError> {
     introspection::ensure_window_tracking()?;
     let state = introspection::shared_state();
-    state.start_recording();
 
     let Some(client) = TestingClient::new(state) else {
         return Ok(());

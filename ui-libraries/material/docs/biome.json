@@ -30,7 +30,7 @@
             "!**/playwright-report/**"
         ],
         "rules": {
-            "recommended": false,
+            "preset": "none",
             "complexity": {
                 "noBannedTypes": "warn",
                 "noUselessConstructor": "error",

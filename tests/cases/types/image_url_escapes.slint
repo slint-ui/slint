@@ -1,0 +1,18 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+//include_path: ../../../demos/printerdemo/ui/images/
+
+// The @image-url path is unescaped: a `\u{...}` escape is decoded (`\u{63}` is
+// `c`, so this names cat.jpg), and a `\\` decodes to a `\`, which resolves as a
+// directory separator just like `/`.
+export component TestCase inherits Rectangle {
+    in-out property <image> escaped: @image-url("\u{63}at.jpg");
+    in-out property <image> backslash: @image-url("..\\images\\cat.jpg");
+    in-out property <image> forward: @image-url("../images/cat.jpg");
+
+    out property <bool> test:
+        escaped.width == 320 && escaped.height == 480
+        && backslash.width == 320 && backslash.height == 480
+        && backslash.width == forward.width && backslash.height == forward.height;
+}

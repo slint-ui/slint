@@ -50,8 +50,9 @@ path = [
   "Cargo.lock",
   "flake.nix",
   "flake.lock",
-  "examples/bevy/Cargo.lock",
-  "examples/servo/Cargo.lock",
+  "examples/Cargo.lock",
+  "demos/Cargo.lock",
+  "tests/Cargo.lock",
   "REUSE.toml",
   "biome.json",
   "knip.json",
@@ -160,11 +161,9 @@ path = [
   "ui-libraries/material/docs/src/config.yaml",
   "ui-libraries/material/examples/gallery/ui/themes/**.json",
 
-  ".claude-plugin/*.json",
-  ".cursor-plugin/*.json",
-  "skills/.claude-plugin/*.json",
-  "skills/.cursor-plugin/*.json",
-  "skills/**/*.md",
+  "ai-plugins/.claude-plugin/*.json",
+  "ai-plugins/.cursor-plugin/*.json",
+  "ai-plugins/**/*.md",
 ]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Copyright © SixtyFPS GmbH <info@slint.dev>"
@@ -180,13 +179,14 @@ path = [
 
   "editors/**.md",
   "editors/sublime/LSP.sublime-settings",
-  "editors/tree-sitter-slint/corpus/**.txt",
+  "editors/tree-sitter-slint/test/corpus/**.txt",
   "editors/tree-sitter-slint/tree-sitter.json",
   "editors/vscode/**.json",
   "editors/vscode/css/**.css",
   "editors/vscode/tests/grammar/**.slint",
 
   "tests/screenshots/**/**.png",
+  "tests/screenshots/references/anyrender/**.json",
 
   "tools/**.md",
   "tools/slintpad/**.html",
@@ -196,10 +196,18 @@ path = [
   "tools/figma-inspector/**.html",
   "tools/figma-inspector/**.css",
   "tools/viewer/TestFlight/WhatToTest.en-US.txt",
+  "tools/viewer/android/fastlane/metadata/android/**.txt",
+  "tools/viewer/android/fastlane/metadata/android/**.png",
 ]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Copyright © SixtyFPS GmbH <info@slint.dev>"
 SPDX-License-Identifier = "GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0"
+
+[[annotations]]
+path = ["api/slint-sc/tests/references/**.png"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Copyright © SixtyFPS GmbH <info@slint.dev>"
+SPDX-License-Identifier = "GPL-3.0-only OR LicenseRef-Slint-Software-3.0"
 
 [[annotations]]
 path = ["demos/weather-demo/ui/assets/icons/**.svg", "examples/memory/icons/**.png", "examples/memory/icons/**.svg"]
@@ -236,6 +244,7 @@ path = [
   "tools/lsp/ui/assets/library.svg",
   "tools/lsp/ui/assets/list-tree.svg",
   "tools/lsp/ui/assets/settings.svg",
+  "tools/viewer/remote/assets/**.svg",
 ]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Codicon Icons <https://github.com/microsoft/vscode-codicons/>"

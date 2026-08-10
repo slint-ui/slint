@@ -107,8 +107,7 @@ fn process_file(
     match path.extension() {
         Some(ext) if ext == "rs" => process_rust_file(source, file),
         Some(ext) if ext == "md" => process_markdown_file(source, file),
-        // Formatting .60 files because of backwards compatibility (project was recently renamed)
-        Some(ext) if ext == "slint" || ext == ".60" => process_slint_file(source, path, file),
+        Some(ext) if ext == "slint" => process_slint_file(source, path, file),
         _ => {
             // This allows usage like `cat x.slint | slint-lsp format /dev/stdin`
             if path == Path::new("/dev/stdin") {

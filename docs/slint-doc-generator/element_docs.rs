@@ -293,15 +293,6 @@ fn transform_code_fences(text: &str, counter: &mut ScreenshotCounter) -> String 
 
 // -- Type formatting helpers --
 
-/// Format a type name for documentation output. Same as `Type::Display`
-/// except enumerations omit the `enum` prefix.
-fn format_type_name(ty: &Type) -> String {
-    match ty {
-        Type::Enumeration(e) => e.name.to_string(),
-        _ => ty.to_string(),
-    }
-}
-
 /// Format a default value expression for documentation output.
 fn format_default_expr(expr: &i_slint_compiler::expression_tree::Expression) -> String {
     use i_slint_compiler::expression_tree::Expression;
@@ -333,18 +324,12 @@ fn format_signature(func: &i_slint_compiler::langtype::Function) -> String {
         .iter()
         .zip(func.args.iter())
         .filter(|(_, ty)| !matches!(ty, Type::ElementReference))
-        .map(|(name, ty)| {
-            if name.is_empty() {
-                format_type_name(ty)
-            } else {
-                format!("{name}: {}", format_type_name(ty))
-            }
-        })
+        .map(|(name, ty)| if name.is_empty() { ty.to_string() } else { format!("{name}: {ty}") })
         .collect();
     let ret = if matches!(func.return_type, Type::Void) {
         String::new()
     } else {
-        format!(" -> {}", format_type_name(&func.return_type))
+        format!(" -> {}", func.return_type)
     };
     format!("({}){ret}", params.join(", "))
 }
@@ -456,7 +441,7 @@ fn write_slint_property(
     structs: &HashSet<String>,
     sc: &mut ScreenshotCounter,
 ) -> std::io::Result<()> {
-    let type_name = format_type_name(&info.ty);
+    let type_name = info.ty.to_string();
     let raw_doc = info.docs.as_deref().unwrap_or("");
     let (description, doc_default) = extract_default(raw_doc);
     let mut default_value = match &info.default_value {
@@ -778,10 +763,12 @@ fn write_sub_element(
 
 /// Generate .mdx page files for each exported builtin element.
 pub fn generate(cfg: &Config) -> Result<(), Box<dyn std::error::Error>> {
-    let register = i_slint_compiler::typeregister::TypeRegister::builtin_experimental();
+    let register = i_slint_compiler::typeregister::TypeRegister::builtin_experimental(
+        &i_slint_compiler::symbol_counters::SymbolCounters::shared(),
+    );
     let register = register.borrow();
-    let generated_dir = &cfg.generated_dir;
-    create_dir_all(generated_dir)?;
+    let generated_dir = cfg.reference_dir();
+    create_dir_all(&generated_dir)?;
 
     // Include all types for resolution, regardless of experimental or SC flag,
     // so property types still resolve their kind even when the target page
@@ -821,7 +808,9 @@ pub fn generate(cfg: &Config) -> Result<(), Box<dyn std::error::Error>> {
             continue;
         }
 
-        let group = extract_group(&mut description);
+        // The SC reference is small, so it presents one flat list without
+        // the group subdirectories used by the main docs site.
+        let group = extract_group(&mut description).filter(|_| !cfg.sc_only);
         let draft = strip_annotation(&mut description, "\\draft");
         if draft {
             continue;
@@ -879,7 +868,8 @@ pub fn generate(cfg: &Config) -> Result<(), Box<dyn std::error::Error>> {
                 || all_text.contains(&format!("<{sname}/>"))
             {
                 extra_imports.push(format!(
-                    "import {sname} from '/src/content/docs/reference/generated/structs/_{sname}.md';"
+                    "import {sname} from '/src/{}/reference/structs/_{sname}.md';",
+                    crate::GENERATED_DIR
                 ));
             }
         }
@@ -888,7 +878,8 @@ pub fn generate(cfg: &Config) -> Result<(), Box<dyn std::error::Error>> {
                 || all_text.contains(&format!("<{ename}/>"))
             {
                 extra_imports.push(format!(
-                    "import {ename} from '/src/content/docs/reference/generated/enums/_{ename}.md';"
+                    "import {ename} from '/src/{}/reference/enums/_{ename}.md';",
+                    crate::GENERATED_DIR
                 ));
             }
         }
@@ -898,6 +889,18 @@ pub fn generate(cfg: &Config) -> Result<(), Box<dyn std::error::Error>> {
         }
         if all_text.contains("<Link ") {
             writeln!(file, "import Link from '@slint/common-files/src/components/Link.astro';")?;
+        }
+        if all_text.contains("<NotInSC>") {
+            writeln!(
+                file,
+                "import NotInSC from '@slint/common-files/src/components/NotInSC.astro';"
+            )?;
+        }
+        if all_text.contains("<OnlyInSC>") {
+            writeln!(
+                file,
+                "import OnlyInSC from '@slint/common-files/src/components/OnlyInSC.astro';"
+            )?;
         }
         if all_text.contains("<Tabs ") || all_text.contains("<TabItem ") {
             writeln!(file, "import {{ Tabs, TabItem }} from '@astrojs/starlight/components';")?;

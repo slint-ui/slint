@@ -29,8 +29,8 @@ getrandom = { version = "0.3.4", features = ["wasm_js"] }
 ```
 
 `'cfg(target_arch = "wasm32")'` ensures that these dependencies are only active
-when compiling for the wasm32 architecture. Note that the `rand` dependency is now duplicated,
-to enable the `"wasm-bindgen"` feature.
+when compiling for the wasm32 architecture. Note that `getrandom` is configured with the
+`"wasm_js"` feature, which is required to generate random numbers on the wasm32 target.
 
 While you are editing the `Cargo.toml`, make one last change. To turn the binary into
 a library by adding the following:

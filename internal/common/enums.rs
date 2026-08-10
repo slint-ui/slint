@@ -23,7 +23,7 @@
 #[macro_export]
 macro_rules! for_each_enums {
     ($macro:ident) => {
-        $macro![
+        $macro! {
             /// This enum describes the different types of alignment of text along the horizontal axis of a `Text` or `StyledText` element.
             #[non_exhaustive]
             enum TextHorizontalAlignment {
@@ -79,6 +79,20 @@ macro_rules! for_each_enums {
                 Outside,
                 /// The center line of the stroke is at the outer edge of the text, like in Adobe Illustrator.
                 Center,
+            }
+
+            /// This enum describes the auto-capitalization behavior that the input method
+            /// (e.g. a soft keyboard) should apply while text is entered in a `TextInput`.
+            #[non_exhaustive]
+            pub enum CapitalizationMode {
+                /// No auto-capitalization.
+                None,
+                /// Capitalize the first character of each sentence.
+                Sentences,
+                /// Capitalize the first character of each word.
+                Words,
+                /// Capitalize all characters.
+                Characters,
             }
 
             /// This enum describes whether an event was rejected or accepted by an event handler.
@@ -197,11 +211,11 @@ macro_rules! for_each_enums {
                 Forward,
             }
 
-            /// This enum represents different types of mouse cursors. It's a subset of the mouse cursors available in CSS.
+            /// Represents different types of mouse cursors. It's a subset of the mouse cursors available in CSS.
             /// For details and pictograms see the [MDN Documentation for cursor](https://developer.mozilla.org/en-US/docs/Web/CSS/cursor#values).
             /// Depending on the backend and used OS unidirectional resize cursors may be replaced with bidirectional ones.
             #[non_exhaustive]
-            enum MouseCursor {
+            enum BuiltInMouseCursor {
                 /// The systems default cursor.
                 Default,
                 /// No cursor is displayed.
@@ -335,7 +349,8 @@ macro_rules! for_each_enums {
                 Password,
                 /// This will only accept and render number characters (0-9)
                 Number,
-                /// This will accept and render characters if it's valid part of a decimal
+                /// This will accept and render characters if it's valid part of a decimal,
+                /// using the decimal separator of the current locale
                 Decimal,
                 /// This identifies the input field as a search box. Characters are rendered normally,
                 /// but assistive technologies are informed that the field is used for searching or
@@ -384,8 +399,9 @@ macro_rules! for_each_enums {
             }
 
             /// Controls the distribution of flex lines along the cross axis in a flex container.
+            /// Used as the `cross-axis-line-alignment` property of `FlexboxLayout`.
             #[non_exhaustive]
-            enum FlexboxLayoutAlignContent {
+            enum CrossAxisLineAlignment {
                 /// Lines are stretched to fill the container along the cross axis.
                 Stretch,
                 /// Lines are placed at the start of the cross axis.
@@ -403,10 +419,10 @@ macro_rules! for_each_enums {
             }
 
             /// Controls the alignment of individual items along the cross axis of a layout.
-            /// Used as the `align-items` property of `HorizontalLayout`, `VerticalLayout`,
+            /// Used as the `cross-axis-alignment` property of `HorizontalLayout`, `VerticalLayout`,
             /// and `FlexboxLayout`.
             #[non_exhaustive]
-            enum LayoutAlignItems {
+            enum CrossAxisAlignment {
                 /// Items are stretched to fill the cross axis.
                 Stretch,
                 /// Items are placed at the start of the cross axis.
@@ -417,10 +433,11 @@ macro_rules! for_each_enums {
                 Center,
             }
 
-            /// Overrides the container's `align-items` for a specific flex item.
+            /// Overrides the container's `cross-axis-alignment` for a single item.
+            /// Used as the `cross-axis-self-alignment` property of the children of a `FlexboxLayout`.
             #[non_exhaustive]
-            enum FlexboxLayoutAlignSelf {
-                /// Use the container's `align-items` value (default).
+            enum CrossAxisSelfAlignment {
+                /// Use the container's `cross-axis-alignment` value (default).
                 Auto,
                 /// The item is stretched to fill the line along the cross axis.
                 Stretch,
@@ -539,12 +556,15 @@ macro_rules! for_each_enums {
             /// It indicates that an element is a live region whose content changes should be
             /// announced by assistive technologies.
             #[non_exhaustive]
-            enum AccessibleLiveRegion {
-                /// The element is not a live region.
+            pub enum AccessibleLiveness {
+                /// Use in regions that present information that is of low-importance to the user.
+                /// Assistive technologies are expected to not announce changes unless the user explicitly asks for it.
                 Off,
-                /// Updates are announced when the user is idle.
+                /// Use in regions that present new information to users.
+                /// Assistive technologies are expected to not interrupt the user to inform of changes to the live region.
                 Polite,
-                /// Updates are announced as soon as possible.
+                /// Use in regions that present information that a user should know about right away.
+                /// Assistive technologies are expected to announce to the user as soon as possible.
                 Assertive,
             }
 
@@ -564,7 +584,7 @@ macro_rules! for_each_enums {
 
             /// Represents the orientation of an element or widget such as the `Slider`.
             // (on purpose not #[non_exhaustive])
-            enum Orientation {
+            pub enum Orientation {
                 /// Element is oriented horizontally.
                 Horizontal,
                 /// Element is oriented vertically.
@@ -680,6 +700,6 @@ macro_rules! for_each_enums {
                 /// This variant is reported when the operating system is none of the above.
                 Other,
             }
-        ];
+        }
     };
 }

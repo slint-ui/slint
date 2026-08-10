@@ -8,8 +8,59 @@ import { Spinner } from "std-widgets.slint";
 export component EditorUi inherits Window {
     title: @tr("Slint Editor");
 
+    // macOS draws the editor content underneath a transparent unified title
+    // bar, so reserve space for it and keep the toolbar clear of the window
+    // control ("traffic light") buttons. Zero on other platforms.
+    property <length> titlebar-height: Platform.os == OperatingSystemType.macos ? 46px : 0px;
+    property <length> titlebar-left-inset: Platform.os == OperatingSystemType.macos ? 79px : 0px;
+
     viewer := ComponentContainer {
+        x: 0;
+        y: root.titlebar-height;
         component-factory: Api.preview-area;
+    }
+
+    // Toolbar across the unified title bar, clear of the window control buttons.
+    Rectangle {
+        x: root.titlebar-left-inset > 0 ? root.titlebar-left-inset + 8px : 0;
+        y: 0;
+        width: root.width - self.x;
+        height: root.titlebar-height;
+        background: #3a3a3c;
+
+        WindowMoveArea {
+            // The custom title bar only exists on macOS; elsewhere the
+            // window keeps its native decorations.
+            enabled: Platform.os == OperatingSystemType.macos;
+
+            HorizontalLayout {
+                padding-left: 8px;
+                padding-right: 8px;
+                alignment: start;
+
+                VerticalLayout {
+                    alignment: center;
+
+                    // Fake toolbar button.
+                    Rectangle {
+                        width: 64px;
+                        height: 22px;
+                        border-radius: 5px;
+                        background: touch.pressed ? #5a5a5e : #505054;
+
+                        Text {
+                            text: "Run";
+                            color: #ffffff;
+                            font-size: 12px;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                        }
+
+                        touch := TouchArea { }
+                    }
+                }
+            }
+        }
     }
 
     if !viewer.has-component: Spinner {

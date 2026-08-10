@@ -4,21 +4,18 @@
 use pyo3::PyTraverseError;
 use pyo3::gc::PyVisit;
 use pyo3::prelude::*;
-use pyo3_stub_gen::{derive::gen_stub_pyclass, derive::gen_stub_pymethods};
 
 use std::any::Any;
 use std::rc::Rc;
 
 /// Python representation of some form of type-indexed possibly-lazy data transfer.
 /// Used for accessing the platform clipboard and drag-and-drop APIs.
-#[gen_stub_pyclass]
 #[pyclass(unsendable, name = "DataTransfer", skip_from_py_object)]
 #[derive(Clone)]
 pub struct PyDataTransfer {
     pub data_transfer: i_slint_core::data_transfer::DataTransfer,
 }
 
-#[gen_stub_pymethods]
 #[pymethods]
 impl PyDataTransfer {
     /// Constructs an empty `DataTransfer`.
@@ -113,7 +110,6 @@ impl PyDataTransfer {
         self.data_transfer == other.data_transfer
     }
 
-    #[gen_stub(skip)]
     fn __traverse__(&self, visit: PyVisit<'_>) -> Result<(), PyTraverseError> {
         if let Some(any) = self.data_transfer.user_data() {
             if let Some(py_any) = (*any).downcast_ref::<Py<PyAny>>() {
@@ -123,7 +119,6 @@ impl PyDataTransfer {
         Ok(())
     }
 
-    #[gen_stub(skip)]
     fn __clear__(&mut self) {
         // Drop our reference to the Python user-data by installing the same
         // sentinel the setter uses for `None`. If no other Rust clone shares

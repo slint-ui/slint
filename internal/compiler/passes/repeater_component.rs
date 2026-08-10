@@ -53,19 +53,22 @@ fn create_repeater_components(component: &Rc<Component>) {
                 states: std::mem::take(&mut original_elem.states),
                 transitions: std::mem::take(&mut original_elem.transitions),
                 child_of_layout: original_elem.child_of_layout || is_listview.is_some(),
+                child_of_flexbox: original_elem.child_of_flexbox,
                 layout_info_prop: original_elem.layout_info_prop.take(),
                 layout_info_v_with_constraint: original_elem.layout_info_v_with_constraint.take(),
                 layout_info_h_with_constraint: original_elem.layout_info_h_with_constraint.take(),
                 default_fill_parent: original_elem.default_fill_parent,
                 accessibility_props: std::mem::take(&mut original_elem.accessibility_props),
                 geometry_props: original_elem.geometry_props.clone(),
-                is_flickable_viewport: original_elem.is_flickable_viewport,
+                is_flickable_content: original_elem.is_flickable_content,
                 has_popup_child: original_elem.has_popup_child,
                 is_tooltip: original_elem.is_tooltip,
                 item_index: Default::default(), // Not determined yet
                 item_index_of_first_children: Default::default(),
                 is_legacy_syntax: original_elem.is_legacy_syntax,
                 inline_depth: 0,
+                slot_target: original_elem.slot_target.clone(),
+                forwarded_slots: original_elem.forwarded_slots.clone(),
                 grid_layout_cell: original_elem.grid_layout_cell.clone(),
             })),
             parent_element: RefCell::new(Weak::clone(&original_elem_as_weak)),
@@ -81,13 +84,12 @@ fn create_repeater_components(component: &Rc<Component>) {
                 repeated_component
                     .root_element
                     .borrow_mut()
-                    .bindings
-                    .insert("height".into(), RefCell::new(preferred.into()));
+                    .set_binding("height".into(), preferred.into());
             }
             if !repeated_component.root_element.borrow().is_binding_set("width", false) {
-                repeated_component.root_element.borrow_mut().bindings.insert(
+                repeated_component.root_element.borrow_mut().set_binding(
                     "width".into(),
-                    RefCell::new(Expression::PropertyReference(listview.listview_width).into()),
+                    Expression::PropertyReference(listview.listview_width).into(),
                 );
             }
         }

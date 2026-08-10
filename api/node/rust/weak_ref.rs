@@ -14,7 +14,10 @@ use napi::{Env, JsValue, Result};
 ///
 /// The returned weak reference doesn't prevent garbage collection.
 /// Use [`weak_ref_get_object`] to retrieve the JS object later.
-pub fn weak_ref_from_object<T: 'static>(env: &Env, obj: &Object<'_>) -> Result<WeakReference<T>> {
+pub fn weak_ref_from_object<T: 'static + TypeTag>(
+    env: &Env,
+    obj: &Object<'_>,
+) -> Result<WeakReference<T>> {
     // Safety: same napi_unwrap + napi_reference_ref that napi-rs generates
     // in #[napi] method bindings.
     let this_ref: Reference<T> = unsafe { Reference::from_napi_value(env.raw(), obj.raw())? };

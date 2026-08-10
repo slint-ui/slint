@@ -197,7 +197,7 @@ impl SwapChain {
                 &backend_texture,
                 skia_safe::gpu::SurfaceOrigin::TopLeft,
                 skia_safe::ColorType::RGBA8888,
-                None,
+                crate::attachment_color_space(crate::TextureEncoding::Unorm),
                 None,
             )
             .ok_or_else(|| format!("unable to create d3d skia backend render target"))

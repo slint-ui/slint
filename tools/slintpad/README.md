@@ -60,4 +60,4 @@ The `preview.html` page contains only the preview and the code must be given via
 
     Example: The to use the `@material` library:
 
-     -   https://slint.dev/editor/?lib=material=https://raw.githubusercontent.com/slint-ui/material-components/refs/heads/master/material.slint
+     -   https://slint.dev/editor/?lib=material=https://raw.githubusercontent.com/slint-ui/slint/refs/heads/master/ui-libraries/material/material.slint

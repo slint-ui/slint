@@ -605,6 +605,58 @@ fn touch_area_doesnt_cause_redraw() {
 }
 
 #[test]
+/// Regression test for #12173: when an item is rendering-dirty (here a color
+/// change) but keeps its geometry while its parent moves, the old position must
+/// still be cleared. The child is wider than its parent, so its protruding part
+/// is not covered by the parent's repaint and would otherwise leave a ghost.
+fn moving_rendering_dirty_item_clears_old_position() {
+    slint::slint! {
+        export component Ui inherits Window {
+            in property <length> pos;
+            in property <color> c: red;
+            background: black;
+            Rectangle {
+                x: root.pos;
+                y: 50px;
+                width: 20px;
+                height: 20px;
+                background: skyblue;
+                Rectangle {
+                    // Same geometry every frame, but wider than the parent so
+                    // it protrudes onto the window background.
+                    x: 0px;
+                    y: 0px;
+                    width: 100px;
+                    height: 10px;
+                    background: root.c;
+                }
+            }
+        }
+    }
+
+    slint::platform::set_platform(Box::new(TestPlatform)).ok();
+    let ui = Ui::new().unwrap();
+    let window = WINDOW.with(|x| x.clone());
+    window.set_size(slint::PhysicalSize::new(400, 200));
+    ui.set_pos(200.);
+    ui.show().unwrap();
+    assert!(window.draw_if_needed(|renderer| {
+        do_test_render_region(renderer, 0, 0, 400, 200);
+    }));
+    assert!(!window.draw_if_needed(|_| { unreachable!() }));
+
+    // Move the rectangle left and recolor the child. The color change makes the
+    // child rendering-dirty; the move changes its transform. The dirty region
+    // must reach the child's old right edge (200 + 100 = 300), not stop at the
+    // parent's old geometry (220).
+    ui.set_pos(20.);
+    ui.set_c(slint::Color::from_rgb_u8(0, 0, 255));
+    assert!(window.draw_if_needed(|renderer| {
+        do_test_render_region(renderer, 20, 50, 300, 70);
+    }));
+}
+
+#[test]
 fn shadow_redraw_beyond_geometry() {
     slint::slint! {
         export component Ui inherits Window {
@@ -1259,7 +1311,7 @@ fn layer_visible_after_becoming_non_zero_sized() {
 fn layer_rendered_at_correct_position() {
     // Regression test for #11763: render_layer's compute_bounds used
     // item_rc.geometry() (parent coordinates) instead of a local-coords
-    // rect. Inside a Flickable the parent offset is the viewport position
+    // rect. Inside a Flickable the parent offset is the content position
     // (large x), while the clip is in item-local coords. The union mixes
     // coordinate systems, producing a wrong layer origin when the item is
     // partially scrolled out of the visible area. This makes the layer
@@ -1273,8 +1325,8 @@ fn layer_rendered_at_correct_position() {
             Flickable {
                 width: 64px;
                 height: 64px;
-                viewport-width: 200px;
-                viewport-x <=> root.vpx;
+                content-width: 200px;
+                content-x <=> root.vpx;
                 interactive: false;
 
                 Rectangle {
@@ -1303,7 +1355,7 @@ fn layer_rendered_at_correct_position() {
     ui.show().unwrap();
 
     // Frame 1: item partially scrolled off the left edge of the Flickable.
-    // viewport-x = -120 → visible range 120..184. Item at 100..140.
+    // content-x = -120 → visible range 120..184. Item at 100..140.
     // Item left edge (100) is 20px left of visible start (120).
     // Only the right 20px are visible in the Flickable.
     // The layer cache is created with the clip starting at x=20 in local

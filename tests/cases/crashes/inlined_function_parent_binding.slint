@@ -1,0 +1,48 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// The LLR optimizer used to panic ("We use a property and its count is zero"), or
+// miscompile in release, when a component's public function reads a property more
+// than once that is bound from the parent (here via `height: 100%`). The function
+// is inlined into its single cross-component caller, and those reads only become
+// eligible to inline the parent's binding after the move, which the use-count
+// bookkeeping did not account for.
+
+component Child inherits Rectangle {
+    out property <length> read1;
+    out property <length> read2;
+    public function do-read() {
+        read1 = self.height;
+        read2 = self.height;
+    }
+}
+
+export component TestCase inherits Window {
+    width: 300px;
+    height: 200px;
+    c := Child {
+        height: 100%;
+    }
+    init => {
+        c.do-read();
+    }
+    out property <bool> test: c.read1 == 200px && c.read2 == 200px;
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+```js
+var instance = new slint.TestCase();
+assert(instance.test);
+```
+*/

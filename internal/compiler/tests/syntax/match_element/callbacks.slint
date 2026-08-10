@@ -1,0 +1,28 @@
+// Copyright © 2026 Klarälvdalens Datakonsult AB, a KDAB Group company <info@kdab.com>, author Nicholas Turner <nicholas.turner@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component Foo {
+    in-out property <int> foo: 0;
+    callback match(int);
+    match (bar) => {
+        return;
+    }
+}
+
+export component Bar {
+    in-out property <int> foo: 0;
+    callback match(int);
+    match (foo) {
+        return;
+//            ^error{Expected ':' after match case expression}
+    }
+//  ^error{Syntax error: expected Identifier}
+}
+export component Bax {
+    in-out property <int> foo: 0;
+    callback match(int);
+    match (foo) {
+        0: Rectangle { }
+        *: Rectangle { }
+    }
+}

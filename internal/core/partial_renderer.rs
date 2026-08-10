@@ -25,8 +25,8 @@ use crate::item_tree::{ItemTreeRc, ItemTreeWeak, ItemVisitorResult};
 use crate::items::Path;
 use crate::items::{BoxShadow, Clip, ItemRc, ItemRef, Layer, Opacity, RenderingResult, TextInput};
 use crate::lengths::{
-    ItemTransform, LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalPx, LogicalRect,
-    LogicalSize, LogicalVector,
+    ItemTransform, LogicalBorderRadius, LogicalPoint, LogicalPx, LogicalRect, LogicalSize,
+    LogicalVector, ScaleFactor,
 };
 use crate::properties::PropertyTracker;
 use crate::window::WindowAdapter;
@@ -460,19 +460,26 @@ impl<'a, T: ItemRenderer + ItemRendererFeatures> PartialRenderer<'a, T> {
                             &cached_geom.transform(),
                         );
 
+                        let moved = state.must_refresh_children
+                            || new_state.transform_to_screen != new_state.old_transform_to_screen;
+
                         if rendering_dirty {
                             self.mark_dirty_rect(
                                 cached_geom.bounding_rect(),
                                 state.transform_to_screen,
                                 &state.clipped,
                             );
+                            if moved {
+                                self.mark_dirty_rect(
+                                    cached_geom.bounding_rect(),
+                                    state.old_transform_to_screen,
+                                    &state.clipped,
+                                );
+                            }
 
                             ItemVisitorResult::Continue(new_state)
                         } else {
-                            if state.must_refresh_children
-                                || new_state.transform_to_screen
-                                    != new_state.old_transform_to_screen
-                            {
+                            if moved {
                                 self.mark_dirty_rect(
                                     cached_geom.bounding_rect(),
                                     state.old_transform_to_screen,
@@ -676,13 +683,8 @@ impl<T: ItemRenderer + ItemRendererFeatures> ItemRenderer for PartialRenderer<'_
     forward_rendering_call!(fn visit_opacity(Opacity) -> RenderingResult);
     forward_rendering_call!(fn visit_layer(Layer) -> RenderingResult);
 
-    fn combine_clip(
-        &mut self,
-        rect: LogicalRect,
-        radius: LogicalBorderRadius,
-        border_width: LogicalLength,
-    ) -> bool {
-        self.actual_renderer.combine_clip(rect, radius, border_width)
+    fn combine_clip(&mut self, rect: LogicalRect, radius: LogicalBorderRadius) -> bool {
+        self.actual_renderer.combine_clip(rect, radius)
     }
 
     fn get_current_clip(&self) -> LogicalRect {
@@ -716,7 +718,7 @@ impl<T: ItemRenderer + ItemRendererFeatures> ItemRenderer for PartialRenderer<'_
         self.actual_renderer.restore_state()
     }
 
-    fn scale_factor(&self) -> f32 {
+    fn scale_factor(&self) -> ScaleFactor {
         self.actual_renderer.scale_factor()
     }
 

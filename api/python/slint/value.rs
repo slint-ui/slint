@@ -6,7 +6,6 @@ use i_slint_compiler::generator::python::ident;
 use pyo3::types::PyDict;
 use pyo3::{IntoPyObjectExt, PyTraverseError};
 use pyo3::{PyVisit, prelude::*};
-use pyo3_stub_gen::{derive::gen_stub_pyclass, derive::gen_stub_pymethods};
 
 use std::cell::OnceCell;
 use std::collections::HashMap;
@@ -18,7 +17,6 @@ use i_slint_core::model::{Model, ModelRc};
 
 use crate::keys::PyKeys;
 
-#[gen_stub_pyclass]
 pub struct SlintToPyValue {
     pub slint_value: slint_interpreter::Value,
     pub type_collection: TypeCollection,
@@ -156,7 +154,6 @@ fn clear_strongrefs_in_struct(structval: &slint_interpreter::Struct) {
     }
 }
 
-#[gen_stub_pyclass]
 #[pyclass(subclass, unsendable, skip_from_py_object)]
 #[derive(Clone)]
 pub struct PyStruct {
@@ -228,7 +225,6 @@ impl PyStruct {
     }
 }
 
-#[gen_stub_pyclass]
 #[pyclass(unsendable)]
 struct PyStructFieldIterator {
     inner: std::collections::hash_map::IntoIter<String, slint_interpreter::Value>,
@@ -236,7 +232,6 @@ struct PyStructFieldIterator {
     expected_type: Option<Type>,
 }
 
-#[gen_stub_pymethods]
 #[pymethods]
 impl PyStructFieldIterator {
     fn __iter__(slf: PyRef<'_, Self>) -> PyRef<'_, Self> {

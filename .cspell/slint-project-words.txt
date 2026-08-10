@@ -15,6 +15,7 @@ amdgpu
 amet
 Amoled
 androideabi
+anyrender
 Appbar
 appicon
 appiconset
@@ -42,6 +43,7 @@ Baselining
 baudrate
 bdata
 Belappetit
+bezpath
 BGRA
 BGRX
 bindgen
@@ -87,6 +89,7 @@ codepoint
 codepoints
 codesign
 codingame
+coeffs
 coldict
 colorspace
 colour
@@ -131,6 +134,7 @@ defconfig
 defmt
 defதோசை
 deinit
+delenv
 depfile
 deque
 devcode
@@ -177,6 +181,7 @@ endforeach
 endfunction
 endrst
 enim
+epoll
 entrancy
 enummember
 eprintln
@@ -228,7 +233,9 @@ fract
 framebuffers
 freetype
 frontends
+frontmatter
 Fsvg
+fullsize
 Fullwidth
 fvar
 Fwww
@@ -243,6 +250,7 @@ gltf
 glutin
 glyphclusters
 gnueabihf
+goldens
 grcov
 Grimme
 Grotesk
@@ -255,9 +263,11 @@ hidpi
 highp
 HINSTANCE
 Hira
+hlayout
 hmenu
 horizontalbox
 horizontallayout
+hotplug
 hspace
 HSPI
 HSYNC
@@ -281,6 +291,7 @@ incpath
 inputchip
 intprop
 intval
+iocp
 IRAM
 Irqs
 isinstance
@@ -302,6 +313,7 @@ kitware
 Klarälvdalens
 kqueue
 ksni
+kurbo
 labore
 laboris
 langtype
@@ -329,6 +341,7 @@ libglx
 libgstreamer
 libgstrtspserver
 Libinput
+libintl
 libloading
 libm
 librsvg
@@ -336,6 +349,8 @@ libseat
 libslint
 libstdc
 libudev
+libuv
+libtest
 libx
 libxcb
 libxcursor
@@ -345,6 +360,7 @@ libxrandr
 lightimg
 limax
 linearprogressindicator
+linebender
 linebreaker
 linuxkms
 lipo
@@ -363,9 +379,11 @@ machdep
 Macronix
 mainwindow
 MALLOC
+manylinux
 materialui
 matplot
 maturin
+mcp
 mcus
 MCUX
 mdbook
@@ -377,6 +395,7 @@ mimxrt
 minmax
 MIPI
 mipidsi
+miscompile
 modalnavigationdrawer
 modelprop
 MOSI
@@ -430,6 +449,7 @@ objfile
 Octa
 oklch
 oldsyspath
+optipng
 ospi
 othercomp
 ovmf
@@ -441,6 +461,7 @@ pathlib
 pbjson
 PCLK
 pdoc
+peniko
 picotool
 pixabay
 pixelcolor
@@ -463,6 +484,7 @@ protoc
 protox
 Pseudonymized
 psram
+purelib
 pyclass
 pyftsubset
 pyfunction
@@ -470,6 +492,7 @@ pymethods
 pymodule
 pyobject
 pypi
+pypiserver
 pyproject
 pystruct
 pytest
@@ -486,7 +509,9 @@ Raleway
 Randriana
 rasterizer
 rasterizes
+rasterizing
 RBUTTONUP
+recompiles
 rects
 redoable
 REFR
@@ -504,6 +529,7 @@ rlib
 Roboto
 RODATA
 rowcol
+rsplit
 rspolib
 rsvg
 rtti
@@ -526,6 +552,7 @@ serde
 setattr
 SETFL
 Shaderiv
+shadowable
 sharedfontique
 sharedstring
 sharedvector
@@ -552,6 +579,7 @@ srcroot
 SRCS
 SRGBA
 standardbutton
+startswith
 staticlib
 staticmethod
 stdset
@@ -572,6 +600,7 @@ styledtext
 styledtextprop
 styledval
 stylemetrics
+subcomponent
 subcomponents
 subelement
 subfolders
@@ -594,6 +623,7 @@ targetstruct
 Tdefmt
 tempor
 termcolor
+texels
 texteditor
 textinput
 textinputinterface
@@ -626,30 +656,36 @@ udisksctl
 udivdi
 uintptr
 ullamco
+unclipped
 unfocusable
 unhinted
 unicodes
 uninit
 Unitless
+unittests
 unmaximize
 UNORM
 unpark
 unparseable
 unpic
 Unpremul
+unpremultiply
 unsendable
 usbc
 usecases
+userconfig
 usize
 usvg
 vbus
 vecmodel
+vello
 veniam
 venv
 verticalbox
 verticallayout
 VGWGPU
 viewports
+vlayout
 vref
 vscodeversion
 vtables

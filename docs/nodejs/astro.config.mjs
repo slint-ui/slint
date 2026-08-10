@@ -76,10 +76,9 @@ export default defineConfig({
                             // starlight-typedoc deletes every subdirectory README.md but
                             // typedoc-plugin-markdown still emits a "Namespaces" link to
                             // the deleted file in the parent README. The namespace's
-                            // type-alias sub-pages and the language variable page at
-                            // /api/variables/language/ cover the same content.
-                            p.endsWith(
-                                "/api/slint-ui/namespaces/language/readme/",
+                            // own sub-pages cover the same content.
+                            /\/api\/slint-ui\/namespaces\/[^/]+\/readme\/$/.test(
+                                p,
                             )
                         );
                     },
@@ -92,7 +91,8 @@ export default defineConfig({
             // typedoc-plugin-markdown nests namespaces under the parent module on disk
             // (`api/slint-ui/namespaces/…`), not at `api/namespaces/…` where the
             // auto-sidebar looks. We define the API sidebar manually so the `language`
-            // variable expands to its struct/enum types.
+            // variable expands to its struct/enum types and the `platform` namespace
+            // expands to its window event types.
             sidebar: [
                 { label: "Overview", slug: "index" },
                 {
@@ -135,6 +135,30 @@ export default defineConfig({
                                     autogenerate: {
                                         directory: "api/interfaces",
                                     },
+                                },
+                            ],
+                        },
+                        {
+                            label: "Namespaces",
+                            collapsed: true,
+                            items: [
+                                {
+                                    label: "platform",
+                                    collapsed: true,
+                                    items: [
+                                        {
+                                            autogenerate: {
+                                                directory:
+                                                    "api/slint-ui/namespaces/platform/type-aliases",
+                                            },
+                                        },
+                                        {
+                                            autogenerate: {
+                                                directory:
+                                                    "api/slint-ui/namespaces/platform/interfaces",
+                                            },
+                                        },
+                                    ],
                                 },
                             ],
                         },

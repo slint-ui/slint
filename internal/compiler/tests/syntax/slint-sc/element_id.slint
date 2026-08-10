@@ -1,0 +1,41 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// The `name :=` prefix gives an element an id, naming it within the component.
+// An id shall be unique, and shall not use the reserved names self/parent/root.
+
+export component Test inherits Window {
+    // An id names the element, so a reference can reach its properties.
+    //#sls.file.element.id
+    rect1 := Rectangle {
+        width: 10px;
+    }
+    Rectangle {
+        width: rect1.width;
+    }
+
+    // Two elements with the same id are an error.
+    //#sls.file.element.id.unique
+    dup := Rectangle { }
+//         >        <error{duplicated element id 'dup'}
+    dup := Rectangle { }
+//         >        <error{duplicated element id 'dup'}
+
+    // A reserved name shall not be used as an id.
+    //#sls.file.element.id.reserved
+    self := Rectangle { }
+//  >  <error{'self' is a reserved id}
+    parent := Rectangle { }
+//  >    <error{'parent' is a reserved id}
+    root := Rectangle { }
+//  >  <error{'root' is a reserved id}
+
+    // Unlike the reserved names, `true` and `false` may be used as an id, but
+    // a bare `true`/`false` is the boolean value, so the element is unreachable.
+    //#sls.name.lookup
+    true := Rectangle { width: 10px; }
+    Rectangle {
+        width: true.width;
+//                  >   <error{Cannot access the field 'width' of bool}
+    }
+}

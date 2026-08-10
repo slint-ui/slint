@@ -4,7 +4,7 @@
 # cSpell: ignore memoffset
 [package]
 name = "const-field-offset-macro"
-version = "0.2.0"
+version = "0.2.1"
 authors = ["Slint Developers <info@slint.dev>"]
 edition = "2024"
 rust-version = "1.88"
@@ -18,7 +18,7 @@ path = "macro.rs"
 proc-macro = true
 
 [dependencies]
-syn = { version = "2.0", features = ["derive"] }
+syn = { version = "3.0", features = ["derive"] }
 quote = "1.0"
 proc-macro2 = "1.0"
 

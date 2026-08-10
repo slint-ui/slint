@@ -48,6 +48,7 @@ impl DefaultFontSize {
 pub struct GlobalAnalysis {
     pub default_font_size: DefaultFontSize,
     pub const_scale_factor: Option<f32>,
+    pub const_image_sizes: bool,
 }
 
 /// Maps the alias in the other direction than what the BindingExpression::two_way_binding does.
@@ -62,6 +63,7 @@ pub fn binding_analysis(
 ) -> GlobalAnalysis {
     let mut global_analysis = GlobalAnalysis {
         const_scale_factor: compiler_config.const_scale_factor,
+        const_image_sizes: compiler_config.const_image_sizes,
         ..Default::default()
     };
     let mut reverse_aliases = Default::default();
@@ -104,6 +106,18 @@ impl PropertyPath {
         if element.borrow().enclosing_component.upgrade().unwrap().is_global() {
             return second.clone();
         }
+        fn check_that_element_is_in_the_component(
+            e: &ElementRc,
+            c: &Rc<crate::object_tree::Component>,
+        ) -> bool {
+            let enclosing = e.borrow().enclosing_component.upgrade().unwrap();
+            Rc::ptr_eq(c, &enclosing)
+                || enclosing
+                    .parent_element
+                    .borrow()
+                    .upgrade()
+                    .is_some_and(|e| check_that_element_is_in_the_component(&e, c))
+        }
         let mut elements = self.elements.clone();
         loop {
             let enclosing = element.borrow().enclosing_component.upgrade().unwrap();
@@ -113,32 +127,27 @@ impl PropertyPath {
                 break;
             }
 
-            if let Some(last) = elements.pop() {
-                #[cfg(debug_assertions)]
-                fn check_that_element_is_in_the_component(
-                    e: &ElementRc,
-                    c: &Rc<crate::object_tree::Component>,
-                ) -> bool {
-                    let enclosing = e.borrow().enclosing_component.upgrade().unwrap();
-                    Rc::ptr_eq(c, &enclosing)
-                        || enclosing
-                            .parent_element
-                            .borrow()
-                            .upgrade()
-                            .is_some_and(|e| check_that_element_is_in_the_component(&e, c))
-                }
-                #[cfg(debug_assertions)]
+            let Some(last) = elements.last() else {
+                break;
+            };
+            let last_component = last.borrow().base_type.as_component().clone();
+            if !check_that_element_is_in_the_component(&element, &last_component) {
+                // `element` is not inside `last`'s sub-component. The reverse holds
+                // instead — `last`'s component is enclosed by `element`'s — meaning
+                // `second` is rooted in an enclosing scope (e.g. a repeated cell's
+                // input bound to an outer property). There is no descent prefix to
+                // lift it through, so return it unchanged. Neither containment
+                // holding is a malformed path (asserted in debug builds).
                 debug_assert!(
                     check_that_element_is_in_the_component(
-                        &element,
-                        last.borrow().base_type.as_component()
+                        &last_component.root_element,
+                        &enclosing
                     ),
                     "The element is not in the component pointed at by the path ({self:?} / {second:?})"
                 );
-                element = last.0;
-            } else {
-                break;
+                return second.clone();
             }
+            element = elements.pop().unwrap().0;
         }
         if second.elements.is_empty() {
             debug_assert!(elements.last().is_none_or(|x| *x != ByAddress(second.prop.element())));
@@ -197,7 +206,7 @@ fn analyze_element(
     reverse_aliases: &ReverseAliases,
     diag: &mut BuildDiagnostics,
 ) {
-    for (name, binding) in &elem.borrow().bindings {
+    for (name, binding) in elem.borrow().real_bindings() {
         if binding.borrow().analysis.is_some() {
             continue;
         }
@@ -253,9 +262,13 @@ fn analyze_element(
             process_property(prop, r, context, reverse_aliases, diag);
         });
         if let Some(lv) = &repeated.is_listview {
-            process_property(&lv.viewport_y.clone().into(), P, context, reverse_aliases, diag);
-            process_property(&lv.viewport_height.clone().into(), P, context, reverse_aliases, diag);
-            process_property(&lv.viewport_width.clone().into(), P, context, reverse_aliases, diag);
+            process_property(&lv.content_y.clone().into(), P, context, reverse_aliases, diag);
+            if let Some(content_height) = &lv.content_height {
+                process_property(&content_height.clone().into(), P, context, reverse_aliases, diag);
+            }
+            if let Some(content_width) = &lv.content_width {
+                process_property(&content_width.clone().into(), P, context, reverse_aliases, diag);
+            }
             process_property(&lv.listview_height.clone().into(), P, context, reverse_aliases, diag);
             process_property(&lv.listview_width.clone().into(), P, context, reverse_aliases, diag);
         }
@@ -304,9 +317,18 @@ fn analyze_binding(
     let element = current.prop.element();
     let name = current.prop.name();
     if (context.currently_analyzing.back() == Some(current))
-        && !element.borrow().bindings[name].borrow().two_way_bindings.is_empty()
+        && !element
+            .borrow()
+            .binding_cell_including_synthetic(name)
+            .unwrap()
+            .borrow()
+            .two_way_bindings
+            .is_empty()
     {
-        let span = element.borrow().bindings[name]
+        let span = element
+            .borrow()
+            .binding_cell_including_synthetic(name)
+            .unwrap()
             .borrow()
             .span
             .clone()
@@ -350,7 +372,7 @@ fn analyze_binding(
             let p = &it.prop;
             let elem = p.element();
             let elem = elem.borrow();
-            let binding = elem.bindings[p.name()].borrow();
+            let binding = elem.binding_cell_including_synthetic(p.name()).unwrap().borrow();
             if binding.analysis.as_ref().unwrap().is_in_binding_loop.replace(true) {
                 break;
             }
@@ -368,7 +390,8 @@ fn analyze_binding(
         return depends_on_external;
     }
 
-    let binding = &element.borrow().bindings[name];
+    let element_borrow = element.borrow();
+    let binding = element_borrow.binding_cell_including_synthetic(name).unwrap();
     if binding.borrow().analysis.as_ref().is_some_and(|a| a.no_external_dependencies) {
         return depends_on_external;
     } else if !context.visited.insert(current.clone()) {
@@ -398,10 +421,13 @@ fn analyze_binding(
     let mut process_prop = |prop: &PropertyPath, r, context: &mut AnalysisContext| {
         depends_on_external |=
             process_property(&current.relative(prop), r, context, reverse_aliases, diag);
-        for x in reverse_aliases.get(&prop.prop).unwrap_or(&Default::default()) {
-            if x != &current.prop && x != &prop.prop {
+        for x in find_alias_targets(prop, reverse_aliases) {
+            // Unlike `x == prop.prop` (a plain duplicate, skipped below), `x == current.prop`
+            // is kept: it re-enters the binding being analyzed through its own alias, which is
+            // how a loop like `foo <=> bar` plus `foo: bar` gets caught.
+            if x.prop != prop.prop {
                 depends_on_external |= process_property(
-                    &current.relative(&x.clone().into()),
+                    &current.relative(&x),
                     ReadType::PropertyRead,
                     context,
                     reverse_aliases,
@@ -450,6 +476,43 @@ fn analyze_binding(
     depends_on_external
 }
 
+/// Find properties two-way-bound (via `<=>`) to `prop`, ascending through base components
+/// when the alias was declared there rather than on `prop`'s own element.
+fn find_alias_targets(prop: &PropertyPath, reverse_aliases: &ReverseAliases) -> Vec<PropertyPath> {
+    // Alias declared on prop's own element, so return the target(s) verbatim without rebasing
+    if let Some(v) = reverse_aliases.get(&prop.prop) {
+        return v
+            .iter()
+            .map(|x| PropertyPath { elements: prop.elements.clone(), prop: x.clone() })
+            .collect();
+    }
+
+    let start_element = prop.elements.first().map_or_else(|| prop.prop.element(), |e| e.0.clone());
+    let mut cur = prop.prop.clone();
+    loop {
+        let element = cur.element();
+        if element.borrow().binding(cur.name()).is_some() {
+            return Vec::new();
+        }
+        let next = match &element.borrow().base_type {
+            ElementType::Component(base) => {
+                if element.borrow().property_declarations.contains_key(cur.name()) {
+                    return Vec::new();
+                }
+                base.root_element.clone()
+            }
+            _ => return Vec::new(),
+        };
+        cur = NamedReference::new(&next, cur.name().clone());
+        if let Some(v) = reverse_aliases.get(&cur) {
+            return v
+                .iter()
+                .map(|x| PropertyPath::from(NamedReference::new(&start_element, x.name().clone())))
+                .collect();
+        }
+    }
+}
+
 #[derive(Copy, Clone, Eq, PartialEq)]
 enum ReadType {
     // Read from the native code
@@ -490,7 +553,7 @@ fn process_property(
 
     loop {
         let element = prop.prop.element();
-        if element.borrow().bindings.contains_key(prop.prop.name()) {
+        if element.borrow().binding(prop.prop.name()).is_some() {
             analyze_binding(&prop, context, reverse_aliases, diag);
             break;
         }
@@ -547,7 +610,7 @@ fn recurse_expression(
             }
             visit_layout_items_dependencies(l.elems.iter(), *o, vis);
 
-            // The orthogonal solve depends on `align-items`.
+            // The orthogonal solve depends on `cross-axis-alignment`.
             if matches!(expr, Expression::SolveBoxLayout(..))
                 && *o != l.orientation
                 && let Some(nr) = l.cross_alignment.as_ref()
@@ -727,9 +790,10 @@ fn recurse_expression(
             }
             BuiltinFunction::ItemAbsolutePosition => {
                 if let Some(Expression::ElementReference(item)) = arguments.first() {
+                    // The result depends on the element's own geometry origin as well as every
+                    // ancestor's (map_to_window walks the whole ancestor chain).
                     let mut item = item.upgrade().unwrap();
-                    while let Some(parent) = find_parent_element(&item) {
-                        item = parent;
+                    loop {
                         vis(
                             &NamedReference::new(&item, SmolStr::new_static("x")).into(),
                             ReadType::NativeRead,
@@ -738,6 +802,8 @@ fn recurse_expression(
                             &NamedReference::new(&item, SmolStr::new_static("y")).into(),
                             ReadType::NativeRead,
                         );
+                        let Some(parent) = find_parent_element(&item) else { break };
+                        item = parent;
                     }
                 }
             }
@@ -892,11 +958,10 @@ fn visit_cell_cross_axis_implicit_dependency(
     }
     let reads_opposite = item
         .borrow()
-        .bindings
-        .get(prop)
+        .binding(prop)
         .map(|b| {
             let mut seen = false;
-            b.borrow().expression.visit_recursive(&mut |sub| {
+            b.expression.visit_recursive(&mut |sub| {
                 if let Expression::PropertyReference(nr) = sub
                     && nr.name() == opposite_dim
                     && Rc::ptr_eq(&nr.element(), item)
@@ -1018,13 +1083,16 @@ fn check_window_properties(doc: &Document, global_analysis: &mut GlobalAnalysis)
                             .get(DEFAULT_FONT_SIZE)
                             .is_some_and(|a| a.is_set)
                     {
-                        let value = elem.borrow().bindings.get(DEFAULT_FONT_SIZE).and_then(|e| {
-                            match &e.borrow().expression {
-                                Expression::NumberLiteral(v, crate::expression_tree::Unit::Px) => {
-                                    Some(*v as f32)
-                                }
-                                _ => None,
+                        // Do not ignore debug hooks here. They make the expression variable, so the
+                        // const-check would incorrectly mark the font size as const, even if it is
+                        // not.
+                        let value = elem.borrow().binding(DEFAULT_FONT_SIZE).and_then(|e| match e
+                            .expression
+                        {
+                            Expression::NumberLiteral(v, crate::expression_tree::Unit::Px) => {
+                                Some(v as f32)
                             }
+                            _ => None,
                         });
                         let is_const = value.is_some()
                             || NamedReference::new(elem, SmolStr::new_static(DEFAULT_FONT_SIZE))
@@ -1082,7 +1150,7 @@ fn propagate_is_set_on_aliases(doc: &Document, reverse_aliases: &mut ReverseAlia
     });
 
     fn visit_element(e: &ElementRc, reverse_aliases: &mut ReverseAliases) {
-        for (name, binding) in &e.borrow().bindings {
+        for (name, binding) in e.borrow().real_bindings() {
             if !binding.borrow().two_way_bindings.is_empty() {
                 check_alias(e, name, &binding.borrow());
 
@@ -1130,9 +1198,9 @@ fn propagate_is_set_on_aliases(doc: &Document, reverse_aliases: &mut ReverseAlia
     fn mark_alias(alias: &NamedReference) {
         alias.mark_as_set();
         if !alias.is_externally_modified()
-            && let Some(bind) = alias.element().borrow().bindings.get(alias.name())
+            && let Some(bind) = alias.element().borrow().binding(alias.name())
         {
-            propagate_alias(&bind.borrow())
+            propagate_alias(&bind)
         }
     }
 }
@@ -1148,7 +1216,7 @@ fn mark_used_base_properties(doc: &Document) {
                 if !matches!(element.borrow().base_type, ElementType::Component(_)) {
                     return;
                 }
-                for (name, binding) in &element.borrow().bindings {
+                for (name, binding) in element.borrow().real_bindings() {
                     if binding.borrow().has_binding() {
                         crate::namedreference::mark_property_set_derived_in_base(
                             element.clone(),

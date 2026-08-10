@@ -6,7 +6,7 @@ import { RadioButtonBase } from "radiobutton-base.slint";
 export component RadioGroupBase {
     in property <bool> enabled: true;
     in-out property <int> current-index: -1;
-    in-out property <string> current-value;
+    out property <string> current-value;
 
     callback selected(string);
 
@@ -126,7 +126,7 @@ export component RadioGroupImplBase {
     in property <int> title-font-weight: 400;
 
     in-out property <int> current-index <=> sel.current-index;
-    in-out property <string> current-value <=> sel.current-value;
+    out property <string> current-value: sel.current-value;
     out property <bool> has-focus: focus-depth > 0;
 
     callback selected <=> sel.selected;

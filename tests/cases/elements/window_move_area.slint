@@ -1,0 +1,108 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component TestCase inherits Window {
+    width: 100px;
+    height: 200px;
+    in property <bool> area-enabled: true;
+    in-out property <string> result;
+    out property <bool> inner-touch-area-has-hover <=> inner-touch-area.has-hover;
+
+    Rectangle {
+        y: 0;
+        height: 100px;
+        WindowMoveArea {
+            enabled: root.area-enabled;
+            inner-touch-area := TouchArea {
+                x: 50px;
+                width: 50px;
+                clicked => { result += "InnerClicked;"; }
+            }
+        }
+    }
+}
+
+/*
+```rust
+use slint::{platform::WindowEvent, LogicalPosition, platform::PointerEventButton};
+
+let instance = TestCase::new().unwrap();
+let move_count = || slint_testing::access_testing_window(instance.window(), |window| window.window_move_request_count());
+
+// A plain click on the inner touch area doesn't move the window.
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(60.0, 25.0), button: PointerEventButton::Left });
+slint_testing::mock_elapsed_time(20);
+assert_eq!(move_count(), 0);
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(60.0, 25.0), button: PointerEventButton::Left });
+slint_testing::mock_elapsed_time(20);
+assert_eq!(instance.get_result(), "InnerClicked;");
+assert_eq!(move_count(), 0);
+
+// A click with movement below the threshold is still a click.
+instance.set_result("".into());
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(60.0, 25.0), button: PointerEventButton::Left });
+slint_testing::mock_elapsed_time(20);
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(63.0, 28.0) });
+slint_testing::mock_elapsed_time(20);
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(63.0, 28.0), button: PointerEventButton::Left });
+slint_testing::mock_elapsed_time(20);
+assert_eq!(instance.get_result(), "InnerClicked;");
+assert_eq!(move_count(), 0);
+
+// Dragging past the threshold requests a window move, even when the drag starts on the touch area.
+instance.set_result("".into());
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(60.0, 25.0), button: PointerEventButton::Left });
+slint_testing::mock_elapsed_time(20);
+assert!(instance.get_inner_touch_area_has_hover());
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(60.0, 45.0) });
+slint_testing::mock_elapsed_time(20);
+assert_eq!(move_count(), 1);
+// The touch area's press was cancelled when the move started, so the release is not a click.
+// (In a real session the windowing system also sends a leave event once it takes the pointer over.)
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(60.0, 45.0), button: PointerEventButton::Left });
+slint_testing::mock_elapsed_time(20);
+assert_eq!(instance.get_result(), "");
+assert_eq!(move_count(), 1);
+
+// Input still works normally after the window move.
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(60.0, 25.0), button: PointerEventButton::Left });
+slint_testing::mock_elapsed_time(500);
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(60.0, 25.0), button: PointerEventButton::Left });
+slint_testing::mock_elapsed_time(20);
+assert_eq!(instance.get_result(), "InnerClicked;");
+assert_eq!(move_count(), 1);
+
+// Dragging outside of any touch area also requests a window move.
+instance.set_result("".into());
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(10.0, 25.0), button: PointerEventButton::Left });
+slint_testing::mock_elapsed_time(20);
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(30.0, 25.0) });
+slint_testing::mock_elapsed_time(20);
+assert_eq!(move_count(), 2);
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(30.0, 25.0), button: PointerEventButton::Left });
+slint_testing::mock_elapsed_time(20);
+assert_eq!(instance.get_result(), "");
+
+// Dragging outside of the WindowMoveArea doesn't move the window.
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(50.0, 150.0), button: PointerEventButton::Left });
+slint_testing::mock_elapsed_time(20);
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(50.0, 175.0) });
+slint_testing::mock_elapsed_time(20);
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(50.0, 175.0), button: PointerEventButton::Left });
+slint_testing::mock_elapsed_time(20);
+assert_eq!(move_count(), 2);
+
+// A disabled WindowMoveArea never requests a move, and events pass through.
+instance.set_area_enabled(false);
+instance.set_result("".into());
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(60.0, 25.0), button: PointerEventButton::Left });
+slint_testing::mock_elapsed_time(20);
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(60.0, 45.0) });
+slint_testing::mock_elapsed_time(20);
+assert_eq!(move_count(), 2);
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(60.0, 45.0), button: PointerEventButton::Left });
+slint_testing::mock_elapsed_time(20);
+assert_eq!(instance.get_result(), "InnerClicked;");
+assert_eq!(move_count(), 2);
+```
+*/

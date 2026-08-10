@@ -1,10 +1,11 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-from slint import load_file, init_translations
-from pathlib import Path
 import gettext
 import typing
+from pathlib import Path
+
+from slint import init_translations, load_file
 
 
 def base_dir() -> Path:

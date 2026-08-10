@@ -6,9 +6,13 @@
 */
 #![warn(missing_docs)]
 
+use crate::cursor::MouseCursorInner;
 use crate::item_tree::ItemTreeRc;
 use crate::item_tree::{ItemRc, ItemWeak, VisitChildrenResult};
-use crate::items::{DropEvent, ItemRef, MouseCursor, OperatingSystemType, TextCursorDirection};
+use crate::items::{
+    AllowedDragActions, BuiltInMouseCursor, DropEvent, ItemRef, OperatingSystemType,
+    TextCursorDirection,
+};
 pub use crate::items::{FocusReason, KeyEvent, KeyboardModifiers, PointerEventButton};
 use crate::lengths::{ItemTransform, LogicalPoint, LogicalVector};
 use crate::timers::Timer;
@@ -72,9 +76,19 @@ pub enum MouseEvent {
     /// The mouse is being dragged over this item.
     /// [`InputEventResult::EventIgnored`] means that the item does not handle the drag operation
     /// and [`InputEventResult::EventAccepted`] means that the item can accept it.
-    DragMove(DropEvent),
+    DragMove {
+        /// The dragged payload and its current position/proposed action.
+        event: DropEvent,
+        /// The actions the drag source permits.
+        allowed: AllowedDragActions,
+    },
     /// The mouse is released while dragging over this item.
-    Drop(DropEvent),
+    Drop {
+        /// The dragged payload and its current position/proposed action.
+        event: DropEvent,
+        /// The actions the drag source permits.
+        allowed: AllowedDragActions,
+    },
     /// A platform-recognized pinch gesture (macOS/iOS trackpad, Qt).
     PinchGesture {
         /// The focal position of the gesture.
@@ -108,6 +122,12 @@ impl MouseEvent {
         }
     }
 
+    /// Whether the event originates from a touch screen rather than a mouse.
+    pub fn is_from_touch(&self) -> bool {
+        // touch events carry the finger id + 1, events from a mouse carry 0
+        self.touch_finger_id() != 0
+    }
+
     /// The position of the cursor for this event, if any
     pub fn position(&self) -> Option<LogicalPoint> {
         match self {
@@ -117,7 +137,7 @@ impl MouseEvent {
             MouseEvent::Wheel { position, .. } => Some(*position),
             MouseEvent::PinchGesture { position, .. } => Some(*position),
             MouseEvent::RotationGesture { position, .. } => Some(*position),
-            MouseEvent::DragMove(e) | MouseEvent::Drop(e) => {
+            MouseEvent::DragMove { event: e, .. } | MouseEvent::Drop { event: e, .. } => {
                 Some(crate::lengths::logical_point_from_api(e.position))
             }
             MouseEvent::Exit => None,
@@ -133,7 +153,7 @@ impl MouseEvent {
             MouseEvent::Wheel { position, .. } => Some(position),
             MouseEvent::PinchGesture { position, .. } => Some(position),
             MouseEvent::RotationGesture { position, .. } => Some(position),
-            MouseEvent::DragMove(e) | MouseEvent::Drop(e) => {
+            MouseEvent::DragMove { event: e, .. } | MouseEvent::Drop { event: e, .. } => {
                 e.position = crate::api::LogicalPosition::from_euclid(
                     crate::lengths::logical_point_from_api(e.position) + vec,
                 );
@@ -155,7 +175,7 @@ impl MouseEvent {
             MouseEvent::Wheel { position, .. } => Some(position),
             MouseEvent::PinchGesture { position, .. } => Some(position),
             MouseEvent::RotationGesture { position, .. } => Some(position),
-            MouseEvent::DragMove(e) | MouseEvent::Drop(e) => {
+            MouseEvent::DragMove { event: e, .. } | MouseEvent::Drop { event: e, .. } => {
                 e.position = crate::api::LogicalPosition::from_euclid(
                     transform
                         .transform_point(crate::lengths::logical_point_from_api(e.position).cast())
@@ -1214,6 +1234,16 @@ impl ClickState {
     }
 }
 
+/// The data for an in-flight drag-and-drop operation, held while a drag is active.
+#[derive(Clone)]
+pub(crate) struct DragData {
+    /// The dragged payload together with its current position and proposed action.
+    /// The `position` is updated on every move.
+    pub(crate) event: DropEvent,
+    /// The actions the drag source permits, captured at drag start.
+    pub(crate) allowed: AllowedDragActions,
+}
+
 /// The state which a window should hold for the mouse input
 #[derive(Default)]
 pub struct MouseInputState {
@@ -1231,7 +1261,7 @@ pub struct MouseInputState {
     grabbed: bool,
     /// When this is Some, it means we are in the middle of a drag-drop operation and it contains the dragged data.
     /// The `position` field has no signification
-    pub(crate) drag_data: Option<DropEvent>,
+    pub(crate) drag_data: Option<DragData>,
     /// The `DragArea` that initiated the in-flight drag.
     /// `None` for drags coming from outside (native cross-window/cross-process DnD).
     pub(crate) drag_source: Option<ItemWeak>,
@@ -1241,13 +1271,28 @@ pub struct MouseInputState {
     pub(crate) drop_target: Option<ItemWeak>,
     delayed: Option<(crate::timers::Timer, MouseEvent)>,
     delayed_exit_items: Vec<ItemWeak>,
-    pub(crate) cursor: MouseCursor,
+    pub(crate) cursor: MouseCursorInner,
 }
 
 impl MouseInputState {
     /// Return the item in the top of the stack
     fn top_item(&self) -> Option<ItemRc> {
         self.item_stack.last().and_then(|x| x.0.upgrade())
+    }
+
+    /// Arm the in-window drag: seed `drag_data`/`drag_source` from `drag_area` at `seed_position`
+    /// and mark it dragging.
+    pub(crate) fn arm_in_window_drag(
+        &mut self,
+        drag_area: core::pin::Pin<&crate::items::DragArea>,
+        source: ItemWeak,
+        seed_position: crate::api::LogicalPosition,
+    ) {
+        let (mut drop_event, allowed) = drag_area.initial_drop_event();
+        drop_event.position = seed_position;
+        self.drag_data = Some(DragData { event: drop_event, allowed });
+        self.drag_source = Some(source);
+        drag_area.dragging.set(true);
     }
 
     /// Returns the item in the top of the stack, if there is a delayed event, this would be the top of the delayed stack
@@ -1280,6 +1325,41 @@ pub(crate) struct MouseGrabResult {
     /// Whether the grabber consumed the original event before any follow-up event was
     /// synthesized for hover/grab refresh.
     pub accepted: bool,
+}
+
+/// Start a drag from `drag_area`, preferring a native (OS-level) drag and falling back to the
+/// in-window drag (armed on `state`) when no backend takes over.
+fn offer_native_drag(
+    window_adapter: &Rc<dyn WindowAdapter>,
+    drag_area: core::pin::Pin<&crate::items::DragArea>,
+    source: ItemWeak,
+    seed_position: crate::api::LogicalPosition,
+    state: &mut MouseInputState,
+) {
+    let data = drag_area.data();
+    // A native drag only carries serializable data, so offer it only when there's some.
+    if data.has_plain_text() || data.has_image() {
+        let request = crate::window::DragRequest {
+            data: data.clone(),
+            allowed: drag_area.allowed_actions(),
+            drag_image: drag_area.drag_image(),
+            drag_image_offset: euclid::vec2(
+                drag_area.drag_image_offset_x(),
+                drag_area.drag_image_offset_y(),
+            ),
+        };
+        if window_adapter.internal(crate::InternalToken).is_some_and(|i| i.start_drag(&request)) {
+            // The backend took over (and defers the actual drag). Stash it so it can report
+            // completion or fall back, and so a drop back onto this window restores the data.
+            let drag = crate::window::NativePendingDrag { request, source, seed_position };
+            crate::window::WindowInner::from_pub(window_adapter.window())
+                .set_native_drag(Some(drag));
+            drag_area.dragging.set(true);
+            return;
+        }
+    }
+    // No backend took over: fall back to the in-window drag.
+    state.arm_in_window_drag(drag_area, source, seed_position);
 }
 
 /// Try to handle the mouse grabber.
@@ -1360,16 +1440,19 @@ pub(crate) fn handle_mouse_grab(
             mouse_input_state.grabbed = false;
             let drag_area_item = grabber.downcast::<crate::items::DragArea>().unwrap();
             let drag_area = drag_area_item.as_pin_ref();
-            let mut drop_event = drag_area.initial_drop_event();
             // Seed the drag position from the event that crossed the drag threshold so
             // the renderer can place the drag-image overlay before the first DragMove.
-            drop_event.position = mouse_event
+            let seed_position = mouse_event
                 .position()
                 .map(crate::lengths::logical_position_to_api)
                 .unwrap_or_default();
-            mouse_input_state.drag_data = Some(drop_event);
-            mouse_input_state.drag_source = Some(grabber.downgrade());
-            drag_area.dragging.set(true);
+            offer_native_drag(
+                window_adapter,
+                drag_area,
+                grabber.downgrade(),
+                seed_position,
+                mouse_input_state,
+            );
             MouseGrabResult { event: None, accepted: true }
         }
         InputEventResult::EventAccepted | InputEventResult::EventIgnored => {
@@ -1392,7 +1475,7 @@ pub(crate) fn send_exit_events(
     window_adapter: &Rc<dyn WindowAdapter>,
 ) {
     // Note that exit events can't actually change the cursor from default so we'll ignore the result
-    let cursor = &mut MouseCursor::Default;
+    let cursor = &mut MouseCursorInner::BuiltIn(BuiltInMouseCursor::Default);
 
     for it in core::mem::take(&mut new_input_state.delayed_exit_items) {
         let Some(item) = it.upgrade() else { continue };
@@ -1470,7 +1553,7 @@ pub fn process_mouse_input(
         drag_data: mouse_input_state.drag_data.clone(),
         drag_source: mouse_input_state.drag_source.clone(),
         drop_target: mouse_input_state.drop_target.clone(),
-        cursor: mouse_input_state.cursor,
+        cursor: mouse_input_state.cursor.clone(),
         ..Default::default()
     };
     let r = send_mouse_event_to_item(
@@ -1482,7 +1565,7 @@ pub fn process_mouse_input(
         false,
     );
     let accepted = r.has_aborted();
-    if matches!(mouse_event, MouseEvent::DragMove(_)) {
+    if matches!(mouse_event, MouseEvent::DragMove { .. }) {
         // Remember the accepting DropArea (or forget if none did) so the subsequent
         // Release knows whether to deliver a Drop.
         result.drop_target =
@@ -1684,19 +1767,22 @@ fn send_mouse_event_to_item(
             result.grabbed = false;
             let drag_area_item = item_rc.downcast::<crate::items::DragArea>().unwrap();
             let drag_area = drag_area_item.as_pin_ref();
-            let mut drop_event = drag_area.initial_drop_event();
             // `mouse_event` here is in the parent item's coords (this function is called
             // recursively); translate into the DragArea's local coords, then map back to
             // window coords so the drag-image overlay places at the right spot from the start.
-            drop_event.position = mouse_event
+            let seed_position = mouse_event
                 .position()
                 .map(|p| p - geom.origin.to_vector())
                 .map(|p| item_rc.map_to_window(p))
                 .map(crate::lengths::logical_position_to_api)
                 .unwrap_or_default();
-            result.drag_data = Some(drop_event);
-            result.drag_source = Some(item_rc.downgrade());
-            drag_area.dragging.set(true);
+            offer_native_drag(
+                window_adapter,
+                drag_area,
+                item_rc.downgrade(),
+                seed_position,
+                result,
+            );
             VisitChildrenResult::abort(item_rc.index(), 0)
         }
     }

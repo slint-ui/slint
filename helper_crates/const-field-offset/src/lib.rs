@@ -53,6 +53,19 @@ pub use const_field_offset_macro::FieldOffsets;
 
 pub use field_offset::{AllowPin, FieldOffset, NotPinned};
 
+/// Compose two pinned field offsets into the offset of the nested field.
+///
+/// Same as the `Add` implementation on [`FieldOffset`], but usable in const
+/// context.
+pub const fn compose_field_offsets<T, U, V>(
+    a: FieldOffset<T, U, AllowPin>,
+    b: FieldOffset<U, V, AllowPin>,
+) -> FieldOffset<T, V, AllowPin> {
+    // Safety: a field of a field of T is at the sum of both offsets within T,
+    // and both projections preserve pinning.
+    unsafe { FieldOffset::new_from_offset_pinned(a.get_byte_offset() + b.get_byte_offset()) }
+}
+
 /// This trait needs to be implemented if you use the `#[pin_drop]` attribute. It enables
 /// you to implement Drop for your type safely.
 pub trait PinnedDrop {
