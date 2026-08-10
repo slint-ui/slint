@@ -523,7 +523,8 @@ impl<T: Clone + InterpolatedPropertyValue + 'static> Property<T> {
         if let Some(map) = map {
             d = d.with_map(map);
         }
-        let binding = properties_animations::AnimatedValueBinding { animation_data: RefCell::new(d) };
+        let binding =
+            properties_animations::AnimatedValueBinding { animation_data: RefCell::new(d) };
         // Safety: the BindingCallable will cast its argument to T
         unsafe {
             self.handle.set_binding(
