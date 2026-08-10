@@ -28,7 +28,7 @@ use vtable::{VRef, VRefMut, VWeak};
 impl i_slint_core::item_tree::ItemTreeConsts for Instance {
     // The interpreter walks its own sub-component tree on demand, so the
     // shared descriptor-driven entry points don't apply to it.
-    const descriptor: Option<&'static i_slint_core::item_tree::ItemTreeDescriptor> = None;
+    const descriptor: *const i_slint_core::item_tree::ItemTreeDescriptor = ::core::ptr::null();
 }
 
 i_slint_core::ItemTreeVTable_static!(static INTERPRETER_INSTANCE_VT for Instance);

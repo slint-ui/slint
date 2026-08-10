@@ -163,11 +163,28 @@ pub struct ItemTreeVTable {
     /// reached from the vtable so those functions stay independent of the
     /// component type.
     ///
-    /// `None` for hand-written item trees (the interpreter, tests), whose
+    /// Null for hand-written item trees (the interpreter, tests), whose
     /// vtable entries are their own functions and never consult it.
+    ///
+    /// A raw pointer rather than `&'static`: the vtable lives in a `static`,
+    /// and a reference stored there would force the descriptor to be `'static`
+    /// too. Compiled components do point at a `static` descriptor (which is
+    /// what places their tables in read-only memory), but a producer that
+    /// builds a descriptor at runtime can point at storage it owns instead.
+    ///
+    /// Safety invariant for whoever fills this in: the descriptor must be
+    /// immutable and outlive every instance whose vtable refers to it.
     #[allow(non_upper_case_globals)]
-    pub descriptor: Option<&'static ItemTreeDescriptor>,
+    pub descriptor: *const ItemTreeDescriptor,
 }
+
+// Safety: the vtable holds function pointers and a pointer to an immutable
+// descriptor that, per the field's invariant, outlives every user of the
+// vtable. Sharing it across threads therefore hands out nothing mutable.
+// Needed because the raw pointer would otherwise make the vtable `!Sync`,
+// and every compiled component stores its vtable in a `static`.
+#[allow(unsafe_code)]
+unsafe impl Sync for ItemTreeVTable {}
 
 #[cfg(test)]
 pub(crate) use ItemTreeVTable_static;
@@ -1323,11 +1340,15 @@ pub mod compiled {
     /// outlives the call, so `'static` would claim more than they use. Where
     /// the descriptor is stored is a separate question — see the vtable field.
     fn parts<'a>(vref: &ItemTreeRefPin<'a>) -> (&'a ItemTreeDescriptor, *const u8) {
-        let descriptor = vref
-            .get_vtable()
-            .descriptor
-            .expect("a compiled item tree vtable always carries its descriptor");
-        (descriptor, vref.as_ptr())
+        let descriptor = vref.get_vtable().descriptor;
+        debug_assert!(
+            !descriptor.is_null(),
+            "a compiled item tree vtable always carries its descriptor"
+        );
+        // Safety: the vtable belongs to a compiled component, so `descriptor`
+        // points at that component's descriptor, which outlives the instance
+        // `vref` borrows.
+        (unsafe { &*descriptor }, vref.as_ptr())
     }
 
     #[unsafe(no_mangle)]
@@ -1541,10 +1562,13 @@ pub mod compiled {
     pub unsafe extern "C" fn slint_compiled_item_tree_drop_in_place(
         vref: VRefMut<ItemTreeVTable>,
     ) -> vtable::Layout {
-        let descriptor = vref
-            .get_vtable()
-            .descriptor
-            .expect("a compiled item tree vtable always carries its descriptor");
+        let descriptor = vref.get_vtable().descriptor;
+        debug_assert!(
+            !descriptor.is_null(),
+            "a compiled item tree vtable always carries its descriptor"
+        );
+        // Safety: as in `parts`.
+        let descriptor = unsafe { &*descriptor };
         unsafe { (descriptor.drop_in_place)(vref.as_ptr() as *mut u8) };
         descriptor.layout
     }
@@ -1590,7 +1614,7 @@ macro_rules! compiled_item_tree_vtable {
                 window_adapter: $crate::item_tree::compiled::slint_compiled_item_tree_window_adapter,
                 drop_in_place: $crate::item_tree::compiled::slint_compiled_item_tree_drop_in_place,
                 dealloc: $crate::item_tree::compiled::slint_compiled_item_tree_dealloc,
-                descriptor: ::core::option::Option::Some(<$ty>::ITEM_TREE_DESCRIPTOR.erased()),
+                descriptor: <$ty>::ITEM_TREE_DESCRIPTOR.erased(),
             };
         #[allow(unsafe_code)]
         unsafe impl $crate::vtable::HasStaticVTable<$crate::item_tree::ItemTreeVTable> for $ty {
@@ -3040,7 +3064,7 @@ mod tests {
 
     impl crate::item_tree::ItemTreeConsts for TestItemTree {
         // Hand-written item tree: the shared descriptor entries are unused.
-        const descriptor: Option<&'static ItemTreeDescriptor> = None;
+        const descriptor: *const ItemTreeDescriptor = ::core::ptr::null();
     }
 
     crate::item_tree::ItemTreeVTable_static!(static TEST_COMPONENT_VT for TestItemTree);
@@ -4015,7 +4039,7 @@ mod tests {
 
     impl crate::item_tree::ItemTreeConsts for TransformTestItemTree {
         // Hand-written item tree: the shared descriptor entries are unused.
-        const descriptor: Option<&'static ItemTreeDescriptor> = None;
+        const descriptor: *const ItemTreeDescriptor = ::core::ptr::null();
     }
 
     crate::item_tree::ItemTreeVTable_static!(static TRANSFORM_TEST_COMPONENT_VT for TransformTestItemTree);
