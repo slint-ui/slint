@@ -27,14 +27,14 @@ type ItemTreeRc<C> = vtable::VRc<crate::item_tree::ItemTreeVTable, C>;
 /// Represents the relationship between model row and instance collection index
 /// of an element
 #[derive(Default, Clone, Debug)]
-struct ItemIndexRelashionShip {
+struct ItemIndexRelationShip {
     /// The position of the item in the model
     row: usize,
     /// The index of the item in the instances collection
     instance_index: usize,
 }
 
-impl ItemIndexRelashionShip {
+impl ItemIndexRelationShip {
     /// get the instance index from the model index `row`
     fn get_instance_index(&self, row: usize) -> usize {
         self.instance_index.wrapping_add(row.wrapping_sub(self.row))
@@ -133,7 +133,7 @@ impl<C: RepeatedItemTree> Default for RepeaterInner<C> {
 #[repr(C)]
 pub struct RepeaterLayoutState {
     /// The relation between the model row index and the instance collection index
-    pub item_index: ItemIndexRelashionShip,
+    pub item_index: ItemIndexRelationShip,
     /// The average visible item height (cached between frames).
     pub cached_item_height: Coord,
     /// The viewport_y value from the previous layout pass.
