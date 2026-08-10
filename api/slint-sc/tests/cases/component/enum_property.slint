@@ -1,0 +1,55 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Software-3.0
+
+// A user-declared enum is a valid property type; a value is written `Enum.value`.
+
+enum Direction {
+    up,
+    down,
+    left,
+    right,
+}
+
+// Values covering the variant-name mapping: separator removal, `_` as a
+// separator, preserved interior case, and a trailing `-x`.
+enum Naming { two-words, FOO_BAR, Foo_Bar, keepCase, FooBar-x }
+
+export component TestCase inherits Window {
+    in-out property <Direction> direction;
+    out property <Direction> fixed: Direction.down;
+    in property <Naming> naming;
+}
+
+/*
+```rust
+let mut x = TestCase::new();
+
+// An enum declaration generates a Rust enum of the same name.
+//#sls.enum.decl
+//#sls.gen.types
+// Without a binding, the enum holds its first value.
+//#sls.enum.default
+//#sls.gen.types.enum.default
+assert_eq!(x.get_direction(), Direction::Up);
+assert_eq!(x.get_direction(), Direction::default());
+
+// A binding to an enum value is read back.
+//#sls.enum.value
+assert_eq!(x.get_fixed(), Direction::Down);
+
+// The enum is set and read back.
+x.set_direction(Direction::Left);
+assert_eq!(x.get_direction(), Direction::Left);
+
+// The generated enum derives Copy, Clone, and (via `assert_eq!`) PartialEq and Debug.
+//#sls.gen.types.enum
+let a = Direction::Right;
+let b = a; // Copy: `a` stays usable below.
+assert_eq!(a, b.clone());
+
+// The variant names follow the value-to-PascalCase mapping (the identifiers must
+// exist exactly). `FOO_BAR` and `Foo_Bar` differ; interior case is preserved.
+//#sls.gen.types.enum.names
+let _all = [Naming::TwoWords, Naming::FOOBAR, Naming::FooBar, Naming::KeepCase, Naming::FooBarX];
+```
+*/

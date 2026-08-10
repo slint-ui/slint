@@ -6125,6 +6125,7 @@ dependencies = [
 name = "i-slint-core"
 version = "1.18.0"
 dependencies = [
+ "accesskit",
  "async-channel",
  "auto_enums",
  "bitflags 2.13.1",
@@ -9022,6 +9023,7 @@ version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e0478b47dd9885a5e0a4f1c0782ffc42bf6ee8c41dea0917d7a9bcee3e6585fc"
 dependencies = [
+ "accesskit",
  "fontique 0.11.0",
  "harfrust 0.10.0",
  "hashbrown 0.17.1",

@@ -2039,12 +2039,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "generativity"
-version = "1.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d2c81fb5260e37854d09d5c87183309fd8c555b75289427884b25660bc87a85e"
-
-[[package]]
 name = "generic-array"
 version = "0.14.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2504,6 +2498,7 @@ dependencies = [
 name = "i-slint-core"
 version = "1.18.0"
 dependencies = [
+ "accesskit",
  "async-channel",
  "auto_enums",
  "bitflags 2.13.1",
@@ -4183,6 +4178,7 @@ version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e0478b47dd9885a5e0a4f1c0782ffc42bf6ee8c41dea0917d7a9bcee3e6585fc"
 dependencies = [
+ "accesskit",
  "fontique",
  "harfrust",
  "hashbrown 0.17.1",
@@ -5338,7 +5334,6 @@ name = "slint-interpreter"
 version = "1.18.0"
 dependencies = [
  "derive_more",
- "generativity",
  "i-slint-backend-selector",
  "i-slint-backend-winit",
  "i-slint-common",
@@ -5350,6 +5345,7 @@ dependencies = [
  "once_cell",
  "smol_str 0.3.6",
  "spin_on",
+ "typed-index-collections",
  "unicode-segmentation",
  "vtable",
  "web-sys",

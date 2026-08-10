@@ -5,7 +5,7 @@
 
 use crate::CompilerConfiguration;
 use crate::expression_tree::{Expression, Unit};
-use crate::langtype::Type;
+use crate::langtype::{EnumerationValue, StructName, Type};
 use crate::namedreference::NamedReference;
 use crate::object_tree::{Document, ElementRc, PropertyVisibility};
 use itertools::Either;
@@ -19,6 +19,12 @@ pub fn generate(
     _compiler_config: &CompilerConfiguration,
 ) -> std::io::Result<TokenStream> {
     let mut output = TokenStream::new();
+
+    // The user-declared structs and enums, sorted so a struct's field types are
+    // defined before the struct that uses them.
+    for ty in doc.used_types.borrow().structs_and_enums.iter() {
+        output.extend(generate_type_definition(ty));
+    }
 
     for (export_name, export) in doc.exports.iter() {
         let Either::Left(component) = export else { continue };
@@ -54,16 +60,16 @@ pub fn generate(
         let accessors = properties.iter().map(|p| {
             let ty = &p.ty;
             let getter = p.getter.as_ref().map(|getter| {
+                // A non-`Copy` field (a struct) is cloned on read.
+                let read =
+                    |field| if p.copy { quote!(self.#field) } else { quote!(self.#field.clone()) };
                 let body = match &p.kind {
-                    PropertyKind::Stored(_) => {
-                        let field = p.field.as_ref().unwrap();
-                        quote!(self.#field)
-                    }
+                    PropertyKind::Stored(_) => read(p.field.as_ref().unwrap()),
                     // A settable bound property falls back to the binding until
                     // set; a non-settable one always evaluates it.
                     PropertyKind::Binding(default) if p.setter.is_some() => {
-                        let field = p.field.as_ref().unwrap();
-                        quote!(self.#field.unwrap_or_else(|| #default))
+                        let read = read(p.field.as_ref().unwrap());
+                        quote!(#read.unwrap_or_else(|| #default))
                     }
                     PropertyKind::Binding(default) => quote!(#default),
                 };
@@ -109,6 +115,8 @@ pub fn generate(
 struct DeclaredProperty {
     /// The value type `T`: `i32` for a length, `slint_sc::Color` for a color.
     ty: TokenStream,
+    /// Whether `T` is `Copy`, so a stored field is read without cloning.
+    copy: bool,
     /// The struct field `property_foo`.
     /// A non-settable bound property has none: nothing can set it, so the getter
     /// always evaluates the binding.
@@ -166,6 +174,7 @@ fn declared_properties(root: &ElementRc) -> Vec<DeclaredProperty> {
                 field: has_field.then(|| format_ident!("property_{snake}")),
                 getter: has_getter.then(|| format_ident!("get_{snake}")),
                 setter: settable.then(|| format_ident!("set_{snake}")),
+                copy: is_copy(&decl.property_type),
                 ty,
                 kind,
             }
@@ -179,6 +188,16 @@ fn rust_type(ty: &Type) -> TokenStream {
         Type::Int32 | Type::LogicalLength => quote!(i32),
         Type::Bool => quote!(bool),
         Type::Color => quote!(slint_sc::Color),
+        // A user-declared struct or enum maps to the generated type of the same name.
+        Type::Struct(s) => {
+            let StructName::User { name, .. } = &s.name else { unreachable!() };
+            let name = format_ident!("{}", name.as_str());
+            quote!(#name)
+        }
+        Type::Enumeration(en) => {
+            let name = format_ident!("{}", en.name.as_str());
+            quote!(#name)
+        }
         // brush is not a declarable property type, and every other type was
         // rejected by the compiler
         _ => unreachable!(),
@@ -191,6 +210,55 @@ fn default_value(ty: &Type) -> TokenStream {
         Type::Int32 | Type::LogicalLength => quote!(0i32),
         Type::Bool => quote!(false),
         Type::Color => quote!(slint_sc::Color::default()),
+        Type::Struct(_) | Type::Enumeration(_) => {
+            let ty = rust_type(ty);
+            quote!(#ty::default())
+        }
+        _ => unreachable!(),
+    }
+}
+
+/// Whether a value of the type is `Copy`, so a stored field can be read without
+/// cloning. Only structs are not `Copy`.
+fn is_copy(ty: &Type) -> bool {
+    !matches!(ty, Type::Struct(_))
+}
+
+/// Emit the Rust definition of a user-declared struct or enum.
+fn generate_type_definition(ty: &Type) -> TokenStream {
+    match ty {
+        Type::Struct(s) => {
+            let StructName::User { name, field_order, .. } = &s.name else { unreachable!() };
+            let name = format_ident!("{}", name.as_str());
+            let fields = field_order.iter().map(|f| {
+                let field = format_ident!("{}", f.replace('-', "_"));
+                let ty = rust_type(&s.fields[f]);
+                quote!(pub #field: #ty,)
+            });
+            quote! {
+                #[derive(Default, Clone, PartialEq, Debug)]
+                pub struct #name { #(#fields)* }
+            }
+        }
+        Type::Enumeration(en) => {
+            let name = format_ident!("{}", en.name.as_str());
+            let variants = (0..en.values.len()).map(|value| {
+                let variant = format_ident!(
+                    "{}",
+                    EnumerationValue { value, enumeration: en.clone() }.to_pascal_case()
+                );
+                if value == en.default_value {
+                    quote!(#[default] #variant,)
+                } else {
+                    quote!(#variant,)
+                }
+            });
+            quote! {
+                #[derive(Default, Clone, Copy, PartialEq, Debug)]
+                pub enum #name { #(#variants)* }
+            }
+        }
+        // `structs_and_enums` holds only user structs and enums.
         _ => unreachable!(),
     }
 }
@@ -221,6 +289,32 @@ fn compile_expression(expr: &Expression, root: &ElementRc) -> TokenStream {
         Expression::PropertyReference(nr) => {
             // An unbound property has its type's default value.
             compile_property_reference(nr, root).unwrap_or_else(|| default_value(&nr.ty()))
+        }
+        Expression::EnumerationValue(ev) => {
+            let enum_name = format_ident!("{}", ev.enumeration.name.as_str());
+            let variant = format_ident!("{}", ev.to_pascal_case());
+            quote!(#enum_name::#variant)
+        }
+        // A struct literal builds a value of a user struct; conversion has
+        // already filled every field, so each field is emitted in order.
+        Expression::Struct { ty, values } => {
+            let StructName::User { name, field_order, .. } = &ty.name else { unreachable!() };
+            let name = format_ident!("{}", name.as_str());
+            let fields = field_order.iter().map(|f| {
+                let field = format_ident!("{}", f.replace('-', "_"));
+                let value = match values.get(f) {
+                    Some(v) => compile_expression(v, root),
+                    None => default_value(&ty.fields[f]),
+                };
+                quote!(#field: #value,)
+            });
+            quote!(#name { #(#fields)* })
+        }
+        // Field access reads a field out of a struct value.
+        Expression::StructFieldAccess { base, name } => {
+            let base = compile_expression(base, root);
+            let field = format_ident!("{}", name.replace('-', "_"));
+            quote!((#base).#field)
         }
         Expression::BinaryExpression { lhs, rhs, op } => {
             let lhs = compile_expression(lhs, root);
@@ -345,7 +439,11 @@ fn compile_property_reference(nr: &NamedReference, root: &ElementRc) -> Option<T
             return Some(match binding {
                 None => {
                     let field = format_ident!("property_{snake}");
-                    quote!(self.#field)
+                    if is_copy(&decl.property_type) {
+                        quote!(self.#field)
+                    } else {
+                        quote!(self.#field.clone())
+                    }
                 }
                 Some(_) if is_settable(&decl.visibility) => {
                     let getter = format_ident!("get_{snake}");

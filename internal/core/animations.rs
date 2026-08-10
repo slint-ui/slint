@@ -211,14 +211,12 @@ impl Instant {
 
     /// Wrapper around [`std::time::Instant::now()`] that delegates to the backend
     /// and allows working in no_std environments.
-    pub fn now() -> Self {
-        Self(Self::duration_since_start().as_millis() as u64)
-    }
-
-    fn duration_since_start() -> core::time::Duration {
-        crate::context::GLOBAL_CONTEXT
-            .with(|p| p.get().map(|p| p.platform().duration_since_start()))
-            .unwrap_or_default()
+    ///
+    /// Takes the context rather than reaching for an ambient one because the origin is the
+    /// platform's start time: instants from different contexts are not comparable, so the
+    /// caller has to say which clock it means.
+    pub fn now(ctx: &crate::SlintContext) -> Self {
+        Self(ctx.platform().duration_since_start().as_millis() as u64)
     }
 
     /// Return the number of milliseconds this `Instant` is after the backend has started
@@ -411,11 +409,16 @@ fn easing_test() {
 }
 */
 
-/// Update the global animation time to the current time
-pub fn update_animations() {
+/// Update the global animation time to `now`.
+///
+/// The driver is per-thread while `now` comes from whichever context is driving it, so a
+/// thread running several contexts with different clock origins would see the tick jump.
+/// Per-context animation drivers would mean reaching a context from every binding
+/// evaluation, which is a much larger change.
+pub fn update_animations(now: Instant) {
     CURRENT_ANIMATION_DRIVER.with(|driver| {
         #[allow(unused_mut)]
-        let mut duration = Instant::duration_since_start().as_millis() as u64;
+        let mut duration = now.0;
         #[cfg(feature = "std")]
         if let Ok(val) = std::env::var("SLINT_SLOW_ANIMATIONS") {
             let factor = val.parse().unwrap_or(2).max(1);

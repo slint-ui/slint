@@ -12,6 +12,7 @@ use accesskit::{
 use i_slint_core::SharedString;
 use i_slint_core::accessibility::{
     AccessibilityAction, AccessibleStringProperty, SupportedAccessibilityAction,
+    find_text_input_with_rc,
 };
 use i_slint_core::api::Window;
 use i_slint_core::input::FocusReason;
@@ -77,6 +78,7 @@ impl AccessKitAdapter {
                         window_adapter_weak: window_adapter_weak.clone(),
                     },
                 )),
+                text_state: Default::default(),
             },
             global_property_tracker: Box::pin(PropertyTracker::new_with_dirty_handler(
                 AccessibilityPropertyDirtyHandler {
@@ -118,6 +120,7 @@ impl AccessKitAdapter {
             accesskit_winit::WindowEvent::ActionRequested(r) => self.handle_request(r),
             accesskit_winit::WindowEvent::AccessibilityDeactivated => {
                 self.initial_tree_sent = false;
+                self.nodes.text_state.clear_all();
                 None
             }
         }
@@ -167,6 +170,33 @@ impl AccessKitAdapter {
                 _ => return None,
             },
             Action::Expand => AccessibilityAction::Expand,
+            Action::SetTextSelection => {
+                let Some(accesskit::ActionData::SetTextSelection(sel)) = request.data.as_ref()
+                else {
+                    return None;
+                };
+                // A TextPosition names a TextRun sub-NodeId, so decode it back to the wrapper.
+                let (wrapper_parent, _) = decode_sub_node_id(sel.focus.node)?;
+                if wrapper_parent != request.target_node {
+                    return None;
+                }
+                let wrapper_item = self.nodes.item_rc_for_node_id(wrapper_parent)?;
+                let window_adapter = self.window_adapter_weak.upgrade()?;
+                let (inner_item_rc, text_input) = find_text_input_with_rc(&wrapper_item)?;
+                let state = self
+                    .nodes
+                    .text_state
+                    .get_or_update_cache_entry_ref(&inner_item_rc, Default::default);
+                let (anchor, focus) = state.decode_selection(
+                    window_adapter.renderer().as_core_renderer(),
+                    text_input.as_pin_ref(),
+                    &inner_item_rc,
+                    inner_item_rc.geometry().size,
+                    &sel.anchor,
+                    &sel.focus,
+                )?;
+                AccessibilityAction::SetSelection(anchor as i32, focus as i32)
+            }
             _ => return None,
         };
         self.nodes
@@ -196,6 +226,7 @@ impl AccessKitAdapter {
             self.nodes.components_by_id.remove(&component_id);
             self.nodes.free_component_ids.push(component_id);
         }
+        self.nodes.text_state.component_destroyed(component);
         self.reload_tree();
     }
 
@@ -222,25 +253,50 @@ impl AccessKitAdapter {
 
         self.inner.update_if_active(|| {
             self.global_property_tracker.as_ref().evaluate_as_dependency_root(|| {
-                let nodes = self.nodes.all_nodes.iter().filter_map(|cached_node| {
-                    cached_node.tracker.as_ref().evaluate_if_dirty(|| {
-                        let scale_factor = ScaleFactor::new(window.scale_factor());
-                        let item = self.nodes.item_rc_for_node_id(cached_node.id)?;
+                let nodes_vec: Vec<(NodeId, Node)> = self
+                    .nodes
+                    .all_nodes
+                    .iter()
+                    .flat_map(|cached_node| {
+                        cached_node
+                            .tracker
+                            .as_ref()
+                            .evaluate_if_dirty(|| {
+                                let scale_factor = ScaleFactor::new(window.scale_factor());
+                                let Some(item) = self.nodes.item_rc_for_node_id(cached_node.id)
+                                else {
+                                    return Vec::new();
+                                };
 
-                        let mut node = self.nodes.build_node_without_children(
-                            &item,
-                            scale_factor,
-                            Default::default(),
-                        );
+                                let mut node = self.nodes.build_node_without_children(
+                                    &item,
+                                    scale_factor,
+                                    Default::default(),
+                                );
+                                node.set_children(cached_node.children.clone());
 
-                        node.set_children(cached_node.children.clone());
+                                let mut emitted: Vec<(NodeId, Node)> = Vec::new();
+                                self.nodes.try_emit_text_input_accessibility(
+                                    &item,
+                                    &mut node,
+                                    cached_node.id,
+                                    scale_factor,
+                                    Default::default(),
+                                    &mut emitted,
+                                    &window_adapter,
+                                );
 
-                        Some((cached_node.id, node))
-                    })?
-                });
+                                let mut out = Vec::with_capacity(1 + emitted.len());
+                                out.push((cached_node.id, node));
+                                out.extend(emitted);
+                                out
+                            })
+                            .unwrap_or_default()
+                    })
+                    .collect();
 
                 TreeUpdate {
-                    nodes: nodes.collect(),
+                    nodes: nodes_vec,
                     tree: None,
                     tree_id: TreeId::ROOT,
                     focus: self.nodes.focus_node(&self.window_adapter_weak),
@@ -277,7 +333,39 @@ fn accessible_parent_for_item_rc(mut item: ItemRc) -> ItemRc {
 
 const NODE_ID_INDEX_BITS: u32 = 16;
 const NODE_ID_INDEX_MASK: u64 = (1 << NODE_ID_INDEX_BITS) - 1; // 0xFFFF
-const NODE_ID_COMPONENT_MASK: u64 = (1 << 22) - 1; // 0x3FFFFF
+const NODE_ID_COMPONENT_BITS: u32 = 22;
+const NODE_ID_COMPONENT_MASK: u64 = (1 << NODE_ID_COMPONENT_BITS) - 1; // 0x3FFFFF
+
+// NodeIds for the TextRun children of a text input:
+//
+//   bits 38..=63 : sub-index, allocated per parent, never 0
+//   bits 0..=37  : the parent NodeId, which `encode_item_node_id` fits in exactly these bits
+//
+// A regular NodeId leaves the sub-index bits clear, so a non-zero sub-index is what tells the two
+// apart.
+const NODE_ID_PARENT_BITS: u32 = NODE_ID_INDEX_BITS + NODE_ID_COMPONENT_BITS;
+const NODE_ID_PARENT_MASK: u64 = (1u64 << NODE_ID_PARENT_BITS) - 1;
+const NODE_ID_SUB_INDEX_BITS: u32 = u64::BITS - NODE_ID_PARENT_BITS;
+const NODE_ID_SUB_INDEX_MASK: u64 = (1u64 << NODE_ID_SUB_INDEX_BITS) - 1;
+
+fn encode_sub_node_id(parent: NodeId, sub_index: u32) -> NodeId {
+    debug_assert!(sub_index >= 1, "sub_index 0 would collide with the parent NodeId");
+    debug_assert!(
+        (sub_index as u64) <= NODE_ID_SUB_INDEX_MASK,
+        "sub_index exceeds {NODE_ID_SUB_INDEX_BITS} bits"
+    );
+    debug_assert_eq!(
+        parent.0 & !NODE_ID_PARENT_MASK,
+        0,
+        "parent NodeId occupies more than {NODE_ID_PARENT_BITS} bits"
+    );
+    NodeId(((sub_index as u64) << NODE_ID_PARENT_BITS) | (parent.0 & NODE_ID_PARENT_MASK))
+}
+
+fn decode_sub_node_id(id: NodeId) -> Option<(NodeId, u32)> {
+    let sub_index = (id.0 >> NODE_ID_PARENT_BITS) as u32;
+    (sub_index != 0).then_some((NodeId(id.0 & NODE_ID_PARENT_MASK), sub_index))
+}
 
 fn is_text_input_role(role: Role) -> bool {
     matches!(
@@ -298,6 +386,12 @@ struct NodeCollection {
     all_nodes: Vec<CachedNode>,
     root_node_id: NodeId,
     focused_node_tracker: Pin<Box<PropertyTracker<false, DelegateFocusPropertyTracker>>>,
+    /// Emission state, keyed by the inner `TextInput`'s `ItemRc`. Its per-entry property tracker
+    /// stays empty on purpose: the state has to outlive the edits it describes, so that NodeIds
+    /// stay stable and screen readers see "node updated" rather than "subtree replaced".
+    text_state: i_slint_core::item_rendering::ItemCache<
+        i_slint_core::textlayout::sharedparley::CachedTextInputAccessibilityState,
+    >,
 }
 
 impl NodeCollection {
@@ -368,6 +462,10 @@ impl NodeCollection {
             }
         };
 
+        debug_assert!(
+            (component_id as u64) <= NODE_ID_COMPONENT_MASK,
+            "component_id exceeds {NODE_ID_COMPONENT_BITS} bits"
+        );
         let index = item.index();
         NodeId((component_id as u64) << NODE_ID_INDEX_BITS | (index as u64 & NODE_ID_INDEX_MASK))
     }
@@ -379,13 +477,8 @@ impl NodeCollection {
         popups: &[AccessiblePopup],
         scale_factor: ScaleFactor,
         window_position: LogicalPoint,
+        window_adapter: &std::rc::Rc<WinitWindowAdapter>,
     ) -> NodeId {
-        let tracker = Box::pin(PropertyTracker::default());
-
-        let mut node = tracker
-            .as_ref()
-            .evaluate(|| self.build_node_without_children(&item, scale_factor, window_position));
-
         let id = self.encode_item_node_id(&item);
 
         let popup_children = popups
@@ -402,11 +495,12 @@ impl NodeCollection {
                     popups,
                     scale_factor,
                     popup.location,
+                    window_adapter,
                 ))
             })
             .collect::<Vec<_>>();
 
-        let children = i_slint_core::accessibility::accessible_descendents(&item)
+        let descendant_children = i_slint_core::accessibility::accessible_descendents(&item)
             .map(|child| {
                 self.build_node_for_item_recursively(
                     child,
@@ -414,18 +508,96 @@ impl NodeCollection {
                     popups,
                     scale_factor,
                     window_position,
+                    window_adapter,
                 )
             })
             .chain(popup_children)
             .collect::<Vec<NodeId>>();
 
-        node.set_children(children.clone());
+        let tracker = Box::pin(PropertyTracker::default());
+        // One tracker for both the wrapper attributes and the text emission, so that either
+        // going dirty rebuilds the node.
+        let (node, text_run_nodes) = {
+            let mut text_run_nodes: Vec<(NodeId, Node)> = Vec::new();
+            let node = tracker.as_ref().evaluate(|| {
+                let mut n = self.build_node_without_children(&item, scale_factor, window_position);
+                n.set_children(descendant_children.clone());
+                self.try_emit_text_input_accessibility(
+                    &item,
+                    &mut n,
+                    id,
+                    scale_factor,
+                    window_position,
+                    &mut text_run_nodes,
+                    window_adapter,
+                );
+                n
+            });
+            (node, text_run_nodes)
+        };
 
-        self.all_nodes.push(CachedNode { id, children, tracker });
+        // Only the regular descendants: every emit pushes the TextRun children again, and
+        // `accesskit_consumer` rejects a child that appears twice.
+        self.all_nodes.push(CachedNode { id, children: descendant_children, tracker });
 
         nodes.push((id, node));
+        nodes.extend(text_run_nodes);
 
         id
+    }
+
+    /// Emits the TextRun children of a text input, and the value and selection on `wrapper_node`.
+    fn try_emit_text_input_accessibility(
+        &self,
+        item: &ItemRc,
+        wrapper_node: &mut Node,
+        wrapper_id: NodeId,
+        scale_factor: ScaleFactor,
+        window_position: LogicalPoint,
+        text_run_nodes: &mut Vec<(NodeId, Node)>,
+        window_adapter: &std::rc::Rc<WinitWindowAdapter>,
+    ) {
+        if !is_text_input_role(wrapper_node.role()) {
+            return;
+        }
+        let Some((inner_item_rc, text_input)) = find_text_input_with_rc(item) else {
+            return;
+        };
+        let mut state =
+            self.text_state.get_or_update_cache_entry_ref(&inner_item_rc, Default::default);
+
+        // The inner `TextInput`'s geometry: a `LineEdit` insets it for its border, so measuring
+        // from the wrapper's origin would place every TextRun off by the padding.
+        let inner_geometry = inner_item_rc.geometry();
+        let inner_absolute_origin =
+            inner_item_rc.map_to_window(inner_geometry.origin) + window_position.to_vector();
+        let physical_origin = (inner_absolute_origin * scale_factor).cast::<f64>();
+
+        let mut update =
+            TreeUpdate { nodes: Vec::new(), tree: None, tree_id: TreeId::ROOT, focus: NodeId(0) };
+
+        // Borrows the font context itself, so we must not be holding it here.
+        let emitted_runs = state.emit(
+            window_adapter.renderer().as_core_renderer(),
+            text_input.as_pin_ref(),
+            &inner_item_rc,
+            inner_geometry.size,
+            &mut update,
+            wrapper_node,
+            wrapper_id,
+            (physical_origin.x, physical_origin.y),
+            encode_sub_node_id,
+        );
+
+        if emitted_runs
+            && item
+                .supported_accessibility_actions()
+                .contains(SupportedAccessibilityAction::SetSelection)
+        {
+            wrapper_node.add_action(Action::SetTextSelection);
+        }
+
+        text_run_nodes.extend(update.nodes);
     }
 
     fn tree_info(&self, root: NodeId) -> Tree {
@@ -483,6 +655,7 @@ impl NodeCollection {
                 &popups,
                 ScaleFactor::new(window.scale_factor()),
                 Default::default(),
+                &window_adapter,
             )
         });
         self.root_node_id = root_id;

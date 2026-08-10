@@ -47,7 +47,7 @@ jobs:
         timeout-minutes: 5
         steps:
             - uses: actions/checkout@v7
-            - uses: jdx/mise-action@v4.2.3
+            - uses: jdx/mise-action@v4.2.4
               with:
                 version: 2025.9.18
                 log_level: debug
@@ -63,7 +63,7 @@ jobs:
         timeout-minutes: 5
         steps:
             - uses: actions/checkout@v7
-            - uses: jdx/mise-action@v4.2.3
+            - uses: jdx/mise-action@v4.2.4
               with:
                 version: 2025.9.18
                 log_level: debug
@@ -97,14 +97,16 @@ jobs:
     done:
         # Note: We use `needs` + `if: always()` here to ensure the "done"
         # task is never just "skipped", which would count as success().
-        # Instead, make the task fail depending on whether there is any failure
-        # in the ci workflow.
+        # Instead, make the task fail if any job did not succeed. A cancelled
+        # job (e.g. a GitHub-side abort) must fail the gate too: it is not a
+        # passing result, so treating it as success would let a change land
+        # without that check actually running.
         needs: [ci, files-changed, format_fix, lint_typecheck]
         if: ${{ always() }}
         name: done
         runs-on: ubuntu-latest
         steps:
-            - if: ${{ contains(needs.*.result, 'failure') }}
-              run: echo "A required check failed! 🌋" && false
-            - if: ${{ !contains(needs.*.result, 'failure') }}
+            - if: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
+              run: echo "A required check failed or was cancelled! 🌋" && false
+            - if: ${{ !(contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')) }}
               run: echo "All checks passed. 🎉"

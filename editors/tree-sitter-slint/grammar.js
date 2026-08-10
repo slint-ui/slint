@@ -12,7 +12,7 @@ module.exports = grammar({
     [$.assignment_block],
     // Caused by accepting arbitrary expressions in the radial-gradient/conical-gradient without a separator!
     [$.unary_prec_operator, $.add_prec_operator]
-],
+  ],
 
   externals: ($) => [$.block_comment],
 
@@ -53,7 +53,7 @@ module.exports = grammar({
     export_statement: ($) => seq(
       "export",
       "{", commaSep($.export_type), optional(","), "}",
-      optional(seq("from", field("from", $.string_value), ";"))
+      optional(seq("from", field("from", alias($._import_string, $.string_value)), ";"))
     ),
 
     _rust_attr_args: ($) => seq("(", repeat(choice(/[^()"]+/, $.string_value, $._rust_attr_args)), ")"),
@@ -64,7 +64,7 @@ module.exports = grammar({
       seq(
         "import",
         optional(seq("{", commaSep($.import_type), optional(","), "}", "from")),
-        $.string_value,
+        alias($._import_string, $.string_value),
         ";",
       ),
 
@@ -833,16 +833,41 @@ module.exports = grammar({
     _unescaped_string_fragment: (_) => token.immediate(prec(1, /[^"\\]+/)),
 
     escape_sequence: ($) =>
-      seq(
-        "\\",
-        choice(
-          /u\{[0-9a-fA-F]+\}/,
-          "n",
-          "\\",
-          '"',
-          seq("{", $.expression, "}"),
+      choice(
+        // A single token, so the longest match decides between the three
+        // alternatives here and no whitespace can sneak in after the backslash.
+        token.immediate(
+          seq("\\", choice(/u\{[0-9a-fA-F]+\}/, "n", "\\", '"')),
         ),
+        // The "}" is not immediate: the expression may be followed by
+        // whitespace, as in "\{ 1 + 2 }".
+        seq(token.immediate("\\{"), $.expression, "}"),
+        // A backslash that starts no known escape is a semantic error, not a
+        // syntax one. Keeping it a node rather than an ERROR avoids wrecking
+        // the tree while an escape is still being typed.
+        token.immediate("\\"),
       ),
+
+    // Strings in import statements are special.
+    // Even though the escape sequences are respected at lexing time, they
+    // are then later ignored, so \" does not close the string, but actually produces
+    // \" and not ".
+    //
+    // e.g.:
+    //
+    // import {Foo} from "\"x";
+    //
+    // Actually imports from the file \"x
+    _import_string: ($) => seq(
+      '"',
+      repeat(choice(
+        $._unescaped_string_fragment,
+        token.immediate("\\\\"),
+        token.immediate("\\\""),
+        token.immediate("\\"))),
+      '"',
+    ),
+
     /////////////////////////////////////////////////////////////////////
 
     property_visibility: (_) => choice("private", "in", "out", "in-out", "in_out"),

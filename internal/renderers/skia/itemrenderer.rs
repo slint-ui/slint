@@ -8,13 +8,12 @@ use std::pin::Pin;
 use super::{PhysicalBorderRadius, PhysicalLength, PhysicalPoint, PhysicalRect, PhysicalSize};
 use i_slint_core::graphics::ApproxEq;
 use i_slint_core::graphics::ResolvedBrush;
-use i_slint_core::graphics::adjust_rect_and_border_for_inner_drawing;
 use i_slint_core::graphics::boxshadowcache::BoxShadowCache;
 use i_slint_core::graphics::euclid::num::Zero;
 use i_slint_core::graphics::euclid::{self, Vector2D};
 use i_slint_core::item_rendering::{
-    CachedRenderingData, ItemCache, ItemRenderer, ItemRendererFeatures, LayerRenderer, RenderImage,
-    RenderText,
+    BorderRectLayout, CachedRenderingData, ItemCache, ItemRenderer, ItemRendererFeatures,
+    LayerRenderer, RenderImage, RenderText,
 };
 use i_slint_core::items::{ImageFit, ImageRendering, ItemRc, Layer, Opacity, RenderingResult};
 use i_slint_core::lengths::{
@@ -552,59 +551,16 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
         size: LogicalSize,
         _: &CachedRenderingData,
     ) {
-        let mut geometry = PhysicalRect::from(size * self.scale_factor);
-        if geometry.is_empty() {
+        let Some(layout) = BorderRectLayout::new(rect, size, self.scale_factor) else {
             return;
-        }
-
-        // Save the original element bounds for gradient positioning. The CSS model positions
-        // gradients relative to the border box (full element), but adjust_rect_and_border_for_inner_drawing
-        // shrinks geometry before we create the paint, which would shift the gradient center inward.
-        let original_width = geometry.width_length();
-        let original_height = geometry.height_length();
-
-        let border_color = rect.border_color();
-        let opaque_border = border_color.is_opaque();
-        let mut border_width = if border_color.is_transparent() {
-            PhysicalLength::new(0.)
-        } else {
-            rect.border_width() * self.scale_factor
         };
-
-        // Radius of rounded rect if we were to just fill the rectangle, without a border.
-        let mut fill_radius = rect.border_radius() * self.scale_factor;
-        // Skia's border radius on stroke is in the middle of the border. But we want it to be the radius of the rectangle itself.
-        // This is incorrect if fill_radius < border_width/2, but this can't be fixed. Better to have a radius a bit too big than no radius at all
-        fill_radius = fill_radius.outer(border_width / 2. + PhysicalLength::new(0.01));
-        let stroke_border_radius = fill_radius.inner(border_width / 2.);
-
-        let (background_rect, border_rect) = if opaque_border {
-            // In CSS the border is entirely towards the inside of the boundary
-            // geometry, while Skia strokes centered on the path, 50% in- and
-            // 50% outwards. We choose the CSS model, so the inner rectangle is
-            // adjusted accordingly.
-            adjust_rect_and_border_for_inner_drawing(&mut geometry, &mut border_width);
-
-            let rounded_rect = to_skia_rrect(&geometry, &stroke_border_radius);
-
-            (rounded_rect, rounded_rect)
-        } else {
-            let background_rect = to_skia_rrect(&geometry, &fill_radius);
-
-            // In CSS the border is entirely towards the inside of the boundary
-            // geometry, while Skia strokes centered on the path, 50% in- and
-            // 50% outwards. We choose the CSS model, so the inner rectangle is
-            // adjusted accordingly.
-            adjust_rect_and_border_for_inner_drawing(&mut geometry, &mut border_width);
-
-            let border_rect = to_skia_rrect(&geometry, &stroke_border_radius);
-
-            (background_rect, border_rect)
-        };
+        let brush_width = layout.brush_size.width_length();
+        let brush_height = layout.brush_size.height_length();
 
         if let Some(mut fill_paint) =
-            self.brush_to_paint(rect.background(), original_width, original_height)
+            self.brush_to_paint(rect.background(), brush_width, brush_height)
         {
+            let background_rect = to_skia_rrect(&layout.background_rect, &layout.background_radius);
             fill_paint.set_style(skia_safe::PaintStyle::Fill);
             if !background_rect.is_rect() {
                 fill_paint.set_anti_alias(true);
@@ -612,12 +568,13 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
             self.canvas.draw_rrect(background_rect, &fill_paint);
         }
 
-        if border_width.get() > 0.0
+        if layout.border_width.get() > 0.0
             && let Some(mut border_paint) =
-                self.brush_to_paint(border_color, original_width, original_height)
+                self.brush_to_paint(layout.border_color, brush_width, brush_height)
         {
+            let border_rect = to_skia_rrect(&layout.border_rect, &layout.border_radius);
             border_paint.set_style(skia_safe::PaintStyle::Stroke);
-            border_paint.set_stroke_width(border_width.get());
+            border_paint.set_stroke_width(layout.border_width.get());
             if !border_rect.is_rect() {
                 border_paint.set_anti_alias(true);
             }
@@ -852,22 +809,9 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
         }
     }
 
-    fn combine_clip(
-        &mut self,
-        rect: LogicalRect,
-        radius: LogicalBorderRadius,
-        border_width: LogicalLength,
-    ) -> bool {
-        let mut rect = rect * self.scale_factor;
-        let mut border_width = border_width * self.scale_factor;
-        // In CSS the border is entirely towards the inside of the boundary
-        // geometry, while Skia strokes centered on the path, 50% in- and
-        // 50% outwards. We choose the CSS model, so the inner rectangle is
-        // adjusted accordingly.
-        adjust_rect_and_border_for_inner_drawing(&mut rect, &mut border_width);
-
-        let radius = radius * self.scale_factor;
-        let rounded_rect = to_skia_rrect(&rect, &radius);
+    fn combine_clip(&mut self, rect: LogicalRect, radius: LogicalBorderRadius) -> bool {
+        let rounded_rect =
+            to_skia_rrect(&(rect * self.scale_factor), &(radius * self.scale_factor));
         self.canvas.clip_rrect(rounded_rect, None, true);
         self.canvas.local_clip_bounds().is_some()
     }

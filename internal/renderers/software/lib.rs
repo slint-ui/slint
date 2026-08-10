@@ -783,6 +783,11 @@ impl SoftwareRenderer {
 
 #[doc(hidden)]
 impl RendererSealed for SoftwareRenderer {
+    #[cfg(feature = "systemfonts")]
+    fn text_layout_cache(&self) -> Option<&sharedparley::TextLayoutCache> {
+        Some(&self.text_layout_cache)
+    }
+
     fn text_size(
         &self,
         text_item: Pin<&dyn i_slint_core::item_rendering::RenderString>,
@@ -1113,6 +1118,27 @@ impl RendererSealed for SoftwareRenderer {
                 )
             }
         }
+    }
+
+    // Keep in sync with the `draw_text_input` arm that takes the shared parley path, or the
+    // accessibility tree describes a layout that isn't the one drawn.
+    #[cfg(feature = "systemfonts")]
+    fn text_input_has_parley_layout(
+        &self,
+        text_input: Pin<&i_slint_core::items::TextInput>,
+        item_rc: &ItemRc,
+    ) -> bool {
+        let (Some(scale_factor), Some(slint_ctx)) = (self.scale_factor(), self.slint_context())
+        else {
+            return false;
+        };
+        let font_request = text_input.font_request(item_rc);
+        let font = {
+            let mut font_ctx = slint_ctx.font_context().borrow_mut();
+            fonts::match_font(&font_request, scale_factor, &mut font_ctx)
+        };
+
+        matches!(font, fonts::Font::VectorFont(_)) && !parley_disabled()
     }
 
     fn text_input_cursor_rect_for_byte_offset(
@@ -2926,6 +2952,7 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
         );
 
         match (font, parley_disabled()) {
+            // `SoftwareRenderer::text_input_has_parley_layout` must agree on this arm.
             #[cfg(feature = "systemfonts")]
             (fonts::Font::VectorFont(_), false) => {
                 drop(font_ctx);
@@ -3185,12 +3212,7 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
         // TODO
     }
 
-    fn combine_clip(
-        &mut self,
-        other: LogicalRect,
-        _radius: LogicalBorderRadius,
-        _border_width: LogicalLength,
-    ) -> bool {
+    fn combine_clip(&mut self, other: LogicalRect, _radius: LogicalBorderRadius) -> bool {
         match self.current_state.clip.intersection(&other) {
             Some(r) => {
                 self.current_state.clip = r;
@@ -3201,7 +3223,7 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
                 false
             }
         }
-        // TODO: handle radius and border
+        // TODO: handle radius
     }
 
     fn get_current_clip(&self) -> LogicalRect {

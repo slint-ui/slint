@@ -228,18 +228,23 @@ backend-android-activity-05 = [
   "i-slint-backend-android-activity/aa-05",
 ]
 
+#! ### Unstable features
+
+#! The following features expose APIs built on top of third-party crates that release new major
+#! versions more frequently than Slint. They carry the major version of that crate as a suffix
+#! and are *NOT* subject to the usual Slint API stability guarantees: a future minor release of
+#! Slint may change or remove them, typically replacing them with a feature of the same name but
+#! a bumped version suffix.
+#!
+#! To avoid unintended compilation failures, we recommend using the
+#! [tilde requirement](https://doc.rust-lang.org/cargo/reference/specifying-dependencies.html#tilde-requirements)
+#! in your `Cargo.toml` when enabling any of these features:
+#!
+#! ```toml
+#! slint = { version = "~1.18", features = ["unstable-wgpu-30"] }
+#! ```
+
 ## Enable support for [WGPU](http://wgpu.rs) based rendering and expose WGPU based APIs based on WGPU version 29.x.
-##
-## APIs guarded with this feature are *NOT* subject to the usual Slint API stability guarantees, because WGPU releases new major
-## versions frequently. This feature as well as the APIs changed or removed in future minor releases of Slint, likely to be replaced
-## by a feature with a similar name but the WGPU version suffix being bumped.
-##
-## To avoid unintended compilation failures, we recommend to use the [tilde requirement](https://doc.rust-lang.org/cargo/reference/specifying-dependencies.html#tilde-requirements)
-## in your `Cargo.toml` when enabling this feature:
-##
-## ```toml
-## slint = { version = "~1.18", features = ["unstable-wgpu-29"] }
-## ```
 unstable-wgpu-29 = [
   "i-slint-core/unstable-wgpu-29",
   "i-slint-backend-selector/unstable-wgpu-29",
@@ -248,17 +253,6 @@ unstable-wgpu-29 = [
 ]
 
 ## Enable support for [WGPU](http://wgpu.rs) based rendering and expose WGPU based APIs based on WGPU version 30.x.
-##
-## APIs guarded with this feature are *NOT* subject to the usual Slint API stability guarantees, because WGPU releases new major
-## versions frequently. This feature as well as the APIs changed or removed in future minor releases of Slint, likely to be replaced
-## by a feature with a similar name but the WGPU version suffix being bumped.
-##
-## To avoid unintended compilation failures, we recommend to use the [tilde requirement](https://doc.rust-lang.org/cargo/reference/specifying-dependencies.html#tilde-requirements)
-## in your `Cargo.toml` when enabling this feature:
-##
-## ```toml
-## slint = { version = "~1.18", features = ["unstable-wgpu-30"] }
-## ```
 unstable-wgpu-30 = [
   "i-slint-core/unstable-wgpu-30",
   "i-slint-backend-selector/unstable-wgpu-30",
@@ -266,43 +260,13 @@ unstable-wgpu-30 = [
   "dep:wgpu-30",
 ]
 
-## APIs guarded with this feature are *NOT* subject to the usual Slint API stability guarantees, because winit releases new major
-## versions more frequently than Slint. This feature as well as the APIs changed or removed in future minor releases of Slint, likely to be replaced
-## by a feature with a similar name but the winit version suffix being bumped.
-##
-## To avoid unintended compilation failures, we recommend to use the [tilde requirement](https://doc.rust-lang.org/cargo/reference/specifying-dependencies.html#tilde-requirements)
-## in your `Cargo.toml` when enabling this feature:
-##
-## ```toml
-## slint = { version = "~1.18", features = ["unstable-winit-030"] }
-## ```
+## Expose [winit](https://crates.io/crates/winit) based APIs in the winit backend, based on winit version 0.30.x.
 unstable-winit-030 = ["backend-winit", "dep:i-slint-backend-winit", "i-slint-backend-selector/unstable-winit-030"]
 
-
 ## Enable support for exposing [libinput](https://docs.rs/input/latest/input/index.html) related APIs in the LinuxKMS backend.
-##
-## APIs guarded with this feature are *NOT* subject to the usual Slint API stability guarantees. This feature as well as the APIs changed or removed
-## in future minor releases of Slint, likely to be replaced by a feature with a similar name but the input version suffix being bumped.
-##
-## To avoid unintended compilation failures, we recommend to use the [tilde requirement](https://doc.rust-lang.org/cargo/reference/specifying-dependencies.html#tilde-requirements)
-## in your `Cargo.toml` when enabling this feature:
-##
-## ```toml
-## slint = { version = "~1.18", features = ["unstable-libinput-09"] }
-## ```
 unstable-libinput-09 = ["i-slint-backend-selector/unstable-libinput-09"]
 
 ## Enable support for exposing [fontique](https://docs.rs/fontique/0.11.0/fontique/) related APIs.
-##
-## APIs guarded with this feature are *NOT* subject to the usual Slint API stability guarantees. This feature as well as the APIs changed or removed
-## in future minor releases of Slint, likely to be replaced by a feature with a similar name but the fontique version suffix being bumped.
-##
-## To avoid unintended compilation failures, we recommend to use the [tilde requirement](https://doc.rust-lang.org/cargo/reference/specifying-dependencies.html#tilde-requirements)
-## in your `Cargo.toml` when enabling this feature:
-##
-## ```toml
-## slint = { version = "~1.18", features = ["unstable-fontique-011"] }
-## ```
 unstable-fontique-011 = ["i-slint-common/shared-fontique"]
 
 [dependencies]

@@ -1475,7 +1475,15 @@ impl TypeLoader {
                 )),
                 Err(err)
                     if !resolved
-                        && matches!(err.kind(), ErrorKind::NotFound | ErrorKind::NotADirectory) =>
+                        && matches!(
+                            err.kind(),
+                            // A path that can't name a file (e.g. one with a character
+                            // Windows forbids) can't be found either, so report it the
+                            // same way rather than leaking the raw OS error.
+                            ErrorKind::NotFound
+                                | ErrorKind::NotADirectory
+                                | ErrorKind::InvalidFilename
+                        ) =>
                 {
                     let import_kind =
                         if file_to_import.starts_with('@') { "library" } else { "include" };
@@ -1825,6 +1833,8 @@ impl TypeLoader {
                         return None;
                     }
                 };
+                // The path is taken verbatim: escape sequences aren't decoded, so a
+                // backslash stays a directory separator rather than an escape.
                 let path_to_import = import_uri.text().to_string();
                 let path_to_import = path_to_import.trim_matches('\"').to_string();
 
@@ -2092,6 +2102,58 @@ fn test_dependency_loading_from_rust() {
     assert!(build_diagnostics.is_empty()); // also no warnings
     assert_eq!(foreign_imports.len(), 3);
     assert!(foreign_imports.iter().all(|x| matches!(x.import_kind, ImportKind::ImportList(..))));
+}
+
+#[test]
+fn test_import_path_verbatim() {
+    // The import path is taken verbatim, not unescaped: a literal Unicode or emoji
+    // file name is used as written, and a backslash is a directory separator rather
+    // than an escape, so `sub\comp.slint` names `sub/comp.slint`. An absolute path
+    // with a backslash cleans to a different string, so it must be registered and
+    // looked up under that cleaned path or the type loader panics (#12798).
+    let requested = Rc::new(RefCell::new(Vec::<String>::new()));
+    let requested_ = requested.clone();
+
+    let mut compiler_config =
+        CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
+    compiler_config.style = Some("fluent".into());
+    compiler_config.open_import_callback = Some(Rc::new(move |path| {
+        let requested_ = requested_.clone();
+        Box::pin(async move {
+            requested_.borrow_mut().push(path);
+            Some(Ok("export XX := Rectangle {} ".to_owned()))
+        })
+    }));
+
+    let mut test_diags = crate::diagnostics::BuildDiagnostics::default();
+    let doc_node = crate::parser::parse(
+        r#"
+import { XX as A } from "naïve.slint";
+import { XX as B } from "party🎉.slint";
+import { XX as C } from "sub\comp.slint";
+import { XX as D } from "/ddd\dd.slint";
+export component X { A {} B {} C {} D {} }
+"#
+        .into(),
+        Some(std::path::Path::new("HELLO")),
+        &mut test_diags,
+    );
+
+    let doc_node: syntax_nodes::Document = doc_node.into();
+    let mut build_diagnostics = BuildDiagnostics::default();
+    let mut loader = TypeLoader::new(compiler_config, &mut build_diagnostics);
+    let registry = Rc::new(RefCell::new(TypeRegister::new(&loader.global_type_registry)));
+    spin_on::spin_on(loader.load_dependencies_recursively(
+        &doc_node,
+        &mut build_diagnostics,
+        &registry,
+    ));
+    assert!(!test_diags.has_errors());
+    assert!(!build_diagnostics.has_errors(), "{:?}", build_diagnostics.to_string_vec());
+    let mut requested = requested.borrow().clone();
+    requested.sort();
+    // Unicode names are kept as written; a backslash is normalized to a slash.
+    assert_eq!(requested, ["/ddd/dd.slint", "naïve.slint", "party🎉.slint", "sub/comp.slint"]);
 }
 
 #[test]

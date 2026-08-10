@@ -24,6 +24,12 @@ import { XX } from "/etc/hosts";
 import { XX } from "C:/Windows/win.ini";
 //                 >                  <error{Absolute import paths are not supported in Slint SC}
 
+// The path is taken verbatim: a backslash is a directory separator, not an
+// escape, so this names sub/comp.slint and reports it missing.
+//#sls.import.path-verbatim
+import { XX } from "sub\comp.slint";
+//                 >              <error{Cannot find requested import "sub\comp.slint" in the include search path}
+
 //#sls.import.path-relative
 import { Button } from "std-widgets.slint";
 //                     >                 <error{Importing the builtin file 'std-widgets.slint' is not supported in Slint SC}

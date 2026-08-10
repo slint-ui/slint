@@ -1,52 +1,68 @@
 ---
 title: Structs and Enums
 description: Declaring named structures and enumerations.
+SC: true
 ---
 
+import SC from '@slint/common-files/src/components/SC.astro';
+import OnlyInSC from '@slint/common-files/src/components/OnlyInSC.astro';
+
+<SC>
 ## Structs
 
-A `struct` declaration defines a named structure type with typed fields.
-It appears at the top level of a `.slint` file, alongside components, globals, and enums;
-it cannot be declared inside a component:
+A `struct` declaration at the top level of a `.slint` source file defines a named structure type;
+its fields are written between braces, each a name and a type separated by `:`,
+the fields separated by commas, and a struct with no fields is allowed. \{#sls.struct.decl}
+
+Each field's type can be any property type. \{#sls.struct.field-type}
 
 ```slint
-export struct Player {
-    name: string,
-    score: int,
+export struct Palette {
+    fill: color,
+    gap: length,
 }
 ```
 
-Fields are separated by commas.
-A trailing comma after the last field is permitted.
+<OnlyInSC>
+A field shall not declare a default value. \{#sls.struct.no-field-default}
+
+The default value of a struct is the value whose every field holds the default value of its type. \{#sls.struct.default}
+</OnlyInSC>
+</SC>
+
 A `;` between fields is a compile error; the compiler tells you to use `,` instead.
-An empty struct `{ }` is allowed.
 
 A struct may be prefixed with one or more `@rust-attr(...)` attributes and may be `export`ed.
 Declaring a struct whose name matches an already-defined type replaces the earlier type and emits a warning.
 
 ### Constructing and accessing
 
-A struct value is written as a struct literal that initializes fields by name:
-`{ field1: expression1, field2: expression2 }`.
-A trailing comma after the last member is permitted.
-A field is read with the `.` operator: `player.name`.
+<SC>
+A struct value is written as a struct literal that initializes fields by name,
+`{ field1: value1, field2: value2 }`, with an optional trailing comma. \{#sls.struct.literal}
+
+<OnlyInSC>
+A struct literal shall initialize every field of the struct exactly once,
+and shall not name a member that the struct does not have. \{#sls.struct.literal.exact}
+</OnlyInSC>
+
+A field is read with the `.` operator, as in `palette.fill`. \{#sls.struct.field-access}
 
 ```slint
-export struct Player {
-    name: string,
-    score: int,
+export struct Palette {
+    fill: color,
+    gap: length,
 }
 
-export component Example {
-    in-out property<Player> player: { name: "Foo", score: 100 };
-    out property<string> who: player.name;
+export component Example inherits Window {
+    out property <Palette> palette: { fill: #f00, gap: 2px };
+    out property <color> tint: palette.fill;
 }
 ```
+</SC>
 
-A struct literal need not list every field.
-When a literal is assigned where a named struct is expected, each member is resolved against the type
-of the matching field, omitted fields take their default value, and members that don't name a field of the
-target struct are ignored.
+A struct literal need not list every field; an omitted field takes its default value,
+and members that don't name a field of the target struct are ignored.
 
 The default value of a struct has every field set to its own default value, unless the field declares its own.
 
@@ -93,26 +109,37 @@ export component Example {
 Two anonymous struct types with the same fields are the same type.
 A named struct is only ever equal to itself: it is not interchangeable with an anonymous struct of identical fields.
 
+<SC>
 ## Enums
 
-An `enum` declaration defines an enumeration.
-Like a struct, it appears at the top level and may be `export`ed and prefixed with `@rust-attr(...)`:
+An `enum` declaration at the top level defines an enumeration;
+its values are listed between braces, separated by commas. \{#sls.enum.decl}
+
+An enum shall have at least one value. \{#sls.enum.nonempty}
+
+A value shall not have the same name as the enum. \{#sls.enum.value-name}
+
+The values shall be distinct; `-` and `_` are the same character within a name,
+so `hello-world` and `hello_world` name one value. \{#sls.enum.distinct}
+
+No two values shall map to the same generated name, formed by dropping `-` and `_`
+and capitalizing the first letter of the name and of each word after a separator.
+`hello-world` and `HelloWorld` are different values but map to the same name,
+so an enum cannot declare both. \{#sls.enum.name-collision}
 
 ```slint
-export enum CardSuit { clubs, diamonds, hearts, spade }
+export enum Direction { up, down, left, right }
 
-export component Example {
-    in-out property<CardSuit> card: spade;
-    out property<bool> is-clubs: card == CardSuit.clubs;
+export component Example inherits Window {
+    in-out property<Direction> heading: Direction.up;
 }
 ```
 
-Values are separated by commas, with an optional trailing comma.
-An enum must have at least one value; an empty enum is a compile error.
-A value may not have the same name as the enum, and the values must be distinct
-(names that differ only in `-`/`_` or case collide, since they map to the same identifier).
+An enum value is referenced with the enum name and the value name separated by a dot,
+as in `Direction.up`. \{#sls.enum.value}
 
-An enum value is referenced with the enum name and the value name separated by a dot: `CardSuit.spade`.
+The default value of an enum is its first value. \{#sls.enum.default}
+</SC>
 
 ### Omitting the enum name
 
@@ -138,5 +165,3 @@ export component Example {
 
 In a comparison the name may be omitted only on the right-hand side, which takes the type of the left:
 `card.suit == hearts` works, but `hearts == card.suit` does not, because the left operand has no expected type.
-
-The default value of an enum type is its first value.

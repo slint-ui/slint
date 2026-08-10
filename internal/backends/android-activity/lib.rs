@@ -43,6 +43,7 @@ pub struct AndroidPlatform {
     app: AndroidApp,
     window: Rc<AndroidWindowAdapter>,
     event_listener: Option<Box<dyn Fn(&PollEvent<'_>)>>,
+    context: core::cell::OnceCell<i_slint_core::SlintContextWeak>,
 }
 
 impl AndroidPlatform {
@@ -65,7 +66,7 @@ impl AndroidPlatform {
     pub fn new(app: AndroidApp) -> Self {
         let window = AndroidWindowAdapter::new(app.clone());
         CURRENT_WINDOW.set(Rc::downgrade(&window));
-        Self { app, window, event_listener: None }
+        Self { app, window, event_listener: None, context: Default::default() }
     }
 
     /// Instantiate a new Android backend given the [`android_activity::AndroidApp`]
@@ -106,9 +107,14 @@ impl i_slint_core::platform::Platform for AndroidPlatform {
         Ok(self.window.clone())
     }
     fn run_event_loop(&self) -> Result<(), PlatformError> {
+        let ctx = self
+            .context
+            .get()
+            .and_then(|ctx| ctx.upgrade())
+            .expect("the event loop runs inside the context that owns this platform");
         let vsync = vsync::VsyncDriver::new(self.app.create_waker());
         loop {
-            let mut timeout = i_slint_core::platform::duration_until_next_timer_update();
+            let mut timeout = ctx.duration_until_next_timer_update();
             // While animating, the vsync thread wakes this loop at each display refresh
             // so rendering tracks the refresh rate instead of a fixed poll timeout.
             let animating = self.window.window.has_active_animations();
@@ -126,7 +132,7 @@ impl i_slint_core::platform::Platform for AndroidPlatform {
             }
             let mut r = Ok(ControlFlow::Continue(()));
             self.app.poll_events(timeout, |e| {
-                i_slint_core::platform::update_timers_and_animations();
+                ctx.update_timers_and_animations();
                 r = self.window.process_event(&e);
                 if let Some(event_listener) = &self.event_listener {
                     event_listener(&e)
@@ -172,6 +178,7 @@ impl i_slint_core::platform::Platform for AndroidPlatform {
     }
 
     fn bind_context(&self, ctx: i_slint_core::SlintContextWeak, _: i_slint_core::InternalToken) {
+        let _ = self.context.set(ctx.clone());
         let ctx = ctx.upgrade().expect("bind_context called while the SlintContext is still alive");
         let color_scheme = match self
             .window

@@ -69,6 +69,10 @@ pub(crate) struct SlintContextInner {
     #[cfg(feature = "shared-swash")]
     pub(crate) swash_scale_context: core::cell::RefCell<swash::scale::ScaleContext>,
     pub(crate) modifiers: Cell<InternalKeyboardModifierState>,
+
+    /// The timers registered on this context. Shared, so that `Timer` handles can hold a
+    /// `Weak` to the list they registered in without knowing which context owns it.
+    pub(crate) timers: crate::timers::TimerListRc,
 }
 
 /// This context is meant to hold the state and the backend.
@@ -78,12 +82,18 @@ pub(crate) struct SlintContextInner {
 pub struct SlintContext(pub(crate) core::pin::Pin<Rc<SlintContextInner>>);
 
 impl SlintContext {
-    /// Create a new context with a given platform
+    /// Create a new context with a given platform.
+    ///
+    /// If this thread has no context yet, the new one becomes it — first come, first
+    /// served. That is what the ambient APIs resolve to: [`crate::timers::Timer`],
+    /// `spawn_local`, `quit_event_loop` and friends. Contexts created afterwards are
+    /// perfectly usable, but are not the thread's current one, so code holding such a
+    /// context has to be explicit about it (e.g. [`Self::new_timer`]).
     pub fn new(platform: Box<dyn Platform + 'static>) -> Self {
         #[cfg(feature = "shared-parley")]
         let collection = i_slint_common::sharedfontique::create_collection(true);
 
-        Self(Rc::pin(SlintContextInner {
+        let this = Self(Rc::pin(SlintContextInner {
             platform,
             window_count: 0.into(),
 
@@ -120,7 +130,25 @@ impl SlintContext {
             #[cfg(feature = "shared-swash")]
             swash_scale_context: core::cell::RefCell::new(swash::scale::ScaleContext::new()),
             modifiers: Cell::new(Default::default()),
-        }))
+            // Timers started before this thread had a context registered in the pending
+            // list; take it over so those timers keep working. It is the very list they
+            // hold a `Weak` to, so nothing needs fixing up.
+            timers: crate::timers::take_pending_timers(),
+        }));
+        // The list's deadlines are measured on this context's clock from now on. Done after
+        // construction because it needs a handle to the context that owns it.
+        crate::timers::set_owning_context(&this.0.timers, &this);
+        // Claim this thread's context slot if it is still free, so that the ambient APIs
+        // resolve here rather than to a list nothing drives. Fails harmlessly when the
+        // thread already has a context: that one stays current.
+        GLOBAL_CONTEXT.with(|slot| {
+            let _ = slot.set(this.clone());
+        });
+        // Every context tells its platform which context it belongs to, not just the one
+        // that becomes this thread's global: a platform is owned by exactly one context, and
+        // a backend driving a context needs to be able to find it.
+        this.platform().bind_context(this.downgrade(), crate::InternalToken);
+        this
     }
 
     /// Return a reference to the platform abstraction
@@ -159,6 +187,60 @@ impl SlintContext {
 
     pub fn run_event_loop(&self) -> Result<(), PlatformError> {
         self.0.platform.run_event_loop()
+    }
+
+    /// Creates a [`Timer`](crate::timers::Timer) that registers on this context rather than
+    /// on whichever one is current when it is started.
+    ///
+    /// For the context that a thread runs its event loop on this is the same as
+    /// `Timer::default()`, and the event loop activates the timer as usual. A context that
+    /// isn't the current one has no event loop driving it, so its owner is responsible for
+    /// calling [`Self::maybe_activate_timers`].
+    pub fn new_timer(&self) -> crate::timers::Timer {
+        crate::timers::Timer::with_list(&self.0.timers)
+    }
+
+    /// Runs `callback` once, `duration` from now, on this context.
+    ///
+    /// The context-bound counterpart of [`Timer::single_shot`](crate::timers::Timer::single_shot),
+    /// which registers on whichever context is current instead.
+    pub fn single_shot(&self, duration: core::time::Duration, callback: impl FnOnce() + 'static) {
+        crate::timers::single_shot_on(&self.0.timers, duration, callback);
+    }
+
+    /// Advances this context's animations and timers to its own clock, and runs any change
+    /// handlers that fall out of it.
+    ///
+    /// This is what an event loop driving this context should call at the top of each
+    /// iteration. [`crate::platform::update_timers_and_animations`] is the same thing for
+    /// whichever context is this thread's global one.
+    pub fn update_timers_and_animations(&self) {
+        let now = crate::animations::Instant::now(self);
+        crate::animations::update_animations(now);
+        self.maybe_activate_timers(now);
+        crate::properties::ChangeTracker::run_change_handlers();
+    }
+
+    /// How long this context can go to sleep before its next timer is due, or `None` when it
+    /// has no active timer.
+    ///
+    /// The deadline and the clock it is measured against both come from this context, so
+    /// they cannot disagree.
+    pub fn duration_until_next_timer_update(&self) -> Option<core::time::Duration> {
+        let timeout = self.next_timer_timeout()?;
+        let now = crate::animations::Instant::now(self);
+        Some(core::time::Duration::from_millis(timeout.0.saturating_sub(now.0)))
+    }
+
+    /// Fires the callbacks of this context's timers that have expired by `now`, and returns
+    /// whether any of them was activated.
+    pub fn maybe_activate_timers(&self, now: crate::animations::Instant) -> bool {
+        crate::timers::TimerList::activate_expired(&self.0.timers, now)
+    }
+
+    /// Returns when this context's next timer is due, or `None` if it has no active timer.
+    pub fn next_timer_timeout(&self) -> Option<crate::animations::Instant> {
+        self.0.timers.borrow().first_timeout()
     }
 
     /// Returns the effective color scheme for the given component root, or the

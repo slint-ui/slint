@@ -19,6 +19,10 @@ In Slint, an image can be loaded from a file with the `@image-url("...")` constr
 The address within the `@image-url` function must be a string literal and the image is resolved at compile time.
 An empty string produces an empty image.
 
+Unlike an [import path](../../language/imports/#import-paths),
+the address decodes the [escape sequences](../strings/#string) `\"`, `\\`, `\n`, and `\u{...}`,
+so a literal backslash must be written as `\\`.
+
 Slint looks for images in the following places:
 
 1. The absolute path or the path relative to the current `.slint` file.

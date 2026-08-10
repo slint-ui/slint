@@ -82,3 +82,47 @@ The Rust type `T` of a property maps from its Slint type:
 | `color` | `slint_sc::Color` |
 | `length` | `i32` |
 | `bool` | `bool` |
+| a declared `struct` | the generated struct of the same name |
+| a declared `enum` | the generated enum of the same name |
+
+## Types
+
+Each [struct](/language/structs-and-enums/#sls.struct.decl) or
+[enum](/language/structs-and-enums/#sls.enum.decl) declared in the `.slint` file
+generates a public Rust type of the same name. \{#sls.gen.types}
+
+### Structs
+
+A struct generates a Rust `struct` whose fields are public and of the mapped
+Rust type, each named after the Slint field with `-` replaced by `_`
+(so `line-width` becomes `line_width`);
+it derives `Default`, `Clone`, `PartialEq`, and `Debug`. \{#sls.gen.types.struct}
+
+### Enums
+
+An enum generates a Rust `enum` deriving `Default`, `Clone`, `Copy`,
+`PartialEq`, and `Debug`. \{#sls.gen.types.enum}
+
+Its `Default` returns the variant of the enum's first value. \{#sls.gen.types.enum.default}
+
+A variant name is formed from the Slint value by removing every `-` and `_`
+and capitalizing the first letter of the name and the first letter after each
+removed separator; every other letter keeps its case, so a value already in
+this form is unchanged and `FOO_BAR` and `Foo_Bar` yield different
+variants. \{#sls.gen.types.enum.names}
+
+| Slint value | Rust variant |
+| --- | --- |
+| `up` | `Up` |
+| `hello-world` | `HelloWorld` |
+| `FooBar` | `FooBar` |
+| `Foo_Bar` | `FooBar` |
+| `FOO_BAR` | `FOOBAR` |
+| `FooBar-x` | `FooBarX` |
+
+:::caution[Names become Rust identifiers]
+A component, struct, enum, or struct field whose name is a Rust keyword, or an
+enum value whose variant name is one (a value `self` becomes `Self`), generates
+code that does not compile; rename it. Property names are unaffected: their
+accessors are always prefixed with `get_` or `set_`.
+:::

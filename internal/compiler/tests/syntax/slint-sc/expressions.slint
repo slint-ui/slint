@@ -46,7 +46,6 @@ export component Test inherits Window {
     // object literal
     property <{x: int, y: int}> m: { x: 1, y: 2 };
 //            >              <error{Inline struct types are not supported in Slint SC}
-//                                 >            <^error{Object literal expressions are not supported in Slint SC}
     // member access
     property <int> n: m.x;
 //                    > <error{Identifier references are not supported in Slint SC}
