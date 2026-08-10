@@ -1587,8 +1587,21 @@ pub fn instantiate(
         self_weak.clone()
     } else {
         generativity::make_guard!(guard);
+        let parent = instance_ref.parent_instance(guard);
+        // Only inherit the parent's root when we actually share its window adapter: that's what
+        // `window_adapter()`/`maybe_window_adapter()` resolve through (via the root's globals). A
+        // component instantiated with its own dedicated window adapter (e.g. a popup that got a
+        // real popup/tooltip window instead of falling back to sharing the parent's) must be its
+        // own root, otherwise its window adapter lookups would resolve through the parent's
+        // globals - and thus the parent's adapter - instead.
+        let shares_window_with_parent = match window_options {
+            Some(WindowOptions::UseExistingWindow(existing_adapter)) => parent
+                .as_ref()
+                .is_some_and(|parent| Rc::ptr_eq(&parent.window_adapter(), existing_adapter)),
+            _ => true,
+        };
         root.or_else(|| {
-            instance_ref.parent_instance(guard).map(|parent| parent.root_weak().clone())
+            shares_window_with_parent.then(|| parent.map(|parent| parent.root_weak().clone())).flatten()
         })
         .unwrap_or_else(|| self_weak.clone())
     };
