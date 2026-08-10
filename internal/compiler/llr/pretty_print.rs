@@ -675,6 +675,9 @@ impl<'a, T> Display for DisplayExpression<'a, T> {
             Expression::WithFlexboxLayoutItemInfo { .. } => {
                 write!(f, "WithFlexboxLayoutItemInfo(TODO)",)
             }
+            Expression::FlexboxLayoutInfoCrossAxisWithMeasure { .. } => {
+                write!(f, "FlexboxLayoutInfoCrossAxisWithMeasure(TODO)",)
+            }
             Expression::SolveFlexboxLayoutWithMeasure { .. } => {
                 write!(f, "SolveFlexboxLayoutWithMeasure(TODO)",)
             }

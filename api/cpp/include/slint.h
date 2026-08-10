@@ -294,6 +294,26 @@ flexbox_layout_info_cross_axis(cbindgen_private::Slice<cbindgen_private::LayoutI
             flex_wrap, constraint_size);
 }
 
+// Like `flexbox_layout_info_cross_axis`, but with a measure callback (see
+// `flexbox_measure_thunk`) so height-for-width cells are re-measured at the
+// size taffy assigns them.
+template<typename MeasureFn>
+inline cbindgen_private::LayoutInfo flexbox_layout_info_cross_axis_with_measure(
+        cbindgen_private::Slice<cbindgen_private::LayoutItemInfo> cells_h,
+        cbindgen_private::Slice<cbindgen_private::LayoutItemInfo> cells_v,
+        cbindgen_private::Slice<cbindgen_private::FlexItemProps> flex_props, float spacing_h,
+        float spacing_v, const cbindgen_private::Padding &padding_h,
+        const cbindgen_private::Padding &padding_v,
+        cbindgen_private::FlexboxLayoutDirection direction,
+        cbindgen_private::FlexboxLayoutWrap flex_wrap, float constraint_size, MeasureFn measure)
+{
+    return cbindgen_private::slint_flexbox_layout_info_cross_axis_with_measure(
+            cells_h, cells_v, flex_props, spacing_h, spacing_v, &padding_h, &padding_v, direction,
+            flex_wrap, constraint_size,
+            reinterpret_cast<const void *>(&flexbox_measure_thunk<MeasureFn>),
+            reinterpret_cast<void *>(&measure));
+}
+
 /// Access the layout cache of an item within a repeater (standard cache)
 template<typename T>
 inline T layout_cache_access(const SharedVector<T> &cache, int offset, int repeater_index,

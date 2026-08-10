@@ -28,6 +28,11 @@ pub use crate::expression_tree::MouseCursorInner;
 #[derive(Debug, Clone)]
 pub struct FlexboxMeasureCell {
     pub kind: FlexboxMeasureCellKind,
+    /// The cell is width-for-height only: a probe with neither dimension known
+    /// measures its horizontal axis at the default height (any other cell
+    /// measures its vertical axis at the default width), keeping the probe
+    /// result self-consistent (see `FlexboxMeasureFn` in i-slint-core).
+    pub w4h_only: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -292,6 +297,17 @@ pub enum Expression {
         repeater_indices: Box<Expression>,
         measure_cells: Vec<FlexboxMeasureCell>,
     },
+    /// Calls `flexbox_layout_info_cross_axis_with_measure` with the same
+    /// generated measure callback as [`Self::SolveFlexboxLayoutWithMeasure`],
+    /// so height-for-width cells are measured at the main-axis size taffy
+    /// assigns them rather than at the container size the cells in `arguments`
+    /// were pre-measured at.
+    FlexboxLayoutInfoCrossAxisWithMeasure {
+        /// The arguments of `flexbox_layout_info_cross_axis` (without the
+        /// trailing measure callback).
+        arguments: Vec<Expression>,
+        measure_cells: Vec<FlexboxMeasureCell>,
+    },
     /// Will call the sub_expression, with the cells variable set to the
     /// array of GridLayoutInputData from the elements
     WithGridInputData {
@@ -480,6 +496,9 @@ impl Expression {
             Self::WithLayoutItemInfo { sub_expression, .. } => sub_expression.ty(ctx),
             Self::WithFlexboxLayoutItemInfo { sub_expression, .. } => sub_expression.ty(ctx),
             Self::SolveFlexboxLayoutWithMeasure { .. } => Type::LayoutCache,
+            Self::FlexboxLayoutInfoCrossAxisWithMeasure { .. } => {
+                crate::typeregister::layout_info_type().into()
+            }
             Self::WithGridInputData { sub_expression, .. } => sub_expression.ty(ctx),
             Self::MinMax { ty, .. } => ty.clone(),
             Self::EmptyComponentFactory => Type::ComponentFactory,
@@ -624,6 +643,19 @@ macro_rules! visit_impl {
             Expression::SolveFlexboxLayoutWithMeasure { data, repeater_indices, measure_cells } => {
                 $visitor(data);
                 $visitor(repeater_indices);
+                measure_cells.$iter().for_each(|x| {
+                    if let FlexboxMeasureCell {
+                        kind: FlexboxMeasureCellKind::Static { h_info, v_info },
+                        ..
+                    } = x
+                    {
+                        $visitor(h_info);
+                        $visitor(v_info);
+                    }
+                });
+            }
+            Expression::FlexboxLayoutInfoCrossAxisWithMeasure { arguments, measure_cells } => {
+                arguments.$iter().for_each(&mut $visitor);
                 measure_cells.$iter().for_each(|x| {
                     if let FlexboxMeasureCell {
                         kind: FlexboxMeasureCellKind::Static { h_info, v_info },

@@ -4675,6 +4675,14 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                 "slint::private_api::solve_flexbox_layout_with_measure({data}, {repeater_indices}, {lambda})"
             )
         }
+        Expression::FlexboxLayoutInfoCrossAxisWithMeasure { arguments, measure_cells } => {
+            let mut a = arguments.iter().map(|a| compile_expression(a, ctx));
+            let lambda = generate_flexbox_measure_lambda(measure_cells, ctx);
+            format!(
+                "slint::private_api::flexbox_layout_info_cross_axis_with_measure({}, {lambda})",
+                a.join(",")
+            )
+        }
         Expression::WithGridInputData {
             cells_variable,
             repeater_indices_var_name,
@@ -5630,13 +5638,17 @@ fn generate_with_layout_item_info(
     )
 }
 
-/// Emit the measure-callback lambda for a
-/// `solve_flexbox_layout_with_measure` call. For each static cell,
+/// Emit the measure-callback lambda shared by
+/// `solve_flexbox_layout_with_measure` and
+/// `flexbox_layout_info_cross_axis_with_measure` calls. For each static cell,
 /// `measure_cells[i]` carries `(h_info_given_known_h, v_info_given_known_w)` —
 /// `LayoutInfo` expressions that read the `measure_known_w` /
-/// `measure_known_h` locals. taffy calls the callback with exactly one of
+/// `measure_known_h` locals. taffy calls the callback with at most one of
 /// width/height known (the cross axis), so we recompute that cell's
-/// perpendicular info at the assigned dimension.
+/// perpendicular info at the assigned dimension. A call with neither dimension
+/// known is a content-size probe (see `FlexboxMeasureFn` in i-slint-core): it
+/// measures the free axis at the default size — the horizontal axis for a
+/// width-for-height-only cell, the vertical one otherwise.
 fn generate_flexbox_measure_lambda(
     measure_cells: &[llr::FlexboxMeasureCell],
     ctx: &EvaluationContext,
@@ -5652,28 +5664,30 @@ fn generate_flexbox_measure_lambda(
     // runtime: walk the elements, advancing `cursor` by 1 per static cell
     // and by the repeater's instance count per repeater, until `index`'s
     // range is found.
-    let (v_body, h_body) = if !has_repeater {
+    let (v_body, h_body, probe_body) = if !has_repeater {
         let mut v_cases = String::new();
         let mut h_cases = String::new();
+        let mut probe_cases = String::new();
         for (i, item) in measure_cells.iter().enumerate() {
             if let llr::FlexboxMeasureCellKind::Static { h_info, v_info } = &item.kind {
                 let v = compile_expression(v_info, ctx);
                 let h = compile_expression(h_info, ctx);
-                v_cases.push_str(&format!(
-                    "case {i}: {{ auto li = {v}; return {{ w, {BOUNDED} }}; }}\n"
-                ));
-                h_cases.push_str(&format!(
-                    "case {i}: {{ auto li = {h}; return {{ {BOUNDED}, h }}; }}\n"
-                ));
+                let v_case = format!("case {i}: {{ auto li = {v}; return {{ w, {BOUNDED} }}; }}\n");
+                let h_case = format!("case {i}: {{ auto li = {h}; return {{ {BOUNDED}, h }}; }}\n");
+                probe_cases.push_str(if item.w4h_only { &h_case } else { &v_case });
+                v_cases.push_str(&v_case);
+                h_cases.push_str(&h_case);
             }
         }
         (
             format!("switch (index) {{\n{v_cases}default: break;\n}}\n"),
             format!("switch (index) {{\n{h_cases}default: break;\n}}\n"),
+            format!("switch (index) {{\n{probe_cases}default: break;\n}}\n"),
         )
     } else {
         let mut v_steps = String::new();
         let mut h_steps = String::new();
+        let mut probe_steps = String::new();
         for item in measure_cells {
             match &item.kind {
                 llr::FlexboxMeasureCellKind::Static { h_info, v_info } => {
@@ -5687,6 +5701,7 @@ fn generate_flexbox_measure_lambda(
                         "if (index == cursor) {{ auto li = {h}; return {{ {BOUNDED}, h }}; }}\n\
                          cursor += 1;\n"
                     );
+                    probe_steps.push_str(if item.w4h_only { &h_step } else { &v_step });
                     v_steps.push_str(&v_step);
                     h_steps.push_str(&h_step);
                 }
@@ -5710,6 +5725,7 @@ fn generate_flexbox_measure_lambda(
                              return {{ w, h }}; }} \
                          cursor += len; }}\n"
                     );
+                    probe_steps.push_str(if item.w4h_only { &h_step } else { &v_step });
                     v_steps.push_str(&v_step);
                     h_steps.push_str(&h_step);
                 }
@@ -5718,6 +5734,7 @@ fn generate_flexbox_measure_lambda(
         (
             format!("[[maybe_unused]] uintptr_t cursor = 0;\n{v_steps}"),
             format!("[[maybe_unused]] uintptr_t cursor = 0;\n{h_steps}"),
+            format!("[[maybe_unused]] uintptr_t cursor = 0;\n{probe_steps}"),
         )
     };
     // A dimension taffy didn't assign (`known_* == false`) arrives pre-resolved
@@ -5737,8 +5754,11 @@ fn generate_flexbox_measure_lambda(
                 {h_body}\
                 return {{ w, h }};\n\
             }}\n\
-            // Neither dimension known (degenerate cell probe): the\n\
-            // pre-resolved defaults.\n\
+            // Content-size probe: measure the free axis at the default size, so\n\
+            // the returned pair is self-consistent.\n\
+            [[maybe_unused]] float measure_known_w = w;\n\
+            [[maybe_unused]] float measure_known_h = h;\n\
+            {probe_body}\
             return {{ w, h }};\n\
          }}"
     )

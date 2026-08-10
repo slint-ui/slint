@@ -3610,6 +3610,15 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             } }
         }
 
+        Expression::FlexboxLayoutInfoCrossAxisWithMeasure { arguments, measure_cells } => {
+            let a = compile_builtin_arguments(arguments, ctx);
+            let closure = generate_flexbox_measure_closure(measure_cells, ctx);
+            quote! { {
+                #closure
+                sp::flexbox_layout_info_cross_axis_with_measure(#(#a as _,)* Some(&mut measure))
+            } }
+        }
+
         Expression::WithGridInputData {
             cells_variable,
             repeater_indices_var_name,
@@ -3810,16 +3819,27 @@ fn compile_item_member_function_call(expr: &Expression, ctx: &EvaluationContext)
     fun.map_or_default(|fun| quote!(#fun(#window_adapter_tokens, #item_rc)))
 }
 
+/// Compile builtin-call arguments: structs are passed by reference.
+fn compile_builtin_arguments(
+    arguments: &[Expression],
+    ctx: &EvaluationContext,
+) -> Vec<TokenStream> {
+    arguments
+        .iter()
+        .map(|a| {
+            let arg = compile_expression(a, ctx);
+            if matches!(a.ty(ctx), Type::Struct { .. }) { quote!(&#arg) } else { arg }
+        })
+        .collect()
+}
+
 #[inline(never)]
 fn compile_extra_builtin_function_call(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
     let Expression::ExtraBuiltinFunctionCall { function, arguments, return_ty: _ } = expr else {
         unreachable!()
     };
     let f = ident(function);
-    let a = arguments.iter().map(|a| {
-        let arg = compile_expression(a, ctx);
-        if matches!(a.ty(ctx), Type::Struct { .. }) { quote!(&#arg) } else { arg }
-    });
+    let a = compile_builtin_arguments(arguments, ctx);
     quote! { sp::#f(#(#a as _),*) }
 }
 
@@ -5632,12 +5652,17 @@ fn generate_with_flexbox_layout_item_info(
     } }
 }
 
-/// Emit the measure callback for a `solve_flexbox_layout_with_measure` call,
-/// bound to a `measure` local. For each static cell, `measure_cells[i]` carries
+/// Emit the measure callback shared by `solve_flexbox_layout_with_measure` and
+/// `flexbox_layout_info_cross_axis_with_measure` calls, bound to a `measure`
+/// local. For each static cell, `measure_cells[i]` carries
 /// `(h_info_given_known_h, v_info_given_known_w)` — `LayoutInfo` expressions
 /// that read the `measure_known_w` / `measure_known_h` locals. taffy calls
-/// the callback with exactly one of width/height known (the cross axis), so we
-/// recompute that cell's perpendicular info at the assigned dimension.
+/// the callback with at most one of width/height known (the cross axis), so we
+/// recompute that cell's perpendicular info at the assigned dimension. A call
+/// with neither dimension known is a content-size probe (see `FlexboxMeasureFn`
+/// in i-slint-core): it measures the free axis at the default size — the
+/// horizontal axis for a width-for-height-only cell, the vertical one
+/// otherwise.
 fn generate_flexbox_measure_closure(
     measure_cells: &[llr::FlexboxMeasureCell],
     ctx: &EvaluationContext,
@@ -5654,22 +5679,31 @@ fn generate_flexbox_measure_closure(
     // only known at runtime: walk the elements, advancing `cursor` by 1 per static
     // cell and by the repeater's instance count per repeater, until `index`'s range
     // is found.
-    let (v_body, h_body) = if !has_repeater {
+    let (v_body, h_body, probe_body) = if !has_repeater {
         let mut v_arms = Vec::new();
         let mut h_arms = Vec::new();
+        let mut probe_arms = Vec::new();
         for (i, item) in measure_cells.iter().enumerate() {
             if let llr::FlexboxMeasureCellKind::Static { h_info, v_info } = &item.kind {
                 let idx = proc_macro2::Literal::usize_unsuffixed(i);
                 let v = compile_expression(v_info, ctx);
                 let h = compile_expression(h_info, ctx);
-                v_arms.push(quote!(#idx => return (w, ({ #v }).preferred_bounded()),));
-                h_arms.push(quote!(#idx => return (({ #h }).preferred_bounded(), h),));
+                let v_arm = quote!(#idx => return (w, ({ #v }).preferred_bounded()),);
+                let h_arm = quote!(#idx => return (({ #h }).preferred_bounded(), h),);
+                probe_arms.push(if item.w4h_only { h_arm.clone() } else { v_arm.clone() });
+                v_arms.push(v_arm);
+                h_arms.push(h_arm);
             }
         }
-        (quote!(match index { #(#v_arms)* _ => {} }), quote!(match index { #(#h_arms)* _ => {} }))
+        (
+            quote!(match index { #(#v_arms)* _ => {} }),
+            quote!(match index { #(#h_arms)* _ => {} }),
+            quote!(match index { #(#probe_arms)* _ => {} }),
+        )
     } else {
         let mut v_steps = Vec::new();
         let mut h_steps = Vec::new();
+        let mut probe_steps = Vec::new();
         for item in measure_cells {
             match &item.kind {
                 llr::FlexboxMeasureCellKind::Static { h_info, v_info } => {
@@ -5683,6 +5717,7 @@ fn generate_flexbox_measure_closure(
                         if index == cursor { return (({ #h }).preferred_bounded(), h); }
                         cursor += 1;
                     );
+                    probe_steps.push(if item.w4h_only { h_step.clone() } else { v_step.clone() });
                     v_steps.push(v_step);
                     h_steps.push(h_step);
                 }
@@ -5721,6 +5756,7 @@ fn generate_flexbox_measure_closure(
                             cursor += len;
                         }
                     );
+                    probe_steps.push(if item.w4h_only { h_step.clone() } else { v_step.clone() });
                     v_steps.push(v_step);
                     h_steps.push(h_step);
                 }
@@ -5731,6 +5767,7 @@ fn generate_flexbox_measure_closure(
         (
             quote!(let mut cursor = 0usize; #(#v_steps)* let _ = cursor;),
             quote!(let mut cursor = 0usize; #(#h_steps)* let _ = cursor;),
+            quote!(let mut cursor = 0usize; #(#probe_steps)* let _ = cursor;),
         )
     };
 
@@ -5752,9 +5789,14 @@ fn generate_flexbox_measure_closure(
                     #h_body
                     (w, h)
                 }
-                // Neither dimension known (degenerate cell probe): the
-                // pre-resolved defaults.
-                (false, false) => (w, h),
+                (false, false) => {
+                    let #known_w_ident = w;
+                    let _ = #known_w_ident;
+                    let #known_h_ident = h;
+                    let _ = #known_h_ident;
+                    #probe_body
+                    (w, h)
+                }
             }
         };
     }

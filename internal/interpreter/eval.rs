@@ -1006,6 +1006,9 @@ pub fn eval_expression(ctx: &mut EvalContext, expression: &Expression) -> Value 
         Expression::SolveFlexboxLayoutWithMeasure { .. } => {
             crate::eval_layout::solve_flexbox_layout_with_measure(ctx, expression)
         }
+        Expression::FlexboxLayoutInfoCrossAxisWithMeasure { .. } => {
+            crate::eval_layout::flexbox_layout_info_cross_axis_with_measure(ctx, expression)
+        }
         Expression::TranslationReference { .. } => {
             // TranslationReference is only emitted when `bundle-translations`
             // is active, which the interpreter does not use. Runtime @tr()
