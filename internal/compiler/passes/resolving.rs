@@ -159,6 +159,14 @@ fn resolve_match_elements(
             match_element.cases.iter().map(|case| CaseValue::new(&case.value)).collect();
         check_duplicate_cases(&match_element.cases, &values, diag);
         check_exhaustiveness(match_element, &values, diag);
+
+        let subject_ref = crate::layout::create_new_prop(elem, "match-subject".into(), case_type);
+        let subject = std::mem::replace(
+            &mut match_element.subject,
+            Expression::PropertyReference(subject_ref.clone()),
+        );
+        elem.borrow_mut().set_binding(subject_ref.name().clone(), subject.into());
+
         match_element.lower_to_conditional_elements();
     }
 }
