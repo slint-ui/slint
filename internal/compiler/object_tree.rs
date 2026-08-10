@@ -3856,9 +3856,9 @@ pub fn visit_element_expressions_excluding_repeater_model(
         for (_, _, a) in &mut t.property_animations {
             visit_element_expressions_simple(a, &mut vis);
         }
-        for (_, a) in &mut t.catch_all_property_animations {
+        if let Some((_, a)) = t.catch_all_property_animation.as_mut() {
             visit_element_expressions_simple(a, &mut vis);
-        }
+        };
     }
     elem.borrow_mut().transitions = transitions;
 
@@ -4083,7 +4083,7 @@ pub struct Transition {
     pub direction: TransitionDirection,
     pub state_id: SmolStr,
     pub property_animations: Vec<(NamedReference, SourceLocation, ElementRc)>,
-    pub catch_all_property_animations: Vec<(SourceLocation, ElementRc)>,
+    pub catch_all_property_animation: Option<(SourceLocation, ElementRc)>,
     pub node: syntax_nodes::Transition,
 }
 
@@ -4103,14 +4103,19 @@ impl Transition {
             .unwrap_or_default();
 
         let mut property_animations = Vec::new();
-        let mut catch_all_property_animations = Vec::new();
+        let mut catch_all_property_animation = None;
         for pa in trs.PropertyAnimation() {
-            if pa.child_token(SyntaxKind::Star).is_some() {
+            if let Some(star) = pa.child_token(SyntaxKind::Star) {
                 if let Some(anim_element) = catch_all_animation_element_from_node(&pa, diag, tr) {
-                    catch_all_property_animations.push((pa.to_source_location(), anim_element));
+                    if catch_all_property_animation.is_none() {
+                        catch_all_property_animation =
+                            Some((pa.to_source_location(), anim_element));
+                    } else {
+                        diag.push_error("Multiple * animations are not allowed".into(), &star);
+                    }
                 }
                 continue;
-            }
+            };
             for qn in pa.QualifiedName() {
                 if let Some((ne, prop_type)) =
                     lookup_property_from_qualified_name_for_state(qn.clone(), r, diag)
@@ -4137,7 +4142,7 @@ impl Transition {
                 .and_then(|x| parser::identifier_text(&x))
                 .unwrap_or_default(),
             property_animations,
-            catch_all_property_animations,
+            catch_all_property_animation,
             node: trs.clone(),
         }
     }
