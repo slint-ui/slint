@@ -710,6 +710,17 @@ fn generate_shared_globals(
                 sp::Rc::clone(self.window_adapter_ref().unwrap())
             }
 
+            // The context the window belongs to, or `None` before the window exists.
+            // Deliberately reads `window_adapter` rather than `window_adapter_ref`: this is
+            // called while evaluating bindings, which must not create a window as a side
+            // effect. Callers fall back to the thread's context when it yields `None`.
+            #[allow(dead_code)]
+            fn maybe_context(&self) -> sp::Option<sp::SlintContext> {
+                self.window_adapter
+                    .get()
+                    .and_then(|adapter| sp::WindowInner::from_pub(adapter.window()).try_context().cloned())
+            }
+
             fn window_adapter_ref(&self) -> sp::Result<&sp::Rc<dyn sp::WindowAdapter>, slint::PlatformError>
             {
                 self.window_adapter.get_or_try_init(|| {
@@ -3710,7 +3721,19 @@ fn compile_keys_literal(expr: &Expression) -> TokenStream {
             #ignore_alt))
 }
 
-#[inline(never)]
+/// The context to format or parse numbers with, as an `Option<&SlintContext>`.
+///
+/// Only reached from expressions that have access to the globals. A struct field default
+/// reaches none of the arms that call this: a number-to-string cast is either rejected for
+/// depending on the locale or folded to a string literal before generation, and `to-fixed`
+/// and friends are rejected as non-constant expressions. Were that to change, the
+/// `compile_error!` a constant expression carries as its `global_access` breaks the
+/// generated build rather than silently formatting with the wrong locale.
+fn access_context(ctx: &EvaluationContext) -> TokenStream {
+    let global_access = &ctx.generator_state.global_access;
+    quote!(#global_access.maybe_context().as_ref())
+}
+
 fn compile_cast(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
     let Expression::Cast { from, to } = expr else { unreachable!() };
     let f = compile_expression(from, ctx);
@@ -3719,7 +3742,8 @@ fn compile_cast(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
             quote!(((#f) as i32))
         }
         (from, Type::String) if from.as_unit_product().is_some() => {
-            quote!(sp::shared_string_from_number((#f) as f64))
+            let context = access_context(ctx);
+            quote!(sp::shared_string_from_number_in(#context, (#f) as f64))
         }
         (Type::Float32, Type::Model) | (Type::Int32, Type::Model) => {
             quote!(sp::ModelRc::new(#f.max(::core::default::Default::default()) as usize))
@@ -4815,20 +4839,26 @@ fn compile_builtin_function_call(
         BuiltinFunction::Exp => quote!((#(#a)* as f64).exp()),
         BuiltinFunction::ToFixed => {
             let (a1, a2) = (a.next().unwrap(), a.next().unwrap());
-            quote!(sp::shared_string_from_number_fixed(#a1 as f64, (#a2 as i32).max(0) as usize))
+            let context = access_context(ctx);
+            quote!(sp::shared_string_from_number_fixed_in(#context, #a1 as f64, (#a2 as i32).max(0) as usize))
         }
         BuiltinFunction::ToPrecision => {
             let (a1, a2) = (a.next().unwrap(), a.next().unwrap());
-            quote!(sp::shared_string_from_number_precision(#a1 as f64, (#a2 as i32).max(0) as usize))
+            let context = access_context(ctx);
+            quote!(sp::shared_string_from_number_precision_in(#context, #a1 as f64, (#a2 as i32).max(0) as usize))
         }
         BuiltinFunction::ToStringUnlocalized => {
             let a1 = a.next().unwrap();
             quote!(sp::shared_string_from_number_unlocalized(#a1 as f64))
         }
         BuiltinFunction::StringToFloat => {
-            quote!(sp::string_to_float(#(#a)*.as_str()).unwrap_or_default())
+            let context = access_context(ctx);
+            quote!(sp::string_to_float_in(#context, #(#a)*.as_str()).unwrap_or_default())
         }
-        BuiltinFunction::StringIsFloat => quote!(sp::string_to_float(#(#a)*.as_str()).is_some()),
+        BuiltinFunction::StringIsFloat => {
+            let context = access_context(ctx);
+            quote!(sp::string_to_float_in(#context, #(#a)*.as_str()).is_some())
+        }
         BuiltinFunction::StringIsEmpty => quote!(#(#a)*.is_empty()),
         BuiltinFunction::StringCharacterCount => {
             quote!( sp::UnicodeSegmentation::graphemes(#(#a)*.as_str(), true).count() as i32 )
