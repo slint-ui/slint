@@ -2919,6 +2919,23 @@ export global Platform {
     /// Use it to provide placeholder data and preview-only decorations that are removed from your
     /// compiled application. This property is a compile-time constant, so branches that depend on it
     /// are optimized away when the value is known to be `false` or `true`.
+    //
+    // ```slint playground
+    // import { Button } from "std-widgets.slint";
+    //
+    // component CustomButton inherits Button {
+    //     text: Platform.is-app ? "" : "A placeholder text";
+    // }
+    //
+    // export component Example inherits Window {
+    //     CustomButton {
+    //         text: "Open Slint Website";
+    //         clicked => {
+    //             Platform.open-url("https://slint.dev");
+    //         }
+    //     }
+    // }
+    // ```
     out property <bool> is-app;
     /// The name of the currently selected <Link type="StyleWidgets" label="widget style"/>. Some widget
     /// styles have dark and light variant suffixes, such as `fluent-light`. This property contains the
