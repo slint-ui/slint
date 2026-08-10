@@ -30,9 +30,9 @@ export struct Holder {
 export struct Edge {
     // Folds to infinity; the backends saturate when converting to int
     big: int = 45 / 0,
-    // The number to string conversion respects the locale's decimal separator,
-    // so it stays a runtime conversion instead of a compile time string
-    text: string = 42.1,
+    // A number that renders the same in every locale folds to a string literal.
+    // 42.1 wouldn't, so it's rejected as non-constant.
+    text: string = 42,
     size: length = 44px,
     // No default here, but the field type declares its own defaults
     inner: PlayerWithDefault,
@@ -127,7 +127,7 @@ export component TestCase {
         && score-of({ name: "arg" }) == 42
         && let-player("let").name == "let" && let-player("let").score == 42
         && make-cb().name == "cb" && make-cb().score == 42 && make-cb().rank == Rank.gold
-        && edge.big > 2000000000 && edge.text.starts-with("42") && edge.size == 44px
+        && edge.big > 2000000000 && edge.text == "42" && edge.size == 44px
         && edge.inner.name == "unknown" && edge.inner.score == 42 && edge.inner.alive
         && holder.model.length == 1 && holder.model[0].abc == 45
         && tw-a.name == "tw" && tw-b.name == "tw" && tw-b.score == 42 && tw-b.alive;
@@ -171,7 +171,7 @@ assert_eq!(h2.model.row_count(), 1);
 
 let edge = Edge::default();
 assert_eq!(edge.big, i32::MAX);
-assert!(edge.text.starts_with("42"));
+assert_eq!(edge.text, "42");
 assert_eq!(edge.size, 44.);
 assert_eq!(edge.inner.score, 42);
 assert!(edge.inner.alive);
@@ -220,7 +220,7 @@ assert_eq(h2.model->row_count(), 1);
 
 Edge edge;
 assert_eq(edge.big, std::numeric_limits<int>::max());
-assert(std::string_view(edge.text).starts_with("42"));
+assert_eq(edge.text, "42");
 assert_eq(edge.size, 44.f);
 assert_eq(edge.inner.score, 42);
 assert(edge.inner.alive);
@@ -265,7 +265,7 @@ assert.equal(nested.player.score, 42);
 
 let edge = new slint.Edge();
 assert(edge.big > 2000000000);
-assert(edge.text.startsWith("42"));
+assert.equal(edge.text, "42");
 assert.equal(edge.inner.score, 42);
 
 let from_cb = instance.make_cb();
@@ -295,7 +295,7 @@ assert nested.player.score == 42
 
 edge = Edge()
 assert edge.big > 2000000000
-assert str(edge.text).startswith("42")
+assert edge.text == "42"
 assert edge.inner.score == 42
 assert edge.size == 44
 
