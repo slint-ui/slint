@@ -5,9 +5,9 @@
 
 //! Popup window handling helpers
 
+use crate::Coord;
 use crate::items::{ConstraintAdjustment, PopupAnchor, PopupAnchorLocation, PopupGravity};
 use crate::lengths::{LogicalPoint, LogicalRect, LogicalSize};
-use crate::Coord;
 
 /// Returns, as fractions of the anchor rectangle's width/height, the point within that
 /// rectangle that the popup is anchored to (0.0 = left/top edge, 0.5 = center, 1.0 =
@@ -113,10 +113,8 @@ pub fn place_popup(
     // the popup on the opposite side of the anchor rectangle.
     let flipped_anchor_point_x = anchor_position.x + anchor.width * (1 as Coord - anchor_fx);
     let flipped_anchor_point_y = anchor_position.y + anchor.height * (1 as Coord - anchor_fy);
-    let flipped_x =
-        flipped_anchor_point_x + size.width * (-1 as Coord - gravity_fx) + offset.x;
-    let flipped_y =
-        flipped_anchor_point_y + size.height * (-1 as Coord - gravity_fy) + offset.y;
+    let flipped_x = flipped_anchor_point_x + size.width * (-1 as Coord - gravity_fx) + offset.x;
+    let flipped_y = flipped_anchor_point_y + size.height * (-1 as Coord - gravity_fy) + offset.y;
 
     let clip_min_x = clip_region.origin.x;
     let clip_max_x = clip_region.origin.x + clip_region.size.width;
@@ -157,7 +155,8 @@ fn fixed_placement(input: LogicalRect, expected: LogicalRect, clip: Option<Logic
     // origin -- equivalent to the old "fixed position" placement. When `clip` is `None`, leave
     // all constraint-adjustment flags unset so the position/size pass through unconstrained,
     // regardless of the (unused) clip region passed to `place_popup`.
-    let adjustment = ConstraintAdjustment { slide: clip.is_some(), flip: false, resize: clip.is_some() };
+    let adjustment =
+        ConstraintAdjustment { slide: clip.is_some(), flip: false, resize: clip.is_some() };
     let anchor = PopupAnchor {
         location: PopupAnchorLocation::TopLeft,
         x: input.origin.x,
@@ -168,9 +167,15 @@ fn fixed_placement(input: LogicalRect, expected: LogicalRect, clip: Option<Logic
         constraint_adjustment_x: adjustment.clone(),
         constraint_adjustment_y: adjustment,
     };
-    let clip_region = clip.unwrap_or_else(|| LogicalRect::new(LogicalPoint::zero(), LogicalSize::zero()));
-    let result =
-        place_popup(anchor, LogicalPoint::new(input.origin.x, input.origin.y), LogicalPoint::zero(), input.size, &clip_region);
+    let clip_region =
+        clip.unwrap_or_else(|| LogicalRect::new(LogicalPoint::zero(), LogicalSize::zero()));
+    let result = place_popup(
+        anchor,
+        LogicalPoint::new(input.origin.x, input.origin.y),
+        LogicalPoint::zero(),
+        input.size,
+        &clip_region,
+    );
     if let Some(clip) = clip {
         clip.contains_rect(&result);
     }

@@ -19,7 +19,9 @@ use crate::item_tree::{
     ItemRc, ItemTreeRc, ItemTreeRef, ItemTreeRefPin, ItemTreeVTable, ItemTreeWeak, ItemWeak,
     ParentItemTraversalMode,
 };
-use crate::items::{BuiltInMouseCursor, InputType, ItemRef, MenuEntry, PopupAnchor, PopupClosePolicy};
+use crate::items::{
+    BuiltInMouseCursor, InputType, ItemRef, MenuEntry, PopupAnchor, PopupClosePolicy,
+};
 use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalVector, SizeLengths};
 use crate::menus::MenuVTable;
 use crate::properties::{Property, PropertyTracker};
