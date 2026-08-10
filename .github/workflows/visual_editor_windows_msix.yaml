@@ -170,7 +170,8 @@ jobs:
       - name: Render the tile images
         shell: pwsh
         run: |
-          $backdrops = "tools/lsp/packaging/windows-appx"
+          # Shared with the Linux package, which draws its icon on the square one
+          $backdrops = "tools/lsp/packaging"
           $tiles = Join-Path $env:RUNNER_TEMP "tiles"
           New-Item -ItemType Directory -Force $tiles | Out-Null
 
