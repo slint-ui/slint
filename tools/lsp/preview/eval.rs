@@ -22,10 +22,15 @@ struct EvalLocalContext {
 
 impl EvalLocalContext {
     /// The context of the window the preview renders into, so that numbers are formatted the
-    /// way that window's locale spells them rather than the thread's.
+    /// way that window's locale spells them rather than the thread's. Falls back to the
+    /// thread's while there is no window to ask.
     fn slint_context(&self) -> Option<i_slint_core::SlintContext> {
-        let adapter = self.window_adapter.as_ref()?;
-        i_slint_core::window::WindowInner::from_pub(adapter.window()).try_context().cloned()
+        self.window_adapter
+            .as_ref()
+            .and_then(|adapter| {
+                i_slint_core::window::WindowInner::from_pub(adapter.window()).try_context().cloned()
+            })
+            .or_else(i_slint_core::SlintContext::current)
     }
 }
 
@@ -83,9 +88,9 @@ fn eval_expression(
             match (v, to) {
                 (Value::Number(n), langtype::Type::Int32) => Value::Number(n.trunc()),
                 (Value::Number(n), langtype::Type::String) => {
-                    Value::String(i_slint_core::string::shared_string_from_number_in(
-                        local_context.slint_context().as_ref(),
-                        n,
+                    Value::String(local_context.slint_context().map_or_else(
+                        || i_slint_core::string::shared_string_from_number_unlocalized(n),
+                        |ctx| ctx.format_number(n),
                     ))
                 }
                 (Value::Number(n), langtype::Type::Color) => {
@@ -439,10 +444,9 @@ fn handle_builtin_function(
             let digits: i32 =
                 eval_expression(&arguments[1], local_context, None).try_into().unwrap_or_default();
             let digits: usize = digits.max(0) as usize;
-            Value::String(i_slint_core::string::shared_string_from_number_fixed_in(
-                local_context.slint_context().as_ref(),
-                n,
-                digits,
+            Value::String(local_context.slint_context().map_or_else(
+                || i_slint_core::string::shared_string_from_number_unlocalized(n),
+                |ctx| ctx.format_number_fixed(n, digits),
             ))
         }
         BuiltinFunction::ToPrecision => {
@@ -451,10 +455,9 @@ fn handle_builtin_function(
             let precision: i32 =
                 eval_expression(&arguments[1], local_context, None).try_into().unwrap_or_default();
             let precision: usize = precision.max(0) as usize;
-            Value::String(i_slint_core::string::shared_string_from_number_precision_in(
-                local_context.slint_context().as_ref(),
-                n,
-                precision,
+            Value::String(local_context.slint_context().map_or_else(
+                || i_slint_core::string::shared_string_from_number_unlocalized(n),
+                |ctx| ctx.format_number_precision(n, precision),
             ))
         }
         BuiltinFunction::ToStringUnlocalized => {

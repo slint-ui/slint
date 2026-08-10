@@ -27,7 +27,6 @@ use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalSize};
 use crate::platform::Clipboard;
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
-use crate::string::string_to_float_in;
 use crate::window::{InputMethodProperties, InputMethodRequest, WindowAdapter, WindowInner};
 use crate::{Callback, Coord, Property, SharedString, SharedVector};
 use alloc::{rc::Rc, string::String};
@@ -2326,13 +2325,11 @@ impl TextInput {
 
                 // What the user may type is what this window's locale spells, not what the
                 // thread's happens to.
-                let ctx = window_adapter.window().0.try_context();
+                let ctx = window_adapter.window().0.context();
 
                 // Allow localized ".", "-", "-." because otherwise the cannot start entering
                 if candidate.len() <= 2 {
-                    let sep = ctx.map_or(i_slint_common::DEFAULT_DECIMAL_SEPARATOR, |ctx| {
-                        ctx.locale_decimal_separator()
-                    });
+                    let sep = ctx.locale_decimal_separator();
                     let mut it = candidate.chars();
                     if match (it.next(), it.next()) {
                         (Some('-'), None) => true,
@@ -2343,7 +2340,7 @@ impl TextInput {
                         return true;
                     }
                 }
-                return string_to_float_in(ctx, &candidate).is_some();
+                return ctx.parse_number(&candidate).is_some();
             }
             InputType::Password | InputType::Text | InputType::Search => (),
         }

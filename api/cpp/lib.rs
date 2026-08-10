@@ -189,8 +189,12 @@ pub unsafe extern "C" fn slint_register_bitmap_font(
 
 #[unsafe(no_mangle)]
 pub extern "C" fn slint_string_to_float(string: &SharedString, value: &mut f32) -> bool {
-    // The C++ ABI carries no context, so this falls back to the thread's.
-    if let Some(v) = i_slint_core::string::string_to_float_in(None, string.as_str()) {
+    // The C++ ABI carries no context, so this uses the thread's when there is one.
+    let parsed = match i_slint_core::SlintContext::current() {
+        Some(ctx) => ctx.parse_number(string.as_str()),
+        None => i_slint_core::string::string_to_float_unlocalized(string.as_str()),
+    };
+    if let Some(v) = parsed {
         *value = v;
         true
     } else {

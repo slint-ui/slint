@@ -151,6 +151,15 @@ impl SlintContext {
         this
     }
 
+    /// This thread's context, or `None` if none was ever created.
+    ///
+    /// Installing a platform creates one and claims the slot, and a component cannot be
+    /// built without a platform, so anything reachable from a Slint expression has one.
+    /// `None` is for the callers that run before all that, reached through the C API.
+    pub fn current() -> Option<Self> {
+        GLOBAL_CONTEXT.with(|slot| slot.get().cloned())
+    }
+
     /// Return a reference to the platform abstraction
     pub fn platform(&self) -> &dyn Platform {
         &*self.0.platform

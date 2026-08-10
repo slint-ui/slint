@@ -362,33 +362,11 @@ pub fn shared_string_from_number_unlocalized(n: f64) -> SharedString {
     crate::format!("{}", i_slint_common::FormattedNumber(n))
 }
 
-/// The separator to format with: `ctx`'s when the caller has one, the thread's when it has
-/// not, and `.` when no context was ever created.
-///
-/// The `None` arm is the only place the number formatting reads the thread's context. It is
-/// there for the callers whose ABI carries no context -- the C++ FFI shims -- and for the
-/// two runtime paths that hold an `Option`, where a component is evaluated before its window
-/// exists. Prefer [`crate::SlintContext::format_number`] and friends wherever a context is
-/// in hand.
-fn decimal_separator(ctx: Option<&crate::SlintContext>) -> char {
-    match ctx {
-        Some(ctx) => ctx.locale_decimal_separator(),
-        None => crate::context::GLOBAL_CONTEXT
-            .with(|ctx| ctx.get().map(|ctx| ctx.locale_decimal_separator()))
-            .unwrap_or(i_slint_common::DEFAULT_DECIMAL_SEPARATOR),
-    }
-}
-
 /// Convert a f64 to a SharedString, spelling the separator `sep`.
 pub(crate) fn format_number(sep: char, n: f64) -> SharedString {
     let mut result = shared_string_from_number_unlocalized(n);
     localize_separator(&mut result, sep);
     result
-}
-
-/// Convert a f64 to a SharedString, formatted for `ctx`.
-pub fn shared_string_from_number_in(ctx: Option<&crate::SlintContext>, n: f64) -> SharedString {
-    format_number(decimal_separator(ctx), n)
 }
 
 /// Convert a f64 to a SharedString with a fixed number of digits after the decimal point,
@@ -397,16 +375,6 @@ pub(crate) fn format_number_fixed(sep: char, n: f64, digits: usize) -> SharedStr
     let mut result = crate::format!("{number:.digits$}", number = n, digits = digits);
     localize_separator(&mut result, sep);
     result
-}
-
-/// Convert a f64 to a SharedString with a fixed number of digits after the decimal point,
-/// formatted for `ctx`.
-pub fn shared_string_from_number_fixed_in(
-    ctx: Option<&crate::SlintContext>,
-    n: f64,
-    digits: usize,
-) -> SharedString {
-    format_number_fixed(decimal_separator(ctx), n, digits)
 }
 
 /// Replaces the '.' the formatting above produced, if the locale spells it differently.
@@ -433,16 +401,6 @@ pub(crate) fn format_number_precision(sep: char, n: f64, precision: usize) -> Sh
     }
 }
 
-/// Convert a f64 to a SharedString following a similar logic as JavaScript's Number.toPrecision(),
-/// formatted for `ctx`.
-pub fn shared_string_from_number_precision_in(
-    ctx: Option<&crate::SlintContext>,
-    n: f64,
-    precision: usize,
-) -> SharedString {
-    format_number_precision(decimal_separator(ctx), n, precision)
-}
-
 /// Replaces all matches of `from` with `to` in `s` and returns the result as a new
 /// `SharedString`.
 pub fn shared_string_replace_all(s: &SharedString, from: &str, to: &str) -> SharedString {
@@ -463,9 +421,9 @@ pub fn shared_string_replace_all(s: &SharedString, from: &str, to: &str) -> Shar
     result
 }
 
-/// Convert a string to a float, reading it as `ctx` spells numbers.
-pub fn string_to_float_in(ctx: Option<&crate::SlintContext>, string: &str) -> Option<f32> {
-    parse_number(decimal_separator(ctx), string)
+/// Convert a string to a float written with "." as decimal separator
+pub fn string_to_float_unlocalized(string: &str) -> Option<f32> {
+    parse_number(i_slint_common::DEFAULT_DECIMAL_SEPARATOR, string)
 }
 
 /// Convert a string to a float, reading the separator as `sep`.
@@ -507,14 +465,7 @@ fn test_number_formatting_uses_the_given_context() {
     other.set_locale("C");
     assert_eq!(other.locale_decimal_separator(), '.');
 
-    // Explicit context wins.
-    assert_eq!(shared_string_from_number_in(Some(&other), 1.5), "1.5");
-    assert_eq!(shared_string_from_number_fixed_in(Some(&other), 1.5, 2), "1.50");
-    assert_eq!(shared_string_from_number_precision_in(Some(&other), 1.5, 3), "1.50");
-    assert_eq!(string_to_float_in(Some(&other), "1.5"), Some(1.5));
-    assert_eq!(string_to_float_in(Some(&other), "1,5"), None);
-
-    // The methods on the context itself agree with naming it.
+    // A context that is not the thread's formats by its own locale.
     assert_eq!(other.format_number(1.5), "1.5");
     assert_eq!(other.format_number_fixed(1.5, 2), "1.50");
     assert_eq!(other.format_number_precision(1.5, 3), "1.50");
@@ -523,12 +474,18 @@ fn test_number_formatting_uses_the_given_context() {
     assert_eq!(thread_ctx.format_number(1.5), "1,5");
     assert_eq!(thread_ctx.parse_number("1,5"), Some(1.5));
 
-    // No context named: the thread's, which spells it differently.
-    assert_eq!(shared_string_from_number_in(None, 1.5), "1,5");
-    assert_eq!(shared_string_from_number_fixed_in(None, 1.5, 2), "1,50");
-    assert_eq!(shared_string_from_number_precision_in(None, 1.5, 3), "1,50");
-    assert_eq!(string_to_float_in(None, "1,5"), Some(1.5));
-    assert_eq!(string_to_float_in(None, "1.5"), None);
+    // The thread's context is the one created first, which spells it differently.
+    let current = crate::SlintContext::current().unwrap();
+    assert_eq!(current.format_number(1.5), "1,5");
+    assert_eq!(current.format_number_fixed(1.5, 2), "1,50");
+    assert_eq!(current.format_number_precision(1.5, 3), "1,50");
+    assert_eq!(current.parse_number("1,5"), Some(1.5));
+    assert_eq!(current.parse_number("1.5"), None);
+
+    // Not spelled by any locale: the unlocalized entry points stay on '.'.
+    assert_eq!(shared_string_from_number_unlocalized(1.5), "1.5");
+    assert_eq!(string_to_float_unlocalized("1.5"), Some(1.5));
+    assert_eq!(string_to_float_unlocalized("1,5"), None);
 }
 
 #[test]
@@ -547,7 +504,7 @@ fn test_string_to_float() {
     ];
 
     for (test_string, result) in TEST {
-        assert_eq!(string_to_float_in(None, test_string), *result);
+        assert_eq!(string_to_float_unlocalized(test_string), *result);
     }
 }
 
@@ -682,7 +639,11 @@ pub(crate) mod ffi {
     /// The resulting structure must be passed to slint_shared_string_drop
     #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_shared_string_from_number(out: *mut SharedString, n: f64) {
-        let str = shared_string_from_number_in(None, n);
+        // The C ABI carries no context, so this uses the thread's when there is one.
+        let str = match crate::SlintContext::current() {
+            Some(ctx) => ctx.format_number(n),
+            None => shared_string_from_number_unlocalized(n),
+        };
         unsafe { core::ptr::write(out, str) };
     }
 
@@ -720,7 +681,10 @@ pub(crate) mod ffi {
         n: f64,
         digits: usize,
     ) {
-        *out = shared_string_from_number_fixed_in(None, n, digits);
+        *out = match crate::SlintContext::current() {
+            Some(ctx) => ctx.format_number_fixed(n, digits),
+            None => format_number_fixed(i_slint_common::DEFAULT_DECIMAL_SEPARATOR, n, digits),
+        };
     }
 
     #[test]
@@ -771,7 +735,12 @@ pub(crate) mod ffi {
         n: f64,
         precision: usize,
     ) {
-        *out = shared_string_from_number_precision_in(None, n, precision);
+        *out = match crate::SlintContext::current() {
+            Some(ctx) => ctx.format_number_precision(n, precision),
+            None => {
+                format_number_precision(i_slint_common::DEFAULT_DECIMAL_SEPARATOR, n, precision)
+            }
+        };
     }
 
     #[test]

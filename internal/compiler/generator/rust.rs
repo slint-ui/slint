@@ -710,15 +710,20 @@ fn generate_shared_globals(
                 sp::Rc::clone(self.window_adapter_ref().unwrap())
             }
 
-            // The context the window belongs to, or `None` before the window exists.
-            // Deliberately reads `window_adapter` rather than `window_adapter_ref`: this is
-            // called while evaluating bindings, which must not create a window as a side
-            // effect. Callers fall back to the thread's context when it yields `None`.
+            // The context this component belongs to: its window's, or the thread's while
+            // the window does not exist yet. Deliberately reads `window_adapter` rather than
+            // `window_adapter_ref`: this is called while evaluating bindings, which must not
+            // create a window as a side effect.
+            //
+            // The thread has a context whenever a component exists, since building one needs
+            // a platform and installing a platform creates the context.
             #[allow(dead_code)]
-            fn maybe_context(&self) -> sp::Option<sp::SlintContext> {
+            fn context_or_global(&self) -> sp::SlintContext {
                 self.window_adapter
                     .get()
                     .and_then(|adapter| sp::WindowInner::from_pub(adapter.window()).try_context().cloned())
+                    .or_else(sp::SlintContext::current)
+                    .expect("a component exists, so a platform and its context do too")
             }
 
             fn window_adapter_ref(&self) -> sp::Result<&sp::Rc<dyn sp::WindowAdapter>, slint::PlatformError>
@@ -3721,7 +3726,7 @@ fn compile_keys_literal(expr: &Expression) -> TokenStream {
             #ignore_alt))
 }
 
-/// The context to format or parse numbers with, as an `Option<&SlintContext>`.
+/// The context to format or parse numbers with.
 ///
 /// Only reached from expressions that have access to the globals. A struct field default
 /// reaches none of the arms that call this: a number-to-string cast is either rejected for
@@ -3731,7 +3736,7 @@ fn compile_keys_literal(expr: &Expression) -> TokenStream {
 /// generated build rather than silently formatting with the wrong locale.
 fn access_context(ctx: &EvaluationContext) -> TokenStream {
     let global_access = &ctx.generator_state.global_access;
-    quote!(#global_access.maybe_context().as_ref())
+    quote!(#global_access.context_or_global())
 }
 
 fn compile_cast(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
@@ -3743,7 +3748,7 @@ fn compile_cast(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
         }
         (from, Type::String) if from.as_unit_product().is_some() => {
             let context = access_context(ctx);
-            quote!(sp::shared_string_from_number_in(#context, (#f) as f64))
+            quote!(#context.format_number((#f) as f64))
         }
         (Type::Float32, Type::Model) | (Type::Int32, Type::Model) => {
             quote!(sp::ModelRc::new(#f.max(::core::default::Default::default()) as usize))
@@ -4840,12 +4845,12 @@ fn compile_builtin_function_call(
         BuiltinFunction::ToFixed => {
             let (a1, a2) = (a.next().unwrap(), a.next().unwrap());
             let context = access_context(ctx);
-            quote!(sp::shared_string_from_number_fixed_in(#context, #a1 as f64, (#a2 as i32).max(0) as usize))
+            quote!(#context.format_number_fixed(#a1 as f64, (#a2 as i32).max(0) as usize))
         }
         BuiltinFunction::ToPrecision => {
             let (a1, a2) = (a.next().unwrap(), a.next().unwrap());
             let context = access_context(ctx);
-            quote!(sp::shared_string_from_number_precision_in(#context, #a1 as f64, (#a2 as i32).max(0) as usize))
+            quote!(#context.format_number_precision(#a1 as f64, (#a2 as i32).max(0) as usize))
         }
         BuiltinFunction::ToStringUnlocalized => {
             let a1 = a.next().unwrap();
@@ -4853,11 +4858,11 @@ fn compile_builtin_function_call(
         }
         BuiltinFunction::StringToFloat => {
             let context = access_context(ctx);
-            quote!(sp::string_to_float_in(#context, #(#a)*.as_str()).unwrap_or_default())
+            quote!(#context.parse_number(#(#a)*.as_str()).unwrap_or_default())
         }
         BuiltinFunction::StringIsFloat => {
             let context = access_context(ctx);
-            quote!(sp::string_to_float_in(#context, #(#a)*.as_str()).is_some())
+            quote!(#context.parse_number(#(#a)*.as_str()).is_some())
         }
         BuiltinFunction::StringIsEmpty => quote!(#(#a)*.is_empty()),
         BuiltinFunction::StringCharacterCount => {
