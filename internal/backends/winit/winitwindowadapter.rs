@@ -2061,7 +2061,6 @@ fn gravity_to_winit(value: PopupGravity) -> winit::window::WindowGravity {
     }
 }
 
-#[cfg(feature = "wayland")]
 fn constraint_adjustment_to_winit(
     x: &ConstraintAdjustment,
     y: &ConstraintAdjustment,
