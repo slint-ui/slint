@@ -6,10 +6,18 @@ name: Visual Editor Windows MSIX
 on:
   workflow_dispatch:
     inputs:
+      channel:
+        description: "Which listing to package for"
+        required: false
+        default: release
+        type: choice
+        options:
+          - release
+          - preview
       version:
         # The Store keeps a version reserved even after the package using it is
         # deleted again, so test uploads would otherwise burn release versions.
-        description: "Three-part version to package instead of the slint-lsp one, e.g. 1.99.0"
+        description: "Three-part version to package instead of the slint-lsp one, e.g. 1.99.0 (release channel only)"
         required: false
         type: string
       save_if:
@@ -98,26 +106,55 @@ jobs:
           pattern: slint-visual-editor-*
           path: exe
 
-      - name: Determine the package version
-        id: get_cargo_version
+      - name: Determine the channel and version
+        id: channel
         shell: pwsh
         run: |
-          $cargoversion = "${{ inputs.version }}"
-          if ($cargoversion) {
-            Write-Host "Packaging $cargoversion instead of the slint-lsp version"
+          # The display names below are reserved in Partner Center, one listing
+          # at a time, and a package naming one that is not reserved for it is
+          # rejected. They read the way they do because that is how they were
+          # reserved, so leave them be.
+          $channel = "${{ inputs.channel }}"
+          if (-not $channel) { $channel = "release" }
+
+          if ($channel -eq "preview") {
+            # The preview listing is a product of its own, so it has a version
+            # space of its own and nothing to gain from the crate version. Date
+            # the builds instead, down to the minute: a version can only ever be
+            # submitted once, and re-running a workflow keeps its run number,
+            # which would otherwise offer the Store a version it has seen.
+            $now = (Get-Date).ToUniversalTime()
+            $version = "{0}.{1}.{2}.0" -f $now.ToString("yyyy"), [int]$now.ToString("MMdd"), [int]$now.ToString("HHmm")
+            $identity = "Slint.SlintVisualEditorPreview"
+            $display = "Slint Visual Editor (Preview)"
           } else {
-            $cargoversion = cargo metadata --manifest-path tools/lsp/Cargo.toml --offline --format-version 1 --no-deps |
-              ConvertFrom-Json |
-              select -exp packages |
-              where name -eq "slint-lsp" |
-              select -exp version
+            $crateversion = "${{ inputs.version }}"
+            if (-not $crateversion) {
+              $crateversion = cargo metadata --manifest-path tools/lsp/Cargo.toml --offline --format-version 1 --no-deps |
+                ConvertFrom-Json |
+                select -exp packages |
+                where name -eq "slint-lsp" |
+                select -exp version
+            }
+            if ($crateversion -notmatch "^\d+\.\d+\.\d+$") {
+              throw "version '$crateversion' is not three numeric fields"
+            }
+            $version = "$crateversion.0"
+            $identity = "Slint.SlintVisualEditor"
+            $display = "Slint Visual Editor"
           }
-          # The fourth field is added below and reserved by the Store, so the
-          # three fields here are all that keeps a submission unique.
-          if ($cargoversion -notmatch "^\d+\.\d+\.\d+$") {
-            throw "version '$cargoversion' is not three numeric fields"
+
+          # Every field is an integer below 65536, the first one is not 0, and
+          # the Store reserves the last one and requires it to be 0.
+          if ($version -notmatch "^[1-9]\d*\.\d+\.\d+\.0$") {
+            throw "version '$version' is not one the Store accepts"
           }
-          "cargo_version=$cargoversion" >> $env:GITHUB_OUTPUT
+
+          Write-Host "Packaging $display $version"
+          "channel=$channel" >> $env:GITHUB_OUTPUT
+          "version=$version" >> $env:GITHUB_OUTPUT
+          "identity=$identity" >> $env:GITHUB_OUTPUT
+          "display=$display" >> $env:GITHUB_OUTPUT
 
       - name: Render the tile images
         shell: pwsh
@@ -182,7 +219,9 @@ jobs:
       - name: Assemble package layouts
         shell: pwsh
         run: |
-          $version = "${{ steps.get_cargo_version.outputs.cargo_version }}.0"
+          $version = "${{ steps.channel.outputs.version }}"
+          $identity = "${{ steps.channel.outputs.identity }}"
+          $display = "${{ steps.channel.outputs.display }}"
           $tiles = Join-Path $env:RUNNER_TEMP "tiles"
 
           foreach ($arch in "x64", "arm64") {
@@ -201,6 +240,13 @@ jobs:
             $manifest.Package.Identity.Version = $version
             $manifest.Package.Identity.SetAttribute("ProcessorArchitecture", $arch)
 
+            # The preview builds go to a listing of their own, which is a
+            # separate product with a name of its own. The publisher is the
+            # same, both listings belonging to one account.
+            $manifest.Package.Identity.SetAttribute("Name", $identity)
+            $manifest.Package.Properties.DisplayName = $display
+            $manifest.Package.Applications.Application.VisualElements.SetAttribute("DisplayName", $display)
+
             # Writing the document back out reflows it, so indent it and keep
             # the byte order mark out of a file that other tools have to read.
             $settings = New-Object System.Xml.XmlWriterSettings
@@ -216,7 +262,7 @@ jobs:
         id: package_msix
         shell: pwsh
         run: |
-          $version = "${{ steps.get_cargo_version.outputs.cargo_version }}.0"
+          $version = "${{ steps.channel.outputs.version }}"
 
           $makeappx = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin" -Recurse -Filter makeappx.exe |
             Sort-Object FullName -Descending |
