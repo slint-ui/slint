@@ -22,7 +22,7 @@ Slint's window system provides an abstraction layer between the UI framework and
 |------|---------|
 | `internal/core/window.rs` | WindowInner, WindowAdapter trait |
 | `internal/core/platform.rs` | Platform trait, WindowEvent enum |
-| `internal/core/window/popup.rs` | Popup placement and management |
+| `internal/core/window/popup.rs` | Popup placement (`Placement`, `place_popup`) — `PopupWindow` itself is in `window.rs` |
 | `internal/backends/winit/` | Winit-based cross-platform backend |
 | `internal/backends/qt/` | Qt integration backend |
 | `internal/backends/linuxkms/` | Direct Linux KMS rendering |
@@ -135,20 +135,19 @@ pub trait Platform {
     /// Run the event loop (blocking)
     fn run_event_loop(&self) -> Result<(), PlatformError>;
 
-    /// Run event loop for specified duration
-    fn run_event_loop_until_quit(
+    /// Process pending events and wait for new ones up to `timeout`
+    /// (the actual per-iteration entry point; `run_event_loop()` is built on top of it)
+    fn process_events(
         &self,
         timeout: Option<Duration>,
-    ) -> Result<EventLoopQuitBehavior, PlatformError>;
+    ) -> Result<core::ops::ControlFlow<()>, PlatformError>;
 
-    /// Exit the event loop
-    fn quit_event_loop(&self) -> Result<(), PlatformError>;
-
-    /// Get event loop proxy for cross-thread communication
-    fn event_loop_proxy(&self) -> Option<Box<dyn EventLoopProxy>>;
+    /// Get event loop proxy for cross-thread communication (its `quit_event_loop()`
+    /// exits the loop; there is no `quit_event_loop` directly on `Platform`)
+    fn new_event_loop_proxy(&self) -> Option<Box<dyn EventLoopProxy>>;
 
     /// Get clipboard contents
-    fn clipboard_text(&self, clipboard: Clipboard) -> Option<SharedString>;
+    fn clipboard_text(&self, clipboard: Clipboard) -> Option<String>;
 
     /// Set clipboard contents
     fn set_clipboard_text(&self, text: &str, clipboard: Clipboard);
@@ -272,6 +271,10 @@ impl PropertyDirtyHandler for WindowPropertiesTracker {
 ## Popup Management
 
 ### PopupWindow Structure
+
+`PopupWindow` and `PopupWindowLocation` are defined in `internal/core/window.rs`;
+`PopupClosePolicy` is defined in `internal/common/enums.rs` and re-exported via
+`crate::items::PopupClosePolicy`.
 
 ```rust
 pub struct PopupWindow {

@@ -16,6 +16,7 @@ use euclid::approxeq::ApproxEq;
 
 #[cfg(muda)]
 use i_slint_core::api::LogicalPosition;
+use i_slint_core::cursor::{MouseCursorInner, scaled_hotspot};
 use i_slint_core::items::{ConstraintAdjustment, PopupAnchorLocation, PopupGravity};
 use i_slint_core::lengths::{PhysicalPx, ScaleFactor};
 use i_slint_core::renderer::DrawOutcome;
@@ -32,7 +33,7 @@ use crate::renderer::WinitCompatibleRenderer;
 use corelib::item_tree::ItemTreeRc;
 #[cfg(enable_accesskit)]
 use corelib::item_tree::{ItemTreeRef, ItemTreeRefPin};
-use corelib::items::{ColorScheme, MouseCursor};
+use corelib::items::{BuiltInMouseCursor, ColorScheme};
 #[cfg(enable_accesskit)]
 use corelib::items::{ItemRc, ItemRef};
 
@@ -41,9 +42,10 @@ use corelib::api::PhysicalSize;
 use corelib::layout::Orientation;
 use corelib::lengths::LogicalLength;
 use corelib::platform::{PlatformError, WindowEvent};
-use corelib::window::{WindowAdapter, WindowAdapterInternal, WindowInner};
+use corelib::window::{DragRequest, WindowAdapter, WindowAdapterInternal, WindowInner};
 use corelib::{Coord, graphics::*};
 use i_slint_core::{self as corelib};
+use winit::cursor::CustomCursorSource;
 use winit::window::{WindowAttributes, WindowButtons, WindowType};
 
 pub(crate) fn position_to_winit(pos: &corelib::api::WindowPosition) -> winit::dpi::Position {
@@ -114,36 +116,58 @@ fn icon_to_winit(
     icon: corelib::graphics::Image,
     size: euclid::Size2D<Coord, PhysicalPx>,
 ) -> Option<winit::icon::Icon> {
-    let image_inner: &ImageInner = (&icon).into();
-
-    let pixel_buffer = image_inner.render_to_buffer(Some(size.cast()))?;
-
-    // This could become a method in SharedPixelBuffer...
-    let rgba_pixels: Vec<u8> = match &pixel_buffer {
-        SharedImageBuffer::RGB8(pixels) => pixels
-            .as_bytes()
-            .chunks(3)
-            .flat_map(|rgb| IntoIterator::into_iter([rgb[0], rgb[1], rgb[2], 255]))
-            .collect(),
-        SharedImageBuffer::RGBA8(pixels) => pixels.as_bytes().to_vec(),
-        SharedImageBuffer::RGBA8Premultiplied(pixels) => pixels
-            .as_bytes()
-            .chunks(4)
-            .flat_map(|rgba| {
-                let alpha = rgba[3] as u32;
-                IntoIterator::into_iter(rgba)
-                    .take(3)
-                    .map(move |component| (*component as u32 * alpha / 255) as u8)
-                    .chain(std::iter::once(alpha as u8))
-            })
-            .collect(),
-    };
+    let pixel_buffer = icon.to_rgba8_with_target_size(corelib::graphics::IntSize::new(
+        size.width as u32,
+        size.height as u32,
+    ))?;
 
     Some(
-        winit::icon::RgbaIcon::new(rgba_pixels, pixel_buffer.width(), pixel_buffer.height())
-            .ok()?
-            .into(),
+        winit::icon::RgbaIcon::new(
+            pixel_buffer.as_bytes().to_vec(),
+            pixel_buffer.width(),
+            pixel_buffer.height(),
+        )
+        .ok()?
+        .into(),
     )
+}
+
+/// The image of an outgoing drag, rendered to RGBA pixels ready for PNG encoding.
+/// Not available on wasm, where winit has no drag-and-drop and the PNG encoder
+/// would only grow the binary.
+#[cfg(not(target_arch = "wasm32"))]
+fn drag_image_payload(
+    request: &DragRequest,
+) -> Option<corelib::graphics::SharedPixelBuffer<corelib::graphics::Rgba8Pixel>> {
+    request.data().image().ok()?.to_rgba8()
+}
+#[cfg(target_arch = "wasm32")]
+fn drag_image_payload(
+    _request: &DragRequest,
+) -> Option<corelib::graphics::SharedPixelBuffer<corelib::graphics::Rgba8Pixel>> {
+    None
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn encode_png(
+    pixel_buffer: &corelib::graphics::SharedPixelBuffer<corelib::graphics::Rgba8Pixel>,
+) -> Option<Vec<u8>> {
+    let mut png = Vec::new();
+    image::ImageEncoder::write_image(
+        image::codecs::png::PngEncoder::new(&mut png),
+        pixel_buffer.as_bytes(),
+        pixel_buffer.width(),
+        pixel_buffer.height(),
+        image::ExtendedColorType::Rgba8,
+    )
+    .ok()?;
+    Some(png)
+}
+#[cfg(target_arch = "wasm32")]
+fn encode_png(
+    _pixel_buffer: &corelib::graphics::SharedPixelBuffer<corelib::graphics::Rgba8Pixel>,
+) -> Option<Vec<u8>> {
+    None
 }
 
 fn window_is_resizable(
@@ -370,6 +394,8 @@ pub struct WinitWindowAdapter {
     /// Winit's window_icon API has no way of checking if the window icon is
     /// the same as a previously set one, so keep track of that here.
     window_icon_cache_key: RefCell<Option<ImageCacheKey>>,
+
+    pub(crate) custom_cursor_source: Cell<Option<CustomCursorSource>>,
 }
 
 impl WinitWindowAdapter {
@@ -421,6 +447,7 @@ impl WinitWindowAdapter {
             window_icon_cache_key: Default::default(),
             parent,
             event_loop_properties: Cell::new(event_loop_properties),
+            custom_cursor_source: Cell::new(None),
         });
 
         // The renderer must be set, because otherwise for text layout infos the scale factor is not available
@@ -1525,43 +1552,135 @@ impl WindowAdapterInternal for WinitWindowAdapter {
         self.parent.upgrade().map(|rc| rc as _)
     }
 
-    fn set_mouse_cursor(&self, cursor: MouseCursor) {
+    fn start_window_move(&self) {
+        if let Some(winit_window) = self.winit_window_or_none.borrow().as_window() {
+            let _ = winit_window.drag_window();
+        }
+    }
+
+    fn start_drag(&self, request: &DragRequest) -> bool {
+        // winit's drag API lives on the `ActiveEventLoop`, only reachable inside the event
+        // handler. Build the transfer now and stash it; the handler hands it to winit.
+        let Some(winit_window) = self.winit_window() else {
+            return false;
+        };
+        // Plain text and images are sent natively for now; without either, fall back
+        // to the in-window drag.
+        let text = request.data().plain_text().ok().filter(|t| !t.is_empty()).map(String::from);
+        let image = drag_image_payload(request);
+        if text.is_none() && image.is_none() {
+            return false;
+        }
+        let mut builder = winit::data_transfer::DataTransferSendBuilder::new(());
+        if let Some(text) = text {
+            builder.add_type(winit::data_transfer::TypeHint::Plaintext, move |_, _| {
+                Some(text.clone())
+            });
+        }
+        if let Some(image) = image {
+            builder.add_type(
+                winit::data_transfer::TypeHint::Image { extension_hint: Some("png") },
+                move |_, _| encode_png(&image),
+            );
+        }
+        let data = builder.build();
+        let allowed = request.allowed_actions();
+        let mut actions = Vec::new();
+        if allowed.move_ {
+            actions.push(winit::event_loop::DndAction::Move);
+        }
+        if allowed.copy {
+            actions.push(winit::event_loop::DndAction::Copy);
+        }
+        if allowed.link {
+            actions.push(winit::event_loop::DndAction::Link);
+        }
+        let drag_image = request.drag_image();
+        let image_size = drag_image.size();
+        let icon = icon_to_winit(
+            drag_image.clone(),
+            euclid::Size2D::new(image_size.width as Coord, image_size.height as Coord),
+        )
+        .map(|icon| winit::event_loop::DragIcon {
+            icon,
+            // Slint's `drag-image-offset` is the point of the image under the cursor; winit's
+            // offset is the image's top-left relative to the cursor.
+            offset_x: -request.drag_image_offset().x,
+            offset_y: -request.drag_image_offset().y,
+        });
+        *self.shared_backend_data.pending_drag.borrow_mut() =
+            Some(crate::PendingNativeDrag { window_id: winit_window.id(), data, actions, icon });
+        true
+    }
+
+    fn set_mouse_cursor(&self, cursor: MouseCursorInner) {
         use winit::cursor::CursorIcon;
-        let winit_cursor = match cursor {
-            MouseCursor::Default => CursorIcon::Default,
-            MouseCursor::None => CursorIcon::Default,
-            MouseCursor::Help => CursorIcon::Help,
-            MouseCursor::Pointer => CursorIcon::Pointer,
-            MouseCursor::Progress => CursorIcon::Progress,
-            MouseCursor::Wait => CursorIcon::Wait,
-            MouseCursor::Crosshair => CursorIcon::Crosshair,
-            MouseCursor::Text => CursorIcon::Text,
-            MouseCursor::Alias => CursorIcon::Alias,
-            MouseCursor::Copy => CursorIcon::Copy,
-            MouseCursor::Move => CursorIcon::Move,
-            MouseCursor::NoDrop => CursorIcon::NoDrop,
-            MouseCursor::NotAllowed => CursorIcon::NotAllowed,
-            MouseCursor::Grab => CursorIcon::Grab,
-            MouseCursor::Grabbing => CursorIcon::Grabbing,
-            MouseCursor::ColResize => CursorIcon::ColResize,
-            MouseCursor::RowResize => CursorIcon::RowResize,
-            MouseCursor::NResize => CursorIcon::NResize,
-            MouseCursor::EResize => CursorIcon::EResize,
-            MouseCursor::SResize => CursorIcon::SResize,
-            MouseCursor::WResize => CursorIcon::WResize,
-            MouseCursor::NeResize => CursorIcon::NeResize,
-            MouseCursor::NwResize => CursorIcon::NwResize,
-            MouseCursor::SeResize => CursorIcon::SeResize,
-            MouseCursor::SwResize => CursorIcon::SwResize,
-            MouseCursor::EwResize => CursorIcon::EwResize,
-            MouseCursor::NsResize => CursorIcon::NsResize,
-            MouseCursor::NeswResize => CursorIcon::NeswResize,
-            MouseCursor::NwseResize => CursorIcon::NwseResize,
-            _ => CursorIcon::Default,
+        let winit_cursor = match &cursor {
+            MouseCursorInner::BuiltIn(cursor) => Some(match cursor {
+                BuiltInMouseCursor::Default => CursorIcon::Default,
+                BuiltInMouseCursor::None => CursorIcon::Default,
+                BuiltInMouseCursor::Help => CursorIcon::Help,
+                BuiltInMouseCursor::Pointer => CursorIcon::Pointer,
+                BuiltInMouseCursor::Progress => CursorIcon::Progress,
+                BuiltInMouseCursor::Wait => CursorIcon::Wait,
+                BuiltInMouseCursor::Crosshair => CursorIcon::Crosshair,
+                BuiltInMouseCursor::Text => CursorIcon::Text,
+                BuiltInMouseCursor::Alias => CursorIcon::Alias,
+                BuiltInMouseCursor::Copy => CursorIcon::Copy,
+                BuiltInMouseCursor::Move => CursorIcon::Move,
+                BuiltInMouseCursor::NoDrop => CursorIcon::NoDrop,
+                BuiltInMouseCursor::NotAllowed => CursorIcon::NotAllowed,
+                BuiltInMouseCursor::Grab => CursorIcon::Grab,
+                BuiltInMouseCursor::Grabbing => CursorIcon::Grabbing,
+                BuiltInMouseCursor::ColResize => CursorIcon::ColResize,
+                BuiltInMouseCursor::RowResize => CursorIcon::RowResize,
+                BuiltInMouseCursor::NResize => CursorIcon::NResize,
+                BuiltInMouseCursor::EResize => CursorIcon::EResize,
+                BuiltInMouseCursor::SResize => CursorIcon::SResize,
+                BuiltInMouseCursor::WResize => CursorIcon::WResize,
+                BuiltInMouseCursor::NeResize => CursorIcon::NeResize,
+                BuiltInMouseCursor::NwResize => CursorIcon::NwResize,
+                BuiltInMouseCursor::SeResize => CursorIcon::SeResize,
+                BuiltInMouseCursor::SwResize => CursorIcon::SwResize,
+                BuiltInMouseCursor::EwResize => CursorIcon::EwResize,
+                BuiltInMouseCursor::NsResize => CursorIcon::NsResize,
+                BuiltInMouseCursor::NeswResize => CursorIcon::NeswResize,
+                BuiltInMouseCursor::NwseResize => CursorIcon::NwseResize,
+                _ => CursorIcon::Default,
+            }),
+            MouseCursorInner::CustomMouseCursor { image, hotspot_x, hotspot_y } => {
+                // Render scalable sources (SVG) at the display resolution so the cursor stays crisp.
+                let scale = self.window().scale_factor();
+                let source_size = image.size();
+                let target_size = IntSize::new(
+                    (source_size.width as f32 * scale) as u32,
+                    (source_size.height as f32 * scale) as u32,
+                );
+                if let Some(rgba8) = image.to_rgba8_with_target_size(target_size) {
+                    let (width, height) = (rgba8.width(), rgba8.height());
+                    // winit rejects a hotspot that lies outside the image, so clamp it inside.
+                    let source = CustomCursorSource::from_rgba(
+                        rgba8.as_bytes().to_vec(),
+                        width as u16,
+                        height as u16,
+                        scaled_hotspot(*hotspot_x, source_size.width, width) as u16,
+                        scaled_hotspot(*hotspot_y, source_size.height, height) as u16,
+                    );
+
+                    // Custom cursors have to be set during the event loop
+                    self.custom_cursor_source.set(source.ok());
+                }
+                None
+            }
+            _ => None,
         };
         if let Some(winit_window) = self.winit_window_or_none.borrow().as_window() {
-            winit_window.set_cursor_visible(cursor != MouseCursor::None);
-            winit_window.set_cursor(winit_cursor.into());
+            winit_window
+                .set_cursor_visible(cursor != MouseCursorInner::BuiltIn(BuiltInMouseCursor::None));
+
+            if let Some(cursor) = winit_cursor {
+                winit_window.set_cursor(cursor.into());
+            }
         }
     }
 

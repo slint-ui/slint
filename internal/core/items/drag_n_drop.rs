@@ -2,10 +2,11 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use super::{
-    DragAction, DragActionArg, DropEvent, Item, ItemConsts, ItemRc, MouseCursor,
+    BuiltInMouseCursor, DragAction, DragActionArg, DropEvent, Item, ItemConsts, ItemRc,
     PointerEventButton, RenderingResult,
 };
 use crate::Coord;
+use crate::cursor::MouseCursorInner;
 use crate::data_transfer::DataTransfer;
 use crate::graphics::Image;
 use crate::input::{
@@ -41,6 +42,64 @@ impl AllowedDragActions {
     pub fn any(self) -> bool {
         self.copy || self.move_ || self.link
     }
+}
+
+/// Filter step of the "left press, then drag past the threshold" gesture shared by
+/// `DragArea` and `WindowMoveArea`: tracks the press in the item's `pressed`/
+/// `pressed_position` cells and intercepts the children's events once the threshold is
+/// crossed. The caller handles its disabled/precondition case before calling this.
+pub(super) fn press_drag_filter(
+    pressed: &Cell<bool>,
+    pressed_position: &Cell<LogicalPoint>,
+    event: &MouseEvent,
+) -> InputEventFilterResult {
+    match event {
+        MouseEvent::Pressed { position, button: PointerEventButton::Left, .. } => {
+            pressed_position.set(*position);
+            pressed.set(true);
+            InputEventFilterResult::ForwardAndInterceptGrab
+        }
+        MouseEvent::Exit => {
+            pressed.set(false);
+            InputEventFilterResult::ForwardAndIgnore
+        }
+        MouseEvent::Released { button: PointerEventButton::Left, .. } => {
+            pressed.set(false);
+            InputEventFilterResult::ForwardAndIgnore
+        }
+        MouseEvent::Moved { position, .. } => {
+            if !pressed.get() {
+                InputEventFilterResult::ForwardEvent
+            } else if exceeds_drag_threshold(pressed_position.get(), *position) {
+                InputEventFilterResult::Intercept
+            } else {
+                InputEventFilterResult::ForwardAndInterceptGrab
+            }
+        }
+        MouseEvent::Wheel { .. } => InputEventFilterResult::ForwardAndIgnore,
+        // Not the left button
+        MouseEvent::Pressed { .. } | MouseEvent::Released { .. } => {
+            InputEventFilterResult::ForwardAndIgnore
+        }
+        MouseEvent::PinchGesture { .. } | MouseEvent::RotationGesture { .. } => {
+            InputEventFilterResult::ForwardAndIgnore
+        }
+        MouseEvent::DragMove { .. } | MouseEvent::Drop { .. } => {
+            InputEventFilterResult::ForwardAndIgnore
+        }
+    }
+}
+
+/// True once the pointer has moved far enough from the press position to count as a
+/// drag rather than a click.
+pub(super) fn exceeds_drag_threshold(
+    pressed_position: LogicalPoint,
+    position: LogicalPoint,
+) -> bool {
+    let dx = (position.x - pressed_position.x).abs();
+    let dy = (position.y - pressed_position.y).abs();
+    let threshold = super::flickable::DISTANCE_THRESHOLD.get();
+    dx > threshold || dy > threshold
 }
 
 #[repr(C)]
@@ -83,55 +142,13 @@ impl Item for DragArea {
         event: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
-        _: &mut MouseCursor,
+        _: &mut MouseCursorInner,
     ) -> InputEventFilterResult {
         if !self.enabled() || !self.allowed_actions().any() || self.data().is_empty() {
             self.cancel();
             return InputEventFilterResult::ForwardAndIgnore;
         }
-
-        match event {
-            MouseEvent::Pressed { position, button: PointerEventButton::Left, .. } => {
-                self.pressed_position.set(*position);
-                self.pressed.set(true);
-                InputEventFilterResult::ForwardAndInterceptGrab
-            }
-            MouseEvent::Exit => {
-                self.cancel();
-                InputEventFilterResult::ForwardAndIgnore
-            }
-            MouseEvent::Released { button: PointerEventButton::Left, .. } => {
-                self.pressed.set(false);
-                InputEventFilterResult::ForwardAndIgnore
-            }
-
-            MouseEvent::Moved { position, .. } => {
-                if !self.pressed.get() {
-                    InputEventFilterResult::ForwardEvent
-                } else {
-                    let pressed_pos = self.pressed_position.get();
-                    let dx = (position.x - pressed_pos.x).abs();
-                    let dy = (position.y - pressed_pos.y).abs();
-                    let threshold = super::flickable::DISTANCE_THRESHOLD.get();
-                    if dy > threshold || dx > threshold {
-                        InputEventFilterResult::Intercept
-                    } else {
-                        InputEventFilterResult::ForwardAndInterceptGrab
-                    }
-                }
-            }
-            MouseEvent::Wheel { .. } => InputEventFilterResult::ForwardAndIgnore,
-            // Not the left button
-            MouseEvent::Pressed { .. } | MouseEvent::Released { .. } => {
-                InputEventFilterResult::ForwardAndIgnore
-            }
-            MouseEvent::PinchGesture { .. } | MouseEvent::RotationGesture { .. } => {
-                InputEventFilterResult::ForwardAndIgnore
-            }
-            MouseEvent::DragMove { .. } | MouseEvent::Drop { .. } => {
-                InputEventFilterResult::ForwardAndIgnore
-            }
-        }
+        press_drag_filter(&self.pressed, &self.pressed_position, event)
     }
 
     fn input_event(
@@ -139,7 +156,7 @@ impl Item for DragArea {
         event: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
-        _: &mut MouseCursor,
+        _: &mut MouseCursorInner,
     ) -> InputEventResult {
         match event {
             MouseEvent::Pressed { .. } => InputEventResult::EventAccepted,
@@ -159,11 +176,7 @@ impl Item for DragArea {
                 {
                     return InputEventResult::EventIgnored;
                 }
-                let pressed_pos = self.pressed_position.get();
-                let dx = (position.x - pressed_pos.x).abs();
-                let dy = (position.y - pressed_pos.y).abs();
-                let threshold = super::flickable::DISTANCE_THRESHOLD.get();
-                let start_drag = dx > threshold || dy > threshold;
+                let start_drag = exceeds_drag_threshold(self.pressed_position.get(), *position);
                 if start_drag {
                     self.pressed.set(false);
                     InputEventResult::StartDrag
@@ -305,7 +318,7 @@ impl Item for DropArea {
         _: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
-        _: &mut MouseCursor,
+        _: &mut MouseCursorInner,
     ) -> InputEventFilterResult {
         InputEventFilterResult::ForwardEvent
     }
@@ -315,7 +328,7 @@ impl Item for DropArea {
         event: &MouseEvent,
         _: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
-        cursor: &mut MouseCursor,
+        cursor: &mut MouseCursorInner,
     ) -> InputEventResult {
         if !self.enabled() {
             return InputEventResult::EventIgnored;
@@ -327,7 +340,7 @@ impl Item for DropArea {
                 self.current_action.set(chosen);
                 if chosen != DragAction::None {
                     self.has_drag.set(true);
-                    *cursor = cursor_for_action(chosen);
+                    *cursor = MouseCursorInner::BuiltIn(cursor_for_action(chosen));
                     InputEventResult::EventAccepted
                 } else {
                     self.has_drag.set(false);
@@ -459,12 +472,12 @@ pub(crate) fn clamp_action_to_allowed(
 }
 
 /// The cursor shown while a DropArea is hovering an accepted drag.
-pub(crate) fn cursor_for_action(action: DragAction) -> MouseCursor {
+pub(crate) fn cursor_for_action(action: DragAction) -> BuiltInMouseCursor {
     match action {
-        DragAction::Move => MouseCursor::Move,
-        DragAction::Copy => MouseCursor::Copy,
-        DragAction::Link => MouseCursor::Alias,
-        DragAction::None => MouseCursor::NoDrop,
+        DragAction::Move => BuiltInMouseCursor::Move,
+        DragAction::Copy => BuiltInMouseCursor::Copy,
+        DragAction::Link => BuiltInMouseCursor::Alias,
+        DragAction::None => BuiltInMouseCursor::NoDrop,
     }
 }
 

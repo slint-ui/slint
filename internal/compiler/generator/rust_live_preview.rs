@@ -17,9 +17,6 @@ pub fn generate(
 ) -> std::io::Result<TokenStream> {
     let module_header = super::rust::generate_module_header();
 
-    let (structs_and_enums_ids, inner_module) =
-        super::rust::generate_types(&doc.used_types.borrow().structs_and_enums);
-
     let type_value_conversions =
         generate_value_conversions(&doc.used_types.borrow().structs_and_enums);
 
@@ -28,6 +25,9 @@ pub fn generate(
     if llr.public_components.is_empty() {
         return Ok(Default::default());
     }
+
+    let (structs_and_enums_ids, inner_module) =
+        super::rust::generate_types(&doc.used_types.borrow().structs_and_enums, &llr);
 
     let main_file = doc
         .node

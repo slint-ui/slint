@@ -705,6 +705,7 @@ fn python_type_name(ty: &Type) -> SmolStr {
         }
         Type::Keys => SmolStr::new_static("slint.Keys"),
         Type::DataTransfer => SmolStr::new_static("slint.DataTransfer"),
+        Type::MouseCursor => SmolStr::new_static("None"),
         ty => unimplemented!("implemented type conversion {:#?}", ty),
     }
 }

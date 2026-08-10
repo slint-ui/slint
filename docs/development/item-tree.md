@@ -251,13 +251,17 @@ Repeaters create dynamic subtrees:
 
 ## Testing
 
+`test-driver-interpreter` and `test-driver-rust` live in the separate `tests/` Cargo
+workspace, and `gallery` lives in the separate `examples/` workspace, so these need an
+explicit `--manifest-path` when run from the repository root:
+
 ```sh
 # Run interpreter tests (exercises dynamic item tree)
-cargo test -p test-driver-interpreter
+cargo test --manifest-path tests/Cargo.toml -p test-driver-interpreter
 
 # Run Rust API tests
-cargo test -p test-driver-rust
+cargo test --manifest-path tests/Cargo.toml -p test-driver-rust
 
 # Visual inspection
-cargo run -p gallery
+cargo run --manifest-path examples/Cargo.toml -p gallery
 ```

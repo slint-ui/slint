@@ -94,7 +94,7 @@ The interpreter (`internal/interpreter/`) compiles `.slint` at runtime and uses 
 | `Element` | `compiler/object_tree.rs` | An element within a component |
 | `Expression` | `compiler/expression_tree.rs` | Compiled expressions |
 | `Type` | `compiler/langtype.rs` | Type system representation |
-| `CompilationUnit` | `compiler/llr/mod.rs` | LLR output ready for code generation |
+| `CompilationUnit` | `compiler/llr/item_tree.rs` | LLR output ready for code generation |
 
 ## Common Modification Patterns
 

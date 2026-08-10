@@ -4,16 +4,15 @@
 use cfg_aliases::cfg_aliases;
 
 fn main() {
-    println!("cargo:warning=Accesskit and FemtoVG backend disabled for winit 0.31 port"); // see "false" below
-    println!(
-        "cargo:warning=Using software renderer in the CI for slintpad smoke tests. tools/slintpad/package.json"
-    );
+    println!("cargo:warning=Accesskit and native FemtoVG disabled for winit 0.31 port"); // see the cfg_aliases below
 
     // Setup cfg aliases
     cfg_aliases! {
        ios_and_friends: { all(target_vendor = "apple", not(target_os = "macos"))},
        enable_skia_renderer: { any(feature = "renderer-skia", feature = "renderer-skia-opengl", feature = "renderer-skia-vulkan", ios_and_friends) },
-       enable_femtovg_renderer: { false /* any(feature = "renderer-femtovg", feature = "renderer-femtovg-wgpu" ) */ },
+       // Native FemtoVG is blocked on glutin-winit supporting winit 0.31. Restore this once it is:
+       // enable_femtovg_renderer: { any(feature = "renderer-femtovg", feature = "renderer-femtovg-wgpu") },
+       enable_femtovg_renderer: { all(target_arch = "wasm32", any(feature = "renderer-femtovg", feature = "renderer-femtovg-wgpu")) },
        enable_accesskit: { false /* all(feature = "accessibility", not(target_arch = "wasm32")) */ },
        supports_opengl: { all(any(feature = "renderer-skia-opengl", feature = "renderer-femtovg"), not(ios_and_friends)) },
        xdg_desktop_settings: { not(any(target_family = "windows", target_vendor = "apple", target_arch = "wasm32", target_os = "android")) },

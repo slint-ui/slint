@@ -334,10 +334,15 @@ the code generators compile to the appropriate runtime access pattern.
 
 ## Testing Layout Changes
 
+`test-driver-rust` and `test-driver-interpreter` live in the separate `tests/` Cargo
+workspace, and `gallery` lives in the separate `examples/` workspace, so these need an
+explicit `--manifest-path` when run from the repository root (`tests/run_tests.sh`
+already handles this for you):
+
 ```sh
 # Run all layout-specific tests
-cargo test -p test-driver-rust --test layout
-cargo test -p test-driver-interpreter layout
+cargo test --manifest-path tests/Cargo.toml -p test-driver-rust --test layout
+cargo test --manifest-path tests/Cargo.toml -p test-driver-interpreter layout
 
 # Run a specific test case, filtered by substring (don't prepend sh/bash, run_tests.sh is executable)
 tests/run_tests.sh rust grid_conditional_row
@@ -345,8 +350,8 @@ tests/run_tests.sh interpreter grid_conditional_row
 tests/run_tests.sh cpp grid_conditional_row
 
 # Run all interpreter tests (fast)
-cargo test -p test-driver-interpreter
+cargo test --manifest-path tests/Cargo.toml -p test-driver-interpreter
 
 # Visual verification (for humans)
-cargo run -p gallery
+cargo run --manifest-path examples/Cargo.toml -p gallery
 ```

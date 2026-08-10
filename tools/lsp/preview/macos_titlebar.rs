@@ -7,7 +7,7 @@ use slint::winit_031::winit;
 use winit::platform::macos::WindowAttributesMacOS;
 use winit::window::WindowAttributes;
 
-use crate::preview::ui::{Api, EditorUi};
+use crate::preview::ui::EditorUi;
 
 /// Window-attributes hook that makes the content view fill the whole window
 /// underneath a transparent, title-less title bar.
@@ -27,8 +27,7 @@ pub fn apply_unified_titlebar(attributes: WindowAttributes) -> WindowAttributes 
     ))
 }
 
-/// Configures the unified title bar once the winit window exists and publishes
-/// the resulting title-bar metrics to the `Api` global.
+/// Configures the unified title bar once the winit window exists.
 pub fn setup(editor: slint::Weak<EditorUi>) {
     use objc2::{MainThreadMarker, MainThreadOnly};
     use objc2_app_kit::{
@@ -40,21 +39,7 @@ pub fn setup(editor: slint::Weak<EditorUi>) {
     use slint::winit_031::WinitWindowAccessor;
 
     slint::spawn_local(async move {
-        let editor_weak = editor.clone();
         let editor = editor.upgrade()?;
-        let api = editor.global::<Api>();
-
-        // Drive window dragging ourselves: the unified title bar requests an
-        // interactive drag, which we start via winit's `drag_window` (using the
-        // current mouse event) rather than letting macOS perform a native
-        // title-bar drag.
-        api.on_request_window_drag(move || {
-            if let Some(editor) = editor_weak.upgrade() {
-                editor.window().with_winit_window(|w| {
-                    let _ = w.drag_window();
-                });
-            }
-        });
         let Ok(winit_window) = editor.window().winit_window().await else {
             return None;
         };

@@ -75,5 +75,19 @@ export component StyledTextPage inherits Page {
                 }
             }
         }
+
+        GroupBox {
+            title: @tr("Inline Code");
+
+            VerticalBox {
+                StyledText {
+                    text: @markdown("Run `cargo install slint-lsp` and then call `slint::include_modules!()` in your `main.rs`.");
+                }
+
+                StyledText {
+                    text: @markdown("Inline `code` mixes with **bold**, *italic* and [links](https://slint.dev) on the same line.");
+                }
+            }
+        }
     }
 }

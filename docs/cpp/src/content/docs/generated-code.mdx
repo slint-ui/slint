@@ -73,7 +73,7 @@ This generates a header with the following contents (edited for documentation pu
 class SampleComponent {
 public:
     /// Constructor function
-    inline auto create () -> slint::ComponentHandle<MainWindow>;
+    static inline auto create () -> slint::ComponentHandle<SampleComponent>;
     /// Destructor
     inline ~SampleComponent ();
 

@@ -81,7 +81,7 @@ The horizontal alignment of the text.
 </SlintProperty>
 
 ### placeholder-text
-<SlintProperty propName="text" typeName="string" propertyVisibility="in" >
+<SlintProperty propName="placeholder-text" typeName="string" propertyVisibility="in" >
 A placeholder text being shown when there is no text in the edit field.
 </SlintProperty>
 

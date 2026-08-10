@@ -3,7 +3,7 @@ title: Using Slint SC
 description: Components included in Slint SC and use cases.
 ---
 
-# Slint SC Software Units (ISO 26262:6 7.4.4)
+## Slint SC Software Units (ISO 26262:6 7.4.4)
 
 This is what is included in Slint SC:
 
@@ -16,7 +16,7 @@ Each of these things can have a **Usage** and a **Constraints** section.
 
 Each feature of the language or a library can map to a Requirement ID, and have 1 or more code test-examples.
 
-## Slint SC Architecture Design (ISO 26262:6 7.4)
+### Slint SC Architecture Design (ISO 26262:6 7.4)
 
 During the development of the software architectural design, the following should be considered:
 
@@ -29,7 +29,7 @@ During the development of the software architectural design, the following shoul
 5. Testability of the software
 6. Maintainability of the software architectural design
 
-### Static Design
+#### Static Design
 
 The software architectural design should have a static design part which
 addresses:
@@ -83,7 +83,7 @@ flowchart TD
     SlintCore --> |Interfaces with| Renderer
 ```
 
-### Dynamic Design
+#### Dynamic Design
 
 In addition, the software architectural design should have a dynamic design part which addresses:
 
@@ -116,7 +116,7 @@ sequenceDiagram
     end
 ```
 
-### Safety Analysis Report (ISO 26262:6 7.4.10)
+#### Safety Analysis Report (ISO 26262:6 7.4.10)
 
 Safety-oriented analysis shall be carried out at the software architectural level in accordance with ISO 26262-9:2018, Clause 8, in order to:
 
@@ -125,9 +125,9 @@ Safety-oriented analysis shall be carried out at the software architectural leve
 
 (TODO: Insert Safety Analysis Report here)
 
-# Use Cases (ISO 26262:8 11.4.5.1)
+## Use Cases (ISO 26262:8 11.4.5.1)
 
-## Using Slint SC in a project
+### Using Slint SC in a project
 
 * **ID** : UC_ADD_SLINT_SC_TO_PROJECT
 * **Input** : Cargo.toml file in the root of a rust project file tree
@@ -139,7 +139,7 @@ To add it to a project, one simply adds Slint SC as a dependency in `Cargo.toml`
 
 (TODO - show example)
 
-## Compiling a .slint file into Rust
+### Compiling a .slint file into Rust
 
 * **ID** : UC_COMPILE_SLINT_FILE
 * **Input** : a .slint file
@@ -160,7 +160,7 @@ fn main() {
 }
 ```
 
-# Constraints
+## Constraints
 
 The standard essentially views a **Requirement** as what the system *must do* (or a property it must have), whereas a **Constraint** is a boundary condition that *limits the solution space*.
 
@@ -173,7 +173,7 @@ when an unsafe feature is found.
 
 Individual Constraints can have a section each here, with a descriptive ID that begins with CON_, and a Rationale, Impact, and Mitigation.
 
-## CON_NO_GLOBAL_ALLOCATOR
+### CON_NO_GLOBAL_ALLOCATOR
 
 The Slint SC Compiler should not generate or allow code that uses a global allocator.
 
@@ -183,7 +183,7 @@ The Slint SC Compiler should not generate or allow code that uses a global alloc
 
 **Mitigation**: The generated code should not use a global allocator. Instead, it should use a custom allocator that is specific to the generated code.
 
-## CON_NO_DYNAMIC_MEMORY_ALLOCATION
+### CON_NO_DYNAMIC_MEMORY_ALLOCATION
 
 The Slint SC Compiler should not generate or allow code that uses dynamic memory allocation.
 
@@ -193,7 +193,7 @@ The Slint SC Compiler should not generate or allow code that uses dynamic memory
 
 **Mitigation**: The generated code should not use dynamic memory allocation. Instead, it should use a custom allocator that is specific to the generated code.
 
-## CON_NO_UNBOUNDED_RECURSION
+### CON_NO_UNBOUNDED_RECURSION
 
 The Slint SC Compiler should not generate or allow unbounded recursion.
 
@@ -201,9 +201,9 @@ The Slint SC Compiler should not generate or allow unbounded recursion.
 
 **Impact**: The generated code may not be deterministic and may not be suitable for use in a safety-critical system.
 
-**Mitigation**: The generated code should not use unbounded recursion. Instead, it should use a custom allocator that is specific to the generated code.
+**Mitigation**: The generated code should not use unbounded recursion. Instead, any recursion must be bounded by a statically known limit.
 
-## CON_NO_UNSAFE_CODE
+### CON_NO_UNSAFE_CODE
 
 The Slint SC Compiler should not generate or allow unsafe code.
 
@@ -211,5 +211,5 @@ The Slint SC Compiler should not generate or allow unsafe code.
 
 **Impact**: The generated code may not be deterministic and may not be suitable for use in a safety-critical system.
 
-**Mitigation**: The generated code should not use unsafe code. Instead, it should use a custom allocator that is specific to the generated code.
+**Mitigation**: The generated code should not use unsafe code. Instead, it must only use safe language constructs.
 

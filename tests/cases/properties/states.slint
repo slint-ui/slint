@@ -23,7 +23,7 @@ component SubComp inherits SubSubComp {
     r := Rectangle {}
 }
 
-component TestCase inherits Rectangle {
+export component TestCase inherits Rectangle {
     in-out property<int> top_level: 4;
     in-out property<int> active_index: 0;
     in-out property<int> some_prop: 5;

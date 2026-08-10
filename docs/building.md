@@ -1,4 +1,4 @@
-<!-- cSpell: ignore xkbcommon fontconfig vcpkg DCMAKE RUSTDOCFLAGS cppdocs pyslint TYPESENSE winget xcbcommon -->
+<!-- cSpell: ignore xkbcommon fontconfig vcpkg DCMAKE RUSTDOCFLAGS cppdocs pyslint winget -->
 # Slint Build Guide
 
 This page explains how to build and test Slint.
@@ -23,14 +23,16 @@ Once this is done, you should have the `rustc` compiler and the `cargo` build sy
 
 <center>
 
-| Platform                          | Binaries                                           |
-| --------------------------------- | -------------------------------------------------- |
-| Windows                           | `x86_64-pc-windows-msvc`                           |
-| Linux Ubuntu 16+<br />CentOS 7, 8 | `x86_64-unknown-linux-gnu`                         |
-| macOS                             | `x86_64-apple-darwin`                              |
-| Android                           | `aarch64-linux-android`<br/>`x86_64-linux-android` |
-| iOS                               | `aarch64-apple-ios`<br/>`x86_64-apple-ios`         |
-| WebAssembly                       | `wasm32-unknown-emscripten`                        |
+| Platform                          | Binaries                                                     |
+| --------------------------------- | -------------------------------------------------------------|
+| Windows                           | `x86_64-pc-windows-msvc`                                      |
+| Linux Ubuntu 16+<br />CentOS 7, 8 | `x86_64-unknown-linux-gnu`<br/>`aarch64-unknown-linux-gnu`     |
+| macOS                             | `x86_64-apple-darwin`<br/>`aarch64-apple-darwin`               |
+| Android                           | `aarch64-linux-android`<br/>`x86_64-linux-android`             |
+| iOS                               | `aarch64-apple-ios`<br/>`x86_64-apple-ios`                     |
+| WebAssembly                       | `wasm32-unknown-emscripten`                                    |
+
+See the [rust-skia binary targets list](https://github.com/rust-skia/rust-skia#platform-support-build-targets-and-prebuilt-binaries) for the authoritative, up-to-date list.
 
 </center>
 
@@ -46,7 +48,7 @@ For Linux a few additional packages beyond the usual build essentials are needed
 - (optional) GStreamer libraries `libgstreamer1.0-dev` `libgstreamer-plugins-base1.0-dev` `gstreamer1.0-plugins-base` `gstreamer1.0-plugins-good` `gstreamer1.0-plugins-bad` `gstreamer1.0-plugins-ugly` `gstreamer1.0-libav` `libgstrtspserver-1.0-dev` `libges-1.0-dev`
 - openssl (`libssl-dev` on debian based distributions)
 
-`xcb` and `xcbcommon` aren't needed if you are only using `backend-winit-wayland` without `backend-winit-x11`.
+`xcb` and `xkbcommon` aren't needed if you are only using `backend-winit-wayland` without `backend-winit-x11`.
 
 ### macOS
 
@@ -117,9 +119,6 @@ cargo build
 cargo test
 ```
 
-**Important:** Note that `cargo test` does not work without first calling `cargo build` because the
-the required dynamic library won't be found.
-
 ### Workspace layout
 
 The repository is split into several Cargo workspaces that all share the same
@@ -189,11 +188,11 @@ You can pass `-DCMAKE_INSTALL_PREFIX` in the first cmake command in order to cho
 
 ### Node.js API Build
 
-The Slint Node.js API is implemented as npm build. You can build it locally using the following command line:
+The Slint Node.js API is implemented as a pnpm build. You can build it locally using the following command line:
 
 ```sh
 cd api/node
-npm install
+pnpm install && pnpm build
 ```
 
 To build your own project against the Git version of the Slint Node.js API, add the path to the `api/node` folder
@@ -292,87 +291,3 @@ Run the following commands from the `/docs/nodejs` sub-folder to generate the do
 pnpm install
 pnpm build
 ```
-
-
-### Building search database
-
-We use Typesense for document search.
-
-#### Infrastructure
-
-* Typesense Server: The Typesense Server will hold the search index.
-* Accessibility: The Typesense server must be accessible from the search bar in documentation site.
-* Docker: Docker is needed to run the Typesense Docsearch Scraper.
-* Typesense Docsearch Scraper: This tool will be used to index the documentation website.
-
-#### Pre-requisites
-
-* Install docker (<https://docs.docker.com/engine/install/>)
-
-* Install jq
-
-```sh
-pip3 install jq
-```
-
-#### Testing Locally
-
-* Install and start Typesense server (<https://typesense.org/docs/guide/install-typesense.html#option-2-local-machine-self-hosting>)
-  * Note down the API key, the default port, and the data directory.
-
-* Verify that the server is running
-  * Replace the port below with the default port
-  * It should return {"ok":true} if the server is running correctly.
-
-```sh
-curl http://localhost:8108/health
-```
-
-#### Testing on Typesense Cloud
-
-* Create an account as per instructions (<https://typesense.org/docs/guide/install-typesense.html#option-1-typesense-cloud>)
-  * Note down the API key and the hostname.
-
-#### Creating search index
-
-A helper script is located under `search` sub-folder that will (optionally) build the docs (currently only Slint docs), scrape the documents, and upload the search index to Typesense server.
-
-The script accepts the following arguments
-
--a : API key to authenticate with Typesense Server (default: `xyz`)
-
--b : Build Slint docs (for testing locally set this flag ) (default: `false`)
-
--c : Location of config file (default: `docs/search/scraper-config.json`)
-
--d : Location of index.html of docs (default: `target/slintdocs/html`)
-
--i : Name of the search index (default: `local`)
-
--p : Port to access Typesense server (default: `8108`)
-
--r : Remote Server when using Typesense Cloud
-
--u : URL on which the docs will be served (default: `http://localhost:8000`)
-
-Example when running locally
-
-```sh
-docs/search/docsearch-scraper.sh -b
-```
-
-Example when running on Typesense Cloud, where `$cluster_name` is the name of the cluster on Typesense Cloud
-
-```sh
-docs/search/docsearch-scraper.sh -a API_KEY -b -r TYPESENSE_CLOUD_HOST_NAME
-```
-
-#### Testing search functionality
-
-Run http server
-
-```sh
-python3 -m http.server -d target/slintdocs/html
-```
-
-Open browser (<http://localhost:8000>) and use the search bar to search for content

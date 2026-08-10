@@ -22,7 +22,7 @@ impl clru::WeightScale<ImageCacheKey, ImageInner> for ImageWeightInBytes {
                 SharedImageBuffer::RGBA8Premultiplied(pixels) => pixels.as_bytes().len(),
             },
             #[cfg(feature = "svg")]
-            ImageInner::Svg(_) => 512, // Don't know how to measure the size of the parsed SVG tree...
+            ImageInner::Svg(svg) => svg.weight_in_bytes(),
             #[cfg(target_arch = "wasm32")]
             ImageInner::HTMLImage(_) => 512, // Something... the web browser maintainers its own cache. The purpose of this cache is to reduce the amount of DOM elements.
             ImageInner::StaticTextures(_) => 0,
@@ -86,7 +86,8 @@ impl ImageCache {
         }
         let cache_key = ImageCacheKey::Path(CachedPath::new(path.as_str()));
         self.lookup_image_in_cache_or_create(cache_key, |cache_key| {
-            if cfg!(feature = "svg") && (path.ends_with(".svg") || path.ends_with(".svgz")) {
+            #[cfg(feature = "svg")]
+            if path.ends_with(".svg") || path.ends_with(".svgz") {
                 return Some(ImageInner::Svg(vtable::VRc::new(
                     super::svg::load_from_path(path, cache_key).map_or_else(
                         |err| {
@@ -136,6 +137,23 @@ impl ImageCache {
             ImageInner::load_from_data_with_cache_key(cache_key, data, format)
         })
     }
+
+    #[cfg(target_arch = "wasm32")]
+    pub(crate) fn load_image_from_data_uri(
+        &mut self,
+        uri: &str,
+        data: &[u8],
+        format: &str,
+    ) -> Option<Image> {
+        let cache_key = ImageCacheKey::URL(uri.into());
+        self.lookup_image_in_cache_or_create(cache_key, |cache_key| {
+            ImageInner::load_from_data_with_cache_key(
+                cache_key,
+                data.into(),
+                format.as_bytes().into(),
+            )
+        })
+    }
 }
 
 /// Replace the cached image key with the given value
@@ -147,7 +165,7 @@ pub fn replace_cached_image(key: ImageCacheKey, value: ImageInner) {
         IMAGE_CACHE.with(|global_cache| global_cache.borrow_mut().0.put_with_weight(key, value));
 }
 
-#[cfg(all(test, feature = "std"))]
+#[cfg(all(test, feature = "image-decoders"))]
 mod tests {
     use crate::graphics::Rgba8Pixel;
 

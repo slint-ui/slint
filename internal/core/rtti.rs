@@ -61,6 +61,7 @@ macro_rules! declare_ValueType_2 {
             crate::styled_text::StyledText,
             crate::input::Keys,
             crate::data_transfer::DataTransfer,
+            crate::cursor::MouseCursorInner,
             $(crate::items::$Name,)*
         ];
     };

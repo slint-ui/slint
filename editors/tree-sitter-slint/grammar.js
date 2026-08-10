@@ -213,7 +213,12 @@ module.exports = grammar({
       seq("interface", field("name", $.user_type_identifier), $.interface_block),
 
     struct_field_definition: ($) =>
-      seq(field("name", $.simple_identifier), ":", field("type", $.type)),
+      seq(
+        field("name", $.simple_identifier),
+        ":",
+        field("type", $.type),
+        optional(seq("=", field("default_value", $.expression))),
+      ),
 
     struct_block: ($) =>
       seq(

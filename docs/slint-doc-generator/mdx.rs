@@ -62,6 +62,10 @@ slug: reference/global-structs-enums
         if name == "keys" {
             continue;
         }
+        // Documented in the MouseCursor type.
+        if name == "BuiltInMouseCursor" {
+            continue;
+        }
         writeln!(
             file,
             "import {0} from \"/src/content/docs/reference/generated/enums/_{0}.md\"",
@@ -84,6 +88,9 @@ slug: reference/global-structs-enums
 
     for name in enums.keys() {
         if name == "keys" {
+            continue;
+        }
+        if name == "BuiltInMouseCursor" {
             continue;
         }
         writeln!(file, "### {name}")?;
@@ -120,12 +127,15 @@ description: {0} content
 
 <!-- Generated with slint-doc-generator from internal/commons/enums.rs -->
 
-`{0}`
-
-{1}
 "#,
-            k, e.description
+            k
         )?;
+        // BuiltInMouseCursor is embedded inline in the MouseCursor type documentation, where its
+        // internal name must not appear; emit only the description and the values.
+        if k != "BuiltInMouseCursor" {
+            writeln!(file, "`{k}`\n")?;
+        }
+        writeln!(file, "{}", e.description)?;
         for v in &e.values {
             writeln!(file, r#"* **`{}`**: {}"#, v.key, v.description)?;
         }

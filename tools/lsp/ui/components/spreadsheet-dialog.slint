@@ -14,19 +14,29 @@ component TableEditor inherits DraggablePanel {
     property <string> property-group-id <=> TableData.property-group-id;
     property <PreviewData> preview-data <=> TableData.preview-data;
     property <PropertyValueTable> current-table <=> TableData.current-table;
-    private property <length> initial-x;
-    private property <length> initial-y;
 
     callback close();
 
-    property <length> content-height;
-    property <length> content-width;
+    // Size the spreadsheet asks for, plus the surrounding padding.
+    property <length> content-width: spread-sheet.preferred-width + 2 * EditorSpaceSettings.default-padding;
+    property <length> content-height: spread-sheet.preferred-height + 4px;
+
+    // Never grow past the preview window.
+    property <length> width-limit: WindowGlobal.window-width * 0.9;
+    property <length> height-limit: WindowGlobal.window-height * 0.9;
+
+    // Dragging the resize grip switches from the natural size to the user's size.
+    private property <bool> user-resized;
+    private property <length> user-width;
+    private property <length> user-height;
+
+    property <length> body-height: clamp(user-resized ? user-height : content-height, 60px, height-limit);
 
     close => {
         WindowManager.hide-floating-widget();
     }
 
-    width: 240px;
+    width: clamp(user-resized ? user-width : content-width, 180px, width-limit);
 
     title := Rectangle {
         width: 100%;
@@ -67,18 +77,13 @@ component TableEditor inherits DraggablePanel {
 
     Rectangle {
         width: 100%;
-        height: root.content-height;
+        height: root.body-height;
         ScrollView {
             viewport-width: spread-sheet.preferred-width;
             viewport-height: spread-sheet.preferred-height;
             height: 100%;
-            width: root.width;
+            width: 100%;
             spread-sheet := Spreadsheet {
-                init => {
-                    root.content-height = spread-sheet.preferred-height + 4px;
-                    root.content-width = spread-sheet.preferred-width + 2 * EditorSpaceSettings.default-padding;
-                    root.width = Math.min(root.content-width, WindowGlobal.window-width * 0.9);
-                }
                 property-group-id <=> root.property-group-id;
                 preview-data <=> root.preview-data;
                 current-table <=> root.current-table;
@@ -89,6 +94,30 @@ component TableEditor inherits DraggablePanel {
     footer := Rectangle {
         width: 100%;
         height: EditorSizeSettings.standard-margin;
+
+        // Bottom-right grip to resize the window.
+        grip := TouchArea {
+            width: 20px;
+            height: 20px;
+            x: parent.width - self.width - 3px;
+            y: parent.height - self.height - 3px;
+            mouse-cursor: MouseCursor.se-resize;
+
+            moved => {
+                root.user-resized = true;
+                root.user-width = clamp(root.width + (self.mouse-x - self.pressed-x), 180px, root.width-limit);
+                root.user-height = clamp(root.body-height + (self.mouse-y - self.pressed-y), 60px, root.height-limit);
+            }
+
+            for dot in [{ x: 15px, y: 15px }, { x: 15px, y: 11px }, { x: 11px, y: 15px }, { x: 15px, y: 7px }, { x: 11px, y: 11px }, { x: 7px, y: 15px }]: Rectangle {
+                x: dot.x;
+                y: dot.y;
+                width: 2px;
+                height: 2px;
+                border-radius: 1px;
+                background: EditorPalette.text-color.transparentize(0.5);
+            }
+        }
     }
 }
 
@@ -96,11 +125,12 @@ export component TableEditorView {
     width: 100%;
     height: 100%;
 
-    in property <length> initial-x: 0;
     in property <length> initial-y: 0;
 
     table-editor := TableEditor {
-        x: root.initial-x;
+        // Center horizontally. The binding recomputes as the size settles, so the
+        // window is never shown off-screen; dragging it replaces the binding.
+        x: (root.width - self.width) / 2;
         y: root.initial-y;
     }
 }

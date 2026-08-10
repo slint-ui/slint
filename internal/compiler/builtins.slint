@@ -551,6 +551,11 @@ component SimpleText inherits Empty {
     /// }
     /// ```
     in property <TextHorizontalAlignment> horizontal-alignment;
+    /// The maximum number of lines to display. Wrapped lines count towards the limit, and
+    /// with `overflow` set to `elide`, the ellipsis is placed on the last visible line.
+    /// Values less than or equal to zero don't limit the number of lines.
+    /// \default 0
+    in property <int> max-lines;
     /// The text rendered.
     /// \default ""
     in property <string> text;
@@ -742,6 +747,10 @@ component StyledTextItem inherits Empty {
     in property <TextHorizontalAlignment> horizontal-alignment;
     /// The color used for rendering links in the text.
     in property <color> link-color: #00f;
+    /// The maximum number of lines to display. Wrapped lines count towards the limit.
+    /// Values less than or equal to zero don't limit the number of lines.
+    /// \default 0
+    in property <int> max-lines;
     /// The styled text rendered, using CommonMark markup with additional HTML tags for styling.
     /// \default ""
     in property <styled-text> text;
@@ -818,7 +827,7 @@ export component TouchArea {
     in property <bool> enabled: true;
     /// Set to true when the mouse is over the `TouchArea` area.
     out property <bool> has_hover;
-    /// The mouse cursor type when the mouse is hovering the `TouchArea`.
+    /// The mouse cursor when the mouse is hovering the `TouchArea`.
     in property <MouseCursor> mouse-cursor;
     /// Set by the `TouchArea` to the position of the mouse within it.
     out property <length> mouse_x;
@@ -997,6 +1006,7 @@ component KeyBinding {
 /// interacting with `TouchArea` elements:
 ///
 /// 1. If the `Flickable`'s `interactive` property is `false`, all events are forwarded to elements underneath.
+///    If `mouse-drag-pan-enabled` is `false`, only mouse events are forwarded this way, while touch events keep panning.
 /// 2. If a press event is received where the event's coordinates interact with a `TouchArea`, the event is stored
 ///    and any subsequent move and release events are handled as follows:
 ///    1. If 100ms elapse without any events, the stored press event is delivered to the `TouchArea`.
@@ -1018,7 +1028,7 @@ component KeyBinding {
 /// ## Wheel/Scroll Event Interaction
 ///
 /// The `Flickable` also supports scrolling with the mouse wheel and touchpad scroll gestures.
-/// It will scroll regardless of the `interactive` property.
+/// It will scroll regardless of the `interactive` and `mouse-drag-pan-enabled` properties.
 /// If the `Flickable` can scroll in the event's direction, the event will be intercepted.
 /// If the Flickable can't scroll in the direction of the event, the event will be forwarded to the parent.
 /// \group:gestures
@@ -1028,8 +1038,12 @@ export component Flickable inherits Empty {
     ///     interactive: false;
     /// }
     /// ```
-    /// When true, the viewport can be scrolled by clicking on it and dragging it with the cursor.
+    /// When false, the viewport can't be panned by the user, neither by dragging with the mouse
+    /// nor with touch.
     in property <bool> interactive: true;
+    /// When true, the viewport can be scrolled by clicking on it and dragging it with the cursor.
+    /// Panning with a touch screen is only affected by `interactive`.
+    in property <bool> mouse-drag-pan-enabled: true;
     /// The total width of the scrollable element.
     in property <length> viewport-width;
     /// The total height of the scrollable element.
@@ -1576,6 +1590,52 @@ component WindowItem {
 /// \sc
 export component Window inherits WindowItem {
     MenuBar { }
+}
+
+/// Use `WindowMoveArea` to let the user move the window by dragging a region of your UI,
+/// such as a custom title bar in a window without native decorations (`no-frame: true`).
+///
+/// The move starts when the user presses the left mouse button inside the area and drags past a small threshold.
+/// A plain click doesn't move the window, so child elements like <Link type="TouchArea" /> stay interactive.
+///
+/// The windowing system performs the move.
+/// It requires a backend and platform with support for it (winit on Windows, macOS, X11, and Wayland; Qt).
+/// On platforms without support, the element does nothing.
+///
+/// When not part of a layout, its width and height default to 100% of the parent element.
+///
+/// ```slint playground
+/// export component Example inherits Window {
+///     no-frame: true;
+///     preferred-width: 400px;
+///     preferred-height: 300px;
+///     VerticalLayout {
+///         Rectangle {
+///             height: 32px;
+///             background: #444444;
+///             WindowMoveArea {
+///                 HorizontalLayout {
+///                     Text {
+///                         text: "My Application";
+///                         color: white;
+///                         vertical-alignment: center;
+///                         horizontal-alignment: center;
+///                     }
+///                 }
+///             }
+///         }
+///         Rectangle {
+///             background: white;
+///         }
+///     }
+/// }
+/// ```
+/// \group:window
+export component WindowMoveArea {
+    /// Set to `false` to stop the `WindowMoveArea` from initiating window moves.
+    /// Events still reach the child elements.
+    in property <bool> enabled: true;
+    //-default_size_binding:expands_to_parent_geometry
 }
 
 export component BoxShadow inherits Empty {

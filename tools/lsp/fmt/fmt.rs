@@ -2039,11 +2039,16 @@ fn format_object_type_member(
     writer: &mut impl TokenWriter,
     state: &mut FormatState,
 ) -> Result<(), std::io::Error> {
-    // Format a single struct field: `name: Type` (comma handled if present).
+    // Format a single struct field: `name: Type` or `name: Type = default-value`
+    // (comma handled if present).
     let mut sub = node.children_with_tokens();
     let _ok = whitespace_to(&mut sub, SyntaxKind::Identifier, writer, state, "")?
         && whitespace_to(&mut sub, SyntaxKind::Colon, writer, state, "")?
         && whitespace_to(&mut sub, SyntaxKind::Type, writer, state, " ")?;
+    if node.child_token(SyntaxKind::Equal).is_some() {
+        let _ok = whitespace_to(&mut sub, SyntaxKind::Equal, writer, state, " ")?
+            && whitespace_to(&mut sub, SyntaxKind::Expression, writer, state, " ")?;
+    }
     if node.child_token(SyntaxKind::Comma).is_some() {
         whitespace_to(&mut sub, SyntaxKind::Comma, writer, state, "")?;
     }
@@ -3271,6 +3276,28 @@ struct Bar {
 
 component HelloWorld {
     // ...
+}
+"#,
+        );
+    }
+
+    #[test]
+    fn struct_field_default_values() {
+        assert_formatting(
+            r#"
+struct Foo {
+    a: int=42,
+    b: string    =   "hello",
+    c: color= #ff0000,
+    d: int,
+}
+"#,
+            r#"
+struct Foo {
+    a: int = 42,
+    b: string = "hello",
+    c: color = #ff0000,
+    d: int,
 }
 "#,
         );

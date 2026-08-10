@@ -462,8 +462,8 @@ declare_syntax! {
         Type -> [ ?QualifiedName, ?ObjectType, ?ArrayType ],
         /// `{foo: string, bar: string} `
         ObjectType ->[ *ObjectTypeMember ],
-        /// `foo: type` inside an ObjectType
-        ObjectTypeMember -> [ Type ],
+        /// `foo: type` or `foo: type = default-value` inside an ObjectType
+        ObjectTypeMember -> [ Type, ?Expression ],
         /// `[ type ]`
         ArrayType -> [ Type ],
         /// `struct Foo { ... }`

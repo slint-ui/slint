@@ -29,8 +29,6 @@ std = [
   "euclid/std",
   "once_cell/std",
   "dep:web-time",
-  "image-decoders",
-  "svg",
   "path",
   "raw-window-handle-06?/std",
   "chrono/std",
@@ -50,6 +48,8 @@ unsafe-single-threaded = []
 
 unicode = ["unicode-script", "unicode-linebreak"]
 
+# Decode encoded images with the image crate. Not needed on wasm, where the
+# browser decodes encoded image data.
 image-decoders = ["dep:image", "dep:clru"]
 image-default-formats = ["image?/default-formats"]
 svg = ["dep:resvg", "i-slint-common/svg-text"]
@@ -171,7 +171,9 @@ async-channel = { version = "2", optional = true }
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 web-time = { version = "1.0", optional = true }
 wasm-bindgen = { version = "0.2" }
-web-sys = { workspace = true, features = ["HtmlImageElement", "Navigator"] }
+js-sys = { version = "0.3" }
+clru = { workspace = true }
+web-sys = { workspace = true, features = ["HtmlImageElement", "Navigator", "Blob", "BlobPropertyBag", "Url", "DomParser", "SupportedType", "Document", "Element"] }
 
 
 [dev-dependencies]

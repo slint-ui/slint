@@ -15,7 +15,7 @@ use i_slint_renderer_femtovg::{FemtoVGRenderer, FemtoVGRendererExt};
 
 use winit::event_loop::ActiveEventLoop;
 #[cfg(target_arch = "wasm32")]
-use winit::platform::web::WindowExtWebSys;
+use winit::platform::web::WindowExtWeb;
 
 use super::WinitCompatibleRenderer;
 
@@ -54,9 +54,9 @@ impl super::WinitCompatibleRenderer for GlutinFemtoVGRenderer {
 
     fn resume(
         &self,
-        active_event_loop: &ActiveEventLoop,
+        active_event_loop: &dyn ActiveEventLoop,
         window_attributes: winit::window::WindowAttributes,
-    ) -> Result<Arc<winit::window::Window>, PlatformError> {
+    ) -> Result<Arc<dyn winit::window::Window>, PlatformError> {
         #[cfg(not(target_arch = "wasm32"))]
         let (winit_window, opengl_context) = glcontext::OpenGLContext::new_context(
             window_attributes,
@@ -65,19 +65,20 @@ impl super::WinitCompatibleRenderer for GlutinFemtoVGRenderer {
         )?;
 
         #[cfg(target_arch = "wasm32")]
-        let winit_window = Arc::new(active_event_loop.create_window(window_attributes).map_err(
-            |winit_os_error| {
+        let winit_window: Arc<dyn winit::window::Window> = active_event_loop
+            .create_window(window_attributes)
+            .map_err(|winit_os_error| {
                 PlatformError::from(format!(
-                    "FemtoVG Renderer: Could not create winit window wrapper for DOM canvas: {}",
-                    winit_os_error
+                    "FemtoVG Renderer: Could not create winit window wrapper for DOM canvas: {winit_os_error}"
                 ))
-            },
-        )?);
+            })?
+            .into();
 
         #[cfg(target_family = "wasm")]
-        let html_canvas = winit_window
+        let html_canvas: web_sys::HtmlCanvasElement = winit_window
             .canvas()
-            .ok_or_else(|| "FemtoVG Renderer: winit didn't return a canvas")?;
+            .ok_or_else(|| "FemtoVG Renderer: winit didn't return a canvas")?
+            .clone();
 
         self.renderer.set_opengl_context(
             #[cfg(not(target_arch = "wasm32"))]
@@ -209,18 +210,18 @@ impl WinitCompatibleRenderer for WGPUFemtoVGRenderer {
 
     fn resume(
         &self,
-        active_event_loop: &ActiveEventLoop,
+        active_event_loop: &dyn ActiveEventLoop,
         window_attributes: winit::window::WindowAttributes,
-    ) -> Result<Arc<winit::window::Window>, PlatformError> {
+    ) -> Result<Arc<dyn winit::window::Window>, PlatformError> {
         let transparent = window_attributes.transparent;
-        let winit_window = Arc::new(active_event_loop.create_window(window_attributes).map_err(
-            |winit_os_error| {
+        let winit_window: Arc<dyn winit::window::Window> = active_event_loop
+            .create_window(window_attributes)
+            .map_err(|winit_os_error| {
                 PlatformError::from(format!(
-                    "Error creating native window for FemtoVG rendering: {}",
-                    winit_os_error
+                    "Error creating native window for FemtoVG rendering: {winit_os_error}"
                 ))
-            },
-        )?);
+            })?
+            .into();
 
         let size = winit_window.surface_size();
 

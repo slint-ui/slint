@@ -39,6 +39,15 @@ pub fn new(
     if std::env::var_os("SLINT_BACKEND_LINUXFB").is_some() {
         return linuxfb::LinuxFBDisplay::new(device_opener, renderer_formats);
     }
-    dumbbuffer::DumbBufferDisplay::new(device_opener, renderer_formats)
-        .or_else(|_| linuxfb::LinuxFBDisplay::new(device_opener, renderer_formats))
+    dumbbuffer::DumbBufferDisplay::new(device_opener, renderer_formats).or_else(
+        |dumb_buffer_error| {
+            linuxfb::LinuxFBDisplay::new(device_opener, renderer_formats).map_err(
+                |linuxfb_error| {
+                    PlatformError::Other(format!(
+                        "Could not initialize software display.\nError using DRM dumb buffers: {dumb_buffer_error}\nError using legacy framebuffer: {linuxfb_error}"
+                    ))
+                },
+            )
+        },
+    )
 }

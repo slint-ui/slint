@@ -561,6 +561,7 @@ srcroot
 SRCS
 SRGBA
 standardbutton
+startswith
 staticlib
 staticmethod
 stdset

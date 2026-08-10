@@ -9,7 +9,7 @@
 // a human running the test can see which item is which.
 
 export component TestCase inherits Window {
-    width: 500px;
+    width: 700px;
     height: 400px;
 
     // --- Test 1 -------------------------------------------------------------
@@ -63,7 +63,45 @@ export component TestCase inherits Window {
     // its flex line, which is wider, so it must end up wider than s1.
     out property <bool> align_self_stretches: s3.width > s1.width;
 
-    out property <bool> test: wrapped && no_overflow && align_self_stretches;
+    // --- Test 3 -------------------------------------------------------------
+    // A height-for-width item that does NOT stretch is laid out at its own
+    // definite width, so its height must be measured at that width — not at the
+    // (much wider) container width, which would leave the text overflowing.
+    property <string> long: "A really long card text that will almost certainly need to wrap onto two or more lines when the flex space is tight";
+    // Same text wrapped at the item's width: a font-independent reference.
+    refText := Text { x: -3000px; width: 100px; text: long; wrap: word-wrap; }
+    // ...and at the container width, to prove the two differ (font-dependent,
+    // so only used to guard against the assertion holding trivially).
+    refWide := Text { x: -3000px; width: 300px; text: long; wrap: word-wrap; }
+
+    Rectangle { x: 350px; y: 0; width: 300px; height: 200px; border-width: 1px; border-color: gray; }
+    flex3 := FlexboxLayout {
+        flex-direction: column;
+        cross-axis-alignment: start;
+        x: 350px;
+        y: 0;
+        width: 300px;
+        height: 200px;
+        spacing: 0px;
+        padding: 0px;
+
+        h4w := Rectangle {
+            width: 100px;
+            background: #ccc;
+            VerticalLayout { Text { text: long; wrap: word-wrap; } }
+        }
+        Rectangle { }
+    }
+
+    out property <bool> h4w_at_own_width: abs(h4w.height - refText.height) < 1px;
+    // The two widths really do give different heights, so the check above bites.
+    out property <bool> widths_differ: refText.height > refWide.height;
+
+    // Everything that holds without real fonts, so nodejs can assert it.
+    out property <bool> font_independent:
+        wrapped && no_overflow && align_self_stretches && h4w_at_own_width;
+
+    out property <bool> test: font_independent && widths_differ;
 }
 
 /*
@@ -72,6 +110,8 @@ auto handle = TestCase::create();
 assert(handle->get_wrapped());
 assert(handle->get_no_overflow());
 assert(handle->get_align_self_stretches());
+assert(handle->get_widths_differ());
+assert(handle->get_h4w_at_own_width());
 assert(handle->get_test());
 ```
 
@@ -80,14 +120,19 @@ let instance = TestCase::new().unwrap();
 assert!(instance.get_wrapped(), "b3 should wrap to a 2nd column");
 assert!(instance.get_no_overflow(), "column contents overflow the 300px flex");
 assert!(instance.get_align_self_stretches(), "s3 with flex-align-self:stretch should be wider than start-aligned s1");
+assert!(instance.get_widths_differ(), "reference heights are equal, so h4w_at_own_width would hold trivially");
+assert!(instance.get_h4w_at_own_width(), "h4w item measured at the container width, not its own");
 assert!(instance.get_test());
 ```
 
 ```js
+// nodejs has no test fonts, so `widths_differ` (and hence `test`) cannot hold.
+// Check the font-independent invariants instead.
 var instance = new slint.TestCase();
 assert(instance.wrapped);
 assert(instance.no_overflow);
 assert(instance.align_self_stretches);
-assert(instance.test);
+assert(instance.h4w_at_own_width);
+assert(instance.font_independent);
 ```
 */

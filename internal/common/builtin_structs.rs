@@ -26,7 +26,7 @@
 #[macro_export]
 macro_rules! for_each_builtin_structs {
     ($macro:ident) => {
-        $macro![
+        $macro! {
             /// The `KeyboardModifiers` struct provides booleans to indicate possible modifier keys on a keyboard, such as Shift, Control, etc.
             /// It is provided as part of `KeyEvent`'s `modifiers` field.
             ///
@@ -209,6 +209,6 @@ macro_rules! for_each_builtin_structs {
                 /// The constraint adjustment in y direction
                 constraint_adjustment_y: ConstraintAdjustment,
             }
-        ];
+        }
     };
 }

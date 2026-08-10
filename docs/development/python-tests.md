@@ -20,11 +20,12 @@ The Rust test driver (`tests/driver/python/python.rs`) processes `.slint` test c
 
 2. **Runs the generated `.py` file** as a subprocess using `uv run`. The subprocess loads the `slint` Python module, which re-compiles the `.slint` source using `slint-interpreter` (with full inlining enabled).
 
-Run with:
+`test-driver-python` lives in the separate `tests/` Cargo workspace, so it needs
+`--manifest-path tests/Cargo.toml` when run from the repository root:
 ```sh
-cargo test -p test-driver-python
+cargo test --manifest-path tests/Cargo.toml -p test-driver-python
 # or with a filter:
-cargo test -p test-driver-python -- test_name
+cargo test --manifest-path tests/Cargo.toml -p test-driver-python -- test_name
 ```
 
 ## Rebuilding slint-python
@@ -43,7 +44,7 @@ cd api/python/slint && uv sync --reinstall-package slint && cd -
 
 Issues can occur in two places:
 
-- **Test driver process** (compilation): the test driver compiles the `.slint` source with `OutputFormat::Python` and generates the `.py` file. To debug, modify compiler code and rebuild with `cargo build -p test-driver-python`.
+- **Test driver process** (compilation): the test driver compiles the `.slint` source with `OutputFormat::Python` and generates the `.py` file. To debug, modify compiler code and rebuild with `cargo build --manifest-path tests/Cargo.toml -p test-driver-python`.
 
 - **Python subprocess** (runtime): the `slint` Python module re-compiles the `.slint` source via `slint-interpreter` and executes it. To debug, modify compiler/runtime code AND rebuild slint-python (`cd api/python/slint && uv sync --reinstall-package slint`).
 

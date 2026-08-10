@@ -99,6 +99,7 @@ raw-window-handle-06 = ["dep:raw-window-handle-06", "i-slint-backend-selector/ra
 ## and `@image-url`. When this feature is disabled, only PNG and JPEG are supported. When enabled,
 ## the following image formats are supported:
 ## AVIF, BMP, DDS, Farbfeld, GIF, HDR, ICO, JPEG, EXR, PNG, PNM, QOI, TGA, TIFF, WebP.
+## This feature has no effect on the web, where the browser decodes images.
 image-default-formats = ["i-slint-core/image-default-formats"]
 
 ## Enable the live preview feature

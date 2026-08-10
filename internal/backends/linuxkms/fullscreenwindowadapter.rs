@@ -9,13 +9,15 @@ use std::rc::Rc;
 
 use i_slint_core::Property;
 use i_slint_core::api::{LogicalPosition, PhysicalSize as PhysicalWindowSize};
+use i_slint_core::cursor::MouseCursorInner;
 use i_slint_core::graphics::{Image, euclid};
 use i_slint_core::item_rendering::ItemRenderer;
-use i_slint_core::lengths::LogicalRect;
+use i_slint_core::items::BuiltInMouseCursor;
+use i_slint_core::lengths::{LogicalRect, LogicalVector};
 use i_slint_core::platform::WindowEvent;
 use i_slint_core::renderer::DrawOutcome;
 use i_slint_core::slice::Slice;
-use i_slint_core::{platform::PlatformError, window::WindowAdapter};
+use i_slint_core::{platform::PlatformError, window::WindowAdapter, window::WindowAdapterInternal};
 
 use crate::display::RenderingRotation;
 
@@ -35,6 +37,7 @@ pub struct FullscreenWindowAdapter {
     redraw_requested: Cell<bool>,
     rotation: RenderingRotation,
     loop_signal: RefCell<Option<calloop::LoopSignal>>,
+    mouse_cursor: RefCell<MouseCursorInner>,
 }
 
 impl WindowAdapter for FullscreenWindowAdapter {
@@ -66,6 +69,19 @@ impl WindowAdapter for FullscreenWindowAdapter {
         }
         Ok(())
     }
+
+    fn internal(&self, _: i_slint_core::InternalToken) -> Option<&dyn WindowAdapterInternal> {
+        Some(self)
+    }
+}
+
+impl WindowAdapterInternal for FullscreenWindowAdapter {
+    fn set_mouse_cursor(&self, cursor: MouseCursorInner) {
+        if *self.mouse_cursor.borrow() != cursor {
+            *self.mouse_cursor.borrow_mut() = cursor;
+            self.request_redraw();
+        }
+    }
 }
 
 impl FullscreenWindowAdapter {
@@ -91,6 +107,7 @@ impl FullscreenWindowAdapter {
             redraw_requested: Cell::new(true),
             rotation,
             loop_signal: RefCell::new(None),
+            mouse_cursor: RefCell::new(MouseCursorInner::default()),
         }))
     }
 
@@ -105,18 +122,38 @@ impl FullscreenWindowAdapter {
         if self.redraw_requested.replace(false) {
             let outcome = self.renderer.render_and_present(self.rotation, &|item_renderer| {
                 if let Some(mouse_position) = mouse_position.get() {
-                    let cursor_image = mouse_cursor_image();
-                    item_renderer.save_state();
-                    item_renderer.translate(
-                        i_slint_core::lengths::logical_point_from_api(mouse_position).to_vector(),
-                    );
-                    item_renderer.draw_image_direct(mouse_cursor_image());
-                    item_renderer.restore_state();
-                    let cursor_rect = LogicalRect::new(
-                        euclid::point2(mouse_position.x, mouse_position.y),
-                        euclid::Size2D::from_untyped(cursor_image.size().cast()),
-                    );
-                    self.renderer.as_core_renderer().mark_dirty_region(cursor_rect.into());
+                    // The image is drawn at its natural size, so the hotspot is just clamped into it.
+                    let image_and_hotspot = match &*self.mouse_cursor.borrow() {
+                        MouseCursorInner::CustomMouseCursor { image, hotspot_x, hotspot_y } => {
+                            let size = image.size();
+                            let hotspot = LogicalVector::new(
+                                (*hotspot_x).clamp(0, size.width.saturating_sub(1) as i32) as f32,
+                                (*hotspot_y).clamp(0, size.height.saturating_sub(1) as i32) as f32,
+                            );
+                            Some((image.clone(), hotspot))
+                        }
+                        // Only the `none` shape hides the cursor; every other built-in shape falls
+                        // back to the default pointer, as this backend has a single cursor image.
+                        MouseCursorInner::BuiltIn(builtin) => {
+                            (!matches!(builtin, BuiltInMouseCursor::None))
+                                .then(|| (mouse_cursor_image(), LogicalVector::default()))
+                        }
+                        _ => Some((mouse_cursor_image(), LogicalVector::default())),
+                    };
+                    if let Some((cursor_image, hotspot)) = image_and_hotspot {
+                        let origin = i_slint_core::lengths::logical_point_from_api(mouse_position)
+                            .to_vector()
+                            - hotspot;
+                        item_renderer.save_state();
+                        item_renderer.translate(origin);
+                        item_renderer.draw_image_direct(cursor_image.clone());
+                        item_renderer.restore_state();
+                        let cursor_rect = LogicalRect::new(
+                            origin.to_point(),
+                            euclid::Size2D::from_untyped(cursor_image.size().cast()),
+                        );
+                        self.renderer.as_core_renderer().mark_dirty_region(cursor_rect.into());
+                    }
                 }
             })?;
             if !matches!(outcome, DrawOutcome::Success) {

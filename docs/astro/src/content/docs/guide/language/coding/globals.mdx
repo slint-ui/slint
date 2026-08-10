@@ -99,7 +99,7 @@ class App(slint.loader.app.App):
     def magic_operation(self, value: int) -> int:
         return value * 2
 
-app = new App()
+app = App()
 app.Logic.the_value = 42
 
 # ...

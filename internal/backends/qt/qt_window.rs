@@ -6,6 +6,7 @@
 use cpp::*;
 use i_slint_common::sharedfontique::HashedBlob;
 use i_slint_core::DataTransfer;
+use i_slint_core::cursor::{MouseCursorInner, scaled_hotspot};
 use i_slint_core::graphics::rendering_metrics_collector::{
     RenderingMetrics, RenderingMetricsCollector,
 };
@@ -22,8 +23,9 @@ use i_slint_core::item_tree::{
     ItemTreeRc, ItemTreeRef, ItemTreeRefPin, ItemTreeWeak, ParentItemTraversalMode,
 };
 use i_slint_core::items::{
-    self, AllowedDragActions, DragAction, DropEvent, FillRule, ImageRendering, ItemRc, ItemRef,
-    Layer, LineCap, LineJoin, MouseCursor, Opacity, PointerEventButton, RenderingResult, TextWrap,
+    self, AllowedDragActions, BuiltInMouseCursor, DragAction, DropEvent, FillRule, ImageRendering,
+    ItemRc, ItemRef, Layer, LineCap, LineJoin, Opacity, PointerEventButton, RenderingResult,
+    TextWrap,
 };
 use i_slint_core::layout::Orientation;
 use i_slint_core::lengths::{
@@ -1400,7 +1402,13 @@ impl GlyphRenderer for QtItemRenderer<'_> {
         }
     }
 
-    fn fill_rectangle(&mut self, physical_rect: sharedparley::PhysicalRect, brush: GlyphBrush) {
+    fn fill_rectangle(
+        &mut self,
+        physical_rect: sharedparley::PhysicalRect,
+        brush: GlyphBrush,
+        radius: sharedparley::PhysicalLength,
+        border: Option<sharedparley::RectangleBorder<GlyphBrush>>,
+    ) {
         let qt_brush = match brush {
             GlyphBrush::Fill(qt_brush) => qt_brush,
             _ => return,
@@ -1413,8 +1421,48 @@ impl GlyphRenderer for QtItemRenderer<'_> {
             height: physical_rect.height() as _,
         };
         let painter: &mut QPainterPtr = &mut self.painter;
-        cpp! { unsafe [painter as "QPainterPtr*", qt_brush as "QBrush", rect as "QRectF"] {
-            (*painter)->fillRect(rect, qt_brush);
+
+        let (border_brush, border_width) = match border {
+            Some(sharedparley::RectangleBorder { brush: GlyphBrush::Fill(b), width })
+                if width.get() > 0.0 =>
+            {
+                (b, width.get() as f64)
+            }
+            _ => (qttypes::QBrush::default(), 0.0_f64),
+        };
+        let radius = radius.get() as f64;
+
+        cpp! { unsafe [
+            painter as "QPainterPtr*",
+            qt_brush as "QBrush",
+            rect as "QRectF",
+            radius as "double",
+            border_brush as "QBrush",
+            border_width as "double"
+        ] {
+            if (border_width > 0.0) {
+                (*painter)->save();
+                (*painter)->setRenderHint(QPainter::Antialiasing, true);
+                (*painter)->setBrush(qt_brush);
+                QPen pen(border_brush, border_width);
+                pen.setJoinStyle(Qt::MiterJoin);
+                (*painter)->setPen(pen);
+                if (radius > 0.0) {
+                    (*painter)->drawRoundedRect(rect, radius, radius);
+                } else {
+                    (*painter)->drawRect(rect);
+                }
+                (*painter)->restore();
+            } else if (radius > 0.0) {
+                (*painter)->save();
+                (*painter)->setRenderHint(QPainter::Antialiasing, true);
+                (*painter)->setBrush(qt_brush);
+                (*painter)->setPen(Qt::NoPen);
+                (*painter)->drawRoundedRect(rect, radius, radius);
+                (*painter)->restore();
+            } else {
+                (*painter)->fillRect(rect, qt_brush);
+            }
         }}
     }
 }
@@ -2543,6 +2591,15 @@ impl WindowAdapterInternal for QtWindow {
         true
     }
 
+    fn start_window_move(&self) {
+        let widget_ptr = self.widget_ptr();
+        cpp! {unsafe [widget_ptr as "QWidget*"] {
+            if (QWindow *window = widget_ptr->window()->windowHandle()) {
+                window->startSystemMove();
+            }
+        }}
+    }
+
     fn register_item_tree(&self, _: ItemTreeRefPin) {
         self.tree_structure_changed.replace(true);
     }
@@ -2574,44 +2631,68 @@ impl WindowAdapterInternal for QtWindow {
         Some(child_window as _)
     }
 
-    fn set_mouse_cursor(&self, cursor: MouseCursor) {
+    fn set_mouse_cursor(&self, cursor: MouseCursorInner) {
         let widget_ptr = self.widget_ptr();
-        //unidirectional resize cursors are replaced with bidirectional ones
-        let cursor_shape = match cursor {
-            MouseCursor::Default => key_generated::Qt_CursorShape_ArrowCursor,
-            MouseCursor::None => key_generated::Qt_CursorShape_BlankCursor,
-            MouseCursor::Help => key_generated::Qt_CursorShape_WhatsThisCursor,
-            MouseCursor::Pointer => key_generated::Qt_CursorShape_PointingHandCursor,
-            MouseCursor::Progress => key_generated::Qt_CursorShape_BusyCursor,
-            MouseCursor::Wait => key_generated::Qt_CursorShape_WaitCursor,
-            MouseCursor::Crosshair => key_generated::Qt_CursorShape_CrossCursor,
-            MouseCursor::Text => key_generated::Qt_CursorShape_IBeamCursor,
-            MouseCursor::Alias => key_generated::Qt_CursorShape_DragLinkCursor,
-            MouseCursor::Copy => key_generated::Qt_CursorShape_DragCopyCursor,
-            MouseCursor::Move => key_generated::Qt_CursorShape_DragMoveCursor,
-            MouseCursor::NoDrop => key_generated::Qt_CursorShape_ForbiddenCursor,
-            MouseCursor::NotAllowed => key_generated::Qt_CursorShape_ForbiddenCursor,
-            MouseCursor::Grab => key_generated::Qt_CursorShape_OpenHandCursor,
-            MouseCursor::Grabbing => key_generated::Qt_CursorShape_ClosedHandCursor,
-            MouseCursor::ColResize => key_generated::Qt_CursorShape_SplitHCursor,
-            MouseCursor::RowResize => key_generated::Qt_CursorShape_SplitVCursor,
-            MouseCursor::NResize => key_generated::Qt_CursorShape_SizeVerCursor,
-            MouseCursor::EResize => key_generated::Qt_CursorShape_SizeHorCursor,
-            MouseCursor::SResize => key_generated::Qt_CursorShape_SizeVerCursor,
-            MouseCursor::WResize => key_generated::Qt_CursorShape_SizeHorCursor,
-            MouseCursor::NeResize => key_generated::Qt_CursorShape_SizeBDiagCursor,
-            MouseCursor::NwResize => key_generated::Qt_CursorShape_SizeFDiagCursor,
-            MouseCursor::SeResize => key_generated::Qt_CursorShape_SizeFDiagCursor,
-            MouseCursor::SwResize => key_generated::Qt_CursorShape_SizeBDiagCursor,
-            MouseCursor::EwResize => key_generated::Qt_CursorShape_SizeHorCursor,
-            MouseCursor::NsResize => key_generated::Qt_CursorShape_SizeVerCursor,
-            MouseCursor::NeswResize => key_generated::Qt_CursorShape_SizeBDiagCursor,
-            MouseCursor::NwseResize => key_generated::Qt_CursorShape_SizeFDiagCursor,
-            _ => key_generated::Qt_CursorShape_ArrowCursor,
-        };
-        cpp! {unsafe [widget_ptr as "QWidget*", cursor_shape as "Qt::CursorShape"] {
-            widget_ptr->setCursor(QCursor{cursor_shape});
-        }};
+        match cursor {
+            MouseCursorInner::CustomMouseCursor { image, hotspot_x, hotspot_y } => {
+                let source_size = image.size();
+                let image_inner: &ImageInner = (&image).into();
+                // Rasterize scalable sources at scale_factor so SVG cursors are crisp on high-DPI.
+                let target_size = LogicalSize::from_untyped(source_size.cast())
+                    * ScaleFactor::new(self.window.scale_factor());
+                let pixmap_size = image_inner.is_svg().then(|| target_size.cast());
+                let pixmap: qttypes::QPixmap =
+                    image_to_pixmap(image_inner, pixmap_size).unwrap_or_default();
+                // Map the hotspot into the rendered pixmap and clamp it inside (QCursor would
+                // otherwise center a negative).
+                let rendered = pixmap.size();
+                let hotspot_x = scaled_hotspot(hotspot_x, source_size.width, rendered.width) as i32;
+                let hotspot_y =
+                    scaled_hotspot(hotspot_y, source_size.height, rendered.height) as i32;
+                cpp! {unsafe [widget_ptr as "QWidget*", pixmap as "QPixmap", hotspot_x as "int", hotspot_y as "int"] {
+                    widget_ptr->setCursor(QCursor{pixmap, hotspot_x, hotspot_y});
+                }};
+            }
+            MouseCursorInner::BuiltIn(cursor) => {
+                //unidirectional resize cursors are replaced with bidirectional ones
+                let cursor_shape = match cursor {
+                    BuiltInMouseCursor::Default => key_generated::Qt_CursorShape_ArrowCursor,
+                    BuiltInMouseCursor::None => key_generated::Qt_CursorShape_BlankCursor,
+                    BuiltInMouseCursor::Help => key_generated::Qt_CursorShape_WhatsThisCursor,
+                    BuiltInMouseCursor::Pointer => key_generated::Qt_CursorShape_PointingHandCursor,
+                    BuiltInMouseCursor::Progress => key_generated::Qt_CursorShape_BusyCursor,
+                    BuiltInMouseCursor::Wait => key_generated::Qt_CursorShape_WaitCursor,
+                    BuiltInMouseCursor::Crosshair => key_generated::Qt_CursorShape_CrossCursor,
+                    BuiltInMouseCursor::Text => key_generated::Qt_CursorShape_IBeamCursor,
+                    BuiltInMouseCursor::Alias => key_generated::Qt_CursorShape_DragLinkCursor,
+                    BuiltInMouseCursor::Copy => key_generated::Qt_CursorShape_DragCopyCursor,
+                    BuiltInMouseCursor::Move => key_generated::Qt_CursorShape_DragMoveCursor,
+                    BuiltInMouseCursor::NoDrop => key_generated::Qt_CursorShape_ForbiddenCursor,
+                    BuiltInMouseCursor::NotAllowed => key_generated::Qt_CursorShape_ForbiddenCursor,
+                    BuiltInMouseCursor::Grab => key_generated::Qt_CursorShape_OpenHandCursor,
+                    BuiltInMouseCursor::Grabbing => key_generated::Qt_CursorShape_ClosedHandCursor,
+                    BuiltInMouseCursor::ColResize => key_generated::Qt_CursorShape_SplitHCursor,
+                    BuiltInMouseCursor::RowResize => key_generated::Qt_CursorShape_SplitVCursor,
+                    BuiltInMouseCursor::NResize => key_generated::Qt_CursorShape_SizeVerCursor,
+                    BuiltInMouseCursor::EResize => key_generated::Qt_CursorShape_SizeHorCursor,
+                    BuiltInMouseCursor::SResize => key_generated::Qt_CursorShape_SizeVerCursor,
+                    BuiltInMouseCursor::WResize => key_generated::Qt_CursorShape_SizeHorCursor,
+                    BuiltInMouseCursor::NeResize => key_generated::Qt_CursorShape_SizeBDiagCursor,
+                    BuiltInMouseCursor::NwResize => key_generated::Qt_CursorShape_SizeFDiagCursor,
+                    BuiltInMouseCursor::SeResize => key_generated::Qt_CursorShape_SizeFDiagCursor,
+                    BuiltInMouseCursor::SwResize => key_generated::Qt_CursorShape_SizeBDiagCursor,
+                    BuiltInMouseCursor::EwResize => key_generated::Qt_CursorShape_SizeHorCursor,
+                    BuiltInMouseCursor::NsResize => key_generated::Qt_CursorShape_SizeVerCursor,
+                    BuiltInMouseCursor::NeswResize => key_generated::Qt_CursorShape_SizeBDiagCursor,
+                    BuiltInMouseCursor::NwseResize => key_generated::Qt_CursorShape_SizeFDiagCursor,
+                    _ => key_generated::Qt_CursorShape_ArrowCursor,
+                };
+                cpp! {unsafe [widget_ptr as "QWidget*", cursor_shape as "Qt::CursorShape"] {
+                    widget_ptr->setCursor(QCursor{cursor_shape});
+                }};
+            }
+            _ => {}
+        }
     }
 
     fn input_method_request(&self, request: i_slint_core::window::InputMethodRequest) {

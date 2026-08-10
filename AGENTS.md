@@ -41,7 +41,7 @@ cmake --build .
 
 ### Node.js Build
 ```sh
-cd api/node && pnpm install
+cd api/node && pnpm install && pnpm build
 ```
 
 ## Testing
@@ -56,6 +56,7 @@ cargo test --manifest-path tests/Cargo.toml -p test-driver-interpreter   # Faste
 cargo test --manifest-path tests/Cargo.toml -p test-driver-rust          # Rust API (slow to compile without SLINT_TEST_FILTER)
 cargo test --manifest-path tests/Cargo.toml -p test-driver-cpp           # C++ (build slint-cpp first for the dynamic library)
 cargo test --manifest-path tests/Cargo.toml -p test-driver-nodejs        # Node.js
+cargo test --manifest-path tests/Cargo.toml -p test-driver-python        # Python
 cargo test --manifest-path tests/Cargo.toml -p doctests                  # Documentation snippets
 ```
 
@@ -72,8 +73,8 @@ Only drop the filter for a final full-suite run before committing.
 
 ### Writing Slint Test Cases
 
-The `test` property in `tests/cases/*.slint` must be declared `out property<bool> test: ...;`.
-Without `out`, the compiler treats it as private and the driver passes the test vacuously.
+The `test` property in `tests/cases/*.slint` must be declared `out` or `in-out`
+(e.g. `out property<bool> test: ...;`), otherwise the driver passes the test vacuously.
 
 ### Syntax Tests (Compiler Errors)
 ```sh
@@ -124,7 +125,7 @@ Rust (`rs/slint/`, `rs/macros/` for `slint!`, `rs/build/`), C++ (`cpp/`, CMake),
 
 ### Tools (`tools/`)
 
-`lsp/` (LSP server), `compiler/` (CLI), `viewer/` (hot-reload `.slint` viewer), `slintpad/` (web playground), `figma_import/`, `tr-extractor/` (i18n), `updater/` (version migration).
+`lsp/` (LSP server), `compiler/` (CLI), `viewer/` (hot-reload `.slint` viewer), `slintpad/` (web playground), `figma_import/` (Figma-to-Slint conversion), `figma-inspector/` (Figma plugin: shows Slint markup for a selected design element), `tr-extractor/` (i18n).
 
 ### Editor Support (`editors/`)
 
@@ -155,6 +156,10 @@ When this principle applies: any time you design syntax for a new visual or layo
 
 - The default git branch is `master`.
 - Prefer linear history — rebase or squash on merge.
+- During review, prefer adding small follow-up commits over amending, so the reviewer can
+  track how feedback was incorporated; squash them once the review is complete. See
+  [`docs/development.md`](docs/development.md#commit-history--code-reviews) for the full
+  fixup-then-squash workflow, and for `mise`-based environment setup.
 
 ## Code Style
 
@@ -187,5 +192,5 @@ Load the relevant file under `docs/development/` when working in the listed area
 - `text-layout.md` — `internal/core/textlayout/`, text rendering: shaping, line breaking, styled text.
 - `window-backend-integration.md` — `internal/core/window.rs`, `internal/backends/`: WindowAdapter, Platform, WindowEvent, popups.
 - `lsp-architecture.md` — `tools/lsp/`, IDE tooling: completion, hover, semantic tokens, live preview.
-- `mcp-server.md` — `internal/backends/testing/mcp_server.rs`, `introspection.rs`: shared introspection layer, handle/arena, HTTP transport, adding tools.
+- `mcp-server.md` — `internal/backends/testing/mcp_server.rs`, `introspection/`: shared introspection layer, handle/arena, HTTP transport, adding tools.
 - `ffi-language-bindings.md` — `api/`, internal FFI: cbindgen, FFI patterns, adding cross-language APIs.

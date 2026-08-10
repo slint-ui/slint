@@ -1449,6 +1449,17 @@ mod flexbox_taffy {
                             TaffyFlexDirection::Row | TaffyFlexDirection::RowReverse => {
                                 Dimension::length(preferred_width as _)
                             }
+                            // For a column the main axis is the height, so pinning the
+                            // basis to `preferred_height` would stop taffy from ever
+                            // consulting the measure callback. `auto` lets it size the
+                            // item from its content at the width it actually assigns —
+                            // `preferred_height` was measured at the container width,
+                            // which is too wide for an item that does not stretch.
+                            TaffyFlexDirection::Column | TaffyFlexDirection::ColumnReverse
+                                if params.use_measure_for_cross_axis =>
+                            {
+                                Dimension::auto()
+                            }
                             TaffyFlexDirection::Column | TaffyFlexDirection::ColumnReverse => {
                                 Dimension::length(preferred_height as _)
                             }

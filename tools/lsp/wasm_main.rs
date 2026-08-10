@@ -230,12 +230,17 @@ extern "C" {
     fn log(s: &str);
 }
 
+// cSpell:ignore reentrancy
 #[wasm_bindgen]
 pub struct SlintServer {
     /// Multiple requests/notifications from the language client can arrive concurrently,
     /// but the document cache does not support concurrent access, so we serialize them.
     /// (So that a request being sent when we are await'ing for a file from the typeloader
     /// doesn't access the document cache)
+    ///
+    /// Every exported `async` method must therefore take `&self`, not `&mut self`:
+    /// wasm-bindgen holds a `&mut self` borrow across the future's `.await` points,
+    /// which re-entrant messages would trip (see tests/wasm_export_reentrancy.rs).
     ctx: ReentryGuard<Context>,
     rh: Rc<RequestHandler>,
 }
@@ -408,7 +413,7 @@ impl SlintServer {
     }
 
     #[wasm_bindgen]
-    pub async fn trigger_file_watcher(&mut self, url: JsValue, typ: JsValue) -> JsResult<JsValue> {
+    pub async fn trigger_file_watcher(&self, url: JsValue, typ: JsValue) -> JsResult<JsValue> {
         let mut ctx = self.ctx.lock().await;
         let url: Url = serde_wasm_bindgen::from_value(url)?;
         let typ: lsp_types::FileChangeType = serde_wasm_bindgen::from_value(typ)?;
@@ -454,7 +459,7 @@ impl SlintServer {
     }
 
     #[wasm_bindgen]
-    pub async fn close_document(&mut self, uri: JsValue) -> JsResult<JsValue> {
+    pub async fn close_document(&self, uri: JsValue) -> JsResult<JsValue> {
         let mut ctx = self.ctx.lock().await;
         let uri: Url = serde_wasm_bindgen::from_value(uri)?;
         language::close_document(&mut ctx, uri).await.map_err(|e| JsError::new(&e.to_string()))?;

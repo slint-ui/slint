@@ -77,7 +77,7 @@ export component MyApp inherits Window {
 }
 ```
 
-:::note{Note}
+:::note[Note]
 Names have to be valid [identifiers](#identifiers).
 :::
 
@@ -105,7 +105,7 @@ Single line comments are denoted by `//` and are terminated by a new line.
 
 ### Multi Line Comments
 
-Multi line comments are denoted by `/*` and `*/` and are terminated by a new line.
+Multi line comments are denoted by `/*` and `*/`, and can span multiple lines.
 
 ```slint
 /*

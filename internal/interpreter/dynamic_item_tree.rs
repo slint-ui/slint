@@ -1039,6 +1039,7 @@ fn generate_rtti() -> HashMap<&'static str, Rc<ItemRTTI>> {
             rtti_for::<Layer>(),
             rtti_for::<DragArea>(),
             rtti_for::<DropArea>(),
+            rtti_for::<WindowMoveArea>(),
             rtti_for::<ContextMenu>(),
             rtti_for::<MenuItem>(),
             rtti_for::<SystemTrayIcon>(),
@@ -1076,8 +1077,6 @@ pub(crate) fn generate_item_tree<'id>(
     is_popup_menu_impl: bool,
     guard: generativity::Guard<'id>,
 ) -> Rc<ItemTreeDescription<'id>> {
-    //dbg!(&*component.root_element.borrow());
-
     thread_local! {
         static RTTI: Lazy<HashMap<&'static str, Rc<ItemRTTI>>> = Lazy::new(generate_rtti);
     }
@@ -1272,6 +1271,7 @@ pub(crate) fn generate_item_tree<'id>(
             Type::Struct(_) => property_info::<Value>(),
             Type::Array(_) => property_info::<Value>(),
             Type::Easing => property_info::<i_slint_core::animations::EasingCurve>(),
+            Type::MouseCursor => property_info::<i_slint_core::cursor::MouseCursorInner>(),
             Type::Percent => animated_property_info::<f32>(),
             Type::Enumeration(e) => {
                 macro_rules! match_enum_type {

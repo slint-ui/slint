@@ -138,6 +138,9 @@ pub enum Value {
     Keys(Keys) = 15,
     /// Correspond to the `data-transfer` type in .slint
     DataTransfer(DataTransfer) = 16,
+    #[doc(hidden)]
+    /// A mouse cursor.
+    MouseCursorInner(i_slint_core::cursor::MouseCursorInner) = 17,
 }
 
 impl Value {
@@ -193,6 +196,9 @@ impl PartialEq for Value {
             Value::DataTransfer(lhs) => {
                 matches!(other, Value::DataTransfer(rhs) if lhs == rhs)
             }
+            Value::MouseCursorInner(lhs) => {
+                matches!(other, Value::MouseCursorInner(rhs) if lhs == rhs)
+            }
         }
     }
 }
@@ -223,6 +229,7 @@ impl std::fmt::Debug for Value {
             }
             Value::Keys(ks) => write!(f, "Value::Keys({ks:?})"),
             Value::DataTransfer(cd) => write!(f, "Value::DataTransfer({cd:?})"),
+            Value::MouseCursorInner(m) => write!(f, "Value::MouseCursor({m:?})"),
         }
     }
 }
@@ -269,6 +276,7 @@ declare_value_conversion!(StyledText => [StyledText] );
 declare_value_conversion!(ArrayOfU16 => [SharedVector<u16>] );
 declare_value_conversion!(Keys => [Keys]);
 declare_value_conversion!(DataTransfer => [DataTransfer]);
+declare_value_conversion!(MouseCursorInner => [i_slint_core::cursor::MouseCursorInner]);
 
 /// Implement From / TryFrom for Value that convert a `struct` to/from `Value::Struct`
 macro_rules! declare_value_struct_conversion {
@@ -2233,10 +2241,10 @@ fn lang_type_to_value_type() {
     assert_eq!(ValueType::from(LangType::Array(Rc::new(LangType::Void))), ValueType::Model);
     assert_eq!(ValueType::from(LangType::Bool), ValueType::Bool);
     assert_eq!(
-        ValueType::from(LangType::Struct(Rc::new(LangStruct {
-            fields: BTreeMap::default(),
-            name: i_slint_compiler::langtype::StructName::None,
-        }))),
+        ValueType::from(LangType::Struct(Rc::new(LangStruct::new(
+            BTreeMap::default(),
+            i_slint_compiler::langtype::StructName::None
+        )))),
         ValueType::Struct
     );
     assert_eq!(ValueType::from(LangType::Image), ValueType::Image);

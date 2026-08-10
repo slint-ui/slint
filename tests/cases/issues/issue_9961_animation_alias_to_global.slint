@@ -1,0 +1,50 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export global GlobalInfo {
+    in-out property <int> animated: 8;
+}
+
+export component TestCase inherits Window {
+    property <int> animated <=> GlobalInfo.animated;
+    animate animated { duration: 300ms; }
+}
+
+/*
+
+```rust
+let instance = TestCase::new().unwrap();
+let global = instance.global::<GlobalInfo<'_>>();
+assert_eq!(global.get_animated(), 8);
+global.set_animated(108);
+assert_eq!(global.get_animated(), 8);
+slint_testing::mock_elapsed_time(150);
+assert_eq!(global.get_animated(), 58);
+slint_testing::mock_elapsed_time(150);
+assert_eq!(global.get_animated(), 108);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert_eq(instance.global<GlobalInfo>().get_animated(), 8);
+instance.global<GlobalInfo>().set_animated(108);
+assert_eq(instance.global<GlobalInfo>().get_animated(), 8);
+slint_testing::mock_elapsed_time(150);
+assert_eq(instance.global<GlobalInfo>().get_animated(), 58);
+slint_testing::mock_elapsed_time(150);
+assert_eq(instance.global<GlobalInfo>().get_animated(), 108);
+```
+
+```js
+var instance = new slint.TestCase();
+assert.equal(instance.GlobalInfo.animated, 8);
+instance.GlobalInfo.animated = 108;
+assert.equal(instance.GlobalInfo.animated, 8);
+slintlib.private_api.mock_elapsed_time(150);
+assert.equal(instance.GlobalInfo.animated, 58);
+slintlib.private_api.mock_elapsed_time(150);
+assert.equal(instance.GlobalInfo.animated, 108);
+```
+
+*/

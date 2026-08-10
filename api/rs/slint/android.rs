@@ -120,7 +120,10 @@ pub fn init(app: android_activity::AndroidApp) -> Result<(), SetPlatformError> {
     {
         crate::platform::set_platform(alloc::boxed::Box::new(
             i_slint_backend_android_activity::AndroidPlatform::new(app),
-        ))
+        ))?;
+        #[cfg(any(feature = "mcp", feature = "system-testing"))]
+        i_slint_backend_selector::init_testing_backends();
+        Ok(())
     }
 }
 
@@ -159,6 +162,9 @@ pub fn init_with_event_listener(
             i_slint_backend_android_activity::AndroidPlatform::new_with_event_listener(
                 app, listener,
             ),
-        ))
+        ))?;
+        #[cfg(any(feature = "mcp", feature = "system-testing"))]
+        i_slint_backend_selector::init_testing_backends();
+        Ok(())
     }
 }
