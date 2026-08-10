@@ -78,13 +78,13 @@ enum Nums {
 }
 
 export component DuplicateCaseWithEnum {
-    in-out property <Nums> num: Nums.one;
+    in-out property <Nums> num: one;
 
     match num {
-        Nums.one: Rectangle { }
-        Nums.two: Rectangle { }
-        Nums.one: Rectangle { }
-//      >      <error{Duplicate case value}
+        one: Rectangle { }
+        two: Rectangle { }
+        one: Rectangle { }
+//      > <error{Duplicate case value}
         *: Rectangle { }
     }
 }

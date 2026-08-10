@@ -6,12 +6,12 @@ enum Mode {
     Bar,
 }
 export component TestCase inherits Window {
-    in-out property <Mode> mode: Mode.Foo;
+    in-out property <Mode> mode: Foo;
     in-out property <int> var1: 20;
     in-out property <int> var2: 50;
 
     match mode {
-        Mode.Foo: TouchArea {
+        Foo: TouchArea {
             Text {
                 text: var1;
             }
@@ -25,7 +25,7 @@ export component TestCase inherits Window {
                 var1 += self.xx;
             }
         }
-        Mode.Bar: TouchArea {
+        Bar: TouchArea {
             Text {
                 text: var2;
             }
@@ -41,7 +41,7 @@ export component TestCase inherits Window {
         }
         *: Rectangle { }
     }
-    in-out property <bool> test: mode == Mode.Foo && var1 == 20 && var2 == 50;
+    in-out property <bool> test: mode == Foo && var1 == 20 && var2 == 50;
 }
 
 
