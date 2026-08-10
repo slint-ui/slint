@@ -43,6 +43,7 @@ pub fn ensure_window(
         bindings: Default::default(),
         change_callbacks: Default::default(),
         is_component_placeholder: false,
+        is_geometry_wrapper: false,
         property_analysis: Default::default(),
         children: std::mem::take(&mut win_elem_mut.children),
         enclosing_component: win_elem_mut.enclosing_component.clone(),

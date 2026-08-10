@@ -320,4 +320,73 @@ export component Win inherits Window {
         assert!((with[0].2 - 300.0).abs() < 0.5);
         assert!((with[0].3 - 200.0).abs() < 0.5);
     }
+
+    // With debug_hooks enabled every element is wrapped in injected geometry wrappers
+    // (`Transform`, plus `Opacity` etc. when those props are set), which take over the element's
+    // geometry. `element_positions` must still report a `parent_origin` from which the element's
+    // own `x`/`y` can be recovered (`rect.origin - parent_origin == x/y`), otherwise the editor
+    // commits wrong coordinates when repositioning. This must hold through stacked wrappers and
+    // for elements nested below a non-root parent.
+    #[test]
+    fn debug_hooks_parent_origin() {
+        let code = r#"
+export component Win inherits Window {
+    width: 300px;
+    height: 200px;
+    plain := Rectangle {
+        x: 30px;
+        y: 40px;
+        width: 50px;
+        height: 60px;
+    }
+    faded := Rectangle {
+        // extra Opacity and visibility-Clip wrappers stacked around the Transform wrapper
+        opacity: 0.5;
+        visible: true;
+        x: 70px;
+        y: 80px;
+        width: 40px;
+        height: 30px;
+    }
+    outer := Rectangle {
+        x: 10px;
+        y: 20px;
+        width: 120px;
+        height: 100px;
+        nested := Rectangle {
+            x: 5px;
+            y: 7px;
+            width: 20px;
+            height: 20px;
+        }
+    }
+}"#;
+        let instance = compile_with_debug_hooks(code);
+
+        // The selection offset must fall inside the element's type-name token, so resolve the
+        // `Rectangle` token that follows each id.
+        let check = |id: &str, expected: (f32, f32)| {
+            let id_position = code.find(id).unwrap_or_else(|| panic!("{id} not found"));
+            let offset = id_position + code[id_position..].find("Rectangle").unwrap();
+            let (element, _) = instance
+                .element_node_at_source_code_position(&test_path(), offset as u32)
+                .first()
+                .cloned()
+                .unwrap_or_else(|| panic!("element {id} not resolved"));
+            let geometry = *instance.element_positions(&element).first().expect("geometry");
+            let x = geometry.rect.origin.x - geometry.parent_origin.x;
+            let y = geometry.rect.origin.y - geometry.parent_origin.y;
+            assert!(
+                (x - expected.0).abs() < 0.5 && (y - expected.1).abs() < 0.5,
+                "{id}: source-relative position ({x}, {y}) should be {expected:?}"
+            );
+        };
+
+        // Single Transform wrapper.
+        check("plain", (30.0, 40.0));
+        // Opacity + visibility-Clip + Transform stacked wrappers — must walk past all of them.
+        check("faded", (70.0, 80.0));
+        // Nested below a non-root parent — relative to `outer`, not the window.
+        check("nested", (5.0, 7.0));
+    }
 }

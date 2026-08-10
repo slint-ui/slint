@@ -39,7 +39,17 @@ pub struct HighlightedRect {
     /// which matches the `x`/`y` properties written to the source. This is computed from the
     /// instance's own ancestors, so it stays correct even if the element is positioned outside
     /// of (or with a negative offset relative to) its parent.
+    ///
+    /// Both values are in root coordinates, so the subtraction only recovers the source `x`/`y`
+    /// while the parent frame is axis-aligned and unscaled — recovering it under a rotated or
+    /// scaled ancestor would additionally need to map the delta through the inverse ancestor
+    /// transform.
     pub parent_origin: LogicalPoint,
+    /// Absolute rotation (in degrees) of this instance's parent coordinate system.
+    ///
+    /// `angle - parent_rotation` yields the element's own rotation relative to its parent, which
+    /// matches the `rotation-angle`/`transform-rotation` property written to the source.
+    pub parent_rotation: f32,
 }
 impl HighlightedRect {
     /// return true if the point is inside the (potentially rotated) rectangle
@@ -177,10 +187,43 @@ fn fill_highlight_data(
             if geometry.size.is_empty() {
                 return;
             }
+            // Injected geometry wrappers (opacity/transform/clip/... created by
+            // `lower_property_to_element`) take over the element's geometry and lay the element
+            // out at (0,0) inside themselves, so measuring the parent frame from the element
+            // directly would collapse `rect.origin - parent_origin` to ~0.
+            let description = component_instance.description();
+            let item_tree = item_rc.item_tree().clone();
+            let mut anchor = item_rc.clone();
+            while let Some(parent) = anchor
+                .parent_item(i_slint_core::item_tree::ParentItemTraversalMode::StopAtPopups)
+            {
+                if !VRc::ptr_eq(parent.item_tree(), &item_tree) {
+                    break; // crossed into another component instance's item tree
+                }
+                if !description
+                    .original_elements
+                    .get(parent.index() as usize)
+                    .is_some_and(|parent_element| parent_element.borrow().is_geometry_wrapper)
+                {
+                    break;
+                }
+                anchor = parent;
+            }
+
             let origin = item_rc.map_to_item_tree(geometry.origin, &root_vrc);
-            // `map_to_item_tree` does not add the item's own x/y, so mapping the zero point
-            // yields the absolute origin of this instance's parent coordinate system.
-            let parent_origin = item_rc.map_to_item_tree(LogicalPoint::default(), &root_vrc);
+            // `map_to_item_tree` does not add the item's own x/y, so mapping the zero point of
+            // the anchor yields the absolute origin of the element's source-parent coordinate
+            // system.
+            let parent_origin = anchor.map_to_item_tree(LogicalPoint::default(), &root_vrc);
+            // The source parent's absolute rotation: map a unit x-vector of the anchor's frame.
+            // `map_to_item_tree` applies the ancestors' transforms but not the anchor's own, so
+            // this excludes the element's own rotation (applied by its injected `Transform`).
+            let parent_rotation = {
+                let frame_x_axis =
+                    anchor.map_to_item_tree(LogicalPoint::new(1.0, 0.0), &root_vrc);
+                let delta = frame_x_axis - parent_origin;
+                delta.y.atan2(delta.x).to_degrees()
+            };
             let top_right = item_rc.map_to_item_tree(
                 geometry.origin + euclid::vec2(geometry.size.width, 0.),
                 &root_vrc,
@@ -202,6 +245,7 @@ fn fill_highlight_data(
                 },
                 angle: angle_rad.to_degrees(),
                 parent_origin,
+                parent_rotation,
             });
         }
     }
