@@ -3600,20 +3600,15 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             ctx,
         ),
 
-        Expression::SolveFlexboxLayoutWithMeasure {
-            data,
-            repeater_indices,
-            measure_cells,
-            default_cells,
-            cells_variables,
-        } => generate_solve_flexbox_layout_with_measure(
-            data,
-            repeater_indices,
-            measure_cells,
-            default_cells,
-            cells_variables.as_ref(),
-            ctx,
-        ),
+        Expression::SolveFlexboxLayoutWithMeasure { data, repeater_indices, measure_cells } => {
+            let data = compile_expression(data, ctx);
+            let repeater_indices = compile_expression(repeater_indices, ctx);
+            let closure = generate_flexbox_measure_closure(measure_cells, ctx);
+            quote! { {
+                #closure
+                sp::solve_flexbox_layout_with_measure(&#data, #repeater_indices, Some(&mut measure))
+            } }
+        }
 
         Expression::WithGridInputData {
             cells_variable,
@@ -5637,24 +5632,21 @@ fn generate_with_flexbox_layout_item_info(
     } }
 }
 
-/// Emit a `solve_flexbox_layout_with_measure` call with a generated measure
-/// callback. For each static cell, `measure_cells[i]` is
+/// Emit the measure callback for a `solve_flexbox_layout_with_measure` call,
+/// bound to a `measure` local. For each static cell, `measure_cells[i]` carries
 /// `(h_info_given_known_h, v_info_given_known_w)` — `LayoutInfo` expressions
-/// that read the `__measure_known_w` / `__measure_known_h` locals. taffy calls
+/// that read the `measure_known_w` / `measure_known_h` locals. taffy calls
 /// the callback with exactly one of width/height known (the cross axis), so we
 /// recompute that cell's perpendicular info at the assigned dimension.
-fn generate_solve_flexbox_layout_with_measure(
-    data: &Expression,
-    repeater_indices: &Expression,
+fn generate_flexbox_measure_closure(
     measure_cells: &[llr::FlexboxMeasureCell],
-    default_cells: &[Either<(Expression, Expression), llr::LayoutRepeatedElement>],
-    cells_variables: Option<&(SmolStr, SmolStr)>,
     ctx: &EvaluationContext,
 ) -> TokenStream {
-    let data = compile_expression(data, ctx);
-    let repeater_indices = compile_expression(repeater_indices, ctx);
     let known_w_ident = ident("measure_known_w");
     let known_h_ident = ident("measure_known_h");
+    let has_repeater = measure_cells
+        .iter()
+        .any(|item| matches!(item.kind, llr::FlexboxMeasureCellKind::Repeated(_)));
 
     // Height-for-width / width-for-height: recompute the perpendicular info at
     // the dimension taffy assigned. Without a repeater the cell index is known at
@@ -5662,7 +5654,7 @@ fn generate_solve_flexbox_layout_with_measure(
     // only known at runtime: walk the elements, advancing `cursor` by 1 per static
     // cell and by the repeater's instance count per repeater, until `index`'s range
     // is found.
-    let (v_body, h_body) = if cells_variables.is_none() {
+    let (v_body, h_body) = if !has_repeater {
         let mut v_arms = Vec::new();
         let mut h_arms = Vec::new();
         for (i, item) in measure_cells.iter().enumerate() {
@@ -5683,19 +5675,21 @@ fn generate_solve_flexbox_layout_with_measure(
                 llr::FlexboxMeasureCellKind::Static { h_info, v_info } => {
                     let v = compile_expression(v_info, ctx);
                     let h = compile_expression(h_info, ctx);
-                    v_steps.push(quote!(
+                    let v_step = quote!(
                         if index == cursor { return (w, ({ #v }).preferred_bounded()); }
                         cursor += 1;
-                    ));
-                    h_steps.push(quote!(
+                    );
+                    let h_step = quote!(
                         if index == cursor { return (({ #h }).preferred_bounded(), h); }
                         cursor += 1;
-                    ));
+                    );
+                    v_steps.push(v_step);
+                    h_steps.push(h_step);
                 }
                 llr::FlexboxMeasureCellKind::Repeated(repeater) => {
                     let repeater_id =
                         format_ident!("repeater{}", usize::from(repeater.repeater_index));
-                    v_steps.push(quote!(
+                    let v_step = quote!(
                         {
                             let len = _self.#repeater_id.len();
                             if index >= cursor && index < cursor + len {
@@ -5710,8 +5704,8 @@ fn generate_solve_flexbox_layout_with_measure(
                             }
                             cursor += len;
                         }
-                    ));
-                    h_steps.push(quote!(
+                    );
+                    let h_step = quote!(
                         {
                             let len = _self.#repeater_id.len();
                             if index >= cursor && index < cursor + len {
@@ -5726,7 +5720,9 @@ fn generate_solve_flexbox_layout_with_measure(
                             }
                             cursor += len;
                         }
-                    ));
+                    );
+                    v_steps.push(v_step);
+                    h_steps.push(h_step);
                 }
             }
         }
@@ -5738,65 +5734,30 @@ fn generate_solve_flexbox_layout_with_measure(
         )
     };
 
-    // Preferred size per cell, returned when taffy asks for a dimension without
-    // a known cross-axis size (mirrors the plain `solve_flexbox_layout` measure).
-    // With a repeater, read the flat cell arrays; otherwise inline the constants.
-    let (defaults_decl, default_w, default_h) = match cells_variables {
-        Some((cells_h, cells_v)) => {
-            let cells_h = ident(cells_h);
-            let cells_v = ident(cells_v);
-            (
-                quote!(
-                    let pref_h_cells = #cells_h.as_slice();
-                    let pref_v_cells = #cells_v.as_slice();
-                ),
-                quote!(pref_h_cells.get(index).map_or(0f32, |c| c.constraint.preferred_bounded())),
-                quote!(pref_v_cells.get(index).map_or(0f32, |c| c.constraint.preferred_bounded())),
-            )
-        }
-        None => {
-            let mut def_w = Vec::new();
-            let mut def_h = Vec::new();
-            for item in default_cells {
-                if let Either::Left((h_info, v_info)) = item {
-                    let h = compile_expression(h_info, ctx);
-                    let v = compile_expression(v_info, ctx);
-                    def_w.push(quote!(({ #h }).preferred_bounded(),));
-                    def_h.push(quote!(({ #v }).preferred_bounded(),));
+    // A dimension taffy didn't assign (`known_* == false`) arrives pre-resolved
+    // to the cell's preferred size by resolve_measure_defaults in i-slint-core.
+    quote! {
+        let mut measure = |index: usize, w: f32, h: f32, known_w: bool, known_h: bool| -> (f32, f32) {
+            match (known_w, known_h) {
+                (true, true) => (w, h),
+                (true, false) => {
+                    let #known_w_ident = w;
+                    let _ = #known_w_ident;
+                    #v_body
+                    (w, h)
                 }
+                (false, true) => {
+                    let #known_h_ident = h;
+                    let _ = #known_h_ident;
+                    #h_body
+                    (w, h)
+                }
+                // Neither dimension known (degenerate cell probe): the
+                // pre-resolved defaults.
+                (false, false) => (w, h),
             }
-            (
-                quote!(
-                    let pref_w: &[f32] = &[#(#def_w)*];
-                    let pref_h: &[f32] = &[#(#def_h)*];
-                ),
-                quote!(pref_w.get(index).copied().unwrap_or(0f32)),
-                quote!(pref_h.get(index).copied().unwrap_or(0f32)),
-            )
-        }
-    };
-
-    quote! { {
-        #defaults_decl
-        let mut measure = |index: usize, known_w: Option<f32>, known_h: Option<f32>| -> (f32, f32) {
-            let w = known_w.unwrap_or_else(|| #default_w);
-            let h = known_h.unwrap_or_else(|| #default_h);
-            if known_w.is_some() && known_h.is_none() {
-                let #known_w_ident = w;
-                let _ = #known_w_ident;
-                #v_body
-                return (w, h);
-            }
-            if known_h.is_some() && known_w.is_none() {
-                let #known_h_ident = h;
-                let _ = #known_h_ident;
-                #h_body
-                return (w, h);
-            }
-            (w, h)
         };
-        sp::solve_flexbox_layout_with_measure(&#data, #repeater_indices, Some(&mut measure))
-    } }
+    }
 }
 
 /// Access a field offset via `FIELD_OFFSETS.field()`. The `FIELD_OFFSETS`
