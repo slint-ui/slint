@@ -14,6 +14,11 @@ on:
         options:
           - release
           - preview
+      publish:
+        description: "Submit the package to the Store once it is built"
+        required: false
+        default: false
+        type: boolean
       version:
         # The Store keeps a version reserved even after the package using it is
         # deleted again, so test uploads would otherwise burn release versions.
@@ -94,6 +99,10 @@ jobs:
     needs: build
     runs-on: windows-latest
     timeout-minutes: 30
+    outputs:
+      channel: ${{ steps.channel.outputs.channel }}
+      version: ${{ steps.channel.outputs.version }}
+      product: ${{ steps.channel.outputs.product }}
     steps:
       - uses: actions/checkout@v6
 
@@ -127,6 +136,7 @@ jobs:
             $version = "{0}.{1}.{2}.0" -f $now.ToString("yyyy"), [int]$now.ToString("MMdd"), [int]$now.ToString("HHmm")
             $identity = "Slint.SlintVisualEditorPreview"
             $display = "Slint Visual Editor (Preview)"
+            $product = "${{ vars.STORE_PRODUCT_ID_PREVIEW }}"
           } else {
             $crateversion = "${{ inputs.version }}"
             if (-not $crateversion) {
@@ -142,6 +152,7 @@ jobs:
             $version = "$crateversion.0"
             $identity = "Slint.SlintVisualEditor"
             $display = "Slint Visual Editor"
+            $product = "${{ vars.STORE_PRODUCT_ID_RELEASE }}"
           }
 
           # Every field is an integer below 65536, the first one is not 0, and
@@ -155,6 +166,7 @@ jobs:
           "version=$version" >> $env:GITHUB_OUTPUT
           "identity=$identity" >> $env:GITHUB_OUTPUT
           "display=$display" >> $env:GITHUB_OUTPUT
+          "product=$product" >> $env:GITHUB_OUTPUT
 
       - name: Render the tile images
         shell: pwsh
@@ -309,3 +321,60 @@ jobs:
           name: slint-visual-editor-windows-msixbundle
           path: ${{ steps.package_msix.outputs.msixbundle_path }}
           if-no-files-found: error
+
+  publish:
+    # Submitting is asked for rather than implied: a submission consumes the
+    # version it carries for good, and once one is made through the API it has
+    # to be carried through the API as well, because changing it in Partner
+    # Center leaves it unable to be committed.
+    name: Submit to the Store
+    needs: package
+    if: ${{ inputs.publish && github.repository == 'slint-ui/slint' }}
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check what is configured
+        shell: pwsh
+        run: |
+          $missing = @()
+          if (-not "${{ needs.package.outputs.product }}") {
+            $missing += "the STORE_PRODUCT_ID_{0} variable" -f "${{ needs.package.outputs.channel }}".ToUpper()
+          }
+          foreach ($s in "AZURE_AD_TENANT_ID", "AZURE_AD_CLIENT_ID", "AZURE_AD_CLIENT_SECRET", "SELLER_ID") {
+            if (-not (Get-Item "env:SECRET_$s" -ErrorAction SilentlyContinue).Value) { $missing += "the $s secret" }
+          }
+          if ($missing) { throw "nothing was submitted: $($missing -join ', ') is not set" }
+          Write-Host "Submitting the ${{ needs.package.outputs.channel }} channel, version ${{ needs.package.outputs.version }}"
+        env:
+          SECRET_AZURE_AD_TENANT_ID: ${{ secrets.AZURE_AD_TENANT_ID }}
+          SECRET_AZURE_AD_CLIENT_ID: ${{ secrets.AZURE_AD_CLIENT_ID }}
+          SECRET_AZURE_AD_CLIENT_SECRET: ${{ secrets.AZURE_AD_CLIENT_SECRET }}
+          SECRET_SELLER_ID: ${{ secrets.SELLER_ID }}
+
+      - name: Download the bundle
+        uses: actions/download-artifact@v8
+        with:
+          name: slint-visual-editor-windows-msixbundle
+          path: bundle
+
+      - uses: microsoft/microsoft-store-apppublisher@v1.1
+
+      - name: Configure the Store CLI
+        shell: pwsh
+        run: |
+          msstore reconfigure `
+            --tenantId ${{ secrets.AZURE_AD_TENANT_ID }} `
+            --sellerId ${{ secrets.SELLER_ID }} `
+            --clientId ${{ secrets.AZURE_AD_CLIENT_ID }} `
+            --clientSecret ${{ secrets.AZURE_AD_CLIENT_SECRET }}
+          if ($LASTEXITCODE -ne 0) { throw "msstore reconfigure failed" }
+
+      - name: Submit the bundle
+        shell: pwsh
+        run: |
+          $bundles = @(Get-ChildItem bundle -Filter *.msixbundle)
+          if ($bundles.Count -ne 1) {
+            throw "expected exactly one .msixbundle to submit, found $($bundles.Count)"
+          }
+          msstore publish $bundles[0].FullName -id ${{ needs.package.outputs.product }}
+          if ($LASTEXITCODE -ne 0) { throw "msstore publish failed" }
