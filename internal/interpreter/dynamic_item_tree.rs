@@ -1601,7 +1601,9 @@ pub fn instantiate(
             _ => true,
         };
         root.or_else(|| {
-            shares_window_with_parent.then(|| parent.map(|parent| parent.root_weak().clone())).flatten()
+            shares_window_with_parent
+                .then(|| parent.map(|parent| parent.root_weak().clone()))
+                .flatten()
         })
         .unwrap_or_else(|| self_weak.clone())
     };

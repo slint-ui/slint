@@ -1006,9 +1006,9 @@ fn call_builtin_function(
                             popup_anchor.name(),
                         )
                         .unwrap();
-                        anchor.try_into().expect(
-                            "Invalid internal struct representation for popup anchor",
-                        )
+                        anchor
+                            .try_into()
+                            .expect("Invalid internal struct representation for popup anchor")
                     },
                     close_policy,
                     (*enclosing_component.self_weak().get().unwrap()).clone(),
