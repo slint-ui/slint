@@ -427,16 +427,11 @@ pub(super) fn solve_flexbox_layout(
                 name: "repeated_indices".into(),
                 ty: Type::Array(Type::Int32.into()),
             };
-            // With a repeater, the cell defaults come from the flat cell arrays
-            // the enclosing `WithFlexboxLayoutItemInfo` just built, so no
-            // `default_cells`.
             let sub_expression = if needs_measure {
                 llr_Expression::SolveFlexboxLayoutWithMeasure {
                     data: Box::new(data),
                     repeater_indices: Box::new(repeated_indices()),
                     measure_cells: measure_cells_for(layout, ctx),
-                    default_cells: vec![],
-                    cells_variables: Some((cells_h_var.clone().into(), cells_v_var.clone().into())),
                 }
             } else {
                 llr_Expression::ExtraBuiltinFunctionCall {
@@ -463,52 +458,10 @@ pub(super) fn solve_flexbox_layout(
                     return_ty: Type::LayoutCache,
                 };
             }
-            // Preferred (default-constraint) info per cell, matching the cells
-            // carried by `data`. Returned by the measure callback when taffy
-            // asks for a dimension without a known cross-axis size, so the
-            // both-unknown case mirrors the plain `solve_flexbox_layout`.
-            let default_cells = layout
-                .elems
-                .iter()
-                .map(|li| {
-                    let elem = &li.item.element;
-                    let v_constraint = if is_height_for_width_cell(elem) {
-                        default_cross_axis_constraint(elem)
-                    } else {
-                        None
-                    };
-                    let v_info = get_flex_cell_layout_info(
-                        elem,
-                        ctx,
-                        &li.item.constraints,
-                        Orientation::Vertical,
-                        v_constraint,
-                    );
-                    let h_constraint =
-                        elem.borrow().inherited_layout_info_h_with_constraint().is_some().then(
-                            || {
-                                crate::expression_tree::Expression::NumberLiteral(
-                                    f32::MAX as f64,
-                                    crate::expression_tree::Unit::Px,
-                                )
-                            },
-                        );
-                    let h_info = get_flex_cell_layout_info(
-                        elem,
-                        ctx,
-                        &li.item.constraints,
-                        Orientation::Horizontal,
-                        h_constraint,
-                    );
-                    Either::Left((h_info, v_info))
-                })
-                .collect();
             llr_Expression::SolveFlexboxLayoutWithMeasure {
                 data: Box::new(data),
                 repeater_indices: Box::new(empty_int32_slice()),
                 measure_cells: measure_cells_for(layout, ctx),
-                default_cells,
-                cells_variables: None,
             }
         }
     }

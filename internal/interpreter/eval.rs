@@ -1363,7 +1363,7 @@ fn with_grid_input_data(
     result
 }
 
-fn restore_local(ctx: &mut EvalContext, name: &str, prev: Option<Value>) {
+pub(crate) fn restore_local(ctx: &mut EvalContext, name: &str, prev: Option<Value>) {
     if let Some(prev) = prev {
         ctx.locals.insert(SmolStr::from(name), prev);
     } else {

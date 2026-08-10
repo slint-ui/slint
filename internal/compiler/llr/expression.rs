@@ -279,28 +279,18 @@ pub enum Expression {
     /// `measure_cells[i]` carries `(h_info_given_known_h, v_info_given_known_w)`,
     /// each a `LayoutInfo`-typed expression that reads
     /// `ReadLocalVariable("measure_known_w" / "measure_known_h")` (a `Float32`)
-    /// as its cross-axis constraint. `default_cells[i]` is the cell's
-    /// `(h_info, v_info)` at the default constraint (matching `data`'s cells);
-    /// it provides the preferred size returned when taffy asks for a dimension
-    /// without a known cross-axis size (mirroring the plain `solve_flexbox_layout`
-    /// measure). A repeater cell is measured by calling the matching cross-axis
-    /// accessor (`flexbox_layout_item_info_at_cross_width` or `_at_cross_height`)
-    /// on the instance taffy asks for.
+    /// as its cross-axis constraint. A repeater cell is measured by calling
+    /// the matching cross-axis accessor
+    /// (`flexbox_layout_item_info_at_cross_width` or `_at_cross_height`) on the
+    /// instance taffy asks for; the callback maps taffy's flat cell index to it
+    /// with a runtime cursor, since a repeater expands to a runtime number of
+    /// cells.
     SolveFlexboxLayoutWithMeasure {
         /// The `FlexboxLayoutData` (built inline with the cell arrays, so its
         /// temporaries live for the duration of the solve call).
         data: Box<Expression>,
         repeater_indices: Box<Expression>,
         measure_cells: Vec<FlexboxMeasureCell>,
-        /// Only used when `cells_variables` is `None`; empty otherwise.
-        default_cells: Vec<Either<(Expression, Expression), LayoutRepeatedElement>>,
-        /// Names of the flat `(cells_h, cells_v)` locals set up by the enclosing
-        /// `WithFlexboxLayoutItemInfo`. `Some` exactly when the layout has a
-        /// repeater: a repeater expands to a runtime number of cells, so the
-        /// callback maps taffy's flat cell index to an element with a runtime
-        /// cursor, and takes per-cell defaults from these arrays instead of the
-        /// per-element `default_cells`.
-        cells_variables: Option<(SmolStr, SmolStr)>,
     },
     /// Will call the sub_expression, with the cells variable set to the
     /// array of GridLayoutInputData from the elements
@@ -631,13 +621,7 @@ macro_rules! visit_impl {
                     $visitor(f);
                 });
             }
-            Expression::SolveFlexboxLayoutWithMeasure {
-                data,
-                repeater_indices,
-                measure_cells,
-                default_cells,
-                cells_variables: _,
-            } => {
+            Expression::SolveFlexboxLayoutWithMeasure { data, repeater_indices, measure_cells } => {
                 $visitor(data);
                 $visitor(repeater_indices);
                 measure_cells.$iter().for_each(|x| {
@@ -649,10 +633,6 @@ macro_rules! visit_impl {
                         $visitor(h_info);
                         $visitor(v_info);
                     }
-                });
-                default_cells.$iter().filter_map(|x| x.$as_ref().left()).for_each(|(h, v)| {
-                    $visitor(h);
-                    $visitor(v);
                 });
             }
             Expression::WithGridInputData { elements, sub_expression, .. } => {
