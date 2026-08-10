@@ -218,7 +218,7 @@ mod tests {
         const DECELERATION: f32 = 20.;
         let parameters = ConstantDecelerationParameters::new(INITIAL_VELOCITY, DECELERATION);
 
-        let time = Instant::now();
+        let time = Instant::default();
         let mut simulation = ConstantDeceleration::new_internal(
             START_VALUE,
             test_limit_property(LIMIT_VALUE),
@@ -242,7 +242,7 @@ mod tests {
         const DECELERATION: f32 = 20.;
         let parameters = ConstantDecelerationParameters::new(INITIAL_VELOCITY, DECELERATION);
 
-        let mut time = Instant::now();
+        let mut time = Instant::default();
         let mut simulation = ConstantDeceleration::new_internal(
             START_VALUE,
             test_limit_property(LIMIT_VALUE),
@@ -287,7 +287,7 @@ mod tests {
         const DECELERATION: f32 = 20.;
         let parameters = ConstantDecelerationParameters::new(INITIAL_VELOCITY, DECELERATION);
 
-        let mut time = Instant::now();
+        let mut time = Instant::default();
         let mut simulation = ConstantDeceleration::new_internal(
             START_VALUE,
             test_limit_property(LIMIT_VALUE),
@@ -315,7 +315,7 @@ mod tests {
 
         let parameters = ConstantDecelerationParameters::new(INITIAL_VELOCITY, DECELERATION);
 
-        let mut time = Instant::now();
+        let mut time = Instant::default();
         let mut simulation = ConstantDeceleration::new_internal(
             START_VALUE,
             test_limit_property(LIMIT_VALUE),
@@ -362,7 +362,7 @@ mod tests {
         const DECELERATION: f32 = 20.;
         let parameters = ConstantDecelerationParameters::new(INITIAL_VELOCITY, DECELERATION);
 
-        let mut time = Instant::now();
+        let mut time = Instant::default();
         let mut simulation = ConstantDeceleration::new_internal(
             START_VALUE,
             test_limit_property(LIMIT_VALUE),

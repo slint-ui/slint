@@ -322,13 +322,17 @@ fn ease_out_bounce_curve(value: f32) -> f32 {
     }
 }
 
+/// How close to the target position/velocity a `SpringSimulation` must get before it is
+/// considered settled and snaps to rest. This is the "settling duration" and is distinct from the
+/// user-facing `duration` that fixes the natural frequency
+const SPRING_SETTLE_POSITION_EPSILON: f32 = 0.001;
+const SPRING_SETTLE_VELOCITY_EPSILON: f32 = 0.05;
+
 /// Evaluates a mass/stiffness/damping spring at `elapsed_secs`, returning `(progress, settled)`.
 pub fn spring_settle_progress(
     regime: &simulations::spring::SpringRegime,
     elapsed_secs: f32,
 ) -> (f32, bool) {
-    use simulations::spring::{SPRING_SETTLE_POSITION_EPSILON, SPRING_SETTLE_VELOCITY_EPSILON};
-
     let (rel_pos, rel_vel) = regime.evaluate(elapsed_secs);
     let settled = rel_pos.abs() < SPRING_SETTLE_POSITION_EPSILON
         && rel_vel.abs() < SPRING_SETTLE_VELOCITY_EPSILON;
