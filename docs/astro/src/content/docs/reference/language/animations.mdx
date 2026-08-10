@@ -136,3 +136,16 @@ If `bounce` is close to 0, the animation will be nearly done, however the furthe
 ### Details
 The spring's animation relies on the [natural frequency](https://en.wikipedia.org/wiki/Natural_frequency)(ω₀ = 2π/duration) and the
 [damping ratio](https://en.wikipedia.org/wiki/Damping#Damping_ratio)(ζ = 1 - bounce) to feed the [mass-spring-damper model](https://en.wikipedia.org/wiki/Mass-spring-damper_model).
+
+### Iterations and direction
+
+Because a spring is not guaranteed to settle by `duration`, a repeating spring animation
+(`iteration-count` greater than 1) moves on to its next iteration at exactly `duration`, rather than
+waiting for the spring to fully settle.
+
+The spring's velocity always carries over into the next iteration. What happens to its position
+depends on whether that iteration also flips direction:
+- A same-direction repeat resets the position to the start of the animation, the same way a
+  repeating easing-curve animation restarts from the top.
+- A direction flip (`alternate` or `alternate-reverse`) instead continues from wherever the spring
+  actually is, so the value keeps moving smoothly instead of snapping to the far end.
