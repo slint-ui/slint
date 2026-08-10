@@ -180,8 +180,9 @@ fn lower_transitions_in_element(
             props.entry(p).or_insert_with(|| (span.clone(), Vec::new())).1.push(t);
         }
 
-        for (span, animation) in transition.catch_all_property_animations {
-            let Some(changed_properties) = state_properties.get(&state) else { continue };
+        if let Some((span, animation)) = transition.catch_all_property_animation
+            && let Some(changed_properties) = state_properties.get(&state)
+        {
             for p in changed_properties {
                 // Don't include if it already has a more specific animation or isn't animatable
                 if named_properties.contains(p)
@@ -199,7 +200,7 @@ fn lower_transitions_in_element(
                     animation: animation.clone(),
                 });
             }
-        }
+        };
     }
     for (ne, (span, animations)) in props {
         let e = ne.element();
