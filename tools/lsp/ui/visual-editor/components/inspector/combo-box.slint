@@ -267,8 +267,8 @@ export component InspectorComboBox inherits Rectangle {
                                 clicked => {
                                     root.highlighted-index = index;
                                     if root.accepted(option.value) {
-                                        fallback-popup.close();
                                         combo-focus.focus();
+                                        fallback-popup.close();
                                     }
                                 }
 
