@@ -3484,6 +3484,9 @@ fn non_constant_expression_reason(expr: &Expression) -> Option<String> {
                 }
                 Callable::Builtin(_) => Some("functions are not evaluated at compile time".into()),
             },
+            Expression::Cast { to: Type::String, .. } => {
+                Some("the conversion from a number to a string depends on the locale".into())
+            }
             _ => None,
         };
     });
