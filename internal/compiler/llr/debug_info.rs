@@ -26,6 +26,9 @@ pub struct ItemDebugInfo {
     /// Stable hash identifying the source element across builds.
     /// See [`crate::object_tree::ElementDebugInfo::element_hash`].
     pub element_hash: u64,
+    /// Whether the item is an injected wrapper taking over its child's
+    /// geometry. See [`crate::object_tree::Element::is_geometry_wrapper`].
+    pub is_geometry_wrapper: bool,
 }
 
 /// Debug info for a [`SubComponent`](super::SubComponent).

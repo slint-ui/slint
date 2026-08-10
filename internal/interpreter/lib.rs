@@ -79,20 +79,26 @@ compile_error!(
 );
 
 mod api;
-#[cfg(feature = "internal")]
+mod bindings;
+mod component;
 mod debug_hook;
-mod dynamic_item_tree;
-mod dynamic_type;
+mod erased;
 mod eval;
 mod eval_layout;
 #[cfg(feature = "ffi")]
 #[doc(hidden)]
 pub mod ffi;
-mod global_component;
+mod globals;
 #[cfg(feature = "internal-highlight")]
 pub mod highlight;
+mod instance;
+mod item_holder;
+mod item_registry;
+mod item_tree_vtable;
 #[cfg(feature = "internal-json")]
 pub mod json;
+mod popup;
+mod public_api;
 mod value_model;
 
 #[doc(inline)]

@@ -78,7 +78,8 @@ use cache::cached_paragraphs;
 use layout::{Layout, LayoutOptions, layout};
 use selection::{SelectionRendering, SelectionSpans};
 use shaping::{
-    LayoutWithoutLineBreaksBuilder, create_text_paragraphs, shape_paragraphs, shaping_builder,
+    Brush, LayoutWithoutLineBreaksBuilder, create_text_paragraphs, shape_paragraphs,
+    shaping_builder,
 };
 
 /// Lays out the shaped text of an item and runs `f` over the result.
@@ -206,7 +207,6 @@ pub fn draw_text(
                 item_renderer.combine_clip(
                     LogicalRect::new(LogicalPoint::default(), size),
                     LogicalBorderRadius::zero(),
-                    LogicalLength::zero(),
                 )
             } else {
                 true
@@ -355,7 +355,6 @@ pub fn draw_text_input(
             let render = item_renderer.combine_clip(
                 LogicalRect::new(LogicalPoint::default(), size),
                 LogicalBorderRadius::zero(),
-                LogicalLength::zero(),
             );
 
             if render {
@@ -710,3 +709,110 @@ fn text_input_cursor_rect_for_byte_offset_impl(
     )
     .unwrap_or_default()
 }
+
+/// A `TextInput`'s laid-out text, lent to [`with_text_input_layout`]'s callback for one call.
+#[allow(dead_code)]
+pub struct TextInputLayout<'a> {
+    layout: &'a Layout,
+    /// The string the paragraphs were shaped from, which [`TextInputParagraph::range`] indexes.
+    text: &'a str,
+}
+
+#[allow(dead_code)]
+impl<'a> TextInputLayout<'a> {
+    /// The paragraphs, top to bottom. A hard line break separates two of them and belongs to
+    /// neither, since Slint splits the text at `\n` before shaping.
+    pub(crate) fn paragraphs(&self) -> impl Iterator<Item = TextInputParagraph<'a>> {
+        let (text, y_offset) = (self.text, self.layout.y_offset);
+        self.layout.paragraphs.iter().map(move |para| TextInputParagraph {
+            range: para.range.clone(),
+            text: &text[para.range.clone()],
+            layout: &para.layout,
+            y: y_offset + para.y,
+        })
+    }
+}
+
+/// One paragraph of a [`TextInputLayout`].
+#[allow(dead_code)]
+pub(crate) struct TextInputParagraph<'a> {
+    /// Byte range within [`TextInputLayout::text`].
+    range: Range<usize>,
+    /// The slice of that text this paragraph covers.
+    text: &'a str,
+    /// Its shaped, line-broken and aligned glyphs.
+    layout: &'a parley::Layout<Brush>,
+    /// Physical y of its top edge, relative to the item's.
+    y: PhysicalLength,
+}
+
+/// Lays `text_input` out the way `renderer` draws it and lends the result to `f`.
+///
+/// `f` must not lay text out itself: the cache entry stays checked out for the call, and
+/// re-entering it panics.
+///
+/// Returns `None` if the renderer lays no text out through parley, so the caller can tell that
+/// apart from an empty layout.
+pub fn with_text_input_layout<R>(
+    renderer: &(impl RendererSealed + ?Sized),
+    text_input: Pin<&crate::items::TextInput>,
+    item_rc: &crate::item_tree::ItemRc,
+    size: LogicalSize,
+    f: impl FnOnce(TextInputLayout<'_>) -> R,
+) -> Option<R> {
+    if !renderer.text_input_has_parley_layout(text_input, item_rc) {
+        return None;
+    }
+    with_text_input_layout_impl(
+        renderer.scale_factor(),
+        renderer.window_adapter(),
+        renderer.text_layout_cache(),
+        text_input,
+        item_rc,
+        size,
+        f,
+    )
+}
+
+fn with_text_input_layout_impl<R>(
+    scale_factor: Option<ScaleFactor>,
+    window_adapter: Option<Rc<dyn WindowAdapter>>,
+    cache: Option<&TextLayoutCache>,
+    text_input: Pin<&crate::items::TextInput>,
+    item_rc: &crate::item_tree::ItemRc,
+    size: LogicalSize,
+    f: impl FnOnce(TextInputLayout<'_>) -> R,
+) -> Option<R> {
+    let scale_factor = scale_factor?;
+    let window_adapter = window_adapter?;
+
+    let width = size.width_length();
+    let height = size.height_length();
+    if width.get() <= 0. || height.get() <= 0. {
+        return None;
+    }
+
+    let layout_builder =
+        shaping_builder(text_input, Some(item_rc), text_input.wrap(), scale_factor);
+
+    // `RenderString for TextInput` yields plain text; a styled input doesn't exist.
+    let PlainOrStyledText::Plain(text) = crate::item_rendering::RenderString::text(text_input)
+    else {
+        return None;
+    };
+
+    with_text_layout(
+        cache,
+        Some(item_rc),
+        text_input,
+        &layout_builder,
+        LayoutOptions::new_from_textinput(text_input, Some(width), Some(height)),
+        window_adapter.window(),
+        |layout| f(TextInputLayout { layout, text: &text }),
+    )
+}
+
+#[cfg(feature = "accessibility-text")]
+mod accessibility;
+#[cfg(feature = "accessibility-text")]
+pub use accessibility::CachedTextInputAccessibilityState;

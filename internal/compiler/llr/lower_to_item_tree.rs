@@ -468,6 +468,7 @@ fn lower_sub_component(
                             source_location,
                             qualified_id: primary.and_then(|d| d.qualified_id.clone()),
                             element_hash: primary.map(|d| d.element_hash).unwrap_or_default(),
+                            is_geometry_wrapper: elem.is_geometry_wrapper,
                         });
                     debug_assert_eq!(added_index, item_index);
                 }

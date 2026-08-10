@@ -229,6 +229,16 @@ pub trait RendererSealed {
         )
     }
 
+    /// Whether this renderer lays `text_input`'s text out through parley.
+    #[cfg(feature = "shared-parley")]
+    fn text_input_has_parley_layout(
+        &self,
+        _text_input: Pin<&crate::items::TextInput>,
+        _item_rc: &ItemRc,
+    ) -> bool {
+        true
+    }
+
     /// Clear the caches for the items that are being removed
     fn free_graphics_resources(
         &self,

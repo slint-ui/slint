@@ -4841,6 +4841,8 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
 
             format!("[&](auto const &{arg}) -> bool {{ return {expr}; }}")
         }
+        // Generated code has no debug hooks; use the wrapped expression.
+        Expression::DebugHook { expression, .. } => compile_expression(expression, ctx),
     }
 }
 

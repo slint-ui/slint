@@ -353,6 +353,20 @@ fn generate_public_component(
         &ctx,
     );
 
+    // The SystemTrayIcon native item sits as item 0 of the root sub-component when the
+    // public component inherits SystemTrayIcon.
+    let tray_field =
+        matches!(llr.top_level_type, llr::TopLevelComponentType::SystemTrayIcon).then(|| {
+            let tray_item =
+                &unit.sub_components[llr.item_tree.root].items[llr::ItemInstanceIdx::from(0usize)];
+            debug_assert_eq!(
+                tray_item.ty.class_name.as_str(),
+                "SystemTrayIcon",
+                "TopLevelComponentType::SystemTrayIcon expects the root item to be a SystemTrayIcon"
+            );
+            ident(&tray_item.name)
+        });
+
     // SystemTrayIcon-rooted components don't have a `WindowAdapter`. Skip the
     // eager creation calls in `new` / `new_with_context` so instantiating
     // a tray doesn't spin up a hidden window adapter as a side effect.
@@ -372,7 +386,20 @@ fn generate_public_component(
                 sp::WindowInner::from_pub(window.window()).ensure_tree_instantiated();
             )),
         ),
-        llr::TopLevelComponentType::SystemTrayIcon => (None, quote!(let _ = ctx;), None),
+        llr::TopLevelComponentType::SystemTrayIcon => {
+            let tray_field = tray_field.as_ref().unwrap();
+            (
+                None,
+                // A tray has no window to reach a context through, so hand it over here.
+                quote!(
+                    #inner_component_id::FIELD_OFFSETS
+                        .#tray_field()
+                        .apply_pin(sp::VRc::as_pin_ref(&inner))
+                        .set_context(&ctx);
+                ),
+                None,
+            )
+        }
     };
 
     #[cfg(feature = "bundle-translations")]
@@ -450,16 +477,7 @@ fn generate_public_component(
                 )
             }
             llr::TopLevelComponentType::SystemTrayIcon => {
-                // Look up the SystemTrayIcon native item — it sits as item 0 of the
-                // root sub-component when the public component inherits SystemTrayIcon.
-                let root_sub = &unit.sub_components[llr.item_tree.root];
-                let tray_item = &root_sub.items[llr::ItemInstanceIdx::from(0usize)];
-                debug_assert_eq!(
-                    tray_item.ty.class_name.as_str(),
-                    "SystemTrayIcon",
-                    "TopLevelComponentType::SystemTrayIcon expects the root item to be a SystemTrayIcon"
-                );
-                let tray_field = ident(&tray_item.name);
+                let tray_field = tray_field.as_ref().unwrap();
                 let common = common(quote!(pub));
                 // No `run()`: a tray icon doesn't drive the event loop. `show`/`hide`
                 // toggle the `visible` property; the platform side of the change
@@ -3587,6 +3605,8 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                 |#arg_name| {#expression}
             }
         }
+        // Generated code has no debug hooks; use the wrapped expression.
+        Expression::DebugHook { expression, .. } => compile_expression(expression, ctx),
     }
 }
 

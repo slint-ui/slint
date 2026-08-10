@@ -12,7 +12,7 @@ use i_slint_core::graphics::rendering_metrics_collector::{
 };
 use i_slint_core::graphics::{
     Brush, Color, ImageCacheKey, IntRect, Point, Rgba8Pixel, SharedImageBuffer, SharedPixelBuffer,
-    adjust_rect_and_border_for_inner_drawing, euclid,
+    euclid,
 };
 use i_slint_core::input::{InternalKeyEvent, KeyEvent, KeyEventType, MouseEvent, TouchPhase};
 use i_slint_core::item_rendering::{
@@ -1113,13 +1113,7 @@ impl ItemRenderer for QtItemRenderer<'_> {
         }
     }
 
-    fn combine_clip(
-        &mut self,
-        mut rect: LogicalRect,
-        radius: LogicalBorderRadius,
-        mut border_width: LogicalLength,
-    ) -> bool {
-        adjust_rect_and_border_for_inner_drawing(&mut rect, &mut border_width);
+    fn combine_clip(&mut self, rect: LogicalRect, radius: LogicalBorderRadius) -> bool {
         let clip_rect = qttypes::QRectF {
             x: rect.min_x() as _,
             y: rect.min_y() as _,
@@ -2098,7 +2092,9 @@ impl QtWindow {
         let runtime_window = WindowInner::from_pub(&self.window);
         let window_adapter = runtime_window.window_adapter();
         runtime_window.draw_contents(|components, post_render| {
-            i_slint_core::animations::update_animations();
+            i_slint_core::animations::update_animations(i_slint_core::animations::Instant::now(
+                runtime_window.context(),
+            ));
 
             let mut renderer = QtItemRenderer {
                 painter,
@@ -2209,7 +2205,9 @@ impl QtWindow {
     }
 
     fn key_event(&self, key: i32, text: qttypes::QString, released: bool, repeat: bool) {
-        i_slint_core::animations::update_animations();
+        i_slint_core::animations::update_animations(i_slint_core::animations::Instant::now(
+            WindowInner::from_pub(&self.window).context(),
+        ));
         let text: String = text.into();
 
         let text = qt_key_to_string(key as key_generated::Qt_Key, text);
@@ -2843,16 +2841,16 @@ thread_local! {
 
 /// Called by C++'s TimerHandler::timerEvent, or every time a timer might have been started
 pub(crate) fn timer_event() {
-    i_slint_core::platform::update_timers_and_animations();
+    if let Some(ctx) = crate::context() {
+        ctx.update_timers_and_animations();
+    }
     restart_timer();
 }
 
 pub(crate) fn restart_timer() {
-    let timeout = i_slint_core::timers::TimerList::next_timeout().map(|instant| {
-        let now = std::time::Instant::now();
-        let instant: std::time::Instant = instant.into();
-        if instant > now { instant.duration_since(now).as_millis() as i32 } else { 0 }
-    });
+    let timeout = crate::context()
+        .and_then(|ctx| ctx.duration_until_next_timer_update())
+        .map(|d| d.as_millis() as i32);
     if let Some(timeout) = timeout {
         cpp! { unsafe [timeout as "int"] {
             ensure_initialized(true);

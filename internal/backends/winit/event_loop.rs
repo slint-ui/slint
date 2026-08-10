@@ -612,7 +612,7 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
 
         event_loop.set_control_flow(ControlFlow::Wait);
 
-        corelib::platform::update_timers_and_animations();
+        self.shared_backend_data.context().update_timers_and_animations();
     }
 
     fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
@@ -646,7 +646,8 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
         }
 
         if event_loop.control_flow() == ControlFlow::Wait
-            && let Some(next_timer) = corelib::platform::duration_until_next_timer_update()
+            && let Some(next_timer) =
+                self.shared_backend_data.context().duration_until_next_timer_update()
         {
             event_loop.set_control_flow(ControlFlow::wait_duration(next_timer));
         }
