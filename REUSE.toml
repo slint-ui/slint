@@ -205,6 +205,7 @@ path = [
   "tools/viewer/android/fastlane/metadata/android/**.png",
 
   # Visual editor-related files
+  "tools/lsp/packaging/linux/**",
   "tools/lsp/packaging/macos/AppIcon.icon/Assets/icon_backdrop.svg",
   "tools/lsp/packaging/macos/AppIcon.icon/icon.json",
   "tools/lsp/packaging/macos/dmg-background.svg",
