@@ -2921,17 +2921,39 @@ export global Platform {
     /// are optimized away when the value is known to be `false` or `true`.
     //
     // ```slint playground
-    // import { Button } from "std-widgets.slint";
+    // import { ListView, VerticalBox } from "std-widgets.slint";
     //
-    // component CustomButton inherits Button {
-    //     text: Platform.is-app ? "" : "A placeholder text";
+    // export struct Data {
+    //     text: string,
+    //     color: color,
+    //     bg: color,
     // }
-    //
     // export component Example inherits Window {
-    //     CustomButton {
-    //         text: "Open Slint Website";
-    //         clicked => {
-    //             Platform.open-url("https://slint.dev");
+    //     width: 150px;
+    //     height: 150px;
+    //     in property<[Data]> data: Platform.is-app ? [] : [
+    //                 { text: "Blue", color: #0000ff, bg: #eeeeee},
+    //                 { text: "Red", color: #ff0000, bg: #eeeeee},
+    //                 { text: "Green", color: #00ff00, bg: #eeeeee},
+    //                 { text: "Yellow", color: #ffff00, bg: #222222 },
+    //                 { text: "Black", color: #000000, bg: #eeeeee },
+    //                 { text: "White", color: #ffffff, bg: #222222 },
+    //                 { text: "Magenta", color: #ff00ff, bg: #eeeeee },
+    //                 { text: "Cyan", color: #00ffff, bg: #222222 },
+    //             ];
+    //
+    //     VerticalBox {
+    //         ListView {
+    //             for data in root.data : Rectangle {
+    //                 height: 30px;
+    //                 background: data.bg;
+    //                 width: parent.width;
+    //                 Text {
+    //                     x: 0;
+    //                     text: data.text;
+    //                     color: data.color;
+    //                 }
+    //             }
     //         }
     //     }
     // }
