@@ -167,7 +167,7 @@ pub struct ItemTreeFns {
 #[repr(C)]
 pub struct ItemTreeVTable {
     /// What this item tree can be asked to do. Compiled components all point at the same
-    /// table; hand-written ones get their own from [`ItemTreeVTable_static`].
+    /// table; hand-written ones get their own from [`ItemTreeVTable_static!`](crate::ItemTreeVTable_static).
     ///
     /// Safety invariant for whoever fills this in: the table must outlive every instance
     /// whose vtable refers to it.
@@ -265,7 +265,7 @@ unsafe impl vtable::VTableMetaDropInPlace for ItemTreeVTable {
 /// Emit the static [`ItemTreeVTable`] of a type implementing [`ItemTree`] and
 /// [`ItemTreeConsts`], plus an implementation of `HasStaticVTable` pointing at it.
 ///
-/// Compiled components use [`compiled_item_tree_vtable!`] instead, which shares the entry
+/// Compiled components use [`compiled_item_tree_vtable!`](crate::compiled_item_tree_vtable) instead, which shares the entry
 /// functions rather than deriving them from a trait implementation.
 #[macro_export]
 macro_rules! ItemTreeVTable_static {
@@ -363,7 +363,7 @@ pub fn unregister_item_tree<Base>(
     unregister_item_tree_impl(item_tree, &mut items(), &mut items(), &mut items(), window_adapter)
 }
 
-/// Shared implementation of [`ItemTreeVTable::get_item_ref`] for compiled components
+/// Shared implementation of [`ItemTreeFns::get_item_ref`] for compiled components
 /// whose items live at compile-time known offsets: resolve the item at `index` by
 /// looking up its offset in the static `item_array`.
 pub fn get_item_ref<'a, Base>(
@@ -380,7 +380,7 @@ pub fn get_item_ref<'a, Base>(
     }
 }
 
-/// One field of a [`GeometryOffsets`] entry: either a compile-time constant
+/// One field of a `GeometryOffsets` entry: either a compile-time constant
 /// coordinate or the byte offset of a `Property<LogicalLength>` within the
 /// component struct.
 #[repr(u8)]
@@ -389,8 +389,8 @@ enum GeometryField {
     Offset(usize),
 }
 
-/// [`GeometryField`] tagged with the component type it belongs to, so that
-/// generated code can only assemble [`GeometryOffsets`] whose offsets match
+/// `GeometryField` tagged with the component type it belongs to, so that
+/// generated code can only assemble `GeometryOffsets` whose offsets match
 /// the enclosing component.
 pub struct TypedGeometryField<Base>(GeometryField, core::marker::PhantomData<fn(&Base)>);
 
@@ -608,7 +608,7 @@ fn table_str(s: &Slice<'static, u8>) -> &'static str {
 /// query, so components without dynamic entries carry no code at all.
 /// The instance pointer paired with these tables is type-erased; soundness
 /// comes from the typed constructors on [`TypedItemIndexTables`],
-/// [`SubComponentTableEntry`] and [`GeometryOffsets`].
+/// [`SubComponentTableEntry`] and `GeometryOffsets`.
 #[repr(C)]
 pub struct ItemIndexTables {
     roles: Slice<'static, AccessibleRoleEntry>,
@@ -635,7 +635,7 @@ pub struct TypedItemIndexTables<Base> {
     _marker: core::marker::PhantomData<fn(&Base)>,
 }
 
-/// One nested sub-component instance in [`ItemIndexTables::sub_components`]:
+/// One nested sub-component instance in `ItemIndexTables::sub_components`:
 /// which range of the enclosing component's item indices it covers, and where
 /// it lives within the enclosing component struct.
 #[repr(C)]
@@ -1297,7 +1297,7 @@ unsafe fn repeaters_ensure_instantiated(table: &[RepeaterSpan], inst: *const u8)
 /// needed to serve every `ItemTreeVTable` entry, plus erased function pointers
 /// for the parts that are genuinely code (repeater dispatch, layout, parent
 /// linkage). One shared, non-generic set of vtable entry functions
-/// ([`compiled_item_tree_vtable!`]) reads this instead of every component
+/// ([`compiled_item_tree_vtable!`](crate::compiled_item_tree_vtable)) reads this instead of every component
 /// getting a monomorphized `ItemTree` implementation.
 #[repr(C)]
 pub struct ItemTreeDescriptor {
@@ -1415,7 +1415,7 @@ impl<Base> TypedItemTreeDescriptor<Base> {
         }
     }
 
-    /// Access the type-erased descriptor (used by [`compiled_item_tree_vtable!`]).
+    /// Access the type-erased descriptor (used by [`compiled_item_tree_vtable!`](crate::compiled_item_tree_vtable)).
     pub const fn erased(&'static self) -> &'static ItemTreeDescriptor {
         &self.erased
     }

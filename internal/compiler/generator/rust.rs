@@ -1979,6 +1979,9 @@ fn generate_sub_component(
 
             #(#chunk_fns)*
 
+            // Read by the enclosing component's span table, or by this one's item tree
+            // descriptor if it is a root. A leaf without repeaters has neither reader.
+            #[allow(dead_code)]
             const REPEATER_SPANS: sp::RepeaterSpanTable<#inner_component_id>
                 = sp::RepeaterSpanTable::new(&[#(#repeater_span_tokens),*]);
 

@@ -10,7 +10,7 @@ use crate::Value;
 use crate::instance::Instance;
 use crate::public_api;
 use i_slint_compiler::langtype::Type as LangType;
-use i_slint_compiler::llr::{CompilationUnit, GlobalComponent};
+use i_slint_compiler::llr::GlobalComponent;
 use i_slint_compiler::object_tree::PropertyVisibility;
 use i_slint_compiler::parser::normalize_identifier;
 use i_slint_core::item_tree::ItemTreeVTable;

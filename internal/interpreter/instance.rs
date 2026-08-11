@@ -8,8 +8,7 @@ use crate::erased::{ErasedItemRc, SubComponentCallback, SubComponentProperty};
 use crate::globals::GlobalStorage;
 use crate::item_registry::ItemRegistry;
 use i_slint_compiler::llr::{
-    self, CompilationUnit, ItemInstanceIdx, RepeatedElementIdx, SubComponentIdx,
-    SubComponentInstanceIdx,
+    self, ItemInstanceIdx, RepeatedElementIdx, SubComponentIdx, SubComponentInstanceIdx,
 };
 use i_slint_core::item_tree::{ItemTreeNode, ItemTreeVTable};
 use i_slint_core::model::{Conditional, Repeater};
