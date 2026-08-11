@@ -3,7 +3,7 @@ title: Packaging
 description: Package a desktop Slint app for distribution on Linux, using Flatpak
 ---
 
-{/* cSpell: ignore Flatpaks yourorganization pulseaudio jpegd jpege Metainfo metainfo Flathub launchable pacman Cachy appstreamcli tomlkit */}
+{/* cSpell: ignore Flatpaks yourorganization pulseaudio jpegd jpege Metainfo metainfo Flathub launchable appstreamcli tomlkit */}
 
 import { Aside } from '@astrojs/starlight/components';
 import { Tabs, TabItem } from '@astrojs/starlight/components';
@@ -16,20 +16,8 @@ The easiest to get started with is [Flatpak](https://flatpak.org/), so that's wh
 Flatpaks are sandboxed, work across distributions, and are straightforward to create.
 
 <Aside type="note">
-Another distribution method may suit your application better.
-Here's an incomplete list of alternatives, with their pros and cons compared to Flatpak:
-
-- Distro-native package managers (`pacman`, `apt`, `dnf`, etc)
-  - Pro: Most-seamless installation/upgrade experience. Also reuses system dependencies which may save space, as well as improve performance on distros with tuned package repositories (e.g. CachyOS)
-  - Con: Requires building and testing your application on many different systems, in particular different versions of host packages such as glibc
-- [Snap](https://snapcraft.io/)
-  - Pro: Full support from Canonical, usually the best option when distributing a GUI application for Ubuntu and derivatives
-  - Con: Somewhat tied to the Canonical ecosystem, far less popular outside of Ubuntu
-- [AppImage](https://appimage.org/)
-  - Pro: Fast startup, the lack of sandboxing and permissions can reduce development friction so long as your users trust your application
-  - Con: Less well-supported than Snap and Flatpak, the runtime is not shared between applications so the package size is larger compared to Flatpak and Snap
-
-Packaging your application in these formats is left as an exercise for the reader.
+[Snap](https://snapcraft.io/), [AppImage](https://appimage.org/), and your distribution's own package manager are the alternatives to Flatpak,
+each with a different trade-off between integration, sandboxing, and how many systems you have to build on.
 </Aside>
 
 ## Prerequisites
