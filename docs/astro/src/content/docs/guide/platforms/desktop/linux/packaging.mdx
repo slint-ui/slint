@@ -8,6 +8,7 @@ description: Package a desktop Slint app for distribution on Linux, using Flatpa
 import { Aside } from '@astrojs/starlight/components';
 import { Tabs, TabItem } from '@astrojs/starlight/components';
 import { Code } from '@astrojs/starlight/components';
+import Link from '@slint/common-files/src/components/Link.astro';
 import skiaGenerator from './../../../../../../../../../scripts/flatpak-skia-generator.py?raw'
 
 Distribution on Linux takes a few forms.
@@ -165,17 +166,18 @@ modules:
       - cargo-sources.json
 ```
 
-This is all the FemtoVG renderer needs.
-The Skia renderer needs Skia itself, which the section below covers.
+That covers everything the default renderer needs.
+The <Link type="skia_renderer" label="Skia renderer" /> needs more, as the section below explains.
 
 ### The Skia Renderer
 
-`renderer-skia` builds the `skia-bindings` crate, which normally downloads a prebuilt Skia during the build.
-The sandbox has no network, so the Skia sources have to be declared like every other dependency.
+Skia is a large graphics library written in C++.
+Building Slint with the Skia renderer normally downloads a prebuilt copy of it, but nothing inside the sandbox reaches the network, so the build has to compile Skia itself.
+That means declaring Skia's own sources in the manifest, all few hundred megabytes of them.
 
-The script below writes them to `skia-sources.json`.
-It reads the Skia revision that your `skia-bindings` version pins, then turns Skia's own `DEPS` file into commit-pinned `git` sources.
-Save it next to `flatpak-cargo-generator.py` and run it from the root of your project, whenever `Cargo.lock` changes:
+The script below does that.
+It looks up the exact Skia revision your version of Slint expects, then turns Skia's list of dependencies into sources pinned to a commit each.
+Save it next to `flatpak-cargo-generator.py` and run it from the root of your project, whenever your dependencies change:
 
 ```bash
 python3 flatpak-skia-generator.py
@@ -185,7 +187,7 @@ It uses the standard library alone, so it needs no dependencies of its own.
 
 <Code code={skiaGenerator} lang="python" title="flatpak-skia-generator.py" />
 
-Skia is configured with `gn`, which the SDK doesn't ship, and it's built with clang rather than the SDK's gcc.
+Skia is configured with `gn`, a build tool the SDK doesn't ship, and it's compiled with clang rather than the SDK's gcc.
 That makes for four additions to the manifest:
 
 ```yaml
@@ -225,8 +227,8 @@ modules:
     build-options:
       env:
         # ...
-        # Pointing skia-bindings at a prepared source tree switches it to its
-        # offline build path, which downloads nothing
+        # Points the build at the prepared Skia sources, which is what makes it
+        # compile them instead of downloading anything
         SKIA_SOURCE_DIR: /run/build/slint-test-package/deps/skia-src
         LIBCLANG_PATH: /usr/lib/sdk/llvm20/lib
         # Use the gn built above rather than the one Skia would fetch
@@ -236,14 +238,8 @@ modules:
       - skia-sources.json
 ```
 
-Building Skia takes a while, and the sources are large.
-In exchange, every input is pinned by commit, the build works on any architecture the runtime supports, and updating Skia is a matter of re-running the generator.
-
-<Aside type="tip">
-Prebuilt Skia binaries are the faster alternative.
-Declare the matching archive from [`rust-skia/skia-binaries`](https://github.com/rust-skia/skia-binaries/tags) as a `file` source, and set `SKIA_BINARIES_URL` to its path inside the build directory.
-The file name embeds both the target triple and a hash of the Skia build, so the URL and its `sha256` need updating whenever `skia-bindings` changes, and each archive covers a single architecture.
-</Aside>
+Building Skia takes a while, and its sources are large.
+Every input is pinned to a commit, so the build stays reproducible, works on every architecture the runtime supports, and follows your version of Slint when you re-run the generator.
 
 </TabItem>
 </Tabs>
