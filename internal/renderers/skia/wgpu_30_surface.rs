@@ -277,6 +277,24 @@ impl crate::Surface for WGPUSurface {
 
         self.flush_and_submit(gr_context);
 
+        // Skia drew via the raw queue behind wgpu's back, and `Queue::present` skips its own
+        // transition when the tracker already says PRESENT, so nothing would order the
+        // presentation after Skia's work: the clear submission above signals its semaphore
+        // before Skia even starts. Referencing the frame texture in a submission of our own
+        // makes present wait for it.
+        let mut encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+            label: Some("Skia present ordering encoder"),
+        });
+        encoder.transition_resources(
+            std::iter::empty(),
+            std::iter::once(wgpu::TextureTransition {
+                texture: &frame.texture,
+                selector: None,
+                state: wgpu::TextureUses::PRESENT,
+            }),
+        );
+        self.queue.submit(Some(encoder.finish()));
+
         if let Some(pre_present_callback) = pre_present_callback.borrow_mut().as_mut() {
             pre_present_callback();
         }
