@@ -148,7 +148,7 @@ impl RepeaterOrConditional {
 ///
 /// Each field is indexed by its corresponding LLR index, so lookups are O(1).
 pub struct SubComponentInstance {
-    pub compilation_unit: Rc<CompilationUnit>,
+    pub compilation_unit: Rc<crate::unit::InterpreterUnit>,
     pub sub_component_idx: SubComponentIdx,
     pub properties: TiVec<llr::PropertyIdx, SubComponentProperty>,
     pub callbacks: TiVec<llr::CallbackIdx, SubComponentCallback>,
@@ -194,15 +194,9 @@ pub struct SubComponentInstance {
 pub struct Instance {
     pub root_sub_component: Pin<Rc<SubComponentInstance>>,
     /// Flat `ItemTreeNode` slice returned by the `get_item_tree` vtable entry.
-    pub tree_nodes: Box<[ItemTreeNode]>,
-    /// Parallel table mapping each `DynamicTree` flat index to the
-    /// `(sub_component_path, RepeatedElementIdx)` that owns the repeater.
-    /// `None` entries correspond to non-dynamic nodes.
-    pub dynamic_table: Box<[Option<(Box<[SubComponentInstanceIdx]>, RepeatedElementIdx)>]>,
-    /// Parallel table mapping each static-item flat index to the
-    /// `(sub_component_path, ItemInstanceIdx)` that owns it. `None`
-    /// entries correspond to dynamic-tree nodes.
-    pub item_table: Box<[Option<(Box<[SubComponentInstanceIdx]>, ItemInstanceIdx)>]>,
+    /// Flattened tables for this component, shared by all its instances:
+    /// they are a pure function of the lowered item tree.
+    pub tables: Rc<ItemTreeTables>,
     pub globals: Rc<GlobalStorage>,
     pub self_weak: OnceCell<VWeak<ItemTreeVTable, Instance>>,
     /// When this `Instance` is a repeated entry, points back to the parent
@@ -452,7 +446,7 @@ impl Instance {
         &self,
         tree_index: u32,
     ) -> Option<(Pin<Rc<SubComponentInstance>>, RepeatedElementIdx)> {
-        let entry = self.dynamic_table.get(tree_index as usize)?.as_ref()?;
+        let entry = self.tables.dynamic_table.get(tree_index as usize)?.as_ref()?;
         let mut current = self.root_sub_component.clone();
         for &idx in entry.0.iter() {
             let next = current.sub_components[idx].clone();
@@ -535,8 +529,8 @@ impl Instance {
     /// Returns `true` if any instance was created or removed.
     pub fn ensure_instantiated(&self) -> bool {
         let mut changed = false;
-        for idx in 0..self.dynamic_table.len() {
-            if self.dynamic_table[idx].is_some() {
+        for idx in 0..self.tables.dynamic_table.len() {
+            if self.tables.dynamic_table[idx].is_some() {
                 changed |= self.ensure_updated(idx as u32);
             }
         }
@@ -588,7 +582,7 @@ impl Instance {
     /// Properties are default-valued, then `bindings::install_bindings` wires
     /// up `property_init`, `two_way_bindings` and `init_code`.
     pub fn new(
-        compilation_unit: Rc<CompilationUnit>,
+        compilation_unit: Rc<crate::unit::InterpreterUnit>,
         public_component_index: usize,
     ) -> VRc<ItemTreeVTable, Instance> {
         Self::new_with_window(compilation_unit, public_component_index, None, Default::default())
@@ -598,7 +592,7 @@ impl Instance {
     /// existing [`WindowAdapterRc`]. Live preview passes in the window from
     /// the old instance so reloaded components keep the same window frame.
     pub fn new_with_window(
-        compilation_unit: Rc<CompilationUnit>,
+        compilation_unit: Rc<crate::unit::InterpreterUnit>,
         public_component_index: usize,
         window_adapter: Option<i_slint_core::window::WindowAdapterRc>,
         type_loaders: crate::component::TypeLoaders,
@@ -617,7 +611,7 @@ impl Instance {
     /// `ComponentContainer` slot index it substitutes into so that
     /// `parent_node` can walk back into the host tree.
     pub fn new_embedded(
-        compilation_unit: Rc<CompilationUnit>,
+        compilation_unit: Rc<crate::unit::InterpreterUnit>,
         public_component_index: usize,
         type_loaders: crate::component::TypeLoaders,
         parent: vtable::VWeak<ItemTreeVTable>,
@@ -633,7 +627,7 @@ impl Instance {
     }
 
     fn new_with_options(
-        compilation_unit: Rc<CompilationUnit>,
+        compilation_unit: Rc<crate::unit::InterpreterUnit>,
         public_component_index: usize,
         window_adapter: Option<i_slint_core::window::WindowAdapterRc>,
         type_loaders: crate::component::TypeLoaders,
@@ -668,7 +662,7 @@ impl Instance {
     /// `repeater_idx` lets `ModelDataAssignment` find the owning repeater
     /// when an event in the repeated sub-tree wants to write back.
     pub fn new_repeated(
-        compilation_unit: Rc<CompilationUnit>,
+        compilation_unit: Rc<crate::unit::InterpreterUnit>,
         item_tree: &llr::ItemTree,
         parent: Weak<SubComponentInstance>,
         repeater_idx: RepeatedElementIdx,
@@ -690,7 +684,7 @@ impl Instance {
     /// parented on the sub-component that owns the popup so that parent-
     /// relative property references resolve through `parent.upgrade()`.
     pub fn new_popup(
-        compilation_unit: Rc<CompilationUnit>,
+        compilation_unit: Rc<crate::unit::InterpreterUnit>,
         item_tree: &llr::ItemTree,
         parent: Weak<SubComponentInstance>,
         globals: Rc<GlobalStorage>,
@@ -707,7 +701,7 @@ impl Instance {
 /// borrow. This avoids re-entrant repeater access when an `init` callback
 /// reads a layout property that walks back through the same repeater.
 fn build_instance(
-    compilation_unit: &Rc<CompilationUnit>,
+    compilation_unit: &Rc<crate::unit::InterpreterUnit>,
     item_tree: &llr::ItemTree,
     parent: Weak<SubComponentInstance>,
     globals: Rc<GlobalStorage>,
@@ -717,13 +711,18 @@ fn build_instance(
     let parent_for_root = parent.clone();
     let root_sub_component =
         build_sub_component_instance(compilation_unit, item_tree.root, parent_for_root);
-    let (tree_nodes, dynamic_table, item_table) = build_tree_nodes(&item_tree.tree);
+    let tables = compilation_unit.item_tree_tables(item_tree, || {
+        let (tree_nodes, dynamic_table, item_table) = build_tree_nodes(&item_tree.tree);
+        ItemTreeTables {
+            tree_nodes: tree_nodes.into_boxed_slice(),
+            dynamic_table: dynamic_table.into_boxed_slice(),
+            item_table: item_table.into_boxed_slice(),
+        }
+    });
 
     let vrc = VRc::new(Instance {
         root_sub_component,
-        tree_nodes: tree_nodes.into_boxed_slice(),
-        dynamic_table: dynamic_table.into_boxed_slice(),
-        item_table: item_table.into_boxed_slice(),
+        tables,
         globals,
         self_weak: OnceCell::new(),
         parent_instance: parent,
@@ -809,7 +808,7 @@ fn propagate_root(sub: &Pin<Rc<SubComponentInstance>>, weak: &VWeak<ItemTreeVTab
 
 /// Recursively allocate a [`SubComponentInstance`].
 fn build_sub_component_instance(
-    cu: &Rc<CompilationUnit>,
+    cu: &Rc<crate::unit::InterpreterUnit>,
     sub_idx: SubComponentIdx,
     parent: Weak<SubComponentInstance>,
 ) -> Pin<Rc<SubComponentInstance>> {
@@ -955,8 +954,20 @@ impl i_slint_core::model::ListViewProperties for ValueListViewProps {
     }
 }
 
-type DynamicEntry = Option<(Box<[SubComponentInstanceIdx]>, RepeatedElementIdx)>;
-type ItemEntry = Option<(Box<[SubComponentInstanceIdx]>, ItemInstanceIdx)>;
+/// The flattened item tree of one component: identical for every instance, so
+/// it is built once per component and shared.
+pub struct ItemTreeTables {
+    /// Flat `ItemTreeNode` slice returned by the `get_item_tree` vtable entry.
+    pub tree_nodes: Box<[ItemTreeNode]>,
+    /// Parallel table mapping each `DynamicTree` flat index to the
+    /// `(sub_component_path, RepeatedElementIdx)` that owns the repeater.
+    pub dynamic_table: Box<[DynamicEntry]>,
+    /// Parallel table mapping each static-item flat index to its instance.
+    pub item_table: Box<[ItemEntry]>,
+}
+
+pub type DynamicEntry = Option<(Box<[SubComponentInstanceIdx]>, RepeatedElementIdx)>;
+pub type ItemEntry = Option<(Box<[SubComponentInstanceIdx]>, ItemInstanceIdx)>;
 
 /// Flatten an LLR [`llr::TreeNode`] into the `ItemTreeNode` slice expected by
 /// the `get_item_tree` vtable entry, plus two parallel tables: one mapping

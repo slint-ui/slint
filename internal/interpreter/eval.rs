@@ -30,7 +30,7 @@ pub struct EvalContext {
     pub current: Option<Pin<Rc<SubComponentInstance>>>,
     /// The compilation unit, for type resolution even when `current` is
     /// `None` (global context).
-    pub compilation_unit: Rc<llr::CompilationUnit>,
+    pub compilation_unit: Rc<crate::unit::InterpreterUnit>,
     /// Shared global storage, used to resolve `MemberReference::Global`.
     pub globals: Weak<GlobalStorage>,
     /// Local variables introduced by `StoreLocalVariable`.
@@ -66,7 +66,7 @@ impl EvalContext {
     }
 
     /// Context rooted in a global. Only `MemberReference::Global` is valid.
-    pub fn for_global(globals: Weak<GlobalStorage>, cu: Rc<llr::CompilationUnit>) -> Self {
+    pub fn for_global(globals: Weak<GlobalStorage>, cu: Rc<crate::unit::InterpreterUnit>) -> Self {
         Self {
             current: None,
             compilation_unit: cu,
@@ -2585,7 +2585,7 @@ pub(crate) fn resolve_item_rc_from_ref(
     let owner = try_walk_to(ctx, *parent_level, &local_reference.sub_component_path)?;
     let parent_inst = owner.root.get().and_then(|w| w.upgrade())?;
     let full_path = crate::item_tree_vtable::sub_component_path_of(&owner, &parent_inst);
-    let flat_idx = find_flat_item_index(&parent_inst.item_table, &full_path, *item_index)?;
+    let flat_idx = find_flat_item_index(&parent_inst.tables.item_table, &full_path, *item_index)?;
     Some((parent_inst, flat_idx))
 }
 

@@ -73,7 +73,7 @@ impl i_slint_core::item_tree::ItemTree for Instance {
         let weak = this.self_weak.get().unwrap().clone();
         i_slint_core::item_tree::visit_item_tree(
             &vtable::VRc::into_dyn(weak.upgrade().unwrap()),
-            &this.tree_nodes[..],
+            &this.tables.tree_nodes[..],
             index,
             order,
             visitor,
@@ -87,6 +87,7 @@ impl i_slint_core::item_tree::ItemTree for Instance {
         // that backs each static item node.
         let this = self.get_ref();
         let entry = this
+            .tables
             .item_table
             .get(index as usize)
             .and_then(Option::as_ref)
@@ -144,7 +145,7 @@ impl i_slint_core::item_tree::ItemTree for Instance {
     }
 
     fn get_item_tree(self: Pin<&Self>) -> Slice<'_, ItemTreeNode> {
-        Slice::from(&*self.get_ref().tree_nodes)
+        Slice::from(&*self.get_ref().tables.tree_nodes)
     }
 
     fn parent_node(self: Pin<&Self>, result: &mut ItemWeak) {
@@ -174,7 +175,7 @@ impl i_slint_core::item_tree::ItemTree for Instance {
             // adjustment and gives the caller the wrong node.
             let rep_idx = *repeater_idx;
             let parent_path = sub_component_path_of(&parent_sub, &parent_root_vrc);
-            for (flat, entry) in parent_root_vrc.dynamic_table.iter().enumerate() {
+            for (flat, entry) in parent_root_vrc.tables.dynamic_table.iter().enumerate() {
                 if let Some((path, idx)) = entry.as_ref()
                     && path.as_ref() == parent_path.as_slice()
                     && *idx == rep_idx
@@ -239,7 +240,8 @@ impl i_slint_core::item_tree::ItemTree for Instance {
         // sub-component-local tree index (set by `generate_item_indices`),
         // not by the raw `ItemInstanceIdx` slot.
         let this = self.get_ref();
-        let Some(entry) = this.item_table.get(item_index as usize).and_then(Option::as_ref) else {
+        let Some(entry) = this.tables.item_table.get(item_index as usize).and_then(Option::as_ref)
+        else {
             return LogicalRect::default();
         };
         let mut owner_rc = this.root_sub_component.clone();
@@ -375,7 +377,8 @@ impl i_slint_core::item_tree::ItemTree for Instance {
 
     fn item_element_infos(self: Pin<&Self>, item_index: u32, result: &mut SharedString) -> bool {
         let this = self.get_ref();
-        let Some(entry) = this.item_table.get(item_index as usize).and_then(Option::as_ref) else {
+        let Some(entry) = this.tables.item_table.get(item_index as usize).and_then(Option::as_ref)
+        else {
             return false;
         };
         let cu = &this.root_sub_component.compilation_unit;
@@ -444,7 +447,7 @@ fn resolve_accessible_item(
     instance: &Instance,
     item_index: u32,
 ) -> Option<(Pin<std::rc::Rc<crate::instance::SubComponentInstance>>, u32)> {
-    let entry = instance.item_table.get(item_index as usize).and_then(Option::as_ref)?;
+    let entry = instance.tables.item_table.get(item_index as usize).and_then(Option::as_ref)?;
     let mut owner = instance.root_sub_component.clone();
     for &sub_idx in entry.0.iter() {
         let next = owner.sub_components[sub_idx].clone();
@@ -466,7 +469,8 @@ fn resolve_accessible_candidates(
     item_index: u32,
 ) -> Vec<(Pin<std::rc::Rc<crate::instance::SubComponentInstance>>, u32)> {
     let mut out = Vec::new();
-    let Some(entry) = instance.item_table.get(item_index as usize).and_then(Option::as_ref) else {
+    let Some(entry) = instance.tables.item_table.get(item_index as usize).and_then(Option::as_ref)
+    else {
         return out;
     };
     // First candidate: a wrapping sub-component reference at the root.

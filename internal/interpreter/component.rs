@@ -46,7 +46,7 @@ pub struct TypeLoaders {
 /// [`crate::api::ComponentDefinition`].
 #[derive(Clone)]
 pub struct ComponentDefinitionInner {
-    pub compilation_unit: Rc<CompilationUnit>,
+    pub compilation_unit: Rc<crate::unit::InterpreterUnit>,
     pub public_index: usize,
     /// `None` on both sides when the definition comes from a running
     /// instance without `TypeLoader` references.
@@ -320,9 +320,8 @@ pub fn build_from_document(
     compiler_config: &i_slint_compiler::CompilerConfiguration,
     mut type_loaders: TypeLoaders,
 ) -> Vec<ComponentDefinitionInner> {
-    let unit = Rc::new(i_slint_compiler::llr::lower_to_item_tree::lower_to_item_tree(
-        document,
-        compiler_config,
+    let unit = Rc::new(crate::unit::InterpreterUnit::new(
+        i_slint_compiler::llr::lower_to_item_tree::lower_to_item_tree(document, compiler_config),
     ));
     // `lower_to_item_tree` builds `public_components` from `exported_roots()`
     // in iteration order, so the indices line up.

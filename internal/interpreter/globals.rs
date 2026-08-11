@@ -96,7 +96,7 @@ fn instantiate_native_global(class_name: &str) -> Option<Pin<Rc<dyn NativeGlobal
 }
 
 pub struct GlobalInstance {
-    pub compilation_unit: Rc<CompilationUnit>,
+    pub compilation_unit: Rc<crate::unit::InterpreterUnit>,
     pub global_idx: GlobalIdx,
     pub properties: TiVec<i_slint_compiler::llr::PropertyIdx, SubComponentProperty>,
     pub callbacks: TiVec<i_slint_compiler::llr::CallbackIdx, SubComponentCallback>,
@@ -128,7 +128,7 @@ pub struct GlobalStorage {
 impl GlobalStorage {
     /// Allocate one `GlobalInstance` per declared global.
     /// Bindings are installed separately by [`install_global_bindings`].
-    pub fn new(compilation_unit: &Rc<CompilationUnit>) -> Self {
+    pub fn new(compilation_unit: &Rc<crate::unit::InterpreterUnit>) -> Self {
         let globals = compilation_unit
             .globals
             .iter_enumerated()

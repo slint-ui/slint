@@ -222,7 +222,7 @@ fn find_flat_indices_for_item(
     let cu = &instance.root_sub_component.compilation_unit;
     let root_ty = instance.root_sub_component.sub_component_idx;
     let mut out = Vec::new();
-    for (flat, entry) in instance.item_table.iter().enumerate() {
+    for (flat, entry) in instance.tables.item_table.iter().enumerate() {
         let Some((path, local_idx)) = entry.as_ref() else { continue };
         if *local_idx != target_local {
             continue;
@@ -312,7 +312,7 @@ fn sub_component_idx_at_path(
 fn is_injected_wrapper_element(instance: &VRc<ItemTreeVTable, Instance>, flat_idx: usize) -> bool {
     let cu = &instance.root_sub_component.compilation_unit;
     let root_ty = instance.root_sub_component.sub_component_idx;
-    let Some(Some((path, local_idx))) = instance.item_table.get(flat_idx) else {
+    let Some(Some((path, local_idx))) = instance.tables.item_table.get(flat_idx) else {
         return false;
     };
     let sc_idx = sub_component_idx_at_path(cu, root_ty, path);
