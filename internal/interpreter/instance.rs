@@ -412,7 +412,9 @@ impl Instance {
     /// `show()` / `run()` entry points call this before handing off to the
     /// backend event loop. Idempotent via the `window_attached` flag.
     pub fn attach_to_window(&self) {
-        if self.window_attached.get().is_some() {
+        // make sure not to attach embedded instances, they would otherwise take over
+        // the window of the item tree they are embedded in.
+        if self.window_attached.get().is_some() || self.embedded_in.get().is_some() {
             return;
         }
         let Some(adapter) = self.window_adapter_or_default() else { return };
