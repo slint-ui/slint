@@ -7,6 +7,8 @@ description: Package a desktop Slint app for distribution on Linux, using Flatpa
 
 import { Aside } from '@astrojs/starlight/components';
 import { Tabs, TabItem } from '@astrojs/starlight/components';
+import { Code } from '@astrojs/starlight/components';
+import skiaGenerator from './../../../../../../../../../scripts/flatpak-skia-generator.py?raw'
 
 Distribution on Linux can take a few forms, but for our purposes the easiest to get started with is [Flatpak](https://flatpak.org/), and so we will focus on that here. Flatpaks are sandboxed, cross-platform, and relatively straightforward to create.
 
@@ -120,10 +122,6 @@ modules:
         # directory
         CARGO_HOME: /run/build/slint-test-package/cargo
         CARGO_NET_OFFLINE: "true"
-        # This is required for Slint's Skia backend, and should match the source below.
-        # With the FemtoVG backend, you can remove this line and the relevant source.
-        # `slint-test-package` should be replaced with the name of your module
-        SKIA_BINARIES_URL: file:///run/build/slint-test-package/deps/vendor/skia/skia-binaries-a25a0fdb7d90429aa2d1-x86_64-unknown-linux-gnu-gl-jpegd-jpege-pdf-textlayout-vulkan.tar.gz
     build-commands:
       - cargo --offline fetch --manifest-path Cargo.toml --verbose
       # For the sake of this example, we assume that this build command produces a binary
@@ -145,22 +143,81 @@ modules:
       # other than in the same directory as this file, you should specify the path to it
       # here
       - cargo-sources.json
-      # The below lines (and the `SKIA_BINARIES_URL` environment variable, specified above)
-      # are required to use the `renderer-skia` feature. If your application uses
-      # `renderer-femtovg`, you can remove it
-      - type: file
-        url: https://github.com/rust-skia/skia-binaries/releases/download/0.99.0/skia-binaries-a25a0fdb7d90429aa2d1-x86_64-unknown-linux-gnu-gl-jpegd-jpege-pdf-textlayout-vulkan.tar.gz
-        dest: deps/vendor/skia
-        sha256: 097e78d775c9156dc4b070b9cca7008dbab587513ecb1924baf4cf9620f3119b
 ```
 
-As mentioned in the comments above, to use `renderer-skia` you must include the relevant Skia binaries as an explicit dependency. At the time of writing, this is `0.99.0`. You can use the following command to check the version of `skia-safe` in use (requires `jq` to be installed):
+This is all the FemtoVG renderer needs.
+The Skia renderer needs Skia itself, which the section below covers.
 
-```bash
-cargo metadata --format-version 1 | jq -er '.packages | .[] | select(.name == "skia-safe").version'
+### The Skia Renderer
+
+`renderer-skia` builds the `skia-bindings` crate, which normally downloads a prebuilt Skia during the build.
+The sandbox has no network, so the Skia sources have to be declared like every other dependency.
+
+The script below writes them to `skia-sources.json`.
+It reads the Skia revision that your `skia-bindings` version pins, then turns Skia's own `DEPS` file into commit-pinned `git` sources.
+Run it from the root of your project whenever `Cargo.lock` changes, next to `flatpak-cargo-generator.py`:
+
+<Code code={skiaGenerator} lang="python" title="flatpak-skia-generator.py" />
+
+Skia is configured with `gn`, which the SDK doesn't ship, and it's built with clang rather than the SDK's gcc.
+That makes for four additions to the manifest:
+
+```yaml
+# ...
+
+sdk-extensions:
+  - org.freedesktop.Sdk.Extension.rust-stable
+  # clang, and the libclang that the bindings generator loads
+  - org.freedesktop.Sdk.Extension.llvm20
+
+# Applies to every module, unlike the build-options of a single module, so that
+# both gn and Skia find clang
+build-options:
+  append-path: /usr/lib/sdk/rust-stable/bin:/usr/lib/sdk/llvm20/bin
+
+# gn is only needed to build Skia, so keep it out of the finished application
+cleanup:
+  - /bin/gn
+
+modules:
+  - name: gn
+    buildsystem: simple
+    build-commands:
+      - python3 build/gen.py --out-path=out --allow-warnings
+      - ninja -C out gn
+      - install -Dm0755 out/gn ${FLATPAK_DEST}/bin/gn
+    sources:
+      - type: git
+        url: https://gn.googlesource.com/gn.git
+        # The generator prints the revision Skia itself uses
+        commit: b2afae122eeb6ce09c52d63f67dc53fc517dbdc8
+        # gn stamps its version from a tag, which a shallow clone leaves behind
+        disable-shallow-clone: true
+
+  - name: slint-test-package
+    # ...
+    build-options:
+      env:
+        # ...
+        # Pointing skia-bindings at a prepared source tree switches it to its
+        # offline build path, which downloads nothing
+        SKIA_SOURCE_DIR: /run/build/slint-test-package/deps/skia-src
+        LIBCLANG_PATH: /usr/lib/sdk/llvm20/lib
+        # Use the gn built above rather than the one Skia would fetch
+        SKIA_GN_COMMAND: /app/bin/gn
+    sources:
+      # ...
+      - skia-sources.json
 ```
 
-If this is not `0.99.0`, check [the releases page](https://github.com/rust-skia/skia-binaries/tags) for `rust-skia/skia-binaries`, finding the one that has the `x86_64-unknown-linux-gnu` target triple and the `gl-jpegd-jpege-pdf-textlayout-vulkan` feature set. You can also copy the hash and put it in the `sha256` field, mentioned above.
+Building Skia takes a while, and the sources are large.
+In exchange, every input is pinned by commit, the build works on any architecture the runtime supports, and updating Skia is a matter of re-running the generator.
+
+<Aside type="tip">
+Prebuilt Skia binaries are the faster alternative.
+Declare the matching archive from [`rust-skia/skia-binaries`](https://github.com/rust-skia/skia-binaries/tags) as a `file` source, and set `SKIA_BINARIES_URL` to its path inside the build directory.
+The file name embeds both the target triple and a hash of the Skia build, so the URL and its `sha256` need updating whenever `skia-bindings` changes, and each archive covers a single architecture.
+</Aside>
 
 </TabItem>
 </Tabs>
@@ -316,6 +373,7 @@ sdk: org.freedesktop.Sdk
 
 sdk-extensions:
   - org.freedesktop.Sdk.Extension.rust-stable
+  - org.freedesktop.Sdk.Extension.llvm20
 
 finish-args:
   - --device=dri
@@ -323,15 +381,34 @@ finish-args:
   - --socket=wayland
   - --socket=fallback-x11
 
+cleanup:
+  - /bin/gn
+
+build-options:
+  append-path: /usr/lib/sdk/rust-stable/bin:/usr/lib/sdk/llvm20/bin
+
 modules:
+  - name: gn
+    buildsystem: simple
+    build-commands:
+      - python3 build/gen.py --out-path=out --allow-warnings
+      - ninja -C out gn
+      - install -Dm0755 out/gn ${FLATPAK_DEST}/bin/gn
+    sources:
+      - type: git
+        url: https://gn.googlesource.com/gn.git
+        commit: b2afae122eeb6ce09c52d63f67dc53fc517dbdc8
+        disable-shallow-clone: true
+
   - name: slint-test-package
     buildsystem: simple
     build-options:
-      append-path: /usr/lib/sdk/rust-stable/bin
       env:
         CARGO_HOME: /run/build/slint-test-package/cargo
         CARGO_NET_OFFLINE: "true"
-        SKIA_BINARIES_URL: file:///run/build/slint-test-package/deps/vendor/skia/skia-binaries-a25a0fdb7d90429aa2d1-x86_64-unknown-linux-gnu-gl-jpegd-jpege-pdf-textlayout-vulkan.tar.gz
+        SKIA_SOURCE_DIR: /run/build/slint-test-package/deps/skia-src
+        LIBCLANG_PATH: /usr/lib/sdk/llvm20/lib
+        SKIA_GN_COMMAND: /app/bin/gn
     build-commands:
       - cargo --offline fetch --manifest-path Cargo.toml --verbose
       - cargo build --release --offline
@@ -344,11 +421,10 @@ modules:
         path: ./
         commit: 1234deadbeef
       - cargo-sources.json
-      - type: file
-        url: https://github.com/rust-skia/skia-binaries/releases/download/0.99.0/skia-binaries-a25a0fdb7d90429aa2d1-x86_64-unknown-linux-gnu-gl-jpegd-jpege-pdf-textlayout-vulkan.tar.gz
-        dest: deps/vendor/skia
-        sha256: 097e78d775c9156dc4b070b9cca7008dbab587513ecb1924baf4cf9620f3119b
+      - skia-sources.json
 ```
+
+For the FemtoVG renderer, drop the `llvm20` extension, the `gn` module, the `cleanup` entry, the three Skia environment variables, and `skia-sources.json`.
 
 </TabItem>
 </Tabs>
