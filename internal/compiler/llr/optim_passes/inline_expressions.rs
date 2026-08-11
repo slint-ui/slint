@@ -186,7 +186,9 @@ fn builtin_function_cost(function: &BuiltinFunction) -> isize {
         BuiltinFunction::PathPointAt => isize::MAX,
         BuiltinFunction::PathAngleAt => isize::MAX,
         // Iterating the model and running the closure is unbounded; never inline.
-        BuiltinFunction::ArrayAny | BuiltinFunction::ArrayAll => isize::MAX,
+        BuiltinFunction::ArrayAny | BuiltinFunction::ArrayAll | BuiltinFunction::ArrayFindIndex => {
+            isize::MAX
+        }
     }
 }
 

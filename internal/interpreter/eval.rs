@@ -214,6 +214,30 @@ fn load_local(instance: &SubComponentInstance, member: &LocalMemberIndex) -> Val
     }
 }
 
+/// Evaluates the predicate of `ArrayAny`/`ArrayAll`/`ArrayFindIndex` against a single row
+/// value, binding `arg_name` to it for the duration of the evaluation and restoring any
+/// shadowed local variable afterwards — like the generated code binds its closure parameter.
+/// Iteration and dependency tracking are left to the `model_any`/`model_all`/
+/// `model_find_index` helpers in [`i_slint_core::model`].
+fn eval_array_row_predicate(
+    arg_name: &SmolStr,
+    predicate: &Expression,
+    ctx: &mut EvalContext,
+    row_value: Value,
+) -> bool {
+    let previous = ctx.locals.insert(arg_name.clone(), row_value);
+    let result = eval_expression(ctx, predicate).try_into().unwrap();
+    match previous {
+        Some(prev) => {
+            ctx.locals.insert(arg_name.clone(), prev);
+        }
+        None => {
+            ctx.locals.remove(arg_name);
+        }
+    }
+    result
+}
+
 /// Set `value` on `prop`, interpolating through `animation` when present.
 fn set_maybe_animated(
     prop: Pin<&i_slint_core::Property<Value>>,
@@ -2253,26 +2277,23 @@ fn call_builtin_function(
             let Expression::Closure { arg_name, expression } = &arguments[1] else {
                 panic!("internal error: Array.any/all expects a closure as second argument")
             };
-            // Bind the closure argument as a local, like the generated code
-            // binds its closure parameter.
-            let mut predicate = |x: Value| -> bool {
-                let previous = ctx.locals.insert(arg_name.clone(), x);
-                let result: bool = eval_expression(ctx, expression).try_into().unwrap();
-                match previous {
-                    Some(prev) => {
-                        ctx.locals.insert(arg_name.clone(), prev);
-                    }
-                    None => {
-                        ctx.locals.remove(arg_name);
-                    }
-                }
-                result
-            };
+            let mut predicate =
+                |row_value| eval_array_row_predicate(arg_name, expression, ctx, row_value);
             Value::Bool(if is_all {
                 i_slint_core::model::model_all(&model, &mut predicate)
             } else {
                 i_slint_core::model::model_any(&model, &mut predicate)
             })
+        }
+        BuiltinFunction::ArrayFindIndex => {
+            let model: i_slint_core::model::ModelRc<Value> =
+                eval_expression(ctx, &arguments[0]).try_into().unwrap();
+            let Expression::Closure { arg_name, expression } = &arguments[1] else {
+                panic!("internal error: Array.find-index expects a closure as second argument")
+            };
+            Value::Number(i_slint_core::model::model_find_index(&model, |row_value| {
+                eval_array_row_predicate(arg_name, expression, ctx, row_value)
+            }) as f64)
         }
         BuiltinFunction::ImplicitLayoutInfo(orient) => {
             // The argument is a `PropertyReference` to a `Native { prop_name: "" }`,

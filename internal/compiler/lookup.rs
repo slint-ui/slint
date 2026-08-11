@@ -1218,12 +1218,13 @@ impl LookupObject for ArrayExpression<'_> {
             .or_else(|| f("remove", member_macro(BuiltinMacroFunction::ArrayRemove)))
             .or_else(|| f("insert", member_macro(BuiltinMacroFunction::ArrayInsert)))
             .or_else(|| {
-                // `any` and `all` take a closure argument; closures are experimental.
+                // `any`, `all` and `find-index` take a closure argument; closures are experimental.
                 if !ctx.diag.enable_experimental && !ctx.type_register.expose_internal_types {
                     return None;
                 }
                 f("any", member_function(BuiltinFunction::ArrayAny))
                     .or_else(|| f("all", member_function(BuiltinFunction::ArrayAll)))
+                    .or_else(|| f("find-index", member_function(BuiltinFunction::ArrayFindIndex)))
             })
     }
 }

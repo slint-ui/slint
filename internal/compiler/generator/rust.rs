@@ -5135,6 +5135,18 @@ fn compile_builtin_function_call(
                 sp::model_all(&arr, |#arg_name| -> bool { #closure_expression })
             })
         }
+        BuiltinFunction::ArrayFindIndex => {
+            let arr_expression = compile_expression_to_value(&arguments[0], ctx);
+            let Expression::Closure { arg_name, expression } = &arguments[1] else {
+                panic!("internal error: ArrayFindIndex expects a closure as second argument")
+            };
+            let arg_name = ident(arg_name);
+            let closure_expression = compile_expression(expression, ctx);
+            quote!({
+                let arr = #arr_expression;
+                sp::model_find_index(&arr, |#arg_name| -> bool { #closure_expression })
+            })
+        }
     }
 }
 
