@@ -133,6 +133,7 @@ pub async fn run_passes(
     lower_component_container::lower_component_container(doc, type_loader, diag);
     collect_subcomponents::collect_subcomponents(doc);
 
+    let mut lower_states_forwarded_cache = Default::default();
     doc.visit_all_used_components(|component| {
         apply_default_properties_from_style::apply_default_properties_from_style(
             component,
@@ -140,7 +141,12 @@ pub async fn run_passes(
             &palette,
             diag,
         );
-        lower_states::lower_states(component, diag);
+        lower_states::lower_states(
+            component,
+            &symbol_counters,
+            &mut lower_states_forwarded_cache,
+            diag,
+        );
         lower_text_input_interface::lower_text_input_interface(component);
         compile_paths::compile_paths(component, &doc.local_registry, diag);
         repeater_component::process_repeater_components(component);
