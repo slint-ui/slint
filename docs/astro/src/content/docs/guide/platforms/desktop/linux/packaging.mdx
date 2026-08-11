@@ -3,7 +3,7 @@ title: Packaging
 description: Package a desktop Slint app for distribution on Linux, using Flatpak
 ---
 
-{/* cSpell: ignore Flatpaks yourorganization pulseaudio jpegd jpege Metainfo metainfo Flathub launchable pacman Cachy */}
+{/* cSpell: ignore Flatpaks yourorganization pulseaudio jpegd jpege Metainfo metainfo Flathub launchable pacman Cachy appstreamcli */}
 
 import { Aside } from '@astrojs/starlight/components';
 import { Tabs, TabItem } from '@astrojs/starlight/components';
@@ -163,17 +163,24 @@ To ensure that your application shows up in the launcher, create a `.desktop` fi
 
 ```ini
 [Desktop Entry]
-Encoding=UTF-8
+# The version of the desktop entry specification this file follows, not the
+# version of your application
 Version=1.0
 Type=Application
 Terminal=false
 # This should be the same as the binary specified in the `command` section
 # of your build `.yaml`
-Exec=/app/bin/slint-test-package
+Exec=slint-test-package
 # This should be the human-readable name of your application
 Name=Slint Test Package
 # This should be the same as your Flatpak package ID, see below for details
 Icon=com.slint.TestPackage
+```
+
+Check the file with `desktop-file-validate`, which comes with the Freedesktop SDK:
+
+```bash
+flatpak run --command=desktop-file-validate org.freedesktop.Sdk//25.08 com.slint.TestPackage.desktop
 ```
 
 You then need to add a command that puts this in the correct place to your `build-commands`, like so:
@@ -206,11 +213,12 @@ Whether your choose `.png` or `.svg`, the file should be named the same as your 
 
 ## Metainfo
 
-Finally, Flatpak expects your package to include a `.metainfo.xml` file, which specifies some Flatpak-specific metadata used by the package manager and by Flathub. The [full specification of this file](https://docs.flathub.org/docs/for-app-authors/metainfo-guidelines) is out of scope for this document, but below is the minimum required fields that must be specified in order for validation to succeed:
+Finally, Flatpak expects your package to include a `.metainfo.xml` file, which specifies some Flatpak-specific metadata used by the package manager and by Flathub. The [full specification of this file](https://docs.flathub.org/docs/for-app-authors/metainfo-guidelines) is out of scope for this document, but below are the minimum fields that must be specified in order for validation to succeed:
 
 ```xml
 <?xml version="1.0" encoding="UTF-8" ?>
 <component type="desktop-application">
+    <!-- This must be the same as your Flatpak package ID -->
     <id>com.slint.TestPackage</id>
 
     <name>Slint Test Package</name>
@@ -234,30 +242,40 @@ Finally, Flatpak expects your package to include a `.metainfo.xml` file, which s
     <project_license>MIT</project_license>
 
     <description>
-        <p>Example package to explain how to create a Flatpak for a Slint project</p>
+        <p>
+            An example package that explains how to create a Flatpak for a
+            project written with Slint. Software centers show this first
+            paragraph underneath your application, so write a sentence or two
+            rather than repeating the summary above.
+        </p>
     </description>
 
     <url type="homepage">https://slint.dev/</url>
 
-    <launchable
-        type="desktop-id"
-    >com.slint.TestPackage</launchable>
+    <!-- The name of your .desktop file, including the extension -->
+    <launchable type="desktop-id">com.slint.TestPackage.desktop</launchable>
 
-    <screenshots>
-    <!--
-    Flathub requires at least one screenshot, but an empty screenshot section
-    is allowed when building locally.
-    -->
-    </screenshots>
+    <!-- Required by Flathub. `oars-1.1` with no attributes declares that
+         your application has nothing to disclose -->
+    <content_rating type="oars-1.1"/>
 
     <releases>
-        <release version="1.0" date="2026-07-07">
-            <description translatable="no">
-            </description>
-        </release>
+        <release version="1.0" date="2026-07-07"/>
     </releases>
 </component>
 ```
+
+Validate the file before you build, with `appstreamcli` from the Freedesktop SDK:
+
+```bash
+flatpak run --command=appstreamcli org.freedesktop.Sdk//25.08 validate --no-net com.slint.TestPackage.metainfo.xml
+```
+
+<Aside type="note">
+Flathub requires at least one screenshot, added as a `<screenshots>` section.
+Leave the section out while you develop: an empty one fails validation,
+and `flatpak-builder` runs the same validation over the metadata it installs.
+</Aside>
 
 ## Putting it all together
 
