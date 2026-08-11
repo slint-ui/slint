@@ -1737,6 +1737,19 @@ fn generate_item_tree(
                 ]
             })
         });
+    // Only repeated components with an index property need this hook; the rest
+    // would emit a function returning a constant.
+    let has_subtree_index = parent_ctx.as_ref().is_some_and(|parent| {
+        parent.repeater_index.is_some_and(|idx| {
+            root.sub_components[parent.sub_component].repeated[idx].index_prop.is_some()
+        })
+    });
+    let subtree_index_descriptor_entry = if has_subtree_index {
+        format!("&{item_tree_class_name}::subtree_index_fn")
+    } else {
+        "nullptr".to_string()
+    };
+
     let parent_node_descriptor_entry = if parent_item_from_parent_component.is_some() {
         format!("&{item_tree_class_name}::parent_node_fn")
     } else {
@@ -1769,17 +1782,19 @@ fn generate_item_tree(
         }),
     ));
 
-    // Overridden for repeated components (they read their index property)
-    target_struct.members.push((
-        Access::Private,
-        Declaration::Function(Function {
-            name: "subtree_index_fn".into(),
-            signature: "([[maybe_unused]] const uint8_t *inst) -> uintptr_t".into(),
-            is_static: true,
-            statements: Some(vec!["return std::numeric_limits<uintptr_t>::max();".into()]),
-            ..Default::default()
-        }),
-    ));
+    // Body filled in by the repeater generation, which knows the index property.
+    if has_subtree_index {
+        target_struct.members.push((
+            Access::Private,
+            Declaration::Function(Function {
+                name: "subtree_index_fn".into(),
+                signature: "([[maybe_unused]] const uint8_t *inst) -> uintptr_t".into(),
+                is_static: true,
+                statements: Some(vec!["return std::numeric_limits<uintptr_t>::max();".into()]),
+                ..Default::default()
+            }),
+        ));
+    }
 
     target_struct.members.push((
         Access::Private,
@@ -1902,7 +1917,7 @@ fn generate_item_tree(
         ty: "constinit const slint::private_api::ItemTreeDescriptor".into(),
         name: format_smolstr!("{}::item_tree_descriptor", item_tree_class_name),
         init: Some(format!(
-            "{{ {{ const_cast<slint::private_api::ItemTreeNode*>({item_tree_class_name}::item_tree_array), {} }},                {{ const_cast<slint::private_api::ItemArrayEntry*>({item_tree_class_name}::item_array_entries), {} }},                &{item_tree_class_name}::item_index_tables, {item_tree_class_name}::repeater_spans_slice,                &{item_tree_class_name}::origin_fn, &{item_tree_class_name}::subtree_index_fn,                &{item_tree_class_name}::layout_info_fn, {parent_node_descriptor_entry},                {window_adapter_descriptor_entry}, {}, &{item_tree_class_name}::drop_in_place_fn,                {{ sizeof({item_tree_class_name}), alignof({item_tree_class_name}) }} }}",
+            "{{ {{ const_cast<slint::private_api::ItemTreeNode*>({item_tree_class_name}::item_tree_array), {} }},                {{ const_cast<slint::private_api::ItemArrayEntry*>({item_tree_class_name}::item_array_entries), {} }},                &{item_tree_class_name}::item_index_tables, {item_tree_class_name}::repeater_spans_slice,                &{item_tree_class_name}::origin_fn, {subtree_index_descriptor_entry},                &{item_tree_class_name}::layout_info_fn, {parent_node_descriptor_entry},                {window_adapter_descriptor_entry}, {}, &{item_tree_class_name}::drop_in_place_fn,                {{ sizeof({item_tree_class_name}), alignof({item_tree_class_name}) }} }}",
             item_tree_array.len(),
             item_array.len(),
             root.has_debug_info

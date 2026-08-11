@@ -1763,12 +1763,19 @@ fn generate_sub_component(
     // FIXME! this is only public because of the ComponentHandle::WeakInner. we should find another way
     let visibility = parent_ctx.is_none().then(|| quote!(pub));
 
-    let subtree_index_function = if let Some(property_index) = index_property {
+    // Only a repeated component has an index within a subtree; for every other
+    // component the descriptor says so with `None` rather than carrying a
+    // function that returns a constant.
+    let subtree_index_function = index_property.map(|property_index| {
         let prop = access_local_member(&property_index.into(), &ctx);
-        quote!(#prop.get() as usize)
-    } else {
-        quote!(usize::MAX)
-    };
+        quote!(
+            extern "C" fn index_property(self: ::core::pin::Pin<&Self>) -> usize {
+                #![allow(unused)]
+                let _self = self;
+                #prop.get() as usize
+            }
+        )
+    });
 
     let timer_names =
         component.timers.iter().enumerate().map(|(idx, _)| format_ident!("timer{idx}"));
@@ -1990,11 +1997,7 @@ fn generate_sub_component(
 
             #cross_axis_self_alignment_for_repeated_fn
 
-            extern "C" fn index_property(self: ::core::pin::Pin<&Self>) -> usize {
-                #![allow(unused)]
-                let _self = self;
-                #subtree_index_function
-            }
+            #subtree_index_function
 
             const ITEM_INDEX_TABLES: sp::TypedItemIndexTables<#inner_component_id>
                 = sp::TypedItemIndexTables::new(
@@ -2285,6 +2288,9 @@ fn generate_item_tree(
     is_popup: bool,
 ) -> TokenStream {
     let needs_window_adapter = root.needs_window_adapter();
+    // Only repeated components carry an index; see `subtree_index` on the descriptor.
+    let subtree_index_descriptor_arg =
+        if index_property.is_some() { quote!(Some(Self::index_property)) } else { quote!(None) };
     let sub_comp = generate_sub_component(
         sub_tree.root,
         root,
@@ -2514,7 +2520,7 @@ fn generate_item_tree(
                     &Self::ITEM_INDEX_TABLES,
                     Self::REPEATER_SPANS,
                     Self::origin_weak,
-                    Self::index_property,
+                    #subtree_index_descriptor_arg,
                     Self::layout_info,
                     #parent_node_arg,
                     #window_adapter_arg,

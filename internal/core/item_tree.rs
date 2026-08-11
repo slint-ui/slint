@@ -1214,7 +1214,10 @@ pub struct ItemTreeDescriptor {
     repeaters: Slice<'static, RepeaterSpan>,
     /// Writes a weak reference to the ItemTreeRc that owns this instance.
     origin: unsafe extern "C" fn(*const u8, &mut ItemTreeWeak),
-    subtree_index: unsafe extern "C" fn(*const u8) -> usize,
+    /// Reads the instance's index within its repeater. `None` when the
+    /// component is not repeated, which is the common case — its index is then
+    /// the constant `usize::MAX`, and no producer needs to emit a function.
+    subtree_index: Option<unsafe extern "C" fn(*const u8) -> usize>,
     layout_info: unsafe extern "C" fn(*const u8, Orientation) -> LayoutInfo,
     parent_node: Option<unsafe extern "C" fn(*const u8, &mut ItemWeak)>,
     window_adapter: Option<unsafe extern "C" fn(*const u8, bool, &mut Option<WindowAdapterRc>)>,
@@ -1242,7 +1245,7 @@ impl<Base> TypedItemTreeDescriptor<Base> {
         tables: &'static TypedItemIndexTables<Base>,
         repeaters: RepeaterSpanTable<Base>,
         origin: extern "C" fn(&Base, &mut ItemTreeWeak),
-        subtree_index: extern "C" fn(Pin<&Base>) -> usize,
+        subtree_index: Option<extern "C" fn(Pin<&Base>) -> usize>,
         layout_info: extern "C" fn(Pin<&Base>, Orientation) -> LayoutInfo,
         parent_node: Option<extern "C" fn(Pin<&Base>, &mut ItemWeak)>,
         window_adapter: Option<extern "C" fn(Pin<&Base>, bool, &mut Option<WindowAdapterRc>)>,
@@ -1288,7 +1291,7 @@ impl<Base> TypedItemTreeDescriptor<Base> {
                     extern "C" fn(&Base, &mut ItemTreeWeak),
                     unsafe extern "C" fn(*const u8, &mut ItemTreeWeak)
                 ),
-                subtree_index: erase_fn!(
+                subtree_index: erase_opt_fn!(
                     subtree_index,
                     extern "C" fn(Pin<&Base>) -> usize,
                     unsafe extern "C" fn(*const u8) -> usize
@@ -1446,7 +1449,7 @@ pub mod compiled {
     #[cfg_attr(not(feature = "ffi"), i_slint_core_macros::remove_extern)]
     pub extern "C" fn slint_compiled_item_tree_subtree_index(vref: ItemTreeRefPin<'_>) -> usize {
         let (d, inst) = parts(&vref);
-        unsafe { (d.subtree_index)(inst) }
+        d.subtree_index.map_or(usize::MAX, |f| unsafe { f(inst) })
     }
 
     #[unsafe(no_mangle)]
