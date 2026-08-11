@@ -62,7 +62,11 @@ impl WGPUSurface {
                 surface_target,
                 requested_graphics_api,
                 wgpu::Backends::GL /* we're not mapping that to skia because we can't save/restore state */
-                    .union(if cfg!(target_os = "windows") {
+                    // On Windows the Vulkan path is only usable when it was opted into with
+                    // `renderer-skia-vulkan`: without it neither wgpu's Vulkan backend nor
+                    // Skia's is compiled in, so let wgpu pick D3D12 instead of handing us a
+                    // surface we can't map.
+                    .union(if cfg!(all(target_os = "windows", not(skia_wgpu_30_vulkan))) {
                         wgpu::Backends::VULKAN
                     } else {
                         wgpu::Backends::empty()
