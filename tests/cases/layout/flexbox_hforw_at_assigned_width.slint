@@ -63,6 +63,17 @@ component RepeatedCard inherits Rectangle {
     }
 }
 
+// All cells repeated, no static sibling: the flexbox must still count the
+// repeated component's root as height-for-width capable and take the measure
+// path (a static capable sibling used to mask a repeater-blind capability
+// check).
+component RepeaterOnlyCard inherits Rectangle {
+    FlexboxLayout {
+        padding: 10px;
+        for i in 1: InnerFlex { }
+    }
+}
+
 // Column mirror, for the width-for-height case.
 component InnerFlexColumn inherits Rectangle {
     FlexboxLayout {
@@ -85,7 +96,7 @@ component RepeatedCardColumn inherits Rectangle {
 
 export component TestCase inherits Window {
     width: 800px;
-    height: 750px;
+    height: 1000px;
 
     // Single-line reference, so the assertions stay font-independent
     // (the nodejs backend has no test fonts).
@@ -198,12 +209,30 @@ export component TestCase inherits Window {
         repColAnchor := Rectangle { width: 5px; height: column-height; }
     }
 
+    // Repeater-only card: the card's flexbox has no static cell at all. The
+    // narrow basis shrinks the inner flexbox below its preferred width (one
+    // text per line, three lines) — at its preferred width the default
+    // pre-measure is accidentally correct and would hide a missing measure
+    // callback.
+    property <length> narrow-w: t + 50px;
+    FlexboxLayout {
+        x: 0; y: 740px; width: w; height: 250px;
+        flex-direction: row;
+        flex-wrap: wrap;
+        padding: 0px; spacing: 0px;
+        cross-axis-line-alignment: start;
+        cross-axis-alignment: start;
+        RepeaterOnlyCard { flex-shrink: 0; flex-basis: narrow-w; }
+        repOnlyAnchor := Rectangle { width: w; height: 5px; }
+    }
+
     out property <length> wrapped-h: wrappedCell.height;
     out property <length> nowrap-h: nowrapCell.height;
     out property <length> constrained-h: anchor.y;
     out property <length> constrained-w: colAnchor.x;
     out property <length> constrained-rep-h: repAnchor.y;
     out property <length> constrained-rep-w: repColAnchor.x;
+    out property <length> constrained-rep-only-h: repOnlyAnchor.y;
 
     // Inner wraps to two lines (spacing 10) + outer padding 20.
     out property <bool> wrapped-ok: abs(wrapped-h - (2 * line-height + 10px + 20px)) < 1px;
@@ -214,9 +243,11 @@ export component TestCase inherits Window {
     out property <bool> constrained-w-ok: abs(constrained-w - (2 * t + 10px + 20px)) < 1px;
     out property <bool> constrained-rep-ok: abs(constrained-rep-h - (2 * line-height + 10px + 20px)) < 1px;
     out property <bool> constrained-rep-w-ok: abs(constrained-rep-w - (2 * t + 10px + 20px)) < 1px;
+    // One text per line: three lines (2 * spacing 10) + outer padding 20.
+    out property <bool> constrained-rep-only-ok: abs(constrained-rep-only-h - (3 * line-height + 20px + 20px)) < 1px;
 
     out property <bool> test: wrapped-ok && nowrap-ok && constrained-ok && constrained-w-ok
-        && constrained-rep-ok && constrained-rep-w-ok;
+        && constrained-rep-ok && constrained-rep-w-ok && constrained-rep-only-ok;
 }
 
 /*
@@ -234,6 +265,8 @@ assert!(instance.get_constrained_rep_ok(), "repeated cell height wrong: {} for l
     instance.get_constrained_rep_h(), instance.get_line_height());
 assert!(instance.get_constrained_rep_w_ok(), "repeated cell width wrong: {}",
     instance.get_constrained_rep_w());
+assert!(instance.get_constrained_rep_only_ok(), "repeater-only cell height wrong: {} for line height {}",
+    instance.get_constrained_rep_only_h(), instance.get_line_height());
 ```
 
 ```cpp
@@ -245,6 +278,7 @@ assert(instance.get_constrained_ok());
 assert(instance.get_constrained_w_ok());
 assert(instance.get_constrained_rep_ok());
 assert(instance.get_constrained_rep_w_ok());
+assert(instance.get_constrained_rep_only_ok());
 ```
 
 ```js
@@ -255,5 +289,6 @@ assert(instance.constrained_ok);
 assert(instance.constrained_w_ok);
 assert(instance.constrained_rep_ok);
 assert(instance.constrained_rep_w_ok);
+assert(instance.constrained_rep_only_ok);
 ```
 */
