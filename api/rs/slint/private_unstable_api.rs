@@ -138,6 +138,14 @@ pub fn use_24_hour_format() -> bool {
     i_slint_core::date_time::use_24_hour_format()
 }
 
+/// Runs one chunk of a big array literal, which the generated code splits so that
+/// no function constructs too many elements at once.
+/// Each closure gets its own instantiation, and `inline(never)` keeps them apart.
+#[inline(never)]
+pub fn build_array_chunk(chunk: impl FnOnce()) {
+    chunk()
+}
+
 /// internal re_exports used by the macro generated
 pub mod re_exports {
     pub use alloc::boxed::Box;

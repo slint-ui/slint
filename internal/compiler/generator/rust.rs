@@ -3985,6 +3985,11 @@ fn compile_condition(expr: &Expression, ctx: &EvaluationContext) -> TokenStream 
     )
 }
 
+/// Maximum number of elements an array literal constructs in one function.
+/// Like [`INIT_CHUNK_SIZE`], this keeps a function body from getting too big:
+/// the build time is flat up to 64 elements per chunk and explodes at 128.
+const ARRAY_CHUNK_SIZE: usize = 32;
+
 #[inline(never)]
 fn compile_array(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
     let Expression::Array { values, element_ty, output } = expr else { unreachable!() };
@@ -3992,15 +3997,48 @@ fn compile_array(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
     match output {
         ArrayOutput::Model => {
             let rust_element_ty = rust_primitive_type(element_ty).unwrap();
-            quote!(sp::ModelRc::new(
-                sp::VecModel::<#rust_element_ty>::from(
-                    sp::vec![#(#val as _),*]
-                )
-            ))
+            let vec = if values.len() > ARRAY_CHUNK_SIZE && !is_plain_value(element_ty) {
+                let len = values.len();
+                let chunks = values.chunks(ARRAY_CHUNK_SIZE).map(|chunk| {
+                    let val = chunk.iter().map(|e| compile_expression_to_value(e, ctx));
+                    // Pushing one by one also keeps the elements out of a big stack temporary.
+                    quote!(slint::private_unstable_api::build_array_chunk(|| {
+                        #(_array.push(#val as _);)*
+                    });)
+                });
+                quote!({
+                    let mut _array = sp::Vec::<#rust_element_ty>::with_capacity(#len);
+                    #(#chunks)*
+                    _array
+                })
+            } else {
+                quote!(sp::vec![#(#val as _),*])
+            };
+            quote!(sp::ModelRc::new(sp::VecModel::<#rust_element_ty>::from(#vec)))
         }
         ArrayOutput::Slice => quote!(sp::Slice::from_slice(&[#(#val),*])),
         ArrayOutput::Vector => quote!(sp::vec![#(#val as _),*]),
     }
+}
+
+/// Whether a literal array of `ty` compiles to a constant blob, which beats
+/// storing the elements one by one.
+/// Types that aren't listed are chunked, which is the safe direction.
+fn is_plain_value(ty: &Type) -> bool {
+    matches!(
+        ty,
+        Type::Int32
+            | Type::Float32
+            | Type::Bool
+            | Type::Color
+            | Type::Duration
+            | Type::Angle
+            | Type::PhysicalLength
+            | Type::LogicalLength
+            | Type::Rem
+            | Type::Percent
+            | Type::Enumeration(_)
+    )
 }
 
 #[inline(never)]
