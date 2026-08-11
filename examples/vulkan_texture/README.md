@@ -73,6 +73,9 @@ cmake -B build -DSLINT_BUILD_EXAMPLES=ON -DSLINT_FEATURE_RENDERER_SKIA=ON
 cmake --build build --target vulkan_texture
 ```
 
+On Windows add `-DSLINT_FEATURE_RENDERER_SKIA_VULKAN=ON`, for the same reason the Rust version
+enables `renderer-skia-vulkan`: without it wgpu has no Vulkan backend to hand the example.
+
 which leaves the binary in `build/examples/vulkan_texture/vulkan_texture`. `SLINT_BUILD_EXAMPLES`
 defaults to off, so without it the target doesn't exist.
 
@@ -111,6 +114,10 @@ The Rust version asks for `wgpu::Backends::VULKAN` itself, so it needs no backen
 ```sh
 cargo run -p vulkan_texture
 ```
+
+On Windows this compiles Skia from source the first time, which takes a few minutes: the
+Vulkan backend comes from `renderer-skia-vulkan`, which the example enables because wgpu
+picks D3D12 there otherwise, and the prebuilt Skia binaries carry no Vulkan build.
 
 The C++ version has no equivalent of `BackendSelector` yet, so it has to be told twice over:
 which renderer, and which backend under it. Without both it comes up on whatever the platform

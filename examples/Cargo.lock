@@ -6240,6 +6240,7 @@ dependencies = [
  "spin_on",
  "unicode-segmentation",
  "vtable",
+ "vulkano",
  "wgpu 29.0.4",
  "wgpu 30.0.0",
  "wgpu-hal 29.0.4",
@@ -12348,6 +12349,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0c790de23124f9ab44544d7ac05d60440adc586479ce501c1d6d7da3cd8c9cf5"
 
 [[package]]
+name = "slabbin"
+version = "1.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9db491c0d4152a069911a0fbdaca959691bf0b9d7110d98a7ed1c8e59b79ab30"
+
+[[package]]
 name = "slide_puzzle"
 version = "1.18.0"
 dependencies = [
@@ -14092,6 +14099,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "vk-parse"
+version = "0.15.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3859da4d7b98bec73e68fb65815d47a263819c415c90eed42b80440a02cbce8c"
+dependencies = [
+ "xml-rs",
+]
+
+[[package]]
 name = "void"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -14124,6 +14140,35 @@ dependencies = [
  "slint",
  "slint-build",
  "wgpu 30.0.0",
+]
+
+[[package]]
+name = "vulkano"
+version = "0.35.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ee487adf7c13e5aa46d4d7fac6ffb8e172eb7e6472aaf815e9ade4992f8f2414"
+dependencies = [
+ "ash",
+ "bytemuck",
+ "crossbeam-queue",
+ "foldhash 0.1.5",
+ "half",
+ "heck 0.4.1",
+ "indexmap",
+ "libloading",
+ "nom 7.1.3",
+ "once_cell",
+ "parking_lot",
+ "proc-macro2",
+ "quote",
+ "raw-window-handle",
+ "raw-window-metal",
+ "serde",
+ "serde_json",
+ "slabbin",
+ "smallvec",
+ "thread_local",
+ "vk-parse",
 ]
 
 [[package]]
