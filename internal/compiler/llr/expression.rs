@@ -180,9 +180,9 @@ pub enum Expression {
         /// Explicit gradient center in the element's local coordinate space (`at <x> <y>`).
         /// `None` means use the element's bbox centre.
         center: Option<(Box<Expression>, Box<Expression>)>,
-        /// Explicit radius in the element's local coordinate space (`circle <radius>`).
+        /// Explicit radii in the element's local coordinate space: `(rx, ry)`.
         /// `None` means use the element's bbox half-diagonal.
-        radius: Option<Box<Expression>>,
+        radius: Option<(Box<Expression>, Box<Expression>)>,
         /// First expression in the tuple is a color, second expression is the stop position
         stops: Vec<(Expression, Expression)>,
     },
@@ -554,8 +554,9 @@ macro_rules! visit_impl {
                     $visitor(cx);
                     $visitor(cy);
                 }
-                if let Some(r) = radius {
-                    $visitor(r);
+                if let Some((rx, ry)) = radius {
+                    $visitor(rx);
+                    $visitor(ry);
                 }
                 for (a, b) in stops {
                     $visitor(a);

@@ -1773,7 +1773,8 @@ fn process_rectangle_impl(
     } else if let Brush::RadialGradient(g) = &args.background {
         let (cx, cy) = g.center_or_default_scaled(geom_w, geom_h, scale_factor.get());
         let (center_x, center_y) = to_clipped_center(cx, cy);
-        let radius = g.radius_or_default_scaled(geom_w, geom_h, scale_factor.get());
+        let radius_x = g.radius_x_or_default_scaled(geom_w, geom_h, scale_factor.get());
+        let radius_y = g.radius_y_or_default_scaled(geom_w, geom_h, scale_factor.get());
 
         let radial_grad = RadialGradientCommand {
             stops: g
@@ -1786,7 +1787,8 @@ fn process_rectangle_impl(
                 .collect(),
             center_x,
             center_y,
-            radius,
+            radius_x,
+            radius_y,
         };
 
         processor.process_radial_gradient(clipped.cast(), radial_grad);

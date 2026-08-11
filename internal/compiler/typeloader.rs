@@ -859,7 +859,9 @@ impl Snapshotter {
                 center: center.as_ref().map(|(cx, cy)| {
                     (Box::new(self.snapshot_expression(cx)), Box::new(self.snapshot_expression(cy)))
                 }),
-                radius: radius.as_ref().map(|r| Box::new(self.snapshot_expression(r))),
+                radius: radius.as_ref().map(|(rx, ry)| {
+                    (Box::new(self.snapshot_expression(rx)), Box::new(self.snapshot_expression(ry)))
+                }),
                 stops: stops
                     .iter()
                     .map(|(e1, e2)| (self.snapshot_expression(e1), self.snapshot_expression(e2)))

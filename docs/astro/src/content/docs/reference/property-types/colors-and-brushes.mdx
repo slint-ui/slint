@@ -219,15 +219,24 @@ export component Example inherits Window {
 
 ## Radial Gradients
 
-Radial gradients are like linear gradients but the colors are interpolated circularly instead of
-along a line. To describe a radial gradient, use the `@radial-gradient` macro with the following signature:
+Radial gradients are like linear gradients but the colors are interpolated circularly (or
+elliptically) instead of along a line. To describe a radial gradient, use the `@radial-gradient`
+macro with the following signature:
 
 ### @radial-gradient(circle [radius] [at x y], color percentage, color percentage, ...)
+### @radial-gradient(ellipse [radius-x radius-y] [at x y], color percentage, color percentage, ...)
 
-The first parameter to the macro is always `circle` because only circular gradients are supported.
-The optional `radius` value sets the circle radius in the element's local coordinate space.
-The `radius` value is a length expression.
-If omitted, the radius is half of the element's bounding box diagonal.
+The first parameter to the macro is either `circle` for a circular gradient or `ellipse` for an
+elliptical one.
+
+For `circle`, the optional `radius` value sets the circle radius in the element's local coordinate
+space, as a length expression. If omitted, the radius is half of the element's bounding box
+diagonal.
+
+For `ellipse`, the optional `radius-x` and `radius-y` values set the ellipse's horizontal and
+vertical radii in the element's local coordinate space, both as length expressions; they must
+either both be given or both omitted. If omitted, both radii default to half of the element's
+bounding box diagonal, which renders as a circle.
 
 The optional `at` parameter sets the gradient center in the element's local coordinate space.
 The `x` and `y` values are length expressions.
@@ -253,6 +262,14 @@ You can set a center and radius explicitly:
 ```slint
 export component Example inherits Rectangle {
     background: @radial-gradient(circle 60px at 25px 25px, #f00 0%, #00f 100%);
+}
+```
+
+Or use `ellipse` with distinct horizontal and vertical radii:
+
+```slint
+export component Example inherits Rectangle {
+    background: @radial-gradient(ellipse 60px 30px at 25px 25px, #f00 0%, #00f 100%);
 }
 ```
 

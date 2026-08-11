@@ -413,7 +413,9 @@ fn lower_radial_gradient(
         center: center.as_ref().map(|(cx, cy)| {
             (Box::new(lower_expression(cx, ctx)), Box::new(lower_expression(cy, ctx)))
         }),
-        radius: radius.as_ref().map(|r| Box::new(lower_expression(r, ctx))),
+        radius: radius.as_ref().map(|(rx, ry)| {
+            (Box::new(lower_expression(rx, ctx)), Box::new(lower_expression(ry, ctx)))
+        }),
         stops: stops
             .iter()
             .map(|(a, b)| (lower_expression(a, ctx), lower_expression(b, ctx)))
