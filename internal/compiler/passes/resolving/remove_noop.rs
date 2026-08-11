@@ -94,7 +94,9 @@ fn without_side_effects(expression: &Expression) -> bool {
             center
                 .as_ref()
                 .is_none_or(|(cx, cy)| without_side_effects(cx) && without_side_effects(cy))
-                && radius.as_ref().is_none_or(|r| without_side_effects(r))
+                && radius
+                    .as_ref()
+                    .is_none_or(|(rx, ry)| without_side_effects(rx) && without_side_effects(ry))
                 && stops
                     .iter()
                     .all(|(start, end)| without_side_effects(start) && without_side_effects(end))
