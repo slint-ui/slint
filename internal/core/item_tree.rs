@@ -2984,6 +2984,15 @@ pub(crate) mod ffi {
 mod tests {
     use super::*;
     use crate::Property;
+
+    #[test]
+    fn the_vtable_carries_no_per_component_code() {
+        // The shared function table, the two destructor entries, the descriptor. Adding an
+        // entry function here would cost this once per component; it belongs in
+        // `ItemTreeFns`, or as data in the descriptor.
+        assert_eq!(core::mem::size_of::<ItemTreeVTable>(), 4 * core::mem::size_of::<*const u8>());
+    }
+
     use crate::api::LogicalPosition;
     use crate::api::Window;
     use crate::items::{Clip, Transform, WindowItem};
