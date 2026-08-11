@@ -101,6 +101,36 @@ The VRef/VRefMut/VBox structure will dereference to a type which has the followi
 The VTable struct gets a `new` associated function that creates a vtable for any type
 that implements the generated traits.
 
+## Splitting the function pointers off the vtable
+
+`#[vtable(vtable = MyVTable)]` applies the macro to a struct that holds only the function
+pointers of `MyVTable`, which is then written by hand and reaches them through one field
+(`fns` by default, or the one named by `field = ...`):
+
+```ignore
+#[vtable(vtable = MyVTable)]
+#[repr(C)]
+struct MyFns {
+    make_noise: fn(VRef<MyVTable>, i32) -> i32,
+}
+
+#[repr(C)]
+struct MyVTable {
+    fns: *const MyFns,
+    drop_in_place: unsafe fn(VRefMut<MyVTable>) -> vtable::Layout,
+    dealloc: unsafe fn(&MyVTable, *mut u8, vtable::Layout),
+}
+```
+
+The trait, the trait object and its dispatch are generated as usual, only the calls go one
+hop through `fns`. This pays off when many vtables share the same functions and differ in
+their remaining fields: the shared table is then stored once instead of per vtable.
+
+In this mode the macro generates `MyFns::new::<T>()` instead of `MyVTable::new::<T>()`, and
+leaves the rest to the hand-written side: the destructor entries, the associated constants
+and the `MyVTable_static!` macro. Accordingly the annotated struct may only contain
+function pointers taking self.
+
 ## Example
 
 
@@ -164,8 +194,56 @@ assert_eq!(dog.is_hungry, true);
 
 */
 #[proc_macro_attribute]
-pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
+pub fn vtable(attr: TokenStream, item: TokenStream) -> TokenStream {
     let mut input = parse_macro_input!(item as ItemStruct);
+
+    // `#[vtable(vtable = FooVTable, field = fns)]`: the annotated struct is not the vtable
+    // itself but a separate table of function pointers that `FooVTable` reaches through its
+    // `fns` field. The vtable struct is then written by hand and stays small, which matters
+    // when there is one vtable per component but a single shared function table.
+    let mut indirect = None;
+    if !attr.is_empty() {
+        let args = match punctuated::Punctuated::<MetaNameValue, Token![,]>::parse_terminated
+            .parse(attr)
+        {
+            Ok(args) => args,
+            Err(e) => return e.to_compile_error().into(),
+        };
+        let mut vtable_arg = None;
+        let mut field_arg = None;
+        for arg in args {
+            let target = if arg.path.is_ident("vtable") {
+                &mut vtable_arg
+            } else if arg.path.is_ident("field") {
+                &mut field_arg
+            } else {
+                return Error::new(arg.path.span(), "Expected `vtable = ...` or `field = ...`")
+                    .to_compile_error()
+                    .into();
+            };
+            match &arg.value {
+                Expr::Path(p) if p.path.get_ident().is_some() => {
+                    *target = p.path.get_ident().cloned()
+                }
+                v => {
+                    return Error::new(v.span(), "Expected an identifier")
+                        .to_compile_error()
+                        .into();
+                }
+            }
+        }
+        match vtable_arg {
+            Some(v) => {
+                indirect =
+                    Some((v, field_arg.unwrap_or_else(|| Ident::new("fns", input.ident.span()))))
+            }
+            None => {
+                return Error::new(proc_macro2::Span::call_site(), "Missing `vtable = ...`")
+                    .to_compile_error()
+                    .into();
+            }
+        }
+    }
 
     let fields = if let Fields::Named(fields) = &mut input.fields {
         fields
@@ -178,19 +256,24 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
         .into();
     };
 
-    let vtable_name = input.ident.to_string();
+    // The struct the macro was applied to. Same as the vtable unless `vtable = ...` moved the
+    // function pointers one hop away.
+    let fns_name = input.ident.clone();
+    let vtable_ident = indirect.as_ref().map_or_else(|| fns_name.clone(), |(v, _)| v.clone());
+
+    let vtable_name = vtable_ident.to_string();
     if !vtable_name.ends_with("VTable") {
-        return Error::new(input.ident.span(), "The structure does not ends in 'VTable'")
+        return Error::new(vtable_ident.span(), "The structure does not ends in 'VTable'")
             .to_compile_error()
             .into();
     }
 
-    let trait_name = Ident::new(&vtable_name[..vtable_name.len() - 6], input.ident.span());
+    let trait_name = Ident::new(&vtable_name[..vtable_name.len() - 6], vtable_ident.span());
     let to_name = quote::format_ident!("{}TO", trait_name);
     let module_name = quote::format_ident!("{}_vtable_mod", trait_name);
     let static_vtable_macro_name = quote::format_ident!("{}_static", vtable_name);
 
-    let vtable_name = input.ident.clone();
+    let vtable_name = vtable_ident;
 
     let mut drop_impls = Vec::new();
 
@@ -254,6 +337,24 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
         } else {
             None
         };
+
+        if let Some((_, field_name)) = &indirect
+            && (func_ty.is_none()
+                || ident == "drop"
+                || ident == "drop_in_place"
+                || ident == "dealloc")
+        {
+            return Error::new(
+                ident.span(),
+                format!(
+                    "Only methods taking self can live in an indirect function table; \
+                     associated constants and the destructor entries belong in the vtable \
+                     struct next to `{field_name}`"
+                ),
+            )
+            .to_compile_error()
+            .into();
+        }
 
         if let Some(f) = func_ty {
             let mut sig = Signature {
@@ -488,12 +589,18 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
                 modifiers: Default::default(),
                 sig: sig.clone(),
                 block: if has_self {
+                    // Either the vtable carries the function itself, or it points at the shared
+                    // table that does.
+                    let table = match &indirect {
+                        None => quote!(vtable),
+                        Some((_, field_name)) => quote!(&*vtable.#field_name),
+                    };
                     parse_quote!({
                         // Safety: this rely on the vtable being valid, and the ptr being a valid instance for this vtable
                         #[allow(unsafe_code)]
                         unsafe {
                             let vtable = self.vtable.as_ref();
-                            if let #some(func) = vtable.#ident {
+                            if let #some(func) = (#table).#ident {
                                 func (#call_code)
                             } else {
                                 panic!("Called a not-implemented method")
@@ -687,6 +794,57 @@ and implements HasStaticVTable for it.
         extra = additional_doc,
     );
 
+    // In indirect mode the vtable struct is written by hand, so the macro only supplies the
+    // function table and leaves the destructor entries, the associated constants and the
+    // `_static` macro to that hand-written side.
+    let ctor_impl = if indirect.is_some() {
+        quote!(
+            impl #fns_name {
+                /// Create a function table suitable for a given type implementing the trait.
+                pub const fn new<T: #trait_name #new_trait_extra>() -> Self {
+                    Self {
+                        #(#vtable_ctor)*
+                    }
+                }
+            }
+        )
+    } else {
+        quote!(
+            impl #vtable_name {
+                // unfortunately cannot be const in stable rust because of the bounds (depends on rfc 2632)
+                /// Create a vtable suitable for a given type implementing the trait.
+                pub /*const*/ fn new<T: #trait_name #new_trait_extra>() -> Self {
+                    Self {
+                        #(#vtable_ctor)*
+                    }
+                }
+                #(#generated_type_assoc_fn)*
+            }
+        )
+    };
+
+    let static_vtable_macro = indirect.is_none().then(|| {
+        quote!(
+            #[macro_export]
+            #[doc = #static_vtable_macro_doc]
+            macro_rules! #static_vtable_macro_name {
+                ($(#[$meta:meta])* $vis:vis static $ident:ident for $ty:ty) => {
+                    $(#[$meta])* $vis static $ident : #vtable_name = {
+                        use vtable::*;
+                        type T = $ty;
+                        #vtable_name {
+                            #(#vtable_ctor)*
+                        }
+                    };
+                    #[allow(unsafe_code)]
+                    unsafe impl vtable::HasStaticVTable<#vtable_name> for $ty {
+                        const STATIC_VTABLE: &'static #vtable_name = &$ident;
+                    }
+                }
+            }
+        )
+    });
+
     let result = quote!(
         #[allow(non_snake_case)]
         #[macro_use]
@@ -699,16 +857,7 @@ and implements HasStaticVTable for it.
             use ::vtable::internal::*;
             #input
 
-            impl #vtable_name {
-                // unfortunately cannot be const in stable rust because of the bounds (depends on rfc 2632)
-                /// Create a vtable suitable for a given type implementing the trait.
-                pub /*const*/ fn new<T: #trait_name #new_trait_extra>() -> Self {
-                    Self {
-                        #(#vtable_ctor)*
-                    }
-                }
-                #(#generated_type_assoc_fn)*
-            }
+            #ctor_impl
 
             #generated_trait
             #generated_trait_assoc_const
@@ -741,23 +890,7 @@ and implements HasStaticVTable for it.
 
             #(#drop_impls)*
 
-            #[macro_export]
-            #[doc = #static_vtable_macro_doc]
-            macro_rules! #static_vtable_macro_name {
-                ($(#[$meta:meta])* $vis:vis static $ident:ident for $ty:ty) => {
-                    $(#[$meta])* $vis static $ident : #vtable_name = {
-                        use vtable::*;
-                        type T = $ty;
-                        #vtable_name {
-                            #(#vtable_ctor)*
-                        }
-                    };
-                    #[allow(unsafe_code)]
-                    unsafe impl vtable::HasStaticVTable<#vtable_name> for $ty {
-                        const STATIC_VTABLE: &'static #vtable_name = &$ident;
-                    }
-                }
-            }
+            #static_vtable_macro
         }
         #[doc(inline)]
         #[macro_use]
