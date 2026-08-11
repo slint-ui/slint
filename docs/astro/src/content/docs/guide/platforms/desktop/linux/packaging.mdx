@@ -3,7 +3,7 @@ title: Packaging
 description: Package a desktop Slint app for distribution on Linux, using Flatpak
 ---
 
-{/* cSpell: ignore Flatpaks yourorganization pulseaudio jpegd jpege Metainfo metainfo Flathub launchable appstreamcli tomlkit */}
+{/* cSpell: ignore Flatpaks yourorganization pulseaudio jpegd jpege Metainfo metainfo Flathub launchable appstreamcli tomlkit DFETCHCONTENT */}
 
 import { Aside } from '@astrojs/starlight/components';
 import { Tabs, TabItem } from '@astrojs/starlight/components';
@@ -229,6 +229,157 @@ Building Skia takes a while, and its sources are large.
 Every input is pinned to a commit, so the build stays reproducible, works on every architecture the runtime supports, and follows your version of Slint when you re-run the generator.
 
 </TabItem>
+<TabItem label="C++" icon="seti:cpp">
+
+Projects created from the Slint template call `find_package(Slint)` and fall back to downloading Slint, and Slint in turn downloads Corrosion.
+The sandbox has no network for either, so both become sources in the manifest, and Slint gets built as its own module that installs into `/app` where `find_package` picks it up.
+
+A C++ project has no lockfile of its own, but Slint's C++ library is built from Rust sources, so its crates have to be declared as well.
+Configure your project once outside the sandbox, and everything the manifest needs is on disk:
+
+```bash
+# Downloads Slint and Corrosion, as an ordinary build does
+cmake -B build
+
+# The crates Slint needs, taken from the revision CMake just fetched
+uv run flatpak-cargo-generator.py build/_deps/slint-src/Cargo.lock -o cargo-sources.json
+
+# The revisions to pin below
+git -C build/_deps/slint-src rev-parse HEAD
+git -C build/_deps/corrosion-src rev-parse HEAD
+```
+
+Taking the lockfile and the revision from the same checkout keeps them in step.
+Crates generated from a different revision than the one you build leave `cargo` unable to resolve its dependencies, and it says so in terms of the crate that differs rather than the mismatch itself.
+
+```yaml
+# ...
+
+# Slint's C++ library is built from Rust sources
+sdk-extensions:
+  - org.freedesktop.Sdk.Extension.rust-stable
+
+build-options:
+  append-path: /usr/lib/sdk/rust-stable/bin
+
+modules:
+  - name: slint-cpp
+    buildsystem: cmake-ninja
+    subdir: api/cpp
+    build-options:
+      env:
+        CARGO_HOME: /run/build/slint-cpp/cargo
+        CARGO_NET_OFFLINE: "true"
+    config-opts:
+      - -DCMAKE_BUILD_TYPE=Release
+      # The runtime searches /app/lib, while the SDK's CMake defaults to lib64
+      - -DCMAKE_INSTALL_LIBDIR=lib
+      # Slint's own CMake downloads Corrosion unless it is already there
+      - -DFETCHCONTENT_SOURCE_DIR_CORROSION=/run/build/slint-cpp/corrosion
+      # Leave out what your application doesn't use, to shorten the build
+      - -DSLINT_FEATURE_INTERPRETER=OFF
+      - -DSLINT_FEATURE_TESTING=OFF
+    sources:
+      - type: git
+        url: https://github.com/slint-ui/slint.git
+        # The revisions printed above
+        commit: <slint revision>
+      - type: git
+        url: https://github.com/corrosion-rs/corrosion.git
+        commit: <corrosion revision>
+        dest: corrosion
+      - cargo-sources.json
+
+  - name: your-app
+    buildsystem: simple
+    build-commands:
+      # find_package(Slint) picks up the library installed above, so the
+      # FetchContent fallback never runs
+      - cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=/app
+      - cmake --build build
+      # The template has no install rule, so place the binary by hand
+      - install -Dm0755 build/your-app ${FLATPAK_DEST}/bin/your-app
+    sources:
+      - type: git
+        path: ./
+        branch: HEAD
+```
+
+The C++ library builds with the FemtoVG renderer and without Skia, which takes a few minutes.
+
+#### With the Skia Renderer
+
+Skia is a large graphics library written in C++.
+Building Slint with it normally downloads a prebuilt copy, and since nothing inside the sandbox reaches the network, the build compiles Skia from source instead.
+That adds roughly fifteen minutes, and means declaring Skia's own sources in the manifest.
+
+The script below writes them to `skia-sources.json`.
+It looks up the Skia revision that your Slint version expects, then turns Skia's list of dependencies into sources pinned to a commit each.
+Run it inside the Slint checkout that CMake fetched, because that is the version being built:
+
+```bash
+project=$PWD
+(cd build/_deps/slint-src && python3 "$project/flatpak-skia-generator.py" -o "$project/skia-sources.json")
+```
+
+<Code code={skiaGenerator} lang="python" title="flatpak-skia-generator.py" />
+
+Skia is configured with `gn`, a build tool the SDK doesn't ship, and it's compiled with clang rather than the SDK's gcc:
+
+```yaml
+# ...
+
+sdk-extensions:
+  - org.freedesktop.Sdk.Extension.rust-stable
+  # clang, and the libclang that Skia's bindings generator loads
+  - org.freedesktop.Sdk.Extension.llvm20
+
+# Applies to every module, so that both gn and Skia find clang
+build-options:
+  append-path: /usr/lib/sdk/rust-stable/bin:/usr/lib/sdk/llvm20/bin
+
+# gn is only needed to build Skia, so keep it out of the finished application
+cleanup:
+  - /bin/gn
+
+modules:
+  - name: gn
+    buildsystem: simple
+    build-commands:
+      - python3 build/gen.py --out-path=out --allow-warnings
+      - ninja -C out gn
+      - install -Dm0755 out/gn ${FLATPAK_DEST}/bin/gn
+    sources:
+      - type: git
+        url: https://gn.googlesource.com/gn.git
+        # The generator prints the revision Skia itself uses
+        commit: b2afae122eeb6ce09c52d63f67dc53fc517dbdc8
+        # gn stamps its version from a tag, which a shallow clone leaves behind
+        disable-shallow-clone: true
+
+  - name: slint-cpp
+    # ...
+    config-opts:
+      # ...
+      - -DSLINT_FEATURE_RENDERER_SKIA=ON
+    build-options:
+      env:
+        # ...
+        # Pointing the build at the prepared Skia sources is what makes it
+        # compile them instead of downloading anything
+        SKIA_SOURCE_DIR: /run/build/slint-cpp/deps/skia-src
+        LIBCLANG_PATH: /usr/lib/sdk/llvm20/lib
+        # Use the gn built above rather than the one Skia would fetch
+        SKIA_GN_COMMAND: /app/bin/gn
+    sources:
+      # ...
+      - skia-sources.json
+```
+
+The environment and the sources belong to the module that builds Slint, not to your application.
+Slint's CMake finds the clang Skia wants on the path the `llvm20` extension adds, so nothing else needs pointing at it.
+
+</TabItem>
 </Tabs>
 
 ## Icons and Desktop Metadata
@@ -436,6 +587,69 @@ modules:
 ```
 
 For the FemtoVG renderer, drop the `llvm20` extension, the `gn` module, the `cleanup` entry, the three Skia environment variables, and `skia-sources.json`.
+
+</TabItem>
+<TabItem label="C++" icon="seti:cpp">
+
+```yaml
+id: com.yourorganization.YourApp
+
+runtime: org.freedesktop.Platform
+runtime-version: "25.08"
+sdk: org.freedesktop.Sdk
+sdk-extensions:
+  - org.freedesktop.Sdk.Extension.rust-stable
+
+command: your-app
+
+finish-args:
+  - --device=dri
+  - --share=ipc
+  - --socket=wayland
+  - --socket=fallback-x11
+
+build-options:
+  append-path: /usr/lib/sdk/rust-stable/bin
+
+modules:
+  - name: slint-cpp
+    buildsystem: cmake-ninja
+    subdir: api/cpp
+    build-options:
+      env:
+        CARGO_HOME: /run/build/slint-cpp/cargo
+        CARGO_NET_OFFLINE: "true"
+    config-opts:
+      - -DCMAKE_BUILD_TYPE=Release
+      - -DCMAKE_INSTALL_LIBDIR=lib
+      - -DFETCHCONTENT_SOURCE_DIR_CORROSION=/run/build/slint-cpp/corrosion
+      - -DSLINT_FEATURE_INTERPRETER=OFF
+      - -DSLINT_FEATURE_TESTING=OFF
+    sources:
+      - type: git
+        url: https://github.com/slint-ui/slint.git
+        # The revisions printed above
+        commit: <slint revision>
+      - type: git
+        url: https://github.com/corrosion-rs/corrosion.git
+        commit: <corrosion revision>
+        dest: corrosion
+      - cargo-sources.json
+
+  - name: your-app
+    buildsystem: simple
+    build-commands:
+      - cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=/app
+      - cmake --build build
+      - install -Dm0755 build/your-app ${FLATPAK_DEST}/bin/your-app
+      - install -Dm0644 ${FLATPAK_ID}.desktop ${FLATPAK_DEST}/share/applications/${FLATPAK_ID}.desktop
+      - install -Dm0644 icon.png ${FLATPAK_DEST}/share/icons/hicolor/512x512/apps/${FLATPAK_ID}.png
+      - install -Dm0644 ${FLATPAK_ID}.metainfo.xml ${FLATPAK_DEST}/share/metainfo/${FLATPAK_ID}.metainfo.xml
+    sources:
+      - type: git
+        path: ./
+        branch: HEAD
+```
 
 </TabItem>
 </Tabs>
