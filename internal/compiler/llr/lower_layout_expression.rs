@@ -468,6 +468,15 @@ pub(super) fn solve_flexbox_layout(
 fn flexbox_needs_measure(layout: &crate::layout::FlexboxLayout) -> bool {
     layout.elems.iter().any(|li| {
         let elem = &li.item.element;
+        // For a repeater, check the repeated component's root — the element
+        // the measure callback queries. The repeated element itself has a
+        // materialized layoutinfo property, which makes
+        // is_height_for_width_cell return false.
+        if elem.borrow().repeated.is_some() {
+            let root = elem.borrow().base_type.as_component().root_element.clone();
+            return root.borrow().inherited_layout_info_v_with_constraint().is_some()
+                || root.borrow().inherited_layout_info_h_with_constraint().is_some();
+        }
         is_height_for_width_cell(elem)
             || elem.borrow().inherited_layout_info_h_with_constraint().is_some()
     })
