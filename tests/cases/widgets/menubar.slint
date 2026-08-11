@@ -199,12 +199,13 @@ slint_testing::send_keyboard_string_sequence(&instance, "\n");
 assert(instance.get_checkable_menu_item_checked());
 
 instance.set_result("");
-// click on the file menu to open it
+// click on the file menu to open it, and again to close it
+// (the element search API isn't used here, it doesn't work in live-preview mode)
 slint_testing::send_mouse_click(&instance, 10., 16.);
-assert_eq(slint::testing::ElementHandle::find_by_accessible_label(handle, "New").size(), 1);
-// click on it again to close it
 slint_testing::send_mouse_click(&instance, 10., 16.);
-assert_eq(slint::testing::ElementHandle::find_by_accessible_label(handle, "New").size(), 0);
+// the menu is closed, so this click doesn't hit the first entry (new)
+slint_testing::send_mouse_click(&instance, 30., 49.);
+assert_eq(instance.get_result(), "");
 // the menu can be opened again
 slint_testing::send_mouse_click(&instance, 10., 16.);
 slint_testing::send_mouse_click(&instance, 30., 49.);
