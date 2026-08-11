@@ -54,13 +54,12 @@ Slint supports Bun, but Flatpak doesn't.
 
 ## Creating a Build File
 
-Flatpak build files are named after the package ID.
-For most projects that ID is `com.yourorganization.YourProject`.
-This example uses `com.slint.TestPackage`, so the build file is named `com.slint.TestPackage.yml`.
+Flatpak build files are named after the package ID, which is a domain you control written backwards.
+This guide uses `com.yourorganization.YourApp`, so the build file is named `com.yourorganization.YourApp.yml`.
 
 ```yaml
 # The ID, explained above.
-id: com.slint.TestPackage
+id: com.yourorganization.YourApp
 
 # The runtime your application runs against
 runtime: org.freedesktop.Platform
@@ -69,7 +68,7 @@ runtime: org.freedesktop.Platform
 runtime-version: "25.08"
 
 # The command that starts your application, installed by the build below
-command: slint-test-package
+command: your-app
 
 # The matching SDK, which the build runs in
 sdk: org.freedesktop.Sdk
@@ -120,7 +119,7 @@ modules:
   # The module name is arbitrary, but Flatpak will create a `/run/build/your-module-name`
   # directory and build the package inside of it, so it should match any `/run/build/..`
   # paths in the build config. It does not need to match the command name.
-  - name: slint-test-package
+  - name: your-app
     # This tells Flatpak that you will be writing the build commands out manually, in
     # `build-commands` (see below)
     buildsystem: simple
@@ -130,17 +129,17 @@ modules:
       env:
         # Required to keep the Cargo build artifacts inside Flatpak's sandboxed build
         # directory
-        CARGO_HOME: /run/build/slint-test-package/cargo
+        CARGO_HOME: /run/build/your-app/cargo
         CARGO_NET_OFFLINE: "true"
     build-commands:
       - cargo --offline fetch --manifest-path Cargo.toml --verbose
       # For the sake of this example, we assume that this build command produces a binary
-      # named `slint-test-package`.
+      # named `your-app`.
       - cargo build --release --offline
       # The right-hand side of this must be `${FLATPAK_DEST}/bin/your-command`, where
       # `your-command` matches the top-level `command` field mentioned in the previous
       # section
-      - install -Dm0755 target/release/slint-test-package ${FLATPAK_DEST}/bin/slint-test-package
+      - install -Dm0755 target/release/your-app ${FLATPAK_DEST}/bin/your-app
     sources:
       - type: git
         # This assumes that this yaml file is in the root of your project
@@ -210,14 +209,14 @@ modules:
         # gn stamps its version from a tag, which a shallow clone leaves behind
         disable-shallow-clone: true
 
-  - name: slint-test-package
+  - name: your-app
     # ...
     build-options:
       env:
         # ...
         # Points the build at the prepared Skia sources, which is what makes it
         # compile them instead of downloading anything
-        SKIA_SOURCE_DIR: /run/build/slint-test-package/deps/skia-src
+        SKIA_SOURCE_DIR: /run/build/your-app/deps/skia-src
         LIBCLANG_PATH: /usr/lib/sdk/llvm20/lib
         # Use the gn built above rather than the one Skia would fetch
         SKIA_GN_COMMAND: /app/bin/gn
@@ -246,17 +245,17 @@ Type=Application
 Terminal=false
 # This should be the same as the binary specified in the `command` section
 # of your build `.yaml`
-Exec=slint-test-package
+Exec=your-app
 # This should be the human-readable name of your application
-Name=Slint Test Package
+Name=Your App
 # This should be the same as your Flatpak package ID, see below for details
-Icon=com.slint.TestPackage
+Icon=com.yourorganization.YourApp
 ```
 
 Check the file with `desktop-file-validate`, which comes with the Freedesktop SDK:
 
 ```bash
-flatpak run --command=desktop-file-validate org.freedesktop.Sdk//25.08 com.slint.TestPackage.desktop
+flatpak run --command=desktop-file-validate org.freedesktop.Sdk//25.08 com.yourorganization.YourApp.desktop
 ```
 
 Install it from `build-commands`:
@@ -297,10 +296,10 @@ The [full specification](https://docs.flathub.org/docs/for-app-authors/metainfo-
 <?xml version="1.0" encoding="UTF-8" ?>
 <component type="desktop-application">
     <!-- This must be the same as your Flatpak package ID -->
-    <id>com.slint.TestPackage</id>
+    <id>com.yourorganization.YourApp</id>
 
-    <name>Slint Test Package</name>
-    <summary>Example package to explain how to create a Flatpak for a Slint project</summary>
+    <name>Your App</name>
+    <summary>A short line describing what your application does</summary>
 
     <categories>
         <category>Development</category>
@@ -310,28 +309,27 @@ The [full specification](https://docs.flathub.org/docs/for-app-authors/metainfo-
         <keyword>development</keyword>
     </keywords>
 
-    <developer id="com.slint">
-        <name>Slint</name>
+    <developer id="com.yourorganization">
+        <name>Your Organization</name>
     </developer>
 
-    <icon type="stock">com.slint.TestPackage</icon>
+    <icon type="stock">com.yourorganization.YourApp</icon>
 
     <metadata_license>MIT</metadata_license>
     <project_license>MIT</project_license>
 
     <description>
         <p>
-            An example package that explains how to create a Flatpak for a
-            project written with Slint. Software centers show this first
-            paragraph underneath your application, so write a sentence or two
-            rather than repeating the summary above.
+            A paragraph about your application. Software centers show this
+            underneath its name, so write a sentence or two rather than
+            repeating the summary above.
         </p>
     </description>
 
     <url type="homepage">https://slint.dev/</url>
 
     <!-- The name of your .desktop file, including the extension -->
-    <launchable type="desktop-id">com.slint.TestPackage.desktop</launchable>
+    <launchable type="desktop-id">com.yourorganization.YourApp.desktop</launchable>
 
     <!-- Required by Flathub. `oars-1.1` with no attributes declares that
          your application has nothing to disclose -->
@@ -346,7 +344,7 @@ The [full specification](https://docs.flathub.org/docs/for-app-authors/metainfo-
 Validate the file before you build, with `appstreamcli` from the Freedesktop SDK:
 
 ```bash
-flatpak run --command=appstreamcli org.freedesktop.Sdk//25.08 validate --no-net com.slint.TestPackage.metainfo.xml
+flatpak run --command=appstreamcli org.freedesktop.Sdk//25.08 validate --no-net com.yourorganization.YourApp.metainfo.xml
 ```
 
 Install it from `build-commands`, like the desktop entry and the icon:
@@ -375,12 +373,12 @@ Commit them before you build: the `git` source packages what the repository hold
 <TabItem label="Rust" icon="seti:rust">
 
 ```yaml
-id: com.slint.TestPackage
+id: com.yourorganization.YourApp
 
 runtime: org.freedesktop.Platform
 runtime-version: "25.08"
 
-command: slint-test-package
+command: your-app
 
 sdk: org.freedesktop.Sdk
 
@@ -413,19 +411,19 @@ modules:
         commit: b2afae122eeb6ce09c52d63f67dc53fc517dbdc8
         disable-shallow-clone: true
 
-  - name: slint-test-package
+  - name: your-app
     buildsystem: simple
     build-options:
       env:
-        CARGO_HOME: /run/build/slint-test-package/cargo
+        CARGO_HOME: /run/build/your-app/cargo
         CARGO_NET_OFFLINE: "true"
-        SKIA_SOURCE_DIR: /run/build/slint-test-package/deps/skia-src
+        SKIA_SOURCE_DIR: /run/build/your-app/deps/skia-src
         LIBCLANG_PATH: /usr/lib/sdk/llvm20/lib
         SKIA_GN_COMMAND: /app/bin/gn
     build-commands:
       - cargo --offline fetch --manifest-path Cargo.toml --verbose
       - cargo build --release --offline
-      - install -Dm0755 target/release/slint-test-package ${FLATPAK_DEST}/bin/slint-test-package
+      - install -Dm0755 target/release/your-app ${FLATPAK_DEST}/bin/your-app
       - install -Dm0644 ${FLATPAK_ID}.desktop ${FLATPAK_DEST}/share/applications/${FLATPAK_ID}.desktop
       - install -Dm0644 icon.png ${FLATPAK_DEST}/share/icons/hicolor/512x512/apps/${FLATPAK_ID}.png
       - install -Dm0644 ${FLATPAK_ID}.metainfo.xml ${FLATPAK_DEST}/share/metainfo/${FLATPAK_ID}.metainfo.xml
@@ -449,7 +447,7 @@ build the package and install it for your own user:
 
 ```bash
 flatpak-builder --user --install --force-clean --install-deps-from=flathub \
-    build-dir com.slint.TestPackage.yml
+    build-dir com.yourorganization.YourApp.yml
 ```
 
 `build-dir` is a scratch directory that `flatpak-builder` fills,
@@ -462,19 +460,19 @@ Add that directory to your `.gitignore`, together with the generated sources.
 Run it the way your users will:
 
 ```bash
-flatpak run com.slint.TestPackage
+flatpak run com.yourorganization.YourApp
 ```
 
 To hand the package to someone else,
 export it into a repository and turn that into a single file:
 
 ```bash
-flatpak-builder --user --force-clean --repo=repo build-dir com.slint.TestPackage.yml
-flatpak build-bundle repo com.slint.TestPackage.flatpak com.slint.TestPackage \
+flatpak-builder --user --force-clean --repo=repo build-dir com.yourorganization.YourApp.yml
+flatpak build-bundle repo com.yourorganization.YourApp.flatpak com.yourorganization.YourApp \
     --runtime-repo=https://dl.flathub.org/repo/flathub.flatpakrepo
 ```
 
-Install the result with `flatpak install ./com.slint.TestPackage.flatpak`.
+Install the result with `flatpak install ./com.yourorganization.YourApp.flatpak`.
 A bundle holds your application alone,
 so `--runtime-repo` tells the other machine where to fetch the runtime.
 It's also a snapshot: `flatpak update` can't update an application installed from one.
