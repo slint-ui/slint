@@ -1894,33 +1894,42 @@ impl<'a> FlexboxLayoutCacheGenerator<'a> {
 /// Measure callback for height-for-width items in a FlexboxLayout.
 ///
 /// Called by taffy during the flex solve for items that need dynamic sizing.
-/// Receives `(child_index, known_width, known_height)` where `known_width`/`known_height`
-/// are `Some` if taffy has already determined that dimension.
-/// Returns `(width, height)`.
+/// Receives `(child_index, width, height, known_width, known_height)` where
+/// `known_width`/`known_height` say whether taffy has already determined that
+/// dimension; a dimension it has not is pre-resolved to the cell's preferred
+/// size. Returns `(width, height)`.
 pub type FlexboxMeasureFn<'a> =
-    Option<&'a mut dyn FnMut(usize, Option<Coord>, Option<Coord>) -> (Coord, Coord)>;
+    Option<&'a mut dyn FnMut(usize, Coord, Coord, bool, bool) -> (Coord, Coord)>;
+
+/// Adapt a [`FlexboxMeasureFn`] to the taffy-facing closure: resolve the
+/// dimensions taffy did not supply to the cell's preferred size, so the
+/// callback always receives concrete sizes plus which ones were known.
+fn resolve_measure_defaults<'a>(
+    cells_h: &'a [LayoutItemInfo],
+    cells_v: &'a [LayoutItemInfo],
+    measure: &'a mut dyn FnMut(usize, Coord, Coord, bool, bool) -> (Coord, Coord),
+) -> impl FnMut(usize, Option<Coord>, Option<Coord>) -> (Coord, Coord) + 'a {
+    move |index, known_w, known_h| {
+        let w = known_w.unwrap_or_else(|| {
+            cells_h.get(index).map_or(0 as Coord, |c| c.constraint.preferred_bounded())
+        });
+        let h = known_h.unwrap_or_else(|| {
+            cells_v.get(index).map_or(0 as Coord, |c| c.constraint.preferred_bounded())
+        });
+        measure(index, w, h, known_w.is_some(), known_h.is_some())
+    }
+}
 
 pub fn solve_flexbox_layout(
     data: &FlexboxLayoutData,
     repeater_indices: Slice<u32>,
 ) -> SharedVector<Coord> {
-    // Build a simple measure callback from the pre-computed cells data.
-    // This enables height-for-width: taffy calls back with the actual
-    // assigned width, and we return the pre-computed height from cells_v.
-    // The cells_v heights were computed with the horizontal preferred size
-    // as constraint, which is a good approximation.
-    let mut measure = |child_index: usize,
-                       known_w: Option<Coord>,
-                       known_h: Option<Coord>|
-     -> (Coord, Coord) {
-        let w = known_w.unwrap_or_else(|| {
-            data.cells_h.get(child_index).map_or(0 as Coord, |c| c.constraint.preferred_bounded())
-        });
-        let h = known_h.unwrap_or_else(|| {
-            data.cells_v.get(child_index).map_or(0 as Coord, |c| c.constraint.preferred_bounded())
-        });
-        (w, h)
-    };
+    // The identity measure callback returns the sizes pre-resolved from the
+    // cells data. The compiler emits this plain entry point only for layouts
+    // without height-for-width cells, so the pre-computed height is correct
+    // for whatever width taffy assigns; layouts with h4w cells go through
+    // a real measure callback instead.
+    let mut measure = |_: usize, w: Coord, h: Coord, _: bool, _: bool| -> (Coord, Coord) { (w, h) };
     solve_flexbox_layout_with_measure(data, repeater_indices, Some(&mut measure))
 }
 
@@ -1979,7 +1988,8 @@ pub fn solve_flexbox_layout_with_measure(
         }
     };
 
-    builder.compute_layout(available_width, available_height, measure);
+    let mut measure = measure.map(|m| resolve_measure_defaults(&data.cells_h, &data.cells_v, m));
+    builder.compute_layout(available_width, available_height, measure.as_mut().map(|m| m as _));
 
     // Extract results using the cache generator to handle repeaters.
     // If `order` sorting was applied, we need to collect results by original index first,
@@ -2365,19 +2375,65 @@ pub(crate) mod ffi {
     }
 
     /// The measure callback for C FFI. Returns (width, height) via out pointers.
-    /// `known_width`/`known_height` are negative if not determined yet.
+    /// A dimension taffy has not determined (`known_* == false`) is pre-resolved
+    /// to the cell's preferred size.
     /// A null function pointer means no measure callback.
     pub type FlexboxMeasureFnC = unsafe extern "C" fn(
         user_data: *mut core::ffi::c_void,
         child_index: usize,
-        known_width: Coord,
-        known_height: Coord,
+        width: Coord,
+        height: Coord,
+        known_width: bool,
+        known_height: bool,
         out_width: *mut Coord,
         out_height: *mut Coord,
     );
 
+    /// Turn a C measure callback (nullable fn pointer + user data) into the
+    /// closure form used internally.
+    ///
+    /// # Safety
+    /// `measure_fn`, when non-null, must be a valid `FlexboxMeasureFnC`
+    /// function pointer, passed as `*const c_void` because cbindgen can't
+    /// represent `Option<fn pointer>` in C++.
+    unsafe fn measure_closure_from_c(
+        measure_fn: *const core::ffi::c_void,
+        measure_user_data: *mut core::ffi::c_void,
+    ) -> Option<impl FnMut(usize, Coord, Coord, bool, bool) -> (Coord, Coord)> {
+        const {
+            assert!(
+                core::mem::size_of::<*const core::ffi::c_void>()
+                    == core::mem::size_of::<FlexboxMeasureFnC>()
+            );
+        }
+        if measure_fn.is_null() {
+            return None;
+        }
+        let c_measure = unsafe {
+            core::mem::transmute::<*const core::ffi::c_void, FlexboxMeasureFnC>(measure_fn)
+        };
+        Some(move |child_index: usize, w: Coord, h: Coord, known_w: bool, known_h: bool| {
+            let mut out_w: Coord = 0 as _;
+            let mut out_h: Coord = 0 as _;
+            // Safety: c_measure is a valid function pointer provided by the caller,
+            // and out_w/out_h are valid mutable pointers.
+            unsafe {
+                c_measure(
+                    measure_user_data,
+                    child_index,
+                    w,
+                    h,
+                    known_w,
+                    known_h,
+                    &mut out_w,
+                    &mut out_h,
+                );
+            }
+            (out_w, out_h)
+        })
+    }
+
     #[unsafe(no_mangle)]
-    #[allow(unsafe_code)]
     pub extern "C" fn slint_solve_flexbox_layout(
         data: &FlexboxLayoutData,
         repeater_indices: Slice<u32>,
@@ -2385,42 +2441,10 @@ pub(crate) mod ffi {
         measure_fn: *const core::ffi::c_void,
         measure_user_data: *mut core::ffi::c_void,
     ) {
-        // Safety: measure_fn, when non-null, is a valid FlexboxMeasureFnC function pointer
-        // passed as *const c_void because cbindgen can't represent Option<fn pointer> in C++.
-        const {
-            assert!(
-                core::mem::size_of::<*const core::ffi::c_void>()
-                    == core::mem::size_of::<FlexboxMeasureFnC>()
-            );
-        }
-        let measure_fn: Option<FlexboxMeasureFnC> = if measure_fn.is_null() {
-            None
-        } else {
-            Some(unsafe {
-                core::mem::transmute::<*const core::ffi::c_void, FlexboxMeasureFnC>(measure_fn)
-            })
-        };
-        if let Some(c_measure) = measure_fn {
-            let mut measure = |child_index: usize,
-                               known_w: Option<Coord>,
-                               known_h: Option<Coord>|
-             -> (Coord, Coord) {
-                let mut out_w: Coord = 0 as _;
-                let mut out_h: Coord = 0 as _;
-                // Safety: c_measure is a valid function pointer provided by the caller,
-                // and out_w/out_h are valid mutable pointers.
-                unsafe {
-                    c_measure(
-                        measure_user_data,
-                        child_index,
-                        known_w.unwrap_or(-1 as _),
-                        known_h.unwrap_or(-1 as _),
-                        &mut out_w,
-                        &mut out_h,
-                    );
-                }
-                (out_w, out_h)
-            };
+        // Safety: the caller guarantees `measure_fn` is a valid `FlexboxMeasureFnC`
+        // when non-null (see `measure_closure_from_c`).
+        let measure = unsafe { measure_closure_from_c(measure_fn, measure_user_data) };
+        if let Some(mut measure) = measure {
             *result = super::solve_flexbox_layout_with_measure(
                 data,
                 repeater_indices,

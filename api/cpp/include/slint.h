@@ -229,10 +229,23 @@ inline SharedVector<float> solve_flexbox_layout(const cbindgen_private::FlexboxL
     return result;
 }
 
-// Like `solve_flexbox_layout`, but with a measure callback used for
-// height-for-width: `measure(index, known_w, known_h)` returns `{width,
-// height}`; an absent optional means "compute it". A negative value over the C
-// ABI denotes an absent dimension.
+// C thunk for the flexbox measure callbacks: unpack the type-erased functor
+// and forward. `measure(index, w, h, known_w, known_h)` returns `{width,
+// height}`; a dimension taffy has not determined (`known_* == false`) arrives
+// pre-resolved to the cell's preferred size.
+template<typename MeasureFn>
+inline void flexbox_measure_thunk(void *user_data, uintptr_t child_index, float width, float height,
+                                  bool known_width, bool known_height, float *out_width,
+                                  float *out_height)
+{
+    auto *f = reinterpret_cast<MeasureFn *>(user_data);
+    auto wh = (*f)(child_index, width, height, known_width, known_height);
+    *out_width = wh.first;
+    *out_height = wh.second;
+}
+
+// Like `solve_flexbox_layout`, but with a measure callback (see
+// `flexbox_measure_thunk`) used for height-for-width.
 template<typename MeasureFn>
 inline SharedVector<float>
 solve_flexbox_layout_with_measure(const cbindgen_private::FlexboxLayoutData &data,
@@ -241,19 +254,9 @@ solve_flexbox_layout_with_measure(const cbindgen_private::FlexboxLayoutData &dat
     SharedVector<float> result;
     cbindgen_private::Slice<uint32_t> ri =
             make_slice(reinterpret_cast<uint32_t *>(repeater_indices.ptr), repeater_indices.len);
-    auto thunk = [](void *user_data, uintptr_t child_index, float known_width, float known_height,
-                    float *out_width, float *out_height) {
-        auto *f = reinterpret_cast<MeasureFn *>(user_data);
-        auto wh = (*f)(
-                child_index,
-                known_width < 0 ? std::optional<float> {} : std::optional<float> { known_width },
-                known_height < 0 ? std::optional<float> {} : std::optional<float> { known_height });
-        *out_width = wh.first;
-        *out_height = wh.second;
-    };
-    cbindgen_private::slint_solve_flexbox_layout(&data, ri, &result,
-                                                 reinterpret_cast<const void *>(+thunk),
-                                                 reinterpret_cast<void *>(&measure));
+    cbindgen_private::slint_solve_flexbox_layout(
+            &data, ri, &result, reinterpret_cast<const void *>(&flexbox_measure_thunk<MeasureFn>),
+            reinterpret_cast<void *>(&measure));
     return result;
 }
 
