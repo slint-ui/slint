@@ -225,7 +225,8 @@ public:
         if (inner.element_index != 0)
             return std::nullopt;
         if (auto item = private_api::upgrade_item_weak(inner.item)) {
-            return item->item_tree.vtable()->accessible_role(item->item_tree.borrow(), item->index);
+            return item->item_tree.vtable()->fns->accessible_role(item->item_tree.borrow(),
+                                                                  item->index);
         }
         return std::nullopt;
     }
@@ -428,8 +429,8 @@ public:
                 ~SetSelectionHelper() { }
 
             } action(anchor, focus);
-            item->item_tree.vtable()->accessibility_action(item->item_tree.borrow(), item->index,
-                                                           &action.action);
+            item->item_tree.vtable()->fns->accessibility_action(item->item_tree.borrow(),
+                                                                item->index, &action.action);
         }
     }
 
@@ -449,8 +450,8 @@ public:
                 ~ExpandActionHelper() { }
 
             } action;
-            item->item_tree.vtable()->accessibility_action(item->item_tree.borrow(), item->index,
-                                                           &action.action);
+            item->item_tree.vtable()->fns->accessibility_action(item->item_tree.borrow(),
+                                                                item->index, &action.action);
         }
     }
 
@@ -473,8 +474,8 @@ public:
                 ~SetValueHelper() { action.set_value.~SetValue_Body(); }
 
             } action(std::move(value));
-            item->item_tree.vtable()->accessibility_action(item->item_tree.borrow(), item->index,
-                                                           &action.action);
+            item->item_tree.vtable()->fns->accessibility_action(item->item_tree.borrow(),
+                                                                item->index, &action.action);
         }
     }
 
@@ -494,8 +495,8 @@ public:
                 ~IncreaseActionHelper() { }
 
             } action;
-            item->item_tree.vtable()->accessibility_action(item->item_tree.borrow(), item->index,
-                                                           &action.action);
+            item->item_tree.vtable()->fns->accessibility_action(item->item_tree.borrow(),
+                                                                item->index, &action.action);
         }
     }
 
@@ -515,8 +516,8 @@ public:
                 ~DecreaseActionHelper() { }
 
             } action;
-            item->item_tree.vtable()->accessibility_action(item->item_tree.borrow(), item->index,
-                                                           &action.action);
+            item->item_tree.vtable()->fns->accessibility_action(item->item_tree.borrow(),
+                                                                item->index, &action.action);
         }
     }
 
@@ -536,8 +537,8 @@ public:
                 ~DefaultActionHelper() { }
 
             } action;
-            item->item_tree.vtable()->accessibility_action(item->item_tree.borrow(), item->index,
-                                                           &action.action);
+            item->item_tree.vtable()->fns->accessibility_action(item->item_tree.borrow(),
+                                                                item->index, &action.action);
         }
     }
 
@@ -545,8 +546,8 @@ public:
     LogicalSize size() const
     {
         if (auto item = private_api::upgrade_item_weak(inner.item)) {
-            auto rect =
-                    item->item_tree.vtable()->item_geometry(item->item_tree.borrow(), item->index);
+            auto rect = item->item_tree.vtable()->fns->item_geometry(item->item_tree.borrow(),
+                                                                     item->index);
             return LogicalSize({ rect.width, rect.height });
         }
         return LogicalSize({ 0, 0 });
@@ -574,8 +575,8 @@ private:
             return std::nullopt;
         if (auto item = private_api::upgrade_item_weak(inner.item)) {
             SharedString result;
-            if (item->item_tree.vtable()->accessible_string_property(item->item_tree.borrow(),
-                                                                     item->index, what, &result)) {
+            if (item->item_tree.vtable()->fns->accessible_string_property(
+                        item->item_tree.borrow(), item->index, what, &result)) {
                 return result;
             }
         }

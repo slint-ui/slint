@@ -1708,9 +1708,10 @@ fn generate_item_tree(
         }
     });
 
-    // The ItemTreeVTable entries are the shared slint_compiled_item_tree_*
-    // functions from the runtime; everything component-specific they need is in
-    // the ItemTreeDescriptor (data tables plus a few function hooks).
+    // The ItemTreeVTable is four words: the runtime's shared function table, the two
+    // destructor entries (shared too, they read the descriptor), and the descriptor itself.
+    // Everything component-specific lives in the ItemTreeDescriptor: data tables plus a few
+    // function hooks.
 
     let parent_item_from_parent_component = parent_ctx.as_ref()
         .map(|parent| {
@@ -1937,23 +1938,7 @@ fn generate_item_tree(
         ty: "constinit const slint::private_api::ItemTreeVTable".into(),
         name: format_smolstr!("{}::static_vtable", item_tree_class_name),
         init: Some(format!(
-            "{{ slint::cbindgen_private::slint_compiled_item_tree_visit_children_item, \
-                slint::cbindgen_private::slint_compiled_item_tree_get_item_ref, \
-                slint::cbindgen_private::slint_compiled_item_tree_get_subtree_range, \
-                slint::cbindgen_private::slint_compiled_item_tree_get_subtree, \
-                slint::cbindgen_private::slint_compiled_item_tree_get_item_tree, \
-                slint::cbindgen_private::slint_compiled_item_tree_parent_node, \
-                slint::cbindgen_private::slint_compiled_item_tree_embed_component, \
-                slint::cbindgen_private::slint_compiled_item_tree_subtree_index, \
-                slint::cbindgen_private::slint_compiled_item_tree_layout_info, \
-                slint::cbindgen_private::slint_compiled_item_tree_ensure_instantiated, \
-                slint::cbindgen_private::slint_compiled_item_tree_item_geometry, \
-                slint::cbindgen_private::slint_compiled_item_tree_accessible_role, \
-                slint::cbindgen_private::slint_compiled_item_tree_accessible_string_property, \
-                slint::cbindgen_private::slint_compiled_item_tree_accessibility_action, \
-                slint::cbindgen_private::slint_compiled_item_tree_supported_accessibility_actions, \
-                slint::cbindgen_private::slint_compiled_item_tree_item_element_infos, \
-                slint::cbindgen_private::slint_compiled_item_tree_window_adapter, \
+            "{{ &slint::cbindgen_private::SLINT_COMPILED_ITEM_TREE_FNS, \
                 slint::cbindgen_private::slint_compiled_item_tree_drop_in_place, \
                 slint::cbindgen_private::slint_compiled_item_tree_dealloc, \
                 &{item_tree_class_name}::item_tree_descriptor }}"
@@ -3061,7 +3046,7 @@ fn generate_layout_item_info_decl(
                      if (index >= count && index - count < inner_len) {{\n\
                          if (auto vrc = {inner_rep_id}.instance_at(index - count).lock()) {{\n\
                              auto vref = vrc->borrow();\n\
-                             return {{ vref.vtable->layout_info(vref, o), {{}} }};\n\
+                             return {{ vref.vtable->fns->layout_info(vref, o), {{}} }};\n\
                          }}\n\
                      }}\n\
                      {advance}}}\n",

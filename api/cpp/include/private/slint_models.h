@@ -1130,7 +1130,7 @@ class Repeater
                             auto ref = vtable::VRef<private_api::ItemTreeVTable> {
                                 &C::static_vtable, const_cast<C *>(&(**c.ptr))
                             };
-                            ref.vtable->ensure_instantiated(ref);
+                            ref.vtable->fns->ensure_instantiated(ref);
                         }
                     },
         };
@@ -1273,7 +1273,7 @@ public:
             if (!inner->data[index].ptr)
                 continue;
             auto ref = item_at(index);
-            if (ref.vtable->visit_children_item(ref, -1, order, visitor)
+            if (ref.vtable->fns->visit_children_item(ref, -1, order, visitor)
                 != std::numeric_limits<uint64_t>::max()) {
                 return index;
             }
@@ -1359,7 +1359,7 @@ public:
             if (x.ptr) {
                 vtable::VRef<private_api::ItemTreeVTable> ref { &C::static_vtable,
                                                                 const_cast<C *>(&(**x.ptr)) };
-                changed |= ref.vtable->ensure_instantiated(ref);
+                changed |= ref.vtable->fns->ensure_instantiated(ref);
             }
         }
         return changed;
@@ -1419,7 +1419,7 @@ public:
         if (instance) {
             vtable::VRef<private_api::ItemTreeVTable> ref { &C::static_vtable,
                                                             const_cast<C *>(&(**instance)) };
-            if (ref.vtable->visit_children_item(ref, -1, order, visitor)
+            if (ref.vtable->fns->visit_children_item(ref, -1, order, visitor)
                 != std::numeric_limits<uint64_t>::max()) {
                 return 0;
             }
@@ -1457,7 +1457,7 @@ public:
         if (instance) {
             vtable::VRef<private_api::ItemTreeVTable> ref { &C::static_vtable,
                                                             const_cast<C *>(&(**instance)) };
-            return ref.vtable->ensure_instantiated(ref);
+            return ref.vtable->fns->ensure_instantiated(ref);
         }
         return false;
     }

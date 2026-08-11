@@ -12,10 +12,9 @@ use i_slint_core::SharedString;
 use i_slint_core::accessibility::{
     AccessibilityAction, AccessibleStringProperty, SupportedAccessibilityAction,
 };
-use i_slint_core::item_tree::ItemTreeConsts as _;
 use i_slint_core::item_tree::{
-    IndexRange, ItemTree, ItemTreeNode, ItemTreeVTable, ItemVisitorVTable, ItemWeak,
-    TraversalOrder, VisitChildrenResult,
+    IndexRange, ItemTreeNode, ItemTreeVTable, ItemVisitorVTable, ItemWeak, TraversalOrder,
+    VisitChildrenResult,
 };
 use i_slint_core::items::{AccessibleRole, ItemVTable};
 use i_slint_core::layout::{LayoutInfo, Orientation};

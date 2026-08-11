@@ -40,11 +40,17 @@ impl From<IndexRange> for core::ops::Range<usize> {
     }
 }
 
-/// A ItemTree is representing an unit that is allocated together
+/// Everything an [`ItemTree`] can be asked to do.
+///
+/// Held apart from [`ItemTreeVTable`] and reached through its `fns` field, because these
+/// entries do not distinguish one item tree from another: every component the Slint compiler
+/// emits answers through the same shared functions in [`compiled`], and only the descriptor
+/// next to them differs. Storing them once instead of once per component keeps the
+/// per-component vtable at four words, whatever gets added here.
 #[cfg_attr(not(feature = "ffi"), i_slint_core_macros::remove_extern)]
-#[vtable]
+#[vtable(vtable = ItemTreeVTable)]
 #[repr(C)]
-pub struct ItemTreeVTable {
+pub struct ItemTreeFns {
     /// Visit the children of the item at index `index`.
     /// Note that the root item is at index 0, so passing 0 would visit the item under root (the children of root).
     /// If you want to visit the root item, you need to pass -1 as an index.
@@ -151,6 +157,21 @@ pub struct ItemTreeVTable {
         do_create: bool,
         result: &mut Option<WindowAdapterRc>,
     ),
+}
+
+/// A ItemTree is representing an unit that is allocated together
+///
+/// Mostly data: the code lives in the shared [`ItemTreeFns`] table, and what is left here is
+/// what genuinely differs between item trees.
+#[cfg_attr(not(feature = "ffi"), i_slint_core_macros::remove_extern)]
+#[repr(C)]
+pub struct ItemTreeVTable {
+    /// What this item tree can be asked to do. Compiled components all point at the same
+    /// table; hand-written ones get their own from [`ItemTreeVTable_static`].
+    ///
+    /// Safety invariant for whoever fills this in: the table must outlive every instance
+    /// whose vtable refers to it.
+    pub fns: *const ItemTreeFns,
 
     /// in-place destructor (for VRc)
     pub drop_in_place: unsafe extern "C" fn(VRefMut<ItemTreeVTable>) -> vtable::Layout,
@@ -178,13 +199,85 @@ pub struct ItemTreeVTable {
     pub descriptor: *const ItemTreeDescriptor,
 }
 
-// Safety: the vtable holds function pointers and a pointer to an immutable
-// descriptor that, per the field's invariant, outlives every user of the
-// vtable. Sharing it across threads therefore hands out nothing mutable.
-// Needed because the raw pointer would otherwise make the vtable `!Sync`,
-// and every compiled component stores its vtable in a `static`.
+// Safety: the vtable holds pointers to an immutable function table and descriptor that, per
+// those fields' invariants, outlive every user of the vtable. Sharing it across threads
+// therefore hands out nothing mutable. Needed because the raw pointers would otherwise make
+// the vtable `!Sync`, and every compiled component stores its vtable in a `static`.
 #[allow(unsafe_code)]
 unsafe impl Sync for ItemTreeVTable {}
+
+/// The parts of an [`ItemTreeVTable`] that a hand-written item tree has to supply itself,
+/// because unlike the functions in [`ItemTreeFns`] they cannot be shared between types.
+pub trait ItemTreeConsts: Sized {
+    /// See [`ItemTreeVTable::descriptor`]. Null unless this type is served by the shared
+    /// entry points in [`compiled`].
+    #[allow(non_upper_case_globals)]
+    const descriptor: *const ItemTreeDescriptor;
+}
+
+impl ItemTreeVTable {
+    /// The vtable of a type that implements the item tree traits itself.
+    pub const fn new<T: ItemTree + ItemTreeConsts>() -> Self {
+        #[allow(unsafe_code)]
+        #[cfg_attr(not(feature = "ffi"), i_slint_core_macros::remove_extern)]
+        unsafe extern "C" fn drop_in_place<T>(inst: VRefMut<ItemTreeVTable>) -> vtable::Layout {
+            // Safety: the caller guarantees `inst` is a `T` allocated for this vtable.
+            unsafe { core::ptr::drop_in_place(inst.as_ptr() as *mut T) };
+            core::alloc::Layout::new::<T>().into()
+        }
+        #[allow(unsafe_code)]
+        #[cfg_attr(not(feature = "ffi"), i_slint_core_macros::remove_extern)]
+        unsafe extern "C" fn dealloc(
+            _vtable: &ItemTreeVTable,
+            ptr: *mut u8,
+            layout: vtable::Layout,
+        ) {
+            use core::convert::TryInto;
+            // Safety: the caller guarantees `ptr` was allocated with `layout`.
+            unsafe { alloc::alloc::dealloc(ptr, layout.try_into().unwrap()) }
+        }
+        Self {
+            fns: &const { ItemTreeFns::new::<T>() },
+            drop_in_place: drop_in_place::<T>,
+            dealloc,
+            descriptor: T::descriptor,
+        }
+    }
+}
+
+// Safety: both entries are reached through the vtable that describes the instance behind
+// `ptr`, which is what `VRc` guarantees when it calls them.
+#[allow(unsafe_code)]
+unsafe impl vtable::VTableMetaDropInPlace for ItemTreeVTable {
+    unsafe fn drop_in_place(vtable: &ItemTreeVTable, ptr: *mut u8) -> vtable::Layout {
+        unsafe {
+            (vtable.drop_in_place)(VRefMut::from_raw(
+                core::ptr::NonNull::from(vtable),
+                core::ptr::NonNull::new_unchecked(ptr).cast(),
+            ))
+        }
+    }
+    unsafe fn dealloc(vtable: &ItemTreeVTable, ptr: *mut u8, layout: vtable::Layout) {
+        unsafe { (vtable.dealloc)(vtable, ptr, layout) }
+    }
+}
+
+/// Emit the static [`ItemTreeVTable`] of a type implementing [`ItemTree`] and
+/// [`ItemTreeConsts`], plus an implementation of `HasStaticVTable` pointing at it.
+///
+/// Compiled components use [`compiled_item_tree_vtable!`] instead, which shares the entry
+/// functions rather than deriving them from a trait implementation.
+#[macro_export]
+macro_rules! ItemTreeVTable_static {
+    ($(#[$meta:meta])* $vis:vis static $ident:ident for $ty:ty) => {
+        $(#[$meta])* $vis static $ident: $crate::item_tree::ItemTreeVTable =
+            $crate::item_tree::ItemTreeVTable::new::<$ty>();
+        #[allow(unsafe_code)]
+        unsafe impl $crate::vtable::HasStaticVTable<$crate::item_tree::ItemTreeVTable> for $ty {
+            const STATIC_VTABLE: &'static $crate::item_tree::ItemTreeVTable = &$ident;
+        }
+    };
+}
 
 #[cfg(test)]
 pub(crate) use ItemTreeVTable_static;
@@ -1589,6 +1682,49 @@ pub mod compiled {
     }
 }
 
+/// The one function table every compiled item tree points at: the shared implementations in
+/// [`compiled`], which read the vtable's descriptor to serve each query and are therefore the
+/// same for all of them.
+#[allow(unsafe_code)]
+#[unsafe(no_mangle)]
+pub static SLINT_COMPILED_ITEM_TREE_FNS: ItemTreeFns = ItemTreeFns {
+    visit_children_item: compiled::slint_compiled_item_tree_visit_children_item,
+    get_item_ref: compiled::slint_compiled_item_tree_get_item_ref,
+    get_subtree_range: compiled::slint_compiled_item_tree_get_subtree_range,
+    get_subtree: compiled::slint_compiled_item_tree_get_subtree,
+    get_item_tree: compiled::slint_compiled_item_tree_get_item_tree,
+    parent_node: compiled::slint_compiled_item_tree_parent_node,
+    embed_component: compiled::slint_compiled_item_tree_embed_component,
+    subtree_index: compiled::slint_compiled_item_tree_subtree_index,
+    layout_info: compiled::slint_compiled_item_tree_layout_info,
+    ensure_instantiated: compiled::slint_compiled_item_tree_ensure_instantiated,
+    item_geometry: compiled::slint_compiled_item_tree_item_geometry,
+    accessible_role: compiled::slint_compiled_item_tree_accessible_role,
+    accessible_string_property: compiled::slint_compiled_item_tree_accessible_string_property,
+    accessibility_action: compiled::slint_compiled_item_tree_accessibility_action,
+    supported_accessibility_actions:
+        compiled::slint_compiled_item_tree_supported_accessibility_actions,
+    item_element_infos: compiled::slint_compiled_item_tree_item_element_infos,
+    window_adapter: compiled::slint_compiled_item_tree_window_adapter,
+};
+
+impl ItemTreeVTable {
+    /// A vtable serving `descriptor` through the shared entry points.
+    ///
+    /// # Safety
+    ///
+    /// `descriptor` must outlive this vtable and every instance using it.
+    #[allow(unsafe_code)]
+    pub const unsafe fn new_compiled(descriptor: *const ItemTreeDescriptor) -> Self {
+        Self {
+            fns: &SLINT_COMPILED_ITEM_TREE_FNS,
+            drop_in_place: compiled::slint_compiled_item_tree_drop_in_place,
+            dealloc: compiled::slint_compiled_item_tree_dealloc,
+            descriptor,
+        }
+    }
+}
+
 /// Emit the static vtable of a compiled component: an [`ItemTreeVTable`] whose
 /// entries are the shared functions from the [`compiled`] module and whose
 /// `descriptor` is the component's `ITEM_TREE_DESCRIPTOR`, plus an
@@ -1596,29 +1732,9 @@ pub mod compiled {
 #[macro_export]
 macro_rules! compiled_item_tree_vtable {
     (static $id:ident for $ty:ty) => {
-        static $id: $crate::item_tree::ItemTreeVTable =
-            $crate::item_tree::ItemTreeVTable {
-                visit_children_item: $crate::item_tree::compiled::slint_compiled_item_tree_visit_children_item,
-                get_item_ref: $crate::item_tree::compiled::slint_compiled_item_tree_get_item_ref,
-                get_subtree_range: $crate::item_tree::compiled::slint_compiled_item_tree_get_subtree_range,
-                get_subtree: $crate::item_tree::compiled::slint_compiled_item_tree_get_subtree,
-                get_item_tree: $crate::item_tree::compiled::slint_compiled_item_tree_get_item_tree,
-                parent_node: $crate::item_tree::compiled::slint_compiled_item_tree_parent_node,
-                embed_component: $crate::item_tree::compiled::slint_compiled_item_tree_embed_component,
-                subtree_index: $crate::item_tree::compiled::slint_compiled_item_tree_subtree_index,
-                layout_info: $crate::item_tree::compiled::slint_compiled_item_tree_layout_info,
-                ensure_instantiated: $crate::item_tree::compiled::slint_compiled_item_tree_ensure_instantiated,
-                item_geometry: $crate::item_tree::compiled::slint_compiled_item_tree_item_geometry,
-                accessible_role: $crate::item_tree::compiled::slint_compiled_item_tree_accessible_role,
-                accessible_string_property: $crate::item_tree::compiled::slint_compiled_item_tree_accessible_string_property,
-                accessibility_action: $crate::item_tree::compiled::slint_compiled_item_tree_accessibility_action,
-                supported_accessibility_actions: $crate::item_tree::compiled::slint_compiled_item_tree_supported_accessibility_actions,
-                item_element_infos: $crate::item_tree::compiled::slint_compiled_item_tree_item_element_infos,
-                window_adapter: $crate::item_tree::compiled::slint_compiled_item_tree_window_adapter,
-                drop_in_place: $crate::item_tree::compiled::slint_compiled_item_tree_drop_in_place,
-                dealloc: $crate::item_tree::compiled::slint_compiled_item_tree_dealloc,
-                descriptor: <$ty>::ITEM_TREE_DESCRIPTOR.erased(),
-            };
+        static $id: $crate::item_tree::ItemTreeVTable = unsafe {
+            $crate::item_tree::ItemTreeVTable::new_compiled(<$ty>::ITEM_TREE_DESCRIPTOR.erased())
+        };
         #[allow(unsafe_code)]
         unsafe impl $crate::vtable::HasStaticVTable<$crate::item_tree::ItemTreeVTable> for $ty {
             const STATIC_VTABLE: &'static $crate::item_tree::ItemTreeVTable = &$id;
