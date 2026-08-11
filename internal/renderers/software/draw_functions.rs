@@ -673,20 +673,22 @@ pub(super) fn draw_radial_gradient(
     let center_y = rect.min_y() as f32 + g.center_y;
 
     debug_assert!(
-        g.radius >= 0.0,
-        "radius must be resolved before constructing RadialGradientCommand"
+        g.radius_x >= 0.0 && g.radius_y >= 0.0,
+        "radii must be resolved before constructing RadialGradientCommand"
     );
-    let max_radius = g.radius.max(f32::EPSILON);
+    let radius_x = g.radius_x.max(f32::EPSILON);
+    let radius_y = g.radius_y.max(f32::EPSILON);
 
     let start_x = rect.min_x() + extra_left_clip;
     let dy = line.get() as f32 - center_y;
-    let dy_squared = dy * dy;
+    let dy_norm_squared = (dy / radius_y) * (dy / radius_y);
 
     for (i, pixel) in buffer.iter_mut().enumerate() {
         let x = start_x + i as i16;
         let dx = x as f32 - center_x;
-        let distance = (dx * dx + dy_squared).sqrt();
-        let position = (distance / max_radius).clamp(0.0, 1.0);
+        let dx_norm = dx / radius_x;
+        let distance = (dx_norm * dx_norm + dy_norm_squared).sqrt();
+        let position = distance.clamp(0.0, 1.0);
 
         // Find the two gradient stops to interpolate between
         let mut color = g.stops.first().map(|s| s.color).unwrap_or_default();
