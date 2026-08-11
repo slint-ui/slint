@@ -11,8 +11,7 @@ use i_slint_compiler::generator::OutputFormat;
 use i_slint_compiler::parser::parse;
 use i_slint_compiler::{CompilerConfiguration, compile_syntax_node};
 
-const FLEX_ITEM_PROPERTIES: &[&str] =
-    &["flex-grow: 1", "flex-shrink: 2", "flex-basis: 100px", "flex-order: 3"];
+const FLEX_ITEM_PROPERTIES: &[&str] = &["flex-grow: 1", "flex-shrink: 2", "flex-order: 3"];
 
 /// Compile `source` and return its errors (warnings are not of interest here).
 fn errors(source: String, enable_experimental: bool) -> Vec<String> {

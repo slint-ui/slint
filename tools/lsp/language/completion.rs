@@ -2942,7 +2942,7 @@ export component Foo {
 }
 "#;
         let results = get_completions_experimental(source).unwrap();
-        for prop in ["flex-grow", "flex-shrink", "flex-basis", "flex-order"].iter() {
+        for prop in ["flex-grow", "flex-shrink", "flex-order"].iter() {
             assert!(
                 results.iter().any(|completion| completion.label == *prop),
                 "no '{prop}' completion with experimental features"

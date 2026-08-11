@@ -526,7 +526,7 @@ pub struct SubComponent {
     pub child_of_layout: bool,
     pub grid_layout_input_for_repeated: Option<MutExpression>,
     /// Expression that builds a FlexboxLayoutItemInfo for a repeated element in a FlexboxLayout.
-    /// Contains property references to flex-grow, flex-shrink, flex-basis, align-self, order.
+    /// Contains property references to flex-grow, flex-shrink, align-self, order.
     pub flexbox_layout_item_info_for_repeated: Option<MutExpression>,
     /// The root's `cross-axis-self-alignment` for a repeated element in a box
     /// layout, returned by the generated `layout_item_info` for the given

@@ -7,7 +7,6 @@ export component X inherits Rectangle {
         Text {
             flex-grow: 1;
             flex-shrink: 2;
-            flex-basis: 100px;
             cross-axis-self-alignment: center;
             flex-order: 3;
         }
@@ -17,8 +16,6 @@ export component X inherits Rectangle {
 //                         ><error{flex-grow used outside of a FlexboxLayout}
                 flex-shrink: 2;
 //                           ><error{flex-shrink used outside of a FlexboxLayout}
-                flex-basis: 100px;
-//                          >    <error{flex-basis used outside of a FlexboxLayout}
                 cross-axis-self-alignment: center;
 //                                         >     <error{cross-axis-self-alignment used outside of a FlexboxLayout, HorizontalLayout, or VerticalLayout}
                 flex-order: 3;
@@ -33,8 +30,6 @@ export component X inherits Rectangle {
 //                 ><error{flex-grow used outside of a FlexboxLayout}
         flex-shrink: 2;
 //                   ><error{flex-shrink used outside of a FlexboxLayout}
-        flex-basis: 100px;
-//                  >    <error{flex-basis used outside of a FlexboxLayout}
         cross-axis-self-alignment: center;
 //                                 >     <error{cross-axis-self-alignment used outside of a FlexboxLayout, HorizontalLayout, or VerticalLayout}
         flex-order: 3;

@@ -272,11 +272,9 @@ flexbox_layout_info_main_axis(cbindgen_private::Slice<cbindgen_private::LayoutIt
 
 inline float
 flexbox_layout_unwrapped_main(cbindgen_private::Slice<cbindgen_private::LayoutItemInfo> cells,
-                              cbindgen_private::Slice<cbindgen_private::FlexItemProps> flex_props,
                               float spacing, const cbindgen_private::Padding &padding)
 {
-    return cbindgen_private::slint_flexbox_layout_unwrapped_main(cells, flex_props, spacing,
-                                                                 &padding);
+    return cbindgen_private::slint_flexbox_layout_unwrapped_main(cells, spacing, &padding);
 }
 
 inline cbindgen_private::LayoutInfo

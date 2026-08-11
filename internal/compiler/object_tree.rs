@@ -4442,9 +4442,7 @@ pub fn inject_element_as_repeated_element(repeated_element: &ElementRc, new_root
     // than moving them, which would leave those references dangling.
     // cross-axis-self-alignment is read by both the flexbox and the box layout
     // accessor; the flex-* properties only by the flexbox one.
-    for prop in
-        ["flex-grow", "flex-shrink", "flex-basis", "flex-order", "cross-axis-self-alignment"].iter()
-    {
+    for prop in ["flex-grow", "flex-shrink", "flex-order", "cross-axis-self-alignment"].iter() {
         if old_root.borrow().binding(prop).is_some() {
             new_root.borrow_mut().set_binding(
                 SmolStr::new_static(prop),

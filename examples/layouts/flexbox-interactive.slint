@@ -167,7 +167,7 @@ export component MainWindow inherits Window {
                 FlexCell {
                     cell_text: "A grow:1";
                     flex-grow: 1;
-                    flex-basis: 60phx;
+                    preferred-width: 60phx;
                     min-height: 40phx;
                     background: #4a90d9;
                 }
@@ -175,7 +175,7 @@ export component MainWindow inherits Window {
                 FlexCell {
                     cell_text: "B grow:2";
                     flex-grow: 2;
-                    flex-basis: 60phx;
+                    preferred-width: 60phx;
                     min-height: 40phx;
                     background: #2e6da4;
                 }
@@ -185,17 +185,17 @@ export component MainWindow inherits Window {
                     width: 80phx;
                     height: 40phx;
                 }
-                // flex-basis: these two have different starting sizes
+                // preferred-width: these two have different starting sizes
                 FlexCell {
-                    cell_text: "F basis:40";
-                    flex-basis: 40phx;
+                    cell_text: "F pref:40";
+                    preferred-width: 40phx;
                     min-height: 40phx;
                     background: #27ae60;
                 }
 
                 FlexCell {
-                    cell_text: "G basis:160";
-                    flex-basis: 160phx;
+                    cell_text: "G pref:160";
+                    preferred-width: 160phx;
                     min-height: 40phx;
                     background: #1e8449;
                 }
@@ -208,7 +208,7 @@ export component MainWindow inherits Window {
                 // flex-shrink: red items shrink when space is tight (try no-wrap with a narrow window)
                 FlexCell {
                     cell_text: "M shrink:1";
-                    flex-basis: 150phx;
+                    preferred-width: 150phx;
                     flex-shrink: 1;
                     min-height: 40phx;
                     background: #d94a4a;
@@ -216,7 +216,7 @@ export component MainWindow inherits Window {
 
                 FlexCell {
                     cell_text: "N shrink:3";
-                    flex-basis: 150phx;
+                    preferred-width: 150phx;
                     flex-shrink: 3;
                     min-height: 40phx;
                     background: #a93226;
