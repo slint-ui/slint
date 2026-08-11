@@ -1606,9 +1606,7 @@ impl WindowAdapterInternal for WinitWindowAdapter {
 
     #[cfg(muda)]
     fn supports_native_menu_bar(&self) -> bool {
-        // Set SLINT_NO_NATIVE_MENUBAR to render the menu bar inside the window instead.
-        // That's the only way to exercise the non-native menu bar on macOS and Windows.
-        std::env::var_os("SLINT_NO_NATIVE_MENUBAR").is_none()
+        !crate::muda::is_disabled()
     }
 
     #[cfg(muda)]
@@ -1635,6 +1633,10 @@ impl WindowAdapterInternal for WinitWindowAdapter {
         context_menu_item: vtable::VRc<i_slint_core::menus::MenuVTable>,
         position: LogicalPosition,
     ) -> bool {
+        if crate::muda::is_disabled() {
+            return false;
+        }
+
         self.context_menu.replace(Some(context_menu_item));
 
         if let WinitWindowOrNone::HasWindow { context_menu_muda_adapter, .. } =
