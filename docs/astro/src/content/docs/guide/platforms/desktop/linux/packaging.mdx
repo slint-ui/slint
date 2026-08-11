@@ -3,7 +3,7 @@ title: Packaging
 description: Package a desktop Slint app for distribution on Linux, using Flatpak
 ---
 
-{/* cSpell: ignore Flatpaks yourorganization pulseaudio jpegd jpege Metainfo metainfo Flathub launchable pacman Cachy appstreamcli */}
+{/* cSpell: ignore Flatpaks yourorganization pulseaudio jpegd jpege Metainfo metainfo Flathub launchable pacman Cachy appstreamcli tomlkit */}
 
 import { Aside } from '@astrojs/starlight/components';
 import { Tabs, TabItem } from '@astrojs/starlight/components';
@@ -109,8 +109,16 @@ Next comes the part that depends on your language: the dependencies and the buil
 <Tabs syncKey="dev-language">
 <TabItem label="Rust" icon="seti:rust">
 
-Run the [`flatpak-cargo-generator.py`](https://github.com/flatpak/flatpak-builder-tools/tree/master/cargo) script mentioned above.
-It writes a file named `cargo-sources.json`.
+Run the [`flatpak-cargo-generator.py`](https://github.com/flatpak/flatpak-builder-tools/tree/master/cargo) script mentioned above over your lockfile.
+It declares its own dependencies inline, so [`uv`](https://docs.astral.sh/uv/) runs it without a virtual environment:
+
+```bash
+curl -O https://raw.githubusercontent.com/flatpak/flatpak-builder-tools/master/cargo/flatpak-cargo-generator.py
+uv run flatpak-cargo-generator.py Cargo.lock -o cargo-sources.json
+```
+
+Pass `-o`, or the script writes `generated-sources.json` instead.
+To run it with `python3` rather than `uv`, install its `aiohttp` and `tomlkit` dependencies first.
 
 ```yaml
 # ...
@@ -167,7 +175,13 @@ The sandbox has no network, so the Skia sources have to be declared like every o
 
 The script below writes them to `skia-sources.json`.
 It reads the Skia revision that your `skia-bindings` version pins, then turns Skia's own `DEPS` file into commit-pinned `git` sources.
-Run it from the root of your project whenever `Cargo.lock` changes, next to `flatpak-cargo-generator.py`:
+Save it next to `flatpak-cargo-generator.py` and run it from the root of your project, whenever `Cargo.lock` changes:
+
+```bash
+python3 flatpak-skia-generator.py
+```
+
+It uses the standard library alone, so it needs no dependencies of its own.
 
 <Code code={skiaGenerator} lang="python" title="flatpak-skia-generator.py" />
 
