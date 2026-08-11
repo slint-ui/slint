@@ -72,8 +72,6 @@ fn lower_state_in_element(
             };
         }
         for (property_reference, expr, node) in state.property_changes {
-            affected_properties.insert(property_reference.clone());
-            state_properties.entry(idx as i32 + 1).or_default().insert(property_reference.clone());
             let element = property_reference.element();
             let property_expr = match expression_for_property(
                 &element,
@@ -90,6 +88,8 @@ fn lower_state_in_element(
                 }
                 ExpressionForProperty::Expression(e) => e,
             };
+            affected_properties.insert(property_reference.clone());
+            state_properties.entry(idx as i32 + 1).or_default().insert(property_reference.clone());
             let new_expr = Expression::Condition {
                 condition: Box::new(Expression::BinaryExpression {
                     lhs: Box::new(state_property_ref.clone()),
