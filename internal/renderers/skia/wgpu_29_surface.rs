@@ -20,7 +20,7 @@ use crate::SkiaSharedContext;
 mod dx12;
 #[cfg(target_vendor = "apple")]
 mod metal;
-#[cfg(all(target_family = "unix", not(target_vendor = "apple")))]
+#[cfg(skia_wgpu_vulkan)]
 mod vulkan;
 
 /// See [`crate::attachment_color_space`].
@@ -365,7 +365,7 @@ pub(crate) enum Backend {
     Metal,
     #[cfg(target_family = "windows")]
     Dx12,
-    #[cfg(all(target_family = "unix", not(target_vendor = "apple")))]
+    #[cfg(skia_wgpu_vulkan)]
     Vulkan,
 }
 
@@ -377,7 +377,7 @@ impl TryFrom<wgpu::Backend> for Backend {
             wgpu_29::Backend::Noop => {
                 Err(PlatformError::from("Cannot use WGPU Noop backend with Skia"))
             }
-            #[cfg(all(target_family = "unix", not(target_vendor = "apple")))]
+            #[cfg(skia_wgpu_vulkan)]
             wgpu_29::Backend::Vulkan => Ok(Self::Vulkan),
             #[cfg(target_vendor = "apple")]
             wgpu_29::Backend::Metal => Ok(Self::Metal),
@@ -403,7 +403,7 @@ impl Backend {
             Self::Metal => metal::make_metal_context(device, queue),
             #[cfg(target_family = "windows")]
             Self::Dx12 => unsafe { dx12::make_dx12_context(&_adapter, &device, &queue) },
-            #[cfg(all(target_family = "unix", not(target_vendor = "apple")))]
+            #[cfg(skia_wgpu_vulkan)]
             Self::Vulkan => unsafe { vulkan::make_vulkan_context(device, queue) },
         }
     }
@@ -418,7 +418,7 @@ impl Backend {
             Self::Metal => unsafe { metal::make_metal_surface(gr_context, texture) },
             #[cfg(target_family = "windows")]
             Self::Dx12 => unsafe { dx12::make_dx12_surface(gr_context, texture) },
-            #[cfg(all(target_family = "unix", not(target_vendor = "apple")))]
+            #[cfg(skia_wgpu_vulkan)]
             Self::Vulkan => unsafe { vulkan::make_vulkan_surface(gr_context, texture) },
         }
     }
@@ -433,7 +433,7 @@ impl Backend {
             Self::Metal => unsafe { metal::import_metal_texture(canvas, texture) },
             #[cfg(target_family = "windows")]
             Self::Dx12 => unsafe { dx12::import_dx12_texture(canvas, texture) },
-            #[cfg(all(target_family = "unix", not(target_vendor = "apple")))]
+            #[cfg(skia_wgpu_vulkan)]
             Self::Vulkan => unsafe { vulkan::import_vulkan_texture(canvas, texture) },
         }
     }

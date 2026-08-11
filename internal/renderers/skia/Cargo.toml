@@ -23,7 +23,9 @@ path = "lib.rs"
 wayland = ["glutin/wayland", "softbuffer/wayland", "softbuffer/wayland-dlopen"]
 x11 = ["glutin/x11", "glutin/glx", "softbuffer/x11", "softbuffer/x11-dlopen"]
 opengl = []
-vulkan = ["skia-safe/vulkan", "dep:ash", "vulkano"]
+# `vulkan-portability` is how wgpu compiles its Vulkan backend on Apple platforms (MoltenVK).
+# It feeds an apple-target-gated dependency of wgpu-core, so it's inert elsewhere.
+vulkan = ["skia-safe/vulkan", "dep:ash", "vulkano", "wgpu-29?/vulkan-portability", "wgpu-30?/vulkan-portability"]
 kms = ["softbuffer/kms"]
 # wgpu-{29,30} enables the wgpu surface module for internal use (e.g. linuxkms DRM rendering).
 # unstable-wgpu-{29,30} additionally exposes public API integration (GraphicsAPI, texture import).
