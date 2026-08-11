@@ -83,16 +83,9 @@ pub(crate) fn flex_props_from_struct(
             _ => 0.,
         }
     };
-    // An absent flex-basis means auto (-1 like core's Default); an
-    // explicit 0 must pass through, it requests a zero base size.
-    let flex_basis = match s.get_field("flex-basis") {
-        Some(Value::Number(n)) => *n as f32,
-        _ => -1.,
-    };
     i_slint_core::layout::FlexItemProps {
         flex_grow: f("flex-grow"),
         flex_shrink: f("flex-shrink"),
-        flex_basis,
         cross_axis_self_alignment: s
             .get_field("cross-axis-self-alignment")
             .map(to_enum)
@@ -321,12 +314,10 @@ pub(crate) fn call_extra_builtin(
         }
         "flexbox_layout_unwrapped_main" => {
             let cells = to_cells(&a[0]);
-            let fp = to_flex_props(&a[1]);
             Value::Number(i_slint_core::layout::flexbox_layout_unwrapped_main(
                 Slice::from_slice(&cells),
-                Slice::from_slice(&fp),
-                to_f32(&a[2]),
-                &to_padding(&a[3]),
+                to_f32(&a[1]),
+                &to_padding(&a[2]),
             ) as f64)
         }
         "flexbox_layout_info_cross_axis" => {

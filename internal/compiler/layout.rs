@@ -89,7 +89,6 @@ pub struct FlexboxLayoutItem {
     pub item: LayoutItem,
     pub flex_grow: Option<NamedReference>,
     pub flex_shrink: Option<NamedReference>,
-    pub flex_basis: Option<NamedReference>,
     pub order: Option<NamedReference>,
 }
 
@@ -839,9 +838,6 @@ impl FlexboxLayout {
                 visitor(&mut *e)
             }
             if let Some(e) = cell.flex_shrink.as_mut() {
-                visitor(&mut *e)
-            }
-            if let Some(e) = cell.flex_basis.as_mut() {
                 visitor(&mut *e)
             }
             if let Some(e) = cell.item.cross_axis_self_alignment.as_mut() {

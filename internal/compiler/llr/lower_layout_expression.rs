@@ -870,11 +870,6 @@ fn flexbox_layout_data(
                     .map(|nr| llr_Expression::PropertyReference(ctx.map_property_reference(nr)))
                     // CSS default, same as the interpreter and the repeated-cell path
                     .unwrap_or(llr_Expression::NumberLiteral(1.0)),
-                basis: li
-                    .flex_basis
-                    .as_ref()
-                    .map(|nr| llr_Expression::PropertyReference(ctx.map_property_reference(nr)))
-                    .unwrap_or(llr_Expression::NumberLiteral(-1.0)),
                 align_self: li
                     .item
                     .cross_axis_self_alignment
@@ -1107,7 +1102,6 @@ fn make_layout_cell_data_struct(
 struct FlexItemProps {
     grow: llr_Expression,
     shrink: llr_Expression,
-    basis: llr_Expression,
     align_self: llr_Expression,
     order: llr_Expression,
 }
@@ -1119,7 +1113,6 @@ fn make_flex_props_struct(fp: FlexItemProps) -> llr_Expression {
         [
             ("flex-grow", Type::Float32, fp.grow),
             ("flex-shrink", Type::Float32, fp.shrink),
-            ("flex-basis", Type::Float32, fp.basis),
             ("cross-axis-self-alignment", align_self_ty, fp.align_self),
             ("flex-order", Type::Int32, fp.order),
         ],
@@ -1282,32 +1275,22 @@ fn flexbox_unwrapped_main_expr(
         Orientation::Vertical => (spacing_v, padding_v),
     };
     let cell_array_ty = Type::Array(Arc::new(crate::typeregister::layout_item_info_type()));
-    let flex_array_ty = Type::Array(Arc::new(crate::typeregister::flex_item_props_type()));
-    let (cells_expr, flex_expr) = match &fld.compute_cells {
-        Some((cells_h_var, cells_v_var, flex_var, _)) => {
+    let cells_expr = match &fld.compute_cells {
+        Some((cells_h_var, cells_v_var, _, _)) => {
             let cells_var = match orientation {
                 Orientation::Horizontal => cells_h_var.clone(),
                 Orientation::Vertical => cells_v_var.clone(),
             };
-            (
-                llr_Expression::ReadLocalVariable { name: cells_var.into(), ty: cell_array_ty },
-                llr_Expression::ReadLocalVariable {
-                    name: flex_var.clone().into(),
-                    ty: flex_array_ty,
-                },
-            )
+            llr_Expression::ReadLocalVariable { name: cells_var.into(), ty: cell_array_ty }
         }
-        None => {
-            let cells = match orientation {
-                Orientation::Horizontal => fld.cells_h.clone(),
-                Orientation::Vertical => fld.cells_v.clone(),
-            };
-            (cells, fld.flex_props.clone())
-        }
+        None => match orientation {
+            Orientation::Horizontal => fld.cells_h.clone(),
+            Orientation::Vertical => fld.cells_v.clone(),
+        },
     };
     let call = llr_Expression::ExtraBuiltinFunctionCall {
         function: "flexbox_layout_unwrapped_main".into(),
-        arguments: vec![cells_expr, flex_expr, spacing, padding],
+        arguments: vec![cells_expr, spacing, padding],
         return_ty: Type::Float32,
     };
     match fld.compute_cells {
@@ -2006,7 +1989,6 @@ pub fn get_flexbox_layout_item_info_for_repeated(
 
     let grow = prop_ref("flex-grow").unwrap_or(llr_Expression::NumberLiteral(0.0));
     let shrink = prop_ref("flex-shrink").unwrap_or(llr_Expression::NumberLiteral(1.0));
-    let basis = prop_ref("flex-basis").unwrap_or(llr_Expression::NumberLiteral(-1.0));
     let align_self = prop_ref("cross-axis-self-alignment").unwrap_or(align_self_default);
     let order = prop_ref("flex-order").unwrap_or(llr_Expression::NumberLiteral(0.0));
 
@@ -2024,7 +2006,7 @@ pub fn get_flexbox_layout_item_info_for_repeated(
             (
                 "props",
                 crate::typeregister::flex_item_props_type(),
-                make_flex_props_struct(FlexItemProps { grow, shrink, basis, align_self, order }),
+                make_flex_props_struct(FlexItemProps { grow, shrink, align_self, order }),
             ),
         ],
     )

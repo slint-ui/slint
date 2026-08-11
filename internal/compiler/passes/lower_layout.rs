@@ -1908,13 +1908,11 @@ fn lower_flexbox_layout(layout_element: &ElementRc, diag: &mut BuildDiagnostics)
         }
         let flex_grow = crate::layout::binding_reference(actual_elem, "flex-grow");
         let flex_shrink = crate::layout::binding_reference(actual_elem, "flex-shrink");
-        let flex_basis = crate::layout::binding_reference(actual_elem, "flex-basis");
         let order = crate::layout::binding_reference(actual_elem, "flex-order");
         layout.elems.push(crate::layout::FlexboxLayoutItem {
             item: item.item,
             flex_grow,
             flex_shrink,
-            flex_basis,
             order,
         });
     }
@@ -2560,7 +2558,7 @@ fn check_no_layout_properties(
         {
             diag.push_error(format!("{prop} used outside of a GridLayout's cell"), &*expr.borrow());
         }
-        if matches!(prop.as_ref(), "flex-grow" | "flex-shrink" | "flex-basis" | "flex-order") {
+        if matches!(prop.as_ref(), "flex-grow" | "flex-shrink" | "flex-order") {
             if parent_layout_type.as_deref() != Some("FlexboxLayout") {
                 diag.push_error(format!("{prop} used outside of a FlexboxLayout"), &*expr.borrow());
             } else {
