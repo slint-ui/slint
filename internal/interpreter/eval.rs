@@ -1009,7 +1009,7 @@ pub fn eval_expression(ctx: &mut EvalContext, expression: &Expression) -> Value 
             ctx,
             cells_h_variable,
             cells_v_variable,
-            flex_props_variable,
+            flex_props_variable.as_deref(),
             elements,
             repeated_cross_width.as_deref(),
             sub_expression,
@@ -1201,7 +1201,7 @@ fn with_flexbox_layout_item_info(
     ctx: &mut EvalContext,
     cells_h_variable: &str,
     cells_v_variable: &str,
-    flex_props_variable: &str,
+    flex_props_variable: Option<&str>,
     elements: &[itertools::Either<
         (Expression, Expression, Expression),
         i_slint_compiler::llr::LayoutRepeatedElement,
@@ -1222,7 +1222,12 @@ fn with_flexbox_layout_item_info(
             itertools::Either::Left((h, v, props)) => {
                 cells_h.push(eval_expression(ctx, h));
                 cells_v.push(eval_expression(ctx, v));
-                flex_props.push(eval_expression(ctx, props));
+                // With no flex-props variable the sub-expression only reads the
+                // cells; don't evaluate (and thus depend on) the static cell's
+                // flex properties.
+                if flex_props_variable.is_some() {
+                    flex_props.push(eval_expression(ctx, props));
+                }
             }
             itertools::Either::Right(repeater) => {
                 let offset = cells_h.len() as u32;
@@ -1232,7 +1237,7 @@ fn with_flexbox_layout_item_info(
                     cross_width,
                     &mut cells_h,
                     &mut cells_v,
-                    &mut flex_props,
+                    flex_props_variable.is_some().then_some(&mut flex_props),
                 );
                 repeated_indices.push(offset);
                 repeated_indices.push(instances);
@@ -1243,9 +1248,9 @@ fn with_flexbox_layout_item_info(
         ctx.locals.insert(SmolStr::from(cells_h_variable), Value::Model(model_from_vec(cells_h)));
     let prev_v =
         ctx.locals.insert(SmolStr::from(cells_v_variable), Value::Model(model_from_vec(cells_v)));
-    let prev_fp = ctx
-        .locals
-        .insert(SmolStr::from(flex_props_variable), Value::Model(model_from_vec(flex_props)));
+    let prev_fp = flex_props_variable.map(|name| {
+        ctx.locals.insert(SmolStr::from(name), Value::Model(model_from_vec(flex_props)))
+    });
     let prev_ri = ctx.locals.insert(
         SmolStr::new_static("repeated_indices"),
         Value::Model(model_from_vec(
@@ -1255,7 +1260,9 @@ fn with_flexbox_layout_item_info(
     let result = eval_expression(ctx, sub_expression);
     restore_local(ctx, cells_h_variable, prev_h);
     restore_local(ctx, cells_v_variable, prev_v);
-    restore_local(ctx, flex_props_variable, prev_fp);
+    if let Some(name) = flex_props_variable {
+        restore_local(ctx, name, prev_fp.flatten());
+    }
     restore_local(ctx, "repeated_indices", prev_ri);
     result
 }
@@ -1266,7 +1273,7 @@ fn push_repeater_flexbox_items(
     cross_width: Option<f32>,
     cells_h: &mut Vec<Value>,
     cells_v: &mut Vec<Value>,
-    flex_props: &mut Vec<Value>,
+    mut flex_props: Option<&mut Vec<Value>>,
 ) -> u32 {
     use i_slint_core::items::Orientation;
     use i_slint_core::model::RepeatedItemTree;
@@ -1296,7 +1303,9 @@ fn push_repeater_flexbox_items(
         };
         // The flex props are axis-independent: both bundled infos carry the
         // same ones, take them from the horizontal query.
-        flex_props.push(flex_props_to_value(info_h.props));
+        if let Some(fp) = flex_props.as_mut() {
+            fp.push(flex_props_to_value(info_h.props));
+        }
         cells_h.push(layout_item_info_to_value(info_h.constraint));
         cells_v.push(layout_item_info_to_value(info_v.constraint));
     }
