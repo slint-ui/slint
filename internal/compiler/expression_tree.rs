@@ -900,9 +900,10 @@ pub enum Expression {
         /// Explicit gradient center in the element's local coordinate space (`at <x> <y>`).
         /// `None` means use the element's bbox centre.
         center: Option<(Box<Expression>, Box<Expression>)>,
-        /// Explicit radius in the element's local coordinate space (`circle <r>`).
+        /// Explicit radii in the element's local coordinate space: `(rx, ry)`.
+        /// `circle <r>` normalizes to `rx == ry == r`; `ellipse <rx> <ry>` keeps them distinct.
         /// `None` means use the element's bbox half-diagonal.
-        radius: Option<Box<Expression>>,
+        radius: Option<(Box<Expression>, Box<Expression>)>,
         /// First expression in the tuple is a color, second expression is the stop position
         stops: Vec<(Expression, Expression)>,
     },
@@ -1231,8 +1232,9 @@ impl Expression {
                     visitor(cx);
                     visitor(cy);
                 }
-                if let Some(r) = radius {
-                    visitor(r);
+                if let Some((rx, ry)) = radius {
+                    visitor(rx);
+                    visitor(ry);
                 }
                 for (c, s) in stops {
                     visitor(c);
@@ -1376,8 +1378,9 @@ impl Expression {
                     visitor(cx);
                     visitor(cy);
                 }
-                if let Some(r) = radius {
-                    visitor(r);
+                if let Some((rx, ry)) = radius {
+                    visitor(rx);
+                    visitor(ry);
                 }
                 for (c, s) in stops {
                     visitor(c);
@@ -1526,7 +1529,9 @@ impl Expression {
             }
             Expression::RadialGradient { center, radius, stops } => {
                 center.as_ref().is_none_or(|(cx, cy)| cx.is_constant(ga) && cy.is_constant(ga))
-                    && radius.as_ref().is_none_or(|r| r.is_constant(ga))
+                    && radius
+                        .as_ref()
+                        .is_none_or(|(rx, ry)| rx.is_constant(ga) && ry.is_constant(ga))
                     && stops.iter().all(|(c, s)| c.is_constant(ga) && s.is_constant(ga))
             }
             Expression::ConicGradient { from_angle, center, stops } => {
@@ -2476,10 +2481,13 @@ pub fn pretty_print(f: &mut dyn std::fmt::Write, expression: &Expression) -> std
             write!(f, ")")
         }
         Expression::RadialGradient { center, radius, stops } => {
-            write!(f, "@radial-gradient(circle")?;
-            if let Some(r) = radius {
+            if let Some((rx, ry)) = radius {
+                write!(f, "@radial-gradient(ellipse ")?;
+                pretty_print(f, rx)?;
                 write!(f, " ")?;
-                pretty_print(f, r)?;
+                pretty_print(f, ry)?;
+            } else {
+                write!(f, "@radial-gradient(circle")?;
             }
             if let Some((cx, cy)) = center {
                 write!(f, " at ")?;

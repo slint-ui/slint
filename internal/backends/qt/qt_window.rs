@@ -726,13 +726,18 @@ fn into_qbrush(
             }}
         }
         i_slint_core::Brush::RadialGradient(g) => {
+            // QRadialGradient is circle-only, so an ellipse is built as a unit circle
+            // (center (0, 0), radius 1) whose color stops get stretched into place by a
+            // non-uniform QTransform applied to the resulting QBrush: scale to (rx, ry),
+            // then move to the actual center.
             cpp_class!(unsafe struct QRadialGradient as "QRadialGradient");
             let (cx, cy) = g.center_or_default(width as f32, height as f32);
             let (cx, cy) = (cx as qttypes::qreal, cy as qttypes::qreal);
-            let radius = g.radius_or_default(width as f32, height as f32) as qttypes::qreal;
+            let rx = g.radius_x_or_default(width as f32, height as f32) as qttypes::qreal;
+            let ry = g.radius_y_or_default(width as f32, height as f32) as qttypes::qreal;
             let mut qrg = cpp! {
-                unsafe [cx as "qreal", cy as "qreal", radius as "qreal"] -> QRadialGradient as "QRadialGradient" {
-                    QRadialGradient qrg(cx, cy, radius);
+                unsafe [] -> QRadialGradient as "QRadialGradient" {
+                    QRadialGradient qrg(QPointF(0, 0), 1.0);
                     return qrg;
                 }
             };
@@ -744,9 +749,16 @@ fn into_qbrush(
                     qrg.setColorAt(pos, QColor::fromRgba(color));
                 }};
             }
-            cpp! {unsafe [qrg as "QRadialGradient"] -> qttypes::QBrush as "QBrush" {
-                return QBrush(qrg);
-            }}
+            cpp! {
+                unsafe [qrg as "QRadialGradient", cx as "qreal", cy as "qreal", rx as "qreal", ry as "qreal"] -> qttypes::QBrush as "QBrush" {
+                    QBrush b(qrg);
+                    QTransform t;
+                    t.translate(cx, cy);
+                    t.scale(rx, ry);
+                    b.setTransform(t);
+                    return b;
+                }
+            }
         }
         i_slint_core::Brush::ConicGradient(g) => {
             cpp_class!(unsafe struct QConicalGradient as "QConicalGradient");
