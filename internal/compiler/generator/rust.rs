@@ -3592,7 +3592,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
         } => generate_with_flexbox_layout_item_info(
             cells_h_variable,
             cells_v_variable,
-            flex_props_variable,
+            flex_props_variable.as_deref(),
             repeater_indices_var_name.as_ref().map(SmolStr::as_str),
             elements.as_ref(),
             repeated_cross_width.as_deref(),
@@ -5599,13 +5599,18 @@ fn generate_with_layout_item_info(
 fn generate_with_flexbox_layout_item_info(
     cells_h_variable: &str,
     cells_v_variable: &str,
-    flex_props_variable: &str,
+    flex_props_variable: Option<&str>,
     repeated_indices_var_name: Option<&str>,
     elements: &[Either<(Expression, Expression, Expression), llr::LayoutRepeatedElement>],
     repeated_cross_width: Option<&Expression>,
     sub_expression: &Expression,
     ctx: &EvaluationContext,
 ) -> TokenStream {
+    // With no flex-props variable the sub-expression only reads the cells, so
+    // don't evaluate (and thus depend on) a static cell's flex properties. A
+    // repeated cell still computes its props inside the bundled item-info call,
+    // whose constraint half is needed either way.
+    let wants_flex_props = flex_props_variable.is_some();
     let repeated_indices_var_name = repeated_indices_var_name.map(ident);
     // Container width forwarded to repeated cells' vertical query (column flex),
     // so a height-for-width instance wraps to the real width like a static cell.
@@ -5620,12 +5625,15 @@ fn generate_with_flexbox_layout_item_info(
             Either::Left((value_h, value_v, value_flex)) => {
                 let value_h = compile_expression(value_h, ctx);
                 let value_v = compile_expression(value_v, ctx);
-                let value_flex = compile_expression(value_flex, ctx);
+                let flex_push = wants_flex_props.then(|| {
+                    let value_flex = compile_expression(value_flex, ctx);
+                    quote!(items_vec_flex.push(#value_flex);)
+                });
                 fixed_count += 1;
                 push_code.push(quote!(
                     items_vec_h.push(#value_h);
                     items_vec_v.push(#value_v);
-                    items_vec_flex.push(#value_flex);
+                    #flex_push
                 ))
             }
             Either::Right(repeater) => {
@@ -5652,11 +5660,15 @@ fn generate_with_flexbox_layout_item_info(
                 };
                 // The instance vtable returns the bundled `FlexboxLayoutItemInfo`;
                 // split it into the constraint cell and the flex props.
+                let flex_push =
+                    wants_flex_props.then(|| quote!(items_vec_flex.push(info_h.props);));
+                let flex_placeholder = wants_flex_props
+                    .then(|| quote!(items_vec_flex.push(::core::default::Default::default());));
                 let loop_code = quote!(for i in 0.._self.#repeater_id.len() {
                     if let Some(sub_comp) = _self.#repeater_id.instance_at(i) {
                         let info_h = sub_comp.as_pin_ref().flexbox_layout_item_info(sp::Orientation::Horizontal, None);
                         let info_v = #v_query;
-                        items_vec_flex.push(info_h.props);
+                        #flex_push
                         items_vec_h.push(sp::LayoutItemInfo { constraint: info_h.constraint, ..::core::default::Default::default() });
                         items_vec_v.push(sp::LayoutItemInfo { constraint: info_v.constraint, ..::core::default::Default::default() });
                     } else {
@@ -5664,7 +5676,7 @@ fn generate_with_flexbox_layout_item_info(
                         // count stays in sync with the repeater length written above.
                         items_vec_h.push(::core::default::Default::default());
                         items_vec_v.push(::core::default::Default::default());
-                        items_vec_flex.push(::core::default::Default::default());
+                        #flex_placeholder
                     }
                 });
                 push_code.push(quote!(
@@ -5685,18 +5697,26 @@ fn generate_with_flexbox_layout_item_info(
         repeated_indices_var_name.map(|ri| quote!(let #ri = sp::Slice::from_slice(&#ri);));
     let cells_h_variable = ident(cells_h_variable);
     let cells_v_variable = ident(cells_v_variable);
-    let flex_props_variable = ident(flex_props_variable);
+    let (flex_decl, flex_slice) = flex_props_variable
+        .map(|v| {
+            let v = ident(v);
+            (
+                quote!(let mut items_vec_flex = sp::Vec::with_capacity(#fixed_count #repeated_count_code);),
+                quote!(let #v = sp::Slice::from_slice(&items_vec_flex);),
+            )
+        })
+        .unzip();
     let sub_expression = compile_expression(sub_expression, ctx);
 
     quote! { {
         #ri_init_code
         let mut items_vec_h = sp::Vec::with_capacity(#fixed_count #repeated_count_code);
         let mut items_vec_v = sp::Vec::with_capacity(#fixed_count #repeated_count_code);
-        let mut items_vec_flex = sp::Vec::with_capacity(#fixed_count #repeated_count_code);
+        #flex_decl
         #(#push_code)*
         let #cells_h_variable = sp::Slice::from_slice(&items_vec_h);
         let #cells_v_variable = sp::Slice::from_slice(&items_vec_v);
-        let #flex_props_variable = sp::Slice::from_slice(&items_vec_flex);
+        #flex_slice
         #ri_from_slice
         #sub_expression
     } }

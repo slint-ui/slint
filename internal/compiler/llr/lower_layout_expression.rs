@@ -439,7 +439,7 @@ pub(super) fn solve_flexbox_layout(
             llr_Expression::WithFlexboxLayoutItemInfo {
                 cells_h_variable: cells_h_var,
                 cells_v_variable: cells_v_var,
-                flex_props_variable: flex_var,
+                flex_props_variable: Some(flex_var),
                 repeater_indices_var_name: Some("repeated_indices".into()),
                 elements,
                 repeated_cross_width,
@@ -708,7 +708,7 @@ fn compute_flexbox_layout_info_for_direction(
                 llr_Expression::WithFlexboxLayoutItemInfo {
                     cells_h_variable: cells_h_var,
                     cells_v_variable: cells_v_var,
-                    flex_props_variable: flex_var,
+                    flex_props_variable: Some(flex_var),
                     repeater_indices_var_name: None,
                     elements,
                     // Info computation, not a solve: no container width to forward.
@@ -734,7 +734,7 @@ fn compute_flexbox_layout_info_for_direction(
                 llr_Expression::WithFlexboxLayoutItemInfo {
                     cells_h_variable: cells_h_var,
                     cells_v_variable: cells_v_var,
-                    flex_props_variable: flex_var.clone(),
+                    flex_props_variable: Some(flex_var.clone()),
                     repeater_indices_var_name: None,
                     elements,
                     // Info computation, not a solve: no container width to forward.
@@ -1294,11 +1294,13 @@ fn flexbox_unwrapped_main_expr(
         return_ty: Type::Float32,
     };
     match fld.compute_cells {
-        Some((cells_h_variable, cells_v_variable, flex_props_variable, elements)) => {
+        Some((cells_h_variable, cells_v_variable, _, elements)) => {
             llr_Expression::WithFlexboxLayoutItemInfo {
                 cells_h_variable,
                 cells_v_variable,
-                flex_props_variable,
+                // The call only reads the cells, so don't evaluate the
+                // per-item flex properties (that would depend on them).
+                flex_props_variable: None,
                 repeater_indices_var_name: None,
                 elements,
                 // Info computation, not a solve: no container width to forward.
