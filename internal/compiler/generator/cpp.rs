@@ -5736,6 +5736,11 @@ fn generate_flexbox_measure_lambda(
                     v_steps.push_str(&v_step);
                     h_steps.push_str(&h_step);
                 }
+                llr::FlexboxMeasureCellKind::Fixed => {
+                    probe_steps.push_str("cursor += 1;\n");
+                    v_steps.push_str("cursor += 1;\n");
+                    h_steps.push_str("cursor += 1;\n");
+                }
             }
         }
         (

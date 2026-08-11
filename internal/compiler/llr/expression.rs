@@ -45,6 +45,10 @@ pub enum FlexboxMeasureCellKind {
     /// A repeater: its instances are only known at run time, so the generated
     /// callback queries the instance directly.
     Repeated(LayoutRepeatedElement),
+    /// A cell whose layout info does not depend on the perpendicular axis (no
+    /// constrained layout-info function): the sizes pre-resolved from the cell
+    /// arrays are already correct, so no measure arm is generated.
+    Fixed,
 }
 
 #[derive(Debug, Clone)]

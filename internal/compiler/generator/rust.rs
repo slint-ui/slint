@@ -5830,6 +5830,12 @@ fn generate_flexbox_measure_closure(
                     v_steps.push(v_step);
                     h_steps.push(h_step);
                 }
+                llr::FlexboxMeasureCellKind::Fixed => {
+                    let step = quote!(cursor += 1;);
+                    probe_steps.push(step.clone());
+                    v_steps.push(step.clone());
+                    h_steps.push(step);
+                }
             }
         }
         // The final `cursor += …` is a dead write; `let _ = cursor;` consumes it

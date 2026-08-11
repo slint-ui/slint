@@ -463,22 +463,29 @@ pub(super) fn solve_flexbox_layout(
     }
 }
 
+/// Whether the cell's vertical info depends on the width (height-for-width)
+/// and its horizontal info on the height (width-for-height). For a repeater,
+/// check the repeated component's root: that is the element the measure
+/// callback queries.
+fn cell_measure_capability(elem: &ElementRc) -> (bool, bool) {
+    if elem.borrow().repeated.is_some() {
+        let root = elem.borrow().base_type.as_component().root_element.clone();
+        let h4w = root.borrow().inherited_layout_info_v_with_constraint().is_some();
+        let w4h = root.borrow().inherited_layout_info_h_with_constraint().is_some();
+        return (h4w, w4h);
+    }
+    (
+        is_height_for_width_cell(elem),
+        elem.borrow().inherited_layout_info_h_with_constraint().is_some(),
+    )
+}
+
 /// Whether any cell of the flexbox is height-for-width (or width-for-height)
 /// capable, so a solve or cross-axis info computation needs a measure callback.
 fn flexbox_needs_measure(layout: &crate::layout::FlexboxLayout) -> bool {
     layout.elems.iter().any(|li| {
-        let elem = &li.item.element;
-        // For a repeater, check the repeated component's root — the element
-        // the measure callback queries. The repeated element itself has a
-        // materialized layoutinfo property, which makes
-        // is_height_for_width_cell return false.
-        if elem.borrow().repeated.is_some() {
-            let root = elem.borrow().base_type.as_component().root_element.clone();
-            return root.borrow().inherited_layout_info_v_with_constraint().is_some()
-                || root.borrow().inherited_layout_info_h_with_constraint().is_some();
-        }
-        is_height_for_width_cell(elem)
-            || elem.borrow().inherited_layout_info_h_with_constraint().is_some()
+        let (h4w, w4h) = cell_measure_capability(&li.item.element);
+        h4w || w4h
     })
 }
 
@@ -487,7 +494,9 @@ fn flexbox_needs_measure(layout: &crate::layout::FlexboxLayout) -> bool {
 /// measured at the dimension taffy assigns, read from the `measure_known_w` /
 /// `measure_known_h` locals. A repeated element becomes a
 /// `FlexboxMeasureCellKind::Repeated`: its instances are only known at solve
-/// time, so the generated callback queries the instance directly.
+/// time, so the generated callback queries the instance directly. A static
+/// element with no constrained layout info becomes a
+/// `FlexboxMeasureCellKind::Fixed` and gets no measure arm.
 fn measure_cells_for(
     layout: &crate::layout::FlexboxLayout,
     ctx: &mut ExpressionLoweringCtx,
@@ -497,17 +506,9 @@ fn measure_cells_for(
         .iter()
         .map(|li| {
             let elem = &li.item.element;
-            // A width-for-height-only cell probes its horizontal axis; mirror
-            // the element the measure will actually query (the repeated
-            // component's root for a repeater).
-            let query_elem = if elem.borrow().repeated.is_some() {
-                elem.borrow().base_type.as_component().root_element.clone()
-            } else {
-                elem.clone()
-            };
-            let w4h_only = query_elem.borrow().inherited_layout_info_h_with_constraint().is_some()
-                && query_elem.borrow().inherited_layout_info_v_with_constraint().is_none();
             if elem.borrow().repeated.is_some() {
+                let (h4w, w4h) = cell_measure_capability(elem);
+                let w4h_only = w4h && !h4w;
                 let repeater_index =
                     match ctx.mapping.element_mapping.get(&elem.clone().into()).unwrap() {
                         LoweredElement::Repeated { repeated_index } => *repeated_index,
@@ -521,11 +522,13 @@ fn measure_cells_for(
                     w4h_only,
                 };
             }
-            let v_constraint = is_height_for_width_cell(elem).then(|| {
-                crate::expression_tree::Expression::ReadLocalVariable {
-                    name: "measure_known_w".into(),
-                    ty: Type::LogicalLength,
-                }
+            let (h4w, w4h) = cell_measure_capability(elem);
+            if !h4w && !w4h {
+                return FlexboxMeasureCell { kind: FlexboxMeasureCellKind::Fixed, w4h_only: false };
+            }
+            let v_constraint = h4w.then(|| crate::expression_tree::Expression::ReadLocalVariable {
+                name: "measure_known_w".into(),
+                ty: Type::LogicalLength,
             });
             let v_info = get_flex_cell_layout_info(
                 elem,
@@ -534,13 +537,10 @@ fn measure_cells_for(
                 Orientation::Vertical,
                 v_constraint,
             );
-            let h_constraint =
-                elem.borrow().inherited_layout_info_h_with_constraint().is_some().then(|| {
-                    crate::expression_tree::Expression::ReadLocalVariable {
-                        name: "measure_known_h".into(),
-                        ty: Type::LogicalLength,
-                    }
-                });
+            let h_constraint = w4h.then(|| crate::expression_tree::Expression::ReadLocalVariable {
+                name: "measure_known_h".into(),
+                ty: Type::LogicalLength,
+            });
             let h_info = get_flex_cell_layout_info(
                 elem,
                 ctx,
@@ -548,7 +548,10 @@ fn measure_cells_for(
                 Orientation::Horizontal,
                 h_constraint,
             );
-            FlexboxMeasureCell { kind: FlexboxMeasureCellKind::Static { h_info, v_info }, w4h_only }
+            FlexboxMeasureCell {
+                kind: FlexboxMeasureCellKind::Static { h_info, v_info },
+                w4h_only: w4h && !h4w,
+            }
         })
         .collect()
 }
