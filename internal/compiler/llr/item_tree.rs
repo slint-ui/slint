@@ -528,6 +528,12 @@ pub struct SubComponent {
     /// Expression that builds a FlexboxLayoutItemInfo for a repeated element in a FlexboxLayout.
     /// Contains property references to flex-grow, flex-shrink, flex-basis, align-self, order.
     pub flexbox_layout_item_info_for_repeated: Option<MutExpression>,
+    /// The root's `cross-axis-self-alignment` for a repeated element in a box
+    /// layout, returned by the generated `layout_item_info` for the given
+    /// (cross-axis) orientation only, so the main-axis cache stays independent
+    /// of it. The cross-axis layout-info pass shares that accessor and so also
+    /// evaluates it, unlike static cells (`box_layout_info_ortho` ignores it).
+    pub cross_axis_self_alignment_for_repeated: Option<(crate::layout::Orientation, MutExpression)>,
     /// Vertical `LayoutInfo` for a repeated element, computed with a width
     /// constraint (its preferred width) so a height-for-width instance in a
     /// column FlexboxLayout doesn't read `self.width` and recurse through the
@@ -743,6 +749,9 @@ impl CompilationUnit {
                 visitor(e, ctx);
             }
             if let Some(e) = &sc.flexbox_layout_item_info_for_repeated {
+                visitor(e, ctx);
+            }
+            if let Some((_, e)) = &sc.cross_axis_self_alignment_for_repeated {
                 visitor(e, ctx);
             }
             if let Some(e) = &sc.layout_info_v_constrained_for_repeated {

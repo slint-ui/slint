@@ -14,6 +14,7 @@ use crate::langtype::{BuiltinStruct, EnumerationValue, Struct, Type};
 use crate::layout::{FlexboxAxisRelation, GridLayoutCell, Orientation, RowColExpr};
 use crate::llr::ArrayOutput as llr_ArrayOutput;
 use crate::llr::Expression as llr_Expression;
+use crate::llr::{FlexboxMeasureCell, FlexboxMeasureCellKind};
 use crate::namedreference::NamedReference;
 use crate::object_tree::ElementRc;
 
@@ -91,7 +92,7 @@ pub(super) fn compute_box_layout_info(
     let (padding, spacing) = generate_layout_padding_and_spacing(&layout.geometry, o, ctx);
     let adjusted_override = cross_axis_size_override
         .map(|o_expr| subtract_padding(o_expr.clone(), &layout.geometry, o.orthogonal()));
-    let bld = box_layout_data(layout, o, ctx, adjusted_override.as_ref(), None);
+    let bld = box_layout_data(layout, o, ctx, adjusted_override.as_ref(), None, false);
     let sub_expression = if o == layout.orientation {
         llr_Expression::ExtraBuiltinFunctionCall {
             function: "box_layout_info".into(),
@@ -267,7 +268,7 @@ pub(super) fn solve_box_layout(
     // gets its natural single-line size instead of the compact sqrt preferred.
     let cross_clamp =
         (o != layout.orientation).then(|| layout_cross_content_size(layout)).flatten();
-    let bld = box_layout_data(layout, o, ctx, cross_override.as_ref(), cross_clamp.as_ref());
+    let bld = box_layout_data(layout, o, ctx, cross_override.as_ref(), cross_clamp.as_ref(), true);
     let size = layout_geometry_size(&layout.geometry.rect, o, ctx);
     let (data, function) = if o == layout.orientation {
         let data = make_struct(
@@ -516,12 +517,12 @@ pub(super) fn solve_flexbox_layout(
 /// Per-element measure inputs for `SolveFlexboxLayoutWithMeasure`: the cell's
 /// `(h_info, v_info)` measured at the dimension taffy assigns, read from the
 /// `measure_known_w` / `measure_known_h` locals. A repeated element becomes a
-/// `Right`: its instances are only known at solve time, so the generated
-/// callback queries the instance directly.
+/// `FlexboxMeasureCellKind::Repeated`: its instances are only known at solve
+/// time, so the generated callback queries the instance directly.
 fn measure_cells_for(
     layout: &crate::layout::FlexboxLayout,
     ctx: &mut ExpressionLoweringCtx,
-) -> Vec<Either<(llr_Expression, llr_Expression), LayoutRepeatedElement>> {
+) -> Vec<FlexboxMeasureCell> {
     layout
         .elems
         .iter()
@@ -533,10 +534,12 @@ fn measure_cells_for(
                         LoweredElement::Repeated { repeated_index } => *repeated_index,
                         _ => panic!("repeated flexbox element not lowered as Repeated"),
                     };
-                return Either::Right(LayoutRepeatedElement {
-                    repeater_index,
-                    row_child_templates: None,
-                });
+                return FlexboxMeasureCell {
+                    kind: FlexboxMeasureCellKind::Repeated(LayoutRepeatedElement {
+                        repeater_index,
+                        row_child_templates: None,
+                    }),
+                };
             }
             let v_constraint = is_height_for_width_cell(elem).then(|| {
                 crate::expression_tree::Expression::ReadLocalVariable {
@@ -565,7 +568,7 @@ fn measure_cells_for(
                 Orientation::Horizontal,
                 h_constraint,
             );
-            Either::Left((h_info, v_info))
+            FlexboxMeasureCell { kind: FlexboxMeasureCellKind::Static { h_info, v_info } }
         })
         .collect()
 }
@@ -884,7 +887,8 @@ fn flexbox_layout_data(
                     .map(|nr| llr_Expression::PropertyReference(ctx.map_property_reference(nr)))
                     .unwrap_or(llr_Expression::NumberLiteral(-1.0)),
                 align_self: li
-                    .align_self
+                    .item
+                    .cross_axis_self_alignment
                     .as_ref()
                     .map(|nr| llr_Expression::PropertyReference(ctx.map_property_reference(nr)))
                     .unwrap_or(default_align_self().1),
@@ -953,7 +957,7 @@ fn flexbox_layout_data(
                         Orientation::Horizontal,
                         constraint,
                     );
-                    make_layout_cell_data_struct(layout_info_h)
+                    make_layout_cell_data_struct(layout_info_h, None)
                 })
                 .collect(),
             element_ty: cell_ty.clone(),
@@ -976,7 +980,7 @@ fn flexbox_layout_data(
                         Orientation::Vertical,
                         constraint,
                     );
-                    make_layout_cell_data_struct(layout_info_v)
+                    make_layout_cell_data_struct(layout_info_v, None)
                 })
                 .collect(),
             element_ty: cell_ty,
@@ -1038,8 +1042,8 @@ fn flexbox_layout_data(
                     constraint,
                 );
                 elements.push(Either::Left((
-                    make_layout_cell_data_struct(layout_info_h),
-                    make_layout_cell_data_struct(layout_info_v),
+                    make_layout_cell_data_struct(layout_info_h, None),
+                    make_layout_cell_data_struct(layout_info_v, None),
                     make_flex_props_struct(flex_prop(item, ctx)),
                 )));
             }
@@ -1094,11 +1098,20 @@ fn default_align_self() -> (Type, llr_Expression) {
     )
 }
 
-fn make_layout_cell_data_struct(layout_info: llr_Expression) -> llr_Expression {
-    make_struct(
-        BuiltinStruct::LayoutItemInfo,
-        [("constraint", crate::typeregister::layout_info_type().into(), layout_info)],
-    )
+/// Build a LayoutItemInfo struct expression with the canonical (full) field
+/// list as its type, so the generators default the fields that are not set.
+/// `align_self` is only set for a box layout's cross-axis cells.
+fn make_layout_cell_data_struct(
+    layout_info: llr_Expression,
+    align_self: Option<llr_Expression>,
+) -> llr_Expression {
+    let Type::Struct(ty) = crate::typeregister::layout_item_info_type() else { unreachable!() };
+    let mut values = BTreeMap::<SmolStr, llr_Expression>::new();
+    values.insert("constraint".into(), layout_info);
+    if let Some(align_self) = align_self {
+        values.insert("cross-axis-self-alignment".into(), align_self);
+    }
+    llr_Expression::Struct { ty, values }
 }
 
 #[derive(Clone)]
@@ -1130,6 +1143,7 @@ fn box_layout_data(
     ctx: &mut ExpressionLoweringCtx,
     cross_axis_size_override: Option<&crate::expression_tree::Expression>,
     cross_clamp: Option<&crate::expression_tree::Expression>,
+    for_solve: bool,
 ) -> BoxLayoutDataResult {
     let alignment = if let Some(expr) = &layout.geometry.alignment {
         llr_Expression::PropertyReference(ctx.map_property_reference(expr))
@@ -1146,6 +1160,17 @@ fn box_layout_data(
 
     let element_ty = crate::typeregister::layout_item_info_type();
 
+    // The per-item alignment only matters to the cross-axis solve. Leaving it
+    // out of the main-axis cells keeps that cache independent of it, and out of
+    // the layout-info cells because `box_layout_info_ortho` ignores it.
+    // This covers static cells only: repeated cells go through the generated
+    // `layout_item_info`, which is guarded on the orientation alone.
+    let cell_align_self = |li: &crate::layout::LayoutItem, ctx: &mut ExpressionLoweringCtx| {
+        li.cross_axis_self_alignment
+            .as_ref()
+            .filter(|_| for_solve && orientation != layout.orientation)
+            .map(|nr| llr_Expression::PropertyReference(ctx.map_property_reference(nr)))
+    };
     if repeater_count == 0 {
         let cells = llr_Expression::Array {
             values: layout
@@ -1160,7 +1185,8 @@ fn box_layout_data(
                         cross_axis_size_override,
                         cross_clamp,
                     );
-                    make_layout_cell_data_struct(layout_info)
+                    let align_self = cell_align_self(li, ctx);
+                    make_layout_cell_data_struct(layout_info, align_self)
                 })
                 .collect(),
             element_ty,
@@ -1189,7 +1215,8 @@ fn box_layout_data(
                     cross_axis_size_override,
                     cross_clamp,
                 );
-                elements.push(Either::Left(make_layout_cell_data_struct(layout_info)));
+                let align_self = cell_align_self(item, ctx);
+                elements.push(Either::Left(make_layout_cell_data_struct(layout_info, align_self)));
             }
         }
         let cells = llr_Expression::ReadLocalVariable {
@@ -1459,7 +1486,7 @@ fn grid_layout_cell_constraints(
                         cross_axis_size_override,
                         None,
                     );
-                    make_layout_cell_data_struct(layout_info)
+                    make_layout_cell_data_struct(layout_info, None)
                 })
                 .collect(),
             output: llr_ArrayOutput::Slice,
@@ -1492,7 +1519,7 @@ fn grid_layout_cell_constraints(
                     cross_axis_size_override,
                     None,
                 );
-                elements.push(Either::Left(make_layout_cell_data_struct(layout_info)));
+                elements.push(Either::Left(make_layout_cell_data_struct(layout_info, None)));
             }
         }
         let cells = llr_Expression::ReadLocalVariable {

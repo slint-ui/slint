@@ -434,7 +434,8 @@ macro_rules! for_each_enums {
             }
 
             /// Overrides the container's `cross-axis-alignment` for a single item.
-            /// Used as the `cross-axis-self-alignment` property of the children of a `FlexboxLayout`.
+            /// Used as the `cross-axis-self-alignment` property of the children of a
+            /// `FlexboxLayout`, `HorizontalLayout`, or `VerticalLayout`.
             #[non_exhaustive]
             enum CrossAxisSelfAlignment {
                 /// Use the container's `cross-axis-alignment` value (default).

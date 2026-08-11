@@ -20,7 +20,7 @@ export component X inherits Rectangle {
                 flex-basis: 100px;
 //                          >    <error{flex-basis used outside of a FlexboxLayout}
                 cross-axis-self-alignment: center;
-//                                         >     <error{cross-axis-self-alignment used outside of a FlexboxLayout}
+//                                         >     <error{cross-axis-self-alignment used outside of a FlexboxLayout, HorizontalLayout, or VerticalLayout}
                 flex-order: 3;
 //                          ><error{flex-order used outside of a FlexboxLayout}
             }
@@ -36,7 +36,7 @@ export component X inherits Rectangle {
         flex-basis: 100px;
 //                  >    <error{flex-basis used outside of a FlexboxLayout}
         cross-axis-self-alignment: center;
-//                                 >     <error{cross-axis-self-alignment used outside of a FlexboxLayout}
+//                                 >     <error{cross-axis-self-alignment used outside of a FlexboxLayout, HorizontalLayout, or VerticalLayout}
         flex-order: 3;
 //                  ><error{flex-order used outside of a FlexboxLayout}
     }
@@ -45,6 +45,8 @@ export component X inherits Rectangle {
         Text {
             flex-grow: 1;
 //                     ><error{flex-grow used outside of a FlexboxLayout}
+            cross-axis-self-alignment: center;
+//                                     >     <error{cross-axis-self-alignment used outside of a FlexboxLayout, HorizontalLayout, or VerticalLayout}
         }
     }
 
@@ -54,6 +56,15 @@ export component X inherits Rectangle {
 //                     ><error{flex-grow used outside of a FlexboxLayout}
             flex-order: 5;
 //                      ><error{flex-order used outside of a FlexboxLayout}
+            // valid in a box layout
+            cross-axis-self-alignment: center;
+        }
+    }
+
+    VerticalLayout {
+        Text {
+            // valid in a box layout
+            cross-axis-self-alignment: end;
         }
     }
 }

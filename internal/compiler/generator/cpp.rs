@@ -2877,13 +2877,35 @@ fn generate_layout_item_info_decl(
         || (root_sc.grid_layout_children.is_empty()
             && !llr::has_inner_repeaters(&root_sc.row_child_templates))
     {
+        // The cell's `cross-axis-self-alignment` in a box layout, returned for
+        // the cross axis only, so the main-axis cache stays independent of it.
+        // The aggregate init otherwise leaves the field value-initialized (`Auto`).
+        let statement = match &root_sc.cross_axis_self_alignment_for_repeated {
+            Some((cross_o, expr)) => {
+                let align_self = compile_expression(&expr.borrow(), ctx);
+                let cross_o = match cross_o {
+                    crate::layout::Orientation::Horizontal => "Horizontal",
+                    crate::layout::Orientation::Vertical => "Vertical",
+                };
+                format!(
+                    "[[maybe_unused]] auto self = this; \
+                     return {{ layout_info({{&static_vtable, const_cast<void *>(static_cast<const void *>(this))}}, o), \
+                     (o == slint::cbindgen_private::Orientation::{cross_o}) ? ({align_self}) : slint::cbindgen_private::CrossAxisSelfAlignment::Auto }};"
+                )
+            }
+            None => "return { layout_info({&static_vtable, const_cast<void *>(static_cast<const void *>(this))}, o), {} };".to_owned(),
+        };
         return Declaration::Function(Function {
             name: "layout_item_info".into(),
             signature: SIGNATURE.to_owned(),
-            statements: Some(vec!["return { layout_info({&static_vtable, const_cast<void *>(static_cast<const void *>(this))}, o) };".into()]),
+            statements: Some(vec![statement]),
             ..Function::default()
         });
     }
+
+    // Row templates only exist for repeated grid Rows, which cannot carry
+    // cross-axis-self-alignment; the scan below hardcodes `{}` for the field.
+    debug_assert!(root_sc.cross_axis_self_alignment_for_repeated.is_none());
 
     let templates = root_sc.row_child_templates.as_ref().unwrap();
     let n = templates.len();
@@ -2908,7 +2930,7 @@ fn generate_layout_item_info_decl(
                 write!(
                     body,
                     "if (count == index) {{\n\
-                         return {{ (o == slint::cbindgen_private::Orientation::Horizontal) ? ({layout_info_h_code}) : ({layout_info_v_code}) }};\n\
+                         return {{ (o == slint::cbindgen_private::Orientation::Horizontal) ? ({layout_info_h_code}) : ({layout_info_v_code}), {{}} }};\n\
                      }}\n\
                      {advance}",
                 )
@@ -2926,7 +2948,7 @@ fn generate_layout_item_info_decl(
                      if (index >= count && index - count < inner_len) {{\n\
                          if (auto vrc = {inner_rep_id}.instance_at(index - count).lock()) {{\n\
                              auto vref = vrc->borrow();\n\
-                             return {{ vref.vtable->layout_info(vref, o) }};\n\
+                             return {{ vref.vtable->layout_info(vref, o), {{}} }};\n\
                          }}\n\
                      }}\n\
                      {advance}}}\n",
@@ -2938,9 +2960,9 @@ fn generate_layout_item_info_decl(
     body.push_str(
         // Phantom cell: return "unconstrained" info (matches Rust's LayoutInfo::default()).
         // field order: max, max_percent, min, min_percent, preferred, stretch
-        "return { slint::cbindgen_private::LayoutInfo{ std::numeric_limits<float>::max(), 100.f, 0, 0, 0, 0 } };\n\
+        "return { slint::cbindgen_private::LayoutInfo{ std::numeric_limits<float>::max(), 100.f, 0, 0, 0, 0 }, {} };\n\
          }\n\
-         return { layout_info({&static_vtable, const_cast<void *>(static_cast<const void *>(this))}, o) };",
+         return { layout_info({&static_vtable, const_cast<void *>(static_cast<const void *>(this))}, o), {} };",
     );
     Declaration::Function(Function {
         name: "layout_item_info".into(),
@@ -4666,7 +4688,7 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                 let mut v_cases = String::new();
                 let mut h_cases = String::new();
                 for (i, item) in measure_cells.iter().enumerate() {
-                    if let Either::Left((h_info, v_info)) = item {
+                    if let llr::FlexboxMeasureCellKind::Static { h_info, v_info } = &item.kind {
                         let v = compile_expression(v_info, ctx);
                         let h = compile_expression(h_info, ctx);
                         v_cases.push_str(&format!(
@@ -4685,8 +4707,8 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                 let mut v_steps = String::new();
                 let mut h_steps = String::new();
                 for item in measure_cells {
-                    match item {
-                        Either::Left((h_info, v_info)) => {
+                    match &item.kind {
+                        llr::FlexboxMeasureCellKind::Static { h_info, v_info } => {
                             let v = compile_expression(v_info, ctx);
                             let h = compile_expression(h_info, ctx);
                             v_steps.push_str(&format!(
@@ -4698,7 +4720,7 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                                  cursor += 1;\n"
                             ));
                         }
-                        Either::Right(repeater) => {
+                        llr::FlexboxMeasureCellKind::Repeated(repeater) => {
                             let i = usize::from(repeater.repeater_index);
                             v_steps.push_str(&format!(
                                 "{{ auto len = self->repeater_{i}.len(); \
@@ -5819,8 +5841,8 @@ fn generate_with_flexbox_layout_item_info(
                      auto info_h = sub_comp->flexbox_layout_item_info(slint::cbindgen_private::Orientation::Horizontal, std::nullopt); \
                      auto info_v = {v_query}; \
                      flex_props_vector.push_back(info_h.props); \
-                     cells_vector_h.push_back({{ info_h.constraint }}); \
-                     cells_vector_v.push_back({{ info_v.constraint }}); }}); \
+                     cells_vector_h.push_back({{ info_h.constraint, {{}} }}); \
+                     cells_vector_v.push_back({{ info_v.constraint, {{}} }}); }}); \
                      auto repeater_len = self->repeater_{repeater_index}.len(); \
                      cells_vector_h.resize(start_offset + repeater_len); \
                      cells_vector_v.resize(start_offset + repeater_len); \

@@ -78,6 +78,9 @@ impl Layout {
 pub struct LayoutItem {
     pub element: ElementRc,
     pub constraints: LayoutConstraints,
+    /// The `cross-axis-self-alignment` property, if set.
+    /// Used by box layouts and FlexboxLayout; always `None` in a GridLayout.
+    pub cross_axis_self_alignment: Option<NamedReference>,
 }
 
 /// A FlexboxLayout child item, wrapping a LayoutItem with flex-specific properties.
@@ -87,7 +90,6 @@ pub struct FlexboxLayoutItem {
     pub flex_grow: Option<NamedReference>,
     pub flex_shrink: Option<NamedReference>,
     pub flex_basis: Option<NamedReference>,
-    pub align_self: Option<NamedReference>,
     pub order: Option<NamedReference>,
 }
 
@@ -741,6 +743,9 @@ impl BoxLayout {
     pub fn visit_named_references(&mut self, visitor: &mut impl FnMut(&mut NamedReference)) {
         for cell in &mut self.elems {
             cell.constraints.visit_named_references(visitor);
+            if let Some(e) = cell.cross_axis_self_alignment.as_mut() {
+                visitor(&mut *e);
+            }
         }
         self.geometry.visit_named_references(visitor);
         if let Some(e) = self.cross_alignment.as_mut() {
@@ -839,7 +844,7 @@ impl FlexboxLayout {
             if let Some(e) = cell.flex_basis.as_mut() {
                 visitor(&mut *e)
             }
-            if let Some(e) = cell.align_self.as_mut() {
+            if let Some(e) = cell.item.cross_axis_self_alignment.as_mut() {
                 visitor(&mut *e)
             }
             if let Some(e) = cell.order.as_mut() {

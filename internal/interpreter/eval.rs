@@ -1089,6 +1089,17 @@ fn push_repeater_layout_items(
     let push_cell = |cells: &mut Vec<Value>, info: i_slint_core::layout::LayoutItemInfo| {
         let mut struct_value = crate::api::Struct::default();
         struct_value.set_field("constraint".to_string(), info.constraint.into());
+        // The cell's `cross-axis-self-alignment` in a box layout; `to_cells`
+        // reads it back on the cross-axis solve, an absent field means `auto`.
+        if info.cross_axis_self_alignment != i_slint_core::items::CrossAxisSelfAlignment::Auto {
+            struct_value.set_field(
+                "cross-axis-self-alignment".to_string(),
+                Value::EnumerationValue(
+                    "CrossAxisSelfAlignment".to_string(),
+                    info.cross_axis_self_alignment.to_string(),
+                ),
+            );
+        }
         cells.push(Value::Struct(struct_value));
     };
     let step = match row_child_templates {
@@ -1146,7 +1157,7 @@ fn total_row_child_count(
     total
 }
 
-fn llr_to_core_orientation(
+pub(crate) fn llr_to_core_orientation(
     o: i_slint_compiler::layout::Orientation,
 ) -> i_slint_core::items::Orientation {
     match o {

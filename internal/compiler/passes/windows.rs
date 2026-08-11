@@ -53,6 +53,7 @@ pub fn ensure_window(
         transitions: Default::default(),
         child_of_layout: false,
         child_of_flexbox: false,
+        parent_box_layout_orientation: None,
         has_popup_child: false,
         layout_info_prop: Default::default(),
         layout_info_v_with_constraint: Default::default(),
