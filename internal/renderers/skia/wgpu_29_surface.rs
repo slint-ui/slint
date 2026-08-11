@@ -446,9 +446,13 @@ impl Backend {
     /// Like [`Self::make_surface`], but for the swapchain image handed out by
     /// [`wgpu::Surface::get_current_texture`].
     ///
-    /// wgpu returns surface textures to their `PRESENT` state at the end of every submission,
-    /// so that is the layout Skia finds the image in, not the color-attachment one a plain
-    /// render target is left in. Pair every call with [`Self::release_swapchain_surface`].
+    /// Nothing on this path writes the image before Skia does, so a freshly created swapchain
+    /// hands out images that are still in `UNDEFINED`, and naming the `PRESENT` layout wgpu
+    /// leaves them in from the second frame on would make Skia's barrier claim a layout the
+    /// image isn't in yet. `UNDEFINED` is accurate for the first use and legal for every later
+    /// one, at the price of discarding the previous contents, which this path never reads:
+    /// `render()` passes a buffer age of 0, so the scene is repainted in full every frame.
+    /// Pair every call with [`Self::release_swapchain_surface`].
     pub(crate) fn make_swapchain_surface(
         &self,
         gr_context: &mut skia_safe::gpu::DirectContext,
@@ -464,7 +468,7 @@ impl Backend {
                 vulkan::make_vulkan_surface(
                     gr_context,
                     texture,
-                    skia_safe::gpu::vk::ImageLayout::PRESENT_SRC_KHR,
+                    skia_safe::gpu::vk::ImageLayout::UNDEFINED,
                 )
             },
         }
