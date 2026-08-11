@@ -279,6 +279,16 @@ Validate the file before you build, with `appstreamcli` from the Freedesktop SDK
 flatpak run --command=appstreamcli org.freedesktop.Sdk//25.08 validate --no-net com.slint.TestPackage.metainfo.xml
 ```
 
+Install it from `build-commands`, like the desktop entry and the icon:
+
+```yaml
+# ...
+    build-commands:
+      # ...
+      - install -Dm0644 path/to/${FLATPAK_ID}.metainfo.xml ${FLATPAK_DEST}/share/metainfo/${FLATPAK_ID}.metainfo.xml
+      # ...
+```
+
 <Aside type="note">
 Flathub requires at least one screenshot, added as a `<screenshots>` section.
 Leave the section out while you develop: an empty one fails validation,
@@ -288,6 +298,8 @@ and `flatpak-builder` runs the same validation over the metadata it installs.
 ## Putting it all together
 
 The build `.yaml` was specified in fragments, so below is a complete example package manifest with the annotations removed, that you can copy and modify for your own project.
+It assumes the desktop entry, the icon, and the metainfo sit next to the manifest in the root of your project.
+Commit them before you build: the `git` source packages what the repository holds, not your working tree.
 
 <Tabs syncKey="dev-language">
 <TabItem label="Rust" icon="seti:rust">
@@ -324,6 +336,9 @@ modules:
       - cargo --offline fetch --manifest-path Cargo.toml --verbose
       - cargo build --release --offline
       - install -Dm0755 target/release/slint-test-package ${FLATPAK_DEST}/bin/slint-test-package
+      - install -Dm0644 ${FLATPAK_ID}.desktop ${FLATPAK_DEST}/share/applications/${FLATPAK_ID}.desktop
+      - install -Dm0644 icon.png ${FLATPAK_DEST}/share/icons/hicolor/512x512/apps/${FLATPAK_ID}.png
+      - install -Dm0644 ${FLATPAK_ID}.metainfo.xml ${FLATPAK_DEST}/share/metainfo/${FLATPAK_ID}.metainfo.xml
     sources:
       - type: git
         path: ./
