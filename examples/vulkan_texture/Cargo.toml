@@ -15,12 +15,16 @@ path = "main.rs"
 name = "vulkan_texture"
 
 [dependencies]
-# `wgpu-30-vulkan-portability` builds wgpu's Vulkan backend on macOS and iOS, where it runs on
-# MoltenVK. It resolves to nothing on the platforms that have Vulkan natively.
+# Vulkan is only the backend wgpu picks by default on Linux, so the other two platforms take an
+# opt-in: `wgpu-30-vulkan-portability` on macOS and iOS, where Vulkan runs on MoltenVK, and
+# `renderer-skia-vulkan` on Windows, where the default is D3D12. Each resolves to nothing on the
+# platforms it isn't for. On Windows this makes Skia compile from source, as the prebuilt Skia
+# binaries carry no Vulkan build.
 slint = { path = "../../api/rs/slint", features = [
   "unstable-wgpu-30",
   "renderer-skia",
   "wgpu-30-vulkan-portability",
+  "renderer-skia-vulkan",
 ] }
 wgpu-30 = { workspace = true }
 ash = "^0.38.0"
