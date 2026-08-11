@@ -188,8 +188,8 @@ export component InspectorComboBox inherits Rectangle {
         popup-focus := FocusScope {
             key-pressed(event) => {
                 if event.text == Key.Escape {
-                    fallback-popup.close();
                     combo-focus.focus();
+                    fallback-popup.close();
                     return accept;
                 }
                 if event.text == Key.UpArrow {
@@ -202,8 +202,8 @@ export component InspectorComboBox inherits Rectangle {
                 }
                 if event.text == Key.Return || event.text == Key.Space {
                     if root.accept-highlighted() {
-                        fallback-popup.close();
                         combo-focus.focus();
+                        fallback-popup.close();
                     }
                     return accept;
                 }
