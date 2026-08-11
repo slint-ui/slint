@@ -863,6 +863,31 @@ impl FlexboxLayout {
     }
 }
 
+/// Whether the builtin — or the native class it resolves to after the
+/// `resolve_native_classes` pass — has no intrinsic size (Rectangle, Empty,
+/// TouchArea, etc.): its layout info is the static default, never
+/// height-for-width.
+fn has_no_intrinsic_size(base: &ElementType) -> bool {
+    let name = match base {
+        ElementType::Builtin(b) => b.name.as_str(),
+        ElementType::Native(n) => n.class_name.as_str(),
+        _ => return false,
+    };
+    matches!(
+        name,
+        "Rectangle"
+            | "BasicBorderRectangle"
+            | "BorderRectangle"
+            | "Empty"
+            | "TouchArea"
+            | "FocusScope"
+            | "Opacity"
+            | "Layer"
+            | "BoxShadow"
+            | "Clip"
+    )
+}
+
 /// Controls whether `implicit_layout_info_call` returns layout info for builtins
 /// that don't have an intrinsic size (Rectangle, Empty, TouchArea, etc.).
 #[derive(Clone, Copy, PartialEq)]
@@ -926,18 +951,8 @@ pub fn implicit_layout_info_call(
                     }
                 }
             }
-            ElementType::Builtin(base_type)
-                if matches!(
-                    base_type.name.as_str(),
-                    "Rectangle"
-                        | "Empty"
-                        | "TouchArea"
-                        | "FocusScope"
-                        | "Opacity"
-                        | "Layer"
-                        | "BoxShadow"
-                        | "Clip"
-                ) =>
+            base @ (ElementType::Builtin(_) | ElementType::Native(_))
+                if has_no_intrinsic_size(base) =>
             {
                 if filter == BuiltinFilter::SkipNonImplicit {
                     return None;

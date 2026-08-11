@@ -353,8 +353,13 @@ struct FlatCell<'a> {
 }
 
 enum FlatCellKind<'a> {
-    Static { h_info: &'a Expression, v_info: &'a Expression },
+    Static {
+        h_info: &'a Expression,
+        v_info: &'a Expression,
+    },
     Repeated(vtable::VRc<i_slint_core::item_tree::ItemTreeVTable, crate::instance::Instance>),
+    /// No constrained layout info: the pre-resolved sizes are already correct.
+    Fixed,
 }
 
 /// Flatten `measure_cells` into one entry per taffy cell. Static cells carry
@@ -380,6 +385,9 @@ fn flatten_measure_cells<'a>(
                         w4h_only: item.w4h_only,
                     }));
                 }
+            }
+            FlexboxMeasureCellKind::Fixed => {
+                flat.push(FlatCell { kind: FlatCellKind::Fixed, w4h_only: item.w4h_only })
             }
         }
     }
@@ -419,6 +427,7 @@ fn measure_flexbox_cell(
                 .constraint
                 .preferred_bounded(),
         ),
+        FlatCellKind::Fixed => (w, h),
     };
     // measure the width at the height `h`
     let measure_width = |ctx: &mut EvalContext| match &cell.kind {
@@ -436,6 +445,7 @@ fn measure_flexbox_cell(
                 .preferred_bounded(),
             h,
         ),
+        FlatCellKind::Fixed => (w, h),
     };
     match (known_w, known_h) {
         (true, true) => (w, h),
