@@ -82,7 +82,7 @@ export component TestCase inherits Window {
 
 /*
 ```rust
-use slint::{SharedString, platform::{Key}};
+use slint::{SharedString, platform::{Key, PointerEventButton}};
 let instance = TestCase::new().unwrap();
 assert!(instance.get_test());
 
@@ -133,15 +133,17 @@ slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from("\n"
 assert!(instance.get_checkable_menu_item_checked());
 
 instance.set_result("".into());
-// click on the file menu to open it, and again to close it
-slint_testing::send_mouse_click(&instance, 10., 16.);
-slint_testing::send_mouse_click(&instance, 10., 16.);
-// the menu is closed, so this click doesn't hit the first entry (new)
-slint_testing::send_mouse_click(&instance, 30., 49.);
-assert_eq!(instance.get_result(), "");
+let find_new = || slint_testing::ElementHandle::find_by_accessible_label(&instance, "New").next();
+let file_menu = slint_testing::ElementHandle::find_by_accessible_label(&instance, "File").next().unwrap();
+// click on the file menu to open it
+file_menu.mock_single_click(PointerEventButton::Left);
+assert!(find_new().is_some());
+// click on it again to close it
+file_menu.mock_single_click(PointerEventButton::Left);
+assert!(find_new().is_none());
 // the menu can be opened again
-slint_testing::send_mouse_click(&instance, 10., 16.);
-slint_testing::send_mouse_click(&instance, 30., 49.);
+file_menu.mock_single_click(PointerEventButton::Left);
+find_new().unwrap().mock_single_click(PointerEventButton::Left);
 assert_eq!(instance.get_result(), "New");
 ```
 
@@ -197,12 +199,12 @@ slint_testing::send_keyboard_string_sequence(&instance, "\n");
 assert(instance.get_checkable_menu_item_checked());
 
 instance.set_result("");
-// click on the file menu to open it, and again to close it
+// click on the file menu to open it
 slint_testing::send_mouse_click(&instance, 10., 16.);
+assert_eq(slint::testing::ElementHandle::find_by_accessible_label(handle, "New").size(), 1);
+// click on it again to close it
 slint_testing::send_mouse_click(&instance, 10., 16.);
-// the menu is closed, so this click doesn't hit the first entry (new)
-slint_testing::send_mouse_click(&instance, 30., 49.);
-assert_eq(instance.get_result(), "");
+assert_eq(slint::testing::ElementHandle::find_by_accessible_label(handle, "New").size(), 0);
 // the menu can be opened again
 slint_testing::send_mouse_click(&instance, 10., 16.);
 slint_testing::send_mouse_click(&instance, 30., 49.);
