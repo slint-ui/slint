@@ -32,6 +32,12 @@ pub enum MudaType {
 
 static MUDA_SET_EVENT_HANDLER_INSTALLED: AtomicBool = AtomicBool::new(false);
 
+/// Returns true when `SLINT_NO_MUDA` is set, in which case the menu bar and the context menus
+/// are rendered by Slint. That's the only way to exercise these code paths on macOS and Windows.
+pub fn is_disabled() -> bool {
+    std::env::var_os("SLINT_NO_MUDA").is_some()
+}
+
 struct MudaPropertyTracker {
     window_adapter_weak: Weak<WinitWindowAdapter>,
 }
