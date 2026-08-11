@@ -28,7 +28,15 @@ Packaging your application in these formats is left as an exercise for the reade
 
 ## Prerequisites
 
-The tools needed are the `flatpak` and `flatpak-builder` tools. Additionally, depending on your application's programming language, you may need a tool which converts your build tool's lockfile into a set of dependencies that `flatpak-builder` understands. The Flatpak build process is sandboxed, just like Flatpaks themselves, and any tools running inside the build environment do not have network access. Any dependencies that need to be downloaded via the network need to be specified in the Flatpak dependency format.
+The tools needed are the `flatpak` and `flatpak-builder` tools.
+Add the Flathub remote as well.
+That's where the runtime and the SDK your application builds against come from:
+
+```bash
+flatpak remote-add --if-not-exists --user flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+```
+
+Additionally, depending on your application's programming language, you may need a tool which converts your build tool's lockfile into a set of dependencies that `flatpak-builder` understands. The Flatpak build process is sandboxed, just like Flatpaks themselves, and any tools running inside the build environment do not have network access. Any dependencies that need to be downloaded via the network need to be specified in the Flatpak dependency format.
 
 Lockfile conversion scripts are available for all programming languages supported by Slint:
 
@@ -329,3 +337,41 @@ modules:
 
 </TabItem>
 </Tabs>
+
+## Building and Running
+
+With the manifest, the desktop entry, the icon, and the metainfo in place,
+build the package and install it for your own user:
+
+```bash
+flatpak-builder --user --install --force-clean --install-deps-from=flathub \
+    build-dir com.slint.TestPackage.yml
+```
+
+`build-dir` is a scratch directory that `flatpak-builder` fills,
+and `--force-clean` empties it first.
+`--install-deps-from=flathub` fetches the runtime and the SDK if they're missing.
+The first build downloads a couple of gigabytes and compiles every dependency,
+later builds reuse the cache in `.flatpak-builder`.
+Add that directory to your `.gitignore`, together with the generated sources.
+
+Run it the way your users will:
+
+```bash
+flatpak run com.slint.TestPackage
+```
+
+To hand the package to someone else,
+export it into a repository and turn that into a single file:
+
+```bash
+flatpak-builder --user --force-clean --repo=repo build-dir com.slint.TestPackage.yml
+flatpak build-bundle repo com.slint.TestPackage.flatpak com.slint.TestPackage \
+    --runtime-repo=https://dl.flathub.org/repo/flathub.flatpakrepo
+```
+
+Install the result with `flatpak install ./com.slint.TestPackage.flatpak`.
+A bundle holds your application alone,
+so `--runtime-repo` tells the other machine where to fetch the runtime.
+It's also a snapshot: `flatpak update` can't update an application installed from one.
+To ship updates, serve the `repo` directory over HTTPS and have your users add it as a remote.
