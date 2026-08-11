@@ -4485,7 +4485,7 @@ fn visit_element_expressions_excluding_repeater_model_dyn(
             visit_element_expressions_simple(a, vis);
         }
         if let Some((_, a)) = t.catch_all_property_animation.as_mut() {
-            visit_element_expressions_simple(a, &mut vis);
+            visit_element_expressions_simple(a, vis);
         };
     }
     elem.borrow_mut().transitions = transitions;
@@ -4758,9 +4758,6 @@ impl Transition {
         tr: &TypeRegister,
         diag: &mut BuildDiagnostics,
     ) -> Transition {
-        if let Some(star) = trs.child_token(SyntaxKind::Star) {
-            diag.push_error("catch-all not yet implemented".into(), &star);
-        };
         let direction_text = trs
             .first_child_or_token()
             .and_then(|t| t.as_token().map(|tok| tok.text().to_string()))
