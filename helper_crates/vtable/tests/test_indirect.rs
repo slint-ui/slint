@@ -15,7 +15,8 @@ use vtable::*;
 struct AnimalFns {
     make_noise: fn(VRef<'_, AnimalVTable>, i32) -> i32,
     grow: extern "C" fn(VRefMut<'_, AnimalVTable>, i32) -> i32,
-    name: extern "C" fn(Pin<VRef<'_, AnimalVTable>>) -> &'_ str,
+    // Not `extern "C"`: a `&str` return is a fat pointer, so the C ABI does not apply.
+    name: fn(Pin<VRef<'_, AnimalVTable>>) -> &'_ str,
 }
 
 /// Hand-written and deliberately small: only the entries that cannot be shared.
