@@ -10,10 +10,13 @@ import { Tabs, TabItem } from '@astrojs/starlight/components';
 import { Code } from '@astrojs/starlight/components';
 import skiaGenerator from './../../../../../../../../../scripts/flatpak-skia-generator.py?raw'
 
-Distribution on Linux can take a few forms, but for our purposes the easiest to get started with is [Flatpak](https://flatpak.org/), and so we will focus on that here. Flatpaks are sandboxed, cross-platform, and relatively straightforward to create.
+Distribution on Linux takes a few forms.
+The easiest to get started with is [Flatpak](https://flatpak.org/), so that's what this guide covers.
+Flatpaks are sandboxed, work across distributions, and are straightforward to create.
 
 <Aside type="note">
-Depending on your application, you may want to use a different distribution method. Here is an incomplete list of alternatives, with some pros and cons in relation to Flatpak:
+Another distribution method may suit your application better.
+Here's an incomplete list of alternatives, with their pros and cons compared to Flatpak:
 
 - Distro-native package managers (`pacman`, `apt`, `dnf`, etc)
   - Pro: Most-seamless installation/upgrade experience. Also reuses system dependencies which may save space, as well as improve performance on distros with tuned package repositories (e.g. CachyOS)
@@ -38,9 +41,11 @@ That's where the runtime and the SDK your application builds against come from:
 flatpak remote-add --if-not-exists --user flathub https://dl.flathub.org/repo/flathub.flatpakrepo
 ```
 
-Additionally, depending on your application's programming language, you may need a tool which converts your build tool's lockfile into a set of dependencies that `flatpak-builder` understands. The Flatpak build process is sandboxed, just like Flatpaks themselves, and any tools running inside the build environment do not have network access. Any dependencies that need to be downloaded via the network need to be specified in the Flatpak dependency format.
+Depending on your programming language, you also need a tool that converts your build tool's lockfile into dependencies that `flatpak-builder` understands.
+The build process is sandboxed just like Flatpaks themselves, and nothing inside it reaches the network.
+Every dependency that would otherwise be downloaded has to be declared up front.
 
-Lockfile conversion scripts are available for all programming languages supported by Slint:
+Lockfile conversion scripts exist for every programming language Slint supports:
 
 - Rust
   - [`cargo`](https://github.com/flatpak/flatpak-builder-tools/tree/master/cargo)
@@ -54,25 +59,30 @@ Lockfile conversion scripts are available for all programming languages supporte
   - [`pip`](https://github.com/flatpak/flatpak-builder-tools/tree/master/pip)
   - [`poetry`](https://github.com/flatpak/flatpak-builder-tools/tree/master/poetry)
 
-C++ has no standard, cross-platform package manager, and for C++ projects the only officially-supported method of including dependencies is via vendoring. Bun is supported by Slint, but not by Flatpak.
+C++ has no standard, cross-platform package manager.
+Vendor your dependencies instead.
+Slint supports Bun, but Flatpak doesn't.
 
-## Creating a build file
+## Creating a Build File
 
-Flatpak build files are named after the package ID. For most projects, the package ID will be `com.yourorganization.YourProject`. For this example, we'll use `com.slint.TestPackage`, meaning that the build script will be named `com.slint.TestPackage.yml`.
+Flatpak build files are named after the package ID.
+For most projects that ID is `com.yourorganization.YourProject`.
+This example uses `com.slint.TestPackage`, so the build file is named `com.slint.TestPackage.yml`.
 
 ```yaml
 # The ID, explained above.
 id: com.slint.TestPackage
 
-# The "runtime" to use. For desktop applications, this will almost always be
-# `org.freedesktop.Platform`
+# The runtime your application runs against
 runtime: org.freedesktop.Platform
+# A new major version comes out every August and is supported for two years.
+# See https://docs.flatpak.org/en/latest/available-runtimes.html
 runtime-version: "25.08"
 
-# This will be explained below
+# The command that starts your application, installed by the build below
 command: slint-test-package
 
-# The "sdk" to use. Again, this will almost always be `org.freedesktop.Sdk`
+# The matching SDK, which the build runs in
 sdk: org.freedesktop.Sdk
 
 # The set of permissions that this application requires
@@ -88,16 +98,19 @@ finish-args:
   - --socket=fallback-x11
 ```
 
-The permissions specified above are the minimum required for all Slint applications, but in case you require further permissions you can check [Flatpak's official documentation](https://docs.flatpak.org/en/latest/sandbox-permissions.html). Notable permissions are `--share=network` for network access, `--socket=pulseaudio` for audio I/O, and `--allow=bluetooth` for Bluetooth connectivity.
+Those permissions are the minimum every Slint application needs.
+For anything beyond them, see [Flatpak's documentation](https://docs.flatpak.org/en/latest/sandbox-permissions.html).
+The common additions are `--share=network` for network access, `--socket=pulseaudio` for audio, and `--allow=bluetooth` for Bluetooth.
 
-## Specifying the build process
+## Specifying the Build Process
 
-Along with the basic metadata, you will then need to specify your dependencies and build process. This will depend on the language used.
+Next comes the part that depends on your language: the dependencies and the build process.
 
 <Tabs syncKey="dev-language">
 <TabItem label="Rust" icon="seti:rust">
 
-First, you need to run the [`flatpak-cargo-generator.py`](https://github.com/flatpak/flatpak-builder-tools/tree/master/cargo) script, mentioned above. This will create a file named `cargo-sources.json`.
+Run the [`flatpak-cargo-generator.py`](https://github.com/flatpak/flatpak-builder-tools/tree/master/cargo) script mentioned above.
+It writes a file named `cargo-sources.json`.
 
 ```yaml
 # ...
@@ -133,12 +146,11 @@ modules:
       - install -Dm0755 target/release/slint-test-package ${FLATPAK_DEST}/bin/slint-test-package
     sources:
       - type: git
-        # This assumes that this yaml file is in the root of your project. This may not
-        # be what you want, see below for some other options.
+        # This assumes that this yaml file is in the root of your project
         path: ./
-        # This should be the current git commit hash, or the git commit hash that you
-        # want to build
-        commit: 1234deadbeef
+        # `HEAD` builds the commit your checkout is on. Without a ref,
+        # flatpak-builder builds the repository's default branch instead
+        branch: HEAD
       # If you named your generated sources file something different, or put it somewhere
       # other than in the same directory as this file, you should specify the path to it
       # here
@@ -222,9 +234,10 @@ The file name embeds both the target triple and a hash of the Skia build, so the
 </TabItem>
 </Tabs>
 
-## Icons and desktop metadata
+## Icons and Desktop Metadata
 
-To ensure that your application shows up in the launcher, create a `.desktop` file, along with an icon file. In our case, this will look like so:
+To make your application show up in the launcher, write a `.desktop` file and provide an icon.
+For this example the desktop entry looks like this:
 
 ```ini
 [Desktop Entry]
@@ -248,7 +261,7 @@ Check the file with `desktop-file-validate`, which comes with the Freedesktop SD
 flatpak run --command=desktop-file-validate org.freedesktop.Sdk//25.08 com.slint.TestPackage.desktop
 ```
 
-You then need to add a command that puts this in the correct place to your `build-commands`, like so:
+Install it from `build-commands`:
 
 ```yaml
 # ...
@@ -258,12 +271,12 @@ You then need to add a command that puts this in the correct place to your `buil
       # ...
 ```
 
-For the icon, you have a few options. Flatpak will search the following folders (here specified as you would in the build script):
+Flatpak looks for the icon in these directories:
 
 - `.png` files in `${FLATPAK_DEST}/share/icons/hicolor/WIDTHxHEIGHT/apps/`, where `WIDTHxHEIGHT` matches the width and height of your image (up to 512)
 - `.svg` files in `${FLATPAK_DEST}/share/icons/hicolor/scalable/apps/`
 
-Whether your choose `.png` or `.svg`, the file should be named the same as your Flatpak package ID, and you should add an `install` command to `build-commands` that outputs the file to the correct directory, with the same name as your Flatpak package ID. For example:
+Whichever format you choose, name the file after your Flatpak package ID and install it from `build-commands`:
 
 ```yaml
 # ...
@@ -278,7 +291,9 @@ Whether your choose `.png` or `.svg`, the file should be named the same as your 
 
 ## Metainfo
 
-Finally, Flatpak expects your package to include a `.metainfo.xml` file, which specifies some Flatpak-specific metadata used by the package manager and by Flathub. The [full specification of this file](https://docs.flathub.org/docs/for-app-authors/metainfo-guidelines) is out of scope for this document, but below are the minimum fields that must be specified in order for validation to succeed:
+Finally, your package needs a `.metainfo.xml` file.
+Package managers and Flathub read it to describe your application to users.
+The [full specification](https://docs.flathub.org/docs/for-app-authors/metainfo-guidelines) is out of scope here, so below are the minimum fields that pass validation:
 
 ```xml
 <?xml version="1.0" encoding="UTF-8" ?>
@@ -352,9 +367,9 @@ Leave the section out while you develop: an empty one fails validation,
 and `flatpak-builder` runs the same validation over the metadata it installs.
 </Aside>
 
-## Putting it all together
+## Putting It All Together
 
-The build `.yaml` was specified in fragments, so below is a complete example package manifest with the annotations removed, that you can copy and modify for your own project.
+The build file grew in fragments, so here it is complete and without the annotations, ready to copy and adapt.
 It assumes the desktop entry, the icon, and the metainfo sit next to the manifest in the root of your project.
 Commit them before you build: the `git` source packages what the repository holds, not your working tree.
 
@@ -419,7 +434,7 @@ modules:
     sources:
       - type: git
         path: ./
-        commit: 1234deadbeef
+        branch: HEAD
       - cargo-sources.json
       - skia-sources.json
 ```
