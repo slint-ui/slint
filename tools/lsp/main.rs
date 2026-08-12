@@ -17,11 +17,6 @@ mod fmt;
 mod language;
 #[cfg(feature = "preview-engine")]
 mod preview;
-#[cfg(all(
-    not(target_arch = "wasm32"),
-    any(feature = "preview-external", feature = "preview-engine")
-))]
-mod settings_store;
 pub mod util;
 
 use common::Result;
@@ -605,9 +600,7 @@ async fn run_main_loop(
                 // Messages from the native preview come in here:
                 #[cfg(feature = "preview-engine")]
                 {
-                    if let Some(msg) =
-                        _msg && let Err(err) = handle_preview_to_lsp_message(msg, &mut ctx).await
-                    {
+                    if let Some(msg) = _msg && let Err(err) = handle_preview_to_lsp_message(msg, &ctx).await {
                         tracing::error!("handle_preview_to_lsp_message: {err}");
                     }
                 }
@@ -806,10 +799,7 @@ async fn send_workspace_edit(
 }
 
 #[cfg(any(feature = "preview-external", feature = "preview-engine", feature = "preview-remote"))]
-async fn handle_preview_to_lsp_message(
-    message: PreviewToLspMessage,
-    ctx: &mut Context,
-) -> Result<()> {
+async fn handle_preview_to_lsp_message(message: PreviewToLspMessage, ctx: &Context) -> Result<()> {
     use PreviewToLspMessage as M;
     match message {
         M::Diagnostics { uri, version, diagnostics } => {
@@ -837,12 +827,13 @@ async fn handle_preview_to_lsp_message(
             tracing::debug!("Preview type changed: {target:?}");
             ctx.to_preview.set_local_target(target)?;
         }
-        M::RequestState { files, settings } => {
+        M::RequestState { files } => {
             tracing::debug!("Preview requested state");
-            crate::language::send_requested_state_to_preview(ctx, &files, &settings);
-        }
-        M::UpdateUserSettings { name, contents } => {
-            crate::language::store_user_settings(&name, &contents);
+            if files.is_empty() {
+                crate::language::send_state_to_preview(ctx);
+            } else {
+                crate::language::send_files_to_preview(ctx, &files);
+            }
         }
         M::SendWorkspaceEdit { label, edit } => {
             let sn = ctx.server_notifier.clone();
