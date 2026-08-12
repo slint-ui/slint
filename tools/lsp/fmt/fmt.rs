@@ -1606,14 +1606,10 @@ fn format_property_animation(
         }
     }
 
-    let bindings = node.children().fold(0, |acc, e| {
-        if e.kind() == SyntaxKind::Binding {
-            return acc + 1;
-        }
-        acc
-    });
+    let is_too_long = node.text().len() > 80.into();
+    let was_inline = std::mem::replace(&mut state.inline_codeblock, !is_too_long);
 
-    if bindings > 1 {
+    if is_too_long {
         state.indentation_level += 1;
         state.new_line();
     } else {
@@ -1623,13 +1619,14 @@ fn format_property_animation(
     for n in sub {
         if n.kind() == SyntaxKind::RBrace {
             state.whitespace_to_add = None;
-            if bindings > 1 {
+            if is_too_long {
                 state.indentation_level -= 1;
                 state.new_line();
             } else {
                 state.insert_whitespace(" ");
             }
             fold(n, writer, state)?;
+            state.inline_codeblock = was_inline;
             state.new_line();
         } else {
             fold(n, writer, state)?;
@@ -2802,10 +2799,7 @@ component FooBar {
             }
             out {
                 animate /*...*/  vv { duration: 400ms; }
-                animate dd {
-                    duration: 100ms + 400ms;
-                    easing: ease-out;
-                }
+                animate dd { duration: 100ms + 400ms; easing: ease-out; }
             }
         }
     ]
@@ -2973,10 +2967,7 @@ export component MainWindow inherits Window {
             r#"
 export component MainWindow inherits Window {
     animate background { duration: 800ms; }
-    animate x {
-        duration: 100ms;
-        easing: ease-out-bounce;
-    }
+    animate x { duration: 100ms; easing: ease-out-bounce; }
     Rectangle { }
 }
 "#,
@@ -3412,10 +3403,7 @@ export component MainWindow inherits Rectangle {
 "#,
             r#"
 export component MainWindow inherits Rectangle {
-    animate x, y {
-        duration: 170ms;
-        easing: cubic-bezier(0.17,0.76,0.4,1.75);
-    }
+    animate x, y { duration: 170ms; easing: cubic-bezier(0.17,0.76,0.4,1.75); }
     animate x, y { duration: 170ms; }
 }
 "#,
