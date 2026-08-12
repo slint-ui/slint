@@ -3801,7 +3801,7 @@ fn compile_callback_call(expr: &Expression, ctx: &EvaluationContext) -> TokenStr
 #[inline(never)]
 fn compile_function_call(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
     let Expression::FunctionCall { function, arguments } = expr else { unreachable!() };
-    let a = arguments.iter().map(|a| compile_expression(a, ctx));
+    let a = arguments.iter().map(|a| compile_expression_to_value(a, ctx));
     let f = access_member(function, ctx);
     if expr.ty(ctx) == Type::Void {
         f.then(|f| quote!(#f( #(#a as _),*)))
