@@ -76,9 +76,9 @@ assert_eq(instance.get_clicked(), 1);
 
 ```js
 let model = new slintlib.ArrayModel([1]);
-var instance = new slint.TestCase({
-    remove_row: function() { model.pop(); }
-});
+var instance = new slint.TestCase({});
+// The instance accessor takes the translated name; the constructor's object would need "remove-row".
+instance.remove_row = function() { model.pop(); };
 instance.model = model;
 
 slintlib.private_api.send_mouse_click(instance, 50., 50.);
