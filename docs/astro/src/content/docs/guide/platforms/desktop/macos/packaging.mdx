@@ -5,7 +5,8 @@ description: Package a desktop Rust-based Slint app for direct macOS distributio
 
 {/* cSpell: ignore APPL pipefail esac notarytool spctl */}
 
-import { Aside } from '@astrojs/starlight/components';
+import { Aside, Code } from '@astrojs/starlight/components';
+import buildScript from './../../../../../../../../../scripts/build_macos_app_with_cargo.bash?raw'
 
 There are two main routes for distributing macOS apps: the [Mac App Store](https://www.apple.com/app-store/) and direct distribution.
 Slint supports both routes by generating standard Xcode projects that work with Apple's build and distribution tools.
@@ -110,51 +111,17 @@ Regenerate the project file before every build, including in CI, since you don't
 Use `--use-cache` to keep that cheap:
 XcodeGen leaves the project untouched when nothing in the spec has changed.
 
-The Cargo build script must copy the final executable to the path Xcode expects:
+The Cargo build script must copy the final executable to the path Xcode expects.
+This is the script the Slint repository ships as `scripts/build_macos_app_with_cargo.bash`:
 
-```sh
-#!/usr/bin/env bash
-set -euo pipefail
+<Code code={buildScript} lang="bash" />
 
-CARGO_TARGET_NAME=""
-CARGO_PROFILE=dev
-
-while [[ $# -gt 0 ]]; do
-    case "$1" in
-        --bin)
-            CARGO_TARGET_NAME="$2"
-            shift 2
-            ;;
-        --profile)
-            CARGO_PROFILE="$2"
-            shift 2
-            ;;
-        *)
-            echo "Usage: $0 --bin <binary name> [--profile <profile>]" >&2
-            exit 2
-            ;;
-    esac
-done
-
-RUST_TARGET=aarch64-apple-darwin
-
-if [ "$CARGO_PROFILE" = "dev" ]; then
-    CARGO_PROFILE_DIR=debug
-else
-    CARGO_PROFILE_DIR="$CARGO_PROFILE"
-fi
-
-# The rpath lets the bundled app load frameworks from Contents/Frameworks.
-env RUSTFLAGS='-Clink-args=-Wl,-rpath,@loader_path/../Frameworks' \
-    cargo build --target "$RUST_TARGET" --bin "$CARGO_TARGET_NAME" --profile "$CARGO_PROFILE"
-
-mkdir -p "$(dirname "$TARGET_BUILD_DIR/$EXECUTABLE_PATH")"
-cp "target/$RUST_TARGET/$CARGO_PROFILE_DIR/$CARGO_TARGET_NAME" "$TARGET_BUILD_DIR/$EXECUTABLE_PATH"
-chmod +x "$TARGET_BUILD_DIR/$EXECUTABLE_PATH"
-```
+Copy it next to your `project.yml` and make it executable with `chmod +x build_macos_app_with_cargo.bash`.
 
 Xcode passes `TARGET_BUILD_DIR` and `EXECUTABLE_PATH` to the script.
 The `--profile` flag keeps the Cargo profile out of the script, so the same script serves debug and release builds.
+Anything after the recognized flags goes to `cargo build`, so you can select features per target.
+The build lands in `target/xcode-cargo/`, in a directory named after `MACOS_CARGO_TARGET_DIR_NAME`, the bundle identifier, or the binary, so an Xcode build doesn't fight your regular `cargo build` over the same target directory.
 
 ## Distribute a DMG Outside the Mac App Store
 
