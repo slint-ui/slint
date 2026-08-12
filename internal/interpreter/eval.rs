@@ -1899,6 +1899,25 @@ fn call_builtin_function(
         BuiltinFunction::StringToUppercase => {
             Value::String(to_string(ctx, &arguments[0]).to_uppercase().into())
         }
+        BuiltinFunction::StringReplaceAll => {
+            if arguments.len() != 3 {
+                panic!("internal error: incorrect argument count to StringReplaceAll")
+            }
+
+            if let (Value::String(s), Value::String(from), Value::String(to)) = (
+                eval_expression(ctx, &arguments[0]),
+                eval_expression(ctx, &arguments[1]),
+                eval_expression(ctx, &arguments[2]),
+            ) {
+                Value::String(i_slint_core::string::shared_string_replace_all(
+                    &s,
+                    from.as_str(),
+                    to.as_str(),
+                ))
+            } else {
+                panic!("Not all arguments are strings");
+            }
+        }
         BuiltinFunction::ColorRgbaStruct => {
             if let Value::Brush(brush) = eval_expression(ctx, &arguments[0]) {
                 let color = brush.color();

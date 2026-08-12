@@ -492,6 +492,24 @@ fn handle_builtin_function(
                 Value::Void
             }
         }
+        BuiltinFunction::StringReplaceAll => {
+            if arguments.len() != 3 {
+                return Value::Void;
+            }
+            if let (Value::String(s), Value::String(from), Value::String(to)) = (
+                eval_expression(&arguments[0], local_context, None),
+                eval_expression(&arguments[1], local_context, None),
+                eval_expression(&arguments[2], local_context, None),
+            ) {
+                Value::String(i_slint_core::string::shared_string_replace_all(
+                    &s,
+                    from.as_str(),
+                    to.as_str(),
+                ))
+            } else {
+                Value::Void
+            }
+        }
         BuiltinFunction::ColorRgbaStruct => {
             if arguments.len() != 1 {
                 return Value::Void;
