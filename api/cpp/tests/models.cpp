@@ -700,9 +700,8 @@ TEST_CASE("Model any-change tracking")
 
     PropertyTracker tracker;
     auto find_two = [&] {
-        return tracker.evaluate([&] {
-            return model_find_index(model, [](int x) { return x == 2; });
-        });
+        return tracker.evaluate(
+                [&] { return model_find_index(model, [](int x) { return x == 2; }); });
     };
 
     REQUIRE(find_two() == 2);
