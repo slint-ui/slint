@@ -86,17 +86,26 @@ test("loadFile constructor parameters", () => {
         path.join(dirname, "resources/test-constructor.slint"),
     ) as any;
     let hello = "";
+    let goodbye = "";
     const test = new demo.Test({
         say_hello: function () {
             hello = "hello";
         },
+        // A name declared with a dash is settable under either spelling.
+        say_goodbye: function () {
+            goodbye = "goodbye";
+        },
         check: "test",
+        "check-again": "test again",
     });
 
     test.say_hello();
+    test.say_goodbye();
 
     expect(test.check).toBe("test");
+    expect(test.check_again).toBe("test again");
     expect(hello).toBe("hello");
+    expect(goodbye).toBe("goodbye");
 });
 
 test("loadFile component instances and modules are sealed", () => {
@@ -208,22 +217,33 @@ test("accessing `window` on non-windowed components throws", () => {
 test("loadSource constructor parameters", () => {
     const source = `export component Test {
         callback say_hello();
+        callback say-goodbye();
         in-out property <string> check;
+        in-out property <string> check-again;
     }`;
     const path = "api.spec.ts";
     const demo = loadSource(source, path) as any;
     let hello = "";
+    let goodbye = "";
     const test = new demo.Test({
         say_hello: function () {
             hello = "hello";
         },
+        // A name declared with a dash is settable under either spelling.
+        "say-goodbye": function () {
+            goodbye = "goodbye";
+        },
         check: "test",
+        check_again: "test again",
     });
 
     test.say_hello();
+    test.say_goodbye();
 
     expect(test.check).toBe("test");
+    expect(test.check_again).toBe("test again");
     expect(hello).toBe("hello");
+    expect(goodbye).toBe("goodbye");
 });
 
 test("loadSource component instances and modules are sealed", () => {
