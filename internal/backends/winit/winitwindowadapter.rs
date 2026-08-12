@@ -1533,16 +1533,16 @@ impl WindowAdapter for WinitWindowAdapter {
                     .position
                     .unwrap_or_else(|| Position::new(LogicalPosition::new(0., 0.)));
 
-                let wa = window_attributes.borrow().clone().with_positioner(WindowPositioner {
-                    anchor: anchor_to_winit(anchor.location),
-                    anchor_rect: (anchor_position, anchor_size.into()),
-                    positioner_offset: offset.into(),
-                    gravity: gravity_to_winit(anchor.gravity),
-                    constraint_adjustment: constraint_adjustment_to_winit(
+                let wa = window_attributes.borrow().clone().with_positioner(WindowPositioner::new(
+                    anchor_to_winit(anchor.location),
+                    (anchor_position, anchor_size.into()),
+                    offset.into(),
+                    gravity_to_winit(anchor.gravity),
+                    constraint_adjustment_to_winit(
                         &anchor.constraint_adjustment_x,
                         &anchor.constraint_adjustment_y,
                     ),
-                });
+                ));
                 *window_attributes.borrow_mut() = wa;
             }
         }
