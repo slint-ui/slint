@@ -3937,15 +3937,24 @@ enum MemberAccess {
 impl MemberAccess {
     /// Used for code that is meant to return `()`
     fn then(&self, f: impl FnOnce(&str) -> String) -> String {
+        self.then_named("x", f)
+    }
+
+    /// Like [`Self::then`], but names the binding the member is spliced from, so that this access
+    /// can be nested inside another one without shadowing it.
+    fn then_named(&self, binding: &str, f: impl FnOnce(&str) -> String) -> String {
         match self {
             MemberAccess::Direct(t) => f(t),
             MemberAccess::Option(t) => {
-                format!("slint::private_api::optional_then({t}, [&](auto&&x) {{ {}; }})", f("x"))
+                format!(
+                    "slint::private_api::optional_then({t}, [&](auto&&{binding}) {{ {}; }})",
+                    f(binding)
+                )
             }
             MemberAccess::OptionWithMember(t, m) => {
                 format!(
-                    "slint::private_api::optional_then({t}, [&](auto&&x) {{ {}; }})",
-                    f(&format!("x{}", m))
+                    "slint::private_api::optional_then({t}, [&](auto&&{binding}) {{ {}; }})",
+                    f(&format!("{binding}{m}"))
                 )
             }
         }
@@ -5196,10 +5205,9 @@ fn compile_builtin_function_call(
                     }
                     _ => "[](bool) {}".to_string(),
                 };
-                item_owner(anchor_ref).then(|owner| {
-                    // Bind the owner before the inner guard, which shadows the lambda parameter
-                    let (_, parent_component) = native_item_from_owner(anchor_ref, ctx, "anchor_owner->");
-                    let show = component_access.then(|component_access| {
+                item_owner(anchor_ref).then_named("anchor_owner", |owner| {
+                    let (_, parent_component) = native_item_from_owner(anchor_ref, ctx, owner);
+                    component_access.then(|component_access| {
                     let compo_ptr = if compo_path.is_empty() {
                         format!("&*({component_access})")
                     } else {
@@ -5216,8 +5224,7 @@ fn compile_builtin_function_call(
                                                                             {window_kind},  \
                                                                             {is_open_setter})"
                     )
-                    });
-                    format!("auto &&anchor_owner = {}; {show}", owner.trim_end_matches("->"))
+                    })
                 })
                 })
             } else {
@@ -5270,17 +5277,15 @@ fn compile_builtin_function_call(
             let access_activated = access_member(&popup.activated, &popup_ctx).unwrap();
             let access_close = access_member(&popup.close, &popup_ctx).unwrap();
 
-            item_owner(context_menu_ref).then(|owner| {
-            // Bind the owner before `close_popup`/`set_id`, which guard the same reference and
-            // shadow the lambda parameter
-            let (_, context_menu_rc) = native_item_from_owner(context_menu_ref, ctx, "context_menu_owner->");
+            item_owner(context_menu_ref).then_named("context_menu_owner", |owner| {
+            let (_, context_menu_rc) = native_item_from_owner(context_menu_ref, ctx, owner);
             let close_popup = context_menu.then(|context_menu| {
                 format!("{window}.close_popup({context_menu}.popup_id)")
             });
             let set_id = context_menu
                 .then(|context_menu| format!("{context_menu}.popup_id = id"));
 
-            let show = if let llr::Expression::NumberLiteral(tree_index) = entries {
+            if let llr::Expression::NumberLiteral(tree_index) = entries {
                 // We have an MenuItem tree
                 let current_sub_component = ctx.current_sub_component().unwrap();
                 let item_tree_id = ident(&ctx.compilation_unit.sub_components[current_sub_component.menu_item_trees[*tree_index as usize].root].name);
@@ -5328,8 +5333,7 @@ fn compile_builtin_function_call(
                     }});
                     {set_id};
                 ", globals = ctx.generator_state.global_access)
-            };
-            format!("auto &&context_menu_owner = {}; {show}", owner.trim_end_matches("->"))
+            }
             })
         }
         BuiltinFunction::SetSelectionOffsets => {

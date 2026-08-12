@@ -3237,11 +3237,18 @@ enum MemberAccess {
 impl MemberAccess {
     /// Used for code that is meant to return `()`
     fn then(self, f: impl FnOnce(TokenStream) -> TokenStream) -> TokenStream {
+        self.then_named("x", f)
+    }
+
+    /// Like [`Self::then`], but names the binding the member is spliced from, so that this access
+    /// can be nested inside another one without shadowing it.
+    fn then_named(self, binding: &str, f: impl FnOnce(TokenStream) -> TokenStream) -> TokenStream {
+        let binding = format_ident!("{binding}");
         match self {
             MemberAccess::Direct(t) => f(t),
             MemberAccess::Option(t) => {
-                let r = f(quote!(x));
-                quote!({ let _ = #t.map(|x| #r); })
+                let r = f(quote!(#binding));
+                quote!({ let _ = #t.map(|#binding| #r); })
             }
             MemberAccess::OptionFn(opt, inner) => {
                 let r = f(inner);
@@ -4427,9 +4434,9 @@ fn compile_builtin_function_call(
                     };
                     access_member(is_open_ref, ctx).then(|p| quote!(#p.set(value)))
                 });
-                item_owner(anchor_ref).then(|owner| {
+                item_owner(anchor_ref).then_named("anchor_owner", |owner| {
                     let (_, parent_item) = native_item_from_owner(anchor_ref, ctx, &owner);
-                    let show = component_access_tokens.then(|component_access_tokens| {
+                    component_access_tokens.then(|component_access_tokens| {
                     let compo = quote!(#component_access_tokens #suffix);
                     // Keep the parent's `is-open` in sync: `show_popup` invokes this setter with `true`
                     // immediately and with `false` from every close path (see window.rs). Passing it
@@ -4450,6 +4457,7 @@ fn compile_builtin_function_call(
                         None => (quote!(), quote!(sp::Box::new(|_| {}))),
                     };
                     quote!({
+                        let parent_item = &#parent_item;
                         // Use the newly created window adapter if we are able to create one. Otherwise use the parent's one
                         let shared_global = #compo.globals.get().unwrap();
                         let window_adapter = shared_global.window_adapter_impl();
@@ -4479,8 +4487,7 @@ fn compile_builtin_function_call(
                         #compo.#popup_id_name.set(Some(popup_id));
                         #popup_window_id::user_init(popup_instance_vrc.clone());
                     })
-                    });
-                    quote!({ let parent_item = &#parent_item; #show })
+                    })
                 })
                     },
                 )
@@ -4572,11 +4579,8 @@ fn compile_builtin_function_call(
             let set_id = context_menu
                 .clone()
                 .then(|context_menu| quote!(#context_menu.popup_id.set(Some(id))));
-            item_owner(context_menu_ref).then(|owner| {
-                // Bind the `ItemRc` before `close_popup`/`set_id`, which guard the same reference
-                // and shadow the closure parameter it is spliced from
-                let (_, context_menu_rc_expr) = native_item_from_owner(context_menu_ref, ctx, &owner);
-                let context_menu_rc = quote!(context_menu_rc);
+            item_owner(context_menu_ref).then_named("context_menu_owner", |owner| {
+                let (_, context_menu_rc) = native_item_from_owner(context_menu_ref, ctx, &owner);
                 let slint_show = quote! {
                     #close_popup
                     let access_position = sp::Box::new(move || position);
@@ -4600,7 +4604,7 @@ fn compile_builtin_function_call(
                     let window_adapter = #window_adapter_tokens;
                 };
 
-                let show = if let Expression::NumberLiteral(tree_index) = entries {
+                if let Expression::NumberLiteral(tree_index) = entries {
                     // We have an MenuItem tree
                     let current_sub_component = ctx.current_sub_component().unwrap();
                     let item_tree_id = inner_component_id(
@@ -4679,8 +4683,7 @@ fn compile_builtin_function_call(
                         }
                         #slint_show
                     }}
-                };
-                quote!({ let context_menu_rc = #context_menu_rc_expr; #show })
+                }
             })
         }
         BuiltinFunction::SetSelectionOffsets => {
