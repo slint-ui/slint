@@ -74,6 +74,7 @@ fn expression_cost(exp: &Expression, ctx: &EvaluationContext) -> isize {
         Expression::WithLayoutItemInfo { .. } => return isize::MAX,
         Expression::WithFlexboxLayoutItemInfo { .. } => return isize::MAX,
         Expression::SolveFlexboxLayoutWithMeasure { .. } => return isize::MAX,
+        Expression::FlexboxLayoutInfoCrossAxisWithMeasure { .. } => return isize::MAX,
         Expression::WithGridInputData { .. } => return isize::MAX,
         Expression::MinMax { .. } => 10,
         Expression::EmptyComponentFactory => 10,
@@ -186,7 +187,9 @@ fn builtin_function_cost(function: &BuiltinFunction) -> isize {
         BuiltinFunction::PathPointAt => isize::MAX,
         BuiltinFunction::PathAngleAt => isize::MAX,
         // Iterating the model and running the closure is unbounded; never inline.
-        BuiltinFunction::ArrayAny | BuiltinFunction::ArrayAll => isize::MAX,
+        BuiltinFunction::ArrayAny | BuiltinFunction::ArrayAll | BuiltinFunction::ArrayFindIndex => {
+            isize::MAX
+        }
     }
 }
 

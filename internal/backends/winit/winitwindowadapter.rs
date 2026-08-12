@@ -99,6 +99,39 @@ fn filter_out_zero_width_or_height(
     winit::dpi::LogicalSize { width: filter(size.width), height: filter(size.height) }
 }
 
+/// The smallest integer logical size whose physical size is at least
+/// `logical * scale_factor`.
+///
+/// A requested logical size materializes as `round(logical * scale_factor)`
+/// physical pixels: winit converts logical sizes that way on every platform,
+/// and Wayland only accepts integer logical sizes in the first place. With a
+/// fractional scale factor the rounding can land below
+/// `logical * scale_factor`, making the window slightly smaller than requested
+/// and cutting off content measured to fit exactly.
+fn round_up_logical(logical: f64, scale_factor: f64) -> f64 {
+    // For positive x, round(x) = floor(x + 0.5), so the physical size reaches
+    // the target integer ceil(target) once result * scale_factor >= ceil(target) - 0.5.
+    let target = logical * scale_factor;
+    let result = logical.ceil().max(((target.ceil() - 0.5) / scale_factor).ceil());
+    // The division can land an ulp below the exact quotient, making the outer
+    // ceil() undershoot by one; verify against the actual rounding.
+    if (result * scale_factor).round() < target { result + 1. } else { result }
+}
+
+#[test]
+fn test_round_up_logical() {
+    assert_eq!(round_up_logical(228., 1.), 228.);
+    // 228 * 1.3 = 296.4 rounds down to 296 = 227.7 logical; 229 * 1.3 = 297.7
+    // rounds to 298 = 229.2 logical.
+    assert_eq!(round_up_logical(228., 1.3), 229.);
+    // 227.5 * 2 is exact after the ceil.
+    assert_eq!(round_up_logical(227.5, 2.), 228.);
+    // 12 * 0.2 = 2.4 rounds down to 2 physical; 13 * 0.2 = 2.6 rounds to 3.
+    assert_eq!(round_up_logical(12., 0.2), 13.);
+    // 21..=24 all round to 2 physical at scale 0.1; 25 * 0.1 = 2.5 rounds to 3.
+    assert_eq!(round_up_logical(21., 0.1), 25.);
+}
+
 fn apply_scale_factor_to_logical_sizes_in_attributes(
     attributes: &mut WindowAttributes,
     scale_factor: f64,
@@ -431,21 +464,26 @@ impl WinitWindowAdapter {
     }
 
     /// The preferred logical size of the component, or None if it has no positive preferred size.
+    ///
+    /// The size is rounded up so that the physical window cannot end up smaller
+    /// than the component's preferred logical size (see [`round_up_logical`]):
+    /// content measured to fit it exactly (e.g. a wrapping FlexboxLayout whose
+    /// preferred width is precisely its one-line width) would get cut off.
     fn preferred_size(&self) -> Option<winit::dpi::LogicalSize<Coord>> {
         let runtime_window = WindowInner::from_pub(self.window());
         let component_rc = runtime_window.try_component()?;
         let component = ItemTreeRc::borrow_pin(&component_rc);
+        let scale_factor = runtime_window.scale_factor() as f64;
         let layout_info_h = component.as_ref().layout_info(Orientation::Horizontal);
+        let width = round_up_logical(layout_info_h.preferred_bounded() as f64, scale_factor);
         if let Some(window_item) = runtime_window.window_item() {
             // Setting the width to its preferred size before querying the vertical layout info
             // is important in case the height depends on the width
-            window_item.width.set(LogicalLength::new(layout_info_h.preferred_bounded()));
+            window_item.width.set(LogicalLength::new(width as Coord));
         }
         let layout_info_v = component.as_ref().layout_info(Orientation::Vertical);
-        let size = winit::dpi::LogicalSize::new(
-            layout_info_h.preferred_bounded(),
-            layout_info_v.preferred_bounded(),
-        );
+        let height = round_up_logical(layout_info_v.preferred_bounded() as f64, scale_factor);
+        let size = winit::dpi::LogicalSize::new(width as Coord, height as Coord);
         (size.width > 0 as Coord && size.height > 0 as Coord).then_some(size)
     }
 
@@ -1606,7 +1644,7 @@ impl WindowAdapterInternal for WinitWindowAdapter {
 
     #[cfg(muda)]
     fn supports_native_menu_bar(&self) -> bool {
-        true
+        !crate::muda::is_disabled()
     }
 
     #[cfg(muda)]
@@ -1633,6 +1671,10 @@ impl WindowAdapterInternal for WinitWindowAdapter {
         context_menu_item: vtable::VRc<i_slint_core::menus::MenuVTable>,
         position: LogicalPosition,
     ) -> bool {
+        if crate::muda::is_disabled() {
+            return false;
+        }
+
         self.context_menu.replace(Some(context_menu_item));
 
         if let WinitWindowOrNone::HasWindow { context_menu_muda_adapter, .. } =
@@ -1769,16 +1811,25 @@ fn adjust_window_size_to_satisfy_constraints(
         .to_logical::<f64>(sf);
 
     let mut window_size = current_size;
-    if let Some(min_size) = min_size {
-        let min_size = min_size.cast();
-        window_size.width = window_size.width.max(min_size.width);
-        window_size.height = window_size.height.max(min_size.height);
-    }
-
     if let Some(max_size) = max_size {
         let max_size = max_size.cast();
         window_size.width = window_size.width.min(max_size.width);
         window_size.height = window_size.height.min(max_size.height);
+    }
+
+    // After the max clamp, so that a minimum above a fractional maximum wins
+    // (staying below the minimum would cut off content, e.g. for a min == max
+    // window). Raise a dimension whenever the physical rounding would land
+    // below the minimum, not only when its logical value is below it (see
+    // `round_up_logical`).
+    if let Some(min_size) = min_size {
+        let min_size = min_size.cast::<f64>();
+        if (window_size.width * sf).round() < min_size.width * sf {
+            window_size.width = round_up_logical(min_size.width, sf);
+        }
+        if (window_size.height * sf).round() < min_size.height * sf {
+            window_size.height = round_up_logical(min_size.height, sf);
+        }
     }
 
     if window_size != current_size {

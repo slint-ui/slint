@@ -635,12 +635,17 @@ fn recurse_expression(
             }
             visit_layout_items_dependencies(l.elems.iter(), *o, vis);
 
-            // The orthogonal solve depends on `cross-axis-alignment`.
-            if matches!(expr, Expression::SolveBoxLayout(..))
-                && *o != l.orientation
-                && let Some(nr) = l.cross_alignment.as_ref()
-            {
-                vis(&nr.clone().into(), P);
+            // The orthogonal solve depends on `cross-axis-alignment` and on the
+            // cells' `cross-axis-self-alignment`.
+            if matches!(expr, Expression::SolveBoxLayout(..)) && *o != l.orientation {
+                if let Some(nr) = l.cross_alignment.as_ref() {
+                    vis(&nr.clone().into(), P);
+                }
+                for cell in l.elems.iter() {
+                    if let Some(nr) = cell.cross_axis_self_alignment.as_ref() {
+                        vis(&nr.clone().into(), P);
+                    }
+                }
             }
 
             let mut g = l.geometry.clone();

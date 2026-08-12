@@ -80,6 +80,9 @@ pub fn count_property_use(root: &CompilationUnit) {
         if let Some(e) = &sc.flexbox_layout_item_info_for_repeated {
             e.borrow().visit_property_references(ctx, &mut visit_property);
         }
+        if let Some((_, e)) = &sc.cross_axis_self_alignment_for_repeated {
+            e.borrow().visit_property_references(ctx, &mut visit_property);
+        }
         if let Some(e) = &sc.layout_info_v_constrained_for_repeated {
             e.borrow().visit_property_references(ctx, &mut visit_property);
         }

@@ -85,6 +85,8 @@ export component Example {
 The expression must be a compile-time constant.
 It may combine literals, casts, and operators, but referencing a property, an element, or any runtime value
 is a compile error.
+A number is only converted to a string when the result is the same in every locale:
+`= 42` is fine, while `= 42.1` is a compile error, because the decimal separator depends on the locale.
 
 The default applies whenever an instance of the struct is created without a value for the field:
 in struct literals that omit the field, in properties of that struct type that are never set,

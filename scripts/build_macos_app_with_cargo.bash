@@ -2,13 +2,7 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-# cspell:ignore endgroup
-
 set -euo pipefail
-
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
-. "$SCRIPT_DIR/helpers.sh"
 
 usage() {
     echo "Usage: $0 --bin <binary name> | --example <example name> [--profile <profile>] [--] [cargo build args...]" >&2
@@ -67,23 +61,14 @@ else
     CARGO_PROFILE_DIR="$CARGO_PROFILE"
 fi
 
-CARGO_TIMINGS_ARGS=()
-if [ "${MACOS_CARGO_TIMINGS:-0}" != "0" ]; then
-    CARGO_TIMINGS_ARGS=(--timings)
-fi
-
 TARGET_DIR_NAME="${MACOS_CARGO_TARGET_DIR_NAME:-${PRODUCT_BUNDLE_IDENTIFIER:-$CARGO_TARGET_NAME}}"
 TARGET_DIR_NAME="$(printf "%s" "$TARGET_DIR_NAME" | tr -c 'A-Za-z0-9_.-' '-')"
 export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-$REPO_ROOT/target/xcode-cargo/$TARGET_DIR_NAME}"
 
 RUST_TARGET=aarch64-apple-darwin
 
-echo "::group::Cargo build $CARGO_TARGET_NAME for $RUST_TARGET"
-log "cargo build start: $RUST_TARGET"
-
 env RUSTFLAGS='-Clink-args=-Wl,-rpath,@loader_path/../Frameworks' \
     cargo build \
-        ${CARGO_TIMINGS_ARGS[@]+"${CARGO_TIMINGS_ARGS[@]}"} \
         --target "$RUST_TARGET" \
         "$CARGO_TARGET_KIND" "$CARGO_TARGET_NAME" \
         --profile "$CARGO_PROFILE" \
@@ -101,6 +86,3 @@ rm -f "$TARGET_BUILD_DIR/$EXECUTABLE_PATH"
 echo "Copying $EXECUTABLE to $TARGET_BUILD_DIR/$EXECUTABLE_PATH"
 cp "$EXECUTABLE" "$TARGET_BUILD_DIR/$EXECUTABLE_PATH"
 chmod +x "$TARGET_BUILD_DIR/$EXECUTABLE_PATH"
-
-log "cargo build finished: $RUST_TARGET"
-echo "::endgroup::"

@@ -1,0 +1,54 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// The window background must be opaque, and opaque in a way the compiler can
+// see: a color literal whose alpha channel is 0xff. A translucent one has
+// nothing to blend against, and one that is only known at run time cannot be
+// checked at all. A rectangle has no such restriction.
+//#sls.paint.window-opaque
+//#sls.ref.window.opaque
+
+export component Translucent inherits Window {
+    background: #ff000080;
+//              >        <error{A Window background that isn't fully opaque is not supported in Slint SC}
+}
+
+// A fully transparent background is not opaque either
+export component Transparent inherits Window {
+    background: #00000000;
+//              >        <error{A Window background that isn't fully opaque is not supported in Slint SC}
+}
+
+// The application could set this property to any color, alpha included
+export component FromProperty inherits Window {
+    in property <color> tint;
+    background: root.tint;
+//              >        <error{A Window background that isn't a color literal is not supported in Slint SC}
+}
+
+// A background inherited from a base component counts as the window's own:
+// it's the one the generated code paints with
+component TranslucentBase inherits Window {
+    background: #ff000080;
+//              >        <error{A Window background that isn't fully opaque is not supported in Slint SC}
+}
+export component Inherited inherits TranslucentBase { }
+
+// An opaque literal is accepted, as is no background at all, and a rectangle
+// inside either may be translucent
+export component Opaque inherits Window {
+    background: #ff0000;
+    Rectangle {
+        background: #ff000080;
+    }
+}
+
+export component NoBackground inherits Window {
+    in property <color> tint;
+    Rectangle {
+        background: #ffffff00;
+    }
+    Rectangle {
+        background: root.tint;
+    }
+}

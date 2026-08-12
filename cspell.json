@@ -119,6 +119,7 @@
     "Bézier",
     "cbindgen",
     "cdylib",
+    "cipd", // Chrome Infrastructure Package Deployment, used by Skia's DEPS
     "cmake",
     "colspan",
     "combobox",
@@ -131,6 +132,7 @@
     "dealloc",
     "distros",
     "embedders",
+    "emsdk", // the Emscripten SDK, one of Skia's DEPS entries
     "espflash",
     "Femto",
     "femtovg",

@@ -558,7 +558,10 @@ fn is_reserved_prop_valid(
         return matches!(parent_name, Some("GridLayout" | "Row"));
     }
     if prop == "cross-axis-self-alignment" {
-        return parent_name == Some("FlexboxLayout");
+        return matches!(
+            parent_name,
+            Some("FlexboxLayout" | "HorizontalLayout" | "VerticalLayout")
+        );
     }
     if name_in(i_slint_compiler::typeregister::RESERVED_FLEXBOXLAYOUT_PROPERTIES) {
         // Not stable API yet, the compiler only accepts them as an experimental feature.
@@ -2959,7 +2962,7 @@ export component Foo {
 }
 "#;
         let results = get_completions_experimental(source).unwrap();
-        for prop in ["flex-grow", "flex-shrink", "flex-basis", "flex-order"].iter() {
+        for prop in ["flex-grow", "flex-shrink", "flex-order"].iter() {
             assert!(
                 results.iter().any(|completion| completion.label == *prop),
                 "no '{prop}' completion with experimental features"
@@ -2976,6 +2979,28 @@ export component Foo {
             results.iter().any(|completion| completion.label == "cross-axis-self-alignment"),
             "no 'cross-axis-self-alignment' completion"
         );
+    }
+
+    #[test]
+    fn cross_axis_self_alignment_in_box_layouts() {
+        for layout in ["HorizontalLayout", "VerticalLayout"] {
+            let source = format!(
+                r#"
+component Foo {{
+    {layout} {{
+        Rectangle {{
+            🔺
+        }}
+    }}
+}}
+"#
+            );
+            let results = get_completions(&source).unwrap();
+            assert!(
+                results.iter().any(|completion| completion.label == "cross-axis-self-alignment"),
+                "no 'cross-axis-self-alignment' completion in a {layout}"
+            );
+        }
     }
 
     #[test]

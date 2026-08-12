@@ -89,7 +89,7 @@ impl SkiaWGPU29Renderer {
     ) -> Result<Self, PlatformError> {
         use crate::wgpu_29_surface::{Backend, WGPUSurface};
 
-        let backend: Backend = adapter.get_info().backend.try_into()?;
+        let backend = Backend::new(&adapter, &device)?;
 
         let gr_context = backend.make_context(&adapter, &device, &queue).ok_or_else(|| {
             PlatformError::from("Failed to create Skia graphics context from WGPU")
@@ -152,7 +152,7 @@ impl SkiaWGPU30Renderer {
     ) -> Result<Self, PlatformError> {
         use crate::wgpu_30_surface::{Backend, WGPUSurface};
 
-        let backend: Backend = adapter.get_info().backend.try_into()?;
+        let backend = Backend::new(&adapter, &device)?;
 
         let gr_context = backend.make_context(&adapter, &device, &queue).ok_or_else(|| {
             PlatformError::from("Failed to create Skia graphics context from WGPU")

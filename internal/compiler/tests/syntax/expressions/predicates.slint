@@ -14,16 +14,22 @@ export component Test inherits Window {
 //               ^error{Cannot convert float to closure}
         ints.all(1);
 //               ^error{Cannot convert float to closure}
+        ints.find-index(1);
+//                      ^error{Cannot convert float to closure}
 
         ints.any((x) => 1);
 //                      ^error{Closure body must be of type bool, but is float}
         ints.all((x) => 1);
 //                      ^error{Closure body must be of type bool, but is float}
+        ints.find-index((x) => 1);
+//                             ^error{Closure body must be of type bool, but is float}
 
         ints.any((x) => x);
 //                      ^error{Closure body must be of type bool, but is int}
         ints.all((x) => x);
 //                      ^error{Closure body must be of type bool, but is int}
+        ints.find-index((x) => x);
+//                             ^error{Closure body must be of type bool, but is int}
         debug(x);
 //            ^error{Unknown unqualified identifier 'x'. Did you mean 'self.x'?}
 
@@ -55,9 +61,11 @@ export component Test inherits Window {
         // be a closure written inline.
         let not-useless = (x) => x == 3;
         debug(ints.any(not-useless));
-//                     >         <error{Closures must be written inline as the argument of 'any' or 'all'}
+//                     >         <error{Closures must be written inline as the argument of 'any', 'all' or 'find-index'}
         ints.all((not-useless));
-//               >           <error{Closures must be written inline as the argument of 'any' or 'all'}
+//               >           <error{Closures must be written inline as the argument of 'any', 'all' or 'find-index'}
+        ints.find-index((not-useless));
+//                      >           <error{Closures must be written inline as the argument of 'any', 'all' or 'find-index'}
     }
 
     // Closure as the right-hand side of a non-array property still produces a single

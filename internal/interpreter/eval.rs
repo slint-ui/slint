@@ -214,6 +214,30 @@ fn load_local(instance: &SubComponentInstance, member: &LocalMemberIndex) -> Val
     }
 }
 
+/// Evaluates the predicate of `ArrayAny`/`ArrayAll`/`ArrayFindIndex` against a single row
+/// value, binding `arg_name` to it for the duration of the evaluation and restoring any
+/// shadowed local variable afterwards — like the generated code binds its closure parameter.
+/// Iteration and dependency tracking are left to the `model_any`/`model_all`/
+/// `model_find_index` helpers in [`i_slint_core::model`].
+fn eval_array_row_predicate(
+    arg_name: &SmolStr,
+    predicate: &Expression,
+    ctx: &mut EvalContext,
+    row_value: Value,
+) -> bool {
+    let previous = ctx.locals.insert(arg_name.clone(), row_value);
+    let result = eval_expression(ctx, predicate).try_into().unwrap();
+    match previous {
+        Some(prev) => {
+            ctx.locals.insert(arg_name.clone(), prev);
+        }
+        None => {
+            ctx.locals.remove(arg_name);
+        }
+    }
+    result
+}
+
 /// Set `value` on `prop`, interpolating through `animation` when present.
 fn set_maybe_animated(
     prop: Pin<&i_slint_core::Property<Value>>,
@@ -1006,6 +1030,9 @@ pub fn eval_expression(ctx: &mut EvalContext, expression: &Expression) -> Value 
         Expression::SolveFlexboxLayoutWithMeasure { .. } => {
             crate::eval_layout::solve_flexbox_layout_with_measure(ctx, expression)
         }
+        Expression::FlexboxLayoutInfoCrossAxisWithMeasure { .. } => {
+            crate::eval_layout::flexbox_layout_info_cross_axis_with_measure(ctx, expression)
+        }
         Expression::TranslationReference { .. } => {
             // TranslationReference is only emitted when `bundle-translations`
             // is active, which the interpreter does not use. Runtime @tr()
@@ -1089,6 +1116,17 @@ fn push_repeater_layout_items(
     let push_cell = |cells: &mut Vec<Value>, info: i_slint_core::layout::LayoutItemInfo| {
         let mut struct_value = crate::api::Struct::default();
         struct_value.set_field("constraint".to_string(), info.constraint.into());
+        // The cell's `cross-axis-self-alignment` in a box layout; `to_cells`
+        // reads it back on the cross-axis solve, an absent field means `auto`.
+        if info.cross_axis_self_alignment != i_slint_core::items::CrossAxisSelfAlignment::Auto {
+            struct_value.set_field(
+                "cross-axis-self-alignment".to_string(),
+                Value::EnumerationValue(
+                    "CrossAxisSelfAlignment".to_string(),
+                    info.cross_axis_self_alignment.to_string(),
+                ),
+            );
+        }
         cells.push(Value::Struct(struct_value));
     };
     let step = match row_child_templates {
@@ -1146,7 +1184,7 @@ fn total_row_child_count(
     total
 }
 
-fn llr_to_core_orientation(
+pub(crate) fn llr_to_core_orientation(
     o: i_slint_compiler::layout::Orientation,
 ) -> i_slint_core::items::Orientation {
     match o {
@@ -1275,7 +1313,6 @@ fn flex_props_to_value(props: i_slint_core::layout::FlexItemProps) -> Value {
     let mut s = crate::api::Struct::default();
     s.set_field("flex_grow".to_string(), Value::Number(props.flex_grow as f64));
     s.set_field("flex_shrink".to_string(), Value::Number(props.flex_shrink as f64));
-    s.set_field("flex_basis".to_string(), Value::Number(props.flex_basis as f64));
     s.set_field(
         "cross_axis_self_alignment".to_string(),
         Value::EnumerationValue(
@@ -1352,7 +1389,7 @@ fn with_grid_input_data(
     result
 }
 
-fn restore_local(ctx: &mut EvalContext, name: &str, prev: Option<Value>) {
+pub(crate) fn restore_local(ctx: &mut EvalContext, name: &str, prev: Option<Value>) {
     if let Some(prev) = prev {
         ctx.locals.insert(SmolStr::from(name), prev);
     } else {
@@ -2242,26 +2279,23 @@ fn call_builtin_function(
             let Expression::Closure { arg_name, expression } = &arguments[1] else {
                 panic!("internal error: Array.any/all expects a closure as second argument")
             };
-            // Bind the closure argument as a local, like the generated code
-            // binds its closure parameter.
-            let mut predicate = |x: Value| -> bool {
-                let previous = ctx.locals.insert(arg_name.clone(), x);
-                let result: bool = eval_expression(ctx, expression).try_into().unwrap();
-                match previous {
-                    Some(prev) => {
-                        ctx.locals.insert(arg_name.clone(), prev);
-                    }
-                    None => {
-                        ctx.locals.remove(arg_name);
-                    }
-                }
-                result
-            };
+            let mut predicate =
+                |row_value| eval_array_row_predicate(arg_name, expression, ctx, row_value);
             Value::Bool(if is_all {
                 i_slint_core::model::model_all(&model, &mut predicate)
             } else {
                 i_slint_core::model::model_any(&model, &mut predicate)
             })
+        }
+        BuiltinFunction::ArrayFindIndex => {
+            let model: i_slint_core::model::ModelRc<Value> =
+                eval_expression(ctx, &arguments[0]).try_into().unwrap();
+            let Expression::Closure { arg_name, expression } = &arguments[1] else {
+                panic!("internal error: Array.find-index expects a closure as second argument")
+            };
+            Value::Number(i_slint_core::model::model_find_index(&model, |row_value| {
+                eval_array_row_predicate(arg_name, expression, ctx, row_value)
+            }) as f64)
         }
         BuiltinFunction::ImplicitLayoutInfo(orient) => {
             // The argument is a `PropertyReference` to a `Native { prop_name: "" }`,

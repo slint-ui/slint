@@ -1071,10 +1071,21 @@ impl ElementHandle {
         mock_drag_window(window_adapter.window(), self.absolute_center(), target, button);
     }
 
+    /// The center of the element in the coordinate system that input events are dispatched in.
+    /// Unlike [`Self::absolute_position()`] this includes the location of an enclosing popup that's
+    /// rendered inside the window, such as a menu.
     fn absolute_center(&self) -> LogicalPosition {
-        let item_pos = self.absolute_position();
-        let item_size = self.size();
-        LogicalPosition::new(item_pos.x + item_size.width / 2., item_pos.y + item_size.height / 2.)
+        let Some(item) = self.item.upgrade() else {
+            return Default::default();
+        };
+        let geometry = item.geometry();
+        let position = i_slint_core::lengths::logical_position_to_api(
+            item.map_to_native_window(geometry.origin),
+        );
+        LogicalPosition::new(
+            position.x + geometry.width() / 2.,
+            position.y + geometry.height() / 2.,
+        )
     }
 
     pub fn scroll(&self, delta_x: f32, delta_y: f32) {
