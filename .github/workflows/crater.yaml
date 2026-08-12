@@ -171,7 +171,7 @@ jobs:
                     - "https://github.com/waydeerwm/layer-shika"
                     - "https://github.com/swedishembedded/sven"
                     - "https://github.com/junelva/wl-gammarelay-applet"
-                    - "https://github.com/FelgoSDK/RustyWeather"
+                    #- "https://github.com/FelgoSDK/RustyWeather" # lives in this repository as demos/weather-demo
                     - "https://github.com/masak1yu/winxmerge"
                     - "https://github.com/IDE0224/rust-calendar-app"
                     - "https://github.com/ninjitsuytber/Aegis-OTA"
@@ -382,15 +382,23 @@ jobs:
                     - git_url: "https://github.com/Enn3Developer/n_music"
                       extra_packages: libasound2-dev libfontconfig-dev libfreetype-dev
                       sub_path: "n_player"
+                      extra_commands: |
+                          cargo update
+                          # zune-imageprocs 0.5.1 doesn't handle the enum variants added in 0.5.3
+                          cargo update zune-core --precise 0.5.1
                     - git_url: "https://github.com/TsaoLun/always-blue"
                       sub_path: "."
                       extra_packages: libasound2-dev libfreetype-dev libfontconfig-dev
                     - git_url: "https://github.com/jturcotte/beskope"
                       sub_path: "."
                       extra_packages: libasound2-dev libfreetype-dev libfontconfig-dev libpipewire-0.3-dev
+                    # Depends on speakstream as a sibling checkout
                     - git_url: "https://github.com/sloganking/quick-assistant"
                       sub_path: "."
                       extra_packages: alsa-utils libasound2-dev libavcodec-dev libavformat-dev libavutil-dev libasound2-dev
+                      extra_commands: |
+                          git clone https://github.com/sloganking/speakstream ../speakstream --depth 1
+                          cargo update
                     - git_url: "https://github.com/laycookie/record"
                       sub_path: "."
                       extra_packages: alsa-utils libasound2-dev libavcodec-dev libavformat-dev libavutil-dev libpipewire-0.3-dev
@@ -462,6 +470,10 @@ jobs:
                           cargo update
                     - git_url: "https://github.com/heng30/wayshot"
                       extra_packages: alsa-utils libasound2-dev libavcodec-dev libavformat-dev libavutil-dev libpipewire-0.3-dev libx264-dev libavfilter-dev libavdevice-dev libswscale-dev libswresample-dev libpostproc-dev
+                      extra_commands: |
+                          cargo update
+                          # rc.13 is a semver compatible update that changes the API
+                          cargo update ort --precise 2.0.0-rc.12
                     - git_url: https://github.com/heng30/tasklog
                       sub_path: tasklog
                       extra_args: "--features=desktop"
@@ -523,8 +535,6 @@ jobs:
                       extra_packages: alsa-utils libasound2-dev
                     - git_url: "https://github.com/hsiatein/Helenium"
                       sub_path: "heleny-gui"
-                    - git_url: "https://github.com/jcbantuelle/la-mulana-multiworld"
-                      sub_path: "launcher"
                     - git_url: "https://github.com/BlackMIDIDevs/meridian"
                       sub_path: "crates/meridian-ui"
                       extra_packages: alsa-utils libasound2-dev
@@ -597,6 +607,8 @@ jobs:
                       extra_commands: |
                           sed -i 's/version = "~1.15"/version = "1.15"/' Cargo.toml
                           cargo update
+                          # rc.13 is a semver compatible update that changes the API
+                          cargo update ort --precise 2.0.0-rc.12
                     - git_url: "https://github.com/ruapotato/Flick"
                       sub_path: "shell"
                       extra_packages: libdisplay-info-dev
@@ -748,6 +760,9 @@ jobs:
                     # mslnk and windows are not target-gated
                     - git_url: "https://github.com/anton1615/PC-Audio-Stream-to-Phone"
                       sub_path: "server"
+                    # dll-syringe only has a windows implementation
+                    - git_url: "https://github.com/jcbantuelle/la-mulana-multiworld"
+                      sub_path: "launcher"
         runs-on: windows-2022
         steps:
             - uses: actions/checkout@v7
