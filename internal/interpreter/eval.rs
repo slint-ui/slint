@@ -96,17 +96,28 @@ fn root_instance(
     }
 }
 
+/// Walk `parent_level` steps up the parent chain, or `None` if an ancestor is already gone.
+///
+/// The parent chain of a repeated element can die while one of its callbacks is still running —
+/// the enclosing popup closes itself, or the model drops the row the element belongs to — and the
+/// element's own instance outlives it because the event dispatch holds it.
+pub(crate) fn try_walk_parent(
+    start: &Pin<Rc<SubComponentInstance>>,
+    level: usize,
+) -> Option<Pin<Rc<SubComponentInstance>>> {
+    let mut current = start.clone();
+    for _ in 0..level {
+        current = Pin::new(current.parent.upgrade()?);
+    }
+    Some(current)
+}
+
 /// Walk `parent_level` steps up the parent chain.
 pub(crate) fn walk_parent(
     start: &Pin<Rc<SubComponentInstance>>,
     level: usize,
 ) -> Pin<Rc<SubComponentInstance>> {
-    let mut current = start.clone();
-    for _ in 0..level {
-        let parent = current.parent.upgrade().expect("parent vanished during evaluation");
-        current = Pin::new(parent);
-    }
-    current
+    try_walk_parent(start, level).expect("parent vanished during evaluation")
 }
 
 impl i_slint_compiler::llr::TypeResolutionContext for EvalContext {
@@ -172,6 +183,17 @@ pub(crate) fn walk_sub_path(
         current = next;
     }
     current
+}
+
+/// Walk to the sub-component that owns `local`, or `None` if it is not reachable.
+///
+/// See [`try_walk_parent`] for when that happens.
+pub(crate) fn try_walk_to(
+    ctx: &EvalContext,
+    parent_level: usize,
+    path: &[llr::SubComponentInstanceIdx],
+) -> Option<Pin<Rc<SubComponentInstance>>> {
+    Some(walk_sub_path(try_walk_parent(ctx.current.as_ref()?, parent_level)?, path))
 }
 
 /// Walk to the sub-component that owns `local`.
@@ -2520,7 +2542,7 @@ pub(crate) fn resolve_item_rc_from_ref(
     let LocalMemberIndex::Native { item_index, .. } = &local_reference.reference else {
         return None;
     };
-    let owner = walk_to(ctx, *parent_level, &local_reference.sub_component_path);
+    let owner = try_walk_to(ctx, *parent_level, &local_reference.sub_component_path)?;
     let parent_inst = owner.root.get().and_then(|w| w.upgrade())?;
     let full_path = crate::item_tree_vtable::sub_component_path_of(&owner, &parent_inst);
     let flat_idx = find_flat_item_index(&parent_inst.item_table, &full_path, *item_index)?;

@@ -1,0 +1,78 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Reaching an item of an enclosing component from a repeated element is fallible, because that
+// component may be gone while the repeated element runs (see
+// repeater_removed_while_handling_event.slint). Exercise the builtins that need an ItemRc from
+// inside a repeater, where the parent is alive: focus is covered by the other two test cases.
+
+export component TestCase inherits Window {
+    width: 300px;
+    height: 300px;
+
+    out property <bool> all-ok: ta-clicked && asc == txt.font-metrics.ascent
+        && abs.x == 5px && abs.y == 7px
+        && pt == pa.point-at(0.5) && ang == pa.angle-at(0.5);
+    out property <bool> ta-clicked;
+
+    ti := TextInput { x: 5px; y: 7px; width: 50px; height: 20px; }
+    txt := Text { x: 0px; y: 30px; text: "hello"; }
+    cm := ContextMenuArea {
+        x: 0px;
+        y: 60px;
+        width: 50px;
+        height: 20px;
+        Menu {
+            MenuItem { title: "a"; }
+        }
+    }
+    pop := PopupWindow { width: 20px; height: 20px; Text { text: "p"; } }
+    pa := Path {
+        MoveTo { x: 0; y: 0; }
+        LineTo { x: 10; y: 10; }
+    }
+
+    for _idx in 1: TouchArea {
+        x: 200px;
+        y: 200px;
+        width: 10px;
+        height: 10px;
+        clicked => {
+            root.asc = txt.font-metrics.ascent;
+            ti.select-all();
+            ti.set-selection-offsets(0, 1);
+            root.abs = ti.absolute-position;
+            root.pt = pa.point-at(0.5);
+            root.ang = pa.angle-at(0.5);
+            cm.show({ x: 0, y: 0 });
+            pop.show();
+            root.ta-clicked = true;
+        }
+    }
+
+    out property <length> asc;
+    out property <Point> abs;
+    out property <Point> pt;
+    out property <angle> ang;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+slint_testing::send_mouse_click(&instance, 205., 205.);
+assert!(instance.get_all_ok());
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+slint_testing::send_mouse_click(&instance, 205., 205.);
+assert(instance.get_all_ok());
+```
+
+```js
+var instance = new slint.TestCase({});
+slintlib.private_api.send_mouse_click(instance, 205., 205.);
+assert(instance.all_ok);
+```
+*/
