@@ -219,6 +219,11 @@ public:
     /// evaluating dependency and get notified when this model's row data changes.
     void track_row_data_changes(size_t row) const
     {
+        // Outside a binding evaluation there is no dependency to register, and recording
+        // the row would only make later changes to it dirty unrelated bindings.
+        if (!private_api::is_currently_tracking()) {
+            return;
+        }
         auto it = std::lower_bound(tracked_rows.begin(), tracked_rows.end(), row);
         if (it == tracked_rows.end() || row < *it) {
             tracked_rows.insert(it, row);

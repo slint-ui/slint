@@ -1121,6 +1121,31 @@ mod tests {
         assert!(tracker.is_dirty());
     }
 
+    #[test]
+    fn test_data_tracking_outside_a_binding() {
+        let model: Rc<VecModel<u8>> = Rc::new(VecModel::from(vec![0, 1, 2, 3, 4]));
+        let handle = ModelRc::from(model.clone());
+        let tracker = Box::pin(<crate::properties::PropertyTracker>::default());
+        assert_eq!(
+            tracker.as_ref().evaluate(|| {
+                handle.model_tracker().track_row_data_changes(1);
+                handle.row_data(1).unwrap()
+            }),
+            1
+        );
+        assert!(!tracker.is_dirty());
+
+        // Tracking a row while no binding is being evaluated registers no dependency, so it
+        // must not make later changes to that row dirty bindings that never asked for it.
+        handle.model_tracker().track_row_data_changes(0);
+        model.set_row_data(0, 100);
+        assert!(!tracker.is_dirty());
+
+        // The row the tracker did ask for still works.
+        model.set_row_data(1, 100);
+        assert!(tracker.is_dirty());
+    }
+
     #[derive(Default)]
     struct TestView {
         // Track the parameters reported by the model (row counts, indices, etc.).
