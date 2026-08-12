@@ -351,7 +351,16 @@ impl SlintServer {
             M::DebugMessage { location, message } => {
                 log(&editor_preview::preview_log_message_to_string(&location, &message));
             }
-            M::ConnectRemote { .. } | M::DisconnectRemote | M::Pong | M::RequestPreview { .. } => {
+            M::ConnectRemote { .. }
+            | M::DisconnectRemote
+            | M::SubmitPairingCode { .. }
+            | M::CancelPairing
+            | M::Pong
+            | M::RequestPreview { .. }
+            | M::PairingChallenge { .. }
+            | M::PairingRequired { .. }
+            | M::PairingAccepted
+            | M::PairingRejected { .. } => {
                 tracing::debug!("Ignoring remote-preview control message in WASM LSP");
             }
         }

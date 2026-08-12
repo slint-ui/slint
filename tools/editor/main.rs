@@ -422,7 +422,13 @@ async fn handle_preview_message(
         | TelemetryEvent(..)
         | ConnectRemote { .. }
         | DisconnectRemote
-        | Pong => {
+        | SubmitPairingCode { .. }
+        | CancelPairing
+        | Pong
+        | PairingChallenge { .. }
+        | PairingRequired { .. }
+        | PairingAccepted
+        | PairingRejected { .. } => {
             tracing::debug!("Ignoring message from preview: {msg:?}");
         }
         SendWorkspaceEdit { label, edit } => {

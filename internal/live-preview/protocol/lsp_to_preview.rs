@@ -75,6 +75,17 @@ pub enum LspToPreviewMessage {
     OpenProject {
         root: Url,
     },
+    /// Answer to [`super::PreviewToLspMessage::PairingChallenge`], and the first
+    /// thing a remote connection sends. `token_proof` is present only if this
+    /// editor already paired with the viewer during its current run.
+    PairingHello {
+        token_proof: Option<super::pairing::Proof>,
+    },
+    /// The code the user read off the viewer's screen, proven against the
+    /// challenge nonce. Answers [`super::PreviewToLspMessage::PairingRequired`].
+    PairingCodeProof {
+        proof: super::pairing::Proof,
+    },
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
@@ -82,6 +93,9 @@ pub enum LspToPreviewMessage {
 pub enum RemoteConnectionState {
     Disconnected,
     Connecting,
+    /// The viewer is showing a pairing code and is waiting for the user to
+    /// type it into the editor.
+    PairingRequired,
     Connected,
     Failed,
 }
