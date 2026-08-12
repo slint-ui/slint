@@ -7,6 +7,11 @@ pub mod completion;
 mod formatting;
 mod goto;
 mod hover;
+#[cfg(all(
+    not(target_arch = "wasm32"),
+    any(feature = "preview-external", feature = "preview-engine", feature = "preview-remote"),
+))]
+mod preview_files;
 mod semantic_tokens;
 mod signature_help;
 #[cfg(test)]
@@ -134,6 +139,9 @@ pub fn send_state_to_preview(ctx: &Context) {
 pub fn send_files_to_preview(ctx: &Context, files: &[lsp_types::Url]) {
     #[cfg(feature = "preview-remote")]
     let mut fonts_sent = HashSet::<PathBuf>::new();
+    // Only the files that aren't loaded yet are read off disk, so build the
+    // access rules on the first one that is — most requests never need them.
+    let file_access = std::cell::OnceCell::new();
     for url in files {
         if let Some(node) = ctx.document_cache.get_document(url).and_then(|doc| doc.node.as_ref()) {
             let version = ctx.document_cache.document_version_by_path(node.source_file.path());
@@ -151,6 +159,21 @@ pub fn send_files_to_preview(ctx: &Context, files: &[lsp_types::Url]) {
             tracing::warn!("Cannot convert URL to file path: {url}");
             continue;
         };
+        let file_access = file_access.get_or_init(|| {
+            preview_files::PreviewFileAccess::new(
+                &ctx.init_param,
+                &ctx.preview_config,
+                &ctx.document_cache,
+            )
+        });
+        if !file_access.allows(&path) {
+            tracing::warn!(
+                "Refusing to send {} to the preview: not a file of the project being previewed",
+                path.display()
+            );
+            ctx.to_preview.send(&LspToPreviewMessage::ForgetFile { url: url.clone() });
+            continue;
+        }
         match std::fs::read(&path) {
             Ok(contents) => {
                 tracing::debug!("Sending file {} ({} bytes) to preview", url, contents.len());
