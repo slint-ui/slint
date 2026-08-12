@@ -62,44 +62,48 @@ pub fn concatenate_ident(ident: &str) -> SmolStr {
     if ident.contains('-') { ident.replace_smolstr("-", "_") } else { ident.into() }
 }
 
-/// Given a property reference to a native item (eg, the property name is empty)
-/// return tokens to the `ItemRc`
+/// The component instance that holds the native item `pr` refers to, as an expression ready to be
+/// followed by `->`.
 ///
-/// This walks the parent chain with `value()`, so it must only be spliced inside a guard on the
-/// same reference — a `then`/`map_or_default` of [`access_member`] — because the chain can die
-/// while a callback of a repeated element is still running (the enclosing popup closes itself,
-/// or the model drops the row the element belongs to).
-fn access_item_rc(pr: &llr::MemberReference, ctx: &EvaluationContext) -> String {
-    let mut component_access = "self->".into();
+/// This is an `std::optional` when the item lives in an ancestor component: that chain can die
+/// while a callback of a repeated element is still running — the enclosing popup closed itself, or
+/// the model dropped the row the element belongs to — and then nothing must be emitted at all.
+fn item_owner(pr: &llr::MemberReference) -> MemberAccess {
+    let llr::MemberReference::Relative { parent_level, .. } = pr else { unreachable!() };
+    parent_access_path(*parent_level).with_member("->".into())
+}
 
+/// Expressions for the native item `pr` is about, relative to the component instance holding it
+/// (see [`item_owner`]): the member `pr` designates — the item itself or one of its functions —
+/// and the arguments to build the item's `ItemRc` from.
+///
+/// Taking the owner as a parameter is what lets a caller that needs both get them out of a single
+/// walk of the parent chain.
+fn native_item_from_owner(
+    pr: &llr::MemberReference,
+    ctx: &EvaluationContext,
+    owner: &str,
+) -> (String, String) {
     let llr::MemberReference::Relative { parent_level, local_reference } = pr else {
         unreachable!()
     };
     let llr::LocalMemberIndex::Native { item_index, .. } = &local_reference.reference else {
         unreachable!()
     };
-
-    for _ in 0..*parent_level {
-        component_access = format!("{component_access}parent.lock().value()->");
-    }
-
-    let (sub_compo_path, sub_component) = follow_sub_component_path(
+    let (compo_path, sub_component) = follow_sub_component_path(
         ctx.compilation_unit,
         ctx.parent_sub_component_idx(*parent_level).unwrap(),
         &local_reference.sub_component_path,
     );
-    if !local_reference.sub_component_path.is_empty() {
-        component_access += &sub_compo_path;
-    }
-    let component_rc = format!("{component_access}self_weak.lock()->into_dyn()");
+    let compo = format!("{owner}{compo_path}");
+    let item_name = field_name(&sub_component.items[*item_index].name);
     let item_index_in_tree = sub_component.items[*item_index].index_in_tree;
     let item_index = if item_index_in_tree == 0 {
-        format!("{component_access}tree_index")
+        format!("{compo}tree_index")
     } else {
-        format!("{component_access}tree_index_of_first_child + {item_index_in_tree} - 1")
+        format!("{compo}tree_index_of_first_child + {item_index_in_tree} - 1")
     };
-
-    format!("{component_rc}, {item_index}")
+    (format!("{compo}{item_name}"), format!("{compo}self_weak.lock()->into_dyn(), {item_index}"))
 }
 
 /// This module contains some data structure that helps represent a C++ code.
@@ -3933,18 +3937,24 @@ enum MemberAccess {
 impl MemberAccess {
     /// Used for code that is meant to return `()`
     fn then(&self, f: impl FnOnce(&str) -> String) -> String {
+        self.then_named("x", f)
+    }
+
+    /// Like [`Self::then`], but names the binding the member is spliced from, so that this access
+    /// can be nested inside another one without shadowing it.
+    fn then_named(&self, binding: &str, f: impl FnOnce(&str) -> String) -> String {
         match self {
             MemberAccess::Direct(t) => f(t),
             MemberAccess::Option(t) => {
                 format!(
-                    "slint::private_api::optional_then({t}, [&]([[maybe_unused]] auto&&x) {{ {}; }})",
-                    f("x")
+                    "slint::private_api::optional_then({t}, [&](auto&&{binding}) {{ {}; }})",
+                    f(binding)
                 )
             }
             MemberAccess::OptionWithMember(t, m) => {
                 format!(
-                    "slint::private_api::optional_then({t}, [&]([[maybe_unused]] auto&&x) {{ {}; }})",
-                    f(&format!("x{}", m))
+                    "slint::private_api::optional_then({t}, [&](auto&&{binding}) {{ {}; }})",
+                    f(&format!("{binding}{m}"))
                 )
             }
         }
@@ -3955,13 +3965,13 @@ impl MemberAccess {
             MemberAccess::Direct(t) => f(t),
             MemberAccess::Option(t) => {
                 format!(
-                    "slint::private_api::optional_or_default(slint::private_api::optional_transform({t}, [&]([[maybe_unused]] auto&&x) {{ return {}; }}))",
+                    "slint::private_api::optional_or_default(slint::private_api::optional_transform({t}, [&](auto&&x) {{ return {}; }}))",
                     f("x")
                 )
             }
             MemberAccess::OptionWithMember(t, m) => {
                 format!(
-                    "slint::private_api::optional_or_default(slint::private_api::optional_transform({t}, [&]([[maybe_unused]] auto&&x) {{ return {}; }}))",
+                    "slint::private_api::optional_or_default(slint::private_api::optional_transform({t}, [&](auto&&x) {{ return {}; }}))",
                     f(&format!("x{}", m))
                 )
             }
@@ -3972,11 +3982,11 @@ impl MemberAccess {
         match self {
             MemberAccess::Direct(t) => MemberAccess::Option(f(t)),
             MemberAccess::Option(t) => MemberAccess::Option(format!(
-                "slint::private_api::optional_and_then({t}, [&]([[maybe_unused]] auto&&x) {{ return {}; }})",
+                "slint::private_api::optional_and_then({t}, [&](auto&&x) {{ return {}; }})",
                 f("x")
             )),
             MemberAccess::OptionWithMember(t, m) => MemberAccess::Option(format!(
-                "slint::private_api::optional_and_then({t}, [&]([[maybe_unused]] auto&&x) {{ return {}; }})",
+                "slint::private_api::optional_and_then({t}, [&](auto&&x) {{ return {}; }})",
                 f(&format!("x{}", m))
             )),
         }
@@ -4127,8 +4137,6 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
             }
         }
         Expression::ItemMemberFunctionCall { function } => {
-            let item = access_member(function, ctx);
-            let item_rc = access_item_rc(function, ctx);
             let window = access_window_field(ctx);
             let (native, name) = native_prop_info(function, ctx);
             let function_name = format!(
@@ -4136,14 +4144,14 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                 native.class_name.to_lowercase(),
                 ident(name).to_lowercase()
             );
+            let call = |owner: &str| {
+                let (item, item_rc) = native_item_from_owner(function, ctx, owner);
+                format!("{function_name}(&{item}, &{window}.handle(), &{item_rc})")
+            };
             if expr.ty(ctx) == Type::Void {
-                item.then(|item| {
-                    format!("{function_name}(&{item}, &{window}.handle(), &{item_rc})")
-                })
+                item_owner(function).then(call)
             } else {
-                item.map_or_default(|item| {
-                    format!("{function_name}(&{item}, &{window}.handle(), &{item_rc})")
-                })
+                item_owner(function).map_or_default(call)
             }
         }
         Expression::ExtraBuiltinFunctionCall { function, arguments, return_ty: _ } => {
@@ -4867,8 +4875,10 @@ fn compile_builtin_function_call(
         BuiltinFunction::SetFocusItem => {
             if let [llr::Expression::PropertyReference(pr)] = arguments {
                 let window = access_window_field(ctx);
-                let focus_item = access_item_rc(pr, ctx);
-                access_member(pr, ctx).then(|_| format!("{window}.set_focus_item({focus_item}, true, slint::cbindgen_private::FocusReason::Programmatic)"))
+                item_owner(pr).then(|owner| {
+                    let (_, focus_item) = native_item_from_owner(pr, ctx, owner);
+                    format!("{window}.set_focus_item({focus_item}, true, slint::cbindgen_private::FocusReason::Programmatic)")
+                })
             } else {
                 panic!("internal error: invalid args to SetFocusItem {arguments:?}")
             }
@@ -4876,8 +4886,10 @@ fn compile_builtin_function_call(
         BuiltinFunction::ClearFocusItem => {
             if let [llr::Expression::PropertyReference(pr)] = arguments {
                 let window = access_window_field(ctx);
-                let focus_item = access_item_rc(pr, ctx);
-                access_member(pr, ctx).then(|_| format!("{window}.set_focus_item({focus_item}, false, slint::cbindgen_private::FocusReason::Programmatic)"))
+                item_owner(pr).then(|owner| {
+                    let (_, focus_item) = native_item_from_owner(pr, ctx, owner);
+                    format!("{window}.set_focus_item({focus_item}, false, slint::cbindgen_private::FocusReason::Programmatic)")
+                })
             } else {
                 panic!("internal error: invalid args to ClearFocusItem {arguments:?}")
             }
@@ -5077,7 +5089,7 @@ fn compile_builtin_function_call(
                     .name,
             );
             let system_tray = access_member(system_tray_ref, ctx).unwrap();
-            let system_tray_rc = access_item_rc(system_tray_ref, ctx);
+            let (_, system_tray_rc) = native_item_from_owner(system_tray_ref, ctx, "self->");
 
             // `if cond : Menu { ... }` is lowered to a condition lambda passed
             // alongside the menu wrapper. `create_menu_wrapper` already accepts
@@ -5159,10 +5171,7 @@ fn compile_builtin_function_call(
                     ctx.parent_sub_component_idx(*parent_level).unwrap(),
                     &local_reference.sub_component_path,
                 );
-                let parent_component = access_item_rc(anchor_ref, ctx);
-                // `access_item_rc` unwraps the anchor's parent chain, so only emit the show when
-                // the very same reference is reachable
-                let anchor_reachable = access_member(anchor_ref, ctx);
+
                 ctx.with_reference_scope(*parent_level, &local_reference.sub_component_path, |parent_ctx| {
                 let popup = &ctx.compilation_unit.sub_components[parent_ctx.sub_component]
                     .popup_windows[*popup_index as usize];
@@ -5201,7 +5210,9 @@ fn compile_builtin_function_call(
                     }
                     _ => "[](bool) {}".to_string(),
                 };
-                let show = component_access.then(|component_access| {
+                item_owner(anchor_ref).then_named("anchor_owner", |owner| {
+                    let (_, parent_component) = native_item_from_owner(anchor_ref, ctx, owner);
+                    component_access.then(|component_access| {
                     let compo_ptr = if compo_path.is_empty() {
                         format!("&*({component_access})")
                     } else {
@@ -5218,8 +5229,8 @@ fn compile_builtin_function_call(
                                                                             {window_kind},  \
                                                                             {is_open_setter})"
                     )
-                });
-                anchor_reachable.then(|_| show)
+                    })
+                })
                 })
             } else {
                 panic!("internal error: invalid args to ShowPopupWindow {arguments:?}")
@@ -5251,7 +5262,6 @@ fn compile_builtin_function_call(
             };
 
             let context_menu = access_member(context_menu_ref, ctx);
-            let context_menu_rc = access_item_rc(context_menu_ref, ctx);
             let position = compile_expression(position, ctx);
             let popup = ctx
                 .compilation_unit
@@ -5272,13 +5282,15 @@ fn compile_builtin_function_call(
             let access_activated = access_member(&popup.activated, &popup_ctx).unwrap();
             let access_close = access_member(&popup.close, &popup_ctx).unwrap();
 
+            item_owner(context_menu_ref).then_named("context_menu_owner", |owner| {
+            let (_, context_menu_rc) = native_item_from_owner(context_menu_ref, ctx, owner);
             let close_popup = context_menu.then(|context_menu| {
                 format!("{window}.close_popup({context_menu}.popup_id)")
             });
             let set_id = context_menu
                 .then(|context_menu| format!("{context_menu}.popup_id = id"));
 
-            let show = if let llr::Expression::NumberLiteral(tree_index) = entries {
+            if let llr::Expression::NumberLiteral(tree_index) = entries {
                 // We have an MenuItem tree
                 let current_sub_component = ctx.current_sub_component().unwrap();
                 let item_tree_id = ident(&ctx.compilation_unit.sub_components[current_sub_component.menu_item_trees[*tree_index as usize].root].name);
@@ -5326,17 +5338,16 @@ fn compile_builtin_function_call(
                     }});
                     {set_id};
                 ", globals = ctx.generator_state.global_access)
-            };
-            context_menu.then(|_| show)
+            }
+            })
         }
         BuiltinFunction::SetSelectionOffsets => {
             if let [llr::Expression::PropertyReference(pr), from, to] = arguments {
-                let item = access_member(pr, ctx);
-                let item_rc = access_item_rc(pr, ctx);
                 let window = access_window_field(ctx);
                 let start = compile_expression(from, ctx);
                 let end = compile_expression(to, ctx);
-                item.then(|item| {
+                item_owner(pr).then(|owner| {
+                    let (item, item_rc) = native_item_from_owner(pr, ctx, owner);
                     format!("slint_textinput_set_selection_offsets(&{item}, &{window}.handle(), &{item_rc}, static_cast<int>({start}), static_cast<int>({end}))")
                 })
             } else {
@@ -5345,19 +5356,23 @@ fn compile_builtin_function_call(
         }
         BuiltinFunction::ItemFontMetrics => {
             if let [llr::Expression::PropertyReference(pr)] = arguments {
-                let item_rc = access_item_rc(pr, ctx);
                 let window = access_window_field(ctx);
-                access_member(pr, ctx).map_or_default(|_| format!(
-                    "[&]{{ slint::cbindgen_private::FontMetrics fm; slint_cpp_text_item_fontmetrics(&{window}.handle(), &{item_rc}, &fm); return fm; }}()"
-                ))
+                item_owner(pr).map_or_default(|owner| {
+                    let (_, item_rc) = native_item_from_owner(pr, ctx, owner);
+                    format!(
+                        "[&]{{ slint::cbindgen_private::FontMetrics fm; slint_cpp_text_item_fontmetrics(&{window}.handle(), &{item_rc}, &fm); return fm; }}()"
+                    )
+                })
             } else {
                 panic!("internal error: invalid args to ItemFontMetrics {arguments:?}")
             }
         }
         BuiltinFunction::ItemAbsolutePosition => {
             if let [llr::Expression::PropertyReference(pr)] = arguments {
-                let item_rc = access_item_rc(pr, ctx);
-                access_member(pr, ctx).map_or_default(|_| format!("slint::LogicalPosition(slint::cbindgen_private::slint_item_absolute_position(&{item_rc}))"))
+                item_owner(pr).map_or_default(|owner| {
+                    let (_, item_rc) = native_item_from_owner(pr, ctx, owner);
+                    format!("slint::LogicalPosition(slint::cbindgen_private::slint_item_absolute_position(&{item_rc}))")
+                })
             } else {
                 panic!("internal error: invalid args to ItemAbsolutePosition {arguments:?}")
             }
@@ -5395,16 +5410,17 @@ fn compile_builtin_function_call(
         BuiltinFunction::ImplicitLayoutInfo(orient) => {
             if let [llr::Expression::PropertyReference(pr), constraint_expr] = arguments {
                 let native = native_prop_info(pr, ctx).0;
-                let item_rc = access_item_rc(pr, ctx);
                 let constraint = compile_expression(constraint_expr, ctx);
-                access_member(pr, ctx).then(|item|
-                format!(
-                    "slint::private_api::item_layout_info({vt}, const_cast<slint::cbindgen_private::{ty}*>(&{item}), {o}, {constraint}, &{window}, {item_rc})",
-                    vt = native.cpp_vtable_getter,
-                    ty = native.class_name,
-                    o = to_cpp_orientation(orient),
-                    window = access_window_field(ctx),
-                ))
+                item_owner(pr).map_or_default(|owner| {
+                    let (item, item_rc) = native_item_from_owner(pr, ctx, owner);
+                    format!(
+                        "slint::private_api::item_layout_info({vt}, const_cast<slint::cbindgen_private::{ty}*>(&{item}), {o}, {constraint}, &{window}, {item_rc})",
+                        vt = native.cpp_vtable_getter,
+                        ty = native.class_name,
+                        o = to_cpp_orientation(orient),
+                        window = access_window_field(ctx),
+                    )
+                })
             } else {
                 panic!("internal error: invalid args to ImplicitLayoutInfo {arguments:?}")
             }
@@ -5452,22 +5468,26 @@ fn compile_builtin_function_call(
         }
         BuiltinFunction::PathPointAt => {
             if let [llr::Expression::PropertyReference(pr), t] = arguments {
-                let item_rc = access_item_rc(pr, ctx);
                 let t = compile_expression(t, ctx);
-                access_member(pr, ctx).map_or_default(|_| format!(
-                    "slint::LogicalPosition(slint::cbindgen_private::slint_path_point_at(&{item_rc}, static_cast<float>({t})))"
-                ))
+                item_owner(pr).map_or_default(|owner| {
+                    let (_, item_rc) = native_item_from_owner(pr, ctx, owner);
+                    format!(
+                        "slint::LogicalPosition(slint::cbindgen_private::slint_path_point_at(&{item_rc}, static_cast<float>({t})))"
+                    )
+                })
             } else {
                 panic!("internal error: invalid args to PathPointAt {arguments:?}")
             }
         }
         BuiltinFunction::PathAngleAt => {
             if let [llr::Expression::PropertyReference(pr), t] = arguments {
-                let item_rc = access_item_rc(pr, ctx);
                 let t = compile_expression(t, ctx);
-                access_member(pr, ctx).map_or_default(|_| format!(
-                    "slint::cbindgen_private::slint_path_angle_at(&{item_rc}, static_cast<float>({t}))"
-                ))
+                item_owner(pr).map_or_default(|owner| {
+                    let (_, item_rc) = native_item_from_owner(pr, ctx, owner);
+                    format!(
+                        "slint::cbindgen_private::slint_path_angle_at(&{item_rc}, static_cast<float>({t}))"
+                    )
+                })
             } else {
                 panic!("internal error: invalid args to PathAngleAt {arguments:?}")
             }
