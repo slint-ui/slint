@@ -111,10 +111,6 @@ pub enum ConnectionMessage {
     SetConfiguration {
         config: PreviewConfig,
     },
-    SetUserSettings {
-        name: String,
-        contents: String,
-    },
     ShowPreview {
         preview_component: PreviewComponent,
     },
@@ -434,12 +430,6 @@ impl Connection {
                                                 config,
                                             });
                                         }
-                                        LspToPreviewMessage::SetUserSettings { name, contents } => {
-                                            message_handler(ConnectionMessage::SetUserSettings {
-                                                name,
-                                                contents,
-                                            });
-                                        }
                                         LspToPreviewMessage::ShowPreview(preview_component) => {
                                             // ShowPreview rebuilds unconditionally; cancel any
                                             // queued debounce so the viewer only rebuilds once.
@@ -537,10 +527,8 @@ impl Connection {
             }
         }
         if request_file
-            && let Err(err) = self.send(PreviewToLspMessage::RequestState {
-                files: vec![url.clone()],
-                settings: vec![],
-            })
+            && let Err(err) =
+                self.send(PreviewToLspMessage::RequestState { files: vec![url.clone()] })
         {
             // The Loading entry we just inserted will never be resolved by the
             // websocket task — remove it so the senders inside (including ours)
