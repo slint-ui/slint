@@ -1418,7 +1418,7 @@ checksum = "d8b14ccef22fc6f5a8f4d7d768562a182c04ce9a3b3157b91390b52ddfdf1a76"
 [[package]]
 name = "dpi"
 version = "0.1.2"
-source = "git+https://github.com/Murmele/winit.git?rev=e08fa07634374e9120a1cce5ef8617101ecdd176#e08fa07634374e9120a1cce5ef8617101ecdd176"
+source = "git+https://github.com/Murmele/winit.git?rev=96d63bd5e4143f7fd1587f1fd7e964ddf6bc8eca#96d63bd5e4143f7fd1587f1fd7e964ddf6bc8eca"
 
 [[package]]
 name = "drm"
@@ -1792,9 +1792,9 @@ dependencies = [
 
 [[package]]
 name = "futures"
-version = "0.3.33"
+version = "0.3.34"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a88cf1f829d945f548cf8fec32c61b1f202b6d93b45848602fc02af4b12ad218"
+checksum = "9a31d2a3fbaaeb2af2368bbdd904aa8e812d3c04a1ee10d3171f52d556e5d0a3"
 dependencies = [
  "futures-channel",
  "futures-core",
@@ -1807,9 +1807,9 @@ dependencies = [
 
 [[package]]
 name = "futures-channel"
-version = "0.3.33"
+version = "0.3.34"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "262590f4fe6afeb0bc83be1daa64e52657fe185690a958af7f3ad0e92085c5ae"
+checksum = "b1f9e3d69d39e4862ffed03ed071a76f9a13ba1d9109d355b0f0aa6b15e393c4"
 dependencies = [
  "futures-core",
  "futures-sink",
@@ -1817,15 +1817,15 @@ dependencies = [
 
 [[package]]
 name = "futures-core"
-version = "0.3.33"
+version = "0.3.34"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2cd50c473c80f6d7c3670a752354b8e569b1a7cbfdc0419ec88e5edad85e0dc7"
+checksum = "92d699e522242e69e3003b94ecc1f960f3a5e015aa7c5d7486e65ad01dd94f5e"
 
 [[package]]
 name = "futures-executor"
-version = "0.3.33"
+version = "0.3.34"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6754879cc9f2c66f88c6e5c35344bb0bdb0708b0352b1201815667c7eabc7458"
+checksum = "031b47cf1a3c6cc8bc2fc76cd437f521619387907d469316e7c0bc278f1f5432"
 dependencies = [
  "futures-core",
  "futures-task",
@@ -1834,9 +1834,9 @@ dependencies = [
 
 [[package]]
 name = "futures-io"
-version = "0.3.33"
+version = "0.3.34"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4577ecaa3c4f96589d473f679a71b596316f6641bc350038b962a5daf0085d7a"
+checksum = "53c0fa8157de1303bfffdaa1cc2a673bfffb60102f76b0ef4441659124373fed"
 
 [[package]]
 name = "futures-lite"
@@ -1853,32 +1853,32 @@ dependencies = [
 
 [[package]]
 name = "futures-macro"
-version = "0.3.33"
+version = "0.3.34"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2d6d3cde68c518367be28956066ddfef33813991b77a55005a69dae04bf3b10b"
+checksum = "9fb9654ba8355388abeb8dcb4fc62f511300867002afc858860463bdd9fe0c44"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.119",
+ "syn 3.0.3",
 ]
 
 [[package]]
 name = "futures-sink"
-version = "0.3.33"
+version = "0.3.34"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e34418ac499d6305c2fb5ad0ed2f6ac998c5f8ca209b4510f7f94242c647e307"
+checksum = "1944426bf7d03f1d14f708785e4b33efd750b36d48a157b836b3efc15ede8e1d"
 
 [[package]]
 name = "futures-task"
-version = "0.3.33"
+version = "0.3.34"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b231ed28831efb4a61a08580c4bc233ec56bc009f4cd8f52da2c3cb97df0c109"
+checksum = "cd417de3d1d015fc3bfd2b1ea46dfc7bab72ef86f1cc7cc9c78e728b34a6d1fd"
 
 [[package]]
 name = "futures-util"
-version = "0.3.33"
+version = "0.3.34"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a77a90a256fce34da66415271e30f94ee91c57b04b8a2c042d9cf3220179deaa"
+checksum = "0d50a92467f8ba5dd6e3ee5d4bd04d73ab2e4e1c44474a0674821dfce14b79bc"
 dependencies = [
  "futures-channel",
  "futures-core",
@@ -3541,9 +3541,9 @@ dependencies = [
 
 [[package]]
 name = "num-integer"
-version = "0.1.46"
+version = "0.1.47"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7969661fd2958a5cb096e56c8e1ad0444ac2bbcd0061bd28660485a44879858f"
+checksum = "7ce2d95d4b3734dc35aa2f45e1aa22cd416814592a4f9d9205e11affd5b8e10b"
 dependencies = [
  "num-traits",
 ]
@@ -6787,12 +6787,12 @@ dependencies = [
 [[package]]
 name = "winit"
 version = "0.31.0-beta.2"
-source = "git+https://github.com/Murmele/winit.git?rev=e08fa07634374e9120a1cce5ef8617101ecdd176#e08fa07634374e9120a1cce5ef8617101ecdd176"
+source = "git+https://github.com/Murmele/winit.git?rev=96d63bd5e4143f7fd1587f1fd7e964ddf6bc8eca#96d63bd5e4143f7fd1587f1fd7e964ddf6bc8eca"
 dependencies = [
  "bitflags 2.13.1",
  "cfg_aliases",
  "cursor-icon",
- "dpi 0.1.2 (git+https://github.com/Murmele/winit.git?rev=e08fa07634374e9120a1cce5ef8617101ecdd176)",
+ "dpi 0.1.2 (git+https://github.com/Murmele/winit.git?rev=96d63bd5e4143f7fd1587f1fd7e964ddf6bc8eca)",
  "libc",
  "raw-window-handle",
  "rustix 1.1.4",
@@ -6813,11 +6813,11 @@ dependencies = [
 [[package]]
 name = "winit-android"
 version = "0.31.0-beta.2"
-source = "git+https://github.com/Murmele/winit.git?rev=e08fa07634374e9120a1cce5ef8617101ecdd176#e08fa07634374e9120a1cce5ef8617101ecdd176"
+source = "git+https://github.com/Murmele/winit.git?rev=96d63bd5e4143f7fd1587f1fd7e964ddf6bc8eca#96d63bd5e4143f7fd1587f1fd7e964ddf6bc8eca"
 dependencies = [
  "android-activity 0.6.1",
  "bitflags 2.13.1",
- "dpi 0.1.2 (git+https://github.com/Murmele/winit.git?rev=e08fa07634374e9120a1cce5ef8617101ecdd176)",
+ "dpi 0.1.2 (git+https://github.com/Murmele/winit.git?rev=96d63bd5e4143f7fd1587f1fd7e964ddf6bc8eca)",
  "ndk 0.9.0",
  "raw-window-handle",
  "smol_str 0.3.6",
@@ -6828,12 +6828,12 @@ dependencies = [
 [[package]]
 name = "winit-appkit"
 version = "0.31.0-beta.2"
-source = "git+https://github.com/Murmele/winit.git?rev=e08fa07634374e9120a1cce5ef8617101ecdd176#e08fa07634374e9120a1cce5ef8617101ecdd176"
+source = "git+https://github.com/Murmele/winit.git?rev=96d63bd5e4143f7fd1587f1fd7e964ddf6bc8eca#96d63bd5e4143f7fd1587f1fd7e964ddf6bc8eca"
 dependencies = [
  "bitflags 2.13.1",
  "block2 0.6.2",
  "dispatch2",
- "dpi 0.1.2 (git+https://github.com/Murmele/winit.git?rev=e08fa07634374e9120a1cce5ef8617101ecdd176)",
+ "dpi 0.1.2 (git+https://github.com/Murmele/winit.git?rev=96d63bd5e4143f7fd1587f1fd7e964ddf6bc8eca)",
  "objc2 0.6.4",
  "objc2-app-kit 0.3.2",
  "objc2-core-foundation",
@@ -6850,7 +6850,7 @@ dependencies = [
 [[package]]
 name = "winit-common"
 version = "0.31.0-beta.2"
-source = "git+https://github.com/Murmele/winit.git?rev=e08fa07634374e9120a1cce5ef8617101ecdd176#e08fa07634374e9120a1cce5ef8617101ecdd176"
+source = "git+https://github.com/Murmele/winit.git?rev=96d63bd5e4143f7fd1587f1fd7e964ddf6bc8eca#96d63bd5e4143f7fd1587f1fd7e964ddf6bc8eca"
 dependencies = [
  "block2 0.6.2",
  "memmap2",
@@ -6867,11 +6867,11 @@ dependencies = [
 [[package]]
 name = "winit-core"
 version = "0.31.0-beta.2"
-source = "git+https://github.com/Murmele/winit.git?rev=e08fa07634374e9120a1cce5ef8617101ecdd176#e08fa07634374e9120a1cce5ef8617101ecdd176"
+source = "git+https://github.com/Murmele/winit.git?rev=96d63bd5e4143f7fd1587f1fd7e964ddf6bc8eca#96d63bd5e4143f7fd1587f1fd7e964ddf6bc8eca"
 dependencies = [
  "bitflags 2.13.1",
  "cursor-icon",
- "dpi 0.1.2 (git+https://github.com/Murmele/winit.git?rev=e08fa07634374e9120a1cce5ef8617101ecdd176)",
+ "dpi 0.1.2 (git+https://github.com/Murmele/winit.git?rev=96d63bd5e4143f7fd1587f1fd7e964ddf6bc8eca)",
  "keyboard-types 0.8.3",
  "raw-window-handle",
  "smol_str 0.3.6",
@@ -6882,10 +6882,10 @@ dependencies = [
 [[package]]
 name = "winit-orbital"
 version = "0.31.0-beta.2"
-source = "git+https://github.com/Murmele/winit.git?rev=e08fa07634374e9120a1cce5ef8617101ecdd176#e08fa07634374e9120a1cce5ef8617101ecdd176"
+source = "git+https://github.com/Murmele/winit.git?rev=96d63bd5e4143f7fd1587f1fd7e964ddf6bc8eca#96d63bd5e4143f7fd1587f1fd7e964ddf6bc8eca"
 dependencies = [
  "bitflags 2.13.1",
- "dpi 0.1.2 (git+https://github.com/Murmele/winit.git?rev=e08fa07634374e9120a1cce5ef8617101ecdd176)",
+ "dpi 0.1.2 (git+https://github.com/Murmele/winit.git?rev=96d63bd5e4143f7fd1587f1fd7e964ddf6bc8eca)",
  "libredox",
  "orbclient 0.4.5",
  "raw-window-handle",
@@ -6898,12 +6898,12 @@ dependencies = [
 [[package]]
 name = "winit-uikit"
 version = "0.31.0-beta.2"
-source = "git+https://github.com/Murmele/winit.git?rev=e08fa07634374e9120a1cce5ef8617101ecdd176#e08fa07634374e9120a1cce5ef8617101ecdd176"
+source = "git+https://github.com/Murmele/winit.git?rev=96d63bd5e4143f7fd1587f1fd7e964ddf6bc8eca#96d63bd5e4143f7fd1587f1fd7e964ddf6bc8eca"
 dependencies = [
  "bitflags 2.13.1",
  "block2 0.6.2",
  "dispatch2",
- "dpi 0.1.2 (git+https://github.com/Murmele/winit.git?rev=e08fa07634374e9120a1cce5ef8617101ecdd176)",
+ "dpi 0.1.2 (git+https://github.com/Murmele/winit.git?rev=96d63bd5e4143f7fd1587f1fd7e964ddf6bc8eca)",
  "objc2 0.6.4",
  "objc2-core-foundation",
  "objc2-foundation 0.3.2",
@@ -6918,12 +6918,12 @@ dependencies = [
 [[package]]
 name = "winit-wayland"
 version = "0.31.0-beta.2"
-source = "git+https://github.com/Murmele/winit.git?rev=e08fa07634374e9120a1cce5ef8617101ecdd176#e08fa07634374e9120a1cce5ef8617101ecdd176"
+source = "git+https://github.com/Murmele/winit.git?rev=96d63bd5e4143f7fd1587f1fd7e964ddf6bc8eca#96d63bd5e4143f7fd1587f1fd7e964ddf6bc8eca"
 dependencies = [
  "bitflags 2.13.1",
  "calloop 0.14.4",
  "cursor-icon",
- "dpi 0.1.2 (git+https://github.com/Murmele/winit.git?rev=e08fa07634374e9120a1cce5ef8617101ecdd176)",
+ "dpi 0.1.2 (git+https://github.com/Murmele/winit.git?rev=96d63bd5e4143f7fd1587f1fd7e964ddf6bc8eca)",
  "foldhash 0.2.0",
  "libc",
  "memmap2",
@@ -6945,13 +6945,13 @@ dependencies = [
 [[package]]
 name = "winit-web"
 version = "0.31.0-beta.2"
-source = "git+https://github.com/Murmele/winit.git?rev=e08fa07634374e9120a1cce5ef8617101ecdd176#e08fa07634374e9120a1cce5ef8617101ecdd176"
+source = "git+https://github.com/Murmele/winit.git?rev=96d63bd5e4143f7fd1587f1fd7e964ddf6bc8eca#96d63bd5e4143f7fd1587f1fd7e964ddf6bc8eca"
 dependencies = [
  "atomic-waker",
  "bitflags 2.13.1",
  "concurrent-queue",
  "cursor-icon",
- "dpi 0.1.2 (git+https://github.com/Murmele/winit.git?rev=e08fa07634374e9120a1cce5ef8617101ecdd176)",
+ "dpi 0.1.2 (git+https://github.com/Murmele/winit.git?rev=96d63bd5e4143f7fd1587f1fd7e964ddf6bc8eca)",
  "js-sys",
  "pin-project",
  "raw-window-handle",
@@ -6967,11 +6967,11 @@ dependencies = [
 [[package]]
 name = "winit-win32"
 version = "0.31.0-beta.2"
-source = "git+https://github.com/Murmele/winit.git?rev=e08fa07634374e9120a1cce5ef8617101ecdd176#e08fa07634374e9120a1cce5ef8617101ecdd176"
+source = "git+https://github.com/Murmele/winit.git?rev=96d63bd5e4143f7fd1587f1fd7e964ddf6bc8eca#96d63bd5e4143f7fd1587f1fd7e964ddf6bc8eca"
 dependencies = [
  "bitflags 2.13.1",
  "cursor-icon",
- "dpi 0.1.2 (git+https://github.com/Murmele/winit.git?rev=e08fa07634374e9120a1cce5ef8617101ecdd176)",
+ "dpi 0.1.2 (git+https://github.com/Murmele/winit.git?rev=96d63bd5e4143f7fd1587f1fd7e964ddf6bc8eca)",
  "raw-window-handle",
  "smol_str 0.3.6",
  "tracing",
@@ -6984,13 +6984,13 @@ dependencies = [
 [[package]]
 name = "winit-x11"
 version = "0.31.0-beta.2"
-source = "git+https://github.com/Murmele/winit.git?rev=e08fa07634374e9120a1cce5ef8617101ecdd176#e08fa07634374e9120a1cce5ef8617101ecdd176"
+source = "git+https://github.com/Murmele/winit.git?rev=96d63bd5e4143f7fd1587f1fd7e964ddf6bc8eca#96d63bd5e4143f7fd1587f1fd7e964ddf6bc8eca"
 dependencies = [
  "bitflags 2.13.1",
  "bytemuck",
  "calloop 0.14.4",
  "cursor-icon",
- "dpi 0.1.2 (git+https://github.com/Murmele/winit.git?rev=e08fa07634374e9120a1cce5ef8617101ecdd176)",
+ "dpi 0.1.2 (git+https://github.com/Murmele/winit.git?rev=96d63bd5e4143f7fd1587f1fd7e964ddf6bc8eca)",
  "libc",
  "percent-encoding",
  "raw-window-handle",
@@ -7298,9 +7298,9 @@ dependencies = [
 
 [[package]]
 name = "zcheapstr"
-version = "1.0.0"
+version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "769381976ea05c1f0abde0ca527b02e415bccbdbad148534a2b0c1901c9ab934"
+checksum = "d1afec51604565183aeb5c54c20aeab286120d4e4460f7f76e3e8bb8c0d99473"
 dependencies = [
  "serde",
 ]
