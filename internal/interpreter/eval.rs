@@ -981,6 +981,7 @@ fn call_builtin_function(
                 .expect("Invalid internal enumeration representation for close policy");
                 let popup_x = popup.x.clone();
                 let popup_y = popup.y.clone();
+                let popup_anchor = popup.anchor.clone();
 
                 crate::dynamic_item_tree::show_popup(
                     popup_window,
@@ -996,6 +997,18 @@ fn call_builtin_function(
                             x.try_into().unwrap(),
                             y.try_into().unwrap(),
                         )
+                    },
+                    move |instance_ref| {
+                        let comp = ComponentInstance::InstanceRef(instance_ref);
+                        let anchor = load_property_helper(
+                            &comp,
+                            &popup_anchor.element(),
+                            popup_anchor.name(),
+                        )
+                        .unwrap();
+                        anchor
+                            .try_into()
+                            .expect("Invalid internal struct representation for popup anchor")
                     },
                     close_policy,
                     (*enclosing_component.self_weak().get().unwrap()).clone(),
@@ -1161,6 +1174,7 @@ fn call_builtin_function(
                 let id = window.show_popup(
                     &vtable::VRc::into_dyn(inst.clone()),
                     Box::new(move || position),
+                    Box::new(|| corelib::items::PopupAnchor::default()),
                     corelib::items::PopupClosePolicy::CloseOnClickOutside,
                     &item_rc,
                     WindowKind::Menu,

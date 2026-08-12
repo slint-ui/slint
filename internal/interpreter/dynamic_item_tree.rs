@@ -24,7 +24,7 @@ use i_slint_core::item_tree::{
     VisitChildrenResult,
 };
 use i_slint_core::items::{
-    AccessibleRole, ItemRef, ItemVTable, PopupClosePolicy, PropertyAnimation,
+    AccessibleRole, ItemRef, ItemVTable, PopupAnchor, PopupClosePolicy, PropertyAnimation,
 };
 use i_slint_core::layout::{LayoutInfo, LayoutItemInfo, Orientation};
 use i_slint_core::lengths::{LogicalLength, LogicalRect};
@@ -1587,8 +1587,23 @@ pub fn instantiate(
         self_weak.clone()
     } else {
         generativity::make_guard!(guard);
+        let parent = instance_ref.parent_instance(guard);
+        // Only inherit the parent's root when we actually share its window adapter: that's what
+        // `window_adapter()`/`maybe_window_adapter()` resolve through (via the root's globals). A
+        // component instantiated with its own dedicated window adapter (e.g. a popup that got a
+        // real popup/tooltip window instead of falling back to sharing the parent's) must be its
+        // own root, otherwise its window adapter lookups would resolve through the parent's
+        // globals - and thus the parent's adapter - instead.
+        let shares_window_with_parent = match window_options {
+            Some(WindowOptions::UseExistingWindow(existing_adapter)) => parent
+                .as_ref()
+                .is_some_and(|parent| Rc::ptr_eq(&parent.window_adapter(), existing_adapter)),
+            _ => true,
+        };
         root.or_else(|| {
-            instance_ref.parent_instance(guard).map(|parent| parent.root_weak().clone())
+            shares_window_with_parent
+                .then(|| parent.map(|parent| parent.root_weak().clone()))
+                .flatten()
         })
         .unwrap_or_else(|| self_weak.clone())
     };
@@ -2782,6 +2797,7 @@ pub fn show_popup(
     instance: InstanceRef,
     popup: &object_tree::PopupWindow,
     pos_getter: impl Fn(InstanceRef<'_, '_>) -> LogicalPosition + 'static,
+    anchor_getter: impl Fn(InstanceRef<'_, '_>) -> PopupAnchor + 'static,
     close_policy: PopupClosePolicy,
     parent_comp: ErasedItemTreeBoxWeak,
     parent_window_adapter: WindowAdapterRc,
@@ -2834,6 +2850,13 @@ pub fn show_popup(
         let instance_ref = compo_box.borrow_instance();
         pos_getter(instance_ref)
     });
+    let inst_for_anchor = inst.clone();
+    let access_anchor = Box::new(move || {
+        generativity::make_guard!(guard);
+        let compo_box = inst_for_anchor.unerase(guard);
+        let instance_ref = compo_box.borrow_instance();
+        anchor_getter(instance_ref)
+    });
     close_popup(element.clone(), instance, parent_window_adapter.clone());
     let window_kind = if popup.is_tooltip { WindowKind::ToolTip } else { WindowKind::Popup };
     // Keep the parent's `is-open` property in sync: `show_popup` invokes this with `true` now and with
@@ -2862,6 +2885,7 @@ pub fn show_popup(
     let popup_id = WindowInner::from_pub(parent_window_adapter.window()).show_popup(
         &vtable::VRc::into_dyn(inst.clone()),
         access_position,
+        access_anchor,
         close_policy,
         parent_item,
         window_kind,

@@ -78,7 +78,7 @@ lyon_path = { workspace = true }
 pin-weak = "1"
 scoped-tls-hkt = "0.1"
 strum = { workspace = true }
-winit = { git = "https://github.com/rust-windowing/winit.git", rev = "156433eb912a62a1a07da0f9bbaa2d775270c788", default-features = false }
+winit = { git = "https://github.com/Murmele/winit.git", rev = "78e5a1f81664fd174056559a2088f14df1f07e15", default-features = false }
 raw-window-handle = { version = "0.6", features = ["alloc"] }
 scopeguard = { version = "1.1.0", default-features = false }
 
@@ -116,8 +116,8 @@ i-slint-core = { workspace = true, features = ["image-decoders", "svg"] }
 image = { workspace = true }
 
 [target.'cfg(not(any(target_family = "windows", target_vendor = "apple", target_arch = "wasm32", target_os = "android")))'.dependencies]
-winit-wayland = { git = "https://github.com/rust-windowing/winit.git", rev = "156433eb912a62a1a07da0f9bbaa2d775270c788", optional = true }
-winit-x11 = { git = "https://github.com/rust-windowing/winit.git", rev = "156433eb912a62a1a07da0f9bbaa2d775270c788", optional = true }
+winit-wayland = { git = "https://github.com/Murmele/winit.git", rev = "78e5a1f81664fd174056559a2088f14df1f07e15", optional = true }
+winit-x11 = { git = "https://github.com/Murmele/winit.git", rev = "78e5a1f81664fd174056559a2088f14df1f07e15", optional = true }
 # Use same version and executor as accesskit
 zbus = { version = "5.14.0", default-features = false, features = ["async-io"] }
 futures = { version = "0.3.31" }

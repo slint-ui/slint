@@ -173,6 +173,42 @@ macro_rules! for_each_builtin_structs {
                 /// The bottom edge value
                 bottom: Coord,
             }
+
+            /// Represents the possible adjustments made to a popup if the popup
+            /// does not fit into the window
+            #[non_exhaustive]
+            struct ConstraintAdjustment {
+                /// The popup can be slid along the respective axis to fit
+                /// fully on screen
+                slide: bool,
+                /// The popup can be flipped to the other edge of the anchor rect
+                /// if it fits then on screen
+                flip: bool,
+                /// The popup can be resized to fit on the screen
+                resize: bool,
+            }
+
+            /// Represents additional properties to specify the location of a popup and
+            /// its behavior when not fitting into screen
+            #[non_exhaustive]
+            struct PopupAnchor {
+                /// The popups anchor point location on the anchor rect
+                location: PopupAnchorLocation,
+                /// The position of the popup relative to the anchor point in x direction
+                x: Coord,
+                /// The position of the popup relative to the anchor point in y direction
+                y: Coord,
+                /// The width of the anchor rect
+                width: Coord,
+                /// The height of the anchor rect
+                height: Coord,
+                /// The gravity of the anchor rect
+                gravity: PopupGravity,
+                /// The constraint adjustment in x direction
+                constraint_adjustment_x: ConstraintAdjustment,
+                /// The constraint adjustment in y direction
+                constraint_adjustment_y: ConstraintAdjustment,
+            }
         }
     };
 }

@@ -612,6 +612,40 @@ macro_rules! for_each_enums {
                 AlwaysOn,
             }
 
+            /// This enum describes the position direction of the popup window
+            /// The popup window will be drawn from the anchor point into this direction
+            #[non_exhaustive]
+            enum PopupGravity {
+                /// The popup window will be drawn from the anchor point to the bottom right
+                /// of the screen
+                BottomRight, // As first to make it the default
+                Center,
+                Top,
+                Bottom,
+                Left,
+                Right,
+                TopLeft,
+                BottomLeft,
+                TopRight,
+            }
+
+            /// This enum describes the popup window anchor point location
+            /// on the anchor rect
+            #[non_exhaustive]
+            enum PopupAnchorLocation {
+                /// The top left corner of the anchor rect is the anchor point for the popup
+                /// window
+                TopLeft, // As first to make it the default
+                Center,
+                Top,
+                Bottom,
+                Left,
+                Right,
+                BottomLeft,
+                TopRight,
+                BottomRight,
+            }
+
             // This enum describes the close behavior of `PopupWindow`
             #[non_exhaustive]
             enum PopupClosePolicy {

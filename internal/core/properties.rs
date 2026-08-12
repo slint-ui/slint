@@ -458,6 +458,7 @@ struct BindingHolder<B = ()> {
 
 impl BindingHolder {
     /// Registers this binding as a dependency of the given property.
+    /// self <-- notified -- property behind `property_that_will_notify`
     fn register_self_as_dependency(
         self_ptr: *const BindingHolder,
         property_that_will_notify: *mut DependencyListHead,
@@ -720,6 +721,7 @@ impl PropertyHandle {
         }
     }
 
+    /// Returns the DependencyListHead pointer of this PropertyHandle
     fn dependencies(&self) -> *mut DependencyListHead {
         assert!(!self.lock_flag(), "Recursion detected");
         if Self::is_pointer_to_binding(self.handle.get()) {
