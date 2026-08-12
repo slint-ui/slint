@@ -159,7 +159,7 @@ build_editor_app() {
 
     local build_dir="$WORK_DIR/build"
     local app="$build_dir/$APP_NAME.app"
-    local executable="$ROOT_DIR/target/$RUST_TARGET/release/slint-visual-editor"
+    local executable="$ROOT_DIR/target/$RUST_TARGET/release/examples/slint-editor"
     local plist="$app/Contents/Info.plist"
 
     log "Building local Visual Editor binary for $RUST_TARGET"
@@ -169,7 +169,7 @@ build_editor_app() {
         cargo build \
             --release \
             --target "$RUST_TARGET" \
-            --bin slint-visual-editor \
+            --example slint-editor \
             --no-default-features \
             --features "$CARGO_FEATURES"
 

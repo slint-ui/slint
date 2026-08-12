@@ -75,7 +75,7 @@ jobs:
           cargo +stable build `
             --manifest-path tools/lsp/Cargo.toml `
             --target ${{ matrix.target }} `
-            --bin slint-visual-editor `
+            --example slint-editor `
             --profile package-release `
             --no-default-features `
             --features backend-winit,renderer-skia
@@ -86,7 +86,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: slint-visual-editor-${{ matrix.arch }}
-          path: target/${{ matrix.target }}/package-release/slint-visual-editor.exe
+          path: target/${{ matrix.target }}/package-release/examples/slint-editor.exe
           if-no-files-found: error
 
   package:
@@ -242,7 +242,7 @@ jobs:
             # Everything the manifest refers to has to be inside the layout:
             # `makeappx` resolves those paths within the package, not on disk.
             Copy-Item "$tiles/*.png" "$dist/Assets/"
-            Copy-Item "exe/slint-visual-editor-$arch/slint-visual-editor.exe" "$dist/slint-visual-editor.exe"
+            Copy-Item "exe/slint-visual-editor-$arch/slint-editor.exe" "$dist/slint-visual-editor.exe"
 
             # Each slice carries its own manifest, naming the version and the
             # architecture it was built for. Everything else about the slices

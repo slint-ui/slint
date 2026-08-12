@@ -73,10 +73,10 @@ modules:
         SKIA_GN_COMMAND: /app/bin/gn
     build-commands:
       - cargo --offline fetch --manifest-path Cargo.toml
-      - cargo build --manifest-path tools/lsp/Cargo.toml --bin slint-visual-editor
+      - cargo build --manifest-path tools/lsp/Cargo.toml --example slint-editor
         --profile package-release --offline --no-default-features
         --features backend-winit,renderer-skia
-      - install -Dm0755 target/package-release/slint-visual-editor ${FLATPAK_DEST}/bin/slint-visual-editor
+      - install -Dm0755 target/package-release/examples/slint-editor ${FLATPAK_DEST}/bin/slint-visual-editor
       - install -Dm0644 tools/lsp/packaging/linux/${FLATPAK_ID}.desktop ${FLATPAK_DEST}/share/applications/${FLATPAK_ID}.desktop
       # The icon references the shared logo and tile backdrop, and librsvg only
       # resolves references within the document's own directory
