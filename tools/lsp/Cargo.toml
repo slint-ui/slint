@@ -137,6 +137,7 @@ mdns-sd = "0.20.0"
 # Unicode XID property lookup used by the host-language accessor scanner to
 # tokenize identifiers in Rust/C++ source rather than scanning byte-by-byte.
 icu_properties = { version = "2.2.0", features = ["compiled_data"] }
+tempfile = "3"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 console_error_panic_hook = "0.1.5"
