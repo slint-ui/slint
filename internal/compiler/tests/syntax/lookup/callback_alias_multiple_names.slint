@@ -3,9 +3,9 @@
 
 export component Xxx inherits Window {
     callback clicked-b <=> button.clicked;
-//                     >                <error{Callback 'clicked-b' shares a handler slot with 'clicked-a', so only one of them can have an implementation}
+//                     >                <warning{Callback 'clicked-b' shares a handler slot with 'clicked-a', so only one of them can have an implementation}
     callback clicked-a <=> button.clicked;
-//                     >                <error{Callback 'clicked-a' shares a handler slot with 'clicked-b', so only one of them can have an implementation}
+//                     >                <warning{Callback 'clicked-a' shares a handler slot with 'clicked-b', so only one of them can have an implementation}
 
     button := TouchArea {}
 }

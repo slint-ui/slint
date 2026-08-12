@@ -161,7 +161,8 @@ pub fn remove_aliases(doc: &Document, diag: &mut BuildDiagnostics) {
             let elem = nr.element();
             let elem = elem.borrow();
             if let Some(b) = elem.binding(nr.name()) {
-                diag.push_error(
+                // Only a warning: this compiled fine up to 1.17 and code relies on it.
+                diag.push_warning(
                     format!(
                         "Callback '{}' shares a handler slot with {other_names}, so only one of them can have an implementation",
                         nr.name()
