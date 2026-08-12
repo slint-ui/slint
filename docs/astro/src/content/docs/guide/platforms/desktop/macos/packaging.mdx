@@ -94,13 +94,18 @@ You can change the app's bundle identifier, team, app category, entitlements, an
 Then generate the Xcode project:
 
 ```sh
-xcodegen generate --spec project.yml
+xcodegen generate --spec project.yml --use-cache
 ```
 
 The generated `.xcodeproj` is a normal Xcode project.
 Add it to your `.gitignore` file so that you don't check it in.
 You can open it in Xcode, build it with `xcodebuild`, or use it with Xcode Cloud.
 To change the app target, `Info.plist` values, resources, entitlements, build phases, or signing settings, edit `project.yml` and regenerate the project.
+
+Write `project.yml` once.
+Regenerate the project before every build, including in CI, since you don't check the project in.
+Use `--use-cache` to keep that cheap:
+XcodeGen leaves the project untouched when nothing in the spec has changed.
 
 The Cargo build script must copy the final executable to the path Xcode expects:
 
@@ -123,7 +128,13 @@ chmod +x "$TARGET_BUILD_DIR/$EXECUTABLE_PATH"
 Use this route when users download the app directly from your website.
 The app must be signed with a Developer ID Application certificate and notarized by Apple before distribution.
 
-A typical direct-distribution pipeline is:
+Set this up once:
+
+1. Create a Developer ID Application certificate and install it in the keychain you build with.
+2. Store notarization credentials for `notarytool` with `xcrun notarytool store-credentials`.
+3. Write the XcodeGen spec, the Cargo build script, and the script that lays out the DMG.
+
+Repeat these steps for every release:
 
 1. Generate the Xcode project with XcodeGen.
 2. Build or archive the app with Xcode or `xcodebuild`.
@@ -149,14 +160,17 @@ Use [TestFlight](https://developer.apple.com/testflight/) to distribute beta bui
 TestFlight isn't a production distribution channel.
 It uses App Store Connect and Apple's store signing flow, not the Developer ID signing and notarization flow used for direct DMG downloads.
 
-A typical TestFlight pipeline is:
+Set this up once:
 
 1. Create the app record in App Store Connect.
 2. Configure the bundle identifier, team, entitlements, and resources in the YAML spec.
-3. Generate the Xcode project with `xcodegen generate`.
-4. Build, archive, sign, and upload the beta with Xcode or Xcode Cloud.
-5. Add the build to an internal or external testing group in App Store Connect.
-6. Invite testers and collect their feedback through TestFlight.
+3. Create an internal or external testing group and invite testers.
+
+Repeat these steps for every beta:
+
+1. Generate the Xcode project with `xcodegen generate`.
+2. Build, archive, sign, and upload the beta with Xcode or Xcode Cloud.
+3. Add the build to the testing group and collect feedback through TestFlight.
 
 ## Distribute Through the Mac App Store
 
@@ -164,13 +178,17 @@ Use this route when you want users to install and update the app through the Mac
 You still start with XcodeGen because App Store submission expects a real Xcode project or archive.
 Mac App Store distribution uses Apple's store signing and App Store Connect upload flow, not the Developer ID signing flow used for direct downloads.
 
-A typical Mac App Store pipeline is:
+Set this up once:
 
 1. Check in the XcodeGen YAML spec and related source assets.
-2. Generate the Xcode project with `xcodegen generate`.
-3. Configure the bundle identifier, team, app category, entitlements, and resources in the YAML spec.
-4. Create the app record in App Store Connect.
-5. Build, archive, sign, and upload the app with Xcode or Xcode Cloud.
+2. Configure the bundle identifier, team, app category, entitlements, and resources in the YAML spec.
+3. Create the app record in App Store Connect.
+
+Repeat these steps for every release:
+
+1. Generate the Xcode project with `xcodegen generate`.
+2. Build, archive, sign, and upload the app with Xcode or Xcode Cloud.
+3. Submit the uploaded build for review in App Store Connect.
 
 You can also open the generated project in Xcode and submit from your local Mac.
 This works well when you want to manage releases manually.
