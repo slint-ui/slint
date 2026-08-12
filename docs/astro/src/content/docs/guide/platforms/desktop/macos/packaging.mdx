@@ -27,7 +27,7 @@ Use [XcodeGen](https://github.com/yonaskolb/XcodeGen) to generate one from a YAM
 so that you don't maintain an Xcode project and your own project files in parallel.
 It creates a project that's compatible with Apple's native build and distribution tools.
 
-Don't check the Xcode project in.
+Don't check the Xcode project file in.
 Generate it from the YAML file instead, and let XcodeGen do the heavy lifting of keeping it up to date.
 
 <Aside type="note">
@@ -104,7 +104,7 @@ You can open it in Xcode, build it with `xcodebuild`, or use it with Xcode Cloud
 To change the app target, `Info.plist` values, resources, entitlements, build phases, or signing settings, edit `project.yml` and regenerate the project.
 
 Write `project.yml` once.
-Regenerate the project before every build, including in CI, since you don't check the project in.
+Regenerate the project file before every build, including in CI, since you don't check it in.
 Use `--use-cache` to keep that cheap:
 XcodeGen leaves the project untouched when nothing in the spec has changed.
 
@@ -205,7 +205,7 @@ You remain responsible for the bundle identifier, signing settings, entitlements
 ## Important Xcode Cloud Information
 
 Xcode Cloud expects your app to have an Xcode project file.
-You can meet this requirement without checking in the generated project.
+You can meet this requirement without checking in the generated project file.
 Open the project file in Xcode and follow
 [Apple's instructions](https://developer.apple.com/documentation/xcode/setting-up-your-project-to-use-xcode-cloud) for setting up Xcode Cloud.
 The generated project lets Xcode Cloud complete the build and archive steps.
