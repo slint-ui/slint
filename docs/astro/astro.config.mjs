@@ -225,7 +225,17 @@ export default defineConfig({
                                                     "guide/platforms/desktop/windows/packaging",
                                                 ],
                                             },
-                                            "guide/platforms/desktop/macos",
+                                            {
+                                                label: "macOS",
+                                                collapsed: true,
+                                                items: [
+                                                    {
+                                                        label: "Overview",
+                                                        slug: "guide/platforms/desktop/macos/general",
+                                                    },
+                                                    "guide/platforms/desktop/macos/packaging",
+                                                ],
+                                            },
                                             {
                                                 label: "Linux",
                                                 collapsed: true,
