@@ -1217,6 +1217,7 @@ impl LookupObject for ArrayExpression<'_> {
             .or_else(|| f("push", member_macro(BuiltinMacroFunction::ArrayPush)))
             .or_else(|| f("remove", member_macro(BuiltinMacroFunction::ArrayRemove)))
             .or_else(|| f("insert", member_macro(BuiltinMacroFunction::ArrayInsert)))
+            .or_else(|| f("index-of", member_macro(BuiltinMacroFunction::ArrayIndexOf)))
             .or_else(|| {
                 // `any`, `all` and `find-index` take a closure argument; closures are experimental.
                 if !ctx.diag.enable_experimental && !ctx.type_register.expose_internal_types {

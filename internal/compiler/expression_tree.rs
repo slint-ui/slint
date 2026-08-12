@@ -178,6 +178,8 @@ pub enum BuiltinMacroFunction {
     ArrayPush,
     ArrayRemove,
     ArrayInsert,
+    /// Transforms `array.index-of(value)` into `array.find-index((x) => x == value)`
+    ArrayIndexOf,
     CustomMouseCursor,
 }
 
