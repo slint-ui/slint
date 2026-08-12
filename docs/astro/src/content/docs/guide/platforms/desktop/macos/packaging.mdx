@@ -1,6 +1,6 @@
 ---
 title: macOS Packaging (Rust)
-description: Package a desktop Rust based Slint app for direct macOS distribution or the Mac App Store.
+description: Package a desktop Rust-based Slint app for direct macOS distribution or the Mac App Store.
 ---
 
 import { Aside } from '@astrojs/starlight/components';
@@ -20,14 +20,15 @@ Without one, you can only self-sign your app for local development and testing.
 - Rust and the macOS target you build for, such as `aarch64-apple-darwin`.
 - An Apple Developer Program membership for signing, notarization, and Mac App Store distribution.
 
-## Native Xcode Project support
+## Native Xcode Project Support
 
-To build and distribute for the Apple ecosystem, we need an Xcode project. To avoid the need to
-maintain an Xcode project and our own project files in parallel, we can use [XcodeGen](https://github.com/yonaskolb/XcodeGen),
-which creates an Xcode project that's compatible with Apple's native build and distribution tools.
+To build and distribute for the Apple ecosystem, you need an Xcode project.
+Use [XcodeGen](https://github.com/yonaskolb/XcodeGen) to generate one from a YAML spec,
+so that you don't maintain an Xcode project and your own project files in parallel.
+It creates a project that's compatible with Apple's native build and distribution tools.
 
-We recommend not checking in the Xcode project and instead generate it via the YAML file. That way Xcodegen can
-do the heavy lifting of keeping the project file up to date.
+Don't check the Xcode project in.
+Generate it from the YAML file instead, and let XcodeGen do the heavy lifting of keeping it up to date.
 
 <Aside type="note">
 If you open the project file in Xcode, you might see warnings that the project is out of date.
@@ -35,7 +36,7 @@ This is because the project is generated from a YAML spec and not edited directl
 You can safely ignore these warnings.
 </Aside>
 
-A preconfigured Cargo build script that builds the app and places the binary in the expected location is included.
+A preconfigured Cargo build script builds the app and places the binary where Xcode expects it.
 
 The project spec also configures the app icon, entitlements, launch assets, and bundled resources.
 
