@@ -692,10 +692,9 @@ fn lower_sub_component(
     .into();
     if component.root_element.borrow().child_of_flexbox {
         let root_elem = &component.root_element;
-        let has_flex_binding =
-            ["flex-grow", "flex-shrink", "cross-axis-self-alignment", "flex-order"]
-                .iter()
-                .any(|name| crate::layout::binding_reference(root_elem, name).is_some());
+        let has_flex_binding = ["cross-axis-self-alignment", "flex-order"]
+            .iter()
+            .any(|name| crate::layout::binding_reference(root_elem, name).is_some());
         let v_constrained =
             super::lower_layout_expression::get_layout_info_v_constrained_for_repeated(
                 &mut ctx,

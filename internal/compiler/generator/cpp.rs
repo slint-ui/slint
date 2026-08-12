@@ -3027,10 +3027,10 @@ fn generate_flexbox_layout_item_info_decl(
              return info;"
         )
     } else {
-        // Equivalent of the Rust trait default `layout_item_info(o).into()`, whose
-        // props are FlexItemProps::default() (note flex_shrink defaults to 1, not 0).
+        // Equivalent of the Rust trait default `layout_item_info(o).into()`,
+        // whose props are FlexItemProps::default().
         "auto base = layout_item_info(o, child_index); \
-         return { base.constraint, { 0.0f, 1.0f, slint::cbindgen_private::CrossAxisSelfAlignment::Auto, 0 } };"
+         return { base.constraint, { slint::cbindgen_private::CrossAxisSelfAlignment::Auto, 0 } };"
             .to_owned()
     };
 

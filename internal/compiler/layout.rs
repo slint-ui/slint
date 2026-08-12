@@ -87,8 +87,6 @@ pub struct LayoutItem {
 #[derive(Debug, Clone)]
 pub struct FlexboxLayoutItem {
     pub item: LayoutItem,
-    pub flex_grow: Option<NamedReference>,
-    pub flex_shrink: Option<NamedReference>,
     pub order: Option<NamedReference>,
 }
 
@@ -834,12 +832,6 @@ impl FlexboxLayout {
     pub fn visit_named_references(&mut self, visitor: &mut impl FnMut(&mut NamedReference)) {
         for cell in &mut self.elems {
             cell.item.constraints.visit_named_references(visitor);
-            if let Some(e) = cell.flex_grow.as_mut() {
-                visitor(&mut *e)
-            }
-            if let Some(e) = cell.flex_shrink.as_mut() {
-                visitor(&mut *e)
-            }
             if let Some(e) = cell.item.cross_axis_self_alignment.as_mut() {
                 visitor(&mut *e)
             }

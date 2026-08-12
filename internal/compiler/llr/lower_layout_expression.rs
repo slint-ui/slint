@@ -685,6 +685,10 @@ fn compute_flexbox_layout_info_for_direction(
             padding_h,
             padding_v,
             fld.direction,
+            // Under `alignment: stretch` the solve grows the cells along the
+            // main axis, changing a height-for-width cell's cross size, so
+            // this measurement must apply the same growth.
+            fld.alignment,
             fld.flex_wrap,
             constraint_size,
         ];
@@ -729,7 +733,7 @@ fn compute_flexbox_layout_info_for_direction(
         };
 
         match fld.compute_cells {
-            Some((cells_h_var, cells_v_var, flex_var, elements)) => {
+            Some((cells_h_var, cells_v_var, _flex_var, elements)) => {
                 let cells_var = match orientation {
                     Orientation::Horizontal => cells_h_var.clone(),
                     Orientation::Vertical => cells_v_var.clone(),
@@ -737,7 +741,7 @@ fn compute_flexbox_layout_info_for_direction(
                 llr_Expression::WithFlexboxLayoutItemInfo {
                     cells_h_variable: cells_h_var,
                     cells_v_variable: cells_v_var,
-                    flex_props_variable: Some(flex_var.clone()),
+                    flex_props_variable: None,
                     repeater_indices_var_name: None,
                     elements,
                     // Info computation, not a solve: no container width to forward.
@@ -751,12 +755,6 @@ fn compute_flexbox_layout_info_for_direction(
                                     crate::typeregister::layout_item_info_type(),
                                 )),
                             },
-                            llr_Expression::ReadLocalVariable {
-                                name: flex_var.into(),
-                                ty: Type::Array(Arc::new(
-                                    crate::typeregister::flex_item_props_type(),
-                                )),
-                            },
                             spacing,
                             padding,
                             fld.flex_wrap,
@@ -767,7 +765,7 @@ fn compute_flexbox_layout_info_for_direction(
             }
             None => llr_Expression::ExtraBuiltinFunctionCall {
                 function: "flexbox_layout_info_main_axis".into(),
-                arguments: vec![cells, fld.flex_props, spacing, padding, fld.flex_wrap],
+                arguments: vec![cells, spacing, padding, fld.flex_wrap],
                 return_ty: crate::typeregister::layout_info_type().into(),
             },
         }
@@ -862,17 +860,6 @@ fn flexbox_layout_data(
     let flex_prop =
         |li: &crate::layout::FlexboxLayoutItem, ctx: &mut ExpressionLoweringCtx| -> FlexItemProps {
             FlexItemProps {
-                grow: li
-                    .flex_grow
-                    .as_ref()
-                    .map(|nr| llr_Expression::PropertyReference(ctx.map_property_reference(nr)))
-                    .unwrap_or(llr_Expression::NumberLiteral(0.0)),
-                shrink: li
-                    .flex_shrink
-                    .as_ref()
-                    .map(|nr| llr_Expression::PropertyReference(ctx.map_property_reference(nr)))
-                    // CSS default, same as the interpreter and the repeated-cell path
-                    .unwrap_or(llr_Expression::NumberLiteral(1.0)),
                 align_self: li
                     .item
                     .cross_axis_self_alignment
@@ -1103,8 +1090,6 @@ fn make_layout_cell_data_struct(
 
 #[derive(Clone)]
 struct FlexItemProps {
-    grow: llr_Expression,
-    shrink: llr_Expression,
     align_self: llr_Expression,
     order: llr_Expression,
 }
@@ -1114,8 +1099,6 @@ fn make_flex_props_struct(fp: FlexItemProps) -> llr_Expression {
     make_struct(
         BuiltinStruct::FlexItemProps,
         [
-            ("flex-grow", Type::Float32, fp.grow),
-            ("flex-shrink", Type::Float32, fp.shrink),
             ("cross-axis-self-alignment", align_self_ty, fp.align_self),
             ("flex-order", Type::Int32, fp.order),
         ],
@@ -1992,8 +1975,6 @@ pub fn get_flexbox_layout_item_info_for_repeated(
 
     let (_, align_self_default) = default_align_self();
 
-    let grow = prop_ref("flex-grow").unwrap_or(llr_Expression::NumberLiteral(0.0));
-    let shrink = prop_ref("flex-shrink").unwrap_or(llr_Expression::NumberLiteral(1.0));
     let align_self = prop_ref("cross-axis-self-alignment").unwrap_or(align_self_default);
     let order = prop_ref("flex-order").unwrap_or(llr_Expression::NumberLiteral(0.0));
 
@@ -2011,7 +1992,7 @@ pub fn get_flexbox_layout_item_info_for_repeated(
             (
                 "props",
                 crate::typeregister::flex_item_props_type(),
-                make_flex_props_struct(FlexItemProps { grow, shrink, align_self, order }),
+                make_flex_props_struct(FlexItemProps { align_self, order }),
             ),
         ],
     )

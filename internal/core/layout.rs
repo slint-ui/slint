@@ -1178,38 +1178,12 @@ pub struct LayoutItemInfo {
 /// properties apply to the item as a whole, so they live in a single parallel
 /// array instead of being duplicated into both axes.
 #[repr(C)]
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct FlexItemProps {
-    /// Flex grow factor (0 = don't grow, default)
-    pub flex_grow: f32,
-    /// Flex shrink factor (0 = don't shrink, default)
-    pub flex_shrink: f32,
     /// Per-item cross-axis alignment override (Auto = use container's cross-axis-alignment)
     pub cross_axis_self_alignment: CrossAxisSelfAlignment,
     /// Visual ordering of flex items (lower values appear first, default 0)
     pub flex_order: i32,
-}
-
-impl Default for FlexItemProps {
-    fn default() -> Self {
-        Self {
-            flex_grow: 0.0,
-            flex_shrink: 1.0,
-            cross_axis_self_alignment: CrossAxisSelfAlignment::Auto,
-            flex_order: 0,
-        }
-    }
-}
-
-/// One flexbox cell's minimum main-axis size.
-///
-/// An item that cannot shrink (`flex-shrink: 0`) never goes below its preferred
-/// size (CSS's hypothetical main size), so that is what it contributes; anything
-/// else can be squeezed down to its own minimum. Never below `c.min`, since
-/// `preferred_bounded()` is clamped to it.
-#[must_use]
-fn flex_min_main(c: &LayoutInfo, f: &FlexItemProps) -> Coord {
-    if f.flex_shrink <= 0. { c.preferred_bounded() } else { c.min }
 }
 
 #[repr(C)]
@@ -1502,6 +1476,23 @@ mod flexbox_taffy {
                 }
             };
 
+            // Main-axis growth follows the box layouts: items grow only under
+            // `alignment: stretch`, weighted by the main axis' `*-stretch`
+            // factor. When every factor is 0 (e.g. a row of Buttons, whose
+            // styles set `horizontal-stretch: 0`), fall back to weight 1 so
+            // the line still fills, as it would in a HorizontalLayout. The
+            // all-zero test is container-wide since taffy decides the lines.
+            // The parity has known limits: taffy applies the factors per line
+            // and never hands space to grow-0 items, so a line whose items all
+            // have factor 0 next to a stretchy line won't grow, and space a
+            // max-capped item cannot take stays free instead of going to its
+            // stretch-0 siblings (a box layout redistributes both).
+            let main_cells = match params.flex_direction {
+                TaffyFlexDirection::Row | TaffyFlexDirection::RowReverse => params.cells_h,
+                TaffyFlexDirection::Column | TaffyFlexDirection::ColumnReverse => params.cells_v,
+            };
+            let any_stretch = main_cells.iter().any(|c| c.constraint.stretch > 0.);
+
             // Create child nodes from Slint constraints
             let mut children: Vec<NodeId> = params
                 .cells_h
@@ -1612,8 +1603,22 @@ mod flexbox_taffy {
                                         _ => Dimension::auto(),
                                     },
                                 },
-                                flex_grow: flex.flex_grow,
-                                flex_shrink: flex.flex_shrink,
+                                flex_grow: if params.alignment == LayoutAlignment::Stretch {
+                                    if any_stretch {
+                                        main_cells.get(idx).map_or(0., |c| c.constraint.stretch)
+                                    } else {
+                                        1.
+                                    }
+                                } else {
+                                    0.
+                                },
+                                // Constant 1: under `wrap`, a line with two or
+                                // more items never has negative free space (it
+                                // would have wrapped), so shrinking only applies
+                                // to a single item alone on its line — and that
+                                // item must go down to its min whatever its
+                                // stretch factor, as it would in a box layout.
+                                flex_shrink: 1.,
                                 align_self: match flex.cross_axis_self_alignment {
                                     CrossAxisSelfAlignment::Auto => None,
                                     CrossAxisSelfAlignment::Stretch => Some(AlignSelf::Stretch),
@@ -2002,14 +2007,14 @@ pub fn flexbox_layout_unwrapped_main(
 
 /// Return main-axis LayoutInfo for a FlexboxLayout.
 /// Only needs the same-axis cells, avoiding a cross-axis binding loop.
+/// The reported `max` is always unbounded, even when every item is max-capped:
+/// unlike `box_layout_info`, wrapping makes a sum-of-maxes cap ill-defined.
 pub fn flexbox_layout_info_main_axis(
     cells: Slice<LayoutItemInfo>,
-    flex_props: Slice<FlexItemProps>,
     spacing: Coord,
     padding: &Padding,
     flex_wrap: FlexboxLayoutWrap,
 ) -> LayoutInfo {
-    debug_assert_eq!(cells.len(), flex_props.len());
     let extra_pad = padding.begin + padding.end;
     if cells.is_empty() {
         return LayoutInfo {
@@ -2020,15 +2025,11 @@ pub fn flexbox_layout_info_main_axis(
         };
     }
     let num_spacings = cells.len().saturating_sub(1) as Coord;
-    let min_of = |(c, f): (&LayoutItemInfo, &FlexItemProps)| flex_min_main(&c.constraint, f);
     let min = if matches!(flex_wrap, FlexboxLayoutWrap::NoWrap) {
-        cells.iter().zip(flex_props.iter()).map(min_of).sum::<Coord>()
-            + spacing * num_spacings
-            + extra_pad
+        cells.iter().map(|c| c.constraint.min).sum::<Coord>() + spacing * num_spacings + extra_pad
     } else {
         // Wrapping: the widest single item must fit
-        cells.iter().zip(flex_props.iter()).map(min_of).fold(0.0 as Coord, |a, b| a.max(b))
-            + extra_pad
+        cells.iter().map(|c| c.constraint.min).fold(0.0 as Coord, |a, b| a.max(b)) + extra_pad
     };
     let preferred = if matches!(flex_wrap, FlexboxLayoutWrap::NoWrap) {
         // No wrapping: all items on one line
@@ -2088,6 +2089,7 @@ pub fn flexbox_layout_info_main_axis(
 /// MAX — which can happen due to circular dependencies in nested
 /// perpendicular flexboxes), falls back to a heuristic based on
 /// `flexbox_layout_info_main_axis`.
+#[allow(clippy::too_many_arguments)]
 pub fn flexbox_layout_info_cross_axis(
     cells_h: Slice<LayoutItemInfo>,
     cells_v: Slice<LayoutItemInfo>,
@@ -2097,6 +2099,7 @@ pub fn flexbox_layout_info_cross_axis(
     padding_h: &Padding,
     padding_v: &Padding,
     direction: FlexboxLayoutDirection,
+    alignment: LayoutAlignment,
     flex_wrap: FlexboxLayoutWrap,
     constraint_size: Coord,
 ) -> LayoutInfo {
@@ -2109,6 +2112,7 @@ pub fn flexbox_layout_info_cross_axis(
         padding_h,
         padding_v,
         direction,
+        alignment,
         flex_wrap,
         constraint_size,
         None,
@@ -2119,6 +2123,10 @@ pub fn flexbox_layout_info_cross_axis(
 /// height-for-width cells (e.g. a nested wrapping flexbox) are measured at the
 /// main-axis size taffy actually assigns them, not at the pre-computed cell
 /// size (which was measured at the container width).
+///
+/// `alignment` is the container's `alignment`: under `stretch` the solve grows
+/// the cells along the main axis, which changes a height-for-width cell's
+/// cross size, so this measurement must grow them the same way.
 #[allow(clippy::too_many_arguments)]
 pub fn flexbox_layout_info_cross_axis_with_measure(
     cells_h: Slice<LayoutItemInfo>,
@@ -2129,6 +2137,7 @@ pub fn flexbox_layout_info_cross_axis_with_measure(
     padding_h: &Padding,
     padding_v: &Padding,
     direction: FlexboxLayoutDirection,
+    alignment: LayoutAlignment,
     flex_wrap: FlexboxLayoutWrap,
     constraint_size: Coord,
     measure: FlexboxMeasureFn<'_>,
@@ -2223,7 +2232,7 @@ pub fn flexbox_layout_info_cross_axis_with_measure(
         spacing_v,
         padding_h,
         padding_v,
-        alignment: LayoutAlignment::Start,
+        alignment,
         cross_axis_line_alignment: CrossAxisLineAlignment::Stretch,
         cross_axis_alignment: CrossAxisAlignment::Stretch,
         flex_wrap,
@@ -2448,12 +2457,11 @@ pub(crate) mod ffi {
     /// Return main-axis LayoutInfo for a FlexboxLayout (single-axis, no cross-axis dependency).
     pub extern "C" fn slint_flexbox_layout_info_main_axis(
         cells: Slice<LayoutItemInfo>,
-        flex_props: Slice<FlexItemProps>,
         spacing: Coord,
         padding: &Padding,
         flex_wrap: FlexboxLayoutWrap,
     ) -> LayoutInfo {
-        super::flexbox_layout_info_main_axis(cells, flex_props, spacing, padding, flex_wrap)
+        super::flexbox_layout_info_main_axis(cells, spacing, padding, flex_wrap)
     }
 
     #[unsafe(no_mangle)]
@@ -2477,6 +2485,7 @@ pub(crate) mod ffi {
         padding_h: &Padding,
         padding_v: &Padding,
         direction: FlexboxLayoutDirection,
+        alignment: LayoutAlignment,
         flex_wrap: FlexboxLayoutWrap,
         constraint_size: Coord,
     ) -> LayoutInfo {
@@ -2489,6 +2498,7 @@ pub(crate) mod ffi {
             padding_h,
             padding_v,
             direction,
+            alignment,
             flex_wrap,
             constraint_size,
         )
@@ -2506,6 +2516,7 @@ pub(crate) mod ffi {
         padding_h: &Padding,
         padding_v: &Padding,
         direction: FlexboxLayoutDirection,
+        alignment: LayoutAlignment,
         flex_wrap: FlexboxLayoutWrap,
         constraint_size: Coord,
         measure_fn: *const core::ffi::c_void,
@@ -2523,6 +2534,7 @@ pub(crate) mod ffi {
             padding_h,
             padding_v,
             direction,
+            alignment,
             flex_wrap,
             constraint_size,
             measure.as_mut().map(|m| m as _),
@@ -3125,10 +3137,10 @@ mod tests {
     mod max_content_matches_taffy {
         use super::*;
 
-        fn cell(preferred: Coord, grow: f32) -> FlexboxLayoutItemInfo {
+        fn cell(preferred: Coord, stretch: f32) -> FlexboxLayoutItemInfo {
             FlexboxLayoutItemInfo {
-                constraint: LayoutInfo { preferred, ..Default::default() },
-                props: FlexItemProps { flex_grow: grow, ..Default::default() },
+                constraint: LayoutInfo { preferred, stretch, ..Default::default() },
+                ..Default::default()
             }
         }
 
@@ -3172,7 +3184,9 @@ mod tests {
                     spacing_v: 0 as Coord,
                     padding_h: &pad,
                     padding_v: &pad,
-                    alignment: LayoutAlignment::Start,
+                    // Stretch: the strongest growing mode, to show the stretch
+                    // factors cancel out of the max-content size.
+                    alignment: LayoutAlignment::Stretch,
                     cross_axis_line_alignment: CrossAxisLineAlignment::Stretch,
                     cross_axis_alignment: CrossAxisAlignment::Stretch,
                     flex_wrap: FlexboxLayoutWrap::NoWrap,
@@ -3205,18 +3219,19 @@ mod tests {
             assert!((ours - theirs).abs() <= 1 as Coord, "{name}: ours={ours} taffy={theirs}");
         }
 
-        /// The grow factor cancels out of taffy's max-content flex fraction, so an
-        /// item contributes its content size and we must land on the same number.
+        /// The grow factor (derived from the stretch factor) cancels out of
+        /// taffy's max-content flex fraction, so an item contributes its
+        /// content size and we must land on the same number.
         #[test]
         fn agrees() {
             assert_agrees("plain", &[cell(50., 0.), cell(250., 0.)]);
-            assert_agrees("equal grow", &[cell(50., 1.), cell(250., 1.)]);
-            assert_agrees("uneven grow", &[cell(60., 1.), cell(60., 3.)]);
-            assert_agrees("fractional grow", &[cell(60., 0.5), cell(40., 1.5)]);
-            assert_agrees("mixed grow and not", &[cell(50., 1.), cell(100., 0.)]);
-            // `preferred-width: 0` with grow collapses the max-content size to
-            // nothing in taffy too (the closest analogue of CSS `flex: 1 1 0`).
-            assert_agrees("zero preferred, growable", &[cell(0., 1.), cell(0., 1.)]);
+            assert_agrees("equal stretch", &[cell(50., 1.), cell(250., 1.)]);
+            assert_agrees("uneven stretch", &[cell(60., 1.), cell(60., 3.)]);
+            assert_agrees("fractional stretch", &[cell(60., 0.5), cell(40., 1.5)]);
+            assert_agrees("mixed stretch and not", &[cell(50., 1.), cell(100., 0.)]);
+            // `preferred-width: 0` with stretch collapses the max-content size
+            // to nothing in taffy too, as it does in a HorizontalLayout.
+            assert_agrees("zero preferred, stretchy", &[cell(0., 1.), cell(0., 1.)]);
         }
 
         /// The same cells asked of a *column* container, where the main-axis size
@@ -3245,7 +3260,7 @@ mod tests {
                     spacing_v: 0 as Coord,
                     padding_h: &pad,
                     padding_v: &pad,
-                    alignment: LayoutAlignment::Start,
+                    alignment: LayoutAlignment::Stretch,
                     cross_axis_line_alignment: CrossAxisLineAlignment::Stretch,
                     cross_axis_alignment: CrossAxisAlignment::Stretch,
                     flex_wrap: FlexboxLayoutWrap::NoWrap,
@@ -3276,8 +3291,83 @@ mod tests {
         #[test]
         fn agrees_for_a_column() {
             assert_agrees_column("plain", &[cell(50., 0.), cell(250., 0.)]);
-            assert_agrees_column("equal grow", &[cell(50., 1.), cell(250., 1.)]);
-            assert_agrees_column("zero preferred, growable", &[cell(0., 1.), cell(0., 1.)]);
+            assert_agrees_column("equal stretch", &[cell(50., 1.), cell(250., 1.)]);
+            assert_agrees_column("zero preferred, stretchy", &[cell(0., 1.), cell(0., 1.)]);
+        }
+    }
+
+    /// The taffy grow/shrink factors are derived from the container's
+    /// `alignment` and the cells' main-axis stretch factors (see
+    /// `FlexboxTaffyBuilder::new`), mirroring how a box layout distributes
+    /// free space.
+    mod stretch_driven_grow {
+        use super::*;
+
+        fn info(preferred: Coord, stretch: f32) -> LayoutInfo {
+            LayoutInfo { preferred, stretch, ..Default::default() }
+        }
+
+        /// Solve a row of `constraints` in a 400px-wide container and return
+        /// the resulting widths.
+        fn solve_row(alignment: LayoutAlignment, constraints: &[LayoutInfo]) -> Vec<Coord> {
+            let cells_h: Vec<LayoutItemInfo> = constraints
+                .iter()
+                .map(|c| LayoutItemInfo { constraint: c.clone(), ..Default::default() })
+                .collect();
+            let cells_v: Vec<LayoutItemInfo> =
+                constraints.iter().map(|_| LayoutItemInfo::default()).collect();
+            let flex_props: Vec<FlexItemProps> =
+                constraints.iter().map(|_| FlexItemProps::default()).collect();
+            let pad = Padding::default();
+            let mut builder =
+                flexbox_taffy::FlexboxTaffyBuilder::new(flexbox_taffy::FlexboxLayoutParams {
+                    cells_h: &Slice::from_slice(&cells_h),
+                    cells_v: &Slice::from_slice(&cells_v),
+                    flex_props: &Slice::from_slice(&flex_props),
+                    spacing_h: 0 as Coord,
+                    spacing_v: 0 as Coord,
+                    padding_h: &pad,
+                    padding_v: &pad,
+                    alignment,
+                    cross_axis_line_alignment: CrossAxisLineAlignment::Stretch,
+                    cross_axis_alignment: CrossAxisAlignment::Stretch,
+                    flex_wrap: FlexboxLayoutWrap::Wrap,
+                    flex_direction: flexbox_taffy::TaffyFlexDirection::Row,
+                    container_width: Some(400 as Coord),
+                    container_height: None,
+                    use_measure_for_cross_axis: false,
+                });
+            builder.compute_layout(400 as Coord, Coord::MAX, None);
+            (0..constraints.len()).map(|i| builder.child_geometry(i).2).collect()
+        }
+
+        #[test]
+        fn grows_by_stretch_only_under_alignment_stretch() {
+            // 200 free pixels split by the stretch weights 3:1.
+            let cells = [info(100., 3.), info(100., 1.)];
+            assert_eq!(solve_row(LayoutAlignment::Stretch, &cells), [250., 150.]);
+            // A zero factor next to a non-zero one stays at its preferred size.
+            let cells = [info(100., 1.), info(100., 0.)];
+            assert_eq!(solve_row(LayoutAlignment::Stretch, &cells), [300., 100.]);
+            // All-zero factors split the free space evenly, like a HorizontalLayout.
+            let cells = [info(100., 0.), info(100., 0.)];
+            assert_eq!(solve_row(LayoutAlignment::Stretch, &cells), [200., 200.]);
+            // Growing requires `alignment: stretch` on the container.
+            let cells = [info(100., 3.), info(100., 1.)];
+            assert_eq!(solve_row(LayoutAlignment::Start, &cells), [100., 100.]);
+        }
+
+        /// An item alone on its line and larger than the container shrinks to
+        /// fit whatever its stretch factor says (the constant taffy shrink
+        /// factor of 1); only its `min` refuses shrinking.
+        #[test]
+        fn lone_oversized_item_shrinks_regardless_of_stretch() {
+            let squeezable =
+                LayoutInfo { preferred: 500., min: 200., stretch: 0., ..Default::default() };
+            assert_eq!(solve_row(LayoutAlignment::Start, &[squeezable]), [400.]);
+            let rigid =
+                LayoutInfo { preferred: 500., min: 450., stretch: 0., ..Default::default() };
+            assert_eq!(solve_row(LayoutAlignment::Start, &[rigid]), [450.]);
         }
     }
 

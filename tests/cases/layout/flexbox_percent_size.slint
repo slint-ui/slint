@@ -156,22 +156,22 @@ component TestPercentSpacing inherits Rectangle {
     out property <bool> test: test_a && test_b;
 }
 
-// max_percent caps growth: a 50%-wide item with flex-grow stays at 50%, it does
-// not grow to fill the container.
+// max_percent caps growth: a 50%-wide item under `alignment: stretch` stays at
+// 50%, it does not grow to fill the container.
 component TestPercentGrow inherits Rectangle {
     VerticalLayout {
         alignment: start;
-        Text { text: "flex-grow capped by max: stays 200px, does not fill"; font-size: 11px; }
+        Text { text: "growth capped by max: stays 200px, does not fill"; font-size: 11px; }
         HorizontalLayout {
             alignment: start;
             fl := FlexboxLayout {
                 width: 400px;
                 height: 30px;
+                alignment: stretch;
                 flex-wrap: no-wrap;
                 spacing: 0px;
                 a := Rectangle {
                     width: 50%;
-                    flex-grow: 1;
                     height: 30px;
                     background: #cce6ff;
                     Text { width: 100%; height: 100%; text: "50%"; color: #003366;
