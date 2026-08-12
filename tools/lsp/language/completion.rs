@@ -1720,7 +1720,7 @@ mod tests {
         assert_eq!(res.iter().find(|ci| ci.label == "pressed"), None);
         assert_eq!(res.iter().find(|ci| ci.label == "pressed-x"), None);
         assert!(!res.iter().any(|ci| ci.label == "row"));
-        assert!(!res.iter().any(|ci| ci.label == "flex-grow"));
+        assert!(!res.iter().any(|ci| ci.label == "flex-order"));
         assert!(!res.iter().any(|ci| ci.label == "clip"));
         assert!(!res.iter().any(|ci| ci.label == "drop-shadow-blur"));
 
@@ -1792,7 +1792,7 @@ mod tests {
         assert_eq!(res.iter().find(|ci| ci.label == "has-focus"), None);
         assert_eq!(res.iter().find(|ci| ci.label == "func"), None);
         assert!(!res.iter().any(|ci| ci.label == "row"));
-        assert!(!res.iter().any(|ci| ci.label == "flex-grow"));
+        assert!(!res.iter().any(|ci| ci.label == "flex-order"));
         assert!(!res.iter().any(|ci| ci.label == "clip"));
         assert!(!res.iter().any(|ci| ci.label == "drop-shadow-blur"));
 
@@ -1820,8 +1820,23 @@ mod tests {
         assert!(res.iter().any(|ci| ci.label == "spacing-horizontal"));
         assert!(res.iter().any(|ci| ci.label == "spacing-vertical"));
         assert!(res.iter().any(|ci| ci.label == "padding"));
-        assert!(!res.iter().any(|ci| ci.label == "flex-grow"));
+        assert!(!res.iter().any(|ci| ci.label == "flex-order"));
         assert!(!res.iter().any(|ci| ci.label == "cross-axis-self-alignment"));
+
+        // Even with experimental features enabled, flex-order stays
+        // flexbox-only: the context filter must reject it here, not the
+        // experimental check.
+        let res = get_completions_experimental(
+            r#"
+            component Foo {
+                GridLayout {
+                    🔺
+                }
+            }
+        "#,
+        )
+        .unwrap();
+        assert!(!res.iter().any(|ci| ci.label == "flex-order"));
     }
 
     #[test]
@@ -2942,12 +2957,10 @@ export component Foo {
 }
 "#;
         let results = get_completions_experimental(source).unwrap();
-        for prop in ["flex-grow", "flex-shrink", "flex-order"].iter() {
-            assert!(
-                results.iter().any(|completion| completion.label == *prop),
-                "no '{prop}' completion with experimental features"
-            );
-        }
+        assert!(
+            results.iter().any(|completion| completion.label == "flex-order"),
+            "no 'flex-order' completion with experimental features"
+        );
 
         let results = get_completions(source).unwrap();
         assert!(

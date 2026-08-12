@@ -50,8 +50,7 @@ pub const RESERVED_GRIDLAYOUT_PROPERTIES: &[(&str, Type)] = &[
 
 // Note: the per-item cross-axis-self-alignment (flexbox and box layouts) is added
 // in reserved_properties() because Type::Enumeration requires a runtime Arc allocation.
-pub const RESERVED_FLEXBOXLAYOUT_PROPERTIES: &[(&str, Type)] =
-    &[("flex-grow", Type::Float32), ("flex-shrink", Type::Float32), ("flex-order", Type::Int32)];
+pub const RESERVED_FLEXBOXLAYOUT_PROPERTIES: &[(&str, Type)] = &[("flex-order", Type::Int32)];
 
 macro_rules! declare_enums {
     ($( $(#[$enum_doc:meta])* $vis:vis enum $Name:ident { $( $(#[$value_doc:meta])* $Value:ident,)* })*) => {
@@ -122,8 +121,6 @@ impl BuiltinTypes {
         // `flexbox_layout_item_info_type`, so the field list is defined once.
         let flex_item_props_struct = Arc::new(Struct::new(
             IntoIterator::into_iter([
-                ("flex-grow".into(), Type::Float32),
-                ("flex-shrink".into(), Type::Float32),
                 ("cross-axis-self-alignment".into(), align_self_type),
                 ("flex-order".into(), Type::Int32),
             ])

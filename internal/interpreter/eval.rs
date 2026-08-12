@@ -1342,8 +1342,6 @@ fn layout_item_info_to_value(constraint: i_slint_core::layout::LayoutInfo) -> Va
 
 fn flex_props_to_value(props: i_slint_core::layout::FlexItemProps) -> Value {
     let mut s = crate::api::Struct::default();
-    s.set_field("flex_grow".to_string(), Value::Number(props.flex_grow as f64));
-    s.set_field("flex_shrink".to_string(), Value::Number(props.flex_shrink as f64));
     s.set_field(
         "cross_axis_self_alignment".to_string(),
         Value::EnumerationValue(

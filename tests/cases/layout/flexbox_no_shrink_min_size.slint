@@ -1,9 +1,9 @@
 // Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// An item with flex-shrink: 0 cannot go below its base size, so it must raise
-// the FlexboxLayout's reported minimum. Otherwise a parent squeezes the
-// flexbox below what its own children need and they overflow it.
+// An item's min-width is how it refuses to shrink, and it must raise the
+// FlexboxLayout's reported minimum. Otherwise a parent squeezes the flexbox
+// below what its own children need and they overflow it.
 
 // No-wrap: the minimum is the sum of what the items refuse to give up
 component TestNoShrinkRow inherits Rectangle {
@@ -14,13 +14,13 @@ component TestNoShrinkRow inherits Rectangle {
             flex-wrap: no-wrap;
             r1 := Rectangle {
                 preferred-width: 150px;
-                flex-shrink: 0;
+                min-width: 150px;
                 height: 50px;
                 background: red;
             }
             r2 := Rectangle {
                 preferred-width: 150px;
-                flex-shrink: 0;
+                min-width: 150px;
                 height: 50px;
                 background: green;
             }
@@ -36,7 +36,7 @@ component TestNoShrinkRow inherits Rectangle {
     out property <bool> test: test_fl && test_r1 && test_r2;
 }
 
-// Contrast: the same layout with the default flex-shrink does compress
+// Contrast: the same layout without a min-width does compress
 component TestShrinkableRow inherits Rectangle {
     width: 200px;
     height: 50px;
@@ -71,13 +71,13 @@ component TestNoShrinkWrap inherits Rectangle {
             flex-wrap: wrap;
             r1 := Rectangle {
                 preferred-width: 150px;
-                flex-shrink: 0;
+                min-width: 150px;
                 height: 50px;
                 background: red;
             }
             r2 := Rectangle {
                 preferred-width: 150px;
-                flex-shrink: 0;
+                min-width: 150px;
                 height: 50px;
                 background: green;
             }
