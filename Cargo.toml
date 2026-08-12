@@ -149,8 +149,8 @@ icu_properties = { version = "2.2.0", features = ["compiled_data"] }
 
 glow = { version = "0.18" }
 tikv-jemallocator = { version = "0.7" }
-wgpu-29 = { package = "wgpu", version = "29.0.4", default-features = false }
-wgpu-30 = { package = "wgpu", version = "30", default-features = false }
+wgpu-29 = { package = "wgpu", version = "29.0.4", default-features = false, features = ["std"] }
+wgpu-30 = { package = "wgpu", version = "30", default-features = false, features = ["std"] }
 # Version floor only: the Metal surface code (renderer-skia) calls
 # wgpu-hal's `metal::Queue::as_raw`, which was added in wgpu-hal 29.0.4.
 # wgpu 29.0.4 only requires wgpu-hal "^29.0.1", so without this floor a
