@@ -3,6 +3,8 @@ title: macOS Packaging (Rust)
 description: Package a desktop Rust-based Slint app for direct macOS distribution or the Mac App Store.
 ---
 
+{/* cSpell: ignore APPL pipefail esac notarytool spctl */}
+
 import { Aside } from '@astrojs/starlight/components';
 
 There are two main routes for distributing macOS apps: the [Mac App Store](https://www.apple.com/app-store/) and direct distribution.
@@ -82,7 +84,7 @@ targets:
     postCompileScripts:
       - name: Build with Cargo
         script: |
-          ./build_macos_app_with_cargo.bash my-slint-app
+          ./build_macos_app_with_cargo.bash --bin my-slint-app --profile release
         outputFiles:
           - $(TARGET_BUILD_DIR)/$(EXECUTABLE_PATH)
 ```
@@ -114,15 +116,45 @@ The Cargo build script must copy the final executable to the path Xcode expects:
 #!/usr/bin/env bash
 set -euo pipefail
 
-APP_BINARY="$1"
-RUST_TARGET="aarch64-apple-darwin"
+CARGO_TARGET_NAME=""
+CARGO_PROFILE=dev
 
-cargo build --release --target "$RUST_TARGET" --bin "$APP_BINARY"
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --bin)
+            CARGO_TARGET_NAME="$2"
+            shift 2
+            ;;
+        --profile)
+            CARGO_PROFILE="$2"
+            shift 2
+            ;;
+        *)
+            echo "Usage: $0 --bin <binary name> [--profile <profile>]" >&2
+            exit 2
+            ;;
+    esac
+done
+
+RUST_TARGET=aarch64-apple-darwin
+
+if [ "$CARGO_PROFILE" = "dev" ]; then
+    CARGO_PROFILE_DIR=debug
+else
+    CARGO_PROFILE_DIR="$CARGO_PROFILE"
+fi
+
+# The rpath lets the bundled app load frameworks from Contents/Frameworks.
+env RUSTFLAGS='-Clink-args=-Wl,-rpath,@loader_path/../Frameworks' \
+    cargo build --target "$RUST_TARGET" --bin "$CARGO_TARGET_NAME" --profile "$CARGO_PROFILE"
 
 mkdir -p "$(dirname "$TARGET_BUILD_DIR/$EXECUTABLE_PATH")"
-cp "target/$RUST_TARGET/release/$APP_BINARY" "$TARGET_BUILD_DIR/$EXECUTABLE_PATH"
+cp "target/$RUST_TARGET/$CARGO_PROFILE_DIR/$CARGO_TARGET_NAME" "$TARGET_BUILD_DIR/$EXECUTABLE_PATH"
 chmod +x "$TARGET_BUILD_DIR/$EXECUTABLE_PATH"
 ```
+
+Xcode passes `TARGET_BUILD_DIR` and `EXECUTABLE_PATH` to the script.
+The `--profile` flag keeps the Cargo profile out of the script, so the same script serves debug and release builds.
 
 ## Distribute a DMG Outside the Mac App Store
 
@@ -209,8 +241,24 @@ You can meet this requirement without checking in the generated project file.
 Open the project file in Xcode and follow
 [Apple's instructions](https://developer.apple.com/documentation/xcode/setting-up-your-project-to-use-xcode-cloud) for setting up Xcode Cloud.
 The generated project lets Xcode Cloud complete the build and archive steps.
-Use a `ci_scripts/ci_post_clone.sh` script to install the dependencies and generate the project in Xcode Cloud.
-The Slint repository includes a [post-clone script](https://github.com/slint-ui/slint/blob/master/tools/viewer/ci_scripts/ci_post_clone.sh) you can use as a template.
+Use a `ci_scripts/ci_post_clone.sh` script to install the dependencies and generate the project file in Xcode Cloud:
+
+```sh
+#!/usr/bin/env bash
+set -euo pipefail
+
+brew install xcodegen
+
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | \
+    sh -s -- -y --default-toolchain stable --profile minimal --no-modify-path
+export PATH="$HOME/.cargo/bin:$PATH"
+rustup target add aarch64-apple-darwin
+
+cd "$CI_PRIMARY_REPOSITORY_PATH"
+xcodegen generate --spec project.yml --use-cache
+```
+
+Xcode Cloud runs the script from the `ci_scripts` directory, so use `CI_PRIMARY_REPOSITORY_PATH` to reach the repository root.
 
 ## What to Check In
 
