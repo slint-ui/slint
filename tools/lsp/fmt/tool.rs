@@ -36,6 +36,7 @@ pub fn run(files: &[std::path::PathBuf], inplace: bool) -> std::io::Result<()> {
 
 fn process_rust_file(source: String, mut file: impl Write) -> std::io::Result<()> {
     let mut last = 0;
+    let mut had_error = false;
     for range in i_slint_compiler::lexer::locate_slint_macro(&source) {
         file.write_all(&source.as_bytes()[last..=range.start])?;
         last = range.end;
@@ -48,14 +49,20 @@ fn process_rust_file(source: String, mut file: impl Write) -> std::io::Result<()
         if diag.has_errors() {
             file.write_all(&code.as_bytes()[len..])?;
             diag.print();
+            had_error = true;
         }
     }
     file.write_all(&source.as_bytes()[last..])?;
-    file.flush()
+    file.flush()?;
+    if had_error {
+        return Err(std::io::Error::new(std::io::ErrorKind::InvalidData, "Processing file error"));
+    }
+    Ok(())
 }
 
 fn process_markdown_file(source: String, mut file: impl Write) -> std::io::Result<()> {
     let mut source_slice = &source[..];
+    let mut had_error = false;
     const CODE_FENCE_START: &str = "```slint\n";
     const CODE_FENCE_END: &str = "```\n";
     'l: while let Some(code_start) =
@@ -78,9 +85,14 @@ fn process_markdown_file(source: String, mut file: impl Write) -> std::io::Resul
         if diag.has_errors() {
             file.write_all(&code.as_bytes()[len..])?;
             diag.print();
+            had_error = true;
         }
     }
-    file.write_all(source_slice.as_bytes())
+    file.write_all(source_slice.as_bytes())?;
+    if had_error {
+        return Err(std::io::Error::new(std::io::ErrorKind::InvalidData, "Processing file error"));
+    }
+    Ok(())
 }
 
 fn process_slint_file(
@@ -95,6 +107,7 @@ fn process_slint_file(
     if diag.has_errors() {
         file.write_all(&source.as_bytes()[len..])?;
         diag.print();
+        return Err(std::io::Error::new(std::io::ErrorKind::InvalidData, "Processing file error"));
     }
     Ok(())
 }
@@ -104,7 +117,7 @@ fn process_file(
     path: &std::path::Path,
     mut file: impl Write,
 ) -> std::io::Result<()> {
-    match path.extension() {
+    let result = match path.extension() {
         Some(ext) if ext == "rs" => process_rust_file(source, file),
         Some(ext) if ext == "md" => process_markdown_file(source, file),
         Some(ext) if ext == "slint" => process_slint_file(source, path, file),
@@ -116,6 +129,16 @@ fn process_file(
             // With other file types, we just output them in their original form.
             file.write_all(source.as_bytes())
         }
+    };
+    match result {
+        Ok(()) => Ok(()),
+        Err(e) if e.kind() == std::io::ErrorKind::InvalidData => {
+            Err(std::io::Error::new(
+                    std::io::ErrorKind::InvalidData,
+                    format!("Formatting {} failed", path.display()),
+            ))
+        }
+        Err(e) => Err(e)
     }
 }
 
