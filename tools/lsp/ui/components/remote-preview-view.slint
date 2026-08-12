@@ -295,6 +295,14 @@ export component RemotePreviewView inherits Rectangle {
                         }
                     }
 
+                    Text {
+                        text: @tr("Connecting sends this project's .slint files, images and fonts to the device over the local network, without encryption. Only connect to a trusted device.");
+                        color: Palette.foreground;
+                        opacity: 0.7;
+                        font-size: 11px;
+                        wrap: word-wrap;
+                    }
+
                     if root.connecting: Text {
                         text: @tr("Connecting to {}…", Api.remote-connection-target);
                         color: Palette.foreground;
