@@ -3240,9 +3240,8 @@ impl MemberAccess {
         match self {
             MemberAccess::Direct(t) => f(t),
             MemberAccess::Option(t) => {
-                // `_x` so that `f` may ignore the member and only use this as a reachability guard
-                let r = f(quote!(_x));
-                quote!({ let _ = #t.map(|_x| #r); })
+                let r = f(quote!(x));
+                quote!({ let _ = #t.map(|x| #r); })
             }
             MemberAccess::OptionFn(opt, inner) => {
                 let r = f(inner);
@@ -3255,8 +3254,8 @@ impl MemberAccess {
         match self {
             MemberAccess::Direct(t) => f(t),
             MemberAccess::Option(t) => {
-                let r = f(quote!(_x));
-                quote!(#t.map(|_x| #r).unwrap_or_default())
+                let r = f(quote!(x));
+                quote!(#t.map(|x| #r).unwrap_or_default())
             }
             MemberAccess::OptionFn(opt, inner) => {
                 let r = f(inner);
@@ -3269,7 +3268,7 @@ impl MemberAccess {
         match self {
             MemberAccess::Direct(t) => quote!(#t.get()),
             MemberAccess::Option(t) => {
-                quote!(#t.map(|_x| _x.get()).unwrap_or_default())
+                quote!(#t.map(|x| x.get()).unwrap_or_default())
             }
             MemberAccess::OptionFn(..) => panic!("function is not a property"),
         }
@@ -3324,43 +3323,65 @@ fn access_window_adapter_field(ctx: &EvaluationContext) -> TokenStream {
     quote!(&#global_access.window_adapter_impl())
 }
 
-/// Given a property reference to a native item (eg, the property name is empty)
-/// return tokens to the `ItemRc`
+/// The component instance that holds the native item `pr` refers to.
 ///
-/// This walks the parent chain with `unwrap`, so it must only be spliced inside a guard on the
-/// same reference — a `then`/`map_or_default` of [`access_member`] — because the chain can die
-/// while a callback of a repeated element is still running (the enclosing popup closes itself,
-/// or the model drops the row the element belongs to).
-fn access_item_rc(pr: &llr::MemberReference, ctx: &EvaluationContext) -> TokenStream {
-    let mut component_access_tokens = quote!(_self);
+/// This is an `Option` when the item lives in an ancestor component: that chain can die while a
+/// callback of a repeated element is still running — the enclosing popup closed itself, or the
+/// model dropped the row the element belongs to — and then nothing must be emitted at all.
+fn item_owner(pr: &llr::MemberReference) -> MemberAccess {
+    let llr::MemberReference::Relative { parent_level, .. } = pr else { unreachable!() };
+    match parent_access_path(*parent_level) {
+        None => MemberAccess::Direct(quote!(_self)),
+        Some(parent_path) => {
+            MemberAccess::Option(quote!(#parent_path.as_ref().map(|x| x.as_pin_ref())))
+        }
+    }
+}
 
+/// Tokens for the native item `pr` is about, relative to the component instance holding it (see
+/// [`item_owner`]): the member `pr` designates — the item itself or one of its functions — and the
+/// item's `ItemRc`.
+///
+/// Taking the owner as a parameter is what lets a caller that needs both get them out of a single
+/// walk of the parent chain.
+fn native_item_from_owner(
+    pr: &llr::MemberReference,
+    ctx: &EvaluationContext,
+    owner: &TokenStream,
+) -> (TokenStream, TokenStream) {
     let llr::MemberReference::Relative { parent_level, local_reference } = pr else {
         unreachable!()
     };
-    let llr::LocalMemberIndex::Native { item_index, .. } = &local_reference.reference else {
+    let llr::LocalMemberIndex::Native { item_index, prop_name, .. } = &local_reference.reference
+    else {
         unreachable!()
     };
-
-    for _ in 0..*parent_level {
-        component_access_tokens =
-            quote!(#component_access_tokens.parent.upgrade().unwrap().as_pin_ref());
+    let root = ctx.parent_sub_component_idx(*parent_level).unwrap();
+    let (compo_path, sub_component) =
+        follow_sub_component_path(ctx.compilation_unit, root, &local_reference.sub_component_path);
+    let component_id = inner_component_id(sub_component);
+    let item_name = ident(&sub_component.items[*item_index].name);
+    let item_field = access_component_field_offset(&component_id, &item_name);
+    let mut member = quote!((#compo_path #item_field).apply_pin(#owner));
+    if !prop_name.is_empty() {
+        // a builtin member function of the item, like `TextInput::select-all`
+        let property_name = ident(prop_name);
+        member = quote!(#member.#property_name);
     }
 
-    let (suffix, sub_component) = follow_sub_component_path_fields(
+    let (suffix, _) = follow_sub_component_path_fields(
         ctx.compilation_unit,
-        ctx.parent_sub_component_idx(*parent_level).unwrap(),
+        root,
         &local_reference.sub_component_path,
     );
-    let component_access_tokens = quote!(#component_access_tokens #suffix);
-    let component_rc_tokens = quote!(#component_access_tokens.origin_rc());
+    let compo = quote!(#owner #suffix);
     let item_index_in_tree = sub_component.items[*item_index].index_in_tree;
     let item_index_tokens = if item_index_in_tree == 0 {
-        quote!(#component_access_tokens.tree_index.get())
+        quote!(#compo.tree_index.get())
     } else {
-        quote!(#component_access_tokens.tree_index_of_first_child.get() + #item_index_in_tree - 1)
+        quote!(#compo.tree_index_of_first_child.get() + #item_index_in_tree - 1)
     };
-
-    quote!(&sp::ItemRc::new(#component_rc_tokens, #item_index_tokens))
+    (member, quote!(sp::ItemRc::new(#compo.origin_rc(), #item_index_tokens)))
 }
 
 /// Compile `expr` to a Rust expression returning an owned value.
@@ -3819,10 +3840,11 @@ fn compile_function_call(expr: &Expression, ctx: &EvaluationContext) -> TokenStr
 #[inline(never)]
 fn compile_item_member_function_call(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
     let Expression::ItemMemberFunctionCall { function } = expr else { unreachable!() };
-    let fun = access_member(function, ctx);
-    let item_rc = access_item_rc(function, ctx);
     let window_adapter_tokens = access_window_adapter_field(ctx);
-    fun.map_or_default(|fun| quote!(#fun(#window_adapter_tokens, #item_rc)))
+    item_owner(function).map_or_default(|owner| {
+        let (fun, item_rc) = native_item_from_owner(function, ctx, &owner);
+        quote!(#fun(#window_adapter_tokens, &#item_rc))
+    })
 }
 
 /// Compile builtin-call arguments: structs are passed by reference.
@@ -4314,10 +4336,10 @@ fn compile_builtin_function_call(
         BuiltinFunction::SetFocusItem => {
             if let [Expression::PropertyReference(pr)] = arguments {
                 let window_tokens = access_window_adapter_field(ctx);
-                let focus_item = access_item_rc(pr, ctx);
-                access_member(pr, ctx).then(|_| quote!(
-                    sp::WindowInner::from_pub(#window_tokens.window()).set_focus_item(#focus_item, true, sp::FocusReason::Programmatic)
-                ))
+                item_owner(pr).then(|owner| {
+                    let (_, focus_item) = native_item_from_owner(pr, ctx, &owner);
+                    quote!(sp::WindowInner::from_pub(#window_tokens.window()).set_focus_item(&#focus_item, true, sp::FocusReason::Programmatic))
+                })
             } else {
                 panic!("internal error: invalid args to SetFocusItem {arguments:?}")
             }
@@ -4325,10 +4347,10 @@ fn compile_builtin_function_call(
         BuiltinFunction::ClearFocusItem => {
             if let [Expression::PropertyReference(pr)] = arguments {
                 let window_tokens = access_window_adapter_field(ctx);
-                let focus_item = access_item_rc(pr, ctx);
-                access_member(pr, ctx).then(|_| quote!(
-                    sp::WindowInner::from_pub(#window_tokens.window()).set_focus_item(#focus_item, false, sp::FocusReason::Programmatic)
-                ))
+                item_owner(pr).then(|owner| {
+                    let (_, focus_item) = native_item_from_owner(pr, ctx, &owner);
+                    quote!(sp::WindowInner::from_pub(#window_tokens.window()).set_focus_item(&#focus_item, false, sp::FocusReason::Programmatic))
+                })
             } else {
                 panic!("internal error: invalid args to ClearFocusItem {arguments:?}")
             }
@@ -4365,11 +4387,6 @@ fn compile_builtin_function_call(
                     ctx.parent_sub_component_idx(*parent_level).unwrap(),
                     &local_reference.sub_component_path,
                 );
-                let parent_item = access_item_rc(anchor_ref, ctx);
-                // `access_item_rc` unwraps the anchor's parent chain, so only emit the show when
-                // the very same reference is reachable
-                let anchor_reachable = access_member(anchor_ref, ctx);
-
                 ctx.with_reference_scope(
                     *parent_level,
                     &local_reference.sub_component_path,
@@ -4410,7 +4427,9 @@ fn compile_builtin_function_call(
                     };
                     access_member(is_open_ref, ctx).then(|p| quote!(#p.set(value)))
                 });
-                let show = component_access_tokens.then(|component_access_tokens| {
+                item_owner(anchor_ref).then(|owner| {
+                    let (_, parent_item) = native_item_from_owner(anchor_ref, ctx, &owner);
+                    let show = component_access_tokens.then(|component_access_tokens| {
                     let compo = quote!(#component_access_tokens #suffix);
                     // Keep the parent's `is-open` in sync: `show_popup` invokes this setter with `true`
                     // immediately and with `false` from every close path (see window.rs). Passing it
@@ -4431,7 +4450,6 @@ fn compile_builtin_function_call(
                         None => (quote!(), quote!(sp::Box::new(|_| {}))),
                     };
                     quote!({
-                        let parent_item = #parent_item;
                         // Use the newly created window adapter if we are able to create one. Otherwise use the parent's one
                         let shared_global = #compo.globals.get().unwrap();
                         let window_adapter = shared_global.window_adapter_impl();
@@ -4461,8 +4479,9 @@ fn compile_builtin_function_call(
                         #compo.#popup_id_name.set(Some(popup_id));
                         #popup_window_id::user_init(popup_instance_vrc.clone());
                     })
-                });
-                anchor_reachable.then(|_| show)
+                    });
+                    quote!({ let parent_item = &#parent_item; #show })
+                })
                     },
                 )
             } else {
@@ -4522,7 +4541,6 @@ fn compile_builtin_function_call(
             };
 
             let context_menu = access_member(context_menu_ref, ctx);
-            let context_menu_rc = access_item_rc(context_menu_ref, ctx);
             let position = compile_expression(position, ctx);
 
             let popup = ctx
@@ -4554,133 +4572,140 @@ fn compile_builtin_function_call(
             let set_id = context_menu
                 .clone()
                 .then(|context_menu| quote!(#context_menu.popup_id.set(Some(id))));
-            let slint_show = quote! {
-                #close_popup
-                let access_position = sp::Box::new(move || position);
-                let id = sp::WindowInner::from_pub(window_adapter.window()).show_popup(
-                    &sp::VRc::into_dyn(popup_instance.into()),
-                    access_position,
-                    sp::PopupClosePolicy::CloseOnClickOutside,
-                    #context_menu_rc,
-                    sp::WindowKind::Menu,
-                    sp::Box::new(|_| {}),
-                );
-                #set_id;
-                #popup_id::user_init(popup_instance_vrc);
-            };
-
-            let common_init = quote! {
-                let position = #position;
-                let popup_instance = #popup_id::new(_self.globals.get().unwrap().clone()).unwrap();
-                let popup_instance_vrc = sp::VRc::map(popup_instance.clone(), |x| x);
-                let parent_weak = _self.self_weak.get().unwrap().clone();
-                let window_adapter = #window_adapter_tokens;
-            };
-
-            let show = if let Expression::NumberLiteral(tree_index) = entries {
-                // We have an MenuItem tree
-                let current_sub_component = ctx.current_sub_component().unwrap();
-                let item_tree_id = inner_component_id(
-                    &ctx.compilation_unit.sub_components
-                        [current_sub_component.menu_item_trees[*tree_index as usize].root],
-                );
-                quote! {{
-                    #common_init
-                    let menu_item_tree_instance = #item_tree_id::new(_self.self_weak.get().unwrap().clone()).unwrap();
-                    let context_menu_item_tree = sp::VRc::new(sp::MenuFromItemTree::new(sp::VRc::into_dyn(menu_item_tree_instance)));
-                    let context_menu_item_tree_ = context_menu_item_tree.clone();
-                    {
-                        let mut entries = sp::SharedVector::default();
-                        sp::Menu::sub_menu(&*context_menu_item_tree, sp::Option::None, &mut entries);
-                        let _self = popup_instance_vrc.as_pin_ref();
-                        #access_entries.set(sp::ModelRc::new(sp::SharedVectorModel::from(entries)));
-                        let context_menu_item_tree = context_menu_item_tree_.clone();
-                        #access_sub_menu.set_handler(move |entry| {
-                            let mut entries = sp::SharedVector::default();
-                            sp::Menu::sub_menu(&*context_menu_item_tree, sp::Option::Some(&entry.0), &mut entries);
-                            sp::ModelRc::new(sp::SharedVectorModel::from(entries))
-                        });
-                        let context_menu_item_tree = context_menu_item_tree_.clone();
-                        #access_activated.set_handler(move |entry| {
-                            sp::Menu::activate(&*context_menu_item_tree_, &entry.0);
-                        });
-                        let self_weak = parent_weak.clone();
-                        #access_close.set_handler(move |()| {
-                            let Some(self_rc) = self_weak.upgrade() else { return };
-                            let _self = self_rc.as_pin_ref();
-                            #close_popup
-                        });
-                    }
-                    let context_menu_item_tree = sp::VRc::into_dyn(context_menu_item_tree);
-                    if !sp::WindowInner::from_pub(window_adapter.window()).show_native_popup_menu(context_menu_item_tree, position, #context_menu_rc) {
-                        #slint_show
-                    }
-                }}
-            } else {
-                // ShowPopupMenuInternal: entries should be an expression of type array of MenuEntry
-                debug_assert!(
-                    matches!(entries.ty(ctx), Type::Array(ty) if matches!(&*ty, Type::Struct{..}))
-                );
-                let entries = compile_expression(entries, ctx);
-                let forward_callback = |access, cb| {
-                    let call = context_menu
-                        .clone()
-                        .map_or_default(|context_menu| quote!(#context_menu.#cb.call(entry)));
-                    quote!(
-                        let self_weak = parent_weak.clone();
-                        #access.set_handler(move |entry| {
-                            if let Some(self_rc) = self_weak.upgrade() {
-                                let _self = self_rc.as_pin_ref();
-                                #call
-                            } else { ::core::default::Default::default() }
-                        });
-                    )
+            item_owner(context_menu_ref).then(|owner| {
+                // Bind the `ItemRc` before `close_popup`/`set_id`, which guard the same reference
+                // and shadow the closure parameter it is spliced from
+                let (_, context_menu_rc_expr) = native_item_from_owner(context_menu_ref, ctx, &owner);
+                let context_menu_rc = quote!(context_menu_rc);
+                let slint_show = quote! {
+                    #close_popup
+                    let access_position = sp::Box::new(move || position);
+                    let id = sp::WindowInner::from_pub(window_adapter.window()).show_popup(
+                        &sp::VRc::into_dyn(popup_instance.into()),
+                        access_position,
+                        sp::PopupClosePolicy::CloseOnClickOutside,
+                        &#context_menu_rc,
+                        sp::WindowKind::Menu,
+                        sp::Box::new(|_| {}),
+                    );
+                    #set_id;
+                    #popup_id::user_init(popup_instance_vrc);
                 };
-                let fw_sub_menu = forward_callback(access_sub_menu.clone(), quote!(sub_menu));
-                let fw_activated = forward_callback(access_activated.clone(), quote!(activated));
-                quote! {{
-                    #common_init
-                    let entries = #entries;
-                    {
-                        let _self = popup_instance_vrc.as_pin_ref();
-                        #access_entries.set(entries.clone());
-                        #fw_sub_menu
-                        #fw_activated
-                        let self_weak = parent_weak.clone();
-                        #access_close.set_handler(move |()| {
-                            let Some(self_rc) = self_weak.upgrade() else { return };
-                            let _self = self_rc.as_pin_ref();
-                            #close_popup
-                        });
-                    }
-                    #slint_show
-                }}
-            };
-            context_menu.then(|_| show)
+
+                let common_init = quote! {
+                    let position = #position;
+                    let popup_instance = #popup_id::new(_self.globals.get().unwrap().clone()).unwrap();
+                    let popup_instance_vrc = sp::VRc::map(popup_instance.clone(), |x| x);
+                    let parent_weak = _self.self_weak.get().unwrap().clone();
+                    let window_adapter = #window_adapter_tokens;
+                };
+
+                let show = if let Expression::NumberLiteral(tree_index) = entries {
+                    // We have an MenuItem tree
+                    let current_sub_component = ctx.current_sub_component().unwrap();
+                    let item_tree_id = inner_component_id(
+                        &ctx.compilation_unit.sub_components
+                            [current_sub_component.menu_item_trees[*tree_index as usize].root],
+                    );
+                    quote! {{
+                        #common_init
+                        let menu_item_tree_instance = #item_tree_id::new(_self.self_weak.get().unwrap().clone()).unwrap();
+                        let context_menu_item_tree = sp::VRc::new(sp::MenuFromItemTree::new(sp::VRc::into_dyn(menu_item_tree_instance)));
+                        let context_menu_item_tree_ = context_menu_item_tree.clone();
+                        {
+                            let mut entries = sp::SharedVector::default();
+                            sp::Menu::sub_menu(&*context_menu_item_tree, sp::Option::None, &mut entries);
+                            let _self = popup_instance_vrc.as_pin_ref();
+                            #access_entries.set(sp::ModelRc::new(sp::SharedVectorModel::from(entries)));
+                            let context_menu_item_tree = context_menu_item_tree_.clone();
+                            #access_sub_menu.set_handler(move |entry| {
+                                let mut entries = sp::SharedVector::default();
+                                sp::Menu::sub_menu(&*context_menu_item_tree, sp::Option::Some(&entry.0), &mut entries);
+                                sp::ModelRc::new(sp::SharedVectorModel::from(entries))
+                            });
+                            let context_menu_item_tree = context_menu_item_tree_.clone();
+                            #access_activated.set_handler(move |entry| {
+                                sp::Menu::activate(&*context_menu_item_tree_, &entry.0);
+                            });
+                            let self_weak = parent_weak.clone();
+                            #access_close.set_handler(move |()| {
+                                let Some(self_rc) = self_weak.upgrade() else { return };
+                                let _self = self_rc.as_pin_ref();
+                                #close_popup
+                            });
+                        }
+                        let context_menu_item_tree = sp::VRc::into_dyn(context_menu_item_tree);
+                        if !sp::WindowInner::from_pub(window_adapter.window()).show_native_popup_menu(context_menu_item_tree, position, &#context_menu_rc) {
+                            #slint_show
+                        }
+                    }}
+                } else {
+                    // ShowPopupMenuInternal: entries should be an expression of type array of MenuEntry
+                    debug_assert!(
+                        matches!(entries.ty(ctx), Type::Array(ty) if matches!(&*ty, Type::Struct{..}))
+                    );
+                    let entries = compile_expression(entries, ctx);
+                    let forward_callback = |access, cb| {
+                        let call = context_menu
+                            .clone()
+                            .map_or_default(|context_menu| quote!(#context_menu.#cb.call(entry)));
+                        quote!(
+                            let self_weak = parent_weak.clone();
+                            #access.set_handler(move |entry| {
+                                if let Some(self_rc) = self_weak.upgrade() {
+                                    let _self = self_rc.as_pin_ref();
+                                    #call
+                                } else { ::core::default::Default::default() }
+                            });
+                        )
+                    };
+                    let fw_sub_menu = forward_callback(access_sub_menu.clone(), quote!(sub_menu));
+                    let fw_activated =
+                        forward_callback(access_activated.clone(), quote!(activated));
+                    quote! {{
+                        #common_init
+                        let entries = #entries;
+                        {
+                            let _self = popup_instance_vrc.as_pin_ref();
+                            #access_entries.set(entries.clone());
+                            #fw_sub_menu
+                            #fw_activated
+                            let self_weak = parent_weak.clone();
+                            #access_close.set_handler(move |()| {
+                                let Some(self_rc) = self_weak.upgrade() else { return };
+                                let _self = self_rc.as_pin_ref();
+                                #close_popup
+                            });
+                        }
+                        #slint_show
+                    }}
+                };
+                quote!({ let context_menu_rc = #context_menu_rc_expr; #show })
+            })
         }
         BuiltinFunction::SetSelectionOffsets => {
             if let [llr::Expression::PropertyReference(pr), from, to] = arguments {
-                let item = access_member(pr, ctx);
-                let item_rc = access_item_rc(pr, ctx);
                 let window_adapter_tokens = access_window_adapter_field(ctx);
                 let start = compile_expression(from, ctx);
                 let end = compile_expression(to, ctx);
 
-                item.then(|item| quote!(
-                    #item.set_selection_offsets(#window_adapter_tokens, #item_rc, #start as i32, #end as i32)
-                ))
+                item_owner(pr).then(|owner| {
+                    let (item, item_rc) = native_item_from_owner(pr, ctx, &owner);
+                    quote!(
+                        #item.set_selection_offsets(#window_adapter_tokens, &#item_rc, #start as i32, #end as i32)
+                    )
+                })
             } else {
                 panic!("internal error: invalid args to set-selection-offsets {arguments:?}")
             }
         }
         BuiltinFunction::ItemFontMetrics => {
             if let [Expression::PropertyReference(pr)] = arguments {
-                let item = access_member(pr, ctx);
-                let item_rc = access_item_rc(pr, ctx);
                 let window_adapter_tokens = access_window_adapter_field(ctx);
-                item.map_or_default(|item| {
+                item_owner(pr).map_or_default(|owner| {
+                    let (item, item_rc) = native_item_from_owner(pr, ctx, &owner);
                     quote!(
-                        #item.font_metrics(#window_adapter_tokens, #item_rc)
+                        #item.font_metrics(#window_adapter_tokens, &#item_rc)
                     )
                 })
             } else {
@@ -4689,11 +4714,10 @@ fn compile_builtin_function_call(
         }
         BuiltinFunction::ImplicitLayoutInfo(orient) => {
             if let [Expression::PropertyReference(pr), constraint_expr] = arguments {
-                let item = access_member(pr, ctx);
                 let window_adapter_tokens = access_window_adapter_field(ctx);
                 let constraint = compile_expression(constraint_expr, ctx);
-                item.then(|item| {
-                    let item_rc = access_item_rc(pr, ctx);
+                item_owner(pr).map_or_default(|owner| {
+                    let (item, item_rc) = native_item_from_owner(pr, ctx, &owner);
                     quote!(
                         sp::Item::layout_info(#item, #orient, #constraint as _, #window_adapter_tokens, &#item_rc)
                     )
@@ -5031,7 +5055,7 @@ fn compile_builtin_function_call(
             );
 
             let system_tray = access_member(system_tray_ref, ctx).unwrap();
-            let system_tray_rc = access_item_rc(system_tray_ref, ctx);
+            let (_, system_tray_rc) = native_item_from_owner(system_tray_ref, ctx, &quote!(_self));
 
             // `if cond : Menu { ... }` lowers the condition into a closure that
             // gates the menu's shadow tree.
@@ -5058,7 +5082,7 @@ fn compile_builtin_function_call(
             quote!({
                 let menu_item_tree_instance = #item_tree_id::new(_self.self_weak.get().unwrap().clone()).unwrap();
                 let menu_vrc = sp::VRc::into_dyn(sp::VRc::new(#menu_from_item_tree));
-                #system_tray.set_menu(#system_tray_rc, menu_vrc);
+                #system_tray.set_menu(&#system_tray_rc, menu_vrc);
             })
         }
         BuiltinFunction::MonthDayCount => {
@@ -5101,10 +5125,13 @@ fn compile_builtin_function_call(
         }
         BuiltinFunction::ItemAbsolutePosition => {
             if let [Expression::PropertyReference(pr)] = arguments {
-                let item_rc = access_item_rc(pr, ctx);
-                access_member(pr, ctx).map_or_default(|_| quote!(
-                    sp::logical_position_to_api((*#item_rc).map_to_window((*#item_rc).geometry().origin))
-                ))
+                item_owner(pr).map_or_default(|owner| {
+                    let (_, item_rc) = native_item_from_owner(pr, ctx, &owner);
+                    quote!({
+                        let item_rc = #item_rc;
+                        sp::logical_position_to_api(item_rc.map_to_window(item_rc.geometry().origin))
+                    })
+                })
             } else {
                 panic!("internal error: invalid args to MapPointToWindow {arguments:?}")
             }
@@ -5148,9 +5175,9 @@ fn compile_builtin_function_call(
         }
         BuiltinFunction::PathPointAt => {
             if let [Expression::PropertyReference(pr), t] = arguments {
-                let item_rc = access_item_rc(pr, ctx);
                 let t = compile_expression(t, ctx);
-                access_member(pr, ctx).map_or_default(|_| {
+                item_owner(pr).map_or_default(|owner| {
+                    let (_, item_rc) = native_item_from_owner(pr, ctx, &owner);
                     quote!({
                         let item_rc = #item_rc;
                         sp::logical_position_to_api(
@@ -5168,9 +5195,9 @@ fn compile_builtin_function_call(
         }
         BuiltinFunction::PathAngleAt => {
             if let [Expression::PropertyReference(pr), t] = arguments {
-                let item_rc = access_item_rc(pr, ctx);
                 let t = compile_expression(t, ctx);
-                access_member(pr, ctx).map_or_default(|_| {
+                item_owner(pr).map_or_default(|owner| {
+                    let (_, item_rc) = native_item_from_owner(pr, ctx, &owner);
                     quote!({
                         let item_rc = #item_rc;
                         item_rc
