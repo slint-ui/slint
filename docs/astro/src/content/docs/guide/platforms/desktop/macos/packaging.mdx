@@ -163,8 +163,8 @@ It uses App Store Connect and Apple's store signing flow, not the Developer ID s
 
 Set this up once:
 
-1. Create the app record in App Store Connect.
-2. Configure the bundle identifier, team, entitlements, and resources in the YAML spec.
+1. Configure the bundle identifier, team, entitlements, and resources in the YAML spec.
+2. Create the app record in App Store Connect for that bundle identifier.
 3. Create an internal or external testing group and invite testers.
 
 Repeat these steps for every beta:
@@ -176,14 +176,13 @@ Repeat these steps for every beta:
 ## Distribute Through the Mac App Store
 
 Use this route when you want users to install and update the app through the Mac App Store.
-You still start with XcodeGen because App Store submission expects a real Xcode project or archive.
+You still use XcodeGen, because App Store submission expects a real Xcode project or archive.
 Mac App Store distribution uses Apple's store signing and App Store Connect upload flow, not the Developer ID signing flow used for direct downloads.
 
 Set this up once:
 
-1. Check in the XcodeGen YAML spec and related source assets.
-2. Configure the bundle identifier, team, app category, entitlements, and resources in the YAML spec.
-3. Create the app record in App Store Connect.
+1. Configure the bundle identifier, team, app category, entitlements, and resources in the YAML spec.
+2. Create the app record in App Store Connect for that bundle identifier.
 
 Repeat these steps for every release:
 
