@@ -182,6 +182,30 @@ TEST_CASE("Track model row data changes")
     REQUIRE(tracker.is_dirty());
 }
 
+TEST_CASE("Track model row data changes outside a binding")
+{
+    using namespace slint::private_api;
+
+    auto model = std::make_shared<slint::VectorModel<int>>(std::vector<int> { 0, 1, 2, 3, 4 });
+
+    PropertyTracker tracker;
+    REQUIRE(tracker.evaluate([&]() {
+        model->track_row_data_changes(1);
+        return model->row_data(1);
+    }) == 1);
+    REQUIRE(!tracker.is_dirty());
+
+    // Tracking a row while no binding is being evaluated registers no dependency, so it
+    // must not make later changes to that row dirty bindings that never asked for it.
+    model->track_row_data_changes(0);
+    model->set_row_data(0, 100);
+    REQUIRE(!tracker.is_dirty());
+
+    // The row the tracker did ask for still works.
+    model->set_row_data(1, 100);
+    REQUIRE(tracker.is_dirty());
+}
+
 TEST_CASE("Image")
 {
     using namespace slint;
