@@ -25,6 +25,7 @@ use winit::event_loop::ActiveEventLoop;
 use winit::platform::web::WindowExtWeb;
 #[cfg(target_family = "windows")]
 use winit::platform::windows::WindowExtWindows;
+use winit::window::WindowPositioner;
 
 #[cfg(muda)]
 use crate::muda::MudaType;
@@ -1510,16 +1511,18 @@ impl WindowAdapter for WinitWindowAdapter {
         match *winit_window_or_none {
             WinitWindowOrNone::HasWindow { ref window, .. } => {
                 if matches!(window.window_type(), WindowType::Popup) {
-                    window.set_gravity(gravity_to_winit(anchor.gravity));
-                    window.set_anchor(anchor_to_winit(anchor.location));
-                    if let Some((position, _)) = window.anchor_rect() {
-                        window.set_anchor_rect(position, anchor_size.into());
-                    }
-                    window.set_positioner_offset(offset.into());
-                    window.set_constraint_adjustment(constraint_adjustment_to_winit(
+                    let mut positioner = window.positioner();
+                    positioner.anchor = anchor_to_winit(anchor.location);
+                    positioner.gravity = gravity_to_winit(anchor.gravity);
+                    positioner.constraint_adjustment = constraint_adjustment_to_winit(
                         &anchor.constraint_adjustment_x,
                         &anchor.constraint_adjustment_y,
-                    ));
+                    );
+                    positioner.positioner_offset = offset.into();
+                    // The anchor position is set when chaning the x/y properties of the popup
+                    positioner.anchor_rect = (positioner.anchor_rect.0, anchor_size.into());
+
+                    window.set_positioner(positioner);
                 }
             }
             WinitWindowOrNone::None(ref window_attributes) => {
@@ -1530,17 +1533,16 @@ impl WindowAdapter for WinitWindowAdapter {
                     .position
                     .unwrap_or_else(|| Position::new(LogicalPosition::new(0., 0.)));
 
-                let wa = window_attributes
-                    .borrow()
-                    .clone()
-                    .with_anchor(anchor_to_winit(anchor.location))
-                    .with_gravity(gravity_to_winit(anchor.gravity))
-                    .with_constraint_adjustment(constraint_adjustment_to_winit(
+                let wa = window_attributes.borrow().clone().with_positioner(WindowPositioner {
+                    anchor: anchor_to_winit(anchor.location),
+                    anchor_rect: (anchor_position, anchor_size.into()),
+                    positioner_offset: offset.into(),
+                    gravity: gravity_to_winit(anchor.gravity),
+                    constraint_adjustment: constraint_adjustment_to_winit(
                         &anchor.constraint_adjustment_x,
                         &anchor.constraint_adjustment_y,
-                    ))
-                    .with_positioner_offset(offset)
-                    .with_anchor_rect(anchor_position, anchor_size);
+                    ),
+                });
                 *window_attributes.borrow_mut() = wa;
             }
         }
