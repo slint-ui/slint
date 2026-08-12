@@ -1,3 +1,5 @@
+# cspell:ignore worktrees
+
 tsconfig.tsbuildinfo
 /target
 node_modules

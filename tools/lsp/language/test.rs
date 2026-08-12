@@ -373,7 +373,7 @@ fn preview_file_recompiled_when_dependency_changes() {
 
 #[test]
 #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
-fn request_state_resends_only_targeted_files_when_present() {
+fn request_state_re_sends_only_targeted_files_when_present() {
     let (capture, messages) = preview_capture();
     let mut ctx = mock_context();
 

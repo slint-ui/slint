@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cspell:ignore nonsync
+
 //! This is the live-preview part of the program.
 //!
 //! All functions defined in this file must be called in the UI thread! Different rules

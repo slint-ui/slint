@@ -1,3 +1,5 @@
+<!-- cspell:ignore actool appcast APPSTORE notarytool spctl -->
+
 # macOS Visual Editor DMG
 
 This will become part of the docs later, but for now, this is a placeholder.

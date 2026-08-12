@@ -2,6 +2,8 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+# cspell:ignore cipd emsdk
+
 """Generate flatpak-builder sources for building Skia from source with rust-skia.
 
 Resolves the Skia revision pinned by the workspace's skia-bindings crate and

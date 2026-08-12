@@ -27,6 +27,7 @@ ARCHS
 armeabi
 armhf
 arrayvec
+artboard
 assetcatalog
 astrolib
 astrowind
@@ -58,6 +59,7 @@ bootsel
 briefcasex
 brushprop
 brushval
+bugtracker
 buildcode
 builtinfunctions
 bytemuck
@@ -213,6 +215,7 @@ filterchip
 Fira
 FLASHMODE
 FLASHSIZE
+flathub
 Flexbox
 flexboxes
 Flickables

@@ -1,6 +1,8 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+# cspell:ignore appstreamcli metainfo
+
 # Flatpak manifest for the Slint Visual Editor, with Skia built from source
 # inside the sandbox. The two generated source lists it references are not
 # checked in; scripts/build_visual_editor_flatpak.bash creates them next to

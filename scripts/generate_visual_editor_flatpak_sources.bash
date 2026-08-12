@@ -2,6 +2,8 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+# cspell:ignore tomlkit
+
 # Generate the source lists that tools/lsp/dev.slint.VisualEditor.yml references.
 # The flatpak sandbox has no network, so every crate and every part of the Skia
 # source tree has to be declared up front. Re-run this whenever Cargo.lock
