@@ -837,12 +837,34 @@ async fn handle_preview_to_lsp_message(
                 crate::editor_preview::spawn_local(remote.disconnect());
             }
         }
+        M::SubmitPairingCode { code } => {
+            tracing::debug!("Preview submitted a pairing code");
+            #[cfg(feature = "preview-remote")]
+            if let Some(remote) = ctx.session.to_preview.remote() {
+                remote.submit_pairing_code(code);
+            }
+        }
+        M::CancelPairing => {
+            tracing::debug!("Preview cancelled pairing");
+            #[cfg(feature = "preview-remote")]
+            if let Some(remote) = ctx.session.to_preview.remote() {
+                remote.cancel_pairing();
+            }
+        }
         M::Pong => {
             // The remote connector consumes pongs; local previews never send them.
             tracing::debug!("Ignoring unexpected Pong message from a local preview");
         }
         M::RequestPreview { .. } => {
             tracing::debug!("Ignoring preview request from a preview client");
+        }
+        // The connector completes pairing before a session exists, so these
+        // never reach the LSP's message loop.
+        M::PairingChallenge { .. }
+        | M::PairingRequired { .. }
+        | M::PairingAccepted
+        | M::PairingRejected { .. } => {
+            tracing::debug!("Ignoring a pairing message outside the pairing handshake");
         }
     }
     Ok(())

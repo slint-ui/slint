@@ -10,7 +10,7 @@ use i_slint_core::SharedString;
 use i_slint_core::textlayout::sharedparley::fontique;
 use i_slint_core::window::WindowInner;
 use i_slint_live_preview::protocol::{PreviewComponent, PreviewToLspMessage, lsp_types};
-use i_slint_live_preview::remote::{Connection, ConnectionMessage, init_compiler};
+use i_slint_live_preview::remote::{Connection, ConnectionMessage, PairingPolicy, init_compiler};
 use slint::ComponentHandle as _;
 
 slint::slint! {
@@ -87,9 +87,13 @@ use apple::announce_mdns;
 #[cfg(target_os = "ios")]
 use apple::observe_foregrounding;
 
-pub fn run(address: Option<SocketAddr>, enable_mdns: bool) -> anyhow::Result<()> {
+pub fn run(
+    address: Option<SocketAddr>,
+    enable_mdns: bool,
+    pairing_policy: PairingPolicy,
+) -> anyhow::Result<()> {
     slint_interpreter::spawn_local(async_compat::Compat::new(async move {
-        if let Err(err) = run_async(address, enable_mdns).await {
+        if let Err(err) = run_async(address, enable_mdns, pairing_policy).await {
             tracing::error!("Remote viewer error: {err}");
             slint_interpreter::quit_event_loop().ok();
         }
@@ -98,14 +102,26 @@ pub fn run(address: Option<SocketAddr>, enable_mdns: bool) -> anyhow::Result<()>
     Ok(())
 }
 
-async fn run_async(address: Option<SocketAddr>, enable_mdns: bool) -> anyhow::Result<()> {
+async fn run_async(
+    address: Option<SocketAddr>,
+    enable_mdns: bool,
+    pairing_policy: PairingPolicy,
+) -> anyhow::Result<()> {
     let (event_sender, mut event_receiver) = tokio::sync::mpsc::unbounded_channel();
 
     #[cfg(target_os = "ios")]
     observe_foregrounding(event_sender.clone());
 
+    let pairing_disabled = pairing_policy == PairingPolicy::Disabled;
+    if pairing_disabled {
+        tracing::warn!(
+            "Pairing is disabled: any host that can reach this viewer can drive it. \
+             Only use --no-pairing on a network you control."
+        );
+    }
+
     let connection = Rc::new(
-        Connection::listen(address, device_name_override(), move |msg| {
+        Connection::listen(address, device_name_override(), pairing_policy, move |msg| {
             let _ = event_sender.send(Event::Connection(msg));
         })
         .await?,
@@ -162,17 +178,25 @@ async fn run_async(address: Option<SocketAddr>, enable_mdns: bool) -> anyhow::Re
             }
         })
         .collect();
-    let address = local_ip_str.join("\n");
-
-    placeholder.set_address(SharedString::from(address.as_str()));
-    // Read after the Apple Bonjour overwrite above so the UI label matches the
-    // advertised mDNS instance.
-    placeholder.set_name(SharedString::from(connection.device_name().as_str()));
-    placeholder.set_slint_version(SharedString::from(SLINT_VERSION));
-    placeholder.set_build_info(build_info());
-    placeholder.set_third_party_licenses(third_party_licenses());
+    // Only the Apple resume path renames the device, so on other targets
+    // this is never mutated.
+    #[cfg_attr(not(target_vendor = "apple"), allow(unused_mut))]
+    let mut chrome = Chrome {
+        address: local_ip_str.join("\n"),
+        // Read after the Apple Bonjour overwrite above so the UI label matches
+        // the advertised mDNS instance.
+        name: connection.device_name(),
+        licenses: third_party_licenses(),
+        pairing_disabled,
+    };
+    chrome.apply(&placeholder);
     placeholder.show()?;
 
+    // Set while a pairing code is on screen. The established session keeps
+    // running underneath, and its traffic must not repaint over a code the
+    // user is still reading: the code is only worth anything for as long as
+    // it is legible on the device.
+    let mut prompt_on_screen = false;
     let mut last_connection = None;
     let mut user_instance: Option<slint_interpreter::ComponentInstance> = None;
     let mut current_preview: Option<PreviewComponent> = None;
@@ -187,7 +211,8 @@ async fn run_async(address: Option<SocketAddr>, enable_mdns: bool) -> anyhow::Re
                     // still alive would trigger Bonjour's conflict rename.
                     drop(mdns.take());
                     mdns = announce_mdns(&connection).await;
-                    placeholder.set_name(SharedString::from(connection.device_name().as_str()));
+                    chrome.name = connection.device_name();
+                    chrome.apply(&placeholder);
                 }
                 continue;
             }
@@ -200,30 +225,31 @@ async fn run_async(address: Option<SocketAddr>, enable_mdns: bool) -> anyhow::Re
             }
             ConnectionMessage::SetUserSettings { .. } => {}
             ConnectionMessage::ShowPreview { preview_component } => {
-                build_and_show(
-                    &compiler,
-                    &preview_component,
-                    &mut placeholder,
-                    &mut user_instance,
-                    &connection,
-                    &address,
-                    &connection.device_name(),
-                )
-                .await?;
                 current_preview = Some(preview_component);
+                if !prompt_on_screen {
+                    show_current(
+                        &compiler,
+                        &current_preview,
+                        &mut placeholder,
+                        &mut user_instance,
+                        &connection,
+                        &chrome,
+                    )
+                    .await?;
+                }
             }
             ConnectionMessage::ContentsChanged => {
-                let Some(preview_component) = current_preview.clone() else { continue };
-                build_and_show(
-                    &compiler,
-                    &preview_component,
-                    &mut placeholder,
-                    &mut user_instance,
-                    &connection,
-                    &address,
-                    &connection.device_name(),
-                )
-                .await?;
+                if !prompt_on_screen {
+                    show_current(
+                        &compiler,
+                        &current_preview,
+                        &mut placeholder,
+                        &mut user_instance,
+                        &connection,
+                        &chrome,
+                    )
+                    .await?;
+                }
             }
             ConnectionMessage::HighlightFromEditor { .. } => {}
             ConnectionMessage::RegisterFont { url, contents } => {
@@ -243,23 +269,72 @@ async fn run_async(address: Option<SocketAddr>, enable_mdns: bool) -> anyhow::Re
                 tracing::debug!("Registered font {url} ({len} bytes)");
             }
             ConnectionMessage::Connected { remote_addr } => {
-                placeholder.set_message(SharedString::from(format!("Connected to {remote_addr}")));
-                placeholder.set_state(RemoteViewerState::Connected);
                 last_connection = Some(remote_addr);
+                if !prompt_on_screen {
+                    placeholder
+                        .set_message(SharedString::from(format!("Connected to {remote_addr}")));
+                    placeholder.set_state(RemoteViewerState::Connected);
+                }
             }
             ConnectionMessage::Disconnected { remote_addr } => {
                 if last_connection == Some(remote_addr) {
                     last_connection = None;
                     current_preview = None;
                     connection.set_dependencies(Vec::new());
-                    swap_to_placeholder(
-                        &mut placeholder,
-                        &mut user_instance,
-                        &address,
-                        &connection.device_name(),
-                        "",
-                        RemoteViewerState::WaitingForConnection,
-                    )?;
+                    if !prompt_on_screen {
+                        swap_to_placeholder(
+                            &mut placeholder,
+                            &mut user_instance,
+                            &chrome,
+                            "",
+                            RemoteViewerState::WaitingForConnection,
+                        )?;
+                    }
+                }
+            }
+            ConnectionMessage::PairingStarted { remote_addr, code, expires_in } => {
+                prompt_on_screen = true;
+                // Takes the screen even from a running preview. The code is
+                // only worth anything if it can be read off this device, so
+                // it has to be the thing on screen.
+                swap_to_placeholder(
+                    &mut placeholder,
+                    &mut user_instance,
+                    &chrome,
+                    "",
+                    RemoteViewerState::Pairing,
+                )?;
+                placeholder.set_pairing_code(SharedString::from(code));
+                placeholder.set_pairing_peer(SharedString::from(
+                    remote_addr.ip().to_canonical().to_string(),
+                ));
+                placeholder.set_pairing_seconds_left(expires_in.as_secs() as i32);
+            }
+            // The admitted session takes it from here: it pushes its
+            // configuration and asks for a component to show.
+            ConnectionMessage::PairingFinished { accepted: true, .. } => {
+                prompt_on_screen = false;
+            }
+            ConnectionMessage::PairingFinished { accepted: false, .. } => {
+                prompt_on_screen = false;
+                // Nobody got in, so restore whatever the prompt displaced,
+                // including anything the session changed meanwhile.
+                let restored = show_current(
+                    &compiler,
+                    &current_preview,
+                    &mut placeholder,
+                    &mut user_instance,
+                    &connection,
+                    &chrome,
+                )
+                .await?;
+                if !restored {
+                    let state = if last_connection.is_some() {
+                        RemoteViewerState::Connected
+                    } else {
+                        RemoteViewerState::WaitingForConnection
+                    };
+                    swap_to_placeholder(&mut placeholder, &mut user_instance, &chrome, "", state)?;
                 }
             }
         }
@@ -277,6 +352,24 @@ async fn run_async(address: Option<SocketAddr>, enable_mdns: bool) -> anyhow::Re
     Ok(())
 }
 
+/// Rebuild and show whatever component is currently being previewed.
+///
+/// Returns whether there was one, so callers that have to fall back to a
+/// placeholder can tell.
+async fn show_current(
+    compiler: &slint_interpreter::Compiler,
+    current_preview: &Option<PreviewComponent>,
+    placeholder: &mut RemoteViewerWindow,
+    user_instance: &mut Option<slint_interpreter::ComponentInstance>,
+    connection: &Rc<Connection>,
+    chrome: &Chrome,
+) -> anyhow::Result<bool> {
+    let Some(preview_component) = current_preview.clone() else { return Ok(false) };
+    build_and_show(compiler, &preview_component, placeholder, user_instance, connection, chrome)
+        .await?;
+    Ok(true)
+}
+
 /// Returns `Err` only on unrecoverable platform failure; compile errors and missing
 /// components reinstall the placeholder and return `Ok(())`.
 async fn build_and_show(
@@ -285,8 +378,7 @@ async fn build_and_show(
     placeholder: &mut RemoteViewerWindow,
     user_instance: &mut Option<slint_interpreter::ComponentInstance>,
     connection: &Rc<Connection>,
-    address: &str,
-    name: &str,
+    chrome: &Chrome,
 ) -> anyhow::Result<()> {
     tracing::debug!("build_and_show");
 
@@ -323,8 +415,7 @@ async fn build_and_show(
         swap_to_placeholder(
             placeholder,
             user_instance,
-            address,
-            name,
+            chrome,
             &message,
             RemoteViewerState::PreviewError,
         )?;
@@ -343,8 +434,7 @@ async fn build_and_show(
         swap_to_placeholder(
             placeholder,
             user_instance,
-            address,
-            name,
+            chrome,
             "Component not found",
             RemoteViewerState::PreviewError,
         )?;
@@ -365,22 +455,45 @@ async fn build_and_show(
     Ok(())
 }
 
+/// Everything on the placeholder screen that doesn't depend on what the
+/// connection is doing.
+///
+/// [`swap_to_placeholder`] builds a whole new window each time, so anything
+/// missing from [`Chrome::apply`] silently disappears the first time the
+/// preview is swapped out.
+struct Chrome {
+    /// Newline-separated `ip:port` list the editor can be pointed at.
+    address: String,
+    /// Friendly device name. Bonjour can rename us on iOS resume, so this
+    /// isn't fixed for the life of the process.
+    name: String,
+    licenses: slint::ModelRc<AttributionItem>,
+    pairing_disabled: bool,
+}
+
+impl Chrome {
+    fn apply(&self, window: &RemoteViewerWindow) {
+        window.set_address(SharedString::from(self.address.as_str()));
+        window.set_name(SharedString::from(self.name.as_str()));
+        window.set_slint_version(SharedString::from(SLINT_VERSION));
+        window.set_build_info(build_info());
+        window.set_third_party_licenses(self.licenses.clone());
+        window.set_pairing_disabled(self.pairing_disabled);
+    }
+}
+
 /// Reinstall a fresh placeholder onto the existing window and drop the user instance.
 fn swap_to_placeholder(
     placeholder: &mut RemoteViewerWindow,
     user_instance: &mut Option<slint_interpreter::ComponentInstance>,
-    address: &str,
-    name: &str,
+    chrome: &Chrome,
     message: &str,
     state: RemoteViewerState,
 ) -> anyhow::Result<()> {
     let fresh = RemoteViewerWindow::new_with_existing_window(placeholder.window())
         .map_err(|err| anyhow::anyhow!("Cannot create placeholder: {err}"))?;
-    fresh.set_address(SharedString::from(address));
-    fresh.set_name(SharedString::from(name));
+    chrome.apply(&fresh);
     fresh.set_message(SharedString::from(message));
-    fresh.set_slint_version(SharedString::from(SLINT_VERSION));
-    fresh.set_build_info(build_info());
     fresh.set_state(state);
     fresh.show().map_err(|err| anyhow::anyhow!("Cannot show placeholder: {err}"))?;
     *placeholder = fresh;

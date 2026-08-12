@@ -60,6 +60,20 @@ component PhonePreview {
     }
 }
 
+/// The inset well the text inputs sit in.
+component SunkenField inherits Rectangle {
+    in property <bool> dark-color-scheme;
+
+    border-radius: 4px;
+    inner-shadow-blur: 5px;
+    inner-shadow-color: black.with-alpha(0.15);
+    inner-shadow-offset-x: 5px;
+    inner-shadow-offset-y: 5px;
+    background: root.dark-color-scheme ? #1C1C1C : #D7D9DD;
+
+    @children
+}
+
 export component RemotePreviewView inherits Rectangle {
     background: Palette.background;
     preferred-width: 850px;
@@ -78,8 +92,26 @@ export component RemotePreviewView inherits Rectangle {
 
     property <bool> connecting: Api.remote-connection-state == RemoteConnectionState.Connecting;
 
+    /// The viewer is showing a code and is waiting for it to be typed here.
+    property <bool> pairing: Api.remote-connection-state == RemoteConnectionState.PairingRequired;
+    property <string> pairing-code-entry;
+
+    function submit-pairing-code() {
+        if root.pairing-code-entry.character-count == Api.remote-pairing-code-length {
+            Api.remote-submit-pairing-code(root.pairing-code-entry);
+            // Cleared so a rejected code doesn't have to be selected away
+            // before the next attempt.
+            root.pairing-code-entry = "";
+        }
+    }
+
     function connect-to-device(index: int) {
+        // `connecting` is false during a prompt, and the device list stays
+        // clickable while one is up. A second attempt would be refused as
+        // `Busy`, which flips the state to `Failed` and takes the code field
+        // away from the attempt still waiting for it.
         if !root.connecting
+            && !root.pairing
             && index >= 0
             && index < Api.remote-discovered-viewers.length
             && Api.remote-discovered-viewers[index].compatible
@@ -136,10 +168,15 @@ export component RemotePreviewView inherits Rectangle {
             VerticalLayout {
                 spacing: 6px;
                 Text {
-                    text: Api.remote-connection-state == RemoteConnectionState.Connected
+                    // Pairing has to come before the discovery cases: it isn't
+                    // a discovery state, and falling through to them claims
+                    // we're still searching while a code is on the device.
+                    text: root.pairing
+                        ? @tr("Pairing with {}.", best-device-name)
+                        : (Api.remote-connection-state == RemoteConnectionState.Connected
                         ? @tr("Connected to {}.", best-device-name)
                         : (Api.remote-discovered-viewers.length > 0 ? @tr("Select a discovered device to connect.")
-                        : @tr("Searching for a device…"));
+                        : @tr("Searching for a device…")));
                     font-size: 24px;
                     font-weight: FontWeight.bold;
                     color: Palette.foreground;
@@ -277,13 +314,8 @@ export component RemotePreviewView inherits Rectangle {
                         }
                     }
 
-                    Rectangle {
-                        border-radius: 4px;
-                        inner-shadow-blur: 5px;
-                        inner-shadow-color: black.with-alpha(0.15);
-                        inner-shadow-offset-x: 5px;
-                        inner-shadow-offset-y: 5px;
-                        background: root.dark-color-scheme ? #1C1C1C : #D7D9DD;
+                    if !root.pairing: SunkenField {
+                        dark-color-scheme: root.dark-color-scheme;
                         min-width: manual-le.preferred-width;
                         manual-le := LineEdit {
                             width: 100%;
@@ -315,7 +347,65 @@ export component RemotePreviewView inherits Rectangle {
                         wrap: word-wrap;
                     }
 
-                    HorizontalLayout {
+                    if root.pairing: VerticalLayout {
+                        spacing: EditorSpaceSettings.default-spacing;
+
+                        init => {
+                            // The entry survives the block being torn down,
+                            // and a prompt that ends by expiry or rejection
+                            // never clears it. Left over, its digits would
+                            // auto-submit part-way through the next code.
+                            root.pairing-code-entry = "";
+                            pairing-le.focus();
+                        }
+
+                        Text {
+                            text: @tr("{} is showing a pairing code. Enter it here to connect.", Api.remote-connection-target);
+                            color: Palette.foreground;
+                            wrap: word-wrap;
+                        }
+
+                        SunkenField {
+                            dark-color-scheme: root.dark-color-scheme;
+                            min-width: pairing-le.preferred-width;
+                            pairing-le := LineEdit {
+                                width: 100%;
+                                // Restricts typing to 0-9 and gets a numeric
+                                // keyboard where there is one.
+                                input-type: number;
+                                placeholder-text: @tr("{}-digit code", Api.remote-pairing-code-length);
+                                text <=> root.pairing-code-entry;
+                                edited => {
+                                    // The code is fixed-length, so the last
+                                    // digit is the whole gesture: there is no
+                                    // separate confirm step to reach.
+                                    root.submit-pairing-code();
+                                }
+                            }
+                        }
+
+                        if Api.remote-connection-error != "": Text {
+                            text: Api.remote-connection-error;
+                            color: Palette.foreground;
+                            opacity: 0.8;
+                            wrap: word-wrap;
+                        }
+
+                        HorizontalLayout {
+                            spacing: EditorSpaceSettings.default-spacing;
+                            alignment: end;
+
+                            Button {
+                                text: @tr("Cancel");
+                                clicked => {
+                                    root.pairing-code-entry = "";
+                                    Api.remote-cancel-pairing();
+                                }
+                            }
+                        }
+                    }
+
+                    if !root.pairing: HorizontalLayout {
                         spacing: EditorSpaceSettings.default-spacing;
                         alignment: end;
 

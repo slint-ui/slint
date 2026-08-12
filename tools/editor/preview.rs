@@ -132,6 +132,12 @@ pub fn lsp_to_preview(message: LspToPreviewMessage) {
         M::Ping => {
             // Keepalive for the remote-preview WebSocket; local previews never see it.
         }
+        // Part of the remote pairing handshake, which the LSP's WebSocket
+        // connector completes before a session exists. A local preview is
+        // never on the receiving end of one.
+        M::PairingHello { .. } | M::PairingCodeProof { .. } => {
+            tracing::warn!("Ignoring a pairing message addressed to a local preview");
+        }
     }
 }
 
@@ -2248,8 +2254,8 @@ fn set_preview_factory(
     api.set_resize_to_preferred_size(behavior != LoadBehavior::Reload);
 }
 
-/// Highlight the element pointed at the offset in the path.
-/// When the URL is None, remove the highlight.
+/// Push the remote connection's state to the Remote Preview pane, which
+/// shows it and, while pairing, collects the code from the user.
 pub fn set_remote_connection_state(
     state: i_slint_live_preview::protocol::RemoteConnectionState,
     target: String,
@@ -2261,6 +2267,7 @@ pub fn set_remote_connection_state(
             let ui_state = match state {
                 R::Disconnected => ui::RemoteConnectionState::Disconnected,
                 R::Connecting => ui::RemoteConnectionState::Connecting,
+                R::PairingRequired => ui::RemoteConnectionState::PairingRequired,
                 R::Connected => ui::RemoteConnectionState::Connected,
                 R::Failed => ui::RemoteConnectionState::Failed,
             };
