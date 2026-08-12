@@ -3,7 +3,7 @@
 
 use lsp_types::Url;
 
-use super::SourceFileVersion;
+use super::{PairingRejection, SourceFileVersion};
 
 /// Where the local preview is rendered. Remote viewers are layered on top
 /// of one of these via [`super::LspToPreviewMessage::RemoteConnectionState`];
@@ -47,7 +47,25 @@ pub enum PreviewToLspMessage {
     ConnectRemote { addresses: Vec<String>, port: u16 },
     /// The preview UI asked to disconnect the remote viewer.
     DisconnectRemote,
+    /// The user typed a pairing code into the preview UI. Carries the code
+    /// itself; the LSP owns the nonce and turns it into a proof.
+    SubmitPairingCode { code: String },
+    /// The user dismissed the pairing prompt in the preview UI.
+    CancelPairing,
     /// Answer to [`super::LspToPreviewMessage::Ping`], consumed by the LSP's
     /// WebSocket connector.
     Pong,
+    /// First message on a remote connection: the nonce both pairing proofs
+    /// are computed against. See [`super::pairing`].
+    PairingChallenge { nonce: super::pairing::Nonce },
+    /// The client offered no usable token, so the viewer is now showing a
+    /// pairing code and waiting for the user to type it.
+    PairingRequired { attempts_left: u8, expires_in_seconds: u16 },
+    /// The client is authenticated. Carries nothing: when this followed a
+    /// code exchange both ends derive the reconnect token from the code and
+    /// the nonce, so the token itself never crosses the wire.
+    PairingAccepted,
+    /// The client is not authenticated. Whether retrying is worthwhile is
+    /// [`PairingRejection::is_terminal`].
+    PairingRejected { reason: PairingRejection },
 }

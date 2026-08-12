@@ -418,7 +418,13 @@ fn handle_preview_message(msg: PreviewToLspMessage, ctx: &language::Context) {
         | TelemetryEvent(..)
         | ConnectRemote { .. }
         | DisconnectRemote
-        | Pong => {
+        | SubmitPairingCode { .. }
+        | CancelPairing
+        | Pong
+        | PairingChallenge { .. }
+        | PairingRequired { .. }
+        | PairingAccepted
+        | PairingRejected { .. } => {
             tracing::debug!("Ignoring message from preview: {msg:?}");
         }
         SendWorkspaceEdit { .. } => {

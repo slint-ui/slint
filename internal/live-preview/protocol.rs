@@ -2,12 +2,14 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 mod lsp_to_preview;
+pub mod pairing;
 mod preview_to_lsp;
 mod versioned_url;
 
 pub use lsp_to_preview::{
     LspToPreviewMessage, PreviewComponent, PreviewConfig, RemoteConnectionState,
 };
+pub use pairing::PairingRejection;
 pub use preview_to_lsp::{PreviewTarget, PreviewToLspMessage};
 pub use versioned_url::VersionedUrl;
 

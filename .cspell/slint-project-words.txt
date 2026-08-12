@@ -263,6 +263,7 @@ hidpi
 highp
 HINSTANCE
 Hira
+hmac
 hlayout
 hmenu
 horizontalbox

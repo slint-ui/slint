@@ -79,6 +79,17 @@ struct Cli {
     #[arg(long, value_name = "address")]
     remote_address: Option<std::net::SocketAddr>,
 
+    /// Always require this pairing code, given as four digits, instead of showing a
+    /// freshly generated one. For devices without a usable display, and for scripted
+    /// clients.
+    #[arg(long, value_name = "code", requires = "remote", conflicts_with = "no_pairing")]
+    pairing_code: Option<String>,
+
+    /// Accept any connection without pairing. Anyone who can reach this viewer can
+    /// then drive what it displays, so only use this on a network you control.
+    #[arg(long, requires = "remote")]
+    no_pairing: bool,
+
     /// The style name. Defaults to 'fluent' if not specified
     #[arg(long, value_name = "style name", action)]
     style: Option<String>,
@@ -195,7 +206,17 @@ fn main() -> Result<()> {
     if args.remote {
         #[cfg(feature = "remote")]
         {
-            remote::run(args.remote_address, true)?;
+            use i_slint_live_preview::protocol::pairing;
+            let pairing_policy = match (args.no_pairing, args.pairing_code) {
+                (true, _) => i_slint_live_preview::remote::PairingPolicy::Disabled,
+                (false, Some(code)) if !pairing::is_valid_code(&code) => {
+                    eprintln!("--pairing-code must be exactly {} digits", pairing::CODE_DIGITS);
+                    std::process::exit(2);
+                }
+                (false, Some(code)) => i_slint_live_preview::remote::PairingPolicy::Fixed(code),
+                (false, None) => i_slint_live_preview::remote::PairingPolicy::Generated,
+            };
+            remote::run(args.remote_address, true, pairing_policy)?;
             return Ok(());
         }
         #[cfg(not(feature = "remote"))]
