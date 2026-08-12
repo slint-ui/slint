@@ -274,11 +274,3 @@ Regenerate it from the YAML spec instead.
 
 XcodeGen documents the YAML project format here:
 [Project Spec](https://yonaskolb.github.io/XcodeGen/Docs/ProjectSpec.html).
-
-## Automate Direct Distribution in CI
-
-Xcode Cloud is optional.
-You can build, sign, notarize, package, and verify a direct-download app on a local Mac or with a macOS CI service such as GitHub Actions or CircleCI.
-
-Automate the direct-distribution pipeline so that every release follows the same signing, notarization, stapling, and verification steps.
-The [Slint macOS Visual Editor workflow](https://github.com/slint-ui/slint/blob/master/.github/workflows/visual_editor_macos_dmg.yaml) provides a complete GitHub Actions example.
