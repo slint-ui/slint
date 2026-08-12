@@ -64,6 +64,11 @@ pub fn concatenate_ident(ident: &str) -> SmolStr {
 
 /// Given a property reference to a native item (eg, the property name is empty)
 /// return tokens to the `ItemRc`
+///
+/// This walks the parent chain with `value()`, so it must only be spliced inside a guard on the
+/// same reference — a `then`/`map_or_default` of [`access_member`] — because the chain can die
+/// while a callback of a repeated element is still running (the enclosing popup closes itself,
+/// or the model drops the row the element belongs to).
 fn access_item_rc(pr: &llr::MemberReference, ctx: &EvaluationContext) -> String {
     let mut component_access = "self->".into();
 
@@ -3931,11 +3936,14 @@ impl MemberAccess {
         match self {
             MemberAccess::Direct(t) => f(t),
             MemberAccess::Option(t) => {
-                format!("slint::private_api::optional_then({t}, [&](auto&&x) {{ {}; }})", f("x"))
+                format!(
+                    "slint::private_api::optional_then({t}, [&]([[maybe_unused]] auto&&x) {{ {}; }})",
+                    f("x")
+                )
             }
             MemberAccess::OptionWithMember(t, m) => {
                 format!(
-                    "slint::private_api::optional_then({t}, [&](auto&&x) {{ {}; }})",
+                    "slint::private_api::optional_then({t}, [&]([[maybe_unused]] auto&&x) {{ {}; }})",
                     f(&format!("x{}", m))
                 )
             }
@@ -3947,13 +3955,13 @@ impl MemberAccess {
             MemberAccess::Direct(t) => f(t),
             MemberAccess::Option(t) => {
                 format!(
-                    "slint::private_api::optional_or_default(slint::private_api::optional_transform({t}, [&](auto&&x) {{ return {}; }}))",
+                    "slint::private_api::optional_or_default(slint::private_api::optional_transform({t}, [&]([[maybe_unused]] auto&&x) {{ return {}; }}))",
                     f("x")
                 )
             }
             MemberAccess::OptionWithMember(t, m) => {
                 format!(
-                    "slint::private_api::optional_or_default(slint::private_api::optional_transform({t}, [&](auto&&x) {{ return {}; }}))",
+                    "slint::private_api::optional_or_default(slint::private_api::optional_transform({t}, [&]([[maybe_unused]] auto&&x) {{ return {}; }}))",
                     f(&format!("x{}", m))
                 )
             }
@@ -3964,11 +3972,11 @@ impl MemberAccess {
         match self {
             MemberAccess::Direct(t) => MemberAccess::Option(f(t)),
             MemberAccess::Option(t) => MemberAccess::Option(format!(
-                "slint::private_api::optional_and_then({t}, [&](auto&&x) {{ return {}; }})",
+                "slint::private_api::optional_and_then({t}, [&]([[maybe_unused]] auto&&x) {{ return {}; }})",
                 f("x")
             )),
             MemberAccess::OptionWithMember(t, m) => MemberAccess::Option(format!(
-                "slint::private_api::optional_and_then({t}, [&](auto&&x) {{ return {}; }})",
+                "slint::private_api::optional_and_then({t}, [&]([[maybe_unused]] auto&&x) {{ return {}; }})",
                 f(&format!("x{}", m))
             )),
         }
@@ -4860,7 +4868,7 @@ fn compile_builtin_function_call(
             if let [llr::Expression::PropertyReference(pr)] = arguments {
                 let window = access_window_field(ctx);
                 let focus_item = access_item_rc(pr, ctx);
-                format!("{window}.set_focus_item({focus_item}, true, slint::cbindgen_private::FocusReason::Programmatic);")
+                access_member(pr, ctx).then(|_| format!("{window}.set_focus_item({focus_item}, true, slint::cbindgen_private::FocusReason::Programmatic)"))
             } else {
                 panic!("internal error: invalid args to SetFocusItem {arguments:?}")
             }
@@ -4869,7 +4877,7 @@ fn compile_builtin_function_call(
             if let [llr::Expression::PropertyReference(pr)] = arguments {
                 let window = access_window_field(ctx);
                 let focus_item = access_item_rc(pr, ctx);
-                format!("{window}.set_focus_item({focus_item}, false, slint::cbindgen_private::FocusReason::Programmatic);")
+                access_member(pr, ctx).then(|_| format!("{window}.set_focus_item({focus_item}, false, slint::cbindgen_private::FocusReason::Programmatic)"))
             } else {
                 panic!("internal error: invalid args to ClearFocusItem {arguments:?}")
             }
@@ -5147,6 +5155,9 @@ fn compile_builtin_function_call(
                     &local_reference.sub_component_path,
                 );
                 let parent_component = access_item_rc(anchor_ref, ctx);
+                // `access_item_rc` unwraps the anchor's parent chain, so only emit the show when
+                // the very same reference is reachable
+                let anchor_reachable = access_member(anchor_ref, ctx);
                 ctx.with_reference_scope(*parent_level, &local_reference.sub_component_path, |parent_ctx| {
                 let popup = &ctx.compilation_unit.sub_components[parent_ctx.sub_component]
                     .popup_windows[*popup_index as usize];
@@ -5185,7 +5196,7 @@ fn compile_builtin_function_call(
                     }
                     _ => "[](bool) {}".to_string(),
                 };
-                component_access.then(|component_access| {
+                let show = component_access.then(|component_access| {
                     let compo_ptr = if compo_path.is_empty() {
                         format!("&*({component_access})")
                     } else {
@@ -5202,7 +5213,8 @@ fn compile_builtin_function_call(
                                                                             {window_kind},  \
                                                                             {is_open_setter})"
                     )
-                })
+                });
+                anchor_reachable.then(|_| show)
                 })
             } else {
                 panic!("internal error: invalid args to ShowPopupWindow {arguments:?}")
@@ -5261,7 +5273,7 @@ fn compile_builtin_function_call(
             let set_id = context_menu
                 .then(|context_menu| format!("{context_menu}.popup_id = id"));
 
-            if let llr::Expression::NumberLiteral(tree_index) = entries {
+            let show = if let llr::Expression::NumberLiteral(tree_index) = entries {
                 // We have an MenuItem tree
                 let current_sub_component = ctx.current_sub_component().unwrap();
                 let item_tree_id = ident(&ctx.compilation_unit.sub_components[current_sub_component.menu_item_trees[*tree_index as usize].root].name);
@@ -5309,7 +5321,8 @@ fn compile_builtin_function_call(
                     }});
                     {set_id};
                 ", globals = ctx.generator_state.global_access)
-            }
+            };
+            context_menu.then(|_| show)
         }
         BuiltinFunction::SetSelectionOffsets => {
             if let [llr::Expression::PropertyReference(pr), from, to] = arguments {
@@ -5329,9 +5342,9 @@ fn compile_builtin_function_call(
             if let [llr::Expression::PropertyReference(pr)] = arguments {
                 let item_rc = access_item_rc(pr, ctx);
                 let window = access_window_field(ctx);
-                format!(
+                access_member(pr, ctx).map_or_default(|_| format!(
                     "[&]{{ slint::cbindgen_private::FontMetrics fm; slint_cpp_text_item_fontmetrics(&{window}.handle(), &{item_rc}, &fm); return fm; }}()"
-                )
+                ))
             } else {
                 panic!("internal error: invalid args to ItemFontMetrics {arguments:?}")
             }
@@ -5339,7 +5352,7 @@ fn compile_builtin_function_call(
         BuiltinFunction::ItemAbsolutePosition => {
             if let [llr::Expression::PropertyReference(pr)] = arguments {
                 let item_rc = access_item_rc(pr, ctx);
-                format!("slint::LogicalPosition(slint::cbindgen_private::slint_item_absolute_position(&{item_rc}))")
+                access_member(pr, ctx).map_or_default(|_| format!("slint::LogicalPosition(slint::cbindgen_private::slint_item_absolute_position(&{item_rc}))"))
             } else {
                 panic!("internal error: invalid args to ItemAbsolutePosition {arguments:?}")
             }
@@ -5436,9 +5449,9 @@ fn compile_builtin_function_call(
             if let [llr::Expression::PropertyReference(pr), t] = arguments {
                 let item_rc = access_item_rc(pr, ctx);
                 let t = compile_expression(t, ctx);
-                format!(
+                access_member(pr, ctx).map_or_default(|_| format!(
                     "slint::LogicalPosition(slint::cbindgen_private::slint_path_point_at(&{item_rc}, static_cast<float>({t})))"
-                )
+                ))
             } else {
                 panic!("internal error: invalid args to PathPointAt {arguments:?}")
             }
@@ -5447,9 +5460,9 @@ fn compile_builtin_function_call(
             if let [llr::Expression::PropertyReference(pr), t] = arguments {
                 let item_rc = access_item_rc(pr, ctx);
                 let t = compile_expression(t, ctx);
-                format!(
+                access_member(pr, ctx).map_or_default(|_| format!(
                     "slint::cbindgen_private::slint_path_angle_at(&{item_rc}, static_cast<float>({t}))"
-                )
+                ))
             } else {
                 panic!("internal error: invalid args to PathAngleAt {arguments:?}")
             }

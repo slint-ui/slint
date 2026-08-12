@@ -3240,8 +3240,9 @@ impl MemberAccess {
         match self {
             MemberAccess::Direct(t) => f(t),
             MemberAccess::Option(t) => {
-                let r = f(quote!(x));
-                quote!({ let _ = #t.map(|x| #r); })
+                // `_x` so that `f` may ignore the member and only use this as a reachability guard
+                let r = f(quote!(_x));
+                quote!({ let _ = #t.map(|_x| #r); })
             }
             MemberAccess::OptionFn(opt, inner) => {
                 let r = f(inner);
@@ -3254,8 +3255,8 @@ impl MemberAccess {
         match self {
             MemberAccess::Direct(t) => f(t),
             MemberAccess::Option(t) => {
-                let r = f(quote!(x));
-                quote!(#t.map(|x| #r).unwrap_or_default())
+                let r = f(quote!(_x));
+                quote!(#t.map(|_x| #r).unwrap_or_default())
             }
             MemberAccess::OptionFn(opt, inner) => {
                 let r = f(inner);
@@ -3268,7 +3269,7 @@ impl MemberAccess {
         match self {
             MemberAccess::Direct(t) => quote!(#t.get()),
             MemberAccess::Option(t) => {
-                quote!(#t.map(|x| x.get()).unwrap_or_default())
+                quote!(#t.map(|_x| _x.get()).unwrap_or_default())
             }
             MemberAccess::OptionFn(..) => panic!("function is not a property"),
         }
@@ -3325,6 +3326,11 @@ fn access_window_adapter_field(ctx: &EvaluationContext) -> TokenStream {
 
 /// Given a property reference to a native item (eg, the property name is empty)
 /// return tokens to the `ItemRc`
+///
+/// This walks the parent chain with `unwrap`, so it must only be spliced inside a guard on the
+/// same reference — a `then`/`map_or_default` of [`access_member`] — because the chain can die
+/// while a callback of a repeated element is still running (the enclosing popup closes itself,
+/// or the model drops the row the element belongs to).
 fn access_item_rc(pr: &llr::MemberReference, ctx: &EvaluationContext) -> TokenStream {
     let mut component_access_tokens = quote!(_self);
 
@@ -4309,9 +4315,9 @@ fn compile_builtin_function_call(
             if let [Expression::PropertyReference(pr)] = arguments {
                 let window_tokens = access_window_adapter_field(ctx);
                 let focus_item = access_item_rc(pr, ctx);
-                quote!(
+                access_member(pr, ctx).then(|_| quote!(
                     sp::WindowInner::from_pub(#window_tokens.window()).set_focus_item(#focus_item, true, sp::FocusReason::Programmatic)
-                )
+                ))
             } else {
                 panic!("internal error: invalid args to SetFocusItem {arguments:?}")
             }
@@ -4320,9 +4326,9 @@ fn compile_builtin_function_call(
             if let [Expression::PropertyReference(pr)] = arguments {
                 let window_tokens = access_window_adapter_field(ctx);
                 let focus_item = access_item_rc(pr, ctx);
-                quote!(
+                access_member(pr, ctx).then(|_| quote!(
                     sp::WindowInner::from_pub(#window_tokens.window()).set_focus_item(#focus_item, false, sp::FocusReason::Programmatic)
-                )
+                ))
             } else {
                 panic!("internal error: invalid args to ClearFocusItem {arguments:?}")
             }
@@ -4360,6 +4366,9 @@ fn compile_builtin_function_call(
                     &local_reference.sub_component_path,
                 );
                 let parent_item = access_item_rc(anchor_ref, ctx);
+                // `access_item_rc` unwraps the anchor's parent chain, so only emit the show when
+                // the very same reference is reachable
+                let anchor_reachable = access_member(anchor_ref, ctx);
 
                 ctx.with_reference_scope(
                     *parent_level,
@@ -4401,7 +4410,7 @@ fn compile_builtin_function_call(
                     };
                     access_member(is_open_ref, ctx).then(|p| quote!(#p.set(value)))
                 });
-                component_access_tokens.then(|component_access_tokens| {
+                let show = component_access_tokens.then(|component_access_tokens| {
                     let compo = quote!(#component_access_tokens #suffix);
                     // Keep the parent's `is-open` in sync: `show_popup` invokes this setter with `true`
                     // immediately and with `false` from every close path (see window.rs). Passing it
@@ -4452,7 +4461,8 @@ fn compile_builtin_function_call(
                         #compo.#popup_id_name.set(Some(popup_id));
                         #popup_window_id::user_init(popup_instance_vrc.clone());
                     })
-                })
+                });
+                anchor_reachable.then(|_| show)
                     },
                 )
             } else {
@@ -4567,7 +4577,7 @@ fn compile_builtin_function_call(
                 let window_adapter = #window_adapter_tokens;
             };
 
-            if let Expression::NumberLiteral(tree_index) = entries {
+            let show = if let Expression::NumberLiteral(tree_index) = entries {
                 // We have an MenuItem tree
                 let current_sub_component = ctx.current_sub_component().unwrap();
                 let item_tree_id = inner_component_id(
@@ -4645,7 +4655,8 @@ fn compile_builtin_function_call(
                     }
                     #slint_show
                 }}
-            }
+            };
+            context_menu.then(|_| show)
         }
         BuiltinFunction::SetSelectionOffsets => {
             if let [llr::Expression::PropertyReference(pr), from, to] = arguments {
@@ -4667,7 +4678,7 @@ fn compile_builtin_function_call(
                 let item = access_member(pr, ctx);
                 let item_rc = access_item_rc(pr, ctx);
                 let window_adapter_tokens = access_window_adapter_field(ctx);
-                item.then(|item| {
+                item.map_or_default(|item| {
                     quote!(
                         #item.font_metrics(#window_adapter_tokens, #item_rc)
                     )
@@ -5091,9 +5102,9 @@ fn compile_builtin_function_call(
         BuiltinFunction::ItemAbsolutePosition => {
             if let [Expression::PropertyReference(pr)] = arguments {
                 let item_rc = access_item_rc(pr, ctx);
-                quote!(
+                access_member(pr, ctx).map_or_default(|_| quote!(
                     sp::logical_position_to_api((*#item_rc).map_to_window((*#item_rc).geometry().origin))
-                )
+                ))
             } else {
                 panic!("internal error: invalid args to MapPointToWindow {arguments:?}")
             }
@@ -5139,15 +5150,17 @@ fn compile_builtin_function_call(
             if let [Expression::PropertyReference(pr), t] = arguments {
                 let item_rc = access_item_rc(pr, ctx);
                 let t = compile_expression(t, ctx);
-                quote!({
-                    let item_rc = #item_rc;
-                    sp::logical_position_to_api(
-                        item_rc
-                            .downcast::<sp::Path>()
-                            .unwrap()
-                            .as_pin_ref()
-                            .point_at(&item_rc, #t as f32),
-                    )
+                access_member(pr, ctx).map_or_default(|_| {
+                    quote!({
+                        let item_rc = #item_rc;
+                        sp::logical_position_to_api(
+                            item_rc
+                                .downcast::<sp::Path>()
+                                .unwrap()
+                                .as_pin_ref()
+                                .point_at(&item_rc, #t as f32),
+                        )
+                    })
                 })
             } else {
                 panic!("internal error: invalid args to PathPointAt {arguments:?}")
@@ -5157,13 +5170,15 @@ fn compile_builtin_function_call(
             if let [Expression::PropertyReference(pr), t] = arguments {
                 let item_rc = access_item_rc(pr, ctx);
                 let t = compile_expression(t, ctx);
-                quote!({
-                    let item_rc = #item_rc;
-                    item_rc
-                        .downcast::<sp::Path>()
-                        .unwrap()
-                        .as_pin_ref()
-                        .angle_at(&item_rc, #t as f32)
+                access_member(pr, ctx).map_or_default(|_| {
+                    quote!({
+                        let item_rc = #item_rc;
+                        item_rc
+                            .downcast::<sp::Path>()
+                            .unwrap()
+                            .as_pin_ref()
+                            .angle_at(&item_rc, #t as f32)
+                    })
                 })
             } else {
                 panic!("internal error: invalid args to PathAngleAt {arguments:?}")
