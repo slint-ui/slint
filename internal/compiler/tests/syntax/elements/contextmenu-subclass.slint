@@ -1,0 +1,35 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A component inheriting ContextMenuArea used to panic the compiler (issue #12833)
+
+component Empty inherits ContextMenuArea { }
+//                       >              <error{ContextMenuArea should have a Menu}
+
+component Good inherits ContextMenuArea {
+    Menu {
+        MenuItem { title: "ok"; }
+    }
+}
+
+// Another level of inheritance: the Menu comes from the base of the base
+component Deep inherits Good { }
+
+// The Menu of the base was already lowered, so a further one can't be added
+component LateMenu inherits Good {
+    Menu { MenuItem { title: "nope"; } }
+//  >   <error{Menu must be declared inside the component inheriting ContextMenuArea}
+}
+
+export component A {
+    // The Menu missing in `Empty` is reported once, not at every instantiation
+    Empty { }
+    Empty { }
+    LateMenu { }
+    for _ in 3 : Deep { }
+    if true : Good { }
+    Good {
+        Menu { MenuItem { title: "nope"; } }
+//      >   <error{Menu must be declared inside the component inheriting ContextMenuArea}
+    }
+}
