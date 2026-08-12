@@ -438,7 +438,7 @@ impl crate::Surface for WGPUSurface {
         canvas: &skia_safe::Canvas,
         any_wgpu_texture: &i_slint_core::graphics::WGPUTexture,
     ) -> Option<skia_safe::Image> {
-        let texture = match any_wgpu_texture {
+        let texture: wgpu_29::Texture = match any_wgpu_texture {
             #[cfg(feature = "unstable-wgpu-29")]
             i_slint_core::graphics::WGPUTexture::WGPU29Texture(texture) => texture.clone(),
             #[cfg(feature = "unstable-wgpu-30")]
