@@ -34,6 +34,8 @@ slint::include_modules!();
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum PreviewUiKind {
     Viewer,
+    // TODO: This will become the new viewer when it is ready.
+    #[allow(dead_code)]
     Editor,
 }
 
