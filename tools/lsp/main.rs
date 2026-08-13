@@ -851,6 +851,13 @@ async fn handle_preview_to_lsp_message(
                 remote.cancel_pairing();
             }
         }
+        M::AcceptUnpairedConnection => {
+            tracing::debug!("Preview accepted an unpaired connection");
+            #[cfg(feature = "preview-remote")]
+            if let Some(remote) = ctx.session.to_preview.remote() {
+                remote.accept_unpaired_connection();
+            }
+        }
         M::Pong => {
             // The remote connector consumes pongs; local previews never send them.
             tracing::debug!("Ignoring unexpected Pong message from a local preview");

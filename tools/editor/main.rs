@@ -424,6 +424,7 @@ async fn handle_preview_message(
         | DisconnectRemote
         | SubmitPairingCode { .. }
         | CancelPairing
+        | AcceptUnpairedConnection
         | Pong
         | PairingReady
         | PairingRequired { .. }

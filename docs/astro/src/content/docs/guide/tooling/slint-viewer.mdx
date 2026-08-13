@@ -150,7 +150,7 @@ Run `slint-viewer --help` for the authoritative, always-current list. The common
 | `--remote` | Start in remote mode and wait for the editor to connect. See [Remote Viewer](#remote-viewer). |
 | `--remote-address <address>` | Address and port to listen on in remote mode. Defaults to an auto-assigned port on all interfaces. |
 | `--pairing-code <code>` | Always require this four-digit pairing code instead of showing a generated one, for devices with no usable display. |
-| `--no-pairing` | Accept any connection without pairing. Only for networks you control. |
+| `--no-pairing` | Accept any connection without pairing or encryption. Only for networks you control; the editor warns once before connecting to such a viewer. |
 | `--component <name>` | Load the component with this name. Defaults to the last exported component. |
 | `--style <style>` | Set the widget style. Defaults to `fluent`. |
 | `--backend <backend>` | Override the Slint rendering <Link type="backends_and_renderers" label="backend"/>. |

@@ -94,6 +94,8 @@ export component RemotePreviewView inherits Rectangle {
 
     /// The viewer is showing a code and is waiting for it to be typed here.
     property <bool> pairing: Api.remote-connection-state == RemoteConnectionState.PairingRequired;
+    /// The viewer has pairing disabled; the user has to accept or cancel.
+    property <bool> unpaired-warning: Api.remote-connection-state == RemoteConnectionState.UnpairedWarning;
     property <string> pairing-code-entry;
 
     function submit-pairing-code() {
@@ -112,6 +114,7 @@ export component RemotePreviewView inherits Rectangle {
         // away from the attempt still waiting for it.
         if !root.connecting
             && !root.pairing
+            && !root.unpaired-warning
             && index >= 0
             && index < Api.remote-discovered-viewers.length
             && Api.remote-discovered-viewers[index].compatible
@@ -173,10 +176,12 @@ export component RemotePreviewView inherits Rectangle {
                     // we're still searching while a code is on the device.
                     text: root.pairing
                         ? @tr("Pairing with {}.", best-device-name)
+                        : (root.unpaired-warning
+                        ? @tr("Connect to {}?", best-device-name)
                         : (Api.remote-connection-state == RemoteConnectionState.Connected
                         ? @tr("Connected to {}.", best-device-name)
                         : (Api.remote-discovered-viewers.length > 0 ? @tr("Select a discovered device to connect.")
-                        : @tr("Searching for a device…")));
+                        : @tr("Searching for a device…"))));
                     font-size: 24px;
                     font-weight: FontWeight.bold;
                     color: Palette.foreground;
@@ -314,7 +319,7 @@ export component RemotePreviewView inherits Rectangle {
                         }
                     }
 
-                    if !root.pairing: SunkenField {
+                    if !root.pairing && !root.unpaired-warning: SunkenField {
                         dark-color-scheme: root.dark-color-scheme;
                         min-width: manual-le.preferred-width;
                         manual-le := LineEdit {
@@ -328,7 +333,7 @@ export component RemotePreviewView inherits Rectangle {
                     }
 
                     Text {
-                        text: @tr("Connecting sends this project's .slint files, images and fonts to the device over the local network, without encryption. Only connect to a trusted device.");
+                        text: @tr("Connecting sends this project's .slint files, images and fonts to the device over the local network. Pairing encrypts them.");
                         color: Palette.foreground;
                         opacity: 0.7;
                         font-size: 11px;
@@ -405,7 +410,36 @@ export component RemotePreviewView inherits Rectangle {
                         }
                     }
 
-                    if !root.pairing: HorizontalLayout {
+                    if root.unpaired-warning: VerticalLayout {
+                        spacing: EditorSpaceSettings.default-spacing;
+
+                        Text {
+                            text: @tr("{} has pairing disabled. The connection will not be encrypted.", Api.remote-connection-target);
+                            color: Palette.foreground;
+                            wrap: word-wrap;
+                        }
+
+                        HorizontalLayout {
+                            spacing: EditorSpaceSettings.default-spacing;
+                            alignment: end;
+
+                            Button {
+                                text: @tr("Cancel");
+                                clicked => {
+                                    Api.remote-cancel-pairing();
+                                }
+                            }
+
+                            Button {
+                                text: @tr("Connect anyway");
+                                clicked => {
+                                    Api.remote-accept-unpaired();
+                                }
+                            }
+                        }
+                    }
+
+                    if !root.pairing && !root.unpaired-warning: HorizontalLayout {
                         spacing: EditorSpaceSettings.default-spacing;
                         alignment: end;
 
