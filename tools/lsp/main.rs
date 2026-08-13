@@ -889,6 +889,7 @@ async fn handle_preview_to_lsp_message(message: PreviewToLspMessage, ctx: &Conte
         // never reach the LSP's message loop.
         M::PairingChallenge { .. }
         | M::PairingRequired { .. }
+        | M::PairingConfirm { .. }
         | M::PairingAccepted
         | M::PairingRejected { .. } => {
             tracing::debug!("Ignoring a pairing message outside the pairing handshake");

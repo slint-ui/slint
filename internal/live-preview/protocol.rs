@@ -4,6 +4,7 @@
 mod lsp_to_preview;
 pub mod pairing;
 mod preview_to_lsp;
+pub mod session;
 mod versioned_url;
 
 pub use lsp_to_preview::{

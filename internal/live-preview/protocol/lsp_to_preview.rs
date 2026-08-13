@@ -70,10 +70,11 @@ pub enum LspToPreviewMessage {
     PairingHello {
         token_proof: Option<super::pairing::Proof>,
     },
-    /// The code the user read off the viewer's screen, proven against the
-    /// challenge nonce. Answers [`super::PreviewToLspMessage::PairingRequired`].
-    PairingCodeProof {
-        proof: super::pairing::Proof,
+    /// The client's half of the SPAKE2 exchange, plus proof that it derived
+    /// the same key. Answers [`super::PreviewToLspMessage::PairingRequired`].
+    PairingResponse {
+        element: super::pairing::Element,
+        confirmation: super::pairing::Confirmation,
     },
 }
 

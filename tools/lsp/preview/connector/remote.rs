@@ -19,7 +19,8 @@ use futures_util::{
     lock::Mutex,
     stream::{SplitSink, SplitStream, StreamExt as _},
 };
-use i_slint_live_preview::protocol::pairing::{self, Credential, MAX_ATTEMPTS, Token};
+use i_slint_live_preview::protocol::pairing::{self, MAX_ATTEMPTS, Token};
+use i_slint_live_preview::protocol::session;
 use i_slint_live_preview::protocol::{
     LspToPreviewMessage, PROTOCOL_SUBPROTOCOL, PairingRejection, PreviewToLspMessage,
     RemoteConnectionState, SLINT_PROTOCOLS_HEADER, SLINT_VERSION, SLINT_VERSION_HEADER,
@@ -46,6 +47,14 @@ const CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
 enum PairingSubmission {
     Code(String),
     Cancel,
+}
+
+/// One `PairingRequired` message's worth of prompt, as handed to
+/// [`RemoteLspToPreview::answer_prompt`].
+struct Prompt {
+    attempts_left: u8,
+    expires_in_seconds: u16,
+    element: pairing::Element,
 }
 
 /// Why a dial attempt produced no session.
@@ -105,11 +114,28 @@ impl Drop for PairingInputGuard {
 
 struct RemoteLspConnection {
     sender: SplitSink<WebSocketStream, Message>,
+    /// Seals outbound frames; a passthrough with `--no-pairing`, which
+    /// establishes no shared secret.
+    sealing: session::Sealing,
     task: tokio::task::JoinHandle<()>,
     /// Set when this connection is being replaced, so the old handle's
     /// `Drop` skips its `Disconnected` emission and the UI doesn't see
     /// Disconnected racing Connected for the new peer.
     replaced: Arc<AtomicBool>,
+}
+
+impl RemoteLspConnection {
+    /// Seal `bytes` into a frame for this connection. `None` only on counter
+    /// exhaustion, which is logged here so every send path handles it alike.
+    fn seal(&mut self, bytes: Vec<u8>) -> Option<Message> {
+        match self.sealing.seal(bytes) {
+            Ok(sealed) => Some(Message::binary(sealed)),
+            Err(err) => {
+                tracing::error!("Cannot seal outbound frame: {err:?}");
+                None
+            }
+        }
+    }
 }
 
 /// State shared between the connector and its spawned tasks.
@@ -231,7 +257,8 @@ impl RemoteLspToPreview {
             let Some(connection) = connection.as_mut() else {
                 return;
             };
-            if let Err(err) = connection.sender.send(Message::binary(message)).await {
+            let Some(frame) = connection.seal(message) else { return };
+            if let Err(err) = connection.sender.send(frame).await {
                 tracing::error!("Error sending message to remote preview server: {err}");
             }
         });
@@ -339,7 +366,7 @@ impl RemoteLspToPreview {
         // the dial varies between attempts. Remember its token under all of
         // them, or a reconnect that lands elsewhere asks for a code again.
         let keys: Vec<String> = addresses.iter().map(|a| format!("{a}:{port}")).collect();
-        Self::authenticate(shared, &mut stream, &target, &keys).await?;
+        let (sealing, opening) = Self::authenticate(shared, &mut stream, &target, &keys).await?;
 
         if shared.generation.get() != generation {
             tracing::info!("Discarding connection to {target}: superseded during pairing");
@@ -357,9 +384,11 @@ impl RemoteLspToPreview {
             port,
             replaced.clone(),
             generation,
+            opening,
         ));
         if let Some(mut old) = shared.connection.lock().await.replace(RemoteLspConnection {
             sender: socket_sender,
+            sealing,
             task,
             replaced,
         }) {
@@ -390,7 +419,7 @@ impl RemoteLspToPreview {
         stream: &mut WebSocketStream,
         target: &str,
         keys: &[String],
-    ) -> std::result::Result<(), ConnectError> {
+    ) -> std::result::Result<(session::Sealing, session::Opening), ConnectError> {
         let Some(PreviewToLspMessage::PairingChallenge { nonce }) =
             Self::next_message(stream).await
         else {
@@ -399,31 +428,27 @@ impl RemoteLspToPreview {
             ));
         };
 
-        let token_proof = keys
-            .iter()
-            .find_map(|key| shared.tokens.borrow().get(key).copied())
-            .map(|token| pairing::proof(Credential::Token, token.as_bytes(), &nonce));
+        let held = keys.iter().find_map(|key| shared.tokens.borrow().get(key).copied());
+        let token_proof = held.map(|token| pairing::token_proof(&token, &nonce));
         Self::send_message(stream, &LspToPreviewMessage::PairingHello { token_proof }).await?;
-
-        // The code we last offered, kept so the token can be derived from it
-        // once the viewer accepts.
-        let mut submitted_code: Option<String> = None;
 
         loop {
             match Self::next_message(stream).await {
                 Some(PreviewToLspMessage::PairingAccepted) => {
-                    // Derived from what we just proved, so the viewer never
-                    // had to send it. Absent when the token we already held
-                    // was the thing accepted, or when pairing is disabled.
-                    if let Some(code) = &submitted_code {
-                        let token = pairing::derive_token(code, &nonce);
-                        let mut tokens = shared.tokens.borrow_mut();
-                        for key in keys {
-                            tokens.insert(key.clone(), token);
-                        }
-                    }
                     tracing::info!("Paired with remote viewer at {target}");
-                    return Ok(());
+                    // A token we hold was accepted, or the viewer runs with
+                    // `--no-pairing` and there is no secret to key a session.
+                    return Ok(match held {
+                        Some(token) => {
+                            pairing::session_from_token(pairing::Role::Editor, &token, &nonce)
+                        }
+                        None => (session::Sealing::Plaintext, session::Opening::Plaintext),
+                    });
+                }
+                Some(PreviewToLspMessage::PairingConfirm { .. }) => {
+                    // Only meaningful as the answer to a response we sent;
+                    // the exchange below handles it inline.
+                    tracing::warn!("Unexpected pairing confirmation from {target}");
                 }
                 Some(PreviewToLspMessage::PairingRejected { reason }) => {
                     tracing::info!("Viewer at {target} rejected us: {reason}");
@@ -445,19 +470,16 @@ impl RemoteLspToPreview {
                 Some(PreviewToLspMessage::PairingRequired {
                     attempts_left,
                     expires_in_seconds,
+                    element,
                 }) => {
-                    let code = Self::prompt_for_code(
-                        shared,
-                        stream,
-                        target,
-                        attempts_left,
-                        expires_in_seconds,
-                    )
-                    .await?;
-                    let proof = pairing::proof(Credential::Code, code.as_bytes(), &nonce);
-                    submitted_code = Some(code);
-                    Self::send_message(stream, &LspToPreviewMessage::PairingCodeProof { proof })
-                        .await?;
+                    let prompt = Prompt { attempts_left, expires_in_seconds, element };
+                    // `None` is a wrong code: the viewer follows up with a
+                    // fresh prompt, which the next turn of this loop takes.
+                    if let Some(session) =
+                        Self::answer_prompt(shared, stream, target, keys, prompt).await?
+                    {
+                        return Ok(session);
+                    }
                 }
                 Some(other) => {
                     tracing::warn!("Ignoring {other:?} from {target} during pairing");
@@ -468,6 +490,77 @@ impl RemoteLspToPreview {
                     ));
                 }
             }
+        }
+    }
+
+    /// Answer one code prompt: ask the user, run the editor's half of the
+    /// SPAKE2 exchange, and check the viewer's confirmation.
+    ///
+    /// `Ok(None)` is a wrong code with attempts left; the viewer sends a
+    /// fresh prompt and the caller goes around again.
+    async fn answer_prompt(
+        shared: &SharedState,
+        stream: &mut WebSocketStream,
+        target: &str,
+        keys: &[String],
+        prompt: Prompt,
+    ) -> std::result::Result<Option<(session::Sealing, session::Opening)>, ConnectError> {
+        let code = Self::prompt_for_code(
+            shared,
+            stream,
+            target,
+            prompt.attempts_left,
+            prompt.expires_in_seconds,
+        )
+        .await?;
+
+        // The code never goes on the wire, and neither does anything an
+        // observer could test a guess against: the exchange only reveals
+        // whether both sides agreed.
+        let handshake = pairing::Handshake::start(pairing::Role::Editor, &code);
+        let our_element = handshake.element().clone();
+        let secrets = handshake
+            .finish(&prompt.element)
+            .map_err(|_| ConnectError::Transient("The viewer sent a malformed handshake".into()))?;
+
+        Self::send_message(
+            stream,
+            &LspToPreviewMessage::PairingResponse {
+                element: our_element,
+                confirmation: secrets.editor_confirmation,
+            },
+        )
+        .await?;
+
+        // The viewer answers with its own confirmation only if it derived
+        // the same key, so this is where a wrong code surfaces. Anything
+        // else means it refused us.
+        match Self::next_message(stream).await {
+            Some(PreviewToLspMessage::PairingConfirm { confirmation })
+                if confirmation.matches(&secrets.viewer_confirmation) =>
+            {
+                tracing::info!("Paired with remote viewer at {target}");
+                let token = secrets.token;
+                let mut tokens = shared.tokens.borrow_mut();
+                for key in keys {
+                    tokens.insert(key.clone(), token);
+                }
+                Ok(Some(secrets.session()))
+            }
+            Some(PreviewToLspMessage::PairingConfirm { .. }) => {
+                // Same code space, different key: either we typed the wrong
+                // code or something is in the middle.
+                Err(ConnectError::Transient("The viewer could not confirm the pairing".into()))
+            }
+            Some(PreviewToLspMessage::PairingRejected { reason }) => {
+                if reason == PairingRejection::BadCode {
+                    return Ok(None);
+                }
+                Err(from_rejection(reason))
+            }
+            _ => Err(ConnectError::Transient(
+                "The viewer closed the connection during pairing".into(),
+            )),
         }
     }
 
@@ -562,6 +655,7 @@ impl RemoteLspToPreview {
         port: u16,
         replaced: Arc<AtomicBool>,
         generation: u64,
+        opening: session::Opening,
     ) {
         let last_pong = Cell::new(Instant::now());
         let receive = Self::receive_task(
@@ -571,6 +665,7 @@ impl RemoteLspToPreview {
             port,
             replaced,
             &last_pong,
+            opening,
         );
         let keepalive = Self::keepalive_task(&shared, &last_pong);
         tokio::select! {
@@ -584,7 +679,6 @@ impl RemoteLspToPreview {
     /// session — when pongs stay out for [`PONG_TIMEOUT`] or sending fails.
     async fn keepalive_task(shared: &SharedState, last_pong: &Cell<Instant>) {
         let Ok(ping) = postcard::to_allocvec(&LspToPreviewMessage::Ping) else { return };
-        let ping = Message::binary(ping);
         loop {
             tokio::time::sleep(PING_INTERVAL).await;
             if last_pong.get().elapsed() > PONG_TIMEOUT {
@@ -595,9 +689,12 @@ impl RemoteLspToPreview {
             }
             let mut guard = shared.connection.lock().await;
             let Some(connection) = guard.as_mut() else { return };
+            // Sealed like any other payload; a fresh nonce each time, so the
+            // repeated plaintext doesn't repeat on the wire.
+            let Some(frame) = connection.seal(ping.clone()) else { return };
             // Bound the send: it holds the connection lock, which would
             // otherwise block all LSP→viewer sends behind a stalled socket.
-            match tokio::time::timeout(PONG_TIMEOUT, connection.sender.send(ping.clone())).await {
+            match tokio::time::timeout(PONG_TIMEOUT, connection.sender.send(frame)).await {
                 Ok(Ok(())) => {}
                 Ok(Err(err)) => {
                     tracing::warn!("Failed sending keepalive ping to remote viewer: {err}");
@@ -660,6 +757,7 @@ impl RemoteLspToPreview {
         port: u16,
         replaced: Arc<AtomicBool>,
         last_pong: &Cell<Instant>,
+        mut opening: session::Opening,
     ) {
         let mut connection_state_handle =
             ConnectionStateHandle::new(shared.to_previews.clone(), address, port, replaced);
@@ -674,7 +772,16 @@ impl RemoteLspToPreview {
                             );
                         }
                         Message::Binary(bytes) => {
-                            match postcard::from_bytes::<PreviewToLspMessage>(&bytes) {
+                            let Ok(plain) = opening.open(&bytes) else {
+                                // Tampered, reordered, or from a peer that
+                                // derived a different key. The counters
+                                // can't recover, so the session is over.
+                                tracing::error!(
+                                    "Dropping a frame from the remote viewer that failed to open"
+                                );
+                                return;
+                            };
+                            match postcard::from_bytes::<PreviewToLspMessage>(&plain) {
                                 Ok(PreviewToLspMessage::Pong) => {
                                     last_pong.set(Instant::now());
                                 }
@@ -862,7 +969,9 @@ fn describe_version_mismatch(err: &tokio_tungstenite_wasm::Error) -> Option<Stri
 #[cfg(test)]
 mod tests {
     use super::*;
+    use i_slint_live_preview::protocol::PreviewComponent;
     use i_slint_live_preview::remote::{Connection, ConnectionMessage, PairingPolicy};
+    use lsp_types::Url;
 
     async fn listen(
         port: u16,
@@ -1050,6 +1159,64 @@ mod tests {
                     "RequestState after pairing",
                 )
                 .await;
+
+                connector.disconnect().await;
+            })
+            .await;
+    }
+
+    /// A code exchange leaves both ends holding session keys, so from there on
+    /// every frame has to survive the cipher. The `PairingPolicy::Disabled`
+    /// tests can't cover this: no keys, no sealing, so a missing seal or open
+    /// passes them.
+    #[tokio::test]
+    async fn traffic_over_a_paired_session_is_sealed_both_ways() {
+        tokio::task::LocalSet::new()
+            .run_until(async {
+                let (viewer, mut viewer_rx) = listen(0, PairingPolicy::Generated).await;
+                let port = viewer.local_port();
+
+                let (to_lsp_tx, mut to_lsp_rx) = mpsc::unbounded_channel();
+                let connector = RemoteLspToPreview::new(to_lsp_tx, Weak::new());
+                pair(&connector, &mut viewer_rx, port).await.expect("pairing failed");
+
+                // The connector pushes this one locally on connect. Take it
+                // out of the way so the one asserted below can only have come
+                // off the wire.
+                expect_message(
+                    &mut to_lsp_rx,
+                    |m| matches!(m, PreviewToLspMessage::RequestState { .. }),
+                    "the local RequestState after pairing",
+                )
+                .await;
+
+                let url = Url::parse("file:///sealed.slint").unwrap();
+                connector.send(&LspToPreviewMessage::ShowPreview(PreviewComponent {
+                    url: url.clone(),
+                    component: None,
+                }));
+
+                // The viewer opened the sealed frame ...
+                expect_message(
+                    &mut viewer_rx,
+                    |m| matches!(m, ConnectionMessage::ShowPreview { .. }),
+                    "ShowPreview to arrive at the viewer",
+                )
+                .await;
+                // ... and its own request comes back the other way, which
+                // the connector only sees if it opens the answer.
+                // Nobody answers the request, so polling it is only how the
+                // send happens.
+                let asked = tokio::select! {
+                    _ = viewer.request_file(url.clone()) => unreachable!("nobody sent the file"),
+                    msg = expect_message(
+                        &mut to_lsp_rx,
+                        |m| matches!(m, PreviewToLspMessage::RequestState { files } if !files.is_empty()),
+                        "the viewer's request for a file",
+                    ) => msg,
+                };
+                let PreviewToLspMessage::RequestState { files } = asked else { unreachable!() };
+                assert_eq!(files, vec![url]);
 
                 connector.disconnect().await;
             })

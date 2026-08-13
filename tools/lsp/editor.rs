@@ -423,6 +423,7 @@ fn handle_preview_message(msg: PreviewToLspMessage, ctx: &language::Context) {
         | Pong
         | PairingChallenge { .. }
         | PairingRequired { .. }
+        | PairingConfirm { .. }
         | PairingAccepted
         | PairingRejected { .. } => {
             tracing::debug!("Ignoring message from preview: {msg:?}");
