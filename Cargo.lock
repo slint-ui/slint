@@ -3641,7 +3641,6 @@ dependencies = [
  "getifs",
  "getrandom 0.2.17",
  "hkdf",
- "hmac",
  "hostname",
  "i-slint-compiler",
  "i-slint-core",

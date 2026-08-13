@@ -15,32 +15,19 @@
 //! this module bound the online guessing, and there is no other avenue.
 //!
 //! The exchange also yields a session key, so everything after pairing is
-//! sealed, and the reconnect token is derived from that key rather than
-//! from the code.
+//! sealed. The reconnect token is derived from that key rather than from
+//! the code, and using it means running the same exchange again with the
+//! token as the secret: every session gets fresh keys, so recorded traffic
+//! stays sealed even if the token leaks later.
 
 use crate::protocol::session;
 use std::time::Duration;
 
-/// Byte length of the viewer's per-connection nonce.
-const NONCE_LEN: usize = 32;
-
-/// Byte length of a proof.
-const MAC_LEN: usize = 32;
-
 /// Byte length of a reconnect token.
 const TOKEN_LEN: usize = 32;
 
-/// The viewer's per-connection challenge.
-#[derive(Clone, Copy, Debug, serde::Deserialize, serde::Serialize)]
-pub struct Nonce([u8; NONCE_LEN]);
-
-/// Proof of holding a credential, without revealing it.
-///
-/// Deliberately not [`PartialEq`]: comparing proofs with `==` gives away
-/// where they first differ, so [`Proof::matches`] is the only way to
-/// compare two.
-#[derive(Clone, Copy, Debug, serde::Deserialize, serde::Serialize)]
-pub struct Proof([u8; MAC_LEN]);
+/// Byte length of a token id.
+const TOKEN_ID_LEN: usize = 16;
 
 /// A reconnect token, derived from a completed code exchange.
 ///
@@ -49,6 +36,15 @@ pub struct Proof([u8; MAC_LEN]);
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Token([u8; TOKEN_LEN]);
 
+/// The public name of a [`Token`], derived alongside it.
+///
+/// The editor announces it on reconnect, so the viewer knows which token
+/// to run the exchange with. It proves nothing by itself: anyone on the
+/// network can read it off the wire and replay it, and gets no further
+/// than the exchange the token itself is required for.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
+pub struct TokenId([u8; TOKEN_ID_LEN]);
+
 /// Compare without leaking where the two first differ.
 fn constant_time_eq(a: &[u8; 32], b: &[u8; 32]) -> bool {
     use subtle::ConstantTimeEq as _;
@@ -56,26 +52,19 @@ fn constant_time_eq(a: &[u8; 32], b: &[u8; 32]) -> bool {
     a.ct_eq(b).into()
 }
 
-impl Proof {
-    /// Compare without leaking where the two first differ.
-    pub fn matches(&self, other: &Proof) -> bool {
-        constant_time_eq(&self.0, &other.0)
-    }
-}
-
-#[cfg(test)]
-impl Nonce {
-    /// A predictable nonce, so tests can assert on what a proof depends on.
-    pub fn for_test(byte: u8) -> Self {
-        Self([byte; NONCE_LEN])
-    }
-}
-
 #[cfg(test)]
 impl Token {
     /// A token no viewer ever issued, for tests that need one to be refused.
     pub fn for_test(byte: u8) -> Self {
         Self([byte; TOKEN_LEN])
+    }
+}
+
+#[cfg(test)]
+impl TokenId {
+    /// An id no viewer ever issued.
+    pub fn for_test(byte: u8) -> Self {
+        Self([byte; TOKEN_ID_LEN])
     }
 }
 
@@ -137,6 +126,8 @@ pub struct Secrets {
     pub editor_confirmation: Confirmation,
     /// Reconnect token, bound to this exchange rather than to the code.
     pub token: Token,
+    /// Public name of `token`, for announcing it on reconnect.
+    pub token_id: TokenId,
     /// Session key for viewer-to-editor frames. Not public: key material
     /// leaves this module only inside a [`session`] codec.
     viewer_to_editor: [u8; session::DIRECTION_KEY_LEN],
@@ -187,9 +178,28 @@ pub struct Handshake {
 }
 
 impl Handshake {
-    /// Begin, holding `code` as the shared low-entropy secret.
-    pub fn start(role: Role, code: &str) -> Self {
-        let password = spake2::Password::new(code.as_bytes());
+    /// Begin a first pairing, with the on-screen code as the secret.
+    pub fn with_code(role: Role, code: &str) -> Self {
+        Self::start(role, b"code:", code.as_bytes())
+    }
+
+    /// Begin a reconnect, with an issued token as the secret.
+    ///
+    /// The token has plenty of entropy, but running it through the same
+    /// exchange instead of keying a session from it directly buys forward
+    /// secrecy: the session keys come out of the fresh exchange, so someone
+    /// who records the traffic and later steals the token opens nothing.
+    pub fn with_token(role: Role, token: &Token) -> Self {
+        Self::start(role, b"token:", &token.0)
+    }
+
+    /// The prefix keeps the two secret spaces apart, so a code exchange
+    /// and a token exchange can never agree with each other.
+    fn start(role: Role, prefix: &[u8], secret: &[u8]) -> Self {
+        let mut keyed = Vec::with_capacity(prefix.len() + secret.len());
+        keyed.extend_from_slice(prefix);
+        keyed.extend_from_slice(secret);
+        let password = spake2::Password::new(&keyed);
         let viewer = spake2::Identity::new(b"slint-preview-viewer");
         let editor = spake2::Identity::new(b"slint-preview-editor");
         let (state, element) = match role {
@@ -233,46 +243,22 @@ impl Handshake {
 
         let hkdf = hkdf::Hkdf::<sha2::Sha256>::new(Some(&transcript), &key);
         Ok(Secrets {
-            viewer_confirmation: Confirmation(expand32(&hkdf, b"confirm-viewer")),
-            editor_confirmation: Confirmation(expand32(&hkdf, b"confirm-editor")),
-            token: Token(expand32(&hkdf, b"reconnect-token")),
-            viewer_to_editor: expand32(&hkdf, b"seal-viewer-to-editor"),
-            editor_to_viewer: expand32(&hkdf, b"seal-editor-to-viewer"),
+            viewer_confirmation: Confirmation(expand(&hkdf, b"confirm-viewer")),
+            editor_confirmation: Confirmation(expand(&hkdf, b"confirm-editor")),
+            token: Token(expand(&hkdf, b"reconnect-token")),
+            token_id: TokenId(expand(&hkdf, b"reconnect-token-id")),
+            viewer_to_editor: expand(&hkdf, b"seal-viewer-to-editor"),
+            editor_to_viewer: expand(&hkdf, b"seal-editor-to-viewer"),
             role: self.role,
         })
     }
 }
 
-fn expand32(hkdf: &hkdf::Hkdf<sha2::Sha256>, label: &[u8]) -> [u8; 32] {
-    let mut out = [0u8; 32];
+fn expand<const N: usize>(hkdf: &hkdf::Hkdf<sha2::Sha256>, label: &[u8]) -> [u8; N] {
+    let mut out = [0u8; N];
     // Only fails for absurd output lengths.
-    hkdf.expand(label, &mut out).expect("32 bytes is a valid HKDF output length");
+    hkdf.expand(label, &mut out).expect("a short HKDF output length is always valid");
     out
-}
-
-/// Derive the same session keys from a token, for a reconnect that skips
-/// the code entirely.
-///
-/// Safe to key directly because a token is 32 random bytes rather than four
-/// digits, so there is nothing to search. It gives no forward secrecy,
-/// though: whoever learns the token can open recorded sessions from this
-/// viewer run. A DH exchange authenticated by the token would fix that, and
-/// would be the next thing to add.
-pub fn session_from_token(
-    role: Role,
-    token: &Token,
-    nonce: &Nonce,
-) -> (session::Sealing, session::Opening) {
-    let mut salt = Vec::with_capacity(TRANSCRIPT_LABEL.len() + NONCE_LEN);
-    salt.extend_from_slice(TRANSCRIPT_LABEL);
-    salt.extend_from_slice(&nonce.0);
-
-    let hkdf = hkdf::Hkdf::<sha2::Sha256>::new(Some(&salt), &token.0);
-    session_pair(
-        role,
-        expand32(&hkdf, b"seal-viewer-to-editor"),
-        expand32(&hkdf, b"seal-editor-to-viewer"),
-    )
 }
 
 /// Digits in a generated pairing code, short enough to read off a phone
@@ -304,30 +290,12 @@ pub const MAX_ATTEMPTS: u8 = 3;
 /// on the device's screen. Grows with repeated failures.
 pub const PROMPT_RATE_LIMIT: Duration = Duration::from_secs(30);
 
-/// Prove possession of a reconnect token against the viewer's `nonce`,
-/// without revealing the token itself.
-pub fn token_proof(token: &Token, nonce: &Nonce) -> Proof {
-    use hmac::Mac as _;
-
-    // A key of any length is fine for HMAC, so this can't fail.
-    let mut mac = hmac::Hmac::<sha2::Sha256>::new_from_slice(&token.0)
-        .expect("HMAC accepts keys of any length");
-    mac.update(b"slint-preview-pairing-token-v1");
-    mac.update(&nonce.0);
-    Proof(mac.finalize().into_bytes().into())
-}
-
 /// Random material, which only the viewer needs. Keeping it here keeps the
 /// random source out of the LSP's browser builds.
 #[cfg(feature = "remote")]
 pub mod generate {
-    use super::{CODE_DIGITS, Nonce};
+    use super::CODE_DIGITS;
     use rand::Rng as _;
-
-    /// A fresh nonce for one connection's challenge.
-    pub fn nonce() -> Nonce {
-        Nonce(rand::rng().random())
-    }
 
     /// A fresh pairing code, zero-padded to [`CODE_DIGITS`] digits.
     pub fn code() -> String {
@@ -387,20 +355,11 @@ impl std::fmt::Display for PairingRejection {
 mod tests {
     use super::*;
 
-    #[test]
-    fn a_token_proof_needs_the_token_and_the_nonce() {
-        let nonce = Nonce::for_test(7);
-        let a = token_proof(&Token::for_test(1), &nonce);
-        assert!(a.matches(&token_proof(&Token::for_test(1), &nonce)));
-        assert!(!a.matches(&token_proof(&Token::for_test(2), &nonce)));
-        assert!(!a.matches(&token_proof(&Token::for_test(1), &Nonce::for_test(8))));
-    }
-
     /// The whole point: same code on both sides, same keys.
     #[test]
     fn matching_codes_agree_on_everything() {
-        let viewer = Handshake::start(Role::Viewer, "4321");
-        let editor = Handshake::start(Role::Editor, "4321");
+        let viewer = Handshake::with_code(Role::Viewer, "4321");
+        let editor = Handshake::with_code(Role::Editor, "4321");
         let (ve, ee) = (viewer.element().clone(), editor.element().clone());
         let vs = viewer.finish(&ee).unwrap();
         let es = editor.finish(&ve).unwrap();
@@ -410,14 +369,15 @@ mod tests {
         assert_eq!(vs.viewer_to_editor, es.viewer_to_editor);
         assert_eq!(vs.editor_to_viewer, es.editor_to_viewer);
         assert_eq!(vs.token, es.token);
+        assert_eq!(vs.token_id, es.token_id);
     }
 
     /// A wrong code has to fail at confirmation, not earlier: nothing on
     /// the wire may let an observer test a guess.
     #[test]
     fn a_wrong_code_only_shows_up_at_confirmation() {
-        let viewer = Handshake::start(Role::Viewer, "4321");
-        let editor = Handshake::start(Role::Editor, "1234");
+        let viewer = Handshake::with_code(Role::Viewer, "4321");
+        let editor = Handshake::with_code(Role::Editor, "1234");
         let (ve, ee) = (viewer.element().clone(), editor.element().clone());
 
         // Both sides complete the exchange without complaint ...
@@ -436,8 +396,8 @@ mod tests {
     #[test]
     fn every_exchange_derives_different_keys() {
         let run = || {
-            let viewer = Handshake::start(Role::Viewer, "4321");
-            let editor = Handshake::start(Role::Editor, "4321");
+            let viewer = Handshake::with_code(Role::Viewer, "4321");
+            let editor = Handshake::with_code(Role::Editor, "4321");
             let (ve, ee) = (viewer.element().clone(), editor.element().clone());
             let _ = editor.finish(&ve).unwrap();
             viewer.finish(&ee).unwrap()
@@ -450,8 +410,8 @@ mod tests {
     /// this fails outright rather than quietly deriving a different key.
     #[test]
     fn a_reflected_element_is_refused() {
-        let one = Handshake::start(Role::Viewer, "4321");
-        let two = Handshake::start(Role::Viewer, "4321");
+        let one = Handshake::with_code(Role::Viewer, "4321");
+        let two = Handshake::with_code(Role::Viewer, "4321");
         let b = two.element().clone();
         assert!(one.finish(&b).is_err(), "a same-role element was accepted");
     }
@@ -460,41 +420,64 @@ mod tests {
     /// hand over the other, nor the sealing keys.
     #[test]
     fn derived_values_are_all_distinct() {
-        let viewer = Handshake::start(Role::Viewer, "4321");
-        let editor = Handshake::start(Role::Editor, "4321");
+        let viewer = Handshake::with_code(Role::Viewer, "4321");
+        let editor = Handshake::with_code(Role::Editor, "4321");
         let ee = editor.element().clone();
         let s = viewer.finish(&ee).unwrap();
         let mut seen = std::collections::HashSet::new();
-        assert!(seen.insert(s.viewer_confirmation.0));
-        assert!(seen.insert(s.editor_confirmation.0));
-        assert!(seen.insert(s.viewer_to_editor));
-        assert!(seen.insert(s.editor_to_viewer));
-        assert!(seen.insert(*s.token.as_bytes().first_chunk::<32>().unwrap()));
+        assert!(seen.insert(s.viewer_confirmation.0.to_vec()));
+        assert!(seen.insert(s.editor_confirmation.0.to_vec()));
+        assert!(seen.insert(s.viewer_to_editor.to_vec()));
+        assert!(seen.insert(s.editor_to_viewer.to_vec()));
+        assert!(seen.insert(s.token.as_bytes().to_vec()));
+        assert!(seen.insert(s.token_id.0.to_vec()));
     }
 
-    /// Both roles from the same token and nonce make one working session:
-    /// what the viewer seals, the editor opens, and vice versa.
+    /// A token exchange works like a code exchange: same token, same keys,
+    /// and the sealed session connects the two roles.
     #[test]
-    fn a_token_session_connects_the_two_roles() {
+    fn a_token_exchange_connects_the_two_roles() {
         let token = Token::for_test(3);
-        let nonce = Nonce::for_test(1);
-        let (mut viewer_seal, mut viewer_open) = session_from_token(Role::Viewer, &token, &nonce);
-        let (mut editor_seal, mut editor_open) = session_from_token(Role::Editor, &token, &nonce);
+        let viewer = Handshake::with_token(Role::Viewer, &token);
+        let editor = Handshake::with_token(Role::Editor, &token);
+        let (ve, ee) = (viewer.element().clone(), editor.element().clone());
+        let vs = viewer.finish(&ee).unwrap();
+        let es = editor.finish(&ve).unwrap();
+
+        assert!(vs.editor_confirmation.matches(&es.editor_confirmation));
+        let (mut viewer_seal, _) = vs.session();
+        let (_, mut editor_open) = es.session();
         let down = viewer_seal.seal(b"to the editor".to_vec()).unwrap();
         assert_eq!(editor_open.open(&down).unwrap().as_ref(), b"to the editor");
-        let up = editor_seal.seal(b"to the viewer".to_vec()).unwrap();
-        assert_eq!(viewer_open.open(&up).unwrap().as_ref(), b"to the viewer");
     }
 
-    /// The viewer picks a fresh nonce per connection, so a token gives
-    /// different session keys every time it is used.
+    /// A wrong token fails like a wrong code: both sides finish without
+    /// complaint and only the confirmations disagree. This is what stops a
+    /// peer that sniffed a token *id* off the wire.
     #[test]
-    fn a_token_session_is_fresh_per_connection() {
+    fn a_wrong_token_only_shows_up_at_confirmation() {
+        let viewer = Handshake::with_token(Role::Viewer, &Token::for_test(3));
+        let editor = Handshake::with_token(Role::Editor, &Token::for_test(9));
+        let (ve, ee) = (viewer.element().clone(), editor.element().clone());
+        let vs = viewer.finish(&ee).unwrap();
+        let es = editor.finish(&ve).unwrap();
+        assert!(!vs.editor_confirmation.matches(&es.editor_confirmation));
+        assert!(!vs.viewer_confirmation.matches(&es.viewer_confirmation));
+    }
+
+    /// The forward-secrecy property this design buys: reusing a token still
+    /// produces fresh keys every session, so no recorded session can be
+    /// opened by learning the token later.
+    #[test]
+    fn a_token_exchange_gives_fresh_keys_every_time() {
         let token = Token::for_test(3);
-        let (mut sealer, _) = session_from_token(Role::Viewer, &token, &Nonce::for_test(1));
-        let (_, mut opener) = session_from_token(Role::Editor, &token, &Nonce::for_test(9));
-        let sealed = sealer.seal(b"stale".to_vec()).unwrap();
-        assert!(opener.open(&sealed).is_err(), "keys survived a nonce change");
+        let run = || {
+            let viewer = Handshake::with_token(Role::Viewer, &token);
+            let editor = Handshake::with_token(Role::Editor, &token);
+            let ee = editor.element().clone();
+            viewer.finish(&ee).unwrap()
+        };
+        assert_ne!(run().viewer_to_editor, run().viewer_to_editor);
     }
 
     #[test]
