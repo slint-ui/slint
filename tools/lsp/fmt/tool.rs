@@ -132,13 +132,11 @@ fn process_file(
     };
     match result {
         Ok(()) => Ok(()),
-        Err(e) if e.kind() == std::io::ErrorKind::InvalidData => {
-            Err(std::io::Error::new(
-                    std::io::ErrorKind::InvalidData,
-                    format!("Formatting {} failed", path.display()),
-            ))
-        }
-        Err(e) => Err(e)
+        Err(e) if e.kind() == std::io::ErrorKind::InvalidData => Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            format!("Formatting {} failed", path.display()),
+        )),
+        Err(e) => Err(e),
     }
 }
 
