@@ -52,10 +52,13 @@ class SlintFfi {
   /// Find `libslint_dart`.
   ///
   /// `SLINT_DART_LIBRARY` wins when set. Otherwise this looks through the
-  /// Cargo output directories above the current directory and above the running
-  /// script, which is what makes the in-tree examples runnable straight after a
-  /// `cargo build`. As a last resort the platform loader gets a chance, which
-  /// is the path a packaged application takes.
+  /// Cargo output directories above the current directory, the running
+  /// executable, and the running script, which is what makes the in-tree
+  /// examples runnable straight after a `cargo build`. The executable root
+  /// covers `flutter run`: a desktop app's working directory and script are
+  /// usually outside the repository, but the `.app` bundle lives under the
+  /// project's `build/` directory. As a last resort the platform loader gets
+  /// a chance, which is the path a packaged application takes.
   static DynamicLibrary _openLibrary() {
     final explicit = Platform.environment['SLINT_DART_LIBRARY'];
     if (explicit != null && explicit.isNotEmpty) {
@@ -80,6 +83,7 @@ class SlintFfi {
   static String? _findInCargoTarget() {
     final roots = <String>{
       Directory.current.path,
+      File(Platform.resolvedExecutable).parent.path,
       if (Platform.script.scheme == 'file')
         File.fromUri(Platform.script).parent.path,
     };

@@ -154,8 +154,9 @@ cargo build --release -p slint-dart
 ```
 
 `package:slint` finds the library by looking at `SLINT_DART_LIBRARY` first, then
-walking up from the working directory and from the running script for a
-`target/release` or `target/debug` copy, and finally asking the platform loader.
+walking up from the working directory, the running executable, and the running
+script for a `target/release` or `target/debug` copy, and finally asking the
+platform loader.
 That last step is the one a packaged application uses; ship the library next to
 the executable.
 
