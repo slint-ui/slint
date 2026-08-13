@@ -1117,6 +1117,11 @@ fn embed_resource(
 ) {
     match &resource.kind {
         crate::embedded_resources::EmbeddedResourcesKind::ListOnly => {}
+        // Only the slint-sc generator produces these resources.
+        #[cfg(feature = "slint-sc")]
+        crate::embedded_resources::EmbeddedResourcesKind::StaticPixels { .. } => {
+            unreachable!("slint-sc resources in the C++ generator")
+        }
         crate::embedded_resources::EmbeddedResourcesKind::FileData => {
             let resource_file = crate::fileaccess::load_file(std::path::Path::new(
                 resource.path.as_deref().unwrap(),
