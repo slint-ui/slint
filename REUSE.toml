@@ -189,6 +189,8 @@ path = [
   "internal/compiler/tests/syntax/slint-sc/image_2x2.png",
   "internal/compiler/tests/syntax/slint-sc/image.svg",
 
+  "docs/astro/src/content/docs/reference/language/images/logo.png",
+
   "tests/screenshots/**/**.png",
   "tests/screenshots/references/anyrender/**.json",
 

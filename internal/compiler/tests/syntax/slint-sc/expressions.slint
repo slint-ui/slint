@@ -28,11 +28,13 @@ export component Test inherits Window {
     property <image> i: @image-url("image_2x2.png");
     property <image> i2: @image-url("");
     // @image-url of anything but a file on disk is rejected
+    //#sls.expr.image.path-only
     property <image> i3: @image-url("data:image/png;base64,iVBORw0KGgo=");
 //                       >                                              <error{Data URIs in @image-url() are not supported in Slint SC}
     property <image> i4: @image-url("https://slint.dev/logo/slint-logo.png");
 //                       >                                                 <error{URLs in @image-url() are not supported in Slint SC}
     // nine-slice borders are rejected
+    //#sls.expr.image.no-nine-slice
     property <image> i5: @image-url("image_2x2.png", nine-slice(1 2 3 4));
 //                       >                                              <error{Nine-slice borders in @image-url() are not supported in Slint SC}
     // @tr

@@ -82,8 +82,21 @@ The Rust type `T` of a property maps from its Slint type:
 | `color` | [`slint_sc::Color`](/api/slint_sc/struct.Color.html) |
 | `length` | `i32` |
 | `bool` | `bool` |
+| `image` | `slint_sc::Image` |
 | a declared `struct` | the generated struct of the same name |
 | a declared `enum` | the generated enum of the same name |
+
+An `slint_sc::Image` is either `Image::None`, no image, or
+`Image::StaticArgb`, a reference to `'static` packed pixel bytes in
+row-major order together with the image's width, four bytes per pixel:
+alpha, red, green, and blue.
+The default is `Image::None`. \{#sls.gen.prop.types.image}
+
+The image of an [`@image-url()`](/language/expressions/#sls.expr.image.form)
+literal is decoded when the code is generated and embedded in it as a
+`static` holding an `Image::StaticArgb`; the literals of one `.slint` file
+that name the same image file share one embedded
+copy. \{#sls.gen.image.static}
 
 ## Callbacks
 
