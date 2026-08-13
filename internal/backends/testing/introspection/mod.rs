@@ -596,6 +596,19 @@ pub(crate) fn element_properties(element: &ElementHandle) -> proto::ElementPrope
             Some(LayoutKind::FlexboxLayout) => proto::LayoutKind::FlexboxLayout.into(),
             None => proto::LayoutKind::NotALayout.into(),
         },
+        accessible_item_count: element.accessible_item_count().unwrap_or_default() as u32,
+        accessible_item_index: element.accessible_item_index().unwrap_or_default() as u32,
+        accessible_item_selected: element.accessible_item_selected().unwrap_or_default(),
+        accessible_item_selectable: element.accessible_item_selectable().unwrap_or_default(),
+        accessible_orientation: match element.accessible_orientation().unwrap_or_default() {
+            crate::Orientation::Horizontal => proto::Orientation::Horizontal.into(),
+            crate::Orientation::Vertical => proto::Orientation::Vertical.into(),
+        },
+        accessible_live_region: convert_to_proto_accessible_liveness(
+            element.accessible_live_region().unwrap_or_default(),
+        )
+        .unwrap_or_default()
+        .into(),
     }
 }
 
@@ -685,6 +698,17 @@ pub(crate) fn convert_to_proto_accessible_role(
         i_slint_core::items::AccessibleRole::Navigation => proto::AccessibleRole::Navigation,
         i_slint_core::items::AccessibleRole::Region => proto::AccessibleRole::Region,
         i_slint_core::items::AccessibleRole::Search => proto::AccessibleRole::Search,
+        _ => return None,
+    })
+}
+
+pub(crate) fn convert_to_proto_accessible_liveness(
+    liveness: i_slint_core::items::AccessibleLiveness,
+) -> Option<proto::AccessibleLiveness> {
+    Some(match liveness {
+        i_slint_core::items::AccessibleLiveness::Off => proto::AccessibleLiveness::Off,
+        i_slint_core::items::AccessibleLiveness::Polite => proto::AccessibleLiveness::Polite,
+        i_slint_core::items::AccessibleLiveness::Assertive => proto::AccessibleLiveness::Assertive,
         _ => return None,
     })
 }
@@ -1100,10 +1124,13 @@ fn test_pointer_event_button_mapping_preserves_extended_buttons() {
 }
 
 #[test]
-fn test_accessibility_role_mapping_complete() {
+fn test_accessibility_enum_mapping_complete() {
     macro_rules! test_accessibility_enum_mapping_inner {
         (AccessibleRole, $($Value:ident,)*) => {
             $(assert!(convert_to_proto_accessible_role(i_slint_core::items::AccessibleRole::$Value).is_some());)*
+        };
+        (AccessibleLiveness, $($Value:ident,)*) => {
+            $(assert!(convert_to_proto_accessible_liveness(i_slint_core::items::AccessibleLiveness::$Value).is_some());)*
         };
         ($_:ident, $($Value:ident,)*) => {};
     }
