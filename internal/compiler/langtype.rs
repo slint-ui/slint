@@ -199,9 +199,15 @@ impl Type {
             Self::Int32 | Self::LogicalLength | Self::Color | Self::Bool | Self::Image => true,
             // A user-declared enum.
             Self::Enumeration(en) => en.node.is_some(),
-            // A user-declared struct. Its field types were validated where the
-            // struct was declared, so they need no re-check here.
-            Self::Struct(s) => matches!(&s.name, StructName::User { .. }),
+            // A user-declared struct, whose field types were validated where
+            // the struct was declared, so they need no re-check here; or the
+            // builtin Size struct, which the lookup wraps around an image for
+            // its `.width`/`.height` dimension reads. No property can be of
+            // type Size: it has no name to declare it by.
+            Self::Struct(s) => matches!(
+                &s.name,
+                StructName::User { .. } | StructName::Builtin(BuiltinStruct::Size)
+            ),
             _ => false,
         }
     }

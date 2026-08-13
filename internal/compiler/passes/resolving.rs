@@ -3149,7 +3149,10 @@ fn check_slint_sc_reference(expr: &Expression, node: &SyntaxNode, ctx: &mut Look
         // A value of a user-declared enum, written `EnumName.value`.
         Expression::EnumerationValue(ev) if ev.enumeration.node.is_some() => {}
         // A field access on an SC struct, written `some-struct.field`. The base
-        // being an SC struct is enough: its fields are always SC types.
+        // being an SC struct is enough: its fields are always SC types. This
+        // includes the dimensions of an image value, `some-image.width` and
+        // `some-image.height`: fields of the builtin Size struct the lookup
+        // wraps around the image.
         Expression::StructFieldAccess { base, .. } if base.ty().is_slint_sc() => {}
         _ => ctx.diag.slint_sc_error("Identifier references are", node),
     }
