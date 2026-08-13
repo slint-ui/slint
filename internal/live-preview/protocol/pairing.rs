@@ -45,13 +45,6 @@ pub struct Token([u8; TOKEN_LEN]);
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
 pub struct TokenId([u8; TOKEN_ID_LEN]);
 
-/// Compare without leaking where the two first differ.
-fn constant_time_eq(a: &[u8; 32], b: &[u8; 32]) -> bool {
-    use subtle::ConstantTimeEq as _;
-
-    a.ct_eq(b).into()
-}
-
 #[cfg(test)]
 impl Token {
     /// A token no viewer ever issued, for tests that need one to be refused.
@@ -100,15 +93,18 @@ impl Element {
     }
 }
 
-/// Proof of having derived the same key. Not [`PartialEq`], for the same
-/// reason [`Proof`] isn't.
+/// Proof of having derived the same key. Deliberately not [`PartialEq`]:
+/// comparing with `==` gives away where two proofs first differ, so
+/// [`Confirmation::matches`] is the only way to compare.
 #[derive(Clone, Copy, Debug, serde::Deserialize, serde::Serialize)]
 pub struct Confirmation([u8; 32]);
 
 impl Confirmation {
     /// Compare without leaking where the two first differ.
     pub fn matches(&self, other: &Confirmation) -> bool {
-        constant_time_eq(&self.0, &other.0)
+        use subtle::ConstantTimeEq as _;
+
+        self.0.ct_eq(&other.0).into()
     }
 }
 
@@ -120,10 +116,13 @@ pub struct HandshakeFailed;
 
 /// Everything derived once both sides finish.
 pub struct Secrets {
-    /// The viewer proves knowledge with this; the editor checks it.
-    pub viewer_confirmation: Confirmation,
+    /// The viewer proves knowledge with this; the editor checks it. Not
+    /// public: which one to send and which to check is decided by
+    /// [`Self::confirmation`] and [`Self::peer_confirms`], never at a call
+    /// site.
+    viewer_confirmation: Confirmation,
     /// The editor proves knowledge with this; the viewer checks it.
-    pub editor_confirmation: Confirmation,
+    editor_confirmation: Confirmation,
     /// Reconnect token, bound to this exchange rather than to the code.
     pub token: Token,
     /// Public name of `token`, for announcing it on reconnect.
@@ -133,14 +132,46 @@ pub struct Secrets {
     viewer_to_editor: [u8; session::DIRECTION_KEY_LEN],
     /// Session key for editor-to-viewer frames.
     editor_to_viewer: [u8; session::DIRECTION_KEY_LEN],
-    /// Which side derived this, so [`Self::session`] knows the directions.
+    /// Which side derived this, so the role-dependent accessors know their
+    /// directions.
     role: Role,
 }
 
 impl Secrets {
     /// The sealed session for the side that ran the handshake.
+    ///
+    /// The one place that decides who seals with which key. Getting this
+    /// wrong compiles fine and only surfaces as every frame failing to
+    /// open, which is why it isn't decided at the call sites.
     pub fn session(&self) -> (session::Sealing, session::Opening) {
-        session_pair(self.role, self.viewer_to_editor, self.editor_to_viewer)
+        let (seal, open) = match self.role {
+            Role::Viewer => (self.viewer_to_editor, self.editor_to_viewer),
+            Role::Editor => (self.editor_to_viewer, self.viewer_to_editor),
+        };
+        (
+            session::Sealing::Sealed(session::Sealer::new(seal)),
+            session::Opening::Sealed(session::Opener::new(open)),
+        )
+    }
+
+    /// The proof this side sends to the peer.
+    pub fn confirmation(&self) -> Confirmation {
+        match self.role {
+            Role::Viewer => self.viewer_confirmation,
+            Role::Editor => self.editor_confirmation,
+        }
+    }
+
+    /// Whether `theirs` proves the peer derived the same key. Like the
+    /// session keys, which confirmation is the peer's is decided here and
+    /// not at the call sites: picking the wrong one would accept our own
+    /// proof as the peer's.
+    pub fn peer_confirms(&self, theirs: &Confirmation) -> bool {
+        let peers = match self.role {
+            Role::Viewer => &self.editor_confirmation,
+            Role::Editor => &self.viewer_confirmation,
+        };
+        theirs.matches(peers)
     }
 }
 
@@ -150,24 +181,6 @@ impl Secrets {
     pub fn key_material(&self) -> [&[u8]; 2] {
         [&self.viewer_to_editor, &self.editor_to_viewer]
     }
-}
-
-/// The one place that decides who seals with which key. Getting this wrong
-/// compiles fine and only surfaces as every frame failing to open, which is
-/// why it isn't decided at the call sites.
-fn session_pair(
-    role: Role,
-    viewer_to_editor: [u8; session::DIRECTION_KEY_LEN],
-    editor_to_viewer: [u8; session::DIRECTION_KEY_LEN],
-) -> (session::Sealing, session::Opening) {
-    let (seal, open) = match role {
-        Role::Viewer => (viewer_to_editor, editor_to_viewer),
-        Role::Editor => (editor_to_viewer, viewer_to_editor),
-    };
-    (
-        session::Sealing::Sealed(session::Sealer::new(seal)),
-        session::Opening::Sealed(session::Opener::new(open)),
-    )
 }
 
 /// One side of the SPAKE2 exchange, mid-flight.
@@ -251,6 +264,18 @@ impl Handshake {
             editor_to_viewer: expand(&hkdf, b"seal-editor-to-viewer"),
             role: self.role,
         })
+    }
+
+    /// Finish against the peer's element and require their proof, for the
+    /// side that receives both together. One call, so no call site can
+    /// finish and forget to check.
+    pub fn finish_confirmed(
+        self,
+        peer: &Element,
+        theirs: &Confirmation,
+    ) -> Result<Secrets, HandshakeFailed> {
+        let secrets = self.finish(peer)?;
+        if secrets.peer_confirms(theirs) { Ok(secrets) } else { Err(HandshakeFailed) }
     }
 }
 

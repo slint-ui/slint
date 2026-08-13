@@ -60,6 +60,14 @@ struct Prompt {
     element: pairing::Element,
 }
 
+/// How one run of the editor's half of the exchange ended.
+enum ExchangeVerdict {
+    /// The viewer proved it derived the same key.
+    Confirmed(pairing::Secrets),
+    /// The viewer turned the secret down.
+    Rejected(PairingRejection),
+}
+
 /// Why a dial attempt produced no session.
 enum ConnectError {
     /// Worth retrying on a timer: nothing listening, socket died, superseded.
@@ -177,6 +185,41 @@ impl SharedState {
         let generation = self.generation.get() + 1;
         self.generation.set(generation);
         generation
+    }
+
+    /// The token held for any of the viewer's addresses.
+    fn held_token(&self, keys: &[String]) -> Option<(TokenId, Token)> {
+        let tokens = self.tokens.borrow();
+        keys.iter().find_map(|key| tokens.get(key).copied())
+    }
+
+    /// Store a token under every address the viewer is known by, so a
+    /// reconnect that lands on another one doesn't ask for a code again.
+    fn remember_token(&self, keys: &[String], issued: (TokenId, Token)) {
+        let mut tokens = self.tokens.borrow_mut();
+        for key in keys {
+            tokens.insert(key.clone(), issued);
+        }
+    }
+
+    fn forget_token(&self, keys: &[String]) {
+        let mut tokens = self.tokens.borrow_mut();
+        for key in keys {
+            tokens.remove(key);
+        }
+    }
+
+    /// Remember the user's ok to talk to this viewer unencrypted.
+    fn allow_unpaired(&self, keys: &[String]) {
+        let mut unpaired_ok = self.unpaired_ok.borrow_mut();
+        for key in keys {
+            unpaired_ok.insert(key.clone());
+        }
+    }
+
+    fn unpaired_allowed(&self, keys: &[String]) -> bool {
+        let unpaired_ok = self.unpaired_ok.borrow();
+        keys.iter().any(|key| unpaired_ok.contains(key))
     }
 
     /// Forward a connection-state transition to the local preview dialog.
@@ -440,7 +483,7 @@ impl RemoteLspToPreview {
             ));
         };
 
-        let held = keys.iter().find_map(|key| shared.tokens.borrow().get(key).copied());
+        let held = shared.held_token(keys);
         Self::send_message(
             stream,
             &LspToPreviewMessage::PairingHello { token: held.map(|(id, _)| id) },
@@ -461,12 +504,9 @@ impl RemoteLspToPreview {
                     // Anyone can claim this, so the user gets asked before
                     // anything is sent over what would be a plaintext
                     // session -- once per target, not on every reconnect.
-                    if !keys.iter().any(|key| shared.unpaired_ok.borrow().contains(key)) {
+                    if !shared.unpaired_allowed(keys) {
                         Self::confirm_unpaired(shared, stream, target).await?;
-                        let mut unpaired_ok = shared.unpaired_ok.borrow_mut();
-                        for key in keys {
-                            unpaired_ok.insert(key.clone());
-                        }
+                        shared.allow_unpaired(keys);
                     }
                     tracing::info!("Viewer at {target} has pairing disabled");
                     return Ok((session::Sealing::Plaintext, session::Opening::Plaintext));
@@ -496,12 +536,7 @@ impl RemoteLspToPreview {
                     match reason {
                         // Issued by an earlier run of that viewer. Forget it;
                         // the code prompt follows on the same connection.
-                        PairingRejection::BadToken => {
-                            let mut tokens = shared.tokens.borrow_mut();
-                            for key in keys {
-                                tokens.remove(key);
-                            }
-                        }
+                        PairingRejection::BadToken => shared.forget_token(keys),
                         // The retry count comes with the prompt that follows.
                         PairingRejection::BadCode => {}
                         // Everything else ends this attempt, one way or another.
@@ -534,8 +569,8 @@ impl RemoteLspToPreview {
         }
     }
 
-    /// Answer one code prompt: ask the user, run the editor's half of the
-    /// SPAKE2 exchange, and check the viewer's confirmation.
+    /// Answer one code prompt: ask the user, then run the exchange with
+    /// what they typed.
     ///
     /// `Ok(None)` is a wrong code with attempts left; the viewer sends a
     /// fresh prompt and the caller goes around again.
@@ -555,58 +590,21 @@ impl RemoteLspToPreview {
         )
         .await?;
 
-        // The code never goes on the wire, and neither does anything an
-        // observer could test a guess against: the exchange only reveals
-        // whether both sides agreed.
         let handshake = pairing::Handshake::with_code(pairing::Role::Editor, &code);
-        let our_element = handshake.element().clone();
-        let secrets = handshake
-            .finish(&prompt.element)
-            .map_err(|_| ConnectError::Transient("The viewer sent a malformed handshake".into()))?;
-
-        Self::send_message(
-            stream,
-            &LspToPreviewMessage::PairingResponse {
-                element: our_element,
-                confirmation: secrets.editor_confirmation,
-            },
-        )
-        .await?;
-
-        // The viewer answers with its own confirmation only if it derived
-        // the same key, so this is where a wrong code surfaces. Anything
-        // else means it refused us.
-        match Self::next_message(stream).await {
-            Some(PreviewToLspMessage::PairingConfirm { confirmation })
-                if confirmation.matches(&secrets.viewer_confirmation) =>
-            {
+        match Self::run_exchange(stream, handshake, &prompt.element).await? {
+            ExchangeVerdict::Confirmed(secrets) => {
                 tracing::info!("Paired with remote viewer at {target}");
-                let issued = (secrets.token_id, secrets.token);
-                let mut tokens = shared.tokens.borrow_mut();
-                for key in keys {
-                    tokens.insert(key.clone(), issued);
-                }
+                shared.remember_token(keys, (secrets.token_id, secrets.token));
                 Ok(Some(secrets.session()))
             }
-            Some(PreviewToLspMessage::PairingConfirm { .. }) => {
-                // Same code space, different key: either we typed the wrong
-                // code or something is in the middle.
-                Err(ConnectError::Transient("The viewer could not confirm the pairing".into()))
-            }
-            Some(PreviewToLspMessage::PairingRejected { reason }) => {
-                if reason == PairingRejection::BadCode {
-                    return Ok(None);
-                }
-                Err(from_rejection(reason))
-            }
-            _ => Err(ConnectError::Transient(
-                "The viewer closed the connection during pairing".into(),
-            )),
+            // A wrong code with attempts left: the fresh prompt follows.
+            ExchangeVerdict::Rejected(PairingRejection::BadCode) => Ok(None),
+            ExchangeVerdict::Rejected(reason) => Err(from_rejection(reason)),
         }
     }
 
-    /// The editor's half of the reconnect exchange: prove the token, check
-    /// the viewer proved it too, and key the session from the fresh secrets.
+    /// The reconnect exchange: like a code prompt, with the token as the
+    /// secret and nobody asked.
     ///
     /// `Ok(None)` is a refused token; the caller forgets it and falls
     /// through to the code prompt the viewer sends next.
@@ -619,6 +617,33 @@ impl RemoteLspToPreview {
         viewer_element: &pairing::Element,
     ) -> std::result::Result<Option<(session::Sealing, session::Opening)>, ConnectError> {
         let handshake = pairing::Handshake::with_token(pairing::Role::Editor, token);
+        match Self::run_exchange(stream, handshake, viewer_element).await? {
+            ExchangeVerdict::Confirmed(secrets) => {
+                tracing::info!("Reconnected to remote viewer at {target} by token");
+                Ok(Some(secrets.session()))
+            }
+            // Refused after all: forget it, like a token the viewer never
+            // knew, and take the code prompt that follows.
+            ExchangeVerdict::Rejected(PairingRejection::BadToken) => {
+                shared.forget_token(keys);
+                Ok(None)
+            }
+            ExchangeVerdict::Rejected(reason) => Err(from_rejection(reason)),
+        }
+    }
+
+    /// The editor's half of one SPAKE2 exchange, whatever the secret:
+    /// answer the viewer's element, then require its proof of having
+    /// derived the same key.
+    ///
+    /// The secret never goes on the wire, and neither does anything an
+    /// observer could test a guess against: the exchange only reveals
+    /// whether both sides agreed.
+    async fn run_exchange(
+        stream: &mut WebSocketStream,
+        handshake: pairing::Handshake,
+        viewer_element: &pairing::Element,
+    ) -> std::result::Result<ExchangeVerdict, ConnectError> {
         let our_element = handshake.element().clone();
         let secrets = handshake
             .finish(viewer_element)
@@ -628,33 +653,27 @@ impl RemoteLspToPreview {
             stream,
             &LspToPreviewMessage::PairingResponse {
                 element: our_element,
-                confirmation: secrets.editor_confirmation,
+                confirmation: secrets.confirmation(),
             },
         )
         .await?;
 
+        // The viewer answers with its own confirmation only if it derived
+        // the same key, so this is where a wrong secret surfaces. Anything
+        // else means it refused us.
         match Self::next_message(stream).await {
             Some(PreviewToLspMessage::PairingConfirm { confirmation })
-                if confirmation.matches(&secrets.viewer_confirmation) =>
+                if secrets.peer_confirms(&confirmation) =>
             {
-                tracing::info!("Reconnected to remote viewer at {target} by token");
-                Ok(Some(secrets.session()))
+                Ok(ExchangeVerdict::Confirmed(secrets))
             }
-            // The real viewer knows the token it issued, so a failed
-            // confirmation means someone else is answering. Keep the token:
-            // it is still good against the real viewer.
             Some(PreviewToLspMessage::PairingConfirm { .. }) => {
-                Err(ConnectError::Transient("The viewer could not confirm the reconnect".into()))
+                // Same secret space, different key: a mistyped code, or
+                // someone in the middle answering for a token it can't know.
+                Err(ConnectError::Transient("The viewer could not confirm the pairing".into()))
             }
             Some(PreviewToLspMessage::PairingRejected { reason }) => {
-                if reason == PairingRejection::BadToken {
-                    let mut tokens = shared.tokens.borrow_mut();
-                    for key in keys {
-                        tokens.remove(key);
-                    }
-                    return Ok(None);
-                }
-                Err(from_rejection(reason))
+                Ok(ExchangeVerdict::Rejected(reason))
             }
             _ => Err(ConnectError::Transient(
                 "The viewer closed the connection during pairing".into(),
