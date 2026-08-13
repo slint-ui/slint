@@ -59,7 +59,7 @@ pub trait RepeatedItemTree:
     }
 
     /// Returns what's needed to perform a flexbox layout if this ItemTree is in a FlexboxLayout.
-    /// Includes flex-specific properties (cross-axis-self-alignment, flex-order).
+    /// Includes flex-specific properties (layout-order).
     fn flexbox_layout_item_info(
         self: Pin<&Self>,
         orientation: Orientation,

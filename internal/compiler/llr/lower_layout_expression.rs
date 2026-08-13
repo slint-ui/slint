@@ -1100,7 +1100,7 @@ fn make_flex_props_struct(fp: FlexItemProps) -> llr_Expression {
         BuiltinStruct::FlexItemProps,
         [
             ("cross-axis-self-alignment", align_self_ty, fp.align_self),
-            ("flex-order", Type::Int32, fp.order),
+            ("layout-order", Type::Int32, fp.order),
         ],
     )
 }
@@ -1976,7 +1976,7 @@ pub fn get_flexbox_layout_item_info_for_repeated(
     let (_, align_self_default) = default_align_self();
 
     let align_self = prop_ref("cross-axis-self-alignment").unwrap_or(align_self_default);
-    let order = prop_ref("flex-order").unwrap_or(llr_Expression::NumberLiteral(0.0));
+    let order = prop_ref("layout-order").unwrap_or(llr_Expression::NumberLiteral(0.0));
 
     make_struct(
         BuiltinStruct::FlexboxLayoutItemInfo,
