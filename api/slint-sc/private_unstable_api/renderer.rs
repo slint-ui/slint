@@ -187,6 +187,8 @@ fn test_draw_image() {
     // The image is drawn pixel for pixel at its position, over the buffer:
     // opaque pixels replace, the half-transparent green blends with the white
     // underneath, and the transparent pixel leaves the buffer as it was
+    //#sls.paint.image
+    //#sls.paint.image.blend
     let mut buffer = [0xff; 4 * 4 * 3];
     draw_image(&mut buffer, crate::Size::new(4, 4), [1, 2], TEST_IMAGE);
     // 0 * 128 + 255 * 127 + 127 == 32512, and 32512 / 255 == 127; green stays 255
@@ -208,6 +210,7 @@ fn test_draw_image() {
 fn test_draw_image_clipped() {
     // At (-1, -1) only the transparent bottom-right image pixel lands on the
     // buffer pixel (0, 0), which it leaves untouched
+    //#sls.paint.clip
     let mut buffer = [7u8; 2 * 2 * 3];
     draw_image(&mut buffer, crate::Size::new(2, 2), [-1, -1], TEST_IMAGE);
     assert_eq!(buffer, [7u8; 2 * 2 * 3]);
@@ -238,6 +241,7 @@ fn test_draw_image_clipped() {
 #[test]
 fn test_draw_image_nothing_to_draw() {
     // No image, and a static image without pixels, draw nothing
+    //#sls.paint.image.none
     let mut buffer = [7u8; 2 * 2 * 3];
     draw_image(&mut buffer, crate::Size::new(2, 2), [0, 0], crate::Image::None);
     draw_image(

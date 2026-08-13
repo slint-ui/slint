@@ -315,6 +315,7 @@ fn test_touch_event() {
 #[test]
 fn test_image() {
     // The default image is no image
+    //#sls.gen.prop.types.image
     assert_eq!(Image::default(), Image::None);
     assert_eq!((Image::None.width(), Image::None.height()), (0, 0));
 

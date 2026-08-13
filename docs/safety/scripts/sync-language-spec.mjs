@@ -159,6 +159,31 @@ for (const entry of readdirSync(source)) {
         writeFileSync(targetFile, content);
     }
 }
+// The images that specification examples reference: `@image-url()` in a
+// snippet resolves relative to its chapter, so the synced copies need the
+// files too (the doctests compile the copies in SC mode, which embeds the
+// images).
+const imagesSource = join(source, "images");
+if (existsSync(imagesSource)) {
+    const imagesTarget = join(target, "images");
+    mkdirSync(imagesTarget, { recursive: true });
+    const wantedImages = new Set();
+    for (const entry of readdirSync(imagesSource)) {
+        wantedImages.add(entry);
+        const content = readFileSync(join(imagesSource, entry));
+        const targetFile = join(imagesTarget, entry);
+        if (!existsSync(targetFile) || !readFileSync(targetFile).equals(content)) {
+            writeFileSync(targetFile, content);
+        }
+    }
+    for (const entry of readdirSync(imagesTarget)) {
+        if (!wantedImages.has(entry)) {
+            rmSync(join(imagesTarget, entry));
+        }
+    }
+    wanted.add("images");
+}
+
 for (const entry of readdirSync(target)) {
     if (!wanted.has(entry)) {
         rmSync(join(target, entry), { recursive: true });
