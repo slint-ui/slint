@@ -887,8 +887,9 @@ async fn handle_preview_to_lsp_message(message: PreviewToLspMessage, ctx: &Conte
         }
         // The connector completes pairing before a session exists, so these
         // never reach the LSP's message loop.
-        M::PairingChallenge { .. }
+        M::PairingReady
         | M::PairingRequired { .. }
+        | M::PairingTokenChallenge { .. }
         | M::PairingConfirm { .. }
         | M::PairingAccepted
         | M::PairingRejected { .. } => {

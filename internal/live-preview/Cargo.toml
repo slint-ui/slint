@@ -21,7 +21,6 @@ serde = { workspace = true, optional = true }
 serde_json = { workspace = true, optional = true }
 derive_more = { workspace = true, features = ["debug"], optional = true }
 # protocol: the pairing handshake, needed by both ends of the connection
-hmac = { version = "0.12.1", optional = true }
 spake2 = { version = "0.4.0", optional = true }
 hkdf = { version = "0.12.4", optional = true }
 chacha20poly1305 = { version = "0.10.1", optional = true }
@@ -73,7 +72,6 @@ protocol = [
   "dep:serde",
   "dep:serde_json",
   "dep:derive_more",
-  "dep:hmac",
   "dep:sha2",
   "dep:subtle",
   "dep:spake2",

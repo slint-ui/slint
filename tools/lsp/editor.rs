@@ -421,8 +421,9 @@ fn handle_preview_message(msg: PreviewToLspMessage, ctx: &language::Context) {
         | SubmitPairingCode { .. }
         | CancelPairing
         | Pong
-        | PairingChallenge { .. }
+        | PairingReady
         | PairingRequired { .. }
+        | PairingTokenChallenge { .. }
         | PairingConfirm { .. }
         | PairingAccepted
         | PairingRejected { .. } => {

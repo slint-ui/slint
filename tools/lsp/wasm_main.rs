@@ -398,8 +398,9 @@ impl SlintServer {
             | M::SubmitPairingCode { .. }
             | M::CancelPairing
             | M::Pong
-            | M::PairingChallenge { .. }
+            | M::PairingReady
             | M::PairingRequired { .. }
+            | M::PairingTokenChallenge { .. }
             | M::PairingConfirm { .. }
             | M::PairingAccepted
             | M::PairingRejected { .. } => {
