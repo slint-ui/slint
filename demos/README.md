@@ -69,3 +69,18 @@ cd demos/printerdemo/node
 pnpm install
 pnpm start
 ```
+
+---
+### Running the Dart Demos
+
+The Dart demos are Flutter applications. Build the native library, generate the
+platform runner once, then run:
+
+```sh
+cargo build --release -p slint-dart
+cd demos/printerdemo/flutter
+fvm flutter create --platforms=macos --project-name=printerdemo .
+fvm flutter run -d macos
+```
+
+See [`api/flutter`](/api/flutter/README.md) for the binding itself.

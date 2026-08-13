@@ -13,6 +13,11 @@ node_modules
 Pipfile.lock
 /playwright-report
 
+# Dart / Flutter
+.dart_tool/
+.fvm/
+**/pubspec.lock
+
 # Ignore all package-lock.json files
 **/package-lock.json
 # But keep these specific ones

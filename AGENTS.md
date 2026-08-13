@@ -44,6 +44,13 @@ cmake --build .
 cd api/node && pnpm install && pnpm build
 ```
 
+### Dart / Flutter Build
+The Dart and Flutter SDK is pinned with [FVM](https://fvm.app) in `.fvmrc`.
+```sh
+cargo build --release -p slint-dart      # the native library the binding loads
+cd api/flutter && fvm dart pub get
+```
+
 ## Testing
 
 Don't run `cargo build` before `cargo test` — `cargo test` compiles what it needs.
@@ -57,6 +64,7 @@ cargo test --manifest-path tests/Cargo.toml -p test-driver-rust          # Rust 
 cargo test --manifest-path tests/Cargo.toml -p test-driver-cpp           # C++ (build slint-cpp first for the dynamic library)
 cargo test --manifest-path tests/Cargo.toml -p test-driver-nodejs        # Node.js
 cargo test --manifest-path tests/Cargo.toml -p test-driver-python        # Python
+cargo test -p slint-dart                                                 # Dart/Flutter C ABI
 cargo test --manifest-path tests/Cargo.toml -p doctests                  # Documentation snippets
 ```
 
@@ -141,7 +149,7 @@ SLINT_CREATE_SCREENSHOTS=1 cargo test --manifest-path tests/Cargo.toml -p test-d
 
 ### Language APIs (`api/`)
 
-Rust (`rs/slint/`, `rs/macros/` for `slint!`, `rs/build/`), C++ (`cpp/`, CMake), Node.js (`node/`, Neon), Python (`python/`, PyO3), WebAssembly (`wasm-interpreter/`).
+Rust (`rs/slint/`, `rs/macros/` for `slint!`, `rs/build/`), C++ (`cpp/`, CMake), Node.js (`node/`, Neon), Python (`python/`, PyO3), Dart/Flutter (`flutter/`, `dart:ffi` over a plain-C shim), WebAssembly (`wasm-interpreter/`).
 
 ### Tools (`tools/`)
 

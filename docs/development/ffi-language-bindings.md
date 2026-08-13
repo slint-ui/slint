@@ -7,11 +7,12 @@
 
 ## Overview
 
-Slint provides language bindings for C++, Node.js, and Python, all built on top of the Rust core. The FFI layer uses:
+Slint provides language bindings for C++, Node.js, Python, and Dart/Flutter, all built on top of the Rust core. The FFI layer uses:
 
 - **C++ bindings**: cbindgen-generated headers with manual C++ wrapper classes
 - **Node.js bindings**: Neon/NAPI framework for native Node modules
 - **Python bindings**: PyO3 with maturin build system
+- **Dart/Flutter bindings**: `dart:ffi` over a hand-written plain-C shim (`slint-dart`)
 - **Internal FFI**: `#[no_mangle] extern "C"` functions in core crates
 
 ## Key Files
@@ -26,6 +27,8 @@ Slint provides language bindings for C++, Node.js, and Python, all built on top 
 | `api/node/rust/interpreter/` | Interpreter bindings for Node.js |
 | `api/python/slint/lib.rs` | PyO3 module initialization |
 | `api/python/slint/interpreter.rs` | Interpreter bindings for Python |
+| `api/flutter/rust/lib.rs` | Plain-C ABI over the interpreter for `dart:ffi` |
+| `api/flutter/rust/embedded.rs` | Software-rendered surface for Flutter |
 | `internal/core/properties/ffi.rs` | Property system FFI |
 | `internal/core/window.rs` | Window FFI in `ffi` module |
 | `internal/core/item_tree.rs` | ItemTreeVTable definitions |
@@ -389,6 +392,54 @@ impl<'py> IntoPyObject<'py> for SlintToPyValue {
 cd api/python
 maturin develop  # Development build
 maturin build    # Release wheel
+```
+
+## Dart / Flutter Bindings
+
+`dart:ffi` speaks plain C only, so `api/flutter/rust/` exposes none of Slint's
+Rust ABI — no `SharedString`, no `SharedVector`, no `Box<Value>`. Two
+conventions carry everything:
+
+- **Values travel as JSON**, reusing the interpreter's `internal-json` bridge on
+  one side and `dart:convert` on the other, so neither side needs per-type
+  marshalling.
+- **Fallible calls return an envelope**: `{"ok": …}` or `{"err": "…"}` as a
+  heap string the caller frees with `slint_dart_free_string`.
+
+```rust
+// api/flutter/rust/lib.rs
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_dart_instance_get_property(
+    instance: &ComponentInstance,
+    global: *const c_char,
+    name: *const c_char,
+) -> *mut c_char {
+    guard(|| { /* … */ })
+}
+```
+
+Every entry point that can reach interpreter code goes through `guard`, which
+catches unwinds: a panic crossing an `extern "C"` frame aborts, and that would
+take the host application down with it.
+
+Callbacks go the other way through two Dart function pointers — the handler and
+a matching free function — so the two runtimes never release each other's
+allocations.
+
+Dart cannot host Slint's native event loop everywhere: the Dart VM does not run
+`main()` on the process main thread, which macOS requires, and inside Flutter a
+second native window would not compose with the widget tree. `embedded.rs`
+therefore installs the software renderer as the Slint platform and hands frames
+over as premultiplied RGBA pixels, with input dispatched in from the caller.
+
+### Building and Testing the Dart Module
+
+```sh
+cargo build --release -p slint-dart
+cargo test -p slint-dart
+
+cargo build -p slint-dart --features backend-testing
+cd api/flutter && SLINT_BACKEND=testing fvm dart test
 ```
 
 ## Internal FFI Modules

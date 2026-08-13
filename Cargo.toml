@@ -12,6 +12,7 @@
 [workspace]
 members = [
   'api/cpp',
+  'api/flutter',
   'api/node',
   'api/rs/build',
   'api/rs/macros',

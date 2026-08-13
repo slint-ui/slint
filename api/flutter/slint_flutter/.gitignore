@@ -1,0 +1,10 @@
+build/
+
+# The platform runner directories are generated, not committed. Recreate them
+# with `flutter create --platforms=<platform> .` — see the README.
+android/
+ios/
+linux/
+macos/
+web/
+windows/

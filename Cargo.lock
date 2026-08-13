@@ -7389,6 +7389,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "slint-dart"
+version = "1.18.0"
+dependencies = [
+ "i-slint-backend-selector",
+ "i-slint-backend-testing",
+ "i-slint-compiler",
+ "i-slint-core",
+ "i-slint-renderer-software",
+ "serde_json",
+ "slint-interpreter",
+ "spin_on",
+]
+
+[[package]]
 name = "slint-doc-generator"
 version = "1.18.0"
 dependencies = [

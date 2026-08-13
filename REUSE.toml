@@ -38,6 +38,7 @@ SPDX-License-Identifier = "CC-BY-ND-4.0"
 [[annotations]]
 path = [
   "**/.eslintrc.yml",
+  "**/.fvmrc",
   "**/.gitignore",
   "**/.npmignore",
   "**/.vscodeignore",

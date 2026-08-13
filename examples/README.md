@@ -130,3 +130,18 @@ cd examples/todo/node
 pnpm install
 pnpm start
 ```
+
+---
+### Running the Dart Examples
+
+The Dart examples are Flutter applications. Build the native library, generate
+the platform runner once, then run:
+
+```sh
+cargo build --release -p slint-dart
+cd examples/todo/flutter
+fvm flutter create --platforms=macos --project-name=todo .
+fvm flutter run -d macos
+```
+
+See [`api/flutter`](/api/flutter/README.md) for the binding itself.

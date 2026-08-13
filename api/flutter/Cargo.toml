@@ -1,0 +1,60 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+[package]
+name = "slint-dart"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Slint Dart and Flutter integration"
+repository.workspace = true
+homepage.workspace = true
+publish = false
+rust-version.workspace = true
+
+[lib]
+path = "rust/lib.rs"
+name = "slint_dart"
+# `rlib` in addition to `cdylib` so that `cargo test` can link the unit tests.
+crate-type = ["cdylib", "rlib"]
+
+[features]
+# Keep in sync with the defaults of api/python/slint.
+default = ["backend-linuxkms-noseat", "backend-winit", "renderer-femtovg", "renderer-skia", "accessibility"]
+
+backend-qt = ["slint-interpreter/backend-qt"]
+backend-winit = ["slint-interpreter/backend-winit"]
+backend-winit-x11 = ["slint-interpreter/backend-winit-x11"]
+backend-winit-wayland = ["slint-interpreter/backend-winit-wayland"]
+backend-linuxkms = ["slint-interpreter/backend-linuxkms"]
+backend-linuxkms-noseat = ["slint-interpreter/backend-linuxkms-noseat"]
+# Makes `SLINT_BACKEND=testing` selectable, which is what the Dart test suite uses.
+backend-testing = ["i-slint-backend-selector/backend-testing"]
+
+renderer-femtovg = ["slint-interpreter/renderer-femtovg"]
+renderer-skia = ["slint-interpreter/renderer-skia"]
+renderer-skia-opengl = ["slint-interpreter/renderer-skia-opengl"]
+renderer-skia-vulkan = ["slint-interpreter/renderer-skia-vulkan"]
+renderer-software = ["slint-interpreter/renderer-software"]
+
+accessibility = ["slint-interpreter/accessibility"]
+
+[dependencies]
+i-slint-backend-selector = { workspace = true }
+i-slint-compiler = { workspace = true }
+i-slint-core = { workspace = true }
+i-slint-renderer-software = { workspace = true, features = ["std"] }
+slint-interpreter = { workspace = true, features = ["compat-1-2", "display-diagnostics", "image-default-formats", "internal", "internal-json"] }
+serde_json = { workspace = true }
+spin_on = { workspace = true }
+
+[dev-dependencies]
+i-slint-backend-testing = { workspace = true }
+
+# The workspace release profile aborts on panic, but the error-envelope
+# contract of this crate rests on `catch_unwind`: a panic inside a Slint call
+# is supposed to come back as an `{"err": …}` string instead of taking the host
+# process down. Keep unwinding in release builds.
+[profile.release]
+panic = "unwind"
