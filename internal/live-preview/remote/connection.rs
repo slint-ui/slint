@@ -50,6 +50,16 @@ type Sink = SplitSink<WebSocketStream<TcpStream>, Message>;
 /// Read half of an accepted connection.
 type Source = SplitStream<WebSocketStream<TcpStream>>;
 
+/// A connection that made it through pairing, on its way from the admitting
+/// task to the accept loop.
+struct Admitted {
+    sink: Sink,
+    source: Source,
+    remote_addr: SocketAddr,
+    sealing: session::Sealing,
+    opening: session::Opening,
+}
+
 /// How long a peer has to complete the WebSocket upgrade. A peer that opens
 /// a socket and then says nothing would otherwise hold a task and a file
 /// descriptor for as long as the viewer runs.
@@ -484,7 +494,7 @@ impl Connection {
                 // stalls mid-handshake or never enters a code can't hold the listener
                 // up, and the running session survives until someone replaces it.
                 let (admitted_sender, mut admitted_receiver) =
-                    sync::mpsc::unbounded_channel::<(Sink, Source, SocketAddr, session::Sealing, session::Opening)>();
+                    sync::mpsc::unbounded_channel::<Admitted>();
                 // The sink is the write half; the JoinHandle is the read-half task. We keep
                 // both so an admitted connection can abort the in-flight task and reset shared
                 // state before its messages race with the new client's.
@@ -523,7 +533,7 @@ impl Connection {
                         admitted = admitted_receiver.recv() => {
                             // `admitted_sender` is held by this loop, so the channel
                             // never closes while we're running.
-                            let Some((sink, receiver, addr, sealing, opening)) = admitted else { continue };
+                            let Some(Admitted { sink, source, remote_addr, sealing, opening }) = admitted else { continue };
                             if let Some((_old_sink, old_handle, _)) = current_session.take() {
                                 // A finished handle is just a stale session left
                                 // behind by an earlier disconnect, not a takeover.
@@ -540,12 +550,12 @@ impl Connection {
                                 inner_dependencies.lock().unwrap().clear();
                             }
                             let handle = tokio::spawn(Self::handle_connection(
-                                receiver,
+                                source,
                                 message_handler.clone(),
                                 inner_file_cache.clone(),
                                 inner_dependencies.clone(),
                                 inner_message_sender.clone(),
-                                addr,
+                                remote_addr,
                                 opening,
                             ));
                             current_session = Some((sink, handle, sealing));
@@ -635,7 +645,7 @@ impl Connection {
         policy: PairingPolicy,
         pairing_state: Arc<Mutex<PairingState>>,
         message_handler: Arc<dyn Fn(ConnectionMessage) + 'static + Send + Sync>,
-        admitted: UnboundedSender<(Sink, Source, SocketAddr, session::Sealing, session::Opening)>,
+        admitted: UnboundedSender<Admitted>,
         // Held for as long as this connection is being admitted, so the
         // listener can bound how many are in flight.
         _permit: sync::OwnedSemaphorePermit,
@@ -667,7 +677,9 @@ impl Connection {
         {
             Ok((sealing, opening)) => {
                 tracing::info!("Paired with {remote_addr:?}");
-                admitted.send((sink, receiver, remote_addr, sealing, opening)).ok();
+                admitted
+                    .send(Admitted { sink, source: receiver, remote_addr, sealing, opening })
+                    .ok();
             }
             Err(Denied::Gone) => {
                 tracing::info!("{remote_addr:?} gave up before pairing completed");
@@ -785,19 +797,12 @@ impl Connection {
             // A wrong code doesn't fail here: it produces different keys,
             // and only the confirmation tells us so. That is the point --
             // the wire carries nothing to test a guess against offline.
-            let accepted = handshake
-                .finish(&element)
-                .ok()
-                .filter(|secrets| confirmation.matches(&secrets.editor_confirmation));
-
-            if let Some(secrets) = accepted {
+            if let Ok(secrets) = handshake.finish_confirmed(&element, &confirmation) {
                 tracing::info!("{remote_addr:?} entered the pairing code correctly");
                 pairing_state.lock().unwrap().remember_token(secrets.token_id, secrets.token);
                 send_on(
                     sink,
-                    &PreviewToLspMessage::PairingConfirm {
-                        confirmation: secrets.viewer_confirmation,
-                    },
+                    &PreviewToLspMessage::PairingConfirm { confirmation: secrets.confirmation() },
                 )
                 .await?;
                 // Tells the guard the incoming session is about to drive the
@@ -847,11 +852,7 @@ impl Connection {
             return Err(Denied::Gone);
         };
 
-        let accepted = handshake
-            .finish(&element)
-            .ok()
-            .filter(|secrets| confirmation.matches(&secrets.editor_confirmation));
-        let Some(secrets) = accepted else {
+        let Ok(secrets) = handshake.finish_confirmed(&element, &confirmation) else {
             tracing::info!("{remote_addr:?} announced a token it could not prove");
             return Ok(None);
         };
@@ -862,7 +863,7 @@ impl Connection {
         tracing::info!("{remote_addr:?} proved its token; no code needed");
         send_on(
             sink,
-            &PreviewToLspMessage::PairingConfirm { confirmation: secrets.viewer_confirmation },
+            &PreviewToLspMessage::PairingConfirm { confirmation: secrets.confirmation() },
         )
         .await?;
         Ok(Some(secrets.session()))
@@ -1578,14 +1579,14 @@ mod session_tests {
             client,
             &LspToPreviewMessage::PairingResponse {
                 element: ours,
-                confirmation: secrets.editor_confirmation,
+                confirmation: secrets.confirmation(),
             },
         )
         .await;
         match recv(client).await {
             Some(PreviewToLspMessage::PairingConfirm { confirmation }) => {
                 assert!(
-                    confirmation.matches(&secrets.viewer_confirmation),
+                    secrets.peer_confirms(&confirmation),
                     "the viewer confirmed with a key we did not derive"
                 );
                 Ok(secrets)
@@ -1758,7 +1759,7 @@ mod session_tests {
             &mut client,
             &LspToPreviewMessage::PairingResponse {
                 element: ours,
-                confirmation: secrets.editor_confirmation,
+                confirmation: secrets.confirmation(),
             },
         )
         .await;
@@ -2004,7 +2005,7 @@ mod session_tests {
             &mut client,
             &LspToPreviewMessage::PairingResponse {
                 element: pairing::Element::for_test(vec![0u8; 33]),
-                confirmation: secrets.editor_confirmation,
+                confirmation: secrets.confirmation(),
             },
         )
         .await;
