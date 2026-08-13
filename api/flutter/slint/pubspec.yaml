@@ -13,7 +13,9 @@ environment:
 
 dependencies:
   build: '>=2.4.1 <5.0.0'
+  code_assets: ^1.2.1
   ffi: ^2.1.3
+  hooks: ^2.0.2
   path: ^1.8.0
 
 dev_dependencies:

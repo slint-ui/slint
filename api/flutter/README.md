@@ -154,15 +154,36 @@ cargo build --release -p slint-dart
 ```
 
 `package:slint` finds the library by looking at `SLINT_DART_LIBRARY` first, then
-walking up from the working directory, the running executable, and the running
-script for a `target/release` or `target/debug` copy, and finally asking the
-platform loader.
-That last step is the one a packaged application uses; ship the library next to
-the executable.
+walking up from the working directory, the running executable, the running
+script, and the linked package root for a `target/release` or `target/debug`
+copy, and finally asking the platform loader.
+That last step is the one a packaged application takes.
 
-<!-- ponytail: no `ffiPlugin` packaging yet, so a released Flutter app has to
-     place libslint_dart itself. Add the per-platform Flutter plugin build files
-     that invoke cargo if these packages are ever published. -->
+### Flutter builds the library automatically
+
+The package ships a [build hook](https://dart.dev/tools/hooks)
+(`hook/build.dart`): every `flutter build` and `flutter run` that has `slint`
+in its dependency graph runs it, invokes `cargo build --release -p slint-dart`,
+and bundles the result into the application.
+On macOS the library becomes `slint_dart.framework` inside the app bundle,
+which `package:slint` finds at runtime.
+
+A Flutter build needs the Rust toolchain (`cargo` and `rustc` on `PATH`) and
+only supports the host platform; cross-compiling to another OS or architecture
+is not supported yet.
+Set `SLINT_DART_LIBRARY` if you want to build the library yourself, or pin a
+profile for the hook (debug builds are faster to produce):
+
+```yaml
+# pubspec.yaml of the Flutter application
+hooks:
+  user_defines:
+    slint:
+      cargo_profile: debug
+```
+
+The hook caches its result and re-runs cargo only when the Rust sources, the
+crate manifest, or the workspace lockfile change.
 
 ## Two ways to show a UI
 

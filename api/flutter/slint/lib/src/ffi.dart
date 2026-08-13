@@ -65,20 +65,55 @@ class SlintFfi {
     if (explicit != null && explicit.isNotEmpty) {
       return DynamicLibrary.open(explicit);
     }
+    final bundled = _findInBundle();
+    if (bundled != null) {
+      return DynamicLibrary.open(bundled);
+    }
     final found = _findInCargoTarget();
     if (found != null) {
       return DynamicLibrary.open(found);
     }
-    try {
-      return DynamicLibrary.open(libraryFileName);
-    } on ArgumentError catch (e) {
-      throw StateError(
-        'Cannot find $libraryFileName. Build it with\n'
-        '    cargo build --release -p slint-dart\n'
-        'or point SLINT_DART_LIBRARY at an existing copy.\n'
-        'Underlying error: $e',
-      );
+    // As a last resort the platform loader gets a chance, which is the path
+    // a packaged application takes. Flutter bundles the library built by the
+    // build hook: on macOS it becomes a framework inside the app bundle.
+    final attempts = <String>[
+      libraryFileName,
+      if (Platform.isMacOS)
+        '@executable_path/../Frameworks/slint_dart.framework/slint_dart',
+    ];
+    Object? lastError;
+    for (final name in attempts) {
+      try {
+        return DynamicLibrary.open(name);
+      } on ArgumentError catch (e) {
+        lastError = e;
+      }
     }
+    throw StateError(
+      'Cannot find $libraryFileName. Build it with\n'
+      '    cargo build --release -p slint-dart\n'
+      'or point SLINT_DART_LIBRARY at an existing copy.\n'
+      'Underlying error: $lastError',
+    );
+  }
+
+  /// Look for the library inside the current application bundle.
+  ///
+  /// On macOS a sandboxed Flutter app cannot access the Cargo `target/`
+  /// directory, so copy `libslint_dart.dylib` into the bundle's
+  /// `Contents/Frameworks` directory. This path is checked before the Cargo
+  /// output directories so bundled builds take precedence.
+  static String? _findInBundle() {
+    if (Platform.isMacOS || Platform.isIOS) {
+      final executable = File(Platform.resolvedExecutable);
+      final candidate = File(
+        '${executable.parent.path}/../Frameworks/$libraryFileName',
+      );
+      if (candidate.existsSync()) {
+        return candidate.resolveSymbolicLinksSync();
+      }
+    }
+    return null;
   }
 
   static String? _findInCargoTarget() {
