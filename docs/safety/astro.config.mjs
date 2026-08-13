@@ -57,9 +57,10 @@ export default defineConfig({
             plugins: [
                 slintStarlightLinksValidatorPlugin({
                     errorOnRelativeLinks: true,
-                    // The llvm-cov HTML report the Test Coverage chapter links
-                    // into is a static asset under public/, not Starlight pages.
-                    exclude: ["/coverage/**"],
+                    // Static assets under public/, not Starlight pages. Matched
+                    // with a leading `**` because the links carry the base path
+                    // the site is deployed under.
+                    exclude: ["**/coverage/**", "**/api/**"],
                 }),
             ],
             social: slintStarlightSocial,
@@ -140,6 +141,13 @@ export default defineConfig({
                                     slug: "reference/property-types/numeric-types",
                                 },
                             ],
+                        },
+                        {
+                            // Directory form: `trailingSlash: "always"` would
+                            // rewrite a link ending in `index.html` to `index/`.
+                            label: "slint-sc Runtime API ↗",
+                            link: "/api/slint_sc/",
+                            attrs: { target: "_blank" },
                         },
                     ],
                 },

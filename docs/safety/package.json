@@ -4,9 +4,10 @@
   "version": "1.18.0",
   "scripts": {
     "sync-language-spec": "node scripts/sync-language-spec.mjs",
-    "dev": "node scripts/sync-language-spec.mjs && SLINT_SC_SAFETY_MANUAL=1 astro dev",
-    "start": "node scripts/sync-language-spec.mjs && SLINT_SC_SAFETY_MANUAL=1 astro dev",
-    "build": "node scripts/sync-language-spec.mjs && SLINT_SC_SAFETY_MANUAL=1 astro check && SLINT_SC_SAFETY_MANUAL=1 astro build",
+    "gen:api": "cargo doc -p slint-sc --no-deps && rm -rf public/api && mkdir -p public/api && cp -r ../../target/doc/. public/api/",
+    "dev": "pnpm gen:api && node scripts/sync-language-spec.mjs && SLINT_SC_SAFETY_MANUAL=1 astro dev",
+    "start": "pnpm gen:api && node scripts/sync-language-spec.mjs && SLINT_SC_SAFETY_MANUAL=1 astro dev",
+    "build": "pnpm gen:api && node scripts/sync-language-spec.mjs && SLINT_SC_SAFETY_MANUAL=1 astro check && SLINT_SC_SAFETY_MANUAL=1 astro build",
     "preview": "astro preview",
     "astro": "astro",
     "format": "biome format",
