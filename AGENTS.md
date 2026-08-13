@@ -48,7 +48,7 @@ cd api/node && pnpm install && pnpm build
 The Dart and Flutter SDK is pinned with [FVM](https://fvm.app) in `.fvmrc`.
 ```sh
 cargo build --release -p slint-dart      # the native library the binding loads
-cd api/flutter && fvm dart pub get
+cd api/flutter/slint && fvm dart pub get
 ```
 
 ## Testing

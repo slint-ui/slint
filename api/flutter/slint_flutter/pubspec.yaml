@@ -16,7 +16,7 @@ dependencies:
   flutter:
     sdk: flutter
   slint:
-    path: ../
+    path: ../slint
 
 dev_dependencies:
   flutter_lints: ^5.0.0

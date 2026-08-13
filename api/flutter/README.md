@@ -22,7 +22,7 @@ Two packages live here:
 
 | Package | What it is |
 | --- | --- |
-| [`slint`](./pubspec.yaml) | The binding itself. Pure Dart, `dart:ffi`, no Flutter dependency. |
+| [`slint`](./slint/pubspec.yaml) | The binding itself. Pure Dart, `dart:ffi`, no Flutter dependency. |
 | [`slint_flutter`](./slint_flutter) | A `SlintView` widget that renders a Slint UI inside a Flutter app. |
 
 ## Building
@@ -58,7 +58,7 @@ a crash. On Linux and Windows it works.
 
 ### Slint draws into a buffer you own
 
-[`SlintSurface`](./lib/src/embedded.dart) installs Slint's software renderer
+[`SlintSurface`](./slint/lib/src/embedded.dart) installs Slint's software renderer
 and hands you the frame as pixels. There is no event loop and no thread
 requirement, so it works everywhere — including inside Flutter, which is what
 `slint_flutter` builds on:
@@ -118,8 +118,8 @@ The Dart tests need a backend that opens no window:
 
 ```sh
 cargo build -p slint-dart --features backend-testing
-SLINT_BACKEND=testing fvm dart test
-SLINT_BACKEND=testing fvm flutter test slint_flutter
+cd slint && SLINT_BACKEND=testing fvm dart test
+cd ../slint_flutter && SLINT_BACKEND=testing fvm flutter test
 ```
 
 ## Toolchain
