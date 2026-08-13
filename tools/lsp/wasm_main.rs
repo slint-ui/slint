@@ -397,6 +397,7 @@ impl SlintServer {
             | M::DisconnectRemote
             | M::SubmitPairingCode { .. }
             | M::CancelPairing
+            | M::AcceptUnpairedConnection
             | M::Pong
             | M::PairingReady
             | M::PairingRequired { .. }

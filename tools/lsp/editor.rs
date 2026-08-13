@@ -420,6 +420,7 @@ fn handle_preview_message(msg: PreviewToLspMessage, ctx: &language::Context) {
         | DisconnectRemote
         | SubmitPairingCode { .. }
         | CancelPairing
+        | AcceptUnpairedConnection
         | Pong
         | PairingReady
         | PairingRequired { .. }

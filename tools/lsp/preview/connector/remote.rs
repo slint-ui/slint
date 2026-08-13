@@ -8,7 +8,7 @@
 //! [`crate::preview::remote`].
 
 use std::cell::{Cell, RefCell};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::rc::{Rc, Weak};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -46,6 +46,9 @@ const CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
 /// What the user did with the pairing prompt.
 enum PairingSubmission {
     Code(String),
+    /// Connect to a pairing-disabled viewer even though the session will
+    /// not be encrypted.
+    AcceptUnpaired,
     Cancel,
 }
 
@@ -156,6 +159,10 @@ struct SharedState {
     /// memory only, mirroring the viewer: it forgets them when it restarts,
     /// and re-pairing is one prompt.
     tokens: Rc<RefCell<HashMap<String, (TokenId, Token)>>>,
+    /// Every `address:port` the user has agreed to talk to unencrypted,
+    /// because the viewer there has pairing disabled. Held for the LSP's
+    /// run, like `tokens`, so a reconnect doesn't ask the same question.
+    unpaired_ok: Rc<RefCell<HashSet<String>>>,
     /// Set while a viewer is showing a code and we're waiting for the user
     /// to type it. The preview UI's submission arrives through here.
     pairing_input: Rc<RefCell<Option<mpsc::UnboundedSender<PairingSubmission>>>>,
@@ -194,6 +201,7 @@ impl RemoteLspToPreview {
                 to_previews,
                 generation: Rc::default(),
                 tokens: Rc::default(),
+                unpaired_ok: Rc::default(),
                 pairing_input: Rc::default(),
                 connected_target: Rc::default(),
             },
@@ -210,6 +218,11 @@ impl RemoteLspToPreview {
     /// Abandon the pairing attempt the user was prompted for.
     pub fn cancel_pairing(&self) {
         self.deliver_pairing(PairingSubmission::Cancel);
+    }
+
+    /// Connect to the pairing-disabled viewer the user was warned about.
+    pub fn accept_unpaired_connection(&self) {
+        self.deliver_pairing(PairingSubmission::AcceptUnpaired);
     }
 
     fn deliver_pairing(&self, submission: PairingSubmission) {
@@ -445,6 +458,16 @@ impl RemoteLspToPreview {
                             "The viewer skipped the reconnect exchange".into(),
                         ));
                     }
+                    // Anyone can claim this, so the user gets asked before
+                    // anything is sent over what would be a plaintext
+                    // session -- once per target, not on every reconnect.
+                    if !keys.iter().any(|key| shared.unpaired_ok.borrow().contains(key)) {
+                        Self::confirm_unpaired(shared, stream, target).await?;
+                        let mut unpaired_ok = shared.unpaired_ok.borrow_mut();
+                        for key in keys {
+                            unpaired_ok.insert(key.clone());
+                        }
+                    }
                     tracing::info!("Viewer at {target} has pairing disabled");
                     return Ok((session::Sealing::Plaintext, session::Opening::Plaintext));
                 }
@@ -678,9 +701,55 @@ impl RemoteLspToPreview {
         match submission {
             Some(PairingSubmission::Code(code)) => Ok(code),
             // Cancelling is the user's decision, so don't reconnect behind
-            // their back.
-            Some(PairingSubmission::Cancel) | None => {
+            // their back. An unpaired-acceptance is no answer to a code
+            // prompt, so it is taken the conservative way.
+            Some(PairingSubmission::Cancel | PairingSubmission::AcceptUnpaired) | None => {
                 Err(ConnectError::Fatal("Pairing cancelled".into()))
+            }
+        }
+    }
+
+    /// Warn the user that the viewer has pairing disabled, and wait for
+    /// them to accept the unencrypted connection or cancel.
+    ///
+    /// Waits on the socket at the same time, like the code prompt: the
+    /// viewer hanging up takes the question off the screen.
+    async fn confirm_unpaired(
+        shared: &SharedState,
+        stream: &mut WebSocketStream,
+        target: &str,
+    ) -> std::result::Result<(), ConnectError> {
+        let (sender, mut receiver) = mpsc::unbounded_channel();
+        let _guard = PairingInputGuard::arm(&shared.pairing_input, sender);
+
+        // The dialog owns the wording; this only says which question is up.
+        shared.emit_state(RemoteConnectionState::UnpairedWarning, target.to_owned(), None);
+
+        loop {
+            tokio::select! {
+                submission = receiver.recv() => {
+                    return match submission {
+                        Some(PairingSubmission::AcceptUnpaired) => {
+                            tracing::info!("User accepted the unencrypted connection to {target}");
+                            Ok(())
+                        }
+                        // Only a decision answers a warning; a stray code
+                        // counts as not making one.
+                        Some(PairingSubmission::Code(_) | PairingSubmission::Cancel) | None => {
+                            Err(ConnectError::Fatal("Connection cancelled".into()))
+                        }
+                    };
+                }
+                message = Self::next_message(stream) => {
+                    let Some(message) = message else {
+                        return Err(ConnectError::Transient(
+                            "The viewer closed the connection while waiting for the user".into(),
+                        ));
+                    };
+                    // The session on the viewer's side is already running,
+                    // so traffic may arrive; none of it is for us yet.
+                    tracing::debug!("Ignoring {message:?} while the user decides");
+                }
             }
         }
     }
@@ -1138,7 +1207,15 @@ mod tests {
 
         let (to_lsp_tx, mut to_lsp_rx) = mpsc::unbounded_channel();
         let connector = RemoteLspToPreview::new(to_lsp_tx, Weak::new());
-        connector.connect(["127.0.0.1"], viewer.local_port()).await.unwrap();
+        // A pairing-disabled viewer needs the user's ok before the first
+        // connection goes through.
+        let connect = connector.connect(["127.0.0.1"], viewer.local_port());
+        let accept = async {
+            wait_for_prompt(&connector).await;
+            connector.accept_unpaired_connection();
+        };
+        let (result, ()) = tokio::join!(connect, accept);
+        result.unwrap();
         expect_message(
             &mut viewer_rx,
             |m| matches!(m, ConnectionMessage::Connected { .. }),
@@ -1653,6 +1730,89 @@ mod tests {
                     connector.shared.tokens.borrow().is_empty(),
                     "cancelling should not leave a token behind"
                 );
+            })
+            .await;
+    }
+
+    /// A viewer with pairing disabled cannot be connected to silently: the
+    /// user is warned first, and their answer holds for reconnects.
+    #[tokio::test]
+    async fn an_unpaired_viewer_needs_the_users_ok() {
+        tokio::task::LocalSet::new()
+            .run_until(async {
+                let (viewer, mut viewer_rx) = listen(0, PairingPolicy::Disabled).await;
+                let port = viewer.local_port();
+
+                let (previews, mut state_rx, _to_lsp_rx) = connector_with_states();
+                let connector = previews.remote().unwrap().clone();
+
+                let connect = connector.connect(["127.0.0.1"], port);
+                let accept = async {
+                    expect_state(&mut state_rx, RemoteConnectionState::UnpairedWarning).await;
+                    connector.accept_unpaired_connection();
+                };
+                let (result, ()) = tokio::join!(connect, accept);
+                result.expect("accepting the warning should complete the connection");
+                expect_message(
+                    &mut viewer_rx,
+                    |m| matches!(m, ConnectionMessage::Connected { .. }),
+                    "viewer connection",
+                )
+                .await;
+
+                // The viewer restarts. The reconnect must not ask again: if
+                // it did, nobody would answer and this would time out.
+                drop(viewer);
+                drop(viewer_rx);
+                let (_viewer, mut viewer_rx) = listen(port, PairingPolicy::Disabled).await;
+                expect_message(
+                    &mut viewer_rx,
+                    |m| matches!(m, ConnectionMessage::Connected { .. }),
+                    "viewer reconnection",
+                )
+                .await;
+                while let Ok((state, _)) = state_rx.try_recv() {
+                    assert_ne!(
+                        state,
+                        RemoteConnectionState::UnpairedWarning,
+                        "the reconnect asked the user again"
+                    );
+                }
+
+                connector.disconnect().await;
+            })
+            .await;
+    }
+
+    #[tokio::test]
+    async fn declining_the_unpaired_warning_gives_up() {
+        tokio::task::LocalSet::new()
+            .run_until(async {
+                let (viewer, mut viewer_rx) = listen(0, PairingPolicy::Disabled).await;
+                let port = viewer.local_port();
+
+                let (previews, mut state_rx, _to_lsp_rx) = connector_with_states();
+                let connector = previews.remote().unwrap().clone();
+
+                let connect = connector.connect(["127.0.0.1"], port);
+                let decline = async {
+                    expect_state(&mut state_rx, RemoteConnectionState::UnpairedWarning).await;
+                    connector.cancel_pairing();
+                };
+                let (result, ()) = tokio::join!(connect, decline);
+                result.expect_err("declining must not produce a connection");
+                let failed = expect_state(&mut state_rx, RemoteConnectionState::Failed).await;
+                assert_eq!(failed.as_deref(), Some("Connection cancelled"));
+
+                // The viewer admits an unpaired session on its own side the
+                // moment it accepts, so declining shows up there as the
+                // editor hanging up before sending anything.
+                expect_message(
+                    &mut viewer_rx,
+                    |m| matches!(m, ConnectionMessage::Disconnected { .. }),
+                    "the editor to hang up",
+                )
+                .await;
             })
             .await;
     }
