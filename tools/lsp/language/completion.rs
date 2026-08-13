@@ -540,7 +540,6 @@ fn is_reserved_prop_valid(
     prop: &str,
     element_type: &ElementType,
     parent_element_type: Option<&ElementType>,
-    enable_experimental: bool,
 ) -> bool {
     let name_of = |t: &ElementType| -> Option<SmolStr> {
         match t {
@@ -564,8 +563,7 @@ fn is_reserved_prop_valid(
         );
     }
     if name_in(i_slint_compiler::typeregister::RESERVED_FLEXBOXLAYOUT_PROPERTIES) {
-        // Not stable API yet, the compiler only accepts them as an experimental feature.
-        return enable_experimental && parent_name == Some("FlexboxLayout");
+        return parent_name == Some("FlexboxLayout");
     }
     if name_in(i_slint_compiler::typeregister::RESERVED_DROP_SHADOW_PROPERTIES) {
         return name_of(element_type).as_deref() == Some("Rectangle");
@@ -588,7 +586,6 @@ fn properties_for_changed_callbacks(
         }
         node = node.parent()?;
     };
-    let enable_experimental = document_cache.compiler_configuration().enable_experimental;
     let global_tr = document_cache.global_type_registry();
     let tr = element
         .source_file()
@@ -619,12 +616,7 @@ fn properties_for_changed_callbacks(
             if !ty.is_property_type() {
                 return None;
             }
-            if !is_reserved_prop_valid(
-                k,
-                &element_type,
-                parent_element_type.as_ref(),
-                enable_experimental,
-            ) {
+            if !is_reserved_prop_valid(k, &element_type, parent_element_type.as_ref()) {
                 return None;
             }
             let mut c = CompletionItem::new_simple(k.into(), ty.to_string());
@@ -656,7 +648,6 @@ fn resolve_element_scope(
             }
         };
 
-    let enable_experimental = document_cache.compiler_configuration().enable_experimental;
     let global_tr = document_cache.global_type_registry();
     let tr = element
         .source_file()
@@ -778,12 +769,7 @@ fn resolve_element_scope(
                     if matches!(ty, Type::Function { .. }) {
                         return None;
                     }
-                    if !is_reserved_prop_valid(
-                        k,
-                        &element_type,
-                        parent_element_type.as_ref(),
-                        enable_experimental,
-                    ) {
+                    if !is_reserved_prop_valid(k, &element_type, parent_element_type.as_ref()) {
                         return None;
                     }
                     let c = CompletionItem::new_simple(k.into(), ty.to_string());
@@ -1837,21 +1823,6 @@ mod tests {
         assert!(res.iter().any(|ci| ci.label == "padding"));
         assert!(!res.iter().any(|ci| ci.label == "layout-order"));
         assert!(!res.iter().any(|ci| ci.label == "cross-axis-self-alignment"));
-
-        // Even with experimental features enabled, layout-order stays
-        // flexbox-only: the context filter must reject it here, not the
-        // experimental check.
-        let res = get_completions_experimental(
-            r#"
-            component Foo {
-                GridLayout {
-                    🔺
-                }
-            }
-        "#,
-        )
-        .unwrap();
-        assert!(!res.iter().any(|ci| ci.label == "layout-order"));
     }
 
     #[test]
@@ -2979,7 +2950,7 @@ component Foo {
     }
 
     #[test]
-    fn flex_item_properties_require_experimental() {
+    fn flex_item_properties_in_flexbox() {
         let source = r#"
 export component Foo {
     FlexboxLayout {
@@ -2989,18 +2960,11 @@ export component Foo {
     }
 }
 "#;
-        let results = get_completions_experimental(source).unwrap();
-        assert!(
-            results.iter().any(|completion| completion.label == "layout-order"),
-            "no 'layout-order' completion with experimental features"
-        );
-
         let results = get_completions(source).unwrap();
         assert!(
-            !results.iter().any(|completion| completion.label == "layout-order"),
-            "'layout-order' completion offered without experimental features"
+            results.iter().any(|completion| completion.label == "layout-order"),
+            "no 'layout-order' completion"
         );
-        // cross-axis-self-alignment is stable, so it completes without experimental features.
         assert!(
             results.iter().any(|completion| completion.label == "cross-axis-self-alignment"),
             "no 'cross-axis-self-alignment' completion"

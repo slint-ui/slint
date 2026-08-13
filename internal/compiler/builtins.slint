@@ -2228,13 +2228,36 @@ export component HorizontalLayout {
 ///
 /// \footer
 /// ## Cell elements
-/// Cell elements inside a `FlexboxLayout` obtain the following new property:
+/// Cell elements inside a `FlexboxLayout` obtain the following new properties:
 ///
 /// ### cross-axis-self-alignment
 /// <SlintProperty propName="cross-axis-self-alignment" typeName="enum" enumName="CrossAxisSelfAlignment" defaultValue="auto">
 /// Overrides the container's `cross-axis-alignment` for this element. CSS Flexbox calls this "align-self".
 /// The default value `auto` uses the container's `cross-axis-alignment`.
 /// </SlintProperty>
+///
+/// ### layout-order
+/// <SlintProperty propName="layout-order" typeName="int" defaultValue="0">
+/// Controls the visual order of the items, like the CSS `order` property:
+/// items are laid out in ascending order value, and items with the same value keep
+/// their declaration order.
+/// ```slint no-test
+/// FlexboxLayout {
+///     Rectangle { layout-order: 2; }
+///     Rectangle { layout-order: 1; }  // appears first
+/// }
+/// ```
+/// </SlintProperty>
+///
+/// The other CSS per-item flexbox properties are expressed with the properties the
+/// other layouts already use:
+///
+/// | CSS           | Slint                                                          |
+/// | ------------- | -------------------------------------------------------------- |
+/// | `flex-grow`   | `alignment: stretch` on the container, weighted per item by `horizontal-stretch` / `vertical-stretch`; `max-width` / `max-height` caps growing (space a capped item cannot take stays free) |
+/// | `flex-shrink` | nothing to opt into: every item shrinks, in proportion to its preferred size; `min-width` / `min-height` refuses shrinking |
+/// | `flex-basis`  | `preferred-width` (row) / `preferred-height` (column)          |
+/// | `align-self`  | `cross-axis-self-alignment`                                    |
 ///
 /// ## Layout Behavior
 ///
