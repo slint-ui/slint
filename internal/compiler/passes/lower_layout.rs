@@ -498,7 +498,7 @@ fn lower_element_layout(
         None
     };
 
-    check_no_layout_properties(elem, &layout_type, parent_layout_type, type_register, diag);
+    check_no_layout_properties(elem, &layout_type, parent_layout_type, diag);
 
     match layout_type.as_ref()?.as_str() {
         "Row" => return layout_type,
@@ -2543,7 +2543,6 @@ fn check_no_layout_properties(
     item: &ElementRc,
     layout_type: &Option<SmolStr>,
     parent_layout_type: &Option<SmolStr>,
-    type_register: &TypeRegister,
     diag: &mut BuildDiagnostics,
 ) {
     let elem = item.borrow();
@@ -2553,13 +2552,8 @@ fn check_no_layout_properties(
         {
             diag.push_error(format!("{prop} used outside of a GridLayout's cell"), &*expr.borrow());
         }
-        if prop == "layout-order" {
-            if parent_layout_type.as_deref() != Some("FlexboxLayout") {
-                diag.push_error(format!("{prop} used outside of a FlexboxLayout"), &*expr.borrow());
-            } else {
-                // Not stable API yet: extending it to the box layouts is still open.
-                crate::reject_experimental_feature(diag, type_register, prop, &*expr.borrow());
-            }
+        if prop == "layout-order" && parent_layout_type.as_deref() != Some("FlexboxLayout") {
+            diag.push_error(format!("{prop} used outside of a FlexboxLayout"), &*expr.borrow());
         }
         if prop == "cross-axis-self-alignment"
             && !matches!(

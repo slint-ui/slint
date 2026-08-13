@@ -1,10 +1,9 @@
 // Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-//! The per-item `layout-order` property of a `FlexboxLayout` is not stable API yet, so it is only
-//! accepted with experimental features enabled. The syntax tests can't cover this because they
-//! always enable them. This also hosts the stable-API tests for `cross-axis-self-alignment`,
-//! which needs the same experimental-features control.
+//! The per-item properties of a `FlexboxLayout` (`layout-order`, `cross-axis-self-alignment`)
+//! are stable API. The syntax tests can't verify that because they always enable the
+//! experimental features, so these tests compile with them disabled.
 
 use i_slint_compiler::diagnostics::{BuildDiagnostics, DiagnosticLevel};
 use i_slint_compiler::generator::OutputFormat;
@@ -13,12 +12,14 @@ use i_slint_compiler::{CompilerConfiguration, compile_syntax_node};
 
 const FLEX_ITEM_PROPERTIES: &[&str] = &["layout-order: 3"];
 
-/// Compile `source` and return its errors (warnings are not of interest here).
-fn errors(source: String, enable_experimental: bool) -> Vec<String> {
+/// Compile `source` without experimental features and return its errors
+/// (warnings are not of interest here).
+fn errors(source: String) -> Vec<String> {
     let mut diagnostics = BuildDiagnostics::default();
     let syntax_node = parse(source, None, &mut diagnostics);
     let mut config = CompilerConfiguration::new(OutputFormat::Interpreter);
-    config.enable_experimental = enable_experimental;
+    // The default follows SLINT_ENABLE_EXPERIMENTAL_FEATURES; pin it off.
+    config.enable_experimental = false;
     let (_, diagnostics, _) =
         spin_on::spin_on(compile_syntax_node(syntax_node, diagnostics, config));
     diagnostics
@@ -28,19 +29,16 @@ fn errors(source: String, enable_experimental: bool) -> Vec<String> {
         .collect()
 }
 
-fn in_flexbox(binding: &str, enable_experimental: bool) -> Vec<String> {
-    errors(
-        format!(
-            r#"
+fn in_flexbox(binding: &str) -> Vec<String> {
+    errors(format!(
+        r#"
 export component TestCase inherits Window {{
     FlexboxLayout {{
         Rectangle {{ {binding}; }}
     }}
 }}
 "#
-        ),
-        enable_experimental,
-    )
+    ))
 }
 
 fn name_of(binding: &str) -> &str {
@@ -48,27 +46,16 @@ fn name_of(binding: &str) -> &str {
 }
 
 #[test]
-fn flex_item_properties_are_experimental() {
+fn flex_item_properties_are_stable() {
     for binding in FLEX_ITEM_PROPERTIES {
-        assert_eq!(
-            in_flexbox(binding, false),
-            [format!("'{}' is an experimental feature", name_of(binding))]
-        );
+        assert_eq!(in_flexbox(binding), Vec::<String>::new());
     }
 }
 
-#[test]
-fn flex_item_properties_accepted_with_experimental() {
-    for binding in FLEX_ITEM_PROPERTIES {
-        assert_eq!(in_flexbox(binding, true), Vec::<String>::new());
-    }
-}
-
-/// `cross-axis-self-alignment` is stable API, usable without experimental features
-/// in a FlexboxLayout and in the box layouts.
+/// `cross-axis-self-alignment` is usable in a FlexboxLayout and in the box layouts.
 #[test]
 fn cross_axis_self_alignment_is_stable() {
-    assert_eq!(in_flexbox("cross-axis-self-alignment: center", false), Vec::<String>::new());
+    assert_eq!(in_flexbox("cross-axis-self-alignment: center"), Vec::<String>::new());
     for layout in ["HorizontalLayout", "VerticalLayout"] {
         let source = format!(
             r#"
@@ -79,7 +66,7 @@ export component TestCase inherits Window {{
 }}
 "#
         );
-        assert_eq!(errors(source, false), Vec::<String>::new());
+        assert_eq!(errors(source), Vec::<String>::new());
     }
 }
 
@@ -94,18 +81,15 @@ export component TestCase inherits Window {
 }
 "#;
     assert_eq!(
-        errors(source.into(), false),
+        errors(source.into()),
         [
             "cross-axis-self-alignment used outside of a FlexboxLayout, HorizontalLayout, or VerticalLayout"
         ]
     );
 }
 
-/// Outside of a `FlexboxLayout` the property is wrong regardless of the experimental features, so
-/// only that error is reported: being sent to a construct that would then reject them for another
-/// reason would be confusing.
 #[test]
-fn used_outside_of_a_flexbox_reports_only_that() {
+fn used_outside_of_a_flexbox_is_rejected() {
     for binding in FLEX_ITEM_PROPERTIES {
         let source = format!(
             r#"
@@ -116,9 +100,10 @@ export component TestCase inherits Window {{
 }}
 "#
         );
-        let expected = [format!("{} used outside of a FlexboxLayout", name_of(binding))];
-        assert_eq!(errors(source.clone(), false), expected);
-        assert_eq!(errors(source, true), expected);
+        assert_eq!(
+            errors(source),
+            [format!("{} used outside of a FlexboxLayout", name_of(binding))]
+        );
     }
 }
 
@@ -130,13 +115,13 @@ fn repeated_and_conditional_cells_report_once() {
         let source = format!(
             r#"
 export component TestCase inherits Window {{
-    FlexboxLayout {{
+    VerticalLayout {{
         {cell} Rectangle {{ layout-order: 1; }}
     }}
 }}
 "#
         );
-        assert_eq!(errors(source, false), ["'layout-order' is an experimental feature"]);
+        assert_eq!(errors(source), ["layout-order used outside of a FlexboxLayout"]);
     }
 }
 
@@ -152,5 +137,5 @@ export component TestCase inherits Window {
     }
 }
 "#;
-    assert_eq!(errors(source.into(), false), Vec::<String>::new());
+    assert_eq!(errors(source.into()), Vec::<String>::new());
 }
