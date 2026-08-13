@@ -636,7 +636,22 @@ pub fn default_value_for_type(ty: &Type) -> Value {
             let default = en.clone().default_value();
             Value::EnumerationValue(en.name.to_string(), default.to_string())
         }
-        _ => Value::Void,
+        Type::ComponentFactory => Value::ComponentFactory(Default::default()),
+        Type::MouseCursor => Value::MouseCursorInner(Default::default()),
+        Type::Void => Value::Void,
+        // Types that should never appear in this situation (e.g. are not expressible
+        // by users, so cannot be returned from an unset callback or model property)
+        Type::Invalid
+        | Type::InferredProperty
+        | Type::InferredCallback
+        | Type::Callback(_)
+        | Type::Function(_)
+        | Type::PathData
+        | Type::Easing
+        | Type::ElementReference
+        | Type::ArrayOfU16
+        | Type::LayoutCache
+        | Type::Closure => Value::Void,
     }
 }
 
