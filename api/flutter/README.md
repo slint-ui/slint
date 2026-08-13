@@ -274,13 +274,22 @@ Globals work the same way through `app.global('PrinterQueue')`.
 cargo test -p slint-dart
 ```
 
-The Dart tests need a backend that opens no window:
+The Dart tests need a backend that opens no window, and they must load the
+library built with that backend — `dart test` runs the build hook, which
+produces a default-feature library, so pin `SLINT_DART_LIBRARY`:
 
 ```sh
 cargo build -p slint-dart --features backend-testing
-cd slint && SLINT_BACKEND=testing fvm dart test
-cd ../slint_flutter && SLINT_BACKEND=testing fvm flutter test
+cd slint
+SLINT_DART_LIBRARY="$PWD/../../target/debug/libslint_dart.dylib" \
+  SLINT_BACKEND=testing fvm dart test
+cd ../slint_flutter
+SLINT_DART_LIBRARY="$PWD/../../target/debug/libslint_dart.dylib" \
+  SLINT_BACKEND=testing fvm flutter test
 ```
+
+Running the tests also needs the Rust toolchain, because the build hook
+compiles the library as part of the test build.
 
 ## Toolchain
 

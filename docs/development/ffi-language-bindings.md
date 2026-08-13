@@ -439,7 +439,9 @@ cargo build --release -p slint-dart
 cargo test -p slint-dart
 
 cargo build -p slint-dart --features backend-testing
-cd api/flutter/slint && SLINT_BACKEND=testing fvm dart test
+cd api/flutter/slint
+SLINT_DART_LIBRARY="$PWD/../../target/debug/libslint_dart.dylib" \
+  SLINT_BACKEND=testing fvm dart test
 ```
 
 ## Internal FFI Modules
