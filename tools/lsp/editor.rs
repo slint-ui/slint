@@ -472,11 +472,7 @@ fn project_root_for_path(path: &Path) -> Option<&Path> {
 }
 
 fn requested_file_tree_preview(files: &[Url]) -> Option<Url> {
-    if files.len() == 1 && is_slint_url(&files[0]) {
-        Some(files[0].clone())
-    } else {
-        None
-    }
+    if files.len() == 1 && is_slint_url(&files[0]) { Some(files[0].clone()) } else { None }
 }
 
 fn is_slint_url(url: &Url) -> bool {
