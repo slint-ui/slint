@@ -16,6 +16,8 @@ fvm dart run build_runner build --delete-conflicting-outputs
 
 The generator creates `lib/ui/counter.slint.dart` and its default `load()`
 path is relative to this package directory.
+`CounterWindow.loadSource(source)` compiles the same typed component from
+`.slint` text already in memory.
 Run the example on Linux or Windows:
 
 ```sh

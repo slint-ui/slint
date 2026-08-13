@@ -140,6 +140,7 @@ the platform runner once, then run:
 ```sh
 cargo build --release -p slint-dart
 cd examples/todo/flutter
+fvm dart run build_runner build --delete-conflicting-outputs
 fvm flutter create --platforms=macos --project-name=todo .
 fvm flutter run -d macos
 ```

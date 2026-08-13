@@ -101,23 +101,31 @@ import 'package:my_app/ui/counter.slint.dart';
 final app = CounterWindow.load();
 ```
 
+`loadSource` compiles the same component from `.slint` text already in memory,
+and still returns the generated type:
+
+```dart
+final app = CounterWindow.loadSource(source);
+```
+
 By default, `load()` uses a `.slint` path relative to the package directory
 where generation ran.
 Run the application from that directory, or pass `path:` when it starts with a
 different working directory.
-The current binding loads Slint source at runtime, so packaged Flutter apps
-must copy these files and resources into a filesystem location and pass that
-location to `load(path: ...)`.
+The current binding loads Slint source at runtime.
+`load()` reads that source from the filesystem.
+Packaged Flutter apps should declare the `.slint` file as a Flutter asset,
+preload it with `rootBundle.loadString` before `runApp`, and pass the text to
+`loadSource`.
 If configured include directories move too, pass their deployed locations with
 `includePaths:`.
-Flutter asset-bundle loading isn't available yet.
 
 Generated Dart types use UpperCamelCase, and generated fields and methods use
 lowerCamelCase:
 
 | Slint declaration | Generated Dart API |
 | --- | --- |
-| `export component counter-window` | `CounterWindow.load()` |
+| `export component counter-window` | `CounterWindow.load()`, `CounterWindow.loadSource(source)` |
 | `in-out property <int> current-count` | `currentCount` |
 | `callback count-changed(int)` | `onCountChanged(...)`, `invokeCountChanged(...)` |
 | `public function reset_counter()` | `invokeResetCounter()` |
@@ -268,7 +276,20 @@ SlintView(load: CounterWindow.load)
 This direct factory form assumes the Slint source is available on the
 filesystem at its generated package-relative path and the package directory is
 the working directory.
-For a packaged app, wrap the factory and provide the deployed path:
+For a packaged app, preload the `.slint` file from the Flutter asset bundle
+and compile it with `loadSource`:
+
+```dart
+WidgetsFlutterBinding.ensureInitialized();
+final source = await rootBundle.loadString('lib/ui/counter.slint');
+runApp(MyApp(source: source));
+
+// Inside a widget tree:
+SlintView(load: () => CounterWindow.loadSource(source))
+```
+
+If the source is on the filesystem instead, wrap the factory and provide the
+deployed path:
 
 ```dart
 SlintView(load: () => CounterWindow.load(
@@ -358,6 +379,7 @@ every command above is available as `fvm dart …` and `fvm flutter …`. Run
   platform lives. This matches the Python and Node.js bindings.
 - Images and translations are not exposed yet. `@image-url` inside `.slint`
   works; passing an image in from Dart does not.
-- Generated wrappers load the original `.slint` source at runtime. Packaged
-  Flutter apps must deploy it to the filesystem and pass its path to `load()`;
-  Flutter asset-bundle loading isn't implemented yet.
+- Generated wrappers load the original `.slint` source at runtime.
+  Packaged Flutter apps should bundle that file as a Flutter asset and call
+  `loadSource` with the preloaded text.
+  `load()` and `loadFile()` still read from the filesystem.

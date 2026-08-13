@@ -1152,6 +1152,9 @@ mod tests {
         assert!(source.contains("void onTodoAdded"), "{source}");
         assert!(source.contains("int invokeDoWork"), "{source}");
         assert!(source.contains("getProperty(\"todo-model\")"), "{source}");
+        assert!(source.contains("factory MainWindow.load("), "{source}");
+        assert!(source.contains("factory MainWindow.loadSource("), "{source}");
+        assert!(source.contains("slint.loadSource("), "{source}");
 
         let dependencies = generated["dependencies"].as_array().unwrap();
         assert!(dependencies.iter().any(|path| path.as_str().is_some_and(|path| {

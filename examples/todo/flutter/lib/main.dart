@@ -6,15 +6,14 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:slint_flutter/slint_flutter.dart';
+import 'package:todo/ui/todo.slint.dart';
 
 /// The `.slint` file this example shares with its Rust, C++ and Node.js
 /// siblings, loaded from the Flutter asset bundle.
-const todoUiAsset = 'assets/ui/todo.slint';
+const todoUiAsset = 'lib/ui/todo.slint';
 
-/// One row of the list. It matches the `TodoItem` struct in `todo.slint`;
-/// Slint structs cross the boundary as plain maps.
-Map<String, Object?> todo(String title, {bool checked = false}) =>
-    {'title': title, 'checked': checked};
+TodoItem todo(String title, {bool checked = false}) =>
+    TodoItem(title: title, checked: checked);
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -34,8 +33,8 @@ class TodoApp extends StatelessWidget {
       );
 }
 
-ComponentInstance buildTodoUi(String source) {
-  final app = loadSource(source, path: todoUiAsset);
+MainWindow buildTodoUi(String source) {
+  final app = MainWindow.loadSource(source, path: todoUiAsset);
 
   // Dart owns the list; the `todo-model` property is the view of it. Every
   // mutation writes the whole list back, which keeps the sorting and filtering
@@ -55,47 +54,41 @@ ComponentInstance buildTodoUi(String source) {
   void refresh() {
     // Pick up the checkboxes the user toggled in the UI before rewriting the
     // model, otherwise sorting or filtering would discard them.
-    final shown = app['todo-model']! as List<Object?>;
-    for (final row in shown.cast<Map<String, Object?>>()) {
-      items.firstWhere((item) => item['title'] == row['title'])['checked'] =
-          row['checked'];
+    for (final row in app.todoModel) {
+      final index = items.indexWhere((item) => item.title == row.title);
+      items[index] = todo(row.title, checked: row.checked);
     }
 
     final visible = items.toList();
-    if (app['hide-done-items']! as bool) {
-      visible.removeWhere((item) => item['checked']! as bool);
+    if (app.hideDoneItems) {
+      visible.removeWhere((item) => item.checked);
     }
-    if (app['is-sort-by-name']! as bool) {
-      visible.sort((a, b) => (a['title']! as String)
-          .toLowerCase()
-          .compareTo((b['title']! as String).toLowerCase()));
+    if (app.isSortByName) {
+      visible.sort(
+        (a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()),
+      );
     }
-    app['todo-model'] = visible;
+    app.todoModel = visible;
   }
 
-  app.setCallback('todo-added', (args) {
-    items.add(todo(args[0]! as String));
+  app.onTodoAdded((title) {
+    items.add(todo(title));
     refresh();
-    return null;
   });
 
-  app.setCallback('remove-done', (_) {
+  app.onRemoveDone(() {
     refresh();
-    items.removeWhere((item) => item['checked']! as bool);
+    items.removeWhere((item) => item.checked);
     refresh();
-    return null;
   });
 
-  app.setCallback('apply_sorting_and_filtering', (_) {
-    refresh();
-    return null;
-  });
+  app.onApplySortingAndFiltering(refresh);
 
-  app.setCallback('popup_confirmed', (_) {
+  app.onPopupConfirmed(() {
     exit(0);
   });
 
-  app['show-header'] = true;
-  app['todo-model'] = items;
+  app.showHeader = true;
+  app.todoModel = items;
   return app;
 }

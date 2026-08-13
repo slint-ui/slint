@@ -98,6 +98,8 @@ const COMPONENT_RESERVED_NAMES: &[&str] = &[
     "hide",
     "instance",
     "invoke",
+    "load",
+    "loadSource",
     "noSuchMethod",
     "run",
     "runtimeType",
@@ -708,6 +710,21 @@ fn runtime_include_paths(compiler_config: &CompilerConfiguration) -> io::Result<
         .collect())
 }
 
+fn write_runtime_load_options(
+    output: &mut String,
+    path: &str,
+    compiler_config: &CompilerConfiguration,
+    include_paths: &str,
+) {
+    writeln!(output, "    String path = {path},").unwrap();
+    if let Some(style) = compiler_config.style.as_deref() {
+        writeln!(output, "    String? style = {},", dart_string(style)).unwrap();
+    } else {
+        writeln!(output, "    String? style,").unwrap();
+    }
+    writeln!(output, "    List<String> includePaths = const [{include_paths}],").unwrap();
+}
+
 fn raw_component_names(doc: &Document) -> HashMap<String, String> {
     doc.exports
         .iter()
@@ -818,15 +835,19 @@ pub fn generate(
         writeln!(output, "class {name} implements slint.SlintComponent {{").unwrap();
         writeln!(output, "  {name}._(this.instance);").unwrap();
         writeln!(output, "  factory {name}.load({{").unwrap();
-        writeln!(output, "    String path = {path},").unwrap();
-        if let Some(style) = compiler_config.style.as_deref() {
-            writeln!(output, "    String? style = {},", dart_string(style)).unwrap();
-        } else {
-            writeln!(output, "    String? style,").unwrap();
-        }
-        writeln!(output, "    List<String> includePaths = const [{include_paths}],").unwrap();
+        write_runtime_load_options(&mut output, &path, compiler_config, &include_paths);
         writeln!(output, "  }}) => {name}._(slint.loadFile(").unwrap();
         writeln!(output, "    path,").unwrap();
+        writeln!(output, "    component: {},", dart_string(raw_name)).unwrap();
+        writeln!(output, "    style: style,").unwrap();
+        writeln!(output, "    includePaths: includePaths,").unwrap();
+        writeln!(output, "  ));").unwrap();
+        writeln!(output, "  factory {name}.loadSource(").unwrap();
+        writeln!(output, "    String source, {{").unwrap();
+        write_runtime_load_options(&mut output, &path, compiler_config, &include_paths);
+        writeln!(output, "  }}) => {name}._(slint.loadSource(").unwrap();
+        writeln!(output, "    source,").unwrap();
+        writeln!(output, "    path: path,").unwrap();
         writeln!(output, "    component: {},", dart_string(raw_name)).unwrap();
         writeln!(output, "    style: style,").unwrap();
         writeln!(output, "    includePaths: includePaths,").unwrap();

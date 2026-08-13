@@ -48,3 +48,4 @@ MODULE.bazel.lock
 Info.plist
 reasonix.toml
 /.reasonix
+/.idea
