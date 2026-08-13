@@ -41,11 +41,21 @@ fn settings_path(_name: &str) -> Option<PathBuf> {
     None
 }
 
-/// Resolve `name` against `config_dir`, using only its final path component so
-/// a malicious or malformed name cannot escape the config directory.
+/// Resolve `name` against `config_dir`, while checking that "name" is not maliciously trying to
+/// escape the config_dir.
 fn settings_path_from_config_dir(config_dir: &Path, name: &str) -> Option<PathBuf> {
-    let file_name = Path::new(name).file_name()?;
-    Some(config_dir.join(file_name))
+    let path_name = PathBuf::from(name);
+    let candidate = config_dir.join(&path_name);
+    if candidate.parent() == Some(config_dir)
+        && candidate.file_name() == Some(path_name.as_os_str())
+    {
+        Some(candidate)
+    } else {
+        tracing::warn!(
+            "Rejected config name: `{name}` which attempted to escape config directory."
+        );
+        None
+    }
 }
 
 fn load_from_path(path: &Path) -> Option<String> {
@@ -87,19 +97,59 @@ mod tests {
     }
 
     #[test]
-    fn settings_path_uses_only_the_final_component() {
+    fn settings_name_does_not_allow_escaping_config_dir() {
         let temp_dir = tempfile::tempdir().unwrap();
         let config_dir = config_dir(&temp_dir);
-        assert_eq!(
-            settings_path_from_config_dir(&config_dir, "preview-user-settings.json"),
-            Some(config_dir.join("preview-user-settings.json"))
-        );
-        // A name with directory components cannot escape the config dir.
-        assert_eq!(
-            settings_path_from_config_dir(&config_dir, "../../etc/passwd"),
-            Some(config_dir.join("passwd"))
-        );
-        assert_eq!(settings_path_from_config_dir(&config_dir, ".."), None);
+
+        let bad_on_windows = [
+            "C:\\",
+            "\\",
+            "..\\",
+            ".\\",
+            ".\\..",
+            "inner\\test.json",
+            "C:\\System\\",
+            "test\\",
+            "..\\slint-lsp",
+        ];
+
+        let mut disallowed = vec![
+            "",
+            ".",
+            "..",
+            "/",
+            "../",
+            "./",
+            "./..",
+            "inner/test.json",
+            "test/",
+            "../slint-lsp",
+            "/bin/bash",
+        ];
+
+        let mut allowed = vec!["preview-user-settings.json", ".settings.json"];
+
+        if cfg!(target_os = "windows") {
+            disallowed.extend(bad_on_windows);
+        } else {
+            allowed.extend(bad_on_windows);
+        }
+
+        for disallowed in disallowed {
+            assert_eq!(
+                settings_path_from_config_dir(&config_dir, disallowed),
+                None,
+                "{disallowed} should not be a valid settings name",
+            );
+        }
+
+        for allowed in allowed {
+            assert_eq!(
+                settings_path_from_config_dir(&config_dir, allowed),
+                Some(config_dir.join(allowed)),
+                "{allowed} should be a valid settings name",
+            );
+        }
     }
 
     #[test]
