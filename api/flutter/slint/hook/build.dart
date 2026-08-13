@@ -71,12 +71,11 @@ Future<String?> hostRustTarget() async {
   return null;
 }
 
-/// The cargo profile to build, from the `cargo_profile` user-define, or
-/// `release` when it isn't set. Debug builds are faster to produce, release
+/// The cargo profile to build: `release` by default, or the value of the
+/// `cargo_profile` user-define. Debug builds are faster to produce, release
 /// builds are what the README's `cargo build --release -p slint-dart`
 /// documents.
-String cargoProfile(HookInputUserDefines userDefines) {
-  final value = userDefines['cargo_profile'];
+String cargoProfile(Object? value) {
   if (value == null) return 'release';
   if (value == 'debug' || value == 'release') return value as String;
   throw const FormatException(
@@ -186,7 +185,7 @@ void main(List<String> arguments) async {
       );
     }
 
-    final profile = cargoProfile(input.userDefines);
+    final profile = cargoProfile(input.userDefines['cargo_profile']);
     final crateRoot = input.packageRoot.resolve('../');
     final library = await cargoBuild(crateRoot, profile);
 

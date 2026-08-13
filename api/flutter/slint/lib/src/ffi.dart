@@ -12,6 +12,7 @@ import 'dart:ffi';
 import 'dart:io';
 
 import 'package:ffi/ffi.dart';
+import 'package:path/path.dart' as p;
 
 import 'diagnostics.dart';
 
@@ -63,7 +64,8 @@ class SlintFfi {
   static DynamicLibrary _openLibrary() {
     final explicit = Platform.environment['SLINT_DART_LIBRARY'];
     if (explicit != null && explicit.isNotEmpty) {
-      return DynamicLibrary.open(explicit);
+      // Normalize, since dlopen does not resolve `..` in the path.
+      return DynamicLibrary.open(p.normalize(p.absolute(explicit)));
     }
     final bundled = _findInBundle();
     if (bundled != null) {

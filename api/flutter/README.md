@@ -281,10 +281,10 @@ produces a default-feature library, so pin `SLINT_DART_LIBRARY`:
 ```sh
 cargo build -p slint-dart --features backend-testing
 cd slint
-SLINT_DART_LIBRARY="$PWD/../../target/debug/libslint_dart.dylib" \
+SLINT_DART_LIBRARY="$PWD/../../../target/debug/libslint_dart.dylib" \
   SLINT_BACKEND=testing fvm dart test
 cd ../slint_flutter
-SLINT_DART_LIBRARY="$PWD/../../target/debug/libslint_dart.dylib" \
+SLINT_DART_LIBRARY="$PWD/../../../target/debug/libslint_dart.dylib" \
   SLINT_BACKEND=testing fvm flutter test
 ```
 

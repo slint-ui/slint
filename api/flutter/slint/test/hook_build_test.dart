@@ -5,7 +5,6 @@ import 'dart:ffi' show Abi;
 import 'dart:io';
 
 import 'package:code_assets/code_assets.dart';
-import 'package:hooks/hooks.dart';
 import 'package:hooks/src/test.dart' as hooks_test;
 import 'package:test/test.dart';
 
@@ -22,6 +21,17 @@ OS? hostOs(Abi abi) {
 }
 
 void main() {
+  test('the cargo profile defaults to release and honors the user-define',
+      () {
+    expect(build_hook.cargoProfile(null), 'release');
+    expect(build_hook.cargoProfile('debug'), 'debug');
+    expect(build_hook.cargoProfile('release'), 'release');
+    expect(
+      () => build_hook.cargoProfile('fast'),
+      throwsA(isA<FormatException>()),
+    );
+  });
+
   test('builds libslint_dart and declares it as a bundled code asset', () async {
     final abi = Abi.current();
     final os = hostOs(abi);
@@ -34,6 +44,9 @@ void main() {
       return;
     }
 
+    // The hook builds with the default `release` cargo profile, which never
+    // touches the `target/debug` library that the other tests load with
+    // `--features backend-testing`.
     await hooks_test.testBuildHook(
       mainMethod: build_hook.main,
       extensions: [
@@ -41,17 +54,9 @@ void main() {
           targetOS: os,
           targetArchitecture: Architecture.fromAbi(abi),
           linkModePreference: LinkModePreference.dynamic,
-          macOS: os == OS.macOS
-              ? MacOSCodeConfig(targetVersion: 13)
-              : null,
+          macOS: os == OS.macOS ? MacOSCodeConfig(targetVersion: 13) : null,
         ),
       ],
-      userDefines: PackageUserDefines(
-        workspacePubspec: PackageUserDefinesSource(
-          defines: const {'cargo_profile': 'debug'},
-          basePath: Directory.current.uri,
-        ),
-      ),
       check: (input, output) {
         final codeAssets = output.assets.encodedAssets
             .where((asset) => asset.isCodeAsset)
@@ -68,9 +73,8 @@ void main() {
 
         // The crate manifest and sources are declared so the hook cache
         // invalidates when they change.
-        final dependencies = output.dependencies
-            .map((uri) => uri.path)
-            .toSet();
+        final dependencies =
+            output.dependencies.map((uri) => uri.path).toSet();
         expect(dependencies, contains(endsWith('api/flutter/Cargo.toml')));
         expect(dependencies, contains(endsWith('api/flutter/rust')));
         expect(dependencies, contains(endsWith('Cargo.lock')));
