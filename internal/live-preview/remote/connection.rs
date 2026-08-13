@@ -12,9 +12,9 @@ use std::{
 
 use crate::REBUILD_DEBOUNCE;
 use crate::protocol::pairing::{
-    self, CODE_TIMEOUT, Credential, MAX_ATTEMPTS, Nonce, PROMPT_RATE_LIMIT, PairingRejection,
-    Proof, Token,
+    self, CODE_TIMEOUT, MAX_ATTEMPTS, Nonce, PROMPT_RATE_LIMIT, PairingRejection, Proof, Token,
 };
+use crate::protocol::session;
 use crate::protocol::{
     LspToPreviewMessage, PROTOCOL_SUBPROTOCOL, PreviewComponent, PreviewConfig,
     PreviewToLspMessage, SLINT_PROTOCOLS_HEADER, SLINT_VERSION, SLINT_VERSION_HEADER,
@@ -129,12 +129,14 @@ enum Screen {
 }
 
 impl PairingState {
-    /// Whether `offered` proves possession of a token we handed out.
-    fn accepts_token(&self, offered: &Proof, nonce: &Nonce) -> bool {
-        // Bitwise `|` rather than `||`: checking every token regardless keeps
-        // the answer from depending on which one matched.
-        self.tokens.iter().fold(false, |found, token| {
-            found | pairing::proof(Credential::Token, token.as_bytes(), nonce).matches(offered)
+    /// The token `offered` proves possession of, if we handed it out. The
+    /// value is needed and not just a yes/no, because it keys the session.
+    fn accepting_token(&self, offered: &Proof, nonce: &Nonce) -> Option<Token> {
+        // Fold rather than `find`: checking every token regardless keeps the
+        // work from depending on which one matched.
+        self.tokens.iter().fold(None, |found, token| {
+            let matched = pairing::token_proof(token, nonce).matches(offered);
+            if matched { Some(*token) } else { found }
         })
     }
 
@@ -357,7 +359,7 @@ pub enum ConnectionMessage {
 pub struct Connection {
     local_addr: SocketAddr,
     thread_handle: Option<(std::thread::JoinHandle<()>, sync::oneshot::Sender<()>)>,
-    message_sender: sync::mpsc::UnboundedSender<Message>,
+    message_sender: sync::mpsc::UnboundedSender<Outbound>,
     file_cache: FileCache,
     /// Files the currently shown component depends on. `SetContents` notifications for URLs
     /// outside this set are ignored, so unrelated edits in the user's editor don't trigger a
@@ -370,13 +372,22 @@ pub struct Connection {
     device_name: Mutex<String>,
 }
 
+/// Something queued for the write half.
+enum Outbound {
+    /// A protocol message, sealed if the session has keys.
+    Payload(Vec<u8>),
+    /// A WebSocket control frame. Never sealed: it belongs to the transport,
+    /// not to the protocol running on top of it.
+    Control(Message),
+}
+
 /// Serialize a message into the wire format and queue it on the write half.
 fn encode_and_send(
-    sender: &UnboundedSender<Message>,
+    sender: &UnboundedSender<Outbound>,
     message: &impl Serialize,
 ) -> anyhow::Result<()> {
     let data: Vec<u8> = postcard::to_allocvec(message)?;
-    sender.send(Message::Binary(data.into()))?;
+    sender.send(Outbound::Payload(data))?;
     Ok(())
 }
 
@@ -477,11 +488,11 @@ impl Connection {
                 // stalls mid-handshake or never enters a code can't hold the listener
                 // up, and the running session survives until someone replaces it.
                 let (admitted_sender, mut admitted_receiver) =
-                    sync::mpsc::unbounded_channel::<(Sink, Source, SocketAddr)>();
+                    sync::mpsc::unbounded_channel::<(Sink, Source, SocketAddr, session::Sealing, session::Opening)>();
                 // The sink is the write half; the JoinHandle is the read-half task. We keep
                 // both so an admitted connection can abort the in-flight task and reset shared
                 // state before its messages race with the new client's.
-                let mut current_session: Option<(Sink, tokio::task::JoinHandle<()>)> = None;
+                let mut current_session: Option<(Sink, tokio::task::JoinHandle<()>, session::Sealing)> = None;
                 loop {
                     tokio::select! {
                         accept = listener.accept() => {
@@ -516,8 +527,8 @@ impl Connection {
                         admitted = admitted_receiver.recv() => {
                             // `admitted_sender` is held by this loop, so the channel
                             // never closes while we're running.
-                            let Some((sink, receiver, addr)) = admitted else { continue };
-                            if let Some((_old_sink, old_handle)) = current_session.take() {
+                            let Some((sink, receiver, addr, sealing, opening)) = admitted else { continue };
+                            if let Some((_old_sink, old_handle, _)) = current_session.take() {
                                 // A finished handle is just a stale session left
                                 // behind by an earlier disconnect, not a takeover.
                                 if !old_handle.is_finished() {
@@ -539,17 +550,30 @@ impl Connection {
                                 inner_dependencies.clone(),
                                 inner_message_sender.clone(),
                                 addr,
+                                opening,
                             ));
-                            current_session = Some((sink, handle));
+                            current_session = Some((sink, handle, sealing));
                         }
                         _ = &mut quit_receiver => {
                             tracing::info!("Quit signal received, shutting down connection thread.");
                             break;
                         }
                         message = message_receiver.recv() => {
-                            if let (Some(message), Some((sink, _))) = (message, current_session.as_mut())
-                                && let Err(err) = sink.send(message).await {
-                                tracing::error!("Failed sending message to Websocket: {err}");
+                            if let (Some(outbound), Some((sink, _, sealing))) = (message, current_session.as_mut()) {
+                                let frame = match outbound {
+                                    Outbound::Control(frame) => Some(frame),
+                                    Outbound::Payload(bytes) => match sealing.seal(bytes) {
+                                        Ok(sealed) => Some(Message::Binary(sealed.into())),
+                                        Err(err) => {
+                                            tracing::error!("Cannot seal outbound frame: {err:?}");
+                                            None
+                                        }
+                                    },
+                                };
+                                if let Some(frame) = frame
+                                    && let Err(err) = sink.send(frame).await {
+                                    tracing::error!("Failed sending message to Websocket: {err}");
+                                }
                             }
                         }
                     }
@@ -615,7 +639,7 @@ impl Connection {
         policy: PairingPolicy,
         pairing_state: Arc<Mutex<PairingState>>,
         message_handler: Arc<dyn Fn(ConnectionMessage) + 'static + Send + Sync>,
-        admitted: UnboundedSender<(Sink, Source, SocketAddr)>,
+        admitted: UnboundedSender<(Sink, Source, SocketAddr, session::Sealing, session::Opening)>,
         // Held for as long as this connection is being admitted, so the
         // listener can bound how many are in flight.
         _permit: sync::OwnedSemaphorePermit,
@@ -645,9 +669,9 @@ impl Connection {
         )
         .await
         {
-            Ok(()) => {
+            Ok((sealing, opening)) => {
                 tracing::info!("Paired with {remote_addr:?}");
-                admitted.send((sink, receiver, remote_addr)).ok();
+                admitted.send((sink, receiver, remote_addr, sealing, opening)).ok();
             }
             Err(Denied::Gone) => {
                 tracing::info!("{remote_addr:?} gave up before pairing completed");
@@ -678,7 +702,7 @@ impl Connection {
         policy: &PairingPolicy,
         pairing_state: &Arc<Mutex<PairingState>>,
         message_handler: Arc<dyn Fn(ConnectionMessage) + 'static + Send + Sync>,
-    ) -> Result<(), Denied> {
+    ) -> Result<(session::Sealing, session::Opening), Denied> {
         let nonce = pairing::generate::nonce();
         send_on(sink, &PreviewToLspMessage::PairingChallenge { nonce }).await?;
 
@@ -693,20 +717,23 @@ impl Connection {
         };
 
         if *policy == PairingPolicy::Disabled {
-            // --no-pairing: everyone is admitted, so there is no token to
-            // derive and nothing for the client to remember.
+            // --no-pairing: everyone is admitted, so there is no shared
+            // secret, and nothing to key a sealed session with either.
             send_on(sink, &PreviewToLspMessage::PairingAccepted).await?;
-            return Ok(());
+            return Ok((session::Sealing::Plaintext, session::Opening::Plaintext));
         }
 
         if let Some(offered) = token_proof {
-            if pairing_state.lock().unwrap().accepts_token(&offered, &nonce) {
+            // Bound first: holding the guard across the await below would
+            // make this future non-Send.
+            let accepted = pairing_state.lock().unwrap().accepting_token(&offered, &nonce);
+            if let Some(token) = accepted {
                 // An editor we already paired with, reconnecting. Keep the
                 // screen alone: this is the common case after a network blip
                 // or the viewer coming back to the foreground.
                 tracing::info!("{remote_addr:?} presented a valid token; no code needed");
                 send_on(sink, &PreviewToLspMessage::PairingAccepted).await?;
-                return Ok(());
+                return Ok(pairing::session_from_token(pairing::Role::Viewer, &token, &nonce));
             }
             tracing::info!("{remote_addr:?} presented a token we did not issue");
             // Almost always a token from a previous run of this viewer. Say
@@ -724,18 +751,25 @@ impl Connection {
         let mut guard = PromptGuard::begin(pairing_state, message_handler, remote_addr, &code)
             .map_err(Denied::Pairing)?;
 
-        let expected = pairing::proof(Credential::Code, code.as_bytes(), &nonce);
         let deadline = tokio::time::Instant::now() + CODE_TIMEOUT;
         let remaining = || deadline.saturating_duration_since(tokio::time::Instant::now());
-        let prompt = |attempts_left| PreviewToLspMessage::PairingRequired {
-            attempts_left,
-            expires_in_seconds: remaining().as_secs() as u16,
-        };
         let mut attempts_left = MAX_ATTEMPTS;
 
-        send_on(sink, &prompt(attempts_left)).await?;
-
         loop {
+            // A fresh exchange per attempt: the state is consumed by
+            // finishing, and reusing an element across guesses would leak
+            // more than one guess's worth.
+            let handshake = pairing::Handshake::start(pairing::Role::Viewer, &code);
+            send_on(
+                sink,
+                &PreviewToLspMessage::PairingRequired {
+                    attempts_left,
+                    expires_in_seconds: remaining().as_secs() as u16,
+                    element: handshake.element().clone(),
+                },
+            )
+            .await?;
+
             let Some(message) = next_message(receiver, remaining()).await else {
                 // End of stream covers both a deadline that lapsed and a peer
                 // that vanished. The clock is what tells them apart, and
@@ -746,21 +780,33 @@ impl Connection {
                     Denied::Gone
                 });
             };
-            let LspToPreviewMessage::PairingCodeProof { proof } = message else {
+            let LspToPreviewMessage::PairingResponse { element, confirmation } = message else {
                 tracing::warn!("Ignoring {message:?} from {remote_addr:?} during pairing");
                 continue;
             };
 
-            if proof.matches(&expected) {
+            // A wrong code doesn't fail here: it produces different keys,
+            // and only the confirmation tells us so. That is the point --
+            // the wire carries nothing to test a guess against offline.
+            let accepted = handshake
+                .finish(&element)
+                .ok()
+                .filter(|secrets| confirmation.matches(&secrets.editor_confirmation));
+
+            if let Some(secrets) = accepted {
                 tracing::info!("{remote_addr:?} entered the pairing code correctly");
-                // Derived, not sent: the client computes the same value from
-                // the code it just proved and the nonce it was challenged with.
-                pairing_state.lock().unwrap().remember_token(pairing::derive_token(&code, &nonce));
-                send_on(sink, &PreviewToLspMessage::PairingAccepted).await?;
+                pairing_state.lock().unwrap().remember_token(secrets.token);
+                send_on(
+                    sink,
+                    &PreviewToLspMessage::PairingConfirm {
+                        confirmation: secrets.viewer_confirmation,
+                    },
+                )
+                .await?;
                 // Tells the guard the incoming session is about to drive the
                 // screen, so the viewer shouldn't restore what we displaced.
                 guard.accepted = true;
-                return Ok(());
+                return Ok(secrets.session());
             }
 
             attempts_left -= 1;
@@ -772,7 +818,6 @@ impl Connection {
                 &PreviewToLspMessage::PairingRejected { reason: PairingRejection::BadCode },
             )
             .await?;
-            send_on(sink, &prompt(attempts_left)).await?;
         }
     }
 
@@ -781,8 +826,9 @@ impl Connection {
         message_handler: Arc<dyn Fn(ConnectionMessage) + 'static + Send + Sync>,
         file_cache: FileCache,
         dependencies: Arc<Mutex<HashSet<Url>>>,
-        message_sender: UnboundedSender<Message>,
+        message_sender: UnboundedSender<Outbound>,
         remote_addr: SocketAddr,
+        mut opening: session::Opening,
     ) {
         message_handler(ConnectionMessage::Connected { remote_addr });
         // `Some(deadline)` while a `SetContents`-driven rebuild is pending. The sleep_until
@@ -808,7 +854,13 @@ impl Connection {
                             tracing::warn!("Received text message: {text}");
                         }
                         Ok(Message::Binary(bin)) => {
-                            match postcard::from_bytes::<LspToPreviewMessage>(&bin) {
+                            let Ok(plain) = opening.open(&bin) else {
+                                // Tampered, reordered, or from a peer that
+                                // derived a different key.
+                                tracing::error!("Dropping a frame that failed to open");
+                                break;
+                            };
+                            match postcard::from_bytes::<LspToPreviewMessage>(&plain) {
                                 Ok(message) => {
                                     tracing::debug!("Received message {message:?}");
                                     match message {
@@ -936,7 +988,7 @@ impl Connection {
                                         // Pairing is settled before the session starts, so
                                         // these can only be a confused or malicious peer.
                                         LspToPreviewMessage::PairingHello { .. }
-                                        | LspToPreviewMessage::PairingCodeProof { .. } => {
+                                        | LspToPreviewMessage::PairingResponse { .. } => {
                                             tracing::warn!(
                                                 "Ignoring pairing message on an established session"
                                             );
@@ -949,7 +1001,7 @@ impl Connection {
                             }
                         }
                         Ok(Message::Ping(data)) => {
-                            message_sender.send(Message::Pong(data)).ok();
+                            message_sender.send(Outbound::Control(Message::Pong(data))).ok();
                         }
                         Ok(Message::Pong(_)) => {}
                         Ok(Message::Close(_)) => {
@@ -1323,7 +1375,8 @@ mod cool_down_tests {
 #[cfg(test)]
 mod session_tests {
     use super::{Connection, ConnectionMessage, MAX_PENDING_ADMISSIONS, PairingPolicy};
-    use crate::protocol::pairing::{self, Credential, MAX_ATTEMPTS, Nonce, Token};
+    use crate::protocol::pairing::{self, MAX_ATTEMPTS, Nonce, Token};
+    use crate::protocol::session;
     use crate::protocol::{
         LspToPreviewMessage, PROTOCOL_SUBPROTOCOL, PairingRejection, PreviewToLspMessage,
     };
@@ -1448,39 +1501,85 @@ mod session_tests {
         let Some(PreviewToLspMessage::PairingChallenge { nonce }) = recv(client).await else {
             panic!("expected a challenge");
         };
-        let token_proof =
-            token.map(|token| pairing::proof(Credential::Token, token.as_bytes(), &nonce));
+        let token_proof = token.map(|token| pairing::token_proof(token, &nonce));
         send(client, &LspToPreviewMessage::PairingHello { token_proof }).await;
         nonce
     }
 
-    async fn offer_code(client: &mut Client, code: &str, nonce: &Nonce) {
-        let proof = pairing::proof(Credential::Code, code.as_bytes(), nonce);
-        send(client, &LspToPreviewMessage::PairingCodeProof { proof }).await;
+    /// Complete the editor's half of the exchange for `code`.
+    ///
+    /// Returns the derived secrets, or the viewer's rejection. A wrong code
+    /// gets all the way to the confirmation exchange -- that is the property
+    /// under test.
+    async fn answer_code(
+        client: &mut Client,
+        code: &str,
+        element: &pairing::Element,
+    ) -> Result<pairing::Secrets, PairingRejection> {
+        let handshake = pairing::Handshake::start(pairing::Role::Editor, code);
+        let ours = handshake.element().clone();
+        let secrets = handshake.finish(element).expect("the viewer's element is well formed");
+        send(
+            client,
+            &LspToPreviewMessage::PairingResponse {
+                element: ours,
+                confirmation: secrets.editor_confirmation,
+            },
+        )
+        .await;
+        match recv(client).await {
+            Some(PreviewToLspMessage::PairingConfirm { confirmation }) => {
+                assert!(
+                    confirmation.matches(&secrets.viewer_confirmation),
+                    "the viewer confirmed with a key we did not derive"
+                );
+                Ok(secrets)
+            }
+            Some(PreviewToLspMessage::PairingRejected { reason }) => Err(reason),
+            other => panic!("unexpected answer to the pairing response: {other:?}"),
+        }
     }
 
     /// Dial as a stranger and wait for the viewer to put a code on screen.
-    async fn knock(viewer: &Viewer) -> (Client, Nonce) {
+    async fn knock(viewer: &Viewer) -> (Client, pairing::Element) {
         let mut client = viewer.dial().await;
-        let nonce = hello(&mut client, None).await;
-        assert!(
-            matches!(recv(&mut client).await, Some(PreviewToLspMessage::PairingRequired { .. })),
-            "expected a code prompt"
-        );
-        (client, nonce)
+        hello(&mut client, None).await;
+        let Some(PreviewToLspMessage::PairingRequired { element, .. }) = recv(&mut client).await
+        else {
+            panic!("expected a code prompt");
+        };
+        (client, element)
     }
 
-    /// Dial, pair with the code the viewer displays, and return the socket
-    /// plus the token it was issued.
-    async fn pair(viewer: &mut Viewer) -> (Client, Token) {
-        let (mut client, nonce) = knock(viewer).await;
+    /// A client past the handshake, sealing and opening like the real one.
+    struct Paired {
+        client: Client,
+        sealing: session::Sealing,
+        opening: session::Opening,
+    }
+
+    impl Paired {
+        async fn send(&mut self, message: &LspToPreviewMessage) {
+            let bytes = postcard::to_allocvec(message).unwrap();
+            let sealed = self.sealing.seal(bytes).unwrap();
+            self.client.send(Message::Binary(sealed.into())).await.unwrap();
+        }
+
+        async fn recv(&mut self) -> Option<PreviewToLspMessage> {
+            let raw = recv_raw(&mut self.client).await?;
+            let plain = self.opening.open(&raw).expect("the viewer sealed with another key");
+            Some(postcard::from_bytes(&plain).unwrap())
+        }
+    }
+
+    /// Dial, pair with the code the viewer displays, and return a sealed
+    /// session plus the token it derived.
+    async fn pair(viewer: &mut Viewer) -> (Paired, Token) {
+        let (mut client, element) = knock(viewer).await;
         let code = viewer.next_code().await;
-        offer_code(&mut client, &code, &nonce).await;
-        assert!(
-            matches!(recv(&mut client).await, Some(PreviewToLspMessage::PairingAccepted)),
-            "expected to be accepted"
-        );
-        (client, pairing::derive_token(&code, &nonce))
+        let secrets = answer_code(&mut client, &code, &element).await.expect("accepted");
+        let (sealing, opening) = secrets.session();
+        (Paired { client, sealing, opening }, secrets.token)
     }
 
     #[tokio::test]
@@ -1495,18 +1594,19 @@ mod session_tests {
         ));
         assert!(matches!(viewer.next_event().await, ConnectionMessage::Connected { .. }));
 
-        // The session is live: the keepalive round trip works.
-        send(&mut client, &LspToPreviewMessage::Ping).await;
-        assert!(matches!(recv(&mut client).await, Some(PreviewToLspMessage::Pong)));
+        // The session is live, and sealed: the keepalive round trip works
+        // only because both sides derived the same keys.
+        client.send(&LspToPreviewMessage::Ping).await;
+        assert!(matches!(client.recv().await, Some(PreviewToLspMessage::Pong)));
     }
 
     #[tokio::test]
     async fn wrong_code_burns_attempts_then_closes() {
         let mut viewer = Viewer::start(PairingPolicy::Generated).await;
         let mut client = viewer.dial().await;
-        let nonce = hello(&mut client, None).await;
+        hello(&mut client, None).await;
 
-        let Some(PreviewToLspMessage::PairingRequired { attempts_left, .. }) =
+        let Some(PreviewToLspMessage::PairingRequired { attempts_left, mut element, .. }) =
             recv(&mut client).await
         else {
             panic!("expected a code prompt");
@@ -1518,25 +1618,23 @@ mod session_tests {
         let wrong = if code == "0000" { "1111" } else { "0000" };
 
         for expected_left in (1..MAX_ATTEMPTS).rev() {
-            offer_code(&mut client, wrong, &nonce).await;
             assert!(matches!(
-                recv(&mut client).await,
-                Some(PreviewToLspMessage::PairingRejected { reason: PairingRejection::BadCode })
+                answer_code(&mut client, wrong, &element).await,
+                Err(PairingRejection::BadCode)
             ));
-            let Some(PreviewToLspMessage::PairingRequired { attempts_left, .. }) =
+            let Some(PreviewToLspMessage::PairingRequired { attempts_left, element: next, .. }) =
                 recv(&mut client).await
             else {
                 panic!("expected another code prompt");
             };
             assert_eq!(attempts_left, expected_left);
+            // A fresh exchange per attempt, so one guess never helps the next.
+            element = next;
         }
 
-        offer_code(&mut client, wrong, &nonce).await;
         assert!(matches!(
-            recv(&mut client).await,
-            Some(PreviewToLspMessage::PairingRejected {
-                reason: PairingRejection::TooManyAttempts
-            })
+            answer_code(&mut client, wrong, &element).await,
+            Err(PairingRejection::TooManyAttempts)
         ));
         assert!(recv(&mut client).await.is_none(), "viewer should close the socket");
     }
@@ -1564,9 +1662,8 @@ mod session_tests {
         drop(silent);
     }
 
-    /// The reconnect token must never be transmitted. Sending it would put
-    /// the credential itself on a plaintext socket, where anyone listening
-    /// could lift it and reconnect silently for the viewer's whole run.
+    /// Nothing an observer can use may reach the wire: not the code, not the
+    /// token, not the session keys.
     #[tokio::test]
     async fn nothing_secret_reaches_the_wire() {
         let mut viewer = Viewer::start(PairingPolicy::Generated).await;
@@ -1574,34 +1671,49 @@ mod session_tests {
 
         let mut frames: Vec<Vec<u8>> = Vec::new();
         frames.push(recv_raw(&mut client).await.expect("challenge"));
-        let nonce =
-            match postcard::from_bytes::<PreviewToLspMessage>(frames.last().unwrap()).unwrap() {
-                PreviewToLspMessage::PairingChallenge { nonce } => nonce,
-                other => panic!("expected a challenge, got {other:?}"),
-            };
         send(&mut client, &LspToPreviewMessage::PairingHello { token_proof: None }).await;
-        frames.push(recv_raw(&mut client).await.expect("prompt"));
+
+        let prompt = recv_raw(&mut client).await.expect("prompt");
+        frames.push(prompt.clone());
+        let PreviewToLspMessage::PairingRequired { element, .. } =
+            postcard::from_bytes(&prompt).unwrap()
+        else {
+            panic!("expected a code prompt");
+        };
 
         let code = viewer.next_code().await;
-        offer_code(&mut client, &code, &nonce).await;
-        frames.push(recv_raw(&mut client).await.expect("acceptance"));
+        let handshake = pairing::Handshake::start(pairing::Role::Editor, &code);
+        let ours = handshake.element().clone();
+        let secrets = handshake.finish(&element).unwrap();
+        send(
+            &mut client,
+            &LspToPreviewMessage::PairingResponse {
+                element: ours,
+                confirmation: secrets.editor_confirmation,
+            },
+        )
+        .await;
+        frames.push(recv_raw(&mut client).await.expect("confirmation"));
 
-        let token = pairing::derive_token(&code, &nonce);
+        let [key_down, key_up] = secrets.key_material();
         for frame in &frames {
-            assert!(
-                !frame.windows(token.as_bytes().len()).any(|w| w == token.as_bytes()),
-                "the viewer put the reconnect token on the wire"
-            );
-            assert!(
-                !frame.windows(code.len()).any(|w| w == code.as_bytes()),
-                "the viewer put the pairing code on the wire"
-            );
+            for (what, needle) in [
+                ("the pairing code", code.as_bytes()),
+                ("the reconnect token", secrets.token.as_bytes()),
+                ("a session key", key_down),
+                ("a session key", key_up),
+            ] {
+                assert!(
+                    !frame.windows(needle.len()).any(|w| w == needle),
+                    "{what} appeared on the wire"
+                );
+            }
         }
 
         // ... and the token both sides derived is the one that works.
         drop(client);
         let mut again = viewer.dial().await;
-        hello(&mut again, Some(&token)).await;
+        hello(&mut again, Some(&secrets.token)).await;
         assert!(matches!(recv(&mut again).await, Some(PreviewToLspMessage::PairingAccepted)));
     }
 
@@ -1628,7 +1740,7 @@ mod session_tests {
         let viewer = Viewer::start(PairingPolicy::Generated).await;
         let mut client = viewer.dial().await;
         // A token from some other viewer, or from a previous run of this one.
-        hello(&mut client, Some(&pairing::derive_token("9999", &Nonce::for_test(9)))).await;
+        hello(&mut client, Some(&Token::for_test(9))).await;
 
         assert!(matches!(
             recv(&mut client).await,
@@ -1661,8 +1773,8 @@ mod session_tests {
         viewer.expect_prompt_finished(false).await;
 
         // The original session is untouched.
-        send(&mut established, &LspToPreviewMessage::Ping).await;
-        assert!(matches!(recv(&mut established).await, Some(PreviewToLspMessage::Pong)));
+        established.send(&LspToPreviewMessage::Ping).await;
+        assert!(matches!(established.recv().await, Some(PreviewToLspMessage::Pong)));
     }
 
     #[tokio::test]
@@ -1719,23 +1831,21 @@ mod session_tests {
 
         // A brand new editor, with no token, pairing straight afterwards.
         let mut fresh = viewer.dial().await;
-        let nonce = hello(&mut fresh, None).await;
-        assert!(
-            matches!(recv(&mut fresh).await, Some(PreviewToLspMessage::PairingRequired { .. })),
-            "a successful pairing must not lock out the next one"
-        );
+        hello(&mut fresh, None).await;
+        let Some(PreviewToLspMessage::PairingRequired { element, .. }) = recv(&mut fresh).await
+        else {
+            panic!("a successful pairing must not lock out the next one");
+        };
         let code = viewer.next_code().await;
-        offer_code(&mut fresh, &code, &nonce).await;
-        assert!(matches!(recv(&mut fresh).await, Some(PreviewToLspMessage::PairingAccepted)));
+        answer_code(&mut fresh, &code, &element).await.expect("accepted");
     }
 
     #[tokio::test]
     async fn a_fixed_code_is_accepted_without_reading_the_screen() {
-        let viewer = Viewer::start(PairingPolicy::Fixed("135791".into())).await;
-        let (mut client, nonce) = knock(&viewer).await;
+        let viewer = Viewer::start(PairingPolicy::Fixed("1357".into())).await;
+        let (mut client, element) = knock(&viewer).await;
 
-        offer_code(&mut client, "135791", &nonce).await;
-        assert!(matches!(recv(&mut client).await, Some(PreviewToLspMessage::PairingAccepted)));
+        answer_code(&mut client, "1357", &element).await.expect("accepted");
     }
 
     #[tokio::test]
@@ -1748,32 +1858,44 @@ mod session_tests {
         assert!(matches!(viewer.next_event().await, ConnectionMessage::Connected { .. }));
     }
 
+    /// An element harvested from some other exchange must not be usable
+    /// here, even with the right code: the transcript binds both halves.
     #[tokio::test]
-    async fn a_proof_for_the_wrong_nonce_is_refused() {
+    async fn an_element_from_another_exchange_is_refused() {
         let mut viewer = Viewer::start(PairingPolicy::Generated).await;
-        let (mut client, _nonce) = knock(&viewer).await;
+        let (mut client, _element) = knock(&viewer).await;
         let code = viewer.next_code().await;
 
-        // Right code, replayed against a nonce from some other exchange.
-        offer_code(&mut client, &code, &Nonce::for_test(0)).await;
+        // A well-formed element, but from an exchange this viewer never ran.
+        let elsewhere = pairing::Handshake::start(pairing::Role::Viewer, &code);
         assert!(matches!(
-            recv(&mut client).await,
-            Some(PreviewToLspMessage::PairingRejected { reason: PairingRejection::BadCode })
+            answer_code(&mut client, &code, elsewhere.element()).await,
+            Err(PairingRejection::BadCode)
         ));
     }
 
     #[tokio::test]
-    async fn a_garbage_proof_is_refused() {
+    async fn a_garbage_element_is_refused() {
         let viewer = Viewer::start(PairingPolicy::Generated).await;
         let mut client = viewer.dial().await;
         hello(&mut client, None).await;
-        assert!(matches!(
-            recv(&mut client).await,
-            Some(PreviewToLspMessage::PairingRequired { .. })
-        ));
+        let Some(PreviewToLspMessage::PairingRequired { element, .. }) = recv(&mut client).await
+        else {
+            panic!("expected a code prompt");
+        };
 
-        let bogus = pairing::proof(Credential::Code, b"nonsense", &Nonce::for_test(0));
-        send(&mut client, &LspToPreviewMessage::PairingCodeProof { proof: bogus }).await;
+        // Nonsense in place of a group element, with a confirmation that
+        // cannot possibly match.
+        let handshake = pairing::Handshake::start(pairing::Role::Editor, "0000");
+        let secrets = handshake.finish(&element).unwrap();
+        send(
+            &mut client,
+            &LspToPreviewMessage::PairingResponse {
+                element: pairing::Element::for_test(vec![0u8; 33]),
+                confirmation: secrets.editor_confirmation,
+            },
+        )
+        .await;
         assert!(matches!(
             recv(&mut client).await,
             Some(PreviewToLspMessage::PairingRejected { reason: PairingRejection::BadCode })

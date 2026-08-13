@@ -427,6 +427,7 @@ async fn handle_preview_message(
         | Pong
         | PairingChallenge { .. }
         | PairingRequired { .. }
+        | PairingConfirm { .. }
         | PairingAccepted
         | PairingRejected { .. } => {
             tracing::debug!("Ignoring message from preview: {msg:?}");

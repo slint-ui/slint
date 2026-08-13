@@ -60,7 +60,7 @@ pub enum PreviewToLspMessage {
     /// The preview UI asked to disconnect the remote viewer.
     DisconnectRemote,
     /// The user typed a pairing code into the preview UI. Carries the code
-    /// itself; the LSP owns the nonce and turns it into a proof.
+    /// itself; the LSP runs the SPAKE2 exchange with it.
     SubmitPairingCode { code: String },
     /// The user dismissed the pairing prompt in the preview UI.
     CancelPairing,
@@ -70,15 +70,20 @@ pub enum PreviewToLspMessage {
     /// Ask the LSP to load a component and answer with
     /// [`super::LspToPreviewMessage::ShowPreview`].
     RequestPreview { component: PreviewComponent },
-    /// First message on a remote connection: the nonce both pairing proofs
-    /// are computed against. See [`super::pairing`].
+    /// First message on a remote connection: the nonce the token proof is
+    /// computed against, which also freshens the keys of a token session.
+    /// See [`super::pairing`].
     PairingChallenge { nonce: super::pairing::Nonce },
     /// The client offered no usable token, so the viewer is now showing a
-    /// pairing code and waiting for the user to type it.
-    PairingRequired { attempts_left: u8, expires_in_seconds: u16 },
-    /// The client is authenticated. Carries nothing: when this followed a
-    /// code exchange both ends derive the reconnect token from the code and
-    /// the nonce, so the token itself never crosses the wire.
+    /// pairing code and waiting for the user to type it. `element` starts
+    /// the SPAKE2 exchange the code is established through; a fresh one is
+    /// sent for every attempt.
+    PairingRequired { attempts_left: u8, expires_in_seconds: u16, element: super::pairing::Element },
+    /// The viewer derived the same key, and proves it. The session is
+    /// sealed from the next frame on.
+    PairingConfirm { confirmation: super::pairing::Confirmation },
+    /// A token was accepted, or pairing is disabled. A code exchange never
+    /// ends with this: its acceptance is [`Self::PairingConfirm`].
     PairingAccepted,
     /// The client is not authenticated. Whether retrying is worthwhile is
     /// [`PairingRejection::is_terminal`].
