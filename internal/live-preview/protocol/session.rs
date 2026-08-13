@@ -184,8 +184,8 @@ mod tests {
 
     #[test]
     fn the_sealed_codec_round_trips() {
-        let mut sealing = Sealing::Sealed(Sealer::new([7u8; 32]));
-        let mut opening = Opening::Sealed(Opener::new([7u8; 32]));
+        let (sealer, opener) = pair();
+        let (mut sealing, mut opening) = (Sealing::Sealed(sealer), Opening::Sealed(opener));
         let sent = sealing.seal(b"shut".to_vec()).unwrap();
         assert_ne!(sent, b"shut");
         assert_eq!(opening.open(&sent).unwrap().as_ref(), b"shut");
