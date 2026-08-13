@@ -82,6 +82,11 @@ class SlintFfi {
       libraryFileName,
       if (Platform.isMacOS)
         '@executable_path/../Frameworks/slint_dart.framework/slint_dart',
+      // An iOS bundle is flat, so its embedded frameworks sit next to the
+      // executable rather than one level up. This is where the slice of
+      // SlintDart.xcframework ends up.
+      if (Platform.isIOS)
+        '@executable_path/Frameworks/slint_dart.framework/slint_dart',
     ];
     Object? lastError;
     for (final name in attempts) {
@@ -106,7 +111,7 @@ class SlintFfi {
   /// `Contents/Frameworks` directory. This path is checked before the Cargo
   /// output directories so bundled builds take precedence.
   static String? _findInBundle() {
-    if (Platform.isMacOS || Platform.isIOS) {
+    if (Platform.isMacOS) {
       final executable = File(Platform.resolvedExecutable);
       final candidate = File(
         '${executable.parent.path}/../Frameworks/$libraryFileName',

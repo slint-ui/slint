@@ -4,32 +4,38 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:slint_flutter/slint_flutter.dart';
 
 /// The `.slint` file this example shares with its Rust, C++ and Node.js
-/// siblings, resolved relative to the project so `flutter run` finds it from
-/// any working directory.
-final todoUi = '${Directory.current.path}/../ui/todo.slint';
+/// siblings, loaded from the Flutter asset bundle.
+const todoUiAsset = 'assets/ui/todo.slint';
 
 /// One row of the list. It matches the `TodoItem` struct in `todo.slint`;
 /// Slint structs cross the boundary as plain maps.
 Map<String, Object?> todo(String title, {bool checked = false}) =>
     {'title': title, 'checked': checked};
 
-void main() => runApp(const TodoApp());
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  final source = await rootBundle.loadString(todoUiAsset);
+  runApp(TodoApp(source: source));
+}
 
 class TodoApp extends StatelessWidget {
-  const TodoApp({super.key});
+  const TodoApp({super.key, required this.source});
+
+  final String source;
 
   @override
   Widget build(BuildContext context) => MaterialApp(
         title: 'Slint todo',
-        home: Scaffold(body: SlintView(load: buildTodoUi)),
+        home: Scaffold(body: SlintView(load: () => buildTodoUi(source))),
       );
 }
 
-ComponentInstance buildTodoUi() {
-  final app = loadFile(todoUi);
+ComponentInstance buildTodoUi(String source) {
+  final app = loadSource(source, path: todoUiAsset);
 
   // Dart owns the list; the `todo-model` property is the view of it. Every
   // mutation writes the whole list back, which keeps the sorting and filtering

@@ -32,6 +32,24 @@ void main() {
     );
   });
 
+  test('leaves iOS to the xcframework: no asset, no build', () async {
+    await hooks_test.testBuildHook(
+      mainMethod: build_hook.main,
+      extensions: [
+        CodeAssetExtension(
+          targetOS: OS.iOS,
+          targetArchitecture: Architecture.arm64,
+          linkModePreference: LinkModePreference.dynamic,
+          iOS: IOSCodeConfig(targetSdk: IOSSdk.iPhoneOS, targetVersion: 13),
+        ),
+      ],
+      check: (input, output) {
+        expect(output.assets.encodedAssets.where((a) => a.isCodeAsset), isEmpty);
+        expect(output.dependencies, isEmpty);
+      },
+    );
+  });
+
   test('builds libslint_dart and declares it as a bundled code asset', () async {
     final abi = Abi.current();
     final os = hostOs(abi);

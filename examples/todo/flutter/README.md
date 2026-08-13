@@ -1,8 +1,9 @@
 # Todo, in Dart
 
 The todo example driven from Dart, shown inside a Flutter application through
-[`slint_flutter`](../../../api/flutter/slint_flutter). It uses the same
-[`todo.slint`](../ui/todo.slint) as the Rust, C++ and Node.js versions.
+[`slint_flutter`](../../../api/flutter/slint_flutter).
+It loads the same UI as the Rust, C++ and Node.js versions from
+[`assets/ui/todo.slint`](assets/ui/todo.slint).
 
 Build the native library, generate the platform runner for the platform you
 want, and run:

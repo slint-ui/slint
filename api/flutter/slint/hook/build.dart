@@ -156,6 +156,14 @@ void main(List<String> arguments) async {
     if (!input.config.buildCodeAssets) return;
 
     final code = input.config.code;
+
+    // iOS arrives as SlintDart.xcframework instead of being built here: the
+    // hook cannot cross-compile from the host, and an embedded framework is
+    // what an iOS application can load. Build it with
+    // `scripts/build_slint_dart_xcframework.bash` and embed it in the Runner
+    // target; `package:slint` opens it from the app bundle at runtime.
+    if (code.targetOS == OS.iOS) return;
+
     if (code.linkModePreference == LinkModePreference.static) {
       throw UnsupportedError(
         'Slint only ships a dynamic library; static linking is not supported.',

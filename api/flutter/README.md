@@ -170,7 +170,7 @@ which `package:slint` finds at runtime.
 
 A Flutter build needs the Rust toolchain (`cargo` and `rustc` on `PATH`) and
 only supports the host platform; cross-compiling to another OS or architecture
-is not supported yet.
+is not supported yet. iOS takes the route below instead.
 Set `SLINT_DART_LIBRARY` if you want to build the library yourself, or pin a
 profile for the hook (debug builds are faster to produce):
 
@@ -184,6 +184,28 @@ hooks:
 
 The hook caches its result and re-runs cargo only when the Rust sources, the
 crate manifest, or the workspace lockfile change.
+
+### iOS embeds an xcframework
+
+The build hook doesn't cross-compile, so on iOS it builds nothing and leaves
+the library to an xcframework you build once:
+
+```sh
+./scripts/build_slint_dart_xcframework.bash
+```
+
+That produces `target/SlintDart.xcframework` holding `slint_dart.framework`
+for the device (`arm64`), the simulator (`arm64` and `x86_64`) and macOS
+(`arm64` and `x86_64`). Add it to the Runner target's *Frameworks, Libraries,
+and Embedded Content* with **Embed & Sign**. These are ordinary dynamic
+frameworks — the same shape the hook already bundles on macOS — so
+`package:slint` opens them from the app bundle with no special case.
+
+The slices carry only the software renderer, since the Dart binding always
+draws through the embedded surface on Apple platforms. `SLINT_DART_FEATURES`,
+`SLINT_DART_PROFILE`, `SLINT_DART_XCFRAMEWORK` and the usual
+`IPHONEOS_DEPLOYMENT_TARGET` / `MACOSX_DEPLOYMENT_TARGET` override the feature
+set, the cargo profile, the output path and the minimum OS versions.
 
 ## Two ways to show a UI
 
