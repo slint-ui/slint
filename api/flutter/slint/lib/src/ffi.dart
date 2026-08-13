@@ -43,10 +43,18 @@ class SlintFfi {
   /// The process-wide library, opened on first use.
   static SlintFfi get instance => _instance ??= SlintFfi(_openLibrary());
 
-  /// The file name the Rust `cdylib` gets on this platform.
+  /// The library inside an application bundle's `Frameworks` directory. The
+  /// build hook bundles the `cdylib` as a framework, which is the only copy
+  /// an application carries.
+  static const frameworkBinary = 'slint_dart.framework/slint_dart';
+
+  /// The file name the Rust `cdylib` gets on this platform. This is the name
+  /// cargo writes into `target/`, not the name inside a bundle, so there is
+  /// no iOS case: an iOS application has no `target/` directory to look in
+  /// and only ever loads [frameworkBinary].
   static String get libraryFileName {
     if (Platform.isWindows) return 'slint_dart.dll';
-    if (Platform.isMacOS || Platform.isIOS) return 'libslint_dart.dylib';
+    if (Platform.isMacOS) return 'libslint_dart.dylib';
     return 'libslint_dart.so';
   }
 
@@ -67,6 +75,14 @@ class SlintFfi {
       // Normalize, since dlopen does not resolve `..` in the path.
       return DynamicLibrary.open(p.normalize(p.absolute(explicit)));
     }
+    // An iOS bundle is flat, so its embedded framework sits next to the
+    // executable rather than one level up as on macOS. This is where the
+    // slice of SlintDart.xcframework ends up, and there is no Cargo
+    // `target/` directory on a device to fall back on.
+    if (Platform.isIOS) {
+      return DynamicLibrary.open(
+          '@executable_path/Frameworks/$frameworkBinary');
+    }
     final bundled = _findInBundle();
     if (bundled != null) {
       return DynamicLibrary.open(bundled);
@@ -80,13 +96,7 @@ class SlintFfi {
     // build hook: on macOS it becomes a framework inside the app bundle.
     final attempts = <String>[
       libraryFileName,
-      if (Platform.isMacOS)
-        '@executable_path/../Frameworks/slint_dart.framework/slint_dart',
-      // An iOS bundle is flat, so its embedded frameworks sit next to the
-      // executable rather than one level up. This is where the slice of
-      // SlintDart.xcframework ends up.
-      if (Platform.isIOS)
-        '@executable_path/Frameworks/slint_dart.framework/slint_dart',
+      if (Platform.isMacOS) '@executable_path/../Frameworks/$frameworkBinary',
     ];
     Object? lastError;
     for (final name in attempts) {
@@ -107,14 +117,15 @@ class SlintFfi {
   /// Look for the library inside the current application bundle.
   ///
   /// On macOS a sandboxed Flutter app cannot access the Cargo `target/`
-  /// directory, so copy `libslint_dart.dylib` into the bundle's
-  /// `Contents/Frameworks` directory. This path is checked before the Cargo
-  /// output directories so bundled builds take precedence.
+  /// directory, so it loads the [frameworkBinary] the build hook put in the
+  /// bundle's `Contents/Frameworks` directory. This path is checked before
+  /// the Cargo output directories so bundled builds take precedence over a
+  /// stale `target/release` copy.
   static String? _findInBundle() {
     if (Platform.isMacOS) {
       final executable = File(Platform.resolvedExecutable);
       final candidate = File(
-        '${executable.parent.path}/../Frameworks/$libraryFileName',
+        '${executable.parent.path}/../Frameworks/$frameworkBinary',
       );
       if (candidate.existsSync()) {
         return candidate.resolveSymbolicLinksSync();
@@ -157,9 +168,8 @@ class SlintFfi {
     if (config == null) return const [];
     try {
       final configFile = File.fromUri(Uri.parse(config));
-      final packages =
-          (jsonDecode(configFile.readAsStringSync()) as Map<String, dynamic>)
-              ['packages'] as List<Object?>;
+      final packages = (jsonDecode(configFile.readAsStringSync())
+          as Map<String, dynamic>)['packages'] as List<Object?>;
       return [
         for (final entry in packages.whereType<Map<String, dynamic>>())
           if (entry['name'] == 'slint') _packageRoot(entry, configFile),
@@ -208,7 +218,8 @@ class SlintFfi {
   );
 
   late final Pointer<SlintCompilationResult> Function(
-      Pointer<SlintCompiler>, Pointer<Utf8>) buildFromPath = _lib.lookupFunction<
+          Pointer<SlintCompiler>, Pointer<Utf8>) buildFromPath =
+      _lib.lookupFunction<
           Pointer<SlintCompilationResult> Function(
               Pointer<SlintCompiler>, Pointer<Utf8>),
           Pointer<SlintCompilationResult> Function(
@@ -318,8 +329,11 @@ class SlintFfi {
       _lib.lookupFunction<
           Pointer<Utf8> Function(Pointer<SlintComponentInstance>, Pointer<Utf8>,
               Pointer<Utf8>, Pointer<Utf8>),
-          Pointer<Utf8> Function(Pointer<SlintComponentInstance>, Pointer<Utf8>,
-              Pointer<Utf8>, Pointer<Utf8>)>('slint_dart_instance_set_property');
+          Pointer<Utf8> Function(
+              Pointer<SlintComponentInstance>,
+              Pointer<Utf8>,
+              Pointer<Utf8>,
+              Pointer<Utf8>)>('slint_dart_instance_set_property');
 
   late final Pointer<Utf8> Function(Pointer<SlintComponentInstance>,
           Pointer<Utf8>, Pointer<Utf8>, Pointer<Utf8>) invoke =
@@ -330,12 +344,13 @@ class SlintFfi {
               Pointer<Utf8>, Pointer<Utf8>)>('slint_dart_instance_invoke');
 
   late final Pointer<Utf8> Function(
-      Pointer<SlintComponentInstance>,
-      Pointer<Utf8>,
-      Pointer<Utf8>,
-      Pointer<NativeFunction<CallbackNative>>,
-      Pointer<NativeFunction<FreeNative>>,
-      Pointer<Void>) setCallback = _lib.lookupFunction<
+          Pointer<SlintComponentInstance>,
+          Pointer<Utf8>,
+          Pointer<Utf8>,
+          Pointer<NativeFunction<CallbackNative>>,
+          Pointer<NativeFunction<FreeNative>>,
+          Pointer<Void>) setCallback =
+      _lib.lookupFunction<
           Pointer<Utf8> Function(
               Pointer<SlintComponentInstance>,
               Pointer<Utf8>,
@@ -375,13 +390,13 @@ class SlintFfi {
     'slint_dart_quit_event_loop',
   );
 
-  late final Pointer<SlintTimerHandle> Function(bool, int,
-          Pointer<NativeFunction<TimerNative>>, Pointer<Void>) timerStart =
-      _lib.lookupFunction<
+  late final Pointer<SlintTimerHandle> Function(
+          bool, int, Pointer<NativeFunction<TimerNative>>, Pointer<Void>)
+      timerStart = _lib.lookupFunction<
           Pointer<SlintTimerHandle> Function(Bool, Uint64,
               Pointer<NativeFunction<TimerNative>>, Pointer<Void>),
-          Pointer<SlintTimerHandle> Function(bool, int,
-              Pointer<NativeFunction<TimerNative>>, Pointer<Void>)>(
+          Pointer<SlintTimerHandle> Function(
+              bool, int, Pointer<NativeFunction<TimerNative>>, Pointer<Void>)>(
     'slint_dart_timer_start',
   );
 
