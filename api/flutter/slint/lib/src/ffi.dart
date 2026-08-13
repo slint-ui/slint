@@ -53,12 +53,13 @@ class SlintFfi {
   ///
   /// `SLINT_DART_LIBRARY` wins when set. Otherwise this looks through the
   /// Cargo output directories above the current directory, the running
-  /// executable, and the running script, which is what makes the in-tree
-  /// examples runnable straight after a `cargo build`. The executable root
-  /// covers `flutter run`: a desktop app's working directory and script are
-  /// usually outside the repository, but the `.app` bundle lives under the
-  /// project's `build/` directory. As a last resort the platform loader gets
-  /// a chance, which is the path a packaged application takes.
+  /// executable, the running script, and the root of the linked `slint`
+  /// package. The package root covers `flutter run`: a desktop app's working
+  /// directory, executable, and script are usually outside the repository,
+  /// but its package config still points at the `slint` checkout, whose
+  /// ancestors hold the Cargo `target/` directory. As a last resort the
+  /// platform loader gets a chance, which is the path a packaged application
+  /// takes.
   static DynamicLibrary _openLibrary() {
     final explicit = Platform.environment['SLINT_DART_LIBRARY'];
     if (explicit != null && explicit.isNotEmpty) {
@@ -86,6 +87,7 @@ class SlintFfi {
       File(Platform.resolvedExecutable).parent.path,
       if (Platform.script.scheme == 'file')
         File.fromUri(Platform.script).parent.path,
+      ..._linkedPackageRoots(),
     };
     for (final root in roots) {
       for (var dir = Directory(root);; dir = dir.parent) {
@@ -101,6 +103,39 @@ class SlintFfi {
       }
     }
     return null;
+  }
+
+  /// The root of every package this isolate links against, read from its
+  /// package config. The `slint` package's own root is the useful entry:
+  /// with a path dependency it is a checkout whose ancestors contain the
+  /// Cargo `target/` directory, which the in-tree examples and path-based
+  /// applications rely on. Malformed or missing configs yield nothing.
+  static Iterable<String> _linkedPackageRoots() {
+    final config = Platform.packageConfig;
+    if (config == null) return const [];
+    try {
+      final configFile = File.fromUri(Uri.parse(config));
+      final packages =
+          (jsonDecode(configFile.readAsStringSync()) as Map<String, dynamic>)
+              ['packages'] as List<Object?>;
+      return [
+        for (final entry in packages.whereType<Map<String, dynamic>>())
+          if (entry['name'] == 'slint') _packageRoot(entry, configFile),
+      ].whereType<String>();
+    } on Object {
+      return const [];
+    }
+  }
+
+  static String? _packageRoot(Map<String, dynamic> entry, File configFile) {
+    final rootUri = entry['rootUri'];
+    if (rootUri is! String) return null;
+    final uri = Uri.tryParse(rootUri);
+    if (uri == null) return null;
+    final resolved =
+        uri.isAbsolute ? uri : configFile.parent.uri.resolveUri(uri);
+    if (resolved.scheme != 'file') return null;
+    return File.fromUri(resolved).path;
   }
 
   late final void Function(Pointer<Utf8>) freeString = _lib.lookupFunction<
