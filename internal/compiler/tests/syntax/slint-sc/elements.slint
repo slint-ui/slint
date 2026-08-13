@@ -1,8 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// Every builtin element other than Rectangle, Window, and TouchArea is
-// rejected in Slint SC mode.
+// Every builtin element other than Rectangle, Window, TouchArea, and Image
+// is rejected in Slint SC mode.
 
 export component Test inherits Window {
     //#sls.geom.window
@@ -23,14 +23,21 @@ export component Test inherits Window {
 //                  > <error{Identifier references are not supported in Slint SC}
     }
 
+    // The Image element is accepted; it's always the size of its source
+    // image, so its size and the scaling properties can't be set
     Image {
-//  >    <error{The builtin element 'Image' is not supported in Slint SC}
         source: @image-url("");
-//      >    <error{The property 'source' is not supported in Slint SC}
+        x: 1px;
+        y: 1px;
         width: 10px;
 //      >   <error{The property 'width' is not supported in Slint SC}
         height: 10px;
 //      >    <error{The property 'height' is not supported in Slint SC}
+        image-fit: fill;
+//      >       <error{The property 'image-fit' is not supported in Slint SC}
+//                 >  <^error{Identifier references are not supported in Slint SC}
+        colorize: #ff0000;
+//      >      <error{The property 'colorize' is not supported in Slint SC}
     }
 
     Text {

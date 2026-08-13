@@ -5,7 +5,7 @@
 
 use crate::CompilerConfiguration;
 use crate::embedded_resources::{EmbeddedResources, EmbeddedResourcesIdx, EmbeddedResourcesKind};
-use crate::expression_tree::{Callable, Expression, ImageReference, Unit};
+use crate::expression_tree::{BuiltinFunction, Callable, Expression, ImageReference, Unit};
 use crate::generator::accessor_names::{AccessorKind, rust_accessor_ident};
 use crate::langtype::{EnumerationValue, StructName, Type};
 use crate::namedreference::NamedReference;
@@ -441,7 +441,9 @@ fn compile_expression(expr: &Expression, ctx: &Ctx) -> TokenStream {
         },
         // `int`, `float`, and `length` are all `i32` at runtime, so a cast
         // between them lowers to the operand itself.
-        Expression::Cast { from, to: Type::Int32 | Type::Float32 } => compile_expression(from, ctx),
+        Expression::Cast { from, to: Type::Int32 | Type::Float32 | Type::LogicalLength } => {
+            compile_expression(from, ctx)
+        }
         Expression::PropertyReference(nr) => {
             // An unbound property has its type's default value.
             compile_property_reference(nr, ctx).unwrap_or_else(|| default_value(&nr.ty()))
@@ -476,11 +478,26 @@ fn compile_expression(expr: &Expression, ctx: &Ctx) -> TokenStream {
             quote!(#name { #(#fields)* })
         }
         // Field access reads a field out of a struct value.
-        Expression::StructFieldAccess { base, name } => {
-            let base = compile_expression(base, ctx);
-            let field = format_ident!("{}", name.replace('-', "_"));
-            quote!((#base).#field)
-        }
+        Expression::StructFieldAccess { base, name } => match base.as_ref() {
+            // The dimensions of an image value, `some-image.width`: a field of
+            // the ImageSize builtin call the lookup wraps around the image.
+            // The dimensions are `usize` at runtime and `i32` in the language;
+            // a dimension beyond `i32` saturates.
+            Expression::FunctionCall {
+                function: Callable::Builtin(BuiltinFunction::ImageSize),
+                arguments,
+                ..
+            } => {
+                let image = compile_expression(&arguments[0], ctx);
+                let accessor = format_ident!("{}", name.as_str());
+                quote!(i32::try_from((#image).#accessor()).unwrap_or(i32::MAX))
+            }
+            base => {
+                let base = compile_expression(base, ctx);
+                let field = format_ident!("{}", name.replace('-', "_"));
+                quote!((#base).#field)
+            }
+        },
         Expression::BinaryExpression { lhs, rhs, op } => {
             let lhs = compile_expression(lhs, ctx);
             let rhs = compile_expression(rhs, ctx);
@@ -621,9 +638,25 @@ fn emit_tree(
     }
 }
 
+/// Whether the element is an image item: its resolved native class is, or
+/// inherits, the class that declares `source`. Class selection may land on
+/// the ImageItem base or a subclass of it, so the ancestry decides.
+fn is_image_item(elem: &ElementRc) -> bool {
+    let mut class = elem.borrow().native_class();
+    while let Some(native) = class {
+        if native.class_name == "ImageItem" {
+            return true;
+        }
+        class = native.parent.clone();
+    }
+    false
+}
+
 /// The render code: every element paints its background, if it has one, where
 /// it sits, and before its children, so that later and deeper elements paint
-/// on top.
+/// on top. An image item paints its source image after the background, one
+/// image pixel per frame-buffer pixel: the element is always the size of the
+/// image, so there is nothing to scale or clip to.
 fn emit_render(ctx: &Ctx) -> TokenStream {
     emit_tree(ctx.root, ctx, &mut |elem, geometry| {
         let background = elem
@@ -639,12 +672,30 @@ fn emit_render(ctx: &Ctx) -> TokenStream {
             );
         }
         let (w, h) = (&geometry.width, &geometry.height);
-        color.map(|color| {
+        let fill = color.map(|color| {
             quote!(
                 slint_sc::private_unstable_api::renderer::fill_rect(frame_buffer, window_size,
                     [offset_x, offset_y], [#w, #h], #color);
             )
-        })
+        });
+        let source = is_image_item(elem)
+            .then(|| {
+                elem.borrow()
+                    .binding_cell_including_synthetic("source")
+                    .map(|b| b.borrow().expression.clone())
+            })
+            .flatten();
+        let draw_image = source.map(|source| {
+            let source = compile_expression(&source, ctx);
+            quote!(
+                slint_sc::private_unstable_api::renderer::draw_image(frame_buffer, window_size,
+                    [offset_x, offset_y], #source);
+            )
+        });
+        match (fill, draw_image) {
+            (None, None) => None,
+            (fill, draw_image) => Some(quote!(#fill #draw_image)),
+        }
     })
 }
 
