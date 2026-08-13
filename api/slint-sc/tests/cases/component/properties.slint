@@ -14,7 +14,7 @@ export component TestCase inherits Window {
 
 /*
 ```rust
-let mut x = TestCase::new();
+let mut x = TestCase::new(crate::harness::WINDOW_SIZE);
 //#sls.prop.def.value
 //#sls.prop.decl.default
 //#sls.type.length
@@ -54,7 +54,7 @@ assert_eq!(x.get_counter(), 9);
 
 An out property has no setter:
 ```rust compile_fail
-let mut x = TestCase::new();
+let mut x = TestCase::new(crate::harness::WINDOW_SIZE);
 //#sls.gen.prop.set
 x.set_gap(5);
 //~ ERROR no method named `set_gap`
@@ -62,7 +62,7 @@ x.set_gap(5);
 
 A private property has no getter:
 ```rust compile_fail
-let x = TestCase::new();
+let x = TestCase::new(crate::harness::WINDOW_SIZE);
 //#sls.prop.decl.private
 //#sls.gen.prop.get
 x.get_internal();
@@ -71,7 +71,7 @@ x.get_internal();
 
 A private property has no setter:
 ```rust compile_fail
-let mut x = TestCase::new();
+let mut x = TestCase::new(crate::harness::WINDOW_SIZE);
 //#sls.prop.decl.private
 //#sls.gen.prop.set
 x.set_internal(slint_sc::Color::default());

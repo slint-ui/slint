@@ -18,7 +18,12 @@ Every element has the four geometry properties `x`, `y`, `width`, and `height`, 
 The `x` and `y` properties of the root element are meaningless and shall not be used. \{#sls.geom.window.root}
 
 <OnlyInSC>
-Binding a geometry property of the root element is an error. \{#sls.geom.window}
+The `width` and `height` of the root element are the size of the window, which the application gives the
+component when it creates it. \{#sls.geom.window.size}
+
+An expression may read them, so an element sizes itself against the window.
+Binding any geometry property of the root element is an error: the size is the application's to give,
+not the file's to set. \{#sls.geom.window}
 </OnlyInSC>
 </SC>
 

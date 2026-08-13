@@ -7,15 +7,24 @@ export component TestCase inherits Window {
 
 /*
 ```rust
-let x = TestCase::new();
+let x = TestCase::new(crate::harness::WINDOW_SIZE);
 screenshot!(x);
 // The application renders by calling render_rgb8 itself.
 //#sls.paint.invocation
 //#sls.gen.render-rgb8
 let mut frame_buffer = [0u8; 64 * 64 * 3];
-x.render_rgb8(64, 64, &mut frame_buffer)?;
+x.render_rgb8(&mut frame_buffer)?;
 assert!(frame_buffer.chunks(3).all(|pixel| pixel == [0xff, 0x00, 0x00]));
 //#sls.gen.render-error
-assert_eq!(x.render_rgb8(64, 64, &mut [0u8; 8]), Err(slint_sc::RenderError::InvalidFrameBufferSize));
+assert_eq!(x.render_rgb8(&mut [0u8; 8]), Err(slint_sc::RenderError::InvalidFrameBufferSize));
+
+// The size given to new() is the size of the window, so a buffer of any other
+// size is rejected and one of that size is filled entirely.
+//#sls.gen.new
+let y = TestCase::new(slint_sc::Size::new(8, 4));
+assert_eq!(y.render_rgb8(&mut frame_buffer), Err(slint_sc::RenderError::InvalidFrameBufferSize));
+let mut small_buffer = [0u8; 8 * 4 * 3];
+y.render_rgb8(&mut small_buffer)?;
+assert!(small_buffer.chunks(3).all(|pixel| pixel == [0xff, 0x00, 0x00]));
 ```
 */

@@ -21,7 +21,7 @@ export component TestCase inherits Window {
 /*
 ```rust
 //#sls.prop.def
-let mut x = TestCase::new();
+let mut x = TestCase::new(crate::harness::WINDOW_SIZE);
 x.set_declared(8);
 assert_eq!(x.get_declared(), 8);
 //#sls.file.component.inherits.body-applies

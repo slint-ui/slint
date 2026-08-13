@@ -1,0 +1,45 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Software-3.0
+
+export component TestCase inherits Window {
+    background: #202020;
+    // The window size is the one the application creates the component with,
+    // and an expression reads it like any other property
+    //#sls.geom.window
+    //#sls.geom.window.size
+    //#sls.ref.window.width
+    out property <length> inset: root.width - 20px;
+    Rectangle {
+        x: root.inset;
+        y: 0px;
+        width: root.width;
+        //#sls.ref.window.height
+        height: root.height;
+        background: #ff8800;
+    }
+}
+
+/*
+```rust
+let x = TestCase::new(crate::harness::WINDOW_SIZE);
+screenshot!(x);
+assert_eq!(x.get_inset(), 44);
+
+// A window of another size sizes its content to that one
+let y = TestCase::new(slint_sc::Size::new(20, 9));
+assert_eq!(y.get_inset(), 0);
+let mut frame_buffer = [0u8; 20 * 9 * 3];
+y.render_rgb8(&mut frame_buffer)?;
+// The rectangle starts at the left edge and covers the window
+assert!(frame_buffer.chunks(3).all(|pixel| pixel == [0xff, 0x88, 0x00]));
+```
+
+The window size isn't the file's to set, and isn't the application's to change
+once the component holds it:
+```rust compile_fail
+let mut x = TestCase::new(crate::harness::WINDOW_SIZE);
+//#sls.ref.window.width-out
+x.set_width(10);
+//~ ERROR no method named `set_width`
+```
+*/

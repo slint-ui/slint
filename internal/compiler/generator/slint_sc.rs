@@ -7,10 +7,11 @@ use crate::CompilerConfiguration;
 use crate::expression_tree::{Expression, Unit};
 use crate::langtype::{EnumerationValue, StructName, Type};
 use crate::namedreference::NamedReference;
-use crate::object_tree::{Document, ElementRc, PropertyVisibility};
+use crate::object_tree::{Component, Document, ElementRc, PropertyVisibility};
 use itertools::Either;
 use proc_macro2::{Ident, TokenStream};
 use quote::{format_ident, quote};
+use smol_str::SmolStr;
 use std::rc::Rc;
 
 /// Public entry point called from `generator::generate`.
@@ -33,30 +34,26 @@ pub fn generate(
         }
         let root = &component.root_element;
         let render_tree = emit_element(root, root);
-        let properties = declared_properties(root);
+        let properties = declared_properties(component);
         let name = format_ident!("{}", export_name.name.as_str());
-        let has_fields = properties.iter().any(|p| p.field.is_some());
-        let (struct_decl, new_body) = if has_fields {
-            let fields = properties.iter().filter_map(|p| {
-                let (field, ty) = (p.field.as_ref()?, &p.ty);
-                // A settable bound property is stored in an `Option`, `None`
-                // until set; anything else is stored directly.
-                Some(match p.kind {
-                    PropertyKind::Binding(_) => quote!(#field: Option<#ty>,),
-                    PropertyKind::Stored(_) => quote!(#field: #ty,),
-                })
-            });
-            let init = properties.iter().filter_map(|p| {
-                let field = p.field.as_ref()?;
-                Some(match &p.kind {
-                    PropertyKind::Stored(init) => quote!(#field: #init,),
-                    PropertyKind::Binding(_) => quote!(#field: None,),
-                })
-            });
-            (quote!(pub struct #name { #(#fields)* }), quote!(Self { #(#init)* }))
-        } else {
-            (quote!(pub struct #name;), quote!(Self))
-        };
+        let fields = properties.iter().filter_map(|p| {
+            let (field, ty) = (p.field.as_ref()?, &p.ty);
+            // A settable bound property is stored in an `Option`, `None`
+            // until set; anything else is stored directly.
+            Some(match p.kind {
+                PropertyKind::Binding(_) => quote!(#field: Option<#ty>,),
+                PropertyKind::Stored(_) => quote!(#field: #ty,),
+            })
+        });
+        let init = properties.iter().filter_map(|p| {
+            let field = p.field.as_ref()?;
+            Some(match &p.kind {
+                PropertyKind::Stored(init) => quote!(#field: #init,),
+                PropertyKind::Binding(_) => quote!(#field: None,),
+            })
+        });
+        let struct_decl = quote!(pub struct #name { window_size: slint_sc::Size, #(#fields)* });
+        let new_body = quote!(Self { window_size: size, #(#init)* });
         let accessors = properties.iter().map(|p| {
             let ty = &p.ty;
             let getter = p.getter.as_ref().map(|getter| {
@@ -88,16 +85,18 @@ pub fn generate(
         output.extend(quote! {
             #struct_decl
             impl #name {
-                pub fn new() -> Self {
+                pub fn new(size: slint_sc::Size) -> Self {
                     #new_body
                 }
 
                 #(#accessors)*
 
                 /// Render the window into a frame buffer of packed RGB triplets,
-                /// whose length must be `width * height * 3`.
-                pub fn render_rgb8(&self, width: u32, height: u32, frame_buffer: &mut [u8]) -> Result<(), slint_sc::RenderError> {
-                    if frame_buffer.len() != width as usize * height as usize * 3 {
+                /// whose length must be `width * height * 3` for the size the
+                /// window was created with.
+                pub fn render_rgb8(&self, frame_buffer: &mut [u8]) -> Result<(), slint_sc::RenderError> {
+                    let window_size = self.window_size;
+                    if frame_buffer.len() != window_size.width as usize * window_size.height as usize * 3 {
                         return Err(slint_sc::RenderError::InvalidFrameBufferSize);
                     }
                     let offset_x = 0i32;
@@ -105,6 +104,7 @@ pub fn generate(
                     #render_tree
                     Ok(())
                 }
+
             }
         });
     }
@@ -149,13 +149,13 @@ fn is_settable(visibility: &PropertyVisibility) -> bool {
 }
 
 /// The properties declared in the source on the component's root element.
-/// Compiler-introduced declarations have no syntax node and are skipped.
-fn declared_properties(root: &ElementRc) -> Vec<DeclaredProperty> {
+fn declared_properties(component: &Rc<Component>) -> Vec<DeclaredProperty> {
+    let root = &component.root_element;
     let root_borrowed = root.borrow();
-    root_borrowed
-        .property_declarations
+    declared_on_root(component)
         .iter()
-        .filter(|(_, decl)| decl.node.is_some())
+        .map(|name| (name, &root_borrowed.property_declarations[name]))
+        .filter(|(_, decl)| !matches!(decl.property_type, Type::Callback(..)))
         .map(|(name, decl)| {
             let snake = name.replace('-', "_");
             let ty = rust_type(&decl.property_type);
@@ -180,6 +180,34 @@ fn declared_properties(root: &ElementRc) -> Vec<DeclaredProperty> {
             }
         })
         .collect()
+}
+
+/// The declarations the source made on the component's root element, which are
+/// the ones the generated struct and trait are made of.
+///
+/// The root element carries more than those by the time the code is generated:
+/// `move_declarations` hoists the declarations of every other element onto it,
+/// under a name of its own making. What tells the two apart is that
+/// `check_public_api` recorded the source's own declarations before that, as
+/// the public API of the component and as its private properties.
+fn declared_on_root(component: &Rc<Component>) -> Vec<SmolStr> {
+    let private: Vec<SmolStr> =
+        component.private_properties.borrow().iter().map(|(name, _)| name.clone()).collect();
+    component
+        .root_element
+        .borrow()
+        .property_declarations
+        .iter()
+        .filter(|(name, decl)| decl.expose_in_public_api || private.contains(name))
+        .map(|(name, _)| name.clone())
+        .collect()
+}
+
+/// Whether the source declared `name` on `root`, the root element of the
+/// component being generated.
+fn is_declared_on_root(root: &ElementRc, name: &str) -> bool {
+    let component = root.borrow().enclosing_component.upgrade().expect("the component is alive");
+    declared_on_root(&component).iter().any(|declared| declared == name)
 }
 
 /// The Rust type holding a value of the given Slint type.
@@ -406,7 +434,7 @@ fn emit_element(elem: &ElementRc, root: &ElementRc) -> TokenStream {
     }
     let fill = color.map(|color| {
         quote!(
-            slint_sc::private_unstable_api::renderer::fill_rect(frame_buffer, [width, height],
+            slint_sc::private_unstable_api::renderer::fill_rect(frame_buffer, window_size,
                 [offset_x, offset_y], [#w, #h], #color);
         )
     });
@@ -429,11 +457,9 @@ fn emit_element(elem: &ElementRc, root: &ElementRc) -> TokenStream {
 fn compile_property_reference(nr: &NamedReference, root: &ElementRc) -> Option<TokenStream> {
     let element = nr.element();
     let is_root = Rc::ptr_eq(&element, root);
-    if is_root {
+    if is_root && is_declared_on_root(root, nr.name()) {
         let root_borrowed = root.borrow();
-        if let Some(decl) =
-            root_borrowed.property_declarations.get(nr.name()).filter(|d| d.node.is_some())
-        {
+        if let Some(decl) = root_borrowed.property_declarations.get(nr.name()) {
             let binding = root_borrowed.binding_cell_including_synthetic(nr.name());
             let snake = nr.name().replace('-', "_");
             return Some(match binding {
@@ -456,8 +482,8 @@ fn compile_property_reference(nr: &NamedReference, root: &ElementRc) -> Option<T
     match element.borrow().binding_cell_including_synthetic(nr.name()) {
         Some(b) => Some(compile_expression(&b.borrow().expression, root)),
         None if is_root => match nr.name().as_str() {
-            "width" => Some(quote!((width as i32))),
-            "height" => Some(quote!((height as i32))),
+            "width" => Some(quote!((self.window_size.width as i32))),
+            "height" => Some(quote!((self.window_size.height as i32))),
             _ => None,
         },
         None => None,

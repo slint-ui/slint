@@ -1,13 +1,21 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// The x and y of the root element are meaningless and shall not be used:
-// binding them in Slint SC is an error.
-//#sls.geom.window.root
+// The x and y of the root element are meaningless, and its width and height
+// are the size the application gives the component: binding any of the four in
+// Slint SC is an error.
+//#sls.geom.window
 
 export component Test inherits Window {
+    //#sls.geom.window.root
     x: 10px;
 //     >   <error{The property 'x' is not supported in Slint SC}
     y: 20px;
 //     >   <error{The property 'y' is not supported in Slint SC}
+    //#sls.ref.window.width-out
+    width: 30px;
+//         >   <error{Binding the 'width' of the root element is not supported in Slint SC}
+    //#sls.ref.window.height-out
+    height: 40px;
+//          >   <error{Binding the 'height' of the root element is not supported in Slint SC}
 }

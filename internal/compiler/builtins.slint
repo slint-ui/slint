@@ -1541,7 +1541,21 @@ export component ContextMenuArea inherits Empty {
 }
 
 component WindowItem {
+    /// The width of the window. \{#sls.ref.window.width}
+    ///
+    /// <OnlyInSC>
+    /// The application gives the window its size when it creates the component, so this is a value the file reads,
+    /// and binding it is an error. \{#sls.ref.window.width-out}
+    /// </OnlyInSC>
+    /// \sc
     in-out property <length> width;
+    /// The height of the window. \{#sls.ref.window.height}
+    ///
+    /// <OnlyInSC>
+    /// The application gives the window its size when it creates the component, so this is a value the file reads,
+    /// and binding it is an error. \{#sls.ref.window.height-out}
+    /// </OnlyInSC>
+    /// \sc
     in-out property <length> height;
     /// Whether the window should be placed above all other windows on window managers supporting it.
     /// \default false

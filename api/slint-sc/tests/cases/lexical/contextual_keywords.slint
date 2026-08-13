@@ -37,7 +37,7 @@ export component component inherits Window {
 /*
 ```rust
 //#sls.lex.contextual-keywords
-let mut x = component::new();
+let mut x = component::new(crate::harness::WINDOW_SIZE);
 assert_eq!(x.get_property(), 1);
 assert_eq!(x.get_component(), 2);
 assert_eq!(x.get_callback(), slint_sc::Color::from_rgb_u8(1, 2, 3));

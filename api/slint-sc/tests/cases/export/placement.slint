@@ -12,9 +12,9 @@ export component B inherits Window { background: #00ff00; }
 /*
 ```rust
 let mut frame_buffer = [0u8; 8 * 8 * 3];
-A::new().render_rgb8(8, 8, &mut frame_buffer)?;
+A::new(slint_sc::Size::new(8, 8)).render_rgb8(&mut frame_buffer)?;
 assert!(frame_buffer.chunks(3).all(|pixel| pixel == [0xff, 0x00, 0x00]));
-B::new().render_rgb8(8, 8, &mut frame_buffer)?;
+B::new(slint_sc::Size::new(8, 8)).render_rgb8(&mut frame_buffer)?;
 assert!(frame_buffer.chunks(3).all(|pixel| pixel == [0x00, 0xff, 0x00]));
 ```
 */
