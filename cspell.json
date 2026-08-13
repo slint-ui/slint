@@ -132,6 +132,7 @@
     "cramer",
     "datastructures",
     "dealloc",
+    "desync",
     "distros",
     "embedders",
     "emsdk", // the Emscripten SDK, one of Skia's DEPS entries
