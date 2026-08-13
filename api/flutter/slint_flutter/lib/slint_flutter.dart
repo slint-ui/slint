@@ -31,15 +31,27 @@ export 'package:slint/slint.dart';
 /// platform owns a single surface for the isolate.
 class SlintView extends StatefulWidget {
   const SlintView({
-    required this.load,
+    required SlintComponent Function() load,
     this.autofocus = true,
     super.key,
-  });
+  }) : _load = load;
 
   /// Loads the component to display. It runs once, after the Slint surface
   /// exists, which is why it is a callback rather than a plain instance:
   /// `loadFile` must not run before the surface is in place.
-  final ComponentInstance Function() load;
+  /// It may return a generated wrapper or a plain [ComponentInstance].
+  final SlintComponent Function() _load;
+
+  /// The runtime-instance loader used by this view.
+  ///
+  /// For compatibility, a loader that already returns [ComponentInstance] is
+  /// returned unchanged. Generated wrapper loaders are adapted to return their
+  /// underlying instance.
+  ComponentInstance Function() get load {
+    final loader = _load;
+    if (loader is ComponentInstance Function()) return loader;
+    return () => loader().instance;
+  }
 
   /// Whether the view takes keyboard focus when it appears.
   final bool autofocus;

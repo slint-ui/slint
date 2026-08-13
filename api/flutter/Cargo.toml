@@ -42,7 +42,7 @@ accessibility = ["slint-interpreter/accessibility"]
 
 [dependencies]
 i-slint-backend-selector = { workspace = true }
-i-slint-compiler = { workspace = true }
+i-slint-compiler = { workspace = true, features = ["dart"] }
 i-slint-core = { workspace = true }
 i-slint-renderer-software = { workspace = true, features = ["std"] }
 slint-interpreter = { workspace = true, features = ["compat-1-2", "display-diagnostics", "image-default-formats", "internal", "internal-json"] }
@@ -51,10 +51,3 @@ spin_on = { workspace = true }
 
 [dev-dependencies]
 i-slint-backend-testing = { workspace = true }
-
-# The workspace release profile aborts on panic, but the error-envelope
-# contract of this crate rests on `catch_unwind`: a panic inside a Slint call
-# is supposed to come back as an `{"err": …}` string instead of taking the host
-# process down. Keep unwinding in release builds.
-[profile.release]
-panic = "unwind"

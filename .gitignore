@@ -46,3 +46,5 @@ MODULE.bazel.lock
 *.xcodeproj
 *.xcworkspace
 Info.plist
+reasonix.toml
+/.reasonix

@@ -31,7 +31,9 @@ use slint_interpreter::json::{value_from_json_str, value_to_json};
 use slint_interpreter::{
     CompilationResult, Compiler, ComponentDefinition, ComponentHandle, ComponentInstance, Value,
 };
+use std::collections::BTreeSet;
 use std::ffi::{CStr, CString, c_char, c_void};
+use std::io::Cursor;
 use std::path::PathBuf;
 use std::time::Duration;
 
@@ -61,13 +63,15 @@ pub(crate) fn err(message: impl std::fmt::Display) -> *mut c_char {
     into_c_string(serde_json::json!({ "err": message.to_string() }).to_string())
 }
 
-/// Turn a panic into an error envelope.
+/// Turn an unwind into an error envelope.
 ///
 /// A panic that reaches an `extern "C"` frame aborts the process, which would
 /// take the whole Dart application down. Slint panics for legitimate reasons
 /// the caller can act on — creating a window off the main thread, for one — so
-/// every entry point that can reach interpreter code stops the unwind here and
-/// reports it like any other error.
+/// every entry point that can reach interpreter code stops the unwind here in
+/// builds whose panic strategy supports unwinding and reports it like any other
+/// error. The workspace's release profile uses `panic = "abort"`, so release
+/// builds cannot intercept a panic.
 pub(crate) fn guard(body: impl FnOnce() -> *mut c_char) -> *mut c_char {
     std::panic::catch_unwind(std::panic::AssertUnwindSafe(body))
         .unwrap_or_else(|panic| err(panic_message(&panic)))
@@ -149,9 +153,204 @@ fn values_to_json(values: &[Value]) -> Result<serde_json::Value, String> {
     values.iter().map(value_to_json).collect::<Result<Vec<_>, _>>().map(serde_json::Value::Array)
 }
 
+fn diagnostics_json(
+    diagnostics: &i_slint_compiler::diagnostics::BuildDiagnostics,
+) -> Vec<serde_json::Value> {
+    diagnostics
+        .iter()
+        .map(|diagnostic| {
+            let (line, column) = diagnostic.line_column();
+            serde_json::json!({
+                "level": match diagnostic.level() {
+                    i_slint_compiler::diagnostics::DiagnosticLevel::Error => "error",
+                    _ => "warning",
+                },
+                "message": diagnostic.message(),
+                "file": diagnostic.source_file().map(|path| path.display().to_string()),
+                "line": line,
+                "column": column,
+            })
+        })
+        .collect()
+}
+
+fn dart_generation_dependencies(
+    input_path: PathBuf,
+    dependencies: impl IntoIterator<Item = PathBuf>,
+) -> BTreeSet<String> {
+    dependencies
+        .into_iter()
+        .chain(std::iter::once(input_path))
+        .filter(|path| !path.to_string_lossy().starts_with("builtin:"))
+        .map(|path| std::path::absolute(&path).unwrap_or(path).to_string_lossy().into_owned())
+        .collect()
+}
+
+fn dart_generation_result(
+    source: Option<String>,
+    error: Option<String>,
+    dependencies: BTreeSet<String>,
+    diagnostics: &i_slint_compiler::diagnostics::BuildDiagnostics,
+) -> serde_json::Value {
+    serde_json::json!({
+        "source": source,
+        "error": error,
+        "dependencies": dependencies,
+        "diagnostics": diagnostics_json(diagnostics),
+    })
+}
+
+#[derive(Default)]
+struct DartGenerationOptions {
+    include_paths: Vec<PathBuf>,
+    style: Option<String>,
+}
+
+fn parse_dart_generation_options(json: &str) -> Result<DartGenerationOptions, String> {
+    if json.is_empty() {
+        return Ok(Default::default());
+    }
+    let value: serde_json::Value = serde_json::from_str(json)
+        .map_err(|error| format!("Invalid Dart generation options: {error}"))?;
+    let object = value
+        .as_object()
+        .ok_or_else(|| "Dart generation options must be a JSON object".to_string())?;
+    for name in object.keys() {
+        if name != "include_paths" && name != "style" {
+            return Err(format!("Unknown Dart generation option {name:?}"));
+        }
+    }
+
+    let style = match object.get("style") {
+        None => None,
+        Some(serde_json::Value::String(style)) => Some(style.clone()),
+        Some(_) => return Err("Dart generation option \"style\" must be a string".into()),
+    };
+    let include_paths = match object.get("include_paths") {
+        None => Vec::new(),
+        Some(serde_json::Value::Array(paths)) => paths
+            .iter()
+            .map(|path| {
+                path.as_str().map(PathBuf::from).ok_or_else(|| {
+                    "Dart generation option \"include_paths\" must be a list of strings".to_string()
+                })
+            })
+            .collect::<Result<_, _>>()?,
+        Some(_) => {
+            return Err("Dart generation option \"include_paths\" must be a list of strings".into());
+        }
+    };
+
+    Ok(DartGenerationOptions { include_paths, style })
+}
+
 // ---------------------------------------------------------------------------
 // Compiler
 // ---------------------------------------------------------------------------
+
+fn generate_dart_bindings(
+    input_path: &std::path::Path,
+    output_path: &std::path::Path,
+    options: DartGenerationOptions,
+) -> Result<serde_json::Value, String> {
+    use i_slint_compiler::diagnostics::BuildDiagnostics;
+    use i_slint_compiler::generator::OutputFormat;
+
+    let input_path = std::path::absolute(input_path).map_err(|error| error.to_string())?;
+    let output_path = std::path::absolute(output_path).map_err(|error| error.to_string())?;
+    let mut diagnostics = BuildDiagnostics::default();
+    let syntax_node = i_slint_compiler::parser::parse_file(&input_path, &mut diagnostics);
+    if diagnostics.has_errors() {
+        let error = diagnostics.to_string_vec().join("\n");
+        let dependencies = dart_generation_dependencies(input_path, std::iter::empty::<PathBuf>());
+        return Ok(dart_generation_result(None, Some(error), dependencies, &diagnostics));
+    }
+    let Some(syntax_node) = syntax_node else {
+        let dependencies = dart_generation_dependencies(input_path, std::iter::empty::<PathBuf>());
+        return Ok(dart_generation_result(
+            None,
+            Some("The Slint parser produced no document".into()),
+            dependencies,
+            &diagnostics,
+        ));
+    };
+    let format = OutputFormat::Dart;
+    let mut compiler_config = i_slint_compiler::CompilerConfiguration::new(format.clone());
+    compiler_config.include_paths = options.include_paths;
+    compiler_config.style = options.style;
+    let (document, diagnostics, loader) = spin_on::spin_on(i_slint_compiler::compile_syntax_node(
+        syntax_node,
+        diagnostics,
+        compiler_config,
+    ));
+    let dependencies = dart_generation_dependencies(input_path, loader.all_files_to_watch());
+    if diagnostics.has_errors() {
+        let error = diagnostics.to_string_vec().join("\n");
+        return Ok(dart_generation_result(None, Some(error), dependencies, &diagnostics));
+    }
+
+    let mut generated = Cursor::new(Vec::new());
+    if let Err(error) = i_slint_compiler::generator::generate(
+        format,
+        &mut generated,
+        Some(&output_path),
+        &document,
+        &loader.compiler_config,
+    ) {
+        return Ok(dart_generation_result(
+            None,
+            Some(error.to_string()),
+            dependencies,
+            &diagnostics,
+        ));
+    }
+    let source = match String::from_utf8(generated.into_inner()) {
+        Ok(source) => source,
+        Err(error) => {
+            return Ok(dart_generation_result(
+                None,
+                Some(error.to_string()),
+                dependencies,
+                &diagnostics,
+            ));
+        }
+    };
+
+    Ok(dart_generation_result(Some(source), None, dependencies, &diagnostics))
+}
+
+/// Generate typed Dart bindings for a `.slint` file.
+///
+/// The success envelope contains every file whose contents can affect the
+/// result, plus either generated source or a generation error. The Dart builder
+/// registers the dependencies before it reports the error so watch mode can
+/// recover when an imported file changes.
+///
+/// # Safety
+/// `input_path`, `output_path`, and `options_json` must point to NUL-terminated strings.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_dart_generate(
+    input_path: *const c_char,
+    output_path: *const c_char,
+    options_json: *const c_char,
+) -> *mut c_char {
+    guard(|| {
+        let input_path = PathBuf::from(unsafe { str_or_empty(input_path) });
+        let output_path = PathBuf::from(unsafe { str_or_empty(output_path) });
+        let options_json = unsafe { str_or_empty(options_json) };
+        if input_path.as_os_str().is_empty() {
+            return err("The Slint input path is empty");
+        }
+        if output_path.as_os_str().is_empty() {
+            return err("The Dart output path is empty");
+        }
+        let options = match parse_dart_generation_options(options_json) {
+            Ok(options) => options,
+            Err(error) => return err(error),
+        };
+        generate_dart_bindings(&input_path, &output_path, options).map_or_else(err, ok)
+    })
+}
 
 /// Create a compiler. Release it with [`slint_dart_compiler_free`].
 #[unsafe(no_mangle)]
@@ -915,6 +1114,195 @@ mod tests {
 
         unsafe { slint_dart_result_free(result) };
         unsafe { slint_dart_compiler_free(compiler) };
+    }
+
+    #[test]
+    fn dart_generation_uses_camel_case_and_reports_imports() {
+        let directory = std::env::temp_dir().join(format!(
+            "slint-dart-codegen-{}-{:?}",
+            std::process::id(),
+            std::thread::current().id()
+        ));
+        std::fs::create_dir_all(&directory).unwrap();
+        let shared = directory.join("shared.slint");
+        let input = directory.join("app.slint");
+        let output = directory.join("app.slint.dart");
+        std::fs::write(&shared, "export component Shared { }").unwrap();
+        std::fs::write(
+            &input,
+            r#"
+                import { Shared } from "shared.slint";
+                export component MainWindow inherits Shared {
+                    in-out property <int> todo-model;
+                    callback todo_added(string);
+                    public function do_work(value: int) -> int { value }
+                }
+            "#,
+        )
+        .unwrap();
+
+        let input_string = c(&input.to_string_lossy());
+        let output_string = c(&output.to_string_lossy());
+        let options = c("{}");
+        let generated = unwrap_ok(unsafe {
+            slint_dart_generate(input_string.as_ptr(), output_string.as_ptr(), options.as_ptr())
+        });
+        let source = generated["source"].as_str().unwrap();
+        assert!(source.contains("int get todoModel"), "{source}");
+        assert!(source.contains("void onTodoAdded"), "{source}");
+        assert!(source.contains("int invokeDoWork"), "{source}");
+        assert!(source.contains("getProperty(\"todo-model\")"), "{source}");
+
+        let dependencies = generated["dependencies"].as_array().unwrap();
+        assert!(dependencies.iter().any(|path| path.as_str().is_some_and(|path| {
+            std::path::Path::new(path).file_name().is_some_and(|name| name == "app.slint")
+        })));
+        assert!(dependencies.iter().any(|path| path.as_str().is_some_and(|path| {
+            std::path::Path::new(path).file_name().is_some_and(|name| name == "shared.slint")
+        })));
+
+        std::fs::remove_dir_all(directory).unwrap();
+    }
+
+    #[test]
+    fn dart_generation_rejects_camel_case_collisions() {
+        let directory = std::env::temp_dir().join(format!(
+            "slint-dart-collision-{}-{:?}",
+            std::process::id(),
+            std::thread::current().id()
+        ));
+        std::fs::create_dir_all(&directory).unwrap();
+        let input = directory.join("app.slint");
+        let output = directory.join("app.slint.dart");
+        std::fs::write(
+            &input,
+            r#"
+                export component App {
+                    in-out property <int> foo-bar;
+                    in-out property <int> fooBar;
+                }
+            "#,
+        )
+        .unwrap();
+
+        let input_string = c(&input.to_string_lossy());
+        let output_string = c(&output.to_string_lossy());
+        let options = c("{}");
+        let generated = unwrap_ok(unsafe {
+            slint_dart_generate(input_string.as_ptr(), output_string.as_ptr(), options.as_ptr())
+        });
+        let message = generated["error"].as_str().unwrap();
+        assert!(generated["source"].is_null());
+        assert!(message.contains("foo-bar"), "{message}");
+        assert!(message.contains("fooBar"), "{message}");
+        assert!(message.contains("both generate"), "{message}");
+
+        std::fs::remove_dir_all(directory).unwrap();
+    }
+
+    #[test]
+    fn dart_generation_reports_dependencies_with_import_errors() {
+        let directory = std::env::temp_dir().join(format!(
+            "slint-dart-import-error-{}-{:?}",
+            std::process::id(),
+            std::thread::current().id()
+        ));
+        std::fs::create_dir_all(&directory).unwrap();
+        let shared = directory.join("shared.slint");
+        let input = directory.join("app.slint");
+        let output = directory.join("app.slint.dart");
+        std::fs::write(&shared, "export component Shared { this is not slint }").unwrap();
+        std::fs::write(
+            &input,
+            r#"
+                import { Shared } from "shared.slint";
+                export component App inherits Shared { }
+            "#,
+        )
+        .unwrap();
+
+        let input_string = c(&input.to_string_lossy());
+        let output_string = c(&output.to_string_lossy());
+        let options = c("{}");
+        let generated = unwrap_ok(unsafe {
+            slint_dart_generate(input_string.as_ptr(), output_string.as_ptr(), options.as_ptr())
+        });
+
+        assert!(generated["source"].is_null());
+        assert!(generated["error"].as_str().is_some_and(|message| !message.is_empty()));
+        let dependencies = generated["dependencies"].as_array().unwrap();
+        assert!(dependencies.iter().any(|path| path.as_str().is_some_and(|path| {
+            std::path::Path::new(path).file_name().is_some_and(|name| name == "app.slint")
+        })));
+        assert!(dependencies.iter().any(|path| path.as_str().is_some_and(|path| {
+            std::path::Path::new(path).file_name().is_some_and(|name| name == "shared.slint")
+        })));
+
+        std::fs::remove_dir_all(directory).unwrap();
+    }
+
+    #[test]
+    fn dart_generation_applies_include_paths_and_style_to_runtime_defaults() {
+        let directory = std::env::temp_dir().join(format!(
+            "slint-dart-options-{}-{:?}",
+            std::process::id(),
+            std::thread::current().id()
+        ));
+        let includes = directory.join("includes");
+        std::fs::create_dir_all(&includes).unwrap();
+        let shared = includes.join("shared.slint");
+        let input = directory.join("app.slint");
+        let output = directory.join("app.slint.dart");
+        std::fs::write(&shared, "export component Shared { }").unwrap();
+        std::fs::write(
+            &input,
+            r#"
+                import { Shared } from "shared.slint";
+                export component App inherits Shared { }
+            "#,
+        )
+        .unwrap();
+
+        let input_string = c(&input.to_string_lossy());
+        let output_string = c(&output.to_string_lossy());
+        let options = c(&serde_json::json!({
+            "include_paths": [includes.to_string_lossy()],
+            "style": "material",
+        })
+        .to_string());
+        let generated = unwrap_ok(unsafe {
+            slint_dart_generate(input_string.as_ptr(), output_string.as_ptr(), options.as_ptr())
+        });
+
+        assert!(generated["error"].is_null(), "{generated}");
+        let source = generated["source"].as_str().unwrap();
+        assert!(source.contains("String? style = \"material\""), "{source}");
+        assert!(source.contains("List<String> includePaths = const ["), "{source}");
+        assert!(
+            !source.contains(&format!(
+                "List<String> includePaths = const [{}]",
+                serde_json::to_string(&includes.to_string_lossy()).unwrap()
+            )),
+            "{source}"
+        );
+        let dependencies = generated["dependencies"].as_array().unwrap();
+        assert!(dependencies.iter().any(|path| path.as_str().is_some_and(|path| {
+            std::path::Path::new(path).file_name().is_some_and(|name| name == "shared.slint")
+        })));
+
+        std::fs::remove_dir_all(directory).unwrap();
+    }
+
+    #[test]
+    fn dart_generation_rejects_invalid_options() {
+        let input = c("app.slint");
+        let output = c("app.slint.dart");
+        let options = c(r#"{"include_paths":"not-a-list"}"#);
+        let message = unwrap_err(unsafe {
+            slint_dart_generate(input.as_ptr(), output.as_ptr(), options.as_ptr())
+        });
+        assert!(message.contains("include_paths"), "{message}");
+        assert!(message.contains("list of strings"), "{message}");
     }
 
     #[test]

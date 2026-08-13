@@ -47,6 +47,15 @@ export 'src/embedded.dart'
 /// returns the callback's result, or null for a callback that returns nothing.
 typedef SlintCallback = Object? Function(List<Object?> args);
 
+/// A Slint component that can provide its underlying runtime instance.
+///
+/// Generated component wrappers implement this interface so that APIs such as
+/// `SlintView` can accept both typed wrappers and a plain [ComponentInstance].
+abstract interface class SlintComponent {
+  /// The live runtime instance represented by this component.
+  ComponentInstance get instance;
+}
+
 // ---------------------------------------------------------------------------
 // Callback dispatch
 //
@@ -219,7 +228,7 @@ ComponentInstance _instantiate(
 
 /// A live instance of a Slint component: one window and its properties,
 /// callbacks, and global singletons.
-class ComponentInstance {
+class ComponentInstance implements SlintComponent {
   ComponentInstance._(this._handle);
 
   factory ComponentInstance._create(Pointer<SlintComponentDefinition> definition) {
@@ -239,6 +248,10 @@ class ComponentInstance {
   Pointer<SlintComponentInstance> _handle;
   final Set<int> _handlerIds = {};
 
+  /// This runtime instance itself.
+  @override
+  ComponentInstance get instance => this;
+
   Pointer<SlintComponentInstance> get _live {
     if (_handle == nullptr) {
       throw StateError('this ComponentInstance has been disposed');
@@ -246,12 +259,18 @@ class ComponentInstance {
     return _handle;
   }
 
+  /// Read a property by its Slint name.
+  Object? getProperty(String name) => _getProperty(null, name);
+
+  /// Write a property by its Slint name.
+  void setProperty(String name, Object? value) =>
+      _setProperty(null, name, value);
+
   /// Read a property, for example `app['todo-model']`.
-  Object? operator [](String name) => _getProperty(null, name);
+  Object? operator [](String name) => getProperty(name);
 
   /// Write a property, for example `app['title'] = 'Hello'`.
-  void operator []=(String name, Object? value) =>
-      _setProperty(null, name, value);
+  void operator []=(String name, Object? value) => setProperty(name, value);
 
   /// Call a callback or a public function declared on the component.
   Object? invoke(String name, [List<Object?> args = const []]) =>
@@ -362,11 +381,18 @@ class SlintGlobal {
   /// The exported name of the singleton.
   final String name;
 
-  Object? operator [](String property) =>
+  /// Read a property by its Slint name.
+  Object? getProperty(String property) =>
       _instance._getProperty(name, property);
 
-  void operator []=(String property, Object? value) =>
+  /// Write a property by its Slint name.
+  void setProperty(String property, Object? value) =>
       _instance._setProperty(name, property, value);
+
+  Object? operator [](String property) => getProperty(property);
+
+  void operator []=(String property, Object? value) =>
+      setProperty(property, value);
 
   Object? invoke(String function, [List<Object?> args = const []]) =>
       _instance._invoke(name, function, args);

@@ -1,0 +1,33 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+export component CounterWindow inherits Window {
+    title: "Slint Dart Code Generation";
+    width: 320px;
+    height: 180px;
+    background: #20252b;
+
+    in-out property <int> current-count: 0;
+    in property <string> status_message: "Ready";
+    callback count-changed(int);
+
+    public function reset_counter() {
+        root.current-count = 0;
+        root.count-changed(root.current-count);
+    }
+
+    Text {
+        text: "\{root.status_message}: \{root.current-count}";
+        color: white;
+        font-size: 24px;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+
+        TouchArea {
+            clicked => {
+                root.current-count += 1;
+                root.count-changed(root.current-count);
+            }
+        }
+    }
+}

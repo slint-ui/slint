@@ -34,6 +34,15 @@ void main() {
   tearDown(() => app.dispose());
 
   group('properties', () {
+    test('public property methods preserve operator behavior', () {
+      expect(app.getProperty('value'), 42);
+      app.setProperty('value', 7);
+      expect(app['value'], 7);
+
+      app['value'] = 11;
+      expect(app.getProperty('value'), 11);
+    });
+
     test('round-trip scalars', () {
       expect(app['value'], 42);
       expect(app['label'], 'hello');
@@ -86,6 +95,16 @@ void main() {
   });
 
   group('globals', () {
+    test('public property methods preserve operator behavior', () {
+      final logic = app.global('Logic');
+      expect(logic.getProperty('offset'), 3);
+      logic.setProperty('offset', 9);
+      expect(logic['offset'], 9);
+
+      logic['offset'] = 12;
+      expect(logic.getProperty('offset'), 12);
+    });
+
     test('round-trip a property', () {
       final logic = app.global('Logic');
       expect(logic['offset'], 3);
@@ -190,6 +209,11 @@ void main() {
   });
 
   group('lifetime', () {
+    test('a runtime instance is also a SlintComponent', () {
+      final SlintComponent component = app;
+      expect(identical(component.instance, app), isTrue);
+    });
+
     test('using a disposed instance throws', () {
       final throwaway = loadSource(_app)..dispose();
       expect(() => throwaway['value'], throwsA(isA<StateError>()));

@@ -32,6 +32,8 @@ pub mod rust_live_preview;
 #[cfg(feature = "slint-sc")]
 pub mod slint_sc;
 
+#[cfg(feature = "dart")]
+pub mod dart;
 #[cfg(feature = "python")]
 pub mod python;
 
@@ -49,6 +51,8 @@ pub enum OutputFormat {
     Llr,
     #[cfg(feature = "python")]
     Python,
+    #[cfg(feature = "dart")]
+    Dart,
 }
 
 impl OutputFormat {
@@ -62,6 +66,8 @@ impl OutputFormat {
             Some("rs") => Some(Self::Rust),
             #[cfg(feature = "python")]
             Some("py") => Some(Self::Python),
+            #[cfg(feature = "dart")]
+            Some("dart") => Some(Self::Dart),
             _ => None,
         }
     }
@@ -80,6 +86,8 @@ impl std::str::FromStr for OutputFormat {
             "llr" => Ok(Self::Llr),
             #[cfg(feature = "python")]
             "python" => Ok(Self::Python),
+            #[cfg(feature = "dart")]
+            "dart" => Ok(Self::Dart),
             _ => Err(format!("Unknown output format {s}")),
         }
     }
@@ -125,6 +133,11 @@ pub fn generate(
         #[cfg(feature = "python")]
         OutputFormat::Python => {
             let output = python::generate(doc, compiler_config, destination_path)?;
+            write!(destination, "{output}")?;
+        }
+        #[cfg(feature = "dart")]
+        OutputFormat::Dart => {
+            let output = dart::generate(doc, compiler_config, destination_path)?;
             write!(destination, "{output}")?;
         }
     }

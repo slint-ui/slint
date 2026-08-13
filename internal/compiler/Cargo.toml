@@ -23,6 +23,7 @@ path = "lib.rs"
 cpp = []
 rust = ["quote", "proc-macro2"]
 python = ["dep:pathdiff", "dep:serde", "smol_str/serde", "dep:serde_json", "dep:flate2", "dep:base64"]
+dart = ["dep:pathdiff", "dep:serde_json"]
 
 # Safety-critical subset: enables the SlintSc output format and compile-time checks
 slint-sc = ["quote", "proc-macro2"]

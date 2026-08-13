@@ -145,6 +145,13 @@ class SlintFfi {
     'slint_dart_compiler_build_from_source',
   );
 
+  late final Pointer<Utf8> Function(Pointer<Utf8>, Pointer<Utf8>, Pointer<Utf8>)
+      generate = _lib.lookupFunction<
+          Pointer<Utf8> Function(Pointer<Utf8>, Pointer<Utf8>, Pointer<Utf8>),
+          Pointer<Utf8> Function(Pointer<Utf8>, Pointer<Utf8>, Pointer<Utf8>)>(
+    'slint_dart_generate',
+  );
+
   late final void Function(Pointer<SlintCompilationResult>) resultFree =
       _lib.lookupFunction<Void Function(Pointer<SlintCompilationResult>),
           void Function(Pointer<SlintCompilationResult>)>(

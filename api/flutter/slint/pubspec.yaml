@@ -12,7 +12,9 @@ environment:
   sdk: ^3.3.0
 
 dependencies:
+  build: '>=2.4.1 <5.0.0'
   ffi: ^2.1.3
+  path: ^1.8.0
 
 dev_dependencies:
   lints: ^5.0.0

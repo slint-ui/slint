@@ -1,0 +1,17 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: MIT
+
+name: slint_codegen_example
+description: A typed Slint code-generation example for Dart.
+publish_to: none
+
+environment:
+  sdk: ^3.3.0
+
+dependencies:
+  slint:
+    path: ..
+
+dev_dependencies:
+  build_runner: ^2.4.9
+  lints: ^5.0.0

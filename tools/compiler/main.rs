@@ -53,7 +53,7 @@ enum Embedding {
 #[command(author, version, about, long_about = None)]
 struct Cli {
     /// Set the output format for generated code.
-    /// Possible values: 'cpp' for C++ code or 'rust' for Rust code.
+    /// Possible values include 'cpp', 'dart', 'python', and 'rust'.
     #[arg(short = 'f', long = "format")]
     format: Option<generator::OutputFormat>,
 
@@ -181,6 +181,8 @@ fn main() -> std::io::Result<()> {
             Some("rs") => generator::OutputFormat::Rust,
             #[cfg(feature = "python")]
             Some("py") => generator::OutputFormat::Python,
+            #[cfg(feature = "dart")]
+            Some("dart") => generator::OutputFormat::Dart,
             #[cfg(feature = "cpp")]
             _ => generator::OutputFormat::Cpp(Default::default()),
             #[cfg(not(feature = "cpp"))]
