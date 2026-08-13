@@ -64,6 +64,9 @@ pub enum PreviewToLspMessage {
     SubmitPairingCode { code: String },
     /// The user dismissed the pairing prompt in the preview UI.
     CancelPairing,
+    /// The user agreed to connect to a viewer that has pairing disabled,
+    /// knowing the session will not be encrypted.
+    AcceptUnpairedConnection,
     /// Answer to [`super::LspToPreviewMessage::Ping`], consumed by the LSP's
     /// WebSocket connector.
     Pong,

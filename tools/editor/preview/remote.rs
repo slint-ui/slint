@@ -116,6 +116,13 @@ pub fn setup(
             tracing::error!("Failed sending CancelPairing to LSP: {err}");
         }
     });
+
+    let lsp = to_lsp.clone();
+    api.on_remote_accept_unpaired(move || {
+        if let Err(err) = lsp.send(&PreviewToLspMessage::AcceptUnpairedConnection) {
+            tracing::error!("Failed sending AcceptUnpairedConnection to LSP: {err}");
+        }
+    });
 }
 
 /// Surface a manual-entry / discovery error in the dialog. Skipped when
