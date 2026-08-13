@@ -595,6 +595,17 @@ impl Component {
                     );
                 }
             }
+            // The application gives the window its size, so the size is an
+            // output of the component rather than something the file sets.
+            #[cfg(feature = "slint-sc")]
+            for prop in ["width", "height"] {
+                if let Some(b) = c.root_element.borrow().binding_cell_including_synthetic(prop) {
+                    diag.slint_sc_error(
+                        &format!("Binding the '{prop}' of the root element is"),
+                        &*b.borrow(),
+                    );
+                }
+            }
         }
         let weak = Rc::downgrade(&c);
         recurse_elem(&c.root_element, &(), &mut |e, _| {

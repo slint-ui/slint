@@ -6,6 +6,33 @@
 #![forbid(unsafe_code)]
 #![forbid(missing_docs)]
 
+/// The size of a window, in pixels.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct Size {
+    /// The width in pixels.
+    pub width: u32,
+    /// The height in pixels.
+    pub height: u32,
+}
+
+impl Size {
+    /// Construct a size from a width and a height.
+    pub const fn new(width: u32, height: u32) -> Self {
+        Self { width, height }
+    }
+}
+
+#[test]
+fn test_size() {
+    let size = Size::new(320, 240);
+    assert_eq!((size.width, size.height), (320, 240));
+    assert_eq!(size, Size { width: 320, height: 240 });
+    assert_ne!(size, Size::new(240, 320));
+    // The default size is empty
+    assert_eq!(Size::default(), Size::new(0, 0));
+    assert_eq!(Sink::format(format_args!("{size:?}")).as_str(), "Size { width: 320, height: 240 }");
+}
+
 /// An RGBA color, as held by properties of the `color` type.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct Color {
@@ -169,7 +196,7 @@ fn test_composite_over_matches_the_specified_formula() {
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum RenderError {
-    /// The frame buffer size doesn't match the requested width and height.
+    /// The frame buffer size doesn't match the size of the window.
     InvalidFrameBufferSize,
 }
 
@@ -177,7 +204,7 @@ impl core::fmt::Display for RenderError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             Self::InvalidFrameBufferSize => {
-                f.write_str("the frame buffer size doesn't match the requested width and height")
+                f.write_str("the frame buffer size doesn't match the size of the window")
             }
         }
     }
@@ -187,25 +214,9 @@ impl core::error::Error for RenderError {}
 
 #[test]
 fn test_render_error_display() {
-    use core::fmt::Write;
-    // A no_std, no_alloc sink to capture the Display output.
-    struct Sink {
-        buf: [u8; 80],
-        len: usize,
-    }
-    impl Write for Sink {
-        fn write_str(&mut self, s: &str) -> core::fmt::Result {
-            let end = self.len + s.len();
-            self.buf[self.len..end].copy_from_slice(s.as_bytes());
-            self.len = end;
-            Ok(())
-        }
-    }
-    let mut sink = Sink { buf: [0; 80], len: 0 };
-    write!(sink, "{}", RenderError::InvalidFrameBufferSize).unwrap();
     assert_eq!(
-        core::str::from_utf8(&sink.buf[..sink.len]).unwrap(),
-        "the frame buffer size doesn't match the requested width and height"
+        Sink::format(format_args!("{}", RenderError::InvalidFrameBufferSize)).as_str(),
+        "the frame buffer size doesn't match the size of the window"
     );
 }
 
@@ -214,4 +225,37 @@ fn test_render_error_display() {
 pub mod private_unstable_api {
     /// Painting into a frame buffer.
     pub mod renderer;
+}
+
+/// A sink that captures formatted output in a fixed buffer, so that a test can
+/// assert on a `Debug` or `Display` implementation without an allocator.
+#[cfg(test)]
+struct Sink {
+    buf: [u8; 128],
+    len: usize,
+}
+
+#[cfg(test)]
+impl core::fmt::Write for Sink {
+    fn write_str(&mut self, s: &str) -> core::fmt::Result {
+        let end = self.len + s.len();
+        self.buf[self.len..end].copy_from_slice(s.as_bytes());
+        self.len = end;
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+impl Sink {
+    /// The formatted arguments, held by the returned sink.
+    fn format(args: core::fmt::Arguments<'_>) -> Self {
+        use core::fmt::Write;
+        let mut sink = Self { buf: [0; 128], len: 0 };
+        sink.write_fmt(args).unwrap();
+        sink
+    }
+
+    fn as_str(&self) -> &str {
+        core::str::from_utf8(&self.buf[..self.len]).unwrap()
+    }
 }

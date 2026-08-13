@@ -16,31 +16,29 @@ An exported component shall inherit `Window`. \{#sls.gen.window-root}
 ## `new()`
 
 ```rust
-pub fn new() -> Self
+pub fn new(size: slint_sc::Size) -> Self
 ```
 
-Creates an instance of the component. \{#sls.gen.new}
+Creates an instance of the component for a window of `size`, the size of the window in pixels. \{#sls.gen.new}
 
 ## `render_rgb8()`
 
 ```rust
-pub fn render_rgb8(&self, width: u32, height: u32, frame_buffer: &mut [u8]) -> Result<(), slint_sc::RenderError>
+pub fn render_rgb8(&self, frame_buffer: &mut [u8]) -> Result<(), slint_sc::RenderError>
 ```
 
-Renders the window into `frame_buffer` as described in
-[Rendering](/reference/rendering/):
-`width * height` pixels in row-major order, each pixel three bytes — red,
-green, blue. \{#sls.gen.render-rgb8}
+Renders the window into `frame_buffer` as described in [Rendering](/reference/rendering/):
+`width * height` pixels of the size the window was created with, in row-major order,
+each pixel three bytes — red, green, blue. \{#sls.gen.render-rgb8}
 
 ```rust
+let instance = Foo::new(slint_sc::Size::new(320, 240));
 let mut frame_buffer = [0u8; 320 * 240 * 3];
-instance.render_rgb8(320, 240, &mut frame_buffer)?;
+instance.render_rgb8(&mut frame_buffer)?;
 ```
 
-When the length of `frame_buffer` isn't `width * height * 3`, `render_rgb8`
-returns [`Err(RenderError::InvalidFrameBufferSize)`](/api/slint_sc/enum.RenderError.html)
-and paints nothing.
-\{#sls.gen.render-error}
+When the length of `frame_buffer` isn't `width * height * 3` for that size, `render_rgb8` returns
+[`Err(RenderError::InvalidFrameBufferSize)`](/api/slint_sc/enum.RenderError.html) and paints nothing. \{#sls.gen.render-error}
 
 ## Properties
 

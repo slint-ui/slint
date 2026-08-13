@@ -20,22 +20,22 @@ export { Foo, Bar as Baz, }
 // Foo is exported under its own name; Bar under the external name Baz. The two
 // external names are distinct, so the file exports no name more than once.
 let mut frame_buffer = [0u8; 8 * 8 * 3];
-Foo::new().render_rgb8(8, 8, &mut frame_buffer)?;
+Foo::new(slint_sc::Size::new(8, 8)).render_rgb8(&mut frame_buffer)?;
 assert!(frame_buffer.chunks(3).all(|pixel| pixel == [0xff, 0x00, 0x00]));
-Baz::new().render_rgb8(8, 8, &mut frame_buffer)?;
+Baz::new(slint_sc::Size::new(8, 8)).render_rgb8(&mut frame_buffer)?;
 assert!(frame_buffer.chunks(3).all(|pixel| pixel == [0x00, 0xff, 0x00]));
 ```
 
 A name that is not exported names no generated type:
 ```rust compile_fail
 //#sls.export.default-private
-let _ = Hidden::new();
+let _ = Hidden::new(crate::harness::WINDOW_SIZE);
 //~ ERROR undeclared type `Hidden`
 ```
 
 The renamed component is reachable only under its external name:
 ```rust compile_fail
-let _ = Bar::new();
+let _ = Bar::new(crate::harness::WINDOW_SIZE);
 //~ ERROR undeclared type `Bar`
 ```
 */

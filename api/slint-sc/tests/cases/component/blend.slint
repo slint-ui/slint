@@ -72,11 +72,11 @@ export component TestCase inherits Window {
 
 /*
 ```rust
-let x = TestCase::new();
+let x = TestCase::new(crate::harness::WINDOW_SIZE);
 screenshot!(x);
 
 let mut frame_buffer = [0u8; 64 * 64 * 3];
-x.render_rgb8(64, 64, &mut frame_buffer)?;
+x.render_rgb8(&mut frame_buffer)?;
 let pixel = |px: usize, py: usize| {
     let i = (py * 64 + px) * 3;
     [frame_buffer[i], frame_buffer[i + 1], frame_buffer[i + 2]]

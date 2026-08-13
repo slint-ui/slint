@@ -15,11 +15,11 @@ use std::format;
 /// test (e.g. `screenshot!(x, after_click)`).
 macro_rules! screenshot {
     ($component:expr) => {
-        crate::harness::save_screenshot(|w, h, buf| $component.render_rgb8(w, h, buf), None)?
+        crate::harness::save_screenshot(|buf| $component.render_rgb8(buf), None)?
     };
     ($component:expr, $state:ident) => {
         crate::harness::save_screenshot(
-            |w, h, buf| $component.render_rgb8(w, h, buf),
+            |buf| $component.render_rgb8(buf),
             Some(stringify!($state)),
         )?
     };
@@ -28,12 +28,15 @@ macro_rules! screenshot {
 const WIDTH: u32 = 64;
 const HEIGHT: u32 = 64;
 
+/// The size every test case creates its component with.
+pub const WINDOW_SIZE: slint_sc::Size = slint_sc::Size::new(WIDTH, HEIGHT);
+
 pub fn save_screenshot(
-    render: impl FnOnce(u32, u32, &mut [u8]) -> Result<(), slint_sc::RenderError>,
+    render: impl FnOnce(&mut [u8]) -> Result<(), slint_sc::RenderError>,
     state: Option<&str>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let mut buffer = [0u8; (WIDTH * HEIGHT * 3) as usize];
-    render(WIDTH, HEIGHT, &mut buffer)?;
+    render(&mut buffer)?;
     let name = std::env::var("SLINT_TEST_NAME")?;
     let filename = match state {
         Some(state) => format!("{name}-{state}.ppm"),

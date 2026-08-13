@@ -40,14 +40,14 @@ export component UserComponent inherits Window {
 
 /*
 ```rust
-let x = UserComponent::new();
+let x = UserComponent::new(crate::harness::WINDOW_SIZE);
 screenshot!(x);
 ```
 
 Only the exported component names a generated struct:
 ```rust compile_fail
 //#sls.gen.component
-let _ = Led::new();
+let _ = Led::new(crate::harness::WINDOW_SIZE);
 //~ ERROR undeclared type `Led`
 ```
 */

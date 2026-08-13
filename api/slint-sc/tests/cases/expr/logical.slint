@@ -19,7 +19,7 @@ export component TestCase inherits Window {
 
 /*
 ```rust
-let mut x = TestCase::new();
+let mut x = TestCase::new(crate::harness::WINDOW_SIZE);
 
 for (a, b) in [(false, false), (false, true), (true, false), (true, true)] {
     x.set_a(a);
