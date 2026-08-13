@@ -196,7 +196,7 @@ impl Type {
     #[cfg(feature = "slint-sc")]
     pub fn is_slint_sc(&self) -> bool {
         match self {
-            Self::Int32 | Self::LogicalLength | Self::Color | Self::Bool => true,
+            Self::Int32 | Self::LogicalLength | Self::Color | Self::Bool | Self::Image => true,
             // A user-declared enum.
             Self::Enumeration(en) => en.node.is_some(),
             // A user-declared struct. Its field types were validated where the

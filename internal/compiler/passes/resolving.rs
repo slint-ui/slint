@@ -461,8 +461,6 @@ impl Expression {
                 NodeOrToken::Node(node) => match node.kind() {
                     SyntaxKind::Expression => return Self::from_expression_node(node.into(), ctx),
                     SyntaxKind::AtImageUrl => {
-                        #[cfg(feature = "slint-sc")]
-                        ctx.diag.slint_sc_error("@image-url() expressions are", &node);
                         return Self::from_at_image_url_node(node.into(), ctx);
                     }
                     SyntaxKind::AtGradient => {
@@ -670,6 +668,17 @@ impl Expression {
             ImageReference::from_resolved(absolute_source_path)
         };
 
+        // Slint SC decodes the image at compile time, so only a file on disk
+        // can be referenced.
+        #[cfg(feature = "slint-sc")]
+        match &resource_ref {
+            ImageReference::DataUri(_) => {
+                ctx.diag.slint_sc_error("Data URIs in @image-url() are", &node)
+            }
+            ImageReference::Url(_) => ctx.diag.slint_sc_error("URLs in @image-url() are", &node),
+            _ => {}
+        }
+
         let nine_slice = node
             .children_with_tokens()
             .filter_map(|n| n.into_token())
@@ -701,6 +710,11 @@ impl Expression {
                 None
             }
         };
+
+        #[cfg(feature = "slint-sc")]
+        if nine_slice.is_some() {
+            ctx.diag.slint_sc_error("Nine-slice borders in @image-url() are", &node);
+        }
 
         Expression::ImageReference {
             resource_ref,

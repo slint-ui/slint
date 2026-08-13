@@ -5961,6 +5961,11 @@ fn generate_resources(doc: &Document) -> Vec<TokenStream> {
                 &crate::embedded_resources::EmbeddedResourcesKind::ListOnly => {
                     quote!()
                 },
+                // Only the slint-sc generator produces these resources.
+                #[cfg(feature = "slint-sc")]
+                crate::embedded_resources::EmbeddedResourcesKind::StaticPixels { .. } => {
+                    unreachable!("slint-sc resources in the Rust generator")
+                },
                 crate::embedded_resources::EmbeddedResourcesKind::FileData => {
                     let data = embedded_file_tokens(er.path.as_deref().unwrap());
                     quote!(static #symbol: &'static [u8] = #data;)
