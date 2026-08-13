@@ -1077,6 +1077,14 @@ pub fn normalize_identifier(ident: &str) -> SmolStr {
     builder.finish()
 }
 
+/// Returns true if [`normalize_identifier`] would return `ident` unchanged.
+/// Lets callers skip the copy (and heap allocation for long identifiers).
+pub fn is_identifier_normalized(ident: &str) -> bool {
+    // '-' and '_' are ASCII, so a byte scan is UTF-8-safe
+    let b = ident.as_bytes();
+    b.first() != Some(&b'-') && !b[1.min(b.len())..].contains(&b'_')
+}
+
 #[test]
 fn test_normalize_identifier() {
     assert_eq!(normalize_identifier("true"), SmolStr::new("true"));
@@ -1089,6 +1097,19 @@ fn test_normalize_identifier() {
     assert_eq!(normalize_identifier("__1"), SmolStr::new("_-1"));
     assert_eq!(normalize_identifier("--1"), SmolStr::new("_-1"));
     assert_eq!(normalize_identifier("--1--"), SmolStr::new("_-1--"));
+}
+
+#[test]
+fn test_is_identifier_normalized() {
+    for ident in
+        ["true", "foo-bar", "foo_bar", "-foo", "_foo", "foo-bar-", "", "-", "_", "ä_ö", "ä-ö"]
+    {
+        assert_eq!(
+            is_identifier_normalized(ident),
+            normalize_identifier(ident) == ident,
+            "{ident:?}"
+        );
+    }
 }
 
 // Actual parser
