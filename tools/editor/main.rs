@@ -425,8 +425,9 @@ async fn handle_preview_message(
         | SubmitPairingCode { .. }
         | CancelPairing
         | Pong
-        | PairingChallenge { .. }
+        | PairingReady
         | PairingRequired { .. }
+        | PairingTokenChallenge { .. }
         | PairingConfirm { .. }
         | PairingAccepted
         | PairingRejected { .. } => {

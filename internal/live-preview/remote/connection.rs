@@ -12,7 +12,7 @@ use std::{
 
 use crate::REBUILD_DEBOUNCE;
 use crate::protocol::pairing::{
-    self, CODE_TIMEOUT, MAX_ATTEMPTS, Nonce, PROMPT_RATE_LIMIT, PairingRejection, Proof, Token,
+    self, CODE_TIMEOUT, MAX_ATTEMPTS, PROMPT_RATE_LIMIT, PairingRejection, Token, TokenId,
 };
 use crate::protocol::session;
 use crate::protocol::{
@@ -109,7 +109,7 @@ struct PairingState {
     consecutive_failures: u32,
     /// Tokens issued during this viewer run. Deliberately not persisted:
     /// restarting the viewer makes every editor pair again.
-    tokens: VecDeque<Token>,
+    tokens: VecDeque<(TokenId, Token)>,
 }
 
 /// What the screen is doing about pairing.
@@ -129,20 +129,16 @@ enum Screen {
 }
 
 impl PairingState {
-    /// The token `offered` proves possession of, if we handed it out. The
-    /// value is needed and not just a yes/no, because it keys the session.
-    fn accepting_token(&self, offered: &Proof, nonce: &Nonce) -> Option<Token> {
-        // Fold rather than `find`: checking every token regardless keeps the
-        // work from depending on which one matched.
-        self.tokens.iter().fold(None, |found, token| {
-            let matched = pairing::token_proof(token, nonce).matches(offered);
-            if matched { Some(*token) } else { found }
-        })
+    /// The token the client announced, if it is one we issued. A plain
+    /// lookup, because the id is public; possession of the token itself is
+    /// proven by the exchange that follows.
+    fn issued_token(&self, id: &TokenId) -> Option<Token> {
+        self.tokens.iter().find(|(known, _)| known == id).map(|(_, token)| *token)
     }
 
     /// Accept `token` on future connections from whoever just paired.
-    fn remember_token(&mut self, token: Token) {
-        self.tokens.push_back(token);
+    fn remember_token(&mut self, id: TokenId, token: Token) {
+        self.tokens.push_back((id, token));
         while self.tokens.len() > MAX_REMEMBERED_TOKENS {
             self.tokens.pop_front();
         }
@@ -703,12 +699,11 @@ impl Connection {
         pairing_state: &Arc<Mutex<PairingState>>,
         message_handler: Arc<dyn Fn(ConnectionMessage) + 'static + Send + Sync>,
     ) -> Result<(session::Sealing, session::Opening), Denied> {
-        let nonce = pairing::generate::nonce();
-        send_on(sink, &PreviewToLspMessage::PairingChallenge { nonce }).await?;
+        send_on(sink, &PreviewToLspMessage::PairingReady).await?;
 
         // The client answers this much on its own; no human is involved yet.
-        let token_proof = match next_message(receiver, HELLO_TIMEOUT).await {
-            Some(LspToPreviewMessage::PairingHello { token_proof }) => token_proof,
+        let announced = match next_message(receiver, HELLO_TIMEOUT).await {
+            Some(LspToPreviewMessage::PairingHello { token }) => token,
             Some(other) => {
                 tracing::warn!("Expected PairingHello from {remote_addr:?}, got {other:?}");
                 return Err(Denied::Gone);
@@ -723,19 +718,21 @@ impl Connection {
             return Ok((session::Sealing::Plaintext, session::Opening::Plaintext));
         }
 
-        if let Some(offered) = token_proof {
-            // Bound first: holding the guard across the await below would
+        if let Some(id) = announced {
+            // Bound first: holding the guard across the awaits below would
             // make this future non-Send.
-            let accepted = pairing_state.lock().unwrap().accepting_token(&offered, &nonce);
-            if let Some(token) = accepted {
-                // An editor we already paired with, reconnecting. Keep the
-                // screen alone: this is the common case after a network blip
-                // or the viewer coming back to the foreground.
-                tracing::info!("{remote_addr:?} presented a valid token; no code needed");
-                send_on(sink, &PreviewToLspMessage::PairingAccepted).await?;
-                return Ok(pairing::session_from_token(pairing::Role::Viewer, &token, &nonce));
+            let issued = pairing_state.lock().unwrap().issued_token(&id);
+            if let Some(token) = issued {
+                if let Some(session) =
+                    Self::token_exchange(sink, receiver, remote_addr, &token).await?
+                {
+                    return Ok(session);
+                }
+                // Announced one of our ids but couldn't prove the token:
+                // treated exactly like a token we never issued.
+            } else {
+                tracing::info!("{remote_addr:?} announced a token we did not issue");
             }
-            tracing::info!("{remote_addr:?} presented a token we did not issue");
             // Almost always a token from a previous run of this viewer. Say
             // so, so the client forgets it, then fall through to the code.
             let reason = PairingRejection::BadToken;
@@ -759,7 +756,7 @@ impl Connection {
             // A fresh exchange per attempt: the state is consumed by
             // finishing, and reusing an element across guesses would leak
             // more than one guess's worth.
-            let handshake = pairing::Handshake::start(pairing::Role::Viewer, &code);
+            let handshake = pairing::Handshake::with_code(pairing::Role::Viewer, &code);
             send_on(
                 sink,
                 &PreviewToLspMessage::PairingRequired {
@@ -795,7 +792,7 @@ impl Connection {
 
             if let Some(secrets) = accepted {
                 tracing::info!("{remote_addr:?} entered the pairing code correctly");
-                pairing_state.lock().unwrap().remember_token(secrets.token);
+                pairing_state.lock().unwrap().remember_token(secrets.token_id, secrets.token);
                 send_on(
                     sink,
                     &PreviewToLspMessage::PairingConfirm {
@@ -819,6 +816,56 @@ impl Connection {
             )
             .await?;
         }
+    }
+
+    /// Run the reconnect exchange, with `token` as the secret.
+    ///
+    /// The same exchange as for a code, minus the human: the token never
+    /// crosses the wire, and the session keys are fresh, so recording this
+    /// connection is worthless even to someone who steals the token later.
+    ///
+    /// `Ok(None)` means the peer announced the token but could not prove
+    /// holding it; the caller treats that like a token we never issued.
+    async fn token_exchange(
+        sink: &mut Sink,
+        receiver: &mut Source,
+        remote_addr: SocketAddr,
+        token: &Token,
+    ) -> Result<Option<(session::Sealing, session::Opening)>, Denied> {
+        let handshake = pairing::Handshake::with_token(pairing::Role::Viewer, token);
+        send_on(
+            sink,
+            &PreviewToLspMessage::PairingTokenChallenge { element: handshake.element().clone() },
+        )
+        .await?;
+
+        let Some(message) = next_message(receiver, HELLO_TIMEOUT).await else {
+            return Err(Denied::Gone);
+        };
+        let LspToPreviewMessage::PairingResponse { element, confirmation } = message else {
+            tracing::warn!("Expected the reconnect response from {remote_addr:?}, got {message:?}");
+            return Err(Denied::Gone);
+        };
+
+        let accepted = handshake
+            .finish(&element)
+            .ok()
+            .filter(|secrets| confirmation.matches(&secrets.editor_confirmation));
+        let Some(secrets) = accepted else {
+            tracing::info!("{remote_addr:?} announced a token it could not prove");
+            return Ok(None);
+        };
+
+        // An editor we already paired with, reconnecting. Keep the screen
+        // alone: this is the common case after a network blip or the viewer
+        // coming back to the foreground.
+        tracing::info!("{remote_addr:?} proved its token; no code needed");
+        send_on(
+            sink,
+            &PreviewToLspMessage::PairingConfirm { confirmation: secrets.viewer_confirmation },
+        )
+        .await?;
+        Ok(Some(secrets.session()))
     }
 
     async fn handle_connection(
@@ -1375,7 +1422,7 @@ mod cool_down_tests {
 #[cfg(test)]
 mod session_tests {
     use super::{Connection, ConnectionMessage, MAX_PENDING_ADMISSIONS, PairingPolicy};
-    use crate::protocol::pairing::{self, MAX_ATTEMPTS, Nonce, Token};
+    use crate::protocol::pairing::{self, MAX_ATTEMPTS, Token, TokenId};
     use crate::protocol::session;
     use crate::protocol::{
         LspToPreviewMessage, PROTOCOL_SUBPROTOCOL, PairingRejection, PreviewToLspMessage,
@@ -1496,14 +1543,13 @@ mod session_tests {
         .expect("viewer sent no reply")
     }
 
-    /// Read the challenge and answer it with `token_proof`.
-    async fn hello(client: &mut Client, token: Option<&Token>) -> Nonce {
-        let Some(PreviewToLspMessage::PairingChallenge { nonce }) = recv(client).await else {
-            panic!("expected a challenge");
-        };
-        let token_proof = token.map(|token| pairing::token_proof(token, &nonce));
-        send(client, &LspToPreviewMessage::PairingHello { token_proof }).await;
-        nonce
+    /// Read the viewer's opener and answer it, announcing `token`.
+    async fn hello(client: &mut Client, token: Option<TokenId>) {
+        assert!(
+            matches!(recv(client).await, Some(PreviewToLspMessage::PairingReady)),
+            "expected the viewer to open pairing"
+        );
+        send(client, &LspToPreviewMessage::PairingHello { token }).await;
     }
 
     /// Complete the editor's half of the exchange for `code`.
@@ -1516,7 +1562,16 @@ mod session_tests {
         code: &str,
         element: &pairing::Element,
     ) -> Result<pairing::Secrets, PairingRejection> {
-        let handshake = pairing::Handshake::start(pairing::Role::Editor, code);
+        let handshake = pairing::Handshake::with_code(pairing::Role::Editor, code);
+        answer_with(client, handshake, element).await
+    }
+
+    /// Send the response for a started exchange and read the verdict.
+    async fn answer_with(
+        client: &mut Client,
+        handshake: pairing::Handshake,
+        element: &pairing::Element,
+    ) -> Result<pairing::Secrets, PairingRejection> {
         let ours = handshake.element().clone();
         let secrets = handshake.finish(element).expect("the viewer's element is well formed");
         send(
@@ -1573,19 +1628,33 @@ mod session_tests {
     }
 
     /// Dial, pair with the code the viewer displays, and return a sealed
-    /// session plus the token it derived.
-    async fn pair(viewer: &mut Viewer) -> (Paired, Token) {
+    /// session plus everything the exchange derived.
+    async fn pair(viewer: &mut Viewer) -> (Paired, pairing::Secrets) {
         let (mut client, element) = knock(viewer).await;
         let code = viewer.next_code().await;
         let secrets = answer_code(&mut client, &code, &element).await.expect("accepted");
         let (sealing, opening) = secrets.session();
-        (Paired { client, sealing, opening }, secrets.token)
+        (Paired { client, sealing, opening }, secrets)
+    }
+
+    /// Dial again and run the token exchange, as a reconnecting editor would.
+    async fn reconnect(viewer: &Viewer, secrets: &pairing::Secrets) -> Paired {
+        let mut client = viewer.dial().await;
+        hello(&mut client, Some(secrets.token_id)).await;
+        let Some(PreviewToLspMessage::PairingTokenChallenge { element }) = recv(&mut client).await
+        else {
+            panic!("expected the reconnect exchange to open");
+        };
+        let handshake = pairing::Handshake::with_token(pairing::Role::Editor, &secrets.token);
+        let fresh = answer_with(&mut client, handshake, &element).await.expect("accepted");
+        let (sealing, opening) = fresh.session();
+        Paired { client, sealing, opening }
     }
 
     #[tokio::test]
     async fn correct_code_is_accepted_and_session_works() {
         let mut viewer = Viewer::start(PairingPolicy::Generated).await;
-        let (mut client, _token) = pair(&mut viewer).await;
+        let (mut client, _secrets) = pair(&mut viewer).await;
 
         // The prompt comes down, and the viewer is told the newcomer took over.
         assert!(matches!(
@@ -1670,8 +1739,8 @@ mod session_tests {
         let mut client = viewer.dial().await;
 
         let mut frames: Vec<Vec<u8>> = Vec::new();
-        frames.push(recv_raw(&mut client).await.expect("challenge"));
-        send(&mut client, &LspToPreviewMessage::PairingHello { token_proof: None }).await;
+        frames.push(recv_raw(&mut client).await.expect("opener"));
+        send(&mut client, &LspToPreviewMessage::PairingHello { token: None }).await;
 
         let prompt = recv_raw(&mut client).await.expect("prompt");
         frames.push(prompt.clone());
@@ -1682,7 +1751,7 @@ mod session_tests {
         };
 
         let code = viewer.next_code().await;
-        let handshake = pairing::Handshake::start(pairing::Role::Editor, &code);
+        let handshake = pairing::Handshake::with_code(pairing::Role::Editor, &code);
         let ours = handshake.element().clone();
         let secrets = handshake.finish(&element).unwrap();
         send(
@@ -1710,22 +1779,23 @@ mod session_tests {
             }
         }
 
-        // ... and the token both sides derived is the one that works.
+        // ... and the token both sides derived is the one that reconnects.
         drop(client);
-        let mut again = viewer.dial().await;
-        hello(&mut again, Some(&secrets.token)).await;
-        assert!(matches!(recv(&mut again).await, Some(PreviewToLspMessage::PairingAccepted)));
+        let mut again = reconnect(&viewer, &secrets).await;
+        again.send(&LspToPreviewMessage::Ping).await;
+        assert!(matches!(again.recv().await, Some(PreviewToLspMessage::Pong)));
     }
 
     #[tokio::test]
     async fn a_token_reconnects_without_a_prompt() {
         let mut viewer = Viewer::start(PairingPolicy::Generated).await;
-        let (first, token) = pair(&mut viewer).await;
+        let (first, secrets) = pair(&mut viewer).await;
         drop(first);
 
-        let mut client = viewer.dial().await;
-        hello(&mut client, Some(&token)).await;
-        assert!(matches!(recv(&mut client).await, Some(PreviewToLspMessage::PairingAccepted)));
+        let mut client = reconnect(&viewer, &secrets).await;
+        // The session is sealed with keys from the fresh exchange.
+        client.send(&LspToPreviewMessage::Ping).await;
+        assert!(matches!(client.recv().await, Some(PreviewToLspMessage::Pong)));
         // No code was ever generated for the second connection.
         assert!(
             !viewer
@@ -1735,12 +1805,27 @@ mod session_tests {
         );
     }
 
+    /// Two reconnects with one token must not share keys: recording a
+    /// session and later stealing the token opens nothing.
+    #[tokio::test]
+    async fn every_reconnect_has_fresh_keys() {
+        let mut viewer = Viewer::start(PairingPolicy::Generated).await;
+        let (first, secrets) = pair(&mut viewer).await;
+        drop(first);
+
+        let mut one = reconnect(&viewer, &secrets).await;
+        let mut two = reconnect(&viewer, &secrets).await;
+        let a = one.sealing.seal(postcard::to_allocvec(&LspToPreviewMessage::Ping).unwrap());
+        let b = two.sealing.seal(postcard::to_allocvec(&LspToPreviewMessage::Ping).unwrap());
+        assert_ne!(a.unwrap(), b.unwrap(), "two sessions sealed alike");
+    }
+
     #[tokio::test]
     async fn an_unknown_token_falls_back_to_the_code() {
         let viewer = Viewer::start(PairingPolicy::Generated).await;
         let mut client = viewer.dial().await;
         // A token from some other viewer, or from a previous run of this one.
-        hello(&mut client, Some(&Token::for_test(9))).await;
+        hello(&mut client, Some(TokenId::for_test(9))).await;
 
         assert!(matches!(
             recv(&mut client).await,
@@ -1752,10 +1837,37 @@ mod session_tests {
         ));
     }
 
+    /// A token id crosses the wire in the clear, so anyone can announce it.
+    /// Without the token behind it, the exchange must fail and leave the
+    /// announcer no better off than any stranger.
+    #[tokio::test]
+    async fn an_id_without_the_token_is_refused() {
+        let mut viewer = Viewer::start(PairingPolicy::Generated).await;
+        let (first, secrets) = pair(&mut viewer).await;
+        drop(first);
+
+        let mut sniffer = viewer.dial().await;
+        hello(&mut sniffer, Some(secrets.token_id)).await;
+        let Some(PreviewToLspMessage::PairingTokenChallenge { element }) = recv(&mut sniffer).await
+        else {
+            panic!("expected the reconnect exchange to open");
+        };
+        let handshake = pairing::Handshake::with_token(pairing::Role::Editor, &Token::for_test(9));
+        assert!(matches!(
+            answer_with(&mut sniffer, handshake, &element).await,
+            Err(PairingRejection::BadToken)
+        ));
+        // ... and ends up at the code prompt, like any stranger.
+        assert!(matches!(
+            recv(&mut sniffer).await,
+            Some(PreviewToLspMessage::PairingRequired { .. })
+        ));
+    }
+
     #[tokio::test]
     async fn a_knocker_cannot_displace_a_live_session() {
         let mut viewer = Viewer::start(PairingPolicy::Generated).await;
-        let (mut established, _token) = pair(&mut viewer).await;
+        let (mut established, _secrets) = pair(&mut viewer).await;
         // Clear the setup pairing's own prompt, so the wait below can only
         // match the intruder's.
         viewer.expect_prompt_finished(true).await;
@@ -1826,7 +1938,7 @@ mod session_tests {
     #[tokio::test]
     async fn a_successful_pairing_does_not_hold_off_the_next_one() {
         let mut viewer = Viewer::start(PairingPolicy::Generated).await;
-        let (client, _token) = pair(&mut viewer).await;
+        let (client, _secrets) = pair(&mut viewer).await;
         drop(client);
 
         // A brand new editor, with no token, pairing straight afterwards.
@@ -1867,7 +1979,7 @@ mod session_tests {
         let code = viewer.next_code().await;
 
         // A well-formed element, but from an exchange this viewer never ran.
-        let elsewhere = pairing::Handshake::start(pairing::Role::Viewer, &code);
+        let elsewhere = pairing::Handshake::with_code(pairing::Role::Viewer, &code);
         assert!(matches!(
             answer_code(&mut client, &code, elsewhere.element()).await,
             Err(PairingRejection::BadCode)
@@ -1886,7 +1998,7 @@ mod session_tests {
 
         // Nonsense in place of a group element, with a confirmation that
         // cannot possibly match.
-        let handshake = pairing::Handshake::start(pairing::Role::Editor, "0000");
+        let handshake = pairing::Handshake::with_code(pairing::Role::Editor, "0000");
         let secrets = handshake.finish(&element).unwrap();
         send(
             &mut client,
