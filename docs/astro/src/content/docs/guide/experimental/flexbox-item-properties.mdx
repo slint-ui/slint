@@ -3,24 +3,23 @@ title: Flexbox Item Properties
 description: Experimental per-item properties for FlexboxLayout children.
 ---
 
-The children of a `FlexboxLayout` can set `flex-order` to control their visual
+The children of a `FlexboxLayout` can set `layout-order` to control their visual
 order individually.
 
 > **Note**: this property is experimental and subject to change.
 > Nothing in it is specific to flexbox — it could apply to `HorizontalLayout` and
-> `VerticalLayout` too — so expect it to be renamed (e.g. `layout-order`) and
-> extended to the box layouts.
+> `VerticalLayout` too — so expect it to be extended to the box layouts.
 >
 > The Experimental Features overview page explains how to enable it.
 
 ```slint no-test
 FlexboxLayout {
-    Rectangle { flex-order: 2; }
-    Rectangle { flex-order: 1; }  // appears first
+    Rectangle { layout-order: 2; }
+    Rectangle { layout-order: 1; }  // appears first
 }
 ```
 
-`flex-order` behaves like the CSS `order` property, with the same default (`0`):
+`layout-order` behaves like the CSS `order` property, with the same default (`0`):
 items are laid out in ascending order value, and items with the same value keep
 their declaration order.
 

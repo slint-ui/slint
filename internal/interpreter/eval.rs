@@ -1349,7 +1349,7 @@ fn flex_props_to_value(props: i_slint_core::layout::FlexItemProps) -> Value {
             format!("{:?}", props.cross_axis_self_alignment).to_lowercase(),
         ),
     );
-    s.set_field("flex_order".to_string(), Value::Number(props.flex_order as f64));
+    s.set_field("layout_order".to_string(), Value::Number(props.layout_order as f64));
     Value::Struct(s)
 }
 

@@ -82,7 +82,7 @@ pub(crate) fn flex_props_from_struct(
             .get_field("cross-axis-self-alignment")
             .map(to_enum)
             .unwrap_or_default(),
-        flex_order: match s.get_field("flex-order") {
+        layout_order: match s.get_field("layout-order") {
             Some(Value::Number(n)) => *n as i32,
             _ => 0,
         },
