@@ -69,16 +69,17 @@ final Map<int, SlintCallback> _handlers = {};
 final Map<int, void Function()> _timerHandlers = {};
 int _nextHandlerId = 1;
 
-Pointer<Utf8> _dispatchCallback(Pointer<Void> userData, Pointer<Utf8> argsJson) {
+Pointer<Char> _dispatchCallback(Pointer<Void> userData, Pointer<Char> argsJson) {
   final handler = _handlers[userData.address];
   if (handler == null) return nullptr;
   try {
-    final args = jsonDecode(argsJson.toDartString()) as List<Object?>;
+    final args = jsonDecode(argsJson.cast<Utf8>().toDartString())
+        as List<Object?>;
     final result = handler(args);
     // A null result means "void". Anything else goes back as JSON in a buffer
     // the Rust side hands straight to `_freeCallbackResult`.
     if (result == null) return nullptr;
-    return jsonEncode(result).toNativeUtf8();
+    return jsonEncode(result).toNativeUtf8().cast<Char>();
   } on Object catch (error, stack) {
     // An exception escaping the handler would surface as an uncaught error in
     // the isolate after the FFI trampoline has already returned, leaving the
@@ -89,7 +90,7 @@ Pointer<Utf8> _dispatchCallback(Pointer<Void> userData, Pointer<Utf8> argsJson) 
   }
 }
 
-void _freeCallbackResult(Pointer<Utf8> result) => malloc.free(result);
+void _freeCallbackResult(Pointer<Char> result) => malloc.free(result);
 
 void _dispatchTimer(Pointer<Void> userData) {
   final handler = _timerHandlers[userData.address];
@@ -101,16 +102,16 @@ void _dispatchTimer(Pointer<Void> userData) {
   }
 }
 
-final _callbackDispatcher = NativeCallable<
-        Pointer<Utf8> Function(Pointer<Void>, Pointer<Utf8>)>.isolateLocal(
-    _dispatchCallback)
-  // Without this the pending native callable keeps `dart run` alive forever
-  // after the event loop has returned.
-  ..keepIsolateAlive = false;
+// The two signatures come from the generated bindings, so a change to the
+// Rust side stops compiling here instead of corrupting the stack at runtime.
+final _callbackDispatcher =
+    NativeCallable<DartCallbackFunction>.isolateLocal(_dispatchCallback)
+      // Without this the pending native callable keeps `dart run` alive
+      // forever after the event loop has returned.
+      ..keepIsolateAlive = false;
 
 final _callbackResultFree =
-    NativeCallable<Void Function(Pointer<Utf8>)>.isolateLocal(
-        _freeCallbackResult)
+    NativeCallable<DartFreeFunction>.isolateLocal(_freeCallbackResult)
       ..keepIsolateAlive = false;
 
 final _timerDispatcher =
@@ -233,7 +234,7 @@ class ComponentInstance implements SlintComponent {
 
   factory ComponentInstance._create(Pointer<SlintComponentDefinition> definition) {
     final ffi = SlintFfi.instance;
-    final error = malloc<Pointer<Utf8>>()..value = nullptr;
+    final error = malloc<Pointer<Char>>()..value = nullptr;
     try {
       final handle = ffi.definitionCreate(definition, error);
       if (handle == nullptr) {

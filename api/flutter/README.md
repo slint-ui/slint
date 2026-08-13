@@ -159,6 +159,33 @@ script, and the linked package root for a `target/release` or `target/debug`
 copy, and finally asking the platform loader.
 That last step is the one a packaged application takes.
 
+### The `dart:ffi` bindings are generated
+
+The 37 entry points are not declared by hand on both sides. cbindgen writes a
+C header from `rust/`, and ffigen turns that into
+[`slint/lib/src/ffi.g.dart`](./slint/lib/src/ffi.g.dart):
+
+```sh
+cargo install cbindgen        # once
+./scripts/generate_slint_dart_bindings.bash
+```
+
+`ffi.g.dart` is committed, so building the package needs neither tool. Run the
+script with `--check` in CI: it regenerates into a temporary copy and fails if
+the result differs, which is what stops a changed Rust signature from silently
+disagreeing with Dart.
+
+[`ffigen.yaml`](./slint/ffigen.yaml) carries a rename map so the generated
+methods keep the names the rest of the package calls — those aren't derivable
+from the C names, since `slint_dart_compiler_build_from_path` is `buildFromPath`
+while `slint_dart_instance_show` is `instanceShow`.
+
+[`ffi.dart`](./slint/lib/src/ffi.dart) keeps only what a generator can't
+produce: finding the library at runtime, and the `takeEnvelope` / `takeString`
+/ `withNativeString` helpers that convert the JSON envelope. Those three are
+the single place that casts between the generated `Pointer<Char>` and
+`package:ffi`'s `Pointer<Utf8>`.
+
 ### Flutter builds the library automatically
 
 The package ships a [build hook](https://dart.dev/tools/hooks)

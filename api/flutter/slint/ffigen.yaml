@@ -1,0 +1,105 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+# Generates `lib/src/ffi.g.dart` from the C header cbindgen writes out of
+# `api/flutter/rust`. Run `./scripts/generate_slint_dart_bindings.bash` from
+# the repository root, which regenerates the header first.
+
+name: SlintBindings
+description: Bindings for the slint-dart C ABI, generated from its header.
+output: 'lib/src/ffi.g.dart'
+llvm-path:
+  - '/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib'
+  - '/Library/Developer/CommandLineTools/usr/lib'
+  - '/usr/lib/llvm-14/lib'
+  - '/usr/lib/llvm-15/lib'
+
+headers:
+  entry-points:
+    - '../../../target/slint_dart.h'
+  # Without this, everything reachable through <stdlib.h> and friends comes
+  # along: ~800 system macros for 37 functions.
+  include-directives:
+    - '**slint_dart.h'
+
+preamble: |
+  // Copyright © SixtyFPS GmbH <info@slint.dev>
+  // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+  // GENERATED. Do not edit by hand. See ffigen.yaml.
+  // ignore_for_file: always_specify_types, camel_case_types
+  // ignore_for_file: non_constant_identifier_names, unused_element
+  // ignore_for_file: public_member_api_docs
+
+functions:
+  include:
+    - 'slint_dart_.*'
+  # Keep the names `slint.dart` and friends already call, so regenerating the
+  # bindings never churns the call sites. These are not derivable from the C
+  # names: some drop a segment (`compiler_build_from_path` -> `buildFromPath`)
+  # while their neighbours keep it (`instance_show` -> `instanceShow`).
+  rename:
+    'slint_dart_free_string': 'freeString'
+    'slint_dart_compiler_new': 'compilerNew'
+    'slint_dart_compiler_free': 'compilerFree'
+    'slint_dart_compiler_set_style': 'compilerSetStyle'
+    'slint_dart_compiler_add_include_path': 'compilerAddIncludePath'
+    'slint_dart_compiler_build_from_path': 'buildFromPath'
+    'slint_dart_compiler_build_from_source': 'buildFromSource'
+    'slint_dart_generate': 'generate'
+    'slint_dart_result_free': 'resultFree'
+    'slint_dart_result_has_errors': 'resultHasErrors'
+    'slint_dart_result_diagnostics': 'resultDiagnostics'
+    'slint_dart_result_component_names': 'resultComponentNames'
+    'slint_dart_result_component': 'resultComponent'
+    'slint_dart_definition_free': 'definitionFree'
+    'slint_dart_definition_name': 'definitionName'
+    'slint_dart_definition_api': 'definitionApi'
+    'slint_dart_definition_create': 'definitionCreate'
+    'slint_dart_instance_free': 'instanceFree'
+    'slint_dart_instance_get_property': 'getProperty'
+    'slint_dart_instance_set_property': 'setProperty'
+    'slint_dart_instance_invoke': 'invoke'
+    'slint_dart_instance_set_callback': 'setCallback'
+    'slint_dart_instance_show': 'instanceShow'
+    'slint_dart_instance_run': 'instanceRun'
+    'slint_dart_run_event_loop': 'runEventLoop'
+    'slint_dart_quit_event_loop': 'quitEventLoop'
+    'slint_dart_timer_start': 'timerStart'
+    'slint_dart_timer_free': 'timerFree'
+    'slint_dart_embedded_init': 'embeddedInit'
+    'slint_dart_embedded_resize': 'embeddedResize'
+    'slint_dart_embedded_render': 'embeddedRender'
+    'slint_dart_embedded_tick': 'embeddedTick'
+    'slint_dart_embedded_has_active_animations': 'embeddedHasActiveAnimations'
+    'slint_dart_embedded_pointer_event': 'embeddedPointerEvent'
+    'slint_dart_embedded_key_event': 'embeddedKeyEvent'
+    'slint_dart_embedded_focus_event': 'embeddedFocusEvent'
+    'slint_dart_embedded_size': 'embeddedSize'
+
+structs:
+  include:
+    - 'Slint.*'
+
+typedefs:
+  include:
+    - 'Dart.*'
+
+# The ABI carries no constants, globals or enums; everything is functions
+# over opaque handles and JSON strings.
+macros:
+  exclude:
+    - '.*'
+globals:
+  exclude:
+    - '.*'
+enums:
+  exclude:
+    - '.*'
+unnamed-enums:
+  exclude:
+    - '.*'
+
+comments:
+  style: any
+  length: full

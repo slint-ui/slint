@@ -1,0 +1,48 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+# Header for the `slint-dart` C ABI, consumed by ffigen to generate
+# `slint/lib/src/ffi.g.dart`. Regenerate both with
+# `./scripts/generate_slint_dart_bindings.bash`.
+
+language = "C"
+header = """
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+"""
+autogen_warning = "// Generated from api/flutter/rust by cbindgen. Do not edit."
+include_guard = "SLINT_DART_H"
+# The five handles are Slint interpreter types that only ever cross the ABI
+# behind a pointer, so cbindgen cannot see their definitions and would leave
+# them undeclared. Declaring them opaque here is both what they are and what
+# ffigen needs to parse the header.
+after_includes = """
+typedef struct SlintCompiler SlintCompiler;
+typedef struct SlintCompilationResult SlintCompilationResult;
+typedef struct SlintComponentDefinition SlintComponentDefinition;
+typedef struct SlintComponentInstance SlintComponentInstance;
+typedef struct SlintTimerHandle SlintTimerHandle;
+"""
+cpp_compat = false
+documentation = true
+documentation_style = "c99"
+
+[parse]
+# The handle types below are Slint interpreter types that never cross the ABI
+# by value, so there is nothing to gain from walking into those crates.
+parse_deps = false
+
+[export]
+# Everything the Dart side calls is prefixed, so this keeps interpreter
+# internals that happen to be reachable out of the header.
+prefix = ""
+item_types = ["functions", "opaque", "typedefs"]
+
+[export.rename]
+# The handles are opaque on the Dart side; give them the names `ffi.dart`
+# already uses for the corresponding `Opaque` classes.
+"Compiler" = "SlintCompiler"
+"CompilationResult" = "SlintCompilationResult"
+"ComponentDefinition" = "SlintComponentDefinition"
+"ComponentInstance" = "SlintComponentInstance"
+"Timer" = "SlintTimerHandle"
