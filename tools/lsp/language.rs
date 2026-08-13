@@ -163,18 +163,13 @@ pub fn send_requested_state_to_preview(
 /// Persist a settings blob received from the preview. The payload is opaque to
 /// the LSP; it is written verbatim to disk (a no-op where there is no config
 /// directory, e.g. wasm).
+#[cfg(any(feature = "preview-external", feature = "preview-engine", feature = "preview-remote"))]
 pub fn store_user_settings(name: &str, contents: &str) {
-    #[cfg(all(
-        not(target_arch = "wasm32"),
-        any(feature = "preview-external", feature = "preview-engine")
-    ))]
+    #[cfg(not(target_arch = "wasm32"))]
     if let Err(err) = crate::settings_store::save(name, contents) {
         tracing::warn!("Failed to save preview user settings: {err}");
     }
-    #[cfg(not(all(
-        not(target_arch = "wasm32"),
-        any(feature = "preview-external", feature = "preview-engine")
-    )))]
+    #[cfg(target_arch = "wasm32")]
     let _ = (name, contents);
 }
 
