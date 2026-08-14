@@ -124,11 +124,14 @@ struct ScreenshotCounter {
     /// When set, strip screenshot fence attributes instead of wrapping with
     /// `<CodeSnippetMD>`. Used by SC mode where no PNGs are generated.
     skip_screenshots: bool,
+    /// Whether the page is generated for the SC reference, which decides
+    /// which of the `<NotInSC>`/`<OnlyInSC>` regions is dropped.
+    sc_only: bool,
 }
 
 impl ScreenshotCounter {
-    fn new(element_name: &str, skip_screenshots: bool) -> Self {
-        Self { element_slug: mdx::to_kebab_case(element_name), next: 1, skip_screenshots }
+    fn new(element_name: &str, skip_screenshots: bool, sc_only: bool) -> Self {
+        Self { element_slug: mdx::to_kebab_case(element_name), next: 1, skip_screenshots, sc_only }
     }
 
     fn path_for(&self, n: usize) -> String {
@@ -186,16 +189,53 @@ fn parse_fence_attrs(info: &str) -> Vec<(String, String)> {
     attrs
 }
 
+/// Remove the `<tag>`..`</tag>` line regions of `text`. Each generated page
+/// keeps only the region pair its site renders: the other region is a
+/// render-time no-op there, but its links would still fail that site's link
+/// validation, which reads the page source. With the region gone, each can
+/// link to pages only its own site serves.
+fn strip_hidden_regions(text: &str, tag: &str) -> String {
+    let open = format!("<{tag}>");
+    let close = format!("</{tag}>");
+    let mut out = String::with_capacity(text.len());
+    let mut hidden = false;
+    let mut in_fence = false;
+    for line in text.lines() {
+        let t = line.trim();
+        if t.starts_with("```") {
+            in_fence = !in_fence;
+        }
+        if !in_fence && (t == open || t == close) {
+            hidden = t == open;
+            continue;
+        }
+        if !hidden {
+            out.push_str(line);
+            out.push('\n');
+        }
+    }
+    out
+}
+
 /// Transform code fences with screenshot attributes into `<CodeSnippetMD>` tags.
 ///
 /// A fence like `` ```slint imageAlt="example" width="200" height="200" ``
 /// becomes a `<CodeSnippetMD>` wrapper with an auto-generated `imagePath`.
 /// When `counter.skip_screenshots` is true, screenshot attributes are stripped
 /// instead and the fence is emitted as a plain ```slint``` block. Also strips
-/// the `\sc` marker so it never reaches the rendered output.
+/// the `\sc` marker so it never reaches the rendered output, and the
+/// `<NotInSC>`/`<OnlyInSC>` region the page's site doesn't render.
 #[allow(clippy::while_let_on_iterator)] // inner loop also advances `lines`
 fn transform_code_fences(text: &str, counter: &mut ScreenshotCounter) -> String {
     let stripped = strip_sc(text);
+    let mut stripped =
+        strip_hidden_regions(&stripped, if counter.sc_only { "NotInSC" } else { "OnlyInSC" });
+    // The safety manual mounts the language chapters at /language/ instead of
+    // the main documentation's /reference/language/. Doc comments write the
+    // canonical path, so links to the specification resolve on both sites.
+    if counter.sc_only {
+        stripped = stripped.replace("](/reference/language/", "](/language/");
+    }
     let text = stripped.as_str();
     let skip_screenshots = counter.skip_screenshots;
     let mut result = String::with_capacity(text.len());
@@ -910,7 +950,7 @@ pub fn generate(cfg: &Config) -> Result<(), Box<dyn std::error::Error>> {
         }
         writeln!(file)?;
 
-        let mut sc = ScreenshotCounter::new(name, cfg.skip_screenshots);
+        let mut sc = ScreenshotCounter::new(name, cfg.skip_screenshots, cfg.sc_only);
 
         // Description.
         if !description.is_empty() {

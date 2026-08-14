@@ -294,16 +294,10 @@ component ImageItem inherits Empty {
     /// }
     /// ```
     in property <brush> colorize;
-    /// <NotInSC>
-    /// The image to display. Use the <Link type="ImageType" label="`@image-url` macro" />
-    /// to specify the image; its documentation also covers loading from `data:` URIs
-    /// and nine-slice scaling.
-    /// </NotInSC>
-    /// <OnlyInSC>
     /// The [image](/reference/property-types/images/) to draw, created with
-    /// `@image-url()` or set by the application: by default no image, drawing
+    /// [`@image-url()`](/reference/language/expressions/#sls.expr.image.form)
+    /// or set by the application: by default no image, drawing
     /// nothing. \{#sls.ref.image.source}
-    /// </OnlyInSC>
     ///
     /// Access an `image`'s source dimension using its `source.width` and
     /// `source.height` properties. \{#sls.ref.image.source.dimensions}

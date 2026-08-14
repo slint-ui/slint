@@ -12,6 +12,7 @@ import {
 } from "@slint/common-files/src/utils/starlight-site-defaults";
 import { rehypeExternalLinksSlint } from "@slint/common-files/src/utils/rehype-external-links-preset";
 import rehypeSlsIds from "@slint/common-files/src/utils/rehype-sls-ids.mjs";
+import remarkBaseLinks from "@slint/common-files/src/utils/remark-base-links.mjs";
 import { slintStarlightSocial } from "@slint/common-files/src/utils/starlight-social";
 import {
     BASE_PATH,
@@ -55,6 +56,10 @@ export default defineConfig({
     },
     markdown: {
         gfm: true,
+        // Markdown links written from the site root (e.g. in the element doc
+        // comments shared with the safety manual) get the base added at build
+        // time, like on the safety-manual site.
+        remarkPlugins: [[remarkBaseLinks, { base: BASE_PATH }]],
         rehypePlugins: [
             rehypeExternalLinksSlint,
             // The traceability identifiers anchor the paragraphs here too, but
