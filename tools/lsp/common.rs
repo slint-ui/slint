@@ -34,6 +34,11 @@ pub mod token_info;
 
 pub type Error = Box<dyn std::error::Error>;
 pub type Result<T> = std::result::Result<T, Error>;
+
+/// Diagnostics for a set of documents, each paired with the version of the document
+/// they were computed for.
+pub type VersionedDiagnostics = Vec<(Url, SourceFileVersion, Vec<lsp_types::Diagnostic>)>;
+
 #[cfg(target_arch = "wasm32")]
 use crate::wasm_prelude::*;
 
@@ -735,6 +740,20 @@ pub mod lsp_to_editor {
         };
 
         let _ = fut.await;
+    }
+}
+
+/// Publish the diagnostics returned by the document lifecycle functions to the LSP client.
+///
+/// Does nothing unless the `preview-engine` feature is enabled.
+#[cfg_attr(not(feature = "preview-engine"), allow(unused_variables))]
+pub fn publish_diagnostics(
+    server_notifier: &crate::ServerNotifier,
+    diagnostics: VersionedDiagnostics,
+) {
+    #[cfg(feature = "preview-engine")]
+    for (uri, version, diagnostics) in diagnostics {
+        let _ = lsp_to_editor::notify_lsp_diagnostics(server_notifier, uri, version, diagnostics);
     }
 }
 

@@ -309,7 +309,8 @@ async fn lsp_main(
 
         // Make sure the document is loaded before we start processing messages from the preview, so
         // we have the correct state already loaded.
-        language::reload_document(&mut ctx, url)
+        // The editor has no LSP client to publish diagnostics to, so they are dropped here.
+        let _diagnostics = language::reload_document(&mut ctx, url)
             .await
             .map_err(|err| format!("Failed to load file: {file}: {err}"))?;
         project_root = project_root_for_path(&full_path).map(Path::to_path_buf);
@@ -378,7 +379,8 @@ async fn trigger_editor_file_watcher(
         return Ok(());
     };
 
-    language::trigger_file_watcher(ctx, url, kind).await
+    let _diagnostics = language::trigger_file_watcher(ctx, url, kind).await?;
+    Ok(())
 }
 
 fn sync_file_watcher_if_needed(

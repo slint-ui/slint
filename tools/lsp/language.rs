@@ -1215,7 +1215,7 @@ pub async fn open_document(
     content: String,
     url: lsp_types::Url,
     version: Option<i32>,
-) -> common::Result<()> {
+) -> common::Result<common::VersionedDiagnostics> {
     tracing::debug!("Opening document: {url}");
     ctx.open_urls.insert(url.clone());
 
@@ -1233,18 +1233,19 @@ pub async fn load_document(
     content: String,
     url: lsp_types::Url,
     version: Option<i32>,
-) -> common::Result<()> {
+) -> common::Result<common::VersionedDiagnostics> {
     let (extra_files, diag) = load_document_impl(ctx, content, url.clone(), version).await;
 
     tracing::debug!("Loaded {url} with {} diagnostics", diag.iter().count());
 
-    send_diagnostics(&ctx.server_notifier, &ctx.document_cache, &extra_files, diag);
-
-    Ok(())
+    Ok(collect_diagnostics(&ctx.document_cache, &extra_files, diag))
 }
 
 #[cfg_attr(target_arch = "wasm32", allow(unused))]
-pub async fn reload_document(ctx: &mut Context, url: lsp_types::Url) -> common::Result<()> {
+pub async fn reload_document(
+    ctx: &mut Context,
+    url: lsp_types::Url,
+) -> common::Result<common::VersionedDiagnostics> {
     tracing::debug!("Reloading document: {url}");
 
     // Check if document is in cache (can use reload_cached_file)
@@ -1259,23 +1260,24 @@ pub async fn reload_document(ctx: &mut Context, url: lsp_types::Url) -> common::
         let mut extra_files = HashSet::new();
         extra_files.extend(uri_to_file(&url));
 
-        send_diagnostics(&ctx.server_notifier, &ctx.document_cache, &extra_files, diagnostics);
+        Ok(collect_diagnostics(&ctx.document_cache, &extra_files, diagnostics))
     } else {
         tracing::trace!("Document not in cache, loading from disk: {url}");
 
         let Some(path) = common::uri_to_file(&url) else {
             // The file was likely deleted, log and move on
             tracing::debug!("Failed to locate file: {url}");
-            return Ok(());
+            return Ok(Default::default());
         };
         match std::fs::read_to_string(&path) {
-            Ok(content) => load_document(ctx, content, url, None).await?,
+            Ok(content) => load_document(ctx, content, url, None).await,
             // The file was likely deleted, log and move on
-            Err(err) => tracing::debug!("Failed to read {} from disk: {err}", path.display()),
-        };
+            Err(err) => {
+                tracing::debug!("Failed to read {} from disk: {err}", path.display());
+                Ok(Default::default())
+            }
+        }
     }
-
-    Ok(())
 }
 
 pub fn convert_diagnostics(
@@ -1306,26 +1308,21 @@ pub fn convert_diagnostics(
     lsp_diags
 }
 
-fn send_diagnostics(
-    _server_notifier: &crate::ServerNotifier,
+fn collect_diagnostics(
     document_cache: &common::DocumentCache,
     extra_files: &HashSet<PathBuf>,
     diag: BuildDiagnostics,
-) {
+) -> common::VersionedDiagnostics {
     let lsp_diags = convert_diagnostics(extra_files, diag, document_cache.format);
-    tracing::trace!("Sending {} diagnostics to editor", lsp_diags.values().flatten().count());
+    tracing::trace!("Collected {} diagnostics", lsp_diags.values().flatten().count());
 
-    for (uri, _diagnostics) in lsp_diags {
-        let _version = document_cache.document_version(&uri);
-
-        #[cfg(feature = "preview-engine")]
-        let _ = common::lsp_to_editor::notify_lsp_diagnostics(
-            _server_notifier,
-            uri,
-            _version,
-            _diagnostics,
-        );
-    }
+    lsp_diags
+        .into_iter()
+        .map(|(uri, diagnostics)| {
+            let version = document_cache.document_version(&uri);
+            (uri, version, diagnostics)
+        })
+        .collect()
 }
 
 fn drop_document_impl(ctx: &mut Context, url: lsp_types::Url) -> common::Result<()> {
@@ -1355,35 +1352,34 @@ pub async fn drop_document(ctx: &mut Context, url: lsp_types::Url) -> common::Re
     drop_document_impl(ctx, url)
 }
 
-pub async fn delete_document(ctx: &mut Context, url: lsp_types::Url) -> common::Result<()> {
+pub async fn delete_document(
+    ctx: &mut Context,
+    url: lsp_types::Url,
+) -> common::Result<common::VersionedDiagnostics> {
     tracing::debug!("Deleting document: {url}");
     // The preview cares about resources and slint files, so forward everything
     ctx.to_preview.send(&LspToPreviewMessage::ForgetFile { url: url.clone() });
 
-    #[cfg(feature = "preview-engine")]
+    // The cleared diagnostics below carry the version the document had before the drop.
     let version = ctx.document_cache.document_version(&url);
 
-    let result = drop_document_impl(ctx, url.clone());
+    drop_document_impl(ctx, url.clone())?;
 
     // make sure to clear the diagnostics on this file.
     // This is especially important for deleted files, but also for renamed files to clear the diagnostics on the old file.
     // Otherwise they will stick around forever (e.g. in VS Code).
-    #[cfg(feature = "preview-engine")]
-    let _ =
-        common::lsp_to_editor::notify_lsp_diagnostics(&ctx.server_notifier, url, version, vec![]);
-
-    result
+    Ok(vec![(url, version, vec![])])
 }
 
 pub async fn trigger_file_watcher(
     ctx: &mut Context,
     url: lsp_types::Url,
     typ: FileChangeKind,
-) -> common::Result<()> {
+) -> common::Result<common::VersionedDiagnostics> {
     if !ctx.open_urls.contains(&url) {
         tracing::debug!("File watcher triggered for {url} (type: {:?})", typ);
         match typ {
-            FileChangeKind::Deleted => delete_document(ctx, url).await?,
+            FileChangeKind::Deleted => return delete_document(ctx, url).await,
             // If the file was newly created, we still need to drop it as another file may
             // already depend on it by trying to import it before it exists.
             // This is especially common on file renames.
@@ -1393,7 +1389,7 @@ pub async fn trigger_file_watcher(
     } else {
         tracing::trace!("Ignoring file watcher event for open document: {url}");
     }
-    Ok(())
+    Ok(Default::default())
 }
 
 /// return the token, and the offset within the file
@@ -2108,14 +2104,12 @@ pub async fn load_configuration(ctx: &mut Context) -> common::Result<()> {
         .reconfigure(style, include_paths, library_paths, experimental, &mut diag)
         .await;
 
-    {
-        send_diagnostics(
-            &ctx.server_notifier,
-            &ctx.document_cache,
-            &all_files.iter().filter_map(common::uri_to_file).collect(),
-            diag,
-        );
-    }
+    let diagnostics = collect_diagnostics(
+        &ctx.document_cache,
+        &all_files.iter().filter_map(common::uri_to_file).collect(),
+        diag,
+    );
+    common::publish_diagnostics(&ctx.server_notifier, diagnostics);
 
     let config = PreviewConfig {
         hide_ui,
