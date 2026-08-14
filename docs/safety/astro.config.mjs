@@ -147,6 +147,10 @@ export default defineConfig({
                                 slug: "evaluation-report/safety-analysis",
                             },
                             {
+                                label: "Tool Classification",
+                                slug: "evaluation-report/tool-classification",
+                            },
+                            {
                                 // The dissolved SR_* pages, kept verbatim until
                                 // they are rewritten as potential errors and
                                 // constraints.

@@ -8,20 +8,11 @@ description: Tools, processes, and infrastructure used for Slint SC development.
 
 This section describes the tools we use and the processes we follow to develop Slint SC, aiming to fulfill the supporting process requirements of ISO 26262 Part 8 (Sections 6-12)
 
-### Organization members
-
-The administrators of the slint-ui Github organization are the founders of SixtyFPS GmbH.
-All employees of SixtyFPS GmbH are members of the organization.
-External contributors may also be invited to become members of the Github organization.
-
 ### Language and Compiler
 
 The `slint-compiler` translates `.slint` files into Rust code. Slint SC is itself written in Rust and is built using Ferrocene version 26.02.0.
 
-* **Tool Impact (TI2):** The `slint-compiler` can introduce errors into the executable.
-* **Tool Error Detection (TD2/TD3):** While Rust's strong type system and borrow checker catch many errors, compiler bugs might still bypass detection.
-* **Tool Confidence Level (TCL):** The combination of TI2 and TD2/TD3 results in a Tool Confidence Level of TCL2 or TCL3.
-* **Qualification Strategy:** As a high-impact tool, Ferrocene is already ASIL D qualified for safety-critical deployment. The `slint-compiler` is not yet qualified and must be qualified before being used in a safety-critical project.
+The confidence level these tools need, and how each one reaches it, is in [Tool Classification](/evaluation-report/tool-classification/).
 
 ### Configuration Management (ISO 26262-8 7.x)
 
