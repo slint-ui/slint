@@ -21,10 +21,9 @@ export component TestCase inherits Window {
 ```rust
 let mut x = TestCase::new(crate::harness::WINDOW_SIZE);
 
-// The image pixels are decoded at compile time and embedded in the generated
-// code as packed bytes, four per pixel (alpha, red, green, blue with straight
-// alpha), row by row from the top-left corner.
-//#sls.expr.image.compile-time
+// The image pixels are embedded in the generated code as packed bytes, four
+// per pixel (alpha, red, green, blue with straight alpha), row by row from
+// the top-left corner.
 //#sls.type.image
 //#sls.gen.prop.types.image
 let picture = x.get_picture();
