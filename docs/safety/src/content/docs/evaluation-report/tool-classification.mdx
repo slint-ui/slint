@@ -22,6 +22,15 @@ errors are written up.)
 Slint SC is built with Ferrocene, which is qualified to ASIL D.
 Its own tool classification is in the Ferrocene qualification material.
 
+## Test and Coverage Tooling
+
+The suites are run by `cargo test` and `cargo llvm-cov`, and the evidence chapters are produced by `slint-doc-generator`.
+
+(TODO: classify these. Every detection measure in this report rests on them, so
+their tool impact and error detection have to be argued like any other tool. A
+harness that reports a passing suite that didn't pass, or coverage that wasn't
+achieved, would hide exactly the errors those measures claim to catch.)
+
 ## slint-sc Runtime
 
 The runtime is not a tool.

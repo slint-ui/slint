@@ -116,6 +116,7 @@
     "armv",
     "astrojs",
     "autouse", // pytest.fixture(autouse=True)
+    "baselined",
     "Bezier",
     "Bézier",
     "cbindgen",
