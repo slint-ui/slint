@@ -64,7 +64,10 @@ fn resolve_expression(
                 if let Some(property_name) = property_name {
                     check_callback_alias_validity(&node, elem, property_name, lookup_ctx.diag);
                 }
-                Expression::from_callback_connection(node, &mut lookup_ctx)
+                let expr = Expression::from_callback_connection(node.clone(), &mut lookup_ctx);
+                #[cfg(feature = "slint-sc")]
+                check_slint_sc_handler_body(&expr, &node, &mut lookup_ctx);
+                expr
             }
             SyntaxKind::Function => Expression::from_function(node.clone().into(), &mut lookup_ctx),
             SyntaxKind::Expression => {
@@ -489,9 +492,24 @@ impl Expression {
                         return expr;
                     }
                     SyntaxKind::FunctionCallExpression => {
+                        let expr = Self::from_function_call_node(node.clone().into(), ctx);
+                        // Invoking a callback from a handler is the one call the
+                        // Slint SC subset has.
                         #[cfg(feature = "slint-sc")]
-                        ctx.diag.slint_sc_error("Function calls are", &node);
-                        return Self::from_function_call_node(node.into(), ctx);
+                        if !matches!(
+                            (&expr, &ctx.property_type),
+                            (Expression::Invalid, _)
+                                | (
+                                    Expression::FunctionCall {
+                                        function: Callable::Callback(..),
+                                        ..
+                                    },
+                                    Type::Callback(..)
+                                )
+                        ) {
+                            ctx.diag.slint_sc_error("Function calls are", &node);
+                        }
+                        return expr;
                     }
                     SyntaxKind::MemberAccess => {
                         let expr = Self::from_member_access_node(node.clone().into(), ctx);
@@ -3062,6 +3080,39 @@ fn check_callback_alias_validity(
                 &node.child_token(SyntaxKind::Identifier).unwrap(),
             );
         }
+    }
+}
+
+/// Validate a callback handler body against the Slint SC subset: a sequence of
+/// callback invocations, and nothing else.
+///
+/// The expressions a handler body may be made of are each rejected where they
+/// are resolved; what's left to reject here is an expression that's in the
+/// subset on its own but has no effect as a statement, such as a property read.
+#[cfg(feature = "slint-sc")]
+fn check_slint_sc_handler_body(
+    expr: &Expression,
+    node: &syntax_nodes::CallbackConnection,
+    ctx: &mut LookupCtx,
+) {
+    let statements = match expr {
+        Expression::CodeBlock(statements) => statements.as_slice(),
+        single => core::slice::from_ref(single),
+    };
+    if !statements.iter().all(|statement| {
+        matches!(
+            statement,
+            // An error was already reported for this statement.
+            Expression::Invalid | Expression::FunctionCall { function: Callable::Callback(..), .. }
+        )
+    }) {
+        // Report on the name of the callback: the handler itself spans as many
+        // lines as its body.
+        let name = node.child_token(SyntaxKind::Identifier);
+        ctx.diag.slint_sc_error(
+            "A callback handler body that isn't a callback invocation is",
+            name.as_ref().map_or(&**node as &dyn Spanned, |name| name),
+        );
     }
 }
 

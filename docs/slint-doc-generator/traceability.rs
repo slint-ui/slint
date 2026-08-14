@@ -29,6 +29,7 @@ const SPEC_PAGE_ORDER: &[&str] = &[
     "bindings",
     "expressions",
     "geometry",
+    "callbacks",
 ];
 
 /// A tree scanned for `//#sls.…` references.

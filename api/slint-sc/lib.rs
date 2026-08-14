@@ -192,6 +192,67 @@ fn test_composite_over_matches_the_specified_formula() {
     }
 }
 
+/// A position in the window, in pixels: the origin is the top-left corner of
+/// the window, x grows to the right, and y grows downwards.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct Point {
+    /// The distance from the left edge of the window.
+    pub x: i32,
+    /// The distance from the top edge of the window.
+    pub y: i32,
+}
+
+impl Point {
+    /// Construct a position from its distance to the left and top edges.
+    pub const fn new(x: i32, y: i32) -> Self {
+        Self { x, y }
+    }
+}
+
+/// A touch of the display, delivered to the generated `dispatch_touch_event`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum TouchEvent {
+    /// A finger touched the display.
+    #[non_exhaustive]
+    Pressed {
+        /// Where the finger touched.
+        position: Point,
+    },
+    /// The finger lifted off the display.
+    #[non_exhaustive]
+    Released {
+        /// Where the finger lifted off.
+        position: Point,
+    },
+}
+
+impl TouchEvent {
+    /// A finger touching the display at `position`.
+    pub const fn pressed(position: Point) -> Self {
+        Self::Pressed { position }
+    }
+
+    /// A finger lifting off the display at `position`.
+    pub const fn released(position: Point) -> Self {
+        Self::Released { position }
+    }
+}
+
+#[test]
+fn test_touch_event() {
+    let pressed = TouchEvent::pressed(Point::new(3, -4));
+    assert_eq!(pressed, TouchEvent::Pressed { position: Point { x: 3, y: -4 } });
+    // A press and a release of the same position are different events
+    assert_ne!(pressed, TouchEvent::released(Point::new(3, -4)));
+    // The default position is the origin
+    assert_eq!(Point::default(), Point::new(0, 0));
+    assert_eq!(
+        Sink::format(format_args!("{pressed:?}")).as_str(),
+        "Pressed { position: Point { x: 3, y: -4 } }"
+    );
+}
+
 /// Error returned by the generated render functions.
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[non_exhaustive]
