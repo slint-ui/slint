@@ -12,7 +12,10 @@ requires-python = ">=3.12"
 dependencies = ["griffe>=2"]
 
 [dependency-groups]
-dev = ["ty>=0.0.1a28", "pytest>=8"]
+# ruff and ty are pinned exactly so CI and local runs agree on which
+# diagnostics exist. Dependabot bumps them; keep the versions in sync with
+# api/python/slint and api/python/briefcase.
+dev = ["ruff==0.16.3", "ty==0.0.71", "pytest>=8"]
 
 [tool.uv]
 # This project is just the generator script and its tooling; nothing to build.
