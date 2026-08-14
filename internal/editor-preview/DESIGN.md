@@ -1,8 +1,7 @@
 # Design: i-slint-editor-preview
 
-Status: agreed design, not yet implemented.
-This crate does not exist yet; the code described here currently lives in `tools/lsp`.
-Reviewed against the current code; the corrections from that review are folded in below.
+Status: implemented.
+The deferred parts are listed under "Known Debt"; the largest is the `global Api` split, which also decides when each window's UI leaves this crate.
 
 ## Purpose
 
@@ -17,8 +16,7 @@ The LSP builds the preview UI in anyway, so splitting the document model into it
 
 ### Document Model
 
-The compiler-level representation of a project as it is being edited.
-Moves from `tools/lsp/common*`:
+The compiler-level representation of a project as it is being edited, moved from `tools/lsp/common*`:
 
 - `DocumentCache`, `CompilerConfiguration`, `OpenImportCallback` (from `common/document_cache.rs`).
 - Text-edit application and diffing (from `common/text_edit.rs`).
@@ -64,15 +62,13 @@ The five document-lifecycle functions become methods on `EditorSession`:
 The return type carries the version captured at the right moment — `Vec<(Url, SourceFileVersion, Vec<Diagnostic>)>` — because `delete_document` records the version *before* the drop; re-deriving it at publish time regresses the stale-diagnostics fix for VS Code.
 The LSP forwards the returned diagnostics to its client; the editor discards them.
 This removes the last `ServerNotifier` use from the shared code.
-Two call sites need active work in `tools/lsp`, not just a signature change:
-`main.rs` currently discards the `trigger_file_watcher` result, and the wasm `trigger_file_watcher` export has a fixed signature and must publish internally.
 
 ### Preview Engine
 
 The canvas and its supporting analysis, in `preview.rs` and `preview/`:
 
 - `preview.rs` core: `PreviewState`, the compile/reload loop, `send_workspace_edit`.
-  `run()` loses its editor-specific arm: the sparkle auto-updater and title-bar wiring move to `tools/editor`, which does its own window setup around a shared engine-start function.
+  `run()` has no editor-specific arm: the sparkle auto-updater and title-bar wiring live in `tools/editor`, which does its own window setup around the shared engine-start function `run_with_ui`.
 - `element_selection`, `drop_location`, `outline`, `properties`, `ext`, `undo_redo`, `eval`, `preview_data`.
 - `preview/remote.rs`: the remote-preview dialog wiring and `RemoteDiscovery` (a `PreviewState` field, coupled to the generated UI types).
   This brings `mdns-sd` along.
@@ -103,9 +99,9 @@ The dev-dependencies they need (`i-slint-backend-testing`, `spin_on`) are declar
   The `LspToPreviews` fan-out moves here too.
   It no longer owns the remote transport concretely — it holds a `dyn RemoteTransport` whose implementation stays in `tools/lsp` — so the dependency cycle that argued against moving it is gone.
   The `wasm_prelude` (`UrlWasm`) currently defined in `wasm_main.rs` also hoists into live-preview's `protocol`, next to the re-exported `lsp_types`.
-- `slint`, `slint-interpreter`, `i-slint-core`, and `i-slint-backend-selector` only behind an `engine` feature.
+- `slint`, `slint-interpreter`, `i-slint-core`, and `i-slint-backend-selector` only behind the `preview-engine` feature.
   Note: `tools/lsp` keeps its own `slint`/`slint-interpreter`/`i-slint-core` dependencies regardless, because its transports use them; the lean LSP build remains the existing no-default-features formatter path.
-- The backend/renderer selection ladder (`backend-*`, `renderer-*` passthrough features on `tools/lsp`) is duplicated on this crate and re-forwarded by `slint-lsp`, because VS Code, SlintPad, and CI select those features by name.
+- The backend/renderer selection ladder (`backend-*`, `renderer-*` passthrough features on `tools/lsp`) is duplicated on this crate and re-forwarded by `slint-lsp` and `slint-editor`, because VS Code, SlintPad, and CI select those features by name.
 - Dependencies that move here from `tools/lsp`: `nucleo-matcher`, `clru`, `by_address`, `rfd` (file tree dialogs), `mdns-sd` (remote discovery), `i-slint-backend-selector`.
 - The engine must keep compiling for wasm32; SlintPad's preview runs through it.
 - Moving code must not rely on the implicit crate-root re-exports (`crate::Result`, `crate::Url`, `crate::test`); use real imports.
@@ -133,7 +129,7 @@ This crate must not become a new `common` grab bag.
 ## Publishing and Workspace Plumbing
 
 Internal crates are published with exact-version pins.
-This crate needs: a root workspace `members` entry, a `[workspace.dependencies]` line with `version = "=<current>"`, a `LICENSES/` symlink directory, and a `scripts/publish.sh` entry between `internal/live-preview` and `tools/lsp`.
+This crate has: a root workspace `members` entry, a `[workspace.dependencies]` line with `version = "=<current>"`, a `LICENSES/` symlink directory, and a `scripts/publish.sh` entry between `internal/live-preview` and `tools/lsp`.
 
 ## Known Debt
 

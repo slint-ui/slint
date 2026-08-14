@@ -116,9 +116,9 @@ When rotating keys, update both the public-key variable and private-key secret.
 
 ## Generated Xcode project
 
-The checked-in source of truth is `tools/lsp/macos-project.yml`. XcodeGen
-generates `tools/lsp/Slint Visual Editor.xcodeproj/` and `tools/lsp/Info.plist`
-from that spec, and both generated paths are ignored.
+The checked-in source of truth is `tools/editor/macos-project.yml`. XcodeGen
+generates `tools/editor/Slint Visual Editor.xcodeproj/` and
+`tools/editor/Info.plist` from that spec, and both generated paths are ignored.
 
 XcodeGen documents YAML project specs and environment variable substitution
 with `${VARIABLE}` here:
@@ -128,8 +128,8 @@ XcodeGen installation is documented by the project and the Homebrew formula:
 <https://github.com/yonaskolb/XcodeGen> and
 <https://formulae.brew.sh/formula/xcodegen>.
 
-The app icon source is `tools/lsp/packaging/macos/AppIcon.icon`. It is an Icon
-Composer project checked in as source and included in the generated Xcode
+The app icon source is `tools/editor/packaging/macos/AppIcon.icon`. It is an
+Icon Composer project checked in as source and included in the generated Xcode
 project as a resource through the XcodeGen `sources` list.
 
 ## Build flow
@@ -156,10 +156,10 @@ The package driver is `scripts/package_macos_visual_editor.bash`.
 2. Frees unused macOS runner image space before cache restore/build work.
 3. Decodes the Developer ID `.p12` and notary API `.p8` into `$RUNNER_TEMP`.
 4. Creates and unlocks a temporary keychain with `security`.
-5. Runs `xcodegen generate --spec tools/lsp/macos-project.yml`.
+5. Runs `xcodegen generate --spec tools/editor/macos-project.yml`.
 6. Runs `xcodebuild archive` with `ARCHS="arm64"` and `CODE_SIGNING_ALLOWED=NO`.
 7. Lets Xcode call `scripts/build_macos_app_with_cargo.bash` from a build phase.
-8. Builds Cargo's `slint-visual-editor` binary for `aarch64-apple-darwin` with
+8. Builds Cargo's `slint-editor` binary for `aarch64-apple-darwin` with
    `cargo build --timings`.
 9. Copies the visual editor files into the app bundle resources so Finder
     launches can open a default project without command-line arguments.
@@ -173,11 +173,12 @@ The package driver is `scripts/package_macos_visual_editor.bash`.
     This is done to free up space on the runner image.
 15. Creates `dist/cloudflare-root/` with `appcast.xml` and a Sparkle-signed
     update ZIP containing the notarized and stapled app.
-16. Computes the versioned DMG name from the `slint-lsp` Cargo package
+16. Computes the versioned DMG name from the `slint-editor` Cargo package
     version.
 17. Creates the DMG with `L-Super/create-dmg-actions`, passing
-    `tools/lsp/packaging/macos/dmg-background.svg`, the Finder window size, the
-    app icon position, and the Applications drop-link position as action inputs.
+    `tools/editor/packaging/macos/dmg-background.svg`, the Finder window size,
+    the app icon position, and the Applications drop-link position as action
+    inputs.
 18. Moves the action output to `dist/`, signs the DMG with `codesign`, then
     verifies the DMG and mounted app payload.
 19. Submits the DMG with `xcrun notarytool submit --wait`.
@@ -191,7 +192,7 @@ The package driver is `scripts/package_macos_visual_editor.bash`.
     as the `slint-visual-editor-rust-build-report` artifact.
 
 The app's marketing version, Sparkle `sparkle:shortVersionString`, and artifact
-names use the `slint-lsp` version from `tools/lsp/Cargo.toml`.
+names use the `slint-editor` version from `tools/editor/Cargo.toml`.
 The app build number and Sparkle `sparkle:version` use `SLINT_BUILD_NUMBER`,
 which comes from `github.run_number`.
 
@@ -284,14 +285,14 @@ the target directory's `cargo-timings` directory:
 For Xcode project generation only:
 
 ```sh
-xcodegen generate --spec tools/lsp/macos-project.yml
+xcodegen generate --spec tools/editor/macos-project.yml
 ```
 
 For app archive debugging only:
 
 ```sh
 xcodebuild archive \
-    -project "tools/lsp/Slint Visual Editor.xcodeproj" \
+    -project "tools/editor/Slint Visual Editor.xcodeproj" \
     -scheme "Slint Visual Editor" \
     -configuration Release \
     -destination "generic/platform=macOS" \

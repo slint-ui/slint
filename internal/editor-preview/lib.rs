@@ -7,4 +7,6 @@
 pub mod common;
 #[cfg(feature = "preview-engine")]
 pub mod preview;
+#[cfg(not(target_arch = "wasm32"))]
+pub mod settings_store;
 pub mod util;

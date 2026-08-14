@@ -43,6 +43,7 @@ members = [
   'internal/live-preview',
   'tools/compiler',
   'docs/slint-doc-generator',
+  'tools/editor',
   'tools/figma_import',
   'tools/lsp',
   'tools/viewer',

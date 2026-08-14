@@ -14,16 +14,16 @@ APP_NAME="Slint Visual Editor"
 DMG_BASENAME="SlintVisualEditor"
 SCHEME="Slint Visual Editor"
 
-SPEC_PATH="$ROOT_DIR/tools/lsp/macos-project.yml"
+SPEC_PATH="$ROOT_DIR/tools/editor/macos-project.yml"
 PROJECT_DIR="$(dirname "$SPEC_PATH")"
 PROJECT_FILE="$PROJECT_DIR/$APP_NAME.xcodeproj"
-EXAMPLE_SOURCE_DIR="$PROJECT_DIR/ui/visual-editor/example"
+EXAMPLE_SOURCE_DIR="$ROOT_DIR/internal/editor-preview/ui/visual-editor/example"
 VERSION="${VERSION:-}"
 
 if [ -z "$VERSION" ]; then
     command -v cargo >/dev/null || die "cargo is required to determine the Visual Editor version"
     command -v jq >/dev/null || die "jq is required to determine the Visual Editor version"
-    VERSION="$(cargo metadata --format-version 1 --no-deps --manifest-path "$ROOT_DIR/Cargo.toml" | jq -r 'first(.packages[] | select(.name == "slint-lsp") | .version)')" \
+    VERSION="$(cargo metadata --format-version 1 --no-deps --manifest-path "$ROOT_DIR/Cargo.toml" | jq -r 'first(.packages[] | select(.name == "slint-editor") | .version)')" \
         || die "could not determine Visual Editor version from Cargo metadata"
 fi
 [ -n "$VERSION" ] && [ "$VERSION" != "null" ] || die "could not determine Visual Editor version from Cargo metadata"
@@ -55,7 +55,7 @@ SPARKLE_UPDATE_PATH="$CLOUDFLARE_ROOT_DIR/$SPARKLE_UPDATE_BASENAME"
 SPARKLE_APPCAST_PATH="$CLOUDFLARE_ROOT_DIR/appcast.xml"
 SPARKLE_FEED_BASE_URL="https://visual-editor.slint.dev"
 export EDITOR_SPARKLE_PUBLIC_ED_KEY="${EDITOR_SPARKLE_PUBLIC_ED_KEY:-Ncon335q8qNLM0D+L2my+HRIAXmNtNb6uGNmUR0yG2o=}"
-# Consumed by xcodegen via tools/lsp/macos-project.yml.
+# Consumed by xcodegen via tools/editor/macos-project.yml.
 export MACOS_BUNDLE_IDENTIFIER="${MACOS_BUNDLE_IDENTIFIER:-dev.slint.visual-editor}"
 APP_NOTARY_ZIP_PATH="$BUILD_DIR/$DMG_BASENAME-$VERSION-$BUILD_NUMBER-macos-arm64-notary.zip"
 APP_NOTARY_LOG="$BUILD_DIR/app-notarization-log.json"

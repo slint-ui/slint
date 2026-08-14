@@ -7518,6 +7518,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "slint-editor"
+version = "1.18.0"
+dependencies = [
+ "clap",
+ "crossbeam-channel",
+ "i-slint-editor-preview",
+ "i-slint-live-preview",
+ "lsp-types",
+ "objc2 0.6.4",
+ "objc2-foundation 0.3.2",
+ "slint",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "slint-interpreter"
 version = "1.18.0"
 dependencies = [

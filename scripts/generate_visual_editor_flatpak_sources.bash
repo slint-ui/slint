@@ -4,7 +4,7 @@
 
 # cspell:ignore tomlkit
 
-# Generate the source lists that tools/lsp/dev.slint.VisualEditor.yml references.
+# Generate the source lists that tools/editor/dev.slint.VisualEditor.yml references.
 # The flatpak sandbox has no network, so every crate and every part of the Skia
 # source tree has to be declared up front. Re-run this whenever Cargo.lock
 # changes; the generated files are not checked in.
@@ -30,5 +30,5 @@ else
 fi
 
 cd "${repo_root}"
-"${run_python[@]}" "${cargo_generator}" Cargo.lock -o tools/lsp/cargo-sources.json
-python3 scripts/flatpak-skia-generator.py -o tools/lsp/skia-sources.json
+"${run_python[@]}" "${cargo_generator}" Cargo.lock -o tools/editor/cargo-sources.json
+python3 scripts/flatpak-skia-generator.py -o tools/editor/skia-sources.json
