@@ -7722,6 +7722,7 @@ dependencies = [
  "tempfile",
  "tikv-jemallocator",
  "tokio",
+ "tokio-tungstenite 0.30.0",
  "tokio-tungstenite-wasm",
  "tracing",
  "tracing-subscriber",
