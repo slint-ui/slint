@@ -426,9 +426,10 @@ impl SlintServer {
             lsp_types::FileChangeType::DELETED => FileChangeKind::Deleted,
             _ => return Err(JsError::new("Unknown FileChangeType")),
         };
-        language::trigger_file_watcher(&mut ctx, url, typ)
+        let diagnostics = language::trigger_file_watcher(&mut ctx, url, typ)
             .await
             .map_err(|e| JsError::new(&e.to_string()))?;
+        common::publish_diagnostics(&ctx.server_notifier, diagnostics);
         Ok(JsValue::UNDEFINED)
     }
     #[wasm_bindgen]
@@ -440,9 +441,10 @@ impl SlintServer {
     ) -> JsResult<JsValue> {
         let mut ctx = self.ctx.lock().await;
         let uri: Url = serde_wasm_bindgen::from_value(uri)?;
-        language::open_document(&mut ctx, content, uri.clone(), Some(version))
+        let diagnostics = language::open_document(&mut ctx, content, uri.clone(), Some(version))
             .await
             .map_err(|e| JsError::new(&e.to_string()))?;
+        common::publish_diagnostics(&ctx.server_notifier, diagnostics);
         Ok(JsValue::UNDEFINED)
     }
 
@@ -455,9 +457,10 @@ impl SlintServer {
     ) -> JsResult<JsValue> {
         let mut ctx = self.ctx.lock().await;
         let uri: Url = serde_wasm_bindgen::from_value(uri)?;
-        language::load_document(&mut ctx, content, uri.clone(), Some(version))
+        let diagnostics = language::load_document(&mut ctx, content, uri.clone(), Some(version))
             .await
             .map_err(|e| JsError::new(&e.to_string()))?;
+        common::publish_diagnostics(&ctx.server_notifier, diagnostics);
         Ok(JsValue::UNDEFINED)
     }
 

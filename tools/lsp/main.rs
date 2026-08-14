@@ -613,8 +613,11 @@ async fn run_main_loop(
                 }
             }
             file_event = file_watcher_receiver.recv() => {
-                if let Some(file_event) = file_event && let Some(uri) = common::file_to_uri(&file_event.path) {
-                    trigger_file_watcher(&mut ctx, uri, file_event.kind).await.ok();
+                if let Some(file_event) = file_event
+                    && let Some(uri) = common::file_to_uri(&file_event.path)
+                    && let Ok(diagnostics) = trigger_file_watcher(&mut ctx, uri, file_event.kind).await
+                {
+                    common::publish_diagnostics(&ctx.server_notifier, diagnostics);
                 }
             }
             _ = tokio::time::sleep(recompile_idle_timeout) => {
@@ -622,8 +625,11 @@ async fn run_main_loop(
                 let pending_recompile = std::mem::take(&mut ctx.pending_recompile);
 
                 for url in pending_recompile {
-                    if let Err(err) = language::reload_document(&mut ctx, url).await {
-                        tracing::error!("Failed document reload: {err}");
+                    match language::reload_document(&mut ctx, url).await {
+                        Ok(diagnostics) => {
+                            common::publish_diagnostics(&ctx.server_notifier, diagnostics)
+                        }
+                        Err(err) => tracing::error!("Failed document reload: {err}"),
                     }
                 }
             }
@@ -719,13 +725,15 @@ async fn handle_notification(
     match &*req.method {
         DidOpenTextDocument::METHOD => {
             let params: DidOpenTextDocumentParams = serde_json::from_value(req.params)?;
-            open_document(
+            let diagnostics = open_document(
                 ctx,
                 params.text_document.text,
                 params.text_document.uri,
                 Some(params.text_document.version),
             )
-            .await
+            .await?;
+            common::publish_diagnostics(&ctx.server_notifier, diagnostics);
+            Ok(())
         }
         DidCloseTextDocument::METHOD => {
             let params: DidCloseTextDocumentParams = serde_json::from_value(req.params)?;
@@ -738,13 +746,15 @@ async fn handle_notification(
                 params.text_document.uri,
                 params.text_document.version
             );
-            load_document(
+            let diagnostics = load_document(
                 ctx,
                 params.content_changes.pop().unwrap().text,
                 params.text_document.uri,
                 Some(params.text_document.version),
             )
-            .await
+            .await?;
+            common::publish_diagnostics(&ctx.server_notifier, diagnostics);
+            Ok(())
         }
         DidChangeConfiguration::METHOD => load_configuration(ctx).await,
         DidChangeWatchedFiles::METHOD => {
