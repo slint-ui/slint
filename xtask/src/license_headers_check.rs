@@ -519,6 +519,7 @@ static LICENSE_LOCATION_FOR_FILE: LazyLock<Vec<(regex::Regex, LicenseLocation)>>
             ("(^|/)LICENSE\\.QT$", LicenseLocation::NoLicense),
             ("(^|/)README$", LicenseLocation::NoLicense),
             ("(^|/)\\.eslintrc\\.yml$", LicenseLocation::NoLicense),
+            ("(^|/)\\.fvmrc$", LicenseLocation::NoLicense), // JSON file, cannot contain a comment header
             ("(^|/)memory\\.x$", LicenseLocation::NoLicense), // third-party file
             ("(^|/)webpack\\..+\\.js$", LicenseLocation::NoLicense),
             ("(^|/)partitions\\.csv$", LicenseLocation::NoLicense),
@@ -567,6 +568,7 @@ static LICENSE_LOCATION_FOR_FILE: LazyLock<Vec<(regex::Regex, LicenseLocation)>>
             ("\\.jpg$", LicenseLocation::NoLicense),
             ("\\.js$", LicenseLocation::Tag(LicenseTagStyle::cpp_style_comment_style())),
             ("\\.cjs$", LicenseLocation::Tag(LicenseTagStyle::cpp_style_comment_style())),
+            ("\\.dart$", LicenseLocation::Tag(LicenseTagStyle::cpp_style_comment_style())),
             ("\\.json$", LicenseLocation::NoLicense),
             ("\\.kts$", LicenseLocation::Tag(LicenseTagStyle::cpp_style_comment_style())),
             ("\\.jsonc$", LicenseLocation::NoLicense),
@@ -635,6 +637,7 @@ static LICENSE_FOR_FILE: LazyLock<Vec<(regex::Regex, &'static str)>> = LazyLock:
         ("^api/cpp/esp-idf/LICENSE$", TRIPLE_LICENSE),
         ("^examples/", MIT_LICENSE),
         ("^demos/", MIT_LICENSE),
+        ("^api/flutter/", MIT_LICENSE),
         ("^docs/slint-doc-generator/", TRIPLE_LICENSE),
         ("^docs/", MIT_LICENSE),
         ("^ui-libraries/material", MIT_LICENSE),

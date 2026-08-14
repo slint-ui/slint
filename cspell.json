@@ -369,6 +369,7 @@
     "**/*.po",
     "**/*.pot",
     "**/*.svg",
+    "**/build/**",
     "target/**",
     "**/node_modules/**"
   ],

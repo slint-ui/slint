@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+// SPDX-License-Identifier: MIT
 
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';

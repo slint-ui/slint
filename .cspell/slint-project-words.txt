@@ -168,6 +168,7 @@ dsymutil
 dustygold
 Dxgi
 DYLD
+dylibs
 eabi
 eabihf
 Eeprom
@@ -196,6 +197,7 @@ EVENTLOOP
 eventresult
 EVKB
 excinfo
+Expando
 Exti
 EXTRAVERSION
 extversion
@@ -206,6 +208,7 @@ fdiagnostics
 FEFF
 FELGO
 fetchpriority
+ffigen
 figsize
 fileaccess
 filledbutton
@@ -216,6 +219,7 @@ FLASHSIZE
 Flexbox
 flexboxes
 Flickables
+FMWK
 floatprop
 floatval
 Florian
@@ -239,6 +243,7 @@ fullsize
 Fullwidth
 fvar
 Fwww
+fvmrc
 getattr
 getifs
 getpid
@@ -294,6 +299,7 @@ intval
 iocp
 IRAM
 Irqs
+IPHONEOS
 isinstance
 isize
 Ista
@@ -418,6 +424,7 @@ navigationdrawer
 navigationrail
 navitem
 ncpu
+neighbours
 newlink
 nexp
 nixos
@@ -484,6 +491,7 @@ protoc
 protox
 Pseudonymized
 psram
+pubspec
 purelib
 pyclass
 pyftsubset
@@ -511,6 +519,7 @@ rasterizer
 rasterizes
 rasterizing
 RBUTTONUP
+reasonix
 recompiles
 rects
 redoable
@@ -539,6 +548,7 @@ rustls
 rustup
 Rustybuzz
 safeui
+sandboxed
 Schukat
 sclk
 scopeguard
@@ -564,6 +574,7 @@ SIGUSR
 singlefile
 singleshot
 skrifa
+slintdart
 slintlib
 Smartwin
 smol
@@ -582,6 +593,7 @@ standardbutton
 startswith
 staticlib
 staticmethod
+stdlib
 stdset
 stext
 stockticker
@@ -674,6 +686,7 @@ unsendable
 usbc
 usecases
 userconfig
+USERPROFILE
 usize
 usvg
 vbus
@@ -720,8 +733,11 @@ xbuild
 xcarchive
 xcassets
 xcent
+XCFRAMEWORK
+xcframework
 xchg
 xcrun
+xctoolchain
 xfer
 xfixes
 xlib
