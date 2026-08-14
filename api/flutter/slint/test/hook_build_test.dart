@@ -21,8 +21,7 @@ OS? hostOs(Abi abi) {
 }
 
 void main() {
-  test('the cargo profile defaults to release and honors the user-define',
-      () {
+  test('the cargo profile defaults to release and honors the user-define', () {
     expect(build_hook.cargoProfile(null), 'release');
     expect(build_hook.cargoProfile('debug'), 'debug');
     expect(build_hook.cargoProfile('release'), 'release');
@@ -44,13 +43,15 @@ void main() {
         ),
       ],
       check: (input, output) {
-        expect(output.assets.encodedAssets.where((a) => a.isCodeAsset), isEmpty);
+        expect(
+            output.assets.encodedAssets.where((a) => a.isCodeAsset), isEmpty);
         expect(output.dependencies, isEmpty);
       },
     );
   });
 
-  test('builds libslint_dart and declares it as a bundled code asset', () async {
+  test('builds libslint_dart and declares it as a bundled code asset',
+      () async {
     final abi = Abi.current();
     final os = hostOs(abi);
     final hostTriple = await build_hook.hostRustTarget();
@@ -91,8 +92,7 @@ void main() {
 
         // The crate manifest and sources are declared so the hook cache
         // invalidates when they change.
-        final dependencies =
-            output.dependencies.map((uri) => uri.path).toSet();
+        final dependencies = output.dependencies.map((uri) => uri.path).toSet();
         expect(dependencies, contains(endsWith('api/flutter/Cargo.toml')));
         expect(dependencies, contains(endsWith('api/flutter/rust')));
         expect(dependencies, contains(endsWith('Cargo.lock')));

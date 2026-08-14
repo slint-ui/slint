@@ -60,12 +60,16 @@ class SlintBuilder implements Builder {
   @override
   Map<String, List<String>> get buildExtensions {
     if (_outputDir.isEmpty) {
-      return const {'.slint': ['.slint.dart']};
+      return const {
+        '.slint': ['.slint.dart']
+      };
     }
     // The capture group mirrors each source's path relative to the package's
     // `lib` directory into [outputDir], so `lib/ui/counter.slint` becomes
     // `<outputDir>/ui/counter.slint.dart`.
-    return {'lib/{{path}}.slint': ['$_outputDir/{{path}}.slint.dart']};
+    return {
+      'lib/{{path}}.slint': ['$_outputDir/{{path}}.slint.dart']
+    };
   }
 
   @override
@@ -172,7 +176,8 @@ class SlintBuilder implements Builder {
     return p.url.joinAll(p.split(p.relative(normalized, from: packageRoot)));
   }
 
-  static ({String outputDir, Map<String, Object?> compilerOptions}) _parseOptions(
+  static ({String outputDir, Map<String, Object?> compilerOptions})
+      _parseOptions(
     Map<String, dynamic> options,
     String packageRoot,
   ) {

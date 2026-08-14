@@ -21,7 +21,8 @@ void main() {
 
   // Only one SlintView can be alive in an isolate, so this test pumps the
   // widget once and exercises `buildTodoUi` through the loaded window.
-  testWidgets('SlintView renders todo UI and buildTodoUi keeps the model in sync',
+  testWidgets(
+      'SlintView renders todo UI and buildTodoUi keeps the model in sync',
       (tester) async {
     final source = await rootBundle.loadString(app.todoUiAsset);
     late MainWindow window;

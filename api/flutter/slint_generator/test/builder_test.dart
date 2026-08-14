@@ -250,11 +250,15 @@ void main() {
       packageRoot: root.path,
       options: {'output_dir': 'lib/generated'},
       generator: (inputPath, outputPath, optionsJson) {
-        expect(inputPath, endsWith('lib${Platform.pathSeparator}ui'
-            '${Platform.pathSeparator}counter.slint'));
-        expect(outputPath, endsWith('lib${Platform.pathSeparator}generated'
-            '${Platform.pathSeparator}ui${Platform.pathSeparator}counter'
-            '.slint.dart'));
+        expect(
+            inputPath,
+            endsWith('lib${Platform.pathSeparator}ui'
+                '${Platform.pathSeparator}counter.slint'));
+        expect(
+            outputPath,
+            endsWith('lib${Platform.pathSeparator}generated'
+                '${Platform.pathSeparator}ui${Platform.pathSeparator}counter'
+                '.slint.dart'));
         return {
           'source': '// generated\n',
           'dependencies': <Object?>[],
@@ -264,7 +268,9 @@ void main() {
 
     expect(
       builder.buildExtensions,
-      {'lib/{{path}}.slint': ['lib/generated/{{path}}.slint.dart']},
+      {
+        'lib/{{path}}.slint': ['lib/generated/{{path}}.slint.dart']
+      },
     );
 
     await builder.build(step);
@@ -284,7 +290,9 @@ void main() {
     );
     expect(
       builder.buildExtensions,
-      {'lib/{{path}}.slint': ['lib/generated/{{path}}.slint.dart']},
+      {
+        'lib/{{path}}.slint': ['lib/generated/{{path}}.slint.dart']
+      },
     );
   });
 

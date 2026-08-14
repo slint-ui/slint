@@ -211,8 +211,7 @@ class _SlintViewState extends State<SlintView>
           focusNode: _focusNode,
           autofocus: widget.autofocus,
           onKeyEvent: _key,
-          onFocusChange: (focused) =>
-              _surface.dispatchFocus(focused: focused),
+          onFocusChange: (focused) => _surface.dispatchFocus(focused: focused),
           child: Listener(
             // The Slint surface takes pointer events across its whole area:
             // neither the rendered frame nor the placeholder before the first

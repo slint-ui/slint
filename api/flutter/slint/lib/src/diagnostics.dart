@@ -53,6 +53,8 @@ class SlintException implements Exception {
   final List<Diagnostic> diagnostics;
 
   @override
-  String toString() =>
-      ['SlintException: $message', ...diagnostics.map((d) => '  $d')].join('\n');
+  String toString() => [
+        'SlintException: $message',
+        ...diagnostics.map((d) => '  $d')
+      ].join('\n');
 }

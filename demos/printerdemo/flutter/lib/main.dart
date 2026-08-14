@@ -127,8 +127,7 @@ class PrinterQueue {
     _publish();
   }
 
-  void _publish() =>
-      _app.global('PrinterQueue')['printer-queue'] = _queue;
+  void _publish() => _app.global('PrinterQueue')['printer-queue'] = _queue;
 
   static String _now() {
     final now = DateTime.now();

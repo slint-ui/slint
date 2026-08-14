@@ -69,12 +69,13 @@ final Map<int, SlintCallback> _handlers = {};
 final Map<int, void Function()> _timerHandlers = {};
 int _nextHandlerId = 1;
 
-Pointer<Char> _dispatchCallback(Pointer<Void> userData, Pointer<Char> argsJson) {
+Pointer<Char> _dispatchCallback(
+    Pointer<Void> userData, Pointer<Char> argsJson) {
   final handler = _handlers[userData.address];
   if (handler == null) return nullptr;
   try {
-    final args = jsonDecode(argsJson.cast<Utf8>().toDartString())
-        as List<Object?>;
+    final args =
+        jsonDecode(argsJson.cast<Utf8>().toDartString()) as List<Object?>;
     final result = handler(args);
     // A null result means "void". Anything else goes back as JSON in a buffer
     // the Rust side hands straight to `_freeCallbackResult`.
@@ -189,14 +190,15 @@ ComponentInstance _instantiate(
 
     final result = build(compiler);
     if (result == nullptr) {
-      throw SlintException('the Slint compiler crashed; see stderr for details');
+      throw SlintException(
+          'the Slint compiler crashed; see stderr for details');
     }
     try {
       if (ffi.resultHasErrors(result)) {
-        final diagnostics = (takeEnvelope(ffi.resultDiagnostics(result))!
-                as List<Object?>)
-            .map((d) => Diagnostic.fromJson(d! as Map<String, dynamic>))
-            .toList();
+        final diagnostics =
+            (takeEnvelope(ffi.resultDiagnostics(result))! as List<Object?>)
+                .map((d) => Diagnostic.fromJson(d! as Map<String, dynamic>))
+                .toList();
         throw SlintException('compilation failed', diagnostics);
       }
 
@@ -232,7 +234,8 @@ ComponentInstance _instantiate(
 class ComponentInstance implements SlintComponent {
   ComponentInstance._(this._handle);
 
-  factory ComponentInstance._create(Pointer<SlintComponentDefinition> definition) {
+  factory ComponentInstance._create(
+      Pointer<SlintComponentDefinition> definition) {
     final ffi = SlintFfi.instance;
     final error = malloc<Pointer<Char>>()..value = nullptr;
     try {
@@ -288,8 +291,7 @@ class ComponentInstance implements SlintComponent {
 
   /// Make the window visible without running the event loop. Use [run] unless
   /// you drive the event loop yourself.
-  void show() =>
-      takeEnvelope(SlintFfi.instance.instanceShow(_live, true));
+  void show() => takeEnvelope(SlintFfi.instance.instanceShow(_live, true));
 
   void hide() => takeEnvelope(SlintFfi.instance.instanceShow(_live, false));
 

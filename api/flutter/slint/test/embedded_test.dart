@@ -77,7 +77,8 @@ void main() {
     expect(repainted!.sublist(0, 4), [0, 0, 255, 255]);
 
     surface.dispose();
-    expect(surface.render(), isNull, reason: 'a disposed surface draws nothing');
+    expect(surface.render(), isNull,
+        reason: 'a disposed surface draws nothing');
   });
 
   test('SlintKey.function covers F1 to F24', () {

@@ -150,7 +150,11 @@ documented in the README.
   `Map<String, Object?>` for structs. Colors and brushes are CSS-style strings.
 - FFI modules and generated files follow the existing conventions — match the
   surrounding code, and keep `ffi.g.dart` in sync with `rust/`.
-- Generated `.slint.dart` files are committed and must not be edited by hand.
+- Generated code is excluded from the analyzer (via each package's
+  `analysis_options.yaml` `analyzer.exclude`) and is not reformatted:
+  `ffi.g.dart` comes from ffigen and the `.slint.dart` wrappers come from the
+  `build_runner` generator. The `.slint.dart` files are gitignored, so they
+  must never be edited by hand. Don't run `dart format` on generated files.
 - Code style is enforced in CI: `dart format`/analyzer for Dart, `rustfmt` for
   Rust.
 

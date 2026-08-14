@@ -5,7 +5,11 @@ include: package:lints/recommended.yaml
 
 analyzer:
   exclude:
+    # Generated code: `ffi.g.dart` comes from ffigen (see
+    # scripts/generate_slint_dart_bindings.bash) and the example's `.slint.dart`
+    # wrappers come from the build_runner generator.
     - example/**
+    - lib/src/ffi.g.dart
     - build/**
     - android/**
     - ios/**

@@ -88,8 +88,8 @@ void main() {
     });
 
     test('a value of the wrong type throws and leaves the property alone', () {
-      expect(() => app['value'] = 'not a number',
-          throwsA(isA<SlintException>()));
+      expect(
+          () => app['value'] = 'not a number', throwsA(isA<SlintException>()));
       expect(app['value'], 42);
     });
   });
@@ -113,8 +113,8 @@ void main() {
     });
 
     test('an unknown global throws', () {
-      expect(() => app.global('Nope')['offset'],
-          throwsA(isA<SlintException>()));
+      expect(
+          () => app.global('Nope')['offset'], throwsA(isA<SlintException>()));
     });
   });
 
