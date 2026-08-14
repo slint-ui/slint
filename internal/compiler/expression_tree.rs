@@ -1734,7 +1734,9 @@ impl Expression {
                 new_values.insert(f, default_value);
             }
             Expression::Struct { ty: struct_type.clone(), values: new_values }
-        } else if let Expression::Condition { condition, true_expr, false_expr } = self {
+        } else if matches!(ty, Type::Array(_))
+            && let Expression::Condition { condition, true_expr, false_expr } = self
+        {
             // Recursive try to convert the conditional expressions to the target_type
             Expression::Condition {
                 condition,
