@@ -20,8 +20,25 @@ fvm flutter run -d macos
 
 Use `linux` or `windows` in place of `macos` as needed.
 The runner directories are generated, not committed.
+If `flutter run` fails because Xcode cannot access
+`macos/Flutter/ephemeral/Packages/.packages/FlutterFramework`, delete `macos/`
+and run `flutter create` again.
+A runner generated without Swift Package Manager package references cannot be
+migrated in place.
 Keep the generator running while you edit the `.slint` file:
 
 ```sh
 fvm dart run build_runner watch --delete-conflicting-outputs
 ```
+
+Widget tests use the headless Slint backend and a debug build of `libslint_dart`
+with `backend-testing`, not the release library the hook bundles for apps:
+
+```sh
+cargo build -p slint-dart --features backend-testing
+fvm dart run build_runner build --delete-conflicting-outputs
+SLINT_DART_LIBRARY="$PWD/../../../target/debug/libslint_dart.dylib" \
+  SLINT_BACKEND=testing fvm flutter test
+```
+
+Use `libslint_dart.so` on Linux and `slint_dart.dll` on Windows.
