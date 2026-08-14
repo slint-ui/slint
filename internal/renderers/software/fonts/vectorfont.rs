@@ -199,9 +199,21 @@ impl VectorFont {
             let glyph = {
                 let font_ref = self.swash_font_ref();
                 let mut ctx = slint_context.swash_scale_context().borrow_mut();
+                // Grid-fit the outline before rasterizing. The grayscale
+                // hinting target is vertical-only and preserves linear
+                // metrics, so it composes with the horizontal sub-pixel
+                // binning below (each addresses one axis) and never moves a
+                // glyph relative to the advances the shaper produced. The
+                // baseline is snapped to an integer device row at blit time
+                // (see draw_glyph_run), which is what makes the vertical
+                // grid fit effective. This also holds under 90°/270° screen
+                // rotation: the whole pixel grid rotates with the text, so
+                // the grid fit lands on integer device columns instead.
                 let mut scaler = ctx
                     .builder(font_ref)
                     .size(self.pixel_size.get() as f32)
+                    .hint(true)
+                    .hint_target(swash::scale::HintingTarget::Grayscale)
                     .normalized_coords(&self.normalized_coords)
                     .build();
                 let image = swash::scale::Render::new(&[swash::scale::Source::Outline])

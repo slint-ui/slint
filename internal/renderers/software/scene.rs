@@ -371,6 +371,10 @@ pub struct SceneTextureExtra {
     pub colorize: Color,
     pub alpha: u8,
     pub rotation: RenderingRotation,
+    /// Set when the texture is the coverage mask of text glyphs, to which
+    /// text-contrast gamma correction is applied when blending if the
+    /// `gamma-correction` feature is enabled (see the `mask_gamma` module).
+    pub text_mask: bool,
 }
 
 impl SceneTextureExtra {
@@ -426,6 +430,7 @@ impl SceneTextureExtra {
                 colorize: texture.colorize.unwrap_or_default(),
                 alpha: texture.alpha,
                 rotation: texture.rotation,
+                text_mask: texture.text_mask,
                 dx: Fixed::try_from_fixed(dx).ok()?,
                 dy: Fixed::try_from_fixed(dy).ok()?,
                 off_x: Fixed::try_from_fixed(dx * offset.x as i32).ok()?,

@@ -65,6 +65,11 @@ itertools = { version = "0.15" }
 rayon = { version = "1.10", default-features = false }
 spin_on = { version = "0.1" }
 
+# Keep in sync with the root workspace: swash with ScalerBuilder::hint_target
+# (pending upstream), needed by the software renderer's glyph hinting.
+[patch.crates-io]
+swash = { git = "https://github.com/showier-drastic/swash", rev = "db0117a58b47b43ee003c9f216ceac4ba8983f1c" }
+
 [profile.release]
 panic = "abort"
 
