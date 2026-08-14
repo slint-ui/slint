@@ -4,7 +4,7 @@
 // cSpell: ignore descr rfind unindented libraryize
 
 #[cfg(target_arch = "wasm32")]
-use crate::wasm_prelude::*;
+use crate::common::wasm_prelude::*;
 
 use crate::common::{
     ComponentInformation, DocumentCache, Position, PropertyChange, TypeInformation,

@@ -20,7 +20,7 @@ use crate::common::{self, ComponentInformation};
 use crate::preview::{self, DragItem, SelectionNotification, preview_data, properties};
 
 #[cfg(target_arch = "wasm32")]
-use crate::wasm_prelude::*;
+use crate::common::wasm_prelude::*;
 
 mod brushes;
 mod file_tree;

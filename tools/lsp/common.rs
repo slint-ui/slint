@@ -7,8 +7,9 @@
 
 use i_slint_compiler::object_tree::ElementRc;
 use i_slint_compiler::parser::{SyntaxKind, SyntaxNode, TextSize, syntax_nodes};
+pub use i_slint_live_preview::protocol::{LspToPreview, PreviewToLsp, Result};
 use i_slint_live_preview::protocol::{
-    LspToPreviewMessage, PreviewTarget, PreviewToLspMessage, SourceFileVersion, VersionedUrl,
+    LspToPreviewMessage, PreviewTarget, SourceFileVersion, VersionedUrl,
 };
 use lsp_types::{TextEdit, Url, WorkspaceEdit};
 
@@ -34,15 +35,14 @@ pub mod test;
 pub mod text_edit;
 pub mod token_info;
 
-pub type Error = Box<dyn std::error::Error>;
-pub type Result<T> = std::result::Result<T, Error>;
-
 /// Diagnostics for a set of documents, each paired with the version of the document
 /// they were computed for.
 pub type VersionedDiagnostics = Vec<(Url, SourceFileVersion, Vec<lsp_types::Diagnostic>)>;
 
 #[cfg(target_arch = "wasm32")]
-use crate::wasm_prelude::*;
+use self::wasm_prelude::*;
+#[cfg(target_arch = "wasm32")]
+pub use i_slint_live_preview::protocol::wasm_prelude;
 
 #[allow(clippy::disallowed_methods)]
 pub fn spawn_local<F>(future: F)
@@ -62,15 +62,6 @@ where
 /// ignore a node for code analysis purposes.
 pub const NODE_IGNORE_COMMENT: &str = "@lsp:ignore-node";
 
-#[allow(dead_code)]
-pub trait LspToPreview: std::any::Any {
-    fn send(&self, message: &LspToPreviewMessage);
-    fn preview_target(&self) -> PreviewTarget;
-    fn shutdown<'a>(&'a self) -> std::pin::Pin<Box<dyn std::future::Future<Output = ()> + 'a>> {
-        Box::pin(async {})
-    }
-}
-
 #[derive(Default, Clone)]
 #[allow(dead_code)]
 pub struct DummyLspToPreview {}
@@ -80,58 +71,6 @@ impl LspToPreview for DummyLspToPreview {
 
     fn preview_target(&self) -> PreviewTarget {
         PreviewTarget::Dummy
-    }
-}
-
-#[allow(dead_code)]
-pub trait PreviewToLsp {
-    fn send(&self, message: &PreviewToLspMessage) -> Result<()>;
-
-    /// Tell the editor about diagnostics
-    fn notify_diagnostics(
-        &self,
-        diagnostics: HashMap<lsp_types::Url, (SourceFileVersion, Vec<lsp_types::Diagnostic>)>,
-    ) -> Result<()> {
-        for (uri, (version, diagnostics)) in diagnostics {
-            self.send(&PreviewToLspMessage::Diagnostics { uri, version, diagnostics })?;
-        }
-        Ok(())
-    }
-
-    /// Ask the editor to show some document
-    fn ask_editor_to_show_document(
-        &self,
-        file: &str,
-        selection: lsp_types::Range,
-        take_focus: bool,
-    ) -> Result<()> {
-        let file = match lsp_types::Url::from_file_path(file) {
-            Ok(file) => file,
-            Err(()) => {
-                tracing::error!("Failed to convert file path to URL for ShowDocument: {file}");
-                return Err("Failed to convert file path to URL".to_string().into());
-            }
-        };
-        if selection.start.character == 0 || selection.end.character == 0 {
-            return Ok(());
-        }
-        self.send(&PreviewToLspMessage::ShowDocument { file, selection, take_focus })
-    }
-
-    /// Sends a telemetry event
-    fn send_telemetry(&self, data: &mut [(String, serde_json::Value)]) -> Result<()> {
-        let object = {
-            let mut object = serde_json::Map::new();
-            for (name, value) in data.iter_mut() {
-                object.insert(std::mem::take(name), std::mem::take(value));
-            }
-            object
-        };
-        if let Err(err) = self.send(&PreviewToLspMessage::TelemetryEvent(object)) {
-            tracing::error!("Failed to send telemetry event: {err}");
-            return Err(err);
-        }
-        Ok(())
     }
 }
 

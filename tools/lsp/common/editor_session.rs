@@ -21,7 +21,7 @@ use std::path::PathBuf;
 use std::rc::Rc;
 
 #[cfg(target_arch = "wasm32")]
-use crate::wasm_prelude::*;
+use crate::common::wasm_prelude::*;
 
 /// The documents currently being edited, together with the state the preview
 /// needs to follow along.
