@@ -1037,6 +1037,11 @@ pub struct Element {
     pub repeated: Option<RepeatedElementInfo>,
     /// This element is a placeholder to embed an Component at
     pub is_component_placeholder: bool,
+    /// True when this element was injected by `lower_property_to_element` or the `visible` pass
+    /// to wrap another element for a property like `opacity`/`transform-rotation`/`visible` (see
+    /// `adjust_geometry_for_injected_parent`). Such wrappers take over the wrapped element's
+    /// geometry, so consumers that need the wrapped element's source parent must walk past them.
+    pub is_geometry_wrapper: bool,
 
     pub states: Vec<State>,
     pub transitions: Vec<Transition>,
