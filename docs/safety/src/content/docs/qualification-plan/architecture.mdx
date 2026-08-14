@@ -45,6 +45,8 @@ Two properties of the design hold by construction, so nothing has to be done to 
   Slint SC renders; it doesn't hold application state.
 * The runtime is `no_std`, doesn't use `alloc`, and has no dependencies, so there's no allocator and no dynamic memory allocation.
   The application owns the frame buffer and passes it to `render_rgb8`.
+* Slint SC's responsibility ends at the frame buffer.
+  Getting the buffer onto a display, through a display controller, a driver, or another crate, is the application's job, and no part of Slint SC takes part in it.
 
 ### Static Design
 
