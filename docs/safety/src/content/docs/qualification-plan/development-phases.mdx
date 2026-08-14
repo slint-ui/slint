@@ -26,11 +26,18 @@ After each PR is created, or after each new commit is pushed to that branch, the
 
 ## Phase 3: Code Review
 
-The master branch is protected, only admins are able to push directly to the `master` branch.
+A change merges when all of these hold.
+This is the one place the merge requirements are stated; the change management and the safety policy refer here.
 
-Any Pull Request (PR) on Slint SC must be approved by a reviewer before being merged.
+1. The change is proposed as a Pull Request (PR). This applies to every change, not only to ones judged safety-impacting: everything in Slint SC is safety-related, so there's no triage step deciding which changes deserve review.
+2. An independent reviewer has approved the latest revision of the PR, and no requests for changes are open. Independent means someone who hasn't committed code to the change.
+3. The full set of Regression Tests run by CI must pass on the merge commit between the PR and the base branch. The merge commit must be the one being fast-forwarded on the base branch. Testing a merge commit and then merging into the base branch with a different merge commit (for example if other changes were merged in the meantime) does not count.
 
-The full set of Regression Tests run by CI must pass on the merge commit between the PR and the base branch. The merge commit must be the one being fast-forwarded on the base branch. Testing a merge commit and then merging into the base branch with a different merge commit (for example if other changes were merged in the meantime) does not count.
+The master branch is protected.
+Administrators are technically able to push directly; they shall not, and a direct push to code covered by this document is a process violation to be reported like any other problem.
+
+(TODO: decide the exceptions, if any, e.g. machine-generated commits such as
+automated formatting, and enumerate them here. Until then there are none.)
 
 Reviewers can leave comments on the PR. Some comments are just nitpicks but some other comments should be addressed before merging the PR. Reviewers should make an effort to clearly indicate what needs to be addressed to obtain approval.
 

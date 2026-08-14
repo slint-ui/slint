@@ -10,7 +10,7 @@ The safety and quality of Slint SC are the primary objectives of all management,
 Each commitment names where it's implemented, so it can be checked rather than taken on trust.
 
 * Every change follows a defined process. See [Development Process](/qualification-plan/development-process/) and [Development Phases](/qualification-plan/development-phases/).
-* Every change is reviewed by someone other than its author before it's merged.
+* Every change is approved by an independent reviewer, someone who hasn't committed code to the change, before it's merged. The merge requirements are in [Development Phases](/qualification-plan/development-phases/#phase-3-code-review).
 * Every change is verified by automated tests before it's merged. See [Test Suites](/qualification-plan/test-suites/).
 * Every requirement is traced to the tests that verify it. See [Traceability Matrix](/qualification-report/traceability-matrix/).
 * Known safety-critical problems are recorded, with the fix and the test that covers each. See [Known Problems](/safety-manual/known-problems/).
@@ -20,9 +20,9 @@ Two things ISO 26262 asks for that we don't document yet:
 
 * Competence requirements and training records for the people working on Slint SC.
   (TODO)
-* Independence of verification.
-  A change is reviewed by one other person today, which is peer review rather than the independent verification the standard asks for at higher ASILs.
-  (TODO: decide what independence we claim, and change the process to match.)
+* Independence of verification beyond review.
+  The reviewer is independent of the change, but the standard asks for more independence at higher integrity levels, e.g. of the people writing the tests.
+  (TODO: decide what further independence we claim, and change the process to match.)
 
 ## Responsibilities
 
