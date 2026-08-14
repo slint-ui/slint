@@ -29,6 +29,10 @@ mod lsp_to_previews;
 pub mod rename_component;
 pub mod rename_element_id;
 pub use lsp_to_previews::LspToPreviews;
+// Unused in the visual editor build, which has no transport implementing it.
+#[allow(unused_imports)]
+#[cfg(all(not(target_arch = "wasm32"), feature = "preview-remote"))]
+pub use lsp_to_previews::RemoteTransport;
 #[cfg(test)]
 pub mod test;
 #[cfg(any(test, feature = "preview-engine"))]

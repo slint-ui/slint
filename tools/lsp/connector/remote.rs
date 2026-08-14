@@ -8,6 +8,7 @@
 //! [`crate::preview::remote`].
 
 use std::cell::Cell;
+use std::pin::Pin;
 use std::rc::{Rc, Weak};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -474,6 +475,27 @@ impl RemotePreviewSender {
                 "Failed sending message from remote preview server to LSP server: {err}"
             );
         });
+    }
+}
+
+// The forwards below name the inherent methods explicitly: were one of them
+// removed, an unqualified call would bind to the trait method instead and
+// recurse forever.
+impl crate::common::RemoteTransport for RemoteLspToPreview {
+    fn send(&self, message: &LspToPreviewMessage) {
+        RemoteLspToPreview::send(self, message);
+    }
+
+    fn connect(
+        &self,
+        addresses: Vec<String>,
+        port: u16,
+    ) -> Pin<Box<dyn Future<Output = crate::common::Result<()>>>> {
+        Box::pin(RemoteLspToPreview::connect(self, addresses, port))
+    }
+
+    fn disconnect(&self) -> Pin<Box<dyn Future<Output = ()>>> {
+        Box::pin(RemoteLspToPreview::disconnect(self))
     }
 }
 

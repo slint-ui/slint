@@ -5,7 +5,7 @@
 #![cfg(target_arch = "wasm32")]
 
 use crate::common;
-use crate::preview::{self, connector, ui};
+use crate::preview::{self, ui};
 use i_slint_live_preview::protocol::{LspToPreviewMessage, PreviewTarget, PreviewToLspMessage};
 
 use std::cell::RefCell;
@@ -93,6 +93,10 @@ impl PreviewConnector {
             invoke_slintpad_callback,
         }));
 
+        if let Some(mapper) = resource_url_mapper_from_callbacks() {
+            preview::set_resource_url_mapper(mapper);
+        }
+
         Ok(JsValue::from(js_sys::Promise::new(&mut move |resolve, reject| {
             let resolve = send_wrapper::SendWrapper::new(resolve);
             let reject_c = send_wrapper::SendWrapper::new(reject.clone());
@@ -161,7 +165,7 @@ impl PreviewConnector {
         let message = serde_wasm_bindgen::from_value(value)
             .map_err(|e| -> JsValue { format!("{e:?}").into() })?;
         i_slint_core::api::invoke_from_event_loop(move || {
-            connector::lsp_to_preview(message);
+            preview::lsp_to_preview(message);
         })
         .map_err(|e| -> JsValue { format!("{e:?}").into() })?;
         Ok(())
@@ -226,7 +230,8 @@ fn invoke_from_event_loop_wrapped_in_promise(
     }))
 }
 
-pub fn resource_url_mapper() -> Option<i_slint_compiler::ResourceUrlMapper> {
+/// Map resource URLs through the JS callback SlintPad handed us.
+fn resource_url_mapper_from_callbacks() -> Option<i_slint_compiler::ResourceUrlMapper> {
     let callback = WASM_CALLBACKS.with_borrow(|callbacks| {
         callbacks.as_ref().map(|cb| js_sys::Function::from((cb.resource_url_mapper).clone()))
     })?;

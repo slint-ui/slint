@@ -13,6 +13,8 @@ compile_error!(
 );
 
 mod common;
+#[cfg(feature = "preview-engine")]
+mod connector;
 mod fmt;
 mod language;
 #[cfg(feature = "preview-engine")]
@@ -175,7 +177,7 @@ fn run_preview(args: &LivePreview) -> std::result::Result<(), slint::PlatformErr
     }
 
     let to_lsp: Rc<dyn common::PreviewToLsp> =
-        Rc::new(preview::connector::RemoteControlledPreviewToLsp::new());
+        Rc::new(connector::RemoteControlledPreviewToLsp::new());
 
     preview::run(to_lsp, args.fullscreen, preview::PreviewUiKind::Viewer)
 }
@@ -298,11 +300,10 @@ async fn main_loop(
 
         let sn = server_notifier.clone();
 
-        let child_preview: Box<dyn common::LspToPreview> = Box::new(
-            preview::connector::ChildProcessLspToPreview::new(preview_to_lsp_sender.clone()),
-        );
+        let child_preview: Box<dyn common::LspToPreview> =
+            Box::new(connector::ChildProcessLspToPreview::new(preview_to_lsp_sender.clone()));
         let embedded_preview: Box<dyn common::LspToPreview> =
-            Box::new(preview::connector::EmbeddedLspToPreview::new(sn.clone()));
+            Box::new(connector::EmbeddedLspToPreview::new(sn.clone()));
         LspToPreviews::new(
             std::collections::HashMap::from([
                 (PreviewTarget::ChildProcess, child_preview),
@@ -310,7 +311,12 @@ async fn main_loop(
             ]),
             PreviewTarget::ChildProcess,
             #[cfg(feature = "preview-remote")]
-            preview_to_lsp_sender.clone(),
+            |to_previews| {
+                Rc::new(connector::remote::RemoteLspToPreview::new(
+                    preview_to_lsp_sender.clone(),
+                    to_previews,
+                ))
+            },
         )
         .unwrap()
     };

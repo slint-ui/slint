@@ -21,7 +21,8 @@ use i_slint_core::DataTransfer;
 use i_slint_core::component_factory::FactoryContext;
 use i_slint_core::lengths::{LogicalPoint, LogicalRect, LogicalSize};
 use i_slint_live_preview::protocol::{
-    PreviewComponent, PreviewConfig, PreviewToLspMessage, SourceFileVersion, VersionedUrl,
+    LspToPreviewMessage, PreviewComponent, PreviewConfig, PreviewToLspMessage, SourceFileVersion,
+    VersionedUrl,
 };
 use lsp_types::Url;
 use slint::{PlatformError, SharedString, ToSharedString};
@@ -38,7 +39,6 @@ use user_settings::{PREVIEW_SETTINGS_FILE, PreviewUserSettings};
 #[cfg(target_arch = "wasm32")]
 use crate::common::wasm_prelude::*;
 
-pub mod connector;
 pub use ui::PreviewUiKind;
 
 mod drop_location;
@@ -65,19 +65,18 @@ pub fn run(
     fullscreen: bool,
     ui_kind: PreviewUiKind,
 ) -> std::result::Result<(), slint::PlatformError> {
-    let app_window = ui::create_ui(&to_lsp, "", ui_kind)?;
+    run_with_ui(ui::create_ui(&to_lsp, "", ui_kind)?, to_lsp, fullscreen)
+}
 
-    // The updater has to stay in scope for updates to keep working.
-    #[cfg(target_os = "macos")]
-    let _updater = if let ui::AppWindow::Editor(editor) = app_window.clone_strong() {
-        use slint::ComponentHandle;
-
-        macos_titlebar::setup(editor.as_weak());
-        sparkle::connect(&editor)
-    } else {
-        None
-    };
-
+/// Hand a window over to the preview engine and run the event loop until it
+/// closes. Applications that add their own chrome create the window with
+/// [`ui::create_ui`] and set it up before calling this.
+#[cfg(not(target_arch = "wasm32"))]
+pub fn run_with_ui(
+    app_window: ui::AppWindow,
+    to_lsp: Rc<dyn common::PreviewToLsp>,
+    fullscreen: bool,
+) -> std::result::Result<(), slint::PlatformError> {
     to_lsp
         .send_telemetry(&mut [(
             "type".to_string(),
@@ -107,6 +106,66 @@ pub fn run(
     tracing::debug!("Preview: event loop exited");
 
     Ok(())
+}
+
+/// Apply a message from the LSP to the preview. Whatever transport carried the
+/// message calls this on the UI thread.
+pub fn lsp_to_preview(message: LspToPreviewMessage) {
+    use LspToPreviewMessage as M;
+    match message {
+        M::InvalidateContents { url } => invalidate_contents(&url),
+        M::ForgetFile { url } => delete_document(&url),
+        M::SetContents { url, contents } => {
+            if let Ok(contents) = String::from_utf8(contents) {
+                set_contents(&url, contents);
+            }
+        }
+        M::SetConfiguration { config } => {
+            config_changed(config);
+        }
+        M::SetUserSettings { name, contents } => {
+            set_user_settings(name, contents);
+        }
+        M::ShowPreview(pc) => {
+            tracing::debug!(
+                "Preview: ShowPreview for url={}, component={:?}",
+                pc.url,
+                pc.component
+            );
+            load_preview(pc, LoadBehavior::BringWindowToFront);
+        }
+        M::HighlightFromEditor { url, offset } => {
+            highlight(url, offset.into());
+        }
+        M::RemoteConnectionState { state, target, error } => {
+            set_remote_connection_state(state, target, error);
+        }
+        M::Quit => {
+            tracing::debug!("Preview: Quit requested");
+            #[cfg(not(target_arch = "wasm32"))]
+            let _ = slint::quit_event_loop();
+        }
+        M::Ping => {
+            // Keepalive for the remote-preview WebSocket; local previews never see it.
+        }
+    }
+}
+
+thread_local! {
+    static RESOURCE_URL_MAPPER: RefCell<Option<i_slint_compiler::ResourceUrlMapper>> =
+        const { RefCell::new(None) };
+}
+
+/// Install the mapper the preview compiles resource URLs with. Only
+/// applications know how to resolve them: SlintPad maps them through JS,
+/// native previews read them from disk and need no mapper at all.
+#[allow(dead_code)] // Only the wasm application maps resource URLs today.
+pub fn set_resource_url_mapper(mapper: i_slint_compiler::ResourceUrlMapper) {
+    RESOURCE_URL_MAPPER.set(Some(mapper));
+}
+
+pub fn resource_url_mapper() -> Option<i_slint_compiler::ResourceUrlMapper> {
+    RESOURCE_URL_MAPPER.with_borrow(Clone::clone)
 }
 
 /// The state of the preview engine:
@@ -1978,7 +2037,7 @@ async fn parse_source(
     } else {
         i_slint_compiler::ComponentSelection::LastExported
     };
-    cc.resource_url_mapper = connector::resource_url_mapper();
+    cc.resource_url_mapper = resource_url_mapper();
     cc.embed_resources = EmbedResourcesKind::ListAllResources;
     cc.no_native_menu = true;
     // Otherwise this may cause a runtime panic because of the recursion
@@ -2453,7 +2512,7 @@ fn set_current_style(style: String) {
     });
 }
 
-fn get_current_style() -> String {
+pub fn get_current_style() -> String {
     PREVIEW_STATE.with_borrow(|preview_state| -> String {
         if let Some(api) = preview_state.api.upgrade() {
             use slint::Model;
