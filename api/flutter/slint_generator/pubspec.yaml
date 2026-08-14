@@ -1,8 +1,8 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-name: slint
-description: Slint bindings for Dart and Flutter — build the UI in .slint, the logic in Dart.
+name: slint_generator
+description: The build_runner builder that generates a typed Dart API for each .slint file.
 version: 1.18.0
 homepage: https://slint.dev
 repository: https://github.com/slint-ui/slint
@@ -12,12 +12,11 @@ environment:
   sdk: ^3.3.0
 
 dependencies:
-  code_assets: ^1.2.1
-  ffi: ^2.1.3
-  hooks: ^2.0.2
+  build: '>=2.4.1 <5.0.0'
   path: ^1.8.0
+  slint:
+    path: ../slint
 
 dev_dependencies:
-  ffigen: ^19.0.0
   lints: ^5.0.0
   test: ^1.25.0

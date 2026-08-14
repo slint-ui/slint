@@ -15,3 +15,5 @@ dependencies:
 dev_dependencies:
   build_runner: ^2.4.9
   lints: ^5.0.0
+  slint_generator:
+    path: ../../slint_generator

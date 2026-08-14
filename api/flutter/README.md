@@ -16,11 +16,12 @@ void main() {
 }
 ```
 
-Two packages live here:
+Three packages live here:
 
 | Package | What it is |
 | --- | --- |
 | [`slint`](./slint/pubspec.yaml) | The binding itself. Pure Dart, `dart:ffi`, no Flutter dependency. |
+| [`slint_generator`](./slint_generator) | The `build_runner` builder that turns a `.slint` file into a typed Dart API. A dev dependency only. |
 | [`slint_flutter`](./slint_flutter) | A `SlintView` widget that renders a Slint UI inside a Flutter app. |
 
 ## Generate a Typed Dart API
@@ -28,7 +29,9 @@ Two packages live here:
 Put `.slint` files under your application's `lib` directory.
 For example, use `lib/ui/counter.slint`.
 
-Add `slint` and `build_runner` to the application's `pubspec.yaml`:
+Add `slint` to the application's `pubspec.yaml`, and `slint_generator` with
+`build_runner` next to it. Only the generator needs the second package, so it
+stays out of the shipped application:
 
 ```yaml
 dependencies:
@@ -37,6 +40,8 @@ dependencies:
 
 dev_dependencies:
   build_runner: ^2.4.9
+  slint_generator:
+    path: path/to/slint/api/flutter/slint_generator
 ```
 
 Build `libslint_dart` before invoking the generator.
@@ -72,7 +77,7 @@ Configure import search paths and the widget style in the application's
 targets:
   $default:
     builders:
-      slint|slint_generator:
+      slint_generator|slint:
         options:
           style: material
           include_paths:

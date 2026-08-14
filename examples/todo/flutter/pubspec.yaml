@@ -23,8 +23,10 @@ dev_dependencies:
   flutter_lints: ^5.0.0
   flutter_test:
     sdk: flutter
+  slint_generator:
+    path: ../../../api/flutter/slint_generator
 
 flutter:
   assets:
-    - lib/ui/
+    - lib/ui/todo.slint
 

@@ -2,8 +2,8 @@
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 builders:
-  slint_generator:
-    import: "package:slint/builder.dart"
+  slint:
+    import: "package:slint_generator/builder.dart"
     builder_factories: ["slintBuilder"]
     build_extensions: {".slint": [".slint.dart"]}
     auto_apply: root_package

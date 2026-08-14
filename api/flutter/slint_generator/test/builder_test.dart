@@ -6,9 +6,9 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:build/build.dart';
-import 'package:slint/builder.dart' as slint_builder;
 import 'package:slint/slint.dart' show SlintException;
-import 'package:slint/src/builder.dart';
+import 'package:slint_generator/builder.dart' as slint_builder;
+import 'package:slint_generator/src/builder.dart';
 import 'package:test/test.dart';
 
 void main() {

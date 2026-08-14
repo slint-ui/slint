@@ -6,9 +6,8 @@ import 'dart:io';
 
 import 'package:build/build.dart';
 import 'package:path/path.dart' as p;
-
-import 'diagnostics.dart';
-import 'ffi.dart';
+import 'package:slint/compiler.dart' as compiler;
+import 'package:slint/slint.dart' show Diagnostic, SlintException;
 
 typedef SlintGenerator = Map<String, Object?> Function(
   String inputPath,
@@ -32,7 +31,7 @@ class SlintBuilder implements Builder {
     final root = p.normalize(p.absolute(packageRoot ?? Directory.current.path));
     final parsed = _parseOptions(options, root);
     return SlintBuilder._(
-      generator: generator ?? _generate,
+      generator: generator ?? compiler.generate,
       warningLogger: warningLogger ?? ((message) => log.warning(message)),
       packageRoot: root,
       optionsJson: jsonEncode(parsed),
@@ -195,27 +194,5 @@ class SlintBuilder implements Builder {
       if (styleValue != null) 'style': styleValue,
       'include_paths': includePaths,
     };
-  }
-
-  static Map<String, Object?> _generate(
-    String inputPath,
-    String outputPath,
-    String optionsJson,
-  ) {
-    final pointer = withNativeString(
-      inputPath,
-      (input) => withNativeString(
-        outputPath,
-        (output) => withNativeString(
-          optionsJson,
-          (options) => SlintFfi.instance.generate(input, output, options),
-        ),
-      ),
-    );
-    final result = takeEnvelope(pointer);
-    if (result is! Map<String, dynamic>) {
-      throw StateError('The Slint compiler returned an invalid response.');
-    }
-    return result.cast<String, Object?>();
   }
 }

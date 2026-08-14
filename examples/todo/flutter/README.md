@@ -4,9 +4,11 @@ The todo example driven from Dart, shown inside a Flutter application through
 [`slint_flutter`](../../../api/flutter/slint_flutter).
 It uses a generated `MainWindow` wrapper, the same compiled component the Rust
 version gets from `slint::include_modules!()`.
-The UI file lives at [`lib/ui/todo.slint`](lib/ui/todo.slint) so `build_runner`
-can emit the typed API, and the same file is bundled as a Flutter asset so a
-packaged app can compile it at runtime with `MainWindow.loadSource`.
+[`lib/ui/todo.slint`](lib/ui/todo.slint) is a symlink to the
+[`.slint` file](../ui/todo.slint) the other language versions use: both
+`build_runner` and the Flutter asset bundler only look inside the package, so
+the shared file has to be reachable from there. The asset is what a packaged
+app compiles at runtime with `MainWindow.loadSource`.
 
 Build the native library, generate the typed wrapper and the platform runner
 for the platform you want, and run:
