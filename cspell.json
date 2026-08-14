@@ -169,6 +169,8 @@
     "microcontrollers",
     "microtask",
     "miscompilation",
+    "miscompiled",
+    "miscompiles",
     "MSVC",
     "muda",
     "napi",

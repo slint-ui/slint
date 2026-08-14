@@ -40,6 +40,7 @@ Each one names the rule it violates, so the two stay in step.
 | `slint.runtime.err.stack-overflow` | Recursion or deep nesting exhausts the stack. The runtime has no allocator, so storage failures are a stack concern rather than a heap one. | The application aborts, so the display freezes or goes blank. | `slint.compiler.cstr.no-unbounded-recursion` | (TODO) |
 | `slint.runtime.err.frame-overrun` | A frame takes longer to render than the display refresh interval. | The display freezes on old content, which is indistinguishable from a working one. | `slint.runtime.cstr.frame-time` | No |
 | `slint.runtime.err.data-race` | The component is accessed from another thread while a render is in progress. | Any display error, including a partly drawn frame. | `slint.runtime.cstr.single-thread` | No |
+| `slint.runtime.err.miscompiled` | The integrator's Rust toolchain miscompiles the runtime or the generated code. The runtime ships as source, so the final binary isn't built by us. | Any display error, and none of Slint SC's evidence covers it. | `slint.runtime.cstr.qualified-toolchain` | No |
 
 ## Detection Measures and Usage Restrictions
 
