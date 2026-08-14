@@ -40,16 +40,8 @@ Modifications to the Slint SC codebase are managed to preserve the safety and in
 
 ### CI System and Infrastructure
 
-Continuous Integration (CI) is achieved through GitHub Actions, a platform provided by GitHub that is used to automate building, testing, and deployment of software. Here are some definitions of terms:
-
-* **An Action** is a custom application that performs a complex but frequent repetitive task.
-* **A job** is a set of steps that are either expressed as shell scripts or as actions. Steps are executed based on their ordering and dependencies, where data can be shared between steps.
-* **A Workflow** is a configurable automated process that runs one or more jobs. Workflows are triggered by events, and executed by runners.
-* **An event** is a specific activity associated with a GitHub repository, such as opening an issue or creating a PR.
-* **A runner** is a server that executes triggered workflows.
-
-For Slint, [Actions](https://github.com/slint-ui/slint/actions) are triggered for any Pull Request (PR) or direct push to the `master` branch.
-Failures during CI block merging the PR.
+Continuous Integration (CI) is achieved through [GitHub Actions](https://github.com/slint-ui/slint/actions).
+Workflows run for any Pull Request (PR) and for any push to the `master` branch, and a failure blocks merging the PR.
 
 (TODO: Show the Actions for Slint SC when we have some)
 
