@@ -48,14 +48,9 @@ pub const RESERVED_GRIDLAYOUT_PROPERTIES: &[(&str, Type)] = &[
     ("rowspan", Type::Int32),
 ];
 
-// Note: cross-axis-self-alignment is also a flexbox property but is added in
-// reserved_properties() because Type::Enumeration requires a runtime Arc allocation.
-pub const RESERVED_FLEXBOXLAYOUT_PROPERTIES: &[(&str, Type)] = &[
-    ("flex-grow", Type::Float32),
-    ("flex-shrink", Type::Float32),
-    ("flex-basis", Type::LogicalLength),
-    ("flex-order", Type::Int32),
-];
+// Note: the per-item cross-axis-self-alignment (flexbox and box layouts) is added
+// in reserved_properties() because Type::Enumeration requires a runtime Arc allocation.
+pub const RESERVED_FLEXBOXLAYOUT_PROPERTIES: &[(&str, Type)] = &[("layout-order", Type::Int32)];
 
 macro_rules! declare_enums {
     ($( $(#[$enum_doc:meta])* $vis:vis enum $Name:ident { $( $(#[$value_doc:meta])* $Value:ident,)* })*) => {
@@ -126,17 +121,13 @@ impl BuiltinTypes {
         // `flexbox_layout_item_info_type`, so the field list is defined once.
         let flex_item_props_struct = Arc::new(Struct::new(
             IntoIterator::into_iter([
-                ("flex-grow".into(), Type::Float32),
-                ("flex-shrink".into(), Type::Float32),
-                ("flex-basis".into(), Type::Float32),
                 ("cross-axis-self-alignment".into(), align_self_type),
-                ("flex-order".into(), Type::Int32),
+                ("layout-order".into(), Type::Int32),
             ])
             .collect(),
             BuiltinStruct::FlexItemProps,
         ));
         Self {
-            enums,
             logical_point_type: Arc::new(Struct::new(
                 IntoIterator::into_iter([
                     (SmolStr::new_static("x"), Type::LogicalLength),
@@ -193,8 +184,14 @@ impl BuiltinTypes {
                 BuiltinStruct::PathElement,
             ))),
             layout_item_info_type: Type::Struct(Arc::new(Struct::new(
-                IntoIterator::into_iter([("constraint".into(), layout_info_type.clone().into())])
-                    .collect(),
+                IntoIterator::into_iter([
+                    ("constraint".into(), layout_info_type.clone().into()),
+                    (
+                        "cross-axis-self-alignment".into(),
+                        Type::Enumeration(enums.CrossAxisSelfAlignment.clone()),
+                    ),
+                ])
+                .collect(),
                 BuiltinStruct::LayoutItemInfo,
             ))),
             flexbox_layout_item_info_type: Type::Struct(Arc::new(Struct::new(
@@ -216,6 +213,8 @@ impl BuiltinTypes {
                 .collect(),
                 BuiltinStruct::GridLayoutInputData,
             ))),
+            // Last: the field initializers above still borrow from it.
+            enums,
         }
     }
 }
@@ -329,8 +328,8 @@ pub fn reserved_properties() -> impl Iterator<Item = (&'static str, Type, Proper
                 .iter()
                 .map(|(k, v)| (*k, v.clone(), PropertyVisibility::Input)),
         )
-        // cross-axis-self-alignment is a flexbox-layout property but can't be in the const
-        // array because Type::Enumeration requires a runtime Arc allocation.
+        // The per-item cross-axis-self-alignment (flexbox and box layouts) can't be in a
+        // const array because Type::Enumeration requires a runtime Arc allocation.
         .chain(std::iter::once((
             "cross-axis-self-alignment",
             Type::Enumeration(BUILTIN.enums.CrossAxisSelfAlignment.clone()),

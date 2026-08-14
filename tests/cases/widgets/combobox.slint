@@ -28,6 +28,23 @@ export component TestCase inherits Window {
         }
     }
 
+    // `current-value` set declaratively at instantiation replaces the default binding and
+    // never fires `changed current-value`, so the reverse lookup must also run from `init`
+    // for this to resolve `current-index` consistently with an imperative write.
+    // Positioned off the visible 200x200 window so they can't intercept the coordinate-based
+    // mouse clicks the rest of this test sends to `box`.
+    init-value-found := ComboBox {
+        x: 300px;
+        model: ["Aaa", "Bbb", "Ccc"];
+        current-value: "Bbb";
+    }
+    init-value-not-found := ComboBox {
+        x: 300px;
+        y: 100px;
+        model: ["Aaa", "Bbb", "Ccc"];
+        current-value: "nope";
+    }
+
     public function unfocus() {
         box.clear-focus();
     }
@@ -36,6 +53,10 @@ export component TestCase inherits Window {
     in-out property current-value <=> box.current-value;
     in-out property model <=> box.model;
     out property has-focus <=> box.has-focus;
+    out property init-value-found-index <=> init-value-found.current-index;
+    out property init-value-found-value <=> init-value-found.current-value;
+    out property init-value-not-found-index <=> init-value-not-found.current-index;
+    out property init-value-not-found-value <=> init-value-not-found.current-value;
 }
 
 /*
@@ -256,14 +277,101 @@ instance.set_current_index(2);
 mock_elapsed_time(500);
 assert_selection(2, "!!!THIS!!!");
 
-// Writes to `current-value` from host code are not a supported way to change
-// the selection — the widget emits a debug warning but doesn't revert the
-// host write. The current-index (and therefore the visible selection in the
-// popup) stays where it was. See https://github.com/slint-ui/slint/issues/11970.
+// A host write to `current-value` is a reverse lookup: it moves current-index to
+// match. A successful lookup stays silent. See https://github.com/slint-ui/slint/issues/11970.
+slint_testing::access_testing_window(instance.window(), |w| w.take_debug_log());
 instance.set_current_value(SharedString::from("not this3"));
 mock_elapsed_time(500);
-assert_eq!(instance.get_current_index(), 2);
-assert_eq!(instance.get_current_value(), SharedString::from("not this3"));
+assert_selection(3, "not this3");
+let logs = slint_testing::access_testing_window(instance.window(), |w| w.take_debug_log());
+assert!(logs.is_empty(), "expected no debug log on a successful reverse lookup, got: {logs:?}");
+
+// A value not in the model resolves to no selection, and (unlike the case above) logs why.
+instance.set_current_value(SharedString::from("nope"));
+mock_elapsed_time(500);
+assert_selection(-1, "");
+let logs = slint_testing::access_testing_window(instance.window(), |w| w.take_debug_log());
+assert_eq!(logs.len(), 1, "expected one debug log for a not-found current-value write, got: {logs:?}");
+assert!(logs[0].contains("\"nope\""));
+assert!(logs[0].contains("not in `model`"));
+
+// A model swap after a host-written current-value doesn't re-trigger the lookup above:
+// `changed model` already clamps current-index and re-derives current-value from it.
+instance.set_current_value(SharedString::from("not this1"));
+mock_elapsed_time(500);
+assert_selection(0, "not this1");
+
+instance.set_model(Rc::new(VecModel::from_slice(&[SharedString::from("only"), SharedString::from("this")])).into());
+mock_elapsed_time(500);
+assert_selection(0, "only");
+
+// Known limitation: the lookup only runs on an actual value change, so writing the value
+// current-value already holds is a no-op, even though "select the first match" says it
+// shouldn't be.
+instance.set_model(Rc::new(VecModel::from_slice(&[
+    SharedString::from(""),
+    SharedString::from("dup"),
+    SharedString::from("dup"),
+])).into());
+mock_elapsed_time(500);
+assert_selection(0, "");
+instance.set_current_index(-1);
+mock_elapsed_time(500);
+assert_selection(-1, "");
+instance.set_current_value(SharedString::from(""));
+mock_elapsed_time(500);
+assert_selection(-1, "");
+
+// A fresh write to a duplicate value (a real transition, from "" to "dup") picks the
+// first occurrence: `index-of` finds index 1, not the later index 2.
+instance.set_current_value(SharedString::from("dup"));
+mock_elapsed_time(500);
+assert_selection(1, "dup");
+
+// Known limitation: the lookup only runs on an actual value change, so writing the value
+// current-value already holds is a no-op, even though "select the first match" says it
+// shouldn't be. Force a mismatched index first (2, the second "dup"), then re-write the
+// same value: it stays at index 2 instead of moving to the first occurrence.
+instance.set_current_index(2);
+mock_elapsed_time(500);
+assert_selection(2, "dup");
+instance.set_current_value(SharedString::from("dup"));
+mock_elapsed_time(500);
+assert_selection(2, "dup");
+
+// Consecutive writes to current-index and current-value: each write's `changed` handler
+// resolves the other property to match before the next call returns, so there's no
+// inherent priority between the two — whichever was written last determines the result.
+// This is not a guaranteed contract, just how it behaves today; the assertions are here
+// so a change to it surfaces as a test failure instead of going unnoticed.
+instance.set_model(Rc::new(VecModel::from_slice(&[SharedString::from("Aaa"), SharedString::from("Bbb"), SharedString::from("Ccc")])).into());
+instance.set_current_index(0);
+mock_elapsed_time(500);
+assert_selection(0, "Aaa");
+
+// current-value written after current-index: current-value's resolution sticks.
+instance.set_current_index(1);
+instance.set_current_value(SharedString::from("Ccc"));
+mock_elapsed_time(500);
+assert_selection(2, "Ccc");
+
+// current-index written after current-value: current-index's resolution sticks instead.
+instance.set_current_value(SharedString::from("Aaa"));
+instance.set_current_index(1);
+mock_elapsed_time(500);
+assert_selection(1, "Bbb");
+
+// Declarative init-time consistency: `current-value` set at instantiation (which replaces
+// the default `model[current-index]` binding and never fires `changed current-value`)
+// resolves `current-index` from the model just like an imperative write does, instead of
+// showing an unresolved value. See https://github.com/slint-ui/slint/issues/11970.
+assert_eq!(instance.get_init_value_found_index(), 1);
+assert_eq!(instance.get_init_value_found_value(), "Bbb");
+
+// A declaratively-set current-value that isn't in the model clears the selection at init
+// too, consistent with the imperative not-found case.
+assert_eq!(instance.get_init_value_not_found_index(), -1);
+assert_eq!(instance.get_init_value_not_found_value(), "");
 ```
 
 */

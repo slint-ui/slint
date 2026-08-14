@@ -1,7 +1,7 @@
 // Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
 // SPDX-License-Identifier: MIT
 
-// The per-item flex-* properties are experimental, so this needs
+// The per-item layout-order property is experimental, so this needs
 // SLINT_ENABLE_EXPERIMENTAL_FEATURES=1 in the environment of the viewer.
 
 import { ComboBox } from "std-widgets.slint";
@@ -51,11 +51,12 @@ export component MainWindow inherits Window {
         FlexboxLayoutDirection.column,
         FlexboxLayoutDirection.column-reverse
     ];
-    property <[string]> alignment_options: ["Start", "End", "Center", "SpaceBetween", "SpaceAround", "SpaceEvenly"];
+    property <[string]> alignment_options: ["Start", "End", "Center", "Stretch", "SpaceBetween", "SpaceAround", "SpaceEvenly"];
     property <[LayoutAlignment]> alignment_values: [
         LayoutAlignment.start,
         LayoutAlignment.end,
         LayoutAlignment.center,
+        LayoutAlignment.stretch,
         LayoutAlignment.space-between,
         LayoutAlignment.space-around,
         LayoutAlignment.space-evenly
@@ -163,19 +164,22 @@ export component MainWindow inherits Window {
                 padding: 10phx;
                 spacing: 10phx;
 
-                // flex-grow: blue items grow to fill extra space (1× and 2× ratio)
+                // *-stretch: with alignment "Stretch", blue items grow to fill
+                // extra space (1× and 2× ratio)
                 FlexCell {
-                    cell_text: "A grow:1";
-                    flex-grow: 1;
-                    flex-basis: 60phx;
+                    cell_text: "A stretch:1";
+                    horizontal-stretch: 1;
+                    vertical-stretch: 1;
+                    preferred-width: 60phx;
                     min-height: 40phx;
                     background: #4a90d9;
                 }
 
                 FlexCell {
-                    cell_text: "B grow:2";
-                    flex-grow: 2;
-                    flex-basis: 60phx;
+                    cell_text: "B stretch:2";
+                    horizontal-stretch: 2;
+                    vertical-stretch: 2;
+                    preferred-width: 60phx;
                     min-height: 40phx;
                     background: #2e6da4;
                 }
@@ -185,17 +189,22 @@ export component MainWindow inherits Window {
                     width: 80phx;
                     height: 40phx;
                 }
-                // flex-basis: these two have different starting sizes
+                // preferred-width: these two have different starting sizes
+                // (stretch 0: they keep them while A and B grow)
                 FlexCell {
-                    cell_text: "F basis:40";
-                    flex-basis: 40phx;
+                    cell_text: "F pref:40";
+                    preferred-width: 40phx;
+                    horizontal-stretch: 0;
+                    vertical-stretch: 0;
                     min-height: 40phx;
                     background: #27ae60;
                 }
 
                 FlexCell {
-                    cell_text: "G basis:160";
-                    flex-basis: 160phx;
+                    cell_text: "G pref:160";
+                    preferred-width: 160phx;
+                    horizontal-stretch: 0;
+                    vertical-stretch: 0;
                     min-height: 40phx;
                     background: #1e8449;
                 }
@@ -205,19 +214,19 @@ export component MainWindow inherits Window {
                     width: 80phx;
                     height: 40phx;
                 }
-                // flex-shrink: red items shrink when space is tight (try no-wrap with a narrow window)
+                // shrinking needs no opt-in (try no-wrap with a narrow window);
+                // min-width is how the red item refuses to go below 100phx
                 FlexCell {
-                    cell_text: "M shrink:1";
-                    flex-basis: 150phx;
-                    flex-shrink: 1;
+                    cell_text: "M min:100";
+                    preferred-width: 150phx;
+                    min-width: 100phx;
                     min-height: 40phx;
                     background: #d94a4a;
                 }
 
                 FlexCell {
-                    cell_text: "N shrink:3";
-                    flex-basis: 150phx;
-                    flex-shrink: 3;
+                    cell_text: "N shrinks";
+                    preferred-width: 150phx;
                     min-height: 40phx;
                     background: #a93226;
                 }
@@ -241,18 +250,18 @@ export component MainWindow inherits Window {
                     height: 30phx;
                     background: #d35400;
                 }
-                // flex-order: these items appear before/after others despite declaration order
+                // layout-order: these items appear before/after others despite declaration order
                 FlexCell {
-                    cell_text: "U flex-order:-1";
-                    flex-order: -1;
+                    cell_text: "U layout-order:-1";
+                    layout-order: -1;
                     width: 80phx;
                     min-height: 40phx;
                     background: #8e44ad;
                 }
 
                 FlexCell {
-                    cell_text: "V flex-order:99";
-                    flex-order: 99;
+                    cell_text: "V layout-order:99";
+                    layout-order: 99;
                     width: 80phx;
                     min-height: 40phx;
                     background: #6c3483;

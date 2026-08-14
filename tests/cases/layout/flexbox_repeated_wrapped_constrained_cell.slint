@@ -100,7 +100,7 @@ export component TestCase inherits Window {
         spacing: 0px; padding: 0px;
         cross-axis-line-alignment: start;
         cross-axis-alignment: start;
-        Card { label: long; flex-shrink: 0; flex-basis: 150px; }
+        Card { label: long; min-width: 150px; preferred-width: 150px; }
         hStatic := Rectangle { width: 150px; height: 5px; }
     }
 
@@ -112,7 +112,7 @@ export component TestCase inherits Window {
         spacing: 0px; padding: 0px;
         cross-axis-line-alignment: start;
         cross-axis-alignment: start;
-        for s in [long]: Card { label: s; flex-shrink: 0; flex-basis: 150px; opacity: cond ? 1.0 : 0.4; }
+        for s in [long]: Card { label: s; min-width: 150px; preferred-width: 150px; opacity: cond ? 1.0 : 0.4; }
         hOpacity := Rectangle { width: 150px; height: 5px; }
     }
 
@@ -124,7 +124,7 @@ export component TestCase inherits Window {
         spacing: 0px; padding: 0px;
         cross-axis-line-alignment: start;
         cross-axis-alignment: start;
-        for s in [long]: Card { label: s; flex-shrink: 0; flex-basis: 150px; visible: cond; }
+        for s in [long]: Card { label: s; min-width: 150px; preferred-width: 150px; visible: cond; }
         hVisible := Rectangle { width: 150px; height: 5px; }
     }
 

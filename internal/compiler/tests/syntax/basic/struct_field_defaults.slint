@@ -50,6 +50,24 @@ struct NotConstantRuntime {
 //           >                     <error{The default value of a struct field must be a constant expression: functions are not evaluated at compile time}
 }
 
+// The conversion of a number that renders the same in every locale folds to a string literal
+struct OkNumberToString {
+    a: string = 42,
+    b: string = "score: \{42}",
+    c: [string] = ["a", 1],
+}
+
+struct NumberToString {
+    a: string = 42.1,
+//              >  <error{The default value of a struct field must be a constant expression: the conversion from a number to a string depends on the locale}
+    b: string = "score: \{42.1}",
+//              >              <error{The default value of a struct field must be a constant expression: the conversion from a number to a string depends on the locale}
+    c: [string] = ["a", 1.5],
+//                >        <error{The default value of a struct field must be a constant expression: the conversion from a number to a string depends on the locale}
+    d: Ok1 = { b: 1.5 },
+//           >        <error{The default value of a struct field must be a constant expression: the conversion from a number to a string depends on the locale}
+}
+
 struct ForwardReference {
     e: LaterEnum = LaterEnum.x,
 //     >        <error{Unknown type 'LaterEnum'}

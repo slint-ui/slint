@@ -51,6 +51,7 @@ export default defineConfig({
         "/guide/platforms/desktop/": `${BASE_PATH}guide/platforms/desktop/general/`,
         "/guide/platforms/other/": `${BASE_PATH}guide/platforms/desktop/general/`,
         "/guide/platforms/packaging/windows-packaging/": `${BASE_PATH}guide/platforms/desktop/windows/packaging/`,
+        "/guide/platforms/desktop/linux/": `${BASE_PATH}guide/platforms/desktop/linux/general/`,
     },
     markdown: {
         gfm: true,
@@ -224,8 +225,28 @@ export default defineConfig({
                                                     "guide/platforms/desktop/windows/packaging",
                                                 ],
                                             },
-                                            "guide/platforms/desktop/macos",
-                                            "guide/platforms/desktop/linux",
+                                            {
+                                                label: "macOS",
+                                                collapsed: true,
+                                                items: [
+                                                    {
+                                                        label: "Overview",
+                                                        slug: "guide/platforms/desktop/macos/general",
+                                                    },
+                                                    "guide/platforms/desktop/macos/packaging",
+                                                ],
+                                            },
+                                            {
+                                                label: "Linux",
+                                                collapsed: true,
+                                                items: [
+                                                    {
+                                                        label: "Overview",
+                                                        slug: "guide/platforms/desktop/linux/general",
+                                                    },
+                                                    "guide/platforms/desktop/linux/packaging",
+                                                ],
+                                            },
                                         ],
                                     },
                                     "guide/platforms/embedded",

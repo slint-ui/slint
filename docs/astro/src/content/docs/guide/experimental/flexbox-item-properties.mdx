@@ -3,34 +3,32 @@ title: Flexbox Item Properties
 description: Experimental per-item properties for FlexboxLayout children.
 ---
 
-The children of a `FlexboxLayout` can set `flex-grow`, `flex-shrink`, `flex-basis`
-and `flex-order` to control how the layout treats them individually.
+The children of a `FlexboxLayout` can set `layout-order` to control their visual
+order individually.
 
-> **Note**: these properties are experimental and subject to change.
-> Per-item properties shouldn't be specific to `FlexboxLayout` — they should work in
-> `HorizontalLayout`, `VerticalLayout` and `GridLayout` too, and preferably reuse the existing
-> `horizontal-stretch`/`vertical-stretch` and min/max/preferred size properties. That design
-> discussion is still open, which is why these four are not part of the stable API yet.
-> Expect them to be renamed, or replaced by the properties the other layouts already use.
+> **Note**: this property is experimental and subject to change.
+> Nothing in it is specific to flexbox — it could apply to `HorizontalLayout` and
+> `VerticalLayout` too — so expect it to be extended to the box layouts.
 >
-> The Experimental Features overview page explains how to enable them.
+> The Experimental Features overview page explains how to enable it.
 
 ```slint no-test
 FlexboxLayout {
-    Rectangle { flex-grow: 1; }
-    Rectangle { flex-grow: 2; }
+    Rectangle { layout-order: 2; }
+    Rectangle { layout-order: 1; }  // appears first
 }
 ```
 
-Each one behaves like the CSS property of the same name, with the same default, so refer to the CSS
-flexbox documentation for what they do:
+`layout-order` behaves like the CSS `order` property, with the same default (`0`):
+items are laid out in ascending order value, and items with the same value keep
+their declaration order.
 
-| Property      | CSS property  | Default |
-| ------------- | ------------- | ------- |
-| `flex-grow`   | `flex-grow`   | `0`     |
-| `flex-shrink` | `flex-shrink` | `1`     |
-| `flex-basis`  | `flex-basis`  | `auto`  |
-| `flex-order`  | `order`       | `0`     |
+The other CSS per-item flexbox properties are expressed with the properties the
+other layouts already use:
 
-One difference: an `auto` `flex-basis` uses the item's `preferred-width` (row direction) or
-`preferred-height` (column direction), rather than sizing it from its content.
+| CSS           | Slint                                                          |
+| ------------- | -------------------------------------------------------------- |
+| `flex-grow`   | `alignment: stretch` on the container, weighted per item by `horizontal-stretch` / `vertical-stretch`; `max-width` / `max-height` caps growing (space a capped item cannot take stays free) |
+| `flex-shrink` | nothing to opt into: every item shrinks, in proportion to its preferred size; `min-width` / `min-height` refuses shrinking |
+| `flex-basis`  | `preferred-width` (row) / `preferred-height` (column)          |
+| `align-self`  | `cross-axis-self-alignment` (stable)                           |

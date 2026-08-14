@@ -1047,6 +1047,11 @@ pub struct Element {
     /// than `child_of_layout`: only flexbox cells need the per-repeater
     /// `flexbox_layout_item_info` accessor.
     pub child_of_flexbox: bool,
+    /// The orientation of the box layout this element is a repeated cell of.
+    /// Only set when the cell also binds `cross-axis-self-alignment`; lets the
+    /// generated `layout_item_info` return that value only for the cross axis,
+    /// so the main-axis cache stays independent of it.
+    pub parent_box_layout_orientation: Option<Orientation>,
     /// The property pointing to the layout info. `(horizontal, vertical)`
     pub layout_info_prop: Option<(NamedReference, NamedReference)>,
     /// `pure function layoutinfo-v-with-constraint(width: length) -> LayoutInfo`
@@ -3484,6 +3489,9 @@ fn non_constant_expression_reason(expr: &Expression) -> Option<String> {
                 }
                 Callable::Builtin(_) => Some("functions are not evaluated at compile time".into()),
             },
+            Expression::Cast { to: Type::String, .. } => {
+                Some("the conversion from a number to a string depends on the locale".into())
+            }
             _ => None,
         };
     });
@@ -4425,22 +4433,23 @@ pub fn inject_element_as_repeated_element(repeated_element: &ElementRc, new_root
     // generated on the wrapper the layout actually calls it on.
     if old_root.borrow().child_of_flexbox {
         new_root.borrow_mut().child_of_flexbox = true;
-        // That accessor reads the flex item properties from the repeated root (now the
-        // wrapper). Link them to the inner element that still carries the bindings
-        // (and the FlexboxLayout's captured references keeping them alive), rather
-        // than moving them, which would leave those references dangling.
-        for prop in
-            ["flex-grow", "flex-shrink", "flex-basis", "flex-order", "cross-axis-self-alignment"]
-                .iter()
-        {
-            if old_root.borrow().binding(prop).is_some() {
-                new_root.borrow_mut().set_binding(
-                    SmolStr::new_static(prop),
-                    BindingExpression::new_two_way(
-                        NamedReference::new(old_root, SmolStr::new_static(prop)).into(),
-                    ),
-                );
-            }
+    }
+    new_root.borrow_mut().parent_box_layout_orientation =
+        old_root.borrow().parent_box_layout_orientation;
+    // The item-info accessors read the per-item layout properties from the repeated
+    // root (now the wrapper). Link them to the inner element that still carries the
+    // bindings (and the layout's captured references keeping them alive), rather
+    // than moving them, which would leave those references dangling.
+    // cross-axis-self-alignment is read by both the flexbox and the box layout
+    // accessor; layout-order only by the flexbox one.
+    for prop in ["layout-order", "cross-axis-self-alignment"].iter() {
+        if old_root.borrow().binding(prop).is_some() {
+            new_root.borrow_mut().set_binding(
+                SmolStr::new_static(prop),
+                BindingExpression::new_two_way(
+                    NamedReference::new(old_root, SmolStr::new_static(prop)).into(),
+                ),
+            );
         }
     }
     let layout_info_prop = old_root.borrow().layout_info_prop.clone().or_else(|| {

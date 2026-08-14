@@ -32,6 +32,7 @@ unsafe fn wrap_vulkan_texture(
     vk_image_raw: u64,
     vk_format: skia_safe::gpu::vk::Format,
     color_type: skia_safe::ColorType,
+    layout: skia_safe::gpu::vk::ImageLayout,
     color_space: skia_safe::ColorSpace,
 ) -> Option<skia_safe::Surface> {
     unsafe {
@@ -39,7 +40,7 @@ unsafe fn wrap_vulkan_texture(
             vk_image_raw as _,
             skia_safe::gpu::vk::Alloc::default(),
             skia_safe::gpu::vk::ImageTiling::OPTIMAL,
-            skia_safe::gpu::vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL,
+            layout,
             vk_format,
             1,
             None,
@@ -63,9 +64,14 @@ unsafe fn wrap_vulkan_texture(
 /// # Safety
 /// The caller must ensure `texture` was created by a Vulkan-backed wgpu device and remains
 /// valid for the lifetime of the returned `skia_safe::Surface`.
+///
+/// `layout` is the layout wgpu leaves the image in, which Skia transitions away from before
+/// its first draw. Getting it wrong doesn't just trip the validation layers, it makes the
+/// barrier Skia emits name the wrong source layout.
 pub unsafe fn make_vulkan_surface(
     gr_context: &mut skia_safe::gpu::DirectContext,
     texture: &wgpu::Texture,
+    layout: skia_safe::gpu::vk::ImageLayout,
 ) -> Option<skia_safe::Surface> {
     // SAFETY: texture is borrowed for the duration of this call; the Vulkan handle is copied
     // into Skia's internal BackendRenderTarget via wrap_vulkan_texture.
@@ -81,9 +87,46 @@ pub unsafe fn make_vulkan_surface(
             vk_image_raw,
             vk_format,
             color_type,
+            layout,
             super::attachment_color_space(texture),
         )
     }
+}
+
+/// Records the transition back to `PRESENT_SRC_KHR` and flushes it.
+///
+/// wgpu's tracker still believes the swapchain image is in its `PRESENT` state, because that is
+/// where wgpu itself left it before Skia took over. Leaving it in Skia's color-attachment layout
+/// would make the barrier `wgpu::Queue::present` emits name a source layout the image isn't in.
+pub fn release_vulkan_swapchain_surface(
+    gr_context: &mut skia_safe::gpu::DirectContext,
+    skia_surface: &mut skia_safe::Surface,
+    queue_family_index: u32,
+) {
+    let present_state = skia_safe::gpu::vk::mutable_texture_states::new_vulkan(
+        skia_safe::gpu::vk::ImageLayout::PRESENT_SRC_KHR,
+        queue_family_index,
+    );
+    gr_context.flush_surface_with_texture_state(
+        skia_surface,
+        &skia_safe::gpu::FlushInfo::default(),
+        Some(&present_state),
+    );
+}
+
+/// Extension names as `String`, for [`vk::BackendContextBuilder::with_extensions`]. Vulkan
+/// extension names are ASCII, so the lossy conversion can't lose anything.
+fn cstr_names(names: &[&'static std::ffi::CStr]) -> Vec<String> {
+    names.iter().map(|name| name.to_string_lossy().into_owned()).collect()
+}
+
+/// The queue family the wgpu device submits on, which is also the one Skia has to hand the
+/// swapchain image back to.
+///
+/// # Safety
+/// `device` must be backed by the Vulkan wgpu backend.
+pub unsafe fn queue_family_index(device: &wgpu::Device) -> Option<u32> {
+    unsafe { Some(device.as_hal::<wgpu::wgc::api::Vulkan>()?.queue_family_index()) }
 }
 
 pub unsafe fn import_vulkan_texture(
@@ -174,6 +217,13 @@ pub unsafe fn make_vulkan_context(
             }
         };
 
+        // Skia gates features on the extensions it's told about, and rejects anything it
+        // considers unsupported: without `VK_KHR_swapchain` in this list it refuses to wrap an
+        // image that's in `PRESENT_SRC_KHR` layout, which is how wgpu hands out swapchain
+        // images. Hand it what wgpu actually enabled, no more.
+        let instance_extensions = cstr_names(vulkan_device.shared_instance().extensions());
+        let device_extensions = cstr_names(vulkan_device.enabled_device_extensions());
+
         // WGPU 29 is locked to vulkan 1.3 and skia assumes the highest vulkan API version of the
         // physical device is chosen, causing it to ask for unsupported features/functions.
         let backend = vk::BackendContext::new_builder(
@@ -183,6 +233,10 @@ pub unsafe fn make_vulkan_context(
             (vulkan_queue_raw.as_raw() as _, vulkan_device.queue_family_index() as _),
             &get_proc,
             Some(vk::Version::new(1, 3, 0)),
+        )
+        .with_extensions(
+            &instance_extensions.iter().map(String::as_str).collect::<Vec<_>>(),
+            &device_extensions.iter().map(String::as_str).collect::<Vec<_>>(),
         )
         .build();
 

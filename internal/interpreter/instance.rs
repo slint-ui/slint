@@ -1111,7 +1111,19 @@ impl i_slint_core::model::RepeatedItemTree for Instance {
         let mut ctx = crate::eval::EvalContext::new(this.root_sub_component.clone());
         let constraint =
             crate::eval::eval_expression(&mut ctx, &expr).try_into().unwrap_or_default();
-        i_slint_core::layout::LayoutItemInfo { constraint }
+        // The cell's `cross-axis-self-alignment` in a box layout, returned for
+        // the cross axis only, so the main-axis cache stays independent of it.
+        let cross_axis_self_alignment = match &sc.cross_axis_self_alignment_for_repeated {
+            Some((cross_o, align_expr))
+                if crate::eval::llr_to_core_orientation(*cross_o) == orientation =>
+            {
+                crate::eval::eval_expression(&mut ctx, &align_expr.borrow())
+                    .try_into()
+                    .unwrap_or_default()
+            }
+            _ => Default::default(),
+        };
+        i_slint_core::layout::LayoutItemInfo { constraint, cross_axis_self_alignment }
     }
 
     fn flexbox_layout_item_info(
@@ -1249,7 +1261,10 @@ fn row_child_layout_item_info(
                     let constraint = crate::eval::eval_expression(&mut ctx, &expr)
                         .try_into()
                         .unwrap_or_default();
-                    return i_slint_core::layout::LayoutItemInfo { constraint };
+                    return i_slint_core::layout::LayoutItemInfo {
+                        constraint,
+                        ..Default::default()
+                    };
                 }
                 index -= 1;
             }

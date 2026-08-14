@@ -1,0 +1,52 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Software-3.0
+
+// A rectangle background is free to be translucent at run time: the alpha of
+// a color the application sets reaches the blending like any other. Only the
+// window background has to be an opaque literal.
+
+export component TestCase inherits Window {
+    in property <color> tint;
+
+    background: #0000ff;
+
+    Rectangle {
+        x: 16px;
+        y: 16px;
+        width: 32px;
+        height: 32px;
+        background: root.tint;
+    }
+}
+
+/*
+```rust
+let mut x = TestCase::new();
+
+// The default color is transparent, so the rectangle paints nothing and the
+// window background shows through
+//#sls.paint.blend.transparent
+let pixel = |fb: &[u8], px: usize, py: usize| {
+    let i = (py * 64 + px) * 3;
+    [fb[i], fb[i + 1], fb[i + 2]]
+};
+let mut frame_buffer = [0u8; 64 * 64 * 3];
+x.render_rgb8(64, 64, &mut frame_buffer)?;
+assert!(frame_buffer.chunks(3).all(|pixel| pixel == [0x00, 0x00, 0xff]));
+
+// A translucent color set by the application blends with the window background
+//#sls.paint.blend
+x.set_tint(slint_sc::Color::from_argb_encoded(0x80ff0000));
+x.render_rgb8(64, 64, &mut frame_buffer)?;
+assert_eq!(pixel(&frame_buffer, 32, 32), [128, 0, 127]);
+// Outside the rectangle the window background is untouched
+assert_eq!(pixel(&frame_buffer, 4, 4), [0, 0, 0xff]);
+
+// An opaque color replaces it instead
+//#sls.paint.blend.opaque
+x.set_tint(slint_sc::Color::from_rgb_u8(0x00, 0xff, 0x00));
+x.render_rgb8(64, 64, &mut frame_buffer)?;
+assert_eq!(pixel(&frame_buffer, 32, 32), [0, 0xff, 0]);
+screenshot!(x);
+```
+*/

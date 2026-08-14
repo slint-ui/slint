@@ -80,13 +80,41 @@ export component ComboBoxBase {
         root.update-current-value();
     }
 
-    // Writes to `current-value` from host code don't change the selection;
-    // the visible state still reflects `model[current-index]`. Warn on the
-    // divergence so the developer learns to use `current-index` instead.
+    // A write to `current-value` (host or declarative) expresses "select the row with this
+    // value": look it up in `model` and resolve `current-index` — and, through it,
+    // `current-value` itself — to match, or to "" if not found. Uses the stable `index-of`,
+    // not the experimental `find-index` it lowers to, so ComboBox doesn't depend on an
+    // experimental feature. `current-index` and `current-value` each resolve the other to
+    // match on every write, so of two writes made right after each other, whichever came
+    // last determines the final state — there's no inherent priority between the two
+    // properties.
+    // Only fires on an actual value change, so writing the value current-value already
+    // holds is a no-op even when the "select the first match" contract says it shouldn't be.
     // See https://github.com/slint-ui/slint/issues/11970.
     changed current-value => {
+        root.reverse-lookup-current-value();
+    }
+
+    // `ComboBox { current-value: "..."; }` replaces the default binding above, so a
+    // declarative mismatch never fires `changed current-value` and needs the same
+    // resolution here, once, after the model and current-index have their initial values.
+    init => {
+        root.reverse-lookup-current-value();
+    }
+
+    function reverse-lookup-current-value() {
         if root.current-value != root.model[root.current-index] {
-            debug("ComboBox: `current-value` writes don't change the selection. Use `current-index` instead. See https://github.com/slint-ui/slint/issues/11970.");
+            let found-index = root.model.index-of(root.current-value);
+            if found-index < 0 {
+                debug("ComboBox: `current-value` was set to \"" + root.current-value + "\", which is not in `model`; the selection was cleared. See https://github.com/slint-ui/slint/issues/11970.");
+            }
+            root.current-index = found-index;
+            // `changed current-index` (above) would eventually do this too, but during
+            // `init` a property write made while the tree is still being constructed isn't
+            // guaranteed to have already propagated through that handler, so call it
+            // explicitly. At runtime the redundant call from `changed current-index` is a
+            // harmless no-op: it recomputes the same value this call already set.
+            root.update-current-value();
         }
     }
 

@@ -534,7 +534,7 @@ impl CompletionItemExt for CompletionItem {
 }
 
 /// Decide whether a reserved property should be offered as a completion in the given context.
-/// Reserved properties like row/col, flex-*, clip and drop-shadow-* are materialized on every
+/// Reserved properties like row/col, layout-order, clip and drop-shadow-* are materialized on every
 /// item even though they only make sense on specific layout children or element types.
 fn is_reserved_prop_valid(
     prop: &str,
@@ -558,7 +558,10 @@ fn is_reserved_prop_valid(
         return matches!(parent_name, Some("GridLayout" | "Row"));
     }
     if prop == "cross-axis-self-alignment" {
-        return parent_name == Some("FlexboxLayout");
+        return matches!(
+            parent_name,
+            Some("FlexboxLayout" | "HorizontalLayout" | "VerticalLayout")
+        );
     }
     if name_in(i_slint_compiler::typeregister::RESERVED_FLEXBOXLAYOUT_PROPERTIES) {
         // Not stable API yet, the compiler only accepts them as an experimental feature.
@@ -1717,7 +1720,7 @@ mod tests {
         assert_eq!(res.iter().find(|ci| ci.label == "pressed"), None);
         assert_eq!(res.iter().find(|ci| ci.label == "pressed-x"), None);
         assert!(!res.iter().any(|ci| ci.label == "row"));
-        assert!(!res.iter().any(|ci| ci.label == "flex-grow"));
+        assert!(!res.iter().any(|ci| ci.label == "layout-order"));
         assert!(!res.iter().any(|ci| ci.label == "clip"));
         assert!(!res.iter().any(|ci| ci.label == "drop-shadow-blur"));
 
@@ -1789,7 +1792,7 @@ mod tests {
         assert_eq!(res.iter().find(|ci| ci.label == "has-focus"), None);
         assert_eq!(res.iter().find(|ci| ci.label == "func"), None);
         assert!(!res.iter().any(|ci| ci.label == "row"));
-        assert!(!res.iter().any(|ci| ci.label == "flex-grow"));
+        assert!(!res.iter().any(|ci| ci.label == "layout-order"));
         assert!(!res.iter().any(|ci| ci.label == "clip"));
         assert!(!res.iter().any(|ci| ci.label == "drop-shadow-blur"));
 
@@ -1817,8 +1820,23 @@ mod tests {
         assert!(res.iter().any(|ci| ci.label == "spacing-horizontal"));
         assert!(res.iter().any(|ci| ci.label == "spacing-vertical"));
         assert!(res.iter().any(|ci| ci.label == "padding"));
-        assert!(!res.iter().any(|ci| ci.label == "flex-grow"));
+        assert!(!res.iter().any(|ci| ci.label == "layout-order"));
         assert!(!res.iter().any(|ci| ci.label == "cross-axis-self-alignment"));
+
+        // Even with experimental features enabled, layout-order stays
+        // flexbox-only: the context filter must reject it here, not the
+        // experimental check.
+        let res = get_completions_experimental(
+            r#"
+            component Foo {
+                GridLayout {
+                    🔺
+                }
+            }
+        "#,
+        )
+        .unwrap();
+        assert!(!res.iter().any(|ci| ci.label == "layout-order"));
     }
 
     #[test]
@@ -2939,23 +2957,43 @@ export component Foo {
 }
 "#;
         let results = get_completions_experimental(source).unwrap();
-        for prop in ["flex-grow", "flex-shrink", "flex-basis", "flex-order"].iter() {
-            assert!(
-                results.iter().any(|completion| completion.label == *prop),
-                "no '{prop}' completion with experimental features"
-            );
-        }
+        assert!(
+            results.iter().any(|completion| completion.label == "layout-order"),
+            "no 'layout-order' completion with experimental features"
+        );
 
         let results = get_completions(source).unwrap();
         assert!(
-            !results.iter().any(|completion| completion.label.starts_with("flex-")),
-            "flex-* completions offered without experimental features"
+            !results.iter().any(|completion| completion.label == "layout-order"),
+            "'layout-order' completion offered without experimental features"
         );
         // cross-axis-self-alignment is stable, so it completes without experimental features.
         assert!(
             results.iter().any(|completion| completion.label == "cross-axis-self-alignment"),
             "no 'cross-axis-self-alignment' completion"
         );
+    }
+
+    #[test]
+    fn cross_axis_self_alignment_in_box_layouts() {
+        for layout in ["HorizontalLayout", "VerticalLayout"] {
+            let source = format!(
+                r#"
+component Foo {{
+    {layout} {{
+        Rectangle {{
+            🔺
+        }}
+    }}
+}}
+"#
+            );
+            let results = get_completions(&source).unwrap();
+            assert!(
+                results.iter().any(|completion| completion.label == "cross-axis-self-alignment"),
+                "no 'cross-axis-self-alignment' completion in a {layout}"
+            );
+        }
     }
 
     #[test]

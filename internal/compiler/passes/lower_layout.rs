@@ -1674,13 +1674,6 @@ fn lower_box_layout(
         cross_alignment: binding_reference(layout_element, "cross-axis-alignment"),
     };
 
-    let layout_cache_ortho_prop = layout.cross_alignment.is_some().then(|| {
-        create_new_prop(
-            layout_element,
-            SmolStr::new_static("layout-cache-ortho"),
-            Type::LayoutCache,
-        )
-    });
     let layout_info_prop_v = create_new_prop(
         layout_element,
         SmolStr::new_static("layoutinfo-v"),
@@ -1693,6 +1686,33 @@ fn lower_box_layout(
     );
 
     let layout_children = std::mem::take(&mut layout_element.borrow_mut().children);
+
+    // Collect the items before wiring anything: the ortho-cache decision below
+    // needs to know whether any cell sets `cross-axis-self-alignment`.
+    let items: Vec<_> =
+        layout_children.iter().map(|child| create_layout_item(child, diag)).collect();
+    // A repeated cell with `cross-axis-self-alignment` returns that value through
+    // the generated `layout_item_info`, which needs the layout's orientation to
+    // restrict it to the cross axis.
+    for item in &items {
+        if item.repeater_index.is_some() && item.item.cross_axis_self_alignment.is_some() {
+            item.elem.borrow_mut().parent_box_layout_orientation = Some(orientation);
+        }
+    }
+
+    // A per-item `cross-axis-self-alignment` needs the ortho solver too, even
+    // when the container itself has no `cross-axis-alignment`.
+    let any_cell_align_self =
+        items.iter().any(|item| item.item.cross_axis_self_alignment.is_some());
+
+    let layout_cache_ortho_prop =
+        (layout.cross_alignment.is_some() || any_cell_align_self).then(|| {
+            create_new_prop(
+                layout_element,
+                SmolStr::new_static("layout-cache-ortho"),
+                Type::LayoutCache,
+            )
+        });
 
     let (pos, size, pad, ortho) = match orientation {
         Orientation::Horizontal => ("x", "width", "y", "height"),
@@ -1708,8 +1728,7 @@ fn lower_box_layout(
         (pad_expr, size_minus_padding(layout_element, ortho, pads))
     });
 
-    for layout_child in &layout_children {
-        let item = create_layout_item(layout_child, diag);
+    for item in items {
         let index = layout.elems.len() * BOX_LAYOUT_CACHE_ENTRIES_PER_CELL;
         let rep_idx = &item.repeater_index;
         let (fixed_size, fixed_ortho) = match orientation {
@@ -1887,19 +1906,8 @@ fn lower_flexbox_layout(layout_element: &ElementRc, diag: &mut BuildDiagnostics)
                 diag,
             );
         }
-        let flex_grow = crate::layout::binding_reference(actual_elem, "flex-grow");
-        let flex_shrink = crate::layout::binding_reference(actual_elem, "flex-shrink");
-        let flex_basis = crate::layout::binding_reference(actual_elem, "flex-basis");
-        let align_self = crate::layout::binding_reference(actual_elem, "cross-axis-self-alignment");
-        let order = crate::layout::binding_reference(actual_elem, "flex-order");
-        layout.elems.push(crate::layout::FlexboxLayoutItem {
-            item: item.item,
-            flex_grow,
-            flex_shrink,
-            flex_basis,
-            align_self,
-            order,
-        });
+        let order = crate::layout::binding_reference(actual_elem, "layout-order");
+        layout.elems.push(crate::layout::FlexboxLayoutItem { item: item.item, order });
     }
     layout_element.borrow_mut().children = layout_children;
     let span = layout_element.borrow().to_source_location();
@@ -2268,8 +2276,10 @@ fn create_layout_item(
     };
 
     let constraints = LayoutConstraints::new(&actual_elem, Some((diag, DiagnosticLevel::Error)));
+    let cross_axis_self_alignment =
+        crate::layout::binding_reference(&actual_elem, "cross-axis-self-alignment");
     CreateLayoutItemResult {
-        item: LayoutItem { element: item_element.clone(), constraints },
+        item: LayoutItem { element: item_element.clone(), constraints, cross_axis_self_alignment },
         elem: actual_elem,
         repeater_index,
     }
@@ -2541,19 +2551,26 @@ fn check_no_layout_properties(
         {
             diag.push_error(format!("{prop} used outside of a GridLayout's cell"), &*expr.borrow());
         }
-        if matches!(prop.as_ref(), "flex-grow" | "flex-shrink" | "flex-basis" | "flex-order") {
+        if prop == "layout-order" {
             if parent_layout_type.as_deref() != Some("FlexboxLayout") {
                 diag.push_error(format!("{prop} used outside of a FlexboxLayout"), &*expr.borrow());
             } else {
-                // These are not stable API yet: whether they should rather be expressed with
-                // the properties the other layouts already use is still being discussed.
+                // Not stable API yet: extending it to the box layouts is still open.
                 crate::reject_experimental_feature(diag, type_register, prop, &*expr.borrow());
             }
         }
         if prop == "cross-axis-self-alignment"
-            && parent_layout_type.as_deref() != Some("FlexboxLayout")
+            && !matches!(
+                parent_layout_type.as_deref(),
+                Some("FlexboxLayout" | "HorizontalLayout" | "VerticalLayout")
+            )
         {
-            diag.push_error(format!("{prop} used outside of a FlexboxLayout"), &*expr.borrow());
+            diag.push_error(
+                format!(
+                    "{prop} used outside of a FlexboxLayout, HorizontalLayout, or VerticalLayout"
+                ),
+                &*expr.borrow(),
+            );
         }
         if parent_layout_type.as_deref() != Some("Dialog")
             && matches!(prop.as_ref(), "dialog-button-role")

@@ -7,6 +7,7 @@ import { Spinner } from "std-widgets.slint";
 
 export component EditorUi inherits Window {
     title: @tr("Slint Editor");
+    always-on-top: Api.always-on-top;
 
     // macOS draws the editor content underneath a transparent unified title
     // bar, so reserve space for it and keep the toolbar clear of the window

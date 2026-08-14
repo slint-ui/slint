@@ -103,6 +103,21 @@ bool model_all(const std::shared_ptr<M> &model, P predicate)
     return true;
 }
 
+template<typename M, typename P>
+int32_t model_find_index(const std::shared_ptr<M> &model, P predicate)
+{
+    long int count = model_length(model);
+
+    for (long int i = 0; i < count; ++i) {
+        auto data = access_array_index(model, i);
+        if (predicate(data)) {
+            return static_cast<int32_t>(i);
+        }
+    }
+
+    return -1;
+}
+
 } // namespace private_api
 
 /// A Model is providing Data for Slint Models or ListView elements of the

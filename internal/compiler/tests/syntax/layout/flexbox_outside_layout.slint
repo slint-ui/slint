@@ -5,55 +5,47 @@ export component X inherits Rectangle {
 
     FlexboxLayout {
         Text {
-            flex-grow: 1;
-            flex-shrink: 2;
-            flex-basis: 100px;
             cross-axis-self-alignment: center;
-            flex-order: 3;
+            layout-order: 3;
         }
         Rectangle {
             Text {
-                flex-grow: 1;
-//                         ><error{flex-grow used outside of a FlexboxLayout}
-                flex-shrink: 2;
-//                           ><error{flex-shrink used outside of a FlexboxLayout}
-                flex-basis: 100px;
-//                          >    <error{flex-basis used outside of a FlexboxLayout}
                 cross-axis-self-alignment: center;
-//                                         >     <error{cross-axis-self-alignment used outside of a FlexboxLayout}
-                flex-order: 3;
-//                          ><error{flex-order used outside of a FlexboxLayout}
+//                                         >     <error{cross-axis-self-alignment used outside of a FlexboxLayout, HorizontalLayout, or VerticalLayout}
+                layout-order: 3;
+//                            ><error{layout-order used outside of a FlexboxLayout}
             }
         }
     }
 
     // flex properties used outside of FlexboxLayout should error
     Text {
-        flex-grow: 1;
-//                 ><error{flex-grow used outside of a FlexboxLayout}
-        flex-shrink: 2;
-//                   ><error{flex-shrink used outside of a FlexboxLayout}
-        flex-basis: 100px;
-//                  >    <error{flex-basis used outside of a FlexboxLayout}
         cross-axis-self-alignment: center;
-//                                 >     <error{cross-axis-self-alignment used outside of a FlexboxLayout}
-        flex-order: 3;
-//                  ><error{flex-order used outside of a FlexboxLayout}
+//                                 >     <error{cross-axis-self-alignment used outside of a FlexboxLayout, HorizontalLayout, or VerticalLayout}
+        layout-order: 3;
+//                    ><error{layout-order used outside of a FlexboxLayout}
     }
 
     GridLayout {
         Text {
-            flex-grow: 1;
-//                     ><error{flex-grow used outside of a FlexboxLayout}
+            cross-axis-self-alignment: center;
+//                                     >     <error{cross-axis-self-alignment used outside of a FlexboxLayout, HorizontalLayout, or VerticalLayout}
         }
     }
 
     HorizontalLayout {
         Text {
-            flex-grow: 1;
-//                     ><error{flex-grow used outside of a FlexboxLayout}
-            flex-order: 5;
-//                      ><error{flex-order used outside of a FlexboxLayout}
+            layout-order: 5;
+//                        ><error{layout-order used outside of a FlexboxLayout}
+            // valid in a box layout
+            cross-axis-self-alignment: center;
+        }
+    }
+
+    VerticalLayout {
+        Text {
+            // valid in a box layout
+            cross-axis-self-alignment: end;
         }
     }
 }

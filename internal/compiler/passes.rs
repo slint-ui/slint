@@ -154,6 +154,13 @@ pub async fn run_passes(
 
     for root_component in doc.exported_roots() {
         focus_handling::call_focus_on_init(&root_component);
+        // Before ensure_window, which gives a non-Window root a synthetic
+        // background from the style, and after inlining, which is what brings
+        // a background inherited from a base component onto the root
+        #[cfg(feature = "slint-sc")]
+        if diag.slint_sc {
+            windows::check_sc_window_background(&root_component, diag);
+        }
         windows::ensure_window(&root_component, &doc.local_registry, &style_metrics, diag);
     }
     if let Some(popup_menu_impl) = &doc.popup_menu_impl {

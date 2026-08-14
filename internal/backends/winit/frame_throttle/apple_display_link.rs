@@ -32,19 +32,23 @@ define_class!(
     impl DisplayLinkTarget {
         #[unsafe(method(tick:))]
         fn tick(&self, display_link: &CADisplayLink) {
-            corelib::platform::update_timers_and_animations();
-            if let Some(adapter) = self.ivars().window_adapter.upgrade() {
-                // Call draw() directly rather than request_redraw(), because
-                // during modal tracking loops (e.g. context menus) winit's
-                // event loop is blocked and would never process RedrawRequested.
-                if let Err(e) = adapter.draw() {
-                    i_slint_core::debug_log!("Error rendering during modal loop: {e}");
-                    display_link.setPaused(true);
-                    return;
-                }
-                if !adapter.window().has_active_animations() && !adapter.pending_redraw() {
-                    display_link.setPaused(true);
-                }
+            let Some(adapter) = self.ivars().window_adapter.upgrade() else {
+                // The window is gone, so there is nothing for this display link to drive.
+                return;
+            };
+            corelib::window::WindowInner::from_pub(adapter.window())
+                .context()
+                .update_timers_and_animations();
+            // Call draw() directly rather than request_redraw(), because
+            // during modal tracking loops (e.g. context menus) winit's
+            // event loop is blocked and would never process RedrawRequested.
+            if let Err(e) = adapter.draw() {
+                i_slint_core::debug_log!("Error rendering during modal loop: {e}");
+                display_link.setPaused(true);
+                return;
+            }
+            if !adapter.window().has_active_animations() && !adapter.pending_redraw() {
+                display_link.setPaused(true);
             }
         }
     }

@@ -98,6 +98,10 @@ pub fn remove_aliases(doc: &Document, diag: &mut BuildDiagnostics) {
     // collect all sets that are linked together
     let mut property_sets = PropertySets::default();
 
+    // Track how many distinct declarations alias into the same target
+    // target -> [aliases]
+    let mut callback_aliases: HashMap<NamedReference, Vec<NamedReference>> = HashMap::new();
+
     let mut process_element = |e: &ElementRc| {
         'bindings: for (name, binding) in e.borrow().real_bindings() {
             for twb in &binding.borrow().two_way_bindings {
@@ -114,7 +118,14 @@ pub fn remove_aliases(doc: &Document, diag: &mut BuildDiagnostics) {
                         );
                         continue 'bindings;
                     }
-                    property_sets.add_link(NamedReference::new(e, name.clone()), property.clone());
+                    let source = NamedReference::new(e, name.clone());
+                    if matches!(source.ty(), Type::Callback(..)) {
+                        let bucket = callback_aliases.entry(property.clone()).or_default();
+                        if !bucket.contains(&source) {
+                            bucket.push(source.clone());
+                        }
+                    }
+                    property_sets.add_link(source, property.clone());
                 }
             }
         }
@@ -123,6 +134,44 @@ pub fn remove_aliases(doc: &Document, diag: &mut BuildDiagnostics) {
     doc.visit_all_used_components(|component| {
         recurse_elem_including_sub_components(component, &(), &mut |e, &()| process_element(e))
     });
+
+    for (target, sources) in &callback_aliases {
+        if sources.len() < 2 {
+            continue;
+        }
+        // if a callback has an implementation, the rest are alternate names for invoking it
+        let has_implementation = property_sets.map.get(target).is_some_and(|set_rc| {
+            set_rc.borrow().iter().any(|nr| {
+                let elem = nr.element();
+                let elem = elem.borrow();
+                elem.binding(nr.name())
+                    .is_some_and(|b| !matches!(b.value_expression(), Expression::Invalid))
+            })
+        });
+        if has_implementation {
+            continue;
+        }
+        for nr in sources {
+            let other_names = sources
+                .iter()
+                .filter(|other| *other != nr)
+                .map(|other| format!("'{}'", other.name()))
+                .collect::<Vec<_>>()
+                .join(", ");
+            let elem = nr.element();
+            let elem = elem.borrow();
+            if let Some(b) = elem.binding(nr.name()) {
+                // Only a warning: this compiled fine up to 1.17 and code relies on it.
+                diag.push_warning(
+                    format!(
+                        "Callback '{}' shares a handler slot with {other_names}, so only one of them can have an implementation",
+                        nr.name()
+                    ),
+                    &*b,
+                );
+            }
+        }
+    }
 
     // The key will be removed and replaced by the named reference
     let mut aliases_to_remove = Mapping::new();
@@ -304,7 +353,9 @@ pub fn remove_aliases(doc: &Document, diag: &mut BuildDiagnostics) {
                     *b = old_binding;
                 }
             } else {
-                if (same_component || both_global) && old_binding.has_binding() {
+                if (same_component || both_global)
+                    && (old_binding.has_binding() || old_binding.animation.is_some())
+                {
                     to_elem.set_binding(to.name().clone(), old_binding);
                 }
             }

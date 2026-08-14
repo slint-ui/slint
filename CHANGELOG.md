@@ -8,6 +8,8 @@ All notable changes to this project are documented in this file.
 
  - Added the `FlexboxLayout` element, which arranges its children in rows or columns and wraps them
    to the next line when they don't fit.
+ - Added the per-item `cross-axis-self-alignment` property: the children of a `FlexboxLayout`,
+   `HorizontalLayout`, or `VerticalLayout` can override the container's `cross-axis-alignment`.
 
 ## [1.17.1] - 2026-07-07
 

@@ -9,6 +9,9 @@ project(Slint HOMEPAGE_URL "https://slint.dev/" LANGUAGES C CXX VERSION 1.18.0)
 
 include(FeatureSummary)
 include(CMakeDependentOption)
+# Included before the install rules below, so that they and the exported
+# package agree on where the library goes
+include(GNUInstallDirs)
 
 find_package(Corrosion QUIET 0.6)
 if (NOT Corrosion_FOUND)
@@ -485,9 +488,9 @@ if (SLINT_BUILD_RUNTIME)
 
     export(TARGETS Slint slint_cpp
         NAMESPACE Slint:: FILE "${CMAKE_BINARY_DIR}/lib/cmake/Slint/SlintTargets.cmake")
-    install(EXPORT SlintTargets NAMESPACE Slint:: DESTINATION lib/cmake/Slint)
+    install(EXPORT SlintTargets NAMESPACE Slint:: DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/Slint)
     install(TARGETS Slint slint_cpp
-        EXPORT SlintTargets LIBRARY DESTINATION lib PUBLIC_HEADER DESTINATION include/slint)
+        EXPORT SlintTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR} PUBLIC_HEADER DESTINATION include/slint)
     install(DIRECTORY include/private DESTINATION include/slint FILES_MATCHING PATTERN "*.h")
     install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/generated_include/private DESTINATION include/slint FILES_MATCHING PATTERN "*.h")
 
@@ -500,7 +503,6 @@ if (SLINT_BUILD_RUNTIME)
 endif(SLINT_BUILD_RUNTIME)
 
 include(CMakePackageConfigHelpers)
-include(GNUInstallDirs)
 
 
 if(SLINT_FEATURE_COMPILER AND NOT SLINT_COMPILER)
@@ -543,7 +545,7 @@ if(SLINT_BUILD_RUNTIME)
             cmake_path(GET _slint_compiler_location FILENAME SLINT_COMPILER_FILE_NAME)
         endif()
 
-        configure_package_config_file("cmake/SlintConfig.cmake.in" "${CMAKE_CURRENT_BINARY_DIR}/lib/cmake/Slint/SlintConfig.cmake" INSTALL_DESTINATION lib/cmake/Slint)
+        configure_package_config_file("cmake/SlintConfig.cmake.in" "${CMAKE_CURRENT_BINARY_DIR}/lib/cmake/Slint/SlintConfig.cmake" INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/Slint)
     endfunction()
 
     cmake_language(DEFER CALL _slint_write_configure_file)
@@ -558,7 +560,7 @@ if(SLINT_BUILD_RUNTIME)
         "${CMAKE_CURRENT_BINARY_DIR}/lib/cmake/Slint/SlintConfig.cmake"
         "${CMAKE_CURRENT_BINARY_DIR}/lib/cmake/Slint/SlintConfigVersion.cmake"
         "${CMAKE_CURRENT_LIST_DIR}/cmake/SlintMacro.cmake"
-        DESTINATION lib/cmake/Slint
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/Slint
     )
 
 endif(SLINT_BUILD_RUNTIME)

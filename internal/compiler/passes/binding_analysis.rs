@@ -378,10 +378,14 @@ fn analyze_binding(
             }
 
             let span = binding.span.clone().unwrap_or_else(|| elem.to_source_location());
-            if !context.error_on_binding_loop_with_window_layout && has_window_layout {
-                diag.push_warning(format!("The binding for the property '{}' is part of a binding loop ({loop_description}).\nThis was allowed in previous version of Slint, but is deprecated and may cause panic at runtime", p.name()), &span);
-            } else {
-                diag.push_error(format!("The binding for the property '{}' is part of a binding loop ({loop_description})", p.name()), &span);
+            // Skip the properties of synthetic elements (eg. the Flickable's content element):
+            // they have no location in the source. The rest of the loop is still reported.
+            if span.source_file.is_some() {
+                if !context.error_on_binding_loop_with_window_layout && has_window_layout {
+                    diag.push_warning(format!("The binding for the property '{}' is part of a binding loop ({loop_description}).\nThis was allowed in previous version of Slint, but is deprecated and may cause panic at runtime", p.name()), &span);
+                } else {
+                    diag.push_error(format!("The binding for the property '{}' is part of a binding loop ({loop_description})", p.name()), &span);
+                }
             }
             if it == current {
                 break;
@@ -440,6 +444,27 @@ fn analyze_binding(
     recurse_expression(&current.prop.element(), &b.expression, &mut |p, r| {
         process_prop(p, r, context)
     });
+
+    // `remove_aliases` merges two-way bound properties into one, keeping only one of the bindings,
+    // so the expression of a property aliased to this one is a dependency of this binding too.
+    // The other direction is covered by the `two_way_bindings` loop above.
+    let mut aliased_deps = Vec::new();
+    for alias in reverse_aliases.get(&current.prop).into_iter().flatten() {
+        let element = alias.element();
+        let element_borrow = element.borrow();
+        if let Some(alias_binding) = element_borrow.binding(alias.name()) {
+            recurse_expression(&element, &alias_binding.expression, &mut |p, r| {
+                // A reference back to this property is reported as "cannot refer to itself".
+                if !(p.elements.is_empty() && p.prop == current.prop) {
+                    aliased_deps.push((p.clone(), r))
+                }
+            });
+        }
+    }
+    // Process outside of the loop so that the alias binding isn't borrowed while it is analyzed.
+    for (p, r) in &aliased_deps {
+        process_prop(p, *r, context);
+    }
 
     let mut is_const = b.expression.is_constant(Some(context.global_analysis))
         && b.two_way_bindings.iter().all(|n| n.is_constant());
@@ -610,12 +635,17 @@ fn recurse_expression(
             }
             visit_layout_items_dependencies(l.elems.iter(), *o, vis);
 
-            // The orthogonal solve depends on `cross-axis-alignment`.
-            if matches!(expr, Expression::SolveBoxLayout(..))
-                && *o != l.orientation
-                && let Some(nr) = l.cross_alignment.as_ref()
-            {
-                vis(&nr.clone().into(), P);
+            // The orthogonal solve depends on `cross-axis-alignment` and on the
+            // cells' `cross-axis-self-alignment`.
+            if matches!(expr, Expression::SolveBoxLayout(..)) && *o != l.orientation {
+                if let Some(nr) = l.cross_alignment.as_ref() {
+                    vis(&nr.clone().into(), P);
+                }
+                for cell in l.elems.iter() {
+                    if let Some(nr) = cell.cross_axis_self_alignment.as_ref() {
+                        vis(&nr.clone().into(), P);
+                    }
+                }
             }
 
             let mut g = l.geometry.clone();

@@ -1,0 +1,294 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A height-for-width cell of a row flexbox must be measured at the width taffy
+// assigns it (its preferred width when it doesn't grow), not at the container
+// width. Here the inner flexbox's preferred width is the wrapping "square"
+// estimate (two texts per line), so it wraps to two lines even though it would
+// fit on one line at the full container width. The outer flexbox's reported
+// height must include that second line — this is what sizes an auto-sized
+// window.
+
+component ReportedCard inherits Rectangle {
+    FlexboxLayout {
+        padding: 10px;
+        spacing: 30px;
+        Text { text: "Button1"; }
+        FlexboxLayout {
+            spacing: 10px;
+            Text { text: "Button2"; }
+            Text { text: "Button3"; }
+            Text { text: "Button4"; }
+        }
+    }
+}
+
+// Mirror of ReportedCard with column direction, for the width-for-height case.
+// All labels use the same string: the width assertion compares against the
+// reference text's width, so the cells must not depend on every "ButtonN"
+// happening to render equally wide.
+component ReportedCardColumn inherits Rectangle {
+    FlexboxLayout {
+        flex-direction: column;
+        padding: 10px;
+        spacing: 30px;
+        Text { text: "Button1"; }
+        FlexboxLayout {
+            flex-direction: column;
+            spacing: 10px;
+            Text { text: "Button1"; }
+            Text { text: "Button1"; }
+            Text { text: "Button1"; }
+        }
+    }
+}
+
+// Repeater flavor of ReportedCard: the h4w inner flexbox is a repeated cell,
+// so the measure callback maps taffy's flat cell index to a runtime instance
+// (the runtime-cell-count path) instead of a static cell.
+component InnerFlex inherits Rectangle {
+    FlexboxLayout {
+        spacing: 10px;
+        Text { text: "Button2"; }
+        Text { text: "Button3"; }
+        Text { text: "Button4"; }
+    }
+}
+component RepeatedCard inherits Rectangle {
+    FlexboxLayout {
+        padding: 10px;
+        spacing: 30px;
+        Text { text: "Button1"; }
+        for i in 1: InnerFlex { }
+    }
+}
+
+// All cells repeated, no static sibling: the flexbox must still count the
+// repeated component's root as height-for-width capable and take the measure
+// path (a static capable sibling used to mask a repeater-blind capability
+// check).
+component RepeaterOnlyCard inherits Rectangle {
+    FlexboxLayout {
+        padding: 10px;
+        for i in 1: InnerFlex { }
+    }
+}
+
+// Column mirror, for the width-for-height case.
+component InnerFlexColumn inherits Rectangle {
+    FlexboxLayout {
+        flex-direction: column;
+        spacing: 10px;
+        Text { text: "Button1"; }
+        Text { text: "Button1"; }
+        Text { text: "Button1"; }
+    }
+}
+component RepeatedCardColumn inherits Rectangle {
+    FlexboxLayout {
+        flex-direction: column;
+        padding: 10px;
+        spacing: 30px;
+        Text { text: "Button1"; }
+        for i in 1: InnerFlexColumn { }
+    }
+}
+
+export component TestCase inherits Window {
+    width: 800px;
+    height: 1000px;
+
+    // Single-line reference, so the assertions stay font-independent
+    // (the nodejs backend has no test fonts).
+    refLine := Text { x: -3000px; text: "Button1"; wrap: no-wrap; }
+    out property <length> line-height: refLine.height;
+    property <length> t: refLine.width;
+
+    // Wide enough for one outer line: Button1 + spacing 30 + inner at its
+    // preferred width (2 texts + spacing 10), plus padding 20 and slack.
+    property <length> w: 3 * t + 80px;
+
+    // Inner flexbox wraps at its preferred width: two lines.
+    wrapped := VerticalLayout {
+        x: 0; y: 0; width: w; height: 450px;
+        alignment: start;
+        wrappedCell := Rectangle {
+            FlexboxLayout {
+                padding: 10px;
+                spacing: 30px;
+                Text { text: "Button1"; }
+                FlexboxLayout {
+                    spacing: 10px;
+                    Text { text: "Button2"; }
+                    Text { text: "Button3"; }
+                    Text { text: "Button4"; }
+                }
+            }
+        }
+    }
+
+    // no-wrap reference: the inner flexbox's preferred width is its full
+    // single-line width, so everything stays on one line.
+    nowrap := VerticalLayout {
+        x: 400px; y: 0; width: 4 * t + 100px; height: 450px;
+        alignment: start;
+        nowrapCell := Rectangle {
+            FlexboxLayout {
+                padding: 10px;
+                spacing: 30px;
+                Text { text: "Button1"; }
+                FlexboxLayout {
+                    spacing: 10px;
+                    flex-wrap: no-wrap;
+                    Text { text: "Button2"; }
+                    Text { text: "Button3"; }
+                    Text { text: "Button4"; }
+                }
+            }
+        }
+    }
+
+    // Same content as `wrapped`, but measured through the *constrained*
+    // layout-info function (`layoutinfo-v-with-constraint`): a
+    // height-for-width cell of a wrapping flexbox is measured that way at its
+    // assigned width — like an auto-sized window is. On that path the cells
+    // are pre-measured at the container width, so the taffy measure callback
+    // must return self-consistent (width, height-at-that-width) pairs, or
+    // taffy's measure cache serves the pre-measured height for the inner
+    // flexbox and drops its second line.
+    FlexboxLayout {
+        x: 0; y: 200px; width: w; height: 250px;
+        flex-direction: row;
+        flex-wrap: wrap;
+        padding: 0px; spacing: 0px;
+        cross-axis-line-alignment: start;
+        cross-axis-alignment: start;
+        ReportedCard { preferred-width: w; }
+        anchor := Rectangle { width: w; height: 5px; }
+    }
+
+    // Width-for-height mirror of the case above: a column-direction card as the
+    // cell of a wrapping column flexbox, measured at its assigned height. The
+    // inner column flexbox's preferred height is the wrapping estimate (two
+    // texts per column), so it wraps into a second column that the reported
+    // width must include.
+    property <length> column-height: 3 * line-height + 80px;
+    FlexboxLayout {
+        x: 400px; y: 200px; width: 380px; height: column-height;
+        flex-direction: column;
+        flex-wrap: wrap;
+        padding: 0px; spacing: 0px;
+        cross-axis-line-alignment: start;
+        cross-axis-alignment: start;
+        ReportedCardColumn { preferred-height: column-height; }
+        colAnchor := Rectangle { width: 5px; height: column-height; }
+    }
+
+    // Same as the two constrained cases, with the repeated cards: exercises
+    // the runtime-cell-count (repeater) measure callback through the info
+    // path.
+    FlexboxLayout {
+        x: 0; y: 480px; width: w; height: 250px;
+        flex-direction: row;
+        flex-wrap: wrap;
+        padding: 0px; spacing: 0px;
+        cross-axis-line-alignment: start;
+        cross-axis-alignment: start;
+        RepeatedCard { preferred-width: w; }
+        repAnchor := Rectangle { width: w; height: 5px; }
+    }
+
+    FlexboxLayout {
+        x: 400px; y: 480px; width: 380px; height: column-height;
+        flex-direction: column;
+        flex-wrap: wrap;
+        padding: 0px; spacing: 0px;
+        cross-axis-line-alignment: start;
+        cross-axis-alignment: start;
+        RepeatedCardColumn { preferred-height: column-height; }
+        repColAnchor := Rectangle { width: 5px; height: column-height; }
+    }
+
+    // Repeater-only card: the card's flexbox has no static cell at all. The
+    // narrow basis shrinks the inner flexbox below its preferred width (one
+    // text per line, three lines) — at its preferred width the default
+    // pre-measure is accidentally correct and would hide a missing measure
+    // callback.
+    property <length> narrow-w: t + 50px;
+    FlexboxLayout {
+        x: 0; y: 740px; width: w; height: 250px;
+        flex-direction: row;
+        flex-wrap: wrap;
+        padding: 0px; spacing: 0px;
+        cross-axis-line-alignment: start;
+        cross-axis-alignment: start;
+        RepeaterOnlyCard { preferred-width: narrow-w; }
+        repOnlyAnchor := Rectangle { width: w; height: 5px; }
+    }
+
+    out property <length> wrapped-h: wrappedCell.height;
+    out property <length> nowrap-h: nowrapCell.height;
+    out property <length> constrained-h: anchor.y;
+    out property <length> constrained-w: colAnchor.x;
+    out property <length> constrained-rep-h: repAnchor.y;
+    out property <length> constrained-rep-w: repColAnchor.x;
+    out property <length> constrained-rep-only-h: repOnlyAnchor.y;
+
+    // Inner wraps to two lines (spacing 10) + outer padding 20.
+    out property <bool> wrapped-ok: abs(wrapped-h - (2 * line-height + 10px + 20px)) < 1px;
+    // Single line + outer padding 20.
+    out property <bool> nowrap-ok: abs(nowrap-h - (line-height + 20px)) < 1px;
+    out property <bool> constrained-ok: abs(constrained-h - (2 * line-height + 10px + 20px)) < 1px;
+    // Inner wraps into two columns (spacing 10) + outer padding 20.
+    out property <bool> constrained-w-ok: abs(constrained-w - (2 * t + 10px + 20px)) < 1px;
+    out property <bool> constrained-rep-ok: abs(constrained-rep-h - (2 * line-height + 10px + 20px)) < 1px;
+    out property <bool> constrained-rep-w-ok: abs(constrained-rep-w - (2 * t + 10px + 20px)) < 1px;
+    // One text per line: three lines (2 * spacing 10) + outer padding 20.
+    out property <bool> constrained-rep-only-ok: abs(constrained-rep-only-h - (3 * line-height + 20px + 20px)) < 1px;
+
+    out property <bool> test: wrapped-ok && nowrap-ok && constrained-ok && constrained-w-ok
+        && constrained-rep-ok && constrained-rep-w-ok && constrained-rep-only-ok;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_nowrap_ok(), "no-wrap cell height wrong: {} for line height {}",
+    instance.get_nowrap_h(), instance.get_line_height());
+assert!(instance.get_wrapped_ok(), "wrapped cell height wrong: {} for line height {}",
+    instance.get_wrapped_h(), instance.get_line_height());
+assert!(instance.get_constrained_ok(), "constrained-path cell height wrong: {} for line height {}",
+    instance.get_constrained_h(), instance.get_line_height());
+assert!(instance.get_constrained_w_ok(), "constrained-path cell width wrong: {}",
+    instance.get_constrained_w());
+assert!(instance.get_constrained_rep_ok(), "repeated cell height wrong: {} for line height {}",
+    instance.get_constrained_rep_h(), instance.get_line_height());
+assert!(instance.get_constrained_rep_w_ok(), "repeated cell width wrong: {}",
+    instance.get_constrained_rep_w());
+assert!(instance.get_constrained_rep_only_ok(), "repeater-only cell height wrong: {} for line height {}",
+    instance.get_constrained_rep_only_h(), instance.get_line_height());
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_nowrap_ok());
+assert(instance.get_wrapped_ok());
+assert(instance.get_constrained_ok());
+assert(instance.get_constrained_w_ok());
+assert(instance.get_constrained_rep_ok());
+assert(instance.get_constrained_rep_w_ok());
+assert(instance.get_constrained_rep_only_ok());
+```
+
+```js
+var instance = new slint.TestCase({});
+assert(instance.nowrap_ok);
+assert(instance.wrapped_ok);
+assert(instance.constrained_ok);
+assert(instance.constrained_w_ok);
+assert(instance.constrained_rep_ok);
+assert(instance.constrained_rep_w_ok);
+assert(instance.constrained_rep_only_ok);
+```
+*/

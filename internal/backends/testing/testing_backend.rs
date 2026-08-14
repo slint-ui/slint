@@ -154,6 +154,7 @@ pub struct TestingBackendOptions {
 }
 
 pub struct TestingBackend {
+    context: std::cell::OnceCell<i_slint_core::SlintContextWeak>,
     clipboard: Mutex<Option<String>>,
     queue: Option<Queue>,
     mock_time: bool,
@@ -166,6 +167,7 @@ pub struct TestingBackend {
 impl TestingBackend {
     pub fn new(options: TestingBackendOptions) -> Self {
         Self {
+            context: Default::default(),
             clipboard: Mutex::default(),
             queue: options.threading.then(|| Queue(Default::default(), std::thread::current())),
             mock_time: options.mock_time,
@@ -178,6 +180,10 @@ impl TestingBackend {
 }
 
 impl i_slint_core::platform::Platform for TestingBackend {
+    fn bind_context(&self, ctx: i_slint_core::SlintContextWeak, _: i_slint_core::InternalToken) {
+        let _ = self.context.set(ctx);
+    }
+
     fn create_window_adapter(
         &self,
     ) -> Result<Rc<dyn WindowAdapter>, i_slint_core::platform::PlatformError> {
@@ -239,13 +245,17 @@ impl i_slint_core::platform::Platform for TestingBackend {
 
         loop {
             let e = queue.0.lock().unwrap().pop_front();
+            let ctx =
+                self.context.get().and_then(|ctx| ctx.upgrade()).expect(
+                    "the testing backend's event loop runs inside the context that owns it",
+                );
             if !self.mock_time {
-                i_slint_core::platform::update_timers_and_animations();
+                ctx.update_timers_and_animations();
             }
             match e {
                 Some(Event::Quit) => break Ok(()),
                 Some(Event::Event(e)) => e(),
-                None => match i_slint_core::platform::duration_until_next_timer_update() {
+                None => match ctx.duration_until_next_timer_update() {
                     Some(duration) if !self.mock_time => std::thread::park_timeout(duration),
                     _ => std::thread::park(),
                 },

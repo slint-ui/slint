@@ -27,6 +27,7 @@ export component TestCase {
     out property <bool> all-positive: ints.all((x) => x > 0);
     out property <bool> any-above-threshold: ints.any((x) => x > threshold);
     out property <bool> all-above-threshold: ints.all((x) => x > threshold);
+    out property <int> index-above-threshold: ints.find-index((x) => x > threshold);
 
     out property <bool> ints-all-positive: ints.all((x) => x > 0);
     out property <bool> ints-not-all-gt-one: !ints.all((x) => x > 1);
@@ -39,12 +40,17 @@ export component TestCase {
     out property <bool> strings-any-hello: strings.any((s) => s == "hello");
     out property <bool> strings-no-test: !strings.any((s) => s == "test");
     out property <bool> strings-no-empty: !strings.any((s) => s.is-empty);
+    out property <int> strings-find-index-world: strings.find-index((s) => s == "world");
+    out property <int> strings-find-index-missing: strings.find-index((s) => s == "test");
 
     out property <bool> people-all-adults: people.all((p) => p.age > 20);
     out property <bool> people-not-all-under-thirty: !people.all((p) => p.age < 30);
     out property <bool> people-any-alice: people.any((p) => p.name == "Alice");
     out property <bool> people-no-evan: !people.any((p) => p.name == "Evan");
     out property <bool> people-any-under-thirty: people.any((p) => p.age < 30);
+    out property <int> people-find-index-charlie: people.find-index((p) => p.name == "Charlie");
+    // First-match semantics: several people are over 20, index of the first one (Alice) must win.
+    out property <int> people-find-index-first-adult: people.find-index((p) => p.age > 20);
 
     out property <bool> groups-all-over-twenty: groups.all((group) => group.all((person) => person.age > 20));
     out property <bool> groups-not-all-under-thirty: !groups.all((group) => group.all((person) => person.age < 30));
@@ -63,6 +69,9 @@ export component TestCase {
 
     out property <bool> empty-any-false: !empty-ints.any((x) => x == 0);
     out property <bool> empty-all-true: empty-ints.all((x) => x == 0);
+    out property <int> empty-find-index: empty-ints.find-index((x) => x == 0);
+    out property <int> ints-find-index-three: ints.find-index((x) => x == 3);
+    out property <int> ints-find-index-missing: ints.find-index((x) => x == 99);
 
     out property <bool> closure-arg-shadows-local: {
         let x = "hello world";
@@ -92,7 +101,10 @@ export component TestCase {
         && nested-no-all-alice && precedence-and && precedence-or && precedence-all
         && empty-any-false && empty-all-true && closure-arg-shadows-local
         && closure-arg-shadows-same-type-local
-        && nested-closure-arg-shadows;
+        && nested-closure-arg-shadows
+        && empty-find-index == -1 && ints-find-index-three == 2 && ints-find-index-missing == -1
+        && strings-find-index-world == 1 && strings-find-index-missing == -1
+        && people-find-index-charlie == 2 && people-find-index-first-adult == 0;
 }
 
 /*
@@ -132,6 +144,13 @@ assert(instance.get_empty_all_true());
 assert(instance.get_closure_arg_shadows_local());
 assert(instance.get_closure_arg_shadows_same_type_local());
 assert(instance.get_nested_closure_arg_shadows());
+assert(instance.get_empty_find_index() == -1);
+assert(instance.get_ints_find_index_three() == 2);
+assert(instance.get_ints_find_index_missing() == -1);
+assert(instance.get_strings_find_index_world() == 1);
+assert(instance.get_strings_find_index_missing() == -1);
+assert(instance.get_people_find_index_charlie() == 2);
+assert(instance.get_people_find_index_first_adult() == 0);
 ```
 
 ```rust
@@ -171,6 +190,13 @@ assert!(instance.get_empty_all_true());
 assert!(instance.get_closure_arg_shadows_local());
 assert!(instance.get_closure_arg_shadows_same_type_local());
 assert!(instance.get_nested_closure_arg_shadows());
+assert_eq!(instance.get_empty_find_index(), -1);
+assert_eq!(instance.get_ints_find_index_three(), 2);
+assert_eq!(instance.get_ints_find_index_missing(), -1);
+assert_eq!(instance.get_strings_find_index_world(), 1);
+assert_eq!(instance.get_strings_find_index_missing(), -1);
+assert_eq!(instance.get_people_find_index_charlie(), 2);
+assert_eq!(instance.get_people_find_index_first_adult(), 0);
 
 let model: std::rc::Rc<slint::VecModel<i32>> = std::rc::Rc::new(vec![1, 2, 3].into());
 instance.set_ints(slint::ModelRc::from(model.clone()));
@@ -178,30 +204,36 @@ assert!(!instance.get_has_zero());
 assert!(instance.get_all_positive());
 assert!(!instance.get_any_above_threshold());
 assert!(!instance.get_all_above_threshold());
+assert_eq!(instance.get_index_above_threshold(), -1);
 
 instance.set_threshold(1);
 assert!(instance.get_any_above_threshold());
 assert!(!instance.get_all_above_threshold());
+assert_eq!(instance.get_index_above_threshold(), 1);
 
 model.set_row_data(0, 3);
 assert!(instance.get_all_above_threshold());
+assert_eq!(instance.get_index_above_threshold(), 0);
 
 model.set_row_data(1, 0);
 assert!(instance.get_has_zero());
 assert!(!instance.get_all_positive());
 assert!(instance.get_any_above_threshold());
 assert!(!instance.get_all_above_threshold());
+assert_eq!(instance.get_index_above_threshold(), 0);
 
 model.set_row_data(1, 4);
 assert!(!instance.get_has_zero());
 assert!(instance.get_all_positive());
 assert!(instance.get_any_above_threshold());
 assert!(instance.get_all_above_threshold());
+assert_eq!(instance.get_index_above_threshold(), 0);
 
 model.push(0);
 assert!(instance.get_has_zero());
 assert!(!instance.get_all_positive());
 assert!(!instance.get_all_above_threshold());
+assert_eq!(instance.get_index_above_threshold(), 0);
 ```
 
 ```js
@@ -239,5 +271,12 @@ assert(instance.empty_all_true);
 assert(instance.closure_arg_shadows_local);
 assert(instance.closure_arg_shadows_same_type_local);
 assert(instance.nested_closure_arg_shadows);
+assert(instance.empty_find_index == -1);
+assert(instance.ints_find_index_three == 2);
+assert(instance.ints_find_index_missing == -1);
+assert(instance.strings_find_index_world == 1);
+assert(instance.strings_find_index_missing == -1);
+assert(instance.people_find_index_charlie == 2);
+assert(instance.people_find_index_first_adult == 0);
 ```
 */

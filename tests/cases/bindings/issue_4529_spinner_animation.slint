@@ -1,0 +1,33 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company , info@kdab.com, author Robin Cramer <robin.cramer@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component SpinnerBase {
+    in property <float> progress;
+}
+
+export component Spinner {
+    in property <float> progress <=> base.progress;
+    base := SpinnerBase { }
+}
+
+export component TestCase {
+    spinner := Spinner {
+        animate progress { duration: 200ms; }
+    }
+    public function set() {
+        spinner.progress = 0.5;
+    }
+    out property <float> observed: spinner.progress;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.get_observed(), 0.0);
+instance.invoke_set();
+slint_testing::mock_elapsed_time(100);
+assert!((instance.get_observed() - 0.25).abs() < 0.01, "got {}", instance.get_observed());
+slint_testing::mock_elapsed_time(100);
+assert!((instance.get_observed() - 0.5).abs() < 0.01, "got {}", instance.get_observed());
+```
+*/

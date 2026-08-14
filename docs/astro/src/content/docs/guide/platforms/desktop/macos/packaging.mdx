@@ -1,0 +1,243 @@
+---
+title: macOS Packaging (Rust)
+description: Package a desktop Rust-based Slint app for direct macOS distribution or the Mac App Store.
+---
+
+{/* cSpell: ignore APPL pipefail esac notarytool spctl */}
+
+import { Aside, Code } from '@astrojs/starlight/components';
+import buildScript from './../../../../../../../../../scripts/build_macos_app_with_cargo.bash?raw'
+
+There are two main routes for distributing macOS apps: the [Mac App Store](https://www.apple.com/app-store/) and direct distribution.
+Slint supports both routes by generating standard Xcode projects that work with Apple's build and distribution tools.
+
+<Aside type="note">
+To distribute an app outside the Mac App Store, you need an [Apple Developer Program](https://developer.apple.com/programs/) membership.
+Without one, you can only self-sign your app for local development and testing.
+</Aside>
+
+## Prerequisites
+
+- A Mac with [Xcode](https://developer.apple.com/xcode/) installed.
+- [XcodeGen](https://github.com/yonaskolb/XcodeGen?tab=readme-ov-file#installing).
+- Rust and the macOS target you build for, such as `aarch64-apple-darwin`.
+- An Apple Developer Program membership for signing, notarization, and Mac App Store distribution.
+
+## Native Xcode Project Support
+
+To build and distribute for the Apple ecosystem, you need an Xcode project.
+Use [XcodeGen](https://github.com/yonaskolb/XcodeGen) to generate one from a YAML spec,
+so that you don't maintain an Xcode project and your own project files in parallel.
+It creates a project that's compatible with Apple's native build and distribution tools.
+
+Don't check the Xcode project file in.
+Generate it from the YAML file instead, and let XcodeGen do the heavy lifting of keeping it up to date.
+
+<Aside type="note">
+If you open the project file in Xcode, you might see warnings that the project is out of date.
+This is because the project is generated from a YAML spec and not edited directly in Xcode.
+You can safely ignore these warnings.
+</Aside>
+
+A preconfigured Cargo build script builds the app and places the binary where Xcode expects it.
+
+The project spec also configures the app icon, entitlements, launch assets, and bundled resources.
+
+## Generate the Xcode Project
+
+Create a `project.yml` file for XcodeGen.
+This example creates a macOS app target and delegates the Rust build to a shell script:
+
+```yaml
+name: My Slint App
+options:
+  deploymentTarget:
+    macOS: "12.0"
+settings:
+  ENABLE_HARDENED_RUNTIME: YES
+targets:
+  My Slint App:
+    type: application
+    platform: macOS
+    deploymentTarget: "12.0"
+    scheme: {}
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.example.my-slint-app
+        DEVELOPMENT_TEAM: ABCDE12345
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+    info:
+      path: Info.plist
+      properties:
+        CFBundleDisplayName: My Slint App
+        CFBundleExecutable: "$(EXECUTABLE_NAME)"
+        CFBundleIdentifier: "$(PRODUCT_BUNDLE_IDENTIFIER)"
+        CFBundleInfoDictionaryVersion: "6.0"
+        CFBundleName: My Slint App
+        CFBundlePackageType: APPL
+        CFBundleShortVersionString: "1.0.0"
+        CFBundleVersion: "1"
+        LSMinimumSystemVersion: "12.0"
+        NSHighResolutionCapable: true
+    sources:
+      - path: Packaging/AppIcon.xcassets
+        buildPhase: resources
+    postCompileScripts:
+      - name: Build with Cargo
+        script: |
+          ./build_macos_app_with_cargo.bash --bin my-slint-app --profile release
+        outputFiles:
+          - $(TARGET_BUILD_DIR)/$(EXECUTABLE_PATH)
+```
+
+<Aside type="note">
+The example sets the `Info.plist` values in the YAML spec.
+You can change the app's bundle identifier, team, app category, entitlements, and resources without editing the generated project.
+</Aside>
+
+Then generate the Xcode project:
+
+```sh
+xcodegen generate --spec project.yml --use-cache
+```
+
+The generated `.xcodeproj` is a normal Xcode project.
+Add it to your `.gitignore` file so that you don't check it in.
+You can open it in Xcode, build it with `xcodebuild`, or use it with Xcode Cloud.
+To change the app target, `Info.plist` values, resources, entitlements, build phases, or signing settings, edit `project.yml` and regenerate the project.
+
+Write `project.yml` once.
+Regenerate the project file before every build, including in CI, since you don't check it in.
+Use `--use-cache` to keep that cheap:
+XcodeGen leaves the project untouched when nothing in the spec has changed.
+
+The Cargo build script must copy the final executable to the path Xcode expects.
+This is the script the Slint repository ships as `scripts/build_macos_app_with_cargo.bash`:
+
+<Code code={buildScript} lang="bash" />
+
+Copy it next to your `project.yml` and make it executable with `chmod +x build_macos_app_with_cargo.bash`.
+
+Xcode passes `TARGET_BUILD_DIR` and `EXECUTABLE_PATH` to the script.
+The `--profile` flag keeps the Cargo profile out of the script, so the same script serves debug and release builds.
+Anything after the recognized flags goes to `cargo build`, so you can select features per target.
+The build lands in `target/xcode-cargo/`, in a directory named after `MACOS_CARGO_TARGET_DIR_NAME`, the bundle identifier, or the binary, so an Xcode build doesn't fight your regular `cargo build` over the same target directory.
+
+## Distribute a DMG Outside the Mac App Store
+
+Use this route when users download the app directly from your website.
+The app must be signed with a Developer ID Application certificate and notarized by Apple before distribution.
+
+Set this up once:
+
+1. Create a Developer ID Application certificate and install it in the keychain you build with.
+2. Store notarization credentials for `notarytool` with `xcrun notarytool store-credentials`.
+3. Write the XcodeGen spec, the Cargo build script, and the script that lays out the DMG.
+
+Repeat these steps for every release:
+
+1. Generate the Xcode project with XcodeGen.
+2. Build or archive the app with Xcode or `xcodebuild`.
+3. Sign the app bundle with the hardened runtime enabled.
+4. Submit the app to Apple's notarization service.
+5. Staple and validate the accepted notarization ticket on the app.
+6. Create a DMG that contains the notarized app bundle.
+7. Sign the DMG with a Developer ID Application certificate.
+8. Submit the DMG to Apple's notarization service.
+9. Staple and validate the accepted notarization ticket on the DMG.
+10. Verify the final DMG, its code signature, and the mounted app.
+
+The core command-line tools are `xcodebuild`, `codesign`, `xcrun notarytool`, `xcrun stapler`, `hdiutil`, and `spctl`.
+Apple's notarization guide is here:
+[Notarizing macOS software before distribution](https://developer.apple.com/documentation/security/notarizing-macos-software-before-distribution).
+
+Direct DMG distribution gives you control over hosting and updates, but it also means you own the signing certificates, CI keychains, notarization credentials, DMG layout, and verification steps.
+Keep that automation small, explicit, and repeatable.
+
+## Test a Beta With TestFlight
+
+Use [TestFlight](https://developer.apple.com/testflight/) to distribute beta builds, manage testers, and collect feedback before release.
+TestFlight isn't a production distribution channel.
+It uses App Store Connect and Apple's store signing flow, not the Developer ID signing and notarization flow used for direct DMG downloads.
+
+Set this up once:
+
+1. Configure the bundle identifier, team, entitlements, and resources in the YAML spec.
+2. Create the app record in App Store Connect for that bundle identifier.
+3. Create an internal or external testing group and invite testers.
+
+Repeat these steps for every beta:
+
+1. Generate the Xcode project with `xcodegen generate`.
+2. Build, archive, sign, and upload the beta with Xcode or Xcode Cloud.
+3. Add the build to the testing group and collect feedback through TestFlight.
+
+## Distribute Through the Mac App Store
+
+Use this route when you want users to install and update the app through the Mac App Store.
+You still use XcodeGen, because App Store submission expects a real Xcode project or archive.
+Mac App Store distribution uses Apple's store signing and App Store Connect upload flow, not the Developer ID signing flow used for direct downloads.
+
+Set this up once:
+
+1. Configure the bundle identifier, team, app category, entitlements, and resources in the YAML spec.
+2. Create the app record in App Store Connect for that bundle identifier.
+
+Repeat these steps for every release:
+
+1. Generate the Xcode project with `xcodegen generate`.
+2. Build, archive, sign, and upload the app with Xcode or Xcode Cloud.
+3. Submit the uploaded build for review in App Store Connect.
+
+You can also open the generated project in Xcode and submit from your local Mac.
+This works well when you want to manage releases manually.
+Xcode Cloud can automate the same archive and upload steps when you want a managed CI workflow.
+
+[Xcode Cloud](https://developer.apple.com/xcode-cloud/) is built into Xcode and App Store Connect.
+Apple Developer Program membership includes some free compute hours to build your app.
+
+<Aside type="note">
+Xcode Cloud performs the build, signing, and upload steps configured in your workflow.
+You remain responsible for the bundle identifier, signing settings, entitlements, TestFlight groups, and App Store submission settings.
+</Aside>
+
+## Important Xcode Cloud Information
+
+Xcode Cloud expects your app to have an Xcode project file.
+You can meet this requirement without checking in the generated project file.
+Open the project file in Xcode and follow
+[Apple's instructions](https://developer.apple.com/documentation/xcode/setting-up-your-project-to-use-xcode-cloud) for setting up Xcode Cloud.
+The generated project lets Xcode Cloud complete the build and archive steps.
+Use a `ci_scripts/ci_post_clone.sh` script to install the dependencies and generate the project file in Xcode Cloud:
+
+```sh
+#!/usr/bin/env bash
+set -euo pipefail
+
+brew install xcodegen
+
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | \
+    sh -s -- -y --default-toolchain stable --profile minimal --no-modify-path
+export PATH="$HOME/.cargo/bin:$PATH"
+rustup target add aarch64-apple-darwin
+
+cd "$CI_PRIMARY_REPOSITORY_PATH"
+xcodegen generate --spec project.yml --use-cache
+```
+
+Xcode Cloud runs the script from the `ci_scripts` directory, so use `CI_PRIMARY_REPOSITORY_PATH` to reach the repository root.
+
+## What to Check In
+
+Check in:
+
+- `project.yml`, or whatever you call the XcodeGen project spec.
+- The Cargo build script called by the Xcode target.
+- App icons, entitlements, launch assets, and bundled resources.
+- Any scripts that package, sign, notarize, or verify direct-download artifacts.
+
+Don't check in the generated `.xcodeproj` unless you have a project-specific reason to do so.
+Regenerate it from the YAML spec instead.
+
+XcodeGen documents the YAML project format here:
+[Project Spec](https://yonaskolb.github.io/XcodeGen/Docs/ProjectSpec.html).

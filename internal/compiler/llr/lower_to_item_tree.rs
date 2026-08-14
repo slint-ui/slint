@@ -319,6 +319,7 @@ fn lower_sub_component(
         child_of_layout: component.root_element.borrow().child_of_layout,
         grid_layout_input_for_repeated: None,
         flexbox_layout_item_info_for_repeated: None,
+        cross_axis_self_alignment_for_repeated: None,
         layout_info_v_constrained_for_repeated: None,
         layout_info_v_at_cross_width_for_repeated: None,
         layout_info_h_constrained_for_repeated: None,
@@ -691,10 +692,9 @@ fn lower_sub_component(
     .into();
     if component.root_element.borrow().child_of_flexbox {
         let root_elem = &component.root_element;
-        let has_flex_binding =
-            ["flex-grow", "flex-shrink", "flex-basis", "cross-axis-self-alignment", "flex-order"]
-                .iter()
-                .any(|name| crate::layout::binding_reference(root_elem, name).is_some());
+        let has_flex_binding = ["cross-axis-self-alignment", "layout-order"]
+            .iter()
+            .any(|name| crate::layout::binding_reference(root_elem, name).is_some());
         let v_constrained =
             super::lower_layout_expression::get_layout_info_v_constrained_for_repeated(
                 &mut ctx,
@@ -734,6 +734,19 @@ fn lower_sub_component(
                 &component.root_constraints.borrow(),
             )
             .map(Into::into);
+    } else if let Some(box_orientation) =
+        component.root_element.borrow().parent_box_layout_orientation
+    {
+        // A repeated element in a box layout returns its `cross-axis-self-alignment`
+        // through the generated `layout_item_info`, on the cross axis only.
+        if let Some(nr) =
+            crate::layout::binding_reference(&component.root_element, "cross-axis-self-alignment")
+        {
+            sub_component.cross_axis_self_alignment_for_repeated = Some((
+                box_orientation.orthogonal(),
+                super::Expression::PropertyReference(ctx.map_property_reference(&nr)).into(),
+            ));
+        }
     }
 
     if let Some(grid_layout_cell) = component.root_element.borrow().grid_layout_cell.as_ref() {

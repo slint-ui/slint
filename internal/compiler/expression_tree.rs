@@ -79,6 +79,7 @@ pub enum BuiltinFunction {
     StringToUppercase,
     StringStartsWith,
     StringEndsWith,
+    StringReplaceAll,
     KeysToString,
     ColorRgbaStruct,
     ColorHsvaStruct,
@@ -95,6 +96,7 @@ pub enum BuiltinFunction {
     ArrayInsert,
     ArrayAny,
     ArrayAll,
+    ArrayFindIndex,
     Rgb,
     Hsv,
     Oklch,
@@ -177,6 +179,8 @@ pub enum BuiltinMacroFunction {
     ArrayPush,
     ArrayRemove,
     ArrayInsert,
+    /// Transforms `array.index-of(value)` into `array.find-index((x) => x == value)`
+    ArrayIndexOf,
     CustomMouseCursor,
 }
 
@@ -248,6 +252,7 @@ declare_builtin_function_types!(
     StringToUppercase: (Type::String) -> Type::String,
     StringStartsWith: (Type::String, Type::String) -> Type::Bool,
     StringEndsWith: (Type::String, Type::String) -> Type::Bool,
+    StringReplaceAll: (Type::String, Type::String, Type::String) -> Type::String,
     KeysToString: (Type::Keys) -> Type::String,
     ImplicitLayoutInfo(..): (Type::ElementReference, Type::Float32) -> typeregister::layout_info_type().into(),
     ColorRgbaStruct: (Type::Color) -> Type::Struct(Arc::new(Struct::new(IntoIterator::into_iter([
@@ -288,6 +293,7 @@ declare_builtin_function_types!(
     ArrayInsert: (Type::Model, Type::Int32, Type::InferredProperty) -> Type::Void,
     ArrayAny: (Type::Model, Type::Closure) -> Type::Bool,
     ArrayAll: (Type::Model, Type::Closure) -> Type::Bool,
+    ArrayFindIndex: (Type::Model, Type::Closure) -> Type::Int32,
     Rgb: (Type::Int32, Type::Int32, Type::Int32, Type::Float32) -> Type::Color,
     Hsv: (Type::Float32, Type::Float32, Type::Float32, Type::Float32) -> Type::Color,
     Oklch: (Type::Float32, Type::Float32, Type::Float32, Type::Float32) -> Type::Color,
@@ -406,6 +412,7 @@ impl BuiltinFunction {
             | BuiltinFunction::StringToUppercase
             | BuiltinFunction::StringStartsWith
             | BuiltinFunction::StringEndsWith
+            | BuiltinFunction::StringReplaceAll
             | BuiltinFunction::KeysToString => true,
             BuiltinFunction::ColorRgbaStruct
             | BuiltinFunction::ColorHsvaStruct
@@ -447,7 +454,9 @@ impl BuiltinFunction {
             BuiltinFunction::MacosBringAllWindowsToFront => false,
             BuiltinFunction::PathPointAt => true,
             BuiltinFunction::PathAngleAt => true,
-            BuiltinFunction::ArrayAny | BuiltinFunction::ArrayAll => true,
+            BuiltinFunction::ArrayAny
+            | BuiltinFunction::ArrayAll
+            | BuiltinFunction::ArrayFindIndex => true,
         }
     }
 
@@ -506,6 +515,7 @@ impl BuiltinFunction {
             | BuiltinFunction::StringToUppercase
             | BuiltinFunction::StringStartsWith
             | BuiltinFunction::StringEndsWith
+            | BuiltinFunction::StringReplaceAll
             | BuiltinFunction::KeysToString => true,
             BuiltinFunction::ColorRgbaStruct
             | BuiltinFunction::ColorHsvaStruct
@@ -544,7 +554,9 @@ impl BuiltinFunction {
             BuiltinFunction::MacosBringAllWindowsToFront => false,
             BuiltinFunction::PathPointAt => true,
             BuiltinFunction::PathAngleAt => true,
-            BuiltinFunction::ArrayAny | BuiltinFunction::ArrayAll => true,
+            BuiltinFunction::ArrayAny
+            | BuiltinFunction::ArrayAll
+            | BuiltinFunction::ArrayFindIndex => true,
         }
     }
 }

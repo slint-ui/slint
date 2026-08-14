@@ -23,6 +23,34 @@ pub enum ArrayOutput {
 
 pub use crate::expression_tree::MouseCursorInner;
 
+/// One cell of a generated flexbox measure callback: how to re-measure it at a
+/// taffy-assigned size. See [`Expression::SolveFlexboxLayoutWithMeasure`].
+#[derive(Debug, Clone)]
+pub struct FlexboxMeasureCell {
+    pub kind: FlexboxMeasureCellKind,
+    /// The cell is width-for-height only: a probe with neither dimension known
+    /// measures its horizontal axis at the default height (any other cell
+    /// measures its vertical axis at the default width), keeping the probe
+    /// result self-consistent (see `FlexboxMeasureFn` in i-slint-core).
+    pub w4h_only: bool,
+}
+
+#[derive(Debug, Clone)]
+#[allow(clippy::large_enum_variant)]
+pub enum FlexboxMeasureCellKind {
+    /// A static cell, with its `LayoutInfo`-typed expressions reading the
+    /// `measure_known_h` / `measure_known_w` locals as their cross-axis
+    /// constraint.
+    Static { h_info: Expression, v_info: Expression },
+    /// A repeater: its instances are only known at run time, so the generated
+    /// callback queries the instance directly.
+    Repeated(LayoutRepeatedElement),
+    /// A cell whose layout info does not depend on the perpendicular axis (no
+    /// constrained layout-info function): the sizes pre-resolved from the cell
+    /// arrays are already correct, so no measure arm is generated.
+    Fixed,
+}
+
 #[derive(Debug, Clone)]
 pub enum Expression {
     /// A string literal. The .0 is the content of the string, without the quotes
@@ -239,8 +267,13 @@ pub enum Expression {
         cells_h_variable: String,
         /// The local variable for vertical cells
         cells_v_variable: String,
-        /// The local variable for the per-item flex properties
-        flex_props_variable: String,
+        /// The local variable for the per-item flex properties. `None` when the
+        /// sub-expression does not read them (e.g. `flexbox_layout_unwrapped_main`):
+        /// the flex-props expressions are then not evaluated, so the binding does
+        /// not depend on a static cell's flex properties. (A repeated cell still
+        /// computes its props inside the bundled item-info call, whose constraint
+        /// half is needed either way.)
+        flex_props_variable: Option<String>,
         /// The name for the local variable that contains the repeater indices
         repeater_indices_var_name: Option<SmolStr>,
         /// Either an expression triple of type (LayoutItemInfo, LayoutItemInfo,
@@ -257,31 +290,32 @@ pub enum Expression {
     /// callback so the cross-axis size of height-for-width cells is recomputed
     /// at the width/height taffy actually assigns (rather than the cell's
     /// preferred size). `data` is the `FlexboxLayoutData`. For each static cell,
-    /// `measure_cells[i]` is `(h_info_given_known_h, v_info_given_known_w)`,
+    /// `measure_cells[i]` carries `(h_info_given_known_h, v_info_given_known_w)`,
     /// each a `LayoutInfo`-typed expression that reads
     /// `ReadLocalVariable("measure_known_w" / "measure_known_h")` (a `Float32`)
-    /// as its cross-axis constraint. `default_cells[i]` is the cell's
-    /// `(h_info, v_info)` at the default constraint (matching `data`'s cells);
-    /// it provides the preferred size returned when taffy asks for a dimension
-    /// without a known cross-axis size (mirroring the plain `solve_flexbox_layout`
-    /// measure). A repeater cell (the `Right` case) is measured by calling the
-    /// matching cross-axis accessor (`flexbox_layout_item_info_at_cross_width` or
-    /// `_at_cross_height`) on the instance taffy asks for.
+    /// as its cross-axis constraint. A repeater cell is measured by calling
+    /// the matching cross-axis accessor
+    /// (`flexbox_layout_item_info_at_cross_width` or `_at_cross_height`) on the
+    /// instance taffy asks for; the callback maps taffy's flat cell index to it
+    /// with a runtime cursor, since a repeater expands to a runtime number of
+    /// cells.
     SolveFlexboxLayoutWithMeasure {
         /// The `FlexboxLayoutData` (built inline with the cell arrays, so its
         /// temporaries live for the duration of the solve call).
         data: Box<Expression>,
         repeater_indices: Box<Expression>,
-        measure_cells: Vec<Either<(Expression, Expression), LayoutRepeatedElement>>,
-        /// Only used when `cells_variables` is `None`; empty otherwise.
-        default_cells: Vec<Either<(Expression, Expression), LayoutRepeatedElement>>,
-        /// Names of the flat `(cells_h, cells_v)` locals set up by the enclosing
-        /// `WithFlexboxLayoutItemInfo`. `Some` exactly when the layout has a
-        /// repeater: a repeater expands to a runtime number of cells, so the
-        /// callback maps taffy's flat cell index to an element with a runtime
-        /// cursor, and takes per-cell defaults from these arrays instead of the
-        /// per-element `default_cells`.
-        cells_variables: Option<(SmolStr, SmolStr)>,
+        measure_cells: Vec<FlexboxMeasureCell>,
+    },
+    /// Calls `flexbox_layout_info_cross_axis_with_measure` with the same
+    /// generated measure callback as [`Self::SolveFlexboxLayoutWithMeasure`],
+    /// so height-for-width cells are measured at the main-axis size taffy
+    /// assigns them rather than at the container size the cells in `arguments`
+    /// were pre-measured at.
+    FlexboxLayoutInfoCrossAxisWithMeasure {
+        /// The arguments of `flexbox_layout_info_cross_axis` (without the
+        /// trailing measure callback).
+        arguments: Vec<Expression>,
+        measure_cells: Vec<FlexboxMeasureCell>,
     },
     /// Will call the sub_expression, with the cells variable set to the
     /// array of GridLayoutInputData from the elements
@@ -471,6 +505,9 @@ impl Expression {
             Self::WithLayoutItemInfo { sub_expression, .. } => sub_expression.ty(ctx),
             Self::WithFlexboxLayoutItemInfo { sub_expression, .. } => sub_expression.ty(ctx),
             Self::SolveFlexboxLayoutWithMeasure { .. } => Type::LayoutCache,
+            Self::FlexboxLayoutInfoCrossAxisWithMeasure { .. } => {
+                crate::typeregister::layout_info_type().into()
+            }
             Self::WithGridInputData { sub_expression, .. } => sub_expression.ty(ctx),
             Self::MinMax { ty, .. } => ty.clone(),
             Self::EmptyComponentFactory => Type::ComponentFactory,
@@ -609,25 +646,37 @@ macro_rules! visit_impl {
                 elements.$iter().filter_map(|x| x.$as_ref().left()).for_each(|(h, v, f)| {
                     $visitor(h);
                     $visitor(v);
+                    // Visited even when `flex_props_variable` is `None` and the
+                    // generators skip `f`: this only over-counts property use,
+                    // and the layout's solve binding reads the same properties.
                     $visitor(f);
                 });
             }
-            Expression::SolveFlexboxLayoutWithMeasure {
-                data,
-                repeater_indices,
-                measure_cells,
-                default_cells,
-                cells_variables: _,
-            } => {
+            Expression::SolveFlexboxLayoutWithMeasure { data, repeater_indices, measure_cells } => {
                 $visitor(data);
                 $visitor(repeater_indices);
-                measure_cells.$iter().filter_map(|x| x.$as_ref().left()).for_each(|(h, v)| {
-                    $visitor(h);
-                    $visitor(v);
+                measure_cells.$iter().for_each(|x| {
+                    if let FlexboxMeasureCell {
+                        kind: FlexboxMeasureCellKind::Static { h_info, v_info },
+                        ..
+                    } = x
+                    {
+                        $visitor(h_info);
+                        $visitor(v_info);
+                    }
                 });
-                default_cells.$iter().filter_map(|x| x.$as_ref().left()).for_each(|(h, v)| {
-                    $visitor(h);
-                    $visitor(v);
+            }
+            Expression::FlexboxLayoutInfoCrossAxisWithMeasure { arguments, measure_cells } => {
+                arguments.$iter().for_each(&mut $visitor);
+                measure_cells.$iter().for_each(|x| {
+                    if let FlexboxMeasureCell {
+                        kind: FlexboxMeasureCellKind::Static { h_info, v_info },
+                        ..
+                    } = x
+                    {
+                        $visitor(h_info);
+                        $visitor(v_info);
+                    }
                 });
             }
             Expression::WithGridInputData { elements, sub_expression, .. } => {

@@ -257,7 +257,7 @@ mod tests {
         const DECELERATION: f32 = 20.;
         let parameters = ConstantDecelerationParameters::new(INITIAL_VELOCITY, DECELERATION);
 
-        let time = Instant::now();
+        let time = Instant::default();
         let mut simulation = ConstantDeceleration::new_internal(
             START_VALUE,
             test_limit_property(LIMIT_VALUE),
@@ -281,7 +281,7 @@ mod tests {
         const DECELERATION: f32 = 20.;
         let parameters = ConstantDecelerationParameters::new(INITIAL_VELOCITY, DECELERATION);
 
-        let mut time = Instant::now();
+        let mut time = Instant::default();
         let mut simulation = ConstantDeceleration::new_internal(
             START_VALUE,
             test_limit_property(LIMIT_VALUE),
@@ -326,7 +326,7 @@ mod tests {
         const DECELERATION: f32 = 20.;
         let parameters = ConstantDecelerationParameters::new(INITIAL_VELOCITY, DECELERATION);
 
-        let mut time = Instant::now();
+        let mut time = Instant::default();
         let mut simulation = ConstantDeceleration::new_internal(
             START_VALUE,
             test_limit_property(LIMIT_VALUE),
@@ -354,7 +354,7 @@ mod tests {
 
         let parameters = ConstantDecelerationParameters::new(INITIAL_VELOCITY, DECELERATION);
 
-        let mut time = Instant::now();
+        let mut time = Instant::default();
         let mut simulation = ConstantDeceleration::new_internal(
             START_VALUE,
             test_limit_property(LIMIT_VALUE),
@@ -401,7 +401,7 @@ mod tests {
         const DECELERATION: f32 = 20.;
         let parameters = ConstantDecelerationParameters::new(INITIAL_VELOCITY, DECELERATION);
 
-        let mut time = Instant::now();
+        let mut time = Instant::default();
         let mut simulation = ConstantDeceleration::new_internal(
             START_VALUE,
             test_limit_property(LIMIT_VALUE),
@@ -736,7 +736,7 @@ mod tests_spring_damper {
         );
 
         assert_eq!(START_VALUE, LIMIT_VALUE);
-        let time = Instant::now();
+        let time = Instant::default();
         let mut simulation = ConstantDecelerationSpringDamper::new_internal(
             START_VALUE,
             test_limit_property(LIMIT_VALUE),
@@ -763,7 +763,7 @@ mod tests_spring_damper {
             HALF_PERIOD_TIME,
         );
 
-        let mut time = Instant::now();
+        let mut time = Instant::default();
         let mut simulation = ConstantDecelerationSpringDamper::new_internal(
             10.,
             test_limit_property(2000.),
@@ -815,7 +815,7 @@ mod tests_spring_damper {
             HALF_PERIOD_TIME,
         );
 
-        let mut time = Instant::now();
+        let mut time = Instant::default();
         let mut simulation = ConstantDecelerationSpringDamper::new_internal(
             START_VALUE,
             test_limit_property(LIMIT_VALUE),
@@ -867,7 +867,7 @@ mod tests_spring_damper {
             HALF_PERIOD_TIME,
         );
 
-        let mut time = Instant::now();
+        let mut time = Instant::default();
         let mut simulation = ConstantDecelerationSpringDamper::new_internal(
             START_VALUE,
             test_limit_property(LIMIT_VALUE),
@@ -912,7 +912,7 @@ mod tests_spring_damper {
             HALF_PERIOD_TIME,
         );
 
-        let mut time = Instant::now();
+        let mut time = Instant::default();
         let mut simulation = ConstantDecelerationSpringDamper::new_internal(
             START_VALUE,
             test_limit_property(LIMIT_VALUE),

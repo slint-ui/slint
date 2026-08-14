@@ -457,11 +457,15 @@ struct WindowPropertiesTracker {
 impl crate::properties::PropertyDirtyHandler for WindowPropertiesTracker {
     fn notify(self: Pin<&Self>) {
         let win = self.window_adapter_weak.clone();
-        crate::timers::Timer::single_shot(Default::default(), move || {
-            if let Some(window_adapter) = win.upgrade() {
-                WindowInner::from_pub(window_adapter.window()).update_window_properties();
-            };
-        })
+        let Some(adapter) = win.upgrade() else { return };
+        WindowInner::from_pub(adapter.window()).context().single_shot(
+            Default::default(),
+            move || {
+                if let Some(window_adapter) = win.upgrade() {
+                    WindowInner::from_pub(window_adapter.window()).update_window_properties();
+                };
+            },
+        )
     }
 }
 
@@ -476,13 +480,18 @@ impl crate::properties::PropertyDirtyHandler for PopupWindowPropertiesTracker {
     fn notify(self: Pin<&Self>) {
         let parent = self.parent_window_adapter_weak.clone();
         let popup_id = self.popup_id;
+        let Some(parent_adapter) = parent.upgrade() else { return };
         // Use a timer here, so if we change multiple properties at the same time not multiple notifications are send
         // This timer will delay for the next evaluation
-        crate::timers::Timer::single_shot(Default::default(), move || {
-            if let Some(parent_adapter) = parent.upgrade() {
-                WindowInner::from_pub(parent_adapter.window()).update_popup_properties(popup_id);
-            }
-        });
+        WindowInner::from_pub(parent_adapter.window()).context().single_shot(
+            Default::default(),
+            move || {
+                if let Some(parent_adapter) = parent.upgrade() {
+                    WindowInner::from_pub(parent_adapter.window())
+                        .update_popup_properties(popup_id);
+                }
+            },
+        );
     }
 }
 
@@ -701,7 +710,7 @@ impl WindowInner {
         self.set_window_item_safe_area(inset.to_logical(scale_factor));
         window_adapter.request_redraw();
         let weak = Rc::downgrade(&window_adapter);
-        crate::timers::Timer::single_shot(Default::default(), move || {
+        self.context().single_shot(Default::default(), move || {
             if let Some(window_adapter) = weak.upgrade() {
                 WindowInner::from_pub(window_adapter.window()).update_window_properties();
             }
@@ -762,7 +771,7 @@ impl WindowInner {
     /// `Exit` (if not). The reported `accepted` reflects the rewritten event, so a
     /// `Released` that completes a drop on a non-accepting target reports `accepted = false`.
     pub fn process_mouse_input(&self, mut event: MouseEvent) -> Option<MouseDispatchResult> {
-        crate::animations::update_animations();
+        crate::animations::update_animations(crate::animations::Instant::now(self.context()));
 
         let item_tree = self.try_component()?;
         self.ensure_tree_instantiated();
@@ -776,7 +785,7 @@ impl WindowInner {
         }
 
         // handle multiple press release
-        event = self.click_state.check_repeat(event, self.context().platform().click_interval());
+        event = self.click_state.check_repeat(event, self.context());
 
         let window_adapter = self.window_adapter();
         let mut mouse_input_state = self.mouse_input_state.take();
@@ -1014,7 +1023,7 @@ impl WindowInner {
 
         if last_top_item != mouse_input_state.top_item_including_delayed() {
             self.click_state.reset();
-            self.click_state.check_repeat(event, self.context().platform().click_interval());
+            self.click_state.check_repeat(event, self.context());
         }
 
         if !had_delay && mouse_input_state.has_delayed_event() {
@@ -1357,11 +1366,8 @@ impl WindowInner {
             new_blinker
         });
 
-        TextCursorBlinker::set_binding(
-            blinker,
-            prop,
-            self.context().platform().cursor_flash_cycle(),
-        );
+        let ctx = self.context();
+        TextCursorBlinker::set_binding(blinker, prop, ctx, ctx.platform().cursor_flash_cycle());
     }
 
     /// Sets the focus to the item pointed to by item_ptr. This will remove the focus from any
@@ -1642,7 +1648,10 @@ impl WindowInner {
                             let layout_info_h = component
                                 .as_ref()
                                 .layout_info(crate::layout::Orientation::Horizontal);
-                            let w = layout_info_h.min.min(layout_info_h.max);
+                            let w = layout_info_h
+                                .preferred
+                                .max(layout_info_h.min)
+                                .min(layout_info_h.max);
                             window_item.width.set(LogicalLength::new(w));
                             w
                         };
@@ -1651,7 +1660,10 @@ impl WindowInner {
                             let layout_info_v = component
                                 .as_ref()
                                 .layout_info(crate::layout::Orientation::Vertical);
-                            let h = layout_info_v.min.min(layout_info_v.max);
+                            let h = layout_info_v
+                                .preferred
+                                .max(layout_info_v.min)
+                                .min(layout_info_v.max);
                             window_item.height.set(LogicalLength::new(h));
                             h
                         };

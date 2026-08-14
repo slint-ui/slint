@@ -78,16 +78,15 @@ impl Layout {
 pub struct LayoutItem {
     pub element: ElementRc,
     pub constraints: LayoutConstraints,
+    /// The `cross-axis-self-alignment` property, if set.
+    /// Used by box layouts and FlexboxLayout; always `None` in a GridLayout.
+    pub cross_axis_self_alignment: Option<NamedReference>,
 }
 
 /// A FlexboxLayout child item, wrapping a LayoutItem with flex-specific properties.
 #[derive(Debug, Clone)]
 pub struct FlexboxLayoutItem {
     pub item: LayoutItem,
-    pub flex_grow: Option<NamedReference>,
-    pub flex_shrink: Option<NamedReference>,
-    pub flex_basis: Option<NamedReference>,
-    pub align_self: Option<NamedReference>,
     pub order: Option<NamedReference>,
 }
 
@@ -741,6 +740,9 @@ impl BoxLayout {
     pub fn visit_named_references(&mut self, visitor: &mut impl FnMut(&mut NamedReference)) {
         for cell in &mut self.elems {
             cell.constraints.visit_named_references(visitor);
+            if let Some(e) = cell.cross_axis_self_alignment.as_mut() {
+                visitor(&mut *e);
+            }
         }
         self.geometry.visit_named_references(visitor);
         if let Some(e) = self.cross_alignment.as_mut() {
@@ -830,16 +832,7 @@ impl FlexboxLayout {
     pub fn visit_named_references(&mut self, visitor: &mut impl FnMut(&mut NamedReference)) {
         for cell in &mut self.elems {
             cell.item.constraints.visit_named_references(visitor);
-            if let Some(e) = cell.flex_grow.as_mut() {
-                visitor(&mut *e)
-            }
-            if let Some(e) = cell.flex_shrink.as_mut() {
-                visitor(&mut *e)
-            }
-            if let Some(e) = cell.flex_basis.as_mut() {
-                visitor(&mut *e)
-            }
-            if let Some(e) = cell.align_self.as_mut() {
+            if let Some(e) = cell.item.cross_axis_self_alignment.as_mut() {
                 visitor(&mut *e)
             }
             if let Some(e) = cell.order.as_mut() {
@@ -860,6 +853,31 @@ impl FlexboxLayout {
             visitor(&mut *e)
         }
     }
+}
+
+/// Whether the builtin — or the native class it resolves to after the
+/// `resolve_native_classes` pass — has no intrinsic size (Rectangle, Empty,
+/// TouchArea, etc.): its layout info is the static default, never
+/// height-for-width.
+fn has_no_intrinsic_size(base: &ElementType) -> bool {
+    let name = match base {
+        ElementType::Builtin(b) => b.name.as_str(),
+        ElementType::Native(n) => n.class_name.as_str(),
+        _ => return false,
+    };
+    matches!(
+        name,
+        "Rectangle"
+            | "BasicBorderRectangle"
+            | "BorderRectangle"
+            | "Empty"
+            | "TouchArea"
+            | "FocusScope"
+            | "Opacity"
+            | "Layer"
+            | "BoxShadow"
+            | "Clip"
+    )
 }
 
 /// Controls whether `implicit_layout_info_call` returns layout info for builtins
@@ -925,18 +943,8 @@ pub fn implicit_layout_info_call(
                     }
                 }
             }
-            ElementType::Builtin(base_type)
-                if matches!(
-                    base_type.name.as_str(),
-                    "Rectangle"
-                        | "Empty"
-                        | "TouchArea"
-                        | "FocusScope"
-                        | "Opacity"
-                        | "Layer"
-                        | "BoxShadow"
-                        | "Clip"
-                ) =>
+            base @ (ElementType::Builtin(_) | ElementType::Native(_))
+                if has_no_intrinsic_size(base) =>
             {
                 if filter == BuiltinFilter::SkipNonImplicit {
                     return None;

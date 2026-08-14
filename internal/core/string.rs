@@ -410,6 +410,26 @@ pub fn shared_string_from_number_precision(n: f64, precision: usize) -> SharedSt
     }
 }
 
+/// Replaces all matches of `from` with `to` in `s` and returns the result as a new
+/// `SharedString`.
+pub fn shared_string_replace_all(s: &SharedString, from: &str, to: &str) -> SharedString {
+    let mut matches = s.match_indices(from);
+    let Some((first, _)) = matches.next() else {
+        return s.clone();
+    };
+
+    let mut result = SharedString::from(&s[..first]);
+    result.push_str(to);
+    let mut last_end = first + from.len();
+    for (start, _) in matches {
+        result.push_str(&s[last_end..start]);
+        result.push_str(to);
+        last_end = start + from.len();
+    }
+    result.push_str(&s[last_end..]);
+    result
+}
+
 /// Convert a string to a float
 pub fn string_to_float(string: &str) -> Option<f32> {
     crate::context::GLOBAL_CONTEXT.with(|ctx| {
@@ -793,6 +813,34 @@ pub(crate) mod ffi {
             slint_shared_string_to_uppercase(&mut out, &s);
         }
         assert_eq!(out.as_str(), "HELLO");
+    }
+
+    #[unsafe(no_mangle)]
+    pub extern "C" fn slint_shared_string_replace_all(
+        out: &mut SharedString,
+        ss: &SharedString,
+        from: crate::slice::Slice<u8>,
+        to: crate::slice::Slice<u8>,
+    ) {
+        // Safety: the caller must pass valid utf-8 slices.
+        let from = unsafe { core::str::from_utf8_unchecked(from.as_slice()) };
+        let to = unsafe { core::str::from_utf8_unchecked(to.as_slice()) };
+        *out = super::shared_string_replace_all(ss, from, to);
+    }
+    #[test]
+    fn test_slint_shared_string_replace_all() {
+        let s = SharedString::from("Hello");
+        let from = SharedString::from("l");
+        let to = SharedString::from("L");
+        let mut out = SharedString::default();
+
+        slint_shared_string_replace_all(
+            &mut out,
+            &s,
+            crate::slice::Slice::from_slice(from.as_bytes()),
+            crate::slice::Slice::from_slice(to.as_bytes()),
+        );
+        assert_eq!(out.as_str(), "HeLLo");
     }
 }
 

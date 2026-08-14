@@ -1188,6 +1188,13 @@ impl ConstantExpression {
             Expression::BoolLiteral(b) => Self::BoolLiteral(*b),
             Expression::EnumerationValue(e) => Self::EnumerationValue(e.clone()),
             Expression::Cast { from, to } => {
+                // Converting a number to a string depends on the locale's decimal separator.
+                // The constant propagation folds the cases that render the same in every
+                // locale into a string literal, so a cast that's still here isn't constant
+                // (see `Expression::is_constant`).
+                if *to == Type::String {
+                    return None;
+                }
                 Self::Cast { from: Box::new(Self::from_expression(from)?), to: to.clone() }
             }
             Expression::UnaryOp { sub, op } => {

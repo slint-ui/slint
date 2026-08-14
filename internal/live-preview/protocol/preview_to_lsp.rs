@@ -25,11 +25,18 @@ pub enum PreviewToLspMessage {
     /// Switch between native and WASM preview (if supported)
     PreviewTypeChanged { target: PreviewTarget },
     /// Request all documents and configuration to be sent from the LSP to the
-    /// Preview.
+    /// Preview. `settings` names the user-settings files the preview wants
+    /// restored; the LSP replies with a
+    /// [`super::LspToPreviewMessage::SetUserSettings`] for each one that exists.
     RequestState {
         #[serde(default)]
         files: Vec<Url>,
+        #[serde(default)]
+        settings: Vec<String>,
     },
+    /// Persist a user-settings blob. The LSP writes `contents` verbatim to the
+    /// file named `name`; it never interprets the payload.
+    UpdateUserSettings { name: String, contents: String },
     /// Pass a `WorkspaceEdit` on to the editor
     SendWorkspaceEdit { label: Option<String>, edit: lsp_types::WorkspaceEdit },
     /// Pass a `ShowMessage` notification on to the editor

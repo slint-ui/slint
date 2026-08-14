@@ -45,7 +45,7 @@ export component TestCase inherits Window {
         padding: 0px; spacing: 0px;
         cross-axis-line-alignment: start;
         cross-axis-alignment: start;
-        for s in [long]: Card { label: s; flex-shrink: 0; flex-basis: 150px; }
+        for s in [long]: Card { label: s; min-width: 150px; preferred-width: 150px; }
         aAnchor := Rectangle { width: 150px; height: 5px; }
     }
 
@@ -57,7 +57,7 @@ export component TestCase inherits Window {
         padding: 0px; spacing: 0px;
         cross-axis-line-alignment: start;
         cross-axis-alignment: start;
-        Card { label: long; flex-shrink: 0; flex-basis: 150px; }
+        Card { label: long; min-width: 150px; preferred-width: 150px; }
         bAnchor := Rectangle { width: 150px; height: 5px; }
     }
 
@@ -70,7 +70,7 @@ export component TestCase inherits Window {
         padding: 0px; spacing: 0px;
         cross-axis-line-alignment: start;
         cross-axis-alignment: start;
-        Card { label: long; flex-shrink: 0; flex-basis: 150px; }
+        Card { label: long; min-width: 150px; preferred-width: 150px; }
         cAnchor := Rectangle { width: 150px; height: 5px; }
         for x in [1]: Rectangle { width: 0px; height: 0px; }
     }
@@ -85,7 +85,7 @@ export component TestCase inherits Window {
         cross-axis-line-alignment: start;
         cross-axis-alignment: start;
         for x in [1, 2]: Rectangle { width: 0px; height: 0px; }
-        Card { label: long; flex-shrink: 0; flex-basis: 150px; }
+        Card { label: long; min-width: 150px; preferred-width: 150px; }
         dAnchor := Rectangle { width: 150px; height: 5px; }
     }
 
@@ -99,7 +99,7 @@ export component TestCase inherits Window {
         padding: 0px; spacing: 0px;
         cross-axis-line-alignment: start;
         cross-axis-alignment: start;
-        for s in [long, long]: Card { label: s; flex-shrink: 0; flex-basis: 150px; }
+        for s in [long, long]: Card { label: s; min-width: 150px; preferred-width: 150px; }
         eAnchor := Rectangle { width: 150px; height: 5px; }
     }
 
@@ -112,7 +112,7 @@ export component TestCase inherits Window {
         padding: 0px; spacing: 0px;
         cross-axis-line-alignment: start;
         cross-axis-alignment: start;
-        if true: Card { label: long; flex-shrink: 0; flex-basis: 150px; }
+        if true: Card { label: long; min-width: 150px; preferred-width: 150px; }
         fAnchor := Rectangle { width: 150px; height: 5px; }
     }
 
@@ -126,7 +126,7 @@ export component TestCase inherits Window {
         cross-axis-line-alignment: start;
         cross-axis-alignment: start;
         for x in empty-model: Rectangle { width: 0px; height: 0px; }
-        Card { label: long; flex-shrink: 0; flex-basis: 150px; }
+        Card { label: long; min-width: 150px; preferred-width: 150px; }
         gAnchor := Rectangle { width: 150px; height: 5px; }
     }
 

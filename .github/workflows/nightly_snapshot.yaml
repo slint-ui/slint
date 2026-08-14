@@ -248,7 +248,7 @@ jobs:
         if: ${{ needs.check-for-secrets.outputs.has-openvsx-pat == 'yes' && needs.check-for-secrets.outputs.has-vscode-marketplace-pat == 'yes' }}
         steps:
             - uses: actions/checkout@v7
-            - uses: pnpm/action-setup@v6.0.9
+            - uses: pnpm/action-setup@v6.0.10
             - name: Install GNU Sed
               run: brew install gnu-sed
             - uses: actions/setup-node@v7
@@ -334,7 +334,7 @@ jobs:
                 node-version: 24
                 package-manager-cache: false
               id: node-install
-            - uses: pnpm/action-setup@v6.0.9
+            - uses: pnpm/action-setup@v6.0.10
             - name: Run pnpm install
               working-directory: tools/figma-inspector
               run: pnpm install --frozen-lockfile
@@ -810,7 +810,7 @@ jobs:
                   distribution: temurin
                   java-version: "17"
             - name: Set up Gradle
-              uses: gradle/actions/setup-gradle@v6.2.0
+              uses: gradle/actions/setup-gradle@v6.3.0
               with:
                   # Installs Gradle on PATH; the AAB project has no wrapper jar.
                   gradle-version: "8.11.1"
