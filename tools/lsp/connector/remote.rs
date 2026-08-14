@@ -43,12 +43,17 @@ const RECONNECT_DELAY: Duration = Duration::from_secs(3);
 /// A device that blocks network for a backgrounded viewer can swallow
 /// packets; an uncapped dial would then hang for minutes on TCP retransmissions.
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
-/// How long the editor waits for each automatic step of the pairing
-/// handshake. The viewer enforces its own deadlines and closes the socket,
-/// but a dropped connection or a hostile peer delivers no close, so without
-/// this the editor's read would park forever and wedge the dialog on
-/// "Connecting" until the LSP is restarted. Generous: every automatic step
-/// is a local computation and a send, never a human.
+/// How long the editor gives one round of automatic handshake steps. The
+/// viewer enforces its own deadlines and closes the socket, but a dropped
+/// connection or a hostile peer delivers no close, so without a deadline
+/// the editor's read would park forever and wedge the dialog on
+/// "Connecting" until the LSP is restarted.
+///
+/// It bounds a whole round, not each read, so a peer can't dodge it by
+/// dribbling one ignorable frame just under the limit. The clock is reset
+/// only when the user makes progress -- typing a code, accepting a warning
+/// -- which is the one thing that legitimately takes real time. Generous:
+/// an automatic round is a couple of local computations and sends.
 const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(10);
 
 /// What the user did with the pairing prompt.
@@ -487,7 +492,14 @@ impl RemoteLspToPreview {
         target: &str,
         keys: &[String],
     ) -> std::result::Result<(session::Sealing, session::Opening), ConnectError> {
-        let PreviewToLspMessage::PairingReady = Self::next_handshake_message(stream).await? else {
+        // One deadline for the automatic steps, reset whenever the user
+        // makes progress. A peer that dribbles ignorable frames can't push
+        // it back; only a human legitimately does.
+        let mut deadline = Self::handshake_deadline();
+
+        let PreviewToLspMessage::PairingReady =
+            Self::next_handshake_message(stream, deadline).await?
+        else {
             return Err(ConnectError::Transient(
                 "The viewer did not start the pairing handshake".into(),
             ));
@@ -501,7 +513,7 @@ impl RemoteLspToPreview {
         .await?;
 
         loop {
-            match Self::next_handshake_message(stream).await? {
+            match Self::next_handshake_message(stream, deadline).await? {
                 PreviewToLspMessage::PairingAccepted => {
                     // Only ever legitimate as "pairing is disabled on this
                     // viewer". A viewer that accepted our token proves so in
@@ -529,9 +541,12 @@ impl RemoteLspToPreview {
                     };
                     // `None` is a refused token: the viewer has told us to
                     // forget it and follows up with a code prompt, which the
-                    // next turn of this loop takes.
-                    if let Some(session) =
-                        Self::token_exchange(shared, stream, target, keys, &token, &element).await?
+                    // next turn of this loop takes. Shares the round's
+                    // deadline, so a peer can't reset it by re-challenging.
+                    if let Some(session) = Self::token_exchange(
+                        shared, stream, target, keys, &token, &element, deadline,
+                    )
+                    .await?
                     {
                         return Ok(session);
                     }
@@ -566,6 +581,9 @@ impl RemoteLspToPreview {
                     {
                         return Ok(session);
                     }
+                    // The user just typed a code, so the next automatic round
+                    // starts from a clean clock.
+                    deadline = Self::handshake_deadline();
                 }
                 other => {
                     tracing::warn!("Ignoring {other:?} from {target} during pairing");
@@ -595,8 +613,13 @@ impl RemoteLspToPreview {
         )
         .await?;
 
+        // The user just typed, so the viewer's confirmation is a fresh
+        // automatic round with its own clock.
         let handshake = pairing::Handshake::with_code(pairing::Role::Editor, &code);
-        match Self::run_exchange(stream, handshake, &prompt.element).await? {
+        let verdict =
+            Self::run_exchange(stream, handshake, &prompt.element, Self::handshake_deadline())
+                .await?;
+        match verdict {
             ExchangeVerdict::Confirmed(secrets) => {
                 tracing::info!("Paired with remote viewer at {target}");
                 shared.remember_token(keys, (secrets.token_id, secrets.token));
@@ -620,9 +643,10 @@ impl RemoteLspToPreview {
         keys: &[String],
         token: &Token,
         viewer_element: &pairing::Element,
+        deadline: tokio::time::Instant,
     ) -> std::result::Result<Option<(session::Sealing, session::Opening)>, ConnectError> {
         let handshake = pairing::Handshake::with_token(pairing::Role::Editor, token);
-        match Self::run_exchange(stream, handshake, viewer_element).await? {
+        match Self::run_exchange(stream, handshake, viewer_element, deadline).await? {
             ExchangeVerdict::Confirmed(secrets) => {
                 tracing::info!("Reconnected to remote viewer at {target} by token");
                 Ok(Some(secrets.session()))
@@ -648,6 +672,7 @@ impl RemoteLspToPreview {
         stream: &mut WebSocketStream,
         handshake: pairing::Handshake,
         viewer_element: &pairing::Element,
+        deadline: tokio::time::Instant,
     ) -> std::result::Result<ExchangeVerdict, ConnectError> {
         let our_element = handshake.element().clone();
         let secrets = handshake
@@ -666,7 +691,7 @@ impl RemoteLspToPreview {
         // The viewer answers with its own confirmation only if it derived
         // the same key, so this is where a wrong secret surfaces. Anything
         // else means it refused us.
-        match Self::next_handshake_message(stream).await? {
+        match Self::next_handshake_message(stream, deadline).await? {
             PreviewToLspMessage::PairingConfirm { confirmation }
                 if secrets.peer_confirms(&confirmation) =>
             {
@@ -791,16 +816,18 @@ impl RemoteLspToPreview {
             .map_err(|err| ConnectError::Transient(format!("Failed sending to the viewer: {err}")))
     }
 
-    /// The next handshake message, or a transient error if the viewer goes
-    /// silent for [`HANDSHAKE_TIMEOUT`]. Every automatic step of the
-    /// handshake reads through this, so a dropped connection or a peer that
-    /// stops answering fails the connect instead of hanging it forever. The
-    /// waits a human drives use [`Self::next_message`] directly: there the
-    /// user's Cancel and the viewer's own deadline bound the wait.
+    /// The next handshake message, or a transient error once `deadline`
+    /// passes. Every automatic step reads through this against a shared
+    /// per-round deadline, so a dropped connection or a peer that stops
+    /// answering -- or dribbles ignorable frames -- fails the connect
+    /// instead of hanging it forever. The waits a human drives use
+    /// [`Self::next_message`] directly: there the user's Cancel and the
+    /// viewer's own deadline bound the wait.
     async fn next_handshake_message(
         stream: &mut WebSocketStream,
+        deadline: tokio::time::Instant,
     ) -> std::result::Result<PreviewToLspMessage, ConnectError> {
-        match tokio::time::timeout(HANDSHAKE_TIMEOUT, Self::next_message(stream)).await {
+        match tokio::time::timeout_at(deadline, Self::next_message(stream)).await {
             Ok(Some(message)) => Ok(message),
             Ok(None) => Err(ConnectError::Transient(
                 "The viewer closed the connection during pairing".into(),
@@ -809,6 +836,11 @@ impl RemoteLspToPreview {
                 Err(ConnectError::Transient("The viewer stopped responding during pairing".into()))
             }
         }
+    }
+
+    /// A fresh deadline for the next round of automatic steps.
+    fn handshake_deadline() -> tokio::time::Instant {
+        tokio::time::Instant::now() + HANDSHAKE_TIMEOUT
     }
 
     /// Next protocol message, or `None` if the socket ended or carried
@@ -1943,20 +1975,23 @@ mod tests {
             .await;
     }
 
-    /// A hand-rolled viewer that completes the WebSocket upgrade and then
-    /// goes quiet, to stand in for a peer whose connection dropped without a
-    /// close: a sleeping laptop, a backgrounded phone, or a hostile host.
-    /// Optionally sends `PairingReady` first, to stall a step deeper in.
-    ///
-    /// Returns the port it listens on; the spawned task holds the socket for
-    /// the test's lifetime.
-    async fn silent_viewer(send_ready: bool) -> u16 {
+    type RawViewer = tokio_tungstenite::WebSocketStream<tokio::net::TcpStream>;
+
+    /// Stand in for a peer that completes the WebSocket upgrade and then
+    /// misbehaves in a way the real viewer never would, so its handshake
+    /// can't be driven by the real `Connection`. `behavior` gets the
+    /// upgraded socket to do as it likes; the spawned task holds it for the
+    /// test's lifetime. Returns the port to dial.
+    async fn raw_viewer<Fut>(behavior: impl FnOnce(RawViewer) -> Fut + 'static) -> u16
+    where
+        Fut: Future<Output = ()>,
+    {
         use tokio_tungstenite::tungstenite::handshake::server::{ErrorResponse, Request, Response};
         use tokio_tungstenite::tungstenite::http::{HeaderValue, header::SEC_WEBSOCKET_PROTOCOL};
 
         let listener = tokio::net::TcpListener::bind(("127.0.0.1", 0)).await.unwrap();
         let port = listener.local_addr().unwrap().port();
-        tokio::spawn(async move {
+        tokio::task::spawn_local(async move {
             let (stream, _) = listener.accept().await.unwrap();
             // Echo the subprotocol back, or the client refuses the upgrade.
             let select_protocol = |_req: &Request, mut response: Response| {
@@ -1965,19 +2000,26 @@ mod tests {
                     .insert(SEC_WEBSOCKET_PROTOCOL, HeaderValue::from_static(PROTOCOL_SUBPROTOCOL));
                 Ok::<_, ErrorResponse>(response)
             };
-            let mut ws =
-                tokio_tungstenite::accept_hdr_async(stream, select_protocol).await.unwrap();
-            if send_ready {
-                let ready = postcard::to_allocvec(&PreviewToLspMessage::PairingReady).unwrap();
-                ws.send(tokio_tungstenite::tungstenite::Message::Binary(ready.into()))
-                    .await
-                    .unwrap();
-            }
-            // Say nothing more, ever, but keep the socket open so the client
-            // gets no close frame to react to.
-            std::future::pending::<()>().await;
+            let ws = tokio_tungstenite::accept_hdr_async(stream, select_protocol).await.unwrap();
+            behavior(ws).await;
         });
         port
+    }
+
+    async fn send_frame(ws: &mut RawViewer, message: &PreviewToLspMessage) {
+        let bytes = postcard::to_allocvec(message).unwrap();
+        ws.send(tokio_tungstenite::tungstenite::Message::Binary(bytes.into())).await.unwrap();
+    }
+
+    /// Fail every dialed connection and expect the dialog to be told, so the
+    /// user is never stuck on "Connecting".
+    async fn expect_connect_failure(port: u16) {
+        let (_previews, connector, mut state_rx, _to_lsp_rx) = connector_with_states();
+        connector
+            .connect(["127.0.0.1"], port)
+            .await
+            .expect_err("a misbehaving viewer must not produce a connection");
+        expect_state(&mut state_rx, RemoteConnectionState::Failed).await;
     }
 
     /// A viewer that answers the upgrade and then falls silent must not wedge
@@ -1988,17 +2030,39 @@ mod tests {
     async fn a_silent_viewer_does_not_hang_the_connector() {
         tokio::task::LocalSet::new()
             .run_until(async {
-                for send_ready in [false, true] {
-                    let port = silent_viewer(send_ready).await;
-                    let (_previews, connector, mut state_rx, _to_lsp_rx) = connector_with_states();
+                // Silent from the very first read.
+                let port = raw_viewer(|_ws| std::future::pending()).await;
+                expect_connect_failure(port).await;
 
-                    connector
-                        .connect(["127.0.0.1"], port)
-                        .await
-                        .expect_err("a silent viewer must not produce a connection");
-                    // The dialog is told, so the user isn't stuck on "Connecting".
-                    expect_state(&mut state_rx, RemoteConnectionState::Failed).await;
-                }
+                // Silent after one legitimate message, a step deeper in.
+                let port = raw_viewer(|mut ws| async move {
+                    send_frame(&mut ws, &PreviewToLspMessage::PairingReady).await;
+                    std::future::pending::<()>().await;
+                })
+                .await;
+                expect_connect_failure(port).await;
+            })
+            .await;
+    }
+
+    /// A per-read timeout alone would let a peer keep the handshake alive
+    /// forever by dribbling one ignorable frame just under the limit. The
+    /// deadline bounds the whole round, so this fails all the same.
+    #[tokio::test(start_paused = true)]
+    async fn a_dribbling_viewer_does_not_hang_the_connector() {
+        tokio::task::LocalSet::new()
+            .run_until(async {
+                let port = raw_viewer(|mut ws| async move {
+                    send_frame(&mut ws, &PreviewToLspMessage::PairingReady).await;
+                    // An ignorable frame, forever, each just inside the read
+                    // budget a per-read timeout would have reset to.
+                    loop {
+                        send_frame(&mut ws, &PreviewToLspMessage::Pong).await;
+                        tokio::time::sleep(HANDSHAKE_TIMEOUT - Duration::from_secs(1)).await;
+                    }
+                })
+                .await;
+                expect_connect_failure(port).await;
             })
             .await;
     }
