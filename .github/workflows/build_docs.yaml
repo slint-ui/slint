@@ -124,6 +124,7 @@ jobs:
             version: ${{ steps.version.outputs.VERSION }}
         env:
             RUSTFLAGS: -D warnings -W deprecated
+            RUSTDOCFLAGS: -D warnings
             SLINT_NO_QT: 1
             CARGO_INCREMENTAL: false
             RELEASE_INPUT: ${{ inputs.release }}
