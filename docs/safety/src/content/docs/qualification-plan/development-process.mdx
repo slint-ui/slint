@@ -72,15 +72,6 @@ Employees of SixtyFPS GmbH are located in different countries, and some work rem
 
 (TODO: add release schedule)
 
-### Verification (ISO 26262-8 9.4.x)
-
-A comprehensive verification strategy is employed to confirm that Slint SC meets its safety requirements. The CI pipeline enforces automated test execution, including:
-* **Interpreter and API Tests:** Ensuring the core APIs behave as expected.
-* **Syntax and Compiler Tests:** Verifying that the Slint compiler correctly parses and rejects invalid `.slint` markup.
-* **Screenshot Tests:** Validating UI rendering fidelity against established references to catch visual regressions.
-
-*Note: Specific test coverage metrics (e.g., MC/DC, statement coverage) and static analysis results are required for formal safety certification and are collected during the release baselining process.*
-
 ### Hardware Qualification (ISO 26262-8 13.x)
 
 *Note: Section 13 is Out of Scope.* Slint SC is a purely software-based UI toolkit. Qualification of the underlying hardware elements (e.g., MCU/MPU, memory, display controllers) operating the safety-critical UI is the responsibility of the system integrator.
