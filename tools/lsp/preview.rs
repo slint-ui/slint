@@ -41,7 +41,6 @@ use crate::wasm_prelude::*;
 pub mod connector;
 pub use ui::PreviewUiKind;
 
-mod debug;
 mod drop_location;
 mod element_selection;
 pub mod eval;
