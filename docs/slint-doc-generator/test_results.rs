@@ -95,6 +95,18 @@ fn write_placeholder(out: &mut impl Write) -> std::io::Result<()> {
 }
 
 fn write_results(out: &mut impl Write, dir: &Path) -> anyhow::Result<()> {
+    // The toolchain that built and ran the suites, recorded by
+    // scripts/slint_sc_test_suite.sh. Reported here so the manual states the
+    // toolchain per evidence run instead of hand-maintaining a version in
+    // prose, where it rots.
+    let toolchain = std::fs::read_to_string(dir.join("toolchain.txt"))
+        .with_context(|| format!("error reading {dir:?}/toolchain.txt; re-run scripts/slint_sc_test_suite.sh to record the toolchain"))?;
+    writeln!(
+        out,
+        "\n## Toolchain\n\nThe suites were built and run with:\n\n```text\n{}```",
+        toolchain
+    )?;
+
     // scripts/slint_sc_test_suite.sh decides what gets collected: every
     // *.log is a captured `cargo test` log, every *.json a CTRF-style
     // report from one of the harnesses.

@@ -22,6 +22,12 @@ out="${1:?usage: $0 <output-dir>}"
 results="$out/test-results"
 mkdir -p "$results"
 
+# Record the toolchain that produces this evidence. The Test Results chapter
+# reports it, so the manual states the toolchain per run instead of
+# hand-maintaining a version in prose.
+rustc --version --verbose > "$results/toolchain.txt"
+cargo --version >> "$results/toolchain.txt"
+
 # SLINT_TEST_REPORT names one report file per cargo invocation; only one
 # harness per invocation may honor it. The captured logs are parsed by
 # slint-doc-generator, so keep them free of color escapes.
