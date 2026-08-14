@@ -34,7 +34,8 @@ class SlintBuilder implements Builder {
       generator: generator ?? compiler.generate,
       warningLogger: warningLogger ?? ((message) => log.warning(message)),
       packageRoot: root,
-      optionsJson: jsonEncode(parsed),
+      outputDir: parsed.outputDir,
+      optionsJson: jsonEncode(parsed.compilerOptions),
     );
   }
 
@@ -42,23 +43,30 @@ class SlintBuilder implements Builder {
     required SlintGenerator generator,
     required SlintWarningLogger warningLogger,
     required String packageRoot,
+    required String outputDir,
     required String optionsJson,
   })  : _generator = generator,
         _warningLogger = warningLogger,
         _packageRoot = packageRoot,
+        _outputDir = outputDir,
         _optionsJson = optionsJson;
-
-  static const _buildExtensions = <String, List<String>>{
-    '.slint': ['.slint.dart'],
-  };
 
   final SlintGenerator _generator;
   final SlintWarningLogger _warningLogger;
   final String _packageRoot;
+  final String _outputDir;
   final String _optionsJson;
 
   @override
-  Map<String, List<String>> get buildExtensions => _buildExtensions;
+  Map<String, List<String>> get buildExtensions {
+    if (_outputDir.isEmpty) {
+      return const {'.slint': ['.slint.dart']};
+    }
+    // The capture group mirrors each source's path relative to the package's
+    // `lib` directory into [outputDir], so `lib/ui/counter.slint` becomes
+    // `<outputDir>/ui/counter.slint.dart`.
+    return {'lib/{{path}}.slint': ['$_outputDir/{{path}}.slint.dart']};
+  }
 
   @override
   Future<void> build(BuildStep buildStep) async {
@@ -150,11 +158,25 @@ class SlintBuilder implements Builder {
     return AssetId(package, p.url.joinAll(p.split(relativePath)));
   }
 
-  static Map<String, Object?> _parseOptions(
+  static String _packageRelativeOutputDir(String value, String packageRoot) {
+    final normalized = p.normalize(
+      p.isAbsolute(value) ? value : p.join(packageRoot, value),
+    );
+    if (!p.isWithin(packageRoot, normalized)) {
+      throw ArgumentError.value(
+        value,
+        'output_dir',
+        'Must be inside the package',
+      );
+    }
+    return p.url.joinAll(p.split(p.relative(normalized, from: packageRoot)));
+  }
+
+  static ({String outputDir, Map<String, Object?> compilerOptions}) _parseOptions(
     Map<String, dynamic> options,
     String packageRoot,
   ) {
-    const supported = {'include_paths', 'style'};
+    const supported = {'include_paths', 'style', 'output_dir'};
     for (final name in options.keys) {
       if (!supported.contains(name)) {
         throw ArgumentError.value(
@@ -190,9 +212,22 @@ class SlintBuilder implements Builder {
       );
     }
 
-    return {
-      if (styleValue != null) 'style': styleValue,
-      'include_paths': includePaths,
-    };
+    final outputDirValue = options['output_dir'];
+    if (outputDirValue != null && outputDirValue is! String) {
+      throw ArgumentError.value(
+          outputDirValue, 'output_dir', 'Must be a string');
+    }
+    final String? outputDirString = outputDirValue as String?;
+    final outputDir = outputDirString == null
+        ? ''
+        : _packageRelativeOutputDir(outputDirString, packageRoot);
+
+    return (
+      outputDir: outputDir,
+      compilerOptions: {
+        if (styleValue != null) 'style': styleValue,
+        'include_paths': includePaths,
+      },
+    );
   }
 }

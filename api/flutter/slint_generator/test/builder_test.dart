@@ -232,6 +232,74 @@ void main() {
       ),
       throwsArgumentError,
     );
+    expect(
+      () => slint_builder.slintBuilder(
+        const BuilderOptions({'output_dir': 42}),
+      ),
+      throwsArgumentError,
+    );
+  });
+
+  test('redirects generated files into output_dir', () async {
+    final root = Directory.systemTemp.createTempSync('slint-builder-test');
+    addTearDown(() => root.deleteSync(recursive: true));
+    final input = AssetId('example', 'lib/ui/counter.slint');
+    final output = AssetId('example', 'lib/generated/ui/counter.slint.dart');
+    final step = _BuildStep(input: input, output: output, readable: {input});
+    final builder = SlintBuilder(
+      packageRoot: root.path,
+      options: {'output_dir': 'lib/generated'},
+      generator: (inputPath, outputPath, optionsJson) {
+        expect(inputPath, endsWith('lib${Platform.pathSeparator}ui'
+            '${Platform.pathSeparator}counter.slint'));
+        expect(outputPath, endsWith('lib${Platform.pathSeparator}generated'
+            '${Platform.pathSeparator}ui${Platform.pathSeparator}counter'
+            '.slint.dart'));
+        return {
+          'source': '// generated\n',
+          'dependencies': <Object?>[],
+        };
+      },
+    );
+
+    expect(
+      builder.buildExtensions,
+      {'lib/{{path}}.slint': ['lib/generated/{{path}}.slint.dart']},
+    );
+
+    await builder.build(step);
+
+    expect(step.writes, {output: '// generated\n'});
+  });
+
+  test('output_dir may be an absolute path inside the package', () {
+    final root = Directory.systemTemp.createTempSync('slint-builder-test');
+    addTearDown(() => root.deleteSync(recursive: true));
+    final builder = SlintBuilder(
+      packageRoot: root.path,
+      options: {
+        'output_dir': '${root.path}${Platform.pathSeparator}lib'
+            '${Platform.pathSeparator}generated',
+      },
+    );
+    expect(
+      builder.buildExtensions,
+      {'lib/{{path}}.slint': ['lib/generated/{{path}}.slint.dart']},
+    );
+  });
+
+  test('output_dir must stay inside the package', () {
+    final root = Directory.systemTemp.createTempSync('slint-builder-test');
+    final outside = Directory.systemTemp.createTempSync('slint-outside-test');
+    addTearDown(() => root.deleteSync(recursive: true));
+    addTearDown(() => outside.deleteSync(recursive: true));
+    expect(
+      () => SlintBuilder(
+        packageRoot: root.path,
+        options: {'output_dir': outside.path},
+      ),
+      throwsArgumentError,
+    );
   });
 }
 

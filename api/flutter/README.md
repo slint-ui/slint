@@ -93,9 +93,28 @@ Relative include paths remain relative to the package directory where
 generation ran, so the output doesn't contain a developer-specific package path.
 Callers can still override its `style:` and `includePaths:` arguments.
 
-The builder writes `lib/ui/counter.slint.dart` next to the input file.
-It regenerates that wrapper when the input or one of its package-local Slint
-dependencies changes.
+By default the builder writes `lib/ui/counter.slint.dart` next to the input
+file.
+Set `output_dir` to generate the wrappers into a custom folder instead,
+mirroring each source's path under `lib`:
+
+```yaml
+targets:
+  $default:
+    builders:
+      slint_generator|slint:
+        options:
+          output_dir: lib/generated
+```
+
+`lib/ui/counter.slint` then becomes `lib/generated/ui/counter.slint.dart`,
+imported as `package:my_app/generated/ui/counter.slint.dart`.
+`output_dir` is relative to the package unless it is absolute, and must stay
+inside it.
+It applies to `.slint` files under the package's `lib` directory.
+
+The builder regenerates a wrapper when its input or one of its package-local
+Slint dependencies changes.
 Don't edit the generated file.
 
 Import the wrapper through your package:
