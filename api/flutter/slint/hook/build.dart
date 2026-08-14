@@ -14,6 +14,10 @@ const assetName = 'libslint_dart';
 
 /// The Rust target triple for each supported operating system and
 /// architecture pair. `null` means the combination isn't supported yet.
+///
+/// Android never appears here: its libraries are cross-compiled with
+/// `cargo-ndk`, which takes an ABI name instead of a target triple, so it is
+/// handled by [cargoNdkAbi] rather than through this table.
 String? rustTarget(OS os, Architecture architecture) {
   return switch ((os.name, architecture.name)) {
     ('macos', 'arm64') => 'aarch64-apple-darwin',
@@ -26,11 +30,25 @@ String? rustTarget(OS os, Architecture architecture) {
   };
 }
 
+/// The `cargo-ndk` ABI name for an Android [Architecture]. `null` means the
+/// combination isn't supported: it must be one of the ABIs the Flutter tool
+/// places in `jniLibs`, which this version of Flutter limits to
+/// `armeabi-v7a`, `arm64-v8a` and `x86_64` (there is no 32-bit x86 slice).
+String? cargoNdkAbi(Architecture architecture) {
+  return switch (architecture.name) {
+    'arm' => 'armeabi-v7a',
+    'arm64' => 'arm64-v8a',
+    'x64' => 'x86_64',
+    _ => null,
+  };
+}
+
 /// The file name extension of the dynamic library for [os].
 String libraryExtension(OS os) {
   return switch (os) {
     OS.macOS => 'dylib',
     OS.linux => 'so',
+    OS.android => 'so',
     OS.windows => 'dll',
     _ => throw UnsupportedError(
         'Slint does not bundle a dynamic library for ${os.name} yet.',
@@ -47,7 +65,8 @@ Future<String?> findTool(String name) async {
     [name],
   );
   if (onPath.exitCode == 0) return name;
-  final home = Platform.environment['HOME'] ?? Platform.environment['USERPROFILE'];
+  final home =
+      Platform.environment['HOME'] ?? Platform.environment['USERPROFILE'];
   if (home != null) {
     final candidate = File('$home${Platform.pathSeparator}.cargo'
         '${Platform.pathSeparator}bin${Platform.pathSeparator}$name');
@@ -138,6 +157,68 @@ Future<Uri> cargoBuild(Uri crateRoot, String profile) async {
   return Uri.file('$targetDirectory/$profile/$assetName.$extension');
 }
 
+/// Build `slint-dart` for Android with `cargo-ndk` and answer with the URI of
+/// the produced shared library.
+///
+/// Android is always a cross-compile, so the plain `cargo build` path cannot be
+/// reused: `cargo-ndk` supplies the linker and the Rust target through the
+/// Android NDK. It writes each ABI's library into `<output>/<abi>/`, and the
+/// caller copies out the single `.so` for the ABI this hook invocation was
+/// asked for.
+Future<Uri> androidCargoBuild(
+  Uri crateRoot,
+  String abi,
+  String profile,
+  int targetNdkApi,
+) async {
+  final cargo = await findTool('cargo');
+  if (cargo == null) {
+    throw StateError(
+      'Building the Slint native library for Android needs the Rust '
+      'toolchain (cargo and rustc) plus the cargo-ndk subcommand (install it '
+      'with `cargo install cargo-ndk`) and the Android NDK. Alternatively '
+      'build libslint_dart yourself and set SLINT_DART_LIBRARY to it.',
+    );
+  }
+  // A scratch directory that `cargo-ndk` lays out as `jniLibs`; only the ABI
+  // we were asked for is produced, and the single `.so` is copied out by the
+  // caller. The directory is a system temp dir, so leaving it behind is fine.
+  final staging = Directory.systemTemp.createTempSync('slint-ndk-');
+  final arguments = [
+    'ndk',
+    '-t',
+    abi,
+    '-o',
+    staging.path,
+    // The minimum Android API level to target (`-P`, not `-p`, which cargo
+    // reads as a package selector).
+    '-P',
+    '$targetNdkApi',
+    'build',
+    if (profile == 'release') '--release',
+    // Android always draws through the embedded SlintSurface, so only the
+    // software renderer is needed; winit/Skia/FemtoVG cannot cross-compile
+    // here and would be dead weight. This mirrors the xcframework script.
+    '--no-default-features',
+    '--features',
+    'renderer-software',
+    '-p',
+    'slint-dart',
+  ];
+  final result = await Process.run(
+    cargo,
+    arguments,
+    workingDirectory: crateRoot.toFilePath(),
+  );
+  if (result.exitCode != 0) {
+    throw StateError(
+      'cargo ${arguments.join(' ')} failed with exit code '
+      '${result.exitCode}:\n${result.stderr}',
+    );
+  }
+  return Uri.file('${staging.path}/$abi/$assetName.so');
+}
+
 /// The workspace root of the `slint-dart` crate: the nearest ancestor that
 /// has a `Cargo.lock` (the repository root), or null when there is none.
 Uri? workspaceRoot(Uri crateRoot) {
@@ -170,6 +251,31 @@ void main(List<String> arguments) async {
       );
     }
 
+    final profile = cargoProfile(input.userDefines['cargo_profile']);
+    final crateRoot = input.packageRoot.resolve('../');
+
+    // Android is always a cross-compile, so it cannot go through the host
+    // `cargo build` path below; build the single ABI this invocation was asked
+    // for with `cargo-ndk` against the Android NDK.
+    if (code.targetOS == OS.android) {
+      final abi = cargoNdkAbi(code.targetArchitecture);
+      if (abi == null) {
+        throw UnsupportedError(
+          'Slint does not support building for Android '
+          '${code.targetArchitecture.name} yet.',
+        );
+      }
+      final targetNdkApi = code.android.targetNdkApi;
+      final library = await androidCargoBuild(
+        crateRoot,
+        abi,
+        profile,
+        targetNdkApi,
+      );
+      await _emitAsset(input, output, code, crateRoot, library);
+      return;
+    }
+
     final target = rustTarget(code.targetOS, code.targetArchitecture);
     if (target == null) {
       throw UnsupportedError(
@@ -193,33 +299,43 @@ void main(List<String> arguments) async {
       );
     }
 
-    final profile = cargoProfile(input.userDefines['cargo_profile']);
-    final crateRoot = input.packageRoot.resolve('../');
     final library = await cargoBuild(crateRoot, profile);
 
-    final assetFile =
-        input.outputDirectory.resolve('$assetName.${libraryExtension(code.targetOS)}');
-    await File.fromUri(library).copy(assetFile.toFilePath());
-
-    // Declare everything that influences the build, so the hook cache
-    // invalidates when the Rust sources or the workspace change.
-    output.dependencies
-      ..add(crateRoot.resolve('Cargo.toml'))
-      ..add(crateRoot.resolve('rust'));
-    final root = workspaceRoot(crateRoot);
-    if (root != null) {
-      output.dependencies
-        ..add(root.resolve('Cargo.lock'))
-        ..add(root.resolve('Cargo.toml'));
-    }
-
-    output.assets.code.add(
-      CodeAsset(
-        package: input.packageName,
-        name: assetName,
-        linkMode: DynamicLoadingBundled(),
-        file: assetFile,
-      ),
-    );
+    await _emitAsset(input, output, code, crateRoot, library);
   });
+}
+
+/// Copy [library] into the hook's output directory and register it as a
+/// bundled code asset, alongside the workspace files that influence the build.
+Future<void> _emitAsset(
+  BuildInput input,
+  BuildOutputBuilder output,
+  CodeConfig code,
+  Uri crateRoot,
+  Uri library,
+) async {
+  final assetFile = input.outputDirectory
+      .resolve('$assetName.${libraryExtension(code.targetOS)}');
+  await File.fromUri(library).copy(assetFile.toFilePath());
+
+  // Declare everything that influences the build, so the hook cache
+  // invalidates when the Rust sources or the workspace change.
+  output.dependencies
+    ..add(crateRoot.resolve('Cargo.toml'))
+    ..add(crateRoot.resolve('rust'));
+  final root = workspaceRoot(crateRoot);
+  if (root != null) {
+    output.dependencies
+      ..add(root.resolve('Cargo.lock'))
+      ..add(root.resolve('Cargo.toml'));
+  }
+
+  output.assets.code.add(
+    CodeAsset(
+      package: input.packageName,
+      name: assetName,
+      linkMode: DynamicLoadingBundled(),
+      file: assetFile,
+    ),
+  );
 }

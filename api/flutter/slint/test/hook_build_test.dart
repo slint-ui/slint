@@ -31,6 +31,19 @@ void main() {
     );
   });
 
+  test('maps Android architectures to cargo-ndk ABIs', () {
+    expect(build_hook.cargoNdkAbi(Architecture.arm), 'armeabi-v7a');
+    expect(build_hook.cargoNdkAbi(Architecture.arm64), 'arm64-v8a');
+    expect(build_hook.cargoNdkAbi(Architecture.x64), 'x86_64');
+    // 32-bit x86 and RISC-V have no slice Flutter can place in jniLibs.
+    expect(build_hook.cargoNdkAbi(Architecture.ia32), isNull);
+    expect(build_hook.cargoNdkAbi(Architecture.riscv64), isNull);
+  });
+
+  test('the Android library is a shared object', () {
+    expect(build_hook.libraryExtension(OS.android), 'so');
+  });
+
   test('leaves iOS to the xcframework: no asset, no build', () async {
     await hooks_test.testBuildHook(
       mainMethod: build_hook.main,

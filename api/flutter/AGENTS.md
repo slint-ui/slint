@@ -117,7 +117,8 @@ documented in the README.
 - `slint/hook/build.dart` — the Dart build hook: every `flutter build`/`run`
   that depends on `slint` runs it, invokes `cargo build -p slint-dart`, and
   bundles the `cdylib` into the application (as a framework on macOS). iOS
-  builds nothing here; it uses the xcframework instead.
+  builds nothing here; it uses the xcframework instead. Android cross-compiles
+  each ABI with `cargo-ndk` against the Android NDK.
 
 ### The generator (`slint_generator/`)
 

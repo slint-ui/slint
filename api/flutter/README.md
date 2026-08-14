@@ -229,7 +229,12 @@ which `package:slint` finds at runtime.
 
 A Flutter build needs the Rust toolchain (`cargo` and `rustc` on `PATH`) and
 only supports the host platform; cross-compiling to another OS or architecture
-is not supported yet. iOS takes the route below instead.
+is not supported yet. iOS takes the route below instead. Android is the
+exception: the hook cross-compiles each ABI with `cargo-ndk` against the
+Android NDK, so an Android build needs `cargo-ndk` installed and an NDK
+(usually from Android Studio). The hook builds one architecture per invocation
+and Flutter places each `libslint_dart.so` into the right `jniLibs` ABI
+directory (`armeabi-v7a`, `arm64-v8a`, `x86_64`).
 Set `SLINT_DART_LIBRARY` if you want to build the library yourself, or pin a
 profile for the hook (debug builds are faster to produce):
 
