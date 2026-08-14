@@ -42,6 +42,13 @@ const RECONNECT_DELAY: Duration = Duration::from_secs(3);
 /// A device that blocks network for a backgrounded viewer can swallow
 /// packets; an uncapped dial would then hang for minutes on TCP retransmissions.
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
+/// How long the editor waits for each automatic step of the pairing
+/// handshake. The viewer enforces its own deadlines and closes the socket,
+/// but a dropped connection or a hostile peer delivers no close, so without
+/// this the editor's read would park forever and wedge the dialog on
+/// "Connecting" until the LSP is restarted. Generous: every automatic step
+/// is a local computation and a send, never a human.
+const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(10);
 
 /// What the user did with the pairing prompt.
 enum PairingSubmission {
@@ -477,7 +484,7 @@ impl RemoteLspToPreview {
         target: &str,
         keys: &[String],
     ) -> std::result::Result<(session::Sealing, session::Opening), ConnectError> {
-        let Some(PreviewToLspMessage::PairingReady) = Self::next_message(stream).await else {
+        let PreviewToLspMessage::PairingReady = Self::next_handshake_message(stream).await? else {
             return Err(ConnectError::Transient(
                 "The viewer did not start the pairing handshake".into(),
             ));
@@ -491,8 +498,8 @@ impl RemoteLspToPreview {
         .await?;
 
         loop {
-            match Self::next_message(stream).await {
-                Some(PreviewToLspMessage::PairingAccepted) => {
+            match Self::next_handshake_message(stream).await? {
+                PreviewToLspMessage::PairingAccepted => {
                     // Only ever legitimate as "pairing is disabled on this
                     // viewer". A viewer that accepted our token proves so in
                     // the exchange instead, so nothing gets to skip it.
@@ -511,7 +518,7 @@ impl RemoteLspToPreview {
                     tracing::info!("Viewer at {target} has pairing disabled");
                     return Ok((session::Sealing::Plaintext, session::Opening::Plaintext));
                 }
-                Some(PreviewToLspMessage::PairingTokenChallenge { element }) => {
+                PreviewToLspMessage::PairingTokenChallenge { element } => {
                     let Some((_, token)) = held else {
                         return Err(ConnectError::Transient(
                             "The viewer opened an exchange for a token we never announced".into(),
@@ -526,12 +533,12 @@ impl RemoteLspToPreview {
                         return Ok(session);
                     }
                 }
-                Some(PreviewToLspMessage::PairingConfirm { .. }) => {
+                PreviewToLspMessage::PairingConfirm { .. } => {
                     // Only meaningful as the answer to a response we sent;
                     // the exchanges handle it inline.
                     tracing::warn!("Unexpected pairing confirmation from {target}");
                 }
-                Some(PreviewToLspMessage::PairingRejected { reason }) => {
+                PreviewToLspMessage::PairingRejected { reason } => {
                     tracing::info!("Viewer at {target} rejected us: {reason}");
                     match reason {
                         // Issued by an earlier run of that viewer. Forget it;
@@ -543,11 +550,11 @@ impl RemoteLspToPreview {
                         _ => return Err(from_rejection(reason)),
                     }
                 }
-                Some(PreviewToLspMessage::PairingRequired {
+                PreviewToLspMessage::PairingRequired {
                     attempts_left,
                     expires_in_seconds,
                     element,
-                }) => {
+                } => {
                     let prompt = Prompt { attempts_left, expires_in_seconds, element };
                     // `None` is a wrong code: the viewer follows up with a
                     // fresh prompt, which the next turn of this loop takes.
@@ -557,13 +564,8 @@ impl RemoteLspToPreview {
                         return Ok(session);
                     }
                 }
-                Some(other) => {
+                other => {
                     tracing::warn!("Ignoring {other:?} from {target} during pairing");
-                }
-                None => {
-                    return Err(ConnectError::Transient(
-                        "The viewer closed the connection during pairing".into(),
-                    ));
                 }
             }
         }
@@ -661,23 +663,23 @@ impl RemoteLspToPreview {
         // The viewer answers with its own confirmation only if it derived
         // the same key, so this is where a wrong secret surfaces. Anything
         // else means it refused us.
-        match Self::next_message(stream).await {
-            Some(PreviewToLspMessage::PairingConfirm { confirmation })
+        match Self::next_handshake_message(stream).await? {
+            PreviewToLspMessage::PairingConfirm { confirmation }
                 if secrets.peer_confirms(&confirmation) =>
             {
                 Ok(ExchangeVerdict::Confirmed(secrets))
             }
-            Some(PreviewToLspMessage::PairingConfirm { .. }) => {
+            PreviewToLspMessage::PairingConfirm { .. } => {
                 // Same secret space, different key: a mistyped code, or
                 // someone in the middle answering for a token it can't know.
                 Err(ConnectError::Transient("The viewer could not confirm the pairing".into()))
             }
-            Some(PreviewToLspMessage::PairingRejected { reason }) => {
+            PreviewToLspMessage::PairingRejected { reason } => {
                 Ok(ExchangeVerdict::Rejected(reason))
             }
-            _ => Err(ConnectError::Transient(
-                "The viewer closed the connection during pairing".into(),
-            )),
+            other => Err(ConnectError::Transient(format!(
+                "The viewer sent an unexpected {other:?} during pairing"
+            ))),
         }
     }
 
@@ -784,6 +786,26 @@ impl RemoteLspToPreview {
             .send(Message::binary(bytes))
             .await
             .map_err(|err| ConnectError::Transient(format!("Failed sending to the viewer: {err}")))
+    }
+
+    /// The next handshake message, or a transient error if the viewer goes
+    /// silent for [`HANDSHAKE_TIMEOUT`]. Every automatic step of the
+    /// handshake reads through this, so a dropped connection or a peer that
+    /// stops answering fails the connect instead of hanging it forever. The
+    /// waits a human drives use [`Self::next_message`] directly: there the
+    /// user's Cancel and the viewer's own deadline bound the wait.
+    async fn next_handshake_message(
+        stream: &mut WebSocketStream,
+    ) -> std::result::Result<PreviewToLspMessage, ConnectError> {
+        match tokio::time::timeout(HANDSHAKE_TIMEOUT, Self::next_message(stream)).await {
+            Ok(Some(message)) => Ok(message),
+            Ok(None) => Err(ConnectError::Transient(
+                "The viewer closed the connection during pairing".into(),
+            )),
+            Err(_) => {
+                Err(ConnectError::Transient("The viewer stopped responding during pairing".into()))
+            }
+        }
     }
 
     /// Next protocol message, or `None` if the socket ended or carried
@@ -1872,6 +1894,67 @@ mod tests {
                 );
 
                 connector.disconnect().await;
+            })
+            .await;
+    }
+
+    /// A hand-rolled viewer that completes the WebSocket upgrade and then
+    /// goes quiet, to stand in for a peer whose connection dropped without a
+    /// close: a sleeping laptop, a backgrounded phone, or a hostile host.
+    /// Optionally sends `PairingReady` first, to stall a step deeper in.
+    ///
+    /// Returns the port it listens on; the spawned task holds the socket for
+    /// the test's lifetime.
+    async fn silent_viewer(send_ready: bool) -> u16 {
+        use tokio_tungstenite::tungstenite::handshake::server::{ErrorResponse, Request, Response};
+        use tokio_tungstenite::tungstenite::http::{HeaderValue, header::SEC_WEBSOCKET_PROTOCOL};
+
+        let listener = tokio::net::TcpListener::bind(("127.0.0.1", 0)).await.unwrap();
+        let port = listener.local_addr().unwrap().port();
+        tokio::spawn(async move {
+            let (stream, _) = listener.accept().await.unwrap();
+            // Echo the subprotocol back, or the client refuses the upgrade.
+            let select_protocol = |_req: &Request, mut response: Response| {
+                response
+                    .headers_mut()
+                    .insert(SEC_WEBSOCKET_PROTOCOL, HeaderValue::from_static(PROTOCOL_SUBPROTOCOL));
+                Ok::<_, ErrorResponse>(response)
+            };
+            let mut ws =
+                tokio_tungstenite::accept_hdr_async(stream, select_protocol).await.unwrap();
+            if send_ready {
+                let ready = postcard::to_allocvec(&PreviewToLspMessage::PairingReady).unwrap();
+                ws.send(tokio_tungstenite::tungstenite::Message::Binary(ready.into()))
+                    .await
+                    .unwrap();
+            }
+            // Say nothing more, ever, but keep the socket open so the client
+            // gets no close frame to react to.
+            std::future::pending::<()>().await;
+        });
+        port
+    }
+
+    /// A viewer that answers the upgrade and then falls silent must not wedge
+    /// the connector on "Connecting" forever: the handshake reads are bounded,
+    /// so the attempt fails and the dialog can recover. Checked at two points
+    /// in the handshake, before and after the first message.
+    #[tokio::test(start_paused = true)]
+    async fn a_silent_viewer_does_not_hang_the_connector() {
+        tokio::task::LocalSet::new()
+            .run_until(async {
+                for send_ready in [false, true] {
+                    let port = silent_viewer(send_ready).await;
+                    let (previews, mut state_rx, _to_lsp_rx) = connector_with_states();
+                    let connector = previews.remote().unwrap().clone();
+
+                    connector
+                        .connect(["127.0.0.1"], port)
+                        .await
+                        .expect_err("a silent viewer must not produce a connection");
+                    // The dialog is told, so the user isn't stuck on "Connecting".
+                    expect_state(&mut state_rx, RemoteConnectionState::Failed).await;
+                }
             })
             .await;
     }
