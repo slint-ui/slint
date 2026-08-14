@@ -634,7 +634,7 @@ impl Connection {
     ///
     /// Runs off the accept loop on purpose: everything here waits on a peer
     /// we have no reason to trust yet, and one of the waits is for a human to
-    /// read six digits off a screen.
+    /// read a code off a screen.
     async fn admit(
         stream: TcpStream,
         remote_addr: SocketAddr,
