@@ -3,7 +3,9 @@ title: Tool Classification
 description: The tool confidence level of the Slint compiler, and how it is reached.
 ---
 
-## Slint Compiler (ISO 26262-8 11.4.5)
+Slint SC targets ISO 26262, IEC 61508 and IEC 62304, and each one classifies tools its own way, so the classification is done once per standard.
+
+## Slint Compiler, ISO 26262 (ISO 26262-8 11.4.5)
 
 The `slint-compiler` translates `.slint` files into Rust code that is compiled into the final executable.
 
@@ -16,6 +18,16 @@ The `slint-compiler` translates `.slint` files into Rust code that is compiled i
 methods under ISO 26262-8 11.4.6, so this can't stay a range.
 The detection measures that back the choice belong here too, once the potential
 errors are written up.)
+
+## Slint Compiler, IEC 61508
+
+(TODO: classify the compiler as an offline support tool under IEC 61508-3
+Clause 7.4.4, and state the class it falls into.)
+
+## Slint Compiler, IEC 62304
+
+(TODO: classify the compiler as a software tool under IEC 62304, and state
+what its use requires.)
 
 ## Rust Toolchain
 
