@@ -129,7 +129,7 @@ This crate must not become a new `common` grab bag.
 ## Publishing and Workspace Plumbing
 
 Internal crates are published with exact-version pins.
-This crate has: a root workspace `members` entry, a `[workspace.dependencies]` line with `version = "=<current>"`, a `LICENSES/` symlink directory, and a `scripts/publish.sh` entry between `internal/live-preview` and `tools/lsp`.
+This crate has: a root workspace `members` entry, a `[workspace.dependencies]` line with `version = "=<current>"`, a `LICENSES/` symlink directory, and a `scripts/publish.sh` entry between `api/rs/slint` and `tools/lsp` (after `slint`, because the `preview-engine` feature optionally depends on it).
 
 ## Known Debt
 
