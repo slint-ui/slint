@@ -43,15 +43,19 @@ jobs:
             - name: Build and sync environment
               working-directory: api/python/slint
               run: uv sync
+            # ruff and ty come from the dev dependency group, pinned in the
+            # respective pyproject.toml so Dependabot can bump them.
             - name: Run ty
               working-directory: api/python/slint
-              run: uvx ty check
+              run: uv run ty check
             - name: Run ruff linter
               working-directory: api/python/slint
-              run: uv tool run ruff@0.16.0 check
+              run: uv run ruff check
             - name: Run ruff linter
               working-directory: api/python/briefcase
-              run: uv tool run ruff@0.16.0 check
+              # briefcase itself isn't needed to lint it, so install just the
+              # dev group.
+              run: uv run --only-group dev ruff check
             - name: Run python tests
               working-directory: api/python/slint
               run: uv run pytest -s -v

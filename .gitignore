@@ -33,6 +33,11 @@ Pipfile.lock
 __pycache__
 .cache
 uv.lock
+# But keep the ones Dependabot needs to see, so it can bump the pinned ruff and
+# ty versions in the matching pyproject.toml.
+!api/python/slint/uv.lock
+!api/python/briefcase/uv.lock
+!docs/python/uv.lock
 .python-version
 
 MODULE.bazel.lock
