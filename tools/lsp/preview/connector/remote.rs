@@ -1382,11 +1382,11 @@ mod tests {
                     _ = viewer.request_file(url.clone()) => unreachable!("nobody sent the file"),
                     msg = expect_message(
                         &mut to_lsp_rx,
-                        |m| matches!(m, PreviewToLspMessage::RequestState { files } if !files.is_empty()),
+                        |m| matches!(m, PreviewToLspMessage::RequestState { files, .. } if !files.is_empty()),
                         "the viewer's request for a file",
                     ) => msg,
                 };
-                let PreviewToLspMessage::RequestState { files } = asked else { unreachable!() };
+                let PreviewToLspMessage::RequestState { files, .. } = asked else { unreachable!() };
                 assert_eq!(files, vec![url]);
 
                 connector.disconnect().await;
