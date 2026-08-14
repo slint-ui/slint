@@ -22,7 +22,7 @@ The Slint SC Compiler should not generate or allow code that uses a global alloc
 
 **Impact**: The generated code may not be deterministic and may not be suitable for use in a safety-critical system.
 
-**Mitigation**: The generated code should not use a global allocator. Instead, it should use a custom allocator that is specific to the generated code.
+**Mitigation**: The generated code depends only on the `slint-sc` runtime crate, which is `no_std`, doesn't use `alloc`, and has no dependencies of its own. No global allocator is involved.
 
 ## CON_NO_DYNAMIC_MEMORY_ALLOCATION
 
@@ -32,7 +32,7 @@ The Slint SC Compiler should not generate or allow code that uses dynamic memory
 
 **Impact**: The generated code may not be deterministic and may not be suitable for use in a safety-critical system.
 
-**Mitigation**: The generated code should not use dynamic memory allocation. Instead, it should use a custom allocator that is specific to the generated code.
+**Mitigation**: The generated code has no allocator available to it, so it can only use storage the application provides. The application owns the frame buffer and passes it to `render_rgb8`.
 
 ## CON_NO_UNBOUNDED_RECURSION
 
