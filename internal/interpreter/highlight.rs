@@ -308,8 +308,8 @@ fn sub_component_idx_at_path(
 }
 
 /// Whether the item's LLR debug info marks it as an injected geometry
-/// wrapper (`Element::is_geometry_wrapper`).
-fn is_geometry_wrapper_item(instance: &VRc<ItemTreeVTable, Instance>, flat_idx: usize) -> bool {
+/// wrapper (`Element::is_injected_wrapper_element`).
+fn is_injected_wrapper_element(instance: &VRc<ItemTreeVTable, Instance>, flat_idx: usize) -> bool {
     let cu = &instance.root_sub_component.compilation_unit;
     let root_ty = instance.root_sub_component.sub_component_idx;
     let Some(Some((path, local_idx))) = instance.item_table.get(flat_idx) else {
@@ -320,7 +320,7 @@ fn is_geometry_wrapper_item(instance: &VRc<ItemTreeVTable, Instance>, flat_idx: 
         .debug_info
         .as_ref()
         .and_then(|debug| debug.items.get(*local_idx))
-        .is_some_and(|item_debug| item_debug.is_geometry_wrapper)
+        .is_some_and(|item_debug| item_debug.is_injected_wrapper_element)
 }
 
 fn item_flat_index_to_rect(
@@ -346,7 +346,7 @@ fn item_flat_index_to_rect(
         if !VRc::ptr_eq(parent.item_tree(), &vrc) {
             break; // crossed into another component instance's item tree
         }
-        if !is_geometry_wrapper_item(instance, parent.index() as usize) {
+        if !is_injected_wrapper_element(instance, parent.index() as usize) {
             break;
         }
         anchor = parent;

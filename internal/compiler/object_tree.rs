@@ -1041,7 +1041,7 @@ pub struct Element {
     /// to wrap another element for a property like `opacity`/`transform-rotation`/`visible` (see
     /// `adjust_geometry_for_injected_parent`). Such wrappers take over the wrapped element's
     /// geometry, so consumers that need the wrapped element's source parent must walk past them.
-    pub is_geometry_wrapper: bool,
+    pub is_injected_wrapper_element: bool,
 
     pub states: Vec<State>,
     pub transitions: Vec<Transition>,
