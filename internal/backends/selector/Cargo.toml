@@ -20,8 +20,9 @@ path = "lib.rs"
 backend-winit = ["backend-winit-x11", "backend-winit-wayland"]
 backend-winit-x11 = ["i-slint-backend-winit/x11"]
 backend-winit-wayland = ["i-slint-backend-winit/wayland"]
-backend-linuxkms = ["i-slint-backend-linuxkms/libseat"]
-backend-linuxkms-noseat = ["i-slint-backend-linuxkms"]
+backend-linuxkms = ["i-slint-backend-linuxkms"]
+linuxkms-libseat = ["i-slint-backend-linuxkms?/libseat"]
+linuxkms-libinput = ["i-slint-backend-linuxkms?/libinput"]
 backend-qt = ["i-slint-backend-qt/enable"]
 backend-testing = ["i-slint-backend-testing/internal"]
 
@@ -82,7 +83,7 @@ unstable-wgpu-30 = [
 
 unstable-winit-030 = ["i-slint-backend-winit"]
 
-unstable-libinput-09 = ["dep:input"]
+unstable-libinput-09 = ["dep:input", "linuxkms-libinput"]
 
 backend-android-activity = ["dep:i-slint-backend-android-activity"]
 

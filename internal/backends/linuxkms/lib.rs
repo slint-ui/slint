@@ -100,7 +100,7 @@ use noop_backend::*;
 pub struct BackendBuilder {
     pub(crate) renderer_name: Option<String>,
     pub(crate) requested_graphics_api: Option<i_slint_core::graphics::RequestedGraphicsAPI>,
-    #[cfg(target_os = "linux")]
+    #[cfg(all(target_os = "linux", feature = "libinput"))]
     pub(crate) libinput_event_hook: Option<Box<dyn Fn(&input::Event) -> bool>>,
 }
 
@@ -118,7 +118,7 @@ impl BackendBuilder {
         self
     }
 
-    #[cfg(target_os = "linux")]
+    #[cfg(all(target_os = "linux", feature = "libinput"))]
     pub fn with_libinput_event_hook(
         mut self,
         event_hook: Box<dyn Fn(&input::Event) -> bool>,

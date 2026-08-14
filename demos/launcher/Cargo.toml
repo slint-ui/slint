@@ -21,7 +21,7 @@ default = ["slint/default"]
 ## Use this backend on embedded devices without a windowing system. The
 ## launched demo then replaces the launcher, instead of running side by side.
 backend-linuxkms = ["slint/backend-linuxkms", "slint/unstable-libinput-09", "dep:input"]
-backend-linuxkms-noseat = ["slint/backend-linuxkms-noseat", "slint/unstable-libinput-09", "dep:input"]
+backend-linuxkms-noseat = ["slint/backend-linuxkms-input", "slint/unstable-libinput-09", "dep:input"]
 renderer-skia = ["slint/renderer-skia"]
 
 [dependencies]

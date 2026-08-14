@@ -59,11 +59,11 @@ RUN mkdir demos_compiled \
         HOME_AUTOMATION_FEATURES=""; \
     fi \
     && cargo build --release --target $RUST_TOOLCHAIN_ARCH --manifest-path demos/Cargo.toml \
-        --features slint/renderer-skia,slint/backend-linuxkms-noseat,slint/serde,launcher/backend-linuxkms-noseat,launcher/renderer-skia$HOME_AUTOMATION_FEATURES \
+        --features slint/renderer-skia,slint/backend-linuxkms-input,slint/serde,launcher/backend-linuxkms-noseat,launcher/renderer-skia$HOME_AUTOMATION_FEATURES \
         -p printerdemo -p energy-monitor -p weather-demo -p home-automation -p launcher \
-    && cargo build --release --target $RUST_TOOLCHAIN_ARCH --manifest-path examples/Cargo.toml --features slint/renderer-skia,slint/backend-linuxkms-noseat \
+    && cargo build --release --target $RUST_TOOLCHAIN_ARCH --manifest-path examples/Cargo.toml --features slint/renderer-skia,slint/backend-linuxkms-input \
         -p slide_puzzle -p gallery -p opengl_underlay -p carousel -p todo \
-    && cargo build --release --target $RUST_TOOLCHAIN_ARCH --features slint/renderer-skia,slint/backend-linuxkms-noseat \
+    && cargo build --release --target $RUST_TOOLCHAIN_ARCH --features slint/renderer-skia,slint/backend-linuxkms-input \
         -p slint-viewer \
     && for demo in printerdemo slide_puzzle gallery opengl_underlay carousel todo energy-monitor weather-demo home-automation slint-demo-launcher slint-viewer; do \
         cp target/$RUST_TOOLCHAIN_ARCH/release/$demo ./demos_compiled/; \
