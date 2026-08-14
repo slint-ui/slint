@@ -28,14 +28,14 @@ pub(crate) fn trigger_debug_hook(ctx: &EvalContext, id: &SmolStr) -> Option<Valu
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use crate::{Compiler, ComponentInstance};
     use i_slint_compiler::object_tree::Element;
     use i_slint_core::{Property, graphics::ApproxEq};
     use std::{cell::RefCell, collections::HashMap, path::PathBuf, pin::Pin, rc::Rc};
 
-    fn compile_with_debug_hooks(code: &str) -> ComponentInstance {
+    pub fn compile_with_debug_hooks(code: &str) -> ComponentInstance {
         i_slint_backend_testing::init_no_event_loop();
 
         let mut compiler = Compiler::default();
@@ -68,7 +68,7 @@ mod tests {
     }
 
     // Make sure to not actually write this file, it's just a synthetic path
-    fn test_path() -> PathBuf {
+    pub fn test_path() -> PathBuf {
         PathBuf::from("/tmp/test.slint")
     }
 
