@@ -302,6 +302,14 @@ export global Api {
     in-out property <bool> uses-widgets;
     in-out property <bool> always-on-top;
     in property <bool> focus-previewed-element;
+    callback preview-user-settings-changed(
+        always-on-top: bool,
+        show-library: bool,
+        show-properties: bool,
+        show-outline: bool,
+        show-simulation-data: bool,
+        show-console: bool,
+    );
 
     // ## Component Data for ComponentList:
     // All the components

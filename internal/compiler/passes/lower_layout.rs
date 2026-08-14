@@ -1906,7 +1906,7 @@ fn lower_flexbox_layout(layout_element: &ElementRc, diag: &mut BuildDiagnostics)
                 diag,
             );
         }
-        let order = crate::layout::binding_reference(actual_elem, "flex-order");
+        let order = crate::layout::binding_reference(actual_elem, "layout-order");
         layout.elems.push(crate::layout::FlexboxLayoutItem { item: item.item, order });
     }
     layout_element.borrow_mut().children = layout_children;
@@ -2551,12 +2551,11 @@ fn check_no_layout_properties(
         {
             diag.push_error(format!("{prop} used outside of a GridLayout's cell"), &*expr.borrow());
         }
-        if prop == "flex-order" {
+        if prop == "layout-order" {
             if parent_layout_type.as_deref() != Some("FlexboxLayout") {
                 diag.push_error(format!("{prop} used outside of a FlexboxLayout"), &*expr.borrow());
             } else {
-                // Not stable API yet: whether it should be renamed (e.g. `layout-order`)
-                // and extended to the box layouts is still being discussed.
+                // Not stable API yet: extending it to the box layouts is still open.
                 crate::reject_experimental_feature(diag, type_register, prop, &*expr.borrow());
             }
         }

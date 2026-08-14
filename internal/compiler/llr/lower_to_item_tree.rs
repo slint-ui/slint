@@ -692,7 +692,7 @@ fn lower_sub_component(
     .into();
     if component.root_element.borrow().child_of_flexbox {
         let root_elem = &component.root_element;
-        let has_flex_binding = ["cross-axis-self-alignment", "flex-order"]
+        let has_flex_binding = ["cross-axis-self-alignment", "layout-order"]
             .iter()
             .any(|name| crate::layout::binding_reference(root_elem, name).is_some());
         let v_constrained =

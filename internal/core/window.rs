@@ -1648,7 +1648,10 @@ impl WindowInner {
                             let layout_info_h = component
                                 .as_ref()
                                 .layout_info(crate::layout::Orientation::Horizontal);
-                            let w = layout_info_h.min.min(layout_info_h.max);
+                            let w = layout_info_h
+                                .preferred
+                                .max(layout_info_h.min)
+                                .min(layout_info_h.max);
                             window_item.width.set(LogicalLength::new(w));
                             w
                         };
@@ -1657,7 +1660,10 @@ impl WindowInner {
                             let layout_info_v = component
                                 .as_ref()
                                 .layout_info(crate::layout::Orientation::Vertical);
-                            let h = layout_info_v.min.min(layout_info_v.max);
+                            let h = layout_info_v
+                                .preferred
+                                .max(layout_info_v.min)
+                                .min(layout_info_v.max);
                             window_item.height.set(LogicalLength::new(h));
                             h
                         };

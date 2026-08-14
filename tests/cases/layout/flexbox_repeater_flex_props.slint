@@ -5,7 +5,7 @@
 //ignore: cpp-live-preview
 
 // Test that per-item flex properties (main-axis stretch, cross-axis-self-alignment,
-// flex-order) work on repeated items.
+// layout-order) work on repeated items.
 
 // Test 1: a stretchy repeated item pushes a static item to the right.
 // Repeated item with horizontal-stretch:1 before a 60px static item:
@@ -33,7 +33,7 @@ component TestStretchGrowRepeater inherits Rectangle {
 }
 
 // Test 2: order on a repeated item moves the static item.
-// Static (flex-order:1) declared first, repeated (flex-order:0) declared second.
+// Static (layout-order:1) declared first, repeated (layout-order:0) declared second.
 // With order working, repeated comes first visually → static at x=100.
 component TestOrderRepeater inherits Rectangle {
     width: 200px;
@@ -44,13 +44,13 @@ component TestOrderRepeater inherits Rectangle {
         r_static := Rectangle {
             width: 100px;
             height: 50px;
-            flex-order: 1;
+            layout-order: 1;
             background: gray;
         }
         for item in [1]: Rectangle {
             width: 100px;
             height: 50px;
-            flex-order: 0;
+            layout-order: 0;
             background: red;
         }
     }

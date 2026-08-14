@@ -1183,7 +1183,7 @@ pub struct FlexItemProps {
     /// Per-item cross-axis alignment override (Auto = use container's cross-axis-alignment)
     pub cross_axis_self_alignment: CrossAxisSelfAlignment,
     /// Visual ordering of flex items (lower values appear first, default 0)
-    pub flex_order: i32,
+    pub layout_order: i32,
 }
 
 #[repr(C)]
@@ -1636,11 +1636,11 @@ mod flexbox_taffy {
 
             // Sort children by CSS `order` property if any item has a non-zero order.
             // Build a mapping from sorted position -> original index.
-            let has_order = params.flex_props.iter().any(|f| f.flex_order != 0);
+            let has_order = params.flex_props.iter().any(|f| f.layout_order != 0);
             let order_map: Vec<usize> = if has_order {
                 let mut indices: Vec<usize> = (0..children.len()).collect();
                 // sort_by_key is a stable sort, as required by CSS
-                indices.sort_by_key(|&i| params.flex_props.get(i).map_or(0, |f| f.flex_order));
+                indices.sort_by_key(|&i| params.flex_props.get(i).map_or(0, |f| f.layout_order));
                 let sorted_children: Vec<NodeId> = indices.iter().map(|&i| children[i]).collect();
                 children = sorted_children;
                 indices

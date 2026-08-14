@@ -1,7 +1,7 @@
 // Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-//! The per-item `flex-order` property of a `FlexboxLayout` is not stable API yet, so it is only
+//! The per-item `layout-order` property of a `FlexboxLayout` is not stable API yet, so it is only
 //! accepted with experimental features enabled. The syntax tests can't cover this because they
 //! always enable them. This also hosts the stable-API tests for `cross-axis-self-alignment`,
 //! which needs the same experimental-features control.
@@ -11,7 +11,7 @@ use i_slint_compiler::generator::OutputFormat;
 use i_slint_compiler::parser::parse;
 use i_slint_compiler::{CompilerConfiguration, compile_syntax_node};
 
-const FLEX_ITEM_PROPERTIES: &[&str] = &["flex-order: 3"];
+const FLEX_ITEM_PROPERTIES: &[&str] = &["layout-order: 3"];
 
 /// Compile `source` and return its errors (warnings are not of interest here).
 fn errors(source: String, enable_experimental: bool) -> Vec<String> {
@@ -131,12 +131,12 @@ fn repeated_and_conditional_cells_report_once() {
             r#"
 export component TestCase inherits Window {{
     FlexboxLayout {{
-        {cell} Rectangle {{ flex-order: 1; }}
+        {cell} Rectangle {{ layout-order: 1; }}
     }}
 }}
 "#
         );
-        assert_eq!(errors(source, false), ["'flex-order' is an experimental feature"]);
+        assert_eq!(errors(source, false), ["'layout-order' is an experimental feature"]);
     }
 }
 
