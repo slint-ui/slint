@@ -20,7 +20,12 @@ import { fileURLToPath } from "node:url";
 
 // Links that leave the specification directory: canonical (docs/astro) form
 // on the left, safety-manual form on the right.
-const LINK_MAP = new Map([["](../overview/)", "](../reference/)"]]);
+const LINK_MAP = new Map([
+    ["](../overview/)", "](../reference/)"],
+    // The manual serves the element reference flat, without the groups the
+    // main documentation sorts it into.
+    ["](../../gestures/toucharea/", "](../../reference/toucharea/"],
+]);
 
 function isSC(content) {
     const frontmatter = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);

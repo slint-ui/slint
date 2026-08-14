@@ -249,11 +249,19 @@ export default defineConfig({
                             },
                             { label: "Rendering", slug: "reference/rendering" },
                             {
+                                label: "Touch Input",
+                                slug: "reference/input",
+                            },
+                            {
                                 label: "Elements",
                                 items: [
                                     {
                                         label: "Rectangle",
                                         slug: "reference/rectangle",
+                                    },
+                                    {
+                                        label: "TouchArea",
+                                        slug: "reference/toucharea",
                                     },
                                     {
                                         label: "Window",

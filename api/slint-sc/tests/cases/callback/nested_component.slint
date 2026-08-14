@@ -1,0 +1,44 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Software-3.0
+
+// A callback of a component carries the invocation out to where the component
+// is used, and the handler there invokes a callback of the exported component.
+component Button inherits Rectangle {
+    callback pressed;
+    background: #405060;
+    TouchArea {
+        clicked => { root.pressed(); }
+    }
+}
+
+export component TestCase inherits Window {
+    callback confirmed;
+    background: #202020;
+    Rectangle {
+        x: 8px;
+        y: 8px;
+        width: 24px;
+        height: 24px;
+        Button {
+            pressed => { root.confirmed(); }
+        }
+    }
+}
+
+/*
+```rust
+struct Application {
+    confirmed: u32,
+}
+impl TestCaseCallbacks for Application {
+    fn on_confirmed(&mut self, _component: &mut TestCase) { self.confirmed += 1; }
+}
+
+let mut x = TestCase::new(crate::harness::WINDOW_SIZE);
+let mut application = Application { confirmed: 0 };
+let at = slint_sc::Point::new(16, 16);
+x.dispatch_touch_event(slint_sc::TouchEvent::pressed(at), &mut application);
+x.dispatch_touch_event(slint_sc::TouchEvent::released(at), &mut application);
+assert_eq!(application.confirmed, 1);
+```
+*/

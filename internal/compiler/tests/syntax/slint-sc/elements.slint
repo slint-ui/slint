@@ -1,7 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// All builtin elements are rejected in Slint SC mode.
+// Every builtin element other than Rectangle, Window, and TouchArea is
+// rejected in Slint SC mode.
 
 export component Test inherits Window {
     //#sls.geom.window
@@ -40,8 +41,15 @@ export component Test inherits Window {
 //            >     <^error{String literals are not supported in Slint SC}
     }
 
+    // TouchArea is in the subset, but only its geometry and `clicked` are
+    //#sls.ref.toucharea.members
     TouchArea {
-//  >        <error{The builtin element 'TouchArea' is not supported in Slint SC}
+        width: 10px;
+        enabled: false;
+//      >     <error{The property 'enabled' is not supported in Slint SC}
+        pointer-event(event) => { }
+//      >           <error{The callback 'pointer-event' is not supported in Slint SC}
+//                    >   <^error{Callback handler parameters are not supported in Slint SC}
     }
 
     Flickable {

@@ -5,6 +5,7 @@
 // when it's imported rather than compiled directly.
 
 export component Knob inherits Rectangle {
-    callback turned();
-//  >                <error{Callback declarations are not supported in Slint SC}
+    callback turned(string);
+//                  >    <error{Callback parameters are not supported in Slint SC}
+//                  >    <^error{The type 'string' is not supported in Slint SC}
 }

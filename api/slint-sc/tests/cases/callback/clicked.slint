@@ -1,0 +1,82 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Software-3.0
+
+export component TestCase inherits Window {
+    //#sls.callback.def
+    //#sls.callback.decl.form
+    callback alarm-acknowledged;
+    in-out property <color> alarm-color: #802020;
+    background: #202020;
+    Rectangle {
+        x: 8px;
+        y: 8px;
+        width: 48px;
+        height: 24px;
+        background: root.alarm-color;
+        // No geometry of its own, so it covers the rectangle
+        //#sls.ref.toucharea.size
+        //#sls.ref.toucharea.members
+        TouchArea {
+            //#sls.callback.handler.form
+            //#sls.callback.handler.target
+            //#sls.ref.toucharea.clicked
+            //#sls.ref.toucharea.clicked.input
+            //#sls.callback.call.form
+            clicked => { root.alarm-acknowledged(); }
+        }
+    }
+}
+
+/*
+```rust
+// The application implements the callbacks of the component.
+struct Application {
+    acknowledged: u32,
+}
+impl TestCaseCallbacks for Application {
+    // A handler reads and writes its own state as well as the component's
+    //#sls.gen.callback.args
+    fn on_alarm_acknowledged(&mut self, component: &mut TestCase) {
+        self.acknowledged += 1;
+        component.set_alarm_color(slint_sc::Color::from_rgb_u8(0x20, 0x80, 0x20));
+    }
+}
+
+let mut x = TestCase::new(crate::harness::WINDOW_SIZE);
+let mut application = Application { acknowledged: 0 };
+screenshot!(x);
+
+//#sls.input.model
+let inside = slint_sc::Point::new(20, 16);
+// A press alone isn't a click; the release over the same TouchArea is.
+//#sls.input.invocation
+//#sls.input.events
+//#sls.input.press
+//#sls.gen.dispatch-touch-event
+x.dispatch_touch_event(slint_sc::TouchEvent::pressed(inside), &mut application);
+assert_eq!(application.acknowledged, 0);
+//#sls.input.click
+x.dispatch_touch_event(slint_sc::TouchEvent::released(inside), &mut application);
+assert_eq!(application.acknowledged, 1);
+screenshot!(x, after_click);
+
+// The TouchArea covers the rectangle and nothing more: the pixel just past its
+// right edge is outside it, and the one just inside is not.
+//#sls.input.hit
+let outside = slint_sc::Point::new(56, 16);
+x.dispatch_touch_event(slint_sc::TouchEvent::pressed(outside), &mut application);
+x.dispatch_touch_event(slint_sc::TouchEvent::released(outside), &mut application);
+assert_eq!(application.acknowledged, 1);
+let edge = slint_sc::Point::new(55, 31);
+x.dispatch_touch_event(slint_sc::TouchEvent::pressed(edge), &mut application);
+x.dispatch_touch_event(slint_sc::TouchEvent::released(edge), &mut application);
+assert_eq!(application.acknowledged, 2);
+```
+
+An application constructs a touch event through its constructors, so that a field a later
+runtime carries doesn't break the code built against this one.
+```rust compile_fail
+let _ = slint_sc::TouchEvent::Pressed { position: slint_sc::Point::new(0, 0) };
+//~ ERROR cannot create non-exhaustive variant
+```
+*/

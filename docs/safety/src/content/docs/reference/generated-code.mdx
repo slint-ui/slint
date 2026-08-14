@@ -19,7 +19,8 @@ An exported component shall inherit `Window`. \{#sls.gen.window-root}
 pub fn new(size: slint_sc::Size) -> Self
 ```
 
-Creates an instance of the component for a window of `size`, the size of the window in pixels. \{#sls.gen.new}
+Creates an instance of the component for a window of `size`, a [`slint_sc::Size`](/api/slint_sc/struct.Size.html)
+in pixels. \{#sls.gen.new}
 
 ## `render_rgb8()`
 
@@ -83,6 +84,45 @@ The Rust type `T` of a property maps from its Slint type:
 | `bool` | `bool` |
 | a declared `struct` | the generated struct of the same name |
 | a declared `enum` | the generated enum of the same name |
+
+## Callbacks
+
+The application reacts to the [callbacks declared](/language/callbacks/#sls.callback.decl.form) on the root
+element by implementing a generated trait. \{#sls.gen.callback.meta}
+
+### The Callbacks Trait
+
+```rust
+pub trait FooCallbacks {
+    fn on_bar(&mut self, component: &mut Foo);
+}
+```
+
+The trait is named after the component with `Callbacks` appended, and is generated whether or not the
+component declares a callback. \{#sls.gen.callback.trait}
+
+It has one method per declared callback, named after the callback with `on_` prepended and `-` replaced by `_`:
+the method of a callback `alarm-raised` is `on_alarm_raised`. \{#sls.gen.callback.names}
+
+No method has a default body, so an application that leaves a callback of the component unimplemented
+doesn't compile. \{#sls.gen.callback.required}
+
+A method takes the implementing value and the component, both by mutable reference, so a handler reads and
+writes the state of the application and [sets properties](#sls.gen.prop.set) of the component. \{#sls.gen.callback.args}
+
+## `dispatch_touch_event()`
+
+```rust
+pub fn dispatch_touch_event(
+    &mut self,
+    event: slint_sc::TouchEvent,
+    callbacks: &mut impl FooCallbacks,
+)
+```
+
+Delivers `event`, a [`slint_sc::TouchEvent`](/api/slint_sc/enum.TouchEvent.html) carrying a press or a release
+at a position, to the component as described in [Touch Input](/reference/input/), calling the methods of
+`callbacks` for the callbacks that the event invokes. \{#sls.gen.dispatch-touch-event}
 
 ## Types
 

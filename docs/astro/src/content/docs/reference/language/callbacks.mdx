@@ -1,26 +1,55 @@
 ---
 title: Callbacks
 description: Declaring callbacks, setting handlers, aliases, and change callbacks.
+SC: true
 ---
 
+import SC from '@slint/common-files/src/components/SC.astro';
+import OnlyInSC from '@slint/common-files/src/components/OnlyInSC.astro';
+import NotInSC from '@slint/common-files/src/components/NotInSC.astro';
+
+<SC>
 A *callback* is a member that carries an invocation from one place to another.
-It is declared with the `callback` keyword, invoked by calling it like a [function](../functions/),
-and reacted to by a handler set with the `=>` arrow:
+It's declared with the `callback` keyword, invoked by calling it,
+and reacted to by a handler set with the `=>` arrow. \{#sls.callback.def}
 
 ```slint
-export component Example {
+export component Example inherits Window {
     callback hello;
-    area := TouchArea {
+    TouchArea {
         clicked => { root.hello(); }
     }
 }
 ```
+</SC>
 
+<NotInSC>
 A callback may be declared in a component, on any element within a component, or in a [global](../globals/).
+</NotInSC>
 
+<SC>
 ## Declaration
 
-A callback declaration names the callback and, optionally, its parameter types and return type:
+A *callback declaration* adds a callback to the element in whose body it appears.
+It consists of the keyword `callback`, a name, and `;`. \{#sls.callback.decl.form}
+
+<OnlyInSC>
+A callback shall only be declared on the root element,
+so that every callback of a component is one the application implements. \{#sls.callback.decl.root-only}
+
+A callback shall have neither parameters nor a return value,
+so its declaration carries neither a parameter list nor a `->` return type. \{#sls.callback.decl.no-params}
+
+A callback shall not be declared `pure`, and shall not be declared as an alias. \{#sls.callback.decl.plain}
+</OnlyInSC>
+
+A callback name shall not collide with another member of the same element:
+a declaration whose name matches an existing property, function, or callback is an error. \{#sls.callback.decl.unique}
+</SC>
+
+<NotInSC>
+Between the name and the `;`, a declaration may also carry the callback's parameter types and its
+return type:
 
 ```slint
 export component Example {
@@ -46,13 +75,31 @@ The following forms are allowed:
 A `pure` callback may be called from a pure context, and its handler must itself be pure.
 Calling an impure callback from a pure context is a compile error.
 
-A callback name must not collide with another member of the same element.
-Declaring a callback whose name matches an existing property, function, or non-shadowable built-in callback
-is a compile error, and a duplicate callback declaration is a compile error.
+A duplicate callback declaration is a compile error.
+</NotInSC>
 
+<SC>
 ## Calling
 
-A callback is invoked with call syntax, passing arguments that match the declared parameter types:
+A callback is invoked with call syntax:
+the callback, followed by parentheses holding the arguments. \{#sls.callback.call.form}
+
+Invoking a callback runs its handler.
+A callback without a handler does nothing when invoked. \{#sls.callback.call.handler}
+
+```slint
+export component Example inherits Window {
+    callback acknowledged;
+    TouchArea {
+        clicked => { root.acknowledged(); }
+    }
+}
+```
+</SC>
+
+<NotInSC>
+The number of arguments must match the declaration,
+and a callback with a return type returns the default value of that type when it has no handler:
 
 ```slint
 export component Example {
@@ -60,14 +107,49 @@ export component Example {
     property <int> result: hello(1, 2);
 }
 ```
+</NotInSC>
 
-The number of arguments must match the declaration.
-If the callback has no handler, calling it does nothing and returns the default value of the return type.
-
+<SC>
 ## Handlers
 
-A handler reacts to the callback's invocation.
-It is written with `=>` followed either by a code block or by a single expression:
+A *handler* reacts to a callback's invocation.
+It's written as the callback's name, `=>`, and either a single expression or a code block. \{#sls.callback.handler.form}
+
+A callback has at most one handler;
+setting a second handler for the same callback is an error. \{#sls.callback.handler.one}
+
+A handler may be set on a callback of a child element,
+such as `TouchArea`'s [`clicked`](../../gestures/toucharea/#sls.ref.toucharea.clicked). \{#sls.callback.handler.target}
+
+<OnlyInSC>
+A handler body shall consist of callback invocations and nothing else. \{#sls.callback.handler.body}
+
+A handler shall not be set on a callback declared on the root element:
+the application implements those. \{#sls.callback.handler.not-root}
+
+Each invocation runs the handler of the callback,
+so a cycle of handlers, each invoking the next, is an error. \{#sls.callback.handler.no-cycle}
+</OnlyInSC>
+
+```slint
+export component Example inherits Window {
+    callback first;
+    callback second;
+    TouchArea {
+        clicked => {
+            root.first();
+            root.second();
+        }
+    }
+}
+```
+</SC>
+
+<NotInSC>
+- The handler names its parameters in parentheses.
+  These names are local to the handler body and are independent of any names in the declaration.
+  Parentheses may be omitted when the callback has no parameters.
+- The body's last expression is the return value; its type must match the callback's return type.
 
 ```slint
 export component Example {
@@ -76,15 +158,7 @@ export component Example {
 }
 ```
 
-- The handler names its parameters in parentheses.
-  These names are local to the handler body and are independent of any names in the declaration.
-  Parentheses may be omitted when the callback has no parameters.
-- The body's last expression is the return value; its type must match the callback's return type.
-- A callback has at most one handler.
-  Setting a second handler for the same callback is a compile error.
-
-A handler may be set on a callback declared in the same component or on a callback of a child element,
-including a built-in callback such as `TouchArea`'s `clicked`.
+A handler may also be set on a callback declared in the same component.
 
 ### The `init` callback
 
@@ -157,3 +231,4 @@ A change callback forces the property to be evaluated eagerly rather than [lazil
 and its side effects make the surrounding bindings impure.
 A declarative [binding](../bindings/) tracks its dependencies automatically and evaluates on demand,
 so a relationship that a binding can express should be expressed as a binding rather than a change callback.
+</NotInSC>

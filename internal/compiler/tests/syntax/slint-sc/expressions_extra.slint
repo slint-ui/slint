@@ -16,11 +16,10 @@ export component Test inherits Window {
 //                       >            <^^error{Cannot convert keys to string}
     // self-assignment
     callback clicked();
-//  >                 <error{Callback declarations are not supported in Slint SC}
     clicked => { self.a += "x"; }
-//  >error{Callback handlers are not supported in Slint SC}
+//  >     <error{A handler for a callback declared on the root element is not supported in Slint SC}
 //               >           <^error{Self-assignment expressions are not supported in Slint SC}
 //               >     <^^error{Identifier references are not supported in Slint SC}
 //                         > <^^^error{String literals are not supported in Slint SC}
+//  >     <^^^^error{A callback handler body that isn't a callback invocation is not supported in Slint SC}
 }
-//<<<<error{Callback handlers are not supported in Slint SC}

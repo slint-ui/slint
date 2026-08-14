@@ -547,6 +547,7 @@ impl Snapshotter {
                     visibility: v.visibility,
                     pure: v.pure,
                     shadows_builtin: v.shadows_builtin,
+                    moved_to_root: v.moved_to_root,
                     deprecated: v.deprecated.clone(),
                 };
                 (k.clone(), decl)
