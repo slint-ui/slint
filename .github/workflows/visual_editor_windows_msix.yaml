@@ -22,7 +22,7 @@ on:
       version:
         # The Store keeps a version reserved even after the package using it is
         # deleted again, so test uploads would otherwise burn release versions.
-        description: "Three-part version to package instead of the slint-lsp one, e.g. 1.99.0 (release channel only)"
+        description: "Three-part version to package instead of the slint-editor one, e.g. 1.99.0 (release channel only)"
         required: false
         type: string
       save_if:
@@ -73,9 +73,8 @@ jobs:
         shell: pwsh
         run: |
           cargo +stable build `
-            --manifest-path tools/lsp/Cargo.toml `
+            --manifest-path tools/editor/Cargo.toml `
             --target ${{ matrix.target }} `
-            --example slint-editor `
             --profile package-release `
             --no-default-features `
             --features backend-winit,renderer-skia
@@ -86,13 +85,13 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: slint-visual-editor-${{ matrix.arch }}
-          path: target/${{ matrix.target }}/package-release/examples/slint-editor.exe
+          path: target/${{ matrix.target }}/package-release/slint-editor.exe
           if-no-files-found: error
 
   package:
     # The bundle is deliberately left unsigned: the Microsoft Store signs it on
     # ingestion. For that to be accepted, `Identity/Publisher` in
-    # tools/lsp/packaging/windows-appx/Package.appxmanifest.in has to match the
+    # tools/editor/packaging/windows-appx/Package.appxmanifest.in has to match the
     # publisher identity assigned by Partner Center.
     name: Package MSIX bundle
     needs: build
@@ -139,10 +138,10 @@ jobs:
           } else {
             $crateversion = "${{ inputs.version }}"
             if (-not $crateversion) {
-              $crateversion = cargo metadata --manifest-path tools/lsp/Cargo.toml --offline --format-version 1 --no-deps |
+              $crateversion = cargo metadata --manifest-path tools/editor/Cargo.toml --offline --format-version 1 --no-deps |
                 ConvertFrom-Json |
                 select -exp packages |
-                where name -eq "slint-lsp" |
+                where name -eq "slint-editor" |
                 select -exp version
             }
             if ($crateversion -notmatch "^\d+\.\d+\.\d+$") {
@@ -171,7 +170,7 @@ jobs:
         shell: pwsh
         run: |
           # Shared with the Linux package, which draws its icon on the square one
-          $backdrops = "tools/lsp/packaging"
+          $backdrops = "tools/editor/packaging"
           $tiles = Join-Path $env:RUNNER_TEMP "tiles"
           New-Item -ItemType Directory -Force $tiles | Out-Null
 
@@ -237,7 +236,7 @@ jobs:
           $tiles = Join-Path $env:RUNNER_TEMP "tiles"
 
           foreach ($arch in "x64", "arm64") {
-            $dist = "tools/lsp/dist/$arch"
+            $dist = "tools/editor/dist/$arch"
             New-Item -ItemType Directory -Force "$dist/Assets" | Out-Null
             # Everything the manifest refers to has to be inside the layout:
             # `makeappx` resolves those paths within the package, not on disk.
@@ -248,7 +247,7 @@ jobs:
             # architecture it was built for. Everything else about the slices
             # has to be identical for them to bundle together.
             $manifest = New-Object System.Xml.XmlDocument
-            $manifest.Load((Join-Path $PWD "tools/lsp/packaging/windows-appx/Package.appxmanifest.in"))
+            $manifest.Load((Join-Path $PWD "tools/editor/packaging/windows-appx/Package.appxmanifest.in"))
             $manifest.Package.Identity.Version = $version
             $manifest.Package.Identity.SetAttribute("ProcessorArchitecture", $arch)
 
@@ -284,7 +283,7 @@ jobs:
           $makepri = Join-Path (Split-Path $makeappx) "makepri.exe"
           if (-not (Test-Path $makepri)) { throw "makepri.exe was not found next to makeappx.exe." }
 
-          Set-Location tools/lsp
+          Set-Location tools/editor
           $name = ([xml](Get-Content "dist/x64/AppxManifest.xml")).Package.Identity.Name
           New-Item -ItemType Directory -Force bundle-src | Out-Null
 
@@ -313,7 +312,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "makeappx bundle failed" }
 
           Set-Location $env:GITHUB_WORKSPACE
-          "msixbundle_path=tools/lsp/$bundle" >> $env:GITHUB_OUTPUT
+          "msixbundle_path=tools/editor/$bundle" >> $env:GITHUB_OUTPUT
 
       - name: Upload MSIX bundle artifact
         uses: actions/upload-artifact@v7

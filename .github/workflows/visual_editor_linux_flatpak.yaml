@@ -66,7 +66,7 @@ jobs:
             - uses: flatpak/flatpak-github-actions/flatpak-builder@v6.7
               with:
                   bundle: slint-visual-editor-${{ matrix.arch }}.flatpak
-                  manifest-path: tools/lsp/dev.slint.VisualEditor.yml
+                  manifest-path: tools/editor/dev.slint.VisualEditor.yml
                   arch: ${{ matrix.arch }}
                   cache-key: flatpak-builder-${{ matrix.arch }}-${{ github.sha }}
                   state-dir: .flatpak-builder

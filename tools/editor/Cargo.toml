@@ -1,0 +1,52 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+[package]
+name = "slint-editor"
+description = "The Slint visual editor"
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+publish = false
+
+[[bin]]
+name = "slint-editor"
+path = "main.rs"
+
+[features]
+backend-qt = ["slint/backend-qt", "i-slint-editor-preview/backend-qt"]
+backend-winit = ["slint/backend-winit", "i-slint-editor-preview/backend-winit"]
+backend-winit-x11 = ["slint/backend-winit-x11", "i-slint-editor-preview/backend-winit-x11"]
+backend-winit-wayland = ["slint/backend-winit-wayland", "i-slint-editor-preview/backend-winit-wayland"]
+backend-linuxkms = ["slint/backend-linuxkms", "i-slint-editor-preview/backend-linuxkms"]
+backend-linuxkms-noseat = ["slint/backend-linuxkms-noseat", "i-slint-editor-preview/backend-linuxkms-noseat"]
+backend-default = ["slint/backend-default", "i-slint-editor-preview/backend-default"]
+
+renderer-femtovg = ["slint/renderer-femtovg", "i-slint-editor-preview/renderer-femtovg"]
+renderer-skia = ["slint/renderer-skia", "i-slint-editor-preview/renderer-skia"]
+renderer-skia-opengl = ["slint/renderer-skia-opengl", "i-slint-editor-preview/renderer-skia-opengl"]
+renderer-skia-vulkan = ["slint/renderer-skia-vulkan", "i-slint-editor-preview/renderer-skia-vulkan"]
+renderer-software = ["slint/renderer-software", "i-slint-editor-preview/renderer-software"]
+
+default = ["backend-default", "renderer-femtovg", "renderer-software"]
+
+[dependencies]
+i-slint-editor-preview = { workspace = true, features = ["preview-builtin"] }
+i-slint-live-preview = { workspace = true, features = ["protocol", "file-watcher"] }
+
+clap = { workspace = true }
+crossbeam-channel = "0.5"
+lsp-types = { workspace = true }
+slint = { workspace = true, features = ["compat-1-2", "unstable-winit-030"] }
+tokio = { version = "1.50.0", features = ["macros", "net", "rt", "sync", "time"] }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+
+# Used by the visual editor for the auto-updater.
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2-foundation = { version = "0.3.2", default-features = false, features = ["std", "NSString", "NSBundle", "NSError"] }
+objc2 = "0.6"

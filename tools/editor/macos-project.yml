@@ -61,7 +61,7 @@ targets:
           MACOS_CARGO_TARGET_DIR_NAME=slint-visual-editor \
               ../../scripts/build_macos_app_with_cargo.bash \
               --profile package-release \
-              --example slint-editor \
+              --bin slint-editor \
               --no-default-features \
               --features backend-winit,renderer-skia \
               ${MACOS_CARGO_TIMINGS:+--timings}

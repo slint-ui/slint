@@ -13,7 +13,7 @@ ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 APP_NAME="Slint Visual Editor"
 ACCOUNT="slint-visual-editor-local-test"
 BUNDLE_IDENTIFIER="dev.slint.visual-editor.sparkle-test"
-ICON_SOURCE="$ROOT_DIR/tools/lsp/packaging/macos/AppIcon.icon"
+ICON_SOURCE="$ROOT_DIR/tools/editor/packaging/macos/AppIcon.icon"
 RUST_TARGET="aarch64-apple-darwin"
 CARGO_FEATURES="backend-winit,renderer-skia"
 HOST="127.0.0.1"
@@ -35,7 +35,7 @@ Usage:
 
 Options:
   --build-editor         Build a local Visual Editor app first.
-  --version VERSION       App version. Defaults to tools/lsp/Cargo.toml.
+  --version VERSION       App version. Defaults to tools/editor/Cargo.toml.
   --old-build BUILD      CFBundleVersion for the installed old app. Default: $OLD_BUILD
   --new-build BUILD      CFBundleVersion for the update app. Default: $NEW_BUILD
   --account ACCOUNT      Sparkle keychain account. Default: $ACCOUNT
@@ -126,7 +126,7 @@ done
 if [ -z "$VERSION" ]; then
     command -v cargo >/dev/null || die "cargo is required to determine the Visual Editor version"
     command -v jq >/dev/null || die "jq is required to determine the Visual Editor version"
-    VERSION="$(cargo metadata --format-version 1 --no-deps --manifest-path "$ROOT_DIR/Cargo.toml" | jq -r 'first(.packages[] | select(.name == "slint-lsp") | .version)')" \
+    VERSION="$(cargo metadata --format-version 1 --no-deps --manifest-path "$ROOT_DIR/Cargo.toml" | jq -r 'first(.packages[] | select(.name == "slint-editor") | .version)')" \
         || die "could not determine Visual Editor version from Cargo metadata"
 fi
 [ -n "$VERSION" ] && [ "$VERSION" != "null" ] || die "could not determine Visual Editor version from Cargo metadata"
@@ -159,14 +159,14 @@ build_editor_app() {
 
     local build_dir="$WORK_DIR/build"
     local app="$build_dir/$APP_NAME.app"
-    local executable="$ROOT_DIR/target/$RUST_TARGET/release/examples/slint-editor"
+    local executable="$ROOT_DIR/target/$RUST_TARGET/release/slint-editor"
     local plist="$app/Contents/Info.plist"
 
     log "Building local Visual Editor binary for $RUST_TARGET"
     cargo build \
             --release \
             --target "$RUST_TARGET" \
-            --example slint-editor \
+            -p slint-editor \
             --no-default-features \
             --features "$CARGO_FEATURES"
 

@@ -18,7 +18,7 @@
 set -euo pipefail
 
 repo_root="$(git rev-parse --show-toplevel)"
-manifest="${repo_root}/tools/lsp/dev.slint.VisualEditor.yml"
+manifest="${repo_root}/tools/editor/dev.slint.VisualEditor.yml"
 app_id=dev.slint.VisualEditor
 
 build_dir="$(mktemp -d)"

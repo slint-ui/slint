@@ -1,7 +1,10 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
-//
-// cspell:ignore unwatch
+
+// Keep Windows from opening a console behind the editor. Debug builds keep
+// theirs, so that printing something still reaches somewhere visible.
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+
 use std::{
     path::{Path, PathBuf},
     pin::Pin,
@@ -9,6 +12,10 @@ use std::{
     time::Duration,
 };
 
+use i_slint_editor_preview::common::{
+    self, LspToPreviews, Result, document_cache::OpenImportCallback,
+};
+use i_slint_editor_preview::preview;
 use i_slint_live_preview::file_watcher::{FileWatcher, WatchEvent};
 use i_slint_live_preview::protocol::{
     LspToPreviewMessage, PreviewComponent, PreviewTarget, PreviewToLspMessage, SourceFileVersion,
@@ -16,12 +23,10 @@ use i_slint_live_preview::protocol::{
 };
 use lsp_types::{MessageType, Url};
 
-use crate::{
-    common::{self, LspToPreviews, Result, document_cache::OpenImportCallback},
-    preview,
-};
+#[cfg(target_os = "macos")]
+mod sparkle;
 
-pub fn editor_main() -> std::result::Result<(), slint::PlatformError> {
+fn main() -> std::result::Result<(), slint::PlatformError> {
     tracing_subscriber::fmt()
         .with_writer(std::io::stderr)
         .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
@@ -56,7 +61,7 @@ pub fn editor_main() -> std::result::Result<(), slint::PlatformError> {
 /// auto-updater driving the update section of the editor UI.
 #[cfg(target_os = "macos")]
 fn setup_macos_chrome(app_window: &preview::ui::AppWindow) -> Option<Rc<crate::sparkle::Sparkle>> {
-    use crate::preview::ui;
+    use preview::ui;
     use slint::ComponentHandle;
 
     let ui::AppWindow::Editor(editor) = app_window.clone_strong() else {
@@ -111,8 +116,8 @@ fn select_backend() -> std::result::Result<(), slint::PlatformError> {
     // On macOS, request a unified title bar: the editor content extends underneath
     // a transparent title bar (see `preview::macos_titlebar`).
     #[cfg(target_os = "macos")]
-    let selector = selector
-        .with_winit_window_attributes_hook(crate::preview::macos_titlebar::apply_unified_titlebar);
+    let selector =
+        selector.with_winit_window_attributes_hook(preview::macos_titlebar::apply_unified_titlebar);
     selector.select()
 }
 
@@ -151,7 +156,7 @@ async fn lsp_main(
     from_preview: crossbeam_channel::Receiver<PreviewToLspMessage>,
     cli: Cli,
 ) -> Result<()> {
-    use crate::common::document_cache::CompilerConfiguration;
+    use common::document_cache::CompilerConfiguration;
 
     let mut from_preview_rx = bridge_crossbeam_to_tokio(from_preview);
     let (file_watcher_tx, mut file_watcher_rx) = tokio::sync::mpsc::unbounded_channel();
@@ -205,7 +210,6 @@ async fn lsp_main(
     let mut session = common::EditorSession {
         document_cache: common::DocumentCache::new(compiler_config),
         preview_config: Default::default(),
-        #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
         to_show: Default::default(),
         open_urls: Default::default(),
         to_preview,
@@ -341,7 +345,7 @@ async fn handle_preview_message(
             let requested_preview = requested_file_tree_preview(files);
             let requested_project_root = requested_preview
                 .as_ref()
-                .and_then(|url| common::uri_to_file(url))
+                .and_then(common::uri_to_file)
                 .and_then(|path| project_root_for_path(&path).map(Path::to_path_buf));
             let slint_files: Vec<_> =
                 files.iter().filter(|url| is_slint_url(url)).cloned().collect();
@@ -359,7 +363,7 @@ async fn handle_preview_message(
                 session.send_files_to_preview(files);
             }
             for name in settings {
-                if let Some(contents) = crate::settings_store::load(name) {
+                if let Some(contents) = i_slint_editor_preview::settings_store::load(name) {
                     session.to_preview.send(&LspToPreviewMessage::SetUserSettings {
                         name: name.clone(),
                         contents,
@@ -369,7 +373,7 @@ async fn handle_preview_message(
             requested_project_root
         }
         UpdateUserSettings { name, contents } => {
-            if let Err(error) = crate::settings_store::save(name, contents) {
+            if let Err(error) = i_slint_editor_preview::settings_store::save(name, contents) {
                 tracing::warn!("Failed to save preview user settings: {error}");
             }
             None
@@ -426,9 +430,9 @@ fn handle_workspace_edit(
     label: Option<&str>,
     edit: &lsp_types::WorkspaceEdit,
 ) {
-    match crate::common::text_edit::apply_workspace_edit(document_cache, edit) {
+    match common::text_edit::apply_workspace_edit(document_cache, edit) {
         Ok(edited_texts) => {
-            for crate::common::text_edit::EditedText { url, contents } in edited_texts {
+            for common::text_edit::EditedText { url, contents } in edited_texts {
                 match common::uri_to_file(&url) {
                     Some(path) => {
                         if let Err(err) = std::fs::write(&path, &contents) {

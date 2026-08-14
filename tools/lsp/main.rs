@@ -18,11 +18,6 @@ mod fmt;
 mod host_language_search;
 mod language;
 mod lsp_to_editor;
-#[cfg(all(
-    not(target_arch = "wasm32"),
-    any(feature = "preview-external", feature = "preview-engine")
-))]
-mod settings_store;
 mod server_notifier;
 
 #[cfg(feature = "preview-engine")]
