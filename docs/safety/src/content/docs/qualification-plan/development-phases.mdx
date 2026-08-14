@@ -8,12 +8,14 @@ They implement the supporting processes of ISO 26262 Part 8; which clause is add
 
 ## Phase 1: Ticket Approval
 
-A ticket, also known as a Github Issue, describes the work to be done: the motivation for the change and a proposed solution.
+A major change needs an approved ticket before Code Development begins; a minor one can start at Phase 2.
+A change is major when it adds or changes qualified behavior, touches a constraint, the specification, or a document of this package, or changes the process itself.
+When in doubt, it's major.
+
+The ticket, also known as a Github Issue, describes the work to be done: the motivation for the change and a proposed solution.
 
 The ticket also details the impact of the change on the safety of the system.
 This is the impact analysis that [Change Management](/qualification-plan/development-process/#change-management-iso-26262-8-8x) requires, and the review in Phase 3 is where it gets challenged.
-
-Once the ticket has been scoped and approved, Code Development may begin.
 
 (TODO: name who approves a ticket. Related: the safety policy's TODO on naming
 the safety manager and who approves a release.)
@@ -36,6 +38,7 @@ This is the one place the merge requirements are stated; the change management a
 1. The change is proposed as a Pull Request (PR). This applies to every change, not only to ones judged safety-impacting: everything in Slint SC is safety-related, so there's no triage step deciding which changes deserve review.
 2. An independent reviewer has approved the latest revision of the PR, and no requests for changes are open. Independent means someone who hasn't committed code to the change.
 3. The full set of test suites run by CI must pass on the merge commit between the PR and the base branch. The merge commit must be the one being fast-forwarded on the base branch. Testing a merge commit and then merging into the base branch with a different merge commit (for example if other changes were merged in the meantime) does not count.
+4. A major change, as defined in Phase 1, has an approved ticket, and the change adheres to the solution proposed in it.
 
 A reviewer who finds something that must change before merging requests changes, which holds requirement 2 open until it's resolved; plain comments don't block.
 Reviewers make clear which of the two they intend.
