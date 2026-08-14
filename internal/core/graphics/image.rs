@@ -568,8 +568,11 @@ impl ImageInner {
         data: Slice<'_, u8>,
         format: Slice<'_, u8>,
     ) -> Option<Self> {
-        // On the web, let the browser decode the image instead of shipping decoders in the binary.
-        #[cfg(target_arch = "wasm32")]
+        // On the web, let the browser decode the image instead of shipping
+        // decoders in the binary — unless this build asked for the decoders.
+        // A renderer that rasterizes pixels itself, such as the software
+        // renderer, cannot do anything with an `<img>` element.
+        #[cfg(all(target_arch = "wasm32", not(feature = "image-decoders")))]
         {
             let _ = cache_key;
             let mime_type = core::str::from_utf8(format.as_slice())
@@ -591,7 +594,7 @@ impl ImageInner {
                 .map(|html_image| ImageInner::HTMLImage(vtable::VRc::new(html_image)));
         }
 
-        #[cfg(not(target_arch = "wasm32"))]
+        #[cfg(any(not(target_arch = "wasm32"), feature = "image-decoders"))]
         {
             #[cfg(feature = "svg")]
             if format.as_slice() == b"svg"
@@ -633,7 +636,7 @@ impl ImageInner {
 }
 
 /// Convert `image::DynamicImage` to `SharedImageBuffer`
-#[cfg(all(feature = "image-decoders", not(target_arch = "wasm32")))]
+#[cfg(feature = "image-decoders")]
 fn dynamic_image_to_shared_image_buffer(dynamic_image: image::DynamicImage) -> SharedImageBuffer {
     use rgb::AsPixels;
 
@@ -1001,14 +1004,15 @@ impl Image {
     /// On the web, the browser renders the SVG, and compressed SVG data (svgz) is not supported.
     #[cfg(any(feature = "svg", target_arch = "wasm32"))]
     pub fn load_from_svg_data(buffer: &[u8]) -> Result<Self, LoadImageError> {
-        // On the web, the browser decodes the SVG.
-        #[cfg(target_arch = "wasm32")]
+        // On the web, the browser decodes the SVG — unless this build enabled
+        // `svg`, which asks for resvg and the pixels it produces.
+        #[cfg(all(target_arch = "wasm32", not(feature = "svg")))]
         {
             htmlimage::HTMLImage::new_from_data(buffer, "image/svg+xml")
                 .map(|html_image| Image(ImageInner::HTMLImage(vtable::VRc::new(html_image))))
                 .ok_or(LoadImageError(()))
         }
-        #[cfg(not(target_arch = "wasm32"))]
+        #[cfg(any(not(target_arch = "wasm32"), feature = "svg"))]
         {
             let cache_key = ImageCacheKey::Invalid;
             Ok(Image(ImageInner::Svg(vtable::VRc::new(

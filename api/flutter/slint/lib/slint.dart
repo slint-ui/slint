@@ -31,13 +31,9 @@
 library;
 
 import 'dart:convert';
-import 'dart:ffi';
-import 'dart:io';
 
-import 'package:ffi/ffi.dart';
-
+import 'src/backend.dart';
 import 'src/diagnostics.dart';
-import 'src/ffi.dart';
 
 export 'src/diagnostics.dart' show Diagnostic, SlintException;
 export 'src/embedded.dart'
@@ -57,67 +53,67 @@ abstract interface class SlintComponent {
 }
 
 // ---------------------------------------------------------------------------
+// Loading the library
+// ---------------------------------------------------------------------------
+
+/// Make Slint usable.
+///
+/// On the web this fetches and instantiates the WebAssembly module, which is
+/// asynchronous, so `await` this before the first [loadSource]. [scriptUrl]
+/// points at the `slint_dart.js` that `wasm-pack` produced. It is a module
+/// specifier, so a relative one needs the leading `./`; the default expects
+/// the file beside `index.html`.
+///
+/// On every other platform the library is loaded on first use and this returns
+/// immediately, so calling it unconditionally is the portable thing to do.
+Future<void> initSlint({String? scriptUrl}) =>
+    backend.initialize(scriptUrl: scriptUrl);
+
+// ---------------------------------------------------------------------------
 // Callback dispatch
 //
 // Slint invokes callbacks from inside the event loop, on the thread that
-// started it — the main isolate's thread. That is exactly what
-// `NativeCallable.isolateLocal` supports, so one dispatcher per process is
-// enough; the `user_data` pointer carries the id of the Dart handler to run.
+// started it — the main isolate's thread. One dispatcher per process is
+// enough, and the id of the Dart handler to run travels with the call.
 // ---------------------------------------------------------------------------
 
 final Map<int, SlintCallback> _handlers = {};
 final Map<int, void Function()> _timerHandlers = {};
 int _nextHandlerId = 1;
 
-Pointer<Char> _dispatchCallback(
-    Pointer<Void> userData, Pointer<Char> argsJson) {
-  final handler = _handlers[userData.address];
-  if (handler == null) return nullptr;
+String? _dispatchCallback(int id, String argsJson) {
+  final handler = _handlers[id];
+  if (handler == null) return null;
   try {
-    final args =
-        jsonDecode(argsJson.cast<Utf8>().toDartString()) as List<Object?>;
-    final result = handler(args);
-    // A null result means "void". Anything else goes back as JSON in a buffer
-    // the Rust side hands straight to `_freeCallbackResult`.
-    if (result == null) return nullptr;
-    return jsonEncode(result).toNativeUtf8().cast<Char>();
+    final result = handler(jsonDecode(argsJson) as List<Object?>);
+    // A null result means "void".
+    return result == null ? null : jsonEncode(result);
   } on Object catch (error, stack) {
-    // An exception escaping the handler would surface as an uncaught error in
-    // the isolate after the FFI trampoline has already returned, leaving the
-    // Rust side to free an undefined return pointer. Report it here and
-    // answer "no result" instead.
-    stderr.writeln('Slint callback failed: $error\n$stack');
-    return nullptr;
+    // An exception escaping the handler would surface as an uncaught error
+    // after the call back into Dart has already returned, leaving the Rust
+    // side with an undefined result. Report it here and answer "no result".
+    backend.reportError('Slint callback failed: $error\n$stack');
+    return null;
   }
 }
 
-void _freeCallbackResult(Pointer<Char> result) => malloc.free(result);
-
-void _dispatchTimer(Pointer<Void> userData) {
-  final handler = _timerHandlers[userData.address];
+void _dispatchTimer(int id) {
+  final handler = _timerHandlers[id];
   if (handler == null) return;
   try {
     handler();
   } on Object catch (error, stack) {
-    stderr.writeln('Slint timer callback failed: $error\n$stack');
+    backend.reportError('Slint timer callback failed: $error\n$stack');
   }
 }
 
-// The two signatures come from the generated bindings, so a change to the
-// Rust side stops compiling here instead of corrupting the stack at runtime.
-final _callbackDispatcher =
-    NativeCallable<DartCallbackFunction>.isolateLocal(_dispatchCallback)
-      // Without this the pending native callable keeps `dart run` alive
-      // forever after the event loop has returned.
-      ..keepIsolateAlive = false;
+var _dispatchersInstalled = false;
 
-final _callbackResultFree =
-    NativeCallable<DartFreeFunction>.isolateLocal(_freeCallbackResult)
-      ..keepIsolateAlive = false;
-
-final _timerDispatcher =
-    NativeCallable<Void Function(Pointer<Void>)>.isolateLocal(_dispatchTimer)
-      ..keepIsolateAlive = false;
+void _installDispatchers() {
+  if (_dispatchersInstalled) return;
+  backend.installDispatchers(_dispatchCallback, _dispatchTimer);
+  _dispatchersInstalled = true;
+}
 
 // ---------------------------------------------------------------------------
 // Loading
@@ -136,15 +132,13 @@ ComponentInstance loadFile(
   String? component,
   String? style,
   List<String> includePaths = const [],
-}) {
-  final ffi = SlintFfi.instance;
-  return _instantiate(
-    (compiler) => withNativeString(path, (p) => ffi.buildFromPath(compiler, p)),
-    component: component,
-    style: style,
-    includePaths: includePaths,
-  );
-}
+}) =>
+    _instantiate(
+      (compiler) => backend.buildFromPath(compiler, path),
+      component: component,
+      style: style,
+      includePaths: includePaths,
+    );
 
 /// Compile `.slint` [source] and instantiate one of its components.
 ///
@@ -156,56 +150,44 @@ ComponentInstance loadSource(
   String? component,
   String? style,
   List<String> includePaths = const [],
-}) {
-  final ffi = SlintFfi.instance;
-  return _instantiate(
-    (compiler) => withNativeString(
-      source,
-      (s) => withNativeString(
-        path,
-        (p) => ffi.buildFromSource(compiler, s, p),
-      ),
-    ),
-    component: component,
-    style: style,
-    includePaths: includePaths,
-  );
-}
+}) =>
+    _instantiate(
+      (compiler) => backend.buildFromSource(compiler, source, path),
+      component: component,
+      style: style,
+      includePaths: includePaths,
+    );
 
 ComponentInstance _instantiate(
-  Pointer<SlintCompilationResult> Function(Pointer<SlintCompiler>) build, {
+  int Function(int compiler) build, {
   required String? component,
   required String? style,
   required List<String> includePaths,
 }) {
-  final ffi = SlintFfi.instance;
-  final compiler = ffi.compilerNew();
+  final compiler = backend.compilerNew();
   try {
-    if (style != null) {
-      withNativeString(style, (s) => ffi.compilerSetStyle(compiler, s));
-    }
+    if (style != null) backend.compilerSetStyle(compiler, style);
     for (final path in includePaths) {
-      withNativeString(path, (p) => ffi.compilerAddIncludePath(compiler, p));
+      backend.compilerAddIncludePath(compiler, path);
     }
 
     final result = build(compiler);
-    if (result == nullptr) {
+    if (result == 0) {
       throw SlintException(
           'the Slint compiler crashed; see stderr for details');
     }
     try {
-      if (ffi.resultHasErrors(result)) {
+      if (backend.resultHasErrors(result)) {
         final diagnostics =
-            (takeEnvelope(ffi.resultDiagnostics(result))! as List<Object?>)
+            (backend.resultDiagnostics(result)! as List<Object?>)
                 .map((d) => Diagnostic.fromJson(d! as Map<String, dynamic>))
                 .toList();
         throw SlintException('compilation failed', diagnostics);
       }
 
-      final definition =
-          withNativeString(component, (n) => ffi.resultComponent(result, n));
-      if (definition == nullptr) {
-        final names = takeEnvelope(ffi.resultComponentNames(result))!;
+      final definition = backend.resultComponent(result, component);
+      if (definition == 0) {
+        final names = backend.resultComponentNames(result)!;
         throw SlintException(
           component == null
               ? 'the file exports no instantiable component'
@@ -213,15 +195,15 @@ ComponentInstance _instantiate(
         );
       }
       try {
-        return ComponentInstance._create(definition);
+        return ComponentInstance._(backend.definitionCreate(definition));
       } finally {
-        ffi.definitionFree(definition);
+        backend.definitionFree(definition);
       }
     } finally {
-      ffi.resultFree(result);
+      backend.resultFree(result);
     }
   } finally {
-    ffi.compilerFree(compiler);
+    backend.compilerFree(compiler);
   }
 }
 
@@ -234,30 +216,15 @@ ComponentInstance _instantiate(
 class ComponentInstance implements SlintComponent {
   ComponentInstance._(this._handle);
 
-  factory ComponentInstance._create(
-      Pointer<SlintComponentDefinition> definition) {
-    final ffi = SlintFfi.instance;
-    final error = malloc<Pointer<Char>>()..value = nullptr;
-    try {
-      final handle = ffi.definitionCreate(definition, error);
-      if (handle == nullptr) {
-        throw SlintException(takeString(error.value));
-      }
-      return ComponentInstance._(handle);
-    } finally {
-      malloc.free(error);
-    }
-  }
-
-  Pointer<SlintComponentInstance> _handle;
+  int _handle;
   final Set<int> _handlerIds = {};
 
   /// This runtime instance itself.
   @override
   ComponentInstance get instance => this;
 
-  Pointer<SlintComponentInstance> get _live {
-    if (_handle == nullptr) {
+  int get _live {
+    if (_handle == 0) {
       throw StateError('this ComponentInstance has been disposed');
     }
     return _handle;
@@ -291,80 +258,40 @@ class ComponentInstance implements SlintComponent {
 
   /// Make the window visible without running the event loop. Use [run] unless
   /// you drive the event loop yourself.
-  void show() => takeEnvelope(SlintFfi.instance.instanceShow(_live, true));
+  void show() => backend.instanceShow(_live, true);
 
-  void hide() => takeEnvelope(SlintFfi.instance.instanceShow(_live, false));
+  void hide() => backend.instanceShow(_live, false);
 
   /// Show the window and run the event loop until the last window closes or
   /// [quitEventLoop] is called.
-  void run() => takeEnvelope(SlintFfi.instance.instanceRun(_live));
+  void run() => backend.instanceRun(_live);
 
   /// Release the instance and its callback handlers. Using the instance
   /// afterwards throws [StateError].
   void dispose() {
-    if (_handle == nullptr) return;
-    SlintFfi.instance.instanceFree(_handle);
-    _handle = nullptr;
+    if (_handle == 0) return;
+    backend.instanceFree(_handle);
+    _handle = 0;
     _handlers.removeWhere((id, _) => _handlerIds.contains(id));
     _handlerIds.clear();
   }
 
-  Object? _getProperty(String? global, String name) {
-    final ffi = SlintFfi.instance;
-    return takeEnvelope(withNativeString(
-      global,
-      (g) => withNativeString(name, (n) => ffi.getProperty(_live, g, n)),
-    ));
-  }
+  Object? _getProperty(String? global, String name) =>
+      backend.getProperty(_live, global, name);
 
-  void _setProperty(String? global, String name, Object? value) {
-    final ffi = SlintFfi.instance;
-    takeEnvelope(withNativeString(
-      global,
-      (g) => withNativeString(
-        name,
-        (n) => withNativeString(
-          jsonEncode(value),
-          (v) => ffi.setProperty(_live, g, n, v),
-        ),
-      ),
-    ));
-  }
+  void _setProperty(String? global, String name, Object? value) =>
+      backend.setProperty(_live, global, name, jsonEncode(value));
 
-  Object? _invoke(String? global, String name, List<Object?> args) {
-    final ffi = SlintFfi.instance;
-    return takeEnvelope(withNativeString(
-      global,
-      (g) => withNativeString(
-        name,
-        (n) => withNativeString(
-          jsonEncode(args),
-          (a) => ffi.invoke(_live, g, n, a),
-        ),
-      ),
-    ));
-  }
+  Object? _invoke(String? global, String name, List<Object?> args) =>
+      backend.invoke(_live, global, name, jsonEncode(args));
 
   void _setCallback(String? global, String name, SlintCallback handler) {
-    final ffi = SlintFfi.instance;
+    _installDispatchers();
     final id = _nextHandlerId++;
     _handlers[id] = handler;
     _handlerIds.add(id);
     try {
-      takeEnvelope(withNativeString(
-        global,
-        (g) => withNativeString(
-          name,
-          (n) => ffi.setCallback(
-            _live,
-            g,
-            n,
-            _callbackDispatcher.nativeFunction,
-            _callbackResultFree.nativeFunction,
-            Pointer<Void>.fromAddress(id),
-          ),
-        ),
-      ));
+      backend.setCallback(_live, global, name, id);
     } on Object {
       _handlers.remove(id);
       _handlerIds.remove(id);
@@ -410,10 +337,10 @@ class SlintGlobal {
 
 /// Run the Slint event loop. [ComponentInstance.run] is usually more
 /// convenient; use this when you showed several windows yourself.
-void runEventLoop() => takeEnvelope(SlintFfi.instance.runEventLoop());
+void runEventLoop() => backend.runEventLoop();
 
 /// Make the running event loop return.
-void quitEventLoop() => SlintFfi.instance.quitEventLoop();
+void quitEventLoop() => backend.quitEventLoop();
 
 /// A timer driven by the Slint event loop.
 ///
@@ -430,23 +357,19 @@ class SlintTimer {
 
   SlintTimer._(bool repeated, Duration interval, void Function() callback)
       : _id = _nextHandlerId++ {
+    _installDispatchers();
     _timerHandlers[_id] = callback;
-    _handle = SlintFfi.instance.timerStart(
-      repeated,
-      interval.inMilliseconds,
-      _timerDispatcher.nativeFunction,
-      Pointer<Void>.fromAddress(_id),
-    );
+    _handle = backend.timerStart(repeated, interval.inMilliseconds, _id);
   }
 
   final int _id;
-  late Pointer<SlintTimerHandle> _handle;
+  late int _handle;
 
   /// Stop the timer and release it. Calling this twice is harmless.
   void stop() {
-    if (_handle == nullptr) return;
-    SlintFfi.instance.timerFree(_handle);
-    _handle = nullptr;
+    if (_handle == 0) return;
+    backend.timerFree(_handle);
+    _handle = 0;
     _timerHandlers.remove(_id);
   }
 }

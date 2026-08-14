@@ -28,7 +28,12 @@ use i_slint_renderer_software::{MinimalSoftwareWindow, PremultipliedRgbaColor, R
 use std::cell::RefCell;
 use std::ffi::c_char;
 use std::rc::Rc;
+// `std::time::Instant` panics on wasm; `web-time` is the shim `i-slint-core`
+// already uses there, so both agree on what "now" means.
+#[cfg(not(target_arch = "wasm32"))]
 use std::time::Instant;
+#[cfg(target_arch = "wasm32")]
+use web_time::Instant;
 
 use crate::{err, guard, ok, ok_void, str_or_empty};
 

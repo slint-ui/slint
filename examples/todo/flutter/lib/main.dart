@@ -1,8 +1,6 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-import 'dart:io';
-
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:slint_flutter/slint_flutter.dart';
@@ -17,6 +15,9 @@ TodoItem todo(String title, {bool checked = false}) =>
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // On the web this fetches and instantiates the Slint WebAssembly module
+  // served from `web/`; elsewhere it returns immediately.
+  await initSlint();
   final source = await rootBundle.loadString(todoUiAsset);
   runApp(TodoApp(source: source));
 }
@@ -95,9 +96,9 @@ MainWindow buildTodoUi(String source) {
 
   app.onApplySortingAndFiltering(refresh);
 
-  app.onPopupConfirmed(() {
-    exit(0);
-  });
+  // `SystemNavigator.pop` rather than `exit`: `dart:io` does not exist on the
+  // web, and this is what Flutter offers everywhere.
+  app.onPopupConfirmed(SystemNavigator.pop);
 
   app.showHeader = true;
   app.todoModel = items;

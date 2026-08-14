@@ -20,7 +20,7 @@ Three packages live here:
 
 | Package | What it is |
 | --- | --- |
-| [`slint`](./slint/pubspec.yaml) | The binding itself. Pure Dart, `dart:ffi`, no Flutter dependency. |
+| [`slint`](./slint/pubspec.yaml) | The binding itself. Pure Dart, no Flutter dependency: `dart:ffi` natively, WebAssembly on the web. |
 | [`slint_generator`](./slint_generator) | The `build_runner` builder that turns a `.slint` file into a typed Dart API. A dev dependency only. |
 | [`slint_flutter`](./slint_flutter) | A `SlintView` widget that renders a Slint UI inside a Flutter app. |
 
@@ -271,6 +271,47 @@ draws through the embedded surface on Apple platforms. `SLINT_DART_FEATURES`,
 `IPHONEOS_DEPLOYMENT_TARGET` / `MACOSX_DEPLOYMENT_TARGET` override the feature
 set, the cargo profile, the output path and the minimum OS versions.
 
+### The web loads a WebAssembly module
+
+A browser has no `dart:ffi`, so `package:slint` reaches the same Rust code
+through WebAssembly instead: `api/flutter/rust/wasm.rs` exposes the runtime to
+JavaScript with `wasm-bindgen`, and
+[`backend_web.dart`](./slint/lib/src/backend_web.dart) calls it over
+`dart:js_interop`. Everything above that line — properties, callbacks, the
+software renderer — is the code every other platform runs.
+
+Build the module into the application's `web/` directory:
+
+```sh
+./scripts/build_slint_dart_wasm.bash path/to/app/web
+```
+
+That writes `slint_dart.js` and `slint_dart_bg.wasm` (about 15 MB, roughly
+4 MB over the wire once the server compresses it). Loading is asynchronous, so
+`await initSlint()` before the first component:
+
+```dart
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await initSlint();
+  runApp(const MyApp());
+}
+```
+
+It returns immediately on every other platform, so call it unconditionally.
+`initSlint(scriptUrl: './slint_dart.js')` points elsewhere; the argument is a
+module specifier, so a relative path needs the leading `./`.
+
+Two entry points have no meaning in a browser and throw `SlintException`:
+`loadFile()`, because there is no filesystem — fetch the `.slint` source and
+use `loadSource()` — and `run()`/`runEventLoop()`, because the browser owns
+the event loop. `SlintView` drives the frames instead.
+
+Because the software renderer rasterizes every pixel itself, this build turns
+on `i-slint-core`'s `image-decoders` and `svg` features, which a wasm build
+normally leaves to the browser. Without them `std-widgets` icons panic with
+"The image cannot be rendered".
+
 ## Two ways to show a UI
 
 ### Slint owns the window
@@ -411,4 +452,10 @@ every command above is available as `fvm dart …` and `fvm flutter …`. Run
 - Generated wrappers load the original `.slint` source at runtime.
   Packaged Flutter apps should bundle that file as a Flutter asset and call
   `loadSource` with the preloaded text.
-  `load()` and `loadFile()` still read from the filesystem.
+  `load()` and `loadFile()` still read from the filesystem, and neither exists
+  on the web.
+- The web carries the whole Slint compiler in the WebAssembly module, because
+  the wrappers compile `.slint` at runtime. That is most of its size.
+- A Rust panic on the web aborts the module instead of unwinding, so the
+  `catch_unwind` guards that turn a panic into a `SlintException` elsewhere do
+  not apply there. The message still reaches the browser console.

@@ -9,12 +9,9 @@
 /// compose with the widget tree anyway.
 library;
 
-import 'dart:ffi';
 import 'dart:typed_data';
 
-import 'package:ffi/ffi.dart';
-
-import 'ffi.dart';
+import 'backend.dart';
 
 /// What happened to the pointer. The numbers are the ABI, so keep them in step
 /// with `slint_dart_embedded_pointer_event`.
@@ -94,7 +91,7 @@ abstract final class SlintKey {
 class SlintSurface {
   /// Install the software renderer. Doing this twice returns the same surface.
   factory SlintSurface() {
-    takeEnvelope(SlintFfi.instance.embeddedInit());
+    backend.embeddedInit();
     return _instance ??= SlintSurface._();
   }
 
@@ -102,8 +99,6 @@ class SlintSurface {
 
   static SlintSurface? _instance;
 
-  Pointer<Uint8> _buffer = nullptr;
-  int _bufferPixels = 0;
   int _width = 0;
   int _height = 0;
 
@@ -114,43 +109,26 @@ class SlintSurface {
   /// device pixel ratio, mapping those to the logical pixels `.slint` code
   /// sizes itself in.
   void resize(int width, int height, {double scaleFactor = 1.0}) {
-    takeEnvelope(
-      SlintFfi.instance.embeddedResize(width, height, scaleFactor),
-    );
+    backend.embeddedResize(width, height, scaleFactor);
     _width = width;
     _height = height;
-
-    final pixels = width * height;
-    if (pixels > _bufferPixels) {
-      if (_buffer != nullptr) malloc.free(_buffer);
-      // Zeroed, so the first partial repaint has a defined background.
-      _buffer = calloc<Uint8>(pixels * 4);
-      _bufferPixels = pixels;
-    }
   }
 
   /// Draw the next frame, and return the pixels when anything changed.
   ///
-  /// The returned view aliases the internal buffer, which the next [render]
-  /// or [resize] overwrites — copy it if you need to keep it. Returns null
-  /// when nothing needed repainting.
-  Uint8List? render() {
-    if (_buffer == nullptr || _width == 0 || _height == 0) return null;
-    final drawn = SlintFfi.instance.embeddedRender(_buffer, _width, _height);
-    if (!drawn) return null;
-    return _buffer.asTypedList(_width * _height * 4);
-  }
+  /// The result is only valid until the next [render] or [resize] — copy it
+  /// if you need to keep it. Returns null when nothing needed repainting.
+  Uint8List? render() => backend.embeddedRender(_width, _height);
 
   /// Advance timers and animations. Returns how long the caller may idle
   /// before the next update is due, or null when nothing is pending.
   Duration? tick() {
-    final ms = SlintFfi.instance.embeddedTick();
+    final ms = backend.embeddedTick();
     return ms < 0 ? null : Duration(milliseconds: ms);
   }
 
   /// True while an animation is running, so keep asking for frames.
-  bool get hasActiveAnimations =>
-      SlintFfi.instance.embeddedHasActiveAnimations();
+  bool get hasActiveAnimations => backend.embeddedHasActiveAnimations();
 
   void dispatchPointer(
     PointerEventKind kind, {
@@ -160,35 +138,21 @@ class SlintSurface {
     double deltaX = 0,
     double deltaY = 0,
   }) {
-    takeEnvelope(SlintFfi.instance.embeddedPointerEvent(
-      kind.code,
-      x,
-      y,
-      button.code,
-      deltaX,
-      deltaY,
-    ));
+    backend.embeddedPointerEvent(kind.code, x, y, button.code, deltaX, deltaY);
   }
 
-  void dispatchKey(KeyEventKind kind, String text) {
-    takeEnvelope(withNativeString(
-      text,
-      (t) => SlintFfi.instance.embeddedKeyEvent(kind.code, t),
-    ));
-  }
+  void dispatchKey(KeyEventKind kind, String text) =>
+      backend.embeddedKeyEvent(kind.code, text);
 
   /// Tell Slint whether the surface has keyboard focus, so text cursors blink
   /// and selections render the way the platform expects.
-  void dispatchFocus({required bool focused}) {
-    takeEnvelope(SlintFfi.instance.embeddedFocusEvent(focused));
-  }
+  void dispatchFocus({required bool focused}) =>
+      backend.embeddedFocusEvent(focused);
 
   /// Release the pixel buffer. The Slint platform itself stays installed for
   /// the life of the process.
   void dispose() {
-    if (_buffer != nullptr) malloc.free(_buffer);
-    _buffer = nullptr;
-    _bufferPixels = 0;
+    backend.embeddedDispose();
     _width = 0;
     _height = 0;
   }

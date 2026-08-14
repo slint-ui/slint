@@ -7430,14 +7430,19 @@ dependencies = [
 name = "slint-dart"
 version = "1.18.0"
 dependencies = [
+ "console_error_panic_hook",
  "i-slint-backend-selector",
  "i-slint-backend-testing",
+ "i-slint-backend-winit",
  "i-slint-compiler",
  "i-slint-core",
  "i-slint-renderer-software",
+ "js-sys",
  "serde_json",
  "slint-interpreter",
  "spin_on",
+ "wasm-bindgen",
+ "web-time",
 ]
 
 [[package]]

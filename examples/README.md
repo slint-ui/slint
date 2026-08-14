@@ -145,4 +145,14 @@ fvm flutter create --platforms=macos --project-name=todo .
 fvm flutter run -d macos
 ```
 
+For the web the native library is a WebAssembly module instead:
+
+```sh
+cd examples/todo/flutter
+fvm dart run build_runner build --delete-conflicting-outputs
+fvm flutter create --platforms=web --project-name=todo .
+../../../scripts/build_slint_dart_wasm.bash web
+fvm flutter run -d chrome
+```
+
 See [`api/flutter`](/api/flutter/README.md) for the binding itself.

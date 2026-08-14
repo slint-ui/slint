@@ -26,7 +26,23 @@ If `flutter run` fails because Xcode cannot access
 `macos/Flutter/ephemeral/Packages/.packages/FlutterFramework`, delete `macos/`
 and run `flutter create` again.
 A runner generated without Swift Package Manager package references cannot be
-migrated in place.
+migrated in place. Recreating one platform's runner can leave another's in that
+state, so expect to redo this after adding a platform.
+
+The web build takes the same `.slint` file through WebAssembly instead of a
+dynamic library:
+
+```sh
+fvm dart run build_runner build --delete-conflicting-outputs
+fvm flutter create --platforms=web --project-name=todo .
+../../../scripts/build_slint_dart_wasm.bash web
+fvm flutter run -d chrome
+```
+
+The script puts `slint_dart.js` and `slint_dart_bg.wasm` in `web/`, which is
+where `initSlint()` in [`lib/main.dart`](lib/main.dart) expects them. Rerun it
+whenever the Rust side changes; `flutter run` does not.
+
 Keep the generator running while you edit the `.slint` file:
 
 ```sh

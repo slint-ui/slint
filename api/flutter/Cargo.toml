@@ -49,5 +49,23 @@ slint-interpreter = { workspace = true, features = ["compat-1-2", "display-diagn
 serde_json = { workspace = true }
 spin_on = { workspace = true }
 
+# On wasm `slint-interpreter` depends on the winit backend unconditionally, and
+# that crate does not compile without a renderer. We never use it — the web
+# build renders through `embedded.rs` — but it has to build, so pick the
+# renderer that costs the least.
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+i-slint-backend-winit = { workspace = true, features = ["renderer-software"] }
+# `slint-interpreter` leaves image and SVG decoding to the browser on wasm,
+# which is right for a canvas renderer but not for this one: the software
+# renderer rasterizes every pixel itself, and without these the widget icons
+# in `std-widgets` panic with "The image cannot be rendered".
+i-slint-core = { workspace = true, features = ["image-decoders", "svg"] }
+# `std::time::Instant` panics on wasm; this is the shim `i-slint-core` uses.
+web-time = "1.0"
+wasm-bindgen = "0.2"
+js-sys = "0.3"
+# Without this a Rust panic reaches the browser as a bare "unreachable" trap.
+console_error_panic_hook = "0.1"
+
 [dev-dependencies]
 i-slint-backend-testing = { workspace = true }
