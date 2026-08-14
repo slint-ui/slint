@@ -5,16 +5,24 @@ description: Software units of Slint SC and their static and dynamic architectur
 
 ## Slint SC Software Units (ISO 26262:6 7.4.4)
 
-This is what is included in Slint SC:
+Slint SC consists of three units.
 
-* A Slint Compiler, from the internal `i-slint-compiler` crate
-* The `slint_build` crate which provides a Rust API for the compiler.
-* Slint types: Currently we support `Rectangle` and `Image`, with basic properties.
-* (TODO: Add list of Rust crates used by Slint SC)
+* **The Slint compiler**, the `slint-compiler` binary from `tools/compiler`, built with the `slint-sc` feature and invoked with `--slint-sc`.
+  It translates a `.slint` file into Rust code, and rejects everything outside the qualified subset.
+  It's a tool: it runs at build time and doesn't ship in the product.
+* **The `slint-sc` runtime crate**, from `api/slint-sc`.
+  It ships in the customer's binary.
+  It's `no_std`, uses no `alloc`, and depends on no other crate.
+* **The generated code**, produced by the compiler from the customer's `.slint` files.
+  Its only dependency is the `slint-sc` runtime crate; see [`sls.gen.output`](/reference/generated-code/#sls.gen.output).
 
-Each of these things can have a **Usage** and a **Constraints** section.
+The qualified subset currently contains the `Rectangle` and `Window` elements, with basic properties.
+The [API Reference](/reference/) is generated from the `\sc` markers in the compiler's builtins, so it lists exactly what the subset contains.
 
-Each feature of the language or a library can map to a Requirement ID, and have 1 or more code test-examples.
+(TODO: `slint_build` doesn't support Slint SC yet, so there's no build-script
+integration; the compiler binary is invoked directly. Decide whether
+`slint_build` gains a safety-critical mode or the manual documents the direct
+invocation.)
 
 ## Slint SC Architecture Design (ISO 26262:6 7.4)
 
@@ -52,44 +60,28 @@ addresses:
 
 ```mermaid
 flowchart TD
-    subgraph Developer Workspace
+    subgraph Build Time
         SlintFiles[".slint UI Files"]
-        CargoToml["Cargo.toml (Dependencies)"]
-        BuildScript["build.rs (slint_build::compile_with_config)"]
+        Compiler["slint-compiler --slint-sc"]
+        Generated["Generated Rust Code"]
+        RustC["Ferrocene rustc"]
+
+        SlintFiles --> |Read by| Compiler
+        Compiler --> |Produces| Generated
+        Generated --> RustC
     end
 
-    subgraph Slint Compiler Toolchain
-        SlintBuild["slint_build (Rust API)"]
-        Compiler["i-slint-compiler (Core Compiler)"]
-        Parser["Parser (Rowan)"]
-        Generators["Code Generators (Rust)"]
-
-        SlintBuild --> |Invokes| Compiler
-        Compiler --> |Parses| Parser
-        Compiler --> |Generates| Generators
-    end
-
-    subgraph Slint SC Runtime Core
-        SlintCore["Slint Core Library"]
-        CoreTypes["Core Types (Rectangle, Image, etc.)"]
-        Properties["Reactive Property System"]
-
-        SlintCore --> CoreTypes
-        SlintCore --> Properties
-    end
-
-    subgraph External Interfaces
+    subgraph Customer Binary
         AppCode["User Application Code"]
-        Windowing["Backend / Windowing System"]
-        Renderer["Safe Renderer"]
+        Component["Generated Component"]
+        Runtime["slint-sc Runtime"]
+
+        AppCode --> |set_*, render_rgb8| Component
+        Component --> |Only dependency| Runtime
     end
 
-    BuildScript --> |Uses| SlintBuild
-    SlintFiles --> |Read by| Compiler
-    Generators --> |Produces Rust Code| AppCode
-    AppCode --> |Uses| SlintCore
-    SlintCore --> |Interfaces with| Windowing
-    SlintCore --> |Interfaces with| Renderer
+    RustC --> |Compiles & links| Component
+    Runtime --> |Paints| FrameBuffer["Frame Buffer (owned by the application)"]
 ```
 
 ### Dynamic Design
@@ -102,25 +94,21 @@ In addition, the software architectural design should have a dynamic design part
 - the data flow through interfaces and global variables; and
 - the temporal constraints.
 
+There is no event loop and no thread inside Slint SC.
+The application decides when a frame is drawn, and every call runs synchronously on the caller's thread.
+
 ```mermaid
 sequenceDiagram
-    participant User as Developer
-    participant BuildScript as build.rs
-    participant Compiler as slint_build / i-slint-compiler
-    participant RustC as rustc
-    participant Runtime as User App / Slint Core
+    participant App as Application
+    participant Component as Generated Component
+    participant Runtime as slint-sc Runtime
 
-    User->>BuildScript: cargo build
-    BuildScript->>Compiler: compile_with_config("app.slint")
-    Compiler->>Compiler: Parse .slint files & Validate Constraints
-    Compiler-->>BuildScript: Generate Rust code
-    BuildScript-->>RustC: Pass generated code
-    RustC-->>Runtime: Compile & Link with Slint Core
-
-    Runtime->>Runtime: Initialize Components & Variables
-    loop Event Loop
-        Runtime->>Runtime: Receive Window System Events
-        Runtime->>Runtime: Update Reactive Properties
-        Runtime->>Runtime: Render to Backend
+    App->>Component: new()
+    loop When the application decides to draw
+        App->>Component: set_foo(value)
+        App->>Component: render_rgb8(width, height, &mut frame_buffer)
+        Component->>Runtime: paint items
+        Runtime-->>App: Ok(()) or Err(RenderError)
+        App->>App: check the result, present the buffer
     end
 ```
