@@ -14,8 +14,7 @@ use std::rc::Rc;
 
 use crate::{
     common,
-    common::LspToPreviews,
-    language::{convert_diagnostics, load_document_impl},
+    common::{LspToPreviews, editor_session::convert_diagnostics},
 };
 
 use super::Context;
@@ -57,15 +56,17 @@ pub(crate) fn preview_capture() -> (Rc<LspToPreviews>, CapturedPreviewMessages) 
 /// ```
 pub fn mock_context() -> Context {
     crate::language::Context {
-        document_cache: empty_document_cache(),
-        preview_config: Default::default(),
+        session: common::EditorSession {
+            document_cache: empty_document_cache(),
+            preview_config: Default::default(),
+            #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
+            to_show: None,
+            open_urls: HashSet::new(),
+            to_preview: LspToPreviews::with_one(common::DummyLspToPreview::default()),
+            pending_recompile: Default::default(),
+        },
         server_notifier: crate::ServerNotifier::dummy(),
         init_param: Default::default(),
-        #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
-        to_show: None,
-        open_urls: HashSet::new(),
-        to_preview: LspToPreviews::with_one(common::DummyLspToPreview::default()),
-        pending_recompile: Default::default(),
         host_language_rename_dont_ask_again: Default::default(),
     }
 }
@@ -124,21 +125,23 @@ fn load_content_with_document_cache(
     };
     let url = Url::from_file_path(dummy_absolute_path).unwrap();
     let mut ctx = crate::language::Context {
-        document_cache: dc,
-        preview_config: Default::default(),
+        session: common::EditorSession {
+            document_cache: dc,
+            preview_config: Default::default(),
+            to_show: None,
+            open_urls: Default::default(),
+            to_preview: LspToPreviews::with_one(common::DummyLspToPreview::default()),
+            pending_recompile: Default::default(),
+        },
         server_notifier: crate::ServerNotifier::dummy(),
         init_param: Default::default(),
-        to_show: None,
-        open_urls: Default::default(),
-        to_preview: LspToPreviews::with_one(common::DummyLspToPreview::default()),
-        pending_recompile: Default::default(),
         host_language_rename_dont_ask_again: Default::default(),
     };
     let (extra_files, diag) =
-        spin_on::spin_on(load_document_impl(&mut ctx, content, url.clone(), Some(42)));
+        spin_on::spin_on(ctx.session.load_document_impl(content, url.clone(), Some(42)));
 
-    let diag = convert_diagnostics(&extra_files, diag, ctx.document_cache.format);
-    (ctx.document_cache, url, diag)
+    let diag = convert_diagnostics(&extra_files, diag, ctx.session.document_cache.format);
+    (ctx.session.document_cache, url, diag)
 }
 
 /// Create a `DocumentCache` with one comparatively complex test document loaded into it.
@@ -208,9 +211,9 @@ pub fn load(
     let url = Url::from_file_path(path).unwrap();
 
     let (main_file, diag) =
-        spin_on::spin_on(load_document_impl(ctx, content.into(), url.clone(), Some(1)));
+        spin_on::spin_on(ctx.session.load_document_impl(content.into(), url.clone(), Some(1)));
 
-    (url, convert_diagnostics(&main_file, diag, ctx.document_cache.format))
+    (url, convert_diagnostics(&main_file, diag, ctx.session.document_cache.format))
 }
 
 #[test]
@@ -241,8 +244,8 @@ fn accurate_diagnostics_in_dependencies() {
     assert!(diag[&foo_url][0].message.contains("hello"));
     assert_eq!(diag.len(), 1);
 
-    ctx.open_urls.insert(foo_url.clone());
-    ctx.open_urls.insert(bar_url.clone());
+    ctx.session.open_urls.insert(foo_url.clone());
+    ctx.session.open_urls.insert(bar_url.clone());
 
     let (bar_url, diag) = load(
         &mut ctx,
@@ -260,7 +263,7 @@ fn accurate_diagnostics_in_dependencies() {
     );
 
     let sym = crate::language::get_document_symbols(
-        &mut ctx.document_cache,
+        &mut ctx.session.document_cache,
         &lsp_types::TextDocumentIdentifier { uri: foo_url.clone() },
     )
     .expect("foo.slint should still be loaded");
@@ -293,7 +296,7 @@ fn accurate_diagnostics_in_dependencies_with_parse_errors() {
     );
     assert_eq!(diag, HashMap::from_iter([(bar_url.clone(), Vec::new())]));
 
-    ctx.open_urls.insert(bar_url.clone());
+    ctx.session.open_urls.insert(bar_url.clone());
 
     let (reexport_url, diag) = load(
         &mut ctx,
@@ -303,7 +306,7 @@ fn accurate_diagnostics_in_dependencies_with_parse_errors() {
     assert!(diag[&reexport_url].iter().any(|d| d.message.contains("Syntax error:")));
     assert_eq!(diag.len(), 1);
 
-    ctx.open_urls.insert(reexport_url.clone());
+    ctx.session.open_urls.insert(reexport_url.clone());
 
     let (foo_url, diag) = load(
         &mut ctx,
@@ -315,7 +318,7 @@ fn accurate_diagnostics_in_dependencies_with_parse_errors() {
     // Don't clear further error (so the client still has the parse error in reexport_url)
     assert_eq!(diag.len(), 1);
 
-    ctx.open_urls.insert(foo_url.clone());
+    ctx.session.open_urls.insert(foo_url.clone());
 
     let (bar_url, diag) = load(
         &mut ctx,
@@ -351,22 +354,18 @@ fn preview_file_recompiled_when_dependency_changes() {
     // Update context with:
     // - main.slint set as the preview file (to_show)
     // - main.slint NOT in open_urls (simulating it was closed in the editor)
-    ctx.to_show = Some(i_slint_live_preview::protocol::PreviewComponent {
+    ctx.session.to_show = Some(i_slint_live_preview::protocol::PreviewComponent {
         url: main_url.clone(),
         component: None,
     });
 
-    spin_on::spin_on(crate::language::trigger_file_watcher(
-        &mut ctx,
-        dep_url.clone(),
-        FileChangeKind::Changed,
-    ))
-    .unwrap();
+    spin_on::spin_on(ctx.session.trigger_file_watcher(dep_url.clone(), FileChangeKind::Changed))
+        .unwrap();
 
     // The preview file (main.slint) should be scheduled for recompilation
     // even though it's not in open_urls
     assert!(
-        ctx.pending_recompile.contains(&main_url),
+        ctx.session.pending_recompile.contains(&main_url),
         "Preview file should be in pending_recompile when its dependency changes"
     );
 }
@@ -441,18 +440,14 @@ mod missing_imports {
         let (mut ctx, dir, main_url) = load_document_with_missing_import();
 
         // Simulate that the file was opened via load_document
-        ctx.open_urls.insert(main_url.clone());
+        ctx.session.open_urls.insert(main_url.clone());
 
         let dep_url = Url::from_file_path(dir.join("dep.slint")).unwrap();
-        spin_on::spin_on(crate::language::trigger_file_watcher(
-            &mut ctx,
-            dep_url,
-            FileChangeKind::Created,
-        ))
-        .unwrap();
+        spin_on::spin_on(ctx.session.trigger_file_watcher(dep_url, FileChangeKind::Created))
+            .unwrap();
 
         assert!(
-            ctx.pending_recompile.contains(&main_url),
+            ctx.session.pending_recompile.contains(&main_url),
             "main.slint should be scheduled for recompilation when dep.slint is created outside the editor"
         );
     }
@@ -462,7 +457,7 @@ mod missing_imports {
         let (ctx, dir, main_url) = load_document_with_missing_import();
 
         let dep_url = Url::from_file_path(dir.join("dep.slint")).unwrap();
-        let watch_urls = ctx.document_cache.all_urls_to_watch();
+        let watch_urls = ctx.session.document_cache.all_urls_to_watch();
 
         assert!(watch_urls.contains(&main_url), "main.slint should stay in the watch set");
         assert!(watch_urls.contains(&dep_url), "missing imports should stay in the watch set");

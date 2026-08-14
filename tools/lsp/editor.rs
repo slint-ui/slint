@@ -280,15 +280,17 @@ async fn lsp_main(
     };
 
     let mut ctx = language::Context {
-        document_cache: common::DocumentCache::new(compiler_config),
-        preview_config: Default::default(),
+        session: common::EditorSession {
+            document_cache: common::DocumentCache::new(compiler_config),
+            preview_config: Default::default(),
+            #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
+            to_show: Default::default(),
+            open_urls: Default::default(),
+            to_preview,
+            pending_recompile: Default::default(),
+        },
         server_notifier: notifier,
         init_param: Default::default(),
-        #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
-        to_show: Default::default(),
-        open_urls: Default::default(),
-        to_preview,
-        pending_recompile: Default::default(),
         host_language_rename_dont_ask_again: Default::default(),
     };
 
@@ -302,15 +304,14 @@ async fn lsp_main(
             .map_err(|err| format!("Failed to determine full path for {file}: {err}"))?;
         let url = Url::from_file_path(full_path.clone())
             .map_err(|_| format!("Failed to convert {file} to URL!"))?;
-        language::show_preview(
-            PreviewComponent { url: url.clone(), component: cli.component },
-            &mut ctx,
-        );
+        ctx.session.show_preview(PreviewComponent { url: url.clone(), component: cli.component });
 
         // Make sure the document is loaded before we start processing messages from the preview, so
         // we have the correct state already loaded.
         // The editor has no LSP client to publish diagnostics to, so they are dropped here.
-        let _diagnostics = language::reload_document(&mut ctx, url)
+        let _diagnostics = ctx
+            .session
+            .reload_document(url)
             .await
             .map_err(|err| format!("Failed to load file: {file}: {err}"))?;
         project_root = project_root_for_path(&full_path).map(Path::to_path_buf);
@@ -324,8 +325,11 @@ async fn lsp_main(
 
     const RECOMPILE_IDLE_TIMEOUT: Duration = Duration::from_millis(50);
     loop {
-        let recompile_idle_timeout =
-            if ctx.pending_recompile.is_empty() { Duration::MAX } else { RECOMPILE_IDLE_TIMEOUT };
+        let recompile_idle_timeout = if ctx.session.pending_recompile.is_empty() {
+            Duration::MAX
+        } else {
+            RECOMPILE_IDLE_TIMEOUT
+        };
         tokio::select! {
             watcher_event = file_watcher_rx.recv() => {
                 match watcher_event {
@@ -349,10 +353,10 @@ async fn lsp_main(
             }
             _ = tokio::time::sleep(recompile_idle_timeout) => {
                 tracing::debug!("LSP recompiling");
-                let pending_recompile = std::mem::take(&mut ctx.pending_recompile);
+                let pending_recompile = std::mem::take(&mut ctx.session.pending_recompile);
 
                 for url in pending_recompile {
-                    if let Err(err) = language::reload_document(&mut ctx, url).await {
+                    if let Err(err) = ctx.session.reload_document(url).await {
                         tracing::error!("Failed document reload: {err}");
                     }
                 }
@@ -379,7 +383,7 @@ async fn trigger_editor_file_watcher(
         return Ok(());
     };
 
-    let _diagnostics = language::trigger_file_watcher(ctx, url, kind).await?;
+    let _diagnostics = ctx.session.trigger_file_watcher(url, kind).await?;
     Ok(())
 }
 
@@ -389,14 +393,15 @@ fn sync_file_watcher_if_needed(
     root_path: &Path,
     watch_paths_revision: &mut Option<u64>,
 ) -> Result<()> {
-    let current_revision = ctx.document_cache.revision();
+    let current_revision = ctx.session.document_cache.revision();
     if watch_paths_revision.is_some_and(|rev| rev == current_revision) {
         return Ok(());
     }
 
     watcher.update_watched_paths(
         std::iter::once(root_path.to_path_buf()).chain(
-            ctx.document_cache
+            ctx.session
+                .document_cache
                 .all_urls_to_watch()
                 .into_iter()
                 // filter out builtins
@@ -424,12 +429,12 @@ async fn handle_preview_message(
             let slint_files: Vec<_> =
                 files.iter().filter(|url| is_slint_url(url)).cloned().collect();
             for url in slint_files {
-                if let Err(err) = language::reload_document(ctx, url.clone()).await {
+                if let Err(err) = ctx.session.reload_document(url.clone()).await {
                     tracing::error!("Failed document reload requested by preview for {url}: {err}");
                 }
             }
             if let Some(url) = requested_preview {
-                ctx.to_show = Some(PreviewComponent { url, component: None });
+                ctx.session.to_show = Some(PreviewComponent { url, component: None });
             }
             language::send_requested_state_to_preview(ctx, files, settings);
             requested_project_root
@@ -463,7 +468,7 @@ async fn handle_preview_message(
             None
         }
         SendWorkspaceEdit { label, edit } => {
-            handle_workspace_edit(&ctx.document_cache, label.as_deref(), edit);
+            handle_workspace_edit(&ctx.session.document_cache, label.as_deref(), edit);
             None
         }
     }

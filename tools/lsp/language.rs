@@ -17,8 +17,7 @@ mod signature_help;
 #[cfg(test)]
 pub mod test;
 
-use crate::common::LspToPreviews;
-use crate::common::uri_to_file;
+use crate::common::EditorSession;
 use crate::{common, util};
 
 #[cfg(target_arch = "wasm32")]
@@ -30,12 +29,8 @@ use i_slint_compiler::parser::{
 use i_slint_compiler::{diagnostics::BuildDiagnostics, langtype::Type};
 #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
 use i_slint_live_preview::protocol::PreviewComponent;
-use i_slint_live_preview::{
-    file_watcher::FileChangeKind,
-    protocol::{LspToPreviewMessage, PreviewConfig, SourceFileVersion, VersionedUrl},
-};
+use i_slint_live_preview::protocol::{LspToPreviewMessage, PreviewConfig, SourceFileVersion};
 
-use itertools::Itertools;
 use lsp_types::TextDocumentPositionParams;
 use lsp_types::{
     ClientCapabilities, CodeActionOrCommand, CodeActionProviderCapability, CodeLens,
@@ -54,6 +49,7 @@ use lsp_types::{
 
 use std::cell::Cell;
 use std::collections::HashMap;
+#[cfg(not(target_arch = "wasm32"))]
 use std::collections::HashSet;
 use std::future::Future;
 use std::path::PathBuf;
@@ -102,13 +98,13 @@ pub fn send_state_to_preview(ctx: &Context) {
     let mut doc_count = 0;
     #[cfg(all(not(target_arch = "wasm32"), feature = "preview-remote"))]
     let mut fonts_sent = HashSet::<PathBuf>::new();
-    for (url, node) in ctx.document_cache.all_url_documents() {
+    for (url, node) in ctx.session.document_cache.all_url_documents() {
         if url.scheme() == "builtin" {
             continue;
         }
-        let version = ctx.document_cache.document_version(&url);
+        let version = ctx.session.document_cache.document_version(&url);
 
-        ctx.to_preview.send(&LspToPreviewMessage::SetContents {
+        ctx.session.to_preview.send(&LspToPreviewMessage::SetContents {
             url: VersionedUrl::new(url.clone(), version),
             contents: node.text().to_string().into(),
         });
@@ -117,12 +113,12 @@ pub fn send_state_to_preview(ctx: &Context) {
         doc_count += 1;
     }
 
-    ctx.to_preview
-        .send(&LspToPreviewMessage::SetConfiguration { config: ctx.preview_config.clone() });
+    ctx.session.to_preview
+        .send(&LspToPreviewMessage::SetConfiguration { config: ctx.session.preview_config.clone() });
 
-    if let Some(c) = ctx.to_show.clone() {
+    if let Some(c) = ctx.session.to_show.clone() {
         tracing::debug!("Sending state to preview: {} documents, showing {}", doc_count, c.url);
-        ctx.to_preview.send(&LspToPreviewMessage::ShowPreview(c));
+        ctx.session.to_preview.send(&LspToPreviewMessage::ShowPreview(c));
     } else {
         tracing::debug!(
             "Sending state to preview: {} documents, showing default component",
@@ -149,7 +145,7 @@ pub fn send_requested_state_to_preview(
     ))]
     for name in settings {
         if let Some(contents) = crate::settings_store::load(name) {
-            ctx.to_preview
+            ctx.session.to_preview
                 .send(&LspToPreviewMessage::SetUserSettings { name: name.clone(), contents });
         }
     }
@@ -184,11 +180,11 @@ pub fn send_files_to_preview(ctx: &Context, files: &[lsp_types::Url]) {
     // access rules on the first one that is — most requests never need them.
     let file_access = std::cell::OnceCell::new();
     for url in files {
-        if let Some(node) = ctx.document_cache.get_document(url).and_then(|doc| doc.node.as_ref()) {
-            let version = ctx.document_cache.document_version_by_path(node.source_file.path());
+        if let Some(node) = ctx.session.document_cache.get_document(url).and_then(|doc| doc.node.as_ref()) {
+            let version = ctx.session.document_cache.document_version_by_path(node.source_file.path());
             let contents = node.text().to_string().into();
             tracing::debug!("Sending cached file {} to preview", url);
-            ctx.to_preview.send(&LspToPreviewMessage::SetContents {
+            ctx.session.to_preview.send(&LspToPreviewMessage::SetContents {
                 url: VersionedUrl::new(url.clone(), version),
                 contents,
             });
@@ -203,8 +199,8 @@ pub fn send_files_to_preview(ctx: &Context, files: &[lsp_types::Url]) {
         let file_access = file_access.get_or_init(|| {
             preview_files::PreviewFileAccess::new(
                 &ctx.init_param,
-                &ctx.preview_config,
-                &ctx.document_cache,
+                &ctx.session.preview_config,
+                &ctx.session.document_cache,
             )
         });
         if !file_access.allows(&path) {
@@ -212,20 +208,20 @@ pub fn send_files_to_preview(ctx: &Context, files: &[lsp_types::Url]) {
                 "Refusing to send {} to the preview: not a file of the project being previewed",
                 path.display()
             );
-            ctx.to_preview.send(&LspToPreviewMessage::ForgetFile { url: url.clone() });
+            ctx.session.to_preview.send(&LspToPreviewMessage::ForgetFile { url: url.clone() });
             continue;
         }
         match std::fs::read(&path) {
             Ok(contents) => {
                 tracing::debug!("Sending file {} ({} bytes) to preview", url, contents.len());
-                ctx.to_preview.send(&LspToPreviewMessage::SetContents {
+                ctx.session.to_preview.send(&LspToPreviewMessage::SetContents {
                     url: VersionedUrl::new(url.clone(), None),
                     contents,
                 });
             }
             Err(err) => {
                 tracing::warn!("Failed to read file {}: {err}", path.display());
-                ctx.to_preview.send(&LspToPreviewMessage::ForgetFile { url: url.clone() });
+                ctx.session.to_preview.send(&LspToPreviewMessage::ForgetFile { url: url.clone() });
             }
         }
     }
@@ -239,8 +235,8 @@ pub fn send_files_to_preview(ctx: &Context, files: &[lsp_types::Url]) {
 /// before the current edit).
 #[cfg(all(not(target_arch = "wasm32"), feature = "preview-remote"))]
 fn send_referenced_fonts(ctx: &Context, doc_url: &Url, sent: &mut HashSet<PathBuf>) {
-    let Some(remote) = ctx.to_preview.remote() else { return };
-    let Some(doc) = ctx.document_cache.get_document(doc_url) else { return };
+    let Some(remote) = ctx.session.to_preview.remote() else { return };
+    let Some(doc) = ctx.session.document_cache.get_document(doc_url) else { return };
     // `custom_fonts` holds the resolved path of every font import that
     // passed the compiler's existence check, plus remote URLs.
     for (font_path, _) in &doc.custom_fonts {
@@ -277,15 +273,15 @@ fn send_referenced_fonts(ctx: &Context, doc_url: &Url, sent: &mut HashSet<PathBu
 #[cfg(all(target_arch = "wasm32", any(feature = "preview-external", feature = "preview-engine")))]
 pub fn send_files_to_preview(ctx: &Context, files: &[lsp_types::Url]) {
     for url in files {
-        if let Some(node) = ctx.document_cache.get_document(url).and_then(|doc| doc.node.as_ref()) {
-            let version = ctx.document_cache.document_version_by_path(node.source_file.path());
-            ctx.to_preview.send(&LspToPreviewMessage::SetContents {
+        if let Some(node) = ctx.session.document_cache.get_document(url).and_then(|doc| doc.node.as_ref()) {
+            let version = ctx.session.document_cache.document_version_by_path(node.source_file.path());
+            ctx.session.to_preview.send(&LspToPreviewMessage::SetContents {
                 url: VersionedUrl::new(url.clone(), version),
                 contents: node.text().to_string().into(),
             });
         } else {
             tracing::warn!("WASM LSP cannot re-send uncached file to preview: {url}");
-            ctx.to_preview.send(&LspToPreviewMessage::ForgetFile { url: url.clone() });
+            ctx.session.to_preview.send(&LspToPreviewMessage::ForgetFile { url: url.clone() });
         }
     }
 }
@@ -333,19 +329,10 @@ async fn register_file_watcher(ctx: &Context) -> common::Result<()> {
 }
 
 pub struct Context {
-    pub document_cache: common::DocumentCache,
-    pub preview_config: PreviewConfig,
+    /// The documents being edited and the preview state that follows them
+    pub session: EditorSession,
     pub server_notifier: crate::ServerNotifier,
     pub init_param: InitializeParams,
-    /// The last component for which the user clicked "show preview"
-    #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
-    pub to_show: Option<PreviewComponent>,
-    /// File currently open in the editor
-    pub open_urls: HashSet<lsp_types::Url>,
-    pub to_preview: Rc<LspToPreviews>,
-    /// Files to recompile after all other operations are done
-    /// (i.e. recompilations triggered by updates to unopened files)
-    pub pending_recompile: HashSet<lsp_types::Url>,
     /// Disables the host-language rename prompt for the rest of the session.
     /// TODO(#12111): Persist this setting across sessions.
     pub host_language_rename_dont_ask_again: Rc<Cell<bool>>,
@@ -507,16 +494,16 @@ pub fn server_initialize_result(client_cap: &ClientCapabilities) -> InitializeRe
 pub fn register_request_handlers(rh: &mut RequestHandler) {
     rh.register::<GotoDefinition>(|params, ctx| {
         let result = token_descr(
-            &ctx.document_cache,
+            &ctx.session.document_cache,
             &params.text_document_position_params.text_document.uri,
             &params.text_document_position_params.position,
         )
-        .and_then(|token| goto::goto_definition(&mut ctx.document_cache, token.0));
+        .and_then(|token| goto::goto_definition(&mut ctx.session.document_cache, token.0));
         Ok(result)
     });
     rh.register::<Completion>(|params, ctx| {
         let result = token_descr(
-            &ctx.document_cache,
+            &ctx.session.document_cache,
             &params.text_document_position.text_document.uri,
             &params.text_document_position.position,
         )
@@ -528,7 +515,7 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
                 .as_ref()
                 .and_then(|t| t.completion.clone());
             completion::completion_at(
-                &mut ctx.document_cache,
+                &mut ctx.session.document_cache,
                 token.0,
                 token.1,
                 client_caps.as_ref(),
@@ -539,40 +526,45 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
     });
     rh.register::<HoverRequest>(|params, ctx| {
         let Some((token, _text_size)) = token_descr(
-            &ctx.document_cache,
+            &ctx.session.document_cache,
             &params.text_document_position_params.text_document.uri,
             &params.text_document_position_params.position,
         ) else {
             return Ok(None);
         };
 
-        let hover = hover::get_tooltip(&mut ctx.document_cache, token.clone());
+        let hover = hover::get_tooltip(&mut ctx.session.document_cache, token.clone());
 
         // we will show a tooltip in the editor, also update the highlight in the live preview
         if hover.is_some() {
             let (_document, preview) =
                 get_highlights_for_position(ctx, &params.text_document_position_params);
-            ctx.to_preview.send(&preview);
+            ctx.session.to_preview.send(&preview);
         }
 
         Ok(hover)
     });
     rh.register::<SignatureHelpRequest>(|params, ctx| {
         let result = token_descr(
-            &ctx.document_cache,
+            &ctx.session.document_cache,
             &params.text_document_position_params.text_document.uri,
             &params.text_document_position_params.position,
         )
-        .and_then(|(token, _)| signature_help::get_signature_help(&mut ctx.document_cache, token));
+        .and_then(|(token, _)| {
+            signature_help::get_signature_help(&mut ctx.session.document_cache, token)
+        });
         Ok(result)
     });
     rh.register::<CodeActionRequest>(|params, ctx| {
-        let result =
-            token_descr(&ctx.document_cache, &params.text_document.uri, &params.range.start)
-                .and_then(|(token, _)| {
-                    let capabilities = ctx.init_param.capabilities.clone();
-                    get_code_actions(&mut ctx.document_cache, token, &capabilities)
-                });
+        let result = token_descr(
+            &ctx.session.document_cache,
+            &params.text_document.uri,
+            &params.range.start,
+        )
+        .and_then(|(token, _)| {
+            let capabilities = ctx.init_param.capabilities.clone();
+            get_code_actions(&mut ctx.session.document_cache, token, &capabilities)
+        });
         Ok(result)
     });
     rh.register::<ExecuteCommand>(|params, ctx| {
@@ -600,7 +592,8 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
         Ok(None::<serde_json::Value>)
     });
     rh.register::<DocumentColor>(|params, ctx| {
-        Ok(get_document_color(&mut ctx.document_cache, &params.text_document).unwrap_or_default())
+        Ok(get_document_color(&mut ctx.session.document_cache, &params.text_document)
+            .unwrap_or_default())
     });
     rh.register::<ColorPresentationRequest>(|params, _ctx| {
         // Convert the color from the color picker to a string representation. This could try to produce a minimal
@@ -627,13 +620,16 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
         Ok(vec![ColorPresentation { label: color_literal, ..Default::default() }])
     });
     rh.register::<DocumentSymbolRequest>(|params, ctx| {
-        Ok(get_document_symbols(&mut ctx.document_cache, &params.text_document))
+        Ok(get_document_symbols(&mut ctx.session.document_cache, &params.text_document))
     });
     rh.register::<CodeLensRequest>(|params, ctx| {
-        Ok(get_code_lenses(&mut ctx.document_cache, &params.text_document))
+        Ok(get_code_lenses(&mut ctx.session.document_cache, &params.text_document))
     });
     rh.register::<SemanticTokensFullRequest>(|params, ctx| {
-        Ok(semantic_tokens::get_semantic_tokens(&mut ctx.document_cache, &params.text_document))
+        Ok(semantic_tokens::get_semantic_tokens(
+            &mut ctx.session.document_cache,
+            &params.text_document,
+        ))
     });
     rh.register::<DocumentHighlightRequest>(|params, ctx| {
         tracing::trace!(
@@ -647,7 +643,7 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
 
         // Update the highlight in the live preview.
         // We do this even if there are no highlights to clear any previous highlights.
-        ctx.to_preview.send(&preview);
+        ctx.session.to_preview.send(&preview);
 
         let not_empty = !document_highlights.is_empty();
         Ok(not_empty.then_some(document_highlights))
@@ -655,10 +651,10 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
     rh.register::<Rename>(|params, ctx| {
         let uri = params.text_document_position.text_document.uri;
         if let Some((tk, _off)) =
-            token_descr(&ctx.document_cache, &uri, &params.text_document_position.position)
+            token_descr(&ctx.session.document_cache, &uri, &params.text_document_position.position)
         {
             let p = tk.parent();
-            let version = ctx.document_cache.document_version(&uri);
+            let version = ctx.session.document_cache.document_version(&uri);
             if let Some(value) = common::rename_element_id::find_element_ids(&tk, &p) {
                 let edits: Vec<_> = value
                     .into_iter()
@@ -666,7 +662,7 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
                         range: util::text_range_to_lsp_range(
                             &p.source_file,
                             r,
-                            ctx.document_cache.format,
+                            ctx.session.document_cache.format,
                         ),
                         new_text: params.new_name.clone(),
                     })
@@ -674,11 +670,14 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
                 return Ok(Some(common::create_workspace_edit(uri, version, edits)));
             }
             if let Some(declaration_node) =
-                common::rename_component::find_declaration_node(&ctx.document_cache, &tk)
+                common::rename_component::find_declaration_node(&ctx.session.document_cache, &tk)
             {
-                let edit = declaration_node.rename(&ctx.document_cache, &params.new_name).map_err(
-                    |e| LspError { code: LspErrorCode::RequestFailed, message: e.to_string() },
-                )?;
+                let edit = declaration_node
+                    .rename(&ctx.session.document_cache, &params.new_name)
+                    .map_err(|e| LspError {
+                    code: LspErrorCode::RequestFailed,
+                    message: e.to_string(),
+                })?;
                 // After the synchronous slint-only rename, ask the user (once)
                 // whether to also search and replace the generated Rust/C++
                 // accessors. The dialog and follow-up edit have to
@@ -697,24 +696,26 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
     });
     rh.register::<PrepareRenameRequest>(|params, ctx| {
         let uri = params.text_document.uri;
-        if let Some((tk, _)) = token_descr(&ctx.document_cache, &uri, &params.position) {
+        if let Some((tk, _)) = token_descr(&ctx.session.document_cache, &uri, &params.position) {
             if common::rename_element_id::find_element_ids(&tk, &tk.parent()).is_some() {
                 return Ok(Some(PrepareRenameResponse::Range(util::token_to_lsp_range(
                     &tk,
-                    ctx.document_cache.format,
+                    ctx.session.document_cache.format,
                 ))));
             }
-            if common::rename_component::find_declaration_node(&ctx.document_cache, &tk).is_some() {
+            if common::rename_component::find_declaration_node(&ctx.session.document_cache, &tk)
+                .is_some()
+            {
                 return Ok(Some(PrepareRenameResponse::Range(util::token_to_lsp_range(
                     &tk,
-                    ctx.document_cache.format,
+                    ctx.session.document_cache.format,
                 ))));
             }
         }
         Ok(None)
     });
     rh.register::<Formatting>(|params, ctx| {
-        Ok(formatting::format_document(params, &ctx.document_cache))
+        Ok(formatting::format_document(params, &ctx.session.document_cache))
     });
 }
 
@@ -756,16 +757,9 @@ pub fn show_preview_command(
 
     tracing::debug!("Show preview: url={}, component={:?}", url, component);
     let c = PreviewComponent { url, component };
-    show_preview(c, ctx);
+    ctx.session.show_preview(c);
 
     Ok(())
-}
-
-#[cfg(any(feature = "preview-builtin", feature = "preview-external"))]
-pub fn show_preview(component: PreviewComponent, ctx: &mut Context) {
-    ctx.pending_recompile.insert(component.url.clone());
-    ctx.to_show = Some(component.clone());
-    ctx.to_preview.send(&LspToPreviewMessage::ShowPreview(component));
 }
 
 fn populate_command_range(
@@ -821,7 +815,7 @@ pub fn populate_command(
     })?;
 
     let edit = {
-        let document_cache = &mut ctx.document_cache;
+        let document_cache = &mut ctx.session.document_cache;
         let uri = text_document.uri;
         let version = document_cache.document_version(&uri);
 
@@ -915,7 +909,8 @@ fn schedule_host_language_rename_followup(
     declaration_node: &common::rename_component::DeclarationNode,
     new_name: &str,
 ) {
-    let Some(info) = declaration_node.host_language_classification(&ctx.document_cache) else {
+    let Some(info) = declaration_node.host_language_classification(&ctx.session.document_cache)
+    else {
         return;
     };
     // No-op when the slint rename normalizes to the same identifier
@@ -931,7 +926,7 @@ fn schedule_host_language_rename_followup(
     let server_notifier = ctx.server_notifier.clone();
     let dont_ask_again = ctx.host_language_rename_dont_ask_again.clone();
     let init_param = ctx.init_param.clone();
-    let format = ctx.document_cache.format;
+    let format = ctx.session.document_cache.format;
     let new_name = new_name.to_string();
 
     crate::common::spawn_local(async move {
@@ -1129,267 +1124,6 @@ fn show_warning(server_notifier: &crate::ServerNotifier, message: impl Into<Stri
             message: message.into(),
         },
     );
-}
-
-pub(crate) async fn load_document_impl(
-    ctx: &mut Context,
-    content: String,
-    url: lsp_types::Url,
-    version: Option<i32>,
-) -> (HashSet<PathBuf>, BuildDiagnostics) {
-    enum FileAction {
-        ProcessContent(String),
-        IgnoreFile,
-        InvalidateFile,
-    }
-
-    tracing::trace!("Loading document: {url} (version: {version:?})");
-
-    let Some(path) = common::uri_to_file(&url) else { return Default::default() };
-    // Normalize the URL
-    let Ok(url) = Url::from_file_path(path.clone()) else { return Default::default() };
-
-    let action = if path.extension().is_some_and(|e| e == "rs") {
-        match i_slint_compiler::lexer::extract_rust_macro(content) {
-            Some(content) => FileAction::ProcessContent(content),
-            // A rust file without a rust macro, just ignore it
-            None => {
-                if ctx.document_cache.get_document(&url).is_some() {
-                    // This had contents before: Continue so we can invalidate it!
-                    FileAction::InvalidateFile
-                } else {
-                    FileAction::IgnoreFile
-                }
-            }
-        }
-    } else {
-        FileAction::ProcessContent(content)
-    };
-
-    let mut diag = BuildDiagnostics::default();
-
-    let dependencies = match action {
-        FileAction::ProcessContent(content) => {
-            ctx.to_preview.send(&LspToPreviewMessage::SetContents {
-                url: VersionedUrl::new(url.clone(), version),
-                contents: content.clone().into(),
-            });
-            // Fonts imported before this edit were pushed to the remote viewer
-            // already; seed the sent set with them so only fonts added by this
-            // edit are transferred.
-            #[cfg(all(not(target_arch = "wasm32"), feature = "preview-remote"))]
-            let mut fonts_sent: HashSet<PathBuf> = ctx
-                .document_cache
-                .get_document(&url)
-                .map(|doc| {
-                    doc.custom_fonts.iter().map(|(p, _)| PathBuf::from(p.as_str())).collect()
-                })
-                .unwrap_or_default();
-            let dependencies: HashSet<Url> = ctx.document_cache.invalidate_url(&url);
-            let _ = ctx.document_cache.load_url(&url, version, content, &mut diag).await;
-            #[cfg(all(not(target_arch = "wasm32"), feature = "preview-remote"))]
-            send_referenced_fonts(ctx, &url, &mut fonts_sent);
-            dependencies
-        }
-        FileAction::IgnoreFile => return Default::default(),
-        FileAction::InvalidateFile => {
-            ctx.to_preview.send(&LspToPreviewMessage::ForgetFile { url: url.clone() });
-            ctx.document_cache.invalidate_url(&url)
-        }
-    };
-
-    for dep in &dependencies {
-        if ctx.open_urls.contains(dep) {
-            ctx.document_cache.reload_cached_file(dep, &mut diag).await;
-        }
-    }
-
-    let extra_files =
-        dependencies.iter().filter_map(common::uri_to_file).chain(core::iter::once(path)).collect();
-
-    (extra_files, diag)
-}
-
-pub async fn open_document(
-    ctx: &mut Context,
-    content: String,
-    url: lsp_types::Url,
-    version: Option<i32>,
-) -> common::Result<common::VersionedDiagnostics> {
-    tracing::debug!("Opening document: {url}");
-    ctx.open_urls.insert(url.clone());
-
-    load_document(ctx, content, url, version).await
-}
-
-pub async fn close_document(ctx: &mut Context, url: lsp_types::Url) -> common::Result<()> {
-    tracing::debug!("Closing document: {url}");
-    ctx.open_urls.remove(&url);
-    drop_document(ctx, url).await
-}
-
-pub async fn load_document(
-    ctx: &mut Context,
-    content: String,
-    url: lsp_types::Url,
-    version: Option<i32>,
-) -> common::Result<common::VersionedDiagnostics> {
-    let (extra_files, diag) = load_document_impl(ctx, content, url.clone(), version).await;
-
-    tracing::debug!("Loaded {url} with {} diagnostics", diag.iter().count());
-
-    Ok(collect_diagnostics(&ctx.document_cache, &extra_files, diag))
-}
-
-#[cfg_attr(target_arch = "wasm32", allow(unused))]
-pub async fn reload_document(
-    ctx: &mut Context,
-    url: lsp_types::Url,
-) -> common::Result<common::VersionedDiagnostics> {
-    tracing::debug!("Reloading document: {url}");
-
-    // Check if document is in cache (can use reload_cached_file)
-    let in_cache = ctx.document_cache.all_urls().contains(&url);
-
-    if in_cache {
-        tracing::trace!("Document is in cache, reloading: {url}");
-
-        let mut diagnostics = BuildDiagnostics::default();
-
-        ctx.document_cache.reload_cached_file(&url, &mut diagnostics).await;
-        let mut extra_files = HashSet::new();
-        extra_files.extend(uri_to_file(&url));
-
-        Ok(collect_diagnostics(&ctx.document_cache, &extra_files, diagnostics))
-    } else {
-        tracing::trace!("Document not in cache, loading from disk: {url}");
-
-        let Some(path) = common::uri_to_file(&url) else {
-            // The file was likely deleted, log and move on
-            tracing::debug!("Failed to locate file: {url}");
-            return Ok(Default::default());
-        };
-        match std::fs::read_to_string(&path) {
-            Ok(content) => load_document(ctx, content, url, None).await,
-            // The file was likely deleted, log and move on
-            Err(err) => {
-                tracing::debug!("Failed to read {} from disk: {err}", path.display());
-                Ok(Default::default())
-            }
-        }
-    }
-}
-
-pub fn convert_diagnostics(
-    extra_files: &HashSet<PathBuf>,
-    diag: BuildDiagnostics,
-    format: common::ByteFormat,
-) -> HashMap<Url, Vec<lsp_types::Diagnostic>> {
-    // Always provide diagnostics for all files. Empty diagnostics clear any previous ones.
-    let mut lsp_diags: HashMap<Url, Vec<lsp_types::Diagnostic>> = extra_files
-        .iter()
-        .chain(diag.all_loaded_files.iter())
-        .filter_map(|p| Url::from_file_path(p).ok())
-        .map(|uri| (uri, Default::default()))
-        .collect();
-
-    for d in diag.into_iter() {
-        #[cfg(not(target_arch = "wasm32"))]
-        if d.source_file().unwrap().is_relative() {
-            continue;
-        }
-        let uri = Url::from_file_path(d.source_file().unwrap()).unwrap();
-        lsp_diags
-            .entry(uri)
-            .or_default()
-            .push(i_slint_live_preview::protocol::to_lsp_diagnostic(&d, format));
-    }
-
-    lsp_diags
-}
-
-fn collect_diagnostics(
-    document_cache: &common::DocumentCache,
-    extra_files: &HashSet<PathBuf>,
-    diag: BuildDiagnostics,
-) -> common::VersionedDiagnostics {
-    let lsp_diags = convert_diagnostics(extra_files, diag, document_cache.format);
-    tracing::trace!("Collected {} diagnostics", lsp_diags.values().flatten().count());
-
-    lsp_diags
-        .into_iter()
-        .map(|(uri, diagnostics)| {
-            let version = document_cache.document_version(&uri);
-            (uri, version, diagnostics)
-        })
-        .collect()
-}
-
-fn drop_document_impl(ctx: &mut Context, url: lsp_types::Url) -> common::Result<()> {
-    let dependencies = ctx.document_cache.drop_document(&url)?;
-
-    let open_dependencies = ctx.open_urls.intersection(&dependencies).cloned();
-    ctx.pending_recompile.extend(open_dependencies);
-
-    #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
-    if let Some(preview_url) = ctx.to_show.as_ref().map(|c| c.url.clone()) {
-        // The external preview only has access to the files the LSP recompiled, so we need to
-        // ensure the preview file is recompiled if anything it depends on changes, even if it's
-        // not in the open_urls.
-        if preview_url == url || dependencies.contains(&preview_url) {
-            ctx.pending_recompile.insert(preview_url);
-        }
-    }
-
-    Ok(())
-}
-
-pub async fn drop_document(ctx: &mut Context, url: lsp_types::Url) -> common::Result<()> {
-    tracing::debug!("Dropping document: {url}");
-    // The preview cares about resources and slint files, so forward everything
-    ctx.to_preview.send(&LspToPreviewMessage::InvalidateContents { url: url.clone() });
-
-    drop_document_impl(ctx, url)
-}
-
-pub async fn delete_document(
-    ctx: &mut Context,
-    url: lsp_types::Url,
-) -> common::Result<common::VersionedDiagnostics> {
-    tracing::debug!("Deleting document: {url}");
-    // The preview cares about resources and slint files, so forward everything
-    ctx.to_preview.send(&LspToPreviewMessage::ForgetFile { url: url.clone() });
-
-    // The cleared diagnostics below carry the version the document had before the drop.
-    let version = ctx.document_cache.document_version(&url);
-
-    drop_document_impl(ctx, url.clone())?;
-
-    // make sure to clear the diagnostics on this file.
-    // This is especially important for deleted files, but also for renamed files to clear the diagnostics on the old file.
-    // Otherwise they will stick around forever (e.g. in VS Code).
-    Ok(vec![(url, version, vec![])])
-}
-
-pub async fn trigger_file_watcher(
-    ctx: &mut Context,
-    url: lsp_types::Url,
-    typ: FileChangeKind,
-) -> common::Result<common::VersionedDiagnostics> {
-    if !ctx.open_urls.contains(&url) {
-        tracing::debug!("File watcher triggered for {url} (type: {:?})", typ);
-        match typ {
-            FileChangeKind::Deleted => return delete_document(ctx, url).await,
-            // If the file was newly created, we still need to drop it as another file may
-            // already depend on it by trying to import it before it exists.
-            // This is especially common on file renames.
-            // See also #11304
-            FileChangeKind::Changed | FileChangeKind::Created => drop_document(ctx, url).await?,
-        }
-    } else {
-        tracing::trace!("Ignoring file watcher event for open document: {url}");
-    }
-    Ok(Default::default())
 }
 
 /// return the token, and the offset within the file
@@ -1957,7 +1691,7 @@ fn get_highlights_for_position(
     params: &TextDocumentPositionParams,
 ) -> (Vec<lsp_types::DocumentHighlight>, LspToPreviewMessage) {
     let uri = params.text_document.uri.clone();
-    if let Some((token, _)) = token_descr(&ctx.document_cache, &uri, &params.position) {
+    if let Some((token, _)) = token_descr(&ctx.session.document_cache, &uri, &params.position) {
         let parent = token.parent();
         let grand_parent = parent.parent();
 
@@ -1971,7 +1705,7 @@ fn get_highlights_for_position(
                 offset: element.text_range().start().into(),
             };
 
-            let range = util::node_to_lsp_range(&parent, ctx.document_cache.format);
+            let range = util::node_to_lsp_range(&parent, ctx.session.document_cache.format);
             return (vec![lsp_types::DocumentHighlight { range, kind: None }], preview_highlight);
         }
 
@@ -1985,7 +1719,7 @@ fn get_highlights_for_position(
                 url: should_highlight_preview.then_some(uri),
                 offset: grand_parent.unwrap().text_range().start().into(),
             };
-            let range = util::node_to_lsp_range(&parent, ctx.document_cache.format);
+            let range = util::node_to_lsp_range(&parent, ctx.session.document_cache.format);
 
             return (vec![lsp_types::DocumentHighlight { range, kind: None }], preview_highlight);
         }
@@ -1999,7 +1733,7 @@ fn get_highlights_for_position(
                     range: util::text_range_to_lsp_range(
                         &parent.source_file,
                         r,
-                        ctx.document_cache.format,
+                        ctx.session.document_cache.format,
                     ),
                     kind: None,
                 })
@@ -2100,12 +1834,13 @@ pub async fn load_configuration(ctx: &mut Context) -> common::Result<()> {
 
     let mut diag = BuildDiagnostics::default();
     let (cc, all_files) = ctx
+        .session
         .document_cache
         .reconfigure(style, include_paths, library_paths, experimental, &mut diag)
         .await;
 
-    let diagnostics = collect_diagnostics(
-        &ctx.document_cache,
+    let diagnostics = common::editor_session::collect_diagnostics(
+        &ctx.session.document_cache,
         &all_files.iter().filter_map(common::uri_to_file).collect(),
         diag,
     );
@@ -2120,8 +1855,8 @@ pub async fn load_configuration(ctx: &mut Context) -> common::Result<()> {
         enable_experimental: cc.enable_experimental,
     };
     {
-        ctx.preview_config = config.clone();
-        ctx.to_preview.send(&LspToPreviewMessage::SetConfiguration { config });
+        ctx.session.preview_config = config.clone();
+        ctx.session.to_preview.send(&LspToPreviewMessage::SetConfiguration { config });
     }
 
     tracing::debug!("Loaded configuration from client");
@@ -2258,7 +1993,7 @@ pub mod tests {
             common::rename_component::find_declaration_node(&document_cache, &token).unwrap();
         let (notifier, client) = test_lsp_client();
         let mut context = test::mock_context();
-        context.document_cache = document_cache;
+        context.session.document_cache = document_cache;
         context.server_notifier = notifier;
         context.host_language_rename_dont_ask_again.set(true);
 
@@ -2374,7 +2109,7 @@ pub mod tests {
     fn mock_context_with_preview_capture() -> (Context, Rc<RefCell<Vec<LspToPreviewMessage>>>) {
         let (capture, messages) = preview_capture();
         let mut ctx = test::mock_context();
-        ctx.to_preview = capture;
+        ctx.session.to_preview = capture;
         (ctx, messages)
     }
 
@@ -2406,10 +2141,9 @@ pub mod tests {
         // In that case, make sure we do not return an error, as that would crash the LSP.
         // The reload_document function is a best-effort anyway.
         let mut ctx = test::mock_context();
-        spin_on::spin_on(reload_document(
-            &mut ctx,
-            Url::parse("file:///non/existent/file.slint").unwrap(),
-        ))
+        spin_on::spin_on(
+            ctx.session.reload_document(Url::parse("file:///non/existent/file.slint").unwrap()),
+        )
         .expect("reload_document failed");
     }
 
@@ -3079,7 +2813,7 @@ export component TestWindow inherits Window {
     #[test]
     fn send_requested_state_sends_configuration_and_skips_absent_user_settings() {
         let (mut ctx, messages) = mock_context_with_preview_capture();
-        ctx.preview_config = PreviewConfig {
+        ctx.session.preview_config = PreviewConfig {
             hide_ui: Some(true),
             style: "custom-style".into(),
             include_paths: vec![PathBuf::from("/includes")],
@@ -3095,7 +2829,7 @@ export component TestWindow inherits Window {
         let messages = messages.borrow();
         assert!(messages.iter().any(|m| matches!(
             m,
-            LspToPreviewMessage::SetConfiguration { config } if config == &ctx.preview_config
+            LspToPreviewMessage::SetConfiguration { config } if config == &ctx.session.preview_config
         )));
         assert!(!messages.iter().any(|m| matches!(m, LspToPreviewMessage::SetUserSettings { .. })));
     }
