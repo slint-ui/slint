@@ -80,7 +80,7 @@ An integer literal evaluates to a value of type `int`. \{#sls.expr.int.type}
 A number with a fractional part but no unit is an error. \{#sls.expr.int.fractional}
 </OnlyInSC>
 
-<OnlyInSC>
+<SC>
 ## Image Literals
 
 An image literal consists of `@image-url(`, a string literal in double
@@ -96,6 +96,19 @@ The string is the path of an image file: an absolute path, or a path
 resolved relative to the directory of the `.slint` file that contains the
 literal. \{#sls.expr.image.path}
 
+An empty string evaluates to no image. \{#sls.expr.image.empty}
+
+An image literal evaluates to a value of type `image`. \{#sls.expr.image.type}
+</SC>
+
+<NotInSC>
+The path may also name a file on the compiler's include path, and an image
+can also be loaded from a `data:` URI or a URL;
+the [image type](../../property-types/images/) describes these forms and the
+`nine-slice` argument.
+</NotInSC>
+
+<OnlyInSC>
 The compiler reads and decodes the image file when it generates code, so the
 file must exist and be readable then, and isn't needed at run
 time. \{#sls.expr.image.compile-time}
@@ -110,11 +123,9 @@ error. \{#sls.expr.image.path-only}
 
 The `nine-slice` argument of full Slint is an
 error. \{#sls.expr.image.no-nine-slice}
+</OnlyInSC>
 
-An empty string evaluates to no image. \{#sls.expr.image.empty}
-
-An image literal evaluates to a value of type `image`. \{#sls.expr.image.type}
-
+<SC>
 ## Image Dimensions
 
 Reading the field `width` or `height` of an expression of type `image`
@@ -128,7 +139,7 @@ export component Example inherits Window {
     out property <int> logo-width: logo.width;
 }
 ```
-</OnlyInSC>
+</SC>
 
 ## References
 
