@@ -28,6 +28,7 @@ backend-winit-x11 = ["slint-interpreter/backend-winit-x11"]
 backend-winit-wayland = ["slint-interpreter/backend-winit-wayland"]
 backend-linuxkms = ["slint-interpreter/backend-linuxkms"]
 backend-linuxkms-noseat = ["slint-interpreter/backend-linuxkms-noseat"]
+backend-linuxkms-noseat-no-input = ["slint-interpreter/backend-linuxkms-noseat-no-input"]
 backend-testing = ["i-slint-backend-selector/backend-testing"]
 
 # The features below are additive and binary-compatible with the default build:

@@ -83,6 +83,10 @@ backend-linuxkms = ["i-slint-backend-selector/backend-linuxkms", "std"]
 ## windowing system. Requires libseat.
 backend-linuxkms-noseat = ["i-slint-backend-selector/backend-linuxkms-noseat", "std"]
 
+## Use KMS on Linux without libseat or libinput to render the application in full screen mode without a windowing system.
+## The application must provide input handling separately and have permission to access the DRM device directly.
+backend-linuxkms-noseat-no-input = ["i-slint-backend-selector/backend-linuxkms-noseat-no-input", "std"]
+
 ## Alias to a backend and renderer that depends on the platform.
 backend-default = ["i-slint-backend-selector/default"]
 
