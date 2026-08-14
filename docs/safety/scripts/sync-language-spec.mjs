@@ -33,20 +33,22 @@ function isSC(content) {
 }
 
 // Keep only the certified content: the frontmatter, the imports, and the
-// <SC>/<OnlyInSC> blocks (an <SC> block may contain a nested <NotInSC> that the
-// manual omits at runtime). Everything outside a block is main-documentation
-// only and is dropped, so nothing uncertified reaches the safety manual -- and
-// with it only links this site can resolve (a dropped block outside the subset
-// links to chapters the manual doesn't serve, which link validation rejects),
-// and no throwing component in the dropped part (e.g. a CodeSnippetMD for a
-// main-docs-only image) can break the build here.
+// <SC>/<OnlyInSC> blocks, minus any <NotInSC> region nested inside them.
+// Everything else is main-documentation only, never rendered by the manual,
+// and is dropped, so nothing uncertified reaches the safety manual -- and
+// with it only links this site can resolve (a dropped part outside the subset
+// often links to chapters the manual doesn't serve, which link validation
+// rejects), and no throwing component in the dropped part (e.g. a
+// CodeSnippetMD for a main-docs-only image) can break the build here.
 //
 // An <OnlyInSC> nests inside an <SC>, so count nesting depth rather than a
 // single block, or the inner </OnlyInSC> would end the outer <SC> early.
+// A <NotInSC> never nests in another, so a boolean carries it.
 function keepOnlySC(content) {
     const out = [];
     let delimiters = 0;
     let depth = 0;
+    let notInSC = false;
     let inFence = false;
     for (const line of content.split("\n")) {
         const t = line.trim();
@@ -56,9 +58,13 @@ function keepOnlySC(content) {
             continue;
         }
         if (depth > 0) {
-            out.push(line);
-            if (t === "<SC>" || t === "<OnlyInSC>") depth++;
-            else if (t === "</SC>" || t === "</OnlyInSC>") depth--;
+            if (t === "<NotInSC>") notInSC = true;
+            else if (t === "</NotInSC>") notInSC = false;
+            else if (!notInSC) {
+                out.push(line);
+                if (t === "<SC>" || t === "<OnlyInSC>") depth++;
+                else if (t === "</SC>" || t === "</OnlyInSC>") depth--;
+            }
             continue;
         }
         if (t === "<SC>" || t === "<OnlyInSC>") {
