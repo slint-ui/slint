@@ -1,11 +1,15 @@
 ---
-title: ISO 26262 Requirements
-description: Overview of ISO 26262 safety requirements for Slint SC.
+title: Standards Compliance
+description: Which clause of ISO 26262 is addressed where in this package.
 ---
 
 ## Specification and Management of Safety Requirements (ISO 26262-6 6.x)
 
-The ISO 26262 standard tells us what properties a safety-critical system must have (traceability, freedom from interference, determinism, etc.), but it doesn't tell us how to write those requirements for a GUI toolkit. The following sections contain specific, actionable engineering requirements that should be considered for Slint SC.
+The ISO 26262 standard tells us what properties a safety-critical system must have (traceability, freedom from interference, determinism, etc.), but it doesn't tell us how to write those requirements for a GUI toolkit.
+
+Slint SC states them in two places.
+The [Language Specification](/language/) says what the language and the runtime must do, one identified paragraph at a time, and each paragraph is traced to the tests that verify it.
+The [Evaluation Report](/evaluation-report/potential-errors/) says what can go wrong instead, and what detects or constrains each of those.
 
 ## ASIL B Capable
 
@@ -18,7 +22,7 @@ mission-critical digital instrument clusters.
 
 For non-critical (QM) interactive applications such as infotainment systems, Slint can be used. In that case, these ASIL requirements do not apply.
 
-Each Requirement under this Section has a descriptive ID that begins with SR_, a description, and ASIL=B.
+Slint SC is developed for ASIL B.
 
 ## Traceability
 
