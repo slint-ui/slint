@@ -130,8 +130,8 @@ export default defineConfig({
                                 slug: "qualification-plan/test-coverage",
                             },
                             {
-                                label: "Validation",
-                                slug: "qualification-plan/validation",
+                                label: "Verification",
+                                slug: "qualification-plan/verification",
                             },
                             {
                                 label: "Standards Compliance",

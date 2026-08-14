@@ -4,3 +4,16 @@ description: Usage and constraints for building ISO 26262 software with Slint SC
 ---
 
 Currently, this is an internal document for Slint SC developers, but when there is a Slint SC product ready, this document will be for people who want to use Slint SC to build automotive software and certify it for ISO 26262.
+
+## User Responsibility
+
+Slint SC is a Safety Element out of Context.
+It's developed without knowing the vehicle function it will serve, so the assumptions it makes about its environment are yours to confirm.
+
+Safety validation at the vehicle level, ISO 26262-4 Clause 9, is your responsibility.
+Slint SC has no vehicle-level safety goals of its own to validate against.
+
+The constraints in this manual are the other half of that.
+Each one exists because no measure inside Slint SC can rule out the matching failure, so only you can.
+
+(TODO: list the assumptions of use that have to be confirmed.)
