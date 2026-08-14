@@ -28,7 +28,7 @@ The user shall measure the worst-case time of a full render on their own target 
 
 **Rationale**: The time a frame takes depends on the hardware, the frame buffer size, and the content being drawn. Slint SC can't know any of these, so it can't promise a bound.
 
-**Impact**: A frame that misses the interval leaves the previous frame on the display. A frozen instrument looks like a working one, so the driver gets no indication that the reading is old.
+**Impact**: A frame that misses the interval leaves the previous frame on the display. A frozen instrument looks like a working one, so the operator gets no indication that the reading is old.
 
 **Prevents**: `slint.runtime.err.frame-overrun`
 
