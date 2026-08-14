@@ -9,6 +9,7 @@ mod fmt;
 mod language;
 #[cfg(feature = "preview-engine")]
 mod preview;
+mod server_notifier;
 pub mod util;
 
 use common::LspToPreviews;
@@ -20,9 +21,9 @@ use i_slint_live_preview::{
 use js_sys::Function;
 pub use language::{Context, RequestHandler};
 use lsp_types::Url;
+pub use server_notifier::ServerNotifier;
 
 use std::cell::RefCell;
-use std::future::Future;
 use std::io::ErrorKind;
 use std::rc::Rc;
 use wasm_bindgen::prelude::*;
@@ -47,40 +48,6 @@ pub mod wasm_prelude {
         fn from_file_path<P: AsRef<Path>>(path: P) -> Result<Self, ()> {
             Self::parse(path.as_ref().to_str().ok_or(())?).map_err(|_| ())
         }
-    }
-}
-
-#[derive(Clone)]
-pub struct ServerNotifier {
-    send_notification: Function,
-    send_request: Function,
-}
-
-impl ServerNotifier {
-    pub fn send_notification<N: lsp_types::notification::Notification>(
-        &self,
-        params: N::Params,
-    ) -> Result<()> {
-        self.send_notification
-            .call2(&JsValue::UNDEFINED, &N::METHOD.into(), &to_value(&params)?)
-            .map_err(|x| format!("Error calling send_notification: {x:?}"))?;
-        Ok(())
-    }
-
-    pub fn send_request<T: lsp_types::request::Request>(
-        &self,
-        request: T::Params,
-    ) -> Result<impl Future<Output = Result<T::Result>>> {
-        let promise = self
-            .send_request
-            .call2(&JsValue::UNDEFINED, &T::METHOD.into(), &to_value(&request)?)
-            .map_err(|x| format!("Error calling send_request: {x:?}"))?;
-        let future = wasm_bindgen_futures::JsFuture::from(js_sys::Promise::from(promise));
-        Ok(async move {
-            future.await.map_err(|e| format!("{e:?}").into()).and_then(|v| {
-                serde_wasm_bindgen::from_value(v).map_err(|e| format!("{e:?}").into())
-            })
-        })
     }
 }
 
@@ -255,7 +222,7 @@ pub fn create(
     install_panic_hook();
 
     let send_request = Function::from(send_request.clone());
-    let server_notifier = ServerNotifier { send_notification, send_request };
+    let server_notifier = ServerNotifier::new(send_notification, send_request);
     let init_param = serde_wasm_bindgen::from_value(init_param)?;
 
     let mut compiler_config = crate::common::document_cache::CompilerConfiguration::default();

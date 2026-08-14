@@ -300,7 +300,7 @@ mod tests {
     }
 
     fn compile(source: &str) -> (common::DocumentCache, lsp_types::Url) {
-        let (dc, url, diag) = crate::test::loaded_document_cache(source.to_string());
+        let (dc, url, diag) = crate::language::test::loaded_document_cache(source.to_string());
         for (u, diag) in diag.iter() {
             if diag.is_empty() {
                 continue;

@@ -138,8 +138,9 @@ pub fn highlight_positions(
         return Default::default();
     };
 
-    let Some(path) =
-        crate::Url::parse(source_uri.as_str()).ok().and_then(|u| crate::common::uri_to_file(&u))
+    let Some(path) = lsp_types::Url::parse(source_uri.as_str())
+        .ok()
+        .and_then(|u| crate::common::uri_to_file(&u))
     else {
         return Default::default();
     };

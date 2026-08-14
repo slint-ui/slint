@@ -186,7 +186,7 @@ pub struct TextEditor {
 }
 
 impl TextEditor {
-    pub fn new(source_file: i_slint_compiler::diagnostics::SourceFile) -> crate::Result<Self> {
+    pub fn new(source_file: i_slint_compiler::diagnostics::SourceFile) -> common::Result<Self> {
         let Some(contents) = source_file.source().map(|s| s.to_string()) else {
             return Err(format!("Source file {:?} had no contents set", source_file.path()).into());
         };
@@ -202,7 +202,7 @@ impl TextEditor {
         &mut self,
         text_edit: &lsp_types::TextEdit,
         format: common::ByteFormat,
-    ) -> crate::Result<()> {
+    ) -> common::Result<()> {
         let current_range =
             crate::util::lsp_range_to_text_range(&self.source_file, text_edit.range, format);
         let adjusted_range = self.adjustments.adjust_range(current_range);

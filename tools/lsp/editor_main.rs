@@ -18,11 +18,10 @@ mod preview;
     any(feature = "preview-external", feature = "preview-engine")
 ))]
 mod settings_store;
+mod server_notifier;
 mod util;
 
-use crate::common::Result;
-use editor::ServerNotifier;
-use lsp_types::Url;
+pub use server_notifier::ServerNotifier;
 
 fn main() -> std::result::Result<(), slint::PlatformError> {
     #[cfg(not(feature = "preview"))]
