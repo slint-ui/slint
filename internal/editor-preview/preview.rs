@@ -48,8 +48,6 @@ mod ext;
 #[cfg(target_os = "macos")]
 pub mod macos_titlebar;
 mod preview_data;
-#[cfg(target_os = "macos")]
-mod sparkle;
 use ext::ElementRcNodeExt;
 mod outline;
 mod properties;

@@ -100,7 +100,7 @@ The built-in live-preview can be used to preview itself. For this to work, VS Co
    ```bash
    SLINT_ENABLE_EXPERIMENTAL_FEATURES=1 code
    ```
-3. Open `tools/lsp/ui/main.slint` and launch the preview, or preview individual components such as the
+3. Open `internal/editor-preview/ui/main.slint` and launch the preview, or preview individual components such as the
    library or properties view.
 
 ## Quality Assurance

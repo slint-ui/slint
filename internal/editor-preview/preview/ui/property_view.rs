@@ -384,7 +384,7 @@ mod tests {
 
     use crate::{
         common,
-        language::test::loaded_document_cache,
+        common::test::loaded_document_cache,
         preview::{properties, ui},
     };
 

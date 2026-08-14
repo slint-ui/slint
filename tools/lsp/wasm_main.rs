@@ -9,10 +9,10 @@ mod connector;
 mod fmt;
 mod language;
 mod lsp_to_editor;
-#[cfg(feature = "preview-engine")]
-mod preview;
 mod server_notifier;
 
+#[cfg(feature = "preview-engine")]
+pub use i_slint_editor_preview::preview;
 pub use i_slint_editor_preview::{common, util};
 
 use common::LspToPreviews;

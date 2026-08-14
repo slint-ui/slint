@@ -69,7 +69,7 @@ Two call sites need active work in `tools/lsp`, not just a signature change:
 
 ### Preview Engine
 
-The canvas and its supporting analysis, moving from `tools/lsp/preview*`:
+The canvas and its supporting analysis, in `preview.rs` and `preview/`:
 
 - `preview.rs` core: `PreviewState`, the compile/reload loop, `send_workspace_edit`.
   `run()` loses its editor-specific arm: the sparkle auto-updater and title-bar wiring move to `tools/editor`, which does its own window setup around a shared engine-start function.
@@ -84,10 +84,10 @@ The canvas and its supporting analysis, moving from `tools/lsp/preview*`:
   The four `preview.rs` functions it calls (`invalidate_contents`, `delete_document`, `set_contents`, `config_changed`) and `get_current_style` become public.
   The current `connector.rs` does not move: it is the parent module of the three transports, which stay in `tools/lsp` under a new `connector` module there.
   `resource_url_mapper` is injected by the application instead of called across the boundary.
-- Initially the whole `.slint` UI tree (`tools/lsp/ui/`), with the runtime `PreviewUiKind` switch selecting the preview or editor window.
+- Initially the whole `.slint` UI tree (`ui/`), with the runtime `PreviewUiKind` switch selecting the preview or editor window.
   Splitting the monolithic `global Api` (~129 members, ~20 genuinely shared) and moving each window's UI to its application is planned follow-up work, not part of the initial extraction.
-  Moving `ui/` breaks the seven symlinks under `ui/assets/` (into `logo/` and `tools/viewer/remote/assets/`); fix them in the same change.
-  The crate's `build.rs` must set `SLINT_ENABLE_EXPERIMENTAL_FEATURES=1` like the LSP's does.
+  The seven symlinks under `ui/assets/` point into `logo/` and `tools/viewer/remote/assets/`.
+  The crate's `build.rs` sets `SLINT_ENABLE_EXPERIMENTAL_FEATURES=1` like the LSP's used to.
 
 ### Test Support
 
