@@ -140,18 +140,18 @@ impl Config {
         self.generated_dir.join("reference")
     }
 
-    /// Generated pages of the qualification plan (safety manual only).
-    pub fn qualification_plan_dir(&self) -> PathBuf {
-        self.generated_dir.join("qualification-plan")
+    /// Generated pages of the qualification report (safety manual only).
+    pub fn qualification_report_dir(&self) -> PathBuf {
+        self.generated_dir.join("qualification-report")
     }
 
-    /// Create a page of the qualification plan, ready for writing.
+    /// Create a page of the qualification report, ready for writing.
     pub fn qualification_page(
         &self,
         file_name: &str,
     ) -> anyhow::Result<std::io::BufWriter<std::fs::File>> {
         use anyhow::Context;
-        let dir = self.qualification_plan_dir();
+        let dir = self.qualification_report_dir();
         std::fs::create_dir_all(&dir).with_context(|| format!("error creating {dir:?}"))?;
         let path = dir.join(file_name);
         Ok(std::io::BufWriter::new(
