@@ -291,14 +291,16 @@ pub fn create(
 
     Ok(SlintServer {
         ctx: ReentryGuard::new(Context {
-            document_cache,
-            preview_config: Default::default(),
+            session: crate::common::EditorSession {
+                document_cache,
+                preview_config: Default::default(),
+                to_show: Default::default(),
+                open_urls: Default::default(),
+                to_preview,
+                pending_recompile: Default::default(),
+            },
             init_param,
             server_notifier,
-            to_show: Default::default(),
-            open_urls: Default::default(),
-            to_preview,
-            pending_recompile: Default::default(),
             host_language_rename_dont_ask_again: Default::default(),
         }),
         rh: Rc::new(rh),
@@ -368,7 +370,8 @@ impl SlintServer {
                 });
             }
             M::PreviewTypeChanged { target } => {
-                ctx.to_preview
+                ctx.session
+                    .to_preview
                     .set_local_target(target)
                     .map_err(|err| js_sys::Error::new(&format!("{err}")))?;
             }
@@ -426,7 +429,9 @@ impl SlintServer {
             lsp_types::FileChangeType::DELETED => FileChangeKind::Deleted,
             _ => return Err(JsError::new("Unknown FileChangeType")),
         };
-        let diagnostics = language::trigger_file_watcher(&mut ctx, url, typ)
+        let diagnostics = ctx
+            .session
+            .trigger_file_watcher(url, typ)
             .await
             .map_err(|e| JsError::new(&e.to_string()))?;
         common::publish_diagnostics(&ctx.server_notifier, diagnostics);
@@ -441,7 +446,9 @@ impl SlintServer {
     ) -> JsResult<JsValue> {
         let mut ctx = self.ctx.lock().await;
         let uri: Url = serde_wasm_bindgen::from_value(uri)?;
-        let diagnostics = language::open_document(&mut ctx, content, uri.clone(), Some(version))
+        let diagnostics = ctx
+            .session
+            .open_document(content, uri.clone(), Some(version))
             .await
             .map_err(|e| JsError::new(&e.to_string()))?;
         common::publish_diagnostics(&ctx.server_notifier, diagnostics);
@@ -457,7 +464,9 @@ impl SlintServer {
     ) -> JsResult<JsValue> {
         let mut ctx = self.ctx.lock().await;
         let uri: Url = serde_wasm_bindgen::from_value(uri)?;
-        let diagnostics = language::load_document(&mut ctx, content, uri.clone(), Some(version))
+        let diagnostics = ctx
+            .session
+            .load_document(content, uri.clone(), Some(version))
             .await
             .map_err(|e| JsError::new(&e.to_string()))?;
         common::publish_diagnostics(&ctx.server_notifier, diagnostics);
@@ -468,7 +477,7 @@ impl SlintServer {
     pub async fn close_document(&self, uri: JsValue) -> JsResult<JsValue> {
         let mut ctx = self.ctx.lock().await;
         let uri: Url = serde_wasm_bindgen::from_value(uri)?;
-        language::close_document(&mut ctx, uri).await.map_err(|e| JsError::new(&e.to_string()))?;
+        ctx.session.close_document(uri).await.map_err(|e| JsError::new(&e.to_string()))?;
         Ok(JsValue::UNDEFINED)
     }
 

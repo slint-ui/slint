@@ -18,6 +18,8 @@ use std::{collections::HashMap, path::PathBuf};
 pub mod component_catalog;
 pub mod document_cache;
 pub use document_cache::DocumentCache;
+pub mod editor_session;
+pub use editor_session::EditorSession;
 pub use i_slint_compiler::diagnostics::ByteFormat;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod host_language_search;
