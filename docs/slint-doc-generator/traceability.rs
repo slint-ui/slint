@@ -72,7 +72,7 @@ const PROPERTY_TYPES_DIR: &str = "docs/astro/src/content/docs/reference/property
 const SAFETY_DOCS_EXCLUDE: &[&str] = &["generated", "language"];
 
 /// Name of the matrix this module writes into
-/// [`Config::qualification_plan_dir`], the section it belongs to.
+/// [`Config::qualification_report_dir`], the section it belongs to.
 const MATRIX_FILE: &str = "traceability-matrix.mdx";
 
 pub(crate) const REPO_URL: &str = env!("CARGO_PKG_REPOSITORY");
@@ -544,7 +544,7 @@ fn write_matrix(
         r#"---
 title: Traceability Matrix
 description: Mapping between the requirement paragraphs of the Language Specification and the SC API Reference, and the test cases that verify them.
-slug: qualification-plan/traceability-matrix
+slug: qualification-report/traceability-matrix
 ---
 
 Each requirement paragraph in the [Language Specification](/language/), the [SC API Reference](/reference/), and the other chapters of this manual carries a unique identifier,

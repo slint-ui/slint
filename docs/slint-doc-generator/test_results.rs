@@ -13,7 +13,7 @@ use std::io::Write;
 use std::path::Path;
 
 /// Name of the page this module writes into
-/// [`Config::qualification_plan_dir`], the section it belongs to.
+/// [`Config::qualification_report_dir`], the section it belongs to.
 const PAGE_FILE: &str = "test-results.mdx";
 
 /// One row of the suite summary table.
@@ -68,7 +68,7 @@ pub fn generate(cfg: &Config) -> Result<(), Box<dyn std::error::Error>> {
         r#"---
 title: Test Results
 description: Results of the slint-sc compiler and runtime test suites.
-slug: qualification-plan/test-results
+slug: qualification-report/test-results
 ---
 
 This chapter reports the outcome of running the slint-sc test suites:

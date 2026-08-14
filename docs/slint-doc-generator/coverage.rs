@@ -13,7 +13,7 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 
 /// Name of the page this module writes into
-/// [`Config::qualification_plan_dir`], the section it belongs to.
+/// [`Config::qualification_report_dir`], the section it belongs to.
 const PAGE_FILE: &str = "test-coverage.mdx";
 
 /// Covered/total counts of one metric, from the `count`/`covered` pairs of
@@ -109,12 +109,12 @@ pub fn generate(cfg: &Config) -> Result<Vec<String>, Box<dyn std::error::Error>>
         r#"---
 title: Test Coverage
 description: LLVM source-based code coverage of the slint-sc runtime.
-slug: qualification-plan/test-coverage
+slug: qualification-report/test-coverage
 ---
 
 The tests of the `slint-sc` runtime crate run under LLVM source-based coverage instrumentation with [`cargo llvm-cov`](https://github.com/taiki-e/cargo-llvm-cov):
 the unit tests, and the test driver that compiles the `.slint` test cases and runs them against the instrumented runtime.
-This chapter reports the measured line, function, and region coverage per source file of the runtime, addressing [SR_TEST_COVERAGE](/requirements/test-coverage/).
+This chapter reports the measured line, function, and region coverage per source file of the runtime, addressing [the test coverage requirement](/qualification-plan/test-coverage/).
 A function counts as fully tested when every code region in it was executed, as partially tested when it was executed but some of its code regions weren't, and as untested when it was never executed."#
     )?;
 
