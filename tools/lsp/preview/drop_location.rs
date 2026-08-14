@@ -12,8 +12,7 @@ use i_slint_compiler::parser::{
 use i_slint_core::lengths::{LogicalPoint, LogicalRect, LogicalSize};
 use slint_interpreter::ComponentInstance;
 
-use crate::common::{self, text_edit};
-use crate::language::completion;
+use crate::common::{self, import_edit, text_edit};
 use crate::preview::{self, element_selection, ui};
 use crate::util;
 use i_slint_live_preview::protocol::VersionedUrl;
@@ -1238,7 +1237,7 @@ pub fn create_drop_element_workspace_edit_with_properties(
     let mut edits = Vec::with_capacity(3);
     let import_file = component.import_file_name(&lsp_types::Url::from_file_path(&path).ok());
     if let Some(edit) =
-        completion::create_import_edit(doc, &component.name, &import_file, document_cache.format)
+        import_edit::create_import_edit(doc, &component.name, &import_file, document_cache.format)
     {
         if let Some(sf) = doc.node.as_ref().map(|n| &n.source_file) {
             selection_offset =
@@ -1393,7 +1392,7 @@ pub fn create_swap_element_workspace_edit(
         let import_file =
             component_info.import_file_name(&lsp_types::Url::from_file_path(&path).ok());
         if let Some(edit) =
-            completion::create_import_edit(doc, &component_type, &import_file, format)
+            import_edit::create_import_edit(doc, &component_type, &import_file, format)
         {
             if let Some(sf) = doc.node.as_ref().map(|n| &n.source_file) {
                 selection_offset = text_edit::TextOffsetAdjustment::new(&edit, sf, format)

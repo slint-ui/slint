@@ -1,8 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Icons } from "../../../components/styling.slint";
-import { StudioTheme } from "../common.slint";
+import { EditorIcons, StudioTheme } from "../common.slint";
 import { InspectorComboOption, InspectorTokens } from "tokens.slint";
 import { ScrollView } from "std-widgets.slint";
 
@@ -153,7 +152,7 @@ export component InspectorComboBox inherits Rectangle {
                 Image {
                     width: parent.width;
                     height: parent.height;
-                    source: Icons.select-chevron;
+                    source: EditorIcons.select-chevron;
                     colorize: InspectorTokens.muted;
                 }
             }
