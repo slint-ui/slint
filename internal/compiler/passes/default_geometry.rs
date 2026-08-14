@@ -99,7 +99,8 @@ pub fn default_geometry(
                     // resolving, so bind them to the source's dimensions
                     // instead of the implicit-size machinery below. The
                     // centering further down still applies, like any element.
-                    DefaultSizeBinding::ImplicitSize if diag.is_slint_sc() => {
+                    #[cfg(feature = "slint-sc")]
+                    DefaultSizeBinding::ImplicitSize if diag.slint_sc => {
                         if is_image {
                             bind_size_to_source_image(elem);
                         }
@@ -474,6 +475,7 @@ fn make_default_100(prop: &NamedReference, parent_prop: &NamedReference) -> bool
 
 /// Bind the width and height of an Image element to the dimensions of its
 /// `source` image, for Slint SC.
+#[cfg(feature = "slint-sc")]
 fn bind_size_to_source_image(elem: &ElementRc) {
     let source = NamedReference::new(elem, SmolStr::new_static("source"));
     for prop in ["width", "height"] {
