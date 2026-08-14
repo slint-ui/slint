@@ -137,24 +137,24 @@ test("MapModel handles an empty source model", () => {
     expect(mapped.rowData(0)).toBeUndefined();
 });
 
-test("MapModel shares its notification channel with the source model", () => {
-    // MapModel intentionally reuses the source model's modelNotify to get
-    // automatic row change propagation for free (see MapModel's class docs).
-    // A consequence is that resetting one MapModel, or mutating the source,
-    // notifies every view sharing that channel, including sibling MapModels
-    // wrapping the same source model instance.
+test("MapModel has its own independent notification channel", () => {
+    // MapModel owns an independent modelNotify and forwards translated
+    // events from the source via a peer registration (see the class docs),
+    // rather than literally sharing the source's channel. So resetting one
+    // MapModel does not affect sibling MapModels wrapping the same source,
+    // or the source's own views.
     const source = new ArrayModel([1, 2, 3]);
     const doubled = new MapModel(source, (x) => x * 2);
     const tripled = new MapModel(source, (x) => x * 3);
-    expect(doubled.modelNotify).toBe(source.modelNotify);
-    expect(tripled.modelNotify).toBe(source.modelNotify);
+    expect(doubled.modelNotify).not.toBe(source.modelNotify);
+    expect(tripled.modelNotify).not.toBe(source.modelNotify);
+    expect(doubled.modelNotify).not.toBe(tripled.modelNotify);
 });
 
 test("MapModel forwards row-added and row-removed notifications from the source model", () => {
-    // Unlike FilterModel/SortModel/ReverseModel, MapModel needs no reset()
-    // after a direct source mutation: since it shares the source's
-    // notification channel directly, row-added/row-removed events reach the
-    // run-time immediately.
+    // MapModel automatically observes direct source mutations via a peer
+    // registration (see the class docs): row-added/row-removed events reach
+    // the run-time immediately, with no manual step needed.
     const source = `
     export component App {
       in-out property <[int]> data;
@@ -322,15 +322,25 @@ test("FilterModel.rowData and setRowData ignore out-of-range rows", () => {
     expect(Array.from(source)).toEqual([2, 4, 6]);
 });
 
-test("FilterModel.reset refreshes the view after the source model is mutated directly", () => {
+test("FilterModel automatically reflects direct source model mutations", () => {
     const source = new ArrayModel([1, 2, 3]);
     const even = new FilterModel(source, (x) => x % 2 === 0);
     expect(Array.from(even)).toEqual([2]);
     source.push(4, 6);
-    // The filtered view is cached until reset() is called.
-    expect(Array.from(even)).toEqual([2]);
-    even.reset();
     expect(Array.from(even)).toEqual([2, 4, 6]);
+});
+
+test("FilterModel.reset re-applies the filter when its external state changes", () => {
+    // reset() is for when the filter function's own captured state changes;
+    // source model mutations propagate automatically without it.
+    let threshold = 2;
+    const source = new ArrayModel([1, 2, 3, 4]);
+    const aboveThreshold = new FilterModel(source, (x) => x > threshold);
+    expect(Array.from(aboveThreshold)).toEqual([3, 4]);
+    threshold = 3;
+    expect(Array.from(aboveThreshold)).toEqual([3, 4]);
+    aboveThreshold.reset();
+    expect(Array.from(aboveThreshold)).toEqual([4]);
 });
 
 test("FilterModel notifies the run-time", () => {
@@ -351,7 +361,6 @@ test("FilterModel notifies the run-time", () => {
     expect(instance.total).toBe(14);
 
     sourceModel.push(5, 6);
-    evens.reset();
     expect(instance.total).toBe(16);
 });
 
@@ -513,15 +522,25 @@ test("SortModel.rowData and setRowData ignore out-of-range rows", () => {
     expect(Array.from(source)).toEqual([3, 1, 2]);
 });
 
-test("SortModel.reset refreshes the view after the source model is mutated directly", () => {
+test("SortModel automatically reflects direct source model mutations", () => {
     const source = new ArrayModel([3, 1, 2]);
     const sorted = new SortModel(source, (a, b) => a - b);
     expect(Array.from(sorted)).toEqual([1, 2, 3]);
     source.push(0);
-    // The sorted view is cached until reset() is called.
+    expect(Array.from(sorted)).toEqual([0, 1, 2, 3]);
+});
+
+test("SortModel.reset re-applies the sort order when its external state changes", () => {
+    // reset() is for when the compare function's own captured state changes;
+    // source model mutations propagate automatically without it.
+    let ascending = true;
+    const source = new ArrayModel([3, 1, 2]);
+    const sorted = new SortModel(source, (a, b) => (ascending ? a - b : b - a));
+    expect(Array.from(sorted)).toEqual([1, 2, 3]);
+    ascending = false;
     expect(Array.from(sorted)).toEqual([1, 2, 3]);
     sorted.reset();
-    expect(Array.from(sorted)).toEqual([0, 1, 2, 3]);
+    expect(Array.from(sorted)).toEqual([3, 2, 1]);
 });
 
 test("SortModel notifies the run-time", () => {
@@ -542,7 +561,6 @@ test("SortModel notifies the run-time", () => {
     expect(instance.first).toBe(2);
 
     sourceModel.push(0);
-    sorted.reset();
     expect(instance.first).toBe(0);
 });
 
@@ -561,10 +579,7 @@ test("ReverseModel.setRowData updates the corresponding source row", () => {
     expect(Array.from(reversed)).toEqual([30, 2, 1]);
 });
 
-test("ReverseModel.rowData/rowCount reflect live source state even without reset()", () => {
-    // Unlike FilterModel/SortModel, ReverseModel caches nothing, so reading
-    // it directly always reflects the source model's current state. reset()
-    // is still required to make the *run-time* re-render, see the next test.
+test("ReverseModel automatically reflects direct source model mutations", () => {
     const source = new ArrayModel([1, 2, 3]);
     const reversed = new ReverseModel(source);
     source.push(4);
@@ -599,15 +614,9 @@ test("Model.map/.filter/.sort/.reverse compose into a chained view", () => {
         .reverse(); // [20, 40, 60, 80]
     expect(Array.from(chained)).toEqual([20, 40, 60, 80]);
 
-    source.push(10); // filtered in as 10, mapped to 100
-    // Only ReverseModel/SortModel/FilterModel need an explicit reset() to
-    // refresh after a direct source mutation; MapModel is transparent to
-    // notifications (it shares the source's channel), but the mapping's own
-    // caches still need refreshing.
-    const sortModel = (chained as any).sourceModel;
-    const filterModel = sortModel.sourceModel.sourceModel;
-    filterModel.reset();
-    sortModel.reset();
+    // filtered in as 10, mapped to 100, propagates through the whole chain
+    // automatically.
+    source.push(10);
     expect(Array.from(chained)).toEqual([20, 40, 60, 80, 100]);
 });
 
@@ -629,9 +638,5 @@ test("ReverseModel notifies the run-time", () => {
     expect(instance.first).toBe(30);
 
     sourceModel.push(4);
-    // The run-time is not notified until reset() is called, even though
-    // reversed.rowData() itself already reflects the pushed value.
-    expect(instance.first).toBe(30);
-    reversed.reset();
     expect(instance.first).toBe(4);
 });

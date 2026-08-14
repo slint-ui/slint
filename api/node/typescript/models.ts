@@ -3,6 +3,18 @@
 
 import * as napi from "../binding.cjs";
 
+/**
+ * @hidden
+ * Receives translated row-change notifications from a source model that
+ * {@link Model.attachPeer} was called on.
+ */
+export interface ModelPeer {
+    rowDataChanged(row: number): void;
+    rowAdded(row: number, count: number): void;
+    rowRemoved(row: number, count: number): void;
+    reset(): void;
+}
+
 class ModelIterator<T> implements Iterator<T> {
     private row: number;
     private model: Model<T>;
@@ -93,11 +105,35 @@ export abstract class Model<T> implements Iterable<T> {
      */
     modelNotify: napi.ExternalObject<napi.SharedModelNotify>;
 
+    #peers: WeakRef<ModelPeer>[] = [];
+
     /**
      * @hidden
      */
     constructor(modelNotify?: napi.ExternalObject<napi.SharedModelNotify>) {
         this.modelNotify = modelNotify ?? napi.jsModelNotifyNew();
+    }
+
+    /**
+     * @hidden
+     * Registers `peer` to receive this model's row-change notifications, so
+     * that model adapters (e.g. {@link FilterModel}) can automatically observe
+     * mutations made directly to this model. Held via a weak reference, so
+     * attaching a peer does not keep it alive.
+     */
+    attachPeer(peer: ModelPeer): void {
+        this.#peers.push(new WeakRef(peer));
+    }
+
+    #forEachPeer(fn: (peer: ModelPeer) => void): void {
+        this.#peers = this.#peers.filter((ref) => {
+            const peer = ref.deref();
+            if (peer === undefined) {
+                return false;
+            }
+            fn(peer);
+            return true;
+        });
     }
 
     /**
@@ -203,6 +239,7 @@ export abstract class Model<T> implements Iterable<T> {
      */
     protected notifyRowDataChanged(row: number): void {
         napi.jsModelNotifyRowDataChanged(this.modelNotify, row);
+        this.#forEachPeer((peer) => peer.rowDataChanged(row));
     }
 
     /**
@@ -212,6 +249,7 @@ export abstract class Model<T> implements Iterable<T> {
      */
     protected notifyRowAdded(row: number, count: number): void {
         napi.jsModelNotifyRowAdded(this.modelNotify, row, count);
+        this.#forEachPeer((peer) => peer.rowAdded(row, count));
     }
 
     /**
@@ -221,6 +259,7 @@ export abstract class Model<T> implements Iterable<T> {
      */
     protected notifyRowRemoved(row: number, count: number): void {
         napi.jsModelNotifyRowRemoved(this.modelNotify, row, count);
+        this.#forEachPeer((peer) => peer.rowRemoved(row, count));
     }
 
     /**
@@ -228,6 +267,7 @@ export abstract class Model<T> implements Iterable<T> {
      */
     protected notifyReset(): void {
         napi.jsModelNotifyReset(this.modelNotify);
+        this.#forEachPeer((peer) => peer.reset());
     }
 }
 
@@ -402,20 +442,6 @@ export class ArrayModel<T> extends Model<T> {
  * a filter function to each row of the source model. Only rows for which the
  * filter function returns `true` are visible in the FilterModel.
  *
- * Note that the FilterModel does not automatically observe modifications made
- * directly to the source model (for example calling {@link ArrayModel.push} or
- * {@link ArrayModel.splice} on the underlying source model). After such a
- * modification, call {@link FilterModel.reset} to re-apply the filter function
- * and refresh the filtered view. Modifications made through
- * {@link FilterModel.setRowData} are reflected automatically.
- *
- * Calling {@link FilterModel.setRowData} while the cached mapping is stale
- * (i.e. after the source model was mutated directly without a following
- * {@link FilterModel.reset}) does not just return stale *reads* — it writes to
- * whatever source row the stale mapping points at, which may no longer be the
- * row the caller intended. Always call {@link FilterModel.reset} after a
- * direct source mutation before calling {@link FilterModel.setRowData} again.
- *
  * ### Example
  *
  * ```js
@@ -435,6 +461,8 @@ export class FilterModel<T> extends Model<T> {
     readonly sourceModel: Model<T>;
     #filterFunction: (data: T) => boolean;
     #acceptedRows: number[] | undefined;
+    // Kept alive here since Model.attachPeer only holds a weak reference to it.
+    #peer: ModelPeer;
 
     /**
      * Constructs a new FilterModel that provides a filtered view on the given
@@ -446,6 +474,14 @@ export class FilterModel<T> extends Model<T> {
         super();
         this.sourceModel = sourceModel;
         this.#filterFunction = filterFunction;
+        this.#peer = {
+            rowDataChanged: (row) => this.#handleSourceRowChanged(row),
+            rowAdded: (row, count) => this.#handleSourceRowAdded(row, count),
+            rowRemoved: (row, count) =>
+                this.#handleSourceRowRemoved(row, count),
+            reset: () => this.reset(),
+        };
+        sourceModel.attachPeer(this.#peer);
     }
 
     #updateMapping(): number[] {
@@ -460,6 +496,96 @@ export class FilterModel<T> extends Model<T> {
             this.#acceptedRows = acceptedRows;
         }
         return this.#acceptedRows;
+    }
+
+    // Returns the index in the sorted, unique `acceptedRows` array where `value`
+    // is (or would be) located, and whether it was actually found.
+    #binarySearchExact(
+        acceptedRows: number[],
+        value: number,
+    ): { index: number; found: boolean } {
+        let lo = 0;
+        let hi = acceptedRows.length;
+        while (lo < hi) {
+            const mid = (lo + hi) >>> 1;
+            if (acceptedRows[mid] < value) {
+                lo = mid + 1;
+            } else {
+                hi = mid;
+            }
+        }
+        return {
+            index: lo,
+            found: lo < acceptedRows.length && acceptedRows[lo] === value,
+        };
+    }
+
+    #handleSourceRowChanged(row: number): void {
+        if (this.#acceptedRows === undefined) {
+            return;
+        }
+        const acceptedRows = this.#acceptedRows;
+        const { index, found: isContained } = this.#binarySearchExact(
+            acceptedRows,
+            row,
+        );
+        const data = this.sourceModel.rowData(row);
+        const shouldBeContained =
+            data !== undefined && this.#filterFunction(data);
+
+        if (isContained && shouldBeContained) {
+            this.notifyRowDataChanged(index);
+        } else if (!isContained && shouldBeContained) {
+            acceptedRows.splice(index, 0, row);
+            this.notifyRowAdded(index, 1);
+        } else if (isContained && !shouldBeContained) {
+            acceptedRows.splice(index, 1);
+            this.notifyRowRemoved(index, 1);
+        }
+    }
+
+    #handleSourceRowAdded(index: number, count: number): void {
+        if (count === 0 || this.#acceptedRows === undefined) {
+            return;
+        }
+        const acceptedRows = this.#acceptedRows;
+
+        const insertion: number[] = [];
+        for (let row = index; row < index + count; ++row) {
+            const data = this.sourceModel.rowData(row);
+            if (data !== undefined && this.#filterFunction(data)) {
+                insertion.push(row);
+            }
+        }
+
+        const insertionPoint = this.#binarySearchExact(
+            acceptedRows,
+            index,
+        ).index;
+        for (let i = insertionPoint; i < acceptedRows.length; ++i) {
+            acceptedRows[i] += count;
+        }
+
+        if (insertion.length > 0) {
+            acceptedRows.splice(insertionPoint, 0, ...insertion);
+            this.notifyRowAdded(insertionPoint, insertion.length);
+        }
+    }
+
+    #handleSourceRowRemoved(index: number, count: number): void {
+        if (count === 0 || this.#acceptedRows === undefined) {
+            return;
+        }
+        const acceptedRows = this.#acceptedRows;
+        const start = this.#binarySearchExact(acceptedRows, index).index;
+        const end = this.#binarySearchExact(acceptedRows, index + count).index;
+        for (let i = end; i < acceptedRows.length; ++i) {
+            acceptedRows[i] -= count;
+        }
+        if (end > start) {
+            acceptedRows.splice(start, end - start);
+            this.notifyRowRemoved(start, end - start);
+        }
     }
 
     /**
@@ -484,38 +610,24 @@ export class FilterModel<T> extends Model<T> {
 
     /**
      * Stores the given data in the source model at the row that corresponds to
-     * the given filtered row index, then re-reads it from the source model to
-     * decide whether it still passes the filter, notifying either a row change
-     * or a row removal accordingly.
-     *
-     * If the source model's `setRowData` does not synchronously commit the
-     * value read back by `rowData` (for example a read-only model that ignores
-     * the write), the cached mapping may go out of sync; call
-     * {@link FilterModel.reset} in that case.
+     * the given filtered row index. The source model's own change notification
+     * is what drives re-evaluating the filter for that row (see the class docs),
+     * so this simply forwards the write.
      * @param row index in range 0..(rowCount() - 1).
      * @param data new data item to store on the given row index.
      */
     setRowData(row: number, data: T): void {
-        const acceptedRows = this.#updateMapping();
-        const sourceRow = acceptedRows[row];
+        const sourceRow = this.#updateMapping()[row];
         if (sourceRow === undefined) {
             return;
         }
         this.sourceModel.setRowData(sourceRow, data);
-        const committed = this.sourceModel.rowData(sourceRow);
-        if (committed !== undefined && this.#filterFunction(committed)) {
-            this.notifyRowDataChanged(row);
-        } else {
-            acceptedRows.splice(row, 1);
-            this.notifyRowRemoved(row, 1);
-        }
     }
 
     /**
-     * Re-applies the filter function on each row of the source model and
-     * notifies the run-time that the filtered view has changed. Call this
-     * after modifying the source model directly, so that the filtered view
-     * reflects the current state of the source model.
+     * Re-applies the filter function on each row of the source model. Use
+     * this if the filter function depends on state external to the source
+     * model and that state has changed.
      */
     reset(): void {
         this.#acceptedRows = undefined;
@@ -562,19 +674,6 @@ export class FilterModel<T> extends Model<T> {
  * // prints "Emil, Hans"
  * console.log(mappedModel.rowData(0));
  * ```
- *
- * Since a MapModel shares row change notifications with its source model,
- * modifications made to the underlying model (for example through
- * {@link ArrayModel.setRowData}) are reflected automatically.
- *
- * Note that "sharing row change notifications" means a MapModel literally
- * reuses its source model's underlying notification channel — it does not
- * have an independent one. As a consequence, calling {@link MapModel.reset}
- * notifies *every* view bound to that channel, including views bound
- * directly to the source model and views bound to any other MapModel
- * wrapping the same source model instance, not just views bound to this
- * particular MapModel. Only rely on this sharing behavior when the source
- * model is not otherwise displayed on its own or wrapped by another MapModel.
  */
 export class MapModel<T, U> extends Model<U> {
     /**
@@ -582,6 +681,8 @@ export class MapModel<T, U> extends Model<U> {
      */
     readonly sourceModel: Model<T>;
     #mapFunction: (data: T) => U;
+    // Kept alive here since Model.attachPeer only holds a weak reference to it.
+    #peer: ModelPeer;
 
     /**
      * Constructs a new MapModel that provides a mapped view on the given
@@ -590,9 +691,16 @@ export class MapModel<T, U> extends Model<U> {
      * @param mapFunction maps the data from T to U.
      */
     constructor(sourceModel: Model<T>, mapFunction: (data: T) => U) {
-        super(sourceModel.modelNotify);
+        super();
         this.sourceModel = sourceModel;
         this.#mapFunction = mapFunction;
+        this.#peer = {
+            rowDataChanged: (row) => this.notifyRowDataChanged(row),
+            rowAdded: (row, count) => this.notifyRowAdded(row, count),
+            rowRemoved: (row, count) => this.notifyRowRemoved(row, count),
+            reset: () => this.notifyReset(),
+        };
+        sourceModel.attachPeer(this.#peer);
     }
 
     /**
@@ -616,15 +724,10 @@ export class MapModel<T, U> extends Model<U> {
     }
 
     /**
-     * Notifies the run-time that the mapped view has changed. Call this if
-     * the map function's result depends on state external to the source
-     * model and that state has changed, so that the mapped view reflects
-     * the current data.
-     *
-     * Since MapModel shares its notification channel with the source model
-     * (see the class documentation), this also triggers a full reload of any
-     * other view bound to the same source model instance, including views
-     * bound to the source model directly or to a sibling MapModel.
+     * Notifies the run-time that the mapped view has changed. Use this if the
+     * map function's result depends on state external to the source model and
+     * that state has changed, so that the mapped view reflects the current
+     * data.
      */
     reset(): void {
         this.notifyReset();
@@ -634,19 +737,6 @@ export class MapModel<T, U> extends Model<U> {
 /**
  * SortModel acts as an adapter model for a given source model by sorting all its
  * rows according to the order given by `compareFunction`.
- *
- * Note that, like {@link FilterModel}, the SortModel does not automatically
- * observe modifications made directly to the source model. After such a
- * modification, call {@link SortModel.reset} to re-apply the sort order and
- * refresh the sorted view. Modifications made through {@link SortModel.setRowData}
- * are reflected automatically.
- *
- * Calling {@link SortModel.setRowData} while the cached sort order is stale
- * (i.e. after the source model was mutated directly without a following
- * {@link SortModel.reset}) does not just return stale *reads* — it writes to
- * whatever source row the stale order points at, which may no longer be the
- * row the caller intended. Always call {@link SortModel.reset} after a direct
- * source mutation before calling {@link SortModel.setRowData} again.
  *
  * ### Example
  *
@@ -667,6 +757,8 @@ export class SortModel<T> extends Model<T> {
     readonly sourceModel: Model<T>;
     #compareFunction: (a: T, b: T) => number;
     #sortedRows: number[] | undefined;
+    // Kept alive here since Model.attachPeer only holds a weak reference to it.
+    #peer: ModelPeer;
 
     /**
      * Constructs a new SortModel that provides a sorted view on the given
@@ -682,6 +774,14 @@ export class SortModel<T> extends Model<T> {
         super();
         this.sourceModel = sourceModel;
         this.#compareFunction = compareFunction;
+        this.#peer = {
+            rowDataChanged: (row) => this.#handleSourceRowChanged(row),
+            rowAdded: (row, count) => this.#handleSourceRowAdded(row, count),
+            rowRemoved: (row, count) =>
+                this.#handleSourceRowRemoved(row, count),
+            reset: () => this.reset(),
+        };
+        sourceModel.attachPeer(this.#peer);
     }
 
     #updateMapping(): number[] {
@@ -724,6 +824,74 @@ export class SortModel<T> extends Model<T> {
         return lo;
     }
 
+    #handleSourceRowChanged(row: number): void {
+        if (this.#sortedRows === undefined) {
+            return;
+        }
+        const sortedRows = this.#sortedRows;
+        const removedIndex = sortedRows.indexOf(row);
+        sortedRows.splice(removedIndex, 1);
+
+        const changedData = this.sourceModel.rowData(row);
+        const insertionIndex =
+            changedData === undefined
+                ? sortedRows.length
+                : this.#lowerBound(sortedRows, changedData);
+        sortedRows.splice(insertionIndex, 0, row);
+
+        if (insertionIndex === removedIndex) {
+            this.notifyRowDataChanged(removedIndex);
+        } else {
+            this.notifyRowRemoved(removedIndex, 1);
+            this.notifyRowAdded(insertionIndex, 1);
+        }
+    }
+
+    #handleSourceRowAdded(index: number, count: number): void {
+        if (count === 0 || this.#sortedRows === undefined) {
+            return;
+        }
+        const sortedRows = this.#sortedRows;
+        for (let i = 0; i < sortedRows.length; ++i) {
+            if (sortedRows[i] >= index) {
+                sortedRows[i] += count;
+            }
+        }
+        for (let row = index; row < index + count; ++row) {
+            const addedData = this.sourceModel.rowData(row);
+            const insertionIndex =
+                addedData === undefined
+                    ? sortedRows.length
+                    : this.#lowerBound(sortedRows, addedData);
+            sortedRows.splice(insertionIndex, 0, row);
+            this.notifyRowAdded(insertionIndex, 1);
+        }
+    }
+
+    #handleSourceRowRemoved(index: number, count: number): void {
+        if (count === 0 || this.#sortedRows === undefined) {
+            return;
+        }
+        const sortedRows = this.#sortedRows;
+        const removedRows: number[] = [];
+        let i = 0;
+        while (i < sortedRows.length) {
+            const sortIndex = sortedRows[i];
+            if (sortIndex >= index) {
+                if (sortIndex < index + count) {
+                    removedRows.push(i);
+                    sortedRows.splice(i, 1);
+                    continue;
+                }
+                sortedRows[i] -= count;
+            }
+            ++i;
+        }
+        for (const removedRow of removedRows) {
+            this.notifyRowRemoved(removedRow, 1);
+        }
+    }
+
     /**
      * Returns the number of entries in the sorted model.
      */
@@ -746,44 +914,24 @@ export class SortModel<T> extends Model<T> {
 
     /**
      * Stores the given data in the source model at the row that corresponds to
-     * the given sorted row index, then re-reads it from the source model to
-     * find its new sorted position, notifying either a row change (position
-     * unchanged) or a row move (position changed) accordingly.
-     *
-     * If the source model's `setRowData` does not synchronously commit the
-     * value read back by `rowData` (for example a read-only model that ignores
-     * the write), the cached sort order may go out of sync; call
-     * {@link SortModel.reset} in that case.
+     * the given sorted row index. The source model's own change notification
+     * is what drives re-evaluating the sort position for that row (see the
+     * class docs), so this simply forwards the write.
      * @param row index in range 0..(rowCount() - 1).
      * @param data new data item to store on the given row index.
      */
     setRowData(row: number, data: T): void {
-        const sortedRows = this.#updateMapping();
-        const sourceRow = sortedRows[row];
+        const sourceRow = this.#updateMapping()[row];
         if (sourceRow === undefined) {
             return;
         }
         this.sourceModel.setRowData(sourceRow, data);
-        const committed = this.sourceModel.rowData(sourceRow);
-        sortedRows.splice(row, 1);
-        const insertionPoint =
-            committed === undefined
-                ? sortedRows.length
-                : this.#lowerBound(sortedRows, committed);
-        sortedRows.splice(insertionPoint, 0, sourceRow);
-        if (insertionPoint === row) {
-            this.notifyRowDataChanged(row);
-        } else {
-            this.notifyRowRemoved(row, 1);
-            this.notifyRowAdded(insertionPoint, 1);
-        }
     }
 
     /**
-     * Re-applies the sort order on the rows of the source model and notifies
-     * the run-time that the sorted view has changed. Call this after modifying
-     * the source model directly, so that the sorted view reflects the current
-     * state of the source model.
+     * Re-applies the sort order on the rows of the source model. Use this if
+     * the compare function depends on state external to the source model and
+     * that state has changed.
      */
     reset(): void {
         this.#sortedRows = undefined;
@@ -806,14 +954,6 @@ export class SortModel<T> extends Model<T> {
  * all its rows. This means that the first row in the source model is the last
  * row of this model, the second row is the second last, and so on.
  *
- * Unlike {@link FilterModel} and {@link SortModel}, ReverseModel does not need
- * to cache any state derived from the whole source model, so it always reflects
- * the current row count and row data of the source model. However, since row
- * insertions and removals on the source model are not automatically observed,
- * call {@link ReverseModel.reset} after such a modification so that the
- * run-time re-renders the reversed view. Modifications made through
- * {@link ReverseModel.setRowData} are reflected automatically.
- *
  * ### Example
  *
  * ```js
@@ -831,6 +971,8 @@ export class ReverseModel<T> extends Model<T> {
      * The source model that this ReverseModel reverses rows from.
      */
     readonly sourceModel: Model<T>;
+    // Kept alive here since Model.attachPeer only holds a weak reference to it.
+    #peer: ModelPeer;
 
     /**
      * Constructs a new ReverseModel that provides a reversed view on the given
@@ -840,6 +982,23 @@ export class ReverseModel<T> extends Model<T> {
     constructor(sourceModel: Model<T>) {
         super();
         this.sourceModel = sourceModel;
+        this.#peer = {
+            rowDataChanged: (row) =>
+                this.notifyRowDataChanged(
+                    this.sourceModel.rowCount() - 1 - row,
+                ),
+            rowAdded: (index, count) => {
+                const rowCount = this.sourceModel.rowCount();
+                const oldRowCount = rowCount - count;
+                this.notifyRowAdded(oldRowCount - index, count);
+            },
+            rowRemoved: (index, count) => {
+                const rowCount = this.sourceModel.rowCount();
+                this.notifyRowRemoved(rowCount - index, count);
+            },
+            reset: () => this.notifyReset(),
+        };
+        sourceModel.attachPeer(this.#peer);
     }
 
     /**
@@ -864,7 +1023,9 @@ export class ReverseModel<T> extends Model<T> {
 
     /**
      * Stores the given data in the source model at the row that corresponds to
-     * the given reversed row index, and notifies the run-time about the change.
+     * the given reversed row index. The source model's own change notification
+     * drives the reversed-view update (see the class docs), so this simply
+     * forwards the write.
      * @param row index in range 0..(rowCount() - 1).
      * @param data new data item to store on the given row index.
      */
@@ -874,17 +1035,5 @@ export class ReverseModel<T> extends Model<T> {
             return;
         }
         this.sourceModel.setRowData(count - row - 1, data);
-        this.notifyRowDataChanged(row);
-    }
-
-    /**
-     * Notifies the run-time that the reversed view must be reloaded. Call this
-     * after modifying the source model directly (for example calling
-     * {@link ArrayModel.push} or {@link ArrayModel.splice} on the underlying
-     * source model), so that the reversed view reflects the current row count
-     * of the source model.
-     */
-    reset(): void {
-        this.notifyReset();
     }
 }
