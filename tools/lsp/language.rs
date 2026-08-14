@@ -1930,7 +1930,7 @@ pub mod tests {
     fn test_lsp_client() -> (crate::ServerNotifier, TestLspClient) {
         let (sender, receiver) = crossbeam_channel::unbounded();
         let queue = crate::OutgoingRequestQueue::default();
-        (crate::ServerNotifier { sender, queue: queue.clone() }, TestLspClient { receiver, queue })
+        (crate::ServerNotifier::new(sender, queue.clone()), TestLspClient { receiver, queue })
     }
 
     fn poll_future<F: Future>(future: std::pin::Pin<&mut F>) -> std::task::Poll<F::Output> {

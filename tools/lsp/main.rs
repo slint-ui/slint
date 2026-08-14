@@ -22,10 +22,12 @@ mod preview;
     any(feature = "preview-external", feature = "preview-engine")
 ))]
 mod settings_store;
+mod server_notifier;
 pub mod util;
 
 use common::Result;
 use language::*;
+pub use server_notifier::{OutgoingRequest, OutgoingRequestQueue, ServerNotifier};
 
 use lsp_types::{
     DidChangeTextDocumentParams, DidChangeWatchedFilesParams, DidCloseTextDocumentParams,
@@ -39,12 +41,10 @@ use tokio::sync::mpsc;
 
 use clap::{Args, Parser, Subcommand};
 use itertools::Itertools;
-use lsp_server::{Connection, ErrorCode, IoThreads, Message, RequestId, Response};
-use std::future::Future;
+use lsp_server::{Connection, ErrorCode, IoThreads, Message, Response};
 use std::io::Write as _;
 use std::rc::Rc;
-use std::sync::{Arc, atomic};
-use std::task::{Poll, Waker};
+use std::sync::Arc;
 use std::time::Duration;
 
 use crate::common::{LspToPreviews, document_cache::CompilerConfiguration};
@@ -133,63 +133,6 @@ struct LivePreview {
     #[arg(long)]
     fullscreen: bool,
 }
-enum OutgoingRequest {
-    Start,
-    Pending(Waker),
-    Done(lsp_server::Response),
-}
-
-type OutgoingRequestQueue = Arc<dashmap::DashMap<RequestId, OutgoingRequest>>;
-
-/// A handle that can be used to communicate with the client
-///
-/// This type is duplicated, with the same interface, in wasm_main.rs
-#[derive(Clone)]
-pub struct ServerNotifier {
-    sender: crossbeam_channel::Sender<Message>,
-    queue: OutgoingRequestQueue,
-}
-
-impl ServerNotifier {
-    pub fn send_notification<N: Notification>(&self, params: N::Params) -> Result<()> {
-        self.sender.send(Message::Notification(lsp_server::Notification::new(
-            N::METHOD.to_string(),
-            params,
-        )))?;
-        Ok(())
-    }
-
-    pub fn send_request<T: lsp_types::request::Request>(
-        &self,
-        request: T::Params,
-    ) -> Result<impl Future<Output = Result<T::Result>>> {
-        static REQ_ID: atomic::AtomicI32 = atomic::AtomicI32::new(0);
-        let id = RequestId::from(REQ_ID.fetch_add(1, atomic::Ordering::Relaxed));
-        let msg =
-            Message::Request(lsp_server::Request::new(id.clone(), T::METHOD.to_string(), request));
-        self.sender.send(msg)?;
-        let queue = self.queue.clone();
-        queue.insert(id.clone(), OutgoingRequest::Start);
-        Ok(std::future::poll_fn(move |ctx| match queue.remove(&id).unwrap().1 {
-            OutgoingRequest::Pending(_) | OutgoingRequest::Start => {
-                queue.insert(id.clone(), OutgoingRequest::Pending(ctx.waker().clone()));
-                Poll::Pending
-            }
-            OutgoingRequest::Done(d) => match d.response_result {
-                Err(err) => Poll::Ready(Err(err.message.into())),
-                Ok(result) => Poll::Ready(
-                    serde_json::from_value(result)
-                        .map_err(|e| format!("cannot deserialize response: {e:?}").into()),
-                ),
-            },
-        }))
-    }
-
-    #[cfg(test)]
-    pub fn dummy() -> Self {
-        Self { sender: crossbeam_channel::unbounded().0, queue: Default::default() }
-    }
-}
 
 impl RequestHandler {
     fn handle_request(&self, request: lsp_server::Request, ctx: &mut Context) -> Result<()> {
@@ -197,11 +140,10 @@ impl RequestHandler {
             match x(request.params, ctx) {
                 Ok(r) => {
                     ctx.server_notifier
-                        .sender
-                        .send(Message::Response(Response::new_ok(request.id, r)))?;
+                        .send_message(Message::Response(Response::new_ok(request.id, r)))?;
                 }
                 Err(e) => {
-                    ctx.server_notifier.sender.send(Message::Response(Response::new_err(
+                    ctx.server_notifier.send_message(Message::Response(Response::new_err(
                         request.id,
                         match e.code {
                             LspErrorCode::InvalidParameter => ErrorCode::InvalidParams as i32,
@@ -214,7 +156,7 @@ impl RequestHandler {
                 }
             };
         } else {
-            ctx.server_notifier.sender.send(Message::Response(Response::new_err(
+            ctx.server_notifier.send_message(Message::Response(Response::new_err(
                 request.id,
                 ErrorCode::MethodNotFound as i32,
                 "Cannot handle request".into(),
@@ -346,8 +288,7 @@ async fn main_loop(
     let (preview_to_lsp_sender, preview_to_lsp_receiver) =
         mpsc::unbounded_channel::<PreviewToLspMessage>();
 
-    let server_notifier =
-        ServerNotifier { sender: connection.sender.clone(), queue: request_queue.clone() };
+    let server_notifier = ServerNotifier::new(connection.sender.clone(), request_queue.clone());
 
     #[cfg(not(feature = "preview-engine"))]
     let to_preview = LspToPreviews::with_one(common::DummyLspToPreview::default());

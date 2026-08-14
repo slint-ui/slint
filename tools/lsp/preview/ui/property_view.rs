@@ -384,8 +384,8 @@ mod tests {
 
     use crate::{
         common,
+        language::test::loaded_document_cache,
         preview::{properties, ui},
-        test::loaded_document_cache,
     };
 
     fn properties_at_position(

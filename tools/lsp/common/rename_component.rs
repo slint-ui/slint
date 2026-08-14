@@ -576,7 +576,7 @@ impl DeclarationNode {
         &self,
         document_cache: &common::DocumentCache,
         new_type: &str,
-    ) -> crate::Result<lsp_types::WorkspaceEdit> {
+    ) -> common::Result<lsp_types::WorkspaceEdit> {
         match &self.kind {
             DeclarationNodeKind::DeclaredIdentifier(id) => {
                 rename_declared_identifier(document_cache, &self.query, id, new_type)
@@ -1237,7 +1237,7 @@ fn rename_declared_identifier(
     query: &DeclarationNodeQuery,
     declared_identifier: &syntax_nodes::DeclaredIdentifier,
     new_type: &str,
-) -> crate::Result<lsp_types::WorkspaceEdit> {
+) -> common::Result<lsp_types::WorkspaceEdit> {
     let ti = &query.token_info;
 
     let source_file = &declared_identifier.source_file;
