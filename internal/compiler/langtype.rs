@@ -199,17 +199,22 @@ impl Type {
             Self::Int32 | Self::LogicalLength | Self::Color | Self::Bool | Self::Image => true,
             // A user-declared enum.
             Self::Enumeration(en) => en.node.is_some(),
-            // A user-declared struct, whose field types were validated where
-            // the struct was declared, so they need no re-check here; or the
-            // builtin Size struct, which the lookup wraps around an image for
-            // its `.width`/`.height` dimension reads. No property can be of
-            // type Size: it has no name to declare it by.
-            Self::Struct(s) => matches!(
-                &s.name,
-                StructName::User { .. } | StructName::Builtin(BuiltinStruct::Size)
-            ),
+            // A user-declared struct. Its field types were validated where the
+            // struct was declared, so they need no re-check here.
+            Self::Struct(s) => matches!(&s.name, StructName::User { .. }),
             _ => false,
         }
+    }
+
+    /// Whether an expression of this type may appear in Slint SC code: the
+    /// declarable types of [`Self::is_slint_sc`], and the builtin Size struct
+    /// the lookup wraps around an image for its `.width`/`.height` dimension
+    /// reads. Size can't be named in a declaration, so it stays out of
+    /// `is_slint_sc`.
+    #[cfg(feature = "slint-sc")]
+    pub fn is_slint_sc_value(&self) -> bool {
+        self.is_slint_sc()
+            || matches!(self, Self::Struct(s) if matches!(s.name, StructName::Builtin(BuiltinStruct::Size)))
     }
 
     /// valid type for properties

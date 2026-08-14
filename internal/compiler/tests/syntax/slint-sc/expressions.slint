@@ -46,8 +46,8 @@ export component Test inherits Window {
 //            >   <error{The type 'brush' is not supported in Slint SC}
 //                      >                               <^error{@gradient expressions are not supported in Slint SC}
 //                                       >  <^^error{Number literals with the unit 'deg' are not supported in Slint SC}
-//                                             > <^^^error{Identifier references are not supported in Slint SC}
-//                                                  >  <^^^^error{Identifier references are not supported in Slint SC}
+//                                             > <^^^error{Unknown unqualified identifier 'red'}
+//                                                  >  <^^^^error{Unknown unqualified identifier 'blue'}
     // array expression
     property <[int]> l: [1, 2, 3];
 //            >   <error{Array types are not supported in Slint SC}
@@ -65,7 +65,7 @@ export component Test inherits Window {
 //                    ^^error{Identifier references are not supported in Slint SC}
     // function call
     property <int> p: Math.max(1, 2);
-//                    >            <error{Function calls are not supported in Slint SC}
+//                    >      <error{Cannot access id 'Math'}
     // code block
     property <int> q: { 42 };
 }
