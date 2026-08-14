@@ -29,6 +29,15 @@ During the development of the software architectural design, the following shoul
 5. Testability of the software
 6. Maintainability of the software architectural design
 
+### Properties
+
+Two properties of the design hold by construction, so nothing has to be done to maintain them and no constraint on the integrator depends on them.
+
+* The architecture separates business logic, which the application owns, from presentation logic, which Slint SC owns.
+  Slint SC renders; it doesn't hold application state.
+* The runtime is `no_std`, doesn't use `alloc`, and has no dependencies, so there's no allocator and no dynamic memory allocation.
+  The application owns the frame buffer and passes it to `render_rgb8`.
+
 ### Static Design
 
 The software architectural design should have a static design part which

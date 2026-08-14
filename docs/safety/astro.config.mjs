@@ -85,6 +85,15 @@ export default defineConfig({
                                     },
                                 ],
                             },
+                            {
+                                label: "slint-sc Runtime",
+                                items: [
+                                    {
+                                        label: "Constraints",
+                                        slug: "safety-manual/runtime/constraints",
+                                    },
+                                ],
+                            },
                         ],
                     },
                     {
@@ -151,20 +160,8 @@ export default defineConfig({
                                 slug: "evaluation-report/tool-classification",
                             },
                             {
-                                // The dissolved SR_* pages, kept verbatim until
-                                // they are rewritten as potential errors and
-                                // constraints.
-                                label: "Source Material",
-                                collapsed: true,
-                                items: [
-                                    "evaluation-report/source-material/memory-allocation",
-                                    "evaluation-report/source-material/bounded-execution",
-                                    "evaluation-report/source-material/state-machine",
-                                    "evaluation-report/source-material/resource-fallback",
-                                    "evaluation-report/source-material/code-generation",
-                                    "evaluation-report/source-material/separation-of-concerns",
-                                    "evaluation-report/source-material/concurrency-control",
-                                ],
+                                label: "Qualification Method",
+                                slug: "evaluation-report/qualification-method",
                             },
                         ],
                     },

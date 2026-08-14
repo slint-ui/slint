@@ -1,0 +1,30 @@
+---
+title: Qualification Method
+description: How the Slint compiler and the slint-sc runtime are qualified.
+---
+
+## Slint Compiler
+
+The `slint-compiler` is qualified by validating the tool, per ISO 26262-8 Clause 11.
+
+Validation means writing test cases that cover each language feature of Slint SC, and verifying that the generated Rust code is correct for each.
+Every paragraph of the [Language Specification](/language/) carries an identifier, and every identifier is traced to at least one test, so the coverage of the feature set is measured rather than asserted.
+See the [Traceability Matrix](/qualification-report/traceability-matrix/).
+
+The confidence level this has to reach is in [Tool Classification](/evaluation-report/tool-classification/).
+
+## slint-sc Runtime
+
+The runtime is qualified as a software component, per ISO 26262-8 Clause 12, so it's verified rather than validated as a tool.
+
+Two measures back it:
+
+* Every paragraph of the [rendering model](/reference/rendering/) and the [generated code contract](/reference/generated-code/) is traced to at least one test.
+* The runtime is held at complete line, function, and region coverage. See [Test Coverage](/qualification-report/test-coverage/).
+
+## Test Suites
+
+The suites that produce this evidence are described in [Test Suites](/qualification-plan/test-suites/), and their outcomes in [Test Results](/qualification-report/test-results/).
+
+(TODO: give each suite an identifier, so the potential errors can be traced to
+the suites that cover them.)
