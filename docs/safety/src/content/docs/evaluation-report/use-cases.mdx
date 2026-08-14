@@ -1,0 +1,39 @@
+---
+title: Use Cases
+description: The use cases of Slint SC that the evaluation analyzes.
+---
+
+## Use Cases (ISO 26262:8 11.4.5.1)
+
+### Using Slint SC in a project
+
+* **ID** : UC_ADD_SLINT_SC_TO_PROJECT
+* **Input** : Cargo.toml file in the root of a rust project file tree
+* **Output** : Modified Cargo.toml file that includes Slint SC as a dependency
+* **Environment Constraints**: (TODO)
+
+When Slint SC is available, it will be a crate on [crates.io](https://crates.io/).
+To add it to a project, one simply adds Slint SC as a dependency in `Cargo.toml`.
+
+(TODO - show example)
+
+### Compiling a .slint file into Rust
+
+* **ID** : UC_COMPILE_SLINT_FILE
+* **Input** : a .slint file
+* **Output** : Rust code that can be compiled into the final executable.
+* **Environment Constraints**: (TODO)
+
+Rust developers using Slint SC can instantiate and configure a `CompilerConfiguration` from the [`slint_build`](https://docs.slint.dev/latest/docs/rust/slint_build/) crate to compile `.slint` files into Rust.
+
+This structure is typically created and used from a [Rust build script](https://doc.rust-lang.org/cargo/reference/build-scripts.html), `build.rs`, located in the root directory of the package. After it has the correct
+values, it can be passed to `slint_build::compile_with_config`.
+Here is a simple example:
+
+```rust
+fn main() {
+    let mut config = slint_build::CompilerConfiguration::new();
+    // [ ... ] set some values on config here
+    slint_build::compile_with_config("mainFile.slint", config).unwrap();
+}
+```

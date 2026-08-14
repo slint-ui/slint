@@ -1,6 +1,10 @@
 ---
 title: Slint SC Safety Manual
 description: Safety Manual and Qualification Plan for Slint SC, the ISO 26262 compliant subset of Slint.
+# The landing page belongs to no topic, so it has no sidebar to show. Without
+# this, Starlight renders the topic groups starlight-sidebar-topics injects,
+# which are labelled by index and read as a list of bare numbers.
+template: splash
 ---
 
 Slint SC is the "ISO 26262 compliant subset" of Slint.
@@ -15,6 +19,11 @@ contains a description of the architecture of Slint SC.
 
 The Qualification Plan contains lists of possible failures, known issues, and descriptions of related test cases. This document needs to be updated after each version release.
 
-### Audience
+## Documents
 
-Currently, this is an internal document for Slint SC developers, but when there is a Slint SC product ready, this document will be for people who want to use Slint SC to build automotive software and certify it for ISO 26262.
+* [Safety Manual](/safety-manual/)
+* [Qualification Plan](/qualification-plan/)
+* [Evaluation Report](/evaluation-report/potential-errors/)
+* [Qualification Report](/qualification-report/traceability-matrix/)
+* [Language Specification](/language/)
+* [API Reference](/reference/)
