@@ -12,9 +12,11 @@ When the Slint Compiler is used in a safety-critical project, it should impose c
 on the input programs so that only safe parts of Slint SC can be used, and it should report a proper error message
 when an unsafe feature is found.
 
-Individual Constraints can have a section each here, with a descriptive ID that begins with CON_, and a Rationale, Impact, and Mitigation.
+Individual Constraints get a section each here, identified by `slint.compiler.cstr.<slug>`, with a Rationale, Impact, and Mitigation.
 
-## CON_NO_GLOBAL_ALLOCATOR
+## No Global Allocator
+
+`slint.compiler.cstr.no-global-allocator`
 
 The Slint SC Compiler should not generate or allow code that uses a global allocator.
 
@@ -24,7 +26,9 @@ The Slint SC Compiler should not generate or allow code that uses a global alloc
 
 **Mitigation**: The generated code depends only on the `slint-sc` runtime crate, which is `no_std`, doesn't use `alloc`, and has no dependencies of its own. No global allocator is involved.
 
-## CON_NO_DYNAMIC_MEMORY_ALLOCATION
+## No Dynamic Memory Allocation
+
+`slint.compiler.cstr.no-dynamic-memory-allocation`
 
 The Slint SC Compiler should not generate or allow code that uses dynamic memory allocation.
 
@@ -34,7 +38,9 @@ The Slint SC Compiler should not generate or allow code that uses dynamic memory
 
 **Mitigation**: The generated code has no allocator available to it, so it can only use storage the application provides. The application owns the frame buffer and passes it to `render_rgb8`.
 
-## CON_NO_UNBOUNDED_RECURSION
+## No Unbounded Recursion
+
+`slint.compiler.cstr.no-unbounded-recursion`
 
 The Slint SC Compiler should not generate or allow unbounded recursion.
 
@@ -44,7 +50,9 @@ The Slint SC Compiler should not generate or allow unbounded recursion.
 
 **Mitigation**: The generated code should not use unbounded recursion. Instead, any recursion must be bounded by a statically known limit.
 
-## CON_NO_UNSAFE_CODE
+## No Unsafe Code
+
+`slint.compiler.cstr.no-unsafe-code`
 
 The Slint SC Compiler should not generate or allow unsafe code.
 
