@@ -229,6 +229,10 @@ export default defineConfig({
                                 slug: "language/operators",
                             },
                             {
+                                label: "Callbacks",
+                                slug: "language/callbacks",
+                            },
+                            {
                                 label: "Structs and Enums",
                                 slug: "language/structs-and-enums",
                             },
