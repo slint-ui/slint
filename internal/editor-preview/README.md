@@ -1,8 +1,9 @@
 # The Slint Editor Preview
 
 Internal crate shared between the Slint language server and the visual editor.
-It holds the document model of a Slint project as it is being edited and the
-editing session that keeps the preview in sync with it.
+It holds the document model of a Slint project as it is being edited, the
+editing session that keeps the preview in sync with it, and the preview engine
+with its user interface.
 
 **NOTE**: This library is an **internal** crate of the [Slint project](https://slint.dev).
 This crate should **not be used directly** by applications using Slint.

@@ -300,7 +300,7 @@ mod tests {
     }
 
     fn compile(source: &str) -> (common::DocumentCache, lsp_types::Url) {
-        let (dc, url, diag) = crate::language::test::loaded_document_cache(source.to_string());
+        let (dc, url, diag) = crate::common::test::loaded_document_cache(source.to_string());
         for (u, diag) in diag.iter() {
             if diag.is_empty() {
                 continue;
@@ -603,23 +603,9 @@ export component Main { }
                 style: Some(style.to_string()),
                 ..Default::default()
             };
-            let mut ctx = crate::language::Context {
-                session: crate::common::EditorSession {
-                    document_cache: common::DocumentCache::new(config),
-                    preview_config: Default::default(),
-                    to_show: None,
-                    open_urls: Default::default(),
-                    to_preview: crate::common::LspToPreviews::with_one(
-                        crate::common::DummyLspToPreview::default(),
-                    ),
-                    pending_recompile: Default::default(),
-                },
-                server_notifier: crate::ServerNotifier::dummy(),
-                init_param: Default::default(),
-                host_language_rename_dont_ask_again: Default::default(),
-            };
-            let (url, _) = crate::language::test::load(
-                &mut ctx.session,
+            let mut session = crate::common::test::session_with(common::DocumentCache::new(config));
+            let (url, _) = crate::common::test::load(
+                &mut session,
                 &std::env::temp_dir().join("xxx/test.slint"),
                 r#"
                     import { Palette } from "std-widgets.slint";
@@ -628,7 +614,7 @@ export component Main { }
             );
 
             let result =
-                collect_palette_from_globals(&ctx.session.document_cache, &url, Vec::new(), None);
+                collect_palette_from_globals(&session.document_cache, &url, Vec::new(), None);
             let r =
                 result.iter().find(|entry| entry.name == "Palette.border").expect("Palette.border");
             let color = i_slint_core::Color::from_argb_u8(

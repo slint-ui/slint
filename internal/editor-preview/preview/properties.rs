@@ -954,7 +954,7 @@ pub fn remove_binding(
 pub mod tests {
     use super::*;
 
-    use crate::language::test::{complex_document_cache, loaded_document_cache};
+    use crate::common::test::{complex_document_cache, loaded_document_cache};
 
     fn find_property<'a>(
         properties: &'a [PropertyInformation],
@@ -2007,7 +2007,7 @@ component Foo inherits Window {
     Foo { background: blue; }
 }
 "#;
-        let (dc, uri, _) = crate::language::test::loaded_document_cache(source.into());
+        let (dc, uri, _) = crate::common::test::loaded_document_cache(source.into());
         let elem = dc
             .element_at_offset(&uri, TextSize::new(source.find("Window").unwrap() as u32))
             .unwrap();
@@ -2054,7 +2054,7 @@ component Foo inherits Window {
     background: violet;
 }
 "#;
-        let (dc, uri, _) = crate::language::test::loaded_document_cache(source.into());
+        let (dc, uri, _) = crate::common::test::loaded_document_cache(source.into());
         let elem = dc
             .element_at_offset(&uri, TextSize::new(source.find("Window").unwrap() as u32))
             .unwrap();

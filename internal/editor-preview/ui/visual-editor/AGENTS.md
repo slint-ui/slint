@@ -15,7 +15,7 @@ SLINT_BACKEND=winit-skia \
 cargo run -p slint-lsp --example slint-editor \
   --no-default-features \
   --features backend-winit,renderer-skia \
-  -- tools/lsp/ui/visual-editor/example/simple_preview.slint
+  -- internal/editor-preview/ui/visual-editor/example/simple_preview.slint
 ```
 
 Important:
@@ -30,9 +30,9 @@ Important:
   sandboxes when `ccache` writes under `~/Library/Caches/ccache`.
 - `SLINT_ENABLE_EXPERIMENTAL_FEATURES=1` is required because the visual editor
   uses internal/experimental types such as `component-factory`.
-- Use `tools/lsp/ui/visual-editor/example/simple_preview.slint` when it exists.
+- Use `internal/editor-preview/ui/visual-editor/example/simple_preview.slint` when it exists.
   In checkouts that do not have that fixture, use
-  `tools/lsp/ui/visual-editor/example/Main.slint`.
+  `internal/editor-preview/ui/visual-editor/example/Main.slint`.
 
 ## MCP
 
@@ -49,7 +49,7 @@ SLINT_BACKEND=winit-skia \
 cargo run -p slint-lsp --example slint-editor \
   --no-default-features \
   --features backend-winit,renderer-skia,slint/mcp \
-  -- tools/lsp/ui/visual-editor/example/simple_preview.slint
+  -- internal/editor-preview/ui/visual-editor/example/simple_preview.slint
 ```
 
 If `http://127.0.0.1:9315/mcp` is not reachable, report that MCP is unavailable
@@ -62,14 +62,14 @@ visible GUI.
 
 ### Visual Editor UI Workflow
 
-For `.slint`-only changes under `tools/lsp/ui/visual-editor`, NEVER run a separate `cargo build` unless Rust files changed or the user explicitly asks for a build.
+For `.slint`-only changes under `internal/editor-preview/ui/visual-editor`, NEVER run a separate `cargo build` unless Rust files changed or the user explicitly asks for a build.
 If the user asks to try the app, run the editor directly with `cargo run`; the incremental build from `cargo run` is enough.
 
 ## Hot Reloading The Editor UI
 
 The editor automatically watches and reloads the opened target document
-(`tools/lsp/ui/visual-editor/example/simple_preview.slint`). That is separate from the
-editor shell UI under `tools/lsp/ui/`, which is compiled into the app via
+(`internal/editor-preview/ui/visual-editor/example/simple_preview.slint`). That is separate from the
+editor shell UI under `internal/editor-preview/ui/`, which is compiled into the app via
 `slint::include_modules!()`.
 
 To hot-reload the editor shell UI, use Slint live preview. Compile this run in
@@ -82,11 +82,11 @@ SLINT_BACKEND=winit-skia \
 cargo run --release -p slint-lsp --example slint-editor \
   --no-default-features \
   --features backend-winit,renderer-skia,slint/live-preview \
-  -- tools/lsp/ui/visual-editor/example/Main.slint
+  -- internal/editor-preview/ui/visual-editor/example/Main.slint
 ```
 
 With this live-preview run active, changes to `.slint` files under
-`tools/lsp/ui/` should hot reload. Do not recompile Rust for `.slint`-only
+`internal/editor-preview/ui/` should hot reload. Do not recompile Rust for `.slint`-only
 changes; recompile only after Rust, Cargo feature, build-script, or generated
 API changes. If live preview crashes with `accessing deleted parent` (issue
 #6426), report it and fall back to the default runtime above. Do not silently
@@ -96,7 +96,7 @@ switch renderer or app entry point.
 
 - Entry point: `tools/lsp/editor_main.rs` starts embedded LSP state, then calls
   `preview::run(..., PreviewUiKind::Editor)`.
-- UI creation: `tools/lsp/preview/ui.rs` creates `EditorUi`, wires the shared
+- UI creation: `internal/editor-preview/preview/ui.rs` creates `EditorUi`, wires the shared
   `Api` global, and registers callbacks.
 - Live preview surface: `EditorCanvas` embeds the compiled target component via
   `ComponentContainer { component-factory: Api.preview-area; }`.

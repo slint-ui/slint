@@ -14,6 +14,7 @@ use super::{
     WeakAppWindow,
 };
 
+#[cfg(not(target_arch = "wasm32"))]
 const NEW_PROJECT_NAME: &str = "Slint UI Project";
 const NEW_PROJECT_MAIN_FILE: &str = "main.slint";
 const NEW_PROJECT_MAIN_FILE_CONTENTS: &str = r#"export component MainWindow inherits Window {
@@ -177,6 +178,7 @@ fn with_parent(dialog: rfd::FileDialog, window: Option<slint::WindowHandle>) -> 
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 fn unique_new_project_path(parent: &Path) -> PathBuf {
     let path = parent.join(NEW_PROJECT_NAME);
     if !path.exists() {

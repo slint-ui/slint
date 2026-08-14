@@ -18,8 +18,6 @@ mod fmt;
 mod host_language_search;
 mod language;
 mod lsp_to_editor;
-#[cfg(feature = "preview-engine")]
-mod preview;
 #[cfg(all(
     not(target_arch = "wasm32"),
     any(feature = "preview-external", feature = "preview-engine")
@@ -27,6 +25,8 @@ mod preview;
 mod settings_store;
 mod server_notifier;
 
+#[cfg(feature = "preview-engine")]
+pub use i_slint_editor_preview::preview;
 pub use i_slint_editor_preview::{common, util};
 
 use common::Result;
