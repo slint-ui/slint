@@ -262,12 +262,11 @@ solve_flexbox_layout_with_measure(const cbindgen_private::FlexboxLayoutData &dat
 
 inline cbindgen_private::LayoutInfo
 flexbox_layout_info_main_axis(cbindgen_private::Slice<cbindgen_private::LayoutItemInfo> cells,
-                              cbindgen_private::Slice<cbindgen_private::FlexItemProps> flex_props,
                               float spacing, const cbindgen_private::Padding &padding,
                               cbindgen_private::FlexboxLayoutWrap flex_wrap)
 {
-    return cbindgen_private::slint_flexbox_layout_info_main_axis(cells, flex_props, spacing,
-                                                                 &padding, flex_wrap);
+    return cbindgen_private::slint_flexbox_layout_info_main_axis(cells, spacing, &padding,
+                                                                 flex_wrap);
 }
 
 inline float
@@ -285,11 +284,12 @@ flexbox_layout_info_cross_axis(cbindgen_private::Slice<cbindgen_private::LayoutI
                                const cbindgen_private::Padding &padding_h,
                                const cbindgen_private::Padding &padding_v,
                                cbindgen_private::FlexboxLayoutDirection direction,
+                               cbindgen_private::LayoutAlignment alignment,
                                cbindgen_private::FlexboxLayoutWrap flex_wrap, float constraint_size)
 {
     return cbindgen_private::slint_flexbox_layout_info_cross_axis(
             cells_h, cells_v, flex_props, spacing_h, spacing_v, &padding_h, &padding_v, direction,
-            flex_wrap, constraint_size);
+            alignment, flex_wrap, constraint_size);
 }
 
 // Like `flexbox_layout_info_cross_axis`, but with a measure callback (see
@@ -303,11 +303,12 @@ inline cbindgen_private::LayoutInfo flexbox_layout_info_cross_axis_with_measure(
         float spacing_v, const cbindgen_private::Padding &padding_h,
         const cbindgen_private::Padding &padding_v,
         cbindgen_private::FlexboxLayoutDirection direction,
-        cbindgen_private::FlexboxLayoutWrap flex_wrap, float constraint_size, MeasureFn measure)
+        cbindgen_private::LayoutAlignment alignment, cbindgen_private::FlexboxLayoutWrap flex_wrap,
+        float constraint_size, MeasureFn measure)
 {
     return cbindgen_private::slint_flexbox_layout_info_cross_axis_with_measure(
             cells_h, cells_v, flex_props, spacing_h, spacing_v, &padding_h, &padding_v, direction,
-            flex_wrap, constraint_size,
+            alignment, flex_wrap, constraint_size,
             reinterpret_cast<const void *>(&flexbox_measure_thunk<MeasureFn>),
             reinterpret_cast<void *>(&measure));
 }

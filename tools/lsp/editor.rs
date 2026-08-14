@@ -412,7 +412,7 @@ async fn handle_preview_message(
 ) -> Option<PathBuf> {
     use PreviewToLspMessage::*;
     match &msg {
-        RequestState { files } => {
+        RequestState { files, settings } => {
             tracing::debug!("Preview requested state");
             let requested_preview = requested_file_tree_preview(files);
             let requested_project_root = requested_preview
@@ -429,12 +429,12 @@ async fn handle_preview_message(
             if let Some(url) = requested_preview {
                 ctx.to_show = Some(PreviewComponent { url, component: None });
             }
-            if files.is_empty() {
-                language::send_state_to_preview(ctx);
-            } else {
-                language::send_files_to_preview(ctx, files);
-            }
+            language::send_requested_state_to_preview(ctx, files, settings);
             requested_project_root
+        }
+        UpdateUserSettings { name, contents } => {
+            language::store_user_settings(name, contents);
+            None
         }
         SendShowMessage { message } => {
             match message.typ {

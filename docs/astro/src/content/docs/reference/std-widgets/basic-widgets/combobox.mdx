@@ -42,10 +42,17 @@ ComboBox {
 <SlintProperty propName="current-value" typeName="string" defaultValue='""' propertyVisibility="in-out">
 The currently selected text.
 
-:::caution[Note]
-To change the selection from host code (Rust, C++, JavaScript, Python), write to
-`current-index`. Writes to `current-value` are not supported — they don't change
-the selection. The visible state continues to reflect `model[current-index]`.
+:::note
+Writing to `current-value` — from host code (Rust, C++, JavaScript, Python), declaratively
+at instantiation (as in the example above), or imperatively from `.slint` code — looks up
+the written value in `model` and moves `current-index` to the first matching row. If the
+value isn't found in `model`, the selection is cleared (`current-index` becomes `-1`
+and `current-value` becomes `""`), the same as setting `current-index` out of range.
+Prefer writing `current-index` directly when the row's position is already known.
+
+This lookup only runs when the write actually changes `current-value`. Writing the
+value it already holds — including when the model has duplicate entries and a later
+one is currently selected — is a no-op and does not move the selection.
 :::
 </SlintProperty>
 

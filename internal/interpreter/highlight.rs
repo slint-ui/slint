@@ -308,8 +308,8 @@ fn sub_component_idx_at_path(
 }
 
 /// Whether the item's LLR debug info marks it as an injected geometry
-/// wrapper (`Element::is_geometry_wrapper`).
-fn is_geometry_wrapper_item(instance: &VRc<ItemTreeVTable, Instance>, flat_idx: usize) -> bool {
+/// wrapper (`Element::is_injected_wrapper_element`).
+fn is_injected_wrapper_element(instance: &VRc<ItemTreeVTable, Instance>, flat_idx: usize) -> bool {
     let cu = &instance.root_sub_component.compilation_unit;
     let root_ty = instance.root_sub_component.sub_component_idx;
     let Some(Some((path, local_idx))) = instance.item_table.get(flat_idx) else {
@@ -320,7 +320,7 @@ fn is_geometry_wrapper_item(instance: &VRc<ItemTreeVTable, Instance>, flat_idx: 
         .debug_info
         .as_ref()
         .and_then(|debug| debug.items.get(*local_idx))
-        .is_some_and(|item_debug| item_debug.is_geometry_wrapper)
+        .is_some_and(|item_debug| item_debug.is_injected_wrapper_element)
 }
 
 fn item_flat_index_to_rect(
@@ -346,7 +346,7 @@ fn item_flat_index_to_rect(
         if !VRc::ptr_eq(parent.item_tree(), &vrc) {
             break; // crossed into another component instance's item tree
         }
-        if !is_geometry_wrapper_item(instance, parent.index() as usize) {
+        if !is_injected_wrapper_element(instance, parent.index() as usize) {
             break;
         }
         anchor = parent;
@@ -434,4 +434,120 @@ fn positions_by_source(
         }
     }
     results
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{
+        ComponentInstance,
+        debug_hook::tests::{compile_with_debug_hooks, test_path},
+    };
+
+    fn geometry_of(
+        instance: &ComponentInstance,
+        code: &str,
+        id: &str,
+    ) -> crate::highlight::HighlightedRect {
+        let id_position = code.find(id).unwrap_or_else(|| panic!("{id} not found"));
+        let offset = id_position + code[id_position..].find("Rectangle").unwrap();
+        let (element, _) = instance
+            .element_node_at_source_code_position(&test_path(), offset as u32)
+            .first()
+            .cloned()
+            .unwrap_or_else(|| panic!("element {id} not resolved"));
+        *instance.element_positions(&element).first().expect("geometry")
+    }
+
+    // With debug_hooks enabled every element is wrapped in injected geometry wrappers
+    // (`Transform`, plus `Opacity` etc. when those props are set), which take over the element's
+    // geometry. `element_positions` must still report a `parent_origin` from which the element's
+    // own `x`/`y` can be recovered (`rect.origin - parent_origin == x/y`), otherwise the editor
+    // commits wrong coordinates when repositioning. This must hold through stacked wrappers and
+    // for elements nested below a non-root parent.
+    #[test]
+    fn debug_hooks_parent_origin() {
+        let code = r#"
+export component Win inherits Window {
+    width: 300px;
+    height: 200px;
+    plain := Rectangle {
+        x: 30px;
+        y: 40px;
+        width: 50px;
+        height: 60px;
+    }
+    faded := Rectangle {
+        // extra Opacity and visibility-Clip wrappers stacked around the Transform wrapper
+        opacity: 0.5;
+        visible: true;
+        x: 70px;
+        y: 80px;
+        width: 40px;
+        height: 30px;
+    }
+    outer := Rectangle {
+        x: 10px;
+        y: 20px;
+        width: 120px;
+        height: 100px;
+        nested := Rectangle {
+            x: 5px;
+            y: 7px;
+            width: 20px;
+            height: 20px;
+        }
+    }
+}"#;
+        let instance = compile_with_debug_hooks(code);
+
+        let check = |id: &str, expected: (f32, f32)| {
+            let geometry = geometry_of(&instance, code, id);
+            let x = geometry.rect.origin.x - geometry.parent_origin.x;
+            let y = geometry.rect.origin.y - geometry.parent_origin.y;
+            assert!(
+                (x - expected.0).abs() < 0.5 && (y - expected.1).abs() < 0.5,
+                "{id}: source-relative position ({x}, {y}) should be {expected:?}"
+            );
+        };
+
+        check("plain", (30.0, 40.0));
+        check("faded", (70.0, 80.0));
+        check("nested", (5.0, 7.0));
+    }
+
+    #[test]
+    fn debug_hooks_parent_rotation() {
+        let code = r#"
+export component Win inherits Window {
+    width: 300px;
+    height: 300px;
+    outer := Rectangle {
+        x: 50px;
+        y: 50px;
+        width: 160px;
+        height: 160px;
+        transform-rotation: 30deg;
+        inner := Rectangle {
+            x: 20px;
+            y: 20px;
+            width: 40px;
+            height: 40px;
+            transform-rotation: 15deg;
+        }
+    }
+}"#;
+        let instance = compile_with_debug_hooks(code);
+
+        let check = |id: &str, expected: f32| {
+            let geometry = geometry_of(&instance, code, id);
+            let rotation = geometry.angle - geometry.parent_rotation;
+            assert!(
+                (rotation - expected).abs() < 0.5,
+                "{id}: source-relative rotation {rotation} should be {expected}"
+            );
+        };
+
+        check("outer", 30.0);
+        check("inner", 15.0);
+    }
 }

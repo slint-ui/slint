@@ -48,7 +48,7 @@ fn create_repeater_components(component: &Rc<Component>) {
                 named_references: Default::default(),
                 repeated: None,
                 is_component_placeholder: false,
-                is_geometry_wrapper: original_elem.is_geometry_wrapper,
+                is_injected_wrapper_element: original_elem.is_injected_wrapper_element,
                 debug: original_elem.debug.clone(),
                 enclosing_component: Default::default(),
                 states: std::mem::take(&mut original_elem.states),

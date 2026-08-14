@@ -1,0 +1,115 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// close() drops the popup component, while the handler that called it keeps running. In a repeated
+// element that handler lives in its own item tree, kept alive by the event dispatch, so its parent
+// chain now dangles. Reaching an item outside the popup afterwards — here fs.focus() — must not
+// panic; it simply does nothing.
+//
+// Both halves cover the same generated code but a different dispatch path holding the repeated
+// tree alive: the mouse grab for the click, the focus item for the key press.
+
+export component TestCase {
+    width: 300px;
+    height: 300px;
+
+    out property <bool> popup-clicked;
+    out property <bool> popup-key-pressed;
+    out property <bool> fs-has-focus: fs.has-focus;
+
+    callback show-click-popup;
+    show-click-popup => {
+        click-popup.show();
+    }
+
+    callback show-key-popup;
+    show-key-popup => {
+        key-popup.show();
+    }
+
+    fs := FocusScope { }
+
+    click-popup := PopupWindow {
+        close-policy: no-auto-close;
+        x: 0px;
+        y: 0px;
+        width: 100px;
+        height: 100px;
+
+        for _idx in 1: TouchArea {
+            clicked => {
+                root.popup-clicked = true;
+                click-popup.close();
+                fs.focus();
+            }
+        }
+    }
+
+    key-popup := PopupWindow {
+        close-policy: no-auto-close;
+        x: 0px;
+        y: 0px;
+        width: 100px;
+        height: 100px;
+
+        for _idx in 1: FocusScope {
+            key-pressed(event) => {
+                root.popup-key-pressed = true;
+                key-popup.close();
+                fs.focus();
+                accept
+            }
+        }
+    }
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+
+instance.invoke_show_click_popup();
+slint_testing::send_mouse_click(&instance, 50., 50.);
+assert!(instance.get_popup_clicked());
+// fs is outside the closed popup, so the focus call was a no-op
+assert!(!instance.get_fs_has_focus());
+
+instance.invoke_show_key_popup();
+// Tab focuses the repeated FocusScope in the popup, "a" then runs its key handler.
+slint_testing::send_keyboard_string_sequence(&instance, "\ta");
+assert!(instance.get_popup_key_pressed());
+assert!(!instance.get_fs_has_focus());
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+
+instance.invoke_show_click_popup();
+slint_testing::send_mouse_click(&instance, 50., 50.);
+assert(instance.get_popup_clicked());
+// fs is outside the closed popup, so the focus call was a no-op
+assert(!instance.get_fs_has_focus());
+
+instance.invoke_show_key_popup();
+// Tab focuses the repeated FocusScope in the popup, "a" then runs its key handler.
+slint_testing::send_keyboard_string_sequence(&instance, "\ta");
+assert(instance.get_popup_key_pressed());
+assert(!instance.get_fs_has_focus());
+```
+
+```js
+var instance = new slint.TestCase({});
+
+instance.show_click_popup();
+slintlib.private_api.send_mouse_click(instance, 50., 50.);
+assert(instance.popup_clicked);
+// fs is outside the closed popup, so the focus call was a no-op
+assert(!instance.fs_has_focus);
+
+instance.show_key_popup();
+// Tab focuses the repeated FocusScope in the popup, "a" then runs its key handler.
+slintlib.private_api.send_keyboard_string_sequence(instance, "\ta");
+assert(instance.popup_key_pressed);
+assert(!instance.fs_has_focus);
+```
+*/

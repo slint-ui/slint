@@ -134,7 +134,7 @@ jobs:
                     - "https://github.com/Newlifer/peditor"
                     - "https://github.com/spineda2019/tRust"
                     - "https://github.com/franckKyete/tools-desktop"
-                    - "https://github.com/zys60233/secret-box"
+                    #- "https://github.com/zys60233/secret-box" # repo no longer available
                     - "https://github.com/xjy12345654/css_parser"
                     - "https://github.com/zuyzz/app_flock"
                     #- "https://github.com/interstellarfrog/OG3-Pack-Updater" #zip2.6 is yanked
@@ -171,7 +171,7 @@ jobs:
                     - "https://github.com/waydeerwm/layer-shika"
                     - "https://github.com/swedishembedded/sven"
                     - "https://github.com/junelva/wl-gammarelay-applet"
-                    - "https://github.com/FelgoSDK/RustyWeather"
+                    #- "https://github.com/FelgoSDK/RustyWeather" # lives in this repository as demos/weather-demo
                     - "https://github.com/masak1yu/winxmerge"
                     - "https://github.com/IDE0224/rust-calendar-app"
                     - "https://github.com/ninjitsuytber/Aegis-OTA"
@@ -249,6 +249,13 @@ jobs:
                   echo i-slint-backend-winit = { path = \"$GITHUB_WORKSPACE/internal/backends/winit\" }  >> ~/.cargo/config.toml
                   echo i-slint-core = { path = \"$GITHUB_WORKSPACE/internal/core\" }  >> ~/.cargo/config.toml
                   echo i-slint-compiler = { path = \"$GITHUB_WORKSPACE/internal/compiler\" }  >> ~/.cargo/config.toml
+                  # A pinned released i-slint-backend-testing pulls in its exact i-slint-core,
+                  # which conflicts with the patched one
+                  echo i-slint-backend-testing = { path = \"$GITHUB_WORKSPACE/internal/backends/testing\" }  >> ~/.cargo/config.toml
+                  # For projects that depend on Slint from git rather than crates.io
+                  echo [patch.\"https://github.com/slint-ui/slint\"] >> ~/.cargo/config.toml
+                  echo slint = { path = \"$GITHUB_WORKSPACE/api/rs/slint\" } >> ~/.cargo/config.toml
+                  echo slint-build = { path = \"$GITHUB_WORKSPACE/api/rs/build\" }  >> ~/.cargo/config.toml
             - name: Checkout the repo
               run: |
                   cd $HOME
@@ -305,6 +312,7 @@ jobs:
                       sub_path: "pomodoro"
                     - git_url: "https://github.com/flukejones/asusctl"
                       sub_path: "rog-control-center"
+                      extra_packages: gettext # build.rs runs msgfmt on the .po files
                     #- git_url: "https://github.com/ellenhp/openlmr"  #doesn't compile
                     #  sub_path: "openlmr-core"
                     #- git_url: "https://github.com/jenkinsmichpa/coconut_crab"
@@ -374,18 +382,26 @@ jobs:
                     - git_url: "https://github.com/Enn3Developer/n_music"
                       extra_packages: libasound2-dev libfontconfig-dev libfreetype-dev
                       sub_path: "n_player"
+                      extra_commands: |
+                          cargo update
+                          # zune-imageprocs 0.5.1 doesn't handle the enum variants added in 0.5.3
+                          cargo update zune-core --precise 0.5.1
                     - git_url: "https://github.com/TsaoLun/always-blue"
                       sub_path: "."
                       extra_packages: libasound2-dev libfreetype-dev libfontconfig-dev
                     - git_url: "https://github.com/jturcotte/beskope"
                       sub_path: "."
                       extra_packages: libasound2-dev libfreetype-dev libfontconfig-dev libpipewire-0.3-dev
+                    # Depends on speakstream as a sibling checkout
                     - git_url: "https://github.com/sloganking/quick-assistant"
                       sub_path: "."
                       extra_packages: alsa-utils libasound2-dev libavcodec-dev libavformat-dev libavutil-dev libasound2-dev
+                      extra_commands: |
+                          git clone https://github.com/sloganking/speakstream ../speakstream --depth 1
+                          cargo update
                     - git_url: "https://github.com/laycookie/record"
                       sub_path: "."
-                      extra_packages: alsa-utils libasound2-dev libavcodec-dev libavformat-dev libavutil-dev libasound2-dev
+                      extra_packages: alsa-utils libasound2-dev libavcodec-dev libavformat-dev libavutil-dev libpipewire-0.3-dev
                       toolchain: nightly # uses #![feature]
                     - git_url: "https://github.com/qhua948/anubis"
                       sub_path: "."
@@ -444,10 +460,20 @@ jobs:
                     #   sub_path: frontend
                     - git_url: "https://codeberg.org/vivi-ui/lili"
                       extra_packages: alsa-utils libasound2-dev libavcodec-dev libavformat-dev libavutil-dev libasound2-dev
+                    # The workspace root also builds the android member, whose ndk-sys
+                    # refuses to compile off-Android
                     - git_url: "https://github.com/bandipapa/rsaber"
+                      sub_path: "pc"
                       extra_packages: alsa-utils libasound2-dev libavcodec-dev libavformat-dev libavutil-dev libgl1-mesa-dev libvulkan-dev libjsoncpp-dev libx11-dev libxxf86vm-dev libxrandr-dev libpipewire-0.3-dev
+                      extra_commands: |
+                          sed -i 's/"<1\.16\.0"/"*"/g' ../lib/Cargo.toml ../android/Cargo.toml
+                          cargo update
                     - git_url: "https://github.com/heng30/wayshot"
                       extra_packages: alsa-utils libasound2-dev libavcodec-dev libavformat-dev libavutil-dev libpipewire-0.3-dev libx264-dev libavfilter-dev libavdevice-dev libswscale-dev libswresample-dev libpostproc-dev
+                      extra_commands: |
+                          cargo update
+                          # rc.13 is a semver compatible update that changes the API
+                          cargo update ort --precise 2.0.0-rc.12
                     - git_url: https://github.com/heng30/tasklog
                       sub_path: tasklog
                       extra_args: "--features=desktop"
@@ -490,12 +516,14 @@ jobs:
                       sub_path: "crates/blackshark-gui"
                     - git_url: "https://github.com/brianmay/robotica-rust"
                       sub_path: "robotica-slint"
-                    - git_url: "https://github.com/eosin-platform/eov"
-                      sub_path: "app"
+                    # needs private submodules, and workspace member plugins/annotations is missing
+                    #- git_url: "https://github.com/eosin-platform/eov"
+                    #  sub_path: "app"
                     - git_url: "https://github.com/temidaradev/chast"
                       sub_path: "p2p-chat"
-                    - git_url: "https://github.com/aecs4u/rcompare"
-                      sub_path: "rcompare_gui"
+                    # the GUI is a Python (teczka) app, there is no rcompare_gui crate
+                    #- git_url: "https://github.com/aecs4u/rcompare"
+                    #  sub_path: "rcompare_gui"
                     - git_url: "https://github.com/DatanoiseTV/ferroterm"
                       sub_path: "apps/slint"
                     - git_url: "https://github.com/mm12432/CodeExtractTools"
@@ -507,11 +535,10 @@ jobs:
                       extra_packages: alsa-utils libasound2-dev
                     - git_url: "https://github.com/hsiatein/Helenium"
                       sub_path: "heleny-gui"
-                    - git_url: "https://github.com/jcbantuelle/la-mulana-multiworld"
-                      sub_path: "launcher"
                     - git_url: "https://github.com/BlackMIDIDevs/meridian"
                       sub_path: "crates/meridian-ui"
                       extra_packages: alsa-utils libasound2-dev
+                      toolchain: nightly # midi-toolkit-rs uses #![feature]
                     - git_url: "https://github.com/Irminsul-dev/CheshireLane9"
                       sub_path: "crates/cheshire-server-app"
                       extra_packages: protobuf-compiler
@@ -541,8 +568,9 @@ jobs:
                       sub_path: "crates/crypto-hud"
                     - git_url: "https://github.com/sullivant/eightyeighty"
                       sub_path: "frontend"
-                    - git_url: "https://github.com/NigelBreslaw/MiSTer-MagiK"
-                      sub_path: "apps/mister"
+                    # the fonts and assets it compiles in live in private submodules
+                    #- git_url: "https://github.com/NigelBreslaw/MiSTer-MagiK"
+                    #  sub_path: "apps/mister"
                     - git_url: "https://github.com/AndreasTar/Luna"
                       sub_path: "luna_src"
 
@@ -579,6 +607,8 @@ jobs:
                       extra_commands: |
                           sed -i 's/version = "~1.15"/version = "1.15"/' Cargo.toml
                           cargo update
+                          # rc.13 is a semver compatible update that changes the API
+                          cargo update ort --precise 2.0.0-rc.12
                     - git_url: "https://github.com/ruapotato/Flick"
                       sub_path: "shell"
                       extra_packages: libdisplay-info-dev
@@ -590,13 +620,14 @@ jobs:
                       extra_packages: alsa-utils libasound2-dev
                     - git_url: "https://github.com/FriederHannenheim/cthulock"
                       sub_path: "."
-                      extra_packages: llvm-dev libclang-dev
+                      extra_packages: llvm-dev libclang-dev libpam0g-dev
                     - git_url: "https://github.com/jaroslavszkandera/luminous"
                       sub_path: "."
                       extra_packages: libdav1d-dev
-                    - git_url: "https://github.com/taisho-guy/NeoUtl"
-                      sub_path: "."
-                      extra_packages: libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev
+                    # its wgpu dependency is a private codeberg submodule
+                    #- git_url: "https://github.com/taisho-guy/NeoUtl"
+                    #  sub_path: "."
+                    #  extra_packages: libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev
                     - git_url: "https://github.com/Arian-p1/p1mplayer"
                       sub_path: "."
                       extra_packages: alsa-utils libasound2-dev
@@ -615,8 +646,10 @@ jobs:
                       sub_path: "."
                       extra_packages: libwebkit2gtk-4.1-dev
                       extra_args: "--features=desktop-app,renderer-femtovg"
+                    # Slint is optional here, so a feature enabling it is required
                     - git_url: "https://github.com/ShashlikMap/shashlik-map"
                       sub_path: "winit-run"
+                      extra_args: "--features=linux-cpu"
                       extra_commands: |
                           export MAPTILER_API_KEY=ci_dummy_key
                           cargo update
@@ -627,16 +660,18 @@ jobs:
                       extra_commands: |
                           export CC=clang CXX=clang++
                           cargo update
+                    # The crate inherits package fields and dependencies from the workspace, so it
+                    # must stay a member; the two skia-based siblings conflict in one dependency graph
                     - git_url: "https://github.com/paulusminus/lipl-display"
                       sub_path: "crates/lipl-display-slint"
+                      extra_packages: libdbus-1-dev
                       extra_commands: |
-                          printf '\n[workspace]\n' >> Cargo.toml
+                          sed -i 's|# *"crates/lipl-display-slint",|"crates/lipl-display-slint",|; /lipl-display-freya/d; /lipl-display-gpui/d' ../../Cargo.toml
                           cargo update
-                    - git_url: "https://github.com/holg/gldf-rs"
-                      sub_path: "crates/gldf-rs-slint"
-                      extra_commands: |
-                          printf '\n[workspace]\n' >> Cargo.toml
-                          cargo update
+                    # out of sync with its own gldf-rs library (LocaleFoo::value,
+                    # format_version.pre_release)
+                    #- git_url: "https://github.com/holg/gldf-rs"
+                    #  sub_path: "crates/gldf-rs-slint"
                     - git_url: "https://github.com/Decodetalkers/marine_greetdm"
                       sub_path: "examples/marine_gui"
                       extra_commands: |
@@ -647,14 +682,6 @@ jobs:
                       extra_commands: |
                           printf '\n[workspace]\n' >> Cargo.toml
                           cargo update
-                    - git_url: "https://github.com/chstc/NGSM"
-                      sub_path: "crates/servicemanager-gui"
-                      extra_commands: |
-                          cargo add rfd --features xdg-portal
-                          cargo update
-                    - git_url: "https://github.com/anton1615/PC-Audio-Stream-to-Phone"
-                      sub_path: "server"
-                      extra_packages: libasound2-dev
         runs-on: "ubuntu-latest"
         steps:
             - uses: actions/checkout@v7
@@ -676,6 +703,13 @@ jobs:
                   echo i-slint-backend-winit = { path = \"$GITHUB_WORKSPACE/internal/backends/winit\" }  >> ~/.cargo/config.toml
                   echo i-slint-core = { path = \"$GITHUB_WORKSPACE/internal/core\" }  >> ~/.cargo/config.toml
                   echo i-slint-compiler = { path = \"$GITHUB_WORKSPACE/internal/compiler\" }  >> ~/.cargo/config.toml
+                  # A pinned released i-slint-backend-testing pulls in its exact i-slint-core,
+                  # which conflicts with the patched one
+                  echo i-slint-backend-testing = { path = \"$GITHUB_WORKSPACE/internal/backends/testing\" }  >> ~/.cargo/config.toml
+                  # For projects that depend on Slint from git rather than crates.io
+                  echo [patch.\"https://github.com/slint-ui/slint\"] >> ~/.cargo/config.toml
+                  echo slint = { path = \"$GITHUB_WORKSPACE/api/rs/slint\" } >> ~/.cargo/config.toml
+                  echo slint-build = { path = \"$GITHUB_WORKSPACE/api/rs/build\" }  >> ~/.cargo/config.toml
             - name: Checkout the repo
               run: |
                   cd $HOME
@@ -706,7 +740,6 @@ jobs:
                     - "https://github.com/0hgawa/vayou-slint"
                     - "https://github.com/MelDxKviel/zapret-ui"
                     - "https://github.com/kirinonakar/ocr_trans"
-                    - "https://github.com/chengbuilds/PetPhrase"
                     - "https://github.com/WardLordRuby/elden_mod_loader_gui"
                     - "https://github.com/Arkilo-Labs/NanoTrans"
                     - "https://github.com/link9c/media_backup"
@@ -714,11 +747,22 @@ jobs:
                     - "https://github.com/zloisupport/vanctrl"
                     - "https://github.com/owu/wsl-dashboard"
                     - "https://github.com/gvastethecreator/panopticon"
-                    - "https://github.com/LinchenFur/rust-boundary-tool-box"
+                    - "https://github.com/STanJK/rust-boundary-tool-box"
                     - "https://github.com/ahmedmbarektorjmene/PASSX"
                 include:
                     - git_url: "https://github.com/tadghh/transparent-windows"
                       toolchain: nightly
+                    - git_url: "https://github.com/chengbuilds/PetPhrase"
+                      sub_path: "app-slint"
+                    # servicemanager-win32 has no Linux implementation
+                    - git_url: "https://github.com/chstc/NGSM"
+                      sub_path: "crates/servicemanager-gui"
+                    # mslnk and windows are not target-gated
+                    - git_url: "https://github.com/anton1615/PC-Audio-Stream-to-Phone"
+                      sub_path: "server"
+                    # dll-syringe only has a windows implementation
+                    - git_url: "https://github.com/jcbantuelle/la-mulana-multiworld"
+                      sub_path: "launcher"
         runs-on: windows-2022
         steps:
             - uses: actions/checkout@v7
@@ -737,6 +781,12 @@ jobs:
                       echo "slint-interpreter = { path = \"$ws/internal/interpreter\" }"
                       echo "i-slint-backend-winit = { path = \"$ws/internal/backends/winit\" }"
                       echo "i-slint-core = { path = \"$ws/internal/core\" }"
+                      echo "i-slint-compiler = { path = \"$ws/internal/compiler\" }"
+                      echo "i-slint-backend-testing = { path = \"$ws/internal/backends/testing\" }"
+                      echo ""
+                      echo "[patch.\"https://github.com/slint-ui/slint\"]"
+                      echo "slint = { path = \"$ws/api/rs/slint\" }"
+                      echo "slint-build = { path = \"$ws/api/rs/build\" }"
                   } >> ~/.cargo/config.toml
             - name: Checkout the repo
               shell: bash
@@ -750,8 +800,9 @@ jobs:
               run: |
                   cd "$HOME/the_repo"
                   rm -f rust-toolchain.toml .cargo/config.toml || true
-                  cargo update
-                  cargo check
+                  cd "./${{ matrix.sub_path || '.' }}"
+                  ${{ matrix.extra_commands || 'cargo update' }}
+                  cargo check ${{ matrix.extra_args }}
 
     # Build slint-compiler once and share it with the check_slint_only matrix below, instead of
     # rebuilding it for every project.

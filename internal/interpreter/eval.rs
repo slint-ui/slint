@@ -96,17 +96,28 @@ fn root_instance(
     }
 }
 
+/// Walk `parent_level` steps up the parent chain, or `None` if an ancestor is already gone.
+///
+/// The parent chain of a repeated element can die while one of its callbacks is still running —
+/// the enclosing popup closes itself, or the model drops the row the element belongs to — and the
+/// element's own instance outlives it because the event dispatch holds it.
+pub(crate) fn try_walk_parent(
+    start: &Pin<Rc<SubComponentInstance>>,
+    level: usize,
+) -> Option<Pin<Rc<SubComponentInstance>>> {
+    let mut current = start.clone();
+    for _ in 0..level {
+        current = Pin::new(current.parent.upgrade()?);
+    }
+    Some(current)
+}
+
 /// Walk `parent_level` steps up the parent chain.
 pub(crate) fn walk_parent(
     start: &Pin<Rc<SubComponentInstance>>,
     level: usize,
 ) -> Pin<Rc<SubComponentInstance>> {
-    let mut current = start.clone();
-    for _ in 0..level {
-        let parent = current.parent.upgrade().expect("parent vanished during evaluation");
-        current = Pin::new(parent);
-    }
-    current
+    try_walk_parent(start, level).expect("parent vanished during evaluation")
 }
 
 impl i_slint_compiler::llr::TypeResolutionContext for EvalContext {
@@ -172,6 +183,17 @@ pub(crate) fn walk_sub_path(
         current = next;
     }
     current
+}
+
+/// Walk to the sub-component that owns `local`, or `None` if it is not reachable.
+///
+/// See [`try_walk_parent`] for when that happens.
+pub(crate) fn try_walk_to(
+    ctx: &EvalContext,
+    parent_level: usize,
+    path: &[llr::SubComponentInstanceIdx],
+) -> Option<Pin<Rc<SubComponentInstance>>> {
+    Some(walk_sub_path(try_walk_parent(ctx.current.as_ref()?, parent_level)?, path))
 }
 
 /// Walk to the sub-component that owns `local`.
@@ -614,7 +636,22 @@ pub fn default_value_for_type(ty: &Type) -> Value {
             let default = en.clone().default_value();
             Value::EnumerationValue(en.name.to_string(), default.to_string())
         }
-        _ => Value::Void,
+        Type::ComponentFactory => Value::ComponentFactory(Default::default()),
+        Type::MouseCursor => Value::MouseCursorInner(Default::default()),
+        Type::Void => Value::Void,
+        // Types that should never appear in this situation (e.g. are not expressible
+        // by users, so cannot be returned from an unset callback or model property)
+        Type::Invalid
+        | Type::InferredProperty
+        | Type::InferredCallback
+        | Type::Callback(_)
+        | Type::Function(_)
+        | Type::PathData
+        | Type::Easing
+        | Type::ElementReference
+        | Type::ArrayOfU16
+        | Type::LayoutCache
+        | Type::Closure => Value::Void,
     }
 }
 
@@ -1009,7 +1046,7 @@ pub fn eval_expression(ctx: &mut EvalContext, expression: &Expression) -> Value 
             ctx,
             cells_h_variable,
             cells_v_variable,
-            flex_props_variable,
+            flex_props_variable.as_deref(),
             elements,
             repeated_cross_width.as_deref(),
             sub_expression,
@@ -1201,7 +1238,7 @@ fn with_flexbox_layout_item_info(
     ctx: &mut EvalContext,
     cells_h_variable: &str,
     cells_v_variable: &str,
-    flex_props_variable: &str,
+    flex_props_variable: Option<&str>,
     elements: &[itertools::Either<
         (Expression, Expression, Expression),
         i_slint_compiler::llr::LayoutRepeatedElement,
@@ -1222,7 +1259,12 @@ fn with_flexbox_layout_item_info(
             itertools::Either::Left((h, v, props)) => {
                 cells_h.push(eval_expression(ctx, h));
                 cells_v.push(eval_expression(ctx, v));
-                flex_props.push(eval_expression(ctx, props));
+                // With no flex-props variable the sub-expression only reads the
+                // cells; don't evaluate (and thus depend on) the static cell's
+                // flex properties.
+                if flex_props_variable.is_some() {
+                    flex_props.push(eval_expression(ctx, props));
+                }
             }
             itertools::Either::Right(repeater) => {
                 let offset = cells_h.len() as u32;
@@ -1232,7 +1274,7 @@ fn with_flexbox_layout_item_info(
                     cross_width,
                     &mut cells_h,
                     &mut cells_v,
-                    &mut flex_props,
+                    flex_props_variable.is_some().then_some(&mut flex_props),
                 );
                 repeated_indices.push(offset);
                 repeated_indices.push(instances);
@@ -1243,9 +1285,9 @@ fn with_flexbox_layout_item_info(
         ctx.locals.insert(SmolStr::from(cells_h_variable), Value::Model(model_from_vec(cells_h)));
     let prev_v =
         ctx.locals.insert(SmolStr::from(cells_v_variable), Value::Model(model_from_vec(cells_v)));
-    let prev_fp = ctx
-        .locals
-        .insert(SmolStr::from(flex_props_variable), Value::Model(model_from_vec(flex_props)));
+    let prev_fp = flex_props_variable.map(|name| {
+        ctx.locals.insert(SmolStr::from(name), Value::Model(model_from_vec(flex_props)))
+    });
     let prev_ri = ctx.locals.insert(
         SmolStr::new_static("repeated_indices"),
         Value::Model(model_from_vec(
@@ -1255,7 +1297,9 @@ fn with_flexbox_layout_item_info(
     let result = eval_expression(ctx, sub_expression);
     restore_local(ctx, cells_h_variable, prev_h);
     restore_local(ctx, cells_v_variable, prev_v);
-    restore_local(ctx, flex_props_variable, prev_fp);
+    if let Some(name) = flex_props_variable {
+        restore_local(ctx, name, prev_fp.flatten());
+    }
     restore_local(ctx, "repeated_indices", prev_ri);
     result
 }
@@ -1266,7 +1310,7 @@ fn push_repeater_flexbox_items(
     cross_width: Option<f32>,
     cells_h: &mut Vec<Value>,
     cells_v: &mut Vec<Value>,
-    flex_props: &mut Vec<Value>,
+    mut flex_props: Option<&mut Vec<Value>>,
 ) -> u32 {
     use i_slint_core::items::Orientation;
     use i_slint_core::model::RepeatedItemTree;
@@ -1296,7 +1340,9 @@ fn push_repeater_flexbox_items(
         };
         // The flex props are axis-independent: both bundled infos carry the
         // same ones, take them from the horizontal query.
-        flex_props.push(flex_props_to_value(info_h.props));
+        if let Some(fp) = flex_props.as_mut() {
+            fp.push(flex_props_to_value(info_h.props));
+        }
         cells_h.push(layout_item_info_to_value(info_h.constraint));
         cells_v.push(layout_item_info_to_value(info_v.constraint));
     }
@@ -1311,8 +1357,6 @@ fn layout_item_info_to_value(constraint: i_slint_core::layout::LayoutInfo) -> Va
 
 fn flex_props_to_value(props: i_slint_core::layout::FlexItemProps) -> Value {
     let mut s = crate::api::Struct::default();
-    s.set_field("flex_grow".to_string(), Value::Number(props.flex_grow as f64));
-    s.set_field("flex_shrink".to_string(), Value::Number(props.flex_shrink as f64));
     s.set_field(
         "cross_axis_self_alignment".to_string(),
         Value::EnumerationValue(
@@ -1320,7 +1364,7 @@ fn flex_props_to_value(props: i_slint_core::layout::FlexItemProps) -> Value {
             format!("{:?}", props.cross_axis_self_alignment).to_lowercase(),
         ),
     );
-    s.set_field("flex_order".to_string(), Value::Number(props.flex_order as f64));
+    s.set_field("layout_order".to_string(), Value::Number(props.layout_order as f64));
     Value::Struct(s)
 }
 
@@ -1867,6 +1911,25 @@ fn call_builtin_function(
         }
         BuiltinFunction::StringToUppercase => {
             Value::String(to_string(ctx, &arguments[0]).to_uppercase().into())
+        }
+        BuiltinFunction::StringReplaceAll => {
+            if arguments.len() != 3 {
+                panic!("internal error: incorrect argument count to StringReplaceAll")
+            }
+
+            if let (Value::String(s), Value::String(from), Value::String(to)) = (
+                eval_expression(ctx, &arguments[0]),
+                eval_expression(ctx, &arguments[1]),
+                eval_expression(ctx, &arguments[2]),
+            ) {
+                Value::String(i_slint_core::string::shared_string_replace_all(
+                    &s,
+                    from.as_str(),
+                    to.as_str(),
+                ))
+            } else {
+                panic!("Not all arguments are strings");
+            }
         }
         BuiltinFunction::ColorRgbaStruct => {
             if let Value::Brush(brush) = eval_expression(ctx, &arguments[0]) {
@@ -2519,7 +2582,7 @@ pub(crate) fn resolve_item_rc_from_ref(
     let LocalMemberIndex::Native { item_index, .. } = &local_reference.reference else {
         return None;
     };
-    let owner = walk_to(ctx, *parent_level, &local_reference.sub_component_path);
+    let owner = try_walk_to(ctx, *parent_level, &local_reference.sub_component_path)?;
     let parent_inst = owner.root.get().and_then(|w| w.upgrade())?;
     let full_path = crate::item_tree_vtable::sub_component_path_of(&owner, &parent_inst);
     let flat_idx = find_flat_item_index(&parent_inst.item_table, &full_path, *item_index)?;

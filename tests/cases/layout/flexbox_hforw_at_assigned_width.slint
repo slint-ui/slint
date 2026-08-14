@@ -163,7 +163,7 @@ export component TestCase inherits Window {
         padding: 0px; spacing: 0px;
         cross-axis-line-alignment: start;
         cross-axis-alignment: start;
-        ReportedCard { flex-shrink: 0; preferred-width: w; }
+        ReportedCard { preferred-width: w; }
         anchor := Rectangle { width: w; height: 5px; }
     }
 
@@ -180,7 +180,7 @@ export component TestCase inherits Window {
         padding: 0px; spacing: 0px;
         cross-axis-line-alignment: start;
         cross-axis-alignment: start;
-        ReportedCardColumn { flex-shrink: 0; preferred-height: column-height; }
+        ReportedCardColumn { preferred-height: column-height; }
         colAnchor := Rectangle { width: 5px; height: column-height; }
     }
 
@@ -194,7 +194,7 @@ export component TestCase inherits Window {
         padding: 0px; spacing: 0px;
         cross-axis-line-alignment: start;
         cross-axis-alignment: start;
-        RepeatedCard { flex-shrink: 0; preferred-width: w; }
+        RepeatedCard { preferred-width: w; }
         repAnchor := Rectangle { width: w; height: 5px; }
     }
 
@@ -205,7 +205,7 @@ export component TestCase inherits Window {
         padding: 0px; spacing: 0px;
         cross-axis-line-alignment: start;
         cross-axis-alignment: start;
-        RepeatedCardColumn { flex-shrink: 0; preferred-height: column-height; }
+        RepeatedCardColumn { preferred-height: column-height; }
         repColAnchor := Rectangle { width: 5px; height: column-height; }
     }
 
@@ -222,7 +222,7 @@ export component TestCase inherits Window {
         padding: 0px; spacing: 0px;
         cross-axis-line-alignment: start;
         cross-axis-alignment: start;
-        RepeaterOnlyCard { flex-shrink: 0; preferred-width: narrow-w; }
+        RepeaterOnlyCard { preferred-width: narrow-w; }
         repOnlyAnchor := Rectangle { width: w; height: 5px; }
     }
 

@@ -7,6 +7,11 @@ pub mod completion;
 mod formatting;
 mod goto;
 mod hover;
+#[cfg(all(
+    not(target_arch = "wasm32"),
+    any(feature = "preview-external", feature = "preview-engine", feature = "preview-remote"),
+))]
+mod preview_files;
 mod semantic_tokens;
 mod signature_help;
 #[cfg(test)]
@@ -126,7 +131,48 @@ pub fn send_state_to_preview(ctx: &Context) {
     }
 }
 
-// Callers live in the native LSP (main.rs / editor.rs); not used from WASM.
+#[cfg(any(feature = "preview-external", feature = "preview-engine"))]
+pub fn send_requested_state_to_preview(
+    ctx: &Context,
+    files: &[lsp_types::Url],
+    settings: &[String],
+) {
+    if files.is_empty() {
+        send_state_to_preview(ctx);
+    } else {
+        send_files_to_preview(ctx, files);
+    }
+
+    #[cfg(all(
+        not(target_arch = "wasm32"),
+        any(feature = "preview-external", feature = "preview-engine")
+    ))]
+    for name in settings {
+        if let Some(contents) = crate::settings_store::load(name) {
+            ctx.to_preview
+                .send(&LspToPreviewMessage::SetUserSettings { name: name.clone(), contents });
+        }
+    }
+    #[cfg(not(all(
+        not(target_arch = "wasm32"),
+        any(feature = "preview-external", feature = "preview-engine")
+    )))]
+    let _ = settings;
+}
+
+/// Persist a settings blob received from the preview. The payload is opaque to
+/// the LSP; it is written verbatim to disk (a no-op where there is no config
+/// directory, e.g. wasm).
+#[cfg(any(feature = "preview-external", feature = "preview-engine", feature = "preview-remote"))]
+pub fn store_user_settings(name: &str, contents: &str) {
+    #[cfg(not(target_arch = "wasm32"))]
+    if let Err(err) = crate::settings_store::save(name, contents) {
+        tracing::warn!("Failed to save preview user settings: {err}");
+    }
+    #[cfg(target_arch = "wasm32")]
+    let _ = (name, contents);
+}
+
 #[cfg(all(
     not(target_arch = "wasm32"),
     any(feature = "preview-external", feature = "preview-engine", feature = "preview-remote"),
@@ -134,6 +180,9 @@ pub fn send_state_to_preview(ctx: &Context) {
 pub fn send_files_to_preview(ctx: &Context, files: &[lsp_types::Url]) {
     #[cfg(feature = "preview-remote")]
     let mut fonts_sent = HashSet::<PathBuf>::new();
+    // Only the files that aren't loaded yet are read off disk, so build the
+    // access rules on the first one that is — most requests never need them.
+    let file_access = std::cell::OnceCell::new();
     for url in files {
         if let Some(node) = ctx.document_cache.get_document(url).and_then(|doc| doc.node.as_ref()) {
             let version = ctx.document_cache.document_version_by_path(node.source_file.path());
@@ -151,6 +200,21 @@ pub fn send_files_to_preview(ctx: &Context, files: &[lsp_types::Url]) {
             tracing::warn!("Cannot convert URL to file path: {url}");
             continue;
         };
+        let file_access = file_access.get_or_init(|| {
+            preview_files::PreviewFileAccess::new(
+                &ctx.init_param,
+                &ctx.preview_config,
+                &ctx.document_cache,
+            )
+        });
+        if !file_access.allows(&path) {
+            tracing::warn!(
+                "Refusing to send {} to the preview: not a file of the project being previewed",
+                path.display()
+            );
+            ctx.to_preview.send(&LspToPreviewMessage::ForgetFile { url: url.clone() });
+            continue;
+        }
         match std::fs::read(&path) {
             Ok(contents) => {
                 tracing::debug!("Sending file {} ({} bytes) to preview", url, contents.len());
@@ -206,6 +270,22 @@ fn send_referenced_fonts(ctx: &Context, doc_url: &Url, sent: &mut HashSet<PathBu
             Err(err) => {
                 tracing::warn!("Failed to read font {}: {err}", font_path.display());
             }
+        }
+    }
+}
+
+#[cfg(all(target_arch = "wasm32", any(feature = "preview-external", feature = "preview-engine")))]
+pub fn send_files_to_preview(ctx: &Context, files: &[lsp_types::Url]) {
+    for url in files {
+        if let Some(node) = ctx.document_cache.get_document(url).and_then(|doc| doc.node.as_ref()) {
+            let version = ctx.document_cache.document_version_by_path(node.source_file.path());
+            ctx.to_preview.send(&LspToPreviewMessage::SetContents {
+                url: VersionedUrl::new(url.clone(), version),
+                contents: node.text().to_string().into(),
+            });
+        } else {
+            tracing::warn!("WASM LSP cannot re-send uncached file to preview: {url}");
+            ctx.to_preview.send(&LspToPreviewMessage::ForgetFile { url: url.clone() });
         }
     }
 }
@@ -2062,11 +2142,14 @@ pub mod tests {
 
     use crate::language::test::{
         complex_document_cache, loaded_document_cache, loaded_document_cache_with_file_name,
+        preview_capture,
     };
+    use i_slint_live_preview::protocol::{LspToPreviewMessage, PreviewConfig};
     use lsp_server::{Message, Request, Response};
     use lsp_types::{
         ApplyWorkspaceEditResponse, MessageActionItem, WorkspaceEdit, WorkspaceFolder,
     };
+    use std::{cell::RefCell, collections::HashMap, path::PathBuf, rc::Rc};
 
     struct TestLspClient {
         receiver: crossbeam_channel::Receiver<Message>,
@@ -2292,6 +2375,13 @@ pub mod tests {
         client.respond(request, Some(vec![expected.clone()]));
 
         assert_eq!(poll_future(future.as_mut()), std::task::Poll::Ready(vec![expected]));
+    }
+
+    fn mock_context_with_preview_capture() -> (Context, Rc<RefCell<Vec<LspToPreviewMessage>>>) {
+        let (capture, messages) = preview_capture();
+        let mut ctx = test::mock_context();
+        ctx.to_preview = capture;
+        (ctx, messages)
     }
 
     #[test]
@@ -2990,6 +3080,30 @@ export component TestWindow inherits Window {
                 get_code_actions(&mut document_cache_with_import, token, &capabilities)
             });
         assert_eq!(action2, None, "import action should not appear when type is already imported");
+    }
+
+    #[test]
+    fn send_requested_state_sends_configuration_and_skips_absent_user_settings() {
+        let (mut ctx, messages) = mock_context_with_preview_capture();
+        ctx.preview_config = PreviewConfig {
+            hide_ui: Some(true),
+            style: "custom-style".into(),
+            include_paths: vec![PathBuf::from("/includes")],
+            library_paths: HashMap::from([("widgets".into(), PathBuf::from("/libraries/widgets"))]),
+            format_utf8: false,
+            enable_experimental: true,
+        };
+
+        // Configuration flows independently of user settings; a settings file
+        // the store does not have must not produce a SetUserSettings message.
+        send_requested_state_to_preview(&ctx, &[], &["does-not-exist-xyz.json".to_string()]);
+
+        let messages = messages.borrow();
+        assert!(messages.iter().any(|m| matches!(
+            m,
+            LspToPreviewMessage::SetConfiguration { config } if config == &ctx.preview_config
+        )));
+        assert!(!messages.iter().any(|m| matches!(m, LspToPreviewMessage::SetUserSettings { .. })));
     }
 
     #[test]

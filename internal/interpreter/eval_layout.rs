@@ -77,20 +77,12 @@ pub(crate) fn flexbox_item_info_from_struct(s: &crate::api::Struct) -> FlexboxLa
 pub(crate) fn flex_props_from_struct(
     s: &crate::api::Struct,
 ) -> i_slint_core::layout::FlexItemProps {
-    let f = |k: &str| -> f32 {
-        match s.get_field(k) {
-            Some(Value::Number(n)) => *n as f32,
-            _ => 0.,
-        }
-    };
     i_slint_core::layout::FlexItemProps {
-        flex_grow: f("flex-grow"),
-        flex_shrink: f("flex-shrink"),
         cross_axis_self_alignment: s
             .get_field("cross-axis-self-alignment")
             .map(to_enum)
             .unwrap_or_default(),
-        flex_order: match s.get_field("flex-order") {
+        layout_order: match s.get_field("layout-order") {
             Some(Value::Number(n)) => *n as i32,
             _ => 0,
         },
@@ -302,13 +294,11 @@ pub(crate) fn call_extra_builtin(
         }
         "flexbox_layout_info_main_axis" => {
             let cells = to_cells(&a[0]);
-            let fp = to_flex_props(&a[1]);
             i_slint_core::layout::flexbox_layout_info_main_axis(
                 Slice::from_slice(&cells),
-                Slice::from_slice(&fp),
-                to_f32(&a[2]),
-                &to_padding(&a[3]),
-                to_enum(&a[4]),
+                to_f32(&a[1]),
+                &to_padding(&a[2]),
+                to_enum(&a[3]),
             )
             .into()
         }
@@ -333,7 +323,8 @@ pub(crate) fn call_extra_builtin(
                 &to_padding(&a[6]),
                 to_enum(&a[7]),
                 to_enum(&a[8]),
-                to_f32(&a[9]),
+                to_enum(&a[9]),
+                to_f32(&a[10]),
             )
             .into()
         }
@@ -353,8 +344,13 @@ struct FlatCell<'a> {
 }
 
 enum FlatCellKind<'a> {
-    Static { h_info: &'a Expression, v_info: &'a Expression },
+    Static {
+        h_info: &'a Expression,
+        v_info: &'a Expression,
+    },
     Repeated(vtable::VRc<i_slint_core::item_tree::ItemTreeVTable, crate::instance::Instance>),
+    /// No constrained layout info: the pre-resolved sizes are already correct.
+    Fixed,
 }
 
 /// Flatten `measure_cells` into one entry per taffy cell. Static cells carry
@@ -380,6 +376,9 @@ fn flatten_measure_cells<'a>(
                         w4h_only: item.w4h_only,
                     }));
                 }
+            }
+            FlexboxMeasureCellKind::Fixed => {
+                flat.push(FlatCell { kind: FlatCellKind::Fixed, w4h_only: item.w4h_only })
             }
         }
     }
@@ -419,6 +418,7 @@ fn measure_flexbox_cell(
                 .constraint
                 .preferred_bounded(),
         ),
+        FlatCellKind::Fixed => (w, h),
     };
     // measure the width at the height `h`
     let measure_width = |ctx: &mut EvalContext| match &cell.kind {
@@ -436,6 +436,7 @@ fn measure_flexbox_cell(
                 .preferred_bounded(),
             h,
         ),
+        FlatCellKind::Fixed => (w, h),
     };
     match (known_w, known_h) {
         (true, true) => (w, h),
@@ -528,7 +529,8 @@ pub(crate) fn flexbox_layout_info_cross_axis_with_measure(
         &to_padding(&a[6]),
         to_enum(&a[7]),
         to_enum(&a[8]),
-        to_f32(&a[9]),
+        to_enum(&a[9]),
+        to_f32(&a[10]),
         Some(&mut measure),
     )
     .into()

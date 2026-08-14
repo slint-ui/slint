@@ -1906,15 +1906,8 @@ fn lower_flexbox_layout(layout_element: &ElementRc, diag: &mut BuildDiagnostics)
                 diag,
             );
         }
-        let flex_grow = crate::layout::binding_reference(actual_elem, "flex-grow");
-        let flex_shrink = crate::layout::binding_reference(actual_elem, "flex-shrink");
-        let order = crate::layout::binding_reference(actual_elem, "flex-order");
-        layout.elems.push(crate::layout::FlexboxLayoutItem {
-            item: item.item,
-            flex_grow,
-            flex_shrink,
-            order,
-        });
+        let order = crate::layout::binding_reference(actual_elem, "layout-order");
+        layout.elems.push(crate::layout::FlexboxLayoutItem { item: item.item, order });
     }
     layout_element.borrow_mut().children = layout_children;
     let span = layout_element.borrow().to_source_location();
@@ -2558,12 +2551,11 @@ fn check_no_layout_properties(
         {
             diag.push_error(format!("{prop} used outside of a GridLayout's cell"), &*expr.borrow());
         }
-        if matches!(prop.as_ref(), "flex-grow" | "flex-shrink" | "flex-order") {
+        if prop == "layout-order" {
             if parent_layout_type.as_deref() != Some("FlexboxLayout") {
                 diag.push_error(format!("{prop} used outside of a FlexboxLayout"), &*expr.borrow());
             } else {
-                // These are not stable API yet: whether they should rather be expressed with
-                // the properties the other layouts already use is still being discussed.
+                // Not stable API yet: extending it to the box layouts is still open.
                 crate::reject_experimental_feature(diag, type_register, prop, &*expr.borrow());
             }
         }

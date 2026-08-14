@@ -373,6 +373,14 @@ export global Api {
     callback check-for-update();
     callback download-update();
     callback install-update();
+    callback preview-user-settings-changed(
+        always-on-top: bool,
+        show-library: bool,
+        show-properties: bool,
+        show-outline: bool,
+        show-simulation-data: bool,
+        show-console: bool,
+    );
 
     // ## Component Data for ComponentList:
     // All the components

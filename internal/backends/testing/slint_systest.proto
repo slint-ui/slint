@@ -19,6 +19,17 @@ enum ElementAccessibilityAction {
     Expand = 3;
 }
 
+enum Orientation {
+    Horizontal = 0;
+    Vertical = 1;
+}
+
+enum AccessibleLiveness {
+    Off = 0;
+    Polite = 1;
+    Assertive = 2;
+}
+
 enum PointerEventButton {
     Left = 0;
     Right = 1;
@@ -340,6 +351,12 @@ message ElementPropertiesResponse {
     bool accessible_enabled = 15;
     bool accessible_read_only = 16;
     LayoutKind layout_kind = 17;
+    bool accessible_item_selectable = 18;
+    bool accessible_item_selected = 19;
+    uint32 accessible_item_count = 20;
+    uint32 accessible_item_index = 21;
+    Orientation accessible_orientation = 22;
+    AccessibleLiveness accessible_live_region = 23;
 }
 
 message InvokeElementAccessibilityActionResponse {

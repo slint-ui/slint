@@ -218,6 +218,10 @@ fn generate_macro(
         output.write_all(b"#[test] #[ignore = \"string template don't work in macros\"] fn ignored_because_string_template() {{}}")?;
         return Ok(false);
     }
+    if testcase.is_ignored("rust-macro") {
+        output.write_all(b"#[test] #[ignore = \"testcase ignored for the slint! macro\"] fn ignored_for_macro() {}")?;
+        return Ok(false);
+    }
     // to silence all the warnings in .slint files that would be turned into errors
     output.write_all(b"#![allow(deprecated)]")?;
     let include_paths = test_driver_lib::extract_include_paths(source);

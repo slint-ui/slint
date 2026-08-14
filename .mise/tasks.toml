@@ -58,7 +58,9 @@ wait_for = [
 description = "Run ruff format"
 # Run via uv as the ruff installation via mise is unreliable in the CI.
 # It keeps failing to find ruff, despite saying that it was installed.
-run = "uv tool run ruff@0.11.8 format"
+# --project picks up the ruff pinned in api/python/slint's dev group so this
+# matches the version CI lints with, while still formatting from the repo root.
+run = "uv run --project api/python/slint --only-group dev ruff format"
 
 ["fix:rust:format"]
 description = "Run cargo fmt --all"

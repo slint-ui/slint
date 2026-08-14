@@ -62,39 +62,48 @@ pub fn concatenate_ident(ident: &str) -> SmolStr {
     if ident.contains('-') { ident.replace_smolstr("-", "_") } else { ident.into() }
 }
 
-/// Given a property reference to a native item (eg, the property name is empty)
-/// return tokens to the `ItemRc`
-fn access_item_rc(pr: &llr::MemberReference, ctx: &EvaluationContext) -> String {
-    let mut component_access = "self->".into();
+/// The component instance that holds the native item `pr` refers to, as an expression ready to be
+/// followed by `->`.
+///
+/// This is an `std::optional` when the item lives in an ancestor component: that chain can die
+/// while a callback of a repeated element is still running — the enclosing popup closed itself, or
+/// the model dropped the row the element belongs to — and then nothing must be emitted at all.
+fn item_owner(pr: &llr::MemberReference) -> MemberAccess {
+    let llr::MemberReference::Relative { parent_level, .. } = pr else { unreachable!() };
+    parent_access_path(*parent_level).with_member("->".into())
+}
 
+/// Expressions for the native item `pr` is about, relative to the component instance holding it
+/// (see [`item_owner`]): the member `pr` designates — the item itself or one of its functions —
+/// and the arguments to build the item's `ItemRc` from.
+///
+/// Taking the owner as a parameter is what lets a caller that needs both get them out of a single
+/// walk of the parent chain.
+fn native_item_from_owner(
+    pr: &llr::MemberReference,
+    ctx: &EvaluationContext,
+    owner: &str,
+) -> (String, String) {
     let llr::MemberReference::Relative { parent_level, local_reference } = pr else {
         unreachable!()
     };
     let llr::LocalMemberIndex::Native { item_index, .. } = &local_reference.reference else {
         unreachable!()
     };
-
-    for _ in 0..*parent_level {
-        component_access = format!("{component_access}parent.lock().value()->");
-    }
-
-    let (sub_compo_path, sub_component) = follow_sub_component_path(
+    let (compo_path, sub_component) = follow_sub_component_path(
         ctx.compilation_unit,
         ctx.parent_sub_component_idx(*parent_level).unwrap(),
         &local_reference.sub_component_path,
     );
-    if !local_reference.sub_component_path.is_empty() {
-        component_access += &sub_compo_path;
-    }
-    let component_rc = format!("{component_access}self_weak.lock()->into_dyn()");
+    let compo = format!("{owner}{compo_path}");
+    let item_name = field_name(&sub_component.items[*item_index].name);
     let item_index_in_tree = sub_component.items[*item_index].index_in_tree;
     let item_index = if item_index_in_tree == 0 {
-        format!("{component_access}tree_index")
+        format!("{compo}tree_index")
     } else {
-        format!("{component_access}tree_index_of_first_child + {item_index_in_tree} - 1")
+        format!("{compo}tree_index_of_first_child + {item_index_in_tree} - 1")
     };
-
-    format!("{component_rc}, {item_index}")
+    (format!("{compo}{item_name}"), format!("{compo}self_weak.lock()->into_dyn(), {item_index}"))
 }
 
 /// This module contains some data structure that helps represent a C++ code.
@@ -3022,10 +3031,10 @@ fn generate_flexbox_layout_item_info_decl(
              return info;"
         )
     } else {
-        // Equivalent of the Rust trait default `layout_item_info(o).into()`, whose
-        // props are FlexItemProps::default() (note flex_shrink defaults to 1, not 0).
+        // Equivalent of the Rust trait default `layout_item_info(o).into()`,
+        // whose props are FlexItemProps::default().
         "auto base = layout_item_info(o, child_index); \
-         return { base.constraint, { 0.0f, 1.0f, slint::cbindgen_private::CrossAxisSelfAlignment::Auto, 0 } };"
+         return { base.constraint, { slint::cbindgen_private::CrossAxisSelfAlignment::Auto, 0 } };"
             .to_owned()
     };
 
@@ -3928,15 +3937,24 @@ enum MemberAccess {
 impl MemberAccess {
     /// Used for code that is meant to return `()`
     fn then(&self, f: impl FnOnce(&str) -> String) -> String {
+        self.then_named("x", f)
+    }
+
+    /// Like [`Self::then`], but names the binding the member is spliced from, so that this access
+    /// can be nested inside another one without shadowing it.
+    fn then_named(&self, binding: &str, f: impl FnOnce(&str) -> String) -> String {
         match self {
             MemberAccess::Direct(t) => f(t),
             MemberAccess::Option(t) => {
-                format!("slint::private_api::optional_then({t}, [&](auto&&x) {{ {}; }})", f("x"))
+                format!(
+                    "slint::private_api::optional_then({t}, [&](auto&&{binding}) {{ {}; }})",
+                    f(binding)
+                )
             }
             MemberAccess::OptionWithMember(t, m) => {
                 format!(
-                    "slint::private_api::optional_then({t}, [&](auto&&x) {{ {}; }})",
-                    f(&format!("x{}", m))
+                    "slint::private_api::optional_then({t}, [&](auto&&{binding}) {{ {}; }})",
+                    f(&format!("{binding}{m}"))
                 )
             }
         }
@@ -4119,8 +4137,6 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
             }
         }
         Expression::ItemMemberFunctionCall { function } => {
-            let item = access_member(function, ctx);
-            let item_rc = access_item_rc(function, ctx);
             let window = access_window_field(ctx);
             let (native, name) = native_prop_info(function, ctx);
             let function_name = format!(
@@ -4128,14 +4144,14 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                 native.class_name.to_lowercase(),
                 ident(name).to_lowercase()
             );
+            let call = |owner: &str| {
+                let (item, item_rc) = native_item_from_owner(function, ctx, owner);
+                format!("{function_name}(&{item}, &{window}.handle(), &{item_rc})")
+            };
             if expr.ty(ctx) == Type::Void {
-                item.then(|item| {
-                    format!("{function_name}(&{item}, &{window}.handle(), &{item_rc})")
-                })
+                item_owner(function).then(call)
             } else {
-                item.map_or_default(|item| {
-                    format!("{function_name}(&{item}, &{window}.handle(), &{item_rc})")
-                })
+                item_owner(function).map_or_default(call)
             }
         }
         Expression::ExtraBuiltinFunctionCall { function, arguments, return_ty: _ } => {
@@ -4660,7 +4676,7 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
         } => generate_with_flexbox_layout_item_info(
             cells_h_variable,
             cells_v_variable,
-            flex_props_variable,
+            flex_props_variable.as_deref(),
             repeater_indices_var_name.as_ref().map(SmolStr::as_str),
             elements.as_ref(),
             repeated_cross_width.as_deref(),
@@ -4859,8 +4875,10 @@ fn compile_builtin_function_call(
         BuiltinFunction::SetFocusItem => {
             if let [llr::Expression::PropertyReference(pr)] = arguments {
                 let window = access_window_field(ctx);
-                let focus_item = access_item_rc(pr, ctx);
-                format!("{window}.set_focus_item({focus_item}, true, slint::cbindgen_private::FocusReason::Programmatic);")
+                item_owner(pr).then(|owner| {
+                    let (_, focus_item) = native_item_from_owner(pr, ctx, owner);
+                    format!("{window}.set_focus_item({focus_item}, true, slint::cbindgen_private::FocusReason::Programmatic)")
+                })
             } else {
                 panic!("internal error: invalid args to SetFocusItem {arguments:?}")
             }
@@ -4868,8 +4886,10 @@ fn compile_builtin_function_call(
         BuiltinFunction::ClearFocusItem => {
             if let [llr::Expression::PropertyReference(pr)] = arguments {
                 let window = access_window_field(ctx);
-                let focus_item = access_item_rc(pr, ctx);
-                format!("{window}.set_focus_item({focus_item}, false, slint::cbindgen_private::FocusReason::Programmatic);")
+                item_owner(pr).then(|owner| {
+                    let (_, focus_item) = native_item_from_owner(pr, ctx, owner);
+                    format!("{window}.set_focus_item({focus_item}, false, slint::cbindgen_private::FocusReason::Programmatic)")
+                })
             } else {
                 panic!("internal error: invalid args to ClearFocusItem {arguments:?}")
             }
@@ -4909,6 +4929,11 @@ fn compile_builtin_function_call(
         }
         BuiltinFunction::StringEndsWith => {
             format!("{}.ends_with({})", a.next().unwrap(), a.next().unwrap())
+        }
+        BuiltinFunction::StringReplaceAll => {
+            format!("[](const auto &s, const auto &from, const auto &to){{ auto out = slint::SharedString(); slint::cbindgen_private::slint_shared_string_replace_all(&out, &s, slint::private_api::string_to_slice(from), slint::private_api::string_to_slice(to)); return out; }}({}, {}, {})",
+                a.next().unwrap(), a.next().unwrap(), a.next().unwrap(),
+            )
         }
         BuiltinFunction::KeysToString => {
             format!("{}.to_string()", a.next().unwrap())
@@ -5064,7 +5089,7 @@ fn compile_builtin_function_call(
                     .name,
             );
             let system_tray = access_member(system_tray_ref, ctx).unwrap();
-            let system_tray_rc = access_item_rc(system_tray_ref, ctx);
+            let (_, system_tray_rc) = native_item_from_owner(system_tray_ref, ctx, "self->");
 
             // `if cond : Menu { ... }` is lowered to a condition lambda passed
             // alongside the menu wrapper. `create_menu_wrapper` already accepts
@@ -5146,7 +5171,7 @@ fn compile_builtin_function_call(
                     ctx.parent_sub_component_idx(*parent_level).unwrap(),
                     &local_reference.sub_component_path,
                 );
-                let parent_component = access_item_rc(anchor_ref, ctx);
+
                 ctx.with_reference_scope(*parent_level, &local_reference.sub_component_path, |parent_ctx| {
                 let popup = &ctx.compilation_unit.sub_components[parent_ctx.sub_component]
                     .popup_windows[*popup_index as usize];
@@ -5185,7 +5210,9 @@ fn compile_builtin_function_call(
                     }
                     _ => "[](bool) {}".to_string(),
                 };
-                component_access.then(|component_access| {
+                item_owner(anchor_ref).then_named("anchor_owner", |owner| {
+                    let (_, parent_component) = native_item_from_owner(anchor_ref, ctx, owner);
+                    component_access.then(|component_access| {
                     let compo_ptr = if compo_path.is_empty() {
                         format!("&*({component_access})")
                     } else {
@@ -5202,6 +5229,7 @@ fn compile_builtin_function_call(
                                                                             {window_kind},  \
                                                                             {is_open_setter})"
                     )
+                    })
                 })
                 })
             } else {
@@ -5234,7 +5262,6 @@ fn compile_builtin_function_call(
             };
 
             let context_menu = access_member(context_menu_ref, ctx);
-            let context_menu_rc = access_item_rc(context_menu_ref, ctx);
             let position = compile_expression(position, ctx);
             let popup = ctx
                 .compilation_unit
@@ -5255,6 +5282,8 @@ fn compile_builtin_function_call(
             let access_activated = access_member(&popup.activated, &popup_ctx).unwrap();
             let access_close = access_member(&popup.close, &popup_ctx).unwrap();
 
+            item_owner(context_menu_ref).then_named("context_menu_owner", |owner| {
+            let (_, context_menu_rc) = native_item_from_owner(context_menu_ref, ctx, owner);
             let close_popup = context_menu.then(|context_menu| {
                 format!("{window}.close_popup({context_menu}.popup_id)")
             });
@@ -5310,15 +5339,15 @@ fn compile_builtin_function_call(
                     {set_id};
                 ", globals = ctx.generator_state.global_access)
             }
+            })
         }
         BuiltinFunction::SetSelectionOffsets => {
             if let [llr::Expression::PropertyReference(pr), from, to] = arguments {
-                let item = access_member(pr, ctx);
-                let item_rc = access_item_rc(pr, ctx);
                 let window = access_window_field(ctx);
                 let start = compile_expression(from, ctx);
                 let end = compile_expression(to, ctx);
-                item.then(|item| {
+                item_owner(pr).then(|owner| {
+                    let (item, item_rc) = native_item_from_owner(pr, ctx, owner);
                     format!("slint_textinput_set_selection_offsets(&{item}, &{window}.handle(), &{item_rc}, static_cast<int>({start}), static_cast<int>({end}))")
                 })
             } else {
@@ -5327,19 +5356,23 @@ fn compile_builtin_function_call(
         }
         BuiltinFunction::ItemFontMetrics => {
             if let [llr::Expression::PropertyReference(pr)] = arguments {
-                let item_rc = access_item_rc(pr, ctx);
                 let window = access_window_field(ctx);
-                format!(
-                    "[&]{{ slint::cbindgen_private::FontMetrics fm; slint_cpp_text_item_fontmetrics(&{window}.handle(), &{item_rc}, &fm); return fm; }}()"
-                )
+                item_owner(pr).map_or_default(|owner| {
+                    let (_, item_rc) = native_item_from_owner(pr, ctx, owner);
+                    format!(
+                        "[&]{{ slint::cbindgen_private::FontMetrics fm; slint_cpp_text_item_fontmetrics(&{window}.handle(), &{item_rc}, &fm); return fm; }}()"
+                    )
+                })
             } else {
                 panic!("internal error: invalid args to ItemFontMetrics {arguments:?}")
             }
         }
         BuiltinFunction::ItemAbsolutePosition => {
             if let [llr::Expression::PropertyReference(pr)] = arguments {
-                let item_rc = access_item_rc(pr, ctx);
-                format!("slint::LogicalPosition(slint::cbindgen_private::slint_item_absolute_position(&{item_rc}))")
+                item_owner(pr).map_or_default(|owner| {
+                    let (_, item_rc) = native_item_from_owner(pr, ctx, owner);
+                    format!("slint::LogicalPosition(slint::cbindgen_private::slint_item_absolute_position(&{item_rc}))")
+                })
             } else {
                 panic!("internal error: invalid args to ItemAbsolutePosition {arguments:?}")
             }
@@ -5377,16 +5410,17 @@ fn compile_builtin_function_call(
         BuiltinFunction::ImplicitLayoutInfo(orient) => {
             if let [llr::Expression::PropertyReference(pr), constraint_expr] = arguments {
                 let native = native_prop_info(pr, ctx).0;
-                let item_rc = access_item_rc(pr, ctx);
                 let constraint = compile_expression(constraint_expr, ctx);
-                access_member(pr, ctx).then(|item|
-                format!(
-                    "slint::private_api::item_layout_info({vt}, const_cast<slint::cbindgen_private::{ty}*>(&{item}), {o}, {constraint}, &{window}, {item_rc})",
-                    vt = native.cpp_vtable_getter,
-                    ty = native.class_name,
-                    o = to_cpp_orientation(orient),
-                    window = access_window_field(ctx),
-                ))
+                item_owner(pr).map_or_default(|owner| {
+                    let (item, item_rc) = native_item_from_owner(pr, ctx, owner);
+                    format!(
+                        "slint::private_api::item_layout_info({vt}, const_cast<slint::cbindgen_private::{ty}*>(&{item}), {o}, {constraint}, &{window}, {item_rc})",
+                        vt = native.cpp_vtable_getter,
+                        ty = native.class_name,
+                        o = to_cpp_orientation(orient),
+                        window = access_window_field(ctx),
+                    )
+                })
             } else {
                 panic!("internal error: invalid args to ImplicitLayoutInfo {arguments:?}")
             }
@@ -5434,22 +5468,26 @@ fn compile_builtin_function_call(
         }
         BuiltinFunction::PathPointAt => {
             if let [llr::Expression::PropertyReference(pr), t] = arguments {
-                let item_rc = access_item_rc(pr, ctx);
                 let t = compile_expression(t, ctx);
-                format!(
-                    "slint::LogicalPosition(slint::cbindgen_private::slint_path_point_at(&{item_rc}, static_cast<float>({t})))"
-                )
+                item_owner(pr).map_or_default(|owner| {
+                    let (_, item_rc) = native_item_from_owner(pr, ctx, owner);
+                    format!(
+                        "slint::LogicalPosition(slint::cbindgen_private::slint_path_point_at(&{item_rc}, static_cast<float>({t})))"
+                    )
+                })
             } else {
                 panic!("internal error: invalid args to PathPointAt {arguments:?}")
             }
         }
         BuiltinFunction::PathAngleAt => {
             if let [llr::Expression::PropertyReference(pr), t] = arguments {
-                let item_rc = access_item_rc(pr, ctx);
                 let t = compile_expression(t, ctx);
-                format!(
-                    "slint::cbindgen_private::slint_path_angle_at(&{item_rc}, static_cast<float>({t}))"
-                )
+                item_owner(pr).map_or_default(|owner| {
+                    let (_, item_rc) = native_item_from_owner(pr, ctx, owner);
+                    format!(
+                        "slint::cbindgen_private::slint_path_angle_at(&{item_rc}, static_cast<float>({t}))"
+                    )
+                })
             } else {
                 panic!("internal error: invalid args to PathAngleAt {arguments:?}")
             }
@@ -5736,6 +5774,11 @@ fn generate_flexbox_measure_lambda(
                     v_steps.push_str(&v_step);
                     h_steps.push_str(&h_step);
                 }
+                llr::FlexboxMeasureCellKind::Fixed => {
+                    probe_steps.push_str("cursor += 1;\n");
+                    v_steps.push_str("cursor += 1;\n");
+                    h_steps.push_str("cursor += 1;\n");
+                }
             }
         }
         (
@@ -5774,7 +5817,7 @@ fn generate_flexbox_measure_lambda(
 fn generate_with_flexbox_layout_item_info(
     cells_h_variable: &str,
     cells_v_variable: &str,
-    flex_props_variable: &str,
+    flex_props_variable: Option<&str>,
     repeated_indices_var_name: Option<&str>,
     elements: &[Either<
         (llr::Expression, llr::Expression, llr::Expression),
@@ -5785,11 +5828,20 @@ fn generate_with_flexbox_layout_item_info(
     ctx: &llr_EvaluationContext<CppGeneratorContext>,
 ) -> String {
     let repeated_indices_var_name = repeated_indices_var_name.map(ident);
+    // With no flex-props variable the sub-expression only reads the cells, so
+    // don't evaluate (and thus depend on) a static cell's flex properties. A
+    // repeated cell still computes its props inside the bundled item-info call,
+    // whose constraint half is needed either way.
+    let wants_flex_props = flex_props_variable.is_some();
     // Container width forwarded to repeated cells' vertical query (column flex),
     // so a height-for-width instance wraps to the real width like a static cell.
     let cross_width = repeated_cross_width.map(|w| compile_expression(w, ctx));
     let mut push_code =
-        "std::vector<slint::cbindgen_private::LayoutItemInfo> cells_vector_h; std::vector<slint::cbindgen_private::LayoutItemInfo> cells_vector_v; std::vector<slint::cbindgen_private::FlexItemProps> flex_props_vector;".to_owned();
+        "std::vector<slint::cbindgen_private::LayoutItemInfo> cells_vector_h; std::vector<slint::cbindgen_private::LayoutItemInfo> cells_vector_v;".to_owned();
+    if wants_flex_props {
+        push_code
+            .push_str(" std::vector<slint::cbindgen_private::FlexItemProps> flex_props_vector;");
+    }
     let mut repeater_idx = 0usize;
 
     for item in elements {
@@ -5797,12 +5849,19 @@ fn generate_with_flexbox_layout_item_info(
             Either::Left((value_h, value_v, value_flex)) => {
                 write!(
                     push_code,
-                    "cells_vector_h.push_back({{ {} }}); cells_vector_v.push_back({{ {} }}); flex_props_vector.push_back({{ {} }});",
+                    "cells_vector_h.push_back({{ {} }}); cells_vector_v.push_back({{ {} }});",
                     compile_expression(value_h, ctx),
                     compile_expression(value_v, ctx),
-                    compile_expression(value_flex, ctx)
                 )
                 .unwrap();
+                if wants_flex_props {
+                    write!(
+                        push_code,
+                        "flex_props_vector.push_back({{ {} }});",
+                        compile_expression(value_flex, ctx)
+                    )
+                    .unwrap();
+                }
             }
             Either::Right(repeater) => {
                 let repeater_index = usize::from(repeater.repeater_index);
@@ -5837,6 +5896,16 @@ fn generate_with_flexbox_layout_item_info(
                 };
                 // The instance vtable returns the bundled FlexboxLayoutItemInfo; split
                 // it into the constraint cell and the (axis-independent) flex props.
+                let flex_push = if wants_flex_props {
+                    "flex_props_vector.push_back(info_h.props); "
+                } else {
+                    ""
+                };
+                let flex_resize = if wants_flex_props {
+                    "flex_props_vector.resize(start_offset + repeater_len); "
+                } else {
+                    ""
+                };
                 write!(
                     push_code,
                     "{{ \
@@ -5844,13 +5913,13 @@ fn generate_with_flexbox_layout_item_info(
                      self->repeater_{repeater_index}.for_each([&](const auto &sub_comp){{ \
                      auto info_h = sub_comp->flexbox_layout_item_info(slint::cbindgen_private::Orientation::Horizontal, std::nullopt); \
                      auto info_v = {v_query}; \
-                     flex_props_vector.push_back(info_h.props); \
+                     {flex_push}\
                      cells_vector_h.push_back({{ info_h.constraint, {{}} }}); \
                      cells_vector_v.push_back({{ info_v.constraint, {{}} }}); }}); \
                      auto repeater_len = self->repeater_{repeater_index}.len(); \
                      cells_vector_h.resize(start_offset + repeater_len); \
                      cells_vector_v.resize(start_offset + repeater_len); \
-                     flex_props_vector.resize(start_offset + repeater_len); }}"
+                     {flex_resize}}}"
                 )
                 .unwrap();
             }
@@ -5865,12 +5934,17 @@ fn generate_with_flexbox_layout_item_info(
         .unwrap();
         format!("std::array<int, {}> {ri}_array;", 2 * repeater_idx)
     });
+    let flex_slice = flex_props_variable.map_or(String::new(), |v| {
+        format!(
+            "[[maybe_unused]] slint::cbindgen_private::Slice<slint::cbindgen_private::FlexItemProps>{} = slint::private_api::make_slice(std::span(flex_props_vector)); ",
+            ident(v)
+        )
+    });
     format!(
-        "[&]{{ {ri} {push_code} [[maybe_unused]] slint::cbindgen_private::Slice<slint::cbindgen_private::LayoutItemInfo>{cells_h} = slint::private_api::make_slice(std::span(cells_vector_h)); [[maybe_unused]] slint::cbindgen_private::Slice<slint::cbindgen_private::LayoutItemInfo>{cells_v} = slint::private_api::make_slice(std::span(cells_vector_v)); [[maybe_unused]] slint::cbindgen_private::Slice<slint::cbindgen_private::FlexItemProps>{flex_props} = slint::private_api::make_slice(std::span(flex_props_vector)); return {}; }}()",
+        "[&]{{ {ri} {push_code} [[maybe_unused]] slint::cbindgen_private::Slice<slint::cbindgen_private::LayoutItemInfo>{cells_h} = slint::private_api::make_slice(std::span(cells_vector_h)); [[maybe_unused]] slint::cbindgen_private::Slice<slint::cbindgen_private::LayoutItemInfo>{cells_v} = slint::private_api::make_slice(std::span(cells_vector_v)); {flex_slice}return {}; }}()",
         compile_expression(sub_expression, ctx),
         cells_h = ident(cells_h_variable),
         cells_v = ident(cells_v_variable),
-        flex_props = ident(flex_props_variable),
     )
 }
 

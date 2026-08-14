@@ -1041,7 +1041,7 @@ pub struct Element {
     /// to wrap another element for a property like `opacity`/`transform-rotation`/`visible` (see
     /// `adjust_geometry_for_injected_parent`). Such wrappers take over the wrapped element's
     /// geometry, so consumers that need the wrapped element's source parent must walk past them.
-    pub is_geometry_wrapper: bool,
+    pub is_injected_wrapper_element: bool,
 
     pub states: Vec<State>,
     pub transitions: Vec<Transition>,
@@ -4446,8 +4446,8 @@ pub fn inject_element_as_repeated_element(repeated_element: &ElementRc, new_root
     // bindings (and the layout's captured references keeping them alive), rather
     // than moving them, which would leave those references dangling.
     // cross-axis-self-alignment is read by both the flexbox and the box layout
-    // accessor; the flex-* properties only by the flexbox one.
-    for prop in ["flex-grow", "flex-shrink", "flex-order", "cross-axis-self-alignment"].iter() {
+    // accessor; layout-order only by the flexbox one.
+    for prop in ["layout-order", "cross-axis-self-alignment"].iter() {
         if old_root.borrow().binding(prop).is_some() {
             new_root.borrow_mut().set_binding(
                 SmolStr::new_static(prop),

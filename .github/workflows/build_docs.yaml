@@ -124,6 +124,7 @@ jobs:
             version: ${{ steps.version.outputs.VERSION }}
         env:
             RUSTFLAGS: -D warnings -W deprecated
+            RUSTDOCFLAGS: -D warnings
             SLINT_NO_QT: 1
             CARGO_INCREMENTAL: false
             RELEASE_INPUT: ${{ inputs.release }}
@@ -327,11 +328,13 @@ jobs:
             - name: "Test the Python docs generator"
               run: uv run pytest
               working-directory: docs/python
+            # ruff and ty come from the dev dependency group, pinned in
+            # docs/python/pyproject.toml so Dependabot can bump them.
             - name: "Lint the Python docs generator"
-              run: uv tool run ruff@0.16.0 check
+              run: uv run ruff check
               working-directory: docs/python
             - name: "Type-check the Python docs generator"
-              run: uvx ty check
+              run: uv run ty check
               working-directory: docs/python
             - name: "Generate Python language stubs"
               # The slint-python build script writes slint/language.pyi (the

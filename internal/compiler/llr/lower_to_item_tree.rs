@@ -469,7 +469,7 @@ fn lower_sub_component(
                             source_location,
                             qualified_id: primary.and_then(|d| d.qualified_id.clone()),
                             element_hash: primary.map(|d| d.element_hash).unwrap_or_default(),
-                            is_geometry_wrapper: elem.is_geometry_wrapper,
+                            is_injected_wrapper_element: elem.is_injected_wrapper_element,
                         });
                     debug_assert_eq!(added_index, item_index);
                 }
@@ -693,10 +693,9 @@ fn lower_sub_component(
     .into();
     if component.root_element.borrow().child_of_flexbox {
         let root_elem = &component.root_element;
-        let has_flex_binding =
-            ["flex-grow", "flex-shrink", "cross-axis-self-alignment", "flex-order"]
-                .iter()
-                .any(|name| crate::layout::binding_reference(root_elem, name).is_some());
+        let has_flex_binding = ["cross-axis-self-alignment", "layout-order"]
+            .iter()
+            .any(|name| crate::layout::binding_reference(root_elem, name).is_some());
         let v_constrained =
             super::lower_layout_expression::get_layout_info_v_constrained_for_repeated(
                 &mut ctx,

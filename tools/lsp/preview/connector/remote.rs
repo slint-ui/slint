@@ -54,7 +54,7 @@ struct RemoteLspConnection {
 #[derive(Clone)]
 struct SharedState {
     connection: Arc<Mutex<Option<RemoteLspConnection>>>,
-    preview_to_lsp_sender: mpsc::UnboundedSender<PreviewToLspMessage>,
+    preview_to_lsp_sender: RemotePreviewSender,
     /// Back-reference to the owning [`LspToPreviews`]. Used to forward
     /// `RemoteConnectionState` updates to the dialog. `Weak` so it can
     /// be stored inside the owner without forming an `Rc` cycle.
@@ -89,7 +89,7 @@ impl RemoteLspToPreview {
         Self {
             shared: SharedState {
                 connection: Arc::default(),
-                preview_to_lsp_sender,
+                preview_to_lsp_sender: RemotePreviewSender(preview_to_lsp_sender),
                 to_previews,
                 generation: Rc::default(),
             },
@@ -257,9 +257,9 @@ impl RemoteLspToPreview {
 
         // Have the LSP push configuration, file contents, and the previewed
         // component, so the viewer leaves its idle screen on its own.
-        let _ = shared
+        shared
             .preview_to_lsp_sender
-            .send(PreviewToLspMessage::RequestState { files: Vec::new() });
+            .send(PreviewToLspMessage::RequestState { files: Vec::new(), settings: Vec::new() });
 
         Ok(())
     }
@@ -385,11 +385,7 @@ impl RemoteLspToPreview {
                                     last_pong.set(Instant::now());
                                 }
                                 Ok(msg) => {
-                                    shared.preview_to_lsp_sender.send(msg).unwrap_or_else(|err| {
-                                        tracing::error!(
-                                            "Failed sending message from remote preview server to LSP server: {err}"
-                                        );
-                                    });
+                                    shared.preview_to_lsp_sender.send(msg);
                                 }
                                 Err(e) => {
                                     tracing::error!(
@@ -440,6 +436,44 @@ impl RemoteLspToPreview {
                 connection.task.abort();
             }
         }
+    }
+}
+
+/// The LSP's message channel, which the trusted local preview process also
+/// feeds, seen from the remote connection. Everything a remote viewer sends
+/// goes through here, so the check can't be forgotten at a call site.
+#[derive(Clone)]
+struct RemotePreviewSender(mpsc::UnboundedSender<PreviewToLspMessage>);
+
+impl RemotePreviewSender {
+    /// A remote viewer runs on someone else's machine: it may report what it
+    /// compiled and ask for the files it needs, and nothing else. That, not
+    /// "does it reach the editor", is where the line is — a viewer's whole job
+    /// is to send back diagnostics.
+    ///
+    /// Listed positively on purpose: a new variant stays refused until it is
+    /// deliberately allowed.
+    ///
+    /// Refused messages are dropped rather than taken as grounds to hang up:
+    /// the reconnect loop would only dial it again, and by then
+    /// the peer already has everything the connection was going to give it.
+    fn send(&self, message: PreviewToLspMessage) {
+        if !matches!(
+            message,
+            PreviewToLspMessage::Diagnostics { .. }
+                | PreviewToLspMessage::DebugMessage { .. }
+                | PreviewToLspMessage::RequestState { .. }
+        ) {
+            tracing::warn!(
+                "Ignoring message that a remote preview server may not send: {message:?}"
+            );
+            return;
+        }
+        self.0.send(message).unwrap_or_else(|err| {
+            tracing::error!(
+                "Failed sending message from remote preview server to LSP server: {err}"
+            );
+        });
     }
 }
 
@@ -567,30 +601,41 @@ mod tests {
         .unwrap_or_else(|_| panic!("timed out waiting for {what}"));
     }
 
+    /// A viewer on an arbitrary port with a connector attached to it, past the
+    /// handshake and the initial state push both sides start a session with.
+    async fn connected_viewer() -> (
+        Connection,
+        mpsc::UnboundedReceiver<ConnectionMessage>,
+        RemoteLspToPreview,
+        mpsc::UnboundedReceiver<PreviewToLspMessage>,
+    ) {
+        let (viewer, mut viewer_rx) = listen(0).await;
+
+        let (to_lsp_tx, mut to_lsp_rx) = mpsc::unbounded_channel();
+        let connector = RemoteLspToPreview::new(to_lsp_tx, Weak::new());
+        connector.connect(["127.0.0.1"], viewer.local_port()).await.unwrap();
+        expect_message(
+            &mut viewer_rx,
+            |m| matches!(m, ConnectionMessage::Connected { .. }),
+            "viewer connection",
+        )
+        .await;
+        expect_message(
+            &mut to_lsp_rx,
+            |m| matches!(m, PreviewToLspMessage::RequestState { .. }),
+            "RequestState after connecting",
+        )
+        .await;
+
+        (viewer, viewer_rx, connector, to_lsp_rx)
+    }
+
     #[tokio::test]
     async fn reconnects_after_connection_loss() {
         tokio::task::LocalSet::new()
             .run_until(async {
-                let (viewer, mut viewer_rx) = listen(0).await;
+                let (viewer, viewer_rx, connector, mut to_lsp_rx) = connected_viewer().await;
                 let port = viewer.local_port();
-
-                let (to_lsp_tx, mut to_lsp_rx) = mpsc::unbounded_channel();
-                let connector = RemoteLspToPreview::new(to_lsp_tx, Weak::new());
-                connector.connect(["127.0.0.1"], port).await.unwrap();
-                expect_message(
-                    &mut viewer_rx,
-                    |m| matches!(m, ConnectionMessage::Connected { .. }),
-                    "viewer connection",
-                )
-                .await;
-                // Consume the initial state push, so the wait below can only
-                // match the reconnect's.
-                expect_message(
-                    &mut to_lsp_rx,
-                    |m| matches!(m, PreviewToLspMessage::RequestState { .. }),
-                    "RequestState after connecting",
-                )
-                .await;
 
                 // Replace the viewer on the same port, like an app whose
                 // connection the OS cut while backgrounded.
@@ -612,6 +657,46 @@ mod tests {
                     "RequestState after reconnecting",
                 )
                 .await;
+
+                connector.disconnect().await;
+            })
+            .await;
+    }
+
+    /// A viewer is on the far end of the network: it may not drive the editor.
+    #[tokio::test]
+    async fn drops_messages_a_viewer_may_not_send() {
+        tokio::task::LocalSet::new()
+            .run_until(async {
+                let (viewer, _viewer_rx, connector, mut to_lsp_rx) = connected_viewer().await;
+
+                // A message that drives the editor, followed by one a viewer is
+                // allowed to send.
+                viewer
+                    .send(PreviewToLspMessage::ShowDocument {
+                        file: lsp_types::Url::parse("file:///test.slint").unwrap(),
+                        selection: lsp_types::Range::default(),
+                        take_focus: true,
+                    })
+                    .unwrap();
+                viewer
+                    .send(PreviewToLspMessage::Diagnostics {
+                        uri: lsp_types::Url::parse("file:///test.slint").unwrap(),
+                        version: None,
+                        diagnostics: Vec::new(),
+                    })
+                    .unwrap();
+
+                // The channel keeps the order the viewer sent in, so the
+                // diagnostics arriving first means the other one was dropped.
+                let message = tokio::time::timeout(Duration::from_secs(15), to_lsp_rx.recv())
+                    .await
+                    .expect("timed out waiting for the diagnostics")
+                    .expect("message channel closed");
+                assert!(
+                    matches!(message, PreviewToLspMessage::Diagnostics { .. }),
+                    "a message the viewer may not send reached the LSP: {message:?}"
+                );
 
                 connector.disconnect().await;
             })

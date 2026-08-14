@@ -45,6 +45,10 @@ pub enum FlexboxMeasureCellKind {
     /// A repeater: its instances are only known at run time, so the generated
     /// callback queries the instance directly.
     Repeated(LayoutRepeatedElement),
+    /// A cell whose layout info does not depend on the perpendicular axis (no
+    /// constrained layout-info function): the sizes pre-resolved from the cell
+    /// arrays are already correct, so no measure arm is generated.
+    Fixed,
 }
 
 #[derive(Debug, Clone)]
@@ -263,8 +267,13 @@ pub enum Expression {
         cells_h_variable: String,
         /// The local variable for vertical cells
         cells_v_variable: String,
-        /// The local variable for the per-item flex properties
-        flex_props_variable: String,
+        /// The local variable for the per-item flex properties. `None` when the
+        /// sub-expression does not read them (e.g. `flexbox_layout_unwrapped_main`):
+        /// the flex-props expressions are then not evaluated, so the binding does
+        /// not depend on a static cell's flex properties. (A repeated cell still
+        /// computes its props inside the bundled item-info call, whose constraint
+        /// half is needed either way.)
+        flex_props_variable: Option<String>,
         /// The name for the local variable that contains the repeater indices
         repeater_indices_var_name: Option<SmolStr>,
         /// Either an expression triple of type (LayoutItemInfo, LayoutItemInfo,
@@ -637,6 +646,9 @@ macro_rules! visit_impl {
                 elements.$iter().filter_map(|x| x.$as_ref().left()).for_each(|(h, v, f)| {
                     $visitor(h);
                     $visitor(v);
+                    // Visited even when `flex_props_variable` is `None` and the
+                    // generators skip `f`: this only over-counts property use,
+                    // and the layout's solve binding reads the same properties.
                     $visitor(f);
                 });
             }

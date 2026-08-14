@@ -153,6 +153,21 @@ export component StringToFloat {
 }
 ```
 
+#### replace-all(from: string, to: string) -> string
+
+Returns a string with all instances of `from` replaced with `to`.
+
+```slint
+export component StringToReplaceAll {
+    property<string> basic: "hello".replace-all("l", "L"); // "heLLo"
+    property<string> repeated: "abcabcabc".replace-all("abc", "x"); // "xxx"
+    property<string> replace-all-empty-find: "abc".replace-all("", "-"); // "-a-b-c-"
+    property<string> empty-haystack: "".replace-all("a", "b"); // ""
+    property<string> no-match: "hello".replace-all("z", "Z"); // "hello"
+    property<string> hiragana: "あいうえお".replace-all("い", "亜"); // "あ亜うえお"
+}
+```
+
 ### styled-text
 <SlintProperty propName="styled-text" typeName="styled-text" defaultValue='""'>
 
