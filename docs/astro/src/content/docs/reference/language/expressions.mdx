@@ -109,12 +109,8 @@ the [image type](../../property-types/images/) describes these forms and the
 </NotInSC>
 
 <OnlyInSC>
-The compiler reads and decodes the image file when it generates code, so the
-file must exist and be readable then, and isn't needed at run
-time. \{#sls.expr.image.compile-time}
-
-The file shall hold a raster image in a format the compiler can decode, such
-as PNG or JPEG.
+The file shall exist, and hold a raster image in a format the compiler can
+decode, such as PNG or JPEG.
 An SVG image is an error: it has no pixels to decode until it is
 rendered. \{#sls.expr.image.raster-only}
 
