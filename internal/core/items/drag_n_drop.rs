@@ -474,7 +474,7 @@ pub(crate) fn clamp_action_to_allowed(
 /// The cursor shown while a DropArea is hovering an accepted drag.
 pub(crate) fn cursor_for_action(action: DragAction) -> BuiltInMouseCursor {
     match action {
-        DragAction::Move => BuiltInMouseCursor::Move,
+        DragAction::Move => BuiltInMouseCursor::Default,
         DragAction::Copy => BuiltInMouseCursor::Copy,
         DragAction::Link => BuiltInMouseCursor::Alias,
         DragAction::None => BuiltInMouseCursor::NoDrop,
