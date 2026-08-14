@@ -4,15 +4,16 @@
 #![cfg(target_arch = "wasm32")]
 #![deny(clippy::print_stderr, clippy::print_stdout, clippy::disallowed_methods)]
 
-pub mod common;
 #[cfg(feature = "preview-engine")]
 mod connector;
 mod fmt;
 mod language;
+mod lsp_to_editor;
 #[cfg(feature = "preview-engine")]
 mod preview;
 mod server_notifier;
-pub mod util;
+
+pub use i_slint_editor_preview::{common, util};
 
 use common::LspToPreviews;
 use common::{DocumentCache, Result};
@@ -304,7 +305,7 @@ impl SlintServer {
 
         match message {
             M::Diagnostics { diagnostics, version, uri } => {
-                crate::common::lsp_to_editor::notify_lsp_diagnostics(
+                crate::lsp_to_editor::notify_lsp_diagnostics(
                     &ctx.server_notifier,
                     uri,
                     version,
@@ -314,10 +315,8 @@ impl SlintServer {
             M::ShowDocument { file, selection, .. } => {
                 let sn = ctx.server_notifier.clone();
                 wasm_bindgen_futures::spawn_local(async move {
-                    crate::common::lsp_to_editor::send_show_document_to_editor(
-                        sn, file, selection, true,
-                    )
-                    .await
+                    crate::lsp_to_editor::send_show_document_to_editor(sn, file, selection, true)
+                        .await
                 });
             }
             M::PreviewTypeChanged { target } => {
@@ -385,7 +384,7 @@ impl SlintServer {
             .trigger_file_watcher(url, typ)
             .await
             .map_err(|e| JsError::new(&e.to_string()))?;
-        common::publish_diagnostics(&ctx.server_notifier, diagnostics);
+        crate::lsp_to_editor::publish_diagnostics(&ctx.server_notifier, diagnostics);
         Ok(JsValue::UNDEFINED)
     }
     #[wasm_bindgen]
@@ -402,7 +401,7 @@ impl SlintServer {
             .open_document(content, uri.clone(), Some(version))
             .await
             .map_err(|e| JsError::new(&e.to_string()))?;
-        common::publish_diagnostics(&ctx.server_notifier, diagnostics);
+        crate::lsp_to_editor::publish_diagnostics(&ctx.server_notifier, diagnostics);
         Ok(JsValue::UNDEFINED)
     }
 
@@ -420,7 +419,7 @@ impl SlintServer {
             .load_document(content, uri.clone(), Some(version))
             .await
             .map_err(|e| JsError::new(&e.to_string()))?;
-        common::publish_diagnostics(&ctx.server_notifier, diagnostics);
+        crate::lsp_to_editor::publish_diagnostics(&ctx.server_notifier, diagnostics);
         Ok(JsValue::UNDEFINED)
     }
 

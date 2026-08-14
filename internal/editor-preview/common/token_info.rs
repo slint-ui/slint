@@ -33,7 +33,7 @@ pub enum TokenInfo {
 /// Resolve a struct/enum declaration reference to its syntax node using the
 /// documents the language server already keeps loaded, so the compiled type does
 /// not need to carry a syntax tree.
-pub(crate) fn node_for_decl(
+pub fn node_for_decl(
     document_cache: &common::DocumentCache,
     decl: &i_slint_compiler::langtype::DeclNode,
 ) -> Option<SyntaxNode> {

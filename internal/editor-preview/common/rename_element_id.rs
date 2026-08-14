@@ -135,7 +135,7 @@ component Foo inherits Rectangle {
     }
 }
 "#;
-        let (dc, uri, _) = crate::language::test::loaded_document_cache(source.into());
+        let (dc, uri, _) = crate::common::test::loaded_document_cache(source.into());
 
         let rect_x = dc
             .element_at_offset(&uri, TextSize::new(source.find("Rectangle/*X*/").unwrap() as u32))

@@ -100,7 +100,8 @@ The dev-dependencies they need (`i-slint-backend-testing`, `spin_on`) are declar
 
 - `i-slint-compiler`, `lsp-types`, `i-slint-live-preview` (feature `protocol`).
   The `LspToPreview` and `PreviewToLsp` **traits** move from `tools/lsp/common` into `i-slint-live-preview`'s `protocol` feature, next to the message enums they wrap; drop the unused `std::any::Any` bound on `LspToPreview` while moving.
-  The `LspToPreviews` fan-out does **not** move — it owns the remote transport, which stays in `tools/lsp`, and moving it would create a dependency cycle.
+  The `LspToPreviews` fan-out moves here too.
+  It no longer owns the remote transport concretely — it holds a `dyn RemoteTransport` whose implementation stays in `tools/lsp` — so the dependency cycle that argued against moving it is gone.
   The `wasm_prelude` (`UrlWasm`) currently defined in `wasm_main.rs` also hoists into live-preview's `protocol`, next to the re-exported `lsp_types`.
 - `slint`, `slint-interpreter`, `i-slint-core`, and `i-slint-backend-selector` only behind an `engine` feature.
   Note: `tools/lsp` keeps its own `slint`/`slint-interpreter`/`i-slint-core` dependencies regardless, because its transports use them; the lean LSP build remains the existing no-default-features formatter path.
@@ -113,8 +114,8 @@ The dev-dependencies they need (`i-slint-backend-testing`, `spin_on`) are declar
 
 - `ServerNotifier` (collapsing to a single definition there) and everything `lsp-server`.
 - The `lsp_to_editor` helpers (publishing diagnostics, `showDocument` requests) — they talk to an LSP client.
-- `LspToPreviews` and the message transports: `EmbeddedLspToPreview`, `ChildProcessLspToPreview`, the remote WebSocket transport, and the wasm connector, in a new `connector` module.
-- LSP request/notification handling (`language/` feature modules), the formatter (`fmt/`), `host_language_search`, `token_info`.
+- The message transports: `EmbeddedLspToPreview`, `ChildProcessLspToPreview`, the remote WebSocket transport (which implements the `RemoteTransport` trait), and the wasm connector, in a new `connector` module.
+- LSP request/notification handling (`language/` feature modules), the formatter (`fmt/`), `host_language_search`.
 
 ## Must Not Contain
 

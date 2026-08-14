@@ -619,7 +619,7 @@ export component Main { }
                 host_language_rename_dont_ask_again: Default::default(),
             };
             let (url, _) = crate::language::test::load(
-                &mut ctx,
+                &mut ctx.session,
                 &std::env::temp_dir().join("xxx/test.slint"),
                 r#"
                     import { Palette } from "std-widgets.slint";

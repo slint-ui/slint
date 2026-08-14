@@ -484,7 +484,7 @@ impl DocumentCache {
 
 #[cfg(test)]
 mod tests {
-    use crate::language::test::complex_document_cache;
+    use crate::common::test::complex_document_cache;
 
     use super::*;
 

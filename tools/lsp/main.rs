@@ -12,11 +12,12 @@ compile_error!(
     "Feature preview-engine and preview-builtin need to be enabled together when building native LSP"
 );
 
-mod common;
 #[cfg(feature = "preview-engine")]
 mod connector;
 mod fmt;
+mod host_language_search;
 mod language;
+mod lsp_to_editor;
 #[cfg(feature = "preview-engine")]
 mod preview;
 #[cfg(all(
@@ -25,7 +26,8 @@ mod preview;
 ))]
 mod settings_store;
 mod server_notifier;
-pub mod util;
+
+pub use i_slint_editor_preview::{common, util};
 
 use common::Result;
 use language::*;
@@ -570,7 +572,7 @@ async fn run_main_loop(
                     && let Ok(diagnostics) =
                         ctx.session.trigger_file_watcher(uri, file_event.kind).await
                 {
-                    common::publish_diagnostics(&ctx.server_notifier, diagnostics);
+                    crate::lsp_to_editor::publish_diagnostics(&ctx.server_notifier, diagnostics);
                 }
             }
             _ = tokio::time::sleep(recompile_idle_timeout) => {
@@ -580,7 +582,7 @@ async fn run_main_loop(
                 for url in pending_recompile {
                     match ctx.session.reload_document(url).await {
                         Ok(diagnostics) => {
-                            common::publish_diagnostics(&ctx.server_notifier, diagnostics)
+                            crate::lsp_to_editor::publish_diagnostics(&ctx.server_notifier, diagnostics)
                         }
                         Err(err) => tracing::error!("Failed document reload: {err}"),
                     }
@@ -686,7 +688,7 @@ async fn handle_notification(
                     Some(params.text_document.version),
                 )
                 .await?;
-            common::publish_diagnostics(&ctx.server_notifier, diagnostics);
+            crate::lsp_to_editor::publish_diagnostics(&ctx.server_notifier, diagnostics);
             Ok(())
         }
         DidCloseTextDocument::METHOD => {
@@ -708,7 +710,7 @@ async fn handle_notification(
                     Some(params.text_document.version),
                 )
                 .await?;
-            common::publish_diagnostics(&ctx.server_notifier, diagnostics);
+            crate::lsp_to_editor::publish_diagnostics(&ctx.server_notifier, diagnostics);
             Ok(())
         }
         DidChangeConfiguration::METHOD => load_configuration(ctx).await,
@@ -784,7 +786,7 @@ async fn handle_preview_to_lsp_message(
             } else {
                 tracing::debug!("Preview: {} diagnostics for {}", diagnostics.len(), uri);
             }
-            crate::common::lsp_to_editor::notify_lsp_diagnostics(
+            crate::lsp_to_editor::notify_lsp_diagnostics(
                 &ctx.server_notifier,
                 uri,
                 version,
@@ -793,10 +795,8 @@ async fn handle_preview_to_lsp_message(
         }
         M::ShowDocument { file, selection, take_focus } => {
             let sn = ctx.server_notifier.clone();
-            crate::common::lsp_to_editor::send_show_document_to_editor(
-                sn, file, selection, take_focus,
-            )
-            .await;
+            crate::lsp_to_editor::send_show_document_to_editor(sn, file, selection, take_focus)
+                .await;
         }
         M::PreviewTypeChanged { target } => {
             tracing::debug!("Preview type changed: {target:?}");

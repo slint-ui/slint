@@ -6,11 +6,12 @@
 // theirs, so that printing something still reaches somewhere visible.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-mod common;
 #[cfg(feature = "preview")]
 mod editor;
 mod fmt;
+mod host_language_search;
 mod language;
+mod lsp_to_editor;
 #[cfg(feature = "preview-engine")]
 mod preview;
 #[cfg(all(
@@ -19,7 +20,8 @@ mod preview;
 ))]
 mod settings_store;
 mod server_notifier;
-mod util;
+
+pub use i_slint_editor_preview::{common, util};
 
 pub use server_notifier::ServerNotifier;
 

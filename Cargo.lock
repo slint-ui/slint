@@ -3548,6 +3548,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "i-slint-editor-preview"
+version = "1.18.0"
+dependencies = [
+ "futures-util",
+ "i-slint-backend-testing",
+ "i-slint-compiler",
+ "i-slint-live-preview",
+ "itertools 0.15.0",
+ "lsp-types",
+ "nucleo-matcher",
+ "serde",
+ "smol_str 0.3.2",
+ "spin_on",
+ "tokio",
+ "tracing",
+ "wasm-bindgen-futures",
+]
+
+[[package]]
 name = "i-slint-live-preview"
 version = "1.18.0"
 dependencies = [
@@ -7528,6 +7547,7 @@ dependencies = [
  "i-slint-common",
  "i-slint-compiler",
  "i-slint-core",
+ "i-slint-editor-preview",
  "i-slint-live-preview",
  "icu_properties",
  "itertools 0.15.0",

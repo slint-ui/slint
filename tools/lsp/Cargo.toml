@@ -75,6 +75,7 @@ preview-lense = []
 preview-api = ["preview-external"]
 ## Build in the actual code to act as a preview for slint files.
 preview-engine = [
+  "i-slint-editor-preview/preview-engine",
   "dep:slint",
   "dep:slint-interpreter",
   "dep:i-slint-core",
@@ -82,11 +83,11 @@ preview-engine = [
   "dep:slint-build",
 ]
 ## Build in the actual code to act as a preview for slint files. Does nothing in WASM!
-preview-builtin = ["preview-engine"]
+preview-builtin = ["preview-engine", "i-slint-editor-preview/preview-builtin"]
 ## Support the external preview optionally used by e.g. the VSCode plugin
-preview-external = []
+preview-external = ["i-slint-editor-preview/preview-external"]
 ## Support the remote preview via a WebSocket connection
-preview-remote = ["preview-engine", "preview-builtin"]
+preview-remote = ["preview-engine", "preview-builtin", "i-slint-editor-preview/preview-remote"]
 
 default = ["backend-default", "renderer-femtovg", "renderer-software", "preview"]
 
@@ -104,6 +105,7 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 smol_str = { workspace = true }
 i-slint-live-preview = { version = "=1.18.0", path = "../../internal/live-preview", features = ["protocol", "file-watcher"] }
+i-slint-editor-preview = { version = "=1.18.0", path = "../../internal/editor-preview" }
 lsp-types = { workspace = true }
 
 # for the preview-engine feature
@@ -153,6 +155,7 @@ tokio = { version = "1.50.0", features = ["rt", "sync", "macros"] }
 
 [dev-dependencies]
 i-slint-backend-testing = { path = "../../internal/backends/testing" }
+i-slint-editor-preview = { path = "../../internal/editor-preview", features = ["testing"] }
 spin_on = { workspace = true }
 tempfile = "3"
 # The remote connector tests talk to the real viewer-side connection.

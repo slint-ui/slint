@@ -315,7 +315,7 @@ mod tests {
 
     #[test]
     fn builtin_component_catalog() {
-        let (dc, _, _) = crate::language::test::loaded_document_cache(r#""#.to_string());
+        let (dc, _, _) = crate::common::test::loaded_document_cache(r#""#.to_string());
 
         let mut result = Default::default();
         builtin_components(&dc, &mut result);
@@ -339,7 +339,7 @@ mod tests {
 
     #[test]
     fn exported_component_catalog_std_widgets_only() {
-        let (dc, _, _) = crate::language::test::loaded_document_cache(r#""#.to_string());
+        let (dc, _, _) = crate::common::test::loaded_document_cache(r#""#.to_string());
 
         let mut result = Default::default();
         all_exported_components(&dc, &mut |_| true, &mut result);
@@ -355,7 +355,7 @@ mod tests {
 
     #[test]
     fn exported_component_catalog_filtered() {
-        let (dc, _, _) = crate::language::test::loaded_document_cache(r#""#.to_string());
+        let (dc, _, _) = crate::common::test::loaded_document_cache(r#""#.to_string());
 
         let mut result = Default::default();
         all_exported_components(&dc, &mut |_| false, &mut result);
@@ -366,16 +366,15 @@ mod tests {
     #[test]
     fn exported_component_catalog_exported_component() {
         let baseline = {
-            let (dc, _, _) = crate::language::test::loaded_document_cache(r#""#.to_string());
+            let (dc, _, _) = crate::common::test::loaded_document_cache(r#""#.to_string());
 
             let mut result = Default::default();
             all_exported_components(&dc, &mut |_| true, &mut result);
             result.len()
         };
 
-        let (dc, _, _) = crate::language::test::loaded_document_cache(
-            r#"export component Test1 {}"#.to_string(),
-        );
+        let (dc, _, _) =
+            crate::common::test::loaded_document_cache(r#"export component Test1 {}"#.to_string());
 
         let mut result = Default::default();
         all_exported_components(&dc, &mut |_| true, &mut result);
@@ -390,7 +389,7 @@ mod tests {
     #[test]
     fn local_component_catalog_one_unexported_component() {
         let (dc, url, _) =
-            crate::language::test::loaded_document_cache(r#"component Test1 {}"#.to_string());
+            crate::common::test::loaded_document_cache(r#"component Test1 {}"#.to_string());
 
         let mut result = Default::default();
         file_local_components(&dc, &url, &mut result);
@@ -399,7 +398,7 @@ mod tests {
 
     #[test]
     fn local_component_catalog_two_unexported_components_without_export() {
-        let (dc, url, _) = crate::language::test::loaded_document_cache(
+        let (dc, url, _) = crate::common::test::loaded_document_cache(
             r#"
             component Test1 {}
             component Test2 {}"#
@@ -419,7 +418,7 @@ mod tests {
     }
     #[test]
     fn local_component_catalog_two_unexported_components_with_export() {
-        let (dc, url, _) = crate::language::test::loaded_document_cache(
+        let (dc, url, _) = crate::common::test::loaded_document_cache(
             r#"
             component Test1 {}
             export component Export1 {}
