@@ -1,0 +1,117 @@
+---
+title: Architecture Design
+description: Software units of Slint SC and their static and dynamic architecture.
+---
+
+## Slint SC Software Units (ISO 26262:6 7.4.4)
+
+This is what is included in Slint SC:
+
+* A Slint Compiler, from the internal `i-slint-compiler` crate
+* The `slint_build` crate which provides a Rust API for the compiler.
+* Slint types: Currently we support `Rectangle` and `Image`, with basic properties.
+* (TODO: Add list of Rust crates used by Slint SC)
+
+Each of these things can have a **Usage** and a **Constraints** section.
+
+Each feature of the language or a library can map to a Requirement ID, and have 1 or more code test-examples.
+
+## Slint SC Architecture Design (ISO 26262:6 7.4)
+
+During the development of the software architectural design, the following should be considered:
+
+1. Verifiability of the software architectural design.
+    This implies bi-directional traceability between the software architectural design and the
+    software safety requirements.
+2. Simplicity of the design/software (restricted size and complexity)
+3. Modularity, Encapsulation, Reusability, Maintainability
+4. Feasibility for the design and implementation of the software units
+5. Testability of the software
+6. Maintainability of the software architectural design
+
+### Static Design
+
+The software architectural design should have a static design part which
+addresses:
+
+- the software structure including its hierarchical levels;
+- the dependencies;
+- the data types and their characteristics;
+- the global variables;
+- the external interfaces of the software components; and
+- the constraints including the scope of the architecture
+
+```mermaid
+flowchart TD
+    subgraph Developer Workspace
+        SlintFiles[".slint UI Files"]
+        CargoToml["Cargo.toml (Dependencies)"]
+        BuildScript["build.rs (slint_build::compile_with_config)"]
+    end
+
+    subgraph Slint Compiler Toolchain
+        SlintBuild["slint_build (Rust API)"]
+        Compiler["i-slint-compiler (Core Compiler)"]
+        Parser["Parser (Rowan)"]
+        Generators["Code Generators (Rust)"]
+
+        SlintBuild --> |Invokes| Compiler
+        Compiler --> |Parses| Parser
+        Compiler --> |Generates| Generators
+    end
+
+    subgraph Slint SC Runtime Core
+        SlintCore["Slint Core Library"]
+        CoreTypes["Core Types (Rectangle, Image, etc.)"]
+        Properties["Reactive Property System"]
+
+        SlintCore --> CoreTypes
+        SlintCore --> Properties
+    end
+
+    subgraph External Interfaces
+        AppCode["User Application Code"]
+        Windowing["Backend / Windowing System"]
+        Renderer["Safe Renderer"]
+    end
+
+    BuildScript --> |Uses| SlintBuild
+    SlintFiles --> |Read by| Compiler
+    Generators --> |Produces Rust Code| AppCode
+    AppCode --> |Uses| SlintCore
+    SlintCore --> |Interfaces with| Windowing
+    SlintCore --> |Interfaces with| Renderer
+```
+
+### Dynamic Design
+
+In addition, the software architectural design should have a dynamic design part which addresses:
+
+- the functional chain of events and behavior;
+- the logical sequence of data processing;
+- the control flow and concurrency of processes;
+- the data flow through interfaces and global variables; and
+- the temporal constraints.
+
+```mermaid
+sequenceDiagram
+    participant User as Developer
+    participant BuildScript as build.rs
+    participant Compiler as slint_build / i-slint-compiler
+    participant RustC as rustc
+    participant Runtime as User App / Slint Core
+
+    User->>BuildScript: cargo build
+    BuildScript->>Compiler: compile_with_config("app.slint")
+    Compiler->>Compiler: Parse .slint files & Validate Constraints
+    Compiler-->>BuildScript: Generate Rust code
+    BuildScript-->>RustC: Pass generated code
+    RustC-->>Runtime: Compile & Link with Slint Core
+
+    Runtime->>Runtime: Initialize Components & Variables
+    loop Event Loop
+        Runtime->>Runtime: Receive Window System Events
+        Runtime->>Runtime: Update Reactive Properties
+        Runtime->>Runtime: Render to Backend
+    end
+```
