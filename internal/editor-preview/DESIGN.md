@@ -76,7 +76,7 @@ The canvas and its supporting analysis, moving from `tools/lsp/preview*`:
 - `element_selection`, `drop_location`, `outline`, `properties`, `ext`, `undo_redo`, `eval`, `preview_data`.
 - `preview/remote.rs`: the remote-preview dialog wiring and `RemoteDiscovery` (a `PreviewState` field, coupled to the generated UI types).
   This brings `mdns-sd` along.
-  Only the remote WebSocket *transport* (`preview/connector/remote.rs`) stays in `tools/lsp`.
+  Only the remote WebSocket *transport* (`connector/remote.rs`) stays in `tools/lsp`.
 - The UI-facing models under `preview/ui/`, including `file_tree.rs` and `macos_titlebar.rs`.
   Both are earmarked for `tools/editor`, but they import `include_modules!()`-generated types and are called back from `ui.rs`, so they stay here until the UI split.
   The `objc2*`/`raw-window-handle` dependencies come along; `sparklers` does **not** (see "Must Not Contain").

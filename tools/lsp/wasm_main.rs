@@ -5,6 +5,8 @@
 #![deny(clippy::print_stderr, clippy::print_stdout, clippy::disallowed_methods)]
 
 pub mod common;
+#[cfg(feature = "preview-engine")]
+mod connector;
 mod fmt;
 mod language;
 #[cfg(feature = "preview-engine")]
@@ -213,7 +215,7 @@ pub fn create(
     let to_preview = LspToPreviews::with_one(common::DummyLspToPreview::default());
     #[cfg(feature = "preview-engine")]
     let to_preview =
-        LspToPreviews::with_one(preview::connector::WasmLspToPreview::new(server_notifier.clone()));
+        LspToPreviews::with_one(connector::WasmLspToPreview::new(server_notifier.clone()));
 
     let to_preview_clone = to_preview.clone();
     compiler_config.open_import_callback = Some(Rc::new(move |path| {

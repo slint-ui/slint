@@ -5,11 +5,20 @@ use i_slint_live_preview::protocol::{LspToPreviewMessage, PreviewTarget};
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use super::{LspToPreview, Result};
+
+/// The connection to a remote viewer. The transport implementing this lives in
+/// the LSP binary's `connector` module: applications that never talk to a
+/// remote viewer do not build it.
 #[cfg(all(not(target_arch = "wasm32"), feature = "preview-remote"))]
-use {
-    crate::preview::connector::remote::RemoteLspToPreview,
-    i_slint_live_preview::protocol::PreviewToLspMessage, tokio::sync::mpsc,
-};
+pub trait RemoteTransport {
+    fn send(&self, message: &LspToPreviewMessage);
+    fn connect(
+        &self,
+        addresses: Vec<String>,
+        port: u16,
+    ) -> std::pin::Pin<Box<dyn Future<Output = Result<()>>>>;
+    fn disconnect(&self) -> std::pin::Pin<Box<dyn Future<Output = ()>>>;
+}
 
 /// Fans LSP messages out to the active local preview and, if connected,
 /// to a remote viewer. The local target is itself swappable between
@@ -21,7 +30,7 @@ pub struct LspToPreviews {
     locals: HashMap<PreviewTarget, Box<dyn LspToPreview>>,
     current_local: RefCell<PreviewTarget>,
     #[cfg(all(not(target_arch = "wasm32"), feature = "preview-remote"))]
-    remote: Option<Rc<RemoteLspToPreview>>,
+    remote: Option<Rc<dyn RemoteTransport>>,
 }
 
 #[allow(dead_code)] // Which methods are live depends on the enabled preview features.
@@ -30,19 +39,19 @@ impl LspToPreviews {
         locals: HashMap<PreviewTarget, Box<dyn LspToPreview>>,
         current_local: PreviewTarget,
         #[cfg(all(not(target_arch = "wasm32"), feature = "preview-remote"))]
-        preview_to_lsp_sender: mpsc::UnboundedSender<PreviewToLspMessage>,
+        make_remote: impl FnOnce(std::rc::Weak<Self>) -> Rc<dyn RemoteTransport>,
     ) -> Result<Rc<Self>> {
         if !locals.contains_key(&current_local) {
             return Err("No such target".into());
         }
         // `new_cyclic` hands the not-yet-constructed `Self` a `Weak` to
-        // itself, which `RemoteLspToPreview` keeps for the connection-state
+        // itself, which the remote transport keeps for the connection-state
         // back-channel without forming an `Rc` cycle.
         Ok(Rc::new_cyclic(|_weak| Self {
             locals,
             current_local: RefCell::new(current_local),
             #[cfg(all(not(target_arch = "wasm32"), feature = "preview-remote"))]
-            remote: Some(Rc::new(RemoteLspToPreview::new(preview_to_lsp_sender, _weak.clone()))),
+            remote: Some(make_remote(_weak.clone())),
         }))
     }
 
@@ -102,7 +111,7 @@ impl LspToPreviews {
     }
 
     #[cfg(all(not(target_arch = "wasm32"), feature = "preview-remote"))]
-    pub fn remote(&self) -> Option<&Rc<RemoteLspToPreview>> {
+    pub fn remote(&self) -> Option<&Rc<dyn RemoteTransport>> {
         self.remote.as_ref()
     }
 }

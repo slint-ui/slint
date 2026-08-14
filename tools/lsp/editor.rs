@@ -43,7 +43,96 @@ pub fn editor_main() -> std::result::Result<(), slint::PlatformError> {
 
     start_lsp_thread(from_preview, cli);
 
-    preview::run(to_lsp, false, preview::PreviewUiKind::Editor)
+    let app_window = preview::ui::create_ui(&to_lsp, "", preview::PreviewUiKind::Editor)?;
+
+    // The updater needs to stay in scope for as long as the window is up.
+    #[cfg(target_os = "macos")]
+    let _updater = setup_macos_chrome(&app_window);
+
+    preview::run_with_ui(app_window, to_lsp, false)
+}
+
+/// Set up the editor's macOS chrome: the unified title bar and the Sparkle
+/// auto-updater driving the update section of the editor UI.
+#[cfg(target_os = "macos")]
+fn setup_macos_chrome(app_window: &preview::ui::AppWindow) -> Option<Rc<sparklers::Sparkle>> {
+    use crate::preview::ui;
+    use slint::ComponentHandle;
+    use slint::Global;
+    use sparklers::Sparkle;
+
+    let ui::AppWindow::Editor(editor) = app_window.clone_strong() else {
+        return None;
+    };
+
+    preview::macos_titlebar::setup(editor.as_weak());
+
+    let updater = Sparkle::new().unwrap().map(Rc::new);
+
+    if let Some(updater) = updater.as_ref() {
+        let api = editor.global::<ui::Api>();
+        let api_weak = <ui::Api as Global<'_, ui::EditorUi>>::as_weak(&api);
+        updater.set_nonsync_event_callback(move |event| {
+            let Some(api) = api_weak.upgrade() else {
+                return;
+            };
+            match event {
+                sparklers::Event::DidFindValidUpdate { item } => {
+                    api.set_update_error(Default::default());
+                    api.set_update_version(item.version().into());
+                    api.set_update_state(ui::UpdateState::Available);
+                }
+                sparklers::Event::DidNotFindUpdate => {
+                    api.set_update_error(Default::default());
+                    api.set_update_version(Default::default());
+                    api.set_update_state(ui::UpdateState::UpToDate);
+                }
+                sparklers::Event::WillDownloadUpdate { .. } => {
+                    api.set_update_error(Default::default());
+                    api.set_update_state(ui::UpdateState::Downloading);
+                }
+                sparklers::Event::DidDownloadUpdate { .. } => {
+                    api.set_update_error(Default::default());
+                    api.set_update_download_progress(1.0);
+                    api.set_update_state(ui::UpdateState::ReadyToInstall);
+                }
+                sparklers::Event::WillInstallUpdate { .. }
+                | sparklers::Event::WillInstallUpdateOnQuit { .. } => {
+                    api.set_update_error(Default::default());
+                    api.set_update_state(ui::UpdateState::Installing);
+                }
+                sparklers::Event::DidFinishUpdateCycle { error: Some(error), .. }
+                | sparklers::Event::FailedToDownloadUpdate { error, .. }
+                | sparklers::Event::DidAbortWithError { error } => {
+                    api.set_update_error(error.message().into());
+                    api.set_update_state(ui::UpdateState::Error);
+                }
+                _ => tracing::debug!("Sparkle event: {event:?}"),
+            }
+        });
+
+        let api = editor.global::<ui::Api>();
+        let sparkle = updater.clone();
+        api.on_check_for_update(move || {
+            sparkle.check_for_update_information();
+        });
+        api.on_download_update(|| {
+            tracing::warn!(
+                "Ignoring download-update request: custom Sparkle downloads are not wired yet"
+            );
+        });
+        api.on_install_update(|| {
+            tracing::warn!(
+                "Ignoring install-update request: custom Sparkle installs are not wired yet"
+            );
+        });
+
+        updater.set_automatically_checks_for_updates(false);
+        updater.set_automatically_downloads_updates(false);
+        updater.check_for_update_information();
+    }
+
+    updater
 }
 
 /// Hands messages for the preview straight to the UI thread: the editor runs
@@ -54,7 +143,7 @@ impl common::LspToPreview for EditorLspToPreview {
     fn send(&self, message: &LspToPreviewMessage) {
         let message = message.clone();
         if let Err(err) = slint::invoke_from_event_loop(move || {
-            preview::connector::lsp_to_preview(message);
+            preview::lsp_to_preview(message);
         }) {
             tracing::error!("Failed to queue message onto the event loop: {err}");
         }

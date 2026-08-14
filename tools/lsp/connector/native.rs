@@ -12,10 +12,6 @@ use tokio::{
     task::JoinHandle,
 };
 
-pub fn resource_url_mapper() -> Option<i_slint_compiler::ResourceUrlMapper> {
-    None
-}
-
 struct ChildProcessLspToPreviewInner {
     communication_handle: JoinHandle<Result<(), String>>,
     to_child_sender: mpsc::UnboundedSender<String>,
@@ -196,7 +192,7 @@ impl RemoteControlledPreviewToLsp {
                 };
                 if let Ok(message) = serde_json::from_str(&line) {
                     slint::invoke_from_event_loop(move || {
-                        preview::connector::lsp_to_preview(message);
+                        preview::lsp_to_preview(message);
                     })
                     .map_err(|err| {
                         let err = err.to_string();
