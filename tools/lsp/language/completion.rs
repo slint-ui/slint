@@ -9,7 +9,7 @@ use crate::common::{self, DocumentCache};
 use crate::util::{lookup_current_element_type, text_size_to_lsp_position, with_lookup_ctx};
 
 #[cfg(target_arch = "wasm32")]
-use crate::wasm_prelude::*;
+use crate::common::wasm_prelude::*;
 use i_slint_compiler::diagnostics::Spanned;
 use i_slint_compiler::expression_tree::{Callable, Expression};
 use i_slint_compiler::langtype::{ElementType, Type};

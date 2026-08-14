@@ -46,7 +46,7 @@ impl LspToPreviews {
         }))
     }
 
-    pub fn with_one(lsp_to_preview: impl LspToPreview) -> Rc<Self> {
+    pub fn with_one(lsp_to_preview: impl LspToPreview + 'static) -> Rc<Self> {
         let target = lsp_to_preview.preview_target();
         let locals =
             std::iter::once((target, Box::new(lsp_to_preview) as Box<dyn LspToPreview>)).collect();

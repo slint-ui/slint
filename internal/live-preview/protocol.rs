@@ -6,12 +6,38 @@ mod preview_to_lsp;
 mod versioned_url;
 
 pub use lsp_to_preview::{
-    LspToPreviewMessage, PreviewComponent, PreviewConfig, RemoteConnectionState,
+    LspToPreview, LspToPreviewMessage, PreviewComponent, PreviewConfig, RemoteConnectionState,
 };
-pub use preview_to_lsp::{PreviewTarget, PreviewToLspMessage};
+pub use preview_to_lsp::{PreviewTarget, PreviewToLsp, PreviewToLspMessage};
 pub use versioned_url::VersionedUrl;
 
 pub use lsp_types;
+
+/// The boxed error type the protocol traits report failures with.
+pub type Error = Box<dyn std::error::Error>;
+
+/// The protocol's own `Result`, shadowing `std::result::Result` for glob importers
+/// so the traits' fallible methods can be written as `Result<()>`.
+pub type Result<T> = std::result::Result<T, Error>;
+
+#[cfg(target_arch = "wasm32")]
+pub mod wasm_prelude {
+    use std::path::{Path, PathBuf};
+
+    /// lsp_url doesn't have method to convert to and from PathBuf for wasm, so just make some
+    pub trait UrlWasm {
+        fn to_file_path(&self) -> Result<PathBuf, ()>;
+        fn from_file_path<P: AsRef<Path>>(path: P) -> Result<lsp_types::Url, ()>;
+    }
+    impl UrlWasm for lsp_types::Url {
+        fn to_file_path(&self) -> Result<PathBuf, ()> {
+            Ok(self.to_string().into())
+        }
+        fn from_file_path<P: AsRef<Path>>(path: P) -> Result<Self, ()> {
+            Self::parse(path.as_ref().to_str().ok_or(())?).map_err(|_| ())
+        }
+    }
+}
 
 #[cfg(feature = "file-watcher")]
 mod diagnostics_adapter;

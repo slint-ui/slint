@@ -36,7 +36,7 @@ use std::rc::Rc;
 use user_settings::{PREVIEW_SETTINGS_FILE, PreviewUserSettings};
 
 #[cfg(target_arch = "wasm32")]
-use crate::wasm_prelude::*;
+use crate::common::wasm_prelude::*;
 
 pub mod connector;
 pub use ui::PreviewUiKind;
