@@ -12,7 +12,7 @@ The `slint-compiler` translates `.slint` files into Rust code that is compiled i
 * **Tool Impact (TI2):** The `slint-compiler` can introduce errors into the executable.
 * **Tool Error Detection (TD2/TD3):** While Rust's strong type system and borrow checker catch many errors, compiler bugs might still bypass detection.
 * **Tool Confidence Level (TCL):** The combination of TI2 and TD2/TD3 results in a Tool Confidence Level of TCL2 or TCL3.
-* **Qualification Strategy:** As a high-impact tool, Ferrocene is already ASIL D qualified for safety-critical deployment. The `slint-compiler` is not yet qualified and must be qualified before being used in a safety-critical project.
+* **Qualification Strategy:** The `slint-compiler` is not yet qualified and must be qualified before being used in a safety-critical project.
 
 (TODO: settle TD, and with it the TCL. TD2 and TD3 lead to different qualification
 methods under ISO 26262-8 11.4.6, so this can't stay a range.
@@ -31,8 +31,11 @@ what its use requires.)
 
 ## Rust Toolchain
 
-Slint SC is built with Ferrocene, which is qualified to ASIL D.
-Its own tool classification is in the Ferrocene qualification material.
+The toolchain of each evidence run is recorded in the [Test Results](/qualification-report/test-results/) chapter.
+
+(TODO: qualification evidence runs should use a qualified toolchain, such as a
+Ferrocene release, whose own classification is in its qualification material.
+That policy isn't decided or enforced yet; development builds use stable Rust.)
 
 ## Test and Coverage Tooling
 

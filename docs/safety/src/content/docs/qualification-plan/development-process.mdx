@@ -10,7 +10,14 @@ This section describes the tools we use and the processes we follow to develop S
 
 ### Language and Compiler
 
-The `slint-compiler` translates `.slint` files into Rust code. Slint SC is itself written in Rust and is built using Ferrocene version 26.02.0.
+The `slint-compiler` translates `.slint` files into Rust code. Slint SC is itself written in Rust.
+
+The toolchain that built and ran each evidence run is recorded in the [Test Results](/qualification-report/test-results/) chapter, by the run itself, so the number can't drift from reality.
+The minimum supported Rust version is declared in the workspace `Cargo.toml`.
+
+(TODO: decide the toolchain policy for qualification evidence runs, e.g. a
+qualified Ferrocene release, and enforce it in scripts/slint_sc_test_suite.sh.
+Day-to-day development builds with stable Rust today.)
 
 The confidence level these tools need, and how each one reaches it, is in [Tool Classification](/evaluation-report/tool-classification/).
 
