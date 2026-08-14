@@ -8,6 +8,18 @@ Only the integrator can rule them out, because each depends on the hardware, the
 
 Individual Constraints get a section each here, identified by `slint.runtime.cstr.<slug>`.
 
+## Qualified Toolchain
+
+`slint.runtime.cstr.qualified-toolchain`
+
+The user shall build the final binary, including the `slint-sc` runtime and the generated code, with a Rust toolchain qualified for the integrity level their application targets.
+
+**Rationale**: The runtime ships as source and is compiled by the integrator's toolchain, not ours. Slint SC's own builds and test evidence use Ferrocene, but that says nothing about the toolchain of the final build.
+
+**Impact**: A miscompilation in the final build can produce any display error, and none of Slint SC's evidence covers it.
+
+**Prevents**: `slint.runtime.err.miscompiled`
+
 ## Single Thread
 
 `slint.runtime.cstr.single-thread`

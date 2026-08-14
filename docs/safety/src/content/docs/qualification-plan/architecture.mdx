@@ -58,21 +58,28 @@ addresses:
 - the external interfaces of the software components; and
 - the constraints including the scope of the architecture
 
+The whole binary, the runtime included, is compiled by the integrator's Rust toolchain: the `slint-sc` crate ships as source.
+Our own builds and test evidence use Ferrocene; the toolchain of the final build is the integrator's choice, and choosing a qualified one is on them.
+
 ```mermaid
 flowchart TD
     subgraph Build Time
         SlintFiles[".slint UI Files"]
         Compiler["slint-compiler --slint-sc"]
         Generated["Generated Rust Code"]
-        RustC["Ferrocene rustc"]
+        AppSource["User Application Code"]
+        RuntimeSource["slint-sc Runtime (source)"]
+        RustC["Integrator's Rust toolchain"]
 
         SlintFiles --> |Read by| Compiler
         Compiler --> |Produces| Generated
         Generated --> RustC
+        AppSource --> RustC
+        RuntimeSource --> RustC
     end
 
     subgraph Customer Binary
-        AppCode["User Application Code"]
+        AppCode["Application"]
         Component["Generated Component"]
         Runtime["slint-sc Runtime"]
 
@@ -80,7 +87,7 @@ flowchart TD
         Component --> |Only dependency| Runtime
     end
 
-    RustC --> |Compiles & links| Component
+    RustC --> |Compiles & links| AppCode
     Runtime --> |Paints| FrameBuffer["Frame Buffer (owned by the application)"]
 ```
 
