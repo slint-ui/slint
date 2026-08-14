@@ -6,7 +6,7 @@ description: Tools, processes, and infrastructure used for Slint SC development.
 
 ## The Development Process (ISO 26262-8 11.4.8)
 
-This section describes the tools we use and the processes we follow to develop Slint SC, aiming to fulfill the supporting process requirements of ISO 26262 Part 8 (Sections 6-12)
+This section describes the tools we use and the processes we follow to develop Slint SC, aiming to fulfill the supporting process requirements of ISO 26262 Part 8 (Clauses 5-13).
 
 ### Language and Compiler
 
@@ -26,7 +26,7 @@ The confidence level these tools need, and how each one reaches it, is in [Tool 
 Slint SC utilizes a structured configuration management process to ensure artifacts are reproducible and traceable.
 
 * **Version Control:** Slint is hosted on GitHub ([https://github.com/slint-ui/slint](https://github.com/slint-ui/slint)).
-* **Baselining:** Releases are tagged in git as `release/MajorVersion.MinorVersion`.
+* **Baselining:** Each release is prepared on a `release/Major.Minor` branch and tagged `vMajor.Minor.Patch`. The tag is the baseline: the qualification evidence of a release is produced from it, and the [Test Results](/qualification-report/test-results/) chapter records the commit and the toolchain of the run.
 * **Nightly Builds:** Automated nightly builds generate documentation, examples, and release artifacts to provide continuous visibility into the master branch's stability.
 
 ### Change Management (ISO 26262-8 8.x)
@@ -49,31 +49,40 @@ Continuous Integration (CI) is achieved through GitHub Actions, a platform provi
 * **A runner** is a server that executes triggered workflows.
 
 For Slint, [Actions](https://github.com/slint-ui/slint/actions) are triggered for any Pull Request (PR) or direct push to the `master` branch.
+Failures during CI block merging the PR.
 
 (TODO: Show the Actions for Slint SC when we have some)
 
-* **Tool Impact (TI1):** The CI system schedules and runs tests but does not generate the final executable code itself. Failures during CI block merging the PR.
-* **Qualification Strategy:** Verification of the CI pipeline is achieved through increased confidence from use.
+The CI system doesn't generate code that ships, but a run that reports green without having run the tests would hide exactly the errors the tests exist to catch, which is the fail-to-detect case of tool classification.
+Its classification belongs with the rest of the test tooling in [Tool Classification](/evaluation-report/tool-classification/).
 
 ### Software Component Qualification (ISO 26262-8 12.x)
 
-To ensure that software tools used in the development of Slint SC do not introduce or fail to detect errors, tools are assessed based on their Tool Impact (TI) and Tool Error Detection (TD) to determine their Tool Confidence Level (TCL).
+Clause 12 governs pre-existing software integrated into the product.
+The `slint-sc` runtime is itself qualified this way; how is described in the [Qualification Method](/evaluation-report/qualification-method/).
+Tools are the subject of Clause 11 instead, and are classified in [Tool Classification](/evaluation-report/tool-classification/).
 
 #### Dependencies
 
-Because Slint SC is intended for embedded systems, there are very few internal dependencies, and exactly **zero external dependencies** for the core runtime portion of Slint SC.
+The runtime crate has **zero dependencies**: no other crates, no `std`, no `alloc`.
+There is nothing below it to qualify, and nothing whose failure it inherits.
 
-For build-time tooling and optional features (e.g., image decoding), external libraries may be utilized.
+The compiler uses external crates, but it's a tool: its dependencies are covered by its tool qualification rather than by component qualification, because none of its code ships in the product.
 
-(TODO: List specific dependencies here)
-
-* **Qualification Strategy:** Any necessary external Software of Unknown Provenance (SOUP) must undergo rigorous evaluation, including static analysis, functional testing, and security auditing, to justify its suitability for reuse in a safety-related context before integration.
+* **Qualification Strategy:** Should the runtime ever gain a dependency, that dependency becomes Software of Unknown Provenance (SOUP) and must undergo rigorous evaluation, including static analysis, functional testing, and security auditing, to justify its suitability for reuse in a safety-related context before integration.
 
 ### Distributed Development (ISO 26262-8 5.x)
 
-Employees of SixtyFPS GmbH are located in different countries, and some work remotely. This is not a problem, as we have all the necessary infrastructure in place to support this.
+Clause 5 governs development distributed across organizations: the interfaces between a supplier and its customers.
+Slint SC is developed within SixtyFPS GmbH alone, so there is no distributed development on our side.
+That employees work remotely in different countries doesn't change this; they're one organization under one process.
 
-(TODO: Add more details about how distributed development is supported)
+The interface the clause does reach is the one to the integrator.
+Slint SC is an SEooC, and the [Safety Manual](/safety-manual/) states what each side is responsible for.
+
+(TODO: decide whether a Development Interface Agreement template is offered to
+integrators, or the Safety Manual's User Responsibility section is the extent
+of the interface.)
 
 ### Release Schedule
 
