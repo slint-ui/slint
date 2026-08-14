@@ -353,7 +353,7 @@ Direct framebuffer rendering:
 
 - No windowing system required
 - DRM/KMS for display
-- libinput for input
+- Optional libinput support for input
 
 ### Testing Backend (`internal/backends/testing/`)
 

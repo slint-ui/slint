@@ -4,6 +4,11 @@ All notable changes to this project are documented in this file.
 
 ## [1.18.0] - Unreleased
 
+### General
+
+ - LinuxKMS: Added `backend-linuxkms-noseat-no-input` for applications that provide their own input
+   and don't have libseat, libinput, libudev, or xkbcommon available.
+
 ### Slint language
 
  - Added the `FlexboxLayout` element, which arranges its children in rows or columns and wraps them
