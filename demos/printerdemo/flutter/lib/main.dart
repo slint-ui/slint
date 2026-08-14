@@ -4,7 +4,7 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
 import 'package:slint_flutter/slint_flutter.dart';
 
 /// The `.slint` files this demo shares with its Rust, C++, Node.js and Python
@@ -18,9 +18,20 @@ class PrinterDemo extends StatelessWidget {
   const PrinterDemo({super.key});
 
   @override
-  Widget build(BuildContext context) => MaterialApp(
+  Widget build(BuildContext context) => WidgetsApp(
+        color: const Color(0xff000000),
+        pageRouteBuilder: _defaultRouteBuilder,
         title: 'Slint printer demo',
-        home: Scaffold(body: SlintView(load: PrinterQueue.load)),
+        home: SlintView(load: PrinterQueue.load),
+      );
+
+  /// The route builder `WidgetsApp` needs to turn `home` into a page route.
+  static PageRoute<T> _defaultRouteBuilder<T>(
+          RouteSettings settings, WidgetBuilder builder) =>
+      PageRouteBuilder<T>(
+        settings: settings,
+        pageBuilder: (context, animation, secondaryAnimation) =>
+            builder(context),
       );
 }
 

@@ -3,8 +3,8 @@
 
 import 'dart:io';
 
-import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/widgets.dart';
 import 'package:slint_flutter/slint_flutter.dart';
 import 'package:todo/ui/todo.slint.dart';
 
@@ -27,9 +27,20 @@ class TodoApp extends StatelessWidget {
   final String source;
 
   @override
-  Widget build(BuildContext context) => MaterialApp(
+  Widget build(BuildContext context) => WidgetsApp(
+        color: const Color(0xff000000),
+        pageRouteBuilder: _defaultRouteBuilder,
         title: 'Slint todo',
-        home: Scaffold(body: SlintView(load: () => buildTodoUi(source))),
+        home: SlintView(load: () => buildTodoUi(source)),
+      );
+
+  /// The route builder `WidgetsApp` needs to turn `home` into a page route.
+  static PageRoute<T> _defaultRouteBuilder<T>(
+          RouteSettings settings, WidgetBuilder builder) =>
+      PageRouteBuilder<T>(
+        settings: settings,
+        pageBuilder: (context, animation, secondaryAnimation) =>
+            builder(context),
       );
 }
 

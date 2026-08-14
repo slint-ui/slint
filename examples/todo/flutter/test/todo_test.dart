@@ -1,12 +1,20 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:slint_flutter/slint_flutter.dart';
 import 'package:todo/main.dart' as app;
 import 'package:todo/ui/todo.slint.dart';
+
+/// The route builder `WidgetsApp` needs to turn `home` into a page route.
+PageRoute<T> _defaultRouteBuilder<T>(
+        RouteSettings settings, WidgetBuilder builder) =>
+    PageRouteBuilder<T>(
+      settings: settings,
+      pageBuilder: (context, animation, secondaryAnimation) => builder(context),
+    );
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -18,15 +26,15 @@ void main() {
     final source = await rootBundle.loadString(app.todoUiAsset);
     late MainWindow window;
 
-    await tester.pumpWidget(MaterialApp(
-      home: Scaffold(
-        body: SizedBox(
-          width: 400,
-          height: 600,
-          child: SlintView(
-            key: const ValueKey('todo-slint-view'),
-            load: () => window = app.buildTodoUi(source),
-          ),
+    await tester.pumpWidget(WidgetsApp(
+      color: const Color(0xff000000),
+      pageRouteBuilder: _defaultRouteBuilder,
+      home: SizedBox(
+        width: 400,
+        height: 600,
+        child: SlintView(
+          key: const ValueKey('todo-slint-view'),
+          load: () => window = app.buildTodoUi(source),
         ),
       ),
     ));

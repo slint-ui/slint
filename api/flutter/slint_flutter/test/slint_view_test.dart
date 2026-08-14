@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:slint_flutter/slint_flutter.dart';
 
@@ -26,6 +26,14 @@ final class _GeneratedApp implements SlintComponent {
   int get clicks => instance.getProperty('clicks')! as int;
 }
 
+/// The route builder `WidgetsApp` needs to turn `home` into a page route.
+PageRoute<T> _defaultRouteBuilder<T>(
+        RouteSettings settings, WidgetBuilder builder) =>
+    PageRouteBuilder<T>(
+      settings: settings,
+      pageBuilder: (context, animation, secondaryAnimation) => builder(context),
+    );
+
 void main() {
   testWidgets('sizes the surface and forwards taps to Slint', (tester) async {
     late ComponentInstance app;
@@ -34,7 +42,9 @@ void main() {
     final ComponentInstance Function() compatibleLoad = view.load;
     expect(identical(compatibleLoad, loadApp), isTrue);
 
-    await tester.pumpWidget(MaterialApp(
+    await tester.pumpWidget(WidgetsApp(
+      color: const Color(0xff000000),
+      pageRouteBuilder: _defaultRouteBuilder,
       home: Center(
         child: SizedBox(
           width: 300,
@@ -60,7 +70,9 @@ void main() {
   testWidgets('accepts a generated component wrapper', (tester) async {
     late _GeneratedApp app;
 
-    await tester.pumpWidget(MaterialApp(
+    await tester.pumpWidget(WidgetsApp(
+      color: const Color(0xff000000),
+      pageRouteBuilder: _defaultRouteBuilder,
       home: SizedBox(
         width: 300,
         height: 200,
