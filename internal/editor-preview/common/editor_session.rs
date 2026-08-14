@@ -167,7 +167,7 @@ impl EditorSession {
         self.to_preview.send(&LspToPreviewMessage::ShowPreview(component));
     }
 
-    pub(crate) async fn load_document_impl(
+    pub async fn load_document_impl(
         &mut self,
         content: String,
         url: lsp_types::Url,
@@ -417,7 +417,7 @@ pub fn convert_diagnostics(
     lsp_diags
 }
 
-pub(crate) fn collect_diagnostics(
+pub fn collect_diagnostics(
     document_cache: &common::DocumentCache,
     extra_files: &HashSet<PathBuf>,
     diag: BuildDiagnostics,

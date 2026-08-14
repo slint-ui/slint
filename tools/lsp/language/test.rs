@@ -3,7 +3,7 @@
 
 //! Code to help with writing tests for the language server
 
-use lsp_types::{Diagnostic, Url};
+use lsp_types::Url;
 
 use i_slint_live_preview::file_watcher::FileChangeKind;
 
@@ -12,9 +12,14 @@ use std::collections::{HashMap, HashSet};
 use std::path::Path;
 use std::rc::Rc;
 
-use crate::{
-    common,
-    common::{LspToPreviews, editor_session::convert_diagnostics},
+use crate::common;
+use crate::common::LspToPreviews;
+
+// Fixtures for the shared document model live with it.
+pub use i_slint_editor_preview::common::test::{
+    complex_document_cache, empty_document_cache, empty_document_cache_with_experimental, load,
+    loaded_document_cache, loaded_document_cache_with_experimental,
+    loaded_document_cache_with_file_name,
 };
 
 use super::Context;
@@ -71,172 +76,27 @@ pub fn mock_context() -> Context {
     }
 }
 
-/// Create an empty `DocumentCache`
-pub fn empty_document_cache() -> common::DocumentCache {
-    let config = crate::common::document_cache::CompilerConfiguration {
-        style: Some("fluent".to_string()),
-        ..Default::default()
-    };
-    common::DocumentCache::new(config)
-}
-
-/// Create an empty `DocumentCache` with experimental features enabled.
-pub fn empty_document_cache_with_experimental() -> common::DocumentCache {
-    let config = crate::common::document_cache::CompilerConfiguration {
-        style: Some("fluent".to_string()),
-        enable_experimental: true,
-        ..Default::default()
-    };
-    common::DocumentCache::new(config)
-}
-
-/// Create a `DocumentCache` with one document loaded into it.
-pub fn loaded_document_cache(
-    content: String,
-) -> (common::DocumentCache, Url, HashMap<Url, Vec<Diagnostic>>) {
-    loaded_document_cache_with_file_name(content, "bar.slint")
-}
-
-pub fn loaded_document_cache_with_file_name(
-    content: String,
-    file_name: &str,
-) -> (common::DocumentCache, Url, HashMap<Url, Vec<Diagnostic>>) {
-    load_content_with_document_cache(empty_document_cache(), content, file_name)
-}
-
-pub fn loaded_document_cache_with_experimental(
-    content: String,
-) -> (common::DocumentCache, Url, HashMap<Url, Vec<Diagnostic>>) {
-    load_content_with_document_cache(empty_document_cache_with_experimental(), content, "bar.slint")
-}
-
-fn load_content_with_document_cache(
-    mut dc: common::DocumentCache,
-    content: String,
-    file_name: &str,
-) -> (common::DocumentCache, Url, HashMap<Url, Vec<Diagnostic>>) {
-    // Pre-load std-widgets.slint:
-    spin_on::spin_on(dc.preload_builtins());
-
-    let dummy_absolute_path = if cfg!(target_family = "windows") {
-        format!("c://foo/{file_name}")
-    } else {
-        format!("/foo/{file_name}")
-    };
-    let url = Url::from_file_path(dummy_absolute_path).unwrap();
-    let mut ctx = crate::language::Context {
-        session: common::EditorSession {
-            document_cache: dc,
-            preview_config: Default::default(),
-            to_show: None,
-            open_urls: Default::default(),
-            to_preview: LspToPreviews::with_one(common::DummyLspToPreview::default()),
-            pending_recompile: Default::default(),
-        },
-        server_notifier: crate::ServerNotifier::dummy(),
-        init_param: Default::default(),
-        host_language_rename_dont_ask_again: Default::default(),
-    };
-    let (extra_files, diag) =
-        spin_on::spin_on(ctx.session.load_document_impl(content, url.clone(), Some(42)));
-
-    let diag = convert_diagnostics(&extra_files, diag, ctx.session.document_cache.format);
-    (ctx.session.document_cache, url, diag)
-}
-
-/// Create a `DocumentCache` with one comparatively complex test document loaded into it.
-pub fn complex_document_cache() -> (common::DocumentCache, Url, HashMap<Url, Vec<Diagnostic>>) {
-    loaded_document_cache(
-            r#"import { LineEdit, Button, Slider, HorizontalBox, VerticalBox } from "std-widgets.slint";
-
-component MainWindow inherits Window {
-    property <duration> total-time: slider.value * 1s;
-    property <duration> elapsed-time;
-
-    callback tick(duration);
-    tick(passed-time) => {
-        elapsed-time += passed-time;
-        elapsed-time = min(elapsed-time, total-time);
-    }
-
-    VerticalBox {
-        HorizontalBox {
-            padding-left: 0;
-            Text { text: "Elapsed Time:"; }
-            Rectangle {
-                min-width: 200px;
-                max-height: 30px;
-                background: gray;
-                Rectangle {
-                    height: 100%;
-                    width: parent.width * (elapsed-time/total-time);
-                    background: lightblue;
-                }
-            }
-        }
-        Text{
-            text: (total-time / 1s) + "s";
-        }
-        HorizontalBox {
-            padding-left: 0;
-            Text {
-                text: "Duration:";
-                vertical-alignment: center;
-            }
-            slider := Slider {
-                maximum: 30s / 1s;
-                value: 10s / 1s;
-                changed(new-duration) => {
-                    root.total-time = new-duration * 1s;
-                    root.elapsed-time = min(root.elapsed-time, root.total-time);
-                }
-            }
-        }
-        Button {
-            text: "Reset";
-            clicked => {
-                elapsed-time = 0
-            }
-        }
-    }
-}
-            "#.to_string())
-}
-
-pub fn load(
-    ctx: &mut Context,
-    path: &Path,
-    content: &str,
-) -> (Url, HashMap<Url, Vec<lsp_types::Diagnostic>>) {
-    let url = Url::from_file_path(path).unwrap();
-
-    let (main_file, diag) =
-        spin_on::spin_on(ctx.session.load_document_impl(content.into(), url.clone(), Some(1)));
-
-    (url, convert_diagnostics(&main_file, diag, ctx.session.document_cache.format))
-}
-
 #[test]
 fn accurate_diagnostics_in_dependencies() {
     // Test for issue 5797
     let mut ctx = mock_context();
 
     let (bar_url, diag) = load(
-        &mut ctx,
+        &mut ctx.session,
         &std::env::current_dir().unwrap().join("xxx/bar.slint"),
         r#" export component Bar { property <int> hi; } "#,
     );
     assert_eq!(diag, HashMap::from_iter([(bar_url.clone(), Vec::new())]));
 
     let (reexport_url, diag) = load(
-        &mut ctx,
+        &mut ctx.session,
         &std::env::current_dir().unwrap().join("xxx/reexport.slint"),
         r#"import { Bar } from "bar.slint"; export component Foo inherits Bar { in property <string> reexport; }"#,
     );
     assert_eq!(diag, HashMap::from_iter([(reexport_url.clone(), Vec::new())]));
 
     let (foo_url, diag) = load(
-        &mut ctx,
+        &mut ctx.session,
         &std::env::current_dir().unwrap().join("xxx/foo.slint"),
         r#"import { Foo } from "reexport.slint"; export component MainWindow inherits Window { Foo { hello: 45; } }"#,
     );
@@ -248,7 +108,7 @@ fn accurate_diagnostics_in_dependencies() {
     ctx.session.open_urls.insert(bar_url.clone());
 
     let (bar_url, diag) = load(
-        &mut ctx,
+        &mut ctx.session,
         &std::env::current_dir().unwrap().join("xxx/bar.slint"),
         r#" export component Bar { in property <int> hello; } "#,
     );
@@ -270,14 +130,14 @@ fn accurate_diagnostics_in_dependencies() {
     assert!(matches!(sym, lsp_types::DocumentSymbolResponse::Nested(result) if !result.is_empty()));
 
     let (foo_url, diag) = load(
-        &mut ctx,
+        &mut ctx.session,
         &std::env::current_dir().unwrap().join("xxx/foo.slint"),
         r#"import { Foo } from "reexport.slint"; export component MainWindow inherits Window { Foo { hi: 45; } }"#,
     );
     assert!(diag[&foo_url][0].message.contains("hi"));
 
     let (foo_url, diag) = load(
-        &mut ctx,
+        &mut ctx.session,
         &std::env::current_dir().unwrap().join("xxx/foo.slint"),
         r#"import { Foo } from "reexport.slint"; export component MainWindow inherits Window { Foo { hello: 12; } }"#,
     );
@@ -290,7 +150,7 @@ fn accurate_diagnostics_in_dependencies_with_parse_errors() {
     let mut ctx = mock_context();
 
     let (bar_url, diag) = load(
-        &mut ctx,
+        &mut ctx.session,
         &std::env::current_dir().unwrap().join("xxx/bar.slint"),
         r#" export component Bar { in property <int> hello; } "#,
     );
@@ -299,7 +159,7 @@ fn accurate_diagnostics_in_dependencies_with_parse_errors() {
     ctx.session.open_urls.insert(bar_url.clone());
 
     let (reexport_url, diag) = load(
-        &mut ctx,
+        &mut ctx.session,
         &std::env::current_dir().unwrap().join("xxx/reexport.slint"),
         r#"import { Bar } from "bar.slint"; export component Foo inherits Bar { in property <string> reexport; if true error }"#,
     );
@@ -309,7 +169,7 @@ fn accurate_diagnostics_in_dependencies_with_parse_errors() {
     ctx.session.open_urls.insert(reexport_url.clone());
 
     let (foo_url, diag) = load(
-        &mut ctx,
+        &mut ctx.session,
         &std::env::current_dir().unwrap().join("xxx/foo.slint"),
         r#"import { Foo } from "reexport.slint"; export component MainWindow inherits Window { Foo { hello: 45; world: 12; } }"#,
     );
@@ -321,7 +181,7 @@ fn accurate_diagnostics_in_dependencies_with_parse_errors() {
     ctx.session.open_urls.insert(foo_url.clone());
 
     let (bar_url, diag) = load(
-        &mut ctx,
+        &mut ctx.session,
         &std::env::current_dir().unwrap().join("xxx/bar.slint"),
         r#" export component Bar { private property <int> hello; in property <int> world; } "#,
     );
@@ -340,13 +200,13 @@ fn preview_file_recompiled_when_dependency_changes() {
     let mut ctx = mock_context();
 
     let (dep_url, _diag) = load(
-        &mut ctx,
+        &mut ctx.session,
         &std::env::current_dir().unwrap().join("xxx/bar.slint"),
         r#" export component Bar { property <int> hi; } "#,
     );
 
     let (main_url, _diag) = load(
-        &mut ctx,
+        &mut ctx.session,
         &std::env::current_dir().unwrap().join("xxx/main.slint"),
         r#"import { Dep } from "bar.slint"; export component Main { Dep { } }"#,
     );
@@ -377,12 +237,12 @@ fn request_state_re_sends_only_targeted_files_when_present() {
     let mut ctx = mock_context();
 
     let (url, _diag) = load(
-        &mut ctx,
+        &mut ctx.session,
         &std::env::current_dir().unwrap().join("xxx/main.slint"),
         r#"export component Main { }"#,
     );
 
-    ctx.to_preview = capture;
+    ctx.session.to_preview = capture;
     messages.borrow_mut().clear();
 
     crate::language::send_requested_state_to_preview(&ctx, &[url], &[]);
@@ -410,7 +270,7 @@ mod missing_imports {
 
         // Load main.slint that imports dep.slint, which does not yet exist.
         let (main_url, diag) = load(
-            &mut ctx,
+            &mut ctx.session,
             &dir.join("main.slint"),
             r#"import { Dep } from "dep.slint"; export component Main { Dep { } }"#,
         );
@@ -426,7 +286,8 @@ mod missing_imports {
         let (mut ctx, dir, main_url) = load_document_with_missing_import();
 
         // Now "create" dep.slint by opening it (simulating a DidOpenTextDocument / file rename).
-        let (dep_url, diag) = load(&mut ctx, &dir.join("dep.slint"), r#"export component Dep { }"#);
+        let (dep_url, diag) =
+            load(&mut ctx.session, &dir.join("dep.slint"), r#"export component Dep { }"#);
 
         assert!(diag[&dep_url].is_empty(), "dep.slint should have no errors");
         assert!(

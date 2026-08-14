@@ -22,8 +22,6 @@ pub use document_cache::DocumentCache;
 pub mod editor_session;
 pub use editor_session::EditorSession;
 pub use i_slint_compiler::diagnostics::ByteFormat;
-#[cfg(not(target_arch = "wasm32"))]
-pub mod host_language_search;
 pub mod import_edit;
 mod lsp_to_previews;
 pub mod rename_component;
@@ -33,7 +31,7 @@ pub use lsp_to_previews::LspToPreviews;
 #[allow(unused_imports)]
 #[cfg(all(not(target_arch = "wasm32"), feature = "preview-remote"))]
 pub use lsp_to_previews::RemoteTransport;
-#[cfg(test)]
+#[cfg(any(test, feature = "testing"))]
 pub mod test;
 #[cfg(any(test, feature = "preview-engine"))]
 pub mod text_edit;
@@ -66,8 +64,9 @@ where
 /// ignore a node for code analysis purposes.
 pub const NODE_IGNORE_COMMENT: &str = "@lsp:ignore-node";
 
+/// An `LspToPreview` that drops every message. Used by the test fixtures and by
+/// builds without a preview engine, which have no transport to send to.
 #[derive(Default, Clone)]
-#[allow(dead_code)]
 pub struct DummyLspToPreview {}
 
 impl LspToPreview for DummyLspToPreview {
@@ -416,7 +415,7 @@ pub fn create_workspace_edit_from_text_document_edits(
 /// the other `create_workspace_edit*` helpers. Fields not in `document_changes`
 /// are not merged (`changes`, `change_annotations`, and the `Operations`
 /// variant); the assertion below catches the misuse in debug builds.
-#[cfg(test)]
+#[cfg(any(test, feature = "testing"))]
 pub fn merge_workspace_edits(base: &mut WorkspaceEdit, additional: WorkspaceEdit) {
     debug_assert!(
         additional.changes.is_none() && additional.change_annotations.is_none(),
@@ -635,70 +634,6 @@ pub fn poll_once<F: std::future::Future>(future: F) -> Option<F::Output> {
     match future.poll(&mut ctx) {
         std::task::Poll::Ready(result) => Some(result),
         std::task::Poll::Pending => None,
-    }
-}
-
-#[cfg(any(feature = "preview-external", feature = "preview-engine"))]
-pub mod lsp_to_editor {
-    pub fn notify_lsp_diagnostics(
-        sender: &crate::ServerNotifier,
-        uri: lsp_types::Url,
-        version: super::SourceFileVersion,
-        diagnostics: Vec<lsp_types::Diagnostic>,
-    ) -> Option<()> {
-        sender
-            .send_notification::<lsp_types::notification::PublishDiagnostics>(
-                lsp_types::PublishDiagnosticsParams { uri, diagnostics, version },
-            )
-            .ok()
-    }
-
-    fn show_document_request_from_element_callback(
-        uri: lsp_types::Url,
-        range: lsp_types::Range,
-        take_focus: bool,
-    ) -> Option<lsp_types::ShowDocumentParams> {
-        if range.start.character == 0 || range.end.character == 0 {
-            return None;
-        }
-
-        Some(lsp_types::ShowDocumentParams {
-            uri,
-            external: Some(false),
-            take_focus: Some(take_focus),
-            selection: Some(range),
-        })
-    }
-
-    pub async fn send_show_document_to_editor(
-        sender: crate::ServerNotifier,
-        file: lsp_types::Url,
-        range: lsp_types::Range,
-        take_focus: bool,
-    ) {
-        let Some(params) = show_document_request_from_element_callback(file, range, take_focus)
-        else {
-            return;
-        };
-        let Ok(fut) = sender.send_request::<lsp_types::request::ShowDocument>(params) else {
-            return;
-        };
-
-        let _ = fut.await;
-    }
-}
-
-/// Publish the diagnostics returned by the document lifecycle functions to the LSP client.
-///
-/// Does nothing unless the `preview-engine` feature is enabled.
-#[cfg_attr(not(feature = "preview-engine"), allow(unused_variables))]
-pub fn publish_diagnostics(
-    server_notifier: &crate::ServerNotifier,
-    diagnostics: VersionedDiagnostics,
-) {
-    #[cfg(feature = "preview-engine")]
-    for (uri, version, diagnostics) in diagnostics {
-        let _ = lsp_to_editor::notify_lsp_diagnostics(server_notifier, uri, version, diagnostics);
     }
 }
 

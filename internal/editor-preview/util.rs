@@ -396,7 +396,7 @@ fn lookup_expression_context(mut n: SyntaxNode) -> Option<ExpressionContextInfo>
 mod tests {
     use super::*;
 
-    use crate::language::test::loaded_document_cache;
+    use crate::common::test::loaded_document_cache;
 
     #[test]
     fn test_find_element_indent() {

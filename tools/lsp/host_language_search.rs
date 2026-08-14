@@ -24,7 +24,7 @@ use i_slint_compiler::diagnostics::{ByteFormat, SourceFile, SourceFileInner};
 use i_slint_compiler::generator::accessor_names::{self, DeclarationKind};
 use lsp_types::{InitializeParams, TextEdit, Url, WorkspaceFolder};
 
-use super::SingleTextEdit;
+use i_slint_editor_preview::common::SingleTextEdit;
 
 /// Host-language file extensions the scanner considers.
 const HOST_FILE_EXTENSIONS: &[&str] = &["rs", "cpp", "cc", "cxx", "h", "hpp", "hh"];
@@ -389,6 +389,9 @@ fn byte_range_to_lsp_range(
         ),
     }
 }
+
+#[cfg(test)]
+mod rename_tests;
 
 #[cfg(test)]
 mod tests {

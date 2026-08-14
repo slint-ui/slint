@@ -933,7 +933,7 @@ fn schedule_host_language_rename_followup(
         // Folders can change after initialization; query the client now
         // rather than reusing the InitializeParams snapshot.
         let workspace_folders =
-            common::host_language_search::current_workspace_folders(&server_notifier, &init_param)
+            crate::host_language_search::current_workspace_folders(&server_notifier, &init_param)
                 .await;
         run_host_language_rename_followup(
             server_notifier,
@@ -1006,13 +1006,13 @@ async fn run_host_language_rename_followup(
 
     match chosen.as_deref() {
         Some(title) if title == action_replace => {
-            let scan_result = common::host_language_search::search_replace_host_language_accessors(
+            let scan_result = crate::host_language_search::search_replace_host_language_accessors(
                 &workspace_folders,
                 info.kind,
                 &info.old_name,
                 &new_name,
                 format,
-                common::host_language_search::ScanBounds::DEFAULT,
+                crate::host_language_search::ScanBounds::DEFAULT,
             );
             match scan_result {
                 Ok(edits) if edits.is_empty() => {
@@ -1844,7 +1844,7 @@ pub async fn load_configuration(ctx: &mut Context) -> common::Result<()> {
         &all_files.iter().filter_map(common::uri_to_file).collect(),
         diag,
     );
-    common::publish_diagnostics(&ctx.server_notifier, diagnostics);
+    crate::lsp_to_editor::publish_diagnostics(&ctx.server_notifier, diagnostics);
 
     let config = PreviewConfig {
         hide_ui,
@@ -2097,7 +2097,7 @@ pub mod tests {
             ..Default::default()
         });
         let mut future =
-            Box::pin(common::host_language_search::current_workspace_folders(&notifier, &init));
+            Box::pin(crate::host_language_search::current_workspace_folders(&notifier, &init));
 
         assert!(poll_future(future.as_mut()).is_pending());
         let request = client.next_request("workspace/workspaceFolders");

@@ -1,0 +1,65 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+# cSpell: ignore nucleo
+[package]
+name = "i-slint-editor-preview"
+description = "Shared document model and editing session for the Slint language server and visual editor"
+authors.workspace = true
+documentation.workspace = true
+edition.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+# Repo-internal design notes; not part of the published crate.
+exclude = ["DESIGN.md"]
+
+[lib]
+path = "lib.rs"
+
+[features]
+## Build in the actual code to act as a preview for slint files.
+preview-engine = []
+## Build in the actual code to act as a preview for slint files. Does nothing in WASM!
+preview-builtin = ["preview-engine"]
+## Support the external preview optionally used by e.g. the VSCode plugin
+preview-external = []
+## Support the remote preview via a WebSocket connection
+preview-remote = ["preview-engine", "preview-builtin"]
+## Expose the test fixtures so that dependent crates can build on them
+testing = ["dep:i-slint-backend-testing", "dep:spin_on"]
+
+[dependencies]
+i-slint-compiler = { workspace = true, features = ["display-diagnostics"] }
+i-slint-live-preview = { version = "=1.18.0", path = "../live-preview", features = ["protocol", "file-watcher"] }
+
+itertools = { workspace = true }
+lsp-types = { workspace = true }
+nucleo-matcher = "0.3.1"
+serde = { workspace = true }
+smol_str = { workspace = true }
+tracing = { workspace = true }
+
+futures-util = "0.3.32"
+
+# for the `testing` feature
+i-slint-backend-testing = { workspace = true, optional = true }
+spin_on = { workspace = true, optional = true }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+tokio = { version = "1.50.0", features = ["rt"] }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen-futures = "0.4.30"
+
+[dev-dependencies]
+i-slint-backend-testing = { path = "../backends/testing" }
+spin_on = { workspace = true }
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--generate-link-to-definition"]
