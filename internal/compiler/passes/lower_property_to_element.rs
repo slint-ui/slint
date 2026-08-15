@@ -120,6 +120,7 @@ fn create_property_element(
         base_type: type_register.lookup_element(element_name).unwrap(),
         enclosing_component: child.borrow().enclosing_component.clone(),
         bindings,
+        is_injected_wrapper_element: true,
         ..Default::default()
     };
     element.make_rc()

@@ -12,6 +12,12 @@ dependencies = ["briefcase>=0.3.23"]
 [project.entry-points."briefcase.bootstraps"]
 Slint = "briefcasex_slint:SlintGuiBootstrap"
 
+[dependency-groups]
+# ruff is pinned exactly so CI and local runs agree on which diagnostics exist.
+# Dependabot bumps it; keep the version in sync with api/python/slint and
+# docs/python.
+dev = ["ruff==0.16.3"]
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"

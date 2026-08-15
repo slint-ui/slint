@@ -27,6 +27,23 @@ pub struct HighlightedRect {
     pub rect: LogicalRect,
     /// In degrees, around the center of the element.
     pub angle: f32,
+    /// Absolute origin of this instance's parent coordinate system (in root coordinates).
+    ///
+    /// `rect.origin - parent_origin` yields the element's position relative to its parent,
+    /// which matches the `x`/`y` properties written to the source. This is computed from the
+    /// instance's own ancestors, so it stays correct even if the element is positioned outside
+    /// of (or with a negative offset relative to) its parent.
+    ///
+    /// Both values are in root coordinates, so the subtraction only recovers the source `x`/`y`
+    /// while the parent frame is axis-aligned and unscaled — recovering it under a rotated or
+    /// scaled ancestor would additionally need to map the delta through the inverse ancestor
+    /// transform.
+    pub parent_origin: LogicalPoint,
+    /// Absolute rotation (in degrees) of this instance's parent coordinate system.
+    ///
+    /// `angle - parent_rotation` yields the element's own rotation relative to its parent, which
+    /// matches the `rotation-angle`/`transform-rotation` property written to the source.
+    pub parent_rotation: f32,
 }
 impl HighlightedRect {
     /// Returns true if `position` lies inside the (potentially rotated) rectangle.
@@ -290,6 +307,22 @@ fn sub_component_idx_at_path(
     current
 }
 
+/// Whether the item's LLR debug info marks it as an injected geometry
+/// wrapper (`Element::is_injected_wrapper_element`).
+fn is_injected_wrapper_element(instance: &VRc<ItemTreeVTable, Instance>, flat_idx: usize) -> bool {
+    let cu = &instance.root_sub_component.compilation_unit;
+    let root_ty = instance.root_sub_component.sub_component_idx;
+    let Some(Some((path, local_idx))) = instance.item_table.get(flat_idx) else {
+        return false;
+    };
+    let sc_idx = sub_component_idx_at_path(cu, root_ty, path);
+    cu.sub_components[sc_idx]
+        .debug_info
+        .as_ref()
+        .and_then(|debug| debug.items.get(*local_idx))
+        .is_some_and(|item_debug| item_debug.is_injected_wrapper_element)
+}
+
 fn item_flat_index_to_rect(
     instance: &VRc<ItemTreeVTable, Instance>,
     root: &VRc<ItemTreeVTable, Instance>,
@@ -297,12 +330,41 @@ fn item_flat_index_to_rect(
 ) -> Option<HighlightedRect> {
     let vrc = VRc::into_dyn(instance.clone());
     let root_vrc = VRc::into_dyn(root.clone());
-    let item_rc = ItemRc::new(vrc, flat_idx as u32);
+    let item_rc = ItemRc::new(vrc.clone(), flat_idx as u32);
     let geometry = item_rc.geometry();
     if geometry.size.is_empty() {
         return None;
     }
+    // Injected geometry wrappers (opacity/transform/clip/... created by
+    // `lower_property_to_element`) take over the element's geometry and lay the element
+    // out at (0,0) inside themselves, so measuring the parent frame from the element
+    // directly would collapse `rect.origin - parent_origin` to ~0.
+    let mut anchor = item_rc.clone();
+    while let Some(parent) =
+        anchor.parent_item(i_slint_core::item_tree::ParentItemTraversalMode::StopAtPopups)
+    {
+        if !VRc::ptr_eq(parent.item_tree(), &vrc) {
+            break; // crossed into another component instance's item tree
+        }
+        if !is_injected_wrapper_element(instance, parent.index() as usize) {
+            break;
+        }
+        anchor = parent;
+    }
+
     let origin = item_rc.map_to_item_tree(geometry.origin, &root_vrc);
+    // `map_to_item_tree` does not add the item's own x/y, so mapping the zero point of
+    // the anchor yields the absolute origin of the element's source-parent coordinate
+    // system.
+    let parent_origin = anchor.map_to_item_tree(LogicalPoint::default(), &root_vrc);
+    // The source parent's absolute rotation: map a unit x-vector of the anchor's frame.
+    // `map_to_item_tree` applies the ancestors' transforms but not the anchor's own, so
+    // this excludes the element's own rotation (applied by its injected `Transform`).
+    let parent_rotation = {
+        let frame_x_axis = anchor.map_to_item_tree(LogicalPoint::new(1.0, 0.0), &root_vrc);
+        let delta = frame_x_axis - parent_origin;
+        delta.y.atan2(delta.x).to_degrees()
+    };
     let top_right = item_rc
         .map_to_item_tree(geometry.origin + euclid::vec2(geometry.size.width, 0.), &root_vrc);
     let delta = top_right - origin;
@@ -324,6 +386,8 @@ fn item_flat_index_to_rect(
             size: euclid::size2(width, height),
         },
         angle: angle_rad.to_degrees(),
+        parent_origin,
+        parent_rotation,
     })
 }
 
@@ -370,4 +434,120 @@ fn positions_by_source(
         }
     }
     results
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{
+        ComponentInstance,
+        debug_hook::tests::{compile_with_debug_hooks, test_path},
+    };
+
+    fn geometry_of(
+        instance: &ComponentInstance,
+        code: &str,
+        id: &str,
+    ) -> crate::highlight::HighlightedRect {
+        let id_position = code.find(id).unwrap_or_else(|| panic!("{id} not found"));
+        let offset = id_position + code[id_position..].find("Rectangle").unwrap();
+        let (element, _) = instance
+            .element_node_at_source_code_position(&test_path(), offset as u32)
+            .first()
+            .cloned()
+            .unwrap_or_else(|| panic!("element {id} not resolved"));
+        *instance.element_positions(&element).first().expect("geometry")
+    }
+
+    // With debug_hooks enabled every element is wrapped in injected geometry wrappers
+    // (`Transform`, plus `Opacity` etc. when those props are set), which take over the element's
+    // geometry. `element_positions` must still report a `parent_origin` from which the element's
+    // own `x`/`y` can be recovered (`rect.origin - parent_origin == x/y`), otherwise the editor
+    // commits wrong coordinates when repositioning. This must hold through stacked wrappers and
+    // for elements nested below a non-root parent.
+    #[test]
+    fn debug_hooks_parent_origin() {
+        let code = r#"
+export component Win inherits Window {
+    width: 300px;
+    height: 200px;
+    plain := Rectangle {
+        x: 30px;
+        y: 40px;
+        width: 50px;
+        height: 60px;
+    }
+    faded := Rectangle {
+        // extra Opacity and visibility-Clip wrappers stacked around the Transform wrapper
+        opacity: 0.5;
+        visible: true;
+        x: 70px;
+        y: 80px;
+        width: 40px;
+        height: 30px;
+    }
+    outer := Rectangle {
+        x: 10px;
+        y: 20px;
+        width: 120px;
+        height: 100px;
+        nested := Rectangle {
+            x: 5px;
+            y: 7px;
+            width: 20px;
+            height: 20px;
+        }
+    }
+}"#;
+        let instance = compile_with_debug_hooks(code);
+
+        let check = |id: &str, expected: (f32, f32)| {
+            let geometry = geometry_of(&instance, code, id);
+            let x = geometry.rect.origin.x - geometry.parent_origin.x;
+            let y = geometry.rect.origin.y - geometry.parent_origin.y;
+            assert!(
+                (x - expected.0).abs() < 0.5 && (y - expected.1).abs() < 0.5,
+                "{id}: source-relative position ({x}, {y}) should be {expected:?}"
+            );
+        };
+
+        check("plain", (30.0, 40.0));
+        check("faded", (70.0, 80.0));
+        check("nested", (5.0, 7.0));
+    }
+
+    #[test]
+    fn debug_hooks_parent_rotation() {
+        let code = r#"
+export component Win inherits Window {
+    width: 300px;
+    height: 300px;
+    outer := Rectangle {
+        x: 50px;
+        y: 50px;
+        width: 160px;
+        height: 160px;
+        transform-rotation: 30deg;
+        inner := Rectangle {
+            x: 20px;
+            y: 20px;
+            width: 40px;
+            height: 40px;
+            transform-rotation: 15deg;
+        }
+    }
+}"#;
+        let instance = compile_with_debug_hooks(code);
+
+        let check = |id: &str, expected: f32| {
+            let geometry = geometry_of(&instance, code, id);
+            let rotation = geometry.angle - geometry.parent_rotation;
+            assert!(
+                (rotation - expected).abs() < 0.5,
+                "{id}: source-relative rotation {rotation} should be {expected}"
+            );
+        };
+
+        check("outer", 30.0);
+        check("inner", 15.0);
+    }
 }

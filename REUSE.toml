@@ -54,6 +54,7 @@ path = [
   "examples/Cargo.lock",
   "demos/Cargo.lock",
   "tests/Cargo.lock",
+  "**/uv.lock",
   "REUSE.toml",
   "biome.json",
   "knip.json",

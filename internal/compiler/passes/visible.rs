@@ -125,6 +125,7 @@ fn create_visibility_element(child: &ElementRc, native_clip: &Arc<NativeClass>) 
         ]
         .into_iter()
         .collect(),
+        is_injected_wrapper_element: true,
         ..Default::default()
     };
     Element::make_rc(element)

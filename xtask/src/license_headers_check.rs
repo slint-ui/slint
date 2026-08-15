@@ -505,6 +505,7 @@ static LICENSE_LOCATION_FOR_FILE: LazyLock<Vec<(regex::Regex, LicenseLocation)>>
             ("(^|/)Cargo\\.lock$", LicenseLocation::NoLicense),
             ("(^|/)flake\\.nix$", LicenseLocation::NoLicense),
             ("(^|/)flake\\.lock$", LicenseLocation::NoLicense),
+            ("(^|/)uv\\.lock$", LicenseLocation::NoLicense),
             ("^demos/.*/zephyr/VERSION$", LicenseLocation::NoLicense),
             ("^examples/mcu-board-support/pico2_st7789/rp_pico2.rs$", LicenseLocation::NoLicense), // third-party file
             // filename based matches:
