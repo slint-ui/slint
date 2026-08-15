@@ -103,3 +103,130 @@ def test_properties_gc() -> None:
     model = None
     gc.collect()
     assert instance.get_property("test-value").row_count() == 3
+
+
+def test_model_survives_partial_gc() -> None:
+    """A model only Slint still references must survive a partial collection.
+
+    A young (partial) collection does not traverse the old component instance,
+    so the wrapper of a model held in a property must not rely on that
+    traversal to stay alive. It used to be collected, leaving the Rust model
+    without its Python implementation ("Model implementation is lacking self
+    object").
+    """
+    compiler = native.Compiler()
+
+    compdef = compiler.build_from_source(
+        """
+        export global TestGlobal {
+            in-out property <[int]> test-value;
+        }
+        export component Test {
+            in-out property <[int]> test-value;
+        }
+    """,
+        Path(""),
+    ).component("Test")
+    assert compdef is not None
+
+    instance: native.ComponentInstance | None = compdef.create()
+    assert instance is not None
+
+    # Park the instance in the old generation, like a long-running app does.
+    # Young collections then no longer traverse it.
+    gc.collect()
+
+    model: slint.ListModel[int] | None = slint.ListModel([1, 2, 3])
+    assert model is not None
+    instance.set_property("test-value", model)
+    instance.set_global_property("TestGlobal", "test-value", model)
+    model = None
+
+    # Collect only the young generations; a full collection would traverse the
+    # instance and hide the bug.
+    gc.collect(0)
+    gc.collect(1)
+
+    assert instance.get_property("test-value").row_count() == 3
+    assert instance.get_global_property("TestGlobal", "test-value").row_count() == 3
+
+
+def test_model_released_with_instance() -> None:
+    """A model assigned to a property is released by reference count alone.
+
+    When the instance dies, its properties drop the last `ModelRc`, which
+    releases the wrapper. No garbage collection is needed.
+    """
+    compiler = native.Compiler()
+
+    compdef = compiler.build_from_source(
+        """
+        export component Test {
+            in-out property <[int]> test-value;
+        }
+    """,
+        Path(""),
+    ).component("Test")
+    assert compdef is not None
+
+    instance: native.ComponentInstance | None = compdef.create()
+    assert instance is not None
+
+    model: slint.ListModel[int] | None = slint.ListModel([1, 2, 3])
+    assert model is not None
+    instance.set_property("test-value", model)
+
+    instance_weak = weakref.ref(instance)
+    model_weak = weakref.ref(model)
+    model = None
+    instance = None
+
+    assert instance_weak() is None
+    assert model_weak() is None
+
+
+def test_unassigned_model_released_by_refcount() -> None:
+    """A model that never reached a property holds no reference cycle.
+
+    Such a model used to leak until the next full collection cleared the
+    cycle between the wrapper and its shared model.
+    """
+    model = slint.ListModel([1, 2, 3])
+    model_weak = weakref.ref(model)
+    del model
+    assert model_weak() is None
+
+
+def test_model_reassignment_after_drop() -> None:
+    """Assigning a model again after Slint dropped it brings it back.
+
+    Python can keep a model alive after its last `ModelRc` went away (the
+    replacement on a re-assignment). Handing such a model to Slint again
+    wraps it in a fresh shared model, with the rows intact.
+    """
+    compiler = native.Compiler()
+
+    compdef = compiler.build_from_source(
+        """
+        export component Test {
+            in-out property <[int]> test-value;
+        }
+    """,
+        Path(""),
+    ).component("Test")
+    assert compdef is not None
+
+    instance: native.ComponentInstance | None = compdef.create()
+    assert instance is not None
+
+    model = slint.ListModel([1, 2, 3])
+    instance.set_property("test-value", model)
+    # Replacing the property drops the last `ModelRc` of `model`.
+    instance.set_property("test-value", slint.ListModel([7]))
+    instance.set_property("test-value", model)
+
+    assert instance.get_property("test-value").row_count() == 3
+
+    # Mutations must still reach the views attached to the fresh model.
+    model.append(4)
+    assert instance.get_property("test-value").row_count() == 4
