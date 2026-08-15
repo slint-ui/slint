@@ -3,7 +3,6 @@
 
 // cSpell: ignore getitem
 use std::cell::RefCell;
-use std::mem;
 use std::rc::{Rc, Weak};
 
 use i_slint_compiler::langtype::Type;
@@ -49,17 +48,6 @@ enum ModelOwnership {
     OwnedBySlint(Weak<PyModelShared>),
 }
 
-impl ModelOwnership {
-    fn into_strong(self) -> Rc<PyModelShared> {
-        match self {
-            Self::OwnedByWrapper(shared) => shared,
-            Self::OwnedBySlint(weak) => {
-                weak.upgrade().unwrap_or_else(|| Rc::new(PyModelShared::default()))
-            }
-        }
-    }
-}
-
 #[pyclass(unsendable, weakref, subclass, skip_from_py_object)]
 pub struct PyModelBase {
     inner: RefCell<ModelOwnership>,
@@ -74,9 +62,11 @@ impl PyModelBase {
     }
 
     pub fn as_model(&self, wrapper: &Bound<'_, PyAny>) -> ModelRc<slint_interpreter::Value> {
-        let shared =
-            mem::replace(&mut *self.inner.borrow_mut(), ModelOwnership::OwnedBySlint(Weak::new()))
-                .into_strong();
+        // Handing the model to Slint moves ownership of the shared model into the returned
+        // ModelRc; the wrapper only keeps a weak reference from now on. A failed upgrade
+        // means Slint already dropped its last ModelRc of this model (e.g. the property
+        // was reassigned), so wrap the wrapper in a fresh shared model.
+        let shared = self.shared_model().unwrap_or_else(|| Rc::new(PyModelShared::default()));
         *self.inner.borrow_mut() = ModelOwnership::OwnedBySlint(Rc::downgrade(&shared));
         *shared.self_ref.borrow_mut() = Some(wrapper.clone().unbind());
         shared.into()
@@ -92,6 +82,9 @@ impl PyModelBase {
         }
     }
 
+    // The notifications are no-ops once Slint dropped the last ModelRc of this model (the
+    // weak reference is dead): there are no views attached anymore to notify. The wrapper
+    // stays usable, and handing the model to Slint again re-attaches a fresh shared model.
     fn notify_row_added(&self, index: usize, count: usize) {
         if let Some(shared) = self.shared_model() {
             shared.notify.row_added(index, count)

@@ -230,3 +230,106 @@ def test_model_reassignment_after_drop() -> None:
     # Mutations must still reach the views attached to the fresh model.
     model.append(4)
     assert instance.get_property("test-value").row_count() == 4
+
+
+def test_custom_model_survives_partial_gc() -> None:
+    """A user-defined Model keeps its Python state through a partial collection.
+
+    Unlike `ListModel`, the row data of a `Model` subclass lives in the
+    wrapper's Python state. The wrapper must survive partial collections
+    just like `ListModel`'s, so rows are not lost while Slint still
+    references the model.
+    """
+
+    class CustomModel(slint.Model[int]):
+        def __init__(self) -> None:
+            super().__init__()
+            self._rows = [1, 2, 3]
+
+        def row_count(self) -> int:
+            return len(self._rows)
+
+        def row_data(self, row: int) -> int | None:
+            if 0 <= row < len(self._rows):
+                return self._rows[row]
+            return None
+
+    compiler = native.Compiler()
+
+    compdef = compiler.build_from_source(
+        """
+        export component Test {
+            in-out property <[int]> test-value;
+        }
+    """,
+        Path(""),
+    ).component("Test")
+    assert compdef is not None
+
+    instance: native.ComponentInstance | None = compdef.create()
+    assert instance is not None
+
+    # Park the instance in the old generation, like a long-running app does.
+    gc.collect()
+
+    model: CustomModel | None = CustomModel()
+    assert model is not None
+    instance.set_property("test-value", model)
+    model = None
+
+    gc.collect(0)
+    gc.collect(1)
+
+    assert instance.get_property("test-value").row_count() == 3
+    assert instance.get_property("test-value").row_data(1) == 2
+
+
+def test_model_in_reference_cycle_survives_gc() -> None:
+    """A model only kept alive by Slint survives a full collection in a cycle.
+
+    Slint keeps the wrapper alive through a reference invisible to the
+    cyclic garbage collector. Even when the wrapper participates in a
+    Python reference cycle, a full collection must not release it while
+    Slint still owns the model: the wrapper has no `__clear__`, so the
+    cycle cannot be broken and the model stays alive and usable.
+    """
+
+    class CustomModel(slint.Model[int]):
+        def __init__(self) -> None:
+            super().__init__()
+            self._rows = [1, 2, 3]
+            self.cycle: object | None = None
+
+        def row_count(self) -> int:
+            return len(self._rows)
+
+        def row_data(self, row: int) -> int | None:
+            if 0 <= row < len(self._rows):
+                return self._rows[row]
+            return None
+
+    compiler = native.Compiler()
+
+    compdef = compiler.build_from_source(
+        """
+        export component Test {
+            in-out property <[int]> test-value;
+        }
+    """,
+        Path(""),
+    ).component("Test")
+    assert compdef is not None
+
+    instance: native.ComponentInstance | None = compdef.create()
+    assert instance is not None
+
+    model: CustomModel | None = CustomModel()
+    assert model is not None
+    instance.set_property("test-value", model)
+    model.cycle = model  # reference cycle through the wrapper
+    model = None
+
+    gc.collect()
+
+    assert instance.get_property("test-value").row_count() == 3
+    assert instance.get_property("test-value").row_data(1) == 2

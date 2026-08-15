@@ -19,6 +19,13 @@ class Model[T](native.PyModelBase, Iterable[T]):
     def __new__(cls, *args: Any) -> typing.Self:
         return super().__new__(cls)
 
+    def __init__(self) -> None:
+        """Kept for backwards compatibility: subclasses may call super().__init__().
+
+        There is nothing to initialize anymore; ownership of the shared
+        model is set up when the model is handed to Slint.
+        """
+
     def __len__(self) -> int:
         return self.row_count()
 
@@ -41,7 +48,7 @@ class Model[T](native.PyModelBase, Iterable[T]):
     def row_data(self, row: int) -> T | None:
         """Returns the data for the given row.
         Re-implement this method in a sub-class to provide the data."""
-        return cast(T, super().row_data(row))
+        return cast("T", super().row_data(row))
 
     def append(self, value: T) -> None:
         """Add a new row to the model with the provided value.
@@ -151,7 +158,7 @@ class ModelIterator[T](Iterator[T]):
 
     def __next__(self) -> T:
         if self.index >= self.model.row_count():
-            raise StopIteration()
+            raise StopIteration
         index = self.index
         self.index += 1
         data = self.model.row_data(index)
