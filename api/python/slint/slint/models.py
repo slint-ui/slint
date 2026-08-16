@@ -19,13 +19,6 @@ class Model[T](native.PyModelBase, Iterable[T]):
     def __new__(cls, *args: Any) -> typing.Self:
         return super().__new__(cls)
 
-    def __init__(self) -> None:
-        """Kept for backwards compatibility: subclasses may call super().__init__().
-
-        There is nothing to initialize anymore; ownership of the shared
-        model is set up when the model is handed to Slint.
-        """
-
     def __len__(self) -> int:
         return self.row_count()
 
