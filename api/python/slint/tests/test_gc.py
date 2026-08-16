@@ -105,6 +105,15 @@ def test_properties_gc() -> None:
     assert instance.get_property("test-value").row_count() == 3
 
 
+def make_instance(source: str) -> native.ComponentInstance:
+    """Compile `source` and instantiate its `Test` component."""
+    compdef = native.Compiler().build_from_source(source, Path()).component("Test")
+    assert compdef is not None
+    instance = compdef.create()
+    assert instance is not None
+    return instance
+
+
 def test_model_survives_partial_gc() -> None:
     """A model only Slint still references must survive a partial collection.
 
@@ -114,9 +123,7 @@ def test_model_survives_partial_gc() -> None:
     without its Python implementation ("Model implementation is lacking self
     object").
     """
-    compiler = native.Compiler()
-
-    compdef = compiler.build_from_source(
+    instance = make_instance(
         """
         export global TestGlobal {
             in-out property <[int]> test-value;
@@ -124,13 +131,8 @@ def test_model_survives_partial_gc() -> None:
         export component Test {
             in-out property <[int]> test-value;
         }
-    """,
-        Path(""),
-    ).component("Test")
-    assert compdef is not None
-
-    instance: native.ComponentInstance | None = compdef.create()
-    assert instance is not None
+    """
+    )
 
     # Park the instance in the old generation, like a long-running app does.
     # Young collections then no longer traverse it.
@@ -157,20 +159,13 @@ def test_model_released_with_instance() -> None:
     When the instance dies, its properties drop the last `ModelRc`, which
     releases the wrapper. No garbage collection is needed.
     """
-    compiler = native.Compiler()
-
-    compdef = compiler.build_from_source(
+    instance: native.ComponentInstance | None = make_instance(
         """
         export component Test {
             in-out property <[int]> test-value;
         }
-    """,
-        Path(""),
-    ).component("Test")
-    assert compdef is not None
-
-    instance: native.ComponentInstance | None = compdef.create()
-    assert instance is not None
+    """
+    )
 
     model: slint.ListModel[int] | None = slint.ListModel([1, 2, 3])
     assert model is not None
@@ -204,20 +199,13 @@ def test_model_reassignment_after_drop() -> None:
     replacement on a re-assignment). Handing such a model to Slint again
     wraps it in a fresh shared model, with the rows intact.
     """
-    compiler = native.Compiler()
-
-    compdef = compiler.build_from_source(
+    instance = make_instance(
         """
         export component Test {
             in-out property <[int]> test-value;
         }
-    """,
-        Path(""),
-    ).component("Test")
-    assert compdef is not None
-
-    instance: native.ComponentInstance | None = compdef.create()
-    assert instance is not None
+    """
+    )
 
     model = slint.ListModel([1, 2, 3])
     instance.set_property("test-value", model)
@@ -254,20 +242,13 @@ def test_custom_model_survives_partial_gc() -> None:
                 return self._rows[row]
             return None
 
-    compiler = native.Compiler()
-
-    compdef = compiler.build_from_source(
+    instance = make_instance(
         """
         export component Test {
             in-out property <[int]> test-value;
         }
-    """,
-        Path(""),
-    ).component("Test")
-    assert compdef is not None
-
-    instance: native.ComponentInstance | None = compdef.create()
-    assert instance is not None
+    """
+    )
 
     # Park the instance in the old generation, like a long-running app does.
     gc.collect()
@@ -308,20 +289,13 @@ def test_model_in_reference_cycle_survives_gc() -> None:
                 return self._rows[row]
             return None
 
-    compiler = native.Compiler()
-
-    compdef = compiler.build_from_source(
+    instance = make_instance(
         """
         export component Test {
             in-out property <[int]> test-value;
         }
-    """,
-        Path(""),
-    ).component("Test")
-    assert compdef is not None
-
-    instance: native.ComponentInstance | None = compdef.create()
-    assert instance is not None
+    """
+    )
 
     model: CustomModel | None = CustomModel()
     assert model is not None
