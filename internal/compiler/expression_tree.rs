@@ -1566,6 +1566,15 @@ impl Expression {
         symbol_counters: &SymbolCounters,
     ) -> Expression {
         let ty = self.ty();
+
+        if let Expression::Condition { .. } = self
+            && ty == Type::Void
+        {
+            // The true and false expressions do not return the same type. So at least one does not match
+            // with expected and an error was already added so we don't have to add an additional error here
+            return self;
+        }
+
         if ty == target_type
             || target_type == Type::Void
             || target_type == Type::Invalid
@@ -1753,18 +1762,18 @@ impl Expression {
             Expression::Condition {
                 condition,
                 true_expr: Box::new(true_expr.maybe_convert_to(
-                    target_type.clone(),
-                    node,
-                    diag,
-                    symbol_counters,
+                target_type.clone(),
+                node,
+                diag,
+                symbol_counters,
                 )),
-                false_expr: Box::new(false_expr.maybe_convert_to(
-                    target_type,
-                    node,
-                    diag,
-                    symbol_counters,
-                )),
-            }
+                    false_expr: Box::new(false_expr.maybe_convert_to(
+                        target_type,
+                        node,
+                        diag,
+                        symbol_counters,
+                    )),
+                }
         } else {
             let mut message = format!("Cannot convert {ty} to {target_type}");
             // Explicit error message for unit conversion
