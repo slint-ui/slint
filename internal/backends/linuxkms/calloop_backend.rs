@@ -20,7 +20,10 @@ use i_slint_core::platform::PlatformError;
 use crate::BackendBuilder;
 use crate::fullscreenwindowadapter::FullscreenWindowAdapter;
 
-#[cfg(not(any(target_family = "windows", target_vendor = "apple", target_arch = "wasm32")))]
+#[cfg(all(
+    feature = "libinput",
+    not(any(target_family = "windows", target_vendor = "apple", target_arch = "wasm32"))
+))]
 mod input;
 
 #[derive(Clone)]
@@ -80,6 +83,7 @@ pub struct Backend {
     requested_graphics_api: Option<i_slint_core::graphics::RequestedGraphicsAPI>,
     sel_clipboard: RefCell<Option<String>>,
     clipboard: RefCell<Option<String>>,
+    #[cfg(feature = "libinput")]
     libinput_event_hook: Option<Box<dyn Fn(&::input::Event) -> bool>>,
 }
 
@@ -151,6 +155,7 @@ impl Backend {
             requested_graphics_api: builder.requested_graphics_api,
             sel_clipboard: Default::default(),
             clipboard: Default::default(),
+            #[cfg(feature = "libinput")]
             libinput_event_hook: builder.libinput_event_hook,
         })
     }
@@ -228,6 +233,7 @@ impl i_slint_core::platform::Platform for Backend {
         }
         let quit_loop = self.proxy.quit_loop.clone();
 
+        #[cfg(feature = "libinput")]
         let mouse_position_property = input::LibInputHandler::init(
             &self.window,
             &event_loop.handle(),
@@ -235,6 +241,9 @@ impl i_slint_core::platform::Platform for Backend {
             &self.seat,
             &self.libinput_event_hook,
         )?;
+
+        #[cfg(not(feature = "libinput"))]
+        let mouse_position_property = Rc::pin(i_slint_core::Property::new(None));
 
         let Some(user_event_receiver) = self.user_event_receiver.borrow_mut().take() else {
             return Err("Re-entering the linuxkms event loop is currently not supported"

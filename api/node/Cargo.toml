@@ -23,14 +23,17 @@ path = "rust/lib.rs"
 
 [features]
 # Keep in sync with features in nightly_snapshot.yaml, cpp_package.yaml, slint_tool_binary.yaml, and api/python/slint/Cargo.toml
-default = ["backend-linuxkms-noseat", "backend-winit", "renderer-femtovg", "renderer-skia", "accessibility"]
+default = ["backend-linuxkms-input", "backend-winit", "renderer-femtovg", "renderer-skia", "accessibility"]
 
 backend-qt = ["slint-interpreter/backend-qt"]
 backend-winit = ["slint-interpreter/backend-winit"]
 backend-winit-x11 = ["slint-interpreter/backend-winit-x11"]
 backend-winit-wayland = ["slint-interpreter/backend-winit-wayland"]
-backend-linuxkms = ["slint-interpreter/backend-linuxkms"]
-backend-linuxkms-noseat = ["slint-interpreter/backend-linuxkms-noseat"]
+backend-linuxkms-minimal = ["slint-interpreter/backend-linuxkms-minimal"]
+backend-linuxkms-seat = ["slint-interpreter/backend-linuxkms-seat"]
+backend-linuxkms-input = ["slint-interpreter/backend-linuxkms-input"]
+backend-linuxkms = ["backend-linuxkms-seat", "backend-linuxkms-input"]
+backend-linuxkms-noseat = ["backend-linuxkms-input"]
 renderer-femtovg = ["slint-interpreter/renderer-femtovg"]
 renderer-femtovg-wgpu = ["slint-interpreter/renderer-femtovg-wgpu"]
 renderer-skia = ["slint-interpreter/renderer-skia"]

@@ -75,13 +75,21 @@ backend-winit-x11 = ["i-slint-backend-selector/backend-winit-x11", "std"]
 ## with support for the Wayland window system on Unix.
 backend-winit-wayland = ["i-slint-backend-selector/backend-winit-wayland", "std"]
 
-## KMS with Vulkan or EGL and libinput on Linux are used to render the application in full screen mode, without any
-## windowing system. Requires libseat. If you don't have libseat, select `backend-linuxkms-noseat` instead.
-backend-linuxkms = ["i-slint-backend-selector/backend-linuxkms", "std"]
+## Use KMS on Linux to render the application in full screen mode, without a windowing system.
+## This minimal variant requires direct access to the DRM device and does not provide input handling.
+backend-linuxkms-minimal = ["i-slint-backend-selector/backend-linuxkms", "std"]
 
-## KMS with Vulkan or EGL and libinput on Linux are used to render the application in full screen mode, without any
-## windowing system. Requires libseat.
-backend-linuxkms-noseat = ["i-slint-backend-selector/backend-linuxkms-noseat", "std"]
+## Add libseat-based session and device management to the LinuxKMS backend.
+backend-linuxkms-seat = ["backend-linuxkms-minimal", "i-slint-backend-selector/linuxkms-libseat"]
+
+## Add libinput, libudev, and xkbcommon-based input handling to the LinuxKMS backend.
+backend-linuxkms-input = ["backend-linuxkms-minimal", "i-slint-backend-selector/linuxkms-libinput"]
+
+## **Deprecated** Use `backend-linuxkms-seat` and `backend-linuxkms-input` instead.
+backend-linuxkms = ["backend-linuxkms-seat", "backend-linuxkms-input"]
+
+## **Deprecated** Use `backend-linuxkms-input` instead.
+backend-linuxkms-noseat = ["backend-linuxkms-input"]
 
 ## Alias to a backend and renderer that depends on the platform.
 backend-default = ["i-slint-backend-selector/default"]

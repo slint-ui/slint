@@ -5,31 +5,44 @@ description: LinuxKMS Backend
 <!-- cSpell: ignore linuxkms libinput libseat libudev libgbm libxkbcommon xkbcommon noseat keymap xkeyboard udevadm -->
 
 The LinuxKMS backend runs only on Linux and eliminates the need for a windowing system such as Wayland or X11.
-Instead it uses the following libraries and interface to render directly to the screen and react to touch, mouse,
-and keyboard input.
+It can render directly to the screen without libseat or libinput, and applications can opt into these integrations when needed.
 
  - OpenGL via KMS/DRI.
  - Vulkan via wgpu and the Vulkan KHR Display Extension.
  - DRM dumb buffers for software rendering, as well as legacy LinuxFB rendering.
- - libinput/libudev for input event handling from mice, touch screens, or keyboards.
+ - libinput/libudev for input event handling from mice, touch screens, or keyboards. (optional)
  - libseat for GPU and input device access without requiring root access. (optional)
 
 ## Dependencies
 
-For compilation, pkg-config is used to determine the location of the following required system libraries:
+The required system libraries depend on the selected renderer and LinuxKMS features.
+For compilation, pkg-config is used to determine their location:
 
-| pkg-config package name | Package name on Debian based distros |
-|-------------------------|--------------------------------------|
-| `gbm`                   | `libgbm-dev`                         |
-| `xkbcommon`             | `libxkbcommon-dev`                   |
-| `libudev`               | `libudev-dev`                        |
-| `libseat`               | `libseat-dev`                        |
+| pkg-config package name | Package name on Debian based distros | Required by |
+|-------------------------|--------------------------------------|-------------|
+| `gbm`                   | `libgbm-dev`                         | OpenGL renderers |
+| `libinput`              | `libinput-dev`                       | `backend-linuxkms-input` |
+| `xkbcommon`             | `libxkbcommon-dev`                   | `backend-linuxkms-input` |
+| `libudev`               | `libudev-dev`                        | `backend-linuxkms-input` |
+| `libseat`               | `libseat-dev`                        | `backend-linuxkms-seat` |
+
+### Backend Features
+
+Select the LinuxKMS capabilities that match the target system:
+
+| Feature | Device access | Input handling |
+|---------|---------------|----------------|
+| `backend-linuxkms-minimal` | The application accesses the DRM device directly. | The application provides input handling. |
+| `backend-linuxkms-seat` | libseat manages session and device access. | The application provides input handling. |
+| `backend-linuxkms-input` | The application accesses the DRM device directly. | libinput handles mouse, touch, and keyboard input. |
+
+Enable both `backend-linuxkms-seat` and `backend-linuxkms-input` to use libseat and libinput together.
+Both features include the minimal LinuxKMS backend, so `backend-linuxkms-minimal` does not need to be enabled separately.
 
 :::note[Note]
-If you don't have `libseat` available on your target system, then instead of selecting `backend-linuxkms`, select
-`backend-linuxkms-noseat`. This variant of the LinuxKMS backend eliminates the need to have libseat installed, but
-in exchange requires running the application as a user that's privileged to access all input and DRM/KMS device
-files; typically that's the root user.
+The deprecated `backend-linuxkms` feature enables both seat and input handling, while the deprecated
+`backend-linuxkms-noseat` feature enables input handling without libseat.
+Existing applications can continue to use these features without changing behavior.
 :::
 
 ## Renderers
@@ -93,8 +106,8 @@ Set `SLINT_DRM_MODE` to `4` to select 1920x1080@60.
 
 ## Configuring the Keyboard
 
-By default the keyboard layout and model is assumed to be a US model and layout. Set the following
-environment variables to configure support for different keyboards:
+When `backend-linuxkms-input` is enabled, the keyboard layout and model defaults to a US model and layout.
+Set the following environment variables to configure support for different keyboards:
 
 * `XKB_DEFAULT_LAYOUT`: A comma separated list of layouts (languages) to include in the keymap.
   See the layouts section in [xkeyboard-config(7)](https://manpages.debian.org/testing/xkb-data/xkeyboard-config.7.en.html) for a list of accepted language codes.

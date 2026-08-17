@@ -4,6 +4,11 @@ All notable changes to this project are documented in this file.
 
 ## [1.18.0] - Unreleased
 
+### General
+
+ - LinuxKMS: Added composable features for minimal DRM access, libseat session management, and libinput input handling.
+   The existing `backend-linuxkms` and `backend-linuxkms-noseat` features remain as deprecated compatibility aliases.
+
 ### Slint language
 
  - Added the `FlexboxLayout` element, which arranges its children in rows or columns and wraps them

@@ -143,8 +143,11 @@ define_cargo_feature(software-renderer-path "Enable support for Path element ren
 
 define_cargo_dependent_feature(backend-qt "Enable Qt based rendering backend" OFF "NOT SLINT_FEATURE_FREESTANDING AND NOT ANDROID")
 
-define_cargo_dependent_feature(backend-linuxkms "Enable support for the backend that renders a single window fullscreen on Linux. Requires libseat. If you don't have libseat, select `backend-linuxkms-noseat` instead." OFF "NOT SLINT_FEATURE_FREESTANDING")
-define_cargo_dependent_feature(backend-linuxkms-noseat "Enable support for the backend that renders a single window fullscreen on Linux" OFF "NOT SLINT_FEATURE_FREESTANDING")
+define_cargo_dependent_feature(backend-linuxkms-minimal "Enable support for the backend that renders a single window fullscreen on Linux without libseat or libinput" OFF "NOT SLINT_FEATURE_FREESTANDING")
+define_cargo_dependent_feature(backend-linuxkms-seat "Add libseat-based session and device management to the LinuxKMS backend" OFF "NOT SLINT_FEATURE_FREESTANDING")
+define_cargo_dependent_feature(backend-linuxkms-input "Add libinput-based input handling to the LinuxKMS backend" OFF "NOT SLINT_FEATURE_FREESTANDING")
+define_cargo_dependent_feature(backend-linuxkms "Deprecated: enable both `backend-linuxkms-seat` and `backend-linuxkms-input` instead" OFF "NOT SLINT_FEATURE_FREESTANDING")
+define_cargo_dependent_feature(backend-linuxkms-noseat "Deprecated: enable `backend-linuxkms-input` instead" OFF "NOT SLINT_FEATURE_FREESTANDING")
 
 define_cargo_dependent_feature(gettext "Enable support of translations using gettext" OFF "NOT SLINT_FEATURE_FREESTANDING")
 define_cargo_dependent_feature(accessibility "Enable integration with operating system provided accessibility APIs" ON "NOT SLINT_FEATURE_FREESTANDING")
