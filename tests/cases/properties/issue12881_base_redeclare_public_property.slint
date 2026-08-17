@@ -1,0 +1,54 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company , info@kdab.com, author Robin Cramer <robin.cramer@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Unlike issue1937_base_redeclare_private_property.slint (which
+// covers a base property that is private, including by default visibility), this is a
+// base property with an explicit non-private visibility (`in-out`, part of the base's own
+// public API) that a derived component redeclares with its own `property <type> ...;`.
+// This must also introduce a genuinely new, independent property rather than overriding
+// the base's one -- the base component's own internal bindings must keep reading its own
+// value, regardless of what the derived component declares.
+
+component Base {
+    in-out property <string> name: "Hello";
+    // Base's own internal reference to its own "name": must always read Base's own value.
+    the-text := Text {
+        text: name;
+    }
+    // A non-colliding property that exposes Base's own "name" for the test to observe
+    // (properties declared directly on a base component are not part of a derived, exported
+    // component's public Rust/C++/JS API, so this indirection is needed purely for
+    // observability, not because of anything the fix changes).
+    out property <string> base-own-name: name;
+}
+
+export component TestCase inherits Base {
+    // Redeclares "name" independently. Before the fix this was a hard compile error
+    // ("Cannot override property 'name'"); now it creates a separate slot, even though
+    // Base's own "name" is not private.
+    property <string> name: "World";
+
+    out property <string> derived-own-name: name;
+    out property <string> base-name-via-inherited-property: self.base-own-name;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.get_derived_own_name(), "World");
+assert_eq!(instance.get_base_name_via_inherited_property(), "Hello");
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert_eq(instance.get_derived_own_name(), "World");
+assert_eq(instance.get_base_name_via_inherited_property(), "Hello");
+```
+
+```js
+var instance = new slint.TestCase({});
+assert.equal(instance.derived_own_name, "World");
+assert.equal(instance.base_name_via_inherited_property, "Hello");
+```
+*/

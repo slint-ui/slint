@@ -1311,6 +1311,20 @@ pub struct RepeatedElementInfo {
 pub type ElementRc = Rc<RefCell<Element>>;
 pub type ElementWeak = Weak<RefCell<Element>>;
 
+/// Whether `name` is a `property <type> ...;` declaration somewhere along `base_type`'s chain of
+/// user-component bases (as opposed to a builtin/native item member, which is a flat, single-slot
+/// namespace with no per-level identity to preserve).
+fn is_declared_in_component_base(base_type: &ElementType, name: &str) -> bool {
+    match base_type {
+        ElementType::Component(c) => {
+            let root = c.root_element.borrow();
+            root.property_declarations.contains_key(name)
+                || is_declared_in_component_base(&root.base_type, name)
+        }
+        _ => false,
+    }
+}
+
 impl Element {
     pub fn make_rc(self) -> ElementRc {
         let r = ElementRc::new(RefCell::new(self));
@@ -1474,10 +1488,18 @@ impl Element {
             let PropertyLookupResult {
                 resolved_name: prop_name,
                 property_type: maybe_existing_prop_type,
+                is_local_to_component,
                 is_shadowable,
                 ..
             } = r.lookup_property(&unresolved_prop_name);
             let shadows_builtin = maybe_existing_prop_type != Type::Invalid && is_shadowable;
+            // Redeclaring a property inherited from a user-component base creates an independent
+            // slot rather than overriding the base's; a plain value override is unaffected and
+            // keeps sharing the base's slot. Builtin/native members stay a hard error since they
+            // have no per-level identity.
+            let shadows_base_property = maybe_existing_prop_type != Type::Invalid
+                && !is_local_to_component
+                && is_declared_in_component_base(&r.base_type, &unresolved_prop_name);
             match maybe_existing_prop_type {
                 Type::Invalid => {} // Ok to proceed with a new declaration
                 // The declaration shadows a shadowable builtin member;
@@ -1497,6 +1519,7 @@ impl Element {
                     );
                     continue;
                 }
+                _ if shadows_base_property => {}
                 _ => {
                     diag.push_error(
                         format!("Cannot override property '{unresolved_prop_name}'"),

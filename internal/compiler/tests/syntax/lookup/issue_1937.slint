@@ -1,0 +1,14 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company , info@kdab.com, author Robin Cramer <robin.cramer@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A `private` property should not be visible outside of the component that declares it, so a
+// derived component redeclaring the same name should not conflict with it at all: the two
+// declarations should coexist as independent properties.
+
+component Base {
+    private property <string> foo;
+}
+
+export component TestCase inherits Base {
+    property <string> foo;
+}

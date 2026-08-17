@@ -1,0 +1,17 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company , info@kdab.com, author Robin Cramer <robin.cramer@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A derived component should be able to introduce its own property of the same name as one
+// declared (and used) by its base component, without the base component's own internal
+// references being hijacked by the derived declaration.
+
+component Base {
+    property <string> name: "Hello";
+    Text {
+        text: name;
+    }
+}
+
+export component TestCase inherits Base {
+    property <string> name: "World";
+}

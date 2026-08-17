@@ -249,7 +249,18 @@ pub async fn run_passes(
         {
             optimize_useless_rectangles::optimize_useless_rectangles(component);
         }
-        move_declarations::move_declarations(component);
+    });
+
+    // Two passes sharing one document-wide rename map: a reference to a private element can live
+    // in another component's tree, so all renames must be known before any component moves
+    // declarations, regardless of visitation order.
+    #[allow(clippy::mutable_key_type)] // ByAddress<ElementRc> keys rely on Rc identity semantics
+    let mut declaration_renames = move_declarations::RenameMap::default();
+    doc.visit_all_used_components(|component| {
+        move_declarations::prepare_move_declarations(component, &mut declaration_renames);
+    });
+    doc.visit_all_used_components(|component| {
+        move_declarations::move_declarations(component, &declaration_renames);
     });
 
     remove_aliases::remove_aliases(doc, diag);

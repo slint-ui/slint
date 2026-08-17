@@ -96,17 +96,35 @@ fn inline_element(
 
     let mut elem_mut = elem.borrow_mut();
     let priority_delta = 1 + elem_mut.inline_depth;
+
+    // A property the derived element independently redeclared (`shadows_base_property` in
+    // object_tree.rs) must keep its own identity after inlining instead of flattening onto the
+    // derived element's same-named slot. Give the base's copy a `$`-prefixed synthetic name
+    // (unreachable by user identifiers). Plain value overrides are unaffected.
+    let renamed_properties: HashMap<SmolStr, SmolStr> = inlined_component
+        .root_element
+        .borrow()
+        .property_declarations
+        .iter()
+        .filter(|(name, _decl)| elem_mut.property_declarations.contains_key(*name))
+        .map(|(name, _)| {
+            (name.clone(), SmolStr::from(format!("$private-base-{priority_delta}-{name}")))
+        })
+        .collect();
+
     elem_mut.base_type = inlined_component.root_element.borrow().base_type.clone();
     elem_mut.property_declarations.extend(
         inlined_component.root_element.borrow().property_declarations.iter().map(|(name, decl)| {
             let mut decl = decl.clone();
             decl.expose_in_public_api = false;
-            (name.clone(), decl)
+            let name = renamed_properties.get(name).cloned().unwrap_or_else(|| name.clone());
+            (name, decl)
         }),
     );
 
     for (p, a) in inlined_component.root_element.borrow().property_analysis.borrow().iter() {
-        elem_mut.property_analysis.borrow_mut().entry(p.clone()).or_default().merge_with_base(a);
+        let p = renamed_properties.get(p).cloned().unwrap_or_else(|| p.clone());
+        elem_mut.property_analysis.borrow_mut().entry(p).or_default().merge_with_base(a);
     }
 
     // states and transitions must be lowered before inlining
@@ -447,7 +465,9 @@ fn inline_element(
     for (property, root_binding) in
         inlined_component.root_element.borrow().bindings_including_synthetic()
     {
-        match elem_mut.binding_cell_including_synthetic(property) {
+        let property =
+            renamed_properties.get(property).cloned().unwrap_or_else(|| property.clone());
+        match elem_mut.binding_cell_including_synthetic(&property) {
             Some(elem_binding) => {
                 let mut binding = elem_binding.borrow_mut();
                 if binding.merge_with(&root_binding.borrow()) {
@@ -457,7 +477,7 @@ fn inline_element(
             None => {
                 let mut elem_binding = root_binding.borrow().clone();
                 elem_binding.priority = elem_binding.priority.saturating_add(priority_delta);
-                elem_mut.set_binding(property.clone(), elem_binding);
+                elem_mut.set_binding(property, elem_binding);
             }
         }
     }
@@ -496,11 +516,22 @@ fn inline_element(
 
     core::mem::drop(elem_mut);
 
+    // Like `fixup_reference`, but also applies `renamed_properties` to references landing on
+    // `elem` itself, so a disambiguated base property stays disambiguated here too.
+    let mut fixup_reference_renamed = |nr: &mut NamedReference| {
+        if let Some(e) = mapping.get(&element_key(nr.element())) {
+            let name = if Rc::ptr_eq(e, elem) {
+                renamed_properties.get(nr.name()).cloned().unwrap_or_else(|| nr.name().clone())
+            } else {
+                nr.name().clone()
+            };
+            *nr = NamedReference::new(e, name);
+        }
+    };
+
     let fixup_init_expression = |mut init_code: Expression| {
         // Fix up any property references from within already collected init code.
-        visit_named_references_in_expression(&mut init_code, &mut |nr| {
-            fixup_reference(nr, &mapping)
-        });
+        visit_named_references_in_expression(&mut init_code, &mut fixup_reference_renamed);
         fixup_element_references(&mut init_code, &mapping);
         init_code
     };
@@ -532,19 +563,19 @@ fn inline_element(
                 grid.clone_cells();
             }
         }
-        visit_all_named_references_in_element(e, |nr| fixup_reference(nr, &mapping));
+        visit_all_named_references_in_element(e, fixup_reference_renamed);
     }
     for p in root_component.popup_windows.borrow_mut().iter_mut() {
-        fixup_reference(&mut p.x, &mapping);
-        fixup_reference(&mut p.y, &mapping);
+        fixup_reference_renamed(&mut p.x);
+        fixup_reference_renamed(&mut p.y);
         if let Some(is_open) = &mut p.is_open {
-            fixup_reference(is_open, &mapping);
+            fixup_reference_renamed(is_open);
         }
     }
     for t in root_component.timers.borrow_mut().iter_mut() {
-        fixup_reference(&mut t.interval, &mapping);
-        fixup_reference(&mut t.running, &mapping);
-        fixup_reference(&mut t.triggered, &mapping);
+        fixup_reference_renamed(&mut t.interval);
+        fixup_reference_renamed(&mut t.running);
+        fixup_reference_renamed(&mut t.triggered);
     }
     // If some element were moved into PopupWindow, we need to report error if they are used outside of the popup window.
     if !moved_into_popup.is_empty() {

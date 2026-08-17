@@ -1,0 +1,51 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company , info@kdab.com, author Robin Cramer <robin.cramer@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A `private` property (including one that is private only by the default visibility of a
+// property declared without an explicit `in`/`out`/`private` keyword,
+// is not part of a base component's public surface, so a derived component redeclaring
+// the same name introduces a genuinely new, independent property rather than overriding the
+// base's one. The base component's own internal bindings must keep reading its own value,
+// regardless of what the derived component declares.
+
+component Base {
+    private property <string> name: "Hello";
+    // Base's own internal reference to its private "name": must always read Base's own value.
+    the-text := Text {
+        text: name;
+    }
+    // A non-colliding, non-private property that exposes Base's own "name" for the test to
+    // observe (properties declared directly on a base component are not part of a derived,
+    // exported component's public Rust/C++/JS API, so this indirection is needed purely for
+    // observability, not because of anything the fix changes).
+    out property <string> base-own-name: name;
+}
+
+export component TestCase inherits Base {
+    // Redeclares "name" independently
+    property <string> name: "World";
+
+    out property <string> derived-own-name: name;
+    out property <string> base-name-via-inherited-property: self.base-own-name;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.get_derived_own_name(), "World");
+assert_eq!(instance.get_base_name_via_inherited_property(), "Hello");
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert_eq(instance.get_derived_own_name(), "World");
+assert_eq(instance.get_base_name_via_inherited_property(), "Hello");
+```
+
+```js
+var instance = new slint.TestCase({});
+assert.equal(instance.derived_own_name, "World");
+assert.equal(instance.base_name_via_inherited_property, "Hello");
+```
+*/

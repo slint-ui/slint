@@ -19,7 +19,11 @@ use std::rc::Rc;
 /// Concatenating the element id and the declared name alone can give the same name to two
 /// different declarations: the ids `a-2` and `a-2-b-4` with the properties `b-4-c` and `c`
 /// both concatenate to `a-2-b-4-c`.
-type RenameMap = HashMap<(ByAddress<ElementRc>, SmolStr), SmolStr>;
+///
+/// Built document-wide (shared across every component, see `prepare_move_declarations`) rather
+/// than per-component: a `NamedReference` to a private element's declaration can live in another
+/// component's tree, so the map must know about every component's moves before any are applied.
+pub(crate) type RenameMap = HashMap<(ByAddress<ElementRc>, SmolStr), SmolStr>;
 
 struct Declarations {
     property_declarations: BTreeMap<SmolStr, PropertyDeclaration>,
@@ -30,11 +34,18 @@ impl Declarations {
     }
 }
 
-pub fn move_declarations(component: &Rc<Component>) {
+/// First half of `move_declarations`: decide the new root-level names without moving anything yet.
+/// Must be called for every used component, into the same `renames` map, before `move_declarations`
+/// is called for any of them.
+pub fn prepare_move_declarations(component: &Rc<Component>, renames: &mut RenameMap) {
     simplify_optimized_items_recursive(component);
-    let mut renames = RenameMap::new();
-    collect_renames(component, &mut renames);
-    do_move_declarations(component, &renames);
+    collect_renames(component, renames);
+}
+
+/// Second half of `move_declarations`: move the declarations and fix up references using the
+/// complete `renames` map built by `prepare_move_declarations`.
+pub fn move_declarations(component: &Rc<Component>, renames: &RenameMap) {
+    do_move_declarations(component, renames);
 }
 
 /// Pick a unique root-level name for every declaration that `do_move_declarations` moves
@@ -199,14 +210,15 @@ fn do_move_declarations(component: &Rc<Component>, renames: &RenameMap) {
 }
 
 /// Map the reference to the previous properties to the new moved property at the root
+///
+/// Consults the frozen `renames` map rather than live `property_declarations`: by the time a
+/// cross-component reference is fixed up, the owning component may have already taken its
+/// declarations away (see `Declarations::take_from_element`), so a live check would miss it.
 fn fixup_reference(nr: &mut NamedReference, renames: &RenameMap) {
     let e = nr.element();
-    let parent_component = e.borrow().enclosing_component.upgrade().unwrap();
-    if !Rc::ptr_eq(&e, &parent_component.root_element)
-        && e.borrow().property_declarations.contains_key(nr.name())
-    {
-        *nr =
-            NamedReference::new(&parent_component.root_element, moved_name(renames, &e, nr.name()));
+    if let Some(new_name) = renames.get(&(ByAddress(e.clone()), nr.name().clone())) {
+        let parent_component = e.borrow().enclosing_component.upgrade().unwrap();
+        *nr = NamedReference::new(&parent_component.root_element, new_name.clone());
     }
 }
 
