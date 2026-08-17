@@ -7,7 +7,7 @@ The standard essentially views a **Requirement** as what the system *must do* (o
 
 For APIs, the Constraints might explain that some functions are experimental and can not be used safely yet. Or, that certain values passed as parameters into functions are not supported in Slint SC. In other words, certain features can only be used a certain way to be safe.
 
-The "Slint SC" compiler is the regular Slint compiler with the argument `--safety-critical`.
+The "Slint SC" compiler is the regular Slint compiler built with the `slint-sc` feature and invoked with `--slint-sc`.
 When the Slint Compiler is used in a safety-critical project, it should impose constraints
 on the input programs so that only safe parts of Slint SC can be used, and it should report a proper error message
 when an unsafe feature is found.
