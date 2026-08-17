@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use crate::common::{
+use crate::editor_preview::{
     self,
     token_info::{TokenInfo, token_info},
 };
@@ -10,10 +10,10 @@ use i_slint_compiler::parser::{SyntaxNode, SyntaxToken};
 use lsp_types::{GotoDefinitionResponse, LocationLink, Position, Range};
 
 #[cfg(target_arch = "wasm32")]
-use crate::common::wasm_prelude::*;
+use crate::editor_preview::wasm_prelude::*;
 
 pub fn goto_definition(
-    document_cache: &mut common::DocumentCache,
+    document_cache: &mut editor_preview::DocumentCache,
     token: SyntaxToken,
 ) -> Option<GotoDefinitionResponse> {
     let token_info = token_info(document_cache, token.clone())?;
@@ -44,7 +44,10 @@ pub fn goto_definition(
     }
 }
 
-fn goto_node(node: &SyntaxNode, format: common::ByteFormat) -> Option<GotoDefinitionResponse> {
+fn goto_node(
+    node: &SyntaxNode,
+    format: editor_preview::ByteFormat,
+) -> Option<GotoDefinitionResponse> {
     let (target_uri, range) = crate::util::node_to_url_and_lsp_range(node, format)?;
     let range = Range::new(range.start, range.start); // Shrink range to a position:-)
     Some(GotoDefinitionResponse::Link(vec![LocationLink {
@@ -193,12 +196,14 @@ fn test_goto_definition_multi_files() {
         url1 = url1.to_file_path().unwrap().display()
     );
     let mut ctx = crate::language::Context {
-        session: common::EditorSession {
+        session: editor_preview::EditorSession {
             document_cache: dc,
             preview_config: Default::default(),
             to_show: None,
             open_urls: Default::default(),
-            to_preview: crate::common::LspToPreviews::with_one(common::DummyLspToPreview::default()),
+            to_preview: crate::editor_preview::LspToPreviews::with_one(
+                editor_preview::DummyLspToPreview::default(),
+            ),
             pending_recompile: Default::default(),
         },
         server_notifier: crate::ServerNotifier::dummy(),
@@ -207,8 +212,11 @@ fn test_goto_definition_multi_files() {
     };
     let (extra_files, diag) =
         spin_on::spin_on(ctx.session.load_document_impl(source2.clone(), url2.clone(), Some(43)));
-    let diag =
-        common::editor_session::convert_diagnostics(&extra_files, diag, common::ByteFormat::Utf8);
+    let diag = editor_preview::editor_session::convert_diagnostics(
+        &extra_files,
+        diag,
+        editor_preview::ByteFormat::Utf8,
+    );
     for (u, ds) in diag {
         assert_eq!(ds, Vec::new(), "errors in {u}");
     }

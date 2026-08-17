@@ -5,8 +5,6 @@ use std::collections::HashMap;
 
 use i_slint_compiler::parser::{TextRange, TextSize};
 
-use crate::common;
-
 #[derive(Clone, Debug)]
 pub struct TextOffsetAdjustment {
     pub start_offset: TextSize,
@@ -18,7 +16,7 @@ impl TextOffsetAdjustment {
     pub fn new(
         edit: &lsp_types::TextEdit,
         source_file: &i_slint_compiler::diagnostics::SourceFile,
-        format: common::ByteFormat,
+        format: crate::ByteFormat,
     ) -> Self {
         let new_text_length = edit.new_text.len() as u32;
         let (start_offset, end_offset) = {
@@ -186,7 +184,7 @@ pub struct TextEditor {
 }
 
 impl TextEditor {
-    pub fn new(source_file: i_slint_compiler::diagnostics::SourceFile) -> common::Result<Self> {
+    pub fn new(source_file: i_slint_compiler::diagnostics::SourceFile) -> crate::Result<Self> {
         let Some(contents) = source_file.source().map(|s| s.to_string()) else {
             return Err(format!("Source file {:?} had no contents set", source_file.path()).into());
         };
@@ -201,8 +199,8 @@ impl TextEditor {
     pub fn apply(
         &mut self,
         text_edit: &lsp_types::TextEdit,
-        format: common::ByteFormat,
-    ) -> common::Result<()> {
+        format: crate::ByteFormat,
+    ) -> crate::Result<()> {
         let current_range =
             crate::util::lsp_range_to_text_range(&self.source_file, text_edit.range, format);
         let adjusted_range = self.adjustments.adjust_range(current_range);
@@ -248,9 +246,9 @@ pub struct EditedText {
 }
 
 pub fn apply_workspace_edit(
-    document_cache: &common::DocumentCache,
+    document_cache: &crate::DocumentCache,
     workspace_edit: &lsp_types::WorkspaceEdit,
-) -> common::Result<Vec<EditedText>> {
+) -> crate::Result<Vec<EditedText>> {
     let mut processing = HashMap::new();
 
     for (doc, edit) in EditIterator::new(workspace_edit) {
@@ -284,7 +282,7 @@ pub fn apply_workspace_edit(
 /// Given a WorkspaceEdit, return a reversed version of it (that undoes it)
 /// Returns none if it cannot be reverted (eg, if it deletes files)
 pub fn reversed_edit(
-    document_cache: &common::DocumentCache,
+    document_cache: &crate::DocumentCache,
     edit: &lsp_types::WorkspaceEdit,
 ) -> Option<lsp_types::WorkspaceEdit> {
     struct UndoHelper {
@@ -953,7 +951,7 @@ fn test_texteditor_edit_out_of_range() {
         ),
         new_text: "Foobar".to_string(),
     };
-    assert!(editor.apply(&edit, common::ByteFormat::Utf8).is_err());
+    assert!(editor.apply(&edit, crate::ByteFormat::Utf8).is_err());
 }
 
 #[test]
@@ -977,7 +975,7 @@ geh"#
         ),
         new_text: "".to_string(),
     };
-    assert!(editor.apply(&edit, common::ByteFormat::Utf8).is_ok());
+    assert!(editor.apply(&edit, crate::ByteFormat::Utf8).is_ok());
 
     let result = editor.finalize().unwrap();
     assert!(result.0.is_empty());
@@ -1007,7 +1005,7 @@ geh"#
         ),
         new_text: "REPLACEMENT".to_string(),
     };
-    assert!(editor.apply(&edit, common::ByteFormat::Utf8).is_ok());
+    assert!(editor.apply(&edit, crate::ByteFormat::Utf8).is_ok());
 
     let result = editor.finalize().unwrap();
     assert_eq!(
@@ -1042,7 +1040,7 @@ geh"#
         ),
         new_text: "".to_string(),
     };
-    assert!(editor.apply(&edit, common::ByteFormat::Utf8).is_ok());
+    assert!(editor.apply(&edit, crate::ByteFormat::Utf8).is_ok());
     let edit = lsp_types::TextEdit {
         range: lsp_types::Range::new(
             lsp_types::Position::new(0, 0),
@@ -1050,7 +1048,7 @@ geh"#
         ),
         new_text: "REPLACEMENT".to_string(),
     };
-    assert!(editor.apply(&edit, common::ByteFormat::Utf8).is_ok());
+    assert!(editor.apply(&edit, crate::ByteFormat::Utf8).is_ok());
 
     let result = editor.finalize().unwrap();
     assert_eq!(&result.0, "REPLACEMENT");
@@ -1064,7 +1062,7 @@ mod test_apply_reversed_edit {
     use super::*;
 
     fn check_apply_and_reversed_edit(
-        document_cache: &mut common::DocumentCache,
+        document_cache: &mut crate::DocumentCache,
         edit: &lsp_types::WorkspaceEdit,
     ) {
         let edits = apply_workspace_edit(document_cache, edit).unwrap();
@@ -1073,7 +1071,7 @@ mod test_apply_reversed_edit {
         let snapshot = document_cache.snapshot().unwrap();
 
         for e in &edits {
-            common::poll_once(document_cache.load_url(
+            crate::util::poll_once(document_cache.load_url(
                 &e.url,
                 None,
                 e.contents.clone(),
@@ -1093,10 +1091,9 @@ mod test_apply_reversed_edit {
 
     #[test]
     fn test_multi_line_edit() {
-        let url = lsp_types::Url::from_file_path(common::test::main_test_file_name()).unwrap();
+        let url = lsp_types::Url::from_file_path(crate::test::main_test_file_name()).unwrap();
         let code = HashMap::from([(url.clone(), "component Foo { /*..*/ }\n".to_string())]);
-        let mut document_cache =
-            crate::common::test::compile_test_with_sources("fluent", code, true);
+        let mut document_cache = crate::test::compile_test_with_sources("fluent", code, true);
 
         check_apply_and_reversed_edit(
             &mut document_cache,

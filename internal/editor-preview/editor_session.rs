@@ -4,14 +4,12 @@
 //! The state of a Slint project as it is being edited, shared between the
 //! language server and the visual editor.
 
-use crate::common;
-
 use i_slint_compiler::diagnostics::BuildDiagnostics;
 #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
 use i_slint_live_preview::protocol::PreviewComponent;
 use i_slint_live_preview::{
     file_watcher::FileChangeKind,
-    protocol::{LspToPreviewMessage, PreviewConfig, VersionedUrl},
+    protocol::{LspToPreviewMessage, PreviewConfig, SourceFileVersion, VersionedUrl},
 };
 use itertools::Itertools;
 use lsp_types::Url;
@@ -21,19 +19,22 @@ use std::path::PathBuf;
 use std::rc::Rc;
 
 #[cfg(target_arch = "wasm32")]
-use crate::common::wasm_prelude::*;
+use crate::wasm_prelude::*;
+
+/// Diagnostics paired with the document version for which they were computed.
+pub type VersionedDiagnostics = Vec<(Url, SourceFileVersion, Vec<lsp_types::Diagnostic>)>;
 
 /// The documents currently being edited, together with the state the preview
 /// needs to follow along.
 pub struct EditorSession {
-    pub document_cache: common::DocumentCache,
+    pub document_cache: crate::DocumentCache,
     pub preview_config: PreviewConfig,
     /// The last component for which the user clicked "show preview"
     #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
     pub to_show: Option<PreviewComponent>,
     /// File currently open in the editor
     pub open_urls: HashSet<lsp_types::Url>,
-    pub to_preview: Rc<common::LspToPreviews>,
+    pub to_preview: Rc<crate::LspToPreviews>,
     /// Files to recompile after all other operations are done
     /// (i.e. recompilations triggered by updates to unopened files)
     pub pending_recompile: HashSet<lsp_types::Url>,
@@ -192,7 +193,7 @@ impl EditorSession {
 
         tracing::trace!("Loading document: {url} (version: {version:?})");
 
-        let Some(path) = common::uri_to_file(&url) else { return Default::default() };
+        let Some(path) = crate::uri_to_file(&url) else { return Default::default() };
         // Normalize the URL
         let Ok(url) = Url::from_file_path(path.clone()) else { return Default::default() };
 
@@ -253,7 +254,7 @@ impl EditorSession {
 
         let extra_files = dependencies
             .iter()
-            .filter_map(common::uri_to_file)
+            .filter_map(crate::uri_to_file)
             .chain(core::iter::once(path))
             .collect();
 
@@ -265,14 +266,14 @@ impl EditorSession {
         content: String,
         url: lsp_types::Url,
         version: Option<i32>,
-    ) -> common::Result<common::VersionedDiagnostics> {
+    ) -> crate::Result<crate::VersionedDiagnostics> {
         tracing::debug!("Opening document: {url}");
         self.open_urls.insert(url.clone());
 
         self.load_document(content, url, version).await
     }
 
-    pub async fn close_document(&mut self, url: lsp_types::Url) -> common::Result<()> {
+    pub async fn close_document(&mut self, url: lsp_types::Url) -> crate::Result<()> {
         tracing::debug!("Closing document: {url}");
         self.open_urls.remove(&url);
         self.drop_document(url).await
@@ -283,7 +284,7 @@ impl EditorSession {
         content: String,
         url: lsp_types::Url,
         version: Option<i32>,
-    ) -> common::Result<common::VersionedDiagnostics> {
+    ) -> crate::Result<crate::VersionedDiagnostics> {
         let (extra_files, diag) = self.load_document_impl(content, url.clone(), version).await;
 
         tracing::debug!("Loaded {url} with {} diagnostics", diag.iter().count());
@@ -295,7 +296,7 @@ impl EditorSession {
     pub async fn reload_document(
         &mut self,
         url: lsp_types::Url,
-    ) -> common::Result<common::VersionedDiagnostics> {
+    ) -> crate::Result<crate::VersionedDiagnostics> {
         tracing::debug!("Reloading document: {url}");
 
         // Check if document is in cache (can use reload_cached_file)
@@ -308,13 +309,13 @@ impl EditorSession {
 
             self.document_cache.reload_cached_file(&url, &mut diagnostics).await;
             let mut extra_files = HashSet::new();
-            extra_files.extend(common::uri_to_file(&url));
+            extra_files.extend(crate::uri_to_file(&url));
 
             Ok(collect_diagnostics(&self.document_cache, &extra_files, diagnostics))
         } else {
             tracing::trace!("Document not in cache, loading from disk: {url}");
 
-            let Some(path) = common::uri_to_file(&url) else {
+            let Some(path) = crate::uri_to_file(&url) else {
                 // The file was likely deleted, log and move on
                 tracing::debug!("Failed to locate file: {url}");
                 return Ok(Default::default());
@@ -330,7 +331,7 @@ impl EditorSession {
         }
     }
 
-    fn drop_document_impl(&mut self, url: lsp_types::Url) -> common::Result<()> {
+    fn drop_document_impl(&mut self, url: lsp_types::Url) -> crate::Result<()> {
         let dependencies = self.document_cache.drop_document(&url)?;
 
         let open_dependencies = self.open_urls.intersection(&dependencies).cloned();
@@ -349,7 +350,7 @@ impl EditorSession {
         Ok(())
     }
 
-    pub async fn drop_document(&mut self, url: lsp_types::Url) -> common::Result<()> {
+    pub async fn drop_document(&mut self, url: lsp_types::Url) -> crate::Result<()> {
         tracing::debug!("Dropping document: {url}");
         // The preview cares about resources and slint files, so forward everything
         self.to_preview.send(&LspToPreviewMessage::InvalidateContents { url: url.clone() });
@@ -360,7 +361,7 @@ impl EditorSession {
     pub async fn delete_document(
         &mut self,
         url: lsp_types::Url,
-    ) -> common::Result<common::VersionedDiagnostics> {
+    ) -> crate::Result<crate::VersionedDiagnostics> {
         tracing::debug!("Deleting document: {url}");
         // The preview cares about resources and slint files, so forward everything
         self.to_preview.send(&LspToPreviewMessage::ForgetFile { url: url.clone() });
@@ -380,7 +381,7 @@ impl EditorSession {
         &mut self,
         url: lsp_types::Url,
         typ: FileChangeKind,
-    ) -> common::Result<common::VersionedDiagnostics> {
+    ) -> crate::Result<crate::VersionedDiagnostics> {
         if !self.open_urls.contains(&url) {
             tracing::debug!("File watcher triggered for {url} (type: {:?})", typ);
             match typ {
@@ -403,7 +404,7 @@ impl EditorSession {
 pub fn convert_diagnostics(
     extra_files: &HashSet<PathBuf>,
     diag: BuildDiagnostics,
-    format: common::ByteFormat,
+    format: crate::ByteFormat,
 ) -> HashMap<Url, Vec<lsp_types::Diagnostic>> {
     // Always provide diagnostics for all files. Empty diagnostics clear any previous ones.
     let mut lsp_diags: HashMap<Url, Vec<lsp_types::Diagnostic>> = extra_files
@@ -429,10 +430,10 @@ pub fn convert_diagnostics(
 }
 
 pub fn collect_diagnostics(
-    document_cache: &common::DocumentCache,
+    document_cache: &crate::DocumentCache,
     extra_files: &HashSet<PathBuf>,
     diag: BuildDiagnostics,
-) -> common::VersionedDiagnostics {
+) -> crate::VersionedDiagnostics {
     let lsp_diags = convert_diagnostics(extra_files, diag, document_cache.format);
     tracing::trace!("Collected {} diagnostics", lsp_diags.values().flatten().count());
 

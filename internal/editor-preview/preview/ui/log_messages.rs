@@ -5,7 +5,7 @@ use std::rc::Rc;
 
 use slint::{Model, ModelRc, SharedString, VecModel};
 
-use crate::{common, preview::ui};
+use crate::preview::ui;
 
 pub fn setup(api: &ui::Api<'_>) {
     api.on_filter_log_messages(filter_log_messages);
@@ -54,7 +54,7 @@ pub fn filter_log_messages(
 ) -> ModelRc<ui::LogMessage> {
     let pattern = pattern.to_string();
     tracing::debug!("messages: row_count: {}", messages.row_count());
-    Rc::new(VecModel::from(common::fuzzy_filter_iter(
+    Rc::new(VecModel::from(super::fuzzy_filter_iter(
         &mut messages.iter(),
         |lm| format!("{} %level:{:?} %file:{}", lm.message, lm.level, lm.file,),
         &pattern,

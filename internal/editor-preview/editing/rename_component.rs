@@ -59,7 +59,7 @@ use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::sync::Arc;
 
-use crate::{common, util};
+use crate::util;
 
 use i_slint_compiler::diagnostics::{SourceFile, Spanned};
 use i_slint_compiler::generator::accessor_names::DeclarationKind;
@@ -69,14 +69,14 @@ use lsp_types::Url;
 use smol_str::SmolStr;
 
 #[cfg(target_arch = "wasm32")]
-use crate::common::wasm_prelude::*;
+use crate::wasm_prelude::*;
 
 pub fn main_identifier(input: &SyntaxNode) -> Option<SyntaxToken> {
     input.child_token(SyntaxKind::Identifier)
 }
 
 fn is_symbol_name_exported(
-    document_cache: &common::DocumentCache,
+    document_cache: &crate::DocumentCache,
     document_node: &syntax_nodes::Document,
     query: &DeclarationNodeQuery,
 ) -> Option<SmolStr> {
@@ -129,11 +129,11 @@ fn is_symbol_name_exported(
 }
 
 fn fix_imports(
-    document_cache: &common::DocumentCache,
+    document_cache: &crate::DocumentCache,
     query: &DeclarationNodeQuery,
     exporter_path: &Path,
     new_type: &str,
-    edits: &mut Vec<common::SingleTextEdit>,
+    edits: &mut Vec<crate::editing::SingleTextEdit>,
 ) {
     let Ok(exporter_url) = Url::from_file_path(exporter_path) else {
         return;
@@ -164,20 +164,20 @@ fn import_path(document_directory: &Path, specifier: &SyntaxNode) -> Option<Path
 
 /// Fix up `Type as OtherType` like specifiers found in import and export lists
 fn fix_specifier(
-    document_cache: &common::DocumentCache,
+    document_cache: &crate::DocumentCache,
     query: &DeclarationNodeQuery,
     new_type: &str,
     type_name: SyntaxToken,
     renamed_to: Option<SyntaxToken>,
-    edits: &mut Vec<common::SingleTextEdit>,
+    edits: &mut Vec<crate::editing::SingleTextEdit>,
 ) -> Option<DeclarationNodeQuery> {
     fn replace_x_as_y_with_newtype(
-        document_cache: &common::DocumentCache,
+        document_cache: &crate::DocumentCache,
         source_file: &i_slint_compiler::diagnostics::SourceFile,
         x: &SyntaxToken,
         y: &SyntaxToken,
         new_type: &str,
-    ) -> common::SingleTextEdit {
+    ) -> crate::editing::SingleTextEdit {
         let start_position = util::text_size_to_lsp_position(
             source_file,
             x.text_range().start(),
@@ -188,7 +188,7 @@ fn fix_specifier(
             y.text_range().end(),
             document_cache.format,
         );
-        common::SingleTextEdit::from_path(
+        crate::editing::SingleTextEdit::from_path(
             document_cache,
             source_file.path(),
             lsp_types::TextEdit {
@@ -226,7 +226,7 @@ fn fix_specifier(
 
                 // `Old as Foo` => `New as Foo`
                 edits.push(
-                    common::SingleTextEdit::from_path(
+                    crate::editing::SingleTextEdit::from_path(
                         document_cache,
                         source_file.path(),
                         lsp_types::TextEdit {
@@ -246,7 +246,7 @@ fn fix_specifier(
 
             // `Old` => `New`
             edits.push(
-                common::SingleTextEdit::from_path(
+                crate::editing::SingleTextEdit::from_path(
                     document_cache,
                     source_file.path(),
                     lsp_types::TextEdit {
@@ -285,7 +285,7 @@ fn fix_specifier(
             }
 
             edits.push(
-                common::SingleTextEdit::from_path(
+                crate::editing::SingleTextEdit::from_path(
                     document_cache,
                     source_file.path(),
                     lsp_types::TextEdit {
@@ -303,12 +303,12 @@ fn fix_specifier(
 }
 
 fn fix_import_in_document(
-    document_cache: &common::DocumentCache,
+    document_cache: &crate::DocumentCache,
     query: &DeclarationNodeQuery,
     document_node: &syntax_nodes::Document,
     exporter_path: &Path,
     new_type: &str,
-    edits: &mut Vec<common::SingleTextEdit>,
+    edits: &mut Vec<crate::editing::SingleTextEdit>,
 ) {
     let Some(document_directory) =
         document_node.source_file().and_then(|sf| sf.path().parent()).map(|p| p.to_owned())
@@ -398,11 +398,11 @@ fn fix_import_in_document(
 }
 
 fn fix_export_lists(
-    document_cache: &common::DocumentCache,
+    document_cache: &crate::DocumentCache,
     document_node: &syntax_nodes::Document,
     query: &DeclarationNodeQuery,
     new_type: &str,
-    edits: &mut Vec<common::SingleTextEdit>,
+    edits: &mut Vec<crate::editing::SingleTextEdit>,
 ) -> Option<SmolStr> {
     for export in document_node.ExportsList() {
         if export.ExportModule().is_some() {
@@ -430,11 +430,11 @@ fn fix_export_lists(
 
 /// Rename all local non import/export related identifiers
 fn rename_local_symbols(
-    document_cache: &common::DocumentCache,
+    document_cache: &crate::DocumentCache,
     document_node: &syntax_nodes::Document,
     query: &DeclarationNodeQuery,
     new_type: &str,
-    edits: &mut Vec<common::SingleTextEdit>,
+    edits: &mut Vec<crate::editing::SingleTextEdit>,
 ) {
     let ti = &query.token_info;
 
@@ -453,7 +453,7 @@ fn rename_local_symbols(
             && ti.is_same_symbol(document_cache, current.clone())
         {
             edits.push(
-                common::SingleTextEdit::from_path(
+                crate::editing::SingleTextEdit::from_path(
                     document_cache,
                     current.source_file.path(),
                     lsp_types::TextEdit {
@@ -476,7 +476,7 @@ fn rename_local_symbols(
 /// Change the InternalName, fix up local usage and then fix up exports. If exports
 /// change something, also fix all the necessary imports.
 fn rename_internal_name(
-    document_cache: &common::DocumentCache,
+    document_cache: &crate::DocumentCache,
     query: &DeclarationNodeQuery,
     internal_name: &syntax_nodes::InternalName,
     new_type: &str,
@@ -506,7 +506,7 @@ fn rename_internal_name(
         fix_export_lists(document_cache, document_node, &sub_query, new_type, &mut edits);
     }
 
-    common::create_workspace_edit_from_single_text_edits(edits)
+    crate::editing::create_workspace_edit_from_single_text_edits(edits)
 }
 
 /// We ended up in an ExportName that we need to rename.
@@ -514,7 +514,7 @@ fn rename_internal_name(
 /// The internal name is different, otherwise we would not have ended up here:-)
 /// So we need to rename the export itself and then fix up imports.
 fn rename_export_name(
-    document_cache: &common::DocumentCache,
+    document_cache: &crate::DocumentCache,
     query: &DeclarationNodeQuery,
     export_name: &syntax_nodes::ExportName,
     new_type: &str,
@@ -544,7 +544,7 @@ fn rename_export_name(
         );
     };
 
-    common::create_workspace_edit_from_single_text_edits(edits)
+    crate::editing::create_workspace_edit_from_single_text_edits(edits)
 }
 
 #[derive(Clone, Debug)]
@@ -561,7 +561,7 @@ pub struct DeclarationNode {
 }
 
 pub fn find_declaration_node(
-    document_cache: &common::DocumentCache,
+    document_cache: &crate::DocumentCache,
     token: &SyntaxToken,
 ) -> Option<DeclarationNode> {
     if token.kind() != SyntaxKind::Identifier {
@@ -574,9 +574,9 @@ pub fn find_declaration_node(
 impl DeclarationNode {
     pub fn rename(
         &self,
-        document_cache: &common::DocumentCache,
+        document_cache: &crate::DocumentCache,
         new_type: &str,
-    ) -> common::Result<lsp_types::WorkspaceEdit> {
+    ) -> crate::Result<lsp_types::WorkspaceEdit> {
         match &self.kind {
             DeclarationNodeKind::DeclaredIdentifier(id) => {
                 rename_declared_identifier(document_cache, &self.query, id, new_type)
@@ -603,7 +603,7 @@ impl DeclarationNode {
     /// `run_import_passes`, so that flag is never set in this context.
     pub fn host_language_classification(
         &self,
-        document_cache: &common::DocumentCache,
+        document_cache: &crate::DocumentCache,
     ) -> Option<HostLanguageRenameInfo> {
         let DeclarationNodeKind::DeclaredIdentifier(decl_id) = &self.kind else {
             return None;
@@ -739,14 +739,14 @@ fn find_last_declared_identifier_at_or_before(
 
 #[derive(Clone, Debug)]
 struct TokenInformation {
-    info: common::token_info::TokenInfo,
+    info: crate::token_info::TokenInfo,
     name: SmolStr,
     token: SyntaxToken,
 }
 
 impl TokenInformation {
-    fn is_same_symbol(&self, document_cache: &common::DocumentCache, token: SyntaxToken) -> bool {
-        let Some(info) = common::token_info::token_info(document_cache, token.clone()) else {
+    fn is_same_symbol(&self, document_cache: &crate::DocumentCache, token: SyntaxToken) -> bool {
+        let Some(info) = crate::token_info::token_info(document_cache, token.clone()) else {
             return false;
         };
 
@@ -770,34 +770,34 @@ impl TokenInformation {
         }
 
         match (&self.info, &info) {
-            (common::token_info::TokenInfo::Type(s), common::token_info::TokenInfo::Type(o)) => {
+            (crate::token_info::TokenInfo::Type(s), crate::token_info::TokenInfo::Type(o)) => {
                 s == o
             }
             (
-                common::token_info::TokenInfo::ElementType(s),
-                common::token_info::TokenInfo::ElementType(o),
+                crate::token_info::TokenInfo::ElementType(s),
+                crate::token_info::TokenInfo::ElementType(o),
             ) => s == o,
             (
-                common::token_info::TokenInfo::ElementRc(s),
-                common::token_info::TokenInfo::ElementRc(o),
+                crate::token_info::TokenInfo::ElementRc(s),
+                crate::token_info::TokenInfo::ElementRc(o),
             ) => Rc::ptr_eq(s, o),
             (
-                common::token_info::TokenInfo::LocalProperty(s),
-                common::token_info::TokenInfo::LocalProperty(o),
+                crate::token_info::TokenInfo::LocalProperty(s),
+                crate::token_info::TokenInfo::LocalProperty(o),
             ) => Arc::ptr_eq(&s.source_file, &o.source_file) && s.text_range() == o.text_range(),
             (
-                common::token_info::TokenInfo::NamedReference(nl),
-                common::token_info::TokenInfo::NamedReference(nr),
+                crate::token_info::TokenInfo::NamedReference(nl),
+                crate::token_info::TokenInfo::NamedReference(nr),
             ) => Rc::ptr_eq(&nl.element(), &nr.element()) && nl.name() == nr.name(),
             (
-                common::token_info::TokenInfo::ElementType(
+                crate::token_info::TokenInfo::ElementType(
                     i_slint_compiler::langtype::ElementType::Component(c),
                 ),
-                common::token_info::TokenInfo::ElementRc(e),
+                crate::token_info::TokenInfo::ElementRc(e),
             )
             | (
-                common::token_info::TokenInfo::ElementRc(e),
-                common::token_info::TokenInfo::ElementType(
+                crate::token_info::TokenInfo::ElementRc(e),
+                crate::token_info::TokenInfo::ElementType(
                     i_slint_compiler::langtype::ElementType::Component(c),
                 ),
             ) => {
@@ -811,24 +811,24 @@ impl TokenInformation {
                 }
             }
             (
-                common::token_info::TokenInfo::NamedReference(nr),
-                common::token_info::TokenInfo::LocalProperty(s),
+                crate::token_info::TokenInfo::NamedReference(nr),
+                crate::token_info::TokenInfo::LocalProperty(s),
             )
             | (
-                common::token_info::TokenInfo::LocalProperty(s),
-                common::token_info::TokenInfo::NamedReference(nr),
+                crate::token_info::TokenInfo::LocalProperty(s),
+                crate::token_info::TokenInfo::NamedReference(nr),
             ) => {
                 s.parent().is_some_and(|n| check_element(&nr.element(), &n))
                     && i_slint_compiler::parser::identifier_text(&s.DeclaredIdentifier())
                         .is_some_and(|x| &x == nr.name())
             }
             (
-                common::token_info::TokenInfo::LocalProperty(s),
-                common::token_info::TokenInfo::IncompleteNamedReference(nr1, nr2),
+                crate::token_info::TokenInfo::LocalProperty(s),
+                crate::token_info::TokenInfo::IncompleteNamedReference(nr1, nr2),
             )
             | (
-                common::token_info::TokenInfo::IncompleteNamedReference(nr1, nr2),
-                common::token_info::TokenInfo::LocalProperty(s),
+                crate::token_info::TokenInfo::IncompleteNamedReference(nr1, nr2),
+                crate::token_info::TokenInfo::LocalProperty(s),
             ) => {
                 matches!(nr1, i_slint_compiler::langtype::ElementType::Component(c) if s.parent().is_some_and(|n| check_element(&c.root_element, &n)))
                     && Some(nr2)
@@ -836,28 +836,28 @@ impl TokenInformation {
                             .as_ref()
             }
             (
-                common::token_info::TokenInfo::LocalCallback(s),
-                common::token_info::TokenInfo::LocalCallback(o),
+                crate::token_info::TokenInfo::LocalCallback(s),
+                crate::token_info::TokenInfo::LocalCallback(o),
             ) => Arc::ptr_eq(&s.source_file, &o.source_file) && s.text_range() == o.text_range(),
             (
-                common::token_info::TokenInfo::NamedReference(nr),
-                common::token_info::TokenInfo::LocalCallback(s),
+                crate::token_info::TokenInfo::NamedReference(nr),
+                crate::token_info::TokenInfo::LocalCallback(s),
             )
             | (
-                common::token_info::TokenInfo::LocalCallback(s),
-                common::token_info::TokenInfo::NamedReference(nr),
+                crate::token_info::TokenInfo::LocalCallback(s),
+                crate::token_info::TokenInfo::NamedReference(nr),
             ) => {
                 s.parent().is_some_and(|n| check_element(&nr.element(), &n))
                     && i_slint_compiler::parser::identifier_text(&s.DeclaredIdentifier())
                         .is_some_and(|x| &x == nr.name())
             }
             (
-                common::token_info::TokenInfo::LocalCallback(s),
-                common::token_info::TokenInfo::IncompleteNamedReference(nr1, nr2),
+                crate::token_info::TokenInfo::LocalCallback(s),
+                crate::token_info::TokenInfo::IncompleteNamedReference(nr1, nr2),
             )
             | (
-                common::token_info::TokenInfo::IncompleteNamedReference(nr1, nr2),
-                common::token_info::TokenInfo::LocalCallback(s),
+                crate::token_info::TokenInfo::IncompleteNamedReference(nr1, nr2),
+                crate::token_info::TokenInfo::LocalCallback(s),
             ) => {
                 matches!(nr1, i_slint_compiler::langtype::ElementType::Component(c) if s.parent().is_some_and(|n| check_element(&c.root_element, &n)))
                     && Some(nr2)
@@ -865,28 +865,28 @@ impl TokenInformation {
                             .as_ref()
             }
             (
-                common::token_info::TokenInfo::LocalFunction(s),
-                common::token_info::TokenInfo::LocalFunction(o),
+                crate::token_info::TokenInfo::LocalFunction(s),
+                crate::token_info::TokenInfo::LocalFunction(o),
             ) => Arc::ptr_eq(&s.source_file, &o.source_file) && s.text_range() == o.text_range(),
             (
-                common::token_info::TokenInfo::NamedReference(nr),
-                common::token_info::TokenInfo::LocalFunction(s),
+                crate::token_info::TokenInfo::NamedReference(nr),
+                crate::token_info::TokenInfo::LocalFunction(s),
             )
             | (
-                common::token_info::TokenInfo::LocalFunction(s),
-                common::token_info::TokenInfo::NamedReference(nr),
+                crate::token_info::TokenInfo::LocalFunction(s),
+                crate::token_info::TokenInfo::NamedReference(nr),
             ) => {
                 s.parent().is_some_and(|n| check_element(&nr.element(), &n))
                     && i_slint_compiler::parser::identifier_text(&s.DeclaredIdentifier())
                         .is_some_and(|x| &x == nr.name())
             }
             (
-                common::token_info::TokenInfo::LocalFunction(s),
-                common::token_info::TokenInfo::IncompleteNamedReference(nr1, nr2),
+                crate::token_info::TokenInfo::LocalFunction(s),
+                crate::token_info::TokenInfo::IncompleteNamedReference(nr1, nr2),
             )
             | (
-                common::token_info::TokenInfo::IncompleteNamedReference(nr1, nr2),
-                common::token_info::TokenInfo::LocalFunction(s),
+                crate::token_info::TokenInfo::IncompleteNamedReference(nr1, nr2),
+                crate::token_info::TokenInfo::LocalFunction(s),
             ) => {
                 matches!(nr1, i_slint_compiler::langtype::ElementType::Component(c) if s.parent().is_some_and(|n| check_element(&c.root_element, &n)))
                     && Some(nr2)
@@ -905,14 +905,14 @@ struct DeclarationNodeQuery {
 }
 
 impl DeclarationNodeQuery {
-    fn new(document_cache: &common::DocumentCache, token: SyntaxToken) -> Option<Self> {
-        let info = common::token_info::token_info(document_cache, token.clone())?;
+    fn new(document_cache: &crate::DocumentCache, token: SyntaxToken) -> Option<Self> {
+        let info = crate::token_info::token_info(document_cache, token.clone())?;
         let name = i_slint_compiler::parser::normalize_identifier(token.text());
 
         let node = token.parent();
 
         fn property_parent(
-            document_cache: &common::DocumentCache,
+            document_cache: &crate::DocumentCache,
             node: &SyntaxNode,
         ) -> Option<TokenInformation> {
             let element = node.parent()?;
@@ -927,7 +927,7 @@ impl DeclarationNodeQuery {
                 component_or_subelement.child_node(SyntaxKind::DeclaredIdentifier)?;
 
             let token = main_identifier(&declared_identifier)?;
-            let info = common::token_info::token_info(document_cache, token.clone())?;
+            let info = crate::token_info::token_info(document_cache, token.clone())?;
             let name = i_slint_compiler::parser::normalize_identifier(token.text());
 
             Some(TokenInformation { info, name, token })
@@ -980,7 +980,7 @@ impl DeclarationNodeQuery {
     /// Find the declaration node we should rename
     fn find_declaration_node(
         self,
-        document_cache: &common::DocumentCache,
+        document_cache: &crate::DocumentCache,
     ) -> Option<DeclarationNode> {
         let node = self.token_info.token.parent();
 
@@ -1031,7 +1031,7 @@ impl DeclarationNodeQuery {
                 }
 
                 let declared_identifier = match &self.token_info.info {
-                    common::token_info::TokenInfo::NamedReference(nr) => {
+                    crate::token_info::TokenInfo::NamedReference(nr) => {
                         if i_slint_compiler::parser::normalize_identifier(nr.name())
                             == self.token_info.name
                         {
@@ -1047,7 +1047,7 @@ impl DeclarationNodeQuery {
                             None
                         }
                     }
-                    common::token_info::TokenInfo::IncompleteNamedReference(element_type, name) => {
+                    crate::token_info::TokenInfo::IncompleteNamedReference(element_type, name) => {
                         if name == &self.token_info.name {
                             match &element_type {
                                 i_slint_compiler::langtype::ElementType::Component(component) => {
@@ -1097,7 +1097,7 @@ impl DeclarationNodeQuery {
 }
 
 fn find_declaration_node_impl(
-    document_cache: &common::DocumentCache,
+    document_cache: &crate::DocumentCache,
     document_node: &syntax_nodes::Document,
     start_token: Option<SyntaxToken>,
     query: DeclarationNodeQuery,
@@ -1233,11 +1233,11 @@ fn find_declaration_node_impl(
 ///
 /// Fix up local usages, fix exports and any imports elsewhere if the exports changed
 fn rename_declared_identifier(
-    document_cache: &common::DocumentCache,
+    document_cache: &crate::DocumentCache,
     query: &DeclarationNodeQuery,
     declared_identifier: &syntax_nodes::DeclaredIdentifier,
     new_type: &str,
-) -> common::Result<lsp_types::WorkspaceEdit> {
+) -> crate::Result<lsp_types::WorkspaceEdit> {
     let ti = &query.token_info;
 
     let source_file = &declared_identifier.source_file;
@@ -1282,7 +1282,7 @@ fn rename_declared_identifier(
         fix_imports(document_cache, query, source_file.path(), new_type, &mut edits);
     }
 
-    Ok(common::create_workspace_edit_from_single_text_edits(edits))
+    Ok(crate::editing::create_workspace_edit_from_single_text_edits(edits))
 }
 
 #[cfg(test)]
@@ -1293,12 +1293,12 @@ mod tests {
 
     use std::collections::HashMap;
 
-    use crate::common::test;
-    use crate::common::text_edit;
+    use crate::editing::text_edit;
+    use crate::test;
 
     #[track_caller]
     fn find_token_by_comment(
-        document_cache: &common::DocumentCache,
+        document_cache: &crate::DocumentCache,
         document_path: &Path,
         suffix: &str,
     ) -> SyntaxToken {
@@ -1322,7 +1322,7 @@ mod tests {
 
     #[track_caller]
     fn find_node_by_comment(
-        document_cache: &common::DocumentCache,
+        document_cache: &crate::DocumentCache,
         document_path: &Path,
         suffix: &str,
     ) -> SyntaxNode {
@@ -1331,7 +1331,7 @@ mod tests {
 
     #[track_caller]
     fn apply_text_changes(
-        document_cache: &common::DocumentCache,
+        document_cache: &crate::DocumentCache,
         edit: &lsp_types::WorkspaceEdit,
     ) -> Vec<text_edit::EditedText> {
         tracing::debug!("Edit:");
@@ -1358,7 +1358,7 @@ mod tests {
 
     #[track_caller]
     fn compile_test_changes(
-        document_cache: &common::DocumentCache,
+        document_cache: &crate::DocumentCache,
         edit: &lsp_types::WorkspaceEdit,
         allow_warnings: bool,
     ) -> Vec<text_edit::EditedText> {
@@ -1393,7 +1393,7 @@ mod tests {
 
     #[track_caller]
     pub fn rename_tester_with_new_name(
-        document_cache: &common::DocumentCache,
+        document_cache: &crate::DocumentCache,
         document_path: &Path,
         suffix: &str,
         new_name: &str,
@@ -1410,7 +1410,7 @@ mod tests {
 
     #[track_caller]
     pub fn rename_tester(
-        document_cache: &common::DocumentCache,
+        document_cache: &crate::DocumentCache,
         document_path: &Path,
         suffix: &str,
     ) -> Vec<text_edit::EditedText> {
@@ -2744,7 +2744,7 @@ export { Foo as User4Fxx }
 
     #[track_caller]
     fn find_declaration_node_by_comment(
-        document_cache: &common::DocumentCache,
+        document_cache: &crate::DocumentCache,
         document_path: &Path,
         suffix: &str,
     ) -> DeclarationNode {

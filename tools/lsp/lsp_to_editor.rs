@@ -3,7 +3,7 @@
 
 //! Messages the language server sends to its editor client.
 
-use i_slint_editor_preview::common::VersionedDiagnostics;
+use i_slint_editor_preview::VersionedDiagnostics;
 #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
 use i_slint_live_preview::protocol::SourceFileVersion;
 

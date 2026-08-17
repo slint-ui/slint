@@ -12,7 +12,7 @@ use i_slint_compiler::parser::{
 use i_slint_core::lengths::{LogicalPoint, LogicalRect, LogicalSize};
 use slint_interpreter::ComponentInstance;
 
-use crate::common::{self, import_edit, text_edit};
+use crate::editing::{import_edit, text_edit};
 use crate::preview::{self, element_selection, ui};
 use crate::util;
 use i_slint_live_preview::protocol::VersionedUrl;
@@ -20,18 +20,18 @@ use i_slint_live_preview::protocol::VersionedUrl;
 use crate::preview::ext::ElementRcNodeExt;
 
 #[cfg(target_arch = "wasm32")]
-use crate::common::wasm_prelude::*;
+use crate::wasm_prelude::*;
 
 pub fn placeholder() -> String {
     format!(
         " Rectangle {{ min-width: 16px; min-height: 16px; /* {} */ }}",
-        common::NODE_IGNORE_COMMENT
+        crate::NODE_IGNORE_COMMENT
     )
 }
 
 #[derive(Clone, Debug)]
 pub struct DropInformation {
-    pub target_element_node: common::ElementRcNode,
+    pub target_element_node: crate::ElementRcNode,
     pub insert_info: InsertInformation,
     pub drop_mark: Option<DropMark>,
     /// Child to insert *before* (or usize::MAX)
@@ -40,7 +40,7 @@ pub struct DropInformation {
 
 #[derive(Clone, Debug)]
 pub struct InsertInformation {
-    pub insertion_position: common::VersionedPosition,
+    pub insertion_position: crate::editing::VersionedPosition,
     pub replacement_range: u32,
     pub pre_indent: String,
     pub indent: String,
@@ -289,7 +289,7 @@ fn calculate_drop_information_for_layout(
 }
 
 fn accept_drop_at(
-    element_node: &common::ElementRcNode,
+    element_node: &crate::ElementRcNode,
     component_instance: &ComponentInstance,
     position: LogicalPoint,
 ) -> DropAccept {
@@ -310,7 +310,7 @@ pub struct DropMark {
 }
 
 pub fn insert_position_at_end(
-    target_element_node: &common::ElementRcNode,
+    target_element_node: &crate::ElementRcNode,
 ) -> Option<InsertInformation> {
     target_element_node.with_element_node(|node| {
         let closing_brace = crate::util::last_non_ws_token(node)?;
@@ -351,7 +351,7 @@ pub fn insert_position_at_end(
         let (version, _) = preview::get_url_from_cache(&url).ok()?;
 
         Some(InsertInformation {
-            insertion_position: common::VersionedPosition::new(
+            insertion_position: crate::editing::VersionedPosition::new(
                 VersionedUrl::new(url, version),
                 offset,
             ),
@@ -364,7 +364,7 @@ pub fn insert_position_at_end(
 }
 
 pub fn insert_position_before_child(
-    target_element_node: &common::ElementRcNode,
+    target_element_node: &crate::ElementRcNode,
     child_index: usize,
 ) -> Option<InsertInformation> {
     target_element_node.with_element_node(|node| {
@@ -409,7 +409,7 @@ pub fn insert_position_before_child(
             let (version, _) = preview::get_url_from_cache(&url).ok()?;
 
             return Some(InsertInformation {
-                insertion_position: common::VersionedPosition::new(
+                insertion_position: crate::editing::VersionedPosition::new(
                     VersionedUrl::new(url, version),
                     first_token_offset,
                 ),
@@ -428,7 +428,7 @@ pub fn insert_position_before_child(
 /// Insert before the first component (exported or not) or at the very end of the document if no
 /// Component is found.
 fn insert_position_before_first_component(
-    document_cache: &common::DocumentCache,
+    document_cache: &crate::DocumentCache,
     document: &syntax_nodes::Document,
 ) -> Option<InsertInformation> {
     let url = {
@@ -487,7 +487,7 @@ fn insert_position_before_first_component(
                 find_pre_indent_and_replacement(&before_first_token);
 
             Some(InsertInformation {
-                insertion_position: common::VersionedPosition::new(
+                insertion_position: crate::editing::VersionedPosition::new(
                     url,
                     first_token_offset - TextSize::new(replacement_range),
                 ),
@@ -499,7 +499,7 @@ fn insert_position_before_first_component(
         } else {
             // Component is the first thing in the file!
             Some(InsertInformation {
-                insertion_position: common::VersionedPosition::new(url, first_token_offset),
+                insertion_position: crate::editing::VersionedPosition::new(url, first_token_offset),
                 replacement_range: 0,
                 pre_indent: String::new(),
                 indent: "     ".to_string(),
@@ -511,7 +511,7 @@ fn insert_position_before_first_component(
 
         let (pre_indent, replacement_range) = find_pre_indent_and_replacement(&last_token);
         Some(InsertInformation {
-            insertion_position: common::VersionedPosition::new(
+            insertion_position: crate::editing::VersionedPosition::new(
                 url,
                 document.text_range().end() - TextSize::new(replacement_range),
             ),
@@ -523,7 +523,10 @@ fn insert_position_before_first_component(
     } else {
         // Entire document is empty
         Some(InsertInformation {
-            insertion_position: common::VersionedPosition::new(url, document.text_range().end()),
+            insertion_position: crate::editing::VersionedPosition::new(
+                url,
+                document.text_range().end(),
+            ),
             replacement_range: 0,
             pre_indent: String::new(),
             indent: String::new(),
@@ -533,7 +536,7 @@ fn insert_position_before_first_component(
 }
 
 pub fn add_new_component(
-    document_cache: &common::DocumentCache,
+    document_cache: &crate::DocumentCache,
     component_name: &str,
     document: &syntax_nodes::Document,
 ) -> Option<(lsp_types::WorkspaceEdit, DropData)> {
@@ -570,7 +573,11 @@ pub fn add_new_component(
     let edit = lsp_types::TextEdit { range: lsp_types::Range::new(start_pos, end_pos), new_text };
 
     Some((
-        common::create_workspace_edit_from_path(document_cache, source_file.path(), vec![edit])?,
+        crate::editing::create_workspace_edit_from_path(
+            document_cache,
+            source_file.path(),
+            vec![edit],
+        )?,
         DropData { selection_offset, path },
     ))
 }
@@ -579,8 +586,8 @@ pub fn add_new_component(
 fn drop_target_element_nodes(
     component_instance: &ComponentInstance,
     position: LogicalPoint,
-    filter: Box<dyn Fn(&common::ElementRcNode) -> bool>,
-) -> Vec<common::ElementRcNode> {
+    filter: Box<dyn Fn(&crate::ElementRcNode) -> bool>,
+) -> Vec<crate::ElementRcNode> {
     let mut result = Vec::with_capacity(3);
 
     for sc in &element_selection::collect_all_element_nodes_covering(position, component_instance) {
@@ -588,7 +595,7 @@ fn drop_target_element_nodes(
             continue;
         };
 
-        if en.with_element_node(common::is_element_node_ignored) {
+        if en.with_element_node(crate::is_element_node_ignored) {
             continue;
         }
 
@@ -602,10 +609,7 @@ fn drop_target_element_nodes(
     result
 }
 
-fn is_recursive_inclusion(
-    root_node: &Option<&common::ElementRcNode>,
-    component_type: &str,
-) -> bool {
+fn is_recursive_inclusion(root_node: &Option<&crate::ElementRcNode>, component_type: &str) -> bool {
     let declared_identifier = root_node
         .and_then(|rn| {
             rn.with_element_node(|node| {
@@ -622,9 +626,9 @@ fn is_recursive_inclusion(
 fn find_element_to_drop_into(
     component_instance: &ComponentInstance,
     position: LogicalPoint,
-    filter: Box<dyn Fn(&common::ElementRcNode) -> bool>,
+    filter: Box<dyn Fn(&crate::ElementRcNode) -> bool>,
     component_type: &str,
-) -> Option<common::ElementRcNode> {
+) -> Option<crate::ElementRcNode> {
     let all_element_nodes = drop_target_element_nodes(component_instance, position, filter);
     if is_recursive_inclusion(&all_element_nodes.last(), component_type) {
         return None;
@@ -657,24 +661,23 @@ fn find_drop_location(
         .debug
         .first()
         .map(|info| info.node.source_file.path().to_owned());
-    let filter = Box::new(move |e: &common::ElementRcNode| {
+    let filter = Box::new(move |e: &crate::ElementRcNode| {
         e.with_element_node(|n| Some(n.source_file.path()) != root_node_path.as_deref())
     });
-    let mark = Box::new(move |_: &common::ElementRcNode| false);
+    let mark = Box::new(move |_: &crate::ElementRcNode| false);
     find_filtered_location(component_instance, position, filter, mark, component_type)
 }
 
 fn find_move_location(
     component_instance: &ComponentInstance,
     position: LogicalPoint,
-    selected_element: &common::ElementRcNode,
+    selected_element: &crate::ElementRcNode,
     component_type: &str,
 ) -> Option<DropInformation> {
     let se = selected_element.clone();
-    let filter =
-        Box::new(move |e: &common::ElementRcNode| *e == se || !e.is_same_component_as(&se));
+    let filter = Box::new(move |e: &crate::ElementRcNode| *e == se || !e.is_same_component_as(&se));
     let se = selected_element.clone();
-    let mark = Box::new(move |e: &common::ElementRcNode| *e == se);
+    let mark = Box::new(move |e: &crate::ElementRcNode| *e == se);
 
     find_filtered_location(component_instance, position, filter, mark, component_type)
 }
@@ -682,8 +685,8 @@ fn find_move_location(
 fn find_filtered_location(
     component_instance: &ComponentInstance,
     position: LogicalPoint,
-    filter: Box<dyn Fn(&common::ElementRcNode) -> bool>,
-    mark: Box<dyn Fn(&common::ElementRcNode) -> bool>,
+    filter: Box<dyn Fn(&crate::ElementRcNode) -> bool>,
+    mark: Box<dyn Fn(&crate::ElementRcNode) -> bool>,
     component_type: &str,
 ) -> Option<DropInformation> {
     let drop_target_node =
@@ -695,7 +698,7 @@ fn find_filtered_location(
         let children_geometries: Vec<_> = drop_target_node
             .children()
             .iter()
-            .filter(|c| !c.with_element_node(common::is_element_node_ignored))
+            .filter(|c| !c.with_element_node(crate::is_element_node_ignored))
             .filter_map(|c| {
                 c.geometry_in(component_instance, &geometry.rect).map(|g| ((mark)(c), g.rect))
             })
@@ -735,9 +738,9 @@ fn find_filtered_location(
 
 /// Find the Element to insert into. None means we can not insert at this point.
 pub fn can_drop_at(
-    document_cache: &common::DocumentCache,
+    document_cache: &crate::DocumentCache,
     position: LogicalPoint,
-    component: &common::ComponentInformation,
+    component: &crate::component_catalog::ComponentInformation,
 ) -> bool {
     // let dm = &preview::component_instance()
     //     .and_then(|ci| find_drop_location(&ci, position, component_type));
@@ -765,8 +768,8 @@ pub fn can_drop_at(
 
 /// Do a compilation to figure out if the drop is allowed
 fn check_can_drop(
-    document_cache: &common::DocumentCache,
-    component: &common::ComponentInformation,
+    document_cache: &crate::DocumentCache,
+    component: &crate::component_catalog::ComponentInformation,
     dm: &DropInformation,
 ) -> bool {
     // Cache compilation results:
@@ -804,10 +807,10 @@ fn check_can_drop(
 }
 
 fn check_can_drop_with_properties(
-    document_cache: &common::DocumentCache,
-    component: &common::ComponentInformation,
+    document_cache: &crate::DocumentCache,
+    component: &crate::component_catalog::ComponentInformation,
     dm: &DropInformation,
-    extra_properties: &[common::PropertyChange],
+    extra_properties: &[crate::editing::PropertyChange],
 ) -> bool {
     if let Some((edit, _)) = create_drop_element_workspace_edit_with_properties(
         document_cache,
@@ -822,7 +825,7 @@ fn check_can_drop_with_properties(
 }
 
 pub fn workspace_edit_compiles(
-    document_cache: &common::DocumentCache,
+    document_cache: &crate::DocumentCache,
     workspace_edit: &lsp_types::WorkspaceEdit,
 ) -> preview::CompilationResult {
     let Ok(result) = text_edit::apply_workspace_edit(document_cache, workspace_edit) else {
@@ -832,7 +835,7 @@ pub fn workspace_edit_compiles(
 }
 
 pub fn edited_text_compiles(
-    document_cache: &common::DocumentCache,
+    document_cache: &crate::DocumentCache,
     mut result: Vec<text_edit::EditedText>,
 ) -> preview::CompilationResult {
     if result.is_empty() {
@@ -850,7 +853,7 @@ pub fn edited_text_compiles(
     }) {
         diag = BuildDiagnostics::default(); // reset errors that might be due to missing changes elsewhere
 
-        let _ = common::poll_once(document_cache.load_url(&u, None, c, &mut diag));
+        let _ = crate::util::poll_once(document_cache.load_url(&u, None, c, &mut diag));
     }
 
     if diag.has_errors() {
@@ -862,10 +865,10 @@ pub fn edited_text_compiles(
 
 /// Find the Element to insert into. None means we can not insert at this point.
 pub fn can_move_to(
-    document_cache: &common::DocumentCache,
+    document_cache: &crate::DocumentCache,
     position: LogicalPoint,
     mouse_position: LogicalPoint,
-    element_node: common::ElementRcNode,
+    element_node: crate::ElementRcNode,
     instance_index: usize,
 ) -> bool {
     let Some(component_instance) = preview::component_instance() else {
@@ -969,15 +972,15 @@ fn pretty_node_removal_range(node: &SyntaxNode) -> Option<TextRange> {
 }
 
 fn drop_ignored_elements_from_node(
-    node: &common::ElementRcNode,
+    node: &crate::ElementRcNode,
     source_file: &SourceFile,
-    format: common::ByteFormat,
+    format: crate::ByteFormat,
 ) -> Vec<lsp_types::TextEdit> {
     node.with_element_node(|node| {
         node.children()
             .filter_map(|c| {
-                let e = common::extract_element(c.clone())?;
-                if common::is_element_node_ignored(&e) {
+                let e = crate::extract_element(c.clone())?;
+                if crate::is_element_node_ignored(&e) {
                     pretty_node_removal_range(&e)
                         .map(|range| util::text_range_to_lsp_range(source_file, range, format))
                         .map(|range| lsp_types::TextEdit::new(range, String::new()))
@@ -994,9 +997,9 @@ fn drop_ignored_elements_from_node(
 /// Return a WorkspaceEdit to send to the editor and extra info for the live preview in
 /// the DropData struct.
 pub fn drop_at(
-    document_cache: &common::DocumentCache,
+    document_cache: &crate::DocumentCache,
     position: LogicalPoint,
-    component: &common::ComponentInformation,
+    component: &crate::component_catalog::ComponentInformation,
 ) -> Option<(lsp_types::WorkspaceEdit, DropData)> {
     let component_instance = preview::component_instance()?;
 
@@ -1010,9 +1013,9 @@ pub fn drop_at(
 }
 
 pub fn drop_at_with_geometry(
-    document_cache: &common::DocumentCache,
+    document_cache: &crate::DocumentCache,
     position: LogicalPoint,
-    component: &common::ComponentInformation,
+    component: &crate::component_catalog::ComponentInformation,
     geometry: LogicalRect,
 ) -> Option<(lsp_types::WorkspaceEdit, DropData)> {
     let component_instance = preview::component_instance()?;
@@ -1043,7 +1046,7 @@ fn geometry_properties_for_drop(
     position: LogicalPoint,
     drop_info: &DropInformation,
     geometry: LogicalRect,
-) -> Option<Vec<common::PropertyChange>> {
+) -> Option<Vec<crate::editing::PropertyChange>> {
     if drop_info.target_element_node.layout_kind() != ui::LayoutKind::None {
         return Some(Vec::new());
     }
@@ -1060,44 +1063,47 @@ fn geometry_properties_for_drop(
         drop_info.target_element_node.geometry_at(component_instance, position)?.rect.origin;
 
     Some(vec![
-        common::PropertyChange::new(
+        crate::editing::PropertyChange::new(
             "x",
             format!("{}px", (geometry.origin.x - target_origin.x).round()),
         ),
-        common::PropertyChange::new(
+        crate::editing::PropertyChange::new(
             "y",
             format!("{}px", (geometry.origin.y - target_origin.y).round()),
         ),
-        common::PropertyChange::new("width", format!("{}px", geometry.size.width.round())),
-        common::PropertyChange::new("height", format!("{}px", geometry.size.height.round())),
+        crate::editing::PropertyChange::new("width", format!("{}px", geometry.size.width.round())),
+        crate::editing::PropertyChange::new(
+            "height",
+            format!("{}px", geometry.size.height.round()),
+        ),
     ])
 }
 
 fn prototype_visual_properties_for_geometry_drop(
-    component: &common::ComponentInformation,
-) -> Vec<common::PropertyChange> {
+    component: &crate::component_catalog::ComponentInformation,
+) -> Vec<crate::editing::PropertyChange> {
     match component.name.as_str() {
         "Rectangle" => vec![
-            common::PropertyChange::new("background", "#ffffff".to_string()),
-            common::PropertyChange::new("border-radius", "12px".to_string()),
-            common::PropertyChange::new("border-color", "#d0d7de".to_string()),
-            common::PropertyChange::new("border-width", "1px".to_string()),
+            crate::editing::PropertyChange::new("background", "#ffffff".to_string()),
+            crate::editing::PropertyChange::new("border-radius", "12px".to_string()),
+            crate::editing::PropertyChange::new("border-color", "#d0d7de".to_string()),
+            crate::editing::PropertyChange::new("border-width", "1px".to_string()),
         ],
         "Text" => vec![
-            common::PropertyChange::new("text", "\"Text\"".to_string()),
-            common::PropertyChange::new("color", "#1f2328".to_string()),
-            common::PropertyChange::new("font-size", "24px".to_string()),
-            common::PropertyChange::new("vertical-alignment", "center".to_string()),
+            crate::editing::PropertyChange::new("text", "\"Text\"".to_string()),
+            crate::editing::PropertyChange::new("color", "#1f2328".to_string()),
+            crate::editing::PropertyChange::new("font-size", "24px".to_string()),
+            crate::editing::PropertyChange::new("vertical-alignment", "center".to_string()),
         ],
-        "Image" => vec![common::PropertyChange::new("image-fit", "contain".to_string())],
+        "Image" => vec![crate::editing::PropertyChange::new("image-fit", "contain".to_string())],
         _ => Vec::new(),
     }
 }
 
 fn extend_with_new_properties(
-    properties: &mut Vec<common::PropertyChange>,
-    default_properties: &[common::PropertyChange],
-    new_properties: Vec<common::PropertyChange>,
+    properties: &mut Vec<crate::editing::PropertyChange>,
+    default_properties: &[crate::editing::PropertyChange],
+    new_properties: Vec<crate::editing::PropertyChange>,
 ) {
     for property in new_properties {
         if default_properties.iter().any(|existing| existing.name == property.name)
@@ -1109,7 +1115,7 @@ fn extend_with_new_properties(
     }
 }
 
-fn property_ranges(element: &common::ElementRcNode, remove_properties: &[&str]) -> Vec<TextRange> {
+fn property_ranges(element: &crate::ElementRcNode, remove_properties: &[&str]) -> Vec<TextRange> {
     element.with_element_node(|node| {
         let mut result = Vec::new();
 
@@ -1128,7 +1134,7 @@ fn property_ranges(element: &common::ElementRcNode, remove_properties: &[&str]) 
 }
 
 fn extract_text_of_element(
-    element: &common::ElementRcNode,
+    element: &crate::ElementRcNode,
     remove_properties: &[&str],
 ) -> Vec<String> {
     let (start_offset, mut text) = element.with_decorated_node(|node| {
@@ -1165,16 +1171,16 @@ fn extract_text_of_element(
 }
 
 fn node_removal_text_edit(
-    document_cache: &common::DocumentCache,
+    document_cache: &crate::DocumentCache,
     node: &SyntaxNode,
     replace_with: String,
-) -> Option<common::SingleTextEdit> {
+) -> Option<crate::editing::SingleTextEdit> {
     let range = util::text_range_to_lsp_range(
         &node.source_file.clone(),
         pretty_node_removal_range(node)?,
         document_cache.format,
     );
-    common::SingleTextEdit::from_path(
+    crate::editing::SingleTextEdit::from_path(
         document_cache,
         node.source_file.path(),
         lsp_types::TextEdit::new(range, replace_with),
@@ -1182,18 +1188,18 @@ fn node_removal_text_edit(
 }
 
 pub fn create_drop_element_workspace_edit(
-    document_cache: &common::DocumentCache,
-    component: &common::ComponentInformation,
+    document_cache: &crate::DocumentCache,
+    component: &crate::component_catalog::ComponentInformation,
     drop_info: &DropInformation,
 ) -> Option<(lsp_types::WorkspaceEdit, DropData)> {
     create_drop_element_workspace_edit_with_properties(document_cache, component, drop_info, &[])
 }
 
 pub fn create_drop_element_workspace_edit_with_properties(
-    document_cache: &common::DocumentCache,
-    component: &common::ComponentInformation,
+    document_cache: &crate::DocumentCache,
+    component: &crate::component_catalog::ComponentInformation,
     drop_info: &DropInformation,
-    extra_properties: &[common::PropertyChange],
+    extra_properties: &[crate::editing::PropertyChange],
 ) -> Option<(lsp_types::WorkspaceEdit, DropData)> {
     let placeholder = if component.is_layout { placeholder() } else { String::new() };
 
@@ -1275,7 +1281,7 @@ pub fn create_drop_element_workspace_edit_with_properties(
     edits.push(lsp_types::TextEdit { range: lsp_types::Range::new(start_pos, end_pos), new_text });
 
     Some((
-        common::create_workspace_edit_from_path(document_cache, source_file.path(), edits)?,
+        crate::editing::create_workspace_edit_from_path(document_cache, source_file.path(), edits)?,
         DropData { selection_offset, path },
     ))
 }
@@ -1283,10 +1289,10 @@ pub fn create_drop_element_workspace_edit_with_properties(
 pub fn create_move_element_workspace_edit(
     component_instance: &ComponentInstance,
     drop_info: &DropInformation,
-    element: &common::ElementRcNode,
+    element: &crate::ElementRcNode,
     instance_index: usize,
     position: LogicalPoint,
-    format: common::ByteFormat,
+    format: crate::ByteFormat,
 ) -> Option<(lsp_types::WorkspaceEdit, DropData)> {
     let parent_of_element = element.parent();
 
@@ -1330,9 +1336,9 @@ pub fn create_move_element_workspace_edit(
 
 pub fn create_swap_element_workspace_edit(
     drop_info: &DropInformation,
-    element: &common::ElementRcNode,
+    element: &crate::ElementRcNode,
     placeholder_text: String,
-    format: common::ByteFormat,
+    format: crate::ByteFormat,
 ) -> Option<(lsp_types::WorkspaceEdit, DropData)> {
     let component_type = element.component_type();
     let new_text = {
@@ -1398,7 +1404,7 @@ pub fn create_swap_element_workspace_edit(
                 selection_offset = text_edit::TextOffsetAdjustment::new(&edit, sf, format)
                     .adjust(selection_offset);
             }
-            edits.push(common::SingleTextEdit::from_path(
+            edits.push(crate::editing::SingleTextEdit::from_path(
                 &document_cache,
                 source_file.path(),
                 edit,
@@ -1413,7 +1419,7 @@ pub fn create_swap_element_workspace_edit(
                 // Abuse map somewhat...
                 selection_offset = text_edit::TextOffsetAdjustment::new(&te, &source_file, format)
                     .adjust(selection_offset);
-                common::SingleTextEdit::from_path(&document_cache, source_file.path(), te)
+                crate::editing::SingleTextEdit::from_path(&document_cache, source_file.path(), te)
             }),
     );
 
@@ -1428,14 +1434,14 @@ pub fn create_swap_element_workspace_edit(
             + TextSize::new(drop_info.insert_info.replacement_range),
         format,
     );
-    edits.push(common::SingleTextEdit::from_path(
+    edits.push(crate::editing::SingleTextEdit::from_path(
         &document_cache,
         source_file.path(),
         lsp_types::TextEdit { range: lsp_types::Range::new(start_pos, end_pos), new_text },
     )?);
 
     Some((
-        common::create_workspace_edit_from_single_text_edits(edits),
+        crate::editing::create_workspace_edit_from_single_text_edits(edits),
         DropData { selection_offset, path },
     ))
 }
@@ -1445,8 +1451,8 @@ pub fn create_swap_element_workspace_edit(
 /// Return a WorkspaceEdit to send to the editor and extra info for the live preview in
 /// the DropData struct.
 pub fn move_element_to(
-    document_cache: &common::DocumentCache,
-    element: common::ElementRcNode,
+    document_cache: &crate::DocumentCache,
+    element: crate::ElementRcNode,
     instance_index: usize,
     position: LogicalPoint,
     mouse_position: LogicalPoint,
@@ -1483,7 +1489,7 @@ mod tests {
     use std::collections::HashMap;
 
     use crate::{
-        common::{self, test, text_edit},
+        crate::{self, test, text_edit},
         util,
     };
 
@@ -1518,7 +1524,7 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 582
 
     fn workspace_edit_setup(
         edits: Vec<(usize, usize, &str)>,
-    ) -> (common::DocumentCache, lsp_types::WorkspaceEdit) {
+    ) -> (crate::DocumentCache, lsp_types::WorkspaceEdit) {
         let document_cache = test::compile_test_with_sources(
             "fluent",
             HashMap::from([(
@@ -1538,7 +1544,7 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 582
                     TextRange::new(TextSize::new(*so as u32), TextSize::new(*eo as u32)),
                     document_cache.format,
                 );
-                common::SingleTextEdit::from_path(
+                crate::editing::SingleTextEdit::from_path(
                     &document_cache,
                     source_file.path(),
                     lsp_types::TextEdit { range, new_text: t.to_string() },
@@ -1546,7 +1552,7 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 582
             })
             .collect();
 
-        let workspace_edit = crate::common::create_workspace_edit_from_single_text_edits(edits);
+        let workspace_edit = crate::editing::create_workspace_edit_from_single_text_edits(edits);
 
         (document_cache, workspace_edit)
     }
@@ -1635,27 +1641,28 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 582
 
     #[test]
     fn test_extend_with_new_properties_keeps_existing_text_default() {
-        let default_properties = vec![common::PropertyChange::new("text", "\"Text\"".to_string())];
+        let default_properties =
+            vec![crate::editing::PropertyChange::new("text", "\"Text\"".to_string())];
         let mut extra_properties = vec![
-            common::PropertyChange::new("x", "20px".to_string()),
-            common::PropertyChange::new("y", "24px".to_string()),
+            crate::editing::PropertyChange::new("x", "20px".to_string()),
+            crate::editing::PropertyChange::new("y", "24px".to_string()),
         ];
 
         super::extend_with_new_properties(
             &mut extra_properties,
             &default_properties,
             vec![
-                common::PropertyChange::new("text", "\"Text\"".to_string()),
-                common::PropertyChange::new("color", "#1f2328".to_string()),
+                crate::editing::PropertyChange::new("text", "\"Text\"".to_string()),
+                crate::editing::PropertyChange::new("color", "#1f2328".to_string()),
             ],
         );
 
         assert_eq!(
             extra_properties,
             vec![
-                common::PropertyChange::new("x", "20px".to_string()),
-                common::PropertyChange::new("y", "24px".to_string()),
-                common::PropertyChange::new("color", "#1f2328".to_string()),
+                crate::editing::PropertyChange::new("x", "20px".to_string()),
+                crate::editing::PropertyChange::new("y", "24px".to_string()),
+                crate::editing::PropertyChange::new("color", "#1f2328".to_string()),
             ]
         );
     }

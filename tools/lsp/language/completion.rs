@@ -3,13 +3,13 @@
 
 // cSpell: ignore rfind barbar funi
 
-use crate::common::component_catalog::{self, all_exported_components, all_exported_types};
-use crate::common::import_edit::{create_import_edit_impl, find_import_locations};
-use crate::common::{self, DocumentCache};
+use crate::editor_preview::component_catalog::{self, all_exported_components, all_exported_types};
+use crate::editor_preview::editing::import_edit::{create_import_edit_impl, find_import_locations};
+use crate::editor_preview::{self, DocumentCache};
 use crate::util::{lookup_current_element_type, text_size_to_lsp_position, with_lookup_ctx};
 
 #[cfg(target_arch = "wasm32")]
-use crate::common::wasm_prelude::*;
+use crate::editor_preview::wasm_prelude::*;
 use i_slint_compiler::diagnostics::Spanned;
 use i_slint_compiler::expression_tree::{Callable, Expression};
 use i_slint_compiler::langtype::{ElementType, Type};
@@ -35,7 +35,7 @@ fn multi_word_keyword_replace_range(
     t: &SyntaxToken,
     offset: TextSize,
     completion_label: &str,
-    format: common::ByteFormat,
+    format: editor_preview::ByteFormat,
 ) -> Option<Range> {
     let mut replace_start_offset = t.token.text_range().start();
     let mut current_search_token = t.token.clone();
@@ -827,7 +827,7 @@ fn de_normalize_property_name_with_element<'a>(element: &ElementRc, prop: &'a st
 
 fn resolve_expression_scope(
     lookup_context: &LookupCtx,
-    document_cache: &common::DocumentCache,
+    document_cache: &editor_preview::DocumentCache,
     snippet_support: bool,
 ) -> Option<Vec<CompletionItem>> {
     let mut r = Vec::new();
@@ -846,7 +846,7 @@ fn resolve_expression_scope(
         build_component_import_statements_edits(
             &token,
             document_cache,
-            &mut |ci: &common::ComponentInformation| {
+            &mut |ci: &editor_preview::component_catalog::ComponentInformation| {
                 if !ci.is_global || !ci.is_exported || available_types.contains(&ci.name) {
                     false
                 } else {
@@ -1091,7 +1091,7 @@ fn complete_path_in_string(
 fn resolve_implement_interface_name_scope(
     node: &SyntaxNode,
     token: &SyntaxToken,
-    document_cache: &common::DocumentCache,
+    document_cache: &editor_preview::DocumentCache,
     snippet_support: bool,
 ) -> Option<Vec<CompletionItem>> {
     let global_type_register = document_cache.global_type_registry();
@@ -1158,7 +1158,7 @@ fn collect_child_ids(element: &syntax_nodes::Element, result: &mut Vec<Completio
 
 fn add_interfaces_to_import(
     token: &SyntaxToken,
-    document_cache: &common::DocumentCache,
+    document_cache: &editor_preview::DocumentCache,
     result: &mut Vec<CompletionItem>,
 ) {
     let available_types: HashSet<_> =
@@ -1166,7 +1166,7 @@ fn add_interfaces_to_import(
     build_component_import_statements_edits(
         token,
         document_cache,
-        &mut |component: &common::ComponentInformation| {
+        &mut |component: &editor_preview::component_catalog::ComponentInformation| {
             component.is_interface
                 && component.is_exported
                 && !available_types.contains(&component.name)
@@ -1192,14 +1192,14 @@ fn add_interfaces_to_import(
 /// import and should already be in result
 fn add_components_to_import(
     token: &SyntaxToken,
-    document_cache: &common::DocumentCache,
+    document_cache: &editor_preview::DocumentCache,
     result: &mut Vec<CompletionItem>,
 ) {
     let available_types: HashSet<_> = result.iter().map(|c| c.label.clone()).collect();
     build_component_import_statements_edits(
         token,
         document_cache,
-        &mut |component: &common::ComponentInformation| {
+        &mut |component: &editor_preview::component_catalog::ComponentInformation| {
             !component.is_global
                 && !component.is_interface
                 && component.is_exported
@@ -1230,14 +1230,16 @@ fn add_components_to_import(
 /// mirroring the same pattern used by [`add_components_to_import`] for elements.
 fn add_types_to_import(
     token: &SyntaxToken,
-    document_cache: &common::DocumentCache,
+    document_cache: &editor_preview::DocumentCache,
     result: &mut Vec<CompletionItem>,
 ) {
     let available_types: HashSet<_> = result.iter().map(|c| c.label.clone()).collect();
     build_type_import_statements_edits(
         token,
         document_cache,
-        &mut |type_info: &common::TypeInformation| !available_types.contains(&type_info.name),
+        &mut |type_info: &editor_preview::component_catalog::TypeInformation| {
+            !available_types.contains(&type_info.name)
+        },
         &mut |type_info, exported_name, file, the_import| {
             result.push(CompletionItem {
                 label: format!("{exported_name} (import from \"{file}\")"),
@@ -1259,8 +1261,8 @@ fn add_types_to_import(
 /// Call `add_edit` with the component name and file name and TextEdit for every component for which the `filter` callback returns true
 pub fn build_component_import_statements_edits(
     token: &SyntaxToken,
-    document_cache: &common::DocumentCache,
-    filter: &mut dyn FnMut(&common::ComponentInformation) -> bool,
+    document_cache: &editor_preview::DocumentCache,
+    filter: &mut dyn FnMut(&editor_preview::component_catalog::ComponentInformation) -> bool,
     add_edit: &mut dyn FnMut(&str, &str, TextEdit),
 ) -> Option<()> {
     // Find out types that can be imported
@@ -1318,9 +1320,14 @@ fn build_import_statements_edits<T>(
 /// Call `add_edit` with the type name, file name, and `TextEdit` for every matching type.
 pub fn build_type_import_statements_edits(
     token: &SyntaxToken,
-    document_cache: &common::DocumentCache,
-    filter: &mut dyn FnMut(&common::TypeInformation) -> bool,
-    add_edit: &mut dyn FnMut(&common::TypeInformation, &str, &str, TextEdit),
+    document_cache: &editor_preview::DocumentCache,
+    filter: &mut dyn FnMut(&editor_preview::component_catalog::TypeInformation) -> bool,
+    add_edit: &mut dyn FnMut(
+        &editor_preview::component_catalog::TypeInformation,
+        &str,
+        &str,
+        TextEdit,
+    ),
 ) -> Option<()> {
     let current_file = token.source_file.path().to_owned();
     let current_uri = lsp_types::Url::from_file_path(&current_file).ok();
@@ -2516,7 +2523,7 @@ mod tests {
     }
 
     fn get_completions_multi_file_with(
-        mut dc: common::DocumentCache,
+        mut dc: editor_preview::DocumentCache,
         types_file_name: &str,
         types_content: &str,
         main_file_name: &str,
@@ -2533,7 +2540,8 @@ mod tests {
         let mut diagnostics = BuildDiagnostics::default();
 
         let types_url =
-            Url::from_file_path(crate::common::test::test_file_name(types_file_name)).unwrap();
+            Url::from_file_path(crate::editor_preview::test::test_file_name(types_file_name))
+                .unwrap();
         let _ = spin_on::spin_on(dc.load_url(
             &types_url,
             Some(1),
@@ -2542,7 +2550,8 @@ mod tests {
         ));
 
         let main_url =
-            Url::from_file_path(crate::common::test::test_file_name(main_file_name)).unwrap();
+            Url::from_file_path(crate::editor_preview::test::test_file_name(main_file_name))
+                .unwrap();
         let _ = spin_on::spin_on(dc.load_url(
             &main_url,
             Some(2),

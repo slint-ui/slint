@@ -11,11 +11,11 @@ use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 
-use crate::common;
-use crate::common::LspToPreviews;
+use crate::editor_preview;
+use crate::editor_preview::LspToPreviews;
 
 // Fixtures for the shared document model live with it.
-pub use i_slint_editor_preview::common::test::{
+pub use i_slint_editor_preview::test::{
     complex_document_cache, empty_document_cache, empty_document_cache_with_experimental, load,
     loaded_document_cache, loaded_document_cache_with_experimental,
     loaded_document_cache_with_file_name,
@@ -30,7 +30,7 @@ struct CapturePreview {
 }
 
 #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
-impl common::LspToPreview for CapturePreview {
+impl editor_preview::LspToPreview for CapturePreview {
     fn send(&self, message: &i_slint_live_preview::protocol::LspToPreviewMessage) {
         self.messages.borrow_mut().push(message.clone());
     }
@@ -53,13 +53,13 @@ pub(crate) fn preview_capture() -> (Rc<LspToPreviews>, CapturedPreviewMessages) 
 
 pub fn mock_context() -> Context {
     crate::language::Context {
-        session: common::EditorSession {
+        session: editor_preview::EditorSession {
             document_cache: empty_document_cache(),
             preview_config: Default::default(),
             #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
             to_show: None,
             open_urls: HashSet::new(),
-            to_preview: LspToPreviews::with_one(common::DummyLspToPreview::default()),
+            to_preview: LspToPreviews::with_one(editor_preview::DummyLspToPreview::default()),
             pending_recompile: Default::default(),
         },
         server_notifier: crate::ServerNotifier::dummy(),

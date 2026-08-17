@@ -11,12 +11,13 @@ mod language;
 mod lsp_to_editor;
 mod server_notifier;
 
+pub use i_slint_editor_preview as editor_preview;
 #[cfg(feature = "preview-engine")]
 pub use i_slint_editor_preview::preview;
-pub use i_slint_editor_preview::{common, util};
+pub use i_slint_editor_preview::util;
 
-use common::LspToPreviews;
-use common::{DocumentCache, Result};
+use editor_preview::LspToPreviews;
+use editor_preview::{DocumentCache, Result};
 use i_slint_live_preview::{
     file_watcher::FileChangeKind,
     protocol::{LspToPreviewMessage, PreviewToLspMessage, VersionedUrl},
@@ -32,7 +33,7 @@ use std::rc::Rc;
 use wasm_bindgen::prelude::*;
 
 #[cfg(target_arch = "wasm32")]
-use crate::common::wasm_prelude::*;
+use crate::editor_preview::wasm_prelude::*;
 
 type JsResult<T> = std::result::Result<T, JsError>;
 
@@ -210,10 +211,11 @@ pub fn create(
     let server_notifier = ServerNotifier::new(send_notification, send_request);
     let init_param = serde_wasm_bindgen::from_value(init_param)?;
 
-    let mut compiler_config = crate::common::document_cache::CompilerConfiguration::default();
+    let mut compiler_config =
+        crate::editor_preview::document_cache::CompilerConfiguration::default();
 
     #[cfg(not(feature = "preview-engine"))]
-    let to_preview = LspToPreviews::with_one(common::DummyLspToPreview::default());
+    let to_preview = LspToPreviews::with_one(editor_preview::DummyLspToPreview::default());
     #[cfg(feature = "preview-engine")]
     let to_preview =
         LspToPreviews::with_one(connector::WasmLspToPreview::new(server_notifier.clone()));
@@ -243,7 +245,7 @@ pub fn create(
 
     Ok(SlintServer {
         ctx: ReentryGuard::new(Context {
-            session: crate::common::EditorSession {
+            session: crate::editor_preview::EditorSession {
                 document_cache,
                 preview_config: Default::default(),
                 to_show: Default::default(),
@@ -347,7 +349,7 @@ impl SlintServer {
                     );
             }
             M::DebugMessage { location, message } => {
-                log(&common::preview_log_message_to_string(&location, &message));
+                log(&editor_preview::preview_log_message_to_string(&location, &message));
             }
             M::ConnectRemote { .. } | M::DisconnectRemote | M::Pong => {
                 tracing::debug!("Ignoring remote-preview control message in WASM LSP");

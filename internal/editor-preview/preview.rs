@@ -10,11 +10,13 @@
 //! These functions integrate the preview with the surrounding environment which in
 //! the case of `native` runs in a separate thread at this time.
 
-use crate::common::{
-    self, ComponentInformation, ElementRcNode, component_catalog, rename_component, text_edit,
-};
 use crate::preview::element_selection::ElementSelection;
 use crate::util;
+use crate::{
+    ElementRcNode,
+    component_catalog::{self, ComponentInformation},
+    editing::{rename_component, text_edit},
+};
 use i_slint_compiler::parser::{TextSize, syntax_nodes};
 use i_slint_compiler::{EmbedResourcesKind, diagnostics};
 use i_slint_core::DataTransfer;
@@ -37,7 +39,7 @@ use std::rc::Rc;
 use user_settings::{PREVIEW_SETTINGS_FILE, PreviewUserSettings};
 
 #[cfg(target_arch = "wasm32")]
-use crate::common::wasm_prelude::*;
+use crate::wasm_prelude::*;
 
 pub use ui::PreviewUiKind;
 
@@ -59,7 +61,7 @@ pub mod user_settings;
 
 #[cfg(not(target_arch = "wasm32"))]
 pub fn run(
-    to_lsp: Rc<dyn common::PreviewToLsp>,
+    to_lsp: Rc<dyn crate::PreviewToLsp>,
     fullscreen: bool,
     ui_kind: PreviewUiKind,
 ) -> std::result::Result<(), slint::PlatformError> {
@@ -72,7 +74,7 @@ pub fn run(
 #[cfg(not(target_arch = "wasm32"))]
 pub fn run_with_ui(
     app_window: ui::AppWindow,
-    to_lsp: Rc<dyn common::PreviewToLsp>,
+    to_lsp: Rc<dyn crate::PreviewToLsp>,
     fullscreen: bool,
 ) -> std::result::Result<(), slint::PlatformError> {
     to_lsp
@@ -208,7 +210,7 @@ pub struct PreviewState {
     property_range_declarations: Option<ui::PropertyDeclarations>,
     /// The handle to the previewed component instance
     handle: Rc<RefCell<Option<slint_interpreter::ComponentInstance>>>,
-    document_cache: Rc<RefCell<Option<Rc<common::DocumentCache>>>>,
+    document_cache: Rc<RefCell<Option<Rc<crate::DocumentCache>>>>,
     debug_hook_overrides: Rc<
         RefCell<
             HashMap<SmolStr, Pin<Box<i_slint_core::Property<Option<slint_interpreter::Value>>>>>,
@@ -235,7 +237,7 @@ pub struct PreviewState {
     current_load_behavior: Option<LoadBehavior>,
     loading_state: PreviewFutureState,
 
-    pub to_lsp: RefCell<Option<Rc<dyn common::PreviewToLsp>>>,
+    pub to_lsp: RefCell<Option<Rc<dyn crate::PreviewToLsp>>>,
 
     #[cfg(all(not(target_arch = "wasm32"), feature = "preview-remote"))]
     pub remote_discovery: Rc<remote::RemoteDiscovery>,
@@ -263,8 +265,8 @@ impl PreviewState {
         }
     }
 
-    pub fn format(&self) -> common::ByteFormat {
-        self.document_cache.borrow().as_ref().map_or(common::ByteFormat::Utf8, |dc| dc.format)
+    pub fn format(&self) -> crate::ByteFormat {
+        self.document_cache.borrow().as_ref().map_or(crate::ByteFormat::Utf8, |dc| dc.format)
     }
 }
 thread_local! {pub static PREVIEW_STATE: std::cell::RefCell<PreviewState> = Default::default();}
@@ -804,14 +806,18 @@ fn set_element_id(
 
     let Some(edits) = element.with_element_node(|node| {
         node.parent().and_then(syntax_nodes::SubElement::new).and_then(|node| {
-            common::rename_element_id::rename_element_id(node, &new_id, document_cache.format)
+            crate::editing::rename_element_id::rename_element_id(
+                node,
+                &new_id,
+                document_cache.format,
+            )
         })
     }) else {
         return;
     };
     send_workspace_edit(
         "Rename element".to_string(),
-        common::create_workspace_edit(element_url, element_version, edits),
+        crate::editing::create_workspace_edit(element_url, element_version, edits),
         true,
     );
 }
@@ -1067,13 +1073,13 @@ fn drop_component_with_geometry(
     };
 }
 
-fn placeholder_node_text(selected: &common::ElementRcNode) -> String {
+fn placeholder_node_text(selected: &crate::ElementRcNode) -> String {
     let Some(parent) = selected.parent() else {
         return Default::default();
     };
 
     if parent.layout_kind() != ui::LayoutKind::None && parent.children().len() == 1 {
-        return format!("Rectangle {{ /* {} */ }}", common::NODE_IGNORE_COMMENT);
+        return format!("Rectangle {{ /* {} */ }}", crate::NODE_IGNORE_COMMENT);
     }
 
     Default::default()
@@ -1103,8 +1109,11 @@ fn delete_selected_element() {
     // Insert a placeholder node into layouts if those end up empty:
     let new_text = placeholder_node_text(&selected_node);
 
-    let edit =
-        common::create_workspace_edit(url, version, vec![lsp_types::TextEdit { range, new_text }]);
+    let edit = crate::editing::create_workspace_edit(
+        url,
+        version,
+        vec![lsp_types::TextEdit { range, new_text }],
+    );
 
     send_workspace_edit("Delete element".to_string(), edit, true);
 }
@@ -1156,8 +1165,8 @@ fn rotate_selected_element_impl(
 
     properties::update_element_properties(
         &document_cache,
-        common::VersionedPosition::new(VersionedUrl::new(url, version), offset),
-        vec![common::PropertyChange::new("transform-rotation", format!("{rotation}deg"))],
+        crate::editing::VersionedPosition::new(VersionedUrl::new(url, version), offset),
+        vec![crate::editing::PropertyChange::new("transform-rotation", format!("{rotation}deg"))],
     )
     .map(|edit| (edit, "Rotating element".to_owned()))
 }
@@ -1433,7 +1442,7 @@ fn persist_selected_element_border_radius() {
                             None
                         }
                     })
-                    .map(|(property, value)| common::PropertyChange::new(
+                    .map(|(property, value)| crate::editing::PropertyChange::new(
                         property,
                         format!("{}px", value)
                     ))
@@ -1456,7 +1465,7 @@ fn persist_selected_element_border_radius() {
 
     let Some((updates, _)) = properties::update_element_properties(
         &document_cache,
-        common::VersionedPosition::new(VersionedUrl::new(url, version), offset),
+        crate::editing::VersionedPosition::new(VersionedUrl::new(url, version), offset),
         geometry_changes,
     )
     .map(|edit| (edit, "Changing border radius".to_owned())) else {
@@ -1519,7 +1528,7 @@ fn resize_selected_element_impl(
                             None
                         }
                     })
-                    .map(|(property, value)| common::PropertyChange::new(
+                    .map(|(property, value)| crate::editing::PropertyChange::new(
                         property,
                         format!("{}px", value)
                     ))
@@ -1538,7 +1547,7 @@ fn resize_selected_element_impl(
 
     properties::update_element_properties(
         &document_cache,
-        common::VersionedPosition::new(VersionedUrl::new(url, version), offset),
+        crate::editing::VersionedPosition::new(VersionedUrl::new(url, version), offset),
         geometry_changes,
     )
     .map(|edit| (edit, "Repositioning element".to_owned()))
@@ -1718,7 +1727,7 @@ fn previewed_component_changed() {
         for (url, cache_entry) in &source_code {
             let mut diag = diagnostics::BuildDiagnostics::default();
             if document_cache.get_document(url).is_none() {
-                common::poll_once(document_cache.load_url(
+                crate::util::poll_once(document_cache.load_url(
                     url,
                     cache_entry.version,
                     cache_entry.code.clone(),
@@ -2024,8 +2033,8 @@ async fn parse_source(
 ) -> (
     Vec<diagnostics::Diagnostic>,
     Option<ComponentDefinition>,
-    Option<common::document_cache::OpenImportCallback>,
-    Rc<RefCell<common::document_cache::SourceFileVersionMap>>,
+    Option<crate::document_cache::OpenImportCallback>,
+    Rc<RefCell<crate::document_cache::SourceFileVersionMap>>,
 ) {
     let mut builder = slint_interpreter::Compiler::default();
 
@@ -2050,10 +2059,10 @@ async fn parse_source(
     cc.debug_hooks = Some(std::hash::RandomState::new());
 
     let (open_file_fallback, source_file_versions) =
-        common::document_cache::document_cache_parts_setup(
+        crate::document_cache::document_cache_parts_setup(
             cc,
             Some(Rc::new(file_loader_fallback)),
-            common::document_cache::SourceFileVersionMap::from([(path.clone(), version)]),
+            crate::document_cache::SourceFileVersionMap::from([(path.clone(), version)]),
         );
 
     let result = builder.build_from_source(source_code, path).await;
@@ -2087,7 +2096,7 @@ async fn reload_preview_impl(
     });
 
     let format =
-        if config.format_utf8 { common::ByteFormat::Utf8 } else { common::ByteFormat::Utf16 };
+        if config.format_utf8 { crate::ByteFormat::Utf8 } else { crate::ByteFormat::Utf16 };
 
     let (diagnostics, compiled, open_import_callback, source_file_versions) = parse_source(
         config,
@@ -2274,7 +2283,7 @@ pub fn get_component_info(component_type: &str) -> Option<ComponentInformation> 
 
 fn convert_diagnostics(
     diagnostics: &[slint_interpreter::Diagnostic],
-    file_versions: &common::document_cache::SourceFileVersionMap,
+    file_versions: &crate::document_cache::SourceFileVersionMap,
 ) -> HashMap<Url, (SourceFileVersion, Vec<lsp_types::Diagnostic>)> {
     let mut result: HashMap<Url, (SourceFileVersion, Vec<lsp_types::Diagnostic>)> =
         Default::default();
@@ -2479,13 +2488,13 @@ fn component_instance() -> Option<ComponentInstance> {
 
 /// This is a *read-only* snapshot of the raw type loader, use this when you
 /// need to know the exact state the compiled resources were in.
-fn document_cache() -> Option<Rc<common::DocumentCache>> {
+fn document_cache() -> Option<Rc<crate::DocumentCache>> {
     PREVIEW_STATE.with_borrow(document_cache_from)
 }
 
 /// This is a *read-only* snapshot of the raw type loader, use this when you
 /// need to know the exact state the compiled resources were in.
-fn document_cache_from(preview_state: &PreviewState) -> Option<Rc<common::DocumentCache>> {
+fn document_cache_from(preview_state: &PreviewState) -> Option<Rc<crate::DocumentCache>> {
     preview_state.document_cache.borrow().as_ref().map(|dc| dc.clone())
 }
 
@@ -2542,9 +2551,9 @@ fn set_status_text(text: &str) {
 fn update_preview_area(
     compiled: Option<ComponentDefinition>,
     behavior: LoadBehavior,
-    open_import_callback: Option<common::document_cache::OpenImportCallback>,
-    source_file_versions: Rc<RefCell<common::document_cache::SourceFileVersionMap>>,
-    format: common::ByteFormat,
+    open_import_callback: Option<crate::document_cache::OpenImportCallback>,
+    source_file_versions: Rc<RefCell<crate::document_cache::SourceFileVersionMap>>,
+    format: crate::ByteFormat,
 ) -> Result<(), PlatformError> {
     let app_window = PREVIEW_STATE.with_borrow_mut(move |preview_state| {
         preview_state.workspace_edit_sent = false;
@@ -2566,7 +2575,7 @@ fn update_preview_area(
                 Box::new(move |instance| {
                     if let Some(rtl) = instance.definition().raw_type_loader() {
                         shared_document_cache.replace(Some(Rc::new(
-                            common::DocumentCache::new_from_raw_parts(
+                            crate::DocumentCache::new_from_raw_parts(
                                 rtl,
                                 open_import_callback.clone(),
                                 source_file_versions.clone(),
@@ -2624,7 +2633,7 @@ pub mod test {
 
     use slint_interpreter::ComponentInstance;
 
-    use crate::common::test::main_test_file_name;
+    use crate::test::main_test_file_name;
 
     #[track_caller]
     pub fn interpret_test_with_sources(
@@ -2682,7 +2691,7 @@ pub mod test {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::common::PreviewToLsp;
+    use crate::PreviewToLsp;
     use i_slint_live_preview::protocol::PreviewToLspMessage;
     use std::fs;
     use std::{cell::RefCell, rc::Rc};
@@ -2693,7 +2702,7 @@ mod tests {
     }
 
     impl PreviewToLsp for CapturePreviewToLsp {
-        fn send(&self, message: &PreviewToLspMessage) -> crate::common::Result<()> {
+        fn send(&self, message: &PreviewToLspMessage) -> crate::Result<()> {
             self.messages.as_ref().borrow_mut().push(message.clone());
             Ok(())
         }

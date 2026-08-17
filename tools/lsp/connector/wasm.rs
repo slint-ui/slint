@@ -4,7 +4,7 @@
 //! This wasm library can be loaded from JS to load and display the content of .slint files
 #![cfg(target_arch = "wasm32")]
 
-use crate::common;
+use crate::editor_preview;
 use crate::preview::{self, ui};
 use i_slint_live_preview::protocol::{LspToPreviewMessage, PreviewTarget, PreviewToLspMessage};
 
@@ -102,7 +102,8 @@ impl PreviewConnector {
             let reject_c = send_wrapper::SendWrapper::new(reject.clone());
             let style = style.clone();
             if let Err(e) = slint_interpreter::invoke_from_event_loop(move || {
-                let to_lsp: Rc<dyn common::PreviewToLsp> = Rc::new(WasmPreviewToLsp::default());
+                let to_lsp: Rc<dyn editor_preview::PreviewToLsp> =
+                    Rc::new(WasmPreviewToLsp::default());
 
                 preview::PREVIEW_STATE.with(move |preview_state| {
                     if preview_state.borrow().app_window.is_some() {
@@ -258,7 +259,7 @@ impl WasmLspToPreview {
     }
 }
 
-impl common::LspToPreview for WasmLspToPreview {
+impl editor_preview::LspToPreview for WasmLspToPreview {
     fn send(&self, message: &LspToPreviewMessage) {
         let _ = self.server_notifier.send_notification::<LspToPreviewMessage>(message.clone());
     }
@@ -271,8 +272,8 @@ impl common::LspToPreview for WasmLspToPreview {
 #[derive(Default)]
 struct WasmPreviewToLsp {}
 
-impl common::PreviewToLsp for WasmPreviewToLsp {
-    fn send(&self, message: &PreviewToLspMessage) -> common::Result<()> {
+impl editor_preview::PreviewToLsp for WasmPreviewToLsp {
+    fn send(&self, message: &PreviewToLspMessage) -> editor_preview::Result<()> {
         WASM_CALLBACKS.with_borrow(|callbacks| {
             let notifier = js_sys::Function::from(
                 (callbacks.as_ref().expect("Callbacks were set up earlier").lsp_notifier).clone(),

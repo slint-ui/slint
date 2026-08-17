@@ -12,7 +12,8 @@ use std::path::PathBuf;
 
 use i_slint_compiler::diagnostics::{BuildDiagnostics, ByteFormat};
 use i_slint_compiler::parser::{SyntaxKind, SyntaxToken};
-use i_slint_editor_preview::common::{self, rename_component::find_declaration_node};
+use i_slint_editor_preview as editor_preview;
+use i_slint_editor_preview::editing::rename_component::find_declaration_node;
 use lsp_types::{Url, WorkspaceEdit, WorkspaceFolder};
 
 use super::{ScanBounds, search_replace_host_language_accessors};
@@ -66,7 +67,7 @@ fn setup(
     tmp: &TempDir,
     slint_files: &[(&str, &str)],
     host_files: &[(&str, &str)],
-) -> (common::DocumentCache, Url, Vec<WorkspaceFolder>) {
+) -> (editor_preview::DocumentCache, Url, Vec<WorkspaceFolder>) {
     // Write all host-language files to disk. The scanner is language-
     // agnostic at this layer (same accessor strings emitted for Rust and
     // C++), so `host_files` may contain `.rs`, `.cpp`, `.h`, etc.
@@ -79,11 +80,11 @@ fn setup(
     }
 
     // Build the DocumentCache.
-    let config = common::document_cache::CompilerConfiguration {
+    let config = editor_preview::document_cache::CompilerConfiguration {
         style: Some("fluent".into()),
         ..Default::default()
     };
-    let mut cache = common::DocumentCache::new(config);
+    let mut cache = editor_preview::DocumentCache::new(config);
     spin_on::spin_on(cache.preload_builtins());
 
     // Write each slint file and load it into the cache.
@@ -116,7 +117,7 @@ fn setup(
 /// in the document at `url`.
 #[track_caller]
 fn find_token_in_url(
-    document_cache: &common::DocumentCache,
+    document_cache: &editor_preview::DocumentCache,
     url: &Url,
     suffix: &str,
 ) -> SyntaxToken {
@@ -138,7 +139,7 @@ fn find_token_in_url(
 /// Compose Slint and host-language edits for concise assertions.
 /// Production sends these as two independent workspace edits.
 fn perform_rename(
-    document_cache: &common::DocumentCache,
+    document_cache: &editor_preview::DocumentCache,
     folders: &[WorkspaceFolder],
     slint_url: &Url,
     token_suffix: &str,
@@ -162,8 +163,9 @@ fn perform_rename(
         )
         .expect("scan");
         if !host_edits.is_empty() {
-            let host_we = common::create_workspace_edit_from_single_text_edits(host_edits);
-            common::merge_workspace_edits(&mut workspace_edit, host_we);
+            let host_we =
+                editor_preview::editing::create_workspace_edit_from_single_text_edits(host_edits);
+            editor_preview::editing::merge_workspace_edits(&mut workspace_edit, host_we);
         }
     }
     workspace_edit

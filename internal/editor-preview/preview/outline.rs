@@ -183,7 +183,7 @@ impl Tree for OutlineModel {
                             _ => return None,
                         };
                         let elem = se.Element();
-                        if crate::common::is_element_node_ignored(&elem) {
+                        if crate::is_element_node_ignored(&elem) {
                             return None;
                         }
                         let base = elem
@@ -238,9 +238,7 @@ fn create_node(
     icon_kind: ui::OutlineNodeIconKind,
 ) -> ui::OutlineTreeNode {
     ui::OutlineTreeNode {
-        has_children: element
-            .SubElement()
-            .any(|n| !crate::common::is_element_node_ignored(&n.Element()))
+        has_children: element.SubElement().any(|n| !crate::is_element_node_ignored(&n.Element()))
             || element.RepeatedElement().next().is_some()
             || element.ConditionalElement().next().is_some(),
         is_expanded: true,
@@ -248,7 +246,7 @@ fn create_node(
         icon_kind,
         element_type,
         element_id,
-        uri: crate::common::file_to_uri(element.source_file.path()).unwrap().to_shared_string(),
+        uri: crate::file_to_uri(element.source_file.path()).unwrap().to_shared_string(),
         offset: usize::from(element.text_range().start()) as i32,
         is_last_child: true,
     }
@@ -273,7 +271,7 @@ pub fn reset_outline(api: &ui::Api<'_>, root_component: Option<Rc<object_tree::C
 pub fn setup(api: &ui::Api<'_>, api_weak: slint::Weak<ui::Api<'static>>) {
     api.on_outline_select_element(|uri, offset, notify_editor| {
         super::element_selection::select_element_at_source_code_position(
-            crate::common::uri_to_file(&Url::parse(uri.as_str()).unwrap()).unwrap(),
+            crate::uri_to_file(&Url::parse(uri.as_str()).unwrap()).unwrap(),
             TextSize::new(offset as u32),
             None,
             if notify_editor {

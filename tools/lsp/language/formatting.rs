@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use crate::common::DocumentCache;
+use crate::editor_preview::DocumentCache;
 use crate::fmt::{fmt, writer};
 use crate::util::text_range_to_lsp_range;
 use dissimilar::Chunk;

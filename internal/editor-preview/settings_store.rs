@@ -8,7 +8,6 @@
 //! writes named files verbatim and never interprets their contents. Each
 //! preview owns the (de)serialization of its own settings.
 
-use crate::common;
 use std::{
     fs,
     io::Write,
@@ -23,7 +22,7 @@ pub fn load(name: &str) -> Option<String> {
 }
 
 /// Persist `contents` verbatim to the settings file `name`.
-pub fn save(name: &str, contents: &str) -> common::Result<()> {
+pub fn save(name: &str, contents: &str) -> crate::Result<()> {
     let path = settings_path(name).ok_or_else(|| {
         std::io::Error::other("cannot determine OS config directory for preview settings")
     })?;
@@ -72,7 +71,7 @@ fn load_from_path(path: &Path) -> Option<String> {
     }
 }
 
-fn save_to_path(path: &Path, contents: &str) -> common::Result<()> {
+fn save_to_path(path: &Path, contents: &str) -> crate::Result<()> {
     let parent = path.parent().ok_or_else(|| {
         std::io::Error::other(format!("preview settings path has no parent: {}", path.display()))
     })?;
