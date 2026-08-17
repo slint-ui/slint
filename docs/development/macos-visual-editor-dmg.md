@@ -57,13 +57,54 @@ Optional GitHub Actions variable:
   `SUPublicEDKey`. The packaging script uses the checked-in default when this
   variable is not set.
 
-## Sparkle Keys
+## Sparkle framework
 
-Install Sparkle's framework and tools, then create or inspect the Visual Editor
-key pair:
+Sparkle sits behind the `sparkle-updater` Cargo feature of `slint-lsp`, and that
+feature is off by default.
+Without it the editor builds anywhere with no extra setup, and it keeps its
+update chrome hidden because the update state stays at `UpToDate`.
+The packaged app turns the feature on in `tools/lsp/macos-project.yml`, and so
+does `scripts/local_sparkle_update_test.sh`.
+
+Building with the feature needs `Sparkle.framework` in the repository root:
 
 ```sh
 ./scripts/download-sparkle.sh
+```
+
+The script pins the version and its checksum, and it also installs the
+`sparkle-bin/` tools that the keys below need.
+Both directories are ignored by git.
+There's no environment variable to set, because `.cargo/config.toml` points
+`SPARKLE_FRAMEWORK_DIR` at the repository root.
+That entry is what makes the build find the framework at all, since the
+`sparklers` build script otherwise searches its own checkout under `~/.cargo`.
+
+Then run the editor with updates enabled:
+
+```sh
+cargo run -p slint-lsp --example slint-editor \
+    --no-default-features \
+    --features backend-winit,renderer-skia,sparkle-updater
+```
+
+Sparkle is linked as `@rpath/Sparkle.framework`, so `tools/lsp/build.rs` adds an
+rpath pointing at the downloaded framework.
+Otherwise the binary doesn't start outside an app bundle.
+The scripts that assemble a bundle set `SLINT_SPARKLE_BUNDLED=1` to skip that
+rpath, because the bundle carries its own copy of the framework in
+`Contents/Frameworks` and a build machine path has no business in a shipped app.
+
+CI gets the framework from the `.github/actions/install-sparkle` action.
+The DMG workflow uses it, and so does `build_and_test_reusable.yaml`, because
+testing with `--all-features` turns the feature on.
+
+## Sparkle Keys
+
+With the framework and tools installed, create or inspect the Visual Editor key
+pair:
+
+```sh
 ./sparkle-bin/generate_keys --account slint-visual-editor
 ./sparkle-bin/generate_keys --account slint-visual-editor -p
 ./sparkle-bin/generate_keys --account slint-visual-editor -x /tmp/slint-visual-editor-sparkle-private-key
