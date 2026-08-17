@@ -13,7 +13,11 @@ export component SimulatorWindow inherits Window {
 
     in property <component-factory> preview-factory;
     in-out property <bool> frame-enabled: false;
+    private property <float> simulator-scale: min(root.width / 388px, root.height / 894px);
+    private property <length> simulator-x: (root.width - 388px * root.simulator-scale) / 2;
+    private property <length> simulator-y: (root.height - 894px * root.simulator-scale) / 2;
     callback presentation-changed(bool);
+    callback quit-requested();
 
     changed frame-enabled => {
         root.presentation-changed(root.frame-enabled);
@@ -26,7 +30,7 @@ export component SimulatorWindow inherits Window {
                 title: "Close Window";
                 shortcut: @keys(Control + W);
                 activated => {
-                    root.close();
+                    root.quit-requested();
                 }
             }
         }
@@ -47,42 +51,123 @@ export component SimulatorWindow inherits Window {
         component-factory: root.preview-factory;
     }
 
-    if root.frame-enabled: device-stage := Rectangle {
-        private property <float> scale-factor: min(root.width / self.width, root.height / self.height);
-
+    if root.frame-enabled: simulator-stage := Rectangle {
         width: 388px;
-        height: 826px;
-        x: (root.width - self.width * self.scale-factor) / 2;
-        y: (root.height - self.height * self.scale-factor) / 2;
+        height: 894px;
+        x: root.simulator-x;
+        y: root.simulator-y;
         transform-origin: { x: 0px, y: 0px };
-        transform-scale: self.scale-factor;
+        transform-scale: root.simulator-scale;
 
-        screen := Rectangle {
-            x: 14px;
-            y: 13px;
-            width: 360px;
-            height: 800px;
-            border-radius: 32px;
-            clip: true;
-            background: black;
+        device-stage := Rectangle {
+            y: 68px;
+            width: 388px;
+            height: 826px;
 
-            ComponentContainer {
+            screen := Rectangle {
+                x: 14px;
+                y: 13px;
+                width: 360px;
+                height: 800px;
+                border-radius: 32px;
+                clip: true;
+                background: black;
+
+                ComponentContainer {
+                    width: parent.width;
+                    height: parent.height;
+                    component-factory: root.preview-factory;
+                }
+            }
+
+            Image {
                 width: parent.width;
                 height: parent.height;
-                component-factory: root.preview-factory;
+                source: @image-url("assets/android-phone-frame.png");
+                image-fit: fill;
             }
-        }
 
-        Image {
+            WindowMoveArea { x: 0px; y: 0px; width: parent.width; height: 13px; }
+            WindowMoveArea { x: 0px; y: 813px; width: parent.width; height: 13px; }
+            WindowMoveArea { x: 0px; y: 13px; width: 14px; height: 800px; }
+            WindowMoveArea { x: 374px; y: 13px; width: 14px; height: 800px; }
+        }
+    }
+
+    if root.frame-enabled: control-bar := Rectangle {
+        x: root.simulator-x;
+        y: root.simulator-y;
+        width: 388px;
+        height: 52px;
+        transform-origin: { x: 0px, y: 0px };
+        transform-scale: root.simulator-scale;
+        background: #202020;
+        border-width: 1px;
+        border-color: #484848;
+        border-radius: self.height / 2;
+
+        WindowMoveArea {
             width: parent.width;
             height: parent.height;
-            source: @image-url("assets/android-phone-frame.png");
-            image-fit: fill;
-        }
 
-        WindowMoveArea { x: 0px; y: 0px; width: parent.width; height: 13px; }
-        WindowMoveArea { x: 0px; y: 813px; width: parent.width; height: 13px; }
-        WindowMoveArea { x: 0px; y: 13px; width: 14px; height: 800px; }
-        WindowMoveArea { x: 374px; y: 13px; width: 14px; height: 800px; }
+            close-button := Rectangle {
+                x: 14px;
+                y: 13px;
+                width: 26px;
+                height: 26px;
+                border-radius: self.width / 2;
+                background: close-touch.pressed ? #c92638 : close-touch.has-hover ? #ff6573 : #ff4d5f;
+
+                Text {
+                    text: "×";
+                    color: #531018;
+                    font-size: 18px;
+                    font-weight: 600;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+
+                close-touch := TouchArea {
+                    accessible-role: button;
+                    accessible-label: "Close simulator";
+                    mouse-cursor: pointer;
+                    clicked => {
+                        root.quit-requested();
+                    }
+                }
+            }
+
+            Text {
+                x: 54px;
+                y: 8px;
+                width: 240px;
+                height: 20px;
+                text: "Android Phone";
+                color: #f2f2f2;
+                font-size: 14px;
+                font-weight: 600;
+                vertical-alignment: center;
+            }
+
+            Text {
+                x: 54px;
+                y: 27px;
+                width: 240px;
+                height: 17px;
+                text: "360 × 800";
+                color: #9b9b9b;
+                font-size: 11px;
+                vertical-alignment: center;
+            }
+
+            Rectangle {
+                x: 340px;
+                y: 23px;
+                width: 32px;
+                height: 6px;
+                border-radius: self.height / 2;
+                background: #555;
+            }
+        }
     }
 }

@@ -26,6 +26,11 @@ pub fn run(compiler: Compiler, args: &Cli) -> Result<()> {
 
     let ui = SimulatorWindow::new()?;
     ui.set_frame_enabled(simulator_settings::load() == DeviceFrame::AndroidPhone);
+    ui.on_quit_requested(|| {
+        if let Err(error) = slint::quit_event_loop() {
+            tracing::warn!("Failed to close the simulator window: {error}");
+        }
+    });
     install_presentation_behavior(&ui);
     install_factory(&ui, live.borrow().definition().clone(), args);
 
@@ -48,7 +53,7 @@ fn install_presentation_behavior(ui: &SimulatorWindow) {
     let desktop_size =
         Rc::new(std::cell::Cell::new(initial_frame_enabled.then(|| ui.window().size())));
     if initial_frame_enabled {
-        ui.window().set_size(slint::LogicalSize::new(388., 826.));
+        ui.window().set_size(slint::LogicalSize::new(388., 894.));
     }
     let ui_weak = ui.as_weak();
     ui.on_presentation_changed(move |frame_enabled| {
@@ -57,7 +62,7 @@ fn install_presentation_behavior(ui: &SimulatorWindow) {
             if desktop_size.get().is_none() {
                 desktop_size.set(Some(ui.window().size()));
             }
-            ui.window().set_size(slint::LogicalSize::new(388., 826.));
+            ui.window().set_size(slint::LogicalSize::new(388., 894.));
         } else if let Some(size) = desktop_size.take() {
             ui.window().set_size(size);
         }
