@@ -30,6 +30,15 @@ export component SimulatorWindow inherits Window {
                 }
             }
         }
+
+        Menu {
+            title: "View";
+            MenuItem {
+                title: "Android Phone Frame";
+                checkable: true;
+                checked <=> root.frame-enabled;
+            }
+        }
     }
 
     if !root.frame-enabled: ComponentContainer {

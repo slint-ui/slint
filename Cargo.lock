@@ -7673,6 +7673,7 @@ dependencies = [
  "async-compat",
  "block2 0.6.2",
  "clap",
+ "directories",
  "i-slint-backend-android-activity",
  "i-slint-backend-selector",
  "i-slint-compiler",

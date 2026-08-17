@@ -92,12 +92,11 @@ anyhow = { version = "1.0.100", optional = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 tracing-log = { workspace = true }
+directories = "6.0"
+tempfile = "3"
 
 [build-dependencies]
 slint-build = { workspace = true }
-
-[dev-dependencies]
-tempfile = "3"
 
 # On the choice of mdns-sd vs zeroconf:
 #

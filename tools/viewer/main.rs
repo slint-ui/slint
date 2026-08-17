@@ -6,6 +6,7 @@
 mod debug;
 mod screenshot;
 mod simulator;
+mod simulator_settings;
 
 #[cfg(feature = "remote")]
 mod remote;

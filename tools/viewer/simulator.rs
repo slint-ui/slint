@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+use super::simulator_settings::{self, DeviceFrame};
 use super::{Cli, Result, setup_instance, watchable_path};
 use i_slint_core::component_factory::FactoryContext;
 use i_slint_live_preview::file_watcher::FileWatcher;
@@ -24,6 +25,7 @@ pub fn run(compiler: Compiler, args: &Cli) -> Result<()> {
     }
 
     let ui = SimulatorWindow::new()?;
+    ui.set_frame_enabled(simulator_settings::load() == DeviceFrame::AndroidPhone);
     install_presentation_behavior(&ui);
     install_factory(&ui, live.borrow().definition().clone(), args);
 
@@ -42,7 +44,12 @@ pub fn run(compiler: Compiler, args: &Cli) -> Result<()> {
 }
 
 fn install_presentation_behavior(ui: &SimulatorWindow) {
-    let desktop_size = Rc::new(std::cell::Cell::new(None::<slint::PhysicalSize>));
+    let initial_frame_enabled = ui.get_frame_enabled();
+    let desktop_size =
+        Rc::new(std::cell::Cell::new(initial_frame_enabled.then(|| ui.window().size())));
+    if initial_frame_enabled {
+        ui.window().set_size(slint::LogicalSize::new(388., 826.));
+    }
     let ui_weak = ui.as_weak();
     ui.on_presentation_changed(move |frame_enabled| {
         let Some(ui) = ui_weak.upgrade() else { return };
@@ -53,6 +60,9 @@ fn install_presentation_behavior(ui: &SimulatorWindow) {
             ui.window().set_size(slint::LogicalSize::new(388., 826.));
         } else if let Some(size) = desktop_size.take() {
             ui.window().set_size(size);
+        }
+        if let Err(error) = simulator_settings::save(DeviceFrame::from(frame_enabled)) {
+            tracing::warn!("Failed to save simulator settings: {error}");
         }
     });
 }
