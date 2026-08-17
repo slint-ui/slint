@@ -15,9 +15,6 @@ repository.workspace = true
 rust-version.workspace = true
 version.workspace = true
 
-# Repo-internal design notes; not part of the published crate.
-exclude = ["DESIGN.md"]
-
 [lib]
 path = "lib.rs"
 
