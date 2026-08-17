@@ -84,6 +84,13 @@ impl AppWindow {
         }
     }
 
+    pub fn as_weak(&self) -> WeakAppWindow {
+        match self {
+            AppWindow::Preview(ui) => WeakAppWindow::Preview(ui.as_weak()),
+            AppWindow::Editor(ui) => WeakAppWindow::Editor(ui.as_weak()),
+        }
+    }
+
     pub fn api(&self) -> Api<'_> {
         match self {
             AppWindow::Preview(ui) => ui.global::<Api>(),
@@ -103,6 +110,21 @@ impl AppWindow {
                 let api = ui.global::<Api>();
                 <Api as slint::Global<'_, EditorUi>>::as_weak(&api)
             }
+        }
+    }
+}
+
+#[derive(Clone)]
+pub enum WeakAppWindow {
+    Preview(slint::Weak<PreviewUi>),
+    Editor(slint::Weak<EditorUi>),
+}
+
+impl WeakAppWindow {
+    pub fn upgrade(&self) -> Option<AppWindow> {
+        match self {
+            WeakAppWindow::Preview(ui) => ui.upgrade().map(AppWindow::Preview),
+            WeakAppWindow::Editor(ui) => ui.upgrade().map(AppWindow::Editor),
         }
     }
 }
@@ -361,7 +383,7 @@ pub fn create_ui(
             api.set_startup_wizard_visible(false);
         }
     });
-    file_tree::setup(&api, api_weak.clone(), ui_kind);
+    file_tree::setup(&api, api_weak.clone(), ui_kind, app_window.as_weak());
     recent_colors::setup(&api, api_weak.clone());
     super::outline::setup(&api, api_weak);
     super::undo_redo::setup(&api);

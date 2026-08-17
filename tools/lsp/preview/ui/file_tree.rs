@@ -11,6 +11,7 @@ use slint::{Image, ModelRc, SharedString, ToSharedString as _, VecModel};
 
 use super::{
     Api, EditorSurfaceMode, FileTreeNode, FileTreeNodeKind, ImageAssetPreview, PreviewUiKind,
+    WeakAppWindow,
 };
 
 const NEW_PROJECT_NAME: &str = "Slint UI Project";
@@ -27,7 +28,12 @@ const NEW_PROJECT_MAIN_FILE_CONTENTS: &str = r#"export component MainWindow inhe
 }
 "#;
 
-pub fn setup(api: &Api<'_>, api_weak: slint::Weak<Api<'static>>, ui_kind: PreviewUiKind) {
+pub fn setup(
+    api: &Api<'_>,
+    api_weak: slint::Weak<Api<'static>>,
+    ui_kind: PreviewUiKind,
+    app_window: WeakAppWindow,
+) {
     if !ui_kind.is_editor() {
         api.set_file_tree(Default::default());
         api.set_selected_project_file(Default::default());
@@ -60,8 +66,11 @@ pub fn setup(api: &Api<'_>, api_weak: slint::Weak<Api<'static>>, ui_kind: Previe
 
     let controller_for_open = controller.clone();
     let api_weak_for_open = api_weak.clone();
+    let window_for_open = app_window.clone();
     api.on_open_existing_project(move || {
-        let Some(path) = choose_project_file() else {
+        // The handle is only valid once the window manager created the window.
+        let window = window_for_open.upgrade().map(|w| w.window().window_handle());
+        let Some(path) = choose_project_file(window) else {
             return false;
         };
         let Some(root) = path.parent().map(Path::to_path_buf) else {
@@ -83,8 +92,10 @@ pub fn setup(api: &Api<'_>, api_weak: slint::Weak<Api<'static>>, ui_kind: Previe
 
     let controller_for_new = controller.clone();
     let api_weak_for_new = api_weak.clone();
+    let window_for_new = app_window.clone();
     api.on_create_new_project(move || {
-        let Some(path) = choose_new_project_path() else {
+        let window = window_for_new.upgrade().map(|w| w.window().window_handle());
+        let Some(path) = choose_new_project_path(window) else {
             return false;
         };
         if let Err(err) = std::fs::create_dir_all(&path) {
@@ -147,16 +158,23 @@ fn initial_file_tree_paths() -> Option<(PathBuf, Option<PathBuf>)> {
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-fn choose_project_file() -> Option<PathBuf> {
-    rfd::FileDialog::new()
-        .set_title("Open Slint File")
-        .add_filter("Slint files", &["slint"])
-        .pick_file()
+fn choose_project_file(window: Option<slint::WindowHandle>) -> Option<PathBuf> {
+    let dialog =
+        rfd::FileDialog::new().set_title("Open Slint File").add_filter("Slint files", &["slint"]);
+    with_parent(dialog, window).pick_file()
 }
 
 #[cfg(target_arch = "wasm32")]
-fn choose_project_file() -> Option<PathBuf> {
+fn choose_project_file(_window: Option<slint::WindowHandle>) -> Option<PathBuf> {
     None
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn with_parent(dialog: rfd::FileDialog, window: Option<slint::WindowHandle>) -> rfd::FileDialog {
+    match window {
+        Some(window) => dialog.set_parent(&window),
+        None => dialog,
+    }
 }
 
 fn unique_new_project_path(parent: &Path) -> PathBuf {
@@ -176,20 +194,20 @@ fn unique_new_project_path(parent: &Path) -> PathBuf {
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-fn choose_new_project_path() -> Option<PathBuf> {
+fn choose_new_project_path(window: Option<slint::WindowHandle>) -> Option<PathBuf> {
     let parent = default_new_project_parent();
     let path = unique_new_project_path(&parent);
     let file_name = path.file_name()?.to_string_lossy();
 
-    rfd::FileDialog::new()
+    let dialog = rfd::FileDialog::new()
         .set_title("New Slint UI Project")
         .set_directory(parent)
-        .set_file_name(file_name.as_ref())
-        .save_file()
+        .set_file_name(file_name.as_ref());
+    with_parent(dialog, window).save_file()
 }
 
 #[cfg(target_arch = "wasm32")]
-fn choose_new_project_path() -> Option<PathBuf> {
+fn choose_new_project_path(_window: Option<slint::WindowHandle>) -> Option<PathBuf> {
     None
 }
 
