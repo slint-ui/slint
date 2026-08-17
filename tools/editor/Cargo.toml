@@ -42,7 +42,7 @@ clap = { workspace = true }
 crossbeam-channel = "0.5"
 lsp-types = { workspace = true }
 slint = { workspace = true, features = ["compat-1-2", "unstable-winit-030"] }
-tokio = { version = "1.50.0", features = ["macros", "net", "rt", "sync", "time"] }
+tokio = { version = "1.50.0", features = ["macros", "net", "process", "rt", "sync", "time"] }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 

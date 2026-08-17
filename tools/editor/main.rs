@@ -6,8 +6,10 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use std::{
+    ffi::OsString,
     path::{Path, PathBuf},
     pin::Pin,
+    process::Stdio,
     rc::Rc,
     time::Duration,
 };
@@ -45,7 +47,7 @@ fn main() -> std::result::Result<(), slint::PlatformError> {
     // initialize the default platform first and lose the hook.
     select_backend()?;
 
-    start_lsp_thread(from_preview, cli);
+    let _lsp_thread = start_lsp_thread(from_preview, cli);
 
     let app_window = preview::ui::create_ui(&to_lsp, "", preview::PreviewUiKind::Editor)?;
 
@@ -120,19 +122,42 @@ fn select_backend() -> std::result::Result<(), slint::PlatformError> {
     selector.select()
 }
 
-fn start_lsp_thread(from_preview: crossbeam_channel::Receiver<PreviewToLspMessage>, cli: Cli) {
-    std::thread::spawn(move || {
+struct LspThread {
+    shutdown: Option<tokio::sync::oneshot::Sender<()>>,
+    handle: Option<std::thread::JoinHandle<()>>,
+}
+
+impl Drop for LspThread {
+    fn drop(&mut self) {
+        if let Some(shutdown) = self.shutdown.take() {
+            let _ = shutdown.send(());
+        }
+        if let Some(handle) = self.handle.take()
+            && handle.join().is_err()
+        {
+            tracing::error!("Visual Editor host thread panicked during shutdown");
+        }
+    }
+}
+
+fn start_lsp_thread(
+    from_preview: crossbeam_channel::Receiver<PreviewToLspMessage>,
+    cli: Cli,
+) -> LspThread {
+    let (shutdown, shutdown_rx) = tokio::sync::oneshot::channel();
+    let handle = std::thread::spawn(move || {
         let rt = tokio::runtime::Builder::new_current_thread()
             .enable_io()
             .enable_time()
             .build()
             .unwrap();
         let local_set = tokio::task::LocalSet::new();
-        if let Err(err) = local_set.block_on(&rt, lsp_main(from_preview, cli)) {
+        if let Err(err) = local_set.block_on(&rt, lsp_main(from_preview, cli, shutdown_rx)) {
             tracing::error!("{err}");
             std::process::exit(1);
         }
     });
+    LspThread { shutdown: Some(shutdown), handle: Some(handle) }
 }
 
 fn bridge_crossbeam_to_tokio(
@@ -154,6 +179,7 @@ fn bridge_crossbeam_to_tokio(
 async fn lsp_main(
     from_preview: crossbeam_channel::Receiver<PreviewToLspMessage>,
     cli: Cli,
+    mut shutdown: tokio::sync::oneshot::Receiver<()>,
 ) -> Result<()> {
     use editor_preview::document_cache::CompilerConfiguration;
 
@@ -217,6 +243,7 @@ async fn lsp_main(
 
     let mut watch_paths_revision = None;
     let mut project_root = None;
+    let mut live_preview_process = LivePreviewProcess::default();
 
     // Load the initial document through the compiler if the editor was launched
     // with a file. Finder launches without a file stay on the startup wizard.
@@ -244,13 +271,17 @@ async fn lsp_main(
     }
 
     const RECOMPILE_IDLE_TIMEOUT: Duration = Duration::from_millis(50);
-    loop {
+    let result = loop {
         let recompile_idle_timeout = if session.pending_recompile.is_empty() {
             Duration::MAX
         } else {
             RECOMPILE_IDLE_TIMEOUT
         };
         tokio::select! {
+            _ = &mut shutdown => {
+                tracing::debug!("Visual Editor host thread shutting down");
+                break Ok(());
+            }
             watcher_event = file_watcher_rx.recv() => {
                 match watcher_event {
                     Some(event) => trigger_editor_file_watcher(&mut session, event).await?,
@@ -260,7 +291,11 @@ async fn lsp_main(
             msg = from_preview_rx.recv() => {
                 match msg {
                     Some(msg) => {
-                        if let Some(root) = handle_preview_message(msg, &mut session).await {
+                        if let Some(root) = handle_preview_message(
+                            msg,
+                            &mut session,
+                            &mut live_preview_process,
+                        ).await {
                             project_root = Some(root);
                             watch_paths_revision = None;
                         }
@@ -291,7 +326,12 @@ async fn lsp_main(
                 &mut watch_paths_revision,
             )?;
         }
+    };
+
+    if let Err(error) = live_preview_process.stop().await {
+        tracing::error!("Failed to stop the separate live preview: {error}");
     }
+    result
 }
 
 async fn trigger_editor_file_watcher(
@@ -336,6 +376,7 @@ fn sync_file_watcher_if_needed(
 async fn handle_preview_message(
     msg: PreviewToLspMessage,
     session: &mut editor_preview::EditorSession,
+    live_preview_process: &mut LivePreviewProcess,
 ) -> Option<PathBuf> {
     use PreviewToLspMessage::*;
     match &msg {
@@ -390,6 +431,12 @@ async fn handle_preview_message(
             eprintln!("{}", editor_preview::preview_log_message_to_string(location, message));
             None
         }
+        LaunchLivePreview { component } => {
+            if let Err(error) = live_preview_process.restart(component).await {
+                tracing::error!("Failed to launch the separate live preview: {error}");
+            }
+            None
+        }
 
         Diagnostics { .. }
         | ShowDocument { .. }
@@ -397,7 +444,6 @@ async fn handle_preview_message(
         | TelemetryEvent(..)
         | ConnectRemote { .. }
         | DisconnectRemote
-        | LaunchLivePreview { .. }
         | Pong => {
             tracing::debug!("Ignoring message from preview: {msg:?}");
             None
@@ -406,6 +452,110 @@ async fn handle_preview_message(
             handle_workspace_edit(&session.document_cache, label.as_deref(), edit);
             None
         }
+    }
+}
+
+#[derive(Debug, PartialEq, Eq)]
+struct LivePreviewCommand {
+    executable: PathBuf,
+    arguments: Vec<OsString>,
+    working_directory: PathBuf,
+}
+
+fn sibling_viewer_executable(editor_executable: &Path) -> Result<PathBuf> {
+    let Some(directory) = editor_executable.parent() else {
+        return Err("Failed to determine the Visual Editor executable directory".into());
+    };
+    Ok(directory.join(format!("slint-viewer{}", std::env::consts::EXE_SUFFIX)))
+}
+
+fn live_preview_command(
+    editor_executable: &Path,
+    source_file: &Path,
+    component_name: Option<&str>,
+) -> Result<LivePreviewCommand> {
+    let Some(working_directory) = source_file.parent() else {
+        return Err(format!(
+            "Failed to determine the parent directory of {}",
+            source_file.display()
+        )
+        .into());
+    };
+    let mut arguments =
+        vec![OsString::from("--auto-reload"), OsString::from("--style"), OsString::from("fluent")];
+    if let Some(component_name) = component_name {
+        arguments.push(OsString::from("--component"));
+        arguments.push(OsString::from(component_name));
+    }
+    arguments.push(source_file.as_os_str().to_owned());
+
+    Ok(LivePreviewCommand {
+        executable: sibling_viewer_executable(editor_executable)?,
+        arguments,
+        working_directory: working_directory.to_owned(),
+    })
+}
+
+#[derive(Default)]
+struct LivePreviewProcess {
+    child: Option<tokio::process::Child>,
+}
+
+impl LivePreviewProcess {
+    async fn restart(&mut self, component: &PreviewComponent) -> Result<()> {
+        self.stop().await?;
+
+        let source_file = editor_preview::uri_to_file(&component.url)
+            .ok_or_else(|| format!("Live preview requires a file URL, got {}", component.url))?;
+        let source_file = std::fs::canonicalize(&source_file).map_err(|error| {
+            format!("Failed to resolve live preview file {}: {error}", source_file.display())
+        })?;
+        let editor_executable = std::env::current_exe()
+            .map_err(|error| format!("Failed to locate the Visual Editor executable: {error}"))?;
+        let command =
+            live_preview_command(&editor_executable, &source_file, component.component.as_deref())?;
+
+        if !command.executable.is_file() {
+            return Err(format!(
+                "Could not find the sibling viewer at {}. Build it with `cargo build -p slint-viewer`.",
+                command.executable.display()
+            )
+            .into());
+        }
+
+        let mut process = tokio::process::Command::new(&command.executable);
+        process
+            .args(&command.arguments)
+            .current_dir(&command.working_directory)
+            .stdin(Stdio::null())
+            .stdout(Stdio::inherit())
+            .stderr(Stdio::inherit())
+            .kill_on_drop(true);
+        self.child = Some(process.spawn().map_err(|error| {
+            format!("Failed to start {}: {error}", command.executable.display())
+        })?);
+        Ok(())
+    }
+
+    async fn stop(&mut self) -> Result<()> {
+        let Some(mut child) = self.child.take() else {
+            return Ok(());
+        };
+        if child
+            .try_wait()
+            .map_err(|error| format!("Failed to query the live preview process: {error}"))?
+            .is_some()
+        {
+            return Ok(());
+        }
+        child
+            .start_kill()
+            .map_err(|error| format!("Failed to terminate the live preview process: {error}"))?;
+        child
+            .wait()
+            .await
+            .map_err(|error| format!("Failed to wait for the live preview process: {error}"))?;
+        Ok(())
     }
 }
 
@@ -455,5 +605,58 @@ fn handle_workspace_edit(
                 label.unwrap_or("(unnamed)")
             );
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn resolves_viewer_next_to_editor() {
+        let editor = Path::new("/build/output/slint-editor");
+
+        assert_eq!(
+            sibling_viewer_executable(editor).unwrap(),
+            Path::new("/build/output")
+                .join(format!("slint-viewer{}", std::env::consts::EXE_SUFFIX))
+        );
+    }
+
+    #[test]
+    fn builds_named_component_command_with_spaced_path() {
+        let editor = Path::new("/build/output/slint-editor");
+        let source = Path::new("/project with spaces/ui/main window.slint");
+
+        let command = live_preview_command(editor, source, Some("MainWindow")).unwrap();
+
+        assert_eq!(command.working_directory, Path::new("/project with spaces/ui"));
+        assert_eq!(
+            command.arguments,
+            [
+                "--auto-reload",
+                "--style",
+                "fluent",
+                "--component",
+                "MainWindow",
+                "/project with spaces/ui/main window.slint",
+            ]
+            .map(OsString::from)
+        );
+    }
+
+    #[test]
+    fn builds_unnamed_component_command() {
+        let command = live_preview_command(
+            Path::new("/build/output/slint-editor"),
+            Path::new("/project/ui/main.slint"),
+            None,
+        )
+        .unwrap();
+
+        assert_eq!(
+            command.arguments,
+            ["--auto-reload", "--style", "fluent", "/project/ui/main.slint"].map(OsString::from)
+        );
     }
 }
