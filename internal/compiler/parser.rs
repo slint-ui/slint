@@ -1066,6 +1066,10 @@ pub fn identifier_text(node: &SyntaxNode) -> Option<SmolStr> {
 }
 
 pub fn normalize_identifier(ident: &str) -> SmolStr {
+    if is_identifier_normalized(ident) {
+        // one bulk copy instead of the char-by-char builder below
+        return SmolStr::new(ident);
+    }
     let mut builder = smol_str::SmolStrBuilder::default();
     for (pos, c) in ident.chars().enumerate() {
         match (pos, c) {
