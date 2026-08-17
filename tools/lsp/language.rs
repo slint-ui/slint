@@ -29,6 +29,11 @@ use i_slint_compiler::parser::{
 use i_slint_compiler::{diagnostics::BuildDiagnostics, langtype::Type};
 #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
 use i_slint_live_preview::protocol::PreviewComponent;
+#[cfg(all(
+    target_arch = "wasm32",
+    any(feature = "preview-external", feature = "preview-engine")
+))]
+use i_slint_live_preview::protocol::VersionedUrl;
 use i_slint_live_preview::protocol::{LspToPreviewMessage, PreviewConfig, SourceFileVersion};
 
 use lsp_types::TextDocumentPositionParams;
@@ -94,47 +99,13 @@ fn create_populate_command(
 }
 
 #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
-pub fn send_state_to_preview(ctx: &Context) {
-    let mut doc_count = 0;
-    #[cfg(all(not(target_arch = "wasm32"), feature = "preview-remote"))]
-    let mut fonts_sent = HashSet::<PathBuf>::new();
-    for (url, node) in ctx.session.document_cache.all_url_documents() {
-        if url.scheme() == "builtin" {
-            continue;
-        }
-        let version = ctx.session.document_cache.document_version(&url);
-
-        ctx.session.to_preview.send(&LspToPreviewMessage::SetContents {
-            url: VersionedUrl::new(url.clone(), version),
-            contents: node.text().to_string().into(),
-        });
-        #[cfg(all(not(target_arch = "wasm32"), feature = "preview-remote"))]
-        send_referenced_fonts(ctx, &url, &mut fonts_sent);
-        doc_count += 1;
-    }
-
-    ctx.session.to_preview
-        .send(&LspToPreviewMessage::SetConfiguration { config: ctx.session.preview_config.clone() });
-
-    if let Some(c) = ctx.session.to_show.clone() {
-        tracing::debug!("Sending state to preview: {} documents, showing {}", doc_count, c.url);
-        ctx.session.to_preview.send(&LspToPreviewMessage::ShowPreview(c));
-    } else {
-        tracing::debug!(
-            "Sending state to preview: {} documents, showing default component",
-            doc_count
-        );
-    }
-}
-
-#[cfg(any(feature = "preview-external", feature = "preview-engine"))]
 pub fn send_requested_state_to_preview(
     ctx: &Context,
     files: &[lsp_types::Url],
     settings: &[String],
 ) {
     if files.is_empty() {
-        send_state_to_preview(ctx);
+        ctx.session.send_state_to_preview();
     } else {
         send_files_to_preview(ctx, files);
     }
@@ -145,7 +116,8 @@ pub fn send_requested_state_to_preview(
     ))]
     for name in settings {
         if let Some(contents) = i_slint_editor_preview::settings_store::load(name) {
-            ctx.session.to_preview
+            ctx.session
+                .to_preview
                 .send(&LspToPreviewMessage::SetUserSettings { name: name.clone(), contents });
         }
     }
@@ -174,107 +146,28 @@ pub fn store_user_settings(name: &str, contents: &str) {
     any(feature = "preview-external", feature = "preview-engine", feature = "preview-remote"),
 ))]
 pub fn send_files_to_preview(ctx: &Context, files: &[lsp_types::Url]) {
-    #[cfg(feature = "preview-remote")]
-    let mut fonts_sent = HashSet::<PathBuf>::new();
-    // Only the files that aren't loaded yet are read off disk, so build the
-    // access rules on the first one that is — most requests never need them.
     let file_access = std::cell::OnceCell::new();
-    for url in files {
-        if let Some(node) = ctx.session.document_cache.get_document(url).and_then(|doc| doc.node.as_ref()) {
-            let version = ctx.session.document_cache.document_version_by_path(node.source_file.path());
-            let contents = node.text().to_string().into();
-            tracing::debug!("Sending cached file {} to preview", url);
-            ctx.session.to_preview.send(&LspToPreviewMessage::SetContents {
-                url: VersionedUrl::new(url.clone(), version),
-                contents,
-            });
-            #[cfg(feature = "preview-remote")]
-            send_referenced_fonts(ctx, url, &mut fonts_sent);
-            continue;
-        }
-        let Some(path) = url.to_file_path().ok() else {
-            tracing::warn!("Cannot convert URL to file path: {url}");
-            continue;
-        };
-        let file_access = file_access.get_or_init(|| {
-            preview_files::PreviewFileAccess::new(
-                &ctx.init_param,
-                &ctx.session.preview_config,
-                &ctx.session.document_cache,
-            )
-        });
-        if !file_access.allows(&path) {
-            tracing::warn!(
-                "Refusing to send {} to the preview: not a file of the project being previewed",
-                path.display()
-            );
-            ctx.session.to_preview.send(&LspToPreviewMessage::ForgetFile { url: url.clone() });
-            continue;
-        }
-        match std::fs::read(&path) {
-            Ok(contents) => {
-                tracing::debug!("Sending file {} ({} bytes) to preview", url, contents.len());
-                ctx.session.to_preview.send(&LspToPreviewMessage::SetContents {
-                    url: VersionedUrl::new(url.clone(), None),
-                    contents,
-                });
-            }
-            Err(err) => {
-                tracing::warn!("Failed to read file {}: {err}", path.display());
-                ctx.session.to_preview.send(&LspToPreviewMessage::ForgetFile { url: url.clone() });
-            }
-        }
-    }
-}
-
-/// Read each font file imported by the `.slint` at `doc_url` and push it
-/// to the remote viewer via `SetContents`. Only the remote viewer needs
-/// font bytes pushed: local previews read fonts from disk. Fonts in `sent`
-/// are skipped: callers seed it with fonts that were already transferred
-/// (e.g. referenced by an earlier document in the same batch, or sent
-/// before the current edit).
-#[cfg(all(not(target_arch = "wasm32"), feature = "preview-remote"))]
-fn send_referenced_fonts(ctx: &Context, doc_url: &Url, sent: &mut HashSet<PathBuf>) {
-    let Some(remote) = ctx.session.to_preview.remote() else { return };
-    let Some(doc) = ctx.session.document_cache.get_document(doc_url) else { return };
-    // `custom_fonts` holds the resolved path of every font import that
-    // passed the compiler's existence check, plus remote URLs.
-    for (font_path, _) in &doc.custom_fonts {
-        let font_path = PathBuf::from(font_path.as_str());
-        if i_slint_compiler::pathutils::is_url(&font_path) {
-            continue;
-        }
-        if !sent.insert(font_path.clone()) {
-            continue;
-        }
-        let Ok(font_url) = Url::from_file_path(&font_path) else {
-            tracing::warn!("Cannot convert font path to URL: {}", font_path.display());
-            continue;
-        };
-        match std::fs::read(&font_path) {
-            Ok(contents) => {
-                tracing::debug!(
-                    "Sending font {} ({} bytes) to remote viewer",
-                    font_url,
-                    contents.len()
-                );
-                remote.send(&LspToPreviewMessage::SetContents {
-                    url: VersionedUrl::new(font_url, None),
-                    contents,
-                });
-            }
-            Err(err) => {
-                tracing::warn!("Failed to read font {}: {err}", font_path.display());
-            }
-        }
-    }
+    ctx.session.send_files_to_preview(files, |path| {
+        file_access
+            .get_or_init(|| {
+                preview_files::PreviewFileAccess::new(
+                    &ctx.init_param,
+                    &ctx.session.preview_config,
+                    &ctx.session.document_cache,
+                )
+            })
+            .allows(path)
+    });
 }
 
 #[cfg(all(target_arch = "wasm32", any(feature = "preview-external", feature = "preview-engine")))]
 pub fn send_files_to_preview(ctx: &Context, files: &[lsp_types::Url]) {
     for url in files {
-        if let Some(node) = ctx.session.document_cache.get_document(url).and_then(|doc| doc.node.as_ref()) {
-            let version = ctx.session.document_cache.document_version_by_path(node.source_file.path());
+        if let Some(node) =
+            ctx.session.document_cache.get_document(url).and_then(|doc| doc.node.as_ref())
+        {
+            let version =
+                ctx.session.document_cache.document_version_by_path(node.source_file.path());
             ctx.session.to_preview.send(&LspToPreviewMessage::SetContents {
                 url: VersionedUrl::new(url.clone(), version),
                 contents: node.text().to_string().into(),

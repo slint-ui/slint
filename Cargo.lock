@@ -3553,6 +3553,7 @@ version = "1.18.0"
 dependencies = [
  "by_address",
  "clru",
+ "directories",
  "futures-util",
  "i-slint-backend-selector",
  "i-slint-backend-testing",
@@ -3576,6 +3577,7 @@ dependencies = [
  "slint-interpreter",
  "smol_str 0.3.2",
  "spin_on",
+ "tempfile",
  "tokio",
  "tracing",
  "wasm-bindgen-futures",
@@ -7569,7 +7571,6 @@ dependencies = [
  "console_error_panic_hook",
  "crossbeam-channel",
  "dashmap",
- "directories",
  "dissimilar",
  "futures-util",
  "i-slint-backend-testing",
