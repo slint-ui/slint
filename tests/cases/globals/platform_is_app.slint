@@ -33,9 +33,10 @@ export component TestCase inherits Window {
 
 /*
 ```rust
+use slint::Model;
 let instance = TestCase::new().unwrap();
 assert_eq!(instance.get_test(), true);
-assert_eq!(instance.get_data().rowCount(), 0);
+assert_eq!(instance.get_data().row_count(), 0);
 ```
 
 ```cpp
