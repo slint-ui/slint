@@ -10,10 +10,13 @@ export component TestCase inherits Rectangle {
     }
 
     // bounce: 1 -> undamped, oscillates forever without settling (over one period here).
+    // iteration-count must be -1: a spring this bouncy never settles anyway, so -1 is the
+    // only way to acknowledge that the animation runs forever.
     in-out property <float> undamped: 0;
     animate undamped {
         duration: 1000ms;
         easing: spring(1.0);
+        iteration-count: -1;
     }
 
     // bounce: -1 -> overdamped, approaches the target even slower than critical damping.
