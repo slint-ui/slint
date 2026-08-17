@@ -297,7 +297,7 @@ impl SlintServer {
     ) -> std::result::Result<(), JsValue> {
         use PreviewToLspMessage as M;
 
-        let mut ctx = self.ctx.lock().await;
+        let ctx = self.ctx.lock().await;
 
         let Ok(message) = serde_wasm_bindgen::from_value(value) else {
             return Err(JsValue::from("Failed to convert value to PreviewToLspMessage"));

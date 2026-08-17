@@ -9,7 +9,6 @@ use i_slint_live_preview::file_watcher::FileChangeKind;
 
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
-use std::path::Path;
 use std::rc::Rc;
 
 use crate::common;
@@ -52,13 +51,6 @@ pub(crate) fn preview_capture() -> (Rc<LspToPreviews>, CapturedPreviewMessages) 
     (LspToPreviews::with_one(capture), messages)
 }
 
-/// Note: Use Rusts .. syntax to extend the context with additional values, e.g.:
-/// ```ignore
-/// let ctx = Rc::new(Context {
-///         document_cache: /**/,
-///         ..mock_context(),
-/// });
-/// ```
 pub fn mock_context() -> Context {
     crate::language::Context {
         session: common::EditorSession {

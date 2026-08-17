@@ -360,7 +360,7 @@ async fn handle_preview_message(
             if files.is_empty() {
                 session.send_state_to_preview();
             } else {
-                session.send_files_to_preview(files);
+                session.send_files_to_preview(files, |_| true);
             }
             for name in settings {
                 if let Some(contents) = i_slint_editor_preview::settings_store::load(name) {

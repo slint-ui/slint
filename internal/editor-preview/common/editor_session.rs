@@ -74,12 +74,15 @@ impl EditorSession {
         }
     }
 
-    // Callers live in the native LSP (main.rs / editor.rs); not used from WASM.
     #[cfg(all(
         not(target_arch = "wasm32"),
         any(feature = "preview-external", feature = "preview-engine", feature = "preview-remote"),
     ))]
-    pub fn send_files_to_preview(&self, files: &[lsp_types::Url]) {
+    pub fn send_files_to_preview(
+        &self,
+        files: &[lsp_types::Url],
+        allows_file: impl Fn(&std::path::Path) -> bool,
+    ) {
         #[cfg(feature = "preview-remote")]
         let mut fonts_sent = HashSet::<PathBuf>::new();
         for url in files {
@@ -101,6 +104,14 @@ impl EditorSession {
                 tracing::warn!("Cannot convert URL to file path: {url}");
                 continue;
             };
+            if !allows_file(&path) {
+                tracing::warn!(
+                    "Refusing to send {} to the preview: not a file of the project being previewed",
+                    path.display()
+                );
+                self.to_preview.send(&LspToPreviewMessage::ForgetFile { url: url.clone() });
+                continue;
+            }
             match std::fs::read(&path) {
                 Ok(contents) => {
                     tracing::debug!("Sending file {} ({} bytes) to preview", url, contents.len());
