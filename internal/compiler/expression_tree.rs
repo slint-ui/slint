@@ -1439,7 +1439,14 @@ impl Expression {
         diag: &mut BuildDiagnostics,
     ) -> Expression {
         let ty = self.ty();
-        if ty == target_type
+
+        if let Expression::Condition { .. } = self
+            && ty == Type::Void
+        {
+            // The true and false expressions do not return the same type. So at least one does not match
+            // with expected and an error was already added so we don't have to add an additional error here
+            self
+        } else if ty == target_type
             || target_type == Type::Void
             || target_type == Type::Invalid
             || ty == Type::Invalid
@@ -1589,6 +1596,34 @@ impl Expression {
                 new_values.insert(f, Expression::default_value_for_type(&t));
             }
             Expression::Struct { ty: struct_type.clone(), values: new_values }
+        } else if matches!(ty, Type::Array(_))
+            && let Expression::Condition { condition, true_expr, false_expr } = self
+        {
+            // Recursive try to convert the conditional expressions to the target_type
+            // true_expr and false_expr are equal this is handled with the condition at the beginning
+            // of this function so if one fails to convert, we should not try to convert the false case
+            // as well
+            let true_expr_converted = true_expr.clone().maybe_convert_to(
+                target_type.clone(),
+                node,
+                diag,
+                symbol_counters,
+            );
+            if true_expr_converted.ty() != target_type.clone() {
+                // Failed to convert so we don't have to try to convert the false expr as well
+                Expression::Condition { condition, true_expr, false_expr }
+            } else {
+                Expression::Condition {
+                    condition,
+                    true_expr: Box::new(true_expr_converted),
+                    false_expr: Box::new(false_expr.maybe_convert_to(
+                        target_type,
+                        node,
+                        diag,
+                        symbol_counters,
+                    )),
+                }
+            }
         } else {
             let mut message = format!("Cannot convert {ty} to {target_type}");
             // Explicit error message for unit conversion
