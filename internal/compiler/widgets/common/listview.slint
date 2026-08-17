@@ -144,6 +144,9 @@ component StandardListViewBase inherits ListView {
         accessible-action-default => { i-touch-area.clicked(); }
 
         i-touch-area := TouchArea {
+            // Selection is safe to trigger from a window-activating click.
+            accepts-activation-clicks: true;
+
             clicked => {
                 root.set-current-item(index);
             }

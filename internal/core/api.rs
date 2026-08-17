@@ -702,6 +702,8 @@ impl Window {
                     button,
                     click_count: 0,
                     touch_finger_id: 0,
+                    // The public platform API cannot report activation clicks yet.
+                    is_activation_click: false,
                 })
                 .into(),
             crate::platform::WindowEvent::PointerReleased { position, button } => self
@@ -711,6 +713,7 @@ impl Window {
                     button,
                     click_count: 0,
                     touch_finger_id: 0,
+                    is_activation_click: false,
                 })
                 .into(),
             crate::platform::WindowEvent::PointerMoved { position } => self

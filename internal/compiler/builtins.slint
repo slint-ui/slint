@@ -854,6 +854,16 @@ export component TouchArea {
     out property <length> pressed_y;
     /// Set to `true` by the `TouchArea` when the mouse is pressed over it.
     out property <bool> pressed;
+    /// On macOS, a click on an inactive window activates the window, and by convention only
+    /// interactions that are safe to trigger accidentally — such as selecting an item or placing a
+    /// text cursor — react to that click. By default, the `TouchArea` follows this convention and
+    /// ignores such a window-activating click: `clicked` isn't invoked and `pressed` stays false.
+    /// Set this property to true to process the activating click like any other click. Use this
+    /// for interactions like selection that users expect to work with the first click.
+    /// The `pointer-event` callback is invoked either way; its `is-activation-click` field tells
+    /// the two cases apart. On all other platforms every click behaves normally, regardless of
+    /// this property.
+    in property <bool> accepts-activation-clicks;
     /// Invoked when clicked: A finger or the left mouse button is pressed, then released on this element.
     callback clicked;
     /// Invoked when double-clicked. The left mouse button is pressed and released twice on this element in a short

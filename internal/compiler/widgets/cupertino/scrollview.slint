@@ -56,6 +56,9 @@ export component ScrollBar inherits Rectangle {
     }
 
     touch-area := TouchArea {
+        // macOS native scrollbars react to a window-activating click.
+        accepts-activation-clicks: true;
+
         property <{pressed-value: length, maximum: length, x:length, y: length}> saved-values;
 
         width: parent.width;

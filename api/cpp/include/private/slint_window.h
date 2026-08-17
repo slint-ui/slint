@@ -582,8 +582,8 @@ public:
     void dispatch_pointer_press_event(LogicalPosition pos, PointerEventButton button)
     {
         private_api::assert_main_thread();
-        inner.dispatch_pointer_event(
-                slint::cbindgen_private::MouseEvent::Pressed({ pos.x, pos.y }, button, 0, 0));
+        inner.dispatch_pointer_event(slint::cbindgen_private::MouseEvent::Pressed(
+                { pos.x, pos.y }, button, 0, 0, false));
     }
     /// Dispatches a pointer or mouse release event to the scene.
     ///
@@ -595,8 +595,8 @@ public:
     void dispatch_pointer_release_event(LogicalPosition pos, PointerEventButton button)
     {
         private_api::assert_main_thread();
-        inner.dispatch_pointer_event(
-                slint::cbindgen_private::MouseEvent::Released({ pos.x, pos.y }, button, 0, 0));
+        inner.dispatch_pointer_event(slint::cbindgen_private::MouseEvent::Released(
+                { pos.x, pos.y }, button, 0, 0, false));
     }
     /// Dispatches a pointer exit event to the scene.
     ///

@@ -209,7 +209,7 @@ cpp! {{
             rust!(Slint_mousePressEvent [rust_window: &QtWindow as "void*", pos: qttypes::QPoint as "QPoint", button: u32 as "int" ] {
                 let position = LogicalPoint::new(pos.x as _, pos.y as _);
                 let button = from_qt_button(button);
-                rust_window.mouse_event(MouseEvent::Pressed{ position, button, click_count: 0, touch_finger_id: 0 })
+                rust_window.mouse_event(MouseEvent::Pressed{ position, button, click_count: 0, touch_finger_id: 0, is_activation_click: false })
             });
         }
         void mouseReleaseEvent(QMouseEvent *event) override {
@@ -239,7 +239,7 @@ cpp! {{
             rust!(Slint_mouseReleaseEvent [rust_window: &QtWindow as "void*", pos: qttypes::QPoint as "QPoint", button: u32 as "int" ] {
                 let position = LogicalPoint::new(pos.x as _, pos.y as _);
                 let button = from_qt_button(button);
-                rust_window.mouse_event(MouseEvent::Released{ position, button, click_count: 0, touch_finger_id: 0 })
+                rust_window.mouse_event(MouseEvent::Released{ position, button, click_count: 0, touch_finger_id: 0, is_activation_click: false })
             });
         }
         void mouseMoveEvent(QMouseEvent *event) override {
