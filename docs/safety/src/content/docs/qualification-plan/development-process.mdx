@@ -4,9 +4,16 @@ description: Tools, processes, and infrastructure used for Slint SC development.
 ---
 
 
-## The Development Process (ISO 26262-8 11.4.8)
+## The Development Process (ISO 26262-8)
 
-This section describes the tools we use and the processes we follow to develop Slint SC, aiming to fulfill the supporting process requirements of ISO 26262 Part 8 (Clauses 5-13).
+This section describes the tools we use and the processes we follow to develop Slint SC, aiming to fulfill the supporting process requirements of ISO 26262 Part 8 (Clauses 5-16).
+
+(TODO: ISO 26262-8 11.4.8, "evaluation of the tool development process", is a
+qualification method for the compiler in its own right, and 11.4.8.3 wants that
+evaluation based on a recognized standard such as Automotive SPICE, the
+ISO/IEC 33000 series, or CMMI. The [Qualification Method](/evaluation-report/qualification-method/)
+chapter picks validation instead. Decide whether 11.4.8 is also claimed, and if
+it is, say which standard the evaluation is against.)
 
 ### Language and Compiler
 
@@ -80,6 +87,6 @@ of the interface.)
 
 (TODO: add release schedule)
 
-### Hardware Qualification (ISO 26262-8 13.x)
+### Evaluation of Hardware Elements (ISO 26262-8 13.x)
 
-*Note: Section 13 is Out of Scope.* Slint SC is a purely software-based UI toolkit. Qualification of the underlying hardware elements (e.g., MCU/MPU, memory, display controllers) operating the safety-critical UI is the responsibility of the system integrator.
+*Note: Clause 13 is out of scope.* Slint SC is a purely software-based UI toolkit. Evaluating the underlying hardware elements (e.g., MCU/MPU, memory, display controllers) operating the safety-critical UI is the responsibility of the system integrator.
