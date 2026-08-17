@@ -466,8 +466,8 @@ fn request_file_tree_preview(path: &Path) {
     let Some(to_lsp) = to_lsp else {
         return;
     };
-    if let Err(err) = to_lsp
-        .send(&PreviewToLspMessage::RequestState { files: vec![url], settings: Vec::new() })
+    if let Err(err) =
+        to_lsp.send(&PreviewToLspMessage::RequestState { files: vec![url], settings: Vec::new() })
     {
         tracing::warn!("Failed to request file tree preview contents: {err}");
     }
