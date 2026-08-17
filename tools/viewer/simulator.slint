@@ -5,8 +5,19 @@ export component SimulatorWindow inherits Window {
     title: "Slint Live Preview";
     preferred-width: 800px;
     preferred-height: 600px;
+    background: root.frame-enabled
+        ? (Platform.os == OperatingSystemType.windows ? #181818 : transparent)
+        : #202020;
+    no-frame: root.frame-enabled;
+    resize-border-width: root.frame-enabled ? 8px : 0px;
 
     in property <component-factory> preview-factory;
+    in-out property <bool> frame-enabled: false;
+    callback presentation-changed(bool);
+
+    changed frame-enabled => {
+        root.presentation-changed(root.frame-enabled);
+    }
 
     MenuBar {
         Menu {
@@ -21,7 +32,56 @@ export component SimulatorWindow inherits Window {
         }
     }
 
-    ComponentContainer {
+    if !root.frame-enabled: ComponentContainer {
         component-factory: root.preview-factory;
+    }
+
+    if root.frame-enabled: device-stage := Rectangle {
+        private property <float> scale-factor: min(root.width / self.width, root.height / self.height);
+
+        width: 388px;
+        height: 826px;
+        x: (root.width - self.width * self.scale-factor) / 2;
+        y: (root.height - self.height * self.scale-factor) / 2;
+        transform-origin: { x: 0px, y: 0px };
+        transform-scale: self.scale-factor;
+
+        screen := Rectangle {
+            x: 14px;
+            y: 13px;
+            width: 360px;
+            height: 800px;
+            border-radius: 32px;
+            clip: true;
+            background: black;
+
+            ComponentContainer {
+                component-factory: root.preview-factory;
+            }
+        }
+
+        Image {
+            width: parent.width;
+            height: parent.height;
+            source: @image-url("assets/android-phone-frame.png");
+            image-fit: fill;
+        }
+
+        // Keep the camera crisp at every simulator scale.
+        Rectangle {
+            x: 187px;
+            y: 16px;
+            width: 14px;
+            height: 14px;
+            border-radius: 7px;
+            background: #090909;
+            border-width: 1px;
+            border-color: #242424;
+        }
+
+        WindowMoveArea { x: 0px; y: 0px; width: parent.width; height: 13px; }
+        WindowMoveArea { x: 0px; y: 813px; width: parent.width; height: 13px; }
+        WindowMoveArea { x: 0px; y: 13px; width: 14px; height: 800px; }
+        WindowMoveArea { x: 374px; y: 13px; width: 14px; height: 800px; }
     }
 }

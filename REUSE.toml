@@ -41,6 +41,11 @@ SPDX-FileCopyrightText = "Copyright © 2026 GitHub Inc."
 SPDX-License-Identifier = "MIT"
 
 [[annotations]]
+path = ["tools/viewer/assets/android-phone-frame.png"]
+SPDX-FileCopyrightText = "Copyright © SixtyFPS GmbH <info@slint.dev>"
+SPDX-License-Identifier = "GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0"
+
+[[annotations]]
 path = [
   "**/.eslintrc.yml",
   "**/.gitignore",

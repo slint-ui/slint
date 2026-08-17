@@ -24,6 +24,7 @@ pub fn run(compiler: Compiler, args: &Cli) -> Result<()> {
     }
 
     let ui = SimulatorWindow::new()?;
+    install_presentation_behavior(&ui);
     install_factory(&ui, live.borrow().definition().clone(), args);
 
     {
@@ -38,6 +39,22 @@ pub fn run(compiler: Compiler, args: &Cli) -> Result<()> {
 
     ui.run()?;
     Ok(())
+}
+
+fn install_presentation_behavior(ui: &SimulatorWindow) {
+    let desktop_size = Rc::new(std::cell::Cell::new(None::<slint::PhysicalSize>));
+    let ui_weak = ui.as_weak();
+    ui.on_presentation_changed(move |frame_enabled| {
+        let Some(ui) = ui_weak.upgrade() else { return };
+        if frame_enabled {
+            if desktop_size.get().is_none() {
+                desktop_size.set(Some(ui.window().size()));
+            }
+            ui.window().set_size(slint::LogicalSize::new(388., 826.));
+        } else if let Some(size) = desktop_size.take() {
+            ui.window().set_size(size);
+        }
+    });
 }
 
 fn install_factory(ui: &SimulatorWindow, definition: ComponentDefinition, args: &Cli) {
