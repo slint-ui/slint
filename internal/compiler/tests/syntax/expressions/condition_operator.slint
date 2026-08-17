@@ -75,4 +75,7 @@ export component Test3 {
 
     property <int> foo2: {  if true { 5 }  };
 //                       >                  <error{Cannot convert void to int}
+
+    property <int> foo3: {  if true { } else { } };
+//                       >                        <error{Cannot convert void to int}
 }
