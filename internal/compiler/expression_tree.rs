@@ -1572,10 +1572,8 @@ impl Expression {
         {
             // The true and false expressions do not return the same type. So at least one does not match
             // with expected and an error was already added so we don't have to add an additional error here
-            return self;
-        }
-
-        if ty == target_type
+            self
+        } else if ty == target_type
             || target_type == Type::Void
             || target_type == Type::Invalid
             || ty == Type::Invalid
