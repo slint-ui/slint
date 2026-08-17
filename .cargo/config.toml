@@ -14,6 +14,15 @@ target-dir = "target"
 [alias]
 xtask = "run --locked --package xtask --"
 
+# Where the "sparkle-updater" feature of slint-lsp looks for Sparkle.framework,
+# which scripts/download-sparkle.sh puts in the repository root. `relative`
+# resolves the value against the directory holding this file, and without
+# `force` an existing environment variable still wins. The sparklers build
+# script has its own fallback, but that one searches the workspace of the
+# sparklers checkout in ~/.cargo rather than this repository.
+[env]
+SPARKLE_FRAMEWORK_DIR = { value = "", relative = true }
+
 [target.xtensa-esp32s3-none-elf]
 rustflags = [
   "-C",

@@ -87,6 +87,10 @@ preview-builtin = ["preview-engine"]
 preview-external = []
 ## Support the remote preview via a WebSocket connection
 preview-remote = ["preview-engine", "preview-builtin"]
+## Let the visual editor check for updates of itself via the Sparkle framework.
+## Does nothing outside of macOS. Building this needs Sparkle.framework, run
+## scripts/download-sparkle.sh to put it in the repository root.
+sparkle-updater = ["dep:sparklers"]
 
 default = ["backend-default", "renderer-femtovg", "renderer-software", "preview"]
 
@@ -121,7 +125,9 @@ tikv-jemallocator = { workspace = true }
 
 # Used by the visual editor for the macOS unified title bar.
 [target.'cfg(target_os = "macos")'.dependencies]
-sparklers = { git = "https://github.com/slint-ui/sparklers.git", rev = "76f2b67" }
+# Enabled by the "sparkle-updater" feature. Building it needs Sparkle.framework,
+# see the feature's documentation.
+sparklers = { git = "https://github.com/slint-ui/sparklers.git", rev = "76f2b67", optional = true }
 objc2-app-kit = { version = "0.3.2", default-features = false, features = ["std", "NSToolbar", "NSView", "NSWindow"] }
 objc2-foundation = { version = "0.3.2", default-features = false, features = ["std", "NSString"] }
 objc2 = "0.6"

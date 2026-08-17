@@ -63,7 +63,7 @@ targets:
               --profile package-release \
               --example slint-editor \
               --no-default-features \
-              --features backend-winit,renderer-skia \
+              --features backend-winit,renderer-skia,sparkle-updater \
               ${MACOS_CARGO_TIMINGS:+--timings}
         outputFiles:
           - $(TARGET_BUILD_DIR)/$(EXECUTABLE_PATH)

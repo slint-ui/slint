@@ -34,7 +34,6 @@ jobs:
       NOTARY_ISSUER_ID: ${{ secrets.APPLE_APPSTORE_ISSUER_ID }}
       EDITOR_SPARKLE_ED_PRIVATE_KEY: ${{ secrets.EDITOR_SPARKLE_ED_PRIVATE_KEY }}
       EDITOR_SPARKLE_PUBLIC_ED_KEY: ${{ vars.EDITOR_SPARKLE_PUBLIC_ED_KEY }}
-      SPARKLE_FRAMEWORK_DIR: ${{ github.workspace }}
     steps:
       - uses: actions/checkout@v6
 
@@ -90,8 +89,7 @@ jobs:
       - name: Install signing material
         run: ./scripts/package_macos_visual_editor.bash install-signing-material
 
-      - name: Install Sparkle.framework
-        run: ./scripts/download-sparkle.sh
+      - uses: ./.github/actions/install-sparkle
 
       - name: Archive app with Xcode
         run: ./scripts/package_macos_visual_editor.bash archive-app
