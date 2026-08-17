@@ -666,37 +666,23 @@ impl LookupObject for TypeSpecificLookup {
         ctx: &LookupCtx,
         f: &mut impl FnMut(&SmolStr, LookupResult) -> Option<R>,
     ) -> Option<R> {
-        (ExpectedEnumLookup, ColorEasingCursorLookup).for_each_entry(ctx, f)
-    }
-
-    fn lookup(&self, ctx: &LookupCtx, name: &SmolStr) -> Option<LookupResult> {
-        (ExpectedEnumLookup, ColorEasingCursorLookup).lookup(ctx, name)
-    }
-}
-
-/// The color, easing, and cursor names resolved for an expected type: the
-/// half of [`TypeSpecificLookup`] that full Slint has beyond the Slint SC
-/// subset.
-struct ColorEasingCursorLookup;
-impl LookupObject for ColorEasingCursorLookup {
-    fn for_each_entry<R>(
-        &self,
-        ctx: &LookupCtx,
-        f: &mut impl FnMut(&SmolStr, LookupResult) -> Option<R>,
-    ) -> Option<R> {
+        let sc = ctx.diag.is_slint_sc();
         match &ctx.expected_type {
-            Type::Color | Type::Brush => ColorSpecific.for_each_entry(ctx, f),
-            Type::Easing => EasingSpecific.for_each_entry(ctx, f),
-            Type::MouseCursor => MouseCursorSpecific.for_each_entry(ctx, f),
+            Type::Color | Type::Brush if !sc => ColorSpecific.for_each_entry(ctx, f),
+            Type::Easing if !sc => EasingSpecific.for_each_entry(ctx, f),
+            Type::MouseCursor if !sc => MouseCursorSpecific.for_each_entry(ctx, f),
+            Type::Enumeration(enumeration) => enumeration.clone().for_each_entry(ctx, f),
             _ => None,
         }
     }
 
     fn lookup(&self, ctx: &LookupCtx, name: &SmolStr) -> Option<LookupResult> {
+        let sc = ctx.diag.is_slint_sc();
         match &ctx.expected_type {
-            Type::Color | Type::Brush => ColorSpecific.lookup(ctx, name),
-            Type::Easing => EasingSpecific.lookup(ctx, name),
-            Type::MouseCursor => MouseCursorSpecific.lookup(ctx, name),
+            Type::Color | Type::Brush if !sc => ColorSpecific.lookup(ctx, name),
+            Type::Easing if !sc => EasingSpecific.lookup(ctx, name),
+            Type::MouseCursor if !sc => MouseCursorSpecific.lookup(ctx, name),
+            Type::Enumeration(enumeration) => enumeration.clone().lookup(ctx, name),
             _ => None,
         }
     }
@@ -824,9 +810,13 @@ impl LookupObject for FontWeightLookup {
 impl LookupObject for Arc<Enumeration> {
     fn for_each_entry<R>(
         &self,
-        _ctx: &LookupCtx,
+        ctx: &LookupCtx,
         f: &mut impl FnMut(&SmolStr, LookupResult) -> Option<R>,
     ) -> Option<R> {
+        // Builtin enums are not in the Slint SC subset.
+        if ctx.diag.is_slint_sc() && self.node.is_none() {
+            return None;
+        }
         for (value, name) in self.values.iter().enumerate() {
             if let Some(r) = f(
                 name,
@@ -977,6 +967,9 @@ impl LookupObject for BuiltinFunctionLookup {
         ctx: &LookupCtx,
         f: &mut impl FnMut(&SmolStr, LookupResult) -> Option<R>,
     ) -> Option<R> {
+        if ctx.diag.is_slint_sc() {
+            return None;
+        }
         (MathFunctions, ColorFunctions)
             .for_each_entry(ctx, f)
             .or_else(|| f(&SmolStr::new_static("debug"), BuiltinMacroFunction::Debug.into()))
@@ -993,6 +986,9 @@ impl LookupObject for BuiltinNamespaceLookup {
         ctx: &LookupCtx,
         f: &mut impl FnMut(&SmolStr, LookupResult) -> Option<R>,
     ) -> Option<R> {
+        if ctx.diag.is_slint_sc() {
+            return None;
+        }
         let mut f = |s, res| f(&SmolStr::new_static(s), res);
         None.or_else(|| f("Colors", LookupResult::Namespace(BuiltinNamespace::Colors)))
             .or_else(|| f("Easing", LookupResult::Namespace(BuiltinNamespace::Easing)))
@@ -1010,48 +1006,6 @@ impl LookupObject for BuiltinNamespaceLookup {
     }
 }
 
-/// A lookup provider of full Slint that the Slint SC subset doesn't offer:
-/// in SC mode the names it would resolve don't resolve at all, and get the
-/// ordinary unknown-identifier error.
-struct HiddenInSlintSc<T>(T);
-impl<T: LookupObject> LookupObject for HiddenInSlintSc<T> {
-    fn for_each_entry<R>(
-        &self,
-        ctx: &LookupCtx,
-        f: &mut impl FnMut(&SmolStr, LookupResult) -> Option<R>,
-    ) -> Option<R> {
-        if ctx.diag.is_slint_sc() {
-            return None;
-        }
-        self.0.for_each_entry(ctx, f)
-    }
-
-    fn lookup(&self, ctx: &LookupCtx, name: &SmolStr) -> Option<LookupResult> {
-        if ctx.diag.is_slint_sc() {
-            return None;
-        }
-        self.0.lookup(ctx, name)
-    }
-}
-
-/// The values of an expected enumeration type: the half of
-/// [`TypeSpecificLookup`] that the Slint SC subset keeps. A builtin enum
-/// resolves here too; a value of one is rejected by the reference check,
-/// since the property carrying the expected type was already rejected.
-struct ExpectedEnumLookup;
-impl LookupObject for ExpectedEnumLookup {
-    fn for_each_entry<R>(
-        &self,
-        ctx: &LookupCtx,
-        f: &mut impl FnMut(&SmolStr, LookupResult) -> Option<R>,
-    ) -> Option<R> {
-        match &ctx.expected_type {
-            Type::Enumeration(enumeration) => enumeration.clone().for_each_entry(ctx, f),
-            _ => None,
-        }
-    }
-}
-
 pub fn global_lookup() -> impl LookupObject {
     (
         LocalVariableLookup,
@@ -1065,13 +1019,7 @@ pub fn global_lookup() -> impl LookupObject {
                         InScopeLookup,
                         (
                             LookupType,
-                            (
-                                HiddenInSlintSc(BuiltinNamespaceLookup),
-                                (
-                                    (ExpectedEnumLookup, HiddenInSlintSc(ColorEasingCursorLookup)),
-                                    HiddenInSlintSc(BuiltinFunctionLookup),
-                                ),
-                            ),
+                            (BuiltinNamespaceLookup, (TypeSpecificLookup, BuiltinFunctionLookup)),
                         ),
                     ),
                 ),
@@ -1104,9 +1052,11 @@ impl LookupObject for Expression {
                     }
                     None
                 }
+                Type::Image => ImageExpression(self).for_each_entry(ctx, f),
+                // Only struct fields and image dimensions are members in Slint SC.
+                _ if ctx.diag.is_slint_sc() => None,
                 Type::String => StringExpression(self).for_each_entry(ctx, f),
                 Type::Brush | Type::Color => ColorExpression(self).for_each_entry(ctx, f),
-                Type::Image => ImageExpression(self).for_each_entry(ctx, f),
                 Type::Array(_) => ArrayExpression(self).for_each_entry(ctx, f),
                 Type::Float32 | Type::Int32 | Type::Percent => {
                     NumberExpression(self).for_each_entry(ctx, f)
@@ -1130,9 +1080,11 @@ impl LookupObject for Expression {
                         name: name.clone(),
                     })
                 }),
+                Type::Image => ImageExpression(self).lookup(ctx, name),
+                // Only struct fields and image dimensions are members in Slint SC.
+                _ if ctx.diag.is_slint_sc() => None,
                 Type::String => StringExpression(self).lookup(ctx, name),
                 Type::Brush | Type::Color => ColorExpression(self).lookup(ctx, name),
-                Type::Image => ImageExpression(self).lookup(ctx, name),
                 Type::Array(_) => ArrayExpression(self).lookup(ctx, name),
                 Type::Float32 | Type::Int32 | Type::Percent => {
                     NumberExpression(self).lookup(ctx, name)

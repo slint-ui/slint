@@ -192,10 +192,11 @@ impl From<Arc<Struct>> for Type {
 }
 
 impl Type {
-    /// Whether the type is part of the Slint SC subset
-    #[cfg(feature = "slint-sc")]
+    /// Whether the type is part of the Slint SC subset.
+    /// Callable without the `slint-sc` feature, so shared call sites need no `cfg`.
     pub fn is_slint_sc(&self) -> bool {
-        match self {
+        #[cfg(feature = "slint-sc")]
+        return match self {
             Self::Int32 | Self::LogicalLength | Self::Color | Self::Bool | Self::Image => true,
             // A user-declared enum.
             Self::Enumeration(en) => en.node.is_some(),
@@ -203,18 +204,9 @@ impl Type {
             // struct was declared, so they need no re-check here.
             Self::Struct(s) => matches!(&s.name, StructName::User { .. }),
             _ => false,
-        }
-    }
-
-    /// Whether an expression of this type may appear in Slint SC code: the
-    /// declarable types of [`Self::is_slint_sc`], and the builtin Size struct
-    /// the lookup wraps around an image for its `.width`/`.height` dimension
-    /// reads. Size can't be named in a declaration, so it stays out of
-    /// `is_slint_sc`.
-    #[cfg(feature = "slint-sc")]
-    pub fn is_slint_sc_value(&self) -> bool {
-        self.is_slint_sc()
-            || matches!(self, Self::Struct(s) if matches!(s.name, StructName::Builtin(BuiltinStruct::Size)))
+        };
+        #[cfg(not(feature = "slint-sc"))]
+        false
     }
 
     /// valid type for properties
