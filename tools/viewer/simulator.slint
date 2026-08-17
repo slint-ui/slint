@@ -42,6 +42,8 @@ export component SimulatorWindow inherits Window {
     }
 
     if !root.frame-enabled: ComponentContainer {
+        width: root.width;
+        height: root.height;
         component-factory: root.preview-factory;
     }
 
@@ -65,6 +67,8 @@ export component SimulatorWindow inherits Window {
             background: black;
 
             ComponentContainer {
+                width: parent.width;
+                height: parent.height;
                 component-factory: root.preview-factory;
             }
         }
@@ -74,18 +78,6 @@ export component SimulatorWindow inherits Window {
             height: parent.height;
             source: @image-url("assets/android-phone-frame.png");
             image-fit: fill;
-        }
-
-        // Keep the camera crisp at every simulator scale.
-        Rectangle {
-            x: 187px;
-            y: 16px;
-            width: 14px;
-            height: 14px;
-            border-radius: 7px;
-            background: #090909;
-            border-width: 1px;
-            border-color: #242424;
         }
 
         WindowMoveArea { x: 0px; y: 0px; width: parent.width; height: 13px; }
