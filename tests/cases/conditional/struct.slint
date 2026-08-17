@@ -1,0 +1,60 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+struct Data {
+    text: string,
+}
+
+export component TestCase inherits Window {
+    in-out property <bool> test: true;
+    out property <string> data_text: data.text;
+
+    out property<Data> data: test ? {
+        text: "Test true",
+    } : {
+        text: "Test false"
+    };
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.get_test(), true);
+assert_eq!(instance.get_data_text(), "Test true");
+
+instance.set_test(false);
+assert_eq!(instance.get_test(), false);
+assert_eq!(instance.get_data_text(), "Test false");
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert_eq(instance.get_test(), true);
+assert_eq(instance.get_data_text(), "Test true");
+
+instance.set_test(false);
+assert_eq(instance.get_test(), false);
+assert_eq(instance.get_data_text(), "Test false");
+```
+
+```js
+let instance = new slint.TestCase({});
+assert(instance.test);
+assert.equal(instance.data_text, "Test true");
+
+instance.test = false;
+assert(!instance.test);
+assert.equal(instance.data_text, "Test false");
+```
+
+```python
+instance = TestCase()
+assert instance.test
+assert instance.data_text == "Test true"
+
+instance.test = False
+assert not instance.test
+assert instance.data_text == "Test false"
+```
+*/

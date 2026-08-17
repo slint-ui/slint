@@ -1,6 +1,10 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+struct Data {
+
+}
+
 export SuperSimple := Rectangle {
 //                 ><warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     background: area.pressed ? green : blue;
@@ -9,18 +13,35 @@ export SuperSimple := Rectangle {
 
     property<int> c3: area.pressed ? 123 : #456;
 //                                         >  <error{Cannot convert color to float}
-//                    >                        <^error{Cannot convert void to int}
 
     property<int> c4: area.pressed ? 123ms : 123;
 //                                           > <error{Cannot convert float to duration. Use an unit, or multiply by 1ms to convert explicitly}
-//                    >                         <^error{Cannot convert void to int}
 
     property <length> c5: true ? 123px : 0;
 
     property<duration> c6: area.pressed ? 123ms : 123;
 //                                                > <error{Cannot convert float to duration. Use an unit, or multiply by 1ms to convert explicitly}
-//                         >                         <^error{Cannot convert void to duration}
 
+    property<int> value1: 5;
+    property<int> value2: 7;
+
+    // true expression and false expression have both the same type so this is fine and results in an int
+    // but the int does not match with [Data]
+    property<Data> c7: true ? value1 : value2;
+//                     >                     <error{Cannot convert int to Data}
+
+    // Array case: true expression and false expression have both the same type so this is fine and results in an int
+    // but the int does not match with [Data]
+    property<[Data]> c8: true ? value1 : value2;
+//                       >                     <error{Cannot convert int to [Data]}
+
+    property<[int]> array1;
+    property<[int]> array2;
+
+    // Array case: true expression and false expression have both the same type so this is fine and results in an
+    // int array but the does not match with [Data]
+    property<[Data]> c9: true ? array1 : array2;
+//                       >                     <error{Cannot convert [int] to [Data]}
 
     area := TouchArea {
     }
@@ -46,3 +67,15 @@ export Test2 := Rectangle {
 //                              >error{Cannot convert string to length}
 }
 //<<<<error{Cannot convert string to length}
+
+// One part returns void
+export component Test3 {
+    property <int> foo: {  if true {}  };
+//                      >               <error{Cannot convert void to int}
+
+    property <int> foo2: {  if true { 5 }  };
+//                       >                  <error{Cannot convert void to int}
+
+    property <int> foo3: {  if true { } else { } };
+//                       >                        <error{Cannot convert void to int}
+}

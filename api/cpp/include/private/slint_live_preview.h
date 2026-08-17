@@ -492,7 +492,7 @@ from_slint_value(const slint::interpreter::Value &value,
         }
     }
     if constexpr (HasFromSlintValue<ModelData>) {
-        if (auto array = value.to_array(); array && array->size() > 0) {
+        if (auto array = value.to_array()) {
             std::vector<ModelData> data;
             data.reserve(array->size());
             for (auto &v : *array) {
