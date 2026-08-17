@@ -8,6 +8,7 @@ mod check_builtin_shadowing;
 mod check_drag_area;
 mod check_expressions;
 mod check_public_api;
+mod check_spring_animation;
 mod clip;
 mod collect_custom_fonts;
 mod collect_globals;
@@ -385,6 +386,7 @@ pub fn run_import_passes(
     focus_handling::replace_forward_focus_bindings_with_focus_functions(doc, diag);
     check_expressions::check_expressions(doc, diag);
     check_builtin_shadowing::check_builtin_shadowing(doc, diag);
+    check_spring_animation::check_spring_animation(doc, diag);
     windows::warn_about_child_windows(doc, diag);
     unique_id::check_unique_id(doc, diag);
 }
