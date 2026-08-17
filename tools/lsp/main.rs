@@ -20,11 +20,12 @@ mod language;
 mod lsp_to_editor;
 mod server_notifier;
 
+pub use i_slint_editor_preview as editor_preview;
 #[cfg(feature = "preview-engine")]
 pub use i_slint_editor_preview::preview;
-pub use i_slint_editor_preview::{common, util};
+pub use i_slint_editor_preview::util;
 
-use common::Result;
+use editor_preview::Result;
 use language::*;
 pub use server_notifier::{OutgoingRequest, OutgoingRequestQueue, ServerNotifier};
 
@@ -46,7 +47,7 @@ use std::rc::Rc;
 use std::sync::Arc;
 use std::time::Duration;
 
-use crate::common::{LspToPreviews, document_cache::CompilerConfiguration};
+use crate::editor_preview::{LspToPreviews, document_cache::CompilerConfiguration};
 use i_slint_live_preview::{
     file_watcher::{self, FileChangeKind, FileWatcher},
     protocol::{LspToPreviewMessage, PreviewToLspMessage, VersionedUrl},
@@ -173,7 +174,7 @@ fn run_preview(args: &LivePreview) -> std::result::Result<(), slint::PlatformErr
         ));
     }
 
-    let to_lsp: Rc<dyn common::PreviewToLsp> =
+    let to_lsp: Rc<dyn editor_preview::PreviewToLsp> =
         Rc::new(connector::RemoteControlledPreviewToLsp::new());
 
     preview::run(to_lsp, args.fullscreen, preview::PreviewUiKind::Viewer)
@@ -290,16 +291,16 @@ async fn main_loop(
     let server_notifier = ServerNotifier::new(connection.sender.clone(), request_queue.clone());
 
     #[cfg(not(feature = "preview-engine"))]
-    let to_preview = LspToPreviews::with_one(common::DummyLspToPreview::default());
+    let to_preview = LspToPreviews::with_one(editor_preview::DummyLspToPreview::default());
     #[cfg(feature = "preview-engine")]
     let to_preview = {
         use i_slint_live_preview::protocol::PreviewTarget;
 
         let sn = server_notifier.clone();
 
-        let child_preview: Box<dyn common::LspToPreview> =
+        let child_preview: Box<dyn editor_preview::LspToPreview> =
             Box::new(connector::ChildProcessLspToPreview::new(preview_to_lsp_sender.clone()));
-        let embedded_preview: Box<dyn common::LspToPreview> =
+        let embedded_preview: Box<dyn editor_preview::LspToPreview> =
             Box::new(connector::EmbeddedLspToPreview::new(sn.clone()));
         LspToPreviews::new(
             std::collections::HashMap::from([
@@ -358,7 +359,7 @@ impl LspFileWatcherImpl {
             .into_iter()
             .filter_map(|event| {
                 tracing::debug!("Watched file changed: {} (type: {:?})", event.uri, event.typ);
-                common::uri_to_file(&event.uri).and_then(|path| {
+                editor_preview::uri_to_file(&event.uri).and_then(|path| {
                     let ty = match event.typ {
                         FileChangeType::DELETED => FileChangeKind::Deleted,
                         FileChangeType::CREATED => FileChangeKind::Created,
@@ -461,9 +462,9 @@ async fn run_main_loop(
             .and_then(|x| x.position_encodings.as_ref())
             .is_some_and(|x| x.iter().any(|x| x == &lsp_types::PositionEncodingKind::UTF8))
         {
-            common::ByteFormat::Utf8
+            editor_preview::ByteFormat::Utf8
         } else {
-            common::ByteFormat::Utf16
+            editor_preview::ByteFormat::Utf16
         },
         resource_url_mapper: None,
         // The i_slint_compiler::CompilerConfiguration::default() will read the environment variable
@@ -472,8 +473,8 @@ async fn run_main_loop(
 
     let (from_lsp_sender, mut from_lsp_receiver) = mpsc::unbounded_channel();
     let mut ctx = Context {
-        session: crate::common::EditorSession {
-            document_cache: crate::common::DocumentCache::new(compiler_config),
+        session: crate::editor_preview::EditorSession {
+            document_cache: crate::editor_preview::DocumentCache::new(compiler_config),
             preview_config: Default::default(),
             #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
             to_show: Default::default(),
@@ -563,7 +564,7 @@ async fn run_main_loop(
             }
             file_event = file_watcher_receiver.recv() => {
                 if let Some(file_event) = file_event
-                    && let Some(uri) = common::file_to_uri(&file_event.path)
+                    && let Some(uri) = editor_preview::file_to_uri(&file_event.path)
                     && let Ok(diagnostics) =
                         ctx.session.trigger_file_watcher(uri, file_event.kind).await
                 {
@@ -818,7 +819,7 @@ async fn handle_preview_to_lsp_message(
             )?
         }
         M::DebugMessage { location, message } => {
-            eprintln!("{}", common::preview_log_message_to_string(&location, &message));
+            eprintln!("{}", editor_preview::preview_log_message_to_string(&location, &message));
         }
         M::ConnectRemote { addresses, port } => {
             tracing::debug!("Preview asked to connect remote at {addresses:?}:{port}");
@@ -826,14 +827,14 @@ async fn handle_preview_to_lsp_message(
             if let Some(remote) = ctx.session.to_preview.remote() {
                 // `connect()` owns the dialog state and has the preview
                 // state pushed once connected.
-                crate::common::spawn_local(remote.connect(addresses, port));
+                crate::editor_preview::spawn_local(remote.connect(addresses, port));
             }
         }
         M::DisconnectRemote => {
             tracing::debug!("Preview asked to disconnect remote");
             #[cfg(feature = "preview-remote")]
             if let Some(remote) = ctx.session.to_preview.remote() {
-                crate::common::spawn_local(remote.disconnect());
+                crate::editor_preview::spawn_local(remote.disconnect());
             }
         }
         M::Pong => {

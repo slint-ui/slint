@@ -8,11 +8,10 @@ use std::{
 };
 
 use i_slint_compiler::diagnostics::BuildDiagnostics;
-
-use crate::common;
+use i_slint_live_preview::protocol::SourceFileVersion;
 
 #[cfg(target_arch = "wasm32")]
-use crate::common::wasm_prelude::*;
+use crate::wasm_prelude::*;
 
 async fn parse_source(
     include_paths: Vec<PathBuf>,
@@ -24,14 +23,12 @@ async fn parse_source(
         &Path,
     ) -> core::pin::Pin<
         Box<
-            dyn core::future::Future<
-                    Output = Option<std::io::Result<(common::SourceFileVersion, String)>>,
-                >,
+            dyn core::future::Future<Output = Option<std::io::Result<(SourceFileVersion, String)>>>,
         >,
     > + 'static,
-) -> (BuildDiagnostics, common::DocumentCache) {
+) -> (BuildDiagnostics, crate::DocumentCache) {
     let config = {
-        let mut tmp = common::document_cache::CompilerConfiguration::default();
+        let mut tmp = crate::document_cache::CompilerConfiguration::default();
         if !style.is_empty() {
             tmp.style = Some(style);
         }
@@ -47,7 +44,7 @@ async fn parse_source(
         tmp
     };
 
-    let mut document_cache = common::DocumentCache::new(config);
+    let mut document_cache = crate::DocumentCache::new(config);
     let mut diag = i_slint_compiler::diagnostics::BuildDiagnostics::default();
 
     document_cache.load_url(&url, None, source_code, &mut diag).await.unwrap();
@@ -74,7 +71,7 @@ pub fn compile_test_with_sources(
     style: &str,
     code: HashMap<lsp_types::Url, String>,
     allow_warnings: bool,
-) -> common::DocumentCache {
+) -> crate::DocumentCache {
     i_slint_backend_testing::init_no_event_loop();
     recompile_test_with_sources(style, code, allow_warnings)
 }
@@ -83,7 +80,7 @@ pub fn recompile_test_with_sources(
     style: &str,
     code: HashMap<lsp_types::Url, String>,
     allow_warnings: bool,
-) -> common::DocumentCache {
+) -> crate::DocumentCache {
     let code = Rc::new(code);
 
     let url = lsp_types::Url::from_file_path(main_test_file_name()).unwrap();
@@ -130,33 +127,33 @@ pub fn recompile_test_with_sources(
 }
 
 /// Create an empty `DocumentCache`
-pub fn empty_document_cache() -> common::DocumentCache {
-    let config = common::document_cache::CompilerConfiguration {
+pub fn empty_document_cache() -> crate::DocumentCache {
+    let config = crate::document_cache::CompilerConfiguration {
         style: Some("fluent".to_string()),
         ..Default::default()
     };
-    common::DocumentCache::new(config)
+    crate::DocumentCache::new(config)
 }
 
 /// Create an empty `DocumentCache` with experimental features enabled.
-pub fn empty_document_cache_with_experimental() -> common::DocumentCache {
-    let config = common::document_cache::CompilerConfiguration {
+pub fn empty_document_cache_with_experimental() -> crate::DocumentCache {
+    let config = crate::document_cache::CompilerConfiguration {
         style: Some("fluent".to_string()),
         enable_experimental: true,
         ..Default::default()
     };
-    common::DocumentCache::new(config)
+    crate::DocumentCache::new(config)
 }
 
 /// Create an `EditorSession` around `document_cache` that sends nowhere.
-pub fn session_with(document_cache: common::DocumentCache) -> common::EditorSession {
-    common::EditorSession {
+pub fn session_with(document_cache: crate::DocumentCache) -> crate::EditorSession {
+    crate::EditorSession {
         document_cache,
         preview_config: Default::default(),
         #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
         to_show: None,
         open_urls: Default::default(),
-        to_preview: common::LspToPreviews::with_one(common::DummyLspToPreview::default()),
+        to_preview: crate::LspToPreviews::with_one(crate::DummyLspToPreview::default()),
         pending_recompile: Default::default(),
     }
 }
@@ -164,28 +161,28 @@ pub fn session_with(document_cache: common::DocumentCache) -> common::EditorSess
 /// Create a `DocumentCache` with one document loaded into it.
 pub fn loaded_document_cache(
     content: String,
-) -> (common::DocumentCache, lsp_types::Url, HashMap<lsp_types::Url, Vec<lsp_types::Diagnostic>>) {
+) -> (crate::DocumentCache, lsp_types::Url, HashMap<lsp_types::Url, Vec<lsp_types::Diagnostic>>) {
     loaded_document_cache_with_file_name(content, "bar.slint")
 }
 
 pub fn loaded_document_cache_with_file_name(
     content: String,
     file_name: &str,
-) -> (common::DocumentCache, lsp_types::Url, HashMap<lsp_types::Url, Vec<lsp_types::Diagnostic>>) {
+) -> (crate::DocumentCache, lsp_types::Url, HashMap<lsp_types::Url, Vec<lsp_types::Diagnostic>>) {
     load_content_with_document_cache(empty_document_cache(), content, file_name)
 }
 
 pub fn loaded_document_cache_with_experimental(
     content: String,
-) -> (common::DocumentCache, lsp_types::Url, HashMap<lsp_types::Url, Vec<lsp_types::Diagnostic>>) {
+) -> (crate::DocumentCache, lsp_types::Url, HashMap<lsp_types::Url, Vec<lsp_types::Diagnostic>>) {
     load_content_with_document_cache(empty_document_cache_with_experimental(), content, "bar.slint")
 }
 
 fn load_content_with_document_cache(
-    mut document_cache: common::DocumentCache,
+    mut document_cache: crate::DocumentCache,
     content: String,
     file_name: &str,
-) -> (common::DocumentCache, lsp_types::Url, HashMap<lsp_types::Url, Vec<lsp_types::Diagnostic>>) {
+) -> (crate::DocumentCache, lsp_types::Url, HashMap<lsp_types::Url, Vec<lsp_types::Diagnostic>>) {
     // Pre-load std-widgets.slint:
     spin_on::spin_on(document_cache.preload_builtins());
 
@@ -199,7 +196,7 @@ fn load_content_with_document_cache(
     let (extra_files, diag) =
         spin_on::spin_on(session.load_document_impl(content, url.clone(), Some(42)));
 
-    let diag = common::editor_session::convert_diagnostics(
+    let diag = crate::editor_session::convert_diagnostics(
         &extra_files,
         diag,
         session.document_cache.format,
@@ -209,7 +206,7 @@ fn load_content_with_document_cache(
 
 /// Create a `DocumentCache` with one comparatively complex test document loaded into it.
 pub fn complex_document_cache()
--> (common::DocumentCache, lsp_types::Url, HashMap<lsp_types::Url, Vec<lsp_types::Diagnostic>>) {
+-> (crate::DocumentCache, lsp_types::Url, HashMap<lsp_types::Url, Vec<lsp_types::Diagnostic>>) {
     loaded_document_cache(
             r#"import { LineEdit, Button, Slider, HorizontalBox, VerticalBox } from "std-widgets.slint";
 
@@ -268,7 +265,7 @@ component MainWindow inherits Window {
 }
 
 pub fn load(
-    session: &mut common::EditorSession,
+    session: &mut crate::EditorSession,
     path: &Path,
     content: &str,
 ) -> (lsp_types::Url, HashMap<lsp_types::Url, Vec<lsp_types::Diagnostic>>) {
@@ -279,10 +276,6 @@ pub fn load(
 
     (
         url,
-        common::editor_session::convert_diagnostics(
-            &main_file,
-            diag,
-            session.document_cache.format,
-        ),
+        crate::editor_session::convert_diagnostics(&main_file, diag, session.document_cache.format),
     )
 }

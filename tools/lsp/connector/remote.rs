@@ -26,7 +26,7 @@ use i_slint_live_preview::protocol::{
 use tokio::sync::mpsc;
 use tokio_tungstenite_wasm::{Message, WebSocketStream};
 
-use crate::common::LspToPreviews;
+use crate::editor_preview::LspToPreviews;
 
 /// How often the keepalive probes the remote viewer.
 const PING_INTERVAL: Duration = Duration::from_secs(5);
@@ -126,7 +126,7 @@ impl RemoteLspToPreview {
                 return;
             }
         };
-        crate::common::spawn_local(async move {
+        crate::editor_preview::spawn_local(async move {
             let Some(connection) = connection.upgrade() else {
                 return;
             };
@@ -144,7 +144,7 @@ impl RemoteLspToPreview {
         &self,
         addresses: impl IntoIterator<Item = S>,
         port: u16,
-    ) -> impl Future<Output = crate::common::Result<()>> + 'static {
+    ) -> impl Future<Output = crate::editor_preview::Result<()>> + 'static {
         tracing::debug!("RemoteLspToPreview::connect");
         let shared = self.shared.clone();
         let addresses = addresses.into_iter().map(Into::into).collect::<Vec<_>>();
@@ -186,7 +186,7 @@ impl RemoteLspToPreview {
         addresses: &[String],
         port: u16,
         generation: u64,
-    ) -> crate::common::Result<()> {
+    ) -> crate::editor_preview::Result<()> {
         let mut last_error: Option<String> = None;
         let mut connected = None;
         for address in addresses {
@@ -481,7 +481,7 @@ impl RemotePreviewSender {
 // The forwards below name the inherent methods explicitly: were one of them
 // removed, an unqualified call would bind to the trait method instead and
 // recurse forever.
-impl crate::common::RemoteTransport for RemoteLspToPreview {
+impl crate::editor_preview::RemoteTransport for RemoteLspToPreview {
     fn send(&self, message: &LspToPreviewMessage) {
         RemoteLspToPreview::send(self, message);
     }
@@ -490,7 +490,7 @@ impl crate::common::RemoteTransport for RemoteLspToPreview {
         &self,
         addresses: Vec<String>,
         port: u16,
-    ) -> Pin<Box<dyn Future<Output = crate::common::Result<()>>>> {
+    ) -> Pin<Box<dyn Future<Output = crate::editor_preview::Result<()>>>> {
         Box::pin(RemoteLspToPreview::connect(self, addresses, port))
     }
 

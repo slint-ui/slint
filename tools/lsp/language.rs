@@ -17,11 +17,11 @@ mod signature_help;
 #[cfg(test)]
 pub mod test;
 
-use crate::common::EditorSession;
-use crate::{common, util};
+use crate::editor_preview::EditorSession;
+use crate::{editor_preview, util};
 
 #[cfg(target_arch = "wasm32")]
-use crate::common::wasm_prelude::*;
+use crate::editor_preview::wasm_prelude::*;
 use i_slint_compiler::object_tree::{ElementRc, QualifiedTypeName};
 use i_slint_compiler::parser::{
     NodeOrToken, SyntaxKind, SyntaxNode, SyntaxToken, TextRange, TextSize, syntax_nodes,
@@ -179,7 +179,7 @@ pub fn send_files_to_preview(ctx: &Context, files: &[lsp_types::Url]) {
     }
 }
 
-async fn register_file_watcher(ctx: &Context) -> common::Result<()> {
+async fn register_file_watcher(ctx: &Context) -> editor_preview::Result<()> {
     use lsp_types::notification::Notification;
 
     if ctx
@@ -471,7 +471,7 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
             }
             POPULATE_COMMAND => {
                 let future = populate_command(&params.arguments, ctx)?;
-                crate::common::spawn_local(async move {
+                crate::editor_preview::spawn_local(async move {
                     if let Err(err) = future.await {
                         tracing::error!("Error executing populate command: {err}");
                     }
@@ -548,7 +548,9 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
         {
             let p = tk.parent();
             let version = ctx.session.document_cache.document_version(&uri);
-            if let Some(value) = common::rename_element_id::find_element_ids(&tk, &p) {
+            if let Some(value) =
+                editor_preview::editing::rename_element_id::find_element_ids(&tk, &p)
+            {
                 let edits: Vec<_> = value
                     .into_iter()
                     .map(|r| TextEdit {
@@ -560,10 +562,15 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
                         new_text: params.new_name.clone(),
                     })
                     .collect();
-                return Ok(Some(common::create_workspace_edit(uri, version, edits)));
+                return Ok(Some(editor_preview::editing::create_workspace_edit(
+                    uri, version, edits,
+                )));
             }
             if let Some(declaration_node) =
-                common::rename_component::find_declaration_node(&ctx.session.document_cache, &tk)
+                editor_preview::editing::rename_component::find_declaration_node(
+                    &ctx.session.document_cache,
+                    &tk,
+                )
             {
                 let edit = declaration_node
                     .rename(&ctx.session.document_cache, &params.new_name)
@@ -590,14 +597,19 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
     rh.register::<PrepareRenameRequest>(|params, ctx| {
         let uri = params.text_document.uri;
         if let Some((tk, _)) = token_descr(&ctx.session.document_cache, &uri, &params.position) {
-            if common::rename_element_id::find_element_ids(&tk, &tk.parent()).is_some() {
+            if editor_preview::editing::rename_element_id::find_element_ids(&tk, &tk.parent())
+                .is_some()
+            {
                 return Ok(Some(PrepareRenameResponse::Range(util::token_to_lsp_range(
                     &tk,
                     ctx.session.document_cache.format,
                 ))));
             }
-            if common::rename_component::find_declaration_node(&ctx.session.document_cache, &tk)
-                .is_some()
+            if editor_preview::editing::rename_component::find_declaration_node(
+                &ctx.session.document_cache,
+                &tk,
+            )
+            .is_some()
             {
                 return Ok(Some(PrepareRenameResponse::Range(util::token_to_lsp_range(
                     &tk,
@@ -637,12 +649,11 @@ pub fn show_preview_command(
     let url: Url = extract_param(params, 0, "url")?;
 
     // Normalize the URL to make sure it is encoded the same way as what the preview expect from other URLs
-    let url =
-        common::uri_to_file(&url).and_then(|u| Url::from_file_path(u).ok()).ok_or_else(|| {
-            LspError {
-                code: LspErrorCode::InvalidParameter,
-                message: "invalid document url".into(),
-            }
+    let url = editor_preview::uri_to_file(&url)
+        .and_then(|u| Url::from_file_path(u).ok())
+        .ok_or_else(|| LspError {
+            code: LspErrorCode::InvalidParameter,
+            message: "invalid document url".into(),
         })?;
 
     let component =
@@ -657,7 +668,7 @@ pub fn show_preview_command(
 
 fn populate_command_range(
     node: &SyntaxNode,
-    format: common::ByteFormat,
+    format: editor_preview::ByteFormat,
 ) -> Option<lsp_types::Range> {
     let range = node.text_range();
 
@@ -749,7 +760,7 @@ pub fn populate_command(
         };
 
         let edit = lsp_types::TextEdit { range, new_text };
-        common::create_workspace_edit(uri, version, vec![edit])
+        editor_preview::editing::create_workspace_edit(uri, version, vec![edit])
     };
 
     let server_notifier = ctx.server_notifier.clone();
@@ -799,7 +810,7 @@ pub fn populate_command(
 #[cfg(not(target_arch = "wasm32"))]
 fn schedule_host_language_rename_followup(
     ctx: &Context,
-    declaration_node: &common::rename_component::DeclarationNode,
+    declaration_node: &editor_preview::editing::rename_component::DeclarationNode,
     new_name: &str,
 ) {
     let Some(info) = declaration_node.host_language_classification(&ctx.session.document_cache)
@@ -822,7 +833,7 @@ fn schedule_host_language_rename_followup(
     let format = ctx.session.document_cache.format;
     let new_name = new_name.to_string();
 
-    crate::common::spawn_local(async move {
+    crate::editor_preview::spawn_local(async move {
         // Folders can change after initialization; query the client now
         // rather than reusing the InitializeParams snapshot.
         let workspace_folders =
@@ -845,8 +856,8 @@ async fn run_host_language_rename_followup(
     server_notifier: crate::ServerNotifier,
     dont_ask_again: Rc<Cell<bool>>,
     workspace_folders: Vec<lsp_types::WorkspaceFolder>,
-    format: common::ByteFormat,
-    info: common::rename_component::HostLanguageRenameInfo,
+    format: editor_preview::ByteFormat,
+    info: editor_preview::editing::rename_component::HostLanguageRenameInfo,
     new_name: String,
 ) {
     use i_slint_compiler::generator::accessor_names::DeclarationKind;
@@ -918,7 +929,9 @@ async fn run_host_language_rename_followup(
                     let file_count = edits.iter().map(|e| &e.url).collect::<HashSet<_>>().len();
                     let edit_count = edits.len();
                     let workspace_edit =
-                        common::create_workspace_edit_from_single_text_edits(edits);
+                        editor_preview::editing::create_workspace_edit_from_single_text_edits(
+                            edits,
+                        );
                     apply_host_language_edits(
                         &server_notifier,
                         workspace_edit,
@@ -1021,7 +1034,7 @@ fn show_warning(server_notifier: &crate::ServerNotifier, message: impl Into<Stri
 
 /// return the token, and the offset within the file
 fn token_descr(
-    document_cache: &common::DocumentCache,
+    document_cache: &editor_preview::DocumentCache,
     text_document_uri: &Url,
     pos: &Position,
 ) -> Option<(SyntaxToken, TextSize)> {
@@ -1065,7 +1078,7 @@ fn has_experimental_client_capability(capabilities: &ClientCapabilities, name: &
 }
 
 fn get_code_actions(
-    document_cache: &mut common::DocumentCache,
+    document_cache: &mut editor_preview::DocumentCache,
     token: SyntaxToken,
     client_capabilities: &ClientCapabilities,
 ) -> Option<Vec<CodeActionOrCommand>> {
@@ -1115,7 +1128,7 @@ fn get_code_actions(
         ];
         result.push(CodeActionOrCommand::CodeAction(lsp_types::CodeAction {
             title: "Wrap in `@tr()`".into(),
-            edit: common::create_workspace_edit_from_path(
+            edit: editor_preview::editing::create_workspace_edit_from_path(
                 document_cache,
                 token.source_file.path(),
                 edits,
@@ -1145,7 +1158,7 @@ fn get_code_actions(
                     result.push(CodeActionOrCommand::CodeAction(lsp_types::CodeAction {
                         title: format!("import {{ {name} }} from \"{file}\""),
                         kind: Some(lsp_types::CodeActionKind::QUICKFIX),
-                        edit: common::create_workspace_edit_from_path(
+                        edit: editor_preview::editing::create_workspace_edit_from_path(
                             document_cache,
                             token.source_file.path(),
                             vec![edit],
@@ -1183,7 +1196,7 @@ fn get_code_actions(
             result.push(CodeActionOrCommand::CodeAction(lsp_types::CodeAction {
                 title: "Wrap in element".into(),
                 kind: Some(lsp_types::CodeActionKind::REFACTOR),
-                edit: common::create_workspace_edit_from_path(
+                edit: editor_preview::editing::create_workspace_edit_from_path(
                     document_cache,
                     token.source_file.path(),
                     edits,
@@ -1251,7 +1264,7 @@ fn get_code_actions(
                 result.push(CodeActionOrCommand::CodeAction(lsp_types::CodeAction {
                     title: "Remove element".into(),
                     kind: Some(lsp_types::CodeActionKind::REFACTOR),
-                    edit: common::create_workspace_edit_from_path(
+                    edit: editor_preview::editing::create_workspace_edit_from_path(
                         document_cache,
                         token.source_file.path(),
                         edits,
@@ -1278,7 +1291,7 @@ fn get_code_actions(
                 result.push(CodeActionOrCommand::CodeAction(lsp_types::CodeAction {
                     title: "Repeat element".into(),
                     kind: Some(lsp_types::CodeActionKind::REFACTOR),
-                    edit: common::create_workspace_edit_from_path(
+                    edit: editor_preview::editing::create_workspace_edit_from_path(
                         document_cache,
                         token.source_file.path(),
                         edits,
@@ -1293,7 +1306,7 @@ fn get_code_actions(
                 result.push(CodeActionOrCommand::CodeAction(lsp_types::CodeAction {
                     title: "Make conditional".into(),
                     kind: Some(lsp_types::CodeActionKind::REFACTOR),
-                    edit: common::create_workspace_edit_from_path(
+                    edit: editor_preview::editing::create_workspace_edit_from_path(
                         document_cache,
                         token.source_file.path(),
                         edits,
@@ -1328,7 +1341,7 @@ fn get_code_actions(
                     result.push(CodeActionOrCommand::CodeAction(lsp_types::CodeAction {
                         title: format!("import {{ {name} }} from \"{file}\""),
                         kind: Some(lsp_types::CodeActionKind::QUICKFIX),
-                        edit: common::create_workspace_edit_from_path(
+                        edit: editor_preview::editing::create_workspace_edit_from_path(
                             document_cache,
                             token.source_file.path(),
                             vec![edit],
@@ -1344,7 +1357,7 @@ fn get_code_actions(
 }
 
 fn get_document_color(
-    document_cache: &mut common::DocumentCache,
+    document_cache: &mut editor_preview::DocumentCache,
     text_document: &lsp_types::TextDocumentIdentifier,
 ) -> Option<Vec<ColorInformation>> {
     let mut result = Vec::new();
@@ -1378,7 +1391,7 @@ fn get_document_color(
 
 /// Retrieve the document outline
 fn get_document_symbols(
-    document_cache: &mut common::DocumentCache,
+    document_cache: &mut editor_preview::DocumentCache,
     text_document: &lsp_types::TextDocumentIdentifier,
 ) -> Option<DocumentSymbolResponse> {
     let doc = document_cache.get_document(&text_document.uri)?;
@@ -1426,7 +1439,7 @@ fn get_document_symbols(
         match c {
             Type::Struct(s) => s
                 .node()
-                .and_then(|n| crate::common::token_info::node_for_decl(document_cache, n))
+                .and_then(|n| crate::editor_preview::token_info::node_for_decl(document_cache, n))
                 .and_then(|node| {
                     Some(DocumentSymbol {
                         range: util::node_to_lsp_range(&node, document_cache.format),
@@ -1442,7 +1455,7 @@ fn get_document_symbols(
             Type::Enumeration(enumeration) => enumeration
                 .node
                 .as_ref()
-                .and_then(|n| crate::common::token_info::node_for_decl(document_cache, n))
+                .and_then(|n| crate::editor_preview::token_info::node_for_decl(document_cache, n))
                 .map(|node| {
                     let node = i_slint_compiler::parser::syntax_nodes::EnumDeclaration::from(node);
                     DocumentSymbol {
@@ -1463,7 +1476,7 @@ fn get_document_symbols(
     fn gen_children(
         elem: &ElementRc,
         ds: &DocumentSymbol,
-        format: common::ByteFormat,
+        format: editor_preview::ByteFormat,
     ) -> Option<Vec<DocumentSymbol>> {
         let r = elem
             .borrow()
@@ -1513,7 +1526,7 @@ fn get_document_symbols(
 }
 
 fn get_code_lenses(
-    document_cache: &mut common::DocumentCache,
+    document_cache: &mut editor_preview::DocumentCache,
     text_document: &lsp_types::TextDocumentIdentifier,
 ) -> Option<Vec<CodeLens>> {
     let doc = document_cache.get_document(&text_document.uri)?;
@@ -1617,7 +1630,9 @@ fn get_highlights_for_position(
             return (vec![lsp_types::DocumentHighlight { range, kind: None }], preview_highlight);
         }
 
-        if let Some(value) = common::rename_element_id::find_element_ids(&token, &parent) {
+        if let Some(value) =
+            editor_preview::editing::rename_element_id::find_element_ids(&token, &parent)
+        {
             let preview_highlight =
                 LspToPreviewMessage::HighlightFromEditor { url: None, offset: 0 };
             let document_highlight = value
@@ -1637,7 +1652,7 @@ fn get_highlights_for_position(
     (vec![], LspToPreviewMessage::HighlightFromEditor { url: None, offset: 0 })
 }
 
-pub async fn startup_lsp(ctx: &mut Context) -> common::Result<()> {
+pub async fn startup_lsp(ctx: &mut Context) -> editor_preview::Result<()> {
     register_file_watcher(ctx).await?;
     load_configuration(ctx).await
 }
@@ -1694,7 +1709,7 @@ fn parse_configuration(workspace_config: Vec<serde_json::Value>) -> WorkspaceCon
     WorkspaceConfig { hide_ui, include_paths, library_paths, style, experimental }
 }
 
-pub async fn load_configuration(ctx: &mut Context) -> common::Result<()> {
+pub async fn load_configuration(ctx: &mut Context) -> editor_preview::Result<()> {
     tracing::debug!("Loading configuration from client");
 
     if !ctx
@@ -1732,9 +1747,9 @@ pub async fn load_configuration(ctx: &mut Context) -> common::Result<()> {
         .reconfigure(style, include_paths, library_paths, experimental, &mut diag)
         .await;
 
-    let diagnostics = common::editor_session::collect_diagnostics(
+    let diagnostics = editor_preview::editor_session::collect_diagnostics(
         &ctx.session.document_cache,
-        &all_files.iter().filter_map(common::uri_to_file).collect(),
+        &all_files.iter().filter_map(editor_preview::uri_to_file).collect(),
         diag,
     );
     crate::lsp_to_editor::publish_diagnostics(&ctx.server_notifier, diagnostics);
@@ -1744,7 +1759,7 @@ pub async fn load_configuration(ctx: &mut Context) -> common::Result<()> {
         style: cc.style.clone().unwrap_or_default(),
         include_paths: cc.include_paths.clone(),
         library_paths: cc.library_paths.clone(),
-        format_utf8: cc.format == common::ByteFormat::Utf8,
+        format_utf8: cc.format == editor_preview::ByteFormat::Utf8,
         enable_experimental: cc.enable_experimental,
     };
     {
@@ -1836,7 +1851,7 @@ pub mod tests {
     fn host_language_followup_can_disable_prompts_for_the_session() {
         let (notifier, client) = test_lsp_client();
         let dont_ask_again = Rc::new(Cell::new(false));
-        let info = common::rename_component::HostLanguageRenameInfo {
+        let info = editor_preview::editing::rename_component::HostLanguageRenameInfo {
             kind: i_slint_compiler::generator::accessor_names::DeclarationKind::Property,
             old_name: "count".into(),
         };
@@ -1844,7 +1859,7 @@ pub mod tests {
             notifier,
             dont_ask_again.clone(),
             Vec::new(),
-            common::ByteFormat::Utf16,
+            editor_preview::ByteFormat::Utf16,
             info,
             "total".into(),
         ));
@@ -1882,8 +1897,11 @@ pub mod tests {
             .token_at_offset(offset.into())
             .find(|token| token.kind() == SyntaxKind::Identifier)
             .unwrap();
-        let declaration =
-            common::rename_component::find_declaration_node(&document_cache, &token).unwrap();
+        let declaration = editor_preview::editing::rename_component::find_declaration_node(
+            &document_cache,
+            &token,
+        )
+        .unwrap();
         let (notifier, client) = test_lsp_client();
         let mut context = test::mock_context();
         context.session.document_cache = document_cache;
@@ -1910,7 +1928,7 @@ pub mod tests {
         let folders =
             vec![WorkspaceFolder { uri: Url::from_file_path(&path).unwrap(), name: "test".into() }];
         let (notifier, client) = test_lsp_client();
-        let info = common::rename_component::HostLanguageRenameInfo {
+        let info = editor_preview::editing::rename_component::HostLanguageRenameInfo {
             kind: i_slint_compiler::generator::accessor_names::DeclarationKind::Property,
             old_name: "count".into(),
         };
@@ -1918,7 +1936,7 @@ pub mod tests {
             notifier,
             Rc::new(Cell::new(false)),
             folders,
-            common::ByteFormat::Utf16,
+            editor_preview::ByteFormat::Utf16,
             info,
             "total".into(),
         ));
@@ -2622,8 +2640,10 @@ export component TestWindow inherits Window {
 }
 "#;
 
-        let types_url = Url::from_file_path(common::test::test_file_name("types.slint")).unwrap();
-        let main_url = Url::from_file_path(common::test::test_file_name("main.slint")).unwrap();
+        let types_url =
+            Url::from_file_path(editor_preview::test::test_file_name("types.slint")).unwrap();
+        let main_url =
+            Url::from_file_path(editor_preview::test::test_file_name("main.slint")).unwrap();
 
         // Load the types file first so the cache knows about it
         let mut dc = test::empty_document_cache();

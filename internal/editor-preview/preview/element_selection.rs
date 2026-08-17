@@ -10,7 +10,6 @@ use i_slint_compiler::{
 use i_slint_core::lengths::LogicalPoint;
 use slint_interpreter::{ComponentHandle, ComponentInstance, highlight::HighlightedRect};
 
-use crate::common;
 use crate::preview::{self, SelectionNotification, ext::ElementRcNodeExt, ui};
 
 #[derive(Clone, Debug)]
@@ -29,7 +28,7 @@ impl ElementSelection {
         elements.get(self.instance_index).or_else(|| elements.first()).map(|(e, _)| e.clone())
     }
 
-    pub fn as_element_node(&self) -> Option<common::ElementRcNode> {
+    pub fn as_element_node(&self) -> Option<crate::ElementRcNode> {
         let element = self.as_element()?;
 
         let debug_index = {
@@ -39,7 +38,7 @@ impl ElementSelection {
             })
         };
 
-        debug_index.map(|i| common::ElementRcNode { element, debug_index: i })
+        debug_index.map(|i| crate::ElementRcNode { element, debug_index: i })
     }
 }
 
@@ -56,8 +55,8 @@ fn self_or_embedded_component_root(element: &ElementRc) -> ElementRc {
 }
 
 fn lsp_element_node_position(
-    element: &common::ElementRcNode,
-    format: common::ByteFormat,
+    element: &crate::ElementRcNode,
+    format: crate::ByteFormat,
 ) -> Option<(String, lsp_types::Range)> {
     let (f, sl, sc, el, ec) = element.with_element_node(|n| {
         n.parent()
@@ -138,9 +137,8 @@ pub fn highlight_positions(
         return Default::default();
     };
 
-    let Some(path) = lsp_types::Url::parse(source_uri.as_str())
-        .ok()
-        .and_then(|u| crate::common::uri_to_file(&u))
+    let Some(path) =
+        lsp_types::Url::parse(source_uri.as_str()).ok().and_then(|u| crate::uri_to_file(&u))
     else {
         return Default::default();
     };
@@ -158,7 +156,7 @@ pub fn highlight_positions(
 
 fn select_element_node(
     component_instance: &ComponentInstance,
-    selected_element: &common::ElementRcNode,
+    selected_element: &crate::ElementRcNode,
     position: Option<LogicalPoint>,
 ) {
     let (path, offset) = selected_element.path_and_offset();
@@ -203,12 +201,12 @@ pub struct SelectionCandidate {
 }
 
 impl SelectionCandidate {
-    pub fn is_selected_element_node(&self, selection: &common::ElementRcNode) -> bool {
+    pub fn is_selected_element_node(&self, selection: &crate::ElementRcNode) -> bool {
         self.as_element_node().map(|en| en.path_and_offset()) == Some(selection.path_and_offset())
     }
 
-    pub fn as_element_node(&self) -> Option<common::ElementRcNode> {
-        common::ElementRcNode::new(self.element.clone(), self.debug_index)
+    pub fn as_element_node(&self) -> Option<crate::ElementRcNode> {
+        crate::ElementRcNode::new(self.element.clone(), self.debug_index)
     }
 }
 
@@ -234,7 +232,7 @@ fn collect_all_element_nodes_covering_impl(
 
     if let Some(geometry) = element_covers_point(position, component_instance, current_element) {
         for (i, d) in ce.borrow().debug.iter().enumerate().rev() {
-            if !common::is_element_node_ignored(&d.node)
+            if !crate::is_element_node_ignored(&d.node)
                 && !d.node.source_file.path().starts_with("builtin:/")
             {
                 // All nodes have the same geometry
@@ -289,7 +287,7 @@ fn select_element_at_impl(
     component_instance: &ComponentInstance,
     position: LogicalPoint,
     enter_component: bool,
-) -> Option<common::ElementRcNode> {
+) -> Option<crate::ElementRcNode> {
     for sc in &collect_all_element_nodes_covering(position, component_instance) {
         if let Some(en) = filter_nodes_for_selection(sc, enter_component) {
             return Some(en);
@@ -506,14 +504,14 @@ pub fn filter_sort_selection_stack(
     }
 }
 
-pub fn parent_layout_kind(element: &common::ElementRcNode) -> ui::LayoutKind {
+pub fn parent_layout_kind(element: &crate::ElementRcNode) -> ui::LayoutKind {
     element.parent().map(|p| p.layout_kind()).unwrap_or(ui::LayoutKind::None)
 }
 
 fn filter_nodes_for_selection(
     selection_candidate: &SelectionCandidate,
     enter_component: bool,
-) -> Option<common::ElementRcNode> {
+) -> Option<crate::ElementRcNode> {
     if !selection_candidate.is_in_root_component && !enter_component {
         return None;
     }
@@ -525,11 +523,11 @@ fn filter_nodes_for_selection(
 
 pub fn select_element_behind_impl(
     component_instance: &ComponentInstance,
-    selected_element_node: &common::ElementRcNode,
+    selected_element_node: &crate::ElementRcNode,
     position: LogicalPoint,
     enter_component: bool,
     reverse: bool,
-) -> Option<common::ElementRcNode> {
+) -> Option<crate::ElementRcNode> {
     let elements = collect_all_element_nodes_covering(position, component_instance);
     let current_selection_position =
         elements.iter().position(|sc| sc.is_selected_element_node(selected_element_node))?;
@@ -590,7 +588,7 @@ pub fn reselect_element() {
 
 #[cfg(test)]
 mod tests {
-    use crate::common::test;
+    use crate::test;
 
     use std::path::PathBuf;
 
@@ -875,8 +873,8 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 401
 
     #[test]
     fn test_select_imported_component_at_use_site() {
-        use crate::common::test::{main_test_file_name, test_file_name};
         use crate::preview::test::interpret_test_with_sources;
+        use crate::test::{main_test_file_name, test_file_name};
         use std::collections::HashMap;
 
         let main_path = main_test_file_name();

@@ -4,7 +4,19 @@
 use i_slint_live_preview::protocol::{LspToPreviewMessage, PreviewTarget};
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
-use super::{LspToPreview, Result};
+use crate::{LspToPreview, Result};
+
+/// An `LspToPreview` that drops every message.
+#[derive(Default, Clone)]
+pub struct DummyLspToPreview {}
+
+impl LspToPreview for DummyLspToPreview {
+    fn send(&self, _message: &LspToPreviewMessage) {}
+
+    fn preview_target(&self) -> PreviewTarget {
+        PreviewTarget::Dummy
+    }
+}
 
 /// The connection to a remote viewer. The transport implementing this lives in
 /// the LSP binary's `connector` module: applications that never talk to a

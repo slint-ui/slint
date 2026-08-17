@@ -12,10 +12,9 @@ use std::{
     time::Duration,
 };
 
-use i_slint_editor_preview::common::{
-    self, LspToPreviews, Result, document_cache::OpenImportCallback,
-};
+use i_slint_editor_preview as editor_preview;
 use i_slint_editor_preview::preview;
+use i_slint_editor_preview::{LspToPreviews, Result, document_cache::OpenImportCallback};
 use i_slint_live_preview::file_watcher::{FileWatcher, WatchEvent};
 use i_slint_live_preview::protocol::{
     LspToPreviewMessage, PreviewComponent, PreviewTarget, PreviewToLspMessage, SourceFileVersion,
@@ -38,8 +37,8 @@ fn main() -> std::result::Result<(), slint::PlatformError> {
 
     let (to_lsp, from_preview) = crossbeam_channel::unbounded();
 
-    let to_lsp =
-        Rc::new(EmbeddedPreviewToLsp { sender: to_lsp }) as Rc<dyn common::PreviewToLsp + 'static>;
+    let to_lsp = Rc::new(EmbeddedPreviewToLsp { sender: to_lsp })
+        as Rc<dyn editor_preview::PreviewToLsp + 'static>;
 
     // Set up the Slint backend (installing the macOS unified-title-bar hook)
     // *before* spawning the LSP thread, so that no other thread can lazily
@@ -76,7 +75,7 @@ fn setup_macos_chrome(app_window: &preview::ui::AppWindow) -> Option<Rc<crate::s
 /// the preview in-process, so there is nothing to serialize.
 struct EditorLspToPreview;
 
-impl common::LspToPreview for EditorLspToPreview {
+impl editor_preview::LspToPreview for EditorLspToPreview {
     fn send(&self, message: &LspToPreviewMessage) {
         let message = message.clone();
         if let Err(err) = slint::invoke_from_event_loop(move || {
@@ -97,8 +96,8 @@ struct EmbeddedPreviewToLsp {
     sender: crossbeam_channel::Sender<PreviewToLspMessage>,
 }
 
-impl common::PreviewToLsp for EmbeddedPreviewToLsp {
-    fn send(&self, message: &PreviewToLspMessage) -> common::Result<()> {
+impl editor_preview::PreviewToLsp for EmbeddedPreviewToLsp {
+    fn send(&self, message: &PreviewToLspMessage) -> editor_preview::Result<()> {
         self.sender.send(message.clone())?;
         Ok(())
     }
@@ -156,7 +155,7 @@ async fn lsp_main(
     from_preview: crossbeam_channel::Receiver<PreviewToLspMessage>,
     cli: Cli,
 ) -> Result<()> {
-    use common::document_cache::CompilerConfiguration;
+    use editor_preview::document_cache::CompilerConfiguration;
 
     let mut from_preview_rx = bridge_crossbeam_to_tokio(from_preview);
     let (file_watcher_tx, mut file_watcher_rx) = tokio::sync::mpsc::unbounded_channel();
@@ -203,12 +202,12 @@ async fn lsp_main(
     let compiler_config = CompilerConfiguration {
         style: Some("fluent".into()),
         open_import_callback: Some(open_import_callback),
-        format: common::ByteFormat::Utf8,
+        format: editor_preview::ByteFormat::Utf8,
         ..Default::default()
     };
 
-    let mut session = common::EditorSession {
-        document_cache: common::DocumentCache::new(compiler_config),
+    let mut session = editor_preview::EditorSession {
+        document_cache: editor_preview::DocumentCache::new(compiler_config),
         preview_config: Default::default(),
         to_show: Default::default(),
         open_urls: Default::default(),
@@ -296,7 +295,7 @@ async fn lsp_main(
 }
 
 async fn trigger_editor_file_watcher(
-    session: &mut common::EditorSession,
+    session: &mut editor_preview::EditorSession,
     WatchEvent { path, kind }: WatchEvent,
 ) -> Result<()> {
     let Ok(url) = Url::from_file_path(&path) else {
@@ -310,7 +309,7 @@ async fn trigger_editor_file_watcher(
 
 fn sync_file_watcher_if_needed(
     watcher: &mut FileWatcher,
-    session: &common::EditorSession,
+    session: &editor_preview::EditorSession,
     root_path: &Path,
     watch_paths_revision: &mut Option<u64>,
 ) -> Result<()> {
@@ -327,7 +326,7 @@ fn sync_file_watcher_if_needed(
                 .into_iter()
                 // filter out builtins
                 .filter(|url| url.scheme() == "file")
-                .filter_map(|url| common::uri_to_file(&url)),
+                .filter_map(|url| editor_preview::uri_to_file(&url)),
         ),
     )?;
     *watch_paths_revision = Some(current_revision);
@@ -336,7 +335,7 @@ fn sync_file_watcher_if_needed(
 
 async fn handle_preview_message(
     msg: PreviewToLspMessage,
-    session: &mut common::EditorSession,
+    session: &mut editor_preview::EditorSession,
 ) -> Option<PathBuf> {
     use PreviewToLspMessage::*;
     match &msg {
@@ -345,7 +344,7 @@ async fn handle_preview_message(
             let requested_preview = requested_file_tree_preview(files);
             let requested_project_root = requested_preview
                 .as_ref()
-                .and_then(common::uri_to_file)
+                .and_then(editor_preview::uri_to_file)
                 .and_then(|path| project_root_for_path(&path).map(Path::to_path_buf));
             let slint_files: Vec<_> =
                 files.iter().filter(|url| is_slint_url(url)).cloned().collect();
@@ -388,7 +387,7 @@ async fn handle_preview_message(
             None
         }
         DebugMessage { location, message } => {
-            eprintln!("{}", common::preview_log_message_to_string(location, message));
+            eprintln!("{}", editor_preview::preview_log_message_to_string(location, message));
             None
         }
 
@@ -418,7 +417,7 @@ fn requested_file_tree_preview(files: &[Url]) -> Option<Url> {
 }
 
 fn is_slint_url(url: &Url) -> bool {
-    common::uri_to_file(url).is_some_and(|path| {
+    editor_preview::uri_to_file(url).is_some_and(|path| {
         path.extension()
             .and_then(|extension| extension.to_str())
             .is_some_and(|extension| extension.eq_ignore_ascii_case("slint"))
@@ -426,14 +425,14 @@ fn is_slint_url(url: &Url) -> bool {
 }
 
 fn handle_workspace_edit(
-    document_cache: &common::DocumentCache,
+    document_cache: &editor_preview::DocumentCache,
     label: Option<&str>,
     edit: &lsp_types::WorkspaceEdit,
 ) {
-    match common::text_edit::apply_workspace_edit(document_cache, edit) {
+    match editor_preview::editing::text_edit::apply_workspace_edit(document_cache, edit) {
         Ok(edited_texts) => {
-            for common::text_edit::EditedText { url, contents } in edited_texts {
-                match common::uri_to_file(&url) {
+            for editor_preview::editing::text_edit::EditedText { url, contents } in edited_texts {
+                match editor_preview::uri_to_file(&url) {
                     Some(path) => {
                         if let Err(err) = std::fs::write(&path, &contents) {
                             tracing::error!(

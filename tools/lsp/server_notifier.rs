@@ -8,7 +8,7 @@
 
 #[cfg(not(target_arch = "wasm32"))]
 mod native {
-    use crate::common::Result;
+    use crate::editor_preview::Result;
     use lsp_server::{Message, RequestId};
     use lsp_types::notification::Notification;
     use std::sync::{Arc, atomic};
@@ -92,7 +92,7 @@ pub use native::*;
 
 #[cfg(target_arch = "wasm32")]
 mod wasm {
-    use crate::common::Result;
+    use crate::editor_preview::Result;
     // The JSON friendly serializer of the wasm entry point, so that params end
     // up as JS objects instead of ES maps.
     use crate::to_value;

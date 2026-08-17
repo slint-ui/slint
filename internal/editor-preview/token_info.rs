@@ -1,7 +1,6 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use crate::common;
 use i_slint_compiler::diagnostics::Spanned;
 use i_slint_compiler::expression_tree::{Callable, Expression};
 use i_slint_compiler::langtype::{ElementType, EnumerationValue, Type};
@@ -34,7 +33,7 @@ pub enum TokenInfo {
 /// documents the language server already keeps loaded, so the compiled type does
 /// not need to carry a syntax tree.
 pub fn node_for_decl(
-    document_cache: &common::DocumentCache,
+    document_cache: &crate::DocumentCache,
     decl: &i_slint_compiler::langtype::DeclNode,
 ) -> Option<SyntaxNode> {
     let doc = document_cache.get_document_for_source_file(decl.source_file())?;
@@ -44,7 +43,7 @@ pub fn node_for_decl(
 
 impl TokenInfo {
     /// Returns the node to the declaration of what the token represents, if it exists
-    pub fn declaration(&self, document_cache: &common::DocumentCache) -> Option<SyntaxNode> {
+    pub fn declaration(&self, document_cache: &crate::DocumentCache) -> Option<SyntaxNode> {
         match self {
             TokenInfo::Type(ty) => match ty {
                 Type::Struct(s) => s.node().and_then(|n| node_for_decl(document_cache, n)),
@@ -104,7 +103,7 @@ impl TokenInfo {
     }
 }
 
-pub fn token_info(document_cache: &common::DocumentCache, token: SyntaxToken) -> Option<TokenInfo> {
+pub fn token_info(document_cache: &crate::DocumentCache, token: SyntaxToken) -> Option<TokenInfo> {
     let mut node = token.parent();
     if node.kind() == SyntaxKind::AtImageUrl && token.kind() == SyntaxKind::StringLiteral {
         let path = i_slint_compiler::literals::unescape_string(token.text())?;
@@ -123,7 +122,7 @@ pub fn token_info(document_cache: &common::DocumentCache, token: SyntaxToken) ->
                     Some(TokenInfo::Type(doc.local_registry.lookup_qualified(&qual.members)))
                 }
                 SyntaxKind::Element => {
-                    if !crate::common::is_element_node_ignored(&parent.into()) {
+                    if !crate::is_element_node_ignored(&parent.into()) {
                         let qual = i_slint_compiler::object_tree::QualifiedTypeName::from_node(n);
                         let doc = document_cache.get_document_for_source_file(&node.source_file)?;
                         Some(TokenInfo::ElementType(
@@ -353,7 +352,7 @@ pub fn token_info(document_cache: &common::DocumentCache, token: SyntaxToken) ->
 
 /// Try to lookup the property `prop_name` in the base of the given Element
 fn find_property_declaration_in_base(
-    document_cache: &common::DocumentCache,
+    document_cache: &crate::DocumentCache,
     element: syntax_nodes::Element,
     prop_name: &str,
 ) -> Option<TokenInfo> {

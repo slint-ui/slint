@@ -1,8 +1,6 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-//! Data structures common between LSP and previewer
-
 use i_slint_compiler::diagnostics::{BuildDiagnostics, SourceFile};
 use i_slint_compiler::object_tree::Document;
 use i_slint_compiler::parser::{TextSize, syntax_nodes};
@@ -20,7 +18,7 @@ use std::{
     rc::Rc,
 };
 
-use crate::common::{ElementRcNode, Result, file_to_uri, uri_to_file};
+use crate::{ElementRcNode, Result, file_to_uri, uri_to_file};
 use std::collections::HashSet;
 
 pub type SourceFileVersionMap = HashMap<PathBuf, SourceFileVersion>;
@@ -45,7 +43,7 @@ pub struct CompilerConfiguration {
     pub style: Option<String>,
     pub open_import_callback: Option<OpenImportCallback>,
     pub resource_url_mapper: Option<i_slint_compiler::ResourceUrlMapper>,
-    pub format: super::ByteFormat,
+    pub format: crate::ByteFormat,
     /// Whether to enable experimental features.
     /// Note that the i_slint_compiler::CompilerConfiguration still reads the environment variable
     /// in native build, so this is used to transmit the value when compiled to WASM.
@@ -62,7 +60,7 @@ impl Default for CompilerConfiguration {
             style: std::mem::take(&mut cc.style),
             open_import_callback: None,
             resource_url_mapper: std::mem::take(&mut cc.resource_url_mapper),
-            format: super::ByteFormat::Utf8,
+            format: crate::ByteFormat::Utf8,
             enable_experimental: cc.enable_experimental,
         }
     }
@@ -86,7 +84,7 @@ pub struct DocumentCache {
     type_loader: TypeLoader,
     open_import_callback: Option<OpenImportCallback>,
     source_file_versions: Rc<RefCell<SourceFileVersionMap>>,
-    pub format: super::ByteFormat,
+    pub format: crate::ByteFormat,
 }
 
 #[cfg(feature = "preview-engine")]
@@ -484,7 +482,7 @@ impl DocumentCache {
 
 #[cfg(test)]
 mod tests {
-    use crate::common::test::complex_document_cache;
+    use crate::test::complex_document_cache;
 
     use super::*;
 

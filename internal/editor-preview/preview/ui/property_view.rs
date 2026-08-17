@@ -14,10 +14,7 @@ use i_slint_compiler::{
 
 use slint::{Model as _, SharedString, VecModel};
 
-use crate::{
-    common,
-    preview::{properties, ui},
-};
+use crate::preview::{properties, ui};
 
 fn is_complex(expression: Option<syntax_nodes::Expression>, ty: &langtype::Type) -> bool {
     fn handle_node(node: i_slint_compiler::parser::SyntaxNode, ty: &langtype::Type) -> bool {
@@ -48,7 +45,7 @@ fn is_complex(expression: Option<syntax_nodes::Expression>, ty: &langtype::Type)
 }
 
 fn map_property_to_ui(
-    document_cache: &common::DocumentCache,
+    document_cache: &crate::DocumentCache,
     element: &object_tree::ElementRc,
     property_info: &properties::PropertyInformation,
     window_adapter: Option<&Rc<dyn slint::platform::WindowAdapter>>,
@@ -214,7 +211,7 @@ fn map_property_to_ui(
 }
 
 pub fn map_properties_to_ui(
-    document_cache: &common::DocumentCache,
+    document_cache: &crate::DocumentCache,
     properties: Option<properties::QueryPropertyResponse>,
     window_adapter: &Rc<dyn slint::platform::WindowAdapter>,
 ) -> Option<(
@@ -333,7 +330,7 @@ pub fn map_properties_to_ui(
 }
 
 fn map_property_declaration(
-    document_cache: &common::DocumentCache,
+    document_cache: &crate::DocumentCache,
     declared_at: &Option<properties::DeclarationInformation>,
     defined_at: ui::PropertyDefinition,
 ) -> Option<ui::PropertyDeclaration> {
@@ -383,9 +380,8 @@ mod tests {
     use slint::{Model, SharedString};
 
     use crate::{
-        common,
-        common::test::loaded_document_cache,
         preview::{properties, ui},
+        test::loaded_document_cache,
     };
 
     fn properties_at_position(
@@ -393,9 +389,9 @@ mod tests {
         line: u32,
         character: u32,
     ) -> Option<(
-        common::ElementRcNode,
+        crate::ElementRcNode,
         Vec<properties::PropertyInformation>,
-        common::DocumentCache,
+        crate::DocumentCache,
         lsp_types::Url,
     )> {
         let (dc, url, diag) = loaded_document_cache(source.to_string());

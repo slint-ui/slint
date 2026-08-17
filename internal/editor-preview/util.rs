@@ -12,10 +12,20 @@ use i_slint_compiler::parser::{TextRange, TextSize};
 use i_slint_compiler::typeregister::TypeRegister;
 use smol_str::SmolStr;
 
-use crate::common;
-
 #[cfg(target_arch = "wasm32")]
-use crate::common::wasm_prelude::UrlWasm;
+use crate::wasm_prelude::UrlWasm;
+
+#[cfg(any(test, feature = "preview-engine"))]
+pub fn poll_once<Future: std::future::Future>(future: Future) -> Option<Future::Output> {
+    let waker = std::task::Waker::noop();
+    let mut context = std::task::Context::from_waker(waker);
+    let future = std::pin::pin!(future);
+
+    match future.poll(&mut context) {
+        std::task::Poll::Ready(result) => Some(result),
+        std::task::Poll::Pending => None,
+    }
+}
 
 /// Get the `TextRange` of a `node`, excluding any trailing whitespace tokens.
 pub fn node_range_without_trailing_ws(node: &SyntaxNode) -> TextRange {
@@ -118,7 +128,7 @@ pub fn last_non_ws_token(node: &SyntaxNode) -> Option<SyntaxToken> {
 
 // Find the indentation of the element node itself as well as the indentation of properties inside the
 // element. Returns the element indent.
-pub fn find_element_indent(element: &common::ElementRcNode) -> Option<String> {
+pub fn find_element_indent(element: &crate::ElementRcNode) -> Option<String> {
     let mut token = element.with_element_node(|node| node.first_token()?.prev_token());
     while let Some(t) = token {
         if t.kind() == SyntaxKind::Whitespace && t.text().contains('\n') {
@@ -175,7 +185,7 @@ impl ExpressionContextInfo {
 
 /// Run the function with the LookupCtx associated with the token
 pub fn with_lookup_ctx<R>(
-    document_cache: &common::DocumentCache,
+    document_cache: &crate::DocumentCache,
     node: SyntaxNode,
     to_offset: Option<TextSize>,
     f: impl FnOnce(&mut LookupCtx) -> R,
@@ -186,7 +196,7 @@ pub fn with_lookup_ctx<R>(
 
 /// Run the function with the LookupCtx associated with the token
 pub fn with_property_lookup_ctx<R>(
-    document_cache: &common::DocumentCache,
+    document_cache: &crate::DocumentCache,
     expr_context_info: &ExpressionContextInfo,
     to_offset: Option<TextSize>,
     f: impl FnOnce(&mut LookupCtx) -> R,
@@ -396,7 +406,7 @@ fn lookup_expression_context(mut n: SyntaxNode) -> Option<ExpressionContextInfo>
 mod tests {
     use super::*;
 
-    use crate::common::test::loaded_document_cache;
+    use crate::test::loaded_document_cache;
 
     #[test]
     fn test_find_element_indent() {

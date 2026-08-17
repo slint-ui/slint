@@ -3,7 +3,6 @@
 
 //! Creation of `import { XXX } from "foo.slint";` text edits
 
-use crate::common;
 use crate::util::text_size_to_lsp_position;
 
 use i_slint_compiler::diagnostics::Spanned;
@@ -19,7 +18,7 @@ use std::collections::HashMap;
 /// correct location to enter more components into the existing import statement.
 pub fn find_import_locations(
     document: &syntax_nodes::Document,
-    format: common::ByteFormat,
+    format: crate::ByteFormat,
 ) -> (Position, HashMap<String, Position>) {
     let mut import_locations = HashMap::new();
     let mut last = 0u32;
@@ -105,7 +104,7 @@ pub fn create_import_edit(
     document: &i_slint_compiler::object_tree::Document,
     component: &str,
     import_path: &Option<String>,
-    format: common::ByteFormat,
+    format: crate::ByteFormat,
 ) -> Option<TextEdit> {
     let import_path = import_path.as_ref()?;
     let doc_node = document.node.as_ref().unwrap();

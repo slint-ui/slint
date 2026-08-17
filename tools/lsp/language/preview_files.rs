@@ -10,7 +10,7 @@
 //! and the rest of the disk. Files the LSP pushes on its own — the loaded
 //! sources, the fonts they import — don't go through here.
 
-use crate::common::{DocumentCache, uri_to_file};
+use crate::editor_preview::{DocumentCache, uri_to_file};
 use i_slint_compiler::pathutils::{clean_path, is_url};
 use i_slint_live_preview::protocol::PreviewConfig;
 use lsp_types::InitializeParams;
@@ -196,7 +196,7 @@ mod tests {
         use std::rc::Rc;
 
         struct Recorder(Rc<RefCell<Vec<LspToPreviewMessage>>>);
-        impl crate::common::LspToPreview for Recorder {
+        impl crate::editor_preview::LspToPreview for Recorder {
             fn send(&self, message: &LspToPreviewMessage) {
                 self.0.borrow_mut().push(message.clone());
             }
@@ -220,7 +220,8 @@ mod tests {
 
         let recorded = Rc::new(RefCell::new(Vec::new()));
         let mut ctx = crate::language::test::mock_context();
-        ctx.session.to_preview = crate::common::LspToPreviews::with_one(Recorder(recorded.clone()));
+        ctx.session.to_preview =
+            crate::editor_preview::LspToPreviews::with_one(Recorder(recorded.clone()));
         crate::language::test::load(&mut ctx.session, &main, main_source);
         recorded.borrow_mut().clear();
 

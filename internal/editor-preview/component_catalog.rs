@@ -4,14 +4,112 @@
 // cSpell: ignore descr rfind unindented libraryize
 
 #[cfg(target_arch = "wasm32")]
-use crate::common::wasm_prelude::*;
+use i_slint_live_preview::protocol::wasm_prelude::*;
 
-use crate::common::{
-    ComponentInformation, DocumentCache, Position, PropertyChange, TypeInformation,
-};
+use crate::{DocumentCache, editing::PropertyChange};
 #[cfg(feature = "preview-engine")]
 use i_slint_compiler::langtype::ElementType;
+use i_slint_compiler::parser::TextSize;
 use lsp_types::CompletionItemKind;
+
+/// A position in a file.
+#[derive(Clone, Debug, serde::Deserialize, serde::Serialize, PartialEq, Eq)]
+pub struct Position {
+    /// The file URL.
+    url: lsp_types::Url,
+    /// The offset in the file.
+    offset: u32,
+}
+
+#[allow(unused)]
+impl Position {
+    pub fn new(url: lsp_types::Url, offset: TextSize) -> Self {
+        Self { url, offset: offset.into() }
+    }
+
+    pub fn url(&self) -> &lsp_types::Url {
+        &self.url
+    }
+
+    pub fn offset(&self) -> TextSize {
+        self.offset.into()
+    }
+}
+
+/// Information about an available element type.
+#[derive(Clone, Debug, serde::Deserialize, serde::Serialize, PartialEq, Eq)]
+pub struct ComponentInformation {
+    /// The name of the type.
+    pub name: String,
+    /// A broad category used to group types.
+    pub category: String,
+    /// Whether this type is a global component.
+    pub is_global: bool,
+    /// Whether this type is built into Slint.
+    pub is_builtin: bool,
+    /// Whether this type is a standard widget.
+    pub is_std_widget: bool,
+    /// Whether this type was exported.
+    pub is_exported: bool,
+    /// Whether this type is an interface.
+    pub is_interface: bool,
+    /// Whether this primitive element reacts to events.
+    pub is_interactive: bool,
+    /// Whether this type is a layout.
+    pub is_layout: bool,
+    /// The position where this type is defined.
+    pub defined_at: Option<Position>,
+    /// Default property values.
+    pub default_properties: Vec<PropertyChange>,
+}
+
+impl ComponentInformation {
+    pub fn import_file_name(&self, current_uri: &Option<lsp_types::Url>) -> Option<String> {
+        import_file_name_for_url(
+            self.defined_at.as_ref().map(|position| &position.url),
+            self.is_std_widget,
+            current_uri,
+        )
+    }
+}
+
+fn import_file_name_for_url(
+    url: Option<&lsp_types::Url>,
+    is_std_widget: bool,
+    current_uri: &Option<lsp_types::Url>,
+) -> Option<String> {
+    if is_std_widget {
+        Some("std-widgets.slint".to_string())
+    } else {
+        let url = url?;
+        if let Some(path) = url.path().strip_prefix("/@") {
+            Some(format!("@{path}"))
+        } else if let Some(current_uri) = current_uri {
+            lsp_types::Url::make_relative(current_uri, url)
+        } else {
+            url.to_file_path().ok().map(|path| path.to_string_lossy().to_string())
+        }
+    }
+}
+
+/// Information about an exported struct or enum.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct TypeInformation {
+    /// The exported name of the type.
+    pub name: String,
+    /// The URL of the file where this type is defined.
+    pub defined_at: Option<lsp_types::Url>,
+    /// Whether this type is exported from the standard widgets library.
+    pub is_std_widget: bool,
+    /// The completion kind for this type.
+    pub kind: lsp_types::CompletionItemKind,
+}
+
+impl TypeInformation {
+    pub fn import_file_name(&self, current_uri: &Option<lsp_types::Url>) -> Option<String> {
+        import_file_name_for_url(self.defined_at.as_ref(), self.is_std_widget, current_uri)
+    }
+}
 
 #[cfg(feature = "preview-engine")]
 fn builtin_component_info(name: &str) -> ComponentInformation {
@@ -315,7 +413,7 @@ mod tests {
 
     #[test]
     fn builtin_component_catalog() {
-        let (dc, _, _) = crate::common::test::loaded_document_cache(r#""#.to_string());
+        let (dc, _, _) = crate::test::loaded_document_cache(r#""#.to_string());
 
         let mut result = Default::default();
         builtin_components(&dc, &mut result);
@@ -339,7 +437,7 @@ mod tests {
 
     #[test]
     fn exported_component_catalog_std_widgets_only() {
-        let (dc, _, _) = crate::common::test::loaded_document_cache(r#""#.to_string());
+        let (dc, _, _) = crate::test::loaded_document_cache(r#""#.to_string());
 
         let mut result = Default::default();
         all_exported_components(&dc, &mut |_| true, &mut result);
@@ -355,7 +453,7 @@ mod tests {
 
     #[test]
     fn exported_component_catalog_filtered() {
-        let (dc, _, _) = crate::common::test::loaded_document_cache(r#""#.to_string());
+        let (dc, _, _) = crate::test::loaded_document_cache(r#""#.to_string());
 
         let mut result = Default::default();
         all_exported_components(&dc, &mut |_| false, &mut result);
@@ -366,7 +464,7 @@ mod tests {
     #[test]
     fn exported_component_catalog_exported_component() {
         let baseline = {
-            let (dc, _, _) = crate::common::test::loaded_document_cache(r#""#.to_string());
+            let (dc, _, _) = crate::test::loaded_document_cache(r#""#.to_string());
 
             let mut result = Default::default();
             all_exported_components(&dc, &mut |_| true, &mut result);
@@ -374,7 +472,7 @@ mod tests {
         };
 
         let (dc, _, _) =
-            crate::common::test::loaded_document_cache(r#"export component Test1 {}"#.to_string());
+            crate::test::loaded_document_cache(r#"export component Test1 {}"#.to_string());
 
         let mut result = Default::default();
         all_exported_components(&dc, &mut |_| true, &mut result);
@@ -388,8 +486,7 @@ mod tests {
 
     #[test]
     fn local_component_catalog_one_unexported_component() {
-        let (dc, url, _) =
-            crate::common::test::loaded_document_cache(r#"component Test1 {}"#.to_string());
+        let (dc, url, _) = crate::test::loaded_document_cache(r#"component Test1 {}"#.to_string());
 
         let mut result = Default::default();
         file_local_components(&dc, &url, &mut result);
@@ -398,7 +495,7 @@ mod tests {
 
     #[test]
     fn local_component_catalog_two_unexported_components_without_export() {
-        let (dc, url, _) = crate::common::test::loaded_document_cache(
+        let (dc, url, _) = crate::test::loaded_document_cache(
             r#"
             component Test1 {}
             component Test2 {}"#
@@ -418,7 +515,7 @@ mod tests {
     }
     #[test]
     fn local_component_catalog_two_unexported_components_with_export() {
-        let (dc, url, _) = crate::common::test::loaded_document_cache(
+        let (dc, url, _) = crate::test::loaded_document_cache(
             r#"
             component Test1 {}
             export component Export1 {}

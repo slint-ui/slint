@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use crate::{common, preview};
+use crate::{editor_preview, preview};
 
 use std::{cell::RefCell, io::BufRead};
 
@@ -31,7 +31,7 @@ impl ChildProcessLspToPreview {
         self.inner.borrow().as_ref().map(|i| !i.communication_handle.is_finished()).unwrap_or(false)
     }
 
-    fn start_preview(&self) -> common::Result<()> {
+    fn start_preview(&self) -> editor_preview::Result<()> {
         if let Some(inner) = self.inner.borrow_mut().take() {
             inner.communication_handle.abort();
         }
@@ -107,7 +107,7 @@ impl Drop for ChildProcessLspToPreview {
     }
 }
 
-impl common::LspToPreview for ChildProcessLspToPreview {
+impl editor_preview::LspToPreview for ChildProcessLspToPreview {
     fn send(&self, message: &LspToPreviewMessage) {
         if self.preview_is_running() {
             let mut inner = self.inner.borrow_mut();
@@ -140,7 +140,7 @@ impl EmbeddedLspToPreview {
     }
 }
 
-impl common::LspToPreview for EmbeddedLspToPreview {
+impl editor_preview::LspToPreview for EmbeddedLspToPreview {
     fn send(&self, message: &LspToPreviewMessage) {
         let _ = self.server_notifier.send_notification::<LspToPreviewMessage>(message.clone());
     }
@@ -208,9 +208,9 @@ impl RemoteControlledPreviewToLsp {
     }
 }
 
-impl common::PreviewToLsp for RemoteControlledPreviewToLsp {
+impl editor_preview::PreviewToLsp for RemoteControlledPreviewToLsp {
     #[allow(clippy::print_stdout)]
-    fn send(&self, message: &PreviewToLspMessage) -> common::Result<()> {
+    fn send(&self, message: &PreviewToLspMessage) -> editor_preview::Result<()> {
         let message = serde_json::to_string(message).map_err(|e| e.to_string())?;
         println!("{message}");
         Ok(())

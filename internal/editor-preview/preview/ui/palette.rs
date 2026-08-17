@@ -3,10 +3,7 @@
 
 use std::rc::{Rc, Weak};
 
-use crate::{
-    common,
-    preview::{properties, ui},
-};
+use crate::preview::{properties, ui};
 
 use lsp_types::Url;
 
@@ -24,7 +21,7 @@ pub fn setup(api: &ui::Api<'_>) {
 /// and the result will be cached
 struct PaletteModel {
     palette: std::cell::OnceCell<Vec<ui::PaletteEntry>>,
-    document_cache: Rc<common::DocumentCache>,
+    document_cache: Rc<crate::DocumentCache>,
     document_uri: Url,
     window_adapter: Weak<dyn slint::platform::WindowAdapter>,
 }
@@ -59,7 +56,7 @@ impl Model for PaletteModel {
 }
 
 pub fn collect_palette(
-    document_cache: &Rc<common::DocumentCache>,
+    document_cache: &Rc<crate::DocumentCache>,
     document_uri: &Url,
     window_adapter: &Rc<dyn slint::platform::WindowAdapter>,
 ) -> ModelRc<ui::PaletteEntry> {
@@ -208,7 +205,7 @@ fn handle_type(
 }
 
 fn collect_palette_from_globals(
-    document_cache: &common::DocumentCache,
+    document_cache: &crate::DocumentCache,
     document_uri: &Url,
     mut values: Vec<ui::PaletteEntry>,
     window_adapter: Option<&Rc<dyn slint::platform::WindowAdapter>>,
@@ -225,7 +222,7 @@ fn collect_palette_from_globals(
         }
 
         let properties = properties::get_properties(
-            &common::ElementRcNode { element: global.clone(), debug_index: 0 },
+            &crate::ElementRcNode { element: global.clone(), debug_index: 0 },
             properties::LayoutKind::None,
         );
 
@@ -257,7 +254,7 @@ fn filter_palettes(
     pattern: slint::SharedString,
 ) -> slint::ModelRc<ui::PaletteEntry> {
     let pattern = pattern.to_string();
-    std::rc::Rc::new(slint::VecModel::from(common::fuzzy_filter_iter(
+    std::rc::Rc::new(slint::VecModel::from(super::fuzzy_filter_iter(
         &mut input.iter(),
         |p| {
             format!(
@@ -299,8 +296,8 @@ mod tests {
         });
     }
 
-    fn compile(source: &str) -> (common::DocumentCache, lsp_types::Url) {
-        let (dc, url, diag) = crate::common::test::loaded_document_cache(source.to_string());
+    fn compile(source: &str) -> (crate::DocumentCache, lsp_types::Url) {
+        let (dc, url, diag) = crate::test::loaded_document_cache(source.to_string());
         for (u, diag) in diag.iter() {
             if diag.is_empty() {
                 continue;
@@ -599,12 +596,12 @@ export component Main { }
         ];
 
         for (style, border) in cases {
-            let config = crate::common::document_cache::CompilerConfiguration {
+            let config = crate::document_cache::CompilerConfiguration {
                 style: Some(style.to_string()),
                 ..Default::default()
             };
-            let mut session = crate::common::test::session_with(common::DocumentCache::new(config));
-            let (url, _) = crate::common::test::load(
+            let mut session = crate::test::session_with(crate::DocumentCache::new(config));
+            let (url, _) = crate::test::load(
                 &mut session,
                 &std::env::temp_dir().join("xxx/test.slint"),
                 r#"
