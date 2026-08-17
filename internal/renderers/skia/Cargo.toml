@@ -96,8 +96,8 @@ wgpu-hal-29 = { workspace = true, optional = true }
 wgpu-hal-30 = { workspace = true, optional = true }
 
 read-fonts = { workspace = true }
-# Pinned to 0.49 to align with read-fonts from parley and avoid duplicated dependencies
-write-fonts = { version = "0.49" }
+# Pinned to 0.50 to align with read-fonts from parley and avoid duplicated dependencies
+write-fonts = { version = "0.50" }
 
 [target.'cfg(not(any(target_vendor = "apple", target_family = "windows")))'.dependencies]
 skia-safe = { version = "0.99.0", features = ["gl", "vulkan"] }
