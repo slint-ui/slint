@@ -8,7 +8,7 @@
 //! [`crate::preview::remote`].
 
 use std::cell::{Cell, RefCell};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::pin::Pin;
 use std::rc::{Rc, Weak};
 use std::sync::Arc;
@@ -180,10 +180,6 @@ struct SharedState {
     /// memory only, mirroring the viewer: it forgets them when it restarts,
     /// and re-pairing is one prompt.
     tokens: Rc<RefCell<HashMap<String, (TokenId, Token)>>>,
-    /// Every `address:port` the user has agreed to talk to unencrypted,
-    /// because the viewer there has pairing disabled. Held for the LSP's
-    /// run, like `tokens`, so a reconnect doesn't ask the same question.
-    unpaired_ok: Rc<RefCell<HashSet<String>>>,
     /// Set while a viewer is showing a code and we're waiting for the user
     /// to type it. The preview UI's submission arrives through here.
     pairing_input: Rc<RefCell<Option<mpsc::UnboundedSender<PairingSubmission>>>>,
@@ -222,19 +218,6 @@ impl SharedState {
         }
     }
 
-    /// Remember the user's ok to talk to this viewer unencrypted.
-    fn allow_unpaired(&self, keys: &[String]) {
-        let mut unpaired_ok = self.unpaired_ok.borrow_mut();
-        for key in keys {
-            unpaired_ok.insert(key.clone());
-        }
-    }
-
-    fn unpaired_allowed(&self, keys: &[String]) -> bool {
-        let unpaired_ok = self.unpaired_ok.borrow();
-        keys.iter().any(|key| unpaired_ok.contains(key))
-    }
-
     /// Forward a connection-state transition to the local preview dialog.
     fn emit_state(&self, state: RemoteConnectionState, target: String, error: Option<String>) {
         RemoteLspToPreview::emit_state(&self.to_previews, state, target, error);
@@ -257,7 +240,6 @@ impl RemoteLspToPreview {
                 to_previews,
                 generation: Rc::default(),
                 tokens: Rc::default(),
-                unpaired_ok: Rc::default(),
                 pairing_input: Rc::default(),
                 connected_target: Rc::default(),
             },
@@ -523,13 +505,13 @@ impl RemoteLspToPreview {
                             "The viewer skipped the reconnect exchange".into(),
                         ));
                     }
-                    // Anyone can claim this, so the user gets asked before
-                    // anything is sent over what would be a plaintext
-                    // session -- once per target, not on every reconnect.
-                    if !shared.unpaired_allowed(keys) {
-                        Self::confirm_unpaired(shared, stream, target).await?;
-                        shared.allow_unpaired(keys);
-                    }
+                    // Anyone can claim this, so the user is asked every time
+                    // before anything is sent over what would be a plaintext
+                    // session. Not remembered: the endpoint at an address can
+                    // change between reconnects, and there is no key to bind
+                    // consent to, so each unencrypted connection is its own
+                    // decision.
+                    Self::confirm_unpaired(shared, stream, target).await?;
                     tracing::info!("Viewer at {target} has pairing disabled");
                     return Ok((session::Sealing::Plaintext, session::Opening::Plaintext));
                 }
@@ -1374,20 +1356,29 @@ mod tests {
                 drop(viewer_rx);
                 let (_viewer, mut viewer_rx) = listen(port, PairingPolicy::Disabled).await;
 
-                // The connector reconnects on its own ...
-                expect_message(
-                    &mut viewer_rx,
-                    |m| matches!(m, ConnectionMessage::Connected { .. }),
-                    "viewer reconnection",
-                )
-                .await;
-                // ... and asks the LSP to re-push the preview state.
-                expect_message(
-                    &mut to_lsp_rx,
-                    |m| matches!(m, PreviewToLspMessage::RequestState { .. }),
-                    "RequestState after reconnecting",
-                )
-                .await;
+                // The connector reconnects on its own, but an unpaired viewer
+                // is never silently trusted, so the reconnect warns again and
+                // the user accepts.
+                let accept = async {
+                    wait_for_prompt(&connector).await;
+                    connector.accept_unpaired_connection();
+                };
+                let observe = async {
+                    expect_message(
+                        &mut viewer_rx,
+                        |m| matches!(m, ConnectionMessage::Connected { .. }),
+                        "viewer reconnection",
+                    )
+                    .await;
+                    // ... and asks the LSP to re-push the preview state.
+                    expect_message(
+                        &mut to_lsp_rx,
+                        |m| matches!(m, PreviewToLspMessage::RequestState { .. }),
+                        "RequestState after reconnecting",
+                    )
+                    .await;
+                };
+                tokio::join!(accept, observe);
 
                 connector.disconnect().await;
             })
@@ -1852,7 +1843,9 @@ mod tests {
     }
 
     /// A viewer with pairing disabled cannot be connected to silently: the
-    /// user is warned first, and their answer holds for reconnects.
+    /// user is warned first. Consent is never remembered, so a fresh
+    /// connection warns again -- there is no stored answer for a peer to
+    /// slip past or for a reused address to inherit.
     #[tokio::test]
     async fn an_unpaired_viewer_needs_the_users_ok() {
         tokio::task::LocalSet::new()
@@ -1862,6 +1855,7 @@ mod tests {
 
                 let (_previews, connector, mut state_rx, _to_lsp_rx) = connector_with_states();
 
+                // Warned, accepted, connected.
                 let connect = connector.connect(["127.0.0.1"], port);
                 let accept = async {
                     expect_state(&mut state_rx, RemoteConnectionState::UnpairedWarning).await;
@@ -1875,25 +1869,17 @@ mod tests {
                     "viewer connection",
                 )
                 .await;
+                while state_rx.try_recv().is_ok() {}
 
-                // The viewer restarts. The reconnect must not ask again: if
-                // it did, nobody would answer and this would time out.
-                drop(viewer);
-                drop(viewer_rx);
-                let (_viewer, mut viewer_rx) = listen(port, PairingPolicy::Disabled).await;
-                expect_message(
-                    &mut viewer_rx,
-                    |m| matches!(m, ConnectionMessage::Connected { .. }),
-                    "viewer reconnection",
-                )
-                .await;
-                while let Ok((state, _)) = state_rx.try_recv() {
-                    assert_ne!(
-                        state,
-                        RemoteConnectionState::UnpairedWarning,
-                        "the reconnect asked the user again"
-                    );
-                }
+                // A second connection to the same viewer must warn again: the
+                // earlier acceptance was not stored.
+                let connect = connector.connect(["127.0.0.1"], port);
+                let accept = async {
+                    expect_state(&mut state_rx, RemoteConnectionState::UnpairedWarning).await;
+                    connector.accept_unpaired_connection();
+                };
+                let (result, ()) = tokio::join!(connect, accept);
+                result.expect("the second connection should warn, then complete once accepted");
 
                 connector.disconnect().await;
             })
