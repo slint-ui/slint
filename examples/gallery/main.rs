@@ -67,7 +67,7 @@ use std::rc::Rc;
 use slint::{Model, ModelExt, ModelRc, SharedString, StandardListViewItem, VecModel};
 
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen)]
-pub fn main() {
+pub fn main() -> Result<(), slint::PlatformError> {
     // This provides better error messages in debug mode.
     // It's disabled in release mode so it doesn't bloat up the file size.
     #[cfg(all(debug_assertions, target_arch = "wasm32"))]
@@ -77,7 +77,7 @@ pub fn main() {
     #[cfg(not(target_arch = "wasm32"))]
     slint::init_translations!(concat!(env!("CARGO_MANIFEST_DIR"), "/lang/"));
 
-    let app = App::new().unwrap();
+    let app = App::new()?;
 
     let row_data: Rc<VecModel<slint::ModelRc<StandardListViewItem>>> = Rc::new(VecModel::default());
 
@@ -94,7 +94,7 @@ pub fn main() {
     app.global::<TableViewPageAdapter>().set_row_data(row_data.clone().into());
     app.global::<TableViewPageAdapter>().on_filter_sort_model(filter_sort_model);
 
-    app.run().unwrap();
+    app.run()
 }
 
 fn filter_sort_model(

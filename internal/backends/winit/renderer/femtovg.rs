@@ -34,6 +34,20 @@ impl GlutinFemtoVGRenderer {
     pub fn new_suspended(
         shared_backend_data: &Rc<crate::SharedBackendData>,
     ) -> Result<Box<dyn WinitCompatibleRenderer>, PlatformError> {
+        // create the webgl context early so that we can report errors about webgl support
+        // immediately and give more helpful error popup messages. when the event loop is already
+        // running, we just panic if this fails, which gives an unhelpful popup message
+        #[cfg(target_arch = "wasm32")]
+        if let Some(html_canvas) = web_sys::window()
+            .and_then(|window| window.document())
+            .and_then(|document| document.get_element_by_id("canvas"))
+            .and_then(|canvas_elem| {
+                wasm_bindgen::JsCast::dyn_into::<web_sys::HtmlCanvasElement>(canvas_elem).ok()
+            })
+        {
+            opengl::preemptively_create_webgl_context(&html_canvas)?;
+        }
+
         Ok(Box::new(Self {
             renderer: FemtoVGRenderer::new_suspended(),
             _requested_graphics_api: shared_backend_data.requested_graphics_api.clone(),
