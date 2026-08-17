@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 #!/bin/bash
+# cspell:ignore plutil
 set -euo pipefail
 
 VERSION="2.9.3"
@@ -9,8 +10,18 @@ EXPECTED_SHA256="74a07da821f92b79310009954c0e15f350173374a3abe39095b4fc5096916be
 
 cd "$(git rev-parse --show-toplevel)"
 
-if [ -d "Sparkle.framework" ] && [ -x "sparkle-bin/sign_update" ] && [ -x "sparkle-bin/generate_keys" ]; then
-    echo "Sparkle.framework and Sparkle tools already exist"
+# The framework reports its own version, so a checkout that still has an older
+# one from before a VERSION bump re-downloads instead of keeping it forever.
+# Read it through the Resources symlink to stay off the versioned directory
+# name, and don't leave a stamp file behind: the framework gets copied into the
+# app bundle and signed as it is.
+installed_version() {
+    plutil -extract CFBundleShortVersionString raw Sparkle.framework/Resources/Info.plist 2>/dev/null
+}
+
+if [ -d "Sparkle.framework" ] && [ -x "sparkle-bin/sign_update" ] &&
+    [ -x "sparkle-bin/generate_keys" ] && [ "$(installed_version)" = "$VERSION" ]; then
+    echo "Sparkle ${VERSION} and its tools already exist"
     exit 0
 fi
 

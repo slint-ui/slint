@@ -15,9 +15,9 @@ runs:
         # Downloads fail often enough on the runners to be worth caching a copy.
         # The key covers the script because that is where the version and its
         # checksum are pinned, so a bump invalidates the entry on its own.
-        # There are deliberately no restore-keys: an entry for another version
-        # would still look complete to the script below, which would then skip
-        # the download and leave the wrong Sparkle in place.
+        # No restore-keys, so that a hit always carries the pinned version and
+        # the step below has nothing left to do. A prefix match would only give
+        # the script an older copy to throw away and download over.
         - name: Restore Sparkle.framework
           if: runner.os == 'macOS'
           uses: actions/cache@v6
