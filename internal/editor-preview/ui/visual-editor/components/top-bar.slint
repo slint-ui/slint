@@ -1,8 +1,80 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Api } from "../../api.slint";
+import { Api, EditorSurfaceMode } from "../../api.slint";
 import { EditorMetrics, StudioTheme } from "common.slint";
+
+component RunButton inherits Rectangle {
+    in property <bool> enabled: true;
+    callback clicked;
+
+    width: 82px;
+    height: 34px;
+    border-radius: 7px;
+    background: !root.enabled
+        ? StudioTheme.panel-subtle
+        : touch.pressed
+            ? #087ccc
+            : touch.has-hover
+                ? #0a8ee8
+                : StudioTheme.accent;
+    border-width: button-focus.has-focus && root.enabled ? 2px : 0px;
+    border-color: StudioTheme.dark ? white : #0969da;
+    opacity: root.enabled ? 1 : 0.56;
+    accessible-role: button;
+    accessible-label: "Run live preview";
+    accessible-enabled: root.enabled;
+    accessible-action-default => {
+        if root.enabled {
+            root.clicked();
+        }
+    }
+
+    animate background, opacity { duration: 100ms; easing: ease-out-quad; }
+
+    HorizontalLayout {
+        padding-left: 12px;
+        padding-right: 13px;
+        spacing: 6px;
+        alignment: center;
+        cross-axis-alignment: center;
+
+        Image {
+            width: 16px;
+            height: 16px;
+            source: @image-url("../../assets/octicons/play-16.svg");
+            colorize: root.enabled ? white : StudioTheme.muted;
+        }
+
+        Text {
+            text: "Run";
+            color: root.enabled ? white : StudioTheme.muted;
+            font-size: 12px;
+            font-weight: 800;
+            vertical-alignment: center;
+        }
+    }
+
+    button-focus := FocusScope {
+        enabled: root.enabled;
+        key-pressed(event) => {
+            if event.text == Key.Return || event.text == Key.Space {
+                root.clicked();
+                return accept;
+            }
+            return reject;
+        }
+    }
+
+    touch := TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: root.enabled ? pointer : default;
+        clicked => {
+            button-focus.focus();
+            root.clicked();
+        }
+    }
+}
 
 export component EditorTopBar inherits Rectangle {
     height: EditorMetrics.top-bar-height;
@@ -21,21 +93,12 @@ export component EditorTopBar inherits Rectangle {
         alignment: end;
         cross-axis-alignment: center;
 
-        Rectangle {
-            width: 82px;
-            height: 34px;
-            border-radius: 17px;
-            background: StudioTheme.panel-subtle;
-            border-width: 1px;
-            border-color: StudioTheme.border;
-
-            Text {
-                text: "100%";
-                color: StudioTheme.text;
-                font-size: 12px;
-                font-weight: 800;
-                horizontal-alignment: center;
-                vertical-alignment: center;
+        RunButton {
+            enabled: !Api.startup-wizard-visible
+                && Api.editor-surface-mode == EditorSurfaceMode.component
+                && Api.selected-project-file != "";
+            clicked => {
+                Api.launch-live-preview();
             }
         }
     }
