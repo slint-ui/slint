@@ -45,6 +45,7 @@ backend-winit-x11 = ["slint/backend-winit-x11", "preview"]
 backend-winit-wayland = ["slint/backend-winit-wayland", "preview"]
 backend-linuxkms = ["slint/backend-linuxkms", "preview"]
 backend-linuxkms-noseat = ["slint/backend-linuxkms-noseat", "preview"]
+backend-linuxkms-noseat-no-input = ["slint/backend-linuxkms-noseat-no-input", "preview"]
 backend-default = ["slint/backend-default", "preview"]
 
 renderer-femtovg = ["slint/renderer-femtovg", "preview"]

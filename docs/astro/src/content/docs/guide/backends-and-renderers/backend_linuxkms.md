@@ -5,31 +5,38 @@ description: LinuxKMS Backend
 <!-- cSpell: ignore linuxkms libinput libseat libudev libgbm libxkbcommon xkbcommon noseat keymap xkeyboard udevadm -->
 
 The LinuxKMS backend runs only on Linux and eliminates the need for a windowing system such as Wayland or X11.
-Instead it uses the following libraries and interface to render directly to the screen and react to touch, mouse,
-and keyboard input.
+It uses the following libraries and interfaces to render directly to the screen and, by default, react to touch,
+mouse, and keyboard input.
 
  - OpenGL via KMS/DRI.
  - Vulkan via wgpu and the Vulkan KHR Display Extension.
  - DRM dumb buffers for software rendering, as well as legacy LinuxFB rendering.
- - libinput/libudev for input event handling from mice, touch screens, or keyboards.
+ - libinput/libudev for input event handling from mice, touch screens, or keyboards. (optional)
  - libseat for GPU and input device access without requiring root access. (optional)
 
 ## Dependencies
 
-For compilation, pkg-config is used to determine the location of the following required system libraries:
+Depending on the selected backend and renderer features, pkg-config determines the location of these system libraries:
 
-| pkg-config package name | Package name on Debian based distros |
-|-------------------------|--------------------------------------|
-| `gbm`                   | `libgbm-dev`                         |
-| `xkbcommon`             | `libxkbcommon-dev`                   |
-| `libudev`               | `libudev-dev`                        |
-| `libseat`               | `libseat-dev`                        |
+| pkg-config package name | Package name on Debian based distros | Used for                         |
+|-------------------------|--------------------------------------|----------------------------------|
+| `gbm`                   | `libgbm-dev`                         | OpenGL renderers                 |
+| `libinput`              | `libinput-dev`                       | Mouse, touch, and keyboard input |
+| `xkbcommon`             | `libxkbcommon-dev`                   | Keyboard input                   |
+| `libudev`               | `libudev-dev`                        | libinput device discovery        |
+| `libseat`               | `libseat-dev`                        | Unprivileged device access       |
 
 :::note[Note]
 If you don't have `libseat` available on your target system, then instead of selecting `backend-linuxkms`, select
 `backend-linuxkms-noseat`. This variant of the LinuxKMS backend eliminates the need to have libseat installed, but
 in exchange requires running the application as a user that's privileged to access all input and DRM/KMS device
 files; typically that's the root user.
+:::
+
+:::note[Note]
+If your application provides its own input handling, select `backend-linuxkms-noseat-no-input`.
+This variant doesn't depend on libseat, libinput, libudev, or xkbcommon and doesn't dispatch input events.
+The application must have permission to access the DRM/KMS device files directly.
 :::
 
 ## Renderers
@@ -92,6 +99,8 @@ Index: 5 Width: 1680 Height: 1050 Refresh Rate: 59
 Set `SLINT_DRM_MODE` to `4` to select 1920x1080@60.
 
 ## Configuring the Keyboard
+
+This section applies when you select a LinuxKMS backend variant with libinput support.
 
 By default the keyboard layout and model is assumed to be a US model and layout. Set the following
 environment variables to configure support for different keyboards:
