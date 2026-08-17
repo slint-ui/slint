@@ -481,8 +481,12 @@ fn live_preview_command(
         )
         .into());
     };
-    let mut arguments =
-        vec![OsString::from("--auto-reload"), OsString::from("--style"), OsString::from("fluent")];
+    let mut arguments = vec![
+        OsString::from("--auto-reload"),
+        OsString::from("--simulator"),
+        OsString::from("--style"),
+        OsString::from("fluent"),
+    ];
     if let Some(component_name) = component_name {
         arguments.push(OsString::from("--component"));
         arguments.push(OsString::from(component_name));
@@ -635,6 +639,7 @@ mod tests {
             command.arguments,
             [
                 "--auto-reload",
+                "--simulator",
                 "--style",
                 "fluent",
                 "--component",
@@ -656,7 +661,8 @@ mod tests {
 
         assert_eq!(
             command.arguments,
-            ["--auto-reload", "--style", "fluent", "/project/ui/main.slint"].map(OsString::from)
+            ["--auto-reload", "--simulator", "--style", "fluent", "/project/ui/main.slint"]
+                .map(OsString::from)
         );
     }
 }
