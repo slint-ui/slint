@@ -105,6 +105,21 @@ fn auto_reload_and_save_data_conflict() {
     );
 }
 
+#[test]
+fn simulator_requires_auto_reload() {
+    let (code, _stdout, stderr) = run(&["--simulator", "x.slint"]);
+    assert_eq!(code, 2);
+    assert!(stderr.contains("--auto-reload"), "stderr was:\n{stderr}");
+}
+
+#[test]
+fn simulator_conflicts_with_screenshot() {
+    let (code, _stdout, stderr) =
+        run(&["--simulator", "--auto-reload", "--screenshot", "out.png", "x.slint"]);
+    assert_eq!(code, 2);
+    assert!(stderr.contains("--simulator") && stderr.contains("--screenshot"));
+}
+
 // --- Errors loading the .slint file ------------------------------------
 
 #[test]

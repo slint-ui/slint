@@ -13,12 +13,17 @@ fn bump_windows_stack_size() {
 
 fn main() {
     println!("cargo:rerun-if-changed=build.rs");
+    println!("cargo:rerun-if-changed=simulator.slint");
     println!("cargo:rerun-if-env-changed=CARGO_FEATURE_REMOTE");
     bump_windows_stack_size();
-    // The slint!{} macro in remote.rs needs the experimental
+    // The simulator shell uses ComponentContainer, and remote.rs uses the experimental
     // new_with_existing_window constructor.
+    println!("cargo:rustc-env=SLINT_ENABLE_EXPERIMENTAL_FEATURES=1");
+    // SAFETY: Cargo runs build scripts as single-threaded processes before dependencies compile.
+    unsafe { std::env::set_var("SLINT_ENABLE_EXPERIMENTAL_FEATURES", "1") };
+    slint_build::compile("simulator.slint").unwrap();
+
     if std::env::var_os("CARGO_FEATURE_REMOTE").is_some() {
-        println!("cargo:rustc-env=SLINT_ENABLE_EXPERIMENTAL_FEATURES=1");
         // Android needs the Material style so the UI's ListView scrolls by touch.
         println!("cargo:rerun-if-env-changed=SLINT_STYLE");
         if std::env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("android")

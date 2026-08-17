@@ -5,6 +5,7 @@
 
 mod debug;
 mod screenshot;
+mod simulator;
 
 #[cfg(feature = "remote")]
 mod remote;
@@ -95,6 +96,15 @@ struct Cli {
     /// Automatically watch the file system, and reload when it changes
     #[arg(long, action)]
     auto_reload: bool,
+
+    /// Run the component in the Visual Editor companion shell
+    #[arg(
+        long,
+        action,
+        requires = "auto_reload",
+        conflicts_with_all = ["remote", "screenshot", "check", "save_data"]
+    )]
+    simulator: bool,
 
     /// Load properties from a json file ('-' for stdin)
     #[arg(long, value_name = "json file", action)]
@@ -238,6 +248,11 @@ fn main() -> Result<()> {
     if args.auto_reload {
         select_backend(args.backend.as_deref())?;
         install_log_message_handler()?;
+
+        if args.simulator {
+            simulator::run(compiler, &args)?;
+            std::process::exit(EXIT_CODE.load(std::sync::atomic::Ordering::Relaxed));
+        }
 
         let live = i_slint_live_preview::live_component::LiveReloadingComponent::new(
             compiler,

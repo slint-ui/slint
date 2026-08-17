@@ -7689,6 +7689,7 @@ dependencies = [
  "serde_json",
  "shlex 2.0.1",
  "slint",
+ "slint-build",
  "slint-interpreter",
  "smol_str 0.3.2",
  "tempfile",
