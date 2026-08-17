@@ -30,7 +30,7 @@ kurbo = { version = "0.13" }
 # anyrender asserts the size of FilterEffect for a 64-bit layout on every target except
 # wasm32, so it doesn't compile on i686/armv7 either. See the matching `cfg` in lib.rs.
 [target.'cfg(any(target_pointer_width = "64", target_arch = "wasm32"))'.dependencies]
-anyrender = { version = "0.12" }
+anyrender = { version = "0.13" }
 
 [package.metadata.docs.rs]
 rustdoc-args = ["--generate-link-to-definition"]
