@@ -67,3 +67,12 @@ export Test2 := Rectangle {
 //                              >error{Cannot convert string to length}
 }
 //<<<<error{Cannot convert string to length}
+
+// One part returns void
+export component Test3 {
+    property <int> foo: {  if true {}  };
+//                      >               <error{Cannot convert void to int}
+
+    property <int> foo2: {  if true { 5 }  };
+//                       >                  <error{Cannot convert void to int}
+}
