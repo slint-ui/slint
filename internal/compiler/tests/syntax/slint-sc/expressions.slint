@@ -57,12 +57,10 @@ export component Test inherits Window {
 //            >              <error{Inline struct types are not supported in Slint SC}
     // member access
     property <int> n: m.x;
-//                    > <error{Identifier references are not supported in Slint SC}
     // self-assignment (via callback handler context)
     // index expression
     property <int> o: l[0];
 //                    >  <error{Index expressions are not supported in Slint SC}
-//                    ^^error{Identifier references are not supported in Slint SC}
     // function call
     property <int> p: Math.max(1, 2);
 //                    >      <error{Cannot access id 'Math'}
