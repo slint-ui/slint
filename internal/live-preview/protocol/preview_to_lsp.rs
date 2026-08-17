@@ -62,6 +62,8 @@ pub enum PreviewToLspMessage {
     /// Answer to [`super::LspToPreviewMessage::Ping`], consumed by the LSP's
     /// WebSocket connector.
     Pong,
+    /// Ask the host application to launch the current component in a separate live preview.
+    LaunchLivePreview { component: super::PreviewComponent },
 }
 
 /// One transport from a preview back to the LSP.

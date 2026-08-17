@@ -397,6 +397,7 @@ async fn handle_preview_message(
         | TelemetryEvent(..)
         | ConnectRemote { .. }
         | DisconnectRemote
+        | LaunchLivePreview { .. }
         | Pong => {
             tracing::debug!("Ignoring message from preview: {msg:?}");
             None

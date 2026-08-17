@@ -912,6 +912,20 @@ fn show_preview_for(name: slint::SharedString, url: slint::SharedString) {
     load_preview(current, LoadBehavior::Load);
 }
 
+fn launch_live_preview() {
+    PREVIEW_STATE.with_borrow(|preview_state| {
+        let Some(component) = preview_state.current_component() else {
+            return;
+        };
+        let Some(to_lsp) = preview_state.to_lsp.borrow().as_ref().cloned() else {
+            return;
+        };
+        if let Err(error) = to_lsp.send(&PreviewToLspMessage::LaunchLivePreview { component }) {
+            tracing::error!("Failed to request a separate live preview: {error}");
+        }
+    });
+}
+
 /// An item in the preview UI being dragged.
 #[derive(Clone, PartialEq, Eq, Debug, Hash)]
 enum DragItem {
@@ -2825,6 +2839,35 @@ mod tests {
             PreviewToLspMessage::UpdateUserSettings { name, contents }
                 if name == PREVIEW_SETTINGS_FILE && contents == &settings.serialize()
         ));
+    }
+
+    #[test]
+    fn launch_live_preview_routes_current_component_to_host() {
+        let messages = Rc::new(RefCell::new(Vec::new()));
+        reset_preview_state(messages.clone());
+        let component = PreviewComponent {
+            url: Url::parse("file:///tmp/live-preview.slint").unwrap(),
+            component: Some("MainWindow".into()),
+        };
+        PREVIEW_STATE.with_borrow_mut(|state| state.set_current_component(component.clone()));
+
+        launch_live_preview();
+
+        assert!(matches!(
+            &messages.borrow()[..],
+            [PreviewToLspMessage::LaunchLivePreview { component: actual }]
+                if actual == &component
+        ));
+    }
+
+    #[test]
+    fn launch_live_preview_ignores_missing_component() {
+        let messages = Rc::new(RefCell::new(Vec::new()));
+        reset_preview_state(messages.clone());
+
+        launch_live_preview();
+
+        assert!(messages.borrow().is_empty());
     }
 
     #[test]
