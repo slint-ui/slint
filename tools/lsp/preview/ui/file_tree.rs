@@ -51,10 +51,10 @@ pub fn setup(api: &Api<'_>, api_weak: slint::Weak<Api<'static>>, ui_kind: Previe
     let controller_for_select = controller.clone();
     let api_weak_for_select = api_weak.clone();
     api.on_file_tree_select(move |path| {
-        if let Some(api) = api_weak_for_select.upgrade() {
-            if let Some(controller) = controller_for_select.borrow_mut().as_mut() {
-                controller.select(Path::new(path.as_str()), &api);
-            }
+        if let Some(api) = api_weak_for_select.upgrade()
+            && let Some(controller) = controller_for_select.borrow_mut().as_mut()
+        {
+            controller.select(Path::new(path.as_str()), &api);
         }
     });
 
@@ -112,10 +112,10 @@ pub fn setup(api: &Api<'_>, api_weak: slint::Weak<Api<'static>>, ui_kind: Previe
     });
 
     api.on_file_tree_toggle(move |path| {
-        if let Some(api) = api_weak.upgrade() {
-            if let Some(controller) = controller.borrow_mut().as_mut() {
-                controller.toggle(Path::new(path.as_str()), &api);
-            }
+        if let Some(api) = api_weak.upgrade()
+            && let Some(controller) = controller.borrow_mut().as_mut()
+        {
+            controller.toggle(Path::new(path.as_str()), &api);
         }
     });
 
