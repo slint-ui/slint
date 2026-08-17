@@ -25,15 +25,15 @@ x11 = ["glutin/x11", "glutin/glx", "softbuffer/x11", "softbuffer/x11-dlopen"]
 opengl = []
 # `vulkan-portability` is how wgpu compiles its Vulkan backend on Apple platforms (MoltenVK).
 # It feeds an apple-target-gated dependency of wgpu-core, so it's inert elsewhere.
-vulkan = ["skia-safe/vulkan", "dep:ash", "vulkano", "wgpu-29?/vulkan-portability", "wgpu-30?/vulkan-portability"]
+vulkan = ["skia-safe/vulkan", "wgpu-30", "wgpu-30/vulkan-portability", "wgpu-29?/vulkan-portability"]
 kms = ["softbuffer/kms"]
-# wgpu-{29,30} enables the wgpu surface module for internal use (e.g. linuxkms DRM rendering).
-# unstable-wgpu-{29,30} additionally exposes public API integration (GraphicsAPI, texture import).
+# wgpu-{29,30} enables the wgpu surface module for internal use (e.g. linuxkms DRM rendering), as well as
+# the explicit graphics APIs: Direct3D 12 on Windows, Metal on Apple, Vulkan on apple and other unix
 wgpu-29 = ["i-slint-core/wgpu-29", "dep:wgpu-29", "dep:spin_on", "dep:ash", "dep:windows-core", "dep:wgpu-hal-29"]
 unstable-wgpu-29 = ["i-slint-core/unstable-wgpu-29", "wgpu-29"]
 wgpu-30 = ["i-slint-core/wgpu-30", "dep:wgpu-30", "dep:spin_on", "dep:ash", "dep:windows-core", "dep:wgpu-hal-30"]
 unstable-wgpu-30 = ["i-slint-core/unstable-wgpu-30", "wgpu-30"]
-default = ["softbuffer"]
+default = ["softbuffer", "wgpu-30"]
 
 [dependencies]
 i-slint-core = { workspace = true, features = ["default", "box-shadow-cache", "shared-parley", "image-decoders", "svg"] }
@@ -56,7 +56,6 @@ glow = { workspace = true }
 unicode-segmentation = { workspace = true }
 
 ash = { version = "^0.38.0", optional = true }
-vulkano = { version = "0.35.0", optional = true, default-features = false }
 
 wgpu-29 = { workspace = true, optional = true }
 wgpu-30 = { workspace = true, optional = true }

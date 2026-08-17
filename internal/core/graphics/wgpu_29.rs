@@ -70,6 +70,19 @@ pub mod api {
         }
     }
 
+    /// We need to check equality between settings so that we can check if some
+    /// cached graphics primitives were created with the same settings as what
+    /// is requested, and return the existing ones
+    ///
+    /// TODO: this is a hack which relies on everything implementing the Debug trait. Replace this
+    /// with a `#[derive(Eq, PartialEq)] when https://github.com/gfx-rs/wgpu/pull/10040 is merged
+    /// and present in this wgpu version
+    impl PartialEq for WGPUSettings {
+        fn eq(&self, other: &Self) -> bool {
+            alloc::format!("{self:?}") == alloc::format!("{other:?}")
+        }
+    }
+
     /// This enum describes the different ways to configure WGPU for rendering.
     #[derive(Clone, Debug)]
     #[non_exhaustive]
@@ -216,6 +229,33 @@ impl From<Box<dyn wgpu::DisplayAndWindowHandle + 'static>> for SurfaceTarget {
     }
 }
 
+#[cfg(feature = "unstable-wgpu-29")]
+fn device_descriptor_from_settings<'a>(
+    settings: &'a api::WGPUSettings,
+    adapter: &wgpu::Adapter,
+) -> wgpu::DeviceDescriptor<'a> {
+    wgpu::DeviceDescriptor {
+        label: settings.device_label.as_deref(),
+        required_features: settings.device_required_features,
+        // support images the size of the swapchain
+        required_limits: settings.device_required_limits.clone().using_resolution(adapter.limits()),
+        experimental_features: settings.device_experimental_features,
+        memory_hints: settings.device_memory_hints.clone(),
+        trace: wgpu::Trace::default(),
+    }
+}
+
+fn default_device_descriptor(adapter: &wgpu::Adapter) -> wgpu::DeviceDescriptor<'static> {
+    wgpu::DeviceDescriptor {
+        label: None,
+        required_features: adapter.features() - wgpu::Features::all_experimental_mask(),
+        required_limits: adapter.limits(),
+        experimental_features: wgpu::ExperimentalFeatures::disabled(),
+        memory_hints: wgpu::MemoryHints::MemoryUsage,
+        trace: wgpu::Trace::default(),
+    }
+}
+
 /// Internal async helper function to initialize the wgpu instance/adapter/device/queue from either scratch or
 /// developer-provided config. This is called by any renderer intending to support WGPU.
 pub async fn async_init_instance_adapter_device_queue_surface(
@@ -270,7 +310,7 @@ pub async fn async_init_instance_adapter_device_queue_surface(
                 wgpu::util::new_instance_with_webgpu_detection(wgpu::InstanceDescriptor {
                     backends: wgpu29_settings.backends & !backends_to_avoid,
                     flags: wgpu29_settings.instance_flags,
-                    backend_options: wgpu29_settings.backend_options,
+                    backend_options: wgpu29_settings.backend_options.clone(),
                     memory_budget_thresholds: wgpu29_settings.instance_memory_budget_thresholds,
                     display: None,
                 })
@@ -297,17 +337,7 @@ pub async fn async_init_instance_adapter_device_queue_surface(
             })?;
 
             let (device, queue) = adapter
-                .request_device(&wgpu::DeviceDescriptor {
-                    label: wgpu29_settings.device_label.as_deref(),
-                    required_features: wgpu29_settings.device_required_features,
-                    // Make sure we use the texture resolution limits from the adapter, so we can support images the size of the swapchain.
-                    required_limits: wgpu29_settings
-                        .device_required_limits
-                        .using_resolution(adapter.limits()),
-                    experimental_features: wgpu29_settings.device_experimental_features,
-                    memory_hints: wgpu29_settings.device_memory_hints,
-                    trace: wgpu::Trace::default(),
-                })
+                .request_device(&device_descriptor_from_settings(&wgpu29_settings, &adapter))
                 .await
                 .map_err(|e| -> Box<dyn std::error::Error + Send + Sync + 'static> {
                     alloc::format!("Failed to create device: {e}").into()
@@ -315,8 +345,25 @@ pub async fn async_init_instance_adapter_device_queue_surface(
 
             (instance, adapter, device, queue, surface)
         }
-        None => {
-            let backends = wgpu::Backends::from_env().unwrap_or_default() & !backends_to_avoid;
+        maybe_native_api @ (None
+        | Some(
+            RequestedGraphicsAPI::Metal
+            | RequestedGraphicsAPI::Vulkan
+            | RequestedGraphicsAPI::Direct3D,
+        )) => {
+            let requested_backends = match &maybe_native_api {
+                Some(RequestedGraphicsAPI::Metal) => wgpu::Backends::METAL,
+                Some(RequestedGraphicsAPI::Vulkan) => wgpu::Backends::VULKAN,
+                Some(RequestedGraphicsAPI::Direct3D) => wgpu::Backends::DX12,
+                _ => wgpu::Backends::from_env().unwrap_or_default(),
+            };
+            let backends = requested_backends & !backends_to_avoid;
+            if backends.is_empty() {
+                return Err(alloc::format!(
+                    "The requested graphics API ({maybe_native_api:?}) is not supported under wgpu on this platform"
+                )
+                .into());
+            }
 
             let instance =
                 wgpu::util::new_instance_with_webgpu_detection(wgpu::InstanceDescriptor {
@@ -338,27 +385,18 @@ pub async fn async_init_instance_adapter_device_queue_surface(
                     })?;
 
             let (device, queue) = adapter
-                .request_device(&wgpu::DeviceDescriptor {
-                    label: None,
-                    // Request all non-experimental features the adapter supports,
-                    // so that embedders like Bevy can use full GPU capabilities.
-                    required_features: adapter.features() - wgpu::Features::all_experimental_mask(),
-                    required_limits: adapter.limits(),
-                    experimental_features: wgpu::ExperimentalFeatures::disabled(),
-                    memory_hints: wgpu::MemoryHints::MemoryUsage,
-                    trace: wgpu::Trace::default(),
-                })
+                .request_device(&default_device_descriptor(&adapter))
                 .await
                 .map_err(|e| -> Box<dyn std::error::Error + Send + Sync + 'static> {
                     alloc::format!("Failed to create device: {e}").into()
                 })?;
             (instance, adapter, device, queue, surface)
         }
-        Some(_) => {
-            return Err(
-                "The FemtoVG WGPU renderer does not implement renderer selection by graphics API"
-                    .into(),
-            );
+        Some(other) => {
+            return Err(alloc::format!(
+                "The requested graphics API ({other:?}) is not supported under wgpu"
+            )
+            .into());
         }
     };
     Ok((instance, adapter, device, queue, surface))
