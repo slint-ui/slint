@@ -47,6 +47,12 @@ pub fn lsp_to_preview(message: LspToPreviewMessage) {
         M::RemoteConnectionState { state, target, error } => {
             preview::set_remote_connection_state(state, target, error);
         }
+        // Part of the remote pairing handshake, which the LSP's WebSocket
+        // connector completes before a session exists. A local preview is
+        // never on the receiving end of one.
+        M::PairingHello { .. } | M::PairingResponse { .. } => {
+            tracing::warn!("Ignoring a pairing message addressed to a local preview");
+        }
         M::Quit => {
             tracing::debug!("Preview: Quit requested");
             #[cfg(not(target_arch = "wasm32"))]

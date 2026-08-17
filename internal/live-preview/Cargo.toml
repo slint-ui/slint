@@ -20,6 +20,12 @@ lsp-types = { workspace = true, optional = true }
 serde = { workspace = true, optional = true }
 serde_json = { workspace = true, optional = true }
 derive_more = { workspace = true, features = ["debug"], optional = true }
+# protocol: the pairing handshake, needed by both ends of the connection
+spake2 = { version = "0.4.0", optional = true }
+hkdf = { version = "0.12.4", optional = true }
+chacha20poly1305 = { version = "0.10.1", optional = true }
+sha2 = { version = "0.10.9", default-features = false, optional = true }
+subtle = { version = "2.6.1", default-features = false, optional = true }
 # file-watcher
 notify = { version = "8.0.0", default-features = false, features = ["macos_kqueue"], optional = true }
 i-slint-compiler = { workspace = true, optional = true }
@@ -36,6 +42,9 @@ base64 = { version = "0.22.1", optional = true }
 hostname = { version = "0.4.1", optional = true }
 tracing = { workspace = true, optional = true }
 anyhow = { version = "1.0.100", optional = true }
+# remote: only the viewer generates pairing secrets, so the random source
+# stays out of the LSP's browser builds.
+rand = { version = "0.9.5", optional = true }
 
 [target.'cfg(not(any(target_vendor = "apple", target_arch = "wasm32")))'.dependencies]
 mdns-sd = { version = "0.20.0", default-features = false, features = ["async"], optional = true }
@@ -43,11 +52,33 @@ mdns-sd = { version = "0.20.0", default-features = false, features = ["async"], 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 getifs = { version = "0.6.1", optional = true }
 
+# A PAKE needs randomness on *both* sides, unlike the HMAC exchange it
+# replaces, so the browser build of the LSP now needs a CSPRNG too. spake2
+# pulls getrandom 0.2, which has to be told to use the JS backend.
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+getrandom = { version = "0.2", features = ["js"], optional = true }
+
+# The cool-down tests move the clock rather than sleeping through a
+# 60-second pairing deadline.
+[dev-dependencies]
+tokio = { version = "1.48.0", features = ["test-util"] }
+
 [lib]
 path = "lib.rs"
 
 [features]
-protocol = ["dep:lsp-types", "dep:serde", "dep:serde_json", "dep:derive_more"]
+protocol = [
+  "dep:lsp-types",
+  "dep:serde",
+  "dep:serde_json",
+  "dep:derive_more",
+  "dep:sha2",
+  "dep:subtle",
+  "dep:spake2",
+  "dep:hkdf",
+  "dep:chacha20poly1305",
+  "dep:getrandom",
+]
 file-watcher = ["dep:notify", "dep:i-slint-compiler"]
 live-component = ["file-watcher", "dep:slint-interpreter", "dep:i-slint-core"]
 ffi = ["live-component", "slint-interpreter/ffi"]
@@ -65,6 +96,7 @@ remote = [
   "dep:postcard",
   "dep:base64",
   "dep:hostname",
+  "dep:rand",
   "dep:mdns-sd",
   "dep:getifs",
   "slint-interpreter/accessibility",

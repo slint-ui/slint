@@ -156,6 +156,8 @@ spin_on = { workspace = true }
 tempfile = "3"
 # The remote connector tests talk to the real viewer-side connection.
 i-slint-live-preview = { path = "../../internal/live-preview", features = ["remote"] }
+tokio-tungstenite = "0.30.0"
+tokio = { version = "1.50.0", features = ["test-util"] }
 
 [build-dependencies]
 slint-build = { workspace = true, optional = true }

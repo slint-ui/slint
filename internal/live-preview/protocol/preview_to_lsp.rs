@@ -3,7 +3,7 @@
 
 use lsp_types::Url;
 
-use super::SourceFileVersion;
+use super::{PairingRejection, SourceFileVersion};
 
 /// Where the local preview is rendered. Remote viewers are layered on top
 /// of one of these via [`super::LspToPreviewMessage::RemoteConnectionState`];
@@ -54,7 +54,38 @@ pub enum PreviewToLspMessage {
     ConnectRemote { addresses: Vec<String>, port: u16 },
     /// The preview UI asked to disconnect the remote viewer.
     DisconnectRemote,
+    /// The user typed a pairing code into the preview UI. Carries the code
+    /// itself; the LSP runs the SPAKE2 exchange with it.
+    SubmitPairingCode { code: String },
+    /// The user dismissed the pairing prompt in the preview UI.
+    CancelPairing,
+    /// The user agreed to connect to a viewer that has pairing disabled,
+    /// knowing the session will not be encrypted.
+    AcceptUnpairedConnection,
     /// Answer to [`super::LspToPreviewMessage::Ping`], consumed by the LSP's
     /// WebSocket connector.
     Pong,
+    /// First message on a remote connection: the viewer is ready for
+    /// [`super::LspToPreviewMessage::PairingHello`]. See [`super::pairing`].
+    PairingReady,
+    /// The client offered no usable token, so the viewer is now showing a
+    /// pairing code and waiting for the user to type it. `element` starts
+    /// the SPAKE2 exchange the code is established through; a fresh one is
+    /// sent for every attempt.
+    PairingRequired { attempts_left: u8, expires_in_seconds: u16, element: super::pairing::Element },
+    /// The client announced a token this viewer issued, so the viewer opens
+    /// the reconnect exchange, with the token as the secret and nobody on
+    /// the screen. Answered like a code prompt, by
+    /// [`super::LspToPreviewMessage::PairingResponse`].
+    PairingTokenChallenge { element: super::pairing::Element },
+    /// The viewer derived the same key, and proves it. The session is
+    /// sealed from the next frame on.
+    PairingConfirm { confirmation: super::pairing::Confirmation },
+    /// Pairing is disabled on this viewer, so there is nothing to prove and
+    /// the session stays plaintext. Nothing else ends with this message: a
+    /// code or token exchange ends with [`Self::PairingConfirm`].
+    PairingAccepted,
+    /// The client is not authenticated. Whether retrying is worthwhile is
+    /// [`PairingRejection::is_terminal`].
+    PairingRejected { reason: PairingRejection },
 }

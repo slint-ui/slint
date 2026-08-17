@@ -67,6 +67,7 @@ casesensitive
 CDPATH
 cfgs
 CFLAGS
+chacha
 charmap
 checkboxtile
 checkmark
@@ -74,6 +75,7 @@ checkstate
 chipset
 chrono
 Cinstrument
+ciphertext
 circledraw
 circularprogressindicator
 CLIB
@@ -113,6 +115,7 @@ cpos
 cppbuild
 cppdocs
 cppreference
+CSPRNG
 cstyle
 Csvg
 ctest
@@ -263,6 +266,8 @@ hidpi
 highp
 HINSTANCE
 Hira
+hkdf
+hmac
 hlayout
 hmenu
 horizontalbox
@@ -453,6 +458,7 @@ optipng
 ospi
 othercomp
 ovmf
+PAKE
 Pantone
 partytown
 PATCHLEVEL
@@ -466,6 +472,7 @@ picotool
 pixabay
 pixelcolor
 pkgs
+poly
 popupwindow
 prec
 prediv
@@ -571,6 +578,7 @@ Snackbars
 Softbuffer
 Sorkin
 sourcestruct
+spake
 spinboxes
 SPIRAM
 SPRINTF
