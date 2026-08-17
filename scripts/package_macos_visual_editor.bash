@@ -29,6 +29,9 @@ fi
 [ -n "$VERSION" ] && [ "$VERSION" != "null" ] || die "could not determine Visual Editor version from Cargo metadata"
 
 BUILD_NUMBER="${BUILD_NUMBER:-${SLINT_BUILD_NUMBER:-${GITHUB_RUN_NUMBER:-$(git -C "$ROOT_DIR" rev-list --count HEAD 2>/dev/null || echo 1)}}}"
+# scripts/download-sparkle.sh puts the framework in the repository root, which is
+# also where .cargo/config.toml points the build at.
+SPARKLE_FRAMEWORK_DIR="${SPARKLE_FRAMEWORK_DIR:-$ROOT_DIR}"
 DIST_DIR="${DIST_DIR:-$ROOT_DIR/dist}"
 BUILD_DIR="${BUILD_DIR:-$ROOT_DIR/target/macos-visual-editor-dmg}"
 RUNNER_TEMP_DIR="${RUNNER_TEMP:-$BUILD_DIR/secrets}"

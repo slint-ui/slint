@@ -67,82 +67,88 @@ pub fn run(
     let app_window = ui::create_ui(&to_lsp, "", ui_kind)?;
 
     // We need to put the updater here so that it stays in scope.
-    // `cfg`'d out on non-mac platforms so we don't get a compiler
+    // `cfg`'d out when Sparkle isn't built in so we don't get a compiler
     // error when it doesn't have a type to assign to it.
-    #[cfg(target_os = "macos")]
+    #[cfg(all(target_os = "macos", feature = "sparkle-updater"))]
     let updater;
 
     #[cfg(target_os = "macos")]
     if let ui::AppWindow::Editor(editor) = app_window.clone_strong() {
         use slint::ComponentHandle;
-        use slint::Global;
-        use sparklers::Sparkle;
 
         macos_titlebar::setup(editor.as_weak());
 
-        updater = Sparkle::new().unwrap().map(Rc::new);
+        // Without Sparkle the update state stays at `UpToDate`, and the editor
+        // keeps its update chrome hidden.
+        #[cfg(feature = "sparkle-updater")]
+        {
+            use slint::Global;
+            use sparklers::Sparkle;
 
-        if let Some(updater) = updater.as_ref() {
-            let api = editor.global::<ui::Api>();
-            let api_weak = <ui::Api as Global<'_, ui::EditorUi>>::as_weak(&api);
-            updater.set_nonsync_event_callback(move |event| {
-                let Some(api) = api_weak.upgrade() else {
-                    return;
-                };
-                match event {
-                    sparklers::Event::DidFindValidUpdate { item } => {
-                        api.set_update_error(Default::default());
-                        api.set_update_version(item.version().into());
-                        api.set_update_state(ui::UpdateState::Available);
-                    }
-                    sparklers::Event::DidNotFindUpdate => {
-                        api.set_update_error(Default::default());
-                        api.set_update_version(Default::default());
-                        api.set_update_state(ui::UpdateState::UpToDate);
-                    }
-                    sparklers::Event::WillDownloadUpdate { .. } => {
-                        api.set_update_error(Default::default());
-                        api.set_update_state(ui::UpdateState::Downloading);
-                    }
-                    sparklers::Event::DidDownloadUpdate { .. } => {
-                        api.set_update_error(Default::default());
-                        api.set_update_download_progress(1.0);
-                        api.set_update_state(ui::UpdateState::ReadyToInstall);
-                    }
-                    sparklers::Event::WillInstallUpdate { .. }
-                    | sparklers::Event::WillInstallUpdateOnQuit { .. } => {
-                        api.set_update_error(Default::default());
-                        api.set_update_state(ui::UpdateState::Installing);
-                    }
-                    sparklers::Event::DidFinishUpdateCycle { error: Some(error), .. }
-                    | sparklers::Event::FailedToDownloadUpdate { error, .. }
-                    | sparklers::Event::DidAbortWithError { error } => {
-                        api.set_update_error(error.message().into());
-                        api.set_update_state(ui::UpdateState::Error);
-                    }
-                    _ => tracing::debug!("Sparkle event: {event:?}"),
-                }
-            });
+            updater = Sparkle::new().unwrap().map(Rc::new);
 
-            let api = editor.global::<ui::Api>();
-            let sparkle = updater.clone();
-            api.on_check_for_update(move || {
-                sparkle.check_for_update_information();
-            });
-            api.on_download_update(|| {
-                tracing::warn!(
-                    "Ignoring download-update request: custom Sparkle downloads are not wired yet"
-                );
-            });
-            api.on_install_update(|| {
-                tracing::warn!(
-                    "Ignoring install-update request: custom Sparkle installs are not wired yet"
-                );
-            });
+            if let Some(updater) = updater.as_ref() {
+                let api = editor.global::<ui::Api>();
+                let api_weak = <ui::Api as Global<'_, ui::EditorUi>>::as_weak(&api);
+                updater.set_nonsync_event_callback(move |event| {
+                    let Some(api) = api_weak.upgrade() else {
+                        return;
+                    };
+                    match event {
+                        sparklers::Event::DidFindValidUpdate { item } => {
+                            api.set_update_error(Default::default());
+                            api.set_update_version(item.version().into());
+                            api.set_update_state(ui::UpdateState::Available);
+                        }
+                        sparklers::Event::DidNotFindUpdate => {
+                            api.set_update_error(Default::default());
+                            api.set_update_version(Default::default());
+                            api.set_update_state(ui::UpdateState::UpToDate);
+                        }
+                        sparklers::Event::WillDownloadUpdate { .. } => {
+                            api.set_update_error(Default::default());
+                            api.set_update_state(ui::UpdateState::Downloading);
+                        }
+                        sparklers::Event::DidDownloadUpdate { .. } => {
+                            api.set_update_error(Default::default());
+                            api.set_update_download_progress(1.0);
+                            api.set_update_state(ui::UpdateState::ReadyToInstall);
+                        }
+                        sparklers::Event::WillInstallUpdate { .. }
+                        | sparklers::Event::WillInstallUpdateOnQuit { .. } => {
+                            api.set_update_error(Default::default());
+                            api.set_update_state(ui::UpdateState::Installing);
+                        }
+                        sparklers::Event::DidFinishUpdateCycle { error: Some(error), .. }
+                        | sparklers::Event::FailedToDownloadUpdate { error, .. }
+                        | sparklers::Event::DidAbortWithError { error } => {
+                            api.set_update_error(error.message().into());
+                            api.set_update_state(ui::UpdateState::Error);
+                        }
+                        _ => tracing::debug!("Sparkle event: {event:?}"),
+                    }
+                });
 
-            updater.set_automatically_checks_for_updates(false);
-            updater.set_automatically_downloads_updates(false);
-            updater.check_for_update_information();
+                let api = editor.global::<ui::Api>();
+                let sparkle = updater.clone();
+                api.on_check_for_update(move || {
+                    sparkle.check_for_update_information();
+                });
+                api.on_download_update(|| {
+                    tracing::warn!(
+                        "Ignoring download-update request: custom Sparkle downloads are not wired yet"
+                    );
+                });
+                api.on_install_update(|| {
+                    tracing::warn!(
+                        "Ignoring install-update request: custom Sparkle installs are not wired yet"
+                    );
+                });
+
+                updater.set_automatically_checks_for_updates(false);
+                updater.set_automatically_downloads_updates(false);
+                updater.check_for_update_information();
+            }
         }
     }
 

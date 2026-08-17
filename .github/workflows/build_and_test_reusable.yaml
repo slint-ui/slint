@@ -101,6 +101,9 @@ jobs:
             - uses: actions/checkout@v7
             - uses: ./.github/actions/install-linux-dependencies
             - uses: ./.github/actions/install-skia-dependencies
+            # slint-lsp only builds against Sparkle with an opt-in feature, but
+            # the test run below enables it along with everything else.
+            - uses: ./.github/actions/install-sparkle
             - uses: ilammy/msvc-dev-cmd@v1
             - uses: actions/setup-python@v7
               with:

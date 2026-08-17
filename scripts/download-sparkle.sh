@@ -17,7 +17,9 @@ fi
 TEMP_DIR=$(mktemp -d)
 
 echo "Downloading Sparkle ${VERSION}..."
-curl -L -o "$TEMP_DIR/sparkle.tar.xz" \
+# --fail so an error page doesn't get written out as if it were the archive, and
+# retries because this runs in CI, where a hiccup shouldn't fail the build.
+curl --fail --location --retry 3 --retry-all-errors -o "$TEMP_DIR/sparkle.tar.xz" \
     "https://github.com/sparkle-project/Sparkle/releases/download/${VERSION}/Sparkle-${VERSION}.tar.xz"
 
 echo "Verifying checksum..."

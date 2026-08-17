@@ -1,0 +1,20 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+---
+name: Install Sparkle
+description: >
+    Download Sparkle.framework into the repository root, where the
+    "sparkle-updater" feature of slint-lsp and the visual editor packaging
+    expect it. Does nothing outside of macOS, so it is safe to call from a
+    workflow that runs on several platforms.
+
+runs:
+    using: composite
+    steps:
+        # The version and its checksum are pinned in the script, so that a local
+        # build and CI never disagree about which Sparkle they use.
+        - name: Download Sparkle.framework
+          if: runner.os == 'macOS'
+          shell: bash
+          run: ./scripts/download-sparkle.sh

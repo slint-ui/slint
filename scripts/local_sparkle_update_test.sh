@@ -15,7 +15,7 @@ ACCOUNT="slint-visual-editor-local-test"
 BUNDLE_IDENTIFIER="dev.slint.visual-editor.sparkle-test"
 ICON_SOURCE="$ROOT_DIR/tools/lsp/packaging/macos/AppIcon.icon"
 RUST_TARGET="aarch64-apple-darwin"
-CARGO_FEATURES="backend-winit,renderer-skia"
+CARGO_FEATURES="backend-winit,renderer-skia,sparkle-updater"
 HOST="127.0.0.1"
 PORT="8765"
 WORK_DIR="/private/tmp/slint-sparkle-local-test"
@@ -163,8 +163,11 @@ build_editor_app() {
     local plist="$app/Contents/Info.plist"
 
     log "Building local Visual Editor binary for $RUST_TARGET"
+    # The bundle assembled below carries its own copy of the framework, so the
+    # rpath here is the one that has to find it.
     env \
         SPARKLE_FRAMEWORK_DIR="$ROOT_DIR" \
+        SLINT_SPARKLE_BUNDLED=1 \
         RUSTFLAGS="-Clink-args=-Wl,-rpath,@loader_path/../Frameworks" \
         cargo build \
             --release \

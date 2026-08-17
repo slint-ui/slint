@@ -67,7 +67,10 @@ export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-$REPO_ROOT/target/xcode-cargo/$TARG
 
 RUST_TARGET=aarch64-apple-darwin
 
+# The rpath here is what finds Sparkle.framework once it has been copied into
+# Contents/Frameworks, so tell the build script not to add a second one.
 env RUSTFLAGS='-Clink-args=-Wl,-rpath,@loader_path/../Frameworks' \
+    SLINT_SPARKLE_BUNDLED=1 \
     cargo build \
         --target "$RUST_TARGET" \
         "$CARGO_TARGET_KIND" "$CARGO_TARGET_NAME" \
