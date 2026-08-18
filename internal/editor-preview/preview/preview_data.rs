@@ -295,8 +295,8 @@ mod tests {
     use super::*;
 
     use crate::{
-        crate::test::{main_test_file_name, test_file_name},
         preview::test::interpret_test_with_sources,
+        test::{main_test_file_name, test_file_name},
     };
 
     use std::collections::HashMap;

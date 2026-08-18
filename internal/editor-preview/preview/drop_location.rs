@@ -1488,10 +1488,7 @@ mod tests {
 
     use std::collections::HashMap;
 
-    use crate::{
-        crate::{self, test, text_edit},
-        util,
-    };
+    use crate::{editing::text_edit, test, util};
 
     pub const DEMO_CODE: &str = r#"import { Button } from "std-widgets.slint";
 
