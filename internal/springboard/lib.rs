@@ -5,11 +5,17 @@
 
 pub mod persistence;
 pub mod project;
+pub mod protocol;
 pub mod session;
 
 pub use persistence::{
     DEVICE_STATE_SCHEMA_VERSION, DeviceStateStore, GlobalDeviceState, LoadDeviceState,
     RememberedDevice, SaveDeviceState,
+};
+pub use protocol::{
+    ClientCommand, ClientRequest, EventEnvelope, ProjectSnapshot, ProtocolErrorCode,
+    RequestDecodeError, RequestId, ResponseEnvelope, ResponsePayload, SPRINGBOARD_PROTOCOL_VERSION,
+    ServerEvent, ServerMessage, decode_request,
 };
 pub use session::{
     Device, DeviceCapabilities, DeviceId, DeviceIdError, DeviceKind, DeviceOrigin, DeviceStatus,

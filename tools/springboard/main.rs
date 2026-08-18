@@ -9,6 +9,7 @@ use i_slint_springboard::project::{ProjectRunTarget, load_project_run_target};
 use slint_viewer::{ViewerLogLevel, ViewerRunnerOptions, run_auto_reload_simulator};
 
 mod session_driver;
+mod stdio;
 mod tui;
 
 #[derive(Debug, Parser)]
@@ -163,8 +164,18 @@ fn serve(options: ServeOptions) -> Result<()> {
         bail!("The serve command currently requires --stdio");
     }
     let target = load_required_project(&options.project)?;
-    println!("Springboard stdio session ready for {}", target.project_root.display());
-    Ok(())
+    let store = i_slint_springboard::DeviceStateStore::from_platform_config()
+        .context("Cannot determine the Springboard configuration directory")?;
+    let controller = session_driver::ProjectSessionController::new(
+        target,
+        store,
+        session_driver::ViewerChildCommand::current_executable()?,
+    );
+    let runtime = tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()
+        .context("Failed to start the Springboard async runtime")?;
+    runtime.block_on(stdio::serve(controller))
 }
 
 fn viewer_child(options: ViewerChildOptions) -> Result<()> {

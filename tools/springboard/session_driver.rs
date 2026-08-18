@@ -9,7 +9,7 @@ use std::process::{ExitStatus, Stdio};
 use anyhow::{Context as _, Result, bail};
 use i_slint_springboard::{
     Device, DeviceCapabilities, DeviceId, DeviceKind, DeviceOrigin, DeviceStateStore, DeviceStatus,
-    DiagnosticSeverity, GlobalDeviceState, LogLevel, SessionAction, SessionEvent,
+    DiagnosticSeverity, GlobalDeviceState, LogLevel, ProjectSnapshot, SessionAction, SessionEvent,
     SpringboardSession, project::ProjectRunTarget,
 };
 use tokio::io::{AsyncBufReadExt as _, BufReader};
@@ -227,6 +227,17 @@ impl ProjectSessionController {
 
     pub fn last_used_device(&self) -> Option<&DeviceId> {
         self.global_state.last_used_device.as_ref()
+    }
+
+    pub fn snapshot(&self) -> ProjectSnapshot {
+        ProjectSnapshot {
+            project_root: self.session.project().project_root.clone(),
+            entry_file: self.session.project().entry_file.clone(),
+            component: self.session.project().component.clone(),
+            devices: self.session.devices().values().cloned().collect(),
+            active_device: self.session.active_device().cloned(),
+            last_used_device: self.global_state.last_used_device.clone(),
+        }
     }
 
     pub async fn launch(&mut self, device_id: &DeviceId) -> Result<()> {
