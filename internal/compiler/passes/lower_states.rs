@@ -10,20 +10,32 @@ use crate::expression_tree::*;
 use crate::langtype::ElementType;
 use crate::langtype::Type;
 use crate::object_tree::*;
+use crate::symbol_counters::SymbolCounters;
 use smol_str::SmolStr;
 use std::collections::{HashMap, HashSet};
 use std::rc::{Rc, Weak};
 
-pub fn lower_states(component: &Rc<Component>, diag: &mut BuildDiagnostics) {
+/// Maps a private reference to the forwarding property/callback synthesized for it by
+/// `forwarded_reference`, so it's only synthesized once per reference.
+type ForwardedReferenceCache = HashMap<NamedReference, NamedReference>;
+
+pub fn lower_states(
+    component: &Rc<Component>,
+    symbol_counters: &SymbolCounters,
+    forwarded_cache: &mut ForwardedReferenceCache,
+    diag: &mut BuildDiagnostics,
+) {
     let state_info_type = crate::typeregister::BUILTIN.state_info_type.clone().into();
     recurse_elem(&component.root_element, &(), &mut |elem, _| {
-        lower_state_in_element(elem, &state_info_type, diag)
+        lower_state_in_element(elem, &state_info_type, symbol_counters, forwarded_cache, diag)
     });
 }
 
 fn lower_state_in_element(
     root_element: &ElementRc,
     state_info_type: &Type,
+    symbol_counters: &SymbolCounters,
+    forwarded_cache: &mut ForwardedReferenceCache,
     diag: &mut BuildDiagnostics,
 ) {
     if root_element.borrow().states.is_empty() {
@@ -59,7 +71,12 @@ fn lower_state_in_element(
         for (property_reference, expr, node) in state.property_changes {
             affected_properties.insert(property_reference.clone());
             let element = property_reference.element();
-            let property_expr = match expression_for_property(&element, property_reference.name()) {
+            let property_expr = match expression_for_property(
+                &element,
+                property_reference.name(),
+                symbol_counters,
+                forwarded_cache,
+            ) {
                 ExpressionForProperty::TwoWayBinding => {
                     diag.push_error(
                     format!("Cannot change the property '{}' in a state because it is initialized with a two-way binding", property_reference.name()),
@@ -68,13 +85,6 @@ fn lower_state_in_element(
                     continue;
                 }
                 ExpressionForProperty::Expression(e) => e,
-                ExpressionForProperty::InvalidBecauseOfIssue1461 => {
-                    diag.push_error(
-                        format!("Internal error: The expression for the default state currently cannot be represented: https://github.com/slint-ui/slint/issues/1461\nAs a workaround, add a binding for property {}", property_reference.name()),
-                        &node
-                    );
-                    continue;
-                }
             };
             let new_expr = Expression::Condition {
                 condition: Box::new(Expression::BinaryExpression {
@@ -191,24 +201,30 @@ fn compute_state_property_name(root_element: &ElementRc) -> SmolStr {
 enum ExpressionForProperty {
     TwoWayBinding,
     Expression(Expression),
-    /// Workaround: the expression can't be represented with the current data structure, so make it an error for now.
-    InvalidBecauseOfIssue1461,
 }
 
 /// Return the expression binding currently associated to the given property
-fn expression_for_property(element: &ElementRc, name: &str) -> ExpressionForProperty {
+fn expression_for_property(
+    element: &ElementRc,
+    name: &str,
+    symbol_counters: &SymbolCounters,
+    forwarded_cache: &mut ForwardedReferenceCache,
+) -> ExpressionForProperty {
     let mut element_it = Some(element.clone());
     let mut in_base = false;
     while let Some(elem) = element_it {
-        if let Some(e) = elem.borrow().binding(name) {
-            if !e.two_way_bindings.is_empty() {
+        // Clone out of `elem` and drop the borrow: forwarding below needs to borrow `elem` mutably.
+        let existing_binding = elem
+            .borrow()
+            .binding(name)
+            .map(|e| (!e.two_way_bindings.is_empty(), e.expression.clone()));
+        if let Some((is_two_way_binding, mut expr)) = existing_binding {
+            if is_two_way_binding {
                 return ExpressionForProperty::TwoWayBinding;
             }
-            let mut expr = e.expression.clone();
             if !matches!(expr, Expression::Invalid) {
                 if in_base {
-                    // Check that the expression is valid in the new scope
-                    let mut has_invalid = false;
+                    // Rewrite references from `elem`'s point of view to `element`'s.
                     expr.visit_recursive_mut(&mut |ex| match ex {
                         Expression::PropertyReference(nr)
                         | Expression::FunctionCall {
@@ -222,14 +238,19 @@ fn expression_for_property(element: &ElementRc, name: &str) -> ExpressionForProp
                                 &e.borrow().enclosing_component,
                                 &elem.borrow().enclosing_component,
                             ) {
-                                has_invalid = true;
+                                // A private sibling of `elem`: not reachable from outside its
+                                // component, so forward it through a synthesized member on `elem`.
+                                let forwarded = forwarded_reference(
+                                    nr,
+                                    &elem,
+                                    symbol_counters,
+                                    forwarded_cache,
+                                );
+                                *nr = NamedReference::new(element, forwarded.name().clone());
                             }
                         }
                         _ => (),
                     });
-                    if has_invalid {
-                        return ExpressionForProperty::InvalidBecauseOfIssue1461;
-                    }
                 }
 
                 return ExpressionForProperty::Expression(expr);
@@ -247,4 +268,50 @@ fn expression_for_property(element: &ElementRc, name: &str) -> ExpressionForProp
     });
 
     ExpressionForProperty::Expression(expr)
+}
+
+fn forwarded_reference(
+    original: &NamedReference,
+    base_root: &ElementRc,
+    symbol_counters: &SymbolCounters,
+    forwarded_cache: &mut ForwardedReferenceCache,
+) -> NamedReference {
+    // reuse the forward if one exists
+    if let Some(existing) = forwarded_cache.get(original) {
+        return existing.clone();
+    }
+
+    // Create a property/callback on `base_root` that forwards to `original`
+    let ty = original.ty();
+    let new_name = symbol_counters.generate_name("forward_reference_");
+    let binding = match &ty {
+        Type::Callback(f) | Type::Function(f) => {
+            let arguments = f
+                .args
+                .iter()
+                .enumerate()
+                .map(|(index, arg_ty)| Expression::FunctionParameterReference {
+                    index,
+                    ty: arg_ty.clone(),
+                })
+                .collect();
+            let function = if matches!(ty, Type::Callback(_)) {
+                Callable::Callback(original.clone())
+            } else {
+                Callable::Function(original.clone())
+            };
+            Expression::FunctionCall { function, arguments, source_location: None }
+        }
+        _ => Expression::PropertyReference(original.clone()),
+    };
+
+    base_root.borrow_mut().property_declarations.insert(
+        new_name.clone(),
+        PropertyDeclaration { property_type: ty, ..PropertyDeclaration::default() },
+    );
+    base_root.borrow_mut().set_binding(new_name.clone(), BindingExpression::from(binding));
+
+    let forwarded = NamedReference::new(base_root, new_name);
+    forwarded_cache.insert(original.clone(), forwarded.clone());
+    forwarded
 }
