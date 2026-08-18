@@ -78,14 +78,22 @@ jobs:
             --profile package-release `
             --no-default-features `
             --features backend-winit,renderer-skia
+          cargo +stable build `
+            --manifest-path tools/springboard/Cargo.toml `
+            --target ${{ matrix.target }} `
+            --profile package-release `
+            --no-default-features `
+            --features backend-winit,renderer-skia
 
-      # Only the executable differs per architecture. The packaging job builds
+      # Only the executables differ per architecture. The packaging job builds
       # the layouts around it, so the assets are not shipped back and forth.
-      - name: Upload executable
+      - name: Upload executables
         uses: actions/upload-artifact@v7
         with:
           name: slint-visual-editor-${{ matrix.arch }}
-          path: target/${{ matrix.target }}/package-release/slint-editor.exe
+          path: |
+            target/${{ matrix.target }}/package-release/slint-editor.exe
+            target/${{ matrix.target }}/package-release/slint-springboard.exe
           if-no-files-found: error
 
   package:
@@ -242,6 +250,14 @@ jobs:
             # `makeappx` resolves those paths within the package, not on disk.
             Copy-Item "$tiles/*.png" "$dist/Assets/"
             Copy-Item "exe/slint-visual-editor-$arch/slint-editor.exe" "$dist/slint-visual-editor.exe"
+            Copy-Item "exe/slint-visual-editor-$arch/slint-springboard.exe" "$dist/slint-springboard.exe"
+
+            if (-not (Test-Path "$dist/slint-visual-editor.exe" -PathType Leaf)) {
+              throw "the $arch package layout is missing slint-visual-editor.exe"
+            }
+            if (-not (Test-Path "$dist/slint-springboard.exe" -PathType Leaf)) {
+              throw "the $arch package layout is missing slint-springboard.exe"
+            }
 
             # Each slice carries its own manifest, naming the version and the
             # architecture it was built for. Everything else about the slices
@@ -268,6 +284,23 @@ jobs:
           }
 
           Write-Host "Packaging version $version"
+
+      - name: Smoke test packaged Springboard
+        shell: pwsh
+        run: |
+          $project = Join-Path $env:RUNNER_TEMP "springboard-smoke-project"
+          New-Item -ItemType Directory -Force $project | Out-Null
+          Set-Content -Encoding utf8NoBOM (Join-Path $project "slint.toml") @'
+          entry = "app.slint"
+          component = "App"
+          '@
+          Set-Content -Encoding utf8NoBOM (Join-Path $project "app.slint") 'export component App inherits Window {}'
+          $request = '{"protocol_version":1,"request_id":1,"command":"handshake","client_name":"package-smoke-test"}'
+          $output = $request | & "tools/editor/dist/x64/slint-springboard.exe" serve --stdio $project
+          if ($LASTEXITCODE -ne 0) { throw "Springboard stdio smoke test failed with exit code $LASTEXITCODE" }
+          $outputText = $output -join "`n"
+          if ($outputText -notmatch '"response":"ok"') { throw "Springboard smoke test did not receive a handshake response" }
+          if ($outputText -notmatch '"event":"snapshot"') { throw "Springboard smoke test did not receive a project snapshot" }
 
       - name: Package app as MSIX bundle
         id: package_msix
