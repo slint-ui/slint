@@ -9,25 +9,32 @@ fn bump_windows_stack_size() {
     }
 }
 
-/// Sparkle is linked as `@rpath/Sparkle.framework`, so a binary that isn't run
-/// from an app bundle needs an rpath pointing at the downloaded framework.
-/// The bundle build sets `SLINT_SPARKLE_BUNDLED` because it copies the
-/// framework into `Contents/Frameworks` and brings its own rpath, and because
-/// a checkout path baked into a shipped binary could shadow that copy.
-fn add_sparkle_rpath() {
+/// Link against the downloaded Sparkle.framework. The bundle build sets
+/// `SLINT_SPARKLE_BUNDLED` because it brings its own rpath into
+/// `Contents/Frameworks`, and a checkout path in a shipped binary could
+/// shadow that copy.
+fn link_sparkle() {
     println!("cargo::rerun-if-env-changed=SLINT_SPARKLE_BUNDLED");
     println!("cargo::rerun-if-env-changed=SPARKLE_FRAMEWORK_DIR");
 
-    if std::env::var_os("SLINT_SPARKLE_BUNDLED").is_some() {
-        return;
-    }
-
     let Some(dir) = std::env::var_os("SPARKLE_FRAMEWORK_DIR").filter(|dir| !dir.is_empty()) else {
-        // The sparklers build script reports the missing framework already.
-        return;
+        panic!(
+            "\n\nSparkle.framework not found. Set SPARKLE_FRAMEWORK_DIR to the \
+             directory holding it. In a Slint checkout, scripts/download-sparkle.sh \
+             downloads it to the repository root.\n"
+        );
     };
+    let dir = dir.to_string_lossy();
 
-    println!("cargo::rustc-link-arg=-Wl,-rpath,{}", dir.to_string_lossy());
+    println!("cargo::rustc-link-search=framework={dir}");
+    // -needed_framework, because the classes are looked up through the
+    // Objective-C runtime: nothing references a symbol, so a plain
+    // -framework gets dead-stripped back out and the classes are missing.
+    println!("cargo::rustc-link-arg=-Wl,-needed_framework,Sparkle");
+
+    if std::env::var_os("SLINT_SPARKLE_BUNDLED").is_none() {
+        println!("cargo::rustc-link-arg=-Wl,-rpath,{dir}");
+    }
 }
 
 fn main() {
@@ -36,7 +43,7 @@ fn main() {
     if cfg!(feature = "sparkle-updater")
         && std::env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("macos")
     {
-        add_sparkle_rpath();
+        link_sparkle();
     }
 
     // Safety: there are no other threads at this point

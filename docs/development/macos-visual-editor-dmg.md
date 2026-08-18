@@ -76,9 +76,8 @@ The script pins the version and its checksum, and it also installs the
 `sparkle-bin/` tools that the keys below need.
 Both directories are ignored by git.
 There's no environment variable to set, because `.cargo/config.toml` points
-`SPARKLE_FRAMEWORK_DIR` at the repository root.
-That entry is what makes the build find the framework at all, since the
-`sparklers` build script otherwise searches its own checkout under `~/.cargo`.
+`SPARKLE_FRAMEWORK_DIR` at the repository root, and that is what the build
+looks at to find the framework.
 
 Then run the editor with updates enabled:
 
@@ -88,9 +87,13 @@ cargo run -p slint-lsp --example slint-editor \
     --features backend-winit,renderer-skia,sparkle-updater
 ```
 
-Sparkle is linked as `@rpath/Sparkle.framework`, so `tools/lsp/build.rs` adds an
-rpath pointing at the downloaded framework.
-Otherwise the binary doesn't start outside an app bundle.
+Set `SLINT_SPARKLE_INTERACTIVE=1` to check for updates through Sparkle's own
+dialog instead of the editor's chrome.
+That is the only way to run a real download and install for as long as the
+editor's own update buttons are stubs.
+
+`tools/lsp/build.rs` links the framework and adds an rpath pointing at it.
+Without that rpath the binary doesn't start outside an app bundle.
 The scripts that assemble a bundle set `SLINT_SPARKLE_BUNDLED=1` to skip that
 rpath, because the bundle carries its own copy of the framework in
 `Contents/Frameworks` and a build machine path has no business in a shipped app.
