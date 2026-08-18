@@ -3566,6 +3566,7 @@ dependencies = [
  "i-slint-compiler",
  "i-slint-core",
  "i-slint-live-preview",
+ "i-slint-springboard",
  "itertools 0.15.0",
  "lsp-types",
  "mdns-sd",
@@ -3715,6 +3716,14 @@ dependencies = [
  "skrifa",
  "swash",
  "zeno",
+]
+
+[[package]]
+name = "i-slint-springboard"
+version = "1.18.0"
+dependencies = [
+ "tempfile",
+ "toml_edit",
 ]
 
 [[package]]
