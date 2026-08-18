@@ -18,7 +18,9 @@ version.workspace = true
 path = "lib.rs"
 
 [dependencies]
+serde = { workspace = true, features = ["std"] }
 toml_edit = { workspace = true }
 
 [dev-dependencies]
+serde_json = { workspace = true }
 tempfile = "3"

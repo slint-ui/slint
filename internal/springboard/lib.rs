@@ -4,3 +4,9 @@
 //! Shared project and device management for Slint development sessions.
 
 pub mod project;
+pub mod session;
+
+pub use session::{
+    Device, DeviceCapabilities, DeviceId, DeviceIdError, DeviceKind, DeviceOrigin, DeviceStatus,
+    DiagnosticSeverity, LogLevel, SessionAction, SessionError, SessionEvent, SpringboardSession,
+};

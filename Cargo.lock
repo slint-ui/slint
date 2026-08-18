@@ -3585,7 +3585,6 @@ dependencies = [
  "spin_on",
  "tempfile",
  "tokio",
- "toml_edit",
  "tracing",
  "wasm-bindgen-futures",
  "web-sys",
@@ -3722,6 +3721,8 @@ dependencies = [
 name = "i-slint-springboard"
 version = "1.18.0"
 dependencies = [
+ "serde",
+ "serde_json",
  "tempfile",
  "toml_edit",
 ]
