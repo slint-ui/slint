@@ -74,6 +74,7 @@ pub async fn compile_from_string_with_style(
 ) -> Result<CompilationResult, JsValue> {
     #[allow(deprecated)]
     let mut compiler = slint_interpreter::ComponentCompiler::default();
+    compiler.compiler_configuration(i_slint_core::InternalToken).is_preview = true;
     if !style.is_empty() {
         compiler.set_style(style)
     }

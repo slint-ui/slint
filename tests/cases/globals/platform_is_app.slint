@@ -1,0 +1,48 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+struct Data {
+    text: string,
+    color: color,
+    bg: color,
+}
+
+export component TestCase inherits Window {
+    out property <bool> test: Platform.is-app;
+
+    out property<[Data]> data: Platform.is-app ? [] : [
+                { text: "Blue", color: #0000ff, bg: #eeeeee},
+                { text: "Red", color: #ff0000, bg: #eeeeee},
+                { text: "Green", color: #00ff00, bg: #eeeeee},
+                { text: "Yellow", color: #ffff00, bg: #222222 },
+                { text: "Black", color: #000000, bg: #eeeeee },
+                { text: "White", color: #ffffff, bg: #222222 },
+                { text: "Magenta", color: #ff00ff, bg: #eeeeee },
+                { text: "Cyan", color: #00ffff, bg: #222222 },
+            ];
+}
+
+/*
+```rust
+use slint::Model;
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.get_test(), true);
+assert_eq!(instance.get_data().row_count(), 0);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert_eq(instance.get_test(), true);
+```
+
+```js
+let instance = new slint.TestCase({});
+assert(instance.test);
+```
+
+```python
+instance = TestCase()
+assert instance.test
+```
+*/
