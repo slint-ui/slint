@@ -26,9 +26,13 @@ use std::collections::HashSet;
 pub type SourceFileVersionMap = HashMap<PathBuf, SourceFileVersion>;
 
 fn default_cc() -> i_slint_compiler::CompilerConfiguration {
-    i_slint_compiler::CompilerConfiguration::new(
+    let mut cc = i_slint_compiler::CompilerConfiguration::new(
         i_slint_compiler::generator::OutputFormat::Interpreter,
-    )
+    );
+    // All LSP document handling (diagnostics, completion, hover, live preview) is tooling
+    // around the .slint source, never a real host application driving it.
+    cc.is_preview = true;
+    cc
 }
 
 /// This is i_slint_compiler::OpenImportCallback with version information

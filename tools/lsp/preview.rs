@@ -1526,6 +1526,7 @@ async fn parse_source(
     cc.no_native_menu = true;
     // Otherwise this may cause a runtime panic because of the recursion
     cc.error_on_binding_loop_with_window_layout = true;
+    cc.is_preview = true;
 
     if !style.is_empty() {
         cc.style = Some(style);
