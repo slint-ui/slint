@@ -3721,6 +3721,7 @@ dependencies = [
 name = "i-slint-springboard"
 version = "1.18.0"
 dependencies = [
+ "directories",
  "serde",
  "serde_json",
  "tempfile",

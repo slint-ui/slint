@@ -3,9 +3,14 @@
 
 //! Shared project and device management for Slint development sessions.
 
+pub mod persistence;
 pub mod project;
 pub mod session;
 
+pub use persistence::{
+    DEVICE_STATE_SCHEMA_VERSION, DeviceStateStore, GlobalDeviceState, LoadDeviceState,
+    RememberedDevice, SaveDeviceState,
+};
 pub use session::{
     Device, DeviceCapabilities, DeviceId, DeviceIdError, DeviceKind, DeviceOrigin, DeviceStatus,
     DiagnosticSeverity, LogLevel, SessionAction, SessionError, SessionEvent, SpringboardSession,
