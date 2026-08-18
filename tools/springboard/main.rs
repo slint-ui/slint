@@ -143,6 +143,7 @@ fn start(project: PathBuf, launch: LaunchOptions) -> Result<()> {
         controller.enable_remote_discovery();
         controller.enable_ios_simulators().await;
         controller.enable_android_emulators().await;
+        controller.ensure_last_used_simulator_visible();
         tui::run(controller, launch).await
     })
 }
@@ -157,11 +158,13 @@ fn list_devices() -> Result<()> {
     }
     let last = loaded.state.last_used_device.as_ref();
     let local_id = session_driver::LOCAL_VIEWER_DEVICE_ID;
+    let mut last_listed = last.is_some_and(|last| last.as_str() == local_id);
     println!(
         "{}\t{local_id}\tLocal Viewer\tlocal-viewer",
         if last.is_some_and(|last| last.as_str() == local_id) { "*" } else { " " }
     );
     for profile in loaded.state.remembered_devices.values() {
+        last_listed |= last == Some(&profile.id);
         println!(
             "{}\t{}\t{}\t{:?}",
             if last == Some(&profile.id) { "*" } else { " " },
@@ -178,6 +181,7 @@ fn list_devices() -> Result<()> {
         match runtime.block_on(manager.discover()) {
             Ok(simulators) => {
                 for simulator in simulators {
+                    last_listed |= last == Some(&simulator.id);
                     println!(
                         "{}\t{}\t{} (iOS {})\tios-simulator",
                         if last == Some(&simulator.id) { "*" } else { " " },
@@ -198,6 +202,7 @@ fn list_devices() -> Result<()> {
         match runtime.block_on(manager.discover()) {
             Ok(emulators) => {
                 for emulator in emulators {
+                    last_listed |= last == Some(&emulator.id);
                     println!(
                         "{}\t{}\t{}\tandroid-emulator",
                         if last == Some(&emulator.id) { "*" } else { " " },
@@ -208,6 +213,13 @@ fn list_devices() -> Result<()> {
             }
             Err(error) => tracing::warn!("Android emulator discovery is unavailable: {error}"),
         }
+    }
+    if !last_listed
+        && let Some(last) = last
+        && (last.as_str().starts_with(ios_simulator::IOS_SIMULATOR_DEVICE_PREFIX)
+            || last.as_str().starts_with(android_emulator::ANDROID_EMULATOR_DEVICE_PREFIX))
+    {
+        println!("*\t{last}\tMissing simulator\tunavailable");
     }
     Ok(())
 }
@@ -233,6 +245,7 @@ fn serve(options: ServeOptions) -> Result<()> {
         controller.enable_remote_discovery();
         controller.enable_ios_simulators().await;
         controller.enable_android_emulators().await;
+        controller.ensure_last_used_simulator_visible();
         stdio::serve(controller).await
     })
 }

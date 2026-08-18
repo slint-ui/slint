@@ -457,6 +457,19 @@ mod tests {
         }
     }
 
+    fn simulator_device(status: DeviceStatus) -> Device {
+        Device {
+            id: DeviceId::new("simulator:ios:iphone-17").unwrap(),
+            name: "iPhone 17 (iOS 26.5)".into(),
+            kind: DeviceKind::IosSimulator,
+            origin: DeviceOrigin::Discovered,
+            status,
+            capabilities: DeviceCapabilities::launchable(),
+            version: Some("26.5".into()),
+            platform: Some("iOS Simulator".into()),
+        }
+    }
+
     fn snapshot(
         devices: &[Device],
         active: Option<&DeviceId>,
@@ -534,6 +547,27 @@ mod tests {
             snapshot(std::slice::from_ref(&target), Some(&target.id), Some(&target.id), &[]);
 
         assert!(rendered.contains("Downloading viewer: 75%"));
+    }
+
+    #[test]
+    fn simulator_snapshots_distinguish_lifecycle_and_missing_states() {
+        let mut target = simulator_device(DeviceStatus::Booting);
+        assert!(
+            snapshot(std::slice::from_ref(&target), Some(&target.id), None, &[])
+                .contains("Booting simulator")
+        );
+
+        target.status = DeviceStatus::Installing;
+        assert!(
+            snapshot(std::slice::from_ref(&target), Some(&target.id), None, &[])
+                .contains("Installing viewer")
+        );
+
+        target.status = DeviceStatus::Unavailable;
+        assert!(
+            snapshot(std::slice::from_ref(&target), None, Some(&target.id), &[])
+                .contains("Unavailable")
+        );
     }
 
     #[test]

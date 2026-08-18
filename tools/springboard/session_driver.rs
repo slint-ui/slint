@@ -21,16 +21,16 @@ use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
 
 use crate::android_emulator::{
-    AndroidEmulator, AndroidEmulatorManager, AndroidLaunchProgress, AndroidLaunchResult,
-    DEFAULT_ANDROID_VIEWER_PACKAGE,
+    ANDROID_EMULATOR_DEVICE_PREFIX, AndroidEmulator, AndroidEmulatorManager, AndroidLaunchProgress,
+    AndroidLaunchResult, DEFAULT_ANDROID_VIEWER_PACKAGE,
 };
 use crate::cargo_driver::{
     CargoApplicationDriver, CargoApplicationOutput, CargoApplicationOutputSource,
 };
 use crate::discovery::{DiscoveredRemoteViewer, RemoteDiscoveryEvent, RemoteViewerDiscovery};
 use crate::ios_simulator::{
-    DEFAULT_IOS_VIEWER_BUNDLE_ID, IosLaunchProgress, IosLaunchResult, IosSimulator,
-    IosSimulatorManager,
+    DEFAULT_IOS_VIEWER_BUNDLE_ID, IOS_SIMULATOR_DEVICE_PREFIX, IosLaunchProgress, IosLaunchResult,
+    IosSimulator, IosSimulatorManager,
 };
 use crate::remote_driver::{RemoteDriverEvent, RemoteViewerDriver};
 
@@ -360,10 +360,10 @@ impl ProjectSessionController {
                 return;
             }
         };
+        self.android_manager = Some(manager.clone());
         match manager.discover().await {
             Ok(emulators) => {
                 self.apply_android_emulators(emulators);
-                self.android_manager = Some(manager);
                 self.android_unavailable_reason = None;
             }
             Err(error) => {
@@ -429,10 +429,10 @@ impl ProjectSessionController {
                 return;
             }
         };
+        self.ios_manager = Some(manager.clone());
         match manager.discover().await {
             Ok(simulators) => {
                 self.apply_ios_simulators(simulators);
-                self.ios_manager = Some(manager);
                 self.ios_unavailable_reason = None;
             }
             Err(error) => {
@@ -496,6 +496,35 @@ impl ProjectSessionController {
         })
     }
 
+    pub fn ensure_last_used_simulator_visible(&mut self) {
+        let Some(device_id) = self.last_used_device().cloned() else { return };
+        if self.session.devices().contains_key(&device_id) {
+            return;
+        }
+        let (kind, name, platform) = if let Some(udid) =
+            device_id.as_str().strip_prefix(IOS_SIMULATOR_DEVICE_PREFIX)
+        {
+            (DeviceKind::IosSimulator, format!("Missing iOS Simulator ({udid})"), "iOS Simulator")
+        } else if let Some(avd_name) =
+            device_id.as_str().strip_prefix(ANDROID_EMULATOR_DEVICE_PREFIX)
+        {
+            (DeviceKind::AndroidEmulator, avd_name.into(), "Android Emulator")
+        } else {
+            return;
+        };
+        self.session.upsert_device(Device {
+            id: device_id.clone(),
+            name,
+            kind,
+            origin: DeviceOrigin::Remembered,
+            status: DeviceStatus::Unavailable,
+            capabilities: DeviceCapabilities::launchable(),
+            version: None,
+            platform: Some(platform.into()),
+        });
+        self.emit_device(&device_id);
+    }
+
     pub fn session(&self) -> &SpringboardSession {
         &self.session
     }
@@ -522,6 +551,18 @@ impl ProjectSessionController {
             .get(device_id)
             .map(|device| device.kind)
             .with_context(|| format!("Unknown device {device_id}"))?;
+        if device_kind == DeviceKind::AndroidEmulator
+            && !self.android_emulators.contains_key(device_id)
+        {
+            bail!(
+                "Android emulator {device_id} is unavailable. Open Android Studio, restore the AVD, and refresh devices."
+            );
+        }
+        if device_kind == DeviceKind::IosSimulator && !self.ios_simulators.contains_key(device_id) {
+            bail!(
+                "iOS Simulator {device_id} is unavailable. Restore its runtime in Xcode and refresh devices."
+            );
+        }
         match self.session.launch(device_id)? {
             SessionAction::None => return Ok(()),
             SessionAction::Launch => {}
@@ -849,9 +890,15 @@ impl ProjectSessionController {
     }
 
     pub fn refresh(&mut self, device_id: &DeviceId) -> Result<()> {
+        let device_kind = self
+            .session
+            .devices()
+            .get(device_id)
+            .map(|device| device.kind)
+            .with_context(|| format!("Unknown device {device_id}"))?;
         match self.session.refresh(device_id)? {
             SessionAction::Refresh => {
-                if self.android_emulators.contains_key(device_id) {
+                if device_kind == DeviceKind::AndroidEmulator {
                     if self.android_refresh.is_none()
                         && let Some(manager) = self.android_manager.clone()
                     {
@@ -865,7 +912,7 @@ impl ProjectSessionController {
                     {
                         driver.refresh()?;
                     }
-                } else if self.ios_simulators.contains_key(device_id) {
+                } else if device_kind == DeviceKind::IosSimulator {
                     if self.ios_refresh.is_none()
                         && let Some(manager) = self.ios_manager.clone()
                     {
@@ -1032,21 +1079,13 @@ impl ProjectSessionController {
             Ok(Ok(result)) => result,
             Ok(Err(message)) => {
                 self.cleanup_failed_android_launch(&device_id).await;
-                if self.session.active_device() == Some(&device_id) {
-                    self.session.mark_failed(&device_id, &message)?;
-                    self.emit_device(&device_id);
-                }
-                self.events.push_back(SessionEvent::Error { device_id: Some(device_id), message });
+                self.finish_managed_launch_error(&device_id, message)?;
                 return Ok(());
             }
             Err(error) => {
                 let message = format!("The Android emulator launch task failed: {error}");
                 self.cleanup_failed_android_launch(&device_id).await;
-                if self.session.active_device() == Some(&device_id) {
-                    self.session.mark_failed(&device_id, &message)?;
-                    self.emit_device(&device_id);
-                }
-                self.events.push_back(SessionEvent::Error { device_id: Some(device_id), message });
+                self.finish_managed_launch_error(&device_id, message)?;
                 return Ok(());
             }
         };
@@ -1178,21 +1217,13 @@ impl ProjectSessionController {
             Ok(Ok(result)) => result,
             Ok(Err(message)) => {
                 self.cleanup_failed_ios_launch(&device_id).await;
-                if self.session.active_device() == Some(&device_id) {
-                    self.session.mark_failed(&device_id, &message)?;
-                    self.emit_device(&device_id);
-                }
-                self.events.push_back(SessionEvent::Error { device_id: Some(device_id), message });
+                self.finish_managed_launch_error(&device_id, message)?;
                 return Ok(());
             }
             Err(error) => {
                 let message = format!("The iOS Simulator launch task failed: {error}");
                 self.cleanup_failed_ios_launch(&device_id).await;
-                if self.session.active_device() == Some(&device_id) {
-                    self.session.mark_failed(&device_id, &message)?;
-                    self.emit_device(&device_id);
-                }
-                self.events.push_back(SessionEvent::Error { device_id: Some(device_id), message });
+                self.finish_managed_launch_error(&device_id, message)?;
                 return Ok(());
             }
         };
@@ -1229,6 +1260,20 @@ impl ProjectSessionController {
                 ),
             });
         }
+    }
+
+    fn finish_managed_launch_error(&mut self, device_id: &DeviceId, message: String) -> Result<()> {
+        if self.session.active_device() == Some(device_id) {
+            if let Some((installed, required)) = managed_artifact_incompatibility(&message) {
+                self.session
+                    .mark_stopped(device_id, DeviceStatus::Incompatible { installed, required })?;
+            } else {
+                self.session.mark_failed(device_id, &message)?;
+            }
+            self.emit_device(device_id);
+        }
+        self.events.push_back(SessionEvent::Error { device_id: Some(device_id.clone()), message });
+        Ok(())
     }
 
     async fn poll_cargo_build(&mut self) -> Result<()> {
@@ -1784,6 +1829,12 @@ fn manual_viewer_from_profile(profile: &RememberedDevice) -> Result<DiscoveredRe
     Ok(viewer)
 }
 
+fn managed_artifact_incompatibility(message: &str) -> Option<(String, String)> {
+    let mismatch = message.strip_prefix("Viewer artifact manifest contains Slint ")?;
+    let (installed, required) = mismatch.split_once(", expected ")?;
+    Some((installed.into(), required.into()))
+}
+
 fn describe_remote_failure(error: &str) -> String {
     let lowercase = error.to_ascii_lowercase();
     if lowercase.contains("version mismatch") || lowercase.contains("does not speak slint-preview")
@@ -2026,6 +2077,56 @@ mod tests {
         assert_eq!(controller.managed_remote_devices.get(&remote_id), Some(&simulator_id));
         assert!(!controller.session.devices().contains_key(&remote_id));
         assert_eq!(controller.preferred_android_emulator().unwrap(), simulator_id);
+    }
+
+    #[tokio::test]
+    async fn a_missing_last_used_simulator_remains_visible_without_taking_the_target_slot() {
+        let directory = tempfile::tempdir().unwrap();
+        let state_store = store(&directory);
+        let missing_id = DeviceId::new("simulator:ios:deleted-udid").unwrap();
+        let state =
+            GlobalDeviceState { last_used_device: Some(missing_id.clone()), ..Default::default() };
+        state_store.save(&state).unwrap();
+        let mut controller =
+            ProjectSessionController::new(project(&directory), state_store, fake_command("wait"));
+
+        controller.ensure_last_used_simulator_visible();
+
+        let missing = &controller.session.devices()[&missing_id];
+        assert_eq!(missing.kind, DeviceKind::IosSimulator);
+        assert_eq!(missing.status, DeviceStatus::Unavailable);
+        assert!(controller.launch(&missing_id).await.unwrap_err().to_string().contains("Xcode"));
+        assert_eq!(controller.session.active_device(), None);
+    }
+
+    #[test]
+    fn managed_artifact_version_mismatches_have_an_incompatible_state() {
+        let directory = tempfile::tempdir().unwrap();
+        let mut controller = ProjectSessionController::new(
+            project(&directory),
+            store(&directory),
+            fake_command("wait"),
+        );
+        let simulator_id = DeviceId::new("simulator:android:Pixel").unwrap();
+        controller.apply_android_emulators(vec![AndroidEmulator {
+            id: simulator_id.clone(),
+            avd_name: "Pixel".into(),
+            serial: None,
+        }]);
+        controller.session.launch(&simulator_id).unwrap();
+
+        controller
+            .finish_managed_launch_error(
+                &simulator_id,
+                "Viewer artifact manifest contains Slint 1.17.2, expected 1.18.0".into(),
+            )
+            .unwrap();
+
+        assert_eq!(
+            controller.session.devices()[&simulator_id].status,
+            DeviceStatus::Incompatible { installed: "1.17.2".into(), required: "1.18.0".into() }
+        );
+        assert_eq!(controller.session.active_device(), None);
     }
 
     #[tokio::test]

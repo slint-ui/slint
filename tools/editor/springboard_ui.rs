@@ -259,9 +259,16 @@ fn device_to_ui(
     let (status, status_detail) = match &device.status {
         DeviceStatus::Available => (preview::ui::SpringboardDeviceStatus::Available, String::new()),
         DeviceStatus::Unavailable => {
-            let detail = (device.kind == DeviceKind::RemoteViewer)
-                .then(|| "Not currently visible on the local network.".into())
-                .unwrap_or_default();
+            let detail = match device.kind {
+                DeviceKind::RemoteViewer => "Not currently visible on the local network.".into(),
+                DeviceKind::IosSimulator => {
+                    "This simulator or its iOS runtime is no longer installed.".into()
+                }
+                DeviceKind::AndroidEmulator => {
+                    "This Android Virtual Device is no longer configured.".into()
+                }
+                _ => String::new(),
+            };
             (preview::ui::SpringboardDeviceStatus::Unavailable, detail)
         }
         DeviceStatus::Resolving => (
@@ -483,5 +490,26 @@ mod tests {
         state.last_used = Some(target.id);
         state.status = preview::ui::SpringboardSessionStatus::Ready;
         assert_eq!(state.run_state(), preview::ui::SpringboardRunState::Downloading);
+    }
+
+    #[test]
+    fn simulator_lifecycle_and_missing_details_reach_the_ui() {
+        let mut target = device(DeviceStatus::Booting);
+        target.kind = DeviceKind::IosSimulator;
+        let booting = device_to_ui(&target, Some(&target.id), Some(&target.id));
+        assert_eq!(booting.status, preview::ui::SpringboardDeviceStatus::Booting);
+        assert!(booting.status_detail.contains("selected simulator"));
+
+        target.status = DeviceStatus::Installing;
+        let installing = device_to_ui(&target, Some(&target.id), Some(&target.id));
+        assert_eq!(installing.status, preview::ui::SpringboardDeviceStatus::Installing);
+
+        target.status = DeviceStatus::Unavailable;
+        let missing = device_to_ui(&target, None, Some(&target.id));
+        assert!(missing.status_detail.contains("no longer installed"));
+
+        target.kind = DeviceKind::AndroidEmulator;
+        let missing = device_to_ui(&target, None, Some(&target.id));
+        assert!(missing.status_detail.contains("no longer configured"));
     }
 }
