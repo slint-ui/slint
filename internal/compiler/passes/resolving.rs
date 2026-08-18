@@ -2573,6 +2573,9 @@ fn continue_lookup_within_element(
         ));
         maybe_lookup_object(prop.into(), it, ctx)
     } else if matches!(lookup_result.property_type, Type::Callback { .. }) {
+        if let Some(message) = lookup_result.deprecated.as_ref().filter(|_| !local_to_component) {
+            ctx.diag.push_property_deprecation_warning_with_message(&prop_name, message, &second);
+        }
         if let Some(x) = it.next() {
             ctx.diag.push_error("Cannot access fields of callback".into(), &x)
         }
@@ -2596,6 +2599,9 @@ fn continue_lookup_within_element(
                 && ctx.component_scope.first().is_some_and(|x| Rc::ptr_eq(x, elem)))
         {
             ctx.diag.push_error(format!("The function '{}' is protected", second.text()), &second);
+        }
+        if let Some(message) = lookup_result.deprecated.as_ref().filter(|_| !local_to_component) {
+            ctx.diag.push_property_deprecation_warning_with_message(&prop_name, message, &second);
         }
         if let Some(x) = it.next() {
             ctx.diag.push_error("Cannot access fields of a function".into(), &x)
