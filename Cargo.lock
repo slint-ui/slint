@@ -7517,6 +7517,8 @@ dependencies = [
  "objc2 0.6.4",
  "objc2-foundation 0.3.2",
  "slint",
+ "sparklers",
+ "tempfile",
  "tokio",
  "tracing",
  "tracing-subscriber",

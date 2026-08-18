@@ -912,16 +912,18 @@ fn show_preview_for(name: slint::SharedString, url: slint::SharedString) {
     load_preview(current, LoadBehavior::Load);
 }
 
-fn launch_live_preview() {
+fn launch_live_preview(project_root: slint::SharedString) {
     PREVIEW_STATE.with_borrow(|preview_state| {
-        let Some(component) = preview_state.current_component() else {
+        let Ok(project_root) = Url::from_directory_path(Path::new(project_root.as_str())) else {
+            tracing::error!("Failed to convert the Visual Editor project root to a file URL");
             return;
         };
         let Some(to_lsp) = preview_state.to_lsp.borrow().as_ref().cloned() else {
             return;
         };
-        if let Err(error) = to_lsp.send(&PreviewToLspMessage::LaunchLivePreview { component }) {
-            tracing::error!("Failed to request a separate live preview: {error}");
+        if let Err(error) = to_lsp.send(&PreviewToLspMessage::LaunchProjectPreview { project_root })
+        {
+            tracing::error!("Failed to request the project preview: {error}");
         }
     });
 }
@@ -2842,30 +2844,27 @@ mod tests {
     }
 
     #[test]
-    fn launch_live_preview_routes_current_component_to_host() {
+    fn launch_live_preview_routes_project_root_to_host() {
         let messages = Rc::new(RefCell::new(Vec::new()));
         reset_preview_state(messages.clone());
-        let component = PreviewComponent {
-            url: Url::parse("file:///tmp/live-preview.slint").unwrap(),
-            component: Some("MainWindow".into()),
-        };
-        PREVIEW_STATE.with_borrow_mut(|state| state.set_current_component(component.clone()));
+        let project_root = std::env::temp_dir();
+        let expected = Url::from_directory_path(&project_root).unwrap();
 
-        launch_live_preview();
+        launch_live_preview(project_root.to_string_lossy().into());
 
         assert!(matches!(
             &messages.borrow()[..],
-            [PreviewToLspMessage::LaunchLivePreview { component: actual }]
-                if actual == &component
+            [PreviewToLspMessage::LaunchProjectPreview { project_root }]
+                if project_root == &expected
         ));
     }
 
     #[test]
-    fn launch_live_preview_ignores_missing_component() {
+    fn launch_live_preview_ignores_an_invalid_project_root() {
         let messages = Rc::new(RefCell::new(Vec::new()));
         reset_preview_state(messages.clone());
 
-        launch_live_preview();
+        launch_live_preview("not an absolute path".into());
 
         assert!(messages.borrow().is_empty());
     }

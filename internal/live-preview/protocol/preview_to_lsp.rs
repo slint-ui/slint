@@ -64,6 +64,8 @@ pub enum PreviewToLspMessage {
     Pong,
     /// Ask the host application to launch the current component in a separate live preview.
     LaunchLivePreview { component: super::PreviewComponent },
+    /// Ask the Visual Editor host to launch the configured project entry component.
+    LaunchProjectPreview { project_root: Url },
 }
 
 /// One transport from a preview back to the LSP.

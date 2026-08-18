@@ -50,3 +50,7 @@ tracing-subscriber = { workspace = true }
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2-foundation = { version = "0.3.2", default-features = false, features = ["std", "NSString", "NSBundle", "NSError"] }
 objc2 = "0.6"
+sparklers = { git = "https://github.com/slint-ui/sparklers.git", rev = "76f2b67" }
+
+[dev-dependencies]
+tempfile = "3"

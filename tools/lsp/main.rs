@@ -844,6 +844,9 @@ async fn handle_preview_to_lsp_message(
         M::LaunchLivePreview { .. } => {
             tracing::debug!("Ignoring Visual Editor live preview request in the LSP");
         }
+        M::LaunchProjectPreview { .. } => {
+            tracing::debug!("Ignoring Visual Editor project preview request in the LSP");
+        }
     }
     Ok(())
 }

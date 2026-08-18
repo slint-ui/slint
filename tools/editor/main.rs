@@ -261,7 +261,7 @@ async fn lsp_main(
             .reload_document(url)
             .await
             .map_err(|err| format!("Failed to load file: {file}: {err}"))?;
-        project_root = project_root_for_path(&full_path).map(Path::to_path_buf);
+        project_root = project_root_for_path(&full_path);
         sync_file_watcher_if_needed(
             &mut file_watcher,
             &session,
@@ -386,7 +386,7 @@ async fn handle_preview_message(
             let requested_project_root = requested_preview
                 .as_ref()
                 .and_then(editor_preview::uri_to_file)
-                .and_then(|path| project_root_for_path(&path).map(Path::to_path_buf));
+                .and_then(|path| project_root_for_path(&path));
             let slint_files: Vec<_> =
                 files.iter().filter(|url| is_slint_url(url)).cloned().collect();
             for url in slint_files {
@@ -434,6 +434,20 @@ async fn handle_preview_message(
         LaunchLivePreview { component } => {
             if let Err(error) = live_preview_process.restart(component).await {
                 tracing::error!("Failed to launch the separate live preview: {error}");
+            }
+            None
+        }
+        LaunchProjectPreview { project_root } => {
+            match project_preview_component(project_root) {
+                Ok(Some(component)) => {
+                    if let Err(error) = live_preview_process.restart(&component).await {
+                        tracing::error!("Failed to launch the project preview: {error}");
+                    }
+                }
+                Ok(None) => tracing::error!(
+                    "The project has no slint.toml. Press Run again after configuring a project entry component."
+                ),
+                Err(error) => tracing::error!("Failed to load the project run target: {error}"),
             }
             None
         }
@@ -563,8 +577,20 @@ impl LivePreviewProcess {
     }
 }
 
-fn project_root_for_path(path: &Path) -> Option<&Path> {
-    if path.is_dir() { Some(path) } else { path.parent() }
+fn project_root_for_path(path: &Path) -> Option<PathBuf> {
+    editor_preview::project::project_root_for_path(path)
+}
+
+fn project_preview_component(project_root: &Url) -> Result<Option<PreviewComponent>> {
+    let project_root = editor_preview::uri_to_file(project_root)
+        .ok_or_else(|| format!("Project preview requires a file URL, got {project_root}"))?;
+    let Some(target) = editor_preview::project::load_project_run_target(&project_root)? else {
+        return Ok(None);
+    };
+    let url = Url::from_file_path(&target.entry_file).map_err(|_| {
+        format!("Failed to convert project entry {} to a file URL", target.entry_file.display())
+    })?;
+    Ok(Some(PreviewComponent { url, component: Some(target.component) }))
 }
 
 fn requested_file_tree_preview(files: &[Url]) -> Option<Url> {
@@ -664,5 +690,32 @@ mod tests {
             ["--auto-reload", "--simulator", "--style", "fluent", "/project/ui/main.slint"]
                 .map(OsString::from)
         );
+    }
+
+    #[test]
+    fn resolves_the_configured_project_component() {
+        let directory = tempfile::tempdir().unwrap();
+        let entry = directory.path().join("ui/main window.slint");
+        std::fs::create_dir_all(entry.parent().unwrap()).unwrap();
+        std::fs::write(&entry, "export component MainWindow inherits Window {}\n").unwrap();
+        editor_preview::project::create_project_manifest(directory.path(), &entry, "MainWindow")
+            .unwrap();
+        let project_root = Url::from_directory_path(directory.path()).unwrap();
+
+        let component = project_preview_component(&project_root).unwrap().unwrap();
+
+        assert_eq!(
+            component.url,
+            Url::from_file_path(std::fs::canonicalize(entry).unwrap()).unwrap()
+        );
+        assert_eq!(component.component.as_deref(), Some("MainWindow"));
+    }
+
+    #[test]
+    fn project_without_a_manifest_has_no_component() {
+        let directory = tempfile::tempdir().unwrap();
+        let project_root = Url::from_directory_path(directory.path()).unwrap();
+
+        assert_eq!(project_preview_component(&project_root).unwrap(), None);
     }
 }
