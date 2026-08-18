@@ -11,13 +11,13 @@ export component SimulatorWindow inherits Window {
     no-frame: root.frame-enabled;
     resize-border-width: root.frame-enabled ? 8px : 0px;
     min-width: root.frame-enabled ? 388px : 0px;
-    min-height: root.frame-enabled ? 894px : 0px;
+    min-height: root.frame-enabled ? 563.6px : 0px;
 
     in property <component-factory> preview-factory;
     in-out property <bool> frame-enabled: false;
-    private property <float> phone-scale: min(
-        root.width / 388px,
-        (root.height - 68px) / 826px,
+    private property <float> phone-scale: max(
+        0.6,
+        min(root.width / 388px, (root.height - 68px) / 826px),
     );
     callback presentation-changed(bool);
     callback quit-requested();

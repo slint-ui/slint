@@ -11,8 +11,9 @@ use winit::window::ResizeDirection;
 
 const PHONE_WIDTH: f64 = 388.;
 const PHONE_HEIGHT: f64 = 826.;
+const CONTROL_AREA_WIDTH: f64 = 388.;
 const CONTROL_AREA_HEIGHT: f64 = 68.;
-const MIN_PHONE_SCALE: f64 = 1.;
+const MIN_PHONE_SCALE: f64 = 0.6;
 const RESIZE_BORDER_WIDTH: f64 = 8.;
 
 pub fn install(window: &slint::Window, frame_enabled: impl Fn() -> bool + 'static) {
@@ -140,14 +141,34 @@ fn constrain_size(proposed_size: (f64, f64), direction: ResizeDirection) -> (f64
     let scale = match direction {
         ResizeDirection::East | ResizeDirection::West => width_scale,
         ResizeDirection::North | ResizeDirection::South => height_scale,
-        _ => {
-            (PHONE_WIDTH * proposed_size.0 + PHONE_HEIGHT * (proposed_size.1 - CONTROL_AREA_HEIGHT))
-                / (PHONE_WIDTH.powi(2) + PHONE_HEIGHT.powi(2))
-        }
+        _ => corner_scale(proposed_size, height_scale),
     }
     .max(MIN_PHONE_SCALE);
 
-    (PHONE_WIDTH * scale, CONTROL_AREA_HEIGHT + PHONE_HEIGHT * scale)
+    size_for_scale(scale)
+}
+
+fn corner_scale(proposed_size: (f64, f64), height_scale: f64) -> f64 {
+    let compact_scale = height_scale.clamp(MIN_PHONE_SCALE, 1.);
+    let expanded_scale = ((PHONE_WIDTH * proposed_size.0
+        + PHONE_HEIGHT * (proposed_size.1 - CONTROL_AREA_HEIGHT))
+        / (PHONE_WIDTH.powi(2) + PHONE_HEIGHT.powi(2)))
+    .max(1.);
+
+    if size_error(proposed_size, compact_scale) < size_error(proposed_size, expanded_scale) {
+        compact_scale
+    } else {
+        expanded_scale
+    }
+}
+
+fn size_for_scale(scale: f64) -> (f64, f64) {
+    ((PHONE_WIDTH * scale).max(CONTROL_AREA_WIDTH), CONTROL_AREA_HEIGHT + PHONE_HEIGHT * scale)
+}
+
+fn size_error(proposed_size: (f64, f64), scale: f64) -> f64 {
+    let size = size_for_scale(scale);
+    (size.0 - proposed_size.0).powi(2) + (size.1 - proposed_size.1).powi(2)
 }
 
 fn anchored_position(
@@ -226,8 +247,26 @@ mod tests {
     }
 
     #[test]
-    fn resize_does_not_shrink_below_the_control_area() {
-        assert_eq!(constrain_size((200., 400.), ResizeDirection::SouthEast), (388., 894.));
+    fn resize_does_not_shrink_below_sixty_percent() {
+        assert_size(constrain_size((200., 400.), ResizeDirection::SouthEast), (388., 563.6));
+    }
+
+    #[test]
+    fn compact_phone_keeps_the_control_area_width() {
+        assert_size(constrain_size((300., 563.6), ResizeDirection::South), (388., 563.6));
+    }
+
+    #[test]
+    fn horizontal_resize_does_not_clip_the_control_area() {
+        assert_size(
+            constrain_size((300., 894.), ResizeDirection::East),
+            (388., 706.659_793_814_433),
+        );
+    }
+
+    #[test]
+    fn corner_resize_can_cross_below_full_size() {
+        assert_eq!(constrain_size((388., 729.2), ResizeDirection::SouthEast), (388., 729.2));
     }
 
     #[test]
@@ -262,5 +301,10 @@ mod tests {
             Some(ResizeDirection::NorthWest)
         );
         assert_eq!(resize_direction(size, PhysicalPosition::new(12., 12.), 8.), None);
+    }
+
+    fn assert_size(actual: (f64, f64), expected: (f64, f64)) {
+        assert!((actual.0 - expected.0).abs() < 0.001, "{actual:?} != {expected:?}");
+        assert!((actual.1 - expected.1).abs() < 0.001, "{actual:?} != {expected:?}");
     }
 }
