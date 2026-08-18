@@ -3584,6 +3584,7 @@ dependencies = [
  "spin_on",
  "tempfile",
  "tokio",
+ "toml_edit",
  "tracing",
  "wasm-bindgen-futures",
  "web-sys",

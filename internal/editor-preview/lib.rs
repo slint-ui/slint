@@ -14,6 +14,8 @@ mod lsp_to_previews;
 #[cfg(feature = "preview-engine")]
 pub mod preview;
 #[cfg(not(target_arch = "wasm32"))]
+pub mod project;
+#[cfg(not(target_arch = "wasm32"))]
 pub mod settings_store;
 #[cfg(any(test, feature = "testing"))]
 pub mod test;
