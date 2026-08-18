@@ -196,6 +196,7 @@ use local_runner::{Cli, Result, setup_instance, watchable_path};
 fn android_main(app: i_slint_backend_android_activity::android_activity::AndroidApp) {
     *remote::ANDROID_DEVICE_NAME.lock().unwrap_or_else(|e| e.into_inner()) =
         android_device_name(&app);
+    *remote::ANDROID_DATA_PATH.lock().unwrap_or_else(|e| e.into_inner()) = app.internal_data_path();
     i_slint_core::platform::set_platform(Box::new(
         i_slint_backend_android_activity::AndroidPlatform::new(app),
     ))

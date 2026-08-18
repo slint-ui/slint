@@ -79,3 +79,9 @@ pub const TXT_PROTOCOLS_KEY: &str = "protocols";
 
 /// mDNS TXT record key for the full Slint version of the viewer.
 pub const TXT_SLINT_VERSION_KEY: &str = "slint";
+
+/// mDNS TXT record key for the viewer installation's persistent device ID.
+pub const TXT_DEVICE_ID_KEY: &str = "device-id";
+
+/// mDNS TXT record key for the viewer's operating-system platform.
+pub const TXT_PLATFORM_KEY: &str = "platform";

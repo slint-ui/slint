@@ -80,6 +80,8 @@ enum Event {
     Resumed,
 }
 
+mod identity;
+
 #[cfg(target_vendor = "apple")]
 mod apple;
 #[cfg(target_vendor = "apple")]
@@ -104,10 +106,16 @@ async fn run_async(address: Option<SocketAddr>, enable_mdns: bool) -> anyhow::Re
     #[cfg(target_os = "ios")]
     observe_foregrounding(event_sender.clone());
 
+    let viewer_identity = identity::load_or_create_viewer_identity();
     let connection = Rc::new(
-        Connection::listen(address, device_name_override(), move |msg| {
-            let _ = event_sender.send(Event::Connection(msg));
-        })
+        Connection::listen_with_identity(
+            address,
+            device_name_override(),
+            viewer_identity,
+            move |msg| {
+                let _ = event_sender.send(Event::Connection(msg));
+            },
+        )
         .await?,
     );
 
@@ -406,6 +414,11 @@ fn device_name_override() -> Option<String> {
 /// user-set device name from `Settings.Global.DEVICE_NAME`.
 #[cfg(target_os = "android")]
 pub(crate) static ANDROID_DEVICE_NAME: std::sync::Mutex<Option<String>> =
+    std::sync::Mutex::new(None);
+
+/// Set by `android_main` before the remote viewer loads its persistent identity.
+#[cfg(target_os = "android")]
+pub(crate) static ANDROID_DATA_PATH: std::sync::Mutex<Option<std::path::PathBuf>> =
     std::sync::Mutex::new(None);
 
 fn send_diagnostics(

@@ -52,14 +52,20 @@ pub(super) async fn announce_mdns(connection: &Connection) -> Option<zeroconf::M
         // device name (e.g. "Simon's iPhone" on iOS, the computer name on macOS).
         // This is the friendly name we want to show in the editor.
         let mut txt = zeroconf::TxtRecord::new();
-        txt.insert(
-            i_slint_live_preview::protocol::TXT_PROTOCOLS_KEY,
-            i_slint_live_preview::protocol::PROTOCOL_SUBPROTOCOL,
-        )?;
-        txt.insert(
-            i_slint_live_preview::protocol::TXT_SLINT_VERSION_KEY,
-            i_slint_live_preview::protocol::SLINT_VERSION,
-        )?;
+        if let Some(identity) = connection.viewer_identity() {
+            for (key, value) in identity.txt_records() {
+                txt.insert(&key, &value)?;
+            }
+        } else {
+            txt.insert(
+                i_slint_live_preview::protocol::TXT_PROTOCOLS_KEY,
+                i_slint_live_preview::protocol::PROTOCOL_SUBPROTOCOL,
+            )?;
+            txt.insert(
+                i_slint_live_preview::protocol::TXT_SLINT_VERSION_KEY,
+                i_slint_live_preview::protocol::SLINT_VERSION,
+            )?;
+        }
         service.set_txt_record(txt);
         service.set_registered_callback(Box::new({
             let registration_result = registration_result.clone();

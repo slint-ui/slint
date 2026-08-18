@@ -8290,6 +8290,7 @@ dependencies = [
  "tracing",
  "tracing-log",
  "tracing-subscriber",
+ "uuid",
  "zeroconf",
 ]
 

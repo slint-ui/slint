@@ -93,6 +93,7 @@ tracing-subscriber = { workspace = true }
 tracing-log = { workspace = true }
 directories = "6.0"
 tempfile = "3"
+uuid = { version = "1.18.1", features = ["v4"] }
 
 [build-dependencies]
 slint-build = { workspace = true }

@@ -15,8 +15,9 @@ use crate::protocol::{
     PreviewToLspMessage, SLINT_PROTOCOLS_HEADER, SLINT_VERSION, SLINT_VERSION_HEADER,
     SourceFileVersion,
 };
-#[cfg(not(target_vendor = "apple"))]
-use crate::protocol::{TXT_PROTOCOLS_KEY, TXT_SLINT_VERSION_KEY};
+use crate::protocol::{
+    TXT_DEVICE_ID_KEY, TXT_PLATFORM_KEY, TXT_PROTOCOLS_KEY, TXT_SLINT_VERSION_KEY,
+};
 use dashmap::{DashMap, Entry};
 use futures_util::{SinkExt as _, StreamExt as _, stream::SplitStream};
 use lsp_types::Url;
@@ -100,6 +101,37 @@ pub enum CacheEntry {
 /// percent-encoding) — equality is structural.
 pub type FileCache = Arc<DashMap<Url, CacheEntry>>;
 
+/// Identity and platform metadata advertised by one viewer installation.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ViewerIdentity {
+    device_id: String,
+    platform: String,
+}
+
+impl ViewerIdentity {
+    pub fn new(device_id: impl Into<String>, platform: impl Into<String>) -> Self {
+        Self { device_id: device_id.into(), platform: platform.into() }
+    }
+
+    pub fn device_id(&self) -> &str {
+        &self.device_id
+    }
+
+    pub fn platform(&self) -> &str {
+        &self.platform
+    }
+
+    /// Complete TXT record set used by every mDNS implementation.
+    pub fn txt_records(&self) -> [(String, String); 4] {
+        [
+            (TXT_DEVICE_ID_KEY.into(), self.device_id.clone()),
+            (TXT_PLATFORM_KEY.into(), self.platform.clone()),
+            (TXT_PROTOCOLS_KEY.into(), PROTOCOL_SUBPROTOCOL.into()),
+            (TXT_SLINT_VERSION_KEY.into(), SLINT_VERSION.into()),
+        ]
+    }
+}
+
 #[derive(Debug)]
 pub enum ConnectionMessage {
     Connected {
@@ -147,6 +179,7 @@ pub struct Connection {
     /// name source resolved. On Apple, the initial value is the system hostname; the
     /// viewer overwrites it with the Bonjour-reported name once the service is registered.
     device_name: Mutex<String>,
+    viewer_identity: Option<ViewerIdentity>,
 }
 
 /// Serialize a message into the wire format and queue it on the write half.
@@ -174,6 +207,26 @@ impl Connection {
     pub async fn listen(
         address: Option<SocketAddr>,
         device_name_override: Option<String>,
+        message_handler: impl Fn(ConnectionMessage) + 'static + Send + Sync,
+    ) -> anyhow::Result<Self> {
+        Self::listen_inner(address, device_name_override, None, message_handler).await
+    }
+
+    /// Listen for source-host connections and advertise a persistent viewer identity.
+    pub async fn listen_with_identity(
+        address: Option<SocketAddr>,
+        device_name_override: Option<String>,
+        viewer_identity: ViewerIdentity,
+        message_handler: impl Fn(ConnectionMessage) + 'static + Send + Sync,
+    ) -> anyhow::Result<Self> {
+        Self::listen_inner(address, device_name_override, Some(viewer_identity), message_handler)
+            .await
+    }
+
+    async fn listen_inner(
+        address: Option<SocketAddr>,
+        device_name_override: Option<String>,
+        viewer_identity: Option<ViewerIdentity>,
         message_handler: impl Fn(ConnectionMessage) + 'static + Send + Sync,
     ) -> anyhow::Result<Self> {
         let file_cache = Arc::new(DashMap::<Url, CacheEntry>::new());
@@ -284,6 +337,7 @@ impl Connection {
             file_cache,
             dependencies,
             device_name: Mutex::new(device_name),
+            viewer_identity,
         })
     }
 
@@ -301,6 +355,11 @@ impl Connection {
         if !name.trim().is_empty() {
             *self.device_name.lock().unwrap_or_else(|e| e.into_inner()) = name;
         }
+    }
+
+    /// Identity metadata included in this viewer's service advertisement.
+    pub fn viewer_identity(&self) -> Option<&ViewerIdentity> {
+        self.viewer_identity.as_ref()
     }
 
     /// Replace the set of URLs the connection treats as relevant. A subsequent `SetContents`
@@ -571,10 +630,15 @@ impl Connection {
         let device_name = self.device_name();
         let mdns_host = format!("{}.local.", sanitize_dns_label(&device_name));
         tracing::info!("Announcing service on {local_ips:?} as {device_name} ({mdns_host})");
-        let properties = HashMap::from([
-            (TXT_PROTOCOLS_KEY.to_owned(), PROTOCOL_SUBPROTOCOL.to_owned()),
-            (TXT_SLINT_VERSION_KEY.to_owned(), SLINT_VERSION.to_owned()),
-        ]);
+        let properties = self.viewer_identity.as_ref().map_or_else(
+            || {
+                HashMap::from([
+                    (TXT_PROTOCOLS_KEY.to_owned(), PROTOCOL_SUBPROTOCOL.to_owned()),
+                    (TXT_SLINT_VERSION_KEY.to_owned(), SLINT_VERSION.to_owned()),
+                ])
+            },
+            |identity| HashMap::from(identity.txt_records()),
+        );
         ServiceInfo::new(
             crate::protocol::SERVICE_TYPE,
             &device_name,
@@ -861,5 +925,26 @@ mod parser_tests {
     fn parse_returns_none_for_empty_value() {
         assert!(parse_pretty_hostname("PRETTY_HOSTNAME=\n").is_none());
         assert!(parse_pretty_hostname("PRETTY_HOSTNAME=\"\"\n").is_none());
+    }
+}
+
+#[cfg(test)]
+mod identity_tests {
+    use super::ViewerIdentity;
+    use crate::protocol::{
+        PROTOCOL_SUBPROTOCOL, SLINT_VERSION, TXT_DEVICE_ID_KEY, TXT_PLATFORM_KEY,
+        TXT_PROTOCOLS_KEY, TXT_SLINT_VERSION_KEY,
+    };
+    use std::collections::HashMap;
+
+    #[test]
+    fn advertisement_contains_stable_identity_and_compatibility() {
+        let identity = ViewerIdentity::new("8d33572a-4405-41f0-97a5-9c6f5ca1a40a", "ios");
+        let records = HashMap::from(identity.txt_records());
+
+        assert_eq!(records.get(TXT_DEVICE_ID_KEY).map(String::as_str), Some(identity.device_id()));
+        assert_eq!(records.get(TXT_PLATFORM_KEY).map(String::as_str), Some("ios"));
+        assert_eq!(records.get(TXT_PROTOCOLS_KEY).map(String::as_str), Some(PROTOCOL_SUBPROTOCOL));
+        assert_eq!(records.get(TXT_SLINT_VERSION_KEY).map(String::as_str), Some(SLINT_VERSION));
     }
 }
