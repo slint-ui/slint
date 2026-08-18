@@ -21,7 +21,10 @@ use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders, List, ListItem, ListState, Paragraph, Wrap};
 
 use crate::LaunchOptions;
-use crate::session_driver::{LOCAL_VIEWER_DEVICE_ID, ProjectSessionController};
+use crate::session_driver::ProjectSessionController;
+
+#[cfg(test)]
+use crate::session_driver::LOCAL_VIEWER_DEVICE_ID;
 
 const MAX_LOG_LINES: usize = 200;
 

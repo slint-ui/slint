@@ -67,6 +67,7 @@ struct LaunchOptions {
 }
 
 impl LaunchOptions {
+    #[cfg(test)]
     fn requested(&self) -> bool {
         self.last || self.device.is_some() || self.ios || self.android
     }

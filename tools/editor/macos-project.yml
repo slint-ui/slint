@@ -65,5 +65,13 @@ targets:
               --no-default-features \
               --features backend-winit,renderer-skia \
               ${MACOS_CARGO_TIMINGS:+--timings}
+          MACOS_CARGO_TARGET_DIR_NAME=slint-visual-editor \
+              MACOS_CARGO_EXECUTABLE_PATH="$(dirname "$EXECUTABLE_PATH")/slint-springboard" \
+              ../../scripts/build_macos_app_with_cargo.bash \
+              --profile package-release \
+              --bin slint-springboard \
+              --no-default-features \
+              --features backend-winit,renderer-skia
         outputFiles:
           - $(TARGET_BUILD_DIR)/$(EXECUTABLE_PATH)
+          - $(TARGET_BUILD_DIR)/$(CONTENTS_FOLDER_PATH)/MacOS/slint-springboard

@@ -61,6 +61,15 @@ APP_NOTARY_ZIP_PATH="$BUILD_DIR/$DMG_BASENAME-$VERSION-$BUILD_NUMBER-macos-arm64
 APP_NOTARY_LOG="$BUILD_DIR/app-notarization-log.json"
 DMG_ATTACHED=0
 
+validate_app_payload() {
+    local app_path="$1"
+    local editor="$app_path/Contents/MacOS/$APP_NAME"
+    local springboard="$app_path/Contents/MacOS/slint-springboard"
+
+    [ -x "$editor" ] || die "app executable missing: $editor"
+    [ -x "$springboard" ] || die "Springboard executable missing: $springboard"
+}
+
 cleanup() {
     if [ "$DMG_ATTACHED" -eq 1 ]; then
         hdiutil detach "$MOUNT_DIR" >/dev/null 2>&1 || true
@@ -188,6 +197,7 @@ archive_app() {
         -showBuildTimingSummary
 
     [ -d "$APP_PATH" ] || die "archive did not produce $APP_PATH"
+    validate_app_payload "$APP_PATH"
     log "Archive produced $APP_PATH"
 }
 
@@ -200,17 +210,22 @@ stage_and_sign_app() {
     ditto "$EXAMPLE_SOURCE_DIR" "$STAGED_APP_PATH/Contents/Resources/visual-editor-example"
     ditto "$SPARKLE_FRAMEWORK_DIR/Sparkle.framework" "$STAGED_APP_PATH/Contents/Frameworks/Sparkle.framework"
 
-    local executable="$STAGED_APP_PATH/Contents/MacOS/$APP_NAME"
-    [ -x "$executable" ] || die "app executable missing: $executable"
+    validate_app_payload "$STAGED_APP_PATH"
+    local springboard="$STAGED_APP_PATH/Contents/MacOS/slint-springboard"
 
     # Source: codesign signs code and supports hardened runtime via
     # --options runtime and timestamping via --timestamp:
     # https://keith.github.io/xcode-man-pages/codesign.1.html
+    log "Signing Springboard"
+    codesign --force --options runtime --timestamp \
+        --sign "$MACOS_DEVELOPER_ID" \
+        "$springboard"
     log "Signing app bundle"
     codesign --force --deep --options runtime --timestamp \
         --sign "$MACOS_DEVELOPER_ID" \
         "$STAGED_APP_PATH"
     log "Verifying app bundle signature"
+    codesign --verify --strict --verbose=2 "$springboard"
     codesign --verify --deep --strict --verbose=2 "$STAGED_APP_PATH"
     log "App bundle signed and verified"
 
@@ -269,7 +284,10 @@ verify_dmg_payload() {
     DMG_ATTACHED=1
 
     log "Verifying $label mounted app code signature"
-    codesign --verify --deep --strict --verbose=2 "$MOUNT_DIR/$APP_NAME.app" || verify_status=$?
+    local mounted_app="$MOUNT_DIR/$APP_NAME.app"
+    validate_app_payload "$mounted_app"
+    codesign --verify --strict --verbose=2 "$mounted_app/Contents/MacOS/slint-springboard" || verify_status=$?
+    codesign --verify --deep --strict --verbose=2 "$mounted_app" || verify_status=$?
     detach_dmg
     return "$verify_status"
 }
@@ -337,6 +355,8 @@ notarize_and_staple_app() {
     xcrun stapler validate "$STAGED_APP_PATH"
 
     log "Verifying stapled app code signature"
+    validate_app_payload "$STAGED_APP_PATH"
+    codesign --verify --strict --verbose=2 "$STAGED_APP_PATH/Contents/MacOS/slint-springboard"
     codesign --verify --deep --strict --verbose=2 "$STAGED_APP_PATH"
 
     log "Assessing stapled app with spctl"
@@ -358,7 +378,10 @@ assess_stapled_app() {
     DMG_ATTACHED=1
 
     log "Verifying mounted app code signature"
-    codesign --verify --deep --strict --verbose=2 "$MOUNT_DIR/$APP_NAME.app"
+    local mounted_app="$MOUNT_DIR/$APP_NAME.app"
+    validate_app_payload "$mounted_app"
+    codesign --verify --strict --verbose=2 "$mounted_app/Contents/MacOS/slint-springboard"
+    codesign --verify --deep --strict --verbose=2 "$mounted_app"
 
     # Source: spctl assesses code against system security policy:
     # https://keith.github.io/xcode-man-pages/spctl.8.html
@@ -381,6 +404,7 @@ smoke_test_app_launch() {
     local log_path="$BUILD_DIR/app-launch-smoke-test.log"
     local app_path="$MOUNT_DIR/$APP_NAME.app"
     local executable="$app_path/Contents/MacOS/$APP_NAME"
+    local springboard="$app_path/Contents/MacOS/slint-springboard"
     local wait_secs="${SMOKE_TEST_WAIT_SECS:-5}"
 
     log "Mounting DMG for app launch smoke test"
@@ -393,7 +417,19 @@ smoke_test_app_launch() {
         -mountpoint "$MOUNT_DIR"
     DMG_ATTACHED=1
 
-    [ -x "$executable" ] || die "app executable missing: $executable"
+    validate_app_payload "$app_path"
+
+    local springboard_project="$BUILD_DIR/springboard-smoke-project"
+    local springboard_log="$BUILD_DIR/springboard-smoke-test.log"
+    rm -rf "$springboard_project"
+    mkdir -p "$springboard_project"
+    printf 'entry = "app.slint"\ncomponent = "App"\n' > "$springboard_project/slint.toml"
+    printf 'export component App inherits Window {}\n' > "$springboard_project/app.slint"
+    printf '{"protocol_version":1,"request_id":1,"command":"handshake","client_name":"package-smoke-test"}\n' \
+        | "$springboard" serve --stdio "$springboard_project" > "$springboard_log"
+    grep -q '"response":"ok"' "$springboard_log" || die "Springboard smoke test did not receive a handshake response"
+    grep -q '"event":"snapshot"' "$springboard_log" || die "Springboard smoke test did not receive a project snapshot"
+    log "Springboard stdio smoke test passed"
 
     rm -f "$log_path"
     log "Launching mounted app without arguments"
