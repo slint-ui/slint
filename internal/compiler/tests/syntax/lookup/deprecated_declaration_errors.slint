@@ -5,4 +5,16 @@ export component Test {
     // Without a message, the replacement must be derivable from a two-way binding:
     @deprecated in-out property <int> stand-alone;
 //  >          <error{@deprecated without a message requires a two-way binding to derive the replacement from}
+
+    // A callback follows the same rule as a property:
+    @deprecated callback lonely-callback();
+//  >          <error{@deprecated without a message requires a two-way binding to derive the replacement from}
+    // A function has no two-way binding, so it just needs a message:
+    @deprecated function lonely-function() {}
+//  >          <error{@deprecated on a function requires a message}
+
+    // A message, or a two-way binding to derive it from, makes them valid:
+    @deprecated("Use 'other' instead") callback documented-callback <=> other-callback;
+    @deprecated("Use 'lonely-function' instead") function documented-function() {}
+    callback other-callback();
 }

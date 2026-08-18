@@ -6,8 +6,4 @@ export component Test {
     @deprecated("foo \{42}") in-out property <int> template-message <=> other;
 //              >     <error{@deprecated message must be a plain string literal, without any '\{}' expressions}
     in-out property <int> other;
-
-    // Only properties can be deprecated:
-    @deprecated callback foo();
-//              >      <error{@deprecated can only be applied to property declarations}
 }

@@ -1,0 +1,33 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// `@deprecated` applies to callbacks and functions too, warning when they are used from outside
+// the declaring component.
+
+component Inner {
+    callback new-callback();
+    @deprecated("Use 'new-callback' instead") callback old-callback <=> new-callback;
+    @deprecated("Use 'new-callback' instead") callback old-handler-callback();
+    @deprecated("Use 'new-function' instead") public pure function old-function() -> int { 1 }
+    public pure function new-function() -> int { 2 }
+
+    // No warning for a use within the declaring component:
+    out property <int> internal: self.old-function();
+}
+
+export component Test {
+    inner := Inner {
+        // Setting a handler on a deprecated callback warns too:
+        old-handler-callback => { }
+//      >                  <warning{The property 'old-handler-callback' has been deprecated. Use 'new-callback' instead}
+    }
+
+    callback trigger();
+    trigger => {
+        inner.old-callback();
+//            >          <warning{The property 'old-callback' has been deprecated. Use 'new-callback' instead}
+    }
+
+    out property <int> called: inner.old-function();
+//                                   >          <warning{The property 'old-function' has been deprecated. Use 'new-function' instead}
+}

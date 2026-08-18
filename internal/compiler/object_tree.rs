@@ -815,6 +815,56 @@ impl From<Type> for PropertyDeclaration {
     }
 }
 
+/// How a `@deprecated` member without an explicit message derives its replacement hint.
+enum DeprecationHint {
+    /// A property or callback: derive it from the two-way binding target, if any.
+    TwoWayBinding(Option<syntax_nodes::QualifiedName>),
+    /// A function has no two-way binding, so an explicit message is required.
+    MessageRequired,
+}
+
+/// The hint from a `@deprecated` attribute on a member: the explicit message, or one derived from
+/// the two-way binding target when none is given. `None` when the member isn't deprecated.
+fn member_deprecation(
+    deprecation: Option<syntax_nodes::PropertyDeprecation>,
+    hint: DeprecationHint,
+    tr: &TypeRegister,
+    diag: &mut BuildDiagnostics,
+) -> Option<SmolStr> {
+    let deprecation = deprecation?;
+    if reject_experimental_feature(diag, tr, "@deprecated", &deprecation) {
+        return None;
+    }
+    if let Some(message) = deprecation.child_token(SyntaxKind::StringLiteral) {
+        return crate::literals::unescape_string(message.text());
+    }
+    let message = match hint {
+        DeprecationHint::TwoWayBinding(target) => {
+            // Derive the hint from the two-way binding target: keep the full path (e.g.
+            // `a-struct.field`), dropping a leading `self`/`root`. The resolving pass checks the
+            // target is actually reachable.
+            if let Some(qn) = target {
+                let mut segments = qn
+                    .children_with_tokens()
+                    .filter(|t| t.kind() == SyntaxKind::Identifier)
+                    .map(|t| parser::normalize_identifier(t.as_token().unwrap().text()))
+                    .peekable();
+                if segments.peek().is_some_and(|s| matches!(s.as_str(), "self" | "root")) {
+                    segments.next();
+                }
+                let path = segments.collect::<Vec<_>>().join(".");
+                if !path.is_empty() {
+                    return Some(format_smolstr!("Please use '{path}' instead"));
+                }
+            }
+            "@deprecated without a message requires a two-way binding to derive the replacement from"
+        }
+        DeprecationHint::MessageRequired => "@deprecated on a function requires a message",
+    };
+    diag.push_error(message.into(), &deprecation);
+    None
+}
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum TransitionDirection {
     In,
@@ -1575,36 +1625,14 @@ impl Element {
                 }
             }
 
-            let deprecated = prop_decl.PropertyDeprecation().and_then(|deprecation| {
-                if reject_experimental_feature(diag, tr, "@deprecated", &deprecation) {
-                    return None;
-                }
-                if let Some(message) = deprecation.child_token(SyntaxKind::StringLiteral) {
-                    crate::literals::unescape_string(message.text())
-                } else if let Some(qn) = prop_decl
-                    .TwoWayBinding()
-                    .and_then(|twb| twb.Expression().QualifiedName())
-                {
-                    // Keep the full target path (e.g. `a-struct.field`), dropping a leading
-                    // `self`/`root`. The resolving pass checks the target is actually reachable.
-                    let mut segments = qn
-                        .children_with_tokens()
-                        .filter(|t| t.kind() == SyntaxKind::Identifier)
-                        .map(|t| parser::normalize_identifier(t.as_token().unwrap().text()))
-                        .peekable();
-                    if segments.peek().is_some_and(|s| matches!(s.as_str(), "self" | "root")) {
-                        segments.next();
-                    }
-                    let path = segments.collect::<Vec<_>>().join(".");
-                    (!path.is_empty()).then(|| format_smolstr!("Please use '{path}' instead"))
-                } else {
-                    diag.push_error(
-                        "@deprecated without a message requires a two-way binding to derive the replacement from".into(),
-                        &deprecation,
-                    );
-                    None
-                }
-            });
+            let deprecated = member_deprecation(
+                prop_decl.PropertyDeprecation(),
+                DeprecationHint::TwoWayBinding(
+                    prop_decl.TwoWayBinding().and_then(|twb| twb.Expression().QualifiedName()),
+                ),
+                tr,
+                diag,
+            );
 
             // Use the name as declared, not the resolved name: when the declaration
             // shadows a builtin member, the resolved name may be a native alias.
@@ -1690,6 +1718,14 @@ impl Element {
             let pure = Some(
                 sig_decl.child_token(SyntaxKind::Identifier).is_some_and(|t| t.text() == "pure"),
             );
+            let deprecated = member_deprecation(
+                sig_decl.PropertyDeprecation(),
+                DeprecationHint::TwoWayBinding(
+                    sig_decl.TwoWayBinding().and_then(|twb| twb.Expression().QualifiedName()),
+                ),
+                tr,
+                diag,
+            );
 
             #[cfg(feature = "slint-sc")]
             {
@@ -1759,6 +1795,7 @@ impl Element {
                         visibility: PropertyVisibility::InOut,
                         pure,
                         shadows_builtin,
+                        deprecated,
                         ..Default::default()
                     },
                 );
@@ -1793,6 +1830,7 @@ impl Element {
                     visibility: PropertyVisibility::InOut,
                     pure,
                     shadows_builtin,
+                    deprecated,
                     ..Default::default()
                 },
             );
@@ -1880,6 +1918,12 @@ impl Element {
                 visibility,
                 pure,
                 shadows_builtin,
+                deprecated: member_deprecation(
+                    func.PropertyDeprecation(),
+                    DeprecationHint::MessageRequired,
+                    tr,
+                    diag,
+                ),
                 ..Default::default()
             };
 
@@ -1944,6 +1988,10 @@ impl Element {
                     diag.slint_sc_error("Callback handler parameters are", &param);
                 }
             }
+            // Setting a handler on a deprecated callback from outside the declaring component warns,
+            // like assigning a deprecated property does.
+            let deprecation =
+                lookup_result.deprecated.clone().filter(|_| !lookup_result.is_local_to_component);
             let PropertyLookupResult { resolved_name, property_type, .. } = lookup_result;
             if let Type::Callback(callback) = &property_type {
                 let num_arg = con_node.DeclaredIdentifier().count();
@@ -1968,6 +2016,13 @@ impl Element {
                     );
                 }
                 continue;
+            }
+            if let Some(message) = &deprecation {
+                diag.push_property_deprecation_warning_with_message(
+                    &unresolved_name,
+                    message,
+                    &con_node.child_token(SyntaxKind::Identifier).unwrap(),
+                );
             }
             match r.bindings.0.entry(resolved_name.into()) {
                 Entry::Vacant(e) => {
