@@ -111,6 +111,9 @@ pub enum ServerEvent {
     DeviceChanged {
         device: Device,
     },
+    DeviceRemoved {
+        device_id: DeviceId,
+    },
     ActiveDeviceChanged {
         device_id: Option<DeviceId>,
     },
@@ -141,6 +144,7 @@ impl From<SessionEvent> for ServerEvent {
     fn from(event: SessionEvent) -> Self {
         match event {
             SessionEvent::DeviceChanged { device } => Self::DeviceChanged { device },
+            SessionEvent::DeviceRemoved { device_id } => Self::DeviceRemoved { device_id },
             SessionEvent::ActiveDeviceChanged { device_id } => {
                 Self::ActiveDeviceChanged { device_id }
             }

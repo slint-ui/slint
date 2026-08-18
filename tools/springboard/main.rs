@@ -8,6 +8,7 @@ use clap::{Args, Parser, Subcommand};
 use i_slint_springboard::project::{ProjectRunTarget, load_project_run_target};
 use slint_viewer::{ViewerLogLevel, ViewerRunnerOptions, run_auto_reload_simulator};
 
+mod discovery;
 mod session_driver;
 mod stdio;
 mod tui;
@@ -131,7 +132,11 @@ fn start(project: PathBuf, launch: LaunchOptions) -> Result<()> {
         .enable_all()
         .build()
         .context("Failed to start the Springboard async runtime")?;
-    runtime.block_on(tui::run(controller, launch))
+    runtime.block_on(async move {
+        let mut controller = controller;
+        controller.enable_remote_discovery();
+        tui::run(controller, launch).await
+    })
 }
 
 fn list_devices() -> Result<()> {
@@ -176,7 +181,11 @@ fn serve(options: ServeOptions) -> Result<()> {
         .enable_all()
         .build()
         .context("Failed to start the Springboard async runtime")?;
-    runtime.block_on(stdio::serve(controller))
+    runtime.block_on(async move {
+        let mut controller = controller;
+        controller.enable_remote_discovery();
+        stdio::serve(controller).await
+    })
 }
 
 fn viewer_child(options: ViewerChildOptions) -> Result<()> {

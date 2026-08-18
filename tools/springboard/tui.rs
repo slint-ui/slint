@@ -186,6 +186,7 @@ impl TuiApp {
                 }
                 SessionEvent::Error { message, .. } => self.error(message),
                 SessionEvent::DeviceChanged { .. }
+                | SessionEvent::DeviceRemoved { .. }
                 | SessionEvent::ActiveDeviceChanged { .. }
                 | SessionEvent::LastUsedDeviceChanged { .. } => {}
             }
@@ -363,6 +364,7 @@ mod tests {
             status,
             capabilities: DeviceCapabilities::launchable(),
             version: Some("1.18.0".into()),
+            platform: Some(std::env::consts::OS.into()),
         }
     }
 

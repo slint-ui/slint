@@ -180,6 +180,9 @@ impl SpringboardUiState {
             ServerEvent::DeviceChanged { device } => {
                 self.devices.insert(device.id.clone(), device);
             }
+            ServerEvent::DeviceRemoved { device_id } => {
+                self.devices.remove(&device_id);
+            }
             ServerEvent::ActiveDeviceChanged { device_id } => self.active = device_id,
             ServerEvent::LastUsedDeviceChanged { device_id } => self.last_used = device_id,
             ServerEvent::Diagnostic { message, .. } | ServerEvent::Error { message, .. } => {
@@ -293,6 +296,7 @@ mod tests {
             status,
             capabilities: DeviceCapabilities::launchable(),
             version: Some("1.18.0".into()),
+            platform: Some(std::env::consts::OS.into()),
         }
     }
 

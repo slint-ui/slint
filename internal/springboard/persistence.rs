@@ -24,6 +24,8 @@ pub struct RememberedDevice {
     pub addresses: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub version: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub platform: Option<String>,
     #[serde(default)]
     pub manual: bool,
 }
@@ -44,6 +46,7 @@ impl RememberedDevice {
                 reconnect: true,
             },
             version: self.version.clone(),
+            platform: self.platform.clone(),
         }
     }
 }
@@ -82,6 +85,7 @@ impl GlobalDeviceState {
             kind: device.kind,
             addresses,
             version: device.version.clone(),
+            platform: device.platform.clone(),
             manual: device.origin == DeviceOrigin::Manual,
         };
         self.remembered_devices.insert(profile.id.clone(), profile);
@@ -260,6 +264,7 @@ mod tests {
             status: DeviceStatus::Available,
             capabilities: DeviceCapabilities::launchable(),
             version: Some("1.18.0".into()),
+            platform: Some("ios".into()),
         }
     }
 
@@ -343,6 +348,7 @@ mod tests {
             status: DeviceStatus::Available,
             capabilities: DeviceCapabilities::launchable(),
             version: None,
+            platform: None,
         };
         assert!(!state.remember_device(&built_in, Vec::new()));
 

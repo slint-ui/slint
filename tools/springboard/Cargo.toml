@@ -33,12 +33,14 @@ default = ["backend-default", "renderer-femtovg", "renderer-software"]
 
 [dependencies]
 i-slint-springboard = { workspace = true }
+i-slint-live-preview = { workspace = true, features = ["protocol"] }
 slint-viewer = { version = "=1.18.0", path = "../viewer", default-features = false }
 
 anyhow = "1.0.100"
 clap = { workspace = true }
 crossterm = { version = "0.29.0", features = ["event-stream"] }
 futures-util = "0.3.32"
+mdns-sd = { version = "0.20.0", default-features = false, features = ["async"] }
 ratatui = "0.30.0"
 serde = { workspace = true, features = ["std"] }
 serde_json = { workspace = true }

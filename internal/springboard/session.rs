@@ -124,6 +124,8 @@ pub struct Device {
     pub status: DeviceStatus,
     pub capabilities: DeviceCapabilities,
     pub version: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub platform: Option<String>,
 }
 
 /// Work a driver must perform after a device-addressed session request.
@@ -160,6 +162,9 @@ pub enum LogLevel {
 pub enum SessionEvent {
     DeviceChanged {
         device: Device,
+    },
+    DeviceRemoved {
+        device_id: DeviceId,
     },
     ActiveDeviceChanged {
         device_id: Option<DeviceId>,
@@ -252,6 +257,14 @@ impl SpringboardSession {
             device.status = existing.status.clone();
         }
         self.devices.insert(device.id.clone(), device);
+    }
+
+    /// Remove an inactive device from this project session.
+    pub fn remove_device(&mut self, device_id: &DeviceId) -> Option<Device> {
+        if self.active_device.as_ref() == Some(device_id) {
+            return None;
+        }
+        self.devices.remove(device_id)
     }
 
     /// Begin launching a device.
@@ -379,6 +392,7 @@ mod tests {
             status: DeviceStatus::Available,
             capabilities: DeviceCapabilities::launchable(),
             version: None,
+            platform: None,
         }
     }
 

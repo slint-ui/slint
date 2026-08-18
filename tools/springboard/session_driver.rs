@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use std::collections::VecDeque;
+use std::collections::{BTreeMap, VecDeque};
 use std::ffi::OsString;
 use std::path::PathBuf;
 use std::process::{ExitStatus, Stdio};
@@ -16,6 +16,8 @@ use tokio::io::{AsyncBufReadExt as _, BufReader};
 use tokio::process::{Child, Command};
 use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
+
+use crate::discovery::{DiscoveredRemoteViewer, RemoteDiscoveryEvent, RemoteViewerDiscovery};
 
 pub const LOCAL_VIEWER_DEVICE_ID: &str = "builtin:local-viewer";
 
@@ -189,6 +191,8 @@ pub struct ProjectSessionController {
     global_state: GlobalDeviceState,
     store: DeviceStateStore,
     local_viewer: LocalViewerDriver,
+    remote_discovery: Option<RemoteViewerDiscovery>,
+    remote_viewers: BTreeMap<DeviceId, DiscoveredRemoteViewer>,
     events: VecDeque<SessionEvent>,
 }
 
@@ -217,7 +221,22 @@ impl ProjectSessionController {
             global_state: loaded.state,
             store,
             local_viewer: LocalViewerDriver::new(viewer_command),
+            remote_discovery: None,
+            remote_viewers: BTreeMap::new(),
             events,
+        }
+    }
+
+    pub fn enable_remote_discovery(&mut self) {
+        if self.remote_discovery.is_some() {
+            return;
+        }
+        match RemoteViewerDiscovery::start() {
+            Ok(discovery) => self.remote_discovery = Some(discovery),
+            Err(error) => self.events.push_back(SessionEvent::Error {
+                device_id: None,
+                message: format!("Remote viewer discovery is unavailable: {error}"),
+            }),
         }
     }
 
@@ -314,6 +333,14 @@ impl ProjectSessionController {
     }
 
     pub fn poll(&mut self) -> Result<()> {
+        let discovery_events = self
+            .remote_discovery
+            .as_mut()
+            .map(RemoteViewerDiscovery::take_events)
+            .unwrap_or_default();
+        for event in discovery_events {
+            self.apply_discovery_event(event);
+        }
         self.capture_output();
         let Some(status) = self.local_viewer.poll_exit()? else { return Ok(()) };
         let device_id = local_viewer_device_id();
@@ -376,6 +403,42 @@ impl ProjectSessionController {
             device_id: self.session.active_device().cloned(),
         });
     }
+
+    fn apply_discovery_event(&mut self, event: RemoteDiscoveryEvent) {
+        match event {
+            RemoteDiscoveryEvent::Upsert(viewer) => {
+                let device_id = viewer.id.clone();
+                let device = viewer.to_device();
+                self.remote_viewers.insert(device_id.clone(), viewer);
+                self.session.upsert_device(device);
+                self.emit_device(&device_id);
+            }
+            RemoteDiscoveryEvent::Removed(device_id) => {
+                self.remote_viewers.remove(&device_id);
+                if self.session.active_device() == Some(&device_id) {
+                    self.events.push_back(SessionEvent::Log {
+                        device_id: Some(device_id),
+                        level: LogLevel::Warning,
+                        message: "The active remote viewer is no longer discoverable".into(),
+                    });
+                    return;
+                }
+                if let Some(remembered) = self.global_state.remembered_devices.get(&device_id) {
+                    self.session.upsert_device(remembered.to_device());
+                    self.emit_device(&device_id);
+                } else if self.session.remove_device(&device_id).is_some() {
+                    self.events.push_back(SessionEvent::DeviceRemoved { device_id });
+                }
+            }
+            RemoteDiscoveryEvent::Warning(message) => {
+                self.events.push_back(SessionEvent::Log {
+                    device_id: None,
+                    level: LogLevel::Warning,
+                    message,
+                });
+            }
+        }
+    }
 }
 
 fn local_viewer_device_id() -> DeviceId {
@@ -391,6 +454,7 @@ fn local_viewer_device() -> Device {
         status: DeviceStatus::Available,
         capabilities: DeviceCapabilities::launchable(),
         version: Some(env!("CARGO_PKG_VERSION").into()),
+        platform: Some(std::env::consts::OS.into()),
     }
 }
 
@@ -434,6 +498,18 @@ mod tests {
                 .collect(),
         )
         .with_environment("SLINT_SPRINGBOARD_FAKE_MODE", mode)
+    }
+
+    fn remote_viewer() -> DiscoveredRemoteViewer {
+        DiscoveredRemoteViewer {
+            id: DeviceId::new("remote:phone-id").unwrap(),
+            name: "Nigel's iPhone".into(),
+            platform: "ios".into(),
+            slint_version: Some(env!("CARGO_PKG_VERSION").into()),
+            protocols: vec![i_slint_live_preview::protocol::PROTOCOL_SUBPROTOCOL.into()],
+            addresses: vec!["192.0.2.10".into()],
+            port: 41000,
+        }
     }
 
     #[tokio::test]
@@ -498,5 +574,49 @@ mod tests {
             SessionEvent::Error { message, .. } if message.contains("exited unexpectedly")
         )));
         assert_eq!(controller.session().active_device(), None);
+    }
+
+    #[test]
+    fn expiring_an_unremembered_viewer_removes_it() {
+        let directory = tempfile::tempdir().unwrap();
+        let mut controller = ProjectSessionController::new(
+            project(&directory),
+            store(&directory),
+            fake_command("wait"),
+        );
+        let viewer = remote_viewer();
+        controller.apply_discovery_event(RemoteDiscoveryEvent::Upsert(viewer.clone()));
+        controller.take_events();
+
+        controller.apply_discovery_event(RemoteDiscoveryEvent::Removed(viewer.id.clone()));
+
+        assert!(!controller.session().devices().contains_key(&viewer.id));
+        assert_eq!(
+            controller.take_events(),
+            [SessionEvent::DeviceRemoved { device_id: viewer.id }]
+        );
+    }
+
+    #[test]
+    fn expiring_a_remembered_viewer_keeps_an_offline_row() {
+        let directory = tempfile::tempdir().unwrap();
+        let state_store = store(&directory);
+        let viewer = remote_viewer();
+        let mut state = GlobalDeviceState::default();
+        state.remember_device(&viewer.to_device(), vec!["192.0.2.10:41000".into()]);
+        state_store.save(&state).unwrap();
+        let mut controller =
+            ProjectSessionController::new(project(&directory), state_store, fake_command("wait"));
+        controller.apply_discovery_event(RemoteDiscoveryEvent::Upsert(viewer.clone()));
+        controller.take_events();
+
+        controller.apply_discovery_event(RemoteDiscoveryEvent::Removed(viewer.id.clone()));
+
+        let device = &controller.session().devices()[&viewer.id];
+        assert_eq!(device.origin, DeviceOrigin::Remembered);
+        assert_eq!(device.status, DeviceStatus::Unavailable);
+        assert!(controller.take_events().iter().any(
+            |event| matches!(event, SessionEvent::DeviceChanged { device } if device.id == viewer.id)
+        ));
     }
 }
