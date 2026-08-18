@@ -75,10 +75,15 @@ export enum SpringboardDeviceKind {
 export enum SpringboardDeviceStatus {
     Available,
     Unavailable,
+    Resolving,
     Starting,
     Connecting,
     Reconnecting,
+    Compiling,
+    Reloading,
+    Rebuilding,
     Running,
+    RunningWithError,
     Stopping,
     Failed,
     Incompatible,
@@ -93,9 +98,13 @@ export enum SpringboardSessionStatus {
 export enum SpringboardRunState {
     NoDevice,
     Ready,
+    Resolving,
     Starting,
     Connecting,
     Reconnecting,
+    Compiling,
+    Reloading,
+    Rebuilding,
     Running,
     Unavailable,
     Incompatible,
@@ -114,6 +123,7 @@ export struct SpringboardDevice {
     can-launch: bool,
     can-stop: bool,
     can-refresh: bool,
+    can-rebuild: bool,
 }
 
 export enum PreviewMode {
@@ -678,6 +688,7 @@ export global Api {
     callback springboard-launch-device(device-id: string);
     callback springboard-stop-device(device-id: string);
     callback springboard-refresh-device(device-id: string);
+    callback springboard-rebuild-device(device-id: string);
     callback springboard-add-manual-device(address: string);
     pure callback image-nine-slice-expression(path: string, top: int, right: int, bottom: int, left: int) -> string;
     pure callback image-nine-slice-preview(source: image, top: int, right: int, bottom: int, left: int) -> image;

@@ -178,20 +178,32 @@ export component EditorTopBar inherits Rectangle {
                 && Api.project-root != "";
             label: Api.springboard-run-state == SpringboardRunState.Starting
                 ? "Starting…"
+                : Api.springboard-run-state == SpringboardRunState.Resolving
+                    ? "Resolving…"
                 : Api.springboard-run-state == SpringboardRunState.Connecting
                     ? "Connecting…"
-                    : Api.springboard-run-state == SpringboardRunState.Reconnecting
-                        ? "Reconnecting…"
-                    : Api.springboard-run-state == SpringboardRunState.Running
+                : Api.springboard-run-state == SpringboardRunState.Reconnecting
+                    ? "Reconnecting…"
+                : Api.springboard-run-state == SpringboardRunState.Compiling
+                    ? "Compiling…"
+                : Api.springboard-run-state == SpringboardRunState.Reloading
+                    ? "Reloading…"
+                : Api.springboard-run-state == SpringboardRunState.Rebuilding
+                    ? "Rebuilding…"
+                : Api.springboard-run-state == SpringboardRunState.Running
                         ? "Running"
                         : "Run";
             clicked => {
                 if Api.springboard-session-status == SpringboardSessionStatus.Unavailable {
                     Api.springboard-configure-project(Api.project-root);
                 } else if Api.springboard-run-state == SpringboardRunState.Ready
+                        || Api.springboard-run-state == SpringboardRunState.Resolving
                         || Api.springboard-run-state == SpringboardRunState.Starting
                         || Api.springboard-run-state == SpringboardRunState.Connecting
                         || Api.springboard-run-state == SpringboardRunState.Reconnecting
+                        || Api.springboard-run-state == SpringboardRunState.Compiling
+                        || Api.springboard-run-state == SpringboardRunState.Reloading
+                        || Api.springboard-run-state == SpringboardRunState.Rebuilding
                         || Api.springboard-run-state == SpringboardRunState.Running {
                     Api.springboard-launch-device(Api.springboard-last-used-device-id);
                 } else {

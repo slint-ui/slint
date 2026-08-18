@@ -41,6 +41,7 @@ struct WorkspaceRebuildWatcher {
     _watcher: notify::RecommendedWatcher,
     events: mpsc::UnboundedReceiver<WorkspaceWatchMessage>,
     planner: RebuildPlanner,
+    hot_reload_activity: bool,
 }
 
 impl WorkspaceRebuildWatcher {
@@ -66,7 +67,12 @@ impl WorkspaceRebuildWatcher {
         watcher.watch(&project_root, notify::RecursiveMode::Recursive).with_context(|| {
             format!("Failed to watch Cargo workspace {}", project_root.display())
         })?;
-        Ok(Self { _watcher: watcher, events, planner: RebuildPlanner::new(project_root) })
+        Ok(Self {
+            _watcher: watcher,
+            events,
+            planner: RebuildPlanner::new(project_root),
+            hot_reload_activity: false,
+        })
     }
 
     fn update_hot_reload_paths(&mut self, paths: &[PathBuf]) {
@@ -83,7 +89,7 @@ impl WorkspaceRebuildWatcher {
             match event {
                 WorkspaceWatchMessage::Changed(paths) => {
                     for path in paths {
-                        self.planner.record_change(path, now);
+                        self.hot_reload_activity |= self.planner.record_change(path, now);
                     }
                 }
                 WorkspaceWatchMessage::Error(error) => {
@@ -92,6 +98,10 @@ impl WorkspaceRebuildWatcher {
             }
         }
         Ok(self.planner.take_rebuild_request(now))
+    }
+
+    fn take_hot_reload_activity(&mut self) -> bool {
+        std::mem::take(&mut self.hot_reload_activity)
     }
 }
 
@@ -133,13 +143,17 @@ impl RebuildPlanner {
         }
     }
 
-    fn record_change(&mut self, path: PathBuf, now: Instant) {
+    fn record_change(&mut self, path: PathBuf, now: Instant) -> bool {
         let path = self.normalize(&path);
-        if self.is_ignored(&path) || self.hot_reload_paths.contains(&path) {
-            return;
+        if self.is_ignored(&path) {
+            return false;
+        }
+        if self.hot_reload_paths.contains(&path) {
+            return true;
         }
         self.pending_paths.insert(path);
         self.last_change = Some(now);
+        false
     }
 
     fn request_manual_rebuild(&mut self) {
@@ -297,6 +311,11 @@ impl CargoApplicationDriver {
     /// Return whether coalesced workspace or runtime changes require a Cargo rebuild.
     pub fn take_rebuild_request(&mut self) -> Result<bool> {
         self.rebuild_watcher.take_rebuild_request()
+    }
+
+    /// Return whether a source or resource in the live graph changed.
+    pub fn take_hot_reload_activity(&mut self) -> bool {
+        self.rebuild_watcher.take_hot_reload_activity()
     }
 
     async fn build(&mut self) -> Result<PathBuf> {
@@ -602,16 +621,16 @@ mod tests {
         planner.update_hot_reload_paths(std::slice::from_ref(&hot_path));
         let now = Instant::now();
 
-        planner.record_change(hot_path, now);
+        assert!(planner.record_change(hot_path, now));
         assert!(!planner.take_rebuild_request(now + i_slint_live_preview::REBUILD_DEBOUNCE));
 
-        planner.record_change(rust_path, now);
+        assert!(!planner.record_change(rust_path, now));
         assert!(!planner.take_rebuild_request(now));
         assert!(planner.take_rebuild_request(now + i_slint_live_preview::REBUILD_DEBOUNCE));
         assert!(!planner.take_rebuild_request(now + i_slint_live_preview::REBUILD_DEBOUNCE));
 
-        planner.record_change(root.join(".git/index"), now);
-        planner.record_change(root.join("target/debug/demo"), now);
+        assert!(!planner.record_change(root.join(".git/index"), now));
+        assert!(!planner.record_change(root.join("target/debug/demo"), now));
         assert!(!planner.take_rebuild_request(now + i_slint_live_preview::REBUILD_DEBOUNCE));
     }
 
@@ -622,7 +641,7 @@ mod tests {
         let imported = root.join("ui/new-component.slint");
         let mut planner = RebuildPlanner::new(root);
         let now = Instant::now();
-        planner.record_change(imported.clone(), now);
+        assert!(!planner.record_change(imported.clone(), now));
 
         planner.update_hot_reload_paths(std::slice::from_ref(&imported));
 
@@ -636,8 +655,8 @@ mod tests {
         let mut planner = RebuildPlanner::new(root.clone());
         let now = Instant::now();
         let half_debounce = i_slint_live_preview::REBUILD_DEBOUNCE / 2;
-        planner.record_change(root.join("src/first.rs"), now);
-        planner.record_change(root.join("src/second.rs"), now + half_debounce);
+        assert!(!planner.record_change(root.join("src/first.rs"), now));
+        assert!(!planner.record_change(root.join("src/second.rs"), now + half_debounce));
 
         assert!(!planner.take_rebuild_request(now + i_slint_live_preview::REBUILD_DEBOUNCE));
         assert!(

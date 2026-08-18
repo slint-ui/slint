@@ -56,6 +56,7 @@ impl DiscoveredRemoteViewer {
                 stop: true,
                 refresh: true,
                 reconnect: compatible,
+                rebuild: false,
             },
             version: self.slint_version.clone(),
             platform: Some(self.platform.clone()),

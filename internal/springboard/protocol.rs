@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use crate::{Device, DeviceId, DiagnosticSeverity, LogLevel, SessionEvent};
 
 /// The JSON-lines protocol version spoken by Springboard clients and servers.
-pub const SPRINGBOARD_PROTOCOL_VERSION: u32 = 2;
+pub const SPRINGBOARD_PROTOCOL_VERSION: u32 = 3;
 
 /// A client-generated request ID.
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
@@ -33,6 +33,7 @@ pub enum ClientCommand {
     Launch { device_id: DeviceId },
     Stop { device_id: DeviceId },
     Refresh { device_id: DeviceId },
+    Rebuild { device_id: DeviceId },
     AddManualDevice { address: String },
     Shutdown,
 }
@@ -204,6 +205,7 @@ pub fn decode_request(line: &str) -> Result<ClientRequest, RequestDecodeError> {
                 | "launch"
                 | "stop"
                 | "refresh"
+                | "rebuild"
                 | "add-manual-device"
                 | "shutdown"
         )
@@ -233,6 +235,21 @@ mod tests {
             request_id: RequestId(42),
             command: ClientCommand::Launch {
                 device_id: DeviceId::new("builtin:local-viewer").unwrap(),
+            },
+        };
+
+        let json = serde_json::to_string(&request).unwrap();
+
+        assert_eq!(decode_request(&json).unwrap(), request);
+    }
+
+    #[test]
+    fn rebuild_requests_round_trip() {
+        let request = ClientRequest {
+            protocol_version: SPRINGBOARD_PROTOCOL_VERSION,
+            request_id: RequestId(43),
+            command: ClientCommand::Rebuild {
+                device_id: DeviceId::new("builtin:rust-app").unwrap(),
             },
         };
 

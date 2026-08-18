@@ -96,6 +96,9 @@ component DeviceRow inherits Rectangle {
         if status == SpringboardDeviceStatus.Available {
             return "Available";
         }
+        if status == SpringboardDeviceStatus.Resolving {
+            return "Resolving";
+        }
         if status == SpringboardDeviceStatus.Starting {
             return "Starting";
         }
@@ -105,8 +108,20 @@ component DeviceRow inherits Rectangle {
         if status == SpringboardDeviceStatus.Reconnecting {
             return "Reconnecting";
         }
+        if status == SpringboardDeviceStatus.Compiling {
+            return "Compiling";
+        }
+        if status == SpringboardDeviceStatus.Reloading {
+            return "Reloading";
+        }
+        if status == SpringboardDeviceStatus.Rebuilding {
+            return "Rebuilding";
+        }
         if status == SpringboardDeviceStatus.Running {
             return "Running";
+        }
+        if status == SpringboardDeviceStatus.RunningWithError {
+            return "Running with error";
         }
         if status == SpringboardDeviceStatus.Stopping {
             return "Stopping";
@@ -124,11 +139,18 @@ component DeviceRow inherits Rectangle {
         if status == SpringboardDeviceStatus.Running {
             return #18a957;
         }
-        if status == SpringboardDeviceStatus.Starting
+        if status == SpringboardDeviceStatus.Resolving
+                || status == SpringboardDeviceStatus.Starting
                 || status == SpringboardDeviceStatus.Connecting
                 || status == SpringboardDeviceStatus.Reconnecting
+                || status == SpringboardDeviceStatus.Compiling
+                || status == SpringboardDeviceStatus.Reloading
+                || status == SpringboardDeviceStatus.Rebuilding
                 || status == SpringboardDeviceStatus.Stopping {
             return StudioTheme.accent;
+        }
+        if status == SpringboardDeviceStatus.RunningWithError {
+            return #b54708;
         }
         if status == SpringboardDeviceStatus.Failed
                 || status == SpringboardDeviceStatus.Incompatible {
@@ -228,7 +250,10 @@ component DeviceRow inherits Rectangle {
                 text: root.device.status-detail;
                 color: root.device.status == SpringboardDeviceStatus.Failed
                         || root.device.status == SpringboardDeviceStatus.Incompatible
-                    ? #d92d20 : StudioTheme.muted;
+                    ? #d92d20
+                    : root.device.status == SpringboardDeviceStatus.RunningWithError
+                        ? #b54708
+                        : StudioTheme.muted;
                 font-size: 10px;
                 overflow: elide;
                 vertical-stretch: 0;
@@ -250,7 +275,10 @@ component DeviceRow inherits Rectangle {
                 text: root.status-label(root.device.status, root.device.kind);
                 color: root.device.status == SpringboardDeviceStatus.Failed
                         || root.device.status == SpringboardDeviceStatus.Incompatible
-                    ? #d92d20 : StudioTheme.muted;
+                    ? #d92d20
+                    : root.device.status == SpringboardDeviceStatus.RunningWithError
+                        ? #b54708
+                        : StudioTheme.muted;
                 font-size: 11px;
                 font-weight: 600;
                 vertical-alignment: center;
@@ -508,6 +536,15 @@ export component DeviceManager inherits Rectangle {
                     }
                 }
 
+                if root.has-selection
+                        && Api.springboard-devices[root.selected-index].can-rebuild : ManagerButton {
+                    label: "Rebuild";
+                    enabled: root.selected-active;
+                    clicked => {
+                        Api.springboard-rebuild-device(Api.springboard-devices[root.selected-index].id);
+                    }
+                }
+
                 ManagerButton {
                     label: root.action-label();
                     primary: !root.selected-active;
@@ -542,6 +579,12 @@ export component DeviceManager inherits Rectangle {
             if event.text == "r" && root.has-selection
                     && Api.springboard-devices[root.selected-index].can-refresh {
                 Api.springboard-refresh-device(Api.springboard-devices[root.selected-index].id);
+                return accept;
+            }
+            if event.text == "b" && root.has-selection
+                    && root.selected-active
+                    && Api.springboard-devices[root.selected-index].can-rebuild {
+                Api.springboard-rebuild-device(Api.springboard-devices[root.selected-index].id);
                 return accept;
             }
             if event.text == "s" && root.selected-active

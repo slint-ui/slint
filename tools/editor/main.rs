@@ -498,6 +498,11 @@ async fn handle_springboard_action(
                 device_id: i_slint_springboard::DeviceId::new(device_id)?,
             }
         }
+        springboard_ui::SpringboardUiAction::Rebuild(device_id) => {
+            i_slint_springboard::ClientCommand::Rebuild {
+                device_id: i_slint_springboard::DeviceId::new(device_id)?,
+            }
+        }
         springboard_ui::SpringboardUiAction::AddManualDevice(address) => {
             i_slint_springboard::ClientCommand::AddManualDevice { address }
         }

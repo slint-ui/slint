@@ -17,6 +17,7 @@ pub enum SpringboardUiAction {
     Launch(String),
     Stop(String),
     Refresh(String),
+    Rebuild(String),
     AddManualDevice(String),
 }
 
@@ -44,6 +45,10 @@ pub fn setup(
     let actions = sender.clone();
     api.on_springboard_refresh_device(move |device_id| {
         send_action(&actions, SpringboardUiAction::Refresh(device_id.into()));
+    });
+    let actions = sender.clone();
+    api.on_springboard_rebuild_device(move |device_id| {
+        send_action(&actions, SpringboardUiAction::Rebuild(device_id.into()));
     });
     api.on_springboard_add_manual_device(move |address| {
         send_action(&sender, SpringboardUiAction::AddManualDevice(address.into()));
@@ -220,12 +225,16 @@ impl SpringboardUiState {
             DeviceStatus::Available | DeviceStatus::Failed { .. } => {
                 preview::ui::SpringboardRunState::Ready
             }
+            DeviceStatus::Resolving => preview::ui::SpringboardRunState::Resolving,
             DeviceStatus::Starting => preview::ui::SpringboardRunState::Starting,
             DeviceStatus::Connecting => preview::ui::SpringboardRunState::Connecting,
             DeviceStatus::Reconnecting => preview::ui::SpringboardRunState::Reconnecting,
-            DeviceStatus::Running | DeviceStatus::Stopping => {
-                preview::ui::SpringboardRunState::Running
-            }
+            DeviceStatus::Compiling => preview::ui::SpringboardRunState::Compiling,
+            DeviceStatus::Reloading => preview::ui::SpringboardRunState::Reloading,
+            DeviceStatus::Rebuilding => preview::ui::SpringboardRunState::Rebuilding,
+            DeviceStatus::Running
+            | DeviceStatus::RunningWithError { .. }
+            | DeviceStatus::Stopping => preview::ui::SpringboardRunState::Running,
             DeviceStatus::Unavailable => preview::ui::SpringboardRunState::Unavailable,
             DeviceStatus::Incompatible { .. } => preview::ui::SpringboardRunState::Incompatible,
         }
@@ -252,6 +261,10 @@ fn device_to_ui(
                 .unwrap_or_default();
             (preview::ui::SpringboardDeviceStatus::Unavailable, detail)
         }
+        DeviceStatus::Resolving => (
+            preview::ui::SpringboardDeviceStatus::Resolving,
+            "Resolving the Cargo application target.".into(),
+        ),
         DeviceStatus::Starting => (preview::ui::SpringboardDeviceStatus::Starting, String::new()),
         DeviceStatus::Connecting => (
             preview::ui::SpringboardDeviceStatus::Connecting,
@@ -261,7 +274,22 @@ fn device_to_ui(
             preview::ui::SpringboardDeviceStatus::Reconnecting,
             "Connection lost; retrying on the local network.".into(),
         ),
+        DeviceStatus::Compiling => (
+            preview::ui::SpringboardDeviceStatus::Compiling,
+            "Compiling the Rust application with live preview enabled.".into(),
+        ),
+        DeviceStatus::Reloading => (
+            preview::ui::SpringboardDeviceStatus::Reloading,
+            "Applying a Slint implementation change without Cargo.".into(),
+        ),
+        DeviceStatus::Rebuilding => (
+            preview::ui::SpringboardDeviceStatus::Rebuilding,
+            "Rebuilding after a Rust or Slint interface change.".into(),
+        ),
         DeviceStatus::Running => (preview::ui::SpringboardDeviceStatus::Running, String::new()),
+        DeviceStatus::RunningWithError { message } => {
+            (preview::ui::SpringboardDeviceStatus::RunningWithError, message.clone())
+        }
         DeviceStatus::Stopping => (preview::ui::SpringboardDeviceStatus::Stopping, String::new()),
         DeviceStatus::Failed { message } => {
             (preview::ui::SpringboardDeviceStatus::Failed, message.clone())
@@ -285,6 +313,7 @@ fn device_to_ui(
         can_launch: device.capabilities.launch,
         can_stop: device.capabilities.stop,
         can_refresh: device.capabilities.refresh,
+        can_rebuild: device.capabilities.rebuild,
     }
 }
 
@@ -396,5 +425,22 @@ mod tests {
         let incompatible = device_to_ui(&target, None, None);
         assert!(incompatible.status_detail.contains("installed Slint 1.17.2"));
         assert!(incompatible.status_detail.contains("requires Slint 1.18.0"));
+    }
+
+    #[test]
+    fn rust_application_states_and_rebuild_capability_reach_the_ui() {
+        let mut target = device(DeviceStatus::Compiling);
+        target.kind = DeviceKind::RustApplication;
+        target.capabilities.rebuild = true;
+        let compiling = device_to_ui(&target, Some(&target.id), Some(&target.id));
+
+        assert_eq!(compiling.status, preview::ui::SpringboardDeviceStatus::Compiling);
+        assert!(compiling.status_detail.contains("live preview"));
+        assert!(compiling.can_rebuild);
+
+        target.status = DeviceStatus::RunningWithError { message: "build failed".into() };
+        let failed = device_to_ui(&target, Some(&target.id), Some(&target.id));
+        assert_eq!(failed.status, preview::ui::SpringboardDeviceStatus::RunningWithError);
+        assert_eq!(failed.status_detail.as_str(), "build failed");
     }
 }

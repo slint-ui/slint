@@ -7,20 +7,29 @@ use std::path::PathBuf;
 use std::process::{ExitStatus, Stdio};
 
 use anyhow::{Context as _, Result, bail};
+use i_slint_live_preview::springboard_runtime::RuntimeEvent;
 use i_slint_springboard::{
     Device, DeviceCapabilities, DeviceId, DeviceKind, DeviceOrigin, DeviceStateStore, DeviceStatus,
     DiagnosticSeverity, GlobalDeviceState, LogLevel, ProjectSnapshot, RememberedDevice,
-    SessionAction, SessionEvent, SpringboardSession, project::ProjectRunTarget,
+    SessionAction, SessionEvent, SpringboardSession,
+    cargo::{ResolvedCargoApplication, resolve_cargo_application},
+    project::ProjectRunTarget,
 };
 use tokio::io::{AsyncBufReadExt as _, BufReader};
 use tokio::process::{Child, Command};
 use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
 
+use crate::cargo_driver::{
+    CargoApplicationDriver, CargoApplicationOutput, CargoApplicationOutputSource,
+};
 use crate::discovery::{DiscoveredRemoteViewer, RemoteDiscoveryEvent, RemoteViewerDiscovery};
 use crate::remote_driver::{RemoteDriverEvent, RemoteViewerDriver};
 
 pub const LOCAL_VIEWER_DEVICE_ID: &str = "builtin:local-viewer";
+pub const RUST_APPLICATION_DEVICE_ID: &str = "builtin:rust-app";
+
+type CargoBuildTask = JoinHandle<(CargoApplicationDriver, std::result::Result<(), String>)>;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum OutputStream {
@@ -192,6 +201,10 @@ pub struct ProjectSessionController {
     global_state: GlobalDeviceState,
     store: DeviceStateStore,
     local_viewer: LocalViewerDriver,
+    cargo_target: Option<ResolvedCargoApplication>,
+    cargo_application: Option<CargoApplicationDriver>,
+    cargo_build: Option<CargoBuildTask>,
+    cargo_rebuild_queued: bool,
     remote_viewer: Option<RemoteViewerDriver>,
     remote_discovery: Option<RemoteViewerDiscovery>,
     remote_viewers: BTreeMap<DeviceId, DiscoveredRemoteViewer>,
@@ -207,11 +220,24 @@ impl ProjectSessionController {
         viewer_command: ViewerChildCommand,
     ) -> Self {
         let loaded = store.load();
+        let (cargo_target, cargo_resolution_error) = match resolve_cargo_application(&project) {
+            Ok(target) => (target, None),
+            Err(error) => (None, Some(error.to_string())),
+        };
         let mut session = SpringboardSession::new(project);
         let local_viewer = local_viewer_device();
         let mut remote_viewers = BTreeMap::new();
         let mut runtime_devices = vec![local_viewer];
         let mut events = VecDeque::new();
+        if let Some(target) = &cargo_target {
+            runtime_devices.push(rust_application_device(target));
+        }
+        if let Some(error) = cargo_resolution_error {
+            events.push_back(SessionEvent::Error {
+                device_id: None,
+                message: format!("The project Cargo application could not be resolved: {error}"),
+            });
+        }
         for profile in loaded.state.remembered_devices.values().filter(|profile| profile.manual) {
             match manual_viewer_from_profile(profile) {
                 Ok(viewer) => {
@@ -239,6 +265,10 @@ impl ProjectSessionController {
             global_state: loaded.state,
             store,
             local_viewer: LocalViewerDriver::new(viewer_command),
+            cargo_target,
+            cargo_application: None,
+            cargo_build: None,
+            cargo_rebuild_queued: false,
             remote_viewer: None,
             remote_discovery: None,
             remote_viewers,
@@ -298,6 +328,31 @@ impl ProjectSessionController {
                 self.emit_device(device_id);
                 return Err(error);
             }
+        } else if device_id.as_str() == RUST_APPLICATION_DEVICE_ID {
+            let driver = match self.cargo_application.take() {
+                Some(driver) => driver,
+                None => {
+                    let target = self
+                        .cargo_target
+                        .clone()
+                        .context("The Rust application target is unavailable")?;
+                    match CargoApplicationDriver::new(
+                        target,
+                        self.session.project().project_root.clone(),
+                    )
+                    .await
+                    {
+                        Ok(driver) => driver,
+                        Err(error) => {
+                            self.session.mark_failed(device_id, error.to_string())?;
+                            self.emit_device(device_id);
+                            return Err(error);
+                        }
+                    }
+                }
+            };
+            self.start_cargo_build(driver, DeviceStatus::Compiling)?;
+            return Ok(());
         } else if let Some(viewer) = self.remote_viewers.get(device_id).cloned() {
             self.session.mark_connecting(device_id)?;
             self.pending_launch = Some(device_id.clone());
@@ -362,6 +417,11 @@ impl ProjectSessionController {
         if self.pending_endpoint_update.as_ref() == Some(device_id) {
             self.pending_endpoint_update = None;
         }
+        let was_rebuild = self
+            .session
+            .devices()
+            .get(device_id)
+            .is_some_and(|device| matches!(device.status, DeviceStatus::Rebuilding));
         self.session.mark_running(device_id)?;
         if let Some(viewer) = self.remote_viewers.get(device_id)
             && let Some(device) = self.session.devices().get(device_id)
@@ -377,6 +437,12 @@ impl ProjectSessionController {
             level: LogLevel::Information,
             message: if device_id.as_str() == LOCAL_VIEWER_DEVICE_ID {
                 "Local viewer started".into()
+            } else if device_id.as_str() == RUST_APPLICATION_DEVICE_ID {
+                if was_rebuild {
+                    "Rust application rebuilt and restarted".into()
+                } else {
+                    "Rust application started".into()
+                }
             } else {
                 "Remote viewer connected".into()
             },
@@ -390,6 +456,23 @@ impl ProjectSessionController {
         Ok(())
     }
 
+    fn start_cargo_build(
+        &mut self,
+        driver: CargoApplicationDriver,
+        status: DeviceStatus,
+    ) -> Result<()> {
+        let device_id = rust_application_device_id();
+        self.session.mark_active_status(&device_id, status)?;
+        self.emit_device(&device_id);
+        self.cargo_build = Some(tokio::spawn(async move {
+            let mut driver = driver;
+            let result =
+                driver.build_and_launch().await.map(|_| ()).map_err(|error| error.to_string());
+            (driver, result)
+        }));
+        Ok(())
+    }
+
     pub async fn stop(&mut self, device_id: &DeviceId) -> Result<()> {
         match self.session.stop(device_id)? {
             SessionAction::None => return Ok(()),
@@ -399,6 +482,15 @@ impl ProjectSessionController {
         self.emit_device(device_id);
         if device_id.as_str() == LOCAL_VIEWER_DEVICE_ID {
             self.local_viewer.stop().await?;
+        } else if device_id.as_str() == RUST_APPLICATION_DEVICE_ID {
+            if let Some(task) = self.cargo_build.take() {
+                task.abort();
+                let _ = task.await;
+            }
+            if let Some(driver) = &mut self.cargo_application {
+                driver.stop().await?;
+            }
+            self.cargo_rebuild_queued = false;
         } else if let Some(mut driver) = self.remote_viewer.take() {
             driver.stop().await;
         }
@@ -409,6 +501,7 @@ impl ProjectSessionController {
             self.pending_endpoint_update = None;
         }
         let idle_status = if device_id.as_str() == LOCAL_VIEWER_DEVICE_ID
+            || device_id.as_str() == RUST_APPLICATION_DEVICE_ID
             || self.remote_viewers.contains_key(device_id)
         {
             DeviceStatus::Available
@@ -422,6 +515,8 @@ impl ProjectSessionController {
             level: LogLevel::Information,
             message: if device_id.as_str() == LOCAL_VIEWER_DEVICE_ID {
                 "Local viewer stopped".into()
+            } else if device_id.as_str() == RUST_APPLICATION_DEVICE_ID {
+                "Rust application stopped".into()
             } else {
                 "Remote viewer disconnected".into()
             },
@@ -434,6 +529,7 @@ impl ProjectSessionController {
             SessionAction::Refresh => {
                 if self.session.active_device() == Some(device_id)
                     && device_id.as_str() != LOCAL_VIEWER_DEVICE_ID
+                    && device_id.as_str() != RUST_APPLICATION_DEVICE_ID
                     && self.pending_launch.as_ref() != Some(device_id)
                 {
                     self.remote_viewer
@@ -452,7 +548,34 @@ impl ProjectSessionController {
         }
     }
 
+    pub fn rebuild(&mut self, device_id: &DeviceId) -> Result<()> {
+        match self.session.rebuild(device_id)? {
+            SessionAction::Rebuild => {}
+            action => bail!("Unexpected session action {action:?} for rebuild"),
+        }
+        if self.cargo_build.is_some() {
+            self.cargo_rebuild_queued = true;
+            self.events.push_back(SessionEvent::Log {
+                device_id: Some(device_id.clone()),
+                level: LogLevel::Information,
+                message: "Queued a manual rebuild after the current build".into(),
+            });
+            return Ok(());
+        }
+        let driver =
+            self.cargo_application.take().context("The Rust application driver is unavailable")?;
+        self.start_cargo_build(driver, DeviceStatus::Rebuilding)?;
+        self.events.push_back(SessionEvent::Log {
+            device_id: Some(device_id.clone()),
+            level: LogLevel::Information,
+            message: "Manual Cargo rebuild requested".into(),
+        });
+        Ok(())
+    }
+
     pub async fn poll(&mut self) -> Result<()> {
+        self.poll_cargo_build().await?;
+        self.capture_cargo_events()?;
         let discovery_events = self
             .remote_discovery
             .as_mut()
@@ -475,6 +598,190 @@ impl ProjectSessionController {
             }
         }
         Ok(())
+    }
+
+    async fn poll_cargo_build(&mut self) -> Result<()> {
+        if !self.cargo_build.as_ref().is_some_and(|task| task.is_finished()) {
+            return Ok(());
+        }
+        let task = self.cargo_build.take().unwrap();
+        let device_id = rust_application_device_id();
+        let (driver, build_result) = match task.await {
+            Ok(result) => result,
+            Err(error) => {
+                let message = format!("Cargo build task failed: {error}");
+                if self.session.active_device() == Some(&device_id) {
+                    self.session.mark_failed(&device_id, &message)?;
+                    self.emit_device(&device_id);
+                }
+                self.events.push_back(SessionEvent::Error { device_id: Some(device_id), message });
+                return Ok(());
+            }
+        };
+        let previous_application_is_running = driver.application_id().is_some();
+        self.cargo_application = Some(driver);
+        match build_result {
+            Ok(()) => {
+                if self.session.active_device() == Some(&device_id) {
+                    self.complete_launch(&device_id)?;
+                }
+            }
+            Err(message) => {
+                if self.session.active_device() == Some(&device_id) {
+                    if previous_application_is_running {
+                        self.session.mark_active_status(
+                            &device_id,
+                            DeviceStatus::RunningWithError { message: message.clone() },
+                        )?;
+                    } else {
+                        self.session.mark_failed(&device_id, &message)?;
+                    }
+                    self.emit_device(&device_id);
+                }
+                self.events
+                    .push_back(SessionEvent::Error { device_id: Some(device_id.clone()), message });
+            }
+        }
+
+        if std::mem::take(&mut self.cargo_rebuild_queued)
+            && self.session.active_device() == Some(&device_id)
+            && let Some(driver) = self.cargo_application.take()
+        {
+            self.start_cargo_build(driver, DeviceStatus::Rebuilding)?;
+        }
+        Ok(())
+    }
+
+    fn capture_cargo_events(&mut self) -> Result<()> {
+        if self.cargo_build.is_some() {
+            return Ok(());
+        }
+        let Some(driver) = &mut self.cargo_application else { return Ok(()) };
+        let mut runtime_events = Vec::new();
+        while let Some(event) = driver.take_runtime_event() {
+            runtime_events.push(event);
+        }
+        let rebuild_requested = driver.take_rebuild_request()?;
+        let hot_reload_activity = driver.take_hot_reload_activity();
+        let process_exit = driver.poll_exit()?;
+        let output = driver.take_output();
+
+        let device_id = rust_application_device_id();
+        if hot_reload_activity
+            && self.session.active_device() == Some(&device_id)
+            && !matches!(
+                self.session.devices()[&device_id].status,
+                DeviceStatus::Compiling | DeviceStatus::Rebuilding | DeviceStatus::Stopping
+            )
+        {
+            self.session.mark_active_status(&device_id, DeviceStatus::Reloading)?;
+            self.emit_device(&device_id);
+        }
+        for event in runtime_events {
+            match event {
+                RuntimeEvent::Ready { .. } => {
+                    self.events.push_back(SessionEvent::Log {
+                        device_id: Some(device_id.clone()),
+                        level: LogLevel::Debug,
+                        message: "Rust live-preview runtime is ready".into(),
+                    });
+                }
+                RuntimeEvent::Reloaded { .. } => {
+                    if self.session.active_device() == Some(&device_id) {
+                        self.session.mark_running(&device_id)?;
+                        self.emit_device(&device_id);
+                    }
+                    self.events.push_back(SessionEvent::Log {
+                        device_id: Some(device_id.clone()),
+                        level: LogLevel::Information,
+                        message: "Slint implementation reloaded without Cargo".into(),
+                    });
+                }
+                RuntimeEvent::CompileError { .. } => {
+                    let message =
+                        "Slint compilation failed; the previous application UI remains active";
+                    if self.session.active_device() == Some(&device_id) {
+                        self.session.mark_active_status(
+                            &device_id,
+                            DeviceStatus::RunningWithError { message: message.into() },
+                        )?;
+                        self.emit_device(&device_id);
+                    }
+                    self.events.push_back(SessionEvent::Log {
+                        device_id: Some(device_id.clone()),
+                        level: LogLevel::Warning,
+                        message: message.into(),
+                    });
+                }
+                RuntimeEvent::RebuildRequired { diff, .. } => {
+                    self.events.push_back(SessionEvent::Log {
+                        device_id: Some(device_id.clone()),
+                        level: LogLevel::Information,
+                        message: format!(
+                            "The Slint Rust interface changed; rebuilding the application:\n{diff}"
+                        ),
+                    });
+                }
+                RuntimeEvent::Exiting => {
+                    self.events.push_back(SessionEvent::Log {
+                        device_id: Some(device_id.clone()),
+                        level: LogLevel::Debug,
+                        message: "Rust live-preview runtime is exiting".into(),
+                    });
+                }
+            }
+        }
+        for output in output {
+            self.capture_cargo_output(&device_id, output);
+        }
+
+        if let Some(status) = process_exit
+            && self.session.active_device() == Some(&device_id)
+        {
+            let message = format!("Rust application exited unexpectedly with {status}");
+            self.session.mark_failed(&device_id, &message)?;
+            self.emit_device(&device_id);
+            self.events
+                .push_back(SessionEvent::Error { device_id: Some(device_id.clone()), message });
+        }
+
+        if rebuild_requested
+            && self.session.active_device() == Some(&device_id)
+            && let Some(driver) = self.cargo_application.take()
+        {
+            self.start_cargo_build(driver, DeviceStatus::Rebuilding)?;
+        }
+        Ok(())
+    }
+
+    fn capture_cargo_output(&mut self, device_id: &DeviceId, output: CargoApplicationOutput) {
+        let lowercase = output.line.to_ascii_lowercase();
+        let is_error = lowercase.contains("error")
+            && matches!(
+                output.source,
+                CargoApplicationOutputSource::Cargo
+                    | CargoApplicationOutputSource::ApplicationStandardError
+            );
+        if is_error {
+            self.events.push_back(SessionEvent::Diagnostic {
+                device_id: device_id.clone(),
+                severity: DiagnosticSeverity::Error,
+                message: output.line,
+                file: None,
+                line: None,
+                column: None,
+            });
+        } else {
+            self.events.push_back(SessionEvent::Log {
+                device_id: Some(device_id.clone()),
+                level: match output.source {
+                    CargoApplicationOutputSource::Cargo => LogLevel::Information,
+                    CargoApplicationOutputSource::ApplicationStandardOutput => LogLevel::Debug,
+                    CargoApplicationOutputSource::ApplicationStandardError => LogLevel::Warning,
+                },
+                message: output.line,
+            });
+        }
     }
 
     async fn connect_pending_viewer(&mut self) {
@@ -528,6 +835,13 @@ impl ProjectSessionController {
             self.stop(&device_id).await?;
         } else {
             self.local_viewer.stop().await?;
+            if let Some(task) = self.cargo_build.take() {
+                task.abort();
+                let _ = task.await;
+            }
+            if let Some(driver) = &mut self.cargo_application {
+                driver.stop().await?;
+            }
             if let Some(mut driver) = self.remote_viewer.take() {
                 driver.stop().await;
             }
@@ -696,6 +1010,10 @@ fn local_viewer_device_id() -> DeviceId {
     DeviceId::new(LOCAL_VIEWER_DEVICE_ID).unwrap()
 }
 
+fn rust_application_device_id() -> DeviceId {
+    DeviceId::new(RUST_APPLICATION_DEVICE_ID).unwrap()
+}
+
 fn local_viewer_device() -> Device {
     Device {
         id: local_viewer_device_id(),
@@ -705,6 +1023,21 @@ fn local_viewer_device() -> Device {
         status: DeviceStatus::Available,
         capabilities: DeviceCapabilities::launchable(),
         version: Some(env!("CARGO_PKG_VERSION").into()),
+        platform: Some(std::env::consts::OS.into()),
+    }
+}
+
+fn rust_application_device(target: &ResolvedCargoApplication) -> Device {
+    let mut capabilities = DeviceCapabilities::launchable();
+    capabilities.rebuild = true;
+    Device {
+        id: rust_application_device_id(),
+        name: format!("Rust Application ({})", target.binary),
+        kind: DeviceKind::RustApplication,
+        origin: DeviceOrigin::BuiltIn,
+        status: DeviceStatus::Available,
+        capabilities,
+        version: None,
         platform: Some(std::env::consts::OS.into()),
     }
 }
@@ -788,6 +1121,16 @@ mod tests {
         DeviceStateStore::new(directory.path().join("config/devices.json"))
     }
 
+    fn add_cargo_application(directory: &tempfile::TempDir) {
+        std::fs::create_dir_all(directory.path().join("src")).unwrap();
+        std::fs::write(
+            directory.path().join("Cargo.toml"),
+            "[package]\nname = \"springboard-test-app\"\nversion = \"0.1.0\"\nedition = \"2024\"\n",
+        )
+        .unwrap();
+        std::fs::write(directory.path().join("src/main.rs"), "fn main() {}\n").unwrap();
+    }
+
     fn fake_command(mode: &str) -> ViewerChildCommand {
         ViewerChildCommand::fake(
             std::env::current_exe().unwrap(),
@@ -797,6 +1140,24 @@ mod tests {
                 .collect(),
         )
         .with_environment("SLINT_SPRINGBOARD_FAKE_MODE", mode)
+    }
+
+    #[test]
+    fn a_resolvable_cargo_binary_adds_the_rust_application_device() {
+        let directory = tempfile::tempdir().unwrap();
+        add_cargo_application(&directory);
+        let controller = ProjectSessionController::new(
+            project(&directory),
+            store(&directory),
+            fake_command("wait"),
+        );
+        let device_id = rust_application_device_id();
+        let device = &controller.session().devices()[&device_id];
+
+        assert_eq!(device.kind, DeviceKind::RustApplication);
+        assert_eq!(device.status, DeviceStatus::Available);
+        assert!(device.capabilities.rebuild);
+        assert!(device.name.contains("springboard-test-app"));
     }
 
     fn remote_viewer() -> DiscoveredRemoteViewer {

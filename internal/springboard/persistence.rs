@@ -44,6 +44,7 @@ impl RememberedDevice {
                 stop: true,
                 refresh: true,
                 reconnect: true,
+                rebuild: false,
             },
             version: self.version.clone(),
             platform: self.platform.clone(),

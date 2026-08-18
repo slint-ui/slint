@@ -84,12 +84,13 @@ pub struct DeviceCapabilities {
     pub stop: bool,
     pub refresh: bool,
     pub reconnect: bool,
+    pub rebuild: bool,
 }
 
 impl DeviceCapabilities {
     /// Capabilities for a target Springboard can launch and stop.
     pub const fn launchable() -> Self {
-        Self { launch: true, stop: true, refresh: true, reconnect: false }
+        Self { launch: true, stop: true, refresh: true, reconnect: false, rebuild: false }
     }
 }
 
@@ -99,10 +100,15 @@ impl DeviceCapabilities {
 pub enum DeviceStatus {
     Available,
     Unavailable,
+    Resolving,
     Starting,
     Connecting,
     Reconnecting,
+    Compiling,
+    Reloading,
+    Rebuilding,
     Running,
+    RunningWithError { message: String },
     Stopping,
     Failed { message: String },
     Incompatible { installed: String, required: String },
@@ -113,7 +119,15 @@ impl DeviceStatus {
     pub fn is_active(&self) -> bool {
         matches!(
             self,
-            Self::Starting | Self::Connecting | Self::Reconnecting | Self::Running | Self::Stopping
+            Self::Starting
+                | Self::Connecting
+                | Self::Reconnecting
+                | Self::Compiling
+                | Self::Reloading
+                | Self::Rebuilding
+                | Self::Running
+                | Self::RunningWithError { .. }
+                | Self::Stopping
         )
     }
 }
@@ -139,6 +153,7 @@ pub enum SessionAction {
     Launch,
     Stop,
     Refresh,
+    Rebuild,
 }
 
 /// The severity of a structured Springboard diagnostic.
@@ -315,6 +330,19 @@ impl SpringboardSession {
         Ok(())
     }
 
+    /// Replace an active device's status without changing its target slot.
+    pub fn mark_active_status(
+        &mut self,
+        device_id: &DeviceId,
+        status: DeviceStatus,
+    ) -> Result<(), SessionError> {
+        if !status.is_active() {
+            return Err(SessionError::InactiveDevice(device_id.clone()));
+        }
+        self.active_device_mut(device_id)?.status = status;
+        Ok(())
+    }
+
     /// Begin stopping a device.
     pub fn stop(&mut self, device_id: &DeviceId) -> Result<SessionAction, SessionError> {
         let Some(device) = self.devices.get(device_id) else {
@@ -375,6 +403,23 @@ impl SpringboardSession {
             });
         }
         Ok(SessionAction::Refresh)
+    }
+
+    /// Request a rebuild from an active device.
+    pub fn rebuild(&self, device_id: &DeviceId) -> Result<SessionAction, SessionError> {
+        let Some(device) = self.devices.get(device_id) else {
+            return Err(SessionError::UnknownDevice(device_id.clone()));
+        };
+        if self.active_device.as_ref() != Some(device_id) {
+            return Err(SessionError::InactiveDevice(device_id.clone()));
+        }
+        if !device.capabilities.rebuild {
+            return Err(SessionError::Unsupported {
+                device_id: device_id.clone(),
+                operation: "rebuild",
+            });
+        }
+        Ok(SessionAction::Rebuild)
     }
 
     fn active_device_mut(&mut self, device_id: &DeviceId) -> Result<&mut Device, SessionError> {
@@ -448,6 +493,19 @@ mod tests {
             session.launch(&second_id),
             Err(SessionError::TargetLimitReached { active: first_id, requested: second_id })
         );
+    }
+
+    #[test]
+    fn rebuild_requires_an_active_capable_device() {
+        let mut session = session();
+        let mut target = device("rust");
+        target.capabilities.rebuild = true;
+        let id = target.id.clone();
+        session.upsert_device(target);
+
+        assert_eq!(session.rebuild(&id), Err(SessionError::InactiveDevice(id.clone())));
+        session.launch(&id).unwrap();
+        assert_eq!(session.rebuild(&id), Ok(SessionAction::Rebuild));
     }
 
     #[test]

@@ -24,7 +24,7 @@ use crate::LaunchOptions;
 use crate::session_driver::ProjectSessionController;
 
 #[cfg(test)]
-use crate::session_driver::LOCAL_VIEWER_DEVICE_ID;
+use crate::session_driver::{LOCAL_VIEWER_DEVICE_ID, RUST_APPLICATION_DEVICE_ID};
 
 const MAX_LOG_LINES: usize = 200;
 
@@ -167,6 +167,13 @@ async fn handle_key(key: KeyEvent, controller: &mut ProjectSessionController, ap
         KeyCode::Char('r') => {
             if let Some(device_id) = app.selected_device(controller)
                 && let Err(error) = controller.refresh(&device_id)
+            {
+                app.error(error.to_string());
+            }
+        }
+        KeyCode::Char('b') => {
+            if let Some(device_id) = app.selected_device(controller)
+                && let Err(error) = controller.rebuild(&device_id)
             {
                 app.error(error.to_string());
             }
@@ -358,7 +365,7 @@ fn render_view(frame: &mut ratatui::Frame<'_>, view: &ViewState<'_>) {
 
 fn app_footer(view: &ViewState<'_>) -> String {
     view.manual_address.map_or_else(
-        || "↑/↓ Select  Enter Launch  s Stop  r Refresh  a Add remote  q Quit".into(),
+        || "↑/↓ Select  Enter Launch  s Stop  r Refresh  b Rebuild  a Add remote  q Quit".into(),
         |address| format!("Manual viewer address (host:port): {address}_  Enter Add  Esc Cancel"),
     )
 }
@@ -372,10 +379,15 @@ fn status_label(device: &Device) -> String {
             "Offline".into()
         }
         DeviceStatus::Unavailable => "Unavailable".into(),
+        DeviceStatus::Resolving => "Resolving".into(),
         DeviceStatus::Starting => "Starting".into(),
         DeviceStatus::Connecting => "Connecting".into(),
         DeviceStatus::Reconnecting => "Reconnecting".into(),
+        DeviceStatus::Compiling => "Compiling".into(),
+        DeviceStatus::Reloading => "Reloading".into(),
+        DeviceStatus::Rebuilding => "Rebuilding".into(),
         DeviceStatus::Running => "Running".into(),
+        DeviceStatus::RunningWithError { message } => format!("Running with error: {message}"),
         DeviceStatus::Stopping => "Stopping".into(),
         DeviceStatus::Failed { message } => format!("Failed: {message}"),
         DeviceStatus::Incompatible { installed, required } => {
@@ -494,6 +506,26 @@ mod tests {
         );
         assert!(rendered.contains("Failed: viewer exited"));
         assert!(rendered.contains("ERROR Local viewer exited unexpectedly"));
+    }
+
+    #[test]
+    fn rust_rebuild_and_running_error_snapshots_are_distinct() {
+        let mut target = device(DeviceStatus::Rebuilding);
+        target.id = DeviceId::new(RUST_APPLICATION_DEVICE_ID).unwrap();
+        target.name = "Rust Application (demo)".into();
+        target.kind = DeviceKind::RustApplication;
+        let rendered = snapshot(
+            std::slice::from_ref(&target),
+            Some(&target.id),
+            Some(&target.id),
+            &["INFO  The Slint Rust interface changed"],
+        );
+        assert!(rendered.contains("Rebuilding"));
+
+        target.status = DeviceStatus::RunningWithError { message: "Cargo build failed".into() };
+        let rendered =
+            snapshot(std::slice::from_ref(&target), Some(&target.id), Some(&target.id), &[]);
+        assert!(rendered.contains("Running with error: Cargo build failed"));
     }
 
     #[test]

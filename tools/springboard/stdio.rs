@@ -140,6 +140,11 @@ where
             write_response(writer, request.request_id, response).await?;
             write_pending_events(writer, controller).await?;
         }
+        ClientCommand::Rebuild { device_id } => {
+            let response = operation_response(controller.rebuild(&device_id));
+            write_response(writer, request.request_id, response).await?;
+            write_pending_events(writer, controller).await?;
+        }
         ClientCommand::AddManualDevice { address } => {
             let response = operation_response(controller.add_manual_device(&address).map(|_| ()));
             write_response(writer, request.request_id, response).await?;
