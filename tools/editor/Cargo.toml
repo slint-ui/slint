@@ -37,12 +37,14 @@ default = ["backend-default", "renderer-femtovg", "renderer-software"]
 [dependencies]
 i-slint-editor-preview = { workspace = true, features = ["preview-builtin"] }
 i-slint-live-preview = { workspace = true, features = ["protocol", "file-watcher"] }
+i-slint-springboard = { workspace = true }
 
 clap = { workspace = true }
 crossbeam-channel = "0.5"
 lsp-types = { workspace = true }
 slint = { workspace = true, features = ["compat-1-2", "unstable-winit-030"] }
-tokio = { version = "1.50.0", features = ["macros", "net", "process", "rt", "sync", "time"] }
+serde_json = { workspace = true }
+tokio = { version = "1.50.0", features = ["io-util", "macros", "net", "process", "rt", "sync", "time"] }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 

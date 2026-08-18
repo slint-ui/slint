@@ -26,6 +26,7 @@ use lsp_types::{MessageType, Url};
 
 #[cfg(target_os = "macos")]
 mod sparkle;
+mod springboard;
 
 fn main() -> std::result::Result<(), slint::PlatformError> {
     tracing_subscriber::fmt()
@@ -244,6 +245,7 @@ async fn lsp_main(
     let mut watch_paths_revision = None;
     let mut project_root = None;
     let mut live_preview_process = LivePreviewProcess::default();
+    let mut springboard_process = springboard::SpringboardProcess::default();
 
     // Load the initial document through the compiler if the editor was launched
     // with a file. Finder launches without a file stay on the startup wizard.
@@ -262,6 +264,11 @@ async fn lsp_main(
             .await
             .map_err(|err| format!("Failed to load file: {file}: {err}"))?;
         project_root = project_root_for_path(&full_path);
+        if let Some(project_root) = project_root.as_deref()
+            && let Err(error) = springboard_process.ensure_project(project_root).await
+        {
+            send_project_preview_error(&session, error.to_string());
+        }
         sync_file_watcher_if_needed(
             &mut file_watcher,
             &session,
@@ -306,6 +313,11 @@ async fn lsp_main(
                     }
                 }
             }
+            springboard_event = springboard_process.recv() => {
+                if let Some(event) = springboard_event {
+                    handle_springboard_event(&session, event);
+                }
+            }
             _ = tokio::time::sleep(recompile_idle_timeout) => {
                 tracing::debug!("LSP recompiling");
                 let pending_recompile = std::mem::take(&mut session.pending_recompile);
@@ -319,6 +331,9 @@ async fn lsp_main(
         }
 
         if let Some(project_root) = project_root.as_deref() {
+            if let Err(error) = springboard_process.ensure_project(project_root).await {
+                send_project_preview_error(&session, error.to_string());
+            }
             sync_file_watcher_if_needed(
                 &mut file_watcher,
                 &session,
@@ -328,10 +343,47 @@ async fn lsp_main(
         }
     };
 
+    if let Err(error) = springboard_process.stop().await {
+        tracing::error!("Failed to stop Springboard: {error}");
+    }
     if let Err(error) = live_preview_process.stop().await {
         tracing::error!("Failed to stop the separate live preview: {error}");
     }
     result
+}
+
+fn handle_springboard_event(
+    session: &editor_preview::EditorSession,
+    event: springboard::SpringboardHostEvent,
+) {
+    match event {
+        springboard::SpringboardHostEvent::Message(message) => {
+            if let i_slint_springboard::ServerMessage::Response(response) = &message
+                && let i_slint_springboard::ResponsePayload::Error { message, .. } =
+                    &response.response
+            {
+                send_project_preview_error(session, message.clone());
+            }
+            forward_springboard_message(message);
+        }
+        springboard::SpringboardHostEvent::Error(message) => {
+            send_project_preview_error(session, message);
+        }
+        springboard::SpringboardHostEvent::Closed => {
+            send_project_preview_error(
+                session,
+                "Springboard exited unexpectedly. Restart the project or reopen the editor.".into(),
+            );
+        }
+    }
+}
+
+fn forward_springboard_message(message: i_slint_springboard::ServerMessage) {
+    if let Err(error) = slint::invoke_from_event_loop(move || {
+        tracing::debug!("Springboard event on the editor UI thread: {message:?}");
+    }) {
+        tracing::error!("Failed to forward a Springboard event to the editor UI: {error}");
+    }
 }
 
 async fn trigger_editor_file_watcher(
