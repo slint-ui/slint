@@ -5,7 +5,7 @@ import {
     Api, SpringboardDevice, SpringboardDeviceKind, SpringboardDeviceStatus, SpringboardSessionStatus,
 } from "../../api.slint";
 import { StudioTheme } from "common.slint";
-import { ListView } from "std-widgets.slint";
+import { LineEdit, ListView } from "std-widgets.slint";
 
 component ManagerButton inherits Rectangle {
     in property <string> label;
@@ -258,6 +258,7 @@ component DeviceRow inherits Rectangle {
 
 export component DeviceManager inherits Rectangle {
     private property <int> selected-index: 0;
+    private property <string> manual-address;
     private property <bool> has-selection: Api.springboard-devices.length > 0
         && root.selected-index >= 0
         && root.selected-index < Api.springboard-devices.length;
@@ -278,10 +279,18 @@ export component DeviceManager inherits Rectangle {
             Api.springboard-stop-device(Api.springboard-devices[root.selected-index].id);
         } else if !root.another-active
                 && Api.springboard-devices[root.selected-index].can-launch
-                && Api.springboard-devices[root.selected-index].status != SpringboardDeviceStatus.Unavailable
                 && Api.springboard-devices[root.selected-index].status != SpringboardDeviceStatus.Incompatible {
             Api.springboard-launch-device(Api.springboard-devices[root.selected-index].id);
         }
+    }
+
+    function add-manual-device() {
+        if root.manual-address == "" {
+            return;
+        }
+        Api.springboard-add-manual-device(root.manual-address);
+        root.manual-address = "";
+        manager-focus.focus();
     }
 
     function action-label() -> string {
@@ -293,7 +302,7 @@ export component DeviceManager inherits Rectangle {
         }
         if root.has-selection
                 && Api.springboard-devices[root.selected-index].status == SpringboardDeviceStatus.Unavailable {
-            return "Unavailable";
+            return "Reconnect";
         }
         if root.has-selection
                 && Api.springboard-devices[root.selected-index].status == SpringboardDeviceStatus.Incompatible {
@@ -310,7 +319,6 @@ export component DeviceManager inherits Rectangle {
             return Api.springboard-devices[root.selected-index].can-stop;
         }
         return Api.springboard-devices[root.selected-index].can-launch
-            && Api.springboard-devices[root.selected-index].status != SpringboardDeviceStatus.Unavailable
             && Api.springboard-devices[root.selected-index].status != SpringboardDeviceStatus.Incompatible;
     }
 
@@ -460,6 +468,25 @@ export component DeviceManager inherits Rectangle {
             }
 
             HorizontalLayout {
+                spacing: 8px;
+                vertical-stretch: 0;
+                cross-axis-alignment: center;
+
+                manual-address := LineEdit {
+                    text <=> root.manual-address;
+                    placeholder-text: "Manual viewer address, for example 192.168.1.42:9000";
+                    accessible-label: "Manual remote viewer address";
+                    accepted => { root.add-manual-device(); }
+                }
+
+                ManagerButton {
+                    label: "Add remote";
+                    enabled: root.manual-address != "";
+                    clicked => { root.add-manual-device(); }
+                }
+            }
+
+            HorizontalLayout {
                 alignment: end;
                 spacing: 8px;
                 vertical-stretch: 0;
@@ -512,6 +539,10 @@ export component DeviceManager inherits Rectangle {
             if event.text == "s" && root.selected-active
                     && Api.springboard-devices[root.selected-index].can-stop {
                 Api.springboard-stop-device(Api.springboard-devices[root.selected-index].id);
+                return accept;
+            }
+            if event.text == "a" {
+                manual-address.focus();
                 return accept;
             }
             return reject;

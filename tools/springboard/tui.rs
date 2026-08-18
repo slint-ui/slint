@@ -89,7 +89,7 @@ async fn run_loop(
     let mut events = EventStream::new();
     let mut tick = tokio::time::interval(Duration::from_millis(100));
     loop {
-        controller.poll()?;
+        controller.poll().await?;
         app.absorb(controller.take_events());
         terminal.draw(|frame| render(frame, controller, app))?;
         if app.should_quit {
@@ -113,11 +113,39 @@ async fn run_loop(
 }
 
 async fn handle_key(key: KeyEvent, controller: &mut ProjectSessionController, app: &mut TuiApp) {
+    if key.code == KeyCode::Char('c') && key.modifiers.contains(KeyModifiers::CONTROL) {
+        app.should_quit = true;
+        return;
+    }
+    if app.manual_address.is_some() {
+        match key.code {
+            KeyCode::Esc => app.manual_address = None,
+            KeyCode::Backspace => {
+                app.manual_address.as_mut().unwrap().pop();
+            }
+            KeyCode::Enter => {
+                let address = app.manual_address.take().unwrap();
+                match controller.add_manual_device(&address) {
+                    Ok(device_id) => {
+                        if let Some(index) =
+                            controller.session().devices().keys().position(|id| id == &device_id)
+                        {
+                            app.selected = index;
+                        }
+                    }
+                    Err(error) => app.error(error.to_string()),
+                }
+            }
+            KeyCode::Char(character) if !key.modifiers.contains(KeyModifiers::CONTROL) => {
+                app.manual_address.as_mut().unwrap().push(character);
+            }
+            _ => {}
+        }
+        return;
+    }
+
     match key.code {
         KeyCode::Char('q') => {
-            app.should_quit = true;
-        }
-        KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => {
             app.should_quit = true;
         }
         KeyCode::Up => app.select_previous(controller.session().devices().len()),
@@ -144,7 +172,7 @@ async fn handle_key(key: KeyEvent, controller: &mut ProjectSessionController, ap
             }
         }
         KeyCode::Char('a') => {
-            app.info("Manual remote devices will be available with remote viewer support");
+            app.manual_address = Some(String::new());
         }
         _ => {}
     }
@@ -171,6 +199,7 @@ fn restore_terminal(terminal: &mut SpringboardTerminal) -> Result<()> {
 struct TuiApp {
     selected: usize,
     logs: VecDeque<String>,
+    manual_address: Option<String>,
     should_quit: bool,
 }
 
@@ -197,6 +226,7 @@ impl TuiApp {
         self.push_log(format!("ERROR {}", message.into()));
     }
 
+    #[cfg(test)]
     fn info(&mut self, message: impl Into<String>) {
         self.push_log(format!("INFO {}", message.into()));
     }
@@ -239,6 +269,7 @@ fn render(frame: &mut ratatui::Frame<'_>, controller: &ProjectSessionController,
         last_used: controller.last_used_device(),
         selected: app.selected,
         logs: app.logs.iter().map(String::as_str).collect(),
+        manual_address: app.manual_address.as_deref(),
     };
     render_view(frame, &view);
 }
@@ -250,6 +281,7 @@ struct ViewState<'a> {
     last_used: Option<&'a DeviceId>,
     selected: usize,
     logs: Vec<&'a str>,
+    manual_address: Option<&'a str>,
 }
 
 fn render_view(frame: &mut ratatui::Frame<'_>, view: &ViewState<'_>) {
@@ -317,11 +349,18 @@ fn render_view(frame: &mut ratatui::Frame<'_>, view: &ViewState<'_>) {
         areas[2],
     );
 
+    let help = app_footer(view);
     frame.render_widget(
-        Paragraph::new("↑/↓ Select  Enter Launch  s Stop  r Refresh  a Add remote  q Quit")
-            .block(Block::default().borders(Borders::ALL)),
+        Paragraph::new(help).block(Block::default().borders(Borders::ALL)),
         areas[3],
     );
+}
+
+fn app_footer(view: &ViewState<'_>) -> String {
+    view.manual_address.map_or_else(
+        || "↑/↓ Select  Enter Launch  s Stop  r Refresh  a Add remote  q Quit".into(),
+        |address| format!("Manual viewer address (host:port): {address}_  Enter Add  Esc Cancel"),
+    )
 }
 
 fn status_label(status: &DeviceStatus) -> String {
@@ -387,6 +426,7 @@ mod tests {
                         last_used,
                         selected: 0,
                         logs: logs.to_vec(),
+                        manual_address: None,
                     },
                 );
             })
@@ -455,5 +495,23 @@ mod tests {
 
         assert_eq!(app.logs.len(), MAX_LOG_LINES);
         assert_eq!(app.logs.front().map(String::as_str), Some("INFO 10"));
+    }
+
+    #[test]
+    fn manual_address_entry_replaces_the_shortcut_footer() {
+        let view = ViewState {
+            project: "/project".into(),
+            devices: Vec::new(),
+            active: None,
+            last_used: None,
+            selected: 0,
+            logs: Vec::new(),
+            manual_address: Some("viewer.local:41000"),
+        };
+
+        assert_eq!(
+            app_footer(&view),
+            "Manual viewer address (host:port): viewer.local:41000_  Enter Add  Esc Cancel"
+        );
     }
 }

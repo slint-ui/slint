@@ -9,8 +9,8 @@ use std::process::{ExitStatus, Stdio};
 use anyhow::{Context as _, Result, bail};
 use i_slint_springboard::{
     Device, DeviceCapabilities, DeviceId, DeviceKind, DeviceOrigin, DeviceStateStore, DeviceStatus,
-    DiagnosticSeverity, GlobalDeviceState, LogLevel, ProjectSnapshot, SessionAction, SessionEvent,
-    SpringboardSession, project::ProjectRunTarget,
+    DiagnosticSeverity, GlobalDeviceState, LogLevel, ProjectSnapshot, RememberedDevice,
+    SessionAction, SessionEvent, SpringboardSession, project::ProjectRunTarget,
 };
 use tokio::io::{AsyncBufReadExt as _, BufReader};
 use tokio::process::{Child, Command};
@@ -195,6 +195,8 @@ pub struct ProjectSessionController {
     remote_viewer: Option<RemoteViewerDriver>,
     remote_discovery: Option<RemoteViewerDiscovery>,
     remote_viewers: BTreeMap<DeviceId, DiscoveredRemoteViewer>,
+    pending_launch: Option<DeviceId>,
+    pending_endpoint_update: Option<DeviceId>,
     events: VecDeque<SessionEvent>,
 }
 
@@ -207,10 +209,24 @@ impl ProjectSessionController {
         let loaded = store.load();
         let mut session = SpringboardSession::new(project);
         let local_viewer = local_viewer_device();
-        for device in loaded.state.merge_runtime_devices([local_viewer]) {
+        let mut remote_viewers = BTreeMap::new();
+        let mut runtime_devices = vec![local_viewer];
+        let mut events = VecDeque::new();
+        for profile in loaded.state.remembered_devices.values().filter(|profile| profile.manual) {
+            match manual_viewer_from_profile(profile) {
+                Ok(viewer) => {
+                    runtime_devices.push(viewer.to_device());
+                    remote_viewers.insert(viewer.id.clone(), viewer);
+                }
+                Err(error) => events.push_back(SessionEvent::Error {
+                    device_id: Some(profile.id.clone()),
+                    message: format!("Ignoring invalid manual remote viewer: {error}"),
+                }),
+            }
+        }
+        for device in loaded.state.merge_runtime_devices(runtime_devices) {
             session.upsert_device(device.1);
         }
-        let mut events = VecDeque::new();
         if let Some(warning) = loaded.warning {
             events.push_back(SessionEvent::Log {
                 device_id: None,
@@ -225,7 +241,9 @@ impl ProjectSessionController {
             local_viewer: LocalViewerDriver::new(viewer_command),
             remote_viewer: None,
             remote_discovery: None,
-            remote_viewers: BTreeMap::new(),
+            remote_viewers,
+            pending_launch: None,
+            pending_endpoint_update: None,
             events,
         }
     }
@@ -277,32 +295,75 @@ impl ProjectSessionController {
                 self.emit_device(device_id);
                 return Err(error);
             }
-        } else {
-            let Some(viewer) = self.remote_viewers.get(device_id).cloned() else {
-                let message = format!("Remote viewer {device_id} is not currently discoverable");
-                self.session.mark_failed(device_id, &message)?;
-                self.emit_device(device_id);
-                bail!(message);
-            };
+        } else if let Some(viewer) = self.remote_viewers.get(device_id).cloned() {
             self.session.mark_connecting(device_id)?;
+            self.pending_launch = Some(device_id.clone());
             self.emit_device(device_id);
-            let mut driver = match RemoteViewerDriver::new() {
-                Ok(driver) => driver,
-                Err(error) => {
-                    self.session.mark_failed(device_id, error.to_string())?;
-                    self.emit_device(device_id);
-                    return Err(error);
-                }
-            };
-            if let Err(error) = driver.launch(&viewer, self.session.project(), "fluent").await {
+            if let Err(error) = self.connect_remote_viewer(&viewer).await {
+                self.pending_launch = None;
                 self.session.mark_failed(device_id, error.to_string())?;
                 self.emit_device(device_id);
                 return Err(error);
             }
-            self.remote_viewer = Some(driver);
+            return Ok(());
+        } else if self.global_state.remembered_devices.contains_key(device_id) {
+            self.session.mark_connecting(device_id)?;
+            self.pending_launch = Some(device_id.clone());
+            self.emit_device(device_id);
+            self.events.push_back(SessionEvent::Log {
+                device_id: Some(device_id.clone()),
+                level: LogLevel::Information,
+                message: "Waiting for the remembered remote viewer to appear".into(),
+            });
+            return Ok(());
+        } else {
+            let message = format!("Remote viewer {device_id} is not currently discoverable");
+            self.session.mark_failed(device_id, &message)?;
+            self.emit_device(device_id);
+            bail!(message);
         }
 
+        self.complete_launch(device_id)?;
+        Ok(())
+    }
+
+    pub fn add_manual_device(&mut self, address: &str) -> Result<DeviceId> {
+        let viewer = DiscoveredRemoteViewer::manual(address)?;
+        let device_id = viewer.id.clone();
+        let device = viewer.to_device();
+        let mut global_state = self.global_state.clone();
+        global_state.remember_device(&device, viewer.endpoint_strings());
+        self.store.save(&global_state).context("Failed to remember the manual remote viewer")?;
+        self.global_state = global_state;
+        self.remote_viewers.insert(device_id.clone(), viewer);
+        self.session.upsert_device(device);
+        self.emit_device(&device_id);
+        self.events.push_back(SessionEvent::Log {
+            device_id: Some(device_id.clone()),
+            level: LogLevel::Information,
+            message: "Manual remote viewer added".into(),
+        });
+        Ok(device_id)
+    }
+
+    async fn connect_remote_viewer(&mut self, viewer: &DiscoveredRemoteViewer) -> Result<()> {
+        let mut driver = RemoteViewerDriver::new()?;
+        driver.launch(viewer, self.session.project(), "fluent").await?;
+        self.remote_viewer = Some(driver);
+        Ok(())
+    }
+
+    fn complete_launch(&mut self, device_id: &DeviceId) -> Result<()> {
+        self.pending_launch = None;
+        if self.pending_endpoint_update.as_ref() == Some(device_id) {
+            self.pending_endpoint_update = None;
+        }
         self.session.mark_running(device_id)?;
+        if let Some(viewer) = self.remote_viewers.get(device_id)
+            && let Some(device) = self.session.devices().get(device_id)
+        {
+            self.global_state.remember_device(device, viewer.endpoint_strings());
+        }
         self.global_state.last_used_device = Some(device_id.clone());
         self.emit_device(device_id);
         self.events
@@ -337,6 +398,12 @@ impl ProjectSessionController {
         } else if let Some(mut driver) = self.remote_viewer.take() {
             driver.stop().await;
         }
+        if self.pending_launch.as_ref() == Some(device_id) {
+            self.pending_launch = None;
+        }
+        if self.pending_endpoint_update.as_ref() == Some(device_id) {
+            self.pending_endpoint_update = None;
+        }
         let idle_status = if device_id.as_str() == LOCAL_VIEWER_DEVICE_ID
             || self.remote_viewers.contains_key(device_id)
         {
@@ -363,6 +430,7 @@ impl ProjectSessionController {
             SessionAction::Refresh => {
                 if self.session.active_device() == Some(device_id)
                     && device_id.as_str() != LOCAL_VIEWER_DEVICE_ID
+                    && self.pending_launch.as_ref() != Some(device_id)
                 {
                     self.remote_viewer
                         .as_mut()
@@ -380,7 +448,7 @@ impl ProjectSessionController {
         }
     }
 
-    pub fn poll(&mut self) -> Result<()> {
+    pub async fn poll(&mut self) -> Result<()> {
         let discovery_events = self
             .remote_discovery
             .as_mut()
@@ -389,6 +457,8 @@ impl ProjectSessionController {
         for event in discovery_events {
             self.apply_discovery_event(event);
         }
+        self.reconnect_at_updated_endpoint().await;
+        self.connect_pending_viewer().await;
         self.capture_remote_events()?;
         self.capture_output();
         if let Some(status) = self.local_viewer.poll_exit()? {
@@ -401,6 +471,43 @@ impl ProjectSessionController {
             }
         }
         Ok(())
+    }
+
+    async fn connect_pending_viewer(&mut self) {
+        let Some(device_id) = self.pending_launch.clone() else { return };
+        if self.remote_viewer.is_some() {
+            return;
+        }
+        let Some(viewer) = self.remote_viewers.get(&device_id).cloned() else { return };
+        match self.connect_remote_viewer(&viewer).await {
+            Ok(()) => {}
+            Err(error) => {
+                self.pending_launch = None;
+                let message = error.to_string();
+                if self.session.mark_failed(&device_id, &message).is_ok() {
+                    self.emit_device(&device_id);
+                }
+                self.events.push_back(SessionEvent::Error { device_id: Some(device_id), message });
+            }
+        }
+    }
+
+    async fn reconnect_at_updated_endpoint(&mut self) {
+        let Some(device_id) = self.pending_endpoint_update.clone() else { return };
+        if self.session.active_device() != Some(&device_id)
+            || self.session.devices()[&device_id].status != DeviceStatus::Connecting
+        {
+            return;
+        }
+        let Some(viewer) = self.remote_viewers.get(&device_id).cloned() else { return };
+        let Some(driver) = self.remote_viewer.as_mut() else { return };
+        self.pending_endpoint_update = None;
+        if let Err(error) = driver.reconnect(&viewer).await {
+            self.events.push_back(SessionEvent::Error {
+                device_id: Some(device_id),
+                message: format!("Failed to reconnect at the viewer's updated address: {error}"),
+            });
+        }
     }
 
     pub fn take_events(&mut self) -> Vec<SessionEvent> {
@@ -465,14 +572,16 @@ impl ProjectSessionController {
                     use i_slint_live_preview::remote_client::RemoteClientState;
                     match event.state {
                         RemoteClientState::Connected => {
-                            self.session.mark_running(&device_id)?;
-                            self.emit_device(&device_id);
+                            self.complete_launch(&device_id)?;
                         }
                         RemoteClientState::Connecting | RemoteClientState::Disconnected => {
                             self.session.mark_connecting(&device_id)?;
                             self.emit_device(&device_id);
                         }
                         RemoteClientState::Failed => {
+                            self.pending_launch = None;
+                            self.pending_endpoint_update = None;
+                            self.remote_viewer = None;
                             let message = event.error.unwrap_or_else(|| {
                                 format!("Failed to connect to remote viewer at {}", event.target)
                             });
@@ -503,9 +612,33 @@ impl ProjectSessionController {
         match event {
             RemoteDiscoveryEvent::Upsert(viewer) => {
                 let device_id = viewer.id.clone();
+                let current_endpoints = viewer.endpoint_strings();
+                let previous_endpoints = self
+                    .remote_viewers
+                    .get(&device_id)
+                    .map(DiscoveredRemoteViewer::endpoint_strings)
+                    .or_else(|| {
+                        self.global_state
+                            .remembered_devices
+                            .get(&device_id)
+                            .map(|profile| profile.addresses.clone())
+                    });
+                let endpoint_changed =
+                    previous_endpoints.is_some_and(|previous| previous != current_endpoints);
                 let device = viewer.to_device();
                 self.remote_viewers.insert(device_id.clone(), viewer);
                 self.session.upsert_device(device);
+                if endpoint_changed
+                    && self.session.active_device() == Some(&device_id)
+                    && self.pending_launch.as_ref() != Some(&device_id)
+                {
+                    self.pending_endpoint_update = Some(device_id.clone());
+                    self.events.push_back(SessionEvent::Log {
+                        device_id: Some(device_id.clone()),
+                        level: LogLevel::Information,
+                        message: "The remote viewer advertised a new network address".into(),
+                    });
+                }
                 self.emit_device(&device_id);
             }
             RemoteDiscoveryEvent::Removed(device_id) => {
@@ -553,6 +686,19 @@ fn local_viewer_device() -> Device {
     }
 }
 
+fn manual_viewer_from_profile(profile: &RememberedDevice) -> Result<DiscoveredRemoteViewer> {
+    let address = profile
+        .addresses
+        .first()
+        .with_context(|| format!("Manual remote viewer {} has no saved address", profile.id))?;
+    let mut viewer = DiscoveredRemoteViewer::manual(address)?;
+    viewer.id = profile.id.clone();
+    viewer.name = profile.name.clone();
+    viewer.slint_version = profile.version.clone();
+    viewer.platform = profile.platform.clone().unwrap_or_else(|| "manual".into());
+    Ok(viewer)
+}
+
 #[cfg(test)]
 mod tests {
     use std::time::Duration;
@@ -572,6 +718,11 @@ mod tests {
     }
 
     fn project(directory: &tempfile::TempDir) -> ProjectRunTarget {
+        std::fs::write(
+            directory.path().join("main.slint"),
+            "export component App inherits Window {}",
+        )
+        .unwrap();
         ProjectRunTarget {
             project_root: directory.path().into(),
             manifest_path: directory.path().join("slint.toml"),
@@ -599,6 +750,7 @@ mod tests {
         DiscoveredRemoteViewer {
             id: DeviceId::new("remote:phone-id").unwrap(),
             name: "Nigel's iPhone".into(),
+            origin: DeviceOrigin::Discovered,
             platform: "ios".into(),
             slint_version: Some(env!("CARGO_PKG_VERSION").into()),
             protocols: vec![i_slint_live_preview::protocol::PROTOCOL_SUBPROTOCOL.into()],
@@ -656,7 +808,7 @@ mod tests {
         controller.launch(&device_id).await.unwrap();
         tokio::time::sleep(Duration::from_millis(100)).await;
 
-        controller.poll().unwrap();
+        controller.poll().await.unwrap();
         let events = controller.take_events();
 
         assert!(events.iter().any(|event| matches!(
@@ -669,6 +821,111 @@ mod tests {
             SessionEvent::Error { message, .. } if message.contains("exited unexpectedly")
         )));
         assert_eq!(controller.session().active_device(), None);
+    }
+
+    #[test]
+    fn manual_viewers_survive_a_new_project_session() {
+        let directory = tempfile::tempdir().unwrap();
+        let state_store = store(&directory);
+        let mut first = ProjectSessionController::new(
+            project(&directory),
+            state_store.clone(),
+            fake_command("wait"),
+        );
+
+        let device_id = first.add_manual_device("viewer.local:41000").unwrap();
+        drop(first);
+        let second =
+            ProjectSessionController::new(project(&directory), state_store, fake_command("wait"));
+        let device = &second.session().devices()[&device_id];
+
+        assert_eq!(device.origin, DeviceOrigin::Manual);
+        assert_eq!(device.status, DeviceStatus::Available);
+        assert_eq!(device.name, "viewer.local:41000");
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn an_offline_last_used_viewer_connects_when_discovered_at_a_new_address() {
+        use i_slint_live_preview::remote::Connection;
+
+        let directory = tempfile::tempdir().unwrap();
+        let state_store = store(&directory);
+        let old_viewer = remote_viewer();
+        let mut state = GlobalDeviceState::default();
+        state.remember_device(&old_viewer.to_device(), vec!["192.0.2.10:41000".into()]);
+        state.last_used_device = Some(old_viewer.id.clone());
+        state_store.save(&state).unwrap();
+        let mut controller = ProjectSessionController::new(
+            project(&directory),
+            state_store.clone(),
+            fake_command("wait"),
+        );
+        let device_id = old_viewer.id.clone();
+
+        assert_eq!(controller.session().devices()[&device_id].status, DeviceStatus::Unavailable);
+        controller.launch(&device_id).await.unwrap();
+        assert_eq!(controller.session().devices()[&device_id].status, DeviceStatus::Connecting);
+
+        let connection = Connection::listen(
+            Some(std::net::SocketAddr::from(([127, 0, 0, 1], 0))),
+            Some("Test Viewer".into()),
+            |_| {},
+        )
+        .await
+        .unwrap();
+        let mut current_viewer = old_viewer;
+        current_viewer.name = "Nigel's renamed iPhone".into();
+        current_viewer.addresses = vec!["127.0.0.1".into()];
+        current_viewer.port = connection.local_port();
+        controller.apply_discovery_event(RemoteDiscoveryEvent::Upsert(current_viewer.clone()));
+        tokio::time::timeout(Duration::from_secs(5), async {
+            loop {
+                controller.poll().await.unwrap();
+                if controller.session().devices()[&device_id].status == DeviceStatus::Running {
+                    break;
+                }
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+        })
+        .await
+        .expect("the remembered remote viewer did not connect");
+
+        assert_eq!(controller.session().devices()[&device_id].status, DeviceStatus::Running);
+        let stored = state_store.load().state;
+        let profile = &stored.remembered_devices[&device_id];
+        assert_eq!(profile.name, "Nigel's renamed iPhone");
+        assert_eq!(profile.addresses, current_viewer.endpoint_strings());
+        assert_eq!(stored.last_used_device, Some(device_id.clone()));
+
+        let replacement = Connection::listen(
+            Some(std::net::SocketAddr::from(([127, 0, 0, 1], 0))),
+            Some("Replacement Viewer".into()),
+            |_| {},
+        )
+        .await
+        .unwrap();
+        controller.session.mark_connecting(&device_id).unwrap();
+        current_viewer.port = replacement.local_port();
+        controller.apply_discovery_event(RemoteDiscoveryEvent::Upsert(current_viewer.clone()));
+        tokio::time::timeout(Duration::from_secs(5), async {
+            loop {
+                controller.poll().await.unwrap();
+                if controller.session().devices()[&device_id].status == DeviceStatus::Running {
+                    break;
+                }
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+        })
+        .await
+        .expect("the remote viewer did not reconnect at its updated address");
+
+        let stored = state_store.load().state;
+        assert_eq!(
+            stored.remembered_devices[&device_id].addresses,
+            current_viewer.endpoint_strings()
+        );
+
+        controller.shutdown().await.unwrap();
     }
 
     #[test]

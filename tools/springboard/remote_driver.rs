@@ -122,6 +122,12 @@ impl RemoteViewerDriver {
         while self.watch_events.try_recv().is_ok() {}
     }
 
+    pub async fn reconnect(&mut self, viewer: &DiscoveredRemoteViewer) -> Result<()> {
+        self.device_id = Some(viewer.id.clone());
+        self.client.connect(viewer.addresses.clone(), viewer.port).await?;
+        self.send_full_state()
+    }
+
     pub fn refresh(&mut self) -> Result<()> {
         self.send_full_state()
     }
@@ -336,6 +342,7 @@ mod tests {
         DiscoveredRemoteViewer {
             id: DeviceId::new("remote:test-viewer").unwrap(),
             name: "Test Viewer".into(),
+            origin: i_slint_springboard::DeviceOrigin::Discovered,
             platform: "test".into(),
             slint_version: Some(env!("CARGO_PKG_VERSION").into()),
             protocols: vec![i_slint_live_preview::protocol::PROTOCOL_SUBPROTOCOL.into()],

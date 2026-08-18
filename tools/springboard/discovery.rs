@@ -23,6 +23,7 @@ const REMOTE_DEVICE_PREFIX: &str = "remote:";
 pub struct DiscoveredRemoteViewer {
     pub id: DeviceId,
     pub name: String,
+    pub origin: DeviceOrigin,
     pub platform: String,
     pub slint_version: Option<String>,
     pub protocols: Vec<String>,
@@ -41,7 +42,7 @@ impl DiscoveredRemoteViewer {
             id: self.id.clone(),
             name: self.name.clone(),
             kind: DeviceKind::RemoteViewer,
-            origin: DeviceOrigin::Discovered,
+            origin: self.origin,
             status: if compatible {
                 DeviceStatus::Available
             } else {
@@ -60,6 +61,54 @@ impl DiscoveredRemoteViewer {
             platform: Some(self.platform.clone()),
         }
     }
+
+    pub fn endpoint_strings(&self) -> Vec<String> {
+        self.addresses.iter().map(|address| format_endpoint(address, self.port)).collect()
+    }
+
+    pub fn manual(address: &str) -> Result<Self> {
+        let (host, port) = parse_endpoint(address)?;
+        let endpoint = format_endpoint(&host, port);
+        Ok(Self {
+            id: DeviceId::new(format!("manual:{endpoint}"))?,
+            name: endpoint,
+            origin: DeviceOrigin::Manual,
+            platform: "manual".into(),
+            slint_version: None,
+            protocols: vec![PROTOCOL_SUBPROTOCOL.into()],
+            addresses: vec![host],
+            port,
+        })
+    }
+}
+
+pub fn format_endpoint(address: &str, port: u16) -> String {
+    let address =
+        address.strip_prefix('[').and_then(|value| value.strip_suffix(']')).unwrap_or(address);
+    if address.contains(':') { format!("[{address}]:{port}") } else { format!("{address}:{port}") }
+}
+
+pub fn parse_endpoint(address: &str) -> Result<(String, u16)> {
+    let address = address.trim();
+    let (host, port) = if let Some(rest) = address.strip_prefix('[') {
+        let (host, port) = rest.split_once("]:").with_context(|| {
+            format!("Invalid remote viewer address {address}; expected [host]:port")
+        })?;
+        (host, port)
+    } else {
+        address.rsplit_once(':').with_context(|| {
+            format!("Invalid remote viewer address {address}; expected host:port")
+        })?
+    };
+    if host.is_empty() || host.chars().any(char::is_whitespace) || host.contains('/') {
+        anyhow::bail!("Invalid remote viewer host in {address}");
+    }
+    let port =
+        port.parse::<u16>().with_context(|| format!("Invalid remote viewer port in {address}"))?;
+    if port == 0 {
+        anyhow::bail!("Remote viewer port must not be zero");
+    }
+    Ok((host.to_owned(), port))
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -244,6 +293,7 @@ impl DiscoveryRegistry {
         Some(DiscoveredRemoteViewer {
             id: DeviceId::new(format!("{REMOTE_DEVICE_PREFIX}{device_id}")).ok()?,
             name: first.name,
+            origin: DeviceOrigin::Discovered,
             platform: first.platform,
             slint_version: first.slint_version,
             protocols: first.protocols,
@@ -333,5 +383,20 @@ mod tests {
 
         assert!(matches!(viewer.to_device().status, DeviceStatus::Incompatible { .. }));
         assert!(!viewer.to_device().capabilities.launch);
+    }
+
+    #[test]
+    fn manual_endpoints_support_hostnames_and_ipv6() {
+        assert_eq!(parse_endpoint("viewer.local:41000").unwrap(), ("viewer.local".into(), 41000));
+        assert_eq!(parse_endpoint("[fe80::1%en0]:41000").unwrap(), ("fe80::1%en0".into(), 41000));
+        assert_eq!(format_endpoint("fe80::1%en0", 41000), "[fe80::1%en0]:41000");
+        assert!(parse_endpoint("viewer.local").is_err());
+        assert!(parse_endpoint("viewer.local:0").is_err());
+        assert!(parse_endpoint("ws://viewer.local:41000").is_err());
+
+        let viewer = DiscoveredRemoteViewer::manual("viewer.local:41000").unwrap();
+        assert_eq!(viewer.id.as_str(), "manual:viewer.local:41000");
+        assert_eq!(viewer.origin, DeviceOrigin::Manual);
+        assert_eq!(viewer.endpoint_strings(), ["viewer.local:41000"]);
     }
 }

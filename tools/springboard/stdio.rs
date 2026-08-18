@@ -52,7 +52,7 @@ where
                 }
             }
             _ = tick.tick() => {
-                controller.poll()?;
+                controller.poll().await?;
                 if handshaken {
                     for event in controller.take_events() {
                         write_message(
@@ -140,16 +140,10 @@ where
             write_response(writer, request.request_id, response).await?;
             write_pending_events(writer, controller).await?;
         }
-        ClientCommand::AddManualDevice { .. } => {
-            write_response(
-                writer,
-                request.request_id,
-                ResponsePayload::Error {
-                    code: ProtocolErrorCode::Internal,
-                    message: "Manual remote devices require remote viewer support".into(),
-                },
-            )
-            .await?;
+        ClientCommand::AddManualDevice { address } => {
+            let response = operation_response(controller.add_manual_device(&address).map(|_| ()));
+            write_response(writer, request.request_id, response).await?;
+            write_pending_events(writer, controller).await?;
         }
         ClientCommand::Shutdown => {
             controller.shutdown().await?;
@@ -384,5 +378,44 @@ mod tests {
         drop(client);
 
         tokio::time::timeout(Duration::from_secs(1), task).await.unwrap().unwrap().unwrap();
+    }
+
+    #[tokio::test]
+    async fn adding_a_manual_device_persists_and_emits_it() {
+        let directory = tempfile::tempdir().unwrap();
+        let (mut lines, mut writer, task) = start_server(&directory).await;
+        handshake(&mut lines, &mut writer).await;
+
+        send(
+            &mut writer,
+            r#"{"protocol_version":1,"request_id":7,"command":"add-manual-device","address":"viewer.local:41000"}"#,
+        )
+        .await;
+
+        assert!(matches!(
+            receive(&mut lines).await,
+            ServerMessage::Response(ResponseEnvelope {
+                request_id: RequestId(7),
+                response: ResponsePayload::Ok,
+                ..
+            })
+        ));
+        assert!(matches!(
+            receive(&mut lines).await,
+            ServerMessage::Event(EventEnvelope {
+                event: ServerEvent::DeviceChanged { device },
+                ..
+            }) if device.id.as_str() == "manual:viewer.local:41000"
+                && device.origin == i_slint_springboard::DeviceOrigin::Manual
+        ));
+        let state =
+            DeviceStateStore::new(directory.path().join("config/devices.json")).load().state;
+        assert!(state.remembered_devices.contains_key(
+            &i_slint_springboard::DeviceId::new("manual:viewer.local:41000").unwrap()
+        ));
+
+        drop(writer);
+        drop(lines);
+        task.await.unwrap().unwrap();
     }
 }
