@@ -182,7 +182,9 @@ impl TuiApp {
                     self.push_log(format!("{severity:?} {message}"));
                 }
                 SessionEvent::Error { message, .. } => self.error(message),
-                SessionEvent::DeviceChanged { .. } | SessionEvent::ActiveDeviceChanged { .. } => {}
+                SessionEvent::DeviceChanged { .. }
+                | SessionEvent::ActiveDeviceChanged { .. }
+                | SessionEvent::LastUsedDeviceChanged { .. } => {}
             }
         }
     }

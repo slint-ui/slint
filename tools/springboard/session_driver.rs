@@ -263,6 +263,8 @@ impl ProjectSessionController {
         self.session.mark_running(device_id)?;
         self.global_state.last_used_device = Some(device_id.clone());
         self.emit_device(device_id);
+        self.events
+            .push_back(SessionEvent::LastUsedDeviceChanged { device_id: Some(device_id.clone()) });
         self.events.push_back(SessionEvent::Log {
             device_id: Some(device_id.clone()),
             level: LogLevel::Information,

@@ -64,6 +64,45 @@ export enum RemoteConnectionState {
     Failed,
 }
 
+export enum SpringboardDeviceKind {
+    LocalViewer,
+    RustApplication,
+    RemoteViewer,
+    IosSimulator,
+    AndroidEmulator,
+}
+
+export enum SpringboardDeviceStatus {
+    Available,
+    Unavailable,
+    Starting,
+    Connecting,
+    Running,
+    Stopping,
+    Failed,
+    Incompatible,
+}
+
+export enum SpringboardSessionStatus {
+    Unavailable,
+    Ready,
+    Error,
+}
+
+export struct SpringboardDevice {
+    id: string,
+    name: string,
+    kind: SpringboardDeviceKind,
+    status: SpringboardDeviceStatus,
+    status-detail: string,
+    version: string,
+    is-active: bool,
+    is-last-used: bool,
+    can-launch: bool,
+    can-stop: bool,
+    can-refresh: bool,
+}
+
 export enum PreviewMode {
     Local,
     Remote,
@@ -600,6 +639,11 @@ export global Api {
     in-out property <string> project-run-dialog-entry-label;
     in-out property <[string]> project-run-components;
     in-out property <string> project-run-error;
+    in-out property <[SpringboardDevice]> springboard-devices;
+    in-out property <SpringboardSessionStatus> springboard-session-status: SpringboardSessionStatus.Unavailable;
+    in-out property <string> springboard-session-error;
+    in-out property <string> springboard-active-device-id;
+    in-out property <string> springboard-last-used-device-id;
     in-out property <string> selected-project-file;
     in-out property <bool> startup-wizard-visible;
     in-out property <EditorSurfaceMode> editor-surface-mode: EditorSurfaceMode.component;
@@ -614,6 +658,10 @@ export global Api {
     callback file-tree-select(path: string);
     callback select-project-run-component(component: string);
     callback close-project-run-dialog();
+    callback springboard-launch-device(device-id: string);
+    callback springboard-stop-device(device-id: string);
+    callback springboard-refresh-device(device-id: string);
+    callback springboard-add-manual-device(address: string);
     pure callback image-nine-slice-expression(path: string, top: int, right: int, bottom: int, left: int) -> string;
     pure callback image-nine-slice-preview(source: image, top: int, right: int, bottom: int, left: int) -> image;
     callback copy-nine-slice-expression(value: string);

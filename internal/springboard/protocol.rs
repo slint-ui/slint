@@ -33,6 +33,7 @@ pub enum ClientCommand {
     Launch { device_id: DeviceId },
     Stop { device_id: DeviceId },
     Refresh { device_id: DeviceId },
+    AddManualDevice { address: String },
     Shutdown,
 }
 
@@ -113,6 +114,9 @@ pub enum ServerEvent {
     ActiveDeviceChanged {
         device_id: Option<DeviceId>,
     },
+    LastUsedDeviceChanged {
+        device_id: Option<DeviceId>,
+    },
     Log {
         device_id: Option<DeviceId>,
         level: LogLevel,
@@ -139,6 +143,9 @@ impl From<SessionEvent> for ServerEvent {
             SessionEvent::DeviceChanged { device } => Self::DeviceChanged { device },
             SessionEvent::ActiveDeviceChanged { device_id } => {
                 Self::ActiveDeviceChanged { device_id }
+            }
+            SessionEvent::LastUsedDeviceChanged { device_id } => {
+                Self::LastUsedDeviceChanged { device_id }
             }
             SessionEvent::Log { device_id, level, message } => {
                 Self::Log { device_id, level, message }
@@ -187,7 +194,15 @@ pub fn decode_request(line: &str) -> Result<ClientRequest, RequestDecodeError> {
     let command = value.get("command").and_then(serde_json::Value::as_str);
     let known_command = matches!(
         command,
-        Some("handshake" | "snapshot" | "launch" | "stop" | "refresh" | "shutdown")
+        Some(
+            "handshake"
+                | "snapshot"
+                | "launch"
+                | "stop"
+                | "refresh"
+                | "add-manual-device"
+                | "shutdown"
+        )
     );
     if command.is_some() && !known_command {
         return Err(RequestDecodeError {

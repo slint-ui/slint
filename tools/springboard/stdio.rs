@@ -140,6 +140,17 @@ where
             write_response(writer, request.request_id, response).await?;
             write_pending_events(writer, controller).await?;
         }
+        ClientCommand::AddManualDevice { .. } => {
+            write_response(
+                writer,
+                request.request_id,
+                ResponsePayload::Error {
+                    code: ProtocolErrorCode::Internal,
+                    message: "Manual remote devices require remote viewer support".into(),
+                },
+            )
+            .await?;
+        }
         ClientCommand::Shutdown => {
             controller.shutdown().await?;
             write_response(writer, request.request_id, ResponsePayload::Ok).await?;

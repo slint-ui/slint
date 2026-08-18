@@ -71,6 +71,7 @@ pub struct SpringboardProcess {
     manifest_present: bool,
     launch_failed: bool,
     executable_override: Option<PathBuf>,
+    next_request_id: u64,
 }
 
 impl Default for SpringboardProcess {
@@ -87,6 +88,7 @@ impl Default for SpringboardProcess {
             manifest_present: false,
             launch_failed: false,
             executable_override: None,
+            next_request_id: 2,
         }
     }
 }
@@ -221,12 +223,29 @@ impl SpringboardProcess {
         }
     }
 
+    pub async fn send(&mut self, command: ClientCommand) -> Result<RequestId> {
+        let Some(input) = &mut self.input else {
+            return Err("Springboard is not running for this project".into());
+        };
+        let request_id = RequestId(self.next_request_id);
+        self.next_request_id = self.next_request_id.wrapping_add(1);
+        let request =
+            ClientRequest { protocol_version: SPRINGBOARD_PROTOCOL_VERSION, request_id, command };
+        let mut line = serde_json::to_vec(&request)?;
+        line.push(b'\n');
+        input.write_all(&line).await?;
+        input.flush().await?;
+        Ok(request_id)
+    }
+
     pub async fn stop(&mut self) -> Result<()> {
         self.generation = self.generation.wrapping_add(1);
         if let Some(mut input) = self.input.take() {
+            let request_id = RequestId(self.next_request_id);
+            self.next_request_id = self.next_request_id.wrapping_add(1);
             let request = ClientRequest {
                 protocol_version: SPRINGBOARD_PROTOCOL_VERSION,
-                request_id: RequestId(2),
+                request_id,
                 command: ClientCommand::Shutdown,
             };
             let mut line = serde_json::to_vec(&request)?;

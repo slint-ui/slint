@@ -164,6 +164,9 @@ pub enum SessionEvent {
     ActiveDeviceChanged {
         device_id: Option<DeviceId>,
     },
+    LastUsedDeviceChanged {
+        device_id: Option<DeviceId>,
+    },
     Log {
         device_id: Option<DeviceId>,
         level: LogLevel,

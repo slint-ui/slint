@@ -27,6 +27,7 @@ use lsp_types::{MessageType, Url};
 #[cfg(target_os = "macos")]
 mod sparkle;
 mod springboard;
+mod springboard_ui;
 
 fn main() -> std::result::Result<(), slint::PlatformError> {
     tracing_subscriber::fmt()
@@ -39,6 +40,7 @@ fn main() -> std::result::Result<(), slint::PlatformError> {
     let cli = Cli::parse();
 
     let (to_lsp, from_preview) = crossbeam_channel::unbounded();
+    let (springboard_actions, from_springboard_ui) = crossbeam_channel::unbounded();
 
     let to_lsp = Rc::new(EmbeddedPreviewToLsp { sender: to_lsp })
         as Rc<dyn editor_preview::PreviewToLsp + 'static>;
@@ -48,9 +50,10 @@ fn main() -> std::result::Result<(), slint::PlatformError> {
     // initialize the default platform first and lose the hook.
     select_backend()?;
 
-    let _lsp_thread = start_lsp_thread(from_preview, cli);
+    let _lsp_thread = start_lsp_thread(from_preview, from_springboard_ui, cli);
 
     let app_window = preview::ui::create_ui(&to_lsp, "", preview::PreviewUiKind::Editor)?;
+    springboard_ui::setup(&app_window, springboard_actions);
 
     // The updater needs to stay in scope for as long as the window is up.
     #[cfg(target_os = "macos")]
@@ -143,6 +146,7 @@ impl Drop for LspThread {
 
 fn start_lsp_thread(
     from_preview: crossbeam_channel::Receiver<PreviewToLspMessage>,
+    from_springboard_ui: crossbeam_channel::Receiver<springboard_ui::SpringboardUiAction>,
     cli: Cli,
 ) -> LspThread {
     let (shutdown, shutdown_rx) = tokio::sync::oneshot::channel();
@@ -153,7 +157,9 @@ fn start_lsp_thread(
             .build()
             .unwrap();
         let local_set = tokio::task::LocalSet::new();
-        if let Err(err) = local_set.block_on(&rt, lsp_main(from_preview, cli, shutdown_rx)) {
+        if let Err(err) =
+            local_set.block_on(&rt, lsp_main(from_preview, from_springboard_ui, cli, shutdown_rx))
+        {
             tracing::error!("{err}");
             std::process::exit(1);
         }
@@ -179,12 +185,22 @@ fn bridge_crossbeam_to_tokio(
 
 async fn lsp_main(
     from_preview: crossbeam_channel::Receiver<PreviewToLspMessage>,
+    from_springboard_ui: crossbeam_channel::Receiver<springboard_ui::SpringboardUiAction>,
     cli: Cli,
     mut shutdown: tokio::sync::oneshot::Receiver<()>,
 ) -> Result<()> {
     use editor_preview::document_cache::CompilerConfiguration;
 
     let mut from_preview_rx = bridge_crossbeam_to_tokio(from_preview);
+    let (springboard_actions_tx, mut springboard_actions_rx) =
+        tokio::sync::mpsc::unbounded_channel();
+    std::thread::spawn(move || {
+        while let Ok(action) = from_springboard_ui.recv() {
+            if springboard_actions_tx.send(action).is_err() {
+                break;
+            }
+        }
+    });
     let (file_watcher_tx, mut file_watcher_rx) = tokio::sync::mpsc::unbounded_channel();
     let mut file_watcher = FileWatcher::start(
         move |event| {
@@ -318,6 +334,18 @@ async fn lsp_main(
                     handle_springboard_event(&session, event);
                 }
             }
+            action = springboard_actions_rx.recv() => {
+                if let Some(action) = action
+                    && let Err(error) = handle_springboard_action(
+                        &mut springboard_process,
+                        action,
+                    ).await
+                {
+                    let message = error.to_string();
+                    send_project_preview_error(&session, message.clone());
+                    forward_springboard_error(message);
+                }
+            }
             _ = tokio::time::sleep(recompile_idle_timeout) => {
                 tracing::debug!("LSP recompiling");
                 let pending_recompile = std::mem::take(&mut session.pending_recompile);
@@ -367,23 +395,61 @@ fn handle_springboard_event(
             forward_springboard_message(message);
         }
         springboard::SpringboardHostEvent::Error(message) => {
-            send_project_preview_error(session, message);
+            send_project_preview_error(session, message.clone());
+            forward_springboard_error(message);
         }
         springboard::SpringboardHostEvent::Closed => {
-            send_project_preview_error(
-                session,
-                "Springboard exited unexpectedly. Restart the project or reopen the editor.".into(),
-            );
+            let message =
+                "Springboard exited unexpectedly. Restart the project or reopen the editor."
+                    .to_string();
+            send_project_preview_error(session, message.clone());
+            forward_springboard_error(message);
         }
     }
 }
 
 fn forward_springboard_message(message: i_slint_springboard::ServerMessage) {
     if let Err(error) = slint::invoke_from_event_loop(move || {
-        tracing::debug!("Springboard event on the editor UI thread: {message:?}");
+        springboard_ui::apply_message(message);
     }) {
         tracing::error!("Failed to forward a Springboard event to the editor UI: {error}");
     }
+}
+
+fn forward_springboard_error(message: String) {
+    if let Err(error) = slint::invoke_from_event_loop(move || {
+        springboard_ui::set_connection_error(message);
+    }) {
+        tracing::error!("Failed to forward a Springboard error to the editor UI: {error}");
+    }
+}
+
+async fn handle_springboard_action(
+    process: &mut springboard::SpringboardProcess,
+    action: springboard_ui::SpringboardUiAction,
+) -> Result<()> {
+    let command = match action {
+        springboard_ui::SpringboardUiAction::Launch(device_id) => {
+            i_slint_springboard::ClientCommand::Launch {
+                device_id: i_slint_springboard::DeviceId::new(device_id)?,
+            }
+        }
+        springboard_ui::SpringboardUiAction::Stop(device_id) => {
+            i_slint_springboard::ClientCommand::Stop {
+                device_id: i_slint_springboard::DeviceId::new(device_id)?,
+            }
+        }
+        springboard_ui::SpringboardUiAction::Refresh(device_id) => {
+            i_slint_springboard::ClientCommand::Refresh {
+                device_id: i_slint_springboard::DeviceId::new(device_id)?,
+            }
+        }
+        springboard_ui::SpringboardUiAction::AddManualDevice(address) => {
+            i_slint_springboard::ClientCommand::AddManualDevice { address }
+        }
+    };
+    process.send(command).await?;
+    Ok(())
 }
 
 async fn trigger_editor_file_watcher(
