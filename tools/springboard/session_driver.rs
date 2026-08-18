@@ -286,6 +286,20 @@ impl ProjectSessionController {
         Ok(())
     }
 
+    pub fn refresh(&mut self, device_id: &DeviceId) -> Result<()> {
+        match self.session.refresh(device_id)? {
+            SessionAction::Refresh => {
+                self.events.push_back(SessionEvent::Log {
+                    device_id: Some(device_id.clone()),
+                    level: LogLevel::Information,
+                    message: "Device status refreshed".into(),
+                });
+                Ok(())
+            }
+            action => bail!("Unexpected session action {action:?} for refresh"),
+        }
+    }
+
     pub fn poll(&mut self) -> Result<()> {
         self.capture_output();
         let Some(status) = self.local_viewer.poll_exit()? else { return Ok(()) };

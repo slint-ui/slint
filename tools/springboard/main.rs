@@ -9,6 +9,7 @@ use i_slint_springboard::project::{ProjectRunTarget, load_project_run_target};
 use slint_viewer::{ViewerLogLevel, ViewerRunnerOptions, run_auto_reload_simulator};
 
 mod session_driver;
+mod tui;
 
 #[derive(Debug, Parser)]
 #[command(author, version, about, args_conflicts_with_subcommands = true)]
@@ -119,16 +120,16 @@ fn start(project: PathBuf, launch: LaunchOptions) -> Result<()> {
     let target = load_required_project(&project)?;
     let store = i_slint_springboard::DeviceStateStore::from_platform_config()
         .context("Cannot determine the Springboard configuration directory")?;
-    let _controller = session_driver::ProjectSessionController::new(
+    let controller = session_driver::ProjectSessionController::new(
         target.clone(),
         store,
         session_driver::ViewerChildCommand::current_executable()?,
     );
-    if launch.requested() {
-        bail!("Device launch options are not available until the session driver is initialized");
-    }
-    println!("Springboard session ready for {}", target.project_root.display());
-    Ok(())
+    let runtime = tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()
+        .context("Failed to start the Springboard async runtime")?;
+    runtime.block_on(tui::run(controller, launch))
 }
 
 fn list_devices() -> Result<()> {
@@ -139,11 +140,20 @@ fn list_devices() -> Result<()> {
     if let Some(warning) = loaded.warning {
         tracing::warn!("{warning}");
     }
-    if let Some(last) = &loaded.state.last_used_device {
-        println!("last used: {last}");
-    }
+    let last = loaded.state.last_used_device.as_ref();
+    let local_id = session_driver::LOCAL_VIEWER_DEVICE_ID;
+    println!(
+        "{}\t{local_id}\tLocal Viewer\tlocal-viewer",
+        if last.is_some_and(|last| last.as_str() == local_id) { "*" } else { " " }
+    );
     for profile in loaded.state.remembered_devices.values() {
-        println!("{}\t{}\t{:?}", profile.id, profile.name, profile.kind);
+        println!(
+            "{}\t{}\t{}\t{:?}",
+            if last == Some(&profile.id) { "*" } else { " " },
+            profile.id,
+            profile.name,
+            profile.kind
+        );
     }
     Ok(())
 }

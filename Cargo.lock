@@ -8229,6 +8229,7 @@ dependencies = [
  "anyhow",
  "clap",
  "crossterm",
+ "futures-util",
  "i-slint-springboard",
  "ratatui",
  "serde",
