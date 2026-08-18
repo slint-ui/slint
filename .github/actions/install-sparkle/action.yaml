@@ -4,10 +4,9 @@
 ---
 name: Install Sparkle
 description: >
-    Put Sparkle.framework in the repository root, where the "sparkle-updater"
-    feature of slint-lsp and the visual editor packaging expect it. Does nothing
-    outside of macOS, so it is safe to call from a workflow that runs on several
-    platforms.
+    Put Sparkle.framework in the repository root, where the visual editor
+    packaging expects it. Does nothing outside of macOS, so it is safe to call
+    from a workflow that runs on several platforms.
 
 runs:
     using: composite

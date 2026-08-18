@@ -49,7 +49,7 @@ mod ext;
 #[cfg(target_os = "macos")]
 pub mod macos_titlebar;
 mod preview_data;
-#[cfg(all(target_os = "macos", feature = "sparkle-updater"))]
+#[cfg(target_os = "macos")]
 mod sparkle;
 use ext::ElementRcNodeExt;
 mod outline;
@@ -69,19 +69,15 @@ pub fn run(
     let app_window = ui::create_ui(&to_lsp, "", ui_kind)?;
 
     // The updater has to stay in scope for updates to keep working.
-    #[cfg(all(target_os = "macos", feature = "sparkle-updater"))]
-    let _updater;
-
     #[cfg(target_os = "macos")]
-    if let ui::AppWindow::Editor(editor) = app_window.clone_strong() {
+    let _updater = if let ui::AppWindow::Editor(editor) = app_window.clone_strong() {
         use slint::ComponentHandle;
 
         macos_titlebar::setup(editor.as_weak());
-        #[cfg(feature = "sparkle-updater")]
-        {
-            _updater = sparkle::connect(&editor);
-        }
-    }
+        sparkle::connect(&editor)
+    } else {
+        None
+    };
 
     to_lsp
         .send_telemetry(&mut [(

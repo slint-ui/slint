@@ -59,12 +59,10 @@ Optional GitHub Actions variable:
 
 ## Sparkle framework
 
-Sparkle sits behind the `sparkle-updater` Cargo feature of `slint-lsp`, and that
-feature is off by default.
-Without it the editor builds anywhere with no extra setup, and it keeps its
-update chrome hidden because the update state stays at `UpToDate`.
-The packaged app turns the feature on in `tools/lsp/macos-project.yml`, and so
-does `scripts/local_sparkle_update_test.sh`.
+The editor checks for its own updates with Sparkle on macOS.
+There is no Cargo feature for it: the code is inactive unless the editor runs
+from an application bundle, so a plain `cargo run` keeps its update chrome
+hidden because the update state stays at `UpToDate`.
 
 The build itself does not need `Sparkle.framework`: the classes are reached
 through the Objective-C runtime, so the editor loads the framework from its own
@@ -86,7 +84,7 @@ Then run the editor with updates enabled:
 ```sh
 cargo run -p slint-lsp --example slint-editor \
     --no-default-features \
-    --features backend-winit,renderer-skia,sparkle-updater
+    --features backend-winit,renderer-skia
 ```
 
 Set `SLINT_SPARKLE_INTERACTIVE=1` to check for updates through Sparkle's own
