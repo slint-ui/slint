@@ -323,7 +323,7 @@ fn render_view(frame: &mut ratatui::Frame<'_>, view: &ViewState<'_>) {
                 ListItem::new(format!(
                     "{active} {last} {:<20} {:<16}{}",
                     device.name,
-                    status_label(&device.status),
+                    status_label(device),
                     version.as_deref().unwrap_or_default()
                 ))
             })
@@ -363,17 +363,23 @@ fn app_footer(view: &ViewState<'_>) -> String {
     )
 }
 
-fn status_label(status: &DeviceStatus) -> String {
-    match status {
+fn status_label(device: &Device) -> String {
+    match &device.status {
         DeviceStatus::Available => "Available".into(),
+        DeviceStatus::Unavailable
+            if device.kind == i_slint_springboard::DeviceKind::RemoteViewer =>
+        {
+            "Offline".into()
+        }
         DeviceStatus::Unavailable => "Unavailable".into(),
         DeviceStatus::Starting => "Starting".into(),
         DeviceStatus::Connecting => "Connecting".into(),
+        DeviceStatus::Reconnecting => "Reconnecting".into(),
         DeviceStatus::Running => "Running".into(),
         DeviceStatus::Stopping => "Stopping".into(),
         DeviceStatus::Failed { message } => format!("Failed: {message}"),
         DeviceStatus::Incompatible { installed, required } => {
-            format!("Incompatible: {installed}, needs {required}")
+            format!("Protocol mismatch: Slint {installed}, needs {required}")
         }
     }
 }
@@ -404,6 +410,19 @@ mod tests {
             capabilities: DeviceCapabilities::launchable(),
             version: Some("1.18.0".into()),
             platform: Some(std::env::consts::OS.into()),
+        }
+    }
+
+    fn remote_device(status: DeviceStatus) -> Device {
+        Device {
+            id: DeviceId::new("remote:phone").unwrap(),
+            name: "Nigel's iPhone".into(),
+            kind: DeviceKind::RemoteViewer,
+            origin: DeviceOrigin::Remembered,
+            status,
+            capabilities: DeviceCapabilities::launchable(),
+            version: Some("1.17.2".into()),
+            platform: Some("ios".into()),
         }
     }
 
@@ -513,5 +532,27 @@ mod tests {
             app_footer(&view),
             "Manual viewer address (host:port): viewer.local:41000_  Enter Add  Esc Cancel"
         );
+    }
+
+    #[test]
+    fn remote_status_snapshots_distinguish_offline_reconnecting_and_incompatible() {
+        let offline = remote_device(DeviceStatus::Unavailable);
+        assert!(snapshot(&[offline], None, None, &[]).contains("Offline"));
+
+        let reconnecting = remote_device(DeviceStatus::Reconnecting);
+        let rendered = snapshot(
+            std::slice::from_ref(&reconnecting),
+            Some(&reconnecting.id),
+            Some(&reconnecting.id),
+            &[],
+        );
+        assert!(rendered.contains("Reconnecting"));
+
+        let incompatible = remote_device(DeviceStatus::Incompatible {
+            installed: "1.17.2".into(),
+            required: "1.18.0".into(),
+        });
+        let rendered = snapshot(&[incompatible], None, None, &[]);
+        assert!(rendered.contains("Protocol mismatch: Slint 1.17.2, needs 1.18.0"));
     }
 }

@@ -288,11 +288,10 @@ mod tests {
         lines: &mut tokio::io::Lines<BufReader<tokio::io::ReadHalf<DuplexStream>>>,
         writer: &mut tokio::io::WriteHalf<DuplexStream>,
     ) -> ProjectSnapshot {
-        send(
-            writer,
-            r#"{"protocol_version":1,"request_id":1,"command":"handshake","client_name":"test"}"#,
-        )
-        .await;
+        let request = format!(
+            r#"{{"protocol_version":{SPRINGBOARD_PROTOCOL_VERSION},"request_id":1,"command":"handshake","client_name":"test"}}"#
+        );
+        send(writer, &request).await;
         assert!(matches!(
             receive(lines).await,
             ServerMessage::Response(ResponseEnvelope { response: ResponsePayload::Ok, .. })
@@ -326,7 +325,10 @@ mod tests {
         let (mut lines, mut writer, task) = start_server(&directory).await;
         handshake(&mut lines, &mut writer).await;
 
-        send(&mut writer, r#"{"protocol_version":1,"request_id":9,"command":"explode"}"#).await;
+        let request = format!(
+            r#"{{"protocol_version":{SPRINGBOARD_PROTOCOL_VERSION},"request_id":9,"command":"explode"}}"#
+        );
+        send(&mut writer, &request).await;
 
         assert!(matches!(
             receive(&mut lines).await,
@@ -386,11 +388,10 @@ mod tests {
         let (mut lines, mut writer, task) = start_server(&directory).await;
         handshake(&mut lines, &mut writer).await;
 
-        send(
-            &mut writer,
-            r#"{"protocol_version":1,"request_id":7,"command":"add-manual-device","address":"viewer.local:41000"}"#,
-        )
-        .await;
+        let request = format!(
+            r#"{{"protocol_version":{SPRINGBOARD_PROTOCOL_VERSION},"request_id":7,"command":"add-manual-device","address":"viewer.local:41000"}}"#
+        );
+        send(&mut writer, &request).await;
 
         assert!(matches!(
             receive(&mut lines).await,

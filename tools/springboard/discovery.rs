@@ -381,8 +381,15 @@ mod tests {
 
         let viewer = upsert(&registry.resolve(old)).clone();
 
-        assert!(matches!(viewer.to_device().status, DeviceStatus::Incompatible { .. }));
-        assert!(!viewer.to_device().capabilities.launch);
+        let device = viewer.to_device();
+        assert_eq!(
+            device.status,
+            DeviceStatus::Incompatible {
+                installed: "1.17.2".into(),
+                required: SLINT_VERSION.into()
+            }
+        );
+        assert!(!device.capabilities.launch);
     }
 
     #[test]

@@ -425,7 +425,7 @@ smoke_test_app_launch() {
     mkdir -p "$springboard_project"
     printf 'entry = "app.slint"\ncomponent = "App"\n' > "$springboard_project/slint.toml"
     printf 'export component App inherits Window {}\n' > "$springboard_project/app.slint"
-    printf '{"protocol_version":1,"request_id":1,"command":"handshake","client_name":"package-smoke-test"}\n' \
+    printf '{"protocol_version":2,"request_id":1,"command":"handshake","client_name":"package-smoke-test"}\n' \
         | "$springboard" serve --stdio "$springboard_project" > "$springboard_log"
     grep -q '"response":"ok"' "$springboard_log" || die "Springboard smoke test did not receive a handshake response"
     grep -q '"event":"snapshot"' "$springboard_log" || die "Springboard smoke test did not receive a project snapshot"

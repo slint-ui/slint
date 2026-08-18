@@ -222,6 +222,7 @@ impl SpringboardUiState {
             }
             DeviceStatus::Starting => preview::ui::SpringboardRunState::Starting,
             DeviceStatus::Connecting => preview::ui::SpringboardRunState::Connecting,
+            DeviceStatus::Reconnecting => preview::ui::SpringboardRunState::Reconnecting,
             DeviceStatus::Running | DeviceStatus::Stopping => {
                 preview::ui::SpringboardRunState::Running
             }
@@ -246,12 +247,20 @@ fn device_to_ui(
     let (status, status_detail) = match &device.status {
         DeviceStatus::Available => (preview::ui::SpringboardDeviceStatus::Available, String::new()),
         DeviceStatus::Unavailable => {
-            (preview::ui::SpringboardDeviceStatus::Unavailable, String::new())
+            let detail = (device.kind == DeviceKind::RemoteViewer)
+                .then(|| "Not currently visible on the local network.".into())
+                .unwrap_or_default();
+            (preview::ui::SpringboardDeviceStatus::Unavailable, detail)
         }
         DeviceStatus::Starting => (preview::ui::SpringboardDeviceStatus::Starting, String::new()),
-        DeviceStatus::Connecting => {
-            (preview::ui::SpringboardDeviceStatus::Connecting, String::new())
-        }
+        DeviceStatus::Connecting => (
+            preview::ui::SpringboardDeviceStatus::Connecting,
+            "Waiting for the viewer to accept the connection.".into(),
+        ),
+        DeviceStatus::Reconnecting => (
+            preview::ui::SpringboardDeviceStatus::Reconnecting,
+            "Connection lost; retrying on the local network.".into(),
+        ),
         DeviceStatus::Running => (preview::ui::SpringboardDeviceStatus::Running, String::new()),
         DeviceStatus::Stopping => (preview::ui::SpringboardDeviceStatus::Stopping, String::new()),
         DeviceStatus::Failed { message } => {
@@ -259,7 +268,9 @@ fn device_to_ui(
         }
         DeviceStatus::Incompatible { installed, required } => (
             preview::ui::SpringboardDeviceStatus::Incompatible,
-            format!("Installed {installed}; requires {required}"),
+            format!(
+                "Preview protocol mismatch: installed Slint {installed}; requires Slint {required}."
+            ),
         ),
     };
     preview::ui::SpringboardDevice {
@@ -366,5 +377,24 @@ mod tests {
         )));
 
         assert!(state.manager_error.is_empty());
+    }
+
+    #[test]
+    fn remote_status_details_explain_offline_reconnecting_and_version_mismatch() {
+        let mut target = device(DeviceStatus::Unavailable);
+        target.kind = DeviceKind::RemoteViewer;
+        let offline = device_to_ui(&target, None, None);
+        assert_eq!(offline.status_detail.as_str(), "Not currently visible on the local network.");
+
+        target.status = DeviceStatus::Reconnecting;
+        let reconnecting = device_to_ui(&target, Some(&target.id), Some(&target.id));
+        assert_eq!(reconnecting.status, preview::ui::SpringboardDeviceStatus::Reconnecting);
+        assert!(reconnecting.status_detail.contains("retrying"));
+
+        target.status =
+            DeviceStatus::Incompatible { installed: "1.17.2".into(), required: "1.18.0".into() };
+        let incompatible = device_to_ui(&target, None, None);
+        assert!(incompatible.status_detail.contains("installed Slint 1.17.2"));
+        assert!(incompatible.status_detail.contains("requires Slint 1.18.0"));
     }
 }

@@ -87,7 +87,7 @@ modules:
       - printf 'entry = "app.slint"\ncomponent = "App"\n' > springboard-smoke-project/slint.toml
       - printf 'export component App inherits Window {}\n' > springboard-smoke-project/app.slint
       - >
-        printf '{"protocol_version":1,"request_id":1,"command":"handshake","client_name":"package-smoke-test"}\n' |
+        printf '{"protocol_version":2,"request_id":1,"command":"handshake","client_name":"package-smoke-test"}\n' |
         ${FLATPAK_DEST}/bin/slint-springboard serve --stdio springboard-smoke-project > springboard-smoke.log
       - grep -q '"response":"ok"' springboard-smoke.log
       - grep -q '"event":"snapshot"' springboard-smoke.log

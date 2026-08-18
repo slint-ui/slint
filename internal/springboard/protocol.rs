@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use crate::{Device, DeviceId, DiagnosticSeverity, LogLevel, SessionEvent};
 
 /// The JSON-lines protocol version spoken by Springboard clients and servers.
-pub const SPRINGBOARD_PROTOCOL_VERSION: u32 = 1;
+pub const SPRINGBOARD_PROTOCOL_VERSION: u32 = 2;
 
 /// A client-generated request ID.
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
@@ -243,8 +243,10 @@ mod tests {
 
     #[test]
     fn unknown_commands_retain_the_request_id() {
-        let error = decode_request(r#"{"protocol_version":1,"request_id":7,"command":"explode"}"#)
-            .unwrap_err();
+        let request = format!(
+            r#"{{"protocol_version":{SPRINGBOARD_PROTOCOL_VERSION},"request_id":7,"command":"explode"}}"#
+        );
+        let error = decode_request(&request).unwrap_err();
 
         assert_eq!(error.request_id, Some(RequestId(7)));
         assert_eq!(error.code, ProtocolErrorCode::UnknownCommand);

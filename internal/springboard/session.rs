@@ -101,6 +101,7 @@ pub enum DeviceStatus {
     Unavailable,
     Starting,
     Connecting,
+    Reconnecting,
     Running,
     Stopping,
     Failed { message: String },
@@ -110,7 +111,10 @@ pub enum DeviceStatus {
 impl DeviceStatus {
     /// Return whether the device owns the session's active target slot.
     pub fn is_active(&self) -> bool {
-        matches!(self, Self::Starting | Self::Connecting | Self::Running | Self::Stopping)
+        matches!(
+            self,
+            Self::Starting | Self::Connecting | Self::Reconnecting | Self::Running | Self::Stopping
+        )
     }
 }
 
@@ -296,6 +300,12 @@ impl SpringboardSession {
     /// Mark an active device as connecting.
     pub fn mark_connecting(&mut self, device_id: &DeviceId) -> Result<(), SessionError> {
         self.active_device_mut(device_id)?.status = DeviceStatus::Connecting;
+        Ok(())
+    }
+
+    /// Mark an active device as reconnecting after a connection loss.
+    pub fn mark_reconnecting(&mut self, device_id: &DeviceId) -> Result<(), SessionError> {
+        self.active_device_mut(device_id)?.status = DeviceStatus::Reconnecting;
         Ok(())
     }
 
@@ -496,6 +506,20 @@ mod tests {
 
         assert_eq!(session.devices()[&id].name, "Renamed");
         assert_eq!(session.devices()[&id].status, DeviceStatus::Running);
+    }
+
+    #[test]
+    fn reconnecting_keeps_the_active_target_slot() {
+        let mut session = session();
+        let target = device("first");
+        let id = target.id.clone();
+        session.upsert_device(target);
+        session.launch(&id).unwrap();
+
+        session.mark_reconnecting(&id).unwrap();
+
+        assert_eq!(session.devices()[&id].status, DeviceStatus::Reconnecting);
+        assert_eq!(session.active_device(), Some(&id));
     }
 
     #[test]

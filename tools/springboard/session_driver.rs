@@ -256,7 +256,10 @@ impl ProjectSessionController {
             Ok(discovery) => self.remote_discovery = Some(discovery),
             Err(error) => self.events.push_back(SessionEvent::Error {
                 device_id: None,
-                message: format!("Remote viewer discovery is unavailable: {error}"),
+                message: format!(
+                    "Remote viewer discovery is unavailable: {}",
+                    describe_remote_failure(&error.to_string())
+                ),
             }),
         }
     }
@@ -301,9 +304,10 @@ impl ProjectSessionController {
             self.emit_device(device_id);
             if let Err(error) = self.connect_remote_viewer(&viewer).await {
                 self.pending_launch = None;
-                self.session.mark_failed(device_id, error.to_string())?;
+                let message = describe_remote_failure(&error.to_string());
+                self.session.mark_failed(device_id, &message)?;
                 self.emit_device(device_id);
-                return Err(error);
+                return Err(anyhow::anyhow!(message));
             }
             return Ok(());
         } else if self.global_state.remembered_devices.contains_key(device_id) {
@@ -483,7 +487,7 @@ impl ProjectSessionController {
             Ok(()) => {}
             Err(error) => {
                 self.pending_launch = None;
-                let message = error.to_string();
+                let message = describe_remote_failure(&error.to_string());
                 if self.session.mark_failed(&device_id, &message).is_ok() {
                     self.emit_device(&device_id);
                 }
@@ -495,7 +499,10 @@ impl ProjectSessionController {
     async fn reconnect_at_updated_endpoint(&mut self) {
         let Some(device_id) = self.pending_endpoint_update.clone() else { return };
         if self.session.active_device() != Some(&device_id)
-            || self.session.devices()[&device_id].status != DeviceStatus::Connecting
+            || !matches!(
+                self.session.devices()[&device_id].status,
+                DeviceStatus::Connecting | DeviceStatus::Reconnecting
+            )
         {
             return;
         }
@@ -503,9 +510,10 @@ impl ProjectSessionController {
         let Some(driver) = self.remote_viewer.as_mut() else { return };
         self.pending_endpoint_update = None;
         if let Err(error) = driver.reconnect(&viewer).await {
-            self.events.push_back(SessionEvent::Error {
+            self.events.push_back(SessionEvent::Log {
                 device_id: Some(device_id),
-                message: format!("Failed to reconnect at the viewer's updated address: {error}"),
+                level: LogLevel::Warning,
+                message: describe_remote_failure(&error.to_string()),
             });
         }
     }
@@ -575,16 +583,31 @@ impl ProjectSessionController {
                             self.complete_launch(&device_id)?;
                         }
                         RemoteClientState::Connecting | RemoteClientState::Disconnected => {
-                            self.session.mark_connecting(&device_id)?;
+                            if self.pending_launch.as_ref() == Some(&device_id) {
+                                self.session.mark_connecting(&device_id)?;
+                            } else {
+                                self.session.mark_reconnecting(&device_id)?;
+                            }
                             self.emit_device(&device_id);
+                            if let Some(error) = event.error {
+                                self.events.push_back(SessionEvent::Log {
+                                    device_id: Some(device_id),
+                                    level: LogLevel::Warning,
+                                    message: describe_remote_failure(&error),
+                                });
+                            }
                         }
                         RemoteClientState::Failed => {
                             self.pending_launch = None;
                             self.pending_endpoint_update = None;
                             self.remote_viewer = None;
-                            let message = event.error.unwrap_or_else(|| {
-                                format!("Failed to connect to remote viewer at {}", event.target)
-                            });
+                            let message =
+                                describe_remote_failure(&event.error.unwrap_or_else(|| {
+                                    format!(
+                                        "Failed to connect to remote viewer at {}",
+                                        event.target
+                                    )
+                                }));
                             self.session.mark_failed(&device_id, &message)?;
                             self.emit_device(&device_id);
                             self.events.push_back(SessionEvent::Error {
@@ -697,6 +720,35 @@ fn manual_viewer_from_profile(profile: &RememberedDevice) -> Result<DiscoveredRe
     viewer.slint_version = profile.version.clone();
     viewer.platform = profile.platform.clone().unwrap_or_else(|| "manual".into());
     Ok(viewer)
+}
+
+fn describe_remote_failure(error: &str) -> String {
+    let lowercase = error.to_ascii_lowercase();
+    if lowercase.contains("version mismatch") || lowercase.contains("does not speak slint-preview")
+    {
+        return error.to_owned();
+    }
+    if lowercase.contains("permission denied") || lowercase.contains("operation not permitted") {
+        return "Local-network access was denied. Allow Slint Springboard to access the local network in system settings, then retry.".into();
+    }
+    if lowercase.contains("timed out") || lowercase.contains("timeout") {
+        return "The remote viewer connection timed out. Keep the Slint Viewer open and make sure both devices are on the same local network.".into();
+    }
+    if [
+        "connection refused",
+        "host unreachable",
+        "network is unreachable",
+        "no route to host",
+        "dns",
+        "failed to lookup",
+        "name or service not known",
+    ]
+    .iter()
+    .any(|needle| lowercase.contains(needle))
+    {
+        return "The remote viewer is offline or unreachable. Open the Slint Viewer and check that both devices are on the same local network.".into();
+    }
+    format!("Remote viewer connection failed: {error}")
 }
 
 #[cfg(test)]
@@ -904,7 +956,7 @@ mod tests {
         )
         .await
         .unwrap();
-        controller.session.mark_connecting(&device_id).unwrap();
+        controller.session.mark_reconnecting(&device_id).unwrap();
         current_viewer.port = replacement.local_port();
         controller.apply_discovery_event(RemoteDiscoveryEvent::Upsert(current_viewer.clone()));
         tokio::time::timeout(Duration::from_secs(5), async {
@@ -947,6 +999,16 @@ mod tests {
             controller.take_events(),
             [SessionEvent::DeviceRemoved { device_id: viewer.id }]
         );
+    }
+
+    #[test]
+    fn remote_failure_messages_are_actionable_and_preserve_version_details() {
+        assert!(describe_remote_failure("Operation not permitted").contains("Local-network"));
+        assert!(describe_remote_failure("Connection attempt timed out").contains("timed out"));
+        assert!(describe_remote_failure("Connection refused").contains("offline or unreachable"));
+
+        let mismatch = "Version mismatch: viewer runs Slint 1.17.2; client uses Slint 1.18.0";
+        assert_eq!(describe_remote_failure(mismatch), mismatch);
     }
 
     #[test]

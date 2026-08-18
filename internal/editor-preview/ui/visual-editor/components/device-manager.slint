@@ -68,7 +68,8 @@ component DeviceRow inherits Rectangle {
         ? StudioTheme.accent.with-alpha(0.12)
         : touch.has-hover ? StudioTheme.panel-subtle : transparent;
     accessible-role: AccessibleRole.list-item;
-    accessible-label: root.device.name + ", " + root.status-label(root.device.status);
+    accessible-label: root.device.name + ", "
+        + root.status-label(root.device.status, root.device.kind);
     accessible-action-default => { root.clicked(); }
     animate background, border-color { duration: 120ms; }
 
@@ -88,7 +89,10 @@ component DeviceRow inherits Rectangle {
         return "Android emulator";
     }
 
-    pure function status-label(status: SpringboardDeviceStatus) -> string {
+    pure function status-label(
+        status: SpringboardDeviceStatus,
+        kind: SpringboardDeviceKind
+    ) -> string {
         if status == SpringboardDeviceStatus.Available {
             return "Available";
         }
@@ -97,6 +101,9 @@ component DeviceRow inherits Rectangle {
         }
         if status == SpringboardDeviceStatus.Connecting {
             return "Connecting";
+        }
+        if status == SpringboardDeviceStatus.Reconnecting {
+            return "Reconnecting";
         }
         if status == SpringboardDeviceStatus.Running {
             return "Running";
@@ -110,7 +117,7 @@ component DeviceRow inherits Rectangle {
         if status == SpringboardDeviceStatus.Incompatible {
             return "Incompatible";
         }
-        return "Unavailable";
+        return kind == SpringboardDeviceKind.RemoteViewer ? "Offline" : "Unavailable";
     }
 
     pure function status-color(status: SpringboardDeviceStatus) -> color {
@@ -119,6 +126,7 @@ component DeviceRow inherits Rectangle {
         }
         if status == SpringboardDeviceStatus.Starting
                 || status == SpringboardDeviceStatus.Connecting
+                || status == SpringboardDeviceStatus.Reconnecting
                 || status == SpringboardDeviceStatus.Stopping {
             return StudioTheme.accent;
         }
@@ -239,7 +247,7 @@ component DeviceRow inherits Rectangle {
             }
 
             Text {
-                text: root.status-label(root.device.status);
+                text: root.status-label(root.device.status, root.device.kind);
                 color: root.device.status == SpringboardDeviceStatus.Failed
                         || root.device.status == SpringboardDeviceStatus.Incompatible
                     ? #d92d20 : StudioTheme.muted;
