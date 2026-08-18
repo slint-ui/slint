@@ -2056,7 +2056,11 @@ async fn parse_source(
     cc.include_paths = config.include_paths;
     cc.library_paths = config.library_paths;
     cc.enable_experimental |= config.enable_experimental;
-    cc.debug_hooks = Some(std::hash::RandomState::new());
+    cc.debug_hooks = PREVIEW_STATE
+        .with_borrow(|preview_state| {
+            matches!(preview_state.app_window.as_ref(), Some(ui::AppWindow::Editor(_)))
+        })
+        .then(std::hash::RandomState::new);
 
     let (open_file_fallback, source_file_versions) =
         crate::document_cache::document_cache_parts_setup(
