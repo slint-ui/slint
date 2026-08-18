@@ -50,8 +50,9 @@ pub fn parse_element(p: &mut impl Parser) -> bool {
 /// animate * { }
 /// @children
 /// @deprecated property alias <=> two.way;
+/// @shadowable @deprecated in-out property <int> yyy <=> two.way;
 /// @deprecated("Use 'foobar' instead") callback old_callback <=> foobar;
-/// @deprecated("Use 'foo' instead") function old_foo() {}
+/// @shadowable public function foo() {}
 /// double_binding <=> element.property;
 /// public pure function foo() {}
 /// changed foo => {}
@@ -170,7 +171,7 @@ pub fn parse_element_content(p: &mut impl Parser) {
                 }
             },
             SyntaxKind::At => {
-                if p.nth(1).as_str() == "deprecated" {
+                if matches!(p.nth(1).as_str(), "deprecated" | "shadowable") {
                     let checkpoint = p.checkpoint();
                     let attribute = parse_member_attributes(&mut *p);
                     // skip the visibility/purity keywords to reach the member keyword
@@ -640,20 +641,28 @@ fn parse_callback_declaration<P: Parser>(p: &mut P, checkpoint: Option<P::Checkp
 /// ```test
 /// @deprecated
 /// @deprecated("Some message")
+/// @shadowable
 /// ```
 fn parse_member_attributes(p: &mut impl Parser) -> Option<&'static str> {
     let mut seen: Vec<&'static str> = Vec::new();
-    while p.nth(0).kind() == SyntaxKind::At && p.nth(1).as_str() == "deprecated" {
-        let name = "deprecated";
+    while p.nth(0).kind() == SyntaxKind::At
+        && matches!(p.nth(1).as_str(), "deprecated" | "shadowable")
+    {
+        let is_deprecated = p.nth(1).as_str() == "deprecated";
+        let (name, kind) = if is_deprecated {
+            ("deprecated", SyntaxKind::PropertyDeprecation)
+        } else {
+            ("shadowable", SyntaxKind::ShadowableAttribute)
+        };
         let duplicated = seen.contains(&name);
         seen.push(name);
-        let mut p = p.start_node(SyntaxKind::PropertyDeprecation);
+        let mut p = p.start_node(kind);
         p.consume(); // "@"
-        p.consume(); // "deprecated"
+        p.consume(); // the attribute name
         if duplicated {
             p.error(format!("Duplicated @{name} attribute"));
         }
-        if p.test(SyntaxKind::LParent) {
+        if is_deprecated && p.test(SyntaxKind::LParent) {
             let peek = p.peek();
             if peek.kind() != SyntaxKind::StringLiteral
                 || !peek.as_str().starts_with('"')

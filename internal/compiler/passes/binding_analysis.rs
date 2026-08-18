@@ -345,12 +345,13 @@ fn analyze_binding(
             if !out.is_empty() {
                 out.push_str(" -> ");
             }
+            let name = prop.prop.declared_name();
             match prop.prop.element().borrow().id.as_str() {
-                "" => out.push_str(prop.prop.name()),
+                "" => out.push_str(&name),
                 id => {
                     out.push_str(id);
                     out.push('.');
-                    out.push_str(prop.prop.name());
+                    out.push_str(&name);
                 }
             }
         }
@@ -382,9 +383,9 @@ fn analyze_binding(
             // they have no location in the source. The rest of the loop is still reported.
             if span.source_file.is_some() {
                 if !context.error_on_binding_loop_with_window_layout && has_window_layout {
-                    diag.push_warning(format!("The binding for the property '{}' is part of a binding loop ({loop_description}).\nThis was allowed in previous version of Slint, but is deprecated and may cause panic at runtime", p.name()), &span);
+                    diag.push_warning(format!("The binding for the property '{}' is part of a binding loop ({loop_description}).\nThis was allowed in previous version of Slint, but is deprecated and may cause panic at runtime", p.declared_name()), &span);
                 } else {
-                    diag.push_error(format!("The binding for the property '{}' is part of a binding loop ({loop_description})", p.name()), &span);
+                    diag.push_error(format!("The binding for the property '{}' is part of a binding loop ({loop_description})", p.declared_name()), &span);
                 }
             }
             if it == current {

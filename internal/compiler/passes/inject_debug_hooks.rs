@@ -122,7 +122,7 @@ fn hook_existing_bindings(element: &ElementRc, element_hash: u64) {
         // Only hook properties — callback handlers and functions also live in
         // `bindings`, but hook ids are a property-only namespace and overriding a code
         // block with a value makes no sense.
-        if !elem.lookup_property(name).property_type.is_property_type() {
+        if !elem.lookup_property_by_internal_name(name).property_type.is_property_type() {
             return;
         }
         let expr = std::mem::take(&mut be.borrow_mut().expression);
@@ -162,7 +162,7 @@ fn property_defaults(
         .filter(|(name, _)| elem.binding_cell_including_synthetic(name.as_str()).is_none())
         .filter_map(|(name, _ty)| {
             let name_str = name.clone();
-            let lookup = elem.lookup_property(&name_str);
+            let lookup = elem.lookup_property_by_internal_name(&name_str);
             // Skip functions/callbacks exposed as builtin functions.
             if lookup.builtin_function.is_some() {
                 return None;
@@ -260,7 +260,7 @@ fn add_hooks_for_non_existent_bindings(element: &ElementRc, element_hash: u64, i
         let elem = element.borrow();
         elem.binding_cell_including_synthetic(name).is_none()
             // Filter invalid reserved properties (e.g. x/y on a Timer, etc.)
-            && elem.lookup_property(name).property_type != crate::langtype::Type::Invalid
+            && elem.lookup_property_by_internal_name(name).property_type != crate::langtype::Type::Invalid
     });
 
     for (name, default, synthetic) in unbound_properties {

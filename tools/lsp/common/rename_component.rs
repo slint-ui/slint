@@ -676,7 +676,7 @@ fn matching_decl_in_inheritance_chain(
             return false; // cycle in `inherits` chain
         }
         let element_borrow = element.borrow();
-        if let Some(decl) = element_borrow.property_declarations.get(name)
+        if let Some((_, decl)) = element_borrow.declaration(name)
             && let Some(node) = decl.node.as_ref()
             && node.text_range() == declaration_node.text_range()
             && Arc::ptr_eq(&node.source_file, source_file)

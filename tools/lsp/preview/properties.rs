@@ -143,10 +143,15 @@ fn add_element_properties(
     group: &str,
     group_priority: u32,
     is_local_element: bool,
+    shadowed: &HashSet<SmolStr>,
     result: &mut Vec<PropertyInformation>,
 ) {
     result.extend(element.property_declarations.iter().filter_map(move |(name, value)| {
         if !property_is_editable(value, is_local_element) {
+            return None;
+        }
+        let name = value.declared_name(name);
+        if shadowed.contains(name) {
             return None;
         }
 
@@ -376,7 +381,11 @@ pub(super) fn get_properties(
     in_layout: LayoutKind,
 ) -> Vec<PropertyInformation> {
     let mut result = Vec::new();
-    add_element_properties(&element.element.borrow(), "", 0, true, &mut result);
+    // A member shadowed by a nearer element is unreachable under that name, so only the
+    // shadowing declaration is listed
+    let mut shadowed = HashSet::new();
+    add_element_properties(&element.element.borrow(), "", 0, true, &shadowed, &mut result);
+    shadowed.extend(element.element.borrow().shadowing_members.keys().cloned());
 
     let mut current_element = element.element.clone();
     let mut depth = 0u32;
@@ -389,7 +398,11 @@ pub(super) fn get_properties(
         match base_type {
             ElementType::Component(c) => {
                 current_element = c.root_element.clone();
-                add_element_properties(&current_element.borrow(), &c.id, depth, false, &mut result);
+                {
+                    let current = current_element.borrow();
+                    add_element_properties(&current, &c.id, depth, false, &shadowed, &mut result);
+                    shadowed.extend(current.shadowing_members.keys().cloned());
+                }
                 continue;
             }
             ElementType::Builtin(b) => {

@@ -172,7 +172,11 @@ impl LoweredSubComponentMapping {
                 // probing the rtti tables by name at install time would pick
                 // the wrong side when a name exists in both the property and
                 // callback tables.
-                let kind = match element.borrow().lookup_property(from.name()).property_type {
+                let kind = match element
+                    .borrow()
+                    .lookup_property_by_internal_name(from.name())
+                    .property_type
+                {
                     Type::Callback(..) => super::NativeMemberKind::Callback,
                     Type::Function(..) => super::NativeMemberKind::Function,
                     _ => super::NativeMemberKind::Property,
@@ -583,7 +587,7 @@ fn lower_sub_component(
             );
 
             let kind = if matches!(
-                e.borrow().lookup_property(p).property_type,
+                e.borrow().lookup_property_by_internal_name(p).property_type,
                 Type::Struct(s) if matches!(s.name, StructName::Builtin(BuiltinStruct::StateInfo))
             ) {
                 BindingKind::State
@@ -1281,9 +1285,11 @@ fn public_properties(
                         .and_then(|n| n.child_token(crate::parser::SyntaxKind::Identifier))
                 })
                 .map(|tok| SmolStr::new(tok.text()))
-                .unwrap_or_else(|| p.clone());
+                .unwrap_or_else(|| c.declared_name(p).clone());
             (
-                p.clone(),
+                // A shadowing declaration is exposed under the name it was written with,
+                // not the internal name it is stored under
+                c.declared_name(p).clone(),
                 PublicProperty {
                     display_name,
                     ty: c.property_type.clone(),

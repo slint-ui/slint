@@ -1,0 +1,142 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A declaration may shadow a member inherited from a base component when that member is private
+// (and therefore invisible here) or marked `@shadowable`. The shadowing declaration is registered
+// under an internal name, so the base component keeps using its own member.
+
+component Base {
+    private property <string> secret;
+    pure function helper() -> int { 1 }
+    @shadowable in-out property <string> name: "Hello";
+    @shadowable callback activated();
+    @shadowable public function describe() -> string { "base" }
+    // `@shadowable` and `@deprecated` compose: a deprecated member may still opt in to shadowing
+    @shadowable @deprecated in-out property <string> legacy-name <=> name;
+    in-out property <string> plain;
+    callback plain-callback();
+    public function plain-function() {}
+}
+
+// https://github.com/slint-ui/slint/issues/1937: a private base member isn't visible here,
+// so shadowing it is silent
+component ShadowsPrivate inherits Base {
+    property <string> secret;
+    function helper() -> int { 2 }
+}
+
+// https://github.com/slint-ui/slint/issues/12881: a `@shadowable` member may be shadowed with a warning
+component ShadowsOptedIn inherits Base {
+    in-out property <string> name: "Hey";
+//                           >  <warning{'name' shadows the inherited property of the same name}
+    callback activated();
+//           >       <warning{'activated' shadows the inherited callback of the same name}
+    public function describe() -> string { "derived" }
+//                  >      <warning{'describe' shadows the inherited function of the same name}
+}
+
+// A `@shadowable @deprecated` member can be shadowed like any other opted-in member
+component ShadowsDeprecated inherits Base {
+    in-out property <string> legacy-name: "Hey";
+//                           >         <warning{'legacy-name' shadows the inherited property of the same name}
+}
+
+// The kind may change: shadowing is by name only
+component ShadowsWithOtherKind inherits Base {
+    callback name();
+//           >  <warning{'name' shadows the inherited property of the same name}
+}
+
+// Without the opt-in, overriding is still an error
+component NotOptedIn inherits Base {
+    in-out property <string> plain;
+//                           >   <error{Cannot override property 'plain' declared in 'Base'}
+    callback plain-callback();
+//           >            <error{Cannot override callback 'plain-callback' declared in 'Base'}
+    public function plain-function() {}
+//                  >            <error{Cannot override 'plain-function' declared in 'Base'}
+}
+
+// A shadow can itself be shadowed further down the chain, and be opted into again
+component Middle inherits Base {
+    @shadowable in-out property <string> name: "Middle";
+//                                       >  <warning{'name' shadows the inherited property of the same name}
+}
+
+component Leaf inherits Middle {
+    in-out property <string> name: "Leaf";
+//                           >  <warning{'name' shadows the inherited property of the same name}
+    out property <string> check: root.name;
+}
+
+// `@shadowable` is not inherited: a shadowing member that doesn't opt in can't be shadowed further
+component NotOptedInMiddle inherits Base {
+    in-out property <string> name: "NotOptedInMiddle";
+//                           >  <warning{'name' shadows the inherited property of the same name}
+}
+
+component NotOptedInLeaf inherits NotOptedInMiddle {
+    in-out property <string> name: "NotOptedInLeaf";
+//                           >  <error{Cannot override property 'name' declared in 'NotOptedInMiddle'}
+}
+
+// Declaring the same name twice on one element is still a conflict
+component Twice inherits Base {
+    in-out property <string> name;
+//                           >  <warning{'name' shadows the inherited property of the same name}
+    in-out property <string> name;
+//                           >  <error{Cannot override property 'name'}
+    callback activated();
+//           >       <warning{'activated' shadows the inherited callback of the same name}
+    callback activated();
+//           >       <error{Duplicated callback declaration}
+}
+
+// Reserved properties that exist on every element are not shadowable
+component NotReserved inherits Base {
+    property <int> x;
+//                 ^error{Cannot override property 'x'}
+}
+
+// The shadowing declaration is parked under an internal name, invisible to the source, so an
+// unrelated member the derived component declares is unaffected.
+component ShadowAndUnrelated inherits Base {
+    in-out property <string> name: "Hey";
+//                           >  <warning{'name' shadows the inherited property of the same name}
+    in-out property <int> other-1;
+    out property <int> ok: root.other-1;
+}
+
+// A member may take a name that happens to match the internal name of an existing shadow: that
+// internal name is private, so `name-1` is declared as if it were free and gets its own slot.
+component ShadowAndTwin inherits Base {
+    in-out property <string> name: "Hey";
+//                           >  <warning{'name' shadows the inherited property of the same name}
+    in-out property <int> name-1;
+    out property <int> twin: root.name-1;
+}
+
+// The internal name of the shadow does not leak into the source namespace
+component NoLeak inherits Base {
+    in-out property <string> name: "Hey";
+//                           >  <warning{'name' shadows the inherited property of the same name}
+    out property <string> leak: root.name-1;
+//                                   >    <error{Element 'Base' does not have a property 'name-1'. Use space before the '-' if you meant a subtraction}
+}
+
+export component Test inherits Window {
+    b := Base {}
+    out property <string> from-base: b.name;
+    ShadowsPrivate {}
+    ShadowsOptedIn {}
+    ShadowsDeprecated {}
+    ShadowsWithOtherKind {}
+    NotOptedIn {}
+    Leaf {}
+    NotOptedInLeaf {}
+    Twice {}
+    NotReserved {}
+    ShadowAndUnrelated {}
+    ShadowAndTwin {}
+    NoLeak {}
+}

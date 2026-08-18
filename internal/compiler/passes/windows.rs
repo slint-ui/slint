@@ -48,6 +48,7 @@ pub fn ensure_window(
         children: std::mem::take(&mut win_elem_mut.children),
         enclosing_component: win_elem_mut.enclosing_component.clone(),
         property_declarations: Default::default(),
+        shadowing_members: Default::default(),
         named_references: Default::default(),
         repeated: Default::default(),
         states: Default::default(),

@@ -98,10 +98,10 @@ export component ScrollView {
     in property <bool> enabled: true;
     out property <length> visible-width <=> flickable.width;
     out property <length> visible-height <=> flickable.height;
-    in-out property <length> content-width <=> flickable.content-width;
-    in-out property <length> content-height <=> flickable.content-height;
-    in-out property <length> content-x <=> flickable.content-x;
-    in-out property <length> content-y <=> flickable.content-y;
+    @shadowable in-out property <length> content-width <=> flickable.content-width;
+    @shadowable in-out property <length> content-height <=> flickable.content-height;
+    @shadowable in-out property <length> content-x <=> flickable.content-x;
+    @shadowable in-out property <length> content-y <=> flickable.content-y;
     @deprecated in-out property <length> viewport-width <=> content-width;
     @deprecated in-out property <length> viewport-height <=> content-height;
     @deprecated in-out property <length> viewport-x <=> content-x;
