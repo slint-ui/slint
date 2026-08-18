@@ -23,7 +23,7 @@ on:
                 default: false
             ios:
                 type: boolean
-                description: Also build an unsigned iOS archive (.xcarchive) of the viewer
+                description: Also build iOS device and Simulator artifacts of the viewer
                 default: false
 
     workflow_call:
@@ -42,7 +42,7 @@ on:
                 default: true
             ios:
                 type: boolean
-                description: Also build an unsigned iOS archive (.xcarchive) of the viewer
+                description: Also build iOS device and Simulator artifacts of the viewer
                 default: false
         secrets:
             certificate:
@@ -203,3 +203,73 @@ jobs:
               with:
                   name: slint-${{ github.event.inputs.program || inputs.program }}-universal-apple-darwin
                   path: slint-${{ github.event.inputs.program || inputs.program }}-universal-apple-darwin.tar.gz
+
+    build_ios_simulator:
+        if: ${{ (github.event.inputs.program || inputs.program) == 'viewer' && (github.event.inputs.ios == 'true' || inputs.ios) }}
+        runs-on: macos-26
+        steps:
+            - uses: actions/checkout@v7
+            - uses: ./.github/actions/setup-rust
+              with:
+                  target: aarch64-apple-ios-sim
+            - name: Add the Intel iOS Simulator Rust target
+              run: rustup target add x86_64-apple-ios
+            - name: Install iOS viewer build tools
+              run: brew install xcodegen librsvg
+            - name: Generate the Xcode project
+              working-directory: tools/viewer
+              run: xcodegen --spec ios-project.yml
+            - name: Build the universal iOS Simulator viewer
+              working-directory: tools/viewer
+              run: |
+                  slint_version=$(sed -nre 's/^version = "([^"]+)"$/\1/p' ../../Cargo.toml | head -n 1)
+                  xcodebuild \
+                      -scheme slint-viewer \
+                      -configuration Release \
+                      -sdk iphonesimulator \
+                      -derivedDataPath "$RUNNER_TEMP/slint-viewer-derived" \
+                      ARCHS="arm64 x86_64" \
+                      ONLY_ACTIVE_ARCH=NO \
+                      CODE_SIGNING_ALLOWED=NO \
+                      MARKETING_VERSION="$slint_version" \
+                      CURRENT_PROJECT_VERSION="$SLINT_BUILD_NUMBER" \
+                      build
+                  app_path=$(find "$RUNNER_TEMP/slint-viewer-derived/Build/Products" \
+                      -path '*Release-iphonesimulator/slint-viewer.app' -print -quit)
+                  if [[ -z "$app_path" ]]; then
+                      echo "The iOS Simulator viewer app was not produced"
+                      exit 1
+                  fi
+                  architectures=$(lipo -archs "$app_path/slint-viewer")
+                  [[ "$architectures" == *arm64* && "$architectures" == *x86_64* ]]
+                  bundle_id=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$app_path/Info.plist")
+                  [[ "$bundle_id" == "dev.slint.slint-viewer" ]]
+                  echo "IOS_SIMULATOR_APP=$app_path" >> "$GITHUB_ENV"
+            - name: Install and launch the viewer in an iOS Simulator
+              run: |
+                  runtimes=$(xcrun simctl list runtimes --json)
+                  runtime=$(printf '%s' "$runtimes" | jq -r \
+                      '[.runtimes[] | select(.isAvailable == true and (.identifier | contains(".iOS-")))] | last | .identifier')
+                  device_type=$(printf '%s' "$runtimes" | jq -r --arg runtime "$runtime" \
+                      '.runtimes[] | select(.identifier == $runtime) | [.supportedDeviceTypes[] | select(.productFamily == "iPhone")] | first | .identifier')
+                  if [[ -z "$runtime" || "$runtime" == "null" || -z "$device_type" || "$device_type" == "null" ]]; then
+                      echo "No available iOS Simulator runtime or iPhone device type was found"
+                      exit 1
+                  fi
+                  simulator_id=$(xcrun simctl create "Slint Viewer CI" "$device_type" "$runtime")
+                  cleanup() {
+                      xcrun simctl shutdown "$simulator_id" || true
+                      xcrun simctl delete "$simulator_id" || true
+                  }
+                  trap cleanup EXIT
+                  xcrun simctl boot "$simulator_id"
+                  xcrun simctl bootstatus "$simulator_id" -b
+                  xcrun simctl install "$simulator_id" "$IOS_SIMULATOR_APP"
+                  xcrun simctl launch "$simulator_id" dev.slint.slint-viewer
+            - name: Archive the iOS Simulator viewer
+              run: ditto -c -k --sequesterRsrc --keepParent "$IOS_SIMULATOR_APP" slint-viewer-ios-simulator.zip
+            - name: Upload the iOS Simulator viewer
+              uses: actions/upload-artifact@v7
+              with:
+                  name: slint-viewer-ios-simulator
+                  path: slint-viewer-ios-simulator.zip

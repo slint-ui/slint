@@ -47,13 +47,22 @@ mod tests {
             release_tag: "v1.18.0".into(),
             slint_version: "1.18.0".into(),
             protocol: "slint-preview.1.18".into(),
-            artifacts: vec![MobileViewerArtifact {
-                kind: MobileViewerArtifactKind::AndroidApk,
-                file_name: "slint-viewer.apk".into(),
-                sha256: "ab".repeat(32),
-                bundle_id: "dev.slint.viewer".into(),
-                architectures: vec!["arm64-v8a".into(), "x86_64".into()],
-            }],
+            artifacts: vec![
+                MobileViewerArtifact {
+                    kind: MobileViewerArtifactKind::AndroidApk,
+                    file_name: "slint-viewer.apk".into(),
+                    sha256: "ab".repeat(32),
+                    bundle_id: "dev.slint.viewer".into(),
+                    architectures: vec!["arm64-v8a".into(), "x86_64".into()],
+                },
+                MobileViewerArtifact {
+                    kind: MobileViewerArtifactKind::IosSimulatorApp,
+                    file_name: "slint-viewer-ios-simulator.zip".into(),
+                    sha256: "cd".repeat(32),
+                    bundle_id: "dev.slint.slint-viewer".into(),
+                    architectures: vec!["arm64".into(), "x86_64".into()],
+                },
+            ],
         };
 
         let json = serde_json::to_string(&manifest).unwrap();

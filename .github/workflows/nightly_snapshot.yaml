@@ -43,6 +43,7 @@ jobs:
         uses: ./.github/workflows/slint_tool_binary.yaml
         with:
             program: "viewer"
+            ios: true
         secrets:
             certificate: ${{ secrets.APPLE_CERTIFICATE_P12 }}
             certificate_password: ${{ secrets.APPLE_CERTIFICATE_P12_PASSWORD }}
@@ -707,7 +708,8 @@ jobs:
                       "$release_tag" \
                       "$slint_version" \
                       "$protocol" \
-                      artifacts/slint-viewer.apk
+                      artifacts/slint-viewer.apk \
+                      artifacts/slint-viewer-ios-simulator.zip
 
             - name: generate STM32 template packages
               env:

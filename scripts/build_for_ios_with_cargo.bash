@@ -7,6 +7,10 @@ set -euvx
 # Fix up PATH to work around https://github.com/rust-lang/rust/issues/80817 and add cargo.
 export PATH="/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH:$HOME/.cargo/bin"
 
+# bindgen-backed Apple dependencies need Xcode's libclang when Cargo runs from
+# an Xcode build phase, where the dylib is not on the normal loader path.
+export LIBCLANG_PATH="$(xcode-select -p)/Toolchains/XcodeDefault.xctoolchain/usr/lib"
+
 # based on https://github.com/mozilla/glean/blob/main/build-scripts/xc-universal-binary.sh
 
 if [[ "$CONFIGURATION" != "Debug" ]]; then

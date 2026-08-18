@@ -4,8 +4,8 @@
 
 set -eu
 
-if [ "$#" -ne 5 ]; then
-    echo "Usage: $0 OUTPUT RELEASE_TAG SLINT_VERSION PROTOCOL ANDROID_APK" >&2
+if [ "$#" -ne 6 ]; then
+    echo "Usage: $0 OUTPUT RELEASE_TAG SLINT_VERSION PROTOCOL ANDROID_APK IOS_SIMULATOR_ZIP" >&2
     exit 2
 fi
 
@@ -14,11 +14,18 @@ release_tag=$2
 slint_version=$3
 protocol=$4
 android_apk=$5
+ios_simulator_zip=$6
 
 if command -v sha256sum >/dev/null 2>&1; then
     android_sha256=$(sha256sum "$android_apk" | cut -d ' ' -f 1)
 else
     android_sha256=$(shasum -a 256 "$android_apk" | cut -d ' ' -f 1)
+fi
+
+if command -v sha256sum >/dev/null 2>&1; then
+    ios_sha256=$(sha256sum "$ios_simulator_zip" | cut -d ' ' -f 1)
+else
+    ios_sha256=$(shasum -a 256 "$ios_simulator_zip" | cut -d ' ' -f 1)
 fi
 
 jq -n \
@@ -27,6 +34,8 @@ jq -n \
     --arg protocol "$protocol" \
     --arg android_file_name "$(basename "$android_apk")" \
     --arg android_sha256 "$android_sha256" \
+    --arg ios_file_name "$(basename "$ios_simulator_zip")" \
+    --arg ios_sha256 "$ios_sha256" \
     '{
         schema_version: 1,
         release_tag: $release_tag,
@@ -39,6 +48,13 @@ jq -n \
                 sha256: $android_sha256,
                 bundle_id: "dev.slint.viewer",
                 architectures: ["arm64-v8a", "armeabi-v7a", "x86_64"]
+            },
+            {
+                kind: "ios-simulator-app",
+                file_name: $ios_file_name,
+                sha256: $ios_sha256,
+                bundle_id: "dev.slint.slint-viewer",
+                architectures: ["arm64", "x86_64"]
             }
         ]
     }' > "$output"
