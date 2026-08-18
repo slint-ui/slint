@@ -285,8 +285,8 @@ async fn run_async(address: Option<SocketAddr>, enable_mdns: bool) -> anyhow::Re
     Ok(())
 }
 
-/// Returns `Err` only on unrecoverable platform failure; compile errors and missing
-/// components reinstall the placeholder and return `Ok(())`.
+/// Returns `Err` only on unrecoverable platform failure. Compile errors and missing
+/// components leave a previous successful preview in place and return `Ok(())`.
 async fn build_and_show(
     compiler: &slint_interpreter::Compiler,
     preview_component: &PreviewComponent,
@@ -328,14 +328,16 @@ async fn build_and_show(
             .map(|d| d.to_string())
             .collect::<Vec<_>>()
             .join("\n");
-        swap_to_placeholder(
-            placeholder,
-            user_instance,
-            address,
-            name,
-            &message,
-            RemoteViewerState::PreviewError,
-        )?;
+        if user_instance.is_none() {
+            swap_to_placeholder(
+                placeholder,
+                user_instance,
+                address,
+                name,
+                &message,
+                RemoteViewerState::PreviewError,
+            )?;
+        }
         return Ok(());
     }
 
@@ -348,14 +350,16 @@ async fn build_and_show(
         // No compile errors but no component — skip send_diagnostics so we don't clobber
         // unrelated LSP diagnostics for this URI.
         tracing::error!("Component not found");
-        swap_to_placeholder(
-            placeholder,
-            user_instance,
-            address,
-            name,
-            "Component not found",
-            RemoteViewerState::PreviewError,
-        )?;
+        if user_instance.is_none() {
+            swap_to_placeholder(
+                placeholder,
+                user_instance,
+                address,
+                name,
+                "Component not found",
+                RemoteViewerState::PreviewError,
+            )?;
+        }
         return Ok(());
     };
 

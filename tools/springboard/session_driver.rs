@@ -18,6 +18,7 @@ use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
 
 use crate::discovery::{DiscoveredRemoteViewer, RemoteDiscoveryEvent, RemoteViewerDiscovery};
+use crate::remote_driver::{RemoteDriverEvent, RemoteViewerDriver};
 
 pub const LOCAL_VIEWER_DEVICE_ID: &str = "builtin:local-viewer";
 
@@ -191,6 +192,7 @@ pub struct ProjectSessionController {
     global_state: GlobalDeviceState,
     store: DeviceStateStore,
     local_viewer: LocalViewerDriver,
+    remote_viewer: Option<RemoteViewerDriver>,
     remote_discovery: Option<RemoteViewerDiscovery>,
     remote_viewers: BTreeMap<DeviceId, DiscoveredRemoteViewer>,
     events: VecDeque<SessionEvent>,
@@ -221,6 +223,7 @@ impl ProjectSessionController {
             global_state: loaded.state,
             store,
             local_viewer: LocalViewerDriver::new(viewer_command),
+            remote_viewer: None,
             remote_discovery: None,
             remote_viewers: BTreeMap::new(),
             events,
@@ -266,17 +269,37 @@ impl ProjectSessionController {
             action => bail!("Unexpected session action {action:?} for launch"),
         }
         self.emit_device(device_id);
-        if device_id.as_str() != LOCAL_VIEWER_DEVICE_ID {
-            let message = format!("No target driver is available for {device_id}");
-            self.session.mark_failed(device_id, &message)?;
+        if device_id.as_str() == LOCAL_VIEWER_DEVICE_ID {
+            if let Err(error) =
+                self.local_viewer.launch(self.session.project(), Some("fluent")).await
+            {
+                self.session.mark_failed(device_id, error.to_string())?;
+                self.emit_device(device_id);
+                return Err(error);
+            }
+        } else {
+            let Some(viewer) = self.remote_viewers.get(device_id).cloned() else {
+                let message = format!("Remote viewer {device_id} is not currently discoverable");
+                self.session.mark_failed(device_id, &message)?;
+                self.emit_device(device_id);
+                bail!(message);
+            };
+            self.session.mark_connecting(device_id)?;
             self.emit_device(device_id);
-            bail!(message);
-        }
-
-        if let Err(error) = self.local_viewer.launch(self.session.project(), Some("fluent")).await {
-            self.session.mark_failed(device_id, error.to_string())?;
-            self.emit_device(device_id);
-            return Err(error);
+            let mut driver = match RemoteViewerDriver::new() {
+                Ok(driver) => driver,
+                Err(error) => {
+                    self.session.mark_failed(device_id, error.to_string())?;
+                    self.emit_device(device_id);
+                    return Err(error);
+                }
+            };
+            if let Err(error) = driver.launch(&viewer, self.session.project(), "fluent").await {
+                self.session.mark_failed(device_id, error.to_string())?;
+                self.emit_device(device_id);
+                return Err(error);
+            }
+            self.remote_viewer = Some(driver);
         }
 
         self.session.mark_running(device_id)?;
@@ -287,7 +310,11 @@ impl ProjectSessionController {
         self.events.push_back(SessionEvent::Log {
             device_id: Some(device_id.clone()),
             level: LogLevel::Information,
-            message: "Local viewer started".into(),
+            message: if device_id.as_str() == LOCAL_VIEWER_DEVICE_ID {
+                "Local viewer started".into()
+            } else {
+                "Remote viewer connected".into()
+            },
         });
         if let Err(error) = self.store.save(&self.global_state) {
             self.events.push_back(SessionEvent::Error {
@@ -307,13 +334,26 @@ impl ProjectSessionController {
         self.emit_device(device_id);
         if device_id.as_str() == LOCAL_VIEWER_DEVICE_ID {
             self.local_viewer.stop().await?;
+        } else if let Some(mut driver) = self.remote_viewer.take() {
+            driver.stop().await;
         }
-        self.session.mark_stopped(device_id, DeviceStatus::Available)?;
+        let idle_status = if device_id.as_str() == LOCAL_VIEWER_DEVICE_ID
+            || self.remote_viewers.contains_key(device_id)
+        {
+            DeviceStatus::Available
+        } else {
+            DeviceStatus::Unavailable
+        };
+        self.session.mark_stopped(device_id, idle_status)?;
         self.emit_device(device_id);
         self.events.push_back(SessionEvent::Log {
             device_id: Some(device_id.clone()),
             level: LogLevel::Information,
-            message: "Local viewer stopped".into(),
+            message: if device_id.as_str() == LOCAL_VIEWER_DEVICE_ID {
+                "Local viewer stopped".into()
+            } else {
+                "Remote viewer disconnected".into()
+            },
         });
         Ok(())
     }
@@ -321,6 +361,14 @@ impl ProjectSessionController {
     pub fn refresh(&mut self, device_id: &DeviceId) -> Result<()> {
         match self.session.refresh(device_id)? {
             SessionAction::Refresh => {
+                if self.session.active_device() == Some(device_id)
+                    && device_id.as_str() != LOCAL_VIEWER_DEVICE_ID
+                {
+                    self.remote_viewer
+                        .as_mut()
+                        .context("The active remote viewer driver is unavailable")?
+                        .refresh()?;
+                }
                 self.events.push_back(SessionEvent::Log {
                     device_id: Some(device_id.clone()),
                     level: LogLevel::Information,
@@ -341,14 +389,16 @@ impl ProjectSessionController {
         for event in discovery_events {
             self.apply_discovery_event(event);
         }
+        self.capture_remote_events()?;
         self.capture_output();
-        let Some(status) = self.local_viewer.poll_exit()? else { return Ok(()) };
-        let device_id = local_viewer_device_id();
-        if self.session.active_device() == Some(&device_id) {
-            let message = format!("Local viewer exited unexpectedly with {status}");
-            self.session.mark_failed(&device_id, &message)?;
-            self.emit_device(&device_id);
-            self.events.push_back(SessionEvent::Error { device_id: Some(device_id), message });
+        if let Some(status) = self.local_viewer.poll_exit()? {
+            let device_id = local_viewer_device_id();
+            if self.session.active_device() == Some(&device_id) {
+                let message = format!("Local viewer exited unexpectedly with {status}");
+                self.session.mark_failed(&device_id, &message)?;
+                self.emit_device(&device_id);
+                self.events.push_back(SessionEvent::Error { device_id: Some(device_id), message });
+            }
         }
         Ok(())
     }
@@ -363,6 +413,9 @@ impl ProjectSessionController {
             self.stop(&device_id).await?;
         } else {
             self.local_viewer.stop().await?;
+            if let Some(mut driver) = self.remote_viewer.take() {
+                driver.stop().await;
+            }
         }
         Ok(())
     }
@@ -393,6 +446,48 @@ impl ProjectSessionController {
                 });
             }
         }
+    }
+
+    fn capture_remote_events(&mut self) -> Result<()> {
+        let events = self
+            .remote_viewer
+            .as_mut()
+            .map(RemoteViewerDriver::poll)
+            .transpose()?
+            .unwrap_or_default();
+        for event in events {
+            match event {
+                RemoteDriverEvent::Session(event) => self.events.push_back(event),
+                RemoteDriverEvent::Connection(event) => {
+                    let Some(device_id) = self.session.active_device().cloned() else {
+                        continue;
+                    };
+                    use i_slint_live_preview::remote_client::RemoteClientState;
+                    match event.state {
+                        RemoteClientState::Connected => {
+                            self.session.mark_running(&device_id)?;
+                            self.emit_device(&device_id);
+                        }
+                        RemoteClientState::Connecting | RemoteClientState::Disconnected => {
+                            self.session.mark_connecting(&device_id)?;
+                            self.emit_device(&device_id);
+                        }
+                        RemoteClientState::Failed => {
+                            let message = event.error.unwrap_or_else(|| {
+                                format!("Failed to connect to remote viewer at {}", event.target)
+                            });
+                            self.session.mark_failed(&device_id, &message)?;
+                            self.emit_device(&device_id);
+                            self.events.push_back(SessionEvent::Error {
+                                device_id: Some(device_id),
+                                message,
+                            });
+                        }
+                    }
+                }
+            }
+        }
+        Ok(())
     }
 
     fn emit_device(&mut self, device_id: &DeviceId) {

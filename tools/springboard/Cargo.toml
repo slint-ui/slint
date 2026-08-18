@@ -33,7 +33,7 @@ default = ["backend-default", "renderer-femtovg", "renderer-software"]
 
 [dependencies]
 i-slint-springboard = { workspace = true }
-i-slint-live-preview = { workspace = true, features = ["protocol"] }
+i-slint-live-preview = { workspace = true, features = ["file-watcher", "protocol", "remote-client"] }
 slint-viewer = { version = "=1.18.0", path = "../viewer", default-features = false }
 
 anyhow = "1.0.100"
@@ -49,4 +49,5 @@ tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 
 [dev-dependencies]
+i-slint-live-preview = { workspace = true, features = ["remote"] }
 tempfile = "3"

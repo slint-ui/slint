@@ -24,7 +24,12 @@ pub enum PreviewTarget {
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
 pub enum PreviewToLspMessage {
     /// Report diagnostics to editor.
-    Diagnostics { uri: Url, version: SourceFileVersion, diagnostics: Vec<lsp_types::Diagnostic> },
+    Diagnostics {
+        uri: Url,
+        version: SourceFileVersion,
+        #[serde(with = "diagnostics_serde")]
+        diagnostics: Vec<lsp_types::Diagnostic>,
+    },
     /// Show a document in the editor.
     ShowDocument { file: Url, selection: lsp_types::Range, take_focus: bool },
     /// Switch between native and WASM preview (if supported)
@@ -68,6 +73,50 @@ pub enum PreviewToLspMessage {
     SetProjectEntry { project_root: Url, entry: Url },
     /// Configure the selected exported component as the project preview entry.
     SetProjectComponent { project_root: Url, entry: Url, component: String },
+}
+
+/// `lsp_types::Diagnostic` omits absent fields while serializing. That is valid for JSON,
+/// but it makes the derived representation ambiguous to a non-self-describing format such as
+/// postcard. Keep the normal JSON shape and wrap each diagnostic as JSON only on binary links.
+mod diagnostics_serde {
+    use serde::{Deserialize as _, Serialize as _, de::Error as _, ser::Error as _};
+
+    pub fn serialize<Serializer>(
+        diagnostics: &[lsp_types::Diagnostic],
+        serializer: Serializer,
+    ) -> Result<Serializer::Ok, Serializer::Error>
+    where
+        Serializer: serde::Serializer,
+    {
+        if serializer.is_human_readable() {
+            diagnostics.serialize(serializer)
+        } else {
+            diagnostics
+                .iter()
+                .map(serde_json::to_vec)
+                .collect::<Result<Vec<_>, _>>()
+                .map_err(Serializer::Error::custom)?
+                .serialize(serializer)
+        }
+    }
+
+    pub fn deserialize<'de, Deserializer>(
+        deserializer: Deserializer,
+    ) -> Result<Vec<lsp_types::Diagnostic>, Deserializer::Error>
+    where
+        Deserializer: serde::Deserializer<'de>,
+    {
+        if deserializer.is_human_readable() {
+            Vec::deserialize(deserializer)
+        } else {
+            Vec::<Vec<u8>>::deserialize(deserializer)?
+                .into_iter()
+                .map(|encoded| {
+                    serde_json::from_slice(&encoded).map_err(Deserializer::Error::custom)
+                })
+                .collect()
+        }
+    }
 }
 
 /// One transport from a preview back to the LSP.

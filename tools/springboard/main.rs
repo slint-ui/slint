@@ -9,6 +9,7 @@ use i_slint_springboard::project::{ProjectRunTarget, load_project_run_target};
 use slint_viewer::{ViewerLogLevel, ViewerRunnerOptions, run_auto_reload_simulator};
 
 mod discovery;
+mod remote_driver;
 mod session_driver;
 mod stdio;
 mod tui;

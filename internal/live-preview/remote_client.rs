@@ -226,7 +226,7 @@ impl RemotePreviewClient {
             let mut connected = None;
             for address in addresses {
                 tracing::info!("Attempting to connect to remote viewer at {address}:{port}");
-                let url = format!("ws://{address}:{port}");
+                let url = websocket_url(address, port);
                 let connect =
                     tokio_tungstenite_wasm::connect_with_protocols(&url, &[PROTOCOL_SUBPROTOCOL]);
                 match tokio::time::timeout(CONNECT_TIMEOUT, connect).await {
@@ -516,5 +516,80 @@ fn describe_version_mismatch(error: &tokio_tungstenite_wasm::Error) -> Option<St
             "Version mismatch: viewer does not speak {PROTOCOL_SUBPROTOCOL} (this client uses Slint {SLINT_VERSION})",
         )),
         _ => None,
+    }
+}
+
+fn websocket_url(address: &str, port: u16) -> String {
+    let address =
+        address.strip_prefix('[').and_then(|value| value.strip_suffix(']')).unwrap_or(address);
+    if address.contains(':') {
+        format!("ws://[{}]:{port}", address.replace('%', "%25"))
+    } else {
+        format!("ws://{address}:{port}")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn binary_protocol_round_trips_non_empty_diagnostics() {
+        let uri = crate::protocol::lsp_types::Url::parse("file:///test.slint").unwrap();
+        let message = PreviewToLspMessage::Diagnostics {
+            uri: uri.clone(),
+            version: None,
+            diagnostics: vec![crate::protocol::lsp_types::Diagnostic {
+                range: crate::protocol::lsp_types::Range::default(),
+                severity: Some(crate::protocol::lsp_types::DiagnosticSeverity::ERROR),
+                message: "deliberate error".into(),
+                ..Default::default()
+            }],
+        };
+
+        let encoded = postcard::to_allocvec(&message).unwrap();
+        let decoded = postcard::from_bytes::<PreviewToLspMessage>(&encoded).unwrap();
+
+        let PreviewToLspMessage::Diagnostics { uri: decoded_uri, diagnostics, .. } = decoded else {
+            panic!("decoded a different protocol message")
+        };
+        assert_eq!(decoded_uri, uri);
+        assert_eq!(diagnostics.len(), 1);
+        assert_eq!(diagnostics[0].message, "deliberate error");
+        assert_eq!(
+            diagnostics[0].severity,
+            Some(crate::protocol::lsp_types::DiagnosticSeverity::ERROR)
+        );
+    }
+
+    #[test]
+    fn diagnostics_keep_their_normal_json_shape() {
+        let message = PreviewToLspMessage::Diagnostics {
+            uri: crate::protocol::lsp_types::Url::parse("file:///test.slint").unwrap(),
+            version: None,
+            diagnostics: vec![crate::protocol::lsp_types::Diagnostic {
+                range: crate::protocol::lsp_types::Range::default(),
+                severity: Some(crate::protocol::lsp_types::DiagnosticSeverity::WARNING),
+                message: "warning".into(),
+                ..Default::default()
+            }],
+        };
+
+        let json = serde_json::to_value(&message).unwrap();
+        assert_eq!(json["Diagnostics"]["diagnostics"][0]["message"], "warning");
+        assert!(json["Diagnostics"]["diagnostics"][0].get("source").is_none());
+        let decoded: PreviewToLspMessage = serde_json::from_value(json).unwrap();
+        assert!(matches!(
+            decoded,
+            PreviewToLspMessage::Diagnostics { diagnostics, .. } if diagnostics.len() == 1
+        ));
+    }
+
+    #[test]
+    fn websocket_urls_bracket_ipv6_and_escape_scope_ids() {
+        assert_eq!(websocket_url("127.0.0.1", 8080), "ws://127.0.0.1:8080");
+        assert_eq!(websocket_url("::1", 8080), "ws://[::1]:8080");
+        assert_eq!(websocket_url("fe80::1%en0", 8080), "ws://[fe80::1%25en0]:8080");
+        assert_eq!(websocket_url("[::1]", 8080), "ws://[::1]:8080");
     }
 }
