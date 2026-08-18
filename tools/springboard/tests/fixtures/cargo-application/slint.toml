@@ -1,0 +1,12 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+entry = "ui/app.slint"
+component = "App"
+
+[app]
+kind = "cargo"
+manifest = "Cargo.toml"
+package = "springboard-cargo-fixture"
+binary = "springboard-cargo-fixture"
+live-preview-feature = "preview-ui"

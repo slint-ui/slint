@@ -1,0 +1,17 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+[workspace]
+
+[package]
+name = "springboard-cargo-fixture"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[[bin]]
+name = "springboard-cargo-fixture"
+path = "src/main.rs"
+
+[features]
+preview-ui = []

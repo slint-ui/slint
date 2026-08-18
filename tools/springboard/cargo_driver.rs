@@ -60,7 +60,9 @@ impl WorkspaceRebuildWatcher {
                 }
                 Ok(_) => {}
                 Err(error) => {
-                    error_sender.send(WorkspaceWatchMessage::Error(error.to_string())).ok();
+                    if !is_transient_watcher_error(&error) {
+                        error_sender.send(WorkspaceWatchMessage::Error(error.to_string())).ok();
+                    }
                 }
             })
             .context("Failed to create the Cargo workspace watcher")?;
@@ -102,6 +104,14 @@ impl WorkspaceRebuildWatcher {
 
     fn take_hot_reload_activity(&mut self) -> bool {
         std::mem::take(&mut self.hot_reload_activity)
+    }
+}
+
+fn is_transient_watcher_error(error: &notify::Error) -> bool {
+    match &error.kind {
+        notify::ErrorKind::PathNotFound => true,
+        notify::ErrorKind::Io(error) => error.kind() == std::io::ErrorKind::NotFound,
+        _ => false,
     }
 }
 
@@ -666,6 +676,16 @@ mod tests {
 
         planner.request_manual_rebuild();
         assert!(planner.take_rebuild_request(now));
+    }
+
+    #[test]
+    fn a_disappearing_watched_path_is_transient_but_other_errors_are_not() {
+        assert!(is_transient_watcher_error(&notify::Error::path_not_found()));
+        assert!(is_transient_watcher_error(&notify::Error::io(std::io::Error::new(
+            std::io::ErrorKind::NotFound,
+            "gone",
+        ))));
+        assert!(!is_transient_watcher_error(&notify::Error::generic("watch failed")));
     }
 
     #[tokio::test]

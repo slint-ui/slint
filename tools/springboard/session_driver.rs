@@ -621,11 +621,7 @@ impl ProjectSessionController {
         let previous_application_is_running = driver.application_id().is_some();
         self.cargo_application = Some(driver);
         match build_result {
-            Ok(()) => {
-                if self.session.active_device() == Some(&device_id) {
-                    self.complete_launch(&device_id)?;
-                }
-            }
+            Ok(()) => {}
             Err(message) => {
                 if self.session.active_device() == Some(&device_id) {
                     if previous_application_is_running {
@@ -680,6 +676,14 @@ impl ProjectSessionController {
         for event in runtime_events {
             match event {
                 RuntimeEvent::Ready { .. } => {
+                    if self.session.active_device() == Some(&device_id)
+                        && matches!(
+                            self.session.devices()[&device_id].status,
+                            DeviceStatus::Compiling | DeviceStatus::Rebuilding
+                        )
+                    {
+                        self.complete_launch(&device_id)?;
+                    }
                     self.events.push_back(SessionEvent::Log {
                         device_id: Some(device_id.clone()),
                         level: LogLevel::Debug,
@@ -1131,6 +1135,73 @@ mod tests {
         std::fs::write(directory.path().join("src/main.rs"), "fn main() {}\n").unwrap();
     }
 
+    fn cargo_fixture_project(directory: &tempfile::TempDir) -> ProjectRunTarget {
+        const FILES: &[(&str, &str)] = &[
+            ("Cargo.toml", include_str!("tests/fixtures/cargo-application/Cargo.toml")),
+            ("Cargo.lock", include_str!("tests/fixtures/cargo-application/Cargo.lock")),
+            ("build.rs", include_str!("tests/fixtures/cargo-application/build.rs")),
+            ("src/main.rs", include_str!("tests/fixtures/cargo-application/src/main.rs")),
+            ("ui/app.slint", include_str!("tests/fixtures/cargo-application/ui/app.slint")),
+            ("ui/resource.txt", include_str!("tests/fixtures/cargo-application/ui/resource.txt")),
+            ("slint.toml", include_str!("tests/fixtures/cargo-application/slint.toml")),
+        ];
+        for (relative_path, contents) in FILES {
+            let path = directory.path().join(relative_path);
+            std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+            std::fs::write(path, contents).unwrap();
+        }
+        i_slint_springboard::project::load_project_run_target(directory.path()).unwrap().unwrap()
+    }
+
+    fn cargo_fixture_pid(controller: &ProjectSessionController) -> Option<u32> {
+        controller.cargo_application.as_ref().and_then(CargoApplicationDriver::application_id)
+    }
+
+    fn cargo_fixture_build_count(directory: &tempfile::TempDir) -> u32 {
+        std::fs::read_to_string(directory.path().join("target/springboard-build-count"))
+            .ok()
+            .and_then(|count| count.parse().ok())
+            .unwrap_or_default()
+    }
+
+    async fn wait_for_cargo_fixture(
+        controller: &mut ProjectSessionController,
+        description: &str,
+        mut ready: impl FnMut(&ProjectSessionController) -> bool,
+    ) {
+        tokio::time::timeout(Duration::from_secs(15), async {
+            loop {
+                controller.poll().await.unwrap();
+                if ready(controller) {
+                    break;
+                }
+                tokio::time::sleep(Duration::from_millis(20)).await;
+            }
+        })
+        .await
+        .unwrap_or_else(|_| panic!("Timed out waiting for {description}"));
+    }
+
+    async fn wait_for_cargo_fixture_log(
+        controller: &mut ProjectSessionController,
+        description: &str,
+        needle: &str,
+    ) {
+        tokio::time::timeout(Duration::from_secs(15), async {
+            loop {
+                controller.poll().await.unwrap();
+                if controller.take_events().iter().any(|event| {
+                    matches!(event, SessionEvent::Log { message, .. } if message.contains(needle))
+                }) {
+                    break;
+                }
+                tokio::time::sleep(Duration::from_millis(20)).await;
+            }
+        })
+        .await
+        .unwrap_or_else(|_| panic!("Timed out waiting for {description}"));
+    }
+
     fn fake_command(mode: &str) -> ViewerChildCommand {
         ViewerChildCommand::fake(
             std::env::current_exe().unwrap(),
@@ -1158,6 +1229,162 @@ mod tests {
         assert_eq!(device.status, DeviceStatus::Available);
         assert!(device.capabilities.rebuild);
         assert!(device.name.contains("springboard-test-app"));
+    }
+
+    #[tokio::test]
+    async fn selective_cargo_rebuilds_preserve_the_last_successful_process() {
+        let directory = tempfile::tempdir().unwrap();
+        let state_directory = tempfile::tempdir().unwrap();
+        let project = cargo_fixture_project(&directory);
+        let entry_file = project.entry_file.clone();
+        let resource_file = directory.path().join("ui/resource.txt");
+        let rust_file = directory.path().join("src/main.rs");
+        let original_rust = std::fs::read_to_string(&rust_file).unwrap();
+        let mut controller =
+            ProjectSessionController::new(project, store(&state_directory), fake_command("wait"));
+        let device_id = rust_application_device_id();
+
+        controller.launch(&device_id).await.unwrap();
+        wait_for_cargo_fixture(&mut controller, "the initial Cargo application", |controller| {
+            controller.session().devices()[&device_id].status == DeviceStatus::Running
+                && cargo_fixture_pid(controller).is_some()
+        })
+        .await;
+        wait_for_cargo_fixture_log(
+            &mut controller,
+            "the live-preview runtime handshake",
+            "runtime is ready",
+        )
+        .await;
+        let initial_pid = cargo_fixture_pid(&controller).unwrap();
+        assert_eq!(cargo_fixture_build_count(&directory), 1);
+
+        std::fs::write(
+            &entry_file,
+            "export component App inherits Window { Text { text: \"Layout edit\"; } }\n",
+        )
+        .unwrap();
+        wait_for_cargo_fixture_log(
+            &mut controller,
+            "an implementation-only Slint reload",
+            "implementation reloaded without Cargo",
+        )
+        .await;
+        assert_eq!(cargo_fixture_pid(&controller), Some(initial_pid));
+        assert_eq!(cargo_fixture_build_count(&directory), 1);
+
+        std::fs::write(
+            &entry_file,
+            "export component App inherits Window { Text { color: #246; text: \"Style edit\"; } }\n",
+        )
+        .unwrap();
+        wait_for_cargo_fixture_log(
+            &mut controller,
+            "a style-only Slint reload",
+            "implementation reloaded without Cargo",
+        )
+        .await;
+        assert_eq!(cargo_fixture_pid(&controller), Some(initial_pid));
+        assert_eq!(cargo_fixture_build_count(&directory), 1);
+
+        std::fs::write(&resource_file, "changed resource\n").unwrap();
+        wait_for_cargo_fixture_log(
+            &mut controller,
+            "a Slint resource reload",
+            "implementation reloaded without Cargo",
+        )
+        .await;
+        assert_eq!(cargo_fixture_pid(&controller), Some(initial_pid));
+        assert_eq!(cargo_fixture_build_count(&directory), 1);
+
+        std::fs::write(
+            &entry_file,
+            "// springboard-fixture: interface-change\nexport component App inherits Window { in property <int> value; }\n",
+        )
+        .unwrap();
+        wait_for_cargo_fixture(&mut controller, "the Slint interface rebuild", |controller| {
+            controller.session().devices()[&device_id].status == DeviceStatus::Running
+                && cargo_fixture_pid(controller).is_some_and(|pid| pid != initial_pid)
+                && cargo_fixture_build_count(&directory) == 2
+        })
+        .await;
+        let interface_pid = cargo_fixture_pid(&controller).unwrap();
+        assert!(controller.take_events().iter().any(|event| {
+            matches!(
+                event,
+                SessionEvent::Log { message, .. } if message.contains("exported property changed")
+            )
+        }));
+
+        std::fs::write(&rust_file, format!("{original_rust}\n// Rust implementation edit\n"))
+            .unwrap();
+        wait_for_cargo_fixture(&mut controller, "the Rust source rebuild", |controller| {
+            controller.session().devices()[&device_id].status == DeviceStatus::Running
+                && cargo_fixture_pid(controller).is_some_and(|pid| pid != interface_pid)
+                && cargo_fixture_build_count(&directory) == 3
+        })
+        .await;
+        let rust_pid = cargo_fixture_pid(&controller).unwrap();
+
+        std::fs::write(
+            &entry_file,
+            "// springboard-fixture: compile-error\nexport component App inherits Window {\n",
+        )
+        .unwrap();
+        wait_for_cargo_fixture(&mut controller, "the Slint compile error", |controller| {
+            matches!(
+                controller.session().devices()[&device_id].status,
+                DeviceStatus::RunningWithError { .. }
+            )
+        })
+        .await;
+        assert_eq!(cargo_fixture_pid(&controller), Some(rust_pid));
+        assert_eq!(cargo_fixture_build_count(&directory), 3);
+
+        std::fs::write(
+            &entry_file,
+            "export component App inherits Window { Text { text: \"Recovered\"; } }\n",
+        )
+        .unwrap();
+        wait_for_cargo_fixture_log(
+            &mut controller,
+            "recovery from the Slint error",
+            "implementation reloaded without Cargo",
+        )
+        .await;
+        assert_eq!(controller.session().devices()[&device_id].status, DeviceStatus::Running);
+
+        std::fs::write(&rust_file, format!("{original_rust}\nthis is not valid Rust;\n")).unwrap();
+        wait_for_cargo_fixture(&mut controller, "the failed Rust rebuild", |controller| {
+            cargo_fixture_build_count(&directory) == 4
+                && cargo_fixture_pid(controller) == Some(rust_pid)
+                && matches!(
+                    controller.session().devices()[&device_id].status,
+                    DeviceStatus::RunningWithError { .. }
+                )
+        })
+        .await;
+
+        std::fs::write(&rust_file, format!("{original_rust}\n// Recovered Rust edit\n")).unwrap();
+        std::fs::write(
+            &entry_file,
+            "export component App inherits Window { Text { text: \"Mixed edit\"; } }\n",
+        )
+        .unwrap();
+        std::fs::write(&resource_file, "rapid mixed resource edit\n").unwrap();
+        wait_for_cargo_fixture(&mut controller, "the coalesced mixed rebuild", |controller| {
+            controller.session().devices()[&device_id].status == DeviceStatus::Running
+                && cargo_fixture_pid(controller).is_some_and(|pid| pid != rust_pid)
+                && cargo_fixture_build_count(&directory) == 5
+        })
+        .await;
+        let final_pid = cargo_fixture_pid(&controller).unwrap();
+        tokio::time::sleep(i_slint_live_preview::REBUILD_DEBOUNCE * 2).await;
+        controller.poll().await.unwrap();
+        assert_eq!(cargo_fixture_build_count(&directory), 5);
+        assert_eq!(cargo_fixture_pid(&controller), Some(final_pid));
+
+        controller.shutdown().await.unwrap();
     }
 
     fn remote_viewer() -> DiscoveredRemoteViewer {
