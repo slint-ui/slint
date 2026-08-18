@@ -921,22 +921,6 @@ fn show_preview_for(name: slint::SharedString, url: slint::SharedString) {
     load_preview(current, LoadBehavior::Load);
 }
 
-fn launch_live_preview(project_root: slint::SharedString) {
-    PREVIEW_STATE.with_borrow(|preview_state| {
-        let Ok(project_root) = Url::from_directory_path(Path::new(project_root.as_str())) else {
-            tracing::error!("Failed to convert the Visual Editor project root to a file URL");
-            return;
-        };
-        let Some(to_lsp) = preview_state.to_lsp.borrow().as_ref().cloned() else {
-            return;
-        };
-        if let Err(error) = to_lsp.send(&PreviewToLspMessage::LaunchProjectPreview { project_root })
-        {
-            tracing::error!("Failed to request the project preview: {error}");
-        }
-    });
-}
-
 fn select_project_entry(project_root: Url) {
     let Some(project_root_path) = crate::uri_to_file(&project_root) else {
         show_project_preview_error(format!(
@@ -2941,32 +2925,6 @@ mod tests {
             PreviewToLspMessage::UpdateUserSettings { name, contents }
                 if name == PREVIEW_SETTINGS_FILE && contents == &settings.serialize()
         ));
-    }
-
-    #[test]
-    fn launch_live_preview_routes_project_root_to_host() {
-        let messages = Rc::new(RefCell::new(Vec::new()));
-        reset_preview_state(messages.clone());
-        let project_root = std::env::temp_dir();
-        let expected = Url::from_directory_path(&project_root).unwrap();
-
-        launch_live_preview(project_root.to_string_lossy().into());
-
-        assert!(matches!(
-            &messages.borrow()[..],
-            [PreviewToLspMessage::LaunchProjectPreview { project_root }]
-                if project_root == &expected
-        ));
-    }
-
-    #[test]
-    fn launch_live_preview_ignores_an_invalid_project_root() {
-        let messages = Rc::new(RefCell::new(Vec::new()));
-        reset_preview_state(messages.clone());
-
-        launch_live_preview("not an absolute path".into());
-
-        assert!(messages.borrow().is_empty());
     }
 
     #[test]

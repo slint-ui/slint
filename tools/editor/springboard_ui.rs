@@ -13,6 +13,7 @@ use slint::{ModelRc, SharedString, VecModel};
 
 #[derive(Clone, Debug)]
 pub enum SpringboardUiAction {
+    ConfigureProject(String),
     Launch(String),
     Stop(String),
     Refresh(String),
@@ -26,6 +27,11 @@ pub fn setup(
     let api = app_window.api();
     api.set_springboard_devices(ModelRc::new(VecModel::default()));
     api.set_springboard_session_status(preview::ui::SpringboardSessionStatus::Unavailable);
+
+    let actions = sender.clone();
+    api.on_springboard_configure_project(move |project_root| {
+        send_action(&actions, SpringboardUiAction::ConfigureProject(project_root.into()));
+    });
 
     let actions = sender.clone();
     api.on_springboard_launch_device(move |device_id| {
@@ -70,6 +76,19 @@ pub fn set_connection_error(message: String) {
         state.reveal_manager = true;
     });
     sync_api();
+}
+
+pub fn open_device_manager() {
+    STATE.with_borrow(|state| {
+        preview::PREVIEW_STATE.with_borrow(|preview_state| {
+            let Some(app_window) = &preview_state.app_window else { return };
+            let api = app_window.api();
+            api.set_springboard_device_manager_selected_device_id(
+                state.last_used.as_ref().map(DeviceId::as_str).unwrap_or_default().into(),
+            );
+            api.set_springboard_device_manager_visible(true);
+        });
+    });
 }
 
 fn sync_api() {

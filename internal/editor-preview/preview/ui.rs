@@ -285,7 +285,6 @@ pub fn create_ui(
     api.on_show_document_offset_range(super::show_document_offset_range);
     api.on_show_preview_for(super::show_preview_for);
     api.on_reload_preview(super::reload_preview);
-    api.on_launch_live_preview(super::launch_live_preview);
     api.on_select_project_run_component(super::select_project_run_component);
     api.on_close_project_run_dialog(super::close_project_run_dialog);
     api.on_unselect(super::element_selection::unselect_element);

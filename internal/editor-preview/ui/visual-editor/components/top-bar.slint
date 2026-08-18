@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Api, SpringboardRunState } from "../../api.slint";
+import { Api, SpringboardRunState, SpringboardSessionStatus } from "../../api.slint";
 import { EditorMetrics, StudioTheme } from "common.slint";
 
 component RunButton inherits Rectangle {
@@ -184,7 +184,9 @@ export component EditorTopBar inherits Rectangle {
                         ? "Running"
                         : "Run";
             clicked => {
-                if Api.springboard-run-state == SpringboardRunState.Ready
+                if Api.springboard-session-status == SpringboardSessionStatus.Unavailable {
+                    Api.springboard-configure-project(Api.project-root);
+                } else if Api.springboard-run-state == SpringboardRunState.Ready
                         || Api.springboard-run-state == SpringboardRunState.Starting
                         || Api.springboard-run-state == SpringboardRunState.Connecting
                         || Api.springboard-run-state == SpringboardRunState.Running {

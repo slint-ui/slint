@@ -6,10 +6,8 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use std::{
-    ffi::OsString,
     path::{Path, PathBuf},
     pin::Pin,
-    process::Stdio,
     rc::Rc,
     time::Duration,
 };
@@ -260,8 +258,8 @@ async fn lsp_main(
 
     let mut watch_paths_revision = None;
     let mut project_root = None;
-    let mut live_preview_process = LivePreviewProcess::default();
     let mut springboard_process = springboard::SpringboardProcess::default();
+    let mut run_after_springboard_snapshot = false;
 
     // Load the initial document through the compiler if the editor was launched
     // with a file. Finder launches without a file stay on the startup wizard.
@@ -283,7 +281,7 @@ async fn lsp_main(
         if let Some(project_root) = project_root.as_deref()
             && let Err(error) = springboard_process.ensure_project(project_root).await
         {
-            send_project_preview_error(&session, error.to_string());
+            forward_springboard_error(error.to_string());
         }
         sync_file_watcher_if_needed(
             &mut file_watcher,
@@ -317,7 +315,8 @@ async fn lsp_main(
                         if let Some(root) = handle_preview_message(
                             msg,
                             &mut session,
-                            &mut live_preview_process,
+                            &mut springboard_process,
+                            &mut run_after_springboard_snapshot,
                         ).await {
                             project_root = Some(root);
                             watch_paths_revision = None;
@@ -331,18 +330,42 @@ async fn lsp_main(
             }
             springboard_event = springboard_process.recv() => {
                 if let Some(event) = springboard_event {
-                    handle_springboard_event(&session, event);
+                    let last_used = springboard_snapshot_last_used(&event);
+                    let failed = matches!(
+                        event,
+                        springboard::SpringboardHostEvent::Error(_)
+                            | springboard::SpringboardHostEvent::Closed
+                    );
+                    handle_springboard_event(event);
+                    if failed {
+                        run_after_springboard_snapshot = false;
+                    } else if run_after_springboard_snapshot
+                        && let Some(last_used) = last_used
+                    {
+                        run_after_springboard_snapshot = false;
+                        if let Some(device_id) = last_used {
+                            if let Err(error) = springboard_process
+                                .send(i_slint_springboard::ClientCommand::Launch { device_id })
+                                .await
+                            {
+                                forward_springboard_error(error.to_string());
+                            }
+                        } else {
+                            forward_open_device_manager();
+                        }
+                    }
                 }
             }
             action = springboard_actions_rx.recv() => {
                 if let Some(action) = action
                     && let Err(error) = handle_springboard_action(
                         &mut springboard_process,
+                        &session,
+                        &mut run_after_springboard_snapshot,
                         action,
                     ).await
                 {
                     let message = error.to_string();
-                    send_project_preview_error(&session, message.clone());
                     forward_springboard_error(message);
                 }
             }
@@ -360,7 +383,7 @@ async fn lsp_main(
 
         if let Some(project_root) = project_root.as_deref() {
             if let Err(error) = springboard_process.ensure_project(project_root).await {
-                send_project_preview_error(&session, error.to_string());
+                forward_springboard_error(error.to_string());
             }
             sync_file_watcher_if_needed(
                 &mut file_watcher,
@@ -374,37 +397,43 @@ async fn lsp_main(
     if let Err(error) = springboard_process.stop().await {
         tracing::error!("Failed to stop Springboard: {error}");
     }
-    if let Err(error) = live_preview_process.stop().await {
-        tracing::error!("Failed to stop the separate live preview: {error}");
-    }
     result
 }
 
-fn handle_springboard_event(
-    session: &editor_preview::EditorSession,
-    event: springboard::SpringboardHostEvent,
-) {
+fn handle_springboard_event(event: springboard::SpringboardHostEvent) {
     match event {
         springboard::SpringboardHostEvent::Message(message) => {
-            if let i_slint_springboard::ServerMessage::Response(response) = &message
-                && let i_slint_springboard::ResponsePayload::Error { message, .. } =
-                    &response.response
-            {
-                send_project_preview_error(session, message.clone());
-            }
             forward_springboard_message(message);
         }
         springboard::SpringboardHostEvent::Error(message) => {
-            send_project_preview_error(session, message.clone());
             forward_springboard_error(message);
         }
         springboard::SpringboardHostEvent::Closed => {
             let message =
                 "Springboard exited unexpectedly. Restart the project or reopen the editor."
                     .to_string();
-            send_project_preview_error(session, message.clone());
             forward_springboard_error(message);
         }
+    }
+}
+
+fn springboard_snapshot_last_used(
+    event: &springboard::SpringboardHostEvent,
+) -> Option<Option<i_slint_springboard::DeviceId>> {
+    let springboard::SpringboardHostEvent::Message(message) = event else { return None };
+    match message {
+        i_slint_springboard::ServerMessage::Response(response) => match &response.response {
+            i_slint_springboard::ResponsePayload::Snapshot { snapshot } => {
+                Some(snapshot.last_used_device.clone())
+            }
+            _ => None,
+        },
+        i_slint_springboard::ServerMessage::Event(event) => match &event.event {
+            i_slint_springboard::ServerEvent::Snapshot { snapshot } => {
+                Some(snapshot.last_used_device.clone())
+            }
+            _ => None,
+        },
     }
 }
 
@@ -424,11 +453,36 @@ fn forward_springboard_error(message: String) {
     }
 }
 
+fn forward_open_device_manager() {
+    if let Err(error) = slint::invoke_from_event_loop(springboard_ui::open_device_manager) {
+        tracing::error!("Failed to open the Springboard device manager: {error}");
+    }
+}
+
 async fn handle_springboard_action(
     process: &mut springboard::SpringboardProcess,
+    session: &editor_preview::EditorSession,
+    run_after_snapshot: &mut bool,
     action: springboard_ui::SpringboardUiAction,
 ) -> Result<()> {
     let command = match action {
+        springboard_ui::SpringboardUiAction::ConfigureProject(project_root) => {
+            let project_root = std::fs::canonicalize(&project_root).map_err(|error| {
+                format!("Failed to resolve Visual Editor project {project_root}: {error}")
+            })?;
+            let project_root_url = Url::from_directory_path(&project_root).map_err(|()| {
+                format!("Failed to convert project {} to a file URL", project_root.display())
+            })?;
+            if editor_preview::project::load_project_run_target(&project_root)?.is_none() {
+                session.to_preview.send(&LspToPreviewMessage::SelectProjectEntry {
+                    project_root: project_root_url,
+                });
+            } else {
+                start_configured_springboard_project(process, &project_root, run_after_snapshot)
+                    .await?;
+            }
+            return Ok(());
+        }
         springboard_ui::SpringboardUiAction::Launch(device_id) => {
             i_slint_springboard::ClientCommand::Launch {
                 device_id: i_slint_springboard::DeviceId::new(device_id)?,
@@ -449,6 +503,17 @@ async fn handle_springboard_action(
         }
     };
     process.send(command).await?;
+    Ok(())
+}
+
+async fn start_configured_springboard_project(
+    process: &mut springboard::SpringboardProcess,
+    project_root: &Path,
+    run_after_snapshot: &mut bool,
+) -> Result<()> {
+    process.ensure_project(project_root).await?;
+    process.send(i_slint_springboard::ClientCommand::Snapshot).await?;
+    *run_after_snapshot = true;
     Ok(())
 }
 
@@ -494,7 +559,8 @@ fn sync_file_watcher_if_needed(
 async fn handle_preview_message(
     msg: PreviewToLspMessage,
     session: &mut editor_preview::EditorSession,
-    live_preview_process: &mut LivePreviewProcess,
+    springboard_process: &mut springboard::SpringboardProcess,
+    run_after_snapshot: &mut bool,
 ) -> Option<PathBuf> {
     use PreviewToLspMessage::*;
     match &msg {
@@ -549,36 +615,26 @@ async fn handle_preview_message(
             eprintln!("{}", editor_preview::preview_log_message_to_string(location, message));
             None
         }
-        LaunchLivePreview { component } => {
-            if let Err(error) = live_preview_process.restart(component).await {
-                tracing::error!("Failed to launch the separate live preview: {error}");
-            }
-            None
-        }
-        LaunchProjectPreview { project_root } => {
-            match project_preview_component(project_root) {
-                Ok(Some(component)) => {
-                    if let Err(error) = live_preview_process.restart(&component).await {
-                        tracing::error!("Failed to launch the project preview: {error}");
-                    }
-                }
-                Ok(None) => session.to_preview.send(&LspToPreviewMessage::SelectProjectEntry {
-                    project_root: project_root.clone(),
-                }),
-                Err(error) => send_project_preview_error(session, error.to_string()),
-            }
+        LaunchLivePreview { .. } => {
+            tracing::debug!("Ignoring a standalone live-preview request in the Visual Editor");
             None
         }
         SetProjectEntry { project_root, entry } => {
             match configure_project_entry(session, project_root, entry).await {
-                Ok(ProjectEntryAction::Launch(component)) => {
-                    if let Err(error) = live_preview_process.restart(&component).await {
-                        send_project_preview_error(
-                            session,
-                            format!("Failed to launch the project preview: {error}"),
-                        );
+                Ok(ProjectEntryAction::Configured) => match project_root_path(project_root) {
+                    Ok(project_root) => {
+                        if let Err(error) = start_configured_springboard_project(
+                            springboard_process,
+                            &project_root,
+                            run_after_snapshot,
+                        )
+                        .await
+                        {
+                            forward_springboard_error(error.to_string());
+                        }
                     }
-                }
+                    Err(error) => send_project_preview_error(session, error.to_string()),
+                },
                 Ok(ProjectEntryAction::SelectComponent { entry, components }) => {
                     session.to_preview.send(&LspToPreviewMessage::SelectProjectComponent {
                         project_root: project_root.clone(),
@@ -592,14 +648,20 @@ async fn handle_preview_message(
         }
         SetProjectComponent { project_root, entry, component } => {
             match configure_project_component(session, project_root, entry, component).await {
-                Ok(component) => {
-                    if let Err(error) = live_preview_process.restart(&component).await {
-                        send_project_preview_error(
-                            session,
-                            format!("Failed to launch the project preview: {error}"),
-                        );
+                Ok(()) => match project_root_path(project_root) {
+                    Ok(project_root) => {
+                        if let Err(error) = start_configured_springboard_project(
+                            springboard_process,
+                            &project_root,
+                            run_after_snapshot,
+                        )
+                        .await
+                        {
+                            forward_springboard_error(error.to_string());
+                        }
                     }
-                }
+                    Err(error) => send_project_preview_error(session, error.to_string()),
+                },
                 Err(error) => send_project_preview_error(session, error.to_string()),
             }
             None
@@ -622,133 +684,21 @@ async fn handle_preview_message(
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
-struct LivePreviewCommand {
-    executable: PathBuf,
-    arguments: Vec<OsString>,
-    working_directory: PathBuf,
-}
-
-fn sibling_viewer_executable(editor_executable: &Path) -> Result<PathBuf> {
-    let Some(directory) = editor_executable.parent() else {
-        return Err("Failed to determine the Visual Editor executable directory".into());
-    };
-    Ok(directory.join(format!("slint-viewer{}", std::env::consts::EXE_SUFFIX)))
-}
-
-fn live_preview_command(
-    editor_executable: &Path,
-    source_file: &Path,
-    component_name: Option<&str>,
-) -> Result<LivePreviewCommand> {
-    let Some(working_directory) = source_file.parent() else {
-        return Err(format!(
-            "Failed to determine the parent directory of {}",
-            source_file.display()
-        )
-        .into());
-    };
-    let mut arguments = vec![
-        OsString::from("--auto-reload"),
-        OsString::from("--simulator"),
-        OsString::from("--style"),
-        OsString::from("fluent"),
-    ];
-    if let Some(component_name) = component_name {
-        arguments.push(OsString::from("--component"));
-        arguments.push(OsString::from(component_name));
-    }
-    arguments.push(source_file.as_os_str().to_owned());
-
-    Ok(LivePreviewCommand {
-        executable: sibling_viewer_executable(editor_executable)?,
-        arguments,
-        working_directory: working_directory.to_owned(),
-    })
-}
-
-#[derive(Default)]
-struct LivePreviewProcess {
-    child: Option<tokio::process::Child>,
-}
-
-impl LivePreviewProcess {
-    async fn restart(&mut self, component: &PreviewComponent) -> Result<()> {
-        self.stop().await?;
-
-        let source_file = editor_preview::uri_to_file(&component.url)
-            .ok_or_else(|| format!("Live preview requires a file URL, got {}", component.url))?;
-        let source_file = std::fs::canonicalize(&source_file).map_err(|error| {
-            format!("Failed to resolve live preview file {}: {error}", source_file.display())
-        })?;
-        let editor_executable = std::env::current_exe()
-            .map_err(|error| format!("Failed to locate the Visual Editor executable: {error}"))?;
-        let command =
-            live_preview_command(&editor_executable, &source_file, component.component.as_deref())?;
-
-        if !command.executable.is_file() {
-            return Err(format!(
-                "Could not find the sibling viewer at {}. Build it with `cargo build -p slint-viewer`.",
-                command.executable.display()
-            )
-            .into());
-        }
-
-        let mut process = tokio::process::Command::new(&command.executable);
-        process
-            .args(&command.arguments)
-            .current_dir(&command.working_directory)
-            .stdin(Stdio::null())
-            .stdout(Stdio::inherit())
-            .stderr(Stdio::inherit())
-            .kill_on_drop(true);
-        self.child = Some(process.spawn().map_err(|error| {
-            format!("Failed to start {}: {error}", command.executable.display())
-        })?);
-        Ok(())
-    }
-
-    async fn stop(&mut self) -> Result<()> {
-        let Some(mut child) = self.child.take() else {
-            return Ok(());
-        };
-        if child
-            .try_wait()
-            .map_err(|error| format!("Failed to query the live preview process: {error}"))?
-            .is_some()
-        {
-            return Ok(());
-        }
-        child
-            .start_kill()
-            .map_err(|error| format!("Failed to terminate the live preview process: {error}"))?;
-        child
-            .wait()
-            .await
-            .map_err(|error| format!("Failed to wait for the live preview process: {error}"))?;
-        Ok(())
-    }
-}
-
 fn project_root_for_path(path: &Path) -> Option<PathBuf> {
     editor_preview::project::project_root_for_path(path)
 }
 
-fn project_preview_component(project_root: &Url) -> Result<Option<PreviewComponent>> {
+fn project_root_path(project_root: &Url) -> Result<PathBuf> {
     let project_root = editor_preview::uri_to_file(project_root)
         .ok_or_else(|| format!("Project preview requires a file URL, got {project_root}"))?;
-    let Some(target) = editor_preview::project::load_project_run_target(&project_root)? else {
-        return Ok(None);
-    };
-    let url = Url::from_file_path(&target.entry_file).map_err(|_| {
-        format!("Failed to convert project entry {} to a file URL", target.entry_file.display())
-    })?;
-    Ok(Some(PreviewComponent { url, component: Some(target.component) }))
+    std::fs::canonicalize(&project_root).map_err(|error| {
+        format!("Failed to resolve project directory {}: {error}", project_root.display()).into()
+    })
 }
 
 #[derive(Debug, Eq, PartialEq)]
 enum ProjectEntryAction {
-    Launch(PreviewComponent),
+    Configured,
     SelectComponent { entry: Url, components: Vec<String> },
 }
 
@@ -835,12 +785,10 @@ fn finish_project_entry(entry: ProjectEntryComponents) -> Result<ProjectEntryAct
             Err(format!("Project entry {} has no exported components", entry.entry_file.display())
                 .into())
         }
-        [component] => Ok(ProjectEntryAction::Launch(create_project_component(
-            &entry.project_root,
-            &entry.entry_file,
-            &entry.entry_url,
-            component,
-        )?)),
+        [component] => {
+            create_project_component(&entry.project_root, &entry.entry_file, component)?;
+            Ok(ProjectEntryAction::Configured)
+        }
         _ => Ok(ProjectEntryAction::SelectComponent {
             entry: entry.entry_url,
             components: entry.components,
@@ -853,7 +801,7 @@ async fn configure_project_component(
     project_root: &Url,
     entry: &Url,
     component: &str,
-) -> Result<PreviewComponent> {
+) -> Result<()> {
     let entry = project_entry_components(session, project_root, entry).await?;
     if !entry.components.iter().any(|candidate| candidate == component) {
         return Err(format!(
@@ -862,17 +810,12 @@ async fn configure_project_component(
         )
         .into());
     }
-    create_project_component(&entry.project_root, &entry.entry_file, &entry.entry_url, component)
+    create_project_component(&entry.project_root, &entry.entry_file, component)
 }
 
-fn create_project_component(
-    project_root: &Path,
-    entry_file: &Path,
-    entry_url: &Url,
-    component: &str,
-) -> Result<PreviewComponent> {
+fn create_project_component(project_root: &Path, entry_file: &Path, component: &str) -> Result<()> {
     editor_preview::project::create_project_manifest(project_root, entry_file, component)?;
-    Ok(PreviewComponent { url: entry_url.clone(), component: Some(component.into()) })
+    Ok(())
 }
 
 fn send_project_preview_error(session: &editor_preview::EditorSession, message: String) {
@@ -930,80 +873,24 @@ mod tests {
     use super::*;
 
     #[test]
-    fn resolves_viewer_next_to_editor() {
-        let editor = Path::new("/build/output/slint-editor");
-
-        assert_eq!(
-            sibling_viewer_executable(editor).unwrap(),
-            Path::new("/build/output")
-                .join(format!("slint-viewer{}", std::env::consts::EXE_SUFFIX))
+    fn springboard_snapshot_exposes_the_global_last_used_device() {
+        let device_id = i_slint_springboard::DeviceId::new("builtin:local-viewer").unwrap();
+        let event = springboard::SpringboardHostEvent::Message(
+            i_slint_springboard::ServerMessage::Event(i_slint_springboard::EventEnvelope::new(
+                i_slint_springboard::ServerEvent::Snapshot {
+                    snapshot: i_slint_springboard::ProjectSnapshot {
+                        project_root: PathBuf::from("/project"),
+                        entry_file: PathBuf::from("/project/app.slint"),
+                        component: "App".into(),
+                        devices: Vec::new(),
+                        active_device: None,
+                        last_used_device: Some(device_id.clone()),
+                    },
+                },
+            )),
         );
-    }
 
-    #[test]
-    fn builds_named_component_command_with_spaced_path() {
-        let editor = Path::new("/build/output/slint-editor");
-        let source = Path::new("/project with spaces/ui/main window.slint");
-
-        let command = live_preview_command(editor, source, Some("MainWindow")).unwrap();
-
-        assert_eq!(command.working_directory, Path::new("/project with spaces/ui"));
-        assert_eq!(
-            command.arguments,
-            [
-                "--auto-reload",
-                "--simulator",
-                "--style",
-                "fluent",
-                "--component",
-                "MainWindow",
-                "/project with spaces/ui/main window.slint",
-            ]
-            .map(OsString::from)
-        );
-    }
-
-    #[test]
-    fn builds_unnamed_component_command() {
-        let command = live_preview_command(
-            Path::new("/build/output/slint-editor"),
-            Path::new("/project/ui/main.slint"),
-            None,
-        )
-        .unwrap();
-
-        assert_eq!(
-            command.arguments,
-            ["--auto-reload", "--simulator", "--style", "fluent", "/project/ui/main.slint"]
-                .map(OsString::from)
-        );
-    }
-
-    #[test]
-    fn resolves_the_configured_project_component() {
-        let directory = tempfile::tempdir().unwrap();
-        let entry = directory.path().join("ui/main window.slint");
-        std::fs::create_dir_all(entry.parent().unwrap()).unwrap();
-        std::fs::write(&entry, "export component MainWindow inherits Window {}\n").unwrap();
-        editor_preview::project::create_project_manifest(directory.path(), &entry, "MainWindow")
-            .unwrap();
-        let project_root = Url::from_directory_path(directory.path()).unwrap();
-
-        let component = project_preview_component(&project_root).unwrap().unwrap();
-
-        assert_eq!(
-            component.url,
-            Url::from_file_path(std::fs::canonicalize(entry).unwrap()).unwrap()
-        );
-        assert_eq!(component.component.as_deref(), Some("MainWindow"));
-    }
-
-    #[test]
-    fn project_without_a_manifest_has_no_component() {
-        let directory = tempfile::tempdir().unwrap();
-        let project_root = Url::from_directory_path(directory.path()).unwrap();
-
-        assert_eq!(project_preview_component(&project_root).unwrap(), None);
+        assert_eq!(springboard_snapshot_last_used(&event), Some(Some(device_id)));
     }
 
     fn project_entry_with_components(
@@ -1021,17 +908,13 @@ mod tests {
     }
 
     #[test]
-    fn single_export_creates_the_manifest_and_launches() {
+    fn single_export_creates_the_manifest() {
         let directory = tempfile::tempdir().unwrap();
 
         let action =
             finish_project_entry(project_entry_with_components(&directory, &["App"])).unwrap();
 
-        assert!(matches!(
-            action,
-            ProjectEntryAction::Launch(PreviewComponent { component: Some(component), .. })
-                if component == "App"
-        ));
+        assert_eq!(action, ProjectEntryAction::Configured);
         assert!(directory.path().join(editor_preview::project::PROJECT_MANIFEST_FILE).is_file());
     }
 

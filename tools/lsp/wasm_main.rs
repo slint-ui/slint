@@ -355,7 +355,6 @@ impl SlintServer {
             | M::DisconnectRemote
             | M::Pong
             | M::LaunchLivePreview { .. }
-            | M::LaunchProjectPreview { .. }
             | M::SetProjectEntry { .. }
             | M::SetProjectComponent { .. } => {
                 tracing::debug!("Ignoring remote-preview control message in WASM LSP");
