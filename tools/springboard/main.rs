@@ -10,6 +10,7 @@ use slint_viewer::{ViewerLogLevel, ViewerRunnerOptions, run_auto_reload_simulato
 
 mod discovery;
 mod remote_driver;
+pub mod runtime_control;
 mod session_driver;
 mod stdio;
 mod tui;

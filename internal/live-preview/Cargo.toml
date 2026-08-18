@@ -17,7 +17,7 @@ version.workspace = true
 [dependencies]
 # protocol
 lsp-types = { workspace = true, optional = true }
-serde = { workspace = true, optional = true }
+serde = { workspace = true, optional = true, features = ["std"] }
 serde_json = { workspace = true, optional = true }
 derive_more = { workspace = true, features = ["debug"], optional = true }
 tracing = { workspace = true, optional = true }
@@ -50,7 +50,13 @@ path = "lib.rs"
 [features]
 protocol = ["dep:lsp-types", "dep:serde", "dep:serde_json", "dep:derive_more", "dep:tracing"]
 file-watcher = ["dep:notify", "dep:i-slint-compiler"]
-live-component = ["file-watcher", "dep:slint-interpreter", "dep:i-slint-core"]
+live-component = [
+  "file-watcher",
+  "springboard-runtime",
+  "dep:slint-interpreter",
+  "dep:i-slint-core",
+]
+springboard-runtime = ["dep:serde", "dep:serde_json"]
 ffi = ["live-component", "slint-interpreter/ffi"]
 remote = [
   "protocol",

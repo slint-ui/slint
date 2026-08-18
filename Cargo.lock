@@ -8253,6 +8253,7 @@ dependencies = [
  "clap",
  "crossterm",
  "futures-util",
+ "getrandom 0.4.3",
  "i-slint-live-preview",
  "i-slint-springboard",
  "mdns-sd",

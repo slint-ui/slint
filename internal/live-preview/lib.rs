@@ -17,6 +17,9 @@ pub mod file_watcher;
 #[cfg(feature = "live-component")]
 pub mod live_component;
 
+#[cfg(feature = "springboard-runtime")]
+pub mod springboard_runtime;
+
 #[cfg(feature = "remote")]
 pub mod remote;
 

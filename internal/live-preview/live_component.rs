@@ -4,6 +4,7 @@
 //! This is an internal module that contains the [`LiveReloadingComponent`] struct.
 
 use crate::file_watcher::FileWatcher;
+use crate::springboard_runtime::{RuntimeEvent, SpringboardRuntimeReporter};
 use core::cell::RefCell;
 use core::task::Waker;
 use i_slint_core::api::{ComponentHandle, PlatformError};
@@ -29,6 +30,16 @@ pub enum LiveReloadResult {
     RequiresRebuild { diff: RustInterfaceDiff },
 }
 
+trait RuntimeEventReporter {
+    fn report(&mut self, event: RuntimeEvent) -> std::io::Result<()>;
+}
+
+impl RuntimeEventReporter for SpringboardRuntimeReporter {
+    fn report(&mut self, event: RuntimeEvent) -> std::io::Result<()> {
+        SpringboardRuntimeReporter::report(self, event)
+    }
+}
+
 /// This struct is used to compile and instantiate a component from a .slint file on disk.
 /// The file is watched for changes and the component is recompiled and instantiated
 pub struct LiveReloadingComponent {
@@ -41,6 +52,8 @@ pub struct LiveReloadingComponent {
     file_name: PathBuf,
     component_name: Option<String>,
     compiled_interface: Option<RustInterfaceDescriptor>,
+    runtime_reporter: Option<Box<dyn RuntimeEventReporter>>,
+    runtime_ready: bool,
     properties: RefCell<HashMap<String, Value>>,
     callbacks: RefCell<HashMap<String, Rc<dyn Fn(&[Value]) -> Value + 'static>>>,
     post_reload_hook: Option<Box<dyn Fn(&ComponentInstance)>>,
@@ -50,10 +63,35 @@ pub struct LiveReloadingComponent {
 impl LiveReloadingComponent {
     /// Compile and instantiate a component from the specified .slint file and component.
     pub fn new(
+        compiler: Compiler,
+        file_name: PathBuf,
+        component_name: Option<String>,
+        compiled_interface: Option<RustInterfaceDescriptor>,
+    ) -> Result<Rc<RefCell<Self>>, PlatformError> {
+        let runtime_reporter = match SpringboardRuntimeReporter::from_environment() {
+            Ok(reporter) => {
+                reporter.map(|reporter| Box::new(reporter) as Box<dyn RuntimeEventReporter>)
+            }
+            Err(error) => {
+                eprintln!("Cannot connect the live application to Springboard: {error}");
+                None
+            }
+        };
+        Self::new_with_runtime_reporter(
+            compiler,
+            file_name,
+            component_name,
+            compiled_interface,
+            runtime_reporter,
+        )
+    }
+
+    fn new_with_runtime_reporter(
         mut compiler: Compiler,
         file_name: PathBuf,
         component_name: Option<String>,
         compiled_interface: Option<RustInterfaceDescriptor>,
+        runtime_reporter: Option<Box<dyn RuntimeEventReporter>>,
     ) -> Result<Rc<RefCell<Self>>, PlatformError> {
         compiler.set_embed_resources(i_slint_compiler::EmbedResourcesKind::ListAllResources);
 
@@ -67,6 +105,8 @@ impl LiveReloadingComponent {
                 file_name,
                 component_name,
                 compiled_interface,
+                runtime_reporter,
+                runtime_ready: false,
                 properties: Default::default(),
                 callbacks: Default::default(),
                 post_reload_hook: None,
@@ -87,6 +127,8 @@ impl LiveReloadingComponent {
         self_mut.window_adapter =
             Some(i_slint_core::window::WindowInner::from_pub(instance.window()).window_adapter());
         self_mut.instance = Some(instance);
+        self_mut.report_runtime_event(RuntimeEvent::Ready);
+        self_mut.runtime_ready = true;
         drop(self_mut);
         Ok(self_rc)
     }
@@ -101,19 +143,19 @@ impl LiveReloadingComponent {
         let result = self.build();
         result.print_diagnostics();
         if result.has_errors() {
-            return LiveReloadResult::CompileError;
+            return self.finish_reload(LiveReloadResult::CompileError);
         }
 
         if let Some(compiled_interface) = &self.compiled_interface {
             let Some(candidate_interface) = result.rust_interface(i_slint_core::InternalToken)
             else {
                 eprintln!("The live compiler didn't produce a Rust interface descriptor");
-                return LiveReloadResult::CompileError;
+                return self.finish_reload(LiveReloadResult::CompileError);
             };
             let diff = compiled_interface.diff(candidate_interface);
             if !diff.is_empty() {
                 eprintln!("The Slint Rust interface changed and requires a rebuild:\n{diff}");
-                return LiveReloadResult::RequiresRebuild { diff };
+                return self.finish_reload(LiveReloadResult::RequiresRebuild { diff });
             }
         }
 
@@ -122,11 +164,11 @@ impl LiveReloadingComponent {
                 "Component {} not found",
                 self.component_name.as_deref().unwrap_or("<default>")
             );
-            return LiveReloadResult::CompileError;
+            return self.finish_reload(LiveReloadResult::CompileError);
         };
         if let Err(error) = self.validate_restore_targets(&definition) {
             eprintln!("The changed component can't restore the active Rust state: {error}");
-            return LiveReloadResult::CompileError;
+            return self.finish_reload(LiveReloadResult::CompileError);
         }
 
         let instance = match definition.create_with_existing_window(self.instance().window()) {
@@ -134,13 +176,13 @@ impl LiveReloadingComponent {
             Err(error) => {
                 eprintln!("Error while creating the component: {error}");
                 let _ = self.instance().show();
-                return LiveReloadResult::CompileError;
+                return self.finish_reload(LiveReloadResult::CompileError);
             }
         };
         if let Err(error) = self.restore_properties_and_callbacks(&instance) {
             eprintln!("Error while restoring the component state: {error}");
             let _ = self.instance().show();
-            return LiveReloadResult::CompileError;
+            return self.finish_reload(LiveReloadResult::CompileError);
         }
         self.instance = Some(instance);
         eprintln!(
@@ -148,7 +190,27 @@ impl LiveReloadingComponent {
             self.component_name.as_deref().unwrap_or("<default>"),
             self.file_name.display()
         );
-        LiveReloadResult::Applied
+        self.finish_reload(LiveReloadResult::Applied)
+    }
+
+    fn finish_reload(&mut self, result: LiveReloadResult) -> LiveReloadResult {
+        let event = match &result {
+            LiveReloadResult::Applied => RuntimeEvent::Reloaded,
+            LiveReloadResult::CompileError => RuntimeEvent::CompileError,
+            LiveReloadResult::RequiresRebuild { diff } => {
+                RuntimeEvent::RebuildRequired { diff: diff.to_string() }
+            }
+        };
+        self.report_runtime_event(event);
+        result
+    }
+
+    fn report_runtime_event(&mut self, event: RuntimeEvent) {
+        let Some(reporter) = &mut self.runtime_reporter else { return };
+        if let Err(error) = reporter.report(event) {
+            eprintln!("Cannot report the live application state to Springboard: {error}");
+            self.runtime_reporter = None;
+        }
     }
 
     fn find_component(
@@ -323,6 +385,14 @@ impl LiveReloadingComponent {
         self.instance()
             .set_global_callback(global_name, name, move |args| callback(args))
             .unwrap_or_else(|e| panic!("Cannot set callback {global_name}::{name}: {e}"));
+    }
+}
+
+impl Drop for LiveReloadingComponent {
+    fn drop(&mut self) {
+        if self.runtime_ready {
+            self.report_runtime_event(RuntimeEvent::Exiting);
+        }
     }
 }
 
@@ -564,6 +634,15 @@ mod tests {
 
     static NEXT_TEST_DIRECTORY: AtomicU64 = AtomicU64::new(0);
 
+    struct RecordingRuntimeReporter(Rc<RefCell<Vec<RuntimeEvent>>>);
+
+    impl RuntimeEventReporter for RecordingRuntimeReporter {
+        fn report(&mut self, event: RuntimeEvent) -> std::io::Result<()> {
+            self.0.borrow_mut().push(event);
+            Ok(())
+        }
+    }
+
     struct TestProject {
         directory: PathBuf,
         entry: PathBuf,
@@ -635,13 +714,16 @@ mod tests {
         i_slint_backend_testing::init_no_event_loop();
         let project = TestProject::new(&source("before", "count"));
         let interface = compiled_interface(&project.entry);
-        let live = LiveReloadingComponent::new(
+        let runtime_events = Rc::new(RefCell::new(Vec::new()));
+        let live = LiveReloadingComponent::new_with_runtime_reporter(
             Compiler::default(),
             project.entry.clone(),
             Some("App".into()),
             Some(interface),
+            Some(Box::new(RecordingRuntimeReporter(runtime_events.clone()))),
         )
         .unwrap();
+        assert_eq!(*runtime_events.borrow(), [RuntimeEvent::Ready]);
         let window = live.borrow().instance().window() as *const _;
 
         live.borrow().set_property("count", Value::Number(42.));
@@ -664,6 +746,7 @@ mod tests {
 
         project.write(&source("after", "count"));
         assert_eq!(live.borrow_mut().reload(), LiveReloadResult::Applied);
+        assert_eq!(runtime_events.borrow().last(), Some(&RuntimeEvent::Reloaded));
         assert_eq!(number(live.borrow().get_property("count")), 42.);
         assert_eq!(number(live.borrow().get_global_property("Settings", "threshold")), 7.);
         assert_eq!(number(live.borrow().invoke("ping", &[Value::Number(5.)])), 6.);
@@ -674,6 +757,7 @@ mod tests {
 
         project.write("export component App inherits Window { @ }");
         assert_eq!(live.borrow_mut().reload(), LiveReloadResult::CompileError);
+        assert_eq!(runtime_events.borrow().last(), Some(&RuntimeEvent::CompileError));
         assert_eq!(number(live.borrow().get_property("count")), 42.);
         assert_eq!(number(live.borrow().invoke("ping", &[Value::Number(5.)])), 6.);
 
@@ -687,6 +771,15 @@ mod tests {
         assert_eq!(number(live.borrow().get_property("count")), 42.);
         assert_eq!(number(live.borrow().invoke("ping", &[Value::Number(5.)])), 6.);
         assert_eq!(live.borrow().instance().window() as *const _, window);
+        let RuntimeEvent::RebuildRequired { diff: reported_diff } =
+            runtime_events.borrow().last().unwrap().clone()
+        else {
+            panic!("Springboard should receive the interface change")
+        };
+        assert_eq!(reported_diff, diff);
+
+        drop(live);
+        assert_eq!(runtime_events.borrow().last(), Some(&RuntimeEvent::Exiting));
 
         project.write(&source("viewer", "count"));
         let viewer = LiveReloadingComponent::new(
