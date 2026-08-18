@@ -51,6 +51,10 @@ impl RuntimeControlServer {
         self.events.recv().await
     }
 
+    pub fn try_next_event(&mut self) -> Option<RuntimeEvent> {
+        self.events.try_recv().ok()
+    }
+
     pub async fn shutdown(mut self) {
         self.stop().await;
     }
