@@ -1,0 +1,85 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { ModalNavigationDrawer } from "../../../ui-libraries/material/src/material.slint";
+
+export component TestCase inherits Window {
+    width: 300px;
+    height: 200px;
+
+    out property <int> current-group: drawer.current_group;
+    out property <int> current-index: drawer.current_index;
+
+    public function open-drawer() {
+        drawer.show();
+    }
+
+    public function select-entry(group: int, index: int) {
+        drawer.select(group, index);
+    }
+
+    drawer := ModalNavigationDrawer {
+        x: 0;
+        y: 0;
+        width: root.width;
+        height: root.height;
+        position_right: false;
+        groups: [
+            {
+                title: "Provider",
+                items: [ { text: "Group 0, Item 0" }, { text: "Group 0, Item 1" } ]
+            },
+            {
+                items: [ { text: "Group 1, Item 0" }, { text: "Group 1, Item 1" } ]
+            }
+        ];
+    }
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+
+instance.invoke_open_drawer();
+instance.invoke_select_entry(1, 1);
+slint_testing::mock_elapsed_time(1);
+
+assert_eq!(instance.get_current_group(), 1);
+assert_eq!(instance.get_current_index(), 1);
+
+instance.invoke_open_drawer();
+assert_eq!(instance.get_current_group(), 1);
+assert_eq!(instance.get_current_index(), 1);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+
+instance.invoke_open_drawer();
+instance.invoke_select_entry(1, 1);
+slint_testing::mock_elapsed_time(1);
+
+assert_eq(instance.get_current_group(), 1);
+assert_eq(instance.get_current_index(), 1);
+
+instance.invoke_open_drawer();
+assert_eq(instance.get_current_group(), 1);
+assert_eq(instance.get_current_index(), 1);
+```
+
+```js
+var instance = new slint.TestCase();
+
+instance.open_drawer();
+instance.select_entry(1, 1);
+slintlib.private_api.mock_elapsed_time(1);
+
+assert.equal(instance.current_group, 1);
+assert.equal(instance.current_index, 1);
+
+instance.open_drawer();
+assert.equal(instance.current_group, 1);
+assert.equal(instance.current_index, 1);
+```
+*/
