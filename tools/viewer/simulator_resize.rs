@@ -7,16 +7,16 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use winit::dpi::{PhysicalPosition, PhysicalSize};
 use winit::event::{ElementState, MouseButton, WindowEvent};
-use winit::window::ResizeDirection;
+use winit::window::{CursorIcon, ResizeDirection};
 
 const PHONE_WIDTH: f64 = 388.;
 const PHONE_HEIGHT: f64 = 826.;
-const CONTROL_AREA_WIDTH: f64 = 388.;
 const CONTROL_AREA_HEIGHT: f64 = 68.;
 const MIN_PHONE_SCALE: f64 = 0.6;
-const RESIZE_BORDER_WIDTH: f64 = 8.;
+const RESIZE_CORNER_SIZE: f64 = 16.;
 
 pub fn install(window: &slint::Window, frame_enabled: impl Fn() -> bool + 'static) {
+    set_frame_enabled(window, frame_enabled());
     let state = Rc::new(RefCell::new(ResizeState::default()));
     window.on_winit_window_event(move |window, event| {
         let mut state = state.borrow_mut();
@@ -24,22 +24,60 @@ pub fn install(window: &slint::Window, frame_enabled: impl Fn() -> bool + 'stati
         match event {
             WindowEvent::CursorMoved { position, .. } => {
                 state.cursor_position = *position;
+                let frame_enabled = frame_enabled();
+                let resize_active = state.session.is_some();
+                let direction = window
+                    .with_winit_window(|winit_window| {
+                        let direction = frame_enabled
+                            .then(|| {
+                                corner_resize_direction(
+                                    winit_window.inner_size(),
+                                    *position,
+                                    RESIZE_CORNER_SIZE * winit_window.scale_factor(),
+                                )
+                            })
+                            .flatten();
+                        if !resize_active {
+                            winit_window.set_resizable(!frame_enabled || direction.is_some());
+                        }
+                        direction
+                    })
+                    .flatten();
+                if state.hover_direction != direction {
+                    state.hover_direction = direction;
+                    window.with_winit_window(|winit_window| {
+                        winit_window.set_cursor(resize_cursor(direction));
+                    });
+                }
             }
             WindowEvent::MouseInput { state: button_state, button: MouseButton::Left, .. } => {
                 if *button_state == ElementState::Pressed && frame_enabled() {
-                    state.session = window
+                    let session = window
                         .with_winit_window(|winit_window| {
-                            ResizeSession::start(winit_window, state.cursor_position)
+                            let session =
+                                ResizeSession::start(winit_window, state.cursor_position)?;
+                            winit_window.set_resizable(true);
+                            if winit_window.drag_resize_window(session.direction).is_err() {
+                                winit_window.set_resizable(false);
+                                return None;
+                            }
+                            Some(session)
                         })
                         .flatten();
+                    if session.is_some() {
+                        state.session = session;
+                        return slint::winit_030::EventResult::PreventDefault;
+                    }
                 } else if *button_state == ElementState::Released {
                     state.session = None;
                     state.requested_size = None;
+                    set_resizable_for_corner(window, frame_enabled(), state.hover_direction);
                 }
             }
             WindowEvent::Focused(false) => {
                 state.session = None;
                 state.requested_size = None;
+                set_resizable_for_corner(window, frame_enabled(), None);
             }
             WindowEvent::Resized(proposed_size) if frame_enabled() => {
                 if state
@@ -59,7 +97,7 @@ pub fn install(window: &slint::Window, frame_enabled: impl Fn() -> bool + 'stati
                     proposed_size.width as f64 / scale_factor,
                     proposed_size.height as f64 / scale_factor,
                 );
-                let constrained_logical = constrain_size(proposed_logical, session.direction);
+                let constrained_logical = constrain_size(proposed_logical);
                 let constrained_physical = PhysicalSize::new(
                     (constrained_logical.0 * scale_factor).round() as u32,
                     (constrained_logical.1 * scale_factor).round() as u32,
@@ -84,9 +122,24 @@ pub fn install(window: &slint::Window, frame_enabled: impl Fn() -> bool + 'stati
     });
 }
 
+pub fn set_frame_enabled(window: &slint::Window, enabled: bool) {
+    set_resizable_for_corner(window, enabled, None);
+}
+
+fn set_resizable_for_corner(
+    window: &slint::Window,
+    frame_enabled: bool,
+    corner: Option<ResizeDirection>,
+) {
+    window.with_winit_window(|winit_window| {
+        winit_window.set_resizable(!frame_enabled || corner.is_some());
+    });
+}
+
 #[derive(Default)]
 struct ResizeState {
     cursor_position: PhysicalPosition<f64>,
+    hover_direction: Option<ResizeDirection>,
     session: Option<ResizeSession>,
     requested_size: Option<PhysicalSize<u32>>,
 }
@@ -105,10 +158,10 @@ impl ResizeSession {
         cursor_position: PhysicalPosition<f64>,
     ) -> Option<Self> {
         let inner_size = window.inner_size();
-        let direction = resize_direction(
+        let direction = corner_resize_direction(
             inner_size,
             cursor_position,
-            RESIZE_BORDER_WIDTH * window.scale_factor(),
+            RESIZE_CORNER_SIZE * window.scale_factor(),
         )?;
         let outer_size = window.outer_size();
         Some(Self {
@@ -135,40 +188,16 @@ impl ResizeSession {
     }
 }
 
-fn constrain_size(proposed_size: (f64, f64), direction: ResizeDirection) -> (f64, f64) {
-    let width_scale = proposed_size.0 / PHONE_WIDTH;
-    let height_scale = (proposed_size.1 - CONTROL_AREA_HEIGHT) / PHONE_HEIGHT;
-    let scale = match direction {
-        ResizeDirection::East | ResizeDirection::West => width_scale,
-        ResizeDirection::North | ResizeDirection::South => height_scale,
-        _ => corner_scale(proposed_size, height_scale),
-    }
+fn constrain_size(proposed_size: (f64, f64)) -> (f64, f64) {
+    let scale = ((PHONE_WIDTH * proposed_size.0
+        + PHONE_HEIGHT * (proposed_size.1 - CONTROL_AREA_HEIGHT))
+        / (PHONE_WIDTH.powi(2) + PHONE_HEIGHT.powi(2)))
     .max(MIN_PHONE_SCALE);
-
     size_for_scale(scale)
 }
 
-fn corner_scale(proposed_size: (f64, f64), height_scale: f64) -> f64 {
-    let compact_scale = height_scale.clamp(MIN_PHONE_SCALE, 1.);
-    let expanded_scale = ((PHONE_WIDTH * proposed_size.0
-        + PHONE_HEIGHT * (proposed_size.1 - CONTROL_AREA_HEIGHT))
-        / (PHONE_WIDTH.powi(2) + PHONE_HEIGHT.powi(2)))
-    .max(1.);
-
-    if size_error(proposed_size, compact_scale) < size_error(proposed_size, expanded_scale) {
-        compact_scale
-    } else {
-        expanded_scale
-    }
-}
-
 fn size_for_scale(scale: f64) -> (f64, f64) {
-    ((PHONE_WIDTH * scale).max(CONTROL_AREA_WIDTH), CONTROL_AREA_HEIGHT + PHONE_HEIGHT * scale)
-}
-
-fn size_error(proposed_size: (f64, f64), scale: f64) -> f64 {
-    let size = size_for_scale(scale);
-    (size.0 - proposed_size.0).powi(2) + (size.1 - proposed_size.1).powi(2)
+    (PHONE_WIDTH * scale, CONTROL_AREA_HEIGHT + PHONE_HEIGHT * scale)
 }
 
 fn anchored_position(
@@ -201,26 +230,30 @@ fn anchored_position(
     )
 }
 
-fn resize_direction(
+fn corner_resize_direction(
     size: PhysicalSize<u32>,
     position: PhysicalPosition<f64>,
-    border_width: f64,
+    corner_size: f64,
 ) -> Option<ResizeDirection> {
-    let west = position.x < border_width;
-    let east = position.x > f64::from(size.width) - border_width;
-    let north = position.y < border_width;
-    let south = position.y > f64::from(size.height) - border_width;
+    let west = position.x < corner_size;
+    let east = position.x > f64::from(size.width) - corner_size;
+    let north = position.y < corner_size;
+    let south = position.y > f64::from(size.height) - corner_size;
 
     match (west, east, north, south) {
         (true, _, true, _) => Some(ResizeDirection::NorthWest),
         (_, true, true, _) => Some(ResizeDirection::NorthEast),
         (true, _, _, true) => Some(ResizeDirection::SouthWest),
         (_, true, _, true) => Some(ResizeDirection::SouthEast),
-        (true, _, _, _) => Some(ResizeDirection::West),
-        (_, true, _, _) => Some(ResizeDirection::East),
-        (_, _, true, _) => Some(ResizeDirection::North),
-        (_, _, _, true) => Some(ResizeDirection::South),
         _ => None,
+    }
+}
+
+fn resize_cursor(direction: Option<ResizeDirection>) -> CursorIcon {
+    match direction {
+        Some(ResizeDirection::NorthWest | ResizeDirection::SouthEast) => CursorIcon::NwseResize,
+        Some(ResizeDirection::NorthEast | ResizeDirection::SouthWest) => CursorIcon::NeswResize,
+        _ => CursorIcon::Default,
     }
 }
 
@@ -237,36 +270,18 @@ mod tests {
     use super::*;
 
     #[test]
-    fn horizontal_resize_scales_only_the_phone() {
-        assert_eq!(constrain_size((776., 1200.), ResizeDirection::East), (776., 1720.));
-    }
-
-    #[test]
-    fn vertical_resize_scales_only_the_phone() {
-        assert_eq!(constrain_size((500., 1720.), ResizeDirection::South), (776., 1720.));
+    fn corner_resize_scales_the_whole_silhouette() {
+        assert_eq!(constrain_size((776., 1720.)), (776., 1720.));
     }
 
     #[test]
     fn resize_does_not_shrink_below_sixty_percent() {
-        assert_size(constrain_size((200., 400.), ResizeDirection::SouthEast), (388., 563.6));
+        assert_size(constrain_size((200., 400.)), (232.8, 563.6));
     }
 
     #[test]
-    fn compact_phone_keeps_the_control_area_width() {
-        assert_size(constrain_size((300., 563.6), ResizeDirection::South), (388., 563.6));
-    }
-
-    #[test]
-    fn horizontal_resize_does_not_clip_the_control_area() {
-        assert_size(
-            constrain_size((300., 894.), ResizeDirection::East),
-            (388., 706.659_793_814_433),
-        );
-    }
-
-    #[test]
-    fn corner_resize_can_cross_below_full_size() {
-        assert_eq!(constrain_size((388., 729.2), ResizeDirection::SouthEast), (388., 729.2));
+    fn corner_resize_can_cross_below_full_size_without_extra_width() {
+        assert_size(constrain_size((310.4, 728.8)), (310.4, 728.8));
     }
 
     #[test]
@@ -294,13 +309,19 @@ mod tests {
     }
 
     #[test]
-    fn resize_direction_uses_only_the_native_border() {
+    fn resize_direction_uses_only_the_corners() {
         let size = PhysicalSize::new(388, 894);
         assert_eq!(
-            resize_direction(size, PhysicalPosition::new(4., 4.), 8.),
+            corner_resize_direction(size, PhysicalPosition::new(4., 4.), 16.),
             Some(ResizeDirection::NorthWest)
         );
-        assert_eq!(resize_direction(size, PhysicalPosition::new(12., 12.), 8.), None);
+        assert_eq!(
+            corner_resize_direction(size, PhysicalPosition::new(384., 890.), 16.),
+            Some(ResizeDirection::SouthEast)
+        );
+        assert_eq!(corner_resize_direction(size, PhysicalPosition::new(4., 447.), 16.), None);
+        assert_eq!(corner_resize_direction(size, PhysicalPosition::new(194., 4.), 16.), None);
+        assert_eq!(corner_resize_direction(size, PhysicalPosition::new(20., 20.), 16.), None);
     }
 
     fn assert_size(actual: (f64, f64), expected: (f64, f64)) {

@@ -9,8 +9,8 @@ export component SimulatorWindow inherits Window {
         ? (Platform.os == OperatingSystemType.windows ? #181818 : transparent)
         : #202020;
     no-frame: root.frame-enabled;
-    resize-border-width: root.frame-enabled ? 8px : 0px;
-    min-width: root.frame-enabled ? 388px : 0px;
+    resize-border-width: 0px;
+    min-width: root.frame-enabled ? 232.8px : 0px;
     min-height: root.frame-enabled ? 563.6px : 0px;
 
     in property <component-factory> preview-factory;
@@ -87,9 +87,9 @@ export component SimulatorWindow inherits Window {
     }
 
     if root.frame-enabled: control-bar := Rectangle {
-        x: (root.width - self.width) / 2;
+        x: 0px;
         y: 0px;
-        width: 388px;
+        width: root.width;
         height: 52px;
         background: #202020;
         border-width: 1px;
@@ -97,9 +97,9 @@ export component SimulatorWindow inherits Window {
         border-radius: self.height / 2;
 
         WindowMoveArea {
-            x: 10px;
+            x: 18px;
             y: 10px;
-            width: parent.width - 20px;
+            width: parent.width - 36px;
             height: parent.height - 20px;
         }
 
@@ -133,7 +133,7 @@ export component SimulatorWindow inherits Window {
         Text {
             x: 54px;
             y: 8px;
-            width: 240px;
+            width: parent.width - 108px;
             height: 20px;
             text: "Android Phone";
             color: #f2f2f2;
@@ -145,7 +145,7 @@ export component SimulatorWindow inherits Window {
         Text {
             x: 54px;
             y: 27px;
-            width: 240px;
+            width: parent.width - 108px;
             height: 17px;
             text: "360 × 800";
             color: #9b9b9b;
@@ -154,7 +154,7 @@ export component SimulatorWindow inherits Window {
         }
 
         Rectangle {
-            x: 340px;
+            x: parent.width - 48px;
             y: 23px;
             width: 32px;
             height: 6px;

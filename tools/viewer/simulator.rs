@@ -79,6 +79,13 @@ fn install_presentation_behavior(ui: &SimulatorWindow) {
         if let Err(error) = simulator_settings::save(DeviceFrame::from(frame_enabled)) {
             tracing::warn!("Failed to save simulator settings: {error}");
         }
+        #[cfg(any(
+            feature = "backend-default",
+            feature = "backend-winit",
+            feature = "backend-winit-x11",
+            feature = "backend-winit-wayland"
+        ))]
+        super::simulator_resize::set_frame_enabled(ui.window(), frame_enabled);
     });
 }
 
