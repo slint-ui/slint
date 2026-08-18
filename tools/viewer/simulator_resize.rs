@@ -5,6 +5,7 @@ use slint::winit_030::WinitWindowAccessor;
 use slint::winit_030::winit;
 use std::cell::RefCell;
 use std::rc::Rc;
+use std::time::Duration;
 use winit::dpi::{PhysicalPosition, PhysicalSize};
 use winit::event::{ElementState, MouseButton, WindowEvent};
 use winit::window::{CursorIcon, ResizeDirection};
@@ -17,9 +18,9 @@ const RESIZE_CORNER_SIZE: f64 = 16.;
 
 pub fn install(window: &slint::Window, frame_enabled: impl Fn() -> bool + 'static) {
     set_frame_enabled(window, frame_enabled());
-    let state = Rc::new(RefCell::new(ResizeState::default()));
+    let resize_state = Rc::new(RefCell::new(ResizeState::default()));
     window.on_winit_window_event(move |window, event| {
-        let mut state = state.borrow_mut();
+        let mut state = resize_state.borrow_mut();
 
         match event {
             WindowEvent::CursorMoved { position, .. } => {
@@ -28,6 +29,12 @@ pub fn install(window: &slint::Window, frame_enabled: impl Fn() -> bool + 'stati
                 let resize_active = state.session.is_some();
                 let direction = window
                     .with_winit_window(|winit_window| {
+                        if let Ok(window_position) = winit_window.outer_position() {
+                            state.cursor_screen_position = PhysicalPosition::new(
+                                f64::from(window_position.x) + position.x,
+                                f64::from(window_position.y) + position.y,
+                            );
+                        }
                         let direction = frame_enabled
                             .then(|| {
                                 corner_resize_direction(
@@ -52,6 +59,7 @@ pub fn install(window: &slint::Window, frame_enabled: impl Fn() -> bool + 'stati
             }
             WindowEvent::MouseInput { state: button_state, button: MouseButton::Left, .. } => {
                 if *button_state == ElementState::Pressed && frame_enabled() {
+                    state.generation = state.generation.wrapping_add(1);
                     let session = window
                         .with_winit_window(|winit_window| {
                             let session =
@@ -69,9 +77,16 @@ pub fn install(window: &slint::Window, frame_enabled: impl Fn() -> bool + 'stati
                         return slint::winit_030::EventResult::PreventDefault;
                     }
                 } else if *button_state == ElementState::Released {
-                    state.session = None;
-                    state.requested_size = None;
                     set_resizable_for_corner(window, frame_enabled(), state.hover_direction);
+                    let generation = state.generation;
+                    let resize_state = resize_state.clone();
+                    slint::Timer::single_shot(Duration::from_millis(100), move || {
+                        let mut state = resize_state.borrow_mut();
+                        if state.generation == generation {
+                            state.session = None;
+                            state.requested_size = None;
+                        }
+                    });
                 }
             }
             WindowEvent::Focused(false) => {
@@ -88,16 +103,14 @@ pub fn install(window: &slint::Window, frame_enabled: impl Fn() -> bool + 'stati
                     return slint::winit_030::EventResult::Propagate;
                 }
 
-                let Some(session) = state.session else {
-                    return slint::winit_030::EventResult::Propagate;
-                };
                 let scale_factor =
                     window.with_winit_window(winit::window::Window::scale_factor).unwrap_or(1.);
-                let proposed_logical = (
-                    proposed_size.width as f64 / scale_factor,
-                    proposed_size.height as f64 / scale_factor,
-                );
-                let constrained_logical = constrain_size(proposed_logical);
+                let constrained_logical = if let Some(session) = state.session {
+                    let proposed_size = session.proposed_inner_size(state.cursor_screen_position);
+                    constrain_size((proposed_size.0 / scale_factor, proposed_size.1 / scale_factor))
+                } else {
+                    constrain_width(proposed_size.width as f64 / scale_factor)
+                };
                 let constrained_physical = PhysicalSize::new(
                     (constrained_logical.0 * scale_factor).round() as u32,
                     (constrained_logical.1 * scale_factor).round() as u32,
@@ -111,7 +124,9 @@ pub fn install(window: &slint::Window, frame_enabled: impl Fn() -> bool + 'stati
                 state.requested_size = Some(constrained_physical);
                 window.with_winit_window(|winit_window| {
                     let _ = winit_window.request_inner_size(constrained_physical);
-                    winit_window.set_outer_position(session.position_for(constrained_physical));
+                    if let Some(session) = state.session {
+                        winit_window.set_outer_position(session.position_for(constrained_physical));
+                    }
                 });
                 return slint::winit_030::EventResult::PreventDefault;
             }
@@ -139,9 +154,11 @@ fn set_resizable_for_corner(
 #[derive(Default)]
 struct ResizeState {
     cursor_position: PhysicalPosition<f64>,
+    cursor_screen_position: PhysicalPosition<f64>,
     hover_direction: Option<ResizeDirection>,
     session: Option<ResizeSession>,
     requested_size: Option<PhysicalSize<u32>>,
+    generation: u64,
 }
 
 #[derive(Clone, Copy)]
@@ -150,6 +167,8 @@ struct ResizeSession {
     start_position: PhysicalPosition<i32>,
     start_inner_size: PhysicalSize<u32>,
     frame_size: PhysicalSize<u32>,
+    anchor: PhysicalPosition<f64>,
+    cursor_offset: PhysicalPosition<f64>,
 }
 
 impl ResizeSession {
@@ -164,15 +183,75 @@ impl ResizeSession {
             RESIZE_CORNER_SIZE * window.scale_factor(),
         )?;
         let outer_size = window.outer_size();
+        let start_position = window.outer_position().ok()?;
+        let start_position_f64 = start_position.cast::<f64>();
+        let outer_size_f64 = outer_size.cast::<f64>();
+        let cursor_screen_position = PhysicalPosition::new(
+            start_position_f64.x + cursor_position.x,
+            start_position_f64.y + cursor_position.y,
+        );
+        let (anchor, corner) = match direction {
+            ResizeDirection::NorthWest => (
+                PhysicalPosition::new(
+                    start_position_f64.x + outer_size_f64.width,
+                    start_position_f64.y + outer_size_f64.height,
+                ),
+                start_position_f64,
+            ),
+            ResizeDirection::NorthEast => (
+                PhysicalPosition::new(
+                    start_position_f64.x,
+                    start_position_f64.y + outer_size_f64.height,
+                ),
+                PhysicalPosition::new(
+                    start_position_f64.x + outer_size_f64.width,
+                    start_position_f64.y,
+                ),
+            ),
+            ResizeDirection::SouthWest => (
+                PhysicalPosition::new(
+                    start_position_f64.x + outer_size_f64.width,
+                    start_position_f64.y,
+                ),
+                PhysicalPosition::new(
+                    start_position_f64.x,
+                    start_position_f64.y + outer_size_f64.height,
+                ),
+            ),
+            ResizeDirection::SouthEast => (
+                start_position_f64,
+                PhysicalPosition::new(
+                    start_position_f64.x + outer_size_f64.width,
+                    start_position_f64.y + outer_size_f64.height,
+                ),
+            ),
+            _ => return None,
+        };
         Some(Self {
             direction,
-            start_position: window.outer_position().ok()?,
+            start_position,
             start_inner_size: inner_size,
             frame_size: PhysicalSize::new(
                 outer_size.width.saturating_sub(inner_size.width),
                 outer_size.height.saturating_sub(inner_size.height),
             ),
+            anchor,
+            cursor_offset: PhysicalPosition::new(
+                cursor_screen_position.x - corner.x,
+                cursor_screen_position.y - corner.y,
+            ),
         })
+    }
+
+    fn proposed_inner_size(self, cursor_position: PhysicalPosition<f64>) -> (f64, f64) {
+        let corner = PhysicalPosition::new(
+            cursor_position.x - self.cursor_offset.x,
+            cursor_position.y - self.cursor_offset.y,
+        );
+        (
+            ((corner.x - self.anchor.x).abs() - f64::from(self.frame_size.width)).max(1.),
+            ((corner.y - self.anchor.y).abs() - f64::from(self.frame_size.height)).max(1.),
+        )
     }
 
     fn position_for(self, inner_size: PhysicalSize<u32>) -> PhysicalPosition<i32> {
@@ -194,6 +273,10 @@ fn constrain_size(proposed_size: (f64, f64)) -> (f64, f64) {
         / (PHONE_WIDTH.powi(2) + PHONE_HEIGHT.powi(2)))
     .max(MIN_PHONE_SCALE);
     size_for_scale(scale)
+}
+
+fn constrain_width(proposed_width: f64) -> (f64, f64) {
+    size_for_scale((proposed_width / PHONE_WIDTH).max(MIN_PHONE_SCALE))
 }
 
 fn size_for_scale(scale: f64) -> (f64, f64) {
@@ -282,6 +365,25 @@ mod tests {
     #[test]
     fn corner_resize_can_cross_below_full_size_without_extra_width() {
         assert_size(constrain_size((310.4, 728.8)), (310.4, 728.8));
+    }
+
+    #[test]
+    fn trailing_resize_uses_width_as_the_phone_scale() {
+        assert_size(constrain_width(600.), (600., 1345.319_587_628_866));
+    }
+
+    #[test]
+    fn corner_resize_uses_pointer_distance_from_the_anchor() {
+        let session = ResizeSession {
+            direction: ResizeDirection::SouthEast,
+            start_position: PhysicalPosition::new(100, 100),
+            start_inner_size: PhysicalSize::new(388, 894),
+            frame_size: PhysicalSize::new(0, 0),
+            anchor: PhysicalPosition::new(100., 100.),
+            cursor_offset: PhysicalPosition::new(-2., -2.),
+        };
+
+        assert_size(session.proposed_inner_size(PhysicalPosition::new(336., 972.)), (238., 874.));
     }
 
     #[test]

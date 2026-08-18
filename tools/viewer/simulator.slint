@@ -15,10 +15,7 @@ export component SimulatorWindow inherits Window {
 
     in property <component-factory> preview-factory;
     in-out property <bool> frame-enabled: false;
-    private property <float> phone-scale: max(
-        0.6,
-        min(root.width / 388px, (root.height - 68px) / 826px),
-    );
+    private property <float> phone-scale: max(0.6, root.width / 388px);
     callback presentation-changed(bool);
     callback quit-requested();
 
