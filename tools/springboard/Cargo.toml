@@ -1,0 +1,49 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+[package]
+name = "slint-springboard"
+description = "Development server and device manager for Slint projects"
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+categories = ["development-tools", "command-line-utilities", "gui"]
+keywords = ["slint", "viewer", "hot-reload", "device", "development"]
+
+[[bin]]
+name = "slint-springboard"
+path = "main.rs"
+
+[features]
+backend-default = ["slint-viewer/backend-default"]
+backend-qt = ["slint-viewer/backend-qt"]
+backend-winit = ["slint-viewer/backend-winit"]
+backend-winit-x11 = ["slint-viewer/backend-winit-x11"]
+backend-winit-wayland = ["slint-viewer/backend-winit-wayland"]
+
+renderer-femtovg = ["slint-viewer/renderer-femtovg"]
+renderer-skia = ["slint-viewer/renderer-skia"]
+renderer-software = ["slint-viewer/renderer-software"]
+
+default = ["backend-default", "renderer-femtovg", "renderer-software"]
+
+[dependencies]
+i-slint-springboard = { workspace = true }
+slint-viewer = { version = "=1.18.0", path = "../viewer", default-features = false }
+
+anyhow = "1.0.100"
+clap = { workspace = true }
+crossterm = { version = "0.29.0", features = ["event-stream"] }
+ratatui = "0.30.0"
+serde = { workspace = true, features = ["std"] }
+serde_json = { workspace = true }
+tokio = { version = "1.50.0", features = ["io-util", "macros", "process", "rt-multi-thread", "signal", "sync", "time"] }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+
+[dev-dependencies]
+tempfile = "3"

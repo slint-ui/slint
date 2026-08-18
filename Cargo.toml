@@ -47,6 +47,7 @@ members = [
   'tools/editor',
   'tools/figma_import',
   'tools/lsp',
+  'tools/springboard',
   'tools/viewer',
   'tools/tr-extractor',
   'xtask',
@@ -67,6 +68,7 @@ default-members = [
   'tools/compiler',
   'tools/figma_import',
   'tools/lsp',
+  'tools/springboard',
   'tools/viewer',
 ]
 
