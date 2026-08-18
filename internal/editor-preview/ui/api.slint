@@ -594,6 +594,12 @@ export global Api {
     // ## File Tree
     in-out property <[FileTreeNode]> file-tree;
     in-out property <string> project-root;
+    in-out property <bool> project-run-dialog-visible;
+    in-out property <string> project-run-dialog-root;
+    in-out property <string> project-run-dialog-entry;
+    in-out property <string> project-run-dialog-entry-label;
+    in-out property <[string]> project-run-components;
+    in-out property <string> project-run-error;
     in-out property <string> selected-project-file;
     in-out property <bool> startup-wizard-visible;
     in-out property <EditorSurfaceMode> editor-surface-mode: EditorSurfaceMode.component;
@@ -606,6 +612,8 @@ export global Api {
     callback close-startup-wizard();
     callback file-tree-toggle(path: string);
     callback file-tree-select(path: string);
+    callback select-project-run-component(component: string);
+    callback close-project-run-dialog();
     pure callback image-nine-slice-expression(path: string, top: int, right: int, bottom: int, left: int) -> string;
     pure callback image-nine-slice-preview(source: image, top: int, right: int, bottom: int, left: int) -> image;
     callback copy-nine-slice-expression(value: string);

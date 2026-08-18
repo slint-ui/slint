@@ -847,6 +847,9 @@ async fn handle_preview_to_lsp_message(
         M::LaunchProjectPreview { .. } => {
             tracing::debug!("Ignoring Visual Editor project preview request in the LSP");
         }
+        M::SetProjectEntry { .. } | M::SetProjectComponent { .. } => {
+            tracing::debug!("Ignoring Visual Editor project configuration request in the LSP");
+        }
     }
     Ok(())
 }

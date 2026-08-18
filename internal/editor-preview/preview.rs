@@ -27,7 +27,7 @@ use i_slint_live_preview::protocol::{
     VersionedUrl,
 };
 use lsp_types::Url;
-use slint::{PlatformError, SharedString, ToSharedString};
+use slint::{ModelRc, PlatformError, SharedString, ToSharedString, VecModel};
 use slint_interpreter::{ComponentDefinition, ComponentHandle, ComponentInstance};
 use smol_str::SmolStr;
 use std::borrow::BorrowMut;
@@ -147,6 +147,15 @@ pub fn lsp_to_preview(message: LspToPreviewMessage) {
         }
         M::Ping => {
             // Keepalive for the remote-preview WebSocket; local previews never see it.
+        }
+        M::SelectProjectEntry { project_root } => {
+            select_project_entry(project_root);
+        }
+        M::SelectProjectComponent { project_root, entry, components } => {
+            show_project_component_dialog(project_root, entry, components);
+        }
+        M::ProjectPreviewError { message } => {
+            show_project_preview_error(message);
         }
     }
 }
@@ -924,6 +933,97 @@ fn launch_live_preview(project_root: slint::SharedString) {
         if let Err(error) = to_lsp.send(&PreviewToLspMessage::LaunchProjectPreview { project_root })
         {
             tracing::error!("Failed to request the project preview: {error}");
+        }
+    });
+}
+
+fn select_project_entry(project_root: Url) {
+    let Some(project_root_path) = crate::uri_to_file(&project_root) else {
+        show_project_preview_error(format!(
+            "Project preview requires a file URL, got {project_root}"
+        ));
+        return;
+    };
+    let Some(entry_file) = ui::choose_project_entry_file(&project_root_path) else {
+        return;
+    };
+    let Ok(entry) = Url::from_file_path(&entry_file) else {
+        show_project_preview_error(format!(
+            "Failed to convert project entry {} to a file URL",
+            entry_file.display()
+        ));
+        return;
+    };
+    send_project_message(PreviewToLspMessage::SetProjectEntry { project_root, entry });
+}
+
+fn show_project_component_dialog(project_root: Url, entry: Url, components: Vec<String>) {
+    PREVIEW_STATE.with_borrow(|preview_state| {
+        let Some(api) = preview_state.api.upgrade() else { return };
+        api.set_project_run_dialog_root(project_root.to_string().into());
+        api.set_project_run_dialog_entry_label(
+            crate::uri_to_file(&entry)
+                .map(|path| path.display().to_string())
+                .unwrap_or_else(|| entry.to_string())
+                .into(),
+        );
+        api.set_project_run_dialog_entry(entry.to_string().into());
+        api.set_project_run_components(ModelRc::new(VecModel::from(
+            components.into_iter().map(SharedString::from).collect::<Vec<_>>(),
+        )));
+        api.set_project_run_error(Default::default());
+        api.set_project_run_dialog_visible(true);
+    });
+}
+
+fn show_project_preview_error(message: String) {
+    PREVIEW_STATE.with_borrow(|preview_state| {
+        let Some(api) = preview_state.api.upgrade() else { return };
+        api.set_project_run_dialog_root(Default::default());
+        api.set_project_run_dialog_entry(Default::default());
+        api.set_project_run_dialog_entry_label(Default::default());
+        api.set_project_run_components(Default::default());
+        api.set_project_run_error(message.into());
+        api.set_project_run_dialog_visible(true);
+    });
+}
+
+fn select_project_run_component(component: SharedString) {
+    let message = PREVIEW_STATE.with_borrow(|preview_state| {
+        let Some(api) = preview_state.api.upgrade() else { return None };
+        let Ok(project_root) = Url::parse(api.get_project_run_dialog_root().as_str()) else {
+            return None;
+        };
+        let Ok(entry) = Url::parse(api.get_project_run_dialog_entry().as_str()) else {
+            return None;
+        };
+        api.set_project_run_dialog_visible(false);
+        Some(PreviewToLspMessage::SetProjectComponent {
+            project_root,
+            entry,
+            component: component.into(),
+        })
+    });
+    if let Some(message) = message {
+        send_project_message(message);
+    }
+}
+
+fn close_project_run_dialog() {
+    PREVIEW_STATE.with_borrow(|preview_state| {
+        if let Some(api) = preview_state.api.upgrade() {
+            api.set_project_run_dialog_visible(false);
+        }
+    });
+}
+
+fn send_project_message(message: PreviewToLspMessage) {
+    PREVIEW_STATE.with_borrow(|preview_state| {
+        let Some(to_lsp) = preview_state.to_lsp.borrow().as_ref().cloned() else {
+            return;
+        };
+        if let Err(error) = to_lsp.send(&message) {
+            tracing::error!("Failed to configure the project preview: {error}");
         }
     });
 }

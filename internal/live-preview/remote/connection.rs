@@ -466,7 +466,10 @@ impl Connection {
                                         }
                                         // Internal LSP↔local-preview control message;
                                         // never legitimately reaches a remote viewer.
-                                        LspToPreviewMessage::RemoteConnectionState { .. } => {
+                                        LspToPreviewMessage::RemoteConnectionState { .. }
+                                        | LspToPreviewMessage::SelectProjectEntry { .. }
+                                        | LspToPreviewMessage::SelectProjectComponent { .. }
+                                        | LspToPreviewMessage::ProjectPreviewError { .. } => {
                                             tracing::warn!(
                                                 "Ignoring unexpected RemoteConnectionState over WebSocket"
                                             );

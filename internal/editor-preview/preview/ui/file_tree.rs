@@ -192,6 +192,20 @@ fn choose_project_file(window: Option<slint::WindowHandle>) -> Option<PathBuf> {
     with_parent(dialog, window).pick_file()
 }
 
+#[cfg(not(target_arch = "wasm32"))]
+pub(crate) fn choose_project_entry_file(project_root: &Path) -> Option<PathBuf> {
+    rfd::FileDialog::new()
+        .set_title("Choose the Slint App Entry")
+        .set_directory(project_root)
+        .add_filter("Slint files", &["slint"])
+        .pick_file()
+}
+
+#[cfg(target_arch = "wasm32")]
+pub(crate) fn choose_project_entry_file(_project_root: &Path) -> Option<PathBuf> {
+    None
+}
+
 #[cfg(target_arch = "wasm32")]
 fn choose_project_file(_window: Option<slint::WindowHandle>) -> Option<PathBuf> {
     None

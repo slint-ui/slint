@@ -1,0 +1,207 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { StudioTheme } from "common.slint";
+import { ListView } from "std-widgets.slint";
+
+component DialogButton inherits Rectangle {
+    in property <string> label;
+    in property <bool> primary: false;
+    callback clicked;
+
+    width: 86px;
+    height: 34px;
+    border-radius: 7px;
+    border-width: root.primary ? 0px : 1px;
+    border-color: StudioTheme.border;
+    background: root.primary
+        ? touch.pressed ? #087ccc : touch.has-hover ? #0a8ee8 : StudioTheme.accent
+        : touch.pressed ? StudioTheme.soft-border : touch.has-hover ? StudioTheme.panel-subtle : StudioTheme.panel-bg;
+    accessible-role: button;
+    accessible-label: root.label;
+    accessible-action-default => { root.clicked(); }
+    animate background { duration: 120ms; }
+
+    Text {
+        text: root.label;
+        color: root.primary ? white : StudioTheme.text;
+        font-size: 12px;
+        font-weight: 700;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+}
+
+component ComponentOption inherits Rectangle {
+    in property <string> component-name;
+    in property <bool> selected: false;
+    callback clicked;
+
+    height: 42px;
+    border-radius: 7px;
+    border-width: root.selected ? 1px : 0px;
+    border-color: StudioTheme.accent-strong;
+    background: root.selected
+        ? StudioTheme.accent.with-alpha(0.16)
+        : touch.has-hover ? StudioTheme.panel-subtle : transparent;
+    accessible-role: AccessibleRole.list-item;
+    accessible-label: root.component-name;
+    accessible-action-default => { root.clicked(); }
+    animate background { duration: 120ms; }
+
+    HorizontalLayout {
+        padding-left: 12px;
+        padding-right: 12px;
+        cross-axis-alignment: center;
+
+        Text {
+            text: root.component-name;
+            color: StudioTheme.text;
+            font-size: 13px;
+            font-weight: root.selected ? 700 : 500;
+            overflow: elide;
+            vertical-alignment: center;
+        }
+    }
+
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+}
+
+export component ProjectRunDialog inherits Rectangle {
+    in property <string> entry-file;
+    in property <[string]> components;
+    in property <string> error;
+    callback selected(string);
+    callback canceled;
+
+    private property <int> selected-index: 0;
+    forward-focus: dialog-focus;
+
+    init => { dialog-focus.focus(); }
+
+    Rectangle {
+        background: #00000066;
+
+        TouchArea {
+            clicked => { root.canceled(); }
+        }
+    }
+
+    panel := Rectangle {
+        width: min(440px, root.width - 32px);
+        height: root.error != "" ? 246px : min(474px, 196px + root.components.length * 44px);
+        border-radius: 12px;
+        border-width: 1px;
+        border-color: StudioTheme.border;
+        background: StudioTheme.panel-bg;
+        drop-shadow-blur: 28px;
+        drop-shadow-offset-y: 12px;
+        drop-shadow-color: StudioTheme.dark ? #00000088 : #34405438;
+        accessible-role: AccessibleRole.groupbox;
+        accessible-label: root.error != "" ? "Project preview error" : "Choose the app component";
+
+        TouchArea { }
+
+        VerticalLayout {
+            padding: 24px;
+            spacing: 12px;
+
+            Text {
+                text: root.error != "" ? "Couldn't configure Run" : "Choose the app component";
+                color: StudioTheme.text;
+                font-size: 18px;
+                font-weight: 800;
+            }
+
+            Text {
+                text: root.error != ""
+                    ? root.error
+                    : "This file exports more than one component. Choose the one that starts the app.";
+                color: root.error != "" ? #d92d20 : StudioTheme.muted;
+                font-size: 12px;
+                wrap: word-wrap;
+                vertical-stretch: 0;
+            }
+
+            if root.error == "": Text {
+                text: root.entry-file;
+                color: StudioTheme.muted;
+                font-size: 11px;
+                overflow: elide;
+                vertical-stretch: 0;
+            }
+
+            if root.error == "": ListView {
+                accessible-role: AccessibleRole.list;
+                accessible-label: "Exported components";
+                horizontal-stretch: 1;
+                vertical-stretch: 1;
+
+                for component[index] in root.components: ComponentOption {
+                    width: parent.visible-width;
+                    component-name: component;
+                    selected: index == root.selected-index;
+                    clicked => {
+                        root.selected-index = index;
+                        root.selected(component);
+                    }
+                }
+            }
+
+            HorizontalLayout {
+                alignment: end;
+                spacing: 8px;
+                vertical-stretch: 0;
+
+                DialogButton {
+                    label: root.error != "" ? "Close" : "Cancel";
+                    clicked => { root.canceled(); }
+                }
+
+                if root.error == "": DialogButton {
+                    label: "Choose";
+                    primary: true;
+                    clicked => {
+                        if root.components.length > 0 {
+                            root.selected(root.components[root.selected-index]);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    dialog-focus := FocusScope {
+        key-pressed(event) => {
+            if event.text == Key.Escape {
+                root.canceled();
+                return accept;
+            }
+            if root.error != "" && (event.text == Key.Return || event.text == Key.Space) {
+                root.canceled();
+                return accept;
+            }
+            if event.text == Key.UpArrow && root.selected-index > 0 {
+                root.selected-index -= 1;
+                return accept;
+            }
+            if event.text == Key.DownArrow && root.selected-index + 1 < root.components.length {
+                root.selected-index += 1;
+                return accept;
+            }
+            if event.text == Key.Return && root.components.length > 0 {
+                root.selected(root.components[root.selected-index]);
+                return accept;
+            }
+            return reject;
+        }
+    }
+}

@@ -11,3 +11,17 @@ You should use the `slint` crate instead.
 
 **WARNING**: This crate does not follow the semver convention for versioning and can
 only be used with `version = "=x.y.z"` in Cargo.toml.
+
+## Visual Editor Project Run Target
+
+The Visual Editor reads `slint.toml` from the project root when you select Run.
+Set `entry` to a project-relative `.slint` file and `component` to an exported component in that file:
+
+```toml
+entry = "ui/app-window.slint"
+component = "AppWindow"
+```
+
+When the file is missing, Run asks for the entry file.
+If that file exports multiple components, choose the app component from the dialog.
+The editor then creates `slint.toml` and launches the companion viewer.

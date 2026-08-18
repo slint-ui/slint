@@ -13,6 +13,7 @@ import { EditorTopBar } from "components/top-bar.slint";
 import { ImageAssetEditor } from "components/image-asset-editor.slint";
 import { InspectorPane } from "components/inspector-pane.slint";
 import { LeftPane } from "components/left-pane.slint";
+import { ProjectRunDialog } from "components/project-run-dialog.slint";
 import { EditorMetrics } from "components/common.slint";
 
 component SettingsButton inherits Rectangle {
@@ -731,6 +732,18 @@ export component EditorUi inherits Window {
                     Api.install-update();
                 }
             }
+        }
+    }
+
+    if Api.project-run-dialog-visible: ProjectRunDialog {
+        entry-file: Api.project-run-dialog-entry-label;
+        components: Api.project-run-components;
+        error: Api.project-run-error;
+        selected(component) => {
+            Api.select-project-run-component(component);
+        }
+        canceled => {
+            Api.close-project-run-dialog();
         }
     }
 }

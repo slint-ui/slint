@@ -61,6 +61,7 @@ fn fuzzy_filter_iter<Item: std::fmt::Debug>(
 
 mod brushes;
 mod file_tree;
+pub(super) use file_tree::choose_project_entry_file;
 pub mod log_messages;
 pub mod palette;
 mod property_view;
@@ -285,6 +286,8 @@ pub fn create_ui(
     api.on_show_preview_for(super::show_preview_for);
     api.on_reload_preview(super::reload_preview);
     api.on_launch_live_preview(super::launch_live_preview);
+    api.on_select_project_run_component(super::select_project_run_component);
+    api.on_close_project_run_dialog(super::close_project_run_dialog);
     api.on_unselect(super::element_selection::unselect_element);
     api.on_reselect(super::element_selection::reselect_element);
     api.on_select_at(super::element_selection::select_element_at);

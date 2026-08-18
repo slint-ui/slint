@@ -444,10 +444,45 @@ async fn handle_preview_message(
                         tracing::error!("Failed to launch the project preview: {error}");
                     }
                 }
-                Ok(None) => tracing::error!(
-                    "The project has no slint.toml. Press Run again after configuring a project entry component."
-                ),
-                Err(error) => tracing::error!("Failed to load the project run target: {error}"),
+                Ok(None) => session.to_preview.send(&LspToPreviewMessage::SelectProjectEntry {
+                    project_root: project_root.clone(),
+                }),
+                Err(error) => send_project_preview_error(session, error.to_string()),
+            }
+            None
+        }
+        SetProjectEntry { project_root, entry } => {
+            match configure_project_entry(session, project_root, entry).await {
+                Ok(ProjectEntryAction::Launch(component)) => {
+                    if let Err(error) = live_preview_process.restart(&component).await {
+                        send_project_preview_error(
+                            session,
+                            format!("Failed to launch the project preview: {error}"),
+                        );
+                    }
+                }
+                Ok(ProjectEntryAction::SelectComponent { entry, components }) => {
+                    session.to_preview.send(&LspToPreviewMessage::SelectProjectComponent {
+                        project_root: project_root.clone(),
+                        entry,
+                        components,
+                    })
+                }
+                Err(error) => send_project_preview_error(session, error.to_string()),
+            }
+            None
+        }
+        SetProjectComponent { project_root, entry, component } => {
+            match configure_project_component(session, project_root, entry, component).await {
+                Ok(component) => {
+                    if let Err(error) = live_preview_process.restart(&component).await {
+                        send_project_preview_error(
+                            session,
+                            format!("Failed to launch the project preview: {error}"),
+                        );
+                    }
+                }
+                Err(error) => send_project_preview_error(session, error.to_string()),
             }
             None
         }
@@ -593,6 +628,140 @@ fn project_preview_component(project_root: &Url) -> Result<Option<PreviewCompone
     Ok(Some(PreviewComponent { url, component: Some(target.component) }))
 }
 
+#[derive(Debug, Eq, PartialEq)]
+enum ProjectEntryAction {
+    Launch(PreviewComponent),
+    SelectComponent { entry: Url, components: Vec<String> },
+}
+
+struct ProjectEntryComponents {
+    project_root: PathBuf,
+    entry_file: PathBuf,
+    entry_url: Url,
+    components: Vec<String>,
+}
+
+async fn project_entry_components(
+    session: &mut editor_preview::EditorSession,
+    project_root: &Url,
+    entry: &Url,
+) -> Result<ProjectEntryComponents> {
+    let project_root = editor_preview::uri_to_file(project_root)
+        .ok_or_else(|| format!("Project preview requires a file URL, got {project_root}"))?;
+    let project_root = std::fs::canonicalize(&project_root).map_err(|error| {
+        format!("Failed to resolve project directory {}: {error}", project_root.display())
+    })?;
+    let entry_file = editor_preview::uri_to_file(entry)
+        .ok_or_else(|| format!("Project entry requires a file URL, got {entry}"))?;
+    let entry_file = std::fs::canonicalize(&entry_file).map_err(|error| {
+        format!("Failed to resolve project entry {}: {error}", entry_file.display())
+    })?;
+    if !entry_file.starts_with(&project_root) {
+        return Err(format!(
+            "Project entry {} is outside {}",
+            entry_file.display(),
+            project_root.display()
+        )
+        .into());
+    }
+    if !entry_file
+        .extension()
+        .and_then(|extension| extension.to_str())
+        .is_some_and(|extension| extension.eq_ignore_ascii_case("slint"))
+    {
+        return Err(format!("Project entry {} is not a .slint file", entry_file.display()).into());
+    }
+    let entry_url = Url::from_file_path(&entry_file).map_err(|_| {
+        format!("Failed to convert project entry {} to a file URL", entry_file.display())
+    })?;
+    session.reload_document(entry_url.clone()).await?;
+
+    let mut components = Vec::new();
+    editor_preview::component_catalog::all_exported_components(
+        &session.document_cache,
+        &mut |information| {
+            information.is_exported
+                && !information.is_global
+                && !information.is_interface
+                && information
+                    .defined_at
+                    .as_ref()
+                    .is_some_and(|position| position.url() == &entry_url)
+        },
+        &mut components,
+    );
+    components.sort_by_key(|information| {
+        information
+            .defined_at
+            .as_ref()
+            .map(|position| u32::from(position.offset()))
+            .unwrap_or(u32::MAX)
+    });
+    let components = components.into_iter().map(|information| information.name).collect();
+
+    Ok(ProjectEntryComponents { project_root, entry_file, entry_url, components })
+}
+
+async fn configure_project_entry(
+    session: &mut editor_preview::EditorSession,
+    project_root: &Url,
+    entry: &Url,
+) -> Result<ProjectEntryAction> {
+    let entry = project_entry_components(session, project_root, entry).await?;
+    finish_project_entry(entry)
+}
+
+fn finish_project_entry(entry: ProjectEntryComponents) -> Result<ProjectEntryAction> {
+    match entry.components.as_slice() {
+        [] => {
+            Err(format!("Project entry {} has no exported components", entry.entry_file.display())
+                .into())
+        }
+        [component] => Ok(ProjectEntryAction::Launch(create_project_component(
+            &entry.project_root,
+            &entry.entry_file,
+            &entry.entry_url,
+            component,
+        )?)),
+        _ => Ok(ProjectEntryAction::SelectComponent {
+            entry: entry.entry_url,
+            components: entry.components,
+        }),
+    }
+}
+
+async fn configure_project_component(
+    session: &mut editor_preview::EditorSession,
+    project_root: &Url,
+    entry: &Url,
+    component: &str,
+) -> Result<PreviewComponent> {
+    let entry = project_entry_components(session, project_root, entry).await?;
+    if !entry.components.iter().any(|candidate| candidate == component) {
+        return Err(format!(
+            "Component {component} is not an exported component in {}",
+            entry.entry_file.display()
+        )
+        .into());
+    }
+    create_project_component(&entry.project_root, &entry.entry_file, &entry.entry_url, component)
+}
+
+fn create_project_component(
+    project_root: &Path,
+    entry_file: &Path,
+    entry_url: &Url,
+    component: &str,
+) -> Result<PreviewComponent> {
+    editor_preview::project::create_project_manifest(project_root, entry_file, component)?;
+    Ok(PreviewComponent { url: entry_url.clone(), component: Some(component.into()) })
+}
+
+fn send_project_preview_error(session: &editor_preview::EditorSession, message: String) {
+    tracing::error!("Project preview: {message}");
+    session.to_preview.send(&LspToPreviewMessage::ProjectPreviewError { message });
+}
+
 fn requested_file_tree_preview(files: &[Url]) -> Option<Url> {
     if files.len() == 1 && is_slint_url(&files[0]) { Some(files[0].clone()) } else { None }
 }
@@ -717,5 +886,60 @@ mod tests {
         let project_root = Url::from_directory_path(directory.path()).unwrap();
 
         assert_eq!(project_preview_component(&project_root).unwrap(), None);
+    }
+
+    fn project_entry_with_components(
+        directory: &tempfile::TempDir,
+        components: &[&str],
+    ) -> ProjectEntryComponents {
+        let entry_file = directory.path().join("main.slint");
+        std::fs::write(&entry_file, "export component App inherits Window {}\n").unwrap();
+        ProjectEntryComponents {
+            project_root: std::fs::canonicalize(directory.path()).unwrap(),
+            entry_file: std::fs::canonicalize(&entry_file).unwrap(),
+            entry_url: Url::from_file_path(std::fs::canonicalize(entry_file).unwrap()).unwrap(),
+            components: components.iter().map(|component| (*component).into()).collect(),
+        }
+    }
+
+    #[test]
+    fn single_export_creates_the_manifest_and_launches() {
+        let directory = tempfile::tempdir().unwrap();
+
+        let action =
+            finish_project_entry(project_entry_with_components(&directory, &["App"])).unwrap();
+
+        assert!(matches!(
+            action,
+            ProjectEntryAction::Launch(PreviewComponent { component: Some(component), .. })
+                if component == "App"
+        ));
+        assert!(directory.path().join(editor_preview::project::PROJECT_MANIFEST_FILE).is_file());
+    }
+
+    #[test]
+    fn multiple_exports_request_a_component_without_writing_the_manifest() {
+        let directory = tempfile::tempdir().unwrap();
+
+        let action =
+            finish_project_entry(project_entry_with_components(&directory, &["App", "Demo"]))
+                .unwrap();
+
+        assert!(matches!(
+            action,
+            ProjectEntryAction::SelectComponent { components, .. }
+                if components == ["App", "Demo"]
+        ));
+        assert!(!directory.path().join(editor_preview::project::PROJECT_MANIFEST_FILE).exists());
+    }
+
+    #[test]
+    fn entry_without_exports_is_rejected() {
+        let directory = tempfile::tempdir().unwrap();
+
+        let error =
+            finish_project_entry(project_entry_with_components(&directory, &[])).unwrap_err();
+
+        assert!(error.to_string().contains("has no exported components"));
     }
 }

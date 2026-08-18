@@ -66,6 +66,10 @@ pub enum PreviewToLspMessage {
     LaunchLivePreview { component: super::PreviewComponent },
     /// Ask the Visual Editor host to launch the configured project entry component.
     LaunchProjectPreview { project_root: Url },
+    /// Configure the selected file as the project preview entry.
+    SetProjectEntry { project_root: Url, entry: Url },
+    /// Configure the selected exported component as the project preview entry.
+    SetProjectComponent { project_root: Url, entry: Url, component: String },
 }
 
 /// One transport from a preview back to the LSP.

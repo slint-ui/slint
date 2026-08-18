@@ -72,6 +72,20 @@ pub enum LspToPreviewMessage {
     /// A protocol message because the LSP's browser-compatible WebSocket layer
     /// doesn't expose frame-level pings.
     Ping,
+    /// Ask the Visual Editor to choose the project's entry file.
+    SelectProjectEntry {
+        project_root: Url,
+    },
+    /// Ask the Visual Editor to choose one exported component from an entry file.
+    SelectProjectComponent {
+        project_root: Url,
+        entry: Url,
+        components: Vec<String>,
+    },
+    /// Show a project preview configuration error in the Visual Editor.
+    ProjectPreviewError {
+        message: String,
+    },
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
