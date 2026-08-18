@@ -266,6 +266,7 @@ fn main() -> Result<()> {
             compiler,
             args.path().to_path_buf(),
             args.component.clone(),
+            None,
         )?;
 
         reject_non_window_component(&live.borrow().instance().definition());

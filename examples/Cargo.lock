@@ -6111,6 +6111,7 @@ name = "i-slint-compiler"
 version = "1.18.0"
 dependencies = [
  "annotate-snippets",
+ "blake3",
  "by_address",
  "data-url",
  "derive_more",

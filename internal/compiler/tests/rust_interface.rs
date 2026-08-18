@@ -7,17 +7,22 @@ use i_slint_compiler::parser::parse;
 use i_slint_compiler::rust_interface::{RustInterfaceDescriptor, RustInterfaceEntry};
 use i_slint_compiler::{CompilerConfiguration, compile_syntax_node};
 
-fn descriptor(source: &str) -> RustInterfaceDescriptor {
+fn compiled_document(
+    source: &str,
+) -> (i_slint_compiler::object_tree::Document, CompilerConfiguration) {
     let mut diagnostics = BuildDiagnostics::default();
     let syntax_node = parse(source.into(), None, &mut diagnostics);
     let config = CompilerConfiguration::new(OutputFormat::Rust);
     let (document, diagnostics, loader) =
         spin_on::spin_on(compile_syntax_node(syntax_node, diagnostics, config));
     assert!(!diagnostics.has_errors(), "{:?}", diagnostics.to_string_vec());
-    let unit = i_slint_compiler::llr::lower_to_item_tree::lower_to_item_tree(
-        &document,
-        &loader.compiler_config,
-    );
+    (document, loader.compiler_config)
+}
+
+fn descriptor(source: &str) -> RustInterfaceDescriptor {
+    let (document, compiler_config) = compiled_document(source);
+    let unit =
+        i_slint_compiler::llr::lower_to_item_tree::lower_to_item_tree(&document, &compiler_config);
     RustInterfaceDescriptor::from_document(&document, &unit)
 }
 
@@ -78,6 +83,32 @@ fn canonical_entries_are_order_independent() {
     assert_eq!(first, second);
     assert_eq!(first.fingerprint(), second.fingerprint());
     assert_eq!(first.entries()[0].path(), "struct Payload");
+}
+
+#[test]
+fn live_preview_codegen_embeds_the_compiled_descriptor() {
+    let source = base_source("Rectangle {}");
+    let (document, compiler_config) = compiled_document(&source);
+    let generated =
+        i_slint_compiler::generator::rust_live_preview::generate_with_interface_descriptor(
+            &document,
+            &compiler_config,
+        )
+        .unwrap()
+        .to_string();
+
+    assert!(generated.contains("RustInterfaceDescriptor :: from_entries"));
+    assert!(generated.contains("RustInterfaceEntry :: new (\"component App\" , \"window\")"));
+    assert!(generated.contains(
+        "RustInterfaceEntry :: new (\"component App/property caption\" , \"in string\")"
+    ));
+
+    let (document, compiler_config) = compiled_document(&source);
+    let rust_analyzer_generated =
+        i_slint_compiler::generator::rust_live_preview::generate(&document, &compiler_config)
+            .unwrap()
+            .to_string();
+    assert!(!rust_analyzer_generated.contains("RustInterfaceDescriptor"));
 }
 
 #[test]

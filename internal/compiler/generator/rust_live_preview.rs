@@ -15,6 +15,22 @@ pub fn generate(
     doc: &Document,
     compiler_config: &CompilerConfiguration,
 ) -> std::io::Result<TokenStream> {
+    generate_impl(doc, compiler_config, false)
+}
+
+/// Generate live-preview Rust code with the compiled Rust interface embedded in it.
+pub fn generate_with_interface_descriptor(
+    doc: &Document,
+    compiler_config: &CompilerConfiguration,
+) -> std::io::Result<TokenStream> {
+    generate_impl(doc, compiler_config, true)
+}
+
+fn generate_impl(
+    doc: &Document,
+    compiler_config: &CompilerConfiguration,
+    embed_interface_descriptor: bool,
+) -> std::io::Result<TokenStream> {
     let module_header = super::rust::generate_module_header();
 
     let type_value_conversions =
@@ -38,10 +54,24 @@ pub fn generate(
     let main_file = std::path::absolute(main_file).unwrap_or_else(|_| main_file.to_path_buf());
     let main_file = main_file.to_string_lossy();
 
+    let compiled_interface = if embed_interface_descriptor {
+        let descriptor = crate::rust_interface::RustInterfaceDescriptor::from_document(doc, &llr);
+        let entries = descriptor.entries().iter().map(|entry| {
+            let path = entry.path();
+            let signature = entry.signature();
+            quote!(sp::live_preview::RustInterfaceEntry::new(#path, #signature))
+        });
+        quote!(::core::option::Option::Some(
+            sp::live_preview::RustInterfaceDescriptor::from_entries([#(#entries),*])
+        ))
+    } else {
+        quote!(::core::option::Option::None)
+    };
+
     let public_components = llr
         .public_components
         .iter()
-        .map(|p| generate_public_component(p, compiler_config, &main_file));
+        .map(|p| generate_public_component(p, compiler_config, &main_file, &compiled_interface));
 
     let globals = llr
         .globals
@@ -80,6 +110,7 @@ fn generate_public_component(
     llr: &llr::PublicComponent,
     compiler_config: &CompilerConfiguration,
     main_file: &str,
+    compiled_interface: &TokenStream,
 ) -> TokenStream {
     let public_component_id = ident(&llr.name);
     let component_name = llr.name.as_str();
@@ -189,7 +220,12 @@ fn generate_public_component(
                 #(compiler.set_style(#style.to_string());)*
                 #(compiler.set_translation_domain(#translation_domain.to_string());)*
                 #no_default_translation_context
-                let instance = sp::live_preview::LiveReloadingComponent::new(compiler, #main_file.into(), Some(#component_name.into()))?;
+                let instance = sp::live_preview::LiveReloadingComponent::new(
+                    compiler,
+                    #main_file.into(),
+                    Some(#component_name.into()),
+                    #compiled_interface,
+                )?;
                 let window_adapter = sp::WindowInner::from_pub(slint::ComponentHandle::window(instance.borrow().instance())).window_adapter();
                 sp::Ok(Self(instance, window_adapter))
             }

@@ -13,6 +13,7 @@ use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 
 //re-export for the generated code:
+pub use i_slint_compiler::rust_interface::{RustInterfaceDescriptor, RustInterfaceEntry};
 pub use slint_interpreter::{Compiler, ComponentInstance, DefaultTranslationContext, Value};
 
 /// This struct is used to compile and instantiate a component from a .slint file on disk.
@@ -26,6 +27,7 @@ pub struct LiveReloadingComponent {
     compiler: Compiler,
     file_name: PathBuf,
     component_name: Option<String>,
+    compiled_interface: Option<RustInterfaceDescriptor>,
     properties: RefCell<HashMap<String, Value>>,
     callbacks: RefCell<HashMap<String, Rc<dyn Fn(&[Value]) -> Value + 'static>>>,
     post_reload_hook: Option<Box<dyn Fn(&ComponentInstance)>>,
@@ -38,6 +40,7 @@ impl LiveReloadingComponent {
         mut compiler: Compiler,
         file_name: PathBuf,
         component_name: Option<String>,
+        compiled_interface: Option<RustInterfaceDescriptor>,
     ) -> Result<Rc<RefCell<Self>>, PlatformError> {
         compiler.set_embed_resources(i_slint_compiler::EmbedResourcesKind::ListAllResources);
 
@@ -50,6 +53,7 @@ impl LiveReloadingComponent {
                 compiler,
                 file_name,
                 component_name,
+                compiled_interface,
                 properties: Default::default(),
                 callbacks: Default::default(),
                 post_reload_hook: None,
@@ -72,6 +76,11 @@ impl LiveReloadingComponent {
         self_mut.instance = Some(instance);
         drop(self_mut);
         Ok(self_rc)
+    }
+
+    /// Return the Rust interface that was compiled into the host application.
+    pub fn compiled_interface(&self) -> Option<&RustInterfaceDescriptor> {
+        self.compiled_interface.as_ref()
     }
 
     /// Reload the component from the .slint file.
@@ -370,6 +379,7 @@ mod ffi {
                 compiler,
                 std::path::PathBuf::from(std::str::from_utf8(&file_name).unwrap()),
                 Some(std::str::from_utf8(&component_name).unwrap().into()),
+                None,
             )
             .expect("Creating the component failed"),
         )

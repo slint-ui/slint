@@ -170,7 +170,7 @@ pub fn generate(
     compiler_config: &CompilerConfiguration,
 ) -> std::io::Result<TokenStream> {
     if std::env::var("SLINT_LIVE_PREVIEW").is_ok() {
-        return super::rust_live_preview::generate(doc, compiler_config);
+        return super::rust_live_preview::generate_with_interface_descriptor(doc, compiler_config);
     }
 
     let module_header = generate_module_header();
