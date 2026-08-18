@@ -165,6 +165,15 @@ jobs:
               if: runner.os != 'Windows' && inputs.run_qt && inputs.test_integration
               run: "cargo test --locked --verbose --all-features --workspace --manifest-path tests/Cargo.toml ${{ inputs.extra_args }} --exclude doctests --exclude test-driver-nodejs --exclude test-driver-cpp --exclude test-driver-python qt:: -- --test-threads=1"
               shell: bash
+            # Run the live-preview test right after the integration tests, before the example and
+            # demo builds, so a failure here aborts the job without waiting for those long steps.
+            # One platform is enough; Windows because the macOS job is the slower of the two.
+            - name: live-preview for rust test
+              if: runner.os == 'Windows' && inputs.test_integration
+              env:
+                SLINT_LIVE_PREVIEW: 1
+              run: cargo test --locked --verbose --all-features --manifest-path tests/Cargo.toml --features slint/live-preview -p test-driver-rust -- --skip=_qt::t
+              shell: bash
             # The examples and demos are also their own workspaces. The mcu/uefi
             # members need dedicated targets/features and are checked in ci.yaml.
             # bevy and servo have heavy dependencies and dedicated workflows
@@ -176,14 +185,6 @@ jobs:
             - name: Build demos
               if: inputs.build_examples
               run: "cargo test --locked --verbose --all-features --workspace --timings --manifest-path demos/Cargo.toml ${{ inputs.extra_args }} --exclude printerdemo_mcu"
-              shell: bash
-            # One platform is enough for live-preview; Windows because the
-            # macOS job is the slower of the two.
-            - name: live-preview for rust test
-              if: runner.os == 'Windows' && inputs.test_integration
-              env:
-                SLINT_LIVE_PREVIEW: 1
-              run: cargo test --locked --verbose --all-features --manifest-path tests/Cargo.toml --features slint/live-preview -p test-driver-rust -- --skip=_qt::t
               shell: bash
             # The linked Skia libraries are plain files in out/skia; the
             # subdirectories are ninja intermediates from a source build and

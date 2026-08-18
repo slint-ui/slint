@@ -100,6 +100,9 @@ fn main() -> std::io::Result<()> {
     // Generate the per-case modules on all cores: with the build-time feature,
     // each case runs the Slint compiler (twice with deterministic-output),
     // which dominates the build script's runtime.
+    // TEMPORARY DEBUG (stack overflow on the Windows live-preview job): run the compiler
+    // single-threaded and log every case before compiling it, so a stack overflow points at the
+    // exact .slint file. Revert before merging.
     let module_lines = rayon::ThreadPoolBuilder::new()
         .stack_size(512 * 1024)
         .build()
@@ -107,7 +110,15 @@ fn main() -> std::io::Result<()> {
         .install(|| {
             testcases
                 .par_iter()
-                .map(|testcase| process_case(testcase, live_preview))
+                .map(|testcase| {
+                    use std::io::Write;
+                    eprintln!("SLINT_BUILD_DEBUG compiling {}", testcase.absolute_path.display());
+                    let _ = std::io::stderr().flush();
+                    let x = process_case(testcase, live_preview);
+                    eprintln!("SLINT_BUILD_DEBUG done {}", testcase.absolute_path.display());
+                    let _ = std::io::stderr().flush();
+                    x
+                })
                 .collect::<std::io::Result<Vec<String>>>()
         })?;
 

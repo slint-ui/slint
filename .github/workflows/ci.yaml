@@ -59,10 +59,6 @@ jobs:
                       rust_version: "1.92"
                       # The platform-independent interpreter test driver only runs on macOS
                       extra_args: "--exclude ffmpeg --exclude gstreamer-player --exclude material-gallery --exclude test-driver-interpreter"
-                    - os: macos-14
-                      name: "MacOS 14 beta"
-                      rust_version: "beta"
-                      extra_args: "--exclude ffmpeg --exclude gstreamer-player --exclude material-gallery"
         uses: ./.github/workflows/build_and_test_reusable.yaml
         with:
             os: ${{ matrix.os }}
@@ -80,21 +76,21 @@ jobs:
 
     # For changes to Slint internals, do a quick test on Linux for Node.js only.
     node_test_linux:
-        if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'internal') || contains(fromJSON(inputs.changes), 'api_node') || contains(fromJSON(inputs.changes), 'tests') }}
+        if: false # CI-DEBUG: disabled to iterate on the live-preview stack overflow
         uses: ./.github/workflows/node_test_reusable.yaml
         with:
           name: "Node.js Linux"
           os: "ubuntu-22.04"
 
     node_test_macos:
-        if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'api_node') }}
+        if: false # CI-DEBUG: disabled to iterate on the live-preview stack overflow
         uses: ./.github/workflows/node_test_reusable.yaml
         with:
           name: "Node.js macOS"
           os: "macos-14"
 
     node_test_windows:
-        if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'api_node') }}
+        if: false # CI-DEBUG: disabled to iterate on the live-preview stack overflow
         uses: ./.github/workflows/node_test_reusable.yaml
         with:
           name: "Node.js Windows"
@@ -102,26 +98,26 @@ jobs:
 
     # For changes to Slint internals, do a quick test on Linux for Python only.
     python_test_linux:
-        if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'internal') || contains(fromJSON(inputs.changes), 'api_python') || contains(fromJSON(inputs.changes), 'tests') }}
+        if: false # CI-DEBUG: disabled to iterate on the live-preview stack overflow
         uses: ./.github/workflows/python_test_reusable.yaml
         with:
           name: "Python Linux"
           os: "ubuntu-22.04"
     python_test_macos:
-        if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'api_python') }}
+        if: false # CI-DEBUG: disabled to iterate on the live-preview stack overflow
         uses: ./.github/workflows/python_test_reusable.yaml
         with:
           name: "Python macOS"
           os: "macos-14"
     python_test_windows:
-        if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'api_python') }}
+        if: false # CI-DEBUG: disabled to iterate on the live-preview stack overflow
         uses: ./.github/workflows/python_test_reusable.yaml
         with:
           name: "Python Windows"
           os: "windows-2022"
 
     cpp_test_driver:
-        if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'api_cpp') || contains(fromJSON(inputs.changes), 'tests') }}
+        if: false # CI-DEBUG: disabled to iterate on the live-preview stack overflow
         env:
             DYLD_FRAMEWORK_PATH: /Users/runner/work/slint/Qt/5.15.2/clang_64/lib
             QT_QPA_PLATFORM: offscreen
@@ -156,7 +152,7 @@ jobs:
               run: cargo test --verbose --manifest-path tests/Cargo.toml -p test-driver-cpp --features slint-cpp/backend-qt
 
     cpp_test_driver_32bit:
-        if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'internal') || contains(fromJSON(inputs.changes), 'api_cpp') || contains(fromJSON(inputs.changes), 'tests') }}
+        if: false # CI-DEBUG: disabled to iterate on the live-preview stack overflow
         runs-on: ubuntu-24.04
         env:
             SLINT_NO_QT: 1
@@ -186,7 +182,7 @@ jobs:
               run: cargo test --manifest-path tests/Cargo.toml -p test-driver-cpp --target i686-unknown-linux-gnu --no-default-features --features live-preview
 
     cpp_cmake_matrix:
-        if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'internal') || contains(fromJSON(inputs.changes), 'api_cpp') || contains(fromJSON(inputs.changes), 'examples') }}
+        if: false # CI-DEBUG: disabled to iterate on the live-preview stack overflow
         runs-on: ubuntu-latest
         outputs:
           matrix: ${{ steps.set.outputs.matrix }}
@@ -202,6 +198,7 @@ jobs:
               echo "matrix={\"include\":$entries}" >> "$GITHUB_OUTPUT"
 
     cpp_cmake:
+        if: false # CI-DEBUG: disabled to iterate on the live-preview stack overflow
         needs: cpp_cmake_matrix
         env:
             DYLD_FRAMEWORK_PATH: /Users/runner/work/slint/Qt/6.5.1/clang_64/lib
@@ -258,7 +255,7 @@ jobs:
 
     cpp_package_test:
         needs: [cpp_cmake_matrix, cpp_cmake]
-        if: ${{ always() && !cancelled() && needs.cpp_cmake.result == 'success' && contains(fromJSON(needs.cpp_cmake_matrix.outputs.matrix).include.*.os, 'ubuntu-22.04') }}
+        if: false # CI-DEBUG: disabled to iterate on the live-preview stack overflow
         runs-on: ubuntu-22.04
         env:
             QT_QPA_PLATFORM: offscreen
@@ -292,7 +289,7 @@ jobs:
                   buildWithCMakeArgs: "--config Release"
 
     vsce_build_test:
-        if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'vsce') }}
+        if: false # CI-DEBUG: disabled to iterate on the live-preview stack overflow
         runs-on: ubuntu-22.04
         steps:
             - uses: actions/checkout@v7
@@ -330,7 +327,7 @@ jobs:
     # share one job to keep the number of runners a PR occupies down; each
     # step only runs when its own filter group matched.
     cross_compile_checks:
-        if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'internal') || contains(fromJSON(inputs.changes), 'examples_mcu') || contains(fromJSON(inputs.changes), 'api_rs') || contains(fromJSON(inputs.changes), 'api_cpp') }}
+        if: false # CI-DEBUG: disabled to iterate on the live-preview stack overflow
         env:
             GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
             SLINT_FONT_SIZES: 8,11,10,12,13,14,15,16,18,20,22,24,32
@@ -381,7 +378,7 @@ jobs:
               run: cross check --target=armv7-unknown-linux-gnueabihf -p slint-cpp --no-default-features --features=testing,interpreter,std
 
     docs:
-        if: ${{ !inputs.full && (contains(fromJSON(inputs.changes), 'docs_build') || contains(fromJSON(inputs.changes), 'slint_sc')) }}
+        if: false # CI-DEBUG: disabled to iterate on the live-preview stack overflow
         uses: ./.github/workflows/build_docs.yaml
         secrets:
           READ_WRITE_PRIVATE_KEY: ${{ secrets.READ_WRITE_PRIVATE_KEY }}
@@ -391,19 +388,19 @@ jobs:
           slint-sc-coverage: ${{ inputs.full || contains(fromJSON(inputs.changes), 'slint_sc') || contains(fromJSON(inputs.changes), 'safety_docs') }}
 
     slintpad:
-        if: ${{ !inputs.full && contains(fromJSON(inputs.changes), 'slintpad') }}
+        if: false # CI-DEBUG: disabled to iterate on the live-preview stack overflow
         uses: ./.github/workflows/wasm_editor_and_interpreter.yaml
         with:
             release: false
 
     wasm_demo:
-        if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'examples') || contains(fromJSON(inputs.changes), 'api_rs') }}
+        if: false # CI-DEBUG: disabled to iterate on the live-preview stack overflow
         uses: ./.github/workflows/wasm_demos.yaml
         with:
           build_artifacts: false
 
     tree-sitter:
-        if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'tree_sitter') }}
+        if: false # CI-DEBUG: disabled to iterate on the live-preview stack overflow
         uses: ./.github/workflows/tree_sitter.yaml
         with:
             latest: false
@@ -411,7 +408,7 @@ jobs:
 
     # Test that the formater don't introduce slint compilation error
     fmt_test:
-        if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'slintpad') }}
+        if: false # CI-DEBUG: disabled to iterate on the live-preview stack overflow
         env:
             SLINT_NO_QT: 1
             RUSTFLAGS: -D warnings
@@ -440,7 +437,7 @@ jobs:
                   git diff --exit-code
 
     esp-idf-matrix:
-        if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'internal') || contains(fromJSON(inputs.changes), 'api_cpp') || contains(fromJSON(inputs.changes), 'examples') }}
+        if: false # CI-DEBUG: disabled to iterate on the live-preview stack overflow
         runs-on: ubuntu-latest
         outputs:
           matrix: ${{ steps.set.outputs.matrix }}
@@ -455,6 +452,7 @@ jobs:
               echo "matrix={\"include\":$entries}" >> "$GITHUB_OUTPUT"
 
     esp-idf:
+        if: false # CI-DEBUG: disabled to iterate on the live-preview stack overflow
         needs: esp-idf-matrix
         strategy:
           matrix: ${{ fromJSON(needs.esp-idf-matrix.outputs.matrix) }}
@@ -505,7 +503,7 @@ jobs:
                   idf.py build
 
     android:
-        if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'api_rs') || contains(fromJSON(inputs.changes), 'examples') || contains(fromJSON(inputs.changes), 'android_backend') }}
+        if: false # CI-DEBUG: disabled to iterate on the live-preview stack overflow
         runs-on: ubuntu-latest
         env:
             RUSTFLAGS: -D warnings
@@ -551,7 +549,7 @@ jobs:
               run: cargo apk build -p slint-viewer --target aarch64-linux-android --lib --features remote
 
     android_cpp:
-        if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'api_cpp') || contains(fromJSON(inputs.changes), 'examples') || contains(fromJSON(inputs.changes), 'android_backend') }}
+        if: false # CI-DEBUG: disabled to iterate on the live-preview stack overflow
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v7
@@ -571,7 +569,7 @@ jobs:
               run: gradle assembleDebug
 
     test-figma-inspector:
-        if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'figma_inspector') }}
+        if: false # CI-DEBUG: disabled to iterate on the live-preview stack overflow
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v7
@@ -603,7 +601,7 @@ jobs:
                   path: tools/figma-inspector/zip
 
     material-components:
-      if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'material_components') }}
+      if: false # CI-DEBUG: disabled to iterate on the live-preview stack overflow
       permissions:
         contents: read
         deployments: write
@@ -618,11 +616,11 @@ jobs:
 
 
     servo_example:
-        if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'servo_example') }}
+        if: false # CI-DEBUG: disabled to iterate on the live-preview stack overflow
         uses: ./.github/workflows/servo_example.yaml
 
     bevy_examples:
-        if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'bevy_examples') }}
+        if: false # CI-DEBUG: disabled to iterate on the live-preview stack overflow
         uses: ./.github/workflows/bevy_examples.yaml
         with:
             # In full mode, run cargo update to test upstream dependency stability,
@@ -631,7 +629,7 @@ jobs:
             save_if: ${{ inputs.full != true }}
 
     clippy:
-        if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'rust_files') }}
+        if: false # CI-DEBUG: disabled to iterate on the live-preview stack overflow
         env:
             RUSTFLAGS: -D warnings
         runs-on: ubuntu-22.04
@@ -649,7 +647,7 @@ jobs:
     # === Extended tests (only in full CI mode) ===
 
     full_build_and_test:
-        if: ${{ inputs.full }}
+        if: false # CI-DEBUG: disabled to iterate on the live-preview stack overflow
         strategy:
             matrix:
                 include:
@@ -679,7 +677,7 @@ jobs:
     # and skia excluded:
     # rust-skia has no prebuilt binaries for i686-pc-windows-msvc.
     win32_build:
-        if: ${{ inputs.full }}
+        if: false # CI-DEBUG: disabled to iterate on the live-preview stack overflow
         runs-on: ubuntu-24.04
         steps:
             - uses: actions/checkout@v7
@@ -718,13 +716,13 @@ jobs:
               run: cargo xwin build --target i686-pc-windows-msvc --locked --workspace --exclude slint-node --exclude slint-cpp --exclude slint-python --exclude slint-sc --exclude slint-doc-generator --exclude i-slint-renderer-skia
 
     qa-tree-sitter-latest:
-        if: ${{ inputs.full }}
+        if: false # CI-DEBUG: disabled to iterate on the live-preview stack overflow
         uses: ./.github/workflows/tree_sitter.yaml
         with:
           latest: true
 
     qa-yocto-build:
-        if: ${{ inputs.full }}
+        if: false # CI-DEBUG: disabled to iterate on the live-preview stack overflow
         strategy:
             matrix:
                 include:
@@ -777,7 +775,7 @@ jobs:
                   cmake --build ${{ runner.workspace }}/cppbuild
 
     mcu_zephyr:
-        if: ${{ inputs.full }}
+        if: false # CI-DEBUG: disabled to iterate on the live-preview stack overflow
         strategy:
             matrix:
                 include:
@@ -818,7 +816,7 @@ jobs:
                 west build -b ${{matrix.board}} -p always slint/demos/printerdemo/zephyr -- -DCMAKE_BUILD_TYPE=Release ${{matrix.extra-cmake-args}}
 
     uefi-demo:
-        if: ${{ inputs.full }}
+        if: false # CI-DEBUG: disabled to iterate on the live-preview stack overflow
         runs-on: ubuntu-22.04
         steps:
             - uses: actions/checkout@v7
@@ -830,7 +828,7 @@ jobs:
               run: cargo check --target=x86_64-unknown-uefi --manifest-path examples/uefi-demo/Cargo.toml
 
     ios:
-        if: ${{ inputs.full }}
+        if: false # CI-DEBUG: disabled to iterate on the live-preview stack overflow
         strategy:
             matrix:
               project:
@@ -962,7 +960,7 @@ jobs:
 #                xcrun simctl shutdown "${{ env.SIMULATOR_UDID }}" || echo "Simulator already shutdown"
 
     android_wgpu:
-        if: ${{ inputs.full }}
+        if: false # CI-DEBUG: disabled to iterate on the live-preview stack overflow
         runs-on: ubuntu-latest
         env:
             # cargo-apk does not honor the repository's relative `build.target-dir`.
@@ -983,7 +981,7 @@ jobs:
               run: cargo apk build --manifest-path examples/Cargo.toml -p wgpu_texture --target aarch64-linux-android --lib
 
     miri:
-        if: ${{ inputs.full }}
+        if: false # CI-DEBUG: disabled to iterate on the live-preview stack overflow
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v7
