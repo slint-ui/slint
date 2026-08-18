@@ -3,11 +3,17 @@
 
 //! Shared project and device management for Slint development sessions.
 
+pub mod artifact_manifest;
 pub mod cargo;
 pub mod persistence;
 pub mod project;
 pub mod protocol;
 pub mod session;
+
+pub use artifact_manifest::{
+    MOBILE_VIEWER_ARTIFACT_SCHEMA_VERSION, MobileViewerArtifact, MobileViewerArtifactKind,
+    MobileViewerArtifactManifest,
+};
 
 pub use persistence::{
     DEVICE_STATE_SCHEMA_VERSION, DeviceStateStore, GlobalDeviceState, LoadDeviceState,

@@ -27,6 +27,8 @@ env:
     # Workspace [profile.release] uses cargo defaults to keep dev release builds fast.
     CARGO_PROFILE_RELEASE_LTO: "fat"
     CARGO_PROFILE_RELEASE_CODEGEN_UNITS: "1"
+    # Empty values become v<CARGO_PKG_VERSION> in the Springboard build script.
+    SLINT_SPRINGBOARD_DEFAULT_ARTIFACT_CHANNEL: ${{ github.event.inputs.mode == 'full-nightly' && 'nightly' || '' }}
 
 jobs:
     # Rebuild and push the `cross` container images first, so every `cross` build
@@ -649,7 +651,10 @@ jobs:
             - uses: actions/checkout@v7
               with:
                 path: "slint-src"
-                sparse-checkout: docs
+                sparse-checkout: |
+                  Cargo.toml
+                  docs
+                  scripts/generate_viewer_artifact_manifest.sh
             - name: prepare release notes
               id: version
               env:
@@ -681,6 +686,28 @@ jobs:
                   sed -i -e "s,{major_version},$major_version,g" release-notes.md
                   sed -i -e "s,{minor_version},$minor_version,g" release-notes.md
                   cat release-notes.md
+
+            - name: Generate mobile viewer artifact manifest
+              env:
+                  RELEASE_INPUT: ${{ github.event.inputs.mode == 'release' }}
+              run: |
+                  slint_version=$(sed -nre 's/^version = "([^"]+)"$/\1/p' slint-src/Cargo.toml | head -n 1)
+                  if [[ -z "$slint_version" ]]; then
+                      echo "Slint version not found"
+                      exit 1
+                  fi
+                  if [[ "$RELEASE_INPUT" == "true" ]]; then
+                      release_tag="v${{ steps.version.outputs.VERSION }}"
+                  else
+                      release_tag="nightly"
+                  fi
+                  protocol="slint-preview.${slint_version%.*}"
+                  slint-src/scripts/generate_viewer_artifact_manifest.sh \
+                      artifacts/slint-viewer-mobile-artifacts.json \
+                      "$release_tag" \
+                      "$slint_version" \
+                      "$protocol" \
+                      artifacts/slint-viewer.apk
 
             - name: generate STM32 template packages
               env:

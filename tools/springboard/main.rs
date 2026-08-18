@@ -8,6 +8,7 @@ use clap::{Args, Parser, Subcommand};
 use i_slint_springboard::project::{ProjectRunTarget, load_project_run_target};
 use slint_viewer::{ViewerLogLevel, ViewerRunnerOptions, run_auto_reload_simulator};
 
+pub mod artifacts;
 pub mod cargo_driver;
 mod discovery;
 mod remote_driver;
