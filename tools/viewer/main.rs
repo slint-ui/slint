@@ -6,6 +6,13 @@
 mod debug;
 mod screenshot;
 mod simulator;
+#[cfg(any(
+    feature = "backend-default",
+    feature = "backend-winit",
+    feature = "backend-winit-x11",
+    feature = "backend-winit-wayland"
+))]
+mod simulator_resize;
 mod simulator_settings;
 
 #[cfg(feature = "remote")]

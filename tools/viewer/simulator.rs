@@ -31,6 +31,16 @@ pub fn run(compiler: Compiler, args: &Cli) -> Result<()> {
             tracing::warn!("Failed to close the simulator window: {error}");
         }
     });
+    #[cfg(any(
+        feature = "backend-default",
+        feature = "backend-winit",
+        feature = "backend-winit-x11",
+        feature = "backend-winit-wayland"
+    ))]
+    super::simulator_resize::install(ui.window(), {
+        let ui = ui.as_weak();
+        move || ui.upgrade().is_some_and(|ui| ui.get_frame_enabled())
+    });
     install_presentation_behavior(&ui);
     install_factory(&ui, live.borrow().definition().clone(), args);
 
