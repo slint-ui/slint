@@ -17,6 +17,7 @@ use super::{
 #[cfg(not(target_arch = "wasm32"))]
 const NEW_PROJECT_NAME: &str = "Slint UI Project";
 const NEW_PROJECT_MAIN_FILE: &str = "main.slint";
+const NEW_PROJECT_MAIN_COMPONENT: &str = "MainWindow";
 const NEW_PROJECT_MAIN_FILE_CONTENTS: &str = r#"export component MainWindow inherits Window {
     width: 400px;
     height: 300px;
@@ -37,6 +38,7 @@ pub fn setup(
 ) {
     if !ui_kind.is_editor() {
         api.set_file_tree(Default::default());
+        api.set_project_root(Default::default());
         api.set_selected_project_file(Default::default());
         api.set_startup_wizard_visible(false);
         return;
@@ -52,6 +54,7 @@ pub fn setup(
         controller.publish(api);
     } else {
         api.set_file_tree(Default::default());
+        api.set_project_root(Default::default());
         api.set_selected_project_file(Default::default());
     }
 
@@ -74,7 +77,7 @@ pub fn setup(
         let Some(path) = choose_project_file(window) else {
             return false;
         };
-        let Some(root) = path.parent().map(Path::to_path_buf) else {
+        let Some(root) = project_root_for_selected_path(&path) else {
             return false;
         };
         if let Some(api) = api_weak_for_open.upgrade() {
@@ -99,15 +102,13 @@ pub fn setup(
         let Some(path) = choose_new_project_path(window) else {
             return false;
         };
-        if let Err(err) = std::fs::create_dir_all(&path) {
-            tracing::warn!("Failed to create project directory {}: {err}", path.display());
-            return false;
-        }
-        let main_file_path = path.join(NEW_PROJECT_MAIN_FILE);
-        if let Err(err) = std::fs::write(&main_file_path, NEW_PROJECT_MAIN_FILE_CONTENTS) {
-            tracing::warn!("Failed to create project file {}: {err}", main_file_path.display());
-            return false;
-        }
+        let main_file_path = match create_new_project(&path) {
+            Ok(path) => path,
+            Err(err) => {
+                tracing::warn!("Failed to create project {}: {err}", path.display());
+                return false;
+            }
+        };
         if let Some(api) = api_weak_for_new.upgrade() {
             let mut controller = controller_for_new.borrow_mut();
             *controller = Some(FileTreeController::new(path, Some(main_file_path.clone())));
@@ -153,9 +154,35 @@ fn initial_file_tree_paths() -> Option<(PathBuf, Option<PathBuf>)> {
     #[cfg(not(target_arch = "wasm32"))]
     {
         let selected_path = std::fs::canonicalize(std::env::args_os().nth(1)?).ok()?;
-        let root = selected_path.parent()?.to_path_buf();
+        let root = project_root_for_selected_path(&selected_path)?;
         Some((root, Some(selected_path)))
     }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn project_root_for_selected_path(path: &Path) -> Option<PathBuf> {
+    crate::project::project_root_for_path(path)
+}
+
+#[cfg(target_arch = "wasm32")]
+fn project_root_for_selected_path(path: &Path) -> Option<PathBuf> {
+    path.parent().map(Path::to_path_buf)
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn create_new_project(path: &Path) -> Result<PathBuf, String> {
+    std::fs::create_dir_all(path).map_err(|error| error.to_string())?;
+    let main_file_path = path.join(NEW_PROJECT_MAIN_FILE);
+    std::fs::write(&main_file_path, NEW_PROJECT_MAIN_FILE_CONTENTS)
+        .map_err(|error| error.to_string())?;
+    crate::project::create_project_manifest(path, &main_file_path, NEW_PROJECT_MAIN_COMPONENT)
+        .map_err(|error| error.to_string())?;
+    Ok(main_file_path)
+}
+
+#[cfg(target_arch = "wasm32")]
+fn create_new_project(_path: &Path) -> Result<PathBuf, String> {
+    Err("Creating projects is unavailable in the browser".into())
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -299,6 +326,7 @@ impl FileTreeController {
             &self.active_folder_path,
         );
         api.set_file_tree(ModelRc::new(VecModel::from(rows)));
+        api.set_project_root(path_to_shared_string(&self.root));
         api.set_selected_project_file(
             selected_project_file(&self.root, self.selected_path.as_deref()).into(),
         );
@@ -803,6 +831,32 @@ mod tests {
     fn new_project_main_file_is_a_window_component() {
         assert!(NEW_PROJECT_MAIN_FILE_CONTENTS.contains("export component MainWindow"));
         assert!(NEW_PROJECT_MAIN_FILE_CONTENTS.contains("inherits Window"));
+    }
+
+    #[test]
+    fn new_project_has_a_run_target() {
+        let parent = tempfile::tempdir().unwrap();
+        let root = parent.path().join("project");
+
+        let main_file = create_new_project(&root).unwrap();
+        let target = crate::project::load_project_run_target(&root).unwrap().unwrap();
+
+        assert_eq!(main_file, root.join(NEW_PROJECT_MAIN_FILE));
+        assert_eq!(target.entry_file, std::fs::canonicalize(main_file).unwrap());
+        assert_eq!(target.component, NEW_PROJECT_MAIN_COMPONENT);
+    }
+
+    #[test]
+    fn project_root_comes_from_the_nearest_manifest() {
+        let tree = TempTree::new();
+        let entry = tree.file("ui/components/card.slint");
+        std::fs::write(
+            tree.root.join(crate::project::PROJECT_MANIFEST_FILE),
+            "entry = \"ui/components/card.slint\"\ncomponent = \"Card\"\n",
+        )
+        .unwrap();
+
+        assert_eq!(project_root_for_selected_path(&entry), Some(tree.root));
     }
 
     #[test]
