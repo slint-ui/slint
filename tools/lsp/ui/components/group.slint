@@ -3,7 +3,7 @@
 
 import { HorizontalBox, Palette } from "std-widgets.slint";
 import { HeaderText } from "./header-text.slint";
-import { EditorSizeSettings } from "./styling.slint";
+import { EditorSizeSettings, ConsoleStyles } from "./styling.slint";
 
 export component GroupHeader {
     in property <string> title;
@@ -32,7 +32,7 @@ export component Group {
     min-height: content-layer.min-height;
 
     background-layer := Rectangle {
-        background: Palette.background;
+        background: ConsoleStyles.panel-background;
     }
 
     content-layer := VerticalLayout {
@@ -42,6 +42,6 @@ export component Group {
     Rectangle {
         x: root.width - self.width;
         width: 2px;
-        background: Palette.border;
+        background: ConsoleStyles.panel-border;
     }
 }
