@@ -8,6 +8,8 @@ use clap::{Args, Parser, Subcommand};
 use i_slint_springboard::project::{ProjectRunTarget, load_project_run_target};
 use slint_viewer::{ViewerLogLevel, ViewerRunnerOptions, run_auto_reload_simulator};
 
+mod session_driver;
+
 #[derive(Debug, Parser)]
 #[command(author, version, about, args_conflicts_with_subcommands = true)]
 struct Cli {
@@ -115,6 +117,13 @@ fn main() -> Result<()> {
 
 fn start(project: PathBuf, launch: LaunchOptions) -> Result<()> {
     let target = load_required_project(&project)?;
+    let store = i_slint_springboard::DeviceStateStore::from_platform_config()
+        .context("Cannot determine the Springboard configuration directory")?;
+    let _controller = session_driver::ProjectSessionController::new(
+        target.clone(),
+        store,
+        session_driver::ViewerChildCommand::current_executable()?,
+    );
     if launch.requested() {
         bail!("Device launch options are not available until the session driver is initialized");
     }
