@@ -780,6 +780,7 @@ mod tests {
             manifest_path: directory.path().join("slint.toml"),
             entry_file: directory.path().join("main.slint"),
             component: "App".into(),
+            app: None,
         }
     }
 

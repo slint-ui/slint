@@ -412,6 +412,7 @@ mod tests {
             manifest_path: PathBuf::from("/project/slint.toml"),
             entry_file: PathBuf::from("/project/main.slint"),
             component: "App".into(),
+            app: None,
         })
     }
 

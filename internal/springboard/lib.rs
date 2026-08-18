@@ -3,6 +3,7 @@
 
 //! Shared project and device management for Slint development sessions.
 
+pub mod cargo;
 pub mod persistence;
 pub mod project;
 pub mod protocol;

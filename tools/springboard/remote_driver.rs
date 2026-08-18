@@ -335,6 +335,7 @@ mod tests {
             manifest_path: directory.path().join("slint.toml"),
             entry_file: entry_file.canonicalize().unwrap(),
             component: "App".into(),
+            app: None,
         }
     }
 

@@ -250,6 +250,7 @@ mod tests {
                 manifest_path: directory.path().join("slint.toml"),
                 entry_file: directory.path().join("main.slint"),
                 component: "App".into(),
+                app: None,
             },
             DeviceStateStore::new(directory.path().join("config/devices.json")),
             ViewerChildCommand::current_executable().unwrap(),

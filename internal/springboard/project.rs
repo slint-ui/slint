@@ -7,6 +7,16 @@ use std::path::{Component, Path, PathBuf};
 /// The file name of a Slint project manifest.
 pub const PROJECT_MANIFEST_FILE: &str = "slint.toml";
 
+/// Cargo build metadata for a Rust live-preview application.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CargoApplicationMetadata {
+    pub manifest_path: PathBuf,
+    pub package: Option<String>,
+    pub binary: Option<String>,
+    pub features: Vec<String>,
+    pub live_preview_feature: String,
+}
+
 /// The project entry component used by a development session.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ProjectRunTarget {
@@ -14,6 +24,7 @@ pub struct ProjectRunTarget {
     pub manifest_path: PathBuf,
     pub entry_file: PathBuf,
     pub component: String,
+    pub app: Option<CargoApplicationMetadata>,
 }
 
 /// An error while reading or creating a Slint project manifest.
@@ -101,12 +112,15 @@ pub fn load_project_run_target(
     validate_relative_entry(entry_path, &manifest_path)?;
     let entry_file = canonicalize(&project_root.join(entry_path), "project entry file")?;
     validate_entry_file(&project_root, &entry_file, &manifest_path)?;
+    reject_device_profiles(&document, &manifest_path)?;
+    let app = parse_cargo_application(&document, &project_root, &manifest_path)?;
 
     Ok(Some(ProjectRunTarget {
         project_root,
         manifest_path,
         entry_file,
         component: component.to_string(),
+        app,
     }))
 }
 
@@ -158,7 +172,153 @@ pub fn create_project_manifest(
         manifest_path,
         entry_file,
         component: component.to_string(),
+        app: None,
     })
+}
+
+fn parse_cargo_application(
+    document: &toml_edit::DocumentMut,
+    project_root: &Path,
+    project_manifest: &Path,
+) -> Result<Option<CargoApplicationMetadata>, ProjectManifestError> {
+    let Some(item) = document.get("app") else { return Ok(None) };
+    let Some(table) = item.as_table() else {
+        return Err(ProjectManifestError::new(format!(
+            "Project manifest {} requires `app` to be a table",
+            project_manifest.display()
+        )));
+    };
+    const SUPPORTED_KEYS: &[&str] =
+        &["kind", "manifest", "package", "binary", "features", "live-preview-feature"];
+    if let Some((key, _)) = table.iter().find(|(key, _)| !SUPPORTED_KEYS.contains(key)) {
+        return Err(ProjectManifestError::new(format!(
+            "Project manifest {} has unsupported `app.{key}` metadata",
+            project_manifest.display()
+        )));
+    }
+
+    let kind = required_table_string(table, "kind", project_manifest)?;
+    if kind != "cargo" {
+        return Err(ProjectManifestError::new(format!(
+            "Project manifest {} has unsupported application kind `{kind}`",
+            project_manifest.display()
+        )));
+    }
+    let manifest = required_table_string(table, "manifest", project_manifest)?;
+    let manifest = Path::new(manifest);
+    let manifest =
+        if manifest.is_absolute() { manifest.to_path_buf() } else { project_root.join(manifest) };
+    let manifest_path = canonicalize(&manifest, "Cargo manifest")?;
+    if !manifest_path.is_file() {
+        return Err(ProjectManifestError::new(format!(
+            "Cargo manifest {} is not a file",
+            manifest_path.display()
+        )));
+    }
+
+    let package = optional_table_string(table, "package", project_manifest)?;
+    let binary = optional_table_string(table, "binary", project_manifest)?;
+    let features = optional_string_array(table, "features", project_manifest)?;
+    let live_preview_feature =
+        optional_table_string(table, "live-preview-feature", project_manifest)?
+            .unwrap_or_else(|| "slint/live-preview".into());
+    if live_preview_feature.trim().is_empty() {
+        return Err(ProjectManifestError::new(format!(
+            "Project manifest {} has an empty `app.live-preview-feature`",
+            project_manifest.display()
+        )));
+    }
+
+    Ok(Some(CargoApplicationMetadata {
+        manifest_path,
+        package,
+        binary,
+        features,
+        live_preview_feature,
+    }))
+}
+
+fn reject_device_profiles(
+    document: &toml_edit::DocumentMut,
+    manifest_path: &Path,
+) -> Result<(), ProjectManifestError> {
+    for key in ["device", "devices"] {
+        if document.contains_key(key) {
+            return Err(ProjectManifestError::new(format!(
+                "Project manifest {} cannot contain device profiles; Springboard manages devices globally",
+                manifest_path.display()
+            )));
+        }
+    }
+    Ok(())
+}
+
+fn required_table_string<'a>(
+    table: &'a toml_edit::Table,
+    key: &str,
+    manifest_path: &Path,
+) -> Result<&'a str, ProjectManifestError> {
+    let Some(value) = table.get(key).and_then(toml_edit::Item::as_str) else {
+        return Err(ProjectManifestError::new(format!(
+            "Project manifest {} requires a string `app.{key}`",
+            manifest_path.display()
+        )));
+    };
+    if value.trim().is_empty() {
+        return Err(ProjectManifestError::new(format!(
+            "Project manifest {} has an empty `app.{key}`",
+            manifest_path.display()
+        )));
+    }
+    Ok(value)
+}
+
+fn optional_table_string(
+    table: &toml_edit::Table,
+    key: &str,
+    manifest_path: &Path,
+) -> Result<Option<String>, ProjectManifestError> {
+    let Some(item) = table.get(key) else { return Ok(None) };
+    let Some(value) = item.as_str() else {
+        return Err(ProjectManifestError::new(format!(
+            "Project manifest {} requires `app.{key}` to be a string",
+            manifest_path.display()
+        )));
+    };
+    if value.trim().is_empty() {
+        return Err(ProjectManifestError::new(format!(
+            "Project manifest {} has an empty `app.{key}`",
+            manifest_path.display()
+        )));
+    }
+    Ok(Some(value.into()))
+}
+
+fn optional_string_array(
+    table: &toml_edit::Table,
+    key: &str,
+    manifest_path: &Path,
+) -> Result<Vec<String>, ProjectManifestError> {
+    let Some(item) = table.get(key) else { return Ok(Vec::new()) };
+    let Some(array) = item.as_array() else {
+        return Err(ProjectManifestError::new(format!(
+            "Project manifest {} requires `app.{key}` to be an array of non-empty strings",
+            manifest_path.display()
+        )));
+    };
+    array
+        .iter()
+        .map(|value| {
+            value.as_str().filter(|value| !value.trim().is_empty()).map(str::to_owned).ok_or_else(
+                || {
+                    ProjectManifestError::new(format!(
+                        "Project manifest {} requires `app.{key}` to be an array of non-empty strings",
+                        manifest_path.display()
+                    ))
+                },
+            )
+        })
+        .collect()
 }
 
 fn required_string<'a>(
@@ -289,6 +449,77 @@ mod tests {
         let target = load_project_run_target(directory.path()).unwrap().unwrap();
 
         assert_eq!(target.component, "App");
+        assert_eq!(target.app, None);
+    }
+
+    #[test]
+    fn parses_cargo_application_metadata() {
+        let directory = tempfile::tempdir().unwrap();
+        write(&directory.path().join("main.slint"), "export component App {}\n");
+        write(
+            &directory.path().join("rust/Cargo.toml"),
+            "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+        );
+        write(
+            &directory.path().join(PROJECT_MANIFEST_FILE),
+            r#"entry = "main.slint"
+component = "App"
+
+[app]
+kind = "cargo"
+manifest = "rust/Cargo.toml"
+package = "demo"
+binary = "runner"
+features = ["logging", "tracing"]
+"#,
+        );
+
+        let target = load_project_run_target(directory.path()).unwrap().unwrap();
+        let app = target.app.unwrap();
+
+        assert_eq!(
+            app.manifest_path,
+            std::fs::canonicalize(directory.path().join("rust/Cargo.toml")).unwrap()
+        );
+        assert_eq!(app.package.as_deref(), Some("demo"));
+        assert_eq!(app.binary.as_deref(), Some("runner"));
+        assert_eq!(app.features, ["logging", "tracing"]);
+        assert_eq!(app.live_preview_feature, "slint/live-preview");
+    }
+
+    #[test]
+    fn rejects_invalid_app_metadata_and_device_profiles() {
+        for (app, expected) in [
+            (
+                "[app]\nkind = \"python\"\nmanifest = \"Cargo.toml\"\n",
+                "unsupported application kind",
+            ),
+            ("[app]\nkind = \"cargo\"\n", "requires a string `app.manifest`"),
+            (
+                "[app]\nkind = \"cargo\"\nmanifest = \"Cargo.toml\"\nfeatures = [1]\n",
+                "array of non-empty strings",
+            ),
+            (
+                "[app]\nkind = \"cargo\"\nmanifest = \"Cargo.toml\"\ndevice = \"phone\"\n",
+                "unsupported `app.device`",
+            ),
+            ("[devices.phone]\nplatform = \"ios\"\n", "manages devices globally"),
+        ] {
+            let directory = tempfile::tempdir().unwrap();
+            write(&directory.path().join("main.slint"), "export component App {}\n");
+            write(
+                &directory.path().join("Cargo.toml"),
+                "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+            );
+            write(
+                &directory.path().join(PROJECT_MANIFEST_FILE),
+                &format!("entry = \"main.slint\"\ncomponent = \"App\"\n{app}"),
+            );
+
+            let error = load_project_run_target(directory.path()).unwrap_err().to_string();
+
+            assert!(error.contains(expected), "unexpected error: {error}");
+        }
     }
 
     #[test]
