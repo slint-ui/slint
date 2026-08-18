@@ -19,3 +19,6 @@ pub mod live_component;
 
 #[cfg(feature = "remote")]
 pub mod remote;
+
+#[cfg(feature = "remote-client")]
+pub mod remote_client;

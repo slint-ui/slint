@@ -76,7 +76,12 @@ preview-builtin = ["preview-engine", "i-slint-editor-preview/preview-builtin"]
 ## Support the external preview optionally used by e.g. the VSCode plugin
 preview-external = ["i-slint-editor-preview/preview-external"]
 ## Support the remote preview via a WebSocket connection
-preview-remote = ["preview-engine", "preview-builtin", "i-slint-editor-preview/preview-remote"]
+preview-remote = [
+  "preview-engine",
+  "preview-builtin",
+  "i-slint-editor-preview/preview-remote",
+  "i-slint-live-preview/remote-client",
+]
 
 default = ["backend-default", "renderer-femtovg", "renderer-software", "preview"]
 
@@ -100,8 +105,6 @@ i-slint-core = { workspace = true, features = ["std"], optional = true }
 slint = { workspace = true, features = ["compat-1-2", "unstable-winit-030", "raw-window-handle-06"], optional = true }
 slint-interpreter = { workspace = true, features = ["compat-1-2", "internal", "internal-highlight", "internal-json", "image-default-formats"], optional = true }
 futures-util = "0.3.32"
-tokio-tungstenite-wasm = "0.8.2"
-postcard = { version = "1.1.3", features = ["alloc"] }
 
 [target.'cfg(not(any(target_os = "openbsd", target_os = "windows", target_arch = "wasm32", all(target_arch = "aarch64", target_os = "linux"))))'.dependencies]
 tikv-jemallocator = { workspace = true }

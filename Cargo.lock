@@ -3778,6 +3778,7 @@ dependencies = [
  "slint-interpreter",
  "tokio",
  "tokio-tungstenite 0.30.0",
+ "tokio-tungstenite-wasm",
  "tracing",
 ]
 
@@ -8143,7 +8144,6 @@ dependencies = [
  "js-sys",
  "lsp-server",
  "lsp-types",
- "postcard",
  "send_wrapper",
  "serde",
  "serde-wasm-bindgen",
@@ -8155,7 +8155,6 @@ dependencies = [
  "tempfile",
  "tikv-jemallocator",
  "tokio",
- "tokio-tungstenite-wasm",
  "tracing",
  "tracing-subscriber",
  "wasm-bindgen",
