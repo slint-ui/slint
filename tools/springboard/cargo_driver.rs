@@ -11,6 +11,7 @@ use std::collections::BTreeSet;
 use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 use std::process::{ExitStatus, Stdio};
+use std::time::Instant;
 use tokio::io::{AsyncBufReadExt as _, BufReader};
 use tokio::process::{Child, Command};
 use tokio::sync::mpsc;
@@ -29,6 +30,153 @@ pub enum CargoApplicationOutputSource {
 pub struct CargoApplicationOutput {
     pub source: CargoApplicationOutputSource,
     pub line: String,
+}
+
+enum WorkspaceWatchMessage {
+    Changed(Vec<PathBuf>),
+    Error(String),
+}
+
+struct WorkspaceRebuildWatcher {
+    _watcher: notify::RecommendedWatcher,
+    events: mpsc::UnboundedReceiver<WorkspaceWatchMessage>,
+    planner: RebuildPlanner,
+}
+
+impl WorkspaceRebuildWatcher {
+    fn new(project_root: &Path) -> Result<Self> {
+        use notify::Watcher as _;
+
+        let project_root = project_root.canonicalize().with_context(|| {
+            format!("Failed to resolve Cargo application root {}", project_root.display())
+        })?;
+        let (sender, events) = mpsc::unbounded_channel();
+        let error_sender = sender.clone();
+        let mut watcher =
+            notify::recommended_watcher(move |event: notify::Result<notify::Event>| match event {
+                Ok(event) if is_rebuild_event(&event.kind) => {
+                    sender.send(WorkspaceWatchMessage::Changed(event.paths)).ok();
+                }
+                Ok(_) => {}
+                Err(error) => {
+                    error_sender.send(WorkspaceWatchMessage::Error(error.to_string())).ok();
+                }
+            })
+            .context("Failed to create the Cargo workspace watcher")?;
+        watcher.watch(&project_root, notify::RecursiveMode::Recursive).with_context(|| {
+            format!("Failed to watch Cargo workspace {}", project_root.display())
+        })?;
+        Ok(Self { _watcher: watcher, events, planner: RebuildPlanner::new(project_root) })
+    }
+
+    fn update_hot_reload_paths(&mut self, paths: &[PathBuf]) {
+        self.planner.update_hot_reload_paths(paths);
+    }
+
+    fn request_manual_rebuild(&mut self) {
+        self.planner.request_manual_rebuild();
+    }
+
+    fn take_rebuild_request(&mut self) -> Result<bool> {
+        let now = Instant::now();
+        while let Ok(event) = self.events.try_recv() {
+            match event {
+                WorkspaceWatchMessage::Changed(paths) => {
+                    for path in paths {
+                        self.planner.record_change(path, now);
+                    }
+                }
+                WorkspaceWatchMessage::Error(error) => {
+                    bail!("Cargo workspace watcher failed: {error}");
+                }
+            }
+        }
+        Ok(self.planner.take_rebuild_request(now))
+    }
+}
+
+fn is_rebuild_event(kind: &notify::EventKind) -> bool {
+    matches!(
+        kind,
+        notify::EventKind::Any
+            | notify::EventKind::Create(_)
+            | notify::EventKind::Modify(_)
+            | notify::EventKind::Remove(_)
+            | notify::EventKind::Other
+    )
+}
+
+struct RebuildPlanner {
+    project_root: PathBuf,
+    hot_reload_paths: BTreeSet<PathBuf>,
+    pending_paths: BTreeSet<PathBuf>,
+    last_change: Option<Instant>,
+    manual_rebuild: bool,
+}
+
+impl RebuildPlanner {
+    fn new(project_root: PathBuf) -> Self {
+        Self {
+            project_root,
+            hot_reload_paths: BTreeSet::new(),
+            pending_paths: BTreeSet::new(),
+            last_change: None,
+            manual_rebuild: false,
+        }
+    }
+
+    fn update_hot_reload_paths(&mut self, paths: &[PathBuf]) {
+        self.hot_reload_paths = paths.iter().map(|path| self.normalize(path)).collect();
+        self.pending_paths.retain(|path| !self.hot_reload_paths.contains(path));
+        if self.pending_paths.is_empty() {
+            self.last_change = None;
+        }
+    }
+
+    fn record_change(&mut self, path: PathBuf, now: Instant) {
+        let path = self.normalize(&path);
+        if self.is_ignored(&path) || self.hot_reload_paths.contains(&path) {
+            return;
+        }
+        self.pending_paths.insert(path);
+        self.last_change = Some(now);
+    }
+
+    fn request_manual_rebuild(&mut self) {
+        self.manual_rebuild = true;
+    }
+
+    fn take_rebuild_request(&mut self, now: Instant) -> bool {
+        if std::mem::take(&mut self.manual_rebuild) {
+            self.pending_paths.clear();
+            self.last_change = None;
+            return true;
+        }
+        if self.pending_paths.is_empty()
+            || !self.last_change.is_some_and(|changed| {
+                now.saturating_duration_since(changed) >= i_slint_live_preview::REBUILD_DEBOUNCE
+            })
+        {
+            return false;
+        }
+        self.pending_paths.clear();
+        self.last_change = None;
+        true
+    }
+
+    fn normalize(&self, path: &Path) -> PathBuf {
+        let path =
+            if path.is_absolute() { path.to_path_buf() } else { self.project_root.join(path) };
+        path.canonicalize().unwrap_or(path)
+    }
+
+    fn is_ignored(&self, path: &Path) -> bool {
+        let Ok(relative) = path.strip_prefix(&self.project_root) else { return true };
+        relative.components().any(|component| {
+            let std::path::Component::Normal(component) = component else { return false };
+            component == ".git" || component == "target"
+        })
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -64,6 +212,7 @@ pub struct CargoApplicationDriver {
     output_receiver: mpsc::UnboundedReceiver<CargoApplicationOutput>,
     application_output_tasks: Vec<JoinHandle<()>>,
     runtime_control: RuntimeControlServer,
+    rebuild_watcher: WorkspaceRebuildWatcher,
 }
 
 impl CargoApplicationDriver {
@@ -78,6 +227,7 @@ impl CargoApplicationDriver {
     ) -> Result<Self> {
         let runtime_control =
             RuntimeControlServer::bind().await.context("Failed to start Rust runtime control")?;
+        let rebuild_watcher = WorkspaceRebuildWatcher::new(&working_directory)?;
         let (output_sender, output_receiver) = mpsc::unbounded_channel();
         Ok(Self {
             target,
@@ -88,6 +238,7 @@ impl CargoApplicationDriver {
             output_receiver,
             application_output_tasks: Vec::new(),
             runtime_control,
+            rebuild_watcher,
         })
     }
 
@@ -128,7 +279,24 @@ impl CargoApplicationDriver {
 
     /// Drain one runtime event from the launched application.
     pub fn take_runtime_event(&mut self) -> Option<RuntimeEvent> {
-        self.runtime_control.try_next_event()
+        let event = self.runtime_control.try_next_event()?;
+        if let Some(paths) = event.hot_reload_paths() {
+            self.rebuild_watcher.update_hot_reload_paths(paths);
+        }
+        if event.requires_rebuild() {
+            self.rebuild_watcher.request_manual_rebuild();
+        }
+        Some(event)
+    }
+
+    /// Request a Cargo rebuild regardless of file changes.
+    pub fn request_rebuild(&mut self) {
+        self.rebuild_watcher.request_manual_rebuild();
+    }
+
+    /// Return whether coalesced workspace or runtime changes require a Cargo rebuild.
+    pub fn take_rebuild_request(&mut self) -> Result<bool> {
+        self.rebuild_watcher.take_rebuild_request()
     }
 
     async fn build(&mut self) -> Result<PathBuf> {
@@ -349,7 +517,7 @@ mod tests {
         println!("fake application stdout");
         eprintln!("fake application stderr");
         let mut reporter = SpringboardRuntimeReporter::from_environment().unwrap().unwrap();
-        reporter.report(RuntimeEvent::Ready).unwrap();
+        reporter.report(RuntimeEvent::Ready { hot_reload_paths: Vec::new() }).unwrap();
         std::thread::sleep(Duration::from_secs(30));
     }
 
@@ -424,6 +592,92 @@ mod tests {
         assert_eq!(output, "plain diagnostic");
     }
 
+    #[test]
+    fn rebuild_planner_separates_hot_reload_and_cargo_inputs() {
+        let directory = tempfile::tempdir().unwrap();
+        let root = directory.path().canonicalize().unwrap();
+        let hot_path = root.join("ui/app.slint");
+        let rust_path = root.join("src/main.rs");
+        let mut planner = RebuildPlanner::new(root.clone());
+        planner.update_hot_reload_paths(std::slice::from_ref(&hot_path));
+        let now = Instant::now();
+
+        planner.record_change(hot_path, now);
+        assert!(!planner.take_rebuild_request(now + i_slint_live_preview::REBUILD_DEBOUNCE));
+
+        planner.record_change(rust_path, now);
+        assert!(!planner.take_rebuild_request(now));
+        assert!(planner.take_rebuild_request(now + i_slint_live_preview::REBUILD_DEBOUNCE));
+        assert!(!planner.take_rebuild_request(now + i_slint_live_preview::REBUILD_DEBOUNCE));
+
+        planner.record_change(root.join(".git/index"), now);
+        planner.record_change(root.join("target/debug/demo"), now);
+        assert!(!planner.take_rebuild_request(now + i_slint_live_preview::REBUILD_DEBOUNCE));
+    }
+
+    #[test]
+    fn new_hot_paths_cancel_pending_cargo_rebuilds() {
+        let directory = tempfile::tempdir().unwrap();
+        let root = directory.path().canonicalize().unwrap();
+        let imported = root.join("ui/new-component.slint");
+        let mut planner = RebuildPlanner::new(root);
+        let now = Instant::now();
+        planner.record_change(imported.clone(), now);
+
+        planner.update_hot_reload_paths(std::slice::from_ref(&imported));
+
+        assert!(!planner.take_rebuild_request(now + i_slint_live_preview::REBUILD_DEBOUNCE));
+    }
+
+    #[test]
+    fn rapid_changes_coalesce_and_manual_rebuild_is_immediate() {
+        let directory = tempfile::tempdir().unwrap();
+        let root = directory.path().canonicalize().unwrap();
+        let mut planner = RebuildPlanner::new(root.clone());
+        let now = Instant::now();
+        let half_debounce = i_slint_live_preview::REBUILD_DEBOUNCE / 2;
+        planner.record_change(root.join("src/first.rs"), now);
+        planner.record_change(root.join("src/second.rs"), now + half_debounce);
+
+        assert!(!planner.take_rebuild_request(now + i_slint_live_preview::REBUILD_DEBOUNCE));
+        assert!(
+            planner
+                .take_rebuild_request(now + half_debounce + i_slint_live_preview::REBUILD_DEBOUNCE)
+        );
+
+        planner.request_manual_rebuild();
+        assert!(planner.take_rebuild_request(now));
+    }
+
+    #[tokio::test]
+    async fn workspace_watcher_ignores_live_graph_edits_and_reports_rust_edits() {
+        let directory = tempfile::tempdir().unwrap();
+        let hot_path = directory.path().join("ui/app.slint");
+        let rust_path = directory.path().join("src/main.rs");
+        std::fs::create_dir_all(hot_path.parent().unwrap()).unwrap();
+        std::fs::create_dir_all(rust_path.parent().unwrap()).unwrap();
+        std::fs::write(&hot_path, "export component App {}\n").unwrap();
+        std::fs::write(&rust_path, "fn main() {}\n").unwrap();
+        let mut watcher = WorkspaceRebuildWatcher::new(directory.path()).unwrap();
+        watcher.update_hot_reload_paths(std::slice::from_ref(&hot_path));
+
+        std::fs::write(&hot_path, "export component App { property <int> count; }\n").unwrap();
+        tokio::time::sleep(i_slint_live_preview::REBUILD_DEBOUNCE * 2).await;
+        assert!(!watcher.take_rebuild_request().unwrap());
+
+        std::fs::write(&rust_path, "fn main() { println!(\"changed\"); }\n").unwrap();
+        tokio::time::timeout(Duration::from_secs(2), async {
+            loop {
+                if watcher.take_rebuild_request().unwrap() {
+                    break;
+                }
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+        })
+        .await
+        .expect("the Rust source change did not request a rebuild");
+    }
+
     #[tokio::test]
     async fn builds_launches_and_separates_process_output() {
         let directory = tempfile::tempdir().unwrap();
@@ -438,7 +692,9 @@ mod tests {
         driver.build_and_launch().await.unwrap();
         tokio::time::timeout(Duration::from_secs(2), async {
             loop {
-                if driver.take_runtime_event() == Some(RuntimeEvent::Ready) {
+                if driver.take_runtime_event()
+                    == Some(RuntimeEvent::Ready { hot_reload_paths: Vec::new() })
+                {
                     break;
                 }
                 tokio::time::sleep(Duration::from_millis(10)).await;

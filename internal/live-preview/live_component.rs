@@ -54,6 +54,7 @@ pub struct LiveReloadingComponent {
     compiled_interface: Option<RustInterfaceDescriptor>,
     runtime_reporter: Option<Box<dyn RuntimeEventReporter>>,
     runtime_ready: bool,
+    hot_reload_paths: Vec<PathBuf>,
     properties: RefCell<HashMap<String, Value>>,
     callbacks: RefCell<HashMap<String, Rc<dyn Fn(&[Value]) -> Value + 'static>>>,
     post_reload_hook: Option<Box<dyn Fn(&ComponentInstance)>>,
@@ -107,6 +108,7 @@ impl LiveReloadingComponent {
                 compiled_interface,
                 runtime_reporter,
                 runtime_ready: false,
+                hot_reload_paths: Vec::new(),
                 properties: Default::default(),
                 callbacks: Default::default(),
                 post_reload_hook: None,
@@ -127,7 +129,8 @@ impl LiveReloadingComponent {
         self_mut.window_adapter =
             Some(i_slint_core::window::WindowInner::from_pub(instance.window()).window_adapter());
         self_mut.instance = Some(instance);
-        self_mut.report_runtime_event(RuntimeEvent::Ready);
+        let hot_reload_paths = self_mut.hot_reload_paths.clone();
+        self_mut.report_runtime_event(RuntimeEvent::Ready { hot_reload_paths });
         self_mut.runtime_ready = true;
         drop(self_mut);
         Ok(self_rc)
@@ -195,11 +198,16 @@ impl LiveReloadingComponent {
 
     fn finish_reload(&mut self, result: LiveReloadResult) -> LiveReloadResult {
         let event = match &result {
-            LiveReloadResult::Applied => RuntimeEvent::Reloaded,
-            LiveReloadResult::CompileError => RuntimeEvent::CompileError,
-            LiveReloadResult::RequiresRebuild { diff } => {
-                RuntimeEvent::RebuildRequired { diff: diff.to_string() }
+            LiveReloadResult::Applied => {
+                RuntimeEvent::Reloaded { hot_reload_paths: self.hot_reload_paths.clone() }
             }
+            LiveReloadResult::CompileError => {
+                RuntimeEvent::CompileError { hot_reload_paths: self.hot_reload_paths.clone() }
+            }
+            LiveReloadResult::RequiresRebuild { diff } => RuntimeEvent::RebuildRequired {
+                diff: diff.to_string(),
+                hot_reload_paths: self.hot_reload_paths.clone(),
+            },
         };
         self.report_runtime_event(event);
         result
@@ -223,19 +231,21 @@ impl LiveReloadingComponent {
         }
     }
 
-    fn build(&self) -> slint_interpreter::CompilationResult {
+    fn build(&mut self) -> slint_interpreter::CompilationResult {
         let mut future = core::pin::pin!(self.compiler.build_from_path(&self.file_name));
         let mut cx = std::task::Context::from_waker(std::task::Waker::noop());
         let std::task::Poll::Ready(result) = std::future::Future::poll(future.as_mut(), &mut cx)
         else {
             unreachable!("Compiler returned Pending")
         };
-        Watcher::update_watched_paths(
-            &self.watcher,
-            std::iter::once(self.file_name.clone())
-                .chain(result.watch_paths(i_slint_core::InternalToken).iter().cloned())
-                .chain(self.extra_watch_paths.iter().cloned()),
-        );
+        self.hot_reload_paths = std::iter::once(self.file_name.clone())
+            .chain(result.watch_paths(i_slint_core::InternalToken).iter().cloned())
+            .chain(self.extra_watch_paths.iter().cloned())
+            .map(|path| path.canonicalize().unwrap_or(path))
+            .collect();
+        self.hot_reload_paths.sort();
+        self.hot_reload_paths.dedup();
+        Watcher::update_watched_paths(&self.watcher, self.hot_reload_paths.iter().cloned());
         result
     }
 
@@ -723,7 +733,11 @@ mod tests {
             Some(Box::new(RecordingRuntimeReporter(runtime_events.clone()))),
         )
         .unwrap();
-        assert_eq!(*runtime_events.borrow(), [RuntimeEvent::Ready]);
+        let canonical_entry = project.entry.canonicalize().unwrap();
+        assert!(matches!(
+            runtime_events.borrow().as_slice(),
+            [RuntimeEvent::Ready { hot_reload_paths }] if hot_reload_paths.contains(&canonical_entry)
+        ));
         let window = live.borrow().instance().window() as *const _;
 
         live.borrow().set_property("count", Value::Number(42.));
@@ -746,7 +760,11 @@ mod tests {
 
         project.write(&source("after", "count"));
         assert_eq!(live.borrow_mut().reload(), LiveReloadResult::Applied);
-        assert_eq!(runtime_events.borrow().last(), Some(&RuntimeEvent::Reloaded));
+        assert!(matches!(
+            runtime_events.borrow().last(),
+            Some(RuntimeEvent::Reloaded { hot_reload_paths })
+                if hot_reload_paths.contains(&canonical_entry)
+        ));
         assert_eq!(number(live.borrow().get_property("count")), 42.);
         assert_eq!(number(live.borrow().get_global_property("Settings", "threshold")), 7.);
         assert_eq!(number(live.borrow().invoke("ping", &[Value::Number(5.)])), 6.);
@@ -757,7 +775,11 @@ mod tests {
 
         project.write("export component App inherits Window { @ }");
         assert_eq!(live.borrow_mut().reload(), LiveReloadResult::CompileError);
-        assert_eq!(runtime_events.borrow().last(), Some(&RuntimeEvent::CompileError));
+        assert!(matches!(
+            runtime_events.borrow().last(),
+            Some(RuntimeEvent::CompileError { hot_reload_paths })
+                if hot_reload_paths.contains(&canonical_entry)
+        ));
         assert_eq!(number(live.borrow().get_property("count")), 42.);
         assert_eq!(number(live.borrow().invoke("ping", &[Value::Number(5.)])), 6.);
 
@@ -771,7 +793,7 @@ mod tests {
         assert_eq!(number(live.borrow().get_property("count")), 42.);
         assert_eq!(number(live.borrow().invoke("ping", &[Value::Number(5.)])), 6.);
         assert_eq!(live.borrow().instance().window() as *const _, window);
-        let RuntimeEvent::RebuildRequired { diff: reported_diff } =
+        let RuntimeEvent::RebuildRequired { diff: reported_diff, .. } =
             runtime_events.borrow().last().unwrap().clone()
         else {
             panic!("Springboard should receive the interface change")

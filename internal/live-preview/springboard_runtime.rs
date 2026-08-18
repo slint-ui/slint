@@ -6,6 +6,7 @@
 use serde::{Deserialize, Serialize};
 use std::io::{BufRead as _, BufReader, Write as _};
 use std::net::{SocketAddr, TcpStream};
+use std::path::PathBuf;
 use std::time::Duration;
 
 /// Environment variable containing Springboard's loopback control address.
@@ -24,15 +25,33 @@ const IO_TIMEOUT: Duration = Duration::from_secs(1);
 #[serde(rename_all = "kebab-case", tag = "event")]
 pub enum RuntimeEvent {
     /// The initial live component is ready.
-    Ready,
+    Ready { hot_reload_paths: Vec<PathBuf> },
     /// An implementation-only change was applied.
-    Reloaded,
+    Reloaded { hot_reload_paths: Vec<PathBuf> },
     /// A candidate component did not compile.
-    CompileError,
+    CompileError { hot_reload_paths: Vec<PathBuf> },
     /// The generated Rust interface changed.
-    RebuildRequired { diff: String },
+    RebuildRequired { diff: String, hot_reload_paths: Vec<PathBuf> },
     /// The application is exiting.
     Exiting,
+}
+
+impl RuntimeEvent {
+    /// Return the live compiler's current source and resource graph.
+    pub fn hot_reload_paths(&self) -> Option<&[PathBuf]> {
+        match self {
+            Self::Ready { hot_reload_paths }
+            | Self::Reloaded { hot_reload_paths }
+            | Self::CompileError { hot_reload_paths }
+            | Self::RebuildRequired { hot_reload_paths, .. } => Some(hot_reload_paths),
+            Self::Exiting => None,
+        }
+    }
+
+    /// Return whether the application requested a Cargo rebuild.
+    pub fn requires_rebuild(&self) -> bool {
+        matches!(self, Self::RebuildRequired { .. })
+    }
 }
 
 /// A token-authenticated event sent to Springboard.

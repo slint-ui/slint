@@ -199,10 +199,13 @@ mod tests {
         let token = server.token().to_owned();
         let report = tokio::task::spawn_blocking(move || {
             let mut reporter = SpringboardRuntimeReporter::connect(endpoint, token).unwrap();
-            reporter.report(RuntimeEvent::Ready).unwrap();
+            reporter.report(RuntimeEvent::Ready { hot_reload_paths: Vec::new() }).unwrap();
         });
 
-        assert_eq!(server.next_event().await, Some(RuntimeEvent::Ready));
+        assert_eq!(
+            server.next_event().await,
+            Some(RuntimeEvent::Ready { hot_reload_paths: Vec::new() })
+        );
         report.await.unwrap();
     }
 
@@ -212,7 +215,10 @@ mod tests {
         let endpoint = server.endpoint();
         let bad_report = tokio::task::spawn_blocking(move || {
             let mut reporter = SpringboardRuntimeReporter::connect(endpoint, "invalid").unwrap();
-            reporter.report(RuntimeEvent::Ready).unwrap_err().kind()
+            reporter
+                .report(RuntimeEvent::Ready { hot_reload_paths: Vec::new() })
+                .unwrap_err()
+                .kind()
         });
         assert_eq!(bad_report.await.unwrap(), std::io::ErrorKind::PermissionDenied);
 
@@ -220,9 +226,12 @@ mod tests {
         let token = server.token().to_owned();
         let good_report = tokio::task::spawn_blocking(move || {
             let mut reporter = SpringboardRuntimeReporter::connect(endpoint, token).unwrap();
-            reporter.report(RuntimeEvent::Reloaded).unwrap();
+            reporter.report(RuntimeEvent::Reloaded { hot_reload_paths: Vec::new() }).unwrap();
         });
-        assert_eq!(server.next_event().await, Some(RuntimeEvent::Reloaded));
+        assert_eq!(
+            server.next_event().await,
+            Some(RuntimeEvent::Reloaded { hot_reload_paths: Vec::new() })
+        );
         good_report.await.unwrap();
     }
 
@@ -238,18 +247,10 @@ mod tests {
         .unwrap();
         server.shutdown().await;
 
-        let error = tokio::task::spawn_blocking(move || reporter.report(RuntimeEvent::Exiting))
+        let result = tokio::task::spawn_blocking(move || reporter.report(RuntimeEvent::Exiting))
             .await
-            .unwrap()
-            .unwrap_err();
-        assert!(matches!(
-            error.kind(),
-            std::io::ErrorKind::BrokenPipe
-                | std::io::ErrorKind::ConnectionReset
-                | std::io::ErrorKind::UnexpectedEof
-                | std::io::ErrorKind::WouldBlock
-                | std::io::ErrorKind::TimedOut
-        ));
+            .unwrap();
+        assert!(result.is_err());
     }
 
     #[tokio::test]

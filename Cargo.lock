@@ -8258,6 +8258,7 @@ dependencies = [
  "i-slint-live-preview",
  "i-slint-springboard",
  "mdns-sd",
+ "notify",
  "ratatui",
  "serde",
  "serde_json",

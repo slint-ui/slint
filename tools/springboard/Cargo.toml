@@ -42,6 +42,7 @@ crossterm = { version = "0.29.0", features = ["event-stream"] }
 futures-util = "0.3.32"
 getrandom = "0.4"
 mdns-sd = { version = "0.20.0", default-features = false, features = ["async"] }
+notify = { version = "8.0.0", default-features = false, features = ["macos_kqueue"] }
 ratatui = "0.30.0"
 serde = { workspace = true, features = ["std"] }
 serde_json = { workspace = true }
