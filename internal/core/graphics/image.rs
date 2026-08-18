@@ -1905,7 +1905,7 @@ mod tests {
 
     #[test]
     fn test_rgb565_pixel_conversions() {
-        for &(r, g, b) in &[(0xffu8, 0x25u8, 0u8), (0x56, 0x42, 0xe3), (0, 0, 0), (255, 255, 255)] {
+        for &(r, g, b) in &[(0xff, 0x25, 0u8), (0x56, 0x42, 0xe3), (0, 0, 0), (255, 255, 255)] {
             let pix565 = Rgb565Pixel::from_rgb(r, g, b);
             let pix888: super::Rgb8Pixel = pix565.into();
             // 565 -> 888 -> 565 is lossless.
