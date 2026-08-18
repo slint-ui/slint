@@ -13,8 +13,21 @@ use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 
 //re-export for the generated code:
-pub use i_slint_compiler::rust_interface::{RustInterfaceDescriptor, RustInterfaceEntry};
+pub use i_slint_compiler::rust_interface::{
+    RustInterfaceDescriptor, RustInterfaceDiff, RustInterfaceEntry,
+};
 pub use slint_interpreter::{Compiler, ComponentInstance, DefaultTranslationContext, Value};
+
+/// The outcome of compiling and applying a changed Slint component.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum LiveReloadResult {
+    /// The candidate component replaced the active instance.
+    Applied,
+    /// The candidate couldn't be compiled, instantiated, or restored.
+    CompileError,
+    /// The candidate changes the Rust API and requires a Cargo rebuild.
+    RequiresRebuild { diff: RustInterfaceDiff },
+}
 
 /// This struct is used to compile and instantiate a component from a .slint file on disk.
 /// The file is watched for changes and the component is recompiled and instantiated
@@ -83,34 +96,59 @@ impl LiveReloadingComponent {
         self.compiled_interface.as_ref()
     }
 
-    /// Reload the component from the .slint file.
-    /// If there is an error, it won't actually reload.
-    /// Return false in case of errors
-    pub fn reload(&mut self) -> bool {
+    /// Compile the component from disk and apply it when its Rust interface still matches.
+    pub fn reload(&mut self) -> LiveReloadResult {
         let result = self.build();
         result.print_diagnostics();
         if result.has_errors() {
-            return false;
+            return LiveReloadResult::CompileError;
         }
 
-        if let Some(definition) = self.find_component(&result) {
-            match definition.create_with_existing_window(self.instance().window()) {
-                Ok(instance) => {
-                    self.instance = Some(instance);
-                }
-                Err(e) => {
-                    eprintln!("Error while creating the component: {e}");
-                    return false;
-                }
+        if let Some(compiled_interface) = &self.compiled_interface {
+            let Some(candidate_interface) = result.rust_interface(i_slint_core::InternalToken)
+            else {
+                eprintln!("The live compiler didn't produce a Rust interface descriptor");
+                return LiveReloadResult::CompileError;
+            };
+            let diff = compiled_interface.diff(candidate_interface);
+            if !diff.is_empty() {
+                eprintln!("The Slint Rust interface changed and requires a rebuild:\n{diff}");
+                return LiveReloadResult::RequiresRebuild { diff };
             }
-        } else {
+        }
+
+        let Some(definition) = self.find_component(&result) else {
             eprintln!(
                 "Component {} not found",
                 self.component_name.as_deref().unwrap_or("<default>")
             );
-            return false;
+            return LiveReloadResult::CompileError;
+        };
+        if let Err(error) = self.validate_restore_targets(&definition) {
+            eprintln!("The changed component can't restore the active Rust state: {error}");
+            return LiveReloadResult::CompileError;
         }
-        true
+
+        let instance = match definition.create_with_existing_window(self.instance().window()) {
+            Ok(instance) => instance,
+            Err(error) => {
+                eprintln!("Error while creating the component: {error}");
+                let _ = self.instance().show();
+                return LiveReloadResult::CompileError;
+            }
+        };
+        if let Err(error) = self.restore_properties_and_callbacks(&instance) {
+            eprintln!("Error while restoring the component state: {error}");
+            let _ = self.instance().show();
+            return LiveReloadResult::CompileError;
+        }
+        self.instance = Some(instance);
+        eprintln!(
+            "Reloaded component {} from {}",
+            self.component_name.as_deref().unwrap_or("<default>"),
+            self.file_name.display()
+        );
+        LiveReloadResult::Applied
     }
 
     fn find_component(
@@ -139,38 +177,72 @@ impl LiveReloadingComponent {
         result
     }
 
-    /// Reload the properties and callbacks after a reload()
-    pub fn reload_properties_and_callbacks(&self) {
-        // Set the properties
-        for (name, value) in self.properties.borrow_mut().iter() {
+    fn validate_restore_targets(
+        &self,
+        definition: &slint_interpreter::ComponentDefinition,
+    ) -> Result<(), String> {
+        for (name, value) in self.properties.borrow().iter() {
             if let Some((global, prop)) = name.split_once('.') {
-                self.instance()
-                    .set_global_property(global, prop, value.clone())
-                    .unwrap_or_else(|e| panic!("Cannot set property {name}: {e}"));
+                let Some(mut properties) = definition.global_properties(global) else {
+                    return Err(format!("global '{global}' no longer exists"));
+                };
+                let Some((_, candidate_type)) = properties.find(|(name, _)| name == prop) else {
+                    return Err(format!("property '{name}' no longer exists"));
+                };
+                if candidate_type != value.value_type() {
+                    return Err(format!("property '{name}' changed type"));
+                }
             } else {
-                self.instance()
-                    .set_property(name, value.clone())
-                    .unwrap_or_else(|e| panic!("Cannot set property {name}: {e}"));
+                let Some((_, candidate_type)) =
+                    definition.properties().find(|(candidate, _)| candidate == name)
+                else {
+                    return Err(format!("property '{name}' no longer exists"));
+                };
+                if candidate_type != value.value_type() {
+                    return Err(format!("property '{name}' changed type"));
+                }
             }
         }
-        for (name, callback) in self.callbacks.borrow_mut().iter() {
+        for name in self.callbacks.borrow().keys() {
+            let exists = if let Some((global, callback)) = name.split_once('.') {
+                definition
+                    .global_callbacks(global)
+                    .is_some_and(|mut callbacks| callbacks.any(|candidate| candidate == callback))
+            } else {
+                definition.callbacks().any(|candidate| candidate == *name)
+            };
+            if !exists {
+                return Err(format!("callback '{name}' no longer exists"));
+            }
+        }
+        Ok(())
+    }
+
+    fn restore_properties_and_callbacks(&self, instance: &ComponentInstance) -> Result<(), String> {
+        for (name, value) in self.properties.borrow().iter() {
+            if let Some((global, prop)) = name.split_once('.') {
+                instance
+                    .set_global_property(global, prop, value.clone())
+                    .map_err(|error| format!("cannot set property '{name}': {error}"))?;
+            } else {
+                instance
+                    .set_property(name, value.clone())
+                    .map_err(|error| format!("cannot set property '{name}': {error}"))?;
+            }
+        }
+        for (name, callback) in self.callbacks.borrow().iter() {
             let callback = callback.clone();
             if let Some((global, prop)) = name.split_once('.') {
-                self.instance()
+                instance
                     .set_global_callback(global, prop, move |args| callback(args))
-                    .unwrap_or_else(|e| panic!("Cannot set callback {name}: {e}"));
+                    .map_err(|error| format!("cannot set callback '{name}': {error}"))?;
             } else {
-                self.instance()
+                instance
                     .set_callback(name, move |args| callback(args))
-                    .unwrap_or_else(|e| panic!("Cannot set callback {name}: {e}"));
+                    .map_err(|error| format!("cannot set callback '{name}': {error}"))?;
             }
         }
-
-        eprintln!(
-            "Reloaded component {} from {}",
-            self.component_name.as_deref().unwrap_or("<default>"),
-            self.file_name.display()
-        );
+        Ok(())
     }
 
     /// Set a hook that runs after each successful reload, receiving the new instance.
@@ -285,14 +357,12 @@ impl Watcher {
                 WatcherState::Waiting(cx.waker().clone()),
             );
             if matches!(state, WatcherState::Changed) {
-                let success = instance.borrow_mut().reload();
-                if success {
+                if instance.borrow_mut().reload() == LiveReloadResult::Applied {
                     let borrowed = instance.borrow();
-                    borrowed.reload_properties_and_callbacks();
                     if let Some(hook) = &borrowed.post_reload_hook {
                         hook(borrowed.instance());
                     }
-                };
+                }
             };
             std::task::Poll::Pending
         }));
@@ -482,5 +552,153 @@ mod ffi {
         let borrow = component.borrow();
         let adapter = borrow.window_adapter.as_ref().unwrap();
         (adapter as *const Rc<dyn WindowAdapter>).cast()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::future::Future;
+    use std::path::Path;
+    use std::sync::atomic::{AtomicU64, Ordering};
+
+    static NEXT_TEST_DIRECTORY: AtomicU64 = AtomicU64::new(0);
+
+    struct TestProject {
+        directory: PathBuf,
+        entry: PathBuf,
+    }
+
+    impl TestProject {
+        fn new(source: &str) -> Self {
+            let directory = std::env::temp_dir().join(format!(
+                "slint-live-reload-{}-{}",
+                std::process::id(),
+                NEXT_TEST_DIRECTORY.fetch_add(1, Ordering::Relaxed)
+            ));
+            std::fs::create_dir_all(&directory).unwrap();
+            let entry = directory.join("app.slint");
+            std::fs::write(&entry, source).unwrap();
+            Self { directory, entry }
+        }
+
+        fn write(&self, source: &str) {
+            std::fs::write(&self.entry, source).unwrap();
+        }
+    }
+
+    impl Drop for TestProject {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.directory);
+        }
+    }
+
+    fn poll_ready<T>(future: impl Future<Output = T>) -> T {
+        let mut future = core::pin::pin!(future);
+        let mut context = std::task::Context::from_waker(std::task::Waker::noop());
+        let std::task::Poll::Ready(result) = Future::poll(future.as_mut(), &mut context) else {
+            panic!("compiler returned Pending")
+        };
+        result
+    }
+
+    fn compiled_interface(path: &Path) -> RustInterfaceDescriptor {
+        let compiler = Compiler::default();
+        let result = poll_ready(compiler.build_from_path(path));
+        assert!(!result.has_errors());
+        result.rust_interface(i_slint_core::InternalToken).unwrap().clone()
+    }
+
+    fn source(label: &str, property: &str) -> String {
+        format!(
+            r#"
+                export global Settings {{
+                    in-out property <int> threshold: 2;
+                    callback adjust(int) -> int;
+                }}
+                export component App inherits Window {{
+                    in-out property <int> {property}: 1;
+                    callback ping(int) -> int;
+                    Text {{ text: "{label}"; }}
+                }}
+            "#
+        )
+    }
+
+    fn number(value: Value) -> f64 {
+        let Value::Number(value) = value else { panic!("expected a number") };
+        value
+    }
+
+    #[test]
+    fn reload_outcomes_preserve_the_last_successful_instance() {
+        i_slint_backend_testing::init_no_event_loop();
+        let project = TestProject::new(&source("before", "count"));
+        let interface = compiled_interface(&project.entry);
+        let live = LiveReloadingComponent::new(
+            Compiler::default(),
+            project.entry.clone(),
+            Some("App".into()),
+            Some(interface),
+        )
+        .unwrap();
+        let window = live.borrow().instance().window() as *const _;
+
+        live.borrow().set_property("count", Value::Number(42.));
+        live.borrow().set_global_property("Settings", "threshold", Value::Number(7.));
+        live.borrow().set_callback(
+            "ping",
+            Rc::new(|arguments| {
+                let [Value::Number(value)] = arguments else { panic!("invalid arguments") };
+                Value::Number(value + 1.)
+            }),
+        );
+        live.borrow().set_global_callback(
+            "Settings",
+            "adjust",
+            Rc::new(|arguments| {
+                let [Value::Number(value)] = arguments else { panic!("invalid arguments") };
+                Value::Number(value * 2.)
+            }),
+        );
+
+        project.write(&source("after", "count"));
+        assert_eq!(live.borrow_mut().reload(), LiveReloadResult::Applied);
+        assert_eq!(number(live.borrow().get_property("count")), 42.);
+        assert_eq!(number(live.borrow().get_global_property("Settings", "threshold")), 7.);
+        assert_eq!(number(live.borrow().invoke("ping", &[Value::Number(5.)])), 6.);
+        assert_eq!(
+            number(live.borrow().invoke_global("Settings", "adjust", &[Value::Number(5.)])),
+            10.
+        );
+
+        project.write("export component App inherits Window { @ }");
+        assert_eq!(live.borrow_mut().reload(), LiveReloadResult::CompileError);
+        assert_eq!(number(live.borrow().get_property("count")), 42.);
+        assert_eq!(number(live.borrow().invoke("ping", &[Value::Number(5.)])), 6.);
+
+        project.write(&source("rebuild", "total"));
+        let LiveReloadResult::RequiresRebuild { diff } = live.borrow_mut().reload() else {
+            panic!("the interface change should require a rebuild")
+        };
+        let diff = diff.to_string();
+        assert!(diff.contains("- component App/property count: in-out int"));
+        assert!(diff.contains("+ component App/property total: in-out int"));
+        assert_eq!(number(live.borrow().get_property("count")), 42.);
+        assert_eq!(number(live.borrow().invoke("ping", &[Value::Number(5.)])), 6.);
+        assert_eq!(live.borrow().instance().window() as *const _, window);
+
+        project.write(&source("viewer", "count"));
+        let viewer = LiveReloadingComponent::new(
+            Compiler::default(),
+            project.entry.clone(),
+            Some("App".into()),
+            None,
+        )
+        .unwrap();
+        viewer.borrow().set_property("count", Value::Number(9.));
+        project.write(&source("viewer changed", "total"));
+        assert_eq!(viewer.borrow_mut().reload(), LiveReloadResult::CompileError);
+        assert_eq!(number(viewer.borrow().get_property("count")), 9.);
     }
 }

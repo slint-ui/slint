@@ -1016,6 +1016,8 @@ impl Compiler {
                     #[cfg(feature = "internal")]
                     structs_and_enums: Vec::new(),
                     #[cfg(feature = "internal")]
+                    rust_interface: None,
+                    #[cfg(feature = "internal")]
                     named_exports: Vec::new(),
                 };
             }
@@ -1060,6 +1062,8 @@ async fn build_compilation_result(
         #[cfg(feature = "internal")]
         structs_and_enums: result.structs_and_enums,
         #[cfg(feature = "internal")]
+        rust_interface: result.rust_interface,
+        #[cfg(feature = "internal")]
         named_exports: result.named_exports,
     }
 }
@@ -1078,6 +1082,8 @@ pub struct CompilationResult {
     pub(crate) watch_paths: Vec<PathBuf>,
     #[cfg(feature = "internal")]
     pub(crate) structs_and_enums: Vec<LangType>,
+    #[cfg(feature = "internal")]
+    pub(crate) rust_interface: Option<i_slint_compiler::rust_interface::RustInterfaceDescriptor>,
     /// For `export { Foo as Bar }` this vec contains tuples of (`Foo`, `Bar`)
     #[cfg(feature = "internal")]
     pub(crate) named_exports: Vec<(String, String)>,
@@ -1147,6 +1153,16 @@ impl CompilationResult {
         _: i_slint_core::InternalToken,
     ) -> impl Iterator<Item = &LangType> {
         self.structs_and_enums.iter()
+    }
+
+    /// Return the generated Rust interface for this compilation.
+    #[doc(hidden)]
+    #[cfg(feature = "internal")]
+    pub fn rust_interface(
+        &self,
+        _: i_slint_core::InternalToken,
+    ) -> Option<&i_slint_compiler::rust_interface::RustInterfaceDescriptor> {
+        self.rust_interface.as_ref()
     }
 
     /// This is an internal function without API stability guarantees.

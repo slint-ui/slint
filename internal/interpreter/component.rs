@@ -319,21 +319,24 @@ pub fn build_from_document(
     document: &i_slint_compiler::object_tree::Document,
     compiler_config: &i_slint_compiler::CompilerConfiguration,
     mut type_loaders: TypeLoaders,
-) -> Vec<ComponentDefinitionInner> {
+) -> (Vec<ComponentDefinitionInner>, i_slint_compiler::rust_interface::RustInterfaceDescriptor) {
     let unit = Rc::new(i_slint_compiler::llr::lower_to_item_tree::lower_to_item_tree(
         document,
         compiler_config,
     ));
+    let rust_interface =
+        i_slint_compiler::rust_interface::RustInterfaceDescriptor::from_document(document, &unit);
     // `lower_to_item_tree` builds `public_components` from `exported_roots()`
     // in iteration order, so the indices line up.
     type_loaders.originals = document.exported_roots().collect();
-    (0..unit.public_components.len())
+    let components = (0..unit.public_components.len())
         .map(|public_index| ComponentDefinitionInner {
             compilation_unit: unit.clone(),
             public_index,
             type_loaders: type_loaders.clone(),
         })
-        .collect()
+        .collect();
+    (components, rust_interface)
 }
 
 /// What [`build_from_source`] produces: the diagnostics, a map of public
@@ -347,6 +350,8 @@ pub struct BuildResult {
     pub watch_paths: Vec<std::path::PathBuf>,
     #[cfg(feature = "internal")]
     pub structs_and_enums: Vec<LangType>,
+    #[cfg(feature = "internal")]
+    pub rust_interface: Option<i_slint_compiler::rust_interface::RustInterfaceDescriptor>,
     /// For `export { Foo as Bar }` this vec contains tuples of (`Foo`, `Bar`)
     #[cfg(feature = "internal")]
     pub named_exports: Vec<(String, String)>,
@@ -417,6 +422,8 @@ pub async fn build_from_source(
         #[cfg(feature = "internal")]
         structs_and_enums: Vec::new(),
         #[cfg(feature = "internal")]
+        rust_interface: None,
+        #[cfg(feature = "internal")]
         named_exports: Vec::new(),
     };
     if diag.has_errors() {
@@ -443,7 +450,10 @@ pub async fn build_from_source(
         }
     };
     let mut components = std::collections::HashMap::new();
-    for def in build_from_document(doc, &config, type_loaders) {
+    let (definitions, rust_interface) = build_from_document(doc, &config, type_loaders);
+    #[cfg(not(feature = "internal"))]
+    let _ = &rust_interface;
+    for def in definitions {
         components.insert(def.name().to_string(), def);
     }
     if components.is_empty() {
@@ -486,6 +496,8 @@ pub async fn build_from_source(
         watch_paths,
         #[cfg(feature = "internal")]
         structs_and_enums,
+        #[cfg(feature = "internal")]
+        rust_interface: Some(rust_interface),
         #[cfg(feature = "internal")]
         named_exports,
     }

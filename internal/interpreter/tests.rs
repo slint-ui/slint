@@ -653,3 +653,24 @@ fn accent_color_reachable_from_global() {
     let after = instance.get_property("accent").unwrap();
     assert_ne!(before, after, "accent-background should follow the system accent color");
 }
+
+#[cfg(feature = "internal")]
+#[test]
+fn compilation_result_exposes_the_rust_interface() {
+    let result = spin_on::spin_on(
+        crate::Compiler::default().build_from_source(
+            r#"
+            export component App inherits Window {
+                in-out property <int> count;
+            }
+        "#
+            .into(),
+            std::path::PathBuf::from("interface.slint"),
+        ),
+    );
+    assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
+    let interface = result.rust_interface(i_slint_core::InternalToken).unwrap();
+    assert!(interface.entries().iter().any(|entry| {
+        entry.path() == "component App/property count" && entry.signature() == "in-out int"
+    }));
+}

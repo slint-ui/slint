@@ -81,3 +81,6 @@ remote-client = [
 [package.metadata.docs.rs]
 all-features = true
 rustdoc-args = ["--generate-link-to-definition"]
+
+[dev-dependencies]
+i-slint-backend-testing = { workspace = true }

@@ -3788,6 +3788,7 @@ dependencies = [
  "futures-util",
  "getifs",
  "hostname",
+ "i-slint-backend-testing",
  "i-slint-compiler",
  "i-slint-core",
  "lsp-types",
