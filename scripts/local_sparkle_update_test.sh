@@ -163,13 +163,7 @@ build_editor_app() {
     local plist="$app/Contents/Info.plist"
 
     log "Building local Visual Editor binary for $RUST_TARGET"
-    # The bundle assembled below carries its own copy of the framework, so the
-    # rpath here is the one that has to find it.
-    env \
-        SPARKLE_FRAMEWORK_DIR="$ROOT_DIR" \
-        SLINT_SPARKLE_BUNDLED=1 \
-        RUSTFLAGS="-Clink-args=-Wl,-rpath,@loader_path/../Frameworks" \
-        cargo build \
+    cargo build \
             --release \
             --target "$RUST_TARGET" \
             --example slint-editor \

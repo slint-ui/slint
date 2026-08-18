@@ -88,8 +88,8 @@ preview-external = []
 ## Support the remote preview via a WebSocket connection
 preview-remote = ["preview-engine", "preview-builtin"]
 ## Let the visual editor check for updates of itself via the Sparkle framework.
-## Does nothing outside of macOS. Building this needs Sparkle.framework, run
-## scripts/download-sparkle.sh to put it in the repository root.
+## Does nothing outside of macOS. The framework is loaded from the application
+## bundle at runtime, so only the packaging needs Sparkle.framework, not the build.
 sparkle-updater = ["objc2-foundation/NSBundle", "objc2-foundation/NSError"]
 
 default = ["backend-default", "renderer-femtovg", "renderer-software", "preview"]

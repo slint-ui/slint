@@ -66,7 +66,10 @@ update chrome hidden because the update state stays at `UpToDate`.
 The packaged app turns the feature on in `tools/lsp/macos-project.yml`, and so
 does `scripts/local_sparkle_update_test.sh`.
 
-Building with the feature needs `Sparkle.framework` in the repository root:
+The build itself does not need `Sparkle.framework`: the classes are reached
+through the Objective-C runtime, so the editor loads the framework from its own
+application bundle at startup.
+Packaging does need it, and so do the key tools below:
 
 ```sh
 ./scripts/download-sparkle.sh
@@ -75,9 +78,8 @@ Building with the feature needs `Sparkle.framework` in the repository root:
 The script pins the version and its checksum, and it also installs the
 `sparkle-bin/` tools that the keys below need.
 Both directories are ignored by git.
-There's no environment variable to set, because `.cargo/config.toml` points
-`SPARKLE_FRAMEWORK_DIR` at the repository root, and that is what the build
-looks at to find the framework.
+`scripts/package_macos_visual_editor.bash` copies it out of the repository root
+unless `SPARKLE_FRAMEWORK_DIR` says otherwise.
 
 Then run the editor with updates enabled:
 
@@ -92,15 +94,12 @@ dialog instead of the editor's chrome.
 That is the only way to run a real download and install for as long as the
 editor's own update buttons are stubs.
 
-`tools/lsp/build.rs` links the framework and adds an rpath pointing at it.
-Without that rpath the binary doesn't start outside an app bundle.
-The scripts that assemble a bundle set `SLINT_SPARKLE_BUNDLED=1` to skip that
-rpath, because the bundle carries its own copy of the framework in
-`Contents/Frameworks` and a build machine path has no business in a shipped app.
+A build run outside an application bundle simply reports that updates are off.
+When the framework is missing from a bundle that should have it, the editor
+still starts and logs which path it looked at.
 
-CI gets the framework from the `.github/actions/install-sparkle` action.
-The DMG workflow uses it, and so does `build_and_test_reusable.yaml`, because
-testing with `--all-features` turns the feature on.
+The DMG workflow gets the framework from the `.github/actions/install-sparkle`
+action. No other CI job needs it, because nothing links against Sparkle.
 
 ## Sparkle Keys
 

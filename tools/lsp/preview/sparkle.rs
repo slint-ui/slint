@@ -17,7 +17,7 @@ use objc2::{
     DefinedClass as _, MainThreadMarker, MainThreadOnly, define_class, extern_class,
     extern_methods, msg_send,
 };
-use objc2_foundation::{NSBundle, NSError};
+use objc2_foundation::{NSBundle, NSError, NSString};
 use slint::ComponentHandle as _;
 use std::rc::Rc;
 
@@ -91,7 +91,7 @@ extern_class!(
 impl AppcastItem {
     extern_methods!(
         #[unsafe(method(displayVersionString))]
-        fn display_version_string(&self) -> Option<Retained<objc2_foundation::NSString>>;
+        fn display_version_string(&self) -> Option<Retained<NSString>>;
     );
 }
 
@@ -192,6 +192,33 @@ impl Delegate {
     }
 }
 
+/// Load Sparkle.framework out of the application bundle.
+///
+/// The classes are only ever reached through the Objective-C runtime, so there
+/// is nothing to link against and the framework is loaded here instead. That
+/// also keeps a missing framework from stopping the editor from starting.
+fn load_framework() -> bool {
+    let Some(frameworks) = NSBundle::mainBundle().privateFrameworksPath() else {
+        tracing::warn!("No updates: the application bundle has no Frameworks directory");
+        return false;
+    };
+    let path = format!("{frameworks}/Sparkle.framework");
+
+    let Some(bundle) = NSBundle::bundleWithPath(&NSString::from_str(&path)) else {
+        tracing::warn!("No updates: Sparkle.framework is missing from {path}");
+        return false;
+    };
+
+    // SAFETY: loading a framework runs its initializers, which is what we want
+    // before touching any of its classes.
+    if !unsafe { bundle.load() } {
+        tracing::warn!("No updates: Sparkle.framework at {path} failed to load");
+        return false;
+    }
+
+    true
+}
+
 /// Sparkle only works from a real application bundle, so this stays `None` for
 /// `cargo run` and the updater is simply inactive there.
 fn is_bundled() -> bool {
@@ -217,9 +244,14 @@ impl Sparkle {
 
         if !is_bundled() {
             tracing::info!(
-                "Sparkle updater disabled: not running from an application bundle. \
+                "No updates: not running from an application bundle. \
                  This is expected during development."
             );
+            return None;
+        }
+
+        // Has to happen before any Sparkle class is touched.
+        if !load_framework() {
             return None;
         }
 
