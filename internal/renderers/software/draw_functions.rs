@@ -875,11 +875,8 @@ pub trait TargetPixel: Sized + Copy {
     /// The default implementation expands the components. RGB565 pixel
     /// types override this and use the value as-is.
     fn from_rgb565(value: u16) -> Self {
-        Self::from_rgb(
-            ((value & 0xf800) >> 8) as u8,
-            ((value & 0x07e0) >> 3) as u8,
-            ((value & 0x001f) << 3) as u8,
-        )
+        let pixel = Rgb565Pixel(value);
+        Self::from_rgb(pixel.red(), pixel.green(), pixel.blue())
     }
 
     /// Pixel which will be filled as the background in case the slint view has transparency
