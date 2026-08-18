@@ -1,14 +1,15 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Api } from "../../api.slint";
+import { Api, SpringboardRunState } from "../../api.slint";
 import { EditorMetrics, StudioTheme } from "common.slint";
 
 component RunButton inherits Rectangle {
     in property <bool> enabled: true;
+    in property <string> label: "Run";
     callback clicked;
 
-    width: 82px;
+    width: root.label == "Run" ? 82px : 104px;
     height: 34px;
     border-radius: 7px;
     background: !root.enabled
@@ -47,10 +48,80 @@ component RunButton inherits Rectangle {
         }
 
         Text {
-            text: "Run";
+            text: root.label;
             color: root.enabled ? white : StudioTheme.muted;
             font-size: 12px;
             font-weight: 800;
+            vertical-alignment: center;
+        }
+    }
+
+    button-focus := FocusScope {
+        enabled: root.enabled;
+        key-pressed(event) => {
+            if event.text == Key.Return || event.text == Key.Space {
+                root.clicked();
+                return accept;
+            }
+            return reject;
+        }
+    }
+
+    touch := TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: root.enabled ? pointer : default;
+        clicked => {
+            button-focus.focus();
+            root.clicked();
+        }
+    }
+}
+
+component DevicesButton inherits Rectangle {
+    in property <bool> enabled: true;
+    callback clicked;
+
+    width: 104px;
+    height: 34px;
+    border-radius: 7px;
+    border-width: button-focus.has-focus && root.enabled ? 2px : 1px;
+    border-color: button-focus.has-focus && root.enabled ? StudioTheme.accent-strong : StudioTheme.border;
+    background: touch.pressed
+        ? StudioTheme.soft-border
+        : touch.has-hover
+            ? StudioTheme.panel-subtle
+            : StudioTheme.panel-bg;
+    opacity: root.enabled ? 1 : 0.56;
+    accessible-role: button;
+    accessible-label: "Manage preview devices";
+    accessible-enabled: root.enabled;
+    accessible-action-default => {
+        if root.enabled {
+            root.clicked();
+        }
+    }
+
+    animate background, border-color, opacity { duration: 100ms; easing: ease-out-quad; }
+
+    HorizontalLayout {
+        padding-left: 12px;
+        padding-right: 12px;
+        spacing: 6px;
+        alignment: center;
+        cross-axis-alignment: center;
+
+        Image {
+            width: 16px;
+            height: 16px;
+            source: @image-url("../../assets/slinterface-primer-device-desktop.svg");
+            colorize: root.enabled ? StudioTheme.text : StudioTheme.muted;
+        }
+
+        Text {
+            text: "Devices";
+            color: root.enabled ? StudioTheme.text : StudioTheme.muted;
+            font-size: 12px;
+            font-weight: 700;
             vertical-alignment: center;
         }
     }
@@ -89,15 +160,39 @@ export component EditorTopBar inherits Rectangle {
     HorizontalLayout {
         padding-left: 18px;
         padding-right: 18px;
-        spacing: 16px;
+        spacing: 8px;
         alignment: end;
         cross-axis-alignment: center;
+
+        DevicesButton {
+            enabled: !Api.startup-wizard-visible
+                && Api.project-root != "";
+            clicked => {
+                Api.springboard-device-manager-selected-device-id = Api.springboard-last-used-device-id;
+                Api.springboard-device-manager-visible = true;
+            }
+        }
 
         RunButton {
             enabled: !Api.startup-wizard-visible
                 && Api.project-root != "";
+            label: Api.springboard-run-state == SpringboardRunState.Starting
+                ? "Starting…"
+                : Api.springboard-run-state == SpringboardRunState.Connecting
+                    ? "Connecting…"
+                    : Api.springboard-run-state == SpringboardRunState.Running
+                        ? "Running"
+                        : "Run";
             clicked => {
-                Api.launch-live-preview(Api.project-root);
+                if Api.springboard-run-state == SpringboardRunState.Ready
+                        || Api.springboard-run-state == SpringboardRunState.Starting
+                        || Api.springboard-run-state == SpringboardRunState.Connecting
+                        || Api.springboard-run-state == SpringboardRunState.Running {
+                    Api.springboard-launch-device(Api.springboard-last-used-device-id);
+                } else {
+                    Api.springboard-device-manager-selected-device-id = Api.springboard-last-used-device-id;
+                    Api.springboard-device-manager-visible = true;
+                }
             }
         }
     }

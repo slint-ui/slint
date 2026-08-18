@@ -89,6 +89,17 @@ export enum SpringboardSessionStatus {
     Error,
 }
 
+export enum SpringboardRunState {
+    NoDevice,
+    Ready,
+    Starting,
+    Connecting,
+    Running,
+    Unavailable,
+    Incompatible,
+    Error,
+}
+
 export struct SpringboardDevice {
     id: string,
     name: string,
@@ -644,6 +655,10 @@ export global Api {
     in-out property <string> springboard-session-error;
     in-out property <string> springboard-active-device-id;
     in-out property <string> springboard-last-used-device-id;
+    in-out property <SpringboardRunState> springboard-run-state: SpringboardRunState.NoDevice;
+    in-out property <bool> springboard-device-manager-visible;
+    in-out property <string> springboard-device-manager-selected-device-id;
+    in-out property <string> springboard-device-manager-error;
     in-out property <string> selected-project-file;
     in-out property <bool> startup-wizard-visible;
     in-out property <EditorSurfaceMode> editor-surface-mode: EditorSurfaceMode.component;

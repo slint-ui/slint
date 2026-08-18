@@ -84,6 +84,7 @@ fn sync_api() {
             api.set_springboard_last_used_device_id(
                 state.last_used.as_ref().map(DeviceId::as_str).unwrap_or_default().into(),
             );
+            api.set_springboard_run_state(state.run_state());
         });
     });
 }
@@ -158,6 +159,30 @@ impl SpringboardUiState {
             .values()
             .map(|device| device_to_ui(device, self.active.as_ref(), self.last_used.as_ref()))
             .collect()
+    }
+
+    fn run_state(&self) -> preview::ui::SpringboardRunState {
+        if self.status == preview::ui::SpringboardSessionStatus::Error {
+            return preview::ui::SpringboardRunState::Error;
+        }
+        let Some(last_used) = &self.last_used else {
+            return preview::ui::SpringboardRunState::NoDevice;
+        };
+        let Some(device) = self.devices.get(last_used) else {
+            return preview::ui::SpringboardRunState::Unavailable;
+        };
+        match device.status {
+            DeviceStatus::Available | DeviceStatus::Failed { .. } => {
+                preview::ui::SpringboardRunState::Ready
+            }
+            DeviceStatus::Starting => preview::ui::SpringboardRunState::Starting,
+            DeviceStatus::Connecting => preview::ui::SpringboardRunState::Connecting,
+            DeviceStatus::Running | DeviceStatus::Stopping => {
+                preview::ui::SpringboardRunState::Running
+            }
+            DeviceStatus::Unavailable => preview::ui::SpringboardRunState::Unavailable,
+            DeviceStatus::Incompatible { .. } => preview::ui::SpringboardRunState::Incompatible,
+        }
     }
 }
 
@@ -268,5 +293,20 @@ mod tests {
         assert_eq!(rows[0].status, preview::ui::SpringboardDeviceStatus::Running);
         assert!(rows[0].is_active);
         assert!(rows[0].is_last_used);
+    }
+
+    #[test]
+    fn run_state_follows_the_last_used_device() {
+        let mut state = SpringboardUiState::default();
+        assert_eq!(state.run_state(), preview::ui::SpringboardRunState::NoDevice);
+
+        let target = device(DeviceStatus::Connecting);
+        state.devices.insert(target.id.clone(), target.clone());
+        state.last_used = Some(target.id.clone());
+        state.status = preview::ui::SpringboardSessionStatus::Ready;
+        assert_eq!(state.run_state(), preview::ui::SpringboardRunState::Connecting);
+
+        state.devices.get_mut(&target.id).unwrap().status = DeviceStatus::Unavailable;
+        assert_eq!(state.run_state(), preview::ui::SpringboardRunState::Unavailable);
     }
 }
