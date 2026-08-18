@@ -20,6 +20,10 @@ use tokio::process::{Child, Command};
 use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
 
+use crate::android_emulator::{
+    AndroidEmulator, AndroidEmulatorManager, AndroidLaunchProgress, AndroidLaunchResult,
+    DEFAULT_ANDROID_VIEWER_PACKAGE,
+};
 use crate::cargo_driver::{
     CargoApplicationDriver, CargoApplicationOutput, CargoApplicationOutputSource,
 };
@@ -34,7 +38,14 @@ pub const LOCAL_VIEWER_DEVICE_ID: &str = "builtin:local-viewer";
 pub const RUST_APPLICATION_DEVICE_ID: &str = "builtin:rust-app";
 
 type CargoBuildTask = JoinHandle<(CargoApplicationDriver, std::result::Result<(), String>)>;
+type AndroidLaunchTask = JoinHandle<std::result::Result<AndroidLaunchResult, String>>;
 type IosLaunchTask = JoinHandle<std::result::Result<IosLaunchResult, String>>;
+
+struct AndroidLaunchOperation {
+    device_id: DeviceId,
+    task: AndroidLaunchTask,
+    progress: mpsc::UnboundedReceiver<AndroidLaunchProgress>,
+}
 
 struct IosLaunchOperation {
     device_id: DeviceId,
@@ -219,6 +230,13 @@ pub struct ProjectSessionController {
     remote_viewer: Option<RemoteViewerDriver>,
     remote_discovery: Option<RemoteViewerDiscovery>,
     remote_viewers: BTreeMap<DeviceId, DiscoveredRemoteViewer>,
+    android_manager: Option<AndroidEmulatorManager>,
+    android_emulators: BTreeMap<DeviceId, AndroidEmulator>,
+    android_preferred_order: Vec<DeviceId>,
+    android_unavailable_reason: Option<String>,
+    android_launch: Option<AndroidLaunchOperation>,
+    android_refresh: Option<JoinHandle<std::result::Result<Vec<AndroidEmulator>, String>>>,
+    android_packages: BTreeMap<DeviceId, String>,
     ios_manager: Option<IosSimulatorManager>,
     ios_simulators: BTreeMap<DeviceId, IosSimulator>,
     ios_preferred_order: Vec<DeviceId>,
@@ -229,6 +247,7 @@ pub struct ProjectSessionController {
     managed_remote_devices: BTreeMap<DeviceId, DeviceId>,
     pending_launch: Option<DeviceId>,
     pending_remote_device: Option<DeviceId>,
+    pending_android_viewer_name: Option<String>,
     pending_remote_deadline: Option<tokio::time::Instant>,
     pending_endpoint_update: Option<DeviceId>,
     events: VecDeque<SessionEvent>,
@@ -293,6 +312,13 @@ impl ProjectSessionController {
             remote_viewer: None,
             remote_discovery: None,
             remote_viewers,
+            android_manager: None,
+            android_emulators: BTreeMap::new(),
+            android_preferred_order: Vec::new(),
+            android_unavailable_reason: None,
+            android_launch: None,
+            android_refresh: None,
+            android_packages: BTreeMap::new(),
             ios_manager: None,
             ios_simulators: BTreeMap::new(),
             ios_preferred_order: Vec::new(),
@@ -303,6 +329,7 @@ impl ProjectSessionController {
             managed_remote_devices: BTreeMap::new(),
             pending_launch: None,
             pending_remote_device: None,
+            pending_android_viewer_name: None,
             pending_remote_deadline: None,
             pending_endpoint_update: None,
             events,
@@ -323,6 +350,75 @@ impl ProjectSessionController {
                 ),
             }),
         }
+    }
+
+    pub async fn enable_android_emulators(&mut self) {
+        let manager = match AndroidEmulatorManager::from_environment() {
+            Ok(manager) => manager,
+            Err(error) => {
+                self.android_unavailable_reason = Some(error.to_string());
+                return;
+            }
+        };
+        match manager.discover().await {
+            Ok(emulators) => {
+                self.apply_android_emulators(emulators);
+                self.android_manager = Some(manager);
+                self.android_unavailable_reason = None;
+            }
+            Err(error) => {
+                self.android_unavailable_reason = Some(error.to_string());
+            }
+        }
+    }
+
+    fn apply_android_emulators(&mut self, emulators: Vec<AndroidEmulator>) {
+        let discovered_ids = emulators
+            .iter()
+            .map(|emulator| emulator.id.clone())
+            .collect::<std::collections::BTreeSet<_>>();
+        let stale = self
+            .android_emulators
+            .keys()
+            .filter(|device_id| !discovered_ids.contains(*device_id))
+            .cloned()
+            .collect::<Vec<_>>();
+        for device_id in stale {
+            if self.session.active_device() == Some(&device_id) {
+                continue;
+            }
+            self.android_emulators.remove(&device_id);
+            if self.session.remove_device(&device_id).is_some() {
+                self.events.push_back(SessionEvent::DeviceRemoved { device_id });
+            }
+        }
+        self.android_preferred_order =
+            emulators.iter().map(|emulator| emulator.id.clone()).collect();
+        for emulator in emulators {
+            let device_id = emulator.id.clone();
+            let mut device = emulator.to_device();
+            if self.session.active_device() == Some(&device_id)
+                && let Some(current) = self.session.devices().get(&device_id)
+            {
+                device.status = current.status.clone();
+            }
+            self.session.upsert_device(device);
+            self.android_emulators.insert(device_id.clone(), emulator);
+            self.emit_device(&device_id);
+        }
+    }
+
+    pub fn preferred_android_emulator(&self) -> Result<DeviceId> {
+        if let Some(last) = self.last_used_device()
+            && self.android_emulators.contains_key(last)
+        {
+            return Ok(last.clone());
+        }
+        self.android_preferred_order.first().cloned().with_context(|| {
+            self.android_unavailable_reason.clone().unwrap_or_else(|| {
+                "No Android Virtual Devices were found. Create one in Android Studio.".into()
+            })
+        })
     }
 
     pub async fn enable_ios_simulators(&mut self) {
@@ -465,6 +561,28 @@ impl ProjectSessionController {
             };
             self.start_cargo_build(driver, DeviceStatus::Compiling)?;
             return Ok(());
+        } else if device_kind == DeviceKind::AndroidEmulator {
+            let emulator =
+                self.android_emulators.get(device_id).cloned().with_context(|| {
+                    format!("Android emulator {device_id} is no longer available")
+                })?;
+            let manager = self
+                .android_manager
+                .clone()
+                .context("Android emulator management is unavailable")?;
+            let (progress_sender, progress) = mpsc::unbounded_channel();
+            let launch_device_id = device_id.clone();
+            let task = tokio::spawn(async move {
+                manager
+                    .launch(emulator, move |event| {
+                        progress_sender.send(event).ok();
+                    })
+                    .await
+                    .map_err(|error| error.to_string())
+            });
+            self.android_launch =
+                Some(AndroidLaunchOperation { device_id: launch_device_id, task, progress });
+            return Ok(());
         } else if device_kind == DeviceKind::IosSimulator {
             let simulator = self
                 .ios_simulators
@@ -559,6 +677,7 @@ impl ProjectSessionController {
     fn complete_launch(&mut self, device_id: &DeviceId) -> Result<()> {
         self.pending_launch = None;
         self.pending_remote_device = None;
+        self.pending_android_viewer_name = None;
         self.pending_remote_deadline = None;
         if self.pending_endpoint_update.as_ref() == Some(device_id) {
             self.pending_endpoint_update = None;
@@ -596,6 +715,13 @@ impl ProjectSessionController {
                 .is_some_and(|device| device.kind == DeviceKind::IosSimulator)
             {
                 "iOS Simulator viewer connected".into()
+            } else if self
+                .session
+                .devices()
+                .get(device_id)
+                .is_some_and(|device| device.kind == DeviceKind::AndroidEmulator)
+            {
+                "Android emulator viewer connected".into()
             } else {
                 "Remote viewer connected".into()
             },
@@ -644,6 +770,24 @@ impl ProjectSessionController {
                 driver.stop().await?;
             }
             self.cargo_rebuild_queued = false;
+        } else if self.android_emulators.contains_key(device_id) {
+            if let Some(operation) = self.android_launch.take() {
+                operation.task.abort();
+                let _ = operation.task.await;
+            }
+            if let Some(mut driver) = self.remote_viewer.take() {
+                driver.stop().await;
+            }
+            if let (Some(manager), Some(emulator)) =
+                (&self.android_manager, self.android_emulators.get(device_id))
+            {
+                let package = self
+                    .android_packages
+                    .get(device_id)
+                    .map(String::as_str)
+                    .unwrap_or(DEFAULT_ANDROID_VIEWER_PACKAGE);
+                manager.stop(emulator, package).await?;
+            }
         } else if self.ios_simulators.contains_key(device_id) {
             if let Some(operation) = self.ios_launch.take() {
                 operation.task.abort();
@@ -669,12 +813,14 @@ impl ProjectSessionController {
             self.pending_launch = None;
         }
         self.pending_remote_device = None;
+        self.pending_android_viewer_name = None;
         self.pending_remote_deadline = None;
         if self.pending_endpoint_update.as_ref() == Some(device_id) {
             self.pending_endpoint_update = None;
         }
         let idle_status = if device_id.as_str() == LOCAL_VIEWER_DEVICE_ID
             || device_id.as_str() == RUST_APPLICATION_DEVICE_ID
+            || self.android_emulators.contains_key(device_id)
             || self.ios_simulators.contains_key(device_id)
             || self.remote_viewers.contains_key(device_id)
         {
@@ -691,6 +837,8 @@ impl ProjectSessionController {
                 "Local viewer stopped".into()
             } else if device_id.as_str() == RUST_APPLICATION_DEVICE_ID {
                 "Rust application stopped".into()
+            } else if self.android_emulators.contains_key(device_id) {
+                "Android emulator viewer stopped".into()
             } else if self.ios_simulators.contains_key(device_id) {
                 "iOS Simulator viewer stopped".into()
             } else {
@@ -703,7 +851,21 @@ impl ProjectSessionController {
     pub fn refresh(&mut self, device_id: &DeviceId) -> Result<()> {
         match self.session.refresh(device_id)? {
             SessionAction::Refresh => {
-                if self.ios_simulators.contains_key(device_id) {
+                if self.android_emulators.contains_key(device_id) {
+                    if self.android_refresh.is_none()
+                        && let Some(manager) = self.android_manager.clone()
+                    {
+                        self.android_refresh = Some(tokio::spawn(async move {
+                            manager.discover().await.map_err(|error| error.to_string())
+                        }));
+                    }
+                    if self.session.active_device() == Some(device_id)
+                        && self.pending_launch.as_ref() != Some(device_id)
+                        && let Some(driver) = self.remote_viewer.as_mut()
+                    {
+                        driver.refresh()?;
+                    }
+                } else if self.ios_simulators.contains_key(device_id) {
                     if self.ios_refresh.is_none()
                         && let Some(manager) = self.ios_manager.clone()
                     {
@@ -764,6 +926,8 @@ impl ProjectSessionController {
     }
 
     pub async fn poll(&mut self) -> Result<()> {
+        self.poll_android_launch().await?;
+        self.poll_android_refresh().await;
         self.poll_ios_launch().await?;
         self.poll_ios_refresh().await;
         self.poll_cargo_build().await?;
@@ -791,6 +955,152 @@ impl ProjectSessionController {
             }
         }
         Ok(())
+    }
+
+    async fn poll_android_refresh(&mut self) {
+        if !self.android_refresh.as_ref().is_some_and(|task| task.is_finished()) {
+            return;
+        }
+        let task = self.android_refresh.take().unwrap();
+        match task.await {
+            Ok(Ok(emulators)) => {
+                self.apply_android_emulators(emulators);
+                self.events.push_back(SessionEvent::Log {
+                    device_id: None,
+                    level: LogLevel::Information,
+                    message: "Android emulator devices refreshed".into(),
+                });
+            }
+            Ok(Err(message)) => {
+                self.events.push_back(SessionEvent::Error { device_id: None, message })
+            }
+            Err(error) => self.events.push_back(SessionEvent::Error {
+                device_id: None,
+                message: format!("The Android emulator refresh task failed: {error}"),
+            }),
+        }
+    }
+
+    async fn poll_android_launch(&mut self) -> Result<()> {
+        let Some(operation) = &mut self.android_launch else { return Ok(()) };
+        let device_id = operation.device_id.clone();
+        let mut progress = Vec::new();
+        while let Ok(event) = operation.progress.try_recv() {
+            progress.push(event);
+        }
+        let finished = operation.task.is_finished();
+        for event in progress {
+            if self.session.active_device() != Some(&device_id) {
+                continue;
+            }
+            let status = match event {
+                AndroidLaunchProgress::Booting => Some(DeviceStatus::Booting),
+                AndroidLaunchProgress::Artifact(
+                    crate::artifacts::ArtifactCacheProgress::Downloading {
+                        bytes_received,
+                        total_bytes,
+                    },
+                ) => Some(DeviceStatus::Downloading { bytes_received, total_bytes }),
+                AndroidLaunchProgress::Artifact(
+                    crate::artifacts::ArtifactCacheProgress::UsingPrevious { reason },
+                ) => {
+                    self.events.push_back(SessionEvent::Log {
+                        device_id: Some(device_id.clone()),
+                        level: LogLevel::Warning,
+                        message: format!(
+                            "Using the previously cached Android viewer after an update failure: {reason}"
+                        ),
+                    });
+                    None
+                }
+                AndroidLaunchProgress::Installing => Some(DeviceStatus::Installing),
+                AndroidLaunchProgress::Launching => Some(DeviceStatus::Starting),
+                AndroidLaunchProgress::WaitingForDiscovery => Some(DeviceStatus::Connecting),
+                AndroidLaunchProgress::Artifact(_) => None,
+            };
+            if let Some(status) = status {
+                self.session.mark_active_status(&device_id, status)?;
+                self.emit_device(&device_id);
+            }
+        }
+        if !finished {
+            return Ok(());
+        }
+
+        let operation = self.android_launch.take().unwrap();
+        let result = match operation.task.await {
+            Ok(Ok(result)) => result,
+            Ok(Err(message)) => {
+                self.cleanup_failed_android_launch(&device_id).await;
+                if self.session.active_device() == Some(&device_id) {
+                    self.session.mark_failed(&device_id, &message)?;
+                    self.emit_device(&device_id);
+                }
+                self.events.push_back(SessionEvent::Error { device_id: Some(device_id), message });
+                return Ok(());
+            }
+            Err(error) => {
+                let message = format!("The Android emulator launch task failed: {error}");
+                self.cleanup_failed_android_launch(&device_id).await;
+                if self.session.active_device() == Some(&device_id) {
+                    self.session.mark_failed(&device_id, &message)?;
+                    self.emit_device(&device_id);
+                }
+                self.events.push_back(SessionEvent::Error { device_id: Some(device_id), message });
+                return Ok(());
+            }
+        };
+        let simulator_id = result.emulator.id.clone();
+        self.android_packages.insert(simulator_id.clone(), result.package);
+        self.android_emulators.insert(simulator_id.clone(), result.emulator);
+        let remote_id = self
+            .managed_remote_devices
+            .iter()
+            .find_map(|(remote_id, managed_id)| {
+                (managed_id == &simulator_id).then(|| remote_id.clone())
+            })
+            .or_else(|| {
+                self.remote_viewers.iter().find_map(|(remote_id, viewer)| {
+                    (viewer.platform.eq_ignore_ascii_case("android")
+                        && viewer.name == result.viewer_name)
+                        .then(|| remote_id.clone())
+                })
+            });
+        if let Some(remote_id) = &remote_id {
+            self.associate_managed_remote(remote_id.clone(), simulator_id.clone());
+        }
+        self.pending_launch = Some(simulator_id.clone());
+        self.pending_remote_device = remote_id;
+        self.pending_android_viewer_name = Some(result.viewer_name);
+        self.pending_remote_deadline =
+            Some(tokio::time::Instant::now() + std::time::Duration::from_secs(30));
+        if self.session.active_device() == Some(&simulator_id) {
+            self.session.mark_connecting(&simulator_id)?;
+            self.emit_device(&simulator_id);
+        }
+        Ok(())
+    }
+
+    async fn cleanup_failed_android_launch(&mut self, device_id: &DeviceId) {
+        let (Some(manager), Some(emulator)) =
+            (&self.android_manager, self.android_emulators.get(device_id))
+        else {
+            return;
+        };
+        let package = self
+            .android_packages
+            .get(device_id)
+            .map(String::as_str)
+            .unwrap_or(DEFAULT_ANDROID_VIEWER_PACKAGE);
+        if let Err(error) = manager.stop(emulator, package).await {
+            self.events.push_back(SessionEvent::Log {
+                device_id: Some(device_id.clone()),
+                level: LogLevel::Warning,
+                message: format!(
+                    "The partially launched Android emulator viewer could not be stopped: {error}"
+                ),
+            });
+        }
     }
 
     async fn poll_ios_refresh(&mut self) {
@@ -887,11 +1197,7 @@ impl ProjectSessionController {
             }
         };
         self.ios_bundle_ids.insert(result.simulator_id.clone(), result.bundle_id);
-        self.managed_remote_devices.insert(result.viewer_id.clone(), result.simulator_id.clone());
-        if self.session.remove_device(&result.viewer_id).is_some() {
-            self.events
-                .push_back(SessionEvent::DeviceRemoved { device_id: result.viewer_id.clone() });
-        }
+        self.associate_managed_remote(result.viewer_id.clone(), result.simulator_id.clone());
         self.pending_launch = Some(result.simulator_id.clone());
         self.pending_remote_device = Some(result.viewer_id);
         self.pending_remote_deadline =
@@ -1118,13 +1424,14 @@ impl ProjectSessionController {
         if self.remote_viewer.is_some() {
             return;
         }
-        let remote_device_id = self.pending_remote_device.as_ref().unwrap_or(&device_id);
+        let Some(remote_device_id) = self.pending_remote_device.as_ref() else { return };
         let Some(viewer) = self.remote_viewers.get(remote_device_id).cloned() else { return };
         match self.connect_remote_viewer_for_device(&viewer, device_id.clone()).await {
             Ok(()) => {}
             Err(error) => {
                 self.pending_launch = None;
                 self.pending_remote_device = None;
+                self.pending_android_viewer_name = None;
                 self.pending_remote_deadline = None;
                 let message = describe_remote_failure(&error.to_string());
                 if self.session.mark_failed(&device_id, &message).is_ok() {
@@ -1145,9 +1452,10 @@ impl ProjectSessionController {
             return Ok(());
         };
         self.pending_remote_device = None;
+        self.pending_android_viewer_name = None;
         self.pending_remote_deadline = None;
         self.remote_viewer = None;
-        let message = "The launched simulator viewer was not discovered on the local network. Allow local-network access in the viewer and retry.";
+        let message = "The launched simulator viewer was not discovered on the local network. Check the emulator network and retry.";
         if self.session.active_device() == Some(&device_id) {
             self.session.mark_failed(&device_id, message)?;
             self.emit_device(&device_id);
@@ -1185,6 +1493,10 @@ impl ProjectSessionController {
     }
 
     pub async fn shutdown(&mut self) -> Result<()> {
+        if let Some(task) = self.android_refresh.take() {
+            task.abort();
+            let _ = task.await;
+        }
         if let Some(task) = self.ios_refresh.take() {
             task.abort();
             let _ = task.await;
@@ -1272,6 +1584,7 @@ impl ProjectSessionController {
                         RemoteClientState::Failed => {
                             self.pending_launch = None;
                             self.pending_remote_device = None;
+                            self.pending_android_viewer_name = None;
                             self.pending_remote_deadline = None;
                             self.pending_endpoint_update = None;
                             self.remote_viewer = None;
@@ -1305,6 +1618,13 @@ impl ProjectSessionController {
         });
     }
 
+    fn associate_managed_remote(&mut self, remote_id: DeviceId, simulator_id: DeviceId) {
+        self.managed_remote_devices.insert(remote_id.clone(), simulator_id);
+        if self.session.remove_device(&remote_id).is_some() {
+            self.events.push_back(SessionEvent::DeviceRemoved { device_id: remote_id });
+        }
+    }
+
     fn apply_discovery_event(&mut self, event: RemoteDiscoveryEvent) {
         match event {
             RemoteDiscoveryEvent::Upsert(viewer) => {
@@ -1324,6 +1644,28 @@ impl ProjectSessionController {
                     previous_endpoints.is_some_and(|previous| previous != current_endpoints);
                 let device = viewer.to_device();
                 self.remote_viewers.insert(device_id.clone(), viewer);
+                let pending_android_simulator =
+                    self.pending_launch.clone().filter(|simulator_id| {
+                        self.session
+                            .devices()
+                            .get(simulator_id)
+                            .is_some_and(|device| device.kind == DeviceKind::AndroidEmulator)
+                    });
+                if pending_android_simulator.is_some()
+                    && self.pending_remote_device.is_none()
+                    && self.pending_android_viewer_name.as_deref()
+                        == self.remote_viewers.get(&device_id).map(|viewer| viewer.name.as_str())
+                    && self
+                        .remote_viewers
+                        .get(&device_id)
+                        .is_some_and(|viewer| viewer.platform.eq_ignore_ascii_case("android"))
+                {
+                    let simulator_id = pending_android_simulator.unwrap();
+                    self.pending_remote_device = Some(device_id.clone());
+                    self.pending_android_viewer_name = None;
+                    self.associate_managed_remote(device_id, simulator_id);
+                    return;
+                }
                 if let Some(simulator_id) = self.managed_remote_devices.get(&device_id).cloned() {
                     if self.session.remove_device(&device_id).is_some() {
                         self.events.push_back(SessionEvent::DeviceRemoved {
@@ -1653,6 +1995,37 @@ mod tests {
         assert!(controller.take_events().iter().any(
             |event| matches!(event, SessionEvent::DeviceRemoved { device_id } if device_id == &stale_id)
         ));
+    }
+
+    #[test]
+    fn android_discovery_is_associated_with_the_launched_emulator() {
+        let directory = tempfile::tempdir().unwrap();
+        let mut controller = ProjectSessionController::new(
+            project(&directory),
+            store(&directory),
+            fake_command("wait"),
+        );
+        let simulator_id = DeviceId::new("simulator:android:Pixel_9_API_36").unwrap();
+        controller.apply_android_emulators(vec![AndroidEmulator {
+            id: simulator_id.clone(),
+            avd_name: "Pixel_9_API_36".into(),
+            serial: Some("emulator-5554".into()),
+        }]);
+        controller.session.launch(&simulator_id).unwrap();
+        controller.pending_launch = Some(simulator_id.clone());
+        controller.pending_android_viewer_name = Some("Android SDK built for arm64".into());
+        controller.take_events();
+        let mut viewer = remote_viewer();
+        viewer.name = "Android SDK built for arm64".into();
+        viewer.platform = "android".into();
+        let remote_id = viewer.id.clone();
+
+        controller.apply_discovery_event(RemoteDiscoveryEvent::Upsert(viewer));
+
+        assert_eq!(controller.pending_remote_device, Some(remote_id.clone()));
+        assert_eq!(controller.managed_remote_devices.get(&remote_id), Some(&simulator_id));
+        assert!(!controller.session.devices().contains_key(&remote_id));
+        assert_eq!(controller.preferred_android_emulator().unwrap(), simulator_id);
     }
 
     #[tokio::test]

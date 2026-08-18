@@ -73,8 +73,13 @@ async fn apply_startup_action(
             }
         }
     } else if launch.android {
-        app.error("Android emulator management is not available yet");
-        None
+        match controller.preferred_android_emulator() {
+            Ok(device_id) => Some(device_id),
+            Err(error) => {
+                app.error(error.to_string());
+                None
+            }
+        }
     } else {
         None
     };

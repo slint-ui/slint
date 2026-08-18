@@ -271,7 +271,7 @@ fn device_to_ui(
         DeviceStatus::Starting => (preview::ui::SpringboardDeviceStatus::Starting, String::new()),
         DeviceStatus::Booting => (
             preview::ui::SpringboardDeviceStatus::Booting,
-            "Booting the selected iOS Simulator.".into(),
+            "Booting the selected simulator.".into(),
         ),
         DeviceStatus::Connecting => (
             preview::ui::SpringboardDeviceStatus::Connecting,
