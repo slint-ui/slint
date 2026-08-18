@@ -158,7 +158,8 @@ fn from_property_in_element(
     name: &str,
     documentation: Option<&str>,
 ) -> Option<MarkupContent> {
-    if let Some(decl) = element.borrow().property_declarations.get(name) {
+    let element = element.borrow();
+    if let Some((_, decl)) = element.declaration(name) {
         return property_tooltip(
             &decl.property_type,
             name,
@@ -166,7 +167,7 @@ fn from_property_in_element(
             documentation,
         );
     }
-    from_property_in_type(&element.borrow().base_type, name, documentation)
+    from_property_in_type(&element.base_type, name, documentation)
 }
 
 fn builtin_element_description(b: &BuiltinElement) -> &str {

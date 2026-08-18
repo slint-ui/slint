@@ -1905,7 +1905,7 @@ impl Expression {
         match self {
             Expression::PropertyReference(nr) => {
                 nr.mark_as_set();
-                let mut lookup = nr.element().borrow().lookup_property(nr.name());
+                let mut lookup = nr.element().borrow().lookup_property_by_internal_name(nr.name());
                 lookup.is_local_to_component &= ctx.is_local_element(&nr.element());
                 if lookup.property_visibility == PropertyVisibility::Constexpr {
                     ctx.diag.push_error(

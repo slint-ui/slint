@@ -546,13 +546,15 @@ impl Snapshotter {
                     is_alias: v.is_alias.as_ref().map(|a| a.snapshot(self)),
                     visibility: v.visibility,
                     pure: v.pure,
-                    shadows_builtin: v.shadows_builtin,
+                    shadowed_name: v.shadowed_name.clone(),
+                    shadowable: v.shadowable,
                     moved_to_root: v.moved_to_root,
                     deprecated: v.deprecated.clone(),
                 };
                 (k.clone(), decl)
             })
             .collect();
+        target_element.shadowing_members = elem.shadowing_members.clone();
         target_element.layout_info_prop =
             elem.layout_info_prop.as_ref().map(|(n1, n2)| (n1.snapshot(self), n2.snapshot(self)));
         target_element.property_analysis = RefCell::new(elem.property_analysis.borrow().clone());

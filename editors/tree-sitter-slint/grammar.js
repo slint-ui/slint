@@ -139,9 +139,15 @@ module.exports = grammar({
         optional(seq("(", field("message", $.string_value), ")")),
       ),
 
+    shadowable: (_) => "@shadowable",
+
+    // `@deprecated` / `@shadowable` prefixing a member declaration, in any order
+    _member_attributes: ($) =>
+      repeat1(choice($.property_deprecation, $.shadowable)),
+
     property: ($) =>
       seq(
-        field("deprecation", optional($.property_deprecation)),
+        field("attributes", optional($._member_attributes)),
         field("visibility", optional($.property_visibility)),
         "property",
         seq(
@@ -157,7 +163,7 @@ module.exports = grammar({
 
     binding_alias: ($) =>
       seq(
-        field("deprecation", optional($.property_deprecation)),
+        field("attributes", optional($._member_attributes)),
         field("visibility", optional($.property_visibility)),
         optional("property"),
         field("name", $._statement_identifier),
@@ -636,6 +642,7 @@ module.exports = grammar({
 
     callback: ($) =>
       seq(
+        field("attributes", optional($._member_attributes)),
         optional($.purity),
         "callback",
         field("name", $.simple_identifier),
@@ -650,6 +657,7 @@ module.exports = grammar({
 
     function_definition: ($) =>
       seq(
+        field("attributes", optional($._member_attributes)),
         repeat(choice($.purity, $.function_visibility)),
         "function",
         field("name", $.simple_identifier),
@@ -660,6 +668,7 @@ module.exports = grammar({
 
     function_declaration: ($) =>
       seq(
+        field("attributes", optional($._member_attributes)),
         repeat(choice($.purity, $.function_visibility)),
         "function",
         field("name", $.simple_identifier),
@@ -670,6 +679,7 @@ module.exports = grammar({
 
     callback_alias: ($) =>
       seq(
+        field("attributes", optional($._member_attributes)),
         optional($.purity),
         "callback",
         field("name", $.simple_identifier),

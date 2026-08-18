@@ -8,7 +8,7 @@ use crate::expression_tree::*;
 use crate::langtype::{ElementType, PropertyLookupResult, Type};
 use crate::object_tree::{Component, ElementRc};
 
-use smol_str::{SmolStr, ToSmolStr, format_smolstr};
+use smol_str::{SmolStr, ToSmolStr};
 
 use std::cell::RefCell;
 use std::rc::{Rc, Weak};
@@ -1003,22 +1003,14 @@ pub fn static_native_stretch(elem: &ElementRc) -> Option<Expression> {
 /// Create a new property based on the name. (it might get a different name if that property exist)
 pub fn create_new_prop(elem: &ElementRc, tentative_name: SmolStr, ty: Type) -> NamedReference {
     let mut e = elem.borrow_mut();
-    if !e.lookup_property(&tentative_name).is_valid() {
-        e.property_declarations.insert(tentative_name.clone(), ty.into());
-        drop(e);
-        NamedReference::new(elem, tentative_name)
+    let name = if e.lookup_property_by_internal_name(&tentative_name).is_valid() {
+        e.unique_member_name(&tentative_name)
     } else {
-        let mut counter = 0;
-        loop {
-            counter += 1;
-            let name = format_smolstr!("{}{}", tentative_name, counter);
-            if !e.lookup_property(&name).is_valid() {
-                e.property_declarations.insert(name.clone(), ty.into());
-                drop(e);
-                return NamedReference::new(elem, name);
-            }
-        }
-    }
+        tentative_name
+    };
+    e.property_declarations.insert(name.clone(), ty.into());
+    drop(e);
+    NamedReference::new(elem, name)
 }
 
 /// Return true if this type is a layout that has constraints

@@ -72,7 +72,7 @@ fn resolve_alias(
         None => {
             // Unresolved callback from a base component?
             debug_assert!(matches!(
-                borrow_mut.lookup_property(prop).property_type,
+                borrow_mut.lookup_property_by_internal_name(prop).property_type,
                 Type::InferredCallback | Type::InferredProperty
             ));
             // It is still unresolved because there is an error in that component
@@ -152,7 +152,8 @@ fn resolve_alias(
         } else if let Some(nr) = twb.unwrap().property() {
             let target_is_global =
                 nr.element().borrow().base_type == crate::langtype::ElementType::Global;
-            let purity = nr.element().borrow().lookup_property(nr.name()).declared_pure;
+            let purity =
+                nr.element().borrow().lookup_property_by_internal_name(nr.name()).declared_pure;
             // A global aliasing another global's callback is the supported way for one
             // global to implement another's callback, so it isn't deprecated.
             let aliasing_global = elem.borrow().base_type == crate::langtype::ElementType::Global;

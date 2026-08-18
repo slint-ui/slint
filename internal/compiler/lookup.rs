@@ -17,7 +17,7 @@ use crate::object_tree::{ElementRc, PropertyVisibility};
 use crate::parser::NodeOrToken;
 use crate::symbol_counters::SymbolCounters;
 use crate::typeregister::TypeRegister;
-use smol_str::{SmolStr, ToSmolStr, format_smolstr};
+use smol_str::{SmolStr, format_smolstr};
 use std::cell::RefCell;
 
 pub use i_slint_common::color_parsing::named_colors;
@@ -441,13 +441,13 @@ impl LookupObject for InScopeLookup {
             |str, r| f.borrow_mut()(str, r),
             |elem| elem.for_each_entry(ctx, *f.borrow_mut()),
             |elem| {
-                for (name, prop) in &elem.borrow().property_declarations {
+                for (internal_name, prop) in &elem.borrow().property_declarations {
                     let e = expression_from_reference(
-                        NamedReference::new(elem, name.clone()),
+                        NamedReference::new(elem, internal_name.clone()),
                         &prop.property_type,
                         None,
                     );
-                    if let Some(r) = f.borrow_mut()(name, e) {
+                    if let Some(r) = f.borrow_mut()(prop.declared_name(internal_name), e) {
                         return Some(r);
                     }
                 }
@@ -465,9 +465,10 @@ impl LookupObject for InScopeLookup {
             |str, r| (str == name).then_some(r),
             |elem| elem.lookup(ctx, name),
             |elem| {
-                elem.borrow().property_declarations.get(name).map(|prop| {
+                let elem_borrow = elem.borrow();
+                elem_borrow.declaration(name).map(|(internal_name, prop)| {
                     expression_from_reference(
-                        NamedReference::new(elem, name.clone()),
+                        NamedReference::new(elem, internal_name.clone()),
                         &prop.property_type,
                         None,
                     )
@@ -483,9 +484,10 @@ impl LookupObject for ElementRc {
         ctx: &LookupCtx,
         f: &mut impl FnMut(&SmolStr, LookupResult) -> Option<R>,
     ) -> Option<R> {
-        for (name, prop) in &self.borrow().property_declarations {
+        for (internal_name, prop) in &self.borrow().property_declarations {
+            let name = prop.declared_name(internal_name);
             let r = expression_from_reference(
-                NamedReference::new(self, name.clone()),
+                NamedReference::new(self, internal_name.clone()),
                 &prop.property_type,
                 check_extra_deprecated(self, ctx, name),
             );
@@ -493,8 +495,14 @@ impl LookupObject for ElementRc {
                 return Some(r);
             }
         }
+        // NamedReference::new borrows the element, so the check can't hold a borrow across the loop
+        let has_shadows = !self.borrow().shadowing_members.is_empty();
         let list = self.borrow().base_type.property_list();
         for (name, ty) in list {
+            // A shadowing declaration above already offered this name
+            if has_shadows && self.borrow().shadowing_members.contains_key(&name) {
+                continue;
+            }
             let e = expression_from_reference(NamedReference::new(self, name.clone()), &ty, None);
             if let Some(r) = f(&name, e) {
                 return Some(r);
@@ -540,7 +548,7 @@ impl LookupObject for ElementRc {
                 })
                 .or_else(|| check_extra_deprecated(self, ctx, name));
             Some(expression_from_reference(
-                NamedReference::new(self, lookup_result.resolved_name.to_smolstr()),
+                NamedReference::new(self, lookup_result.internal_or_resolved_name()),
                 &lookup_result.property_type,
                 deprecated,
             ))

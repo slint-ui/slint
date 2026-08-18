@@ -24,9 +24,10 @@
    a warning instead of an error, and the declaration shadows the builtin member.
    Members added to an already released element must be marked shadowable, so that
    older code that already declares a member with that name keeps compiling.
-   This only works for members that the compiler itself never accesses by name —
-   no default binding, and no compiler pass that looks the name up on user elements —
-   as such accesses would resolve to the shadowing declaration and generate wrong code.
+   The shadowing declaration is registered under an internal name, so the builtin member
+   stays reachable by name: base components and compiler passes that access it by name are
+   unaffected. Shadowable members must still not have a default value, as that would end up
+   on the shadowing declaration.
 
    Mark a property `//-constexpr` (value known at compile time)
    or `//-fake` (exists only at compile time).
@@ -1080,12 +1081,16 @@ export component Flickable inherits Empty {
     /// Panning with a touch screen is only affected by `interactive`.
     in property <bool> mouse-drag-pan-enabled: true;
     /// The total width of the scrollable content.
+    //-shadowable
     in property <length> content-width;
     /// The total height of the scrollable content.
+    //-shadowable
     in property <length> content-height;
     /// The position of the scrollable content relative to the `Flickable`. This is usually a negative value.
+    //-shadowable
     in-out property <length> content-x;
     /// The position of the scrollable content relative to the `Flickable`. This is usually a negative value.
+    //-shadowable
     in-out property <length> content-y;
     in property <length> viewport-width <=> content-width;
     in property <length> viewport-height <=> content-height;

@@ -129,7 +129,7 @@ pub(crate) fn should_materialize(
                 crate::typeregister::BUILTIN.enums.PopupClosePolicy.clone(),
             ));
         } else {
-            let ty = base_type.lookup_property(prop).property_type.clone();
+            let ty = base_type.lookup_property_by_internal_name(prop).property_type.clone();
             return (ty != Type::Invalid).then_some(ty);
         }
     }

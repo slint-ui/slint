@@ -480,9 +480,26 @@ impl PartialEq for ElementType {
 }
 
 impl ElementType {
+    /// Resolve a name written in `.slint` source.
     pub fn lookup_property<'a>(&self, name: &'a str) -> PropertyLookupResult<'a> {
         match self {
             Self::Component(c) => c.root_element.borrow().lookup_property(name),
+            _ => self.lookup_non_component_property(name),
+        }
+    }
+
+    /// Resolve an internal name, see [`crate::object_tree::Element::lookup_property_by_internal_name`].
+    pub fn lookup_property_by_internal_name<'a>(&self, name: &'a str) -> PropertyLookupResult<'a> {
+        match self {
+            Self::Component(c) => c.root_element.borrow().lookup_property_by_internal_name(name),
+            _ => self.lookup_non_component_property(name),
+        }
+    }
+
+    /// Only a component can have shadowed members, so the other bases resolve either name the same.
+    fn lookup_non_component_property<'a>(&self, name: &'a str) -> PropertyLookupResult<'a> {
+        match self {
+            Self::Component(_) => unreachable!("handled by the callers"),
             Self::Builtin(b) => {
                 let resolved_name =
                     if let Some(alias_name) = b.native_class.lookup_alias(name.as_ref()) {
@@ -512,6 +529,7 @@ impl ElementType {
                         },
                         #[cfg(feature = "slint-sc")]
                         is_slint_sc: p.slint_sc,
+                        internal_name: None,
                         deprecated: None,
                     },
                 }
@@ -535,6 +553,7 @@ impl ElementType {
                     builtin_function: None,
                     #[cfg(feature = "slint-sc")]
                     is_slint_sc: false,
+                    internal_name: None,
                     deprecated: None,
                 }
             }
@@ -554,14 +573,17 @@ impl ElementType {
     pub fn property_list(&self) -> Vec<(SmolStr, Type)> {
         match self {
             Self::Component(c) => {
-                let mut r = c.root_element.borrow().base_type.property_list();
+                let root = c.root_element.borrow();
+                let mut r = root.base_type.property_list();
+                // A shadowing declaration replaces the inherited entry of the same name
+                if !root.shadowing_members.is_empty() {
+                    r.retain(|(name, _)| !root.shadowing_members.contains_key(name));
+                }
                 r.extend(
-                    c.root_element
-                        .borrow()
-                        .property_declarations
+                    root.property_declarations
                         .iter()
                         .filter(|(_, d)| d.visibility != PropertyVisibility::Private)
-                        .map(|(k, d)| (k.clone(), d.property_type.clone())),
+                        .map(|(k, d)| (d.declared_name(k).clone(), d.property_type.clone())),
                 );
                 r
             }
@@ -929,9 +951,16 @@ pub struct PropertyLookupResult<'a> {
     pub is_local_to_component: bool,
     /// True if the property in the direct base of the component (for protected visibility purposes)
     pub is_in_direct_base: bool,
-    /// True if a local declaration may shadow this member. Only builtin element
-    /// members marked `//-shadowable` in builtins.slint are shadowable.
+    /// True if a local declaration may shadow this member: builtin element members
+    /// marked `//-shadowable` in builtins.slint, and component members declared
+    /// `@shadowable`.
     pub is_shadowable: bool,
+
+    /// Set when the lookup went through a shadow: the member is declared under this
+    /// name in `Element::property_declarations`, `bindings`, etc, while `resolved_name`
+    /// keeps the name as it is written in the source. Only ever set by
+    /// [`crate::object_tree::Element::lookup_property`].
+    pub internal_name: Option<SmolStr>,
 
     /// If the property is a builtin function
     pub builtin_function: Option<BuiltinFunction>,
@@ -962,6 +991,12 @@ impl<'a> PropertyLookupResult<'a> {
         )
     }
 
+    /// The name the member is stored under in `Element::property_declarations`, `bindings`,
+    /// `change_callbacks` and `property_analysis`, and the name a `NamedReference` to it carries.
+    pub fn internal_or_resolved_name(&self) -> SmolStr {
+        self.internal_name.clone().unwrap_or_else(|| self.resolved_name.as_ref().into())
+    }
+
     pub fn invalid(resolved_name: Cow<'a, str>) -> Self {
         Self {
             resolved_name,
@@ -974,6 +1009,7 @@ impl<'a> PropertyLookupResult<'a> {
             builtin_function: None,
             #[cfg(feature = "slint-sc")]
             is_slint_sc: false,
+            internal_name: None,
             deprecated: None,
         }
     }

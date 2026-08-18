@@ -26,6 +26,8 @@ struct Declarations {
 }
 impl Declarations {
     fn take_from_element(e: &mut Element) -> Self {
+        // The source-name index points into the declarations being moved away
+        e.shadowing_members.clear();
         Declarations { property_declarations: core::mem::take(&mut e.property_declarations) }
     }
 }

@@ -811,7 +811,7 @@ fn de_normalize_property_name<'a>(element_type: &ElementType, prop: &'a str) -> 
 
 // Same as de_normalize_property_name, but use a `ElementRc`
 fn de_normalize_property_name_with_element<'a>(element: &ElementRc, prop: &'a str) -> Cow<'a, str> {
-    if let Some(d) = element.borrow().property_declarations.get(prop) {
+    if let Some((_, d)) = element.borrow().declaration(prop) {
         d.node
             .as_ref()
             .and_then(|n| n.child_node(SyntaxKind::DeclaredIdentifier))

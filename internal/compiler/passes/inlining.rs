@@ -97,6 +97,18 @@ fn inline_element(
     let mut elem_mut = elem.borrow_mut();
     let priority_delta = 1 + elem_mut.inline_depth;
     elem_mut.base_type = inlined_component.root_element.borrow().base_type.clone();
+    // Merging is by name, so the two sides must not share one
+    debug_assert!(
+        inlined_component
+            .root_element
+            .borrow()
+            .property_declarations
+            .keys()
+            .all(|name| !elem_mut.property_declarations.contains_key(name)),
+        "inlining {} into {} would merge two declarations of the same name",
+        inlined_component.id,
+        elem_mut.id
+    );
     elem_mut.property_declarations.extend(
         inlined_component.root_element.borrow().property_declarations.iter().map(|(name, decl)| {
             let mut decl = decl.clone();
@@ -104,6 +116,13 @@ fn inline_element(
             (name.clone(), decl)
         }),
     );
+    // Merge the shadow index, keeping the element's own shadows.
+    for (source_name, internal_name) in &inlined_component.root_element.borrow().shadowing_members {
+        elem_mut
+            .shadowing_members
+            .entry(source_name.clone())
+            .or_insert_with(|| internal_name.clone());
+    }
 
     for (p, a) in inlined_component.root_element.borrow().property_analysis.borrow().iter() {
         elem_mut.property_analysis.borrow_mut().entry(p.clone()).or_default().merge_with_base(a);
@@ -573,6 +592,7 @@ fn duplicate_element_with_mapping(
         id: elem.id.clone(),
         is_injected_wrapper_element: elem.is_injected_wrapper_element,
         property_declarations: elem.property_declarations.clone(),
+        shadowing_members: elem.shadowing_members.clone(),
         // We will do the fixup of the references in bindings later
         bindings: elem
             .bindings_including_synthetic()
@@ -930,7 +950,7 @@ fn component_requires_inlining(component: &Rc<Component>) -> bool {
             return true;
         }
         if binding.animation.is_some() {
-            let lookup_result = root_element.borrow().lookup_property(prop);
+            let lookup_result = root_element.borrow().lookup_property_by_internal_name(prop);
             if !lookup_result.is_valid()
                 || !lookup_result.is_local_to_component
                 || !matches!(
