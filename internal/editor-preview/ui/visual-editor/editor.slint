@@ -10,6 +10,7 @@ import { DragPreview } from "components/drag-preview.slint";
 import { EditorCanvas } from "components/editor-canvas.slint";
 import { EditorState } from "components/editor-state.slint";
 import { EditorTopBar } from "components/top-bar.slint";
+import { DeviceManager } from "components/device-manager.slint";
 import { ImageAssetEditor } from "components/image-asset-editor.slint";
 import { InspectorPane } from "components/inspector-pane.slint";
 import { LeftPane } from "components/left-pane.slint";
@@ -746,4 +747,6 @@ export component EditorUi inherits Window {
             Api.close-project-run-dialog();
         }
     }
+
+    if Api.springboard-device-manager-visible: DeviceManager { }
 }

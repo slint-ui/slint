@@ -65,13 +65,15 @@ pub fn apply_message(message: ServerMessage) {
 pub fn set_connection_error(message: String) {
     STATE.with_borrow_mut(|state| {
         state.status = preview::ui::SpringboardSessionStatus::Error;
-        state.error = message;
+        state.error = message.clone();
+        state.manager_error = message;
+        state.reveal_manager = true;
     });
     sync_api();
 }
 
 fn sync_api() {
-    STATE.with_borrow(|state| {
+    STATE.with_borrow_mut(|state| {
         preview::PREVIEW_STATE.with_borrow(|preview_state| {
             let Some(app_window) = &preview_state.app_window else { return };
             let api = app_window.api();
@@ -85,6 +87,14 @@ fn sync_api() {
                 state.last_used.as_ref().map(DeviceId::as_str).unwrap_or_default().into(),
             );
             api.set_springboard_run_state(state.run_state());
+            api.set_springboard_device_manager_error(state.manager_error.clone().into());
+            if state.reveal_manager {
+                api.set_springboard_device_manager_selected_device_id(
+                    state.last_used.as_ref().map(DeviceId::as_str).unwrap_or_default().into(),
+                );
+                api.set_springboard_device_manager_visible(true);
+                state.reveal_manager = false;
+            }
         });
     });
 }
@@ -95,6 +105,8 @@ struct SpringboardUiState {
     last_used: Option<DeviceId>,
     status: preview::ui::SpringboardSessionStatus,
     error: String,
+    manager_error: String,
+    reveal_manager: bool,
 }
 
 impl Default for SpringboardUiState {
@@ -105,6 +117,8 @@ impl Default for SpringboardUiState {
             last_used: None,
             status: preview::ui::SpringboardSessionStatus::Unavailable,
             error: String::new(),
+            manager_error: String::new(),
+            reveal_manager: false,
         }
     }
 }
@@ -118,9 +132,14 @@ impl SpringboardUiState {
                     if code == ProtocolErrorCode::VersionMismatch {
                         self.status = preview::ui::SpringboardSessionStatus::Error;
                     }
-                    self.error = message;
+                    self.error = message.clone();
+                    self.manager_error = message;
+                    self.reveal_manager = true;
                 }
-                ResponsePayload::Ok => {}
+                ResponsePayload::Ok => {
+                    self.error.clear();
+                    self.manager_error.clear();
+                }
             },
             ServerMessage::Event(event) => self.apply_event(event.event),
         }
@@ -133,6 +152,7 @@ impl SpringboardUiState {
         self.last_used = snapshot.last_used_device;
         self.status = preview::ui::SpringboardSessionStatus::Ready;
         self.error.clear();
+        self.manager_error.clear();
     }
 
     fn apply_event(&mut self, event: ServerEvent) {
@@ -144,7 +164,8 @@ impl SpringboardUiState {
             ServerEvent::ActiveDeviceChanged { device_id } => self.active = device_id,
             ServerEvent::LastUsedDeviceChanged { device_id } => self.last_used = device_id,
             ServerEvent::Diagnostic { message, .. } | ServerEvent::Error { message, .. } => {
-                self.error = message;
+                self.error = message.clone();
+                self.manager_error = message;
             }
             ServerEvent::Shutdown => {
                 self.status = preview::ui::SpringboardSessionStatus::Unavailable;
@@ -155,8 +176,10 @@ impl SpringboardUiState {
     }
 
     fn rows(&self) -> Vec<preview::ui::SpringboardDevice> {
-        self.devices
-            .values()
+        let mut devices = self.devices.values().collect::<Vec<_>>();
+        devices.sort_by_key(|device| self.last_used.as_ref() != Some(&device.id));
+        devices
+            .into_iter()
             .map(|device| device_to_ui(device, self.active.as_ref(), self.last_used.as_ref()))
             .collect()
     }
@@ -308,5 +331,17 @@ mod tests {
 
         state.devices.get_mut(&target.id).unwrap().status = DeviceStatus::Unavailable;
         assert_eq!(state.run_state(), preview::ui::SpringboardRunState::Unavailable);
+    }
+
+    #[test]
+    fn a_successful_retry_clears_the_device_manager_error() {
+        let mut state = SpringboardUiState::default();
+        state.manager_error = "Launch failed".into();
+        state.apply_message(ServerMessage::Response(i_slint_springboard::ResponseEnvelope::new(
+            i_slint_springboard::RequestId(7),
+            ResponsePayload::Ok,
+        )));
+
+        assert!(state.manager_error.is_empty());
     }
 }

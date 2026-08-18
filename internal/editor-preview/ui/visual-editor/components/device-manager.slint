@@ -1,0 +1,520 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import {
+    Api, SpringboardDevice, SpringboardDeviceKind, SpringboardDeviceStatus, SpringboardSessionStatus,
+} from "../../api.slint";
+import { StudioTheme } from "common.slint";
+import { ListView } from "std-widgets.slint";
+
+component ManagerButton inherits Rectangle {
+    in property <string> label;
+    in property <bool> enabled: true;
+    in property <bool> primary: false;
+    in property <bool> destructive: false;
+    callback clicked;
+
+    min-width: 86px;
+    height: 34px;
+    border-radius: 7px;
+    border-width: root.primary ? 0px : 1px;
+    border-color: root.destructive ? #d92d20aa : StudioTheme.border;
+    background: !root.enabled
+        ? StudioTheme.panel-subtle
+        : root.primary
+            ? touch.pressed ? #087ccc : touch.has-hover ? #0a8ee8 : StudioTheme.accent
+            : touch.pressed ? StudioTheme.soft-border : touch.has-hover ? StudioTheme.panel-subtle : StudioTheme.panel-bg;
+    opacity: root.enabled ? 1 : 0.58;
+    accessible-role: button;
+    accessible-label: root.label;
+    accessible-enabled: root.enabled;
+    accessible-action-default => {
+        if root.enabled {
+            root.clicked();
+        }
+    }
+    animate background, opacity { duration: 120ms; }
+
+    Text {
+        text: root.label;
+        color: root.primary
+            ? white
+            : root.destructive && root.enabled
+                ? #d92d20
+                : root.enabled ? StudioTheme.text : StudioTheme.muted;
+        font-size: 12px;
+        font-weight: 700;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+
+    touch := TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: root.enabled ? pointer : default;
+        clicked => { root.clicked(); }
+    }
+}
+
+component DeviceRow inherits Rectangle {
+    in property <SpringboardDevice> device;
+    in property <bool> selected: false;
+    callback clicked;
+
+    height: 76px;
+    border-radius: 8px;
+    border-width: root.selected ? 1px : 0px;
+    border-color: StudioTheme.accent-strong;
+    background: root.selected
+        ? StudioTheme.accent.with-alpha(0.12)
+        : touch.has-hover ? StudioTheme.panel-subtle : transparent;
+    accessible-role: AccessibleRole.list-item;
+    accessible-label: root.device.name + ", " + root.status-label(root.device.status);
+    accessible-action-default => { root.clicked(); }
+    animate background, border-color { duration: 120ms; }
+
+    pure function kind-label(kind: SpringboardDeviceKind) -> string {
+        if kind == SpringboardDeviceKind.LocalViewer {
+            return "Desktop viewer";
+        }
+        if kind == SpringboardDeviceKind.RustApplication {
+            return "Rust application";
+        }
+        if kind == SpringboardDeviceKind.RemoteViewer {
+            return "Remote viewer";
+        }
+        if kind == SpringboardDeviceKind.IosSimulator {
+            return "iOS Simulator";
+        }
+        return "Android emulator";
+    }
+
+    pure function status-label(status: SpringboardDeviceStatus) -> string {
+        if status == SpringboardDeviceStatus.Available {
+            return "Available";
+        }
+        if status == SpringboardDeviceStatus.Starting {
+            return "Starting";
+        }
+        if status == SpringboardDeviceStatus.Connecting {
+            return "Connecting";
+        }
+        if status == SpringboardDeviceStatus.Running {
+            return "Running";
+        }
+        if status == SpringboardDeviceStatus.Stopping {
+            return "Stopping";
+        }
+        if status == SpringboardDeviceStatus.Failed {
+            return "Failed";
+        }
+        if status == SpringboardDeviceStatus.Incompatible {
+            return "Incompatible";
+        }
+        return "Unavailable";
+    }
+
+    pure function status-color(status: SpringboardDeviceStatus) -> color {
+        if status == SpringboardDeviceStatus.Running {
+            return #18a957;
+        }
+        if status == SpringboardDeviceStatus.Starting
+                || status == SpringboardDeviceStatus.Connecting
+                || status == SpringboardDeviceStatus.Stopping {
+            return StudioTheme.accent;
+        }
+        if status == SpringboardDeviceStatus.Failed
+                || status == SpringboardDeviceStatus.Incompatible {
+            return #d92d20;
+        }
+        if status == SpringboardDeviceStatus.Available {
+            return #6b9b35;
+        }
+        return StudioTheme.muted;
+    }
+
+    HorizontalLayout {
+        padding-left: 12px;
+        padding-right: 12px;
+        spacing: 12px;
+        cross-axis-alignment: center;
+
+        Rectangle {
+            width: 38px;
+            height: 38px;
+            border-radius: 9px;
+            background: root.selected ? StudioTheme.accent.with-alpha(0.14) : StudioTheme.panel-subtle;
+
+            Image {
+                width: 20px;
+                height: 20px;
+                source: root.device.kind == SpringboardDeviceKind.RemoteViewer
+                        || root.device.kind == SpringboardDeviceKind.IosSimulator
+                        || root.device.kind == SpringboardDeviceKind.AndroidEmulator
+                    ? @image-url("../../assets/slinterface-primer-device-mobile.svg")
+                    : @image-url("../../assets/slinterface-primer-device-desktop.svg");
+                colorize: root.selected ? StudioTheme.accent-strong : StudioTheme.muted;
+            }
+        }
+
+        VerticalLayout {
+            spacing: 3px;
+            horizontal-stretch: 1;
+            alignment: center;
+
+            HorizontalLayout {
+                spacing: 7px;
+                vertical-stretch: 0;
+
+                Text {
+                    text: root.device.name;
+                    color: StudioTheme.text;
+                    font-size: 13px;
+                    font-weight: 700;
+                    overflow: elide;
+                    vertical-alignment: center;
+                }
+
+                if root.device.is-active: Rectangle {
+                    width: 48px;
+                    height: 19px;
+                    border-radius: 9.5px;
+                    background: #18a95722;
+
+                    Text {
+                        text: "ACTIVE";
+                        color: #18864a;
+                        font-size: 9px;
+                        font-weight: 800;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+                }
+
+                if root.device.is-last-used: Rectangle {
+                    width: 38px;
+                    height: 19px;
+                    border-radius: 9.5px;
+                    background: StudioTheme.panel-subtle;
+
+                    Text {
+                        text: "LAST";
+                        color: StudioTheme.muted;
+                        font-size: 9px;
+                        font-weight: 800;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+                }
+            }
+
+            Text {
+                text: root.kind-label(root.device.kind)
+                    + (root.device.version != "" ? " · Slint " + root.device.version : "");
+                color: StudioTheme.muted;
+                font-size: 11px;
+                overflow: elide;
+                vertical-stretch: 0;
+            }
+
+            if root.device.status-detail != "": Text {
+                text: root.device.status-detail;
+                color: root.device.status == SpringboardDeviceStatus.Failed
+                        || root.device.status == SpringboardDeviceStatus.Incompatible
+                    ? #d92d20 : StudioTheme.muted;
+                font-size: 10px;
+                overflow: elide;
+                vertical-stretch: 0;
+            }
+        }
+
+        HorizontalLayout {
+            spacing: 6px;
+            cross-axis-alignment: center;
+
+            Rectangle {
+                width: 8px;
+                height: 8px;
+                border-radius: 4px;
+                background: root.status-color(root.device.status);
+            }
+
+            Text {
+                text: root.status-label(root.device.status);
+                color: root.device.status == SpringboardDeviceStatus.Failed
+                        || root.device.status == SpringboardDeviceStatus.Incompatible
+                    ? #d92d20 : StudioTheme.muted;
+                font-size: 11px;
+                font-weight: 600;
+                vertical-alignment: center;
+            }
+        }
+    }
+
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+}
+
+export component DeviceManager inherits Rectangle {
+    private property <int> selected-index: 0;
+    private property <bool> has-selection: Api.springboard-devices.length > 0
+        && root.selected-index >= 0
+        && root.selected-index < Api.springboard-devices.length;
+    private property <bool> selected-active: root.has-selection
+        && Api.springboard-devices[root.selected-index].is-active;
+    private property <bool> another-active: Api.springboard-active-device-id != ""
+        && root.has-selection
+        && Api.springboard-active-device-id != Api.springboard-devices[root.selected-index].id;
+    forward-focus: manager-focus;
+
+    init => { manager-focus.focus(); }
+
+    function run-selected-action() {
+        if !root.has-selection {
+            return;
+        }
+        if root.selected-active && Api.springboard-devices[root.selected-index].can-stop {
+            Api.springboard-stop-device(Api.springboard-devices[root.selected-index].id);
+        } else if !root.another-active
+                && Api.springboard-devices[root.selected-index].can-launch
+                && Api.springboard-devices[root.selected-index].status != SpringboardDeviceStatus.Unavailable
+                && Api.springboard-devices[root.selected-index].status != SpringboardDeviceStatus.Incompatible {
+            Api.springboard-launch-device(Api.springboard-devices[root.selected-index].id);
+        }
+    }
+
+    function action-label() -> string {
+        if root.selected-active {
+            return "Stop";
+        }
+        if root.another-active {
+            return "Stop active device first";
+        }
+        if root.has-selection
+                && Api.springboard-devices[root.selected-index].status == SpringboardDeviceStatus.Unavailable {
+            return "Unavailable";
+        }
+        if root.has-selection
+                && Api.springboard-devices[root.selected-index].status == SpringboardDeviceStatus.Incompatible {
+            return "Incompatible";
+        }
+        return "Run";
+    }
+
+    function action-enabled() -> bool {
+        if !root.has-selection || root.another-active {
+            return false;
+        }
+        if root.selected-active {
+            return Api.springboard-devices[root.selected-index].can-stop;
+        }
+        return Api.springboard-devices[root.selected-index].can-launch
+            && Api.springboard-devices[root.selected-index].status != SpringboardDeviceStatus.Unavailable
+            && Api.springboard-devices[root.selected-index].status != SpringboardDeviceStatus.Incompatible;
+    }
+
+    Rectangle {
+        background: #00000066;
+
+        TouchArea {
+            clicked => { Api.springboard-device-manager-visible = false; }
+        }
+    }
+
+    panel := Rectangle {
+        width: min(640px, root.width - 32px);
+        height: min(560px, root.height - 32px);
+        border-radius: 12px;
+        border-width: 1px;
+        border-color: StudioTheme.border;
+        background: StudioTheme.panel-bg;
+        drop-shadow-blur: 28px;
+        drop-shadow-offset-y: 12px;
+        drop-shadow-color: StudioTheme.dark ? #00000088 : #34405438;
+        accessible-role: AccessibleRole.groupbox;
+        accessible-label: "Preview device manager";
+
+        TouchArea { }
+
+        VerticalLayout {
+            padding: 24px;
+            spacing: 12px;
+
+            HorizontalLayout {
+                vertical-stretch: 0;
+                cross-axis-alignment: center;
+
+                VerticalLayout {
+                    spacing: 3px;
+
+                    Text {
+                        text: "Preview devices";
+                        color: StudioTheme.text;
+                        font-size: 18px;
+                        font-weight: 800;
+                    }
+
+                    Text {
+                        text: "Choose where this project runs. Your last choice is shared across projects.";
+                        color: StudioTheme.muted;
+                        font-size: 12px;
+                    }
+                }
+
+                ManagerButton {
+                    label: "Close";
+                    clicked => { Api.springboard-device-manager-visible = false; }
+                }
+            }
+
+            if Api.springboard-session-error != "" || Api.springboard-device-manager-error != "": Rectangle {
+                height: 54px;
+                border-radius: 7px;
+                border-width: 1px;
+                border-color: #d92d2055;
+                background: #d92d2012;
+
+                Text {
+                    x: 12px;
+                    width: parent.width - 24px;
+                    text: Api.springboard-device-manager-error != ""
+                        ? Api.springboard-device-manager-error
+                        : Api.springboard-session-error;
+                    color: #d92d20;
+                    font-size: 11px;
+                    wrap: word-wrap;
+                    vertical-alignment: center;
+                }
+            }
+
+            Rectangle {
+                border-radius: 9px;
+                border-width: 1px;
+                border-color: StudioTheme.border;
+                background: StudioTheme.panel-bg;
+                clip: true;
+                vertical-stretch: 1;
+
+                if Api.springboard-devices.length == 0: VerticalLayout {
+                    alignment: center;
+                    spacing: 7px;
+
+                    HorizontalLayout {
+                        alignment: center;
+                        vertical-stretch: 0;
+
+                        Image {
+                            width: 32px;
+                            height: 32px;
+                            source: @image-url("../../assets/slinterface-primer-device-desktop.svg");
+                            colorize: StudioTheme.muted;
+                        }
+                    }
+
+                    Text {
+                        text: Api.springboard-session-status == SpringboardSessionStatus.Unavailable
+                            ? "Springboard is not available for this project"
+                            : "No preview devices are available";
+                        color: StudioTheme.text;
+                        font-size: 13px;
+                        font-weight: 700;
+                        horizontal-alignment: center;
+                    }
+
+                    Text {
+                        text: "Refresh after checking the project configuration or viewer connection.";
+                        color: StudioTheme.muted;
+                        font-size: 11px;
+                        horizontal-alignment: center;
+                    }
+                }
+
+                if Api.springboard-devices.length > 0: ListView {
+                    x: 4px;
+                    y: 4px;
+                    width: parent.width - 8px;
+                    height: parent.height - 8px;
+                    accessible-role: AccessibleRole.list;
+                    accessible-label: "Preview devices";
+
+                    for device[index] in Api.springboard-devices: DeviceRow {
+                        width: parent.visible-width;
+                        device: device;
+                        selected: index == root.selected-index;
+                        clicked => {
+                            root.selected-index = index;
+                            Api.springboard-device-manager-selected-device-id = device.id;
+                        }
+                    }
+                }
+            }
+
+            Text {
+                text: root.another-active
+                    ? "Springboard v1 runs one target at a time. Stop the active device before switching."
+                    : "Springboard v1 runs one target at a time.";
+                color: root.another-active ? #b54708 : StudioTheme.muted;
+                font-size: 11px;
+                vertical-stretch: 0;
+            }
+
+            HorizontalLayout {
+                alignment: end;
+                spacing: 8px;
+                vertical-stretch: 0;
+
+                ManagerButton {
+                    label: "Refresh";
+                    enabled: root.has-selection
+                        && Api.springboard-devices[root.selected-index].can-refresh;
+                    clicked => {
+                        Api.springboard-refresh-device(Api.springboard-devices[root.selected-index].id);
+                    }
+                }
+
+                ManagerButton {
+                    label: root.action-label();
+                    primary: !root.selected-active;
+                    destructive: root.selected-active;
+                    enabled: root.action-enabled();
+                    clicked => { root.run-selected-action(); }
+                }
+            }
+        }
+    }
+
+    manager-focus := FocusScope {
+        key-pressed(event) => {
+            if event.text == Key.Escape {
+                Api.springboard-device-manager-visible = false;
+                return accept;
+            }
+            if event.text == Key.UpArrow && root.selected-index > 0 {
+                root.selected-index -= 1;
+                Api.springboard-device-manager-selected-device-id = Api.springboard-devices[root.selected-index].id;
+                return accept;
+            }
+            if event.text == Key.DownArrow && root.selected-index + 1 < Api.springboard-devices.length {
+                root.selected-index += 1;
+                Api.springboard-device-manager-selected-device-id = Api.springboard-devices[root.selected-index].id;
+                return accept;
+            }
+            if event.text == Key.Return || event.text == Key.Space {
+                root.run-selected-action();
+                return accept;
+            }
+            if event.text == "r" && root.has-selection
+                    && Api.springboard-devices[root.selected-index].can-refresh {
+                Api.springboard-refresh-device(Api.springboard-devices[root.selected-index].id);
+                return accept;
+            }
+            if event.text == "s" && root.selected-active
+                    && Api.springboard-devices[root.selected-index].can-stop {
+                Api.springboard-stop-device(Api.springboard-devices[root.selected-index].id);
+                return accept;
+            }
+            return reject;
+        }
+    }
+}
