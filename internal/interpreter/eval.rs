@@ -720,6 +720,123 @@ fn cast_constant_value(value: Value, to: &Type) -> Value {
     }
 }
 
+fn eval_cast(ctx: &mut EvalContext, from: &Expression, to: &Type) -> Value {
+    // The `Path` native item's rtti setter needs a real `Value::PathData`, not the raw model /
+    // struct / string that `from` evaluates to.
+    if matches!(to, Type::PathData) {
+        return cast_to_path_data(ctx, from);
+    }
+    let v = eval_expression(ctx, from);
+    match (v, to) {
+        (Value::Number(n), Type::Int32) => Value::Number(n.trunc()),
+        (Value::Number(n), Type::String) => {
+            Value::String(i_slint_core::string::shared_string_from_number(n))
+        }
+        (Value::Number(n), Type::Color) => Color::from_argb_encoded(n as u32).into(),
+        (Value::Brush(brush), Type::Color) => brush.color().into(),
+        (Value::EnumerationValue(_, val), Type::String) => Value::String(val.into()),
+        (v, _) => v,
+    }
+}
+
+fn eval_binary_expression(
+    ctx: &mut EvalContext,
+    lhs: &Expression,
+    rhs: &Expression,
+    op: char,
+) -> Value {
+    let lhs = eval_expression(ctx, lhs);
+    // `&&` and `||` must short-circuit, or else rhs side effects would wrongly run.
+    match (op, &lhs) {
+        ('&', Value::Bool(false)) => return Value::Bool(false),
+        ('|', Value::Bool(true)) => return Value::Bool(true),
+        _ => {}
+    }
+    let rhs = eval_expression(ctx, rhs);
+    binary_op(op, lhs, rhs)
+}
+
+fn eval_model_data_assignment(ctx: &mut EvalContext, level: usize, value: &Expression) -> Value {
+    let new_value = eval_expression(ctx, value);
+    if let Some(current) = ctx.current.as_ref() {
+        let walker = walk_parent(current, level);
+        if let Some((parent_weak, repeater_idx)) = walker.repeated_in.get()
+            && let Some(parent) = parent_weak.upgrade()
+        {
+            // Read the row index out of the repeated sub-component's `model_index` property.
+            let row = walker.compilation_unit.sub_components[walker.sub_component_idx]
+                .properties
+                .iter_enumerated()
+                .find(|(_, p)| p.name.as_str() == "model_index")
+                .map(|(idx, _)| {
+                    let v = std::pin::Pin::as_ref(&walker.properties[idx]).get();
+                    f64::try_from(v).unwrap_or(0.) as usize
+                })
+                .unwrap_or(0);
+            let parent_pinned = std::pin::Pin::new(parent);
+            let repeater = &parent_pinned.repeaters[*repeater_idx];
+            repeater.model_set_row_data(row, new_value);
+        }
+    }
+    Value::Void
+}
+
+fn eval_array_index_assignment(
+    ctx: &mut EvalContext,
+    array: &Expression,
+    index: &Expression,
+    value: &Expression,
+) -> Value {
+    let value = eval_expression(ctx, value);
+    let array = eval_expression(ctx, array);
+    let index = eval_expression(ctx, index);
+    if let (Value::Model(m), Value::Number(i)) = (array, index)
+        && i >= 0.0
+    {
+        let i = i.trunc() as usize;
+        if i < m.row_count() {
+            m.set_row_data(i, value);
+        }
+    }
+    Value::Void
+}
+
+fn eval_gradient(ctx: &mut EvalContext, expression: &Expression) -> Value {
+    match expression {
+        Expression::LinearGradient { angle, stops } => {
+            let angle: f32 = eval_expression(ctx, angle).try_into().unwrap_or_default();
+            Value::Brush(Brush::LinearGradient(LinearGradientBrush::new(
+                angle,
+                eval_stops(ctx, stops),
+            )))
+        }
+        Expression::RadialGradient { stops, center, radius } => {
+            let mut g = RadialGradientBrush::new_circle(eval_stops(ctx, stops));
+            if let Some((cx, cy)) = center {
+                let cx: f32 = eval_expression(ctx, cx).try_into().unwrap_or_default();
+                let cy: f32 = eval_expression(ctx, cy).try_into().unwrap_or_default();
+                g = g.with_center(cx, cy);
+            }
+            if let Some(r) = radius {
+                let r: f32 = eval_expression(ctx, r).try_into().unwrap_or_default();
+                g = g.with_radius(r);
+            }
+            Value::Brush(Brush::RadialGradient(g))
+        }
+        Expression::ConicGradient { from_angle, stops, center } => {
+            let from_angle: f32 = eval_expression(ctx, from_angle).try_into().unwrap_or_default();
+            let mut g = ConicGradientBrush::new(from_angle, eval_stops(ctx, stops));
+            if let Some((cx, cy)) = center {
+                let cx: f32 = eval_expression(ctx, cx).try_into().unwrap_or_default();
+                let cy: f32 = eval_expression(ctx, cy).try_into().unwrap_or_default();
+                g = g.with_center(cx, cy);
+            }
+            Value::Brush(Brush::ConicGradient(g))
+        }
+        _ => unreachable!("eval_gradient called with a non-gradient expression"),
+    }
+}
+
 pub fn eval_expression(ctx: &mut EvalContext, expression: &Expression) -> Value {
     if let Some(r) = &ctx.return_value {
         return r.clone();
@@ -773,25 +890,7 @@ pub fn eval_expression(ctx: &mut EvalContext, expression: &Expression) -> Value 
                 _ => Value::Void,
             }
         }
-        Expression::Cast { from, to } => {
-            // The `Path` native item's rtti setter needs a real
-            // `Value::PathData`, not the raw model / struct / string that
-            // `from` evaluates to.
-            if matches!(to, Type::PathData) {
-                return cast_to_path_data(ctx, from);
-            }
-            let v = eval_expression(ctx, from);
-            match (v, to) {
-                (Value::Number(n), Type::Int32) => Value::Number(n.trunc()),
-                (Value::Number(n), Type::String) => {
-                    Value::String(i_slint_core::string::shared_string_from_number(n))
-                }
-                (Value::Number(n), Type::Color) => Color::from_argb_encoded(n as u32).into(),
-                (Value::Brush(brush), Type::Color) => brush.color().into(),
-                (Value::EnumerationValue(_, val), Type::String) => Value::String(val.into()),
-                (v, _) => v,
-            }
-        }
+        Expression::Cast { from, to } => eval_cast(ctx, from, to),
         Expression::CodeBlock(sub) => {
             let mut v = Value::Void;
             for e in sub {
@@ -823,47 +922,10 @@ pub fn eval_expression(ctx: &mut EvalContext, expression: &Expression) -> Value 
             Value::Void
         }
         Expression::ModelDataAssignment { level, value } => {
-            let new_value = eval_expression(ctx, value);
-            if let Some(current) = ctx.current.as_ref() {
-                let mut walker = current.clone();
-                for _ in 0..*level {
-                    let parent = walker.parent.upgrade().expect("parent vanished");
-                    walker = std::pin::Pin::new(parent);
-                }
-                if let Some((parent_weak, repeater_idx)) = walker.repeated_in.get()
-                    && let Some(parent) = parent_weak.upgrade()
-                {
-                    // Read the row index out of the repeated sub-component's
-                    // `model_index` property.
-                    let row = walker.compilation_unit.sub_components[walker.sub_component_idx]
-                        .properties
-                        .iter_enumerated()
-                        .find(|(_, p)| p.name.as_str() == "model_index")
-                        .map(|(idx, _)| {
-                            let v = std::pin::Pin::as_ref(&walker.properties[idx]).get();
-                            f64::try_from(v).unwrap_or(0.) as usize
-                        })
-                        .unwrap_or(0);
-                    let parent_pinned = std::pin::Pin::new(parent);
-                    let repeater = &parent_pinned.repeaters[*repeater_idx];
-                    repeater.model_set_row_data(row, new_value);
-                }
-            }
-            Value::Void
+            eval_model_data_assignment(ctx, *level, value)
         }
         Expression::ArrayIndexAssignment { array, index, value } => {
-            let value = eval_expression(ctx, value);
-            let array = eval_expression(ctx, array);
-            let index = eval_expression(ctx, index);
-            if let (Value::Model(m), Value::Number(i)) = (array, index)
-                && i >= 0.0
-            {
-                let i = i.trunc() as usize;
-                if i < m.row_count() {
-                    m.set_row_data(i, value);
-                }
-            }
-            Value::Void
+            eval_array_index_assignment(ctx, array, index, value)
         }
         Expression::SliceIndexAssignment { slice_name, index, value } => {
             let value = eval_expression(ctx, value);
@@ -882,18 +944,7 @@ pub fn eval_expression(ctx: &mut EvalContext, expression: &Expression) -> Value 
             }
             Value::Void
         }
-        Expression::BinaryExpression { lhs, rhs, op } => {
-            let lhs = eval_expression(ctx, lhs);
-            // `&&` and `||` must short-circuit, or else rhs side effects
-            // would wrongly run.
-            match (op, &lhs) {
-                ('&', Value::Bool(false)) => return Value::Bool(false),
-                ('|', Value::Bool(true)) => return Value::Bool(true),
-                _ => {}
-            }
-            let rhs = eval_expression(ctx, rhs);
-            binary_op(*op, lhs, rhs)
-        }
+        Expression::BinaryExpression { lhs, rhs, op } => eval_binary_expression(ctx, lhs, rhs, *op),
         Expression::UnaryOp { sub, op } => {
             let sub = eval_expression(ctx, sub);
             match (sub, op) {
@@ -957,36 +1008,9 @@ pub fn eval_expression(ctx: &mut EvalContext, expression: &Expression) -> Value 
                 }
             })
         }
-        Expression::LinearGradient { angle, stops } => {
-            let angle: f32 = eval_expression(ctx, angle).try_into().unwrap_or_default();
-            Value::Brush(Brush::LinearGradient(LinearGradientBrush::new(
-                angle,
-                eval_stops(ctx, stops),
-            )))
-        }
-        Expression::RadialGradient { stops, center, radius } => {
-            let mut g = RadialGradientBrush::new_circle(eval_stops(ctx, stops));
-            if let Some((cx, cy)) = center {
-                let cx: f32 = eval_expression(ctx, cx).try_into().unwrap_or_default();
-                let cy: f32 = eval_expression(ctx, cy).try_into().unwrap_or_default();
-                g = g.with_center(cx, cy);
-            }
-            if let Some(r) = radius {
-                let r: f32 = eval_expression(ctx, r).try_into().unwrap_or_default();
-                g = g.with_radius(r);
-            }
-            Value::Brush(Brush::RadialGradient(g))
-        }
-        Expression::ConicGradient { from_angle, stops, center } => {
-            let from_angle: f32 = eval_expression(ctx, from_angle).try_into().unwrap_or_default();
-            let mut g = ConicGradientBrush::new(from_angle, eval_stops(ctx, stops));
-            if let Some((cx, cy)) = center {
-                let cx: f32 = eval_expression(ctx, cx).try_into().unwrap_or_default();
-                let cy: f32 = eval_expression(ctx, cy).try_into().unwrap_or_default();
-                g = g.with_center(cx, cy);
-            }
-            Value::Brush(Brush::ConicGradient(g))
-        }
+        Expression::LinearGradient { .. }
+        | Expression::RadialGradient { .. }
+        | Expression::ConicGradient { .. } => eval_gradient(ctx, expression),
         Expression::EnumerationValue(value) => {
             Value::EnumerationValue(value.enumeration.name.to_string(), value.to_string())
         }
