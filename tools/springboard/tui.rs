@@ -383,6 +383,13 @@ fn status_label(device: &Device) -> String {
         DeviceStatus::Starting => "Starting".into(),
         DeviceStatus::Connecting => "Connecting".into(),
         DeviceStatus::Reconnecting => "Reconnecting".into(),
+        DeviceStatus::Downloading { bytes_received, total_bytes } => total_bytes.map_or_else(
+            || format!("Downloading viewer: {} MiB", bytes_received / 1024 / 1024),
+            |total| {
+                let percent = bytes_received.saturating_mul(100) / total.max(1);
+                format!("Downloading viewer: {percent}%")
+            },
+        ),
         DeviceStatus::Compiling => "Compiling".into(),
         DeviceStatus::Reloading => "Reloading".into(),
         DeviceStatus::Rebuilding => "Rebuilding".into(),
@@ -506,6 +513,15 @@ mod tests {
         );
         assert!(rendered.contains("Failed: viewer exited"));
         assert!(rendered.contains("ERROR Local viewer exited unexpectedly"));
+    }
+
+    #[test]
+    fn viewer_download_snapshot_shows_progress() {
+        let target = device(DeviceStatus::Downloading { bytes_received: 3, total_bytes: Some(4) });
+        let rendered =
+            snapshot(std::slice::from_ref(&target), Some(&target.id), Some(&target.id), &[]);
+
+        assert!(rendered.contains("Downloading viewer: 75%"));
     }
 
     #[test]

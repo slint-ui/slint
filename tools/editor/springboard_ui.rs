@@ -229,6 +229,7 @@ impl SpringboardUiState {
             DeviceStatus::Starting => preview::ui::SpringboardRunState::Starting,
             DeviceStatus::Connecting => preview::ui::SpringboardRunState::Connecting,
             DeviceStatus::Reconnecting => preview::ui::SpringboardRunState::Reconnecting,
+            DeviceStatus::Downloading { .. } => preview::ui::SpringboardRunState::Downloading,
             DeviceStatus::Compiling => preview::ui::SpringboardRunState::Compiling,
             DeviceStatus::Reloading => preview::ui::SpringboardRunState::Reloading,
             DeviceStatus::Rebuilding => preview::ui::SpringboardRunState::Rebuilding,
@@ -273,6 +274,21 @@ fn device_to_ui(
         DeviceStatus::Reconnecting => (
             preview::ui::SpringboardDeviceStatus::Reconnecting,
             "Connection lost; retrying on the local network.".into(),
+        ),
+        DeviceStatus::Downloading { bytes_received, total_bytes } => (
+            preview::ui::SpringboardDeviceStatus::Downloading,
+            total_bytes.map_or_else(
+                || {
+                    format!(
+                        "Downloading the matching viewer ({} MiB).",
+                        bytes_received / 1024 / 1024
+                    )
+                },
+                |total| {
+                    let percent = bytes_received.saturating_mul(100) / total.max(1);
+                    format!("Downloading the matching viewer: {percent}%.")
+                },
+            ),
         ),
         DeviceStatus::Compiling => (
             preview::ui::SpringboardDeviceStatus::Compiling,
@@ -442,5 +458,20 @@ mod tests {
         let failed = device_to_ui(&target, Some(&target.id), Some(&target.id));
         assert_eq!(failed.status, preview::ui::SpringboardDeviceStatus::RunningWithError);
         assert_eq!(failed.status_detail.as_str(), "build failed");
+    }
+
+    #[test]
+    fn viewer_download_progress_reaches_the_run_button_and_device_manager() {
+        let target =
+            device(DeviceStatus::Downloading { bytes_received: 30, total_bytes: Some(100) });
+        let row = device_to_ui(&target, Some(&target.id), Some(&target.id));
+        assert_eq!(row.status, preview::ui::SpringboardDeviceStatus::Downloading);
+        assert!(row.status_detail.contains("30%"));
+
+        let mut state = SpringboardUiState::default();
+        state.devices.insert(target.id.clone(), target.clone());
+        state.last_used = Some(target.id);
+        state.status = preview::ui::SpringboardSessionStatus::Ready;
+        assert_eq!(state.run_state(), preview::ui::SpringboardRunState::Downloading);
     }
 }

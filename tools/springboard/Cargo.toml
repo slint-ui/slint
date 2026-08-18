@@ -39,17 +39,22 @@ slint-viewer = { version = "=1.18.0", path = "../viewer", default-features = fal
 anyhow = "1.0.100"
 clap = { workspace = true }
 crossterm = { version = "0.29.0", features = ["event-stream"] }
+directories = "6.0"
 futures-util = "0.3.32"
 getrandom = "0.4"
+hex = "0.4.3"
 mdns-sd = { version = "0.20.0", default-features = false, features = ["async"] }
 notify = { version = "8.0.0", default-features = false, features = ["macos_kqueue"] }
 ratatui = "0.30.0"
+reqwest = { version = "0.13", default-features = false, features = ["rustls-no-provider", "system-proxy", "stream"] }
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
 serde = { workspace = true, features = ["std"] }
 serde_json = { workspace = true }
-tokio = { version = "1.50.0", features = ["io-std", "io-util", "macros", "net", "process", "rt-multi-thread", "signal", "sync", "time"] }
+sha2 = "0.10.9"
+tempfile = "3"
+tokio = { version = "1.50.0", features = ["fs", "io-std", "io-util", "macros", "net", "process", "rt-multi-thread", "signal", "sync", "time"] }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 
 [dev-dependencies]
 i-slint-live-preview = { workspace = true, features = ["remote"] }
-tempfile = "3"

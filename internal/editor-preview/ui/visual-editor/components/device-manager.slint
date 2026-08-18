@@ -108,6 +108,9 @@ component DeviceRow inherits Rectangle {
         if status == SpringboardDeviceStatus.Reconnecting {
             return "Reconnecting";
         }
+        if status == SpringboardDeviceStatus.Downloading {
+            return "Downloading";
+        }
         if status == SpringboardDeviceStatus.Compiling {
             return "Compiling";
         }
@@ -143,6 +146,7 @@ component DeviceRow inherits Rectangle {
                 || status == SpringboardDeviceStatus.Starting
                 || status == SpringboardDeviceStatus.Connecting
                 || status == SpringboardDeviceStatus.Reconnecting
+                || status == SpringboardDeviceStatus.Downloading
                 || status == SpringboardDeviceStatus.Compiling
                 || status == SpringboardDeviceStatus.Reloading
                 || status == SpringboardDeviceStatus.Rebuilding

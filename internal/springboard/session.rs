@@ -104,6 +104,7 @@ pub enum DeviceStatus {
     Starting,
     Connecting,
     Reconnecting,
+    Downloading { bytes_received: u64, total_bytes: Option<u64> },
     Compiling,
     Reloading,
     Rebuilding,
@@ -122,6 +123,7 @@ impl DeviceStatus {
             Self::Starting
                 | Self::Connecting
                 | Self::Reconnecting
+                | Self::Downloading { .. }
                 | Self::Compiling
                 | Self::Reloading
                 | Self::Rebuilding
