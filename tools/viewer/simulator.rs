@@ -153,11 +153,19 @@ impl LiveReloadingDefinition {
         let result = live_mut.build();
         result.print_diagnostics();
         if result.has_errors() {
-            return Err(format!("Could not compile {}", live_mut.file_name.display()).into());
+            return Err(std::io::Error::other(format!(
+                "Could not compile {}",
+                live_mut.file_name.display()
+            ))
+            .into());
         }
         live_mut.definition = live_mut.find_component(&result);
         if live_mut.definition.is_none() {
-            return Err(format!("No component found in {}", live_mut.file_name.display()).into());
+            return Err(std::io::Error::other(format!(
+                "No component found in {}",
+                live_mut.file_name.display()
+            ))
+            .into());
         }
         drop(live_mut);
         Ok(live)

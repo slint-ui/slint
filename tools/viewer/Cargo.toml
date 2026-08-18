@@ -55,7 +55,6 @@ remote = [
   "i-slint-live-preview/remote",
   "dep:tokio",
   "dep:async-compat",
-  "dep:anyhow",
   "dep:mdns-sd",
   "dep:zeroconf",
   "dep:objc2-foundation",
@@ -88,7 +87,7 @@ serde_json = { workspace = true }
 smol_str = { workspace = true }
 tokio = { version = "1.48.0", optional = true }
 async-compat = { version = "0.2.4", optional = true }
-anyhow = { version = "1.0.100", optional = true }
+anyhow = "1.0.100"
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 tracing-log = { workspace = true }
@@ -125,7 +124,7 @@ jni = { version = "0.22", optional = true }
 tikv-jemallocator = { workspace = true }
 
 [lib]
-crate-type = ["cdylib"]
+crate-type = ["cdylib", "rlib"]
 path = "lib.rs"
 
 [[bin]]
