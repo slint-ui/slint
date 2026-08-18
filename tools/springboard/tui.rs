@@ -65,8 +65,13 @@ async fn apply_startup_action(
             }
         }
     } else if launch.ios {
-        app.error("iOS Simulator management is not available yet");
-        None
+        match controller.preferred_ios_simulator() {
+            Ok(device_id) => Some(device_id),
+            Err(error) => {
+                app.error(error.to_string());
+                None
+            }
+        }
     } else if launch.android {
         app.error("Android emulator management is not available yet");
         None
@@ -381,6 +386,7 @@ fn status_label(device: &Device) -> String {
         DeviceStatus::Unavailable => "Unavailable".into(),
         DeviceStatus::Resolving => "Resolving".into(),
         DeviceStatus::Starting => "Starting".into(),
+        DeviceStatus::Booting => "Booting simulator".into(),
         DeviceStatus::Connecting => "Connecting".into(),
         DeviceStatus::Reconnecting => "Reconnecting".into(),
         DeviceStatus::Downloading { bytes_received, total_bytes } => total_bytes.map_or_else(
@@ -390,6 +396,7 @@ fn status_label(device: &Device) -> String {
                 format!("Downloading viewer: {percent}%")
             },
         ),
+        DeviceStatus::Installing => "Installing viewer".into(),
         DeviceStatus::Compiling => "Compiling".into(),
         DeviceStatus::Reloading => "Reloading".into(),
         DeviceStatus::Rebuilding => "Rebuilding".into(),

@@ -104,6 +104,7 @@ pub struct CachedViewerArtifact {
 }
 
 /// Persistent cache for version-matched managed viewer packages.
+#[derive(Clone)]
 pub struct ArtifactCache {
     root: PathBuf,
     source: ArtifactSource,

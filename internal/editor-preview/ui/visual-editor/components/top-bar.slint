@@ -178,6 +178,8 @@ export component EditorTopBar inherits Rectangle {
                 && Api.project-root != "";
             label: Api.springboard-run-state == SpringboardRunState.Starting
                 ? "Starting…"
+                : Api.springboard-run-state == SpringboardRunState.Booting
+                    ? "Booting…"
                 : Api.springboard-run-state == SpringboardRunState.Resolving
                     ? "Resolving…"
                 : Api.springboard-run-state == SpringboardRunState.Connecting
@@ -186,6 +188,8 @@ export component EditorTopBar inherits Rectangle {
                     ? "Reconnecting…"
                 : Api.springboard-run-state == SpringboardRunState.Downloading
                     ? "Downloading…"
+                : Api.springboard-run-state == SpringboardRunState.Installing
+                    ? "Installing…"
                 : Api.springboard-run-state == SpringboardRunState.Compiling
                     ? "Compiling…"
                 : Api.springboard-run-state == SpringboardRunState.Reloading
@@ -201,9 +205,11 @@ export component EditorTopBar inherits Rectangle {
                 } else if Api.springboard-run-state == SpringboardRunState.Ready
                         || Api.springboard-run-state == SpringboardRunState.Resolving
                         || Api.springboard-run-state == SpringboardRunState.Starting
+                        || Api.springboard-run-state == SpringboardRunState.Booting
                         || Api.springboard-run-state == SpringboardRunState.Connecting
                         || Api.springboard-run-state == SpringboardRunState.Reconnecting
                         || Api.springboard-run-state == SpringboardRunState.Downloading
+                        || Api.springboard-run-state == SpringboardRunState.Installing
                         || Api.springboard-run-state == SpringboardRunState.Compiling
                         || Api.springboard-run-state == SpringboardRunState.Reloading
                         || Api.springboard-run-state == SpringboardRunState.Rebuilding

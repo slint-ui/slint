@@ -7,7 +7,7 @@ use anyhow::{Context as _, Result};
 use i_slint_springboard::{
     ClientCommand, ClientRequest, EventEnvelope, ProtocolErrorCode, RequestDecodeError, RequestId,
     ResponseEnvelope, ResponsePayload, SPRINGBOARD_PROTOCOL_VERSION, ServerEvent, ServerMessage,
-    SessionError, decode_request,
+    SessionError, SessionEvent, decode_request,
 };
 use tokio::io::{
     AsyncBufReadExt as _, AsyncRead, AsyncWrite, AsyncWriteExt as _, BufReader, BufWriter,
@@ -116,6 +116,18 @@ where
                 })),
             )
             .await?;
+            for event in controller.take_events().into_iter().filter(|event| {
+                !matches!(
+                    event,
+                    SessionEvent::DeviceChanged { .. }
+                        | SessionEvent::DeviceRemoved { .. }
+                        | SessionEvent::ActiveDeviceChanged { .. }
+                        | SessionEvent::LastUsedDeviceChanged { .. }
+                )
+            }) {
+                write_message(writer, &ServerMessage::Event(EventEnvelope::new(event.into())))
+                    .await?;
+            }
         }
         ClientCommand::Snapshot => {
             write_response(

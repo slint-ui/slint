@@ -82,11 +82,22 @@ impl RemoteViewerDriver {
         })
     }
 
+    #[cfg(test)]
     pub async fn launch(
         &mut self,
         viewer: &DiscoveredRemoteViewer,
         target: &ProjectRunTarget,
         style: &str,
+    ) -> Result<()> {
+        self.launch_for_device(viewer, target, style, viewer.id.clone()).await
+    }
+
+    pub async fn launch_for_device(
+        &mut self,
+        viewer: &DiscoveredRemoteViewer,
+        target: &ProjectRunTarget,
+        style: &str,
+        device_id: DeviceId,
     ) -> Result<()> {
         if !viewer.compatible() {
             bail!("Remote viewer {} is not protocol-compatible", viewer.name);
@@ -101,7 +112,7 @@ impl RemoteViewerDriver {
             style: style.into(),
             watched_paths: BTreeSet::new(),
         });
-        self.device_id = Some(viewer.id.clone());
+        self.device_id = Some(device_id);
         self.watch_entry()?;
         if let Err(error) = self.client.connect(viewer.addresses.clone(), viewer.port).await {
             self.graph = None;

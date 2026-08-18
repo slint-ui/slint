@@ -227,9 +227,11 @@ impl SpringboardUiState {
             }
             DeviceStatus::Resolving => preview::ui::SpringboardRunState::Resolving,
             DeviceStatus::Starting => preview::ui::SpringboardRunState::Starting,
+            DeviceStatus::Booting => preview::ui::SpringboardRunState::Booting,
             DeviceStatus::Connecting => preview::ui::SpringboardRunState::Connecting,
             DeviceStatus::Reconnecting => preview::ui::SpringboardRunState::Reconnecting,
             DeviceStatus::Downloading { .. } => preview::ui::SpringboardRunState::Downloading,
+            DeviceStatus::Installing => preview::ui::SpringboardRunState::Installing,
             DeviceStatus::Compiling => preview::ui::SpringboardRunState::Compiling,
             DeviceStatus::Reloading => preview::ui::SpringboardRunState::Reloading,
             DeviceStatus::Rebuilding => preview::ui::SpringboardRunState::Rebuilding,
@@ -267,6 +269,10 @@ fn device_to_ui(
             "Resolving the Cargo application target.".into(),
         ),
         DeviceStatus::Starting => (preview::ui::SpringboardDeviceStatus::Starting, String::new()),
+        DeviceStatus::Booting => (
+            preview::ui::SpringboardDeviceStatus::Booting,
+            "Booting the selected iOS Simulator.".into(),
+        ),
         DeviceStatus::Connecting => (
             preview::ui::SpringboardDeviceStatus::Connecting,
             "Waiting for the viewer to accept the connection.".into(),
@@ -289,6 +295,10 @@ fn device_to_ui(
                     format!("Downloading the matching viewer: {percent}%.")
                 },
             ),
+        ),
+        DeviceStatus::Installing => (
+            preview::ui::SpringboardDeviceStatus::Installing,
+            "Installing the matching Slint Viewer in the simulator.".into(),
         ),
         DeviceStatus::Compiling => (
             preview::ui::SpringboardDeviceStatus::Compiling,

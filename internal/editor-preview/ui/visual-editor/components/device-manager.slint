@@ -102,6 +102,9 @@ component DeviceRow inherits Rectangle {
         if status == SpringboardDeviceStatus.Starting {
             return "Starting";
         }
+        if status == SpringboardDeviceStatus.Booting {
+            return "Booting";
+        }
         if status == SpringboardDeviceStatus.Connecting {
             return "Connecting";
         }
@@ -110,6 +113,9 @@ component DeviceRow inherits Rectangle {
         }
         if status == SpringboardDeviceStatus.Downloading {
             return "Downloading";
+        }
+        if status == SpringboardDeviceStatus.Installing {
+            return "Installing";
         }
         if status == SpringboardDeviceStatus.Compiling {
             return "Compiling";
@@ -144,9 +150,11 @@ component DeviceRow inherits Rectangle {
         }
         if status == SpringboardDeviceStatus.Resolving
                 || status == SpringboardDeviceStatus.Starting
+                || status == SpringboardDeviceStatus.Booting
                 || status == SpringboardDeviceStatus.Connecting
                 || status == SpringboardDeviceStatus.Reconnecting
                 || status == SpringboardDeviceStatus.Downloading
+                || status == SpringboardDeviceStatus.Installing
                 || status == SpringboardDeviceStatus.Compiling
                 || status == SpringboardDeviceStatus.Reloading
                 || status == SpringboardDeviceStatus.Rebuilding

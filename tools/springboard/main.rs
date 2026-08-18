@@ -11,6 +11,7 @@ use slint_viewer::{ViewerLogLevel, ViewerRunnerOptions, run_auto_reload_simulato
 pub mod artifacts;
 pub mod cargo_driver;
 mod discovery;
+mod ios_simulator;
 mod remote_driver;
 pub mod runtime_control;
 mod session_driver;
@@ -139,6 +140,7 @@ fn start(project: PathBuf, launch: LaunchOptions) -> Result<()> {
     runtime.block_on(async move {
         let mut controller = controller;
         controller.enable_remote_discovery();
+        controller.enable_ios_simulators().await;
         tui::run(controller, launch).await
     })
 }
@@ -166,6 +168,26 @@ fn list_devices() -> Result<()> {
             profile.kind
         );
     }
+    if let Ok(manager) = ios_simulator::IosSimulatorManager::from_environment() {
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .context("Failed to start iOS Simulator discovery")?;
+        match runtime.block_on(manager.discover()) {
+            Ok(simulators) => {
+                for simulator in simulators {
+                    println!(
+                        "{}\t{}\t{} (iOS {})\tios-simulator",
+                        if last == Some(&simulator.id) { "*" } else { " " },
+                        simulator.id,
+                        simulator.name,
+                        simulator.runtime,
+                    );
+                }
+            }
+            Err(error) => tracing::warn!("iOS Simulator discovery is unavailable: {error}"),
+        }
+    }
     Ok(())
 }
 
@@ -188,6 +210,7 @@ fn serve(options: ServeOptions) -> Result<()> {
     runtime.block_on(async move {
         let mut controller = controller;
         controller.enable_remote_discovery();
+        controller.enable_ios_simulators().await;
         stdio::serve(controller).await
     })
 }

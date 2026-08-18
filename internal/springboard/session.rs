@@ -102,9 +102,11 @@ pub enum DeviceStatus {
     Unavailable,
     Resolving,
     Starting,
+    Booting,
     Connecting,
     Reconnecting,
     Downloading { bytes_received: u64, total_bytes: Option<u64> },
+    Installing,
     Compiling,
     Reloading,
     Rebuilding,
@@ -121,9 +123,11 @@ impl DeviceStatus {
         matches!(
             self,
             Self::Starting
+                | Self::Booting
                 | Self::Connecting
                 | Self::Reconnecting
                 | Self::Downloading { .. }
+                | Self::Installing
                 | Self::Compiling
                 | Self::Reloading
                 | Self::Rebuilding

@@ -24,12 +24,23 @@ use crate::cargo_driver::{
     CargoApplicationDriver, CargoApplicationOutput, CargoApplicationOutputSource,
 };
 use crate::discovery::{DiscoveredRemoteViewer, RemoteDiscoveryEvent, RemoteViewerDiscovery};
+use crate::ios_simulator::{
+    DEFAULT_IOS_VIEWER_BUNDLE_ID, IosLaunchProgress, IosLaunchResult, IosSimulator,
+    IosSimulatorManager,
+};
 use crate::remote_driver::{RemoteDriverEvent, RemoteViewerDriver};
 
 pub const LOCAL_VIEWER_DEVICE_ID: &str = "builtin:local-viewer";
 pub const RUST_APPLICATION_DEVICE_ID: &str = "builtin:rust-app";
 
 type CargoBuildTask = JoinHandle<(CargoApplicationDriver, std::result::Result<(), String>)>;
+type IosLaunchTask = JoinHandle<std::result::Result<IosLaunchResult, String>>;
+
+struct IosLaunchOperation {
+    device_id: DeviceId,
+    task: IosLaunchTask,
+    progress: mpsc::UnboundedReceiver<IosLaunchProgress>,
+}
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum OutputStream {
@@ -208,7 +219,17 @@ pub struct ProjectSessionController {
     remote_viewer: Option<RemoteViewerDriver>,
     remote_discovery: Option<RemoteViewerDiscovery>,
     remote_viewers: BTreeMap<DeviceId, DiscoveredRemoteViewer>,
+    ios_manager: Option<IosSimulatorManager>,
+    ios_simulators: BTreeMap<DeviceId, IosSimulator>,
+    ios_preferred_order: Vec<DeviceId>,
+    ios_unavailable_reason: Option<String>,
+    ios_launch: Option<IosLaunchOperation>,
+    ios_refresh: Option<JoinHandle<std::result::Result<Vec<IosSimulator>, String>>>,
+    ios_bundle_ids: BTreeMap<DeviceId, String>,
+    managed_remote_devices: BTreeMap<DeviceId, DeviceId>,
     pending_launch: Option<DeviceId>,
+    pending_remote_device: Option<DeviceId>,
+    pending_remote_deadline: Option<tokio::time::Instant>,
     pending_endpoint_update: Option<DeviceId>,
     events: VecDeque<SessionEvent>,
 }
@@ -272,7 +293,17 @@ impl ProjectSessionController {
             remote_viewer: None,
             remote_discovery: None,
             remote_viewers,
+            ios_manager: None,
+            ios_simulators: BTreeMap::new(),
+            ios_preferred_order: Vec::new(),
+            ios_unavailable_reason: None,
+            ios_launch: None,
+            ios_refresh: None,
+            ios_bundle_ids: BTreeMap::new(),
+            managed_remote_devices: BTreeMap::new(),
             pending_launch: None,
+            pending_remote_device: None,
+            pending_remote_deadline: None,
             pending_endpoint_update: None,
             events,
         }
@@ -292,6 +323,81 @@ impl ProjectSessionController {
                 ),
             }),
         }
+    }
+
+    pub async fn enable_ios_simulators(&mut self) {
+        let manager = match IosSimulatorManager::from_environment() {
+            Ok(manager) => manager,
+            Err(error) => {
+                self.ios_unavailable_reason = Some(error.to_string());
+                return;
+            }
+        };
+        match manager.discover().await {
+            Ok(simulators) => {
+                self.apply_ios_simulators(simulators);
+                self.ios_manager = Some(manager);
+                self.ios_unavailable_reason = None;
+            }
+            Err(error) => {
+                let message = error.to_string();
+                self.ios_unavailable_reason = Some(message.clone());
+                self.events.push_back(SessionEvent::Log {
+                    device_id: None,
+                    level: LogLevel::Warning,
+                    message,
+                });
+            }
+        }
+    }
+
+    fn apply_ios_simulators(&mut self, simulators: Vec<IosSimulator>) {
+        let discovered_ids = simulators
+            .iter()
+            .map(|simulator| simulator.id.clone())
+            .collect::<std::collections::BTreeSet<_>>();
+        let stale = self
+            .ios_simulators
+            .keys()
+            .filter(|device_id| !discovered_ids.contains(*device_id))
+            .cloned()
+            .collect::<Vec<_>>();
+        for device_id in stale {
+            if self.session.active_device() == Some(&device_id) {
+                continue;
+            }
+            self.ios_simulators.remove(&device_id);
+            if self.session.remove_device(&device_id).is_some() {
+                self.events.push_back(SessionEvent::DeviceRemoved { device_id });
+            }
+        }
+        self.ios_preferred_order =
+            simulators.iter().map(|simulator| simulator.id.clone()).collect();
+        for simulator in simulators {
+            let device_id = simulator.id.clone();
+            let mut device = simulator.to_device();
+            if self.session.active_device() == Some(&device_id)
+                && let Some(current) = self.session.devices().get(&device_id)
+            {
+                device.status = current.status.clone();
+            }
+            self.session.upsert_device(device);
+            self.ios_simulators.insert(device_id.clone(), simulator);
+            self.emit_device(&device_id);
+        }
+    }
+
+    pub fn preferred_ios_simulator(&self) -> Result<DeviceId> {
+        if let Some(last) = self.last_used_device()
+            && self.ios_simulators.contains_key(last)
+        {
+            return Ok(last.clone());
+        }
+        self.ios_preferred_order.first().cloned().with_context(|| {
+            self.ios_unavailable_reason.clone().unwrap_or_else(|| {
+                "No available iOS Simulators were found. Install an iOS runtime in Xcode.".into()
+            })
+        })
     }
 
     pub fn session(&self) -> &SpringboardSession {
@@ -314,6 +420,12 @@ impl ProjectSessionController {
     }
 
     pub async fn launch(&mut self, device_id: &DeviceId) -> Result<()> {
+        let device_kind = self
+            .session
+            .devices()
+            .get(device_id)
+            .map(|device| device.kind)
+            .with_context(|| format!("Unknown device {device_id}"))?;
         match self.session.launch(device_id)? {
             SessionAction::None => return Ok(()),
             SessionAction::Launch => {}
@@ -353,12 +465,35 @@ impl ProjectSessionController {
             };
             self.start_cargo_build(driver, DeviceStatus::Compiling)?;
             return Ok(());
+        } else if device_kind == DeviceKind::IosSimulator {
+            let simulator = self
+                .ios_simulators
+                .get(device_id)
+                .cloned()
+                .with_context(|| format!("iOS Simulator {device_id} is no longer available"))?;
+            let manager =
+                self.ios_manager.clone().context("iOS Simulator management is unavailable")?;
+            let (progress_sender, progress) = mpsc::unbounded_channel();
+            let launch_device_id = device_id.clone();
+            let task = tokio::spawn(async move {
+                manager
+                    .launch(simulator, move |event| {
+                        progress_sender.send(event).ok();
+                    })
+                    .await
+                    .map_err(|error| error.to_string())
+            });
+            self.ios_launch =
+                Some(IosLaunchOperation { device_id: launch_device_id, task, progress });
+            return Ok(());
         } else if let Some(viewer) = self.remote_viewers.get(device_id).cloned() {
             self.session.mark_connecting(device_id)?;
             self.pending_launch = Some(device_id.clone());
+            self.pending_remote_device = Some(device_id.clone());
             self.emit_device(device_id);
             if let Err(error) = self.connect_remote_viewer(&viewer).await {
                 self.pending_launch = None;
+                self.pending_remote_device = None;
                 let message = describe_remote_failure(&error.to_string());
                 self.session.mark_failed(device_id, &message)?;
                 self.emit_device(device_id);
@@ -368,6 +503,7 @@ impl ProjectSessionController {
         } else if self.global_state.remembered_devices.contains_key(device_id) {
             self.session.mark_connecting(device_id)?;
             self.pending_launch = Some(device_id.clone());
+            self.pending_remote_device = Some(device_id.clone());
             self.emit_device(device_id);
             self.events.push_back(SessionEvent::Log {
                 device_id: Some(device_id.clone()),
@@ -406,14 +542,24 @@ impl ProjectSessionController {
     }
 
     async fn connect_remote_viewer(&mut self, viewer: &DiscoveredRemoteViewer) -> Result<()> {
+        self.connect_remote_viewer_for_device(viewer, viewer.id.clone()).await
+    }
+
+    async fn connect_remote_viewer_for_device(
+        &mut self,
+        viewer: &DiscoveredRemoteViewer,
+        device_id: DeviceId,
+    ) -> Result<()> {
         let mut driver = RemoteViewerDriver::new()?;
-        driver.launch(viewer, self.session.project(), "fluent").await?;
+        driver.launch_for_device(viewer, self.session.project(), "fluent", device_id).await?;
         self.remote_viewer = Some(driver);
         Ok(())
     }
 
     fn complete_launch(&mut self, device_id: &DeviceId) -> Result<()> {
         self.pending_launch = None;
+        self.pending_remote_device = None;
+        self.pending_remote_deadline = None;
         if self.pending_endpoint_update.as_ref() == Some(device_id) {
             self.pending_endpoint_update = None;
         }
@@ -443,6 +589,13 @@ impl ProjectSessionController {
                 } else {
                     "Rust application started".into()
                 }
+            } else if self
+                .session
+                .devices()
+                .get(device_id)
+                .is_some_and(|device| device.kind == DeviceKind::IosSimulator)
+            {
+                "iOS Simulator viewer connected".into()
             } else {
                 "Remote viewer connected".into()
             },
@@ -491,17 +644,38 @@ impl ProjectSessionController {
                 driver.stop().await?;
             }
             self.cargo_rebuild_queued = false;
+        } else if self.ios_simulators.contains_key(device_id) {
+            if let Some(operation) = self.ios_launch.take() {
+                operation.task.abort();
+                let _ = operation.task.await;
+            }
+            if let Some(mut driver) = self.remote_viewer.take() {
+                driver.stop().await;
+            }
+            if let (Some(manager), Some(simulator)) =
+                (&self.ios_manager, self.ios_simulators.get(device_id))
+            {
+                let bundle_id = self
+                    .ios_bundle_ids
+                    .get(device_id)
+                    .map(String::as_str)
+                    .unwrap_or(DEFAULT_IOS_VIEWER_BUNDLE_ID);
+                manager.stop(simulator, bundle_id).await?;
+            }
         } else if let Some(mut driver) = self.remote_viewer.take() {
             driver.stop().await;
         }
         if self.pending_launch.as_ref() == Some(device_id) {
             self.pending_launch = None;
         }
+        self.pending_remote_device = None;
+        self.pending_remote_deadline = None;
         if self.pending_endpoint_update.as_ref() == Some(device_id) {
             self.pending_endpoint_update = None;
         }
         let idle_status = if device_id.as_str() == LOCAL_VIEWER_DEVICE_ID
             || device_id.as_str() == RUST_APPLICATION_DEVICE_ID
+            || self.ios_simulators.contains_key(device_id)
             || self.remote_viewers.contains_key(device_id)
         {
             DeviceStatus::Available
@@ -517,6 +691,8 @@ impl ProjectSessionController {
                 "Local viewer stopped".into()
             } else if device_id.as_str() == RUST_APPLICATION_DEVICE_ID {
                 "Rust application stopped".into()
+            } else if self.ios_simulators.contains_key(device_id) {
+                "iOS Simulator viewer stopped".into()
             } else {
                 "Remote viewer disconnected".into()
             },
@@ -527,7 +703,21 @@ impl ProjectSessionController {
     pub fn refresh(&mut self, device_id: &DeviceId) -> Result<()> {
         match self.session.refresh(device_id)? {
             SessionAction::Refresh => {
-                if self.session.active_device() == Some(device_id)
+                if self.ios_simulators.contains_key(device_id) {
+                    if self.ios_refresh.is_none()
+                        && let Some(manager) = self.ios_manager.clone()
+                    {
+                        self.ios_refresh = Some(tokio::spawn(async move {
+                            manager.discover().await.map_err(|error| error.to_string())
+                        }));
+                    }
+                    if self.session.active_device() == Some(device_id)
+                        && self.pending_launch.as_ref() != Some(device_id)
+                        && let Some(driver) = self.remote_viewer.as_mut()
+                    {
+                        driver.refresh()?;
+                    }
+                } else if self.session.active_device() == Some(device_id)
                     && device_id.as_str() != LOCAL_VIEWER_DEVICE_ID
                     && device_id.as_str() != RUST_APPLICATION_DEVICE_ID
                     && self.pending_launch.as_ref() != Some(device_id)
@@ -574,6 +764,8 @@ impl ProjectSessionController {
     }
 
     pub async fn poll(&mut self) -> Result<()> {
+        self.poll_ios_launch().await?;
+        self.poll_ios_refresh().await;
         self.poll_cargo_build().await?;
         self.capture_cargo_events()?;
         let discovery_events = self
@@ -587,6 +779,7 @@ impl ProjectSessionController {
         self.reconnect_at_updated_endpoint().await;
         self.connect_pending_viewer().await;
         self.capture_remote_events()?;
+        self.expire_pending_remote_viewer()?;
         self.capture_output();
         if let Some(status) = self.local_viewer.poll_exit()? {
             let device_id = local_viewer_device_id();
@@ -598,6 +791,138 @@ impl ProjectSessionController {
             }
         }
         Ok(())
+    }
+
+    async fn poll_ios_refresh(&mut self) {
+        if !self.ios_refresh.as_ref().is_some_and(|task| task.is_finished()) {
+            return;
+        }
+        let task = self.ios_refresh.take().unwrap();
+        match task.await {
+            Ok(Ok(simulators)) => {
+                self.apply_ios_simulators(simulators);
+                self.events.push_back(SessionEvent::Log {
+                    device_id: None,
+                    level: LogLevel::Information,
+                    message: "iOS Simulator devices refreshed".into(),
+                });
+            }
+            Ok(Err(message)) => {
+                self.events.push_back(SessionEvent::Error { device_id: None, message })
+            }
+            Err(error) => self.events.push_back(SessionEvent::Error {
+                device_id: None,
+                message: format!("The iOS Simulator refresh task failed: {error}"),
+            }),
+        }
+    }
+
+    async fn poll_ios_launch(&mut self) -> Result<()> {
+        let Some(operation) = &mut self.ios_launch else { return Ok(()) };
+        let device_id = operation.device_id.clone();
+        let mut progress = Vec::new();
+        while let Ok(event) = operation.progress.try_recv() {
+            progress.push(event);
+        }
+        let finished = operation.task.is_finished();
+        for event in progress {
+            if self.session.active_device() != Some(&device_id) {
+                continue;
+            }
+            let status = match event {
+                IosLaunchProgress::Artifact(
+                    crate::artifacts::ArtifactCacheProgress::Downloading {
+                        bytes_received,
+                        total_bytes,
+                    },
+                ) => Some(DeviceStatus::Downloading { bytes_received, total_bytes }),
+                IosLaunchProgress::Artifact(
+                    crate::artifacts::ArtifactCacheProgress::UsingPrevious { reason },
+                ) => {
+                    self.events.push_back(SessionEvent::Log {
+                        device_id: Some(device_id.clone()),
+                        level: LogLevel::Warning,
+                        message: format!(
+                            "Using the previously cached iOS viewer after an update failure: {reason}"
+                        ),
+                    });
+                    None
+                }
+                IosLaunchProgress::Booting => Some(DeviceStatus::Booting),
+                IosLaunchProgress::Installing => Some(DeviceStatus::Installing),
+                IosLaunchProgress::Launching => Some(DeviceStatus::Starting),
+                IosLaunchProgress::WaitingForDiscovery => Some(DeviceStatus::Connecting),
+                IosLaunchProgress::Artifact(_) => None,
+            };
+            if let Some(status) = status {
+                self.session.mark_active_status(&device_id, status)?;
+                self.emit_device(&device_id);
+            }
+        }
+        if !finished {
+            return Ok(());
+        }
+
+        let operation = self.ios_launch.take().unwrap();
+        let result = match operation.task.await {
+            Ok(Ok(result)) => result,
+            Ok(Err(message)) => {
+                self.cleanup_failed_ios_launch(&device_id).await;
+                if self.session.active_device() == Some(&device_id) {
+                    self.session.mark_failed(&device_id, &message)?;
+                    self.emit_device(&device_id);
+                }
+                self.events.push_back(SessionEvent::Error { device_id: Some(device_id), message });
+                return Ok(());
+            }
+            Err(error) => {
+                let message = format!("The iOS Simulator launch task failed: {error}");
+                self.cleanup_failed_ios_launch(&device_id).await;
+                if self.session.active_device() == Some(&device_id) {
+                    self.session.mark_failed(&device_id, &message)?;
+                    self.emit_device(&device_id);
+                }
+                self.events.push_back(SessionEvent::Error { device_id: Some(device_id), message });
+                return Ok(());
+            }
+        };
+        self.ios_bundle_ids.insert(result.simulator_id.clone(), result.bundle_id);
+        self.managed_remote_devices.insert(result.viewer_id.clone(), result.simulator_id.clone());
+        if self.session.remove_device(&result.viewer_id).is_some() {
+            self.events
+                .push_back(SessionEvent::DeviceRemoved { device_id: result.viewer_id.clone() });
+        }
+        self.pending_launch = Some(result.simulator_id.clone());
+        self.pending_remote_device = Some(result.viewer_id);
+        self.pending_remote_deadline =
+            Some(tokio::time::Instant::now() + std::time::Duration::from_secs(30));
+        if self.session.active_device() == Some(&result.simulator_id) {
+            self.session.mark_connecting(&result.simulator_id)?;
+            self.emit_device(&result.simulator_id);
+        }
+        Ok(())
+    }
+
+    async fn cleanup_failed_ios_launch(&mut self, device_id: &DeviceId) {
+        let (Some(manager), Some(simulator)) =
+            (&self.ios_manager, self.ios_simulators.get(device_id))
+        else {
+            return;
+        };
+        let bundle_id = self
+            .ios_bundle_ids
+            .get(device_id)
+            .map(String::as_str)
+            .unwrap_or(DEFAULT_IOS_VIEWER_BUNDLE_ID);
+        if let Err(error) = manager.stop(simulator, bundle_id).await {
+            self.events.push_back(SessionEvent::Log {
+                device_id: Some(device_id.clone()),
+                level: LogLevel::Warning,
+                message: format!(
+                    "The partially launched iOS Simulator viewer could not be stopped: {error}"
+                ),
+            });
+        }
     }
 
     async fn poll_cargo_build(&mut self) -> Result<()> {
@@ -793,11 +1118,14 @@ impl ProjectSessionController {
         if self.remote_viewer.is_some() {
             return;
         }
-        let Some(viewer) = self.remote_viewers.get(&device_id).cloned() else { return };
-        match self.connect_remote_viewer(&viewer).await {
+        let remote_device_id = self.pending_remote_device.as_ref().unwrap_or(&device_id);
+        let Some(viewer) = self.remote_viewers.get(remote_device_id).cloned() else { return };
+        match self.connect_remote_viewer_for_device(&viewer, device_id.clone()).await {
             Ok(()) => {}
             Err(error) => {
                 self.pending_launch = None;
+                self.pending_remote_device = None;
+                self.pending_remote_deadline = None;
                 let message = describe_remote_failure(&error.to_string());
                 if self.session.mark_failed(&device_id, &message).is_ok() {
                     self.emit_device(&device_id);
@@ -805,6 +1133,28 @@ impl ProjectSessionController {
                 self.events.push_back(SessionEvent::Error { device_id: Some(device_id), message });
             }
         }
+    }
+
+    fn expire_pending_remote_viewer(&mut self) -> Result<()> {
+        let Some(deadline) = self.pending_remote_deadline else { return Ok(()) };
+        if tokio::time::Instant::now() < deadline {
+            return Ok(());
+        }
+        let Some(device_id) = self.pending_launch.take() else {
+            self.pending_remote_deadline = None;
+            return Ok(());
+        };
+        self.pending_remote_device = None;
+        self.pending_remote_deadline = None;
+        self.remote_viewer = None;
+        let message = "The launched simulator viewer was not discovered on the local network. Allow local-network access in the viewer and retry.";
+        if self.session.active_device() == Some(&device_id) {
+            self.session.mark_failed(&device_id, message)?;
+            self.emit_device(&device_id);
+        }
+        self.events
+            .push_back(SessionEvent::Error { device_id: Some(device_id), message: message.into() });
+        Ok(())
     }
 
     async fn reconnect_at_updated_endpoint(&mut self) {
@@ -835,6 +1185,10 @@ impl ProjectSessionController {
     }
 
     pub async fn shutdown(&mut self) -> Result<()> {
+        if let Some(task) = self.ios_refresh.take() {
+            task.abort();
+            let _ = task.await;
+        }
         if let Some(device_id) = self.session.active_device().cloned() {
             self.stop(&device_id).await?;
         } else {
@@ -917,6 +1271,8 @@ impl ProjectSessionController {
                         }
                         RemoteClientState::Failed => {
                             self.pending_launch = None;
+                            self.pending_remote_device = None;
+                            self.pending_remote_deadline = None;
                             self.pending_endpoint_update = None;
                             self.remote_viewer = None;
                             let message =
@@ -968,6 +1324,22 @@ impl ProjectSessionController {
                     previous_endpoints.is_some_and(|previous| previous != current_endpoints);
                 let device = viewer.to_device();
                 self.remote_viewers.insert(device_id.clone(), viewer);
+                if let Some(simulator_id) = self.managed_remote_devices.get(&device_id).cloned() {
+                    if self.session.remove_device(&device_id).is_some() {
+                        self.events.push_back(SessionEvent::DeviceRemoved {
+                            device_id: device_id.clone(),
+                        });
+                    }
+                    if endpoint_changed && self.session.active_device() == Some(&simulator_id) {
+                        self.events.push_back(SessionEvent::Log {
+                            device_id: Some(simulator_id),
+                            level: LogLevel::Information,
+                            message: "The iOS Simulator viewer advertised a new network address"
+                                .into(),
+                        });
+                    }
+                    return;
+                }
                 self.session.upsert_device(device);
                 if endpoint_changed
                     && self.session.active_device() == Some(&device_id)
@@ -984,6 +1356,17 @@ impl ProjectSessionController {
             }
             RemoteDiscoveryEvent::Removed(device_id) => {
                 self.remote_viewers.remove(&device_id);
+                if let Some(simulator_id) = self.managed_remote_devices.get(&device_id).cloned() {
+                    if self.session.active_device() == Some(&simulator_id) {
+                        self.events.push_back(SessionEvent::Log {
+                            device_id: Some(simulator_id),
+                            level: LogLevel::Warning,
+                            message: "The active iOS Simulator viewer is no longer discoverable"
+                                .into(),
+                        });
+                    }
+                    return;
+                }
                 if self.session.active_device() == Some(&device_id) {
                     self.events.push_back(SessionEvent::Log {
                         device_id: Some(device_id),
@@ -1229,6 +1612,47 @@ mod tests {
         assert_eq!(device.status, DeviceStatus::Available);
         assert!(device.capabilities.rebuild);
         assert!(device.name.contains("springboard-test-app"));
+    }
+
+    #[test]
+    fn simulator_refresh_preserves_active_state_and_removes_stale_devices() {
+        use crate::ios_simulator::IosSimulatorState;
+
+        let directory = tempfile::tempdir().unwrap();
+        let mut controller = ProjectSessionController::new(
+            project(&directory),
+            store(&directory),
+            fake_command("wait"),
+        );
+        let active_id = DeviceId::new("simulator:ios:active").unwrap();
+        let stale_id = DeviceId::new("simulator:ios:stale").unwrap();
+        let simulator = |id: DeviceId, name: &str, state| IosSimulator {
+            udid: id.as_str().trim_start_matches("simulator:ios:").into(),
+            id,
+            name: name.into(),
+            runtime: "26.5".into(),
+            state,
+        };
+        controller.apply_ios_simulators(vec![
+            simulator(active_id.clone(), "iPhone 17", IosSimulatorState::Booted),
+            simulator(stale_id.clone(), "iPhone 16", IosSimulatorState::Shutdown),
+        ]);
+        controller.session.launch(&active_id).unwrap();
+        controller.session.mark_running(&active_id).unwrap();
+        controller.take_events();
+
+        controller.apply_ios_simulators(vec![simulator(
+            active_id.clone(),
+            "iPhone 17",
+            IosSimulatorState::Booted,
+        )]);
+
+        assert_eq!(controller.preferred_ios_simulator().unwrap(), active_id);
+        assert_eq!(controller.session.devices()[&active_id].status, DeviceStatus::Running);
+        assert!(!controller.session.devices().contains_key(&stale_id));
+        assert!(controller.take_events().iter().any(
+            |event| matches!(event, SessionEvent::DeviceRemoved { device_id } if device_id == &stale_id)
+        ));
     }
 
     #[tokio::test]
