@@ -39,17 +39,25 @@ enum MyEnum{
     val2
 }
 
-export component Baz {
+export component MismatchedLiterals {
 
     in property <string> str: "string";
     match str {
         #123 : Rectangle { }
 //      >   <error{Cannot convert color to string}
+        red: { }
+//      > <error{Unknown unqualified identifier 'red'. Did you mean 'Colors.red'?}
+//      > <^error{Cases must be literal values}
+        Colors.lightsteelblue: { }
+//      >                   <error{Cannot convert color to string}
         @markdown("hello"): Rectangle {}
 //      >                <error{Cannot convert styled-text to string}
 //      >                <^error{Cases must be literal values}
         MyEnum.val2 : Rectangle {}
 //      >          <error{Cannot convert MyEnum to string}
+        val1: { }
+//      >  <error{Unknown unqualified identifier 'val1'. Did you mean 'MyEnum.val1'?}
+//      >  <^error{Cases must be literal values}
     }
 }
 
