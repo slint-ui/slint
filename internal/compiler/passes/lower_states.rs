@@ -20,12 +20,12 @@ use std::rc::Rc;
 pub fn lower_states(
     component: &Rc<Component>,
     symbol_counters: &SymbolCounters,
-    forwarded_cache: &mut ForwardedReferenceCache,
+    forwarded_references: &mut ForwardedReferenceCache,
     diag: &mut BuildDiagnostics,
 ) {
     let state_info_type = crate::typeregister::BUILTIN.state_info_type.clone().into();
     recurse_elem(&component.root_element, &(), &mut |elem, _| {
-        lower_state_in_element(elem, &state_info_type, symbol_counters, forwarded_cache, diag)
+        lower_state_in_element(elem, &state_info_type, symbol_counters, forwarded_references, diag)
     });
 }
 
@@ -33,7 +33,7 @@ fn lower_state_in_element(
     root_element: &ElementRc,
     state_info_type: &Type,
     symbol_counters: &SymbolCounters,
-    forwarded_cache: &mut ForwardedReferenceCache,
+    forwarded_references: &mut ForwardedReferenceCache,
     diag: &mut BuildDiagnostics,
 ) {
     if root_element.borrow().states.is_empty() {
@@ -73,7 +73,7 @@ fn lower_state_in_element(
                 &element,
                 property_reference.name(),
                 symbol_counters,
-                forwarded_cache,
+                forwarded_references,
             ) {
                 ExpressionForProperty::TwoWayBinding => {
                     diag.push_error(
