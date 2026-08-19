@@ -54,7 +54,7 @@ mod shaping;
 /// cbindgen:ignore
 pub mod sharedparley;
 use shaping::ShapeBuffer;
-pub use shaping::{AbstractFont, CheckedAdd, FontMetrics, Glyph, TextShaper};
+pub use shaping::{AbstractFont, CheckedAdd, DivCount, FontMetrics, Glyph, TextShaper};
 
 mod linebreaker;
 pub use linebreaker::TextLine;
@@ -422,13 +422,7 @@ impl<Font: AbstractFont> TextParagraphLayout<'_, Font> {
         if line_height <= Font::Length::zero() {
             return usize::MAX;
         }
-        let mut lines = 0usize;
-        let mut height = Font::Length::zero();
-        while height + line_height <= self.max_height {
-            height += line_height;
-            lines += 1;
-        }
-        lines
+        self.max_height.div_count(line_height)
     }
 
     /// Returns the leading edge of the glyph at the given byte offset
