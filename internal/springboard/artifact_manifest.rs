@@ -3,10 +3,10 @@
 
 use serde::{Deserialize, Serialize};
 
-/// Current schema version for mobile viewer release manifests.
+/// Current schema version for local mobile viewer artifact manifests.
 pub const MOBILE_VIEWER_ARTIFACT_SCHEMA_VERSION: u32 = 1;
 
-/// One release's installable mobile viewer artifacts.
+/// One local set of installable mobile viewer artifacts.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct MobileViewerArtifactManifest {
@@ -17,7 +17,7 @@ pub struct MobileViewerArtifactManifest {
     pub artifacts: Vec<MobileViewerArtifact>,
 }
 
-/// An installable viewer artifact published with a Slint release.
+/// An installable viewer artifact built locally for Springboard.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct MobileViewerArtifact {
@@ -41,10 +41,10 @@ mod tests {
     use super::*;
 
     #[test]
-    fn release_manifests_round_trip_without_losing_install_metadata() {
+    fn local_manifests_round_trip_without_losing_install_metadata() {
         let manifest = MobileViewerArtifactManifest {
             schema_version: MOBILE_VIEWER_ARTIFACT_SCHEMA_VERSION,
-            release_tag: "v1.18.0".into(),
+            release_tag: "local".into(),
             slint_version: "1.18.0".into(),
             protocol: "slint-preview.1.18".into(),
             artifacts: vec![
@@ -73,7 +73,7 @@ mod tests {
     fn unknown_manifest_fields_are_rejected() {
         let json = r#"{
             "schema_version": 1,
-            "release_tag": "nightly",
+            "release_tag": "local",
             "slint_version": "1.18.0",
             "protocol": "slint-preview.1.18",
             "artifacts": [],

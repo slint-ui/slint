@@ -1043,11 +1043,11 @@ impl ProjectSessionController {
             let status = match event {
                 AndroidLaunchProgress::Booting => Some(DeviceStatus::Booting),
                 AndroidLaunchProgress::Artifact(
-                    crate::artifacts::ArtifactCacheProgress::Downloading {
-                        bytes_received,
+                    crate::artifacts::ArtifactCacheProgress::Importing {
+                        bytes_copied,
                         total_bytes,
                     },
-                ) => Some(DeviceStatus::Downloading { bytes_received, total_bytes }),
+                ) => Some(DeviceStatus::Downloading { bytes_received: bytes_copied, total_bytes }),
                 AndroidLaunchProgress::Artifact(
                     crate::artifacts::ArtifactCacheProgress::UsingPrevious { reason },
                 ) => {
@@ -1180,11 +1180,11 @@ impl ProjectSessionController {
             }
             let status = match event {
                 IosLaunchProgress::Artifact(
-                    crate::artifacts::ArtifactCacheProgress::Downloading {
-                        bytes_received,
+                    crate::artifacts::ArtifactCacheProgress::Importing {
+                        bytes_copied,
                         total_bytes,
                     },
-                ) => Some(DeviceStatus::Downloading { bytes_received, total_bytes }),
+                ) => Some(DeviceStatus::Downloading { bytes_received: bytes_copied, total_bytes }),
                 IosLaunchProgress::Artifact(
                     crate::artifacts::ArtifactCacheProgress::UsingPrevious { reason },
                 ) => {

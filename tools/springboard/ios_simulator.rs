@@ -144,7 +144,7 @@ impl IosSimulatorManager {
         if !cfg!(target_os = "macos") {
             bail!("iOS Simulator management requires macOS and Xcode");
         }
-        let source = ArtifactSource::from_environment()?;
+        let source = ArtifactSource::from_environment();
         Ok(Self {
             simctl: CommandPrefix::xcrun_simctl(),
             ditto: CommandPrefix { executable: "/usr/bin/ditto".into(), prefix_args: Vec::new() },

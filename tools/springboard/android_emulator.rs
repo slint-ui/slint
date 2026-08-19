@@ -132,7 +132,7 @@ impl AndroidEmulatorManager {
         let sdk = android_sdk_root();
         let adb = resolve_sdk_tool(sdk.as_deref(), &["platform-tools"], "adb");
         let emulator = resolve_sdk_tool(sdk.as_deref(), &["emulator"], "emulator");
-        let source = ArtifactSource::from_environment()?;
+        let source = ArtifactSource::from_environment();
         Ok(Self {
             adb: CommandPrefix { executable: adb, prefix_args: Vec::new(), tool: AndroidTool::Adb },
             emulator: CommandPrefix {
@@ -525,7 +525,7 @@ mod tests {
             },
             artifacts: ArtifactCache::new(
                 PathBuf::from("/cache"),
-                ArtifactSource::new("https://example.invalid", "nightly").unwrap(),
+                ArtifactSource::new(PathBuf::from("/viewer-artifacts")).unwrap(),
             )
             .unwrap(),
         };

@@ -260,39 +260,22 @@ jobs:
                   fi
                   simulator_id=$(xcrun simctl create "Slint Viewer CI" "$device_type" "$runtime")
                   cleanup() {
-                      kill "$server_pid" || true
                       xcrun simctl shutdown "$simulator_id" || true
                       xcrun simctl delete "$simulator_id" || true
                   }
                   artifact_root="$RUNNER_TEMP/springboard-artifacts"
-                  mkdir -p "$artifact_root/ci"
-                  cp slint-viewer-ios-simulator.zip "$artifact_root/ci/"
-                  touch "$artifact_root/ci/slint-viewer.apk"
+                  mkdir -p "$artifact_root"
+                  cp slint-viewer-ios-simulator.zip "$artifact_root/"
                   slint_version=$(sed -nre 's/^version = "([^"]+)"$/\1/p' Cargo.toml | head -n 1)
                   protocol="slint-preview.${slint_version%.*}"
                   scripts/generate_viewer_artifact_manifest.sh \
-                      "$artifact_root/ci/slint-viewer-mobile-artifacts.json" \
-                      ci \
+                      "$artifact_root/slint-viewer-mobile-artifacts.json" \
                       "$slint_version" \
                       "$protocol" \
-                      "$artifact_root/ci/slint-viewer.apk" \
-                      "$artifact_root/ci/slint-viewer-ios-simulator.zip"
-                  python3 -m http.server 18765 --bind 127.0.0.1 --directory "$artifact_root" &
-                  server_pid=$!
+                      - \
+                      "$artifact_root/slint-viewer-ios-simulator.zip"
                   trap cleanup EXIT
-                  for attempt in {1..20}; do
-                      if curl --fail --silent \
-                          http://127.0.0.1:18765/ci/slint-viewer-mobile-artifacts.json \
-                          >/dev/null; then
-                          break
-                      fi
-                      sleep 0.25
-                  done
-                  curl --fail --silent \
-                      http://127.0.0.1:18765/ci/slint-viewer-mobile-artifacts.json \
-                      >/dev/null
-                  SLINT_SPRINGBOARD_ARTIFACT_BASE_URL=http://127.0.0.1:18765 \
-                  SLINT_SPRINGBOARD_ARTIFACT_CHANNEL=ci \
+                  SLINT_SPRINGBOARD_ARTIFACT_DIR="$artifact_root" \
                   SLINT_SPRINGBOARD_IOS_SIMULATOR_UDID="$simulator_id" \
                       cargo test -p slint-springboard \
                           ios_simulator::tests::managed_ios_simulator_smoke -- \

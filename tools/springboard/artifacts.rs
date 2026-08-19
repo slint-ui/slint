@@ -1,13 +1,13 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-//! Release artifact resolution and caching for managed simulator targets.
+//! Local artifact resolution and caching for managed simulator targets.
 
+use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
 use anyhow::{Context as _, Result, anyhow, bail};
-use futures_util::StreamExt as _;
 use i_slint_live_preview::protocol::{PROTOCOL_SUBPROTOCOL, SLINT_VERSION};
 use i_slint_springboard::{
     MOBILE_VIEWER_ARTIFACT_SCHEMA_VERSION, MobileViewerArtifact, MobileViewerArtifactKind,
@@ -16,62 +16,48 @@ use i_slint_springboard::{
 use sha2::{Digest as _, Sha256};
 use tokio::io::{AsyncReadExt as _, AsyncWriteExt as _};
 
-pub const ARTIFACT_BASE_URL_ENVIRONMENT_VARIABLE: &str = "SLINT_SPRINGBOARD_ARTIFACT_BASE_URL";
-pub const ARTIFACT_CHANNEL_ENVIRONMENT_VARIABLE: &str = "SLINT_SPRINGBOARD_ARTIFACT_CHANNEL";
-pub const DEFAULT_ARTIFACT_BASE_URL: &str = "https://github.com/slint-ui/slint/releases/download";
-pub const DEFAULT_ARTIFACT_CHANNEL: &str = env!("SLINT_SPRINGBOARD_DEFAULT_ARTIFACT_CHANNEL");
+pub const ARTIFACT_DIR_ENVIRONMENT_VARIABLE: &str = "SLINT_SPRINGBOARD_ARTIFACT_DIR";
 pub const MOBILE_VIEWER_ARTIFACT_MANIFEST_FILE: &str = "slint-viewer-mobile-artifacts.json";
 
-/// Release location used to resolve a viewer manifest and its artifacts.
+/// The explicitly configured local artifact directory.
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct ArtifactSource {
-    base_url: String,
-    channel: String,
+pub enum ArtifactSource {
+    Directory(PathBuf),
+    Missing,
+    Invalid(String),
 }
 
 impl ArtifactSource {
-    /// Resolve the configured release source, including test and private mirror overrides.
-    pub fn from_environment() -> Result<Self> {
-        let base_url = std::env::var(ARTIFACT_BASE_URL_ENVIRONMENT_VARIABLE)
-            .unwrap_or_else(|_| DEFAULT_ARTIFACT_BASE_URL.into());
-        let channel = std::env::var(ARTIFACT_CHANNEL_ENVIRONMENT_VARIABLE)
-            .unwrap_or_else(|_| DEFAULT_ARTIFACT_CHANNEL.into());
-        Self::new(base_url, channel)
+    /// Resolve the local artifact directory from Springboard's environment.
+    pub fn from_environment() -> Self {
+        Self::from_environment_value(std::env::var_os(ARTIFACT_DIR_ENVIRONMENT_VARIABLE))
     }
 
-    /// Create an explicit artifact source.
-    pub fn new(base_url: impl Into<String>, channel: impl Into<String>) -> Result<Self> {
-        let base_url = base_url.into().trim_end_matches('/').to_string();
-        let channel = channel.into().trim_matches('/').to_string();
-        if base_url.is_empty() {
-            bail!("The Springboard artifact base URL is empty");
+    /// Create an explicit local artifact source.
+    pub fn new(directory: PathBuf) -> Result<Self> {
+        if !directory.is_absolute() {
+            bail!(
+                "{ARTIFACT_DIR_ENVIRONMENT_VARIABLE} must name an absolute directory; got {}",
+                directory.display()
+            );
         }
-        if channel.is_empty() {
-            bail!("The Springboard artifact channel is empty");
+        Ok(Self::Directory(directory))
+    }
+
+    fn from_environment_value(value: Option<OsString>) -> Self {
+        let Some(value) = value else { return Self::Missing };
+        let path = PathBuf::from(value);
+        Self::new(path).unwrap_or_else(|error| Self::Invalid(error.to_string()))
+    }
+
+    fn directory(&self) -> Result<&Path> {
+        match self {
+            Self::Directory(directory) => Ok(directory),
+            Self::Missing => bail!(
+                "{ARTIFACT_DIR_ENVIRONMENT_VARIABLE} is not set. Set it to an absolute directory containing {MOBILE_VIEWER_ARTIFACT_MANIFEST_FILE} and the referenced iOS Simulator ZIP or Android APK."
+            ),
+            Self::Invalid(message) => bail!("{message}"),
         }
-        Ok(Self { base_url, channel })
-    }
-
-    /// URL of the versioned artifact manifest.
-    pub fn manifest_url(&self) -> String {
-        format!("{}/{}/{}", self.base_url, self.channel, MOBILE_VIEWER_ARTIFACT_MANIFEST_FILE)
-    }
-
-    /// URL of one artifact named by the manifest.
-    pub fn artifact_url(&self, file_name: &str) -> Result<String> {
-        if file_name.is_empty() || file_name.contains('/') || file_name.contains('\\') {
-            bail!("The viewer artifact file name is invalid");
-        }
-        Ok(format!("{}/{}/{}", self.base_url, self.channel, file_name))
-    }
-
-    /// Release tag or moving channel selected for this source.
-    pub fn channel(&self) -> &str {
-        &self.channel
-    }
-
-    fn cache_key(&self) -> String {
-        hex::encode(Sha256::digest(format!("{}\n{}", self.base_url, self.channel)))
     }
 }
 
@@ -79,8 +65,8 @@ impl ArtifactSource {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum ArtifactCacheProgress {
     CheckingCache,
-    FetchingManifest,
-    Downloading { bytes_received: u64, total_bytes: Option<u64> },
+    ReadingManifest,
+    Importing { bytes_copied: u64, total_bytes: Option<u64> },
     Validating,
     Ready { from_cache: bool },
     UsingPrevious { reason: String },
@@ -89,7 +75,7 @@ pub enum ArtifactCacheProgress {
 /// How an artifact was resolved.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum ArtifactResolution {
-    Downloaded,
+    Imported,
     Cached,
     CachedAfterFailure { reason: String },
 }
@@ -108,7 +94,6 @@ pub struct CachedViewerArtifact {
 pub struct ArtifactCache {
     root: PathBuf,
     source: ArtifactSource,
-    client: reqwest::Client,
 }
 
 impl ArtifactCache {
@@ -121,17 +106,10 @@ impl ArtifactCache {
 
     /// Create a cache rooted at an explicit directory.
     pub fn new(root: PathBuf, source: ArtifactSource) -> Result<Self> {
-        // reqwest deliberately has no implicit crypto provider so Springboard's binary does not
-        // pull in a second provider alongside the ring provider used elsewhere in the workspace.
-        let _ = rustls::crypto::ring::default_provider().install_default();
-        let client = reqwest::Client::builder()
-            .connect_timeout(std::time::Duration::from_secs(15))
-            .build()
-            .context("Failed to initialize the viewer artifact downloader")?;
-        Ok(Self { root, source, client })
+        Ok(Self { root, source })
     }
 
-    /// Download or reuse an artifact that matches this Springboard build and target architecture.
+    /// Import or reuse an artifact that matches this Springboard build and target architecture.
     pub async fn prepare(
         &self,
         kind: MobileViewerArtifactKind,
@@ -141,22 +119,13 @@ impl ArtifactCache {
         let architecture = normalize_architecture(architecture);
         progress(ArtifactCacheProgress::CheckingCache);
         let previous = self.find_cached(kind, architecture).await;
-        if self.source.channel().starts_with('v')
-            && let Some(previous) = previous.clone()
-        {
-            progress(ArtifactCacheProgress::Ready { from_cache: true });
-            return Ok(previous);
-        }
 
-        progress(ArtifactCacheProgress::FetchingManifest);
-        let fetched = self.fetch_manifest().await;
-        let (manifest, manifest_bytes) = match fetched {
-            Ok(fetched) => fetched,
-            Err(error) => {
-                return use_previous(previous, error, &mut progress);
-            }
+        progress(ArtifactCacheProgress::ReadingManifest);
+        let (manifest, manifest_bytes, source_directory) = match self.read_manifest().await {
+            Ok(manifest) => manifest,
+            Err(error) => return use_previous(previous, error, &mut progress),
         };
-        let artifact = match validate_manifest(&manifest, &self.source, kind, architecture) {
+        let artifact = match validate_manifest(&manifest, kind, architecture) {
             Ok(artifact) => artifact.clone(),
             Err(error) => return use_previous(previous, error, &mut progress),
         };
@@ -175,31 +144,26 @@ impl ArtifactCache {
             });
         }
 
-        let download_result = self.download_artifact(&artifact, &mut progress).await;
-        match download_result {
+        match self.import_artifact(&source_directory, &artifact, &mut progress).await {
             Ok(path) => {
                 progress(ArtifactCacheProgress::Ready { from_cache: false });
                 Ok(CachedViewerArtifact {
                     path,
                     manifest,
                     artifact,
-                    resolution: ArtifactResolution::Downloaded,
+                    resolution: ArtifactResolution::Imported,
                 })
             }
             Err(error) => use_previous(previous, error, &mut progress),
         }
     }
 
-    fn source_directory(&self) -> PathBuf {
-        self.root.join(self.source.cache_key())
-    }
-
     fn manifest_directory(&self) -> PathBuf {
-        self.source_directory().join("manifests")
+        self.root.join("manifests")
     }
 
     fn artifact_directory(&self) -> PathBuf {
-        self.source_directory().join("artifacts")
+        self.root.join("artifacts")
     }
 
     fn artifact_path(&self, artifact: &MobileViewerArtifact) -> PathBuf {
@@ -210,32 +174,29 @@ impl ArtifactCache {
         ))
     }
 
-    async fn fetch_manifest(&self) -> Result<(MobileViewerArtifactManifest, Vec<u8>)> {
-        const MAX_MANIFEST_SIZE: usize = 1024 * 1024;
+    async fn read_manifest(&self) -> Result<(MobileViewerArtifactManifest, Vec<u8>, PathBuf)> {
+        const MAX_MANIFEST_SIZE: u64 = 1024 * 1024;
 
-        let response = self
-            .client
-            .get(self.source.manifest_url())
-            .send()
-            .await
-            .context("Failed to download the viewer artifact manifest")?
-            .error_for_status()
-            .context("The viewer artifact manifest request failed")?;
-        if response.content_length().is_some_and(|length| length > MAX_MANIFEST_SIZE as u64) {
-            bail!("The viewer artifact manifest exceeds {MAX_MANIFEST_SIZE} bytes");
-        }
+        let directory = self.source.directory()?.to_path_buf();
+        let path = directory.join(MOBILE_VIEWER_ARTIFACT_MANIFEST_FILE);
+        let file = tokio::fs::File::open(&path).await.with_context(|| {
+            format!(
+                "Cannot read {} from {ARTIFACT_DIR_ENVIRONMENT_VARIABLE} directory {}",
+                MOBILE_VIEWER_ARTIFACT_MANIFEST_FILE,
+                directory.display()
+            )
+        })?;
         let mut bytes = Vec::new();
-        let mut stream = response.bytes_stream();
-        while let Some(chunk) = stream.next().await {
-            let chunk = chunk.context("Failed while reading the viewer artifact manifest")?;
-            if bytes.len() + chunk.len() > MAX_MANIFEST_SIZE {
-                bail!("The viewer artifact manifest exceeds {MAX_MANIFEST_SIZE} bytes");
-            }
-            bytes.extend_from_slice(&chunk);
+        file.take(MAX_MANIFEST_SIZE + 1)
+            .read_to_end(&mut bytes)
+            .await
+            .context("Failed while reading the local viewer artifact manifest")?;
+        if bytes.len() as u64 > MAX_MANIFEST_SIZE {
+            bail!("The local viewer artifact manifest exceeds {MAX_MANIFEST_SIZE} bytes");
         }
-        let manifest =
-            serde_json::from_slice(&bytes).context("The viewer artifact manifest is malformed")?;
-        Ok((manifest, bytes))
+        let manifest = serde_json::from_slice(&bytes)
+            .context("The local viewer artifact manifest is malformed")?;
+        Ok((manifest, bytes, directory))
     }
 
     async fn persist_manifest(&self, bytes: &[u8]) -> Result<()> {
@@ -247,45 +208,47 @@ impl ArtifactCache {
         persist_bytes_noclobber(&directory, &directory.join(format!("{digest}.json")), bytes).await
     }
 
-    async fn download_artifact(
+    async fn import_artifact(
         &self,
+        source_directory: &Path,
         artifact: &MobileViewerArtifact,
         progress: &mut impl FnMut(ArtifactCacheProgress),
     ) -> Result<PathBuf> {
+        let source_path = source_directory.join(&artifact.file_name);
+        let mut source = tokio::fs::File::open(&source_path).await.with_context(|| {
+            format!("Cannot read local viewer artifact {}", source_path.display())
+        })?;
+        let total_bytes = source.metadata().await.ok().map(|metadata| metadata.len());
         let directory = self.artifact_directory();
         tokio::fs::create_dir_all(&directory)
             .await
             .context("Failed to create the viewer artifact cache")?;
-        let response = self
-            .client
-            .get(self.source.artifact_url(&artifact.file_name)?)
-            .send()
-            .await
-            .with_context(|| format!("Failed to download {}", artifact.file_name))?
-            .error_for_status()
-            .with_context(|| format!("The {} download request failed", artifact.file_name))?;
-        let total_bytes = response.content_length();
         let temporary = tempfile::NamedTempFile::new_in(&directory)
             .context("Failed to create a temporary viewer artifact")?;
-        let mut file = tokio::fs::File::from_std(
+        let mut destination = tokio::fs::File::from_std(
             temporary.reopen().context("Failed to open the temporary viewer artifact")?,
         );
         let mut digest = Sha256::new();
-        let mut bytes_received = 0u64;
-        let mut stream = response.bytes_stream();
-        progress(ArtifactCacheProgress::Downloading { bytes_received, total_bytes });
-        while let Some(chunk) = stream.next().await {
-            let chunk = chunk
-                .with_context(|| format!("Failed while downloading {}", artifact.file_name))?;
-            file.write_all(&chunk)
+        let mut bytes_copied = 0u64;
+        let mut buffer = vec![0; 64 * 1024];
+        progress(ArtifactCacheProgress::Importing { bytes_copied, total_bytes });
+        loop {
+            let count = source
+                .read(&mut buffer)
                 .await
-                .with_context(|| format!("Failed to cache {}", artifact.file_name))?;
-            digest.update(&chunk);
-            bytes_received += chunk.len() as u64;
-            progress(ArtifactCacheProgress::Downloading { bytes_received, total_bytes });
+                .with_context(|| format!("Failed while reading {}", source_path.display()))?;
+            if count == 0 {
+                break;
+            }
+            destination.write_all(&buffer[..count]).await.with_context(|| {
+                format!("Failed to import {} into the Springboard cache", artifact.file_name)
+            })?;
+            digest.update(&buffer[..count]);
+            bytes_copied += count as u64;
+            progress(ArtifactCacheProgress::Importing { bytes_copied, total_bytes });
         }
-        file.sync_all().await.context("Failed to flush the cached viewer artifact")?;
-        drop(file);
+        destination.sync_all().await.context("Failed to flush the imported viewer artifact")?;
+        drop(destination);
 
         progress(ArtifactCacheProgress::Validating);
         let actual = hex::encode(digest.finalize());
@@ -333,9 +296,7 @@ impl ArtifactCache {
             else {
                 continue;
             };
-            let Ok(artifact) =
-                validate_manifest(&manifest, &self.source, kind, architecture).cloned()
-            else {
+            let Ok(artifact) = validate_manifest(&manifest, kind, architecture).cloned() else {
                 continue;
             };
             let artifact_path = self.artifact_path(&artifact);
@@ -354,7 +315,6 @@ impl ArtifactCache {
 
 fn validate_manifest<'a>(
     manifest: &'a MobileViewerArtifactManifest,
-    source: &ArtifactSource,
     kind: MobileViewerArtifactKind,
     architecture: &str,
 ) -> Result<&'a MobileViewerArtifact> {
@@ -365,11 +325,10 @@ fn validate_manifest<'a>(
             MOBILE_VIEWER_ARTIFACT_SCHEMA_VERSION
         );
     }
-    if manifest.release_tag != source.channel() {
+    if manifest.release_tag != "local" {
         bail!(
-            "Viewer artifact manifest is for {}, expected {}",
-            manifest.release_tag,
-            source.channel()
+            "Viewer artifact manifest release_tag is {:?}, expected \"local\"",
+            manifest.release_tag
         );
     }
     if manifest.slint_version != SLINT_VERSION {
@@ -483,95 +442,101 @@ fn persist_temporary_noclobber(temporary: tempfile::NamedTempFile, path: &Path) 
 
 #[cfg(test)]
 mod tests {
-    use std::collections::BTreeMap;
-    use std::sync::{Arc, Mutex};
-
-    use tokio::net::TcpListener;
-
     use super::*;
 
     #[test]
-    fn release_and_mirror_urls_use_the_same_channel_layout() {
-        let source = ArtifactSource::new("https://mirror.invalid/releases/", "/nightly/").unwrap();
+    fn artifact_source_requires_an_absolute_directory() {
+        let error = ArtifactSource::new("relative/artifacts".into()).unwrap_err().to_string();
+        assert!(error.contains(ARTIFACT_DIR_ENVIRONMENT_VARIABLE));
+        assert!(error.contains("absolute"));
 
-        assert_eq!(
-            source.manifest_url(),
-            "https://mirror.invalid/releases/nightly/slint-viewer-mobile-artifacts.json"
-        );
-        assert_eq!(
-            source.artifact_url("slint-viewer.apk").unwrap(),
-            "https://mirror.invalid/releases/nightly/slint-viewer.apk"
-        );
+        let source = ArtifactSource::new(PathBuf::from("/tmp/slint-artifacts")).unwrap();
+        assert_eq!(source, ArtifactSource::Directory("/tmp/slint-artifacts".into()));
     }
 
     #[test]
-    fn artifact_names_cannot_escape_the_release_directory() {
-        let source = ArtifactSource::new(DEFAULT_ARTIFACT_BASE_URL, "v1.18.0").unwrap();
-
-        assert!(source.artifact_url("../viewer.apk").is_err());
-        assert!(source.artifact_url("nested/viewer.apk").is_err());
-    }
-
-    #[test]
-    fn compiled_default_artifact_channel_is_well_formed() {
-        assert!(DEFAULT_ARTIFACT_CHANNEL == "nightly" || DEFAULT_ARTIFACT_CHANNEL.starts_with('v'));
+    fn missing_and_invalid_environment_values_are_preserved() {
+        assert_eq!(ArtifactSource::from_environment_value(None), ArtifactSource::Missing);
+        assert!(matches!(
+            ArtifactSource::from_environment_value(Some("relative".into())),
+            ArtifactSource::Invalid(message)
+                if message.contains(ARTIFACT_DIR_ENVIRONMENT_VARIABLE)
+        ));
     }
 
     #[tokio::test]
-    async fn matching_artifacts_are_downloaded_and_reused_offline() {
+    async fn matching_artifacts_are_imported_and_reused_without_the_source() {
         let viewer = b"universal simulator viewer";
-        let server = TestServer::start().await;
-        let source = ArtifactSource::new(server.base_url(), "test").unwrap();
-        server.set_release(viewer_manifest("viewer.zip", viewer), "viewer.zip", viewer);
+        let source_directory = tempfile::tempdir().unwrap();
+        write_source(source_directory.path(), viewer_manifest("viewer.zip", viewer), viewer).await;
         let cache_directory = tempfile::tempdir().unwrap();
-        let cache = ArtifactCache::new(cache_directory.path().into(), source).unwrap();
+        let cache = ArtifactCache::new(
+            cache_directory.path().into(),
+            ArtifactSource::new(source_directory.path().into()).unwrap(),
+        )
+        .unwrap();
         let mut progress = Vec::new();
 
-        let downloaded = cache
+        let imported = cache
             .prepare(MobileViewerArtifactKind::IosSimulatorApp, "aarch64", |event| {
                 progress.push(event)
             })
             .await
             .unwrap();
 
-        assert_eq!(downloaded.resolution, ArtifactResolution::Downloaded);
-        assert_eq!(tokio::fs::read(&downloaded.path).await.unwrap(), viewer);
+        assert_eq!(imported.resolution, ArtifactResolution::Imported);
+        assert_eq!(tokio::fs::read(&imported.path).await.unwrap(), viewer);
         assert!(progress.iter().any(|event| matches!(
             event,
-            ArtifactCacheProgress::Downloading {
-                bytes_received,
+            ArtifactCacheProgress::Importing {
+                bytes_copied,
                 total_bytes: Some(total_bytes)
-            } if bytes_received == total_bytes
+            } if bytes_copied == total_bytes
         )));
 
-        drop(server);
-        let reused = cache
+        drop(source_directory);
+        let offline_cache =
+            ArtifactCache::new(cache_directory.path().into(), ArtifactSource::Missing).unwrap();
+        let reused = offline_cache
             .prepare(MobileViewerArtifactKind::IosSimulatorApp, "arm64", |_| {})
             .await
             .unwrap();
-        assert_eq!(reused.path, downloaded.path);
-        assert!(matches!(reused.resolution, ArtifactResolution::CachedAfterFailure { .. }));
+        assert_eq!(reused.path, imported.path);
+        assert!(matches!(
+            reused.resolution,
+            ArtifactResolution::CachedAfterFailure { ref reason }
+                if reason.contains(ARTIFACT_DIR_ENVIRONMENT_VARIABLE)
+        ));
     }
 
     #[tokio::test]
-    async fn failed_updates_keep_the_previous_valid_artifact() {
+    async fn failed_imports_keep_the_previous_valid_artifact() {
         let first_viewer = b"first valid viewer";
-        let server = TestServer::start().await;
-        let source = ArtifactSource::new(server.base_url(), "test").unwrap();
-        server.set_release(viewer_manifest("viewer.zip", first_viewer), "viewer.zip", first_viewer);
+        let source_directory = tempfile::tempdir().unwrap();
+        write_source(
+            source_directory.path(),
+            viewer_manifest("viewer.zip", first_viewer),
+            first_viewer,
+        )
+        .await;
         let cache_directory = tempfile::tempdir().unwrap();
-        let cache = ArtifactCache::new(cache_directory.path().into(), source).unwrap();
+        let cache = ArtifactCache::new(
+            cache_directory.path().into(),
+            ArtifactSource::new(source_directory.path().into()).unwrap(),
+        )
+        .unwrap();
         let first = cache
             .prepare(MobileViewerArtifactKind::IosSimulatorApp, "arm64", |_| {})
             .await
             .unwrap();
 
         let expected_update = b"expected updated viewer";
-        server.set_release(
+        write_source(
+            source_directory.path(),
             viewer_manifest("viewer-update.zip", expected_update),
-            "viewer-update.zip",
-            b"truncated download",
-        );
+            b"truncated local artifact",
+        )
+        .await;
         let update = cache
             .prepare(MobileViewerArtifactKind::IosSimulatorApp, "arm64", |_| {})
             .await
@@ -587,15 +552,18 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn incompatible_manifests_are_rejected_before_artifact_downloads() {
+    async fn incompatible_manifests_are_rejected_before_artifact_imports() {
         let viewer = b"viewer";
-        let server = TestServer::start().await;
-        let source = ArtifactSource::new(server.base_url(), "test").unwrap();
+        let source_directory = tempfile::tempdir().unwrap();
         let mut manifest = viewer_manifest("viewer.zip", viewer);
         manifest.protocol = "slint-preview.0.1".into();
-        server.set_release(manifest, "viewer.zip", viewer);
+        write_source(source_directory.path(), manifest, viewer).await;
         let cache_directory = tempfile::tempdir().unwrap();
-        let cache = ArtifactCache::new(cache_directory.path().into(), source).unwrap();
+        let cache = ArtifactCache::new(
+            cache_directory.path().into(),
+            ArtifactSource::new(source_directory.path().into()).unwrap(),
+        )
+        .unwrap();
 
         let error = cache
             .prepare(MobileViewerArtifactKind::IosSimulatorApp, "arm64", |_| {})
@@ -604,7 +572,7 @@ mod tests {
             .to_string();
 
         assert!(error.contains(PROTOCOL_SUBPROTOCOL));
-        assert_eq!(server.request_count("/test/viewer.zip"), 0);
+        assert!(!tokio::fs::try_exists(cache.artifact_directory()).await.unwrap());
     }
 
     #[tokio::test]
@@ -612,11 +580,14 @@ mod tests {
         let viewer = b"valid viewer";
         let manifest = viewer_manifest("viewer.zip", viewer);
         let artifact = manifest.artifacts[0].clone();
-        let server = TestServer::start().await;
-        let source = ArtifactSource::new(server.base_url(), "test").unwrap();
-        server.set_release(manifest, "viewer.zip", viewer);
+        let source_directory = tempfile::tempdir().unwrap();
+        write_source(source_directory.path(), manifest, viewer).await;
         let cache_directory = tempfile::tempdir().unwrap();
-        let cache = ArtifactCache::new(cache_directory.path().into(), source).unwrap();
+        let cache = ArtifactCache::new(
+            cache_directory.path().into(),
+            ArtifactSource::new(source_directory.path().into()).unwrap(),
+        )
+        .unwrap();
         let cached_path = cache.artifact_path(&artifact);
         tokio::fs::create_dir_all(cached_path.parent().unwrap()).await.unwrap();
         tokio::fs::write(&cached_path, b"corrupt").await.unwrap();
@@ -636,62 +607,56 @@ mod tests {
     }
 
     #[test]
-    fn manifest_validation_checks_schema_version_release_and_architecture() {
-        let source = ArtifactSource::new("https://releases.invalid", "test").unwrap();
+    fn manifest_validation_checks_schema_release_and_architecture() {
         let mut manifest = viewer_manifest("viewer.zip", b"viewer");
         assert!(
-            validate_manifest(
-                &manifest,
-                &source,
-                MobileViewerArtifactKind::IosSimulatorApp,
-                "arm64"
-            )
-            .is_ok()
+            validate_manifest(&manifest, MobileViewerArtifactKind::IosSimulatorApp, "arm64")
+                .is_ok()
         );
 
         manifest.schema_version += 1;
         assert!(
-            validate_manifest(
-                &manifest,
-                &source,
-                MobileViewerArtifactKind::IosSimulatorApp,
-                "arm64"
-            )
-            .unwrap_err()
-            .to_string()
-            .contains("schema")
+            validate_manifest(&manifest, MobileViewerArtifactKind::IosSimulatorApp, "arm64")
+                .unwrap_err()
+                .to_string()
+                .contains("schema")
         );
         manifest.schema_version = MOBILE_VIEWER_ARTIFACT_SCHEMA_VERSION;
-        manifest.release_tag = "other".into();
+        manifest.release_tag = "nightly".into();
         assert!(
-            validate_manifest(
-                &manifest,
-                &source,
-                MobileViewerArtifactKind::IosSimulatorApp,
-                "arm64"
-            )
-            .unwrap_err()
-            .to_string()
-            .contains("expected test")
+            validate_manifest(&manifest, MobileViewerArtifactKind::IosSimulatorApp, "arm64")
+                .unwrap_err()
+                .to_string()
+                .contains("local")
         );
-        manifest.release_tag = "test".into();
+        manifest.release_tag = "local".into();
         assert!(
-            validate_manifest(
-                &manifest,
-                &source,
-                MobileViewerArtifactKind::IosSimulatorApp,
-                "riscv64"
-            )
-            .unwrap_err()
-            .to_string()
-            .contains("riscv64")
+            validate_manifest(&manifest, MobileViewerArtifactKind::IosSimulatorApp, "riscv64")
+                .unwrap_err()
+                .to_string()
+                .contains("riscv64")
         );
+    }
+
+    async fn write_source(
+        directory: &Path,
+        manifest: MobileViewerArtifactManifest,
+        contents: &[u8],
+    ) {
+        let artifact_path = directory.join(&manifest.artifacts[0].file_name);
+        tokio::fs::write(
+            directory.join(MOBILE_VIEWER_ARTIFACT_MANIFEST_FILE),
+            serde_json::to_vec(&manifest).unwrap(),
+        )
+        .await
+        .unwrap();
+        tokio::fs::write(artifact_path, contents).await.unwrap();
     }
 
     fn viewer_manifest(file_name: &str, contents: &[u8]) -> MobileViewerArtifactManifest {
         MobileViewerArtifactManifest {
             schema_version: MOBILE_VIEWER_ARTIFACT_SCHEMA_VERSION,
-            release_tag: "test".into(),
+            release_tag: "local".into(),
             slint_version: SLINT_VERSION.into(),
             protocol: PROTOCOL_SUBPROTOCOL.into(),
             artifacts: vec![MobileViewerArtifact {
@@ -701,92 +666,6 @@ mod tests {
                 bundle_id: "dev.slint.slint-viewer".into(),
                 architectures: vec!["arm64".into(), "x86_64".into()],
             }],
-        }
-    }
-
-    struct TestServer {
-        address: std::net::SocketAddr,
-        responses: Arc<Mutex<BTreeMap<String, Vec<u8>>>>,
-        requests: Arc<Mutex<BTreeMap<String, usize>>>,
-        task: tokio::task::JoinHandle<()>,
-    }
-
-    impl TestServer {
-        async fn start() -> Self {
-            let listener = TcpListener::bind((std::net::Ipv4Addr::LOCALHOST, 0)).await.unwrap();
-            let address = listener.local_addr().unwrap();
-            let responses = Arc::new(Mutex::new(BTreeMap::<String, Vec<u8>>::new()));
-            let requests = Arc::new(Mutex::new(BTreeMap::<String, usize>::new()));
-            let task_responses = responses.clone();
-            let task_requests = requests.clone();
-            let task = tokio::spawn(async move {
-                loop {
-                    let Ok((mut stream, _)) = listener.accept().await else { break };
-                    let mut request = vec![0; 8192];
-                    let Ok(count) = stream.read(&mut request).await else { continue };
-                    let request = String::from_utf8_lossy(&request[..count]);
-                    let path = request
-                        .lines()
-                        .next()
-                        .and_then(|line| line.split_whitespace().nth(1))
-                        .unwrap_or("/")
-                        .to_string();
-                    *task_requests
-                        .lock()
-                        .unwrap_or_else(|error| error.into_inner())
-                        .entry(path.clone())
-                        .or_default() += 1;
-                    let body = task_responses
-                        .lock()
-                        .unwrap_or_else(|error| error.into_inner())
-                        .get(&path)
-                        .cloned();
-                    let (status, body) = body
-                        .map(|body| ("200 OK", body))
-                        .unwrap_or_else(|| ("404 Not Found", b"not found".to_vec()));
-                    let response = format!(
-                        "HTTP/1.1 {status}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
-                        body.len()
-                    );
-                    if stream.write_all(response.as_bytes()).await.is_ok() {
-                        let _ = stream.write_all(&body).await;
-                    }
-                }
-            });
-            Self { address, responses, requests, task }
-        }
-
-        fn base_url(&self) -> String {
-            format!("http://{}/releases", self.address)
-        }
-
-        fn set_release(
-            &self,
-            manifest: MobileViewerArtifactManifest,
-            file_name: &str,
-            contents: &[u8],
-        ) {
-            let mut responses = self.responses.lock().unwrap_or_else(|error| error.into_inner());
-            responses.insert(
-                "/releases/test/slint-viewer-mobile-artifacts.json".into(),
-                serde_json::to_vec(&manifest).unwrap(),
-            );
-            responses.insert(format!("/releases/test/{file_name}"), contents.into());
-        }
-
-        fn request_count(&self, path: &str) -> usize {
-            self.requests
-                .lock()
-                .unwrap_or_else(|error| error.into_inner())
-                .get(&format!("/releases{path}"))
-                .copied()
-                .unwrap_or_default()
-        }
-    }
-
-    impl Drop for TestServer {
-        fn drop(&mut self) {
-            self.task.abort();
         }
     }
 }

@@ -47,8 +47,6 @@ hex = "0.4.3"
 mdns-sd = { version = "0.20.0", default-features = false, features = ["async"] }
 notify = { version = "8.0.0", default-features = false, features = ["macos_kqueue"] }
 ratatui = "0.30.0"
-reqwest = { version = "0.13", default-features = false, features = ["rustls-no-provider", "system-proxy", "stream"] }
-rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
 serde = { workspace = true, features = ["std"] }
 serde_json = { workspace = true }
 sha2 = "0.10.9"

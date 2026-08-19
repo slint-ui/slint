@@ -8262,8 +8262,6 @@ dependencies = [
  "mdns-sd",
  "notify",
  "ratatui",
- "reqwest",
- "rustls",
  "serde",
  "serde_json",
  "sha2",
