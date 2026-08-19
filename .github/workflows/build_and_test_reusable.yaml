@@ -172,9 +172,7 @@ jobs:
               if: runner.os == 'Windows' && inputs.test_integration
               env:
                 SLINT_LIVE_PREVIEW: 1
-                # CI-DEBUG: shrink the build-time compiler stack a little below the flaky 512KB
-                # threshold so the concurrency-driven overflow reproduces reliably (no single case
-                # overflows this alone), and the build.rs log names the culprit. Tune if needed.
+                # CI-DEBUG: smaller build-time stack to reproduce the overflow. Revert.
                 SLINT_BUILD_STACK: "480000"
               run: cargo test --locked --verbose --all-features --manifest-path tests/Cargo.toml --features slint/live-preview -p test-driver-rust -- --skip=_qt::t
               shell: bash

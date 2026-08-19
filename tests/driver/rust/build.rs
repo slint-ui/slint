@@ -97,16 +97,7 @@ fn main() -> std::io::Result<()> {
 
     let testcases = test_driver_lib::collect_test_cases("cases")?;
 
-    // Generate the per-case modules on all cores: with the build-time feature,
-    // each case runs the Slint compiler (twice with deterministic-output),
-    // which dominates the build script's runtime.
-    // TEMPORARY DEBUG (stack overflow on the Windows live-preview job): the overflow is
-    // concurrency-driven and flaky, and per-case logging perturbs the scheduling enough to hide
-    // it. Instead each worker records the case it is compiling into a lock-free slot (a plain
-    // atomic store, no syscall, so scheduling is barely perturbed), and one monitor thread dumps
-    // the slots every few milliseconds. When a worker overflows, the last `SLINT_MONITOR` line
-    // shows what every worker was compiling and how many were busy. SLINT_BUILD_STACK overrides
-    // the worker stack so the overflow reproduces reliably. Revert before merging.
+    // TEMPORARY DEBUG: revert before merging.
     use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
     println!("cargo::rerun-if-env-changed=SLINT_BUILD_STACK");
     let dbg_stack: usize =
