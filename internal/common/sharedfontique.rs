@@ -7,11 +7,65 @@ pub use skrifa;
 #[cfg(feature = "svg-text")]
 pub mod svg;
 
-#[cfg(any(target_family = "wasm", target_os = "nto"))]
+#[cfg(any(target_family = "wasm", target_os = "nto", test))]
 use fontique::ScriptExt;
 
 use std::collections::HashSet;
 use std::sync::Arc;
+
+/// Register the fonts compiled into the binary,
+/// for the platforms that have no system fonts to query.
+///
+/// Inter covers the proportional generics and stands in as the fallback for every script.
+/// The monospace generics are left to [`register_monospace_font`], which this doesn't call.
+///
+/// Compiled everywhere so the unit test can check the mapping,
+/// but only called where it's needed,
+/// which keeps the font bytes out of every other binary.
+#[cfg(any(target_family = "wasm", target_os = "nto", test))]
+fn register_embedded_fonts(collection: &mut fontique::Collection) {
+    let sans = collection.register_fonts(
+        fontique::Blob::new(Arc::new(include_bytes!("sharedfontique/Inter-VariableFont.ttf"))),
+        None,
+    );
+    for script in fontique::Script::all_samples().iter().map(|(script, _)| *script) {
+        collection.append_fallbacks(
+            fontique::FallbackKey::new(script, None),
+            sans.iter().map(|(family_id, _)| *family_id),
+        );
+    }
+    for generic_family in [
+        fontique::GenericFamily::SansSerif,
+        fontique::GenericFamily::SystemUi,
+        fontique::GenericFamily::UiSansSerif,
+    ] {
+        collection
+            .append_generic_families(generic_family, sans.iter().map(|(family_id, _)| *family_id));
+    }
+}
+
+/// Register the embedded monospace face under the monospace generic families.
+///
+/// Styled text's `Code` style asks for `GenericFamily::Monospace` directly,
+/// and on a platform with no system fonts that generic resolves to no family at all,
+/// so a code span renders in the proportional face.
+///
+/// [`create_collection`] deliberately doesn't call this:
+/// an application that never draws code shouldn't carry a programming font.
+/// The caller is the wasm interpreter, which renders snippets it didn't write,
+/// and whose authors have no way to supply a font themselves.
+#[cfg(any(target_family = "wasm", test))]
+pub fn register_monospace_font(collection: &mut fontique::Collection) {
+    let mono = collection.register_fonts(
+        fontique::Blob::new(Arc::new(include_bytes!("sharedfontique/SourceCodePro-Medium.ttf"))),
+        None,
+    );
+    for generic_family in [fontique::GenericFamily::Monospace, fontique::GenericFamily::UiMonospace]
+    {
+        collection
+            .append_generic_families(generic_family, mono.iter().map(|(family_id, _)| *family_id));
+    }
+}
 
 /// Create a new fontique Collection.
 /// When `shared` is true, the collection uses `Arc`-based internal sharing,
@@ -29,26 +83,7 @@ pub fn create_collection(shared: bool) -> Collection {
     let mut chain_families: Vec<fontique::FamilyId> = Vec::new();
 
     #[cfg(any(target_family = "wasm", target_os = "nto"))]
-    {
-        let data = include_bytes!("sharedfontique/Inter-VariableFont.ttf");
-        let fonts = collection.register_fonts(fontique::Blob::new(Arc::new(data)), None);
-        for script in fontique::Script::all_samples().iter().map(|(script, _)| *script) {
-            collection.append_fallbacks(
-                fontique::FallbackKey::new(script, None),
-                fonts.iter().map(|(family_id, _)| *family_id),
-            );
-        }
-        for generic_family in [
-            fontique::GenericFamily::SansSerif,
-            fontique::GenericFamily::SystemUi,
-            fontique::GenericFamily::UiSansSerif,
-        ] {
-            collection.append_generic_families(
-                generic_family,
-                fonts.iter().map(|(family_id, _)| *family_id),
-            );
-        }
-    }
+    register_embedded_fonts(&mut collection);
 
     let mut registered_paths: HashSet<std::path::PathBuf> = HashSet::new();
     let mut register_path =
@@ -220,5 +255,74 @@ impl From<fontique::Blob<u8>> for HashedBlob {
 impl AsRef<fontique::Blob<u8>> for HashedBlob {
     fn as_ref(&self) -> &fontique::Blob<u8> {
         &self.0
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn empty_collection() -> fontique::Collection {
+        fontique::Collection::new(fontique::CollectionOptions {
+            shared: false,
+            system_fonts: false,
+        })
+    }
+
+    fn generic_family_names(
+        collection: &mut fontique::Collection,
+        generic_family: fontique::GenericFamily,
+    ) -> Vec<String> {
+        let families: Vec<_> = collection.generic_families(generic_family).collect();
+        families.iter().filter_map(|id| collection.family_name(*id).map(str::to_string)).collect()
+    }
+
+    /// A platform reaching this code has no system fonts,
+    /// so every proportional generic has to resolve to the one embedded face.
+    #[test]
+    fn embedded_fonts_cover_the_proportional_generics() {
+        let mut collection = empty_collection();
+        register_embedded_fonts(&mut collection);
+
+        for generic_family in [
+            fontique::GenericFamily::SansSerif,
+            fontique::GenericFamily::SystemUi,
+            fontique::GenericFamily::UiSansSerif,
+        ] {
+            let names = generic_family_names(&mut collection, generic_family);
+            assert!(
+                names.iter().any(|name| name == "Inter"),
+                "{generic_family:?} resolves to {names:?}, expected it to include Inter"
+            );
+        }
+    }
+
+    /// Styled text's `Code` style requests `Monospace` directly,
+    /// and an unmapped generic resolves to no family at all rather than to a substitute.
+    #[test]
+    fn the_monospace_font_covers_the_monospace_generics() {
+        let mut collection = empty_collection();
+        register_embedded_fonts(&mut collection);
+
+        for generic_family in
+            [fontique::GenericFamily::Monospace, fontique::GenericFamily::UiMonospace]
+        {
+            assert!(
+                generic_family_names(&mut collection, generic_family).is_empty(),
+                "{generic_family:?} resolves to a family before register_monospace_font runs"
+            );
+        }
+
+        register_monospace_font(&mut collection);
+
+        for generic_family in
+            [fontique::GenericFamily::Monospace, fontique::GenericFamily::UiMonospace]
+        {
+            let names = generic_family_names(&mut collection, generic_family);
+            assert!(
+                names.iter().any(|name| name == "Source Code Pro"),
+                "{generic_family:?} resolves to {names:?}, expected it to include Source Code Pro"
+            );
+        }
     }
 }
