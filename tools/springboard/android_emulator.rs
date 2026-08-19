@@ -16,7 +16,7 @@ use i_slint_springboard::{
 };
 use tokio::process::Command;
 
-use crate::artifacts::{ArtifactCache, ArtifactCacheProgress, ArtifactSource};
+use crate::artifacts::{ArtifactCache, ArtifactCacheProgress, ArtifactSetupStatus, ArtifactSource};
 
 pub const ANDROID_EMULATOR_DEVICE_PREFIX: &str = "simulator:android:";
 pub const DEFAULT_ANDROID_VIEWER_PACKAGE: &str = "dev.slint.viewer";
@@ -174,6 +174,10 @@ impl AndroidEmulatorManager {
                 .then_with(|| left.avd_name.cmp(&right.avd_name))
         });
         Ok(emulators)
+    }
+
+    pub async fn artifact_setup_status(&self) -> ArtifactSetupStatus {
+        self.artifacts.setup_status(MobileViewerArtifactKind::AndroidApk, None).await
     }
 
     pub async fn launch(
@@ -557,7 +561,7 @@ mod tests {
     }
 
     #[tokio::test]
-    #[ignore = "requires an Android Virtual Device and a local viewer artifact mirror"]
+    #[ignore = "requires an Android Virtual Device and a local viewer artifact directory"]
     async fn managed_android_emulator_smoke() {
         let avd_name = std::env::var("SLINT_SPRINGBOARD_ANDROID_AVD")
             .expect("SLINT_SPRINGBOARD_ANDROID_AVD is required");

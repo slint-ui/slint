@@ -11,8 +11,9 @@ pub mod protocol;
 pub mod session;
 
 pub use artifact_manifest::{
-    MOBILE_VIEWER_ARTIFACT_SCHEMA_VERSION, MobileViewerArtifact, MobileViewerArtifactKind,
-    MobileViewerArtifactManifest,
+    MOBILE_VIEWER_ARTIFACT_MANIFEST_FILE, MOBILE_VIEWER_ARTIFACT_SCHEMA_VERSION,
+    MobileViewerArtifact, MobileViewerArtifactKind, MobileViewerArtifactManifest,
+    SPRINGBOARD_ARTIFACT_DIR_ENVIRONMENT_VARIABLE,
 };
 
 pub use persistence::{

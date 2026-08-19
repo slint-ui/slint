@@ -17,7 +17,7 @@ use i_slint_springboard::{
 use serde::Deserialize;
 use tokio::process::Command;
 
-use crate::artifacts::{ArtifactCache, ArtifactCacheProgress, ArtifactSource};
+use crate::artifacts::{ArtifactCache, ArtifactCacheProgress, ArtifactSetupStatus, ArtifactSource};
 
 pub const IOS_SIMULATOR_DEVICE_PREFIX: &str = "simulator:ios:";
 pub const DEFAULT_IOS_VIEWER_BUNDLE_ID: &str = "dev.slint.slint-viewer";
@@ -159,6 +159,12 @@ impl IosSimulatorManager {
             .output("Listing iOS Simulators")
             .await?;
         parse_simulators(&output)
+    }
+
+    pub async fn artifact_setup_status(&self) -> ArtifactSetupStatus {
+        self.artifacts
+            .setup_status(MobileViewerArtifactKind::IosSimulatorApp, Some(std::env::consts::ARCH))
+            .await
     }
 
     pub async fn launch(
@@ -426,7 +432,7 @@ mod tests {
     }
 
     #[tokio::test]
-    #[ignore = "requires Xcode, an iOS Simulator, and a local viewer artifact mirror"]
+    #[ignore = "requires Xcode, an iOS Simulator, and a local viewer artifact directory"]
     async fn managed_ios_simulator_smoke() {
         let udid = std::env::var("SLINT_SPRINGBOARD_IOS_SIMULATOR_UDID")
             .expect("SLINT_SPRINGBOARD_IOS_SIMULATOR_UDID is required");

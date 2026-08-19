@@ -186,8 +186,8 @@ export component EditorTopBar inherits Rectangle {
                     ? "Connecting…"
                 : Api.springboard-run-state == SpringboardRunState.Reconnecting
                     ? "Reconnecting…"
-                : Api.springboard-run-state == SpringboardRunState.Downloading
-                    ? "Downloading…"
+                : Api.springboard-run-state == SpringboardRunState.Importing
+                    ? "Importing…"
                 : Api.springboard-run-state == SpringboardRunState.Installing
                     ? "Installing…"
                 : Api.springboard-run-state == SpringboardRunState.Compiling
@@ -208,7 +208,7 @@ export component EditorTopBar inherits Rectangle {
                         || Api.springboard-run-state == SpringboardRunState.Booting
                         || Api.springboard-run-state == SpringboardRunState.Connecting
                         || Api.springboard-run-state == SpringboardRunState.Reconnecting
-                        || Api.springboard-run-state == SpringboardRunState.Downloading
+                        || Api.springboard-run-state == SpringboardRunState.Importing
                         || Api.springboard-run-state == SpringboardRunState.Installing
                         || Api.springboard-run-state == SpringboardRunState.Compiling
                         || Api.springboard-run-state == SpringboardRunState.Reloading

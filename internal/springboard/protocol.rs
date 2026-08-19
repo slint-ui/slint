@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use crate::{Device, DeviceId, DiagnosticSeverity, LogLevel, SessionEvent};
 
 /// The JSON-lines protocol version spoken by Springboard clients and servers.
-pub const SPRINGBOARD_PROTOCOL_VERSION: u32 = 3;
+pub const SPRINGBOARD_PROTOCOL_VERSION: u32 = 4;
 
 /// A client-generated request ID.
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]

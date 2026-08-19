@@ -105,7 +105,7 @@ pub enum DeviceStatus {
     Booting,
     Connecting,
     Reconnecting,
-    Downloading { bytes_received: u64, total_bytes: Option<u64> },
+    Importing { bytes_copied: u64, total_bytes: Option<u64> },
     Installing,
     Compiling,
     Reloading,
@@ -113,6 +113,7 @@ pub enum DeviceStatus {
     Running,
     RunningWithError { message: String },
     Stopping,
+    SetupRequired { message: String },
     Failed { message: String },
     Incompatible { installed: String, required: String },
 }
@@ -126,7 +127,7 @@ impl DeviceStatus {
                 | Self::Booting
                 | Self::Connecting
                 | Self::Reconnecting
-                | Self::Downloading { .. }
+                | Self::Importing { .. }
                 | Self::Installing
                 | Self::Compiling
                 | Self::Reloading

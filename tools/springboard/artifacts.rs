@@ -10,14 +10,12 @@ use std::time::SystemTime;
 use anyhow::{Context as _, Result, anyhow, bail};
 use i_slint_live_preview::protocol::{PROTOCOL_SUBPROTOCOL, SLINT_VERSION};
 use i_slint_springboard::{
-    MOBILE_VIEWER_ARTIFACT_SCHEMA_VERSION, MobileViewerArtifact, MobileViewerArtifactKind,
-    MobileViewerArtifactManifest,
+    MOBILE_VIEWER_ARTIFACT_MANIFEST_FILE, MOBILE_VIEWER_ARTIFACT_SCHEMA_VERSION,
+    MobileViewerArtifact, MobileViewerArtifactKind, MobileViewerArtifactManifest,
+    SPRINGBOARD_ARTIFACT_DIR_ENVIRONMENT_VARIABLE,
 };
 use sha2::{Digest as _, Sha256};
 use tokio::io::{AsyncReadExt as _, AsyncWriteExt as _};
-
-pub const ARTIFACT_DIR_ENVIRONMENT_VARIABLE: &str = "SLINT_SPRINGBOARD_ARTIFACT_DIR";
-pub const MOBILE_VIEWER_ARTIFACT_MANIFEST_FILE: &str = "slint-viewer-mobile-artifacts.json";
 
 /// The explicitly configured local artifact directory.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -30,14 +28,16 @@ pub enum ArtifactSource {
 impl ArtifactSource {
     /// Resolve the local artifact directory from Springboard's environment.
     pub fn from_environment() -> Self {
-        Self::from_environment_value(std::env::var_os(ARTIFACT_DIR_ENVIRONMENT_VARIABLE))
+        Self::from_environment_value(std::env::var_os(
+            SPRINGBOARD_ARTIFACT_DIR_ENVIRONMENT_VARIABLE,
+        ))
     }
 
     /// Create an explicit local artifact source.
     pub fn new(directory: PathBuf) -> Result<Self> {
         if !directory.is_absolute() {
             bail!(
-                "{ARTIFACT_DIR_ENVIRONMENT_VARIABLE} must name an absolute directory; got {}",
+                "{SPRINGBOARD_ARTIFACT_DIR_ENVIRONMENT_VARIABLE} must name an absolute directory containing {MOBILE_VIEWER_ARTIFACT_MANIFEST_FILE} and the referenced iOS Simulator ZIP or Android APK; got {}",
                 directory.display()
             );
         }
@@ -54,7 +54,7 @@ impl ArtifactSource {
         match self {
             Self::Directory(directory) => Ok(directory),
             Self::Missing => bail!(
-                "{ARTIFACT_DIR_ENVIRONMENT_VARIABLE} is not set. Set it to an absolute directory containing {MOBILE_VIEWER_ARTIFACT_MANIFEST_FILE} and the referenced iOS Simulator ZIP or Android APK."
+                "{SPRINGBOARD_ARTIFACT_DIR_ENVIRONMENT_VARIABLE} is not set. Set it to an absolute directory containing {MOBILE_VIEWER_ARTIFACT_MANIFEST_FILE} and the referenced iOS Simulator ZIP or Android APK."
             ),
             Self::Invalid(message) => bail!("{message}"),
         }
@@ -78,6 +78,21 @@ pub enum ArtifactResolution {
     Imported,
     Cached,
     CachedAfterFailure { reason: String },
+}
+
+/// Whether a managed simulator viewer can be launched from local artifacts or the cache.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum ArtifactSetupStatus {
+    Ready,
+    SetupRequired { message: String },
+    Incompatible { installed: String, required: String },
+    Failed { message: String },
+}
+
+enum ManifestReadError {
+    Unavailable(anyhow::Error),
+    SetupRequired(anyhow::Error),
+    Failed(anyhow::Error),
 }
 
 /// A validated viewer package ready for installation.
@@ -118,43 +133,87 @@ impl ArtifactCache {
     ) -> Result<CachedViewerArtifact> {
         let architecture = normalize_architecture(architecture);
         progress(ArtifactCacheProgress::CheckingCache);
-        let previous = self.find_cached(kind, architecture).await;
+        let previous = self.find_cached(kind, Some(architecture)).await;
 
         progress(ArtifactCacheProgress::ReadingManifest);
         let (manifest, manifest_bytes, source_directory) = match self.read_manifest().await {
             Ok(manifest) => manifest,
-            Err(error) => return use_previous(previous, error, &mut progress),
+            Err(ManifestReadError::Unavailable(error)) => {
+                return use_previous(previous, error, &mut progress);
+            }
+            Err(ManifestReadError::SetupRequired(error)) => return Err(error),
+            Err(ManifestReadError::Failed(error)) => return Err(error),
         };
-        let artifact = match validate_manifest(&manifest, kind, architecture) {
-            Ok(artifact) => artifact.clone(),
-            Err(error) => return use_previous(previous, error, &mut progress),
-        };
-        if let Err(error) = self.persist_manifest(&manifest_bytes).await {
-            return use_previous(previous, error, &mut progress);
-        }
+        let artifact = validate_manifest(&manifest, kind, Some(architecture))?.clone();
+        self.persist_manifest(&manifest_bytes).await?;
 
         let artifact_path = self.artifact_path(&artifact);
-        if validate_artifact_file(&artifact_path, &artifact.sha256).await.unwrap_or(false) {
-            progress(ArtifactCacheProgress::Ready { from_cache: true });
-            return Ok(CachedViewerArtifact {
-                path: artifact_path,
-                manifest,
-                artifact,
-                resolution: ArtifactResolution::Cached,
-            });
-        }
+        let was_cached = validate_artifact_file(&artifact_path, &artifact.sha256).await?;
 
-        match self.import_artifact(&source_directory, &artifact, &mut progress).await {
-            Ok(path) => {
-                progress(ArtifactCacheProgress::Ready { from_cache: false });
-                Ok(CachedViewerArtifact {
-                    path,
-                    manifest,
-                    artifact,
-                    resolution: ArtifactResolution::Imported,
-                })
+        let path = self.import_artifact(&source_directory, &artifact, &mut progress).await?;
+        progress(ArtifactCacheProgress::Ready { from_cache: was_cached });
+        Ok(CachedViewerArtifact {
+            path,
+            manifest,
+            artifact,
+            resolution: if was_cached {
+                ArtifactResolution::Cached
+            } else {
+                ArtifactResolution::Imported
+            },
+        })
+    }
+
+    /// Check local setup without importing, installing, or launching anything.
+    pub async fn setup_status(
+        &self,
+        kind: MobileViewerArtifactKind,
+        architecture: Option<&str>,
+    ) -> ArtifactSetupStatus {
+        let architecture = architecture.map(normalize_architecture);
+        let cached = self.find_cached(kind, architecture).await.is_some();
+        let (manifest, _, source_directory) = match self.read_manifest().await {
+            Ok(manifest) => manifest,
+            Err(ManifestReadError::Unavailable(error)) => {
+                return if cached {
+                    ArtifactSetupStatus::Ready
+                } else {
+                    ArtifactSetupStatus::SetupRequired { message: error.to_string() }
+                };
             }
-            Err(error) => use_previous(previous, error, &mut progress),
+            Err(ManifestReadError::SetupRequired(error)) => {
+                return ArtifactSetupStatus::SetupRequired { message: error.to_string() };
+            }
+            Err(ManifestReadError::Failed(error)) => {
+                return ArtifactSetupStatus::Failed { message: error.to_string() };
+            }
+        };
+        let artifact = match validate_manifest_setup(&manifest, kind, architecture) {
+            Ok(artifact) => artifact,
+            Err(status) => return status,
+        };
+        let path = source_directory.join(&artifact.file_name);
+        match validate_artifact_file(&path, &artifact.sha256).await {
+            Ok(true) => ArtifactSetupStatus::Ready,
+            Ok(false) if !path.exists() => ArtifactSetupStatus::SetupRequired {
+                message: format!(
+                    "The local viewer artifact {} is missing from {SPRINGBOARD_ARTIFACT_DIR_ENVIRONMENT_VARIABLE} directory {}.",
+                    artifact.file_name,
+                    source_directory.display()
+                ),
+            },
+            Ok(false) => ArtifactSetupStatus::Failed {
+                message: format!(
+                    "The local viewer artifact {} does not match the manifest SHA-256 checksum.",
+                    artifact.file_name
+                ),
+            },
+            Err(error) => ArtifactSetupStatus::Failed {
+                message: format!(
+                    "Failed to validate local viewer artifact {}: {error}",
+                    path.display()
+                ),
+            },
         }
     }
 
@@ -174,28 +233,61 @@ impl ArtifactCache {
         ))
     }
 
-    async fn read_manifest(&self) -> Result<(MobileViewerArtifactManifest, Vec<u8>, PathBuf)> {
+    async fn read_manifest(
+        &self,
+    ) -> std::result::Result<(MobileViewerArtifactManifest, Vec<u8>, PathBuf), ManifestReadError>
+    {
         const MAX_MANIFEST_SIZE: u64 = 1024 * 1024;
 
-        let directory = self.source.directory()?.to_path_buf();
+        let directory =
+            self.source.directory().map_err(ManifestReadError::Unavailable)?.to_path_buf();
         let path = directory.join(MOBILE_VIEWER_ARTIFACT_MANIFEST_FILE);
-        let file = tokio::fs::File::open(&path).await.with_context(|| {
-            format!(
-                "Cannot read {} from {ARTIFACT_DIR_ENVIRONMENT_VARIABLE} directory {}",
-                MOBILE_VIEWER_ARTIFACT_MANIFEST_FILE,
-                directory.display()
-            )
-        })?;
+        let file = match tokio::fs::File::open(&path).await {
+            Ok(file) => file,
+            Err(error) => {
+                let missing = error.kind() == std::io::ErrorKind::NotFound;
+                let error = anyhow!(error).context(format!(
+                    "Cannot read {} from {SPRINGBOARD_ARTIFACT_DIR_ENVIRONMENT_VARIABLE} directory {}",
+                    MOBILE_VIEWER_ARTIFACT_MANIFEST_FILE,
+                    directory.display()
+                ));
+                return Err(if missing {
+                    match tokio::fs::metadata(&directory).await {
+                        Ok(metadata) if metadata.is_dir() => {
+                            ManifestReadError::SetupRequired(error)
+                        }
+                        Ok(_) => ManifestReadError::SetupRequired(error),
+                        Err(directory_error)
+                            if directory_error.kind() == std::io::ErrorKind::NotFound =>
+                        {
+                            ManifestReadError::Unavailable(error)
+                        }
+                        Err(directory_error) => ManifestReadError::Failed(
+                            anyhow!(directory_error).context(format!(
+                                "Cannot inspect {SPRINGBOARD_ARTIFACT_DIR_ENVIRONMENT_VARIABLE} directory {}",
+                                directory.display()
+                            )),
+                        ),
+                    }
+                } else {
+                    ManifestReadError::Failed(error)
+                });
+            }
+        };
         let mut bytes = Vec::new();
         file.take(MAX_MANIFEST_SIZE + 1)
             .read_to_end(&mut bytes)
             .await
-            .context("Failed while reading the local viewer artifact manifest")?;
+            .context("Failed while reading the local viewer artifact manifest")
+            .map_err(ManifestReadError::Failed)?;
         if bytes.len() as u64 > MAX_MANIFEST_SIZE {
-            bail!("The local viewer artifact manifest exceeds {MAX_MANIFEST_SIZE} bytes");
+            return Err(ManifestReadError::Failed(anyhow!(
+                "The local viewer artifact manifest exceeds {MAX_MANIFEST_SIZE} bytes"
+            )));
         }
         let manifest = serde_json::from_slice(&bytes)
-            .context("The local viewer artifact manifest is malformed")?;
+            .context("The local viewer artifact manifest is malformed")
+            .map_err(ManifestReadError::Failed)?;
         Ok((manifest, bytes, directory))
     }
 
@@ -272,7 +364,7 @@ impl ArtifactCache {
     async fn find_cached(
         &self,
         kind: MobileViewerArtifactKind,
-        architecture: &str,
+        architecture: Option<&str>,
     ) -> Option<CachedViewerArtifact> {
         let mut directory = tokio::fs::read_dir(self.manifest_directory()).await.ok()?;
         let mut candidates = Vec::new();
@@ -316,53 +408,84 @@ impl ArtifactCache {
 fn validate_manifest<'a>(
     manifest: &'a MobileViewerArtifactManifest,
     kind: MobileViewerArtifactKind,
-    architecture: &str,
+    architecture: Option<&str>,
 ) -> Result<&'a MobileViewerArtifact> {
+    validate_manifest_setup(manifest, kind, architecture).map_err(|status| match status {
+        ArtifactSetupStatus::SetupRequired { message }
+        | ArtifactSetupStatus::Failed { message } => anyhow!(message),
+        ArtifactSetupStatus::Incompatible { installed, required } => {
+            anyhow!("Installed viewer artifact support is {installed}, expected {required}")
+        }
+        ArtifactSetupStatus::Ready => unreachable!(),
+    })
+}
+
+fn validate_manifest_setup<'a>(
+    manifest: &'a MobileViewerArtifactManifest,
+    kind: MobileViewerArtifactKind,
+    architecture: Option<&str>,
+) -> std::result::Result<&'a MobileViewerArtifact, ArtifactSetupStatus> {
     if manifest.schema_version != MOBILE_VIEWER_ARTIFACT_SCHEMA_VERSION {
-        bail!(
-            "Viewer artifact manifest schema {} is unsupported; expected {}",
-            manifest.schema_version,
-            MOBILE_VIEWER_ARTIFACT_SCHEMA_VERSION
-        );
+        return Err(ArtifactSetupStatus::Failed {
+            message: format!(
+                "Viewer artifact manifest schema {} is unsupported; expected {}",
+                manifest.schema_version, MOBILE_VIEWER_ARTIFACT_SCHEMA_VERSION
+            ),
+        });
     }
     if manifest.release_tag != "local" {
-        bail!(
-            "Viewer artifact manifest release_tag is {:?}, expected \"local\"",
-            manifest.release_tag
-        );
+        return Err(ArtifactSetupStatus::Failed {
+            message: format!(
+                "Viewer artifact manifest release_tag is {:?}, expected \"local\"",
+                manifest.release_tag
+            ),
+        });
     }
     if manifest.slint_version != SLINT_VERSION {
-        bail!(
-            "Viewer artifact manifest contains Slint {}, expected {SLINT_VERSION}",
-            manifest.slint_version
-        );
+        return Err(ArtifactSetupStatus::Incompatible {
+            installed: format!("Slint {}", manifest.slint_version),
+            required: format!("Slint {SLINT_VERSION}"),
+        });
     }
     if manifest.protocol != PROTOCOL_SUBPROTOCOL {
-        bail!(
-            "Viewer artifact manifest uses protocol {}, expected {PROTOCOL_SUBPROTOCOL}",
-            manifest.protocol
-        );
+        return Err(ArtifactSetupStatus::Incompatible {
+            installed: manifest.protocol.clone(),
+            required: PROTOCOL_SUBPROTOCOL.into(),
+        });
     }
-    let artifact = manifest
-        .artifacts
-        .iter()
-        .find(|artifact| artifact.kind == kind)
-        .with_context(|| format!("The viewer artifact manifest does not contain {kind:?}"))?;
+    let Some(artifact) = manifest.artifacts.iter().find(|artifact| artifact.kind == kind) else {
+        return Err(ArtifactSetupStatus::SetupRequired {
+            message: format!(
+                "The local viewer artifact manifest does not contain the required {kind:?} package."
+            ),
+        });
+    };
     if artifact.file_name.is_empty()
         || artifact.file_name.contains('/')
         || artifact.file_name.contains('\\')
     {
-        bail!("The viewer artifact file name is invalid");
+        return Err(ArtifactSetupStatus::Failed {
+            message: "The viewer artifact file name is invalid".into(),
+        });
     }
     if artifact.bundle_id.trim().is_empty() {
-        bail!("The viewer artifact bundle ID is empty");
+        return Err(ArtifactSetupStatus::Failed {
+            message: "The viewer artifact bundle ID is empty".into(),
+        });
     }
     if artifact.sha256.len() != 64 || !artifact.sha256.bytes().all(|byte| byte.is_ascii_hexdigit())
     {
-        bail!("The viewer artifact SHA-256 checksum is invalid");
+        return Err(ArtifactSetupStatus::Failed {
+            message: "The viewer artifact SHA-256 checksum is invalid".into(),
+        });
     }
-    if !artifact.architectures.iter().any(|candidate| candidate == architecture) {
-        bail!("The viewer artifact does not support the {architecture} architecture");
+    if let Some(architecture) = architecture
+        && !artifact.architectures.iter().any(|candidate| candidate == architecture)
+    {
+        return Err(ArtifactSetupStatus::Incompatible {
+            installed: format!("architectures {}", artifact.architectures.join(", ")),
+            required: format!("architecture {architecture}"),
+        });
     }
     Ok(artifact)
 }
@@ -447,7 +570,7 @@ mod tests {
     #[test]
     fn artifact_source_requires_an_absolute_directory() {
         let error = ArtifactSource::new("relative/artifacts".into()).unwrap_err().to_string();
-        assert!(error.contains(ARTIFACT_DIR_ENVIRONMENT_VARIABLE));
+        assert!(error.contains(SPRINGBOARD_ARTIFACT_DIR_ENVIRONMENT_VARIABLE));
         assert!(error.contains("absolute"));
 
         let source = ArtifactSource::new(PathBuf::from("/tmp/slint-artifacts")).unwrap();
@@ -460,7 +583,7 @@ mod tests {
         assert!(matches!(
             ArtifactSource::from_environment_value(Some("relative".into())),
             ArtifactSource::Invalid(message)
-                if message.contains(ARTIFACT_DIR_ENVIRONMENT_VARIABLE)
+                if message.contains(SPRINGBOARD_ARTIFACT_DIR_ENVIRONMENT_VARIABLE)
         ));
     }
 
@@ -494,9 +617,31 @@ mod tests {
             } if bytes_copied == total_bytes
         )));
 
+        tokio::fs::remove_file(source_directory.path().join(MOBILE_VIEWER_ARTIFACT_MANIFEST_FILE))
+            .await
+            .unwrap();
+        assert!(matches!(
+            cache.setup_status(MobileViewerArtifactKind::IosSimulatorApp, Some("arm64")).await,
+            ArtifactSetupStatus::SetupRequired { .. }
+        ));
+        assert!(
+            cache
+                .prepare(MobileViewerArtifactKind::IosSimulatorApp, "arm64", |_| {})
+                .await
+                .unwrap_err()
+                .to_string()
+                .contains(MOBILE_VIEWER_ARTIFACT_MANIFEST_FILE)
+        );
+
         drop(source_directory);
         let offline_cache =
             ArtifactCache::new(cache_directory.path().into(), ArtifactSource::Missing).unwrap();
+        assert_eq!(
+            offline_cache
+                .setup_status(MobileViewerArtifactKind::IosSimulatorApp, Some("arm64"))
+                .await,
+            ArtifactSetupStatus::Ready
+        );
         let reused = offline_cache
             .prepare(MobileViewerArtifactKind::IosSimulatorApp, "arm64", |_| {})
             .await
@@ -505,12 +650,12 @@ mod tests {
         assert!(matches!(
             reused.resolution,
             ArtifactResolution::CachedAfterFailure { ref reason }
-                if reason.contains(ARTIFACT_DIR_ENVIRONMENT_VARIABLE)
+                if reason.contains(SPRINGBOARD_ARTIFACT_DIR_ENVIRONMENT_VARIABLE)
         ));
     }
 
     #[tokio::test]
-    async fn failed_imports_keep_the_previous_valid_artifact() {
+    async fn failed_imports_preserve_but_do_not_silently_use_the_previous_artifact() {
         let first_viewer = b"first valid viewer";
         let source_directory = tempfile::tempdir().unwrap();
         write_source(
@@ -537,18 +682,22 @@ mod tests {
             b"truncated local artifact",
         )
         .await;
-        let update = cache
+        let error = cache
+            .prepare(MobileViewerArtifactKind::IosSimulatorApp, "arm64", |_| {})
+            .await
+            .unwrap_err()
+            .to_string();
+
+        assert!(error.contains("checksum"));
+        assert_eq!(tokio::fs::read(&first.path).await.unwrap(), first_viewer);
+
+        let offline_cache =
+            ArtifactCache::new(cache_directory.path().into(), ArtifactSource::Missing).unwrap();
+        let preserved = offline_cache
             .prepare(MobileViewerArtifactKind::IosSimulatorApp, "arm64", |_| {})
             .await
             .unwrap();
-
-        assert_eq!(update.path, first.path);
-        assert_eq!(tokio::fs::read(&update.path).await.unwrap(), first_viewer);
-        assert!(matches!(
-            update.resolution,
-            ArtifactResolution::CachedAfterFailure { ref reason }
-                if reason.contains("checksum")
-        ));
+        assert_eq!(preserved.path, first.path);
     }
 
     #[tokio::test]
@@ -573,6 +722,75 @@ mod tests {
 
         assert!(error.contains(PROTOCOL_SUBPROTOCOL));
         assert!(!tokio::fs::try_exists(cache.artifact_directory()).await.unwrap());
+    }
+
+    #[tokio::test]
+    async fn setup_status_distinguishes_missing_incompatible_and_corrupt_artifacts() {
+        let cache_directory = tempfile::tempdir().unwrap();
+        let missing = ArtifactCache::new(cache_directory.path().into(), ArtifactSource::Missing)
+            .unwrap()
+            .setup_status(MobileViewerArtifactKind::IosSimulatorApp, Some("arm64"))
+            .await;
+        assert!(matches!(
+            missing,
+            ArtifactSetupStatus::SetupRequired { ref message }
+                if message.contains(SPRINGBOARD_ARTIFACT_DIR_ENVIRONMENT_VARIABLE)
+                    && message.contains(MOBILE_VIEWER_ARTIFACT_MANIFEST_FILE)
+        ));
+
+        let source_directory = tempfile::tempdir().unwrap();
+        let viewer = b"viewer";
+        let mut incompatible = viewer_manifest("viewer.zip", viewer);
+        incompatible.slint_version = "1.17.2".into();
+        write_source(source_directory.path(), incompatible, viewer).await;
+        let cache = ArtifactCache::new(
+            cache_directory.path().into(),
+            ArtifactSource::new(source_directory.path().into()).unwrap(),
+        )
+        .unwrap();
+        assert!(matches!(
+            cache
+                .setup_status(MobileViewerArtifactKind::IosSimulatorApp, Some("arm64"))
+                .await,
+            ArtifactSetupStatus::Incompatible { ref installed, ref required }
+                if installed.contains("1.17.2") && required.contains(SLINT_VERSION)
+        ));
+
+        write_source(
+            source_directory.path(),
+            viewer_manifest("viewer.zip", b"expected"),
+            b"corrupt",
+        )
+        .await;
+        assert!(matches!(
+            cache
+                .setup_status(MobileViewerArtifactKind::IosSimulatorApp, Some("arm64"))
+                .await,
+            ArtifactSetupStatus::Failed { ref message } if message.contains("checksum")
+        ));
+    }
+
+    #[tokio::test]
+    async fn malformed_local_manifest_is_a_failed_setup() {
+        let source_directory = tempfile::tempdir().unwrap();
+        tokio::fs::write(
+            source_directory.path().join(MOBILE_VIEWER_ARTIFACT_MANIFEST_FILE),
+            b"not json",
+        )
+        .await
+        .unwrap();
+        let cache = ArtifactCache::new(
+            tempfile::tempdir().unwrap().path().into(),
+            ArtifactSource::new(source_directory.path().into()).unwrap(),
+        )
+        .unwrap();
+
+        assert!(matches!(
+            cache
+                .setup_status(MobileViewerArtifactKind::IosSimulatorApp, Some("arm64"))
+                .await,
+            ArtifactSetupStatus::Failed { ref message } if message.contains("malformed")
+        ));
     }
 
     #[tokio::test]
@@ -610,13 +828,13 @@ mod tests {
     fn manifest_validation_checks_schema_release_and_architecture() {
         let mut manifest = viewer_manifest("viewer.zip", b"viewer");
         assert!(
-            validate_manifest(&manifest, MobileViewerArtifactKind::IosSimulatorApp, "arm64")
+            validate_manifest(&manifest, MobileViewerArtifactKind::IosSimulatorApp, Some("arm64"))
                 .is_ok()
         );
 
         manifest.schema_version += 1;
         assert!(
-            validate_manifest(&manifest, MobileViewerArtifactKind::IosSimulatorApp, "arm64")
+            validate_manifest(&manifest, MobileViewerArtifactKind::IosSimulatorApp, Some("arm64"))
                 .unwrap_err()
                 .to_string()
                 .contains("schema")
@@ -624,17 +842,21 @@ mod tests {
         manifest.schema_version = MOBILE_VIEWER_ARTIFACT_SCHEMA_VERSION;
         manifest.release_tag = "nightly".into();
         assert!(
-            validate_manifest(&manifest, MobileViewerArtifactKind::IosSimulatorApp, "arm64")
+            validate_manifest(&manifest, MobileViewerArtifactKind::IosSimulatorApp, Some("arm64"))
                 .unwrap_err()
                 .to_string()
                 .contains("local")
         );
         manifest.release_tag = "local".into();
         assert!(
-            validate_manifest(&manifest, MobileViewerArtifactKind::IosSimulatorApp, "riscv64")
-                .unwrap_err()
-                .to_string()
-                .contains("riscv64")
+            validate_manifest(
+                &manifest,
+                MobileViewerArtifactKind::IosSimulatorApp,
+                Some("riscv64")
+            )
+            .unwrap_err()
+            .to_string()
+            .contains("riscv64")
         );
     }
 

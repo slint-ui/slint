@@ -6,6 +6,12 @@ use serde::{Deserialize, Serialize};
 /// Current schema version for local mobile viewer artifact manifests.
 pub const MOBILE_VIEWER_ARTIFACT_SCHEMA_VERSION: u32 = 1;
 
+/// Environment variable that selects Springboard's local simulator artifact directory.
+pub const SPRINGBOARD_ARTIFACT_DIR_ENVIRONMENT_VARIABLE: &str = "SLINT_SPRINGBOARD_ARTIFACT_DIR";
+
+/// File name of the local mobile viewer artifact manifest.
+pub const MOBILE_VIEWER_ARTIFACT_MANIFEST_FILE: &str = "slint-viewer-mobile-artifacts.json";
+
 /// One local set of installable mobile viewer artifacts.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]

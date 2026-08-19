@@ -6,8 +6,9 @@ use std::collections::BTreeMap;
 
 use i_slint_editor_preview::preview;
 use i_slint_springboard::{
-    Device, DeviceId, DeviceKind, DeviceStatus, ProjectSnapshot, ProtocolErrorCode,
-    ResponsePayload, ServerEvent, ServerMessage,
+    Device, DeviceId, DeviceKind, DeviceStatus, MOBILE_VIEWER_ARTIFACT_MANIFEST_FILE,
+    ProjectSnapshot, ProtocolErrorCode, ResponsePayload,
+    SPRINGBOARD_ARTIFACT_DIR_ENVIRONMENT_VARIABLE, ServerEvent, ServerMessage,
 };
 use slint::{ModelRc, SharedString, VecModel};
 
@@ -222,15 +223,22 @@ impl SpringboardUiState {
             return preview::ui::SpringboardRunState::Unavailable;
         };
         match device.status {
-            DeviceStatus::Available | DeviceStatus::Failed { .. } => {
-                preview::ui::SpringboardRunState::Ready
+            DeviceStatus::Available => preview::ui::SpringboardRunState::Ready,
+            DeviceStatus::Failed { .. } => {
+                if device.kind == DeviceKind::IosSimulator
+                    || device.kind == DeviceKind::AndroidEmulator
+                {
+                    preview::ui::SpringboardRunState::Error
+                } else {
+                    preview::ui::SpringboardRunState::Ready
+                }
             }
             DeviceStatus::Resolving => preview::ui::SpringboardRunState::Resolving,
             DeviceStatus::Starting => preview::ui::SpringboardRunState::Starting,
             DeviceStatus::Booting => preview::ui::SpringboardRunState::Booting,
             DeviceStatus::Connecting => preview::ui::SpringboardRunState::Connecting,
             DeviceStatus::Reconnecting => preview::ui::SpringboardRunState::Reconnecting,
-            DeviceStatus::Downloading { .. } => preview::ui::SpringboardRunState::Downloading,
+            DeviceStatus::Importing { .. } => preview::ui::SpringboardRunState::Importing,
             DeviceStatus::Installing => preview::ui::SpringboardRunState::Installing,
             DeviceStatus::Compiling => preview::ui::SpringboardRunState::Compiling,
             DeviceStatus::Reloading => preview::ui::SpringboardRunState::Reloading,
@@ -238,6 +246,7 @@ impl SpringboardUiState {
             DeviceStatus::Running
             | DeviceStatus::RunningWithError { .. }
             | DeviceStatus::Stopping => preview::ui::SpringboardRunState::Running,
+            DeviceStatus::SetupRequired { .. } => preview::ui::SpringboardRunState::SetupRequired,
             DeviceStatus::Unavailable => preview::ui::SpringboardRunState::Unavailable,
             DeviceStatus::Incompatible { .. } => preview::ui::SpringboardRunState::Incompatible,
         }
@@ -288,18 +297,18 @@ fn device_to_ui(
             preview::ui::SpringboardDeviceStatus::Reconnecting,
             "Connection lost; retrying on the local network.".into(),
         ),
-        DeviceStatus::Downloading { bytes_received, total_bytes } => (
-            preview::ui::SpringboardDeviceStatus::Downloading,
+        DeviceStatus::Importing { bytes_copied, total_bytes } => (
+            preview::ui::SpringboardDeviceStatus::Importing,
             total_bytes.map_or_else(
                 || {
                     format!(
-                        "Downloading the matching viewer ({} MiB).",
-                        bytes_received / 1024 / 1024
+                        "Importing the matching local viewer ({} MiB).",
+                        bytes_copied / 1024 / 1024
                     )
                 },
                 |total| {
-                    let percent = bytes_received.saturating_mul(100) / total.max(1);
-                    format!("Downloading the matching viewer: {percent}%.")
+                    let percent = bytes_copied.saturating_mul(100) / total.max(1);
+                    format!("Importing the matching local viewer: {percent}%.")
                 },
             ),
         ),
@@ -324,14 +333,23 @@ fn device_to_ui(
             (preview::ui::SpringboardDeviceStatus::RunningWithError, message.clone())
         }
         DeviceStatus::Stopping => (preview::ui::SpringboardDeviceStatus::Stopping, String::new()),
+        DeviceStatus::SetupRequired { message } => {
+            let mut detail = message.clone();
+            if !detail.contains(SPRINGBOARD_ARTIFACT_DIR_ENVIRONMENT_VARIABLE)
+                || !detail.contains(MOBILE_VIEWER_ARTIFACT_MANIFEST_FILE)
+            {
+                detail.push_str(&format!(
+                    " Set {SPRINGBOARD_ARTIFACT_DIR_ENVIRONMENT_VARIABLE} to an absolute directory containing {MOBILE_VIEWER_ARTIFACT_MANIFEST_FILE} and its referenced iOS Simulator ZIP or Android APK."
+                ));
+            }
+            (preview::ui::SpringboardDeviceStatus::SetupRequired, detail)
+        }
         DeviceStatus::Failed { message } => {
             (preview::ui::SpringboardDeviceStatus::Failed, message.clone())
         }
         DeviceStatus::Incompatible { installed, required } => (
             preview::ui::SpringboardDeviceStatus::Incompatible,
-            format!(
-                "Preview protocol mismatch: installed Slint {installed}; requires Slint {required}."
-            ),
+            format!("Installed viewer support: {installed}; required: {required}."),
         ),
     };
     preview::ui::SpringboardDevice {
@@ -456,8 +474,8 @@ mod tests {
         target.status =
             DeviceStatus::Incompatible { installed: "1.17.2".into(), required: "1.18.0".into() };
         let incompatible = device_to_ui(&target, None, None);
-        assert!(incompatible.status_detail.contains("installed Slint 1.17.2"));
-        assert!(incompatible.status_detail.contains("requires Slint 1.18.0"));
+        assert!(incompatible.status_detail.contains("Installed viewer support: 1.17.2"));
+        assert!(incompatible.status_detail.contains("required: 1.18.0"));
     }
 
     #[test]
@@ -478,18 +496,39 @@ mod tests {
     }
 
     #[test]
-    fn viewer_download_progress_reaches_the_run_button_and_device_manager() {
-        let target =
-            device(DeviceStatus::Downloading { bytes_received: 30, total_bytes: Some(100) });
+    fn viewer_import_progress_reaches_the_run_button_and_device_manager() {
+        let target = device(DeviceStatus::Importing { bytes_copied: 30, total_bytes: Some(100) });
         let row = device_to_ui(&target, Some(&target.id), Some(&target.id));
-        assert_eq!(row.status, preview::ui::SpringboardDeviceStatus::Downloading);
+        assert_eq!(row.status, preview::ui::SpringboardDeviceStatus::Importing);
         assert!(row.status_detail.contains("30%"));
 
         let mut state = SpringboardUiState::default();
         state.devices.insert(target.id.clone(), target.clone());
         state.last_used = Some(target.id);
         state.status = preview::ui::SpringboardSessionStatus::Ready;
-        assert_eq!(state.run_state(), preview::ui::SpringboardRunState::Downloading);
+        assert_eq!(state.run_state(), preview::ui::SpringboardRunState::Importing);
+    }
+
+    #[test]
+    fn simulator_setup_required_is_actionable_and_opens_the_device_manager() {
+        let message = "Set SLINT_SPRINGBOARD_ARTIFACT_DIR to an absolute directory containing \
+            slint-viewer-mobile-artifacts.json and the referenced iOS Simulator ZIP.";
+        let mut target = device(DeviceStatus::SetupRequired { message: message.into() });
+        target.kind = DeviceKind::IosSimulator;
+        let row = device_to_ui(&target, None, Some(&target.id));
+
+        assert_eq!(row.status, preview::ui::SpringboardDeviceStatus::SetupRequired);
+        assert!(row.status_detail.contains("SLINT_SPRINGBOARD_ARTIFACT_DIR"));
+
+        let mut state = SpringboardUiState::default();
+        state.devices.insert(target.id.clone(), target.clone());
+        state.last_used = Some(target.id);
+        state.status = preview::ui::SpringboardSessionStatus::Ready;
+        assert_eq!(state.run_state(), preview::ui::SpringboardRunState::SetupRequired);
+
+        state.devices.get_mut(state.last_used.as_ref().unwrap()).unwrap().status =
+            DeviceStatus::Available;
+        assert_eq!(state.run_state(), preview::ui::SpringboardRunState::Ready);
     }
 
     #[test]

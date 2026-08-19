@@ -24,6 +24,7 @@ use crate::android_emulator::{
     ANDROID_EMULATOR_DEVICE_PREFIX, AndroidEmulator, AndroidEmulatorManager, AndroidLaunchProgress,
     AndroidLaunchResult, DEFAULT_ANDROID_VIEWER_PACKAGE,
 };
+use crate::artifacts::ArtifactSetupStatus;
 use crate::cargo_driver::{
     CargoApplicationDriver, CargoApplicationOutput, CargoApplicationOutputSource,
 };
@@ -40,6 +41,10 @@ pub const RUST_APPLICATION_DEVICE_ID: &str = "builtin:rust-app";
 type CargoBuildTask = JoinHandle<(CargoApplicationDriver, std::result::Result<(), String>)>;
 type AndroidLaunchTask = JoinHandle<std::result::Result<AndroidLaunchResult, String>>;
 type IosLaunchTask = JoinHandle<std::result::Result<IosLaunchResult, String>>;
+type AndroidRefreshTask =
+    JoinHandle<std::result::Result<(Vec<AndroidEmulator>, ArtifactSetupStatus), String>>;
+type IosRefreshTask =
+    JoinHandle<std::result::Result<(Vec<IosSimulator>, ArtifactSetupStatus), String>>;
 
 struct AndroidLaunchOperation {
     device_id: DeviceId,
@@ -231,18 +236,20 @@ pub struct ProjectSessionController {
     remote_discovery: Option<RemoteViewerDiscovery>,
     remote_viewers: BTreeMap<DeviceId, DiscoveredRemoteViewer>,
     android_manager: Option<AndroidEmulatorManager>,
+    android_artifact_status: ArtifactSetupStatus,
     android_emulators: BTreeMap<DeviceId, AndroidEmulator>,
     android_preferred_order: Vec<DeviceId>,
     android_unavailable_reason: Option<String>,
     android_launch: Option<AndroidLaunchOperation>,
-    android_refresh: Option<JoinHandle<std::result::Result<Vec<AndroidEmulator>, String>>>,
+    android_refresh: Option<AndroidRefreshTask>,
     android_packages: BTreeMap<DeviceId, String>,
     ios_manager: Option<IosSimulatorManager>,
+    ios_artifact_status: ArtifactSetupStatus,
     ios_simulators: BTreeMap<DeviceId, IosSimulator>,
     ios_preferred_order: Vec<DeviceId>,
     ios_unavailable_reason: Option<String>,
     ios_launch: Option<IosLaunchOperation>,
-    ios_refresh: Option<JoinHandle<std::result::Result<Vec<IosSimulator>, String>>>,
+    ios_refresh: Option<IosRefreshTask>,
     ios_bundle_ids: BTreeMap<DeviceId, String>,
     managed_remote_devices: BTreeMap<DeviceId, DeviceId>,
     pending_launch: Option<DeviceId>,
@@ -313,6 +320,7 @@ impl ProjectSessionController {
             remote_discovery: None,
             remote_viewers,
             android_manager: None,
+            android_artifact_status: ArtifactSetupStatus::Ready,
             android_emulators: BTreeMap::new(),
             android_preferred_order: Vec::new(),
             android_unavailable_reason: None,
@@ -320,6 +328,7 @@ impl ProjectSessionController {
             android_refresh: None,
             android_packages: BTreeMap::new(),
             ios_manager: None,
+            ios_artifact_status: ArtifactSetupStatus::Ready,
             ios_simulators: BTreeMap::new(),
             ios_preferred_order: Vec::new(),
             ios_unavailable_reason: None,
@@ -361,6 +370,7 @@ impl ProjectSessionController {
             }
         };
         self.android_manager = Some(manager.clone());
+        self.android_artifact_status = manager.artifact_setup_status().await;
         match manager.discover().await {
             Ok(emulators) => {
                 self.apply_android_emulators(emulators);
@@ -401,6 +411,8 @@ impl ProjectSessionController {
                 && let Some(current) = self.session.devices().get(&device_id)
             {
                 device.status = current.status.clone();
+            } else {
+                device.status = artifact_device_status(&self.android_artifact_status);
             }
             self.session.upsert_device(device);
             self.android_emulators.insert(device_id.clone(), emulator);
@@ -430,6 +442,7 @@ impl ProjectSessionController {
             }
         };
         self.ios_manager = Some(manager.clone());
+        self.ios_artifact_status = manager.artifact_setup_status().await;
         match manager.discover().await {
             Ok(simulators) => {
                 self.apply_ios_simulators(simulators);
@@ -476,6 +489,8 @@ impl ProjectSessionController {
                 && let Some(current) = self.session.devices().get(&device_id)
             {
                 device.status = current.status.clone();
+            } else {
+                device.status = artifact_device_status(&self.ios_artifact_status);
             }
             self.session.upsert_device(device);
             self.ios_simulators.insert(device_id.clone(), simulator);
@@ -551,6 +566,19 @@ impl ProjectSessionController {
             .get(device_id)
             .map(|device| device.kind)
             .with_context(|| format!("Unknown device {device_id}"))?;
+        if matches!(device_kind, DeviceKind::AndroidEmulator | DeviceKind::IosSimulator) {
+            match &self.session.devices()[device_id].status {
+                DeviceStatus::SetupRequired { message } | DeviceStatus::Failed { message } => {
+                    bail!("{message}");
+                }
+                DeviceStatus::Incompatible { installed, required } => {
+                    bail!(
+                        "Installed viewer support is {installed}; required support is {required}"
+                    );
+                }
+                _ => {}
+            }
+        }
         if device_kind == DeviceKind::AndroidEmulator
             && !self.android_emulators.contains_key(device_id)
         {
@@ -859,10 +887,12 @@ impl ProjectSessionController {
         if self.pending_endpoint_update.as_ref() == Some(device_id) {
             self.pending_endpoint_update = None;
         }
-        let idle_status = if device_id.as_str() == LOCAL_VIEWER_DEVICE_ID
+        let idle_status = if self.android_emulators.contains_key(device_id) {
+            artifact_device_status(&self.android_artifact_status)
+        } else if self.ios_simulators.contains_key(device_id) {
+            artifact_device_status(&self.ios_artifact_status)
+        } else if device_id.as_str() == LOCAL_VIEWER_DEVICE_ID
             || device_id.as_str() == RUST_APPLICATION_DEVICE_ID
-            || self.android_emulators.contains_key(device_id)
-            || self.ios_simulators.contains_key(device_id)
             || self.remote_viewers.contains_key(device_id)
         {
             DeviceStatus::Available
@@ -903,7 +933,11 @@ impl ProjectSessionController {
                         && let Some(manager) = self.android_manager.clone()
                     {
                         self.android_refresh = Some(tokio::spawn(async move {
-                            manager.discover().await.map_err(|error| error.to_string())
+                            let (devices, setup) =
+                                tokio::join!(manager.discover(), manager.artifact_setup_status());
+                            devices
+                                .map(|devices| (devices, setup))
+                                .map_err(|error| error.to_string())
                         }));
                     }
                     if self.session.active_device() == Some(device_id)
@@ -917,7 +951,11 @@ impl ProjectSessionController {
                         && let Some(manager) = self.ios_manager.clone()
                     {
                         self.ios_refresh = Some(tokio::spawn(async move {
-                            manager.discover().await.map_err(|error| error.to_string())
+                            let (devices, setup) =
+                                tokio::join!(manager.discover(), manager.artifact_setup_status());
+                            devices
+                                .map(|devices| (devices, setup))
+                                .map_err(|error| error.to_string())
                         }));
                     }
                     if self.session.active_device() == Some(device_id)
@@ -1010,7 +1048,8 @@ impl ProjectSessionController {
         }
         let task = self.android_refresh.take().unwrap();
         match task.await {
-            Ok(Ok(emulators)) => {
+            Ok(Ok((emulators, setup))) => {
+                self.android_artifact_status = setup;
                 self.apply_android_emulators(emulators);
                 self.events.push_back(SessionEvent::Log {
                     device_id: None,
@@ -1047,7 +1086,7 @@ impl ProjectSessionController {
                         bytes_copied,
                         total_bytes,
                     },
-                ) => Some(DeviceStatus::Downloading { bytes_received: bytes_copied, total_bytes }),
+                ) => Some(DeviceStatus::Importing { bytes_copied, total_bytes }),
                 AndroidLaunchProgress::Artifact(
                     crate::artifacts::ArtifactCacheProgress::UsingPrevious { reason },
                 ) => {
@@ -1148,7 +1187,8 @@ impl ProjectSessionController {
         }
         let task = self.ios_refresh.take().unwrap();
         match task.await {
-            Ok(Ok(simulators)) => {
+            Ok(Ok((simulators, setup))) => {
+                self.ios_artifact_status = setup;
                 self.apply_ios_simulators(simulators);
                 self.events.push_back(SessionEvent::Log {
                     device_id: None,
@@ -1184,7 +1224,7 @@ impl ProjectSessionController {
                         bytes_copied,
                         total_bytes,
                     },
-                ) => Some(DeviceStatus::Downloading { bytes_received: bytes_copied, total_bytes }),
+                ) => Some(DeviceStatus::Importing { bytes_copied, total_bytes }),
                 IosLaunchProgress::Artifact(
                     crate::artifacts::ArtifactCacheProgress::UsingPrevious { reason },
                 ) => {
@@ -1267,6 +1307,11 @@ impl ProjectSessionController {
             if let Some((installed, required)) = managed_artifact_incompatibility(&message) {
                 self.session
                     .mark_stopped(device_id, DeviceStatus::Incompatible { installed, required })?;
+            } else if managed_artifact_setup_required(&message) {
+                self.session.mark_stopped(
+                    device_id,
+                    DeviceStatus::SetupRequired { message: message.clone() },
+                )?;
             } else {
                 self.session.mark_failed(device_id, &message)?;
             }
@@ -1829,10 +1874,35 @@ fn manual_viewer_from_profile(profile: &RememberedDevice) -> Result<DiscoveredRe
     Ok(viewer)
 }
 
+fn artifact_device_status(status: &ArtifactSetupStatus) -> DeviceStatus {
+    match status {
+        ArtifactSetupStatus::Ready => DeviceStatus::Available,
+        ArtifactSetupStatus::SetupRequired { message } => {
+            DeviceStatus::SetupRequired { message: message.clone() }
+        }
+        ArtifactSetupStatus::Incompatible { installed, required } => {
+            DeviceStatus::Incompatible { installed: installed.clone(), required: required.clone() }
+        }
+        ArtifactSetupStatus::Failed { message } => {
+            DeviceStatus::Failed { message: message.clone() }
+        }
+    }
+}
+
 fn managed_artifact_incompatibility(message: &str) -> Option<(String, String)> {
+    if let Some(mismatch) = message.strip_prefix("Installed viewer artifact support is ") {
+        let (installed, required) = mismatch.split_once(", expected ")?;
+        return Some((installed.into(), required.into()));
+    }
     let mismatch = message.strip_prefix("Viewer artifact manifest contains Slint ")?;
     let (installed, required) = mismatch.split_once(", expected ")?;
-    Some((installed.into(), required.into()))
+    Some((format!("Slint {installed}"), format!("Slint {required}")))
+}
+
+fn managed_artifact_setup_required(message: &str) -> bool {
+    message.contains(i_slint_springboard::SPRINGBOARD_ARTIFACT_DIR_ENVIRONMENT_VARIABLE)
+        || message.contains("does not contain the required")
+        || message.contains("Cannot read local viewer artifact")
 }
 
 fn describe_remote_failure(error: &str) -> String {
@@ -2048,6 +2118,41 @@ mod tests {
         ));
     }
 
+    #[tokio::test]
+    async fn simulator_setup_errors_are_visible_and_prevent_launch() {
+        use crate::ios_simulator::IosSimulatorState;
+
+        let directory = tempfile::tempdir().unwrap();
+        let mut controller = ProjectSessionController::new(
+            project(&directory),
+            store(&directory),
+            fake_command("wait"),
+        );
+        let device_id = DeviceId::new("simulator:ios:setup-required").unwrap();
+        let message = format!(
+            "Set {} to an absolute directory containing {} and the referenced iOS Simulator ZIP.",
+            i_slint_springboard::SPRINGBOARD_ARTIFACT_DIR_ENVIRONMENT_VARIABLE,
+            i_slint_springboard::MOBILE_VIEWER_ARTIFACT_MANIFEST_FILE
+        );
+        controller.ios_artifact_status =
+            ArtifactSetupStatus::SetupRequired { message: message.clone() };
+        controller.apply_ios_simulators(vec![IosSimulator {
+            id: device_id.clone(),
+            udid: "setup-required".into(),
+            name: "iPhone 17".into(),
+            runtime: "26.5".into(),
+            state: IosSimulatorState::Shutdown,
+        }]);
+
+        assert_eq!(
+            controller.session.devices()[&device_id].status,
+            DeviceStatus::SetupRequired { message: message.clone() }
+        );
+        assert_eq!(controller.launch(&device_id).await.unwrap_err().to_string(), message);
+        assert_eq!(controller.session.active_device(), None);
+        assert!(controller.ios_launch.is_none());
+    }
+
     #[test]
     fn android_discovery_is_associated_with_the_launched_emulator() {
         let directory = tempfile::tempdir().unwrap();
@@ -2118,13 +2223,16 @@ mod tests {
         controller
             .finish_managed_launch_error(
                 &simulator_id,
-                "Viewer artifact manifest contains Slint 1.17.2, expected 1.18.0".into(),
+                "Installed viewer artifact support is Slint 1.17.2, expected Slint 1.18.0".into(),
             )
             .unwrap();
 
         assert_eq!(
             controller.session.devices()[&simulator_id].status,
-            DeviceStatus::Incompatible { installed: "1.17.2".into(), required: "1.18.0".into() }
+            DeviceStatus::Incompatible {
+                installed: "Slint 1.17.2".into(),
+                required: "Slint 1.18.0".into()
+            }
         );
         assert_eq!(controller.session.active_device(), None);
     }

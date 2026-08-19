@@ -337,12 +337,23 @@ fn render_view(frame: &mut ratatui::Frame<'_>, view: &ViewState<'_>) {
                 let active = (view.active == Some(&device.id)).then_some("●").unwrap_or(" ");
                 let last = (view.last_used == Some(&device.id)).then_some("★").unwrap_or(" ");
                 let version = device.version.as_deref().map(|version| format!(" v{version}"));
-                ListItem::new(format!(
+                let mut lines = vec![Line::from(format!(
                     "{active} {last} {:<20} {:<16}{}",
                     device.name,
                     status_label(device),
                     version.as_deref().unwrap_or_default()
-                ))
+                ))];
+                if matches!(device.status, DeviceStatus::SetupRequired { .. }) {
+                    lines.push(Line::from(format!(
+                        "    Set {} to an absolute directory containing:",
+                        i_slint_springboard::SPRINGBOARD_ARTIFACT_DIR_ENVIRONMENT_VARIABLE
+                    )));
+                    lines.push(Line::from(format!(
+                        "    {} and its referenced iOS ZIP and/or Android APK",
+                        i_slint_springboard::MOBILE_VIEWER_ARTIFACT_MANIFEST_FILE
+                    )));
+                }
+                ListItem::new(lines)
             })
             .collect::<Vec<_>>();
         let list = List::new(items)
@@ -394,11 +405,11 @@ fn status_label(device: &Device) -> String {
         DeviceStatus::Booting => "Booting simulator".into(),
         DeviceStatus::Connecting => "Connecting".into(),
         DeviceStatus::Reconnecting => "Reconnecting".into(),
-        DeviceStatus::Downloading { bytes_received, total_bytes } => total_bytes.map_or_else(
-            || format!("Downloading viewer: {} MiB", bytes_received / 1024 / 1024),
+        DeviceStatus::Importing { bytes_copied, total_bytes } => total_bytes.map_or_else(
+            || format!("Importing local viewer: {} MiB", bytes_copied / 1024 / 1024),
             |total| {
-                let percent = bytes_received.saturating_mul(100) / total.max(1);
-                format!("Downloading viewer: {percent}%")
+                let percent = bytes_copied.saturating_mul(100) / total.max(1);
+                format!("Importing local viewer: {percent}%")
             },
         ),
         DeviceStatus::Installing => "Installing viewer".into(),
@@ -408,9 +419,10 @@ fn status_label(device: &Device) -> String {
         DeviceStatus::Running => "Running".into(),
         DeviceStatus::RunningWithError { message } => format!("Running with error: {message}"),
         DeviceStatus::Stopping => "Stopping".into(),
+        DeviceStatus::SetupRequired { .. } => "Setup required".into(),
         DeviceStatus::Failed { message } => format!("Failed: {message}"),
         DeviceStatus::Incompatible { installed, required } => {
-            format!("Protocol mismatch: Slint {installed}, needs {required}")
+            format!("Incompatible: {installed}; requires {required}")
         }
     }
 }
@@ -541,12 +553,26 @@ mod tests {
     }
 
     #[test]
-    fn viewer_download_snapshot_shows_progress() {
-        let target = device(DeviceStatus::Downloading { bytes_received: 3, total_bytes: Some(4) });
+    fn simulator_setup_required_snapshot_is_actionable() {
+        let target = simulator_device(DeviceStatus::SetupRequired {
+            message: "Set SLINT_SPRINGBOARD_ARTIFACT_DIR to an absolute directory containing \
+                slint-viewer-mobile-artifacts.json and the referenced iOS Simulator ZIP."
+                .into(),
+        });
+        let rendered = snapshot(std::slice::from_ref(&target), None, Some(&target.id), &[]);
+
+        assert!(rendered.contains("Setup required"));
+        assert!(rendered.contains("SLINT_SPRINGBOARD_ARTIFACT_DIR"));
+        assert!(rendered.contains("slint-viewer-mobile-artifacts.json"));
+    }
+
+    #[test]
+    fn viewer_import_snapshot_shows_progress() {
+        let target = device(DeviceStatus::Importing { bytes_copied: 3, total_bytes: Some(4) });
         let rendered =
             snapshot(std::slice::from_ref(&target), Some(&target.id), Some(&target.id), &[]);
 
-        assert!(rendered.contains("Downloading viewer: 75%"));
+        assert!(rendered.contains("Importing local viewer: 75%"));
     }
 
     #[test]
@@ -647,6 +673,6 @@ mod tests {
             required: "1.18.0".into(),
         });
         let rendered = snapshot(&[incompatible], None, None, &[]);
-        assert!(rendered.contains("Protocol mismatch: Slint 1.17.2, needs 1.18.0"));
+        assert!(rendered.contains("Incompatible: 1.17.2; requires 1.18.0"));
     }
 }

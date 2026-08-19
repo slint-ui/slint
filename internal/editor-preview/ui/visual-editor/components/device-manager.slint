@@ -60,7 +60,7 @@ component DeviceRow inherits Rectangle {
     in property <bool> selected: false;
     callback clicked;
 
-    height: 76px;
+    height: root.device.status == SpringboardDeviceStatus.SetupRequired ? 116px : 76px;
     border-radius: 8px;
     border-width: root.selected ? 1px : 0px;
     border-color: StudioTheme.accent-strong;
@@ -69,7 +69,8 @@ component DeviceRow inherits Rectangle {
         : touch.has-hover ? StudioTheme.panel-subtle : transparent;
     accessible-role: AccessibleRole.list-item;
     accessible-label: root.device.name + ", "
-        + root.status-label(root.device.status, root.device.kind);
+        + root.status-label(root.device.status, root.device.kind)
+        + (root.device.status-detail != "" ? ", " + root.device.status-detail : "");
     accessible-action-default => { root.clicked(); }
     animate background, border-color { duration: 120ms; }
 
@@ -111,8 +112,8 @@ component DeviceRow inherits Rectangle {
         if status == SpringboardDeviceStatus.Reconnecting {
             return "Reconnecting";
         }
-        if status == SpringboardDeviceStatus.Downloading {
-            return "Downloading";
+        if status == SpringboardDeviceStatus.Importing {
+            return "Importing";
         }
         if status == SpringboardDeviceStatus.Installing {
             return "Installing";
@@ -135,6 +136,9 @@ component DeviceRow inherits Rectangle {
         if status == SpringboardDeviceStatus.Stopping {
             return "Stopping";
         }
+        if status == SpringboardDeviceStatus.SetupRequired {
+            return "Setup required";
+        }
         if status == SpringboardDeviceStatus.Failed {
             return "Failed";
         }
@@ -153,7 +157,7 @@ component DeviceRow inherits Rectangle {
                 || status == SpringboardDeviceStatus.Booting
                 || status == SpringboardDeviceStatus.Connecting
                 || status == SpringboardDeviceStatus.Reconnecting
-                || status == SpringboardDeviceStatus.Downloading
+                || status == SpringboardDeviceStatus.Importing
                 || status == SpringboardDeviceStatus.Installing
                 || status == SpringboardDeviceStatus.Compiling
                 || status == SpringboardDeviceStatus.Reloading
@@ -162,6 +166,9 @@ component DeviceRow inherits Rectangle {
             return StudioTheme.accent;
         }
         if status == SpringboardDeviceStatus.RunningWithError {
+            return #b54708;
+        }
+        if status == SpringboardDeviceStatus.SetupRequired {
             return #b54708;
         }
         if status == SpringboardDeviceStatus.Failed
@@ -258,16 +265,27 @@ component DeviceRow inherits Rectangle {
                 vertical-stretch: 0;
             }
 
-            if root.device.status-detail != "": Text {
+            if root.device.status-detail != ""
+                    && root.device.status != SpringboardDeviceStatus.SetupRequired: Text {
                 text: root.device.status-detail;
                 color: root.device.status == SpringboardDeviceStatus.Failed
                         || root.device.status == SpringboardDeviceStatus.Incompatible
                     ? #d92d20
                     : root.device.status == SpringboardDeviceStatus.RunningWithError
+                            || root.device.status == SpringboardDeviceStatus.SetupRequired
                         ? #b54708
                         : StudioTheme.muted;
                 font-size: 10px;
                 overflow: elide;
+                vertical-stretch: 0;
+            }
+
+            if root.device.status == SpringboardDeviceStatus.SetupRequired: Text {
+                text: root.device.status-detail;
+                color: #b54708;
+                font-size: 10px;
+                wrap: word-wrap;
+                height: 48px;
                 vertical-stretch: 0;
             }
         }
@@ -289,6 +307,7 @@ component DeviceRow inherits Rectangle {
                         || root.device.status == SpringboardDeviceStatus.Incompatible
                     ? #d92d20
                     : root.device.status == SpringboardDeviceStatus.RunningWithError
+                            || root.device.status == SpringboardDeviceStatus.SetupRequired
                         ? #b54708
                         : StudioTheme.muted;
                 font-size: 11px;
@@ -327,7 +346,8 @@ export component DeviceManager inherits Rectangle {
             Api.springboard-stop-device(Api.springboard-devices[root.selected-index].id);
         } else if !root.another-active
                 && Api.springboard-devices[root.selected-index].can-launch
-                && Api.springboard-devices[root.selected-index].status != SpringboardDeviceStatus.Incompatible {
+                && Api.springboard-devices[root.selected-index].status != SpringboardDeviceStatus.Incompatible
+                && Api.springboard-devices[root.selected-index].status != SpringboardDeviceStatus.SetupRequired {
             Api.springboard-launch-device(Api.springboard-devices[root.selected-index].id);
         }
     }
@@ -356,6 +376,10 @@ export component DeviceManager inherits Rectangle {
                 && Api.springboard-devices[root.selected-index].status == SpringboardDeviceStatus.Incompatible {
             return "Incompatible";
         }
+        if root.has-selection
+                && Api.springboard-devices[root.selected-index].status == SpringboardDeviceStatus.SetupRequired {
+            return "Setup required";
+        }
         return "Run";
     }
 
@@ -367,7 +391,8 @@ export component DeviceManager inherits Rectangle {
             return Api.springboard-devices[root.selected-index].can-stop;
         }
         return Api.springboard-devices[root.selected-index].can-launch
-            && Api.springboard-devices[root.selected-index].status != SpringboardDeviceStatus.Incompatible;
+            && Api.springboard-devices[root.selected-index].status != SpringboardDeviceStatus.Incompatible
+            && Api.springboard-devices[root.selected-index].status != SpringboardDeviceStatus.SetupRequired;
     }
 
     Rectangle {
