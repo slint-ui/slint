@@ -1,0 +1,17 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: MIT
+
+# West manifest for Renesas EK-RZ/A3M board.
+# The RZ/A3M requires Renesas's Zephyr fork (wip_rz branch) for board and display support.
+# Use this manifest instead of west.yaml when building for rza3m_ek.
+
+---
+manifest:
+  remotes:
+    - name: renesas
+      url-base: https://github.com/renesas
+  projects:
+    - name: zephyr
+      remote: renesas
+      revision: wip_rz
+      import: true
