@@ -721,17 +721,19 @@ impl ColorSpecific {
 /// `["LayoutAlignment.center", "TextHorizontalAlignment.center"]`. This is the reverse of the
 /// `ColorSpecific` / enum lookups above, used to build "did you mean" suggestions. The result is
 /// sorted and deduplicated so it is deterministic.
-pub fn enum_or_color_suggestions(type_register: &TypeRegister, name: &str) -> Vec<SmolStr> {
+pub fn enum_or_color_suggestions(ctx: &LookupCtx, name: &str) -> Vec<SmolStr> {
     let name = crate::parser::normalize_identifier(name);
     let mut result = Vec::new();
-    if named_colors().contains_key(name.as_str()) {
+    if named_colors().contains_key(name.as_str())
+        && BuiltinNamespaceLookup.lookup(ctx, &SmolStr::new_static("Colors")).is_some()
+    {
         result.push(smol_str::format_smolstr!("{}.{name}", BuiltinNamespace::Colors));
     }
-    for ty in type_register.all_types().values() {
-        if let Type::Enumeration(e) = ty {
-            if e.values.contains(&name) {
-                result.push(smol_str::format_smolstr!("{}.{name}", e.name));
-            }
+    for ty in ctx.type_register.all_types().values() {
+        if let Type::Enumeration(e) = ty
+            && e.lookup(ctx, &name).is_some()
+        {
+            result.push(smol_str::format_smolstr!("{}.{name}", e.name));
         }
     }
     result.sort();

@@ -1724,20 +1724,16 @@ fn get_code_actions(
         // (`red` -> `Colors.red`). Like the import action above, re-derive the lookup error rather
         // than reading diagnostics, so nothing is offered when the identifier does resolve.
         use i_slint_compiler::lookup::LookupObject;
-        let is_lookup_error = util::with_lookup_ctx(document_cache, node.clone(), None, |ctx| {
+        let suggestions = util::with_lookup_ctx(document_cache, node.clone(), None, |ctx| {
             let name = i_slint_compiler::parser::normalize_identifier(token.text());
-            i_slint_compiler::lookup::global_lookup().lookup(ctx, &name).is_none()
+            if i_slint_compiler::lookup::global_lookup().lookup(ctx, &name).is_none() {
+                i_slint_compiler::lookup::enum_or_color_suggestions(ctx, token.text())
+            } else {
+                Vec::new()
+            }
         })
-        .unwrap_or(true);
-        if is_lookup_error {
-            let suggestions = {
-                let global_tr = document_cache.global_type_registry();
-                let tr = document_cache
-                    .get_document_for_source_file(&token.source_file)
-                    .map(|doc| &doc.local_registry)
-                    .unwrap_or(&global_tr);
-                i_slint_compiler::lookup::enum_or_color_suggestions(tr, token.text())
-            };
+        .unwrap_or_default();
+        if !suggestions.is_empty() {
             let range = util::text_range_to_lsp_range(
                 &token.source_file,
                 token.text_range(),

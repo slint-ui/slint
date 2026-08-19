@@ -32,4 +32,7 @@ export component Test inherits Window {
     in-out property <Direction> direction;
     //#sls.enum.value
     out property <Direction> fixed: Direction.down;
+
+    out property <int> bare: up;
+//                           ><error{Unknown unqualified identifier 'up'. Did you mean 'Direction.up'?}
 }
