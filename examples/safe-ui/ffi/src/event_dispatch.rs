@@ -1,25 +1,21 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-// cSpell:ignore FFFD
-
-use crate::{
-    ffi_event::{FfiEvent, FfiEventTag, FfiPointerButton},
-    platform,
-};
+use crate::{ffi_event::FfiEvent, ffi_event::FfiEventTag, platform};
 
 use FfiEventTag::{
-    FfiEventTag_KeyPressRepeated as KeyPressRepeated, FfiEventTag_KeyPressed as KeyPressed,
-    FfiEventTag_KeyReleased as KeyReleased, FfiEventTag_PointerExited as PointerExited,
-    FfiEventTag_PointerMoved as PointerMoved, FfiEventTag_PointerPressed as PointerPressed,
-    FfiEventTag_PointerReleased as PointerReleased, FfiEventTag_PointerScrolled as PointerScrolled,
-    FfiEventTag_Quit as Quit, FfiEventTag_Resized as Resized,
+    FfiEventTag_PointerPressed as PointerPressed, FfiEventTag_PointerReleased as PointerReleased,
+    FfiEventTag_Quit as Quit,
 };
 
-use FfiPointerButton::{
-    FfiPointerButton_Left as Left, FfiPointerButton_Middle as Middle,
-    FfiPointerButton_Other as Other, FfiPointerButton_Right as Right,
-};
+/// What the event loop should do with an incoming FFI event. Slint SC only
+/// knows press and release; the other events the C layer may send are accepted
+/// at the FFI boundary but ignored here.
+pub enum EventAction {
+    Quit,
+    Touch(slint_sc::TouchEvent),
+    Ignore,
+}
 
 /// Push an input event into the queue from any execution context.
 ///
@@ -38,82 +34,14 @@ pub extern "C" fn slint_safeui_dispatch_event(raw: *const FfiEvent) -> i32 {
     platform::push_input_event(event)
 }
 
-/// Convert a raw [`FfiEvent`] into a Slint `WindowEvent`, applying the
-/// given scale factor for physical-to-logical coordinate conversion.
-///
-/// A `Quit` tag is returned as `None`; the caller should exit the event
-/// loop.
-pub fn convert_ffi_event(raw: &FfiEvent, scale: f32) -> Option<slint::platform::WindowEvent> {
-    use slint::platform::WindowEvent;
-    use slint::{PhysicalPosition, PhysicalSize};
-
+/// Interpret a raw [`FfiEvent`] for the scene. Coordinates are physical pixels,
+/// which the scene renders one-to-one.
+pub fn convert_ffi_event(raw: &FfiEvent) -> EventAction {
+    let position = slint_sc::Point::new(raw.payload.pos_x, raw.payload.pos_y);
     match raw.tag {
-        Quit => None,
-
-        PointerPressed => Some(WindowEvent::PointerPressed {
-            position: PhysicalPosition::new(raw.payload.pos_x, raw.payload.pos_y).to_logical(scale),
-            button: convert_button(raw.payload.button),
-        }),
-
-        PointerReleased => Some(WindowEvent::PointerReleased {
-            position: PhysicalPosition::new(raw.payload.pos_x, raw.payload.pos_y).to_logical(scale),
-            button: convert_button(raw.payload.button),
-        }),
-
-        PointerMoved => Some(WindowEvent::PointerMoved {
-            position: PhysicalPosition::new(raw.payload.pos_x, raw.payload.pos_y).to_logical(scale),
-        }),
-
-        PointerScrolled => Some(WindowEvent::PointerScrolled {
-            position: PhysicalPosition::new(raw.payload.pos_x, raw.payload.pos_y).to_logical(scale),
-            // Scroll deltas are unitless — passed through without scaling.
-            delta_x: raw.payload.delta_x,
-            delta_y: raw.payload.delta_y,
-        }),
-
-        PointerExited => Some(WindowEvent::PointerExited),
-
-        KeyPressed => {
-            Some(WindowEvent::KeyPressed { text: key_code_to_shared_string(raw.payload.key_code) })
-        }
-
-        KeyPressRepeated => Some(WindowEvent::KeyPressRepeated {
-            text: key_code_to_shared_string(raw.payload.key_code),
-        }),
-
-        KeyReleased => {
-            Some(WindowEvent::KeyReleased { text: key_code_to_shared_string(raw.payload.key_code) })
-        }
-
-        Resized => Some(WindowEvent::Resized {
-            size: PhysicalSize::new(
-                raw.payload.width.max(0) as u32,
-                raw.payload.height.max(0) as u32,
-            )
-            .to_logical(scale),
-        }),
+        Quit => EventAction::Quit,
+        PointerPressed => EventAction::Touch(slint_sc::TouchEvent::pressed(position)),
+        PointerReleased => EventAction::Touch(slint_sc::TouchEvent::released(position)),
+        _ => EventAction::Ignore,
     }
-}
-
-fn convert_button(button: FfiPointerButton) -> slint::platform::PointerEventButton {
-    use slint::platform::PointerEventButton;
-    match button {
-        Left => PointerEventButton::Left,
-        Right => PointerEventButton::Right,
-        Middle => PointerEventButton::Middle,
-        Other => PointerEventButton::Other,
-    }
-}
-
-/// Convert a Unicode code point (u32) to a `SharedString` for Slint key events.
-///
-/// Invalid code points (surrogates, values > U+10FFFF) are silently converted
-/// to the Unicode replacement character U+FFFD rather than producing an empty
-/// string. This makes invalid input visible during debugging instead of
-/// silently swallowing events.
-fn key_code_to_shared_string(code: u32) -> slint::SharedString {
-    let c = char::from_u32(code).unwrap_or('\u{FFFD}');
-    let mut buf = [0u8; 4];
-    let s: &str = c.encode_utf8(&mut buf);
-    slint::SharedString::from(s)
 }

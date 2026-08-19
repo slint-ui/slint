@@ -1,125 +1,102 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-//! The safety-domain UI and its event loop, independent of any platform.
+//! The safety-domain UI and its event loop, in the Slint SC subset.
 //!
-//! A backend implements [`Platform`] — a clock, the display geometry, input
-//! events, and a framebuffer — and drives the UI by calling [`app_main`]. The
-//! desktop, C-FFI, and bare-metal examples each provide their own backend.
+//! A backend implements [`Platform`] — a clock, the display size, touch events,
+//! and an RGB8 frame buffer — and drives the UI by calling [`app_main`]. The
+//! scene has no `Timer` and no model, so the color cycle the full-Slint version
+//! expressed in `.slint` lives here in Rust.
 
 #![no_std]
 
-extern crate alloc;
-
-use alloc::boxed::Box;
-use alloc::rc::Rc;
-use core::cell::Cell;
 use core::time::Duration;
 
-use slint::PhysicalSize;
-use slint::platform::WindowEvent;
-use slint::platform::software_renderer::{MinimalSoftwareWindow, RepaintBufferType, TargetPixel};
+pub use slint_sc;
 
-slint::include_modules!();
+// The Slint SC scene (`MainWindow` and `MainWindowCallbacks`), generated from
+// main.slint by build.rs running the slint-compiler with `--slint-sc`.
+include!(concat!(env!("OUT_DIR"), "/main.rs"));
 
-/// An input event, or a request to leave [`app_main`].
+/// A touch of the display, or a request to leave [`app_main`].
 pub enum AppEvent {
-    /// An input event for the scene.
-    Event(WindowEvent),
+    /// A touch event for the scene.
+    Touch(slint_sc::TouchEvent),
     /// Stop the event loop and return.
     Quit,
 }
 
 /// The interface a backend provides to [`app_main`].
 pub trait Platform {
-    /// The framebuffer's pixel format.
-    type Pixel: TargetPixel;
-
-    /// The time elapsed since the program started, driving timers and animations.
+    /// The time elapsed since the program started, driving the color cycle.
     fn now(&self) -> Duration;
-    /// The physical size of the display, in pixels.
-    fn size(&self) -> PhysicalSize;
-    /// The scale factor: physical pixels per logical pixel.
-    fn scale_factor(&self) -> f32 {
-        1.
-    }
-    /// The next pending input event, if any.
+    /// The size of the display, in pixels.
+    fn size(&self) -> slint_sc::Size;
+    /// The next pending touch event, if any.
     fn get_input_event(&mut self) -> Option<AppEvent>;
     /// Wait until an input event arrives or `timeout` elapses.
-    // Every backend and the caller live in this workspace, so the missing auto
-    // trait bounds the lint warns about never matter.
     #[allow(async_fn_in_trait)]
     async fn wait_for_more_events(&mut self, timeout: Option<Duration>);
-    /// Render one frame into the framebuffer (its slice and pixel stride), then
-    /// present it.
-    fn with_frame_buffer(&mut self, render: impl FnOnce(&mut [Self::Pixel], usize));
+    /// Render one frame into the packed RGB8 buffer (`width * height * 3`
+    /// bytes), then present it.
+    fn with_frame_buffer(&mut self, render: impl FnOnce(&mut [u8]));
 }
 
-/// A minimal Slint platform: it owns the software-rendered window and reports
-/// the time [`app_main`] last sampled from the backend. Its event loop is never
-/// run; [`app_main`] drives rendering directly.
-struct SlintPlatform {
-    window: Rc<MinimalSoftwareWindow>,
-    clock: Rc<Cell<Duration>>,
-}
+/// The colors the three telltales cycle through, one step per second.
+const COLORS: [slint_sc::Color; 3] = [
+    slint_sc::Color::from_rgb_u8(0x00, 0x80, 0x00), // green
+    slint_sc::Color::from_rgb_u8(0xff, 0xa5, 0x00), // orange
+    slint_sc::Color::from_rgb_u8(0xff, 0x00, 0x00), // red
+];
 
-impl slint::platform::Platform for SlintPlatform {
-    fn create_window_adapter(
-        &self,
-    ) -> Result<Rc<dyn slint::platform::WindowAdapter>, slint::PlatformError> {
-        Ok(self.window.clone())
-    }
+/// One second between color steps.
+const STEP_MS: u64 = 1000;
 
-    fn duration_since_start(&self) -> Duration {
-        self.clock.get()
-    }
-}
+/// The scene declares no callbacks, so touch handling needs no state.
+struct Callbacks;
+impl MainWindowCallbacks for Callbacks {}
 
-/// Drive the scene with the events and framebuffer `platform` provides, until it
-/// reports [`AppEvent::Quit`].
-pub async fn app_main(mut platform: impl Platform) -> Result<(), slint::PlatformError> {
-    let window = MinimalSoftwareWindow::new(RepaintBufferType::NewBuffer);
-    let clock = Rc::new(Cell::new(platform.now()));
-    slint::platform::set_platform(Box::new(SlintPlatform {
-        window: window.clone(),
-        clock: clock.clone(),
-    }))
-    .expect("platform already initialized");
-
-    let ui = MainWindow::new()?;
-    window.set_size(platform.size());
-    window
-        .dispatch_event(WindowEvent::ScaleFactorChanged { scale_factor: platform.scale_factor() });
-    ui.show()?;
+/// Drive the scene: cycle the telltale colors and deliver touch events the
+/// `platform` reports, until it reports [`AppEvent::Quit`].
+pub async fn app_main(mut platform: impl Platform) {
+    let mut scene = MainWindow::new(platform.size());
+    let mut callbacks = Callbacks;
+    let mut current_step = usize::MAX;
 
     loop {
-        clock.set(platform.now());
-        slint::platform::update_timers_and_animations();
+        let mut needs_redraw = false;
+
+        // Derived from the clock, not a counter, so a late wake-up still lands right.
+        let step = (platform.now().as_millis() as u64 / STEP_MS) as usize % COLORS.len();
+        if step != current_step {
+            current_step = step;
+            scene.set_first_color(COLORS[step]);
+            scene.set_second_color(COLORS[(step + 1) % COLORS.len()]);
+            scene.set_third_color(COLORS[(step + 2) % COLORS.len()]);
+            needs_redraw = true;
+        }
 
         while let Some(event) = platform.get_input_event() {
             match event {
-                AppEvent::Quit => {
-                    ui.hide()?;
-                    return Ok(());
+                AppEvent::Quit => return,
+                AppEvent::Touch(touch) => {
+                    scene.dispatch_touch_event(touch, &mut callbacks);
+                    needs_redraw = true;
                 }
-                AppEvent::Event(event) => window.dispatch_event(event),
             }
         }
 
-        // Present a frame only when the window actually redraws, so a backend
-        // that flushes whatever is in the buffer never shows a stale or empty one.
-        window.draw_if_needed(|renderer| {
-            platform.with_frame_buffer(|buffer, stride| {
-                renderer.render(buffer, stride);
+        if needs_redraw {
+            platform.with_frame_buffer(|buffer| {
+                scene.render_rgb8(buffer).expect("the frame buffer matches the window size");
             });
-        });
-
-        let mut timeout = slint::platform::duration_until_next_timer_update();
-        if window.has_active_animations() {
-            let frame = Duration::from_millis(16);
-            timeout = Some(timeout.map_or(frame, |t| t.min(frame)));
         }
-        platform.wait_for_more_events(timeout).await;
+
+        // Sleep until the next step; an incoming event wakes us earlier.
+        let elapsed = platform.now().as_millis() as u64;
+        platform
+            .wait_for_more_events(Some(Duration::from_millis(STEP_MS - elapsed % STEP_MS)))
+            .await;
     }
 }
 

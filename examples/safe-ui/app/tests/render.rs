@@ -2,31 +2,28 @@
 // SPDX-License-Identifier: MIT
 
 //! Drive `app_main` with a mock backend that captures one frame, to check the
-//! scene compiles and renders without a real display.
+//! scene compiles and renders the expected telltales without a real display.
 
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::time::Duration;
 
-use slint_safeui_app::{AppEvent, Platform, app_main, block_on};
+use slint_safeui_app::{AppEvent, Platform, app_main, block_on, slint_sc};
 
 /// Renders the scene once into `frame`, then reports a quit.
 struct MockPlatform {
-    frame: Rc<RefCell<Vec<slint::Rgb8Pixel>>>,
-    width: u32,
-    height: u32,
+    frame: Rc<RefCell<Vec<u8>>>,
+    size: slint_sc::Size,
     captured: bool,
 }
 
 impl Platform for MockPlatform {
-    type Pixel = slint::Rgb8Pixel;
-
     fn now(&self) -> Duration {
         Duration::ZERO
     }
 
-    fn size(&self) -> slint::PhysicalSize {
-        slint::PhysicalSize::new(self.width, self.height)
+    fn size(&self) -> slint_sc::Size {
+        self.size
     }
 
     fn get_input_event(&mut self) -> Option<AppEvent> {
@@ -36,23 +33,31 @@ impl Platform for MockPlatform {
 
     async fn wait_for_more_events(&mut self, _timeout: Option<Duration>) {}
 
-    fn with_frame_buffer(&mut self, render: impl FnOnce(&mut [Self::Pixel], usize)) {
-        let mut buffer = vec![slint::Rgb8Pixel::default(); (self.width * self.height) as usize];
-        render(&mut buffer, self.width as usize);
+    fn with_frame_buffer(&mut self, render: impl FnOnce(&mut [u8])) {
+        let mut buffer = vec![0u8; (self.size.width * self.size.height * 3) as usize];
+        render(&mut buffer);
         *self.frame.borrow_mut() = buffer;
         self.captured = true;
     }
 }
 
 #[test]
-fn renders_a_non_empty_frame() {
+fn renders_the_first_telltale() {
+    let size = slint_sc::Size::new(520, 200);
     let frame = Rc::new(RefCell::new(Vec::new()));
-    let platform = MockPlatform { frame: frame.clone(), width: 320, height: 240, captured: false };
+    let platform = MockPlatform { frame: frame.clone(), size, captured: false };
 
-    block_on(app_main(platform)).unwrap();
+    block_on(app_main(platform));
 
     let frame = frame.borrow();
-    assert_eq!(frame.len(), 320 * 240);
-    // Something was drawn: the frame is not a single flat color.
-    assert!(frame.iter().any(|pixel| *pixel != frame[0]), "the scene rendered a uniform frame",);
+    assert_eq!(frame.len(), (size.width * size.height * 3) as usize);
+
+    let pixel = |x: u32, y: u32| {
+        let i = ((y * size.width + x) * 3) as usize;
+        [frame[i], frame[i + 1], frame[i + 2]]
+    };
+    // The background is black, and at time zero the first telltale is green
+    // (its center is at 40 + 120/2 = 100 on both axes).
+    assert_eq!(pixel(5, 5), [0, 0, 0]);
+    assert_eq!(pixel(100, 100), [0, 0x80, 0]);
 }

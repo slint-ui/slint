@@ -2,15 +2,13 @@
 // SPDX-License-Identifier: MIT
 
 //! The desktop example: a Slint window shows the frames the safety UI renders
-//! and forwards input to it. The UI itself runs on a worker thread through
-//! [`slint_safeui_app::app_main`].
+//! and forwards touch input to it. The UI itself runs on a worker thread
+//! through [`slint_safeui_app::app_main`].
 
 mod platform;
 
 use std::sync::mpsc::Sender;
 use std::thread::Thread;
-
-use slint::platform::PointerEventButton;
 
 use platform::{DesktopPlatform, HEIGHT, Input, WIDTH};
 
@@ -20,8 +18,6 @@ slint::slint! {
         preferred-width: 640px;
         preferred-height: 480px;
 
-        // The overlay captures all pointer and keyboard input and forwards it
-        // to the safety UI running on the worker thread.
         screen := Image {
             width: 100%;
             height: 100%;
@@ -31,47 +27,16 @@ slint::slint! {
             width: 100%;
             height: 100%;
             pointer-event(event) => {
-                let x = touch.mouse-x / 1px;
-                let y = touch.mouse-y / 1px;
                 if (event.kind == PointerEventKind.down) {
-                    root.pointer-pressed(x, y, event.button == PointerEventButton.left);
+                    root.pressed(touch.mouse-x / 1px, touch.mouse-y / 1px);
                 } else if (event.kind == PointerEventKind.up) {
-                    root.pointer-released(x, y, event.button == PointerEventButton.left);
-                } else if (event.kind == PointerEventKind.move) {
-                    root.pointer-moved(x, y);
+                    root.released(touch.mouse-x / 1px, touch.mouse-y / 1px);
                 }
-            }
-            scroll-event(event) => {
-                root.pointer-scrolled(
-                    touch.mouse-x / 1px, touch.mouse-y / 1px,
-                    event.delta-x / 1px, event.delta-y / 1px,
-                );
-                return accept;
             }
         }
 
-        focus-scope := FocusScope {
-            key-pressed(event) => {
-                if (event.repeat) {
-                    root.key-repeated(event.text);
-                } else {
-                    root.key-pressed(event.text);
-                }
-                return accept;
-            }
-            key-released(event) => {
-                root.key-released(event.text);
-                return accept;
-            }
-        }
-
-        callback pointer-pressed(/* x */ float, /* y */ float, /* is_left */ bool);
-        callback pointer-released(/* x */ float, /* y */ float, /* is_left */ bool);
-        callback pointer-moved(/* x */ float, /* y */ float);
-        callback pointer-scrolled(/* x */ float, /* y */ float, /* dx */ float, /* dy */ float);
-        callback key-pressed(/* text */ string);
-        callback key-repeated(/* text */ string);
-        callback key-released(/* text */ string);
+        callback pressed(/* x */ float, /* y */ float);
+        callback released(/* x */ float, /* y */ float);
     }
 }
 
@@ -85,66 +50,30 @@ fn notifier(input: &Sender<Input>, worker: &Thread) -> impl Fn(Input) + 'static 
     }
 }
 
-fn button(is_left: bool) -> PointerEventButton {
-    if is_left { PointerEventButton::Left } else { PointerEventButton::Right }
-}
-
-fn first_char(text: &slint::SharedString) -> Option<char> {
-    text.chars().next()
-}
-
 fn main() {
-    let (pixel_sender, pixel_receiver) = smol::channel::unbounded::<Vec<slint::Rgb8Pixel>>();
+    let (pixel_sender, pixel_receiver) = smol::channel::unbounded::<Vec<u8>>();
     let (input_sender, input_receiver) = std::sync::mpsc::channel::<Input>();
 
     let worker = std::thread::spawn(move || {
         let platform = DesktopPlatform::new(pixel_sender, input_receiver);
-        slint_safeui_app::block_on(slint_safeui_app::app_main(platform))
-            .expect("the UI event loop failed");
+        slint_safeui_app::block_on(slint_safeui_app::app_main(platform));
     });
     let worker_thread = worker.thread().clone();
 
     let window = SimWindow::new().unwrap();
 
     let send = notifier(&input_sender, &worker_thread);
-    window.on_pointer_pressed(move |x, y, left| {
-        send(Input::PointerPressed { x, y, button: button(left) })
-    });
+    window.on_pressed(move |x, y| send(Input::Pressed { x, y }));
     let send = notifier(&input_sender, &worker_thread);
-    window.on_pointer_released(move |x, y, left| {
-        send(Input::PointerReleased { x, y, button: button(left) })
-    });
-    let send = notifier(&input_sender, &worker_thread);
-    window.on_pointer_moved(move |x, y| send(Input::PointerMoved { x, y }));
-    let send = notifier(&input_sender, &worker_thread);
-    window.on_pointer_scrolled(move |x, y, delta_x, delta_y| {
-        send(Input::PointerScrolled { x, y, delta_x, delta_y })
-    });
-    let send = notifier(&input_sender, &worker_thread);
-    window.on_key_pressed(move |text| {
-        if let Some(c) = first_char(&text) {
-            send(Input::KeyPressed(c));
-        }
-    });
-    let send = notifier(&input_sender, &worker_thread);
-    window.on_key_repeated(move |text| {
-        if let Some(c) = first_char(&text) {
-            send(Input::KeyRepeated(c));
-        }
-    });
-    let send = notifier(&input_sender, &worker_thread);
-    window.on_key_released(move |text| {
-        if let Some(c) = first_char(&text) {
-            send(Input::KeyReleased(c));
-        }
-    });
+    window.on_released(move |x, y| send(Input::Released { x, y }));
 
     let weak = window.as_weak();
     slint::spawn_local(async move {
         while let Ok(pixels) = pixel_receiver.recv().await {
             if let Some(window) = weak.upgrade() {
-                let mut buffer = slint::SharedPixelBuffer::<slint::Rgb8Pixel>::new(WIDTH, HEIGHT);
-                buffer.make_mut_slice().copy_from_slice(&pixels);
+                let buffer = slint::SharedPixelBuffer::<slint::Rgb8Pixel>::clone_from_slice(
+                    &pixels, WIDTH, HEIGHT,
+                );
                 window.set_image(slint::Image::from_rgb8(buffer));
             }
         }

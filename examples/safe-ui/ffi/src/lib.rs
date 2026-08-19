@@ -57,8 +57,7 @@ pub const SCALE_FACTOR: f32 = match option_env!("SAFE_UI_SCALE_FACTOR") {
 /// interface. Blocks until a `Quit` event arrives.
 #[unsafe(no_mangle)]
 pub extern "C" fn slint_app_main() {
-    slint_safeui_app::block_on(slint_safeui_app::app_main(platform::FfiPlatform::new()))
-        .expect("the UI event loop failed");
+    slint_safeui_app::block_on(slint_safeui_app::app_main(platform::FfiPlatform::new()));
 }
 
 const fn parse_u32(s: &str) -> u32 {

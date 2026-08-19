@@ -8,20 +8,28 @@
 use core::ffi::c_void;
 use core::time::Duration;
 
+use alloc::vec::Vec;
+
 use crate::bindings::*;
+use crate::event_dispatch::EventAction;
 use crate::pixels::PlatformPixel;
 
 use event_queue::QueueEntry;
 use heapless::Deque;
+
+use slint_safeui_app::{AppEvent, Platform};
 
 pub use event_queue::push_input_event;
 pub use event_queue::wake_event_loop;
 
 /// Drives the UI through the C system interface.
 pub struct FfiPlatform {
-    size: slint::PhysicalSize,
+    size: slint_sc::Size,
     /// Entries drained from the static queue, not yet handed to the event loop.
     pending: Deque<QueueEntry, { event_queue::QUEUE_CAPACITY }>,
+    /// Reused RGB8 scratch the scene renders into before it is converted to the
+    /// display's pixel format.
+    frame: Vec<u8>,
 }
 
 impl Default for FfiPlatform {
@@ -38,27 +46,21 @@ impl FfiPlatform {
         unsafe {
             slint_safeui_platform_get_screen_size(&mut width as *mut _, &mut height as *mut _);
         }
-        Self { size: slint::PhysicalSize::new(width, height), pending: Deque::new() }
+        Self { size: slint_sc::Size::new(width, height), pending: Deque::new(), frame: Vec::new() }
     }
 }
 
-impl slint_safeui_app::Platform for FfiPlatform {
-    type Pixel = PlatformPixel;
-
+impl Platform for FfiPlatform {
     fn now(&self) -> Duration {
         // SAFETY: the C function takes no arguments and returns a plain integer.
         Duration::from_millis(unsafe { slint_safeui_platform_duration_since_start() } as u64)
     }
 
-    fn size(&self) -> slint::PhysicalSize {
+    fn size(&self) -> slint_sc::Size {
         self.size
     }
 
-    fn scale_factor(&self) -> f32 {
-        crate::SCALE_FACTOR
-    }
-
-    fn get_input_event(&mut self) -> Option<slint_safeui_app::AppEvent> {
+    fn get_input_event(&mut self) -> Option<AppEvent> {
         loop {
             if self.pending.is_empty() {
                 self.pending = event_queue::take_queue();
@@ -73,12 +75,11 @@ impl slint_safeui_app::Platform for FfiPlatform {
                     unsafe { (ffi_cb.callback)(ffi_cb.user_data) };
                 }
                 QueueEntry::InputEvent(event) => {
-                    let action =
-                        crate::event_dispatch::convert_ffi_event(&event, crate::SCALE_FACTOR);
-                    return Some(match action {
-                        Some(window_event) => slint_safeui_app::AppEvent::Event(window_event),
-                        None => slint_safeui_app::AppEvent::Quit,
-                    });
+                    match crate::event_dispatch::convert_ffi_event(&event) {
+                        EventAction::Quit => return Some(AppEvent::Quit),
+                        EventAction::Touch(touch) => return Some(AppEvent::Touch(touch)),
+                        EventAction::Ignore => {}
+                    }
                 }
             }
         }
@@ -90,8 +91,27 @@ impl slint_safeui_app::Platform for FfiPlatform {
         unsafe { slint_safeui_platform_wait_for_events(max_wait) };
     }
 
-    fn with_frame_buffer(&mut self, render: impl FnOnce(&mut [Self::Pixel], usize)) {
-        render_wrapper::<Self::Pixel, _>(render);
+    fn with_frame_buffer(&mut self, render: impl FnOnce(&mut [u8])) {
+        let width = self.size.width as usize;
+        let height = self.size.height as usize;
+        self.frame.resize(width * height * 3, 0);
+        render(&mut self.frame);
+
+        // Convert the RGB8 frame to the display's pixel format and flush it.
+        let rgb = &self.frame;
+        render_wrapper::<PlatformPixel, _>(|pixels, pixel_stride| {
+            for y in 0..height {
+                let source = &rgb[y * width * 3..];
+                let destination = &mut pixels[y * pixel_stride..];
+                for x in 0..width {
+                    destination[x] = PlatformPixel::from_rgb8(
+                        source[x * 3],
+                        source[x * 3 + 1],
+                        source[x * 3 + 2],
+                    );
+                }
+            }
+        });
     }
 }
 
