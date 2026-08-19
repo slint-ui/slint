@@ -176,7 +176,8 @@ jobs:
                 SLINT_LIVE_PREVIEW: 1
               run: |
                 set -x
-                SLINT_BUILD_STACK=99999999 cargo build --locked --all-features --manifest-path tests/Cargo.toml --features slint/live-preview -p test-driver-rust
+                # build the build script with debug info so cdb shows function names
+                CARGO_PROFILE_DEV_BUILD_OVERRIDE_DEBUG=2 SLINT_BUILD_STACK=99999999 cargo build --locked --all-features --manifest-path tests/Cargo.toml --features slint/live-preview -p test-driver-rust
                 target="${CARGO_TARGET_DIR:-target}"
                 bs=$(ls -t "$target"/debug/build/test-driver-rust-*/build-script-build.exe | head -1)
                 echo "build script: $bs"
@@ -184,7 +185,8 @@ jobs:
                 cdb="/c/Program Files (x86)/Windows Kits/10/Debuggers/x64/cdb.exe"
                 [ -x "$cdb" ] || cdb="$(command -v cdb || true)"
                 echo "cdb: $cdb"
-                OUT_DIR="$out" SLINT_BUILD_STACK=400000 "$cdb" -g -G -c 'sxe -c "~*kn 120; qd" sov; g; qd' "$bs" 2>&1 | tail -300 || true
+                # break on the first-chance stack overflow, dump the crashing thread, quit
+                OUT_DIR="$out" SLINT_BUILD_STACK=400000 "$cdb" -G -c 'sxe sov; g; .lines; kn 250; ~*kn 60; q' "$bs" 2>&1 | tail -400 || true
             # The examples and demos are also their own workspaces. The mcu/uefi
             # members need dedicated targets/features and are checked in ci.yaml.
             # bevy and servo have heavy dependencies and dedicated workflows
