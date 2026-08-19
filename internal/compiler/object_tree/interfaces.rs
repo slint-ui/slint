@@ -47,15 +47,23 @@ fn check_property_declaration_conflicts(
 #[derive(Debug, PartialEq)]
 pub(super) enum ImplementBinding {
     OnSelf,
-    OnChild(SmolStr),
+    OnChild {
+        /// The normalized id of the element.
+        child_id: SmolStr,
+        /// The id as used in the .slint source.
+        child_name: SmolStr,
+    },
 }
 
 impl ImplementBinding {
-    fn from_target(target_id: &SmolStr) -> ImplementBinding {
+    fn from_target(target_id: &SmolStr, target_name: &SmolStr) -> ImplementBinding {
         if target_id.as_str() == "self" {
             ImplementBinding::OnSelf
         } else {
-            ImplementBinding::OnChild(target_id.clone())
+            ImplementBinding::OnChild {
+                child_id: target_id.clone(),
+                child_name: target_name.clone(),
+            }
         }
     }
 }
@@ -82,7 +90,9 @@ fn resolve_implement_statement(
 
     let qualified_name = node.QualifiedName();
     let interface_name = QualifiedTypeName::from_node(qualified_name.clone()).to_smolstr();
-    let target_id = parser::identifier_text(&node.DeclaredIdentifier()).unwrap_or_default();
+    let target_name =
+        node.DeclaredIdentifier().child_text(SyntaxKind::Identifier).unwrap_or_default();
+    let target_id = parser::normalize_identifier(&target_name);
 
     if let Some(target) = match target_id.as_str() {
         "parent" => Some("a parent element"),
@@ -111,7 +121,7 @@ fn resolve_implement_statement(
                 node,
                 interface: c.root_element.clone(),
                 interface_name,
-                binding: ImplementBinding::from_target(&target_id),
+                binding: ImplementBinding::from_target(&target_id, &target_name),
             })
         }
         Ok(_) => {
@@ -217,13 +227,14 @@ pub(super) fn validate_self_implement_statements(
     implemented_interfaces: &[ImplementedInterface],
     diagnostics: &mut BuildDiagnostics,
 ) {
-    for ImplementedInterface { interface, node, interface_name, .. } in implemented_interfaces {
+    for ImplementedInterface { interface, node, interface_name, binding } in implemented_interfaces
+    {
         validate_interface_implementation(
             element,
             interface,
             interface_name,
             &node.QualifiedName(),
-            None,
+            binding,
             diagnostics,
         );
     }
@@ -316,7 +327,7 @@ fn validate_interface_implementation(
     interface: &ElementRc,
     interface_name: &SmolStr,
     node: &SyntaxNode,
-    child_id: Option<&SmolStr>,
+    binding: &ImplementBinding,
     diagnostics: &mut BuildDiagnostics,
 ) -> bool {
     let mut errors = Vec::new();
@@ -327,7 +338,7 @@ fn validate_interface_implementation(
             member_name,
             member_declaration,
             interface_name,
-            child_id,
+            binding,
         ) {
             errors.push(conflict.error);
             notes.append(&mut conflict.notes);
@@ -335,9 +346,11 @@ fn validate_interface_implementation(
     }
 
     if !errors.is_empty() {
-        let based_on = match child_id {
-            Some(child_id) => format!(" based on '{child_id}'"),
-            None => String::new(),
+        let based_on = match binding {
+            ImplementBinding::OnChild { child_name, .. } => {
+                format!(" based on '{child_name}'")
+            }
+            ImplementBinding::OnSelf => String::new(),
         };
         diagnostics.push_error(
             format!("Cannot implement '{interface_name}'{based_on}.\n{}", errors.join("\n")),
@@ -356,7 +369,7 @@ fn validate_interface_member_implementation(
     member_name: &SmolStr,
     interface_member: &PropertyDeclaration,
     interface_name: &SmolStr,
-    child_id: Option<&SmolStr>,
+    binding: &ImplementBinding,
 ) -> Option<InterfaceMemberDiagnostics> {
     if matches!(interface_member.property_type, Type::Invalid) {
         // The interface's own declaration is invalid (e.g. an unknown property type). A diagnostic
@@ -371,7 +384,7 @@ fn validate_interface_member_implementation(
         interface_member,
         interface_name,
         member_name,
-        child_id,
+        binding,
     ) else {
         return None;
     };
@@ -400,12 +413,12 @@ pub(super) fn apply_child_implement_statements(
 ) {
     for ImplementedInterface { node, interface, interface_name, binding } in child_implements {
         debug_assert_ne!(binding, ImplementBinding::OnSelf);
-        let ImplementBinding::OnChild(child_id) = binding else {
+        let ImplementBinding::OnChild { child_id, child_name } = &binding else {
             continue;
         };
-        let Some(child) = find_element_by_id(element, &child_id) else {
+        let Some(child) = find_element_by_id(element, child_id) else {
             diagnostics
-                .push_error(format!("'{}' does not exist", child_id), &node.DeclaredIdentifier());
+                .push_error(format!("'{}' does not exist", child_name), &node.DeclaredIdentifier());
             continue;
         };
 
@@ -414,7 +427,7 @@ pub(super) fn apply_child_implement_statements(
             &interface,
             &interface_name,
             &node.DeclaredIdentifier(),
-            Some(&child_id),
+            &binding,
             diagnostics,
         ) {
             continue;
@@ -590,7 +603,7 @@ fn property_matches_interface(
     interface_declaration: &PropertyDeclaration,
     interface_name: &SmolStr,
     name: &SmolStr,
-    child_id: Option<&SmolStr>,
+    binding: &ImplementBinding,
 ) -> Result<(), Vec<MemberViolation>> {
     if property.property_type == Type::Invalid {
         return Err(vec![MemberViolation {
@@ -602,8 +615,11 @@ fn property_matches_interface(
 
     let mut errors = Vec::new();
 
-    let member_name =
-        if let Some(child_id) = child_id { format!("{child_id}.{name}") } else { name.to_string() };
+    let member_name = if let ImplementBinding::OnChild { child_name, .. } = binding {
+        format!("{child_name}.{name}")
+    } else {
+        name.to_string()
+    };
 
     if !property_type_matches_for_interface(
         &property.property_type,
