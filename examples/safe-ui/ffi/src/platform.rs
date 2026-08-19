@@ -1,110 +1,103 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-extern crate alloc;
-use alloc::boxed::Box;
-use alloc::rc::Rc;
+//! The C-driven backend: an [`slint_safeui_app::Platform`] implemented on top
+//! of the C system interface, the ISR-safe event queue that feeds it, and the
+//! freestanding allocator and panic handler.
+
+use core::ffi::c_void;
+use core::time::Duration;
 
 use crate::bindings::*;
+use crate::pixels::PlatformPixel;
 
-use crate::event_dispatch;
 use event_queue::QueueEntry;
-use event_queue::SafeUiEventLoopProxy;
+use heapless::Deque;
 
 pub use event_queue::push_input_event;
 pub use event_queue::wake_event_loop;
 
-struct Platform {
-    scale_factor: f32,
-    window: Rc<slint::platform::software_renderer::MinimalSoftwareWindow>,
+/// Drives the UI through the C system interface.
+pub struct FfiPlatform {
+    size: slint::PhysicalSize,
+    /// Entries drained from the static queue, not yet handed to the event loop.
+    pending: Deque<QueueEntry, { event_queue::QUEUE_CAPACITY }>,
 }
 
-impl slint::platform::Platform for Platform {
-    fn create_window_adapter(
-        &self,
-    ) -> Result<alloc::rc::Rc<dyn slint::platform::WindowAdapter>, slint::PlatformError> {
-        Ok(self.window.clone())
+impl Default for FfiPlatform {
+    fn default() -> Self {
+        Self::new()
     }
+}
 
-    fn run_event_loop(&self) -> Result<(), slint::PlatformError> {
-        self.window.dispatch_event(slint::platform::WindowEvent::ScaleFactorChanged {
-            scale_factor: self.scale_factor,
-        });
-
+impl FfiPlatform {
+    pub fn new() -> Self {
         let mut width: u32 = 0;
         let mut height: u32 = 0;
+        // SAFETY: both pointers are valid and only written through.
         unsafe {
             slint_safeui_platform_get_screen_size(&mut width as *mut _, &mut height as *mut _);
         }
+        Self { size: slint::PhysicalSize::new(width, height), pending: Deque::new() }
+    }
+}
 
-        self.window.set_size(slint::WindowSize::Physical(slint::PhysicalSize::new(width, height)));
-        self.window.request_redraw();
+impl slint_safeui_app::Platform for FfiPlatform {
+    type Pixel = PlatformPixel;
 
+    fn now(&self) -> Duration {
+        // SAFETY: the C function takes no arguments and returns a plain integer.
+        Duration::from_millis(unsafe { slint_safeui_platform_duration_since_start() } as u64)
+    }
+
+    fn size(&self) -> slint::PhysicalSize {
+        self.size
+    }
+
+    fn scale_factor(&self) -> f32 {
+        crate::SCALE_FACTOR
+    }
+
+    fn get_input_event(&mut self) -> Option<slint_safeui_app::AppEvent> {
         loop {
-            slint::platform::update_timers_and_animations();
-
-            // Process all pending queue entries (FFI callbacks, Rust
-            // closures, input events, quit signals).
-            for entry in event_queue::take_queue() {
-                match entry {
-                    QueueEntry::Quit => return Ok(()),
-                    QueueEntry::Callback(f) => f(),
-                    QueueEntry::FfiCallback(ffi_cb) => {
-                        // SAFETY: The C caller guaranteed that callback is a
-                        // valid function pointer and user_data remains valid
-                        // until invocation.
-                        unsafe { (ffi_cb.callback)(ffi_cb.user_data) };
-                    }
-                    QueueEntry::InputEvent(ffi_event) => {
-                        match event_dispatch::convert_ffi_event(&ffi_event, self.scale_factor) {
-                            None => return Ok(()),
-                            Some(window_event) => {
-                                self.window.dispatch_event(window_event);
-                            }
-                        }
-                    }
+            if self.pending.is_empty() {
+                self.pending = event_queue::take_queue();
+                if self.pending.is_empty() {
+                    return None;
                 }
             }
-
-            self.window.draw_if_needed(|renderer| {
-                render_wrapper::<crate::pixels::PlatformPixel, _>(&|buffer, pixel_stride| {
-                    renderer.render(buffer, pixel_stride);
-                })
-            });
-
-            let mut next_timeout = slint::platform::duration_until_next_timer_update();
-
-            if self.window.has_active_animations() {
-                let frame_duration = core::time::Duration::from_millis(16);
-                next_timeout = Some(match next_timeout {
-                    Some(x) => x.min(frame_duration),
-                    None => frame_duration,
-                })
+            match self.pending.pop_front().unwrap() {
+                QueueEntry::FfiCallback(ffi_cb) => {
+                    // SAFETY: The C caller guaranteed that callback is a valid
+                    // function pointer and user_data remains valid until invocation.
+                    unsafe { (ffi_cb.callback)(ffi_cb.user_data) };
+                }
+                QueueEntry::InputEvent(event) => {
+                    let action =
+                        crate::event_dispatch::convert_ffi_event(&event, crate::SCALE_FACTOR);
+                    return Some(match action {
+                        Some(window_event) => slint_safeui_app::AppEvent::Event(window_event),
+                        None => slint_safeui_app::AppEvent::Quit,
+                    });
+                }
             }
-
-            unsafe {
-                slint_safeui_platform_wait_for_events(
-                    next_timeout.map_or(-1, |dur| dur.as_millis() as i32),
-                )
-            };
         }
     }
 
-    fn new_event_loop_proxy(&self) -> Option<Box<dyn slint::platform::EventLoopProxy>> {
-        Some(Box::new(SafeUiEventLoopProxy))
+    async fn wait_for_more_events(&mut self, timeout: Option<Duration>) {
+        let max_wait = timeout.map_or(-1, |d| d.as_millis() as i32);
+        // SAFETY: the C function takes a plain integer and blocks the caller.
+        unsafe { slint_safeui_platform_wait_for_events(max_wait) };
     }
 
-    fn duration_since_start(&self) -> core::time::Duration {
-        core::time::Duration::from_millis(unsafe {
-            slint_safeui_platform_duration_since_start() as u64
-        })
+    fn with_frame_buffer(&mut self, render: impl FnOnce(&mut [Self::Pixel], usize)) {
+        render_wrapper::<Self::Pixel, _>(render);
     }
 }
 
 mod event_queue {
     use core::{cell::RefCell, ffi::c_void};
 
-    use alloc::boxed::Box;
     use critical_section::Mutex;
     use heapless::Deque;
 
@@ -144,60 +137,18 @@ mod event_queue {
 
     /// A single entry in the unified event queue.
     ///
-    /// FFI callbacks (from C firmware), Rust closures (from
-    /// `EventLoopProxy`), and input events (from
+    /// FFI callbacks (from C firmware) and input events (from
     /// `slint_safeui_dispatch_event`) are stored as variants.
     pub enum QueueEntry {
-        Quit,
-        Callback(Box<dyn FnOnce() + Send>),
         FfiCallback(FfiCallback),
         InputEvent(crate::ffi_event::FfiEvent),
     }
 
     /// Static unified event queue. FFI producers push via
-    /// [`slint_safeui_invoke_from_event_loop`], Rust producers via
-    /// [`SafeUiEventLoopProxy`]. The consumer ([`take_queue`]) runs
-    /// on the Slint event loop.
+    /// [`slint_safeui_invoke_from_event_loop`]. The consumer ([`take_queue`])
+    /// runs on the Slint event loop.
     static EVENT_QUEUE: Mutex<RefCell<Deque<QueueEntry, QUEUE_CAPACITY>>> =
         Mutex::new(RefCell::new(Deque::new()));
-
-    /// Proxy for injecting events from Rust code into the Slint event loop.
-    ///
-    /// This is returned by `Platform::new_event_loop_proxy()` and enables
-    /// `slint::invoke_from_event_loop()` and `slint::quit_event_loop()`.
-    #[derive(Clone)]
-    pub struct SafeUiEventLoopProxy;
-
-    impl slint::platform::EventLoopProxy for SafeUiEventLoopProxy {
-        fn quit_event_loop(&self) -> Result<(), slint::EventLoopError> {
-            let result = critical_section::with(|cs| {
-                EVENT_QUEUE
-                    .borrow_ref_mut(cs)
-                    .push_back(QueueEntry::Quit)
-                    .map_err(|_| slint::EventLoopError::EventLoopTerminated)
-            });
-            if result.is_ok() {
-                wake_event_loop();
-            }
-            result
-        }
-
-        fn invoke_from_event_loop(
-            &self,
-            event: Box<dyn FnOnce() + Send>,
-        ) -> Result<(), slint::EventLoopError> {
-            let result = critical_section::with(|cs| {
-                EVENT_QUEUE
-                    .borrow_ref_mut(cs)
-                    .push_back(QueueEntry::Callback(event))
-                    .map_err(|_| slint::EventLoopError::EventLoopTerminated)
-            });
-            if result.is_ok() {
-                wake_event_loop();
-            }
-            result
-        }
-    }
 
     /// Schedule a callback to run on the Slint event loop thread.
     ///
@@ -226,7 +177,7 @@ mod event_queue {
         let ffi_cb = FfiCallback { callback, user_data, drop_user_data };
         let entry = QueueEntry::FfiCallback(ffi_cb);
 
-        let result = critical_section::with(|cs| {
+        critical_section::with(|cs| {
             let mut queue = EVENT_QUEUE.borrow_ref_mut(cs);
             match queue.push_back(entry) {
                 Ok(()) => {
@@ -241,9 +192,7 @@ mod event_queue {
                     -1
                 }
             }
-        });
-
-        result
+        })
     }
 
     /// Push a raw input event into the unified queue.
@@ -251,7 +200,7 @@ mod event_queue {
     /// Called from [`crate::event_dispatch::slint_safeui_dispatch_event`].
     /// Returns `0` on success, `-1` if the queue is full.
     pub fn push_input_event(event: crate::ffi_event::FfiEvent) -> i32 {
-        let result = critical_section::with(|cs| {
+        critical_section::with(|cs| {
             let mut queue = EVENT_QUEUE.borrow_ref_mut(cs);
             match queue.push_back(QueueEntry::InputEvent(event)) {
                 Ok(()) => {
@@ -261,9 +210,7 @@ mod event_queue {
                 }
                 Err(_) => -1,
             }
-        });
-
-        result
+        })
     }
 
     /// Take all pending entries from the queue under a single short critical
@@ -280,21 +227,22 @@ mod event_queue {
     }
 }
 
-fn render_wrapper<P, F>(f: &F)
+fn render_wrapper<P, F>(render: F)
 where
-    P: slint::platform::software_renderer::TargetPixel + bytemuck::Pod,
-    F: Fn(&mut [P], usize),
+    P: bytemuck::Pod,
+    F: FnOnce(&mut [P], usize),
 {
-    let user_data = f as *const _ as *const core::ffi::c_void;
+    let mut render = Some(render);
+    let user_data = (&mut render) as *mut Option<F> as *const c_void;
 
     unsafe extern "C" fn c_render_wrap<P, F>(
-        user_data: *const core::ffi::c_void,
+        user_data: *const c_void,
         buffer: *mut core::ffi::c_char,
         byte_size: core::ffi::c_uint,
         pixel_stride: core::ffi::c_uint,
     ) where
-        P: slint::platform::software_renderer::TargetPixel + bytemuck::Pod,
-        F: Fn(&mut [P], usize),
+        P: bytemuck::Pod,
+        F: FnOnce(&mut [P], usize),
     {
         let buffer = unsafe {
             core::slice::from_raw_parts_mut(
@@ -302,23 +250,13 @@ where
                 byte_size as usize / core::mem::size_of::<P>(),
             )
         };
-        let f = unsafe { &*(user_data as *const F) };
-        f(buffer, pixel_stride as usize)
+        // SAFETY: user_data points at the `Option<F>` created below, alive for
+        // this call and used by no one else.
+        let render = unsafe { &mut *(user_data as *mut Option<F>) };
+        (render.take().unwrap())(buffer, pixel_stride as usize);
     }
 
     unsafe { slint_safeui_platform_render(user_data, Some(c_render_wrap::<P, F>)) }
-}
-
-pub fn slint_init_safeui_platform(width: u32, height: u32, scale_factor: f32) {
-    let window = slint::platform::software_renderer::MinimalSoftwareWindow::new(
-        slint::platform::software_renderer::RepaintBufferType::NewBuffer,
-    );
-
-    window.set_size(slint::PhysicalSize { width, height });
-
-    let platform = Platform { scale_factor, window };
-
-    slint::platform::set_platform(Box::new(platform)).unwrap();
 }
 
 #[cfg(feature = "panic-handler")]

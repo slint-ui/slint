@@ -5,8 +5,8 @@ use std::sync::OnceLock;
 use std::time::Instant;
 
 use slint::platform::software_renderer::TargetPixel;
-use slint_safeui_core::pixels::PlatformPixel;
-use slint_safeui_core::{HEIGHT_PIXELS, SCALE_FACTOR, WIDTH_PIXELS};
+use slint_safeui_ffi::pixels::PlatformPixel;
+use slint_safeui_ffi::{HEIGHT_PIXELS, SCALE_FACTOR, WIDTH_PIXELS};
 
 pub const SCALED_WIDTH: u32 = (WIDTH_PIXELS as f32 * SCALE_FACTOR).round() as u32;
 pub const SCALED_HEIGHT: u32 = (HEIGHT_PIXELS as f32 * SCALE_FACTOR).round() as u32;
