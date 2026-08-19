@@ -943,6 +943,15 @@ struct BorrowedTypeLoader<'a> {
     diag: &'a mut BuildDiagnostics,
 }
 
+/// An import resolved to a file by [`TypeLoader::resolve_import`].
+struct ResolvedImport {
+    path_canon: PathBuf,
+    /// The embedded source bytes when the path names a builtin file.
+    builtin: Option<&'static [u8]>,
+    /// True when found through the include or library search path rather than the working directory.
+    resolved: bool,
+}
+
 impl TypeLoader {
     pub fn new(compiler_config: CompilerConfiguration, diag: &mut BuildDiagnostics) -> Self {
         let mut style = compiler_config.style.clone().unwrap_or_else(|| "fluent".into());
@@ -1341,17 +1350,13 @@ impl TypeLoader {
         }
     }
 
-    /// Returns whether the file was successfully loaded.
-    /// If not, the path that was attempted to be loaded is returned (if any).
-    #[allow(clippy::await_holding_refcell_ref)] // false positive: explicit drop() before await
-    async fn ensure_document_loaded<'a: 'b, 'b>(
-        state: &'a RefCell<BorrowedTypeLoader<'a>>,
-        file_to_import: &'b str,
-        import_token: Option<NodeOrToken>,
-        mut import_stack: HashSet<PathBuf>,
-    ) -> Result<PathBuf, Option<PathBuf>> {
+    /// Resolve `file_to_import` to a [`ResolvedImport`].
+    fn resolve_import(
+        state: &RefCell<BorrowedTypeLoader<'_>>,
+        file_to_import: &str,
+        import_token: &Option<NodeOrToken>,
+    ) -> Result<ResolvedImport, Option<PathBuf>> {
         let mut borrowed_state = state.borrow_mut();
-
         let mut resolved = false;
         let (path_canon, builtin) = match borrowed_state
             .tl
@@ -1370,7 +1375,7 @@ impl TypeLoader {
                     {
                         borrowed_state.diag.push_warning(
                                 format!("Loading \"{file_to_import}\" resolved to a file named \"{file_name}\" with different casing. This behavior is not cross platform. Rename the file, or edit the import to use the same casing"),
-                                &import_token,
+                                import_token,
                             );
                     }
                 }
@@ -1384,7 +1389,7 @@ impl TypeLoader {
                         format!(
                             "Loading \"{file_to_import}\" relative to the work directory is deprecated. Files should be imported relative to their import location",
                         ),
-                        &import_token,
+                        import_token,
                     );
                     }
                     (import_path, None)
@@ -1404,21 +1409,90 @@ impl TypeLoader {
                 }
             }
         };
+        Ok(ResolvedImport { path_canon, builtin, resolved })
+    }
 
-        if !import_stack.insert(path_canon.clone()) {
-            borrowed_state.diag.push_error(
-                format!("Recursive import of \"{}\"", path_canon.display()),
+    /// Read the source of the resolved `import` (builtin bytes, import callback, or file system)
+    /// and parse it, returning `None` and pushing a diagnostic on failure.
+    async fn read_and_parse_import(
+        state: &RefCell<BorrowedTypeLoader<'_>>,
+        import: &ResolvedImport,
+        file_to_import: &str,
+        import_token: &Option<NodeOrToken>,
+    ) -> Option<syntax_nodes::Document> {
+        let path_canon = &import.path_canon;
+        let source_code_result = if let Some(builtin) = import.builtin {
+            Ok(String::from(
+                core::str::from_utf8(builtin)
+                    .expect("internal error: embedded file is not UTF-8 source code"),
+            ))
+        } else {
+            let callback = state.borrow().tl.compiler_config.open_import_callback.clone();
+            if let Some(callback) = callback {
+                let result = callback(path_canon.to_string_lossy().into()).await;
+                result.unwrap_or_else(|| std::fs::read_to_string(path_canon))
+            } else {
+                std::fs::read_to_string(path_canon)
+            }
+        };
+        match source_code_result {
+            Ok(source) => syntax_nodes::Document::new(crate::parser::parse(
+                source,
+                Some(path_canon),
+                state.borrow_mut().diag,
+            )),
+            Err(err)
+                if !import.resolved
+                    && matches!(
+                        err.kind(),
+                        // A path that can't name a file (e.g. one with a character
+                        // Windows forbids) can't be found either, so report it the
+                        // same way rather than leaking the raw OS error.
+                        ErrorKind::NotFound | ErrorKind::NotADirectory | ErrorKind::InvalidFilename
+                    ) =>
+            {
+                let import_kind =
+                    if file_to_import.starts_with('@') { "library" } else { "include" };
+                state.borrow_mut().diag.push_error(
+                    format!(
+                        "Cannot find requested import \"{file_to_import}\" in the {import_kind} search path",
+                    ),
+                    import_token,
+                );
+                None
+            }
+            Err(err) => {
+                state.borrow_mut().diag.push_error(
+                    format!("Error reading requested import \"{}\": {}", path_canon.display(), err),
+                    import_token,
+                );
+                None
+            }
+        }
+    }
+
+    /// Returns whether the file was successfully loaded.
+    /// If not, the path that was attempted to be loaded is returned (if any).
+    async fn ensure_document_loaded<'a: 'b, 'b>(
+        state: &'a RefCell<BorrowedTypeLoader<'a>>,
+        file_to_import: &'b str,
+        import_token: Option<NodeOrToken>,
+        mut import_stack: HashSet<PathBuf>,
+    ) -> Result<PathBuf, Option<PathBuf>> {
+        let import = Self::resolve_import(state, file_to_import, &import_token)?;
+
+        if !import_stack.insert(import.path_canon.clone()) {
+            state.borrow_mut().diag.push_error(
+                format!("Recursive import of \"{}\"", import.path_canon.display()),
                 &import_token,
             );
-            return Err(Some(path_canon));
+            return Err(Some(import.path_canon));
         }
-
-        drop(borrowed_state);
 
         let (is_loaded, doc_node) = core::future::poll_fn(|cx| {
             let mut state = state.borrow_mut();
             let all_documents = &mut state.tl.all_documents;
-            match all_documents.currently_loading.entry(path_canon.clone()) {
+            match all_documents.currently_loading.entry(import.path_canon.clone()) {
                 std::collections::hash_map::Entry::Occupied(mut e) => {
                     let waker = cx.waker();
                     if !e.get().iter().any(|w| w.will_wake(waker)) {
@@ -1427,7 +1501,7 @@ impl TypeLoader {
                     core::task::Poll::Pending
                 }
                 std::collections::hash_map::Entry::Vacant(v) => {
-                    match all_documents.docs.get(path_canon.as_path()) {
+                    match all_documents.docs.get(import.path_canon.as_path()) {
                         Some((LoadedDocument::Document(_), _)) => {
                             core::task::Poll::Ready((true, None))
                         }
@@ -1445,7 +1519,7 @@ impl TypeLoader {
         })
         .await;
         if is_loaded {
-            return Ok(path_canon);
+            return Ok(import.path_canon);
         }
 
         let doc_node = if let Some((doc_node, errors)) = doc_node {
@@ -1454,66 +1528,19 @@ impl TypeLoader {
             }
             Some(doc_node)
         } else {
-            let source_code_result = if let Some(builtin) = builtin {
-                Ok(String::from(
-                    core::str::from_utf8(builtin)
-                        .expect("internal error: embedded file is not UTF-8 source code"),
-                ))
-            } else {
-                let callback = state.borrow().tl.compiler_config.open_import_callback.clone();
-                if let Some(callback) = callback {
-                    let result = callback(path_canon.to_string_lossy().into()).await;
-                    result.unwrap_or_else(|| std::fs::read_to_string(&path_canon))
-                } else {
-                    std::fs::read_to_string(&path_canon)
-                }
-            };
-            match source_code_result {
-                Ok(source) => syntax_nodes::Document::new(crate::parser::parse(
-                    source,
-                    Some(&path_canon),
-                    state.borrow_mut().diag,
-                )),
-                Err(err)
-                    if !resolved
-                        && matches!(
-                            err.kind(),
-                            // A path that can't name a file (e.g. one with a character
-                            // Windows forbids) can't be found either, so report it the
-                            // same way rather than leaking the raw OS error.
-                            ErrorKind::NotFound
-                                | ErrorKind::NotADirectory
-                                | ErrorKind::InvalidFilename
-                        ) =>
-                {
-                    let import_kind =
-                        if file_to_import.starts_with('@') { "library" } else { "include" };
-                    state.borrow_mut().diag.push_error(
-                        format!(
-                            "Cannot find requested import \"{file_to_import}\" in the {import_kind} search path",
-                        ),
-                        &import_token,
-                    );
-                    None
-                }
-                Err(err) => {
-                    state.borrow_mut().diag.push_error(
-                        format!(
-                            "Error reading requested import \"{}\": {}",
-                            path_canon.display(),
-                            err
-                        ),
-                        &import_token,
-                    );
-                    None
-                }
-            }
+            Self::read_and_parse_import(state, &import, file_to_import, &import_token).await
         };
 
         let ok = if let Some(doc_node) = doc_node {
-            Self::load_file_impl(state, &path_canon, doc_node, builtin.is_some(), &import_stack)
-                .await;
-            state.borrow_mut().diag.all_loaded_files.insert(path_canon.clone());
+            Self::load_file_impl(
+                state,
+                &import.path_canon,
+                doc_node,
+                import.builtin.is_some(),
+                &import_stack,
+            )
+            .await;
+            state.borrow_mut().diag.all_loaded_files.insert(import.path_canon.clone());
             true
         } else {
             false
@@ -1524,13 +1551,13 @@ impl TypeLoader {
             .tl
             .all_documents
             .currently_loading
-            .remove(path_canon.as_path())
+            .remove(import.path_canon.as_path())
             .unwrap();
         for x in wakers {
             x.wake();
         }
 
-        if ok { Ok(path_canon) } else { Err(Some(path_canon)) }
+        if ok { Ok(import.path_canon) } else { Err(Some(import.path_canon)) }
     }
 
     /// Load a file, and its dependency, running only the import passes.
@@ -1661,6 +1688,25 @@ impl TypeLoader {
         )
         .await;
 
+        let doc = Self::build_dependency_document(
+            state,
+            dependency_doc,
+            imports,
+            reexports,
+            &dependency_registry,
+        );
+        (path.to_owned(), doc)
+    }
+
+    /// Build the object-tree document for a just-loaded dependency from its parsed node, imports
+    /// and re-exports.
+    fn build_dependency_document(
+        state: &RefCell<BorrowedTypeLoader<'_>>,
+        dependency_doc: syntax_nodes::Document,
+        imports: Vec<ImportedTypes>,
+        reexports: Exports,
+        dependency_registry: &Rc<RefCell<TypeRegister>>,
+    ) -> Document {
         let ignore_missing_font_files =
             state.borrow().tl.compiler_config.resource_url_mapper.is_some();
         let symbol_counters = state.borrow().tl.symbol_counters.clone();
@@ -1673,29 +1719,27 @@ impl TypeLoader {
                 "Dummy error because some of the code asserts there was an error".into(),
                 Default::default(),
             );
-            let doc = crate::object_tree::Document::from_node(
+            crate::object_tree::Document::from_node(
                 dependency_doc,
                 imports,
                 reexports,
                 &mut ignore_diag,
-                &dependency_registry,
+                dependency_registry,
                 ignore_missing_font_files,
                 &symbol_counters,
-            );
-            return (path.to_owned(), doc);
+            )
+        } else {
+            let mut state = state.borrow_mut();
+            crate::object_tree::Document::from_node(
+                dependency_doc,
+                imports,
+                reexports,
+                state.diag,
+                dependency_registry,
+                ignore_missing_font_files,
+                &symbol_counters,
+            )
         }
-        let mut state = state.borrow_mut();
-        let state = &mut *state;
-        let doc = crate::object_tree::Document::from_node(
-            dependency_doc,
-            imports,
-            reexports,
-            state.diag,
-            &dependency_registry,
-            ignore_missing_font_files,
-            &symbol_counters,
-        );
-        (path.to_owned(), doc)
     }
 
     fn register_imported_types(
