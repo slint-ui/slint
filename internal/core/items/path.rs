@@ -166,38 +166,32 @@ impl Path {
     ) -> Option<(LogicalVector, PathDataIterator)> {
         let mut elements_iter = self.elements().iter()?;
 
-        let stroke_width = self.stroke_width();
-        let geometry = self_rc.geometry();
         let fit = self.fit();
         if fit == ImageFit::Preserve {
-            (LogicalVector::zero(), elements_iter).into()
-        } else {
-            let bounds_width = (geometry.width_length() - stroke_width).max(LogicalLength::zero());
-            let bounds_height =
-                (geometry.height_length() - stroke_width).max(LogicalLength::zero());
-            let offset =
-                LogicalVector::from_lengths(stroke_width / 2 as Coord, stroke_width / 2 as Coord);
-
-            let viewbox_width = self.viewbox_width();
-            let viewbox_height = self.viewbox_height();
-
-            let maybe_viewbox = if viewbox_width > 0. && viewbox_height > 0. {
-                Some(
-                    euclid::rect(self.viewbox_x(), self.viewbox_y(), viewbox_width, viewbox_height)
-                        .to_box2d(),
-                )
-            } else {
-                None
-            };
-
-            elements_iter.fit(
-                bounds_width.get() as _,
-                bounds_height.get() as _,
-                maybe_viewbox,
-                fit,
-            );
-            (offset, elements_iter).into()
+            return (LogicalVector::zero(), elements_iter).into();
         }
+
+        let stroke_width = self.stroke_width();
+        let geometry = self_rc.geometry();
+        let bounds_width = (geometry.width_length() - stroke_width).max(LogicalLength::zero());
+        let bounds_height = (geometry.height_length() - stroke_width).max(LogicalLength::zero());
+        let offset =
+            LogicalVector::from_lengths(stroke_width / 2 as Coord, stroke_width / 2 as Coord);
+
+        let viewbox_width = self.viewbox_width();
+        let viewbox_height = self.viewbox_height();
+
+        let maybe_viewbox = if viewbox_width > 0. && viewbox_height > 0. {
+            Some(
+                euclid::rect(self.viewbox_x(), self.viewbox_y(), viewbox_width, viewbox_height)
+                    .to_box2d(),
+            )
+        } else {
+            None
+        };
+
+        elements_iter.fit(bounds_width.get() as _, bounds_height.get() as _, maybe_viewbox, fit);
+        (offset, elements_iter).into()
     }
 
     fn sample_at(
