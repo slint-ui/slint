@@ -296,7 +296,8 @@ fn run_version_check(config: &TestConfig) -> Result<(), String> {
     if !output.status.success() {
         return Err(format!("slint-compiler failed:\n{}", String::from_utf8_lossy(&output.stderr)));
     }
-    let generated = std::fs::read_to_string(&generated).map_err(|e| format!("read generated: {e}"))?;
+    let generated =
+        std::fs::read_to_string(&generated).map_err(|e| format!("read generated: {e}"))?;
     let expected = format!("VersionCheck_{version}");
     if !generated.contains(&expected) {
         return Err(format!("generated code is not stamped with `{expected}`:\n{generated}"));
@@ -312,7 +313,9 @@ fn run_version_check(config: &TestConfig) -> Result<(), String> {
     let output = compile(config, &mismatch, &tmp.path().join("mismatch"))?;
     let stderr = String::from_utf8_lossy(&output.stderr);
     if output.status.success() || !stderr.contains("VersionCheck_0_0_0") {
-        return Err(format!("a reference to a different runtime version did not fail to build:\n{stderr}"));
+        return Err(format!(
+            "a reference to a different runtime version did not fail to build:\n{stderr}"
+        ));
     }
 
     Ok(())
