@@ -1,0 +1,7 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: MIT
+
+# The Xtensa target needs the esp-rs Rust fork, installed with `espup install`.
+[toolchain]
+channel = "esp"
+components = ["rust-src"]
