@@ -291,3 +291,14 @@ export component MultipleViolations {
 //                   >   <note{'OutOnlyInterface' declares 'count' as 'out property <int> count;'}
 //  >    <^note{'OutOnlyInterface' declares 'count' as 'out property <int> count;'}
 }
+
+interface Viewport {
+    in-out property <float> viewport-x;
+    in-out property <float> viewport-y;
+}
+
+// The Viewport interface properties conflict with the properties on the built-in Flickable component
+export component ConflictsWithBuiltIn inherits Flickable {
+    implement Viewport <=> self;
+//            >       <error{Cannot implement 'Viewport'.↵- 'viewport-x' must be a 'float' property (found a 'length' property)↵- 'viewport-y' must be a 'float' property (found a 'length' property)}
+}
