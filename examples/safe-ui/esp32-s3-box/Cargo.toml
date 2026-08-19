@@ -1,0 +1,35 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: MIT
+
+[package]
+name = "slint-safeui-esp32-s3-box"
+version = "1.18.0"
+edition = "2024"
+publish = false
+license = "MIT"
+
+[[bin]]
+name = "slint-safeui-esp32-s3-box"
+path = "src/main.rs"
+
+[dependencies]
+slint-safeui-app = { path = "../app" }
+
+esp-hal = { version = "1.1.1", features = ["esp32s3", "rt", "unstable"] }
+esp-alloc = "0.10.0"
+esp-backtrace = { version = "0.19.0", features = ["esp32s3", "panic-handler", "println"] }
+esp-bootloader-esp-idf = { version = "0.5.0", features = ["esp32s3"] }
+esp-println = { version = "0.17.0", default-features = false, features = ["esp32s3", "auto", "log-04"] }
+esp-rtos = { version = "0.3.0", features = ["esp32s3", "embassy"] }
+
+embassy-executor = { version = "0.10.0", default-features = false }
+embassy-futures = "0.1.2"
+embassy-time = "0.5.1"
+
+embedded-hal = "1.0.0"
+embedded-hal-bus = "0.3.0"
+embedded-graphics-core = "0.4"
+gt911 = "0.3.0"
+log = "0.4.27"
+mipidsi = "0.10.0"
+static_cell = "2.1.1"
