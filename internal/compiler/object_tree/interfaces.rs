@@ -318,7 +318,7 @@ fn keyword_token(declaration: &SyntaxNode, keyword: &str) -> Option<SyntaxToken>
 
 struct MemberViolation {
     error: String,
-    note: String,
+    expected_syntax: String,
     anchor: DeclarationAnchor,
 }
 
@@ -379,13 +379,9 @@ fn validate_interface_member_implementation(
     }
 
     let lookup_result = element.lookup_property(member_name);
-    let Err(violations) = property_matches_interface(
-        &lookup_result,
-        interface_member,
-        interface_name,
-        member_name,
-        binding,
-    ) else {
+    let Err(violations) =
+        property_matches_interface(&lookup_result, interface_member, member_name, binding)
+    else {
         return None;
     };
 
@@ -398,7 +394,12 @@ fn validate_interface_member_implementation(
         conflicts.notes = violations
             .into_iter()
             .map(|violation| NoteWithSource {
-                note: violation.note,
+                note: declared_here_note(
+                    member_name,
+                    interface_name,
+                    &violation.expected_syntax,
+                    &source,
+                ),
                 source: violation.anchor.source_location(&source),
             })
             .collect();
@@ -443,7 +444,12 @@ pub(super) fn apply_child_implement_statements(
                 conflicts.push(message);
                 if let Some(source) = element.borrow().property_declaration_node(name) {
                     notes.push(NoteWithSource {
-                        note: declares_as_note(&interface_name, name, prop_decl),
+                        note: declared_here_note(
+                            name,
+                            &interface_name,
+                            &syntax_for_declaration(prop_decl, name),
+                            &source,
+                        ),
                         source: DeclarationAnchor::Name.source_location(&source),
                     });
                 }
@@ -473,7 +479,11 @@ pub(super) fn apply_child_implement_statements(
                     &source,
                 );
                 diagnostics.push_note(
-                    declares_as_note(&interface_name, name, &prop_decl),
+                    declares_as_note(
+                        &interface_name,
+                        name,
+                        &syntax_for_declaration(&prop_decl, name),
+                    ),
                     &node.QualifiedName(),
                 );
                 continue;
@@ -557,14 +567,33 @@ fn missing_type_error(name: &SmolStr, interface_declaration: &PropertyDeclaratio
     format!("- missing '{}'", syntax_for_declaration(interface_declaration, name))
 }
 
-fn declares_as_note(
+fn declares_as_note(interface_name: &SmolStr, name: &SmolStr, expected_syntax: &String) -> String {
+    format!("'{interface_name}' declares '{name}' as '{expected_syntax}'")
+}
+
+fn declaring_component_name(declaration: SyntaxNode) -> Option<SmolStr> {
+    std::iter::successors(Some(declaration), SyntaxNode::parent).find_map(|node| {
+        match node.kind() {
+            SyntaxKind::SubElement => node.child_text(SyntaxKind::Identifier),
+            SyntaxKind::Component => {
+                parser::identifier_text(&node.child_node(SyntaxKind::DeclaredIdentifier)?)
+            }
+            _ => None,
+        }
+    })
+}
+
+fn declared_here_note(
+    member_name: &SmolStr,
     interface_name: &SmolStr,
-    name: &SmolStr,
-    interface_declaration: &PropertyDeclaration,
+    expected_syntax: &String,
+    property_declaration_source: &SyntaxNode,
 ) -> String {
+    let Some(declaring_type) = declaring_component_name(property_declaration_source.clone()) else {
+        return declares_as_note(interface_name, member_name, expected_syntax);
+    };
     format!(
-        "'{interface_name}' declares '{name}' as '{}'",
-        syntax_for_declaration(interface_declaration, name)
+        "'{declaring_type}' declares '{member_name}' here, '{interface_name}' expects '{expected_syntax}'"
     )
 }
 
@@ -601,14 +630,14 @@ fn property_type_matches_for_interface(lhs: &Type, rhs: &Type) -> bool {
 fn property_matches_interface(
     property: &PropertyLookupResult,
     interface_declaration: &PropertyDeclaration,
-    interface_name: &SmolStr,
     name: &SmolStr,
     binding: &ImplementBinding,
 ) -> Result<(), Vec<MemberViolation>> {
+    let expected_syntax = syntax_for_declaration(interface_declaration, name);
     if property.property_type == Type::Invalid {
         return Err(vec![MemberViolation {
             error: missing_type_error(name, interface_declaration),
-            note: declares_as_note(interface_name, name, interface_declaration),
+            expected_syntax,
             anchor: DeclarationAnchor::Name,
         }]);
     }
@@ -652,23 +681,20 @@ fn property_matches_interface(
             // Visibility and purity are unlikely to make sense, so return early in this case.
             return Err(vec![MemberViolation {
                 error,
-                note: declares_as_note(interface_name, name, interface_declaration),
+                expected_syntax,
                 anchor: DeclarationAnchor::Name,
             }]);
         }
 
-        let (note, anchor) = match (&interface_declaration.property_type, &property.property_type) {
+        let anchor = match (&interface_declaration.property_type, &property.property_type) {
             (Type::Callback(expected), Type::Callback(declared))
-            | (Type::Function(expected), Type::Function(declared)) => (
-                declares_as_note(interface_name, name, interface_declaration),
-                signature_anchor(expected, declared),
-            ),
-            (_, _) => (
-                declares_as_note(interface_name, name, interface_declaration),
-                DeclarationAnchor::PropertyType,
-            ),
+            | (Type::Function(expected), Type::Function(declared)) => {
+                signature_anchor(expected, declared)
+            }
+
+            (_, _) => DeclarationAnchor::PropertyType,
         };
-        errors.push(MemberViolation { error, note, anchor });
+        errors.push(MemberViolation { error, expected_syntax: expected_syntax.clone(), anchor });
     }
 
     if property.property_visibility != interface_declaration.visibility {
@@ -677,7 +703,7 @@ fn property_matches_interface(
                 "- '{member_name}' must be '{}' (found '{}')",
                 interface_declaration.visibility, property.property_visibility
             ),
-            note: declares_as_note(interface_name, name, interface_declaration),
+            expected_syntax: expected_syntax.clone(),
             anchor: DeclarationAnchor::Visibility(property.property_visibility),
         });
     }
@@ -686,7 +712,7 @@ fn property_matches_interface(
     if interface_declaration.pure.unwrap_or(false) && !property.declared_pure.unwrap_or(false) {
         errors.push(MemberViolation {
             error: format!("- '{member_name}' must be 'pure'"),
-            note: declares_as_note(interface_name, name, interface_declaration),
+            expected_syntax,
             anchor: DeclarationAnchor::Purity,
         });
     }

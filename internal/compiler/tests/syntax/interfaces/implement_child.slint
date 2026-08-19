@@ -28,7 +28,7 @@ export component ChildMissingMembers {
 // Member present but with the wrong visibility / type / callback signature / purity / arguments.
 component IncorrectVisibility {
     out property <int> value;
-//  > <note{'ValidInterface' declares 'value' as 'in-out property <int> value;'}
+//  > <note{'IncorrectVisibility' declares 'value' here, 'ValidInterface' expects 'in-out property <int> value;'}
     callback speak();
     public pure function reset() {}
 }
@@ -41,7 +41,7 @@ export component ChildWrongVisibility {
 
 component IncorrectType {
     in-out property <float> value;
-//                   >   <note{'ValidInterface' declares 'value' as 'in-out property <int> value;'}
+//                   >   <note{'IncorrectType' declares 'value' here, 'ValidInterface' expects 'in-out property <int> value;'}
     callback speak();
     public pure function reset() {}
 }
@@ -55,7 +55,7 @@ export component ChildWrongType {
 component IncorrectCallback {
     in-out property <int> value;
     callback speak() -> string;
-//                      >    <note{'ValidInterface' declares 'speak' as 'callback speak();'}
+//                      >    <note{'IncorrectCallback' declares 'speak' here, 'ValidInterface' expects 'callback speak();'}
     public pure function reset() {}
 }
 
@@ -87,7 +87,7 @@ interface ImpureFunctionInterface {
 
 component IncorrectPurity {
     public function foo(i: int, s: string) -> bool {
-//                  > <note{'FunctionInterface' declares 'foo' as 'pure public function foo(int, string) -> bool { }'}
+//                  > <note{'IncorrectPurity' declares 'foo' here, 'FunctionInterface' expects 'pure public function foo(int, string) -> bool { }'}
         return false;
     }
 
@@ -107,7 +107,7 @@ export component ChildWrongPurity {
 
 component IncorrectArguments {
     pure public function foo(i: int, s: int) -> bool {
-//                                      > <note{'FunctionInterface' declares 'foo' as 'pure public function foo(int, string) -> bool { }'}
+//                                      > <note{'IncorrectArguments' declares 'foo' here, 'FunctionInterface' expects 'pure public function foo(int, string) -> bool { }'}
         return false;
     }
 }
@@ -121,11 +121,11 @@ export component ChildWrongArguments {
 // Each member of the child declared as the wrong kind.
 component CrossKindImpl {
     callback value();
-//           >   <note{'ValidInterface' declares 'value' as 'in-out property <int> value;'}
+//           >   <note{'CrossKindImpl' declares 'value' here, 'ValidInterface' expects 'in-out property <int> value;'}
     in-out property <int> speak;
-//                        >   <note{'ValidInterface' declares 'speak' as 'callback speak();'}
+//                        >   <note{'CrossKindImpl' declares 'speak' here, 'ValidInterface' expects 'callback speak();'}
     in-out property <int> reset;
-//                        >   <note{'ValidInterface' declares 'reset' as 'pure public function reset() { }'}
+//                        >   <note{'CrossKindImpl' declares 'reset' here, 'ValidInterface' expects 'pure public function reset() { }'}
 }
 
 export component ChildCrossKind {
@@ -165,11 +165,11 @@ export component OverridesDeclaration {
 // A forwarded member must not clash with a member inherited by the parent from its own base.
 component BaseWithConflicts {
     in-out property <int> value;
-//                        >   <note{'ValidInterface' declares 'value' as 'in-out property <int> value;'}
+//                        >   <note{'BaseWithConflicts' declares 'value' here, 'ValidInterface' expects 'in-out property <int> value;'}
     callback speak();
-//           >   <note{'ValidInterface' declares 'speak' as 'callback speak();'}
+//           >   <note{'BaseWithConflicts' declares 'speak' here, 'ValidInterface' expects 'callback speak();'}
     public pure function reset() {}
-//                       >   <note{'ValidInterface' declares 'reset' as 'pure public function reset() { }'}
+//                       >   <note{'BaseWithConflicts' declares 'reset' here, 'ValidInterface' expects 'pure public function reset() { }'}
     @children
 }
 
@@ -200,10 +200,10 @@ export component ChildWithProperties {
 
     child_with_conflicts := Rectangle {
         in-out property <float> value;
-//                       >   <note{'ValidInterface' declares 'value' as 'in-out property <int> value;'}
+//                       >   <note{'child_with_conflicts' declares 'value' here, 'ValidInterface' expects 'in-out property <int> value;'}
         public function speak() {}
-//                      >   <note{'ValidInterface' declares 'speak' as 'callback speak();'}
+//                      >   <note{'child_with_conflicts' declares 'speak' here, 'ValidInterface' expects 'callback speak();'}
         callback reset();
-//               >   <note{'ValidInterface' declares 'reset' as 'pure public function reset() { }'}
+//               >   <note{'child_with_conflicts' declares 'reset' here, 'ValidInterface' expects 'pure public function reset() { }'}
     }
 }
