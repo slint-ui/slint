@@ -1858,7 +1858,8 @@ impl Expression {
         match op_class {
             OperatorClass::ComparisonOp => {
                 let ty = Self::common_target_type_for_type_list([lhs_ty, rhs_ty].into_iter());
-                if !matches!(op, '=' | '!') && ty.as_unit_product().is_none() && ty != Type::String {
+                if !matches!(op, '=' | '!') && ty.as_unit_product().is_none() && ty != Type::String
+                {
                     ctx.diag.push_error(format!("Values of type {ty} cannot be compared"), node);
                 }
                 (Some(ty.clone()), Some(ty))
