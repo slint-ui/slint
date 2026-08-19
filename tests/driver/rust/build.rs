@@ -100,46 +100,64 @@ fn main() -> std::io::Result<()> {
     // Generate the per-case modules on all cores: with the build-time feature,
     // each case runs the Slint compiler (twice with deterministic-output),
     // which dominates the build script's runtime.
-    // TEMPORARY DEBUG (stack overflow on the Windows live-preview job): keep the multi-threaded
-    // compilation, but log every case with the worker thread and the number of concurrently active
-    // compilations, and make the worker stack overridable via SLINT_BUILD_STACK. Set that env to a
-    // value below the flaky threshold so the overflow reproduces reliably; the last `start` line
-    // without a matching `done` then names the culprit .slint file, and `active=` shows how many
-    // compilations were running on the pool at that moment. Revert before merging.
+    // TEMPORARY DEBUG (stack overflow on the Windows live-preview job): the overflow is
+    // concurrency-driven and flaky, and per-case logging perturbs the scheduling enough to hide
+    // it. Instead each worker records the case it is compiling into a lock-free slot (a plain
+    // atomic store, no syscall, so scheduling is barely perturbed), and one monitor thread dumps
+    // the slots every few milliseconds. When a worker overflows, the last `SLINT_MONITOR` line
+    // shows what every worker was compiling and how many were busy. SLINT_BUILD_STACK overrides
+    // the worker stack so the overflow reproduces reliably. Revert before merging.
+    use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
     println!("cargo::rerun-if-env-changed=SLINT_BUILD_STACK");
     let dbg_stack: usize =
         std::env::var("SLINT_BUILD_STACK").ok().and_then(|s| s.parse().ok()).unwrap_or(512 * 1024);
-    static ACTIVE: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
-    let module_lines = rayon::ThreadPoolBuilder::new()
-        .stack_size(dbg_stack)
-        .build()
-        .expect("failed to create thread pool")
-        .install(|| {
+    let pool =
+        rayon::ThreadPoolBuilder::new().stack_size(dbg_stack).build().expect("failed to build pool");
+    let n = pool.current_num_threads();
+    let idle = usize::MAX;
+    let slots: Vec<AtomicUsize> = (0..n).map(|_| AtomicUsize::new(idle)).collect();
+    let stop = AtomicBool::new(false);
+    let module_lines = std::thread::scope(|scope| {
+        scope.spawn(|| {
+            use std::io::Write;
+            while !stop.load(Ordering::Relaxed) {
+                std::thread::sleep(std::time::Duration::from_millis(5));
+                let busy: Vec<String> = slots
+                    .iter()
+                    .filter_map(|s| {
+                        let i = s.load(Ordering::Relaxed);
+                        (i != idle).then(|| {
+                            testcases[i]
+                                .absolute_path
+                                .file_name()
+                                .map(|f| f.to_string_lossy().into_owned())
+                                .unwrap_or_default()
+                        })
+                    })
+                    .collect();
+                eprintln!("SLINT_MONITOR active={} {}", busy.len(), busy.join(" "));
+                let _ = std::io::stderr().flush();
+            }
+        });
+        let r = pool.install(|| {
             testcases
                 .par_iter()
-                .map(|testcase| {
-                    use std::io::Write;
-                    use std::sync::atomic::Ordering;
-                    let active = ACTIVE.fetch_add(1, Ordering::SeqCst) + 1;
-                    eprintln!(
-                        "SLINT_BUILD_DEBUG start t={:?} active={} {}",
-                        std::thread::current().id(),
-                        active,
-                        testcase.absolute_path.display()
-                    );
-                    let _ = std::io::stderr().flush();
+                .enumerate()
+                .map(|(i, testcase)| {
+                    if let Some(w) = rayon::current_thread_index() {
+                        slots[w].store(i, Ordering::Relaxed);
+                    }
                     let x = process_case(testcase, live_preview);
-                    ACTIVE.fetch_sub(1, Ordering::SeqCst);
-                    eprintln!(
-                        "SLINT_BUILD_DEBUG done  t={:?} {}",
-                        std::thread::current().id(),
-                        testcase.absolute_path.display()
-                    );
-                    let _ = std::io::stderr().flush();
+                    if let Some(w) = rayon::current_thread_index() {
+                        slots[w].store(idle, Ordering::Relaxed);
+                    }
                     x
                 })
                 .collect::<std::io::Result<Vec<String>>>()
-        })?;
+        });
+        stop.store(true, Ordering::Relaxed);
+        r
+    })?;
 
     // Write the module declarations serially, in collection order, so the
     // including files don't depend on thread scheduling.
