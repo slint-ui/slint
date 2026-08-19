@@ -47,8 +47,8 @@ endif()
 message(STATUS "Active Slint SafeUI Features: ${SLINT_SAFEUI_FEATURES}")
 
 corrosion_import_crate(
-    MANIFEST_PATH "${CMAKE_CURRENT_SOURCE_DIR}/core/Cargo.toml"
-    CRATES slint-safeui-core
+    MANIFEST_PATH "${CMAKE_CURRENT_SOURCE_DIR}/ffi/Cargo.toml"
+    CRATES slint-safeui-ffi
     CRATE_TYPES staticlib
     FEATURES "${SLINT_SAFEUI_FEATURES}"
 )
@@ -56,16 +56,16 @@ corrosion_import_crate(
 if(SLINT_SAFEUI_WIDTH AND SLINT_SAFEUI_HEIGHT)
     message(STATUS "Custom Slint SafeUI Window Size: ${SLINT_SAFEUI_WIDTH}x${SLINT_SAFEUI_HEIGHT}")
     corrosion_set_env_vars(
-        slint_safeui_core
+        slint_safeui_ffi
         SAFE_UI_WIDTH=${SLINT_SAFEUI_WIDTH}
         SAFE_UI_HEIGHT=${SLINT_SAFEUI_HEIGHT}
     )
 endif()
 
 add_library(SlintSafeUi INTERFACE)
-target_link_libraries(SlintSafeUi INTERFACE slint_safeui_core)
+target_link_libraries(SlintSafeUi INTERFACE slint_safeui_ffi)
 
 target_include_directories(SlintSafeUi INTERFACE
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/core/src>
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/core/src>
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/ffi/src>
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/ffi/src>
 )

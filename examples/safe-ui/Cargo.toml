@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT
 
 [workspace]
-members = ["core", "simulator"]
+members = ["app", "desktop", "ffi", "ffi-simulator"]
 resolver = "2"
 
 [profile.release]
