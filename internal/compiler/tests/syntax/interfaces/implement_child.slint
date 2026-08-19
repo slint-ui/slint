@@ -178,3 +178,16 @@ export component ConflictsWithBase inherits BaseWithConflicts {
 //            >             <error{Cannot implement 'ValidInterface' based on 'base'.↵- 'reset' conflicts with an existing function in 'BaseWithConflicts'↵- 'speak' conflicts with an existing callback in 'BaseWithConflicts'↵- 'value' conflicts with an existing property in 'BaseWithConflicts'}
     base := ValidBase { }
 }
+
+interface Viewport {
+    in-out property <float> viewport-x;
+    in-out property <float> viewport-y;
+}
+
+// The Viewport interface properties conflict with the properties on the built-in Flickable component
+export component ConflictsWithBuiltIn {
+    implement Viewport <=> flickable;
+//                         >       <error{Cannot implement 'Viewport' based on 'flickable'.↵- 'flickable.viewport-x' must be a 'float' property (found a 'length' property)↵- 'flickable.viewport-y' must be a 'float' property (found a 'length' property)}
+
+    flickable := Flickable { }
+}
