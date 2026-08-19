@@ -119,7 +119,7 @@ fn to_grid_input_data(v: &Value) -> Vec<GridLayoutInputData> {
                 _ => 0.,
             };
             Some(GridLayoutInputData {
-                new_row: matches!(s.get_field("new_row"), Some(Value::Bool(true))),
+                new_row: matches!(s.get_field("new-row"), Some(Value::Bool(true))),
                 col: f("col"),
                 row: f("row"),
                 colspan: f("colspan"),
@@ -216,7 +216,7 @@ pub(crate) fn call_extra_builtin(
                     spacing: sf32(s, "spacing"),
                     padding: s.get_field("padding").map(to_padding).unwrap_or_default(),
                     organized_data: s
-                        .get_field("organized_data")
+                        .get_field("organized-data")
                         .map(to_array_of_u16)
                         .unwrap_or_default(),
                 },
@@ -250,7 +250,7 @@ pub(crate) fn call_extra_builtin(
                     size: sf32(s, "size"),
                     padding: s.get_field("padding").map(to_padding).unwrap_or_default(),
                     cross_axis_alignment: s
-                        .get_field("cross_axis_alignment")
+                        .get_field("cross-axis-alignment")
                         .map(to_enum)
                         .unwrap_or_default(),
                     cells: Slice::from_slice(&cells),
@@ -262,29 +262,29 @@ pub(crate) fn call_extra_builtin(
             let ri = to_u32_vec(&a[1]);
             let Value::Struct(s) = &a[0] else { return Value::LayoutCache(Default::default()) };
             let (ch, cv) = (
-                s.get_field("cells_h").map(to_cells).unwrap_or_default(),
-                s.get_field("cells_v").map(to_cells).unwrap_or_default(),
+                s.get_field("cells-h").map(to_cells).unwrap_or_default(),
+                s.get_field("cells-v").map(to_cells).unwrap_or_default(),
             );
-            let fp = s.get_field("flex_props").map(to_flex_props).unwrap_or_default();
+            let fp = s.get_field("flex-props").map(to_flex_props).unwrap_or_default();
             Value::LayoutCache(i_slint_core::layout::solve_flexbox_layout(
                 &FlexboxLayoutData {
                     width: sf32(s, "width"),
                     height: sf32(s, "height"),
                     spacing_h: sf32(s, "spacing_h"),
                     spacing_v: sf32(s, "spacing_v"),
-                    padding_h: s.get_field("padding_h").map(to_padding).unwrap_or_default(),
-                    padding_v: s.get_field("padding_v").map(to_padding).unwrap_or_default(),
+                    padding_h: s.get_field("padding-h").map(to_padding).unwrap_or_default(),
+                    padding_v: s.get_field("padding-v").map(to_padding).unwrap_or_default(),
                     alignment: s.get_field("alignment").map(to_enum).unwrap_or_default(),
                     direction: s.get_field("direction").map(to_enum).unwrap_or_default(),
                     cross_axis_line_alignment: s
-                        .get_field("cross_axis_line_alignment")
+                        .get_field("cross-axis-line-alignment")
                         .map(to_enum)
                         .unwrap_or_default(),
                     cross_axis_alignment: s
-                        .get_field("cross_axis_alignment")
+                        .get_field("cross-axis-alignment")
                         .map(to_enum)
                         .unwrap_or_default(),
-                    flex_wrap: s.get_field("flex_wrap").map(to_enum).unwrap_or_default(),
+                    flex_wrap: s.get_field("flex-wrap").map(to_enum).unwrap_or_default(),
                     cells_h: Slice::from_slice(&ch),
                     cells_v: Slice::from_slice(&cv),
                     flex_props: Slice::from_slice(&fp),
@@ -462,10 +462,10 @@ pub(crate) fn solve_flexbox_layout_with_measure(ctx: &mut EvalContext, expr: &Ex
     let data = eval_expression(ctx, data);
     let Value::Struct(s) = &data else { return Value::LayoutCache(Default::default()) };
     let (ch, cv) = (
-        s.get_field("cells_h").map(to_cells).unwrap_or_default(),
-        s.get_field("cells_v").map(to_cells).unwrap_or_default(),
+        s.get_field("cells-h").map(to_cells).unwrap_or_default(),
+        s.get_field("cells-v").map(to_cells).unwrap_or_default(),
     );
-    let fp = s.get_field("flex_props").map(to_flex_props).unwrap_or_default();
+    let fp = s.get_field("flex-props").map(to_flex_props).unwrap_or_default();
 
     let flat = flatten_measure_cells(ctx, measure_cells);
     let mut measure = |index: usize, w: f32, h: f32, known_w: bool, known_h: bool| {
@@ -478,19 +478,19 @@ pub(crate) fn solve_flexbox_layout_with_measure(ctx: &mut EvalContext, expr: &Ex
             height: sf32(s, "height"),
             spacing_h: sf32(s, "spacing_h"),
             spacing_v: sf32(s, "spacing_v"),
-            padding_h: s.get_field("padding_h").map(to_padding).unwrap_or_default(),
-            padding_v: s.get_field("padding_v").map(to_padding).unwrap_or_default(),
+            padding_h: s.get_field("padding-h").map(to_padding).unwrap_or_default(),
+            padding_v: s.get_field("padding-v").map(to_padding).unwrap_or_default(),
             alignment: s.get_field("alignment").map(to_enum).unwrap_or_default(),
             direction: s.get_field("direction").map(to_enum).unwrap_or_default(),
             cross_axis_line_alignment: s
-                .get_field("cross_axis_line_alignment")
+                .get_field("cross-axis-line-alignment")
                 .map(to_enum)
                 .unwrap_or_default(),
             cross_axis_alignment: s
-                .get_field("cross_axis_alignment")
+                .get_field("cross-axis-alignment")
                 .map(to_enum)
                 .unwrap_or_default(),
-            flex_wrap: s.get_field("flex_wrap").map(to_enum).unwrap_or_default(),
+            flex_wrap: s.get_field("flex-wrap").map(to_enum).unwrap_or_default(),
             cells_h: Slice::from_slice(&ch),
             cells_v: Slice::from_slice(&cv),
             flex_props: Slice::from_slice(&fp),

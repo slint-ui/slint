@@ -1,0 +1,62 @@
+---
+title: Touch Input
+description: How a touch event reaches a TouchArea.
+---
+
+The application delivers touch events by calling the `dispatch_touch_event` function of the
+[generated code](/reference/generated-code/). \{#sls.input.invocation}
+
+## Model
+
+A touch event carries a position in the coordinate system of [rendering](/reference/rendering/#sls.paint.model):
+the origin is the top-left corner of the window, x grows to the right, y grows downwards,
+and one unit is one pixel. \{#sls.input.model}
+
+A finger touching the display produces a *press*, and lifting off produces a *release*:
+the two variants of [`slint_sc::TouchEvent`](/api/slint_sc/enum.TouchEvent.html), each carrying a
+[`slint_sc::Point`](/api/slint_sc/struct.Point.html). \{#sls.input.events}
+
+## Hit Testing
+
+A `TouchArea` is *hit* by a position that lies within its geometry:
+at or after its `x` and `y`, and before its `x + width` and `y + height`. \{#sls.input.hit}
+
+The geometry is the one the `TouchArea` has when the event is dispatched,
+so moving or resizing it takes effect on the next event. \{#sls.input.hit.current}
+
+A `TouchArea` isn't clipped to its parent, so it's hit outside its parent's geometry just as it
+[paints](/reference/rendering/#sls.paint.no-parent-clip) there. \{#sls.input.hit.no-parent-clip}
+
+Where more than one `TouchArea` is hit, only the topmost one counts:
+the one that comes last in the [painting order](/reference/rendering/#sls.paint.order). \{#sls.input.hit.topmost}
+
+## Clicking
+
+A press is remembered by the `TouchArea` it hits, and by no other element. \{#sls.input.press}
+
+A release invokes the [`clicked`](/reference/toucharea/#sls.ref.toucharea.clicked) callback of the
+`TouchArea` that remembers the press, if the release position hits that same `TouchArea`. \{#sls.input.click}
+
+A release that hits no `TouchArea`, or one other than the `TouchArea` that remembers the press,
+invokes nothing. \{#sls.input.click.mismatch}
+
+A press replaces what an earlier press left remembered, and a release clears it,
+so a release with no press before it invokes nothing. \{#sls.input.press.replace}
+
+```slint
+export component Example inherits Window {
+    background: #d0d8e8;
+    callback confirmed;
+    Rectangle {
+        x: 20px;
+        y: 20px;
+        width: 120px;
+        height: 40px;
+        background: #2a6e3f;
+        // No geometry of its own, so it covers the rectangle
+        TouchArea {
+            clicked => { root.confirmed(); }
+        }
+    }
+}
+```

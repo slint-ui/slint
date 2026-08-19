@@ -1,0 +1,37 @@
+---
+title: Safety Policy
+description: The safety policy of Slint SC, and who is responsible for it.
+---
+
+The safety and quality of Slint SC are the primary objectives of all management, development, maintenance and support activities.
+
+## Commitments
+
+Each commitment names where it's implemented, so it can be checked rather than taken on trust.
+
+* Every change follows a defined process. See [Development Process](/qualification-plan/development-process/) and [Development Phases](/qualification-plan/development-phases/).
+* Every change is approved by an independent reviewer, someone who hasn't committed code to the change, before it's merged. The merge requirements are in [Development Phases](/qualification-plan/development-phases/#phase-3-code-review).
+* Every change is verified by automated tests before it's merged. See [Test Suites](/qualification-plan/test-suites/).
+* Every requirement is traced to the tests that verify it. See [Traceability Matrix](/qualification-report/traceability-matrix/).
+* Known safety-critical problems are recorded, with the fix and the test that covers each. See [Known Problems](/safety-manual/known-problems/).
+* The process and the tooling are improved as we go, and what can be automated is automated.
+
+Two things ISO 26262 asks for that we don't document yet:
+
+* Competence requirements and training records for the people working on Slint SC.
+  (TODO)
+* Independence of verification beyond review.
+  The reviewer is independent of the change, but the standard asks for more independence at higher integrity levels, e.g. of the people writing the tests.
+  (TODO: decide what further independence we claim, and change the process to match.)
+
+## Responsibilities
+
+The administrators of the slint-ui Github organization are the founders of SixtyFPS GmbH.
+All employees of SixtyFPS GmbH are members of the organization.
+External contributors may also be invited to become members of the Github organization.
+
+(TODO: name the safety manager, who approves a release, and who may waive a review.)
+
+## External Assessment
+
+The functional safety of Slint SC will be assessed independently by TÜV Nord in Germany.

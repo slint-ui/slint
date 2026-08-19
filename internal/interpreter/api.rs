@@ -665,7 +665,11 @@ pub struct Struct(pub(crate) HashMap<SmolStr, Value>);
 impl Struct {
     /// Get the value for a given struct field
     pub fn get_field(&self, name: &str) -> Option<&Value> {
-        self.0.get(&*normalize_identifier(name))
+        if i_slint_compiler::parser::is_identifier_normalized(name) {
+            self.0.get(name)
+        } else {
+            self.0.get(&*normalize_identifier(name))
+        }
     }
     /// Set the value of a given struct field
     pub fn set_field(&mut self, name: String, value: Value) {
@@ -682,6 +686,18 @@ impl FromIterator<(String, Value)> for Struct {
     fn from_iter<T: IntoIterator<Item = (String, Value)>>(iter: T) -> Self {
         Self(iter.into_iter().map(|(s, v)| (normalize_identifier(&s), v)).collect())
     }
+}
+
+#[test]
+fn struct_field_name_normalization() {
+    let mut s = Struct::default();
+    s.set_field("foo_bar".into(), Value::Number(1.));
+    // A real field name longer than SmolStr's 23-byte inline limit (25 bytes)
+    s.set_field("cross-axis-self-alignment".into(), Value::Number(2.));
+    assert_eq!(s.get_field("foo-bar"), Some(&Value::Number(1.)));
+    assert_eq!(s.get_field("foo_bar"), Some(&Value::Number(1.)));
+    assert_eq!(s.get_field("cross-axis-self-alignment"), Some(&Value::Number(2.)));
+    assert_eq!(s.get_field("cross_axis_self_alignment"), Some(&Value::Number(2.)));
 }
 
 /// ComponentCompiler is deprecated, use [`Compiler`] instead
@@ -707,6 +723,18 @@ impl ComponentCompiler {
     /// Returns a new ComponentCompiler.
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// Allow access to the underlying `CompilerConfiguration`
+    ///
+    /// This is an internal function without and ABI or API stability guarantees.
+    #[doc(hidden)]
+    #[cfg(feature = "internal")]
+    pub fn compiler_configuration(
+        &mut self,
+        _: i_slint_core::InternalToken,
+    ) -> &mut i_slint_compiler::CompilerConfiguration {
+        &mut self.config
     }
 
     /// Sets the include paths used for looking up `.slint` imports to the specified vector of paths.

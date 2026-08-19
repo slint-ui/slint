@@ -36,7 +36,7 @@ export component TestCase inherits Window {
 
 /*
 ```rust
-let mut x = TestCase::new();
+let mut x = TestCase::new(crate::harness::WINDOW_SIZE);
 // A binding is evaluated on each read, so a derived property reflects the
 // referenced property's current value and type.
 //#sls.expr.ref.value
@@ -62,7 +62,7 @@ screenshot!(x);
 
 An `out` property is derived from its binding and has no setter:
 ```rust compile_fail
-let mut x = TestCase::new();
+let mut x = TestCase::new(crate::harness::WINDOW_SIZE);
 x.set_derived(1);
 //~ ERROR no method named `set_derived`
 ```

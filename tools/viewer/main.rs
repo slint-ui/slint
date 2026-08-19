@@ -332,11 +332,12 @@ fn init_compiler(args: &Cli) -> slint_interpreter::Compiler {
         compiler.set_style(style.clone());
     }
 
-    compiler.compiler_configuration(i_slint_core::InternalToken).components_to_generate =
-        match &args.component {
-            Some(component) => ComponentSelection::Named(component.clone()),
-            None => ComponentSelection::LastExported,
-        };
+    let cc = compiler.compiler_configuration(i_slint_core::InternalToken);
+    cc.components_to_generate = match &args.component {
+        Some(component) => ComponentSelection::Named(component.clone()),
+        None => ComponentSelection::LastExported,
+    };
+    cc.is_preview = true;
 
     compiler
 }

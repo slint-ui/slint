@@ -1104,8 +1104,8 @@ jobs:
               run: |
                   chmod +x slint-compiler-bin/slint-compiler
                   # Bound apt so a stuck dpkg lock or mirror stall fails in minutes instead of hanging the job.
-                  sudo timeout 300 apt-get update -qq
-                  sudo timeout 300 apt-get install -y --no-install-recommends libfontconfig1 libfreetype6
+                  sudo timeout 600 apt-get update -qq
+                  sudo timeout 600 apt-get install -y --no-install-recommends libfontconfig1 libfreetype6
             - name: Checkout the repo
               run: |
                   cd $HOME

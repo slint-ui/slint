@@ -1,0 +1,85 @@
+---
+title: Development Process
+description: Tools, processes, and infrastructure used for Slint SC development.
+---
+
+
+## The Development Process (ISO 26262-8 11.4.8)
+
+This section describes the tools we use and the processes we follow to develop Slint SC, aiming to fulfill the supporting process requirements of ISO 26262 Part 8 (Clauses 5-13).
+
+### Language and Compiler
+
+The `slint-compiler` translates `.slint` files into Rust code. Slint SC is itself written in Rust.
+
+The toolchain that built and ran each evidence run is recorded in the [Test Results](/qualification-report/test-results/) chapter, by the run itself, so the number can't drift from reality.
+The minimum supported Rust version is declared in the workspace `Cargo.toml`.
+
+(TODO: decide the toolchain policy for qualification evidence runs, e.g. a
+qualified Ferrocene release, and enforce it in scripts/slint_sc_test_suite.sh.
+Day-to-day development builds with stable Rust today.)
+
+The confidence level these tools need, and how each one reaches it, is in [Tool Classification](/evaluation-report/tool-classification/).
+
+### Configuration Management (ISO 26262-8 7.x)
+
+Slint SC utilizes a structured configuration management process to ensure artifacts are reproducible and traceable.
+
+* **Version Control:** Slint is hosted on GitHub ([https://github.com/slint-ui/slint](https://github.com/slint-ui/slint)).
+* **Baselining:** Each release is prepared on a `release/Major.Minor` branch and tagged `vMajor.Minor.Patch`. The tag is the baseline: the qualification evidence of a release is produced from it, and the [Test Results](/qualification-report/test-results/) chapter records the commit and the toolchain of the run.
+* **Nightly Builds:** Automated nightly builds generate documentation, examples, and release artifacts to provide continuous visibility into the master branch's stability.
+
+### Change Management (ISO 26262-8 8.x)
+
+Modifications to the Slint SC codebase are managed to preserve the safety and integrity of the system.
+
+* **Reporting and Tracking:** Issues, bugs, and feature requests are tracked via GitHub Issues ([https://github.com/slint-ui/slint/issues](https://github.com/slint-ui/slint/issues)).
+* **Impact Analysis:** Before implementing a change for a safety-related concern, an impact analysis is conducted to ensure the modification will not compromise existing safety mechanisms or introduce new hazards.
+* **Authorization:** A change is authorized by review. The merge requirements, including who counts as an independent reviewer, are stated once, in [Development Phases](/qualification-plan/development-phases/#phase-3-code-review); the review is the opportunity to challenge the impact analysis before merging.
+* **Traceability:** Every change is traceable to its reviewed PR. A major change is additionally traceable to its approved ticket, which records the motivation, the proposed solution, and the impact analysis.
+
+### CI System and Infrastructure
+
+Continuous Integration (CI) is achieved through [GitHub Actions](https://github.com/slint-ui/slint/actions).
+Workflows run for any Pull Request (PR) and for any push to the `master` branch, and a failure blocks merging the PR.
+
+(TODO: Show the Actions for Slint SC when we have some)
+
+The CI system doesn't generate code that ships, but a run that reports green without having run the tests would hide exactly the errors the tests exist to catch, which is the fail-to-detect case of tool classification.
+Its classification belongs with the rest of the test tooling in [Tool Classification](/evaluation-report/tool-classification/).
+
+### Software Component Qualification (ISO 26262-8 12.x)
+
+Clause 12 governs pre-existing software integrated into the product.
+The `slint-sc` runtime is itself qualified this way; how is described in the [Qualification Method](/evaluation-report/qualification-method/).
+Tools are the subject of Clause 11 instead, and are classified in [Tool Classification](/evaluation-report/tool-classification/).
+
+#### Dependencies
+
+The runtime crate has **zero dependencies**: no other crates, no `std`, no `alloc`.
+There is nothing below it to qualify, and nothing whose failure it inherits.
+
+The compiler uses external crates, but it's a tool: its dependencies are covered by its tool qualification rather than by component qualification, because none of its code ships in the product.
+
+* **Qualification Strategy:** Should the runtime ever gain a dependency, that dependency becomes Software of Unknown Provenance (SOUP) and must undergo rigorous evaluation, including static analysis, functional testing, and security auditing, to justify its suitability for reuse in a safety-related context before integration.
+
+### Distributed Development (ISO 26262-8 5.x)
+
+Clause 5 governs development distributed across organizations: the interfaces between a supplier and its customers.
+Slint SC is developed within SixtyFPS GmbH alone, so there is no distributed development on our side.
+That employees work remotely in different countries doesn't change this; they're one organization under one process.
+
+The interface the clause does reach is the one to the integrator.
+Slint SC is an SEooC, and the [Safety Manual](/safety-manual/) states what each side is responsible for.
+
+(TODO: decide whether a Development Interface Agreement template is offered to
+integrators, or the Safety Manual's User Responsibility section is the extent
+of the interface.)
+
+### Release Schedule
+
+(TODO: add release schedule)
+
+### Hardware Qualification (ISO 26262-8 13.x)
+
+*Note: Section 13 is Out of Scope.* Slint SC is a purely software-based UI toolkit. Qualification of the underlying hardware elements (e.g., MCU/MPU, memory, display controllers) operating the safety-critical UI is the responsibility of the system integrator.

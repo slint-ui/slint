@@ -1,0 +1,37 @@
+---
+title: Verification
+description: How changes to Slint SC are verified, and where the evidence is.
+---
+
+Verification confirms that Slint SC does what it's specified to do.
+It's covered by ISO 26262-6 Clause 9 for the software units, Clause 10 for their integration, and ISO 26262-8 Clause 9.4 for the supporting process.
+
+Validating that the finished system is safe isn't something Slint SC can do.
+Slint SC is a Safety Element out of Context, so it has no safety goals of its own to validate against.
+That activity belongs to the integrator, and is stated in the [Safety Manual](/safety-manual/#user-responsibility).
+Under ISO 26262 it's the safety validation of Clause 9 in Part 4.
+
+## What Is Verified
+
+* Every requirement paragraph of the language specification and the reference is traced to at least one test.
+  See the [Traceability Matrix](/qualification-report/traceability-matrix/).
+* The runtime is held at complete line, function, and region coverage.
+  See [Test Coverage](/qualification-report/test-coverage/).
+
+## How
+
+`scripts/slint_sc_test_suite.sh` runs the suites and produces the coverage export.
+The suites are described in [Test Suites](/qualification-plan/test-suites/), and their outcomes are reported in [Test Results](/qualification-report/test-results/).
+
+They run automatically in CI on every change, and on demand when a release is baselined.
+
+## Pass Criteria
+
+A change is verified when every suite passes, every requirement paragraph is covered by at least one test, and the runtime is completely covered.
+
+The last two are checked by the generator: `slint-doc-generator --fail-on-gaps` exits with a distinct status when a source file is below complete coverage, or a requirement paragraph has no test. The chapters are written either way, so the reports of the run that found the gap are there to look at.
+
+(TODO: coverage is measured as lines, functions and regions. Modified
+Condition/Decision Coverage isn't measured, and static analysis beyond clippy
+isn't run. Decide whether either is needed for the ASIL we target, and if so,
+add it here and to the pass criteria.)

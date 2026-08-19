@@ -1,0 +1,63 @@
+---
+title: Constraints
+description: Boundary conditions the user must respect when compiling with Slint SC.
+---
+
+The standard essentially views a **Requirement** as what the system *must do* (or a property it must have), whereas a **Constraint** is a boundary condition that *limits the solution space*.
+
+For APIs, the Constraints might explain that some functions are experimental and can not be used safely yet. Or, that certain values passed as parameters into functions are not supported in Slint SC. In other words, certain features can only be used a certain way to be safe.
+
+The "Slint SC" compiler is the regular Slint compiler with the argument `--safety-critical`.
+When the Slint Compiler is used in a safety-critical project, it should impose constraints
+on the input programs so that only safe parts of Slint SC can be used, and it should report a proper error message
+when an unsafe feature is found.
+
+Individual Constraints get a section each here, identified by `slint.compiler.cstr.<slug>`, with a Rationale, Impact, and Mitigation.
+
+## No Global Allocator
+
+`slint.compiler.cstr.no-global-allocator`
+
+The Slint SC Compiler should not generate or allow code that uses a global allocator.
+
+**Rationale**: Global allocators can be a source of non-determinism and can make it difficult to reason about the behavior of the generated code.
+
+**Impact**: The generated code may not be deterministic and may not be suitable for use in a safety-critical system.
+
+**Mitigation**: The generated code depends only on the `slint-sc` runtime crate, which is `no_std`, doesn't use `alloc`, and has no dependencies of its own. No global allocator is involved.
+
+## No Dynamic Memory Allocation
+
+`slint.compiler.cstr.no-dynamic-memory-allocation`
+
+The Slint SC Compiler should not generate or allow code that uses dynamic memory allocation.
+
+**Rationale**: Dynamic memory allocation can be a source of non-determinism and can make it difficult to reason about the behavior of the generated code.
+
+**Impact**: The generated code may not be deterministic and may not be suitable for use in a safety-critical system.
+
+**Mitigation**: The generated code has no allocator available to it, so it can only use storage the application provides. The application owns the frame buffer and passes it to `render_rgb8`.
+
+## No Unbounded Recursion
+
+`slint.compiler.cstr.no-unbounded-recursion`
+
+The Slint SC Compiler should not generate or allow unbounded recursion.
+
+**Rationale**: Unbounded recursion can be a source of non-determinism and can make it difficult to reason about the behavior of the generated code.
+
+**Impact**: The generated code may not be deterministic and may not be suitable for use in a safety-critical system.
+
+**Mitigation**: The generated code should not use unbounded recursion. Instead, any recursion must be bounded by a statically known limit.
+
+## No Unsafe Code
+
+`slint.compiler.cstr.no-unsafe-code`
+
+The Slint SC Compiler should not generate or allow unsafe code.
+
+**Rationale**: Unsafe code can be a source of non-determinism and can make it difficult to reason about the behavior of the generated code.
+
+**Impact**: The generated code may not be deterministic and may not be suitable for use in a safety-critical system.
+
+**Mitigation**: The generated code should not use unsafe code. Instead, it must only use safe language constructs.

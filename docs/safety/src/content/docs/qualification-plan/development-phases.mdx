@@ -1,0 +1,61 @@
+---
+title: Development Phases
+description: The phases a change to Slint SC goes through, from ticket to merged and verified.
+---
+
+Every change to Slint SC goes through these phases.
+They implement the supporting processes of ISO 26262 Part 8; which clause is addressed where is mapped in [Standards Compliance](/qualification-plan/standards-compliance/).
+
+## Phase 1: Ticket Approval
+
+A major change needs an approved ticket before Code Development begins; a minor one can start at Phase 2.
+A change is major when it adds or changes qualified behavior, touches a constraint, the specification, or a document of this package, or changes the process itself.
+When in doubt, it's major.
+
+The ticket, also known as a Github Issue, describes the work to be done: the motivation for the change and a proposed solution.
+
+The ticket also details the impact of the change on the safety of the system.
+This is the impact analysis that [Change Management](/qualification-plan/development-process/#change-management-iso-26262-8-8x) requires, and the review in Phase 3 is where it gets challenged.
+
+(TODO: name who approves a ticket. Related: the safety policy's TODO on naming
+the safety manager and who approves a release.)
+
+## Phase 2: Code Development
+
+During this phase, the developer implements the changes described in the ticket.
+
+(TODO: add naming convention of git branches here?)
+
+After work has reached the point where it should be reviewed by others, the developer creates a Pull Request (PR).
+
+After each PR is created, and after each new commit is pushed to that branch, CI runs the [test suites](/qualification-plan/test-suites/), and the developer sees the results.
+
+## Phase 3: Code Review
+
+A change merges when all of these hold.
+This is the one place the merge requirements are stated; the change management and the safety policy refer here.
+
+1. The change is proposed as a Pull Request (PR). This applies to every change, not only to ones judged safety-impacting: everything in Slint SC is safety-related, so there's no triage step deciding which changes deserve review.
+2. An independent reviewer has approved the latest revision of the PR, and no requests for changes are open. Independent means someone who hasn't committed code to the change.
+3. The full set of test suites run by CI must pass on the merge commit between the PR and the base branch. The merge commit must be the one being fast-forwarded on the base branch. Testing a merge commit and then merging into the base branch with a different merge commit (for example if other changes were merged in the meantime) does not count.
+4. A major change, as defined in Phase 1, has an approved ticket, and the change adheres to the solution proposed in it.
+
+A reviewer who finds something that must change before merging requests changes, which holds requirement 2 open until it's resolved; plain comments don't block.
+Reviewers make clear which of the two they intend.
+
+Once the requirements hold, the author merges.
+For external contributions, the reviewer merges instead.
+
+The master branch is protected.
+Administrators are technically able to push directly; they shall not, and a direct push to code covered by this document is a process violation to be reported like any other problem.
+
+(TODO: decide the exceptions, if any, e.g. machine-generated commits such as
+automated formatting, and enumerate them here. Until then there are none.)
+
+## Phase 4: Verification Evidence
+
+Testing isn't a phase of its own: CI runs the [test suites](/qualification-plan/test-suites/) on every push, and Phase 3 requires them to pass before anything merges.
+
+What follows the merge is producing the evidence.
+`scripts/slint_sc_test_suite.sh` runs the suites, measures the runtime's coverage, and records the toolchain of the run; the results land in the [Qualification Report](/qualification-report/test-results/).
+What must hold for a change to count as verified is in [Verification](/qualification-plan/verification/).

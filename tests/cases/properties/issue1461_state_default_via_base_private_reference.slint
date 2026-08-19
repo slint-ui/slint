@@ -1,0 +1,181 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company , info@kdab.com, author Robin Cramer <robin.cramer@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+component Base {
+    in-out property <int> p2: inner.width / 1px;
+    in-out property <int> p3: inner.compute-value(3);
+    in-out property <int> p4: inner.compute-cb(5);
+    in-out property <string> p5: inner.text;
+    inner := Rectangle {
+        in-out property <string> text <=> input.text;
+        width: 10px;
+        pure function compute-value(x: int) -> int {
+            return x + 10;
+        }
+        pure callback compute-cb(int) -> int;
+        compute-cb(x) => x * 2;
+
+        input := TextInput {
+            text: "hello";
+        }
+    }
+    callback change-text(string);
+    change-text(t) => { inner.text = t; }
+}
+
+export component TestCase {
+    b1 := Base {}
+    b2 := Base {}
+    in-out property <bool> cond;
+
+    out property <int> v1: b1.p2;
+    out property <int> v2: b1.p3;
+    out property <int> v3: b1.p4;
+    out property <string> v7: b1.p5;
+    out property <int> v4: b2.p2;
+    out property <int> v5: b2.p3;
+    out property <int> v6: b2.p4;
+    out property <string> v8: b2.p5;
+
+    callback change-b1-text(string);
+    change-b1-text(t) => { b1.change-text(t); }
+
+    states [
+        s when cond: {
+            b1.p2: 42;
+            b1.p3: 43;
+            b1.p4: 44;
+            b1.p5: "s1";
+            b2.p2: 142;
+            b2.p3: 143;
+            b2.p4: 144;
+            b2.p5: "s2";
+        }
+    ]
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.get_v1(), 10);
+assert_eq!(instance.get_v2(), 13);
+assert_eq!(instance.get_v3(), 10);
+assert_eq!(instance.get_v4(), 10);
+assert_eq!(instance.get_v5(), 13);
+assert_eq!(instance.get_v6(), 10);
+assert_eq!(instance.get_v7(), "hello");
+assert_eq!(instance.get_v8(), "hello");
+instance.set_cond(true);
+assert_eq!(instance.get_v1(), 42);
+assert_eq!(instance.get_v2(), 43);
+assert_eq!(instance.get_v3(), 44);
+assert_eq!(instance.get_v4(), 142);
+assert_eq!(instance.get_v5(), 143);
+assert_eq!(instance.get_v6(), 144);
+assert_eq!(instance.get_v7(), "s1");
+assert_eq!(instance.get_v8(), "s2");
+instance.set_cond(false);
+assert_eq!(instance.get_v1(), 10);
+assert_eq!(instance.get_v2(), 13);
+assert_eq!(instance.get_v3(), 10);
+assert_eq!(instance.get_v4(), 10);
+assert_eq!(instance.get_v5(), 13);
+assert_eq!(instance.get_v6(), 10);
+assert_eq!(instance.get_v7(), "hello");
+assert_eq!(instance.get_v8(), "hello");
+// The default-value branch forwards a *live* reference to the private TextInput's
+// text property, not a snapshot taken when the forwarding property was synthesized.
+instance.invoke_change_b1_text("edited".into());
+assert_eq!(instance.get_v7(), "edited");
+assert_eq!(instance.get_v8(), "hello");
+instance.set_cond(true);
+assert_eq!(instance.get_v7(), "s1");
+assert_eq!(instance.get_v8(), "s2");
+instance.set_cond(false);
+assert_eq!(instance.get_v7(), "edited");
+assert_eq!(instance.get_v8(), "hello");
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert_eq(instance.get_v1(), 10);
+assert_eq(instance.get_v2(), 13);
+assert_eq(instance.get_v3(), 10);
+assert_eq(instance.get_v4(), 10);
+assert_eq(instance.get_v5(), 13);
+assert_eq(instance.get_v6(), 10);
+assert_eq(instance.get_v7(), "hello");
+assert_eq(instance.get_v8(), "hello");
+instance.set_cond(true);
+assert_eq(instance.get_v1(), 42);
+assert_eq(instance.get_v2(), 43);
+assert_eq(instance.get_v3(), 44);
+assert_eq(instance.get_v4(), 142);
+assert_eq(instance.get_v5(), 143);
+assert_eq(instance.get_v6(), 144);
+assert_eq(instance.get_v7(), "s1");
+assert_eq(instance.get_v8(), "s2");
+instance.set_cond(false);
+assert_eq(instance.get_v1(), 10);
+assert_eq(instance.get_v2(), 13);
+assert_eq(instance.get_v3(), 10);
+assert_eq(instance.get_v4(), 10);
+assert_eq(instance.get_v5(), 13);
+assert_eq(instance.get_v6(), 10);
+assert_eq(instance.get_v7(), "hello");
+assert_eq(instance.get_v8(), "hello");
+// The default-value branch forwards a *live* reference to the private TextInput's
+// text property, not a snapshot taken when the forwarding property was synthesized.
+instance.invoke_change_b1_text("edited");
+assert_eq(instance.get_v7(), "edited");
+assert_eq(instance.get_v8(), "hello");
+instance.set_cond(true);
+assert_eq(instance.get_v7(), "s1");
+assert_eq(instance.get_v8(), "s2");
+instance.set_cond(false);
+assert_eq(instance.get_v7(), "edited");
+assert_eq(instance.get_v8(), "hello");
+```
+
+```js
+var instance = new slint.TestCase({});
+assert.equal(instance.v1, 10);
+assert.equal(instance.v2, 13);
+assert.equal(instance.v3, 10);
+assert.equal(instance.v4, 10);
+assert.equal(instance.v5, 13);
+assert.equal(instance.v6, 10);
+assert.equal(instance.v7, "hello");
+assert.equal(instance.v8, "hello");
+instance.cond = true;
+assert.equal(instance.v1, 42);
+assert.equal(instance.v2, 43);
+assert.equal(instance.v3, 44);
+assert.equal(instance.v4, 142);
+assert.equal(instance.v5, 143);
+assert.equal(instance.v6, 144);
+assert.equal(instance.v7, "s1");
+assert.equal(instance.v8, "s2");
+instance.cond = false;
+assert.equal(instance.v1, 10);
+assert.equal(instance.v2, 13);
+assert.equal(instance.v3, 10);
+assert.equal(instance.v4, 10);
+assert.equal(instance.v5, 13);
+assert.equal(instance.v6, 10);
+assert.equal(instance.v7, "hello");
+assert.equal(instance.v8, "hello");
+// The default-value branch forwards a *live* reference to the private TextInput's
+// text property, not a snapshot taken when the forwarding property was synthesized.
+instance.change_b1_text("edited");
+assert.equal(instance.v7, "edited");
+assert.equal(instance.v8, "hello");
+instance.cond = true;
+assert.equal(instance.v7, "s1");
+assert.equal(instance.v8, "s2");
+instance.cond = false;
+assert.equal(instance.v7, "edited");
+assert.equal(instance.v8, "hello");
+```
+*/

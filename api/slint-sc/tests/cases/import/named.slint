@@ -52,10 +52,10 @@ export component Imports inherits Window {
 
 /*
 ```rust
-let x = Imports::new();
+let x = Imports::new(crate::harness::WINDOW_SIZE);
 // The two frames render identically: Lamp is Led under another name.
 let mut frame_buffer = [0u8; 64 * 64 * 3];
-x.render_rgb8(64, 64, &mut frame_buffer)?;
+x.render_rgb8(&mut frame_buffer)?;
 for row in 0..64 {
     let left = &frame_buffer[(row * 64 + 4) * 3..(row * 64 + 28) * 3];
     let right = &frame_buffer[(row * 64 + 36) * 3..(row * 64 + 60) * 3];

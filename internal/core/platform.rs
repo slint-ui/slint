@@ -424,6 +424,12 @@ pub enum WindowEvent {
     /// The backend should dispatch this event with true when the window gains focus
     /// and false when the window loses focus.
     WindowActiveChanged(bool),
+
+    /// An event that one of Slint's own backends delivers in the runtime's internal representation.
+    ///
+    /// This isn't public API, use [`WindowEvent::internal()`] to construct it.
+    #[doc(hidden)]
+    Internal(InternalEventBox),
 }
 
 impl WindowEvent {
@@ -434,7 +440,184 @@ impl WindowEvent {
             WindowEvent::PointerReleased { position, .. } => Some(*position),
             WindowEvent::PointerMoved { position } => Some(*position),
             WindowEvent::PointerScrolled { position, .. } => Some(*position),
+            WindowEvent::Internal(event) => event.position(),
             _ => None,
+        }
+    }
+
+    /// Wraps an event in the runtime's internal representation,
+    /// for Slint's own backends to deliver via [`Window::dispatch_event_with_result()`](crate::api::Window::dispatch_event_with_result).
+    #[doc(hidden)]
+    pub fn internal(event: impl Into<InternalEvent>) -> Self {
+        Self::Internal(InternalEventBox::new(event.into()))
+    }
+}
+
+/// Owning pointer to an [`InternalEvent`].
+///
+/// The payload lives behind a pointer, so that the size of [`WindowEvent`] and the way the C++
+/// bindings represent it don't depend on the internal event.
+/// It's a dedicated type rather than a `Box`, because a `Box` of an unsized type is two pointers
+/// wide, which the generated C++ struct wouldn't match.
+#[doc(hidden)]
+#[repr(transparent)]
+pub struct InternalEventBox(core::ptr::NonNull<InternalEvent>);
+
+#[allow(unsafe_code)]
+impl InternalEventBox {
+    fn new(event: InternalEvent) -> Self {
+        // Safety: `Box::into_raw` never returns null.
+        Self(unsafe { core::ptr::NonNull::new_unchecked(Box::into_raw(Box::new(event))) })
+    }
+
+    /// Takes the event out of the box.
+    pub(crate) fn into_inner(self) -> InternalEvent {
+        let this = core::mem::ManuallyDrop::new(self);
+        // Safety: the pointer comes from `Box::into_raw` in `new()`, and `ManuallyDrop` keeps
+        // `Drop` from freeing it a second time.
+        *unsafe { Box::from_raw(this.0.as_ptr()) }
+    }
+}
+
+#[allow(unsafe_code)]
+impl Drop for InternalEventBox {
+    fn drop(&mut self) {
+        // Safety: the pointer comes from `Box::into_raw` in `new()` and is freed only here or in
+        // `into_inner()`, which doesn't run this.
+        drop(unsafe { Box::from_raw(self.0.as_ptr()) });
+    }
+}
+
+#[allow(unsafe_code)]
+impl core::ops::Deref for InternalEventBox {
+    type Target = InternalEvent;
+    fn deref(&self) -> &InternalEvent {
+        // Safety: the pointer comes from `Box::into_raw` in `new()` and stays valid until `Drop`.
+        unsafe { self.0.as_ref() }
+    }
+}
+
+impl Clone for InternalEventBox {
+    fn clone(&self) -> Self {
+        Self::new(InternalEvent::clone(self))
+    }
+}
+
+impl PartialEq for InternalEventBox {
+    fn eq(&self, other: &Self) -> bool {
+        **self == **other
+    }
+}
+
+impl core::fmt::Debug for InternalEventBox {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        InternalEvent::fmt(self, f)
+    }
+}
+
+/// An event that one of Slint's own backends delivers in the representation the runtime uses internally.
+///
+/// These carry information that the [`WindowEvent`] variants can't express,
+/// such as the touch finger id, the click count, the gesture phase, drag payloads or input method composition.
+/// Backends wrap them with [`WindowEvent::internal()`] and dispatch them like any other event,
+/// so that all input takes the same path into the runtime and is observed by the window event hook.
+///
+/// This isn't public API: the variants and their payload change without notice.
+#[doc(hidden)]
+#[derive(Debug, Clone, PartialEq)]
+pub enum InternalEvent {
+    /// A pointer event, including the ones that have no public representation,
+    /// such as gestures and drag and drop.
+    Mouse(crate::input::MouseEvent),
+    /// A key event, including input method composition updates.
+    Key(crate::input::InternalKeyEvent),
+    /// A touch point update, which the runtime turns into pointer or gesture events.
+    Touch {
+        /// The id of the finger that produced the event.
+        id: i32,
+        /// The position of the finger, in logical coordinates.
+        position: crate::lengths::LogicalPoint,
+        /// Whether the finger was put down, moved, lifted or cancelled.
+        phase: crate::input::TouchPhase,
+    },
+}
+
+impl From<crate::input::MouseEvent> for InternalEvent {
+    fn from(event: crate::input::MouseEvent) -> Self {
+        Self::Mouse(event)
+    }
+}
+
+impl From<crate::input::InternalKeyEvent> for InternalEvent {
+    fn from(event: crate::input::InternalKeyEvent) -> Self {
+        Self::Key(event)
+    }
+}
+
+impl InternalEvent {
+    /// The public event this event corresponds to, if any.
+    ///
+    /// This is what the window event hook observes,
+    /// so that hooks only ever see events they could dispatch themselves.
+    /// Events without a public representation aren't reported:
+    /// gestures, drag and drop, touch and input method composition.
+    pub(crate) fn public_representation(&self) -> Option<WindowEvent> {
+        use crate::input::{KeyEventType, MouseEvent};
+        use crate::lengths::logical_position_to_api;
+
+        match self {
+            Self::Mouse(event) => match event {
+                MouseEvent::Pressed { position, button, .. } => Some(WindowEvent::PointerPressed {
+                    position: logical_position_to_api(*position),
+                    button: *button,
+                }),
+                MouseEvent::Released { position, button, .. } => {
+                    Some(WindowEvent::PointerReleased {
+                        position: logical_position_to_api(*position),
+                        button: *button,
+                    })
+                }
+                MouseEvent::Moved { position, .. } => {
+                    Some(WindowEvent::PointerMoved { position: logical_position_to_api(*position) })
+                }
+                MouseEvent::Wheel { position, delta_x, delta_y, .. } => {
+                    Some(WindowEvent::PointerScrolled {
+                        position: logical_position_to_api(*position),
+                        delta_x: *delta_x as f32,
+                        delta_y: *delta_y as f32,
+                    })
+                }
+                MouseEvent::Exit => Some(WindowEvent::PointerExited),
+                MouseEvent::DragMove { .. }
+                | MouseEvent::Drop { .. }
+                | MouseEvent::PinchGesture { .. }
+                | MouseEvent::RotationGesture { .. } => None,
+            },
+            Self::Key(event) => {
+                let text = event.key_event.text.clone();
+                match event.event_type {
+                    KeyEventType::KeyPressed if event.key_event.repeat => {
+                        Some(WindowEvent::KeyPressRepeated { text })
+                    }
+                    KeyEventType::KeyPressed => Some(WindowEvent::KeyPressed { text }),
+                    KeyEventType::KeyReleased => Some(WindowEvent::KeyReleased { text }),
+                    KeyEventType::UpdateComposition | KeyEventType::CommitComposition => None,
+                }
+            }
+            // There's no public touch event, and the pointer events the runtime synthesizes from
+            // a touch point carry a finger id that `WindowEvent` can't express.
+            Self::Touch { .. } => None,
+        }
+    }
+
+    /// The position of the pointer or finger for this event, if any.
+    fn position(&self) -> Option<LogicalPosition> {
+        match self {
+            Self::Mouse(event) => event.position().map(crate::lengths::logical_position_to_api),
+            Self::Key(_) => None,
+            Self::Touch { position, .. } => {
+                Some(crate::lengths::logical_position_to_api(*position))
+            }
         }
     }
 }

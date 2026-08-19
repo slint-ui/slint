@@ -1,0 +1,62 @@
+---
+title: Potential Errors
+description: What can go wrong in the Slint SC compiler and runtime, and what we do about each.
+---
+
+Each potential error is a way one of the analyzed nodes can deviate from what it should do.
+They come from applying the guide words to the nodes, so the list is meant to be systematic rather than a collection of things we happened to think of.
+
+Every error ends up in one of two places.
+If we can detect it, a detection measure covers it and a test proves the detection works.
+If we can't, it becomes a constraint on the integrator, because only they can rule it out.
+
+(TODO: the guide words and the node list still need writing up. Until then this
+chapter is seeded from the requirements it replaces and from the rules in the
+rendering specification, and the traceability to tests is not yet generated.)
+
+## Slint Compiler
+
+| Identifier | Description | Risk | Mitigation | Detectable |
+| --- | --- | --- | --- | --- |
+| `slint.compiler.err.subset-not-enforced` | A construct outside the qualified subset compiles without a diagnostic. | The integrator ships code that no qualification covers, believing it's covered. | `slint.compiler.avd.subset-check` | Yes |
+| `slint.compiler.err.codegen-wrong` | The generated Rust doesn't implement what the `.slint` source means. | Any display error, with no indication that anything is wrong. | `slint.compiler.avd.spec-tests` | Yes |
+| `slint.compiler.err.binding-dropped` | A lowering pass drops or reorders a property binding. | A value stops updating, so the display shows a stale reading that looks plausible. | `slint.compiler.avd.spec-tests` | Yes |
+| `slint.compiler.err.missing-resource` | A missing or undecodable asset isn't reported at compile time. | The element is absent at runtime, so a warning icon may simply not appear. | `slint.compiler.avd.resource-check` | Yes |
+
+## slint-sc Runtime
+
+Half of these are the rules of the [rendering model](/reference/rendering/) turned upside down.
+Each one names the rule it violates, so the two stay in step.
+
+| Identifier | Description | Risk | Mitigation | Detectable |
+| --- | --- | --- | --- | --- |
+| `slint.runtime.err.paint-order` | An element paints on top of one that should have covered it, against `sls.paint.order`. | A warning drawn behind its panel is invisible while the pixels are all otherwise correct. | `slint.runtime.avd.spec-tests` | Yes |
+| `slint.runtime.err.blend-wrong` | Blending deviates from `sls.paint.blend.formula`. | Colors drift, so a red warning reads as a dull orange and no longer signals. | `slint.runtime.avd.spec-tests` | Yes |
+| `slint.runtime.err.stale-pixels` | The frame buffer keeps content from the previous frame, against `sls.paint.window-opaque` or `sls.paint.blend.opaque`. | A warning that was cleared stays on the display. | `slint.compiler.avd.opaque-window`, `slint.runtime.avd.spec-tests` | Yes |
+| `slint.runtime.err.buffer-overrun` | Painting runs past the end of the frame buffer, against `sls.paint.clip`. | Memory corruption in data that belongs to something else, not a wrong picture. | `slint.runtime.avd.buffer-size-check`, `slint.runtime.avd.spec-tests` | Yes |
+| `slint.runtime.err.wrong-clip` | An element is clipped when it shouldn't be, against `sls.paint.no-parent-clip`. | A truncated reading, so `120` displays as `12`. | `slint.runtime.avd.spec-tests` | Yes |
+| `slint.runtime.err.stale-property` | A dependent value isn't recomputed after the value it depends on changes. | The display shows a reading that was correct a moment ago and is wrong now. | `slint.runtime.avd.spec-tests` | Yes |
+| `slint.runtime.err.eval-order` | Bindings evaluate in an order that shows a combination of values that never existed. | A single frame of a state the system was never in. | `slint.runtime.avd.spec-tests` | Yes |
+| `slint.runtime.err.stack-overflow` | Recursion or deep nesting exhausts the stack. The runtime has no allocator, so storage failures are a stack concern rather than a heap one. | The application aborts, so the display freezes or goes blank. | `slint.compiler.cstr.no-unbounded-recursion` | (TODO) |
+| `slint.runtime.err.frame-overrun` | A frame takes longer to render than the display refresh interval. | The display freezes on old content, which is indistinguishable from a working one. | `slint.runtime.cstr.frame-time` | No |
+| `slint.runtime.err.data-race` | The component is accessed from another thread while a render is in progress. | Any display error, including a partly drawn frame. | `slint.runtime.cstr.single-thread` | No |
+| `slint.runtime.err.miscompiled` | The integrator's Rust toolchain miscompiles the runtime or the generated code. The runtime ships as source, so the final binary isn't built by us. | Any display error, and none of Slint SC's evidence covers it. | `slint.runtime.cstr.qualified-toolchain` | No |
+
+## Detection Measures and Usage Restrictions
+
+A detection measure is something we do.
+A constraint is something we ask the integrator to do, and it exists only because no detection measure covers the error.
+
+| Identifier | Measure |
+| --- | --- |
+| `slint.compiler.avd.subset-check` | The compiler rejects any construct outside the qualified subset and reports an error naming it. |
+| `slint.compiler.avd.opaque-window` | The compiler rejects a window whose background it can't prove is opaque, so a frame can't depend on what the buffer held beforehand. |
+| `slint.compiler.avd.resource-check` | The compiler resolves every referenced asset at compile time and fails if one is missing or doesn't decode. |
+| `slint.compiler.avd.spec-tests` | Every paragraph of the language specification is traced to at least one test. See the [Traceability Matrix](/qualification-report/traceability-matrix/). |
+| `slint.runtime.avd.spec-tests` | Every paragraph of the rendering model and the generated code contract is traced to at least one test, and the runtime is held at complete structural coverage. See [Test Coverage](/qualification-report/test-coverage/). |
+| `slint.runtime.avd.buffer-size-check` | `render_rgb8` checks the frame buffer length and paints nothing if it doesn't match, per `sls.gen.render-error`. |
+| `slint.runtime.avd.no-allocator` | The runtime is `no_std`, doesn't use `alloc`, and has no dependencies, so there's no allocator to fail and no dynamic allocation to make timing unpredictable. |
+
+The errors no measure covers become constraints:
+[compiler constraints](/safety-manual/compiler/constraints/) and
+[runtime constraints](/safety-manual/runtime/constraints/).

@@ -46,6 +46,23 @@ For comments in source code — both internal implementation notes and public AP
    - A comment above a property, function, or type says what it does and why for the caller, not how it works inside.
    - Rationale: Callers shouldn't have to read the implementation, and implementation details in the comment go stale as the code evolves.
 
+## Diagnostics
+
+For diagnostics emitted by the Slint compiler:
+
+1. The diagnostic should span the smallest piece of code responsible for the issue.
+   - When several places combine to cause an issue, use `note` diagnostics to highlight the related code.
+   - Rationale: The primary span draws attention to the code that likely needs to change.
+2. Diagnostics must be helpful and actionable: say what needs to change, not just that something is wrong.
+   - Rationale: The span already tells us where and what the current code is. The message should help the reader to understand how to change their code to resolve the issue.
+3. Suggest solutions.
+   - Rationale: Many errors/warnings have common solutions. Suggest common solutions when possible, even if they are not always correct.
+4. Use single quotes (`'`) around Slint syntax.
+   - Rationale: It should be easy to distinguish between code and prose, e.g. "an 'in' property" vs "an in property".
+5. Use the `Display` implementation for Rust types, if they exists.
+   - Rationale: The displayed text is generated from one location, keeping it consistent and allowing it to be updated easily.
+6. Diagnostic messages do not end in a period (`.`).
+
 ## Documentation, Blog, and Social
 
 For the documentation website, blog posts, and social media we also aim to sound like a small, human company rather than a corporation:

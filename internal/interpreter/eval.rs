@@ -1358,13 +1358,13 @@ fn layout_item_info_to_value(constraint: i_slint_core::layout::LayoutInfo) -> Va
 fn flex_props_to_value(props: i_slint_core::layout::FlexItemProps) -> Value {
     let mut s = crate::api::Struct::default();
     s.set_field(
-        "cross_axis_self_alignment".to_string(),
+        "cross-axis-self-alignment".to_string(),
         Value::EnumerationValue(
             "CrossAxisSelfAlignment".to_string(),
             format!("{:?}", props.cross_axis_self_alignment).to_lowercase(),
         ),
     );
-    s.set_field("layout_order".to_string(), Value::Number(props.layout_order as f64));
+    s.set_field("layout-order".to_string(), Value::Number(props.layout_order as f64));
     Value::Struct(s)
 }
 
@@ -1606,7 +1606,7 @@ fn eval_grid_input_for_repeated(
 /// `GridLayoutInputData::default()` in `i_slint_core::layout`.
 fn auto_grid_input_data() -> Value {
     let mut s = crate::api::Struct::default();
-    s.set_field("new_row".into(), Value::Bool(false));
+    s.set_field("new-row".into(), Value::Bool(false));
     s.set_field("row".into(), Value::Number(i_slint_common::ROW_COL_AUTO as f64));
     s.set_field("col".into(), Value::Number(i_slint_common::ROW_COL_AUTO as f64));
     s.set_field("rowspan".into(), Value::Number(1.0));
@@ -1616,7 +1616,7 @@ fn auto_grid_input_data() -> Value {
 
 fn override_new_row(v: &mut Value, new_row: bool) {
     if let Value::Struct(s) = v {
-        s.set_field("new_row".into(), Value::Bool(new_row));
+        s.set_field("new-row".into(), Value::Bool(new_row));
     }
 }
 

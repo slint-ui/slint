@@ -13,7 +13,7 @@ use std::io::Write;
 use std::path::Path;
 
 /// Name of the page this module writes into
-/// [`Config::qualification_plan_dir`], the section it belongs to.
+/// [`Config::qualification_report_dir`], the section it belongs to.
 const PAGE_FILE: &str = "test-results.mdx";
 
 /// One row of the suite summary table.
@@ -68,7 +68,7 @@ pub fn generate(cfg: &Config) -> Result<(), Box<dyn std::error::Error>> {
         r#"---
 title: Test Results
 description: Results of the slint-sc compiler and runtime test suites.
-slug: qualification-plan/test-results
+slug: qualification-report/test-results
 ---
 
 This chapter reports the outcome of running the slint-sc test suites:
@@ -95,6 +95,18 @@ fn write_placeholder(out: &mut impl Write) -> std::io::Result<()> {
 }
 
 fn write_results(out: &mut impl Write, dir: &Path) -> anyhow::Result<()> {
+    // The toolchain that built and ran the suites, recorded by
+    // scripts/slint_sc_test_suite.sh. Reported here so the manual states the
+    // toolchain per evidence run instead of hand-maintaining a version in
+    // prose, where it rots.
+    let toolchain = std::fs::read_to_string(dir.join("toolchain.txt"))
+        .with_context(|| format!("error reading {dir:?}/toolchain.txt; re-run scripts/slint_sc_test_suite.sh to record the toolchain"))?;
+    writeln!(
+        out,
+        "\n## Toolchain\n\nThe suites were built and run with:\n\n```text\n{}```",
+        toolchain
+    )?;
+
     // scripts/slint_sc_test_suite.sh decides what gets collected: every
     // *.log is a captured `cargo test` log, every *.json a CTRF-style
     // report from one of the harnesses.

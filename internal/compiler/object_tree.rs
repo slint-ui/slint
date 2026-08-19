@@ -595,6 +595,17 @@ impl Component {
                     );
                 }
             }
+            // The application gives the window its size, so the size is an
+            // output of the component rather than something the file sets.
+            #[cfg(feature = "slint-sc")]
+            for prop in ["width", "height"] {
+                if let Some(b) = c.root_element.borrow().binding_cell_including_synthetic(prop) {
+                    diag.slint_sc_error(
+                        &format!("Binding the '{prop}' of the root element is"),
+                        &*b.borrow(),
+                    );
+                }
+            }
         }
         let weak = Rc::downgrade(&c);
         recurse_elem(&c.root_element, &(), &mut |e, _| {
@@ -763,6 +774,11 @@ pub struct PropertyDeclaration {
     /// Whether the declaration shadows a builtin element member of the same name
     /// (diagnosed by the check_builtin_shadowing pass)
     pub shadows_builtin: bool,
+    /// Whether the move_declarations pass hoisted this declaration onto the root
+    /// element from another element of the component, under a name of its own
+    /// making. What the component itself declares, in the source or through the
+    /// component it inherits from, keeps this false.
+    pub moved_to_root: bool,
     /// Some if the property was declared with `@deprecated`. The string is the hint shown after
     /// "The property 'xxx' has been deprecated." in the warning: either derived from the two-way
     /// binding target, or the custom message given as argument to `@deprecated("...")`.
@@ -1668,14 +1684,32 @@ impl Element {
         apply_default_type_properties(&mut r);
 
         for sig_decl in node.CallbackDeclaration() {
-            #[cfg(feature = "slint-sc")]
-            diag.slint_sc_error("Callback declarations are", &sig_decl);
             let name =
                 unwrap_or_continue!(parser::identifier_text(&sig_decl.DeclaredIdentifier()); diag);
 
             let pure = Some(
                 sig_decl.child_token(SyntaxKind::Identifier).is_some_and(|t| t.text() == "pure"),
             );
+
+            #[cfg(feature = "slint-sc")]
+            {
+                // Only the root element's callbacks become part of the component's API
+                if !is_component_root {
+                    diag.slint_sc_error(
+                        "Declaring a callback on an element other than the root is",
+                        &sig_decl,
+                    );
+                }
+                if pure == Some(true) {
+                    diag.slint_sc_error("Pure callbacks are", &sig_decl);
+                }
+                if let Some(param) = sig_decl.CallbackDeclarationParameter().next() {
+                    diag.slint_sc_error("Callback parameters are", &param);
+                }
+                if let Some(ret) = sig_decl.ReturnType() {
+                    diag.slint_sc_error("Callback return types are", &ret);
+                }
+            }
 
             let PropertyLookupResult {
                 resolved_name: existing_name,
@@ -1712,6 +1746,8 @@ impl Element {
             }
 
             if let Some(csn) = sig_decl.TwoWayBinding() {
+                #[cfg(feature = "slint-sc")]
+                diag.slint_sc_error("Callback aliases are", &csn);
                 r.bindings
                     .0
                     .insert(name.clone(), BindingExpression::new_uncompiled(csn.into()).into());
@@ -1879,11 +1915,36 @@ impl Element {
         }
 
         for con_node in node.CallbackConnection() {
-            #[cfg(feature = "slint-sc")]
-            diag.slint_sc_error("Callback handlers are", &con_node);
             let unresolved_name = unwrap_or_continue!(parser::identifier_text(&con_node); diag);
-            let PropertyLookupResult { resolved_name, property_type, .. } =
-                r.lookup_property(&unresolved_name);
+            let lookup_result = r.lookup_property(&unresolved_name);
+            #[cfg(feature = "slint-sc")]
+            {
+                // A callback declared in the file is in the subset by construction;
+                // a builtin one only when marked in builtins.slint, which keeps
+                // `init` and the rest of TouchArea out.
+                if !r.is_user_declared_member(&unresolved_name) && !lookup_result.is_slint_sc {
+                    diag.slint_sc_error(
+                        &format!("The callback '{unresolved_name}' is"),
+                        &con_node.child_token(SyntaxKind::Identifier).unwrap(),
+                    );
+                }
+                // The application implements the callbacks of the root element,
+                // so a handler here would be a second answer to one invocation.
+                if is_component_root
+                    && r.property_declarations
+                        .get(&*lookup_result.resolved_name)
+                        .is_some_and(|d| d.node.is_some())
+                {
+                    diag.slint_sc_error(
+                        "A handler for a callback declared on the root element is",
+                        &con_node.child_token(SyntaxKind::Identifier).unwrap(),
+                    );
+                }
+                if let Some(param) = con_node.DeclaredIdentifier().next() {
+                    diag.slint_sc_error("Callback handler parameters are", &param);
+                }
+            }
+            let PropertyLookupResult { resolved_name, property_type, .. } = lookup_result;
             if let Type::Callback(callback) = &property_type {
                 let num_arg = con_node.DeclaredIdentifier().count();
                 if num_arg > callback.args.len() {
@@ -2773,6 +2834,20 @@ impl Element {
                 deprecated: p.deprecated.clone(),
             },
         )
+    }
+
+    /// Whether the member is declared in the source, on this element or on the
+    /// root element of a component it inherits from, rather than coming from a
+    /// builtin element. Follows the same chain as [`Self::lookup_property`].
+    #[cfg(feature = "slint-sc")]
+    pub fn is_user_declared_member(&self, name: &str) -> bool {
+        match self.property_declarations.get(name) {
+            Some(declaration) => declaration.node.is_some(),
+            None => match &self.base_type {
+                ElementType::Component(c) => c.root_element.borrow().is_user_declared_member(name),
+                _ => false,
+            },
+        }
     }
 
     fn parse_bindings(

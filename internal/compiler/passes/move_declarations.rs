@@ -177,12 +177,12 @@ fn do_move_declarations(component: &Rc<Component>, renames: &RenameMap) {
 
     let move_properties = &mut |elem: &ElementRc| {
         let elem_decl = Declarations::take_from_element(&mut elem.borrow_mut());
-        decl.property_declarations.extend(
-            elem_decl
-                .property_declarations
-                .into_iter()
-                .map(|(p, d)| (moved_name(renames, elem, &p), d)),
-        );
+        decl.property_declarations.extend(elem_decl.property_declarations.into_iter().map(
+            |(p, mut d)| {
+                d.moved_to_root = true;
+                (moved_name(renames, elem, &p), d)
+            },
+        ));
     };
 
     recurse_elem(&component.root_element, &(), &mut |elem, _| move_properties(elem));

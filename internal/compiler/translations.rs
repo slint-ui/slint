@@ -50,10 +50,15 @@ impl TranslationsBuilder {
         let mut catalogs = Vec::new();
         let mut plural_rules =
             vec![Some(plural_rule_parser::parse_rule_expression("n!=1").unwrap())];
-        for l in std::fs::read_dir(path)
+        // Sort the entries so the bundled language order doesn't depend on the
+        // filesystem's directory order.
+        // Otherwise the same sources produce different string tables on
+        // different machines, which breaks reproducible builds.
+        let mut entries = std::fs::read_dir(path)
             .map_err(|e| std::io::Error::other(format!("Error reading directory {path:?}: {e}")))?
-        {
-            let l = l?;
+            .collect::<Result<Vec<_>, _>>()?;
+        entries.sort_by_key(|l| l.file_name());
+        for l in entries {
             let path = l.path().join("LC_MESSAGES").join(format!("{domain}.po"));
             if path.exists() {
                 let catalog = rspolib::pofile(path.as_path()).map_err(|e| {

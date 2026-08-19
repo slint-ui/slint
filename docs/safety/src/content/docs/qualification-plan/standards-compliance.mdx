@@ -1,0 +1,58 @@
+---
+title: Standards Compliance
+description: The standards Slint SC targets, and which clause is addressed where.
+---
+
+## Standards in Scope
+
+Slint SC targets three functional safety standards:
+
+* **ISO 26262**, for automotive.
+* **IEC 61508**, for industrial.
+* **IEC 62304**, for medical device software.
+
+The analysis and the evidence are the same for all three.
+What differs is the integrity level each one asks for and the clauses each one imposes, so the [Tool Classification](/evaluation-report/tool-classification/) is done once per standard.
+
+Nothing in this package is specific to one application domain.
+Slint SC renders a safety-related user interface; what that interface controls or reports is the integrator's concern.
+
+## Specification and Management of Safety Requirements (ISO 26262-6 6.x)
+
+The standards tell us what properties a safety-critical system must have (traceability, freedom from interference, determinism, etc.), but they don't tell us how to write those requirements for a GUI toolkit.
+
+Slint SC states them in two places.
+The [Language Specification](/language/) says what the language and the runtime must do, one identified paragraph at a time, and each paragraph is traced to the tests that verify it.
+The [Evaluation Report](/evaluation-report/potential-errors/) says what can go wrong instead, and what detects or constrains each of those.
+
+## Integrity Level
+
+Slint SC is a Safety Element out of Context (SEooC).
+It's developed without a specific application function, so it has no integrity level of its own to derive.
+Instead it's developed to be capable of the level below, and the integrator confirms that level is the one their application needs.
+
+* **ISO 26262: ASIL B.**
+  ASIL (Automotive Safety Integrity Level) describes the risk level of something.
+  ASIL D=highest, C=high, B=medium, A=low risk, QM = not safety critical.
+  Without an application function there's no HARA (Hazard Analysis and Risk Assessment) to derive an ASIL from, so ASIL B is a target rather than a result.
+* **IEC 61508: (TODO)** decide the SIL Slint SC is developed to be capable of.
+* **IEC 62304: (TODO)** decide the software safety class.
+
+Where an application isn't safety related at all, the full Slint framework can be used instead, and none of this applies.
+
+## ISO 26262 Clause Map
+
+All ISO26262 references below are valid for the 2018 edition of the standard.
+
+(TODO: the equivalent maps for IEC 61508 and IEC 62304.)
+
+* ISO 26262-4 9.x: Safety validation is at the vehicle level, so it belongs to the integrator. See [User Responsibility](/safety-manual/#user-responsibility). Our own verification is in [Verification](/qualification-plan/verification/).
+* ISO 26262-6 7.x: See [Architecture Design](/qualification-plan/architecture/#slint-sc-architecture-design-iso-262626-74)
+* ISO 26262-8 5.x: See [Distributed Development](/qualification-plan/development-process/#distributed-development-iso-26262-8-5x)
+* ISO 26262-8 6.4: The safety requirements shall be traceable to the safety goals and to the safety concept. The traceability shall be documented and maintained.
+* ISO 26262-8 7.x: See [Configuration Management](/qualification-plan/development-process/#configuration-management-iso-26262-8-7x)
+* ISO 26262-8 8.x: See [Change Management](/qualification-plan/development-process/#change-management-iso-26262-8-8x), and [Development Phases](/qualification-plan/development-phases/) for the change workflow itself.
+* ISO 26262-8 9.4.x: See [Verification](/qualification-plan/verification/).
+* ISO 26262-8 11.4.8: See [The Development Process](/qualification-plan/development-process/#the-development-process-iso-26262-8-1148)
+* ISO 26262-8 12.x: See [Software Component Qualification](/qualification-plan/development-process/#software-component-qualification-iso-26262-8-12x)
+

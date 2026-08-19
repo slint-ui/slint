@@ -116,6 +116,7 @@
     "armv",
     "astrojs",
     "autouse", // pytest.fixture(autouse=True)
+    "baselined",
     "Bezier",
     "Bézier",
     "cbindgen",
@@ -168,6 +169,8 @@
     "microcontrollers",
     "microtask",
     "miscompilation",
+    "miscompiled",
+    "miscompiles",
     "MSVC",
     "muda",
     "napi",

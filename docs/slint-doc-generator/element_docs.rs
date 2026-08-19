@@ -389,7 +389,7 @@ fn element_description(builtin: &BuiltinElement) -> String {
 }
 
 /// Collect all text from a builtin element for import detection.
-fn collect_builtin_text(builtin: &BuiltinElement, text: &mut String) {
+fn collect_builtin_text(builtin: &BuiltinElement, text: &mut String, sc_only: bool) {
     for entry in &builtin.docs {
         match entry {
             ElementDocEntry::Text(t) => {
@@ -399,6 +399,8 @@ fn collect_builtin_text(builtin: &BuiltinElement, text: &mut String) {
             ElementDocEntry::Member(name) => {
                 if let Some(info) = builtin.properties.get(name.as_str())
                     && let Some(doc) = &info.docs
+                    // A member the page leaves out contributes no import
+                    && (!sc_only || is_sc_covered(doc))
                 {
                     text.push(' ');
                     text.push_str(doc);
@@ -409,25 +411,26 @@ fn collect_builtin_text(builtin: &BuiltinElement, text: &mut String) {
 }
 
 /// Collect all text from an element and its descendants for import detection.
-fn collect_all_text(builtin: &BuiltinElement, skip_children: bool) -> String {
+fn collect_all_text(builtin: &BuiltinElement, skip_children: bool, sc_only: bool) -> String {
     let mut text = String::new();
-    collect_builtin_text(builtin, &mut text);
+    collect_builtin_text(builtin, &mut text, sc_only);
     if !skip_children {
         let mut seen = HashSet::new();
         fn collect_children(
             parent: &BuiltinElement,
             text: &mut String,
             seen: &mut HashSet<String>,
+            sc_only: bool,
         ) {
             for (name, child) in &parent.additional_accepted_child_types {
                 if !seen.insert(name.to_string()) {
                     continue;
                 }
-                collect_builtin_text(child, text);
-                collect_children(child, text, seen);
+                collect_builtin_text(child, text, sc_only);
+                collect_children(child, text, seen, sc_only);
             }
         }
-        collect_children(builtin, &mut text, &mut seen);
+        collect_children(builtin, &mut text, &mut seen, sc_only);
     }
     text
 }
@@ -850,7 +853,7 @@ pub fn generate(cfg: &Config) -> Result<(), Box<dyn std::error::Error>> {
         writeln!(file, "---")?;
 
         // Imports.
-        let all_text = collect_all_text(builtin, skip_children);
+        let all_text = collect_all_text(builtin, skip_children, cfg.sc_only);
         writeln!(file)?;
         writeln!(
             file,

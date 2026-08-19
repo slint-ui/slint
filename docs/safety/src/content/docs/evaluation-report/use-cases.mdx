@@ -1,0 +1,36 @@
+---
+title: Use Cases
+description: The use cases of Slint SC that the evaluation analyzes.
+---
+
+## Use Cases (ISO 26262:8 11.4.5.1)
+
+### Using Slint SC in a project
+
+* **ID** : UC_ADD_SLINT_SC_TO_PROJECT
+* **Input** : Cargo.toml file in the root of a rust project file tree
+* **Output** : Modified Cargo.toml file that includes Slint SC as a dependency
+* **Environment Constraints**: (TODO)
+
+When Slint SC is available, it will be a crate on [crates.io](https://crates.io/).
+To add it to a project, one simply adds Slint SC as a dependency in `Cargo.toml`.
+
+(TODO - show example)
+
+### Compiling a .slint file into Rust
+
+* **ID** : UC_COMPILE_SLINT_FILE
+* **Input** : a .slint file
+* **Output** : Rust code that can be compiled into the final executable.
+* **Environment Constraints**: (TODO)
+
+The `slint-compiler` binary, invoked with `--slint-sc`, translates the `.slint` file into Rust code:
+
+```sh
+slint-compiler --slint-sc -o main_file.rs mainFile.slint
+```
+
+The generated code is then compiled and linked into the application together with the `slint-sc` runtime crate.
+
+(TODO: `slint_build` doesn't support Slint SC yet, so there's no build-script
+integration. When it gains one, this use case grows a `build.rs` variant.)

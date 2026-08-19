@@ -1,0 +1,52 @@
+---
+title: Tool Classification
+description: The tool confidence level of the Slint compiler, and how it is reached.
+---
+
+Slint SC targets ISO 26262, IEC 61508 and IEC 62304, and each one classifies tools its own way, so the classification is done once per standard.
+
+## Slint Compiler, ISO 26262 (ISO 26262-8 11.4.5)
+
+The `slint-compiler` translates `.slint` files into Rust code that is compiled into the final executable.
+
+* **Tool Impact (TI2):** The `slint-compiler` can introduce errors into the executable.
+* **Tool Error Detection (TD2/TD3):** While Rust's strong type system and borrow checker catch many errors, compiler bugs might still bypass detection.
+* **Tool Confidence Level (TCL):** The combination of TI2 and TD2/TD3 results in a Tool Confidence Level of TCL2 or TCL3.
+* **Qualification Strategy:** The `slint-compiler` is not yet qualified and must be qualified before being used in a safety-critical project.
+
+(TODO: settle TD, and with it the TCL. TD2 and TD3 lead to different qualification
+methods under ISO 26262-8 11.4.6, so this can't stay a range.
+The detection measures that back the choice belong here too, once the potential
+errors are written up.)
+
+## Slint Compiler, IEC 61508
+
+(TODO: classify the compiler as an offline support tool under IEC 61508-3
+Clause 7.4.4, and state the class it falls into.)
+
+## Slint Compiler, IEC 62304
+
+(TODO: classify the compiler as a software tool under IEC 62304, and state
+what its use requires.)
+
+## Rust Toolchain
+
+The toolchain of each evidence run is recorded in the [Test Results](/qualification-report/test-results/) chapter.
+
+(TODO: qualification evidence runs should use a qualified toolchain, such as a
+Ferrocene release, whose own classification is in its qualification material.
+That policy isn't decided or enforced yet; development builds use stable Rust.)
+
+## Test and Coverage Tooling
+
+The suites are run by `cargo test` and `cargo llvm-cov`, and the evidence chapters are produced by `slint-doc-generator`.
+
+(TODO: classify these. Every detection measure in this report rests on them, so
+their tool impact and error detection have to be argued like any other tool. A
+harness that reports a passing suite that didn't pass, or coverage that wasn't
+achieved, would hide exactly the errors those measures claim to catch.)
+
+## slint-sc Runtime
+
+The runtime is not a tool.
+It ships inside the customer's binary, so it is qualified as a software component under ISO 26262-8 Clause 12 and carries no tool confidence level.

@@ -195,6 +195,7 @@ fn strip_paragraph_id(line: &str) -> &str {
 fn clean_builtin_doc(raw: &str) -> String {
     let mut result = String::new();
     let mut in_fence = false;
+    let mut in_only_in_sc = false;
     for line in raw.lines() {
         let trimmed = line.trim();
         if trimmed.starts_with("```") || trimmed.starts_with("~~~") || trimmed.starts_with(":::") {
@@ -207,14 +208,27 @@ fn clean_builtin_doc(raw: &str) -> String {
         if trimmed.starts_with('\\') {
             continue;
         }
+        // `<OnlyInSC>` holds what only holds in Slint SC, so the tooltip drops
+        // it: it would tell a reader of the full language that something they
+        // can write is an error.
+        // TODO: once the LSP serves Slint SC development too, it should show
+        // this text there, and mark what `<NotInSC>` holds as unavailable.
+        if trimmed == "<OnlyInSC>" {
+            in_only_in_sc = true;
+            continue;
+        }
+        if trimmed == "</OnlyInSC>" {
+            in_only_in_sc = false;
+            continue;
+        }
+        if in_only_in_sc {
+            continue;
+        }
         // A line that is nothing but a tag is markup for the documentation
         // site, not prose. That covers `<Link … />` as well as the
         // `<NotInSC>` … `</NotInSC>` pair marking what the safety-certified
         // subset leaves out, whose text the tooltip keeps: it documents the
         // full language.
-        // TODO: once the LSP serves Slint SC development too, it should tell
-        // the reader that a feature inside `<NotInSC>` is unavailable there
-        // instead of presenting it like the rest.
         if trimmed.starts_with('<') && trimmed.ends_with('>') && !trimmed[1..].contains('<') {
             continue;
         }
@@ -525,6 +539,34 @@ export component Test { // not docs
         assert_tooltip(
             get_tooltip(&mut dc, find_tk("Eee.E2", 5.into())),
             "```slint\n/// Here some docs for Eee\nEee.E2\n```",
+        );
+    }
+
+    #[test]
+    fn test_clean_builtin_doc() {
+        // What only holds in Slint SC is left out: the tooltip documents the
+        // full language, where the window size is the file's to set.
+        assert_eq!(
+            clean_builtin_doc(
+                "The width of the window. \\{#sls.ref.window.width}\n\
+                 \n\
+                 <OnlyInSC>\n\
+                 Binding it is an error. \\{#sls.ref.window.width-out}\n\
+                 </OnlyInSC>\n\
+                 \\sc"
+            ),
+            "The width of the window."
+        );
+        // What the subset leaves out is kept, tags aside
+        assert_eq!(
+            clean_builtin_doc(
+                "A rectangle.\n\
+                 \n\
+                 <NotInSC>\n\
+                 Its width defaults to that of its parent.\n\
+                 </NotInSC>"
+            ),
+            "A rectangle.\n\nIts width defaults to that of its parent."
         );
     }
 }

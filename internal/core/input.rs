@@ -945,7 +945,7 @@ pub enum KeyEventType {
     CommitComposition = 3,
 }
 
-#[derive(Default)]
+#[derive(Default, Debug, Clone, PartialEq)]
 /// This struct is used to pass key events to the runtime.
 pub struct InternalKeyEvent {
     /// That's the public type with only public fields

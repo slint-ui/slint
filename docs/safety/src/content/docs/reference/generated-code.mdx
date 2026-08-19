@@ -16,31 +16,30 @@ An exported component shall inherit `Window`. \{#sls.gen.window-root}
 ## `new()`
 
 ```rust
-pub fn new() -> Self
+pub fn new(size: slint_sc::Size) -> Self
 ```
 
-Creates an instance of the component. \{#sls.gen.new}
+Creates an instance of the component for a window of `size`, a [`slint_sc::Size`](/api/slint_sc/struct.Size.html)
+in pixels. \{#sls.gen.new}
 
 ## `render_rgb8()`
 
 ```rust
-pub fn render_rgb8(&self, width: u32, height: u32, frame_buffer: &mut [u8]) -> Result<(), slint_sc::RenderError>
+pub fn render_rgb8(&self, frame_buffer: &mut [u8]) -> Result<(), slint_sc::RenderError>
 ```
 
-Renders the window into `frame_buffer` as described in
-[Rendering](/reference/rendering/):
-`width * height` pixels in row-major order, each pixel three bytes — red,
-green, blue. \{#sls.gen.render-rgb8}
+Renders the window into `frame_buffer` as described in [Rendering](/reference/rendering/):
+`width * height` pixels of the size the window was created with, in row-major order,
+each pixel three bytes — red, green, blue. \{#sls.gen.render-rgb8}
 
 ```rust
+let instance = Foo::new(slint_sc::Size::new(320, 240));
 let mut frame_buffer = [0u8; 320 * 240 * 3];
-instance.render_rgb8(320, 240, &mut frame_buffer)?;
+instance.render_rgb8(&mut frame_buffer)?;
 ```
 
-When the length of `frame_buffer` isn't `width * height * 3`, `render_rgb8`
-returns [`Err(RenderError::InvalidFrameBufferSize)`](/api/slint_sc/enum.RenderError.html)
-and paints nothing.
-\{#sls.gen.render-error}
+When the length of `frame_buffer` isn't `width * height * 3` for that size, `render_rgb8` returns
+[`Err(RenderError::InvalidFrameBufferSize)`](/api/slint_sc/enum.RenderError.html) and paints nothing. \{#sls.gen.render-error}
 
 ## Properties
 
@@ -85,6 +84,45 @@ The Rust type `T` of a property maps from its Slint type:
 | `bool` | `bool` |
 | a declared `struct` | the generated struct of the same name |
 | a declared `enum` | the generated enum of the same name |
+
+## Callbacks
+
+The application reacts to the [callbacks declared](/language/callbacks/#sls.callback.decl.form) on the root
+element by implementing a generated trait. \{#sls.gen.callback.meta}
+
+### The Callbacks Trait
+
+```rust
+pub trait FooCallbacks {
+    fn on_bar(&mut self, component: &mut Foo);
+}
+```
+
+The trait is named after the component with `Callbacks` appended, and is generated whether or not the
+component declares a callback. \{#sls.gen.callback.trait}
+
+It has one method per declared callback, named after the callback with `on_` prepended and `-` replaced by `_`:
+the method of a callback `alarm-raised` is `on_alarm_raised`. \{#sls.gen.callback.names}
+
+No method has a default body, so an application that leaves a callback of the component unimplemented
+doesn't compile. \{#sls.gen.callback.required}
+
+A method takes the implementing value and the component, both by mutable reference, so a handler reads and
+writes the state of the application and [sets properties](#sls.gen.prop.set) of the component. \{#sls.gen.callback.args}
+
+## `dispatch_touch_event()`
+
+```rust
+pub fn dispatch_touch_event(
+    &mut self,
+    event: slint_sc::TouchEvent,
+    callbacks: &mut impl FooCallbacks,
+)
+```
+
+Delivers `event`, a [`slint_sc::TouchEvent`](/api/slint_sc/enum.TouchEvent.html) carrying a press or a release
+at a position, to the component as described in [Touch Input](/reference/input/), calling the methods of
+`callbacks` for the callbacks that the event invokes. \{#sls.gen.dispatch-touch-event}
 
 ## Types
 

@@ -346,7 +346,7 @@ cpp! {{
             if (!rust_window)
                 return;
             rust!(Slint_dragLeaveEvent [rust_window: &QtWindow as "void*"] {
-                rust_window.mouse_event(MouseEvent::Exit)
+                rust_window.drag_leave_event()
             });
         }
 
@@ -477,7 +477,6 @@ cpp! {{
             rust!(Slint_inputMethodEvent [rust_window: &QtWindow as "void*", commit_string: qttypes::QString as "QString",
                 preedit_string: qttypes::QString as "QString", replacement_start: i32 as "int", replacement_length: i32 as "int",
                 preedit_cursor: i32 as "int"] {
-                    let runtime_window = WindowInner::from_pub(&rust_window.window);
                     let mut key_event = KeyEvent::default();
                     key_event.text = i_slint_core::format!("{}", commit_string);
                     let event = InternalKeyEvent {
@@ -489,7 +488,7 @@ cpp! {{
                         .then_some(replacement_start..replacement_start+replacement_length),
                         ..Default::default()
                     };
-                    runtime_window.process_key_input(event);
+                    rust_window.window.dispatch_event(WindowEvent::internal(event));
                 });
         }
         static int gesture_phase(Qt::GestureState state) {
@@ -2146,7 +2145,14 @@ impl QtWindow {
     }
 
     fn mouse_event(&self, event: MouseEvent) {
-        WindowInner::from_pub(&self.window).process_mouse_input(event);
+        self.window.dispatch_event(WindowEvent::internal(event));
+        timer_event();
+    }
+
+    /// A drag left the window: tear down the hover state like a pointer exit,
+    /// but off the `dispatch_event` path, so that it isn't observed as the pointer leaving the window.
+    fn drag_leave_event(&self) {
+        WindowInner::from_pub(&self.window).process_drag_event(MouseEvent::Exit);
         timer_event();
     }
 
@@ -2196,12 +2202,9 @@ impl QtWindow {
         } else {
             MouseEvent::DragMove { event: drop_event, allowed: allowed_actions }
         };
-        let chosen = WindowInner::from_pub(&self.window).process_mouse_input(mouse_event);
+        let chosen = WindowInner::from_pub(&self.window).process_drag_event(mouse_event);
         timer_event();
-        chosen
-            .and_then(|r| r.drag_action)
-            .map(slint_drag_action_to_qt)
-            .unwrap_or(key_generated::Qt_DropAction_IgnoreAction)
+        chosen.map(slint_drag_action_to_qt).unwrap_or(key_generated::Qt_DropAction_IgnoreAction)
     }
 
     fn key_event(&self, key: i32, text: qttypes::QString, released: bool, repeat: bool) {

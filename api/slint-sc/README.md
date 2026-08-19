@@ -1,8 +1,8 @@
 # Slint SC
 
 Slint SC is the safety-critical subset of [Slint](https://slint.dev),
-designed to be certifiable under functional safety standards such as
-ISO 26262 (automotive), IEC 61508 (industrial), and related norms.
+designed to be certifiable under ISO 26262 (automotive),
+IEC 61508 (industrial), and IEC 62304 (medical device software).
 
 It provides a drastically reduced feature set compared to the full
 Slint framework, with an emphasis on auditability, bounded resource

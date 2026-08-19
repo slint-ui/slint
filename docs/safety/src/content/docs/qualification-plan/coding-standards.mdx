@@ -1,0 +1,35 @@
+---
+title: Coding Standards
+description: The Rust coding standards Slint SC follows, and what enforces each one.
+---
+
+A coding standard that isn't checked is a wish, so each rule below names what enforces it.
+The rules differ between the two parts of Slint SC, because the runtime ships inside the customer's binary while the compiler only produces its input.
+
+## slint-sc Runtime
+
+| Rule | Enforced by |
+| --- | --- |
+| No unsafe code. | `#![forbid(unsafe_code)]` at the crate root. `forbid` can't be lifted by an inner `allow`, so the build fails if any unsafe appears anywhere in the crate. |
+| Every public item is documented. | `#![forbid(missing_docs)]` at the crate root. |
+| No standard library, no `alloc`, no dependencies. | The crate declares `#![no_std]` and has no `[dependencies]` section, so there's nothing to pull either in. |
+| No clippy warnings. | CI runs `cargo clippy` over the workspace with `-D warnings`, so a warning fails the build. |
+
+## Slint Compiler
+
+| Rule | Enforced by |
+| --- | --- |
+| No unsafe code. | `#![deny(unsafe_code)]` at the crate root of `i-slint-compiler`. Unlike `forbid`, `deny` can be lifted locally by an `allow`, so any exception is visible in the source and reviewable. |
+| No clippy warnings. | The same CI run as above. |
+
+(TODO: decide whether the compiler should move from `deny` to `forbid`, or
+whether the ability to make a reviewed exception is worth keeping. If it stays
+`deny`, each `allow` needs a justification.)
+
+## The Rust Language
+
+The toolchain of each evidence run is recorded in the [Test Results](/qualification-report/test-results/) chapter; the toolchain policy is in the [Development Process](/qualification-plan/development-process/).
+
+The [Ferrocene Language Specification](https://spec.ferrocene.dev/) defines the Rust language. It's a specification rather than a coding standard, so the commitment here is a narrow one: Slint SC doesn't rely on behavior the specification leaves unspecified.
+
+(TODO: state how that's checked. Today it rests on review.)

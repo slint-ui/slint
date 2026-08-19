@@ -2095,6 +2095,7 @@ fn lower_dialog_layout(
                                         visibility: PropertyVisibility::InOut,
                                         pure: None,
                                         shadows_builtin: false,
+                                        moved_to_root: false,
                                         deprecated: None,
                                     });
                             }

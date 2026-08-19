@@ -4,10 +4,11 @@
 //! Code generator for the Slint SC (safety-critical) runtime.
 
 use crate::CompilerConfiguration;
-use crate::expression_tree::{Expression, Unit};
+use crate::expression_tree::{Callable, Expression, Unit};
+use crate::generator::accessor_names::{AccessorKind, rust_accessor_ident};
 use crate::langtype::{EnumerationValue, StructName, Type};
 use crate::namedreference::NamedReference;
-use crate::object_tree::{Document, ElementRc, PropertyVisibility};
+use crate::object_tree::{Document, ElementRc, PropertyDeclaration, PropertyVisibility};
 use itertools::Either;
 use proc_macro2::{Ident, TokenStream};
 use quote::{format_ident, quote};
@@ -32,31 +33,42 @@ pub fn generate(
             continue;
         }
         let root = &component.root_element;
-        let render_tree = emit_element(root, root);
+        let render_tree = emit_render(root);
         let properties = declared_properties(root);
         let name = format_ident!("{}", export_name.name.as_str());
-        let has_fields = properties.iter().any(|p| p.field.is_some());
-        let (struct_decl, new_body) = if has_fields {
-            let fields = properties.iter().filter_map(|p| {
-                let (field, ty) = (p.field.as_ref()?, &p.ty);
-                // A settable bound property is stored in an `Option`, `None`
-                // until set; anything else is stored directly.
-                Some(match p.kind {
-                    PropertyKind::Binding(_) => quote!(#field: Option<#ty>,),
-                    PropertyKind::Stored(_) => quote!(#field: #ty,),
-                })
-            });
-            let init = properties.iter().filter_map(|p| {
-                let field = p.field.as_ref()?;
-                Some(match &p.kind {
-                    PropertyKind::Stored(init) => quote!(#field: #init,),
-                    PropertyKind::Binding(_) => quote!(#field: None,),
-                })
-            });
-            (quote!(pub struct #name { #(#fields)* }), quote!(Self { #(#init)* }))
-        } else {
-            (quote!(pub struct #name;), quote!(Self))
-        };
+        let callbacks_trait = format_ident!("{}Callbacks", export_name.name.as_str());
+        let trait_methods = declared_callbacks(root)
+            .into_iter()
+            .map(|method| quote!(fn #method(&mut self, component: &mut #name);));
+        let mut touch_areas = Vec::new();
+        let hit_test_tree = emit_hit_test(root, &mut touch_areas);
+        let clicked_arms = touch_areas
+            .iter()
+            .enumerate()
+            .map(|(index, clicked)| quote!(Some(#index) => { #clicked }));
+        let fields = properties.iter().filter_map(|p| {
+            let (field, ty) = (p.field.as_ref()?, &p.ty);
+            // A settable bound property is stored in an `Option`, `None`
+            // until set; anything else is stored directly.
+            Some(match p.kind {
+                PropertyKind::Binding(_) => quote!(#field: Option<#ty>,),
+                PropertyKind::Stored(_) => quote!(#field: #ty,),
+            })
+        });
+        let init = properties.iter().filter_map(|p| {
+            let field = p.field.as_ref()?;
+            Some(match &p.kind {
+                PropertyKind::Stored(init) => quote!(#field: #init,),
+                PropertyKind::Binding(_) => quote!(#field: None,),
+            })
+        });
+        let struct_decl = quote!(pub struct #name {
+            window_size: slint_sc::Size,
+            /// The `TouchArea` the last press hit, until the release that pairs with it.
+            touch_grab: Option<usize>,
+            #(#fields)*
+        });
+        let new_body = quote!(Self { window_size: size, touch_grab: None, #(#init)* });
         let accessors = properties.iter().map(|p| {
             let ty = &p.ty;
             let getter = p.getter.as_ref().map(|getter| {
@@ -86,24 +98,65 @@ pub fn generate(
             quote!(#getter #setter)
         });
         output.extend(quote! {
+            /// The callbacks the component declares, which the application implements.
+            pub trait #callbacks_trait {
+                #(#trait_methods)*
+            }
+
             #struct_decl
             impl #name {
-                pub fn new() -> Self {
+                pub fn new(size: slint_sc::Size) -> Self {
                     #new_body
                 }
 
                 #(#accessors)*
 
                 /// Render the window into a frame buffer of packed RGB triplets,
-                /// whose length must be `width * height * 3`.
-                pub fn render_rgb8(&self, width: u32, height: u32, frame_buffer: &mut [u8]) -> Result<(), slint_sc::RenderError> {
-                    if frame_buffer.len() != width as usize * height as usize * 3 {
+                /// whose length must be `width * height * 3` for the size the
+                /// window was created with.
+                pub fn render_rgb8(&self, frame_buffer: &mut [u8]) -> Result<(), slint_sc::RenderError> {
+                    let window_size = self.window_size;
+                    if frame_buffer.len() != window_size.width as usize * window_size.height as usize * 3 {
                         return Err(slint_sc::RenderError::InvalidFrameBufferSize);
                     }
                     let offset_x = 0i32;
                     let offset_y = 0i32;
                     #render_tree
                     Ok(())
+                }
+
+                /// Deliver a touch event to the component, invoking the callbacks
+                /// it triggers on `callbacks`.
+                #[allow(unused_variables)]
+                pub fn dispatch_touch_event(&mut self, event: slint_sc::TouchEvent, callbacks: &mut impl #callbacks_trait) {
+                    match event {
+                        slint_sc::TouchEvent::Pressed { position, .. } => {
+                            self.touch_grab = self.touch_hit_test(position);
+                        }
+                        slint_sc::TouchEvent::Released { position, .. } => {
+                            // A click is a press and a release on the same
+                            // TouchArea; a release elsewhere only ends the press.
+                            let grabbed = self.touch_grab.take();
+                            if grabbed.is_some() && grabbed == self.touch_hit_test(position) {
+                                match grabbed {
+                                    #(#clicked_arms)*
+                                    _ => {}
+                                }
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+
+                /// The index of the topmost `TouchArea` whose geometry contains
+                /// `position`, in the order the elements paint.
+                #[allow(unused_variables, unused_mut)]
+                fn touch_hit_test(&self, position: slint_sc::Point) -> Option<usize> {
+                    let mut hit = None;
+                    let offset_x = 0i32;
+                    let offset_y = 0i32;
+                    #hit_test_tree
+                    hit
                 }
             }
         });
@@ -148,16 +201,15 @@ fn is_settable(visibility: &PropertyVisibility) -> bool {
     matches!(visibility, PropertyVisibility::Input | PropertyVisibility::InOut)
 }
 
-/// The properties declared in the source on the component's root element.
-/// Compiler-introduced declarations have no syntax node and are skipped.
+/// The properties the component declares on its root element.
 fn declared_properties(root: &ElementRc) -> Vec<DeclaredProperty> {
     let root_borrowed = root.borrow();
     root_borrowed
         .property_declarations
         .iter()
-        .filter(|(_, decl)| decl.node.is_some())
+        .filter(|(_, decl)| is_own_declaration(decl))
+        .filter(|(_, decl)| !matches!(decl.property_type, Type::Callback(..)))
         .map(|(name, decl)| {
-            let snake = name.replace('-', "_");
             let ty = rust_type(&decl.property_type);
             let settable = is_settable(&decl.visibility);
             let has_getter = matches!(
@@ -171,15 +223,49 @@ fn declared_properties(root: &ElementRc) -> Vec<DeclaredProperty> {
             // A non-settable binding is never stored, so it needs no field.
             let has_field = settable || matches!(kind, PropertyKind::Stored(_));
             DeclaredProperty {
-                field: has_field.then(|| format_ident!("property_{snake}")),
-                getter: has_getter.then(|| format_ident!("get_{snake}")),
-                setter: settable.then(|| format_ident!("set_{snake}")),
+                field: has_field.then(|| property_field(name)),
+                getter: has_getter.then(|| rust_accessor_ident(name, AccessorKind::Getter)),
+                setter: settable.then(|| rust_accessor_ident(name, AccessorKind::Setter)),
                 copy: is_copy(&decl.property_type),
                 ty,
                 kind,
             }
         })
         .collect()
+}
+
+/// The trait method name of each callback the component declares on its root
+/// element, in the alphabetical order the declarations are kept in.
+fn declared_callbacks(root: &ElementRc) -> Vec<Ident> {
+    root.borrow()
+        .property_declarations
+        .iter()
+        .filter(|(_, decl)| {
+            is_own_declaration(decl) && matches!(decl.property_type, Type::Callback(..))
+        })
+        .map(|(name, _)| rust_accessor_ident(name, AccessorKind::Handler))
+        .collect()
+}
+
+/// The struct field a property of this name is stored in.
+fn property_field(name: &str) -> Ident {
+    format_ident!("property_{}", name.replace('-', "_"))
+}
+
+/// Whether the declaration is one the component makes on its root element,
+/// which is what the generated struct and trait are made of.
+///
+/// The root element carries more by the time the code is generated:
+/// `move_declarations` hoists the declarations of every other element onto it,
+/// under a name of its own making.
+fn is_own_declaration(decl: &PropertyDeclaration) -> bool {
+    decl.node.is_some() && !decl.moved_to_root
+}
+
+/// Whether `root`, the root element of the component being generated, declares
+/// `name` itself.
+fn is_declared_on_root(root: &ElementRc, name: &str) -> bool {
+    root.borrow().property_declarations.get(name).is_some_and(is_own_declaration)
 }
 
 /// The Rust type holding a value of the given Slint type.
@@ -372,73 +458,160 @@ fn compile_expression(expr: &Expression, root: &ElementRc) -> TokenStream {
             let name = format_ident!("{}", name.replace('-', "_"));
             quote!(#name)
         }
+        // The only call of the subset is a callback invocation from a handler.
+        Expression::FunctionCall { function: Callable::Callback(nr), .. } => {
+            compile_callback_call(nr, root)
+        }
         // Everything else was rejected by the compiler
         _ => unreachable!(),
     }
 }
 
-/// Emit the render code for `elem` and its descendants: a block that adds the
-/// element's position to the running `offset_x`/`offset_y`, paints its
-/// background if it has one, and nests the children's blocks so that later
-/// and deeper elements paint on top. An element without anything to paint in
-/// its subtree emits nothing.
-fn emit_element(elem: &ElementRc, root: &ElementRc) -> TokenStream {
-    let geometry = elem.borrow().geometry_props.clone();
+/// Compile the invocation of a callback: a call of the trait method when the
+/// exported component declares it, and the handler's own code when something
+/// else does. A callback with neither does nothing.
+///
+/// The handler is inlined at each invocation rather than called through a
+/// function, which stays finite because `binding_analysis` rejects a cycle of
+/// handlers as a binding loop.
+fn compile_callback_call(nr: &NamedReference, root: &ElementRc) -> TokenStream {
+    let element = nr.element();
+    if Rc::ptr_eq(&element, root) && is_declared_on_root(root, nr.name()) {
+        let method = rust_accessor_ident(nr.name(), AccessorKind::Handler);
+        return quote!(callbacks.#method(self););
+    }
+    match element.borrow().binding_cell_including_synthetic(nr.name()) {
+        Some(handler) => {
+            let handler = compile_expression(&handler.borrow().expression, root);
+            quote!(#handler;)
+        }
+        None => TokenStream::new(),
+    }
+}
+
+/// The compiled geometry of an element: its offset from its parent, and its size.
+struct Geometry {
+    x: TokenStream,
+    y: TokenStream,
+    width: TokenStream,
+    height: TokenStream,
+}
+
+fn element_geometry(elem: &ElementRc, root: &ElementRc) -> Geometry {
+    let props = elem.borrow().geometry_props.clone();
     let resolve =
         |nr: Option<&NamedReference>| nr.and_then(|nr| compile_property_reference(nr, root));
-    // The default_geometry pass leaves a size binding on every element, and
-    // the root's size resolves to the window size
-    let w = resolve(geometry.as_ref().map(|g| &g.width)).expect("element without a width");
-    let h = resolve(geometry.as_ref().map(|g| &g.height)).expect("element without a height");
-    let x = resolve(geometry.as_ref().map(|g| &g.x)).unwrap_or_else(|| quote!(0i32));
-    let y = resolve(geometry.as_ref().map(|g| &g.y)).unwrap_or_else(|| quote!(0i32));
-    let background = elem
-        .borrow()
-        .binding_cell_including_synthetic("background")
-        .map(|b| b.borrow().expression.clone());
-    let mut color = background.map(|expr| compile_expression(&expr, root));
-    if Rc::ptr_eq(elem, root) {
-        // The window background defaults to black, so that the whole frame
-        // buffer is always painted
-        color = Some(
-            color.unwrap_or_else(|| quote!(slint_sc::Color::from_argb_encoded(0xff000000u32))),
-        );
+    Geometry {
+        // The default_geometry pass leaves a size binding on every element, and
+        // the root's size resolves to the window size
+        width: resolve(props.as_ref().map(|g| &g.width)).expect("element without a width"),
+        height: resolve(props.as_ref().map(|g| &g.height)).expect("element without a height"),
+        x: resolve(props.as_ref().map(|g| &g.x)).unwrap_or_else(|| quote!(0i32)),
+        y: resolve(props.as_ref().map(|g| &g.y)).unwrap_or_else(|| quote!(0i32)),
     }
-    let fill = color.map(|color| {
-        quote!(
-            slint_sc::private_unstable_api::renderer::fill_rect(frame_buffer, [width, height],
-                [offset_x, offset_y], [#w, #h], #color);
-        )
-    });
+}
+
+/// Walk `elem` and its descendants, emitting for each a block that adds the
+/// element's position to the running `offset_x`/`offset_y`, whatever `body`
+/// makes of the element, and then the children's blocks — so that later and
+/// deeper elements come after earlier and shallower ones. A subtree `body`
+/// makes nothing of emits nothing.
+///
+/// Rendering and hit testing are the same walk, which is what makes a
+/// `TouchArea` sit exactly where it paints.
+fn emit_tree(
+    elem: &ElementRc,
+    root: &ElementRc,
+    body: &mut dyn FnMut(&ElementRc, &Geometry) -> Option<TokenStream>,
+) -> TokenStream {
+    let geometry = element_geometry(elem, root);
+    let statements = body(elem, &geometry);
     let children: Vec<TokenStream> =
-        elem.borrow().children.iter().map(|child| emit_element(child, root)).collect();
-    if fill.is_none() && children.iter().all(|c| c.is_empty()) {
+        elem.borrow().children.iter().map(|child| emit_tree(child, root, body)).collect();
+    if statements.is_none() && children.iter().all(|c| c.is_empty()) {
         return TokenStream::new();
     }
+    let (x, y) = (&geometry.x, &geometry.y);
     quote! {
         {
             let offset_x = offset_x + #x;
             let offset_y = offset_y + #y;
-            #fill
+            #statements
             #(#children)*
         }
     }
+}
+
+/// The render code: every element paints its background, if it has one, where
+/// it sits, and before its children, so that later and deeper elements paint
+/// on top.
+fn emit_render(root: &ElementRc) -> TokenStream {
+    emit_tree(root, root, &mut |elem, geometry| {
+        let background = elem
+            .borrow()
+            .binding_cell_including_synthetic("background")
+            .map(|b| b.borrow().expression.clone());
+        let mut color = background.map(|expr| compile_expression(&expr, root));
+        if Rc::ptr_eq(elem, root) {
+            // The window background defaults to black, so that the whole frame
+            // buffer is always painted
+            color = Some(
+                color.unwrap_or_else(|| quote!(slint_sc::Color::from_argb_encoded(0xff000000u32))),
+            );
+        }
+        let (w, h) = (&geometry.width, &geometry.height);
+        color.map(|color| {
+            quote!(
+                slint_sc::private_unstable_api::renderer::fill_rect(frame_buffer, window_size,
+                    [offset_x, offset_y], [#w, #h], #color);
+            )
+        })
+    })
+}
+
+/// The hit-test code, collecting the compiled `clicked` handler of each
+/// `TouchArea` into `areas` in the order the tests run. A later test overwrites
+/// what an earlier one stored in `hit`, so the area that paints on top is the
+/// one that ends up hit.
+fn emit_hit_test(root: &ElementRc, areas: &mut Vec<TokenStream>) -> TokenStream {
+    emit_tree(root, root, &mut |elem, geometry| {
+        is_touch_area(elem).then(|| {
+            let index = areas.len();
+            areas.push(
+                elem.borrow()
+                    .binding_cell_including_synthetic("clicked")
+                    .map(|handler| compile_expression(&handler.borrow().expression, root))
+                    .unwrap_or_default(),
+            );
+            let (w, h) = (&geometry.width, &geometry.height);
+            quote!(
+                if (offset_x..offset_x.saturating_add(#w)).contains(&position.x)
+                    && (offset_y..offset_y.saturating_add(#h)).contains(&position.y)
+                {
+                    hit = Some(#index);
+                }
+            )
+        })
+    })
+}
+
+/// Whether the element is a `TouchArea`. The native class rather than the base
+/// type, which `resolve_native_classes` has replaced by then.
+fn is_touch_area(elem: &ElementRc) -> bool {
+    elem.borrow().native_class().is_some_and(|class| class.class_name == "TouchArea")
 }
 
 /// Compile a reference to a property.
 fn compile_property_reference(nr: &NamedReference, root: &ElementRc) -> Option<TokenStream> {
     let element = nr.element();
     let is_root = Rc::ptr_eq(&element, root);
-    if is_root {
+    if is_root && is_declared_on_root(root, nr.name()) {
         let root_borrowed = root.borrow();
-        if let Some(decl) =
-            root_borrowed.property_declarations.get(nr.name()).filter(|d| d.node.is_some())
-        {
+        if let Some(decl) = root_borrowed.property_declarations.get(nr.name()) {
             let binding = root_borrowed.binding_cell_including_synthetic(nr.name());
-            let snake = nr.name().replace('-', "_");
             return Some(match binding {
                 None => {
-                    let field = format_ident!("property_{snake}");
+                    let field = property_field(nr.name());
                     if is_copy(&decl.property_type) {
                         quote!(self.#field)
                     } else {
@@ -446,7 +619,7 @@ fn compile_property_reference(nr: &NamedReference, root: &ElementRc) -> Option<T
                     }
                 }
                 Some(_) if is_settable(&decl.visibility) => {
-                    let getter = format_ident!("get_{snake}");
+                    let getter = rust_accessor_ident(nr.name(), AccessorKind::Getter);
                     quote!(self.#getter())
                 }
                 Some(b) => compile_expression(&b.borrow().expression, root),
@@ -456,8 +629,8 @@ fn compile_property_reference(nr: &NamedReference, root: &ElementRc) -> Option<T
     match element.borrow().binding_cell_including_synthetic(nr.name()) {
         Some(b) => Some(compile_expression(&b.borrow().expression, root)),
         None if is_root => match nr.name().as_str() {
-            "width" => Some(quote!((width as i32))),
-            "height" => Some(quote!((height as i32))),
+            "width" => Some(quote!((self.window_size.width as i32))),
+            "height" => Some(quote!((self.window_size.height as i32))),
             _ => None,
         },
         None => None,
