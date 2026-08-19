@@ -1607,7 +1607,6 @@ impl Expression {
                 target_type.clone(),
                 node,
                 diag,
-                symbol_counters,
             );
             if true_expr_converted.ty() != target_type.clone() {
                 // Failed to convert so we don't have to try to convert the false expr as well
@@ -1620,7 +1619,6 @@ impl Expression {
                         target_type,
                         node,
                         diag,
-                        symbol_counters,
                     )),
                 }
             }
