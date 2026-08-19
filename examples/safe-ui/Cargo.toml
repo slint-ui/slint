@@ -2,7 +2,10 @@
 # SPDX-License-Identifier: MIT
 
 [workspace]
-members = ["app", "desktop", "ffi", "ffi-simulator"]
+members = ["app", "desktop", "esp32-s3-box", "ffi", "ffi-simulator"]
+# The ESP32 crate only builds for xtensa-esp32s3-none-elf, which its own
+# .cargo/config.toml selects; keep it out of a plain host build here.
+default-members = ["app", "desktop", "ffi", "ffi-simulator"]
 resolver = "2"
 
 [profile.release]
