@@ -182,11 +182,16 @@ jobs:
                 bs=$(ls -t "$target"/debug/build/test-driver-rust-*/build-script-build.exe | head -1)
                 echo "build script: $bs"
                 out=$(mktemp -d)
+                # 1. does it still overflow at the real 512KB guard? (flaky, so run it a few times)
+                overflow=no
+                for i in 1 2 3 4 5; do
+                  if ! OUT_DIR="$out" SLINT_BUILD_STACK=524288 "$bs" >/dev/null 2>&1; then overflow=yes; echo "run $i OVERFLOWED at 512KB"; fi
+                done
+                echo "STILL_OVERFLOWS_AT_512K=$overflow"
+                # 2. backtrace of the deepest case (forced lower so it reproduces reliably)
                 cdb="/c/Program Files (x86)/Windows Kits/10/Debuggers/x64/cdb.exe"
                 [ -x "$cdb" ] || cdb="$(command -v cdb || true)"
-                echo "cdb: $cdb"
-                # break on the first-chance stack overflow, dump the crashing thread, quit
-                OUT_DIR="$out" SLINT_BUILD_STACK=400000 "$cdb" -G -c 'sxe sov; g; .lines; kn 250; ~*kn 60; q' "$bs" 2>&1 | tail -400 || true
+                OUT_DIR="$out" SLINT_BUILD_STACK=450000 "$cdb" -G -c 'sxe sov; g; .lines; kn 250; q' "$bs" 2>&1 | tail -350 || true
             # The examples and demos are also their own workspaces. The mcu/uefi
             # members need dedicated targets/features and are checked in ci.yaml.
             # bevy and servo have heavy dependencies and dedicated workflows
