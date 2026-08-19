@@ -32,12 +32,12 @@ pub trait RemoteTransport {
     fn disconnect(&self) -> std::pin::Pin<Box<dyn Future<Output = ()>>>;
 }
 
-/// Fans LSP messages out to the active local preview and, if connected,
-/// to a remote viewer. The local target is itself swappable between
-/// `ChildProcess` and `EmbeddedWasm` (driven by
-/// [`PreviewToLspMessage::PreviewTypeChanged`]). The remote viewer
-/// receives every wire-format message in parallel — it isn't a target on
-/// its own.
+/// Fans LSP messages out to the active local preview and, if connected, to a
+/// remote viewer. The local target is itself swappable between `ChildProcess`
+/// and `EmbeddedWasm`, driven by
+/// [`PreviewTypeChanged`](i_slint_live_preview::protocol::PreviewToLspMessage::PreviewTypeChanged).
+/// The remote viewer receives every wire-format message in parallel — it isn't
+/// a target on its own.
 pub struct LspToPreviews {
     locals: HashMap<PreviewTarget, Box<dyn LspToPreview>>,
     current_local: RefCell<PreviewTarget>,

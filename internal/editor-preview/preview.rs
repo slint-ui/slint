@@ -921,7 +921,7 @@ enum DragItem {
     NewComponent { index: usize },
 }
 
-/// Tried to convert a [`DataTransfer`] to a [`DragItem`], but the data transfer's user data
+/// Tried to convert a [`DataTransfer`] to a `DragItem`, but the data transfer's user data
 /// was of the wrong type.
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Hash, Default)]
 pub struct InvalidDataTransferForDragItem;
