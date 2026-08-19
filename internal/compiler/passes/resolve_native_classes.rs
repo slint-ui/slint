@@ -3,17 +3,19 @@
 
 //! After inlining and moving declarations, all Element::base_type should be Type::BuiltinElement. This pass resolves them
 //! to NativeClass and picking a variant that only contains the used properties.
+//! The default values of the properties the variant doesn't have are dropped along with them.
 
 use smol_str::SmolStr;
 use std::collections::HashSet;
 use std::sync::Arc;
 
-use crate::langtype::{ElementType, NativeClass};
+use crate::expression_tree::{BindingExpression, Expression};
+use crate::langtype::{BuiltinElement, BuiltinPropertyDefault, ElementType, NativeClass};
 use crate::object_tree::{Component, recurse_elem_including_sub_components};
 
 pub fn resolve_native_classes(component: &Component) {
     recurse_elem_including_sub_components(component, &(), &mut |elem, _| {
-        let new_native_class = {
+        let (new_native_class, unused_defaults) = {
             let elem = elem.borrow();
 
             let base_type = match &elem.base_type {
@@ -31,10 +33,17 @@ pub fn resolve_native_classes(component: &Component) {
                 }
             };
 
+            let defaults: Vec<&SmolStr> = elem
+                .bindings_including_synthetic()
+                .filter(|(name, binding)| is_default_value(base_type, name, &binding.borrow()))
+                .map(|(name, _)| name)
+                .collect();
+
             let analysis = elem.property_analysis.borrow();
             let native_properties_used: HashSet<_> = elem
                 .bindings_including_synthetic()
                 .map(|(k, _)| k)
+                .filter(|k| !defaults.contains(k))
                 .chain(analysis.iter().filter(|(_, v)| v.is_used()).map(|(k, _)| k))
                 .filter(|k| {
                     !elem.property_declarations.contains_key(*k)
@@ -42,14 +51,61 @@ pub fn resolve_native_classes(component: &Component) {
                 })
                 .collect();
 
-            select_minimal_class_based_on_property_usage(
-                &elem.base_type.as_builtin().native_class,
+            let new_native_class = select_minimal_class_based_on_property_usage(
+                &base_type.native_class,
                 native_properties_used.into_iter(),
-            )
+            );
+
+            // A referenced property keeps its default: the reference materializes it in the
+            // enclosing component, which is how a lowered layout still reads its own alignment.
+            let unused_defaults: Vec<SmolStr> = defaults
+                .into_iter()
+                .filter(|name| {
+                    new_native_class.lookup_property(name).is_none()
+                        && !elem.named_references.is_referenced(name)
+                })
+                .cloned()
+                .collect();
+
+            (new_native_class, unused_defaults)
         };
 
-        elem.borrow_mut().base_type = ElementType::Native(new_native_class);
+        let mut elem = elem.borrow_mut();
+        for name in unused_defaults {
+            elem.take_binding_including_synthetic(&name);
+        }
+        elem.base_type = ElementType::Native(new_native_class);
     })
+}
+
+/// Whether this binding just sets the property to the default value declared in
+/// `builtins.slint`, so that nothing changes if it goes away.
+fn is_default_value(base_type: &BuiltinElement, name: &str, binding: &BindingExpression) -> bool {
+    let Some(BuiltinPropertyDefault::Expr(default)) =
+        base_type.properties.get(name).map(|p| &p.default_value)
+    else {
+        return false;
+    };
+    binding.animation.is_none()
+        && binding.two_way_bindings.is_empty()
+        && same_literal(binding.value_expression(), default)
+}
+
+/// Anything that isn't a literal compares as different, so a computed binding counts as a use.
+fn same_literal(a: &Expression, b: &Expression) -> bool {
+    match (a, b) {
+        (Expression::NumberLiteral(a, a_unit), Expression::NumberLiteral(b, b_unit)) => {
+            a == b && a_unit == b_unit
+        }
+        (Expression::BoolLiteral(a), Expression::BoolLiteral(b)) => a == b,
+        (Expression::StringLiteral(a), Expression::StringLiteral(b)) => a == b,
+        (Expression::EnumerationValue(a), Expression::EnumerationValue(b)) => a == b,
+        // Colors and other converted literals arrive wrapped in a cast.
+        (Expression::Cast { from: a, to: a_type }, Expression::Cast { from: b, to: b_type }) => {
+            a_type == b_type && same_literal(a, b)
+        }
+        _ => false,
+    }
 }
 
 fn lookup_property_distance(mut class: Arc<NativeClass>, name: &str) -> (usize, Arc<NativeClass>) {
@@ -120,6 +176,26 @@ fn test_select_minimal_class_based_on_property_usage() {
     );
 
     assert_eq!(reduce_to_second.class_name, second.class_name);
+}
+
+#[test]
+fn builtin_defaults_are_comparable() {
+    let tr = crate::typeregister::TypeRegister::builtin(
+        &crate::symbol_counters::SymbolCounters::shared(),
+    );
+    let tr = tr.borrow();
+    for (name, element) in tr.all_elements() {
+        let ElementType::Builtin(element) = element else { continue };
+        for (property, info) in &element.properties {
+            if let BuiltinPropertyDefault::Expr(default) = &info.default_value {
+                assert!(
+                    same_literal(default, &default.clone()),
+                    "the default of {name}::{property} is a shape same_literal doesn't compare, \
+                     so the property always counts as used: {default:?}"
+                );
+            }
+        }
+    }
 }
 
 #[test]
