@@ -2380,11 +2380,10 @@ fn lookup_qualified_name_node(
             if it.next().is_some() {
                 ctx.diag.push_error(format!("Cannot access id '{}'", first.text()), &node);
             } else {
-                let mut parts =
-                    crate::lookup::enum_or_color_suggestions(ctx.type_register, &first_str)
-                        .iter()
-                        .map(|s| format!("'{s}'"))
-                        .collect::<Vec<_>>();
+                let mut parts = crate::lookup::enum_or_color_suggestions(ctx, &first_str)
+                    .iter()
+                    .map(|s| format!("'{s}'"))
+                    .collect::<Vec<_>>();
                 let hint = match parts.pop() {
                     None => String::new(),
                     Some(last) if parts.is_empty() => format!(". Did you mean {last}?"),
