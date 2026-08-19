@@ -11,6 +11,7 @@ license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
 version.workspace = true
+publish = false
 categories = ["development-tools", "command-line-utilities", "gui"]
 keywords = ["slint", "viewer", "hot-reload", "device", "development"]
 

@@ -297,8 +297,3 @@ jobs:
                       cargo test -p slint-springboard \
                           ios_simulator::tests::managed_ios_simulator_smoke -- \
                           --ignored --exact
-            - name: Upload the iOS Simulator viewer
-              uses: actions/upload-artifact@v7
-              with:
-                  name: slint-viewer-ios-simulator
-                  path: slint-viewer-ios-simulator.zip

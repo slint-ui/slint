@@ -76,21 +76,7 @@ modules:
       - cargo build --manifest-path tools/editor/Cargo.toml
         --profile package-release --offline --no-default-features
         --features backend-winit,renderer-skia
-      - cargo build --manifest-path tools/springboard/Cargo.toml
-        --profile package-release --offline --no-default-features
-        --features backend-winit,renderer-skia
       - install -Dm0755 target/package-release/slint-editor ${FLATPAK_DEST}/bin/slint-visual-editor
-      - install -Dm0755 target/package-release/slint-springboard ${FLATPAK_DEST}/bin/slint-springboard
-      - test -x ${FLATPAK_DEST}/bin/slint-visual-editor
-      - test -x ${FLATPAK_DEST}/bin/slint-springboard
-      - mkdir -p springboard-smoke-project
-      - printf 'entry = "app.slint"\ncomponent = "App"\n' > springboard-smoke-project/slint.toml
-      - printf 'export component App inherits Window {}\n' > springboard-smoke-project/app.slint
-      - >
-        printf '{"protocol_version":2,"request_id":1,"command":"handshake","client_name":"package-smoke-test"}\n' |
-        ${FLATPAK_DEST}/bin/slint-springboard serve --stdio springboard-smoke-project > springboard-smoke.log
-      - grep -q '"response":"ok"' springboard-smoke.log
-      - grep -q '"event":"snapshot"' springboard-smoke.log
       - install -Dm0644 tools/editor/packaging/linux/${FLATPAK_ID}.desktop ${FLATPAK_DEST}/share/applications/${FLATPAK_ID}.desktop
       # The icon references the shared logo and tile backdrop, and librsvg only
       # resolves references within the document's own directory
