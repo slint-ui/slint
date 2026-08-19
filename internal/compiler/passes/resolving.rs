@@ -1804,24 +1804,7 @@ impl Expression {
         node: syntax_nodes::BinaryExpression,
         ctx: &mut LookupCtx,
     ) -> Expression {
-        let op = node
-            .children_with_tokens()
-            .find_map(|n| match n.kind() {
-                SyntaxKind::Plus => Some('+'),
-                SyntaxKind::Minus => Some('-'),
-                SyntaxKind::Star => Some('*'),
-                SyntaxKind::Div => Some('/'),
-                SyntaxKind::LessEqual => Some('≤'),
-                SyntaxKind::GreaterEqual => Some('≥'),
-                SyntaxKind::LAngle => Some('<'),
-                SyntaxKind::RAngle => Some('>'),
-                SyntaxKind::EqualEqual => Some('='),
-                SyntaxKind::NotEqual => Some('!'),
-                SyntaxKind::AndAnd => Some('&'),
-                SyntaxKind::OrOr => Some('|'),
-                _ => None,
-            })
-            .unwrap_or('_');
+        let op = binary_operator_char(&node);
 
         // In Slint SC, arithmetic (`+`, `-`, `*`), logical (`&&`, `||`), and
         // comparison (`==`, `!=`, `<`, `>`, `<=`, `>=`) are in the subset; `/` is
@@ -1850,56 +1833,8 @@ impl Expression {
             OperatorClass::ArithmeticOp => Self::from_expression_node(rhs_n.clone(), ctx),
         };
 
-        // The conversion target for each operand; `None` keeps the operand as-is.
-        // Convert both operands at a single construction site below: in unoptimized
-        // builds, every `Expression::BinaryExpression { .. }` construction gets its
-        // own stack slots for the operand temporaries, and this function is part of
-        // the recursion over nested expressions, where large stack frames make
-        // deeply nested expressions overflow the stack.
-        let (lhs_target, rhs_target) = match op_class {
-            OperatorClass::ComparisonOp => {
-                let ty =
-                    Self::common_target_type_for_type_list([lhs.ty(), rhs.ty()].iter().cloned());
-                if !matches!(op, '=' | '!') && ty.as_unit_product().is_none() && ty != Type::String
-                {
-                    ctx.diag.push_error(format!("Values of type {ty} cannot be compared"), &node);
-                }
-                (Some(ty.clone()), Some(ty))
-            }
-            OperatorClass::LogicalOp => (Some(Type::Bool), Some(Type::Bool)),
-            OperatorClass::ArithmeticOp => {
-                let (lhs_ty, rhs_ty) = (lhs.ty(), rhs.ty());
-                if op == '*' || op == '/' {
-                    let has_unit = |ty: &Type| {
-                        matches!(ty, Type::UnitProduct(_)) || ty.default_unit().is_some()
-                    };
-                    match (has_unit(&lhs_ty), has_unit(&rhs_ty)) {
-                        (true, true) => (None, None),
-                        (true, false) => (None, Some(Type::Float32)),
-                        (false, true) => (Some(Type::Float32), None),
-                        (false, false) => (Some(Type::Float32), Some(Type::Float32)),
-                    }
-                } else if op == '+' || op == '-' {
-                    let expected_ty =
-                        if op == '+' && (lhs_ty == Type::String || rhs_ty == Type::String) {
-                            Type::String
-                        } else if lhs_ty.default_unit().is_some() {
-                            lhs_ty
-                        } else if rhs_ty.default_unit().is_some() {
-                            rhs_ty
-                        } else if matches!(lhs_ty, Type::UnitProduct(_)) {
-                            lhs_ty
-                        } else if matches!(rhs_ty, Type::UnitProduct(_)) {
-                            rhs_ty
-                        } else {
-                            Type::Float32
-                        };
-                    (Some(expected_ty.clone()), Some(expected_ty))
-                } else {
-                    unreachable!()
-                }
-            }
-        };
+        let (lhs_target, rhs_target) =
+            Self::binary_operand_targets(op, op_class, lhs.ty(), rhs.ty(), &node, ctx);
         let lhs = match lhs_target {
             Some(ty) => lhs.maybe_convert_to(ty, &lhs_n, ctx.diag, &ctx.symbol_counters),
             None => lhs,
@@ -1909,6 +1844,55 @@ impl Expression {
             None => rhs,
         };
         Expression::BinaryExpression { lhs: Box::new(lhs), rhs: Box::new(rhs), op }
+    }
+
+    /// The type each operand of a binary expression converts to, or `None` to keep it as-is.
+    fn binary_operand_targets(
+        op: char,
+        op_class: OperatorClass,
+        lhs_ty: Type,
+        rhs_ty: Type,
+        node: &syntax_nodes::BinaryExpression,
+        ctx: &mut LookupCtx,
+    ) -> (Option<Type>, Option<Type>) {
+        match op_class {
+            OperatorClass::ComparisonOp => {
+                let ty = Self::common_target_type_for_type_list([lhs_ty, rhs_ty].into_iter());
+                if !matches!(op, '=' | '!') && ty.as_unit_product().is_none() && ty != Type::String {
+                    ctx.diag.push_error(format!("Values of type {ty} cannot be compared"), node);
+                }
+                (Some(ty.clone()), Some(ty))
+            }
+            OperatorClass::LogicalOp => (Some(Type::Bool), Some(Type::Bool)),
+            OperatorClass::ArithmeticOp if op == '*' || op == '/' => {
+                let has_unit =
+                    |ty: &Type| matches!(ty, Type::UnitProduct(_)) || ty.default_unit().is_some();
+                match (has_unit(&lhs_ty), has_unit(&rhs_ty)) {
+                    (true, true) => (None, None),
+                    (true, false) => (None, Some(Type::Float32)),
+                    (false, true) => (Some(Type::Float32), None),
+                    (false, false) => (Some(Type::Float32), Some(Type::Float32)),
+                }
+            }
+            OperatorClass::ArithmeticOp => {
+                debug_assert!(op == '+' || op == '-');
+                let expected_ty = if op == '+' && (lhs_ty == Type::String || rhs_ty == Type::String)
+                {
+                    Type::String
+                } else if lhs_ty.default_unit().is_some() {
+                    lhs_ty
+                } else if rhs_ty.default_unit().is_some() {
+                    rhs_ty
+                } else if matches!(lhs_ty, Type::UnitProduct(_)) {
+                    lhs_ty
+                } else if matches!(rhs_ty, Type::UnitProduct(_)) {
+                    rhs_ty
+                } else {
+                    Type::Float32
+                };
+                (Some(expected_ty.clone()), Some(expected_ty))
+            }
+        }
     }
 
     fn from_unaryop_expression_node(
@@ -2252,6 +2236,27 @@ impl Expression {
 }
 
 use i_slint_common::key_codes::{ShiftBehavior, lookup_key_name};
+
+/// The operator code for a binary expression node, or `'_'` if there is none.
+fn binary_operator_char(node: &syntax_nodes::BinaryExpression) -> char {
+    node.children_with_tokens()
+        .find_map(|n| match n.kind() {
+            SyntaxKind::Plus => Some('+'),
+            SyntaxKind::Minus => Some('-'),
+            SyntaxKind::Star => Some('*'),
+            SyntaxKind::Div => Some('/'),
+            SyntaxKind::LessEqual => Some('≤'),
+            SyntaxKind::GreaterEqual => Some('≥'),
+            SyntaxKind::LAngle => Some('<'),
+            SyntaxKind::RAngle => Some('>'),
+            SyntaxKind::EqualEqual => Some('='),
+            SyntaxKind::NotEqual => Some('!'),
+            SyntaxKind::AndAnd => Some('&'),
+            SyntaxKind::OrOr => Some('|'),
+            _ => None,
+        })
+        .unwrap_or('_')
+}
 
 /// Return the type that merge two times when they are used in two branch of a condition
 ///

@@ -583,7 +583,7 @@ impl From<BuiltinFunction> for Callable {
     }
 }
 
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum OperatorClass {
     ComparisonOp,
     LogicalOp,
