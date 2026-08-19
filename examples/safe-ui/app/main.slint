@@ -1,56 +1,37 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-import { AboutSlint, VerticalBox, Button } from "std-widgets.slint";
+// The safety-domain scene in the Slint SC subset: Window and Rectangle only,
+// no Timer, no model. Rust sets the three color properties; see src/lib.rs.
 
 export component MainWindow inherits Window {
-    background: #ff000047;
+    in property <color> first-color;
+    in property <color> second-color;
+    in property <color> third-color;
 
-    VerticalBox {
-        AboutSlint {
-            preferred-height: 150px;
-        }
-        Button {
-            checkable: true;
-            text: "Checkable Button";
-        }
-    }
-
-    property <[color]> colors: [Colors.green, Colors.orange, Colors.red];
-    property <int> idx: 0;
-
-    Timer {
-        running: true;
-        interval: 1s;
-        triggered => {
-            idx = (idx + 1).mod(colors.length);
-        }
-    }
+    background: #000000;
 
     first := Rectangle {
-        x: 0px;
-        y: 0px;
-        width: 40px;
-        height: self.width;
-        border-radius: self.width / 2;
-        background: colors[idx.mod(colors.length)];
+        x: 40px;
+        y: 40px;
+        width: 120px;
+        height: 120px;
+        background: root.first-color;
     }
 
     second := Rectangle {
-        x: 50px;
-        y: 0px;
-        width: 40px;
-        height: self.width;
-        border-radius: self.width / 2;
-        background: colors[(idx + 1).mod(colors.length)];
+        x: 200px;
+        y: 40px;
+        width: 120px;
+        height: 120px;
+        background: root.second-color;
     }
 
     third := Rectangle {
-        x: 100px;
-        y: 0px;
-        width: 40px;
-        height: self.width;
-        border-radius: self.width / 2;
-        background: colors[(idx + 2).mod(colors.length)];
+        x: 360px;
+        y: 40px;
+        width: 120px;
+        height: 120px;
+        background: root.third-color;
     }
 }

@@ -39,7 +39,6 @@ FetchContent_MakeAvailable(Corrosion)
 
 set(SLINT_SAFEUI_FEATURES "${SLINT_SAFEUI_CRITICAL_SECTION}")
 list(APPEND SLINT_SAFEUI_FEATURES "${SLINT_SAFEUI_PIXEL_FORMAT}")
-list(APPEND SLINT_SAFEUI_FEATURES "libm")
 if(SLINT_SAFEUI_PANIC_HANDLER)
     list(APPEND SLINT_SAFEUI_FEATURES "panic-handler")
 endif()
@@ -52,6 +51,14 @@ corrosion_import_crate(
     CRATE_TYPES staticlib
     FEATURES "${SLINT_SAFEUI_FEATURES}"
 )
+
+# The scene is compiled by the host `slint-compiler` built with the `slint-sc`
+# feature. Cross builds don't produce it in Corrosion's target directory, so
+# point the build script at a prebuilt one via SLINT_COMPILER.
+set(SLINT_SAFEUI_COMPILER "" CACHE FILEPATH "Path to a slint-compiler built with --features slint-sc")
+if(SLINT_SAFEUI_COMPILER)
+    corrosion_set_env_vars(slint_safeui_ffi "SLINT_COMPILER=${SLINT_SAFEUI_COMPILER}")
+endif()
 
 if(SLINT_SAFEUI_WIDTH AND SLINT_SAFEUI_HEIGHT)
     message(STATUS "Custom Slint SafeUI Window Size: ${SLINT_SAFEUI_WIDTH}x${SLINT_SAFEUI_HEIGHT}")
