@@ -7,6 +7,9 @@ use i_slint_live_preview::protocol::{SourceFileVersion, VersionedUrl};
 use lsp_types::{TextEdit, Url, WorkspaceEdit};
 use std::{collections::HashMap, path::Path};
 
+#[cfg(target_arch = "wasm32")]
+use crate::wasm_prelude::*;
+
 pub mod import_edit;
 pub mod rename_component;
 pub mod rename_element_id;

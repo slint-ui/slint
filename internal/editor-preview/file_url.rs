@@ -6,6 +6,9 @@
 use lsp_types::Url;
 use std::path::{Path, PathBuf};
 
+#[cfg(target_arch = "wasm32")]
+use crate::wasm_prelude::*;
+
 pub fn uri_to_file(uri: &Url) -> Option<PathBuf> {
     if ["builtin", "vscode-remote"].contains(&uri.scheme()) {
         Some(PathBuf::from(uri.to_string()))
