@@ -30,6 +30,7 @@ use std::path::PathBuf;
 use std::rc::{Rc, Weak};
 use std::sync::Arc;
 
+pub(crate) mod forward_inherited_expression;
 mod interfaces;
 
 macro_rules! unwrap_or_continue {

@@ -7,17 +7,15 @@ use crate::diagnostics::BuildDiagnostics;
 use crate::diagnostics::SourceLocation;
 use crate::diagnostics::Spanned;
 use crate::expression_tree::*;
-use crate::langtype::Type;
-use crate::langtype::{ElementType, PropertyLookupMode};
+use crate::langtype::{PropertyLookupMode, Type};
+use crate::object_tree::forward_inherited_expression::{
+    ForwardedReferenceCache, InheritedExpression, forward_inherited_expression,
+};
 use crate::object_tree::*;
 use crate::symbol_counters::SymbolCounters;
 use smol_str::SmolStr;
 use std::collections::{HashMap, HashSet};
-use std::rc::{Rc, Weak};
-
-/// Maps a private reference to the forwarding property/callback synthesized for it by
-/// `forwarded_reference`, so it's only synthesized once per reference.
-type ForwardedReferenceCache = HashMap<NamedReference, NamedReference>;
+use std::rc::Rc;
 
 pub fn lower_states(
     component: &Rc<Component>,
@@ -211,112 +209,38 @@ fn expression_for_property(
     element: &ElementRc,
     name: &str,
     symbol_counters: &SymbolCounters,
-    forwarded_cache: &mut ForwardedReferenceCache,
+    forwarded_references: &mut ForwardedReferenceCache,
 ) -> ExpressionForProperty {
-    let mut element_it = Some(element.clone());
-    let mut in_base = false;
-    while let Some(elem) = element_it {
-        // Clone out of `elem` and drop the borrow: forwarding below needs to borrow `elem` mutably.
-        let existing_binding = elem
-            .borrow()
-            .binding(name)
-            .map(|e| (!e.two_way_bindings.is_empty(), e.expression.clone()));
-        if let Some((is_two_way_binding, mut expr)) = existing_binding {
-            if is_two_way_binding {
-                return ExpressionForProperty::TwoWayBinding;
-            }
-            if !matches!(expr, Expression::Invalid) {
-                if in_base {
-                    // Rewrite references from `elem`'s point of view to `element`'s.
-                    expr.visit_recursive_mut(&mut |ex| match ex {
-                        Expression::PropertyReference(nr)
-                        | Expression::FunctionCall {
-                            function: Callable::Callback(nr) | Callable::Function(nr),
-                            ..
-                        } => {
-                            let e = nr.element();
-                            if Rc::ptr_eq(&e, &elem) {
-                                *nr = NamedReference::new(element, nr.name().clone());
-                            } else if Weak::ptr_eq(
-                                &e.borrow().enclosing_component,
-                                &elem.borrow().enclosing_component,
-                            ) {
-                                // A private sibling of `elem`: not reachable from outside its
-                                // component, so forward it through a synthesized member on `elem`.
-                                let forwarded = forwarded_reference(
-                                    nr,
-                                    &elem,
-                                    symbol_counters,
-                                    forwarded_cache,
-                                );
-                                *nr = NamedReference::new(element, forwarded.name().clone());
-                            }
-                        }
-                        _ => (),
-                    });
-                }
-
-                return ExpressionForProperty::Expression(expr);
-            }
+    let local_binding = element
+        .borrow()
+        .binding(name)
+        .map(|binding| (!binding.two_way_bindings.is_empty(), binding.expression.clone()));
+    if let Some((is_two_way_binding, expression)) = local_binding {
+        if is_two_way_binding {
+            return ExpressionForProperty::TwoWayBinding;
         }
-        element_it = if let ElementType::Component(base) = &elem.borrow().base_type {
-            in_base = true;
-            Some(base.root_element.clone())
-        } else {
-            None
-        };
-    }
-    let expr = super::materialize_fake_properties::initialize(element, name).unwrap_or_else(|| {
-        Expression::default_value_for_type(
-            &element.borrow().lookup_property(name, PropertyLookupMode::InternalName).property_type,
-        )
-    });
-
-    ExpressionForProperty::Expression(expr)
-}
-
-fn forwarded_reference(
-    original: &NamedReference,
-    base_root: &ElementRc,
-    symbol_counters: &SymbolCounters,
-    forwarded_cache: &mut ForwardedReferenceCache,
-) -> NamedReference {
-    // reuse the forward if one exists
-    if let Some(existing) = forwarded_cache.get(original) {
-        return existing.clone();
+        if !matches!(expression, Expression::Invalid) {
+            return ExpressionForProperty::Expression(expression);
+        }
     }
 
-    // Create a property/callback on `base_root` that forwards to `original`
-    let ty = original.ty();
-    let new_name = symbol_counters.generate_name("forward_reference_");
-    let binding = match &ty {
-        Type::Callback(f) | Type::Function(f) => {
-            let arguments = f
-                .args
-                .iter()
-                .enumerate()
-                .map(|(index, arg_ty)| Expression::FunctionParameterReference {
-                    index,
-                    ty: arg_ty.clone(),
-                })
-                .collect();
-            let function = if matches!(ty, Type::Callback(_)) {
-                Callable::Callback(original.clone())
-            } else {
-                Callable::Function(original.clone())
-            };
-            Expression::FunctionCall { function, arguments, source_location: None }
+    match forward_inherited_expression(element, name, symbol_counters, forwarded_references) {
+        InheritedExpression::Expression(expression) => {
+            return ExpressionForProperty::Expression(expression);
         }
-        _ => Expression::PropertyReference(original.clone()),
-    };
+        InheritedExpression::TwoWayBinding => return ExpressionForProperty::TwoWayBinding,
+        InheritedExpression::Unbound => {}
+    }
 
-    base_root.borrow_mut().property_declarations.insert(
-        new_name.clone(),
-        PropertyDeclaration { property_type: ty, ..PropertyDeclaration::default() },
-    );
-    base_root.borrow_mut().set_binding(new_name.clone(), BindingExpression::from(binding));
+    let expression =
+        super::materialize_fake_properties::initialize(element, name).unwrap_or_else(|| {
+            Expression::default_value_for_type(
+                &element
+                    .borrow()
+                    .lookup_property(name, PropertyLookupMode::InternalName)
+                    .property_type,
+            )
+        });
 
-    let forwarded = NamedReference::new(base_root, new_name);
-    forwarded_cache.insert(original.clone(), forwarded.clone());
-    forwarded
+    ExpressionForProperty::Expression(expression)
 }
