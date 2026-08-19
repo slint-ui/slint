@@ -10,7 +10,7 @@
 //! care about. Sparkle dispatches with `respondsToSelector:`, so the ones we
 //! leave out simply fall back to its defaults.
 
-use super::ui;
+use i_slint_editor_preview::preview::ui;
 use objc2::rc::Retained;
 use objc2::runtime::NSObject;
 use objc2::{
