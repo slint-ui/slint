@@ -12,8 +12,8 @@
 //! 1. **Wrap existing bindings** in a non-synthetic `Expression::DebugHook` so the editor can
 //!    read and override the live value.
 //!
-//! 2. **Materialize synthetic hooks** for every *unbound* settable property, wrapping the
-//!    type default.  These are marked `synthetic: true` (and inserted with `priority = 0`).
+//! 2. **Materialize synthetic hooks** for every *unbound* settable property.
+//!    These are marked `synthetic: true` (and inserted with `priority = 0`).
 //!    The accessors in `object_tree.rs` treat synthetic hooks as "no binding", so later passes
 //!    must opt-in to seeing bindings with a synthetic hook.
 //!    Exception: transform properties are marked non-synthetic, as they must force the transform
@@ -21,17 +21,37 @@
 
 use crate::expression_tree::Expression;
 use crate::langtype::PropertyLookupMode;
+use crate::object_tree::forward_inherited_expression::{
+    ForwardedReferenceCache, InheritedExpression, forward_inherited_expression,
+};
 use crate::object_tree::{self, Element, ElementDebugInfo, ElementRc, PropertyVisibility};
+use crate::symbol_counters::SymbolCounters;
+use std::rc::Rc;
 
 pub fn inject_debug_hooks(
-    component: &std::rc::Rc<object_tree::Component>,
+    root_components: &[Rc<object_tree::Component>],
     random_state: &std::hash::RandomState,
+    symbol_counters: &SymbolCounters,
+    forwarded_references: &mut ForwardedReferenceCache,
 ) {
-    let root = component.root_element.clone();
-    object_tree::recurse_elem(&root, &(), &mut |elem, &()| {
-        let is_root = std::rc::Rc::ptr_eq(elem, &root);
-        process_element(elem, random_state, is_root);
-    });
+    for component in root_components {
+        let root = component.root_element.clone();
+        object_tree::recurse_elem(&root, &(), &mut |element, &()| {
+            process_existing_bindings(element, random_state);
+        });
+    }
+
+    // Process the missing bindings after the existing bindings.
+    // Injecting missing bindings will insert new forwarding bindings & properties.
+    // These should not be hooked as "existing", which is why we need to insert them
+    // after all existing bindings are processed.
+    for component in root_components {
+        let root = component.root_element.clone();
+        object_tree::recurse_elem(&root, &(), &mut |element, &()| {
+            let is_root = Rc::ptr_eq(element, &root);
+            process_missing_bindings(element, symbol_counters, forwarded_references, is_root);
+        });
+    }
 }
 
 pub fn property_id(element_id: u64, name: &smol_str::SmolStr) -> smol_str::SmolStr {
@@ -232,7 +252,13 @@ fn transform_properties<'a>(
     })
 }
 
-fn add_hooks_for_non_existent_bindings(element: &ElementRc, element_hash: u64, is_root: bool) {
+fn add_hooks_for_non_existent_bindings(
+    element: &ElementRc,
+    element_hash: u64,
+    symbol_counters: &SymbolCounters,
+    forwarded_references: &mut ForwardedReferenceCache,
+    is_root: bool,
+) {
     let elem = element.borrow();
     let mut properties: Vec<_> = property_defaults(&elem).collect();
 
@@ -268,10 +294,22 @@ fn add_hooks_for_non_existent_bindings(element: &ElementRc, element_hash: u64, i
             && elem.lookup_property(name, PropertyLookupMode::InternalName).property_type != crate::langtype::Type::Invalid
     });
 
-    for (name, default, synthetic) in unbound_properties {
+    for (name, default_expression, synthetic) in unbound_properties {
+        let expression = match forward_inherited_expression(
+            element,
+            &name,
+            symbol_counters,
+            forwarded_references,
+        ) {
+            InheritedExpression::Expression(expression) => {
+                super::ignore_debug_hooks(&expression).clone()
+            }
+            InheritedExpression::TwoWayBinding => continue,
+            InheritedExpression::Unbound => default_expression,
+        };
         let id = property_id(element_hash, &name);
         let mut binding: crate::expression_tree::BindingExpression =
-            Expression::DebugHook { expression: Box::new(default), id, synthetic }.into();
+            Expression::DebugHook { expression: Box::new(expression), id, synthetic }.into();
         binding.priority = 0;
         let mut elem = element.borrow_mut();
         if elem.binding_cell_including_synthetic(&name).is_none() {
@@ -280,23 +318,49 @@ fn add_hooks_for_non_existent_bindings(element: &ElementRc, element_hash: u64, i
     }
 }
 
-fn process_element(element: &ElementRc, random_state: &std::hash::RandomState, is_root: bool) {
-    {
-        let element = element.borrow();
-        // Skip the @children placeholder (the generator skips these too).
-        if element.is_component_placeholder {
-            return;
-        }
-        if element.debug.is_empty() {
-            return;
-        }
+fn is_hookable(element: &ElementRc) -> bool {
+    let element = element.borrow();
+    // Skip the @children placeholder (the generator skips these too).
+    if element.is_component_placeholder {
+        return false;
+    }
+    if element.debug.is_empty() {
+        return false;
+    }
+
+    true
+}
+
+fn process_existing_bindings(element: &ElementRc, random_state: &std::hash::RandomState) {
+    if !is_hookable(element) {
+        return;
     }
 
     let element_hash = assign_element_hash(element, random_state);
 
     hook_existing_bindings(element, element_hash);
+}
 
-    add_hooks_for_non_existent_bindings(element, element_hash, is_root);
+fn process_missing_bindings(
+    element: &ElementRc,
+    symbol_counters: &SymbolCounters,
+    forwarded_references: &mut ForwardedReferenceCache,
+    is_root: bool,
+) {
+    if !is_hookable(element) {
+        return;
+    }
+
+    let element_hash = element.borrow().debug[0].element_hash;
+    debug_assert_ne!(element_hash, 0);
+
+    add_hooks_for_non_existent_bindings(
+        element,
+        element_hash,
+        symbol_counters,
+        forwarded_references,
+        is_root,
+    );
 }
 
 #[cfg(test)]
@@ -310,6 +374,7 @@ mod tests {
             crate::CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
         config.style = Some("fluent".into());
         config.debug_hooks = Some(std::hash::RandomState::new());
+        config.inline_all_elements = false;
         let mut diags = crate::diagnostics::BuildDiagnostics::default();
         let doc_node = crate::parser::parse(
             source.into(),
@@ -410,13 +475,8 @@ mod tests {
         assert_ne!(txt.borrow().debug.first().unwrap().element_hash, 0);
     }
 
-    /// Component-instance elements are hooked too. The synthetic hooks injected on the
-    /// instance for the component's unbound properties must be upgraded with the definition's
-    /// real default bindings when the component is inlined (`merge_with`) — NOT clobber them.
-    /// Regression: repeated instances used to lose `tint: blue` / `background: tint` and
-    /// render transparent.
     #[test]
-    fn instance_defaults_upgraded_into_hooks() {
+    fn instance_defaults_forwarded_into_hooks() {
         let doc = compile(
             r#"
             component Item inherits Rectangle {
@@ -441,10 +501,7 @@ mod tests {
             let Expression::DebugHook { expression: inner, id, synthetic } = expression else {
                 panic!("{what}: background must be a DebugHook, got {expression:?}");
             };
-            assert!(!synthetic, "{what}: hook must be upgraded with the definition's binding");
-            // The definition's `background: tint` must survive as the hook's inner expression
-            // (a reference to the — possibly moved/renamed — tint property, not the
-            // transparent type default).
+            assert!(synthetic, "{what}: inherited hook must remain synthetic");
             let mut references_tint = false;
             inner.visit_recursive(&mut |expression| {
                 if let Expression::PropertyReference(named_reference) = expression
@@ -454,23 +511,23 @@ mod tests {
                 }
             });
             assert!(references_tint, "{what}: background must still reference tint, got {inner:?}");
-            // The hook id must belong to one of the merged source elements (the instance
-            // element's hash — hooks were injected before inlining).
-            assert!(
-                borrowed.debug.iter().any(|d| property_id(
-                    d.element_hash,
+            assert_eq!(
+                property_id(
+                    borrowed.debug[0].element_hash,
                     &smol_str::SmolStr::new_static("background")
-                ) == id),
-                "{what}: hook id {id} must match a merged element hash"
+                ),
+                id,
+                "{what}: hook id must use the instance element hash"
+            );
+            assert!(
+                matches!(borrowed.base_type, crate::langtype::ElementType::Component(_)),
+                "{what}: component boundary must remain"
             );
         };
 
-        // Non-repeated instance: `plain` is the merged element after inlining.
         let plain = child(&win.root_element, "plain");
         assert_background_preserved(&plain, "plain instance");
 
-        // Repeated instance: the repeated element's base is the generated repeater component;
-        // the merged instance element is inside it.
         let repeated = win
             .root_element
             .borrow()
@@ -488,6 +545,103 @@ mod tests {
         });
         let repeated_item = found.expect("repeated Item element with background binding");
         assert_background_preserved(&repeated_item, "repeated instance");
+    }
+
+    #[test]
+    fn reuses_forwarded_references_for_hooks_and_states() {
+        let doc = compile(
+            r#"
+            component Item inherits Rectangle {
+                in-out property <int> property-value: inner.width / 1px;
+                in-out property <int> function-value: inner.compute-value(3);
+                in-out property <int> callback-value: inner.compute-callback(5);
+                inner := Rectangle {
+                    width: 10px;
+                    pure function compute-value(value: int) -> int { value + 10 }
+                    pure callback compute-callback(int) -> int;
+                    compute-callback(value) => value * 2;
+                }
+            }
+            export component Win inherits Window {
+                in property <bool> active;
+                first := Item { }
+                second := Item { }
+                states [
+                    active when root.active: {
+                        first.property-value: 42;
+                        first.function-value: 43;
+                        first.callback-value: 44;
+                    }
+                ]
+            }
+            "#,
+        );
+        let item = component(&doc, "Item");
+        let win = component(&doc, "Win");
+        let first = child(&win.root_element, "first");
+        let second = child(&win.root_element, "second");
+
+        let declarations = item
+            .root_element
+            .borrow()
+            .property_declarations
+            .keys()
+            .filter(|name| name.starts_with("forward_reference_"))
+            .cloned()
+            .collect::<std::collections::HashSet<_>>();
+        assert_eq!(declarations.len(), 3);
+
+        let forwarded_references = |element: &ElementRc| {
+            let element = element.borrow();
+            let mut references = std::collections::HashSet::new();
+            for property_name in ["property-value", "function-value", "callback-value"] {
+                let binding = element
+                    .binding_cell_including_synthetic(property_name)
+                    .unwrap_or_else(|| panic!("{property_name} must be hooked"));
+                binding.borrow().expression.visit_recursive(&mut |expression| match expression {
+                    Expression::PropertyReference(named_reference)
+                    | Expression::FunctionCall {
+                        function:
+                            crate::expression_tree::Callable::Callback(named_reference)
+                            | crate::expression_tree::Callable::Function(named_reference),
+                        ..
+                    } if named_reference.name().starts_with("forward_reference_") => {
+                        references.insert(named_reference.name().clone());
+                    }
+                    _ => {}
+                });
+            }
+            references
+        };
+
+        let first_references = forwarded_references(&first);
+        let second_references = forwarded_references(&second);
+        assert!(!first_references.is_empty());
+        assert!(!second_references.is_empty());
+        assert!(first_references.is_subset(&declarations));
+        assert!(second_references.is_subset(&declarations));
+        assert!(matches!(first.borrow().base_type, crate::langtype::ElementType::Component(_)));
+        assert!(matches!(second.borrow().base_type, crate::langtype::ElementType::Component(_)));
+    }
+
+    #[test]
+    fn inherited_two_way_binding_has_no_hook() {
+        let doc = compile(
+            r#"
+            component Item inherits Rectangle {
+                in-out property <length> linked <=> inner.width;
+                inner := Rectangle { }
+            }
+            export component Win inherits Window {
+                item := Item { }
+            }
+            "#,
+        );
+        let win = component(&doc, "Win");
+        let item = child(&win.root_element, "item");
+
+        assert!(item.borrow().binding_cell_including_synthetic("linked").is_none());
+        assert!(matches!(item.borrow().base_type, crate::langtype::ElementType::Component(_)));
     }
 
     /// Direct unit tests for the synthetic-hook rules in `BindingExpression::merge_with`

@@ -141,11 +141,6 @@ export component Win inherits Window {
         assert!(reverted.size.width.approx_eq(&base.size.width), "width should revert");
     }
 
-    // Component-instance elements are hooked too: their unbound properties get synthetic hooks
-    // that must be upgraded with the definition's default bindings during inlining (keeping the
-    // *instance* element's hook id). Verifies that the defaults are preserved (regression: they
-    // used to be clobbered, rendering repeated items transparent) and that instance properties
-    // are live-overridable through the hook callback.
     #[test]
     fn debug_hook_component_instance_override() {
         let code = r#"
@@ -199,6 +194,53 @@ export component Win inherits Window {
             "rotation must not move the origin"
         );
         set_override(&store, element_hash, "transform-rotation", None);
+    }
+
+    #[test]
+    fn debug_hook_forwards_live_private_state_per_instance() {
+        let code = r#"
+component Sub inherits Rectangle {
+    in property <length> seed;
+    in property <bool> active;
+    in-out property <length> inherited-value: private-child.x;
+    private-child := Rectangle { x: root.seed; }
+    states [
+        active when root.active: {
+            private-child.x: 50px;
+        }
+    ]
+}
+export component Win inherits Window {
+    in-out property <length> first-seed: 10px;
+    in-out property <bool> first-active;
+    first := Sub { seed: root.first-seed; active: root.first-active; }
+    second := Sub { seed: 20px; }
+    out property <length> first-value: first.inherited-value;
+    out property <length> second-value: second.inherited-value;
+}"#;
+        let instance = compile_with_debug_hooks(code);
+        let store = install_debug_hook_store(&instance);
+        let (_, first_hash) = find_element(&instance, code, "Sub { seed: root.first-seed");
+
+        assert_eq!(instance.get_property("first-value").unwrap(), Value::Number(10.0));
+        assert_eq!(instance.get_property("second-value").unwrap(), Value::Number(20.0));
+
+        instance.set_property("first-seed", Value::Number(15.0)).unwrap();
+        assert_eq!(instance.get_property("first-value").unwrap(), Value::Number(15.0));
+        assert_eq!(instance.get_property("second-value").unwrap(), Value::Number(20.0));
+
+        instance.set_property("first-active", Value::Bool(true)).unwrap();
+        assert_eq!(instance.get_property("first-value").unwrap(), Value::Number(50.0));
+
+        set_override(&store, first_hash, "inherited-value", Some(Value::Number(90.0)));
+        instance.set_property("first-active", Value::Bool(false)).unwrap();
+        instance.set_property("first-seed", Value::Number(25.0)).unwrap();
+        assert_eq!(instance.get_property("first-value").unwrap(), Value::Number(90.0));
+        assert_eq!(instance.get_property("second-value").unwrap(), Value::Number(20.0));
+
+        set_override(&store, first_hash, "inherited-value", None);
+        assert_eq!(instance.get_property("first-value").unwrap(), Value::Number(25.0));
+        assert_eq!(instance.get_property("second-value").unwrap(), Value::Number(20.0));
     }
 
     // Regression test: debug hooks inject bindings for properties the element may not have

@@ -115,12 +115,19 @@ pub async fn run_passes(
     let raw_type_loader =
         keep_raw.then(|| crate::typeloader::snapshot_with_extra_doc(type_loader, doc).unwrap());
 
+    let mut forwarded_references =
+        crate::object_tree::forward_inherited_expression::ForwardedReferenceCache::default();
+
     // Inject debug hooks early — before any lowering or inlining — so source element identity
     // is preserved and hooks can be attributed to the correct source location.
     if let Some(random_state) = &type_loader.compiler_config.debug_hooks {
-        for root_component in doc.exported_roots() {
-            inject_debug_hooks::inject_debug_hooks(&root_component, random_state);
-        }
+        let root_components = doc.exported_roots().collect::<Vec<_>>();
+        inject_debug_hooks::inject_debug_hooks(
+            &root_components,
+            random_state,
+            &symbol_counters,
+            &mut forwarded_references,
+        );
     }
 
     collect_libraries::collect_libraries(doc);
@@ -132,7 +139,6 @@ pub async fn run_passes(
     lower_component_container::lower_component_container(doc, type_loader, diag);
     collect_subcomponents::collect_subcomponents(doc);
 
-    let mut lower_states_forwarded_cache = Default::default();
     doc.visit_all_used_components(|component| {
         apply_default_properties_from_style::apply_default_properties_from_style(
             component,
@@ -140,12 +146,7 @@ pub async fn run_passes(
             &palette,
             diag,
         );
-        lower_states::lower_states(
-            component,
-            &symbol_counters,
-            &mut lower_states_forwarded_cache,
-            diag,
-        );
+        lower_states::lower_states(component, &symbol_counters, &mut forwarded_references, diag);
         lower_text_input_interface::lower_text_input_interface(component);
         compile_paths::compile_paths(component, &doc.local_registry, diag);
         repeater_component::process_repeater_components(component);
@@ -224,13 +225,7 @@ pub async fn run_passes(
     // Must be done before passes that rely on `NamedReference::is_constant`.
     collect_globals::mark_library_globals(doc);
 
-    // Debug hooks rely on full inlining: the synthetic hooks injected on component-instance
-    // elements are only upgraded with the component's real default bindings when the component
-    // is inlined (see `BindingExpression::merge_with`). Without inlining they would shadow the
-    // definition's defaults at runtime. This overrides a `SLINT_INLINING=false` env override.
-    if type_loader.compiler_config.inline_all_elements
-        || type_loader.compiler_config.debug_hooks.is_some()
-    {
+    if type_loader.compiler_config.inline_all_elements {
         inlining::inline(doc, inlining::InlineSelection::InlineAllComponents, diag);
         doc.used_types.borrow_mut().sub_components.clear();
     }

@@ -11,6 +11,7 @@ use std::collections::HashMap;
 use std::hash::Hash;
 use std::rc::{Rc, Weak};
 
+use crate::expression_tree::Expression;
 use crate::langtype::{ElementType, PropertyLookupMode, Type};
 use crate::object_tree::{Element, ElementRc, PropertyAnalysis, PropertyVisibility};
 
@@ -94,6 +95,11 @@ impl NamedReference {
             return false;
         }
         if e.property_analysis.borrow().get(self.name()).is_some_and(|a| a.is_set_externally) {
+            return false;
+        }
+        if e.binding_cell_including_synthetic(self.name()).is_some_and(|binding| {
+            matches!(binding.borrow().expression, Expression::DebugHook { .. })
+        }) {
             return false;
         }
         drop(e);
