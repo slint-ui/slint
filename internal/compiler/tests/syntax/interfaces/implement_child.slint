@@ -191,3 +191,19 @@ export component ConflictsWithBuiltIn {
 
     flickable := Flickable { }
 }
+
+// Verify that we don't get the normalized child id in the diagnostic messages.
+export component ChildWithProperties {
+
+    implement ValidInterface <=> child_with_conflicts;
+//                               >                  <error{Cannot implement 'ValidInterface' based on 'child_with_conflicts'.↵- 'child_with_conflicts.reset' must be 'pure public function reset() { }' (found 'callback reset();')↵- 'child_with_conflicts.speak' must be 'callback speak();' (found 'public function speak() { }')↵- 'child_with_conflicts.value' must be a 'int' property (found a 'float' property)}
+
+    child_with_conflicts := Rectangle {
+        in-out property <float> value;
+//                       >   <note{'ValidInterface' declares 'value' as 'in-out property <int> value;'}
+        public function speak() {}
+//                      >   <note{'ValidInterface' declares 'speak' as 'callback speak();'}
+        callback reset();
+//               >   <note{'ValidInterface' declares 'reset' as 'pure public function reset() { }'}
+    }
+}
