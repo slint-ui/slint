@@ -1698,7 +1698,9 @@ impl WindowAdapterInternal for WinitWindowAdapter {
     #[cfg(enable_accesskit)]
     fn handle_focus_change(&self, _old: Option<ItemRc>, _new: Option<ItemRc>) {
         let Some(accesskit_adapter_cell) = self.accesskit_adapter() else { return };
-        accesskit_adapter_cell.borrow_mut().handle_focus_item_change();
+        if let Ok(mut a) = accesskit_adapter_cell.try_borrow_mut() {
+            a.handle_focus_item_change();
+        }
     }
 
     #[cfg(enable_accesskit)]
