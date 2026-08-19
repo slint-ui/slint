@@ -100,11 +100,18 @@ fn main() -> std::io::Result<()> {
     // Generate the per-case modules on all cores: with the build-time feature,
     // each case runs the Slint compiler (twice with deterministic-output),
     // which dominates the build script's runtime.
-    // TEMPORARY DEBUG (stack overflow on the Windows live-preview job): run the compiler
-    // single-threaded and log every case before compiling it, so a stack overflow points at the
-    // exact .slint file. Revert before merging.
+    // TEMPORARY DEBUG (stack overflow on the Windows live-preview job): keep the multi-threaded
+    // compilation, but log every case with the worker thread and the number of concurrently active
+    // compilations, and make the worker stack overridable via SLINT_BUILD_STACK. Set that env to a
+    // value below the flaky threshold so the overflow reproduces reliably; the last `start` line
+    // without a matching `done` then names the culprit .slint file, and `active=` shows how many
+    // compilations were running on the pool at that moment. Revert before merging.
+    println!("cargo::rerun-if-env-changed=SLINT_BUILD_STACK");
+    let dbg_stack: usize =
+        std::env::var("SLINT_BUILD_STACK").ok().and_then(|s| s.parse().ok()).unwrap_or(512 * 1024);
+    static ACTIVE: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
     let module_lines = rayon::ThreadPoolBuilder::new()
-        .stack_size(512 * 1024)
+        .stack_size(dbg_stack)
         .build()
         .expect("failed to create thread pool")
         .install(|| {
@@ -112,10 +119,22 @@ fn main() -> std::io::Result<()> {
                 .par_iter()
                 .map(|testcase| {
                     use std::io::Write;
-                    eprintln!("SLINT_BUILD_DEBUG compiling {}", testcase.absolute_path.display());
+                    use std::sync::atomic::Ordering;
+                    let active = ACTIVE.fetch_add(1, Ordering::SeqCst) + 1;
+                    eprintln!(
+                        "SLINT_BUILD_DEBUG start t={:?} active={} {}",
+                        std::thread::current().id(),
+                        active,
+                        testcase.absolute_path.display()
+                    );
                     let _ = std::io::stderr().flush();
                     let x = process_case(testcase, live_preview);
-                    eprintln!("SLINT_BUILD_DEBUG done {}", testcase.absolute_path.display());
+                    ACTIVE.fetch_sub(1, Ordering::SeqCst);
+                    eprintln!(
+                        "SLINT_BUILD_DEBUG done  t={:?} {}",
+                        std::thread::current().id(),
+                        testcase.absolute_path.display()
+                    );
                     let _ = std::io::stderr().flush();
                     x
                 })
