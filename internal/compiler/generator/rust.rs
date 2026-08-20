@@ -4266,9 +4266,10 @@ fn compile_grid_repeater_cache_access(expr: &Expression, ctx: &EvaluationContext
 
         quote!({
             let cache = #cache.get();
-            let base = cache[#index] as usize;
-            let data_idx = base + #offset as usize * (#stride_val as usize) + #child_offset #inner_offset;
-            *cache.get(data_idx).unwrap_or(&(0 as _))
+            cache.get(#index)
+                .and_then(|base| cache.get(*base as usize + #offset as usize * (#stride_val as usize) + #child_offset #inner_offset))
+                .copied()
+                .unwrap_or(0 as _)
         })
     })
 }
