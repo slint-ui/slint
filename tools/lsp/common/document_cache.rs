@@ -54,6 +54,7 @@ pub struct CompilerConfiguration {
     /// Note that the i_slint_compiler::CompilerConfiguration still reads the environment variable
     /// in native build, so this is used to transmit the value when compiled to WASM.
     pub enable_experimental: bool,
+    pub enable_rust_formatting: bool,
 }
 
 impl Default for CompilerConfiguration {
@@ -68,6 +69,7 @@ impl Default for CompilerConfiguration {
             resource_url_mapper: std::mem::take(&mut cc.resource_url_mapper),
             format: super::ByteFormat::Utf8,
             enable_experimental: cc.enable_experimental,
+            enable_rust_formatting: true,
         }
     }
 }
@@ -91,6 +93,7 @@ pub struct DocumentCache {
     open_import_callback: Option<OpenImportCallback>,
     source_file_versions: Rc<RefCell<SourceFileVersionMap>>,
     pub format: super::ByteFormat,
+    pub enable_rust_formatting: bool,
 }
 
 #[cfg(feature = "preview-engine")]
@@ -141,6 +144,7 @@ impl DocumentCache {
 
     pub fn new(config: CompilerConfiguration) -> Self {
         let format = config.format;
+        let enable_rust_formatting = config.enable_rust_formatting;
         let (mut compiler_config, open_import_callback) = config.build();
 
         let (open_import_callback, source_file_versions) = Self::wire_up_import_fallback(
@@ -154,6 +158,7 @@ impl DocumentCache {
             open_import_callback,
             source_file_versions,
             format,
+            enable_rust_formatting,
         }
     }
 
@@ -162,6 +167,7 @@ impl DocumentCache {
         open_import_callback: Option<OpenImportCallback>,
         source_file_versions: Rc<RefCell<SourceFileVersionMap>>,
         format: super::ByteFormat,
+        enable_rust_formatting: bool,
     ) -> Self {
         let (open_import_callback, source_file_versions) = Self::wire_up_import_fallback(
             &mut type_loader.compiler_config,
@@ -169,7 +175,13 @@ impl DocumentCache {
             source_file_versions,
         );
 
-        Self { type_loader, open_import_callback, source_file_versions, format }
+        Self {
+            type_loader,
+            open_import_callback,
+            source_file_versions,
+            format,
+            enable_rust_formatting,
+        }
     }
 
     pub fn snapshot(&self) -> Option<Self> {
@@ -177,7 +189,13 @@ impl DocumentCache {
         let source_file_versions =
             Rc::new(RefCell::new(self.source_file_versions.borrow().clone()));
         i_slint_compiler::typeloader::snapshot(&self.type_loader).map(|tl| {
-            Self::new_from_raw_parts(tl, open_import_callback, source_file_versions, self.format)
+            Self::new_from_raw_parts(
+                tl,
+                open_import_callback,
+                source_file_versions,
+                self.format,
+                self.enable_rust_formatting,
+            )
         })
     }
 
@@ -311,6 +329,7 @@ impl DocumentCache {
         include_paths: Option<Vec<PathBuf>>,
         library_paths: Option<HashMap<String, PathBuf>>,
         enable_experimental: bool,
+        enable_rust_formatting: Option<bool>,
         diag: &mut BuildDiagnostics,
     ) -> (CompilerConfiguration, HashSet<lsp_types::Url>) {
         if let Some(s) = style {
@@ -336,6 +355,10 @@ impl DocumentCache {
             )
             .unwrap()
             .into_inner();
+        }
+
+        if let Some(v) = enable_rust_formatting {
+            self.enable_rust_formatting = v;
         }
 
         self.invalidate_everything();
@@ -418,6 +441,7 @@ impl DocumentCache {
             resource_url_mapper: self.type_loader.compiler_config.resource_url_mapper.clone(),
             format: self.format,
             enable_experimental: self.type_loader.compiler_config.enable_experimental,
+            enable_rust_formatting: self.enable_rust_formatting,
         }
     }
 

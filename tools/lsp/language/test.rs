@@ -67,6 +67,7 @@ pub fn mock_context() -> Context {
         to_preview: LspToPreviews::with_one(common::DummyLspToPreview::default()),
         pending_recompile: Default::default(),
         host_language_rename_dont_ask_again: Default::default(),
+        enable_rust_formatting: true,
     }
 }
 
@@ -133,6 +134,7 @@ fn load_content_with_document_cache(
         to_preview: LspToPreviews::with_one(common::DummyLspToPreview::default()),
         pending_recompile: Default::default(),
         host_language_rename_dont_ask_again: Default::default(),
+        enable_rust_formatting: true,
     };
     let (extra_files, diag) =
         spin_on::spin_on(load_document_impl(&mut ctx, content, url.clone(), Some(42)));

@@ -300,6 +300,7 @@ pub fn create(
             to_preview,
             pending_recompile: Default::default(),
             host_language_rename_dont_ask_again: Default::default(),
+            enable_rust_formatting: true,
         }),
         rh: Rc::new(rh),
     })

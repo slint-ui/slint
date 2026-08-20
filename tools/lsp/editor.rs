@@ -289,6 +289,7 @@ async fn lsp_main(
         to_preview,
         pending_recompile: Default::default(),
         host_language_rename_dont_ask_again: Default::default(),
+        enable_rust_formatting: true,
     };
 
     // Load the initial document through the compiler. This triggers the import

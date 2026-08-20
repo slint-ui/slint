@@ -524,6 +524,7 @@ async fn run_main_loop(
         resource_url_mapper: None,
         // The i_slint_compiler::CompilerConfiguration::default() will read the environment variable
         enable_experimental: false,
+        enable_rust_formatting: true,
     };
 
     let (from_lsp_sender, mut from_lsp_receiver) = mpsc::unbounded_channel();
@@ -538,6 +539,7 @@ async fn run_main_loop(
         to_preview,
         pending_recompile: Default::default(),
         host_language_rename_dont_ask_again: Default::default(),
+        enable_rust_formatting: true,
     };
 
     let connection = Arc::new(connection);

@@ -349,6 +349,7 @@ pub struct Context {
     /// Disables the host-language rename prompt for the rest of the session.
     /// TODO(#12111): Persist this setting across sessions.
     pub host_language_rename_dont_ask_again: Rc<Cell<bool>>,
+    pub enable_rust_formatting: bool,
 }
 
 /// An error from a LSP request
@@ -2063,6 +2064,7 @@ struct WorkspaceConfig {
     library_paths: Option<HashMap<String, PathBuf>>,
     style: Option<String>,
     experimental: bool,
+    enable_rust_formatting: bool,
 }
 
 fn parse_configuration(workspace_config: Vec<serde_json::Value>) -> WorkspaceConfig {
@@ -2071,6 +2073,7 @@ fn parse_configuration(workspace_config: Vec<serde_json::Value>) -> WorkspaceCon
     let mut library_paths = None;
     let mut style = None;
     let mut experimental = false;
+    let mut enable_rust_formatting = true;
 
     for config_value in workspace_config {
         if let Some(config_object) = config_value.as_object() {
@@ -2103,9 +2106,23 @@ fn parse_configuration(workspace_config: Vec<serde_json::Value>) -> WorkspaceCon
             if config_object.get("experimental").and_then(|v| v.as_bool()) == Some(true) {
                 experimental = true;
             }
+            if let Some(rust) = config_object.get("rust").and_then(|v| v.as_object()) {
+                if let Some(b) = rust.get("formatting").and_then(|v| v.as_bool()) {
+                    enable_rust_formatting = b;
+                } else if rust.contains_key("formatting") {
+                    tracing::debug!("invalid slint.rust.formatting type, fallback true");
+                }
+            }
         }
     }
-    WorkspaceConfig { hide_ui, include_paths, library_paths, style, experimental }
+    WorkspaceConfig {
+        hide_ui,
+        include_paths,
+        library_paths,
+        style,
+        experimental,
+        enable_rust_formatting,
+    }
 }
 
 pub async fn load_configuration(ctx: &mut Context) -> common::Result<()> {
@@ -2136,13 +2153,29 @@ pub async fn load_configuration(ctx: &mut Context) -> common::Result<()> {
 
     let workspace_config = parse_configuration(workspace_config);
     tracing::debug!("Loaded configuration: {workspace_config:?}");
-    let WorkspaceConfig { hide_ui, include_paths, library_paths, style, experimental } =
-        workspace_config;
+    let WorkspaceConfig {
+        hide_ui,
+        include_paths,
+        library_paths,
+        style,
+        experimental,
+        enable_rust_formatting,
+    } = workspace_config;
+
+    ctx.enable_rust_formatting = enable_rust_formatting;
+    ctx.document_cache.enable_rust_formatting = enable_rust_formatting;
 
     let mut diag = BuildDiagnostics::default();
     let (cc, all_files) = ctx
         .document_cache
-        .reconfigure(style, include_paths, library_paths, experimental, &mut diag)
+        .reconfigure(
+            style,
+            include_paths,
+            library_paths,
+            experimental,
+            Some(enable_rust_formatting),
+            &mut diag,
+        )
         .await;
 
     {
@@ -3389,5 +3422,24 @@ export { Global }
                 }
             ])
         );
+    }
+
+    #[test]
+    fn parse_configuration_rust_formatting() {
+        // default -> true
+        let cfg = super::parse_configuration(vec![serde_json::json!({})]);
+        assert_eq!(cfg.enable_rust_formatting, true);
+        // explicit false
+        let cfg =
+            super::parse_configuration(vec![serde_json::json!({"rust":{"formatting": false}})]);
+        assert_eq!(cfg.enable_rust_formatting, false);
+        // explicit true
+        let cfg =
+            super::parse_configuration(vec![serde_json::json!({"rust":{"formatting": true}})]);
+        assert_eq!(cfg.enable_rust_formatting, true);
+        // invalid type falls back to true
+        let cfg =
+            super::parse_configuration(vec![serde_json::json!({"rust":{"formatting": "true"}})]);
+        assert_eq!(cfg.enable_rust_formatting, true);
     }
 }
