@@ -64,10 +64,15 @@ export function languageClientOptions(
     schemes: string[],
     telemetryLogger: vscode.TelemetryLogger,
 ): LanguageClientOptions {
+    const enableRust = vscode.workspace
+        .getConfiguration("slint")
+        .get<boolean>("rust.formatting", true);
     var document_selector = [];
     for (var scheme of schemes) {
         document_selector.push({ scheme: scheme, language: "slint" });
-        document_selector.push({ scheme: scheme, language: "rust" });
+        if (enableRust) {
+            document_selector.push({ scheme: scheme, language: "rust" });
+        }
     }
 
     return {
@@ -162,14 +167,33 @@ export function activate(
         wasm_preview.initClientForPreview(context, cl);
     });
 
+    let pendingRestart = false;
     vscode.workspace.onDidChangeConfiguration(async (ev) => {
-        if (ev.affectsConfiguration("slint")) {
-            await client.client?.sendNotification(
-                "workspace/didChangeConfiguration",
-                { settings: "" },
-            );
-            wasm_preview.update_configuration();
+        if (!ev.affectsConfiguration("slint")) {
+            return;
         }
+        if (ev.affectsConfiguration("slint.rust.formatting")) {
+            if (pendingRestart) {
+                return;
+            }
+            pendingRestart = true;
+            try {
+                await client.stop();
+                startClient(client, context);
+            } catch (e) {
+                client.client?.outputChannel.appendLine(
+                    `Failed to restart Slint client after rust.formatting change: ${e}`,
+                );
+            } finally {
+                pendingRestart = false;
+            }
+            return;
+        }
+        await client.client?.sendNotification(
+            "workspace/didChangeConfiguration",
+            { settings: "" },
+        );
+        wasm_preview.update_configuration();
     });
 
     // Spawn the server only once a document uses Slint, not for unrelated Rust/C++ files.
@@ -252,15 +276,6 @@ export function activate(
         "slint-preview",
         new wasm_preview.PreviewSerializer(context),
     );
-
-    vscode.workspace.onDidChangeConfiguration(async (ev) => {
-        if (ev.affectsConfiguration("slint")) {
-            await client.client?.sendNotification(
-                "workspace/didChangeConfiguration",
-                { settings: "" },
-            );
-        }
-    });
 
     return statusBar;
 }
