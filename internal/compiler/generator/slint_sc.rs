@@ -85,6 +85,18 @@ pub fn generate(
 ) -> std::io::Result<TokenStream> {
     let mut output = TokenStream::new();
 
+    // Fail to compile against a slint-sc runtime of a different version.
+    let version_check = format_ident!(
+        "VersionCheck_{}_{}_{}",
+        env!("CARGO_PKG_VERSION_MAJOR"),
+        env!("CARGO_PKG_VERSION_MINOR"),
+        env!("CARGO_PKG_VERSION_PATCH"),
+    );
+    output.extend(quote! {
+        const _THE_SAME_VERSION_MUST_BE_USED_FOR_THE_COMPILER_AND_THE_RUNTIME:
+            slint_sc::#version_check = slint_sc::#version_check;
+    });
+
     // The user-declared structs and enums, sorted so a struct's field types are
     // defined before the struct that uses them.
     for ty in doc.used_types.borrow().structs_and_enums.iter() {
