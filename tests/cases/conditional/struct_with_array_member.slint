@@ -1,0 +1,81 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+struct Data2 {
+    text: string,
+}
+
+struct Data {
+    datas: [Data2],
+}
+
+export component TestCase inherits Window {
+    in-out property <bool> test: true;
+
+    out property<Data> data: test ? {} : {
+                datas: [
+                    {text: "text 1"},
+                    {text: "text 2"}
+                ],
+            };
+}
+
+/*
+```rust
+use slint::Model;
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.get_test(), true);
+assert_eq!(instance.get_data().datas.row_count(), 0);
+
+instance.set_test(false);
+assert_eq!(instance.get_test(), false);
+assert_eq!(instance.get_data().datas.row_count(), 2);
+
+assert_eq!(instance.get_data().datas.row_data(0).unwrap(), Data2 {
+    text: "text 1".into()
+});
+assert_eq!(instance.get_data().datas.row_data(1).unwrap(), Data2 {
+    text: "text 2".into()
+});
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert_eq(instance.get_test(), true);
+assert_eq(instance.get_data().datas->row_count(), 0);
+
+instance.set_test(false);
+assert_eq(instance.get_test(), false);
+assert_eq(instance.get_data().datas->row_count(), 2);
+
+assert_eq(instance.get_data().datas->row_data(0).value().text, "text 1");
+assert_eq(instance.get_data().datas->row_data(1).value().text, "text 2");
+```
+
+```js
+let instance = new slint.TestCase({});
+assert(instance.test);
+assert.equal(instance.data.datas.rowCount(), 0);
+
+instance.test = false;
+assert(!instance.test);
+assert.equal(instance.data.datas.rowCount(), 2);
+
+assert.equal(instance.data.datas.rowData(0).text, "text 1");
+assert.equal(instance.data.datas.rowData(1).text, "text 2");
+```
+
+```python
+instance = TestCase()
+assert instance.test
+assert len(list(instance.data.datas)) == 0
+
+instance.test = False
+assert not instance.test
+datas = list(instance.data.datas)
+assert len(datas) == 2
+assert datas[0].text == "text 1"
+assert datas[1].text == "text 2"
+```
+*/

@@ -3,7 +3,7 @@
 
 use crate::diagnostics::{BuildDiagnostics, SourceLocation, Spanned};
 use crate::langtype::{
-    BuiltinElement, BuiltinStruct, EnumerationValue, Function, Keys, Struct, Type,
+    BuiltinElement, BuiltinStruct, EnumerationValue, Function, Keys, Struct, StructName, Type,
 };
 use crate::layout::Orientation;
 use crate::lookup::LookupCtx;
@@ -1731,31 +1731,43 @@ impl Expression {
                 },
                 _ => unreachable!(),
             }
-        } else if let (Type::Struct(struct_type), Expression::Struct { values, .. }) =
+        } else if let (Type::Struct(target_struct_type), Expression::Struct { values, .. }) =
             (&target_type, &self)
         {
             // Also special case struct literal in case they contain array literal
-            let mut fields = struct_type.fields.clone();
+            let mut target_fields = target_struct_type.fields.clone();
             let mut new_values = BTreeMap::new();
             for (f, v) in values {
-                if let Some(t) = fields.remove(f) {
+                if let Some(t) = target_fields.remove(f) {
                     new_values.insert(
                         f.clone(),
                         v.clone().maybe_convert_to(t, node, diag, symbol_counters),
                     );
                 } else {
-                    diag.push_error(format!("Cannot convert {ty} to {target_type}"), node);
+                    let mut available_fields_message = String::new();
+                    if !matches!(target_struct_type.name, StructName::None) {
+                        let available_fields = target_struct_type
+                            .fields
+                            .keys()
+                            .map(|k| format!("\"{k}\""))
+                            .collect::<Vec<_>>()
+                            .join(", ");
+                        available_fields_message =
+                            format!(". Available fields: {available_fields}");
+                    }
+                    diag.push_error(
+                        format!("Cannot convert {ty} to {target_type}: Field \"{f}\" not found{available_fields_message}"),
+                        node,
+                    );
                     return self;
                 }
             }
-            for f in fields.into_keys() {
-                let default_value = struct_type.default_value_for_field(&f);
+            for f in target_fields.into_keys() {
+                let default_value = target_struct_type.default_value_for_field(&f);
                 new_values.insert(f, default_value);
             }
-            Expression::Struct { ty: struct_type.clone(), values: new_values }
-        } else if matches!(ty, Type::Array(_))
-            && let Expression::Condition { condition, true_expr, false_expr } = self
-        {
+            Expression::Struct { ty: target_struct_type.clone(), values: new_values }
+        } else if let Expression::Condition { condition, true_expr, false_expr } = self {
             // Recursive try to convert the conditional expressions to the target_type
             // true_expr and false_expr are equal this is handled with the condition at the beginning
             // of this function so if one fails to convert, we should not try to convert the false case
