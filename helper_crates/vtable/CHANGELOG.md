@@ -2,15 +2,16 @@
 # Changelog
 All notable changes to this crate will be documented in this file.
 
-## [0.5.0]
+## [0.5.0] - 2026-08-18
 
  - Replaced the `static_vtable` function with `STATIC_VTABLE` associated
    const.
  - Added `ErasedWeakFn`, a weak reference to a mapped object bundled with a
    function taking that object and an `&Arg`, neither generic over the mapped
    type, created with `VRcMapped::downgrade_erased_fn`.
+ - Updated `syn` to version 3.
 
-## [0.4.0]
+## [0.4.0] - 2026-04-16
 
  - Bumped the `const-field-offset` dependency to 0.2 (breaking change in the
    `FIELD_OFFSETS` API).

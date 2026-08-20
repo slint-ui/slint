@@ -1,0 +1,72 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Software-3.0
+
+// An Image element draws its source image pixel for pixel at its position.
+// The element is always the size of its source image: width and height read
+// as the image's dimensions and can't be set.
+
+export component TestCase inherits Window {
+    background: #123456;
+    in property <image> pic;
+    // The dimensions of an image value are read as .width and .height.
+    //#sls.expr.image.dimensions
+    //#sls.type.image.width
+    //#sls.type.image.height
+    //#sls.ref.image.source.dimensions
+    out property <int> pic-width: pic.width;
+    out property <int> pic-height: pic.height;
+    //#sls.meta.image.purpose
+    //#sls.ref.image.source
+    img := Image {
+        x: 3px;
+        y: 2px;
+        source: @image-url("../expr/image_2x2.png");
+    }
+    // The element is the size of its source image.
+    //#sls.ref.image.size
+    out property <length> img-width: img.width;
+    out property <length> img-height: img.height;
+    // Without x and y the element centers in the window, like any element
+    //#sls.geom.default-position
+    Image {
+        source: @image-url("../expr/image_2x2.png");
+    }
+    // A settable source draws whatever image is set, and nothing until then
+    //#sls.type.image.sources
+    Image {
+        x: 10px;
+        y: 10px;
+        source: pic;
+    }
+}
+
+/*
+```rust
+let mut x = TestCase::new(crate::harness::WINDOW_SIZE);
+
+// An unset image property holds no image, which has no size
+assert_eq!(x.get_pic_width(), 0);
+assert_eq!(x.get_pic_height(), 0);
+
+// The element reads as the size of its source image
+assert_eq!(x.get_img_width(), 2);
+assert_eq!(x.get_img_height(), 2);
+
+// The literal images are drawn at (3, 2) and centered at (31, 31); the image
+// bound to the unset property draws nothing
+//#sls.ref.image.draw
+//#sls.paint.image
+//#sls.paint.image.blend
+//#sls.paint.image.none
+screenshot!(x, literal);
+
+// A set image is drawn, and the dimensions follow it: an opaque yellow
+// pixel over an opaque cyan one
+x.set_pic(slint_sc::Image::StaticArgb {
+    argb: &[0xff, 0xff, 0xff, 0x00, 0xff, 0x00, 0xff, 0xff],
+    width: 1,
+});
+assert_eq!((x.get_pic_width(), x.get_pic_height()), (1, 2));
+screenshot!(x, with_pic);
+```
+*/

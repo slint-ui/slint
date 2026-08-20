@@ -418,6 +418,16 @@ impl BuildDiagnostics {
         self.inner.push(error);
     }
 
+    /// Whether the compilation targets the Slint SC subset. Callable without
+    /// the `slint-sc` feature, unlike reading the field, so call sites need
+    /// no `cfg` of their own.
+    pub fn is_slint_sc(&self) -> bool {
+        #[cfg(feature = "slint-sc")]
+        return self.slint_sc;
+        #[cfg(not(feature = "slint-sc"))]
+        false
+    }
+
     /// If in safety-critical mode, push an error saying that `feature` is not
     /// supported.
     ///

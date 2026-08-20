@@ -4,9 +4,8 @@
 use std::sync::OnceLock;
 use std::time::Instant;
 
-use slint::platform::software_renderer::TargetPixel;
-use slint_safeui_core::pixels::PlatformPixel;
-use slint_safeui_core::{HEIGHT_PIXELS, SCALE_FACTOR, WIDTH_PIXELS};
+use slint_safeui_ffi::pixels::PlatformPixel;
+use slint_safeui_ffi::{HEIGHT_PIXELS, SCALE_FACTOR, WIDTH_PIXELS};
 
 pub const SCALED_WIDTH: u32 = (WIDTH_PIXELS as f32 * SCALE_FACTOR).round() as u32;
 pub const SCALED_HEIGHT: u32 = (HEIGHT_PIXELS as f32 * SCALE_FACTOR).round() as u32;
@@ -52,7 +51,7 @@ fn convert_to_rgb8(pixels: &[PlatformPixel]) -> Vec<slint::Rgb8Pixel> {
 
             #[cfg(feature = "pixel-rgb888")]
             {
-                pixel
+                slint::Rgb8Pixel { r: pixel.r, g: pixel.g, b: pixel.b }
             }
         })
         .collect()
@@ -84,8 +83,11 @@ extern "C" fn slint_safeui_platform_render(
         pixel_stride: u32,
     ),
 ) {
-    let mut pixels =
-        vec![PlatformPixel::background(); PIXEL_STRIDE as usize * SCALED_HEIGHT as usize];
+    // The Rust core overwrites every pixel; start from zeroed memory.
+    let mut pixels = vec![
+        <PlatformPixel as bytemuck::Zeroable>::zeroed();
+        PIXEL_STRIDE as usize * SCALED_HEIGHT as usize
+    ];
     let pixel_bytes: &mut [u8] = bytemuck::cast_slice_mut(&mut pixels);
     render_fn(
         user_data,

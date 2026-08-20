@@ -25,15 +25,31 @@ The Linux based underlay starts the gallery demo, rendering with OpenGL on a Mal
 
 https://github.com/user-attachments/assets/077790db-b325-49d2-9d10-1e1be7c5a660
 
-The overlay is rendered on the Cortex-M7 running FreeRTOS and NXP's SafeAssure framework, to handle driving the Display Processing Unit (DPU) for blending, and to run Slint's event loop.
-The Slint scene rendered can be found in [./ui/app-window.slint](./ui/app-window.slint).
-The application entry point is [./core/src/lib.rs](./core/src/lib.rs);
+The overlay is rendered on the Cortex-M7 running FreeRTOS and NXP's SafeAssure framework, to handle driving the Display Processing Unit (DPU) for blending, and to run the UI event loop.
+
+## Project Layout
+
+The safety scene uses [Slint SC](../../api/slint-sc/),
+the safety-critical subset of Slint: `Window` and `Rectangle` only, and no `Timer` or model.
+The UI and its logic are independent of the platform they run on:
+
+- [`app/`](./app) — the scene ([`main.slint`](./app/main.slint)) and the event loop `app_main`.
+  A backend implements the `Platform` trait (a clock, the display size, touch events, and an RGB8 framebuffer),
+  and drives the UI by calling `app_main`.
+  The once-per-second color cycle of the three telltales, which full Slint would express with a `Timer`,
+  is written in Rust here.
+- [`desktop/`](./desktop) — a desktop backend that shows the rendered frames in a Slint window and forwards its input,
+  for running the example on a development machine.
+- [`ffi/`](./ffi) — a backend over the C system interface, exposing `slint_app_main()` so C firmware can drive the UI.
+  This is the safety-domain target.
+- [`ffi-simulator/`](./ffi-simulator) — implements the C system interface in Rust
+  and drives `ffi`'s `slint_app_main()`, so the C path can be exercised on a development machine.
 
 ## Supported Pixel Formats
 
-The SafeUI core supports the following pixel formats via Cargo features:
+The firmware backend ([`ffi/`](./ffi)) supports the following pixel formats via Cargo features:
 
-- `pixel-bgra8888` (default) - 32-bit BGRA, 8 bits per channel + alpha
+- `pixel-bgra8888` - 32-bit BGRA, 8 bits per channel + alpha
 - `pixel-rgb565` - 16-bit RGB, 5-6-5 bit distribution (memory efficient)
 - `pixel-rgb888` - 24-bit RGB, 8 bits per channel
 
@@ -43,7 +59,22 @@ The callback queue uses the [`critical-section`](https://crates.io/crates/critic
 
 - `cs-cortex-m` (default) — Uses `cortex-m`'s single-core critical section (interrupt disable/enable via `PRIMASK`). Suitable for single-core Cortex-M MCUs.
 
-The simulator (`std` feature) uses the `critical-section` crate's built-in `std` implementation automatically and does not require any of the above features.
+On a host, the simulator pulls in the `critical-section` crate's built-in `std` implementation,
+so it needs none of the above.
+The desktop backend does not use the C queue at all.
+
+## Building the Slint SC Compiler
+
+The scene is compiled by the `slint-compiler` binary built with the `slint-sc` feature.
+Build it once into the shared target directory before building the app:
+
+```
+cargo build -p slint-compiler --no-default-features --features slint-sc
+```
+
+The app's `build.rs` finds it there automatically;
+a cross build uses a separate target directory,
+so pass the host binary through the `SLINT_COMPILER` environment variable.
 
 ## Build System Integration
 
@@ -77,25 +108,36 @@ target_link_libraries(my_firmware PRIVATE SlintSafeUi)
 
 ## C System Interface
 
-The basic C system interface is documented in [./core/src/slint-safeui-platform-interface.h](./core/src/slint-safeui-platform-interface.h). This header file is also part of the `INTERFACE`
+The basic C system interface is documented in [./ffi/src/slint-safeui-platform-interface.h](./ffi/src/slint-safeui-platform-interface.h). This header file is also part of the `INTERFACE`
 of the `SlintSafeUi` CMake target. Implement these functions in your firmware.
 
 To run code on the Slint event loop thread from C firmware (including ISR context), use `slint_safeui_invoke_from_event_loop()`. This is ISR-safe: no heap allocation, no blocking, no FPU usage. It queues a function pointer and user data into a static queue under a critical section, then wakes the Slint event loop to execute the callback.
 
-Input events (touch, keyboard, resize) are dispatched from C into the Rust/Slint event loop via the types and function declared in [./core/src/slint-safeui-event.h](./core/src/slint-safeui-event.h).
+Input events (touch, keyboard, resize) are dispatched from C into the Rust/Slint event loop via the types and function declared in [./ffi/src/slint-safeui-event.h](./ffi/src/slint-safeui-event.h).
 All coordinates are in physical pixels; the Rust conversion layer handles the physical-to-logical mapping using the configured scale factor.
 
 Once you've started your UI task, invoke `slint_app_main()` to start the Slint event loop and the UI safety layer.
 
-## Simulation
+## Running on the Desktop
 
-For convenience, this example provides a "simulator" binary target in [./simulator/src/main.rs](./simulator/src/main.rs), so that you can just run this on a desktop system passing the desired pixel format as cargo feature, e.g with
+For convenience, the [`desktop/`](./desktop) backend runs the example on a development machine.
+A Slint window displays the rendered frames and forwards its touch input,
+while the safety UI runs on a worker thread:
 
 ```
-cargo run --manifest-path examples/safe-ui/simulator/Cargo.toml --features pixel-bgra8888
+cargo run --manifest-path examples/safe-ui/desktop/Cargo.toml
 ```
 
-The "simulator" implements the same C system interface and runs the Slint UI safety layer example in a secondary thread.
+It implements the same `Platform` trait the firmware backend does,
+so it exercises the identical UI and event loop without going through the C interface.
+
+To exercise the C interface itself, run the [`ffi-simulator/`](./ffi-simulator) instead.
+It implements the C system functions in Rust and drives `ffi`'s `slint_app_main()`,
+selecting the pixel format with a Cargo feature:
+
+```
+cargo run --manifest-path examples/safe-ui/ffi-simulator/Cargo.toml --features pixel-bgra8888
+```
 
 ## Known Limitations
 

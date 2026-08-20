@@ -1,0 +1,17 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: MIT
+
+[package]
+name = "slint-safeui-app"
+version = "1.18.0"
+edition = "2024"
+publish = false
+build = "build.rs"
+license = "MIT"
+
+[lib]
+name = "slint_safeui_app"
+path = "src/lib.rs"
+
+[dependencies]
+slint-sc = { path = "../../../api/slint-sc" }

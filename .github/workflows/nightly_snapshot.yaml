@@ -916,7 +916,7 @@ jobs:
                   cd $IDF_PYTHON_ENV_PATH
                   bin/pip install pydantic==2.11.10
             - uses: actions/checkout@v7
-            - run: timeout 300 apt-get update && timeout 300 apt-get install -y libfontconfig1-dev
+            - run: timeout 600 apt-get update && timeout 600 apt-get install -y libfontconfig1-dev
             - name: Build Printer demo against the nightly package
               shell: bash
               working-directory: demos/printerdemo_mcu/esp-idf

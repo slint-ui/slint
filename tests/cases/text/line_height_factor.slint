@@ -1,0 +1,97 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import "../../../demos/printerdemo/ui/fonts/Inter-24pt-Regular.ttf";
+
+export component TestCase inherits Window {
+    width: 500phx;
+    height: 500phx;
+    default-font-size: 10px;
+    default-font-family: "FixedTestFont";
+
+    VerticalLayout {
+        alignment: start;
+
+        default-text := Text {
+            text: "One\nTwo";
+        }
+
+        text := Text {
+            text: "One\nTwo";
+            line-height-factor: 2;
+        }
+
+        text-input := TextInput {
+            text: "One\nTwo";
+            single-line: false;
+            line-height-factor: 2;
+        }
+
+        zero-text := Text {
+            text: "One\nTwo";
+            line-height-factor: 0;
+        }
+
+        negative-text := Text {
+            text: "One\nTwo";
+            line-height-factor: -1;
+        }
+
+        parley-default-text := Text {
+            text: "One\nTwo";
+            font-family: "Inter 24pt";
+        }
+
+        parley-text := Text {
+            text: "One\nTwo";
+            font-family: "Inter 24pt";
+            line-height-factor: 2;
+        }
+
+    }
+
+    hit-test-input := TextInput {
+        x: 300phx;
+        y: 300phx;
+        width: 100phx;
+        height: 60phx;
+        text: "AA\nBB\nCC";
+        single-line: false;
+        line-height-factor: 2;
+    }
+
+    out property <int> hit-test-offset: hit-test-input.cursor-position-byte-offset;
+    // The factor scales the font's natural line height. FixedTestFont's natural line
+    // height equals the font size (10px), so two lines at factor 2 are 40phx tall; the
+    // Inter cases compare against an unset-factor element of the same font instead,
+    // since a real font's natural line height differs from the font size.
+    out property <bool> test: default-text.height == 20phx
+        && text.height == 40phx
+        && text-input.height == 40phx
+        && zero-text.height == 0phx
+        && negative-text.height == 20phx
+        // Text-block heights are rounded up to whole physical pixels, so doubling the
+        // reference height can differ from the factor-2 height by up to 2 pixels.
+        && Math.abs((parley-text.height - 2 * parley-default-text.height) / 1phx) < 2;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+
+slint_testing::send_mouse_click(&instance, 305., 325.);
+assert_eq!(instance.get_hit_test_offset(), 3);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+```
+
+```js
+let instance = new slint.TestCase({});
+assert(instance.test);
+```
+*/

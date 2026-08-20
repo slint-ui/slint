@@ -1,0 +1,24 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Images are decoded into pixels when the code is generated, which the
+// rejections here can't be. They surface only from an otherwise error-free
+// file: image embedding is part of the compilation passes, which only run
+// when loading reported no error, and only for properties that survive
+// pruning, hence `in`.
+
+export component Test inherits Window {
+    // A raster image on disk is accepted
+    in property <image> ok: @image-url("image_2x2.png");
+    // The dimensions of an image are read as `.width` and `.height`
+    //#sls.expr.image.dimensions
+    out property <int> ok-width: ok.width;
+    out property <int> ok-height: ok.height;
+    // An SVG image can't be decoded into static pixels
+    //#sls.expr.image.raster-only
+    in property <image> svg: @image-url("image.svg");
+//                           >                     <error{SVG images are not supported in Slint SC}
+    Image {
+        source: ok;
+    }
+}

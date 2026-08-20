@@ -222,10 +222,83 @@ where
 {
     let letter_spacing =
         font_request.letter_spacing.map(|spacing| (spacing.cast() * scale_factor).cast());
+    let line_height = font_request.line_height_for_natural_height(font.height().get() as f32).map(
+        |line_height| PhysicalLength::new(num_traits::Float::round(line_height).max(0.) as i16),
+    );
 
-    TextLayout { font, letter_spacing }
+    TextLayout { font, letter_spacing, line_height }
 }
 
 pub fn register_bitmap_font(font_data: &'static BitmapFont) {
     BITMAP_FONTS.with(|fonts| fonts.borrow_mut().push(font_data))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use i_slint_core::lengths::LogicalLength;
+    use i_slint_core::textlayout::{FontMetrics, Glyph, TextShaper};
+
+    struct TestFont;
+
+    impl FontMetrics<PhysicalLength> for TestFont {
+        fn ascent(&self) -> PhysicalLength {
+            PhysicalLength::new(18)
+        }
+
+        fn descent(&self) -> PhysicalLength {
+            PhysicalLength::new(-6)
+        }
+
+        fn x_height(&self) -> PhysicalLength {
+            PhysicalLength::new(10)
+        }
+
+        fn cap_height(&self) -> PhysicalLength {
+            PhysicalLength::new(14)
+        }
+    }
+
+    impl TextShaper for TestFont {
+        type LengthPrimitive = i16;
+        type Length = PhysicalLength;
+
+        fn shape_text<GlyphStorage: core::iter::Extend<Glyph<Self::Length>>>(
+            &self,
+            _text: &str,
+            _glyphs: &mut GlyphStorage,
+        ) {
+        }
+
+        fn glyph_for_char(&self, _ch: char) -> Option<Glyph<Self::Length>> {
+            None
+        }
+    }
+
+    #[test]
+    fn line_height_factor_scales_natural_height() {
+        let font_request = FontRequest {
+            pixel_size: Some(LogicalLength::new(20.)),
+            line_height_factor: Some(1.5),
+            ..Default::default()
+        };
+
+        let layout = text_layout_for_font(&TestFont, &font_request, ScaleFactor::new(1.));
+
+        assert_eq!(TestFont.height(), PhysicalLength::new(24));
+        assert_eq!(layout.line_height, Some(PhysicalLength::new(36)));
+    }
+
+    #[test]
+    fn line_height_factor_zero_collapses_lines() {
+        let font_request = FontRequest {
+            pixel_size: Some(LogicalLength::new(20.)),
+            line_height_factor: Some(0.),
+            ..Default::default()
+        };
+
+        let layout = text_layout_for_font(&TestFont, &font_request, ScaleFactor::new(1.));
+
+        assert_eq!(layout.line_height, Some(PhysicalLength::new(0)));
+    }
 }
