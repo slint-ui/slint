@@ -32,6 +32,7 @@ env:
 
 jobs:
     determine_version:
+        if: github.repository == 'slint-ui/slint'
         runs-on: ubuntu-latest
         outputs:
             PKG_VERSION: ${{ steps.mkversion.outputs.PKG_VERSION }}

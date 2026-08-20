@@ -558,11 +558,12 @@ pub fn char_size(
         skrifa::instance::Size::new(pixel_size.get()),
         &location,
     );
+    let natural_line_height = font_metrics.ascent - font_metrics.descent;
+    let line_height = font_request
+        .line_height_for_natural_height(natural_line_height)
+        .unwrap_or(natural_line_height);
 
-    Some(LogicalSize::from_lengths(
-        advance_width,
-        LogicalLength::new(font_metrics.ascent - font_metrics.descent),
-    ))
+    Some(LogicalSize::from_lengths(advance_width, LogicalLength::new(line_height)))
 }
 
 pub fn font_metrics(

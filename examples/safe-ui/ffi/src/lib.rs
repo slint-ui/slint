@@ -38,8 +38,6 @@ pub mod ffi_event;
 pub mod pixels;
 pub mod platform;
 
-slint::include_modules!();
-
 pub const WIDTH_PIXELS: u32 = match option_env!("SAFE_UI_WIDTH") {
     Some(s) => parse_u32(s),
     None => 320,
@@ -55,15 +53,11 @@ pub const SCALE_FACTOR: f32 = match option_env!("SAFE_UI_SCALE_FACTOR") {
     None => 2.0,
 };
 
+/// The C entry point: run the UI event loop, driven through the C system
+/// interface. Blocks until a `Quit` event arrives.
 #[unsafe(no_mangle)]
 pub extern "C" fn slint_app_main() {
-    platform::slint_init_safeui_platform(WIDTH_PIXELS, HEIGHT_PIXELS, SCALE_FACTOR);
-
-    let app = MainWindow::new().unwrap();
-
-    app.show().unwrap();
-
-    app.run().unwrap();
+    slint_safeui_app::block_on(slint_safeui_app::app_main(platform::FfiPlatform::new()));
 }
 
 const fn parse_u32(s: &str) -> u32 {

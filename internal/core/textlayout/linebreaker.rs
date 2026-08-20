@@ -200,7 +200,10 @@ use super::{FixedTestFont, TextLayout};
 fn test_empty_line_break() {
     let font = FixedTestFont;
     let text = "";
-    let shape_buffer = ShapeBuffer::new(&TextLayout { font: &font, letter_spacing: None }, text);
+    let shape_buffer = ShapeBuffer::new(
+        &TextLayout { font: &font, letter_spacing: None, line_height: None },
+        text,
+    );
     let lines = TextLineBreaker::<FixedTestFont>::new(
         text,
         &shape_buffer,
@@ -218,7 +221,10 @@ fn test_basic_line_break_char_wrap() {
     // The available width is half-way into the next word
     let font = FixedTestFont;
     let text = "Hello World";
-    let shape_buffer = ShapeBuffer::new(&TextLayout { font: &font, letter_spacing: None }, text);
+    let shape_buffer = ShapeBuffer::new(
+        &TextLayout { font: &font, letter_spacing: None, line_height: None },
+        text,
+    );
     let lines = TextLineBreaker::<FixedTestFont>::new(
         text,
         &shape_buffer,
@@ -236,7 +242,10 @@ fn test_basic_line_break_char_wrap() {
 fn test_basic_line_break() {
     let font = FixedTestFont;
     let text = "Hello World";
-    let shape_buffer = ShapeBuffer::new(&TextLayout { font: &font, letter_spacing: None }, text);
+    let shape_buffer = ShapeBuffer::new(
+        &TextLayout { font: &font, letter_spacing: None, line_height: None },
+        text,
+    );
     let lines = TextLineBreaker::<FixedTestFont>::new(
         text,
         &shape_buffer,
@@ -254,7 +263,10 @@ fn test_basic_line_break() {
 fn test_basic_line_break_max_lines() {
     let font = FixedTestFont;
     let text = "Hello World";
-    let shape_buffer = ShapeBuffer::new(&TextLayout { font: &font, letter_spacing: None }, text);
+    let shape_buffer = ShapeBuffer::new(
+        &TextLayout { font: &font, letter_spacing: None, line_height: None },
+        text,
+    );
     let lines = TextLineBreaker::<FixedTestFont>::new(
         text,
         &shape_buffer,
@@ -271,7 +283,10 @@ fn test_basic_line_break_max_lines() {
 fn test_linebreak_trailing_space() {
     let font = FixedTestFont;
     let text = "Hello              ";
-    let shape_buffer = ShapeBuffer::new(&TextLayout { font: &font, letter_spacing: None }, text);
+    let shape_buffer = ShapeBuffer::new(
+        &TextLayout { font: &font, letter_spacing: None, line_height: None },
+        text,
+    );
     let lines = TextLineBreaker::<FixedTestFont>::new(
         text,
         &shape_buffer,
@@ -288,7 +303,10 @@ fn test_linebreak_trailing_space() {
 fn test_forced_break() {
     let font = FixedTestFont;
     let text = "Hello\nWorld";
-    let shape_buffer = ShapeBuffer::new(&TextLayout { font: &font, letter_spacing: None }, text);
+    let shape_buffer = ShapeBuffer::new(
+        &TextLayout { font: &font, letter_spacing: None, line_height: None },
+        text,
+    );
     let lines =
         TextLineBreaker::<FixedTestFont>::new(text, &shape_buffer, None, None, TextWrap::WordWrap)
             .collect::<std::vec::Vec<_>>();
@@ -301,7 +319,10 @@ fn test_forced_break() {
 fn test_forced_break_multi() {
     let font = FixedTestFont;
     let text = "Hello\n\n\nWorld";
-    let shape_buffer = ShapeBuffer::new(&TextLayout { font: &font, letter_spacing: None }, text);
+    let shape_buffer = ShapeBuffer::new(
+        &TextLayout { font: &font, letter_spacing: None, line_height: None },
+        text,
+    );
     let lines =
         TextLineBreaker::<FixedTestFont>::new(text, &shape_buffer, None, None, TextWrap::WordWrap)
             .collect::<std::vec::Vec<_>>();
@@ -316,7 +337,10 @@ fn test_forced_break_multi() {
 fn test_forced_break_multi_char_wrap() {
     let font = FixedTestFont;
     let text = "Hello\n\n\nWorld";
-    let shape_buffer = ShapeBuffer::new(&TextLayout { font: &font, letter_spacing: None }, text);
+    let shape_buffer = ShapeBuffer::new(
+        &TextLayout { font: &font, letter_spacing: None, line_height: None },
+        text,
+    );
     let lines = TextLineBreaker::<FixedTestFont>::new(
         text,
         &shape_buffer,
@@ -338,7 +362,10 @@ fn test_forced_break_multi_char_wrap() {
 fn test_forced_break_max_lines() {
     let font = FixedTestFont;
     let text = "Hello\n\n\nWorld";
-    let shape_buffer = ShapeBuffer::new(&TextLayout { font: &font, letter_spacing: None }, text);
+    let shape_buffer = ShapeBuffer::new(
+        &TextLayout { font: &font, letter_spacing: None, line_height: None },
+        text,
+    );
     let lines = TextLineBreaker::<FixedTestFont>::new(
         text,
         &shape_buffer,
@@ -356,7 +383,10 @@ fn test_forced_break_max_lines() {
 fn test_nbsp_break() {
     let font = FixedTestFont;
     let text = "Ok Hello\u{00a0}World";
-    let shape_buffer = ShapeBuffer::new(&TextLayout { font: &font, letter_spacing: None }, text);
+    let shape_buffer = ShapeBuffer::new(
+        &TextLayout { font: &font, letter_spacing: None, line_height: None },
+        text,
+    );
     let lines = TextLineBreaker::<FixedTestFont>::new(
         text,
         &shape_buffer,
@@ -374,7 +404,10 @@ fn test_nbsp_break() {
 fn test_single_line_multi_break_opportunity() {
     let font = FixedTestFont;
     let text = "a b c";
-    let shape_buffer = ShapeBuffer::new(&TextLayout { font: &font, letter_spacing: None }, text);
+    let shape_buffer = ShapeBuffer::new(
+        &TextLayout { font: &font, letter_spacing: None, line_height: None },
+        text,
+    );
     let lines =
         TextLineBreaker::<FixedTestFont>::new(text, &shape_buffer, None, None, TextWrap::WordWrap)
             .collect::<std::vec::Vec<_>>();
@@ -386,7 +419,10 @@ fn test_single_line_multi_break_opportunity() {
 fn test_basic_line_break_anywhere_fallback() {
     let font = FixedTestFont;
     let text = "HelloWorld";
-    let shape_buffer = ShapeBuffer::new(&TextLayout { font: &font, letter_spacing: None }, text);
+    let shape_buffer = ShapeBuffer::new(
+        &TextLayout { font: &font, letter_spacing: None, line_height: None },
+        text,
+    );
     let lines = TextLineBreaker::<FixedTestFont>::new(
         text,
         &shape_buffer,
@@ -404,7 +440,10 @@ fn test_basic_line_break_anywhere_fallback() {
 fn test_basic_line_break_anywhere_fallback_multi_line() {
     let font = FixedTestFont;
     let text = "HelloWorld\nHelloWorld";
-    let shape_buffer = ShapeBuffer::new(&TextLayout { font: &font, letter_spacing: None }, text);
+    let shape_buffer = ShapeBuffer::new(
+        &TextLayout { font: &font, letter_spacing: None, line_height: None },
+        text,
+    );
     let lines = TextLineBreaker::<FixedTestFont>::new(
         text,
         &shape_buffer,
@@ -424,7 +463,10 @@ fn test_basic_line_break_anywhere_fallback_multi_line() {
 fn test_basic_line_break_anywhere_fallback_multi_line_char_wrap() {
     let font = FixedTestFont;
     let text = "HelloWorld\nHelloWorld";
-    let shape_buffer = ShapeBuffer::new(&TextLayout { font: &font, letter_spacing: None }, text);
+    let shape_buffer = ShapeBuffer::new(
+        &TextLayout { font: &font, letter_spacing: None, line_height: None },
+        text,
+    );
     let lines = TextLineBreaker::<FixedTestFont>::new(
         text,
         &shape_buffer,
@@ -444,7 +486,10 @@ fn test_basic_line_break_anywhere_fallback_multi_line_char_wrap() {
 fn test_basic_line_break_anywhere_fallback_multi_line_v2() {
     let font = FixedTestFont;
     let text = "HelloW orldHellow";
-    let shape_buffer = ShapeBuffer::new(&TextLayout { font: &font, letter_spacing: None }, text);
+    let shape_buffer = ShapeBuffer::new(
+        &TextLayout { font: &font, letter_spacing: None, line_height: None },
+        text,
+    );
     let lines = TextLineBreaker::<FixedTestFont>::new(
         text,
         &shape_buffer,
@@ -464,7 +509,10 @@ fn test_basic_line_break_anywhere_fallback_multi_line_v2() {
 fn test_basic_line_break_anywhere_fallback_max_lines() {
     let font = FixedTestFont;
     let text = "HelloW orldHellow";
-    let shape_buffer = ShapeBuffer::new(&TextLayout { font: &font, letter_spacing: None }, text);
+    let shape_buffer = ShapeBuffer::new(
+        &TextLayout { font: &font, letter_spacing: None, line_height: None },
+        text,
+    );
     let lines = TextLineBreaker::<FixedTestFont>::new(
         text,
         &shape_buffer,
@@ -484,7 +532,10 @@ fn test_basic_line_break_space() {
     // The available width is half-way into the trailing "W"
     let font = FixedTestFont;
     let text = "H W";
-    let shape_buffer = ShapeBuffer::new(&TextLayout { font: &font, letter_spacing: None }, text);
+    let shape_buffer = ShapeBuffer::new(
+        &TextLayout { font: &font, letter_spacing: None, line_height: None },
+        text,
+    );
     let lines = TextLineBreaker::<FixedTestFont>::new(
         text,
         &shape_buffer,
@@ -503,7 +554,10 @@ fn test_basic_line_break_space_char_wrap() {
     // The available width is half-way into the trailing "W"
     let font = FixedTestFont;
     let text = "H W";
-    let shape_buffer = ShapeBuffer::new(&TextLayout { font: &font, letter_spacing: None }, text);
+    let shape_buffer = ShapeBuffer::new(
+        &TextLayout { font: &font, letter_spacing: None, line_height: None },
+        text,
+    );
     let lines = TextLineBreaker::<FixedTestFont>::new(
         text,
         &shape_buffer,
@@ -522,7 +576,10 @@ fn test_basic_line_break_space_v2() {
     // The available width is half-way into the trailing "W"
     let font = FixedTestFont;
     let text = "B B W";
-    let shape_buffer = ShapeBuffer::new(&TextLayout { font: &font, letter_spacing: None }, text);
+    let shape_buffer = ShapeBuffer::new(
+        &TextLayout { font: &font, letter_spacing: None, line_height: None },
+        text,
+    );
     let lines = TextLineBreaker::<FixedTestFont>::new(
         text,
         &shape_buffer,
@@ -541,7 +598,10 @@ fn test_basic_line_break_space_v3() {
     // The available width is half-way into the trailing "W"
     let font = FixedTestFont;
     let text = "H   W";
-    let shape_buffer = ShapeBuffer::new(&TextLayout { font: &font, letter_spacing: None }, text);
+    let shape_buffer = ShapeBuffer::new(
+        &TextLayout { font: &font, letter_spacing: None, line_height: None },
+        text,
+    );
     let lines = TextLineBreaker::<FixedTestFont>::new(
         text,
         &shape_buffer,
@@ -560,7 +620,10 @@ fn test_basic_line_break_space_v4() {
     // The available width is half-way into the trailing space
     let font = FixedTestFont;
     let text = "H W  H  ";
-    let shape_buffer = ShapeBuffer::new(&TextLayout { font: &font, letter_spacing: None }, text);
+    let shape_buffer = ShapeBuffer::new(
+        &TextLayout { font: &font, letter_spacing: None, line_height: None },
+        text,
+    );
     let lines = TextLineBreaker::<FixedTestFont>::new(
         text,
         &shape_buffer,
@@ -577,7 +640,10 @@ fn test_basic_line_break_space_v4() {
 fn test_line_width_with_whitespace() {
     let font = FixedTestFont;
     let text = "Hello World";
-    let shape_buffer = ShapeBuffer::new(&TextLayout { font: &font, letter_spacing: None }, text);
+    let shape_buffer = ShapeBuffer::new(
+        &TextLayout { font: &font, letter_spacing: None, line_height: None },
+        text,
+    );
     let lines = TextLineBreaker::<FixedTestFont>::new(
         text,
         &shape_buffer,
@@ -594,7 +660,10 @@ fn test_line_width_with_whitespace() {
 fn zero_width() {
     let font = FixedTestFont;
     let text = "He\nHe o";
-    let shape_buffer = ShapeBuffer::new(&TextLayout { font: &font, letter_spacing: None }, text);
+    let shape_buffer = ShapeBuffer::new(
+        &TextLayout { font: &font, letter_spacing: None, line_height: None },
+        text,
+    );
     let lines = TextLineBreaker::<FixedTestFont>::new(
         text,
         &shape_buffer,
@@ -611,7 +680,10 @@ fn zero_width() {
 fn zero_width_char_wrap() {
     let font = FixedTestFont;
     let text = "He\nHe o";
-    let shape_buffer = ShapeBuffer::new(&TextLayout { font: &font, letter_spacing: None }, text);
+    let shape_buffer = ShapeBuffer::new(
+        &TextLayout { font: &font, letter_spacing: None, line_height: None },
+        text,
+    );
     let lines = TextLineBreaker::<FixedTestFont>::new(
         text,
         &shape_buffer,
@@ -628,7 +700,10 @@ fn zero_width_char_wrap() {
 fn char_wrap_sentences() {
     let font = FixedTestFont;
     let text = "Hello world\nHow are you?";
-    let shape_buffer = ShapeBuffer::new(&TextLayout { font: &font, letter_spacing: None }, text);
+    let shape_buffer = ShapeBuffer::new(
+        &TextLayout { font: &font, letter_spacing: None, line_height: None },
+        text,
+    );
     let lines = TextLineBreaker::<FixedTestFont>::new(
         text,
         &shape_buffer,

@@ -70,12 +70,12 @@ slint::slint! {
     }
 }
 
-use slint_safeui_core::ffi_event::FfiEvent;
-use slint_safeui_core::ffi_event::FfiPointerButton;
+use slint_safeui_ffi::ffi_event::FfiEvent;
+use slint_safeui_ffi::ffi_event::FfiPointerButton;
 
 /// Forward an FfiEvent to the embedded Slint instance via the FFI entry point.
 fn dispatch(event: FfiEvent) {
-    slint_safeui_core::event_dispatch::slint_safeui_dispatch_event(&event as *const _);
+    slint_safeui_ffi::event_dispatch::slint_safeui_dispatch_event(&event as *const _);
 }
 
 /// Convert a single-scalar Slint key text to a Unicode code point.
@@ -95,7 +95,7 @@ fn main() {
 
     let _sim_thread = std::thread::spawn(|| {
         desktop_platform::set_sim_thread(std::thread::current());
-        slint_safeui_core::slint_app_main()
+        slint_safeui_ffi::slint_app_main()
     });
 
     let platform = i_slint_backend_selector::create_backend().unwrap();

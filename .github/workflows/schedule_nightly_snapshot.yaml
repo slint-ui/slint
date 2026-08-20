@@ -11,6 +11,7 @@ on:
 
 jobs:
   trigger:
+    if: github.repository == 'slint-ui/slint'
     runs-on: ubuntu-latest
     strategy:
       matrix:

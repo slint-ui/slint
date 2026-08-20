@@ -1,0 +1,27 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// The line height only stretches the line boxes: it feeds the implicit height, but not
+// the preferred width. Deriving it from the width must therefore not be reported as a
+// binding loop, even when the width comes out of the layout.
+export component WidthDependentFactor inherits Window {
+    VerticalLayout {
+        Text {
+            text: "One\nTwo";
+            line-height-factor: self.width / 100px;
+        }
+    }
+}
+
+// Deriving the factor from the height, however, is a loop: the implicit height
+// depends on the line height.
+export component HeightDependentFactor inherits Window {
+    Text {
+//  >   <error{The binding for the property 'preferred-height' is part of a binding loop (line-height-factor -> preferred-height -> height -> line-height-factor)}
+//  >   <^error{The binding for the property 'height' is part of a binding loop (line-height-factor -> preferred-height -> height -> line-height-factor)}
+//  >   <^^error{The binding for the property 'min-height' is part of a binding loop (line-height-factor -> min-height -> height -> line-height-factor)}
+        text: "One";
+        line-height-factor: self.height / 100px;
+//                          >                  <error{The binding for the property 'line-height-factor' is part of a binding loop (line-height-factor -> preferred-height -> height -> line-height-factor)}
+    }
+}

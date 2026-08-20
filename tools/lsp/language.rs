@@ -1715,6 +1715,43 @@ fn get_code_actions(
                 },
             );
         }
+    } else if token.kind() == SyntaxKind::Identifier
+        && node.kind() == SyntaxKind::QualifiedName
+        && node.parent().map(|n| n.kind()) == Some(SyntaxKind::Expression)
+        && node.children_with_tokens().filter(|n| n.kind() == SyntaxKind::Identifier).count() == 1
+    {
+        // Qualify a bare identifier that doesn't resolve but is an enum value or named color
+        // (`red` -> `Colors.red`). Like the import action above, re-derive the lookup error rather
+        // than reading diagnostics, so nothing is offered when the identifier does resolve.
+        use i_slint_compiler::lookup::LookupObject;
+        let suggestions = util::with_lookup_ctx(document_cache, node.clone(), None, |ctx| {
+            let name = i_slint_compiler::parser::normalize_identifier(token.text());
+            if i_slint_compiler::lookup::global_lookup().lookup(ctx, &name).is_none() {
+                i_slint_compiler::lookup::enum_or_color_suggestions(ctx, token.text())
+            } else {
+                Vec::new()
+            }
+        })
+        .unwrap_or_default();
+        if !suggestions.is_empty() {
+            let range = util::text_range_to_lsp_range(
+                &token.source_file,
+                token.text_range(),
+                document_cache.format,
+            );
+            for suggestion in suggestions {
+                result.push(CodeActionOrCommand::CodeAction(lsp_types::CodeAction {
+                    title: format!("Qualify as '{suggestion}'"),
+                    kind: Some(lsp_types::CodeActionKind::QUICKFIX),
+                    edit: common::create_workspace_edit_from_path(
+                        document_cache,
+                        token.source_file.path(),
+                        vec![TextEdit::new(range, suggestion.to_string())],
+                    ),
+                    ..Default::default()
+                }));
+            }
+        }
     }
 
     (!result.is_empty()).then_some(result)
@@ -3104,6 +3141,92 @@ export component TestWindow inherits Window {
             LspToPreviewMessage::SetConfiguration { config } if config == &ctx.preview_config
         )));
         assert!(!messages.iter().any(|m| matches!(m, LspToPreviewMessage::SetUserSettings { .. })));
+    }
+
+    #[test]
+    fn test_qualify_enum_or_color() {
+        // Build the expected "Qualify as ..." quick-fix that replaces `range` with `new_text`.
+        let expect_qualify = |new_text: &str, range: lsp_types::Range, uri: &Url| {
+            CodeActionOrCommand::CodeAction(lsp_types::CodeAction {
+                title: format!("Qualify as '{new_text}'"),
+                kind: Some(lsp_types::CodeActionKind::QUICKFIX),
+                edit: Some(WorkspaceEdit {
+                    document_changes: Some(lsp_types::DocumentChanges::Edits(vec![
+                        lsp_types::TextDocumentEdit {
+                            text_document: lsp_types::OptionalVersionedTextDocumentIdentifier {
+                                version: Some(42),
+                                uri: uri.clone(),
+                            },
+                            edits: vec![lsp_types::OneOf::Left(TextEdit::new(
+                                range,
+                                new_text.into(),
+                            ))],
+                        },
+                    ])),
+                    ..Default::default()
+                }),
+                ..Default::default()
+            })
+        };
+
+        let capabilities = ClientCapabilities::default();
+
+        // A named color used where no color type is expected does not resolve, so the code action
+        // offers to qualify `red` as `Colors.red`.
+        let (mut dc, url, _) = test::loaded_document_cache(
+            r#"export component TestCase {
+    property <string> s: red;
+}
+"#
+            .into(),
+        );
+
+        // Cursor on `red` in `    property <string> s: red;` (line 1, col 25)
+        let pos = Position::new(1, 25);
+        let range = lsp_types::Range::new(Position::new(1, 25), Position::new(1, 28));
+
+        let action = token_descr(&dc, &url, &pos)
+            .and_then(|(token, _)| get_code_actions(&mut dc, token, &capabilities));
+        assert_eq!(action, Some(vec![expect_qualify("Colors.red", range, &url)]));
+
+        // The same `red` bound to a `color` property resolves, so no action is offered.
+        let (mut dc, url, _) = test::loaded_document_cache(
+            r#"export component TestCase {
+    property <color> c: red;
+}
+"#
+            .into(),
+        );
+        // Cursor on `red` in `    property <color> c: red;` (line 1, col 24)
+        let action = token_descr(&dc, &url, &Position::new(1, 24))
+            .and_then(|(token, _)| get_code_actions(&mut dc, token, &capabilities));
+        assert_eq!(action, None);
+
+        // A value shared by several enums: one quick-fix per match (the menu is not capped),
+        // sorted by the qualified name.
+        let (mut dc, url, _) = test::loaded_document_cache(
+            r#"enum EA { shared_value }
+enum EB { shared_value }
+export component TestCase {
+    property <int> foo: shared_value;
+}
+"#
+            .into(),
+        );
+
+        // Cursor on `shared_value` in `    property <int> foo: shared_value;` (line 3, col 24)
+        let pos = Position::new(3, 24);
+        let range = lsp_types::Range::new(Position::new(3, 24), Position::new(3, 36));
+
+        let action = token_descr(&dc, &url, &pos)
+            .and_then(|(token, _)| get_code_actions(&mut dc, token, &capabilities));
+        assert_eq!(
+            action,
+            Some(vec![
+                expect_qualify("EA.shared-value", range, &url),
+                expect_qualify("EB.shared-value", range, &url),
+            ])
+        );
     }
 
     #[test]

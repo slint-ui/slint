@@ -9,8 +9,9 @@ import OnlyInSC from '@slint/common-files/src/components/OnlyInSC.astro';
 import NotInSC from '@slint/common-files/src/components/NotInSC.astro';
 
 <OnlyInSC>
-An expression is a color literal, a length literal, an integer literal, a boolean value,
-an enumeration value, a struct literal, an arithmetic, logical, unary, or conditional expression,
+An expression is a color literal, a length literal, an integer literal, an image literal,
+a boolean value, an enumeration value, a struct literal,
+an arithmetic, logical, unary, or conditional expression,
 a property reference, or a field access. \{#sls.expr.forms}
 </OnlyInSC>
 
@@ -78,6 +79,63 @@ An integer literal evaluates to a value of type `int`. \{#sls.expr.int.type}
 <OnlyInSC>
 A number with a fractional part but no unit is an error. \{#sls.expr.int.fractional}
 </OnlyInSC>
+
+<SC>
+## Image Literals
+
+An image literal consists of `@image-url(`, a string literal in double
+quotes, and `)`. \{#sls.expr.image.form}
+
+```slint
+export component Example inherits Window {
+    in property <image> logo: @image-url("images/logo.png");
+}
+```
+
+The string is the path of an image file: an absolute path, or a path
+resolved relative to the directory of the `.slint` file that contains the
+literal. \{#sls.expr.image.path}
+
+An empty string evaluates to no image. \{#sls.expr.image.empty}
+
+An image literal evaluates to a value of type `image`. \{#sls.expr.image.type}
+</SC>
+
+<NotInSC>
+The path may also name a file on the compiler's include path, and an image
+can also be loaded from a `data:` URI or a URL;
+the [image type](../../property-types/images/) describes these forms and the
+`nine-slice` argument.
+</NotInSC>
+
+<OnlyInSC>
+The file shall exist, and hold a raster image in a format the compiler can
+decode, such as PNG or JPEG.
+An SVG image is an error: it has no pixels to decode until it is
+rendered. \{#sls.expr.image.raster-only}
+
+The string shall be a path: a `data:` URI or a URL is an
+error. \{#sls.expr.image.path-only}
+
+The `nine-slice` argument of full Slint is an
+error. \{#sls.expr.image.no-nine-slice}
+</OnlyInSC>
+
+<SC>
+## Image Dimensions
+
+Reading the field `width` or `height` of an expression of type `image`
+yields the dimensions of the image as an `int`: the number of pixels in each
+row, and the number of rows.
+Both are 0 for no image. \{#sls.expr.image.dimensions}
+
+```slint
+export component Example inherits Window {
+    in property <image> logo;
+    out property <int> logo-width: logo.width;
+}
+```
+</SC>
 
 ## References
 
