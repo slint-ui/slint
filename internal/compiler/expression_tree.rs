@@ -3,7 +3,7 @@
 
 use crate::diagnostics::{BuildDiagnostics, SourceLocation, Spanned};
 use crate::langtype::{
-    BuiltinElement, BuiltinStruct, EnumerationValue, Function, Keys, Struct, StructName, Type,
+    BuiltinElement, BuiltinStruct, EnumerationValue, Function, Keys, Struct, Type,
 };
 use crate::layout::Orientation;
 use crate::lookup::LookupCtx;
@@ -1744,19 +1744,20 @@ impl Expression {
                         v.clone().maybe_convert_to(t, node, diag, symbol_counters),
                     );
                 } else {
-                    let mut available_fields_message = String::new();
-                    if !matches!(target_struct_type.name, StructName::None) {
+                    let available_fields_message = if target_struct_type.name.slint_name().is_some()
+                    {
                         let available_fields = target_struct_type
                             .fields
                             .keys()
-                            .map(|k| format!("\"{k}\""))
+                            .map(SmolStr::as_str)
                             .collect::<Vec<_>>()
-                            .join(", ");
-                        available_fields_message =
-                            format!(". Available fields: {available_fields}");
-                    }
+                            .join("', '");
+                        format!(". Available fields: '{available_fields}'")
+                    } else {
+                        String::new()
+                    };
                     diag.push_error(
-                        format!("Cannot convert {ty} to {target_type}: Field \"{f}\" not found{available_fields_message}"),
+                        format!("Cannot convert {ty} to {target_type}: Field '{f}' not found{available_fields_message}"),
                         node,
                     );
                     return self;
