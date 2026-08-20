@@ -6,6 +6,9 @@ description: The Rust API that the Slint SC compiler generates.
 The Slint SC compiler translates a `.slint` file into Rust code that depends
 only on the [`slint-sc`](/api/slint_sc/) runtime crate. \{#sls.gen.output}
 
+The generated code compiles only with the [`slint-sc`](/api/slint_sc/) runtime
+of the same version as the compiler that generated it. \{#sls.gen.version}
+
 ## The Component Struct
 
 The generated code contains a struct named after the exported component.

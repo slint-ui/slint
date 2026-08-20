@@ -48,7 +48,7 @@ fn main() {
         rx: &rx,
     };
 
-    let results: Vec<(String, Result<(), String>)> = test_files
+    let mut results: Vec<(String, Result<(), String>)> = test_files
         .par_iter()
         .map(|path| {
             let rel = path.strip_prefix(&cases_dir).unwrap_or(path);
@@ -58,6 +58,8 @@ fn main() {
             (name, result)
         })
         .collect();
+
+    results.push(("version-check".into(), run_version_check(&config)));
 
     // Print results
     eprintln!();
@@ -264,6 +266,59 @@ fn run_test(slint_path: &Path, rel: &Path, config: &TestConfig) -> Result<(), St
 
     // Step 6: Compare the screenshots against the references
     compare_screenshots(tmp.path(), rel, config.create_screenshots)
+}
+
+/// Check that the generated code compiles only against the slint-sc runtime of
+/// the compiler's own version.
+///
+/// The compiler stamps the version it was built with into the generated code,
+/// and this test binary is part of the slint-sc crate, so `CARGO_PKG_VERSION`
+/// here is the runtime's version. The generated code carrying that same version
+/// is what makes the two agree; a reference to any other version fails to
+/// compile against the runtime.
+//#sls.gen.version
+fn run_version_check(config: &TestConfig) -> Result<(), String> {
+    let tmp = tempfile::tempdir().map_err(|e| format!("tempdir: {e}"))?;
+    let version = env!("CARGO_PKG_VERSION").replace('.', "_");
+
+    // The generated code is stamped with the runtime's version.
+    let slint = tmp.path().join("version.slint");
+    std::fs::write(&slint, "export component Foo inherits Window {}\n")
+        .map_err(|e| format!("write version.slint: {e}"))?;
+    let generated = tmp.path().join("generated.rs");
+    let output = Command::new(config.compiler)
+        .arg("--slint-sc")
+        .arg(&slint)
+        .arg("-o")
+        .arg(&generated)
+        .output()
+        .map_err(|e| format!("slint-compiler spawn: {e}"))?;
+    if !output.status.success() {
+        return Err(format!("slint-compiler failed:\n{}", String::from_utf8_lossy(&output.stderr)));
+    }
+    let generated =
+        std::fs::read_to_string(&generated).map_err(|e| format!("read generated: {e}"))?;
+    let expected = format!("VersionCheck_{version}");
+    if !generated.contains(&expected) {
+        return Err(format!("generated code is not stamped with `{expected}`:\n{generated}"));
+    }
+
+    // A reference to any other version does not compile against the runtime.
+    let mismatch = tmp.path().join("mismatch.rs");
+    std::fs::write(
+        &mismatch,
+        "fn main() {}\nconst _: slint_sc::VersionCheck_0_0_0 = slint_sc::VersionCheck_0_0_0;\n",
+    )
+    .map_err(|e| format!("write mismatch.rs: {e}"))?;
+    let output = compile(config, &mismatch, &tmp.path().join("mismatch"))?;
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    if output.status.success() || !stderr.contains("VersionCheck_0_0_0") {
+        return Err(format!(
+            "a reference to a different runtime version did not fail to build:\n{stderr}"
+        ));
+    }
+
+    Ok(())
 }
 
 /// Compare the `*.ppm` screenshots that the test binary wrote in `tmp_dir`
