@@ -1033,6 +1033,7 @@ impl DeclNode {
 
 #[derive(Debug, Clone)]
 pub enum StructName {
+    /// Anonymous structs
     None,
     /// When declared in .slint as  `struct Foo { }`, then the name is "Foo"
     User {
