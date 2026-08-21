@@ -3,7 +3,8 @@
 
 use crate::diagnostics::{BuildDiagnostics, SourceLocation, Spanned};
 use crate::langtype::{
-    BuiltinElement, BuiltinStruct, EnumerationValue, Function, Keys, Struct, Type,
+    BuiltinElement, BuiltinStruct, EnumerationValue, Function, Keys, PropertyLookupMode, Struct,
+    Type,
 };
 use crate::layout::Orientation;
 use crate::lookup::LookupCtx;
@@ -1905,7 +1906,10 @@ impl Expression {
         match self {
             Expression::PropertyReference(nr) => {
                 nr.mark_as_set();
-                let mut lookup = nr.element().borrow().lookup_property_by_internal_name(nr.name());
+                let mut lookup = nr
+                    .element()
+                    .borrow()
+                    .lookup_property(nr.name(), PropertyLookupMode::InternalName);
                 lookup.is_local_to_component &= ctx.is_local_element(&nr.element());
                 if lookup.property_visibility == PropertyVisibility::Constexpr {
                     ctx.diag.push_error(

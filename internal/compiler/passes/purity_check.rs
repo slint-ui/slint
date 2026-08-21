@@ -5,6 +5,7 @@ use std::collections::HashSet;
 
 use crate::diagnostics::BuildDiagnostics;
 use crate::expression_tree::{Callable, Expression, NamedReference};
+use crate::langtype::PropertyLookupMode;
 
 /// Check that pure expression only call pure functions
 pub fn purity_check(doc: &crate::object_tree::Document, diag: &mut BuildDiagnostics) {
@@ -19,7 +20,8 @@ pub fn purity_check(doc: &crate::object_tree::Document, diag: &mut BuildDiagnost
                 };
                 crate::object_tree::visit_element_expressions(elem, |expr, name, _| {
                     if let Some(name) = name {
-                        let lookup = elem.borrow().lookup_property_by_internal_name(name);
+                        let lookup =
+                            elem.borrow().lookup_property(name, PropertyLookupMode::InternalName);
                         if lookup.declared_pure.unwrap_or(false)
                             || lookup.property_type.is_property_type()
                         {
@@ -47,7 +49,7 @@ fn ensure_pure(
             if !nr
                 .element()
                 .borrow()
-                .lookup_property_by_internal_name(nr.name())
+                .lookup_property(nr.name(), PropertyLookupMode::InternalName)
                 .declared_pure
                 .unwrap_or(false) =>
         {
@@ -61,7 +63,12 @@ fn ensure_pure(
             r = false;
         }
         Expression::FunctionCall { function: Callable::Function(nr), source_location, .. } => {
-            match nr.element().borrow().lookup_property_by_internal_name(nr.name()).declared_pure {
+            match nr
+                .element()
+                .borrow()
+                .lookup_property(nr.name(), PropertyLookupMode::InternalName)
+                .declared_pure
+            {
                 Some(true) => (),
                 Some(false) => {
                     if let Some(diag) = diag.as_deref_mut() {

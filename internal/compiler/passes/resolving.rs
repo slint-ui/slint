@@ -12,7 +12,9 @@
 use crate::diagnostics::{BuildDiagnostics, Spanned};
 use crate::expression_tree::*;
 use crate::langtype;
-use crate::langtype::{ElementType, KeyboardModifiers, Struct, StructName, Type};
+use crate::langtype::{
+    ElementType, KeyboardModifiers, PropertyLookupMode, Struct, StructName, Type,
+};
 use crate::lookup::{LookupCtx, LookupObject, LookupResult, LookupResultCallable};
 use crate::object_tree::*;
 use crate::parser::{NodeOrToken, SyntaxKind, SyntaxNode, identifier_text, syntax_nodes};
@@ -2668,8 +2670,14 @@ fn continue_lookup_within_element(
     };
     let prop_name = crate::parser::normalize_identifier(second.text());
 
-    let lookup_result = elem.borrow().lookup_property(&prop_name);
-    let local_to_component = lookup_result.is_local_to_component && ctx.is_local_element(elem);
+    let is_local_element = ctx.is_local_element(elem);
+    let mode = if is_local_element {
+        PropertyLookupMode::ComponentLocal
+    } else {
+        PropertyLookupMode::FromOutside
+    };
+    let lookup_result = elem.borrow().lookup_property(&prop_name, mode);
+    let local_to_component = lookup_result.is_local_to_component && is_local_element;
     // A property or function whose type is outside the Slint SC subset
     // doesn't resolve; callbacks do, so a handler can invoke them.
     let sc_resolves = !ctx.diag.is_slint_sc() || lookup_result.property_type.is_slint_sc();
@@ -2786,7 +2794,10 @@ fn continue_lookup_within_element(
             // Attempt to recover if the user wanted to write "-"
             if elem
                 .borrow()
-                .lookup_property(&crate::parser::normalize_identifier(&second.text()[0..minus_pos]))
+                .lookup_property(
+                    &crate::parser::normalize_identifier(&second.text()[0..minus_pos]),
+                    mode,
+                )
                 .property_type
                 != Type::Invalid
             {
@@ -2901,7 +2912,8 @@ fn resolve_two_way_bindings_for_element(
             .or_else(|| elem.borrow().callback_alias_declaration_node(prop_name));
         if let Some(n) = twb_node {
             let node: SyntaxNode = n.clone().into();
-            let lhs_lookup = elem.borrow().lookup_property_by_internal_name(prop_name);
+            let lhs_lookup =
+                elem.borrow().lookup_property(prop_name, PropertyLookupMode::InternalName);
             if !lhs_lookup.is_valid() {
                 // An attempt to resolve this already failed when trying to resolve the property type
                 assert!(diag.has_errors());
@@ -2962,8 +2974,10 @@ fn resolve_two_way_bindings_for_element(
                 }
 
                 // Check the compatibility.
-                let mut rhs_lookup =
-                    nr.element().borrow().lookup_property_by_internal_name(nr.name());
+                let mut rhs_lookup = nr
+                    .element()
+                    .borrow()
+                    .lookup_property(nr.name(), PropertyLookupMode::InternalName);
                 if rhs_lookup.property_type == Type::Invalid {
                     // An attempt to resolve this already failed when trying to resolve the property type
                     assert!(diag.has_errors());
