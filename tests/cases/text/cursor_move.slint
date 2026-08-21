@@ -13,34 +13,23 @@ export component TestCase inherits TextInput {
 
 /*
 ```rust
+use slint::platform::Key;
+use slint::SharedString;
 
-const UP_CODE: char = '\u{F700}';
-const DOWN_CODE: char = '\u{F701}';
-const LEFT_CODE: char = '\u{F702}';
-const RIGHT_CODE: char = '\u{F703}';
-const DEL_CODE: char = '\u{007f}';
-const BACK_CODE: char = '\u{0008}'; // backspace \b
-
-fn send_move_mod_modifier(instance: &TestCase, pressed: bool) {
-    if cfg!(not(target_os = "macos")) {
-        slint_testing::send_keyboard_char(instance, slint::private_unstable_api::re_exports::Key::Control.into(), pressed);
-    }
-
-    if cfg!(target_os = "macos") {
-        slint_testing::send_keyboard_char(instance, slint::private_unstable_api::re_exports::Key::Alt.into(), pressed);
+fn press(instance: &TestCase, key: Key, times: usize) {
+    for _ in 0..times {
+        slint_testing::send_keyboard_string_sequence(instance, &SharedString::from(key));
     }
 }
 
+fn send_move_mod_modifier(instance: &TestCase, pressed: bool) {
+    let modifier = if cfg!(target_os = "macos") { Key::Alt } else { Key::Control };
+    slint_testing::send_keyboard_char(instance, modifier.into(), pressed);
+}
+
 fn send_move_mod_shift_modifier(instance: &TestCase, pressed: bool) {
-    slint_testing::send_keyboard_char(instance, slint::private_unstable_api::re_exports::Key::Shift.into(), pressed);
-
-    if cfg!(not(target_os = "macos")) {
-        slint_testing::send_keyboard_char(instance, slint::private_unstable_api::re_exports::Key::Control.into(), pressed);
-    }
-
-    if cfg!(target_os = "macos") {
-        slint_testing::send_keyboard_char(instance, slint::private_unstable_api::re_exports::Key::Alt.into(), pressed);
-    }
+    slint_testing::send_keyboard_char(instance, Key::Shift.into(), pressed);
+    send_move_mod_modifier(instance, pressed);
 }
 
 let instance = TestCase::new().unwrap();
@@ -51,192 +40,165 @@ slint_testing::send_keyboard_string_sequence(&instance, "Test");
 assert_eq!(instance.get_test_text(), "Test");
 assert!(!instance.get_has_selection());
 
-slint_testing::send_keyboard_char(&instance, slint::private_unstable_api::re_exports::Key::Shift.into(), true);
-slint_testing::send_keyboard_string_sequence(&instance, &LEFT_CODE.to_string());
-slint_testing::send_keyboard_char(&instance, slint::private_unstable_api::re_exports::Key::Shift.into(), false);
+slint_testing::send_keyboard_char(&instance, Key::Shift.into(), true);
+press(&instance, Key::LeftArrow, 1);
+slint_testing::send_keyboard_char(&instance, Key::Shift.into(), false);
 assert!(instance.get_has_selection());
-slint_testing::send_keyboard_string_sequence(&instance, &BACK_CODE.to_string());
+press(&instance, Key::Backspace, 1);
 assert!(!instance.get_has_selection());
-slint_testing::send_keyboard_string_sequence(&instance, &BACK_CODE.to_string());
+press(&instance, Key::Backspace, 1);
 
 assert_eq!(instance.get_test_text(), "Te");
 
-slint_testing::send_keyboard_string_sequence(&instance, &RIGHT_CODE.to_string());
-slint_testing::send_keyboard_string_sequence(&instance, &RIGHT_CODE.to_string());
-slint_testing::send_keyboard_string_sequence(&instance, &RIGHT_CODE.to_string());
-slint_testing::send_keyboard_string_sequence(&instance, &RIGHT_CODE.to_string());
+press(&instance, Key::RightArrow, 4);
 assert_eq!(instance.get_test_cursor_pos(), 2);
 
-slint_testing::send_keyboard_string_sequence(&instance, &LEFT_CODE.to_string());
-slint_testing::send_keyboard_string_sequence(&instance, &LEFT_CODE.to_string());
-slint_testing::send_keyboard_string_sequence(&instance, &LEFT_CODE.to_string());
-slint_testing::send_keyboard_string_sequence(&instance, &LEFT_CODE.to_string());
+press(&instance, Key::LeftArrow, 4);
 assert_eq!(instance.get_test_cursor_pos(), 0);
 
 send_move_mod_shift_modifier(&instance, true);
-slint_testing::send_keyboard_string_sequence(&instance, &DOWN_CODE.to_string());
+press(&instance, Key::DownArrow, 1);
 send_move_mod_shift_modifier(&instance, false);
 assert!(instance.get_has_selection());
 assert_eq!(instance.get_test_cursor_pos(), 2);
 assert_eq!(instance.get_test_anchor_pos(), 0);
 
-slint_testing::send_keyboard_string_sequence(&instance, &RIGHT_CODE.to_string());
+press(&instance, Key::RightArrow, 1);
 assert!(!instance.get_has_selection());
 assert_eq!(instance.get_test_cursor_pos(), 2);
 assert_eq!(instance.get_test_anchor_pos(), 2);
 
 send_move_mod_shift_modifier(&instance, true);
-slint_testing::send_keyboard_string_sequence(&instance, &UP_CODE.to_string());
+press(&instance, Key::UpArrow, 1);
 send_move_mod_shift_modifier(&instance, false);
 assert!(instance.get_has_selection());
 assert_eq!(instance.get_test_cursor_pos(), 0);
 assert_eq!(instance.get_test_anchor_pos(), 2);
 
 // Select all and start over
-slint_testing::send_keyboard_char(&instance, slint::private_unstable_api::re_exports::Key::Control.into(), true);
-slint_testing::send_keyboard_string_sequence(&instance, &"a");
-slint_testing::send_keyboard_char(&instance, slint::private_unstable_api::re_exports::Key::Control.into(), false);
-slint_testing::send_keyboard_string_sequence(&instance, &BACK_CODE.to_string());
+slint_testing::send_keyboard_char(&instance, Key::Control.into(), true);
+slint_testing::send_keyboard_string_sequence(&instance, "a");
+slint_testing::send_keyboard_char(&instance, Key::Control.into(), false);
+press(&instance, Key::Backspace, 1);
 assert!(!instance.get_has_selection());
 assert_eq!(instance.get_test_text(), "");
 
 slint_testing::send_keyboard_string_sequence(&instance, "abcdefghi");
 assert_eq!(instance.get_test_text(), "abcdefghi");
-slint_testing::send_keyboard_string_sequence(&instance, &LEFT_CODE.to_string());
-slint_testing::send_keyboard_string_sequence(&instance, &LEFT_CODE.to_string());
-slint_testing::send_keyboard_string_sequence(&instance, &LEFT_CODE.to_string());
-slint_testing::send_keyboard_char(&instance, slint::private_unstable_api::re_exports::Key::Shift.into(), true);
-slint_testing::send_keyboard_string_sequence(&instance, &LEFT_CODE.to_string());
-slint_testing::send_keyboard_string_sequence(&instance, &LEFT_CODE.to_string());
-slint_testing::send_keyboard_char(&instance, slint::private_unstable_api::re_exports::Key::Shift.into(), false);
+press(&instance, Key::LeftArrow, 3);
+slint_testing::send_keyboard_char(&instance, Key::Shift.into(), true);
+press(&instance, Key::LeftArrow, 2);
+slint_testing::send_keyboard_char(&instance, Key::Shift.into(), false);
 assert!(instance.get_has_selection());
 assert_eq!(instance.get_test_cursor_pos(), 4);
 assert_eq!(instance.get_test_anchor_pos(), 6);
 
-slint_testing::send_keyboard_string_sequence(&instance, &RIGHT_CODE.to_string());
+press(&instance, Key::RightArrow, 1);
 assert!(!instance.get_has_selection());
 assert_eq!(instance.get_test_cursor_pos(), 6);
 
-slint_testing::send_keyboard_char(&instance, slint::private_unstable_api::re_exports::Key::Shift.into(), true);
-slint_testing::send_keyboard_string_sequence(&instance, &LEFT_CODE.to_string());
-slint_testing::send_keyboard_string_sequence(&instance, &LEFT_CODE.to_string());
-slint_testing::send_keyboard_char(&instance, slint::private_unstable_api::re_exports::Key::Shift.into(), false);
+slint_testing::send_keyboard_char(&instance, Key::Shift.into(), true);
+press(&instance, Key::LeftArrow, 2);
+slint_testing::send_keyboard_char(&instance, Key::Shift.into(), false);
 assert!(instance.get_has_selection());
 assert_eq!(instance.get_test_cursor_pos(), 4);
 assert_eq!(instance.get_test_anchor_pos(), 6);
 
-slint_testing::send_keyboard_string_sequence(&instance, &LEFT_CODE.to_string());
+press(&instance, Key::LeftArrow, 1);
 assert!(!instance.get_has_selection());
 assert_eq!(instance.get_test_cursor_pos(), 4);
 
-slint_testing::send_keyboard_char(&instance, slint::private_unstable_api::re_exports::Key::Shift.into(), true);
-slint_testing::send_keyboard_string_sequence(&instance, &RIGHT_CODE.to_string());
-slint_testing::send_keyboard_string_sequence(&instance, &RIGHT_CODE.to_string());
-slint_testing::send_keyboard_char(&instance, slint::private_unstable_api::re_exports::Key::Shift.into(), false);
+slint_testing::send_keyboard_char(&instance, Key::Shift.into(), true);
+press(&instance, Key::RightArrow, 2);
+slint_testing::send_keyboard_char(&instance, Key::Shift.into(), false);
 assert!(instance.get_has_selection());
 assert_eq!(instance.get_test_cursor_pos(), 6);
 assert_eq!(instance.get_test_anchor_pos(), 4);
 
-slint_testing::send_keyboard_string_sequence(&instance, &LEFT_CODE.to_string());
+press(&instance, Key::LeftArrow, 1);
 assert!(!instance.get_has_selection());
 assert_eq!(instance.get_test_cursor_pos(), 4);
 
-slint_testing::send_keyboard_char(&instance, slint::private_unstable_api::re_exports::Key::Shift.into(), true);
-slint_testing::send_keyboard_string_sequence(&instance, &RIGHT_CODE.to_string());
-slint_testing::send_keyboard_string_sequence(&instance, &RIGHT_CODE.to_string());
-slint_testing::send_keyboard_char(&instance, slint::private_unstable_api::re_exports::Key::Shift.into(), false);
+slint_testing::send_keyboard_char(&instance, Key::Shift.into(), true);
+press(&instance, Key::RightArrow, 2);
+slint_testing::send_keyboard_char(&instance, Key::Shift.into(), false);
 assert!(instance.get_has_selection());
 assert_eq!(instance.get_test_cursor_pos(), 6);
 assert_eq!(instance.get_test_anchor_pos(), 4);
 
-slint_testing::send_keyboard_string_sequence(&instance, &RIGHT_CODE.to_string());
+press(&instance, Key::RightArrow, 1);
 assert!(!instance.get_has_selection());
 assert_eq!(instance.get_test_cursor_pos(), 6);
 
 // Select all and start over
-slint_testing::send_keyboard_char(&instance, slint::private_unstable_api::re_exports::Key::Control.into(), true);
-slint_testing::send_keyboard_string_sequence(&instance, &"a");
-slint_testing::send_keyboard_char(&instance, slint::private_unstable_api::re_exports::Key::Control.into(), false);
-slint_testing::send_keyboard_string_sequence(&instance, &BACK_CODE.to_string());
+slint_testing::send_keyboard_char(&instance, Key::Control.into(), true);
+slint_testing::send_keyboard_string_sequence(&instance, "a");
+slint_testing::send_keyboard_char(&instance, Key::Control.into(), false);
+press(&instance, Key::Backspace, 1);
 assert!(!instance.get_has_selection());
 assert_eq!(instance.get_test_text(), "");
 
 slint_testing::send_keyboard_string_sequence(&instance, "First Word Third Word Fifth");
 assert_eq!(instance.get_test_text(), "First Word Third Word Fifth");
-slint_testing::send_keyboard_string_sequence(&instance, &LEFT_CODE.to_string());
-slint_testing::send_keyboard_string_sequence(&instance, &LEFT_CODE.to_string());
-slint_testing::send_keyboard_string_sequence(&instance, &LEFT_CODE.to_string());
-slint_testing::send_keyboard_string_sequence(&instance, &LEFT_CODE.to_string());
-slint_testing::send_keyboard_string_sequence(&instance, &LEFT_CODE.to_string());
+press(&instance, Key::LeftArrow, 5);
 assert_eq!(instance.get_test_cursor_pos(), 22);
 
 // Delete word backwards when the cursor is between the 'F' of Fifth and the leading space.
 // -> Delete "Word"
 send_move_mod_modifier(&instance, true);
-slint_testing::send_keyboard_string_sequence(&instance, &BACK_CODE.to_string());
+press(&instance, Key::Backspace, 1);
 send_move_mod_modifier(&instance, false);
 assert_eq!(instance.get_test_text(), "First Word Third Fifth");
 
 // Once more :-)
 send_move_mod_modifier(&instance, true);
-slint_testing::send_keyboard_string_sequence(&instance, &BACK_CODE.to_string());
+press(&instance, Key::Backspace, 1);
 send_move_mod_modifier(&instance, false);
 assert_eq!(instance.get_test_text(), "First Word Fifth");
 
 // Move cursor between the "d" of "Word" and the trailing space
-slint_testing::send_keyboard_string_sequence(&instance, &LEFT_CODE.to_string());
-slint_testing::send_keyboard_string_sequence(&instance, &LEFT_CODE.to_string());
-slint_testing::send_keyboard_string_sequence(&instance, &LEFT_CODE.to_string());
-slint_testing::send_keyboard_string_sequence(&instance, &LEFT_CODE.to_string());
-slint_testing::send_keyboard_string_sequence(&instance, &LEFT_CODE.to_string());
-slint_testing::send_keyboard_string_sequence(&instance, &LEFT_CODE.to_string());
+press(&instance, Key::LeftArrow, 6);
 
 // Delete word forwards
 send_move_mod_modifier(&instance, true);
-slint_testing::send_keyboard_string_sequence(&instance, &DEL_CODE.to_string());
+press(&instance, Key::Delete, 1);
 send_move_mod_modifier(&instance, false);
 assert_eq!(instance.get_test_text(), "First Fifth");
 
 // Select all and start over
-slint_testing::send_keyboard_char(&instance, slint::private_unstable_api::re_exports::Key::Control.into(), true);
-slint_testing::send_keyboard_string_sequence(&instance, &"a");
-slint_testing::send_keyboard_char(&instance, slint::private_unstable_api::re_exports::Key::Control.into(), false);
-slint_testing::send_keyboard_string_sequence(&instance, &BACK_CODE.to_string());
+slint_testing::send_keyboard_char(&instance, Key::Control.into(), true);
+slint_testing::send_keyboard_string_sequence(&instance, "a");
+slint_testing::send_keyboard_char(&instance, Key::Control.into(), false);
+press(&instance, Key::Backspace, 1);
 assert!(!instance.get_has_selection());
 assert_eq!(instance.get_test_text(), "");
 
 slint_testing::send_keyboard_string_sequence(&instance, "First Second");
 assert_eq!(instance.get_test_text(), "First Second");
 
-slint_testing::send_keyboard_string_sequence(&instance, &LEFT_CODE.to_string());
-slint_testing::send_keyboard_string_sequence(&instance, &LEFT_CODE.to_string());
+press(&instance, Key::LeftArrow, 2);
 
-slint_testing::send_keyboard_char(&instance, slint::private_unstable_api::re_exports::Key::Shift.into(), true);
-slint_testing::send_keyboard_string_sequence(&instance, &LEFT_CODE.to_string());
-slint_testing::send_keyboard_string_sequence(&instance, &LEFT_CODE.to_string());
-slint_testing::send_keyboard_char(&instance, slint::private_unstable_api::re_exports::Key::Shift.into(), false);
+slint_testing::send_keyboard_char(&instance, Key::Shift.into(), true);
+press(&instance, Key::LeftArrow, 2);
+slint_testing::send_keyboard_char(&instance, Key::Shift.into(), false);
 assert!(instance.get_has_selection());
 
 // When there's an existing selection, always just delete that
 send_move_mod_modifier(&instance, true);
-slint_testing::send_keyboard_string_sequence(&instance, &BACK_CODE.to_string());
+press(&instance, Key::Backspace, 1);
 send_move_mod_modifier(&instance, false);
 assert_eq!(instance.get_test_text(), "First Send");
 
-slint_testing::send_keyboard_string_sequence(&instance, &LEFT_CODE.to_string());
-slint_testing::send_keyboard_string_sequence(&instance, &LEFT_CODE.to_string());
-slint_testing::send_keyboard_string_sequence(&instance, &LEFT_CODE.to_string());
-slint_testing::send_keyboard_string_sequence(&instance, &LEFT_CODE.to_string());
-slint_testing::send_keyboard_string_sequence(&instance, &LEFT_CODE.to_string());
+press(&instance, Key::LeftArrow, 5);
 
-slint_testing::send_keyboard_char(&instance, slint::private_unstable_api::re_exports::Key::Shift.into(), true);
-slint_testing::send_keyboard_string_sequence(&instance, &LEFT_CODE.to_string());
-slint_testing::send_keyboard_char(&instance, slint::private_unstable_api::re_exports::Key::Shift.into(), false);
+slint_testing::send_keyboard_char(&instance, Key::Shift.into(), true);
+press(&instance, Key::LeftArrow, 1);
+slint_testing::send_keyboard_char(&instance, Key::Shift.into(), false);
 assert!(instance.get_has_selection());
 
 // When there's an existing selection, always just delete that
 send_move_mod_modifier(&instance, true);
-slint_testing::send_keyboard_string_sequence(&instance, &DEL_CODE.to_string());
+press(&instance, Key::Delete, 1);
 send_move_mod_modifier(&instance, false);
 assert_eq!(instance.get_test_text(), "Fist Send");
 ```
