@@ -57,6 +57,7 @@ pub trait TextShaper {
         + core::cmp::PartialOrd
         + core::ops::Mul<Self::LengthPrimitive, Output = Self::Length>
         + core::ops::Div<Self::LengthPrimitive, Output = Self::Length>
+        + LengthDiv
         + core::fmt::Debug;
     // Shapes the given string and emits the result into the given glyphs buffer.
     fn shape_text<GlyphStorage: core::iter::Extend<Glyph<Self::Length>>>(
@@ -65,6 +66,35 @@ pub trait TextShaper {
         glyphs: &mut GlyphStorage,
     );
     fn glyph_for_char(&self, ch: char) -> Option<Glyph<Self::Length>>;
+}
+
+/// How many times one length fits into another of the same unit.
+/// euclid's `Length / Length` produces a `Scale` rather than a plain number, so the division the
+/// paragraph layout needs is spelled out here instead of as a `core::ops::Div` bound.
+pub trait LengthDiv {
+    /// The number of whole `divisor`s in `self`, truncated, and zero when that count is negative.
+    /// `divisor` must not be zero.
+    fn div_count(self, divisor: Self) -> usize;
+}
+
+impl LengthDiv for f32 {
+    fn div_count(self, divisor: Self) -> usize {
+        // Casts from float saturate, so a negative or NaN ratio ends up at zero.
+        (self / divisor) as usize
+    }
+}
+
+impl LengthDiv for i16 {
+    fn div_count(self, divisor: Self) -> usize {
+        // Widen so that i16::MIN / -1 can't overflow.
+        (i32::from(self) / i32::from(divisor)).max(0) as usize
+    }
+}
+
+impl<T: LengthDiv + Clone, U> LengthDiv for euclid::Length<T, U> {
+    fn div_count(self, divisor: Self) -> usize {
+        self.get().div_count(divisor.get())
+    }
 }
 
 pub trait FontMetrics<Length: Copy + core::ops::Sub<Output = Length>> {
@@ -212,6 +242,20 @@ impl<Length> ShapeBuffer<Length> {
 
         Self { glyphs, text_runs }
     }
+}
+
+#[test]
+fn test_div_count() {
+    assert_eq!(9.0_f32.div_count(3.0), 3);
+    assert_eq!(10.0_f32.div_count(3.0), 3);
+    assert_eq!((-10.0_f32).div_count(3.0), 0);
+
+    type IntLen = euclid::Length<i16, euclid::UnknownUnit>;
+    assert_eq!(IntLen::new(10).div_count(IntLen::new(3)), 3);
+    assert_eq!(IntLen::new(-10).div_count(IntLen::new(3)), 0);
+
+    type FloatLen = euclid::Length<f32, euclid::UnknownUnit>;
+    assert_eq!(FloatLen::new(10.).div_count(FloatLen::new(3.)), 3);
 }
 
 #[test]
