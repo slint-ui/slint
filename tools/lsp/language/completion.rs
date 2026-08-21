@@ -656,17 +656,35 @@ fn resolve_element_scope(
         .unwrap_or(&global_tr);
     let element_type = lookup_current_element_type((*element).clone(), tr).unwrap_or_default();
     let parent_element_type = element.parent().and_then(|p| lookup_current_element_type(p, tr));
-    // Members declared on this element shadow inherited ones of the same name, so the inherited
-    // entry is dropped to avoid offering the name twice.
-    let shadowing_names: std::collections::HashSet<SmolStr> = element
+    // Members declared on this element, offered as-is; an inherited member of the same name is
+    // dropped below so the name isn't offered twice.
+    let local_declarations = element
         .PropertyDeclaration()
-        .filter_map(|pr| pr.DeclaredIdentifier().child_text(SyntaxKind::Identifier))
-        .chain(
-            element
-                .CallbackDeclaration()
-                .filter_map(|cd| cd.DeclaredIdentifier().child_text(SyntaxKind::Identifier)),
-        )
-        .map(|n| i_slint_compiler::parser::normalize_identifier(&n))
+        .filter_map(|pr| {
+            let name = pr.DeclaredIdentifier().child_text(SyntaxKind::Identifier)?;
+            Some(
+                CompletionItem::new_simple(
+                    name.to_string(),
+                    pr.Type().map(|t| t.text().into()).unwrap_or_else(|| "property".to_owned()),
+                )
+                .with_kind(CompletionItemKind::PROPERTY)
+                .with_sort_text(format!("#{name}"))
+                .with_insert_text(format!("{name}: "), with_snippets),
+            )
+        })
+        .chain(element.CallbackDeclaration().filter_map(|cd| {
+            let name = cd.DeclaredIdentifier().child_text(SyntaxKind::Identifier)?;
+            Some(
+                CompletionItem::new_simple(name.to_string(), "callback".into())
+                    .with_kind(CompletionItemKind::METHOD)
+                    .with_sort_text(format!("#{name}"))
+                    .with_insert_text(format!("{name} => {{$1}}"), with_snippets),
+            )
+        }))
+        .collect::<Vec<_>>();
+    let shadowing_names: std::collections::HashSet<SmolStr> = local_declarations
+        .iter()
+        .map(|c| i_slint_compiler::parser::normalize_identifier(&c.label))
         .collect();
     let mut result = element_type
         .property_list()
@@ -701,27 +719,7 @@ fn resolve_element_scope(
             c.sort_text = Some(format!("#{}", c.label));
             apply_property_ty(c, &ty, cb_args)
         })
-        .chain(element.PropertyDeclaration().filter_map(|pr| {
-            let name = pr.DeclaredIdentifier().child_text(SyntaxKind::Identifier)?;
-            Some(
-                CompletionItem::new_simple(
-                    name.to_string(),
-                    pr.Type().map(|t| t.text().into()).unwrap_or_else(|| "property".to_owned()),
-                )
-                .with_kind(CompletionItemKind::PROPERTY)
-                .with_sort_text(format!("#{name}"))
-                .with_insert_text(format!("{name}: "), with_snippets),
-            )
-        }))
-        .chain(element.CallbackDeclaration().filter_map(|cd| {
-            let name = cd.DeclaredIdentifier().child_text(SyntaxKind::Identifier)?;
-            Some(
-                CompletionItem::new_simple(name.to_string(), "callback".into())
-                    .with_kind(CompletionItemKind::METHOD)
-                    .with_sort_text(format!("#{name}"))
-                    .with_insert_text(format!("{name} => {{$1}}"), with_snippets),
-            )
-        }))
+        .chain(local_declarations)
         .collect::<Vec<_>>();
 
     if !matches!(element_type, ElementType::Global) {
