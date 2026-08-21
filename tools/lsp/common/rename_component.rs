@@ -744,6 +744,24 @@ struct TokenInformation {
     token: SyntaxToken,
 }
 
+/// Whether `named_reference` resolves to the member declared at `declaration`. The reference's name
+/// is the key the member is stored under - for a declaration that shadows an inherited member that is
+/// a mangled internal name - so comparing the resolved node matches the shadowing declaration even
+/// though that key differs from the source name.
+fn named_reference_resolves_to(
+    named_reference: &i_slint_compiler::namedreference::NamedReference,
+    declaration: &SyntaxNode,
+) -> bool {
+    named_reference
+        .element()
+        .borrow()
+        .property_declaration_node(named_reference.name())
+        .is_some_and(|node| {
+            Arc::ptr_eq(&node.source_file, &declaration.source_file)
+                && node.text_range() == declaration.text_range()
+        })
+}
+
 impl TokenInformation {
     fn is_same_symbol(&self, document_cache: &common::DocumentCache, token: SyntaxToken) -> bool {
         let Some(info) = common::token_info::token_info(document_cache, token.clone()) else {
@@ -817,11 +835,7 @@ impl TokenInformation {
             | (
                 common::token_info::TokenInfo::LocalProperty(s),
                 common::token_info::TokenInfo::NamedReference(nr),
-            ) => {
-                s.parent().is_some_and(|n| check_element(&nr.element(), &n))
-                    && i_slint_compiler::parser::identifier_text(&s.DeclaredIdentifier())
-                        .is_some_and(|x| &x == nr.name())
-            }
+            ) => named_reference_resolves_to(nr, s),
             (
                 common::token_info::TokenInfo::LocalProperty(s),
                 common::token_info::TokenInfo::IncompleteNamedReference(nr1, nr2),
@@ -846,11 +860,7 @@ impl TokenInformation {
             | (
                 common::token_info::TokenInfo::LocalCallback(s),
                 common::token_info::TokenInfo::NamedReference(nr),
-            ) => {
-                s.parent().is_some_and(|n| check_element(&nr.element(), &n))
-                    && i_slint_compiler::parser::identifier_text(&s.DeclaredIdentifier())
-                        .is_some_and(|x| &x == nr.name())
-            }
+            ) => named_reference_resolves_to(nr, s),
             (
                 common::token_info::TokenInfo::LocalCallback(s),
                 common::token_info::TokenInfo::IncompleteNamedReference(nr1, nr2),
@@ -875,11 +885,7 @@ impl TokenInformation {
             | (
                 common::token_info::TokenInfo::LocalFunction(s),
                 common::token_info::TokenInfo::NamedReference(nr),
-            ) => {
-                s.parent().is_some_and(|n| check_element(&nr.element(), &n))
-                    && i_slint_compiler::parser::identifier_text(&s.DeclaredIdentifier())
-                        .is_some_and(|x| &x == nr.name())
-            }
+            ) => named_reference_resolves_to(nr, s),
             (
                 common::token_info::TokenInfo::LocalFunction(s),
                 common::token_info::TokenInfo::IncompleteNamedReference(nr1, nr2),
@@ -1377,7 +1383,9 @@ mod tests {
         };
 
         // changed code compiles fine:
-        let new_document_cache = test::recompile_test_with_sources("fluent", code, allow_warnings);
+        let enable_experimental = document_cache.compiler_configuration().enable_experimental;
+        let new_document_cache =
+            test::recompile_test_with_sources("fluent", code, allow_warnings, enable_experimental);
 
         // try to apply the reverse change. That should lead to the same result
         let reversed_edit = text_edit::reversed_edit(document_cache, edit).unwrap();
@@ -3555,6 +3563,79 @@ export component Bar {
                 .contains("/* 2 */ self.XxxYyyZzz /* <- TEST_ME_2 */ = re-name_me >= 42;")
         );
         assert!(edited_text[0].contents.contains("re_name-me { }"));
+    }
+
+    // A base with a `@shadowable` member, shadowed by a derived component. The base and the derived
+    // each declare and use their own `prop`; renaming one must not touch the other.
+    fn shadowable_sources() -> HashMap<Url, String> {
+        HashMap::from([(
+            Url::from_file_path(test::main_test_file_name()).unwrap(),
+            r#"
+component Base {
+    @shadowable in-out property <int> prop /* <- TEST_ME_BASE_DECL */: 1;
+    out property <int> base-out: self.prop /* <- TEST_ME_BASE_USE */ + 1;
+}
+
+component Derived inherits Base {
+    in-out property <int> prop /* <- TEST_ME_DERIVED_DECL */: 2;
+    out property <int> derived-out: self.prop /* <- TEST_ME_DERIVED_USE */ + 1;
+}
+
+export component Main {
+    d := Derived { }
+    out property <int> result: d.derived-out + d.base-out;
+}
+                "#
+            .to_string(),
+        )])
+    }
+
+    #[track_caller]
+    fn assert_base_prop_untouched(contents: &str) {
+        assert!(contents.contains("property <int> prop /* <- TEST_ME_BASE_DECL */"));
+        assert!(contents.contains("self.prop /* <- TEST_ME_BASE_USE */"));
+    }
+
+    #[track_caller]
+    fn assert_derived_prop_untouched(contents: &str) {
+        assert!(contents.contains("property <int> prop /* <- TEST_ME_DERIVED_DECL */"));
+        assert!(contents.contains("self.prop /* <- TEST_ME_DERIVED_USE */"));
+    }
+
+    #[test]
+    fn test_rename_shadowing_property() {
+        // Renaming the derived component's overriding property renames its own declaration and use,
+        // and leaves the shadowable base property and its use alone.
+        let document_cache =
+            test::compile_test_with_sources_experimental("fluent", shadowable_sources(), true);
+
+        for suffix in ["_DERIVED_DECL", "_DERIVED_USE"] {
+            let edited_text = rename_tester(&document_cache, &test::main_test_file_name(), suffix);
+            assert_eq!(edited_text.len(), 1);
+            let contents = &edited_text[0].contents;
+
+            assert!(contents.contains("property <int> XxxYyyZzz /* <- TEST_ME_DERIVED_DECL */"));
+            assert!(contents.contains("self.XxxYyyZzz /* <- TEST_ME_DERIVED_USE */"));
+            assert_base_prop_untouched(contents);
+        }
+    }
+
+    #[test]
+    fn test_rename_shadowable_property() {
+        // Renaming the shadowable base property renames its own declaration and use, and leaves the
+        // derived component's overriding property and its use alone.
+        let document_cache =
+            test::compile_test_with_sources_experimental("fluent", shadowable_sources(), true);
+
+        for suffix in ["_BASE_DECL", "_BASE_USE"] {
+            let edited_text = rename_tester(&document_cache, &test::main_test_file_name(), suffix);
+            assert_eq!(edited_text.len(), 1);
+            let contents = &edited_text[0].contents;
+
+            assert!(contents.contains("property <int> XxxYyyZzz /* <- TEST_ME_BASE_DECL */"));
+            assert!(contents.contains("self.XxxYyyZzz /* <- TEST_ME_BASE_USE */"));
+            assert_derived_prop_untouched(contents);
+        }
     }
 
     #[test]
