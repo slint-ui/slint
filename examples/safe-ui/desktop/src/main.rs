@@ -15,8 +15,8 @@ use platform::{DesktopPlatform, HEIGHT, Input, WIDTH};
 slint::slint! {
     export component SimWindow inherits Window {
         in property <image> image <=> screen.source;
-        preferred-width: 640px;
-        preferred-height: 480px;
+        preferred-width: 320px;
+        preferred-height: 240px;
 
         screen := Image {
             width: 100%;

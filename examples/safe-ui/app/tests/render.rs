@@ -43,7 +43,7 @@ impl Platform for MockPlatform {
 
 #[test]
 fn renders_the_first_telltale() {
-    let size = slint_sc::Size::new(520, 200);
+    let size = slint_sc::Size::new(260, 100);
     let frame = Rc::new(RefCell::new(Vec::new()));
     let platform = MockPlatform { frame: frame.clone(), size, captured: false };
 
@@ -57,7 +57,7 @@ fn renders_the_first_telltale() {
         [frame[i], frame[i + 1], frame[i + 2]]
     };
     // The background is black, and at time zero the first telltale is green
-    // (its center is at 40 + 120/2 = 100 on both axes).
+    // (its center is at 20 + 60/2 = 50 on both axes).
     assert_eq!(pixel(5, 5), [0, 0, 0]);
-    assert_eq!(pixel(100, 100), [0, 0x80, 0]);
+    assert_eq!(pixel(50, 50), [0, 0x80, 0]);
 }

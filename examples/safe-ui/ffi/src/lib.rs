@@ -50,7 +50,7 @@ pub const HEIGHT_PIXELS: u32 = match option_env!("SAFE_UI_HEIGHT") {
 
 pub const SCALE_FACTOR: f32 = match option_env!("SAFE_UI_SCALE_FACTOR") {
     Some(s) => parse_f32(s),
-    None => 2.0,
+    None => 1.0,
 };
 
 /// The C entry point: run the UI event loop, driven through the C system
