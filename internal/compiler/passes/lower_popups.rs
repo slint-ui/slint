@@ -103,7 +103,7 @@ fn lower_popup_window(
     }
 
     let map_close_on_click_value = |b: &BindingExpression| {
-        let Expression::BoolLiteral(v) = super::ignore_debug_hooks(&b.expression) else {
+        let Expression::BoolLiteral(v) = b.expression.ignore_debug_hooks() else {
             assert!(diag.has_errors());
             return None;
         };
@@ -116,7 +116,7 @@ fn lower_popup_window(
     };
 
     let close_policy = popup_window_element.borrow_mut().take_binding(CLOSE_POLICY).and_then(|b| {
-        if let Expression::EnumerationValue(v) = super::ignore_debug_hooks(&b.expression) {
+        if let Expression::EnumerationValue(v) = b.expression.ignore_debug_hooks() {
             Some(v.clone())
         } else {
             assert!(diag.has_errors());

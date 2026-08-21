@@ -62,20 +62,9 @@ mod visible;
 mod windows;
 mod z_order;
 
-use crate::expression_tree::Expression;
 use smol_str::SmolStr;
 
 pub use binding_analysis::GlobalAnalysis;
-
-pub fn ignore_debug_hooks(expr: &Expression) -> &Expression {
-    let mut expr = expr;
-    loop {
-        match expr {
-            Expression::DebugHook { expression, .. } => expr = expression.as_ref(),
-            _ => return expr,
-        }
-    }
-}
 
 pub async fn run_passes(
     doc: &mut crate::object_tree::Document,
