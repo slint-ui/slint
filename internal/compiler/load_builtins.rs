@@ -172,12 +172,22 @@ pub(crate) fn load_builtins(
             .flat_map(|p| {
                 if let Some(twb) = p.TwoWayBinding() {
                     let alias_name = identifier_text(&p.DeclaredIdentifier()).unwrap();
+                    debug_assert!(
+                        p.PropertyDeprecation()
+                            .is_some_and(|d| d.child_token(SyntaxKind::StringLiteral).is_none()),
+                        "the alias {id}::{alias_name} must be marked `@deprecated` without a message"
+                    );
                     let alias_target = identifier_text(&twb.Expression().QualifiedName().expect(
                         "internal error: built-in aliases can only be declared within the type",
                     ))
                     .unwrap();
                     Some((alias_name, alias_target))
                 } else {
+                    debug_assert!(
+                        p.PropertyDeprecation().is_none(),
+                        "`@deprecated` on {id}::{} is only for two-way-binding aliases",
+                        identifier_text(&p.DeclaredIdentifier()).unwrap()
+                    );
                     None
                 }
             })
