@@ -295,7 +295,9 @@ fn find_property_binding_offset(
 
     let element = element.element.borrow();
 
-    if let Some(v) = element.binding_cell_including_synthetic(property_name)
+    // A member that shadows an inherited one is stored under a mangled internal key.
+    let key = element.lookup_property(property_name).internal_or_resolved_name();
+    if let Some(v) = element.binding_cell_including_synthetic(&key)
         && let Some(span) = &v.borrow().span
     {
         let offset = span.span().offset as u32;
@@ -329,7 +331,9 @@ fn insert_property_definitions(
             return Expression::Invalid;
         }
 
-        if let Some(binding) = element.borrow().binding(prop) {
+        // A member that shadows an inherited one is stored under a mangled internal key.
+        let key = element.borrow().lookup_property(prop).internal_or_resolved_name();
+        if let Some(binding) = element.borrow().binding(&key) {
             let e = binding.expression.ignore_debug_hooks().clone();
             if !matches!(e, Expression::Invalid) {
                 return e;
@@ -960,7 +964,9 @@ pub fn remove_binding(
 pub mod tests {
     use super::*;
 
-    use crate::language::test::{complex_document_cache, loaded_document_cache};
+    use crate::language::test::{
+        complex_document_cache, loaded_document_cache, loaded_document_cache_with_experimental,
+    };
 
     fn find_property<'a>(
         properties: &'a [PropertyInformation],
@@ -1036,6 +1042,36 @@ pub mod tests {
         // No callbacks
         assert!(find_property(&result, "accessible-action-default").is_none());
         assert!(find_property(&result, "clicked").is_none());
+    }
+
+    #[test]
+    fn test_get_properties_shadowed_member() {
+        // `Derived` shadows the `@shadowable` `prop` of `Base` with a different type. The property
+        // editor must list the shadow (not the base) and find its binding, which is stored under a
+        // mangled internal key.
+        let (dc, url, _) = loaded_document_cache_with_experimental(
+            r#"
+component Base {
+    @shadowable in-out property <float> prop: 1;
+}
+component Derived inherits Base {
+    in-out property <int> prop: 42;
+}
+export component Main {
+    the-derived := Derived {
+        prop: 7;
+    }
+}
+"#
+            .into(),
+        );
+        let (_, result) = properties_at_position_in_cache(9, 8, &dc, &url).unwrap();
+        let prop = find_property(&result, "prop").unwrap();
+        // The listed property is the shadow, so its type is the derived one.
+        assert_eq!(prop.ty, Type::Int32);
+        // Its binding is found despite the mangled key, so it reads as defined, not as a fresh
+        // property waiting for a value.
+        assert!(prop.defined_at.is_some());
     }
 
     #[test]
