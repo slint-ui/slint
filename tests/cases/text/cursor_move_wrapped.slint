@@ -12,7 +12,8 @@ export component TestCase inherits TextInput {
 
 /*
 ```rust
-const UP_CODE: char = '\u{F700}';
+use slint::platform::Key;
+use slint::SharedString;
 
 let instance = TestCase::new().unwrap();
 slint_testing::send_mouse_click(&instance, 30., 10.);
@@ -26,7 +27,7 @@ assert_eq!(instance.get_test_cursor_pos(), text.len() as i32);
 let mut pos = instance.get_test_cursor_pos();
 let mut steps = 0;
 while pos != 0 {
-    slint_testing::send_keyboard_string_sequence(&instance, &UP_CODE.to_string());
+    slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::UpArrow));
     let next = instance.get_test_cursor_pos();
     assert!(next < pos, "Up did not move the caret backwards; stuck at {next}");
     pos = next;
