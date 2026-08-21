@@ -15,7 +15,7 @@ use crate::diagnostics::{BuildDiagnostics, DiagnosticLevel, SourceLocation, Span
 use crate::expression_tree::{
     BindingExpression, BuiltinFunction, Expression, MinMaxOp, NamedReference, Unit,
 };
-use crate::langtype::{BuiltinElement, DefaultSizeBinding, Type};
+use crate::langtype::{BuiltinElement, DefaultSizeBinding, PropertyLookupMode, Type};
 use crate::layout::{BuiltinFilter, LayoutConstraints, Orientation, implicit_layout_info_call};
 use crate::object_tree::{Component, ElementRc};
 use crate::symbol_counters::SymbolCounters;
@@ -108,7 +108,9 @@ pub fn default_geometry(
                     DefaultSizeBinding::ImplicitSize => {
                         let has_length_property_binding = |elem: &ElementRc, property: &str| {
                             debug_assert_eq!(
-                                elem.borrow().lookup_property(property).property_type,
+                                elem.borrow()
+                                    .lookup_property(property, PropertyLookupMode::ComponentLocal)
+                                    .property_type,
                                 Type::LogicalLength
                             );
 
@@ -136,7 +138,10 @@ pub fn default_geometry(
                             // If an image is in a layout and has no explicit width or height specified, change the default for image-fit
                             // to `contain`
                             if !width_specified || !height_specified {
-                                let image_fit_lookup = elem.borrow().lookup_property("image-fit");
+                                let image_fit_lookup = elem.borrow().lookup_property(
+                                    "image-fit",
+                                    PropertyLookupMode::ComponentLocal,
+                                );
 
                                 elem.borrow_mut().set_binding_if_not_set(
                                     image_fit_lookup.resolved_name.into(),
@@ -418,7 +423,10 @@ fn fix_percent_size(
                     parent = crate::object_tree::find_parent_element(&parent).unwrap_or(parent)
                 }
                 debug_assert_eq!(
-                    parent.borrow().lookup_property(property).property_type,
+                    parent
+                        .borrow()
+                        .lookup_property(property, PropertyLookupMode::ComponentLocal)
+                        .property_type,
                     Type::LogicalLength
                 );
                 // do not ignore debug hooks here, the debug hook may overwrite the expression
@@ -525,7 +533,10 @@ fn make_default_aspect_ratio_preserving_binding(
         return;
     }
 
-    debug_assert_eq!(elem.borrow().lookup_property("source").property_type, Type::Image);
+    debug_assert_eq!(
+        elem.borrow().lookup_property("source", PropertyLookupMode::ComponentLocal).property_type,
+        Type::Image
+    );
 
     let missing_size_property = SmolStr::new_static(missing_size_property);
     let given_size_property = SmolStr::new_static(given_size_property);

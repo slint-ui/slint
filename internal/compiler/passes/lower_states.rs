@@ -7,8 +7,8 @@ use crate::diagnostics::BuildDiagnostics;
 use crate::diagnostics::SourceLocation;
 use crate::diagnostics::Spanned;
 use crate::expression_tree::*;
-use crate::langtype::ElementType;
 use crate::langtype::Type;
+use crate::langtype::{ElementType, PropertyLookupMode};
 use crate::object_tree::*;
 use crate::symbol_counters::SymbolCounters;
 use smol_str::SmolStr;
@@ -192,7 +192,7 @@ fn compute_state_property_name(root_element: &ElementRc) -> SmolStr {
     let mut property_name = "state".to_owned();
     while root_element
         .borrow()
-        .lookup_property_by_internal_name(property_name.as_ref())
+        .lookup_property(property_name.as_ref(), PropertyLookupMode::InternalName)
         .property_type
         != Type::Invalid
     {
@@ -268,7 +268,7 @@ fn expression_for_property(
     }
     let expr = super::materialize_fake_properties::initialize(element, name).unwrap_or_else(|| {
         Expression::default_value_for_type(
-            &element.borrow().lookup_property_by_internal_name(name).property_type,
+            &element.borrow().lookup_property(name, PropertyLookupMode::InternalName).property_type,
         )
     });
 

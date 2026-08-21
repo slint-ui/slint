@@ -7,7 +7,7 @@ use std::sync::Arc;
 use super::lower_expression::{ExpressionLoweringCtx, ExpressionLoweringCtxInner};
 use crate::CompilerConfiguration;
 use crate::expression_tree::Expression as tree_Expression;
-use crate::langtype::{BuiltinStruct, ElementType, Struct, StructName, Type};
+use crate::langtype::{BuiltinStruct, ElementType, PropertyLookupMode, Struct, StructName, Type};
 use crate::llr::item_tree::*;
 use crate::namedreference::NamedReference;
 use crate::object_tree::{self, Component, ElementRc, PropertyAnalysis};
@@ -174,7 +174,7 @@ impl LoweredSubComponentMapping {
                 // callback tables.
                 let kind = match element
                     .borrow()
-                    .lookup_property_by_internal_name(from.name())
+                    .lookup_property(from.name(), PropertyLookupMode::InternalName)
                     .property_type
                 {
                     Type::Callback(..) => super::NativeMemberKind::Callback,
@@ -587,7 +587,7 @@ fn lower_sub_component(
             );
 
             let kind = if matches!(
-                e.borrow().lookup_property_by_internal_name(p).property_type,
+                e.borrow().lookup_property(p, PropertyLookupMode::InternalName).property_type,
                 Type::Struct(s) if matches!(s.name, StructName::Builtin(BuiltinStruct::StateInfo))
             ) {
                 BindingKind::State

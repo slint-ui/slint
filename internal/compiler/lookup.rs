@@ -11,7 +11,7 @@ use crate::expression_tree::{
     BuiltinFunction, BuiltinMacroFunction, Callable, EasingCurve, Expression, MouseCursorInner,
     Unit,
 };
-use crate::langtype::{ElementType, Enumeration, EnumerationValue, Type};
+use crate::langtype::{ElementType, Enumeration, EnumerationValue, PropertyLookupMode, Type};
 use crate::namedreference::NamedReference;
 use crate::object_tree::{ElementRc, PropertyVisibility};
 use crate::parser::NodeOrToken;
@@ -504,7 +504,10 @@ impl LookupObject for ElementRc {
                 continue;
             }
             // Resolve the source name to the storage key so a shadow in a base resolves correctly.
-            let key = self.borrow().lookup_property(&name).internal_or_resolved_name();
+            let key = self
+                .borrow()
+                .lookup_property(&name, PropertyLookupMode::ComponentLocal)
+                .internal_or_resolved_name();
             let e = expression_from_reference(NamedReference::new(self, key), &ty, None);
             if let Some(r) = f(&name, e) {
                 return Some(r);
@@ -533,7 +536,7 @@ impl LookupObject for ElementRc {
     }
 
     fn lookup(&self, ctx: &LookupCtx, name: &SmolStr) -> Option<LookupResult> {
-        let lookup_result = self.borrow().lookup_property(name);
+        let lookup_result = self.borrow().lookup_property(name, PropertyLookupMode::ComponentLocal);
         if lookup_result.property_type != Type::Invalid
             && (lookup_result.is_local_to_component
                 || lookup_result.property_visibility != PropertyVisibility::Private)

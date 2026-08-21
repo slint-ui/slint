@@ -13,7 +13,7 @@ use crate::langtype::{
     BuiltinElement, BuiltinPropertyDefault, Enumeration, EnumerationValue, Function, NativeClass,
     Struct, StructName, Type,
 };
-use crate::langtype::{ElementType, PropertyLookupResult};
+use crate::langtype::{ElementType, PropertyLookupMode, PropertyLookupResult};
 use crate::layout::{LayoutConstraints, Orientation};
 use crate::namedreference::NamedReference;
 use crate::parser::{SyntaxKind, SyntaxNode, syntax_nodes};
@@ -801,6 +801,12 @@ impl PropertyDeclaration {
     /// The name the member is declared under, un-mangled, given its internal key.
     pub fn declared_name<'a>(&'a self, internal_name: &'a SmolStr) -> &'a SmolStr {
         self.shadowed_name.as_ref().unwrap_or(internal_name)
+    }
+
+    /// A declaration that shadows an inherited member but is private: it is invisible outside its
+    /// component, so from there the inherited member stays reachable instead.
+    pub fn is_private_shadow(&self) -> bool {
+        self.shadowed_name.is_some() && self.visibility == PropertyVisibility::Private
     }
 
     /// True when declared `@deprecated` without a custom message, so the hint in
@@ -2022,7 +2028,8 @@ impl Element {
 
         for con_node in node.CallbackConnection() {
             let unresolved_name = unwrap_or_continue!(parser::identifier_text(&con_node); diag);
-            let lookup_result = r.lookup_property(&unresolved_name);
+            let lookup_result =
+                r.lookup_property(&unresolved_name, PropertyLookupMode::ComponentLocal);
             #[cfg(feature = "slint-sc")]
             {
                 // A callback declared in the file is in the subset by construction;
@@ -2137,7 +2144,10 @@ impl Element {
                         if r.base_type == ElementType::Error {
                             continue;
                         };
-                        let lookup_result = r.lookup_property(unresolved_prop_name);
+                        let lookup_result = r.lookup_property(
+                            unresolved_prop_name,
+                            PropertyLookupMode::ComponentLocal,
+                        );
                         let valid_assign = lookup_result.is_valid_for_assignment();
                         let binding_name = lookup_result.internal_or_resolved_name();
                         if let Some(anim_element) = animation_element_from_node(
@@ -2204,7 +2214,7 @@ impl Element {
             #[cfg(feature = "slint-sc")]
             diag.slint_sc_error("Change callbacks are", &ch);
             let Some(prop) = parser::identifier_text(&ch.DeclaredIdentifier()) else { continue };
-            let lookup_result = r.lookup_property(&prop);
+            let lookup_result = r.lookup_property(&prop, PropertyLookupMode::ComponentLocal);
             if !lookup_result.is_valid() {
                 if r.base_type != ElementType::Error {
                     diag.push_error(
@@ -2756,7 +2766,7 @@ impl Element {
                     "visible-width",
                 ]
                 .iter()
-                .all(|p| parent.lookup_property_by_internal_name(p).property_type == Type::LogicalLength)
+                .all(|p| parent.lookup_property(p, PropertyLookupMode::InternalName).property_type == Type::LogicalLength)
         };
         let is_listview = if parent_is_listview
             && let Some(geometry_props) = e.borrow().geometry_props.as_ref()
@@ -2925,16 +2935,6 @@ impl Element {
         cases
     }
 
-    /// Resolve `name` as a `property_declarations` key (the form a `NamedReference` carries),
-    /// following aliases; `Type::Invalid` if absent. A shadowing member is under a mangled key here;
-    /// to resolve a name as written in `.slint` source, use [`Self::lookup_property`].
-    pub fn lookup_property_by_internal_name<'a>(&self, name: &'a str) -> PropertyLookupResult<'a> {
-        self.property_declarations.get(name).map_or_else(
-            || from_base(self.base_type.lookup_property_by_internal_name(name)),
-            |p| self.lookup_result_for_declaration(name.into(), p),
-        )
-    }
-
     /// Whether the member is declared in the source, on this element or on the
     /// root element of a component it inherits from, rather than coming from a
     /// builtin element. Follows the same chain as [`Self::lookup_property`].
@@ -2949,17 +2949,37 @@ impl Element {
         }
     }
 
-    /// Resolve `name` as written in `.slint` source, following aliases; `Type::Invalid` if absent.
-    /// For a shadowing member, the result's `internal_name` carries its `property_declarations` key.
-    pub fn lookup_property<'a>(&self, name: &'a str) -> PropertyLookupResult<'a> {
-        if let Some((internal_name, decl)) = self.declaration(name) {
+    /// Resolve `name` in the given [`PropertyLookupMode`], following aliases; `Type::Invalid` if absent.
+    /// For a shadowing member the result's `internal_name` carries its storage key.
+    pub fn lookup_property<'a>(
+        &self,
+        name: &'a str,
+        mode: PropertyLookupMode,
+    ) -> PropertyLookupResult<'a> {
+        let declaration = match mode {
+            PropertyLookupMode::InternalName => self.property_declarations.get_key_value(name),
+            PropertyLookupMode::ComponentLocal | PropertyLookupMode::FromOutside => {
+                self.declaration(name)
+            }
+        };
+        if let Some((internal_name, decl)) = declaration {
+            if mode == PropertyLookupMode::FromOutside && decl.is_private_shadow() {
+                return from_base(
+                    self.base_type.lookup_property(name, PropertyLookupMode::FromOutside),
+                );
+            }
             let mut r = self.lookup_result_for_declaration(name.into(), decl);
             if internal_name != name {
                 r.internal_name = Some(internal_name.clone());
             }
             return r;
         }
-        from_base(self.base_type.lookup_property(name))
+        // A base component's private members are invisible from here.
+        let base_mode = match mode {
+            PropertyLookupMode::InternalName => PropertyLookupMode::InternalName,
+            _ => PropertyLookupMode::FromOutside,
+        };
+        from_base(self.base_type.lookup_property(name, base_mode))
     }
 
     /// The declaration for a member written as `name` in `.slint` source, with its internal key.
@@ -2970,6 +2990,18 @@ impl Element {
             return self.property_declarations.get_key_value(internal_name);
         }
         self.property_declarations.get_key_value(name).filter(|(_, d)| d.shadowed_name.is_none())
+    }
+
+    /// Source names of shadowing declarations that are visible from outside the component, so they
+    /// hide the inherited member of the same name. A private shadow is excluded: it stays transparent
+    /// from outside, leaving the inherited member reachable there.
+    pub fn visible_shadowing_members(&self) -> impl Iterator<Item = &SmolStr> {
+        self.shadowing_members.iter().filter_map(|(source, internal)| {
+            self.property_declarations
+                .get(internal)
+                .filter(|d| !d.is_private_shadow())
+                .map(|_| source)
+        })
     }
 
     /// How a declaration of `name` relates to a member of the same name already reachable here.
@@ -2984,7 +3016,7 @@ impl Element {
                 warning: None,
             };
         }
-        let existing = self.lookup_property(name);
+        let existing = self.lookup_property(name, PropertyLookupMode::ComponentLocal);
         if !existing.is_valid() {
             return MemberDeclaration::New;
         }
@@ -3023,7 +3055,7 @@ impl Element {
     pub fn unique_member_name(&self, base: &str) -> SmolStr {
         (1..)
             .map(|counter| format_smolstr!("{base}-{counter}"))
-            .find(|n| !self.lookup_property_by_internal_name(n).is_valid())
+            .find(|n| !self.lookup_property(n, PropertyLookupMode::InternalName).is_valid())
             .unwrap()
     }
 
@@ -3074,7 +3106,8 @@ impl Element {
     ) {
         for (name_token, b) in bindings {
             let unresolved_name = crate::parser::normalize_identifier(name_token.text());
-            let lookup_result = self.lookup_property(&unresolved_name);
+            let lookup_result =
+                self.lookup_property(&unresolved_name, PropertyLookupMode::ComponentLocal);
             #[cfg(feature = "slint-sc")]
             if lookup_result.is_valid() && !lookup_result.is_slint_sc {
                 diag.slint_sc_error(&format!("The property '{unresolved_name}' is"), &name_token);
@@ -3873,7 +3906,9 @@ fn lookup_property_from_qualified_name_for_state(
     let qualname = QualifiedTypeName::from_node(node.clone());
     match qualname.members.as_slice() {
         [unresolved_prop_name] => {
-            let lookup_result = r.borrow().lookup_property(unresolved_prop_name.as_ref());
+            let lookup_result = r
+                .borrow()
+                .lookup_property(unresolved_prop_name.as_ref(), PropertyLookupMode::ComponentLocal);
             if !lookup_result.property_type.is_property_type() {
                 diag.push_error(format!("'{qualname}' is not a valid property"), &node);
             } else if !lookup_result.is_valid_for_assignment() {
@@ -3892,7 +3927,10 @@ fn lookup_property_from_qualified_name_for_state(
         }
         [elem_id, unresolved_prop_name] => {
             if let Some(element) = find_element_by_id(r, elem_id.as_ref()) {
-                let lookup_result = element.borrow().lookup_property(unresolved_prop_name.as_ref());
+                let lookup_result = element.borrow().lookup_property(
+                    unresolved_prop_name.as_ref(),
+                    PropertyLookupMode::ComponentLocal,
+                );
                 if !lookup_result.is_valid() {
                     diag.push_error(
                         format!("'{unresolved_prop_name}' not found in '{elem_id}'"),
@@ -4089,7 +4127,7 @@ pub fn visit_element_expressions_excluding_repeater_model(
     ) {
         for (name, expr) in elem.borrow().bindings_including_synthetic() {
             vis(&mut expr.borrow_mut(), Some(name.as_str()), &|| {
-                elem.borrow().lookup_property_by_internal_name(name).property_type
+                elem.borrow().lookup_property(name, PropertyLookupMode::InternalName).property_type
             });
 
             for twb in &mut expr.borrow_mut().two_way_bindings {
@@ -4131,7 +4169,10 @@ pub fn visit_element_expressions_excluding_repeater_model(
         }
         for (ne, e, _) in &mut s.property_changes {
             vis(e, Some(ne.name()), &|| {
-                ne.element().borrow().lookup_property_by_internal_name(ne.name()).property_type
+                ne.element()
+                    .borrow()
+                    .lookup_property(ne.name(), PropertyLookupMode::InternalName)
+                    .property_type
             });
         }
     }

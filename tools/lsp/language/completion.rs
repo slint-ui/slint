@@ -11,7 +11,7 @@ use crate::util::{lookup_current_element_type, text_size_to_lsp_position, with_l
 use crate::wasm_prelude::*;
 use i_slint_compiler::diagnostics::Spanned;
 use i_slint_compiler::expression_tree::{Callable, Expression};
-use i_slint_compiler::langtype::{ElementType, Type};
+use i_slint_compiler::langtype::{ElementType, PropertyLookupMode, Type};
 use i_slint_compiler::lookup::{LookupCtx, LookupObject, LookupResult, LookupResultCallable};
 use i_slint_compiler::object_tree::ElementRc;
 use i_slint_compiler::parser::{SyntaxKind, SyntaxNode, SyntaxToken, TextSize, syntax_nodes};
@@ -678,7 +678,7 @@ fn resolve_element_scope(
             if shadowing_names.contains(&i_slint_compiler::parser::normalize_identifier(k)) {
                 return false;
             }
-            let mut lk = element_type.lookup_property(k);
+            let mut lk = element_type.lookup_property(k, PropertyLookupMode::ComponentLocal);
             lk.is_local_to_component = false;
             lk.is_valid_for_assignment()
         })
@@ -2763,6 +2763,29 @@ export component TestWindow inherits Window {
         let results = get_completions_experimental(source).unwrap();
         let prop = results.iter().find(|c| c.label == "prop").unwrap();
         assert_eq!(prop.detail.as_deref(), Some("string"), "should show the overriding type");
+    }
+
+    #[test]
+    fn private_shadow_is_transparent_in_completion() {
+        // A private declaration shadowing a public `@shadowable` member is invisible from outside
+        // the component, so `foo.` completion offers the inherited public member (with its type).
+        let source = r#"
+            component Base {
+                @shadowable in-out property <int> prop;
+            }
+            component Derived inherits Base {
+                private property <string> prop;
+            }
+            export component Main {
+                foo := Derived { }
+                the-text := Text {
+                    text: foo.pr🔺;
+                }
+            }
+        "#;
+        let results = get_completions_experimental(source).unwrap();
+        let prop = results.iter().find(|c| c.label == "prop").expect("'prop' should be offered");
+        assert_eq!(prop.detail.as_deref(), Some("int"), "should show the inherited public type");
     }
 
     #[test]

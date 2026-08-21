@@ -12,7 +12,7 @@ use smol_str::SmolStr;
 
 use crate::diagnostics::{BuildDiagnostics, SourceLocation, Spanned};
 use crate::expression_tree::{BindingExpression, Callable, Expression};
-use crate::langtype::{ElementType, Function, PropertyLookupResult, Type};
+use crate::langtype::{ElementType, Function, PropertyLookupMode, PropertyLookupResult, Type};
 use crate::namedreference::NamedReference;
 use crate::object_tree::{
     Element, ElementRc, PropertyDeclaration, PropertyVisibility, QualifiedTypeName,
@@ -378,7 +378,7 @@ fn validate_interface_member_implementation(
         return None;
     }
 
-    let lookup_result = element.lookup_property(member_name);
+    let lookup_result = element.lookup_property(member_name, PropertyLookupMode::ComponentLocal);
     let Err(violations) =
         property_matches_interface(&lookup_result, interface_member, member_name, binding)
     else {
@@ -443,7 +443,10 @@ pub(super) fn apply_child_implement_statements(
         let mut conflicts = Vec::new();
         let mut notes = Vec::new();
         for (name, prop_decl) in interface.borrow().property_declarations.iter() {
-            let lookup_result = element.borrow().base_type.lookup_property(name);
+            let lookup_result = element
+                .borrow()
+                .base_type
+                .lookup_property(name, PropertyLookupMode::ComponentLocal);
             if let Err(message) =
                 check_property_declaration_conflicts(&lookup_result, &element.borrow().base_type)
             {

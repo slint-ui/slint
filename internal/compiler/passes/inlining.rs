@@ -7,7 +7,7 @@
 
 use crate::diagnostics::{BuildDiagnostics, Spanned};
 use crate::expression_tree::{BindingExpression, Expression, NamedReference};
-use crate::langtype::{ElementType, Type};
+use crate::langtype::{ElementType, PropertyLookupMode, Type};
 use crate::object_tree::*;
 use by_address::ByAddress;
 use smol_str::SmolStr;
@@ -950,7 +950,8 @@ fn component_requires_inlining(component: &Rc<Component>) -> bool {
             return true;
         }
         if binding.animation.is_some() {
-            let lookup_result = root_element.borrow().lookup_property_by_internal_name(prop);
+            let lookup_result =
+                root_element.borrow().lookup_property(prop, PropertyLookupMode::InternalName);
             if !lookup_result.is_valid()
                 || !lookup_result.is_local_to_component
                 || !matches!(

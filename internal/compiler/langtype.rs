@@ -481,25 +481,16 @@ impl PartialEq for ElementType {
 
 impl ElementType {
     /// Resolve a name written in `.slint` source.
-    pub fn lookup_property<'a>(&self, name: &'a str) -> PropertyLookupResult<'a> {
+    /// Resolve `name` in the given [`PropertyLookupMode`]. See
+    /// [`crate::object_tree::Element::lookup_property`]. Only a component can have shadowed members,
+    /// so the other bases ignore the mode.
+    pub fn lookup_property<'a>(
+        &self,
+        name: &'a str,
+        mode: PropertyLookupMode,
+    ) -> PropertyLookupResult<'a> {
         match self {
-            Self::Component(c) => c.root_element.borrow().lookup_property(name),
-            _ => self.lookup_non_component_property(name),
-        }
-    }
-
-    /// Resolve an internal name, see [`crate::object_tree::Element::lookup_property_by_internal_name`].
-    pub fn lookup_property_by_internal_name<'a>(&self, name: &'a str) -> PropertyLookupResult<'a> {
-        match self {
-            Self::Component(c) => c.root_element.borrow().lookup_property_by_internal_name(name),
-            _ => self.lookup_non_component_property(name),
-        }
-    }
-
-    /// Only a component can have shadowed members, so the other bases resolve either name the same.
-    fn lookup_non_component_property<'a>(&self, name: &'a str) -> PropertyLookupResult<'a> {
-        match self {
-            Self::Component(_) => unreachable!("handled by the callers"),
+            Self::Component(c) => c.root_element.borrow().lookup_property(name, mode),
             Self::Builtin(b) => {
                 let resolved_name =
                     if let Some(alias_name) = b.native_class.lookup_alias(name.as_ref()) {
@@ -575,9 +566,11 @@ impl ElementType {
             Self::Component(c) => {
                 let root = c.root_element.borrow();
                 let mut r = root.base_type.property_list();
-                // A shadowing declaration replaces the inherited entry of the same name
+                // A visible shadowing declaration replaces the inherited entry of the same name.
                 if !root.shadowing_members.is_empty() {
-                    r.retain(|(name, _)| !root.shadowing_members.contains_key(name));
+                    let hidden: std::collections::HashSet<_> =
+                        root.visible_shadowing_members().collect();
+                    r.retain(|(name, _)| !hidden.contains(name));
                 }
                 r.extend(
                     root.property_declarations
@@ -939,6 +932,18 @@ impl BuiltinElement {
     pub fn new(native_class: Arc<NativeClass>) -> Self {
         Self { name: native_class.class_name.clone(), native_class, ..Default::default() }
     }
+}
+
+/// How [`crate::object_tree::Element::lookup_property`] resolves a name.
+#[derive(Copy, Clone, PartialEq, Debug)]
+pub enum PropertyLookupMode {
+    /// A source name resolved from within the declaring component: a private shadow is visible.
+    ComponentLocal,
+    /// A source name resolved from outside the component: a private shadow is invisible, so the name
+    /// resolves to the member it shadows.
+    FromOutside,
+    /// A storage key, as a `NamedReference` carries: no shadow resolution.
+    InternalName,
 }
 
 #[derive(PartialEq, Debug)]
