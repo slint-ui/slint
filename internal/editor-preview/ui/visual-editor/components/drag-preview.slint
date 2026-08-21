@@ -1,0 +1,80 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { PrototypeComponentKind } from "../../api.slint";
+import { AppState, ImagePlaceholder, StudioTheme } from "common.slint";
+import { EditorTreeTokens } from "editor-tree-tokens.slint";
+
+export component DragPreview inherits Rectangle {
+    visible: AppState.outline-drag-active || AppState.dragging-kind != PrototypeComponentKind.none;
+    width: AppState.outline-drag-active
+        ? AppState.outline-drag-preview-size.width
+        : AppState.drag-preview-size.width;
+    height: AppState.outline-drag-active
+        ? AppState.outline-drag-preview-size.height
+        : AppState.drag-preview-size.height;
+    x: AppState.outline-drag-active
+        ? AppState.outline-drag-position.x
+        : AppState.drag-preview-position.x;
+    y: AppState.outline-drag-active
+        ? AppState.outline-drag-position.y
+        : AppState.drag-preview-position.y;
+    border-radius: AppState.outline-drag-active
+        ? EditorTreeTokens.row-radius
+        : AppState.dragging-kind == PrototypeComponentKind.image ? 16px : 8px;
+    background: transparent;
+    opacity: AppState.outline-drag-active ? 0.5 : 1;
+    drop-shadow-blur: 18px;
+    drop-shadow-offset-y: 8px;
+    drop-shadow-color: StudioTheme.dark ? #00000055 : #33415535;
+
+    if AppState.outline-drag-active: Rectangle {
+        border-radius: EditorTreeTokens.row-radius;
+        background: EditorTreeTokens.row-bg-hover;
+        border-width: 1px;
+        border-color: EditorTreeTokens.guide;
+
+        HorizontalLayout {
+            padding-left: EditorTreeTokens.row-padding-inline;
+            padding-right: EditorTreeTokens.row-padding-inline;
+            spacing: EditorTreeTokens.content-gap;
+            cross-axis-alignment: center;
+
+            Image {
+                width: EditorTreeTokens.icon-size;
+                height: EditorTreeTokens.icon-size;
+                source: AppState.outline-drag-icon;
+                colorize: EditorTreeTokens.text;
+                opacity: 0.72;
+                vertical-alignment: center;
+            }
+
+            Text {
+                horizontal-stretch: 1;
+                text: AppState.outline-drag-label;
+                color: EditorTreeTokens.text;
+                font-size: 13px;
+                vertical-alignment: center;
+                overflow: elide;
+                wrap: no-wrap;
+            }
+        }
+    }
+
+    if !AppState.outline-drag-active && AppState.dragging-kind == PrototypeComponentKind.rectangle: Rectangle {
+        border-radius: 8px;
+        background: StudioTheme.object-bg;
+        border-width: 1px;
+        border-color: StudioTheme.object-border;
+    }
+
+    if !AppState.outline-drag-active && AppState.dragging-kind == PrototypeComponentKind.text: Text {
+        text: "Text";
+        color: StudioTheme.phone-text;
+        font-size: 24px;
+        font-weight: 800;
+        vertical-alignment: center;
+    }
+
+    if !AppState.outline-drag-active && AppState.dragging-kind == PrototypeComponentKind.image: ImagePlaceholder { }
+}

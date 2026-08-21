@@ -1,0 +1,118 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+# cSpell: ignore nucleo
+[package]
+name = "i-slint-editor-preview"
+description = "Shared document model and editing session for the Slint language server and visual editor"
+authors.workspace = true
+documentation.workspace = true
+edition.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+[lib]
+path = "lib.rs"
+
+[features]
+backend-qt = ["slint?/backend-qt"]
+backend-winit = ["slint?/backend-winit"]
+backend-winit-x11 = ["slint?/backend-winit-x11"]
+backend-winit-wayland = ["slint?/backend-winit-wayland"]
+backend-linuxkms = ["slint?/backend-linuxkms"]
+backend-linuxkms-noseat = ["slint?/backend-linuxkms-noseat"]
+backend-default = ["slint?/backend-default"]
+
+renderer-femtovg = ["slint?/renderer-femtovg"]
+renderer-skia = ["slint?/renderer-skia"]
+renderer-skia-opengl = ["slint?/renderer-skia-opengl"]
+renderer-skia-vulkan = ["slint?/renderer-skia-vulkan"]
+renderer-software = ["slint?/renderer-software"]
+
+## Build in the actual code to act as a preview for slint files.
+preview-engine = [
+  "dep:slint",
+  "dep:slint-interpreter",
+  "dep:i-slint-core",
+  "dep:i-slint-backend-selector",
+  "dep:slint-build",
+  "dep:by_address",
+  "dep:clru",
+  "dep:i-slint-common",
+  "dep:rfd",
+  "dep:serde_json",
+  "dep:web-sys",
+  "dep:objc2",
+  "dep:objc2-app-kit",
+  "dep:objc2-foundation",
+  "dep:raw-window-handle",
+]
+## Build in the actual code to act as a preview for slint files. Does nothing in WASM!
+preview-builtin = ["preview-engine"]
+## Support the external preview optionally used by e.g. the VSCode plugin
+preview-external = []
+## Support the remote preview via a WebSocket connection
+preview-remote = ["preview-engine", "preview-builtin", "dep:mdns-sd"]
+## Expose the test fixtures so that dependent crates can build on them
+testing = ["dep:i-slint-backend-testing", "dep:spin_on"]
+
+[dependencies]
+i-slint-compiler = { workspace = true, features = ["display-diagnostics"] }
+i-slint-live-preview = { version = "=1.18.0", path = "../live-preview", features = ["protocol", "file-watcher"] }
+
+itertools = { workspace = true }
+lsp-types = { workspace = true }
+nucleo-matcher = "0.3.1"
+serde = { workspace = true }
+smol_str = { workspace = true }
+tracing = { workspace = true }
+
+futures-util = "0.3.32"
+
+# for the preview-engine feature
+by_address = { workspace = true, optional = true }
+clru = { workspace = true, optional = true }
+i-slint-backend-selector = { workspace = true, optional = true }
+i-slint-common = { workspace = true, optional = true }
+i-slint-core = { workspace = true, features = ["std"], optional = true }
+slint = { workspace = true, features = ["compat-1-2", "unstable-winit-030", "raw-window-handle-06"], optional = true }
+slint-interpreter = { workspace = true, features = ["compat-1-2", "internal", "internal-highlight", "internal-json", "image-default-formats"], optional = true }
+serde_json = { workspace = true, optional = true }
+
+# for the `testing` feature
+i-slint-backend-testing = { workspace = true, optional = true }
+spin_on = { workspace = true, optional = true }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+directories = "6.0"
+tokio = { version = "1.50.0", features = ["rt"] }
+mdns-sd = { version = "0.20.0", optional = true }
+rfd = { version = "0.17.2", optional = true }
+tempfile = "3"
+
+# Used by the visual editor for the macOS unified title bar.
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2-app-kit = { version = "0.3.2", default-features = false, features = ["std", "NSToolbar", "NSView", "NSWindow"], optional = true }
+objc2-foundation = { version = "0.3.2", default-features = false, features = ["std", "NSString"], optional = true }
+objc2 = { version = "0.6", optional = true }
+raw-window-handle = { version = "0.6", optional = true }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen-futures = "0.4.30"
+# for the preview-engine feature
+web-sys = { workspace = true, features = ["Navigator", "Window"], optional = true }
+
+[build-dependencies]
+slint-build = { workspace = true, optional = true }
+
+[dev-dependencies]
+i-slint-backend-testing = { path = "../backends/testing" }
+spin_on = { workspace = true }
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--generate-link-to-definition"]

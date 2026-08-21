@@ -42,7 +42,7 @@ jobs:
                   save_if: ${{ inputs.save_if }}
             - uses: ./.github/actions/install-linux-dependencies
               with:
-                  extra-packages: libwayland-dev libasound2-dev
+                  extra-packages: libasound2-dev
             - uses: ./.github/actions/install-skia-dependencies
             - uses: ilammy/msvc-dev-cmd@v1
             # bevy is part of the examples workspace (examples/Cargo.toml) but is

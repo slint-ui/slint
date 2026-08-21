@@ -36,6 +36,11 @@ SPDX-FileCopyrightText = "Copyright © SixtyFPS GmbH <info@slint.dev>"
 SPDX-License-Identifier = "CC-BY-ND-4.0"
 
 [[annotations]]
+path = ["internal/editor-preview/ui/assets/octicons/*.svg"]
+SPDX-FileCopyrightText = "Copyright © 2026 GitHub Inc."
+SPDX-License-Identifier = "MIT"
+
+[[annotations]]
 path = [
   "**/.eslintrc.yml",
   "**/.gitignore",
@@ -204,6 +209,18 @@ path = [
   "tools/viewer/TestFlight/WhatToTest.en-US.txt",
   "tools/viewer/android/fastlane/metadata/android/**.txt",
   "tools/viewer/android/fastlane/metadata/android/**.png",
+
+  # Visual editor-related files
+  "tools/editor/packaging/linux/**",
+  "tools/editor/packaging/macos/AppIcon.icon/Assets/icon_backdrop.svg",
+  "tools/editor/packaging/macos/AppIcon.icon/icon.json",
+  "tools/editor/packaging/macos/dmg-background.svg",
+  "tools/editor/packaging/tile-backdrop-wide.svg",
+  "tools/editor/packaging/tile-backdrop.svg",
+  "tools/editor/packaging/windows-appx/Package.appxmanifest.in",
+  "internal/editor-preview/ui/assets/slinterface-*.svg",
+  "internal/editor-preview/ui/visual-editor/example/image.png",
+  "internal/editor-preview/ui/visual-editor/example/title-frame.png",
 ]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Copyright © SixtyFPS GmbH <info@slint.dev>"
@@ -235,21 +252,21 @@ SPDX-License-Identifier = "LicenseRef-qskinny"
 
 [[annotations]]
 path = [
-  "tools/lsp/ui/assets/chevron-down.svg",
-  "tools/lsp/ui/assets/filter.svg",
-  "tools/lsp/ui/assets/inspect.svg",
-  "tools/lsp/ui/assets/layout-sidebar**.svg",
-  "tools/lsp/ui/assets/search.svg",
-  "tools/lsp/ui/assets/sync.svg",
-  "tools/lsp/ui/assets/black-square.png",
-  "tools/lsp/ui/assets/close.svg",
-  "tools/lsp/ui/assets/plus.svg",
-  "tools/lsp/ui/assets/info.svg",
-  "tools/lsp/ui/assets/clear.svg",
-  "tools/lsp/ui/assets/beaker.svg",
-  "tools/lsp/ui/assets/library.svg",
-  "tools/lsp/ui/assets/list-tree.svg",
-  "tools/lsp/ui/assets/settings.svg",
+  "internal/editor-preview/ui/assets/chevron-down.svg",
+  "internal/editor-preview/ui/assets/filter.svg",
+  "internal/editor-preview/ui/assets/inspect.svg",
+  "internal/editor-preview/ui/assets/layout-sidebar**.svg",
+  "internal/editor-preview/ui/assets/search.svg",
+  "internal/editor-preview/ui/assets/sync.svg",
+  "internal/editor-preview/ui/assets/black-square.png",
+  "internal/editor-preview/ui/assets/close.svg",
+  "internal/editor-preview/ui/assets/plus.svg",
+  "internal/editor-preview/ui/assets/info.svg",
+  "internal/editor-preview/ui/assets/clear.svg",
+  "internal/editor-preview/ui/assets/beaker.svg",
+  "internal/editor-preview/ui/assets/library.svg",
+  "internal/editor-preview/ui/assets/list-tree.svg",
+  "internal/editor-preview/ui/assets/settings.svg",
   "tools/viewer/remote/assets/**.svg",
 ]
 precedence = "aggregate"

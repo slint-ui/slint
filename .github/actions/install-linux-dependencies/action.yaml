@@ -25,7 +25,11 @@ runs:
           run: |
               # Bound apt so a stuck dpkg lock or mirror stall fails in minutes instead of hanging the job.
               sudo timeout 600 apt-get update
-              sudo timeout 600 apt-get install -y libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev libxkbcommon-x11-dev libudev-dev libinput-dev libgbm-dev libfontconfig-dev libseat-dev libsystemd-dev ${{ inputs.extra-packages }}
+              # libwayland-dev is for the crates that link libwayland at build
+              # time instead of dlopen'ing it the way our winit backend does.
+              # rfd, which slint-lsp uses for its file dialogs, is one: it pins
+              # wayland-backend's "client_system". The bevy examples need it too.
+              sudo timeout 600 apt-get install -y libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev libxkbcommon-x11-dev libudev-dev libinput-dev libgbm-dev libfontconfig-dev libseat-dev libsystemd-dev libwayland-dev ${{ inputs.extra-packages }}
         - name: Install C++ compiler
           if: ${{ (runner.os == 'Linux') && (inputs.force-gcc-10 == 'true') }}
           shell: bash

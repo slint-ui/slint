@@ -130,7 +130,13 @@ depends = ["prepare:pnpm-install"]
 ["build:lsp:wasm"]
 description = "Build the LSP (WASM)"
 dir = "editors/vscode"
-sources = ["tools/lsp/Cargo.toml", "tools/lsp/**/*.rs", "tools/lsp/ui/**/*.slint"]
+sources = [
+  "tools/lsp/Cargo.toml",
+  "tools/lsp/**/*.rs",
+  "internal/editor-preview/Cargo.toml",
+  "internal/editor-preview/**/*.rs",
+  "internal/editor-preview/ui/**/*.slint",
+]
 outputs = ["tools/lsp/pkg/*"]
 run = "pnpm run build:wasm_lsp"
 tools = { "ubi:wasm-bindgen/wasm-pack" = "0.13.1" }
