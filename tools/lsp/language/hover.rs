@@ -64,7 +64,7 @@ pub fn get_tooltip(
             }
         }
         TokenInfo::NamedReference(nr) => {
-            from_property_in_element(&nr.element(), nr.name(), documentation)?
+            from_named_reference(&nr.element(), nr.name(), documentation)?
         }
         TokenInfo::EnumerationValue(v) => {
             from_slint_code(&format!("{}.{}", v.enumeration.name, v), documentation)
@@ -168,6 +168,28 @@ fn from_property_in_element(
         );
     }
     from_property_in_type(&element.base_type, name, documentation)
+}
+
+/// Tooltip for a `NamedReference`, whose name is the member's storage key - a mangled internal name
+/// for a declaration that shadows an inherited member. The member is shown under its source name.
+fn from_named_reference(
+    element: &ElementRc,
+    key: &str,
+    documentation: Option<&str>,
+) -> Option<MarkupContent> {
+    let element = element.borrow();
+    if let Some(decl) = element.property_declarations.get(key) {
+        return property_tooltip(
+            &decl.property_type,
+            decl.shadowed_name.as_deref().unwrap_or(key),
+            decl.pure.unwrap_or(false),
+            documentation,
+        );
+    }
+    match &element.base_type {
+        ElementType::Component(c) => from_named_reference(&c.root_element, key, documentation),
+        other => from_property_in_type(other, key, documentation),
+    }
 }
 
 fn builtin_element_description(b: &BuiltinElement) -> &str {
@@ -540,6 +562,50 @@ export component Test { // not docs
         assert_tooltip(
             get_tooltip(&mut dc, find_tk("Eee.E2", 5.into())),
             "```slint\n/// Here some docs for Eee\nEee.E2\n```",
+        );
+    }
+
+    #[test]
+    fn test_tooltip_shadowed_member() {
+        // `Derived` shadows the `@shadowable` `prop` of `Base`, with a different type. The tooltip
+        // for a use must describe the property declared in the same component, under its source name.
+        let source = r#"
+component Base {
+    @shadowable in-out property <int> prop;
+    out property <int> base-out: self.prop;
+}
+component Derived inherits Base {
+    in-out property <string> prop;
+    out property <string> derived-out: self.prop;
+}
+export component Test {
+    Derived { }
+}"#;
+        let (mut dc, uri, _) =
+            crate::language::test::loaded_document_cache_with_experimental(source.into());
+        let doc = dc.get_document(&uri).unwrap().node.clone().unwrap();
+
+        let find_prop = |anchor: &str| {
+            let anchor_pos = source.find(anchor).unwrap();
+            let prop_pos = anchor_pos + source[anchor_pos..].find("self.prop").unwrap() + 5;
+            crate::language::token_at_offset(&doc, TextSize::new(prop_pos as u32)).unwrap()
+        };
+
+        #[track_caller]
+        fn assert_tooltip(h: Option<Hover>, str: &str) {
+            match h.unwrap().contents {
+                HoverContents::Markup(m) => assert_eq!(m.value, str),
+                x => panic!("Found {x:?} ({str})"),
+            }
+        }
+
+        assert_tooltip(
+            get_tooltip(&mut dc, find_prop("base-out: self.prop")),
+            "```slint\nproperty <int> prop\n```",
+        );
+        assert_tooltip(
+            get_tooltip(&mut dc, find_prop("derived-out: self.prop")),
+            "```slint\nproperty <string> prop\n```",
         );
     }
 

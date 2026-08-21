@@ -162,6 +162,48 @@ export component Test {
 }
 
 #[test]
+fn test_goto_definition_shadowed_member() {
+    fn first_link(def: &GotoDefinitionResponse) -> &LocationLink {
+        let GotoDefinitionResponse::Link(link) = def else { panic!("not a single link {def:?}") };
+        link.first().unwrap()
+    }
+
+    // `Derived` shadows the `@shadowable` `prop` of `Base`. Going to the definition from a use must
+    // land on the declaration in the same component, not on the other one.
+    let source = r#"
+component Base {
+    @shadowable in-out property <int> prop;
+    out property <int> base-out: self.prop;
+}
+component Derived inherits Base {
+    in-out property <int> prop;
+    out property <int> derived-out: self.prop;
+}
+export component Test {
+    Derived { }
+}"#;
+
+    let (mut dc, uri, _) =
+        crate::language::test::loaded_document_cache_with_experimental(source.into());
+    let doc = dc.get_document(&uri).unwrap().node.clone().unwrap();
+
+    let mut goto_line = |anchor: &str| {
+        let anchor_pos = source.find(anchor).unwrap();
+        let prop_pos = anchor_pos + source[anchor_pos..].find("self.prop").unwrap() + 5;
+        let offset: TextSize = (prop_pos as u32).into();
+        let token = crate::language::token_at_offset(&doc, offset).unwrap();
+        assert_eq!(token.text(), "prop");
+        let def = goto_definition(&mut dc, token).unwrap();
+        first_link(&def).target_range.start.line
+    };
+
+    // The use in `Base` resolves to `Base::prop` (line 2), the one in `Derived` to `Derived::prop`
+    // (line 6).
+    assert_eq!(goto_line("base-out: self.prop"), 2);
+    assert_eq!(goto_line("derived-out: self.prop"), 6);
+}
+
+#[test]
 fn test_goto_definition_multi_files() {
     fn first_link(def: &GotoDefinitionResponse) -> &LocationLink {
         let GotoDefinitionResponse::Link(link) = def else { panic!("not a single link {def:?}") };
