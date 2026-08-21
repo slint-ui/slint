@@ -1578,7 +1578,7 @@ impl Expression {
                 },
                 _ => unreachable!(),
             }
-        } else if let (Type::Struct(struct_type), Expression::Struct { values, .. }) =
+        } else if let (Type::Struct(target_struct_type), Expression::Struct { values, .. }) =
             (&target_type, &self)
         {
             // Also special case struct literal in case they contain array literal
@@ -1588,17 +1588,30 @@ impl Expression {
                 if let Some(t) = fields.remove(f) {
                     new_values.insert(f.clone(), v.clone().maybe_convert_to(t, node, diag));
                 } else {
-                    diag.push_error(format!("Cannot convert {ty} to {target_type}"), node);
+                    let available_fields_message = if target_struct_type.name.slint_name().is_some()
+                    {
+                        let available_fields = target_struct_type
+                            .fields
+                            .keys()
+                            .map(SmolStr::as_str)
+                            .collect::<Vec<_>>()
+                            .join("', '");
+                        format!(". Available fields: '{available_fields}'")
+                    } else {
+                        String::new()
+                    };
+                    diag.push_error(
+                        format!("Cannot convert {ty} to {target_type}: Field '{f}' not found{available_fields_message}"),
+                        node,
+                    );
                     return self;
                 }
             }
             for (f, t) in fields {
                 new_values.insert(f, Expression::default_value_for_type(&t));
             }
-            Expression::Struct { ty: struct_type.clone(), values: new_values }
-        } else if matches!(ty, Type::Array(_))
-            && let Expression::Condition { condition, true_expr, false_expr } = self
-        {
+            Expression::Struct { ty: target_struct_type.clone(), values: new_values }
+        } else if let Expression::Condition { condition, true_expr, false_expr } = self {
             // Recursive try to convert the conditional expressions to the target_type
             // true_expr and false_expr are equal this is handled with the condition at the beginning
             // of this function so if one fails to convert, we should not try to convert the false case
