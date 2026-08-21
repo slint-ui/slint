@@ -1582,7 +1582,7 @@ impl Expression {
             (&target_type, &self)
         {
             // Also special case struct literal in case they contain array literal
-            let mut fields = struct_type.fields.clone();
+            let mut fields = target_struct_type.fields.clone();
             let mut new_values = HashMap::new();
             for (f, v) in values {
                 if let Some(t) = fields.remove(f) {
