@@ -1,0 +1,195 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company , info@kdab.com, author Robin Cramer <robin.cramer@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component TestCase inherits Rectangle {
+    // bounce: 0 -> critically damped, approaches the target without ever overshooting it.
+    in-out property <float> critical: 0;
+    animate critical {
+        duration: 1000ms;
+        easing: spring;
+    }
+
+    // bounce: 1 -> undamped, oscillates forever without settling (over one period here).
+    // iteration-count must be -1: a spring this bouncy never settles anyway, so -1 is the
+    // only way to acknowledge that the animation runs forever.
+    in-out property <float> undamped: 0;
+    animate undamped {
+        duration: 1000ms;
+        easing: spring(1.0);
+        iteration-count: -1;
+    }
+
+    // bounce: -1 -> overdamped, approaches the target even slower than critical damping.
+    in-out property <float> overdamped: 0;
+    animate overdamped {
+        duration: 1000ms;
+        easing: spring(-1);
+    }
+
+    // direction: reverse -> starts at the target and settles back at the origin.
+    in-out property <float> reversed: 0;
+    animate reversed {
+        duration: 1000ms;
+        easing: spring;
+        direction: reverse;
+    }
+
+    // iteration-count: 2, direction: alternate -> bounces to the target and back.
+    in-out property <float> looped: 0;
+    animate looped {
+        duration: 1000ms;
+        easing: spring;
+        direction: alternate;
+        iteration-count: 2;
+    }
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+fn assert_approx(value: f32, expected: f32) {
+    assert!((value - expected).abs() < 0.015, "Expected {value} to be close to {expected}");
+}
+
+instance.set_critical(1.0);
+instance.set_undamped(1.0);
+instance.set_overdamped(1.0);
+instance.set_reversed(1.0);
+instance.set_looped(1.0);
+
+slint_testing::mock_elapsed_time(250);
+assert_approx(instance.get_critical(), 0.4656);
+assert_approx(instance.get_undamped(), 1.0);
+assert_approx(instance.get_overdamped(), 0.2930);
+assert_approx(instance.get_reversed(), 0.5344);
+assert_approx(instance.get_looped(), 0.4656);
+
+slint_testing::mock_elapsed_time(250);
+// Critical damping never overshoots the target.
+assert_approx(instance.get_critical(), 0.8210);
+assert!(instance.get_critical() < 1.0);
+// The undamped spring overshoots, reaching twice the target at the midpoint.
+assert_approx(instance.get_undamped(), 2.0);
+// Overdamped moves slower than critical damping and also never overshoots.
+assert_approx(instance.get_overdamped(), 0.5357);
+assert!(instance.get_overdamped() < instance.get_critical());
+assert_approx(instance.get_reversed(), 0.1790);
+assert_approx(instance.get_looped(), 0.8210);
+
+slint_testing::mock_elapsed_time(500);
+// Once the full duration has elapsed, the animation is done and the
+// value is close to the target
+assert_approx(instance.get_critical(), 1.0);
+// 0.0 as it oscillates forever
+assert_eq!(instance.get_undamped(), 0.0);
+// overdamped is slower than duration
+assert!(instance.get_overdamped() > 0.7);
+assert_approx(instance.get_reversed(), 0.0);
+assert_approx(instance.get_looped(), 1.0);
+
+slint_testing::mock_elapsed_time(500);
+assert_approx(instance.get_reversed(), 0.0);
+assert_approx(instance.get_looped(), 0.1774); // slightly different as it had a little velocity on retarget
+
+slint_testing::mock_elapsed_time(1000);
+assert_approx(instance.get_reversed(), 0.0);
+assert_approx(instance.get_looped(), 0.0);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+
+instance.set_critical(1.0);
+instance.set_undamped(1.0);
+instance.set_overdamped(1.0);
+instance.set_reversed(1.0);
+instance.set_looped(1.0);
+
+slint_testing::mock_elapsed_time(250);
+assert(std::abs(instance.get_critical() - 0.4656) < 0.015);
+assert(std::abs(instance.get_undamped() - 1.0) < 0.015);
+assert(std::abs(instance.get_overdamped() - 0.2930) < 0.015);
+assert(std::abs(instance.get_reversed() - 0.5344) < 0.015);
+assert(std::abs(instance.get_looped() - 0.4656) < 0.015);
+
+slint_testing::mock_elapsed_time(250);
+// Critical damping never overshoots the target.
+assert(std::abs(instance.get_critical() - 0.8210) < 0.015);
+assert(instance.get_critical() < 1.0);
+// The undamped spring overshoots, reaching twice the target at the midpoint.
+assert(std::abs(instance.get_undamped() - 2.0) < 0.015);
+// Overdamped moves slower than critical damping and also never overshoots.
+assert(std::abs(instance.get_overdamped() - 0.5357) < 0.015);
+assert(instance.get_overdamped() < instance.get_critical());
+assert(std::abs(instance.get_reversed() - 0.1790) < 0.015);
+assert(std::abs(instance.get_looped() - 0.8210) < 0.015);
+
+slint_testing::mock_elapsed_time(500);
+// Once the full duration has elapsed, the animation is done and the
+// value is close to the target
+assert(std::abs(instance.get_critical() - 1.0) < 0.015);
+// 0.0 as it oscillates forever
+assert_eq(instance.get_undamped(), 0.0);
+// overdamped is slower than duration
+assert(instance.get_overdamped() > 0.7);
+assert(std::abs(instance.get_reversed() - 0.0) < 0.015);
+assert(std::abs(instance.get_looped() - 1.0) < 0.015);
+
+slint_testing::mock_elapsed_time(500);
+assert(std::abs(instance.get_reversed() - 0.0) < 0.015);
+assert(std::abs(instance.get_looped() - 0.1774) < 0.015); // slightly different as it had a little velocity on retarget
+
+slint_testing::mock_elapsed_time(1000);
+assert(std::abs(instance.get_reversed() - 0.0) < 0.015);
+assert(std::abs(instance.get_looped() - 0.0) < 0.015);
+```
+
+```js
+var instance = new slint.TestCase({});
+
+instance.critical = 1.0;
+instance.undamped = 1.0;
+instance.overdamped = 1.0;
+instance.reversed = 1.0;
+instance.looped = 1.0;
+
+slintlib.private_api.mock_elapsed_time(250);
+assert(Math.abs(instance.critical - 0.4656) < 0.015);
+assert(Math.abs(instance.undamped - 1.0) < 0.015);
+assert(Math.abs(instance.overdamped - 0.2930) < 0.015);
+assert(Math.abs(instance.reversed - 0.5344) < 0.015);
+assert(Math.abs(instance.looped - 0.4656) < 0.015);
+
+slintlib.private_api.mock_elapsed_time(250);
+// Critical damping never overshoots the target.
+assert(Math.abs(instance.critical - 0.8210) < 0.015);
+assert(instance.critical < 1.0);
+// The undamped spring overshoots, reaching twice the target at the midpoint.
+assert(Math.abs(instance.undamped - 2.0) < 0.015);
+// Overdamped moves slower than critical damping and also never overshoots.
+assert(Math.abs(instance.overdamped - 0.5357) < 0.015);
+assert(instance.overdamped < instance.critical);
+assert(Math.abs(instance.reversed - 0.1790) < 0.015);
+assert(Math.abs(instance.looped - 0.8210) < 0.015);
+
+slintlib.private_api.mock_elapsed_time(500);
+// Once the full duration has elapsed, the animation is done and the
+// value is close to the target
+assert(Math.abs(instance.critical - 1.0) < 0.015);
+// 0.0 as it oscillates forever
+assert.equal(instance.undamped, 0.0);
+// overdamped is slower than duration
+assert(instance.overdamped > 0.7);
+assert(Math.abs(instance.reversed - 0.0) < 0.015);
+assert(Math.abs(instance.looped - 1.0) < 0.015);
+
+slintlib.private_api.mock_elapsed_time(500);
+assert(Math.abs(instance.reversed - 0.0) < 0.015);
+assert(Math.abs(instance.looped - 0.1774) < 0.015); // slightly different as it had a little velocity on retarget
+
+slintlib.private_api.mock_elapsed_time(1000);
+assert(Math.abs(instance.reversed - 0.0) < 0.015);
+assert(Math.abs(instance.looped - 0.0) < 0.015);
+```
+*/

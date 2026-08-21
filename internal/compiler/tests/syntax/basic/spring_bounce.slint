@@ -1,0 +1,23 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company , info@kdab.com, author Robin Cramer <robin.cramer@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component X inherits Rectangle {
+    property <float> a;
+    animate a { easing: spring(0.95); }
+    property <float> b;
+    animate b { easing: spring(0.96); }
+//                      >           <error{A spring with a bounce greater than 0.95 never settles; set `iteration-count: -1` to make the animation explicitly infinite}
+    property <float> c;
+    animate c { easing: spring(0.96); iteration-count: -1; }
+    property <float> d;
+    animate d { easing: spring(-1); }
+    property <float> e;
+    animate e { easing: spring(1.0); }
+//                      >          <error{A spring with a bounce greater than 0.95 never settles; set `iteration-count: -1` to make the animation explicitly infinite}
+    property <float> f;
+    animate f { easing: spring(1.5); }
+//                             > <error{The bounce argument to spring curve must be between -1 and 1}
+    property <float> g;
+    animate g { easing: spring(-2); }
+//                             ><error{The bounce argument to spring curve must be between -1 and 1}
+}

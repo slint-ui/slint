@@ -1551,6 +1551,16 @@ impl Expression {
         };
         match r {
             LookupResult::Expression { expression, .. } => expression,
+            // `spring` used bare (no call parens) is sugar for `spring()`, i.e. bounce 0.
+            LookupResult::Callable(LookupResultCallable::Macro(BuiltinMacroFunction::Spring)) => {
+                crate::builtin_macros::lower_macro(
+                    BuiltinMacroFunction::Spring,
+                    node,
+                    std::iter::empty(),
+                    ctx.diag,
+                    &ctx.symbol_counters,
+                )
+            }
             LookupResult::Callable(c) => {
                 let what = match c {
                     LookupResultCallable::Callable(Callable::Callback(..)) => "Callback",
