@@ -665,11 +665,26 @@ fn resolve_element_scope(
         .unwrap_or(&global_tr);
     let element_type = lookup_current_element_type((*element).clone(), tr).unwrap_or_default();
     let parent_element_type = element.parent().and_then(|p| lookup_current_element_type(p, tr));
+    // Members declared on this element shadow inherited ones of the same name, so the inherited
+    // entry is dropped to avoid offering the name twice.
+    let shadowing_names: std::collections::HashSet<SmolStr> = element
+        .PropertyDeclaration()
+        .filter_map(|pr| pr.DeclaredIdentifier().child_text(SyntaxKind::Identifier))
+        .chain(
+            element
+                .CallbackDeclaration()
+                .filter_map(|cd| cd.DeclaredIdentifier().child_text(SyntaxKind::Identifier)),
+        )
+        .map(|n| i_slint_compiler::parser::normalize_identifier(&n))
+        .collect();
     let mut result = element_type
         .property_list()
         .into_iter()
         .filter(|(k, ty)| {
             if matches!(ty, Type::Function { .. }) {
+                return false;
+            }
+            if shadowing_names.contains(&i_slint_compiler::parser::normalize_identifier(k)) {
                 return false;
             }
             let mut lk = element_type.lookup_property(k);
@@ -2756,6 +2771,24 @@ export component TestWindow inherits Window {
             results.iter().find(|completion| completion.label == "MyInterface").unwrap();
         assert_eq!(completion.kind, Some(CompletionItemKind::INTERFACE));
         assert!(!results.iter().any(|completion| completion.label == "NotAnInterface"));
+    }
+
+    #[test]
+    fn shadowed_member_completed_once() {
+        // A member that shadows an inherited one must be offered a single time, not once for the
+        // inherited declaration and once for the shadow.
+        let source = r#"
+            component Base {
+                @shadowable in-out property <int> prop;
+            }
+            export component Derived inherits Base {
+                in-out property <string> prop;
+                pro🔺
+            }
+        "#;
+        let results = get_completions_experimental(source).unwrap();
+        let count = results.iter().filter(|c| c.label == "prop").count();
+        assert_eq!(count, 1, "'prop' should be completed exactly once");
     }
 
     #[test]
