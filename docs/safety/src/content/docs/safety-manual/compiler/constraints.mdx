@@ -3,11 +3,14 @@ title: Constraints
 description: Boundary conditions the user must respect when compiling with Slint SC.
 ---
 
-The standard essentially views a **Requirement** as what the system *must do* (or a property it must have), whereas a **Constraint** is a boundary condition that *limits the solution space*.
+This package uses two words for two different things.
+A **requirement** is what Slint SC *must do*, or a property it must have.
+A **constraint** is a boundary condition that *limits the solution space*, so it says how Slint SC may be used rather than what it does.
+Neither term is defined this way by ISO 26262, IEC 61508, or IEC 62304; it's our own split.
 
 For APIs, the Constraints might explain that some functions are experimental and can not be used safely yet. Or, that certain values passed as parameters into functions are not supported in Slint SC. In other words, certain features can only be used a certain way to be safe.
 
-The "Slint SC" compiler is the regular Slint compiler with the argument `--safety-critical`.
+The "Slint SC" compiler is the regular Slint compiler built with the `slint-sc` feature and invoked with `--slint-sc`.
 When the Slint Compiler is used in a safety-critical project, it should impose constraints
 on the input programs so that only safe parts of Slint SC can be used, and it should report a proper error message
 when an unsafe feature is found.

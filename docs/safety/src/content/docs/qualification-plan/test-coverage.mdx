@@ -7,4 +7,10 @@ Slint SC must support headless or offline automated testing frameworks capable o
 
 Code coverage is measured with LLVM source-based coverage via `cargo-llvm-cov`.
 The measured coverage of the current test suite is reported in the [Test Coverage](/qualification-report/test-coverage/) chapter of the qualification report.
-The goal for ASIL D is typically strict structural coverage, requiring >90% statement/branch coverage and often Modified Condition/Decision Coverage (MC/DC).
+
+ISO 26262-6:2018 Table 9 lists the structural coverage metrics at the software unit level: statement coverage, branch coverage, and Modified Condition/Decision Coverage (MC/DC).
+At the ASIL B we target, statement and branch coverage are highly recommended and MC/DC is recommended.
+The standard sets no percentage. 9.4.4 says only that coverage judged insufficient needs either more test cases or a rationale, and that no target value, or a low one without a rationale, counts as insufficient.
+
+Slint SC holds the runtime at complete line, function, and region coverage, and the build fails below it.
+Whether MC/DC is needed on top of that is still open; see the TODO in [Verification](/qualification-plan/verification/).

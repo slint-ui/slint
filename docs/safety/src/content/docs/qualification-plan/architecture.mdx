@@ -3,7 +3,7 @@ title: Architecture Design
 description: Software units of Slint SC and their static and dynamic architecture.
 ---
 
-## Slint SC Software Units (ISO 26262:6 7.4.4)
+## Slint SC Software Units (ISO 26262-6 7.4.4)
 
 Slint SC consists of three units.
 
@@ -24,18 +24,19 @@ integration; the compiler binary is invoked directly. Decide whether
 `slint_build` gains a safety-critical mode or the manual documents the direct
 invocation.)
 
-## Slint SC Architecture Design (ISO 26262:6 7.4)
+## Slint SC Architecture Design (ISO 26262-6 7.4)
 
-During the development of the software architectural design, the following should be considered:
+During the development of the software architectural design, 7.4.2 says the following shall be considered:
 
 1. Verifiability of the software architectural design.
     This implies bi-directional traceability between the software architectural design and the
     software safety requirements.
-2. Simplicity of the design/software (restricted size and complexity)
-3. Modularity, Encapsulation, Reusability, Maintainability
-4. Feasibility for the design and implementation of the software units
-5. Testability of the software
-6. Maintainability of the software architectural design
+2. Suitability for configurable software.
+3. Feasibility for the design and implementation of the software units.
+4. Testability of the software architecture during software integration testing.
+5. Maintainability of the software architectural design.
+
+7.4.1 and 7.4.3 add the characteristics the design itself has to show: comprehensibility, consistency, simplicity, verifiability, modularity, abstraction, encapsulation, and maintainability.
 
 ### Properties
 
@@ -50,15 +51,15 @@ Two properties of the design hold by construction, so nothing has to be done to 
 
 ### Static Design
 
-The software architectural design should have a static design part which
-addresses:
+7.4.5 says the software architectural design shall describe its static design
+aspects, which address:
 
 - the software structure including its hierarchical levels;
-- the dependencies;
 - the data types and their characteristics;
-- the global variables;
-- the external interfaces of the software components; and
-- the constraints including the scope of the architecture
+- the external interfaces of the software components;
+- the external interfaces of the embedded software;
+- the global variables; and
+- the constraints including the scope of the architecture and external dependencies.
 
 The whole binary, the runtime included, is compiled by the integrator's Rust toolchain: the `slint-sc` crate ships as source.
 Our own builds and test evidence use Ferrocene; the toolchain of the final build is the integrator's choice, and choosing a qualified one is on them.
@@ -95,7 +96,7 @@ flowchart TD
 
 ### Dynamic Design
 
-In addition, the software architectural design should have a dynamic design part which addresses:
+It shall also describe its dynamic design aspects, which address:
 
 - the functional chain of events and behavior;
 - the logical sequence of data processing;
