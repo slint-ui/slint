@@ -971,9 +971,10 @@ pub fn eval_expression(ctx: &mut EvalContext, expression: &Expression) -> Value 
                 let cy: f32 = eval_expression(ctx, cy).try_into().unwrap_or_default();
                 g = g.with_center(cx, cy);
             }
-            if let Some(r) = radius {
-                let r: f32 = eval_expression(ctx, r).try_into().unwrap_or_default();
-                g = g.with_radius(r);
+            if let Some((rx, ry)) = radius {
+                let rx: f32 = eval_expression(ctx, rx).try_into().unwrap_or_default();
+                let ry: f32 = eval_expression(ctx, ry).try_into().unwrap_or_default();
+                g = g.with_radius_x(rx).with_radius_y(ry);
             }
             Value::Brush(Brush::RadialGradient(g))
         }

@@ -269,30 +269,35 @@ fn center_or_bbox(cx: f32, cy: f32, width: f32, height: f32, scale_factor: f32) 
     if cx.is_nan() { (width / 2.0, height / 2.0) } else { (cx * scale_factor, cy * scale_factor) }
 }
 
-/// The RadialGradientBrush describes a way of filling a shape with a circular gradient.
+/// The RadialGradientBrush describes a way of filling a shape with a circular or elliptical
+/// gradient.
 ///
-/// The center defaults to the middle of the bounding box; the radius defaults to half the
-/// bounding box diagonal. Use [`with_center`](Self::with_center) and
-/// [`with_radius`](Self::with_radius) to override these defaults.
+/// The center defaults to the middle of the bounding box; the radii default to half the
+/// bounding box diagonal (in both axes). Use [`with_center`](Self::with_center),
+/// [`with_radius_x`](Self::with_radius_x) and [`with_radius_y`](Self::with_radius_y) to override
+/// these defaults. A gradient where `radius_x == radius_y` renders as a circle; otherwise it
+/// renders as an ellipse.
 ///
-/// Internally the brush encodes center and radius as the first three fake
-/// [`GradientStop`] entries (indices 0–2), following the same pattern as
+/// Internally the brush encodes center and radii as the first four fake
+/// [`GradientStop`] entries (indices 0–3), following the same pattern as
 /// [`LinearGradientBrush`] (which stores the angle as stop 0).
 #[derive(Clone, Debug)]
 #[repr(transparent)]
 pub struct RadialGradientBrush(SharedVector<GradientStop>);
 
 impl RadialGradientBrush {
-    const HEADER: usize = 3;
+    const HEADER: usize = 4;
 
     /// Creates a new circle radial gradient centered in the element's bounding box,
     /// described by the provided color stops.
     pub fn new_circle(stops: impl IntoIterator<Item = GradientStop>) -> Self {
         let stop_iter = stops.into_iter();
         let mut v = SharedVector::with_capacity(Self::HEADER + stop_iter.size_hint().0);
-        // Header stops: center_x (NaN=bbox), center_y (NaN=bbox), radius (negative=bbox diagonal/2)
+        // Header stops: center_x (NaN=bbox), center_y (NaN=bbox),
+        // radius_x, radius_y (negative=bbox diagonal/2)
         v.push(GradientStop { color: Default::default(), position: f32::NAN });
         v.push(GradientStop { color: Default::default(), position: f32::NAN });
+        v.push(GradientStop { color: Default::default(), position: -1.0 });
         v.push(GradientStop { color: Default::default(), position: -1.0 });
         v.extend(stop_iter);
         Self(v)
@@ -306,9 +311,15 @@ impl RadialGradientBrush {
     fn center_y(&self) -> f32 {
         self.0[1].position
     }
+    /// The x-radius (or the radius, for a circle).
     #[inline]
-    fn radius(&self) -> f32 {
+    fn radius_x(&self) -> f32 {
         self.0[2].position
+    }
+    /// The y-radius; only distinct from [`Self::radius`] for an ellipse.
+    #[inline]
+    fn radius_y(&self) -> f32 {
+        self.0[3].position
     }
 
     /// Returns the color stops of the radial gradient.
@@ -330,10 +341,18 @@ impl RadialGradientBrush {
         self
     }
 
-    /// Sets an explicit radius, returning `self` for chaining. `r` is in the element's local
-    /// logical coordinate space.
-    pub fn with_radius(mut self, r: f32) -> Self {
+    /// Sets an explicit x-radius (or radius, for a circle), returning `self` for chaining. `r` is
+    /// in the element's local logical coordinate space.
+    pub fn with_radius_x(mut self, r: f32) -> Self {
         self.0.make_mut_slice()[2].position = r;
+        self
+    }
+
+    /// Sets an explicit y-radius, returning `self` for chaining. `r` is in the element's local
+    /// logical coordinate space. Only meaningful together with [`with_radius_x`](Self::with_radius_x)
+    /// when they differ, i.e. for an ellipse.
+    pub fn with_radius_y(mut self, r: f32) -> Self {
+        self.0.make_mut_slice()[3].position = r;
         self
     }
 
@@ -366,22 +385,41 @@ impl RadialGradientBrush {
         center_or_bbox(self.center_x(), self.center_y(), width, height, scale_factor)
     }
 
-    /// Returns the gradient radius, falling back to half of the bounding box diagonal when not
+    /// Returns the gradient x-radius, falling back to half of the bounding box diagonal when not
     /// explicitly set.
     ///
     /// `width` and `height` are the element's logical dimensions.
-    pub fn radius_or_default(&self, width: f32, height: f32) -> f32 {
-        let r = self.radius();
+    pub fn radius_x_or_default(&self, width: f32, height: f32) -> f32 {
+        let r = self.radius_x();
         if r < 0.0 { 0.5 * (width * width + height * height).sqrt() } else { r }
     }
 
-    /// Returns the gradient radius in a scaled coordinate space.
+    /// Returns the gradient y-radius, falling back to half of the bounding box diagonal when not
+    /// explicitly set.
+    ///
+    /// `width` and `height` are the element's logical dimensions.
+    pub fn radius_y_or_default(&self, width: f32, height: f32) -> f32 {
+        let r = self.radius_y();
+        if r < 0.0 { 0.5 * (width * width + height * height).sqrt() } else { r }
+    }
+
+    /// Returns the gradient x-radius in a scaled coordinate space.
     ///
     /// `width` and `height` are the dimensions in the target coordinate space. Explicit radius
     /// values are local logical lengths and are multiplied by `scale_factor`; the default radius is
     /// derived from the dimensions directly.
-    pub fn radius_or_default_scaled(&self, width: f32, height: f32, scale_factor: f32) -> f32 {
-        let r = self.radius();
+    pub fn radius_x_or_default_scaled(&self, width: f32, height: f32, scale_factor: f32) -> f32 {
+        let r = self.radius_x();
+        if r < 0.0 { 0.5 * (width * width + height * height).sqrt() } else { r * scale_factor }
+    }
+
+    /// Returns the gradient y-radius in a scaled coordinate space.
+    ///
+    /// `width` and `height` are the dimensions in the target coordinate space. Explicit radius
+    /// values are local logical lengths and are multiplied by `scale_factor`; the default radius is
+    /// derived from the dimensions directly.
+    pub fn radius_y_or_default_scaled(&self, width: f32, height: f32, scale_factor: f32) -> f32 {
+        let r = self.radius_y();
         if r < 0.0 { 0.5 * (width * width + height * height).sqrt() } else { r * scale_factor }
     }
 }
@@ -395,7 +433,10 @@ impl PartialEq for RadialGradientBrush {
         }
         nan_eq(self.center_x(), other.center_x())
             && nan_eq(self.center_y(), other.center_y())
-            && (self.radius() == other.radius() || (self.radius() < 0.0 && other.radius() < 0.0))
+            && (self.radius_x() == other.radius_x()
+                || (self.radius_x() < 0.0 && other.radius_x() < 0.0))
+            && (self.radius_y() == other.radius_y()
+                || (self.radius_y() < 0.0 && other.radius_y() < 0.0))
             && self.0.iter().skip(Self::HEADER).eq(other.0.iter().skip(Self::HEADER))
     }
 }
@@ -840,11 +881,16 @@ impl InterpolatedPropertyValue for Brush {
                             s[0].position = rhs.center_x();
                             s[1].position = rhs.center_y();
                         }
-                        // Radius: same snap behavior when one side is the default (negative).
-                        if lhs.radius() >= 0.0 && rhs.radius() >= 0.0 {
-                            s[2].position = lhs.radius().interpolate(&rhs.radius(), t);
+                        // Radii: same snap behavior when one side is the default (negative).
+                        if lhs.radius_x() >= 0.0 && rhs.radius_x() >= 0.0 {
+                            s[2].position = lhs.radius_x().interpolate(&rhs.radius_x(), t);
                         } else if t >= 1.0 {
-                            s[2].position = rhs.radius();
+                            s[2].position = rhs.radius_x();
+                        }
+                        if lhs.radius_y() >= 0.0 && rhs.radius_y() >= 0.0 {
+                            s[3].position = lhs.radius_y().interpolate(&rhs.radius_y(), t);
+                        } else if t >= 1.0 {
+                            s[3].position = rhs.radius_y();
                         }
                         let mut rhs_stops = rhs.stops();
                         let mut iter = s.iter_mut().skip(RadialGradientBrush::HEADER);
@@ -949,13 +995,15 @@ pub struct ResolvedLinearGradient<'a> {
     pub stops: Cow<'a, [GradientStop]>,
 }
 
-/// A radial gradient whose stops span from `center` to `radius`.
+/// A radial (or elliptical) gradient whose stops span from `center` to `(radius_x, radius_y)`.
 #[derive(Clone, Debug, PartialEq)]
 pub struct ResolvedRadialGradient<'a> {
     /// The center of the gradient.
     pub center: euclid::Point2D<f32, PhysicalPx>,
-    /// The radius stop position 1 lies on.
-    pub radius: euclid::Length<f32, PhysicalPx>,
+    /// The x-radius stop position 1 lies on.
+    pub radius_x: euclid::Length<f32, PhysicalPx>,
+    /// The y-radius stop position 1 lies on. Equal to `radius_x` for a circle.
+    pub radius_y: euclid::Length<f32, PhysicalPx>,
     /// The sanitized color stops.
     pub stops: Cow<'a, [GradientStop]>,
 }
@@ -1012,12 +1060,16 @@ pub fn resolve_brush<'a>(
             let (stops, extent) = sanitize_color_stops(gradient.stops_slice(), true);
             let (center_x, center_y) =
                 gradient.center_or_default_scaled(size.width, size.height, scale_factor.get());
-            let radius =
-                gradient.radius_or_default_scaled(size.width, size.height, scale_factor.get())
+            let radius_x =
+                gradient.radius_x_or_default_scaled(size.width, size.height, scale_factor.get())
+                    * extent;
+            let radius_y =
+                gradient.radius_y_or_default_scaled(size.width, size.height, scale_factor.get())
                     * extent;
             ResolvedBrush::RadialGradient(ResolvedRadialGradient {
                 center: euclid::point2(center_x, center_y),
-                radius: euclid::Length::new(radius),
+                radius_x: euclid::Length::new(radius_x),
+                radius_y: euclid::Length::new(radius_y),
                 stops,
             })
         }
@@ -1358,12 +1410,12 @@ fn test_radial_gradient_preserves_center_on_brighter() {
         GradientStop { position: 1.0, color: Color::from_rgb_u8(50, 200, 100) },
     ])
     .with_center(10.0, 20.0)
-    .with_radius(30.0);
+    .with_radius_x(30.0);
     let brighter = Brush::RadialGradient(grad.clone()).brighter(0.5);
     if let Brush::RadialGradient(b) = brighter {
         assert_eq!(b.center_x(), 10.0);
         assert_eq!(b.center_y(), 20.0);
-        assert_eq!(b.radius(), 30.0);
+        assert_eq!(b.radius_x(), 30.0);
     } else {
         panic!("Expected RadialGradient");
     }
@@ -1374,17 +1426,17 @@ fn test_radial_gradient_default_center() {
     let grad = RadialGradientBrush::new_circle([]);
     assert!(grad.center_x().is_nan());
     assert!(grad.center_y().is_nan());
-    assert!(grad.radius() < 0.0);
+    assert!(grad.radius_x() < 0.0);
     assert_eq!(grad.center_or_default(100.0, 80.0), (50.0, 40.0));
-    assert!((grad.radius_or_default(60.0, 80.0) - 50.0).abs() < 0.01);
+    assert!((grad.radius_x_or_default(60.0, 80.0) - 50.0).abs() < 0.01);
 }
 
 #[test]
 fn test_radial_gradient_scaled_explicit_values() {
-    let grad = RadialGradientBrush::new_circle([]).with_center(10.0, 20.0).with_radius(30.0);
+    let grad = RadialGradientBrush::new_circle([]).with_center(10.0, 20.0).with_radius_x(30.0);
 
     assert_eq!(grad.center_or_default_scaled(200.0, 160.0, 2.0), (20.0, 40.0));
-    assert_eq!(grad.radius_or_default_scaled(200.0, 160.0, 2.0), 60.0);
+    assert_eq!(grad.radius_x_or_default_scaled(200.0, 160.0, 2.0), 60.0);
 }
 
 #[test]
@@ -1392,7 +1444,22 @@ fn test_radial_gradient_scaled_defaults_use_physical_frame() {
     let grad = RadialGradientBrush::new_circle([]);
 
     assert_eq!(grad.center_or_default_scaled(200.0, 160.0, 2.0), (100.0, 80.0));
-    assert!((grad.radius_or_default_scaled(120.0, 160.0, 2.0) - 100.0).abs() < 0.01);
+    assert!((grad.radius_x_or_default_scaled(120.0, 160.0, 2.0) - 100.0).abs() < 0.01);
+}
+
+#[test]
+fn test_radial_gradient_ellipse_radii() {
+    // Unset: both radii default independently to the same bbox half-diagonal.
+    let grad = RadialGradientBrush::new_circle([]);
+    assert!((grad.radius_x_or_default(60.0, 80.0) - 50.0).abs() < 0.01);
+    assert!((grad.radius_y_or_default(60.0, 80.0) - 50.0).abs() < 0.01);
+
+    // Explicit, distinct x/y radii (an ellipse).
+    let grad = RadialGradientBrush::new_circle([]).with_radius_x(30.0).with_radius_y(15.0);
+    assert_eq!(grad.radius_x_or_default(60.0, 80.0), 30.0);
+    assert_eq!(grad.radius_y_or_default(60.0, 80.0), 15.0);
+    assert_eq!(grad.radius_x_or_default_scaled(60.0, 80.0, 2.0), 60.0);
+    assert_eq!(grad.radius_y_or_default_scaled(60.0, 80.0, 2.0), 30.0);
 }
 
 #[test]
@@ -1406,13 +1473,13 @@ fn test_radial_gradient_interpolation_reaches_explicit_metadata() {
         GradientStop { position: 1.0, color: Color::from_rgb_u8(255, 255, 255) },
     ])
     .with_center(10.0, 20.0)
-    .with_radius(30.0);
+    .with_radius_x(30.0);
     let target = Brush::RadialGradient(target_grad.clone());
 
     if let Brush::RadialGradient(result) = source.interpolate(&target, 1.0) {
         assert_eq!(result.center_x(), target_grad.center_x());
         assert_eq!(result.center_y(), target_grad.center_y());
-        assert_eq!(result.radius(), target_grad.radius());
+        assert_eq!(result.radius_x(), target_grad.radius_x());
     } else {
         panic!("Expected RadialGradient");
     }
@@ -1425,7 +1492,7 @@ fn test_radial_gradient_interpolation_reaches_default_metadata() {
         GradientStop { position: 1.0, color: Color::from_rgb_u8(255, 255, 255) },
     ])
     .with_center(10.0, 20.0)
-    .with_radius(30.0);
+    .with_radius_x(30.0);
     let source = Brush::RadialGradient(source_grad);
     let target = Brush::RadialGradient(RadialGradientBrush::new_circle([
         GradientStop { position: 0.0, color: Color::from_rgb_u8(0, 0, 0) },
@@ -1435,7 +1502,7 @@ fn test_radial_gradient_interpolation_reaches_default_metadata() {
     if let Brush::RadialGradient(result) = source.interpolate(&target, 1.0) {
         assert!(result.center_x().is_nan());
         assert!(result.center_y().is_nan());
-        assert!(result.radius() < 0.0);
+        assert!(result.radius_x() < 0.0);
     } else {
         panic!("Expected RadialGradient");
     }

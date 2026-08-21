@@ -723,7 +723,7 @@ impl Expression {
             },
             Radial {
                 center: Option<(Box<Expression>, Box<Expression>)>,
-                radius: Option<Box<Expression>>,
+                radius: Option<(Box<Expression>, Box<Expression>)>,
             },
             Conic {
                 from_angle: Box<Expression>,
@@ -795,36 +795,68 @@ impl Expression {
             );
             (GradKind::Linear { angle }, 2)
         } else if grad_text.starts_with("radial") {
-            if !all_subs.first().is_some_and(|n| {
-                matches!(n, NodeOrToken::Node(node) if node.text().to_string().trim() == "circle")
-            }) {
-                ctx.diag.push_error("Expected 'circle': currently, only @radial-gradient(circle, ...) are supported".into(), &node);
-                return Expression::Invalid;
-            }
-            // CSS syntax: `circle [<radius>] [at <x> <y>]` — radius before center, no keyword.
+            let is_ellipse = match all_subs.first() {
+                Some(NodeOrToken::Node(node)) if node.text().to_string().trim() == "ellipse" => {
+                    true
+                }
+                Some(NodeOrToken::Node(node)) if node.text().to_string().trim() == "circle" => {
+                    false
+                }
+                _ => {
+                    ctx.diag.push_error("Expected 'circle' or 'ellipse'".into(), &node);
+                    return Expression::Invalid;
+                }
+            };
+            // CSS syntax: `circle [<radius>] [at <x> <y>]` or `ellipse [<rx> <ry>] [at <x> <y>]`
+            // — radius before center, no keyword.
             let mut idx = 1;
 
-            // Parse optional radius (a length expression that is not the "at" keyword).
-            // Only consume the node when it actually resolves to a length-compatible type;
+            // Helper: parse a single length expression at `at_idx` (not the "at" keyword).
+            // Only consumes the node when it actually resolves to a length-compatible type;
             // a colour keyword like `blue` must not silently become a failed conversion.
-            let radius = if all_subs.get(idx).is_some_and(|n| {
-                n.kind() == SyntaxKind::Expression
-                    && !matches!(n, NodeOrToken::Node(node) if node.text().to_string().trim() == "at")
-            }) {
-                let r = all_subs.get(idx).unwrap();
-                let r_syn = syntax_nodes::Expression::from(r.as_node().unwrap().clone());
-                let expr = Expression::from_expression_node(r_syn.clone(), ctx);
+            let parse_length = |at_idx: usize, ctx: &mut LookupCtx| -> Option<Box<Expression>> {
+                let n = all_subs.get(at_idx)?;
+                if n.kind() != SyntaxKind::Expression
+                    || matches!(n, NodeOrToken::Node(node) if node.text().to_string().trim() == "at")
+                {
+                    return None;
+                }
+                let n_syn = syntax_nodes::Expression::from(n.as_node().unwrap().clone());
+                let expr = Expression::from_expression_node(n_syn.clone(), ctx);
                 if matches!(expr.ty(), Type::LogicalLength | Type::Float32 | Type::Int32) {
-                    let radius = Box::new(
-                        expr.maybe_convert_to(Type::LogicalLength, &r_syn, ctx.diag, &ctx.symbol_counters),
-                    );
-                    idx += 1;
-                    Some(radius)
+                    Some(Box::new(expr.maybe_convert_to(
+                        Type::LogicalLength,
+                        &n_syn,
+                        ctx.diag,
+                        &ctx.symbol_counters,
+                    )))
                 } else {
                     None
                 }
+            };
+
+            // Parse optional radius: one length for `circle` (normalized to rx == ry so every
+            // later layer only ever deals with a pair), two consecutive lengths for `ellipse`.
+            let radius = if is_ellipse {
+                // Only attempt to parse the second length once the first one actually resolved
+                match parse_length(idx, ctx) {
+                    Some(rx) => match parse_length(idx + 1, ctx) {
+                        Some(ry) => {
+                            idx += 2;
+                            Some((rx, ry))
+                        }
+                        None => None,
+                    },
+                    None => None,
+                }
             } else {
-                None
+                match parse_length(idx, ctx) {
+                    Some(r) => {
+                        idx += 1;
+                        Some((r.clone(), r))
+                    }
+                    None => None,
+                }
             };
 
             // Parse optional "at <x> <y>".
@@ -851,7 +883,11 @@ impl Expression {
                 idx + 1
             } else {
                 if idx == 1 {
-                    let message = "'circle' must be followed by a comma, a radius, or 'at'".into();
+                    let shape_text = if is_ellipse { "ellipse" } else { "circle" };
+                    let radius_text = if is_ellipse { "two radii" } else { "a radius" };
+                    let message = format!(
+                        "'{shape_text}' must be followed by a comma, {radius_text}, or 'at'"
+                    );
                     if let Some(error_node) = all_subs.get(idx) {
                         ctx.diag.push_error(message, error_node);
                     } else {

@@ -246,10 +246,12 @@ fn eval_expression(
                     eval_expression(cy, local_context, None).try_into().unwrap_or_default();
                 gradient = gradient.with_center(cx, cy);
             }
-            if let Some(radius) = radius {
-                let r: f32 =
-                    eval_expression(radius, local_context, None).try_into().unwrap_or_default();
-                gradient = gradient.with_radius(r);
+            if let Some((rx, ry)) = radius {
+                let rx: f32 =
+                    eval_expression(rx, local_context, None).try_into().unwrap_or_default();
+                let ry: f32 =
+                    eval_expression(ry, local_context, None).try_into().unwrap_or_default();
+                gradient = gradient.with_radius_x(rx).with_radius_y(ry);
             }
             Value::Brush(slint::Brush::RadialGradient(gradient))
         }
