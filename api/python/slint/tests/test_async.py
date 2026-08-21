@@ -340,11 +340,15 @@ if sys.platform != "win32":
             _start_quit_watchdog(interrupted)
             await asyncio.Event().wait()
 
+        # A shell that starts the test run as a background job leaves SIGINT ignored, and
+        # run_event_loop() then rightly declines to claim a signal the caller opted out of.
+        previous = signal.signal(signal.SIGINT, signal.default_int_handler)
         try:
             with pytest.raises(KeyboardInterrupt):
                 slint.run_event_loop(run())
         finally:
             interrupted[0] = True
+            signal.signal(signal.SIGINT, previous)
 
 
 def test_sleep_does_not_leak_timers() -> None:
