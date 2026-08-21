@@ -123,6 +123,7 @@ export component Button {
             min-height: root.icon-size;
             opacity: root.enabled ? 1 : 0.5;
             colorize: root.colorize-icon ? root.text-color : transparent;
+            accessible-role: none;
         }
 
         if (root.text != "") : Text {
