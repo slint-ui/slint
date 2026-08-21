@@ -152,7 +152,7 @@ fn hook_existing_bindings(element: &ElementRc, element_hash: u64) {
         }
         let expr = std::mem::take(&mut be.borrow_mut().expression);
         be.borrow_mut().expression = {
-            let stripped = super::ignore_debug_hooks(&expr);
+            let stripped = expr.ignore_debug_hooks();
             if matches!(stripped, Expression::Invalid)
                 || matches!(expr, Expression::DebugHook { .. })
             {
@@ -301,9 +301,7 @@ fn add_hooks_for_non_existent_bindings(
             symbol_counters,
             forwarded_references,
         ) {
-            InheritedExpression::Expression(expression) => {
-                super::ignore_debug_hooks(&expression).clone()
-            }
+            InheritedExpression::Expression(expression) => expression.ignore_debug_hooks().clone(),
             InheritedExpression::TwoWayBinding => continue,
             InheritedExpression::Unbound => default_expression,
         };
@@ -448,7 +446,7 @@ mod tests {
         let text_inner = hooked(&txt, "text").expect("txt.text should be a DebugHook");
         assert!(is_synthetic(&txt, "text"), "txt.text hook should be synthetic (unbound property)");
         assert!(
-            matches!(super::super::ignore_debug_hooks(&text_inner), Expression::StringLiteral(s) if s.is_empty()),
+            matches!(text_inner.ignore_debug_hooks(), Expression::StringLiteral(s) if s.is_empty()),
             "txt.text default should be the empty-string sentinel, got {text_inner:?}"
         );
 
@@ -456,7 +454,7 @@ mod tests {
         let fs_inner = hooked(&txt, "font-size").expect("txt.font-size should be a DebugHook");
         assert!(is_synthetic(&txt, "font-size"), "txt.font-size hook should be synthetic");
         assert!(
-            matches!(super::super::ignore_debug_hooks(&fs_inner), Expression::NumberLiteral(v, _) if *v == 0.),
+            matches!(fs_inner.ignore_debug_hooks(), Expression::NumberLiteral(v, _) if *v == 0.),
             "txt.font-size default should be the 0 sentinel, got {fs_inner:?}"
         );
 
@@ -467,7 +465,7 @@ mod tests {
             "rect.background should be non-synthetic (was explicitly set)"
         );
         assert!(
-            !matches!(super::super::ignore_debug_hooks(&bg_inner), Expression::Invalid),
+            !matches!(bg_inner.ignore_debug_hooks(), Expression::Invalid),
             "rect.background should wrap its real value"
         );
 

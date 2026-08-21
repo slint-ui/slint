@@ -220,7 +220,7 @@ fn constant_z(child_elm: &ElementRc) -> Option<f64> {
 }
 
 fn try_eval_const_expr(expression: &Expression) -> Option<f64> {
-    match super::ignore_debug_hooks(expression) {
+    match expression.ignore_debug_hooks() {
         Expression::NumberLiteral(v, Unit::None) => Some(*v),
         Expression::Cast { from, .. } => try_eval_const_expr(from),
         Expression::UnaryOp { sub, op: '-' } => try_eval_const_expr(sub).map(|v| -v),

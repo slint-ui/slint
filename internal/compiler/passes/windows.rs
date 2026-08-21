@@ -166,7 +166,7 @@ pub fn inherits_window(component: &Rc<Component>) -> bool {
 /// application sets, has none.
 #[cfg(feature = "slint-sc")]
 fn literal_alpha(expr: &Expression) -> Option<u8> {
-    match crate::passes::ignore_debug_hooks(expr) {
+    match expr.ignore_debug_hooks() {
         Expression::Cast { from, to: Type::Color | Type::Brush } => literal_alpha(from),
         // A color literal is a number carrying its channels, alpha highest
         Expression::NumberLiteral(value, _) => Some((*value as u32 >> 24) as u8),

@@ -2013,8 +2013,7 @@ fn lower_dialog_layout(
         let dialog_button_role_binding =
             layout_child.borrow_mut().take_binding("dialog-button-role");
         let is_button = if let Some(role_binding) = dialog_button_role_binding {
-            if let Expression::EnumerationValue(val) =
-                super::ignore_debug_hooks(&role_binding.expression)
+            if let Expression::EnumerationValue(val) = role_binding.expression.ignore_debug_hooks()
             {
                 let en = &val.enumeration;
                 debug_assert_eq!(en.name, "DialogButtonRole");
@@ -2042,7 +2041,7 @@ fn lower_dialog_layout(
                 ),
                 Some(binding) => {
                     if let Expression::EnumerationValue(val) =
-                        super::ignore_debug_hooks(&binding.expression)
+                        binding.expression.ignore_debug_hooks()
                     {
                         let en = &val.enumeration;
                         debug_assert_eq!(en.name, "StandardButtonKind");
@@ -2516,7 +2515,7 @@ fn check_number_literal_is_positive_integer(
     span: &dyn crate::diagnostics::Spanned,
     diag: &mut BuildDiagnostics,
 ) -> bool {
-    match super::ignore_debug_hooks(expression) {
+    match expression.ignore_debug_hooks() {
         Expression::NumberLiteral(v, Unit::None) => {
             if *v > u16::MAX as f64 || !v.trunc().approx_eq(v) {
                 diag.push_error(format!("'{name}' must be a positive integer"), span);
@@ -2524,7 +2523,7 @@ fn check_number_literal_is_positive_integer(
             true
         }
         Expression::UnaryOp { op: '-', sub } => {
-            if let Expression::NumberLiteral(_, Unit::None) = super::ignore_debug_hooks(sub) {
+            if let Expression::NumberLiteral(_, Unit::None) = sub.ignore_debug_hooks() {
                 diag.push_error(format!("'{name}' must be a positive integer"), span);
             }
             true
