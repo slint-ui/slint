@@ -10,5 +10,11 @@ fn bump_windows_stack_size() {
 }
 
 fn main() {
+    // Safety: there are no other threads at this point
+    unsafe {
+        std::env::set_var("SLINT_ENABLE_EXPERIMENTAL_FEATURES", "1");
+    }
+    #[cfg(feature = "preview-engine")]
+    slint_build::compile("ui/main.slint").unwrap();
     bump_windows_stack_size();
 }

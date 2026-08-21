@@ -1,0 +1,44 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { ChildIndicator, ResettingLineEdit } from "./basics.slint";
+
+import { PropertyValue, PropertyValueKind } from "../../api.slint";
+import { EditorSizeSettings, EditorSpaceSettings } from "../../components/styling.slint";
+
+import { CheckBox } from "std-widgets.slint";
+
+export component BooleanWidget inherits GridLayout {
+    in property <bool> enabled;
+    in-out property <PropertyValue> property-value;
+
+    callback set-bool-binding(value: bool);
+    callback update-display-string(value: string);
+
+    spacing-vertical: EditorSpaceSettings.default-spacing / 2;
+
+    Row {
+        childIndicator := ChildIndicator {
+            horizontal-stretch: 0;
+            visible: false;
+        }
+
+        checkbox := CheckBox {
+            enabled: root.enabled;
+            checked: root.property-value.value-bool;
+            text: self.display-string();
+
+            function display-string() -> string {
+                return self.checked ? "true" : "false";
+            }
+
+            toggled() => {
+                root.property-value.value-bool = self.checked;
+                // This needs o happen first, or the PropertyValueWidget will not
+                // trigger anything in update-display-string-impl().
+                root.update-display-string(self.display-string());
+                root.set-bool-binding(self.checked);
+            }
+        }
+    }
+}

@@ -18,11 +18,11 @@ mod fmt;
 mod host_language_search;
 mod language;
 mod lsp_to_editor;
+#[cfg(feature = "preview-engine")]
+mod preview;
 mod server_notifier;
 
 pub use i_slint_editor_preview as editor_preview;
-#[cfg(feature = "preview-engine")]
-pub use i_slint_editor_preview::preview;
 pub use i_slint_editor_preview::util;
 
 use editor_preview::Result;
@@ -177,7 +177,7 @@ fn run_preview(args: &LivePreview) -> std::result::Result<(), slint::PlatformErr
     let to_lsp: Rc<dyn editor_preview::PreviewToLsp> =
         Rc::new(connector::RemoteControlledPreviewToLsp::new());
 
-    preview::run(to_lsp, args.fullscreen, preview::PreviewUiKind::Viewer)
+    preview::run(to_lsp, args.fullscreen, false)
 }
 
 fn main() {
