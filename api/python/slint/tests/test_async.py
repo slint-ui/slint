@@ -4,11 +4,13 @@
 # cSpell:ignore socketpair
 
 import asyncio
+import contextlib
 import gc
 import platform
 import socket
 import sys
 import threading
+import time
 import typing
 import weakref
 from datetime import timedelta
@@ -443,6 +445,56 @@ def test_cancelling_handle_disarms_native_timer() -> None:
 
         await asyncio.sleep(0.05)
         assert not called
+
+        slint.quit_event_loop()
+
+    slint.run_event_loop(run())
+
+
+def test_socket_traffic_does_not_busy_loop() -> None:
+    """A trickle of socket data must not keep the event loop awake.
+
+    See https://github.com/slint-ui/slint/issues/12962.
+    """
+    duration = 2.0
+    interval = 0.1
+
+    async def send_periodically(
+        _reader: asyncio.StreamReader, writer: asyncio.StreamWriter
+    ) -> None:
+        with contextlib.suppress(ConnectionResetError, BrokenPipeError):
+            while True:
+                writer.write(b"x")
+                await asyncio.sleep(interval)
+
+    async def run() -> None:
+        received = 0
+
+        server = await asyncio.start_server(send_periodically, "127.0.0.1", 0)
+        port = server.sockets[0].getsockname()[1]
+        reader, writer = await asyncio.open_connection("127.0.0.1", port)
+
+        async def drain() -> None:
+            nonlocal received
+            while chunk := await reader.read(4096):
+                received += len(chunk)
+
+        drainer = asyncio.create_task(drain())
+        cpu_before = time.process_time()
+        await asyncio.sleep(duration)
+        cpu_seconds = time.process_time() - cpu_before
+
+        drainer.cancel()
+        writer.close()
+        server.close()
+
+        # Liveness only, so that the CPU assert can't pass vacuously. Not a rate check:
+        # timer granularity makes the rate unreliable on a loaded CI runner.
+        assert received > 0, "no data received"
+        # Before the fix: 60-100% of a core. Idle: under 5%.
+        assert cpu_seconds < duration * 0.25, (
+            f"burned {cpu_seconds:.2f}s of CPU over {duration}s ({received} bytes)"
+        )
 
         slint.quit_event_loop()
 

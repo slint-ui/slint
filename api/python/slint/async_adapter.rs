@@ -1,7 +1,9 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+use std::cell::RefCell;
 use std::rc::Rc;
+use std::sync::Arc;
 
 use pyo3::prelude::*;
 use pyo3::{PyTraverseError, gc::PyVisit};
@@ -26,10 +28,47 @@ impl std::os::windows::io::AsSocket for PyFdWrapper {
     }
 }
 
+/// A readiness future for one direction of the fd.
+///
+/// Must come from `readable_owned()` / `writable_owned()`: `poll_readable()` / `poll_writable()`
+/// discard readiness when the poll is deferred to another thread, and the reactor then spins.
+/// See https://github.com/slint-ui/slint/issues/12962 and smol-rs/async-io#78.
+type ReadinessFuture = smol::future::BoxedLocal<std::io::Result<()>>;
+
+/// One kind of readiness the selector asked to be told about.
+#[derive(Default)]
+struct ReadinessWatch {
+    callback: Option<Py<PyAny>>,
+    // Lives here, not in the polling task: the task outlives the adapter, and a lingering
+    // `Async` keeps the fd registered.
+    future: RefCell<Option<ReadinessFuture>>,
+}
+
+impl ReadinessWatch {
+    /// `None` when nothing is watching this direction, otherwise whether it became ready.
+    fn poll(
+        &self,
+        cx: &mut std::task::Context<'_>,
+        arm: impl FnOnce() -> ReadinessFuture,
+    ) -> Option<std::task::Poll<Py<PyAny>>> {
+        let mut future = self.future.borrow_mut();
+        let Some(callback) = self.callback.as_ref() else {
+            *future = None;
+            return None;
+        };
+        if future.get_or_insert_with(arm).as_mut().poll(cx).is_ready() {
+            *future = None;
+            Some(std::task::Poll::Ready(Python::attach(|py| callback.clone_ref(py))))
+        } else {
+            Some(std::task::Poll::Pending)
+        }
+    }
+}
+
 struct AdapterInner {
-    adapter: smol::Async<PyFdWrapper>,
-    readable_callback: Option<Py<PyAny>>,
-    writable_callback: Option<Py<PyAny>>,
+    adapter: Arc<smol::Async<PyFdWrapper>>,
+    readable: ReadinessWatch,
+    writable: ReadinessWatch,
 }
 
 #[pyclass(unsendable)]
@@ -46,9 +85,9 @@ impl AsyncAdapter {
         let fd = u64::try_from(fd).unwrap();
         AsyncAdapter {
             inner: Some(Rc::new(AdapterInner {
-                adapter: smol::Async::new(PyFdWrapper(fd)).unwrap(),
-                readable_callback: Default::default(),
-                writable_callback: Default::default(),
+                adapter: Arc::new(smol::Async::new(PyFdWrapper(fd)).unwrap()),
+                readable: Default::default(),
+                writable: Default::default(),
             })),
             task: None,
         }
@@ -56,13 +95,13 @@ impl AsyncAdapter {
 
     fn wait_for_readable(&mut self, callback: Py<PyAny>) {
         self.restart_after_mut_inner_access(|inner| {
-            inner.readable_callback.replace(callback);
+            inner.readable.callback.replace(callback);
         });
     }
 
     fn wait_for_writable(&mut self, callback: Py<PyAny>) {
         self.restart_after_mut_inner_access(|inner| {
-            inner.writable_callback.replace(callback);
+            inner.writable.callback.replace(callback);
         });
     }
 
@@ -73,7 +112,7 @@ impl AsyncAdapter {
         // collectable.
         if let Some(inner) = self.inner.as_ref() {
             for callback in
-                [&inner.readable_callback, &inner.writable_callback].into_iter().flatten()
+                [&inner.readable.callback, &inner.writable.callback].into_iter().flatten()
             {
                 visit.call(callback)?;
             }
@@ -117,23 +156,12 @@ impl AsyncAdapter {
                         return std::task::Poll::Ready(());
                     };
 
-                    let readable_poll_status: Option<std::task::Poll<Py<PyAny>>> =
-                        inner.readable_callback.as_ref().map(|callback| {
-                            if inner.adapter.poll_readable(cx).is_ready() {
-                                std::task::Poll::Ready(Python::attach(|py| callback.clone_ref(py)))
-                            } else {
-                                std::task::Poll::Pending
-                            }
-                        });
-
-                    let writable_poll_status: Option<std::task::Poll<Py<PyAny>>> =
-                        inner.writable_callback.as_ref().map(|callback| {
-                            if inner.adapter.poll_writable(cx).is_ready() {
-                                std::task::Poll::Ready(Python::attach(|py| callback.clone_ref(py)))
-                            } else {
-                                std::task::Poll::Pending
-                            }
-                        });
+                    let readable_poll_status = inner
+                        .readable
+                        .poll(cx, || Box::pin(inner.adapter.clone().readable_owned()));
+                    let writable_poll_status = inner
+                        .writable
+                        .poll(cx, || Box::pin(inner.adapter.clone().writable_owned()));
 
                     let fd = inner.adapter.get_ref().0;
 
