@@ -39,7 +39,7 @@ pub(crate) fn load_builtins(
     assert_eq!(node.kind(), crate::parser::SyntaxKind::Document);
 
     // A mistyped annotation key would otherwise be silently ignored.
-    const ANNOTATION_KEYS: [&str; 10] = [
+    const ANNOTATION_KEYS: [&str; 9] = [
         "accepts_focus",
         "builtin_struct",
         "can_be_declared_without_children_slot",
@@ -49,7 +49,6 @@ pub(crate) fn load_builtins(
         "fake",
         "is_internal",
         "is_non_item_type",
-        "shadowable",
     ];
     if cfg!(debug_assertions) {
         for token in node.node.descendants_with_tokens().filter_map(|t| t.into_token()) {
@@ -132,7 +131,7 @@ pub(crate) fn load_builtins(
                     }
 
                     info.set_docs(docs::doc_comment(&p));
-                    info.shadowable = member_annotation(&p, "shadowable");
+                    info.shadowable = p.ShadowableAttribute().is_some();
 
                     if let Some(e) = p.BindingExpression() {
                         assert!(!info.shadowable, "shadowable property {id}::{prop_name} can't have a default value as it would end up on the shadowing declaration");
@@ -164,7 +163,7 @@ pub(crate) fn load_builtins(
                             .collect()
                     })));
                     info.set_docs(docs::doc_comment(&s));
-                    info.shadowable = member_annotation(&s, "shadowable");
+                    info.shadowable = s.ShadowableAttribute().is_some();
                     (identifier_text(&s.DeclaredIdentifier()).unwrap(), info)
                 }))
         );
@@ -243,7 +242,7 @@ pub(crate) fn load_builtins(
                 )),
             };
             info.set_docs(docs::doc_comment(&f));
-            info.shadowable = member_annotation(&f, "shadowable");
+            info.shadowable = f.ShadowableAttribute().is_some();
             (name, info)
         }));
 

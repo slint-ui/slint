@@ -397,7 +397,7 @@ pub struct BuiltinPropertyInfo {
     #[cfg(feature = "slint-sc")]
     pub slint_sc: bool,
     /// True when a component may declare a member of the same name, shadowing this one
-    /// (`//-shadowable` annotation in builtins.slint).
+    /// (`@shadowable` attribute in builtins.slint).
     /// Members added to a builtin element after its initial release should be marked
     /// shadowable so that older code that already declares the name keeps compiling —
     /// unless a compiler pass accesses the member by name, in which case shadowing
@@ -951,9 +951,7 @@ pub struct PropertyLookupResult<'a> {
     pub is_local_to_component: bool,
     /// True if the property in the direct base of the component (for protected visibility purposes)
     pub is_in_direct_base: bool,
-    /// True if a local declaration may shadow this member: builtin element members
-    /// marked `//-shadowable` in builtins.slint, and component members declared
-    /// `@shadowable`.
+    /// True if a local declaration may shadow this member: it is marked `@shadowable`.
     pub is_shadowable: bool,
 
     /// Set when the lookup went through a shadow: the member is declared under this
