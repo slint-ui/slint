@@ -1,0 +1,105 @@
+// Copyright © 2026 Klarälvdalens Datakonsult AB, a KDAB Group company <info@kdab.com>, author Nicholas Turner <nicholas.turner@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component DuplicateCaseWithInt {
+    in-out property <int> xx: 0;
+
+    match xx {
+        0: Rectangle { }
+        0: Rectangle { }
+//      ^error{Duplicate case value}
+        1: Rectangle { }
+        *: Rectangle { }
+    }
+}
+
+export component DuplicateCaseWithCast {
+    in-out property <int> xx: 0;
+
+    match xx {
+        2: Rectangle { }
+        2.0: Rectangle { }
+//      > <error{Duplicate case value}
+        *: Rectangle { }
+    }
+}
+
+
+export component DuplicateCaseWithUnits {
+    in-out property <duration> dur: 1s;
+
+    match dur {
+        1s: Rectangle { }
+        1000ms: Rectangle { }
+//      >    <error{Duplicate case value}
+        *: Rectangle { }
+    }
+}
+
+export component DuplicateCaseWithColor {
+    in-out property <color> zz: #123;
+
+    match zz {
+        #123: Rectangle { }
+        #456: Rectangle { }
+        #123: Rectangle { }
+//      >  <error{Duplicate case value}
+        *: Rectangle { }
+    }
+}
+
+export component DuplicateCaseWithString {
+    in-out property <string> str: "hello";
+
+    match str {
+        "hello": Rectangle { }
+        "world": Rectangle { }
+        "hello": Rectangle { }
+//      >     <error{Duplicate case value}
+        *: Rectangle { }
+    }
+}
+
+export component DuplicateCaseWithBool {
+    in-out property <bool> flag: true;
+
+    match flag {
+        true: Rectangle { }
+        false: Rectangle { }
+        true: Rectangle { }
+//      >  <error{Duplicate case value}
+    }
+}
+
+enum Nums {
+    one,
+    two,
+    three,
+}
+
+export component DuplicateCaseWithEnum {
+    in-out property <Nums> num: one;
+
+    match num {
+        one: Rectangle { }
+        two: Rectangle { }
+        one: Rectangle { }
+//      > <error{Duplicate case value}
+        *: Rectangle { }
+    }
+}
+
+export component DuplicateCaseTwice {
+    in-out property <int> xx: 0;
+    in-out property <int> yy: 0;
+
+    match xx {
+        0: Rectangle { }
+        yy: Rectangle { }
+//      ><error{Cases must be literal values}
+        yy: Rectangle { }
+//      ><error{Cases must be literal values}
+        0: Rectangle { }
+//      ^error{Duplicate case value}
+    }
+}

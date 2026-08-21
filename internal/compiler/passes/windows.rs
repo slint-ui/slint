@@ -52,6 +52,7 @@ pub fn ensure_window(
         repeated: Default::default(),
         states: Default::default(),
         transitions: Default::default(),
+        match_elements: Default::default(),
         child_of_layout: false,
         child_of_flexbox: false,
         parent_box_layout_orientation: None,

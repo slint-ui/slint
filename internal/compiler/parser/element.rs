@@ -340,23 +340,26 @@ fn parse_match_element(p: &mut impl Parser) {
     if !p.test(SyntaxKind::LBrace) {
         p.error("Expected '{' to start cases");
     }
-    if p.peek().kind() == SyntaxKind::Star {
-        p.error("Expected at least one case before wildcard case");
-        {
-            p.test(SyntaxKind::Star);
-            p.test(SyntaxKind::Colon);
-            let mut p = p.start_node(SyntaxKind::MatchCase);
-            drop(p.start_node(SyntaxKind::Expression));
-            parse_sub_element(&mut *p);
-            p.test(SyntaxKind::RBrace);
-        }
-        return;
-    }
     while ![SyntaxKind::RBrace, SyntaxKind::Star, SyntaxKind::Eof].contains(&p.peek().kind()) {
         parse_match_case(&mut *p);
     }
     if p.peek().kind() == SyntaxKind::Star {
         parse_wildcard_case(&mut *p);
+        let mut reported = false;
+        while p.peek().kind() == SyntaxKind::Star
+            || (![SyntaxKind::RBrace, SyntaxKind::Eof].contains(&p.peek().kind())
+                && p.nth(1).kind() == SyntaxKind::Colon)
+        {
+            if !reported {
+                p.error("Cases after the '*' case are never hit");
+                reported = true;
+            }
+            if p.peek().kind() == SyntaxKind::Star {
+                parse_wildcard_case(&mut *p);
+            } else {
+                parse_match_case(&mut *p);
+            }
+        }
     }
     p.expect(SyntaxKind::RBrace);
 }
@@ -370,23 +373,7 @@ fn parse_match_element(p: &mut impl Parser) {
 fn parse_match_case(p: &mut impl Parser) {
     let mut p = p.start_node(SyntaxKind::MatchCase);
     parse_expression(&mut *p);
-    if !p.test(SyntaxKind::Colon) {
-        p.error("Expected ':' after match case expression");
-        if p.peek().kind() != SyntaxKind::Identifier {
-            p.consume();
-        }
-    }
-    if p.peek().kind() == SyntaxKind::LBrace {
-        // pass case
-        p.expect(SyntaxKind::LBrace);
-        if p.peek().kind() == SyntaxKind::Identifier {
-            p.error("Remove '{ }' around case element");
-            parse_sub_element(&mut *p);
-        }
-        p.expect(SyntaxKind::RBrace);
-        return;
-    }
-    parse_sub_element(&mut *p);
+    parse_case_inner(&mut *p, "match case");
 }
 
 #[cfg_attr(test, parser_test)]
@@ -397,18 +384,22 @@ fn parse_wildcard_case(p: &mut impl Parser) {
     debug_assert_eq!(p.peek().kind(), SyntaxKind::Star);
     let mut p = p.start_node(SyntaxKind::WildcardMatchCase);
     p.expect(SyntaxKind::Star);
+    parse_case_inner(&mut *p, "'*'");
+}
+
+fn parse_case_inner(p: &mut impl Parser, after: &str) {
     if !p.test(SyntaxKind::Colon) {
-        p.error("Expected ':' after '*'");
+        p.error(format!("Expected ':' after {after}"));
         if p.peek().kind() != SyntaxKind::Identifier {
             p.consume();
         }
-    };
+    }
     if p.peek().kind() == SyntaxKind::LBrace {
         // pass case
         p.expect(SyntaxKind::LBrace);
         if p.peek().kind() == SyntaxKind::Identifier {
             p.error("Remove '{ }' around case element");
-            return;
+            parse_sub_element(&mut *p);
         }
         p.expect(SyntaxKind::RBrace);
         return;
