@@ -32,6 +32,7 @@ export component GroupBox {
             overflow: elide;
             horizontal-alignment: center;
             text: root.title;
+            accessible-role: none;
 
             states [
                 disabled when !root.enabled : {
