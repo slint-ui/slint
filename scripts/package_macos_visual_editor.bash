@@ -17,7 +17,7 @@ SCHEME="Slint Visual Editor"
 SPEC_PATH="$ROOT_DIR/tools/editor/macos-project.yml"
 PROJECT_DIR="$(dirname "$SPEC_PATH")"
 PROJECT_FILE="$PROJECT_DIR/$APP_NAME.xcodeproj"
-EXAMPLE_SOURCE_DIR="$ROOT_DIR/internal/editor-preview/ui/visual-editor/example"
+EXAMPLE_SOURCE_DIR="$ROOT_DIR/tools/editor/ui/visual-editor/example"
 VERSION="${VERSION:-}"
 
 if [ -z "$VERSION" ]; then

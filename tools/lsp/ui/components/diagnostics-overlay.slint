@@ -1,0 +1,55 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// cSpell: ignore Heade
+
+import { ListView, VerticalBox } from "std-widgets.slint";
+
+export struct Diagnostics {
+    level: string,
+    message: string,
+    url: string,
+    line: int,
+    column: int,
+}
+
+export component DiagnosticsOverlay {
+    in property <[Diagnostics]> diagnostics;
+    out property <bool> diagnostics-open: diagnostics.length != 0;
+
+    callback show-document(file: string, line: int, column: int);
+
+    if (root.diagnostics-open): Rectangle {
+        background: #fff;
+
+        VerticalBox {
+            Text {
+                color: #000;
+                text: "Compilation failed:";
+            }
+
+            ListView {
+                width: parent.width - 10px;
+                height: parent.height - 10px;
+
+                padding: 5px;
+
+                for diag in root.diagnostics: Rectangle {
+                    TouchArea {
+                        mouse-cursor: pointer;
+                        clicked => {
+                            root.show_document(diag.url, diag.line, diag.column);
+                        }
+
+                        Text {
+                            width: 100%;
+                            wrap: word-wrap;
+                            color: #000;
+                            text: diag.level + ": " + diag.message;
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

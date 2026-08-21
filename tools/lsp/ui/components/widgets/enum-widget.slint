@@ -1,0 +1,45 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { ChildIndicator } from "./basics.slint";
+
+import { PropertyValue, PropertyValueKind } from "../../api.slint";
+import { EditorSpaceSettings } from "../../components/styling.slint";
+
+import { ComboBox } from "std-widgets.slint";
+
+export component EnumWidget inherits GridLayout {
+    in property <bool> enabled;
+    in property <PropertyValue> property-value;
+
+    changed property-value => {
+        if self.property-value.kind == PropertyValueKind.enum {
+            cb.current-index = root.property-value.value-int;
+        }
+    }
+
+    callback update-display-string(value: string);
+
+    callback set-enum-binding(text: string);
+
+    Row {
+        childIndicator := ChildIndicator {
+            horizontal-stretch: 0;
+            visible: false;
+        }
+
+        HorizontalLayout {
+            cb := ComboBox {
+                enabled: root.enabled;
+                current-index: root.property-value.value-int;
+
+                model: root.property-value.visual-items;
+
+                selected(value) => {
+                    root.update-display-string(property-value.value-string + "." + value);
+                    root.set-enum-binding(property-value.value-string + "." + value);
+                }
+            }
+        }
+    }
+}

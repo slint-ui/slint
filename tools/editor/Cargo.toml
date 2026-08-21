@@ -18,35 +18,69 @@ name = "slint-editor"
 path = "main.rs"
 
 [features]
-backend-qt = ["slint/backend-qt", "i-slint-editor-preview/backend-qt"]
-backend-winit = ["slint/backend-winit", "i-slint-editor-preview/backend-winit"]
-backend-winit-x11 = ["slint/backend-winit-x11", "i-slint-editor-preview/backend-winit-x11"]
-backend-winit-wayland = ["slint/backend-winit-wayland", "i-slint-editor-preview/backend-winit-wayland"]
-backend-linuxkms = ["slint/backend-linuxkms", "i-slint-editor-preview/backend-linuxkms"]
-backend-linuxkms-noseat = ["slint/backend-linuxkms-noseat", "i-slint-editor-preview/backend-linuxkms-noseat"]
-backend-default = ["slint/backend-default", "i-slint-editor-preview/backend-default"]
+backend-qt = ["slint/backend-qt", "preview-builtin"]
+backend-winit = ["slint/backend-winit", "preview-builtin"]
+backend-winit-x11 = ["slint/backend-winit-x11", "preview-builtin"]
+backend-winit-wayland = ["slint/backend-winit-wayland", "preview-builtin"]
+backend-linuxkms = ["slint/backend-linuxkms", "preview-builtin"]
+backend-linuxkms-noseat = ["slint/backend-linuxkms-noseat", "preview-builtin"]
+backend-default = ["slint/backend-default", "preview-builtin"]
 
-renderer-femtovg = ["slint/renderer-femtovg", "i-slint-editor-preview/renderer-femtovg"]
-renderer-skia = ["slint/renderer-skia", "i-slint-editor-preview/renderer-skia"]
-renderer-skia-opengl = ["slint/renderer-skia-opengl", "i-slint-editor-preview/renderer-skia-opengl"]
-renderer-skia-vulkan = ["slint/renderer-skia-vulkan", "i-slint-editor-preview/renderer-skia-vulkan"]
-renderer-software = ["slint/renderer-software", "i-slint-editor-preview/renderer-software"]
+renderer-femtovg = ["slint/renderer-femtovg", "preview-builtin"]
+renderer-skia = ["slint/renderer-skia", "preview-builtin"]
+renderer-skia-opengl = ["slint/renderer-skia-opengl", "preview-builtin"]
+renderer-skia-vulkan = ["slint/renderer-skia-vulkan", "preview-builtin"]
+renderer-software = ["slint/renderer-software", "preview-builtin"]
+
+preview-engine = ["i-slint-editor-preview/preview-engine"]
+preview-builtin = ["preview-engine", "i-slint-editor-preview/preview-builtin"]
+preview-external = ["preview-engine", "i-slint-editor-preview/preview-external"]
+preview-remote = ["preview-builtin", "dep:mdns-sd"]
 
 default = ["backend-default", "renderer-femtovg", "renderer-software"]
 
 [dependencies]
-i-slint-editor-preview = { workspace = true, features = ["preview-builtin"] }
+i-slint-backend-selector = { workspace = true }
+i-slint-common = { workspace = true }
+i-slint-compiler = { workspace = true, features = ["display-diagnostics"] }
+i-slint-core = { workspace = true, features = ["std"] }
+i-slint-editor-preview = { workspace = true }
 i-slint-live-preview = { workspace = true, features = ["protocol", "file-watcher"] }
 
+by_address = { workspace = true }
 clap = { workspace = true }
+clru = { workspace = true }
 crossbeam-channel = "0.5"
+itertools = { workspace = true }
 lsp-types = { workspace = true }
-slint = { workspace = true, features = ["compat-1-2", "unstable-winit-030"] }
+nucleo-matcher = "0.3.1"
+serde = { workspace = true }
+serde_json = { workspace = true }
+slint = { workspace = true, features = ["compat-1-2", "unstable-winit-030", "raw-window-handle-06"] }
+slint-interpreter = { workspace = true, features = ["compat-1-2", "internal", "internal-highlight", "internal-json", "image-default-formats"] }
+smol_str = { workspace = true }
 tokio = { version = "1.50.0", features = ["macros", "net", "rt", "sync", "time"] }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 
+[build-dependencies]
+slint-build = { workspace = true }
+
+[dev-dependencies]
+i-slint-backend-testing = { path = "../../internal/backends/testing" }
+i-slint-editor-preview = { path = "../../internal/editor-preview", features = ["testing"] }
+spin_on = { workspace = true }
+
 # Used by the visual editor for the auto-updater.
 [target.'cfg(target_os = "macos")'.dependencies]
+objc2-app-kit = { version = "0.3.2", default-features = false, features = ["std", "NSToolbar", "NSView", "NSWindow"] }
 objc2-foundation = { version = "0.3.2", default-features = false, features = ["std", "NSString", "NSBundle", "NSError"] }
 objc2 = "0.6"
+raw-window-handle = "0.6"
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+mdns-sd = { version = "0.20.0", optional = true }
+rfd = "0.17.2"
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+web-sys = { workspace = true, features = ["Navigator", "Window"] }

@@ -34,20 +34,20 @@ path = "wasm_main.rs"
 name = "slint_lsp_wasm"
 
 [features]
-backend-qt = ["slint/backend-qt", "i-slint-editor-preview/backend-qt", "preview"]
+backend-qt = ["slint/backend-qt", "preview"]
 
-backend-winit = ["slint/backend-winit", "i-slint-editor-preview/backend-winit", "preview"]
-backend-winit-x11 = ["slint/backend-winit-x11", "i-slint-editor-preview/backend-winit-x11", "preview"]
-backend-winit-wayland = ["slint/backend-winit-wayland", "i-slint-editor-preview/backend-winit-wayland", "preview"]
-backend-linuxkms = ["slint/backend-linuxkms", "i-slint-editor-preview/backend-linuxkms", "preview"]
-backend-linuxkms-noseat = ["slint/backend-linuxkms-noseat", "i-slint-editor-preview/backend-linuxkms-noseat", "preview"]
-backend-default = ["slint/backend-default", "i-slint-editor-preview/backend-default", "preview"]
+backend-winit = ["slint/backend-winit", "preview"]
+backend-winit-x11 = ["slint/backend-winit-x11", "preview"]
+backend-winit-wayland = ["slint/backend-winit-wayland", "preview"]
+backend-linuxkms = ["slint/backend-linuxkms", "preview"]
+backend-linuxkms-noseat = ["slint/backend-linuxkms-noseat", "preview"]
+backend-default = ["slint/backend-default", "preview"]
 
-renderer-femtovg = ["slint/renderer-femtovg", "i-slint-editor-preview/renderer-femtovg", "preview"]
-renderer-skia = ["slint/renderer-skia", "i-slint-editor-preview/renderer-skia", "preview"]
-renderer-skia-opengl = ["slint/renderer-skia-opengl", "i-slint-editor-preview/renderer-skia-opengl", "preview"]
-renderer-skia-vulkan = ["slint/renderer-skia-vulkan", "i-slint-editor-preview/renderer-skia-vulkan", "preview"]
-renderer-software = ["slint/renderer-software", "i-slint-editor-preview/renderer-software", "preview"]
+renderer-femtovg = ["slint/renderer-femtovg", "preview"]
+renderer-skia = ["slint/renderer-skia", "preview"]
+renderer-skia-opengl = ["slint/renderer-skia-opengl", "preview"]
+renderer-skia-vulkan = ["slint/renderer-skia-vulkan", "preview"]
+renderer-software = ["slint/renderer-software", "preview"]
 
 # Compat
 backend-gl-all = ["backend-winit", "renderer-femtovg"]
@@ -70,13 +70,24 @@ preview-lense = []
 ## to provide an implementation of the external preview API when building for WASM)
 preview-api = ["preview-external"]
 ## Build in the actual code to act as a preview for slint files.
-preview-engine = ["i-slint-editor-preview/preview-engine", "dep:slint", "dep:slint-interpreter", "dep:i-slint-core"]
+preview-engine = [
+    "dep:by_address",
+    "dep:clru",
+    "dep:i-slint-backend-selector",
+    "dep:i-slint-core",
+    "dep:nucleo-matcher",
+    "dep:rfd",
+    "dep:slint",
+    "dep:slint-interpreter",
+    "dep:slint-build",
+    "i-slint-editor-preview/preview-engine",
+]
 ## Build in the actual code to act as a preview for slint files. Does nothing in WASM!
 preview-builtin = ["preview-engine", "i-slint-editor-preview/preview-builtin"]
 ## Support the external preview optionally used by e.g. the VSCode plugin
 preview-external = ["i-slint-editor-preview/preview-external"]
 ## Support the remote preview via a WebSocket connection
-preview-remote = ["preview-engine", "preview-builtin", "i-slint-editor-preview/preview-remote"]
+preview-remote = ["preview-engine", "preview-builtin", "dep:mdns-sd", "i-slint-editor-preview/preview-remote"]
 
 default = ["backend-default", "renderer-femtovg", "renderer-software", "preview"]
 
@@ -85,7 +96,11 @@ i-slint-compiler = { workspace = true, features = ["display-diagnostics"] }
 i-slint-common = { workspace = true }
 
 dissimilar = "1.0.7"
+by_address = { workspace = true, optional = true }
+clru = { workspace = true, optional = true }
+i-slint-backend-selector = { workspace = true, optional = true }
 itertools = { workspace = true }
+nucleo-matcher = { version = "0.3.1", optional = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 serde = { workspace = true }
@@ -112,6 +127,8 @@ crossbeam-channel = "0.5"                                                       
 lsp-server = "0.10"
 tokio = { version = "1.50.0", features = ["rt", "sync", "time", "macros", "io-std", "io-util", "net", "fs", "process"] }
 dashmap = "6.1.0"
+mdns-sd = { version = "0.20.0", optional = true }
+rfd = { version = "0.17.2", optional = true }
 # Unicode XID property lookup used by the host-language accessor scanner to
 # tokenize identifiers in Rust/C++ source rather than scanning byte-by-byte.
 icu_properties = { version = "2.2.0", features = ["compiled_data"] }
@@ -126,6 +143,9 @@ wasm-bindgen = "0.2.80"
 wasm-bindgen-futures = "0.4.30"
 i-slint-backend-winit = { workspace = true }
 tokio = { version = "1.50.0", features = ["rt", "sync", "macros"] }
+
+[build-dependencies]
+slint-build = { workspace = true, optional = true }
 
 [dev-dependencies]
 i-slint-backend-testing = { path = "../../internal/backends/testing" }

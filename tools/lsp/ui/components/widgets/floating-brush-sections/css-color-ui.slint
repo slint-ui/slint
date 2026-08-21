@@ -1,0 +1,166 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { SimpleColumn } from "../../layout-helpers.slint";
+import { EditorSizeSettings, EditorPalette, Icons, PickerStyles } from "../../styling.slint";
+import { ColorIndicator, GradientIndicator } from "../brush-helpers.slint";
+import { ListView } from "std-widgets.slint";
+import { Api, PaletteEntry, BrushKind } from "../../../api.slint";
+import { WindowManager } from "../../../windowglobal.slint";
+
+component CssColorIndicator {
+    in property <string> name;
+    in property <brush> brush;
+    in property <BrushKind> brush-kind;
+    callback clicked <=> ta.clicked;
+
+    width: PickerStyles.picker-width;
+    height: 24px;
+    Rectangle {
+        x: EditorSizeSettings.standard-margin - 6px;
+        width: parent.width - EditorSizeSettings.small-margin * 2;
+        height: 100%;
+        background: EditorPalette.text-color.with-alpha(0.1);
+        border-radius: 6px;
+        visible: ta.has-hover;
+    }
+
+    ta := TouchArea { }
+
+    HorizontalLayout {
+        y: (parent.height - self.height) / 2;
+        height: 16px;
+        alignment: start;
+
+        Rectangle {
+            width: EditorSizeSettings.standard-margin;
+        }
+
+        if brush-kind == BrushKind.solid: ColorIndicator {
+            width: 100%;
+            height: 100%;
+            color: root.brush;
+            border-radius: 5px;
+            border-width: 1px;
+        }
+        if brush-kind != BrushKind.solid: GradientIndicator {
+            width: 100%;
+            height: 100%;
+            brush: root.brush;
+            border-radius: 5px;
+            border-width: 1px;
+        }
+
+        Rectangle {
+            width: EditorSizeSettings.small-margin;
+        }
+
+        t := Text {
+            width: 180px;
+            overflow: elide;
+            color: EditorPalette.text-color;
+            horizontal-alignment: left;
+            font-family: "Inter";
+            font-size: 11px;
+            text <=> root.name;
+        }
+    }
+}
+
+component SearchBar {
+    height: 24px;
+    out property text <=> ti.text;
+
+    Rectangle {
+        x: EditorSizeSettings.standard-margin;
+        width: parent.width - EditorSizeSettings.standard-margin * 2;
+        height: 24px;
+        border-width: 1px;
+        border-color: EditorPalette.text-color.with-alpha(0.1);
+        border-radius: self.height / 2;
+
+        si := Rectangle {
+            x: 5px;
+            width: 18px;
+            opacity: 0.4;
+            Image {
+                width: 14px;
+                source: Icons.search;
+                colorize: EditorPalette.text-color;
+            }
+        }
+
+        ti := TextInput {
+            x: si.x + si.width + 5px;
+            vertical-alignment: center;
+            horizontal-alignment: left;
+            font-family: "Inter";
+            font-size: 12px;
+            color: EditorPalette.text-color;
+            text-cursor-width: 2px;
+            selection-background-color: #3984ec;
+            single-line: true;
+            wrap: no-wrap;
+        }
+
+        Text {
+            x: ti.x;
+            text: "Search";
+            horizontal-alignment: left;
+            font-family: "Inter";
+            font-size: 12px;
+            color: EditorPalette.text-color;
+            opacity: 0.4;
+            visible: ti.text == "";
+        }
+
+        Rectangle {
+            x: parent.width - self.width - 3px;
+            width: 18px;
+            opacity: ti.text != "" ? 1 : 0;
+            animate opacity { duration: 70ms; }
+
+            Image {
+                width: 15px;
+                source: Icons.close;
+                colorize: EditorPalette.text-color;
+            }
+
+            Rectangle {
+                width: 18px;
+                height: self.width;
+                background: EditorPalette.text-color.with-alpha(0.1);
+                border-radius: self.height / 2;
+                TouchArea {
+                    clicked => {
+                        ti.text = "";
+                    }
+                }
+            }
+        }
+    }
+}
+
+export component CssColorPicker inherits SimpleColumn {
+    in property <string> filter-text;
+    property <[PaletteEntry]> palettes: Api.filter-palettes(Api.palettes, "\{filter-text} \{sb.text}");
+    Rectangle {
+        height: EditorSizeSettings.small-margin;
+    }
+
+    sb := SearchBar { }
+
+    ListView {
+        width: 100%;
+        height: 200px;
+        for i[index] in palettes: CssColorIndicator {
+            name: i.name;
+            brush: i.value.value-brush;
+            brush-kind: i.value.brush-kind;
+            clicked => {
+                WindowManager.apply-current-value(i.name);
+                WindowManager.hide-floating-color-widget();
+            }
+        }
+    }
+}

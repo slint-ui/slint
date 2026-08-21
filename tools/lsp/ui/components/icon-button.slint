@@ -1,0 +1,37 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { EditorSizeSettings } from "./styling.slint";
+import { StateLayer } from "./state-layer.slint";
+import { Palette } from "std-widgets.slint";
+
+export component IconButton {
+    in property <image> icon <=> icon-image.source;
+
+    callback clicked <=> touch-area.clicked;
+
+    min-width: content-layer.min-width;
+    min-height: content-layer.min-height;
+
+    accessible-role: button;
+    accessible-action-default => {
+        touch-area.clicked();
+    }
+
+    touch-area := TouchArea {}
+
+    state-layer := StateLayer {
+        width: 100%;
+        height: 100%;
+        border-radius: max(self.width, self.height) / 2;
+        pressed: touch-area.pressed;
+        has-hover: touch-area.has-hover;
+    }
+
+    content-layer := HorizontalLayout {
+        icon-image := Image {
+            width: EditorSizeSettings.default-icon-width;
+            colorize: Palette.alternate-foreground;
+        }
+    }
+}

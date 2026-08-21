@@ -11,8 +11,6 @@ pub mod editor_session;
 pub mod element;
 pub mod file_url;
 mod lsp_to_previews;
-#[cfg(feature = "preview-engine")]
-pub mod preview;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod settings_store;
 #[cfg(any(test, feature = "testing"))]
@@ -46,7 +44,6 @@ where
     tokio::task::spawn_local(future);
 }
 
-#[cfg(any(feature = "preview-external", feature = "preview-engine", feature = "preview-remote"))]
 /// Converts a log message from the preview to a string to be logged by the LSP.
 pub fn preview_log_message_to_string(
     location: &Option<(std::path::PathBuf, usize, usize)>,

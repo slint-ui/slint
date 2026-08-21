@@ -1,0 +1,165 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Button, HorizontalBox, Switch, Palette, ComboBox } from "std-widgets.slint";
+import { BodyText } from "../components/body-text.slint";
+import { HeaderText } from "../components/header-text.slint";
+import { Api, ComponentItem, PreviewMode } from "../api.slint";
+import { EditorSpaceSettings, Icons, ConsoleStyles } from "../components/styling.slint";
+
+
+export component HeaderView {
+    in-out property <bool> edit-mode <=> interaction-switch.checked;
+    in-out property <int> current-style-index <=> style-combobox.current-index;
+    in property <[string]> known-styles <=> style-combobox.model;
+    in-out property <PreviewMode> preview-mode: PreviewMode.Local;
+    in property <bool> remote-mode;
+    in-out property <bool> library-widget <=> shortcut-library.checked;
+    in-out property <bool> properties-widget <=> shortcut-properties.checked;
+    in-out property <bool> outline-widget <=> shortcut-outline.checked;
+    in-out property <bool> data-widget <=> shortcut-simulator-data.checked;
+
+    callback style-selected();
+    callback preview-mode-selected(PreviewMode);
+
+    changed preview-mode => {
+        mode-combobox.current-index = root.preview-mode == PreviewMode.Remote ? 1 : 0;
+    }
+
+    background-layer := Rectangle {
+        background: Palette.alternate-background;
+
+        content-layer := HorizontalBox {
+            horizontal-stretch: 1;
+
+            HorizontalLayout {
+                alignment: start;
+                horizontal-stretch: 0;
+                spacing: EditorSpaceSettings.default-spacing / 2;
+
+                Button {
+                    icon: Icons.sync;
+                    colorize-icon: true;
+                    clicked => {
+                        Api.reload-preview();
+                    }
+                }
+
+                label := Text {
+                    horizontal-alignment: left;
+                    vertical-alignment: center;
+                    color: ConsoleStyles.text-color;
+                    font-family: "Inter";
+                    font-size: 12px;
+                    text: @tr("Preview");
+                }
+            }
+
+            HorizontalLayout {
+                visible: !root.remote-mode;
+                alignment: center;
+                spacing: EditorSpaceSettings.default-spacing;
+
+                HorizontalLayout {
+                    visible: false;
+                    spacing: EditorSpaceSettings.default-spacing / 2;
+                    horizontal-stretch: 1;
+
+                    BodyText {
+                        text: @tr("Interact");
+                    }
+
+                    interaction-switch := Switch {
+                        checked: true;
+                    }
+
+                    BodyText {
+                        text: @tr("Edit");
+                    }
+                }
+
+                @children
+                HorizontalLayout {
+                    spacing: EditorSpaceSettings.default-spacing / 2;
+                    shortcut-library := Button {
+                        horizontal-stretch: 0;
+                        checkable: true;
+                        icon: Icons.library;
+                        colorize-icon: !self.checked;
+                        primary: self.checked;
+                    }
+
+                    shortcut-properties := Button {
+                        horizontal-stretch: 0;
+                        checkable: true;
+                        icon: Icons.properties;
+                        colorize-icon: !self.checked;
+                        primary: self.checked;
+                    }
+
+                    shortcut-outline := Button {
+                        horizontal-stretch: 0;
+                        checkable: true;
+                        icon: Icons.outline;
+                        colorize-icon: !self.checked;
+                        primary: self.checked;
+                    }
+
+                    shortcut-simulator-data := Button {
+                        horizontal-stretch: 0;
+                        checkable: true;
+                        icon: Icons.simulator;
+                        colorize-icon: !self.checked;
+                        primary: self.checked;
+                    }
+                }
+            }
+
+            HorizontalLayout {
+                alignment: end;
+                spacing: 4px;
+
+                BodyText {
+                    horizontal-stretch: 0;
+
+                    visible: !root.remote-mode && Api.uses-widgets;
+                    horizontal-alignment: right;
+                    text: @tr("Style");
+                }
+
+                style-combobox := ComboBox {
+                    horizontal-stretch: 0;
+
+                    visible: !root.remote-mode && Api.uses-widgets;
+
+                    selected => {
+                        root.style-selected();
+                    }
+                }
+
+                mode-combobox := ComboBox {
+                    horizontal-stretch: 0;
+                    visible: !Api.runs-in-slintpad;
+                    current-index: root.preview-mode == PreviewMode.Remote ? 1 : 0;
+                    model: [@tr("Local"), @tr("Remote")];
+                    selected => {
+                        if self.current-index == 1 {
+                            root.preview-mode = PreviewMode.Remote;
+                            root.preview-mode-selected(PreviewMode.Remote);
+                        } else {
+                            root.preview-mode = PreviewMode.Local;
+                            root.preview-mode-selected(PreviewMode.Local);
+                        }
+                    }
+                }
+            }
+        }
+
+        Rectangle {
+            y: parent.height - self.height;
+            height: 1px;
+
+            background: Palette.border;
+        }
+    }
+}

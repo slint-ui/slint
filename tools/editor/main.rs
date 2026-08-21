@@ -13,7 +13,6 @@ use std::{
 };
 
 use i_slint_editor_preview as editor_preview;
-use i_slint_editor_preview::preview;
 use i_slint_editor_preview::{LspToPreviews, Result, document_cache::OpenImportCallback};
 use i_slint_live_preview::file_watcher::{FileWatcher, WatchEvent};
 use i_slint_live_preview::protocol::{
@@ -22,6 +21,7 @@ use i_slint_live_preview::protocol::{
 };
 use lsp_types::{MessageType, Url};
 
+mod preview;
 #[cfg(target_os = "macos")]
 mod sparkle;
 

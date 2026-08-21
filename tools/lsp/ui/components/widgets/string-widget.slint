@@ -1,0 +1,133 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { ChildIndicator, NameLabel, ResettingLineEdit, SecondaryContent } from "./basics.slint";
+
+import { Api, PropertyValue } from "../../api.slint";
+import { EditorSpaceSettings } from "../../components/styling.slint";
+
+import { CheckBox } from "std-widgets.slint";
+
+export component StringWidget inherits GridLayout {
+    in property <bool> enabled;
+    in property <PropertyValue> property-value;
+    in property <bool> has-code-action;
+    in property <bool> has-reset-action;
+    in property <bool> is-translatable: true;
+
+    out property <length> i-am-a-hack-remove-me: 0px;
+
+    property <bool> open: false;
+
+    private property <bool> is-translated;
+    private property <string> tr-context-value;
+
+    callback update-display-string(value: string);
+
+    callback test-string-binding(text: string, is-translated: bool) -> bool;
+    callback set-string-binding(text: string, is-translated: bool);
+
+    function tsb() -> bool {
+        return test-string-binding(Api.string-to-code(text-rle.text, self.is-translated, self.tr-context-value, "", ""), self.is-translated);
+    }
+    function ssb() {
+        update-display-string("\"\{text-rle.text}\"");
+        set-string-binding(Api.string-to-code(text-rle.text, self.is-translated, self.tr-context-value, "", ""), self.is-translated);
+    }
+
+    function apply-value() {
+        text_rle.default-text = property-value.value-string;
+        self.is-translated = root.property-value.is-translatable;
+        self.tr-context-value = root.property-value.tr-context;
+    }
+
+    init => {
+        self.i-am-a-hack-remove-me = self.preferred-height;
+
+        apply-value();
+    }
+    private property <bool> child-focus: false;
+    private property <bool> has-focus: text_rle.has-focus || self.child-focus;
+
+    changed has-focus => {
+        if !has-focus {
+            apply-value();
+        }
+    }
+
+    changed property-value => {
+        if !has-focus {
+            apply-value();
+        }
+    }
+
+    Row {
+        childIndicator := ChildIndicator {
+            visible: root.is-translatable;
+            horizontal-stretch: 0;
+            control-hover: text_rle.has-focus;
+        }
+
+        content := HorizontalLayout {
+            spacing: EditorSpaceSettings.default-spacing;
+
+            text_rle := ResettingLineEdit {
+                enabled: root.enabled;
+                edited(text) => {
+                    self.can-compile = root.tsb();
+                }
+                accepted(text) => {
+                    root.ssb();
+                }
+            }
+        }
+    }
+
+    Row {
+        sub := SecondaryContent {
+            col: 1;
+
+            enabled: root.enabled;
+            open: childIndicator.open && root.is-translatable;
+
+            VerticalLayout {
+                spacing: EditorSpaceSettings.default-spacing;
+                tr-cb := CheckBox {
+                    checked: root.is-translated;
+                    text: @tr("Translatable");
+                    toggled => {
+                        root.is-translated = self.checked;
+                        root.ssb();
+                    }
+                    enabled: root.enabled;
+                }
+
+                HorizontalLayout {
+                    spacing: EditorSpaceSettings.default-spacing;
+
+                    Text {
+                        vertical-alignment: center;
+                        horizontal-alignment: right;
+                        text: @tr("Context");
+                    }
+
+                    tr-context := ResettingLineEdit {
+                        enabled: root.enabled && tr-cb.checked;
+                        default-text: root.tr-context-value;
+                        edited(text) => {
+                            root.tr-context-value = text;
+                            self.can-compile = root.tsb();
+                        }
+                        accepted(text) => {
+                            root.tr-context-value = text;
+                            root.ssb();
+                        }
+                        changed has-focus => {
+                            root.child-focus = self.has-focus;
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
