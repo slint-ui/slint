@@ -21,6 +21,12 @@ mod pico2_st7789;
 #[cfg(feature = "pico2-st7789")]
 pub use pico2_st7789::*;
 
+#[cfg(feature = "pico2-restouch-lcd-3-5")]
+#[path = "pico2_restouch_lcd_3_5/pico2_restouch_lcd_3_5.rs"]
+mod pico2_restouch_lcd_3_5;
+#[cfg(feature = "pico2-restouch-lcd-3-5")]
+pub use pico2_restouch_lcd_3_5::*;
+
 #[cfg(feature = "pico2-touch-lcd-2-8")]
 #[path = "pico2_touch_lcd_2_8/pico2_touch_lcd_2_8.rs"]
 mod pico2_touch_lcd_2_8;
@@ -82,6 +88,7 @@ pub use m5stack_cores3::*;
 #[cfg(not(any(
     feature = "pico-st7789",
     feature = "pico2-st7789",
+    feature = "pico2-restouch-lcd-3-5",
     feature = "pico2-touch-lcd-2-8",
     feature = "stm32h735g",
     feature = "stm32u5g9j-dk2",
@@ -96,6 +103,7 @@ pub use i_slint_core_macros::identity as entry;
 #[cfg(not(any(
     feature = "pico-st7789",
     feature = "pico2-st7789",
+    feature = "pico2-restouch-lcd-3-5",
     feature = "pico2-touch-lcd-2-8",
     feature = "stm32h735g",
     feature = "stm32u5g9j-dk2",
