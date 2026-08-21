@@ -386,6 +386,12 @@ async fn build_and_show(
         tracing::error!("Not a file URL: {}", preview_component.url);
         return Ok(());
     };
+    // Show the spinner while the sources are fetched and compiled, but only when the
+    // placeholder is on screen: during a reload the user's component stays visible
+    // until the new build is ready, so there is nothing to overlay a spinner on.
+    if user_instance.is_none() {
+        placeholder.set_state(RemoteViewerState::Compiling);
+    }
     let file = match connection.request_file(preview_component.url.clone()).await {
         Ok(file) => file,
         Err(err) => {

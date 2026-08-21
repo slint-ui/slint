@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Palette, Button } from "std-widgets.slint";
+import { Palette, Button, Spinner } from "std-widgets.slint";
 import { LicensesPage, AttributionItem } from "licenses.slint";
 
 export enum RemoteViewerState {
@@ -9,6 +9,8 @@ export enum RemoteViewerState {
     waiting-for-connection,
     /// An editor is connected but no preview has been requested yet.
     connected,
+    /// A preview build is in progress; the spinner is shown.
+    compiling,
     /// A user component is shown; this window is hidden.
     previewing,
     /// The last build failed; `message` holds the error text.
@@ -47,7 +49,8 @@ export component RemoteViewerWindow inherits Window {
     /// Whether the name/address screen is the one on show. The other states
     /// each take the whole window.
     property <bool> showing-idle-screen: root.state != RemoteViewerState.preview-error
-        && root.state != RemoteViewerState.pairing;
+        && root.state != RemoteViewerState.pairing
+        && root.state != RemoteViewerState.compiling;
 
     property <bool> dark-color-scheme: Palette.color-scheme == ColorScheme.dark;
     property <bool> landscape-layout: root.width > root.height;
@@ -318,6 +321,29 @@ export component RemoteViewerWindow inherits Window {
             font-weight: 400;
             horizontal-alignment: center;
             opacity: 0.6;
+        }
+    }
+
+    if root.state == RemoteViewerState.compiling: VerticalLayout {
+        alignment: center;
+        spacing: 16px;
+        padding-top: root.safe-area-insets.top;
+        padding-bottom: root.safe-area-insets.bottom;
+
+        HorizontalLayout {
+            alignment: center;
+            Spinner {
+                indeterminate: true;
+                width: 48px;
+                height: 48px;
+            }
+        }
+
+        Text {
+            text: @tr("Compiling…");
+            horizontal-alignment: center;
+            font-size: 1.1rem;
+            opacity: 0.9;
         }
     }
 
