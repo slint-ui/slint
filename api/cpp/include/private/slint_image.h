@@ -6,6 +6,7 @@
 #include <span>
 #include "private/slint_generated_public.h"
 #include "private/slint_size.h"
+#include "private/slint_rgb565pixel.h"
 #include "private/slint_image_internal.h"
 #include "private/slint_string.h"
 #include "private/slint_sharedvector.h"
@@ -209,6 +210,21 @@ public:
                   cbindgen_private::types::ImageCacheKey::Invalid(),
                   cbindgen_private::types::SharedImageBuffer::RGBA8(
                           cbindgen_private::types::SharedPixelBuffer<Rgba8Pixel> {
+                                  .width = buffer.width(),
+                                  .height = buffer.height(),
+                                  .data = buffer.m_data })))
+    {
+    }
+
+    /// Construct an image from a SharedPixelBuffer of RGB565 pixels.
+    ///
+    /// This is the native format of many embedded displays. The software
+    /// renderer can draw such images without any pixel conversion.
+    Image(SharedPixelBuffer<Rgb565Pixel> buffer)
+        : data(Data::ImageInner_EmbeddedImage(
+                  cbindgen_private::types::ImageCacheKey::Invalid(),
+                  cbindgen_private::types::SharedImageBuffer::RGB565(
+                          cbindgen_private::types::SharedPixelBuffer<Rgb565Pixel> {
                                   .width = buffer.width(),
                                   .height = buffer.height(),
                                   .data = buffer.m_data })))
