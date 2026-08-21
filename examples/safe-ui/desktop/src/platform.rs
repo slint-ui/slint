@@ -11,8 +11,8 @@ use std::time::{Duration, Instant};
 use slint_safeui_app::{AppEvent, Platform, slint_sc};
 
 /// The size of the window, in pixels.
-pub const WIDTH: u32 = 640;
-pub const HEIGHT: u32 = 480;
+pub const WIDTH: u32 = 320;
+pub const HEIGHT: u32 = 240;
 
 /// A touch from the front-end. A plain, `Send` type crossing to the worker.
 pub enum Input {
