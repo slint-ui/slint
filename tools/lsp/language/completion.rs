@@ -2745,6 +2745,27 @@ export component TestWindow inherits Window {
     }
 
     #[test]
+    fn shadowed_member_dot_completion_type() {
+        let source = r#"
+            component Base {
+                @shadowable in-out property <int> prop;
+            }
+            component Derived inherits Base {
+                in-out property <string> prop;
+            }
+            export component Main {
+                foo := Derived { }
+                the-text := Text {
+                    text: foo.pr🔺;
+                }
+            }
+        "#;
+        let results = get_completions_experimental(source).unwrap();
+        let prop = results.iter().find(|c| c.label == "prop").unwrap();
+        assert_eq!(prop.detail.as_deref(), Some("string"), "should show the overriding type");
+    }
+
+    #[test]
     fn shadowed_member_completed_once() {
         // A member that shadows an inherited one must be offered a single time, not once for the
         // inherited declaration and once for the shadow.

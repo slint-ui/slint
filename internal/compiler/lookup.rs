@@ -503,7 +503,9 @@ impl LookupObject for ElementRc {
             if has_shadows && self.borrow().shadowing_members.contains_key(&name) {
                 continue;
             }
-            let e = expression_from_reference(NamedReference::new(self, name.clone()), &ty, None);
+            // Resolve the source name to the storage key so a shadow in a base resolves correctly.
+            let key = self.borrow().lookup_property(&name).internal_or_resolved_name();
+            let e = expression_from_reference(NamedReference::new(self, key), &ty, None);
             if let Some(r) = f(&name, e) {
                 return Some(r);
             }
