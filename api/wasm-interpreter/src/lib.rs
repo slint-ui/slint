@@ -378,5 +378,18 @@ pub fn init() -> Result<(), JsValue> {
         .unwrap();
     i_slint_core::platform::set_platform(Box::new(backend))
         .map_err(|e| -> JsValue { format!("{e}").into() })?;
+
+    // The interpreter renders snippets it didn't write, and a snippet author has no way to supply
+    // a font, so the monospace generics get a face here rather than in the shared collection that
+    // every application builds -- one that never draws code shouldn't carry a programming font.
+    i_slint_core::with_global_context(
+        || Err(i_slint_core::platform::PlatformError::NoPlatform),
+        |ctx| {
+            i_slint_common::sharedfontique::register_monospace_font(
+                &mut ctx.font_context().borrow_mut().collection,
+            )
+        },
+    )?;
+
     Ok(())
 }
