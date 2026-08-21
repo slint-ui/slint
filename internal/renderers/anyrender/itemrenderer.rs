@@ -1292,7 +1292,9 @@ fn image_buffer_to_peniko_image(buffer: &SharedImageBuffer) -> Option<peniko::Im
         SharedImageBuffer::RGB8(shared_pixel_buffer) => {
             let rgba: Vec<u8> = shared_pixel_buffer
                 .as_bytes()
-                .chunks_exact(3)
+                .as_chunks::<3>()
+                .0
+                .iter()
                 .flat_map(|rgb| [rgb[0], rgb[1], rgb[2], 255])
                 .collect();
             let width = shared_pixel_buffer.width();

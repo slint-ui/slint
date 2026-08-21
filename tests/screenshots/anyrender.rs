@@ -334,7 +334,7 @@ fn render_scene_to_png(
 
 /// Premultiplied RGBA to straight alpha, e.g. for saving as PNG.
 fn unpremultiply_rgba(buf: &mut [u8]) {
-    for px in buf.chunks_exact_mut(4) {
+    for px in buf.as_chunks_mut::<4>().0 {
         let a = px[3] as u32;
         if a > 0 && a < 255 {
             px[0] = ((px[0] as u32 * 255 / a).min(255)) as u8;
