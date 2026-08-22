@@ -185,11 +185,7 @@ impl CachedItemBoundingBoxAndTransform {
                 sibling_index,
             }
         } else {
-            Self::RegularItem {
-                bounding_rect,
-                offset: geometry.origin.to_vector(),
-                sibling_index,
-            }
+            Self::RegularItem { bounding_rect, offset: geometry.origin.to_vector(), sibling_index }
         }
     }
 }
@@ -516,10 +512,8 @@ impl<'a, T: ItemRenderer + ItemRendererFeatures> PartialRenderer<'a, T> {
                                 &state.clipped,
                             );
 
-                            new_state.adjust_transforms_for_child(
-                                &new_geom.transform(),
-                                &old_transform,
-                            );
+                            new_state
+                                .adjust_transforms_for_child(&new_geom.transform(), &old_transform);
 
                             *cached_geom = new_geom;
 
@@ -566,8 +560,9 @@ impl<'a, T: ItemRenderer + ItemRendererFeatures> PartialRenderer<'a, T> {
                                 tr.as_ref().register_as_dependency_to_current_binding();
                             }
 
-                            if let CachedItemBoundingBoxAndTransform::ClipItem { geometry, .. } =
-                                &cached_geom
+                            if let CachedItemBoundingBoxAndTransform::ClipItem {
+                                geometry, ..
+                            } = &cached_geom
                             {
                                 new_state.clipped = new_state
                                     .clipped
@@ -601,7 +596,9 @@ impl<'a, T: ItemRenderer + ItemRendererFeatures> PartialRenderer<'a, T> {
                             &new_geom.transform(),
                         );
 
-                        if let CachedItemBoundingBoxAndTransform::ClipItem { geometry, .. } = new_geom {
+                        if let CachedItemBoundingBoxAndTransform::ClipItem { geometry, .. } =
+                            new_geom
+                        {
                             new_state.clipped = new_state
                                 .clipped
                                 .intersection(
