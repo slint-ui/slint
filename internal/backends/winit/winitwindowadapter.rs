@@ -1138,6 +1138,13 @@ impl WinitWindowAdapter {
     }
 
     fn set_visibility(&self, visibility: WindowVisibility) -> Result<(), PlatformError> {
+        // Release the native menus that keep this adapter alive through the globals.
+        #[cfg(muda)]
+        if visibility == WindowVisibility::Hidden {
+            self.menubar.take();
+            self.context_menu.take();
+        }
+
         if visibility == self.shown.get() {
             return Ok(());
         }
@@ -1677,6 +1684,7 @@ impl WindowAdapterInternal for WinitWindowAdapter {
             return false;
         }
 
+        // Set before showing: on Windows the activation event can arrive before this returns.
         self.context_menu.replace(Some(context_menu_item));
 
         if let WinitWindowOrNone::HasWindow { context_menu_muda_adapter, .. } =
@@ -1694,6 +1702,9 @@ impl WindowAdapterInternal for WinitWindowAdapter {
                 return true;
             }
         }
+
+        // No native menu shown; release it so it doesn't keep the adapter alive.
+        self.context_menu.take();
         false
     }
 
