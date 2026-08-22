@@ -3365,6 +3365,23 @@ impl Element {
         false
     }
 
+    /// Whether [`Self::inherited_layout_info_h_with_constraint`] would return
+    /// `Some`, without cloning the `NamedReference`.
+    pub fn has_inherited_layout_info_h_with_constraint(&self) -> bool {
+        if self.layout_info_h_with_constraint.is_some() {
+            return true;
+        }
+        let mut base = self.base_type.clone();
+        while let ElementType::Component(base_comp) = base {
+            let root = base_comp.root_element.borrow();
+            if root.layout_info_h_with_constraint.is_some() {
+                return true;
+            }
+            base = root.base_type.clone();
+        }
+        false
+    }
+
     /// Mirror of [`Self::inherited_layout_info_v_with_constraint`] for the
     /// horizontal axis.
     pub fn inherited_layout_info_h_with_constraint(&self) -> Option<NamedReference> {
@@ -3395,8 +3412,8 @@ impl Element {
     pub fn layout_info_includes_own_constraints(&self, orientation: Orientation) -> bool {
         self.layout_info_prop(orientation).is_some()
             || match orientation {
-                Orientation::Vertical => self.inherited_layout_info_v_with_constraint().is_some(),
-                Orientation::Horizontal => self.inherited_layout_info_h_with_constraint().is_some(),
+                Orientation::Vertical => self.has_inherited_layout_info_v_with_constraint(),
+                Orientation::Horizontal => self.has_inherited_layout_info_h_with_constraint(),
             }
     }
 

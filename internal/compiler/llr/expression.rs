@@ -51,6 +51,22 @@ pub enum FlexboxMeasureCellKind {
     Fixed,
 }
 
+/// One cell of a box layout's cross-axis measure pass. See
+/// [`Expression::BoxLayoutInfoOrthoWithMeasure`].
+#[derive(Debug, Clone)]
+#[allow(clippy::large_enum_variant)]
+pub enum BoxMeasureCell {
+    /// A static cell: its cross-axis `LayoutInfo` expression. A
+    /// height-for-width (resp. width-for-height) cell reads the
+    /// `measure_known_w` (resp. `measure_known_h`) local as its cross-axis
+    /// constraint; any other cell just doesn't read it.
+    Static { info: Expression },
+    /// A repeater: its instances are only known at run time, so the generated
+    /// code queries each instance's `layout_item_info_at_cross_width` /
+    /// `_at_cross_height` at its solved main-axis size.
+    Repeated(LayoutRepeatedElement),
+}
+
 #[derive(Debug, Clone)]
 pub enum Expression {
     /// A string literal. The .0 is the content of the string, without the quotes
@@ -258,6 +274,14 @@ pub enum Expression {
         /// Either an expression of type LayoutItemInfo, or information about the repeater
         elements: Vec<Either<Expression, LayoutRepeatedElement>>,
         orientation: Orientation,
+        /// Cross-axis size of the box layout on its main-axis pass: passed to
+        /// each repeated cell's `layout_item_info_at_cross_width` /
+        /// `_at_cross_height` so a height-for-width instance wraps to the real
+        /// width instead of its preferred width. `None` on the cross-axis pass
+        /// (and for grids). Only the plain column-repeater code path forwards
+        /// it — box layout repeaters are always step-1 column repeaters (no
+        /// `row_child_templates`); the generators assert this.
+        repeated_cross_size: Option<Box<Expression>>,
         sub_expression: Box<Expression>,
     },
     /// Will call the sub_expression, with two cells variables (horizontal and vertical)
@@ -305,6 +329,23 @@ pub enum Expression {
         data: Box<Expression>,
         repeater_indices: Box<Expression>,
         measure_cells: Vec<FlexboxMeasureCell>,
+    },
+    /// Cross-axis info of a box layout at a known main-axis size: solves the
+    /// main axis at that size, then folds the cells' cross-axis infos with
+    /// `box_layout_info_ortho`, measuring each height-for-width (resp.
+    /// width-for-height) cell at its solved main size — the box layout
+    /// counterpart of [`Self::FlexboxLayoutInfoCrossAxisWithMeasure`].
+    BoxLayoutInfoOrthoWithMeasure {
+        /// The `BoxLayoutData` for the main-axis solve; its `size` is the
+        /// known cross-axis size of the info being computed.
+        solve_data: Box<Expression>,
+        /// The cross-axis `Padding` for the fold.
+        padding_ortho: Box<Expression>,
+        /// The axis of the computed info: `Vertical` for a horizontal layout's
+        /// vertical info at a known width (cells measure height at their
+        /// solved width), `Horizontal` for the mirror.
+        orientation: Orientation,
+        measure_cells: Vec<BoxMeasureCell>,
     },
     /// Calls `flexbox_layout_info_cross_axis_with_measure` with the same
     /// generated measure callback as [`Self::SolveFlexboxLayoutWithMeasure`],
@@ -505,6 +546,9 @@ impl Expression {
             Self::WithLayoutItemInfo { sub_expression, .. } => sub_expression.ty(ctx),
             Self::WithFlexboxLayoutItemInfo { sub_expression, .. } => sub_expression.ty(ctx),
             Self::SolveFlexboxLayoutWithMeasure { .. } => Type::LayoutCache,
+            Self::BoxLayoutInfoOrthoWithMeasure { .. } => {
+                crate::typeregister::layout_info_type().into()
+            }
             Self::FlexboxLayoutInfoCrossAxisWithMeasure { .. } => {
                 crate::typeregister::layout_info_type().into()
             }
@@ -629,8 +673,16 @@ macro_rules! visit_impl {
                     $visitor(inner_repeater_index);
                 }
             }
-            Expression::WithLayoutItemInfo { elements, sub_expression, .. } => {
+            Expression::WithLayoutItemInfo {
+                elements,
+                repeated_cross_size,
+                sub_expression,
+                ..
+            } => {
                 $visitor(sub_expression);
+                if let Some(s) = repeated_cross_size {
+                    $visitor(s);
+                }
                 elements.$iter().filter_map(|x| x.$as_ref().left()).for_each($visitor);
             }
             Expression::WithFlexboxLayoutItemInfo {
@@ -663,6 +715,20 @@ macro_rules! visit_impl {
                     {
                         $visitor(h_info);
                         $visitor(v_info);
+                    }
+                });
+            }
+            Expression::BoxLayoutInfoOrthoWithMeasure {
+                solve_data,
+                padding_ortho,
+                measure_cells,
+                ..
+            } => {
+                $visitor(solve_data);
+                $visitor(padding_ortho);
+                measure_cells.$iter().for_each(|x| {
+                    if let BoxMeasureCell::Static { info } = x {
+                        $visitor(info);
                     }
                 });
             }

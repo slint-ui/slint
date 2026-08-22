@@ -198,13 +198,17 @@ pub(crate) fn synthesize_layoutinfo_h_with_constraint_on(
 }
 
 /// Same as `rewrite_layoutinfo_v_for_constraint`, but for the horizontal
-/// axis. Only `ComputeFlexboxLayoutInfo` and `PropertyReference` are
-/// rewritten — there's no width-for-height equivalent in box/grid
-/// layouts, and `ImplicitLayoutInfo(Horizontal)` on a non-component
-/// element doesn't depend on `self.height`.
+/// axis. Grids are not rewritten (no width-for-height path there), and
+/// `ImplicitLayoutInfo(Horizontal)` on a non-component element doesn't
+/// depend on `self.height` (there is no builtin width-for-height item).
 fn rewrite_layoutinfo_h_for_constraint(expr: &mut Expression, height_param: &Expression) {
     expr.visit_recursive_mut(&mut |sub| match sub {
-        Expression::ComputeFlexboxLayoutInfo {
+        Expression::ComputeBoxLayoutInfo {
+            orientation: Orientation::Horizontal,
+            cross_axis_size,
+            ..
+        }
+        | Expression::ComputeFlexboxLayoutInfo {
             orientation: Orientation::Horizontal,
             cross_axis_size,
             ..
@@ -1691,11 +1695,12 @@ fn lower_box_layout(
     // needs to know whether any cell sets `cross-axis-self-alignment`.
     let items: Vec<_> =
         layout_children.iter().map(|child| create_layout_item(child, diag)).collect();
-    // A repeated cell with `cross-axis-self-alignment` returns that value through
-    // the generated `layout_item_info`, which needs the layout's orientation to
-    // restrict it to the cross axis.
+    // A repeated cell needs the layout's orientation: `lower_to_item_tree` uses
+    // it to restrict a `cross-axis-self-alignment` to the cross axis, and to
+    // generate `layout_item_info_at_cross_width` / `_at_cross_height` for a
+    // height-for-width (resp. width-for-height) instance.
     for item in &items {
-        if item.repeater_index.is_some() && item.item.cross_axis_self_alignment.is_some() {
+        if item.repeater_index.is_some() {
             item.elem.borrow_mut().parent_box_layout_orientation = Some(orientation);
         }
     }

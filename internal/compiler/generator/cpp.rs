@@ -473,6 +473,7 @@ use crate::langtype::{
 };
 use crate::layout::Orientation;
 use crate::llr::lower_expression::lower_constant_expression;
+use crate::llr::lower_layout_expression::{MEASURE_KNOWN_H_LOCAL, MEASURE_KNOWN_W_LOCAL};
 use crate::llr::{
     self, EvaluationContext as llr_EvaluationContext, EvaluationScope, ParentScope,
     TypeResolutionContext as _,
@@ -2986,6 +2987,53 @@ fn generate_layout_item_info_decl(
     })
 }
 
+/// Generates the `layout_item_info_at_cross_width` / `_at_cross_height` member
+/// functions for a repeated component struct. A box layout calls these with
+/// the cross size it lays the instance out at, so a height-for-width (resp.
+/// width-for-height) instance measures like an equivalent static cell.
+/// Mirrors the flexbox `flexbox_layout_item_info_at_cross_*` pair; like there,
+/// both members are always emitted, with a delegating body (the equivalent of
+/// the Rust trait default) when the instance has no cross-size-dependent info.
+fn generate_layout_item_info_at_cross_decls(
+    root_sc: &llr::SubComponent,
+    ctx: &EvaluationContext,
+) -> Vec<Declaration> {
+    let is_flexbox_cell = root_sc.flexbox_layout_item_info_for_repeated.is_some();
+    let decl = |expr: Option<&llr::MutExpression>, fn_name: &str, param: &str, o: &str| {
+        let body = match expr {
+            Some(e) if !is_flexbox_cell => {
+                let info = compile_expression(&e.borrow(), ctx);
+                format!("[[maybe_unused]] auto self = this; return {{ ({info}), {{}} }};")
+            }
+            _ => format!(
+                "return layout_item_info(slint::cbindgen_private::Orientation::{o}, std::nullopt);"
+            ),
+        };
+        Declaration::Function(Function {
+            name: fn_name.into(),
+            signature: format!(
+                "([[maybe_unused]] float {param}) const -> slint::cbindgen_private::LayoutItemInfo"
+            ),
+            statements: Some(vec![body]),
+            ..Function::default()
+        })
+    };
+    vec![
+        decl(
+            root_sc.layout_info_v_at_cross_width_for_repeated.as_ref(),
+            "layout_item_info_at_cross_width",
+            "flex_cross_width",
+            "Vertical",
+        ),
+        decl(
+            root_sc.layout_info_h_at_cross_height_for_repeated.as_ref(),
+            "layout_item_info_at_cross_height",
+            "flex_cross_height",
+            "Horizontal",
+        ),
+    ]
+}
+
 fn generate_flexbox_layout_item_info_decl(
     root_sc: &llr::SubComponent,
     ctx: &EvaluationContext,
@@ -3308,6 +3356,9 @@ fn generate_repeated_component(
             Access::Public, // Because Repeater accesses it
             generate_layout_item_info_decl(root_sc, &ctx),
         ));
+        for decl in generate_layout_item_info_at_cross_decls(root_sc, &ctx) {
+            repeater_struct.members.push((Access::Public, decl));
+        }
         for decl in generate_flexbox_layout_item_info_decl(root_sc, &ctx) {
             repeater_struct.members.push((Access::Public, decl));
         }
@@ -4660,6 +4711,7 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
             repeater_steps_var_name,
             elements,
             orientation,
+            repeated_cross_size,
             sub_expression,
         } => generate_with_layout_item_info(
             cells_variable,
@@ -4667,6 +4719,7 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
             repeater_steps_var_name.as_ref().map(SmolStr::as_str),
             elements.as_ref(),
             *orientation,
+            repeated_cross_size.as_deref(),
             sub_expression,
             ctx,
         ),
@@ -4702,6 +4755,65 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
             format!(
                 "slint::private_api::flexbox_layout_info_cross_axis_with_measure({}, {lambda})",
                 a.join(",")
+            )
+        }
+        Expression::BoxLayoutInfoOrthoWithMeasure {
+            solve_data,
+            padding_ortho,
+            orientation,
+            measure_cells,
+        } => {
+            let data = compile_expression(solve_data, ctx);
+            let padding = compile_expression(padding_ortho, ctx);
+            let (known_size_local, at_cross_fn) = match orientation {
+                Orientation::Vertical => (MEASURE_KNOWN_W_LOCAL, "layout_item_info_at_cross_width"),
+                Orientation::Horizontal => {
+                    (MEASURE_KNOWN_H_LOCAL, "layout_item_info_at_cross_height")
+                }
+            };
+            let min_cell_count = measure_cells.len();
+            let mut steps = String::new();
+            for cell in measure_cells {
+                match cell {
+                    llr::BoxMeasureCell::Static { info } => {
+                        let info = compile_expression(info, ctx);
+                        write!(
+                            steps,
+                            "{{
+                                [[maybe_unused]] float {known_size_local} = box_ortho_solved[cursor * 2 + 1];
+                                measure_cells_vector.push_back({{ ({info}), {{}} }});
+                                ++cursor;
+                            }}"
+                        )
+                        .unwrap();
+                    }
+                    llr::BoxMeasureCell::Repeated(repeater) => {
+                        let rep_idx = usize::from(repeater.repeater_index);
+                        write!(
+                            steps,
+                            "for (std::size_t i = 0; i < self->repeater_{rep_idx}.len(); ++i) {{
+                                if (auto *sub_comp = self->repeater_{rep_idx}.typed_instance_at(i)) {{
+                                    measure_cells_vector.push_back(sub_comp->{at_cross_fn}(box_ortho_solved[cursor * 2 + 1]));
+                                }} else {{
+                                    measure_cells_vector.push_back({{}});
+                                }}
+                                ++cursor;
+                            }}"
+                        )
+                        .unwrap();
+                    }
+                }
+            }
+            format!(
+                "[&]{{
+                    auto box_ortho_solved = slint::private_api::solve_box_layout({data}, slint::private_api::make_slice<int>(nullptr, 0));
+                    std::vector<slint::cbindgen_private::LayoutItemInfo> measure_cells_vector;
+                    measure_cells_vector.reserve({min_cell_count});
+                    std::size_t cursor = 0;
+                    {steps}
+                    (void)cursor;
+                    return slint::private_api::box_layout_info_ortho(slint::private_api::make_slice(std::span(measure_cells_vector)), {padding});
+                }}()"
             )
         }
         Expression::WithGridInputData {
@@ -5564,11 +5676,19 @@ fn generate_with_layout_item_info(
     repeater_steps_var_name: Option<&str>,
     elements: &[Either<llr::Expression, llr::LayoutRepeatedElement>],
     orientation: Orientation,
+    repeated_cross_size: Option<&llr::Expression>,
     sub_expression: &llr::Expression,
     ctx: &llr_EvaluationContext<CppGeneratorContext>,
 ) -> String {
     let repeated_indices_var_name = repeated_indices_var_name.map(ident);
     let repeater_steps_var_name = repeater_steps_var_name.map(ident);
+    // Cross-axis size forwarded to repeated cells on a box layout's main-axis
+    // pass, so a height-for-width (resp. width-for-height) instance measures
+    // at the size it is laid out at, like a static cell. Evaluated once, not
+    // per instance.
+    let cross_size_init = repeated_cross_size.map_or(String::new(), |e| {
+        format!("const float box_cross_size = static_cast<float>({});", compile_expression(e, ctx))
+    });
     let mut push_code =
         "std::vector<slint::cbindgen_private::LayoutItemInfo> cells_vector;".to_owned();
     let mut repeater_idx = 0usize;
@@ -5609,6 +5729,9 @@ fn generate_with_layout_item_info(
                     repeater_idx,
                     "max_total",
                     |repeater_id, static_count, inner_ensure, rs_init| {
+                        // Only box layouts set a cross size, and their repeaters
+                        // never have row templates.
+                        debug_assert!(repeated_cross_size.is_none());
                         // for_each only visits instantiated slots; pad the cells up to len()
                         // afterwards so the cell count matches the repeater length recorded in
                         // the repeater_indices array (not-yet-instantiated rows get placeholders).
@@ -5635,15 +5758,31 @@ fn generate_with_layout_item_info(
                             rs_init
                         } else if step == 1 && is_column_repeater {
                             // Column-repeater: each sub-component IS a cell; nullopt returns its own layout_info
+                            let item_info = match (repeated_cross_size, orientation) {
+                                (Some(_), Orientation::Vertical) => {
+                                    "sub_comp->layout_item_info_at_cross_width(box_cross_size)"
+                                        .to_owned()
+                                }
+                                (Some(_), Orientation::Horizontal) => {
+                                    "sub_comp->layout_item_info_at_cross_height(box_cross_size)"
+                                        .to_owned()
+                                }
+                                (None, _) => format!(
+                                    "sub_comp->layout_item_info({o}, std::nullopt)",
+                                    o = to_cpp_orientation(orientation),
+                                ),
+                            };
                             format!(
                                 "{rs_init}{{
                                     auto start_offset = cells_vector.size();
-                                    self->{repeater_id}.for_each([&](const auto &sub_comp){{ cells_vector.push_back(sub_comp->layout_item_info({o}, std::nullopt)); }});
+                                    self->{repeater_id}.for_each([&](const auto &sub_comp){{ cells_vector.push_back({item_info}); }});
                                     cells_vector.resize(start_offset + self->{repeater_id}.len());
                                 }}",
-                                o = to_cpp_orientation(orientation),
                             )
                         } else {
+                            // Multi-step repeaters only exist in grids, which
+                            // never set a cross size.
+                            debug_assert!(repeated_cross_size.is_none());
                             format!(
                                 "{rs_init}{{
                                     auto start_offset = cells_vector.size();
@@ -5682,7 +5821,7 @@ fn generate_with_layout_item_info(
         format!("std::array<int, {}> {rs}_array;", repeater_idx)
     });
     format!(
-        "[&]{{ {ri} {rs} {push_code} slint::cbindgen_private::Slice<slint::cbindgen_private::LayoutItemInfo>{} = slint::private_api::make_slice(std::span(cells_vector)); return {}; }}()",
+        "[&]{{ {ri} {rs} {cross_size_init} {push_code} slint::cbindgen_private::Slice<slint::cbindgen_private::LayoutItemInfo>{} = slint::private_api::make_slice(std::span(cells_vector)); return {}; }}()",
         ident(cells_variable),
         compile_expression(sub_expression, ctx)
     )
@@ -5800,19 +5939,19 @@ fn generate_flexbox_measure_lambda(
             if (known_w && known_h)\n\
                 return {{ w, h }};\n\
             if (known_w) {{ // measure the height at the width w\n\
-                [[maybe_unused]] float measure_known_w = w;\n\
+                [[maybe_unused]] float {MEASURE_KNOWN_W_LOCAL} = w;\n\
                 {v_body}\
                 return {{ w, h }};\n\
             }}\n\
             if (known_h) {{ // measure the width at the height h\n\
-                [[maybe_unused]] float measure_known_h = h;\n\
+                [[maybe_unused]] float {MEASURE_KNOWN_H_LOCAL} = h;\n\
                 {h_body}\
                 return {{ w, h }};\n\
             }}\n\
             // Content-size probe: measure the free axis at the default size, so\n\
             // the returned pair is self-consistent.\n\
-            [[maybe_unused]] float measure_known_w = w;\n\
-            [[maybe_unused]] float measure_known_h = h;\n\
+            [[maybe_unused]] float {MEASURE_KNOWN_W_LOCAL} = w;\n\
+            [[maybe_unused]] float {MEASURE_KNOWN_H_LOCAL} = h;\n\
             {probe_body}\
             return {{ w, h }};\n\
          }}"

@@ -74,6 +74,7 @@ fn expression_cost(exp: &Expression, ctx: &EvaluationContext) -> isize {
         Expression::WithLayoutItemInfo { .. } => return isize::MAX,
         Expression::WithFlexboxLayoutItemInfo { .. } => return isize::MAX,
         Expression::SolveFlexboxLayoutWithMeasure { .. } => return isize::MAX,
+        Expression::BoxLayoutInfoOrthoWithMeasure { .. } => return isize::MAX,
         Expression::FlexboxLayoutInfoCrossAxisWithMeasure { .. } => return isize::MAX,
         Expression::WithGridInputData { .. } => return isize::MAX,
         Expression::MinMax { .. } => 10,

@@ -645,6 +645,7 @@ impl<'a, T> Display for DisplayExpression<'a, T> {
                 repeater_steps_var_name,
                 elements,
                 orientation,
+                repeated_cross_size,
                 sub_expression,
             } => {
                 write!(
@@ -670,10 +671,16 @@ impl<'a, T> Display for DisplayExpression<'a, T> {
                 if let Some(v) = repeater_steps_var_name {
                     write!(f, "{v} = @repeater-steps; ")?;
                 }
+                if let Some(s) = repeated_cross_size {
+                    write!(f, "@repeated-cross-size = {}; ", e(s))?;
+                }
                 write!(f, "{} }}", e(sub_expression))
             }
             Expression::WithFlexboxLayoutItemInfo { .. } => {
                 write!(f, "WithFlexboxLayoutItemInfo(TODO)",)
+            }
+            Expression::BoxLayoutInfoOrthoWithMeasure { .. } => {
+                write!(f, "BoxLayoutInfoOrthoWithMeasure(TODO)",)
             }
             Expression::FlexboxLayoutInfoCrossAxisWithMeasure { .. } => {
                 write!(f, "FlexboxLayoutInfoCrossAxisWithMeasure(TODO)",)

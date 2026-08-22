@@ -18,6 +18,7 @@ use crate::expression_tree::{BuiltinFunction, EasingCurve, MinMaxOp, OperatorCla
 use crate::langtype::{DeclNode, Enumeration, EnumerationValue, Struct, StructName, Type};
 use crate::layout::Orientation;
 use crate::llr::lower_expression::lower_constant_expression;
+use crate::llr::lower_layout_expression::{MEASURE_KNOWN_H_LOCAL, MEASURE_KNOWN_W_LOCAL};
 use crate::llr::{
     self, ArrayOutput, EvaluationContext as llr_EvaluationContext, EvaluationScope, Expression,
     ParentScope, TypeResolutionContext as _,
@@ -2961,9 +2962,44 @@ fn generate_repeated_component(
                     }
                 }
             });
+        // A box layout calls these with the cross size it lays the instance
+        // out at, so a height-for-width (resp. width-for-height) instance
+        // measures like an equivalent static cell. Mirrors the flexbox
+        // `flexbox_layout_item_info_at_cross_*` pair; the trait default (the
+        // plain `layout_item_info`) covers the other repeated components.
+        let layout_item_info_at_cross_fn =
+            |expr: Option<&llr::MutExpression>, fn_name: &str, param: &str| {
+                expr.filter(|_| root_sc.flexbox_layout_item_info_for_repeated.is_none()).map(|e| {
+                let info = compile_expression(&e.borrow(), &ctx);
+                let fn_name = ident(fn_name);
+                let param = ident(param);
+                quote! {
+                    fn #fn_name(
+                        self: ::core::pin::Pin<&Self>,
+                        #param: f32,
+                    ) -> sp::LayoutItemInfo {
+                        #[allow(unused)]
+                        let _self = self.as_ref();
+                        sp::LayoutItemInfo { constraint: #info, ..::core::default::Default::default() }
+                    }
+                }
+            })
+            };
+        let layout_item_info_at_cross_width_fn = layout_item_info_at_cross_fn(
+            root_sc.layout_info_v_at_cross_width_for_repeated.as_ref(),
+            "layout_item_info_at_cross_width",
+            "flex_cross_width",
+        );
+        let layout_item_info_at_cross_height_fn = layout_item_info_at_cross_fn(
+            root_sc.layout_info_h_at_cross_height_for_repeated.as_ref(),
+            "layout_item_info_at_cross_height",
+            "flex_cross_height",
+        );
         quote! {
             #layout_item_info_fn
             #flexbox_layout_item_info_fn
+            #layout_item_info_at_cross_width_fn
+            #layout_item_info_at_cross_height_fn
             #grid_layout_input_data_fn
         }
     };
@@ -3604,6 +3640,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             repeater_steps_var_name,
             elements,
             orientation,
+            repeated_cross_size,
             sub_expression,
         } => generate_with_layout_item_info(
             cells_variable,
@@ -3611,6 +3648,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             repeater_steps_var_name.as_ref().map(SmolStr::as_str),
             elements.as_ref(),
             *orientation,
+            repeated_cross_size.as_deref(),
             sub_expression,
             ctx,
         ),
@@ -3650,6 +3688,62 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             quote! { {
                 #closure
                 sp::flexbox_layout_info_cross_axis_with_measure(#(#a as _,)* Some(&mut measure))
+            } }
+        }
+
+        Expression::BoxLayoutInfoOrthoWithMeasure {
+            solve_data,
+            padding_ortho,
+            orientation,
+            measure_cells,
+        } => {
+            let data = compile_expression(solve_data, ctx);
+            let padding = compile_expression(padding_ortho, ctx);
+            let known_size_ident = match orientation {
+                Orientation::Vertical => ident(MEASURE_KNOWN_W_LOCAL),
+                Orientation::Horizontal => ident(MEASURE_KNOWN_H_LOCAL),
+            };
+            let at_cross_fn = match orientation {
+                Orientation::Vertical => quote!(layout_item_info_at_cross_width),
+                Orientation::Horizontal => quote!(layout_item_info_at_cross_height),
+            };
+            let steps = measure_cells.iter().map(|cell| match cell {
+                llr::BoxMeasureCell::Static { info } => {
+                    let info = compile_expression(info, ctx);
+                    quote!(
+                        {
+                            let #known_size_ident = box_ortho_solved.as_slice()[cursor * 2 + 1] as f32;
+                            let _ = #known_size_ident;
+                            cells_vec.push(sp::LayoutItemInfo { constraint: { #info }, ..::core::default::Default::default() });
+                            cursor += 1;
+                        }
+                    )
+                }
+                llr::BoxMeasureCell::Repeated(repeater) => {
+                    let repeater_id =
+                        format_ident!("repeater{}", usize::from(repeater.repeater_index));
+                    quote!(
+                        for i in 0.._self.#repeater_id.len() {
+                            if let Some(sub_comp) = _self.#repeater_id.instance_at(i) {
+                                cells_vec.push(sub_comp.as_pin_ref().#at_cross_fn(
+                                    box_ortho_solved.as_slice()[cursor * 2 + 1] as f32,
+                                ));
+                            } else {
+                                cells_vec.push(::core::default::Default::default());
+                            }
+                            cursor += 1;
+                        }
+                    )
+                }
+            });
+            let min_cell_count = measure_cells.len();
+            quote! { {
+                let box_ortho_solved = sp::solve_box_layout(&#data, sp::Slice::from_slice(&[]));
+                let mut cells_vec = sp::Vec::with_capacity(#min_cell_count);
+                let mut cursor = 0usize;
+                #(#steps)*
+                let _ = cursor;
+                sp::box_layout_info_ortho(sp::Slice::from_slice(&cells_vec), &#padding)
             } }
         }
 
@@ -5536,11 +5630,20 @@ fn generate_with_layout_item_info(
     repeater_steps_var_name: Option<&str>,
     elements: &[Either<Expression, llr::LayoutRepeatedElement>],
     orientation: Orientation,
+    repeated_cross_size: Option<&Expression>,
     sub_expression: &Expression,
     ctx: &EvaluationContext,
 ) -> TokenStream {
     let repeated_indices_var_name = repeated_indices_var_name.map(ident);
     let repeater_steps_var_name = repeater_steps_var_name.map(ident);
+    // Cross-axis size forwarded to repeated cells on a box layout's main-axis
+    // pass, so a height-for-width (resp. width-for-height) instance measures
+    // at the size it is laid out at, like a static cell. Evaluated once, not
+    // per instance.
+    let cross_size_init = repeated_cross_size.map(|e| {
+        let cs = compile_expression(e, ctx);
+        quote!(let box_cross_size = (#cs) as f32;)
+    });
     let mut fixed_count = 0usize;
     let mut repeated_count_code = quote!();
     let mut push_code = Vec::new();
@@ -5562,6 +5665,9 @@ fn generate_with_layout_item_info(
                     &mut repeated_count_code,
                     ctx,
                     |repeater_id, static_count, inner_ensure_and_len, rs_init| {
+                        // Only box layouts set a cross size, and their repeaters
+                        // never have row templates.
+                        debug_assert!(cross_size_init.is_none());
                         quote!(
                             {
                                 let len = _self.#repeater_id.len();
@@ -5594,16 +5700,34 @@ fn generate_with_layout_item_info(
                             quote!()
                         } else if step == 1 && is_column_repeater {
                             // Column-repeater: each sub-component IS a cell; None returns its own layout_info
+                            let item_info = match (&cross_size_init, orientation) {
+                                (Some(_), Orientation::Vertical) => quote!(
+                                    sub_comp
+                                        .as_pin_ref()
+                                        .layout_item_info_at_cross_width(box_cross_size)
+                                ),
+                                (Some(_), Orientation::Horizontal) => quote!(
+                                    sub_comp
+                                        .as_pin_ref()
+                                        .layout_item_info_at_cross_height(box_cross_size)
+                                ),
+                                (None, _) => quote!(
+                                    sub_comp.as_pin_ref().layout_item_info(#orientation, None)
+                                ),
+                            };
                             quote!(
                                 for i in 0.._self.#repeater_id.len() {
                                     if let Some(sub_comp) = _self.#repeater_id.instance_at(i) {
-                                       items_vec.push(sub_comp.as_pin_ref().layout_item_info(#orientation, None));
+                                       items_vec.push(#item_info);
                                     } else {
                                         items_vec.push(::core::default::Default::default());
                                     }
                                 }
                             )
                         } else {
+                            // Multi-step repeaters only exist in grids, which
+                            // never set a cross size.
+                            debug_assert!(cross_size_init.is_none());
                             quote!(
                                 for i in 0.._self.#repeater_id.len() {
                                     if let Some(sub_comp) = _self.#repeater_id.instance_at(i) {
@@ -5637,6 +5761,7 @@ fn generate_with_layout_item_info(
 
     quote! { {
         #ri_init_code
+        #cross_size_init
         let mut items_vec = sp::Vec::with_capacity(#fixed_count #repeated_count_code);
         #(#push_code)*
         let #cells_variable = sp::Slice::from_slice(&items_vec);
@@ -5787,8 +5912,8 @@ fn generate_flexbox_measure_closure(
     measure_cells: &[llr::FlexboxMeasureCell],
     ctx: &EvaluationContext,
 ) -> TokenStream {
-    let known_w_ident = ident("measure_known_w");
-    let known_h_ident = ident("measure_known_h");
+    let known_w_ident = ident(MEASURE_KNOWN_W_LOCAL);
+    let known_h_ident = ident(MEASURE_KNOWN_H_LOCAL);
     let has_repeater = measure_cells
         .iter()
         .any(|item| matches!(item.kind, llr::FlexboxMeasureCellKind::Repeated(_)));
