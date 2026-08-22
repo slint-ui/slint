@@ -5571,6 +5571,7 @@ version = "1.18.0"
 dependencies = [
  "i-slint-backend-qt",
  "i-slint-backend-winit",
+ "i-slint-core",
  "libtest-mimic",
  "linkme",
  "satchel",
