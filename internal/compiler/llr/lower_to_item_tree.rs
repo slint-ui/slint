@@ -465,7 +465,7 @@ fn lower_sub_component(
                     ret_ty: callback.return_type.clone(),
                     args: callback.args.clone(),
                     ty: Type::Callback(callback.clone()),
-                    use_count: 0.into(),
+                    use_count: Default::default(),
                     needs_tracker: x.expose_in_public_api,
                 });
                 index.into()
@@ -667,7 +667,7 @@ fn lower_sub_component(
 
             sub_component.property_init.push((
                 prop.clone(),
-                BindingExpression { expression, animation, kind, use_count: 0.into() },
+                BindingExpression { expression, animation, kind, use_count: Default::default() },
             ));
         }
 
@@ -1189,7 +1189,7 @@ fn lower_global(
                 ret_ty: cb.return_type.clone(),
                 args: cb.args.clone(),
                 ty: x.property_type.clone(),
-                use_count: 0.into(),
+                use_count: Default::default(),
                 needs_tracker: x.expose_in_public_api,
             });
             state.global_properties.insert(
@@ -1306,7 +1306,7 @@ fn lower_global_expressions(
                 expression: expression.into(),
                 animation: None,
                 kind: if is_constant { BindingKind::Constant } else { BindingKind::Normal },
-                use_count: 0.into(),
+                use_count: Default::default(),
             },
         );
     }

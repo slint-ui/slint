@@ -3,11 +3,12 @@
 
 use super::{EvaluationContext, EvaluationScope, Expression, ParentScope};
 use crate::langtype::{NativeClass, Type};
+use atomic_refcell::AtomicRefCell;
 use derive_more::{From, Into};
 use smol_str::SmolStr;
-use std::cell::{Cell, RefCell};
 use std::collections::{BTreeMap, HashMap};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use typed_index_collections::TiVec;
 
 #[derive(Debug, Clone, Copy, Into, From, Hash, PartialEq, Eq, PartialOrd, Ord)]
@@ -100,17 +101,43 @@ pub struct GridLayoutChildLayoutInfo {
 }
 
 #[derive(Debug, Clone, derive_more::Deref, derive_more::DerefMut)]
-pub struct MutExpression(RefCell<Expression>);
+pub struct MutExpression(AtomicRefCell<Expression>);
 
 impl From<Expression> for MutExpression {
     fn from(e: Expression) -> Self {
-        Self(e.into())
+        Self(AtomicRefCell::new(e))
     }
 }
 
 impl MutExpression {
     pub fn ty(&self, ctx: &dyn super::TypeResolutionContext) -> Type {
         self.0.borrow().ty(ctx)
+    }
+
+    /// Replace the expression, returning the previous one.
+    pub fn replace(&self, e: Expression) -> Expression {
+        std::mem::replace(&mut self.0.borrow_mut(), e)
+    }
+}
+
+/// A `usize` use-counter with `Sync` interior mutability, so the `CompilationUnit`
+/// that holds it can be shared across threads (unlike a `Cell`). It is only
+/// mutated by the compile-time optimization passes; at runtime it is read-only.
+#[derive(Debug, Default)]
+pub struct UseCount(AtomicUsize);
+
+impl Clone for UseCount {
+    fn clone(&self) -> Self {
+        Self(AtomicUsize::new(self.get()))
+    }
+}
+
+impl UseCount {
+    pub fn get(&self) -> usize {
+        self.0.load(Ordering::Relaxed)
+    }
+    pub fn set(&self, value: usize) {
+        self.0.store(value, Ordering::Relaxed)
     }
 }
 
@@ -142,7 +169,7 @@ pub struct BindingExpression {
 
     /// The amount of time this binding is used.
     /// Only valid after the [`count_property_use`](super::optim_passes::count_property_use) pass.
-    pub use_count: Cell<usize>,
+    pub use_count: UseCount,
 }
 
 #[derive(Debug)]
@@ -353,7 +380,7 @@ pub struct Property {
     pub ty: Type,
     /// The amount of time this property is used of another property
     /// This property is only valid after the [`count_property_use`](super::optim_passes::count_property_use) pass
-    pub use_count: Cell<usize>,
+    pub use_count: UseCount,
 }
 
 #[derive(Debug, Default)]
@@ -367,7 +394,7 @@ pub struct Callback {
     pub ty: Type,
 
     /// Same as for Property::use_count
-    pub use_count: Cell<usize>,
+    pub use_count: UseCount,
 
     /// Whether this callback needs a change tracker `Property<()>` so that
     /// setting a new handler from native code triggers re-evaluation of
@@ -383,7 +410,7 @@ pub struct Function {
     pub code: MutExpression,
     /// The number of times this function is called.
     /// Only valid after the [`count_property_use`](super::optim_passes::count_property_use) pass.
-    pub use_count: Cell<usize>,
+    pub use_count: UseCount,
 }
 
 #[derive(Debug, Clone)]

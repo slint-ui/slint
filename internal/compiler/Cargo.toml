@@ -62,6 +62,7 @@ default = []
 [dependencies]
 i-slint-common = { workspace = true, features = ["default", "color-parsing", "markdown"] }
 
+atomic_refcell = { workspace = true }
 num_enum = "0.7"
 icu_normalizer = { workspace = true }
 icu_properties = { workspace = true }

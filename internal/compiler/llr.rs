@@ -14,6 +14,17 @@ pub mod lower_layout_expression;
 pub mod lower_to_item_tree;
 pub mod pretty_print;
 
+// The LLR is meant to be shared across threads (compiled on a worker thread,
+// interpreted on the UI thread behind an `Arc`), so the whole graph must be
+// Send + Sync. Its interior mutability uses `AtomicRefCell`/`AtomicUsize`
+// rather than `RefCell`/`Cell` for that reason. (proc_macro::Span, only present
+// in the macro build, is not Send — hence the feature gate.)
+#[cfg(not(feature = "proc_macro_span"))]
+const _: fn() = || {
+    fn assert_send_sync<T: Send + Sync>() {}
+    assert_send_sync::<CompilationUnit>();
+};
+
 /// The optimization passes over the LLR
 pub mod optim_passes {
     pub mod count_property_use;
