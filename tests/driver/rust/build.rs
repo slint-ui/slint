@@ -203,6 +203,36 @@ fn process_case(
         )?;
     }
 
+    // The `a11y-tree` block declares the expected accessibility tree of the instantiated
+    // TestCase; it applies to all styles except qt, whose native widgets expose different
+    // trees.
+    let a11y_tree = if testcase.requested_style != Some("qt") {
+        test_driver_lib::extract_test_functions(&source).find(|x| x.language_id == "a11y-tree")
+    } else {
+        None
+    };
+    if let Some(expected) = a11y_tree {
+        write!(
+            output,
+            r#"
+#[rust_analyzer::skip]
+#[test] {} fn accessibility_tree() {{
+    i_slint_backend_testing::init_no_event_loop();
+    i_slint_backend_testing::configure_test_fonts();
+    let instance = TestCase::new().unwrap();
+    let expected = {:?};
+    let actual = i_slint_backend_testing::accessibility_tree(&instance);
+    assert!(
+        actual.trim_end() == expected.trim_end(),
+        "accessibility tree mismatch\nexpected:\n{{expected}}\nactual (paste into the a11y-tree block if intended):\n{{actual}}"
+    );
+}}"#,
+            ignored,
+            // Windows checkouts have \r\n line endings, but the tree is rendered with \n.
+            expected.source.replace("\r\n", "\n")
+        )?;
+    }
+
     output.flush()?;
     Ok(module_line)
 }
