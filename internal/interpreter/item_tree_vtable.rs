@@ -71,8 +71,8 @@ impl i_slint_core::item_tree::ItemTree for Instance {
                 index,
                 order,
                 visitor,
-                &mut |order, visitor, dyn_index, instance| {
-                    self.visit_dynamic_children(dyn_index, order, visitor, instance)
+                &mut |order, visitor, dyn_index| {
+                    self.visit_dynamic_children(dyn_index, order, visitor)
                 },
                 &mut |push| self.collect_z_sorted_children(index, push),
             )
@@ -83,8 +83,8 @@ impl i_slint_core::item_tree::ItemTree for Instance {
                 index,
                 order,
                 visitor,
-                &mut |order, visitor, dyn_index, instance| {
-                    self.visit_dynamic_children(dyn_index, order, visitor, instance)
+                &mut |order, visitor, dyn_index| {
+                    self.visit_dynamic_children(dyn_index, order, visitor)
                 },
             )
         }
