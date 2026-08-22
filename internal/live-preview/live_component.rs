@@ -398,8 +398,8 @@ impl Watcher {
     }
 
     /// Spawn a background thread that owns a [`Compiler`] and recompiles the
-    /// file on request, leaving the result for the event-loop thread
-    /// to instantiate.
+    /// file on request, leaving the result for the event-loop thread to
+    /// instantiate.
     fn spawn_compile_worker(
         arc: &Arc<Mutex<Self>>,
         compiler_factory: CompilerFactory,
@@ -475,30 +475,38 @@ mod ffi {
         translation_domain: Slice<u8>,
         no_default_translation_context: bool,
     ) -> *const LiveReloadingComponentInner {
-        let mut compiler = Compiler::default();
-        compiler.set_include_paths(
-            include_paths.iter().map(|path| PathBuf::from(path.as_str())).collect(),
-        );
-        compiler.set_library_paths(
-            library_paths
-                .iter()
-                .map(|path| path.as_str().split_once('=').expect("library path must have an '='"))
-                .map(|(lib, path)| (lib.into(), PathBuf::from(path)))
-                .collect(),
-        );
-        if !style.is_empty() {
-            compiler.set_style(std::str::from_utf8(&style).unwrap().into());
-        }
-        if !translation_domain.is_empty() {
+        // Capture the configuration as owned, Send data so the compile worker
+        // thread can rebuild a fresh Compiler for each reload from this factory.
+        let include_paths: Vec<PathBuf> =
+            include_paths.iter().map(|path| PathBuf::from(path.as_str())).collect();
+        let library_paths: HashMap<String, PathBuf> = library_paths
+            .iter()
+            .map(|path| path.as_str().split_once('=').expect("library path must have an '='"))
+            .map(|(lib, path)| (lib.into(), PathBuf::from(path)))
+            .collect();
+        let style =
+            (!style.is_empty()).then(|| std::str::from_utf8(&style).unwrap().to_string());
+        let translation_domain = (!translation_domain.is_empty())
+            .then(|| std::str::from_utf8(&translation_domain).unwrap().to_string());
+
+        let compiler_factory: CompilerFactory = Arc::new(move || {
+            let mut compiler = Compiler::default();
+            compiler.set_include_paths(include_paths.clone());
+            compiler.set_library_paths(library_paths.clone());
+            if let Some(style) = &style {
+                compiler.set_style(style.clone());
+            }
+            if let Some(translation_domain) = &translation_domain {
+                compiler.set_translation_domain(translation_domain.clone());
+            }
+            if no_default_translation_context {
+                compiler.set_default_translation_context(DefaultTranslationContext::None);
+            }
             compiler
-                .set_translation_domain(std::str::from_utf8(&translation_domain).unwrap().into());
-        }
-        if no_default_translation_context {
-            compiler.set_default_translation_context(DefaultTranslationContext::None);
-        }
+        });
         Rc::into_raw(
-            LiveReloadingComponent::new(
-                compiler,
+            LiveReloadingComponent::new_threaded(
+                compiler_factory,
                 std::path::PathBuf::from(std::str::from_utf8(&file_name).unwrap()),
                 Some(std::str::from_utf8(&component_name).unwrap().into()),
             )
