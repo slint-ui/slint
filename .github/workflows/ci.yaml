@@ -717,6 +717,51 @@ jobs:
               # The excluded crates need a dedicated toolchain or don't cross-compile here.
               run: cargo xwin build --target i686-pc-windows-msvc --locked --workspace --exclude slint-node --exclude slint-cpp --exclude slint-python --exclude slint-sc --exclude slint-doc-generator --exclude i-slint-renderer-skia
 
+    # `backend-linuxkms` is the bare backend and `compat-1-2` restores its pre-1.18
+    # meaning of libseat + libinput. Getting that implication wrong still compiles,
+    # it just silently changes what an application links against, so assert the
+    # resolution itself. `cargo tree` only, no compilation and no system libraries.
+    linuxkms_features:
+        if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'slint') || contains(fromJSON(inputs.changes), 'api_rs') || contains(fromJSON(inputs.changes), 'api_cpp') }}
+        runs-on: ubuntu-24.04
+        steps:
+            - uses: actions/checkout@v7
+            - uses: ./.github/actions/setup-rust
+              with:
+                  key: x-linuxkms-features
+            - name: Check LinuxKMS feature resolution
+              run: ./scripts/check_linuxkms_features.sh
+
+    # Compile the four combinations of the LinuxKMS backend's libseat and libinput
+    # features, to catch mistakes in their `#[cfg]` gating. That a combination really
+    # drops its dependencies is asserted by linuxkms_features above, which inspects the
+    # resolved dependency graph instead of relying on which packages a runner image
+    # happens to ship.
+    linuxkms_build_matrix:
+        if: ${{ inputs.full }}
+        runs-on: ubuntu-24.04
+        strategy:
+            fail-fast: false
+            matrix:
+                include:
+                    - name: "minimal"
+                      features: "compat-1-18,backend-linuxkms,renderer-software"
+                    - name: "libseat"
+                      features: "compat-1-18,backend-linuxkms,backend-linuxkms-libseat,renderer-software"
+                    - name: "libinput"
+                      features: "compat-1-18,backend-linuxkms,backend-linuxkms-libinput,renderer-software"
+                    - name: "libseat + libinput"
+                      features: "compat-1-18,backend-linuxkms,backend-linuxkms-libseat,backend-linuxkms-libinput,renderer-software"
+        name: LinuxKMS ${{ matrix.name }}
+        steps:
+            - uses: actions/checkout@v7
+            - uses: ./.github/actions/install-linux-dependencies
+            - uses: ./.github/actions/setup-rust
+              with:
+                  key: x-linuxkms-${{ matrix.name }}
+            - name: Build
+              run: cargo build -p slint --no-default-features --features ${{ matrix.features }}
+
     qa-tree-sitter-latest:
         if: ${{ inputs.full }}
         uses: ./.github/workflows/tree_sitter.yaml
@@ -773,7 +818,7 @@ jobs:
                   # runner's system libclang is too old for; use the one installed above.
                   export LIBCLANG_PATH=/usr/lib/llvm-20/lib
                   mkdir ${{ runner.workspace }}/cppbuild
-                  cmake -GNinja -B ${{ runner.workspace }}/cppbuild -S . -DRust_CARGO_TARGET=${{ matrix.target }} -DSLINT_BUILD_TESTING=ON -DSLINT_BUILD_EXAMPLES=ON -DCMAKE_BUILD_TYPE=Debug -DSLINT_FEATURE_RENDERER_SKIA=ON -DSLINT_FEATURE_BACKEND_QT=OFF -DSLINT_FEATURE_BACKEND_LINUXKMS=ON -DSLINT_FEATURE_INTERPRETER=ON
+                  cmake -GNinja -B ${{ runner.workspace }}/cppbuild -S . -DRust_CARGO_TARGET=${{ matrix.target }} -DSLINT_BUILD_TESTING=ON -DSLINT_BUILD_EXAMPLES=ON -DCMAKE_BUILD_TYPE=Debug -DSLINT_FEATURE_RENDERER_SKIA=ON -DSLINT_FEATURE_BACKEND_QT=OFF -DSLINT_FEATURE_BACKEND_LINUXKMS_LIBSEAT=ON -DSLINT_FEATURE_BACKEND_LINUXKMS_LIBINPUT=ON -DSLINT_FEATURE_INTERPRETER=ON
                   cmake --build ${{ runner.workspace }}/cppbuild
 
     mcu_zephyr:
