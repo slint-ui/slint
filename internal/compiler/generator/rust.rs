@@ -2491,20 +2491,17 @@ fn generate_item_tree(
         )
     };
 
-    let visit_call = |sorted: TokenStream| {
-        quote!(sp::visit_item_tree(
-            &sp::VRcMapped::origin(&self.as_ref().self_weak.get().unwrap().upgrade().unwrap()),
-            self.get_item_tree().as_slice(),
-            index,
-            order,
-            visitor,
-            &mut |order, visitor, dyn_index, instance| self.visit_dynamic_children(dyn_index, order, visitor, instance),
-            #sorted,
-        ))
-    };
+    let default_call = quote!(sp::visit_item_tree(
+        &sp::VRcMapped::origin(&self.as_ref().self_weak.get().unwrap().upgrade().unwrap()),
+        self.get_item_tree().as_slice(),
+        index,
+        order,
+        visitor,
+        &mut |order, visitor, dyn_index, instance| self
+            .visit_dynamic_children(dyn_index, order, visitor, instance),
+    ));
     let z_sorted_visit_body = if z_sorted_nodes.is_empty() {
-        let call = visit_call(quote!(None));
-        quote!(return #call;)
+        quote!(return #default_call;)
     } else {
         let ctx = EvaluationContext::new_sub_component(
             root,
@@ -2512,60 +2509,44 @@ fn generate_item_tree(
             RustGeneratorContext { global_access: quote!(_self.globals.get().unwrap()) },
             parent_ctx,
         );
-        let sorted_call = visit_call(quote!(Some(sorted.as_slice())));
-        let default_call = visit_call(quote!(None));
         let z_match_arms = z_sorted_nodes.iter().map(|(node_idx, node)| {
             let idx_lit = *node_idx as isize;
             let sources = node.z_sort_order_property.as_ref().unwrap();
-            let compile_z = |e: &llr::MutExpression| {
-                let e = compile_expression(&e.borrow(), &ctx);
-                quote!(#e as f32)
-            };
-            let sorted_setup = if sources
-                .iter()
-                .any(|s| matches!(s, llr::ZSource::RepeaterInstances))
-            {
-                // Repeated children are expanded to one entry per instance, so the
-                // number of entries is only known at runtime
-                let pushes = sources.iter().zip(&node.children).enumerate().map(|(k, (source, child))| {
-                    let k = k as u32;
-                    match source {
-                        llr::ZSource::Expression(e) => {
-                            let e = compile_z(e);
-                            quote!(sorted.push(sp::ZSortedChild { z: #e, child_offset: #k, instance: u32::MAX });)
-                        }
-                        llr::ZSource::RepeaterInstances => {
-                            let itertools::Either::Right(repeater_index) = child.item_index else {
-                                unreachable!("per-instance z is only set on repeated children")
-                            };
-                            let (compo_path, sub_component) =
-                                follow_sub_component_path(root, sub_tree.root, &child.sub_component_path);
-                            let rep_field = access_component_field_offset(
-                                &self::inner_component_id(sub_component),
-                                &format_ident!("repeater{}", repeater_index),
-                            );
-                            quote!((#compo_path #rep_field).apply_pin(_self).for_each_instance_z(&mut |instance, z| sorted.push(sp::ZSortedChild { z, child_offset: #k, instance }));)
-                        }
+            // The closure pushes one (child_offset, instance, z) entry per child, or one
+            // per instance for repeated children with per-instance z; the runtime sorts
+            // the entries and visits them in z order.
+            let pushes = sources.iter().zip(&node.children).enumerate().map(|(k, (source, child))| {
+                let k = k as u32;
+                match source {
+                    llr::ZSource::Expression(e) => {
+                        let e = compile_expression(&e.borrow(), &ctx);
+                        quote!(push(#k, sp::None, #e as f32);)
                     }
-                });
-                quote! {
-                    let mut sorted = sp::Vec::<sp::ZSortedChild>::new();
-                    #(#pushes)*
+                    llr::ZSource::RepeaterInstances => {
+                        let itertools::Either::Right(repeater_index) = child.item_index else {
+                            unreachable!("per-instance z is only set on repeated children")
+                        };
+                        let (compo_path, sub_component) =
+                            follow_sub_component_path(root, sub_tree.root, &child.sub_component_path);
+                        let rep_field = access_component_field_offset(
+                            &self::inner_component_id(sub_component),
+                            &format_ident!("repeater{}", repeater_index),
+                        );
+                        quote!((#compo_path #rep_field).apply_pin(_self).for_each_instance_z(&mut |instance, z| push(#k, sp::Some(instance), z));)
+                    }
                 }
-            } else {
-                let entries = sources.iter().enumerate().map(|(k, source)| {
-                    let k = k as u32;
-                    let llr::ZSource::Expression(e) = source else { unreachable!() };
-                    let e = compile_z(e);
-                    quote!(sp::ZSortedChild { z: #e, child_offset: #k, instance: u32::MAX })
-                });
-                quote!(let mut sorted = [#(#entries),*];)
-            };
+            });
             quote! {
                 #idx_lit => {
-                    #sorted_setup
-                    sp::sort_z_entries(&mut sorted);
-                    return #sorted_call;
+                    return sp::visit_item_tree_z_sorted(
+                        &sp::VRcMapped::origin(&self.as_ref().self_weak.get().unwrap().upgrade().unwrap()),
+                        self.get_item_tree().as_slice(),
+                        index,
+                        order,
+                        visitor,
+                        &mut |order, visitor, dyn_index, instance| self.visit_dynamic_children(dyn_index, order, visitor, instance),
+                        &mut |push| { #(#pushes)* },
+                    );
                 }
             }
         });
