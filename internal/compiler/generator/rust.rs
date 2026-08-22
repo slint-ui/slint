@@ -1448,7 +1448,7 @@ fn generate_sub_component(
                         #inner_component_id::FIELD_OFFSETS.#repeater_id().apply_pin(_self).track_changes_listview(
                             #content_w, #content_h, #content_y, #lv_w.get(), #lv_h
                         );
-                        #inner_component_id::FIELD_OFFSETS.#repeater_id().apply_pin(_self).visit_maybe_instance(instance, order, visitor)
+                        #inner_component_id::FIELD_OFFSETS.#repeater_id().apply_pin(_self).visit(order, visitor)
                     }
                 ));
                 ensure_instantiated_stmts.push(quote!({
@@ -1460,7 +1460,7 @@ fn generate_sub_component(
             } else {
                 repeated_visit_branch.push(quote!(
                     #idx => {
-                        #inner_component_id::FIELD_OFFSETS.#repeater_id().apply_pin(_self).visit_maybe_instance(instance, order, visitor)
+                        #inner_component_id::FIELD_OFFSETS.#repeater_id().apply_pin(_self).visit(order, visitor)
                     }
                 ));
                 ensure_instantiated_stmts.push(quote!({
@@ -1579,7 +1579,7 @@ fn generate_sub_component(
             let last_repeater = repeater_offset + sub_component_repeater_count - 1;
             repeated_visit_branch.push(quote!(
                 #repeater_offset..=#last_repeater => {
-                    #sub_compo_field.apply_pin(_self).visit_dynamic_children(dyn_index - #repeater_offset, order, visitor, instance)
+                    #sub_compo_field.apply_pin(_self).visit_dynamic_children(dyn_index - #repeater_offset, order, visitor)
                 }
             ));
             repeated_subtree_ranges.push(quote!(
@@ -1886,8 +1886,7 @@ fn generate_sub_component(
                 self: ::core::pin::Pin<&Self>,
                 dyn_index: u32,
                 order: sp::TraversalOrder,
-                visitor: sp::ItemVisitorRefMut<'_>,
-                instance: ::core::option::Option<u32>,
+                visitor: sp::ItemVisitorRefMut<'_>
             ) -> sp::VisitChildrenResult {
                 #![allow(unused)]
                 let _self = self;
@@ -2472,7 +2471,7 @@ fn generate_item_tree(
         index,
         order,
         visitor,
-        &mut |order, visitor, dyn_index, instance| self.visit_dynamic_children(dyn_index, order, visitor, instance),
+        &mut |order, visitor, dyn_index| self.visit_dynamic_children(dyn_index, order, visitor),
     ));
     let z_sorted_visit_body = if z_sorted_nodes.is_empty() {
         quote!(return #default_call;)
@@ -2518,7 +2517,7 @@ fn generate_item_tree(
                         index,
                         order,
                         visitor,
-                        &mut |order, visitor, dyn_index, instance| self.visit_dynamic_children(dyn_index, order, visitor, instance),
+                        &mut |order, visitor, dyn_index| self.visit_dynamic_children(dyn_index, order, visitor),
                         &mut |push| { #(#pushes)* },
                     );
                 }

@@ -43,18 +43,6 @@ impl RepeaterOrConditional {
         }
     }
 
-    pub fn visit_maybe_instance(
-        &self,
-        instance: Option<u32>,
-        order: i_slint_core::item_tree::TraversalOrder,
-        visitor: i_slint_core::item_tree::ItemVisitorRefMut<'_>,
-    ) -> i_slint_core::item_tree::VisitChildrenResult {
-        match self {
-            Self::Repeater(r) => Pin::as_ref(r).visit_maybe_instance(instance, order, visitor),
-            Self::Conditional(c) => Pin::as_ref(c).visit_maybe_instance(instance, order, visitor),
-        }
-    }
-
     /// Call `cb` with the index and z value of every instance, for a repeated or
     /// conditional element whose z value is dynamic.
     pub fn for_each_instance_z(&self, cb: &mut dyn FnMut(u32, f32)) {
@@ -577,7 +565,6 @@ impl Instance {
         dyn_index: u32,
         order: i_slint_core::item_tree::TraversalOrder,
         visitor: vtable::VRefMut<'_, i_slint_core::item_tree::ItemVisitorVTable>,
-        instance: Option<u32>,
     ) -> i_slint_core::item_tree::VisitChildrenResult {
         let Some((sub, rep_idx)) = self.get_ref().dynamic_at(dyn_index) else {
             return i_slint_core::item_tree::VisitChildrenResult::CONTINUE;
@@ -603,7 +590,7 @@ impl Instance {
             let _ = read_logical_length(&sub, &lv.listview_height);
             Pin::as_ref(r).track_changes_listview_callback(&props, listview_width);
         }
-        repeater.visit_maybe_instance(instance, order, visitor)
+        repeater.visit(order, visitor)
     }
 
     /// Push one `(child_offset, instance, z)` entry per child of the node at `index`

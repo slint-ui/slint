@@ -1719,7 +1719,7 @@ fn generate_item_tree(
     });
 
     let mut visit_children_statements = vec![
-        "static const auto dyn_visit = [] (const void *base,  [[maybe_unused]] slint::private_api::TraversalOrder order, [[maybe_unused]] slint::private_api::ItemVisitorRefMut visitor, [[maybe_unused]] uint32_t dyn_index, [[maybe_unused]] uint32_t instance) -> uint64_t {".to_owned(),
+        "static const auto dyn_visit = [] (const void *base,  [[maybe_unused]] slint::private_api::TraversalOrder order, [[maybe_unused]] slint::private_api::ItemVisitorRefMut visitor, [[maybe_unused]] uint32_t dyn_index) -> uint64_t {".to_owned(),
         format!("    [[maybe_unused]] auto self = reinterpret_cast<const {}*>(base);", item_tree_class_name)];
     let mut subtree_range_statement = vec!["    std::abort();".into()];
     let mut subtree_component_statement = vec!["    std::abort();".into()];
@@ -1728,7 +1728,7 @@ fn generate_item_tree(
         matches!(&declaration, Declaration::Function(func @ Function { .. }) if func.name == "visit_dynamic_children")
     }) {
         visit_children_statements.push(
-            "    return self->visit_dynamic_children(dyn_index, order, visitor, instance);"
+            "    return self->visit_dynamic_children(dyn_index, order, visitor);"
                 .into(),
         );
         subtree_range_statement = vec![
@@ -2464,7 +2464,7 @@ fn generate_sub_component(
 
             children_visitor_cases.push(format!(
                 "\n        {case_code} {{
-                        return self->{sub_field}.visit_dynamic_children(dyn_index - {repeater_offset}, order, visitor, instance);
+                        return self->{sub_field}.visit_dynamic_children(dyn_index - {repeater_offset}, order, visitor);
                     }}",
             ));
             subtrees_ranges_cases.push(format!(
@@ -2593,7 +2593,7 @@ fn generate_sub_component(
             children_visitor_cases.push(format!(
                 "\n        case {idx}: {{
                 self->{repeater_id}.track_changes_listview({content_w}, {content_h}, &{content_y}, {lv_w}.get(), &{lv_h});
-                return self->{repeater_id}.visit_maybe_instance(instance, order, visitor);
+                return self->{repeater_id}.visit(order, visitor);
             }}",
             ));
             ensure_instantiated_stmts.push(format!(
@@ -2602,7 +2602,7 @@ fn generate_sub_component(
         } else {
             children_visitor_cases.push(format!(
                 "\n        case {idx}: {{
-                return self->{repeater_id}.visit_maybe_instance(instance, order, visitor);
+                return self->{repeater_id}.visit(order, visitor);
             }}",
             ));
             ensure_instantiated_stmts
@@ -2902,7 +2902,7 @@ fn generate_sub_component(
             field_access,
             Declaration::Function(Function {
                 name: "visit_dynamic_children".into(),
-                signature: "(uint32_t dyn_index, [[maybe_unused]] slint::private_api::TraversalOrder order, [[maybe_unused]] slint::private_api::ItemVisitorRefMut visitor, [[maybe_unused]] uint32_t instance) const -> uint64_t".into(),
+                signature: "(uint32_t dyn_index, [[maybe_unused]] slint::private_api::TraversalOrder order, [[maybe_unused]] slint::private_api::ItemVisitorRefMut visitor) const -> uint64_t".into(),
                 statements: Some(vec![
                     "    auto self = this;".to_owned(),
                     format!("    switch(dyn_index) {{ {} }};", children_visitor_cases.join("")),

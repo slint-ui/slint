@@ -1362,8 +1362,9 @@ struct ZSortedChild {
     z: f32,
     /// Offset of the child within the parent's children (relative to children_index)
     child_offset: u32,
-    /// The repeater instance when the child is a repeated element expanded per
-    /// instance, or `None` to visit the whole child
+    /// The repeater instance (a model row index, as accepted by the `get_subtree`
+    /// vtable entry) when the child is a repeated element expanded per instance,
+    /// or `None` to visit the whole child
     instance: Option<u32>,
 }
 
@@ -1373,14 +1374,12 @@ fn visit_child_at_index(
     item_tree: &ItemTreeRc,
     item_tree_array: &[ItemTreeNode],
     idx: u32,
-    instance: Option<u32>,
     order: TraversalOrder,
     visitor: &mut vtable::VRefMut<ItemVisitorVTable>,
     visit_dynamic: &mut dyn FnMut(
         TraversalOrder,
         vtable::VRefMut<ItemVisitorVTable>,
         u32,
-        Option<u32>,
     ) -> VisitChildrenResult,
 ) -> VisitChildrenResult {
     match &item_tree_array[idx as usize] {
@@ -1390,7 +1389,7 @@ fn visit_child_at_index(
         }
         ItemTreeNode::DynamicTree { index, .. } => {
             if let Some(sub_idx) =
-                visit_dynamic(order, visitor.borrow_mut(), *index, instance).aborted_index()
+                visit_dynamic(order, visitor.borrow_mut(), *index).aborted_index()
             {
                 VisitChildrenResult::abort(idx, sub_idx)
             } else {
@@ -1403,9 +1402,7 @@ fn visit_child_at_index(
 /// Visit the children within an array of ItemTreeNode
 ///
 /// The dynamic visitor is called for the dynamic nodes, its signature is
-/// `fn(order: TraversalOrder, visitor: vtable::VRefMut<ItemVisitorVTable>, dyn_index: u32, instance: Option<u32>)`
-/// where `instance` is a specific repeater instance to visit (never set by this function,
-/// see [`visit_item_tree_z_sorted`]), or `None` for all of them.
+/// `fn(order: TraversalOrder, visitor: vtable::VRefMut<ItemVisitorVTable>, dyn_index: u32)`.
 /// It is a `dyn` callback (capturing the component) rather than generic, so this function is
 /// not duplicated per component type.
 ///
@@ -1422,11 +1419,10 @@ pub fn visit_item_tree(
         TraversalOrder,
         vtable::VRefMut<ItemVisitorVTable>,
         u32,
-        Option<u32>,
     ) -> VisitChildrenResult,
 ) -> VisitChildrenResult {
     if index == -1 {
-        visit_child_at_index(item_tree, item_tree_array, 0, None, order, &mut visitor, visit_dynamic)
+        visit_child_at_index(item_tree, item_tree_array, 0, order, &mut visitor, visit_dynamic)
     } else {
         match &item_tree_array[index as usize] {
             ItemTreeNode::Item { children_index, children_count, .. } => {
@@ -1439,7 +1435,6 @@ pub fn visit_item_tree(
                         item_tree,
                         item_tree_array,
                         idx,
-                        None,
                         order,
                         &mut visitor,
                         visit_dynamic,
@@ -1467,8 +1462,10 @@ pub fn visit_item_tree(
 /// that re-trigger rendering when a z value changes.
 ///
 /// The entries are sorted by z, ties broken by declaration order (`child_offset`) then
-/// instance, and visited in that order — reversed for `FrontToBack`. Entries with a
-/// specific instance are forwarded to `visit_dynamic` with `instance == Some(i)`.
+/// instance, and visited in that order — reversed for `FrontToBack`. An entry with a
+/// specific instance is visited directly through the `get_subtree` vtable entry of
+/// `item_tree` (so the instance index is a model row index, as used by `get_subtree`
+/// and `get_subtree_range`), without going through `visit_dynamic`.
 pub fn visit_item_tree_z_sorted(
     item_tree: &ItemTreeRc,
     item_tree_array: &[ItemTreeNode],
@@ -1479,7 +1476,6 @@ pub fn visit_item_tree_z_sorted(
         TraversalOrder,
         vtable::VRefMut<ItemVisitorVTable>,
         u32,
-        Option<u32>,
     ) -> VisitChildrenResult,
     collect_z: &mut dyn FnMut(&mut dyn FnMut(u32, Option<u32>, f32)),
 ) -> VisitChildrenResult {
@@ -1502,15 +1498,38 @@ pub fn visit_item_tree_z_sorted(
             TraversalOrder::BackToFront => i,
             TraversalOrder::FrontToBack => entries.len() - 1 - i,
         }];
-        let maybe_abort_index = visit_child_at_index(
-            item_tree,
-            item_tree_array,
-            *children_index + entry.child_offset,
-            entry.instance,
-            order,
-            &mut visitor,
-            visit_dynamic,
-        );
+        let idx = *children_index + entry.child_offset;
+        let maybe_abort_index = match (&item_tree_array[idx as usize], entry.instance) {
+            (ItemTreeNode::DynamicTree { index: dyn_index, .. }, Some(instance)) => {
+                // A single expanded instance: reach it through the vtable instead of the
+                // component's dynamic-visit dispatch. An instance that disappeared since
+                // `collect_z` ran is skipped.
+                let mut instance_tree: vtable::VWeak<ItemTreeVTable, Dyn> = Default::default();
+                VRc::borrow_pin(item_tree).as_ref().get_subtree(
+                    *dyn_index,
+                    instance as usize,
+                    &mut instance_tree,
+                );
+                match instance_tree.upgrade() {
+                    Some(t) if VRc::borrow_pin(&t)
+                        .as_ref()
+                        .visit_children_item(-1, order, visitor.borrow_mut())
+                        .has_aborted() =>
+                    {
+                        VisitChildrenResult::abort(idx, instance as usize)
+                    }
+                    _ => VisitChildrenResult::CONTINUE,
+                }
+            }
+            _ => visit_child_at_index(
+                item_tree,
+                item_tree_array,
+                idx,
+                order,
+                &mut visitor,
+                visit_dynamic,
+            ),
+        };
         if maybe_abort_index.has_aborted() {
             return maybe_abort_index;
         }
@@ -1570,7 +1589,6 @@ pub(crate) mod ffi {
             order: TraversalOrder,
             visitor: vtable::VRefMut<ItemVisitorVTable>,
             dyn_index: u32,
-            instance: u32,
         ) -> VisitChildrenResult,
     ) -> VisitChildrenResult {
         let base = VRc::as_pin_ref(item_tree).get_ref() as *const vtable::Dyn as *const c_void;
@@ -1580,9 +1598,7 @@ pub(crate) mod ffi {
             index,
             order,
             visitor,
-            &mut |order, visitor, dyn_index, instance: Option<u32>| {
-                visit_dynamic(base, order, visitor, dyn_index, instance.unwrap_or(u32::MAX))
-            },
+            &mut |order, visitor, dyn_index| visit_dynamic(base, order, visitor, dyn_index),
         )
     }
 
@@ -1606,7 +1622,6 @@ pub(crate) mod ffi {
             order: TraversalOrder,
             visitor: vtable::VRefMut<ItemVisitorVTable>,
             dyn_index: u32,
-            instance: u32,
         ) -> VisitChildrenResult,
         collect_z: extern "C" fn(
             base: *const c_void,
@@ -1621,9 +1636,7 @@ pub(crate) mod ffi {
             index,
             order,
             visitor,
-            &mut |order, visitor, dyn_index, instance: Option<u32>| {
-                visit_dynamic(base, order, visitor, dyn_index, instance.unwrap_or(u32::MAX))
-            },
+            &mut |order, visitor, dyn_index| visit_dynamic(base, order, visitor, dyn_index),
             &mut |push| {
                 extern "C" fn push_trampoline(
                     push_ctx: *mut c_void,
