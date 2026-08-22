@@ -190,6 +190,13 @@ pub extern "C" fn slint_property_mark_dirty(handle: &PropertyHandleOpaque) {
     handle.0.mark_dirty()
 }
 
+/// Returns true if a binding is currently being evaluated, so that property
+/// accesses register dependencies.
+#[unsafe(no_mangle)]
+pub extern "C" fn slint_property_is_currently_tracking() -> bool {
+    crate::properties::is_currently_tracking()
+}
+
 /// Marks the property as dirty and notifies dependencies.
 #[unsafe(no_mangle)]
 pub extern "C" fn slint_property_set_constant(handle: &PropertyHandleOpaque) {
