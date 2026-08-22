@@ -64,18 +64,30 @@ impl i_slint_core::item_tree::ItemTree for Instance {
     ) -> VisitChildrenResult {
         let this = self.get_ref();
         let weak = this.self_weak.get().unwrap().clone();
-        let sorted = self.compute_z_sorted_children(index);
-        i_slint_core::item_tree::visit_item_tree(
-            &vtable::VRc::into_dyn(weak.upgrade().unwrap()),
-            &this.tree_nodes[..],
-            index,
-            order,
-            visitor,
-            &mut |order, visitor, dyn_index, instance| {
-                self.visit_dynamic_children(dyn_index, order, visitor, instance)
-            },
-            sorted.as_deref(),
-        )
+        if index >= 0 && this.z_sort_table.get(index as usize).is_some_and(|e| e.is_some()) {
+            i_slint_core::item_tree::visit_item_tree_z_sorted(
+                &vtable::VRc::into_dyn(weak.upgrade().unwrap()),
+                &this.tree_nodes[..],
+                index,
+                order,
+                visitor,
+                &mut |order, visitor, dyn_index, instance| {
+                    self.visit_dynamic_children(dyn_index, order, visitor, instance)
+                },
+                &mut |push| self.collect_z_sorted_children(index, push),
+            )
+        } else {
+            i_slint_core::item_tree::visit_item_tree(
+                &vtable::VRc::into_dyn(weak.upgrade().unwrap()),
+                &this.tree_nodes[..],
+                index,
+                order,
+                visitor,
+                &mut |order, visitor, dyn_index, instance| {
+                    self.visit_dynamic_children(dyn_index, order, visitor, instance)
+                },
+            )
+        }
     }
 
     fn get_item_ref(self: Pin<&Self>, index: u32) -> Pin<VRef<'_, ItemVTable>> {

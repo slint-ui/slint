@@ -1759,66 +1759,43 @@ fn generate_item_tree(
         visit_children_statements.push("switch (index) {".into());
         for (node_idx, node) in &z_sorted_nodes {
             let sources = node.z_sort_order_property.as_ref().unwrap();
-            let compile_z = |e: &llr::MutExpression| {
-                format!("float({})", compile_expression(&e.borrow(), &ctx))
-            };
             visit_children_statements.push(format!("case {node_idx}: {{"));
-            if sources.iter().any(|s| matches!(s, llr::ZSource::RepeaterInstances)) {
-                // Repeated children are expanded to one entry per instance, so the
-                // number of entries is only known at runtime
-                visit_children_statements
-                    .push("    std::vector<slint::cbindgen_private::ZSortedChild> sorted;".into());
-                for (k, (source, child)) in sources.iter().zip(&node.children).enumerate() {
-                    match source {
-                        llr::ZSource::Expression(e) => {
-                            let e = compile_z(e);
-                            visit_children_statements.push(format!(
-                                "    sorted.push_back({{ {e}, {k}, std::numeric_limits<uint32_t>::max() }});"
-                            ));
-                        }
-                        llr::ZSource::RepeaterInstances => {
-                            let Either::Right(repeater_index) = child.item_index else {
-                                unreachable!("per-instance z is only set on repeated children")
-                            };
-                            let (compo_path, _) = follow_sub_component_path(
-                                root,
-                                sub_tree.root,
-                                &child.sub_component_path,
-                            );
-                            visit_children_statements.push(format!(
-                                "    self->{compo_path}repeater_{repeater_index}.for_each_instance_z([&](uint32_t instance, float z) {{ sorted.push_back({{ z, {k}, instance }}); }});"
-                            ));
-                        }
+            // The collect_z callback pushes one (child_offset, instance, z) entry per
+            // child, or one per instance for repeated children with per-instance z;
+            // the runtime sorts the entries and visits them in z order.
+            visit_children_statements.push(
+                "    static const auto collect_z = [] (const void *base, void *push_ctx, void (*push)(void *, uint32_t, uint32_t, float)) {".into(),
+            );
+            visit_children_statements.push(format!(
+                "        [[maybe_unused]] auto self = reinterpret_cast<const {item_tree_class_name}*>(base);"
+            ));
+            for (k, (source, child)) in sources.iter().zip(&node.children).enumerate() {
+                match source {
+                    llr::ZSource::Expression(e) => {
+                        let e = compile_expression(&e.borrow(), &ctx);
+                        visit_children_statements.push(format!(
+                            "        push(push_ctx, {k}, std::numeric_limits<uint32_t>::max(), float({e}));"
+                        ));
+                    }
+                    llr::ZSource::RepeaterInstances => {
+                        let Either::Right(repeater_index) = child.item_index else {
+                            unreachable!("per-instance z is only set on repeated children")
+                        };
+                        let (compo_path, _) = follow_sub_component_path(
+                            root,
+                            sub_tree.root,
+                            &child.sub_component_path,
+                        );
+                        visit_children_statements.push(format!(
+                            "        self->{compo_path}repeater_{repeater_index}.for_each_instance_z([&](uint32_t instance, float z) {{ push(push_ctx, {k}, instance, z); }});"
+                        ));
                     }
                 }
-                visit_children_statements.push(
-                    "    slint::cbindgen_private::slint_sort_z_entries(sorted.data(), sorted.size());".into(),
-                );
-                visit_children_statements.push(
-                    "    return slint::cbindgen_private::slint_visit_item_tree_with_sorted_children(&self_rc, get_item_tree(component), index, order, visitor, dyn_visit, slint::cbindgen_private::Slice<slint::cbindgen_private::ZSortedChild>{sorted.data(), sorted.size()});".into(),
-                );
-            } else {
-                let count = sources.len();
-                let entries: Vec<String> = sources
-                    .iter()
-                    .map(|source| {
-                        let llr::ZSource::Expression(e) = source else { unreachable!() };
-                        compile_z(e)
-                    })
-                    .enumerate()
-                    .map(|(k, e)| format!("{{ {e}, {k}, std::numeric_limits<uint32_t>::max() }}"))
-                    .collect();
-                let entries = entries.join(", ");
-                visit_children_statements.push(format!(
-                    "    slint::cbindgen_private::ZSortedChild sorted[{count}] = {{{entries}}};"
-                ));
-                visit_children_statements.push(format!(
-                    "    slint::cbindgen_private::slint_sort_z_entries(sorted, {count});"
-                ));
-                visit_children_statements.push(format!(
-                    "    return slint::cbindgen_private::slint_visit_item_tree_with_sorted_children(&self_rc, get_item_tree(component), index, order, visitor, dyn_visit, slint::cbindgen_private::Slice<slint::cbindgen_private::ZSortedChild>{{sorted, {count}}});"
-                ));
             }
+            visit_children_statements.push("    };".into());
+            visit_children_statements.push(
+                "    return slint::cbindgen_private::slint_visit_item_tree_z_sorted(&self_rc, get_item_tree(component), index, order, visitor, dyn_visit, collect_z);".into(),
+            );
             visit_children_statements.push("}".into());
         }
         visit_children_statements.push("}".into());

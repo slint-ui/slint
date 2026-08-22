@@ -606,22 +606,20 @@ impl Instance {
         repeater.visit_maybe_instance(instance, order, visitor)
     }
 
-    /// The z-sorted children of the node at `index`, or `None` if they aren't z-ordered.
-    /// Repeated children are expanded to one entry per instance.
-    pub fn compute_z_sorted_children(
+    /// Push one `(child_offset, instance, z)` entry per child of the node at `index`
+    /// (whose children must be z-ordered, see `z_sort_table`), expanding repeated
+    /// children with per-instance z to one entry per instance. This is the `collect_z`
+    /// callback for [`i_slint_core::item_tree::visit_item_tree_z_sorted`].
+    pub fn collect_z_sorted_children(
         self: Pin<&Self>,
         index: isize,
-    ) -> Option<Vec<i_slint_core::item_tree::ZSortedChild>> {
-        use i_slint_core::item_tree::ZSortedChild;
-        if index < 0 {
-            return None;
-        }
-        let sources = self.z_sort_table.get(index as usize)?.as_ref()?;
+        push: &mut dyn FnMut(u32, Option<u32>, f32),
+    ) {
+        let Some(Some(sources)) = self.z_sort_table.get(index as usize) else { return };
         let ItemTreeNode::Item { children_index, .. } = self.tree_nodes[index as usize] else {
-            return None;
+            return;
         };
         let mut ctx = crate::eval::EvalContext::new(self.root_sub_component.clone());
-        let mut entries: Vec<ZSortedChild> = Vec::with_capacity(sources.len());
         for (k, source) in sources.iter().enumerate() {
             let child_offset = k as u32;
             match source {
@@ -629,7 +627,7 @@ impl Instance {
                     let z: f64 = crate::eval::eval_expression(&mut ctx, &e.borrow())
                         .try_into()
                         .unwrap_or(0.0);
-                    entries.push(ZSortedChild { z: z as f32, child_offset, instance: u32::MAX });
+                    push(child_offset, None, z as f32);
                 }
                 llr::ZSource::RepeaterInstances => {
                     // The child is a `DynamicTree` node; its `dynamic_table` entry holds the repeater.
@@ -637,14 +635,12 @@ impl Instance {
                         self.get_ref().dynamic_at(children_index + child_offset)
                     {
                         sub.repeaters[rep_idx].for_each_instance_z(&mut |instance, z| {
-                            entries.push(ZSortedChild { z, child_offset, instance })
+                            push(child_offset, Some(instance), z)
                         });
                     }
                 }
             }
         }
-        i_slint_core::item_tree::sort_z_entries(&mut entries);
-        Some(entries)
     }
 
     /// Build an instance for a public component.
