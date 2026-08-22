@@ -109,6 +109,7 @@ fn install_timers(sub: &Pin<Rc<SubComponentInstance>>, weak_sub: &Weak<SubCompon
                 let running_expr = t.running.borrow().clone();
                 let interval_expr = t.interval.borrow().clone();
                 let triggered_expr = t.triggered.borrow().clone();
+                let repeat_expr = t.repeat.borrow().clone();
                 let mut ctx = EvalContext::new(owner.clone());
                 let running = matches!(eval_expression(&mut ctx, &running_expr), Value::Bool(true));
                 if !running {
@@ -133,7 +134,14 @@ fn install_timers(sub: &Pin<Rc<SubComponentInstance>>, weak_sub: &Weak<SubCompon
                 }
                 let weak = Rc::downgrade(&Pin::into_inner(owner.clone()));
                 let expr = triggered_expr.clone();
-                timer.start(i_slint_core::timers::TimerMode::Repeated, interval, move || {
+                let repeat: bool =
+                    eval_expression(&mut ctx, &repeat_expr).try_into().unwrap_or(true);
+                let mode = if repeat {
+                    i_slint_core::timers::TimerMode::Repeated
+                } else {
+                    i_slint_core::timers::TimerMode::SingleShot
+                };
+                timer.start(mode, interval, move || {
                     let Some(owner) = weak.upgrade() else { return };
                     let mut ctx = EvalContext::new(Pin::new(owner));
                     eval_expression(&mut ctx, &expr);

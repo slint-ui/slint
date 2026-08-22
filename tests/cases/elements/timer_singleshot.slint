@@ -1,0 +1,98 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component TestCase inherits Window {
+    out property <string> result;
+    in-out property <bool> is-running <=> timer.running;
+
+    timer := Timer {
+        interval: 1s;
+        running: false;
+        repeat: false;
+        triggered => {
+            result += "1";
+        }
+    }
+
+    public function start_timer() {
+        timer.start();
+    }
+
+    public function stop_timer() {
+        timer.stop();
+    }
+
+    public function restart_timer() {
+        timer.restart();
+    }
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.get_result(), "");
+slint_testing::mock_elapsed_time(1000);
+assert_eq!(instance.get_result(), "");
+instance.invoke_start_timer();
+slint_testing::mock_elapsed_time(0); // We just need update_timers to run
+
+slint_testing::mock_elapsed_time(1000);
+assert_eq!(instance.get_result(), "1");
+slint_testing::mock_elapsed_time(1000);
+assert_eq!(instance.get_result(), "1"); // It should only run once
+assert_eq!(instance.get_is_running(), false);
+
+// Starting the timer again with start() should work
+instance.invoke_start_timer();
+slint_testing::mock_elapsed_time(0);
+
+slint_testing::mock_elapsed_time(1000);
+assert_eq!(instance.get_result(), "11");
+slint_testing::mock_elapsed_time(1000);
+assert_eq!(instance.get_result(), "11"); // It should only run once
+
+// Starting the timer again with restart() should work too
+instance.invoke_start_timer();
+slint_testing::mock_elapsed_time(0);
+
+slint_testing::mock_elapsed_time(1000);
+assert_eq!(instance.get_result(), "111");
+slint_testing::mock_elapsed_time(1000);
+assert_eq!(instance.get_result(), "111"); // It should only run once
+```
+
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert_eq(instance.get_result(), "");
+slint_testing::mock_elapsed_time(1000);
+assert_eq(instance.get_result(), "");
+instance.invoke_start_timer();
+slint_testing::mock_elapsed_time(0); // We just need update_timers to run
+
+slint_testing::mock_elapsed_time(1000);
+assert_eq(instance.get_result(), "1");
+slint_testing::mock_elapsed_time(1000);
+assert_eq(instance.get_result(), "1"); // It should only run once
+assert_eq(instance.get_is_running(), false);
+
+// Starting the timer again with start() should work
+instance.invoke_start_timer();
+slint_testing::mock_elapsed_time(0);
+
+slint_testing::mock_elapsed_time(1000);
+assert_eq(instance.get_result(), "11");
+slint_testing::mock_elapsed_time(1000);
+assert_eq(instance.get_result(), "11"); // It should only run once
+
+// Starting the timer again with restart() should work too
+instance.invoke_start_timer();
+slint_testing::mock_elapsed_time(0);
+
+slint_testing::mock_elapsed_time(1000);
+assert_eq(instance.get_result(), "111");
+slint_testing::mock_elapsed_time(1000);
+assert_eq(instance.get_result(), "111"); // It should only run once
+```
+*/

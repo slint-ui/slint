@@ -10,5 +10,9 @@ fn platform_is_app() {
     }
 
     let app = MainWindow::new().unwrap();
-    assert_eq!(app.get_is_app(), true, "Platform.is-app must be true for a real compiled application");
+    assert_eq!(
+        app.get_is_app(),
+        true,
+        "Platform.is-app must be true for a real compiled application"
+    );
 }

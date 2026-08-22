@@ -2597,15 +2597,27 @@ fn generate_sub_component(
             let running = compile_expression(&tmr.running.borrow(), &ctx);
             let interval = compile_expression(&tmr.interval.borrow(), &ctx);
             let callback = compile_expression(&tmr.triggered.borrow(), &ctx);
+            let repeat = compile_expression(&tmr.repeat.borrow(), &ctx);
+            let false_value = compile_expression(&llr::Expression::BoolLiteral(false), &ctx);
+            let llr::Expression::PropertyReference(reference) = &*tmr.running.borrow() else {
+                panic!("expected PropertyReference for Timer.running!");
+            };
+            let reset_running_code = property_set_value_code(&reference, &false_value, &ctx);
             update_timers.push(format!(
                 "{{ std::int64_t millis = ({running}) ? static_cast<std::int64_t>({interval}) : -1;"
             ));
             update_timers.push("if (millis >= 0) {".into());
             update_timers.push("   auto interval = std::chrono::milliseconds(millis);".into());
             update_timers.push(format!(
-                "   if (!self->{name}.running() || self->{name}.interval() != interval)"
+                "   if (!self->{name}.running() || self->{name}.interval() != interval) {{"
             ));
-            update_timers.push(format!("       self->{name}.start(slint::TimerMode::Repeated, interval, [self] {{ {callback}; }});"));
+            update_timers.push(format!("      if ({repeat}) {{"));
+            update_timers.push(format!("          self->{name}.start(slint::TimerMode::Repeated, interval, [self] {{ {callback}; }});"));
+            update_timers.push("      } else {".into());
+            update_timers.push(format!("          self->{name}.start(slint::TimerMode::SingleShot, interval, [self] {{ {callback}; {reset_running_code}; }});"));
+            update_timers.push("      }".into());
+            update_timers.push("   }".into());
+
             update_timers.push(format!("}} else {{ self->{name}.stop(); }} }}"));
             target_struct.members.push((
                 field_access,
