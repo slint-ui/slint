@@ -237,7 +237,7 @@ fn eval_const_expr(
 ) -> Option<f64> {
     let result = try_eval_const_expr(expression);
     if result.is_none() {
-        diag.push_error(format!("'{name}' must be an number literal"), span);
+        diag.push_error(format!("'{name}' must be a number literal"), span);
     }
     result
 }
