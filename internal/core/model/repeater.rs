@@ -58,6 +58,29 @@ pub trait RepeatedItemTree:
         crate::layout::LayoutItemInfo::default()
     }
 
+    /// Vertical layout info measured at the given cross-axis (container) width.
+    /// A box layout calls this so a height-for-width instance wraps to the
+    /// real width. The default ignores the width (non-height-for-width cells);
+    /// the generated code overrides it for height-for-width instances.
+    fn layout_item_info_at_cross_width(
+        self: Pin<&Self>,
+        _cross_width: f32,
+    ) -> crate::layout::LayoutItemInfo {
+        self.layout_item_info(Orientation::Vertical, None)
+    }
+
+    /// Horizontal layout info measured at the given cross-axis (container)
+    /// height. A box layout calls this so a width-for-height instance
+    /// resolves to the width it really needs at that height. The default
+    /// ignores the height (non-width-for-height cells); the generated code
+    /// overrides it for width-for-height instances.
+    fn layout_item_info_at_cross_height(
+        self: Pin<&Self>,
+        _cross_height: f32,
+    ) -> crate::layout::LayoutItemInfo {
+        self.layout_item_info(Orientation::Horizontal, None)
+    }
+
     /// Returns what's needed to perform a flexbox layout if this ItemTree is in a FlexboxLayout.
     /// Includes flex-specific properties (layout-order).
     fn flexbox_layout_item_info(

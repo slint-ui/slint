@@ -1031,9 +1031,17 @@ pub fn eval_expression(ctx: &mut EvalContext, expression: &Expression) -> Value 
             cells_variable,
             elements,
             orientation,
+            repeated_cross_size,
             sub_expression,
             ..
-        } => with_layout_item_info(ctx, cells_variable, elements, *orientation, sub_expression),
+        } => with_layout_item_info(
+            ctx,
+            cells_variable,
+            elements,
+            *orientation,
+            repeated_cross_size.as_deref(),
+            sub_expression,
+        ),
         Expression::WithFlexboxLayoutItemInfo {
             cells_h_variable,
             cells_v_variable,
@@ -1070,6 +1078,9 @@ pub fn eval_expression(ctx: &mut EvalContext, expression: &Expression) -> Value 
         Expression::FlexboxLayoutInfoCrossAxisWithMeasure { .. } => {
             crate::eval_layout::flexbox_layout_info_cross_axis_with_measure(ctx, expression)
         }
+        Expression::BoxLayoutInfoOrthoWithMeasure { .. } => {
+            crate::eval_layout::box_layout_info_ortho_with_measure(ctx, expression)
+        }
         Expression::TranslationReference { .. } => {
             // TranslationReference is only emitted when `bundle-translations`
             // is active, which the interpreter does not use. Runtime @tr()
@@ -1093,8 +1104,15 @@ fn with_layout_item_info(
     cells_variable: &str,
     elements: &[itertools::Either<Expression, i_slint_compiler::llr::LayoutRepeatedElement>],
     orientation: i_slint_compiler::layout::Orientation,
+    repeated_cross_size: Option<&Expression>,
     sub_expression: &Expression,
 ) -> Value {
+    // On a box layout's main-axis pass, re-measure each repeated cell at the
+    // layout's cross size so a height-for-width (resp. width-for-height)
+    // instance measures like an equivalent static cell. On a non-numeric
+    // value, fall back to the plain layout info rather than measuring at 0.
+    let cross_size: Option<f32> =
+        repeated_cross_size.and_then(|e| eval_expression(ctx, e).try_into().ok());
     let mut cells: Vec<Value> = Vec::with_capacity(elements.len());
     let mut repeated_indices: Vec<u32> = Vec::new();
     let mut repeater_steps: Vec<u32> = Vec::new();
@@ -1108,6 +1126,7 @@ fn with_layout_item_info(
                     repeater.repeater_index,
                     repeater.row_child_templates.as_deref(),
                     orientation,
+                    cross_size,
                     &mut cells,
                 );
                 repeated_indices.push(offset);
@@ -1142,6 +1161,7 @@ fn push_repeater_layout_items(
     repeater_idx: i_slint_compiler::llr::RepeatedElementIdx,
     row_child_templates: Option<&[i_slint_compiler::llr::RowChildTemplateInfo]>,
     orientation: i_slint_compiler::layout::Orientation,
+    cross_size: Option<f32>,
     cells: &mut Vec<Value>,
 ) -> (u32, u32) {
     use i_slint_core::model::RepeatedItemTree;
@@ -1169,18 +1189,33 @@ fn push_repeater_layout_items(
     let step = match row_child_templates {
         None => {
             // Column repeater: one cell per instance, asking the sub-component
-            // for its own layout info.
+            // for its own layout info — at the layout's cross size when the
+            // main-axis pass forwards one.
             for instance in &instances {
-                let info = RepeatedItemTree::layout_item_info(
-                    instance.as_pin_ref(),
-                    core_orientation,
-                    None,
-                );
+                let info = match (cross_size, core_orientation) {
+                    (Some(cs), i_slint_core::items::Orientation::Vertical) => {
+                        RepeatedItemTree::layout_item_info_at_cross_width(instance.as_pin_ref(), cs)
+                    }
+                    (Some(cs), i_slint_core::items::Orientation::Horizontal) => {
+                        RepeatedItemTree::layout_item_info_at_cross_height(
+                            instance.as_pin_ref(),
+                            cs,
+                        )
+                    }
+                    (None, _) => RepeatedItemTree::layout_item_info(
+                        instance.as_pin_ref(),
+                        core_orientation,
+                        None,
+                    ),
+                };
                 push_cell(cells, info);
             }
             1
         }
         Some(templates) => {
+            // Only box layouts set a cross size, and their repeaters never
+            // have row templates.
+            debug_assert!(cross_size.is_none());
             // Row repeater: the step is the maximum total child count across
             // instances (static children plus each instance's inner repeaters
             // realized via RowChildTemplateInfo::Repeated).

@@ -795,6 +795,7 @@ fn lower_sub_component(
                 &mut ctx,
                 root_elem,
                 &component.root_constraints.borrow(),
+                true,
             )
             .map(Into::into);
         sub_component.layout_info_h_constrained_for_repeated = h_constrained.map(Into::into);
@@ -803,6 +804,7 @@ fn lower_sub_component(
                 &mut ctx,
                 root_elem,
                 &component.root_constraints.borrow(),
+                true,
             )
             .map(Into::into);
     } else if let Some(box_orientation) =
@@ -818,6 +820,29 @@ fn lower_sub_component(
                 super::Expression::PropertyReference(ctx.map_property_reference(&nr)).into(),
             ));
         }
+        // The parent box layout measures a height-for-width (resp.
+        // width-for-height) instance at the cross size it lays it out at,
+        // through `layout_item_info_at_cross_width` / `_at_cross_height` — the
+        // plain `layout_info` measures at the instance's preferred size.
+        // Generate both accessors: the main-axis pass queries the parent's
+        // orientation, the ortho measure pass queries the orthogonal one.
+        let root_elem = &component.root_element;
+        sub_component.layout_info_v_at_cross_width_for_repeated =
+            super::lower_layout_expression::get_layout_info_v_at_cross_width_for_repeated(
+                &mut ctx,
+                root_elem,
+                &component.root_constraints.borrow(),
+                false,
+            )
+            .map(Into::into);
+        sub_component.layout_info_h_at_cross_height_for_repeated =
+            super::lower_layout_expression::get_layout_info_h_at_cross_height_for_repeated(
+                &mut ctx,
+                root_elem,
+                &component.root_constraints.borrow(),
+                false,
+            )
+            .map(Into::into);
     }
 
     if let Some(grid_layout_cell) = component.root_element.borrow().grid_layout_cell.as_ref() {
