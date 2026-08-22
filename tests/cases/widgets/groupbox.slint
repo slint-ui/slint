@@ -34,4 +34,10 @@ let mut gb_disabled_search = slint_testing::ElementHandle::find_by_element_id(&i
 let gb_disabled = gb_disabled_search.next().unwrap();
 assert_eq!(gb_disabled.accessible_enabled(), Some(false));
 ```
+
+```a11y-tree
+window
+  groupbox "Group Title"
+  groupbox "Disabled Group" disabled
+```
 */
