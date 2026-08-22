@@ -1226,6 +1226,13 @@ impl WinitWindowAdapter {
 
             Ok(())
         } else {
+            // Release the native menus: their item trees keep this adapter alive through the globals.
+            #[cfg(muda)]
+            {
+                self.menubar.take();
+                self.context_menu.take();
+            }
+
             // Wayland doesn't support hiding a window, only destroying it entirely.
             if self.winit_window_or_none.borrow().as_window().is_some_and(|winit_window| {
                 use raw_window_handle::HasWindowHandle;
@@ -1675,6 +1682,7 @@ impl WindowAdapterInternal for WinitWindowAdapter {
             return false;
         }
 
+        // Set before showing: on Windows the activation event can arrive before this returns.
         self.context_menu.replace(Some(context_menu_item));
 
         if let WinitWindowOrNone::HasWindow { context_menu_muda_adapter, .. } =
@@ -1692,6 +1700,9 @@ impl WindowAdapterInternal for WinitWindowAdapter {
                 return true;
             }
         }
+
+        // No native menu shown; release it so it doesn't keep the adapter alive.
+        self.context_menu.take();
         false
     }
 
