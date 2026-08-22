@@ -2,7 +2,9 @@
 title: LinuxKMS Backend
 description: LinuxKMS Backend
 ---
-<!-- cSpell: ignore linuxkms libinput libseat libudev libgbm libxkbcommon xkbcommon noseat keymap xkeyboard udevadm -->
+{/* cSpell: ignore linuxkms libinput libseat libudev libgbm libxkbcommon xkbcommon noseat keymap xkeyboard udevadm */}
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
 
 The LinuxKMS backend runs only on Linux and eliminates the need for a windowing system such as Wayland or X11.
 Instead it uses the following libraries and interface to render directly to the screen and react to touch, mouse,
@@ -11,25 +13,95 @@ and keyboard input.
  - OpenGL via KMS/DRI.
  - Vulkan via wgpu and the Vulkan KHR Display Extension.
  - DRM dumb buffers for software rendering, as well as legacy LinuxFB rendering.
- - libinput/libudev for input event handling from mice, touch screens, or keyboards.
+ - libinput/libudev for input event handling from mice, touch screens, or keyboards. (optional)
  - libseat for GPU and input device access without requiring root access. (optional)
 
 ## Dependencies
 
-For compilation, pkg-config is used to determine the location of the following required system libraries:
+For compilation, pkg-config is used to determine the location of the system libraries needed by the
+features you select. None of them are needed by every configuration:
 
-| pkg-config package name | Package name on Debian based distros |
-|-------------------------|--------------------------------------|
-| `gbm`                   | `libgbm-dev`                         |
-| `xkbcommon`             | `libxkbcommon-dev`                   |
-| `libudev`               | `libudev-dev`                        |
-| `libseat`               | `libseat-dev`                        |
+| pkg-config package name | Package name on Debian based distros | Needed for                          |
+|-------------------------|--------------------------------------|-------------------------------------|
+| `gbm`                   | `libgbm-dev`                         | the FemtoVG and Skia OpenGL renderers |
+| `libseat`               | `libseat-dev`                        | libseat support                     |
+| `libinput`              | `libinput-dev`                       | libinput support                    |
+| `libudev`               | `libudev-dev`                        | libinput support                    |
+| `xkbcommon`             | `libxkbcommon-dev`                   | libinput support                    |
+
+The software renderer needs none of these: it renders through DRM dumb buffers, which Slint drives
+directly without a C library. Font handling is separate from this table and needs fontconfig
+(`libfontconfig-dev`) in every configuration.
+
+## Selecting libseat and libinput
+
+libseat provides access to the GPU and to input devices without running as root. libinput delivers
+mouse, touch, and keyboard events. Both are optional, and how you select them differs between Rust
+and C++.
+
+<Tabs syncKey="dev-language">
+<TabItem label="Rust" icon="seti:rust">
+
+Disable the default features, select the `compat-1-18` feature, and then combine
+`backend-linuxkms` with the capabilities you need:
+
+| Cargo features                                             | libseat | libinput |
+|------------------------------------------------------------|---------|----------|
+| `backend-linuxkms`                                         | no      | no       |
+| `backend-linuxkms-libseat`                                 | yes     | no       |
+| `backend-linuxkms-libinput`                                | no      | yes      |
+| `backend-linuxkms-libseat` and `backend-linuxkms-libinput` | yes     | yes      |
+
+```toml
+[dependencies]
+slint = { version = "~1.18", default-features = false, features = [
+    "compat-1-18",
+    "backend-linuxkms",
+    "backend-linuxkms-libinput",
+    "renderer-software",
+] }
+```
+
+With the default features instead, the `compat-1-2` feature is enabled and `backend-linuxkms`
+implies libseat and libinput, as it did before Slint 1.18.
+
+The `backend-linuxkms-noseat` feature is deprecated; use `backend-linuxkms-libinput`, which selects
+the same combination.
+
+</TabItem>
+<TabItem label="C++" icon="seti:cpp">
+
+Enable the CMake options for the capabilities you need. `_LIBSEAT` and `_LIBINPUT` each enable the
+backend on their own and combine, so `_MINIMAL` is not a prerequisite:
+
+| CMake options                                                             | libseat | libinput |
+|---------------------------------------------------------------------------|---------|----------|
+| `SLINT_FEATURE_BACKEND_LINUXKMS_MINIMAL`                                    | no      | no       |
+| `SLINT_FEATURE_BACKEND_LINUXKMS_LIBSEAT`                                    | yes     | no       |
+| `SLINT_FEATURE_BACKEND_LINUXKMS_LIBINPUT`                                   | no      | yes      |
+| `SLINT_FEATURE_BACKEND_LINUXKMS_LIBSEAT` and `..._LIBINPUT`                 | yes     | yes      |
+
+```bash
+cmake -DSLINT_FEATURE_BACKEND_LINUXKMS_LIBINPUT=ON ..
+```
+
+`SLINT_FEATURE_BACKEND_LINUXKMS_NOSEAT` is deprecated; use
+`SLINT_FEATURE_BACKEND_LINUXKMS_LIBINPUT`, which selects the same combination.
+`SLINT_FEATURE_BACKEND_LINUXKMS` is deprecated; use `SLINT_FEATURE_BACKEND_LINUXKMS_LIBSEAT`
+together with `SLINT_FEATURE_BACKEND_LINUXKMS_LIBINPUT`.
+
+</TabItem>
+</Tabs>
 
 :::note[Note]
-If you don't have `libseat` available on your target system, then instead of selecting `backend-linuxkms`, select
-`backend-linuxkms-noseat`. This variant of the LinuxKMS backend eliminates the need to have libseat installed, but
-in exchange requires running the application as a user that's privileged to access all input and DRM/KMS device
+Without libseat, the application must run as a user privileged to access the input and DRM/KMS device
 files; typically that's the root user.
+:::
+
+:::note[Note]
+Without libinput the application renders but receives no input events, and the
+<kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>Backspace</kbd> shortcut that otherwise quits the application is
+not available. Quit the event loop from a timer or another thread instead.
 :::
 
 ## Renderers

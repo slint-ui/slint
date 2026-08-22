@@ -144,8 +144,11 @@ define_cargo_feature(software-renderer-path "Enable support for Path element ren
 
 define_cargo_dependent_feature(backend-qt "Enable Qt based rendering backend" OFF "NOT SLINT_FEATURE_FREESTANDING AND NOT ANDROID")
 
-define_cargo_dependent_feature(backend-linuxkms "Enable support for the backend that renders a single window fullscreen on Linux. Requires libseat. If you don't have libseat, select `backend-linuxkms-noseat` instead." OFF "NOT SLINT_FEATURE_FREESTANDING")
-define_cargo_dependent_feature(backend-linuxkms-noseat "Enable support for the backend that renders a single window fullscreen on Linux" OFF "NOT SLINT_FEATURE_FREESTANDING")
+define_cargo_dependent_feature(backend-linuxkms-minimal "Enable support for the backend that renders a single window fullscreen on Linux, without libseat and without libinput. The application renders but receives no input events; libinput, libudev and libxkbcommon are not needed" OFF "NOT SLINT_FEATURE_FREESTANDING")
+define_cargo_dependent_feature(backend-linuxkms-libseat "Add libseat to the LinuxKMS backend, for GPU and input device access without root privileges. Enables the backend on its own and combines with SLINT_FEATURE_BACKEND_LINUXKMS_LIBINPUT" OFF "NOT SLINT_FEATURE_FREESTANDING")
+define_cargo_dependent_feature(backend-linuxkms-libinput "Add libinput to the LinuxKMS backend, to react to mouse, touch and keyboard input. Enables the backend on its own and combines with SLINT_FEATURE_BACKEND_LINUXKMS_LIBSEAT" OFF "NOT SLINT_FEATURE_FREESTANDING")
+define_cargo_dependent_feature(backend-linuxkms-noseat "Deprecated: use SLINT_FEATURE_BACKEND_LINUXKMS_LIBINPUT, which selects the same combination of the LinuxKMS backend" OFF "NOT SLINT_FEATURE_FREESTANDING")
+define_cargo_dependent_feature(backend-linuxkms "Deprecated: use SLINT_FEATURE_BACKEND_LINUXKMS_LIBSEAT and SLINT_FEATURE_BACKEND_LINUXKMS_LIBINPUT, which select the same combination of the LinuxKMS backend" OFF "NOT SLINT_FEATURE_FREESTANDING")
 
 define_cargo_dependent_feature(gettext "Enable support of translations using gettext" OFF "NOT SLINT_FEATURE_FREESTANDING")
 define_cargo_dependent_feature(accessibility "Enable integration with operating system provided accessibility APIs" ON "NOT SLINT_FEATURE_FREESTANDING")
