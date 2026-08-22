@@ -1320,37 +1320,10 @@ public:
         return std::numeric_limits<uint64_t>::max();
     }
 
-    /// Call the visitor for the root of the given instance.
-    /// Used when the repeated element has a dynamic z binding and the instances are
-    /// visited in the z order of the parent's children.
-    uint64_t visit_instance(uint32_t instance, TraversalOrder order,
-                            private_api::ItemVisitorRefMut visitor) const
-    {
-        if (inner && instance < inner->data.size() && inner->data[instance].ptr) {
-            auto ref = item_at(instance);
-            if (ref.vtable->visit_children_item(ref, -1, order, visitor)
-                != std::numeric_limits<uint64_t>::max()) {
-                return instance;
-            }
-        }
-        return std::numeric_limits<uint64_t>::max();
-    }
-
-    /// Visit a single instance when `instance` is a specific index (coming from a
-    /// z-ordered traversal), or all the instances when it is the maximum value.
-    uint64_t visit_maybe_instance(uint32_t instance, TraversalOrder order,
-                                  private_api::ItemVisitorRefMut visitor) const
-    {
-        if (instance == std::numeric_limits<uint32_t>::max()) {
-            return visit(order, visitor);
-        } else {
-            return visit_instance(instance, order, visitor);
-        }
-    }
-
-    /// Call `cb` with the index and the z value of every instance, when the repeated
-    /// element has a dynamic z binding (the generated component has a `z_order()`
-    /// member function).
+    /// Call `cb` with the model row index and the z value of every instance, when the
+    /// repeated element has a dynamic z binding (the generated component has a
+    /// `z_order()` member function). The row index is the one accepted by
+    /// `instance_at` (and thus by the `get_subtree` vtable entry).
     /// Also registers model dependencies so the current tracking scope is notified
     /// when the model changes.
     template<typename F>
@@ -1359,8 +1332,9 @@ public:
         track_model_changes();
         if (!inner)
             return;
+        const auto offset = inner->layout_state.offset;
         for (std::size_t i = 0; i < inner->data.size(); ++i) {
-            cb(uint32_t(i), inner->data[i].ptr ? (*inner->data[i].ptr)->z_order() : 0.f);
+            cb(uint32_t(offset + i), inner->data[i].ptr ? (*inner->data[i].ptr)->z_order() : 0.f);
         }
     }
 
@@ -1508,14 +1482,6 @@ public:
             }
         }
         return std::numeric_limits<uint64_t>::max();
-    }
-
-    /// Same as visit: a conditional has at most one instance, so a specific
-    /// `instance` from a z-ordered traversal can only be 0.
-    uint64_t visit_maybe_instance(uint32_t, TraversalOrder order,
-                                  private_api::ItemVisitorRefMut visitor) const
-    {
-        return visit(order, visitor);
     }
 
     /// Call `cb` with the index and the z value of the instance if the condition is
