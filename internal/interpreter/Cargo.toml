@@ -24,10 +24,11 @@ path = "lib.rs"
 default = ["backend-default", "renderer-femtovg", "renderer-software", "accessibility", "compat-1-2", "system-tray"]
 
 ## Mandatory feature:
-## This feature is required to keep the compatibility with Slint 1.2
+## This feature is required to keep the compatibility with Slint 1.18
 ## Newer patch version may put current functionality behind a new feature
 ## that would be enabled by default only if this feature was added
-"compat-1-2" = []
+"compat-1-18" = []
+"compat-1-2" = ["compat-1-18", "i-slint-backend-linuxkms?/libseat", "i-slint-backend-linuxkms?/libinput"]
 "compat-1-0" = ["compat-1-2"]
 
 ## Enable the `SystemTrayIcon` element (pulls `ksni` on Linux/BSD); on by
@@ -75,12 +76,23 @@ backend-winit-x11 = ["i-slint-backend-selector/backend-winit-x11", "std"]
 ## with support for the Wayland window system on Unix.
 backend-winit-wayland = ["i-slint-backend-selector/backend-winit-wayland", "std"]
 
-## KMS with Vulkan or EGL and libinput on Linux are used to render the application in full screen mode, without any
-## windowing system. Requires libseat. If you don't have libseat, select `backend-linuxkms-noseat` instead.
-backend-linuxkms = ["i-slint-backend-selector/backend-linuxkms", "std"]
+## KMS with Vulkan or EGL on Linux is used to render the application in full screen mode, without any
+## windowing system.
+##
+## With `compat-1-2` this implies libseat and libinput support. With `compat-1-18` or newer it is
+## the minimal feature set, without libseat and libinput; add `backend-linuxkms-libseat` and
+## `backend-linuxkms-libinput` to opt back in.
+backend-linuxkms = ["i-slint-backend-selector/backend-linuxkms", "dep:i-slint-backend-linuxkms", "std"]
 
-## KMS with Vulkan or EGL and libinput on Linux are used to render the application in full screen mode, without any
-## windowing system. Requires libseat.
+## Add libseat to the LinuxKMS backend, for GPU and input device access without root privileges.
+backend-linuxkms-libseat = ["i-slint-backend-selector/backend-linuxkms-libseat", "std"]
+
+## Add libinput to the LinuxKMS backend, to react to mouse, touch and keyboard input.
+backend-linuxkms-libinput = ["i-slint-backend-selector/backend-linuxkms-libinput", "std"]
+
+## **Deprecated** Use `backend-linuxkms-libinput` instead, which selects the same
+## combination of the LinuxKMS backend: libinput for mouse, touch and keyboard input,
+## but no libseat.
 backend-linuxkms-noseat = ["i-slint-backend-selector/backend-linuxkms-noseat", "std"]
 
 ## Alias to a backend and renderer that depends on the platform.
@@ -175,6 +187,13 @@ i-slint-core = { workspace = true, features = ["image-decoders", "svg"] }
 [target.'cfg(target_os = "linux")'.dependencies]
 # this line is there to add the "enable" feature by default, but only on linux
 i-slint-backend-qt = { workspace = true, features = ["enable"], optional = true }
+# Marker edge, never used from code: `compat-1-2` enables features on this optional
+# dependency, and only `backend-linuxkms` activates it, which is what restores the
+# pre-1.18 meaning of that feature while leaving `backend-linuxkms-noseat` alone.
+# Do not route those feature references through i-slint-backend-selector: its own
+# edge to the backend is also activated by `backend-linuxkms-noseat`, which would
+# then gain libseat and break targets that do not have it.
+i-slint-backend-linuxkms = { workspace = true, optional = true }
 
 [dev-dependencies]
 i-slint-backend-testing = { path = "../../internal/backends/testing", features = ["internal"] }

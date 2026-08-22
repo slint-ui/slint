@@ -5035,6 +5035,7 @@ version = "1.18.0"
 dependencies = [
  "const-field-offset",
  "i-slint-backend-android-activity",
+ "i-slint-backend-linuxkms",
  "i-slint-backend-selector",
  "i-slint-common",
  "i-slint-core",
