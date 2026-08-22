@@ -484,8 +484,7 @@ mod ffi {
             .map(|path| path.as_str().split_once('=').expect("library path must have an '='"))
             .map(|(lib, path)| (lib.into(), PathBuf::from(path)))
             .collect();
-        let style =
-            (!style.is_empty()).then(|| std::str::from_utf8(&style).unwrap().to_string());
+        let style = (!style.is_empty()).then(|| std::str::from_utf8(&style).unwrap().to_string());
         let translation_domain = (!translation_domain.is_empty())
             .then(|| std::str::from_utf8(&translation_domain).unwrap().to_string());
 

@@ -2,16 +2,20 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use std::collections::HashSet;
+use std::net::SocketAddr;
 use std::sync::Arc;
-use std::{net::SocketAddr, rc::Rc};
 
 use i_slint_core::InternalToken;
 use i_slint_core::SharedString;
 use i_slint_core::textlayout::sharedparley::fontique;
 use i_slint_core::window::WindowInner;
-use i_slint_live_preview::protocol::{PreviewComponent, PreviewToLspMessage, lsp_types};
+use i_slint_live_preview::protocol::{
+    PreviewComponent, PreviewConfig, PreviewToLspMessage, lsp_types,
+};
 use i_slint_live_preview::remote::{Connection, ConnectionMessage, PairingPolicy, init_compiler};
 use slint::ComponentHandle as _;
+use slint_interpreter::CompilationResult;
+use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 
 slint::slint! {
     export { RemoteViewerWindow, RemoteViewerState } from "remote/main.slint";
@@ -73,11 +77,28 @@ fn build_info() -> SharedString {
 /// iOS, app lifecycle notifications.
 enum Event {
     Connection(ConnectionMessage),
+    /// A background compilation finished. The result is instantiated on this
+    /// (event-loop) thread; `generation` lets the UI drop a result that a newer
+    /// edit has already superseded.
+    Compiled {
+        result: Box<CompilationResult>,
+        preview_component: PreviewComponent,
+        generation: u64,
+    },
     /// The app returned to the foreground after having been suspended: re-announce
     /// the mDNS service (see [`announce_mdns`] for why the old announcement may be
     /// dead). Only iOS has the lifecycle observers that send this.
     #[cfg_attr(not(target_os = "ios"), allow(dead_code))]
     Resumed,
+}
+
+/// Work sent from the event-loop thread to the background compile worker.
+enum CompileRequest {
+    /// Apply a new compiler configuration to the worker's `Compiler`.
+    Configure(PreviewConfig),
+    /// Compile `preview_component`; the worker answers with [`Event::Compiled`]
+    /// carrying the same `generation`.
+    Build { preview_component: PreviewComponent, generation: u64 },
 }
 
 #[cfg(target_vendor = "apple")]
@@ -120,18 +141,26 @@ async fn run_async(
         );
     }
 
-    let connection = Rc::new(
-        Connection::listen(address, device_name_override(), pairing_policy, move |msg| {
-            let _ = event_sender.send(Event::Connection(msg));
+    let connection = Arc::new(
+        Connection::listen(address, device_name_override(), pairing_policy, {
+            let event_sender = event_sender.clone();
+            move |msg| {
+                let _ = event_sender.send(Event::Connection(msg));
+            }
         })
         .await?,
     );
 
-    let mut compiler = init_compiler(Rc::downgrade(&connection));
+    // Compile on a dedicated worker thread so fetching the sources and building
+    // the component never block the event loop: the UI thread only instantiates
+    // the finished result, so the idle spinner (and the previewed app during a
+    // reload) keeps animating throughout.
+    let (compile_tx, compile_rx) = tokio::sync::mpsc::unbounded_channel::<CompileRequest>();
+    spawn_compile_worker(connection.clone(), compile_rx, event_sender.clone());
 
     // Forward all debug output to the LSP, so that the LSP can show it to the user.
     // Slint Viewer itself only displays the previewed app, so it has no UI of its own to show debug messages in.
-    let connection_weak = Rc::downgrade(&connection);
+    let connection_weak = Arc::downgrade(&connection);
     let _ = i_slint_backend_selector::with_global_context(|ctx| {
         ctx.set_log_message_handler(Some(Box::new(move |message| {
             let location = crate::debug::log_message_handler(&message);
@@ -201,9 +230,27 @@ async fn run_async(
     let mut user_instance: Option<slint_interpreter::ComponentInstance> = None;
     let mut current_preview: Option<PreviewComponent> = None;
     let mut registered_fonts = HashSet::<lsp_types::Url>::new();
+    // Bumped on every edit/preview request; the worker echoes it back so a stale
+    // compilation that a newer edit has already superseded can be dropped.
+    let mut generation = 0u64;
     while let Some(event) = event_receiver.recv().await {
         let msg = match event {
             Event::Connection(msg) => msg,
+            Event::Compiled { result, preview_component, generation: g } => {
+                // Drop a superseded build, and one that finished while a pairing
+                // code took the screen: the code has to stay legible.
+                if g == generation && !prompt_on_screen {
+                    apply_compiled(
+                        *result,
+                        &preview_component,
+                        &mut placeholder,
+                        &mut user_instance,
+                        &connection,
+                        &chrome,
+                    )?;
+                }
+                continue;
+            }
             Event::Resumed => {
                 #[cfg(target_vendor = "apple")]
                 if enable_mdns {
@@ -219,37 +266,29 @@ async fn run_async(
         };
         match msg {
             ConnectionMessage::SetConfiguration { config } => {
-                compiler.set_style(config.style);
-                compiler.compiler_configuration(InternalToken).enable_experimental =
-                    config.enable_experimental;
+                let _ = compile_tx.send(CompileRequest::Configure(config));
             }
             ConnectionMessage::SetUserSettings { .. } => {}
             ConnectionMessage::ShowPreview { preview_component } => {
                 current_preview = Some(preview_component);
-                if !prompt_on_screen {
-                    show_current(
-                        &compiler,
-                        &current_preview,
-                        &mut placeholder,
-                        &mut user_instance,
-                        &connection,
-                        &chrome,
-                    )
-                    .await?;
-                }
+                request_build(
+                    &compile_tx,
+                    &current_preview,
+                    prompt_on_screen,
+                    &mut generation,
+                    &placeholder,
+                    &user_instance,
+                );
             }
             ConnectionMessage::ContentsChanged => {
-                if !prompt_on_screen {
-                    show_current(
-                        &compiler,
-                        &current_preview,
-                        &mut placeholder,
-                        &mut user_instance,
-                        &connection,
-                        &chrome,
-                    )
-                    .await?;
-                }
+                request_build(
+                    &compile_tx,
+                    &current_preview,
+                    prompt_on_screen,
+                    &mut generation,
+                    &placeholder,
+                    &user_instance,
+                );
             }
             ConnectionMessage::HighlightFromEditor { .. } => {}
             ConnectionMessage::RegisterFont { url, contents } => {
@@ -280,6 +319,8 @@ async fn run_async(
                 if last_connection == Some(remote_addr) {
                     last_connection = None;
                     current_preview = None;
+                    // Drop any compilation still in flight for the old session.
+                    generation += 1;
                     connection.set_dependencies(Vec::new());
                     if !prompt_on_screen {
                         swap_to_placeholder(
@@ -319,15 +360,14 @@ async fn run_async(
                 prompt_on_screen = false;
                 // Nobody got in, so restore whatever the prompt displaced,
                 // including anything the session changed meanwhile.
-                let restored = show_current(
-                    &compiler,
+                let restored = request_build(
+                    &compile_tx,
                     &current_preview,
-                    &mut placeholder,
-                    &mut user_instance,
-                    &connection,
-                    &chrome,
-                )
-                .await?;
+                    prompt_on_screen,
+                    &mut generation,
+                    &placeholder,
+                    &user_instance,
+                );
                 if !restored {
                     let state = if last_connection.is_some() {
                         RemoteViewerState::Connected
@@ -352,56 +392,130 @@ async fn run_async(
     Ok(())
 }
 
-/// Rebuild and show whatever component is currently being previewed.
+/// Queue a build of whatever component is currently being previewed, unless a
+/// pairing code is on screen. Bumps `generation` so a result from an earlier,
+/// superseded request is dropped when it arrives.
 ///
-/// Returns whether there was one, so callers that have to fall back to a
+/// Returns whether a build was queued, so callers that have to fall back to a
 /// placeholder can tell.
-async fn show_current(
-    compiler: &slint_interpreter::Compiler,
+fn request_build(
+    compile_tx: &UnboundedSender<CompileRequest>,
     current_preview: &Option<PreviewComponent>,
-    placeholder: &mut RemoteViewerWindow,
-    user_instance: &mut Option<slint_interpreter::ComponentInstance>,
-    connection: &Rc<Connection>,
-    chrome: &Chrome,
-) -> anyhow::Result<bool> {
-    let Some(preview_component) = current_preview.clone() else { return Ok(false) };
-    build_and_show(compiler, &preview_component, placeholder, user_instance, connection, chrome)
-        .await?;
-    Ok(true)
-}
-
-/// Returns `Err` only on unrecoverable platform failure; compile errors and missing
-/// components reinstall the placeholder and return `Ok(())`.
-async fn build_and_show(
-    compiler: &slint_interpreter::Compiler,
-    preview_component: &PreviewComponent,
-    placeholder: &mut RemoteViewerWindow,
-    user_instance: &mut Option<slint_interpreter::ComponentInstance>,
-    connection: &Rc<Connection>,
-    chrome: &Chrome,
-) -> anyhow::Result<()> {
-    tracing::debug!("build_and_show");
-
-    let Ok(path) = preview_component.url.to_file_path() else {
-        tracing::error!("Not a file URL: {}", preview_component.url);
-        return Ok(());
-    };
-    // Show the spinner while the sources are fetched and compiled, but only when the
-    // placeholder is on screen: during a reload the user's component stays visible
-    // until the new build is ready, so there is nothing to overlay a spinner on.
+    prompt_on_screen: bool,
+    generation: &mut u64,
+    placeholder: &RemoteViewerWindow,
+    user_instance: &Option<slint_interpreter::ComponentInstance>,
+) -> bool {
+    if prompt_on_screen {
+        return false;
+    }
+    let Some(preview_component) = current_preview.clone() else { return false };
+    *generation += 1;
+    // Show the spinner while compiling, but only when the placeholder is on
+    // screen: during a reload the user's component stays visible and keeps
+    // animating until the new build is ready.
     if user_instance.is_none() {
         placeholder.set_state(RemoteViewerState::Compiling);
     }
-    let file = match connection.request_file(preview_component.url.clone()).await {
-        Ok(file) => file,
-        Err(err) => {
-            tracing::error!("Failed fetching {}: {err}", preview_component.url);
-            return Ok(());
-        }
-    };
-    let compilation_result = compiler
-        .build_from_source(String::from_utf8_lossy(&file.contents).into_owned(), path)
-        .await;
+    let _ = compile_tx.send(CompileRequest::Build { preview_component, generation: *generation });
+    true
+}
+
+/// Apply a configuration update from the editor to the worker's `Compiler`.
+fn apply_config(compiler: &mut slint_interpreter::Compiler, config: PreviewConfig) {
+    compiler.set_style(config.style);
+    compiler.compiler_configuration(InternalToken).enable_experimental = config.enable_experimental;
+}
+
+/// Background thread that owns the `Compiler` and an [`Arc`] handle to the
+/// connection. It fetches the sources (over the connection's own network thread)
+/// and compiles them off the event loop, handing the sendable result back for the
+/// event-loop thread to instantiate. Bursts of edits are coalesced to the latest.
+fn spawn_compile_worker(
+    connection: Arc<Connection>,
+    mut compile_rx: UnboundedReceiver<CompileRequest>,
+    event_sender: UnboundedSender<Event>,
+) {
+    std::thread::Builder::new()
+        .name("slint-remote-preview-compiler".into())
+        .spawn(move || {
+            let runtime = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .expect("failed to build the compile worker runtime");
+            runtime.block_on(async move {
+                let mut compiler = init_compiler(Arc::downgrade(&connection));
+                while let Some(request) = compile_rx.recv().await {
+                    let (mut preview_component, mut generation) = match request {
+                        CompileRequest::Configure(config) => {
+                            apply_config(&mut compiler, config);
+                            continue;
+                        }
+                        CompileRequest::Build { preview_component, generation } => {
+                            (preview_component, generation)
+                        }
+                    };
+                    // Coalesce queued requests: apply any configuration and build
+                    // only the most recent component, so a burst of keystrokes
+                    // compiles once against the latest state.
+                    while let Ok(next) = compile_rx.try_recv() {
+                        match next {
+                            CompileRequest::Configure(config) => {
+                                apply_config(&mut compiler, config)
+                            }
+                            CompileRequest::Build { preview_component: pc, generation: g } => {
+                                preview_component = pc;
+                                generation = g;
+                            }
+                        }
+                    }
+
+                    let Ok(path) = preview_component.url.to_file_path() else {
+                        tracing::error!("Not a file URL: {}", preview_component.url);
+                        continue;
+                    };
+                    let file = match connection.request_file(preview_component.url.clone()).await {
+                        Ok(file) => file,
+                        Err(err) => {
+                            tracing::error!("Failed fetching {}: {err}", preview_component.url);
+                            continue;
+                        }
+                    };
+                    let result = compiler
+                        .build_from_source(
+                            String::from_utf8_lossy(&file.contents).into_owned(),
+                            path,
+                        )
+                        .await;
+                    if event_sender
+                        .send(Event::Compiled {
+                            result: Box::new(result),
+                            preview_component,
+                            generation,
+                        })
+                        .is_err()
+                    {
+                        // The event loop is gone; nothing left to do.
+                        break;
+                    }
+                }
+            });
+        })
+        .expect("failed to spawn the remote-preview compile thread");
+}
+
+/// Instantiate a freshly compiled result on the event-loop thread and swap it in.
+///
+/// Returns `Err` only on unrecoverable platform failure; compile errors and missing
+/// components reinstall the placeholder and return `Ok(())`.
+fn apply_compiled(
+    compilation_result: CompilationResult,
+    preview_component: &PreviewComponent,
+    placeholder: &mut RemoteViewerWindow,
+    user_instance: &mut Option<slint_interpreter::ComponentInstance>,
+    connection: &Connection,
+    chrome: &Chrome,
+) -> anyhow::Result<()> {
     // Set even on errors so edits to imported files still trigger a rebuild.
     let watch_urls: Vec<lsp_types::Url> = compilation_result
         .watch_paths(InternalToken)
