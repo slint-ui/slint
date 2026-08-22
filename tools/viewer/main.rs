@@ -260,8 +260,13 @@ fn main() -> Result<()> {
         select_backend(args.backend.as_deref())?;
         install_log_message_handler()?;
 
-        let live = i_slint_live_preview::live_component::LiveReloadingComponent::new(
-            compiler,
+        // Compile on a background thread so saving the file does not block the UI.
+        let compiler_factory: i_slint_live_preview::live_component::CompilerFactory = {
+            let args = args.clone();
+            std::sync::Arc::new(move || init_compiler(&args))
+        };
+        let live = i_slint_live_preview::live_component::LiveReloadingComponent::new_threaded(
+            compiler_factory,
             args.path().to_path_buf(),
             args.component.clone(),
         )?;
