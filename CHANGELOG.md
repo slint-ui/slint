@@ -11,6 +11,12 @@ All notable changes to this project are documented in this file.
  - Added the per-item `cross-axis-self-alignment` property: the children of a `FlexboxLayout`,
    `HorizontalLayout`, or `VerticalLayout` can override the container's `cross-axis-alignment`.
 
+### Python
+
+ - Fixed the garbage collector releasing model wrappers (`ListModel` and `Model` subclasses) that
+   Slint still referenced from a property, which broke `row_count`/`row_data` with
+   "Model implementation is lacking self object" until the model was reassigned.
+
 ## [1.17.1] - 2026-07-07
 
  - Fixed a panic/crash on startup when a global reads `Palette.color-scheme` (or accent-color) during its initialization.

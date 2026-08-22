@@ -19,9 +19,6 @@ class Model[T](native.PyModelBase, Iterable[T]):
     def __new__(cls, *args: Any) -> typing.Self:
         return super().__new__(cls)
 
-    def __init__(self) -> None:
-        self.init_self(self)
-
     def __len__(self) -> int:
         return self.row_count()
 

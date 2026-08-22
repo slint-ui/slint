@@ -3,18 +3,17 @@
 
 // cSpell: ignore getitem
 use std::cell::RefCell;
-use std::rc::Rc;
+use std::rc::{Rc, Weak};
 
 use i_slint_compiler::langtype::Type;
 use i_slint_core::model::{Model, ModelNotify, ModelRc};
 
-use pyo3::PyTraverseError;
 use pyo3::exceptions::PyIndexError;
-use pyo3::gc::PyVisit;
 use pyo3::prelude::*;
 
 use crate::value::{SlintToPyValue, TypeCollection};
 
+#[derive(Default)]
 pub struct PyModelShared {
     notify: ModelNotify,
     self_ref: RefCell<Option<Py<PyAny>>>,
@@ -41,28 +40,36 @@ impl PyModelShared {
             *element_type_ref = element_type;
         }
     }
-
-    pub fn __traverse__(&self, visit: &PyVisit<'_>) -> Result<(), PyTraverseError> {
-        if let Some(this) = self.self_ref.borrow().as_ref() {
-            visit.call(this)?;
-        }
-        Ok(())
-    }
-
-    pub fn __clear__(&self) {
-        *self.self_ref.borrow_mut() = None;
-    }
 }
 
-#[derive(Clone)]
+/// Ownership of the shared model, from the Python wrapper's point of view.
+enum ModelOwnership {
+    OwnedByWrapper(Rc<PyModelShared>),
+    OwnedBySlint(Weak<PyModelShared>),
+}
+
 #[pyclass(unsendable, weakref, subclass, skip_from_py_object)]
 pub struct PyModelBase {
-    inner: Rc<PyModelShared>,
+    inner: RefCell<ModelOwnership>,
 }
 
 impl PyModelBase {
-    pub fn as_model(&self) -> ModelRc<slint_interpreter::Value> {
-        self.inner.clone().into()
+    fn shared_model(&self) -> Option<Rc<PyModelShared>> {
+        match &*self.inner.borrow() {
+            ModelOwnership::OwnedByWrapper(shared) => Some(shared.clone()),
+            ModelOwnership::OwnedBySlint(weak) => weak.upgrade(),
+        }
+    }
+
+    pub fn as_model(&self, wrapper: &Bound<'_, PyAny>) -> ModelRc<slint_interpreter::Value> {
+        // Handing the model to Slint moves ownership of the shared model into the returned
+        // ModelRc; the wrapper only keeps a weak reference from now on. A failed upgrade
+        // means Slint already dropped its last ModelRc of this model (e.g. the property
+        // was reassigned), so wrap the wrapper in a fresh shared model.
+        let shared = self.shared_model().unwrap_or_else(|| Rc::new(PyModelShared::default()));
+        *self.inner.borrow_mut() = ModelOwnership::OwnedBySlint(Rc::downgrade(&shared));
+        *shared.self_ref.borrow_mut() = Some(wrapper.clone().unbind());
+        shared.into()
     }
 }
 
@@ -71,37 +78,29 @@ impl PyModelBase {
     #[new]
     fn new() -> Self {
         Self {
-            inner: Rc::new(PyModelShared {
-                notify: Default::default(),
-                self_ref: RefCell::new(None),
-                type_collection: RefCell::new(None),
-                element_type: RefCell::new(None),
-            }),
+            inner: RefCell::new(ModelOwnership::OwnedByWrapper(Rc::new(PyModelShared::default()))),
         }
     }
 
-    fn init_self(&self, self_ref: Py<PyAny>) {
-        *self.inner.self_ref.borrow_mut() = Some(self_ref);
-    }
-
+    // The notifications are no-ops once Slint dropped the last ModelRc of this model (the
+    // weak reference is dead): there are no views attached anymore to notify. The wrapper
+    // stays usable, and handing the model to Slint again re-attaches a fresh shared model.
     fn notify_row_added(&self, index: usize, count: usize) {
-        self.inner.notify.row_added(index, count)
+        if let Some(shared) = self.shared_model() {
+            shared.notify.row_added(index, count)
+        }
     }
 
     fn notify_row_changed(&self, index: usize) {
-        self.inner.notify.row_changed(index)
+        if let Some(shared) = self.shared_model() {
+            shared.notify.row_changed(index)
+        }
     }
 
     fn notify_row_removed(&self, index: usize, count: usize) {
-        self.inner.notify.row_removed(index, count)
-    }
-
-    fn __traverse__(&self, visit: PyVisit<'_>) -> Result<(), PyTraverseError> {
-        self.inner.__traverse__(&visit)
-    }
-
-    fn __clear__(&mut self) {
-        self.inner.__clear__();
+        if let Some(shared) = self.shared_model() {
+            shared.notify.row_removed(index, count)
+        }
     }
 }
 

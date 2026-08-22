@@ -100,19 +100,14 @@ impl<'py> IntoPyObject<'py> for SlintToPyValue {
     }
 }
 
+/// Visit the Python objects that `value` keeps alive, so that Python's cyclic
+/// garbage collector sees them as reachable from the traversed object.
 pub fn traverse_value(
     value: &slint_interpreter::Value,
     visit: &PyVisit<'_>,
 ) -> Result<(), PyTraverseError> {
-    match value {
-        slint_interpreter::Value::Model(model) => {
-            if let Some(rust_model) = model.as_any().downcast_ref::<crate::models::PyModelShared>()
-            {
-                rust_model.__traverse__(&visit)?
-            }
-        }
-        slint_interpreter::Value::Struct(structval) => traverse_struct(&structval, visit)?,
-        _ => {}
+    if let slint_interpreter::Value::Struct(structval) = value {
+        traverse_struct(structval, visit)?;
     }
 
     Ok(())
@@ -135,16 +130,11 @@ fn struct_field_as_f32(structval: &slint_interpreter::Struct, name: &str) -> f32
     }
 }
 
+/// Release the Python references that `value` keeps alive, as part of clearing
+/// a garbage-collected object that holds it.
 pub fn clear_strongrefs_in_value(value: &slint_interpreter::Value) {
-    match value {
-        slint_interpreter::Value::Model(model) => {
-            if let Some(rust_model) = model.as_any().downcast_ref::<crate::models::PyModelShared>()
-            {
-                rust_model.__clear__();
-            }
-        }
-        slint_interpreter::Value::Struct(structval) => clear_strongrefs_in_struct(&structval),
-        _ => {}
+    if let slint_interpreter::Value::Struct(structval) = value {
+        clear_strongrefs_in_struct(structval);
     }
 }
 
@@ -412,7 +402,7 @@ impl TypeCollection {
                     slint_interpreter::Value::Model(Self::apply(
                         type_collection,
                         expected_type,
-                        pymodel.as_model(),
+                        pymodel.as_model(ob),
                     ))
                 })
             })
