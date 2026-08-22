@@ -79,6 +79,7 @@ component MemoryTile inherits Rectangle {
 }
 
 export component MainWindow inherits Window {
+    icon: @image-url("../../logo/slint-logo-small-light.png");
     in property <bool> disable-tiles;
     in property <[TileData]> memory-tiles : [
         { image: @image-url("icons/at.png") },
