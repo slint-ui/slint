@@ -1136,6 +1136,13 @@ impl WinitWindowAdapter {
     }
 
     fn set_visibility(&self, visibility: WindowVisibility) -> Result<(), PlatformError> {
+        // Release the native menus that keep this adapter alive through the globals.
+        #[cfg(muda)]
+        if visibility == WindowVisibility::Hidden {
+            self.menubar.take();
+            self.context_menu.take();
+        }
+
         if visibility == self.shown.get() {
             return Ok(());
         }
@@ -1226,13 +1233,6 @@ impl WinitWindowAdapter {
 
             Ok(())
         } else {
-            // Release the native menus: their item trees keep this adapter alive through the globals.
-            #[cfg(muda)]
-            {
-                self.menubar.take();
-                self.context_menu.take();
-            }
-
             // Wayland doesn't support hiding a window, only destroying it entirely.
             if self.winit_window_or_none.borrow().as_window().is_some_and(|winit_window| {
                 use raw_window_handle::HasWindowHandle;
