@@ -213,10 +213,17 @@ pub fn block_on<R>(future: impl Future<Output = R>) -> R {
 ///
 /// Each line represents one element that's exposed to assistive technologies, indented by
 /// its depth in the accessibility tree: the accessible role, followed by the label in
-/// double quotes (if any), the value (if any), and the `checkable`, `checked` and
-/// `disabled` states when they apply. Elements with `accessible-role: none` don't appear,
-/// but their accessible descendants do, just like in the tree presented to screen
-/// readers: the traversal is the same one the AccessKit integration uses.
+/// double quotes (if any), all other accessible properties that are set, and the supported
+/// accessibility actions. Boolean states appear as bare flags when true (`checkable`,
+/// `checked`, `expanded`, ...), a false `enabled` appears as `disabled`, and everything
+/// else as `name=value`. Elements with `accessible-role: none` don't appear, but their
+/// accessible descendants do, just like in the tree presented to screen readers: the
+/// traversal is the same one the AccessKit integration uses.
+///
+/// Values that are apparent from the structure of the tree are left out to keep the
+/// output readable: `item-index` when it matches the element's position among its
+/// siblings, `item-count` when it matches the number of accessible children, and the
+/// supported actions when they consist of just the default action.
 ///
 /// This is used by the test driver to verify the accessibility tree of an entire user
 /// interface as one assertion, for example to ensure that widgets don't expose their
@@ -228,30 +235,41 @@ pub fn block_on<R>(future: impl Future<Output = R>) -> R {
 ///   button "Log in"
 /// ```
 pub fn accessibility_tree(component: &impl crate::ElementRoot) -> String {
-    use i_slint_core::accessibility::{AccessibleStringProperty, accessible_descendents};
+    use i_slint_core::accessibility::{
+        AccessibleStringProperty, SupportedAccessibilityAction, accessible_descendents,
+    };
     use std::fmt::Write;
 
     fn visit(item: &i_slint_core::items::ItemRc, indent: usize, out: &mut String) {
-        for child in accessible_descendents(item) {
+        let children = accessible_descendents(item).collect::<Vec<_>>();
+        for (position, child) in children.iter().enumerate() {
+            let property =
+                |property| child.accessible_string_property(property).filter(|v| !v.is_empty());
             write!(out, "{:indent$}{}", "", child.accessible_role()).unwrap();
-            if let Some(label) = child
-                .accessible_string_property(AccessibleStringProperty::Label)
-                .filter(|label| !label.is_empty())
-            {
+            if let Some(label) = property(AccessibleStringProperty::Label) {
                 write!(out, " \"{label}\"").unwrap();
             }
-            if let Some(value) = child
-                .accessible_string_property(AccessibleStringProperty::Value)
-                .filter(|value| !value.is_empty())
-            {
-                write!(out, " value=\"{value}\"").unwrap();
-            }
-            for (property, name) in [
-                (AccessibleStringProperty::Checkable, "checkable"),
-                (AccessibleStringProperty::Checked, "checked"),
+            for p in [
+                AccessibleStringProperty::Value,
+                AccessibleStringProperty::Description,
+                AccessibleStringProperty::PlaceholderText,
+                AccessibleStringProperty::Id,
             ] {
-                if child.accessible_string_property(property).as_deref() == Some("true") {
-                    write!(out, " {name}").unwrap();
+                if let Some(value) = property(p) {
+                    write!(out, " {p}=\"{value}\"").unwrap();
+                }
+            }
+            for p in [
+                AccessibleStringProperty::Checkable,
+                AccessibleStringProperty::Checked,
+                AccessibleStringProperty::Expandable,
+                AccessibleStringProperty::Expanded,
+                AccessibleStringProperty::ItemSelectable,
+                AccessibleStringProperty::ItemSelected,
+                AccessibleStringProperty::ReadOnly,
+            ] {
+                if child.accessible_string_property(p).as_deref() == Some("true") {
+                    write!(out, " {p}").unwrap();
                 }
             }
             if child.accessible_string_property(AccessibleStringProperty::Enabled).as_deref()
@@ -259,8 +277,47 @@ pub fn accessibility_tree(component: &impl crate::ElementRoot) -> String {
             {
                 out.push_str(" disabled");
             }
+            if let Some(index) = property(AccessibleStringProperty::ItemIndex)
+                .filter(|index| index.as_str() != position.to_string())
+            {
+                write!(out, " item-index={index}").unwrap();
+            }
+            if let Some(count) = property(AccessibleStringProperty::ItemCount)
+                .filter(|count| count.as_str() != accessible_descendents(child).count().to_string())
+            {
+                write!(out, " item-count={count}").unwrap();
+            }
+            for p in [
+                AccessibleStringProperty::Orientation,
+                AccessibleStringProperty::DelegateFocus,
+                AccessibleStringProperty::LiveRegion,
+                AccessibleStringProperty::ValueMinimum,
+                AccessibleStringProperty::ValueMaximum,
+                AccessibleStringProperty::ValueStep,
+            ] {
+                if let Some(value) = property(p) {
+                    write!(out, " {p}={value}").unwrap();
+                }
+            }
+            let actions = child.supported_accessibility_actions();
+            if actions != SupportedAccessibilityAction::Default && !actions.is_empty() {
+                let action_names = [
+                    (SupportedAccessibilityAction::Default, "default"),
+                    (SupportedAccessibilityAction::Decrement, "decrement"),
+                    (SupportedAccessibilityAction::Increment, "increment"),
+                    (SupportedAccessibilityAction::Expand, "expand"),
+                    (SupportedAccessibilityAction::ReplaceSelectedText, "replace-selected-text"),
+                    (SupportedAccessibilityAction::SetValue, "set-value"),
+                    (SupportedAccessibilityAction::SetSelection, "set-selection"),
+                ]
+                .iter()
+                .filter(|(action, _)| actions.contains(*action))
+                .map(|(_, name)| *name)
+                .collect::<Vec<_>>();
+                write!(out, " actions={}", action_names.join(",")).unwrap();
+            }
             out.push('\n');
-            visit(&child, indent + 2, out);
+            visit(child, indent + 2, out);
         }
     }
 
