@@ -77,7 +77,11 @@ impl CachedRenderingData {
 
 /// After rendering an item, we cache the geometry and the transform it applies to
 /// children.
-#[derive(Clone, PartialEq)]
+///
+/// `sibling_index` (the item's rank among its z-ordered siblings last frame) is a `u16` stored
+/// in each variant, so it fits the enum's padding without growing the cache entry on 32- or
+/// 64-bit. It is excluded from geometry comparisons.
+#[derive(Clone)]
 pub enum CachedItemBoundingBoxAndTransform {
     /// A regular item with a translation
     RegularItem {
@@ -85,6 +89,7 @@ pub enum CachedItemBoundingBoxAndTransform {
         bounding_rect: LogicalRect,
         /// The item's offset relative to its parent.
         offset: LogicalVector,
+        sibling_index: u16,
     },
     /// An item such as Rotate that defines an additional transformation
     ItemWithTransform {
@@ -92,11 +97,13 @@ pub enum CachedItemBoundingBoxAndTransform {
         bounding_rect: LogicalRect,
         /// The item's transform to apply to children.
         transform: Box<ItemTransform>,
+        sibling_index: u16,
     },
     /// A clip item.
     ClipItem {
         /// The item's geometry relative to its parent.
         geometry: LogicalRect,
+        sibling_index: u16,
     },
 }
 
@@ -107,7 +114,7 @@ impl CachedItemBoundingBoxAndTransform {
             CachedItemBoundingBoxAndTransform::ItemWithTransform { bounding_rect, .. } => {
                 bounding_rect
             }
-            CachedItemBoundingBoxAndTransform::ClipItem { geometry } => geometry,
+            CachedItemBoundingBoxAndTransform::ClipItem { geometry, .. } => geometry,
         }
     }
 
@@ -117,20 +124,46 @@ impl CachedItemBoundingBoxAndTransform {
                 ItemTransform::translation(offset.x as f32, offset.y as f32)
             }
             CachedItemBoundingBoxAndTransform::ItemWithTransform { transform, .. } => **transform,
-            CachedItemBoundingBoxAndTransform::ClipItem { geometry } => {
+            CachedItemBoundingBoxAndTransform::ClipItem { geometry, .. } => {
                 ItemTransform::translation(geometry.origin.x as f32, geometry.origin.y as f32)
             }
+        }
+    }
+
+    fn sibling_index(&mut self) -> &mut u16 {
+        match self {
+            CachedItemBoundingBoxAndTransform::RegularItem { sibling_index, .. }
+            | CachedItemBoundingBoxAndTransform::ItemWithTransform { sibling_index, .. }
+            | CachedItemBoundingBoxAndTransform::ClipItem { sibling_index, .. } => sibling_index,
+        }
+    }
+
+    /// Compare the geometry (bounding rect, transform, clip), ignoring `sibling_index`.
+    fn same_geometry(&self, other: &Self) -> bool {
+        use CachedItemBoundingBoxAndTransform::*;
+        match (self, other) {
+            (
+                RegularItem { bounding_rect: a, offset: oa, .. },
+                RegularItem { bounding_rect: b, offset: ob, .. },
+            ) => a == b && oa == ob,
+            (
+                ItemWithTransform { bounding_rect: a, transform: ta, .. },
+                ItemWithTransform { bounding_rect: b, transform: tb, .. },
+            ) => a == b && ta == tb,
+            (ClipItem { geometry: a, .. }, ClipItem { geometry: b, .. }) => a == b,
+            _ => false,
         }
     }
 
     fn new<T: ItemRendererFeatures>(
         item_rc: &ItemRc,
         window_adapter: &Rc<dyn WindowAdapter>,
+        sibling_index: u16,
     ) -> Self {
         let geometry = item_rc.geometry();
 
         if item_rc.borrow().as_ref().clips_children() {
-            return Self::ClipItem { geometry };
+            return Self::ClipItem { geometry, sibling_index };
         }
 
         // Evaluate the bounding rect untracked, as properties that affect the bounding rect are already tracked
@@ -149,9 +182,10 @@ impl CachedItemBoundingBoxAndTransform {
                 transform: complex_child_transform
                     .then_translate(geometry.origin.to_vector().cast())
                     .into(),
+                sibling_index,
             }
         } else {
-            Self::RegularItem { bounding_rect, offset: geometry.origin.to_vector() }
+            Self::RegularItem { bounding_rect, offset: geometry.origin.to_vector(), sibling_index }
         }
     }
 }
@@ -387,7 +421,13 @@ impl<'a, T: ItemRenderer + ItemRendererFeatures> PartialRenderer<'a, T> {
             old_transform_to_screen: ItemTransform,
             clipped: LogicalRect,
             must_refresh_children: bool,
+            /// Depth of the item in the tree, used to index `sibling_counters`.
+            depth: usize,
         }
+
+        // One counter per tree depth to give each item its rank among its z-ordered siblings;
+        // a rank that changed since last frame means the stacking order changed.
+        let sibling_counters = RefCell::new(alloc::vec::Vec::<u16>::new());
 
         impl ComputeDirtyRegionState {
             /// Adjust transform_to_screen and old_transform_to_screen to map from item coordinates
@@ -409,17 +449,43 @@ impl<'a, T: ItemRenderer + ItemRendererFeatures> PartialRenderer<'a, T> {
             |component, item, index, state| {
                 let mut new_state = *state;
                 let item_rc = ItemRc::new(component.clone(), index);
-                let new_geom =
-                    CachedItemBoundingBoxAndTransform::new::<T>(&item_rc, &self.window_adapter);
+
+                let my_sibling_index = {
+                    let depth = state.depth;
+                    let mut counters = sibling_counters.borrow_mut();
+                    if counters.len() <= depth + 1 {
+                        counters.resize(depth + 2, 0);
+                    }
+                    counters[depth + 1] = 0; // this item's children restart at zero
+                    let idx = counters[depth];
+                    counters[depth] = idx.saturating_add(1);
+                    idx
+                };
+                new_state.depth = state.depth + 1;
+
+                let new_geom = CachedItemBoundingBoxAndTransform::new::<T>(
+                    &item_rc,
+                    &self.window_adapter,
+                    my_sibling_index,
+                );
 
                 let rendering_data = item.cached_rendering_data_offset();
                 let mut cache = self.cache.borrow_mut();
                 match rendering_data.get_entry(&mut cache) {
                     Some(PartialRenderingCachedData { data: cached_geom, tracker }) => {
                         let rendering_dirty = tracker.as_ref().is_some_and(|tr| tr.is_dirty());
-                        let old_geom = cached_geom.clone();
 
-                        let geometry_changed = old_geom != new_geom;
+                        // Only repaint when the rank decreased. When two items swap it is
+                        // enough to repaint one of them since the overlap is within both, and
+                        // this way adding a sibling (which only shifts following ranks up)
+                        // never repaints them. A saturated rank (>65535 siblings) always repaints.
+                        let old_sibling_index =
+                            core::mem::replace(cached_geom.sibling_index(), my_sibling_index);
+                        let sibling_index_changed =
+                            my_sibling_index == u16::MAX || my_sibling_index < old_sibling_index;
+                        new_state.must_refresh_children |= sibling_index_changed;
+
+                        let geometry_changed = !cached_geom.same_geometry(&new_geom);
                         if ItemRef::downcast_pin::<Clip>(item).is_some()
                             || ItemRef::downcast_pin::<Opacity>(item).is_some()
                         {
@@ -434,8 +500,9 @@ impl<'a, T: ItemRenderer + ItemRendererFeatures> PartialRenderer<'a, T> {
                         }
 
                         if geometry_changed {
+                            let old_transform = cached_geom.transform();
                             self.mark_dirty_rect(
-                                old_geom.bounding_rect(),
+                                cached_geom.bounding_rect(),
                                 state.old_transform_to_screen,
                                 &state.clipped,
                             );
@@ -445,10 +512,8 @@ impl<'a, T: ItemRenderer + ItemRendererFeatures> PartialRenderer<'a, T> {
                                 &state.clipped,
                             );
 
-                            new_state.adjust_transforms_for_child(
-                                &new_geom.transform(),
-                                &old_geom.transform(),
-                            );
+                            new_state
+                                .adjust_transforms_for_child(&new_geom.transform(), &old_transform);
 
                             *cached_geom = new_geom;
 
@@ -461,6 +526,7 @@ impl<'a, T: ItemRenderer + ItemRendererFeatures> PartialRenderer<'a, T> {
                         );
 
                         let moved = state.must_refresh_children
+                            || sibling_index_changed
                             || new_state.transform_to_screen != new_state.old_transform_to_screen;
 
                         if rendering_dirty {
@@ -494,8 +560,9 @@ impl<'a, T: ItemRenderer + ItemRendererFeatures> PartialRenderer<'a, T> {
                                 tr.as_ref().register_as_dependency_to_current_binding();
                             }
 
-                            if let CachedItemBoundingBoxAndTransform::ClipItem { geometry } =
-                                &cached_geom
+                            if let CachedItemBoundingBoxAndTransform::ClipItem {
+                                geometry, ..
+                            } = &cached_geom
                             {
                                 new_state.clipped = new_state
                                     .clipped
@@ -529,7 +596,9 @@ impl<'a, T: ItemRenderer + ItemRendererFeatures> PartialRenderer<'a, T> {
                             &new_geom.transform(),
                         );
 
-                        if let CachedItemBoundingBoxAndTransform::ClipItem { geometry } = new_geom {
+                        if let CachedItemBoundingBoxAndTransform::ClipItem { geometry, .. } =
+                            new_geom
+                        {
                             new_state.clipped = new_state
                                 .clipped
                                 .intersection(
@@ -562,6 +631,7 @@ impl<'a, T: ItemRenderer + ItemRendererFeatures> PartialRenderer<'a, T> {
                     old_transform_to_screen: initial_transform,
                     clipped: LogicalRect::from_size(size),
                     must_refresh_children: false,
+                    depth: 0,
                 }
             },
         );

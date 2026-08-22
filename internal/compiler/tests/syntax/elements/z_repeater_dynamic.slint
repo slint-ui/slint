@@ -1,0 +1,21 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A dynamic z on an element created with `for` or `if` orders each instance
+// individually among the siblings, and may depend on anything, including
+// properties of the element itself.
+
+export component Foo inherits Rectangle {
+    Rectangle {
+        Rectangle { z: root.width > 10px ? 5 : 0; }
+        for dyn_z in [5, 40, 23] : Rectangle {
+            z: dyn_z;
+        }
+        if true : Rectangle {
+            z: root.width / 1px;
+        }
+        if true : Rectangle {
+            z: self.width / 1px;
+        }
+    }
+}
