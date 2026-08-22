@@ -847,3 +847,80 @@ fn accent_color_reachable_from_global() {
     let after = instance.get_property("accent").unwrap();
     assert_ne!(before, after, "accent-background should follow the system accent color");
 }
+
+/// The viewer and the live preview compile on a worker thread and instantiate on
+/// the event-loop thread, so a `CompilationResult` has to survive the move. Do
+/// exactly that: build on a spawned thread, hand the result over, and use it here.
+#[cfg(feature = "internal")]
+#[test]
+fn compilation_result_moves_to_the_instantiating_thread() {
+    i_slint_backend_testing::init_no_event_loop();
+    use crate::{Compiler, Value};
+
+    let code = r#"
+        export component App inherits Window {
+            in-out property <int> counter: 40;
+            out property <int> doubled: root.counter * 2;
+            public function bump() { root.counter += 1; }
+        }
+    "#;
+
+    // The compiler itself is not Send, so the worker builds its own, just like
+    // `LiveReloadingComponent`'s compile worker does.
+    let worker = std::thread::spawn(move || {
+        let compiler = Compiler::default();
+        poll_ready(compiler.build_from_source(code.into(), Default::default()))
+    });
+    let result = worker.join().expect("compile worker panicked");
+
+    assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
+    let instance = result.component("App").unwrap().create().unwrap();
+    assert_eq!(instance.get_property("doubled").unwrap(), Value::Number(80.));
+
+    // Not just readable: the item tree built from the moved LLR is live.
+    instance.invoke("bump", &[]).unwrap();
+    assert_eq!(instance.get_property("doubled").unwrap(), Value::Number(82.));
+}
+
+/// The same result feeding two instances, since the LLR is shared behind an
+/// `Arc` rather than copied per instantiation.
+#[cfg(feature = "internal")]
+#[test]
+fn moved_compilation_result_instantiates_more_than_once() {
+    i_slint_backend_testing::init_no_event_loop();
+    use crate::{Compiler, Value};
+
+    let code = r#"
+        export component App inherits Window {
+            in-out property <int> value: 7;
+        }
+    "#;
+    let result = std::thread::spawn(move || {
+        let compiler = Compiler::default();
+        poll_ready(compiler.build_from_source(code.into(), Default::default()))
+    })
+    .join()
+    .expect("compile worker panicked");
+    assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
+
+    let definition = result.component("App").unwrap();
+    let first = definition.create().unwrap();
+    let second = definition.create().unwrap();
+
+    first.set_property("value", Value::Number(1.)).unwrap();
+    second.set_property("value", Value::Number(2.)).unwrap();
+    assert_eq!(first.get_property("value").unwrap(), Value::Number(1.));
+    assert_eq!(second.get_property("value").unwrap(), Value::Number(2.));
+}
+
+/// Poll a future that is expected to be immediately ready. The compiler is only
+/// asynchronous when an async file loader is set, which these tests don't use.
+#[cfg(feature = "internal")]
+fn poll_ready<F: std::future::Future>(future: F) -> F::Output {
+    let mut future = core::pin::pin!(future);
+    let mut cx = std::task::Context::from_waker(std::task::Waker::noop());
+    match std::future::Future::poll(future.as_mut(), &mut cx) {
+        std::task::Poll::Ready(result) => result,
+        std::task::Poll::Pending => unreachable!("Compiler returned Pending"),
+    }
+}

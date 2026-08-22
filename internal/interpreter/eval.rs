@@ -23,6 +23,7 @@ use smol_str::SmolStr;
 use std::collections::HashMap;
 use std::pin::Pin;
 use std::rc::{Rc, Weak};
+use std::sync::Arc;
 
 /// Dynamic context for one expression evaluation.
 pub struct EvalContext {
@@ -31,7 +32,7 @@ pub struct EvalContext {
     pub current: Option<Pin<Rc<SubComponentInstance>>>,
     /// The compilation unit, for type resolution even when `current` is
     /// `None` (global context).
-    pub compilation_unit: Rc<llr::CompilationUnit>,
+    pub compilation_unit: Arc<llr::CompilationUnit>,
     /// Shared global storage, used to resolve `MemberReference::Global`.
     pub globals: Weak<GlobalStorage>,
     /// Local variables introduced by `StoreLocalVariable`.
@@ -67,7 +68,7 @@ impl EvalContext {
     }
 
     /// Context rooted in a global. Only `MemberReference::Global` is valid.
-    pub fn for_global(globals: Weak<GlobalStorage>, cu: Rc<llr::CompilationUnit>) -> Self {
+    pub fn for_global(globals: Weak<GlobalStorage>, cu: Arc<llr::CompilationUnit>) -> Self {
         Self {
             current: None,
             compilation_unit: cu,

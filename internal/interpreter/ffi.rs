@@ -599,7 +599,7 @@ pub unsafe extern "C" fn slint_interpreter_component_instance_component_definiti
     component_definition_ptr: *mut ComponentDefinitionOpaque,
 ) {
     let comp = wrap_instance(inst);
-    let definition = ComponentDefinition { inner: std::rc::Rc::new(comp.definition()) };
+    let definition = ComponentDefinition { inner: std::sync::Arc::new(comp.definition()) };
     unsafe { std::ptr::write(component_definition_ptr as *mut ComponentDefinition, definition) };
 }
 

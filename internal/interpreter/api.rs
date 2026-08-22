@@ -1122,7 +1122,7 @@ fn compilation_result_from(result: crate::component::BuildResult) -> Compilation
     let components = result
         .components
         .into_iter()
-        .map(|(name, def)| (name, ComponentDefinition { inner: std::rc::Rc::new(def) }))
+        .map(|(name, def)| (name, ComponentDefinition { inner: std::sync::Arc::new(def) }))
         .collect::<HashMap<String, ComponentDefinition>>();
     CompilationResult {
         components,
@@ -1175,6 +1175,15 @@ pub struct CompilationResult {
     #[cfg(feature = "internal")]
     pub(crate) structs_and_enums: Vec<LangType>,
 }
+
+// A CompilationResult is meant to be produced on a background thread and moved
+// to the thread that instantiates the components, so it must be Send. The
+// compiled unit is shared through an `Arc` (the LLR is Send + Sync) and carries
+// no `Rc`-shared tooling state.
+const _: fn() = || {
+    fn assert_send<T: Send>() {}
+    assert_send::<CompilationResult>();
+};
 
 impl core::fmt::Debug for CompilationResult {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -1263,7 +1272,7 @@ impl CompilationResult {
 /// creating the instances it is safe to drop the ComponentDefinition.
 #[derive(Clone)]
 pub struct ComponentDefinition {
-    pub(crate) inner: std::rc::Rc<crate::component::ComponentDefinitionInner>,
+    pub(crate) inner: std::sync::Arc<crate::component::ComponentDefinitionInner>,
 }
 
 impl ComponentDefinition {
@@ -1519,7 +1528,7 @@ pub struct ComponentInstance {
 impl ComponentInstance {
     /// Return the [`ComponentDefinition`] that was used to create this instance.
     pub fn definition(&self) -> ComponentDefinition {
-        ComponentDefinition { inner: std::rc::Rc::new(self.inner.definition()) }
+        ComponentDefinition { inner: std::sync::Arc::new(self.inner.definition()) }
     }
 
     fn is_system_tray_rooted(&self) -> bool {

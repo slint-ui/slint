@@ -16,7 +16,7 @@ use i_slint_compiler::object_tree::PropertyVisibility;
 use i_slint_compiler::parser::normalize_identifier;
 use i_slint_core::item_tree::ItemTreeVTable;
 use smol_str::SmolStr;
-use std::rc::Rc;
+use std::sync::Arc;
 use vtable::VRc;
 
 /// Pair of `TypeLoader`s retained alongside a compiled component for
@@ -74,7 +74,7 @@ impl TypeLoaders {
 /// [`crate::api::ComponentDefinition`].
 #[derive(Clone)]
 pub struct ComponentDefinitionInner {
-    pub compilation_unit: Rc<CompilationUnit>,
+    pub compilation_unit: Arc<CompilationUnit>,
     pub public_index: usize,
 }
 
@@ -342,7 +342,7 @@ pub fn build_from_document(
     if matches!(animation_mode, AnimationMode::Static) {
         make_static(&mut unit);
     }
-    let unit = Rc::new(unit);
+    let unit = Arc::new(unit);
     (0..unit.public_components.len())
         .map(|public_index| ComponentDefinitionInner {
             compilation_unit: unit.clone(),
