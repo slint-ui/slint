@@ -316,7 +316,11 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
                     // The latter case should be treated as a shortcut, the former should not.
                     let text_without_modifiers =
                         to_slint_key(&event, &event.key_without_modifiers());
-                    if text.is_empty() && !text_without_modifiers.is_empty() {
+                    // Skip the fallback for dead keys so the accent composes instead of being inserted.
+                    if text.is_empty()
+                        && !text_without_modifiers.is_empty()
+                        && !matches!(event.logical_key, winit::keyboard::Key::Dead(_))
+                    {
                         text = text_without_modifiers.clone();
                     }
                     text_without_modifiers
