@@ -78,7 +78,9 @@ impl CachedRenderingData {
 /// After rendering an item, we cache the geometry and the transform it applies to
 /// children.
 ///
-/// `sibling_index` (the item's rank among its z-ordered siblings last frame) is a `u16` stored
+/// `sibling_index` (the item's rank among all its z-ordered siblings when it was last
+/// visited; compared in `compute_dirty_regions` against the rank counted over the items
+/// that already had a cache entry, so appearing siblings don't shift it) is a `u16` stored
 /// in each variant, so it fits the enum's padding without growing the cache entry on 32- or
 /// 64-bit. It is excluded from geometry comparisons.
 #[derive(Clone)]
@@ -425,9 +427,15 @@ impl<'a, T: ItemRenderer + ItemRendererFeatures> PartialRenderer<'a, T> {
             depth: usize,
         }
 
-        // One counter per tree depth to give each item its rank among its z-ordered siblings;
-        // a rank that changed since last frame means the stacking order changed.
-        let sibling_counters = RefCell::new(alloc::vec::Vec::<u16>::new());
+        // Two counters per tree depth to give each item its rank among its z-ordered siblings.
+        // `.0` counts every visited item and is what gets stored in the cache entry; `.1`
+        // counts only the items that already have a cache entry and is what the stored rank
+        // is compared against. New items are skipped in the comparison rank so that an
+        // appearing sibling does not shift the ranks of the existing items (their overlap
+        // with the new sibling is covered by the new item's own dirty rect), while two
+        // existing items can never trade places without at least one comparison rank
+        // changing.
+        let sibling_counters = RefCell::new(alloc::vec::Vec::<(u16, u16)>::new());
 
         impl ComputeDirtyRegionState {
             /// Adjust transform_to_screen and old_transform_to_screen to map from item coordinates
@@ -454,11 +462,11 @@ impl<'a, T: ItemRenderer + ItemRendererFeatures> PartialRenderer<'a, T> {
                     let depth = state.depth;
                     let mut counters = sibling_counters.borrow_mut();
                     if counters.len() <= depth + 1 {
-                        counters.resize(depth + 2, 0);
+                        counters.resize(depth + 2, (0, 0));
                     }
-                    counters[depth + 1] = 0; // this item's children restart at zero
-                    let idx = counters[depth];
-                    counters[depth] = idx.saturating_add(1);
+                    counters[depth + 1] = (0, 0); // this item's children restart at zero
+                    let idx = counters[depth].0;
+                    counters[depth].0 = idx.saturating_add(1);
                     idx
                 };
                 new_state.depth = state.depth + 1;
@@ -475,14 +483,23 @@ impl<'a, T: ItemRenderer + ItemRendererFeatures> PartialRenderer<'a, T> {
                     Some(PartialRenderingCachedData { data: cached_geom, tracker }) => {
                         let rendering_dirty = tracker.as_ref().is_some_and(|tr| tr.is_dirty());
 
-                        // Only repaint when the rank decreased. When two items swap it is
-                        // enough to repaint one of them since the overlap is within both, and
-                        // this way adding a sibling (which only shifts following ranks up)
-                        // never repaints them. A saturated rank (>65535 siblings) always repaints.
+                        // Repaint when the rank among the previously known siblings changed,
+                        // in either direction: two items cannot trade places in the stacking
+                        // order with both comparison ranks unchanged, and since an overlap is
+                        // within both items' rects, repainting the changed one(s) covers it.
+                        // Only a decrease is not enough: in a permutation of three or more
+                        // items a pair can flip while one member keeps its rank and the other
+                        // only rises. A saturated rank (>65535 siblings) always repaints.
+                        let comparison_sibling_index = {
+                            let mut counters = sibling_counters.borrow_mut();
+                            let idx = counters[state.depth].1;
+                            counters[state.depth].1 = idx.saturating_add(1);
+                            idx
+                        };
                         let old_sibling_index =
                             core::mem::replace(cached_geom.sibling_index(), my_sibling_index);
-                        let sibling_index_changed =
-                            my_sibling_index == u16::MAX || my_sibling_index < old_sibling_index;
+                        let sibling_index_changed = my_sibling_index == u16::MAX
+                            || comparison_sibling_index != old_sibling_index;
                         new_state.must_refresh_children |= sibling_index_changed;
 
                         let geometry_changed = !cached_geom.same_geometry(&new_geom);

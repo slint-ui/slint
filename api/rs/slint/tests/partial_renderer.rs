@@ -804,6 +804,86 @@ fn dynamic_z_order_repeater() {
 }
 
 #[test]
+/// Reversing the z order of three siblings in one frame must repaint the overlap of
+/// every pair whose relative order flipped — including a pair where neither member's
+/// rank *decreased*: here B keeps its middle rank and A only rises, yet A slides on
+/// top of B, so the A∩B overlap must be repainted (via A's rect).
+fn dynamic_z_order_reversal() {
+    slint::slint! {
+        export component Ui inherits Window {
+            in property <bool> rev: false;
+            background: black;
+            // A and B overlap each other; C is far away from both.
+            Rectangle { x: 10phx; y: 10phx; width: 30phx; height: 30phx; background: red; z: rev ? 30 : 10; } // A
+            Rectangle { x: 25phx; y: 25phx; width: 30phx; height: 30phx; background: blue; z: 20; } // B
+            Rectangle { x: 150phx; y: 150phx; width: 30phx; height: 30phx; background: green; z: rev ? 10 : 30; } // C
+        }
+    }
+
+    slint::platform::set_platform(Box::new(TestPlatform)).ok();
+    let ui = Ui::new().unwrap();
+    let window = WINDOW.with(|x| x.clone());
+    window.set_size(slint::PhysicalSize::new(300, 300));
+    ui.show().unwrap();
+    assert!(window.draw_if_needed(|renderer| {
+        do_test_render_region(renderer, 0, 0, 300, 300);
+    }));
+    assert!(!window.draw_if_needed(|_| { unreachable!() }));
+
+    // Reverse the stacking order: A (rank 0→2) and C (rank 2→0) change rank, B stays
+    // at rank 1. The dirty region is A ∪ C, which covers both flipped overlaps
+    // (A∩B is within A, B∩C within C).
+    ui.set_rev(true);
+    assert!(window.draw_if_needed(|renderer| {
+        do_test_render_region(renderer, 10, 10, 180, 180);
+    }));
+    assert!(!window.draw_if_needed(|_| { unreachable!() }));
+
+    // And back.
+    ui.set_rev(false);
+    assert!(window.draw_if_needed(|renderer| {
+        do_test_render_region(renderer, 10, 10, 180, 180);
+    }));
+    assert!(!window.draw_if_needed(|_| { unreachable!() }));
+}
+
+#[test]
+/// A sibling appearing in the same frame as a z swap must not mask the swap: the
+/// conditional element enters the stacking order below everything, shifting the
+/// following ranks up, so the demoted rectangle's rank does not decrease — but the
+/// overlap of the swapped pair must still be repainted.
+fn dynamic_z_order_swap_with_appearing_sibling() {
+    slint::slint! {
+        export component Ui inherits Window {
+            in property <bool> front: false;
+            background: black;
+            // Appears below everything, away from the overlapping pair.
+            if front: Rectangle { x: 140phx; y: 140phx; width: 8phx; height: 8phx; background: green; z: -1; }
+            Rectangle { x: 20phx; y: 20phx; width: 30phx; height: 30phx; background: red; z: front ? 0 : 10; }
+            Rectangle { x: 20phx; y: 20phx; width: 30phx; height: 30phx; background: blue; z: 5; }
+        }
+    }
+
+    slint::platform::set_platform(Box::new(TestPlatform)).ok();
+    let ui = Ui::new().unwrap();
+    let window = WINDOW.with(|x| x.clone());
+    window.set_size(slint::PhysicalSize::new(200, 200));
+    ui.show().unwrap();
+    assert!(window.draw_if_needed(|renderer| {
+        do_test_render_region(renderer, 0, 0, 200, 200);
+    }));
+    assert!(!window.draw_if_needed(|_| { unreachable!() }));
+
+    // One property flip shows the green rectangle and swaps red below blue.
+    // The dirty region is the swapped pair's rect plus the appearing rectangle.
+    ui.set_front(true);
+    assert!(window.draw_if_needed(|renderer| {
+        do_test_render_region(renderer, 20, 20, 148, 148);
+    }));
+    assert!(!window.draw_if_needed(|_| { unreachable!() }));
+}
+
+#[test]
 fn shadow_redraw_beyond_geometry() {
     slint::slint! {
         export component Ui inherits Window {
