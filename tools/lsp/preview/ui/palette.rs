@@ -615,6 +615,7 @@ export component Main { }
                 ),
                 pending_recompile: Default::default(),
                 host_language_rename_dont_ask_again: Default::default(),
+                enable_rust_formatting: true,
             };
             let (url, _) = crate::language::test::load(
                 &mut ctx,

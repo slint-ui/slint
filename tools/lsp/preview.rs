@@ -2056,6 +2056,7 @@ fn update_preview_area(
                                 open_import_callback.clone(),
                                 source_file_versions.clone(),
                                 format,
+                                true,
                             ),
                         )));
                     }

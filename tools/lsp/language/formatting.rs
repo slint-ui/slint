@@ -39,6 +39,9 @@ pub fn format_document(
     params: DocumentFormattingParams,
     document_cache: &DocumentCache,
 ) -> Option<Vec<TextEdit>> {
+    if !document_cache.enable_rust_formatting && params.text_document.uri.path().ends_with(".rs") {
+        return Some(vec![]);
+    }
     let doc = document_cache.get_document(&params.text_document.uri)?;
     let doc = doc.node.as_ref()?;
 
@@ -131,6 +134,61 @@ mod tests {
         assert_eq!(edits.len(), expected.len());
         for (actual, expected) in edits.iter().zip(expected.iter()) {
             assert_eq!(actual, expected);
+        }
+    }
+
+    #[test]
+    fn test_formatting_rust_toggle() {
+        // .rs with slint! should be formatted when enabled, empty when disabled
+        // .slint should always be formatted regardless of toggle
+        let rs_unformatted = "slint!{component Foo inherits Text { nope := Rectangle {} }}";
+        let slint_unformatted =
+            "component Bar inherits Text { nope := Rectangle {} property <string> red; }";
+
+        // Rust enabled (default) -> non-empty edits for .rs
+        {
+            let (dc, uri, _) = crate::language::test::loaded_document_cache_with_file_name(
+                rs_unformatted.into(),
+                "main.rs",
+            );
+            assert!(dc.enable_rust_formatting);
+            let params = lsp_types::DocumentFormattingParams {
+                text_document: lsp_types::TextDocumentIdentifier { uri },
+                options: lsp_types::FormattingOptions::default(),
+                work_done_progress_params: lsp_types::WorkDoneProgressParams::default(),
+            };
+            let edits = format_document(params, &dc).unwrap();
+            assert!(!edits.is_empty(), "rust formatting should produce edits when enabled");
+        }
+
+        // Rust disabled -> empty edits for .rs
+        {
+            let (mut dc, uri, _) = crate::language::test::loaded_document_cache_with_file_name(
+                rs_unformatted.into(),
+                "main.rs",
+            );
+            dc.enable_rust_formatting = false;
+            let params = lsp_types::DocumentFormattingParams {
+                text_document: lsp_types::TextDocumentIdentifier { uri },
+                options: lsp_types::FormattingOptions::default(),
+                work_done_progress_params: lsp_types::WorkDoneProgressParams::default(),
+            };
+            let edits = format_document(params, &dc).unwrap();
+            assert!(edits.is_empty(), "rust formatting should be empty when disabled");
+        }
+
+        // .slint always formatted even when rust disabled
+        {
+            let (mut dc, uri, _) =
+                crate::language::test::loaded_document_cache(slint_unformatted.into());
+            dc.enable_rust_formatting = false;
+            let params = lsp_types::DocumentFormattingParams {
+                text_document: lsp_types::TextDocumentIdentifier { uri },
+                options: lsp_types::FormattingOptions::default(),
+                work_done_progress_params: lsp_types::WorkDoneProgressParams::default(),
+            };
+            let edits = format_document(params, &dc).unwrap();
+            assert!(!edits.is_empty(), ".slint should still be formatted when rust disabled");
         }
     }
 }

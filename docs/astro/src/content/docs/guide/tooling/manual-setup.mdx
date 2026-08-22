@@ -89,6 +89,19 @@ All other files are left untouched.
 
 If you have `slint-lsp` configured in your editor, you should be able to format .slint files via your editor as well.
 
+### Disabling Rust formatting
+
+By default `slint-lsp` also formats the `slint!` macro inside Rust files.
+To let `rust-analyzer` handle all Rust formatting and only format `.slint` files with Slint, set `slint.rust.formatting` to `false`:
+
+- **VS Code:** `settings.json` → `"slint.rust.formatting": false`
+- **Zed:** `.zed/settings.json` → `{ "lsp": { "slint": { "settings": { "rust": { "formatting": false } } } } }`
+- **Helix:** `languages.toml` → `[language-server.slint.config.slint.rust]` / `formatting = false`
+- **Neovim:** `settings = { slint = { rust = { formatting = false } } }`
+
+When disabled, Slint returns no formatting edits for `.rs` files.
+In VS Code it also no longer appears as a Rust formatter.
+
 ## Slint Live Preview (`slint-viewer`)
 
 Slint's live preview feature lets you see your code changes in real-time.

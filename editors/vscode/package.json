@@ -167,6 +167,12 @@
           "type": "string",
           "default": "",
           "description": "The path to the slint-lsp. Leave empty to use the packaged LSP"
+        },
+        "slint.rust.formatting": {
+          "type": "boolean",
+          "default": true,
+          "scope": "resource",
+          "description": "Enable Slint formatting for Rust files (the `slint!` macro). When disabled, the Slint language server will not format `.rs` files and will not appear as a Rust formatter. Only `.slint` files are formatted."
         }
       }
     },
