@@ -7339,6 +7339,7 @@ dependencies = [
  "const-field-offset",
  "document-features",
  "i-slint-backend-android-activity",
+ "i-slint-backend-linuxkms",
  "i-slint-backend-qt",
  "i-slint-backend-selector",
  "i-slint-backend-testing",
@@ -7437,6 +7438,7 @@ version = "1.18.0"
 dependencies = [
  "derive_more",
  "document-features",
+ "i-slint-backend-linuxkms",
  "i-slint-backend-qt",
  "i-slint-backend-selector",
  "i-slint-backend-testing",
