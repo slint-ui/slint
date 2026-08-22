@@ -5043,14 +5043,8 @@ fn compile_builtin_function_call(
             let access_entries = access_member(entries_r, ctx).unwrap();
             let access_sub_menu = access_member(sub_menu_r, ctx).unwrap();
             let access_activated = access_member(activated_r, ctx).unwrap();
-            if *no_native {
-                format!(r"{{
-                    auto item_tree = {item_tree_id}::create(self);
-                    auto item_tree_dyn = item_tree.into_dyn();
-                    auto menu_wrapper = slint::private_api::create_menu_wrapper(item_tree_dyn);
-                    slint::private_api::slint_windowrc_setup_menu_bar_shortcuts(&{window}.handle(), &menu_wrapper);
-                    slint::private_api::setup_popup_menu_from_menu_item_tree(menu_wrapper, {access_entries}, {access_sub_menu}, {access_activated});
-                }}")
+            let menu_wrapper = if *no_native {
+                "slint::private_api::create_menu_wrapper(item_tree_dyn)".into()
             } else {
                 let compile_prop = |prop_expr: &llr::Expression| {
                     let binding = compile_expression(prop_expr, ctx);
@@ -5060,23 +5054,17 @@ fn compile_builtin_function_call(
                                 return {binding};
                             }}")
                 };
-
                 let condition = compile_prop(condition);
                 let visible = compile_prop(visible);
+                format!("slint::private_api::create_menu_wrapper(item_tree_dyn, {condition}, {visible})")
+            };
 
-                format!(r"{{
+            format!(r"{{
                     auto item_tree = {item_tree_id}::create(self);
                     auto item_tree_dyn = item_tree.into_dyn();
-                    auto menu_wrapper = slint::private_api::create_menu_wrapper(item_tree_dyn, {condition}, {visible});
-                    slint::private_api::slint_windowrc_setup_menu_bar_shortcuts(&{window}.handle(), &menu_wrapper);
-                    if ({window}.supports_native_menu_bar()) {{
-                        slint::cbindgen_private::slint_windowrc_setup_native_menu_bar(&{window}.handle(), &menu_wrapper);
-                    }}
-                    // These handlers keep the menu item tree alive on the component; the native menu
-                    // bar holds only a weak reference to it.
-                    slint::private_api::setup_popup_menu_from_menu_item_tree(menu_wrapper, {access_entries}, {access_sub_menu}, {access_activated});
+                    auto menu_wrapper = {menu_wrapper};
+                    slint::private_api::setup_menu_bar_from_menu_item_tree(&{window}.handle(), {no_native}, menu_wrapper, {access_entries}, {access_sub_menu}, {access_activated});
                 }}")
-            }
         }
         BuiltinFunction::SetupSystemTrayIcon => {
             let [
