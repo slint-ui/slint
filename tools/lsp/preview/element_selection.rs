@@ -22,10 +22,12 @@ pub struct ElementSelection {
 
 impl ElementSelection {
     pub fn as_element(&self) -> Option<ElementRc> {
-        let component_instance = super::component_instance()?;
-
-        let elements =
-            component_instance.element_node_at_source_code_position(&self.path, self.offset.into());
+        let type_loader = super::current_type_loader()?;
+        let elements = slint_interpreter::element_node_at_source_code_position(
+            &type_loader,
+            &self.path,
+            self.offset.into(),
+        );
         elements.get(self.instance_index).or_else(|| elements.first()).map(|(e, _)| e.clone())
     }
 
@@ -118,7 +120,9 @@ fn select_element_at_source_code_position_impl(
     position: Option<LogicalPoint>,
     editor_notification: SelectionNotification,
 ) {
-    let positions = component_instance.component_positions(&path, offset.into());
+    let positions = super::current_type_loader()
+        .map(|tl| component_instance.component_positions(&tl, &path, offset.into()))
+        .unwrap_or_default();
 
     let instance_index = position
         .and_then(|p| positions.iter().enumerate().find_map(|(i, g)| g.contains(p).then_some(i)))
@@ -137,6 +141,9 @@ pub fn highlight_positions(
     let Some(component_instance) = super::component_instance() else {
         return Default::default();
     };
+    let Some(type_loader) = super::current_type_loader() else {
+        return Default::default();
+    };
 
     let Some(path) = crate::Url::parse(source_uri.as_str())
         .ok()
@@ -145,7 +152,7 @@ pub fn highlight_positions(
         return Default::default();
     };
     let offset = TextSize::new(offset as u32);
-    let positions = component_instance.component_positions(&path, offset.into());
+    let positions = component_instance.component_positions(&type_loader, &path, offset.into());
     let model = slint::VecModel::from_iter(positions.iter().map(|g| ui::SelectionRectangle {
         width: g.rect.size.width,
         height: g.rect.size.height,
@@ -181,7 +188,10 @@ fn select_element_node(
 
 // Return the real root element, skipping the WindowElement that might got added
 pub fn root_element(component_instance: &ComponentInstance) -> ElementRc {
-    let root_element = component_instance.definition().root_component().root_element.clone();
+    let root_component =
+        super::current_root_component(component_instance.definition().public_index())
+            .expect("root_element called without an active preview");
+    let root_element = root_component.root_element.clone();
     if root_element.borrow().debug.is_empty() {
         // The root element has no debug set if it is a window inserted by the compiler.
         // That window will have one child -- the "real root", but it might

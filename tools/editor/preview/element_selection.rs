@@ -25,10 +25,12 @@ pub struct ElementSelection {
 
 impl ElementSelection {
     pub fn as_element(&self) -> Option<ElementRc> {
-        let component_instance = super::component_instance()?;
-
-        let elements =
-            component_instance.element_node_at_source_code_position(&self.path, self.offset.into());
+        let type_loader = super::current_type_loader()?;
+        let elements = slint_interpreter::element_node_at_source_code_position(
+            &type_loader,
+            &self.path,
+            self.offset.into(),
+        );
         elements.get(self.instance_index).or_else(|| elements.first()).map(|(e, _)| e.clone())
     }
 
@@ -122,7 +124,9 @@ fn select_element_at_source_code_position_impl(
     position: Option<LogicalPoint>,
     editor_notification: SelectionNotification,
 ) {
-    let positions = component_instance.component_positions(&path, offset.into());
+    let positions = super::current_type_loader()
+        .map(|tl| component_instance.component_positions(&tl, &path, offset.into()))
+        .unwrap_or_default();
 
     let instance_index = position
         .and_then(|p| positions.iter().enumerate().find_map(|(i, g)| g.contains(p).then_some(i)))
@@ -141,8 +145,11 @@ pub fn restore_selection(
     let Some(component_instance) = super::component_instance() else {
         return;
     };
+    let Some(type_loader) = super::current_type_loader() else {
+        return;
+    };
     if component_instance
-        .component_positions(&selection.path, selection.offset.into())
+        .component_positions(&type_loader, &selection.path, selection.offset.into())
         .get(selection.instance_index)
         .is_none()
     {
@@ -216,8 +223,11 @@ fn selection_rectangles(
     path: &Path,
     offset: u32,
 ) -> Vec<ui::SelectionRectangle> {
+    let Some(type_loader) = super::current_type_loader() else {
+        return Vec::new();
+    };
     component_instance
-        .component_positions(path, offset)
+        .component_positions(&type_loader, path, offset)
         .iter()
         .map(|geometry| ui::SelectionRectangle {
             width: geometry.rect.size.width,
@@ -271,7 +281,10 @@ fn select_element_node(
 
 // Return the real root element, skipping the WindowElement that might got added
 pub fn root_element(component_instance: &ComponentInstance) -> ElementRc {
-    let root_element = component_instance.definition().root_component().root_element.clone();
+    let root_component =
+        super::current_root_component(component_instance.definition().public_index())
+            .expect("root_element called without an active preview");
+    let root_element = root_component.root_element.clone();
     if root_element.borrow().debug.is_empty() {
         // The root element has no debug set if it is a window inserted by the compiler.
         // That window will have one child -- the "real root", but it might
@@ -463,10 +476,12 @@ fn hovered_element_at_impl(
             && selection.instance_index == candidate.instance_index
     });
     let is_over_selected_element = selected.is_some_and(|selection| {
-        component_instance
-            .component_positions(&selection.path, selection.offset.into())
-            .get(selection.instance_index)
-            .is_some_and(|geometry| geometry.contains(position))
+        super::current_type_loader().is_some_and(|type_loader| {
+            component_instance
+                .component_positions(&type_loader, &selection.path, selection.offset.into())
+                .get(selection.instance_index)
+                .is_some_and(|geometry| geometry.contains(position))
+        })
     });
 
     ui::HoveredElement {

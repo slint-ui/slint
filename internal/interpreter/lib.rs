@@ -108,5 +108,12 @@ pub use api::*;
 #[doc(hidden)]
 pub use eval::{default_value_for_struct_field, default_value_for_type};
 
+/// Compiler state (type loaders + source object-tree roots) that tooling
+/// retains alongside a compilation, returned by
+/// [`Compiler::build_from_source_with_type_loaders`].
+#[cfg(feature = "internal-highlight")]
+#[doc(hidden)]
+pub use component::TypeLoaders;
+
 #[cfg(test)]
 mod tests;

@@ -480,9 +480,7 @@ pub mod cpp_ast {
 
 use crate::CompilerConfiguration;
 use crate::expression_tree::{BuiltinFunction, EasingCurve, MinMaxOp};
-use crate::langtype::{
-    BuiltinStruct, Enumeration, EnumerationValue, StructName, Type,
-};
+use crate::langtype::{BuiltinStruct, Enumeration, EnumerationValue, StructName, Type};
 use crate::layout::Orientation;
 use crate::llr::lower_expression::lower_constant_expression;
 use crate::llr::lower_layout_expression::{

@@ -35,16 +35,19 @@ pub(crate) mod tests {
     use i_slint_core::{Property, graphics::ApproxEq};
     use std::{cell::RefCell, collections::HashMap, path::PathBuf, pin::Pin, rc::Rc};
 
-    pub fn compile_with_debug_hooks(code: &str) -> ComponentInstance {
+    pub fn compile_with_debug_hooks(
+        code: &str,
+    ) -> (ComponentInstance, std::rc::Rc<i_slint_compiler::typeloader::TypeLoader>) {
         i_slint_backend_testing::init_no_event_loop();
 
         let mut compiler = Compiler::default();
         compiler.compiler_configuration(i_slint_core::InternalToken).debug_hooks =
             Some(std::hash::RandomState::new());
-        let compile_result =
-            spin_on::spin_on(compiler.build_from_source(code.to_string(), test_path()));
+        let (compile_result, type_loaders) = spin_on::spin_on(
+            compiler.build_from_source_with_type_loaders(code.to_string(), test_path()),
+        );
         assert!(!compile_result.has_errors(), "{:?}", compile_result.diagnostics);
-        compile_result.components().next().unwrap().create().unwrap()
+        (compile_result.components().next().unwrap().create().unwrap(), type_loaders.type_loader())
     }
 
     fn install_debug_hook_store(instance: &ComponentInstance) -> Store {
@@ -73,16 +76,16 @@ pub(crate) mod tests {
     }
 
     fn find_element(
-        instance: &ComponentInstance,
+        type_loader: &i_slint_compiler::typeloader::TypeLoader,
         code: &str,
         search_term: &str,
     ) -> (Rc<RefCell<Element>>, u64) {
         let offset = code.find(search_term).unwrap() as u32;
-        let (element, debug_index) = instance
-            .element_node_at_source_code_position(&test_path(), offset)
-            .first()
-            .cloned()
-            .expect("element resolved");
+        let (element, debug_index) =
+            crate::element_node_at_source_code_position(type_loader, &test_path(), offset)
+                .first()
+                .cloned()
+                .expect("element resolved");
         let element_hash = element.borrow().debug[debug_index].element_hash;
         assert_ne!(element_hash, 0, "debug_hooks should populate element_hash");
         (element, element_hash)
@@ -110,9 +113,9 @@ export component Win inherits Window {
     }
 }"#;
 
-        let instance = compile_with_debug_hooks(code);
+        let (instance, type_loader) = compile_with_debug_hooks(code);
 
-        let (element, element_hash) = find_element(&instance, code, "Rectangle");
+        let (element, element_hash) = find_element(&type_loader, code, "Rectangle");
 
         let store = install_debug_hook_store(&instance);
 
@@ -155,7 +158,7 @@ export component Win inherits Window {
     for _idx in 2: Sub { width: 10px; height: 10px; }
     out property <brush> sub-background: sub.background;
 }"#;
-        let instance = compile_with_debug_hooks(code);
+        let (instance, type_loader) = compile_with_debug_hooks(code);
 
         let store = install_debug_hook_store(&instance);
 
@@ -164,7 +167,7 @@ export component Win inherits Window {
         )));
         assert_eq!(instance.get_property("sub-background").unwrap(), blue);
 
-        let (element, element_hash) = find_element(&instance, code, "Sub {");
+        let (element, element_hash) = find_element(&type_loader, code, "Sub {");
 
         let red = Value::Brush(i_slint_core::Brush::SolidColor(i_slint_core::Color::from_rgb_u8(
             255, 0, 0,
@@ -218,9 +221,9 @@ export component Win inherits Window {
     out property <length> first-value: first.inherited-value;
     out property <length> second-value: second.inherited-value;
 }"#;
-        let instance = compile_with_debug_hooks(code);
+        let (instance, type_loader) = compile_with_debug_hooks(code);
         let store = install_debug_hook_store(&instance);
-        let (_, first_hash) = find_element(&instance, code, "Sub { seed: root.first-seed");
+        let (_, first_hash) = find_element(&type_loader, code, "Sub { seed: root.first-seed");
 
         assert_eq!(instance.get_property("first-value").unwrap(), Value::Number(10.0));
         assert_eq!(instance.get_property("second-value").unwrap(), Value::Number(20.0));
@@ -301,7 +304,7 @@ export component Win inherits Window {
     }
 }"#;
 
-        let instance = compile_with_debug_hooks(code);
+        let (instance, _) = compile_with_debug_hooks(code);
 
         // Showing the popups instantiates the popup components (their bindings are only set up then).
         instance.invoke("show-the-popups", &[]).unwrap();
@@ -328,17 +331,23 @@ export component Win inherits Window {
                 compiler.compiler_configuration(i_slint_core::InternalToken).debug_hooks =
                     Some(std::hash::RandomState::new());
             }
-            let r = spin_on::spin_on(compiler.build_from_source(code.to_string(), test_path()));
+            let (r, type_loaders) = spin_on::spin_on(
+                compiler.build_from_source_with_type_loaders(code.to_string(), test_path()),
+            );
             assert!(!r.has_errors(), "{:?}", r.diagnostics);
             let instance = r.components().next().unwrap().create().unwrap();
+            let type_loader = type_loaders.type_loader();
             [code.find("Rectangle").unwrap(), code.find("Text").unwrap()]
                 .into_iter()
                 .map(|off| {
-                    let (elem, _) = instance
-                        .element_node_at_source_code_position(&test_path(), off as u32)
-                        .first()
-                        .cloned()
-                        .expect("element");
+                    let (elem, _) = crate::element_node_at_source_code_position(
+                        &type_loader,
+                        &test_path(),
+                        off as u32,
+                    )
+                    .first()
+                    .cloned()
+                    .expect("element");
                     let g = instance.element_positions(&elem).first().expect("geometry").rect;
                     (g.origin.x, g.origin.y, g.size.width, g.size.height)
                 })

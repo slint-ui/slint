@@ -28,11 +28,12 @@ use vtable::VRc;
 /// the LSP hands to `common::DocumentCache::new_from_raw_parts` so its
 /// panels see the tree as the user wrote it. Neither can be derived from
 /// the other; passes are destructive.
+#[cfg(feature = "internal-highlight")]
 #[derive(Clone, Default)]
 pub struct TypeLoaders {
-    #[cfg_attr(not(any(feature = "internal", feature = "internal-highlight")), allow(dead_code))]
+    /// The post-pass state: the compiler's lowered object tree.
     pub type_loader: Option<std::rc::Rc<i_slint_compiler::typeloader::TypeLoader>>,
-    #[cfg_attr(not(feature = "internal-highlight"), allow(dead_code))]
+    /// A snapshot taken before most passes ran, for `DocumentCache` reconstruction.
     pub raw_type_loader: Option<std::rc::Rc<i_slint_compiler::typeloader::TypeLoader>>,
     /// The object-tree component of each public component, indexed like
     /// `CompilationUnit::public_components`. Highlighting and the LSP
@@ -42,6 +43,32 @@ pub struct TypeLoaders {
     pub originals: std::rc::Rc<[std::rc::Rc<i_slint_compiler::object_tree::Component>]>,
 }
 
+#[cfg(feature = "internal-highlight")]
+impl TypeLoaders {
+    /// The post-pass `TypeLoader`. Panics if it wasn't retained — only the
+    /// tooling build path (`Compiler::*_with_type_loaders`) keeps it.
+    pub fn type_loader(&self) -> std::rc::Rc<i_slint_compiler::typeloader::TypeLoader> {
+        self.type_loader.clone().expect("TypeLoader was not retained for this compilation")
+    }
+
+    /// A deep copy of the pre-pass `TypeLoader`, if one was retained.
+    /// Expensive: it snapshots the entire connected state.
+    pub fn raw_type_loader(&self) -> Option<i_slint_compiler::typeloader::TypeLoader> {
+        self.raw_type_loader.as_ref().and_then(|tl| i_slint_compiler::typeloader::snapshot(tl))
+    }
+
+    /// The source object-tree root of the public component at `public_index`.
+    pub fn root_component(
+        &self,
+        public_index: usize,
+    ) -> std::rc::Rc<i_slint_compiler::object_tree::Component> {
+        self.originals
+            .get(public_index)
+            .expect("root_component() called on state built without compiler info")
+            .clone()
+    }
+}
+
 /// Compiled component, one per exported public component in the
 /// source file. Produced by [`build_from_source`] and held behind
 /// [`crate::api::ComponentDefinition`].
@@ -49,9 +76,6 @@ pub struct TypeLoaders {
 pub struct ComponentDefinitionInner {
     pub compilation_unit: Rc<CompilationUnit>,
     pub public_index: usize,
-    /// `None` on both sides when the definition comes from a running
-    /// instance without `TypeLoader` references.
-    pub type_loaders: TypeLoaders,
 }
 
 impl ComponentDefinitionInner {
@@ -61,12 +85,7 @@ impl ComponentDefinitionInner {
 
     /// Instantiate the component.
     pub fn create(&self) -> ComponentInstanceInner {
-        let vrc = Instance::new_with_window(
-            self.compilation_unit.clone(),
-            self.public_index,
-            None,
-            self.type_loaders.clone(),
-        );
+        let vrc = Instance::new_with_window(self.compilation_unit.clone(), self.public_index, None);
         ComponentInstanceInner(vrc)
     }
 
@@ -80,7 +99,6 @@ impl ComponentDefinitionInner {
             self.compilation_unit.clone(),
             self.public_index,
             Some(window_adapter),
-            self.type_loaders.clone(),
         );
         ComponentInstanceInner(vrc)
     }
@@ -97,7 +115,6 @@ impl ComponentDefinitionInner {
         let vrc = Instance::new_embedded(
             self.compilation_unit.clone(),
             self.public_index,
-            self.type_loaders.clone(),
             parent,
             parent_item_tree_index,
         );
@@ -309,7 +326,6 @@ impl ComponentInstanceInner {
         ComponentDefinitionInner {
             compilation_unit: self.0.root_sub_component.compilation_unit.clone(),
             public_index,
-            type_loaders: self.0.type_loaders.clone(),
         }
     }
 }
@@ -319,7 +335,6 @@ impl ComponentInstanceInner {
 pub fn build_from_document(
     document: &i_slint_compiler::object_tree::Document,
     compiler_config: &i_slint_compiler::CompilerConfiguration,
-    mut type_loaders: TypeLoaders,
     animation_mode: AnimationMode,
 ) -> Vec<ComponentDefinitionInner> {
     let mut unit =
@@ -328,14 +343,10 @@ pub fn build_from_document(
         make_static(&mut unit);
     }
     let unit = Rc::new(unit);
-    // `lower_to_item_tree` builds `public_components` from `exported_roots()`
-    // in iteration order, so the indices line up.
-    type_loaders.originals = document.exported_roots().collect();
     (0..unit.public_components.len())
         .map(|public_index| ComponentDefinitionInner {
             compilation_unit: unit.clone(),
             public_index,
-            type_loaders: type_loaders.clone(),
         })
         .collect()
 }
@@ -385,6 +396,11 @@ pub struct BuildResult {
     pub watch_paths: Vec<std::path::PathBuf>,
     #[cfg(feature = "internal")]
     pub structs_and_enums: Vec<LangType>,
+    /// Compiler state (type loaders + source object-tree roots) retained for
+    /// tooling, such as LSP highlighting and code generation. It is not needed
+    /// to instantiate, so the public build path drops it.
+    #[cfg(feature = "internal-highlight")]
+    pub type_loaders: TypeLoaders,
 }
 
 /// Compile a `.slint` source string.
@@ -452,6 +468,8 @@ pub async fn build_from_source(
         watch_paths: Vec::new(),
         #[cfg(feature = "internal")]
         structs_and_enums: Vec::new(),
+        #[cfg(feature = "internal-highlight")]
+        type_loaders: TypeLoaders::default(),
     };
     if diag.has_errors() {
         return BuildResult {
@@ -461,11 +479,8 @@ pub async fn build_from_source(
         };
     }
     let type_loader = std::rc::Rc::new(loader);
-    let type_loaders = TypeLoaders {
-        type_loader: Some(type_loader.clone()),
-        raw_type_loader: raw_loader.map(std::rc::Rc::new),
-        originals: Default::default(),
-    };
+    #[cfg(not(feature = "internal-highlight"))]
+    let _ = raw_loader;
     let doc = match type_loader.get_document(&path) {
         Some(doc) => doc,
         None => {
@@ -477,9 +492,17 @@ pub async fn build_from_source(
         }
     };
     let mut components = std::collections::HashMap::new();
-    for def in build_from_document(doc, &config, type_loaders, animation_mode) {
+    for def in build_from_document(doc, &config, animation_mode) {
         components.insert(def.name().to_string(), def);
     }
+    // `lower_to_item_tree` builds `public_components` from `exported_roots()` in
+    // iteration order, so `originals` lines up with the public component indices.
+    #[cfg(feature = "internal-highlight")]
+    let type_loaders = TypeLoaders {
+        type_loader: Some(type_loader.clone()),
+        raw_type_loader: raw_loader.map(std::rc::Rc::new),
+        originals: doc.exported_roots().collect(),
+    };
     if components.is_empty() {
         diag.push_error_with_span("No component found".into(), Default::default());
     }
@@ -492,5 +515,7 @@ pub async fn build_from_source(
         watch_paths,
         #[cfg(feature = "internal")]
         structs_and_enums,
+        #[cfg(feature = "internal-highlight")]
+        type_loaders,
     }
 }

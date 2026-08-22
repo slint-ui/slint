@@ -1015,22 +1015,10 @@ impl Compiler {
     /// provided by the `spin_on` crate
     pub async fn build_from_path<P: AsRef<Path>>(&self, path: P) -> CompilationResult {
         let path = path.as_ref();
-        let source = match i_slint_compiler::diagnostics::load_from_path(path) {
+        let source = match load_root_source(path) {
             Ok(s) => s,
-            Err(d) => {
-                let mut diagnostics = i_slint_compiler::diagnostics::BuildDiagnostics::default();
-                diagnostics.push_compiler_error(d);
-                return CompilationResult {
-                    components: HashMap::new(),
-                    diagnostics: diagnostics.into_iter().collect(),
-                    #[cfg(feature = "internal")]
-                    watch_paths: vec![i_slint_compiler::pathutils::clean_path(path)],
-                    #[cfg(feature = "internal")]
-                    structs_and_enums: Vec::new(),
-                };
-            }
+            Err(result) => return result,
         };
-
         build_compilation_result(source, path.into(), self.config.clone(), AnimationMode::Running)
             .await
     }
@@ -1064,6 +1052,45 @@ impl Compiler {
         build_compilation_result(source_code, path, self.config.clone(), AnimationMode::Static)
             .await
     }
+
+    /// Like [`Self::build_from_source`] but also returns the compiler state
+    /// (type loaders + source object-tree roots) that tooling needs, such as
+    /// LSP highlighting and code generation. Runtime callers use
+    /// [`Self::build_from_source`], which drops it.
+    #[doc(hidden)]
+    #[cfg(feature = "internal-highlight")]
+    pub async fn build_from_source_with_type_loaders(
+        &self,
+        source_code: String,
+        path: PathBuf,
+    ) -> (CompilationResult, crate::component::TypeLoaders) {
+        build_compilation_result_with_type_loaders(
+            source_code,
+            path,
+            self.config.clone(),
+            AnimationMode::Running,
+        )
+        .await
+    }
+
+    /// Like [`Self::build_static_from_source`] but also returns the compiler
+    /// state that tooling needs — see [`Self::build_from_source_with_type_loaders`].
+    #[doc(hidden)]
+    #[cfg(all(feature = "internal", feature = "internal-highlight"))]
+    pub async fn build_static_from_source_with_type_loaders(
+        &self,
+        source_code: String,
+        path: PathBuf,
+        _: i_slint_core::InternalToken,
+    ) -> (CompilationResult, crate::component::TypeLoaders) {
+        build_compilation_result_with_type_loaders(
+            source_code,
+            path,
+            self.config.clone(),
+            AnimationMode::Static,
+        )
+        .await
+    }
 }
 
 pub(crate) enum AnimationMode {
@@ -1074,14 +1101,24 @@ pub(crate) enum AnimationMode {
     Running,
 }
 
-async fn build_compilation_result(
-    source_code: String,
-    path: PathBuf,
-    config: i_slint_compiler::CompilerConfiguration,
-    animation_mode: AnimationMode,
-) -> CompilationResult {
-    let result =
-        crate::component::build_from_source(source_code, path, config, animation_mode).await;
+/// Read the root `.slint` file, or produce the error [`CompilationResult`] for a
+/// path that can't be read.
+fn load_root_source(path: &Path) -> Result<String, CompilationResult> {
+    i_slint_compiler::diagnostics::load_from_path(path).map_err(|d| {
+        let mut diagnostics = i_slint_compiler::diagnostics::BuildDiagnostics::default();
+        diagnostics.push_compiler_error(d);
+        CompilationResult {
+            components: HashMap::new(),
+            diagnostics: diagnostics.into_iter().collect(),
+            #[cfg(feature = "internal")]
+            watch_paths: vec![i_slint_compiler::pathutils::clean_path(path)],
+            #[cfg(feature = "internal")]
+            structs_and_enums: Vec::new(),
+        }
+    })
+}
+
+fn compilation_result_from(result: crate::component::BuildResult) -> CompilationResult {
     let components = result
         .components
         .into_iter()
@@ -1095,6 +1132,32 @@ async fn build_compilation_result(
         #[cfg(feature = "internal")]
         structs_and_enums: result.structs_and_enums,
     }
+}
+
+async fn build_compilation_result(
+    source_code: String,
+    path: PathBuf,
+    config: i_slint_compiler::CompilerConfiguration,
+    animation_mode: AnimationMode,
+) -> CompilationResult {
+    compilation_result_from(
+        crate::component::build_from_source(source_code, path, config, animation_mode).await,
+    )
+}
+
+/// Like [`build_compilation_result`] but also returns the compiler state
+/// (type loaders + source object-tree roots) that tooling needs.
+#[cfg(feature = "internal-highlight")]
+async fn build_compilation_result_with_type_loaders(
+    source_code: String,
+    path: PathBuf,
+    config: i_slint_compiler::CompilerConfiguration,
+    animation_mode: AnimationMode,
+) -> (CompilationResult, crate::component::TypeLoaders) {
+    let result =
+        crate::component::build_from_source(source_code, path, config, animation_mode).await;
+    let type_loaders = result.type_loaders.clone();
+    (compilation_result_from(result), type_loaders)
 }
 
 /// The result of a compilation
@@ -1403,42 +1466,12 @@ impl ComponentDefinition {
         self.inner.top_level_type() == i_slint_compiler::llr::TopLevelComponentType::Window
     }
 
-    /// This gives access to the tree of Elements.
-    #[cfg(feature = "internal")]
+    /// Index of this public component, used to look up its source object-tree
+    /// root in the `TypeLoaders::originals` retained by tooling.
     #[doc(hidden)]
-    pub fn root_component(&self) -> Rc<i_slint_compiler::object_tree::Component> {
-        self.inner
-            .type_loaders
-            .originals
-            .get(self.inner.public_index)
-            .expect("root_component() called on a definition built without compiler state")
-            .clone()
-    }
-
-    /// Return the `TypeLoader` used when parsing the code in the interpreter.
-    ///
-    /// WARNING: this is not part of the public API
     #[cfg(feature = "internal-highlight")]
-    pub fn type_loader(&self) -> std::rc::Rc<i_slint_compiler::typeloader::TypeLoader> {
-        self.inner.type_loaders.type_loader.clone().expect(
-            "TypeLoader was not retained for this ComponentDefinition (reconstructed from an instance)",
-        )
-    }
-
-    /// Return the `TypeLoader` used when parsing the code in the interpreter in
-    /// a state before most passes were applied by the compiler.
-    ///
-    /// Each returned type loader is a deep copy of the entire state connected to it,
-    /// so this is a fairly expensive function!
-    ///
-    /// WARNING: this is not part of the public API
-    #[cfg(feature = "internal-highlight")]
-    pub fn raw_type_loader(&self) -> Option<i_slint_compiler::typeloader::TypeLoader> {
-        self.inner
-            .type_loaders
-            .raw_type_loader
-            .as_ref()
-            .and_then(|tl| i_slint_compiler::typeloader::snapshot(tl))
+    pub fn public_index(&self) -> usize {
+        self.inner.public_index
     }
 }
 
@@ -1454,6 +1487,21 @@ pub fn print_diagnostics(diagnostics: &[Diagnostic]) {
         build_diagnostics.push_compiler_error(d.clone())
     }
     build_diagnostics.print();
+}
+
+/// Find the elements that were defined at the text position.
+///
+/// Resolved against the compiler state alone, so this needs no instance.
+///
+/// WARNING: this is not part of the public API
+#[cfg(feature = "internal-highlight")]
+#[doc(hidden)]
+pub fn element_node_at_source_code_position(
+    type_loader: &i_slint_compiler::typeloader::TypeLoader,
+    path: &Path,
+    offset: u32,
+) -> Vec<(i_slint_compiler::object_tree::ElementRc, usize)> {
+    crate::highlight::element_node_at_source_code_position(type_loader, path, offset)
 }
 
 /// This represents an instance of a dynamic component
@@ -1674,10 +1722,11 @@ impl ComponentInstance {
     #[cfg(feature = "internal-highlight")]
     pub fn component_positions(
         &self,
+        type_loader: &i_slint_compiler::typeloader::TypeLoader,
         path: &Path,
         offset: u32,
     ) -> Vec<crate::highlight::HighlightedRect> {
-        crate::highlight::component_positions(self.inner.vrc(), path, offset)
+        crate::highlight::component_positions(self.inner.vrc(), type_loader, path, offset)
     }
 
     /// Find the position of the `element`.
@@ -1693,18 +1742,6 @@ impl ComponentInstance {
             element,
             crate::highlight::ElementPositionFilter::IncludeClipped,
         )
-    }
-
-    /// Find the `element` that was defined at the text position.
-    ///
-    /// WARNING: this is not part of the public API
-    #[cfg(feature = "internal-highlight")]
-    pub fn element_node_at_source_code_position(
-        &self,
-        path: &Path,
-        offset: u32,
-    ) -> Vec<(i_slint_compiler::object_tree::ElementRc, usize)> {
-        crate::highlight::element_node_at_source_code_position(self.inner.vrc(), path, offset)
     }
 
     /// Set a callback triggered by `Expression::DebugHook`.
@@ -2333,14 +2370,17 @@ fn test_multi_components() {
 }
 
 #[cfg(all(test, feature = "internal-highlight"))]
-fn compile(code: &str) -> (ComponentInstance, PathBuf) {
+fn compile(
+    code: &str,
+) -> (ComponentInstance, std::rc::Rc<i_slint_compiler::typeloader::TypeLoader>, PathBuf) {
     i_slint_backend_testing::init_no_event_loop();
     let mut compiler = Compiler::default();
     compiler.set_style("fluent".into());
     let path = PathBuf::from("/tmp/test.slint");
 
-    let compile_result =
-        spin_on::spin_on(compiler.build_from_source(code.to_string(), path.clone()));
+    let (compile_result, type_loaders) = spin_on::spin_on(
+        compiler.build_from_source_with_type_loaders(code.to_string(), path.clone()),
+    );
 
     for d in &compile_result.diagnostics {
         eprintln!("{d}");
@@ -2351,7 +2391,7 @@ fn compile(code: &str) -> (ComponentInstance, PathBuf) {
     let definition = compile_result.components().next().unwrap();
     let instance = definition.create().unwrap();
 
-    (instance, path)
+    (instance, type_loaders.type_loader(), path)
 }
 
 #[cfg(feature = "internal-highlight")]
@@ -2368,10 +2408,10 @@ export component Foo2 inherits Window  {
     Foo1   {}
 }"#;
 
-    let (handle, path) = compile(code);
+    let (_instance, type_loader, path) = compile(code);
 
     for i in 0..code.len() as u32 {
-        let elements = handle.element_node_at_source_code_position(&path, i);
+        let elements = element_node_at_source_code_position(&type_loader, &path, i);
         eprintln!("{i}: {}", code.as_bytes()[i as usize] as char);
         match i {
             16 => assert_eq!(elements.len(), 1),       // Bar1 (def)
@@ -2410,11 +2450,11 @@ export component Foo3 inherits Window {
     }
 }"#;
 
-    let (handle, path) = compile(code);
+    let (handle, type_loader, path) = compile(code);
 
     let element_at = |pattern: &str| {
         let offset = code.find(pattern).unwrap() as u32;
-        let elements = handle.element_node_at_source_code_position(&path, offset);
+        let elements = element_node_at_source_code_position(&type_loader, &path, offset);
         assert_eq!(elements.len(), 1, "expected one element at {pattern:?}");
         elements.into_iter().next().unwrap().0
     };
@@ -2445,6 +2485,6 @@ export component Foo3 inherits Window {
     // component_positions covers the same shapes, and an offset outside any
     // element matches nothing.
     let offset = code.find("Rectangle {\n        x: xo").unwrap() as u32;
-    assert_eq!(handle.component_positions(&path, offset).len(), 3);
-    assert!(handle.component_positions(&path, code.len() as u32 - 1).is_empty());
+    assert_eq!(handle.component_positions(&type_loader, &path, offset).len(), 3);
+    assert!(handle.component_positions(&type_loader, &path, code.len() as u32 - 1).is_empty());
 }

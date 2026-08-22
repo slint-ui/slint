@@ -132,10 +132,11 @@ fn walk_to_native_root(element: &ElementRc) -> ElementRc {
 /// the given `(path, offset)` pair.
 pub(crate) fn component_positions(
     instance: &VRc<ItemTreeVTable, Instance>,
+    type_loader: &i_slint_compiler::typeloader::TypeLoader,
     path: &Path,
     offset: u32,
 ) -> Vec<HighlightedRect> {
-    element_node_at_source_code_position(instance, path, offset)
+    element_node_at_source_code_position(type_loader, path, offset)
         .into_iter()
         .flat_map(|(element, _)| {
             element_positions(instance, &element, ElementPositionFilter::IncludeClipped)
@@ -144,16 +145,14 @@ pub(crate) fn component_positions(
 }
 
 /// Look up the `(ElementRc, index)` tuples whose `debug` entries cover
-/// the given source offset. Uses the `TypeLoader` stored on the instance
-/// (if available) to walk the original object-tree `Document`.
+/// the given source offset. Uses the given `TypeLoader` (retained by the
+/// tooling that built the component) to walk the original object-tree
+/// `Document`.
 pub(crate) fn element_node_at_source_code_position(
-    instance: &VRc<ItemTreeVTable, Instance>,
+    type_loader: &i_slint_compiler::typeloader::TypeLoader,
     path: &Path,
     offset: u32,
 ) -> Vec<(ElementRc, usize)> {
-    let Some(type_loader) = instance.type_loaders.type_loader.as_ref() else {
-        return Vec::new();
-    };
     let Some(doc) = type_loader.get_document(path) else {
         return Vec::new();
     };
@@ -446,16 +445,17 @@ mod tests {
 
     fn geometry_of(
         instance: &ComponentInstance,
+        type_loader: &i_slint_compiler::typeloader::TypeLoader,
         code: &str,
         id: &str,
     ) -> crate::highlight::HighlightedRect {
         let id_position = code.find(id).unwrap_or_else(|| panic!("{id} not found"));
         let offset = id_position + code[id_position..].find("Rectangle").unwrap();
-        let (element, _) = instance
-            .element_node_at_source_code_position(&test_path(), offset as u32)
-            .first()
-            .cloned()
-            .unwrap_or_else(|| panic!("element {id} not resolved"));
+        let (element, _) =
+            crate::element_node_at_source_code_position(type_loader, &test_path(), offset as u32)
+                .first()
+                .cloned()
+                .unwrap_or_else(|| panic!("element {id} not resolved"));
         *instance.element_positions(&element).first().expect("geometry")
     }
 
@@ -499,10 +499,10 @@ export component Win inherits Window {
         }
     }
 }"#;
-        let instance = compile_with_debug_hooks(code);
+        let (instance, type_loader) = compile_with_debug_hooks(code);
 
         let check = |id: &str, expected: (f32, f32)| {
-            let geometry = geometry_of(&instance, code, id);
+            let geometry = geometry_of(&instance, &type_loader, code, id);
             let x = geometry.rect.origin.x - geometry.parent_origin.x;
             let y = geometry.rect.origin.y - geometry.parent_origin.y;
             assert!(
@@ -537,10 +537,10 @@ export component Win inherits Window {
         }
     }
 }"#;
-        let instance = compile_with_debug_hooks(code);
+        let (instance, type_loader) = compile_with_debug_hooks(code);
 
         let check = |id: &str, expected: f32| {
-            let geometry = geometry_of(&instance, code, id);
+            let geometry = geometry_of(&instance, &type_loader, code, id);
             let rotation = geometry.angle - geometry.parent_rotation;
             assert!(
                 (rotation - expected).abs() < 0.5,

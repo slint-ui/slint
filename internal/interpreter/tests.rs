@@ -785,7 +785,7 @@ export component TestCase {
 
 /// `root_component()` must return the component the definition was built
 /// from, not a same-named component from another loaded document.
-#[cfg(feature = "internal")]
+#[cfg(feature = "internal-highlight")]
 #[test]
 fn root_component_resolves_to_the_right_document() {
     i_slint_backend_testing::init_no_event_loop();
@@ -798,8 +798,8 @@ fn root_component_resolves_to_the_right_document() {
             })
         })
     });
-    let result = spin_on::spin_on(
-        compiler.build_from_source(
+    let (result, type_loaders) = spin_on::spin_on(
+        compiler.build_from_source_with_type_loaders(
             r#"
             import { Helper } from "lib.slint";
             export component App inherits Window {
@@ -813,7 +813,7 @@ fn root_component_resolves_to_the_right_document() {
     );
     assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
     let definition = result.component("App").unwrap();
-    let root = definition.root_component();
+    let root = type_loaders.root_component(definition.inner.public_index);
     assert_eq!(
         root.root_element.borrow().debug.first().unwrap().node.source_file.path(),
         std::path::Path::new("main.slint")
