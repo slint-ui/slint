@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use super::{BindingHolder, BindingResult, BindingVTable, DependencyListHead, DependencyNode};
+use super::{BindingHolder, BindingResult, BindingVTable, DependencyListHead};
 use alloc::boxed::Box;
 use core::cell::{Cell, UnsafeCell};
 use core::ffi::c_void;
@@ -189,8 +189,8 @@ impl ChangeTracker {
         if delayed {
             // Safety: raw is valid and we own it
             unsafe {
-                let dep_nodes = &mut *(*core::ptr::addr_of!((*raw).dep_nodes)).get();
-                let node = dep_nodes.push_front(DependencyNode::new(raw as *const BindingHolder));
+                let dep_nodes = &*(*core::ptr::addr_of!((*raw).dep_nodes)).get();
+                let node = dep_nodes.push_front(raw as *const BindingHolder);
                 CHANGED_NODES.with(|changed_nodes| {
                     changed_nodes.append(node);
                 });
@@ -215,7 +215,7 @@ impl ChangeTracker {
         if inner.is_null() {
             return 0;
         }
-        unsafe { (*(*core::ptr::addr_of!((*inner).dep_nodes)).get()).iter().count() }
+        unsafe { (*(*core::ptr::addr_of!((*inner).dep_nodes)).get()).count() }
     }
 
     /// Clear the change tracker.
@@ -266,18 +266,16 @@ impl ChangeTracker {
 
     pub(super) unsafe fn mark_dirty(_self: *const BindingHolder, _was_dirty: bool) {
         unsafe {
-            // Take dep_nodes out so we can iterate without alias conflicts.
-            let dep_nodes = &mut *(*_self).dep_nodes.get();
-            let node_head = core::mem::take(dep_nodes);
-            if let Some(node) = node_head.iter().next() {
-                node.remove();
+            let dep_nodes = &*(*_self).dep_nodes.get();
+            if let Some(node) = dep_nodes.first() {
+                // Move this node from its property's dependents ring into the
+                // changed-nodes list. `append` unlinks it from its current ring
+                // first; the node stays in this binding's owner chain, so it is
+                // still freed when the change tracker re-evaluates or is dropped.
                 CHANGED_NODES.with(|changed_nodes| {
                     changed_nodes.append(node);
                 });
             }
-            // Restore the list.
-            let other = core::mem::replace(dep_nodes, node_head);
-            debug_assert!(other.iter().next().is_none());
         }
     }
 
