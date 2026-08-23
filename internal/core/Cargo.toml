@@ -93,7 +93,7 @@ accessibility-text = ["std", "shared-parley", "dep:accesskit", "parley?/accesski
 
 shared-swash = ["dep:swash"]
 
-path = ["dep:auto_enums", "dep:lyon_path", "dep:lyon_geom", "dep:lyon_algorithms", "dep:lyon_extra"]
+path = ["dep:lyon_path", "dep:lyon_geom", "dep:lyon_algorithms", "dep:lyon_extra"]
 
 [dependencies]
 i-slint-common = { workspace = true, features = ["default"] }
@@ -103,7 +103,6 @@ const-field-offset = { version = "0.2.0", path = "../../helper_crates/const-fiel
 vtable = { workspace = true }
 
 portable-atomic = { version = "1", features = ["critical-section"] }
-auto_enums = { version = "0.8.0", optional = true }
 cfg-if = "1"
 derive_more = { workspace = true, features = ["error", "deref", "deref_mut"] }
 euclid = { workspace = true }

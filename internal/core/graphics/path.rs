@@ -10,7 +10,6 @@ use crate::items::{ImageFit, PathEvent};
 use crate::lengths::{LogicalPx, LogicalVector};
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
-use auto_enums::auto_enum;
 use const_field_offset::FieldOffsets;
 use euclid::Point2D;
 use i_slint_core_macros::*;
@@ -206,6 +205,30 @@ impl<EventIt: Iterator<Item = lyon_path::Event<lyon_path::math::Point, lyon_path
 {
 }
 
+/// The two sources of lyon path events a `PathDataIterator` can iterate over, unified into
+/// one type so that `PathDataIterator::iter()` doesn't need to box its return value.
+enum LyonPathEventIterator<'a> {
+    FromPath(lyon_path::path::Iter<'a>),
+    FromEvents(ToLyonPathEventIterator<'a>),
+}
+
+impl Iterator for LyonPathEventIterator<'_> {
+    type Item = lyon_path::Event<lyon_path::math::Point, lyon_path::math::Point>;
+    fn next(&mut self) -> Option<Self::Item> {
+        match self {
+            Self::FromPath(it) => it.next(),
+            Self::FromEvents(it) => it.next(),
+        }
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        match self {
+            Self::FromPath(it) => it.size_hint(),
+            Self::FromEvents(it) => it.size_hint(),
+        }
+    }
+}
+
 /// PathDataIterator is a data structure that acts as starting point for iterating
 /// through the low-level events of a path. If the path was constructed from said
 /// events, then it is a very thin abstraction. If the path was created from higher-level
@@ -222,26 +245,25 @@ enum LyonPathIteratorVariant {
 
 impl PathDataIterator {
     /// Create a new iterator for path traversal.
-    #[auto_enum(Iterator)]
     pub fn iter(
         &self,
     ) -> impl Iterator<Item = lyon_path::Event<lyon_path::math::Point, lyon_path::math::Point>> + '_
     {
-        match &self.it {
-            LyonPathIteratorVariant::FromPath(path) => {
-                TransformedLyonPathIterator { it: path.iter(), transform: self.transform }
-            }
-            LyonPathIteratorVariant::FromEvents(events, coordinates) => {
-                TransformedLyonPathIterator {
-                    it: ToLyonPathEventIterator {
+        TransformedLyonPathIterator {
+            it: match &self.it {
+                LyonPathIteratorVariant::FromPath(path) => {
+                    LyonPathEventIterator::FromPath(path.iter())
+                }
+                LyonPathIteratorVariant::FromEvents(events, coordinates) => {
+                    LyonPathEventIterator::FromEvents(ToLyonPathEventIterator {
                         events_it: events.iter(),
                         coordinates_it: coordinates.iter(),
                         first: coordinates.first(),
                         last: coordinates.last(),
-                    },
-                    transform: self.transform,
+                    })
                 }
-            }
+            },
+            transform: self.transform,
         }
     }
 
