@@ -631,6 +631,7 @@ fn duplicate_element_with_mapping(
         is_flickable_content: elem.is_flickable_content,
         has_popup_child: elem.has_popup_child,
         is_tooltip: elem.is_tooltip,
+        z_order: elem.z_order.clone(),
         is_legacy_syntax: elem.is_legacy_syntax,
         inline_depth: elem.inline_depth + 1,
         slot_target: elem.slot_target.clone(),

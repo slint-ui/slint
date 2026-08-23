@@ -1,0 +1,76 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Screenshot test for dynamic z-ordering.
+// Several overlapping colored rectangles with z values assigned in init,
+// mixed with if-conditional elements and constant z.
+
+export component TestCase inherits Window {
+    width: 64px;
+    height: 64px;
+    background: black;
+
+    in-out property <bool> show-green: true;
+    in-out property <int> z-red: 0;
+    in-out property <int> z-blue: 0;
+
+    init => {
+        z-red = 1;
+        z-blue = 30;
+    }
+
+    // Bottom-left: overlapping rects with z from init.
+    // Blue (z=30) covers red (z=1).
+    Rectangle {
+        x: 0px; y: 32px; width: 32px; height: 32px;
+
+        Rectangle {
+            x: 2px; y: 2px; width: 20px; height: 20px;
+            background: red;
+            z: z-red;
+        }
+        Rectangle {
+            x: 8px; y: 8px; width: 20px; height: 20px;
+            background: blue;
+            z: z-blue;
+        }
+    }
+
+    // Top-left: if-conditional green square on top of yellow.
+    Rectangle {
+        x: 0px; y: 0px; width: 32px; height: 32px;
+
+        Rectangle {
+            x: 2px; y: 2px; width: 28px; height: 28px;
+            background: yellow;
+            z: 1;
+        }
+        if show-green: Rectangle {
+            x: 6px; y: 6px; width: 20px; height: 20px;
+            background: green;
+            z: 10;
+        }
+    }
+
+    // Right half: staircase mixing init-assigned and constant z.
+    // Green (z=30) on top, then blue (z=15), then red (z=1).
+    Rectangle {
+        x: 32px; y: 0px; width: 32px; height: 64px;
+
+        Rectangle {
+            x: 0px; y: 5px; width: 24px; height: 24px;
+            background: red;
+            z: z-red;
+        }
+        Rectangle {
+            x: 4px; y: 15px; width: 24px; height: 24px;
+            background: green;
+            z: z-blue;
+        }
+        Rectangle {
+            x: 8px; y: 25px; width: 24px; height: 24px;
+            background: blue;
+            z: 15;
+        }
+    }
+}

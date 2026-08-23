@@ -43,6 +43,27 @@ impl RepeaterOrConditional {
         }
     }
 
+    pub fn visit_maybe_instance(
+        &self,
+        instance: Option<u32>,
+        order: i_slint_core::item_tree::TraversalOrder,
+        visitor: i_slint_core::item_tree::ItemVisitorRefMut<'_>,
+    ) -> i_slint_core::item_tree::VisitChildrenResult {
+        match self {
+            Self::Repeater(r) => Pin::as_ref(r).visit_maybe_instance(instance, order, visitor),
+            Self::Conditional(c) => Pin::as_ref(c).visit_maybe_instance(instance, order, visitor),
+        }
+    }
+
+    /// Call `cb` with the index and z value of every instance, for a repeated or
+    /// conditional element whose z value is dynamic.
+    pub fn for_each_instance_z(&self, cb: &mut dyn FnMut(u32, f32)) {
+        match self {
+            Self::Repeater(r) => Pin::as_ref(r).for_each_instance_z(cb),
+            Self::Conditional(c) => Pin::as_ref(c).for_each_instance_z(cb),
+        }
+    }
+
     pub fn range(&self) -> core::ops::Range<usize> {
         match self {
             Self::Repeater(r) => r.range(),
@@ -203,6 +224,9 @@ pub struct Instance {
     /// `(sub_component_path, ItemInstanceIdx)` that owns it. `None`
     /// entries correspond to dynamic-tree nodes.
     pub item_table: Box<[Option<(Box<[SubComponentInstanceIdx]>, ItemInstanceIdx)>]>,
+    /// Parallel table mapping each flat tree index whose children are dynamically
+    /// z-ordered to the per-child z sources. `None` for every other node.
+    pub z_sort_table: Box<[Option<Vec<llr::ZSource>>]>,
     pub globals: Rc<GlobalStorage>,
     pub self_weak: OnceCell<VWeak<ItemTreeVTable, Instance>>,
     /// When this `Instance` is a repeated entry, points back to the parent
@@ -553,6 +577,7 @@ impl Instance {
         dyn_index: u32,
         order: i_slint_core::item_tree::TraversalOrder,
         visitor: vtable::VRefMut<'_, i_slint_core::item_tree::ItemVisitorVTable>,
+        instance: Option<u32>,
     ) -> i_slint_core::item_tree::VisitChildrenResult {
         let Some((sub, rep_idx)) = self.get_ref().dynamic_at(dyn_index) else {
             return i_slint_core::item_tree::VisitChildrenResult::CONTINUE;
@@ -578,7 +603,48 @@ impl Instance {
             let _ = read_logical_length(&sub, &lv.listview_height);
             Pin::as_ref(r).track_changes_listview_callback(&props, listview_width);
         }
-        repeater.visit(order, visitor)
+        repeater.visit_maybe_instance(instance, order, visitor)
+    }
+
+    /// The z-sorted children of the node at `index`, or `None` if they aren't z-ordered.
+    /// Repeated children are expanded to one entry per instance.
+    pub fn compute_z_sorted_children(
+        self: Pin<&Self>,
+        index: isize,
+    ) -> Option<Vec<i_slint_core::item_tree::ZSortedChild>> {
+        use i_slint_core::item_tree::ZSortedChild;
+        if index < 0 {
+            return None;
+        }
+        let sources = self.z_sort_table.get(index as usize)?.as_ref()?;
+        let ItemTreeNode::Item { children_index, .. } = self.tree_nodes[index as usize] else {
+            return None;
+        };
+        let mut ctx = crate::eval::EvalContext::new(self.root_sub_component.clone());
+        let mut entries: Vec<ZSortedChild> = Vec::with_capacity(sources.len());
+        for (k, source) in sources.iter().enumerate() {
+            let child_offset = k as u32;
+            match source {
+                llr::ZSource::Expression(e) => {
+                    let z: f64 = crate::eval::eval_expression(&mut ctx, &e.borrow())
+                        .try_into()
+                        .unwrap_or(0.0);
+                    entries.push(ZSortedChild { z: z as f32, child_offset, instance: u32::MAX });
+                }
+                llr::ZSource::RepeaterInstances => {
+                    // The child is a `DynamicTree` node; its `dynamic_table` entry holds the repeater.
+                    if let Some((sub, rep_idx)) =
+                        self.get_ref().dynamic_at(children_index + child_offset)
+                    {
+                        sub.repeaters[rep_idx].for_each_instance_z(&mut |instance, z| {
+                            entries.push(ZSortedChild { z, child_offset, instance })
+                        });
+                    }
+                }
+            }
+        }
+        i_slint_core::item_tree::sort_z_entries(&mut entries);
+        Some(entries)
     }
 
     /// Build an instance for a public component.
@@ -715,13 +781,14 @@ fn build_instance(
     let parent_for_root = parent.clone();
     let root_sub_component =
         build_sub_component_instance(compilation_unit, item_tree.root, parent_for_root);
-    let (tree_nodes, dynamic_table, item_table) = build_tree_nodes(&item_tree.tree);
+    let (tree_nodes, dynamic_table, item_table, z_sort_table) = build_tree_nodes(&item_tree.tree);
 
     let vrc = VRc::new(Instance {
         root_sub_component,
         tree_nodes: tree_nodes.into_boxed_slice(),
         dynamic_table: dynamic_table.into_boxed_slice(),
         item_table: item_table.into_boxed_slice(),
+        z_sort_table: z_sort_table.into_boxed_slice(),
         globals,
         self_weak: OnceCell::new(),
         parent_instance: parent,
@@ -955,22 +1022,26 @@ impl i_slint_core::model::ListViewProperties for ValueListViewProps {
 
 type DynamicEntry = Option<(Box<[SubComponentInstanceIdx]>, RepeatedElementIdx)>;
 type ItemEntry = Option<(Box<[SubComponentInstanceIdx]>, ItemInstanceIdx)>;
+type ZSortEntry = Option<Vec<llr::ZSource>>;
 
 /// Flatten an LLR [`llr::TreeNode`] into the `ItemTreeNode` slice expected by
-/// the `get_item_tree` vtable entry, plus two parallel tables: one mapping
-/// flat indices to the dynamic repeaters they represent, and one mapping
-/// static flat indices to the sub-component path + items slot that owns them.
+/// the `get_item_tree` vtable entry, plus three parallel tables: one mapping
+/// flat indices to the dynamic repeaters they represent, one mapping static
+/// flat indices to the sub-component path + items slot that owns them, and one
+/// mapping flat indices whose children are dynamically z-ordered to the per-child
+/// z sources.
 ///
 /// Walks in the same order as [`llr::TreeNode::visit_in_array`], so flat
 /// indices match what the rest of the runtime expects.
 fn build_tree_nodes(
     root: &llr::TreeNode,
-) -> (Vec<ItemTreeNode>, Vec<DynamicEntry>, Vec<ItemEntry>) {
+) -> (Vec<ItemTreeNode>, Vec<DynamicEntry>, Vec<ItemEntry>, Vec<ZSortEntry>) {
     use itertools::Either;
 
     let mut out = Vec::new();
     let mut dyn_table: Vec<DynamicEntry> = Vec::new();
     let mut item_table: Vec<ItemEntry> = Vec::new();
+    let mut z_sort_table: Vec<ZSortEntry> = Vec::new();
     root.visit_in_array(&mut |node, children_offset, parent_index| {
         let parent_index = parent_index as u32;
         let (entry, dyn_entry, item_entry) = match node.item_index {
@@ -1006,8 +1077,9 @@ fn build_tree_nodes(
         out.push(entry);
         dyn_table.push(dyn_entry);
         item_table.push(item_entry);
+        z_sort_table.push(node.z_sort_order_property.clone());
     });
-    (out, dyn_table, item_table)
+    (out, dyn_table, item_table, z_sort_table)
 }
 
 /// Lets [`Instance`] be used inside a `Repeater<C>`.
@@ -1046,6 +1118,19 @@ impl i_slint_core::model::RepeatedItemTree for Instance {
         {
             finalize_instance(&vrc);
         }
+    }
+
+    fn z_order(self: Pin<&Self>) -> Option<f32> {
+        // The z reference resolves in the repeated element's own context, so evaluate
+        // it against this instance.
+        let this = self.get_ref();
+        let (parent_weak, rep_idx) = this.root_sub_component.repeated_in.get()?;
+        let parent_sub = parent_weak.upgrade()?;
+        let parent_sc = &parent_sub.compilation_unit.sub_components[parent_sub.sub_component_idx];
+        let z_ref = parent_sc.repeated[*rep_idx].dynamic_z.as_ref()?;
+        let ctx = crate::eval::EvalContext::new(this.root_sub_component.clone());
+        let z: f64 = crate::eval::load_property(&ctx, z_ref).try_into().unwrap_or(0.0);
+        Some(z as f32)
     }
 
     fn listview_layout(
