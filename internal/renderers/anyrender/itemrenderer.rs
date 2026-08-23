@@ -25,13 +25,15 @@ use super::{PhysicalLength, PhysicalPoint, PhysicalRect, PhysicalSize};
 /// anyrender's `push_layer` always clips; there is no "no clip", so layers
 /// that should not clip use a rectangle larger than any real scene.
 ///
-/// Only safe for non-destructive compose modes: vello_cpu <= 0.0.9 mishandles
-/// layers with destructive compose modes (`SrcIn`, `DestOut`) whose bounds
-/// greatly exceed the viewport, losing everything beyond the first 256px
-/// wide-tile column. Bound such layers to the area they affect instead.
-/// That was fixed upstream by the frontend rewrite (linebender/vello#1701),
-/// but bounding destructive layers stays worthwhile on fixed versions too:
-/// it spares vello_cpu from compositing the entire surface.
+/// Use it only for non-destructive compose modes. Layers with a destructive
+/// mode (`SrcIn`, `DestOut`) affect every pixel the layer covers, so an
+/// oversized bound makes the backend composite the whole surface; bound them
+/// to the area they actually affect instead.
+///
+/// This used to be a correctness matter as well: vello_cpu up to 0.0.9 lost
+/// everything beyond the first 256px wide-tile column of such a layer. The
+/// frontend rewrite in vello_cpu 0.1 fixed that (linebender/vello#1701), so
+/// on the versions we build against only the cost remains.
 const UNCLIPPED: kurbo::Rect = kurbo::Rect::new(0., 0., 1e9, 1e9);
 
 #[derive(Clone, Copy)]
@@ -799,10 +801,15 @@ impl<'a, S: PaintScene> GlyphRenderer for AnyrenderItemRenderer<'a, S> {
 impl<'a, S: PaintScene> AnyrenderItemRenderer<'a, S> {
     /// Draw an inset shadow.
     ///
-    /// There's no primitive for a blurred rounded rectangle that's transparent
-    /// inside and opaque outside (linebender/vello#1374).
-    /// So fill the border box with the shadow color,
-    /// then punch the blurred interior back out.
+    /// anyrender's `draw_box_shadow` paints a blurred rounded rectangle that is
+    /// opaque inside; there is no way to ask for the inverse, transparent
+    /// inside and opaque outside (linebender/vello#1374). So fill the border
+    /// box with the shadow color, then punch the blurred interior back out.
+    ///
+    /// vello_cpu 0.1 does have the primitive (the `invert` flag of
+    /// `fill_blurred_rounded_rect`), but neither anyrender's `PaintScene` nor
+    /// vello's own `draw_blurred_rounded_rect` exposes it. Once they do, this
+    /// becomes a single call.
     fn draw_inset_shadow(
         &mut self,
         color: Color,
