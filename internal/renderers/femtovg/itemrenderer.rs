@@ -406,9 +406,10 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
         {
             return;
         }
-        // TODO: implement inset shadows and spread for femtovg. Until then, skip rendering inset
-        // shadows entirely (otherwise they'd render incorrectly as a drop shadow). Spread is
-        // silently ignored.
+        // TODO: implement inset shadows and spread for femtovg, using the shape_size,
+        // outer_radius and inner_radius of the BoxShadowOptions. Until then, skip rendering
+        // inset shadows entirely (otherwise they'd render incorrectly as a drop shadow).
+        // Spread is silently ignored.
         if box_shadow.inset() {
             return;
         }
@@ -456,7 +457,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
 
                     let shadow_path = rect_with_radius_to_path(
                         PhysicalRect::new(
-                            PhysicalPoint::from_lengths(blur, blur),
+                            shadow_options.shape_origin(),
                             PhysicalSize::from_lengths(width, height),
                         ),
                         radius,
@@ -468,8 +469,9 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
                 }
 
                 let shadow_image = if blur.get() > 0. {
-                    let blurred_image = shadow_image
-                        .filter(femtovg::ImageFilter::GaussianBlur { sigma: blur.get() / 2. });
+                    let blurred_image = shadow_image.filter(femtovg::ImageFilter::GaussianBlur {
+                        sigma: shadow_options.blur_sigma(),
+                    });
 
                     self.canvas.borrow_mut().set_render_target(blurred_image.as_render_target());
 
