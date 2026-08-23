@@ -90,19 +90,15 @@ impl<'a> SkiaItemRenderer<'a> {
         canvas: &skia_safe::Canvas,
         shadow_options: &i_slint_core::graphics::boxshadowcache::BoxShadowOptions,
     ) -> Option<skia_safe::Image> {
-        let blur = shadow_options.blur.get();
-        let spread = shadow_options.spread.get();
-
-        let shape_w = (shadow_options.width.get() + 2. * spread).max(0.);
-        let shape_h = (shadow_options.height.get() + 2. * spread).max(0.);
-        if shape_w <= 0. || shape_h <= 0. {
+        let shape_size = shadow_options.shape_size();
+        if shape_size.is_empty() {
             return None;
         }
-        // CSS rule: outer corner radius after spread = max(0, r + spread).
-        let shape_radius = (shadow_options.radius + PhysicalBorderRadius::new_uniform(spread))
-            .max(Default::default());
 
-        let canvas_size: skia_safe::Size = (shape_w + 2. * blur, shape_h + 2. * blur).into();
+        let canvas_size: skia_safe::Size = {
+            let size = shadow_options.drop_texture_size();
+            (size.width, size.height).into()
+        };
 
         let image_info = crate::image_info(
             canvas_size.to_ceil(),
@@ -110,19 +106,17 @@ impl<'a> SkiaItemRenderer<'a> {
             skia_safe::AlphaType::Premul,
         );
 
-        // The shape is centered in the canvas with `blur` padding on all sides so the Gaussian blur
-        // has room to fade out into transparency.
         let rounded_rect = to_skia_rrect(
-            &PhysicalRect::new(PhysicalPoint::new(blur, blur), PhysicalSize::new(shape_w, shape_h)),
-            &shape_radius,
+            &PhysicalRect::new(shadow_options.shape_origin(), shape_size),
+            &shadow_options.outer_radius(),
         );
 
         let mut paint = crate::solid_paint(&shadow_options.color);
         paint.set_anti_alias(true);
-        if blur > 0. {
+        if shadow_options.blur.get() > 0. {
             paint.set_mask_filter(skia_safe::MaskFilter::blur(
                 skia_safe::BlurStyle::Normal,
-                blur / 2.,
+                shadow_options.blur_sigma(),
                 None,
             ));
         }
@@ -164,15 +158,13 @@ impl<'a> SkiaItemRenderer<'a> {
         );
 
         // Inner "hole" rrect: geometry inset by spread on each side, translated by offset.
-        // CSS: inner radius = max(0, radius - spread).
         let inner_rect = skia_safe::Rect::new(
             spread + offset_x,
             spread + offset_y,
             width - spread + offset_x,
             height - spread + offset_y,
         );
-        let inner_radius =
-            (radius - PhysicalBorderRadius::new_uniform(spread)).max(Default::default());
+        let inner_radius = shadow_options.inner_radius();
         let inner_rrect = to_skia_rrect(
             &PhysicalRect::new(
                 PhysicalPoint::new(inner_rect.left, inner_rect.top),
@@ -197,7 +189,7 @@ impl<'a> SkiaItemRenderer<'a> {
         if blur > 0. {
             paint.set_mask_filter(skia_safe::MaskFilter::blur(
                 skia_safe::BlurStyle::Normal,
-                blur / 2.,
+                shadow_options.blur_sigma(),
                 None,
             ));
         }
