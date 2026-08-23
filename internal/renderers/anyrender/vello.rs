@@ -15,7 +15,7 @@
 //! [`suspend_window`](AnyrenderSlintRenderer::suspend_window) to attach it to
 //! a window from the windowing backend's event handling.
 
-// cSpell: ignore blitted blitter msaa readback Texel unpadded unpremultiplied
+// cSpell: ignore blitted blitter msaa readback Texel unpadded unpremultiplied winsys
 
 use std::sync::Arc;
 
@@ -80,6 +80,9 @@ impl TargetTexture {
 /// The WGPU objects and the vello renderer of a window that currently has a
 /// surface. Dropped when the window is suspended.
 struct ActiveState {
+    /// Names the WGPU backend and adapter this surface ended up on, for
+    /// `SLINT_DEBUG_PERFORMANCE` to report what is doing the rendering.
+    winsys_info: String,
     _instance: wgpu::Instance,
     device: wgpu::Device,
     queue: wgpu::Queue,
@@ -201,7 +204,13 @@ impl VelloWindowRenderer {
         let renderer = vello::Renderer::new(&device, renderer_options())
             .map_err(|e| format!("Error creating the vello renderer: {e}"))?;
 
+        let adapter_info = adapter.get_info();
+
         Ok(ActiveState {
+            winsys_info: format!(
+                "vello renderer on WGPU ({:?} backend; adapter: {})",
+                adapter_info.backend, adapter_info.name
+            ),
             target: TargetTexture::new(&device, width.max(1), height.max(1)),
             blitter: wgpu::util::TextureBlitter::new(&device, surface_config.format),
             _instance: instance,
@@ -325,6 +334,13 @@ impl WindowRenderer for VelloWindowRenderer {
 }
 
 impl SlintWindowRenderer for VelloWindowRenderer {
+    fn winsys_info(&self) -> String {
+        self.state
+            .as_ref()
+            .map(|state| state.winsys_info.clone())
+            .unwrap_or_else(|| "vello renderer on WGPU (no surface)".into())
+    }
+
     fn slint_render<F>(
         &mut self,
         _surface_size: PhysicalSize,
@@ -549,6 +565,8 @@ impl AnyrenderSlintRenderer<VelloWindowRenderer> {
         window_renderer.set_requested_graphics_api(requested_graphics_api);
         window_renderer.resume(window as Arc<dyn WindowHandle>, width, height, || {});
         if window_renderer.complete_resume() {
+            drop(window_renderer);
+            self.reset_metrics_collector();
             Ok(())
         } else {
             Err(window_renderer
@@ -571,7 +589,10 @@ impl AnyrenderSlintRenderer<VelloWindowRenderer> {
     ) -> Result<(), PlatformError> {
         let mut window_renderer = self.window_renderer();
         window_renderer.set_requested_graphics_api(requested_graphics_api);
-        window_renderer.set_state_from_surface_target(surface_target, width, height)
+        window_renderer.set_state_from_surface_target(surface_target, width, height)?;
+        drop(window_renderer);
+        self.reset_metrics_collector();
+        Ok(())
     }
 
     /// Release the WGPU surface, for example when the windowing system takes
