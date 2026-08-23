@@ -29,6 +29,7 @@ renderer-femtovg-wgpu = ["slint-interpreter/renderer-femtovg-wgpu"]
 renderer-skia = ["slint-interpreter/renderer-skia", "dep:i-slint-renderer-skia"]
 renderer-skia-opengl = ["slint-interpreter/renderer-skia-opengl", "dep:i-slint-renderer-skia"]
 renderer-skia-vulkan = ["slint-interpreter/renderer-skia-vulkan", "dep:i-slint-renderer-skia"]
+renderer-vello = ["slint-interpreter/renderer-vello"]
 renderer-software = ["slint-interpreter/renderer-software"]
 
 # Compat
