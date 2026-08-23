@@ -576,13 +576,15 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
 
     fn draw_window_background(
         &mut self,
-        _rect: Pin<&dyn i_slint_core::item_rendering::RenderRectangle>,
+        rect: Pin<&dyn i_slint_core::item_rendering::RenderRectangle>,
         _self_rc: &ItemRc,
         _size: LogicalSize,
         _cache: &CachedRenderingData,
     ) {
-        // The window background is cleared (solid color) or drawn (gradient)
-        // by SkiaRenderer before the item tree is rendered.
+        // Register a dependency for the partial renderer's dirty tracker. The actual rendering
+        // is done earlier in SkiaRenderer, which clears (solid color) or draws (gradient) the
+        // background before the item tree is rendered.
+        let _ = rect.background();
     }
 
     fn draw_image(
