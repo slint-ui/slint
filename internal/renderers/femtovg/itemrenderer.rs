@@ -1219,23 +1219,13 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
                 let tiling = item.tiling();
 
                 let target_size_for_scalable_source = if image_inner.is_svg() {
-                    let image_size = image.size().cast::<f32>();
-                    if image_size.is_empty() {
-                        return None;
-                    }
-                    let t = item.target_size() * self.scale_factor;
-                    let fit = i_slint_core::graphics::fit(
+                    Some(i_slint_core::graphics::scalable_render_size(
+                        image.size(),
                         item.image_fit(),
-                        t,
-                        IntRect::from_size(image_size.cast()),
+                        item.target_size() * self.scale_factor,
                         self.scale_factor,
-                        Default::default(), // We only care about the size, so alignments don't matter
                         tiling,
-                    );
-                    Some(euclid::size2(
-                        (image_size.width * fit.source_to_target_x) as u32,
-                        (image_size.height * fit.source_to_target_y) as u32,
-                    ))
+                    )?)
                 } else {
                     None
                 };
