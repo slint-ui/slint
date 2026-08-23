@@ -28,17 +28,8 @@ LOG_MODULE_REGISTER(zephyrSlint, LOG_LEVEL_DBG);
 #include <deque>
 #include <ranges>
 
-// Zephyr documents the contents of an RGB 565 frame buffer as big endian [1], while Slint renders
-// in the CPU's endianness. Some display drivers deviate and consume native endian pixel data
-// instead [2], in which case Slint's buffer can be handed over without conversion. Boards say so by
-// defining SLINT_ZEPHYR_RGB565_NATIVE_ENDIAN in their section of the demo's CMakeLists.txt.
-//
-// [1]
-// https://docs.zephyrproject.org/latest/hardware/peripherals/display/index.html#c.display_pixel_format
-// [2]
-// https://github.com/zephyrproject-rtos/zephyr/blob/c211cb347e0af0a4931e0e7af3d93577bcc7af8f/drivers/display/display_mcux_elcdif.c#L256
-//
-// See also: https://github.com/zephyrproject-rtos/zephyr/issues/53642
+// Set by boards whose driver declares one byte order and consumes the other, and by trees
+// older than Zephyr 4.4. See https://github.com/zephyrproject-rtos/zephyr/issues/53642
 #ifndef SLINT_ZEPHYR_RGB565_NATIVE_ENDIAN
 #    define SLINT_ZEPHYR_RGB565_NATIVE_ENDIAN 0
 #endif
@@ -52,22 +43,33 @@ LOG_MODULE_REGISTER(zephyrSlint, LOG_LEVEL_DBG);
 #endif
 
 namespace {
-// Whether Slint's pixel data has to be byte swapped before the display driver sees it.
-constexpr bool needs_byte_swap = !SLINT_ZEPHYR_RGB565_NATIVE_ENDIAN;
+constexpr bool is_big_endian_format(display_pixel_format format)
+{
+#if KERNEL_VERSION_NUMBER >= ZEPHYR_VERSION(4, 4, 0)
+    return format == SLINT_PIXEL_FORMAT_RGB565_SWAPPED;
+#else
+    // display_sdl.c read RGB_565 with sys_be16_to_cpu() and BGR_565 natively until the rename.
+    return format == PIXEL_FORMAT_RGB_565;
+#endif
+}
+
+constexpr bool needs_byte_swap(display_pixel_format format)
+{
+    if (SLINT_ZEPHYR_RGB565_NATIVE_ENDIAN) {
+        return false;
+    }
+    return is_big_endian_format(format) != static_cast<bool>(IS_ENABLED(CONFIG_BIG_ENDIAN));
+}
 
 bool is_supported_pixel_format(display_pixel_format current_pixel_format)
 {
     switch (current_pixel_format) {
     case PIXEL_FORMAT_RGB_565:
+    case SLINT_PIXEL_FORMAT_RGB565_SWAPPED:
         return true;
     case PIXEL_FORMAT_RGB_888:
         // Slint supports this format, but it uses more space.
         return false;
-    case SLINT_PIXEL_FORMAT_RGB565_SWAPPED:
-        // Drivers that take native endian pixel data report the byte swapped format while
-        // expecting the byte order Slint already produces, so the data works without conversion.
-        // See SLINT_ZEPHYR_RGB565_NATIVE_ENDIAN above.
-        return SLINT_ZEPHYR_RGB565_NATIVE_ENDIAN;
     case PIXEL_FORMAT_MONO01:
     case PIXEL_FORMAT_MONO10:
     case PIXEL_FORMAT_ARGB_8888:
@@ -204,7 +206,7 @@ public:
     static std::unique_ptr<ZephyrWindowAdapter> init_from(const device *display);
 
     explicit ZephyrWindowAdapter(const device *display, RepaintBufferType buffer_type,
-                                 const DisplayRotation &rotation);
+                                 const DisplayRotation &rotation, bool needs_byte_swap);
 
     void request_redraw() override;
     slint::PhysicalSize size() override;
@@ -221,6 +223,7 @@ private:
     const struct device *m_display;
     const DisplayRotation m_rotation;
     const slint::PhysicalSize m_buffer_size;
+    const bool m_needs_byte_swap;
 
     bool m_needs_redraw = true;
     std::vector<slint::platform::Rgb565Pixel> m_buffer;
@@ -279,17 +282,27 @@ std::unique_ptr<ZephyrWindowAdapter> ZephyrWindowAdapter::init_from(const device
             static_cast<bool>(capabilities.supported_pixel_formats
                               & SLINT_PIXEL_FORMAT_RGB565_SWAPPED));
 
-    if (!is_supported_pixel_format(capabilities.current_pixel_format)) {
+    // Keep the format the display already uses: its panel may be wired for that byte order.
+    auto pixel_format = capabilities.current_pixel_format;
+    if (!is_supported_pixel_format(pixel_format)) {
         if (capabilities.supported_pixel_formats & PIXEL_FORMAT_RGB_565) {
             LOG_INF("Switching to RGB_565");
-            if (const auto result = display_set_pixel_format(display, PIXEL_FORMAT_RGB_565);
-                result != 0) {
-                LOG_ERR("Failed to set pixel format: %d", result);
-            }
+            pixel_format = PIXEL_FORMAT_RGB_565;
+        } else if (capabilities.supported_pixel_formats & SLINT_PIXEL_FORMAT_RGB565_SWAPPED) {
+            LOG_INF("Switching to " SLINT_PIXEL_FORMAT_RGB565_SWAPPED_NAME);
+            pixel_format = SLINT_PIXEL_FORMAT_RGB565_SWAPPED;
         } else {
             LOG_WRN("No supported pixel formats!");
         }
+
+        if (pixel_format != capabilities.current_pixel_format) {
+            if (const auto result = display_set_pixel_format(display, pixel_format); result != 0) {
+                LOG_ERR("Failed to set pixel format: %d", result);
+                pixel_format = capabilities.current_pixel_format;
+            }
+        }
     }
+    LOG_INF("Byte swapping pixel data: %d", needs_byte_swap(pixel_format));
 
     DisplayRotation rotation;
     rotation.panel_size =
@@ -309,15 +322,17 @@ std::unique_ptr<ZephyrWindowAdapter> ZephyrWindowAdapter::init_from(const device
 
     const auto logicalSize = rotation.logical_size();
     LOG_INF("User interface size: %u x %u", logicalSize.width, logicalSize.height);
-    return std::make_unique<ZephyrWindowAdapter>(display, bufferType, rotation);
+    return std::make_unique<ZephyrWindowAdapter>(display, bufferType, rotation,
+                                                 needs_byte_swap(pixel_format));
 }
 
 ZephyrWindowAdapter::ZephyrWindowAdapter(const device *display, RepaintBufferType buffer_type,
-                                         const DisplayRotation &rotation)
+                                         const DisplayRotation &rotation, bool needs_byte_swap)
     : m_renderer(buffer_type),
       m_display(display),
       m_rotation(rotation),
-      m_buffer_size(rotation.buffer_size())
+      m_buffer_size(rotation.buffer_size()),
+      m_needs_byte_swap(needs_byte_swap)
 {
     m_buffer.resize(m_buffer_size.width * m_buffer_size.height);
 
@@ -354,9 +369,7 @@ void ZephyrWindowAdapter::maybe_redraw()
     const auto slintRenderDelta = k_uptime_delta(&start);
     LOG_DBG("Rendering %d dirty regions:", std::ranges::size(region.rectangles()));
     for (auto [o, s] : region.rectangles()) {
-        if constexpr (needs_byte_swap) {
-            // Convert to the big endian pixel data Zephyr documents. See
-            // SLINT_ZEPHYR_RGB565_NATIVE_ENDIAN above.
+        if (m_needs_byte_swap) {
             for (int y = o.y; y < o.y + s.height; y++) {
                 for (int x = o.x; x < o.x + s.width; x++) {
                     auto px = reinterpret_cast<uint16_t *>(&m_buffer[y * m_buffer_size.width + x]);
