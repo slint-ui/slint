@@ -292,6 +292,7 @@ fn add_hooks_for_non_existent_bindings(
         elem.binding_cell_including_synthetic(name).is_none()
             // Filter invalid reserved properties (e.g. x/y on a Timer, etc.)
             && elem.lookup_property(name, PropertyLookupMode::InternalName).property_type != crate::langtype::Type::Invalid
+            && !elem.is_property_target_of_two_way_binding(name)
     });
 
     for (name, default_expression, synthetic) in unbound_properties {
@@ -627,8 +628,8 @@ mod tests {
         let doc = compile(
             r#"
             component Item inherits Rectangle {
-                in-out property <length> linked <=> inner.width;
-                inner := Rectangle { }
+                in-out property <length> linked <=> target;
+                in-out property <length> target: 42px;
             }
             export component Win inherits Window {
                 item := Item { }
@@ -639,6 +640,7 @@ mod tests {
         let item = child(&win.root_element, "item");
 
         assert!(item.borrow().binding_cell_including_synthetic("linked").is_none());
+        assert!(item.borrow().binding_cell_including_synthetic("target").is_none());
         assert!(matches!(item.borrow().base_type, crate::langtype::ElementType::Component(_)));
     }
 
