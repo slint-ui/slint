@@ -1,10 +1,9 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use crate::PhysicalSize;
 use i_slint_core::graphics::{
-    Image, ImageCacheKey, ImageInner, IntRect, IntSize, OpaqueImage, OpaqueImageVTable,
-    SharedImageBuffer, cache as core_cache,
+    Image, ImageCacheKey, ImageInner, IntSize, OpaqueImage, OpaqueImageVTable, SharedImageBuffer,
+    cache as core_cache,
 };
 use i_slint_core::items::ImageFit;
 use i_slint_core::lengths::{LogicalSize, ScaleFactor};
@@ -53,20 +52,14 @@ pub(crate) fn as_skia_image(
         }
         ImageInner::Svg(svg) => {
             // Query target_width/height here again to ensure that changes will invalidate the item rendering cache.
-            let svg_size = svg.size();
-            let fit = i_slint_core::graphics::fit(
+            let target_size = i_slint_core::graphics::scalable_render_size(
+                svg.size(),
                 image_fit,
                 target_size_fn() * scale_factor,
-                IntRect::from_size(svg_size.cast()),
                 scale_factor,
-                Default::default(), // We only care about the size, so alignments don't matter
                 Default::default(),
-            );
-            let target_size = PhysicalSize::new(
-                svg_size.cast::<f32>().width * fit.source_to_target_x,
-                svg_size.cast::<f32>().height * fit.source_to_target_y,
-            );
-            let pixels = match svg.render(Some(target_size.cast())).ok()? {
+            )?;
+            let pixels = match svg.render(Some(target_size)).ok()? {
                 SharedImageBuffer::RGB8(_) => unreachable!(),
                 SharedImageBuffer::RGBA8(_) => unreachable!(),
                 SharedImageBuffer::RGBA8Premultiplied(pixels) => pixels,

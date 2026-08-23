@@ -1512,6 +1512,38 @@ pub fn fit(
     .adjust_for_tiling(ratio, alignment, tiling)
 }
 
+/// The pixel size a scalable image (an SVG) needs to be rasterized at to fill `target`
+/// under `image_fit`, i.e. its intrinsic size scaled by what [`fit`] would scale it by.
+///
+/// Returns `None` when the source has no area to scale from, or when the fitted size
+/// collapses to nothing.
+pub fn scalable_render_size(
+    source_size: IntSize,
+    image_fit: ImageFit,
+    target: euclid::Size2D<f32, PhysicalPx>,
+    scale_factor: ScaleFactor,
+    tiling: (ImageTiling, ImageTiling),
+) -> Option<euclid::Size2D<u32, PhysicalPx>> {
+    let source = source_size.cast::<f32>();
+    if source.is_empty() {
+        return None;
+    }
+    let fit = fit(
+        image_fit,
+        target,
+        IntRect::from_size(source_size.cast()),
+        scale_factor,
+        // Only the size is of interest here, so the alignment doesn't matter.
+        Default::default(),
+        tiling,
+    );
+    let size = euclid::size2(
+        (source.width * fit.source_to_target_x) as u32,
+        (source.height * fit.source_to_target_y) as u32,
+    );
+    (!size.is_empty()).then_some(size)
+}
+
 /// Generate an iterator of  [`FitResult`] for each slice of a nine-slice border image
 pub fn fit9slice(
     source_rect: IntSize,
