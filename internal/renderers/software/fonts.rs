@@ -84,6 +84,28 @@ pub enum Font {
     VectorFont(vectorfont::VectorFont),
 }
 
+/// Runs `$body` with `$bound` bound to the concrete font held by `$font`.
+///
+/// The bitmap and vector paths through the text code are the same code; they need two
+/// match arms only because `PixelFont` and `VectorFont` are distinct types. The body is
+/// monomorphized per variant, the way a generic function would be, so that it can be
+/// written once.
+///
+/// Keep only font-dependent work in the body: it is emitted once per variant.
+///
+/// Callers that hand off to parley for vector fonts must do so before calling this, as
+/// `sharedparley::` needs the font context rather than a laid-out font.
+macro_rules! with_font {
+    ($font:expr, |$bound:ident| $body:block) => {
+        match $font {
+            $crate::fonts::Font::PixelFont($bound) => $body,
+            #[cfg(feature = "systemfonts")]
+            $crate::fonts::Font::VectorFont($bound) => $body,
+        }
+    };
+}
+pub(crate) use with_font;
+
 /// Returns the size of the pre-rendered font in pixels.
 pub fn pixel_size(glyphs: &i_slint_core::graphics::BitmapGlyphs) -> PhysicalLength {
     PhysicalLength::new(glyphs.pixel_size)
@@ -91,43 +113,23 @@ pub fn pixel_size(glyphs: &i_slint_core::graphics::BitmapGlyphs) -> PhysicalLeng
 
 impl i_slint_core::textlayout::FontMetrics<PhysicalLength> for Font {
     fn ascent(&self) -> PhysicalLength {
-        match self {
-            Font::PixelFont(pixel_font) => pixel_font.ascent(),
-            #[cfg(feature = "systemfonts")]
-            Font::VectorFont(vector_font) => vector_font.ascent(),
-        }
+        with_font!(self, |font| { font.ascent() })
     }
 
     fn height(&self) -> PhysicalLength {
-        match self {
-            Font::PixelFont(pixel_font) => pixel_font.height(),
-            #[cfg(feature = "systemfonts")]
-            Font::VectorFont(vector_font) => vector_font.height(),
-        }
+        with_font!(self, |font| { font.height() })
     }
 
     fn descent(&self) -> PhysicalLength {
-        match self {
-            Font::PixelFont(pixel_font) => pixel_font.descent(),
-            #[cfg(feature = "systemfonts")]
-            Font::VectorFont(vector_font) => vector_font.descent(),
-        }
+        with_font!(self, |font| { font.descent() })
     }
 
     fn x_height(&self) -> PhysicalLength {
-        match self {
-            Font::PixelFont(pixel_font) => pixel_font.x_height(),
-            #[cfg(feature = "systemfonts")]
-            Font::VectorFont(vector_font) => vector_font.x_height(),
-        }
+        with_font!(self, |font| { font.x_height() })
     }
 
     fn cap_height(&self) -> PhysicalLength {
-        match self {
-            Font::PixelFont(pixel_font) => pixel_font.cap_height(),
-            #[cfg(feature = "systemfonts")]
-            Font::VectorFont(vector_font) => vector_font.cap_height(),
-        }
+        with_font!(self, |font| { font.cap_height() })
     }
 }
 
