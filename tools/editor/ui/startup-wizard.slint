@@ -70,7 +70,7 @@ component BrandMark inherits Rectangle {
     Image {
         width: parent.width * 56%;
         height: parent.height * 56%;
-        source: @image-url("../assets/slinterface-mark.svg");
+        source: @image-url("assets/slinterface-mark.svg");
         colorize: white;
         opacity: 0.94;
         transform-rotation: progress * 16deg;
@@ -89,8 +89,8 @@ component ActionIcon inherits Rectangle {
         width: 18px;
         height: 18px;
         source: root.folder
-            ? @image-url("../assets/slinterface-primer-folder-open.svg")
-            : @image-url("../assets/slinterface-primer-plus-circle.svg");
+            ? @image-url("assets/slinterface-primer-folder-open.svg")
+            : @image-url("assets/slinterface-primer-plus-circle.svg");
         colorize: WizardTheme.muted;
     }
 }
@@ -215,7 +215,7 @@ component RecentFileRow inherits Rectangle {
         Image {
             width: 27px;
             height: 27px;
-            source: @image-url("../assets/slinterface-primer-file-code.svg");
+            source: @image-url("assets/slinterface-primer-file-code.svg");
             colorize: root.selected ? white : WizardTheme.accent;
         }
 
@@ -549,7 +549,7 @@ export component StartupWizard inherits Rectangle {
                     y: root.showing-templates ? 0px : 19px;
                     kind: ProjectKind.mobile;
                     title: "Mobile";
-                    icon: @image-url("../assets/slinterface-primer-device-mobile.svg");
+                    icon: @image-url("assets/slinterface-primer-device-mobile.svg");
                     selected: root.selected-project == ProjectKind.mobile;
                     enabled: root.showing-templates;
                     progress: root.template-opacity;
@@ -564,7 +564,7 @@ export component StartupWizard inherits Rectangle {
                     y: root.showing-templates ? 0px : 27px;
                     kind: ProjectKind.desktop;
                     title: "Desktop";
-                    icon: @image-url("../assets/slinterface-primer-device-desktop.svg");
+                    icon: @image-url("assets/slinterface-primer-device-desktop.svg");
                     selected: root.selected-project == ProjectKind.desktop;
                     enabled: root.showing-templates;
                     progress: root.template-opacity;
@@ -579,7 +579,7 @@ export component StartupWizard inherits Rectangle {
                     y: root.showing-templates ? 0px : 35px;
                     kind: ProjectKind.embedded;
                     title: "Embedded";
-                    icon: @image-url("../assets/slinterface-primer-cpu.svg");
+                    icon: @image-url("assets/slinterface-primer-cpu.svg");
                     selected: root.selected-project == ProjectKind.embedded;
                     enabled: root.showing-templates;
                     progress: root.template-opacity;
