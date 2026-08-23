@@ -24,7 +24,7 @@
 // we've updated. See also the target dependency in Cargo.toml.
 #![cfg(any(target_pointer_width = "64", target_arch = "wasm32"))]
 
-use std::cell::{OnceCell, RefCell};
+use std::cell::{Cell, RefCell};
 use std::num::NonZeroU32;
 use std::pin::Pin;
 use std::rc::{Rc, Weak};
@@ -48,7 +48,7 @@ pub(crate) type PhysicalPoint = euclid::Point2D<f32, PhysicalPx>;
 pub(crate) type PhysicalRect = euclid::Rect<f32, PhysicalPx>;
 pub(crate) type PhysicalSize = euclid::Size2D<f32, PhysicalPx>;
 
-// cSpell: ignore imagecache
+// cSpell: ignore imagecache winsys
 mod imagecache;
 mod itemrenderer;
 mod recording;
@@ -109,11 +109,20 @@ pub trait SlintWindowRenderer: anyrender::WindowRenderer {
     {
         Err("take_snapshot is not implemented for this anyrender backend".into())
     }
+
+    /// Describes what actually renders, for the `SLINT_DEBUG_PERFORMANCE`
+    /// report. Called once per surface, so it can name the graphics device
+    /// the surface ended up on.
+    fn winsys_info(&self) -> String {
+        "anyrender renderer".into()
+    }
 }
 
-/// Lazily created on the first frame; stays `None` when the
-/// `SLINT_DEBUG_PERFORMANCE` environment variable does not ask for metrics.
-type MaybeMetricsCollector = OnceCell<Option<Rc<RenderingMetricsCollector>>>;
+/// Created on the first frame after a surface becomes available, so that
+/// [`SlintWindowRenderer::winsys_info`] can name the graphics device. Stays
+/// `None` when the `SLINT_DEBUG_PERFORMANCE` environment variable does not
+/// ask for metrics.
+type MaybeMetricsCollector = RefCell<Option<Rc<RenderingMetricsCollector>>>;
 
 /// A Slint [`Renderer`](i_slint_core::renderer::Renderer) that drives any
 /// [`anyrender`] backend implementing [`SlintWindowRenderer`].
@@ -124,6 +133,9 @@ pub struct AnyrenderSlintRenderer<W: SlintWindowRenderer> {
     item_image_cache: ItemCache<Option<SharedImageData>>,
     text_layout_cache: sharedparley::TextLayoutCache,
     rendering_metrics_collector: MaybeMetricsCollector,
+    /// Set when a surface is created, so the collector is rebuilt against the
+    /// device that surface ended up on.
+    rendering_first_time: Cell<bool>,
 }
 
 impl<W: SlintWindowRenderer> AnyrenderSlintRenderer<W> {
@@ -135,7 +147,14 @@ impl<W: SlintWindowRenderer> AnyrenderSlintRenderer<W> {
             item_image_cache: Default::default(),
             text_layout_cache: Default::default(),
             rendering_metrics_collector: Default::default(),
+            rendering_first_time: Cell::new(true),
         }
+    }
+
+    /// Call after a surface was created, so that the next frame reports the
+    /// metrics against the device it ended up on.
+    pub fn reset_metrics_collector(&self) {
+        self.rendering_first_time.set(true);
     }
 
     /// Borrow the underlying [`anyrender::WindowRenderer`] mutably.
@@ -167,10 +186,11 @@ impl<W: SlintWindowRenderer> AnyrenderSlintRenderer<W> {
 
         let window_inner = WindowInner::from_pub(window);
 
-        let collector = self
-            .rendering_metrics_collector
-            .get_or_init(|| RenderingMetricsCollector::new("anyrender renderer"))
-            .clone();
+        if self.rendering_first_time.take() {
+            *self.rendering_metrics_collector.borrow_mut() =
+                RenderingMetricsCollector::new(&self.window_renderer.borrow().winsys_info());
+        }
+        let collector = self.rendering_metrics_collector.borrow().clone();
 
         self.item_image_cache.clear_cache_if_scale_factor_changed(window);
 
