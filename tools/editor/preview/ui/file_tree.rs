@@ -7,12 +7,9 @@ use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
 use i_slint_core::platform::Clipboard;
-use slint::{Image, ModelRc, SharedString, ToSharedString as _, VecModel};
+use slint::{ComponentHandle, Image, ModelRc, SharedString, ToSharedString as _, VecModel};
 
-use super::{
-    Api, EditorSurfaceMode, FileTreeNode, FileTreeNodeKind, ImageAssetPreview, PreviewUiKind,
-    WeakAppWindow,
-};
+use super::{Api, EditorSurfaceMode, EditorUi, FileTreeNode, FileTreeNodeKind, ImageAssetPreview};
 
 #[cfg(not(target_arch = "wasm32"))]
 const NEW_PROJECT_NAME: &str = "Slint UI Project";
@@ -29,19 +26,7 @@ const NEW_PROJECT_MAIN_FILE_CONTENTS: &str = r#"export component MainWindow inhe
 }
 "#;
 
-pub fn setup(
-    api: &Api<'_>,
-    api_weak: slint::Weak<Api<'static>>,
-    ui_kind: PreviewUiKind,
-    app_window: WeakAppWindow,
-) {
-    if !ui_kind.is_editor() {
-        api.set_file_tree(Default::default());
-        api.set_selected_project_file(Default::default());
-        api.set_startup_wizard_visible(false);
-        return;
-    };
-
+pub fn setup(api: &Api<'_>, api_weak: slint::Weak<Api<'static>>, editor_ui: slint::Weak<EditorUi>) {
     let initial_paths = initial_file_tree_paths();
     api.set_startup_wizard_visible(initial_paths.is_none());
 
@@ -67,10 +52,10 @@ pub fn setup(
 
     let controller_for_open = controller.clone();
     let api_weak_for_open = api_weak.clone();
-    let window_for_open = app_window.clone();
+    let window_for_open = editor_ui.clone();
     api.on_open_existing_project(move || {
         // The handle is only valid once the window manager created the window.
-        let window = window_for_open.upgrade().map(|w| w.window().window_handle());
+        let window = window_for_open.upgrade().map(|editor_ui| editor_ui.window().window_handle());
         let Some(path) = choose_project_file(window) else {
             return false;
         };
@@ -93,9 +78,9 @@ pub fn setup(
 
     let controller_for_new = controller.clone();
     let api_weak_for_new = api_weak.clone();
-    let window_for_new = app_window.clone();
+    let window_for_new = editor_ui;
     api.on_create_new_project(move || {
-        let window = window_for_new.upgrade().map(|w| w.window().window_handle());
+        let window = window_for_new.upgrade().map(|editor_ui| editor_ui.window().window_handle());
         let Some(path) = choose_new_project_path(window) else {
             return false;
         };

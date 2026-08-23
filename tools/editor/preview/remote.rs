@@ -21,16 +21,19 @@ use i_slint_live_preview::protocol::{
 };
 use slint::{Model, ModelRc, SharedString, VecModel};
 
-use crate::preview::ui::{Api, AppWindow, RemoteConnectionState, RemoteViewerInfo};
+use crate::preview::ui::{Api, RemoteConnectionState, RemoteViewerInfo};
 
 /// Register the Remote Preview callbacks on the window's `Api` global.
-pub fn setup(app_window: &AppWindow, to_lsp: &Rc<dyn i_slint_editor_preview::PreviewToLsp>) {
-    let api = app_window.api();
+pub fn setup(
+    api: &Api<'_>,
+    api_weak: slint::Weak<Api<'static>>,
+    to_lsp: &Rc<dyn i_slint_editor_preview::PreviewToLsp>,
+) {
     api.set_remote_discovered_viewers(ModelRc::new(VecModel::<RemoteViewerInfo>::default()));
 
-    let api_weak = app_window.api_weak();
+    let discovery_api_weak = api_weak.clone();
     api.on_remote_start_discovery(move || {
-        let api_weak = api_weak.clone();
+        let api_weak = discovery_api_weak.clone();
         crate::preview::PREVIEW_STATE.with_borrow(|preview_state| {
             preview_state.remote_discovery.start(api_weak);
         });
@@ -42,7 +45,7 @@ pub fn setup(app_window: &AppWindow, to_lsp: &Rc<dyn i_slint_editor_preview::Pre
     });
 
     let lsp = to_lsp.clone();
-    let api_weak_for_port = app_window.api_weak();
+    let api_weak_for_port = api_weak.clone();
     api.on_remote_connect(move |addresses, port| {
         let Ok(port) =
             u16::try_from(port).map_err(|_| ()).and_then(|p| if p == 0 { Err(()) } else { Ok(p) })
@@ -58,7 +61,7 @@ pub fn setup(app_window: &AppWindow, to_lsp: &Rc<dyn i_slint_editor_preview::Pre
     });
 
     let lsp = to_lsp.clone();
-    let api_weak_for_validate = app_window.api_weak();
+    let api_weak_for_validate = api_weak;
     api.on_remote_connect_manual(move |host_port| match parse_host_port(host_port.as_str()) {
         Ok((host, port)) => {
             if let Err(err) =

@@ -96,34 +96,34 @@ export component SimplePreview inherits Window {
             border-radius: 12px;
             border-color: #d0d7de;
             border-width: 1px;
-            Text {
-                text: "Text";
-                x: 191px;
-                y: 125px;
-                width: 220px;
-                height: 40px;
-                color: #1f2328;
-                font-size: 24px;
-                vertical-alignment: center;
-            }
-        }
-        Rectangle {
-            width: 246px;
-            x: 19px;
-            y: 168px;
-            height: 337px;
-            border-radius: 12px;
-            clip: true;
-        
-            Image {
-                source: @image-url("image.png");
-                width: parent.width;
-                x: 23px;
-                y: 28px;
-                height: parent.height;
-                image-fit: cover;
-            }
-        }
-    }
+ Rectangle { min-width: 16px; min-height: 16px; /* @lsp:ignore-node */ }        }
+    Rectangle {
+                    width: 246px;
+                    height: 337px;
+                    border-bottom-left-radius: 48.26953125px;
+                    border-bottom-right-radius: 48.26953125px;
+                    border-radius: 12px;
+                    border-top-left-radius: 48.26953125px;
+                    border-top-right-radius: 48.26953125px;
+                    clip: true;
+                
+                    Image {
+                        source: @image-url("image.png");
+                        width: 292px;
+                        x: -14px;
+                        y: -8px;
+                        height: 370px;
+                        image-fit: cover;
+                    }
+                }
+                    Text {
+                        text: "Text";
+                        width: 220px;
+                        height: 40px;
+                        color: #1f2328;
+                        font-size: 24px;
+                        vertical-alignment: center;
+                    }
+                }
 
 }

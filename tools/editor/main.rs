@@ -47,28 +47,23 @@ fn main() -> std::result::Result<(), slint::PlatformError> {
 
     start_lsp_thread(from_preview, cli);
 
-    let app_window = preview::ui::create_ui(&to_lsp, "", preview::PreviewUiKind::Editor)?;
+    let editor_ui = preview::ui::create_ui(&to_lsp, "")?;
 
     // The updater needs to stay in scope for as long as the window is up.
     #[cfg(target_os = "macos")]
-    let _updater = setup_macos_chrome(&app_window);
+    let _updater = setup_macos_chrome(&editor_ui);
 
-    preview::run_with_ui(app_window, to_lsp, false)
+    preview::run_with_ui(editor_ui, to_lsp, false)
 }
 
 /// Set up the editor's macOS chrome: the unified title bar and the Sparkle
 /// auto-updater driving the update section of the editor UI.
 #[cfg(target_os = "macos")]
-fn setup_macos_chrome(app_window: &preview::ui::AppWindow) -> Option<Rc<crate::sparkle::Sparkle>> {
-    use preview::ui;
+fn setup_macos_chrome(editor_ui: &preview::ui::EditorUi) -> Option<Rc<crate::sparkle::Sparkle>> {
     use slint::ComponentHandle;
 
-    let ui::AppWindow::Editor(editor) = app_window.clone_strong() else {
-        return None;
-    };
-
-    preview::macos_titlebar::setup(editor.as_weak());
-    crate::sparkle::connect(&editor)
+    preview::macos_titlebar::setup(editor_ui.as_weak());
+    crate::sparkle::connect(editor_ui)
 }
 
 /// Hands messages for the preview straight to the UI thread: the editor runs
@@ -110,6 +105,14 @@ struct Cli {
 }
 
 fn select_backend() -> std::result::Result<(), slint::PlatformError> {
+    let headless_requested = std::env::var("SLINT_BACKEND").is_ok_and(|backend| {
+        i_slint_backend_selector::parse_backend_env_var(&backend.to_ascii_lowercase()).0
+            == "headless"
+    });
+    if headless_requested {
+        return i_slint_backend_selector::with_platform(|_| Ok(()));
+    }
+
     // See bug #10274 on macOS.
     let selector = slint::BackendSelector::new();
     // On macOS, request a unified title bar: the editor content extends underneath
