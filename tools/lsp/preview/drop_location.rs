@@ -1375,7 +1375,7 @@ mod tests {
     use std::collections::HashMap;
 
     use crate::{
-        editor_preview::{self, test, text_edit},
+        editor_preview::{self, editing::text_edit, test},
         util,
     };
 
