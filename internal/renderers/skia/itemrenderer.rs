@@ -18,11 +18,11 @@ use i_slint_core::item_rendering::{
 use i_slint_core::items::{ImageFit, ImageRendering, ItemRc, Layer, Opacity, RenderingResult};
 use i_slint_core::lengths::{
     LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalPx, LogicalRect, LogicalSize,
-    LogicalVector, PhysicalPx, RectLengths, ScaleFactor, SizeLengths, logical_size_from_api,
+    LogicalVector, PhysicalPx, RectLengths, ScaleFactor, SizeLengths,
 };
 use i_slint_core::textlayout::sharedparley::{self, GlyphRenderer, fontique};
 use i_slint_core::window::WindowInner;
-use i_slint_core::{Brush, Color, SharedString};
+use i_slint_core::{Brush, Color};
 use skia_safe::{Matrix, TileMode};
 
 pub type SkiaBoxShadowCache = BoxShadowCache<skia_safe::Image>;
@@ -471,29 +471,12 @@ impl<'a> SkiaItemRenderer<'a> {
         RenderingResult::ContinueRenderingWithoutChildren
     }
 
-    // Same as pixel_align_origin_auto_restore() but can be used across function calls where
-    // `&self` is needed. Returns true if the caller must call `restore()` on `self.canvas`.
-    fn save_canvas_and_pixel_align_origin(&self) -> bool {
-        let local_to_device = self.canvas.local_to_device_as_3x3();
-        if !local_to_device.is_translate() || local_to_device.is_identity() {
-            return false;
-        }
-        let Some(device_to_local) = local_to_device.invert() else {
-            return false;
-        };
-        let mut target_point = local_to_device.map_point(skia_safe::Point::default());
-
-        target_point.x = target_point.x.round();
-        target_point.y = target_point.y.round();
-
-        self.canvas.save();
-
-        self.canvas.translate(device_to_local.map_point(target_point));
-
-        true
-    }
-
-    fn pixel_align_origin_auto_restore(&self) -> Option<skia_safe::canvas::AutoRestoredCanvas<'_>> {
+    // Moves the canvas origin onto a whole device pixel, until the returned guard drops.
+    // None, and no saved canvas, if the transform is not a pure translation, or is the identity.
+    //
+    // The guard borrows the canvas rather than `self`, so the caller is free to hand `self` to
+    // the drawing code it wants aligned.
+    fn pixel_align_origin_auto_restore(&self) -> Option<skia_safe::canvas::AutoRestoredCanvas<'a>> {
         let local_to_device = self.canvas.local_to_device_as_3x3();
         if !local_to_device.is_translate() || local_to_device.is_identity() {
             return None;
@@ -504,11 +487,9 @@ impl<'a> SkiaItemRenderer<'a> {
         target_point.x = target_point.x.round();
         target_point.y = target_point.y.round();
 
-        let restore_point = skia_safe::AutoCanvasRestore::guard(self.canvas, true);
-
+        let guard = skia_safe::AutoCanvasRestore::guard(self.canvas, true);
         self.canvas.translate(device_to_local.map_point(target_point));
-
-        Some(restore_point)
+        Some(guard)
     }
 }
 
@@ -608,11 +589,8 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
         size: LogicalSize,
         _cache: &CachedRenderingData,
     ) {
-        let restore = self.save_canvas_and_pixel_align_origin();
+        let _restore = self.pixel_align_origin_auto_restore();
         sharedparley::draw_text(self, text, Some(self_rc), size, Some(self.text_layout_cache));
-        if restore {
-            self.canvas.restore();
-        }
     }
 
     fn draw_text_input(
@@ -621,11 +599,8 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
         self_rc: &i_slint_core::items::ItemRc,
         size: LogicalSize,
     ) {
-        let restore = self.save_canvas_and_pixel_align_origin();
+        let _restore = self.pixel_align_origin_auto_restore();
         sharedparley::draw_text_input(self, text_input, self_rc, size, self.text_layout_cache);
-        if restore {
-            self.canvas.restore();
-        }
     }
 
     fn draw_path(
@@ -883,13 +858,7 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
     }
 
     fn draw_string(&mut self, string: &str, color: i_slint_core::Color) {
-        sharedparley::draw_text(
-            self,
-            std::pin::pin!((SharedString::from(string), Brush::from(color))),
-            None,
-            logical_size_from_api(self.window.size().to_logical(self.scale_factor().get())),
-            None,
-        );
+        sharedparley::draw_string(self, string, color);
     }
 
     fn draw_image_direct(&mut self, image: i_slint_core::graphics::Image) {
@@ -961,7 +930,9 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
         if layer_item.cache_rendering_hint() {
             self.render_and_blend_layer(self_rc)
         } else {
-            self.image_cache.release(self_rc);
+            // render_and_blend_layer caches through LayerRenderer::layer_cache, so that is
+            // the entry to drop once the item stops asking to be cached.
+            self.layer_cache.release(self_rc);
             RenderingResult::ContinueRenderingChildren
         }
     }

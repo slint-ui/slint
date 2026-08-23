@@ -131,6 +131,26 @@ fn with_text_layout<R>(
     Some(result)
 }
 
+/// Draws a debug string, as [`crate::item_rendering::ItemRenderer::draw_string`] wants it:
+/// as a plain text laid out across the whole window.
+///
+/// Shared by the renderers whose target is the window. The software renderer lays the string
+/// out in the current clip instead, since its buffer need not span the window, and so keeps
+/// its own.
+pub fn draw_string(item_renderer: &mut impl GlyphRenderer, string: &str, color: Color) {
+    let window_size = item_renderer.window().window_adapter().size();
+    let size = crate::lengths::logical_size_from_api(
+        window_size.to_logical(item_renderer.scale_factor().get()),
+    );
+    draw_text(
+        item_renderer,
+        core::pin::pin!((crate::SharedString::from(string), crate::Brush::from(color))),
+        None,
+        size,
+        None,
+    );
+}
+
 pub fn draw_text(
     item_renderer: &mut impl GlyphRenderer,
     text: Pin<&dyn crate::item_rendering::RenderText>,

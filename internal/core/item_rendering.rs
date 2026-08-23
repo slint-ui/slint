@@ -681,6 +681,11 @@ pub trait ItemRenderer {
 
     /// Draw the given string with the specified color at current (0, 0) with the default font. Mainly
     /// used by the performance counter overlay.
+    ///
+    /// The string is laid out in whatever the renderer draws to: the window for renderers that
+    /// target it, the current clip for the software renderer, whose buffer need not span the
+    /// window. Renderers that target the window share
+    /// [`crate::textlayout::sharedparley::draw_string`].
     fn draw_string(&mut self, string: &str, color: crate::Color);
 
     fn draw_image_direct(&mut self, image: crate::graphics::Image);

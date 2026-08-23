@@ -29,7 +29,7 @@ use i_slint_core::items::{
 use i_slint_core::layout::Orientation;
 use i_slint_core::lengths::{
     LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector,
-    PhysicalPx, ScaleFactor, logical_size_from_api,
+    PhysicalPx, ScaleFactor,
 };
 use i_slint_core::platform::{PlatformError, WindowEvent};
 use i_slint_core::string::ToSharedString;
@@ -1184,13 +1184,7 @@ impl ItemRenderer for QtItemRenderer<'_> {
     }
 
     fn draw_string(&mut self, string: &str, color: Color) {
-        sharedparley::draw_text(
-            self,
-            std::pin::pin!((SharedString::from(string), Brush::from(color))),
-            None,
-            logical_size_from_api(self.window.size().to_logical(self.scale_factor().get())),
-            None,
-        );
+        sharedparley::draw_string(self, string, color);
     }
 
     fn draw_image_direct(&mut self, image: i_slint_core::graphics::Image) {
