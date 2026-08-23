@@ -3475,31 +3475,49 @@ impl Element {
     /// Synthetic debug hooks (materialized for unbound properties) are never considered set
     /// (`has_binding` treats them as "no expression").
     pub fn is_binding_set(self: &Element, property_name: &str, need_explicit: bool) -> bool {
-        if self.bindings.0.get(property_name).is_some_and(|b| {
-            b.borrow().has_binding() && (!need_explicit || b.borrow().priority > 0)
-        }) {
-            true
-        } else if let ElementType::Component(base) = &self.base_type {
-            base.root_element.borrow().is_binding_set(property_name, need_explicit)
-        } else {
-            false
-        }
+        self.any_in_inheritance_chain(|element| {
+            element.bindings.0.get(property_name).is_some_and(|binding| {
+                let binding = binding.borrow();
+                binding.has_binding() && (!need_explicit || binding.priority > 0)
+            })
+        })
     }
 
     /// Returns true if the property is set by a binding or an assignment expression
     ///
     /// Synthetic debug hooks (materialized for unbound properties) are not considered set.
     pub fn is_property_set(self: &Element, property_name: &str) -> bool {
-        self.bindings
-            .0
-            .get(property_name)
-            .is_some_and(|b| !b.borrow().expression.is_synthetic_debug_hook())
-            || self
+        self.any_in_inheritance_chain(|element| {
+            element
+                .bindings
+                .0
+                .get(property_name)
+                .is_some_and(|binding| !binding.borrow().expression.is_synthetic_debug_hook())
+                || element
+                    .property_analysis
+                    .borrow()
+                    .get(property_name)
+                    .is_some_and(|analysis| analysis.is_set || analysis.is_linked)
+        })
+    }
+
+    pub(crate) fn is_property_target_of_two_way_binding(&self, property_name: &str) -> bool {
+        self.any_in_inheritance_chain(|element| {
+            element
                 .property_analysis
                 .borrow()
                 .get(property_name)
-                .is_some_and(|a| a.is_set || a.is_linked)
-            || matches!(&self.base_type, ElementType::Component(base) if base.root_element.borrow().is_property_set(property_name))
+                .is_some_and(|analysis| analysis.is_linked)
+        })
+    }
+
+    fn any_in_inheritance_chain(&self, predicate: impl Fn(&Element) -> bool + Copy) -> bool {
+        predicate(self)
+            || matches!(
+                &self.base_type,
+                ElementType::Component(base)
+                    if base.root_element.borrow().any_in_inheritance_chain(predicate)
+            )
     }
 
     /// The binding for `property_name`, if one exists and is not a synthetic debug hook.
