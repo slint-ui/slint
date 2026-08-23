@@ -95,7 +95,7 @@ switch renderer or app entry point.
 ## Architecture
 
 - Entry point: `tools/editor/main.rs` starts embedded LSP state, then creates
-  the editor window with `preview::ui::create_ui(..., PreviewUiKind::Editor)`.
+  the `EditorUi` window with `preview::ui::create_ui(...)`.
 - UI creation: `tools/editor/preview/ui.rs` creates `EditorUi`, wires the editor
   `Api` global, and registers callbacks.
 - Live preview surface: `EditorCanvas` embeds the compiled target component via

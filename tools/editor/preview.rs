@@ -41,8 +41,6 @@ use user_settings::{PREVIEW_SETTINGS_FILE, PreviewUserSettings};
 #[cfg(target_arch = "wasm32")]
 use i_slint_editor_preview::wasm_prelude::*;
 
-pub use ui::PreviewUiKind;
-
 mod drop_location;
 mod element_selection;
 pub mod eval;
@@ -64,9 +62,8 @@ pub mod user_settings;
 pub fn run(
     to_lsp: Rc<dyn i_slint_editor_preview::PreviewToLsp>,
     fullscreen: bool,
-    ui_kind: PreviewUiKind,
 ) -> std::result::Result<(), slint::PlatformError> {
-    run_with_ui(ui::create_ui(&to_lsp, "", ui_kind)?, to_lsp, fullscreen)
+    run_with_ui(ui::create_ui(&to_lsp, "")?, to_lsp, fullscreen)
 }
 
 /// Hand a window over to the preview engine and run the event loop until it
@@ -74,7 +71,7 @@ pub fn run(
 /// [`ui::create_ui`] and set it up before calling this.
 #[cfg(not(target_arch = "wasm32"))]
 pub fn run_with_ui(
-    app_window: ui::AppWindow,
+    editor_ui: ui::EditorUi,
     to_lsp: Rc<dyn i_slint_editor_preview::PreviewToLsp>,
     fullscreen: bool,
 ) -> std::result::Result<(), slint::PlatformError> {
@@ -84,7 +81,7 @@ pub fn run_with_ui(
             serde_json::to_value("preview_opened").unwrap(),
         )])
         .ok();
-    app_window.window().set_fullscreen(fullscreen);
+    editor_ui.window().set_fullscreen(fullscreen);
 
     tracing::debug!("Preview: requesting state from LSP");
     to_lsp
@@ -94,16 +91,17 @@ pub fn run_with_ui(
         })
         .unwrap();
 
-    let app_window_clone = PREVIEW_STATE.with(move |preview_state| {
+    let editor_ui_clone = PREVIEW_STATE.with(move |preview_state| {
         let mut preview_state = preview_state.borrow_mut();
         *preview_state.to_lsp.borrow_mut() = Some(to_lsp);
-        preview_state.api = app_window.api_weak();
-        preview_state.app_window = Some(app_window.clone_strong());
-        app_window
+        let api = editor_ui.global::<ui::Api>();
+        preview_state.api = <ui::Api as slint::Global<'_, ui::EditorUi>>::as_weak(&api);
+        preview_state.editor_ui = Some(editor_ui.clone_strong());
+        editor_ui
     });
 
     tracing::debug!("Preview: starting event loop (run)");
-    app_window_clone.run()?;
+    editor_ui_clone.run()?;
     tracing::debug!("Preview: event loop exited");
 
     Ok(())
@@ -206,7 +204,7 @@ type SourceCodeCache = HashMap<Url, SourceCodeCacheEntry>;
 
 #[derive(Default)]
 pub struct PreviewState {
-    pub app_window: Option<ui::AppWindow>,
+    pub editor_ui: Option<ui::EditorUi>,
     pub api: slint::Weak<ui::Api<'static>>,
     property_range_declarations: Option<ui::PropertyDeclarations>,
     /// The handle to the previewed component instance
@@ -326,20 +324,15 @@ pub(super) fn set_user_settings(name: String, contents: String) {
         return;
     };
     PREVIEW_STATE.with_borrow_mut(|preview_state| {
-        if let Some(app_window) = &preview_state.app_window {
-            ui::apply_preview_user_settings(app_window, &settings);
+        if let Some(editor_ui) = &preview_state.editor_ui {
+            ui::apply_preview_user_settings(editor_ui, &settings);
         }
-        // Remember what the UI now reflects so the deferred `changed` handlers
-        // it triggers don't echo these same values straight back to the LSP.
         preview_state.last_user_settings = settings;
     });
 }
 
 pub(super) fn update_user_settings_from_ui(settings: PreviewUserSettings) {
     PREVIEW_STATE.with_borrow_mut(|preview_state| {
-        // The Slint `changed` handlers that drive this are deferred, so a flag
-        // set while applying inbound settings would already be cleared by the
-        // time they run. Compare against the last synced settings instead.
         if preview_state.last_user_settings == settings {
             return;
         }
@@ -1794,8 +1787,8 @@ fn previewed_component_changed() {
                 .unwrap_or_default();
 
             if let Some(api) = preview_state.api.upgrade() {
-                if let Some(app_window) = &preview_state.app_window {
-                    let win = i_slint_core::window::WindowInner::from_pub(app_window.window())
+                if let Some(editor_ui) = &preview_state.editor_ui {
+                    let win = i_slint_core::window::WindowInner::from_pub(editor_ui.window())
                         .window_adapter();
                     let palettes =
                         ui::palette::collect_palette(&document_cache, &previewed_url, &win);
@@ -2073,11 +2066,7 @@ async fn parse_source(
     cc.include_paths = config.include_paths;
     cc.library_paths = config.library_paths;
     cc.enable_experimental |= config.enable_experimental;
-    cc.debug_hooks = PREVIEW_STATE
-        .with_borrow(|preview_state| {
-            matches!(preview_state.app_window.as_ref(), Some(ui::AppWindow::Editor(_)))
-        })
-        .then(std::hash::RandomState::new);
+    cc.debug_hooks = Some(std::hash::RandomState::new());
 
     let (open_file_fallback, source_file_versions) =
         i_slint_editor_preview::document_cache::document_cache_parts_setup(
@@ -2181,16 +2170,16 @@ async fn reload_preview_impl(
 
 /// This sets up the preview area to show the ComponentInstance
 fn set_preview_factory(
-    app_window: &ui::AppWindow,
+    editor_ui: &ui::EditorUi,
     api: &ui::Api<'_>,
     compiled: ComponentDefinition,
     callback: Box<dyn Fn(ComponentInstance)>,
     behavior: LoadBehavior,
 ) {
     // Ensure that any popups are closed as they are related to the old factory
-    i_slint_core::window::WindowInner::from_pub(app_window.window()).close_all_popups();
+    i_slint_core::window::WindowInner::from_pub(editor_ui.window()).close_all_popups();
 
-    let _ = i_slint_core::window::WindowInner::from_pub(app_window.window())
+    let _ = i_slint_core::window::WindowInner::from_pub(editor_ui.window())
         .context()
         .set_log_message_handler(Some(Box::new(|log_message| {
             let message = log_message.message_arguments().to_string();
@@ -2455,8 +2444,8 @@ fn set_selected_element(
                         ))
                     })
             {
-                if let Some(app_window) = &preview_state.app_window {
-                    let win = i_slint_core::window::WindowInner::from_pub(app_window.window())
+                if let Some(editor_ui) = &preview_state.editor_ui {
+                    let win = i_slint_core::window::WindowInner::from_pub(editor_ui.window())
                         .window_adapter();
                     let palettes = ui::palette::collect_palette(&document_cache, &uri, &win);
                     ui::palette::set_palette(&api, palettes);
@@ -2468,10 +2457,10 @@ fn set_selected_element(
                     ui::LayoutKind::Vertical => properties::LayoutKind::VerticalBox,
                     ui::LayoutKind::Grid => properties::LayoutKind::GridLayout,
                 };
-                if let Some(app_window) = &preview_state.app_window {
+                if let Some(editor_ui) = &preview_state.editor_ui {
                     preview_state.property_range_declarations = Some(ui::ui_set_properties(
                         &api,
-                        app_window.window(),
+                        editor_ui.window(),
                         &document_cache,
                         properties::query_properties(&uri, version, &selection, in_layout).ok(),
                     ));
@@ -2584,10 +2573,10 @@ fn update_preview_area(
     source_file_versions: Rc<RefCell<i_slint_editor_preview::document_cache::SourceFileVersionMap>>,
     format: i_slint_editor_preview::ByteFormat,
 ) -> Result<(), PlatformError> {
-    let app_window = PREVIEW_STATE.with_borrow_mut(move |preview_state| {
+    let editor_ui = PREVIEW_STATE.with_borrow_mut(move |preview_state| {
         preview_state.workspace_edit_sent = false;
 
-        let app_window = preview_state.app_window.as_ref().unwrap();
+        let editor_ui = preview_state.editor_ui.as_ref().unwrap();
         let api = preview_state.api.upgrade().unwrap();
         let shared_handle = preview_state.handle.clone();
         let shared_document_cache = preview_state.document_cache.clone();
@@ -2598,7 +2587,7 @@ fn update_preview_area(
             api.set_current_element(Default::default());
 
             set_preview_factory(
-                app_window,
+                editor_ui,
                 &api,
                 compiled,
                 Box::new(move |instance| {
@@ -2636,12 +2625,12 @@ fn update_preview_area(
             );
         }
 
-        app_window.clone_strong()
+        editor_ui.clone_strong()
     });
 
-    app_window.show().and_then(|_| {
+    editor_ui.show().and_then(|_| {
         if matches!(behavior, LoadBehavior::BringWindowToFront) {
-            let window_inner = i_slint_core::window::WindowInner::from_pub(app_window.window());
+            let window_inner = i_slint_core::window::WindowInner::from_pub(editor_ui.window());
             if let Some(window_adapter_internal) =
                 window_inner.window_adapter().internal(i_slint_core::InternalToken)
             {

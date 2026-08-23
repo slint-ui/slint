@@ -247,21 +247,6 @@ SPDX-License-Identifier = "LicenseRef-qskinny"
 
 [[annotations]]
 path = [
-  "tools/editor/ui/assets/chevron-down.svg",
-  "tools/editor/ui/assets/filter.svg",
-  "tools/editor/ui/assets/inspect.svg",
-  "tools/editor/ui/assets/layout-sidebar**.svg",
-  "tools/editor/ui/assets/search.svg",
-  "tools/editor/ui/assets/sync.svg",
-  "tools/editor/ui/assets/black-square.png",
-  "tools/editor/ui/assets/close.svg",
-  "tools/editor/ui/assets/plus.svg",
-  "tools/editor/ui/assets/info.svg",
-  "tools/editor/ui/assets/clear.svg",
-  "tools/editor/ui/assets/beaker.svg",
-  "tools/editor/ui/assets/library.svg",
-  "tools/editor/ui/assets/list-tree.svg",
-  "tools/editor/ui/assets/settings.svg",
   "tools/lsp/ui/assets/chevron-down.svg",
   "tools/lsp/ui/assets/filter.svg",
   "tools/lsp/ui/assets/inspect.svg",

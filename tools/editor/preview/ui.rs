@@ -12,7 +12,7 @@ use i_slint_compiler::{expression_tree, langtype};
 
 use i_slint_core::DataTransfer;
 use itertools::Itertools;
-use slint::{Model, ModelRc, SharedString, ToSharedString, VecModel};
+use slint::{ComponentHandle, Model, ModelRc, SharedString, ToSharedString, VecModel};
 use slint_interpreter::{DiagnosticLevel, PlatformError};
 use smol_str::SmolStr;
 
@@ -69,104 +69,6 @@ pub mod search_model;
 
 slint::include_modules!();
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum PreviewUiKind {
-    #[allow(dead_code)]
-    Viewer,
-    // TODO: This will become the new viewer when it is ready.
-    #[allow(dead_code)]
-    Editor,
-}
-
-impl PreviewUiKind {
-    fn is_editor(self) -> bool {
-        matches!(self, Self::Editor)
-    }
-}
-
-/// Abstraction over the different window types (PreviewUi vs EditorUi).
-/// Only used for the few operations that need component-level access
-/// (window(), show(), run()). Most code should use the Api global directly.
-pub enum AppWindow {
-    Preview(PreviewUi),
-    Editor(EditorUi),
-}
-
-impl AppWindow {
-    pub fn window(&self) -> &slint::Window {
-        match self {
-            AppWindow::Preview(ui) => ui.window(),
-            AppWindow::Editor(ui) => ui.window(),
-        }
-    }
-
-    pub fn show(&self) -> Result<(), PlatformError> {
-        match self {
-            AppWindow::Preview(ui) => ui.show(),
-            AppWindow::Editor(ui) => ui.show(),
-        }
-    }
-
-    #[cfg(not(target_arch = "wasm32"))]
-    pub fn run(&self) -> Result<(), PlatformError> {
-        match self {
-            AppWindow::Preview(ui) => ui.run(),
-            AppWindow::Editor(ui) => ui.run(),
-        }
-    }
-
-    pub fn clone_strong(&self) -> Self {
-        match self {
-            AppWindow::Preview(ui) => AppWindow::Preview(ui.clone_strong()),
-            AppWindow::Editor(ui) => AppWindow::Editor(ui.clone_strong()),
-        }
-    }
-
-    pub fn as_weak(&self) -> WeakAppWindow {
-        match self {
-            AppWindow::Preview(ui) => WeakAppWindow::Preview(ui.as_weak()),
-            AppWindow::Editor(ui) => WeakAppWindow::Editor(ui.as_weak()),
-        }
-    }
-
-    pub fn api(&self) -> Api<'_> {
-        match self {
-            AppWindow::Preview(ui) => ui.global::<Api>(),
-            AppWindow::Editor(ui) => ui.global::<Api>(),
-        }
-    }
-
-    // Convenience accessor. Because Api implements Global for both EditorUi and PreviewUi
-    // we need to fully-qualify the as_weak call, which is annoying.
-    pub fn api_weak(&self) -> slint::Weak<Api<'static>> {
-        match self {
-            AppWindow::Preview(ui) => {
-                let api = ui.global::<Api>();
-                <Api as slint::Global<'_, PreviewUi>>::as_weak(&api)
-            }
-            AppWindow::Editor(ui) => {
-                let api = ui.global::<Api>();
-                <Api as slint::Global<'_, EditorUi>>::as_weak(&api)
-            }
-        }
-    }
-}
-
-#[derive(Clone)]
-pub enum WeakAppWindow {
-    Preview(slint::Weak<PreviewUi>),
-    Editor(slint::Weak<EditorUi>),
-}
-
-impl WeakAppWindow {
-    pub fn upgrade(&self) -> Option<AppWindow> {
-        match self {
-            WeakAppWindow::Preview(ui) => ui.upgrade().map(AppWindow::Preview),
-            WeakAppWindow::Editor(ui) => ui.upgrade().map(AppWindow::Editor),
-        }
-    }
-}
-
 pub type PropertyDeclarations = HashMap<SmolStr, PropertyDeclaration>;
 
 pub fn preview_user_settings_from_values(
@@ -188,23 +90,9 @@ pub fn preview_user_settings_from_values(
     }
 }
 
-pub fn apply_preview_user_settings(app_window: &AppWindow, settings: &PreviewUserSettings) {
-    // The `changed` handlers triggered by these setters run deferred and report
-    // back through `preview::update_user_settings_from_ui`, which dedupes them
-    // against the last synced settings, so no echo guard is needed here.
-    let api = app_window.api();
+pub fn apply_preview_user_settings(editor_ui: &EditorUi, settings: &PreviewUserSettings) {
+    let api = editor_ui.global::<Api>();
     api.set_always_on_top(settings.always_on_top);
-
-    match app_window {
-        AppWindow::Preview(ui) => {
-            ui.set_library_widget(settings.show_library);
-            ui.set_properties_widget(settings.show_properties);
-            ui.set_outline_widget(settings.show_outline);
-            ui.set_data_widget(settings.show_simulation_data);
-            ui.set_console_panel_expanded(settings.show_console);
-        }
-        AppWindow::Editor(_) => {}
-    }
 }
 
 pub fn setup_preview_user_settings(api: &Api<'_>) {
@@ -230,16 +118,10 @@ pub fn setup_preview_user_settings(api: &Api<'_>) {
 pub fn create_ui(
     to_lsp: &Rc<dyn i_slint_editor_preview::PreviewToLsp>,
     style: &str,
-    ui_kind: PreviewUiKind,
-) -> Result<AppWindow, PlatformError> {
-    let app_window = if ui_kind.is_editor() {
-        AppWindow::Editor(EditorUi::new()?)
-    } else {
-        AppWindow::Preview(PreviewUi::new()?)
-    };
-
-    let api = app_window.api();
-    let api_weak = app_window.api_weak();
+) -> Result<EditorUi, PlatformError> {
+    let editor_ui = EditorUi::new()?;
+    let api = editor_ui.global::<Api>();
+    let api_weak = <Api as slint::Global<'_, EditorUi>>::as_weak(&api);
 
     // styles:
     let known_styles = once(&"native")
@@ -421,15 +303,15 @@ pub fn create_ui(
             api.set_startup_wizard_visible(false);
         }
     });
-    file_tree::setup(&api, api_weak.clone(), ui_kind, app_window.as_weak());
+    file_tree::setup(&api, api_weak.clone(), editor_ui.as_weak());
     recent_colors::setup(&api, api_weak.clone());
-    super::outline::setup(&api, api_weak);
+    super::outline::setup(&api, api_weak.clone());
     super::undo_redo::setup(&api);
     setup_preview_user_settings(&api);
-    apply_preview_user_settings(&app_window, &PreviewUserSettings::default());
+    apply_preview_user_settings(&editor_ui, &PreviewUserSettings::default());
 
     #[cfg(all(not(target_arch = "wasm32"), feature = "preview-remote"))]
-    super::remote::setup(&app_window, to_lsp);
+    super::remote::setup(&api, api_weak, to_lsp);
 
     #[cfg(target_vendor = "apple")]
     api.set_control_key_name("command".into());
@@ -442,7 +324,7 @@ pub fn create_ui(
         api.set_control_key_name("command".into());
     }
 
-    Ok(app_window)
+    Ok(editor_ui)
 }
 
 fn extract_definition_location(ci: &ComponentInformation) -> (SharedString, SharedString) {
