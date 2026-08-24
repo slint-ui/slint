@@ -2,15 +2,17 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 // cSpell: ignore xdir ydir
+use i_slint_core::lengths::LogicalLength;
 use winit::window::{CursorIcon, ResizeDirection};
 
 pub fn handle_cursor_move_for_resize(
     window: &winit::window::Window,
     position: winit::dpi::PhysicalPosition<f64>,
     current_direction: Option<ResizeDirection>,
-    border_size: f64,
+    border_width: LogicalLength,
 ) -> Option<ResizeDirection> {
     if !window.is_decorated() && window.is_resizable() {
+        let border_size = f64::from(border_width.get()) * window.scale_factor();
         let location = get_resize_direction(window.inner_size(), position, border_size);
 
         if current_direction != location {
