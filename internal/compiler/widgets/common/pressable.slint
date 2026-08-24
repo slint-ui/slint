@@ -1,0 +1,47 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Shared pointer, keyboard, and focus behavior for controls that activate once.
+// The component using this host owns accessibility and state changes.
+export component Pressable inherits Rectangle {
+    in property <bool> enabled: true;
+    in property <bool> activate-on-enter: true;
+    in property <bool> activate-on-space: true;
+
+    out property <bool> has-focus: focus-scope.has-focus;
+    out property <bool> pressed: root.enabled && touch-area.pressed;
+    out property <bool> has-hover: root.enabled && touch-area.has-hover;
+
+    callback activated;
+
+    forward-focus: focus-scope;
+
+    public function activate() {
+        if (root.enabled) {
+            root.activated();
+        }
+    }
+
+    touch-area := TouchArea {
+        enabled <=> root.enabled;
+        clicked => { root.activate(); }
+    }
+
+    focus-scope := FocusScope {
+        x: 0px;
+        width: 0px;
+        enabled <=> root.enabled;
+
+        key-pressed(event) => {
+            if ((root.activate-on-space && event.text == " ")
+                    || (root.activate-on-enter && event.text == "\n")) {
+                root.activate();
+                return accept;
+            }
+
+            return reject;
+        }
+    }
+
+    @children
+}
