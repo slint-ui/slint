@@ -1,0 +1,107 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+//library_path(headless): ../../../ui-libraries/base-ui/src/base-ui.slint
+import { RadioButton, RadioGroup } from "@headless";
+
+component StyledRadio inherits RadioButton {
+    HorizontalLayout {
+        Rectangle { background: root.checked ? green : gray; width: 20px; }
+        Text { text: root.text; }
+    }
+}
+
+component ComposedRadio inherits Rectangle {
+    in property <bool> checked <=> behavior.checked;
+    callback selected <=> behavior.selected;
+
+    behavior := RadioButton {
+        Rectangle { background: root.checked ? blue : gray; }
+    }
+}
+
+export component TestCase inherits Window {
+    in-out property <bool> enabled: true;
+    in-out property <bool> read-only: false;
+    out property <string> selected-value: group.selected-value;
+    out property <string> second-selected-value: second-group.selected-value;
+    out property <int> selection-count;
+
+    public function focus-beta() { beta.focus(); }
+
+    VerticalLayout {
+        group := RadioGroup {
+            text: "Choice";
+            enabled: root.enabled;
+            read-only: root.read-only;
+            selected-value: "alpha";
+            selected(_) => { root.selection-count += 1; }
+
+            HorizontalLayout {
+                alpha := StyledRadio {
+                    text: "Alpha";
+                    value: "alpha";
+                    enabled: group.enabled;
+                    read-only: group.read-only;
+                    checked: group.selected-value == "alpha";
+                    selected => { group.select(self.value); }
+                }
+
+                beta := StyledRadio {
+                    text: "Beta";
+                    value: "beta";
+                    enabled: group.enabled;
+                    read-only: group.read-only;
+                    checked: group.selected-value == "beta";
+                    selected => { group.select(self.value); }
+                }
+            }
+        }
+
+        second-group := RadioGroup {
+            selected-value: "other";
+            ComposedRadio { checked: second-group.selected-value == "other"; }
+        }
+    }
+}
+
+/*
+```rust
+use slint::{SharedString, platform::{Key, PointerEventButton}};
+
+let instance = TestCase::new().unwrap();
+let alpha = slint_testing::ElementHandle::find_by_element_id(&instance, "TestCase::alpha")
+    .next().unwrap();
+let beta = slint_testing::ElementHandle::find_by_element_id(&instance, "TestCase::beta")
+    .next().unwrap();
+
+assert_eq!(alpha.accessible_checked(), Some(true));
+assert_eq!(beta.accessible_checked(), Some(false));
+assert_eq!(instance.get_second_selected_value(), SharedString::from("other"));
+
+beta.mock_single_click(PointerEventButton::Left);
+assert_eq!(instance.get_selected_value(), SharedString::from("beta"));
+assert_eq!(instance.get_selection_count(), 1);
+assert_eq!(alpha.accessible_checked(), Some(false));
+assert_eq!(beta.accessible_checked(), Some(true));
+
+// Selecting the active radio is a no-op.
+beta.mock_single_click(PointerEventButton::Left);
+beta.invoke_accessible_default_action();
+assert_eq!(instance.get_selection_count(), 1);
+
+instance.set_read_only(true);
+alpha.mock_single_click(PointerEventButton::Left);
+assert_eq!(instance.get_selected_value(), SharedString::from("beta"));
+
+instance.set_read_only(false);
+instance.invoke_focus_beta();
+slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::Space));
+assert_eq!(instance.get_selection_count(), 1);
+
+instance.set_enabled(false);
+alpha.invoke_accessible_default_action();
+assert_eq!(instance.get_selected_value(), SharedString::from("beta"));
+assert_eq!(instance.get_second_selected_value(), SharedString::from("other"));
+```
+*/

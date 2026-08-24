@@ -23,3 +23,11 @@ Import components through the mapped entry point:
 ```slint
 import { Button } from "@headless";
 ```
+
+## Current Scope
+
+The first slice contains `Button`, `Toggle`, `CheckBox`, `RadioButton`, and `RadioGroup`.
+Radio buttons and groups use explicit wiring instead of implicit component context.
+
+This slice does not include radio-group arrow navigation or roving tab stops, an indeterminate
+checkbox state, interaction-modality tracking, or standard-widget style integration.

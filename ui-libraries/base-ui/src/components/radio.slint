@@ -1,0 +1,73 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { Pressable } from "../primitives/pressable.slint";
+
+export component RadioButton inherits Rectangle {
+    in property <string> text;
+    in property <string> value;
+    in property <bool> enabled: true;
+    in property <bool> read-only: false;
+    in property <bool> checked: false;
+
+    out property <bool> has-focus: pressable.has-focus;
+    out property <bool> has-hover: pressable.has-hover;
+    out property <bool> pressed: pressable.pressed;
+
+    callback selected;
+
+    min-width: pressable.min-width;
+    min-height: pressable.min-height;
+    forward-focus: pressable;
+
+    accessible-role: radio-button;
+    accessible-label: root.text;
+    accessible-enabled: root.enabled;
+    accessible-read-only: root.read-only;
+    accessible-checkable: true;
+    accessible-checked: root.checked;
+    accessible-item-selectable: true;
+    accessible-item-selected: root.checked;
+    accessible-action-default => { root.select(); }
+
+    public function select() {
+        if (root.enabled && !root.read-only && !root.checked) {
+            root.selected();
+        }
+    }
+
+    pressable := Pressable {
+        enabled: root.enabled;
+        activate-on-enter: false;
+        clicked => { root.select(); }
+
+        @children
+    }
+}
+export component RadioGroup inherits Rectangle {
+    in property <string> text;
+    in property <bool> enabled: true;
+    in property <bool> read-only: false;
+    in-out property <string> selected-value;
+
+    callback selected(string);
+
+    min-width: content.min-width;
+    min-height: content.min-height;
+
+    accessible-role: radio-group;
+    accessible-label: root.text;
+    accessible-enabled: root.enabled;
+    accessible-read-only: root.read-only;
+
+    public function select(value: string) {
+        if (root.enabled && !root.read-only && root.selected-value != value) {
+            root.selected-value = value;
+            root.selected(value);
+        }
+    }
+
+    content := Rectangle {
+        @children
+    }
+}
