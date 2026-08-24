@@ -4,12 +4,204 @@ All notable changes to this project are documented in this file.
 
 ## [1.18.0] - Unreleased
 
+### General
+
+ - Upgraded WGPU dependency to version 30: Added the `unstable-wgpu-30` Cargo feature with the `slint::wgpu_30` module,
+   `GraphicsAPI::WGPU30`, `BackendSelector::require_wgpu_30()`, and `Image::to_wgpu_30_texture()`.
+   The `unstable-wgpu-28` feature was removed. `unstable-wgpu-29` remains available for Skia-based rendering.
+ - The FemtoVG WGPU renderer now uses WGPU 30 and works on WebAssembly, using WebGPU with a WebGL fallback.
+ - WebAssembly: Images are now decoded by the browser instead of bundled Rust decoders, significantly reducing
+   the size of wasm binaries. All image formats supported by the browser now work. (Compressed `.svgz` is no
+   longer supported on the web.)
+ - Added native drag-and-drop: data from a `DragArea` can be dropped onto other applications.
+   (Currently implemented in the Qt backend.)
+ - Published musl binaries, so `npm install slint-ui` and `pip install slint` work on Alpine Linux. (#12551)
+ - Improved text layout and rendering performance, especially for long texts.
+ - Reduced the size of the generated code.
+ - The generated code and bundled translations are now deterministic, for reproducible builds. (#12932)
+ - Accessibility: Exposed the content of text inputs to assistive technologies, including the text selection,
+   and let assistive technologies change the selection.
+ - Accessibility: Fixed a panic when the accessibility tree is rebuilt for a window without a component. (#12917)
+ - Elements with `clip: true` and a border now clip their children at the inner edge of the border
+   in all renderers. (#1988)
+ - Fixed animations restarting when a binding's dependencies change without changing the target value. (#12683)
+ - Fixed small jumps in long animations using cubic-bezier easing curves. (#12813)
+ - Fixed the focus not being cleared when the focused item becomes invisible. (#11079)
+ - Fixed box shadows being re-rendered on every frame in the FemtoVG and Skia renderers. (#12545)
+ - Fixed unbounded memory growth when loading many different SVG images. (#12379)
+ - SVG: Text with an unknown font family now falls back to the generic font families instead of being invisible.
+ - Fixed rendering of gradients with unsorted or out-of-range color stops to be consistent across renderers.
+ - Fixed an out-of-memory abort when a repeater's count evaluates to a huge value, e.g. after a division by zero. (#12400)
+ - Fixed a panic when the window adapter cannot be created; the error is now reported to the caller. (#12408)
+ - Fixed a memory leak where a window with a native menu bar was kept alive forever. (#12971)
+ - `MenuBar`: Clicking the entry of an open menu now closes it. (#12855)
+ - `TextInput`: Fixed stale cursor position and a panic on undo after the `text` property was changed
+   programmatically. (#331)
+ - `TextInput`: Fixed the caret getting stuck when moving up or down across wrapped lines. (#12905)
+ - Fixed text selection colors when a selection boundary falls inside a ligature.
+ - Word-wrapping `Text` now reports the width of its longest word as its minimum width, and wrapped text
+   inside a layout with padding is measured at the correct width.
+ - Fixed min/max size constraints on layout cells being ignored when `cross-axis-alignment`
+   is not `stretch`, and percentage sizes not applied correctly in states. (#8988)
+ - Fixed a "Recursion detected" panic when an `Image` with an explicit size is placed under an element
+   whose width depends on its height. (#12410)
+ - Fixed a code generation error for a conditional `opacity` binding on a repeated `GridLayout` child. (#12442)
+ - Fixed a panic when an item is reached through a parent component that was deleted while a callback
+   is still running. (#12877)
+ - `DropArea`: Show the normal cursor instead of the "move" cursor while a drop is accepted.
+ - `PopupWindow`: Fixed the offset calculation when the popup's size changes while it is shown.
+ - `Path`: The stroke width no longer offsets the path when using `preserve` as fit method.
+ - winit: The `repeat` flag of `KeyEvent` is now set for held-down keys. (#12719)
+ - winit: Fixed the first frame being rendered at the wrong size on Wayland, and windows being auto-sized
+   below their preferred size with fractional scale factors. (#12542)
+ - winit: Fixed rendering artifacts with the software renderer on Wayland when several areas change
+   at once. (#12752)
+ - winit: Fixed the color scheme and desktop settings not being detected with an older xdg-desktop-portal. (#10226)
+ - Windows: Fixed dead keys inserting their accent character immediately instead of composing. (#12896)
+ - macOS: Fixed a startup crash on macOS 10.13 and applications failing to start on macOS older than 11. (#12399)
+ - Android: Animations now follow the display refresh rate. (#12407)
+ - Android: Fixed key repeat when holding a key on the virtual keyboard, and the position of the caret
+   and selection handles at the edge of the visible area. (#12630)
+ - Android: Fixed `Key.Back` handlers in applications targeting Android 14 or later.
+ - Android: The safe-area insets now include the display cutout.
+ - Android: Fixed the event loop not waking up for pending redraw requests. (#12687)
+ - LinuxKMS: Improved software rendering performance, and the `mouse-cursor` property is now honored.
+ - Skia: Added support for rendering to sRGB (WGPU) render targets. (#12458)
+ - Skia: Improved performance when rendering opaque images.
+ - Skia: Fixed partially drawn frames, Vulkan validation errors, and window transparency when
+   rendering with WGPU.
+ - Skia: Fixed changes to `Window.background` not triggering a repaint with partial rendering.
+ - Software renderer: Improved performance by skipping what is covered by opaque elements. (#12366)
+ - Software renderer: Fixed uneven gaps between glyphs. (#12356)
+ - wasm: Fixed keyboard modifiers being reset when the focus moves between elements. (#7347, #8606)
+ - wasm: The system accent color is now picked up.
+
 ### Slint language
 
  - Added the `FlexboxLayout` element, which arranges its children in rows or columns and wraps them
    to the next line when they don't fit.
  - Added the per-item `cross-axis-self-alignment` property: the children of a `FlexboxLayout`,
    `HorizontalLayout`, or `VerticalLayout` can override the container's `cross-axis-alignment`.
+ - Struct fields can now declare a default value: `struct Player { name: string = "unknown" }`.
+ - Added `push`, `remove`, and `insert` functions on arrays and models, with matching `Model` API
+   additions in every language binding. (#9457)
+ - Added the `array.index-of(value)` function, returning the index of the first equal element. (#12790)
+ - Added the `string.starts-with()` and `string.ends-with()` functions. (#9877)
+ - Added the `string.replace-all(from, to)` function. (#12782)
+ - Added the `WindowMoveArea` element to start an interactive window move, like a native title bar. (#613)
+ - Added `angle-at` and `position-at` functions to the `Path` element to support animating objects along a path.
+ - Added `MouseCursor.custom()` to set a custom cursor from an image with a hotspot. (#10270)
+ - Added the `input-method-hints` property to `TextInput` and `LineEdit` to hint the platform's input method
+   about auto-capitalization, auto-correction, and auto-completion. (#9016)
+ - Added the `max-lines` property to `Text` and `StyledText` to limit the number of rendered lines.
+ - Added the `line-height-factor` property to `Text`, `TextInput`, and `StyledText`, scaling the font's
+   natural line height.
+ - Added `Platform.is-app`: a constant that is `false` when the file is shown in a preview or viewer,
+   useful for placeholder preview data. (#12834)
+ - `Flickable`: Added the `mouse-drag-pan-enabled` property; panning by touch is always possible. (#4352)
+ - Renamed the `viewport-x`/`viewport-y`/`viewport-width`/`viewport-height` properties of `Flickable` to
+   `content-x`/`content-y`/`content-width`/`content-height`. The old names remain as deprecated aliases. (#1443)
+ - A component can now declare a property, callback, or function whose name shadows a private member
+   of its base component. (#1937)
+ - The `z` property is no longer restricted to compile-time constants: siblings with dynamic `z` values
+   are re-sorted at runtime. (#221)
+ - Enum and color values are now inferred from the expected type of the expression, so bare literals work
+   in struct fields, array elements, function arguments, comparisons, and return statements. (#897)
+ - `Window`: Deprecated setting the `x` and `y` properties; the position is controlled by the windowing system.
+ - `Window`: `close()` now returns `true` only when the application accepted the close request.
+ - `DataTransfer` can now carry a list of file paths in addition to text and an image. (#1967)
+ - `StyledText`: Inline code from `@markdown` now renders in a monospace font with a capsule background.
+ - Binding loops going through two-way bindings, and through the implicit size of `StyledText`,
+   are now detected at compile time instead of panicking at runtime. (#417, #12333)
+ - Added a warning when a callback is aliased with multiple two-way declarations, since only one handler
+   can run. (#3966)
+ - Fixed `changed` handlers and animations on properties that are two-way bound to a global property.
+   (#12155, #4529)
+ - Fixed a panic when animating the property of a global in generated Rust and C++ code. (#9961)
+ - Fixed `Timer.restart()` and showing or closing a `PopupWindow` from a repeated or conditional element,
+   or from a function inlined into another component. (#12602)
+ - Fixed repeated elements not being re-evaluated when a callback handler they invoke is changed
+   at runtime. (#12642)
+ - Fixed `absolute-position` returning wrong values for elements with `opacity` or under a transformed parent.
+ - Fixed a panic when a `visible` binding is set on a cell inside a repeated `GridLayout` `Row`.
+ - Fixed `show()` and `hide()` on `SystemTrayIcon` components, and report an error when no system tray
+   backend is available.
+ - Invalid characters in identifiers are now rejected with an error instead of generating
+   invalid code. (#12708)
+ - Fixed a compiler panic on import paths containing backslashes. (#12798)
+ - Import paths starting with `builtin:` are now rejected.
+ - The "Unknown unqualified identifier" error now suggests the qualified form for named colors and
+   enum values, e.g. `red` -> `Colors.red`. (#4397)
+ - Fixed a compiler panic when instantiating a component that inherits from `ContextMenuArea`. (#12833)
+ - Fixed conditional (ternary) expressions with arrays of structs and structs with array members. (#12845)
+ - Fixed referencing a private property of the base component in a state's property value. (#1461)
+ - Interpreter: Compound assignments (e.g. `x += v`) now run the property's animation.
+
+### Widgets
+
+ - `ComboBox`: Writing to `current-value` now selects the matching row in the model; a value not in the
+   model clears the selection. (#11970)
+ - `ListView`: Fixed explicitly set viewport width/height being overwritten. (#5485)
+ - Fixed a crash when instantiating a styled `RadioGroup` or `TabWidget` directly. (#12332)
+ - Redundant inner elements of compound widgets are now hidden from the accessibility tree.
+
+### Rust
+
+ - Added `slint::update_all_translations()`, which was previously only available in C++.
+ - Added `Window::dispatch_event_with_result()` returning the new `WindowEventDispatchResult` enum,
+   and deprecated `Window::try_dispatch_event()`.
+ - Added `Image::load_from_data()` to decode an encoded image (PNG, JPEG, SVG, ...) from a memory buffer. (#2624)
+ - Added `Rgb565BigEndianPixel` to `slint::platform::software_renderer` for big-endian SPI displays. (#10882)
+ - Added `remove` and `insert` functions to `SharedVector`.
+ - slint-build: Software-renderer resource embedding and extra image codecs are now optional default-on
+   Cargo features (`renderer-software`, `image-default-formats`), so they can be disabled to reduce
+   build dependencies. (#11554)
+ - Reduced the compile time and memory usage of the generated code. (#12853)
+ - The `renderer-skia-vulkan` feature now also works on macOS and iOS, running on top of MoltenVK.
+ - Fixed generated code failing to borrow-check when a property read multiple times in one expression
+   is passed to a function. (#12880)
+ - Fixed a panic in generated code when a `for` inside a `GridLayout` has its model emptied while
+   a pointer grab is active. (#12944)
+
+### C++
+
+ - Added `Image::load_from_data()` to decode an encoded image (PNG, JPEG, SVG, ...) from a memory buffer. (#2624)
+ - `CMAKE_INSTALL_LIBDIR` is now honored when installing the library.
+ - Fixed an abort when `slint::invoke_from_event_loop` is called before any other Slint API initialized
+   the platform.
+ - Fixed a crash when the item tree is walked while a repeated element is being removed, e.g. when
+   deleting a model row from its own click handler.
+
+### JavaScript
+
+ - Added the `dispatchEvent` function to `Window`. (#12676)
+ - Integrated the Slint event loop with the Node.js event loop on Windows, as was already done on
+   Linux and macOS. (#12396)
+ - The component constructor now accepts property and callback names in both dash and underscore
+   spelling. (#12882)
+
+### Python
+
+ - Ctrl-C (SIGINT) now interrupts a running event loop and raises `KeyboardInterrupt`.
+ - Fixed memory leaks in the asyncio integration. (#12679)
+ - Fixed high CPU usage while an asyncio socket receives data. (#12962)
+ - Enum-typed fields of builtin structs are now annotated with their enum class in the type stubs.
+
+### Tooling
+
+ - live-preview: User settings such as always-on-top and the view panel toggles are now persisted.
+ - live-preview: Fixed the size and position of the Edit Values window, and made it resizable. (#12463)
+ - live-preview: The remote preview now validates incoming messages and only serves files that belong
+   to the previewed project.
+ - LSP: Renaming a Slint property or callback now offers to also rename the corresponding accessors
+   in the Rust or C++ code. (#11841)
+ - LSP: The import code action and auto-completion now also offer structs and enums, not just components.
+ - LSP: Fixed the formatter breaking `return` statements. (#12361)
+ - LSP: Errors are now reported when formatting from the command line fails. (#12890)
+ - slint-viewer: Added a `--size` option to set the screenshot dimensions.
+ - slint-viewer: Fixed `--auto-reload` not reloading when the file was given as a relative path. (#12572)
+ - SlintPad: Fixed a panic when loading demos with imports. (#12486)
+ - The MCP server now also works on Android and with custom platforms. (#12447)
 
 ## [1.17.1] - 2026-07-07
 
