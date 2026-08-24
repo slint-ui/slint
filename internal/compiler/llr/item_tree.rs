@@ -697,6 +697,10 @@ pub struct CompilationUnit {
     pub globals: TiVec<GlobalIdx, GlobalComponent>,
     pub popup_menu: Option<PopupMenu>,
     pub has_debug_info: bool,
+    /// The `(original, alias)` pairs for renamed `export { Original as Alias }`
+    /// declarations of components, structs and enums. The generators emit a
+    /// type alias for each. (Global aliases are on [`GlobalComponent::aliases`].)
+    pub named_exports: Vec<(SmolStr, SmolStr)>,
     #[cfg(feature = "bundle-translations")]
     pub translations: Option<crate::translations::Translations>,
 }

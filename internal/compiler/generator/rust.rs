@@ -248,7 +248,7 @@ pub fn generate(
     let compo_ids = llr.public_components.iter().map(|c| ident(&c.name));
 
     let resource_symbols = generate_resources(doc);
-    let named_exports = generate_named_exports(&doc.exports);
+    let named_exports = generate_named_exports(&llr.named_exports);
     // The inner module was meant to be internal private, but projects have been reaching into it
     // so we can't change the name of this module
     let generated_mod = doc
@@ -6183,44 +6183,13 @@ fn generate_resources(doc: &Document) -> Vec<TokenStream> {
         .collect()
 }
 
-pub fn generate_named_exports(exports: &crate::object_tree::Exports) -> Vec<TokenStream> {
-    exports
+pub fn generate_named_exports(named_exports: &[(SmolStr, SmolStr)]) -> Vec<TokenStream> {
+    named_exports
         .iter()
-        .filter_map(|export| match &export.1 {
-            Either::Left(component) if !component.is_global() => {
-                if export.0.name != component.id {
-                    Some((
-                        &export.0.name,
-                        proc_macro2::TokenTree::from(ident(&component.id)).into(),
-                    ))
-                } else {
-                    None
-                }
-            }
-            Either::Right(ty) => match &ty {
-                Type::Struct(s) if s.node().is_some() => {
-                    if let StructName::User { name, .. } = &s.name
-                        && *name == export.0.name
-                    {
-                        None
-                    } else {
-                        Some((&export.0.name, struct_name_to_tokens(&s.name).unwrap()))
-                    }
-                }
-                Type::Enumeration(en) => {
-                    if export.0.name != en.name {
-                        Some((&export.0.name, proc_macro2::TokenTree::from(ident(&en.name)).into()))
-                    } else {
-                        None
-                    }
-                }
-                _ => None,
-            },
-            _ => None,
-        })
-        .map(|(export_name, type_id)| {
-            let export_id = ident(export_name);
-            quote!(#type_id as #export_id)
+        .map(|(original, alias)| {
+            let original = ident(original);
+            let alias = ident(alias);
+            quote!(#original as #alias)
         })
         .collect::<Vec<_>>()
 }
