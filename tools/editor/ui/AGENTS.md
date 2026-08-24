@@ -13,8 +13,6 @@ Run the app with Skia against the simple local fixture:
 SLINT_ENABLE_EXPERIMENTAL_FEATURES=1 \
 SLINT_BACKEND=winit-skia \
 cargo run -p slint-editor \
-  --no-default-features \
-  --features backend-winit,renderer-skia \
   -- tools/editor/ui/visual-editor/example/simple_preview.slint
 ```
 
@@ -25,9 +23,8 @@ Important:
 - Use Skia. Do not silently switch to the software renderer. If Skia needs a
   first-time `skia-bindings` download, ask for network approval and keep using
   Skia.
-- Use `-p slint-editor --no-default-features`. Dropping
-  `--no-default-features` can pull Qt on macOS and fail in sandboxes when
-  `ccache` writes under `~/Library/Caches/ccache`.
+- The backend and renderer are fixed to winit and Skia in
+  `tools/editor/Cargo.toml`, so no `--features` flags are needed.
 - `SLINT_ENABLE_EXPERIMENTAL_FEATURES=1` is required because the visual editor
   uses internal/experimental types such as `component-factory`.
 - Use `tools/editor/ui/visual-editor/example/simple_preview.slint` when it exists.
@@ -47,8 +44,7 @@ SLINT_EMIT_DEBUG_INFO=1 \
 SLINT_MCP_PORT=9315 \
 SLINT_BACKEND=winit-skia \
 cargo run -p slint-editor \
-  --no-default-features \
-  --features backend-winit,renderer-skia,slint/mcp \
+  --features slint/mcp \
   -- tools/editor/ui/visual-editor/example/simple_preview.slint
 ```
 
@@ -80,8 +76,7 @@ SLINT_ENABLE_EXPERIMENTAL_FEATURES=1 \
 SLINT_LIVE_PREVIEW=1 \
 SLINT_BACKEND=winit-skia \
 cargo run --release -p slint-editor \
-  --no-default-features \
-  --features backend-winit,renderer-skia,slint/live-preview \
+  --features slint/live-preview \
   -- tools/editor/ui/visual-editor/example/Main.slint
 ```
 

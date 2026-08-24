@@ -15,7 +15,6 @@ ACCOUNT="slint-visual-editor-local-test"
 BUNDLE_IDENTIFIER="dev.slint.visual-editor.sparkle-test"
 ICON_SOURCE="$ROOT_DIR/tools/editor/packaging/macos/AppIcon.icon"
 RUST_TARGET="aarch64-apple-darwin"
-CARGO_FEATURES="backend-winit,renderer-skia"
 HOST="127.0.0.1"
 PORT="8765"
 WORK_DIR="/private/tmp/slint-sparkle-local-test"
@@ -166,9 +165,7 @@ build_editor_app() {
     cargo build \
             --release \
             --target "$RUST_TARGET" \
-            -p slint-editor \
-            --no-default-features \
-            --features "$CARGO_FEATURES"
+            -p slint-editor
 
     [ -x "$executable" ] || die "built executable missing: $executable"
 

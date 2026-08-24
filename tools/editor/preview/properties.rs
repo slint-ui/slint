@@ -793,7 +793,6 @@ pub fn set_binding_impl(
     }
 }
 
-#[cfg(any(feature = "preview-external", feature = "preview-engine"))]
 pub fn set_bindings(
     uri: Url,
     version: SourceFileVersion,
@@ -813,7 +812,6 @@ pub fn set_bindings(
     )
 }
 
-#[cfg(any(feature = "preview-external", feature = "preview-engine"))]
 fn element_at_source_code_position(
     document_cache: &i_slint_editor_preview::DocumentCache,
     position: &i_slint_editor_preview::editing::VersionedPosition,
@@ -839,7 +837,6 @@ fn element_at_source_code_position(
     })?)
 }
 
-#[cfg(any(feature = "preview-external", feature = "preview-engine"))]
 pub fn update_element_properties(
     document_cache: &i_slint_editor_preview::DocumentCache,
     position: i_slint_editor_preview::editing::VersionedPosition,
