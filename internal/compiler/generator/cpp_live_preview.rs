@@ -49,7 +49,7 @@ pub fn generate(
         };
     }
 
-    super::cpp::generate_type_aliases(&mut file, doc);
+    super::cpp::generate_type_aliases(&mut file, &llr);
 
     let cpp_files = file.split_off_cpp_files(config.header_include, config.cpp_files.len());
     for (cpp_file_name, cpp_file) in config.cpp_files.iter().zip(cpp_files) {

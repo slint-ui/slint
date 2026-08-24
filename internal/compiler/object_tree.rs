@@ -4757,6 +4757,32 @@ impl Exports {
             .map(|index| self.components_or_types[index].1.clone())
     }
 
+    /// The `(original, alias)` pairs for renamed `export { Original as Alias }`
+    /// of components (non-global), structs and enums — the aliases the
+    /// generators attach to the generated type. Global aliases are handled
+    /// separately, through `GlobalComponent::aliases`.
+    pub fn named_type_aliases(&self) -> Vec<(SmolStr, SmolStr)> {
+        self.iter()
+            .filter_map(|(exported, item)| match item {
+                Either::Left(component) if !component.is_global() => {
+                    Some((component.id.clone(), exported.name.clone()))
+                }
+                Either::Right(ty) => match ty {
+                    Type::Struct(s) if s.node().is_some() => match &s.name {
+                        StructName::User { name, .. } => {
+                            Some((name.clone(), exported.name.clone()))
+                        }
+                        _ => None,
+                    },
+                    Type::Enumeration(en) => Some((en.name.clone(), exported.name.clone())),
+                    _ => None,
+                },
+                _ => None,
+            })
+            .filter(|(original, alias)| original != alias)
+            .collect()
+    }
+
     pub fn retain(
         &mut self,
         func: impl FnMut(&mut (ExportedName, Either<Rc<Component>, Type>)) -> bool,

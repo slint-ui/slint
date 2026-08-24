@@ -431,6 +431,7 @@ mod plural_rule_parser {
                     has_debug_info: false,
                     translations: None,
                     popup_menu: None,
+                    named_exports: Default::default(),
                 },
                 current_scope: crate::llr::EvaluationScope::Global(0.into()),
                 generator_state: (),

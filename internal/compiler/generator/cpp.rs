@@ -1025,7 +1025,7 @@ pub fn generate(
         generate_public_component(&mut file, &conditional_includes, p, &llr);
     }
 
-    generate_type_aliases(&mut file, doc);
+    generate_type_aliases(&mut file, &llr);
 
     if conditional_includes.iostream.get() {
         file.includes.push("<iostream>".into());
@@ -6184,30 +6184,10 @@ fn return_compile_expression(
     }
 }
 
-pub fn generate_type_aliases(file: &mut File, doc: &Document) {
-    let type_aliases = doc
-        .exports
-        .iter()
-        .filter_map(|export| match &export.1 {
-            Either::Left(component) if !component.is_global() => {
-                Some((&export.0.name, component.id.clone()))
-            }
-            Either::Right(ty) => match &ty {
-                Type::Struct(s) if s.node().is_some() => {
-                    Some((&export.0.name, s.name.cpp_type().unwrap()))
-                }
-                Type::Enumeration(en) => Some((&export.0.name, en.name.clone())),
-                _ => None,
-            },
-            _ => None,
-        })
-        .filter(|(export_name, type_name)| *export_name != type_name)
-        .map(|(export_name, type_name)| {
-            Declaration::TypeAlias(TypeAlias {
-                old_name: ident(&type_name),
-                new_name: ident(export_name),
-            })
-        });
+pub fn generate_type_aliases(file: &mut File, unit: &llr::CompilationUnit) {
+    let type_aliases = unit.named_exports.iter().map(|(original, alias)| {
+        Declaration::TypeAlias(TypeAlias { old_name: ident(original), new_name: ident(alias) })
+    });
 
     file.declarations.extend(type_aliases);
 }

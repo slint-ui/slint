@@ -53,7 +53,7 @@ pub fn generate(
     });
     let compo_ids = llr.public_components.iter().map(|c| ident(&c.name));
 
-    let named_exports = super::rust::generate_named_exports(&doc.exports);
+    let named_exports = super::rust::generate_named_exports(&llr.named_exports);
     // The inner module was meant to be internal private, but projects have been reaching into it
     // so we can't change the name of this module
     let generated_mod = doc
