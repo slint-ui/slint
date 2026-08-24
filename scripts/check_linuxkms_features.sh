@@ -93,6 +93,16 @@ expect "backend-linuxkms-noseat" false true \
 expect "backend-linuxkms" true true \
     -p slint-cpp --features backend-linuxkms
 
+echo "== bindings and tools: default builds ship libinput, never libseat =="
+expect "slint-node (default)" false true \
+    -p slint-node
+expect "slint-python (default)" false true \
+    -p slint-python
+expect "slint-viewer + backend-linuxkms-libinput" false true \
+    -p slint-viewer --features backend-linuxkms-libinput
+expect "slint-lsp + backend-linuxkms-libinput" false true \
+    -p slint-lsp --features backend-linuxkms-libinput
+
 if [ "$failures" -ne 0 ]; then
     echo
     echo "$failures LinuxKMS feature resolution check(s) failed."
