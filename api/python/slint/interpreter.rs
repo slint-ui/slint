@@ -212,36 +212,31 @@ impl CompilationResult {
 
     #[getter]
     fn named_exports(&self) -> Vec<(String, String)> {
-        self.result.named_exports(i_slint_core::InternalToken {}).cloned().collect::<Vec<_>>()
+        let Some(unit) = self.result.compilation_unit(i_slint_core::InternalToken {}) else {
+            return Vec::new();
+        };
+        unit.type_exports
+            .iter()
+            .filter(|e| e.is_alias())
+            .map(|e| (e.internal_name.to_string(), e.exported_name.to_string()))
+            .collect()
     }
 
     #[getter]
     fn generated_api(&self) -> PyResult<PyGeneratedAPI> {
-        let type_loader = self
+        let Some(unit) = self.result.compilation_unit(i_slint_core::InternalToken {}) else {
+            return Err(pyo3::exceptions::PyRuntimeError::new_err(
+                "Cannot generated API for empty slint file",
+            ));
+        };
+        let structs_and_enums = self
             .result
-            .components()
-            .next()
-            .ok_or_else(|| {
-                pyo3::exceptions::PyRuntimeError::new_err(
-                    "Cannot generated API for empty slint file",
-                )
-            })?
-            .type_loader();
-        let doc = type_loader.get_document(&self.path).ok_or_else(|| {
-            pyo3::exceptions::PyRuntimeError::new_err(
-                "Failed to load document from cache for API generation",
-            )
-        })?;
-        i_slint_compiler::generator::python::generate_py_module(
-            doc,
-            &i_slint_compiler::CompilerConfiguration::new(
-                i_slint_compiler::generator::OutputFormat::Python,
-            ),
-        )
-        .map_err(|e| {
-            pyo3::exceptions::PyRuntimeError::new_err(format!("Error generating pymodule: {}", e))
-        })
-        .map(|module| PyGeneratedAPI { path: self.path.clone(), module })
+            .structs_and_enums(i_slint_core::InternalToken {})
+            .cloned()
+            .collect::<Vec<_>>();
+        let module =
+            i_slint_compiler::generator::python::generate_py_module(unit, &structs_and_enums);
+        Ok(PyGeneratedAPI { path: self.path.clone(), module })
     }
 }
 

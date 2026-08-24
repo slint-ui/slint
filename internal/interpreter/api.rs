@@ -1015,8 +1015,6 @@ impl Compiler {
                     watch_paths: vec![i_slint_compiler::pathutils::clean_path(path)],
                     #[cfg(feature = "internal")]
                     structs_and_enums: Vec::new(),
-                    #[cfg(feature = "internal")]
-                    named_exports: Vec::new(),
                 };
             }
         };
@@ -1059,8 +1057,6 @@ async fn build_compilation_result(
         watch_paths: result.watch_paths,
         #[cfg(feature = "internal")]
         structs_and_enums: result.structs_and_enums,
-        #[cfg(feature = "internal")]
-        named_exports: result.named_exports,
     }
 }
 
@@ -1078,9 +1074,6 @@ pub struct CompilationResult {
     pub(crate) watch_paths: Vec<PathBuf>,
     #[cfg(feature = "internal")]
     pub(crate) structs_and_enums: Vec<LangType>,
-    /// For `export { Foo as Bar }` this vec contains tuples of (`Foo`, `Bar`)
-    #[cfg(feature = "internal")]
-    pub(crate) named_exports: Vec<(String, String)>,
 }
 
 impl core::fmt::Debug for CompilationResult {
@@ -1150,14 +1143,14 @@ impl CompilationResult {
     }
 
     /// This is an internal function without API stability guarantees.
-    /// Returns the list of named export aliases as tuples (`export { Foo as Bar}` is (`Foo`, `Bar` tuple)).
+    /// The lowered compilation unit, or `None` when the compilation failed.
     #[doc(hidden)]
     #[cfg(feature = "internal")]
-    pub fn named_exports(
+    pub fn compilation_unit(
         &self,
         _: i_slint_core::InternalToken,
-    ) -> impl Iterator<Item = &(String, String)> {
-        self.named_exports.iter()
+    ) -> Option<&i_slint_compiler::llr::CompilationUnit> {
+        self.components.values().next().map(|d| &*d.inner.compilation_unit)
     }
 }
 

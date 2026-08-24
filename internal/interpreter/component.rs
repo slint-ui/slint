@@ -347,9 +347,6 @@ pub struct BuildResult {
     pub watch_paths: Vec<std::path::PathBuf>,
     #[cfg(feature = "internal")]
     pub structs_and_enums: Vec<LangType>,
-    /// For `export { Foo as Bar }` this vec contains tuples of (`Foo`, `Bar`)
-    #[cfg(feature = "internal")]
-    pub named_exports: Vec<(String, String)>,
 }
 
 /// Compile a `.slint` source string.
@@ -416,8 +413,6 @@ pub async fn build_from_source(
         watch_paths: Vec::new(),
         #[cfg(feature = "internal")]
         structs_and_enums: Vec::new(),
-        #[cfg(feature = "internal")]
-        named_exports: Vec::new(),
     };
     if diag.has_errors() {
         return BuildResult {
@@ -451,44 +446,6 @@ pub async fn build_from_source(
     }
     #[cfg(feature = "internal")]
     let structs_and_enums = doc.used_types.borrow().structs_and_enums.clone();
-    #[cfg(feature = "internal")]
-    let mut named_exports = doc
-        .exports
-        .iter()
-        .filter_map(|export| {
-            use i_slint_compiler::langtype::{StructName, Type};
-            use itertools::Either;
-            match &export.1 {
-                Either::Left(component) if !component.is_global() => {
-                    Some((&export.0.name, &component.id))
-                }
-                Either::Right(ty) => match &ty {
-                    Type::Struct(s) if s.node().is_some() => {
-                        if let StructName::User { name, .. } = &s.name {
-                            Some((&export.0.name, name))
-                        } else {
-                            None
-                        }
-                    }
-                    Type::Enumeration(en) => Some((&export.0.name, &en.name)),
-                    _ => None,
-                },
-                _ => None,
-            }
-        })
-        .filter(|(export_name, type_name)| *export_name != *type_name)
-        .map(|(export_name, type_name)| (type_name.to_string(), export_name.to_string()))
-        .collect::<Vec<_>>();
-    // A type exported only under a different name is renamed to that name; keep the original
-    // name available as an alias so existing code keeps working.
-    #[cfg(feature = "internal")]
-    named_exports.extend(
-        doc.used_types
-            .borrow()
-            .deprecated_type_aliases
-            .iter()
-            .map(|(old_name, new_name)| (new_name.to_string(), old_name.to_string())),
-    );
     BuildResult {
         diagnostics: diag.into_iter().collect(),
         components,
@@ -496,7 +453,5 @@ pub async fn build_from_source(
         watch_paths,
         #[cfg(feature = "internal")]
         structs_and_enums,
-        #[cfg(feature = "internal")]
-        named_exports,
     }
 }
