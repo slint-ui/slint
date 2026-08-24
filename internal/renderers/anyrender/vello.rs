@@ -169,6 +169,9 @@ impl VelloWindowRenderer {
 
         let capabilities = surface.get_capabilities(&adapter);
 
+        // Prefer FIFO modes over possible Mailbox setting for frame pacing and better energy efficiency.
+        surface_config.present_mode = wgpu::PresentMode::AutoVsync;
+
         // The blit is a plain copy, so prefer a surface format matching the
         // texture vello renders into.
         surface_config.format = capabilities
