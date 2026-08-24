@@ -74,8 +74,7 @@ modules:
     build-commands:
       - cargo --offline fetch --manifest-path Cargo.toml
       - cargo build --manifest-path tools/editor/Cargo.toml
-        --profile package-release --offline --no-default-features
-        --features backend-winit,renderer-skia
+        --profile package-release --offline
       - install -Dm0755 target/package-release/slint-editor ${FLATPAK_DEST}/bin/slint-visual-editor
       - install -Dm0644 tools/editor/packaging/linux/${FLATPAK_ID}.desktop ${FLATPAK_DEST}/share/applications/${FLATPAK_ID}.desktop
       # The icon references the shared logo and tile backdrop, and librsvg only

@@ -20,33 +20,15 @@ name = "slint-editor"
 path = "main.rs"
 
 [features]
-backend-qt = ["slint/backend-qt", "preview-builtin"]
-backend-winit = ["slint/backend-winit", "preview-builtin"]
-backend-winit-x11 = ["slint/backend-winit-x11", "preview-builtin"]
-backend-winit-wayland = ["slint/backend-winit-wayland", "preview-builtin"]
-backend-linuxkms = ["slint/backend-linuxkms", "preview-builtin"]
-backend-linuxkms-noseat = ["slint/backend-linuxkms-noseat", "preview-builtin"]
-backend-default = ["slint/backend-default", "preview-builtin"]
-
-renderer-femtovg = ["slint/renderer-femtovg", "preview-builtin"]
-renderer-skia = ["slint/renderer-skia", "preview-builtin"]
-renderer-skia-opengl = ["slint/renderer-skia-opengl", "preview-builtin"]
-renderer-skia-vulkan = ["slint/renderer-skia-vulkan", "preview-builtin"]
-renderer-software = ["slint/renderer-software", "preview-builtin"]
-
-preview-engine = ["i-slint-editor-preview/preview-engine"]
-preview-builtin = ["preview-engine", "i-slint-editor-preview/preview-builtin"]
-preview-external = ["preview-engine", "i-slint-editor-preview/preview-external"]
-preview-remote = ["preview-builtin", "dep:mdns-sd"]
-
-default = ["backend-default", "renderer-femtovg", "renderer-software"]
+## Discover preview targets on the local network.
+preview-remote = ["dep:mdns-sd"]
 
 [dependencies]
 i-slint-backend-selector = { workspace = true }
 i-slint-common = { workspace = true }
 i-slint-compiler = { workspace = true, features = ["display-diagnostics"] }
 i-slint-core = { workspace = true, features = ["std"] }
-i-slint-editor-preview = { workspace = true }
+i-slint-editor-preview = { workspace = true, features = ["preview-engine", "preview-builtin"] }
 i-slint-live-preview = { workspace = true, features = ["protocol", "file-watcher"] }
 
 by_address = { workspace = true }
@@ -58,7 +40,7 @@ lsp-types = { workspace = true }
 nucleo-matcher = "0.3.1"
 serde = { workspace = true }
 serde_json = { workspace = true }
-slint = { workspace = true, features = ["compat-1-2", "unstable-winit-030", "raw-window-handle-06"] }
+slint = { workspace = true, features = ["compat-1-2", "backend-winit", "renderer-skia", "unstable-winit-030", "raw-window-handle-06"] }
 slint-interpreter = { workspace = true, features = ["compat-1-2", "internal", "internal-highlight", "internal-json", "image-default-formats"] }
 smol_str = { workspace = true }
 tokio = { version = "1.50.0", features = ["macros", "net", "rt", "sync", "time"] }
