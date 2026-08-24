@@ -3,9 +3,8 @@
 
 // Regression test for https://github.com/slint-ui/slint/issues/12985
 
-// Skia text isn't pixel-stable across platforms, and the bitmap (embed-assets) text layout still
-// overflows on a line this long.
-//ignore: skia, software-embed-assets
+// Skia text isn't pixel-stable across platforms
+//ignore:skia
 
 TestCase := Window {
     width: 64px;

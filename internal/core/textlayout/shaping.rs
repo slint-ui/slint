@@ -23,6 +23,37 @@ pub struct Glyph<Length> {
     pub text_byte_offset: usize,
 }
 
+/// Adds two widths, returning `None` when the result would not fit the coordinate type. A line
+/// wider than that cannot be positioned or displayed anyway, so the layout stops there instead of
+/// overflowing (which would panic in a debug build). Floats never overflow, so they always add.
+pub trait CheckedAdd: Copy {
+    /// Adds, returning `None` if the result would not fit the coordinate type.
+    fn checked_add(self, other: Self) -> Option<Self>;
+
+    /// Adds, clamping to the coordinate type's maximum instead of overflowing.
+    fn saturating_add(self, other: Self) -> Self;
+}
+
+impl CheckedAdd for f32 {
+    fn checked_add(self, other: Self) -> Option<Self> {
+        Some(self + other)
+    }
+
+    fn saturating_add(self, other: Self) -> Self {
+        self + other
+    }
+}
+
+impl<U> CheckedAdd for euclid::Length<i16, U> {
+    fn checked_add(self, other: Self) -> Option<Self> {
+        self.get().checked_add(other.get()).map(euclid::Length::new)
+    }
+
+    fn saturating_add(self, other: Self) -> Self {
+        euclid::Length::new(self.get().saturating_add(other.get()))
+    }
+}
+
 /// This trait defines the interface between the text layout and the platform specific
 /// mapping of text to glyphs. An implementation of the TextShaper trait must provide
 /// metric types (Length, LengthPrimitive), which is used for the line breaking calculation
@@ -48,6 +79,7 @@ pub trait TextShaper {
         + Copy
         + core::fmt::Debug;
     type Length: euclid::num::Zero
+        + CheckedAdd
         + core::ops::AddAssign
         + core::ops::Add<Output = Self::Length>
         + core::ops::Sub<Output = Self::Length>
