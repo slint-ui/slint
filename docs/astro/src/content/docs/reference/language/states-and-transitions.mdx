@@ -124,6 +124,8 @@ in {
   The catch-all is allowed only inside a transition.
 - The properties named must be among those changed by the state the transition belongs to; naming an unchanged property is an error.
 - A property that already has an [`animate`](../animations/) binding of its own cannot also be driven by a transition; that combination is an error.
+  A catch-all will not animate a property with animate binding of its own.
+- A state may have at most one catch-all per direction it affects. `in-out` affects both directions, so it conflicts with a catch-all in a separate `in` or `out` block too.
 
 The standalone `transitions [ ... ]` block from the legacy syntax is no longer supported.
 Declare transitions with `in`, `out`, and `in-out` directly inside the state.
