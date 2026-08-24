@@ -563,7 +563,7 @@ pub struct SubComponent {
     /// `layoutinfo-v-with-constraint`. See `flexbox_layout_item_info`.
     pub layout_info_v_constrained_for_repeated: Option<MutExpression>,
     /// Same as `layout_info_v_constrained_for_repeated`, but measured at the
-    /// width passed in the `flex_cross_width` local instead of the preferred
+    /// width passed in the `cross_width` local instead of the preferred
     /// width. Drives the generated `flexbox_layout_item_info_at_cross_width` method,
     /// which a column FlexboxLayout calls with its real container width so a
     /// repeated cell wraps to the same height as an equivalent static cell.
@@ -575,7 +575,7 @@ pub struct SubComponent {
     /// when the element carries a `layoutinfo-h-with-constraint`.
     pub layout_info_h_constrained_for_repeated: Option<MutExpression>,
     /// Same as `layout_info_h_constrained_for_repeated`, but measured at the
-    /// height passed in the `flex_cross_height` local. Drives the generated
+    /// height passed in the `cross_height` local. Drives the generated
     /// `flexbox_layout_item_info_at_cross_height` method, which a FlexboxLayout
     /// calls with the height it assigned so a repeated cell resolves to the
     /// same width as an equivalent static cell.

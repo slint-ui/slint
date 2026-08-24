@@ -2222,11 +2222,13 @@ pub fn get_layout_info_v_constrained_for_repeated(
 }
 
 /// Name of the local that carries the cross-axis (container) width into the
-/// generated `flexbox_layout_item_info_at_cross_width` method body.
-pub const FLEX_CROSS_WIDTH_LOCAL: &str = "flex_cross_width";
+/// generated `flexbox_layout_item_info_at_cross_width` and
+/// `layout_item_info_at_cross_width` method bodies (the parameter name is
+/// derived from it).
+pub const CROSS_WIDTH_LOCAL: &str = "cross_width";
 
 /// Like [`get_layout_info_v_constrained_for_repeated`], but measures at the
-/// width passed in the [`FLEX_CROSS_WIDTH_LOCAL`] local instead of the
+/// width passed in the [`CROSS_WIDTH_LOCAL`] local instead of the
 /// element's preferred width. A column FlexboxLayout (or a box layout)
 /// supplies the width it assigns the instance here at solve time, so a
 /// repeated height-for-width instance gets the same wrapped height as an
@@ -2247,7 +2249,7 @@ pub fn get_layout_info_v_at_cross_width_for_repeated(
         return None;
     }
     let width_constraint = crate::expression_tree::Expression::ReadLocalVariable {
-        name: FLEX_CROSS_WIDTH_LOCAL.into(),
+        name: CROSS_WIDTH_LOCAL.into(),
         ty: Type::LogicalLength,
     };
     let get = if for_flex_cell { get_flex_cell_layout_info } else { get_layout_info };
@@ -2284,11 +2286,13 @@ pub fn get_layout_info_h_constrained_for_repeated(
 }
 
 /// Name of the local that carries the cross-axis (assigned) height into the
-/// generated `flexbox_layout_item_info_at_cross_height` method body.
-pub const FLEX_CROSS_HEIGHT_LOCAL: &str = "flex_cross_height";
+/// generated `flexbox_layout_item_info_at_cross_height` and
+/// `layout_item_info_at_cross_height` method bodies (the parameter name is
+/// derived from it).
+pub const CROSS_HEIGHT_LOCAL: &str = "cross_height";
 
 /// Like [`get_layout_info_h_constrained_for_repeated`], but measures at the
-/// height passed in the [`FLEX_CROSS_HEIGHT_LOCAL`] local instead of leaving it
+/// height passed in the [`CROSS_HEIGHT_LOCAL`] local instead of leaving it
 /// unbounded. A FlexboxLayout (or a box layout) supplies the height it
 /// assigned at solve time, so a repeated width-for-height instance gets the
 /// same width as an equivalent static cell. Returns `None` when the element
@@ -2302,7 +2306,7 @@ pub fn get_layout_info_h_at_cross_height_for_repeated(
 ) -> Option<llr_Expression> {
     element.borrow().inherited_layout_info_h_with_constraint()?;
     let height_constraint = crate::expression_tree::Expression::ReadLocalVariable {
-        name: FLEX_CROSS_HEIGHT_LOCAL.into(),
+        name: CROSS_HEIGHT_LOCAL.into(),
         ty: Type::LogicalLength,
     };
     let get = if for_flex_cell { get_flex_cell_layout_info } else { get_layout_info };

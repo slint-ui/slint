@@ -18,7 +18,9 @@ use crate::expression_tree::{BuiltinFunction, EasingCurve, MinMaxOp, OperatorCla
 use crate::langtype::{DeclNode, Enumeration, EnumerationValue, Struct, StructName, Type};
 use crate::layout::Orientation;
 use crate::llr::lower_expression::lower_constant_expression;
-use crate::llr::lower_layout_expression::{MEASURE_KNOWN_H_LOCAL, MEASURE_KNOWN_W_LOCAL};
+use crate::llr::lower_layout_expression::{
+    CROSS_HEIGHT_LOCAL, CROSS_WIDTH_LOCAL, MEASURE_KNOWN_H_LOCAL, MEASURE_KNOWN_W_LOCAL,
+};
 use crate::llr::{
     self, ArrayOutput, EvaluationContext as llr_EvaluationContext, EvaluationScope, Expression,
     ParentScope, TypeResolutionContext as _,
@@ -2987,7 +2989,7 @@ fn generate_repeated_component(
                 // so a height-for-width instance wraps to the same height as an
                 // equivalent static cell (instead of the preferred-width single
                 // line that `flexbox_layout_item_info` returns). The expression
-                // reads the `flex_cross_width` local (matches FLEX_CROSS_WIDTH_LOCAL).
+                // reads the `cross_width` local (matches CROSS_WIDTH_LOCAL).
                 let at_cross_width_body = root_sc
                     .layout_info_v_at_cross_width_for_repeated
                     .as_ref()
@@ -3018,7 +3020,7 @@ fn generate_repeated_component(
                 // width-for-height instance resolves to the same width as an
                 // equivalent static cell (instead of the unbounded, unwrapped one
                 // that `flexbox_layout_item_info` returns). The expression reads
-                // the `flex_cross_height` local (matches FLEX_CROSS_HEIGHT_LOCAL).
+                // the `cross_height` local (matches CROSS_HEIGHT_LOCAL).
                 let at_cross_height_body = root_sc
                     .layout_info_h_at_cross_height_for_repeated
                     .as_ref()
@@ -3032,6 +3034,8 @@ fn generate_repeated_component(
                                 self.layout_item_info(sp::Orientation::Horizontal, sp::None).constraint;
                         }
                     });
+                let cross_width_param = ident(CROSS_WIDTH_LOCAL);
+                let cross_height_param = ident(CROSS_HEIGHT_LOCAL);
                 quote! {
                     fn flexbox_layout_item_info(
                         self: ::core::pin::Pin<&Self>,
@@ -3049,7 +3053,7 @@ fn generate_repeated_component(
                     #[allow(unused_variables)]
                     fn flexbox_layout_item_info_at_cross_width(
                         self: ::core::pin::Pin<&Self>,
-                        flex_cross_width: f32,
+                        #cross_width_param: f32,
                     ) -> sp::FlexboxLayoutItemInfo {
                         #[allow(unused)]
                         let _self = self.as_ref();
@@ -3060,7 +3064,7 @@ fn generate_repeated_component(
                     #[allow(unused_variables)]
                     fn flexbox_layout_item_info_at_cross_height(
                         self: ::core::pin::Pin<&Self>,
-                        flex_cross_height: f32,
+                        #cross_height_param: f32,
                     ) -> sp::FlexboxLayoutItemInfo {
                         #[allow(unused)]
                         let _self = self.as_ref();
@@ -3096,12 +3100,12 @@ fn generate_repeated_component(
         let layout_item_info_at_cross_width_fn = layout_item_info_at_cross_fn(
             root_sc.layout_info_v_at_cross_width_for_repeated.as_ref(),
             "layout_item_info_at_cross_width",
-            "flex_cross_width",
+            CROSS_WIDTH_LOCAL,
         );
         let layout_item_info_at_cross_height_fn = layout_item_info_at_cross_fn(
             root_sc.layout_info_h_at_cross_height_for_repeated.as_ref(),
             "layout_item_info_at_cross_height",
-            "flex_cross_height",
+            CROSS_HEIGHT_LOCAL,
         );
         quote! {
             #layout_item_info_fn
