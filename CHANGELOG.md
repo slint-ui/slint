@@ -201,6 +201,7 @@ All notable changes to this project are documented in this file.
  - LSP: Fixed the formatter breaking `return` statements. (#12361)
  - LSP: Errors are now reported when formatting from the command line fails. (#12890)
  - slint-viewer: Added a `--size` option to set the screenshot dimensions.
+ - slint-viewer: The window title now shows the file name when the component doesn't set `Window.title`.
  - slint-viewer: Fixed `--auto-reload` not reloading when the file was given as a relative path. (#12572)
  - SlintPad: Fixed a panic when loading demos with imports. (#12486)
 

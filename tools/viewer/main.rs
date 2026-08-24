@@ -247,13 +247,14 @@ fn main() -> Result<()> {
 
         reject_non_window_component(&live.borrow().instance().definition());
 
-        setup_instance(live.borrow().instance(), &args.on, args.load_data.as_deref())?;
+        setup_instance(live.borrow().instance(), &args.on, args.load_data.as_deref(), args.path())?;
 
         {
             let on = args.on.clone();
             let load_data_path = args.load_data.clone();
+            let source_path = args.path().to_path_buf();
             live.borrow_mut().set_post_reload_hook(move |instance| {
-                let _ = setup_instance(instance, &on, load_data_path.as_deref());
+                let _ = setup_instance(instance, &on, load_data_path.as_deref(), &source_path);
             });
         }
 
@@ -280,7 +281,7 @@ fn main() -> Result<()> {
         install_log_message_handler()?;
 
         let component = c.create()?;
-        setup_instance(&component, &args.on, args.load_data.as_deref())?;
+        setup_instance(&component, &args.on, args.load_data.as_deref(), args.path())?;
 
         component.run()?;
 
@@ -346,13 +347,39 @@ fn setup_instance(
     instance: &ComponentInstance,
     callbacks: &[String],
     load_data_path: Option<&Path>,
+    source_path: &Path,
 ) -> Result<()> {
+    set_window_title(instance, source_path);
     init_dialog(instance);
     if let Some(data_path) = load_data_path {
         load_data(instance, data_path)?;
     }
     install_callbacks(instance, callbacks);
     Ok(())
+}
+
+/// Show the source file name in the window title, unless the component sets its own title
+fn set_window_title(instance: &ComponentInstance, source_path: &Path) {
+    if source_path == Path::new("-") {
+        return;
+    }
+    let Some(file_name) = source_path.file_name() else {
+        return;
+    };
+    // Don't touch a `title` the component decides itself, even one that currently evaluates to an
+    // empty string: `set()` below would drop its binding, and with an alias the component's own
+    // property along with it.
+    let root_component = instance.definition().root_component();
+    if root_component.root_element.borrow().is_property_set_in_source("title") {
+        return;
+    }
+    let window = i_slint_core::window::WindowInner::from_pub(instance.window());
+    if let Some(window_item) = window.window_item() {
+        window_item
+            .as_pin_ref()
+            .title
+            .set(format!("{} - Slint Viewer", file_name.to_string_lossy()).into());
+    }
 }
 
 /// Init dialog if `instance` is a Dialog
