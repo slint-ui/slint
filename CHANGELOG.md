@@ -13,11 +13,8 @@ All notable changes to this project are documented in this file.
  - WebAssembly: Images are now decoded by the browser instead of bundled Rust decoders, significantly reducing
    the size of wasm binaries. All image formats supported by the browser now work. (Compressed `.svgz` is no
    longer supported on the web.)
- - Added native drag-and-drop: data from a `DragArea` can be dropped onto other applications.
-   (Currently implemented in the Qt backend.)
- - Published musl binaries, so `npm install slint-ui` and `pip install slint` work on Alpine Linux. (#12551)
+ - Qt: Added native drag-and-drop: data from a `DragArea` can be dropped onto other applications.
  - Improved text layout and rendering performance, especially for long texts.
- - Reduced the size of the generated code.
  - The generated code and bundled translations are now deterministic, for reproducible builds. (#12932)
  - Accessibility: Exposed the content of text inputs to assistive technologies, including the text selection,
    and let assistive technologies change the selection.
@@ -34,23 +31,12 @@ All notable changes to this project are documented in this file.
  - Fixed an out-of-memory abort when a repeater's count evaluates to a huge value, e.g. after a division by zero. (#12400)
  - Fixed a panic when the window adapter cannot be created; the error is now reported to the caller. (#12408)
  - Fixed a memory leak where a window with a native menu bar was kept alive forever. (#12971)
- - `MenuBar`: Clicking the entry of an open menu now closes it. (#12855)
- - `TextInput`: Fixed stale cursor position and a panic on undo after the `text` property was changed
-   programmatically. (#331)
- - `TextInput`: Fixed the caret getting stuck when moving up or down across wrapped lines. (#12905)
- - Fixed text selection colors when a selection boundary falls inside a ligature.
- - Word-wrapping `Text` now reports the width of its longest word as its minimum width, and wrapped text
-   inside a layout with padding is measured at the correct width.
  - Fixed min/max size constraints on layout cells being ignored when `cross-axis-alignment`
    is not `stretch`, and percentage sizes not applied correctly in states. (#8988)
- - Fixed a "Recursion detected" panic when an `Image` with an explicit size is placed under an element
-   whose width depends on its height. (#12410)
  - Fixed a code generation error for a conditional `opacity` binding on a repeated `GridLayout` child. (#12442)
  - Fixed a panic when an item is reached through a parent component that was deleted while a callback
    is still running. (#12877)
- - `DropArea`: Show the normal cursor instead of the "move" cursor while a drop is accepted.
- - `PopupWindow`: Fixed the offset calculation when the popup's size changes while it is shown.
- - `Path`: The stroke width no longer offsets the path when using `preserve` as fit method.
+ - Fixed the MCP server not starting on Android and with custom platforms. (#12447)
  - winit: The `repeat` flag of `KeyEvent` is now set for held-down keys. (#12719)
  - winit: Fixed the first frame being rendered at the wrong size on Wayland, and windows being auto-sized
    below their preferred size with fractional scale factors. (#12542)
@@ -66,7 +52,6 @@ All notable changes to this project are documented in this file.
  - Android: The safe-area insets now include the display cutout.
  - Android: Fixed the event loop not waking up for pending redraw requests. (#12687)
  - LinuxKMS: Improved software rendering performance, and the `mouse-cursor` property is now honored.
- - Skia: Added support for rendering to sRGB (WGPU) render targets. (#12458)
  - Skia: Improved performance when rendering opaque images.
  - Skia: Fixed partially drawn frames, Vulkan validation errors, and window transparency when
    rendering with WGPU.
@@ -109,7 +94,6 @@ All notable changes to this project are documented in this file.
    in struct fields, array elements, function arguments, comparisons, and return statements. (#897)
  - `Window`: Deprecated setting the `x` and `y` properties; the position is controlled by the windowing system.
  - `Window`: `close()` now returns `true` only when the application accepted the close request.
- - `DataTransfer` can now carry a list of file paths in addition to text and an image. (#1967)
  - `StyledText`: Inline code from `@markdown` now renders in a monospace font with a capsule background.
  - Binding loops going through two-way bindings, and through the implicit size of `StyledText`,
    are now detected at compile time instead of panicking at runtime. (#417, #12333)
@@ -126,6 +110,18 @@ All notable changes to this project are documented in this file.
  - Fixed a panic when a `visible` binding is set on a cell inside a repeated `GridLayout` `Row`.
  - Fixed `show()` and `hide()` on `SystemTrayIcon` components, and report an error when no system tray
    backend is available.
+ - `MenuBar`: Clicking the entry of an open menu now closes it. (#12855)
+ - `TextInput`: Fixed stale cursor position and a panic on undo after the `text` property was changed
+   programmatically. (#331)
+ - `TextInput`: Fixed the caret getting stuck when moving up or down across wrapped lines. (#12905)
+ - `TextInput`: Fixed selection colors when a selection boundary falls inside a ligature.
+ - `Text`: Word-wrapped text now reports the width of its longest word as its minimum width, and wrapped
+   text inside a layout with padding is measured at the correct width.
+ - `Image`: Fixed a "Recursion detected" panic when an image with an explicit size is placed under
+   an element whose width depends on its height. (#12410)
+ - `DropArea`: Show the normal cursor instead of the "move" cursor while a drop is accepted.
+ - `PopupWindow`: Fixed the offset calculation when the popup's size changes while it is shown.
+ - `Path`: The stroke width no longer offsets the path when using `preserve` as fit method.
  - Invalid characters in identifiers are now rejected with an error instead of generating
    invalid code. (#12708)
  - Fixed a compiler panic on import paths containing backslashes. (#12798)
@@ -147,17 +143,19 @@ All notable changes to this project are documented in this file.
 
 ### Rust
 
- - Added `slint::update_all_translations()`, which was previously only available in C++.
+ - Added `slint::update_all_translations()`.
  - Added `Window::dispatch_event_with_result()` returning the new `WindowEventDispatchResult` enum,
    and deprecated `Window::try_dispatch_event()`.
  - Added `Image::load_from_data()` to decode an encoded image (PNG, JPEG, SVG, ...) from a memory buffer. (#2624)
  - Added `Rgb565BigEndianPixel` to `slint::platform::software_renderer` for big-endian SPI displays. (#10882)
  - Added `remove` and `insert` functions to `SharedVector`.
+ - `DataTransfer` can now carry a list of file paths in addition to text and an image. (#1967)
  - slint-build: Software-renderer resource embedding and extra image codecs are now optional default-on
    Cargo features (`renderer-software`, `image-default-formats`), so they can be disabled to reduce
    build dependencies. (#11554)
- - Reduced the compile time and memory usage of the generated code. (#12853)
- - The `renderer-skia-vulkan` feature now also works on macOS and iOS, running on top of MoltenVK.
+ - Reduced the size, compile time, and memory usage of the generated code. (#12853)
+ - The `SkiaWGPU29Renderer` and `SkiaWGPU30Renderer` now support rendering to sRGB render targets. (#12458)
+ - The `renderer-skia-vulkan` feature now also works on macOS, running on top of MoltenVK.
  - Fixed generated code failing to borrow-check when a property read multiple times in one expression
    is passed to a function. (#12880)
  - Fixed a panic in generated code when a `for` inside a `GridLayout` has its model emptied while
@@ -166,6 +164,8 @@ All notable changes to this project are documented in this file.
 ### C++
 
  - Added `Image::load_from_data()` to decode an encoded image (PNG, JPEG, SVG, ...) from a memory buffer. (#2624)
+ - `DataTransfer` can now carry a list of file paths in addition to text and an image. (#1967)
+ - Reduced the size of the generated code.
  - `CMAKE_INSTALL_LIBDIR` is now honored when installing the library.
  - Fixed an abort when `slint::invoke_from_event_loop` is called before any other Slint API initialized
    the platform.
@@ -179,6 +179,7 @@ All notable changes to this project are documented in this file.
    Linux and macOS. (#12396)
  - The component constructor now accepts property and callback names in both dash and underscore
    spelling. (#12882)
+ - Published musl binaries, so `npm install slint-ui` works on Alpine Linux. (#12551)
 
 ### Python
 
@@ -186,6 +187,7 @@ All notable changes to this project are documented in this file.
  - Fixed memory leaks in the asyncio integration. (#12679)
  - Fixed high CPU usage while an asyncio socket receives data. (#12962)
  - Enum-typed fields of builtin structs are now annotated with their enum class in the type stubs.
+ - Published musl wheels, so `pip install slint` works on Alpine Linux. (#12551)
 
 ### Tooling
 
@@ -201,7 +203,6 @@ All notable changes to this project are documented in this file.
  - slint-viewer: Added a `--size` option to set the screenshot dimensions.
  - slint-viewer: Fixed `--auto-reload` not reloading when the file was given as a relative path. (#12572)
  - SlintPad: Fixed a panic when loading demos with imports. (#12486)
- - The MCP server now also works on Android and with custom platforms. (#12447)
 
 ## [1.17.1] - 2026-07-07
 
