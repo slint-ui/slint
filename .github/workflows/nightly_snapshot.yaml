@@ -736,7 +736,7 @@ jobs:
         env:
             CARGO_PROFILE_DEV_DEBUG: 0
         steps:
-            - uses: actions/checkout@v6
+            - uses: actions/checkout@v7
             - uses: ./.github/actions/install-linux-dependencies
             - name: Install Qt
               uses: jurplel/install-qt-action@v4
