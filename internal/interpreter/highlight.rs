@@ -282,8 +282,9 @@ fn collect_row_instances(
     sub: &Pin<Rc<SubComponentInstance>>,
     out: &mut Vec<VRc<ItemTreeVTable, Instance>>,
 ) {
-    for rep in sub.repeaters.iter() {
-        for row in rep.instances_vec() {
+    for repeater in sub.repeaters.iter() {
+        repeater.track_instance_changes();
+        for row in repeater.instances_vec() {
             collect_instances(&row, out);
         }
     }

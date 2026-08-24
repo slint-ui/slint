@@ -1,13 +1,17 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use std::{path::PathBuf, rc::Rc};
+use std::{
+    path::{Path, PathBuf},
+    rc::Rc,
+};
 
 use i_slint_compiler::{
     object_tree::ElementRc,
     parser::{SyntaxKind, TextSize},
 };
-use i_slint_core::lengths::LogicalPoint;
+use i_slint_core::{lengths::LogicalPoint, properties::ChangeTracker};
+use slint::{Model, ModelTracker, VecModel};
 use slint_interpreter::{ComponentHandle, ComponentInstance, highlight::HighlightedRect};
 
 use crate::preview::{self, SelectionNotification, ext::ElementRcNodeExt, ui};
@@ -129,6 +133,84 @@ fn select_element_at_source_code_position_impl(
     );
 }
 
+struct HighlightPositionsModel {
+    rows: VecModel<ui::SelectionRectangle>,
+    change_tracker: ChangeTracker,
+}
+
+impl HighlightPositionsModel {
+    fn new(component_instance: ComponentInstance, path: PathBuf, offset: u32) -> Rc<Self> {
+        let model = Rc::new(Self { rows: Default::default(), change_tracker: Default::default() });
+        let model_weak = Rc::downgrade(&model);
+        let component_instance = component_instance.as_weak();
+        model.change_tracker.init_delayed(
+            (model_weak, component_instance, path, offset),
+            |(_, component_instance, path, offset)| {
+                component_instance
+                    .upgrade()
+                    .map(|component_instance| {
+                        selection_rectangles(&component_instance, path, *offset)
+                    })
+                    .unwrap_or_default()
+            },
+            |(model_weak, _, _, _), positions| {
+                if let Some(model) = model_weak.upgrade() {
+                    model.update(positions);
+                }
+            },
+        );
+        model
+    }
+
+    fn update(&self, positions: &[ui::SelectionRectangle]) {
+        if self.rows.row_count() != positions.len() {
+            self.rows.set_vec(positions.to_vec());
+            return;
+        }
+
+        for (row, position) in positions.iter().enumerate() {
+            if self.rows.row_data(row).as_ref() == Some(position) {
+                continue;
+            }
+            self.rows.set_row_data(row, position.clone());
+        }
+    }
+}
+
+impl Model for HighlightPositionsModel {
+    type Data = ui::SelectionRectangle;
+
+    fn row_count(&self) -> usize {
+        self.rows.row_count()
+    }
+
+    fn row_data(&self, row: usize) -> Option<Self::Data> {
+        self.rows.row_data(row)
+    }
+
+    fn model_tracker(&self) -> &dyn ModelTracker {
+        self.rows.model_tracker()
+    }
+}
+
+fn selection_rectangles(
+    component_instance: &ComponentInstance,
+    path: &Path,
+    offset: u32,
+) -> Vec<ui::SelectionRectangle> {
+    component_instance
+        .component_positions(path, offset)
+        .iter()
+        .map(|geometry| ui::SelectionRectangle {
+            width: geometry.rect.size.width,
+            height: geometry.rect.size.height,
+            x: geometry.rect.origin.x,
+            y: geometry.rect.origin.y,
+            angle: geometry.angle,
+        })
+        .collect()
+}
+
 pub fn highlight_positions(
     source_uri: slint::SharedString,
     offset: i32,
@@ -143,16 +225,7 @@ pub fn highlight_positions(
     else {
         return Default::default();
     };
-    let offset = TextSize::new(offset as u32);
-    let positions = component_instance.component_positions(&path, offset.into());
-    let model = slint::VecModel::from_iter(positions.iter().map(|g| ui::SelectionRectangle {
-        width: g.rect.size.width,
-        height: g.rect.size.height,
-        x: g.rect.origin.x,
-        y: g.rect.origin.y,
-        angle: g.angle,
-    }));
-    slint::ModelRc::new(model)
+    HighlightPositionsModel::new(component_instance, path, offset as u32).into()
 }
 
 fn select_element_node(
