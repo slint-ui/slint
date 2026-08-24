@@ -47,10 +47,7 @@ export component Alarm inherits Control {
     content := Rectangle {
         ta := TouchArea {
             clicked => {
-                AppState.showFullScreen(root.index);
-                if root.full-screen {
-                    root.full-screen = false;
-                }
+                AppState.showFullScreen(root.full-screen ? -1 : root.index);
             }
         }
 
@@ -218,7 +215,6 @@ export component Alarm inherits Control {
         TouchArea {
             enabled: closeButton.opacity > 0.1;
             clicked => {
-                root.full-screen = false;
                 AppState.showFullScreen(-1);
             }
         }
