@@ -3312,6 +3312,14 @@ impl<T: ProcessScene> sharedparley::GlyphRenderer for SceneBuilder<'_, T> {
 
         const SUBPIXEL_BINS: i32 = fonts::vectorfont::SUBPIXEL_BIN_COUNT;
 
+        let color = self.alpha_color(color);
+        let physical_clip: euclid::Rect<i32, PhysicalPx> =
+            (self.current_state.clip.translate(self.current_state.offset.to_vector()).cast()
+                * self.scale_factor)
+                .round()
+                .cast()
+                .transformed(self.rotation);
+
         for positioned_glyph in glyphs_it {
             let Some(id) = std::num::NonZero::new(positioned_glyph.id as u16) else {
                 continue;
@@ -3336,7 +3344,8 @@ impl<T: ProcessScene> sharedparley::GlyphRenderer for SceneBuilder<'_, T> {
             };
 
             let gl_y = PhysicalLength::new(glyph.y.truncate() as i16);
-            let target_rect: PhysicalRect = euclid::Rect::<f32, PhysicalPx>::new(
+            // i32 so a glyph past the i16 range survives until it is clipped below.
+            let target_rect: euclid::Rect<i32, PhysicalPx> = euclid::Rect::<f32, PhysicalPx>::new(
                 euclid::Point2D::new(
                     dst_int_x as f32 + glyph.glyph_origin_x,
                     abs_y.round() + (-gl_y - glyph.height).get() as f32,
@@ -3345,6 +3354,10 @@ impl<T: ProcessScene> sharedparley::GlyphRenderer for SceneBuilder<'_, T> {
             )
             .cast()
             .transformed(self.rotation);
+
+            let Some(clipped_target) = physical_clip.intersection(&target_rect) else {
+                continue;
+            };
 
             let data = {
                 let source_rect = euclid::rect(0, 0, glyph.width.0, glyph.height.0);
@@ -3356,13 +3369,6 @@ impl<T: ProcessScene> sharedparley::GlyphRenderer for SceneBuilder<'_, T> {
                     source_rect,
                 }
             };
-
-            let color = self.alpha_color(color);
-            let physical_clip =
-                (self.current_state.clip.translate(self.current_state.offset.to_vector()).cast()
-                    * self.scale_factor)
-                    .round()
-                    .transformed(self.rotation);
 
             let t = target_pixel_buffer::DrawTextureArgs {
                 data,
@@ -3377,7 +3383,7 @@ impl<T: ProcessScene> sharedparley::GlyphRenderer for SceneBuilder<'_, T> {
                 tiling: None,
             };
 
-            self.processor.process_target_texture(&t, physical_clip.cast());
+            self.processor.process_target_texture(&t, clipped_target.cast());
         }
     }
 }
