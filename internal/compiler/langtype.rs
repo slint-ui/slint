@@ -833,7 +833,6 @@ impl BuiltinStruct {
 pub struct NativeClass {
     pub parent: Option<Arc<NativeClass>>,
     pub class_name: SmolStr,
-    pub cpp_vtable_getter: String,
     pub properties: BTreeMap<SmolStr, BuiltinPropertyInfo>,
     pub deprecated_aliases: HashMap<SmolStr, SmolStr>,
     /// Type override if class_name is not equal to the name to be used in the
@@ -843,13 +842,7 @@ pub struct NativeClass {
 
 impl NativeClass {
     pub fn new(class_name: &str) -> Self {
-        let cpp_vtable_getter = format!("SLINT_GET_ITEM_VTABLE({class_name}VTable)");
-        Self {
-            class_name: class_name.into(),
-            cpp_vtable_getter,
-            properties: Default::default(),
-            ..Default::default()
-        }
+        Self { class_name: class_name.into(), properties: Default::default(), ..Default::default() }
     }
 
     pub fn new_with_properties(

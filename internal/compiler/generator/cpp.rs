@@ -47,6 +47,12 @@ fn is_cpp_keyword(word: &str) -> bool {
     keywords.contains(word)
 }
 
+/// The C++ macro call that yields the item's vtable, e.g.
+/// `SLINT_GET_ITEM_VTABLE(RectangleVTable)`.
+fn cpp_vtable_getter(class_name: &str) -> String {
+    format!("SLINT_GET_ITEM_VTABLE({class_name}VTable)")
+}
+
 pub fn ident(ident: &str) -> SmolStr {
     let mut new_ident = SmolStr::from(ident);
     if ident.contains('-') {
@@ -1723,7 +1729,7 @@ fn generate_item_tree(
                 ));
                 item_array.push(format!(
                     "{{ {}, {} offsetof({}, {}) }}",
-                    item.ty.cpp_vtable_getter,
+                    cpp_vtable_getter(&item.ty.class_name),
                     compo_offset,
                     ident(&sub_component.name),
                     field_name(&item.name),
@@ -5670,7 +5676,7 @@ fn compile_builtin_function_call(
                     let (item, item_rc) = native_item_from_owner(pr, ctx, owner);
                     format!(
                         "slint::private_api::item_layout_info({vt}, const_cast<slint::cbindgen_private::{ty}*>(&{item}), {o}, {constraint}, &{window}, {item_rc})",
-                        vt = native.cpp_vtable_getter,
+                        vt = cpp_vtable_getter(&native.class_name),
                         ty = native.class_name,
                         o = to_cpp_orientation(orient),
                         window = access_window_field(ctx),

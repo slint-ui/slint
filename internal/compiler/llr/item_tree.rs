@@ -449,7 +449,6 @@ pub struct ComponentContainerElement {
 #[derive(Debug)]
 pub struct NativeItemType {
     pub class_name: SmolStr,
-    pub cpp_vtable_getter: String,
     pub parent: Option<Arc<NativeItemType>>,
     /// The type of each property declared directly on this class; parent
     /// classes are consulted through `parent`.
@@ -460,7 +459,6 @@ impl NativeItemType {
     pub fn from_native_class(nc: &NativeClass) -> Arc<Self> {
         Arc::new(Self {
             class_name: nc.class_name.clone(),
-            cpp_vtable_getter: nc.cpp_vtable_getter.clone(),
             parent: nc.parent.as_ref().map(|p| Self::from_native_class(p)),
             property_types: nc
                 .properties
