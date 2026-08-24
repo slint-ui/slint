@@ -219,9 +219,8 @@ export component EditorCanvas inherits Rectangle {
         // MoveResizeFrame is recreated on every change, which means we lose all
         // local state like the drag position, and the interaction becomes jumpy and unusable.
         // To work around this, we only render a single MoveResizeFrame for the first selection rectangle.
-        if root.selections.length > 0 && Api.current-element.type-name != "Rectangle": MoveResizeFrame {
-            property <int> idx: 0;
-            property <SelectionRectangle> s: root.selections[0];
+        for selection[idx] in root.selections : MoveResizeFrame {
+            property <SelectionRectangle> s: selection;
             property <bool> primary: idx == Api.selection.highlight-index;
             // During a drag the frame follows the pointer locally (no disk write).
             // When idle it tracks the backend geometry from selections[].
@@ -326,128 +325,6 @@ export component EditorCanvas inherits Rectangle {
                     root.selection-rotation-active = false;
                 }
                 root.selection-drag-active = false;
-            }
-        }
-
-        if root.selections.length > 0 && Api.current-element.type-name == "Rectangle": BorderRadiusFrame {
-            property <int> idx: 0;
-            property <SelectionRectangle> s: root.selections[0];
-            property <bool> primary: idx == Api.selection.highlight-index;
-            // During a drag the frame follows the pointer locally (no disk write).
-            // When idle it tracks the backend geometry from selections[].
-            x: root.selection-drag-active && primary
-                ? root.selection-drag-position.x
-                : s.x + EditorMetrics.phone-outer-padding;
-            y: root.selection-drag-active && primary
-                ? root.selection-drag-position.y
-                : s.y + EditorMetrics.phone-outer-padding;
-            width: root.selection-drag-active && primary ? root.selection-drag-size.width : s.width;
-            height: root.selection-drag-active && primary ? root.selection-drag-size.height : s.height;
-            rotation: root.selection-rotation-active && primary ? root.selection-rotation : s.angle;
-            active: true;
-            show-rotation-handles: primary;
-            top-left-radius: root.current-corner-radius("border-top-left-radius");
-            top-right-radius: root.current-corner-radius("border-top-right-radius");
-            bottom-right-radius: root.current-corner-radius("border-bottom-right-radius");
-            bottom-left-radius: root.current-corner-radius("border-bottom-left-radius");
-            // Only allow move/resize for elements that have geometry outside a layout, and only
-            // when the element is not rotated (we don't support rotating + repositioning at once).
-            resizable: primary && Api.selection.is-resizable && s.angle == 0deg;
-            moveable: primary && Api.selection.is-moveable && s.angle == 0deg;
-
-            rotated-to(rotation) => {
-                root.selection-rotation-active = true;
-                root.selection-rotation = rotation;
-                Api.override-selected-element-rotation(rotation);
-            }
-            interaction-started => {
-                root.selection-rotation-active = false;
-            }
-            changed rotation-tooltip-visible => {
-                root.rotation-tooltip-visible = self.rotation-tooltip-visible;
-            }
-            changed rotation-tooltip-position => {
-                root.rotation-tooltip-position = self.rotation-tooltip-position;
-            }
-            changed rotation-tooltip-value => {
-                root.rotation-tooltip-value = self.rotation-tooltip-value;
-            }
-
-            radius-changed(corner, radius, single-corner) => {
-                Api.override-selected-element-border-radius(corner, radius, single-corner);
-            }
-
-            resized-to(corner, position, size) => {
-                root.selection-drag-active = true;
-                root.selection-move-active = false;
-                root.selection-drag-position = position;
-                root.selection-drag-size = size;
-                // Push live geometry (content space) so the previewed element follows the
-                // drag via debug-hook overrides, without writing to disk.
-                Api.override-selected-element-geometry(
-                    position.x - EditorMetrics.phone-outer-padding,
-                    position.y - EditorMetrics.phone-outer-padding,
-                    size.width,
-                    size.height,
-                );
-            }
-            moved-to(position) => {
-                let content-position = {
-                    x: position.x - EditorMetrics.phone-outer-padding,
-                    y: position.y - EditorMetrics.phone-outer-padding,
-                };
-                let content-pointer = {
-                    x: self.move-pointer-position.x - EditorMetrics.phone-outer-padding,
-                    y: self.move-pointer-position.y - EditorMetrics.phone-outer-padding,
-                };
-                if !Api.selected-element-can-move-to(
-                    content-position.x,
-                    content-position.y,
-                    content-pointer.x,
-                    content-pointer.y,
-                ) {
-                    return;
-                }
-                root.selection-drag-active = true;
-                root.selection-move-active = true;
-                root.selection-drag-position = position;
-                root.selection-drag-size = { width: s.width, height: s.height };
-                root.selection-move-pointer = self.move-pointer-position;
-                Api.override-selected-element-geometry(
-                    content-position.x,
-                    content-position.y,
-                    s.width,
-                    s.height,
-                );
-            }
-            interaction-ended => {
-                if root.selection-move-active {
-                    Api.selected-element-move(
-                        root.selection-drag-position.x - EditorMetrics.phone-outer-padding,
-                        root.selection-drag-position.y - EditorMetrics.phone-outer-padding,
-                        root.selection-move-pointer.x - EditorMetrics.phone-outer-padding,
-                        root.selection-move-pointer.y - EditorMetrics.phone-outer-padding,
-                    );
-                    root.selection-move-active = false;
-                } else if root.selection-drag-active {
-                    // Convert from phone (frame-parent) space back to content space
-                    // by subtracting the 1px phone-outer-padding, then commit once.
-                    Api.selected-element-resize(
-                        root.selection-drag-position.x - EditorMetrics.phone-outer-padding,
-                        root.selection-drag-position.y - EditorMetrics.phone-outer-padding,
-                        root.selection-drag-size.width,
-                        root.selection-drag-size.height,
-                    );
-                }
-                if root.selection-rotation-active {
-                    Api.selected-element-rotate(root.selection-rotation);
-                    root.selection-rotation-active = false;
-                }
-                root.selection-drag-active = false;
-                if self.radius-tooltip-visible {
-                    Api.persist-selected-element-border-radius();
-                    root.selection-radius-active = false;
-                }
             }
         }
 
