@@ -22,7 +22,7 @@ use crate::symbol_counters::SymbolCounters;
 use crate::typeregister::TypeRegister;
 use core::num::IntErrorKind;
 use smol_str::{SmolStr, ToSmolStr};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashSet};
 use std::rc::Rc;
 use std::sync::Arc;
 use unicode_segmentation::UnicodeSegmentation;
@@ -155,7 +155,7 @@ fn resolve_match_elements(
                 type_loader,
                 diag,
             );
-            check_case_value(&case.value, &case.node, diag);
+            check_case_value(&case.value, &case.node, &case_type, diag);
         }
         let values: Vec<Option<CaseValue>> =
             match_element.cases.iter().map(|case| CaseValue::new(&case.value)).collect();
@@ -166,7 +166,12 @@ fn resolve_match_elements(
 }
 
 /// Confirms that each case is a literal value and matches the type of the subject
-fn check_case_value(value: &Expression, node: &SyntaxNode, diag: &mut BuildDiagnostics) {
+fn check_case_value(
+    value: &Expression,
+    node: &SyntaxNode,
+    subject_type: &Type,
+    diag: &mut BuildDiagnostics,
+) {
     let is_literal = as_number_literal(value).is_some()
         || matches!(
             value,
@@ -181,10 +186,8 @@ fn check_case_value(value: &Expression, node: &SyntaxNode, diag: &mut BuildDiagn
                 && matches!(to, Type::Color | Type::Int32)
     );
 
-    if let Some((number, Unit::None)) = as_number_literal(value)
-        && number.fract() != 0.0
-    {
-        diag.push_warning("Floating point comparison is not recommended".into(), node);
+    if matches!(subject_type, Type::Float32) && as_number_literal(value).is_some() {
+        diag.push_error("Cannot match with floats".into(), node);
     }
 
     if is_literal || is_valid_cast {
@@ -229,21 +232,39 @@ impl CaseValue {
     }
 }
 
+// `f64` has no total order/equality (NaN), but case values are always parsed
+// literals, never NaN, so treating `CaseValue` as `Eq`/`Hash` is sound here.
+impl Eq for CaseValue {}
+
+impl std::hash::Hash for CaseValue {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        core::mem::discriminant(self).hash(state);
+        match self {
+            // Normalize -0.0 to 0.0 so the hash agrees with `==`, which treats them as equal.
+            CaseValue::Number(number, unit) => {
+                (if *number == 0.0 { 0.0 } else { *number }).to_bits().hash(state);
+                unit.hash(state);
+            }
+            CaseValue::String(string) => string.hash(state),
+            CaseValue::Bool(boolean) => boolean.hash(state),
+            CaseValue::Enumeration(value) => value.hash(state),
+        }
+    }
+}
+
 /// Reports every case whose value is already covered by an earlier case
 fn check_duplicate_cases(
     cases: &[MatchCaseInfo],
     values: &[Option<CaseValue>],
     diag: &mut BuildDiagnostics,
 ) {
-    let mut seen: Vec<&CaseValue> = Vec::with_capacity(values.len());
+    let mut seen = HashSet::with_capacity(values.len());
     for (case, value) in cases.iter().zip(values) {
         let Some(value) = value else {
             continue; // not a valid literal
         };
-        if seen.contains(&value) {
+        if !seen.insert(value) {
             diag.push_error("Duplicate case value".into(), &case.node);
-        } else {
-            seen.push(value);
         }
     }
 }
@@ -269,15 +290,17 @@ fn check_exhaustiveness(
         return;
     }
     // Prevents duplicated errors if both not a literal and not exhaustive
-    let mut covered: Vec<&CaseValue> = Vec::with_capacity(values.len());
+    let mut covered: HashSet<&CaseValue> = HashSet::with_capacity(values.len());
     for value in values {
         let Some(value) = value else {
             return;
         };
-        covered.push(value);
+        covered.insert(value);
     }
     let subject_node = match_element.node.Expression();
     let subject_type = match_element.subject.ty();
+    // `expected` must stay an (ordered) Vec, not a HashSet as its declaration order
+    // (enum variant order, or true/false) drives the order of the "missing" list below.
     let expected: Vec<CaseValue> = match &subject_type {
         Type::Bool => vec![CaseValue::Bool(true), CaseValue::Bool(false)],
         Type::Enumeration(enumeration) => (0..enumeration.values.len())
@@ -299,9 +322,10 @@ fn check_exhaustiveness(
         }
     };
 
+    // `covered` is a HashSet so this membership check is O(1) instead of an O(n) `Vec::contains`.
     let mut missing = Vec::new();
     for value in &expected {
-        if !covered.contains(&value) {
+        if !covered.contains(value) {
             missing.push(format!("'{value}'"));
         }
     }

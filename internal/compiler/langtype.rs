@@ -1435,6 +1435,15 @@ impl PartialEq for EnumerationValue {
     }
 }
 
+impl Eq for EnumerationValue {}
+
+impl std::hash::Hash for EnumerationValue {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        Arc::as_ptr(&self.enumeration).hash(state);
+        self.value.hash(state);
+    }
+}
+
 impl std::fmt::Display for EnumerationValue {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.enumeration.values[self.value].fmt(f)
