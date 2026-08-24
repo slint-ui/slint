@@ -1,0 +1,50 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { InspectorSegmentIcon } from "segment-icon.slint";
+import { InspectorTokens } from "tokens.slint";
+
+export component InspectorSegment inherits Rectangle {
+    in property <string> kind;
+    in property <int> index;
+    in property <bool> selected;
+    in property <string> label: "\{root.kind} option \{root.index + 1}";
+    callback clicked;
+
+    height: InspectorTokens.field-height;
+    horizontal-stretch: 1;
+    background: selected ? InspectorTokens.panel-bg : touch.has-hover || segment-focus.has-focus ? InspectorTokens.field-bg-hover : transparent;
+    border-radius: selected ? InspectorTokens.field-radius : 0px;
+    border-width: segment-focus.has-focus ? 2px : selected ? 1px : 0px;
+    border-color: segment-focus.has-focus ? InspectorTokens.accent : InspectorTokens.divider;
+    accessible-role: button;
+    accessible-label: root.label;
+    accessible-checked: root.selected;
+    accessible-action-default => {
+        root.clicked();
+    }
+
+    segment-focus := FocusScope {
+        key-pressed(event) => {
+            if event.text == Key.Return || event.text == Key.Space {
+                root.clicked();
+                return accept;
+            }
+            return reject;
+        }
+    }
+
+    InspectorSegmentIcon {
+        kind: root.kind;
+        index: root.index;
+        selected: root.selected;
+    }
+
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => {
+            segment-focus.focus();
+            root.clicked();
+        }
+    }
+}

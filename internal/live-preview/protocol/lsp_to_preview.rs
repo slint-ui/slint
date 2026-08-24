@@ -5,7 +5,7 @@ use std::{collections::HashMap, path::PathBuf};
 
 use lsp_types::Url;
 
-use super::VersionedUrl;
+use super::{PreviewTarget, VersionedUrl};
 
 /// The Component to preview
 #[derive(Clone, Debug, Eq, PartialEq, serde::Deserialize, serde::Serialize)]
@@ -86,4 +86,13 @@ pub enum RemoteConnectionState {
 impl lsp_types::notification::Notification for LspToPreviewMessage {
     type Params = Self;
     const METHOD: &'static str = "slint/lsp_to_preview";
+}
+
+/// One transport from the LSP to a preview.
+pub trait LspToPreview {
+    fn send(&self, message: &LspToPreviewMessage);
+    fn preview_target(&self) -> PreviewTarget;
+    fn shutdown<'a>(&'a self) -> std::pin::Pin<Box<dyn std::future::Future<Output = ()> + 'a>> {
+        Box::pin(async {})
+    }
 }

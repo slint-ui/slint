@@ -5,7 +5,7 @@
 set -euo pipefail
 
 usage() {
-    echo "Usage: $0 --bin <binary name> [--profile <profile>] [--] [cargo build args...]" >&2
+    echo "Usage: $0 --bin <binary name> | --example <example name> [--profile <profile>] [--] [cargo build args...]" >&2
 }
 
 if [ "$#" -lt 2 ]; then
@@ -14,11 +14,13 @@ if [ "$#" -lt 2 ]; then
 fi
 
 CARGO_TARGET_NAME=""
+CARGO_TARGET_KIND=--bin
 CARGO_PROFILE=dev
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        --bin)
+        --bin|--example)
+            CARGO_TARGET_KIND="$1"
             CARGO_TARGET_NAME="$2"
             shift
             shift
@@ -65,13 +67,18 @@ export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-$REPO_ROOT/target/xcode-cargo/$TARG
 
 RUST_TARGET=aarch64-apple-darwin
 
-env RUSTFLAGS='-Clink-args=-Wl,-rpath,@loader_path/../Frameworks' \
-    cargo build \
+cargo build \
         --target "$RUST_TARGET" \
-        --bin "$CARGO_TARGET_NAME" \
+        "$CARGO_TARGET_KIND" "$CARGO_TARGET_NAME" \
         --profile "$CARGO_PROFILE" \
         "$@"
-EXECUTABLE="$CARGO_TARGET_DIR/$RUST_TARGET/$CARGO_PROFILE_DIR/$CARGO_TARGET_NAME"
+
+# Cargo puts examples in an examples/ sub-directory, binaries in the profile root.
+if [ "$CARGO_TARGET_KIND" = "--example" ]; then
+    EXECUTABLE="$CARGO_TARGET_DIR/$RUST_TARGET/$CARGO_PROFILE_DIR/examples/$CARGO_TARGET_NAME"
+else
+    EXECUTABLE="$CARGO_TARGET_DIR/$RUST_TARGET/$CARGO_PROFILE_DIR/$CARGO_TARGET_NAME"
+fi
 
 mkdir -p "$(dirname "$TARGET_BUILD_DIR/$EXECUTABLE_PATH")"
 rm -f "$TARGET_BUILD_DIR/$EXECUTABLE_PATH"

@@ -16,11 +16,48 @@ use slint::{Model, ModelRc, SharedString, ToSharedString, VecModel};
 use slint_interpreter::{DiagnosticLevel, PlatformError};
 use smol_str::SmolStr;
 
-use crate::common::{self, ComponentInformation};
+use crate::editor_preview::{self, component_catalog::ComponentInformation};
 use crate::preview::{self, DragItem, SelectionNotification, preview_data, properties};
 
 #[cfg(target_arch = "wasm32")]
-use crate::wasm_prelude::*;
+use crate::editor_preview::wasm_prelude::*;
+
+fn fuzzy_filter_iter<Item: std::fmt::Debug>(
+    input: &mut impl Iterator<Item = Item>,
+    transformer: impl Fn(&Item) -> String,
+    needle: &str,
+) -> Vec<Item> {
+    use nucleo_matcher::{Config, Matcher, pattern};
+
+    let mut matcher = Matcher::new(Config::DEFAULT.match_paths());
+    let pattern = pattern::Pattern::parse(
+        needle,
+        pattern::CaseMatching::Ignore,
+        pattern::Normalization::Smart,
+    );
+
+    let mut all_matches = input
+        .filter_map(|item| {
+            let terms = [transformer(&item)];
+            pattern.match_list(terms.iter(), &mut matcher).pop().map(|(_, value)| (value, item))
+        })
+        .collect::<Vec<_>>();
+
+    all_matches.sort_by_key(|matched_item| std::cmp::Reverse(matched_item.0));
+
+    let cut_off = {
+        let lowest_value = all_matches.last().map(|(value, _)| *value).unwrap_or_default();
+        let highest_value = all_matches.first().map(|(value, _)| *value).unwrap_or_default();
+
+        if all_matches.len() < 10 {
+            lowest_value
+        } else {
+            highest_value - (highest_value - lowest_value) / 2
+        }
+    };
+
+    all_matches.drain(..).take_while(|(value, _)| *value >= cut_off).map(|(_, item)| item).collect()
+}
 
 mod brushes;
 pub mod log_messages;
@@ -153,7 +190,7 @@ pub fn setup_preview_user_settings(api: &Api<'_>) {
 }
 
 pub fn create_ui(
-    to_lsp: &Rc<dyn common::PreviewToLsp>,
+    to_lsp: &Rc<dyn editor_preview::PreviewToLsp>,
     style: &str,
     use_editor_ui: bool,
 ) -> Result<AppWindow, PlatformError> {
@@ -362,7 +399,7 @@ pub fn set_diagnostics(api: &Api<'_>, diagnostics: &[slint_interpreter::Diagnost
 
 pub fn ui_set_known_components(
     api: &Api<'_>,
-    known_components: &[crate::common::ComponentInformation],
+    known_components: &[crate::editor_preview::component_catalog::ComponentInformation],
     current_component_index: usize,
 ) {
     let mut builtins_map: HashMap<String, Vec<ComponentItem>> = Default::default();
@@ -1531,7 +1568,7 @@ fn update_properties(
 pub fn ui_set_properties(
     api: &Api<'_>,
     window: &slint::Window,
-    document_cache: &common::DocumentCache,
+    document_cache: &editor_preview::DocumentCache,
     properties: Option<properties::QueryPropertyResponse>,
 ) -> PropertyDeclarations {
     let win = i_slint_core::window::WindowInner::from_pub(window).window_adapter();

@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use crate::common::{self, Result};
+use crate::editor_preview::{self, Result};
 use crate::util;
 use i_slint_compiler::diagnostics::Spanned;
 use i_slint_compiler::expression_tree::{Expression, TwoWayBinding, Unit};
@@ -88,7 +88,7 @@ pub struct ElementInformation {
 
 #[derive(Clone, Debug)]
 pub struct QueryPropertyResponse {
-    pub element_rc_node: common::ElementRcNode,
+    pub element_rc_node: editor_preview::ElementRcNode,
     pub properties: Vec<PropertyInformation>,
     pub element: Option<ElementInformation>,
     pub source_uri: String,
@@ -288,7 +288,7 @@ fn find_code_block_or_expression(
 }
 
 fn find_property_binding_offset(
-    element: &common::ElementRcNode,
+    element: &editor_preview::ElementRcNode,
     property_name: &str,
 ) -> Option<u32> {
     let element_range = element.with_element_node(|node| node.text_range());
@@ -323,7 +323,7 @@ pub enum LayoutKind {
 }
 
 fn insert_property_definitions(
-    element: &common::ElementRcNode,
+    element: &editor_preview::ElementRcNode,
     mut properties: Vec<PropertyInformation>,
 ) -> Vec<PropertyInformation> {
     fn binding_value(element: &ElementRc, prop: &str, count: &mut usize) -> Expression {
@@ -386,7 +386,7 @@ fn insert_property_definitions(
 }
 
 pub(super) fn get_properties(
-    element: &common::ElementRcNode,
+    element: &editor_preview::ElementRcNode,
     in_layout: LayoutKind,
 ) -> Vec<PropertyInformation> {
     let mut result = Vec::new();
@@ -615,7 +615,7 @@ pub(super) fn get_properties(
     insert_property_definitions(element, result)
 }
 
-fn find_block_range(element: &common::ElementRcNode) -> Option<TextRange> {
+fn find_block_range(element: &editor_preview::ElementRcNode) -> Option<TextRange> {
     element.with_element_node(|node| {
         let open_brace = node.child_token(SyntaxKind::LBrace)?;
         let close_brace = node.child_token(SyntaxKind::RBrace)?;
@@ -624,7 +624,7 @@ fn find_block_range(element: &common::ElementRcNode) -> Option<TextRange> {
     })
 }
 
-fn get_element_information(element: &common::ElementRcNode) -> ElementInformation {
+fn get_element_information(element: &editor_preview::ElementRcNode) -> ElementInformation {
     let offset = element.with_element_node(|n| n.text_range().start());
     let e = element.element.borrow();
     let component_name = element.with_element_node(|n| {
@@ -645,7 +645,7 @@ fn get_element_information(element: &common::ElementRcNode) -> ElementInformatio
 pub(crate) fn query_properties(
     uri: &Url,
     source_version: SourceFileVersion,
-    element: &common::ElementRcNode,
+    element: &editor_preview::ElementRcNode,
     in_layout: LayoutKind,
 ) -> Result<QueryPropertyResponse> {
     Ok(QueryPropertyResponse {
@@ -673,12 +673,12 @@ fn create_text_document_edit_for_set_binding_on_existing_property(
     version: SourceFileVersion,
     property: &PropertyInformation,
     new_expression: String,
-    format: common::ByteFormat,
+    format: editor_preview::ByteFormat,
 ) -> Option<lsp_types::TextDocumentEdit> {
     property.defined_at.as_ref().map(|defined_at| {
         let range = util::node_to_lsp_range(&defined_at.code_block_or_expression, format);
         let edit = lsp_types::TextEdit { range, new_text: new_expression };
-        common::create_text_document_edit(uri, version, vec![edit])
+        editor_preview::editing::create_text_document_edit(uri, version, vec![edit])
     })
 }
 
@@ -733,11 +733,11 @@ fn find_insert_range_for_property(
 fn create_text_document_edit_for_set_binding_on_known_property(
     uri: Url,
     version: SourceFileVersion,
-    element: &common::ElementRcNode,
+    element: &editor_preview::ElementRcNode,
     properties: &[PropertyInformation],
     property_name: &str,
     new_expression: &str,
-    format: common::ByteFormat,
+    format: editor_preview::ByteFormat,
 ) -> Option<lsp_types::TextDocumentEdit> {
     let block_range = find_block_range(element);
 
@@ -756,7 +756,7 @@ fn create_text_document_edit_for_set_binding_on_known_property(
                     }
                 },
             };
-            common::create_text_document_edit(uri, version, vec![edit])
+            editor_preview::editing::create_text_document_edit(uri, version, vec![edit])
         },
     )
 }
@@ -764,22 +764,23 @@ fn create_text_document_edit_for_set_binding_on_known_property(
 pub fn set_binding(
     uri: Url,
     version: SourceFileVersion,
-    element: &common::ElementRcNode,
+    element: &editor_preview::ElementRcNode,
     property_name: &str,
     new_expression: String,
-    format: common::ByteFormat,
+    format: editor_preview::ByteFormat,
 ) -> Option<lsp_types::WorkspaceEdit> {
-    set_binding_impl(uri, version, element, property_name, new_expression, format)
-        .map(|edit| common::create_workspace_edit_from_text_document_edits(vec![edit]))
+    set_binding_impl(uri, version, element, property_name, new_expression, format).map(|edit| {
+        editor_preview::editing::create_workspace_edit_from_text_document_edits(vec![edit])
+    })
 }
 
 pub fn set_binding_impl(
     uri: Url,
     version: SourceFileVersion,
-    element: &common::ElementRcNode,
+    element: &editor_preview::ElementRcNode,
     property_name: &str,
     new_expression: String,
-    format: common::ByteFormat,
+    format: editor_preview::ByteFormat,
 ) -> Option<lsp_types::TextDocumentEdit> {
     let properties = get_properties(element, LayoutKind::None);
     let property = get_property_information(&properties, property_name).ok()?;
@@ -811,9 +812,9 @@ pub fn set_binding_impl(
 pub fn set_bindings(
     uri: Url,
     version: SourceFileVersion,
-    element: &common::ElementRcNode,
-    properties: &[crate::common::PropertyChange],
-    format: common::ByteFormat,
+    element: &editor_preview::ElementRcNode,
+    properties: &[crate::editor_preview::editing::PropertyChange],
+    format: editor_preview::ByteFormat,
 ) -> Option<lsp_types::WorkspaceEdit> {
     let edits = properties
         .iter()
@@ -823,14 +824,14 @@ pub fn set_bindings(
         .collect::<Vec<_>>();
 
     (edits.len() == properties.len())
-        .then_some(common::create_workspace_edit_from_text_document_edits(edits))
+        .then_some(editor_preview::editing::create_workspace_edit_from_text_document_edits(edits))
 }
 
 #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
 fn element_at_source_code_position(
-    document_cache: &common::DocumentCache,
-    position: &common::VersionedPosition,
-) -> Result<common::ElementRcNode> {
+    document_cache: &editor_preview::DocumentCache,
+    position: &editor_preview::editing::VersionedPosition,
+) -> Result<editor_preview::ElementRcNode> {
     if &document_cache.document_version(position.url()) != position.version() {
         return Err("Document version mismatch.".into());
     }
@@ -854,9 +855,9 @@ fn element_at_source_code_position(
 
 #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
 pub fn update_element_properties(
-    document_cache: &common::DocumentCache,
-    position: common::VersionedPosition,
-    properties: Vec<common::PropertyChange>,
+    document_cache: &editor_preview::DocumentCache,
+    position: editor_preview::editing::VersionedPosition,
+    properties: Vec<editor_preview::editing::PropertyChange>,
 ) -> Option<lsp_types::WorkspaceEdit> {
     let element = element_at_source_code_position(document_cache, &position).ok()?;
 
@@ -875,15 +876,15 @@ fn create_workspace_edit_for_remove_binding(
     range: lsp_types::Range,
 ) -> lsp_types::WorkspaceEdit {
     let edit = lsp_types::TextEdit { range, new_text: String::new() };
-    common::create_workspace_edit(uri.clone(), version, vec![edit])
+    editor_preview::editing::create_workspace_edit(uri.clone(), version, vec![edit])
 }
 
 pub fn remove_binding(
     uri: Url,
     version: SourceFileVersion,
-    element: &common::ElementRcNode,
+    element: &editor_preview::ElementRcNode,
     property_name: &str,
-    format: common::ByteFormat,
+    format: editor_preview::ByteFormat,
 ) -> Result<lsp_types::WorkspaceEdit> {
     let source_file = element.with_element_node(|node| node.source_file.clone());
 
@@ -907,7 +908,11 @@ pub fn remove_binding(
                 let range =
                     util::text_range_to_lsp_range(&source_file, TextRange::new(start, end), format);
                 let edit = lsp_types::TextEdit { range, new_text: String::new() };
-                return Ok(common::create_workspace_edit(uri.clone(), version, vec![edit]));
+                return Ok(editor_preview::editing::create_workspace_edit(
+                    uri.clone(),
+                    version,
+                    vec![edit],
+                ));
             } else if let Some(closing_brace) =
                 binding.CodeBlock().and_then(|cb| cb.child_token(SyntaxKind::RBrace))
             {
@@ -915,7 +920,11 @@ pub fn remove_binding(
                 let range =
                     util::text_range_to_lsp_range(&source_file, TextRange::new(start, end), format);
                 let edit = lsp_types::TextEdit { range, new_text: ";".into() };
-                return Ok(common::create_workspace_edit(uri.clone(), version, vec![edit]));
+                return Ok(editor_preview::editing::create_workspace_edit(
+                    uri.clone(),
+                    version,
+                    vec![edit],
+                ));
             } else {
                 return Err("Could not find end of range to delete.".into());
             }
@@ -983,9 +992,9 @@ pub mod tests {
     pub fn properties_at_position_in_cache(
         line: u32,
         character: u32,
-        document_cache: &common::DocumentCache,
+        document_cache: &editor_preview::DocumentCache,
         url: &lsp_types::Url,
-    ) -> Option<(common::ElementRcNode, Vec<PropertyInformation>)> {
+    ) -> Option<(editor_preview::ElementRcNode, Vec<PropertyInformation>)> {
         let element =
             document_cache.element_at_position(url, &lsp_types::Position { line, character })?;
         Some((element.clone(), get_properties(&element, LayoutKind::None)))
@@ -995,9 +1004,9 @@ pub mod tests {
         line: u32,
         character: u32,
     ) -> Option<(
-        common::ElementRcNode,
+        editor_preview::ElementRcNode,
         Vec<PropertyInformation>,
-        common::DocumentCache,
+        editor_preview::DocumentCache,
         lsp_types::Url,
     )> {
         let (dc, url, _) = complex_document_cache();
@@ -2077,7 +2086,8 @@ component Foo inherits Window {
             .unwrap();
         let edit = remove_binding(uri.clone(), None, &elem, "background", dc.format).unwrap();
 
-        let applied = crate::common::text_edit::apply_workspace_edit(&dc, &edit).unwrap();
+        let applied =
+            crate::editor_preview::editing::text_edit::apply_workspace_edit(&dc, &edit).unwrap();
         assert_eq!(
             applied.first().unwrap().contents,
             r#"
@@ -2093,7 +2103,8 @@ component Foo inherits Window {
             .unwrap();
         let edit = remove_binding(uri.clone(), None, &elem, "background", dc.format).unwrap();
 
-        let applied = crate::common::text_edit::apply_workspace_edit(&dc, &edit).unwrap();
+        let applied =
+            crate::editor_preview::editing::text_edit::apply_workspace_edit(&dc, &edit).unwrap();
         assert_eq!(
             applied.first().unwrap().contents,
             r#"
@@ -2123,7 +2134,8 @@ component Foo inherits Window {
             .element_at_offset(&uri, TextSize::new(source.find("Window").unwrap() as u32))
             .unwrap();
         let edit = remove_binding(uri.clone(), None, &elem, "test1", dc.format).unwrap();
-        let applied = crate::common::text_edit::apply_workspace_edit(&dc, &edit).unwrap();
+        let applied =
+            crate::editor_preview::editing::text_edit::apply_workspace_edit(&dc, &edit).unwrap();
         assert_eq!(
             applied.first().unwrap().contents,
             r#"
@@ -2139,7 +2151,8 @@ component Foo inherits Window {
         );
 
         let edit = remove_binding(uri.clone(), None, &elem, "test2", dc.format).unwrap();
-        let applied = crate::common::text_edit::apply_workspace_edit(&dc, &edit).unwrap();
+        let applied =
+            crate::editor_preview::editing::text_edit::apply_workspace_edit(&dc, &edit).unwrap();
         assert_eq!(
             applied.first().unwrap().contents,
             r#"
@@ -2153,7 +2166,8 @@ component Foo inherits Window {
         );
 
         let edit = remove_binding(uri.clone(), None, &elem, "test3", dc.format).unwrap();
-        let applied = crate::common::text_edit::apply_workspace_edit(&dc, &edit).unwrap();
+        let applied =
+            crate::editor_preview::editing::text_edit::apply_workspace_edit(&dc, &edit).unwrap();
         assert_eq!(
             applied.first().unwrap().contents,
             r#"

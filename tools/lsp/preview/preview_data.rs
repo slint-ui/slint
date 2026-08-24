@@ -295,7 +295,7 @@ mod tests {
     use super::*;
 
     use crate::{
-        common::test::{main_test_file_name, test_file_name},
+        editor_preview::test::{main_test_file_name, test_file_name},
         preview::test::interpret_test_with_sources,
     };
 

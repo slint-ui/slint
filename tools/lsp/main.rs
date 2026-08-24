@@ -12,20 +12,22 @@ compile_error!(
     "Feature preview-engine and preview-builtin need to be enabled together when building native LSP"
 );
 
-mod common;
+#[cfg(feature = "preview-engine")]
+mod connector;
 mod fmt;
+mod host_language_search;
 mod language;
+mod lsp_to_editor;
 #[cfg(feature = "preview-engine")]
 mod preview;
-#[cfg(all(
-    not(target_arch = "wasm32"),
-    any(feature = "preview-external", feature = "preview-engine")
-))]
-mod settings_store;
-pub mod util;
+mod server_notifier;
 
-use common::Result;
+pub use i_slint_editor_preview as editor_preview;
+pub use i_slint_editor_preview::util;
+
+use editor_preview::Result;
 use language::*;
+pub use server_notifier::{OutgoingRequest, OutgoingRequestQueue, ServerNotifier};
 
 use lsp_types::{
     DidChangeTextDocumentParams, DidChangeWatchedFilesParams, DidCloseTextDocumentParams,
@@ -39,15 +41,13 @@ use tokio::sync::mpsc;
 
 use clap::{Args, Parser, Subcommand};
 use itertools::Itertools;
-use lsp_server::{Connection, ErrorCode, IoThreads, Message, RequestId, Response};
-use std::future::Future;
+use lsp_server::{Connection, ErrorCode, IoThreads, Message, Response};
 use std::io::Write as _;
 use std::rc::Rc;
-use std::sync::{Arc, atomic};
-use std::task::{Poll, Waker};
+use std::sync::Arc;
 use std::time::Duration;
 
-use crate::common::{LspToPreviews, document_cache::CompilerConfiguration};
+use crate::editor_preview::{LspToPreviews, document_cache::CompilerConfiguration};
 use i_slint_live_preview::{
     file_watcher::{self, FileChangeKind, FileWatcher},
     protocol::{LspToPreviewMessage, PreviewToLspMessage, VersionedUrl},
@@ -133,63 +133,6 @@ struct LivePreview {
     #[arg(long)]
     fullscreen: bool,
 }
-enum OutgoingRequest {
-    Start,
-    Pending(Waker),
-    Done(lsp_server::Response),
-}
-
-type OutgoingRequestQueue = Arc<dashmap::DashMap<RequestId, OutgoingRequest>>;
-
-/// A handle that can be used to communicate with the client
-///
-/// This type is duplicated, with the same interface, in wasm_main.rs
-#[derive(Clone)]
-pub struct ServerNotifier {
-    sender: crossbeam_channel::Sender<Message>,
-    queue: OutgoingRequestQueue,
-}
-
-impl ServerNotifier {
-    pub fn send_notification<N: Notification>(&self, params: N::Params) -> Result<()> {
-        self.sender.send(Message::Notification(lsp_server::Notification::new(
-            N::METHOD.to_string(),
-            params,
-        )))?;
-        Ok(())
-    }
-
-    pub fn send_request<T: lsp_types::request::Request>(
-        &self,
-        request: T::Params,
-    ) -> Result<impl Future<Output = Result<T::Result>>> {
-        static REQ_ID: atomic::AtomicI32 = atomic::AtomicI32::new(0);
-        let id = RequestId::from(REQ_ID.fetch_add(1, atomic::Ordering::Relaxed));
-        let msg =
-            Message::Request(lsp_server::Request::new(id.clone(), T::METHOD.to_string(), request));
-        self.sender.send(msg)?;
-        let queue = self.queue.clone();
-        queue.insert(id.clone(), OutgoingRequest::Start);
-        Ok(std::future::poll_fn(move |ctx| match queue.remove(&id).unwrap().1 {
-            OutgoingRequest::Pending(_) | OutgoingRequest::Start => {
-                queue.insert(id.clone(), OutgoingRequest::Pending(ctx.waker().clone()));
-                Poll::Pending
-            }
-            OutgoingRequest::Done(d) => match d.response_result {
-                Err(err) => Poll::Ready(Err(err.message.into())),
-                Ok(result) => Poll::Ready(
-                    serde_json::from_value(result)
-                        .map_err(|e| format!("cannot deserialize response: {e:?}").into()),
-                ),
-            },
-        }))
-    }
-
-    #[cfg(test)]
-    pub fn dummy() -> Self {
-        Self { sender: crossbeam_channel::unbounded().0, queue: Default::default() }
-    }
-}
 
 impl RequestHandler {
     fn handle_request(&self, request: lsp_server::Request, ctx: &mut Context) -> Result<()> {
@@ -197,11 +140,10 @@ impl RequestHandler {
             match x(request.params, ctx) {
                 Ok(r) => {
                     ctx.server_notifier
-                        .sender
-                        .send(Message::Response(Response::new_ok(request.id, r)))?;
+                        .send_message(Message::Response(Response::new_ok(request.id, r)))?;
                 }
                 Err(e) => {
-                    ctx.server_notifier.sender.send(Message::Response(Response::new_err(
+                    ctx.server_notifier.send_message(Message::Response(Response::new_err(
                         request.id,
                         match e.code {
                             LspErrorCode::InvalidParameter => ErrorCode::InvalidParams as i32,
@@ -214,7 +156,7 @@ impl RequestHandler {
                 }
             };
         } else {
-            ctx.server_notifier.sender.send(Message::Response(Response::new_err(
+            ctx.server_notifier.send_message(Message::Response(Response::new_err(
                 request.id,
                 ErrorCode::MethodNotFound as i32,
                 "Cannot handle request".into(),
@@ -232,8 +174,8 @@ fn run_preview(args: &LivePreview) -> std::result::Result<(), slint::PlatformErr
         ));
     }
 
-    let to_lsp: Rc<dyn common::PreviewToLsp> =
-        Rc::new(preview::connector::RemoteControlledPreviewToLsp::new());
+    let to_lsp: Rc<dyn editor_preview::PreviewToLsp> =
+        Rc::new(connector::RemoteControlledPreviewToLsp::new());
 
     preview::run(to_lsp, args.fullscreen, false)
 }
@@ -346,22 +288,20 @@ async fn main_loop(
     let (preview_to_lsp_sender, preview_to_lsp_receiver) =
         mpsc::unbounded_channel::<PreviewToLspMessage>();
 
-    let server_notifier =
-        ServerNotifier { sender: connection.sender.clone(), queue: request_queue.clone() };
+    let server_notifier = ServerNotifier::new(connection.sender.clone(), request_queue.clone());
 
     #[cfg(not(feature = "preview-engine"))]
-    let to_preview = LspToPreviews::with_one(common::DummyLspToPreview::default());
+    let to_preview = LspToPreviews::with_one(editor_preview::DummyLspToPreview::default());
     #[cfg(feature = "preview-engine")]
     let to_preview = {
         use i_slint_live_preview::protocol::PreviewTarget;
 
         let sn = server_notifier.clone();
 
-        let child_preview: Box<dyn common::LspToPreview> = Box::new(
-            preview::connector::ChildProcessLspToPreview::new(preview_to_lsp_sender.clone()),
-        );
-        let embedded_preview: Box<dyn common::LspToPreview> =
-            Box::new(preview::connector::EmbeddedLspToPreview::new(sn.clone()));
+        let child_preview: Box<dyn editor_preview::LspToPreview> =
+            Box::new(connector::ChildProcessLspToPreview::new(preview_to_lsp_sender.clone()));
+        let embedded_preview: Box<dyn editor_preview::LspToPreview> =
+            Box::new(connector::EmbeddedLspToPreview::new(sn.clone()));
         LspToPreviews::new(
             std::collections::HashMap::from([
                 (PreviewTarget::ChildProcess, child_preview),
@@ -369,7 +309,12 @@ async fn main_loop(
             ]),
             PreviewTarget::ChildProcess,
             #[cfg(feature = "preview-remote")]
-            preview_to_lsp_sender.clone(),
+            |to_previews| {
+                Rc::new(connector::remote::RemoteLspToPreview::new(
+                    preview_to_lsp_sender.clone(),
+                    to_previews,
+                ))
+            },
         )
         .unwrap()
     };
@@ -414,7 +359,7 @@ impl LspFileWatcherImpl {
             .into_iter()
             .filter_map(|event| {
                 tracing::debug!("Watched file changed: {} (type: {:?})", event.uri, event.typ);
-                common::uri_to_file(&event.uri).and_then(|path| {
+                editor_preview::uri_to_file(&event.uri).and_then(|path| {
                     let ty = match event.typ {
                         FileChangeType::DELETED => FileChangeKind::Deleted,
                         FileChangeType::CREATED => FileChangeKind::Created,
@@ -517,9 +462,9 @@ async fn run_main_loop(
             .and_then(|x| x.position_encodings.as_ref())
             .is_some_and(|x| x.iter().any(|x| x == &lsp_types::PositionEncodingKind::UTF8))
         {
-            common::ByteFormat::Utf8
+            editor_preview::ByteFormat::Utf8
         } else {
-            common::ByteFormat::Utf16
+            editor_preview::ByteFormat::Utf16
         },
         resource_url_mapper: None,
         // The i_slint_compiler::CompilerConfiguration::default() will read the environment variable
@@ -528,15 +473,17 @@ async fn run_main_loop(
 
     let (from_lsp_sender, mut from_lsp_receiver) = mpsc::unbounded_channel();
     let mut ctx = Context {
-        document_cache: crate::common::DocumentCache::new(compiler_config),
-        preview_config: Default::default(),
+        session: crate::editor_preview::EditorSession {
+            document_cache: crate::editor_preview::DocumentCache::new(compiler_config),
+            preview_config: Default::default(),
+            #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
+            to_show: Default::default(),
+            open_urls: Default::default(),
+            to_preview,
+            pending_recompile: Default::default(),
+        },
         server_notifier,
         init_param,
-        #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
-        to_show: Default::default(),
-        open_urls: Default::default(),
-        to_preview,
-        pending_recompile: Default::default(),
         host_language_rename_dont_ask_again: Default::default(),
     };
 
@@ -575,8 +522,11 @@ async fn run_main_loop(
     sync_file_watcher_if_needed(&mut file_watcher, &ctx, &mut watch_paths_revision)?;
 
     loop {
-        let recompile_idle_timeout =
-            if ctx.pending_recompile.is_empty() { Duration::MAX } else { RECOMPILE_IDLE_TIMEOUT };
+        let recompile_idle_timeout = if ctx.session.pending_recompile.is_empty() {
+            Duration::MAX
+        } else {
+            RECOMPILE_IDLE_TIMEOUT
+        };
         tokio::select! {
             msg = from_lsp_receiver.recv() => {
                 if let Some(msg) = msg {
@@ -613,17 +563,24 @@ async fn run_main_loop(
                 }
             }
             file_event = file_watcher_receiver.recv() => {
-                if let Some(file_event) = file_event && let Some(uri) = common::file_to_uri(&file_event.path) {
-                    trigger_file_watcher(&mut ctx, uri, file_event.kind).await.ok();
+                if let Some(file_event) = file_event
+                    && let Some(uri) = editor_preview::file_to_uri(&file_event.path)
+                    && let Ok(diagnostics) =
+                        ctx.session.trigger_file_watcher(uri, file_event.kind).await
+                {
+                    crate::lsp_to_editor::publish_diagnostics(&ctx.server_notifier, diagnostics);
                 }
             }
             _ = tokio::time::sleep(recompile_idle_timeout) => {
                 tracing::debug!("LSP recompiling");
-                let pending_recompile = std::mem::take(&mut ctx.pending_recompile);
+                let pending_recompile = std::mem::take(&mut ctx.session.pending_recompile);
 
                 for url in pending_recompile {
-                    if let Err(err) = language::reload_document(&mut ctx, url).await {
-                        tracing::error!("Failed document reload: {err}");
+                    match ctx.session.reload_document(url).await {
+                        Ok(diagnostics) => {
+                            crate::lsp_to_editor::publish_diagnostics(&ctx.server_notifier, diagnostics)
+                        }
+                        Err(err) => tracing::error!("Failed document reload: {err}"),
                     }
                 }
             }
@@ -638,13 +595,13 @@ fn sync_file_watcher_if_needed(
     ctx: &Context,
     watch_paths_revision: &mut Option<u64>,
 ) -> Result<()> {
-    let current_revision = ctx.document_cache.revision();
+    let current_revision = ctx.session.document_cache.revision();
     if watch_paths_revision.is_some_and(|rev| rev == current_revision) {
         return Ok(());
     }
 
     watcher
-        .update_watched_paths(ctx.document_cache.all_paths_to_watch())
+        .update_watched_paths(ctx.session.document_cache.all_paths_to_watch())
         .map_err(|err| std::io::Error::other(format!("Failed to update watched paths: {err:?}")))?;
     *watch_paths_revision = Some(current_revision);
     Ok(())
@@ -719,17 +676,20 @@ async fn handle_notification(
     match &*req.method {
         DidOpenTextDocument::METHOD => {
             let params: DidOpenTextDocumentParams = serde_json::from_value(req.params)?;
-            open_document(
-                ctx,
-                params.text_document.text,
-                params.text_document.uri,
-                Some(params.text_document.version),
-            )
-            .await
+            let diagnostics = ctx
+                .session
+                .open_document(
+                    params.text_document.text,
+                    params.text_document.uri,
+                    Some(params.text_document.version),
+                )
+                .await?;
+            crate::lsp_to_editor::publish_diagnostics(&ctx.server_notifier, diagnostics);
+            Ok(())
         }
         DidCloseTextDocument::METHOD => {
             let params: DidCloseTextDocumentParams = serde_json::from_value(req.params)?;
-            close_document(ctx, params.text_document.uri).await
+            ctx.session.close_document(params.text_document.uri).await
         }
         DidChangeTextDocument::METHOD => {
             let mut params: DidChangeTextDocumentParams = serde_json::from_value(req.params)?;
@@ -738,13 +698,16 @@ async fn handle_notification(
                 params.text_document.uri,
                 params.text_document.version
             );
-            load_document(
-                ctx,
-                params.content_changes.pop().unwrap().text,
-                params.text_document.uri,
-                Some(params.text_document.version),
-            )
-            .await
+            let diagnostics = ctx
+                .session
+                .load_document(
+                    params.content_changes.pop().unwrap().text,
+                    params.text_document.uri,
+                    Some(params.text_document.version),
+                )
+                .await?;
+            crate::lsp_to_editor::publish_diagnostics(&ctx.server_notifier, diagnostics);
+            Ok(())
         }
         DidChangeConfiguration::METHOD => load_configuration(ctx).await,
         DidChangeWatchedFiles::METHOD => {
@@ -819,7 +782,7 @@ async fn handle_preview_to_lsp_message(
             } else {
                 tracing::debug!("Preview: {} diagnostics for {}", diagnostics.len(), uri);
             }
-            crate::common::lsp_to_editor::notify_lsp_diagnostics(
+            crate::lsp_to_editor::notify_lsp_diagnostics(
                 &ctx.server_notifier,
                 uri,
                 version,
@@ -828,14 +791,12 @@ async fn handle_preview_to_lsp_message(
         }
         M::ShowDocument { file, selection, take_focus } => {
             let sn = ctx.server_notifier.clone();
-            crate::common::lsp_to_editor::send_show_document_to_editor(
-                sn, file, selection, take_focus,
-            )
-            .await;
+            crate::lsp_to_editor::send_show_document_to_editor(sn, file, selection, take_focus)
+                .await;
         }
         M::PreviewTypeChanged { target } => {
             tracing::debug!("Preview type changed: {target:?}");
-            ctx.to_preview.set_local_target(target)?;
+            ctx.session.to_preview.set_local_target(target)?;
         }
         M::RequestState { files, settings } => {
             tracing::debug!("Preview requested state");
@@ -858,22 +819,22 @@ async fn handle_preview_to_lsp_message(
             )?
         }
         M::DebugMessage { location, message } => {
-            eprintln!("{}", common::preview_log_message_to_string(&location, &message));
+            eprintln!("{}", editor_preview::preview_log_message_to_string(&location, &message));
         }
         M::ConnectRemote { addresses, port } => {
             tracing::debug!("Preview asked to connect remote at {addresses:?}:{port}");
             #[cfg(feature = "preview-remote")]
-            if let Some(remote) = ctx.to_preview.remote() {
+            if let Some(remote) = ctx.session.to_preview.remote() {
                 // `connect()` owns the dialog state and has the preview
                 // state pushed once connected.
-                crate::common::spawn_local(remote.connect(addresses, port));
+                crate::editor_preview::spawn_local(remote.connect(addresses, port));
             }
         }
         M::DisconnectRemote => {
             tracing::debug!("Preview asked to disconnect remote");
             #[cfg(feature = "preview-remote")]
-            if let Some(remote) = ctx.to_preview.remote() {
-                crate::common::spawn_local(remote.disconnect());
+            if let Some(remote) = ctx.session.to_preview.remote() {
+                crate::editor_preview::spawn_local(remote.disconnect());
             }
         }
         M::Pong => {

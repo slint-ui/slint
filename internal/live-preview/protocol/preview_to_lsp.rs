@@ -1,9 +1,14 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+use std::collections::HashMap;
+
 use lsp_types::Url;
 
-use super::SourceFileVersion;
+use super::{Result, SourceFileVersion};
+
+#[cfg(target_arch = "wasm32")]
+use super::wasm_prelude::*;
 
 /// Where the local preview is rendered. Remote viewers are layered on top
 /// of one of these via [`super::LspToPreviewMessage::RemoteConnectionState`];
@@ -57,4 +62,56 @@ pub enum PreviewToLspMessage {
     /// Answer to [`super::LspToPreviewMessage::Ping`], consumed by the LSP's
     /// WebSocket connector.
     Pong,
+}
+
+/// One transport from a preview back to the LSP.
+pub trait PreviewToLsp {
+    fn send(&self, message: &PreviewToLspMessage) -> Result<()>;
+
+    /// Tell the editor about diagnostics
+    fn notify_diagnostics(
+        &self,
+        diagnostics: HashMap<lsp_types::Url, (SourceFileVersion, Vec<lsp_types::Diagnostic>)>,
+    ) -> Result<()> {
+        for (uri, (version, diagnostics)) in diagnostics {
+            self.send(&PreviewToLspMessage::Diagnostics { uri, version, diagnostics })?;
+        }
+        Ok(())
+    }
+
+    /// Ask the editor to show some document
+    fn ask_editor_to_show_document(
+        &self,
+        file: &str,
+        selection: lsp_types::Range,
+        take_focus: bool,
+    ) -> Result<()> {
+        let file = match lsp_types::Url::from_file_path(file) {
+            Ok(file) => file,
+            Err(()) => {
+                tracing::error!("Failed to convert file path to URL for ShowDocument: {file}");
+                return Err("Failed to convert file path to URL".to_string().into());
+            }
+        };
+        if selection.start.character == 0 || selection.end.character == 0 {
+            return Ok(());
+        }
+        self.send(&PreviewToLspMessage::ShowDocument { file, selection, take_focus })
+    }
+
+    /// Sends a telemetry event
+    fn send_telemetry(&self, data: &mut [(String, serde_json::Value)]) -> Result<()> {
+        let object = {
+            let mut object = serde_json::Map::new();
+            for (name, value) in data.iter_mut() {
+                object.insert(std::mem::take(name), std::mem::take(value));
+            }
+            object
+        };
+        if let Err(err) = self.send(&PreviewToLspMessage::TelemetryEvent(object)) {
+            tracing::error!("Failed to send telemetry event: {err}");
+            return Err(err);
+        }
+        Ok(())
+    }
 }

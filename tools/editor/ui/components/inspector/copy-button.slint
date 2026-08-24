@@ -1,0 +1,48 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { InspectorTokens } from "tokens.slint";
+
+export component InspectorCopyButton inherits Rectangle {
+    in property <string> label: "Copy";
+    callback clicked;
+
+    width: 54px;
+    height: InspectorTokens.field-height;
+    border-radius: InspectorTokens.field-radius;
+    background: touch.has-hover || button-focus.has-focus ? InspectorTokens.field-bg-hover : InspectorTokens.field-bg;
+    border-width: button-focus.has-focus ? 2px : 1px;
+    border-color: button-focus.has-focus ? InspectorTokens.accent : InspectorTokens.divider;
+    accessible-role: button;
+    accessible-label: root.label;
+    accessible-action-default => {
+        root.clicked();
+    }
+
+    button-focus := FocusScope {
+        key-pressed(event) => {
+            if event.text == Key.Return || event.text == Key.Space {
+                root.clicked();
+                return accept;
+            }
+            return reject;
+        }
+    }
+
+    Text {
+        text: "Copy";
+        color: InspectorTokens.text;
+        font-size: 12px;
+        font-weight: 700;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => {
+            button-focus.focus();
+            root.clicked();
+        }
+    }
+}

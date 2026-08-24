@@ -1,0 +1,27 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { StudioTheme } from "../common.slint";
+
+export global InspectorTokens {
+    out property <color> panel-bg: StudioTheme.panel-bg;
+    out property <color> divider: StudioTheme.dark ? #414141 : #e5e5e5;
+    out property <color> field-bg: StudioTheme.dark ? #383838 : #f5f5f5;
+    out property <color> field-bg-hover: StudioTheme.dark ? #414141 : #eeeeee;
+    out property <color> field-border: StudioTheme.dark ? #4b4b4b : #d9d9d9;
+    out property <color> text: StudioTheme.dark ? #f4f4f4 : #1e1e1e;
+    out property <color> muted: StudioTheme.dark ? #9a9a9a : #8c8c8c;
+    out property <color> accent: #0d99ff;
+    out property <length> side-padding: 15px;
+    out property <length> section-title-size: 12px;
+    out property <length> field-height: 24px;
+    out property <length> field-radius: 4px;
+    out property <length> column-width: 88px;
+    out property <length> column-gap: 8px;
+    out property <length> wide-width: 184px;
+}
+
+export struct InspectorComboOption {
+    value: string,
+    label: string,
+}

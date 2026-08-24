@@ -1,0 +1,73 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { InspectorSegment } from "segment.slint";
+import { InspectorTokens } from "tokens.slint";
+
+export component InspectorSegmentedIconControl inherits Rectangle {
+    in property <string> kind;
+    in property <int> selected-index;
+    in property <string> label: root.kind;
+    callback selected(int) -> bool;
+
+    width: InspectorTokens.column-width;
+    height: InspectorTokens.field-height;
+    border-radius: InspectorTokens.field-radius;
+    background: InspectorTokens.field-bg;
+    clip: true;
+    accessible-role: AccessibleRole.groupbox;
+    accessible-label: root.label;
+
+    control-focus := FocusScope {
+        key-pressed(event) => {
+            if event.text == Key.LeftArrow {
+                root.selected(max(root.selected-index - 1, 0));
+                return accept;
+            }
+            if event.text == Key.RightArrow {
+                root.selected(min(root.selected-index + 1, 2));
+                return accept;
+            }
+            return reject;
+        }
+    }
+
+    HorizontalLayout {
+        InspectorSegment {
+            kind: root.kind;
+            index: 0;
+            selected: root.selected-index == 0;
+            label: "\{root.label} option 1";
+            clicked => {
+                control-focus.focus();
+                root.selected(0);
+            }
+        }
+
+        Rectangle { width: 1px; background: InspectorTokens.panel-bg; }
+
+        InspectorSegment {
+            kind: root.kind;
+            index: 1;
+            selected: root.selected-index == 1;
+            label: "\{root.label} option 2";
+            clicked => {
+                control-focus.focus();
+                root.selected(1);
+            }
+        }
+
+        Rectangle { width: 1px; background: InspectorTokens.panel-bg; }
+
+        InspectorSegment {
+            kind: root.kind;
+            index: 2;
+            selected: root.selected-index == 2;
+            label: "\{root.label} option 3";
+            clicked => {
+                control-focus.focus();
+                root.selected(2);
+            }
+        }
+    }
+}

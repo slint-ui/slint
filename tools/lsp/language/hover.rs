@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use crate::common::{
+use crate::editor_preview::{
     self,
     token_info::{TokenInfo, token_info},
 };
@@ -14,7 +14,7 @@ use itertools::Itertools as _;
 use lsp_types::{Hover, HoverContents, MarkupContent};
 
 pub fn get_tooltip(
-    document_cache: &mut common::DocumentCache,
+    document_cache: &mut editor_preview::DocumentCache,
     token: SyntaxToken,
 ) -> Option<Hover> {
     let token_info = token_info(document_cache, token.clone())?;

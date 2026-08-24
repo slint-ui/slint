@@ -61,6 +61,7 @@ slint:
  - 'internal/**'
  - 'tests/screenshots/**'
  - 'tools/compiler/**'
+ - 'tools/editor/**'
  - 'tools/figma_import/**'
  - 'tools/lsp/**'
  - 'tools/tr-extractor/**'
