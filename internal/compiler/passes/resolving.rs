@@ -258,6 +258,9 @@ fn check_duplicate_cases(
     values: &[Option<CaseValue>],
     diag: &mut BuildDiagnostics,
 ) {
+    // clippy flags f64 keys because NaN breaks Eq/Hash in general, but CaseValue's
+    // Hash/Eq impl above is sound for the literals stored here (see comment there).
+    #[allow(clippy::mutable_key_type)]
     let mut seen = HashSet::with_capacity(values.len());
     for (case, value) in cases.iter().zip(values) {
         let Some(value) = value else {
@@ -290,6 +293,8 @@ fn check_exhaustiveness(
         return;
     }
     // Prevents duplicated errors if both not a literal and not exhaustive
+    // (see the clippy::mutable_key_type note in check_duplicate_cases above)
+    #[allow(clippy::mutable_key_type)]
     let mut covered: HashSet<&CaseValue> = HashSet::with_capacity(values.len());
     for value in values {
         let Some(value) = value else {
