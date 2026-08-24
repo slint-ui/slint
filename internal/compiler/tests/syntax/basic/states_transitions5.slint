@@ -1,0 +1,35 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company , info@kdab.com, author Robin Cramer <robin.cramer@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// The catch-all `*` transition animation must not conflict with a property that already
+// has its own standalone animation: it should just skip that property, leaving the
+// standalone animation in control, rather than erroring.
+export component CatchAllSkipsAnimatedProperty inherits Rectangle {
+    in-out property <bool> checked;
+    in-out property <int> border;
+    animate background { duration: 200ms; }
+    states [
+        checked when checked: {
+            background: red;
+            border: 42;
+            in {
+                animate * { duration: 100ms; }
+            }
+        }
+    ]
+}
+
+// Naming the property explicitly is still a conflict, since that's explicit user intent.
+export component NamedTransitionStillConflicts inherits Rectangle {
+    in-out property <bool> checked;
+    animate background { duration: 200ms; }
+    states [
+        checked when checked: {
+            background: red;
+            in {
+                animate background { duration: 100ms; }
+//                      >         <error{The property 'background' cannot have transition because it already has an animation}
+            }
+        }
+    ]
+}

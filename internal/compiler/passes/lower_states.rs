@@ -27,7 +27,14 @@ pub fn lower_states(
 ) {
     let state_info_type = crate::typeregister::BUILTIN.state_info_type.clone().into();
     recurse_elem(&component.root_element, &(), &mut |elem, _| {
-        lower_state_in_element(elem, &state_info_type, tr, symbol_counters, forwarded_references, diag)
+        lower_state_in_element(
+            elem,
+            &state_info_type,
+            tr,
+            symbol_counters,
+            forwarded_references,
+            diag,
+        )
     });
 }
 
@@ -184,12 +191,14 @@ fn lower_transitions_in_element(
             && let Some(changed_properties) = state_properties.get(&state)
         {
             for p in changed_properties {
-                // Don't include if it already has a more specific animation or isn't animatable
+                // Don't include if it already has a more specific animation, isn't animatable,
+                // or already has its own standalone animation (which takes precedence over the catch-all)
                 if named_properties.contains(p)
                     || !matches!(
                         tr.property_animation_type_for_property(p.ty()),
                         ElementType::Builtin(..)
                     )
+                    || p.element().borrow().binding(p.name()).is_some_and(|b| b.animation.is_some())
                 {
                     continue;
                 }

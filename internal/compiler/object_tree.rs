@@ -2685,6 +2685,8 @@ impl Element {
             }
         }
 
+        validate_transition_directions(&r.borrow().transitions, diag);
+
         if r.borrow().base_type.to_smolstr() == "ListView" {
             let mut seen_for = false;
             for se in node.children() {
@@ -4601,6 +4603,29 @@ impl Transition {
             property_animations,
             catch_all_property_animation,
             node: trs.clone(),
+        }
+    }
+}
+
+fn validate_transition_directions(transitions: &[Transition], diag: &mut BuildDiagnostics) {
+    let mut seen_catch_all = HashMap::<SmolStr, (bool, bool, bool)>::new();
+    for t in transitions {
+        let Some((span, _)) = &t.catch_all_property_animation else { continue };
+        let (has_in, has_out, has_in_out) = seen_catch_all.entry(t.state_id.clone()).or_default();
+        let conflict = match t.direction {
+            TransitionDirection::In => *has_in || *has_in_out,
+            TransitionDirection::Out => *has_out || *has_in_out,
+            TransitionDirection::InOut => *has_in || *has_out || *has_in_out,
+        };
+        // A state can only have at most one `*` catch-all per direction
+        if conflict {
+            diag.push_error("Multiple * animations are not allowed".into(), span);
+            continue;
+        }
+        match t.direction {
+            TransitionDirection::In => *has_in = true,
+            TransitionDirection::Out => *has_out = true,
+            TransitionDirection::InOut => *has_in_out = true,
         }
     }
 }
