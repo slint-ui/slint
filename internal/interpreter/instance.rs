@@ -1215,21 +1215,18 @@ impl i_slint_core::model::RepeatedItemTree for Instance {
 
     fn layout_item_info_at_cross_width(
         self: Pin<&Self>,
-        flex_cross_width: f32,
+        cross_width: f32,
     ) -> i_slint_core::layout::LayoutItemInfo {
-        self.box_layout_item_info_at_cross(
-            i_slint_core::items::Orientation::Vertical,
-            flex_cross_width,
-        )
+        self.box_layout_item_info_at_cross(i_slint_core::items::Orientation::Vertical, cross_width)
     }
 
     fn layout_item_info_at_cross_height(
         self: Pin<&Self>,
-        flex_cross_height: f32,
+        cross_height: f32,
     ) -> i_slint_core::layout::LayoutItemInfo {
         self.box_layout_item_info_at_cross(
             i_slint_core::items::Orientation::Horizontal,
-            flex_cross_height,
+            cross_height,
         )
     }
 
@@ -1302,16 +1299,16 @@ impl Instance {
         cross_size: f32,
     ) -> i_slint_core::layout::LayoutItemInfo {
         use i_slint_compiler::llr::lower_layout_expression::{
-            FLEX_CROSS_HEIGHT_LOCAL, FLEX_CROSS_WIDTH_LOCAL,
+            CROSS_HEIGHT_LOCAL, CROSS_WIDTH_LOCAL,
         };
         let cu = self.root_sub_component.compilation_unit.clone();
         let sc = &cu.sub_components[self.root_sub_component.sub_component_idx];
         let (expr, local) = match orientation {
             i_slint_core::items::Orientation::Vertical => {
-                (sc.layout_info_v_at_cross_width_for_repeated.as_ref(), FLEX_CROSS_WIDTH_LOCAL)
+                (sc.layout_info_v_at_cross_width_for_repeated.as_ref(), CROSS_WIDTH_LOCAL)
             }
             i_slint_core::items::Orientation::Horizontal => {
-                (sc.layout_info_h_at_cross_height_for_repeated.as_ref(), FLEX_CROSS_HEIGHT_LOCAL)
+                (sc.layout_info_h_at_cross_height_for_repeated.as_ref(), CROSS_HEIGHT_LOCAL)
             }
         };
         let Some(expr) = expr.filter(|_| sc.flexbox_layout_item_info_for_repeated.is_none()) else {
@@ -1333,7 +1330,7 @@ impl Instance {
     /// cell wraps to the same height as an equivalent static cell.
     pub fn flexbox_layout_item_info_at_cross_width(
         self: Pin<&Self>,
-        flex_cross_width: f32,
+        cross_width: f32,
     ) -> i_slint_core::layout::FlexboxLayoutItemInfo {
         use i_slint_core::items::Orientation;
         use i_slint_core::model::RepeatedItemTree;
@@ -1344,8 +1341,8 @@ impl Instance {
         if let Some(v_expr) = &sc.layout_info_v_at_cross_width_for_repeated {
             let mut ctx = crate::eval::EvalContext::new(self.root_sub_component.clone());
             ctx.locals.insert(
-                i_slint_compiler::llr::lower_layout_expression::FLEX_CROSS_WIDTH_LOCAL.into(),
-                crate::Value::Number(flex_cross_width as f64),
+                i_slint_compiler::llr::lower_layout_expression::CROSS_WIDTH_LOCAL.into(),
+                crate::Value::Number(cross_width as f64),
             );
             info.constraint = crate::eval::eval_expression(&mut ctx, &v_expr.borrow())
                 .try_into()
@@ -1359,7 +1356,7 @@ impl Instance {
     /// an equivalent static cell.
     pub fn flexbox_layout_item_info_at_cross_height(
         self: Pin<&Self>,
-        flex_cross_height: f32,
+        cross_height: f32,
     ) -> i_slint_core::layout::FlexboxLayoutItemInfo {
         use i_slint_core::items::Orientation;
         use i_slint_core::model::RepeatedItemTree;
@@ -1370,8 +1367,8 @@ impl Instance {
         if let Some(h_expr) = &sc.layout_info_h_at_cross_height_for_repeated {
             let mut ctx = crate::eval::EvalContext::new(self.root_sub_component.clone());
             ctx.locals.insert(
-                i_slint_compiler::llr::lower_layout_expression::FLEX_CROSS_HEIGHT_LOCAL.into(),
-                crate::Value::Number(flex_cross_height as f64),
+                i_slint_compiler::llr::lower_layout_expression::CROSS_HEIGHT_LOCAL.into(),
+                crate::Value::Number(cross_height as f64),
             );
             info.constraint = crate::eval::eval_expression(&mut ctx, &h_expr.borrow())
                 .try_into()

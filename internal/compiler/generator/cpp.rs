@@ -479,7 +479,9 @@ use crate::langtype::{
 };
 use crate::layout::Orientation;
 use crate::llr::lower_expression::lower_constant_expression;
-use crate::llr::lower_layout_expression::{MEASURE_KNOWN_H_LOCAL, MEASURE_KNOWN_W_LOCAL};
+use crate::llr::lower_layout_expression::{
+    CROSS_HEIGHT_LOCAL, CROSS_WIDTH_LOCAL, MEASURE_KNOWN_H_LOCAL, MEASURE_KNOWN_W_LOCAL,
+};
 use crate::llr::{
     self, EvaluationContext as llr_EvaluationContext, EvaluationScope, ParentScope,
     TypeResolutionContext as _,
@@ -3117,13 +3119,13 @@ fn generate_layout_item_info_at_cross_decls(
         decl(
             root_sc.layout_info_v_at_cross_width_for_repeated.as_ref(),
             "layout_item_info_at_cross_width",
-            "flex_cross_width",
+            CROSS_WIDTH_LOCAL,
             "Vertical",
         ),
         decl(
             root_sc.layout_info_h_at_cross_height_for_repeated.as_ref(),
             "layout_item_info_at_cross_height",
-            "flex_cross_height",
+            CROSS_HEIGHT_LOCAL,
             "Horizontal",
         ),
     ]
@@ -3188,7 +3190,7 @@ fn generate_flexbox_layout_item_info_decl(
 
     // A column FlexboxLayout calls this with its real container width so a
     // height-for-width instance wraps to the same height as a static cell. The
-    // expression reads the `flex_cross_width` parameter.
+    // expression reads the `cross_width` parameter.
     //
     // `layout_info_v_at_cross_width_for_repeated` is only set for a
     // height-for-width root, which also forces `flexbox_layout_item_info_for_repeated`
@@ -3216,7 +3218,7 @@ fn generate_flexbox_layout_item_info_decl(
 
     // Mirror of `at_cross_width_body`: a FlexboxLayout calls this with the
     // height it assigned so a width-for-height instance resolves to the width
-    // it really needs. The expression reads the `flex_cross_height` parameter.
+    // it really needs. The expression reads the `cross_height` parameter.
     let at_cross_height_body = match (
         &for_repeated_compiled,
         root_sc.layout_info_h_at_cross_height_for_repeated.as_ref(),
@@ -3243,17 +3245,17 @@ fn generate_flexbox_layout_item_info_decl(
         }),
         Declaration::Function(Function {
             name: "flexbox_layout_item_info_at_cross_width".into(),
-            signature:
-                "([[maybe_unused]] float flex_cross_width) const -> slint::cbindgen_private::FlexboxLayoutItemInfo"
-                    .to_owned(),
+            signature: format!(
+                "([[maybe_unused]] float {CROSS_WIDTH_LOCAL}) const -> slint::cbindgen_private::FlexboxLayoutItemInfo"
+            ),
             statements: Some(vec![at_cross_width_body]),
             ..Function::default()
         }),
         Declaration::Function(Function {
             name: "flexbox_layout_item_info_at_cross_height".into(),
-            signature:
-                "([[maybe_unused]] float flex_cross_height) const -> slint::cbindgen_private::FlexboxLayoutItemInfo"
-                    .to_owned(),
+            signature: format!(
+                "([[maybe_unused]] float {CROSS_HEIGHT_LOCAL}) const -> slint::cbindgen_private::FlexboxLayoutItemInfo"
+            ),
             statements: Some(vec![at_cross_height_body]),
             ..Function::default()
         }),

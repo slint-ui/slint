@@ -97,7 +97,7 @@ pub trait RepeatedItemTree:
     /// cells); the generated code overrides it for height-for-width instances.
     fn flexbox_layout_item_info_at_cross_width(
         self: Pin<&Self>,
-        _flex_cross_width: f32,
+        _cross_width: f32,
     ) -> crate::layout::FlexboxLayoutItemInfo {
         self.flexbox_layout_item_info(Orientation::Vertical, None)
     }
@@ -109,7 +109,7 @@ pub trait RepeatedItemTree:
     /// overrides it for width-for-height instances.
     fn flexbox_layout_item_info_at_cross_height(
         self: Pin<&Self>,
-        _flex_cross_height: f32,
+        _cross_height: f32,
     ) -> crate::layout::FlexboxLayoutItemInfo {
         self.flexbox_layout_item_info(Orientation::Horizontal, None)
     }
