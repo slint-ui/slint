@@ -395,6 +395,24 @@ inline void setup_popup_menu_from_menu_item_tree(
             [shared](const auto &entry) { shared.vtable()->activate(shared.borrow(), &entry); });
 }
 
+// Set up a menu bar from a menu item tree: register its shortcuts, install the native menu bar when
+// the platform provides one, and always wire the fallback handlers, which also keep the tree alive
+// on the component (the native menu bar holds only a weak reference to it).
+inline void setup_menu_bar_from_menu_item_tree(
+        const cbindgen_private::WindowAdapterRcOpaque *window_handle, bool no_native,
+        const vtable::VRc<cbindgen_private::MenuVTable> &shared,
+        Property<std::shared_ptr<Model<cbindgen_private::MenuEntry>>> &entries,
+        Callback<std::shared_ptr<Model<cbindgen_private::MenuEntry>>(cbindgen_private::MenuEntry)>
+                &sub_menu,
+        Callback<void(cbindgen_private::MenuEntry)> &activated)
+{
+    cbindgen_private::slint_windowrc_setup_menu_bar_shortcuts(window_handle, &shared);
+    if (!no_native && cbindgen_private::slint_windowrc_supports_native_menu_bar(window_handle)) {
+        cbindgen_private::slint_windowrc_setup_native_menu_bar(window_handle, &shared);
+    }
+    setup_popup_menu_from_menu_item_tree(shared, entries, sub_menu, activated);
+}
+
 inline SharedString translate(const SharedString &original, const SharedString &context,
                               const SharedString &domain,
                               cbindgen_private::Slice<SharedString> arguments, int n,

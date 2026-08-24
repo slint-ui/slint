@@ -208,13 +208,14 @@ pub(crate) fn setup_menubar(ctx: &mut EvalContext, arguments: &[Expression]) -> 
     let menubar = vtable::VRc::into_dyn(vtable::VRc::clone(&menu_item_tree));
     window_inner.setup_menubar_shortcuts(vtable::VRc::clone(&menubar));
 
+    // Keep the menubar alive on the owning sub-component: the native menu bar only holds a weak
+    // reference to it.
+    *current.menubar.borrow_mut() = Some(vtable::VRc::clone(&menubar));
+
     if !no_native && window_inner.supports_native_menu_bar() {
         window_inner.setup_menubar(menubar);
         return Value::Void;
     }
-
-    // Keep the menubar alive on the owning sub-component.
-    *current.menubar.borrow_mut() = Some(menubar);
 
     // Wire up entries/sub_menu/activated for the fallback menu bar widget.
     wire_menu_from_item_tree(ctx, entries_ref, sub_menu_ref, activated_ref, menu_item_tree);

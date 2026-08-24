@@ -18,6 +18,8 @@ use euclid::approxeq::ApproxEq;
 use i_slint_core::api::LogicalPosition;
 use i_slint_core::cursor::{MouseCursorInner, scaled_hotspot};
 use i_slint_core::lengths::{PhysicalPx, ScaleFactor};
+#[cfg(muda)]
+use i_slint_core::menus::MenuVTable;
 use i_slint_core::renderer::DrawOutcome;
 use winit::event_loop::ActiveEventLoop;
 #[cfg(target_arch = "wasm32")]
@@ -394,11 +396,13 @@ pub struct WinitWindowAdapter {
         objc2::rc::Retained<objc2::runtime::ProtocolObject<dyn objc2::runtime::NSObjectProtocol>>,
     >,
 
+    // The component owns the menu item tree, which reaches this adapter through the globals. Holding
+    // it weakly here keeps the adapter out of that ownership cycle.
     #[cfg(muda)]
-    menubar: RefCell<Option<vtable::VRc<i_slint_core::menus::MenuVTable>>>,
+    menubar_weak: RefCell<Option<vtable::VWeak<MenuVTable>>>,
 
     #[cfg(muda)]
-    context_menu: RefCell<Option<vtable::VRc<i_slint_core::menus::MenuVTable>>>,
+    context_menu: RefCell<Option<vtable::VRc<MenuVTable>>>,
 
     #[cfg(all(muda, target_os = "macos"))]
     muda_enable_default_menu_bar: bool,
@@ -445,7 +449,7 @@ impl WinitWindowAdapter {
             #[cfg(target_os = "macos")]
             macos_color_observer: OnceCell::new(),
             #[cfg(muda)]
-            menubar: Default::default(),
+            menubar_weak: Default::default(),
             #[cfg(muda)]
             context_menu: Default::default(),
             #[cfg(all(muda, target_os = "macos"))]
@@ -530,7 +534,7 @@ impl WinitWindowAdapter {
 
         // Work around issue with menu bar appearing translucent in fullscreen (#8793)
         #[cfg(all(muda, target_os = "windows"))]
-        if self.menubar.borrow().is_some() {
+        if self.menubar().is_some() {
             window_attributes = window_attributes.with_transparent(false);
         }
 
@@ -655,7 +659,8 @@ impl WinitWindowAdapter {
 
         #[cfg(muda)]
         {
-            let new_muda_adapter = self.menubar.borrow().as_ref().map(|menubar| {
+            let menubar = self.menubar();
+            let new_muda_adapter = menubar.as_ref().map(|menubar| {
                 crate::muda::MudaAdapter::setup(
                     menubar,
                     &winit_window,
@@ -808,6 +813,11 @@ impl WinitWindowAdapter {
     }
 
     #[cfg(muda)]
+    fn menubar(&self) -> Option<vtable::VRc<MenuVTable>> {
+        self.menubar_weak.borrow().as_ref().and_then(vtable::VWeak::upgrade)
+    }
+
+    #[cfg(muda)]
     pub fn rebuild_menubar(&self) {
         let WinitWindowOrNone::HasWindow {
             window: winit_window,
@@ -819,7 +829,8 @@ impl WinitWindowAdapter {
         };
         let mut maybe_muda_adapter = maybe_muda_adapter.borrow_mut();
         let Some(muda_adapter) = maybe_muda_adapter.as_mut() else { return };
-        muda_adapter.rebuild_menu(winit_window, self.menubar.borrow().as_ref(), MudaType::Menubar);
+        let menubar = self.menubar();
+        muda_adapter.rebuild_menu(winit_window, menubar.as_ref(), MudaType::Menubar);
     }
 
     #[cfg(muda)]
@@ -841,13 +852,17 @@ impl WinitWindowAdapter {
         };
         let maybe_muda_adapter = maybe_muda_adapter.borrow();
         let Some(muda_adapter) = maybe_muda_adapter.as_ref() else { return };
-        let menu = match muda_type {
-            MudaType::Menubar => &self.menubar,
-            MudaType::Context => &self.context_menu,
-        };
-        let menu = menu.borrow();
-        let Some(menu) = menu.as_ref() else { return };
-        muda_adapter.invoke(menu, entry_id);
+        match muda_type {
+            MudaType::Menubar => {
+                let Some(menu) = self.menubar() else { return };
+                muda_adapter.invoke(&menu, entry_id);
+            }
+            MudaType::Context => {
+                let menu = self.context_menu.borrow();
+                let Some(menu) = menu.as_ref() else { return };
+                muda_adapter.invoke(menu, entry_id);
+            }
+        }
     }
 
     #[cfg(target_arch = "wasm32")]
@@ -1122,7 +1137,7 @@ impl WinitWindowAdapter {
             {
                 if muda_adapter.borrow().is_none()
                     && self.muda_enable_default_menu_bar
-                    && self.menubar.borrow().is_none()
+                    && self.menubar().is_none()
                 {
                     *muda_adapter.borrow_mut() =
                         Some(crate::muda::MudaAdapter::setup_default_menu_bar()?);
@@ -1228,6 +1243,10 @@ impl WinitWindowAdapter {
 
             Ok(())
         } else {
+            // Release the context menu; it holds the menu item tree that keeps this adapter alive.
+            #[cfg(muda)]
+            self.context_menu.take();
+
             // Wayland doesn't support hiding a window, only destroying it entirely.
             if self.winit_window_or_none.borrow().as_window().is_some_and(|winit_window| {
                 use raw_window_handle::HasWindowHandle;
@@ -1650,8 +1669,8 @@ impl WindowAdapterInternal for WinitWindowAdapter {
     }
 
     #[cfg(muda)]
-    fn setup_menubar(&self, menubar: vtable::VRc<i_slint_core::menus::MenuVTable>) {
-        self.menubar.replace(Some(menubar));
+    fn setup_menubar(&self, menubar: vtable::VRc<MenuVTable>) {
+        self.menubar_weak.replace(Some(vtable::VRc::downgrade(&menubar)));
 
         if let WinitWindowOrNone::HasWindow { muda_adapter, .. } =
             &*self.winit_window_or_none.borrow()
@@ -1659,7 +1678,7 @@ impl WindowAdapterInternal for WinitWindowAdapter {
             // On Windows, we must destroy the muda menu before re-creating a new one
             drop(muda_adapter.borrow_mut().take());
             muda_adapter.replace(Some(crate::muda::MudaAdapter::setup(
-                self.menubar.borrow().as_ref().unwrap(),
+                &menubar,
                 &self.winit_window().unwrap(),
                 self.event_loop_proxy.clone(),
                 self.self_weak.clone(),
@@ -1670,13 +1689,14 @@ impl WindowAdapterInternal for WinitWindowAdapter {
     #[cfg(muda)]
     fn show_native_popup_menu(
         &self,
-        context_menu_item: vtable::VRc<i_slint_core::menus::MenuVTable>,
+        context_menu_item: vtable::VRc<MenuVTable>,
         position: LogicalPosition,
     ) -> bool {
         if crate::muda::is_disabled() {
             return false;
         }
 
+        // Set before showing: on Windows the activation event can arrive before this returns.
         self.context_menu.replace(Some(context_menu_item));
 
         if let WinitWindowOrNone::HasWindow { context_menu_muda_adapter, .. } =
@@ -1694,6 +1714,9 @@ impl WindowAdapterInternal for WinitWindowAdapter {
                 return true;
             }
         }
+
+        // No native menu shown; release it so it doesn't keep the adapter alive.
+        self.context_menu.take();
         false
     }
 

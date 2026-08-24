@@ -5118,7 +5118,7 @@ fn compile_builtin_function_call(
                         if sp::WindowInner::from_pub(#window_adapter_tokens.window()).supports_native_menu_bar() {
                             let menu_item_tree_dyn = sp::VRc::into_dyn(sp::VRc::clone(&menu_item_tree));
                             sp::WindowInner::from_pub(#window_adapter_tokens.window()).setup_menubar(menu_item_tree_dyn);
-                        } else
+                        }
                     }
                 }
             };
@@ -5126,7 +5126,9 @@ fn compile_builtin_function_call(
             quote!({
                 let menu_item_tree_instance = #item_tree_id::new(_self.self_weak.get().unwrap().clone()).unwrap();
                 #native_impl
-                /*else*/ {
+                // These handlers keep the menu item tree alive on the component; the native menu bar
+                // holds only a weak reference to it.
+                {
                     let menu_item_tree_ = sp::VRc::clone(&menu_item_tree);
                     #access_entries.set_binding(move || {
                         let mut entries = sp::SharedVector::default();
