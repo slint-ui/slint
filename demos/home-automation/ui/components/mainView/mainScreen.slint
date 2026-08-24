@@ -6,7 +6,6 @@ import { WidgetLoaderSoftwareRenderer } from "widgetLoaderSoftwareRenderer.slint
 import { Palette as StdPalette } from "std-widgets.slint";
 import { Palette, Animation, Style } from "../../common.slint";
 import { AppState, Orientation } from "../../appState.slint";
-import { FullScreenView } from "fullScreenView.slint";
 import { HaText } from "../general/haText.slint";
 import { Api } from "../../api.slint";
 
@@ -58,6 +57,30 @@ component PageButtonHighlighter {
     }
 }
 
+// Dims everything behind the widget that's currently shown full screen.
+component Backdrop {
+    property <float> dim: AppState.showing-full-screen ? 0.7 : 0;
+    animate dim {
+        duration: Animation.full-screen-duration;
+        easing: ease-in-out-sine;
+    }
+    z: 1;
+    width: 100%;
+    height: 100%;
+    // An opacity below 1 on an element that has children makes the renderers allocate a
+    // window sized layer, so keep the whole thing out of the tree while it's transparent.
+    visible: AppState.showing-full-screen || dim > 0;
+
+    Rectangle {
+        background: black;
+        opacity: dim;
+    }
+
+    TouchArea {
+        enabled: AppState.showing-full-screen;
+    }
+}
+
 export component MainScreen inherits Rectangle {
     property <int> internal-target-page: AppState.target-page;
     property <bool> transitioning: false;
@@ -100,6 +123,29 @@ export component MainScreen inherits Rectangle {
             self.running = false;
             transitioning = false;
             AppState.current-page = AppState.target-page;
+        }
+    }
+
+    // The widget that's shown full screen keeps its raised z until it has finished
+    // shrinking back into the grid, so the siblings after it don't overlap it on the way.
+    property <int> elevated-index: -1;
+    property <int> internal-full-screen-index: AppState.full-screen-index;
+    changed internal-full-screen-index => {
+        lower-widget.running = false;
+        if internal-full-screen-index != -1 {
+            elevated-index = internal-full-screen-index;
+        } else {
+            lower-widget.running = true;
+        }
+    }
+
+    lower-widget := Timer {
+        running: false;
+        // The extra millisecond keeps the timer firing when animations are disabled.
+        interval: Animation.full-screen-duration + 1ms;
+        triggered => {
+            self.running = false;
+            elevated-index = -1;
         }
     }
 
@@ -340,25 +386,33 @@ export component MainScreen inherits Rectangle {
             if AppState.graphics-accelerator-available: Rectangle {
                 width: 100%;
                 height: 100%;
+                Backdrop {
+                    y: -fs-holder.y;
+                }
+
                 for i[index] in AppState.component-details: WidgetLoader {
                     index: index;
                     type: AppState.component-details[index].type;
                     data: AppState.current-layout-data.components[index];
+                    // Lift the selected widget above the backdrop and its siblings.
+                    elevated: root.elevated-index == index;
+                    z: root.elevated-index == index ? 2 : 0;
                 }
             }
 
             if !AppState.graphics-accelerator-available: Rectangle {
                 width: 100%;
                 height: 100%;
+                Backdrop {
+                    y: -fs-holder.y;
+                }
+
                 for i[index] in AppState.component-details: WidgetLoaderSoftwareRenderer {
                     index: index;
                     type: AppState.component-details[index].type;
                     data: AppState.current-layout-data.components[index];
+                    z: root.elevated-index == index ? 2 : 0;
                 }
-            }
-
-            if AppState.showing-full-screen: fullScreenWidgetHolder := FullScreenView {
-                nudge-y: fs-holder.y;
             }
         }
     }
