@@ -9,25 +9,22 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use crate::diagnostics::{BuildDiagnostics, Spanned};
+use crate::diagnostics::Spanned;
 use crate::expression_tree::{BindingExpression, Expression, Unit};
 use crate::langtype::ElementType;
 use crate::object_tree::{Component, ElementRc};
 
-pub fn reorder_by_z_order(root_component: &Rc<Component>, diag: &mut BuildDiagnostics) {
+pub fn reorder_by_z_order(root_component: &Rc<Component>) {
     crate::object_tree::recurse_elem_including_sub_components(
         root_component,
         &(),
         &mut |elem: &ElementRc, _| {
-            reorder_children_by_zorder(elem, diag);
+            reorder_children_by_zorder(elem);
         },
     )
 }
 
-fn reorder_children_by_zorder(
-    elem: &Rc<RefCell<crate::object_tree::Element>>,
-    diag: &mut BuildDiagnostics,
-) {
+fn reorder_children_by_zorder(elem: &Rc<RefCell<crate::object_tree::Element>>) {
     let mut has_any_z = false;
     let mut has_dynamic_z = false;
 
@@ -46,9 +43,9 @@ fn reorder_children_by_zorder(
     }
 
     if has_dynamic_z {
-        setup_dynamic_z_order(elem, diag);
+        setup_dynamic_z_order(elem);
     } else {
-        reorder_static_z(elem, diag);
+        reorder_static_z(elem);
     }
 }
 
@@ -88,20 +85,25 @@ fn mark_per_instance_z(child_elm: &ElementRc) -> bool {
 }
 
 /// Static z-order: evaluate all z values at compile time and reorder children.
-fn reorder_static_z(elem: &Rc<RefCell<crate::object_tree::Element>>, diag: &mut BuildDiagnostics) {
+/// All z bindings are constant here: a non-constant one makes `reorder_children_by_zorder`
+/// take the dynamic path instead.
+fn reorder_static_z(elem: &Rc<RefCell<crate::object_tree::Element>>) {
+    let take_constant_z = |elem: &ElementRc| -> Option<f64> {
+        // Only take real bindings; `binding()` filters synthetic debug hooks,
+        // which the detection did not see either.
+        elem.borrow().binding("z")?;
+        let e = elem.borrow_mut().take_binding("z")?;
+        let z = try_eval_const_expr(&e.expression);
+        debug_assert!(z.is_some(), "non-constant z on the static path");
+        Some(z.unwrap_or(0.))
+    };
     let mut children_z_order = Vec::new();
     for (idx, child_elm) in elem.borrow().children.iter().enumerate() {
-        let z = child_elm
-            .borrow_mut()
-            .take_binding("z")
-            .and_then(|e| eval_const_expr(&e.expression, "z", &e, diag));
+        let z = take_constant_z(child_elm);
         let z = z.or_else(|| {
             child_elm.borrow().repeated.as_ref()?;
             if let ElementType::Component(c) = &child_elm.borrow().base_type {
-                c.root_element
-                    .borrow_mut()
-                    .take_binding("z")
-                    .and_then(|e| eval_const_expr(&e.expression, "z", &e, diag))
+                take_constant_z(&c.root_element)
             } else {
                 None
             }
@@ -133,10 +135,7 @@ fn reorder_static_z(elem: &Rc<RefCell<crate::object_tree::Element>>, diag: &mut 
 /// Dynamic z-order: set the `z_order` of every child. Children whose z is a runtime
 /// value get a NamedReference to their z property (materialized as a runtime property),
 /// the other children a compile-time constant.
-fn setup_dynamic_z_order(
-    elem: &Rc<RefCell<crate::object_tree::Element>>,
-    diag: &mut BuildDiagnostics,
-) {
+fn setup_dynamic_z_order(elem: &Rc<RefCell<crate::object_tree::Element>>) {
     use crate::namedreference::NamedReference;
     use crate::object_tree::ZOrder;
 
@@ -152,12 +151,12 @@ fn setup_dynamic_z_order(
             // is ordered among its siblings.
             let mut z_val = 0.;
             if let ElementType::Component(c) = &child_elm.borrow().base_type {
-                let binding = c.root_element.borrow_mut().take_binding("z");
-                if let Some(e) = binding {
-                    z_val = try_eval_const_expr(&e.expression).unwrap_or_else(|| {
-                        diag.push_error("'z' in a repeated element must be a constant".into(), &e);
-                        0.
-                    });
+                // Only take real bindings; `binding()` filters synthetic debug hooks
+                let has_binding = c.root_element.borrow().binding("z").is_some();
+                if has_binding && let Some(e) = c.root_element.borrow_mut().take_binding("z") {
+                    let z = try_eval_const_expr(&e.expression);
+                    debug_assert!(z.is_some(), "handled by mark_per_instance_z otherwise");
+                    z_val = z.unwrap_or(0.);
                 }
             }
             ZOrder::Constant(z_val as f32)
@@ -227,17 +226,4 @@ fn try_eval_const_expr(expression: &Expression) -> Option<f64> {
         Expression::UnaryOp { sub, op: '+' } => try_eval_const_expr(sub),
         _ => None,
     }
-}
-
-fn eval_const_expr(
-    expression: &Expression,
-    name: &str,
-    span: &dyn crate::diagnostics::Spanned,
-    diag: &mut BuildDiagnostics,
-) -> Option<f64> {
-    let result = try_eval_const_expr(expression);
-    if result.is_none() {
-        diag.push_error(format!("'{name}' must be a number literal"), span);
-    }
-    result
 }
