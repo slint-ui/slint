@@ -16,7 +16,7 @@ export component Button inherits Rectangle {
     /// Reports whether a pointer is over the enabled button.
     out property <bool> has-hover: root.enabled && touch-area.has-hover;
 
-    /// Reports whether the enabled button is held by a pointer or the Space key.
+    /// Reports whether the enabled button is held by a pointer, the Space key, or the Enter key.
     out property <bool> pressed:
         root.enabled && (touch-area.pressed || root.keyboard-pressed);
 
@@ -65,16 +65,10 @@ export component Button inherits Rectangle {
         enabled: root.enabled;
 
         key-pressed(event) => {
-            if (event.text == "\n") {
-                if (!event.repeat) {
-                    root.clicked();
-                }
-                return accept;
-            }
-
-            if (event.text == " ") {
+            if (event.text == " " || event.text == "\n") {
                 if (!event.repeat) {
                     root.keyboard-pressed = true;
+                    root.clicked();
                 }
                 return accept;
             }
@@ -83,15 +77,8 @@ export component Button inherits Rectangle {
         }
 
         key-released(event) => {
-            if (event.text == " ") {
-                if (root.keyboard-pressed) {
-                    root.keyboard-pressed = false;
-                    root.clicked();
-                }
-                return accept;
-            }
-
-            if (event.text == "\n") {
+            if (event.text == " " || event.text == "\n") {
+                root.keyboard-pressed = false;
                 return accept;
             }
 

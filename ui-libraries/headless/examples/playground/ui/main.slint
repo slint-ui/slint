@@ -1,0 +1,319 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import {
+    Button,
+    CheckBox,
+    RadioButton,
+    RadioGroup,
+    Toggle,
+} from "../../../src/headless.slint";
+
+component DemoButton inherits Button {
+    min-width: 112px;
+    preferred-height: 40px;
+
+    Rectangle {
+        background: !root.enabled ? #cbd5e1 : root.pressed ? #1d4ed8
+            : root.has-hover ? #2563eb : #3b82f6;
+        border-color: root.has-focus ? #f59e0b : transparent;
+        border-width: 3px;
+        border-radius: 7px;
+
+        Text {
+            text: root.text;
+            color: root.enabled ? white : #64748b;
+            font-weight: 600;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+        }
+    }
+}
+
+component DemoToggle inherits Toggle {
+    preferred-width: 200px;
+    preferred-height: 36px;
+
+    Rectangle {
+        border-color: root.has-focus ? #f59e0b : transparent;
+        border-width: 2px;
+        border-radius: 6px;
+
+        HorizontalLayout {
+            padding: 6px;
+            spacing: 10px;
+            alignment: start;
+
+            track := Rectangle {
+                width: 44px;
+                height: 24px;
+                background: root.checked ? #16a34a : #94a3b8;
+                border-radius: 12px;
+                opacity: root.enabled ? (root.read-only ? 0.65 : 1) : 0.4;
+
+                Rectangle {
+                    x: root.checked ? track.width - self.width - 3px : 3px;
+                    y: 3px;
+                    width: 18px;
+                    height: 18px;
+                    background: white;
+                    border-radius: 9px;
+
+                    animate x { duration: 120ms; }
+                }
+            }
+
+            Text {
+                text: root.text;
+                color: root.enabled ? #0f172a : #94a3b8;
+                vertical-alignment: center;
+            }
+        }
+    }
+}
+
+component DemoCheckBox inherits CheckBox {
+    preferred-width: 200px;
+    preferred-height: 36px;
+
+    Rectangle {
+        border-color: root.has-focus ? #f59e0b : transparent;
+        border-width: 2px;
+        border-radius: 6px;
+
+        HorizontalLayout {
+            padding: 6px;
+            spacing: 10px;
+            alignment: start;
+
+            Rectangle {
+                width: 22px;
+                height: 22px;
+                background: root.checked ? #7c3aed : white;
+                border-color: root.checked ? #7c3aed : #64748b;
+                border-width: 2px;
+                border-radius: 4px;
+                opacity: root.enabled ? (root.read-only ? 0.65 : 1) : 0.4;
+
+                Text {
+                    text: root.checked ? "✓" : "";
+                    color: white;
+                    font-weight: 700;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+            }
+
+            Text {
+                text: root.text;
+                color: root.enabled ? #0f172a : #94a3b8;
+                vertical-alignment: center;
+            }
+        }
+    }
+}
+
+component DemoRadioButton inherits RadioButton {
+    in property <color> accent-color: #2563eb;
+
+    min-width: 112px;
+    preferred-width: 128px;
+    max-width: 148px;
+    preferred-height: 40px;
+    horizontal-stretch: 0;
+
+    Rectangle {
+        background: root.pressed ? root.accent-color.with-alpha(0.14)
+            : root.has-hover ? root.accent-color.with-alpha(0.08) : transparent;
+        border-color: root.has-focus ? #f59e0b : transparent;
+        border-width: 2px;
+        border-radius: 8px;
+
+        HorizontalLayout {
+            padding: 8px;
+            spacing: 8px;
+            alignment: start;
+
+            indicator := Rectangle {
+                width: 20px;
+                height: 20px;
+                background: white;
+                border-color: root.checked || root.has-hover
+                    ? root.accent-color : #64748b;
+                border-width: 2px;
+                border-radius: 10px;
+
+                if root.checked : Rectangle {
+                    x: (indicator.width - self.width) / 2;
+                    y: (indicator.height - self.height) / 2;
+                    width: 10px;
+                    height: 10px;
+                    background: root.accent-color;
+                    border-radius: 5px;
+                }
+            }
+
+            Text {
+                text: root.text;
+                color: !root.enabled ? #94a3b8
+                    : root.checked ? root.accent-color : #0f172a;
+                font-weight: root.checked ? 600 : 400;
+                vertical-alignment: center;
+            }
+        }
+    }
+}
+
+component SectionTitle inherits Text {
+    color: #334155;
+    font-size: 17px;
+    font-weight: 700;
+}
+
+export component MainWindow inherits Window {
+    title: "Headless component playground";
+    preferred-width: 680px;
+    preferred-height: 640px;
+    background: #f8fafc;
+
+    private property <int> click-count: 0;
+
+    VerticalLayout {
+        padding: 28px;
+        spacing: 16px;
+
+        Text {
+            text: "Headless Components";
+            color: #0f172a;
+            font-size: 26px;
+            font-weight: 700;
+        }
+
+        Text {
+            text: "Use Tab to move focus, then Space or Enter to activate a control.";
+            color: #64748b;
+        }
+
+        SectionTitle { text: "Buttons"; }
+
+        HorizontalLayout {
+            spacing: 12px;
+            alignment: start;
+
+            DemoButton {
+                text: "Click me";
+                clicked => { root.click-count += 1; }
+            }
+
+            DemoButton {
+                text: "Disabled";
+                enabled: false;
+            }
+
+            Text {
+                text: "Clicked " + root.click-count + " times";
+                color: #475569;
+                vertical-alignment: center;
+            }
+        }
+
+        SectionTitle { text: "Toggles"; }
+
+        HorizontalLayout {
+            spacing: 20px;
+            alignment: start;
+
+            DemoToggle {
+                text: "Notifications";
+                checked: true;
+            }
+
+            DemoToggle {
+                text: "Read-only";
+                checked: true;
+                read-only: true;
+            }
+        }
+
+        SectionTitle { text: "Check Boxes"; }
+
+        HorizontalLayout {
+            spacing: 20px;
+            alignment: start;
+
+            DemoCheckBox {
+                text: "Remember me";
+            }
+
+            DemoCheckBox {
+                text: "Unavailable";
+                enabled: false;
+            }
+        }
+
+        SectionTitle { text: "Radio Group"; }
+
+        color-group := RadioGroup {
+            text: "Accent color";
+            item-count: 3;
+            selected-value: "blue";
+
+            HorizontalLayout {
+                spacing: 12px;
+
+                blue := DemoRadioButton {
+                    text: "Blue";
+                    value: "blue";
+                    accent-color: #2563eb;
+                    item-index: 0;
+                    enabled: color-group.enabled;
+                    read-only: color-group.read-only;
+                    checked: color-group.selected-value == self.value;
+                    selected => { color-group.select(self.value); }
+                    focus-changed(gained) => { color-group.on-focus-changed(gained); }
+                    navigate(direction) => {
+                        direction < 0 ? red.focus() : green.focus();
+                        color-group.select(direction < 0 ? red.value : green.value);
+                    }
+                }
+
+                green := DemoRadioButton {
+                    text: "Green";
+                    value: "green";
+                    accent-color: #16a34a;
+                    item-index: 1;
+                    enabled: color-group.enabled;
+                    read-only: color-group.read-only;
+                    checked: color-group.selected-value == self.value;
+                    selected => { color-group.select(self.value); }
+                    focus-changed(gained) => { color-group.on-focus-changed(gained); }
+                    navigate(direction) => {
+                        direction < 0 ? blue.focus() : red.focus();
+                        color-group.select(direction < 0 ? blue.value : red.value);
+                    }
+                }
+
+                red := DemoRadioButton {
+                    text: "Red";
+                    value: "red";
+                    accent-color: #dc2626;
+                    item-index: 2;
+                    enabled: color-group.enabled;
+                    read-only: color-group.read-only;
+                    checked: color-group.selected-value == self.value;
+                    selected => { color-group.select(self.value); }
+                    focus-changed(gained) => { color-group.on-focus-changed(gained); }
+                    navigate(direction) => {
+                        direction < 0 ? green.focus() : blue.focus();
+                        color-group.select(direction < 0 ? green.value : blue.value);
+                    }
+                }
+            }
+        }
+
+        Text {
+            text: "Selected accent: " + color-group.selected-value;
+            color: #475569;
+        }
+    }
+}

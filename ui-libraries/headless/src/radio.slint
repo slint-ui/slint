@@ -29,7 +29,7 @@ export component RadioButton inherits Rectangle {
     out property <bool> has-hover:
         root.enabled && !root.read-only && touch-area.has-hover;
 
-    /// Reports whether the radio button is held by a pointer or the Space key.
+    /// Reports whether the radio button is held by a pointer, the Space key, or the Enter key.
     out property <bool> pressed:
         root.enabled && !root.read-only && (touch-area.pressed || root.keyboard-pressed);
 
@@ -97,14 +97,15 @@ export component RadioButton inherits Rectangle {
         x: 0px;
         width: 0px;
         enabled: root.enabled;
-
+        
         focus-gained => { root.focus-changed(true); }
         focus-lost => { root.focus-changed(false); }
 
         key-pressed(event) => {
-            if (event.text == " ") {
+            if (event.text == " " || event.text == "\n") {
                 if (!event.repeat && !root.read-only) {
                     root.keyboard-pressed = true;
+                    root.select();
                 }
                 return accept;
             }
@@ -127,11 +128,8 @@ export component RadioButton inherits Rectangle {
         }
 
         key-released(event) => {
-            if (event.text == " ") {
-                if (root.keyboard-pressed) {
-                    root.keyboard-pressed = false;
-                    root.select();
-                }
+            if (event.text == " " || event.text == "\n") {
+                root.keyboard-pressed = false;
                 return accept;
             }
 

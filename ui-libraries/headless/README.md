@@ -21,6 +21,14 @@ Import the controls from the mapped library:
 import { Button, CheckBox, RadioButton, RadioGroup, Toggle } from "@headless";
 ```
 
+## Playground
+
+Run the visual playground with the Slint viewer:
+
+```sh
+cargo run --bin slint-viewer -- ui-libraries/headless/examples/playground/ui/main.slint
+```
+
 ## Current Scope
 
 The first evaluation slice contains `Button`, `Toggle`, `CheckBox`, `RadioButton`, and

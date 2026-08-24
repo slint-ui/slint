@@ -23,7 +23,7 @@ export component Toggle inherits Rectangle {
     out property <bool> has-hover:
         root.enabled && !root.read-only && touch-area.has-hover;
 
-    /// Reports whether the toggle is held by a pointer or the Space key.
+    /// Reports whether the toggle is held by a pointer, the Space key, or the Enter key.
     out property <bool> pressed:
         root.enabled && !root.read-only && (touch-area.pressed || root.keyboard-pressed);
 
@@ -87,9 +87,10 @@ export component Toggle inherits Rectangle {
         enabled: root.enabled;
 
         key-pressed(event) => {
-            if (event.text == " ") {
+            if (event.text == " " || event.text == "\n") {
                 if (!event.repeat && !root.read-only) {
                     root.keyboard-pressed = true;
+                    root.toggle();
                 }
                 return accept;
             }
@@ -98,11 +99,8 @@ export component Toggle inherits Rectangle {
         }
 
         key-released(event) => {
-            if (event.text == " ") {
-                if (root.keyboard-pressed) {
-                    root.keyboard-pressed = false;
-                    root.toggle();
-                }
+            if (event.text == " " || event.text == "\n") {
+                root.keyboard-pressed = false;
                 return accept;
             }
 
