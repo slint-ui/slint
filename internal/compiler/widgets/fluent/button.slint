@@ -3,17 +3,18 @@
 
 import { FluentFontSettings, FluentPalette } from "styling.slint";
 import { FocusBorder } from "components.slint";
+import { Pressable } from "../common/pressable.slint";
 
 export component Button {
     in property <string> text;
     in property <image> icon;
     in property <length> icon-size: 20px;
     in property <bool> primary;
-    in property <bool> enabled <=> i-touch-area.enabled;
+    in property <bool> enabled <=> pressable.enabled;
     in property <bool> checkable;
     in property <bool> colorize-icon;
-    out property <bool> has-focus: i-focus-scope.has-focus;
-    out property <bool> pressed: self.enabled && i-touch-area.pressed;
+    out property <bool> has-focus: pressable.has-focus;
+    out property <bool> pressed: pressable.pressed;
     in-out property <bool> checked;
 
     callback clicked;
@@ -24,14 +25,14 @@ export component Button {
     min-height: max(32px, i-layout.min-height);
     horizontal-stretch: 0;
     vertical-stretch: 0;
-    forward-focus: i-focus-scope;
+    forward-focus: pressable;
 
     accessible-role: button;
     accessible-enabled: root.enabled;
     accessible-checkable: root.checkable;
     accessible-checked: root.checked;
     accessible-label: root.text;
-    accessible-action-default => { i-touch-area.clicked(); }
+    accessible-action-default => { pressable.activate(); }
 
     states [
         disabled when !root.enabled : {
@@ -44,7 +45,7 @@ export component Button {
             i-border.border-color: FluentPalette.border;
             root.text-color: root.primary || root.checked ? FluentPalette.text-accent-foreground-secondary : FluentPalette.text-secondary;
         }
-        hover when i-touch-area.has-hover : {
+        hover when pressable.has-hover : {
             i-background.background: root.primary || root.checked ? FluentPalette.secondary-accent-background : FluentPalette.control-secondary;
         }
         checked when root.checked : {
@@ -54,67 +55,52 @@ export component Button {
         }
     ]
 
-    i-background := Rectangle {
-        border-radius: 4px;
-        background: root.primary ? FluentPalette.accent-background : FluentPalette.control-background;
-
-        animate background, border-color { duration: 150ms; }
-
-        i-border := Rectangle {
-            border-radius: parent.border-radius;
-            border-width: 1px;
-            border-color: root.primary ? FluentPalette.accent-control-border : FluentPalette.control-border;
-        }
-
-        i-layout := HorizontalLayout {
-            padding-left: 12px;
-            padding-right: 12px;
-            padding-top: 5px;
-            padding-bottom: 5px;
-            spacing: 4px;
-            alignment: center;
-
-            if (root.icon.width > 0 && root.icon.height > 0) : Image {
-                y: (parent.height - self.height) / 2;
-                source <=> root.icon;
-                width: root.icon-size;
-                min-height: root.icon-size;
-                colorize: root.colorize-icon ? root.text-color : transparent;
-                accessible-role: none;
-            }
-
-            if (root.text != ""): Text {
-                horizontal-alignment: center;
-                vertical-alignment: center;
-                text: root.text;
-                color: root.text-color;
-                animate color { duration: 150ms; }
-                accessible-role: none;
-            }
-        }
-    }
-
-    i-touch-area := TouchArea {
-        clicked => {
+    pressable := Pressable {
+        activated => {
             if (root.checkable) {
                 root.checked = !root.checked;
             }
             root.clicked();
         }
-    }
 
-    i-focus-scope := FocusScope {
-        x: 0;
-        width: 0; // Do not react on clicks
-        enabled <=> root.enabled;
+        i-background := Rectangle {
+            border-radius: 4px;
+            background: root.primary ? FluentPalette.accent-background : FluentPalette.control-background;
 
-        key-pressed(event) => {
-            if (event.text == " " || event.text == "\n") {
-                i-touch-area.clicked();
-                 return accept;
+            animate background, border-color { duration: 150ms; }
+
+            i-border := Rectangle {
+                border-radius: parent.border-radius;
+                border-width: 1px;
+                border-color: root.primary ? FluentPalette.accent-control-border : FluentPalette.control-border;
             }
 
-            return reject;
+            i-layout := HorizontalLayout {
+                padding-left: 12px;
+                padding-right: 12px;
+                padding-top: 5px;
+                padding-bottom: 5px;
+                spacing: 4px;
+                alignment: center;
+
+                if (root.icon.width > 0 && root.icon.height > 0) : Image {
+                    y: (parent.height - self.height) / 2;
+                    source <=> root.icon;
+                    width: root.icon-size;
+                    min-height: root.icon-size;
+                    colorize: root.colorize-icon ? root.text-color : transparent;
+                    accessible-role: none;
+                }
+
+                if (root.text != ""): Text {
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                    text: root.text;
+                    color: root.text-color;
+                    animate color { duration: 150ms; }
+                    accessible-role: none;
+                }
+            }
         }
     }
 
