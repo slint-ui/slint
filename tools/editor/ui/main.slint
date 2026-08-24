@@ -4,6 +4,7 @@
 import "./assets/Inter-VariableFont.ttf";
 
 import { Api, EditorSurfaceMode } from "api.slint";
+import { Project } from "project.slint";
 import { StartupWizard } from "startup-wizard.slint";
 import { AppState, PaletteComponentKind, SidebarToggleButton, StudioTheme } from "components/common.slint";
 import { DragPreview } from "components/drag-preview.slint";
@@ -15,7 +16,7 @@ import { LeftPane } from "components/left-pane.slint";
 import { EditorMetrics } from "components/common.slint";
 import { UpdateStatus, UpdateStatusBar, UpdateStatusPill } from "components/update-status.slint";
 
-export { Api }
+export { Api, Project }
 
 export component EditorUi inherits Window {
     preferred-width: 1360px;
@@ -160,7 +161,7 @@ export component EditorUi inherits Window {
 
                         Text {
                             horizontal-stretch: 1;
-                            text: Api.selected-project-file;
+                            text: Project.selected-project-file;
                             color: StudioTheme.text;
                             font-size: 13px;
                             font-weight: 800;
@@ -184,12 +185,12 @@ export component EditorUi inherits Window {
                 root.open-project();
             }
             create-new-project => {
-                if Api.create-new-project() {
+                if Project.create-new-project() {
                     root.open-project();
                 }
             }
             open-existing-project => {
-                if Api.open-existing-project() {
+                if Project.open-existing-project() {
                     root.open-project();
                 }
             }

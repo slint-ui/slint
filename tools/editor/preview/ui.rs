@@ -125,6 +125,8 @@ pub fn create_ui(
     let editor_ui = EditorUi::new()?;
     let api = editor_ui.global::<Api>();
     let api_weak = <Api as slint::Global<'_, EditorUi>>::as_weak(&api);
+    let project = editor_ui.global::<Project>();
+    let project_weak = <Project as slint::Global<'_, EditorUi>>::as_weak(&project);
 
     // styles:
     let known_styles = once(&"native")
@@ -294,7 +296,7 @@ pub fn create_ui(
             api.set_startup_wizard_visible(false);
         }
     });
-    file_tree::setup(&api, api_weak.clone(), editor_ui.as_weak());
+    file_tree::setup(&api, api_weak.clone(), &project, project_weak, editor_ui.as_weak());
     recent_colors::setup(&api, api_weak.clone());
     super::outline::setup(&api, api_weak.clone());
     super::undo_redo::setup(&api);

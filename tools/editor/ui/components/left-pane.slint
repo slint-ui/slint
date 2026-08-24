@@ -6,6 +6,7 @@ import {
     SidebarToggleButton, StudioTheme,
 } from "common.slint";
 import { Api, EditorSurfaceMode } from "../api.slint";
+import { Project } from "../project.slint";
 import { FileTreeView } from "file-tree-view.slint";
 
 component ElementsUnavailableNotice inherits Rectangle {
@@ -199,9 +200,9 @@ export component LeftPane inherits Rectangle {
 
         SectionTitle { label: "FILES"; }
 
-        if Api.file-tree.length == 0: FilesUnavailableNotice { }
+        if Project.file-tree.length == 0: FilesUnavailableNotice { }
 
-        if Api.file-tree.length > 0: FileTreeView {
+        if Project.file-tree.length > 0: FileTreeView {
             vertical-stretch: 1;
         }
 
