@@ -1851,6 +1851,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1e0e367e4e7da84520dedcac1901e4da967309406d1e51017ae1abfb97adbd38"
 dependencies = [
  "bitflags 2.13.1",
+ "block2 0.6.2",
+ "libc",
  "objc2 0.6.4",
 ]
 
@@ -3524,6 +3526,26 @@ dependencies = [
  "quote",
  "serde_json",
  "syn 3.0.3",
+]
+
+[[package]]
+name = "i-slint-editor-preview"
+version = "1.18.0"
+dependencies = [
+ "directories",
+ "futures-util",
+ "i-slint-backend-testing",
+ "i-slint-compiler",
+ "i-slint-live-preview",
+ "itertools 0.15.0",
+ "lsp-types",
+ "serde",
+ "smol_str 0.3.2",
+ "spin_on",
+ "tempfile",
+ "tokio",
+ "tracing",
+ "wasm-bindgen-futures",
 ]
 
 [[package]]
@@ -5295,6 +5317,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d49e936b501e5c5bf01fda3a9452ff86dc3ea98ad5f283e1455153142d97518c"
 dependencies = [
  "bitflags 2.13.1",
+ "block2 0.6.2",
  "objc2 0.6.4",
  "objc2-core-foundation",
  "objc2-core-graphics",
@@ -5973,6 +5996,12 @@ dependencies = [
  "rustix 1.1.4",
  "windows-sys 0.61.2",
 ]
+
+[[package]]
+name = "pollster"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2f3a9f18d041e6d0e102a0a46750538147e5e8992d3b4873aaafee2520b00ce3"
 
 [[package]]
 name = "polycool"
@@ -6688,6 +6717,33 @@ dependencies = [
  "tiny-skia 0.12.0",
  "usvg",
  "zune-jpeg",
+]
+
+[[package]]
+name = "rfd"
+version = "0.17.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "20dafead71c16a34e1ff357ddefc8afc11e7d51d6d2b9fbd07eaa48e3e540220"
+dependencies = [
+ "block2 0.6.2",
+ "dispatch2",
+ "js-sys",
+ "libc",
+ "log",
+ "objc2 0.6.4",
+ "objc2-app-kit 0.3.2",
+ "objc2-core-foundation",
+ "objc2-foundation 0.3.2",
+ "percent-encoding",
+ "pollster",
+ "raw-window-handle",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "wayland-backend",
+ "wayland-client",
+ "wayland-protocols",
+ "web-sys",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -7408,6 +7464,43 @@ dependencies = [
 ]
 
 [[package]]
+name = "slint-editor"
+version = "1.18.0"
+dependencies = [
+ "by_address",
+ "clap",
+ "clru",
+ "crossbeam-channel",
+ "i-slint-backend-selector",
+ "i-slint-backend-testing",
+ "i-slint-common",
+ "i-slint-compiler",
+ "i-slint-core",
+ "i-slint-editor-preview",
+ "i-slint-live-preview",
+ "itertools 0.15.0",
+ "lsp-types",
+ "mdns-sd",
+ "nucleo-matcher",
+ "objc2 0.6.4",
+ "objc2-app-kit 0.3.2",
+ "objc2-foundation 0.3.2",
+ "raw-window-handle",
+ "rfd",
+ "serde",
+ "serde_json",
+ "slint",
+ "slint-build",
+ "slint-interpreter",
+ "smol_str 0.3.2",
+ "spin_on",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+ "web-sys",
+]
+
+[[package]]
 name = "slint-interpreter"
 version = "1.18.0"
 dependencies = [
@@ -7444,7 +7537,6 @@ dependencies = [
  "console_error_panic_hook",
  "crossbeam-channel",
  "dashmap",
- "directories",
  "dissimilar",
  "futures-util",
  "i-slint-backend-selector",
@@ -7453,6 +7545,7 @@ dependencies = [
  "i-slint-common",
  "i-slint-compiler",
  "i-slint-core",
+ "i-slint-editor-preview",
  "i-slint-live-preview",
  "icu_properties",
  "itertools 0.15.0",

@@ -10,7 +10,7 @@
 //! and the rest of the disk. Files the LSP pushes on its own — the loaded
 //! sources, the fonts they import — don't go through here.
 
-use crate::common::{DocumentCache, uri_to_file};
+use crate::editor_preview::{DocumentCache, uri_to_file};
 use i_slint_compiler::pathutils::{clean_path, is_url};
 use i_slint_live_preview::protocol::PreviewConfig;
 use lsp_types::InitializeParams;
@@ -53,7 +53,7 @@ impl PreviewFileAccess {
         // than directories, and each candidate costs a system call. `builtin:/…`
         // paths aren't on disk at all.
         let mut candidates: HashSet<PathBuf> =
-            crate::common::host_language_search::resolve_workspace_folders(init_param)
+            crate::host_language_search::resolve_workspace_folders(init_param)
                 .iter()
                 .filter_map(|folder| uri_to_file(&folder.uri))
                 .chain(preview_config.include_paths.iter().cloned())
@@ -157,8 +157,8 @@ mod tests {
         std::fs::write(&source, contents).unwrap();
 
         let mut ctx = crate::language::test::mock_context();
-        crate::language::test::load(&mut ctx, &source, contents);
-        let access = access(PreviewConfig::default(), &ctx.document_cache);
+        crate::language::test::load(&mut ctx.session, &source, contents);
+        let access = access(PreviewConfig::default(), &ctx.session.document_cache);
 
         assert!(access.allows(&source));
         // ... but a file beside it that the compiler never loaded is refused.
@@ -196,7 +196,7 @@ mod tests {
         use std::rc::Rc;
 
         struct Recorder(Rc<RefCell<Vec<LspToPreviewMessage>>>);
-        impl crate::common::LspToPreview for Recorder {
+        impl crate::editor_preview::LspToPreview for Recorder {
             fn send(&self, message: &LspToPreviewMessage) {
                 self.0.borrow_mut().push(message.clone());
             }
@@ -219,11 +219,10 @@ mod tests {
         std::fs::write(&main, main_source).unwrap();
 
         let recorded = Rc::new(RefCell::new(Vec::new()));
-        let mut ctx = crate::language::Context {
-            to_preview: crate::common::LspToPreviews::with_one(Recorder(recorded.clone())),
-            ..crate::language::test::mock_context()
-        };
-        crate::language::test::load(&mut ctx, &main, main_source);
+        let mut ctx = crate::language::test::mock_context();
+        ctx.session.to_preview =
+            crate::editor_preview::LspToPreviews::with_one(Recorder(recorded.clone()));
+        crate::language::test::load(&mut ctx.session, &main, main_source);
         recorded.borrow_mut().clear();
 
         // `other.slint` is a document the compiler loaded; `logo.png` is not,

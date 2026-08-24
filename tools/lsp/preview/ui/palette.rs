@@ -4,7 +4,7 @@
 use std::rc::{Rc, Weak};
 
 use crate::{
-    common,
+    editor_preview,
     preview::{properties, ui},
 };
 
@@ -24,7 +24,7 @@ pub fn setup(api: &ui::Api<'_>) {
 /// and the result will be cached
 struct PaletteModel {
     palette: std::cell::OnceCell<Vec<ui::PaletteEntry>>,
-    document_cache: Rc<common::DocumentCache>,
+    document_cache: Rc<editor_preview::DocumentCache>,
     document_uri: Url,
     window_adapter: Weak<dyn slint::platform::WindowAdapter>,
 }
@@ -59,7 +59,7 @@ impl Model for PaletteModel {
 }
 
 pub fn collect_palette(
-    document_cache: &Rc<common::DocumentCache>,
+    document_cache: &Rc<editor_preview::DocumentCache>,
     document_uri: &Url,
     window_adapter: &Rc<dyn slint::platform::WindowAdapter>,
 ) -> ModelRc<ui::PaletteEntry> {
@@ -208,7 +208,7 @@ fn handle_type(
 }
 
 fn collect_palette_from_globals(
-    document_cache: &common::DocumentCache,
+    document_cache: &editor_preview::DocumentCache,
     document_uri: &Url,
     mut values: Vec<ui::PaletteEntry>,
     window_adapter: Option<&Rc<dyn slint::platform::WindowAdapter>>,
@@ -225,7 +225,7 @@ fn collect_palette_from_globals(
         }
 
         let properties = properties::get_properties(
-            &common::ElementRcNode { element: global.clone(), debug_index: 0 },
+            &editor_preview::ElementRcNode { element: global.clone(), debug_index: 0 },
             properties::LayoutKind::None,
         );
 
@@ -257,7 +257,7 @@ fn filter_palettes(
     pattern: slint::SharedString,
 ) -> slint::ModelRc<ui::PaletteEntry> {
     let pattern = pattern.to_string();
-    std::rc::Rc::new(slint::VecModel::from(common::fuzzy_filter_iter(
+    std::rc::Rc::new(slint::VecModel::from(super::fuzzy_filter_iter(
         &mut input.iter(),
         |p| {
             format!(
@@ -299,7 +299,7 @@ mod tests {
         });
     }
 
-    fn compile(source: &str) -> (common::DocumentCache, lsp_types::Url) {
+    fn compile(source: &str) -> (editor_preview::DocumentCache, lsp_types::Url) {
         let (dc, url, diag) = crate::test::loaded_document_cache(source.to_string());
         for (u, diag) in diag.iter() {
             if diag.is_empty() {
@@ -599,25 +599,14 @@ export component Main { }
         ];
 
         for (style, border) in cases {
-            let config = crate::common::document_cache::CompilerConfiguration {
+            let config = editor_preview::document_cache::CompilerConfiguration {
                 style: Some(style.to_string()),
                 ..Default::default()
             };
-            let mut ctx = crate::language::Context {
-                document_cache: common::DocumentCache::new(config),
-                preview_config: Default::default(),
-                server_notifier: crate::ServerNotifier::dummy(),
-                init_param: Default::default(),
-                to_show: None,
-                open_urls: Default::default(),
-                to_preview: crate::common::LspToPreviews::with_one(
-                    crate::common::DummyLspToPreview::default(),
-                ),
-                pending_recompile: Default::default(),
-                host_language_rename_dont_ask_again: Default::default(),
-            };
-            let (url, _) = crate::language::test::load(
-                &mut ctx,
+            let mut session =
+                editor_preview::test::session_with(editor_preview::DocumentCache::new(config));
+            let (url, _) = editor_preview::test::load(
+                &mut session,
                 &std::env::temp_dir().join("xxx/test.slint"),
                 r#"
                     import { Palette } from "std-widgets.slint";
@@ -625,7 +614,8 @@ export component Main { }
                 "#,
             );
 
-            let result = collect_palette_from_globals(&ctx.document_cache, &url, Vec::new(), None);
+            let result =
+                collect_palette_from_globals(&session.document_cache, &url, Vec::new(), None);
             let r =
                 result.iter().find(|entry| entry.name == "Palette.border").expect("Palette.border");
             let color = i_slint_core::Color::from_argb_u8(

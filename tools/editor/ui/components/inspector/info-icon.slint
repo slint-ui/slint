@@ -1,0 +1,53 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { InspectorTokens } from "tokens.slint";
+
+export component InspectorInfoIcon inherits Rectangle {
+    in property <string> label: "More information";
+    callback activated;
+
+    width: 14px;
+    height: 14px;
+    border-radius: 7px;
+    border-width: icon-focus.has-focus ? 2px : 1px;
+    border-color: touch.has-hover || icon-focus.has-focus ? InspectorTokens.accent : InspectorTokens.muted.with-alpha(0.72);
+    background: touch.has-hover || icon-focus.has-focus ? InspectorTokens.accent.with-alpha(0.10) : transparent;
+    accessible-role: button;
+    accessible-label: root.label;
+    accessible-action-default => {
+        root.activated();
+    }
+
+    icon-focus := FocusScope {
+        key-pressed(event) => {
+            if event.text == Key.Return || event.text == Key.Space {
+                root.activated();
+                return accept;
+            }
+            return reject;
+        }
+    }
+
+    Text {
+        x: 0px;
+        y: -0.5px;
+        width: parent.width;
+        height: parent.height;
+        text: "i";
+        color: touch.has-hover || icon-focus.has-focus ? InspectorTokens.accent : InspectorTokens.muted;
+        font-size: 10px;
+        font-weight: 600;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+
+    touch := TouchArea {
+        mouse-cursor: pointer;
+
+        clicked => {
+            icon-focus.focus();
+            root.activated();
+        }
+    }
+}

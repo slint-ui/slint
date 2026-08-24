@@ -21,11 +21,11 @@ use i_slint_live_preview::protocol::{
 };
 use slint::{Model, ModelRc, SharedString, VecModel};
 
-use crate::common;
+use crate::editor_preview;
 use crate::preview::ui::{Api, AppWindow, RemoteConnectionState, RemoteViewerInfo};
 
 /// Register the Remote Preview callbacks on the window's `Api` global.
-pub fn setup(app_window: &AppWindow, to_lsp: &Rc<dyn common::PreviewToLsp>) {
+pub fn setup(app_window: &AppWindow, to_lsp: &Rc<dyn editor_preview::PreviewToLsp>) {
     let api = app_window.api();
     api.set_remote_discovered_viewers(ModelRc::new(VecModel::<RemoteViewerInfo>::default()));
 
