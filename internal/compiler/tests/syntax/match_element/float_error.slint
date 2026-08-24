@@ -3,14 +3,23 @@
 
 export component Foo {
     in property <float> pi: 3.1;
+    in property <float> t: 0.0;
 
     match pi {
         2.9: Rectangle { }
-//      > <warning{Floating point comparison is not recommended}
+//      > <error{Cannot match with floats}
+        3.0: Rectangle { }
+//      > <error{Cannot match with floats}
         3.1: Rectangle { }
-//      > <warning{Floating point comparison is not recommended}
+//      > <error{Cannot match with floats}
         3.2: Rectangle { }
-//      > <warning{Floating point comparison is not recommended}
+//      > <error{Cannot match with floats}
+        *: Rectangle { }
+    }
+
+    match t {
+        0.0: Rectangle { }
+//      > <error{Cannot match with floats}
         *: Rectangle { }
     }
 }
