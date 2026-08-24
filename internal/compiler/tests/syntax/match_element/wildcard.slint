@@ -15,6 +15,6 @@ export component Baz {
 
     match foo {
         *: Rectangle { }
-//      ^error{Expected at least one case before wildcard case}
+//      >              <warning{Unnecessary match statement always matches the '*' case}
     }
 }

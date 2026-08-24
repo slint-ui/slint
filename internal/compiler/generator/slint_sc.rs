@@ -4,7 +4,8 @@
 //! Code generator for the Slint SC (safety-critical) runtime.
 
 use crate::CompilerConfiguration;
-use crate::expression_tree::{Callable, Expression, Unit};
+use crate::embedded_resources::{EmbeddedResources, EmbeddedResourcesIdx, EmbeddedResourcesKind};
+use crate::expression_tree::{BuiltinFunction, Callable, Expression, ImageReference, Unit};
 use crate::generator::accessor_names::{AccessorKind, rust_accessor_ident};
 use crate::langtype::{EnumerationValue, StructName, Type};
 use crate::namedreference::NamedReference;
@@ -12,7 +13,70 @@ use crate::object_tree::{Document, ElementRc, PropertyDeclaration, PropertyVisib
 use itertools::Either;
 use proc_macro2::{Ident, TokenStream};
 use quote::{format_ident, quote};
+use std::cell::RefCell;
+use std::collections::BTreeMap;
 use std::rc::Rc;
+use typed_index_collections::TiSlice;
+
+/// State threaded through expression compilation: the component whose code is
+/// generated, and the document-wide image table.
+struct Ctx<'a> {
+    /// The root element of the component.
+    root: &'a ElementRc,
+    images: &'a ImageTable<'a>,
+}
+
+/// The document's image resources. An image referenced by a compiled
+/// expression is emitted once as a `static`, shared by every reference.
+struct ImageTable<'a> {
+    resources: &'a TiSlice<EmbeddedResourcesIdx, EmbeddedResources>,
+    /// The static's identifier and definition, by resource index, for the
+    /// images referenced so far.
+    emitted: RefCell<BTreeMap<usize, (Ident, TokenStream)>>,
+}
+
+impl ImageTable<'_> {
+    /// The expression reading a compile-time decoded image, emitting the
+    /// backing `static` on first use. The static holds the whole
+    /// `slint_sc::Image` value, so the expression is just its name.
+    fn image_expression(&self, resource_id: EmbeddedResourcesIdx) -> TokenStream {
+        let mut emitted = self.emitted.borrow_mut();
+        let idx = usize::from(resource_id);
+        let (ident, _) = emitted.entry(idx).or_insert_with(|| {
+            let EmbeddedResourcesKind::StaticPixels(image) = &self.resources[resource_id].kind
+            else {
+                unreachable!("the embedding pass only produces static pixels for Slint SC")
+            };
+            let ident = format_ident!("SLINT_SC_IMAGE_{idx}");
+            let width = image.width() as usize;
+            // The pixels are emitted packed into a single byte-string
+            // literal, alpha first like the runtime's ARGB layout: one token
+            // however large the image, where an array of per-pixel
+            // constructor calls would multiply the source size and its
+            // compile time.
+            let bytes: Vec<u8> = image
+                .pixels()
+                .flat_map(|pixel| {
+                    let [red, green, blue, alpha] = pixel.0;
+                    [alpha, red, green, blue]
+                })
+                .collect();
+            let data = proc_macro2::Literal::byte_string(&bytes);
+            let definition = quote! {
+                static #ident: slint_sc::Image =
+                    slint_sc::Image::StaticArgb { argb: #data, width: #width };
+            };
+            (ident, definition)
+        });
+        let ident = ident.clone();
+        quote!(#ident)
+    }
+
+    /// The definitions of the emitted statics, in resource order.
+    fn statics(&self) -> TokenStream {
+        self.emitted.borrow().values().map(|(_, definition)| definition.clone()).collect()
+    }
+}
 
 /// Public entry point called from `generator::generate`.
 pub fn generate(
@@ -21,11 +85,26 @@ pub fn generate(
 ) -> std::io::Result<TokenStream> {
     let mut output = TokenStream::new();
 
+    // Fail to compile against a slint-sc runtime of a different version.
+    let version_check = format_ident!(
+        "VersionCheck_{}_{}_{}",
+        env!("CARGO_PKG_VERSION_MAJOR"),
+        env!("CARGO_PKG_VERSION_MINOR"),
+        env!("CARGO_PKG_VERSION_PATCH"),
+    );
+    output.extend(quote! {
+        const _THE_SAME_VERSION_MUST_BE_USED_FOR_THE_COMPILER_AND_THE_RUNTIME:
+            slint_sc::#version_check = slint_sc::#version_check;
+    });
+
     // The user-declared structs and enums, sorted so a struct's field types are
     // defined before the struct that uses them.
     for ty in doc.used_types.borrow().structs_and_enums.iter() {
         output.extend(generate_type_definition(ty));
     }
+
+    let embedded_resources = doc.embedded_file_resources.borrow();
+    let images = ImageTable { resources: &embedded_resources, emitted: Default::default() };
 
     for (export_name, export) in doc.exports.iter() {
         let Either::Left(component) = export else { continue };
@@ -33,15 +112,16 @@ pub fn generate(
             continue;
         }
         let root = &component.root_element;
-        let render_tree = emit_render(root);
-        let properties = declared_properties(root);
+        let ctx = Ctx { root, images: &images };
+        let render_tree = emit_render(&ctx);
+        let properties = declared_properties(&ctx);
         let name = format_ident!("{}", export_name.name.as_str());
         let callbacks_trait = format_ident!("{}Callbacks", export_name.name.as_str());
         let trait_methods = declared_callbacks(root)
             .into_iter()
             .map(|method| quote!(fn #method(&mut self, component: &mut #name);));
         let mut touch_areas = Vec::new();
-        let hit_test_tree = emit_hit_test(root, &mut touch_areas);
+        let hit_test_tree = emit_hit_test(&ctx, &mut touch_areas);
         let clicked_arms = touch_areas
             .iter()
             .enumerate()
@@ -162,6 +242,8 @@ pub fn generate(
         });
     }
 
+    output.extend(images.statics());
+
     Ok(output)
 }
 
@@ -202,8 +284,8 @@ fn is_settable(visibility: &PropertyVisibility) -> bool {
 }
 
 /// The properties the component declares on its root element.
-fn declared_properties(root: &ElementRc) -> Vec<DeclaredProperty> {
-    let root_borrowed = root.borrow();
+fn declared_properties(ctx: &Ctx) -> Vec<DeclaredProperty> {
+    let root_borrowed = ctx.root.borrow();
     root_borrowed
         .property_declarations
         .iter()
@@ -217,7 +299,7 @@ fn declared_properties(root: &ElementRc) -> Vec<DeclaredProperty> {
                 PropertyVisibility::Input | PropertyVisibility::Output | PropertyVisibility::InOut
             );
             let kind = match root_borrowed.binding_cell_including_synthetic(name) {
-                Some(b) => PropertyKind::Binding(compile_expression(&b.borrow().expression, root)),
+                Some(b) => PropertyKind::Binding(compile_expression(&b.borrow().expression, ctx)),
                 None => PropertyKind::Stored(default_value(&decl.property_type)),
             };
             // A non-settable binding is never stored, so it needs no field.
@@ -274,6 +356,7 @@ fn rust_type(ty: &Type) -> TokenStream {
         Type::Int32 | Type::LogicalLength => quote!(i32),
         Type::Bool => quote!(bool),
         Type::Color => quote!(slint_sc::Color),
+        Type::Image => quote!(slint_sc::Image),
         // A user-declared struct or enum maps to the generated type of the same name.
         Type::Struct(s) => {
             let StructName::User { name, .. } = &s.name else { unreachable!() };
@@ -296,6 +379,7 @@ fn default_value(ty: &Type) -> TokenStream {
         Type::Int32 | Type::LogicalLength => quote!(0i32),
         Type::Bool => quote!(false),
         Type::Color => quote!(slint_sc::Color::default()),
+        Type::Image => quote!(slint_sc::Image::None),
         Type::Struct(_) | Type::Enumeration(_) => {
             let ty = rust_type(ty);
             quote!(#ty::default())
@@ -353,7 +437,7 @@ fn generate_type_definition(ty: &Type) -> TokenStream {
 /// become `i32` expressions and colors `slint_sc::Color` values. Besides the
 /// literals of the subset, this handles the expressions that compiler passes
 /// generate, like the centering arithmetic of default_geometry.
-fn compile_expression(expr: &Expression, root: &ElementRc) -> TokenStream {
+fn compile_expression(expr: &Expression, ctx: &Ctx) -> TokenStream {
     match expr {
         Expression::NumberLiteral(value, Unit::Px | Unit::None) => {
             let value = *value as i32;
@@ -365,17 +449,26 @@ fn compile_expression(expr: &Expression, root: &ElementRc) -> TokenStream {
                 let argb = *value as u32;
                 quote!(slint_sc::Color::from_argb_encoded(#argb))
             }
-            from => compile_expression(from, root),
+            from => compile_expression(from, ctx),
         },
         // `int`, `float`, and `length` are all `i32` at runtime, so a cast
         // between them lowers to the operand itself.
-        Expression::Cast { from, to: Type::Int32 | Type::Float32 } => {
-            compile_expression(from, root)
+        Expression::Cast { from, to: Type::Int32 | Type::Float32 | Type::LogicalLength } => {
+            compile_expression(from, ctx)
         }
         Expression::PropertyReference(nr) => {
             // An unbound property has its type's default value.
-            compile_property_reference(nr, root).unwrap_or_else(|| default_value(&nr.ty()))
+            compile_property_reference(nr, ctx).unwrap_or_else(|| default_value(&nr.ty()))
         }
+        Expression::ImageReference { resource_ref, .. } => match resource_ref {
+            ImageReference::None => quote!(slint_sc::Image::None),
+            ImageReference::EmbeddedTexture { resource_id } => {
+                ctx.images.image_expression(*resource_id)
+            }
+            // Path, Url, and data-URI references were embedded into static
+            // pixels, or rejected, by the compiler
+            _ => unreachable!(),
+        },
         Expression::EnumerationValue(ev) => {
             let enum_name = format_ident!("{}", ev.enumeration.name.as_str());
             let variant = format_ident!("{}", ev.to_pascal_case());
@@ -389,7 +482,7 @@ fn compile_expression(expr: &Expression, root: &ElementRc) -> TokenStream {
             let fields = field_order.iter().map(|f| {
                 let field = format_ident!("{}", f.replace('-', "_"));
                 let value = match values.get(f) {
-                    Some(v) => compile_expression(v, root),
+                    Some(v) => compile_expression(v, ctx),
                     None => default_value(&ty.fields[f]),
                 };
                 quote!(#field: #value,)
@@ -397,14 +490,29 @@ fn compile_expression(expr: &Expression, root: &ElementRc) -> TokenStream {
             quote!(#name { #(#fields)* })
         }
         // Field access reads a field out of a struct value.
-        Expression::StructFieldAccess { base, name } => {
-            let base = compile_expression(base, root);
-            let field = format_ident!("{}", name.replace('-', "_"));
-            quote!((#base).#field)
-        }
+        Expression::StructFieldAccess { base, name } => match base.as_ref() {
+            // The dimensions of an image value, `some-image.width`: a field of
+            // the ImageSize builtin call the lookup wraps around the image.
+            // The dimensions are `usize` at runtime and `i32` in the language;
+            // a dimension beyond `i32` saturates.
+            Expression::FunctionCall {
+                function: Callable::Builtin(BuiltinFunction::ImageSize),
+                arguments,
+                ..
+            } => {
+                let image = compile_expression(&arguments[0], ctx);
+                let accessor = format_ident!("{}", name.as_str());
+                quote!(i32::try_from((#image).#accessor()).unwrap_or(i32::MAX))
+            }
+            base => {
+                let base = compile_expression(base, ctx);
+                let field = format_ident!("{}", name.replace('-', "_"));
+                quote!((#base).#field)
+            }
+        },
         Expression::BinaryExpression { lhs, rhs, op } => {
-            let lhs = compile_expression(lhs, root);
-            let rhs = compile_expression(rhs, root);
+            let lhs = compile_expression(lhs, ctx);
+            let rhs = compile_expression(rhs, ctx);
             // Arithmetic saturates at the `i32` bounds. `/` only comes from
             // compiler-synthesized geometry, whose divisor is a non-zero constant
             // (`saturating_div` still panics on a zero divisor).
@@ -428,7 +536,7 @@ fn compile_expression(expr: &Expression, root: &ElementRc) -> TokenStream {
             }
         }
         Expression::UnaryOp { sub, op } => {
-            let sub = compile_expression(sub, root);
+            let sub = compile_expression(sub, ctx);
             match op {
                 // Negation saturates so that negating `i32::MIN` is defined.
                 '-' => quote!((#sub).saturating_neg()),
@@ -438,20 +546,20 @@ fn compile_expression(expr: &Expression, root: &ElementRc) -> TokenStream {
             }
         }
         Expression::Condition { condition, true_expr, false_expr } => {
-            let condition = compile_expression(condition, root);
-            let true_expr = compile_expression(true_expr, root);
-            let false_expr = compile_expression(false_expr, root);
+            let condition = compile_expression(condition, ctx);
+            let true_expr = compile_expression(true_expr, ctx);
+            let false_expr = compile_expression(false_expr, ctx);
             quote!(if #condition { #true_expr } else { #false_expr })
         }
         // A property read that appears more than once is hoisted into a local
         // variable, so a code block evaluates it once and reads it back.
         Expression::CodeBlock(statements) => {
-            let statements = statements.iter().map(|s| compile_expression(s, root));
+            let statements = statements.iter().map(|s| compile_expression(s, ctx));
             quote!({ #(#statements)* })
         }
         Expression::StoreLocalVariable { name, value } => {
             let name = format_ident!("{}", name.replace('-', "_"));
-            let value = compile_expression(value, root);
+            let value = compile_expression(value, ctx);
             quote!(let #name = #value;)
         }
         Expression::ReadLocalVariable { name, .. } => {
@@ -460,7 +568,7 @@ fn compile_expression(expr: &Expression, root: &ElementRc) -> TokenStream {
         }
         // The only call of the subset is a callback invocation from a handler.
         Expression::FunctionCall { function: Callable::Callback(nr), .. } => {
-            compile_callback_call(nr, root)
+            compile_callback_call(nr, ctx)
         }
         // Everything else was rejected by the compiler
         _ => unreachable!(),
@@ -474,15 +582,15 @@ fn compile_expression(expr: &Expression, root: &ElementRc) -> TokenStream {
 /// The handler is inlined at each invocation rather than called through a
 /// function, which stays finite because `binding_analysis` rejects a cycle of
 /// handlers as a binding loop.
-fn compile_callback_call(nr: &NamedReference, root: &ElementRc) -> TokenStream {
+fn compile_callback_call(nr: &NamedReference, ctx: &Ctx) -> TokenStream {
     let element = nr.element();
-    if Rc::ptr_eq(&element, root) && is_declared_on_root(root, nr.name()) {
+    if Rc::ptr_eq(&element, ctx.root) && is_declared_on_root(ctx.root, nr.name()) {
         let method = rust_accessor_ident(nr.name(), AccessorKind::Handler);
         return quote!(callbacks.#method(self););
     }
     match element.borrow().binding_cell_including_synthetic(nr.name()) {
         Some(handler) => {
-            let handler = compile_expression(&handler.borrow().expression, root);
+            let handler = compile_expression(&handler.borrow().expression, ctx);
             quote!(#handler;)
         }
         None => TokenStream::new(),
@@ -497,10 +605,10 @@ struct Geometry {
     height: TokenStream,
 }
 
-fn element_geometry(elem: &ElementRc, root: &ElementRc) -> Geometry {
+fn element_geometry(elem: &ElementRc, ctx: &Ctx) -> Geometry {
     let props = elem.borrow().geometry_props.clone();
     let resolve =
-        |nr: Option<&NamedReference>| nr.and_then(|nr| compile_property_reference(nr, root));
+        |nr: Option<&NamedReference>| nr.and_then(|nr| compile_property_reference(nr, ctx));
     Geometry {
         // The default_geometry pass leaves a size binding on every element, and
         // the root's size resolves to the window size
@@ -521,13 +629,13 @@ fn element_geometry(elem: &ElementRc, root: &ElementRc) -> Geometry {
 /// `TouchArea` sit exactly where it paints.
 fn emit_tree(
     elem: &ElementRc,
-    root: &ElementRc,
+    ctx: &Ctx,
     body: &mut dyn FnMut(&ElementRc, &Geometry) -> Option<TokenStream>,
 ) -> TokenStream {
-    let geometry = element_geometry(elem, root);
+    let geometry = element_geometry(elem, ctx);
     let statements = body(elem, &geometry);
     let children: Vec<TokenStream> =
-        elem.borrow().children.iter().map(|child| emit_tree(child, root, body)).collect();
+        elem.borrow().children.iter().map(|child| emit_tree(child, ctx, body)).collect();
     if statements.is_none() && children.iter().all(|c| c.is_empty()) {
         return TokenStream::new();
     }
@@ -542,17 +650,33 @@ fn emit_tree(
     }
 }
 
+/// Whether the element is an image item: its resolved native class is, or
+/// inherits, the class that declares `source`. Class selection may land on
+/// the ImageItem base or a subclass of it, so the ancestry decides.
+fn is_image_item(elem: &ElementRc) -> bool {
+    let mut class = elem.borrow().native_class();
+    while let Some(native) = class {
+        if native.class_name == "ImageItem" {
+            return true;
+        }
+        class = native.parent.clone();
+    }
+    false
+}
+
 /// The render code: every element paints its background, if it has one, where
 /// it sits, and before its children, so that later and deeper elements paint
-/// on top.
-fn emit_render(root: &ElementRc) -> TokenStream {
-    emit_tree(root, root, &mut |elem, geometry| {
+/// on top. An image item paints its source image after the background, one
+/// image pixel per frame-buffer pixel: the element is always the size of the
+/// image, so there is nothing to scale or clip to.
+fn emit_render(ctx: &Ctx) -> TokenStream {
+    emit_tree(ctx.root, ctx, &mut |elem, geometry| {
         let background = elem
             .borrow()
             .binding_cell_including_synthetic("background")
             .map(|b| b.borrow().expression.clone());
-        let mut color = background.map(|expr| compile_expression(&expr, root));
-        if Rc::ptr_eq(elem, root) {
+        let mut color = background.map(|expr| compile_expression(&expr, ctx));
+        if Rc::ptr_eq(elem, ctx.root) {
             // The window background defaults to black, so that the whole frame
             // buffer is always painted
             color = Some(
@@ -560,12 +684,30 @@ fn emit_render(root: &ElementRc) -> TokenStream {
             );
         }
         let (w, h) = (&geometry.width, &geometry.height);
-        color.map(|color| {
+        let fill = color.map(|color| {
             quote!(
                 slint_sc::private_unstable_api::renderer::fill_rect(frame_buffer, window_size,
                     [offset_x, offset_y], [#w, #h], #color);
             )
-        })
+        });
+        let source = is_image_item(elem)
+            .then(|| {
+                elem.borrow()
+                    .binding_cell_including_synthetic("source")
+                    .map(|b| b.borrow().expression.clone())
+            })
+            .flatten();
+        let draw_image = source.map(|source| {
+            let source = compile_expression(&source, ctx);
+            quote!(
+                slint_sc::private_unstable_api::renderer::draw_image(frame_buffer, window_size,
+                    [offset_x, offset_y], #source);
+            )
+        });
+        match (fill, draw_image) {
+            (None, None) => None,
+            (fill, draw_image) => Some(quote!(#fill #draw_image)),
+        }
     })
 }
 
@@ -573,14 +715,14 @@ fn emit_render(root: &ElementRc) -> TokenStream {
 /// `TouchArea` into `areas` in the order the tests run. A later test overwrites
 /// what an earlier one stored in `hit`, so the area that paints on top is the
 /// one that ends up hit.
-fn emit_hit_test(root: &ElementRc, areas: &mut Vec<TokenStream>) -> TokenStream {
-    emit_tree(root, root, &mut |elem, geometry| {
+fn emit_hit_test(ctx: &Ctx, areas: &mut Vec<TokenStream>) -> TokenStream {
+    emit_tree(ctx.root, ctx, &mut |elem, geometry| {
         is_touch_area(elem).then(|| {
             let index = areas.len();
             areas.push(
                 elem.borrow()
                     .binding_cell_including_synthetic("clicked")
-                    .map(|handler| compile_expression(&handler.borrow().expression, root))
+                    .map(|handler| compile_expression(&handler.borrow().expression, ctx))
                     .unwrap_or_default(),
             );
             let (w, h) = (&geometry.width, &geometry.height);
@@ -602,11 +744,11 @@ fn is_touch_area(elem: &ElementRc) -> bool {
 }
 
 /// Compile a reference to a property.
-fn compile_property_reference(nr: &NamedReference, root: &ElementRc) -> Option<TokenStream> {
+fn compile_property_reference(nr: &NamedReference, ctx: &Ctx) -> Option<TokenStream> {
     let element = nr.element();
-    let is_root = Rc::ptr_eq(&element, root);
-    if is_root && is_declared_on_root(root, nr.name()) {
-        let root_borrowed = root.borrow();
+    let is_root = Rc::ptr_eq(&element, ctx.root);
+    if is_root && is_declared_on_root(ctx.root, nr.name()) {
+        let root_borrowed = ctx.root.borrow();
         if let Some(decl) = root_borrowed.property_declarations.get(nr.name()) {
             let binding = root_borrowed.binding_cell_including_synthetic(nr.name());
             return Some(match binding {
@@ -622,12 +764,12 @@ fn compile_property_reference(nr: &NamedReference, root: &ElementRc) -> Option<T
                     let getter = rust_accessor_ident(nr.name(), AccessorKind::Getter);
                     quote!(self.#getter())
                 }
-                Some(b) => compile_expression(&b.borrow().expression, root),
+                Some(b) => compile_expression(&b.borrow().expression, ctx),
             });
         }
     }
     match element.borrow().binding_cell_including_synthetic(nr.name()) {
-        Some(b) => Some(compile_expression(&b.borrow().expression, root)),
+        Some(b) => Some(compile_expression(&b.borrow().expression, ctx)),
         None if is_root => match nr.name().as_str() {
             "width" => Some(quote!((self.window_size.width as i32))),
             "height" => Some(quote!((self.window_size.height as i32))),

@@ -9,7 +9,7 @@ export component TestCase inherits Window {
     in-out property <color> primary: blue;
 
     match primary {
-        Colors.red: TouchArea {
+        red: TouchArea {
             Text {
                 text: var1;
             }
@@ -23,7 +23,7 @@ export component TestCase inherits Window {
                 var1 += self.xx;
             }
         }
-        Colors.green: TouchArea {
+        green: TouchArea {
             Text {
                 text: var2;
             }
@@ -37,7 +37,7 @@ export component TestCase inherits Window {
                 var2 += self.xx;
             }
         }
-        Colors.blue: TouchArea {
+        blue: TouchArea {
             Text {
                 text: var3;
             }
@@ -51,8 +51,9 @@ export component TestCase inherits Window {
                 var3 += self.xx;
             }
         }
+        *: { }
     }
-    in-out property <bool> test: var1 == 20 && var2 == 50 && var3 == 70 && primary == Colors.blue;
+    in-out property <bool> test: var1 == 20 && var2 == 50 && var3 == 70 && primary == blue;
 }
 
 /*

@@ -1448,7 +1448,7 @@ fn generate_sub_component(
                         #inner_component_id::FIELD_OFFSETS.#repeater_id().apply_pin(_self).track_changes_listview(
                             #content_w, #content_h, #content_y, #lv_w.get(), #lv_h
                         );
-                        #inner_component_id::FIELD_OFFSETS.#repeater_id().apply_pin(_self).visit(order, visitor)
+                        #inner_component_id::FIELD_OFFSETS.#repeater_id().apply_pin(_self).visit_maybe_instance(instance, order, visitor)
                     }
                 ));
                 ensure_instantiated_stmts.push(quote!({
@@ -1460,7 +1460,7 @@ fn generate_sub_component(
             } else {
                 repeated_visit_branch.push(quote!(
                     #idx => {
-                        #inner_component_id::FIELD_OFFSETS.#repeater_id().apply_pin(_self).visit(order, visitor)
+                        #inner_component_id::FIELD_OFFSETS.#repeater_id().apply_pin(_self).visit_maybe_instance(instance, order, visitor)
                     }
                 ));
                 ensure_instantiated_stmts.push(quote!({
@@ -1579,7 +1579,7 @@ fn generate_sub_component(
             let last_repeater = repeater_offset + sub_component_repeater_count - 1;
             repeated_visit_branch.push(quote!(
                 #repeater_offset..=#last_repeater => {
-                    #sub_compo_field.apply_pin(_self).visit_dynamic_children(dyn_index - #repeater_offset, order, visitor)
+                    #sub_compo_field.apply_pin(_self).visit_dynamic_children(dyn_index - #repeater_offset, order, visitor, instance)
                 }
             ));
             repeated_subtree_ranges.push(quote!(
@@ -1886,7 +1886,8 @@ fn generate_sub_component(
                 self: ::core::pin::Pin<&Self>,
                 dyn_index: u32,
                 order: sp::TraversalOrder,
-                visitor: sp::ItemVisitorRefMut<'_>
+                visitor: sp::ItemVisitorRefMut<'_>,
+                instance: ::core::option::Option<u32>,
             ) -> sp::VisitChildrenResult {
                 #![allow(unused)]
                 let _self = self;
@@ -2344,12 +2345,18 @@ fn generate_item_tree(
             }
         }
     }));
-    let mut item_tree_array = Vec::new();
+    let mut item_tree_array: Vec<TokenStream> = Vec::new();
     let mut item_array = Vec::new();
+    let mut z_sorted_nodes: Vec<(usize, &llr::TreeNode)> = Vec::new();
     sub_tree.tree.visit_in_array(&mut |node, children_offset, parent_index| {
         let parent_index = parent_index as u32;
         let (_, component) =
             follow_sub_component_path(root, sub_tree.root, &node.sub_component_path);
+
+        if node.z_sort_order_property.is_some() {
+            z_sorted_nodes.push((item_tree_array.len(), node));
+        }
+
         match node.item_index {
             Either::Right(mut repeater_index) => {
                 assert_eq!(node.children.len(), 0);
@@ -2459,6 +2466,93 @@ fn generate_item_tree(
         )
     };
 
+    let visit_call = |sorted: TokenStream| {
+        quote!(sp::visit_item_tree(
+            &sp::VRcMapped::origin(&self.as_ref().self_weak.get().unwrap().upgrade().unwrap()),
+            self.get_item_tree().as_slice(),
+            index,
+            order,
+            visitor,
+            &mut |order, visitor, dyn_index, instance| self.visit_dynamic_children(dyn_index, order, visitor, instance),
+            #sorted,
+        ))
+    };
+    let z_sorted_visit_body = if z_sorted_nodes.is_empty() {
+        let call = visit_call(quote!(None));
+        quote!(return #call;)
+    } else {
+        let ctx = EvaluationContext::new_sub_component(
+            root,
+            sub_tree.root,
+            RustGeneratorContext { global_access: quote!(_self.globals.get().unwrap()) },
+            parent_ctx,
+        );
+        let sorted_call = visit_call(quote!(Some(sorted.as_slice())));
+        let default_call = visit_call(quote!(None));
+        let z_match_arms = z_sorted_nodes.iter().map(|(node_idx, node)| {
+            let idx_lit = *node_idx as isize;
+            let sources = node.z_sort_order_property.as_ref().unwrap();
+            let compile_z = |e: &llr::MutExpression| {
+                let e = compile_expression(&e.borrow(), &ctx);
+                quote!(#e as f32)
+            };
+            let sorted_setup = if sources
+                .iter()
+                .any(|s| matches!(s, llr::ZSource::RepeaterInstances))
+            {
+                // Repeated children are expanded to one entry per instance, so the
+                // number of entries is only known at runtime
+                let pushes = sources.iter().zip(&node.children).enumerate().map(|(k, (source, child))| {
+                    let k = k as u32;
+                    match source {
+                        llr::ZSource::Expression(e) => {
+                            let e = compile_z(e);
+                            quote!(sorted.push(sp::ZSortedChild { z: #e, child_offset: #k, instance: u32::MAX });)
+                        }
+                        llr::ZSource::RepeaterInstances => {
+                            let itertools::Either::Right(repeater_index) = child.item_index else {
+                                unreachable!("per-instance z is only set on repeated children")
+                            };
+                            let (compo_path, sub_component) =
+                                follow_sub_component_path(root, sub_tree.root, &child.sub_component_path);
+                            let rep_field = access_component_field_offset(
+                                &self::inner_component_id(sub_component),
+                                &format_ident!("repeater{}", repeater_index),
+                            );
+                            quote!((#compo_path #rep_field).apply_pin(_self).for_each_instance_z(&mut |instance, z| sorted.push(sp::ZSortedChild { z, child_offset: #k, instance }));)
+                        }
+                    }
+                });
+                quote! {
+                    let mut sorted = sp::Vec::<sp::ZSortedChild>::new();
+                    #(#pushes)*
+                }
+            } else {
+                let entries = sources.iter().enumerate().map(|(k, source)| {
+                    let k = k as u32;
+                    let llr::ZSource::Expression(e) = source else { unreachable!() };
+                    let e = compile_z(e);
+                    quote!(sp::ZSortedChild { z: #e, child_offset: #k, instance: u32::MAX })
+                });
+                quote!(let mut sorted = [#(#entries),*];)
+            };
+            quote! {
+                #idx_lit => {
+                    #sorted_setup
+                    sp::sort_z_entries(&mut sorted);
+                    return #sorted_call;
+                }
+            }
+        });
+        quote! {
+            let _self = self;
+            match index {
+                #(#z_match_arms)*
+                _ => return #default_call,
+            }
+        }
+    };
+
     quote!(
         #sub_comp
 
@@ -2499,15 +2593,7 @@ fn generate_item_tree(
             fn visit_children_item(self: ::core::pin::Pin<&Self>, index: isize, order: sp::TraversalOrder, visitor: sp::ItemVisitorRefMut<'_>)
                 -> sp::VisitChildrenResult
             {
-                let item_tree = sp::VRcMapped::origin(&self.as_ref().self_weak.get().unwrap().upgrade().unwrap());
-                sp::visit_item_tree(
-                    &item_tree,
-                    self.get_item_tree().as_slice(),
-                    index,
-                    order,
-                    visitor,
-                    &mut |order, visitor, dyn_index| self.visit_dynamic_children(dyn_index, order, visitor),
-                )
+                #z_sorted_visit_body
             }
 
             fn get_item_ref(self: ::core::pin::Pin<&Self>, index: u32) -> ::core::pin::Pin<sp::ItemRef<'_>> {
@@ -2983,6 +3069,21 @@ fn generate_repeated_component(
         let value_tokens = set_primitive_property_value(prop_type, quote!(_data));
         quote!(#data_prop.set(#value_tokens);)
     });
+    let z_order_fn = repeated.dynamic_z.as_ref().map(|z_ref| {
+        let ctx = EvaluationContext::new_sub_component(
+            unit,
+            repeated.sub_tree.root,
+            RustGeneratorContext { global_access: quote!(_self.globals.get().unwrap()) },
+            Some(parent_ctx),
+        );
+        let z_prop = access_member(z_ref, &ctx).get_property();
+        quote! {
+            fn z_order(self: ::core::pin::Pin<&Self>) -> sp::Option<f32> {
+                let _self = self;
+                sp::Some(#z_prop as f32)
+            }
+        }
+    });
 
     quote!(
         #component
@@ -3001,6 +3102,7 @@ fn generate_repeated_component(
                     sp::VRcMapped::map(self_rc, |x| x),
                 );
             }
+            #z_order_fn
             #extra_fn
         }
     )
@@ -4266,9 +4368,10 @@ fn compile_grid_repeater_cache_access(expr: &Expression, ctx: &EvaluationContext
 
         quote!({
             let cache = #cache.get();
-            let base = cache[#index] as usize;
-            let data_idx = base + #offset as usize * (#stride_val as usize) + #child_offset #inner_offset;
-            *cache.get(data_idx).unwrap_or(&(0 as _))
+            cache.get(#index)
+                .and_then(|base| cache.get(*base as usize + #offset as usize * (#stride_val as usize) + #child_offset #inner_offset))
+                .copied()
+                .unwrap_or(0 as _)
         })
     })
 }
@@ -5960,6 +6063,11 @@ fn generate_resources(doc: &Document) -> Vec<TokenStream> {
             match &er.kind {
                 &crate::embedded_resources::EmbeddedResourcesKind::ListOnly => {
                     quote!()
+                },
+                // Only the slint-sc generator produces these resources.
+                #[cfg(feature = "slint-sc")]
+                crate::embedded_resources::EmbeddedResourcesKind::StaticPixels { .. } => {
+                    unreachable!("slint-sc resources in the Rust generator")
                 },
                 crate::embedded_resources::EmbeddedResourcesKind::FileData => {
                     let data = embedded_file_tokens(er.path.as_deref().unwrap());

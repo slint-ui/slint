@@ -28,6 +28,7 @@ export component ChildMissingMembers {
 // Member present but with the wrong visibility / type / callback signature / purity / arguments.
 component IncorrectVisibility {
     out property <int> value;
+//  > <note{'IncorrectVisibility' declares 'value' here, 'ValidInterface' expects 'in-out property <int> value;'}
     callback speak();
     public pure function reset() {}
 }
@@ -40,6 +41,7 @@ export component ChildWrongVisibility {
 
 component IncorrectType {
     in-out property <float> value;
+//                   >   <note{'IncorrectType' declares 'value' here, 'ValidInterface' expects 'in-out property <int> value;'}
     callback speak();
     public pure function reset() {}
 }
@@ -53,12 +55,13 @@ export component ChildWrongType {
 component IncorrectCallback {
     in-out property <int> value;
     callback speak() -> string;
+//                      >    <note{'IncorrectCallback' declares 'speak' here, 'ValidInterface' expects 'callback speak();'}
     public pure function reset() {}
 }
 
 export component ChildWrongCallback {
     implement ValidInterface <=> impl;
-//                               >  <error{Cannot implement 'ValidInterface' based on 'impl'.↵- 'impl.speak' must be a 'callback() -> void' (found a 'callback() -> string')}
+//                               >  <error{Cannot implement 'ValidInterface' based on 'impl'.↵- 'impl.speak' must be 'callback speak();' (found 'callback speak() -> string;')}
     impl := IncorrectCallback { }
 }
 
@@ -84,6 +87,7 @@ interface ImpureFunctionInterface {
 
 component IncorrectPurity {
     public function foo(i: int, s: string) -> bool {
+//                  > <note{'IncorrectPurity' declares 'foo' here, 'FunctionInterface' expects 'pure public function foo(int, string) -> bool { }'}
         return false;
     }
 
@@ -103,26 +107,30 @@ export component ChildWrongPurity {
 
 component IncorrectArguments {
     pure public function foo(i: int, s: int) -> bool {
+//                                      > <note{'IncorrectArguments' declares 'foo' here, 'FunctionInterface' expects 'pure public function foo(int, string) -> bool { }'}
         return false;
     }
 }
 
 export component ChildWrongArguments {
     implement FunctionInterface <=> base;
-//                                  >  <error{Cannot implement 'FunctionInterface' based on 'base'.↵- 'base.foo' must be a 'function(int, string) -> bool' (found a 'function(int, int) -> bool')}
+//                                  >  <error{Cannot implement 'FunctionInterface' based on 'base'.↵- 'base.foo' must be 'pure public function foo(int, string) -> bool { }' (found 'pure public function foo(int, int) -> bool { }')}
     base := IncorrectArguments { }
 }
 
 // Each member of the child declared as the wrong kind.
 component CrossKindImpl {
     callback value();
+//           >   <note{'CrossKindImpl' declares 'value' here, 'ValidInterface' expects 'in-out property <int> value;'}
     in-out property <int> speak;
+//                        >   <note{'CrossKindImpl' declares 'speak' here, 'ValidInterface' expects 'callback speak();'}
     in-out property <int> reset;
+//                        >   <note{'CrossKindImpl' declares 'reset' here, 'ValidInterface' expects 'pure public function reset() { }'}
 }
 
 export component ChildCrossKind {
     implement ValidInterface <=> impl;
-//                               >  <error{Cannot implement 'ValidInterface' based on 'impl'.↵- 'impl.reset' must be a 'public pure function() -> void' (found a 'int' property)↵- 'impl.speak' must be a 'callback() -> void' (found a 'int' property)↵- 'impl.value' must be an in-out 'int' property (found a 'callback() -> void')}
+//                               >  <error{Cannot implement 'ValidInterface' based on 'impl'.↵- 'impl.reset' must be 'pure public function reset() { }' (found a 'int' property)↵- 'impl.speak' must be 'callback speak();' (found a 'int' property)↵- 'impl.value' must be 'in-out property <int> value;' (found 'callback value();')}
     impl := CrossKindImpl { }
 }
 
@@ -141,6 +149,9 @@ export component ChildImplicitlyImplements {
 // A forwarded member must not clash with a member already declared on the parent.
 export component OverridesDeclaration {
     implement ValidInterface <=> base;
+//            >             <note{'ValidInterface' declares 'reset' as 'pure public function reset() { }'}
+//            >             <^note{'ValidInterface' declares 'speak' as 'callback speak();'}
+//            >             <^^note{'ValidInterface' declares 'value' as 'in-out property <int> value;'}
     base := ValidBase { }
 
     in-out property <int> value;
@@ -154,8 +165,11 @@ export component OverridesDeclaration {
 // A forwarded member must not clash with a member inherited by the parent from its own base.
 component BaseWithConflicts {
     in-out property <int> value;
+//                        >   <note{'BaseWithConflicts' declares 'value' here, 'ValidInterface' expects 'in-out property <int> value;'}
     callback speak();
+//           >   <note{'BaseWithConflicts' declares 'speak' here, 'ValidInterface' expects 'callback speak();'}
     public pure function reset() {}
+//                       >   <note{'BaseWithConflicts' declares 'reset' here, 'ValidInterface' expects 'pure public function reset() { }'}
     @children
 }
 
@@ -163,4 +177,33 @@ export component ConflictsWithBase inherits BaseWithConflicts {
     implement ValidInterface <=> base;
 //            >             <error{Cannot implement 'ValidInterface' based on 'base'.↵- 'reset' conflicts with an existing function in 'BaseWithConflicts'↵- 'speak' conflicts with an existing callback in 'BaseWithConflicts'↵- 'value' conflicts with an existing property in 'BaseWithConflicts'}
     base := ValidBase { }
+}
+
+interface Viewport {
+    in-out property <float> viewport-x;
+    in-out property <float> viewport-y;
+}
+
+// The Viewport interface properties conflict with the properties on the built-in Flickable component
+export component ConflictsWithBuiltIn {
+    implement Viewport <=> flickable;
+//                         >       <error{Cannot implement 'Viewport' based on 'flickable'.↵- 'flickable.viewport-x' must be a 'float' property (found a 'length' property)↵- 'flickable.viewport-y' must be a 'float' property (found a 'length' property)}
+
+    flickable := Flickable { }
+}
+
+// Verify that we don't get the normalized child id in the diagnostic messages.
+export component ChildWithProperties {
+
+    implement ValidInterface <=> child_with_conflicts;
+//                               >                  <error{Cannot implement 'ValidInterface' based on 'child_with_conflicts'.↵- 'child_with_conflicts.reset' must be 'pure public function reset() { }' (found 'callback reset();')↵- 'child_with_conflicts.speak' must be 'callback speak();' (found 'public function speak() { }')↵- 'child_with_conflicts.value' must be a 'int' property (found a 'float' property)}
+
+    child_with_conflicts := Rectangle {
+        in-out property <float> value;
+//                       >   <note{'child_with_conflicts' declares 'value' here, 'ValidInterface' expects 'in-out property <int> value;'}
+        public function speak() {}
+//                      >   <note{'child_with_conflicts' declares 'speak' here, 'ValidInterface' expects 'callback speak();'}
+        callback reset();
+//               >   <note{'child_with_conflicts' declares 'reset' here, 'ValidInterface' expects 'pure public function reset() { }'}
+    }
 }

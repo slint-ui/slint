@@ -366,19 +366,22 @@ declare_syntax! {
         MatchCase -> [ Expression, ?SubElement ],
         /// *: Elem { }
         WildcardMatchCase -> [ ?SubElement ],
-        CallbackDeclaration -> [ DeclaredIdentifier, *CallbackDeclarationParameter, ?ReturnType, ?TwoWayBinding ],
+        CallbackDeclaration -> [ ?PropertyDeprecation, ?ShadowableAttribute, DeclaredIdentifier, *CallbackDeclarationParameter, ?ReturnType, ?TwoWayBinding ],
         // `foo: type` or just `type`
         CallbackDeclarationParameter -> [ ?DeclaredIdentifier, Type],
-        Function -> [DeclaredIdentifier, *ArgumentDeclaration, ?ReturnType, ?CodeBlock ],
+        Function -> [ ?PropertyDeprecation, ?ShadowableAttribute, DeclaredIdentifier, *ArgumentDeclaration, ?ReturnType, ?CodeBlock ],
         ArgumentDeclaration -> [DeclaredIdentifier, Type],
         /// `-> type`  (but without the ->)
         ReturnType -> [Type],
         CallbackConnection -> [ *DeclaredIdentifier, ?CodeBlock, ?Expression ],
         /// Declaration of a property.
-        PropertyDeclaration-> [ ?PropertyDeprecation, ?Type , DeclaredIdentifier, ?BindingExpression, ?TwoWayBinding ],
-        /// `@deprecated` or `@deprecated("message")` prefixing a PropertyDeclaration.
+        PropertyDeclaration-> [ ?PropertyDeprecation, ?ShadowableAttribute, ?Type , DeclaredIdentifier, ?BindingExpression, ?TwoWayBinding ],
+        /// `@deprecated` or `@deprecated("message")` prefixing a member declaration.
         /// The optional message is a StringLiteral token child.
         PropertyDeprecation -> [],
+        /// `@shadowable` prefixing a property, callback or function declaration: a component
+        /// inheriting from this one may declare a member of the same name, shadowing this one.
+        ShadowableAttribute -> [],
         /// QualifiedName are the properties name
         PropertyAnimation-> [ *QualifiedName, *Binding ],
         /// `changed xxx => {...}`  where `xxx` is the DeclaredIdentifier

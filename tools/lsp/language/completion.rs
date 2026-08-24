@@ -12,7 +12,7 @@ use crate::util::{lookup_current_element_type, text_size_to_lsp_position, with_l
 use crate::editor_preview::wasm_prelude::*;
 use i_slint_compiler::diagnostics::Spanned;
 use i_slint_compiler::expression_tree::{Callable, Expression};
-use i_slint_compiler::langtype::{ElementType, Type};
+use i_slint_compiler::langtype::{ElementType, PropertyLookupMode, Type};
 use i_slint_compiler::lookup::{LookupCtx, LookupObject, LookupResult, LookupResultCallable};
 use i_slint_compiler::object_tree::ElementRc;
 use i_slint_compiler::parser::{SyntaxKind, SyntaxNode, SyntaxToken, TextSize, syntax_nodes};
@@ -541,7 +541,6 @@ fn is_reserved_prop_valid(
     prop: &str,
     element_type: &ElementType,
     parent_element_type: Option<&ElementType>,
-    enable_experimental: bool,
 ) -> bool {
     let name_of = |t: &ElementType| -> Option<SmolStr> {
         match t {
@@ -565,8 +564,7 @@ fn is_reserved_prop_valid(
         );
     }
     if name_in(i_slint_compiler::typeregister::RESERVED_FLEXBOXLAYOUT_PROPERTIES) {
-        // Not stable API yet, the compiler only accepts them as an experimental feature.
-        return enable_experimental && parent_name == Some("FlexboxLayout");
+        return parent_name == Some("FlexboxLayout");
     }
     if name_in(i_slint_compiler::typeregister::RESERVED_DROP_SHADOW_PROPERTIES)
         || name_in(i_slint_compiler::typeregister::RESERVED_INNER_SHADOW_PROPERTIES)
@@ -591,7 +589,6 @@ fn properties_for_changed_callbacks(
         }
         node = node.parent()?;
     };
-    let enable_experimental = document_cache.compiler_configuration().enable_experimental;
     let global_tr = document_cache.global_type_registry();
     let tr = element
         .source_file()
@@ -622,12 +619,7 @@ fn properties_for_changed_callbacks(
             if !ty.is_property_type() {
                 return None;
             }
-            if !is_reserved_prop_valid(
-                k,
-                &element_type,
-                parent_element_type.as_ref(),
-                enable_experimental,
-            ) {
+            if !is_reserved_prop_valid(k, &element_type, parent_element_type.as_ref()) {
                 return None;
             }
             let mut c = CompletionItem::new_simple(k.into(), ty.to_string());
@@ -659,7 +651,6 @@ fn resolve_element_scope(
             }
         };
 
-    let enable_experimental = document_cache.compiler_configuration().enable_experimental;
     let global_tr = document_cache.global_type_registry();
     let tr = element
         .source_file()
@@ -668,6 +659,36 @@ fn resolve_element_scope(
         .unwrap_or(&global_tr);
     let element_type = lookup_current_element_type((*element).clone(), tr).unwrap_or_default();
     let parent_element_type = element.parent().and_then(|p| lookup_current_element_type(p, tr));
+    // Members declared on this element, offered as-is; an inherited member of the same name is
+    // dropped below so the name isn't offered twice.
+    let local_declarations = element
+        .PropertyDeclaration()
+        .filter_map(|pr| {
+            let name = pr.DeclaredIdentifier().child_text(SyntaxKind::Identifier)?;
+            Some(
+                CompletionItem::new_simple(
+                    name.to_string(),
+                    pr.Type().map(|t| t.text().into()).unwrap_or_else(|| "property".to_owned()),
+                )
+                .with_kind(CompletionItemKind::PROPERTY)
+                .with_sort_text(format!("#{name}"))
+                .with_insert_text(format!("{name}: "), with_snippets),
+            )
+        })
+        .chain(element.CallbackDeclaration().filter_map(|cd| {
+            let name = cd.DeclaredIdentifier().child_text(SyntaxKind::Identifier)?;
+            Some(
+                CompletionItem::new_simple(name.to_string(), "callback".into())
+                    .with_kind(CompletionItemKind::METHOD)
+                    .with_sort_text(format!("#{name}"))
+                    .with_insert_text(format!("{name} => {{$1}}"), with_snippets),
+            )
+        }))
+        .collect::<Vec<_>>();
+    let shadowing_names: std::collections::HashSet<SmolStr> = local_declarations
+        .iter()
+        .map(|c| i_slint_compiler::parser::normalize_identifier(&c.label))
+        .collect();
     let mut result = element_type
         .property_list()
         .into_iter()
@@ -675,7 +696,10 @@ fn resolve_element_scope(
             if matches!(ty, Type::Function { .. }) {
                 return false;
             }
-            let mut lk = element_type.lookup_property(k);
+            if shadowing_names.contains(&i_slint_compiler::parser::normalize_identifier(k)) {
+                return false;
+            }
+            let mut lk = element_type.lookup_property(k, PropertyLookupMode::ComponentLocal);
             lk.is_local_to_component = false;
             lk.is_valid_for_assignment()
         })
@@ -698,27 +722,7 @@ fn resolve_element_scope(
             c.sort_text = Some(format!("#{}", c.label));
             apply_property_ty(c, &ty, cb_args)
         })
-        .chain(element.PropertyDeclaration().filter_map(|pr| {
-            let name = pr.DeclaredIdentifier().child_text(SyntaxKind::Identifier)?;
-            Some(
-                CompletionItem::new_simple(
-                    name.to_string(),
-                    pr.Type().map(|t| t.text().into()).unwrap_or_else(|| "property".to_owned()),
-                )
-                .with_kind(CompletionItemKind::PROPERTY)
-                .with_sort_text(format!("#{name}"))
-                .with_insert_text(format!("{name}: "), with_snippets),
-            )
-        }))
-        .chain(element.CallbackDeclaration().filter_map(|cd| {
-            let name = cd.DeclaredIdentifier().child_text(SyntaxKind::Identifier)?;
-            Some(
-                CompletionItem::new_simple(name.to_string(), "callback".into())
-                    .with_kind(CompletionItemKind::METHOD)
-                    .with_sort_text(format!("#{name}"))
-                    .with_insert_text(format!("{name} => {{$1}}"), with_snippets),
-            )
-        }))
+        .chain(local_declarations)
         .collect::<Vec<_>>();
 
     if !matches!(element_type, ElementType::Global) {
@@ -766,12 +770,7 @@ fn resolve_element_scope(
                     if matches!(ty, Type::Function { .. }) {
                         return None;
                     }
-                    if !is_reserved_prop_valid(
-                        k,
-                        &element_type,
-                        parent_element_type.as_ref(),
-                        enable_experimental,
-                    ) {
+                    if !is_reserved_prop_valid(k, &element_type, parent_element_type.as_ref()) {
                         return None;
                     }
                     let c = CompletionItem::new_simple(k.into(), ty.to_string());
@@ -814,7 +813,7 @@ fn de_normalize_property_name<'a>(element_type: &ElementType, prop: &'a str) -> 
 
 // Same as de_normalize_property_name, but use a `ElementRc`
 fn de_normalize_property_name_with_element<'a>(element: &ElementRc, prop: &'a str) -> Cow<'a, str> {
-    if let Some(d) = element.borrow().property_declarations.get(prop) {
+    if let Some((_, d)) = element.borrow().declaration(prop) {
         d.node
             .as_ref()
             .and_then(|n| n.child_node(SyntaxKind::DeclaredIdentifier))
@@ -1738,21 +1737,6 @@ mod tests {
         assert!(res.iter().any(|ci| ci.label == "padding"));
         assert!(!res.iter().any(|ci| ci.label == "layout-order"));
         assert!(!res.iter().any(|ci| ci.label == "cross-axis-self-alignment"));
-
-        // Even with experimental features enabled, layout-order stays
-        // flexbox-only: the context filter must reject it here, not the
-        // experimental check.
-        let res = get_completions_experimental(
-            r#"
-            component Foo {
-                GridLayout {
-                    🔺
-                }
-            }
-        "#,
-        )
-        .unwrap();
-        assert!(!res.iter().any(|ci| ci.label == "layout-order"));
     }
 
     #[test]
@@ -2677,6 +2661,68 @@ export component TestWindow inherits Window {
     }
 
     #[test]
+    fn shadowed_member_dot_completion_type() {
+        let source = r#"
+            component Base {
+                @shadowable in-out property <int> prop;
+            }
+            component Derived inherits Base {
+                in-out property <string> prop;
+            }
+            export component Main {
+                foo := Derived { }
+                the-text := Text {
+                    text: foo.pr🔺;
+                }
+            }
+        "#;
+        let results = get_completions_experimental(source).unwrap();
+        let prop = results.iter().find(|c| c.label == "prop").unwrap();
+        assert_eq!(prop.detail.as_deref(), Some("string"), "should show the overriding type");
+    }
+
+    #[test]
+    fn private_shadow_is_transparent_in_completion() {
+        // A private declaration shadowing a public `@shadowable` member is invisible from outside
+        // the component, so `foo.` completion offers the inherited public member (with its type).
+        let source = r#"
+            component Base {
+                @shadowable in-out property <int> prop;
+            }
+            component Derived inherits Base {
+                private property <string> prop;
+            }
+            export component Main {
+                foo := Derived { }
+                the-text := Text {
+                    text: foo.pr🔺;
+                }
+            }
+        "#;
+        let results = get_completions_experimental(source).unwrap();
+        let prop = results.iter().find(|c| c.label == "prop").expect("'prop' should be offered");
+        assert_eq!(prop.detail.as_deref(), Some("int"), "should show the inherited public type");
+    }
+
+    #[test]
+    fn shadowed_member_completed_once() {
+        // A member that shadows an inherited one must be offered a single time, not once for the
+        // inherited declaration and once for the shadow.
+        let source = r#"
+            component Base {
+                @shadowable in-out property <int> prop;
+            }
+            export component Derived inherits Base {
+                in-out property <string> prop;
+                pro🔺
+            }
+        "#;
+        let results = get_completions_experimental(source).unwrap();
+        let count = results.iter().filter(|c| c.label == "prop").count();
+        assert_eq!(count, 1, "'prop' should be completed exactly once");
+    }
+
+    #[test]
     fn implement_interface_name_suggests_import() {
         let types_content = r#"export interface MyInterface { property <int> x; }
 "#;
@@ -2864,7 +2910,7 @@ component Foo {
     }
 
     #[test]
-    fn flex_item_properties_require_experimental() {
+    fn flex_item_properties_in_flexbox() {
         let source = r#"
 export component Foo {
     FlexboxLayout {
@@ -2874,18 +2920,11 @@ export component Foo {
     }
 }
 "#;
-        let results = get_completions_experimental(source).unwrap();
-        assert!(
-            results.iter().any(|completion| completion.label == "layout-order"),
-            "no 'layout-order' completion with experimental features"
-        );
-
         let results = get_completions(source).unwrap();
         assert!(
-            !results.iter().any(|completion| completion.label == "layout-order"),
-            "'layout-order' completion offered without experimental features"
+            results.iter().any(|completion| completion.label == "layout-order"),
+            "no 'layout-order' completion"
         );
-        // cross-axis-self-alignment is stable, so it completes without experimental features.
         assert!(
             results.iter().any(|completion| completion.label == "cross-axis-self-alignment"),
             "no 'cross-axis-self-alignment' completion"

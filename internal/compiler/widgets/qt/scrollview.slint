@@ -8,10 +8,10 @@ export component ScrollView {
     out property <length> visible-width <=> internal.visible-width;
     out property <length> visible-height <=> internal.visible-height;
     in-out property <bool> has-focus <=> internal.has-focus;
-    in-out property <length> content-width <=> internal.content-width;
-    in-out property <length> content-height <=> internal.content-height;
-    in-out property <length> content-x <=> internal.content-x;
-    in-out property <length> content-y <=> internal.content-y;
+    @shadowable in-out property <length> content-width <=> internal.content-width;
+    @shadowable in-out property <length> content-height <=> internal.content-height;
+    @shadowable in-out property <length> content-x <=> internal.content-x;
+    @shadowable in-out property <length> content-y <=> internal.content-y;
     @deprecated in-out property <length> viewport-width <=> content-width;
     @deprecated in-out property <length> viewport-height <=> content-height;
     @deprecated in-out property <length> viewport-x <=> content-x;

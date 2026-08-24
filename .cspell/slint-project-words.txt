@@ -307,6 +307,7 @@ ivars
 Jemalloc
 jemallocator
 kateversion
+Kconfig
 KDAB
 keepalive
 keepends
@@ -330,6 +331,7 @@ libavdevice
 libavfilter
 libavformat
 libavutil
+LIBC
 LIBCLANG
 libdrm
 libegl
@@ -521,6 +523,7 @@ REFR
 relpath
 remoteviewer
 Renderable
+Renesas
 repr
 reqwest
 respawn
@@ -535,6 +538,7 @@ rowcol
 rsplit
 rspolib
 rsvg
+rtkapplcdms
 rtti
 rustattr
 rustembedded

@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// Builtin members marked `//-shadowable` in builtins.slint can be shadowed by a local
+// Builtin members marked `@shadowable` in builtins.slint can be shadowed by a local
 // declaration with a warning instead of an error, so that code written before the
 // builtin member was added keeps compiling.
 
@@ -37,8 +37,8 @@ export component Test inherits Window {
 //           >   <error{Cannot override 'focus'}
 }
 
-// A shadowable member can still not be shadowed when a base component uses it,
-// because the shadowing declaration would hijack the base component's references.
+// A base component that uses the shadowable member keeps reaching the builtin: the shadowing
+// declaration is registered under an internal name, so it can't hijack the base's references.
 component UsesWindowMembers inherits Window {
     out property <string> status: self.minimized ? "minimized" : "normal";
     public function request-close() { if (!self.maximized) { self.close(); } }
@@ -46,14 +46,14 @@ component UsesWindowMembers inherits Window {
 
 export component Test2 inherits UsesWindowMembers {
     in-out property <string> minimized;
-//                           >       <error{Cannot shadow the builtin property 'minimized' because it is used by the base component 'UsesWindowMembers'}
+//                           >       <warning{'minimized' shadows the builtin property of the same name}
     callback maximized(int) -> int;
-//           >       <error{Cannot shadow the builtin property 'maximized' because it is used by the base component 'UsesWindowMembers'}
+//           >       <warning{'maximized' shadows the builtin property of the same name}
     in-out property <string> close: "abc";
-//                           >   <error{Cannot shadow the builtin function 'close' because it is used by the base component 'UsesWindowMembers'}
+//                           >   <warning{'close' shadows the builtin function of the same name}
 }
 
-// Bindings and change callbacks in the base component also count as uses
+// Bindings and change callbacks in the base component keep referring to the builtin too
 component BindsWindowMembers inherits Window {
     maximized: true;
     changed minimized => { }
@@ -61,12 +61,12 @@ component BindsWindowMembers inherits Window {
 
 export component Test3 inherits BindsWindowMembers {
     in-out property <string> maximized;
-//                           >       <error{Cannot shadow the builtin property 'maximized' because it is used by the base component 'BindsWindowMembers'}
+//                           >       <warning{'maximized' shadows the builtin property of the same name}
     in-out property <string> minimized;
-//                           >       <error{Cannot shadow the builtin property 'minimized' because it is used by the base component 'BindsWindowMembers'}
+//                           >       <warning{'minimized' shadows the builtin property of the same name}
 }
 
-// Assignments in the base component also count as uses
+// ... and so do assignments in the base component
 component AssignsWindowMembers inherits Window {
     public function minimize() { self.minimized = true; }
     TouchArea {
@@ -76,7 +76,7 @@ component AssignsWindowMembers inherits Window {
 
 export component Test4 inherits AssignsWindowMembers {
     in-out property <string> minimized;
-//                           >       <error{Cannot shadow the builtin property 'minimized' because it is used by the base component 'AssignsWindowMembers'}
+//                           >       <warning{'minimized' shadows the builtin property of the same name}
     in-out property <string> maximized;
-//                           >       <error{Cannot shadow the builtin property 'maximized' because it is used by the base component 'AssignsWindowMembers'}
+//                           >       <warning{'maximized' shadows the builtin property of the same name}
 }

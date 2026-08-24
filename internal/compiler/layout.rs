@@ -5,10 +5,10 @@
 
 use crate::diagnostics::{BuildDiagnostics, DiagnosticLevel, Spanned};
 use crate::expression_tree::*;
-use crate::langtype::{ElementType, PropertyLookupResult, Type};
+use crate::langtype::{ElementType, PropertyLookupMode, PropertyLookupResult, Type};
 use crate::object_tree::{Component, ElementRc};
 
-use smol_str::{SmolStr, ToSmolStr, format_smolstr};
+use smol_str::{SmolStr, ToSmolStr};
 
 use std::cell::RefCell;
 use std::rc::{Rc, Weak};
@@ -132,8 +132,10 @@ impl RowChildTemplate {
 impl LayoutItem {
     pub fn rect(&self) -> LayoutRect {
         let p = |unresolved_name: &str| {
-            let PropertyLookupResult { resolved_name, property_type, .. } =
-                self.element.borrow().lookup_property(unresolved_name);
+            let PropertyLookupResult { resolved_name, property_type, .. } = self
+                .element
+                .borrow()
+                .lookup_property(unresolved_name, PropertyLookupMode::ComponentLocal);
             if property_type == Type::LogicalLength {
                 Some(NamedReference::new(&self.element, resolved_name.to_smolstr()))
             } else {
@@ -1003,22 +1005,14 @@ pub fn static_native_stretch(elem: &ElementRc) -> Option<Expression> {
 /// Create a new property based on the name. (it might get a different name if that property exist)
 pub fn create_new_prop(elem: &ElementRc, tentative_name: SmolStr, ty: Type) -> NamedReference {
     let mut e = elem.borrow_mut();
-    if !e.lookup_property(&tentative_name).is_valid() {
-        e.property_declarations.insert(tentative_name.clone(), ty.into());
-        drop(e);
-        NamedReference::new(elem, tentative_name)
+    let name = if e.lookup_property(&tentative_name, PropertyLookupMode::InternalName).is_valid() {
+        e.unique_member_name(&tentative_name)
     } else {
-        let mut counter = 0;
-        loop {
-            counter += 1;
-            let name = format_smolstr!("{}{}", tentative_name, counter);
-            if !e.lookup_property(&name).is_valid() {
-                e.property_declarations.insert(name.clone(), ty.into());
-                drop(e);
-                return NamedReference::new(elem, name);
-            }
-        }
-    }
+        tentative_name
+    };
+    e.property_declarations.insert(name.clone(), ty.into());
+    drop(e);
+    NamedReference::new(elem, name)
 }
 
 /// Return true if this type is a layout that has constraints

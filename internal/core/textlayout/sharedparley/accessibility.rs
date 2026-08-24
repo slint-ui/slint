@@ -45,7 +45,7 @@ impl CachedTextInputAccessibilityState {
         physical_offset: (f64, f64),
         encode_sub_node_id: impl Fn(NodeId, u32) -> NodeId,
     ) -> bool {
-        let (visible_anchor, visible_cursor) = selection_offsets(text_input);
+        let (visible_anchor, visible_cursor, cursor_affinity) = selection_offsets(text_input);
 
         // Before the layout, so it survives a renderer with none to lend. The displayed
         // text, not `accessible-value`: that one is the raw `text`, which for a password field
@@ -120,6 +120,7 @@ impl CachedTextInputAccessibilityState {
                 &self.layout_access,
                 visible_anchor,
                 visible_cursor,
+                cursor_affinity,
             ) {
                 parent_node.set_text_selection(selection);
             }
@@ -185,22 +186,26 @@ fn to_actual_offset(text_input: Pin<&crate::items::TextInput>, displayed_offset:
         .map_or(unmasked.len(), |(offset, _)| offset)
 }
 
-/// The selection anchor and cursor, as byte offsets into the text the input displays.
+/// The selection anchor and cursor, as byte offsets into the text the input displays, plus the
+/// affinity that resolves the cursor's offset at a soft line break.
 ///
 /// Not read off a `TextInputVisualRepresentation`, which would subscribe to `cursor_visible` and
 /// invalidate the accessibility subtree on every blink.
-fn selection_offsets(text_input: Pin<&crate::items::TextInput>) -> (usize, usize) {
+fn selection_offsets(
+    text_input: Pin<&crate::items::TextInput>,
+) -> (usize, usize, crate::items::TextCursorAffinity) {
     // The splice the shaping path reads, so these offsets index the string it shaped.
     let (visible_pre_mask, composition) = text_input.text_with_preedit();
 
-    let (raw_anchor, raw_cursor) = if !composition.is_empty() {
+    let (raw_anchor, raw_cursor, affinity) = if !composition.is_empty() {
         // `preedit_selection` is private, so a selection inside the composition isn't reported;
         // the caret goes to the end of it.
-        (composition.end, composition.end)
+        (composition.end, composition.end, crate::items::TextCursorAffinity::NextCharacter)
     } else {
         (
             text_input.anchor_position(&visible_pre_mask),
             text_input.cursor_position(&visible_pre_mask),
+            text_input.cursor_position_affinity(),
         )
     };
 
@@ -211,9 +216,9 @@ fn selection_offsets(text_input: Pin<&crate::items::TextInput>) -> (usize, usize
             visible_pre_mask[..actual_offset.min(visible_pre_mask.len())].chars().count()
                 * mask_char_len
         };
-        (to_masked(raw_anchor), to_masked(raw_cursor))
+        (to_masked(raw_anchor), to_masked(raw_cursor), affinity)
     } else {
-        (raw_anchor, raw_cursor)
+        (raw_anchor, raw_cursor, affinity)
     }
 }
 
@@ -221,14 +226,14 @@ fn position_for_byte_offset(
     paragraphs: &[TextInputParagraph<'_>],
     layout_access: &[LayoutAccessibility],
     offset: usize,
+    affinity: crate::items::TextCursorAffinity,
 ) -> Option<TextPosition> {
     for (para, la) in paragraphs.iter().zip(layout_access.iter()) {
         if offset < para.range.start || offset > para.range.end {
             continue;
         }
         let local = offset - para.range.start;
-        let cursor =
-            Cursor::from_byte_index(para.layout, local, parley::layout::Affinity::Downstream);
+        let cursor = Cursor::from_byte_index(para.layout, local, affinity.into());
         if let Some(pos) = cursor.to_access_position(para.layout, la) {
             return Some(pos);
         }
@@ -241,8 +246,14 @@ fn compose_text_selection(
     layout_access: &[LayoutAccessibility],
     anchor: usize,
     focus: usize,
+    focus_affinity: crate::items::TextCursorAffinity,
 ) -> Option<TextSelection> {
-    let anchor_pos = position_for_byte_offset(paragraphs, layout_access, anchor)?;
-    let focus_pos = position_for_byte_offset(paragraphs, layout_access, focus)?;
+    let anchor_pos = position_for_byte_offset(
+        paragraphs,
+        layout_access,
+        anchor,
+        crate::items::TextCursorAffinity::NextCharacter,
+    )?;
+    let focus_pos = position_for_byte_offset(paragraphs, layout_access, focus, focus_affinity)?;
     Some(TextSelection { anchor: anchor_pos, focus: focus_pos })
 }

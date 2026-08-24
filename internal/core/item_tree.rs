@@ -1354,16 +1354,44 @@ fn visit_internal<State>(
     VRc::borrow_pin(item_tree).as_ref().visit_children_item(index, order, actual_visitor)
 }
 
+/// One entry in the z-ordered traversal of an element's children: a plain child,
+/// or a single instance of a repeated child.
+#[repr(C)]
+#[derive(Clone, Copy, Debug)]
+pub struct ZSortedChild {
+    /// The z value used for sorting
+    pub z: f32,
+    /// Offset of the child within the parent's children (relative to children_index)
+    pub child_offset: u32,
+    /// The repeater instance when the child is a repeated element expanded per
+    /// instance, or `u32::MAX` to visit the whole child
+    pub instance: u32,
+}
+
+/// Sort by z, breaking ties by child_offset then instance.
+pub fn sort_z_entries(entries: &mut [ZSortedChild]) {
+    entries.sort_unstable_by(|a, b| {
+        a.z.total_cmp(&b.z)
+            .then(a.child_offset.cmp(&b.child_offset))
+            .then(a.instance.cmp(&b.instance))
+    });
+}
+
 /// Visit the children within an array of ItemTreeNode
 ///
 /// The dynamic visitor is called for the dynamic nodes, its signature is
-/// `fn(order: TraversalOrder, visitor: vtable::VRefMut<ItemVisitorVTable>, dyn_index: u32)`.
+/// `fn(order: TraversalOrder, visitor: vtable::VRefMut<ItemVisitorVTable>, dyn_index: u32, instance: Option<u32>)`
+/// where `instance` is a specific repeater instance to visit, or `None` for all of them.
 /// It is a `dyn` callback (capturing the component) rather than generic, so this function is
 /// not duplicated per component type.
 ///
 /// FIXME: the design of this use lots of indirection and stack frame in recursive functions
 /// Need to check if the compiler is able to optimize away some of it.
 /// Possibly we should generate code that directly call the visitor instead
+///
+/// If `sorted_children` is `Some`, the children are visited in that z-sorted order
+/// instead of the sequential order. Repeated children may be expanded to one entry
+/// per instance, so the entries can outnumber the children.
 pub fn visit_item_tree(
     item_tree: &ItemTreeRc,
     item_tree_array: &[ItemTreeNode],
@@ -1374,9 +1402,11 @@ pub fn visit_item_tree(
         TraversalOrder,
         vtable::VRefMut<ItemVisitorVTable>,
         u32,
+        Option<u32>,
     ) -> VisitChildrenResult,
+    sorted_children: Option<&[ZSortedChild]>,
 ) -> VisitChildrenResult {
-    let mut visit_at_index = |idx: u32| -> VisitChildrenResult {
+    let mut visit_at_index = |idx: u32, instance: Option<u32>| -> VisitChildrenResult {
         match &item_tree_array[idx as usize] {
             ItemTreeNode::Item { .. } => {
                 let item = crate::items::ItemRc::new(item_tree.clone(), idx);
@@ -1384,7 +1414,7 @@ pub fn visit_item_tree(
             }
             ItemTreeNode::DynamicTree { index, .. } => {
                 if let Some(sub_idx) =
-                    visit_dynamic(order, visitor.borrow_mut(), *index).aborted_index()
+                    visit_dynamic(order, visitor.borrow_mut(), *index, instance).aborted_index()
                 {
                     VisitChildrenResult::abort(idx, sub_idx)
                 } else {
@@ -1394,18 +1424,35 @@ pub fn visit_item_tree(
         }
     };
     if index == -1 {
-        visit_at_index(0)
+        visit_at_index(0, None)
     } else {
         match &item_tree_array[index as usize] {
             ItemTreeNode::Item { children_index, children_count, .. } => {
-                for c in 0..*children_count {
-                    let idx = match order {
-                        TraversalOrder::BackToFront => *children_index + c,
-                        TraversalOrder::FrontToBack => *children_index + *children_count - c - 1,
-                    };
-                    let maybe_abort_index = visit_at_index(idx);
-                    if maybe_abort_index.has_aborted() {
-                        return maybe_abort_index;
+                if let Some(sorted) = sorted_children {
+                    for i in 0..sorted.len() {
+                        let entry = &sorted[match order {
+                            TraversalOrder::BackToFront => i,
+                            TraversalOrder::FrontToBack => sorted.len() - 1 - i,
+                        }];
+                        let instance = (entry.instance != u32::MAX).then_some(entry.instance);
+                        let maybe_abort_index =
+                            visit_at_index(*children_index + entry.child_offset, instance);
+                        if maybe_abort_index.has_aborted() {
+                            return maybe_abort_index;
+                        }
+                    }
+                } else {
+                    for c in 0..*children_count {
+                        let idx = match order {
+                            TraversalOrder::BackToFront => *children_index + c,
+                            TraversalOrder::FrontToBack => {
+                                *children_index + *children_count - c - 1
+                            }
+                        };
+                        let maybe_abort_index = visit_at_index(idx, None);
+                        if maybe_abort_index.has_aborted() {
+                            return maybe_abort_index;
+                        }
                     }
                 }
             }
@@ -1467,6 +1514,7 @@ pub(crate) mod ffi {
             order: TraversalOrder,
             visitor: vtable::VRefMut<ItemVisitorVTable>,
             dyn_index: u32,
+            instance: u32,
         ) -> VisitChildrenResult,
     ) -> VisitChildrenResult {
         let base = VRc::as_pin_ref(item_tree).get_ref() as *const vtable::Dyn as *const c_void;
@@ -1476,8 +1524,51 @@ pub(crate) mod ffi {
             index,
             order,
             visitor,
-            &mut |order, visitor, dyn_index| visit_dynamic(base, order, visitor, dyn_index),
+            &mut |order, visitor, dyn_index, instance: Option<u32>| {
+                visit_dynamic(base, order, visitor, dyn_index, instance.unwrap_or(u32::MAX))
+            },
+            None,
         )
+    }
+
+    #[unsafe(no_mangle)]
+    pub unsafe extern "C" fn slint_visit_item_tree_with_sorted_children(
+        item_tree: &ItemTreeRc,
+        item_tree_array: Slice<ItemTreeNode>,
+        index: isize,
+        order: TraversalOrder,
+        visitor: VRefMut<ItemVisitorVTable>,
+        visit_dynamic: extern "C" fn(
+            base: *const c_void,
+            order: TraversalOrder,
+            visitor: vtable::VRefMut<ItemVisitorVTable>,
+            dyn_index: u32,
+            instance: u32,
+        ) -> VisitChildrenResult,
+        sorted_children: Slice<crate::item_tree::ZSortedChild>,
+    ) -> VisitChildrenResult {
+        let base = VRc::as_pin_ref(item_tree).get_ref() as *const vtable::Dyn as *const c_void;
+        crate::item_tree::visit_item_tree(
+            item_tree,
+            item_tree_array.as_slice(),
+            index,
+            order,
+            visitor,
+            &mut |order, visitor, dyn_index, instance: Option<u32>| {
+                visit_dynamic(base, order, visitor, dyn_index, instance.unwrap_or(u32::MAX))
+            },
+            Some(sorted_children.as_slice()),
+        )
+    }
+
+    /// Safety: `entries` must point to a buffer of `len` elements
+    #[unsafe(no_mangle)]
+    pub unsafe extern "C" fn slint_sort_z_entries(
+        entries: *mut crate::item_tree::ZSortedChild,
+        len: usize,
+    ) {
+        let entries = unsafe { core::slice::from_raw_parts_mut(entries, len) };
+        crate::item_tree::sort_z_entries(entries);
     }
 }
 
@@ -3080,7 +3171,7 @@ mod tests {
             _text_input: Pin<&crate::items::TextInput>,
             _item_rc: &ItemRc,
             _pos: LogicalPoint,
-        ) -> usize {
+        ) -> (usize, crate::items::TextCursorAffinity) {
             unimplemented!("Not required in this test");
         }
 
@@ -3089,6 +3180,7 @@ mod tests {
             _text_input: Pin<&crate::items::TextInput>,
             _item_rc: &ItemRc,
             _byte_offset: usize,
+            _affinity: crate::items::TextCursorAffinity,
         ) -> LogicalRect {
             unimplemented!("Not required in this test");
         }

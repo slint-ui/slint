@@ -61,6 +61,12 @@ fn can_optimize(elem: &ElementRc) -> bool {
         _ => return false,
     };
 
+    // Keep elements involved in dynamic z-ordering: children with a z value, and the
+    // parent whose children are sorted (removing it would merge them into another z group)
+    if element.z_order.is_some() || element.has_dynamic_z_order() {
+        return false;
+    }
+
     let analysis = element.property_analysis.borrow();
     for coord in ["x", "y"] {
         if element.binding(coord).is_some() || analysis.get(coord).is_some_and(|a| a.is_set) {

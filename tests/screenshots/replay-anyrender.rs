@@ -160,7 +160,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     // Buffer is RGBA8 premultiplied; convert to straight alpha for PNG.
-    for px in buf.chunks_exact_mut(4) {
+    for px in buf.as_chunks_mut::<4>().0 {
         let a = px[3] as u32;
         if a > 0 && a < 255 {
             px[0] = ((px[0] as u32 * 255 / a).min(255)) as u8;

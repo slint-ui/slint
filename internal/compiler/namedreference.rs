@@ -11,7 +11,7 @@ use std::collections::HashMap;
 use std::hash::Hash;
 use std::rc::{Rc, Weak};
 
-use crate::langtype::{ElementType, Type};
+use crate::langtype::{ElementType, PropertyLookupMode, Type};
 use crate::object_tree::{Element, ElementRc, PropertyAnalysis, PropertyVisibility};
 
 /// Reference to a property or callback of a given name within an element.
@@ -56,7 +56,20 @@ impl NamedReference {
             .unwrap_or_else(|| panic!("{}: NamedReference to a dead element", self.0.name))
     }
     pub fn ty(&self) -> Type {
-        self.element().borrow().lookup_property(self.name()).property_type
+        self.element()
+            .borrow()
+            .lookup_property(self.name(), PropertyLookupMode::InternalName)
+            .property_type
+    }
+
+    /// The name the member is declared under, un-mangled. [`Self::name`] is the internal name,
+    /// mangled for a member that shadows an inherited one — use this for anything user-facing.
+    pub fn declared_name(&self) -> SmolStr {
+        let elem = self.element();
+        let elem = elem.borrow();
+        elem.property_declarations
+            .get(self.name())
+            .map_or_else(|| self.name().clone(), |d| d.declared_name(self.name()).clone())
     }
 
     /// return true if the property has a constant value for the lifetime of the program

@@ -12,21 +12,12 @@
 
    comments starting by `//-` have some meanings
 
-   Properties with two way bindings (aliases) are deprecated in favor of the property they point to
+   Properties with two way bindings (aliases) are deprecated and must be marked `@deprecated`
 
    Properties can have default binding which must be an expression without any reference to
    another properties. These binding will be then set by the compiler.
    `output` property mean that the property can be modified by the native Item,
    otherwise it is assumed the native item don't write to that property.
-
-   A property, callback, or function can be preceded by a `//-shadowable` comment.
-   Components may declare a member with the same name as a shadowable member: this is
-   a warning instead of an error, and the declaration shadows the builtin member.
-   Members added to an already released element must be marked shadowable, so that
-   older code that already declares a member with that name keeps compiling.
-   This only works for members that the compiler itself never accesses by name —
-   no default binding, and no compiler pass that looks the name up on user elements —
-   as such accesses would resolve to the shadowing declaration and generate wrong code.
 
    Mark a property `//-constexpr` (value known at compile time)
    or `//-fake` (exists only at compile time).
@@ -71,7 +62,7 @@ component Rectangle inherits Empty {
     /// \sc
     /// \default transparent
     in property <brush> background;
-    in property <brush> color <=> background;
+    @deprecated in property <brush> color <=> background;
 }
 
 component BasicBorderRectangle inherits Rectangle {
@@ -294,46 +285,23 @@ component ImageItem inherits Empty {
     /// }
     /// ```
     in property <brush> colorize;
-    /// The `image` type is a reference to an image. It's defined using the `@image-url("...")` construct.
-    /// The address within the `@image-url` function must be known at compile time.
+    /// The [image](/reference/property-types/images/) to draw, created with
+    /// [`@image-url()`](/reference/language/expressions/#sls.expr.image.form)
+    /// or set by the application: by default no image, drawing
+    /// nothing. \{#sls.ref.image.source}
     ///
-    /// Slint looks for images in the following places:
-    ///
-    /// 1. The absolute path or the path relative to the current `.slint` file.
-    /// 2. The include path used by the compiler to look up `.slint` files.
-    ///
-    /// Images can also be loaded from [`data:` URIs](https://developer.mozilla.org/en-US/docs/Web/URI/Reference/Schemes/data), with either base64 or URL-encoded content.
-    /// For example: `@image-url("data:image/png;base64,iVBORw0KGgo...")`.
-    ///
-    /// Access an `image`'s source dimension using its `source.width` and `source.height` properties.
+    /// Access an `image`'s source dimension using its `source.width` and
+    /// `source.height` properties. \{#sls.ref.image.source.dimensions}
     ///
     /// ```slint
     /// export component Example inherits Window {
-    ///     preferred-width: 150px;
-    ///     preferred-height: 50px;
+    ///     in property <image> some_image: @image-url("images/logo.png");
     ///
-    ///     in property <image> some_image: @image-url("https://slint.dev/logo/slint-logo-full-light.svg");
-    ///
-    ///     Text {
-    ///         text: "The image is " + some_image.width + "x" + some_image.height;
-    ///     }
+    ///     out property <int> image-width: some_image.width;
+    ///     out property <int> image-height: some_image.height;
     /// }
     /// ```
-    ///
-    /// ```slint
-    /// // nine-slice scaling
-    /// export component Example inherits Window {
-    ///     width: 100px;
-    ///     height: 150px;
-    ///     VerticalLayout {
-    ///         Image {
-    ///             source: @image-url("https://interactive-examples.mdn.mozilla.net/media/examples/border-diamonds.png", nine-slice(30 30 30 30));
-    ///         }
-    ///     }
-    /// }
-    /// ```
-    ///
-    /// Use the <Link type="ImageType" label="`@image-url` macro" /> to specify the image's path.
+    /// \sc
     in property <image> source;
     /// ```slint imageAlt="image fill example" width="300" height="200"
     /// Image {
@@ -386,7 +354,7 @@ component ImageItem inherits Empty {
     /// \default smooth
     in property <ImageRendering> image-rendering;
 
-    in property <angle> rotation-angle <=> transform-rotation;
+    @deprecated in property <angle> rotation-angle <=> transform-rotation;
 }
 
 /// ```slint imageAlt="image example" width="300" height="200"
@@ -395,9 +363,21 @@ component ImageItem inherits Empty {
 /// }
 /// ```
 ///
-/// Use the `Image` element to display an <Link type="ImageType" label="image" />.
+/// Use the `Image` element to display an
+/// [image](/reference/property-types/images/). \{#sls.meta.image.purpose}
+///
+/// <OnlyInSC>
+/// The element draws the image of its `source` property pixel for pixel:
+/// the image's top-left pixel is at the element's position, and one image
+/// pixel covers one frame-buffer pixel, without scaling. \{#sls.ref.image.draw}
+///
+/// The element is always the size of its source image: `width` and `height`
+/// hold the dimensions of that image, and setting them is an
+/// error. \{#sls.ref.image.size}
+/// </OnlyInSC>
 ///
 /// \footer
+/// <NotInSC>
 /// ## Accessibility
 ///
 /// ### Alternative text
@@ -425,6 +405,8 @@ component ImageItem inherits Empty {
 ///     accessible-role: none;
 /// }
 /// ```
+/// </NotInSC>
+/// \sc
 /// \group:elements
 export component ClippedImage inherits ImageItem {
     /// The horizontal alignment of the image within the element.
@@ -577,7 +559,7 @@ component SimpleText inherits Empty {
     in property <TextVerticalAlignment> vertical-alignment;
     //-default_size_binding:implicit_size
 
-    in property <angle> rotation-angle <=> transform-rotation;
+    @deprecated in property <angle> rotation-angle <=> transform-rotation;
 }
 
 /// ```slint playground
@@ -668,6 +650,23 @@ component ComplexText inherits SimpleText {
     /// }
     /// ```
     in property <length> letter-spacing;
+    /// The line height as a unitless factor (or a percentage: `150%` equals `1.5`) applied to
+    /// the font's natural line height (ascent + descent + line gap). The default of `1` keeps
+    /// the natural line height; larger values spread the lines apart, smaller values pull them
+    /// together, and `0` collapses them onto each other. Negative or non-numeric values behave
+    /// like `1`. Unlike CSS `line-height`, the factor is relative to the natural line height,
+    /// not the font size, and keyword or length values aren't supported.
+    ///
+    /// ```slint "line-height-factor: 1.5;" imageAlt="text with increased line height" width="200" height="200" needsBackground
+    /// Text {
+    ///     text: "Two lines\nof text";
+    ///     color: black;
+    ///     font-size: 30pt;
+    ///     line-height-factor: 1.5;
+    /// }
+    /// ```
+    /// \default 1
+    in property <float> line-height-factor: 1;
     /// The brush used for the text outline.
     /// ```slint "stroke: darkblue;" imageAlt="text stroke" width="300" height="200" needsBackground
     /// Text {
@@ -1072,17 +1071,17 @@ export component Flickable inherits Empty {
     /// Panning with a touch screen is only affected by `interactive`.
     in property <bool> mouse-drag-pan-enabled: true;
     /// The total width of the scrollable content.
-    in property <length> content-width;
+    @shadowable in property <length> content-width;
     /// The total height of the scrollable content.
-    in property <length> content-height;
+    @shadowable in property <length> content-height;
     /// The position of the scrollable content relative to the `Flickable`. This is usually a negative value.
-    in-out property <length> content-x;
+    @shadowable in-out property <length> content-x;
     /// The position of the scrollable content relative to the `Flickable`. This is usually a negative value.
-    in-out property <length> content-y;
-    in property <length> viewport-width <=> content-width;
-    in property <length> viewport-height <=> content-height;
-    in-out property <length> viewport-x <=> content-x;
-    in-out property <length> viewport-y <=> content-y;
+    @shadowable in-out property <length> content-y;
+    @deprecated in property <length> viewport-width <=> content-width;
+    @deprecated in property <length> viewport-height <=> content-height;
+    @deprecated in-out property <length> viewport-x <=> content-x;
+    @deprecated in-out property <length> viewport-y <=> content-y;
     /// Invoked when `content-x` or `content-y` is changed by a user action (dragging, scrolling).
     callback flicked();
     //-default_size_binding:expands_to_parent_geometry
@@ -1576,11 +1575,9 @@ component WindowItem {
     /// \default true if 'SLINT_FULLSCREEN' environment variable is set, otherwise false
     in-out property <bool> full-screen;
     /// Whether the window is minimized. Setting this to true minimizes the window.
-    //-shadowable
-    in-out property <bool> minimized;
+    @shadowable in-out property <bool> minimized;
     /// Whether the window is maximized. Setting this to true maximizes the window.
-    //-shadowable
-    in-out property <bool> maximized;
+    @shadowable in-out property <bool> maximized;
     /// The background brush of the `Window`. It is painted first, covering the whole window. \{#sls.ref.window.background}
     ///
     /// <OnlyInSC>
@@ -1591,7 +1588,7 @@ component WindowItem {
     /// \sc
     /// \default depends on the style
     in property <brush> background; // StyleMetrics.background  set in apply_default_properties_from_style
-    in property <brush> color <=> background;
+    @deprecated in property <brush> color <=> background;
     /// The font family to use as default in text elements inside this window, that don't have their `font-family` property set.
     in property <string> default-font-family;
     /// The font size to use as default in text elements inside this window, that don't have their `font-size` property set. The value of this property also forms the basis for relative font sizes.
@@ -1622,13 +1619,11 @@ component WindowItem {
     /// This triggers the `close-requested` callback, giving the application a chance to cancel the close.
     /// Returns `true` if the application accepted the close request; false otherwise.
     /// Returns `false` if called on a child `Window` element, which can't be closed independently.
-    //-shadowable
-    function close() -> bool {
+    @shadowable function close() -> bool {
     }
     /// Hide this window. This also drops the strong reference on the window, so if this was
     /// the last reference, the event loop will quit.
-    //-shadowable
-    function hide() {
+    @shadowable function hide() {
     }
 }
 
@@ -1785,6 +1780,14 @@ export component TextInput {
     /// The letter spacing allows changing the spacing between the glyphs. A positive value increases the spacing and a negative value decreases the distance.
     /// \default 0
     in property <length> letter-spacing;
+    /// The line height as a unitless factor (or a percentage: `150%` equals `1.5`) applied to
+    /// the font's natural line height (ascent + descent + line gap). The default of `1` keeps
+    /// the natural line height; larger values spread the lines apart, smaller values pull them
+    /// together, and `0` collapses them onto each other. Negative or non-numeric values behave
+    /// like `1`. Unlike CSS `line-height`, the factor is relative to the natural line height,
+    /// not the font size, and keyword or length values aren't supported.
+    /// \default 1
+    in property <float> line-height-factor: 1;
     in property <length> width;
     in property <length> height;
     /// The height of the page used to compute how much to scroll when the user presses page up or page down.
@@ -2225,13 +2228,36 @@ export component HorizontalLayout {
 ///
 /// \footer
 /// ## Cell elements
-/// Cell elements inside a `FlexboxLayout` obtain the following new property:
+/// Cell elements inside a `FlexboxLayout` obtain the following new properties:
 ///
 /// ### cross-axis-self-alignment
 /// <SlintProperty propName="cross-axis-self-alignment" typeName="enum" enumName="CrossAxisSelfAlignment" defaultValue="auto">
 /// Overrides the container's `cross-axis-alignment` for this element. CSS Flexbox calls this "align-self".
 /// The default value `auto` uses the container's `cross-axis-alignment`.
 /// </SlintProperty>
+///
+/// ### layout-order
+/// <SlintProperty propName="layout-order" typeName="int" defaultValue="0">
+/// Controls the visual order of the items, like the CSS `order` property:
+/// items are laid out in ascending order value, and items with the same value keep
+/// their declaration order.
+/// ```slint no-test
+/// FlexboxLayout {
+///     Rectangle { layout-order: 2; }
+///     Rectangle { layout-order: 1; }  // appears first
+/// }
+/// ```
+/// </SlintProperty>
+///
+/// The other CSS per-item flexbox properties are expressed with the properties the
+/// other layouts already use:
+///
+/// | CSS           | Slint                                                          |
+/// | ------------- | -------------------------------------------------------------- |
+/// | `flex-grow`   | `alignment: stretch` on the container, weighted per item by `horizontal-stretch` / `vertical-stretch`; `max-width` / `max-height` caps growing (space a capped item cannot take stays free) |
+/// | `flex-shrink` | nothing to opt into: every item shrinks, in proportion to its preferred size; `min-width` / `min-height` refuses shrinking |
+/// | `flex-basis`  | `preferred-width` (row) / `preferred-height` (column)          |
+/// | `align-self`  | `cross-axis-self-alignment`                                    |
 ///
 /// ## Layout Behavior
 ///

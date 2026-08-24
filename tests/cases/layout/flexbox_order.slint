@@ -104,6 +104,39 @@ component TestOrderColumn inherits Rectangle {
     out property <bool> test: test_a && test_b && test_c;
 }
 
+// Test 4: changing layout-order at runtime re-runs the layout
+component TestOrderDynamic inherits Rectangle {
+    width: 300px;
+    height: 50px;
+    in-out property <int> order-a: 0;
+    FlexboxLayout {
+        flex-wrap: no-wrap;
+
+        d_a := Rectangle {
+            width: 100px;
+            height: 50px;
+            layout-order: root.order-a;
+            background: red;
+        }
+        d_b := Rectangle {
+            width: 100px;
+            height: 50px;
+            layout-order: 1;
+            background: green;
+        }
+        d_c := Rectangle {
+            width: 100px;
+            height: 50px;
+            layout-order: 2;
+            background: blue;
+        }
+    }
+
+    out property <length> a-x: d_a.x;
+    // Initial order: A(0), B(1), C(2)
+    out property <bool> test: d_a.x == 0px && d_b.x == 100px && d_c.x == 200px;
+}
+
 export component TestCase inherits Window {
     width: 400px;
     height: 500px;
@@ -112,24 +145,37 @@ export component TestCase inherits Window {
         t1 := TestOrderRow { }
         t2 := TestOrderDefault { }
         t3 := TestOrderColumn { }
+        t4 := TestOrderDynamic { }
     }
 
-    out property <bool> test: t1.test && t2.test && t3.test;
+    in-out property <int> dynamic-order <=> t4.order-a;
+    out property <length> dynamic-a-x <=> t4.a-x;
+
+    out property <bool> test: t1.test && t2.test && t3.test && t4.test;
 }
 
 /*
 ```cpp
 auto handle = TestCase::create();
 assert(handle->get_test());
+// Move A last at runtime: visual order becomes B(1), C(2), A(3)
+handle->set_dynamic_order(3);
+assert_eq(handle->get_dynamic_a_x(), 200.);
 ```
 
 ```rust
 let instance = TestCase::new().unwrap();
 assert!(instance.get_test());
+// Move A last at runtime: visual order becomes B(1), C(2), A(3)
+instance.set_dynamic_order(3);
+assert_eq!(instance.get_dynamic_a_x(), 200.);
 ```
 
 ```js
 var instance = new slint.TestCase();
 assert(instance.test);
+// Move A last at runtime: visual order becomes B(1), C(2), A(3)
+instance.dynamic_order = 3;
+assert.equal(instance.dynamic_a_x, 200);
 ```
 */

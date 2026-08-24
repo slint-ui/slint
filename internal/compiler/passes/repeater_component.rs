@@ -45,6 +45,7 @@ fn create_repeater_components(component: &Rc<Component>) {
                 property_analysis: std::mem::take(&mut original_elem.property_analysis),
                 children: std::mem::take(&mut original_elem.children),
                 property_declarations: std::mem::take(&mut original_elem.property_declarations),
+                shadowing_members: std::mem::take(&mut original_elem.shadowing_members),
                 named_references: Default::default(),
                 repeated: None,
                 is_component_placeholder: false,
@@ -53,6 +54,7 @@ fn create_repeater_components(component: &Rc<Component>) {
                 enclosing_component: Default::default(),
                 states: std::mem::take(&mut original_elem.states),
                 transitions: std::mem::take(&mut original_elem.transitions),
+                match_elements: Default::default(),
                 child_of_layout: original_elem.child_of_layout || is_listview.is_some(),
                 child_of_flexbox: original_elem.child_of_flexbox,
                 parent_box_layout_orientation: original_elem.parent_box_layout_orientation,
@@ -65,6 +67,7 @@ fn create_repeater_components(component: &Rc<Component>) {
                 is_flickable_content: original_elem.is_flickable_content,
                 has_popup_child: original_elem.has_popup_child,
                 is_tooltip: original_elem.is_tooltip,
+                z_order: original_elem.z_order.clone(),
                 item_index: Default::default(), // Not determined yet
                 item_index_of_first_children: Default::default(),
                 is_legacy_syntax: original_elem.is_legacy_syntax,

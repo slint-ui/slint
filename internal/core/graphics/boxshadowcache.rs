@@ -88,7 +88,48 @@ impl PartialOrd for BoxShadowOptions {
     }
 }
 
+/// The geometry of a box shadow, derived from [`BoxShadowOptions`].
+///
+/// The CSS rules the renderers agree on: the shadow shape is the element's geometry
+/// grown by the spread, its corner radii grow with it, and the texture it is rendered
+/// into is padded by the blur on every side so the Gaussian can fade out to
+/// transparency within it.
 impl BoxShadowOptions {
+    /// The size of the shadow shape: the element's size grown by the spread on each
+    /// side. A negative spread shrinks it, down to nothing.
+    pub fn shape_size(&self) -> euclid::Size2D<f32, PhysicalPx> {
+        euclid::size2(
+            (self.width.get() + 2. * self.spread.get()).max(0.),
+            (self.height.get() + 2. * self.spread.get()).max(0.),
+        )
+    }
+
+    /// The size of the texture a drop shadow is rendered into: the shape padded by the
+    /// blur on each side.
+    pub fn drop_texture_size(&self) -> euclid::Size2D<f32, PhysicalPx> {
+        self.shape_size() + euclid::size2(2. * self.blur.get(), 2. * self.blur.get())
+    }
+
+    /// Where the shape sits within the drop shadow texture, i.e. the blur padding.
+    pub fn shape_origin(&self) -> euclid::Point2D<f32, PhysicalPx> {
+        euclid::point2(self.blur.get(), self.blur.get())
+    }
+
+    /// The corner radii of the shadow shape: `max(0, radius + spread)`.
+    pub fn outer_radius(&self) -> PhysicalBorderRadius {
+        (self.radius + PhysicalBorderRadius::new_uniform(self.spread.get())).max(Default::default())
+    }
+
+    /// The corner radii of the hole an inset shadow leaves: `max(0, radius - spread)`.
+    pub fn inner_radius(&self) -> PhysicalBorderRadius {
+        (self.radius - PhysicalBorderRadius::new_uniform(self.spread.get())).max(Default::default())
+    }
+
+    /// The Gaussian sigma corresponding to the CSS blur radius.
+    pub fn blur_sigma(&self) -> f32 {
+        self.blur.get() / 2.
+    }
+
     /// Extracts the rendering specific properties from the BoxShadow item and scales the logical
     /// coordinates to physical pixels used in the BoxShadowOptions. Returns None if for example the
     /// alpha on the box shadow would imply that no shadow is to be rendered.

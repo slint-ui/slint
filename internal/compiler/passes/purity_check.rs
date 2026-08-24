@@ -5,6 +5,7 @@ use std::collections::HashSet;
 
 use crate::diagnostics::BuildDiagnostics;
 use crate::expression_tree::{Callable, Expression, NamedReference};
+use crate::langtype::PropertyLookupMode;
 
 /// Check that pure expression only call pure functions
 pub fn purity_check(doc: &crate::object_tree::Document, diag: &mut BuildDiagnostics) {
@@ -19,7 +20,8 @@ pub fn purity_check(doc: &crate::object_tree::Document, diag: &mut BuildDiagnost
                 };
                 crate::object_tree::visit_element_expressions(elem, |expr, name, _| {
                     if let Some(name) = name {
-                        let lookup = elem.borrow().lookup_property(name);
+                        let lookup =
+                            elem.borrow().lookup_property(name, PropertyLookupMode::InternalName);
                         if lookup.declared_pure.unwrap_or(false)
                             || lookup.property_type.is_property_type()
                         {
@@ -44,11 +46,16 @@ fn ensure_pure(
     let mut r = true;
     expr.visit_recursive(&mut |e| match e {
         Expression::FunctionCall { function: Callable::Callback(nr), source_location, .. }
-            if !nr.element().borrow().lookup_property(nr.name()).declared_pure.unwrap_or(false) =>
+            if !nr
+                .element()
+                .borrow()
+                .lookup_property(nr.name(), PropertyLookupMode::InternalName)
+                .declared_pure
+                .unwrap_or(false) =>
         {
             if let Some(diag) = diag.as_deref_mut() {
                 diag.push_diagnostic(
-                    format!("Call of impure callback '{}'", nr.name()),
+                    format!("Call of impure callback '{}'", nr.declared_name()),
                     source_location,
                     level,
                 );
@@ -56,12 +63,17 @@ fn ensure_pure(
             r = false;
         }
         Expression::FunctionCall { function: Callable::Function(nr), source_location, .. } => {
-            match nr.element().borrow().lookup_property(nr.name()).declared_pure {
+            match nr
+                .element()
+                .borrow()
+                .lookup_property(nr.name(), PropertyLookupMode::InternalName)
+                .declared_pure
+            {
                 Some(true) => (),
                 Some(false) => {
                     if let Some(diag) = diag.as_deref_mut() {
                         diag.push_diagnostic(
-                            format!("Call of impure function '{}'", nr.name(),),
+                            format!("Call of impure function '{}'", nr.declared_name(),),
                             source_location,
                             level,
                         );
@@ -81,7 +93,10 @@ fn ensure_pure(
                                 if !ensure_pure(&binding.expression, None, level, recursion_test) {
                                     if let Some(diag) = diag.as_deref_mut() {
                                         diag.push_diagnostic(
-                                            format!("Call of impure function '{}'", nr.name()),
+                                            format!(
+                                                "Call of impure function '{}'",
+                                                nr.declared_name()
+                                            ),
                                             source_location,
                                             level,
                                         );

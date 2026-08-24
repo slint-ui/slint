@@ -50,6 +50,9 @@ pub fn parse_element(p: &mut impl Parser) -> bool {
 /// animate * { }
 /// @children
 /// @deprecated property alias <=> two.way;
+/// @shadowable @deprecated in-out property <int> yyy <=> two.way;
+/// @deprecated("Use 'foobar' instead") callback old_callback <=> foobar;
+/// @shadowable public function foo() {}
 /// double_binding <=> element.property;
 /// public pure function foo() {}
 /// changed foo => {}
@@ -90,7 +93,7 @@ pub fn parse_element_content(p: &mut impl Parser) {
                     if p.peek().as_str() == "callback"
                         || (p.peek().as_str() == "pure" && p.nth(1).as_str() == "callback") =>
                 {
-                    parse_callback_declaration(&mut *p);
+                    parse_callback_declaration(&mut *p, None);
                 }
                 SyntaxKind::Identifier
                     if p.peek().as_str() == "function"
@@ -99,7 +102,7 @@ pub fn parse_element_content(p: &mut impl Parser) {
                         || (matches!(p.nth(1).as_str(), "public" | "pure" | "protected")
                             && p.nth(2).as_str() == "function") =>
                 {
-                    parse_function(&mut *p);
+                    parse_function(&mut *p, None);
                 }
                 SyntaxKind::Identifier | SyntaxKind::Star if p.peek().as_str() == "animate" => {
                     parse_property_animation(&mut *p);
@@ -108,7 +111,7 @@ pub fn parse_element_content(p: &mut impl Parser) {
                     parse_changed_callback(&mut *p);
                 }
                 SyntaxKind::LAngle | SyntaxKind::Identifier if p.peek().as_str() == "property" => {
-                    parse_property_declaration(&mut *p);
+                    parse_property_declaration(&mut *p, None);
                 }
                 SyntaxKind::Identifier
                     if p.nth(1).as_str() == "property"
@@ -117,7 +120,7 @@ pub fn parse_element_content(p: &mut impl Parser) {
                             "in" | "out" | "in_out" | "in-out" | "private"
                         ) =>
                 {
-                    parse_property_declaration(&mut *p);
+                    parse_property_declaration(&mut *p, None);
                 }
                 _ if p.peek().as_str() == "if" => {
                     parse_if_element(&mut *p);
@@ -168,8 +171,36 @@ pub fn parse_element_content(p: &mut impl Parser) {
                 }
             },
             SyntaxKind::At => {
-                if p.nth(1).as_str() == "deprecated" {
-                    parse_property_declaration(&mut *p);
+                if matches!(p.nth(1).as_str(), "deprecated" | "shadowable") {
+                    let checkpoint = p.checkpoint();
+                    let attribute = parse_member_attributes(&mut *p);
+                    // skip the visibility/purity keywords to reach the member keyword
+                    let mut i = 0;
+                    while matches!(
+                        p.nth(i).as_str(),
+                        "in" | "out"
+                            | "in-out"
+                            | "in_out"
+                            | "private"
+                            | "public"
+                            | "protected"
+                            | "pure"
+                    ) {
+                        i += 1;
+                    }
+                    match p.nth(i).as_str() {
+                        "callback" => parse_callback_declaration(&mut *p, Some(checkpoint)),
+                        "function" => parse_function(&mut *p, Some(checkpoint)),
+                        "property" => parse_property_declaration(&mut *p, Some(checkpoint)),
+                        _ => {
+                            (0..i).for_each(|_| p.consume());
+                            if let Some(attribute) = attribute {
+                                p.error(format!(
+                                    "@{attribute} can only be applied to a member declaration"
+                                ));
+                            }
+                        }
+                    }
                     continue;
                 }
                 let checkpoint = p.checkpoint();
@@ -340,23 +371,26 @@ fn parse_match_element(p: &mut impl Parser) {
     if !p.test(SyntaxKind::LBrace) {
         p.error("Expected '{' to start cases");
     }
-    if p.peek().kind() == SyntaxKind::Star {
-        p.error("Expected at least one case before wildcard case");
-        {
-            p.test(SyntaxKind::Star);
-            p.test(SyntaxKind::Colon);
-            let mut p = p.start_node(SyntaxKind::MatchCase);
-            drop(p.start_node(SyntaxKind::Expression));
-            parse_sub_element(&mut *p);
-            p.test(SyntaxKind::RBrace);
-        }
-        return;
-    }
     while ![SyntaxKind::RBrace, SyntaxKind::Star, SyntaxKind::Eof].contains(&p.peek().kind()) {
         parse_match_case(&mut *p);
     }
     if p.peek().kind() == SyntaxKind::Star {
         parse_wildcard_case(&mut *p);
+        let mut reported = false;
+        while p.peek().kind() == SyntaxKind::Star
+            || (![SyntaxKind::RBrace, SyntaxKind::Eof].contains(&p.peek().kind())
+                && p.nth(1).kind() == SyntaxKind::Colon)
+        {
+            if !reported {
+                p.error("Cases after the '*' case are never hit");
+                reported = true;
+            }
+            if p.peek().kind() == SyntaxKind::Star {
+                parse_wildcard_case(&mut *p);
+            } else {
+                parse_match_case(&mut *p);
+            }
+        }
     }
     p.expect(SyntaxKind::RBrace);
 }
@@ -370,23 +404,7 @@ fn parse_match_element(p: &mut impl Parser) {
 fn parse_match_case(p: &mut impl Parser) {
     let mut p = p.start_node(SyntaxKind::MatchCase);
     parse_expression(&mut *p);
-    if !p.test(SyntaxKind::Colon) {
-        p.error("Expected ':' after match case expression");
-        if p.peek().kind() != SyntaxKind::Identifier {
-            p.consume();
-        }
-    }
-    if p.peek().kind() == SyntaxKind::LBrace {
-        // pass case
-        p.expect(SyntaxKind::LBrace);
-        if p.peek().kind() == SyntaxKind::Identifier {
-            p.error("Remove '{ }' around case element");
-            parse_sub_element(&mut *p);
-        }
-        p.expect(SyntaxKind::RBrace);
-        return;
-    }
-    parse_sub_element(&mut *p);
+    parse_case_inner(&mut *p, "match case");
 }
 
 #[cfg_attr(test, parser_test)]
@@ -397,18 +415,22 @@ fn parse_wildcard_case(p: &mut impl Parser) {
     debug_assert_eq!(p.peek().kind(), SyntaxKind::Star);
     let mut p = p.start_node(SyntaxKind::WildcardMatchCase);
     p.expect(SyntaxKind::Star);
+    parse_case_inner(&mut *p, "'*'");
+}
+
+fn parse_case_inner(p: &mut impl Parser, after: &str) {
     if !p.test(SyntaxKind::Colon) {
-        p.error("Expected ':' after '*'");
+        p.error(format!("Expected ':' after {after}"));
         if p.peek().kind() != SyntaxKind::Identifier {
             p.consume();
         }
-    };
+    }
     if p.peek().kind() == SyntaxKind::LBrace {
         // pass case
         p.expect(SyntaxKind::LBrace);
         if p.peek().kind() == SyntaxKind::Identifier {
             p.error("Remove '{ }' around case element");
-            return;
+            parse_sub_element(&mut *p);
         }
         p.expect(SyntaxKind::RBrace);
         return;
@@ -551,8 +573,9 @@ fn parse_implement_statement(p: &mut impl Parser) {
 /// callback foobar <=> elem.foobar;
 /// ```
 /// Must consume at least one token
-fn parse_callback_declaration(p: &mut impl Parser) {
-    let mut p = p.start_node(SyntaxKind::CallbackDeclaration);
+fn parse_callback_declaration<P: Parser>(p: &mut P, checkpoint: Option<P::Checkpoint>) {
+    let checkpoint = checkpoint.unwrap_or_else(|| p.checkpoint());
+    let mut p = p.start_node_at(checkpoint, SyntaxKind::CallbackDeclaration);
     if p.peek().as_str() == "pure" {
         p.consume();
     }
@@ -606,24 +629,31 @@ fn parse_callback_declaration(p: &mut impl Parser) {
 }
 
 #[cfg_attr(test, parser_test)]
-/// ```test,PropertyDeclaration
-/// in property <int> xxx;
-/// property<int> foobar;
-/// property<string> text: "Something";
-/// property<string> text <=> two.way;
-/// property alias <=> two.way;
-/// @deprecated property alias <=> two.way;
-/// @deprecated("Use 'two.way' instead") in-out property <string> text <=> two.way;
+/// ```test
+/// @deprecated
+/// @deprecated("Some message")
+/// @shadowable
 /// ```
-fn parse_property_declaration(p: &mut impl Parser) {
-    let checkpoint = p.checkpoint();
-    let has_deprecation = p.peek().kind() == SyntaxKind::At;
-    if has_deprecation {
-        let mut p = p.start_node(SyntaxKind::PropertyDeprecation);
+fn parse_member_attributes(p: &mut impl Parser) -> Option<&'static str> {
+    let mut seen: Vec<&'static str> = Vec::new();
+    while p.nth(0).kind() == SyntaxKind::At
+        && matches!(p.nth(1).as_str(), "deprecated" | "shadowable")
+    {
+        let is_deprecated = p.nth(1).as_str() == "deprecated";
+        let (name, kind) = if is_deprecated {
+            ("deprecated", SyntaxKind::PropertyDeprecation)
+        } else {
+            ("shadowable", SyntaxKind::ShadowableAttribute)
+        };
+        let duplicated = seen.contains(&name);
+        seen.push(name);
+        let mut p = p.start_node(kind);
         p.consume(); // "@"
-        debug_assert_eq!(p.peek().as_str(), "deprecated");
-        p.consume(); // "deprecated"
-        if p.test(SyntaxKind::LParent) {
+        p.consume(); // the attribute name
+        if duplicated {
+            p.error(format!("Duplicated @{name} attribute"));
+        }
+        if is_deprecated && p.test(SyntaxKind::LParent) {
             let peek = p.peek();
             if peek.kind() != SyntaxKind::StringLiteral
                 || !peek.as_str().starts_with('"')
@@ -637,15 +667,24 @@ fn parse_property_declaration(p: &mut impl Parser) {
             }
         }
     }
+    seen.first().copied()
+}
+
+#[cfg_attr(test, parser_test)]
+/// ```test,PropertyDeclaration
+/// in property <int> xxx;
+/// property<int> foobar;
+/// property<string> text: "Something";
+/// property<string> text <=> two.way;
+/// property alias <=> two.way;
+/// ```
+fn parse_property_declaration<P: Parser>(p: &mut P, checkpoint: Option<P::Checkpoint>) {
+    let checkpoint = checkpoint.unwrap_or_else(|| p.checkpoint());
     while matches!(p.peek().as_str(), "in" | "out" | "in-out" | "in_out" | "private") {
         p.consume();
     }
     if p.peek().as_str() != "property" {
-        if has_deprecation {
-            p.error("@deprecated can only be applied to property declarations");
-        } else {
-            p.error("Expected 'property' keyword");
-        }
+        p.error("Expected 'property' keyword");
         return;
     }
     let mut p = p.start_node_at(checkpoint, SyntaxKind::PropertyDeclaration);
@@ -896,8 +935,9 @@ fn parse_transition_inner(p: &mut impl Parser) -> bool {
 /// function foo();
 /// function foo() -> int;
 /// ```
-fn parse_function(p: &mut impl Parser) {
-    let mut p = p.start_node(SyntaxKind::Function);
+fn parse_function<P: Parser>(p: &mut P, checkpoint: Option<P::Checkpoint>) {
+    let checkpoint = checkpoint.unwrap_or_else(|| p.checkpoint());
+    let mut p = p.start_node_at(checkpoint, SyntaxKind::Function);
     if matches!(p.peek().as_str(), "public" | "protected") {
         p.consume();
         if p.peek().as_str() == "pure" {

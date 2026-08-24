@@ -51,7 +51,7 @@ dev = ["pytest", "numpy>=2.3.2", "pillow>=11.3.0", "aiohttp>=3.12.15", "slint-de
 # ruff and ty are pinned exactly so CI and local runs agree on which
 # diagnostics exist. Dependabot bumps them; keep the versions in sync with
 # api/python/briefcase and docs/python.
-dev = ["pytest>=8.3.4", "ruff==0.16.3", "ty==0.0.71", "pillow>=11.3.0", "numpy>=2.3.2", "aiohttp>=3.12.15"]
+dev = ["pytest>=8.3.4", "ruff==0.16.4", "ty==0.0.73", "pillow>=11.3.0", "numpy>=2.3.2", "aiohttp>=3.12.15"]
 
 [tool.uv]
 # Rebuild package when any rust files change

@@ -78,6 +78,33 @@ export component Example inherits Window {
 }
 ```
 
+## Images
+
+An `Image` element paints the image held by its `source` property: the
+image's top-left pixel lands on the element's position, each following pixel
+on the next frame-buffer pixel of its row, and each following row one pixel
+further down. One image pixel covers exactly one frame-buffer pixel: there is
+no scaling. \{#sls.paint.image}
+
+Each image pixel is composited over the frame-buffer pixel it covers, with
+the [blending formula](#sls.paint.blend.formula) applied per pixel: a fully
+transparent pixel leaves the frame-buffer pixel as it was, and a fully opaque
+one replaces it. \{#sls.paint.image.blend}
+
+An element whose `source` holds no image paints nothing. \{#sls.paint.image.none}
+
+```slint
+export component Example inherits Window {
+    background: #d0d8e8;
+    // Drawn at (20, 20), as large as the image itself
+    Image {
+        x: 20px;
+        y: 20px;
+        source: @image-url("logo.png");
+    }
+}
+```
+
 ## Clipping
 
 Painting is clipped to the frame buffer. \{#sls.paint.clip}

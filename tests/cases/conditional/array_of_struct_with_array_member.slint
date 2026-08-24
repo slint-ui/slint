@@ -1,0 +1,108 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+struct Data {
+    texts: [string],
+}
+
+export component TestCase inherits Window {
+    in-out property <bool> switch: false;
+
+    out property<[Data]> data: switch ? [] : [
+                { texts: ["Blue", "Red"]},
+                { texts: ["Green"]},
+            ];
+
+    out property<bool> test: data.length == 2 && data[1].texts.length == 1;
+}
+
+/*
+```rust
+use slint::Model;
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.get_switch(), false);
+assert_eq!(instance.get_data().row_count(), 2);
+assert_eq!(instance.get_test(), true);
+
+let row0 = instance.get_data().row_data(0).unwrap();
+assert_eq!(row0.texts.row_count(), 2);
+assert_eq!(row0.texts.row_data(0).unwrap(), "Blue");
+assert_eq!(row0.texts.row_data(1).unwrap(), "Red");
+
+let row1 = instance.get_data().row_data(1).unwrap();
+assert_eq!(row1.texts.row_count(), 1);
+assert_eq!(row1.texts.row_data(0).unwrap(), "Green");
+
+instance.set_switch(true);
+assert_eq!(instance.get_switch(), true);
+assert_eq!(instance.get_data().row_count(), 0);
+assert_eq!(instance.get_test(), false);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert_eq(instance.get_switch(), false);
+assert_eq(instance.get_data()->row_count(), 2);
+assert_eq(instance.get_test(), true);
+
+auto row0 = instance.get_data()->row_data(0).value();
+assert_eq(row0.texts->row_count(), 2);
+assert_eq(row0.texts->row_data(0).value(), "Blue");
+assert_eq(row0.texts->row_data(1).value(), "Red");
+
+auto row1 = instance.get_data()->row_data(1).value();
+assert_eq(row1.texts->row_count(), 1);
+assert_eq(row1.texts->row_data(0).value(), "Green");
+
+instance.set_switch(true);
+assert_eq(instance.get_switch(), true);
+assert_eq(instance.get_data()->row_count(), 0);
+assert_eq(instance.get_test(), false);
+```
+
+```js
+let instance = new slint.TestCase({});
+assert(!instance.switch);
+assert.equal(instance.data.rowCount(), 2);
+assert(instance.test);
+
+let row0 = instance.data.rowData(0);
+assert.equal(row0.texts.rowCount(), 2);
+assert.equal(row0.texts.rowData(0), "Blue");
+assert.equal(row0.texts.rowData(1), "Red");
+
+let row1 = instance.data.rowData(1);
+assert.equal(row1.texts.rowCount(), 1);
+assert.equal(row1.texts.rowData(0), "Green");
+
+instance.switch = true;
+assert(instance.switch);
+assert.equal(instance.data.rowCount(), 0);
+assert(!instance.test);
+```
+
+```python
+instance = TestCase()
+assert not instance.switch
+data = list(instance.data)
+assert len(data) == 2
+assert instance.test
+
+row0 = data[0]
+texts0 = list(row0.texts)
+assert len(texts0) == 2
+assert texts0[0] == "Blue"
+assert texts0[1] == "Red"
+
+row1 = data[1]
+texts1 = list(row1.texts)
+assert len(texts1) == 1
+assert texts1[0] == "Green"
+
+instance.switch = True
+assert instance.switch
+assert len(list(instance.data)) == 0
+assert not instance.test
+```
+*/

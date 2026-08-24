@@ -11,6 +11,14 @@ fn paragraphs(text: &str) -> Vec<&str> {
 }
 
 fn layout_text_with_options(text: &str, options: LayoutOptions) -> Layout {
+    layout_text_with_builder(text, super::shaping::plain_builder_for_tests(), options)
+}
+
+fn layout_text_with_builder(
+    text: &str,
+    builder: super::shaping::LayoutWithoutLineBreaksBuilder,
+    options: LayoutOptions,
+) -> Layout {
     // Don't load system fonts: that goes through fontconfig FFI, which Miri
     // can't execute. Use the bundled Inter font instead.
     let mut font_ctx = parley::FontContext {
@@ -26,7 +34,6 @@ fn layout_text_with_options(text: &str, options: LayoutOptions) -> Layout {
         fontique::GenericFamily::SansSerif,
         families.iter().map(|(id, _)| *id),
     );
-    let builder = super::shaping::plain_builder_for_tests();
     let paragraphs = create_text_paragraphs(
         &builder,
         &mut font_ctx,
@@ -93,14 +100,53 @@ fn test_cursor_between_cr_and_lf() {
     // the next line); it draws at the end of the preceding paragraph, like on the '\r'.
     let layout = layout_text("hello\r\nworld");
     let cursor_width = PhysicalLength::new(1.0);
+    let downstream = crate::items::TextCursorAffinity::NextCharacter;
     assert_eq!(
-        layout.cursor_rect_for_byte_offset(6, cursor_width),
-        layout.cursor_rect_for_byte_offset(5, cursor_width)
+        layout.cursor_rect_for_byte_offset(6, downstream, cursor_width),
+        layout.cursor_rect_for_byte_offset(5, downstream, cursor_width)
     );
     assert_ne!(
-        layout.cursor_rect_for_byte_offset(6, cursor_width),
-        layout.cursor_rect_for_byte_offset(0, cursor_width)
+        layout.cursor_rect_for_byte_offset(6, downstream, cursor_width),
+        layout.cursor_rect_for_byte_offset(0, downstream, cursor_width)
     );
+}
+
+#[test]
+fn test_cursor_affinity_at_soft_line_break() {
+    use crate::items::TextCursorAffinity;
+
+    // Wraps before "wrapping", whose offset is both the end of line 1 and the start of line 2.
+    let text = "When the amount of lines - due to wrapping and number of paragraphs";
+    let layout = layout_text_with_builder(
+        text,
+        super::shaping::wrap_builder_for_tests(),
+        LayoutOptions { max_width: Some(LogicalLength::new(200.)), ..Default::default() },
+    );
+    let break_offset = text.find("wrapping").unwrap();
+    let line_of = |y: f32| {
+        (y / layout.paragraphs[0].layout.lines().next().unwrap().metrics().line_height) as i32
+    };
+
+    // Hit-testing past the end of line 1 reports the break offset, upstream.
+    let (offset, affinity) = layout.byte_offset_from_point(PhysicalPoint::new(1000., 1.));
+    assert_eq!(offset, break_offset);
+    assert_eq!(affinity, TextCursorAffinity::PreviousCharacter);
+
+    // The two affinities of that offset resolve to its two visual positions.
+    let cursor_width = PhysicalLength::new(1.0);
+    let upstream = layout.cursor_rect_for_byte_offset(
+        break_offset,
+        TextCursorAffinity::PreviousCharacter,
+        cursor_width,
+    );
+    let downstream = layout.cursor_rect_for_byte_offset(
+        break_offset,
+        TextCursorAffinity::NextCharacter,
+        cursor_width,
+    );
+    assert_eq!(line_of(upstream.origin.y), 0);
+    assert_eq!(line_of(downstream.origin.y), 1);
+    assert!(upstream.origin.x > downstream.origin.x);
 }
 
 #[test]

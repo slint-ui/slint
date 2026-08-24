@@ -15,7 +15,7 @@ use crate::diagnostics::{BuildDiagnostics, DiagnosticLevel, SourceLocation, Span
 use crate::expression_tree::{
     BindingExpression, BuiltinFunction, Expression, MinMaxOp, NamedReference, Unit,
 };
-use crate::langtype::{BuiltinElement, DefaultSizeBinding, Type};
+use crate::langtype::{BuiltinElement, DefaultSizeBinding, PropertyLookupMode, Type};
 use crate::layout::{BuiltinFilter, LayoutConstraints, Orientation, implicit_layout_info_call};
 use crate::object_tree::{Component, ElementRc};
 use crate::symbol_counters::SymbolCounters;
@@ -94,10 +94,23 @@ pub fn default_geometry(
                             h100 |= make_default_100(&e_height, &p_height);
                         }
                     }
+                    // In Slint SC an Image is always the size of its source
+                    // image: setting width or height was rejected when
+                    // resolving, so bind them to the source's dimensions
+                    // instead of the implicit-size machinery below. The
+                    // centering further down still applies, like any element.
+                    #[cfg(feature = "slint-sc")]
+                    DefaultSizeBinding::ImplicitSize if diag.slint_sc => {
+                        if is_image {
+                            bind_size_to_source_image(elem);
+                        }
+                    }
                     DefaultSizeBinding::ImplicitSize => {
                         let has_length_property_binding = |elem: &ElementRc, property: &str| {
                             debug_assert_eq!(
-                                elem.borrow().lookup_property(property).property_type,
+                                elem.borrow()
+                                    .lookup_property(property, PropertyLookupMode::ComponentLocal)
+                                    .property_type,
                                 Type::LogicalLength
                             );
 
@@ -125,7 +138,10 @@ pub fn default_geometry(
                             // If an image is in a layout and has no explicit width or height specified, change the default for image-fit
                             // to `contain`
                             if !width_specified || !height_specified {
-                                let image_fit_lookup = elem.borrow().lookup_property("image-fit");
+                                let image_fit_lookup = elem.borrow().lookup_property(
+                                    "image-fit",
+                                    PropertyLookupMode::ComponentLocal,
+                                );
 
                                 elem.borrow_mut().set_binding_if_not_set(
                                     image_fit_lookup.resolved_name.into(),
@@ -407,7 +423,10 @@ fn fix_percent_size(
                     parent = crate::object_tree::find_parent_element(&parent).unwrap_or(parent)
                 }
                 debug_assert_eq!(
-                    parent.borrow().lookup_property(property).property_type,
+                    parent
+                        .borrow()
+                        .lookup_property(property, PropertyLookupMode::ComponentLocal)
+                        .property_type,
                     Type::LogicalLength
                 );
                 // do not ignore debug hooks here, the debug hook may overwrite the expression
@@ -462,6 +481,27 @@ fn make_default_100(prop: &NamedReference, parent_prop: &NamedReference) -> bool
     })
 }
 
+/// Bind the width and height of an Image element to the dimensions of its
+/// `source` image, for Slint SC.
+#[cfg(feature = "slint-sc")]
+fn bind_size_to_source_image(elem: &ElementRc) {
+    let source = NamedReference::new(elem, SmolStr::new_static("source"));
+    for prop in ["width", "height"] {
+        let size_field = Expression::Cast {
+            from: Box::new(Expression::StructFieldAccess {
+                base: Box::new(Expression::FunctionCall {
+                    function: BuiltinFunction::ImageSize.into(),
+                    arguments: vec![Expression::PropertyReference(source.clone())],
+                    source_location: None,
+                }),
+                name: prop.into(),
+            }),
+            to: Type::LogicalLength,
+        };
+        elem.borrow_mut().set_binding_if_not_set(prop.into(), || size_field);
+    }
+}
+
 fn make_default_implicit(elem: &ElementRc, property: &str) {
     let e = crate::builtin_macros::min_max_expression(
         Expression::PropertyReference(NamedReference::new(
@@ -493,7 +533,10 @@ fn make_default_aspect_ratio_preserving_binding(
         return;
     }
 
-    debug_assert_eq!(elem.borrow().lookup_property("source").property_type, Type::Image);
+    debug_assert_eq!(
+        elem.borrow().lookup_property("source", PropertyLookupMode::ComponentLocal).property_type,
+        Type::Image
+    );
 
     let missing_size_property = SmolStr::new_static(missing_size_property);
     let given_size_property = SmolStr::new_static(given_size_property);

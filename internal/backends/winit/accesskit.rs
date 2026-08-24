@@ -624,7 +624,15 @@ impl NodeCollection {
         let window_inner = i_slint_core::window::WindowInner::from_pub(window);
         window_inner.ensure_tree_instantiated();
 
-        let root_item = ItemRc::new_root(window_inner.component());
+        let Some(component) = window_inner.try_component() else {
+            return TreeUpdate {
+                nodes: Default::default(),
+                tree: Default::default(),
+                tree_id: TreeId::ROOT,
+                focus: self.root_node_id,
+            };
+        };
+        let root_item = ItemRc::new_root(component);
 
         let popups = window_inner
             .active_popups()

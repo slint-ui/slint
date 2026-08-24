@@ -10,7 +10,7 @@ use std::sync::Arc;
 
 use crate::diagnostics::BuildDiagnostics;
 use crate::expression_tree::{Expression, NamedReference};
-use crate::langtype::{ElementType, NativeClass, Type};
+use crate::langtype::{ElementType, NativeClass, PropertyLookupMode, Type};
 use crate::object_tree::{self, Component, Element, ElementRc};
 use crate::typeregister::TypeRegister;
 
@@ -67,7 +67,11 @@ pub fn handle_visible(
             };
 
             let has_visible_binding = |e: &ElementRc| {
-                e.borrow().base_type.lookup_property("visible").property_type != Type::Invalid
+                e.borrow()
+                    .base_type
+                    .lookup_property("visible", PropertyLookupMode::ComponentLocal)
+                    .property_type
+                    != Type::Invalid
                     && (e.borrow().binding("visible").is_some()
                         || e.borrow()
                             .property_analysis
@@ -89,6 +93,8 @@ pub fn handle_visible(
                     }
                 } else if has_visible_binding(&child) {
                     let new_child = create_visibility_element(&child, &native_clip);
+                    // The injected element takes the child's place among the z-sorted siblings
+                    new_child.borrow_mut().z_order = child.borrow_mut().z_order.take();
                     new_child.borrow_mut().children.push(child);
                     child = new_child;
                 }

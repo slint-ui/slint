@@ -4,7 +4,7 @@
 // cSpell: ignore qualname
 use i_slint_compiler::diagnostics::{ByteFormat, SourceFile, Spanned};
 use i_slint_compiler::expression_tree::Expression;
-use i_slint_compiler::langtype::{ElementType, Type};
+use i_slint_compiler::langtype::{ElementType, PropertyLookupMode, Type};
 use i_slint_compiler::lookup::LookupCtx;
 use i_slint_compiler::object_tree::{self, type_from_node};
 use i_slint_compiler::parser::{SyntaxKind, SyntaxNode, SyntaxToken, syntax_nodes};
@@ -249,7 +249,13 @@ pub fn with_property_lookup_ctx<R>(
         })
         .and_then(|p| p.Type())
         .map(|n| object_tree::type_from_node(n, &mut Default::default(), tr))
-        .or_else(|| scope.last().map(|e| e.borrow().lookup_property(prop_name).property_type));
+        .or_else(|| {
+            scope.last().map(|e| {
+                e.borrow()
+                    .lookup_property(prop_name, PropertyLookupMode::ComponentLocal)
+                    .property_type
+            })
+        });
 
     // try to match properties from `PropertyAnimation`
     if is_animate {

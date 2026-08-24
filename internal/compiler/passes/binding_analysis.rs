@@ -345,12 +345,13 @@ fn analyze_binding(
             if !out.is_empty() {
                 out.push_str(" -> ");
             }
+            let name = prop.prop.declared_name();
             match prop.prop.element().borrow().id.as_str() {
-                "" => out.push_str(prop.prop.name()),
+                "" => out.push_str(&name),
                 id => {
                     out.push_str(id);
                     out.push('.');
-                    out.push_str(prop.prop.name());
+                    out.push_str(&name);
                 }
             }
         }
@@ -382,9 +383,9 @@ fn analyze_binding(
             // they have no location in the source. The rest of the loop is still reported.
             if span.source_file.is_some() {
                 if !context.error_on_binding_loop_with_window_layout && has_window_layout {
-                    diag.push_warning(format!("The binding for the property '{}' is part of a binding loop ({loop_description}).\nThis was allowed in previous version of Slint, but is deprecated and may cause panic at runtime", p.name()), &span);
+                    diag.push_warning(format!("The binding for the property '{}' is part of a binding loop ({loop_description}).\nThis was allowed in previous version of Slint, but is deprecated and may cause panic at runtime", p.declared_name()), &span);
                 } else {
-                    diag.push_error(format!("The binding for the property '{}' is part of a binding loop ({loop_description})", p.name()), &span);
+                    diag.push_error(format!("The binding for the property '{}' is part of a binding loop ({loop_description})", p.declared_name()), &span);
                 }
             }
             if it == current {
@@ -1033,6 +1034,14 @@ fn visit_implicit_layout_info_dependencies(
             vis(&NamedReference::new(item, SmolStr::new_static("font-size")).into(), N);
             vis(&NamedReference::new(item, SmolStr::new_static("font-weight")).into(), N);
             vis(&NamedReference::new(item, SmolStr::new_static("letter-spacing")).into(), N);
+            // The line height only stretches the line boxes, so it feeds the vertical
+            // layout info but can never influence the preferred width.
+            if orientation == Orientation::Vertical {
+                vis(
+                    &NamedReference::new(item, SmolStr::new_static("line-height-factor")).into(),
+                    N,
+                );
+            }
             vis(&NamedReference::new(item, SmolStr::new_static("wrap")).into(), N);
             let wrap_set = item.borrow().is_binding_set("wrap", false)
                 || item
@@ -1048,6 +1057,21 @@ fn visit_implicit_layout_info_dependencies(
                 vis(&NamedReference::new(item, SmolStr::new_static("single-line")).into(), N);
             } else {
                 vis(&NamedReference::new(item, SmolStr::new_static("overflow")).into(), N);
+                // A line dropped by the limit is also excluded from the content widths, so
+                // `max-lines` is a dependency of both orientations, not just the height.
+                vis(&NamedReference::new(item, SmolStr::new_static("max-lines")).into(), N);
+            }
+        }
+        "StyledText" => {
+            vis(&NamedReference::new(item, SmolStr::new_static("text")).into(), N);
+            vis(&NamedReference::new(item, SmolStr::new_static("default-font-family")).into(), N);
+            vis(&NamedReference::new(item, SmolStr::new_static("default-font-size")).into(), N);
+            // A line dropped by the limit is also excluded from the content widths, so
+            // `max-lines` is a dependency of both orientations, not just the height.
+            vis(&NamedReference::new(item, SmolStr::new_static("max-lines")).into(), N);
+            if orientation == Orientation::Vertical {
+                // StyledText always word-wraps, so its height depends on the width.
+                vis(&NamedReference::new(item, SmolStr::new_static("width")).into(), N);
             }
         }
 

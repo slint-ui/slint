@@ -62,18 +62,7 @@ impl TokenInfo {
             }
             TokenInfo::ElementRc(el) => Some(el.borrow().debug.first()?.node.clone().into()),
             TokenInfo::NamedReference(nr) => {
-                let mut el = nr.element();
-                loop {
-                    if let Some(x) = el.borrow().property_declarations.get(nr.name()) {
-                        return x.node.clone();
-                    }
-                    let base = el.borrow().base_type.clone();
-                    if let ElementType::Component(c) = base {
-                        el = c.root_element.clone();
-                    } else {
-                        return None;
-                    }
-                }
+                nr.element().borrow().property_declaration_node(nr.name())
             }
 
             TokenInfo::EnumerationValue(v) => {
@@ -91,8 +80,7 @@ impl TokenInfo {
             TokenInfo::IncompleteNamedReference(element_type, prop_name) => {
                 let mut element_type = element_type.clone();
                 while let ElementType::Component(com) = element_type {
-                    if let Some(p) = com.root_element.borrow().property_declarations.get(prop_name)
-                    {
+                    if let Some((_, p)) = com.root_element.borrow().declaration(prop_name) {
                         return p.node.clone();
                     }
                     element_type = com.root_element.borrow().base_type.clone();

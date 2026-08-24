@@ -19,6 +19,7 @@ async fn parse_source(
     url: lsp_types::Url,
     source_code: String,
     style: String,
+    enable_experimental: bool,
     file_loader_fallback: impl Fn(
         &Path,
     ) -> core::pin::Pin<
@@ -34,6 +35,7 @@ async fn parse_source(
         }
         tmp.include_paths = include_paths;
         tmp.library_paths = library_paths;
+        tmp.enable_experimental |= enable_experimental;
         tmp.open_import_callback = Some(Rc::new(move |path| {
             let path = PathBuf::from(&path);
             file_loader_fallback(&path)
@@ -73,13 +75,25 @@ pub fn compile_test_with_sources(
     allow_warnings: bool,
 ) -> crate::DocumentCache {
     i_slint_backend_testing::init_no_event_loop();
-    recompile_test_with_sources(style, code, allow_warnings)
+    recompile_test_with_sources(style, code, allow_warnings, false)
+}
+
+/// Like [`compile_test_with_sources`], but with experimental compiler features enabled.
+#[track_caller]
+pub fn compile_test_with_sources_experimental(
+    style: &str,
+    code: HashMap<lsp_types::Url, String>,
+    allow_warnings: bool,
+) -> crate::DocumentCache {
+    i_slint_backend_testing::init_no_event_loop();
+    recompile_test_with_sources(style, code, allow_warnings, true)
 }
 
 pub fn recompile_test_with_sources(
     style: &str,
     code: HashMap<lsp_types::Url, String>,
     allow_warnings: bool,
+    enable_experimental: bool,
 ) -> crate::DocumentCache {
     let code = Rc::new(code);
 
@@ -91,6 +105,7 @@ pub fn recompile_test_with_sources(
         url,
         source_code.to_string(),
         style.to_string(),
+        enable_experimental,
         move |path| {
             let code = code.clone();
             let url = lsp_types::Url::from_file_path(path);

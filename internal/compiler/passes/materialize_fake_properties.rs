@@ -7,7 +7,7 @@
 
 use crate::diagnostics::Spanned;
 use crate::expression_tree::{BindingExpression, Expression, Unit};
-use crate::langtype::{ElementType, Type};
+use crate::langtype::{ElementType, PropertyLookupMode, Type};
 use crate::layout::Orientation;
 use crate::namedreference::NamedReference;
 use crate::object_tree::*;
@@ -129,7 +129,10 @@ pub(crate) fn should_materialize(
                 crate::typeregister::BUILTIN.enums.PopupClosePolicy.clone(),
             ));
         } else {
-            let ty = base_type.lookup_property(prop).property_type.clone();
+            let ty = base_type
+                .lookup_property(prop, PropertyLookupMode::InternalName)
+                .property_type
+                .clone();
             return (ty != Type::Invalid).then_some(ty);
         }
     }

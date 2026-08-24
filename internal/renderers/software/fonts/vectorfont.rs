@@ -274,10 +274,6 @@ impl TextShaper for VectorFont {
             ..Default::default()
         })
     }
-
-    fn max_lines(&self, max_height: PhysicalLength) -> usize {
-        (max_height / self.height).get() as _
-    }
 }
 
 impl i_slint_core::textlayout::FontMetrics<PhysicalLength> for VectorFont {

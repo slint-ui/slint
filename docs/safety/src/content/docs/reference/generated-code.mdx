@@ -6,6 +6,9 @@ description: The Rust API that the Slint SC compiler generates.
 The Slint SC compiler translates a `.slint` file into Rust code that depends
 only on the [`slint-sc`](/api/slint_sc/) runtime crate. \{#sls.gen.output}
 
+The generated code compiles only with the [`slint-sc`](/api/slint_sc/) runtime
+of the same version as the compiler that generated it. \{#sls.gen.version}
+
 ## The Component Struct
 
 The generated code contains a struct named after the exported component.
@@ -82,8 +85,21 @@ The Rust type `T` of a property maps from its Slint type:
 | `color` | [`slint_sc::Color`](/api/slint_sc/struct.Color.html) |
 | `length` | `i32` |
 | `bool` | `bool` |
+| `image` | `slint_sc::Image` |
 | a declared `struct` | the generated struct of the same name |
 | a declared `enum` | the generated enum of the same name |
+
+An `slint_sc::Image` is either `Image::None`, no image, or
+`Image::StaticArgb`, a reference to `'static` packed pixel bytes in
+row-major order together with the image's width, four bytes per pixel:
+alpha, red, green, and blue.
+The default is `Image::None`. \{#sls.gen.prop.types.image}
+
+The image of an [`@image-url()`](/language/expressions/#sls.expr.image.form)
+literal is decoded when the code is generated and embedded in it as a
+`static` holding an `Image::StaticArgb`; the literals of one `.slint` file
+that name the same image file share one embedded
+copy. \{#sls.gen.image.static}
 
 ## Callbacks
 

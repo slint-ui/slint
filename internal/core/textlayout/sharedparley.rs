@@ -402,6 +402,7 @@ pub fn draw_text_input(
                 if let Some(cursor_pos) = visual_representation.cursor_position {
                     let cursor_rect = layout.cursor_rect_for_byte_offset(
                         cursor_pos,
+                        visual_representation.cursor_affinity,
                         text_input.text_cursor_width() * scale_factor,
                     );
                     item_renderer
@@ -558,11 +559,12 @@ pub fn char_size(
         skrifa::instance::Size::new(pixel_size.get()),
         &location,
     );
+    let natural_line_height = font_metrics.ascent - font_metrics.descent;
+    let line_height = font_request
+        .line_height_for_natural_height(natural_line_height)
+        .unwrap_or(natural_line_height);
 
-    Some(LogicalSize::from_lengths(
-        advance_width,
-        LogicalLength::new(font_metrics.ascent - font_metrics.descent),
-    ))
+    Some(LogicalSize::from_lengths(advance_width, LogicalLength::new(line_height)))
 }
 
 pub fn font_metrics(
@@ -597,7 +599,7 @@ pub fn text_input_byte_offset_for_position(
     item_rc: &crate::item_tree::ItemRc,
     pos: LogicalPoint,
     cache: Option<&TextLayoutCache>,
-) -> usize {
+) -> (usize, crate::items::TextCursorAffinity) {
     text_input_byte_offset_for_position_impl(
         renderer.scale_factor(),
         renderer.window_adapter(),
@@ -615,16 +617,17 @@ fn text_input_byte_offset_for_position_impl(
     item_rc: &crate::item_tree::ItemRc,
     pos: LogicalPoint,
     cache: Option<&TextLayoutCache>,
-) -> usize {
+) -> (usize, crate::items::TextCursorAffinity) {
+    let no_hit = (0, crate::items::TextCursorAffinity::NextCharacter);
     let Some(scale_factor) = scale_factor else {
-        return 0;
+        return no_hit;
     };
     let pos: PhysicalPoint = pos * scale_factor;
 
     let width = text_input.width();
     let height = text_input.height();
     if width.get() <= 0. || height.get() <= 0. || pos.y < 0. {
-        return 0;
+        return no_hit;
     }
 
     let layout_builder =
@@ -632,10 +635,10 @@ fn text_input_byte_offset_for_position_impl(
     let visual_representation = text_input.visual_representation();
 
     let Some(window_adapter) = window_adapter else {
-        return 0;
+        return no_hit;
     };
 
-    let byte_offset = with_text_layout(
+    let (byte_offset, affinity) = with_text_layout(
         cache,
         Some(item_rc),
         text_input,
@@ -644,8 +647,8 @@ fn text_input_byte_offset_for_position_impl(
         window_adapter.window(),
         |layout| layout.byte_offset_from_point(pos),
     )
-    .unwrap_or(0);
-    visual_representation.map_byte_offset_from_visual_text_to_actual_text(byte_offset)
+    .unwrap_or(no_hit);
+    (visual_representation.map_byte_offset_from_visual_text_to_actual_text(byte_offset), affinity)
 }
 
 pub fn text_input_cursor_rect_for_byte_offset(
@@ -653,6 +656,7 @@ pub fn text_input_cursor_rect_for_byte_offset(
     text_input: Pin<&crate::items::TextInput>,
     item_rc: &crate::item_tree::ItemRc,
     byte_offset: usize,
+    affinity: crate::items::TextCursorAffinity,
     cache: Option<&TextLayoutCache>,
 ) -> LogicalRect {
     text_input_cursor_rect_for_byte_offset_impl(
@@ -661,6 +665,7 @@ pub fn text_input_cursor_rect_for_byte_offset(
         text_input,
         item_rc,
         byte_offset,
+        affinity,
         cache,
     )
 }
@@ -671,6 +676,7 @@ fn text_input_cursor_rect_for_byte_offset_impl(
     text_input: Pin<&crate::items::TextInput>,
     item_rc: &crate::item_tree::ItemRc,
     byte_offset: usize,
+    affinity: crate::items::TextCursorAffinity,
     cache: Option<&TextLayoutCache>,
 ) -> LogicalRect {
     let Some(scale_factor) = scale_factor else {
@@ -705,7 +711,9 @@ fn text_input_cursor_rect_for_byte_offset_impl(
         &layout_builder,
         LayoutOptions::new_from_textinput(text_input, Some(width), Some(height)),
         window_adapter.window(),
-        |layout| layout.cursor_rect_for_byte_offset(byte_offset, cursor_width) / scale_factor,
+        |layout| {
+            layout.cursor_rect_for_byte_offset(byte_offset, affinity, cursor_width) / scale_factor
+        },
     )
     .unwrap_or_default()
 }

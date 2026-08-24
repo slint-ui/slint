@@ -5,7 +5,7 @@ use crate::editor_preview::{self, Result};
 use crate::util;
 use i_slint_compiler::diagnostics::Spanned;
 use i_slint_compiler::expression_tree::{Expression, TwoWayBinding, Unit};
-use i_slint_compiler::langtype::{ElementType, Type};
+use i_slint_compiler::langtype::{ElementType, PropertyLookupMode, Type};
 use i_slint_compiler::object_tree::{Element, ElementRc, PropertyDeclaration, PropertyVisibility};
 use i_slint_compiler::parser::{
     SyntaxKind, SyntaxNode, SyntaxToken, TextRange, TextSize, syntax_nodes,
@@ -143,10 +143,15 @@ fn add_element_properties(
     group: &str,
     group_priority: u32,
     is_local_element: bool,
+    shadowed: &HashSet<SmolStr>,
     result: &mut Vec<PropertyInformation>,
 ) {
     result.extend(element.property_declarations.iter().filter_map(move |(name, value)| {
         if !property_is_editable(value, is_local_element) {
+            return None;
+        }
+        let name = value.declared_name(name);
+        if shadowed.contains(name) {
             return None;
         }
 
@@ -290,7 +295,11 @@ fn find_property_binding_offset(
 
     let element = element.element.borrow();
 
-    if let Some(v) = element.binding_cell_including_synthetic(property_name)
+    // A member that shadows an inherited one is stored under a mangled internal key.
+    let key = element
+        .lookup_property(property_name, PropertyLookupMode::ComponentLocal)
+        .internal_or_resolved_name();
+    if let Some(v) = element.binding_cell_including_synthetic(&key)
         && let Some(span) = &v.borrow().span
     {
         let offset = span.span().offset as u32;
@@ -324,7 +333,12 @@ fn insert_property_definitions(
             return Expression::Invalid;
         }
 
-        if let Some(binding) = element.borrow().binding(prop) {
+        // A member that shadows an inherited one is stored under a mangled internal key.
+        let key = element
+            .borrow()
+            .lookup_property(prop, PropertyLookupMode::ComponentLocal)
+            .internal_or_resolved_name();
+        if let Some(binding) = element.borrow().binding(&key) {
             let e = binding.expression.ignore_debug_hooks().clone();
             if !matches!(e, Expression::Invalid) {
                 return e;
@@ -376,7 +390,11 @@ pub(super) fn get_properties(
     in_layout: LayoutKind,
 ) -> Vec<PropertyInformation> {
     let mut result = Vec::new();
-    add_element_properties(&element.element.borrow(), "", 0, true, &mut result);
+    // A member shadowed by a nearer element is unreachable under that name, so only the
+    // shadowing declaration is listed
+    let mut shadowed = HashSet::new();
+    add_element_properties(&element.element.borrow(), "", 0, true, &shadowed, &mut result);
+    shadowed.extend(element.element.borrow().shadowing_members.keys().cloned());
 
     let mut current_element = element.element.clone();
     let mut depth = 0u32;
@@ -389,7 +407,11 @@ pub(super) fn get_properties(
         match base_type {
             ElementType::Component(c) => {
                 current_element = c.root_element.clone();
-                add_element_properties(&current_element.borrow(), &c.id, depth, false, &mut result);
+                {
+                    let current = current_element.borrow();
+                    add_element_properties(&current, &c.id, depth, false, &shadowed, &mut result);
+                    shadowed.extend(current.visible_shadowing_members().cloned());
+                }
                 continue;
             }
             ElementType::Builtin(b) => {
@@ -956,7 +978,9 @@ pub fn remove_binding(
 pub mod tests {
     use super::*;
 
-    use crate::language::test::{complex_document_cache, loaded_document_cache};
+    use crate::language::test::{
+        complex_document_cache, loaded_document_cache, loaded_document_cache_with_experimental,
+    };
 
     fn find_property<'a>(
         properties: &'a [PropertyInformation],
@@ -1032,6 +1056,63 @@ pub mod tests {
         // No callbacks
         assert!(find_property(&result, "accessible-action-default").is_none());
         assert!(find_property(&result, "clicked").is_none());
+    }
+
+    #[test]
+    fn test_get_properties_shadowed_member() {
+        // `Derived` shadows the `@shadowable` `prop` of `Base` with a different type. The property
+        // editor must list the shadow (not the base) and find its binding, which is stored under a
+        // mangled internal key.
+        let (dc, url, _) = loaded_document_cache_with_experimental(
+            r#"
+component Base {
+    @shadowable in-out property <float> prop: 1;
+}
+component Derived inherits Base {
+    in-out property <int> prop: 42;
+}
+export component Main {
+    the-derived := Derived {
+        prop: 7;
+    }
+}
+"#
+            .into(),
+        );
+        let (_, result) = properties_at_position_in_cache(9, 8, &dc, &url).unwrap();
+        let prop = find_property(&result, "prop").unwrap();
+        // The listed property is the shadow, so its type is the derived one.
+        assert_eq!(prop.ty, Type::Int32);
+        // Its binding is found despite the mangled key, so it reads as defined, not as a fresh
+        // property waiting for a value.
+        assert!(prop.defined_at.is_some());
+    }
+
+    #[test]
+    fn test_get_properties_private_shadow_transparent() {
+        // A private declaration shadowing a public `@shadowable` member is invisible from outside
+        // the component, so the property editor lists the inherited public member, under its type.
+        let (dc, url, _) = loaded_document_cache_with_experimental(
+            r#"
+component Base {
+    @shadowable in-out property <int> prop: 1;
+}
+component Derived inherits Base {
+    private property <string> prop: "x";
+}
+export component Main {
+    the-derived := Derived {
+        prop: 5;
+    }
+}
+"#
+            .into(),
+        );
+        let (_, result) = properties_at_position_in_cache(9, 8, &dc, &url).unwrap();
+        let prop = find_property(&result, "prop").expect("'prop' should be listed");
+        assert_eq!(prop.ty, Type::Int32, "should be the inherited public type, not the shadow");
+        // The external binding of the inherited property is found (round-trip works).
+        assert!(prop.defined_at.is_some());
     }
 
     #[test]

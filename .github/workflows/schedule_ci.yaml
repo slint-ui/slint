@@ -18,6 +18,7 @@ on:
 
 jobs:
   discover-and-trigger:
+    if: github.repository == 'slint-ui/slint'
     runs-on: ubuntu-latest
     steps:
       - name: Trigger CI on branches with recent changes

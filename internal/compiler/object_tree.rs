@@ -13,7 +13,7 @@ use crate::langtype::{
     BuiltinElement, BuiltinPropertyDefault, Enumeration, EnumerationValue, Function, NativeClass,
     Struct, StructName, Type,
 };
-use crate::langtype::{ElementType, PropertyLookupResult};
+use crate::langtype::{ElementType, PropertyLookupMode, PropertyLookupResult};
 use crate::layout::{LayoutConstraints, Orientation};
 use crate::namedreference::NamedReference;
 use crate::parser::{SyntaxKind, SyntaxNode, syntax_nodes};
@@ -771,9 +771,11 @@ pub struct PropertyDeclaration {
     pub visibility: PropertyVisibility,
     /// For function or callback: whether it is declared as `pure` (None for private function for which this has to be deduced)
     pub pure: Option<bool>,
-    /// Whether the declaration shadows a builtin element member of the same name
-    /// (diagnosed by the check_builtin_shadowing pass)
-    pub shadows_builtin: bool,
+    /// For a declaration that shadows an inherited member: the name as written in the source.
+    /// The declaration itself is stored under a mangled name, see [`Element::shadowing_members`].
+    pub shadowed_name: Option<SmolStr>,
+    /// Declared `@shadowable`, so an inheriting component may shadow it.
+    pub shadowable: bool,
     /// Whether the move_declarations pass hoisted this declaration onto the root
     /// element from another element of the component, under a name of its own
     /// making. What the component itself declares, in the source or through the
@@ -796,6 +798,17 @@ impl PropertyDeclaration {
         }
     }
 
+    /// The name the member is declared under, un-mangled, given its internal key.
+    pub fn declared_name<'a>(&'a self, internal_name: &'a SmolStr) -> &'a SmolStr {
+        self.shadowed_name.as_ref().unwrap_or(internal_name)
+    }
+
+    /// A declaration that shadows an inherited member but is private: it is invisible outside its
+    /// component, so from there the inherited member stays reachable instead.
+    pub fn is_private_shadow(&self) -> bool {
+        self.shadowed_name.is_some() && self.visibility == PropertyVisibility::Private
+    }
+
     /// True when declared `@deprecated` without a custom message, so the hint in
     /// [`Self::deprecated`] is derived from the two-way binding target.
     pub fn has_derived_deprecation(&self) -> bool {
@@ -806,6 +819,127 @@ impl PropertyDeclaration {
                 .and_then(|n| syntax_nodes::PropertyDeclaration::new(n.clone()))
                 .and_then(|p| p.PropertyDeprecation())
                 .is_some_and(|d| d.child_token(SyntaxKind::StringLiteral).is_none())
+    }
+}
+
+/// Whether the declaration is marked `@shadowable` (an experimental feature).
+fn shadowable_attribute(
+    node: Option<syntax_nodes::ShadowableAttribute>,
+    tr: &TypeRegister,
+    diag: &mut BuildDiagnostics,
+) -> bool {
+    node.is_some_and(|node| !reject_experimental_feature(diag, tr, "@shadowable", &node))
+}
+
+/// How a `@deprecated` member without an explicit message derives its replacement hint.
+enum DeprecationHint {
+    /// A property or callback: derive it from the two-way binding target, if any.
+    TwoWayBinding(Option<syntax_nodes::QualifiedName>),
+    /// A function has no two-way binding, so an explicit message is required.
+    MessageRequired,
+}
+
+/// The hint from a `@deprecated` attribute on a member: the explicit message, or one derived from
+/// the two-way binding target when none is given. `None` when the member isn't deprecated.
+fn member_deprecation(
+    deprecation: Option<syntax_nodes::PropertyDeprecation>,
+    hint: DeprecationHint,
+    tr: &TypeRegister,
+    diag: &mut BuildDiagnostics,
+) -> Option<SmolStr> {
+    let deprecation = deprecation?;
+    if reject_experimental_feature(diag, tr, "@deprecated", &deprecation) {
+        return None;
+    }
+    if let Some(message) = deprecation.child_token(SyntaxKind::StringLiteral) {
+        return crate::literals::unescape_string(message.text());
+    }
+    let message = match hint {
+        DeprecationHint::TwoWayBinding(target) => {
+            // Derive the hint from the two-way binding target: keep the full path (e.g.
+            // `a-struct.field`), dropping a leading `self`/`root`. The resolving pass checks the
+            // target is actually reachable.
+            if let Some(qn) = target {
+                let mut segments = qn
+                    .children_with_tokens()
+                    .filter(|t| t.kind() == SyntaxKind::Identifier)
+                    .map(|t| parser::normalize_identifier(t.as_token().unwrap().text()))
+                    .peekable();
+                if segments.peek().is_some_and(|s| matches!(s.as_str(), "self" | "root")) {
+                    segments.next();
+                }
+                let path = segments.collect::<Vec<_>>().join(".");
+                if !path.is_empty() {
+                    return Some(format_smolstr!("Please use '{path}' instead"));
+                }
+            }
+            "@deprecated without a message requires a two-way binding to derive the replacement from"
+        }
+        DeprecationHint::MessageRequired => "@deprecated on a function requires a message",
+    };
+    diag.push_error(message.into(), &deprecation);
+    None
+}
+
+/// Shift the locality flags of a result that came from the element's base rather than itself.
+fn from_base(mut r: PropertyLookupResult<'_>) -> PropertyLookupResult<'_> {
+    r.is_in_direct_base = r.is_local_to_component;
+    r.is_local_to_component = false;
+    r
+}
+
+/// The error for a declaration that collides with a member it may not shadow.
+/// `kind` is `None` for a function.
+fn cannot_override_message(
+    kind: Option<&str>,
+    name: &SmolStr,
+    declared_in: &Option<Rc<Component>>,
+) -> String {
+    let kind = kind.map_or_else(String::new, |kind| format!("{kind} "));
+    match declared_in {
+        Some(base) => format!("Cannot override {kind}'{name}' declared in '{}'", base.id),
+        None => format!("Cannot override {kind}'{name}'"),
+    }
+}
+
+/// How a declaration relates to a member of the same name already reachable from the element.
+/// See [`Element::member_declaration`].
+enum MemberDeclaration {
+    /// No member of that name exists yet
+    New,
+    /// Shadows an inherited member: the declaration goes under `internal_name`, so the source
+    /// name keeps resolving to the shadowed member for the code written against it.
+    Shadow {
+        internal_name: SmolStr,
+        /// Shadowing a member that isn't visible here is silent
+        warning: Option<String>,
+    },
+    /// A member of that name already exists and may not be shadowed
+    Conflict {
+        existing_type: Type,
+        /// The base component declaring it, unless it is declared on this element itself
+        declared_in: Option<Rc<Component>>,
+    },
+}
+
+impl MemberDeclaration {
+    /// Record the member on `elem`, warning if it shadows a member visible here.
+    /// Returns the name to declare it under, which differs from `source_name` when it shadows.
+    fn register(
+        self,
+        elem: &mut Element,
+        source_name: &SmolStr,
+        node: &dyn Spanned,
+        diag: &mut BuildDiagnostics,
+    ) -> SmolStr {
+        let Self::Shadow { internal_name, warning } = self else {
+            return source_name.clone();
+        };
+        elem.shadowing_members.insert(source_name.clone(), internal_name.clone());
+        if let Some(warning) = warning {
+            diag.push_warning(warning, node);
+        }
+        internal_name
     }
 }
 
@@ -931,6 +1065,20 @@ pub struct GeometryProps {
     pub height: NamedReference,
 }
 
+/// The z-order of a child element within a parent that has dynamic z-ordering.
+#[derive(Clone, Debug)]
+pub enum ZOrder {
+    /// z is a compile-time constant (used for repeater/conditional children).
+    Constant(f32),
+    /// z is bound to a runtime expression (NamedReference to the child's z property).
+    Dynamic(NamedReference),
+    /// The child is a repeated element (`for` or `if`) whose instances each have
+    /// their own z value: they are expanded and sorted individually among the
+    /// parent's children. The NamedReference is the z property within the repeated
+    /// component, evaluated per instance.
+    PerInstance(NamedReference),
+}
+
 impl GeometryProps {
     pub fn new(element: &ElementRc) -> Self {
         Self {
@@ -1046,6 +1194,10 @@ pub struct Element {
 
     pub property_declarations: BTreeMap<SmolStr, PropertyDeclaration>,
 
+    /// Members that shadow an inherited one, mapping the source name to the mangled key in
+    /// `property_declarations`.
+    pub shadowing_members: BTreeMap<SmolStr, SmolStr>,
+
     /// Main owner for a reference to a property.
     pub named_references: crate::namedreference::NamedReferenceContainer,
 
@@ -1059,9 +1211,14 @@ pub struct Element {
     /// geometry, so consumers that need the wrapped element's source parent must walk past them.
     pub is_injected_wrapper_element: bool,
 
+    /// Z-order of this element within a parent whose children are dynamically z-ordered.
+    /// Stored on the child so it remains consistent when the children vector is reordered
+    /// or moved to another parent.
+    pub z_order: Option<ZOrder>,
+
     pub states: Vec<State>,
     pub transitions: Vec<Transition>,
-
+    pub match_elements: Vec<MatchElementInfo>,
     /// true when this item's geometry is handled by a layout
     pub child_of_layout: bool,
     /// true when this item is a direct cell of a `FlexboxLayout`. Narrower
@@ -1324,6 +1481,81 @@ pub struct RepeatedElementInfo {
     pub is_listview: Option<ListViewInfo>,
 }
 
+/// Struct for a match element that later is resolved into standard conditional elements
+pub struct MatchElementInfo {
+    /// The match element node, used for diagnostics related to the match element as a whole
+    pub node: syntax_nodes::MatchElement,
+    /// The value that is matched on
+    pub subject: Expression,
+    /// Each case and the corresponding element
+    pub cases: Vec<MatchCaseInfo>,
+    /// The `*` case of the match element, if any
+    pub wildcard: WildcardMatchCaseInfo,
+}
+
+pub enum WildcardMatchCaseInfo {
+    None,
+    Empty,
+    Element(ElementRc),
+}
+
+/// One case of a match element
+pub struct MatchCaseInfo {
+    /// The value the subject is compared against
+    pub value: Expression,
+    /// The syntax node
+    pub node: syntax_nodes::Expression,
+    /// The element to potentially show. None for the empty case
+    pub element: Option<ElementRc>,
+}
+
+impl MatchElementInfo {
+    /// The elements of all the cases, skipping the empty cases
+    pub fn elements(&self) -> impl Iterator<Item = ElementRc> + '_ {
+        self.cases.iter().filter_map(|case| case.element.clone()).chain(match &self.wildcard {
+            WildcardMatchCaseInfo::Element(e) => Some(e.clone()),
+            WildcardMatchCaseInfo::None | WildcardMatchCaseInfo::Empty => None,
+        })
+    }
+
+    /// Make every case a conditional element
+    pub fn lower_to_conditional_elements(&self) {
+        let compare = |value: &Expression, op| Expression::BinaryExpression {
+            lhs: Box::new(self.subject.clone()),
+            rhs: Box::new(value.clone()),
+            op,
+        };
+        let show_when = |element: &ElementRc, condition| {
+            element.borrow_mut().repeated = Some(RepeatedElementInfo {
+                model: condition,
+                model_data_id: SmolStr::default(),
+                index_id: SmolStr::default(),
+                is_conditional_element: true,
+                is_listview: None,
+            });
+        };
+
+        for case in &self.cases {
+            if let Some(element) = &case.element {
+                show_when(element, compare(&case.value, '='));
+            }
+        }
+        if let WildcardMatchCaseInfo::Element(wildcard) = &self.wildcard {
+            let condition = self
+                .cases
+                .iter()
+                .map(|case| compare(&case.value, '!'))
+                .reduce(|lhs, rhs| Expression::BinaryExpression {
+                    lhs: Box::new(lhs),
+                    rhs: Box::new(rhs),
+                    op: '&',
+                })
+                .unwrap_or(Expression::BoolLiteral(true));
+            show_when(wildcard, condition);
+        }
+    }
+}
+
 pub type ElementRc = Rc<RefCell<Element>>;
 pub type ElementWeak = Weak<RefCell<Element>>;
 
@@ -1408,7 +1640,7 @@ impl Element {
                     error_on(&cb, "an 'init' callback")
                 }
             });
-            node.MatchElement().for_each(|n| error_on(&n, "match statements"));
+            node.MatchElement().for_each(|n| error_on(&n, "match elements"));
             node.SlotDeclaration().for_each(|n| error_on(&n, "slots"));
 
             if parent_type == ElementType::Interface {
@@ -1487,43 +1719,29 @@ impl Element {
 
             let unresolved_prop_name =
                 unwrap_or_continue!(parser::identifier_text(&prop_decl.DeclaredIdentifier()); diag);
-            let PropertyLookupResult {
-                resolved_name: prop_name,
-                property_type: maybe_existing_prop_type,
-                is_shadowable,
-                ..
-            } = r.lookup_property(&unresolved_prop_name);
-            let shadows_builtin = maybe_existing_prop_type != Type::Invalid && is_shadowable;
-            match maybe_existing_prop_type {
-                Type::Invalid => {} // Ok to proceed with a new declaration
-                // The declaration shadows a shadowable builtin member;
-                // the check_builtin_shadowing pass emits the diagnostic
-                _ if shadows_builtin => {}
-                Type::Callback { .. } => {
-                    diag.push_error(
-                        format!("Cannot declare property '{prop_name}' when a callback with the same name exists"),
-                        &prop_decl.DeclaredIdentifier().child_token(SyntaxKind::Identifier).unwrap(),
-                    );
-                    continue;
+            let declaration = r.member_declaration(&unresolved_prop_name);
+            let name_token =
+                prop_decl.DeclaredIdentifier().child_token(SyntaxKind::Identifier).unwrap();
+            if let MemberDeclaration::Conflict { existing_type, declared_in } = &declaration {
+                match existing_type {
+                    Type::Callback { .. } => diag.push_error(
+                        format!("Cannot declare property '{unresolved_prop_name}' when a callback with the same name exists"),
+                        &name_token,
+                    ),
+                    Type::Function { .. } => diag.push_error(
+                        format!("Cannot declare property '{unresolved_prop_name}' when a function with the same name exists"),
+                        &name_token,
+                    ),
+                    _ => diag.push_error(
+                        cannot_override_message(Some("property"), &unresolved_prop_name, declared_in),
+                        &name_token,
+                    ),
                 }
-                Type::Function { .. } => {
-                    diag.push_error(
-                        format!("Cannot declare property '{prop_name}' when a function with the same name exists"),
-                        &prop_decl.DeclaredIdentifier().child_token(SyntaxKind::Identifier).unwrap(),
-                    );
-                    continue;
-                }
-                _ => {
-                    diag.push_error(
-                        format!("Cannot override property '{unresolved_prop_name}'"),
-                        &prop_decl
-                            .DeclaredIdentifier()
-                            .child_token(SyntaxKind::Identifier)
-                            .unwrap(),
-                    );
-                    continue;
-                }
+                continue;
             }
+            let prop_name = declaration.register(&mut r, &unresolved_prop_name, &name_token, diag);
+            let shadowed_name =
+                (prop_name != unresolved_prop_name).then(|| unresolved_prop_name.clone());
 
             let mut visibility = None;
             for token in prop_decl.children_with_tokens() {
@@ -1575,63 +1793,36 @@ impl Element {
                 }
             }
 
-            let deprecated = prop_decl.PropertyDeprecation().and_then(|deprecation| {
-                if reject_experimental_feature(diag, tr, "@deprecated", &deprecation) {
-                    return None;
-                }
-                if let Some(message) = deprecation.child_token(SyntaxKind::StringLiteral) {
-                    crate::literals::unescape_string(message.text())
-                } else if let Some(qn) = prop_decl
-                    .TwoWayBinding()
-                    .and_then(|twb| twb.Expression().QualifiedName())
-                {
-                    // Keep the full target path (e.g. `a-struct.field`), dropping a leading
-                    // `self`/`root`. The resolving pass checks the target is actually reachable.
-                    let mut segments = qn
-                        .children_with_tokens()
-                        .filter(|t| t.kind() == SyntaxKind::Identifier)
-                        .map(|t| parser::normalize_identifier(t.as_token().unwrap().text()))
-                        .peekable();
-                    if segments.peek().is_some_and(|s| matches!(s.as_str(), "self" | "root")) {
-                        segments.next();
-                    }
-                    let path = segments.collect::<Vec<_>>().join(".");
-                    (!path.is_empty()).then(|| format_smolstr!("Please use '{path}' instead"))
-                } else {
-                    diag.push_error(
-                        "@deprecated without a message requires a two-way binding to derive the replacement from".into(),
-                        &deprecation,
-                    );
-                    None
-                }
-            });
+            let deprecated = member_deprecation(
+                prop_decl.PropertyDeprecation(),
+                DeprecationHint::TwoWayBinding(
+                    prop_decl.TwoWayBinding().and_then(|twb| twb.Expression().QualifiedName()),
+                ),
+                tr,
+                diag,
+            );
 
-            // Use the name as declared, not the resolved name: when the declaration
-            // shadows a builtin member, the resolved name may be a native alias.
             r.property_declarations.insert(
-                unresolved_prop_name.clone(),
+                prop_name.clone(),
                 PropertyDeclaration {
                     property_type: prop_type,
                     node: Some(prop_decl.clone().into()),
                     visibility,
-                    shadows_builtin,
+                    shadowed_name,
+                    shadowable: shadowable_attribute(prop_decl.ShadowableAttribute(), tr, diag),
                     deprecated,
                     ..Default::default()
                 },
             );
 
             if let Some(csn) = prop_decl.BindingExpression() {
-                property_bindings.push((
-                    unresolved_prop_name.clone(),
-                    csn,
-                    prop_decl.DeclaredIdentifier(),
-                ));
+                property_bindings.push((prop_name.clone(), csn, prop_decl.DeclaredIdentifier()));
             }
 
             if let Some(csn) = prop_decl.TwoWayBinding() {
                 #[cfg(feature = "slint-sc")]
                 diag.slint_sc_error("Two-way bindings are", &csn);
-                two_way_bindings.push((unresolved_prop_name, csn, prop_decl.DeclaredIdentifier()));
+                two_way_bindings.push((prop_name, csn, prop_decl.DeclaredIdentifier()));
             }
         }
 
@@ -1711,39 +1902,49 @@ impl Element {
                 }
             }
 
-            let PropertyLookupResult {
-                resolved_name: existing_name,
-                property_type: maybe_existing_prop_type,
-                is_shadowable,
-                ..
-            } = r.lookup_property(&name);
-            // When the declaration shadows a shadowable builtin member, proceed;
-            // the check_builtin_shadowing pass emits the diagnostic
-            let shadows_builtin = !matches!(maybe_existing_prop_type, Type::Invalid);
-            if shadows_builtin && !is_shadowable {
-                if matches!(maybe_existing_prop_type, Type::Callback { .. }) {
-                    if r.property_declarations.contains_key(&name) {
+            let declaration = r.member_declaration(&name);
+            if let MemberDeclaration::Conflict { existing_type, declared_in } = &declaration {
+                if matches!(existing_type, Type::Callback { .. }) {
+                    // Already declared on this very element, rather than inherited
+                    if r.declaration(&name).is_some() {
                         diag.push_error(
                             "Duplicated callback declaration".into(),
                             &sig_decl.DeclaredIdentifier(),
                         );
                     } else {
                         diag.push_error(
-                            format!("Cannot override callback '{existing_name}'"),
+                            cannot_override_message(Some("callback"), &name, declared_in),
                             &sig_decl.DeclaredIdentifier(),
                         )
                     }
                 } else {
                     diag.push_error(
                         format!(
-                            "Cannot declare callback '{existing_name}' when a {} with the same name exists",
-                            if matches!(maybe_existing_prop_type, Type::Function { .. }) { "function" } else { "property" }
+                            "Cannot declare callback '{name}' when a {} with the same name exists",
+                            if matches!(existing_type, Type::Function { .. }) {
+                                "function"
+                            } else {
+                                "property"
+                            }
                         ),
                         &sig_decl.DeclaredIdentifier(),
                     );
                 }
                 continue;
             }
+            let shadowable = shadowable_attribute(sig_decl.ShadowableAttribute(), tr, diag);
+            let deprecated = member_deprecation(
+                sig_decl.PropertyDeprecation(),
+                DeprecationHint::TwoWayBinding(
+                    sig_decl.TwoWayBinding().and_then(|twb| twb.Expression().QualifiedName()),
+                ),
+                tr,
+                diag,
+            );
+            let source_name = name;
+            let name =
+                declaration.register(&mut r, &source_name, &sig_decl.DeclaredIdentifier(), diag);
+            let shadowed_name = (name != source_name).then_some(source_name);
 
             if let Some(csn) = sig_decl.TwoWayBinding() {
                 #[cfg(feature = "slint-sc")]
@@ -1758,7 +1959,9 @@ impl Element {
                         node: Some(sig_decl.into()),
                         visibility: PropertyVisibility::InOut,
                         pure,
-                        shadows_builtin,
+                        shadowed_name,
+                        shadowable,
+                        deprecated,
                         ..Default::default()
                     },
                 );
@@ -1792,7 +1995,9 @@ impl Element {
                     node: Some(sig_decl.into()),
                     visibility: PropertyVisibility::InOut,
                     pure,
-                    shadows_builtin,
+                    shadowed_name,
+                    shadowable,
+                    deprecated,
                     ..Default::default()
                 },
             );
@@ -1804,30 +2009,24 @@ impl Element {
             let name =
                 unwrap_or_continue!(parser::identifier_text(&func.DeclaredIdentifier()); diag);
 
-            let PropertyLookupResult {
-                resolved_name: existing_name,
-                property_type: maybe_existing_prop_type,
-                is_shadowable,
-                ..
-            } = r.lookup_property(&name);
-            // When the declaration shadows a shadowable builtin member, proceed;
-            // the check_builtin_shadowing pass emits the diagnostic
-            let shadows_builtin = !matches!(maybe_existing_prop_type, Type::Invalid);
-            if shadows_builtin && !is_shadowable {
-                if matches!(maybe_existing_prop_type, Type::Callback { .. } | Type::Function { .. })
-                {
+            let member_decl = r.member_declaration(&name);
+            if let MemberDeclaration::Conflict { existing_type, declared_in } = &member_decl {
+                if matches!(existing_type, Type::Callback { .. } | Type::Function { .. }) {
                     diag.push_error(
-                        format!("Cannot override '{existing_name}'"),
+                        cannot_override_message(None, &name, declared_in),
                         &func.DeclaredIdentifier(),
                     )
                 } else {
                     diag.push_error(
-                        format!("Cannot declare function '{existing_name}' when a property with the same name exists"),
+                        format!("Cannot declare function '{name}' when a property with the same name exists"),
                         &func.DeclaredIdentifier(),
                     );
                 }
                 continue;
             }
+            let source_name = name;
+            let name = member_decl.register(&mut r, &source_name, &func.DeclaredIdentifier(), diag);
+            let shadowed_name = (name != source_name).then_some(source_name);
 
             let mut args = Vec::new();
             let mut arg_names = Vec::new();
@@ -1879,7 +2078,14 @@ impl Element {
                 node: Some(func.clone().into()),
                 visibility,
                 pure,
-                shadows_builtin,
+                shadowed_name,
+                shadowable: shadowable_attribute(func.ShadowableAttribute(), tr, diag),
+                deprecated: member_deprecation(
+                    func.PropertyDeprecation(),
+                    DeprecationHint::MessageRequired,
+                    tr,
+                    diag,
+                ),
                 ..Default::default()
             };
 
@@ -1916,7 +2122,8 @@ impl Element {
 
         for con_node in node.CallbackConnection() {
             let unresolved_name = unwrap_or_continue!(parser::identifier_text(&con_node); diag);
-            let lookup_result = r.lookup_property(&unresolved_name);
+            let lookup_result =
+                r.lookup_property(&unresolved_name, PropertyLookupMode::ComponentLocal);
             #[cfg(feature = "slint-sc")]
             {
                 // A callback declared in the file is in the subset by construction;
@@ -1932,7 +2139,7 @@ impl Element {
                 // so a handler here would be a second answer to one invocation.
                 if is_component_root
                     && r.property_declarations
-                        .get(&*lookup_result.resolved_name)
+                        .get(lookup_result.internal_or_resolved_name().as_str())
                         .is_some_and(|d| d.node.is_some())
                 {
                     diag.slint_sc_error(
@@ -1944,7 +2151,12 @@ impl Element {
                     diag.slint_sc_error("Callback handler parameters are", &param);
                 }
             }
-            let PropertyLookupResult { resolved_name, property_type, .. } = lookup_result;
+            // Setting a handler on a deprecated callback from outside the declaring component warns,
+            // like assigning a deprecated property does.
+            let deprecation =
+                lookup_result.deprecated.clone().filter(|_| !lookup_result.is_local_to_component);
+            let resolved_name = lookup_result.internal_or_resolved_name();
+            let property_type = lookup_result.property_type;
             if let Type::Callback(callback) = &property_type {
                 let num_arg = con_node.DeclaredIdentifier().count();
                 if num_arg > callback.args.len() {
@@ -1969,7 +2181,14 @@ impl Element {
                 }
                 continue;
             }
-            match r.bindings.0.entry(resolved_name.into()) {
+            if let Some(message) = &deprecation {
+                diag.push_property_deprecation_warning_with_message(
+                    &unresolved_name,
+                    message,
+                    &con_node.child_token(SyntaxKind::Identifier).unwrap(),
+                );
+            }
+            match r.bindings.0.entry(resolved_name) {
                 Entry::Vacant(e) => {
                     e.insert(BindingExpression::new_uncompiled(con_node.clone().into()).into());
                 }
@@ -2019,12 +2238,16 @@ impl Element {
                         if r.base_type == ElementType::Error {
                             continue;
                         };
-                        let lookup_result = r.lookup_property(unresolved_prop_name);
+                        let lookup_result = r.lookup_property(
+                            unresolved_prop_name,
+                            PropertyLookupMode::ComponentLocal,
+                        );
                         let valid_assign = lookup_result.is_valid_for_assignment();
+                        let binding_name = lookup_result.internal_or_resolved_name();
                         if let Some(anim_element) = animation_element_from_node(
                             &anim,
                             &prop_name_token,
-                            lookup_result.property_type,
+                            lookup_result.property_type.clone(),
                             diag,
                             tr,
                         ) {
@@ -2056,11 +2279,8 @@ impl Element {
                                 );
                             }
 
-                            let expr_binding = r
-                                .bindings
-                                .0
-                                .entry(lookup_result.resolved_name.into())
-                                .or_insert_with(|| {
+                            let expr_binding =
+                                r.bindings.0.entry(binding_name).or_insert_with(|| {
                                     let mut r = BindingExpression::from(Expression::Invalid);
                                     r.priority = 1;
                                     r.span = Some(prop_name_token.to_source_location());
@@ -2088,7 +2308,7 @@ impl Element {
             #[cfg(feature = "slint-sc")]
             diag.slint_sc_error("Change callbacks are", &ch);
             let Some(prop) = parser::identifier_text(&ch.DeclaredIdentifier()) else { continue };
-            let lookup_result = r.lookup_property(&prop);
+            let lookup_result = r.lookup_property(&prop, PropertyLookupMode::ComponentLocal);
             if !lookup_result.is_valid() {
                 if r.base_type != ElementType::Error {
                     diag.push_error(
@@ -2117,13 +2337,13 @@ impl Element {
                 );
             }
             let handler = Expression::Uncompiled(ch.clone().into());
-            match r.change_callbacks.entry(prop) {
+            match r.change_callbacks.entry(lookup_result.internal_or_resolved_name()) {
                 Entry::Vacant(e) => {
                     e.insert(vec![handler].into());
                 }
                 Entry::Occupied(mut e) => {
                     diag.push_error(
-                        format!("Duplicated change callback on '{}'", e.key()),
+                        format!("Duplicated change callback on '{prop}'"),
                         &ch.DeclaredIdentifier(),
                     );
                     e.get_mut().get_mut().push(handler);
@@ -2308,7 +2528,7 @@ impl Element {
                 r.borrow_mut().children.push(rep);
             } else if se.kind() == SyntaxKind::MatchElement {
                 let mut sub_child_insertion_points = BTreeMap::new();
-                let rep = Element::from_match_node(
+                let match_element = Element::from_match_node(
                     se.into(),
                     r.borrow().base_type.clone(),
                     &mut sub_child_insertion_points,
@@ -2323,7 +2543,9 @@ impl Element {
                     sub_child_insertion_points,
                     "a match element",
                 );
-                r.borrow_mut().children.extend(rep);
+                let mut r = r.borrow_mut();
+                r.children.extend(match_element.elements());
+                r.match_elements.push(match_element);
             } else if se.kind() == SyntaxKind::ChildrenPlaceholder {
                 #[cfg(feature = "slint-sc")]
                 diag.slint_sc_error("The @children placeholder is", &se);
@@ -2640,7 +2862,7 @@ impl Element {
                     "visible-width",
                 ]
                 .iter()
-                .all(|p| parent.lookup_property(p).property_type == Type::LogicalLength)
+                .all(|p| parent.lookup_property(p, PropertyLookupMode::InternalName).property_type == Type::LogicalLength)
         };
         let is_listview = if parent_is_listview
             && let Some(geometry_props) = e.borrow().geometry_props.as_ref()
@@ -2734,67 +2956,23 @@ impl Element {
         is_in_legacy_component: bool,
         diag: &mut BuildDiagnostics,
         tr: &TypeRegister,
-    ) -> Vec<ElementRc> {
+    ) -> MatchElementInfo {
         if !diag.enable_experimental {
-            diag.push_error("match statements are an experimental feature".into(), &node);
+            diag.push_error("match elements are an experimental feature".into(), &node);
         }
-        let mut cases: Vec<ElementRc> = Vec::new();
-        let expr = node.Expression();
-        for case in node.MatchCase() {
-            let Some(sub_element) = case.SubElement() else {
-                continue;
-            };
-            let rei = RepeatedElementInfo {
-                model: Expression::BinaryExpression {
-                    lhs: (Box::new(Expression::Uncompiled(expr.clone().into()))),
-                    rhs: Box::new(Expression::Uncompiled(case.Expression().into())),
-                    op: '=',
-                },
-                model_data_id: SmolStr::default(),
-                index_id: SmolStr::default(),
-                is_conditional_element: true,
-                is_listview: None,
-            };
-            let e: Rc<RefCell<Element>> = Element::from_sub_element_node(
-                sub_element,
-                parent_type.clone(),
-                component_child_insertion_points,
-                declared_slots,
-                is_in_legacy_component,
-                diag,
-                tr,
-            );
-            e.borrow_mut().repeated = Some(rei);
-            cases.push(e);
+        if node.MatchCase().next().is_none() && node.WildcardMatchCase().is_none() {
+            diag.push_error("Expected at least one case".into(), &node);
         }
         if let Some(wildcard) = node.WildcardMatchCase()
-            && let Some(sub_element) = wildcard.SubElement()
+            && node.MatchCase().next().is_none()
         {
-            let case_exprs: Vec<_> = node.MatchCase().collect();
-            let mut condition = Expression::BinaryExpression {
-                lhs: Box::new(Expression::Uncompiled(expr.clone().into())),
-                rhs: Box::new(Expression::Uncompiled(case_exprs[0].Expression().into())),
-                op: '!',
-            };
-            for case in &case_exprs[1..] {
-                condition = Expression::BinaryExpression {
-                    lhs: Box::new(condition),
-                    rhs: Box::new(Expression::BinaryExpression {
-                        lhs: Box::new(Expression::Uncompiled(expr.clone().into())),
-                        rhs: Box::new(Expression::Uncompiled(case.Expression().into())),
-                        op: '!',
-                    }),
-                    op: '&',
-                };
-            }
-            let rei = RepeatedElementInfo {
-                model: condition,
-                model_data_id: SmolStr::default(),
-                index_id: SmolStr::default(),
-                is_conditional_element: true,
-                is_listview: None,
-            };
-            let e = Element::from_sub_element_node(
+            diag.push_warning(
+                "Unnecessary match statement always matches the '*' case".into(),
+                &wildcard,
+            );
+        }
+        let mut element_of = |sub_element| {
+            Element::from_sub_element_node(
                 sub_element,
                 parent_type.clone(),
                 component_child_insertion_points,
@@ -2802,38 +2980,33 @@ impl Element {
                 is_in_legacy_component,
                 diag,
                 tr,
-            );
-            e.borrow_mut().repeated = Some(rei);
-            cases.push(e);
+            )
+        };
+        // A case without a sub element is an empty case that shows nothing
+        let cases = node
+            .MatchCase()
+            .map(|case| {
+                let node = case.Expression();
+                MatchCaseInfo {
+                    value: Expression::Uncompiled(node.clone().into()),
+                    node,
+                    element: case.SubElement().map(&mut element_of),
+                }
+            })
+            .collect();
+        let wildcard = match node.WildcardMatchCase() {
+            None => WildcardMatchCaseInfo::None,
+            Some(w) => match w.SubElement().map(&mut element_of) {
+                None => WildcardMatchCaseInfo::Empty,
+                Some(element) => WildcardMatchCaseInfo::Element(element),
+            },
+        };
+        MatchElementInfo {
+            subject: Expression::Uncompiled(node.Expression().into()),
+            node,
+            cases,
+            wildcard,
         }
-        cases
-    }
-
-    /// Return the type of a property in this element or its base, along with the final name, in case
-    /// the provided name points towards a property alias. Type::Invalid is returned if the property does
-    /// not exist.
-    pub fn lookup_property<'a>(&self, name: &'a str) -> PropertyLookupResult<'a> {
-        self.property_declarations.get(name).map_or_else(
-            || {
-                let mut r = self.base_type.lookup_property(name);
-                r.is_in_direct_base = r.is_local_to_component;
-                r.is_local_to_component = false;
-                r
-            },
-            |p| PropertyLookupResult {
-                resolved_name: name.into(),
-                property_type: p.property_type.clone(),
-                property_visibility: p.visibility,
-                declared_pure: p.pure,
-                is_local_to_component: true,
-                is_in_direct_base: false,
-                is_shadowable: false,
-                builtin_function: None,
-                #[cfg(feature = "slint-sc")]
-                is_slint_sc: false,
-                deprecated: p.deprecated.clone(),
-            },
-        )
     }
 
     /// Whether the member is declared in the source, on this element or on the
@@ -2841,12 +3014,161 @@ impl Element {
     /// builtin element. Follows the same chain as [`Self::lookup_property`].
     #[cfg(feature = "slint-sc")]
     pub fn is_user_declared_member(&self, name: &str) -> bool {
-        match self.property_declarations.get(name) {
-            Some(declaration) => declaration.node.is_some(),
+        match self.declaration(name) {
+            Some((_, declaration)) => declaration.node.is_some(),
             None => match &self.base_type {
                 ElementType::Component(c) => c.root_element.borrow().is_user_declared_member(name),
                 _ => false,
             },
+        }
+    }
+
+    /// Resolve `name` in the given [`PropertyLookupMode`], following aliases; `Type::Invalid` if absent.
+    /// For a shadowing member the result's `internal_name` carries its storage key.
+    pub fn lookup_property<'a>(
+        &self,
+        name: &'a str,
+        mode: PropertyLookupMode,
+    ) -> PropertyLookupResult<'a> {
+        let declaration = match mode {
+            PropertyLookupMode::InternalName => self.property_declarations.get_key_value(name),
+            PropertyLookupMode::ComponentLocal | PropertyLookupMode::FromOutside => {
+                self.declaration(name)
+            }
+        };
+        if let Some((internal_name, decl)) = declaration {
+            if mode == PropertyLookupMode::FromOutside && decl.is_private_shadow() {
+                return from_base(
+                    self.base_type.lookup_property(name, PropertyLookupMode::FromOutside),
+                );
+            }
+            let mut r = self.lookup_result_for_declaration(name.into(), decl);
+            if internal_name != name {
+                r.internal_name = Some(internal_name.clone());
+            }
+            return r;
+        }
+        // A base component's private members are invisible from here.
+        let base_mode = match mode {
+            PropertyLookupMode::InternalName => PropertyLookupMode::InternalName,
+            _ => PropertyLookupMode::FromOutside,
+        };
+        from_base(self.base_type.lookup_property(name, base_mode))
+    }
+
+    /// The declaration for a member written as `name` in `.slint` source, with its internal key.
+    /// A mangled key is private: it is reachable only through `shadowing_members`, never as a source
+    /// name.
+    pub fn declaration(&self, name: &str) -> Option<(&SmolStr, &PropertyDeclaration)> {
+        if let Some(internal_name) = self.shadowing_members.get(name) {
+            return self.property_declarations.get_key_value(internal_name);
+        }
+        self.property_declarations.get_key_value(name).filter(|(_, d)| d.shadowed_name.is_none())
+    }
+
+    /// Source names of shadowing declarations that are visible from outside the component, so they
+    /// hide the inherited member of the same name. A private shadow is excluded: it stays transparent
+    /// from outside, leaving the inherited member reachable there.
+    pub fn visible_shadowing_members(&self) -> impl Iterator<Item = &SmolStr> {
+        self.shadowing_members.iter().filter_map(|(source, internal)| {
+            self.property_declarations
+                .get(internal)
+                .filter(|d| !d.is_private_shadow())
+                .map(|_| source)
+        })
+    }
+
+    /// How a declaration of `name` relates to a member of the same name already reachable here.
+    /// See [`MemberDeclaration`].
+    fn member_declaration(&self, name: &SmolStr) -> MemberDeclaration {
+        // A prior shadow's mangled key is private, so this declaration may take the source name and
+        // get a fresh key of its own.
+        if self.property_declarations.get(name.as_str()).is_some_and(|d| d.shadowed_name.is_some())
+        {
+            return MemberDeclaration::Shadow {
+                internal_name: self.unique_member_name(name),
+                warning: None,
+            };
+        }
+        let existing = self.lookup_property(name, PropertyLookupMode::ComponentLocal);
+        if !existing.is_valid() {
+            return MemberDeclaration::New;
+        }
+        if existing.is_local_to_component {
+            return MemberDeclaration::Conflict {
+                existing_type: existing.property_type,
+                declared_in: None,
+            };
+        }
+        let declared_in = self.declaring_base_component(name);
+        // A private member of a base component isn't visible here, so shadowing it can't
+        // surprise anyone. Anything else has to be opted into by the base declaration.
+        let private =
+            declared_in.is_some() && existing.property_visibility == PropertyVisibility::Private;
+        if !private && !existing.is_shadowable {
+            return MemberDeclaration::Conflict {
+                existing_type: existing.property_type,
+                declared_in,
+            };
+        }
+        let origin = if declared_in.is_some() { "inherited" } else { "builtin" };
+        MemberDeclaration::Shadow {
+            internal_name: self.unique_member_name(name),
+            warning: (!private).then(|| {
+                let kind = match existing.property_type {
+                    Type::Callback { .. } => "callback",
+                    Type::Function { .. } => "function",
+                    _ => "property",
+                };
+                format!("'{name}' shadows the {origin} {kind} of the same name")
+            }),
+        }
+    }
+
+    /// A name derived from `base` that no member reachable from this element uses.
+    pub fn unique_member_name(&self, base: &str) -> SmolStr {
+        (1..)
+            .map(|counter| format_smolstr!("{base}-{counter}"))
+            .find(|n| !self.lookup_property(n, PropertyLookupMode::InternalName).is_valid())
+            .unwrap()
+    }
+
+    /// The base component whose root element declares `name`, if any. `None` when the member comes
+    /// from a builtin element or doesn't exist.
+    fn declaring_base_component(&self, name: &str) -> Option<Rc<Component>> {
+        let mut base = self.base_type.clone();
+        loop {
+            let ElementType::Component(c) = base else { return None };
+            let declares = {
+                let root = c.root_element.borrow();
+                root.shadowing_members.contains_key(name)
+                    || root.property_declarations.contains_key(name)
+            };
+            if declares {
+                return Some(c);
+            }
+            base = c.root_element.borrow().base_type.clone();
+        }
+    }
+
+    fn lookup_result_for_declaration<'a>(
+        &self,
+        resolved_name: std::borrow::Cow<'a, str>,
+        p: &PropertyDeclaration,
+    ) -> PropertyLookupResult<'a> {
+        PropertyLookupResult {
+            resolved_name,
+            property_type: p.property_type.clone(),
+            property_visibility: p.visibility,
+            declared_pure: p.pure,
+            is_local_to_component: true,
+            is_in_direct_base: false,
+            is_shadowable: p.shadowable,
+            builtin_function: None,
+            #[cfg(feature = "slint-sc")]
+            is_slint_sc: false,
+            deprecated: p.deprecated.clone(),
+            internal_name: None,
         }
     }
 
@@ -2858,7 +3180,8 @@ impl Element {
     ) {
         for (name_token, b) in bindings {
             let unresolved_name = crate::parser::normalize_identifier(name_token.text());
-            let lookup_result = self.lookup_property(&unresolved_name);
+            let lookup_result =
+                self.lookup_property(&unresolved_name, PropertyLookupMode::ComponentLocal);
             #[cfg(feature = "slint-sc")]
             if lookup_result.is_valid() && !lookup_result.is_slint_sc {
                 diag.slint_sc_error(&format!("The property '{unresolved_name}' is"), &name_token);
@@ -2928,7 +3251,7 @@ impl Element {
                 );
             }
 
-            match self.bindings.0.entry(lookup_result.resolved_name.into()) {
+            match self.bindings.0.entry(lookup_result.internal_or_resolved_name()) {
                 Entry::Occupied(_) => {
                     diag.push_error("Duplicated property binding".into(), &name_token);
                 }
@@ -2937,6 +3260,14 @@ impl Element {
                 }
             };
         }
+    }
+
+    /// Return the node declaring `name` in this element or one of its bases, if there is one.
+    pub fn property_declaration_node(&self, name: &str) -> Option<SyntaxNode> {
+        self.property_declarations
+            .get(name)
+            .and_then(|declaration| declaration.node.clone())
+            .or_else(|| self.base_type.property_declaration_node(name))
     }
 
     fn slot_forwarding_expr_identifier(expression: &SyntaxNode) -> Option<SmolStr> {
@@ -3128,6 +3459,11 @@ impl Element {
             .and_then(|n| n.node.child_token(parser::SyntaxKind::Identifier))
             .map(|n| n.to_smolstr())
             .unwrap_or_else(|| self.id.clone())
+    }
+
+    /// Whether the children of this element are dynamically sorted by their z value
+    pub fn has_dynamic_z_order(&self) -> bool {
+        self.children.iter().any(|c| c.borrow().z_order.is_some())
     }
 
     /// Return true if the binding is set, either on this element or in a base
@@ -3649,7 +3985,9 @@ fn lookup_property_from_qualified_name_for_state(
     let qualname = QualifiedTypeName::from_node(node.clone());
     match qualname.members.as_slice() {
         [unresolved_prop_name] => {
-            let lookup_result = r.borrow().lookup_property(unresolved_prop_name.as_ref());
+            let lookup_result = r
+                .borrow()
+                .lookup_property(unresolved_prop_name.as_ref(), PropertyLookupMode::ComponentLocal);
             if !lookup_result.property_type.is_property_type() {
                 diag.push_error(format!("'{qualname}' is not a valid property"), &node);
             } else if !lookup_result.is_valid_for_assignment() {
@@ -3662,13 +4000,16 @@ fn lookup_property_from_qualified_name_for_state(
                 );
             }
             Some((
-                NamedReference::new(r, lookup_result.resolved_name.to_smolstr()),
+                NamedReference::new(r, lookup_result.internal_or_resolved_name()),
                 lookup_result.property_type,
             ))
         }
         [elem_id, unresolved_prop_name] => {
             if let Some(element) = find_element_by_id(r, elem_id.as_ref()) {
-                let lookup_result = element.borrow().lookup_property(unresolved_prop_name.as_ref());
+                let lookup_result = element.borrow().lookup_property(
+                    unresolved_prop_name.as_ref(),
+                    PropertyLookupMode::ComponentLocal,
+                );
                 if !lookup_result.is_valid() {
                     diag.push_error(
                         format!("'{unresolved_prop_name}' not found in '{elem_id}'"),
@@ -3684,7 +4025,7 @@ fn lookup_property_from_qualified_name_for_state(
                     );
                 }
                 Some((
-                    NamedReference::new(&element, lookup_result.resolved_name.to_smolstr()),
+                    NamedReference::new(&element, lookup_result.internal_or_resolved_name()),
                     lookup_result.property_type,
                 ))
             } else {
@@ -3865,7 +4206,7 @@ pub fn visit_element_expressions_excluding_repeater_model(
     ) {
         for (name, expr) in elem.borrow().bindings_including_synthetic() {
             vis(&mut expr.borrow_mut(), Some(name.as_str()), &|| {
-                elem.borrow().lookup_property(name).property_type
+                elem.borrow().lookup_property(name, PropertyLookupMode::InternalName).property_type
             });
 
             for twb in &mut expr.borrow_mut().two_way_bindings {
@@ -3907,7 +4248,10 @@ pub fn visit_element_expressions_excluding_repeater_model(
         }
         for (ne, e, _) in &mut s.property_changes {
             vis(e, Some(ne.name()), &|| {
-                ne.element().borrow().lookup_property(ne.name()).property_type
+                ne.element()
+                    .borrow()
+                    .lookup_property(ne.name(), PropertyLookupMode::InternalName)
+                    .property_type
             });
         }
     }
@@ -4048,6 +4392,14 @@ pub fn visit_all_named_references_in_element(
         vis(&mut geometry_props.width);
         vis(&mut geometry_props.height);
         elem.borrow_mut().geometry_props = Some(geometry_props);
+    }
+
+    let z_order = elem.borrow_mut().z_order.take();
+    if let Some(mut zo) = z_order {
+        if let ZOrder::Dynamic(ref mut nr) | ZOrder::PerInstance(ref mut nr) = zo {
+            vis(nr);
+        }
+        elem.borrow_mut().z_order = Some(zo);
     }
 
     // visit two way bindings
@@ -4606,6 +4958,8 @@ pub fn adjust_geometry_for_injected_parent(injected_parent: &ElementRc, old_elem
     let mut old_elem_mut = old_elem.borrow_mut();
     injected_parent_mut.default_fill_parent = std::mem::take(&mut old_elem_mut.default_fill_parent);
     injected_parent_mut.geometry_props.clone_from(&old_elem_mut.geometry_props);
+    // The injected element takes the old element's place among the z-sorted siblings
+    injected_parent_mut.z_order = old_elem_mut.z_order.take();
     drop(injected_parent_mut);
     old_elem_mut.geometry_props.as_mut().unwrap().x =
         NamedReference::new(injected_parent, SmolStr::new_static("dummy"));

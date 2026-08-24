@@ -1117,6 +1117,11 @@ fn embed_resource(
 ) {
     match &resource.kind {
         crate::embedded_resources::EmbeddedResourcesKind::ListOnly => {}
+        // Only the slint-sc generator produces these resources.
+        #[cfg(feature = "slint-sc")]
+        crate::embedded_resources::EmbeddedResourcesKind::StaticPixels { .. } => {
+            unreachable!("slint-sc resources in the C++ generator")
+        }
         crate::embedded_resources::EmbeddedResourcesKind::FileData => {
             let resource_file = crate::fileaccess::load_file(std::path::Path::new(
                 resource.path.as_deref().unwrap(),
@@ -1652,9 +1657,14 @@ fn generate_item_tree(
 
     let mut item_tree_array: Vec<String> = Default::default();
     let mut item_array: Vec<String> = Default::default();
+    let mut z_sorted_nodes: Vec<(usize, &llr::TreeNode)> = Vec::new();
 
     sub_tree.tree.visit_in_array(&mut |node, children_offset, parent_index| {
         let parent_index = parent_index as u32;
+
+        if node.z_sort_order_property.is_some() {
+            z_sorted_nodes.push((item_tree_array.len(), node));
+        }
 
         match node.item_index {
             Either::Right(mut repeater_index) => {
@@ -1709,7 +1719,7 @@ fn generate_item_tree(
     });
 
     let mut visit_children_statements = vec![
-        "static const auto dyn_visit = [] (const void *base,  [[maybe_unused]] slint::private_api::TraversalOrder order, [[maybe_unused]] slint::private_api::ItemVisitorRefMut visitor, [[maybe_unused]] uint32_t dyn_index) -> uint64_t {".to_owned(),
+        "static const auto dyn_visit = [] (const void *base,  [[maybe_unused]] slint::private_api::TraversalOrder order, [[maybe_unused]] slint::private_api::ItemVisitorRefMut visitor, [[maybe_unused]] uint32_t dyn_index, [[maybe_unused]] uint32_t instance) -> uint64_t {".to_owned(),
         format!("    [[maybe_unused]] auto self = reinterpret_cast<const {}*>(base);", item_tree_class_name)];
     let mut subtree_range_statement = vec!["    std::abort();".into()];
     let mut subtree_component_statement = vec!["    std::abort();".into()];
@@ -1717,8 +1727,10 @@ fn generate_item_tree(
     if target_struct.members.iter().any(|(_, declaration)| {
         matches!(&declaration, Declaration::Function(func @ Function { .. }) if func.name == "visit_dynamic_children")
     }) {
-        visit_children_statements
-            .push("    return self->visit_dynamic_children(dyn_index, order, visitor);".into());
+        visit_children_statements.push(
+            "    return self->visit_dynamic_children(dyn_index, order, visitor, instance);"
+                .into(),
+        );
         subtree_range_statement = vec![
                 format!("auto self = reinterpret_cast<const {}*>(component.instance);", item_tree_class_name),
                 "return self->subtree_range(dyn_index);".to_owned(),
@@ -1733,9 +1745,87 @@ fn generate_item_tree(
 
     visit_children_statements.extend([
         "};".into(),
-        format!("auto self_rc = reinterpret_cast<const {item_tree_class_name}*>(component.instance)->self_weak.lock()->into_dyn();"),
-        "return slint::cbindgen_private::slint_visit_item_tree(&self_rc, get_item_tree(component) , index, order, visitor, dyn_visit);".to_owned(),
+        format!("auto self = reinterpret_cast<const {item_tree_class_name}*>(component.instance);"),
+        "auto self_rc = self->self_weak.lock()->into_dyn();".into(),
     ]);
+
+    if !z_sorted_nodes.is_empty() {
+        let ctx = EvaluationContext::new_sub_component(
+            root,
+            sub_tree.root,
+            CppGeneratorContext { global_access: "self->globals".into(), conditional_includes },
+            parent_ctx,
+        );
+        visit_children_statements.push("switch (index) {".into());
+        for (node_idx, node) in &z_sorted_nodes {
+            let sources = node.z_sort_order_property.as_ref().unwrap();
+            let compile_z = |e: &llr::MutExpression| {
+                format!("float({})", compile_expression(&e.borrow(), &ctx))
+            };
+            visit_children_statements.push(format!("case {node_idx}: {{"));
+            if sources.iter().any(|s| matches!(s, llr::ZSource::RepeaterInstances)) {
+                // Repeated children are expanded to one entry per instance, so the
+                // number of entries is only known at runtime
+                visit_children_statements
+                    .push("    std::vector<slint::cbindgen_private::ZSortedChild> sorted;".into());
+                for (k, (source, child)) in sources.iter().zip(&node.children).enumerate() {
+                    match source {
+                        llr::ZSource::Expression(e) => {
+                            let e = compile_z(e);
+                            visit_children_statements.push(format!(
+                                "    sorted.push_back({{ {e}, {k}, std::numeric_limits<uint32_t>::max() }});"
+                            ));
+                        }
+                        llr::ZSource::RepeaterInstances => {
+                            let Either::Right(repeater_index) = child.item_index else {
+                                unreachable!("per-instance z is only set on repeated children")
+                            };
+                            let (compo_path, _) = follow_sub_component_path(
+                                root,
+                                sub_tree.root,
+                                &child.sub_component_path,
+                            );
+                            visit_children_statements.push(format!(
+                                "    self->{compo_path}repeater_{repeater_index}.for_each_instance_z([&](uint32_t instance, float z) {{ sorted.push_back({{ z, {k}, instance }}); }});"
+                            ));
+                        }
+                    }
+                }
+                visit_children_statements.push(
+                    "    slint::cbindgen_private::slint_sort_z_entries(sorted.data(), sorted.size());".into(),
+                );
+                visit_children_statements.push(
+                    "    return slint::cbindgen_private::slint_visit_item_tree_with_sorted_children(&self_rc, get_item_tree(component), index, order, visitor, dyn_visit, slint::cbindgen_private::Slice<slint::cbindgen_private::ZSortedChild>{sorted.data(), sorted.size()});".into(),
+                );
+            } else {
+                let count = sources.len();
+                let entries: Vec<String> = sources
+                    .iter()
+                    .map(|source| {
+                        let llr::ZSource::Expression(e) = source else { unreachable!() };
+                        compile_z(e)
+                    })
+                    .enumerate()
+                    .map(|(k, e)| format!("{{ {e}, {k}, std::numeric_limits<uint32_t>::max() }}"))
+                    .collect();
+                let entries = entries.join(", ");
+                visit_children_statements.push(format!(
+                    "    slint::cbindgen_private::ZSortedChild sorted[{count}] = {{{entries}}};"
+                ));
+                visit_children_statements.push(format!(
+                    "    slint::cbindgen_private::slint_sort_z_entries(sorted, {count});"
+                ));
+                visit_children_statements.push(format!(
+                    "    return slint::cbindgen_private::slint_visit_item_tree_with_sorted_children(&self_rc, get_item_tree(component), index, order, visitor, dyn_visit, slint::cbindgen_private::Slice<slint::cbindgen_private::ZSortedChild>{{sorted, {count}}});"
+                ));
+            }
+            visit_children_statements.push("}".into());
+        }
+        visit_children_statements.push("}".into());
+    }
+    visit_children_statements.push(
+        "return slint::cbindgen_private::slint_visit_item_tree(&self_rc, get_item_tree(component), index, order, visitor, dyn_visit);".into(),
+    );
 
     target_struct.members.push((
         Access::Private,
@@ -2397,7 +2487,7 @@ fn generate_sub_component(
 
             children_visitor_cases.push(format!(
                 "\n        {case_code} {{
-                        return self->{sub_field}.visit_dynamic_children(dyn_index - {repeater_offset}, order, visitor);
+                        return self->{sub_field}.visit_dynamic_children(dyn_index - {repeater_offset}, order, visitor, instance);
                     }}",
             ));
             subtrees_ranges_cases.push(format!(
@@ -2526,7 +2616,7 @@ fn generate_sub_component(
             children_visitor_cases.push(format!(
                 "\n        case {idx}: {{
                 self->{repeater_id}.track_changes_listview({content_w}, {content_h}, &{content_y}, {lv_w}.get(), &{lv_h});
-                return self->{repeater_id}.visit(order, visitor);
+                return self->{repeater_id}.visit_maybe_instance(instance, order, visitor);
             }}",
             ));
             ensure_instantiated_stmts.push(format!(
@@ -2535,7 +2625,7 @@ fn generate_sub_component(
         } else {
             children_visitor_cases.push(format!(
                 "\n        case {idx}: {{
-                return self->{repeater_id}.visit(order, visitor);
+                return self->{repeater_id}.visit_maybe_instance(instance, order, visitor);
             }}",
             ));
             ensure_instantiated_stmts
@@ -2835,7 +2925,7 @@ fn generate_sub_component(
             field_access,
             Declaration::Function(Function {
                 name: "visit_dynamic_children".into(),
-                signature: "(uint32_t dyn_index, [[maybe_unused]] slint::private_api::TraversalOrder order, [[maybe_unused]] slint::private_api::ItemVisitorRefMut visitor) const -> uint64_t".into(),
+                signature: "(uint32_t dyn_index, [[maybe_unused]] slint::private_api::TraversalOrder order, [[maybe_unused]] slint::private_api::ItemVisitorRefMut visitor, [[maybe_unused]] uint32_t instance) const -> uint64_t".into(),
                 statements: Some(vec![
                     "    auto self = this;".to_owned(),
                     format!("    switch(dyn_index) {{ {} }};", children_visitor_cases.join("")),
@@ -3279,6 +3369,22 @@ fn generate_repeated_component(
             ..Function::default()
         }),
     ));
+
+    if let Some(dynamic_z) = &repeated.dynamic_z {
+        let z_value = access_member(dynamic_z, &ctx).map_or_default(|x| format!("{x}.get()"));
+        repeater_struct.members.push((
+            Access::Public, // Because Repeater detects and accesses it
+            Declaration::Function(Function {
+                name: "z_order".into(),
+                signature: "() const -> float".into(),
+                statements: Some(vec![
+                    "[[maybe_unused]] auto self = this;".into(),
+                    format!("return {z_value};"),
+                ]),
+                ..Function::default()
+            }),
+        ));
+    }
 
     if let Some(listview) = &repeated.listview {
         let p_y = access_member(&listview.prop_y, &ctx).unwrap();

@@ -1,0 +1,37 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+// The safety-domain scene in the Slint SC subset: Window and Rectangle only,
+// no Timer, no model. Rust sets the three color properties; see src/lib.rs.
+
+export component MainWindow inherits Window {
+    in property <color> first-color;
+    in property <color> second-color;
+    in property <color> third-color;
+
+    background: #000000;
+
+    first := Rectangle {
+        x: 40px;
+        y: 40px;
+        width: 120px;
+        height: 120px;
+        background: root.first-color;
+    }
+
+    second := Rectangle {
+        x: 200px;
+        y: 40px;
+        width: 120px;
+        height: 120px;
+        background: root.second-color;
+    }
+
+    third := Rectangle {
+        x: 360px;
+        y: 40px;
+        width: 120px;
+        height: 120px;
+        background: root.third-color;
+    }
+}

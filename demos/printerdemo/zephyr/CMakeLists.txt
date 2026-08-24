@@ -14,10 +14,24 @@ if(BOARD STREQUAL "native_sim/native/64")
 elseif(BOARD STREQUAL "mimxrt1170_evk@B/mimxrt1176/cm7")
     set(Rust_CARGO_TARGET "thumbv7em-none-eabihf")
     set(BOARD_CONF_NAME "mimxrt1170_evk_mimxrt1176_cm7")
+elseif(BOARD STREQUAL "rza3m_ek")
+    set(Rust_CARGO_TARGET "aarch64-unknown-none")
+    set(SLINT_LIBRARY_CARGO_FLAGS "-Zbuild-std=core,alloc")
+    set(BOARD_CONF_NAME "rza3m_ek")
+    # The panel is mounted in portrait orientation, so the software renderer turns the user
+    # interface by a quarter. See SLINT_ZEPHYR_PANEL_ROTATION in slint-zephyr.cpp.
+    set(SLINT_ZEPHYR_PANEL_ROTATION 90)
+    # This display driver consumes native endian RGB 565 pixel data.
+    set(SLINT_ZEPHYR_RGB565_NATIVE_ENDIAN 1)
 else()
     # See rustc --print target-list for available targets. Match that up with you supported board
     # https://docs.zephyrproject.org/latest/boards
     message(FATAL_ERROR "Unsupported BOARD option specified: ${BOARD}")
+endif()
+
+# The MIPI display on this shield also consumes native endian RGB 565 pixel data.
+if(SHIELD MATCHES "rk055hdmipi4ma0")
+    set(SLINT_ZEPHYR_RGB565_NATIVE_ENDIAN 1)
 endif()
 
 # Use shared Zephyr configuration from zephyr-common
@@ -33,10 +47,10 @@ endif()
 find_package(Zephyr)
 project(slint_zephyr_printer_demo_mcu LANGUAGES CXX)
 
-set(SLINT_FEATURE_FREESTANDING ON)
-set(SLINT_FEATURE_RENDERER_SOFTWARE ON)
-set(DEFAULT_SLINT_EMBED_RESOURCES "embed-for-software-renderer" CACHE STRING "")
-# set(CMAKE_BUILD_TYPE Release)
+set(SLINT_FEATURE_FREESTANDING ON CACHE BOOL "" FORCE)
+set(SLINT_FEATURE_RENDERER_SOFTWARE ON CACHE BOOL "" FORCE)
+set(SLINT_FEATURE_SDF_FONTS ON CACHE BOOL "" FORCE)
+set(DEFAULT_SLINT_EMBED_RESOURCES "embed-for-software-renderer-with-sdf" CACHE STRING "")
 set(BUILD_SHARED_LIBS OFF)
 
 # Work around gcc_s linker issue?
@@ -49,5 +63,16 @@ add_subdirectory(../../.. slint_build)
 target_sources(app PRIVATE ../../zephyr-common/slint-zephyr.cpp main.cpp)
 target_include_directories(app PRIVATE ../../zephyr-common)
 target_link_libraries(app PRIVATE Slint::Slint)
+
+# How the panel is mounted and whether its driver takes native endian pixel data are board and
+# shield properties; slint-zephyr.cpp defaults both to the Zephyr documented behavior.
+if(DEFINED SLINT_ZEPHYR_PANEL_ROTATION)
+    target_compile_definitions(app PRIVATE
+        SLINT_ZEPHYR_PANEL_ROTATION=${SLINT_ZEPHYR_PANEL_ROTATION})
+endif()
+if(DEFINED SLINT_ZEPHYR_RGB565_NATIVE_ENDIAN)
+    target_compile_definitions(app PRIVATE
+        SLINT_ZEPHYR_RGB565_NATIVE_ENDIAN=${SLINT_ZEPHYR_RGB565_NATIVE_ENDIAN})
+endif()
 
 slint_target_sources(app ../ui/printerdemo.slint)

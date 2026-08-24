@@ -5,10 +5,10 @@ export global Palette {
     in-out property <color> primary: blue;
 
     match primary {
-//  >error{A global component cannot have match statements}
-        Colors.blue: Rectangle { background: orange; }
-        Colors.red: Rectangle { background: green; }
+//  >error{A global component cannot have match elements}
+        blue: Rectangle { background: orange; }
+        red: Rectangle { background: green; }
         *: Rectangle { background: black; }
     }
-//  <error{A global component cannot have match statements}
+//  <error{A global component cannot have match elements}
 }
