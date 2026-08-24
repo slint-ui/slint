@@ -144,6 +144,9 @@ fn resolve_match_elements(
             diag,
         );
         let case_type = match_element.subject.ty();
+        if matches!(case_type, Type::Float32) && !match_element.cases.is_empty() {
+            diag.push_error("Values of type float cannot be matched".into(), &match_element.node);
+        }
         for case in &mut match_element.cases {
             resolve_expression(
                 elem,
@@ -155,7 +158,7 @@ fn resolve_match_elements(
                 type_loader,
                 diag,
             );
-            check_case_value(&case.value, &case.node, &case_type, diag);
+            check_case_value(&case.value, &case.node, diag);
         }
         let values: Vec<Option<CaseValue>> =
             match_element.cases.iter().map(|case| CaseValue::new(&case.value)).collect();
@@ -166,12 +169,7 @@ fn resolve_match_elements(
 }
 
 /// Confirms that each case is a literal value and matches the type of the subject
-fn check_case_value(
-    value: &Expression,
-    node: &SyntaxNode,
-    subject_type: &Type,
-    diag: &mut BuildDiagnostics,
-) {
+fn check_case_value(value: &Expression, node: &SyntaxNode, diag: &mut BuildDiagnostics) {
     let is_literal = as_number_literal(value).is_some()
         || matches!(
             value,
@@ -179,16 +177,15 @@ fn check_case_value(
                 | Expression::BoolLiteral(..)
                 | Expression::EnumerationValue(..)
         );
-    let is_valid_cast = matches!(
-        value,
-        Expression::Cast { from, to, .. }
-            if as_number_literal(from).is_some()
-                && matches!(to, Type::Color | Type::Int32)
-    );
-
-    if matches!(subject_type, Type::Float32) && as_number_literal(value).is_some() {
-        diag.push_error("Cannot match with floats".into(), node);
-    }
+    let is_valid_cast = match value {
+        Expression::Cast { from, to: Type::Color, .. } => as_number_literal(from).is_some(),
+        // A float literal can only be cast to an int if it has no fractional part,
+        // otherwise the match would silently compare against a truncated value.
+        Expression::Cast { from, to: Type::Int32, .. } => {
+            as_number_literal(from).is_some_and(|(n, _)| n.fract() == 0.0)
+        }
+        _ => false,
+    };
 
     if is_literal || is_valid_cast {
         // pass
@@ -242,6 +239,7 @@ impl std::hash::Hash for CaseValue {
         match self {
             // Normalize -0.0 to 0.0 so the hash agrees with `==`, which treats them as equal.
             CaseValue::Number(number, unit) => {
+                debug_assert_ne!(*number, f64::NAN);
                 (if *number == 0.0 { 0.0 } else { *number }).to_bits().hash(state);
                 unit.hash(state);
             }
@@ -258,8 +256,7 @@ fn check_duplicate_cases(
     values: &[Option<CaseValue>],
     diag: &mut BuildDiagnostics,
 ) {
-    // clippy flags f64 keys because NaN breaks Eq/Hash in general, but CaseValue's
-    // Hash/Eq impl above is sound for the literals stored here (see comment there).
+    // `CaseValue` has interior mutability
     #[allow(clippy::mutable_key_type)]
     let mut seen = HashSet::with_capacity(values.len());
     for (case, value) in cases.iter().zip(values) {
@@ -292,8 +289,7 @@ fn check_exhaustiveness(
     if !matches!(match_element.wildcard, WildcardMatchCaseInfo::None) {
         return;
     }
-    // Prevents duplicated errors if both not a literal and not exhaustive
-    // (see the clippy::mutable_key_type note in check_duplicate_cases above)
+    // `CaseValue` has interior mutability
     #[allow(clippy::mutable_key_type)]
     let mut covered: HashSet<&CaseValue> = HashSet::with_capacity(values.len());
     for value in values {
@@ -327,7 +323,6 @@ fn check_exhaustiveness(
         }
     };
 
-    // `covered` is a HashSet so this membership check is O(1) instead of an O(n) `Vec::contains`.
     let mut missing = Vec::new();
     for value in &expected {
         if !covered.contains(value) {
