@@ -1829,16 +1829,6 @@ fn lower_box_layout(
 }
 
 fn lower_flexbox_layout(layout_element: &ElementRc, diag: &mut BuildDiagnostics) {
-    // Warn if alignment is set to stretch, which behaves like start in flexbox
-    // (CSS spec: justify-content:stretch acts as flex-start for flex items)
-    if let Some(binding) = layout_element.borrow().binding("alignment")
-        && matches!(binding.value_expression(),
-            Expression::EnumerationValue(v) if v.enumeration.name == "LayoutAlignment"
-                && v.enumeration.values[v.value] == "stretch")
-    {
-        diag.push_warning("alignment: stretch has no effect on FlexboxLayout".into(), &*binding);
-    }
-
     let direction = crate::layout::binding_reference(layout_element, "flex-direction");
     let cross_axis_line_alignment =
         crate::layout::binding_reference(layout_element, "cross-axis-line-alignment");
