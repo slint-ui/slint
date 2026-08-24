@@ -6,20 +6,19 @@ export component Foo {
     in property <float> t: 0.0;
 
     match pi {
+//  >error{Values of type float cannot be matched}
         2.9: Rectangle { }
-//      > <error{Cannot match with floats}
         3.0: Rectangle { }
-//      > <error{Cannot match with floats}
         3.1: Rectangle { }
-//      > <error{Cannot match with floats}
         3.2: Rectangle { }
-//      > <error{Cannot match with floats}
         *: Rectangle { }
     }
+//  <error{Values of type float cannot be matched}
 
     match t {
+//  >error{Values of type float cannot be matched}
         0.0: Rectangle { }
-//      > <error{Cannot match with floats}
         *: Rectangle { }
     }
+//  <error{Values of type float cannot be matched}
 }

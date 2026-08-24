@@ -15,6 +15,10 @@ export component Foo {
 //      >     <^error{Cases must be literal values}
         num_2: Rectangle { }
 //      >   <error{Cases must be literal values}
+        0.6: Rectangle { }
+//      > <error{Cannot perform type conversion}
+        42.0: Rectangle { }
+//      >  <error{Duplicate case value}
     }
 }
 
