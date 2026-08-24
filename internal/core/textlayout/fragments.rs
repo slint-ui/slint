@@ -6,7 +6,7 @@ use core::ops::Range;
 use euclid::num::Zero;
 
 use super::glyphclusters::GlyphClusterIterator;
-use super::{BreakOpportunity, LineBreakIterator, ShapeBuffer};
+use super::{BreakOpportunity, CheckedAdd, LineBreakIterator, ShapeBuffer};
 
 #[derive(Debug, PartialEq, Eq, Default)]
 pub struct TextFragment<Length> {
@@ -24,6 +24,9 @@ pub struct TextFragmentIterator<'a, Length> {
     glyph_clusters: GlyphClusterIterator<'a, Length>,
     text_len: usize,
     pub break_anywhere: bool,
+    /// Set when the last emitted fragment was cut short because its width no longer fit the
+    /// coordinate type; the glyphs past that point cannot be displayed anyway.
+    pub truncated: bool,
 }
 
 impl<'a, Length> TextFragmentIterator<'a, Length> {
@@ -33,11 +36,12 @@ impl<'a, Length> TextFragmentIterator<'a, Length> {
             glyph_clusters: GlyphClusterIterator::new(text, shape_buffer),
             text_len: text.len(),
             break_anywhere: false,
+            truncated: false,
         }
     }
 }
 
-impl<Length: Clone + Default + core::ops::AddAssign + Zero + Copy> Iterator
+impl<Length: Clone + Default + core::ops::AddAssign + CheckedAdd + Zero + Copy> Iterator
     for TextFragmentIterator<'_, Length>
 {
     type Item = TextFragment<Length>;
@@ -46,6 +50,7 @@ impl<Length: Clone + Default + core::ops::AddAssign + Zero + Copy> Iterator
         let first_glyph_cluster = self.glyph_clusters.next()?;
 
         let mut fragment = Self::Item::default();
+        self.truncated = false;
 
         let next_break_offset = if self.break_anywhere {
             if first_glyph_cluster.is_line_or_paragraph_separator {
@@ -85,19 +90,37 @@ impl<Length: Clone + Default + core::ops::AddAssign + Zero + Copy> Iterator
             }
 
             if next_glyph_cluster.is_whitespace {
-                fragment.trailing_whitespace_width += next_glyph_cluster.width;
+                let Some(width) =
+                    fragment.trailing_whitespace_width.checked_add(next_glyph_cluster.width)
+                else {
+                    self.truncated = true;
+                    break;
+                };
+                fragment.trailing_whitespace_width = width;
                 fragment.trailing_whitespace_bytes += next_glyph_cluster.byte_range.len();
             } else {
                 // transition from whitespace to characters by treating previous trailing whitespace
                 // as regular characters
-                if last_glyph_cluster.is_whitespace {
-                    fragment.width += core::mem::take(&mut fragment.trailing_whitespace_width);
-                    fragment.width += next_glyph_cluster.width;
-                    fragment.byte_range.end = next_glyph_cluster.byte_range.end;
-                    fragment.trailing_whitespace_bytes = 0;
+                let folded_whitespace = if last_glyph_cluster.is_whitespace {
+                    fragment.trailing_whitespace_width
                 } else {
-                    fragment.width += next_glyph_cluster.width;
-                    fragment.byte_range.end = next_glyph_cluster.byte_range.end;
+                    Length::zero()
+                };
+                // The line is wider than the coordinate type can represent; the rest is off any
+                // possible viewport, so stop here rather than overflowing.
+                let Some(width) = fragment
+                    .width
+                    .checked_add(folded_whitespace)
+                    .and_then(|width| width.checked_add(next_glyph_cluster.width))
+                else {
+                    self.truncated = true;
+                    break;
+                };
+                fragment.width = width;
+                fragment.byte_range.end = next_glyph_cluster.byte_range.end;
+                if last_glyph_cluster.is_whitespace {
+                    fragment.trailing_whitespace_width = Length::zero();
+                    fragment.trailing_whitespace_bytes = 0;
                 }
             }
 

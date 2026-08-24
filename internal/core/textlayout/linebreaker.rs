@@ -10,7 +10,7 @@ use euclid::num::Zero;
 use crate::items::TextWrap;
 
 use super::fragments::{TextFragment, TextFragmentIterator};
-use super::{ShapeBuffer, TextShaper};
+use super::{CheckedAdd, ShapeBuffer, TextShaper};
 
 #[derive(Clone, Default, Debug)]
 pub struct TextLine<Length: Default + Clone> {
@@ -23,17 +23,14 @@ pub struct TextLine<Length: Default + Clone> {
     pub(crate) text_width: Length, // with as occupied by the glyphs
 }
 
-impl<
-    Length: Default + Copy + Clone + Zero + core::ops::Add<Output = Length> + core::cmp::PartialOrd,
-> TextLine<Length>
-{
+impl<Length: Default + Copy + Clone + Zero + CheckedAdd + core::cmp::PartialOrd> TextLine<Length> {
     pub fn line_text<'a>(&self, paragraph: &'a str) -> &'a str {
         &paragraph[self.byte_range.clone()]
     }
 
     pub fn width_including_trailing_whitespace(&self) -> Length {
         if self.text_width > Length::zero() {
-            self.text_width + self.trailing_whitespace
+            self.text_width.saturating_add(self.trailing_whitespace)
         } else {
             Length::zero()
         }
@@ -44,7 +41,7 @@ impl<
     }
 }
 
-impl<Length: Clone + Copy + Default + core::ops::AddAssign> TextLine<Length> {
+impl<Length: Clone + Copy + Default + CheckedAdd + core::ops::AddAssign> TextLine<Length> {
     pub fn add_fragment(&mut self, fragment: &TextFragment<Length>) {
         if self.byte_range.is_empty() {
             self.byte_range = fragment.byte_range.clone();
@@ -57,12 +54,13 @@ impl<Length: Clone + Copy + Default + core::ops::AddAssign> TextLine<Length> {
             self.glyph_range.end = fragment.glyph_range.end;
         }
         if !fragment.byte_range.is_empty() {
-            self.text_width += self.trailing_whitespace;
+            self.text_width = self.text_width.saturating_add(self.trailing_whitespace);
             self.trailing_whitespace = Length::default();
             self.trailing_whitespace_bytes = 0;
         }
-        self.text_width += fragment.width;
-        self.trailing_whitespace += fragment.trailing_whitespace_width;
+        self.text_width = self.text_width.saturating_add(fragment.width);
+        self.trailing_whitespace =
+            self.trailing_whitespace.saturating_add(fragment.trailing_whitespace_width);
         self.trailing_whitespace_bytes += fragment.trailing_whitespace_bytes;
     }
 }
@@ -75,6 +73,7 @@ pub struct TextLineBreaker<'a, Font: TextShaper> {
     mandatory_line_break_on_next_iteration: bool,
     max_lines: Option<usize>,
     text_wrap: TextWrap,
+    done: bool,
 }
 
 impl<'a, Font: TextShaper> TextLineBreaker<'a, Font> {
@@ -93,6 +92,7 @@ impl<'a, Font: TextShaper> TextLineBreaker<'a, Font> {
             mandatory_line_break_on_next_iteration: false,
             max_lines,
             text_wrap,
+            done: false,
         }
     }
 }
@@ -101,6 +101,10 @@ impl<Font: TextShaper> Iterator for TextLineBreaker<'_, Font> {
     type Item = TextLine<Font::Length>;
 
     fn next(&mut self) -> Option<Self::Item> {
+        if self.done {
+            return None;
+        }
+
         if let Some(max_lines) = self.max_lines
             && self.num_emitted_lines >= max_lines
         {
@@ -172,6 +176,13 @@ impl<Font: TextShaper> Iterator for TextLineBreaker<'_, Font> {
 
             self.fragments = fragments;
             self.current_line.add_fragment(&fragment);
+
+            // The fragment reached the width the coordinate type can represent; the rest of the
+            // line is off any viewport, so emit what we have and stop.
+            if self.fragments.truncated {
+                self.done = true;
+                break Some(core::mem::take(&mut self.current_line));
+            }
 
             if fragment.trailing_mandatory_break {
                 break Some(core::mem::take(&mut self.current_line));

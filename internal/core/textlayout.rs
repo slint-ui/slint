@@ -54,7 +54,7 @@ mod shaping;
 /// cbindgen:ignore
 pub mod sharedparley;
 use shaping::ShapeBuffer;
-pub use shaping::{AbstractFont, FontMetrics, Glyph, TextShaper};
+pub use shaping::{AbstractFont, CheckedAdd, FontMetrics, Glyph, TextShaper};
 
 mod linebreaker;
 pub use linebreaker::TextLine;
