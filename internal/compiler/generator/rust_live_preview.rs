@@ -26,7 +26,7 @@ pub fn generate(
         return Ok(Default::default());
     }
 
-    let (structs_and_enums_ids, inner_module) =
+    let inner_module =
         super::rust::generate_types(&doc.used_types.borrow().structs_and_enums, &llr);
 
     let main_file = doc
@@ -53,13 +53,14 @@ pub fn generate(
     });
     let compo_ids = llr.public_components.iter().map(|c| ident(&c.name));
 
-    let named_exports = super::rust::generate_named_exports(&llr.named_exports);
     // The inner module was meant to be internal private, but projects have been reaching into it
     // so we can't change the name of this module
     let generated_mod = doc
         .last_exported_component()
         .map(|c| format_ident!("slint_generated{}", ident(&c.id)))
         .unwrap_or_else(|| format_ident!("slint_generated"));
+
+    let (type_reexports, deprecated_type_exports) = super::rust::type_exports(&llr, &generated_mod);
 
     Ok(quote! {
         mod #generated_mod {
@@ -69,8 +70,9 @@ pub fn generate(
             #(#public_components)*
             #type_value_conversions
         }
+        #(#deprecated_type_exports)*
         #[allow(unused_imports)]
-        pub use #generated_mod::{#(#compo_ids,)* #(#structs_and_enums_ids,)* #(#globals_ids,)* #(#named_exports,)*};
+        pub use #generated_mod::{#(#compo_ids,)* #(#type_reexports,)* #(#globals_ids,)*};
         #[allow(unused_imports)]
         pub use slint::{ComponentHandle as _, Global as _, ModelExt as _};
     })

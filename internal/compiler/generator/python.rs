@@ -369,6 +369,14 @@ pub fn generate_py_module(
         }
     }
 
+    // A type exported only under a different name is renamed to that name; keep the original
+    // name available as an alias so code that still imports it keeps working. The name belongs
+    // to whichever of the two type kinds actually declares it; the other map entry is never read.
+    for (old_name, new_name) in &doc.used_types.borrow().deprecated_type_aliases {
+        struct_aliases.entry(new_name.clone()).or_default().push(old_name.clone());
+        enum_aliases.entry(new_name.clone()).or_default().push(old_name.clone());
+    }
+
     for ty in &doc.used_types.borrow().structs_and_enums {
         match ty {
             Type::Struct(s) => module.structs_and_enums.extend(

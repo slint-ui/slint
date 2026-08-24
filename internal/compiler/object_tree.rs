@@ -448,6 +448,12 @@ pub struct UsedSubTypes {
     /// All global components that originates from an
     /// external library
     pub library_global_imports: Vec<(SmolStr, LibraryInfo)>,
+    /// `(old_name, new_name)` for types renamed to their export name. The generators emit a
+    /// deprecated alias under `old_name` so code that used it keeps compiling.
+    pub deprecated_type_aliases: Vec<(SmolStr, SmolStr)>,
+    /// The fresh names given to types that collided with another declaration. These names were
+    /// never part of the public API, so the generators must not re-export them (deprecated or not).
+    pub collision_renamed_names: std::collections::BTreeSet<SmolStr>,
 }
 
 #[derive(Debug, Default, Clone)]

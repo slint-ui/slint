@@ -67,6 +67,7 @@ pub fn assign_unique_declared_type_names(doc: &mut Document) {
         .collect();
     let mut renames = Renames::new();
     let mut all_names = all_names.into_inner();
+    let mut collision_renamed_names = BTreeSet::new();
     for (name, ids) in by_name.into_inner() {
         if ids.len() <= 1 {
             continue;
@@ -85,9 +86,29 @@ pub fn assign_unique_declared_type_names(doc: &mut Document) {
                 }
                 n += 1;
             };
+            collision_renamed_names.insert(new_name.clone());
             renames.insert(id, new_name);
         }
     }
+    doc.used_types.borrow_mut().collision_renamed_names = collision_renamed_names;
+
+    // A type exported only under a different name (`export { X as Y }`, with `X` not exported on
+    // its own) is renamed to that export name, so `Y` becomes its real name and `X` is kept only
+    // as a deprecated alias.
+    let export_names: BTreeSet<SmolStr> =
+        doc.exports.iter().map(|(name, _)| name.name.clone()).collect();
+    let mut deprecated_type_aliases = Vec::new();
+    for (export_name, component_or_type) in doc.exports.iter() {
+        if let itertools::Either::Right(ty) = component_or_type
+            && let Some((type_name, id)) = declared_name_and_identity(ty)
+            && type_name != export_name.name
+            && !export_names.contains(&type_name)
+        {
+            renames.insert(id, export_name.name.clone());
+            deprecated_type_aliases.push((type_name, export_name.name.clone()));
+        }
+    }
+    doc.used_types.borrow_mut().deprecated_type_aliases = deprecated_type_aliases;
 
     if renames.is_empty() {
         return;

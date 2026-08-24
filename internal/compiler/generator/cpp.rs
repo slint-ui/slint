@@ -433,12 +433,18 @@ pub mod cpp_ast {
     pub struct TypeAlias {
         pub new_name: SmolStr,
         pub old_name: SmolStr,
+        /// When set, the alias is marked `[[deprecated]]` with this message.
+        pub deprecated: Option<String>,
     }
 
     impl Display for TypeAlias {
         fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
             indent(f)?;
-            writeln!(f, "using {} = {};", self.new_name, self.old_name)
+            let deprecated = match &self.deprecated {
+                Some(message) => format!("[[deprecated(\"{}\")]] ", escape_string(message)),
+                None => String::new(),
+            };
+            writeln!(f, "using {} {deprecated}= {};", self.new_name, self.old_name)
         }
     }
 
@@ -924,7 +930,11 @@ pub fn generate(
         };
 
         file.definitions.extend(glob.aliases.iter().map(|name| {
-            Declaration::TypeAlias(TypeAlias { old_name: ident(&glob.name), new_name: ident(name) })
+            Declaration::TypeAlias(TypeAlias {
+                old_name: ident(&glob.name),
+                new_name: ident(name),
+                deprecated: None,
+            })
         }));
 
         clone_constructor_global_inits.push(format!("{name}(source.{name})"));
@@ -6185,11 +6195,16 @@ fn return_compile_expression(
 }
 
 pub fn generate_type_aliases(file: &mut File, unit: &llr::CompilationUnit) {
-    let type_aliases = unit.named_exports.iter().map(|(original, alias)| {
-        Declaration::TypeAlias(TypeAlias { old_name: ident(original), new_name: ident(alias) })
-    });
-
-    file.declarations.extend(type_aliases);
+    // C++ defines every type in the namespace, so only the entries that rename a type
+    // (an export alias, or a deprecated pre-rename name) need a `using` declaration.
+    let aliases = unit.type_exports.iter().filter(|e| e.is_alias());
+    file.declarations.extend(aliases.map(|e| {
+        Declaration::TypeAlias(TypeAlias {
+            new_name: ident(&e.exported_name),
+            old_name: ident(&e.internal_name),
+            deprecated: e.deprecation_note(),
+        })
+    }));
 }
 
 #[cfg(feature = "bundle-translations")]

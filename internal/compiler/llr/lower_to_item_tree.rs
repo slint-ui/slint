@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use by_address::ByAddress;
+use itertools::Either;
 use std::sync::Arc;
 
 use super::lower_expression::{ExpressionLoweringCtx, ExpressionLoweringCtxInner};
@@ -15,6 +16,70 @@ use smol_str::{SmolStr, format_smolstr};
 use std::collections::{BTreeMap, HashMap};
 use std::rc::Rc;
 use typed_index_collections::TiVec;
+
+/// The types the generated module re-exports: every declared struct/enum under its own
+/// name (deprecated when not reachable from the public API), the renamed export aliases,
+/// and the deprecated pre-rename names. Collision-renamed types are omitted — they were
+/// never public.
+fn type_exports(document: &object_tree::Document) -> Vec<TypeExport> {
+    let used_types = document.used_types.borrow();
+    let public = public_facing_type_names(document);
+    let mut list = Vec::new();
+    for ty in &used_types.structs_and_enums {
+        let name = match ty {
+            Type::Struct(s) => match &s.name {
+                StructName::User { name, .. } => Some(name.clone()),
+                _ => None,
+            },
+            Type::Enumeration(en) => Some(en.name.clone()),
+            _ => None,
+        };
+        let Some(name) = name else { continue };
+        if used_types.collision_renamed_names.contains(&name) {
+            continue;
+        }
+        let deprecated = !public.contains(&name);
+        list.push(TypeExport { exported_name: name.clone(), internal_name: name, deprecated });
+    }
+    for (internal_name, exported_name) in document.exports.named_type_aliases() {
+        list.push(TypeExport { exported_name, internal_name, deprecated: false });
+    }
+    for (old_name, new_name) in &used_types.deprecated_type_aliases {
+        list.push(TypeExport {
+            exported_name: old_name.clone(),
+            internal_name: new_name.clone(),
+            deprecated: true,
+        });
+    }
+    list
+}
+
+/// The names of the structs and enums reachable from the public API: explicitly exported,
+/// or used on a public member of an exported component. A type used only privately is not
+/// part of the public namespace.
+fn public_facing_type_names(
+    document: &object_tree::Document,
+) -> std::collections::HashSet<SmolStr> {
+    let mut public = std::collections::HashSet::new();
+    let mut collect = |ty: &Type| {
+        crate::langtype::visit_declared_types(ty, &mut |name, _| {
+            public.insert(name.clone());
+        })
+    };
+    for (_, export) in document.exports.iter() {
+        match export {
+            Either::Right(ty) => collect(ty),
+            Either::Left(component) => {
+                for pd in component.root_element.borrow().property_declarations.values() {
+                    if pd.visibility != object_tree::PropertyVisibility::Private {
+                        collect(&pd.property_type);
+                    }
+                }
+            }
+        }
+    }
+    public
+}
 
 pub fn lower_to_item_tree(
     document: &crate::object_tree::Document,
@@ -106,7 +171,7 @@ pub fn lower_to_item_tree(
             .collect(),
         has_debug_info: compiler_config.debug_info,
         popup_menu,
-        named_exports: document.exports.named_type_aliases(),
+        type_exports: type_exports(document),
         #[cfg(feature = "bundle-translations")]
         translations: state.translation_builder.map(|x| x.result()),
     };
