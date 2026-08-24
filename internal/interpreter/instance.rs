@@ -876,8 +876,8 @@ fn build_sub_component_instance(
         sc.items
             .iter()
             .map(|item| {
-                registry.factory(&item.ty.class_name).unwrap_or_else(|| {
-                    panic!("native item `{}` is not registered", item.ty.class_name)
+                registry.factory(&item.class_name).unwrap_or_else(|| {
+                    panic!("native item `{}` is not registered", item.class_name)
                 })()
             })
             .collect();

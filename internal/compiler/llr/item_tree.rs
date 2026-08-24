@@ -439,13 +439,14 @@ pub struct ComponentContainerElement {
     pub component_placeholder_item_tree_index: u32,
 }
 
-/// A `Send` snapshot of the parts of [`NativeClass`] the LLR needs at code
-/// generation and interpretation time.
+/// The parts of a builtin [`NativeClass`] that code generation and the
+/// interpreter need: the class identity and its property types.
 ///
-/// The full `NativeClass` is not `Send`: it keeps compile-time default-value
-/// expressions that reference the object tree, but those are already lowered
-/// into bindings by the time the LLR is built, so the LLR only needs the class
-/// identity and the property types.
+/// These are the same for every item of a given class, so they are not stored
+/// per-item; an [`Item`] only keeps the `class_name` and looks the type up in
+/// the process-global registry with [`native_item_type`]. The full `NativeClass`
+/// is not needed (nor `Send`): its compile-time default-value expressions have
+/// been lowered into bindings by the time the LLR is built.
 #[derive(Debug)]
 pub struct NativeItemType {
     pub class_name: SmolStr,
@@ -456,7 +457,7 @@ pub struct NativeItemType {
 }
 
 impl NativeItemType {
-    pub fn from_native_class(nc: &NativeClass) -> Arc<Self> {
+    fn from_native_class(nc: &NativeClass) -> Arc<Self> {
         Arc::new(Self {
             class_name: nc.class_name.clone(),
             parent: nc.parent.as_ref().map(|p| Self::from_native_class(p)),
@@ -479,8 +480,54 @@ impl NativeItemType {
     }
 }
 
+/// Every builtin native item type, keyed by class name. Built once from the
+/// builtin type register; the classes and their property types are fixed, so a
+/// single process-wide copy backs every `Item` of that class.
+static NATIVE_ITEM_TYPES: std::sync::LazyLock<HashMap<SmolStr, Arc<NativeItemType>>> =
+    std::sync::LazyLock::new(|| {
+        let counters = std::rc::Rc::new(crate::symbol_counters::SymbolCounters::default());
+        let register = crate::typeregister::TypeRegister::builtin_experimental(&counters);
+        let mut map = HashMap::new();
+        // Visit every builtin element, including the ones only reachable as an
+        // accepted child of another (Tab, MenuItem, KeyBinding, path elements…),
+        // since any of them can end up as a native item in the LLR.
+        let mut to_visit: Vec<std::rc::Rc<crate::langtype::BuiltinElement>> = register
+            .borrow()
+            .all_elements()
+            .into_values()
+            .filter_map(|e| match e {
+                crate::langtype::ElementType::Builtin(b) => Some(b),
+                _ => None,
+            })
+            .collect();
+        let mut visited = std::collections::HashSet::new();
+        while let Some(builtin) = to_visit.pop() {
+            if !visited.insert(builtin.name.clone()) {
+                continue;
+            }
+            // `resolve_native_classes` can pick any class along the parent
+            // chain, so register each of them, not just the leaf.
+            let mut class = Some(builtin.native_class.clone());
+            while let Some(nc) = class {
+                map.entry(nc.class_name.clone())
+                    .or_insert_with(|| NativeItemType::from_native_class(&nc));
+                class = nc.parent.clone();
+            }
+            to_visit.extend(builtin.additional_accepted_child_types.values().cloned());
+        }
+        map
+    });
+
+/// The [`NativeItemType`] for a builtin class, as stored in an [`Item`].
+pub fn native_item_type(class_name: &str) -> &'static NativeItemType {
+    NATIVE_ITEM_TYPES
+        .get(class_name)
+        .map(|ty| &**ty)
+        .unwrap_or_else(|| panic!("no builtin native item type named `{class_name}`"))
+}
+
 pub struct Item {
-    pub ty: Arc<NativeItemType>,
+    pub class_name: SmolStr,
     pub name: SmolStr,
     /// Index in the item tree array
     pub index_in_tree: u32,
@@ -489,7 +536,7 @@ pub struct Item {
 impl std::fmt::Debug for Item {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Item")
-            .field("ty", &self.ty.class_name)
+            .field("class_name", &self.class_name)
             .field("name", &self.name)
             .field("index_in_tree", &self.index_in_tree)
             .finish()

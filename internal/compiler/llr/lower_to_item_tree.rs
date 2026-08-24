@@ -529,7 +529,7 @@ fn lower_sub_component(
 
             ElementType::Native(n) => {
                 let item_index = sub_component.items.push_and_get_key(Item {
-                    ty: crate::llr::NativeItemType::from_native_class(n),
+                    class_name: n.class_name.clone(),
                     name: elem.id.clone(),
                     index_in_tree: *elem.item_index.get().unwrap(),
                 });

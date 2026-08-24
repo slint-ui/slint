@@ -283,7 +283,11 @@ fn install_property_init(
                     let cb_weak = weak_sub.clone();
                     let cu = &instance.compilation_unit;
                     let sc = &cu.sub_components[instance.sub_component_idx];
-                    let arg_types = match sc.items[*item_index].ty.lookup_property(prop_name) {
+                    let arg_types = match i_slint_compiler::llr::native_item_type(
+                        &sc.items[*item_index].class_name,
+                    )
+                    .lookup_property(prop_name)
+                    {
                         Some(i_slint_compiler::langtype::Type::Callback(f)) => f.args.clone(),
                         _ => Vec::new(),
                     };
@@ -655,7 +659,9 @@ fn member_property_ty(
             match &local_reference.reference {
                 LocalMemberIndex::Property(idx) => Some(sc.properties[*idx].ty.clone()),
                 LocalMemberIndex::Native { item_index, prop_name, .. } => {
-                    sc.items[*item_index].ty.lookup_property(prop_name).cloned()
+                    i_slint_compiler::llr::native_item_type(&sc.items[*item_index].class_name)
+                        .lookup_property(prop_name)
+                        .cloned()
                 }
                 _ => None,
             }

@@ -230,7 +230,7 @@ impl PrettyPrinter<'_> {
             let geometry = geom.as_ref().map_or(String::new(), |geom| {
                 format!("geometry: {}", DisplayExpression(&geom.borrow(), &ctx))
             });
-            writeln!(self.writer, "{} := {} {{ {geometry} }};", item.name, item.ty.class_name)?;
+            writeln!(self.writer, "{} := {} {{ {geometry} }};", item.name, item.class_name)?;
         }
         for ((item_index, prop), e) in &sc.accessible_prop {
             self.indent()?;

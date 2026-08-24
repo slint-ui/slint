@@ -159,8 +159,7 @@ impl i_slint_compiler::llr::TypeResolutionContext for EvalContext {
                             // The `Path::elements` property is not in the NativeClass
                             return &Type::PathData;
                         }
-                        sc.items[*item_index]
-                            .ty
+                        llr::native_item_type(&sc.items[*item_index].class_name)
                             .lookup_property(prop_name)
                             .unwrap_or(&Type::Invalid)
                     }

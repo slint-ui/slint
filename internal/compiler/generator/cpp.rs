@@ -1548,7 +1548,7 @@ fn generate_public_component(
             let root_sub = &unit.sub_components[component.item_tree.root];
             let tray_item = &root_sub.items[llr::ItemInstanceIdx::from(0usize)];
             debug_assert_eq!(
-                tray_item.ty.class_name.as_str(),
+                tray_item.class_name.as_str(),
                 "SystemTrayIcon",
                 "TopLevelComponentType::SystemTrayIcon expects the root item to be a SystemTrayIcon"
             );
@@ -1729,7 +1729,7 @@ fn generate_item_tree(
                 ));
                 item_array.push(format!(
                     "{{ {}, {} offsetof({}, {}) }}",
-                    cpp_vtable_getter(&item.ty.class_name),
+                    cpp_vtable_getter(&item.class_name),
                     compo_offset,
                     ident(&sub_component.name),
                     field_name(&item.name),
@@ -2560,7 +2560,7 @@ fn generate_sub_component(
         target_struct.members.push((
             field_access,
             Declaration::Var(Var {
-                ty: format_smolstr!("slint::cbindgen_private::{}", ident(&item.ty.class_name)),
+                ty: format_smolstr!("slint::cbindgen_private::{}", ident(&item.class_name)),
                 name: field_name(&item.name),
                 init: Some("{}".to_owned()),
                 ..Default::default()
@@ -3986,7 +3986,8 @@ fn access_member(reference: &llr::MemberReference, ctx: &EvaluationContext) -> M
                         let item_name = field_name(&sub_component.items[*item_index].name);
                         if prop_name.is_empty()
                             || matches!(
-                                sub_component.items[*item_index].ty.lookup_property(prop_name),
+                                llr::native_item_type(&sub_component.items[*item_index].class_name)
+                                    .lookup_property(prop_name),
                                 Some(Type::Function { .. })
                             )
                         {
@@ -4244,7 +4245,7 @@ fn native_prop_info<'a, 'b>(
         ctx.parent_sub_component_idx(*parent_level).unwrap(),
         &local_reference.sub_component_path,
     );
-    (&sub_component.items[*item_index].ty, prop_name)
+    (llr::native_item_type(&sub_component.items[*item_index].class_name), prop_name)
 }
 
 fn shared_string_literal(string: &str) -> String {

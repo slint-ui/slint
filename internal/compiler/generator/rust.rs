@@ -386,7 +386,7 @@ fn generate_public_component(
             let tray_item =
                 &unit.sub_components[llr.item_tree.root].items[llr::ItemInstanceIdx::from(0usize)];
             debug_assert_eq!(
-                tray_item.ty.class_name.as_str(),
+                tray_item.class_name.as_str(),
                 "SystemTrayIcon",
                 "TopLevelComponentType::SystemTrayIcon expects the root item to be a SystemTrayIcon"
             );
@@ -1368,10 +1368,10 @@ fn generate_sub_component(
 
     for item in &component.items {
         item_names.push(ident(&item.name));
-        item_types.push(ident(&item.ty.class_name));
+        item_types.push(ident(&item.class_name));
         #[cfg(slint_debug_property)]
         {
-            let mut it = Some(&item.ty);
+            let mut it = Some(llr::native_item_type(&item.class_name));
             let elem_name = ident(&item.name);
             while let Some(ty) = it {
                 for (prop, prop_ty) in &ty.property_types {
@@ -1383,7 +1383,7 @@ fn generate_sub_component(
                         );
                     }
                 }
-                it = ty.parent.as_ref();
+                it = ty.parent.as_deref();
             }
         }
     }
@@ -3370,7 +3370,8 @@ fn access_member(reference: &llr::MemberReference, ctx: &EvaluationContext) -> M
                             }
                         )
                     } else if matches!(
-                        sub_component.items[*item_index].ty.lookup_property(prop_name),
+                        llr::native_item_type(&sub_component.items[*item_index].class_name)
+                            .lookup_property(prop_name),
                         Some(&Type::Function(..))
                     ) {
                         let property_name = ident(prop_name);
@@ -3382,7 +3383,7 @@ fn access_member(reference: &llr::MemberReference, ctx: &EvaluationContext) -> M
                         )
                     } else {
                         let property_name = ident(prop_name);
-                        let item_ty = ident(&sub_component.items[*item_index].ty.class_name);
+                        let item_ty = ident(&sub_component.items[*item_index].class_name);
                         let prop_offset = quote!((#compo_path #item_field + sp::#item_ty::FIELD_OFFSETS.#property_name()));
                         parent_path.map_or_else(
                             || MemberAccess::Direct(quote!(#prop_offset.apply_pin(_self))),

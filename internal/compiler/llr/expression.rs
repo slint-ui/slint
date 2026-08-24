@@ -1206,9 +1206,9 @@ impl<'a, T> EvaluationContext<'a, T> {
                     return &Type::PathData;
                 }
                 let item = &sc.items[*item_index];
-                item.ty.lookup_property(prop_name).unwrap_or_else(|| {
-                    panic!("Failed to lookup property {prop_name} for {}", item.name)
-                })
+                super::native_item_type(&item.class_name).lookup_property(prop_name).unwrap_or_else(
+                    || panic!("Failed to lookup property {prop_name} for {}", item.name),
+                )
             }
         }
     }
