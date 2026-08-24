@@ -1604,10 +1604,12 @@ fn move_selected_element(x: f32, y: f32, mouse_x: f32, mouse_y: f32) {
         position,
         mouse_position,
     ) {
-        element_selection::select_element_at_source_code_position(
-            drop_data.path,
-            drop_data.selection_offset,
-            None,
+        element_selection::restore_selection(
+            ElementSelection {
+                path: drop_data.path,
+                offset: drop_data.selection_offset,
+                instance_index: selected.instance_index,
+            },
             SelectionNotification::AfterUpdate,
         );
 
@@ -1944,18 +1946,13 @@ async fn reload_timer_function() {
         };
     }
 
-    if let Some(se) = selected {
-        element_selection::select_element_at_source_code_position(
-            se.path.clone(),
-            se.offset,
-            None,
-            SelectionNotification::Never,
-        );
+    if let Some(selection) = selected {
+        element_selection::restore_selection(selection.clone(), SelectionNotification::Never);
 
         if notify_editor
             && let Some(component_instance) = component_instance()
             && let Some((element, debug_index)) = component_instance
-                .element_node_at_source_code_position(&se.path, se.offset.into())
+                .element_node_at_source_code_position(&selection.path, selection.offset.into())
                 .first()
         {
             let Some(element_node) = ElementRcNode::new(element.clone(), *debug_index) else {
@@ -1964,7 +1961,10 @@ async fn reload_timer_function() {
             let format = PREVIEW_STATE.with_borrow(|ps| ps.format());
             let (path, pos) = element_node.with_element_node(|node| {
                 let sf = &node.source_file;
-                (sf.path().to_owned(), util::text_size_to_lsp_position(sf, se.offset, format))
+                (
+                    sf.path().to_owned(),
+                    util::text_size_to_lsp_position(sf, selection.offset, format),
+                )
             });
             let lsp = PREVIEW_STATE.with_borrow(|ps| ps.to_lsp.borrow().clone().unwrap());
             lsp.ask_editor_to_show_document(

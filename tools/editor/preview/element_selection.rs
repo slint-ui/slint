@@ -133,6 +133,23 @@ fn select_element_at_source_code_position_impl(
     );
 }
 
+pub fn restore_selection(
+    mut selection: ElementSelection,
+    editor_notification: SelectionNotification,
+) {
+    let Some(component_instance) = super::component_instance() else {
+        return;
+    };
+    if component_instance
+        .component_positions(&selection.path, selection.offset.into())
+        .get(selection.instance_index)
+        .is_none()
+    {
+        selection.instance_index = 0;
+    }
+    super::set_selected_element(Some(selection), editor_notification);
+}
+
 struct HighlightPositionsModel {
     rows: VecModel<ui::SelectionRectangle>,
     change_tracker: ChangeTracker,
