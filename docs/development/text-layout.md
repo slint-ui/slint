@@ -111,9 +111,6 @@ pub trait TextShaper {
 
     /// Get glyph for a single character (e.g., ellipsis)
     fn glyph_for_char(&self, ch: char) -> Option<Glyph<Self::Length>>;
-
-    /// Returns how many lines of `line_height` fit in `max_height`.
-    fn max_lines(&self, max_height: Self::Length, line_height: Self::Length) -> usize;
 }
 ```
 
@@ -525,10 +522,6 @@ impl TextShaper for MyFont {
     fn glyph_for_char(&self, ch: char) -> Option<Glyph<f32>> {
         let glyph_id = self.face.glyph_index(ch)?;
         // ... build glyph
-    }
-
-    fn max_lines(&self, max_height: f32, line_height: f32) -> usize {
-        (max_height / line_height).floor() as usize
     }
 }
 ```
