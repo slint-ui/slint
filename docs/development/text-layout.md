@@ -27,6 +27,8 @@ Slint's text layout system handles the complex process of converting text string
 | `internal/core/textlayout/linebreaker.rs` | TextLineBreaker, TextLine |
 | `internal/core/textlayout/fragments.rs` | TextFragment, fragment iteration |
 | `internal/core/textlayout/glyphclusters.rs` | Glyph cluster grouping |
+| `internal/core/textlayout/linebreak_simple.rs` | ASCII line break fallback |
+| `internal/core/textlayout/sharedparley.rs` | Parley-based layout (`shared-parley` feature) |
 | `internal/core/textlayout/linebreak_unicode.rs` | Unicode line break algorithm |
 | `internal/core/styled_text.rs` | Public `StyledText` API, FFI |
 | `internal/common/styled_text.rs` | Markdown/HTML parsing, `Style`/`FormattedSpan`/`StyledTextParagraph` |
@@ -81,72 +83,32 @@ Input Text
 
 ### Glyph
 
-Represents a single shaped glyph:
-
-```rust
-pub struct Glyph<Length> {
-    pub advance: Length,           // Horizontal advance
-    pub offset_x: Length,          // X offset from origin
-    pub offset_y: Length,          // Y offset from origin
-    pub glyph_id: Option<NonZeroU16>,  // Font-specific glyph ID
-    pub text_byte_offset: usize,   // Byte offset in source string
-}
-```
+A single shaped glyph: its advance, its x/y offsets, the font-specific glyph id, and the byte
+offset it came from in the source string. Generic over the font's `Length`.
+See `Glyph` in `internal/core/textlayout/shaping.rs`.
 
 ### TextShaper Trait
 
-Interface for platform-specific text shaping:
-
-```rust
-pub trait TextShaper {
-    type LengthPrimitive;  // e.g., f32
-    type Length;           // e.g., f32 or LogicalLength
-
-    /// Shape text and append glyphs to storage
-    fn shape_text<GlyphStorage: Extend<Glyph<Self::Length>>>(
-        &self,
-        text: &str,
-        glyphs: &mut GlyphStorage,
-    );
-
-    /// Get glyph for a single character (e.g., ellipsis)
-    fn glyph_for_char(&self, ch: char) -> Option<Glyph<Self::Length>>;
-}
-```
+What a font backend implements: shape a string into glyphs, and produce the glyph for a single
+character (used for the ellipsis). The associated `Length` and `LengthPrimitive` types let the
+same code serve plain `f32` and euclid-typed lengths.
+See `TextShaper` in `internal/core/textlayout/shaping.rs`.
 
 ### FontMetrics Trait
 
-Font measurement interface:
-
-```rust
-pub trait FontMetrics<Length> {
-    fn height(&self) -> Length { self.ascent() - self.descent() }
-    fn ascent(&self) -> Length;   // Distance above baseline
-    fn descent(&self) -> Length;  // Distance below baseline (negative)
-    fn x_height(&self) -> Length; // Height of lowercase 'x'
-    fn cap_height(&self) -> Length; // Height of capital letters
-}
-```
+Font measurements: ascent, descent, x-height and cap-height, with `height()` defaulting to
+`ascent - descent`. Descent is negative.
+See `FontMetrics` in `internal/core/textlayout/shaping.rs`.
 
 ### AbstractFont
 
-Combined trait for fonts:
-
-```rust
-pub trait AbstractFont: TextShaper + FontMetrics<<Self as TextShaper>::Length> {}
-```
+`TextShaper` and `FontMetrics` over the same `Length`. This is the bound the layout code takes.
+See `AbstractFont` in `internal/core/textlayout/shaping.rs`.
 
 ### TextLayout
 
-`TextLayout` combines a font with paragraph-wide spacing options:
-
-```rust
-pub struct TextLayout<'a, Font: AbstractFont> {
-    pub font: &'a Font,
-    pub letter_spacing: Option<<Font as TextShaper>::Length>,
-    pub line_height: Option<<Font as TextShaper>::Length>,
-}
-```
+A font plus the paragraph-wide spacing options: an optional letter spacing and an optional line
+height. See `TextLayout` in `internal/core/textlayout.rs`.
 
 Both spacing values use the font's `Length` unit.
 `None` leaves letter spacing unchanged and uses `FontMetrics::height()` for line height.
@@ -160,19 +122,10 @@ than the glyph box when the leading is negative (`TextLayout::cursor_band()`).
 
 ## Script Boundary Detection
 
-The `ShapeBoundaries` iterator splits text by Unicode script for optimal font selection:
+The `ShapeBoundaries` iterator splits text by Unicode script so each run can use a font that
+covers it. See `ShapeBoundaries` in `internal/core/textlayout/shaping.rs`.
 
-```rust
-pub struct ShapeBoundaries<'a> {
-    text: &'a str,
-    chars: core::str::CharIndices<'a>,
-    last_script: Option<unicode_script::Script>,
-}
-
-// Example: "Hello தோசை" splits into:
-// ["Hello "] (Latin/Common)
-// ["தோசை"]   (Tamil)
-```
+For example, `"Hello தோசை"` splits into `"Hello "` (Latin/Common) and `"தோசை"` (Tamil).
 
 **Why it matters:**
 - Different scripts may need different fonts
@@ -181,19 +134,8 @@ pub struct ShapeBoundaries<'a> {
 
 ## Shape Buffer
 
-Holds shaped glyphs organized by text runs:
-
-```rust
-pub struct ShapeBuffer<Length> {
-    pub glyphs: Vec<Glyph<Length>>,
-    pub text_runs: Vec<TextRun>,
-}
-
-pub struct TextRun {
-    pub byte_range: Range<usize>,   // Source text range
-    pub glyph_range: Range<usize>,  // Glyphs for this run
-}
-```
+Holds the shaped glyphs plus the `TextRun`s that map each source byte range to its slice of those
+glyphs. See `ShapeBuffer` and `TextRun` in `internal/core/textlayout/shaping.rs`.
 
 Letter spacing is applied during shaping:
 - Added to advance of last glyph in each grapheme cluster
@@ -203,29 +145,15 @@ Letter spacing is applied during shaping:
 
 ### Line Break Opportunities
 
-Uses Unicode Line Break Algorithm (UAX #14) or simple ASCII fallback:
-
-```rust
-pub enum BreakOpportunity {
-    Allowed,    // Can break here (e.g., after space)
-    Mandatory,  // Must break here (e.g., newline)
-}
-```
+Uses the Unicode Line Break Algorithm (UAX #14) behind the `unicode-linebreak` feature, or a
+simple ASCII fallback. Either way a break opportunity is `Allowed` or `Mandatory`.
+See `internal/core/textlayout/linebreak_unicode.rs` and `linebreak_simple.rs`.
 
 ### Text Fragments
 
-Fragments are units between break opportunities:
-
-```rust
-pub struct TextFragment<Length> {
-    pub byte_range: Range<usize>,
-    pub glyph_range: Range<usize>,
-    pub width: Length,
-    pub trailing_whitespace_width: Length,
-    pub trailing_whitespace_bytes: usize,
-    pub trailing_mandatory_break: bool,
-}
-```
+The units between break opportunities: a byte range, its glyph range, its width, and the trailing
+whitespace kept separate from that width.
+See `TextFragment` in `internal/core/textlayout/fragments.rs`.
 
 **Whitespace handling:**
 - Trailing whitespace width tracked separately
@@ -234,39 +162,15 @@ pub struct TextFragment<Length> {
 
 ### TextLine
 
-Represents a laid-out line:
-
-```rust
-pub struct TextLine<Length> {
-    pub byte_range: Range<usize>,        // Source text (excluding trailing WS)
-    pub trailing_whitespace_bytes: usize,
-    pub(crate) glyph_range: Range<usize>,
-    trailing_whitespace: Length,
-    pub(crate) text_width: Length,
-}
-
-impl TextLine {
-    pub fn width_including_trailing_whitespace(&self) -> Length;
-    pub fn line_text<'a>(&self, paragraph: &'a str) -> &'a str;
-    pub fn is_empty(&self) -> bool;
-}
-```
+One laid-out line: the source byte range excluding trailing whitespace, the glyph range, and the
+measured text width. The trailing whitespace width is tracked alongside, so alignment can ignore
+it and `width_including_trailing_whitespace()` can add it back.
+See `TextLine` in `internal/core/textlayout/linebreaker.rs`.
 
 ### TextLineBreaker
 
-Iterator that breaks text into lines:
-
-```rust
-pub struct TextLineBreaker<'a, Font: TextShaper> {
-    fragments: TextFragmentIterator<'a, Font::Length>,
-    available_width: Option<Font::Length>,
-    current_line: TextLine<Font::Length>,
-    num_emitted_lines: usize,
-    mandatory_line_break_on_next_iteration: bool,
-    max_lines: Option<usize>,
-    text_wrap: TextWrap,
-}
-```
+The iterator that turns fragments into lines, applying the wrap mode, the available width and any
+line limit. See `TextLineBreaker` in `internal/core/textlayout/linebreaker.rs`.
 
 **Wrap modes:**
 - `TextWrap::NoWrap`: Single line, no wrapping
@@ -280,103 +184,51 @@ When a word doesn't fit even on its own line, WordWrap falls back to breaking an
 
 ### TextParagraphLayout
 
-Full paragraph layout with alignment:
-
-```rust
-pub struct TextParagraphLayout<'a, Font: AbstractFont> {
-    pub string: &'a str,
-    pub layout: TextLayout<'a, Font>,
-    pub max_width: Font::Length,
-    pub max_height: Font::Length,
-    pub horizontal_alignment: TextHorizontalAlignment,
-    pub vertical_alignment: TextVerticalAlignment,
-    pub wrap: TextWrap,
-    pub overflow: TextOverflow,
-    pub single_line: bool,
-    pub max_lines: Option<usize>,
-}
-```
+The whole paragraph: the string and its `TextLayout`, the max width and height, the horizontal and
+vertical alignment, the wrap and overflow modes, and the single-line and max-lines limits.
+See `TextParagraphLayout` in `internal/core/textlayout.rs`.
 
 ### layout_lines()
 
-Main layout function - iterates over positioned glyphs:
-
-```rust
-pub fn layout_lines<R>(
-    &self,
-    mut line_callback: impl FnMut(
-        &mut dyn Iterator<Item = PositionedGlyph<Font::Length>>,
-        Font::Length,     // line_x
-        Font::Length,     // line_y
-        &TextLine<Font::Length>,
-        Option<Range<Font::Length>>,  // selection
-    ) -> ControlFlow<R>,
-    selection: Option<Range<usize>>,  // byte range
-) -> Result<Font::Length, R>;  // Returns baseline_y
-```
+The main entry point. It calls a callback once per line with the positioned glyphs, the line's x
+and y, the `TextLine` itself, and the selected sub-range if there is one. The callback returns a
+`ControlFlow`, so rendering can stop early. The return value is the baseline y.
+See `TextParagraphLayout::layout_lines` in `internal/core/textlayout.rs`.
 
 ### PositionedGlyph
 
-Final glyph with absolute position:
-
-```rust
-pub struct PositionedGlyph<Length> {
-    pub x: Length,              // X position relative to line
-    pub y: Length,              // Y position (usually 0)
-    pub advance: Length,
-    pub glyph_id: NonZeroU16,
-    pub text_byte_offset: usize,
-}
-```
+A glyph with its position resolved: x relative to the line, y, advance, glyph id, and source byte
+offset. See `PositionedGlyph` in `internal/core/textlayout.rs`.
 
 ### Alignment
 
-**Horizontal:**
-- `Left`: x = 0
-- `Center`: x = (max_width - text_width) / 2
-- `Right`: x = max_width - text_width
+Horizontal alignment is `TextHorizontalAlignment`. `Start` and `End` resolve by text direction,
+while `Left`, `Center` and `Right` are absolute. `Start` and `Left` put the line at x = 0, `End`
+and `Right` at `max_width - text_width`, and `Center` halfway between.
 
-**Vertical:**
-- `Top`: baseline_y = 0
-- `Center`: baseline_y = (max_height - text_height) / 2
-- `Bottom`: baseline_y = max_height - text_height
+Vertical alignment is `TextVerticalAlignment` — `Top`, `Center`, `Bottom` — applied to the
+baseline against `max_height`. Both enums are in `internal/common/enums.rs`; the arithmetic is in
+`TextParagraphLayout::layout_lines`.
 
 ### Text Overflow
 
 **Clip:** Text is simply clipped at boundaries
 
-**Elide:** Ellipsis (…) replaces truncated text:
-```rust
-// Elision logic:
-// 1. Get ellipsis glyph width
-// 2. When line width + next glyph > max_width - ellipsis_width:
-//    - Replace remaining with ellipsis
-// 3. Also elide last visible line when more lines exist
-```
+**Elide:** an ellipsis (…) replaces the truncated text. The ellipsis glyph is measured first, and
+a line is cut once the next glyph would pass `max_width` minus that width. The last visible line
+is also elided when further lines exist.
 
 ## Cursor Positioning
 
 ### cursor_pos_for_byte_offset()
 
-Get cursor position for text offset:
-
-```rust
-pub fn cursor_pos_for_byte_offset(
-    &self,
-    byte_offset: usize,
-) -> (Font::Length, Font::Length)  // (x, y)
-```
+Takes a byte offset and returns the cursor's x and y, in
+`TextParagraphLayout::cursor_pos_for_byte_offset` (`internal/core/textlayout.rs`).
 
 ### byte_offset_for_position()
 
-Get text offset for click position:
-
-```rust
-pub fn byte_offset_for_position(
-    &self,
-    (pos_x, pos_y): (Font::Length, Font::Length),
-) -> usize
-```
+Takes a position and returns the byte offset for it, in
+`TextParagraphLayout::byte_offset_for_position` (`internal/core/textlayout.rs`).
 
 **Click position logic:**
 - Find line by y position
@@ -386,55 +238,28 @@ pub fn byte_offset_for_position(
 
 ## Styled Text
 
-`Style`, `FormattedSpan`, and `StyledTextParagraph` are defined in
-`internal/common/styled_text.rs` (crate `i-slint-common`, behind the `markdown` feature),
-not `internal/core/styled_text.rs` — the core file only re-exports `StyledTextParagraph`
-and adds the public `StyledText` API and FFI.
+`Style`, `FormattedSpan` and `StyledTextParagraph` live in `internal/common/styled_text.rs`
+(crate `i-slint-common`) and are always available. The markdown and HTML parsing in that same file
+is behind the `markdown` feature. `internal/core/styled_text.rs` adds the public `StyledText` API
+and its FFI on top.
 
 ### Style Types
 
-```rust
-pub enum Style {
-    Emphasis,       // *italic*
-    Strong,         // **bold**
-    Strikethrough,  // ~~strikethrough~~
-    Code,           // `code`
-    Link,           // [text](url)
-    Underline,      // <u>underline</u>
-    Color(u32),     // <span style="color:...">, ARGB-encoded
-}
-```
+`Style` is the formatting applied to one span: emphasis, strong, strikethrough, code, link,
+underline, and a color carrying an ARGB value. See `Style` in `internal/common/styled_text.rs`;
+the markdown and HTML that produce each one are listed below.
 
 ### StyledTextParagraph
 
-```rust
-pub struct StyledTextParagraph {
-    pub text: String,                              // Raw text
-    pub formatting: Vec<FormattedSpan>,            // Style ranges
-    pub links: Vec<(Range<usize>, String)>,        // Link destinations
-}
-
-pub struct FormattedSpan {
-    pub range: Range<usize>,  // Byte range in text
-    pub style: Style,
-}
-```
+A paragraph is its raw text, the `FormattedSpan`s applying a `Style` to a byte range, and the link
+destinations for those ranges.
+See `StyledTextParagraph` and `FormattedSpan` in `internal/common/styled_text.rs`.
 
 ### StyledText
 
-```rust
-pub struct StyledText {
-    pub(crate) paragraphs: SharedVector<StyledTextParagraph>,
-}
-
-impl StyledText {
-    /// Create styled text from plain text without markdown parsing.
-    pub fn from_plain_text(text: &str) -> Self;
-
-    /// Parse markdown into styled text.
-    pub fn from_markdown(markdown: &str) -> Result<Self, StyledTextFromMarkdownError>;
-}
-```
+The public API: a shared vector of paragraphs, built either with `from_plain_text()`, which does
+no parsing, or `from_markdown()`, which reports failures as a `StyledTextFromMarkdownError`.
+See `StyledText` in `internal/core/styled_text.rs`.
 
 **Supported Markdown:**
 - `*emphasis*` / `_emphasis_`
