@@ -72,4 +72,27 @@ slint_testing::send_mouse_click(&instance, 0., 100.);
 
 assert_eq!(instance.get_var1(), 160);
 ```
+
+```js
+var instance = new slint.TestCase();
+
+assert.equal(instance.var1, 20);
+assert.equal(instance.cond, 0);
+
+slintlib.private_api.send_mouse_click(instance, 0., 100.);
+
+assert.equal(instance.var1, 40);
+instance.cond = 1;
+assert.equal(instance.cond, 1);
+
+slintlib.private_api.send_mouse_click(instance, 0., 100.);
+
+assert.equal(instance.var1, 80);
+instance.cond = 2;
+assert.equal(instance.cond, 2);
+
+slintlib.private_api.send_mouse_click(instance, 0., 100.);
+
+assert.equal(instance.var1, 160);
+```
 */
