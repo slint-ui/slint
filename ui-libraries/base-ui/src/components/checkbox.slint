@@ -1,0 +1,44 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { Pressable } from "../primitives/pressable.slint";
+
+export component CheckBox inherits Rectangle {
+    in property <string> text;
+    in property <bool> enabled: true;
+    in property <bool> read-only: false;
+    in-out property <bool> checked: false;
+
+    out property <bool> has-focus: pressable.has-focus;
+    out property <bool> has-hover: pressable.has-hover;
+    out property <bool> pressed: pressable.pressed;
+
+    callback toggled;
+
+    min-width: pressable.min-width;
+    min-height: pressable.min-height;
+    forward-focus: pressable;
+
+    accessible-role: checkbox;
+    accessible-label: root.text;
+    accessible-enabled: root.enabled;
+    accessible-read-only: root.read-only;
+    accessible-checkable: true;
+    accessible-checked: root.checked;
+    accessible-action-default => { root.toggle(); }
+
+    public function toggle() {
+        if (root.enabled && !root.read-only) {
+            root.checked = !root.checked;
+            root.toggled();
+        }
+    }
+
+    pressable := Pressable {
+        enabled: root.enabled;
+        activate-on-enter: false;
+        clicked => { root.toggle(); }
+
+        @children
+    }
+}
