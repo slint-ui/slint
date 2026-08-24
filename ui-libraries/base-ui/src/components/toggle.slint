@@ -1,0 +1,41 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { Pressable } from "../primitives/pressable.slint";
+
+export component Toggle inherits Rectangle {
+    in property <string> text;
+    in property <bool> enabled: true;
+    in-out property <bool> checked: false;
+
+    out property <bool> has-focus: pressable.has-focus;
+    out property <bool> has-hover: pressable.has-hover;
+    out property <bool> pressed: pressable.pressed;
+
+    callback toggled;
+
+    min-width: pressable.min-width;
+    min-height: pressable.min-height;
+    forward-focus: pressable;
+
+    accessible-role: button;
+    accessible-label: root.text;
+    accessible-enabled: root.enabled;
+    accessible-checkable: true;
+    accessible-checked: root.checked;
+    accessible-action-default => { root.toggle(); }
+
+    public function toggle() {
+        if (root.enabled) {
+            root.checked = !root.checked;
+            root.toggled();
+        }
+    }
+
+    pressable := Pressable {
+        enabled: root.enabled;
+        clicked => { root.toggle(); }
+
+        @children
+    }
+}
