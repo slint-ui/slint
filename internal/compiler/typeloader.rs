@@ -674,6 +674,8 @@ impl Snapshotter {
             sub_components,
             library_types_imports,
             library_global_imports,
+            deprecated_type_aliases: Vec::new(),
+            collision_renamed_names: Default::default(),
         }
     }
 

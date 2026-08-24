@@ -1,0 +1,15 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Same enum and struct names as duplicated_type_name_a.slint but different members: they must not collapse.
+export enum SharedEnum { BbAlpha, BbBeta, BbGamma }
+export struct SharedStruct { kind: SharedEnum, b-count: int }
+
+export component DupUserB {
+    in property <int> pick;
+    property <SharedEnum> sel: pick == 2 ? SharedEnum.BbGamma : SharedEnum.BbAlpha;
+    out property <int> result: sel == SharedEnum.BbGamma ? 32 : 12;
+    property <SharedStruct> the-struct: { kind: SharedEnum.BbGamma, b-count: 5 };
+    // Reads a renamed enum through a renamed struct field, so the field type must be rewritten too.
+    out property <bool> struct-ok: the-struct.kind == SharedEnum.BbGamma && the-struct.b-count == 5;
+}

@@ -242,7 +242,7 @@ mod visitor {
             globals,
             popup_menu,
             has_debug_info: _,
-            named_exports: _,
+            type_exports: _,
             #[cfg(feature = "bundle-translations")]
                 translations: _,
         }: &mut crate::llr::CompilationUnit,

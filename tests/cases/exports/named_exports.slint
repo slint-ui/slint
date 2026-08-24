@@ -19,11 +19,19 @@ export { TestCase as NamedTestCase }
 auto handle = NamedTestCase::create();
 const TestCase &instance = *handle;
 assert(instance.get_en() == NamedEnum::Bonjour);
+NamedStruct value;
+instance.set_st(value);
 ```
 
 ```rust
 let instance = NamedTestCase::new().unwrap();
 assert_eq!(instance.get_en(), NamedEnum::Bonjour);
+instance.set_st(NamedStruct::default());
+// The old names before the `as` rename still resolve, but are deprecated.
+#[expect(deprecated)]
+let _: ExportedStruct = NamedStruct::default();
+#[expect(deprecated)]
+let _ = ExportEnum::Bonjour;
 ```
 
 */

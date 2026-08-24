@@ -44,6 +44,7 @@ pub fn generate(
                 Declaration::TypeAlias(TypeAlias {
                     old_name: ident(&glob.name),
                     new_name: ident(name),
+                    deprecated: None,
                 })
             }));
         };

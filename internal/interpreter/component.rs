@@ -452,7 +452,7 @@ pub async fn build_from_source(
     #[cfg(feature = "internal")]
     let structs_and_enums = doc.used_types.borrow().structs_and_enums.clone();
     #[cfg(feature = "internal")]
-    let named_exports = doc
+    let mut named_exports = doc
         .exports
         .iter()
         .filter_map(|export| {
@@ -479,6 +479,16 @@ pub async fn build_from_source(
         .filter(|(export_name, type_name)| *export_name != *type_name)
         .map(|(export_name, type_name)| (type_name.to_string(), export_name.to_string()))
         .collect::<Vec<_>>();
+    // A type exported only under a different name is renamed to that name; keep the original
+    // name available as an alias so existing code keeps working.
+    #[cfg(feature = "internal")]
+    named_exports.extend(
+        doc.used_types
+            .borrow()
+            .deprecated_type_aliases
+            .iter()
+            .map(|(old_name, new_name)| (new_name.to_string(), old_name.to_string())),
+    );
     BuildResult {
         diagnostics: diag.into_iter().collect(),
         components,

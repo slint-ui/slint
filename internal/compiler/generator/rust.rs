@@ -212,8 +212,7 @@ pub fn generate(
         return Ok(Default::default());
     }
 
-    let (structs_and_enums_ids, inner_module) =
-        generate_types(&doc.used_types.borrow().structs_and_enums, &llr);
+    let inner_module = generate_types(&doc.used_types.borrow().structs_and_enums, &llr);
 
     let sub_compos = llr
         .used_sub_components
@@ -248,13 +247,14 @@ pub fn generate(
     let compo_ids = llr.public_components.iter().map(|c| ident(&c.name));
 
     let resource_symbols = generate_resources(doc);
-    let named_exports = generate_named_exports(&llr.named_exports);
     // The inner module was meant to be internal private, but projects have been reaching into it
     // so we can't change the name of this module
     let generated_mod = doc
         .last_exported_component()
         .map(|c| format_ident!("slint_generated{}", ident(&c.id)))
         .unwrap_or_else(|| format_ident!("slint_generated"));
+
+    let (type_reexports, deprecated_type_exports) = type_exports(&llr, &generated_mod);
 
     #[cfg(not(feature = "bundle-translations"))]
     let translations = quote!();
@@ -276,7 +276,8 @@ pub fn generate(
             #translations
         }
         #[allow(unused_imports)]
-        pub use #generated_mod::{#(#compo_ids,)* #(#structs_and_enums_ids,)* #(#globals_ids,)* #(#named_exports,)* #(#global_exports,)*};
+        pub use #generated_mod::{#(#compo_ids,)* #(#type_reexports,)* #(#globals_ids,)* #(#global_exports,)*};
+        #(#deprecated_type_exports)*
         #[allow(unused_imports)]
         pub use slint::{ComponentHandle as _, Global as _, ModelExt as _};
     })
@@ -285,7 +286,7 @@ pub fn generate(
 pub(super) fn generate_module_header() -> TokenStream {
     quote! {
         #![allow(non_snake_case, non_camel_case_types)]
-        #![allow(unused_braces, unused_parens)]
+        #![allow(unused_braces, unused_parens, dead_code)]
         #![allow(clippy::all, clippy::pedantic, clippy::nursery)]
         #![allow(unknown_lints, if_let_rescope, tail_expr_drop_order)] // We don't have fancy Drop
 
@@ -295,24 +296,18 @@ pub(super) fn generate_module_header() -> TokenStream {
     }
 }
 
-/// Generate the struct and enums. Return a vector of names to import and a token stream with the inner module
-pub fn generate_types(
-    used_types: &[Type],
-    unit: &llr::CompilationUnit,
-) -> (Vec<Ident>, TokenStream) {
-    let (structs_and_enums_ids, structs_and_enum_def): (Vec<_>, Vec<_>) = used_types
-        .iter()
-        .filter_map(|ty| match ty {
-            Type::Struct(s) => match s.as_ref() {
-                the_struct @ Struct { name: StructName::User { name, .. }, .. } => {
-                    Some((ident(name), generate_struct(the_struct, unit)))
-                }
-                _ => None,
-            },
-            Type::Enumeration(en) => Some((ident(&en.name), generate_enum(en))),
+/// Generate the definitions of the structs and enums, as the inner module's token stream.
+pub fn generate_types(used_types: &[Type], unit: &llr::CompilationUnit) -> TokenStream {
+    let structs_and_enum_def = used_types.iter().filter_map(|ty| match ty {
+        Type::Struct(s) => match s.as_ref() {
+            the_struct @ Struct { name: StructName::User { .. }, .. } => {
+                Some(generate_struct(the_struct, unit))
+            }
             _ => None,
-        })
-        .unzip();
+        },
+        Type::Enumeration(en) => Some(generate_enum(en)),
+        _ => None,
+    });
 
     let version_check = format_ident!(
         "VersionCheck_{}_{}_{}",
@@ -321,12 +316,39 @@ pub fn generate_types(
         env!("CARGO_PKG_VERSION_PATCH"),
     );
 
-    let inner_module = quote! {
+    quote! {
         #(#structs_and_enum_def)*
         const _THE_SAME_VERSION_MUST_BE_USED_FOR_THE_COMPILER_AND_THE_RUNTIME : slint::#version_check = slint::#version_check;
-    };
+    }
+}
 
-    (structs_and_enums_ids, inner_module)
+/// Render the re-exports of [`llr::CompilationUnit::type_exports`]: `pub use` for a type
+/// exposed under a name, and a deprecated `pub type` alias for one kept only for backward
+/// compatibility. Returns the `pub use` items (spliced into the module's use list) and the
+/// deprecated aliases (emitted as standalone items).
+pub(super) fn type_exports(
+    unit: &llr::CompilationUnit,
+    generated_mod: &Ident,
+) -> (Vec<TokenStream>, Vec<TokenStream>) {
+    let mut reexports = Vec::new();
+    let mut deprecated_type_exports = Vec::new();
+    for e in &unit.type_exports {
+        let exported = ident(&e.exported_name);
+        let internal = ident(&e.internal_name);
+        if let Some(note) = e.deprecation_note() {
+            // A `#[deprecated] pub use` does not warn on use, but a deprecated type alias does.
+            deprecated_type_exports.push(quote! {
+                #[deprecated(note = #note)]
+                #[allow(dead_code)]
+                pub type #exported = #generated_mod::#internal;
+            });
+        } else if e.is_alias() {
+            reexports.push(quote!(#internal as #exported));
+        } else {
+            reexports.push(quote!(#exported));
+        }
+    }
+    (reexports, deprecated_type_exports)
 }
 
 fn generate_public_component(
@@ -6181,17 +6203,6 @@ fn generate_resources(doc: &Document) -> Vec<TokenStream> {
             }
         })
         .collect()
-}
-
-pub fn generate_named_exports(named_exports: &[(SmolStr, SmolStr)]) -> Vec<TokenStream> {
-    named_exports
-        .iter()
-        .map(|(original, alias)| {
-            let original = ident(original);
-            let alias = ident(alias);
-            quote!(#original as #alias)
-        })
-        .collect::<Vec<_>>()
 }
 
 fn remove_parenthesis(

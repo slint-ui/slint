@@ -687,6 +687,47 @@ pub struct PublicComponent {
     pub top_level_type: TopLevelComponentType,
 }
 
+/// One name the generated module exposes for a declared type (or a component alias):
+/// its own name, a renamed export, or a name kept only for backward compatibility.
+#[derive(Debug)]
+pub struct TypeExport {
+    /// The name users write.
+    pub exported_name: SmolStr,
+    /// The generated declaration it points at. Equal to `exported_name` for a type
+    /// re-exported under its own name.
+    pub internal_name: SmolStr,
+    /// When set, `exported_name` warns on use: the type is not part of the public API,
+    /// or was renamed on export.
+    pub deprecated: bool,
+}
+
+impl TypeExport {
+    /// True when the type is exposed under a name other than its own — a renamed export,
+    /// or the pre-rename name kept for compatibility. False for a type re-exported under
+    /// its own name.
+    pub fn is_alias(&self) -> bool {
+        self.exported_name != self.internal_name
+    }
+
+    /// The message shown when `exported_name` is used, or `None` when it is not deprecated.
+    /// Shared by the generators so the wording stays identical across languages.
+    pub fn deprecation_note(&self) -> Option<String> {
+        self.deprecated.then(|| {
+            if self.is_alias() {
+                format!(
+                    "`{0}` was renamed to `{1}` on export. Use `{1}`.",
+                    self.exported_name, self.internal_name
+                )
+            } else {
+                format!(
+                    "`{}` is not part of the public API. Re-export it from your main .slint file to make it public.",
+                    self.exported_name
+                )
+            }
+        })
+    }
+}
+
 #[derive(Debug)]
 pub struct CompilationUnit {
     pub public_components: Vec<PublicComponent>,
@@ -697,10 +738,11 @@ pub struct CompilationUnit {
     pub globals: TiVec<GlobalIdx, GlobalComponent>,
     pub popup_menu: Option<PopupMenu>,
     pub has_debug_info: bool,
-    /// The `(original, alias)` pairs for renamed `export { Original as Alias }`
-    /// declarations of components, structs and enums. The generators emit a
-    /// type alias for each. (Global aliases are on [`GlobalComponent::aliases`].)
-    pub named_exports: Vec<(SmolStr, SmolStr)>,
+    /// Every name the generated module re-exports for a declared type, plus the
+    /// renamed `export { Original as Alias }` aliases of components. Types renamed to
+    /// resolve a same-name collision are absent: they were never public. (Global
+    /// aliases are on [`GlobalComponent::aliases`].)
+    pub type_exports: Vec<TypeExport>,
     #[cfg(feature = "bundle-translations")]
     pub translations: Option<crate::translations::Translations>,
 }
