@@ -1,8 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Api } from "../api.slint";
 import { EditorMetrics, StudioTheme } from "common.slint";
+import { Project } from "../project.slint";
 
 export component EditorTopBar inherits Rectangle {
     height: EditorMetrics.top-bar-height;
@@ -19,7 +19,7 @@ export component EditorTopBar inherits Rectangle {
         cross-axis-alignment: center;
 
         Text {
-            text: Api.selected-project-file;
+            text: Project.selected-project-file;
             color: StudioTheme.muted;
             font-size: 13px;
             vertical-alignment: center;

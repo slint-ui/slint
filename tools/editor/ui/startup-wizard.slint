@@ -4,11 +4,7 @@
 // cspell:ignore slinterface
 
 import { Palette } from "std-widgets.slint";
-
-struct RecentFile {
-    title: string,
-    path: string,
-}
+import { Project } from "project.slint";
 
 global WizardTheme {
     out property <bool> dark: Palette.color-scheme == ColorScheme.dark;
@@ -201,7 +197,6 @@ export component StartupWizard inherits Rectangle {
     property <length> shell-top: (root.height - shell-height) / 2;
     property <length> side-width: shell-width < 620px ? 220px : 270px;
     property <length> main-width: shell-width - side-width;
-    property <[RecentFile]> recent-files: [];
 
     accessible-role: AccessibleRole.region;
     accessible-label: "Startup wizard";
@@ -293,9 +288,9 @@ export component StartupWizard inherits Rectangle {
             height: 195px;
             spacing: 5px;
 
-            for file[index] in root.recent-files: RecentFileRow {
-                title: file.title;
-                path: file.path;
+            for project[index] in Project.recent: RecentFileRow {
+                title: project.component;
+                path: project.path;
                 selected: index == 0;
                 opened => {
                     root.opened();

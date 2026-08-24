@@ -591,8 +591,6 @@ export global Api {
     callback outline-can-drop(data: data-transfer, uri: string, offset: int, location: DropLocation) -> bool;
 
     // ## File Tree
-    in-out property <[FileTreeNode]> file-tree;
-    in-out property <string> selected-project-file;
     in-out property <bool> startup-wizard-visible;
     in-out property <EditorSurfaceMode> editor-surface-mode: EditorSurfaceMode.component;
     in-out property <ImageAssetPreview> selected-image-asset;
@@ -752,8 +750,6 @@ export global Api {
         { url: "examples/sprite-sheet/demo.slint", title: "Sprite sheet Demo" },
     ];
     callback new-file();
-    callback create-new-project() -> bool;
-    callback open-existing-project() -> bool;
     callback share-permalink-to-clipboard();
     callback load-demo(url: string);
     callback show-about-slint();

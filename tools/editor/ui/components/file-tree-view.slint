@@ -4,6 +4,7 @@
 import { FileTreeIcons } from "file-tree-icons.slint";
 import { EditorTreeTokens } from "editor-tree-tokens.slint";
 import { Api, FileTreeNode, FileTreeNodeKind } from "../api.slint";
+import { Project } from "../project.slint";
 import { ListView, Palette } from "std-widgets.slint";
 
 component FileTreeRow inherits Rectangle {
@@ -137,7 +138,7 @@ export component FileTreeView inherits ListView {
     accessible-role: AccessibleRole.tree;
     accessible-label: "Files";
 
-    for row in Api.file-tree: FileTreeRow {
+    for row in Project.file-tree: FileTreeRow {
         width: root.visible-width;
         node: row;
         tree-has-hover: root.tree-has-hover;

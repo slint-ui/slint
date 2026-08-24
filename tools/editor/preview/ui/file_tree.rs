@@ -9,7 +9,9 @@ use std::rc::Rc;
 use i_slint_core::platform::Clipboard;
 use slint::{ComponentHandle, Image, ModelRc, SharedString, ToSharedString as _, VecModel};
 
-use super::{Api, EditorSurfaceMode, EditorUi, FileTreeNode, FileTreeNodeKind, ImageAssetPreview};
+use super::{
+    Api, EditorSurfaceMode, EditorUi, FileTreeNode, FileTreeNodeKind, ImageAssetPreview, Project,
+};
 
 #[cfg(not(target_arch = "wasm32"))]
 const NEW_PROJECT_NAME: &str = "Slint UI Project";
@@ -26,7 +28,13 @@ const NEW_PROJECT_MAIN_FILE_CONTENTS: &str = r#"export component MainWindow inhe
 }
 "#;
 
-pub fn setup(api: &Api<'_>, api_weak: slint::Weak<Api<'static>>, editor_ui: slint::Weak<EditorUi>) {
+pub fn setup(
+    api: &Api<'_>,
+    api_weak: slint::Weak<Api<'static>>,
+    project: &Project<'_>,
+    project_weak: slint::Weak<Project<'static>>,
+    editor_ui: slint::Weak<EditorUi>,
+) {
     let initial_paths = initial_file_tree_paths();
     api.set_startup_wizard_visible(initial_paths.is_none());
 
@@ -34,26 +42,29 @@ pub fn setup(api: &Api<'_>, api_weak: slint::Weak<Api<'static>>, editor_ui: slin
         initial_paths.map(|(root, selected_path)| FileTreeController::new(root, selected_path)),
     ));
     if let Some(controller) = controller.borrow().as_ref() {
-        controller.publish(api);
+        controller.publish(project);
     } else {
-        api.set_file_tree(Default::default());
-        api.set_selected_project_file(Default::default());
+        project.set_file_tree(Default::default());
+        project.set_selected_project_file(Default::default());
     }
 
     let controller_for_select = controller.clone();
     let api_weak_for_select = api_weak.clone();
+    let project_weak_for_select = project_weak.clone();
     api.on_file_tree_select(move |path| {
         if let Some(api) = api_weak_for_select.upgrade()
+            && let Some(project) = project_weak_for_select.upgrade()
             && let Some(controller) = controller_for_select.borrow_mut().as_mut()
         {
-            controller.select(Path::new(path.as_str()), &api);
+            controller.select(Path::new(path.as_str()), &api, &project);
         }
     });
 
     let controller_for_open = controller.clone();
     let api_weak_for_open = api_weak.clone();
+    let project_weak_for_open = project_weak.clone();
     let window_for_open = editor_ui.clone();
-    api.on_open_existing_project(move || {
+    project.on_open_existing_project(move || {
         // The handle is only valid once the window manager created the window.
         let window = window_for_open.upgrade().map(|editor_ui| editor_ui.window().window_handle());
         let Some(path) = choose_project_file(window) else {
@@ -62,11 +73,13 @@ pub fn setup(api: &Api<'_>, api_weak: slint::Weak<Api<'static>>, editor_ui: slin
         let Some(root) = path.parent().map(Path::to_path_buf) else {
             return false;
         };
-        if let Some(api) = api_weak_for_open.upgrade() {
+        if let Some(api) = api_weak_for_open.upgrade()
+            && let Some(project) = project_weak_for_open.upgrade()
+        {
             let mut controller = controller_for_open.borrow_mut();
             *controller = Some(FileTreeController::new(root, Some(path.clone())));
             if let Some(controller) = controller.as_mut() {
-                controller.publish(&api);
+                controller.publish(&project);
             }
             api.set_startup_wizard_visible(false);
             super::super::request_file_tree_preview(&path);
@@ -78,8 +91,9 @@ pub fn setup(api: &Api<'_>, api_weak: slint::Weak<Api<'static>>, editor_ui: slin
 
     let controller_for_new = controller.clone();
     let api_weak_for_new = api_weak.clone();
+    let project_weak_for_new = project_weak.clone();
     let window_for_new = editor_ui;
-    api.on_create_new_project(move || {
+    project.on_create_new_project(move || {
         let window = window_for_new.upgrade().map(|editor_ui| editor_ui.window().window_handle());
         let Some(path) = choose_new_project_path(window) else {
             return false;
@@ -93,11 +107,13 @@ pub fn setup(api: &Api<'_>, api_weak: slint::Weak<Api<'static>>, editor_ui: slin
             tracing::warn!("Failed to create project file {}: {err}", main_file_path.display());
             return false;
         }
-        if let Some(api) = api_weak_for_new.upgrade() {
+        if let Some(api) = api_weak_for_new.upgrade()
+            && let Some(project) = project_weak_for_new.upgrade()
+        {
             let mut controller = controller_for_new.borrow_mut();
             *controller = Some(FileTreeController::new(path, Some(main_file_path.clone())));
             if let Some(controller) = controller.as_mut() {
-                controller.publish(&api);
+                controller.publish(&project);
             }
             api.set_editor_surface_mode(EditorSurfaceMode::Component);
             api.set_startup_wizard_visible(false);
@@ -109,10 +125,10 @@ pub fn setup(api: &Api<'_>, api_weak: slint::Weak<Api<'static>>, editor_ui: slin
     });
 
     api.on_file_tree_toggle(move |path| {
-        if let Some(api) = api_weak.upgrade()
+        if let Some(project) = project_weak.upgrade()
             && let Some(controller) = controller.borrow_mut().as_mut()
         {
-            controller.toggle(Path::new(path.as_str()), &api);
+            controller.toggle(Path::new(path.as_str()), &project);
         }
     });
 
@@ -237,7 +253,7 @@ impl FileTreeController {
         Self { root, expanded, selected_path, active_folder_path }
     }
 
-    fn select(&mut self, path: &Path, api: &Api<'_>) {
+    fn select(&mut self, path: &Path, api: &Api<'_>, project: &Project<'_>) {
         let Some(path) = self.path_in_root(path) else {
             return;
         };
@@ -245,7 +261,7 @@ impl FileTreeController {
 
         self.selected_path = Some(path.clone());
         self.active_folder_path = active_folder_for_path(&path).unwrap_or(&self.root).to_path_buf();
-        self.publish(api);
+        self.publish(project);
 
         if is_slint_file {
             api.set_editor_surface_mode(EditorSurfaceMode::Component);
@@ -260,7 +276,7 @@ impl FileTreeController {
         }
     }
 
-    fn toggle(&mut self, path: &Path, api: &Api<'_>) {
+    fn toggle(&mut self, path: &Path, project: &Project<'_>) {
         let Some(path) = self.path_in_root(path) else {
             return;
         };
@@ -273,18 +289,18 @@ impl FileTreeController {
         } else {
             self.expanded.insert(path);
         }
-        self.publish(api);
+        self.publish(project);
     }
 
-    fn publish(&self, api: &Api<'_>) {
+    fn publish(&self, project: &Project<'_>) {
         let rows = build_file_tree_rows(
             &self.root,
             &self.expanded,
             self.selected_path.as_deref(),
             &self.active_folder_path,
         );
-        api.set_file_tree(ModelRc::new(VecModel::from(rows)));
-        api.set_selected_project_file(
+        project.set_file_tree(ModelRc::new(VecModel::from(rows)));
+        project.set_selected_project_file(
             selected_project_file(&self.root, self.selected_path.as_deref()).into(),
         );
     }
