@@ -1,0 +1,80 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+//library_path(headless): ../../../ui-libraries/base-ui/src/base-ui.slint
+import { Button } from "@headless";
+
+component InheritedButton inherits Button {
+    Rectangle {
+        background: root.pressed ? blue : root.has-hover ? green : gray;
+    }
+}
+
+component ComposedButton inherits Rectangle {
+    in property <string> text <=> behavior.text;
+    in property <bool> enabled <=> behavior.enabled;
+    out property <bool> has-focus: behavior.has-focus;
+    callback clicked <=> behavior.clicked;
+
+    forward-focus: behavior;
+
+    behavior := Button {
+        Rectangle { background: root.enabled ? black : gray; }
+    }
+}
+
+export component TestCase inherits Window {
+    in-out property <bool> first-enabled: true;
+    out property <int> inherited-clicks;
+    out property <int> composed-clicks;
+    out property <bool> inherited-focused: inherited.has-focus;
+
+    public function focus-inherited() { inherited.focus(); }
+
+    VerticalLayout {
+        inherited := InheritedButton {
+            text: "Inherited";
+            enabled: root.first-enabled;
+            height: 40px;
+            clicked => { root.inherited-clicks += 1; }
+        }
+
+        composed := ComposedButton {
+            text: "Composed";
+            height: 40px;
+            clicked => { root.composed-clicks += 1; }
+        }
+    }
+}
+
+/*
+```rust
+use slint::{SharedString, platform::{Key, PointerEventButton}};
+
+let instance = TestCase::new().unwrap();
+let inherited = slint_testing::ElementHandle::find_by_element_id(&instance, "TestCase::inherited")
+    .next().unwrap();
+let composed = slint_testing::ElementHandle::find_by_element_id(&instance, "TestCase::composed")
+    .next().unwrap();
+
+assert_eq!(inherited.accessible_label(), Some(SharedString::from("Inherited")));
+assert_eq!(inherited.accessible_enabled(), Some(true));
+inherited.mock_single_click(PointerEventButton::Left);
+assert_eq!(instance.get_inherited_clicks(), 1);
+
+instance.invoke_focus_inherited();
+assert!(instance.get_inherited_focused());
+slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::Space));
+slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::Return));
+assert_eq!(instance.get_inherited_clicks(), 3);
+
+instance.set_first_enabled(false);
+assert_eq!(inherited.accessible_enabled(), Some(false));
+inherited.mock_single_click(PointerEventButton::Left);
+inherited.invoke_accessible_default_action();
+assert_eq!(instance.get_inherited_clicks(), 3);
+
+composed.mock_single_click(PointerEventButton::Left);
+assert_eq!(instance.get_composed_clicks(), 1);
+```
+*/
