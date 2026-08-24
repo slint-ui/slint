@@ -42,7 +42,7 @@ pub fn collect_structs_and_enums(doc: &Document) {
 }
 
 fn maybe_collect_struct(ty: &Type, hash: &mut BTreeMap<SmolStr, Type>) {
-    visit_declared_type(ty, &mut |name, sub_ty| {
+    crate::langtype::visit_declared_types(ty, &mut |name, sub_ty| {
         hash.entry(name.clone()).or_insert_with(|| sub_ty.clone());
     });
 }
@@ -78,33 +78,10 @@ fn sort_types(
         && let StructName::User { .. } = &s.name
     {
         for sub_ty in s.fields.values() {
-            visit_declared_type(sub_ty, &mut |name, _| sort_types(hash, name, visitor));
+            crate::langtype::visit_declared_types(sub_ty, &mut |name, _| {
+                sort_types(hash, name, visitor)
+            });
         }
     }
     visitor(key, &ty)
-}
-
-/// Will call the `visitor` for every named struct or enum that is not builtin
-fn visit_declared_type(ty: &Type, visitor: &mut impl FnMut(&SmolStr, &Type)) {
-    match ty {
-        Type::Struct(s) => {
-            if s.node().is_some()
-                && let StructName::User { name, .. } = &s.name
-            {
-                visitor(name, ty);
-            }
-            for sub_ty in s.fields.values() {
-                visit_declared_type(sub_ty, visitor);
-            }
-        }
-        Type::Array(x) => visit_declared_type(x, visitor),
-        Type::Function(function) | Type::Callback(function) => {
-            visit_declared_type(&function.return_type, visitor);
-            for a in &function.args {
-                visit_declared_type(a, visitor);
-            }
-        }
-        Type::Enumeration(en) if en.node.is_some() => visitor(&en.name, ty),
-        _ => {}
-    }
 }

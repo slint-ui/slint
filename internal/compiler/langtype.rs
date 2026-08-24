@@ -1311,6 +1311,32 @@ impl Display for Struct {
     }
 }
 
+/// Call `visitor` for every user-declared (non-builtin) struct or enum reachable from `ty`,
+/// recursing through struct fields, arrays, and callback/function signatures.
+pub(crate) fn visit_declared_types(ty: &Type, visitor: &mut impl FnMut(&SmolStr, &Type)) {
+    match ty {
+        Type::Struct(s) => {
+            if s.node().is_some()
+                && let StructName::User { name, .. } = &s.name
+            {
+                visitor(name, ty);
+            }
+            for sub_ty in s.fields.values() {
+                visit_declared_types(sub_ty, visitor);
+            }
+        }
+        Type::Array(x) => visit_declared_types(x, visitor),
+        Type::Function(function) | Type::Callback(function) => {
+            visit_declared_types(&function.return_type, visitor);
+            for a in &function.args {
+                visit_declared_types(a, visitor);
+            }
+        }
+        Type::Enumeration(en) if en.node.is_some() => visitor(&en.name, ty),
+        _ => {}
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Enumeration {
     pub name: SmolStr,

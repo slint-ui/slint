@@ -57,6 +57,7 @@ mod remove_unused_properties;
 mod repeater_component;
 pub mod resolve_native_classes;
 pub mod resolving;
+mod unique_declared_type_names;
 mod unique_id;
 mod visible;
 mod windows;
@@ -287,6 +288,7 @@ pub async fn run_passes(
 
     // collect globals once more: After optimizations we might have less globals
     collect_globals::collect_globals(doc, diag);
+    unique_declared_type_names::assign_unique_declared_type_names(doc);
     collect_structs_and_enums::collect_structs_and_enums(doc);
 
     doc.visit_all_used_components(|component| {
