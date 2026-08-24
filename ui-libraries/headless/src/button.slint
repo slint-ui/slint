@@ -1,0 +1,101 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+/// Provides the interaction and accessibility behavior for a button without prescribing its
+/// visual design.
+export component Button inherits Rectangle {
+    /// Identifies the button to accessibility tools.
+    in property <string> text;
+
+    /// Enables pointer, keyboard, and accessibility activation.
+    in property <bool> enabled: true;
+
+    /// Reports whether the button owns keyboard focus.
+    out property <bool> has-focus: focus-scope.has-focus;
+
+    /// Reports whether a pointer is over the enabled button.
+    out property <bool> has-hover: root.enabled && touch-area.has-hover;
+
+    /// Reports whether the enabled button is held by a pointer or the Space key.
+    out property <bool> pressed:
+        root.enabled && (touch-area.pressed || root.keyboard-pressed);
+
+    /// Runs after pointer, keyboard, or accessibility activation.
+    callback clicked;
+
+    private property <bool> keyboard-pressed: false;
+
+    min-width: content.min-width;
+    min-height: content.min-height;
+    forward-focus: focus-scope;
+
+    accessible-role: button;
+    accessible-label: root.text;
+    accessible-enabled: root.enabled;
+    accessible-action-default => {
+        if (root.enabled) {
+            root.clicked();
+        }
+    }
+
+    changed enabled => {
+        if (!root.enabled) {
+            root.keyboard-pressed = false;
+        }
+    }
+
+    changed has-focus => {
+        if (!root.has-focus) {
+            root.keyboard-pressed = false;
+        }
+    }
+
+    content := Rectangle {
+        @children
+    }
+
+    touch-area := TouchArea {
+        enabled: root.enabled;
+        clicked => { root.clicked(); }
+    }
+
+    focus-scope := FocusScope {
+        x: 0px;
+        width: 0px;
+        enabled: root.enabled;
+
+        key-pressed(event) => {
+            if (event.text == "\n") {
+                if (!event.repeat) {
+                    root.clicked();
+                }
+                return accept;
+            }
+
+            if (event.text == " ") {
+                if (!event.repeat) {
+                    root.keyboard-pressed = true;
+                }
+                return accept;
+            }
+
+            return reject;
+        }
+
+        key-released(event) => {
+            if (event.text == " ") {
+                if (root.keyboard-pressed) {
+                    root.keyboard-pressed = false;
+                    root.clicked();
+                }
+                return accept;
+            }
+
+            if (event.text == "\n") {
+                return accept;
+            }
+
+            return reject;
+        }
+    }
+}

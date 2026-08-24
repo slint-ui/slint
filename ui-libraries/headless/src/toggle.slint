@@ -1,0 +1,112 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+/// Provides the interaction, state, and accessibility behavior for a switch without prescribing
+/// its visual design.
+export component Toggle inherits Rectangle {
+    /// Identifies the toggle to accessibility tools.
+    in property <string> text;
+
+    /// Enables pointer, keyboard, and accessibility interaction.
+    in property <bool> enabled: true;
+
+    /// Prevents state changes while keeping the toggle available to accessibility tools.
+    in property <bool> read-only: false;
+
+    /// Stores whether the toggle is on.
+    in-out property <bool> checked: false;
+
+    /// Reports whether the toggle owns keyboard focus.
+    out property <bool> has-focus: focus-scope.has-focus;
+
+    /// Reports whether a pointer is over the interactive toggle.
+    out property <bool> has-hover:
+        root.enabled && !root.read-only && touch-area.has-hover;
+
+    /// Reports whether the toggle is held by a pointer or the Space key.
+    out property <bool> pressed:
+        root.enabled && !root.read-only && (touch-area.pressed || root.keyboard-pressed);
+
+    /// Runs after the checked state changes through user or accessibility interaction.
+    callback toggled;
+
+    private property <bool> keyboard-pressed: false;
+
+    min-width: content.min-width;
+    min-height: content.min-height;
+    forward-focus: focus-scope;
+
+    accessible-role: switch;
+    accessible-label: root.text;
+    accessible-enabled: root.enabled;
+    accessible-read-only: root.read-only;
+    accessible-checkable: true;
+    accessible-checked: root.checked;
+    accessible-action-default => { root.toggle(); }
+
+    changed enabled => {
+        if (!root.enabled) {
+            root.keyboard-pressed = false;
+        }
+    }
+
+    changed read-only => {
+        if (root.read-only) {
+            root.keyboard-pressed = false;
+        }
+    }
+
+    changed has-focus => {
+        if (!root.has-focus) {
+            root.keyboard-pressed = false;
+        }
+    }
+
+    /// Changes the checked state when the toggle is interactive.
+    function toggle() {
+        if (!root.enabled || root.read-only) {
+            return;
+        }
+
+        root.checked = !root.checked;
+        root.toggled();
+    }
+
+    content := Rectangle {
+        @children
+    }
+
+    touch-area := TouchArea {
+        enabled: root.enabled && !root.read-only;
+        clicked => { root.toggle(); }
+    }
+
+    focus-scope := FocusScope {
+        x: 0px;
+        width: 0px;
+        enabled: root.enabled;
+
+        key-pressed(event) => {
+            if (event.text == " ") {
+                if (!event.repeat && !root.read-only) {
+                    root.keyboard-pressed = true;
+                }
+                return accept;
+            }
+
+            return reject;
+        }
+
+        key-released(event) => {
+            if (event.text == " ") {
+                if (root.keyboard-pressed) {
+                    root.keyboard-pressed = false;
+                    root.toggle();
+                }
+                return accept;
+            }
+
+            return reject;
+        }
+    }
+}

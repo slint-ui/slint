@@ -1,0 +1,206 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+/// Provides the interaction, state, and accessibility behavior for a radio button without
+/// prescribing its visual design.
+export component RadioButton inherits Rectangle {
+    /// Identifies the radio button to accessibility tools.
+    in property <string> text;
+
+    /// Identifies the value represented by the radio button.
+    in property <string> value;
+
+    /// Enables pointer, keyboard, and accessibility interaction.
+    in property <bool> enabled: true;
+
+    /// Prevents selection while keeping the radio button available to accessibility tools.
+    in property <bool> read-only: false;
+
+    /// Reports whether the radio button represents the selected value.
+    in property <bool> checked: false;
+
+    /// Identifies the radio button's position within its group.
+    in property <int> item-index: -1;
+
+    /// Reports whether the radio button owns keyboard focus.
+    out property <bool> has-focus: focus-scope.has-focus;
+
+    /// Reports whether a pointer is over the interactive radio button.
+    out property <bool> has-hover:
+        root.enabled && !root.read-only && touch-area.has-hover;
+
+    /// Reports whether the radio button is held by a pointer or the Space key.
+    out property <bool> pressed:
+        root.enabled && !root.read-only && (touch-area.pressed || root.keyboard-pressed);
+
+    /// Requests that the containing group select this radio button.
+    callback selected;
+
+    /// Requests focus and selection movement by `-1` or `1` within the containing group.
+    callback navigate(int);
+
+    /// Reports focus transitions to the containing group.
+    callback focus-changed(bool);
+
+    private property <bool> keyboard-pressed: false;
+
+    min-width: content.min-width;
+    min-height: content.min-height;
+    forward-focus: focus-scope;
+
+    accessible-role: radio-button;
+    accessible-label: root.text;
+    accessible-enabled: root.enabled;
+    accessible-read-only: root.read-only;
+    accessible-checkable: true;
+    accessible-checked: root.checked;
+    accessible-item-index: root.item-index;
+    accessible-item-selectable: true;
+    accessible-item-selected: root.checked;
+    accessible-action-default => { root.select(); }
+
+    changed enabled => {
+        if (!root.enabled) {
+            root.keyboard-pressed = false;
+        }
+    }
+
+    changed read-only => {
+        if (root.read-only) {
+            root.keyboard-pressed = false;
+        }
+    }
+
+    changed has-focus => {
+        if (!root.has-focus) {
+            root.keyboard-pressed = false;
+        }
+    }
+
+    /// Requests selection when the radio button is interactive and not already selected.
+    function select() {
+        if (root.enabled && !root.read-only && !root.checked) {
+            root.selected();
+        }
+    }
+
+    content := Rectangle {
+        @children
+    }
+
+    touch-area := TouchArea {
+        enabled: root.enabled && !root.read-only;
+        clicked => { root.select(); }
+    }
+
+    focus-scope := FocusScope {
+        x: 0px;
+        width: 0px;
+        enabled: root.enabled;
+
+        focus-gained => { root.focus-changed(true); }
+        focus-lost => { root.focus-changed(false); }
+
+        key-pressed(event) => {
+            if (event.text == " ") {
+                if (!event.repeat && !root.read-only) {
+                    root.keyboard-pressed = true;
+                }
+                return accept;
+            }
+
+            if (event.text == Key.LeftArrow || event.text == Key.UpArrow) {
+                if (!event.repeat && !root.read-only) {
+                    root.navigate(-1);
+                }
+                return accept;
+            }
+
+            if (event.text == Key.RightArrow || event.text == Key.DownArrow) {
+                if (!event.repeat && !root.read-only) {
+                    root.navigate(1);
+                }
+                return accept;
+            }
+
+            return reject;
+        }
+
+        key-released(event) => {
+            if (event.text == " ") {
+                if (root.keyboard-pressed) {
+                    root.keyboard-pressed = false;
+                    root.select();
+                }
+                return accept;
+            }
+
+            if (event.text == Key.LeftArrow || event.text == Key.UpArrow
+                || event.text == Key.RightArrow || event.text == Key.DownArrow) {
+                return accept;
+            }
+
+            return reject;
+        }
+    }
+}
+
+/// Owns the shared selection and accessibility state for explicitly wired radio buttons.
+export component RadioGroup inherits Rectangle {
+    /// Identifies the radio group to accessibility tools.
+    in property <string> text;
+
+    /// Enables selection in the group.
+    in property <bool> enabled: true;
+
+    /// Prevents selection changes while keeping the group available to accessibility tools.
+    in property <bool> read-only: false;
+
+    /// Describes how the group's radio buttons are arranged.
+    in property <Orientation> orientation: Orientation.vertical;
+
+    /// Reports the number of radio buttons in the group.
+    in property <int> item-count: 0;
+
+    /// Stores the selected radio-button value.
+    in-out property <string> selected-value;
+
+    /// Reports whether a radio button in the group owns focus.
+    out property <bool> has-focus: root.focus-depth > 0;
+
+    /// Runs after selection changes through `select()`.
+    callback selected(string);
+
+    private property <int> focus-depth: 0;
+
+    min-width: content.min-width;
+    min-height: content.min-height;
+
+    accessible-role: radio-group;
+    accessible-label: root.text;
+    accessible-enabled: root.enabled;
+    accessible-read-only: root.read-only;
+    accessible-orientation: root.orientation;
+    accessible-item-count: root.item-count;
+
+    /// Selects a value when the group is interactive and the value is not already selected.
+    public function select(value: string) {
+        if (root.enabled && !root.read-only && root.selected-value != value) {
+            root.selected-value = value;
+            root.selected(value);
+        }
+    }
+
+    /// Tracks focus transitions reported by the group's radio buttons.
+    public function on-focus-changed(gained: bool) {
+        if (gained) {
+            root.focus-depth += 1;
+        } else {
+            root.focus-depth = max(0, root.focus-depth - 1);
+        }
+    }
+
+    content := Rectangle {
+        @children
+    }
+}

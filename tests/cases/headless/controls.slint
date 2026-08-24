@@ -1,0 +1,99 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+//library_path(headless): ../../../ui-libraries/headless/src/headless.slint
+import { Button, CheckBox, RadioButton, RadioGroup, Toggle } from "@headless";
+
+export component TestCase inherits Window {
+    private property <int> radio-changes;
+
+    out property <bool> test:
+        toggle.checked
+        && checkbox.checked
+        && group.selected-value == "beta"
+        && root.radio-changes == 1
+        && second-group.selected-value == "second";
+
+    init => {
+        group.select("beta");
+    }
+
+    VerticalLayout {
+        button := Button {
+            text: "Button";
+            Rectangle { background: blue; }
+        }
+
+        disabled-button := Button {
+            text: "Disabled button";
+            enabled: false;
+        }
+
+        toggle := Toggle {
+            text: "Toggle";
+            checked: true;
+            Rectangle { background: toggle.checked ? green : gray; }
+        }
+
+        read-only-toggle := Toggle {
+            text: "Read-only toggle";
+            read-only: true;
+        }
+
+        checkbox := CheckBox {
+            text: "Check box";
+            checked: true;
+            Rectangle { background: checkbox.checked ? green : gray; }
+        }
+
+        read-only-checkbox := CheckBox {
+            text: "Read-only check box";
+            read-only: true;
+        }
+
+        group := RadioGroup {
+            text: "First group";
+            item-count: 2;
+            selected-value: "alpha";
+            selected(_) => { root.radio-changes += 1; }
+
+            HorizontalLayout {
+                RadioButton {
+                    text: "Alpha";
+                    value: "alpha";
+                    item-index: 0;
+                    enabled: group.enabled;
+                    read-only: group.read-only;
+                    checked: group.selected-value == self.value;
+                    selected => { group.select(self.value); }
+                    focus-changed(gained) => { group.on-focus-changed(gained); }
+                }
+
+                beta := RadioButton {
+                    text: "Beta";
+                    value: "beta";
+                    item-index: 1;
+                    enabled: group.enabled;
+                    read-only: group.read-only;
+                    checked: group.selected-value == self.value;
+                    selected => { group.select(self.value); }
+                    focus-changed(gained) => { group.on-focus-changed(gained); }
+                }
+            }
+        }
+
+        second-group := RadioGroup {
+            text: "Second group";
+            item-count: 1;
+            selected-value: "second";
+
+            RadioButton {
+                text: "Second";
+                value: "second";
+                item-index: 0;
+                checked: second-group.selected-value == self.value;
+                selected => { second-group.select(self.value); }
+            }
+        }
+    }
+}
