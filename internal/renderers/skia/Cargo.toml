@@ -41,8 +41,8 @@ unstable-wgpu-29 = ["i-slint-core/unstable-wgpu-29", "wgpu-29"]
 wgpu-30 = ["i-slint-core/wgpu-30", "dep:wgpu-30", "dep:spin_on", "dep:ash", "dep:windows-core", "dep:wgpu-hal-30"]
 unstable-wgpu-30 = ["i-slint-core/unstable-wgpu-30", "wgpu-30"]
 default = ["softbuffer", "wgpu-30"]
-# Exposes additional APIs that aren't public but required for integration testing.
 testing = ["i-slint-core/testing"]
+occlusion-culling = ["i-slint-core/occlusion-culling"]
 
 [dependencies]
 i-slint-core = { workspace = true, features = ["default", "box-shadow-cache", "shared-parley", "image-decoders", "svg"] }

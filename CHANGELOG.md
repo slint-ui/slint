@@ -261,6 +261,11 @@ All notable changes to this project are documented in this file.
  - slint-viewer: Fixed `--auto-reload` not reloading when the file was given as a relative path. (#12572)
  - SlintPad: Fixed a panic when loading demos with imports. (#12486)
 
+### Rust
+
+ - Added the opt-in `occlusion-culling` Cargo feature on the `slint` crate: skips rendering content
+   fully hidden behind opaque items.
+
 ## [1.17.1] - 2026-07-07
 
  - Fixed a panic/crash on startup when a global reads `Palette.color-scheme` (or accent-color) during its initialization.
