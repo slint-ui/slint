@@ -4,7 +4,7 @@
 pub mod context_menu;
 pub mod harness;
 pub mod menubar;
-pub mod platform_is_app;
+pub mod platform_uses_mock_data;
 pub mod text_input_password;
 use std::sync::{
     Arc,

@@ -81,8 +81,8 @@ All notable changes to this project are documented in this file.
  - Added the `max-lines` property to `Text` and `StyledText` to limit the number of rendered lines.
  - Added the `line-height-factor` property to `Text`, `TextInput`, and `StyledText`, scaling the font's
    natural line height.
- - Added `Platform.is-app`: a constant that is `false` when the file is shown in a preview or viewer,
-   useful for placeholder preview data. (#12834)
+ - Added `Platform.uses-mock-data`: a constant that is `true` when the file is shown in a preview or
+   viewer, useful for placeholder preview data. (#12834)
  - `Flickable`: Added the `mouse-drag-pan-enabled` property; panning by touch is always possible. (#4352)
  - Renamed the `viewport-x`/`viewport-y`/`viewport-width`/`viewport-height` properties of `Flickable` to
    `content-x`/`content-y`/`content-width`/`content-height`. The old names remain as deprecated aliases. (#1443)

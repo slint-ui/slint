@@ -8,9 +8,9 @@ struct Data {
 }
 
 export component TestCase inherits Window {
-    out property <bool> test: Platform.is-app;
+    out property <bool> test: !Platform.uses-mock-data;
 
-    out property<[Data]> data: Platform.is-app ? [] : [
+    out property<[Data]> data: Platform.uses-mock-data ? [
                 { text: "Blue", color: #0000ff, bg: #eeeeee},
                 { text: "Red", color: #ff0000, bg: #eeeeee},
                 { text: "Green", color: #00ff00, bg: #eeeeee},
@@ -19,7 +19,7 @@ export component TestCase inherits Window {
                 { text: "White", color: #ffffff, bg: #222222 },
                 { text: "Magenta", color: #ff00ff, bg: #eeeeee },
                 { text: "Cyan", color: #00ffff, bg: #222222 },
-            ];
+            ] : [];
 }
 
 /*

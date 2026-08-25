@@ -2,13 +2,17 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 #[satchel::test]
-fn platform_is_app() {
+fn platform_uses_mock_data() {
     slint::slint! {
         export component MainWindow inherits Window {
-            out property <bool> is_app: Platform.is-app;
+            out property <bool> uses_mock_data: Platform.uses-mock-data;
         }
     }
 
     let app = MainWindow::new().unwrap();
-    assert_eq!(app.get_is_app(), true, "Platform.is-app must be true for a real compiled application");
+    assert_eq!(
+        app.get_uses_mock_data(),
+        false,
+        "Platform.uses-mock-data must be false for a real compiled application"
+    );
 }
