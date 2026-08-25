@@ -6,7 +6,6 @@ use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::{collections::HashMap, iter::once, rc::Rc};
 
-use super::user_settings::PreviewUserSettings;
 use i_slint_compiler::parser::TextRange;
 use i_slint_compiler::{expression_tree, langtype};
 
@@ -63,7 +62,7 @@ fn fuzzy_filter_iter<Item: std::fmt::Debug>(
 }
 
 mod brushes;
-mod file_tree;
+pub(super) mod file_tree;
 pub mod log_messages;
 pub mod palette;
 mod property_view;
@@ -73,50 +72,6 @@ pub mod search_model;
 slint::include_modules!();
 
 pub type PropertyDeclarations = HashMap<SmolStr, PropertyDeclaration>;
-
-pub fn preview_user_settings_from_values(
-    always_on_top: bool,
-    show_library: bool,
-    show_properties: bool,
-    show_outline: bool,
-    show_simulation_data: bool,
-    show_console: bool,
-) -> PreviewUserSettings {
-    PreviewUserSettings {
-        version: PreviewUserSettings::CURRENT_VERSION,
-        always_on_top,
-        show_library,
-        show_properties,
-        show_outline,
-        show_simulation_data,
-        show_console,
-    }
-}
-
-pub fn apply_preview_user_settings(editor_ui: &EditorUi, settings: &PreviewUserSettings) {
-    let api = editor_ui.global::<Api>();
-    api.set_always_on_top(settings.always_on_top);
-}
-
-pub fn setup_preview_user_settings(api: &Api<'_>) {
-    api.on_preview_user_settings_changed(
-        |always_on_top,
-         show_library,
-         show_properties,
-         show_outline,
-         show_simulation_data,
-         show_console| {
-            preview::update_user_settings_from_ui(preview_user_settings_from_values(
-                always_on_top,
-                show_library,
-                show_properties,
-                show_outline,
-                show_simulation_data,
-                show_console,
-            ));
-        },
-    );
-}
 
 pub fn create_ui(
     to_lsp: &Rc<dyn i_slint_editor_preview::PreviewToLsp>,
@@ -296,12 +251,12 @@ pub fn create_ui(
             api.set_startup_wizard_visible(false);
         }
     });
-    file_tree::setup(&api, api_weak.clone(), &project, project_weak, editor_ui.as_weak());
+    let file_tree_controller =
+        file_tree::setup(&api, api_weak.clone(), &project, project_weak, editor_ui.as_weak());
+    preview::set_file_tree_controller(file_tree_controller);
     recent_colors::setup(&api, api_weak.clone());
     super::outline::setup(&api, api_weak.clone());
     super::undo_redo::setup(&api);
-    setup_preview_user_settings(&api);
-    apply_preview_user_settings(&editor_ui, &PreviewUserSettings::default());
 
     #[cfg(all(not(target_arch = "wasm32"), feature = "preview-remote"))]
     super::remote::setup(&api, api_weak, to_lsp);
@@ -1716,22 +1671,6 @@ mod tests {
         assert_eq!(t.value.code.as_str(), "DDD");
 
         assert!(it.next().is_none());
-    }
-
-    #[test]
-    fn preview_user_settings_from_values_maps_all_toggles() {
-        assert_eq!(
-            super::preview_user_settings_from_values(true, false, true, false, true, false),
-            super::PreviewUserSettings {
-                version: super::PreviewUserSettings::CURRENT_VERSION,
-                always_on_top: true,
-                show_library: false,
-                show_properties: true,
-                show_outline: false,
-                show_simulation_data: true,
-                show_console: false,
-            }
-        );
     }
 
     fn generate_preview_data(

@@ -183,6 +183,10 @@ component RecentFileRow inherits Rectangle {
         double-clicked => {
             root.opened();
         }
+
+        Tooltip {
+            text: @markdown("\{root.path}");
+        }
     }
 }
 
@@ -290,10 +294,10 @@ export component StartupWizard inherits Rectangle {
 
             for project[index] in Project.recent: RecentFileRow {
                 title: project.component;
-                path: project.path;
+                path: project.root-path;
                 selected: index == 0;
                 opened => {
-                    root.opened();
+                    Project.open-recent-project(project);
                 }
             }
         }

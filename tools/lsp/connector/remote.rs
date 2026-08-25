@@ -688,6 +688,8 @@ mod tests {
     /// A viewer is on the far end of the network: it may not drive the editor.
     #[tokio::test]
     async fn drops_messages_a_viewer_may_not_send() {
+        use i_slint_live_preview::protocol::PreviewComponent;
+
         tokio::task::LocalSet::new()
             .run_until(async {
                 let (viewer, _viewer_rx, connector, mut to_lsp_rx) = connected_viewer().await;
@@ -695,10 +697,16 @@ mod tests {
                 // A message that drives the editor, followed by one a viewer is
                 // allowed to send.
                 viewer
-                    .send(PreviewToLspMessage::ShowDocument {
-                        file: lsp_types::Url::parse("file:///test.slint").unwrap(),
-                        selection: lsp_types::Range::default(),
-                        take_focus: true,
+                    .send(PreviewToLspMessage::RequestPreview {
+                        component: PreviewComponent {
+                            url: lsp_types::Url::parse("file:///test.slint").unwrap(),
+                            component: None,
+                        },
+                    })
+                    .unwrap();
+                viewer
+                    .send(PreviewToLspMessage::RequestProject {
+                        root: lsp_types::Url::parse("file:///project/").unwrap(),
                     })
                     .unwrap();
                 viewer
