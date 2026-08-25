@@ -337,7 +337,7 @@ pub fn extract_builtin_structs(
 
                 let mut fields = Vec::new();
                 $(
-                    let key = stringify!($field).to_string();
+                    let key = stringify!($field).replace('_', "-");
                     let type_name = map_type!($field_type).to_string();
                     let mut f_description = String::new();
                     $(
