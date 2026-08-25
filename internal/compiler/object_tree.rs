@@ -4553,9 +4553,6 @@ impl Transition {
         tr: &TypeRegister,
         diag: &mut BuildDiagnostics,
     ) -> Transition {
-        if let Some(star) = trs.child_token(SyntaxKind::Star) {
-            diag.push_error("catch-all not yet implemented".into(), &star);
-        };
         let direction_text = trs
             .first_child_or_token()
             .and_then(|t| t.as_token().map(|tok| tok.text().to_string()))
