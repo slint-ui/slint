@@ -17,7 +17,6 @@ SCHEME="Slint Visual Editor"
 SPEC_PATH="$ROOT_DIR/tools/editor/macos-project.yml"
 PROJECT_DIR="$(dirname "$SPEC_PATH")"
 PROJECT_FILE="$PROJECT_DIR/$APP_NAME.xcodeproj"
-EXAMPLE_SOURCE_DIR="$ROOT_DIR/tools/editor/ui/visual-editor/example"
 VERSION="${VERSION:-}"
 
 if [ -z "$VERSION" ]; then
@@ -237,8 +236,6 @@ stage_and_sign_app() {
     rm -rf "$STAGE_DIR"
     mkdir -p "$STAGE_DIR"
     ditto "$APP_PATH" "$STAGED_APP_PATH"
-    mkdir -p "$STAGED_APP_PATH/Contents/Resources/visual-editor-example"
-    ditto "$EXAMPLE_SOURCE_DIR" "$STAGED_APP_PATH/Contents/Resources/visual-editor-example"
     ditto "$SPARKLE_FRAMEWORK_DIR/Sparkle.framework" "$STAGED_APP_PATH/Contents/Frameworks/Sparkle.framework"
 
     local executable="$STAGED_APP_PATH/Contents/MacOS/$APP_NAME"
