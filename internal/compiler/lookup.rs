@@ -92,6 +92,12 @@ impl<'a> LookupCtx<'a> {
         }
     }
 
+    /// Whether lookup offers experimental entries: enabled experimental features,
+    /// or the builtin widget library, which may use them.
+    fn experimental_lookup_enabled(&self) -> bool {
+        self.diag.enable_experimental || self.type_register.expose_internal_types
+    }
+
     /// Run `f` with `expected_type` temporarily set to `ty`, restoring it afterwards.
     pub fn with_expected_type<R>(&mut self, ty: Type, f: impl FnOnce(&mut Self) -> R) -> R {
         let old = std::mem::replace(&mut self.expected_type, ty);
@@ -1270,13 +1276,13 @@ impl LookupObject for ArrayExpression<'_> {
             .or_else(|| f("push", member_macro(BuiltinMacroFunction::ArrayPush)))
             .or_else(|| f("remove", member_macro(BuiltinMacroFunction::ArrayRemove)))
             .or_else(|| f("insert", member_macro(BuiltinMacroFunction::ArrayInsert)))
-            .or_else(|| f("index-of", member_macro(BuiltinMacroFunction::ArrayIndexOf)))
             .or_else(|| {
-                // `any`, `all` and `find-index` take a closure argument; closures are experimental.
-                if !ctx.diag.enable_experimental && !ctx.type_register.expose_internal_types {
+                // Experimental: pending optional types for the -1 result, and closures.
+                if !ctx.experimental_lookup_enabled() {
                     return None;
                 }
-                f("any", member_function(BuiltinFunction::ArrayAny))
+                f("index-of", member_macro(BuiltinMacroFunction::ArrayIndexOf))
+                    .or_else(|| f("any", member_function(BuiltinFunction::ArrayAny)))
                     .or_else(|| f("all", member_function(BuiltinFunction::ArrayAll)))
                     .or_else(|| f("find-index", member_function(BuiltinFunction::ArrayFindIndex)))
             })
