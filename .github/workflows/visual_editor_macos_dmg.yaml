@@ -49,8 +49,11 @@ jobs:
       NOTARY_API_KEY_BASE64: ${{ secrets.APPLE_APPSTORE_PRIVATE_KEY_BASE64 }}
       NOTARY_API_KEY_ID: ${{ secrets.APPLE_APPSTORE_CONNECT_KEY }}
       NOTARY_ISSUER_ID: ${{ secrets.APPLE_APPSTORE_ISSUER_ID }}
-      EDITOR_SPARKLE_ED_PRIVATE_KEY: ${{ secrets.EDITOR_SPARKLE_ED_PRIVATE_KEY }}
-      EDITOR_SPARKLE_PUBLIC_ED_KEY: ${{ vars.EDITOR_SPARKLE_PUBLIC_ED_KEY }}
+      # Signing the appcast is the only thing that uses this, and pull requests
+      # don't get that far. Same-repo pull requests do receive secrets, so
+      # leaving it in scope would hand the signing key to anything a branch
+      # cares to run. The public half is checked into the packaging script.
+      EDITOR_SPARKLE_ED_PRIVATE_KEY: ${{ github.event_name != 'pull_request' && secrets.EDITOR_SPARKLE_ED_PRIVATE_KEY || '' }}
     steps:
       - uses: actions/checkout@v6
 
@@ -149,8 +152,10 @@ jobs:
         run: ./scripts/package_macos_visual_editor.bash notarize-and-staple-dmg
 
       # Sparkle installs from the DMG, so the appcast can only be signed once the
-      # DMG is stapled and won't change again.
+      # DMG is stapled and won't change again. Pull requests skip it: they don't
+      # publish, and they don't have the signing key.
       - name: Create Sparkle appcast
+        if: ${{ github.event_name != 'pull_request' }}
         run: ./scripts/package_macos_visual_editor.bash create-appcast
 
       - name: Assess stapled app

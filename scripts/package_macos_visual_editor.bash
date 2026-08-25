@@ -93,7 +93,11 @@ SPARKLE_FEED_BASE_URL="${SPARKLE_FEED_BASE_URL:-https://visual-editor.slint.dev/
 SPARKLE_DOWNLOAD_BASE_URL="${SPARKLE_DOWNLOAD_BASE_URL:-$SPARKLE_FEED_BASE_URL/builds}"
 # Keep in sync with the deployment target in tools/editor/macos-project.yml.
 MINIMUM_SYSTEM_VERSION="12.0"
-export EDITOR_SPARKLE_PUBLIC_ED_KEY="${EDITOR_SPARKLE_PUBLIC_ED_KEY:-Ncon335q8qNLM0D+L2my+HRIAXmNtNb6uGNmUR0yG2o=}"
+# Trust anchor: every shipped app verifies updates against the copy of this it
+# was built with, so changing it stops all installed copies from updating. It's
+# deliberately not overridable, so the value that ships is the one in review.
+# It's the Ed25519 public key of EDITOR_SPARKLE_ED_PRIVATE_KEY.
+export EDITOR_SPARKLE_PUBLIC_ED_KEY="1XahELjvFZ545cvJC6pdeN6PVhaH31LSavNh5Q8lBAk="
 # Consumed by xcodegen via tools/editor/macos-project.yml.
 export EDITOR_SPARKLE_FEED_URL="${EDITOR_SPARKLE_FEED_URL:-$SPARKLE_FEED_BASE_URL/appcast.xml}"
 export MACOS_BUNDLE_IDENTIFIER="${MACOS_BUNDLE_IDENTIFIER:-dev.slint.visual-editor}"

@@ -48,8 +48,11 @@ expects. GitHub documents repository and organization secrets here:
   key ID for `notarytool`.
 - `NOTARY_ISSUER_ID` <- `APPLE_APPSTORE_ISSUER_ID`: issuer UUID for a Team API
   key.
-- `EDITOR_SPARKLE_ED_PRIVATE_KEY`: exported Sparkle EdDSA private key for the
-  Visual Editor update feed. Use it only for signing update archives.
+- `EDITOR_SPARKLE_ED_PRIVATE_KEY`: the Sparkle EdDSA private key, base64 of the
+  32-byte ed25519 seed, exactly as `generate_keys -x` writes it. Only the
+  appcast step uses it, and pull request runs don't get it: same-repo pull
+  requests do receive secrets, so keeping it out of their scope is the only
+  thing stopping a branch from printing it.
 
 The nightly workflow additionally needs write access to the R2 bucket:
 
@@ -65,11 +68,31 @@ Two values are not secrets and are not provisioned via GitHub Actions:
 - The bundle identifier defaults to `dev.slint.visual-editor` in the packaging
   script. Set `MACOS_BUNDLE_IDENTIFIER` to override.
 
-Optional GitHub Actions variable:
+The Sparkle public key is deliberately not provisioned. It's checked into
+`scripts/package_macos_visual_editor.bash` and reaches `SUPublicEDKey` from
+there, because every shipped app verifies updates against the copy it was built
+with: change it and every installed copy stops updating, silently. A value with
+that property belongs somewhere a diff shows it, not in a repository variable.
 
-- `EDITOR_SPARKLE_PUBLIC_ED_KEY`: public Sparkle EdDSA key for the app's
-  `SUPublicEDKey`. The packaging script uses the checked-in default when this
-  variable is not set.
+To check that the checked-in key really is the public half of the secret:
+
+```sh
+uv run --with cryptography python -c '
+import base64, sys
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from cryptography.hazmat.primitives import serialization
+seed = base64.b64decode(sys.stdin.read().strip())
+pub = Ed25519PrivateKey.from_private_bytes(seed).public_key().public_bytes(
+    serialization.Encoding.Raw, serialization.PublicFormat.Raw)
+print(base64.b64encode(pub).decode())
+' < private-key-file
+```
+
+Sparkle has no key rotation protocol. Losing the private key means no installed
+copy can ever be updated again, so it belongs in the team password manager as
+well as in the secret. Replacing it means shipping an update signed with the old
+key whose app carries the new public key, waiting for that to be picked up, and
+only then switching what signs.
 
 ## Sparkle framework
 
