@@ -777,10 +777,9 @@ pub mod fontique_011 {
     /// }
     /// ```
     pub fn shared_collection() -> fontique::Collection {
-        i_slint_core::with_global_context(
-            || panic!("slint platform not initialized"),
-            |ctx| ctx.font_context().borrow().collection.clone(),
-        )
+        i_slint_backend_selector::with_global_context(|ctx| {
+            ctx.font_context().borrow().collection.clone()
+        })
         .unwrap()
     }
 }
