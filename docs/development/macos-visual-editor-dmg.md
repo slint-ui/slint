@@ -175,31 +175,29 @@ The package driver is `scripts/package_macos_visual_editor.bash`.
 7. Lets Xcode call `scripts/build_macos_app_with_cargo.bash` from a build phase.
 8. Builds Cargo's `slint-editor` binary for `aarch64-apple-darwin` with
    `cargo build --timings`.
-9. Copies the visual editor files into the app bundle resources so Finder
-    launches can open a default project without command-line arguments.
-10. Signs the app bundle with `codesign --deep --options runtime`.
-11. Submits a temporary app ZIP with `xcrun notarytool submit --wait`.
-12. Staples and validates the notarization ticket on the staged app bundle.
-13. Copies Cargo's timing report from
+9. Signs the app bundle with `codesign --deep --options runtime`.
+10. Submits a temporary app ZIP with `xcrun notarytool submit --wait`.
+11. Staples and validates the notarization ticket on the staged app bundle.
+12. Copies Cargo's timing report from
     `target/xcode-cargo/slint-visual-editor/cargo-timings/` to
     `target/macos-visual-editor-dmg/cargo-timings/`.
-14. Deletes Xcode and Cargo build intermediates after the signed app is staged.
+13. Deletes Xcode and Cargo build intermediates after the signed app is staged.
     This is done to free up space on the runner image.
-15. Creates the DMG with `L-Super/create-dmg-actions`, passing
+14. Creates the DMG with `L-Super/create-dmg-actions`, passing
     `tools/editor/packaging/macos/dmg-background.svg`, the Finder window size,
     the app icon position, and the Applications drop-link position as action
     inputs.
-16. Moves the action output to `dist/`, signs the DMG with `codesign`, then
+15. Moves the action output to `dist/`, signs the DMG with `codesign`, then
     verifies the DMG and mounted app payload.
-17. Submits the DMG with `xcrun notarytool submit --wait`.
-18. Staples and validates the accepted ticket with `xcrun stapler`, then
+16. Submits the DMG with `xcrun notarytool submit --wait`.
+17. Staples and validates the accepted ticket with `xcrun stapler`, then
     repeats the DMG and mounted app signature checks on the final artifact.
-19. Writes `dist/appcast.xml`, carrying a Sparkle EdDSA signature over the
+18. Writes `dist/appcast.xml`, carrying a Sparkle EdDSA signature over the
     finished DMG. Sparkle installs from the DMG, so this can only run once the
     DMG is stapled and won't change again.
-20. Mounts the DMG, verifies the mounted app with `codesign`, and checks it
+19. Mounts the DMG, verifies the mounted app with `codesign`, and checks it
     with `spctl`.
-21. Uploads `dist/*.dmg` and `dist/appcast.xml` as the
+20. Uploads `dist/*.dmg` and `dist/appcast.xml` as the
     `slint-visual-editor-macos` artifact, the notarization logs as the
     `slint-visual-editor-notarization-logs` artifact, and the Cargo timing
     report as the `slint-visual-editor-rust-build-report` artifact.
