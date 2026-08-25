@@ -106,6 +106,17 @@ impl SpringRegime {
         }
     }
 
+    /// This regime's damping ratio
+    pub(crate) fn zeta(&self) -> f32 {
+        match *self {
+            Self::Underdamped { zeta, .. } => zeta,
+            Self::Critical { .. } => 1.0,
+            // Not stored in regime but doesn't matter in comparisons so return 1
+            // It is going to be less than 1 in reality
+            Self::Overdamped { .. } => 1.0,
+        }
+    }
+
     /// Evaluates the closed form at elapsed time `t`, returning `(x_rel, vel)`.
     pub(crate) fn evaluate(&self, t: f32) -> (f32, f32) {
         match *self {

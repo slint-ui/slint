@@ -75,6 +75,8 @@ pub(super) struct PropertyValueAnimationData<T> {
     /// the interpolation of the erased type, e.g. rounding for `int`.
     map: Option<fn(T) -> T>,
     spring: Option<SpringRegime>,
+    /// Whether the final iteration's spring has already been re-damped
+    spring_settle_clamped: bool,
 }
 
 impl<T: InterpolatedPropertyValue + Clone> PropertyValueAnimationData<T> {
@@ -99,6 +101,7 @@ impl<T: InterpolatedPropertyValue + Clone> PropertyValueAnimationData<T> {
             state: AnimationState::Delaying,
             map: None,
             spring,
+            spring_settle_clamped: false,
         }
     }
 
@@ -248,6 +251,25 @@ impl<T: InterpolatedPropertyValue + Clone> PropertyValueAnimationData<T> {
                             let elapsed_secs = time_progress as f32 / 1000.0;
                             let (t, settled) =
                                 crate::animations::spring_settle_progress(spring, elapsed_secs);
+                            if !settled
+                                && !self.spring_settle_clamped
+                                && time_progress >= duration_ms
+                            {
+                                // Hasn't settled by the end of `duration`: re-damp the tail (see
+                                // `spring_settle_within`) so it's guaranteed to settle within a
+                                // further 9 multiples of `duration`, carrying over position/velocity.
+                                self.spring_settle_clamped = true;
+                                let duration_secs = duration_ms as f32 / 1000.0;
+                                let w_n = 2.0 * core::f32::consts::PI / duration_secs;
+                                let settled_regime = crate::animations::spring_settle_within(
+                                    spring,
+                                    duration_secs,
+                                    w_n,
+                                );
+                                self.spring = Some(settled_regime);
+                                self.start_time += core::time::Duration::from_millis(duration_ms);
+                                return self.compute_interpolated_value();
+                            }
                             if settled {
                                 self.state = if has_more_iterations {
                                     self.start_time = new_tick;
@@ -388,6 +410,7 @@ unsafe impl<T: InterpolatedPropertyValue + Clone, A: Fn() -> AnimationDetail> Bi
                         &animation_data.to_value,
                         self.carried_velocity.get(),
                     );
+                    animation_data.spring_settle_clamped = false;
                 }
 
                 self.state.set(AnimatedBindingState::Animating);
@@ -1653,5 +1676,63 @@ mod animation_tests {
         });
         assert_eq!(get_prop_value(&compo.width), 0);
         compo.width.handle.access(|binding| assert!(binding.is_none()));
+    }
+
+    #[test]
+    fn spring_never_settling_on_its_own_settles_within_budget() {
+        // bounce: 1.0 is undamped -- on its own it oscillates forever. With a finite
+        // iteration-count (the default, here), it must still settle within
+        // 10 multiples of `duration` (see `spring_settle_within`).
+        let compo = Component::new_test_component();
+
+        let spring_details = PropertyAnimation {
+            duration: 200,
+            easing: crate::animations::EasingCurve::Spring(1.0),
+            ..PropertyAnimation::default()
+        };
+
+        compo.width.set(0);
+        let start_time = crate::animations::current_tick();
+        set_animated_value(&compo.width, 100, spring_details);
+
+        // An undamped spring's period equals `duration`, so right at `duration` it's back near
+        // its start -- nowhere near settled, and still running at full, unclamped bounce.
+        crate::animations::CURRENT_ANIMATION_DRIVER.with(|driver| {
+            driver.update_animations(start_time + core::time::Duration::from_millis(200))
+        });
+        assert!(get_prop_value(&compo.width) < 20, "should still be near the start at duration");
+        compo.width.handle.access(|binding| assert!(binding.is_some()));
+
+        // Comfortably within the settle budget (10x duration), it must have settled.
+        crate::animations::CURRENT_ANIMATION_DRIVER.with(|driver| {
+            driver.update_animations(start_time + core::time::Duration::from_millis(2000))
+        });
+        assert_eq!(get_prop_value(&compo.width), 100);
+        compo.width.handle.access(|binding| assert!(binding.is_none()));
+    }
+
+    #[test]
+    fn spring_never_settling_stays_infinite_with_iteration_count_minus_one() {
+        // The same never-settling bounce, but with `iteration-count: -1`: it must keep
+        // oscillating indefinitely instead of ever being re-damped.
+        let compo = Component::new_test_component();
+
+        let spring_details = PropertyAnimation {
+            duration: 200,
+            easing: crate::animations::EasingCurve::Spring(1.0),
+            iteration_count: -1.,
+            direction: AnimationDirection::Alternate,
+            ..PropertyAnimation::default()
+        };
+
+        compo.width.set(0);
+        let start_time = crate::animations::current_tick();
+        set_animated_value(&compo.width, 100, spring_details);
+
+        // Well past what would be the settle budget for a finite iteration-count: still running.
+        crate::animations::CURRENT_ANIMATION_DRIVER.with(|driver| {
+            driver.update_animations(start_time + core::time::Duration::from_millis(3000))
+        });
+        compo.width.handle.access(|binding| assert!(binding.is_some()));
     }
 }

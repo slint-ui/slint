@@ -7,7 +7,6 @@ mod border_radius;
 mod check_drag_area;
 mod check_expressions;
 mod check_public_api;
-mod check_spring_animation;
 mod clip;
 mod collect_custom_fonts;
 mod collect_globals;

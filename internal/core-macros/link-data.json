@@ -116,6 +116,9 @@
     "int": {
         "href": "reference/property-types/numeric-types/#int"
     },
+    "iterations-and-directions": {
+        "href": "reference/language/animations/#iterations-and-directions"
+    },
     "KeyEvent": {
         "href": "reference/keyboard-input/overview/"
     },

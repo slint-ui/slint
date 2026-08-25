@@ -339,6 +339,26 @@ pub fn spring_settle_progress(
     (1.0 + rel_pos, settled)
 }
 
+/// The damping ratio (zeta) required for a spring to settle within 9x `duration` is a fixed
+/// value, since zeta is proportional to bounce and duration.
+///
+/// The spring runs at its literal bounce for every iteration except the last, where it gets
+/// clamped to this value if it hasn't settled by then -- hence needing to settle within 9x
+/// (not some other multiple of) `duration`. Found empirically: the actual value is ~0.8803, but
+/// 0.87 is used to leave some floating-point leeway for comparisons.
+const SPRING_SETTLE_ZETA: f32 = 1.0 - 0.87;
+
+/// Set the spring to settle within 10x duration
+pub fn spring_settle_within(
+    regime: &simulations::spring::SpringRegime,
+    elapsed_secs: f32,
+    w_n: f32,
+) -> simulations::spring::SpringRegime {
+    let (rel_pos, rel_vel) = regime.evaluate(elapsed_secs);
+    let zeta = regime.zeta().max(SPRING_SETTLE_ZETA);
+    simulations::spring::SpringRegime::new(rel_pos, rel_vel, w_n, zeta)
+}
+
 /// map a value between 0 and 1 to another value between 0 and 1 according to the curve
 pub fn easing_curve(curve: &EasingCurve, value: f32) -> f32 {
     match curve {

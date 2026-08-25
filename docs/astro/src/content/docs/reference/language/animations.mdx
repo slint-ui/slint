@@ -122,13 +122,16 @@ See [States and Transitions](../states-and-transitions/) for where transitions a
 The `spring` easing curve can be defined as `spring`, `spring()`, and `spring(bounce)` where `spring`, `spring()`, and `spring(0)` are equivalent. `bounce` must be between `-1` and `1`; any other value is a compile error.
 
 Since `duration` helps define the spring’s [natural frequency](https://en.wikipedia.org/wiki/Natural_frequency), the animation is not guaranteed to be done after `duration` elapses.
-If `bounce` is close to 0, the animation will be nearly done, however the further from 0 `bounce` is, the longer the animation will take. If `bounce` is 1, the animation will never finish.
+If `bounce` is close to 0, the animation will be nearly done, however the further from 0 `bounce` is, the longer the animation will take.
 
-Since a `bounce` greater than `0.95` never settles, `iteration-count` must be set to `-1` to indicate that this is an infinite (or close to infinite) spring.
+A spring cannot oscillate forever. It is clamped to at most (`iteration-count` + 9) x duration.
+It will oscillate at `bounce` for `iteration-count` and then `bounce` will be decreased such that it will settle within 9x duration.
+If `iteration-count` is not set (defaults to 1), the spring will oscillate for at most 10x duration.
+If infinite springs are required, set `bounce` to 1 and `iteration-count` to -1. See <Link type="iterations-and-directions" label="Iterations and Directions" /> below for why.
 
 ### Bounce values
 - `bounce` = 0: the value approaches the target as quickly as possible without overshooting it (critically damped).
-- `bounce` > 0: the value approaches the target quickly but overshoots it (underdamped) — the closer to 1, the longer it takes to settle, and at exactly 1 it never finishes.
+- `bounce` > 0: the value approaches the target quickly but overshoots it (underdamped) — the closer to 1, the longer it takes to settle.
 - `bounce` < 0: the value approaches the target slowly without overshooting it (overdamped).
 
 ### Spring Example
@@ -139,7 +142,7 @@ Since a `bounce` greater than `0.95` never settles, `iteration-count` must be se
 The spring's animation relies on the [natural frequency](https://en.wikipedia.org/wiki/Natural_frequency)(ω₀ = 2π/duration) and the
 [damping ratio](https://en.wikipedia.org/wiki/Damping#Damping_ratio)(ζ = 1 - bounce) to feed the [mass-spring-damper model](https://en.wikipedia.org/wiki/Mass-spring-damper_model).
 
-### Iterations and direction
+### Iterations and Directions
 
 Because a spring is not guaranteed to settle by `duration`, a repeating spring animation
 (`iteration-count` greater than 1) moves on to its next iteration at exactly `duration`, rather than
@@ -151,3 +154,10 @@ depends on whether that iteration also flips direction:
   repeating easing-curve animation restarts from the top.
 - A direction flip (`alternate` or `alternate-reverse`) instead continues from wherever the spring
   actually is, so the value keeps moving smoothly instead of snapping to the far end.
+
+#### Infinite springs
+
+If `bounce` is set to 1, the period of the spring is exactly `duration`. If an object is animated from `x = 0px` to `x = 100px`,
+this results in `x == 0px` at exactly `duration`. Since the next iteration starts at exactly `duration`, as long as `direction`
+is not `alternate` or `alternate-reverse`, an `iteration-count` of -1 will be an infinite spring. If `bounce` is set to values
+other than 1, the position will not quite be at either end of the animation and there will be a noticeable jump.
