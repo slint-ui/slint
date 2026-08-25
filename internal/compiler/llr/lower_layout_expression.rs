@@ -388,9 +388,7 @@ pub(super) fn solve_flexbox_layout(
             ),
             (
                 "cross_axis_line_alignment",
-                Type::Enumeration(
-                    crate::typeregister::BUILTIN.enums.CrossAxisLineAlignment.clone(),
-                ),
+                Type::Enumeration(crate::typeregister::BUILTIN.enums.LayoutAlignment.clone()),
                 fld.cross_axis_line_alignment,
             ),
             (
@@ -824,7 +822,7 @@ fn flexbox_layout_data(
     let cross_axis_line_alignment = if let Some(expr) = &layout.cross_axis_line_alignment {
         llr_Expression::PropertyReference(ctx.map_property_reference(expr))
     } else {
-        let e = crate::typeregister::BUILTIN.enums.CrossAxisLineAlignment.clone();
+        let e = crate::typeregister::BUILTIN.enums.LayoutAlignment.clone();
         llr_Expression::EnumerationValue(EnumerationValue {
             value: e.default_value,
             enumeration: e,
