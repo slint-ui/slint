@@ -14,15 +14,22 @@ permissions:
   contents: read
 
 jobs:
-  build:
+  build-macos:
     if: github.repository == 'slint-ui/slint'
     uses: ./.github/workflows/visual_editor_macos_dmg.yaml
     with:
       channel: nightly
     secrets: inherit
 
-  publish:
-    needs: build
+  build-linux:
+    if: github.repository == 'slint-ui/slint'
+    uses: ./.github/workflows/visual_editor_linux_flatpak.yaml
+    with:
+      channel: nightly
+    secrets: inherit
+
+  publish-macos:
+    needs: build-macos
     runs-on: ubuntu-latest
     env:
       # R2 writes are per object, so this only ever touches the two keys below.
@@ -76,3 +83,54 @@ jobs:
               --file=dist/appcast.xml \
               --content-type "application/xml" \
               --cache-control "no-cache"
+
+  # Fedora rather than the image that did the build: merging and signing only
+  # needs flatpak's command line tools, and the build image is a Freedesktop SDK
+  # runtime with no package manager, so the AWS CLI cannot be installed into it.
+  # Separate from the macOS publish so one platform failing doesn't hold back
+  # the other.
+  publish-linux:
+    needs: build-linux
+    runs-on: ubuntu-latest
+    container:
+      image: fedora:41
+    env:
+      SLINT_EDITOR_CHANNEL: nightly
+      R2_BUCKET: visual-editor-updates
+      EDITOR_FLATPAK_GPG_PRIVATE_KEY: ${{ secrets.EDITOR_FLATPAK_GPG_PRIVATE_KEY }}
+      # The same token the macOS job hands to wrangler. R2 derives S3
+      # credentials from it, so publishing needs no second credential.
+      CLOUDFLARE_API_TOKEN: ${{ secrets.VISUAL_EDITOR_R2_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      # Only needed for an account-owned token, whose id cannot be looked up.
+      CLOUDFLARE_R2_TOKEN_ID: ${{ vars.VISUAL_EDITOR_R2_TOKEN_ID }}
+      AWS_DEFAULT_REGION: auto
+    steps:
+      # Before the checkout, which needs git to be present in the container.
+      - name: Install tooling
+        run: dnf -y install flatpak ostree awscli2 gnupg2 git tar jq
+
+      - uses: actions/checkout@v6
+
+      - name: Mark the checkout safe for git
+        run: git config --global --add safe.directory '*'
+
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: slint-visual-editor-flatpak-*
+          path: downloads
+          merge-multiple: true
+
+      - name: Unpack the per-architecture repositories
+        run: |
+          mkdir -p dist/flatpak-arch-repos
+          for tar in downloads/repo-*.tar; do
+              tar -xf "$tar" -C dist/flatpak-arch-repos
+          done
+          ls -d dist/flatpak-arch-repos/*/
+
+      - name: Merge, sign and publish
+        run: ./scripts/publish_visual_editor_flatpak.bash full
+
+      - name: Publish the bundles
+        run: ./scripts/publish_visual_editor_flatpak.bash publish-bundles downloads

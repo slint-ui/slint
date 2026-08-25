@@ -6,11 +6,27 @@ name: Visual Editor Linux package
 on:
     workflow_dispatch:
         inputs:
+            channel:
+                description: "Publishing prefix under visual-editor.slint.dev, also the OSTree branch"
+                required: false
+                type: choice
+                default: nightly
+                options:
+                    - nightly
+                    - stable
             save_if:
                 description: "Condition to save the cache"
                 required: false
                 type: boolean
                 default: true
+
+    workflow_call:
+        inputs:
+            channel:
+                description: "Publishing prefix under visual-editor.slint.dev, also the OSTree branch"
+                required: false
+                type: string
+                default: nightly
 
     pull_request:
         branches:
@@ -18,6 +34,9 @@ on:
 
 permissions:
     contents: read
+
+env:
+    SLINT_EDITOR_CHANNEL: ${{ inputs.channel || 'nightly' }}
 
 jobs:
     flatpak:
@@ -68,6 +87,24 @@ jobs:
                   bundle: slint-visual-editor-${{ matrix.arch }}.flatpak
                   manifest-path: tools/editor/dev.slint.VisualEditor.yml
                   arch: ${{ matrix.arch }}
+                  branch: ${{ inputs.channel || 'nightly' }}
+                  repo-dir: repo-${{ matrix.arch }}
                   cache-key: flatpak-builder-${{ matrix.arch }}-${{ github.sha }}
                   state-dir: .flatpak-builder
-                  upload-artifact: true
+                  # Uploaded below instead, so the bundle and the repository
+                  # travel together under one predictable artifact name.
+                  upload-artifact: false
+
+            # An archive-mode repository is tens of thousands of small files,
+            # and the artifact upload charges per file. One tar is minutes
+            # faster and the publish job untars it anyway.
+            - name: Pack the repository
+              run: tar -cf repo-${{ matrix.arch }}.tar repo-${{ matrix.arch }}
+
+            - uses: actions/upload-artifact@v7
+              with:
+                  name: slint-visual-editor-flatpak-${{ matrix.arch }}
+                  path: |
+                      slint-visual-editor-${{ matrix.arch }}.flatpak
+                      repo-${{ matrix.arch }}.tar
+                  if-no-files-found: error
