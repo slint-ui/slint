@@ -81,13 +81,9 @@ pub struct LayoutItem {
     /// The `cross-axis-self-alignment` property, if set.
     /// Used by box layouts and FlexboxLayout; always `None` in a GridLayout.
     pub cross_axis_self_alignment: Option<NamedReference>,
-}
-
-/// A FlexboxLayout child item, wrapping a LayoutItem with flex-specific properties.
-#[derive(Debug, Clone)]
-pub struct FlexboxLayoutItem {
-    pub item: LayoutItem,
-    pub order: Option<NamedReference>,
+    /// The `layout-order` property, if set.
+    /// Used by FlexboxLayout; always `None` in the other layouts.
+    pub layout_order: Option<NamedReference>,
 }
 
 /// A child within a repeated Row in a GridLayout.
@@ -756,7 +752,7 @@ impl BoxLayout {
 /// Internal representation of a FlexboxLayout (row or column direction with wrapping)
 #[derive(Debug, Clone)]
 pub struct FlexboxLayout {
-    pub elems: Vec<FlexboxLayoutItem>,
+    pub elems: Vec<LayoutItem>,
     pub geometry: LayoutGeometry,
     pub direction: Option<NamedReference>,
     pub cross_axis_line_alignment: Option<NamedReference>,
@@ -833,11 +829,11 @@ impl FlexboxLayout {
 
     pub fn visit_named_references(&mut self, visitor: &mut impl FnMut(&mut NamedReference)) {
         for cell in &mut self.elems {
-            cell.item.constraints.visit_named_references(visitor);
-            if let Some(e) = cell.item.cross_axis_self_alignment.as_mut() {
+            cell.constraints.visit_named_references(visitor);
+            if let Some(e) = cell.cross_axis_self_alignment.as_mut() {
                 visitor(&mut *e)
             }
-            if let Some(e) = cell.order.as_mut() {
+            if let Some(e) = cell.layout_order.as_mut() {
                 visitor(&mut *e)
             }
         }

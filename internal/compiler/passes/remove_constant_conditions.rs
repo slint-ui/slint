@@ -39,7 +39,7 @@ pub fn remove_constant_conditions(component: &Rc<Component>) {
             if let Expression::SolveFlexboxLayout(l)
             | Expression::ComputeFlexboxLayoutInfo { layout: l, .. } = e
             {
-                dead.retain(|c| !l.elems.iter().any(|it| Rc::ptr_eq(&it.item.element, c)));
+                dead.retain(|c| !l.elems.iter().any(|it| Rc::ptr_eq(&it.element, c)));
             }
         })
     });

@@ -1901,8 +1901,9 @@ fn lower_flexbox_layout(layout_element: &ElementRc, diag: &mut BuildDiagnostics)
                 diag,
             );
         }
-        let order = crate::layout::binding_reference(actual_elem, "layout-order");
-        layout.elems.push(crate::layout::FlexboxLayoutItem { item: item.item, order });
+        let mut cell = item.item;
+        cell.layout_order = crate::layout::binding_reference(actual_elem, "layout-order");
+        layout.elems.push(cell);
     }
     layout_element.borrow_mut().children = layout_children;
     let span = layout_element.borrow().to_source_location();
@@ -2277,7 +2278,12 @@ fn create_layout_item(
     let cross_axis_self_alignment =
         crate::layout::binding_reference(&actual_elem, "cross-axis-self-alignment");
     CreateLayoutItemResult {
-        item: LayoutItem { element: item_element.clone(), constraints, cross_axis_self_alignment },
+        item: LayoutItem {
+            element: item_element.clone(),
+            constraints,
+            cross_axis_self_alignment,
+            layout_order: None,
+        },
         elem: actual_elem,
         repeater_index,
     }
