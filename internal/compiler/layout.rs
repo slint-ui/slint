@@ -82,7 +82,7 @@ pub struct LayoutItem {
     /// Used by box layouts and FlexboxLayout; always `None` in a GridLayout.
     pub cross_axis_self_alignment: Option<NamedReference>,
     /// The `layout-order` property, if set.
-    /// Used by FlexboxLayout; always `None` in the other layouts.
+    /// Used by box layouts and FlexboxLayout; always `None` in a GridLayout.
     pub layout_order: Option<NamedReference>,
 }
 
@@ -739,6 +739,9 @@ impl BoxLayout {
         for cell in &mut self.elems {
             cell.constraints.visit_named_references(visitor);
             if let Some(e) = cell.cross_axis_self_alignment.as_mut() {
+                visitor(&mut *e);
+            }
+            if let Some(e) = cell.layout_order.as_mut() {
                 visitor(&mut *e);
             }
         }

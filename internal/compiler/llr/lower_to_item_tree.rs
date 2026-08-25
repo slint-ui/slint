@@ -390,6 +390,7 @@ fn lower_sub_component(
         grid_layout_input_for_repeated: None,
         flexbox_layout_item_info_for_repeated: None,
         cross_axis_self_alignment_for_repeated: None,
+        layout_order_for_repeated: None,
         layout_info_v_constrained_for_repeated: None,
         layout_info_v_at_cross_width_for_repeated: None,
         layout_info_h_constrained_for_repeated: None,
@@ -811,12 +812,20 @@ fn lower_sub_component(
         component.root_element.borrow().parent_box_layout_orientation
     {
         // A repeated element in a box layout returns its `cross-axis-self-alignment`
-        // through the generated `layout_item_info`, on the cross axis only.
+        // through the generated `layout_item_info`, on the cross axis only, and its
+        // `layout-order` on the main axis only.
         if let Some(nr) =
             crate::layout::binding_reference(&component.root_element, "cross-axis-self-alignment")
         {
             sub_component.cross_axis_self_alignment_for_repeated = Some((
                 box_orientation.orthogonal(),
+                super::Expression::PropertyReference(ctx.map_property_reference(&nr)).into(),
+            ));
+        }
+        if let Some(nr) = crate::layout::binding_reference(&component.root_element, "layout-order")
+        {
+            sub_component.layout_order_for_repeated = Some((
+                box_orientation,
                 super::Expression::PropertyReference(ctx.map_property_reference(&nr)).into(),
             ));
         }

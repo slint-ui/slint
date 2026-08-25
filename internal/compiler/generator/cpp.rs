@@ -2953,6 +2953,41 @@ fn generate_sub_component(
     }
 }
 
+/// The `cross-axis-self-alignment` and `layout-order` fields of a repeated box
+/// layout cell's `LayoutItemInfo`, as C++ expressions reading the `o` orientation
+/// in scope: the first is returned for the cross axis only, so the main-axis
+/// cache stays independent of it, the second for the main axis only. `{}` value-
+/// initializes the field when the cell sets no such property.
+fn repeated_layout_item_fields(
+    root_sc: &llr::SubComponent,
+    ctx: &EvaluationContext,
+) -> (String, String) {
+    let orientation_name = |o: &crate::layout::Orientation| match o {
+        crate::layout::Orientation::Horizontal => "Horizontal",
+        crate::layout::Orientation::Vertical => "Vertical",
+    };
+    let align_self = match &root_sc.cross_axis_self_alignment_for_repeated {
+        Some((cross_o, expr)) => {
+            let expr = compile_expression(&expr.borrow(), ctx);
+            let cross_o = orientation_name(cross_o);
+            format!(
+                "(o == slint::cbindgen_private::Orientation::{cross_o}) ? ({expr}) \
+                 : slint::cbindgen_private::CrossAxisSelfAlignment::Auto"
+            )
+        }
+        None => "{}".to_owned(),
+    };
+    let order = match &root_sc.layout_order_for_repeated {
+        Some((main_o, expr)) => {
+            let expr = compile_expression(&expr.borrow(), ctx);
+            let main_o = orientation_name(main_o);
+            format!("(o == slint::cbindgen_private::Orientation::{main_o}) ? ({expr}) : 0")
+        }
+        None => "{}".to_owned(),
+    };
+    (align_self, order)
+}
+
 /// Generates the `layout_item_info` member function for a repeated component struct.
 /// Dispatches by `child_index` to per-child layout info queries, supporting static children
 /// and inner repeaters within a row child template.
@@ -2966,24 +3001,12 @@ fn generate_layout_item_info_decl(
         || (root_sc.grid_layout_children.is_empty()
             && !llr::has_inner_repeaters(&root_sc.row_child_templates))
     {
-        // The cell's `cross-axis-self-alignment` in a box layout, returned for
-        // the cross axis only, so the main-axis cache stays independent of it.
-        // The aggregate init otherwise leaves the field value-initialized (`Auto`).
-        let statement = match &root_sc.cross_axis_self_alignment_for_repeated {
-            Some((cross_o, expr)) => {
-                let align_self = compile_expression(&expr.borrow(), ctx);
-                let cross_o = match cross_o {
-                    crate::layout::Orientation::Horizontal => "Horizontal",
-                    crate::layout::Orientation::Vertical => "Vertical",
-                };
-                format!(
-                    "[[maybe_unused]] auto self = this; \
-                     return {{ layout_info({{&static_vtable, const_cast<void *>(static_cast<const void *>(this))}}, o), \
-                     (o == slint::cbindgen_private::Orientation::{cross_o}) ? ({align_self}) : slint::cbindgen_private::CrossAxisSelfAlignment::Auto }};"
-                )
-            }
-            None => "return { layout_info({&static_vtable, const_cast<void *>(static_cast<const void *>(this))}, o), {} };".to_owned(),
-        };
+        let (align_self, order) = repeated_layout_item_fields(root_sc, ctx);
+        let statement = format!(
+            "[[maybe_unused]] auto self = this; \
+             return {{ layout_info({{&static_vtable, const_cast<void *>(static_cast<const void *>(this))}}, o), \
+             {align_self}, {order} }};"
+        );
         return Declaration::Function(Function {
             name: "layout_item_info".into(),
             signature: SIGNATURE.to_owned(),
@@ -2992,9 +3015,10 @@ fn generate_layout_item_info_decl(
         });
     }
 
-    // Row templates only exist for repeated grid Rows, which cannot carry
-    // cross-axis-self-alignment; the scan below hardcodes `{}` for the field.
+    // Row templates only exist for repeated grid Rows, which cannot carry per-item
+    // box layout properties; the scan below hardcodes `{}` for those fields.
     debug_assert!(root_sc.cross_axis_self_alignment_for_repeated.is_none());
+    debug_assert!(root_sc.layout_order_for_repeated.is_none());
 
     let templates = root_sc.row_child_templates.as_ref().unwrap();
     let n = templates.len();
@@ -3019,7 +3043,7 @@ fn generate_layout_item_info_decl(
                 write!(
                     body,
                     "if (count == index) {{\n\
-                         return {{ (o == slint::cbindgen_private::Orientation::Horizontal) ? ({layout_info_h_code}) : ({layout_info_v_code}), {{}} }};\n\
+                         return {{ (o == slint::cbindgen_private::Orientation::Horizontal) ? ({layout_info_h_code}) : ({layout_info_v_code}), {{}}, {{}} }};\n\
                      }}\n\
                      {advance}",
                 )
@@ -3037,7 +3061,7 @@ fn generate_layout_item_info_decl(
                      if (index >= count && index - count < inner_len) {{\n\
                          if (auto vrc = {inner_rep_id}.instance_at(index - count).lock()) {{\n\
                              auto vref = vrc->borrow();\n\
-                             return {{ vref.vtable->layout_info(vref, o), {{}} }};\n\
+                             return {{ vref.vtable->layout_info(vref, o), {{}}, {{}} }};\n\
                          }}\n\
                      }}\n\
                      {advance}}}\n",
@@ -3049,9 +3073,9 @@ fn generate_layout_item_info_decl(
     body.push_str(
         // Phantom cell: return "unconstrained" info (matches Rust's LayoutInfo::default()).
         // field order: max, max_percent, min, min_percent, preferred, stretch
-        "return { slint::cbindgen_private::LayoutInfo{ std::numeric_limits<float>::max(), 100.f, 0, 0, 0, 0 }, {} };\n\
+        "return { slint::cbindgen_private::LayoutInfo{ std::numeric_limits<float>::max(), 100.f, 0, 0, 0, 0 }, {}, {} };\n\
          }\n\
-         return { layout_info({&static_vtable, const_cast<void *>(static_cast<const void *>(this))}, o), {} };",
+         return { layout_info({&static_vtable, const_cast<void *>(static_cast<const void *>(this))}, o), {}, {} };",
     );
     Declaration::Function(Function {
         name: "layout_item_info".into(),
@@ -3073,11 +3097,20 @@ fn generate_layout_item_info_at_cross_decls(
     ctx: &EvaluationContext,
 ) -> Vec<Declaration> {
     let is_flexbox_cell = root_sc.flexbox_layout_item_info_for_repeated.is_some();
+    // The per-item fields are the same as in `layout_item_info`; `o` is fixed
+    // per accessor, so bind it locally and reuse those guards. Don't delegate to
+    // `layout_item_info` for them: it measures the constraint through
+    // `layout_info`, which is what this accessor exists to avoid.
     let decl = |expr: Option<&llr::MutExpression>, fn_name: &str, param: &str, o: &str| {
         let body = match expr {
             Some(e) if !is_flexbox_cell => {
                 let info = compile_expression(&e.borrow(), ctx);
-                format!("[[maybe_unused]] auto self = this; return {{ ({info}), {{}} }};")
+                let (align_self, order) = repeated_layout_item_fields(root_sc, ctx);
+                format!(
+                    "[[maybe_unused]] auto self = this; \
+                     [[maybe_unused]] auto o = slint::cbindgen_private::Orientation::{o}; \
+                     return {{ ({info}), {align_self}, {order} }};"
+                )
             }
             _ => format!(
                 "return layout_item_info(slint::cbindgen_private::Orientation::{o}, std::nullopt);"
@@ -3158,10 +3191,9 @@ fn generate_flexbox_layout_item_info_decl(
              return info;"
         )
     } else {
-        // Equivalent of the Rust trait default `layout_item_info(o).into()`,
-        // whose props are FlexItemProps::default().
+        // Equivalent of the Rust trait default `layout_item_info(o).into()`.
         "auto base = layout_item_info(o, child_index); \
-         return { base.constraint, { slint::cbindgen_private::CrossAxisSelfAlignment::Auto, 0 } };"
+         return { base.constraint, { base.cross_axis_self_alignment, base.layout_order } };"
             .to_owned()
     };
 
@@ -4871,7 +4903,7 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                             steps,
                             "{{
                                 [[maybe_unused]] float {known_size_local} = box_ortho_solved[cursor * 2 + 1];
-                                measure_cells_vector.push_back({{ ({info}), {{}} }});
+                                measure_cells_vector.push_back({{ ({info}), {{}}, {{}} }});
                                 ++cursor;
                             }}"
                         )
@@ -6137,8 +6169,8 @@ fn generate_with_flexbox_layout_item_info(
                      auto info_h = sub_comp->flexbox_layout_item_info(slint::cbindgen_private::Orientation::Horizontal, std::nullopt); \
                      auto info_v = {v_query}; \
                      {flex_push}\
-                     cells_vector_h.push_back({{ info_h.constraint, {{}} }}); \
-                     cells_vector_v.push_back({{ info_v.constraint, {{}} }}); }}); \
+                     cells_vector_h.push_back({{ info_h.constraint, {{}}, {{}} }}); \
+                     cells_vector_v.push_back({{ info_v.constraint, {{}}, {{}} }}); }}); \
                      auto repeater_len = self->repeater_{repeater_index}.len(); \
                      cells_vector_h.resize(start_offset + repeater_len); \
                      cells_vector_v.resize(start_offset + repeater_len); \

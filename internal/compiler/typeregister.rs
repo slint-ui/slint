@@ -48,9 +48,10 @@ pub const RESERVED_GRIDLAYOUT_PROPERTIES: &[(&str, Type)] = &[
     ("rowspan", Type::Int32),
 ];
 
-// Note: the per-item cross-axis-self-alignment (flexbox and box layouts) is added
-// in reserved_properties() because Type::Enumeration requires a runtime Arc allocation.
-pub const RESERVED_FLEXBOXLAYOUT_PROPERTIES: &[(&str, Type)] = &[("layout-order", Type::Int32)];
+// Per-item properties of a FlexboxLayout, HorizontalLayout or VerticalLayout cell.
+// Note: cross-axis-self-alignment is added in reserved_properties() instead,
+// because Type::Enumeration requires a runtime Arc allocation.
+pub const RESERVED_LAYOUT_CELL_PROPERTIES: &[(&str, Type)] = &[("layout-order", Type::Int32)];
 
 macro_rules! declare_enums {
     ($( $(#[$enum_doc:meta])* $vis:vis enum $Name:ident { $( $(#[$value_doc:meta])* $Value:ident,)* })*) => {
@@ -190,6 +191,7 @@ impl BuiltinTypes {
                         "cross-axis-self-alignment".into(),
                         Type::Enumeration(enums.CrossAxisSelfAlignment.clone()),
                     ),
+                    ("layout-order".into(), Type::Int32),
                 ])
                 .collect(),
                 BuiltinStruct::LayoutItemInfo,
@@ -324,7 +326,7 @@ pub fn reserved_properties() -> impl Iterator<Item = (&'static str, Type, Proper
                 .map(|(k, v)| (*k, v.clone(), PropertyVisibility::Input)),
         )
         .chain(
-            RESERVED_FLEXBOXLAYOUT_PROPERTIES
+            RESERVED_LAYOUT_CELL_PROPERTIES
                 .iter()
                 .map(|(k, v)| (*k, v.clone(), PropertyVisibility::Input)),
         )

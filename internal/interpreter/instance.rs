@@ -1065,6 +1065,39 @@ fn build_tree_nodes(
     (out, dyn_table, item_table, z_sort_table)
 }
 
+/// The cell's `cross-axis-self-alignment` in a box layout, returned for the
+/// cross axis only, so the main-axis cache stays independent of it.
+fn repeated_align_self(
+    sc: &i_slint_compiler::llr::SubComponent,
+    ctx: &mut crate::eval::EvalContext,
+    orientation: i_slint_core::items::Orientation,
+) -> i_slint_core::items::CrossAxisSelfAlignment {
+    match &sc.cross_axis_self_alignment_for_repeated {
+        Some((cross_o, expr)) if crate::eval::llr_to_core_orientation(*cross_o) == orientation => {
+            crate::eval::eval_expression(ctx, &expr.borrow()).try_into().unwrap_or_default()
+        }
+        _ => Default::default(),
+    }
+}
+
+/// The cell's `layout-order` in a box layout, returned for the main axis
+/// only: only that solve reorders the cells.
+fn repeated_layout_order(
+    sc: &i_slint_compiler::llr::SubComponent,
+    ctx: &mut crate::eval::EvalContext,
+    orientation: i_slint_core::items::Orientation,
+) -> i32 {
+    match &sc.layout_order_for_repeated {
+        Some((main_o, expr)) if crate::eval::llr_to_core_orientation(*main_o) == orientation => {
+            match crate::eval::eval_expression(ctx, &expr.borrow()) {
+                crate::Value::Number(n) => n as i32,
+                _ => 0,
+            }
+        }
+        _ => 0,
+    }
+}
+
 /// Lets [`Instance`] be used inside a `Repeater<C>`.
 ///
 /// `update(idx, data)` writes the repeater's `index_prop` and `data_prop` on
@@ -1181,19 +1214,11 @@ impl i_slint_core::model::RepeatedItemTree for Instance {
         let mut ctx = crate::eval::EvalContext::new(this.root_sub_component.clone());
         let constraint =
             crate::eval::eval_expression(&mut ctx, &expr).try_into().unwrap_or_default();
-        // The cell's `cross-axis-self-alignment` in a box layout, returned for
-        // the cross axis only, so the main-axis cache stays independent of it.
-        let cross_axis_self_alignment = match &sc.cross_axis_self_alignment_for_repeated {
-            Some((cross_o, align_expr))
-                if crate::eval::llr_to_core_orientation(*cross_o) == orientation =>
-            {
-                crate::eval::eval_expression(&mut ctx, &align_expr.borrow())
-                    .try_into()
-                    .unwrap_or_default()
-            }
-            _ => Default::default(),
-        };
-        i_slint_core::layout::LayoutItemInfo { constraint, cross_axis_self_alignment }
+        i_slint_core::layout::LayoutItemInfo {
+            constraint,
+            cross_axis_self_alignment: repeated_align_self(sc, &mut ctx, orientation),
+            layout_order: repeated_layout_order(sc, &mut ctx, orientation),
+        }
     }
 
     fn layout_item_info_at_cross_width(
@@ -1305,7 +1330,14 @@ impl Instance {
         ctx.locals.insert(local.into(), crate::Value::Number(cross_size as f64));
         let constraint =
             crate::eval::eval_expression(&mut ctx, &expr.borrow()).try_into().unwrap_or_default();
-        i_slint_core::layout::LayoutItemInfo { constraint, ..Default::default() }
+        // The per-item fields are the same as in `layout_item_info`, which is
+        // not called here: it measures the constraint through `layout_info`,
+        // which is what this accessor exists to avoid.
+        i_slint_core::layout::LayoutItemInfo {
+            constraint,
+            cross_axis_self_alignment: repeated_align_self(sc, &mut ctx, orientation),
+            layout_order: repeated_layout_order(sc, &mut ctx, orientation),
+        }
     }
 
     /// Vertical flexbox info for a repeated instance measured at the container

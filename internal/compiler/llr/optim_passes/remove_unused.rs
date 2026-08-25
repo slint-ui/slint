@@ -329,6 +329,7 @@ mod visitor {
             grid_layout_input_for_repeated,
             flexbox_layout_item_info_for_repeated,
             cross_axis_self_alignment_for_repeated,
+            layout_order_for_repeated,
             layout_info_v_constrained_for_repeated,
             layout_info_v_at_cross_width_for_repeated,
             layout_info_h_constrained_for_repeated,
@@ -438,6 +439,9 @@ mod visitor {
             visit_expression(e.get_mut(), &scope, state, visitor);
         }
         if let Some((_, e)) = cross_axis_self_alignment_for_repeated {
+            visit_expression(e.get_mut(), &scope, state, visitor);
+        }
+        if let Some((_, e)) = layout_order_for_repeated {
             visit_expression(e.get_mut(), &scope, state, visitor);
         }
         if let Some(e) = layout_info_v_constrained_for_repeated {
