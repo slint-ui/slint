@@ -167,6 +167,12 @@
           "type": "string",
           "default": "",
           "description": "The path to the slint-lsp. Leave empty to use the packaged LSP"
+        },
+        "slint.rust.formatting": {
+          "type": "boolean",
+          "default": true,
+          "scope": "resource",
+          "description": "Enable Slint formatting for Rust files (inside `slint!` macro). When disabled, Slint will not register as a Rust formatter (dynamic registration, no reload needed for clients that support it), avoiding the duplicate-formatter prompt with rust-analyzer."
         }
       }
     },
@@ -253,3 +259,4 @@
     "vscode-tmgrammar-test": "0.1.3"
   }
 }
+
