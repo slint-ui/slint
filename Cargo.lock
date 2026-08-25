@@ -7499,7 +7499,6 @@ dependencies = [
  "i-slint-core-macros",
  "itertools 0.15.0",
  "lyon_path",
- "once_cell",
  "raw-window-handle",
  "serde_json",
  "smol_str 0.3.2",
