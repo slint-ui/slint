@@ -2182,7 +2182,15 @@ export component HorizontalLayout {
     in property <CrossAxisAlignment> cross-axis-alignment;
 }
 
-/// `FlexboxLayout` is a flexible box layout that arranges its children in rows or columns with automatic wrapping. It implements a CSS Flexbox-like layout model suitable for creating flexible, responsive UIs.
+/// `FlexboxLayout` is a flexible box layout that arranges its children in rows or columns with automatic wrapping.
+/// It implements a CSS Flexbox-like layout model suitable for creating flexible, responsive UIs.
+///
+/// Use `FlexboxLayout` when the items should wrap: items that don't fit continue on the next line.
+/// That's why `flex-wrap` defaults to `wrap`, unlike CSS.
+/// For a single row or column, use the simpler and faster
+/// <Link type="HorizontalLayout" /> or <Link type="VerticalLayout" /> instead,
+/// unless you need a `flex-direction` that changes at runtime,
+/// or the reversed directions (`row-reverse` / `column-reverse`).
 ///
 ///
 /// ```slint playground imageAlt="flexboxlayout example with row direction" width="300" height="150"
@@ -2249,11 +2257,11 @@ export component HorizontalLayout {
 /// ```
 /// </SlintProperty>
 ///
-/// The other CSS per-item flexbox properties are expressed with the properties the
-/// other layouts already use:
+/// The other CSS flexbox properties map as follows:
 ///
 /// | CSS           | Slint                                                          |
 /// | ------------- | -------------------------------------------------------------- |
+/// | `flex-wrap`   | `flex-wrap`, but the default differs: CSS defaults to `nowrap`, Slint to `wrap`. For a non-wrapping row or column, prefer `HorizontalLayout` / `VerticalLayout` |
 /// | `flex-grow`   | `alignment: stretch` on the container, weighted per item by `horizontal-stretch` / `vertical-stretch`; `max-width` / `max-height` caps growing (space a capped item cannot take stays free) |
 /// | `flex-shrink` | nothing to opt into: every item shrinks, in proportion to its preferred size; `min-width` / `min-height` refuses shrinking |
 /// | `flex-basis`  | `preferred-width` (row) / `preferred-height` (column)          |
@@ -2318,7 +2326,7 @@ export component FlexboxLayout {
     /// The default value is `stretch`.
     in property <CrossAxisAlignment> cross-axis-alignment;
     /// Controls whether flex items wrap onto multiple lines when they don't fit in the container.
-    /// The default value is `wrap`.
+    /// The default value is `wrap`, unlike CSS where it is `nowrap`.
     in property <FlexboxLayoutWrap> flex-wrap;
 }
 
