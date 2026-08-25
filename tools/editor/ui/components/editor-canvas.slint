@@ -65,7 +65,6 @@ export component EditorCanvas inherits Rectangle {
     private property <Size> selection-drag-size;
     private property <bool> selection-move-active: false;
     private property <Point> selection-move-pointer;
-    private property <bool> selection-radius-active: false;
     private property <bool> selection-rotation-active: false;
     private property <angle> selection-rotation;
 
@@ -213,13 +212,7 @@ export component EditorCanvas inherits Rectangle {
         // Selection frame(s) for the currently selected element. Rendered after
         // selection-area so the active frame intercepts clicks on the selected element.
         // Note: This sits outside of the PhoneChrome so it doesn't get clipped.
-        //
-        // TODO: Ugly hack! The root.selections model currently is constantly
-        // recreated, which means if we do an actual `for` loop over it, the
-        // MoveResizeFrame is recreated on every change, which means we lose all
-        // local state like the drag position, and the interaction becomes jumpy and unusable.
-        // To work around this, we only render a single MoveResizeFrame for the first selection rectangle.
-        for selection[idx] in root.selections : MoveResizeFrame {
+        for selection[idx] in root.selections : BorderRadiusFrame {
             property <SelectionRectangle> s: selection;
             property <bool> primary: idx == Api.selection.highlight-index;
             // During a drag the frame follows the pointer locally (no disk write).
@@ -235,6 +228,11 @@ export component EditorCanvas inherits Rectangle {
             rotation: root.selection-rotation-active && primary ? root.selection-rotation : s.angle;
             active: true;
             show-rotation-handles: primary;
+            enable-border-radius-edits: Api.current-element.type-name == "Rectangle";
+            top-left-radius: root.current-corner-radius("border-top-left-radius");
+            top-right-radius: root.current-corner-radius("border-top-right-radius");
+            bottom-right-radius: root.current-corner-radius("border-bottom-right-radius");
+            bottom-left-radius: root.current-corner-radius("border-bottom-left-radius");
             // Only allow move/resize for elements that have geometry outside a layout, and only
             // when the element is not rotated (we don't support rotating + repositioning at once).
             resizable: primary && Api.selection.is-resizable && s.angle == 0deg;
@@ -256,6 +254,9 @@ export component EditorCanvas inherits Rectangle {
             }
             changed rotation-tooltip-value => {
                 root.rotation-tooltip-value = self.rotation-tooltip-value;
+            }
+            radius-changed(corner, radius, single-corner) => {
+                Api.override-selected-element-border-radius(corner, radius, single-corner);
             }
 
             resized-to(corner, position, size) => {
@@ -325,6 +326,9 @@ export component EditorCanvas inherits Rectangle {
                     root.selection-rotation-active = false;
                 }
                 root.selection-drag-active = false;
+                if self.radius-tooltip-visible {
+                    Api.persist-selected-element-border-radius();
+                }
             }
         }
 
