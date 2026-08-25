@@ -218,6 +218,33 @@ pub fn rendered_item_count() -> usize {
     RENDERED_ITEM_COUNT.with(|count| count.get())
 }
 
+/// Whether `item` is guaranteed to opaquely and fully cover its own geometry rect: an axis-aligned `Rectangle`/`BorderRectangle`
+/// with a fully opaque background, no rounded corners, and either no border or an opaque one.
+///
+/// Used by [`crate::partial_renderer::PartialRenderer::compute_occlusion`] to determine which items can hide others behind them.
+pub(crate) fn is_opaque_covering_rectangle(item: Pin<ItemRef>) -> bool {
+    fn border_is_opaque_or_absent(border_width: LogicalLength, border_color: Brush) -> bool {
+        border_width <= LogicalLength::default() || border_color.is_opaque()
+    }
+
+    if let Some(rect) = ItemRef::downcast_pin::<Rectangle>(item) {
+        rect.background().is_opaque()
+    } else if let Some(rect) = ItemRef::downcast_pin::<BasicBorderRectangle>(item) {
+        rect.background().is_opaque()
+            && rect.border_radius() <= LogicalLength::default()
+            && border_is_opaque_or_absent(rect.border_width(), rect.border_color())
+    } else if let Some(rect) = ItemRef::downcast_pin::<BorderRectangle>(item) {
+        rect.background().is_opaque()
+            && rect.border_top_left_radius() <= LogicalLength::default()
+            && rect.border_top_right_radius() <= LogicalLength::default()
+            && rect.border_bottom_left_radius() <= LogicalLength::default()
+            && rect.border_bottom_right_radius() <= LogicalLength::default()
+            && border_is_opaque_or_absent(rect.border_width(), rect.border_color())
+    } else {
+        false
+    }
+}
+
 /// Renders the children of the item with the specified index into the renderer.
 pub fn render_item_children(
     renderer: &mut dyn ItemRenderer,
