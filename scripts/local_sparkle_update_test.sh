@@ -2,7 +2,7 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-# cspell:ignore actool appcast APPL plutil Rsrc xattr
+# cspell:ignore actool appcast APPL plutil Rsrc srcfolder unarchiver UDZO volname xattr
 
 set -euo pipefail
 
@@ -210,7 +210,7 @@ build_editor_app() {
   <key>NSHighResolutionCapable</key>
   <true/>
   <key>SUFeedURL</key>
-  <string>https://visual-editor.slint.dev/appcast.xml</string>
+  <string>https://visual-editor.slint.dev/nightly/appcast.xml</string>
   <key>SUPublicEDKey</key>
   <string>$PUBLIC_KEY</string>
 </dict>
@@ -288,7 +288,7 @@ reset_sparkle_defaults() {
 }
 
 write_appcast() {
-    local output_zip="$1"
+    local enclosure="$1"
     local signature_output="$2"
     local appcast="$3"
     local pub_date
@@ -307,7 +307,7 @@ write_appcast() {
       <sparkle:version>$NEW_BUILD</sparkle:version>
       <sparkle:shortVersionString>$VERSION</sparkle:shortVersionString>
       <enclosure
-        url="http://$HOST:$PORT/$(basename "$output_zip")"
+        url="http://$HOST:$PORT/$(basename "$enclosure")"
         $signature_output
         type="application/octet-stream" />
     </item>
@@ -334,7 +334,7 @@ OLD_STAGE="$WORK_DIR/old/$APP_NAME.app"
 NEW_STAGE="$WORK_DIR/new/$APP_NAME.app"
 INSTALL_APP="$WORK_DIR/install/$APP_NAME.app"
 WEB_DIR="$WORK_DIR/web"
-UPDATE_ZIP="$WEB_DIR/SlintVisualEditor-$VERSION-$NEW_BUILD-macos-arm64.zip"
+UPDATE_DMG="$WEB_DIR/SlintVisualEditor-$VERSION-$NEW_BUILD-macos-arm64.dmg"
 APPCAST="$WEB_DIR/appcast.xml"
 SERVER_LOG="$WORK_DIR/http-server.log"
 FEED_URL="http://$HOST:$PORT/appcast.xml"
@@ -353,14 +353,21 @@ patch_app "$OLD_STAGE" "$VERSION" "$OLD_BUILD" "$PUBLIC_KEY" "$FEED_URL"
 log "Patching and ad-hoc signing update app as $VERSION ($NEW_BUILD)"
 patch_app "$NEW_STAGE" "$VERSION" "$NEW_BUILD" "$PUBLIC_KEY" "$FEED_URL"
 
-log "Creating update ZIP"
-ditto -c -k --sequesterRsrc --keepParent "$NEW_STAGE" "$UPDATE_ZIP"
+# What gets published is the DMG itself, so the local feed serves one too and
+# exercises the same unarchiver Sparkle uses in production.
+log "Creating update DMG"
+hdiutil create \
+    -volname "$APP_NAME" \
+    -srcfolder "$NEW_STAGE" \
+    -format UDZO \
+    -ov \
+    "$UPDATE_DMG" >/dev/null
 
-log "Signing update ZIP"
-SIGNATURE_OUTPUT="$("$ROOT_DIR/sparkle-bin/sign_update" --account "$ACCOUNT" "$UPDATE_ZIP" 2>&1)"
+log "Signing update DMG"
+SIGNATURE_OUTPUT="$("$ROOT_DIR/sparkle-bin/sign_update" --account "$ACCOUNT" "$UPDATE_DMG" 2>&1)"
 
 log "Writing local appcast"
-write_appcast "$UPDATE_ZIP" "$SIGNATURE_OUTPUT" "$APPCAST"
+write_appcast "$UPDATE_DMG" "$SIGNATURE_OUTPUT" "$APPCAST"
 
 log "Installing old app copy"
 ditto "$OLD_STAGE" "$INSTALL_APP"
@@ -376,7 +383,7 @@ cat <<EOF
 
 Local Sparkle feed is ready:
   $APPCAST
-  $UPDATE_ZIP
+  $UPDATE_DMG
 
 Installed old app copy:
   $INSTALL_APP

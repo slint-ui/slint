@@ -28,7 +28,34 @@ if [ -z "$VERSION" ]; then
 fi
 [ -n "$VERSION" ] && [ "$VERSION" != "null" ] || die "could not determine Visual Editor version from Cargo metadata"
 
-BUILD_NUMBER="${BUILD_NUMBER:-${SLINT_BUILD_NUMBER:-${GITHUB_RUN_NUMBER:-$(git -C "$ROOT_DIR" rev-list --count HEAD 2>/dev/null || echo 1)}}}"
+# Picks the publishing prefix under visual-editor.slint.dev, and with it the
+# feed the build points at. Nightly stamps every build so it supersedes the one
+# before; stable keeps the plain Cargo version.
+CHANNEL="${SLINT_EDITOR_CHANNEL:-nightly}"
+case "$CHANNEL" in
+    nightly | stable) ;;
+    *) die "unknown channel: $CHANNEL, expected nightly or stable" ;;
+esac
+
+# CFBundleVersion, and the only thing Sparkle compares to decide an update is
+# newer. A UTC timestamp stays monotonic whichever workflow builds it, while a
+# CI run number restarts at 1 when a workflow is renamed, which would freeze
+# updates for everyone with no visible error.
+#
+# Being a timestamp, it changes on every run of this script. Anything driving
+# the phases separately has to pin it once (see the `build-number` command) and
+# pass it back in, or the appcast ends up advertising a higher build than the
+# one baked into the app and the update never settles.
+BUILD_NUMBER="${BUILD_NUMBER:-$(date -u +%Y.%m%d.%H%M)}"
+
+# CFBundleShortVersionString, shown in Sparkle's dialog and in Get Info. This is
+# cosmetic, the comparison runs on BUILD_NUMBER alone.
+if [ "$CHANNEL" = stable ]; then
+    DISPLAY_VERSION="${DISPLAY_VERSION:-$VERSION}"
+else
+    DISPLAY_VERSION="${DISPLAY_VERSION:-$VERSION+$BUILD_NUMBER}"
+fi
+
 # scripts/download-sparkle.sh puts the framework in the repository root, which is
 # also where .cargo/config.toml points the build at.
 SPARKLE_FRAMEWORK_DIR="${SPARKLE_FRAMEWORK_DIR:-$ROOT_DIR}"
@@ -41,7 +68,15 @@ STAGE_DIR="$BUILD_DIR/dmg-stage"
 MOUNT_DIR="$BUILD_DIR/dmg-mount"
 APP_PATH="$ARCHIVE_PATH/Products/Applications/$APP_NAME.app"
 STAGED_APP_PATH="$STAGE_DIR/$APP_NAME.app"
-DMG_PATH="${DMG_PATH:-$DIST_DIR/$DMG_BASENAME-$VERSION-macos-arm64.dmg}"
+# Every nightly DMG gets its own name. Old ones stay in the bucket, so the name
+# has to be unique for the appcast to keep pointing at the right bytes, and a
+# unique name is also what lets it be cached forever.
+if [ "$CHANNEL" = stable ]; then
+    DMG_NAME="$DMG_BASENAME-$VERSION-macos-arm64.dmg"
+else
+    DMG_NAME="$DMG_BASENAME-$VERSION-$BUILD_NUMBER-macos-arm64.dmg"
+fi
+DMG_PATH="${DMG_PATH:-$DIST_DIR/$DMG_NAME}"
 DMG_BACKGROUND_SOURCE="$PROJECT_DIR/packaging/macos/dmg-background.svg"
 NOTARY_LOG="$BUILD_DIR/notarization-log.json"
 KEYCHAIN_PATH="$RUNNER_TEMP_DIR/visual-editor-signing.keychain-db"
@@ -49,13 +84,19 @@ CERTIFICATE_PATH="$RUNNER_TEMP_DIR/developer-id-application.p12"
 NOTARY_KEY_PATH="$RUNNER_TEMP_DIR/AuthKey_${NOTARY_API_KEY_ID:-unset}.p8"
 CARGO_XCODE_TARGET_DIR="$ROOT_DIR/target/xcode-cargo/slint-visual-editor"
 CARGO_TIMINGS_REPORT_DIR="$BUILD_DIR/cargo-timings"
-CLOUDFLARE_ROOT_DIR="$DIST_DIR/cloudflare-root"
-SPARKLE_UPDATE_BASENAME="$DMG_BASENAME-$VERSION-$BUILD_NUMBER-macos-arm64.zip"
-SPARKLE_UPDATE_PATH="$CLOUDFLARE_ROOT_DIR/$SPARKLE_UPDATE_BASENAME"
-SPARKLE_APPCAST_PATH="$CLOUDFLARE_ROOT_DIR/appcast.xml"
-SPARKLE_FEED_BASE_URL="https://visual-editor.slint.dev"
+SPARKLE_APPCAST_PATH="$DIST_DIR/appcast.xml"
+# Everything for a channel lives under its own prefix, so publishing one channel
+# can't disturb another.
+SPARKLE_FEED_BASE_URL="${SPARKLE_FEED_BASE_URL:-https://visual-editor.slint.dev/$CHANNEL}"
+# The DMGs sit one level down because R2 lifecycle rules filter by prefix only,
+# with no suffix or glob. Expiring old builds therefore means expiring a whole
+# prefix, and the appcast has to be outside it or the feed would expire too.
+SPARKLE_DOWNLOAD_BASE_URL="${SPARKLE_DOWNLOAD_BASE_URL:-$SPARKLE_FEED_BASE_URL/builds}"
+# Keep in sync with the deployment target in tools/editor/macos-project.yml.
+MINIMUM_SYSTEM_VERSION="12.0"
 export EDITOR_SPARKLE_PUBLIC_ED_KEY="${EDITOR_SPARKLE_PUBLIC_ED_KEY:-Ncon335q8qNLM0D+L2my+HRIAXmNtNb6uGNmUR0yG2o=}"
 # Consumed by xcodegen via tools/editor/macos-project.yml.
+export EDITOR_SPARKLE_FEED_URL="${EDITOR_SPARKLE_FEED_URL:-$SPARKLE_FEED_BASE_URL/appcast.xml}"
 export MACOS_BUNDLE_IDENTIFIER="${MACOS_BUNDLE_IDENTIFIER:-dev.slint.visual-editor}"
 APP_NOTARY_ZIP_PATH="$BUILD_DIR/$DMG_BASENAME-$VERSION-$BUILD_NUMBER-macos-arm64-notary.zip"
 APP_NOTARY_LOG="$BUILD_DIR/app-notarization-log.json"
@@ -183,7 +224,7 @@ archive_app() {
         ONLY_ACTIVE_ARCH=NO \
         SKIP_INSTALL=NO \
         CODE_SIGNING_ALLOWED=NO \
-        MARKETING_VERSION="$VERSION" \
+        MARKETING_VERSION="$DISPLAY_VERSION" \
         CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
         -showBuildTimingSummary
 
@@ -420,26 +461,22 @@ smoke_test_app_launch() {
     die "app exited during launch smoke test with status $launch_status"
 }
 
-create_cloudflare_root() {
+create_appcast() {
     require_env EDITOR_SPARKLE_ED_PRIVATE_KEY
-    [ -d "$STAGED_APP_PATH" ] || die "staged app missing: $STAGED_APP_PATH"
+    [ -f "$DMG_PATH" ] || die "DMG missing: $DMG_PATH"
     [ -x "$ROOT_DIR/sparkle-bin/sign_update" ] || die "sparkle-bin/sign_update is required; run scripts/download-sparkle.sh"
 
-    log "Creating Cloudflare root at $CLOUDFLARE_ROOT_DIR"
-    rm -rf "$CLOUDFLARE_ROOT_DIR"
-    mkdir -p "$CLOUDFLARE_ROOT_DIR"
-
-    log "Creating Sparkle update ZIP at $SPARKLE_UPDATE_PATH"
-    ditto -c -k --sequesterRsrc --keepParent "$STAGED_APP_PATH" "$SPARKLE_UPDATE_PATH"
-
-    log "Signing Sparkle update ZIP"
+    # Sparkle installs straight from the DMG, so this has to run once the DMG is
+    # final. Signing anything earlier wouldn't match the bytes we publish.
+    log "Signing DMG for Sparkle"
     local sparkle_key_path="$RUNNER_TEMP_DIR/sparkle-ed-private-key"
     printf "%s" "$EDITOR_SPARKLE_ED_PRIVATE_KEY" > "$sparkle_key_path"
     chmod 600 "$sparkle_key_path"
 
+    # Prints the sparkle:edSignature and length attributes for the enclosure.
     local signature_output
     local sign_status=0
-    signature_output="$("$ROOT_DIR/sparkle-bin/sign_update" --ed-key-file "$sparkle_key_path" "$SPARKLE_UPDATE_PATH" 2>&1)" || sign_status=$?
+    signature_output="$("$ROOT_DIR/sparkle-bin/sign_update" --ed-key-file "$sparkle_key_path" "$DMG_PATH" 2>&1)" || sign_status=$?
     rm -f "$sparkle_key_path"
     if [ "$sign_status" -ne 0 ]; then
         die "sign_update failed with status $sign_status"
@@ -454,24 +491,22 @@ create_cloudflare_root() {
 <rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
   <channel>
     <title>Slint Visual Editor Updates</title>
-    <link>$SPARKLE_FEED_BASE_URL/appcast.xml</link>
-    <description>Slint Visual Editor daily updates</description>
+    <link>$EDITOR_SPARKLE_FEED_URL</link>
+    <description>Slint Visual Editor $CHANNEL updates</description>
     <item>
-      <title>Slint Visual Editor $VERSION ($BUILD_NUMBER)</title>
+      <title>Slint Visual Editor $DISPLAY_VERSION</title>
       <pubDate>$pub_date</pubDate>
       <sparkle:version>$BUILD_NUMBER</sparkle:version>
-      <sparkle:shortVersionString>$VERSION</sparkle:shortVersionString>
+      <sparkle:shortVersionString>$DISPLAY_VERSION</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>$MINIMUM_SYSTEM_VERSION</sparkle:minimumSystemVersion>
       <enclosure
-        url="$SPARKLE_FEED_BASE_URL/$SPARKLE_UPDATE_BASENAME"
+        url="$SPARKLE_DOWNLOAD_BASE_URL/$(basename "$DMG_PATH")"
         $signature_output
         type="application/octet-stream" />
     </item>
   </channel>
 </rss>
 EOF
-
-    log "Cloudflare root contains:"
-    ls -p1 "$CLOUDFLARE_ROOT_DIR"
 }
 
 full_package() {
@@ -481,10 +516,10 @@ full_package() {
     archive_app
     stage_and_sign_app
     notarize_and_staple_app
-    create_cloudflare_root
     create_dmg
     sign_dmg
     notarize_and_staple_dmg
+    create_appcast
     assess_stapled_app
     smoke_test_app_launch
     cleanup
@@ -513,8 +548,8 @@ case "$COMMAND" in
         validate_environment
         notarize_and_staple_app
         ;;
-    create-cloudflare-root)
-        create_cloudflare_root
+    create-appcast)
+        create_appcast
         ;;
     create-dmg)
         create_dmg
@@ -539,6 +574,12 @@ case "$COMMAND" in
     smoke-test-app-launch)
         smoke_test_app_launch
         ;;
+    build-number)
+        printf "%s\n" "$BUILD_NUMBER"
+        ;;
+    dmg-path)
+        printf "%s\n" "$DMG_PATH"
+        ;;
     cleanup)
         cleanup
         ;;
@@ -554,8 +595,8 @@ case "$COMMAND" in
     full | create-dmg | sign-dmg | create-and-sign-dmg | notarize-and-staple-dmg | assess-stapled-app | smoke-test-app-launch)
         log "DMG path: $DMG_PATH"
         ;;
-    create-cloudflare-root)
-        log "Cloudflare root path: $CLOUDFLARE_ROOT_DIR"
+    create-appcast)
+        log "Appcast path: $SPARKLE_APPCAST_PATH"
         ;;
     notarize-and-staple-app)
         log "App notarization log path: $APP_NOTARY_LOG"

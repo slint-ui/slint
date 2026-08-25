@@ -7,6 +7,13 @@ This will become part of the docs later, but for now, this is a placeholder.
 ## CI entry point
 
 The dedicated workflow is `.github/workflows/visual_editor_macos_dmg.yaml`.
+It runs on pull requests against the `visual-editor` branch, on manual dispatch,
+and as a reusable workflow.
+
+`.github/workflows/visual_editor_nightly.yaml` calls it once a night and
+publishes the result. It's a separate workflow rather than a job in
+`nightly_snapshot.yaml` because the editor publishes to its own host on its own
+schedule.
 
 The workflow uses `macos-26-arm64` because GitHub documents it as an arm64
 macOS hosted runner:
@@ -43,6 +50,13 @@ expects. GitHub documents repository and organization secrets here:
   key.
 - `EDITOR_SPARKLE_ED_PRIVATE_KEY`: exported Sparkle EdDSA private key for the
   Visual Editor update feed. Use it only for signing update archives.
+
+The nightly workflow additionally needs write access to the R2 bucket:
+
+- `VISUAL_EDITOR_R2_API_TOKEN` -> `CLOUDFLARE_API_TOKEN`: API token with R2 read
+  and write on the `visual-editor-updates` bucket, and nothing else.
+- `CLOUDFLARE_ACCOUNT_ID`: the account that owns the bucket. Shared with the
+  other Cloudflare deploys in this repository.
 
 Two values are not secrets and are not provisioned via GitHub Actions:
 
@@ -171,30 +185,24 @@ The package driver is `scripts/package_macos_visual_editor.bash`.
     `target/macos-visual-editor-dmg/cargo-timings/`.
 14. Deletes Xcode and Cargo build intermediates after the signed app is staged.
     This is done to free up space on the runner image.
-15. Creates `dist/cloudflare-root/` with `appcast.xml` and a Sparkle-signed
-    update ZIP containing the notarized and stapled app.
-16. Computes the versioned DMG name from the `slint-editor` Cargo package
-    version.
-17. Creates the DMG with `L-Super/create-dmg-actions`, passing
+15. Creates the DMG with `L-Super/create-dmg-actions`, passing
     `tools/editor/packaging/macos/dmg-background.svg`, the Finder window size,
     the app icon position, and the Applications drop-link position as action
     inputs.
-18. Moves the action output to `dist/`, signs the DMG with `codesign`, then
+16. Moves the action output to `dist/`, signs the DMG with `codesign`, then
     verifies the DMG and mounted app payload.
-19. Submits the DMG with `xcrun notarytool submit --wait`.
-20. Staples and validates the accepted ticket with `xcrun stapler`, then
+17. Submits the DMG with `xcrun notarytool submit --wait`.
+18. Staples and validates the accepted ticket with `xcrun stapler`, then
     repeats the DMG and mounted app signature checks on the final artifact.
-21. Mounts the DMG, verifies the mounted app with `codesign`, and checks it
+19. Writes `dist/appcast.xml`, carrying a Sparkle EdDSA signature over the
+    finished DMG. Sparkle installs from the DMG, so this can only run once the
+    DMG is stapled and won't change again.
+20. Mounts the DMG, verifies the mounted app with `codesign`, and checks it
     with `spctl`.
-22. Uploads `dist/*.dmg` and notarization logs as the
-    `slint-visual-editor-macos-dmg` artifact, `dist/cloudflare-root/*` as the
-    `slint-visual-editor-cloudflare-root` artifact, and the Cargo timing report
-    as the `slint-visual-editor-rust-build-report` artifact.
-
-The app's marketing version, Sparkle `sparkle:shortVersionString`, and artifact
-names use the `slint-editor` version from `tools/editor/Cargo.toml`.
-The app build number and Sparkle `sparkle:version` use `SLINT_BUILD_NUMBER`,
-which comes from `github.run_number`.
+21. Uploads `dist/*.dmg` and `dist/appcast.xml` as the
+    `slint-visual-editor-macos` artifact, the notarization logs as the
+    `slint-visual-editor-notarization-logs` artifact, and the Cargo timing
+    report as the `slint-visual-editor-rust-build-report` artifact.
 
 For local debugging, the same phases can be run individually:
 
@@ -204,10 +212,10 @@ For local debugging, the same phases can be run individually:
 ./scripts/package_macos_visual_editor.bash archive-app
 ./scripts/package_macos_visual_editor.bash stage-and-sign-app
 ./scripts/package_macos_visual_editor.bash notarize-and-staple-app
-./scripts/package_macos_visual_editor.bash create-cloudflare-root
 ./scripts/package_macos_visual_editor.bash create-dmg
 ./scripts/package_macos_visual_editor.bash sign-dmg
 ./scripts/package_macos_visual_editor.bash notarize-and-staple-dmg
+./scripts/package_macos_visual_editor.bash create-appcast
 ./scripts/package_macos_visual_editor.bash assess-stapled-app
 ./scripts/package_macos_visual_editor.bash cleanup
 ```
@@ -239,24 +247,88 @@ rustup target add aarch64-apple-darwin
 ./scripts/package_macos_visual_editor.bash
 ```
 
-The expected artifact name is:
+The expected artifacts are:
 
 ```text
-dist/SlintVisualEditor-<version>-macos-arm64.dmg
+dist/SlintVisualEditor-<version>-<build>-macos-arm64.dmg
+dist/appcast.xml
 ```
 
-The Cloudflare deploy artifact is `slint-visual-editor-cloudflare-root`.
-Extract its contents to the root of `https://visual-editor.slint.dev/`.
-It contains:
+## Versions and channels
+
+`SLINT_EDITOR_CHANNEL` picks the prefix under `visual-editor.slint.dev`, and
+with it the feed the build points at. It defaults to `nightly`; `stable` is
+wired through the packaging script but nothing publishes it yet.
+
+| | `nightly` | `stable` |
+|---|---|---|
+| `CFBundleVersion`, `sparkle:version` | `2026.0825.0300` | same |
+| `CFBundleShortVersionString`, `sparkle:shortVersionString` | `1.18.0+2026.0825.0300` | `1.18.0` |
+| DMG name | `SlintVisualEditor-1.18.0-2026.0825.0300-macos-arm64.dmg` | `SlintVisualEditor-1.18.0-macos-arm64.dmg` |
+| `SUFeedURL` | `.../nightly/appcast.xml` | `.../stable/appcast.xml` |
+
+Sparkle compares `sparkle:version` against the installed `CFBundleVersion` and
+ignores the short version string, which is there for people to read.
+The build number is a UTC timestamp rather than `github.run_number` because a
+run number restarts at 1 when a workflow is renamed, and a build number that
+goes backwards freezes updates for everyone with no visible error.
+
+`SUFeedURL` is baked into every shipped `Info.plist`, so the channel a build was
+made with is permanent for that copy. `EDITOR_SPARKLE_FEED_URL` overrides the
+whole URL, and `SPARKLE_FEED_BASE_URL` overrides just the base.
+
+## Publishing
+
+`visual_editor_nightly.yaml` writes three objects into the
+`visual-editor-updates` bucket, which serves `visual-editor.slint.dev`:
 
 ```text
-appcast.xml
-SlintVisualEditor-<version>-<build>-macos-arm64.zip
+nightly/builds/SlintVisualEditor-<version>-<build>-macos-arm64.dmg
+nightly/SlintVisualEditor.dmg
+nightly/appcast.xml
 ```
+
+`nightly/SlintVisualEditor.dmg` is the same bytes under a fixed key, so the
+website has a download link that never needs updating. It carries a
+`Content-Disposition` naming the stamped file, so what lands on disk still says
+which nightly it is.
+
+R2 writes are per object, so nothing else in the bucket is touched. That's the
+reason for R2 rather than Pages or a Worker with `[assets]`: those deploy a
+whole directory tree, and a deploy carrying only `nightly/` would take
+`stable/` down with it.
+
+Three rules come with that layout:
+
+- The DMG is uploaded before the appcast, so the feed never names an object
+  that isn't there yet.
+- The DMG name carries the build stamp and no later build reuses it, so it's
+  served `immutable` with a one-year max-age. The appcast is a stable URL whose
+  content changes nightly, so it's served `no-cache`. Without that, Cloudflare
+  would keep handing out yesterday's feed.
+- The DMGs sit under `builds/` because R2 lifecycle rules filter by prefix
+  only, with no suffix or glob. Expiring old builds means expiring a prefix, so
+  the appcast and the fixed-key DMG have to live outside the one being expired.
+- The fixed-key DMG is served `no-cache` for the same reason the appcast is, and
+  the appcast enclosure points at the stamped copy rather than at it. Sparkle
+  checks its signature against exact bytes, so a stale cached copy behind a
+  mutable URL would read as tampering rather than as a stale download.
+
+Old nightly DMGs are expired by this lifecycle rule:
+
+```sh
+npx wrangler r2 bucket lifecycle add visual-editor-updates \
+    expire-nightly-builds nightly/builds/ --expire-days 14
+```
+
+Keep the window comfortably longer than the longest expected gap between
+nightly runs. The appcast always names the newest build, so if the nightly
+stops running for longer than the retention window, that build expires and the
+feed points at a missing object.
 
 ## Local Sparkle update test
 
-To test the update path without production keys or Cloudflare, let the helper
+To test the update path without production keys or a published feed, let the helper
 build a local Visual Editor app:
 
 ```sh
