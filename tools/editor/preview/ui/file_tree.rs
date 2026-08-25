@@ -7,6 +7,8 @@ use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
 use i_slint_core::platform::Clipboard;
+use i_slint_live_preview::protocol::PreviewComponent;
+use lsp_types::Url;
 use slint::{ComponentHandle, Image, ModelRc, SharedString, ToSharedString as _, VecModel};
 
 use super::{
@@ -28,25 +30,20 @@ const NEW_PROJECT_MAIN_FILE_CONTENTS: &str = r#"export component MainWindow inhe
 }
 "#;
 
+pub(in crate::preview) type SharedFileTreeController = Rc<RefCell<Option<FileTreeController>>>;
+
 pub fn setup(
     api: &Api<'_>,
     api_weak: slint::Weak<Api<'static>>,
     project: &Project<'_>,
     project_weak: slint::Weak<Project<'static>>,
     editor_ui: slint::Weak<EditorUi>,
-) {
-    let initial_paths = initial_file_tree_paths();
-    api.set_startup_wizard_visible(initial_paths.is_none());
+) -> SharedFileTreeController {
+    api.set_startup_wizard_visible(true);
+    project.set_file_tree(Default::default());
+    project.set_selected_project_file(Default::default());
 
-    let controller = Rc::new(RefCell::new(
-        initial_paths.map(|(root, selected_path)| FileTreeController::new(root, selected_path)),
-    ));
-    if let Some(controller) = controller.borrow().as_ref() {
-        controller.publish(project);
-    } else {
-        project.set_file_tree(Default::default());
-        project.set_selected_project_file(Default::default());
-    }
+    let controller: SharedFileTreeController = Rc::new(RefCell::new(None));
 
     let controller_for_select = controller.clone();
     let api_weak_for_select = api_weak.clone();
@@ -56,42 +53,20 @@ pub fn setup(
             && let Some(project) = project_weak_for_select.upgrade()
             && let Some(controller) = controller_for_select.borrow_mut().as_mut()
         {
-            controller.select(Path::new(path.as_str()), &api, &project);
+            controller.open_from_file_tree(Path::new(path.as_str()), &api, &project);
         }
     });
 
-    let controller_for_open = controller.clone();
-    let api_weak_for_open = api_weak.clone();
-    let project_weak_for_open = project_weak.clone();
     let window_for_open = editor_ui.clone();
     project.on_open_existing_project(move || {
-        // The handle is only valid once the window manager created the window.
         let window = window_for_open.upgrade().map(|editor_ui| editor_ui.window().window_handle());
         let Some(path) = choose_project_file(window) else {
             return false;
         };
-        let Some(root) = path.parent().map(Path::to_path_buf) else {
-            return false;
-        };
-        if let Some(api) = api_weak_for_open.upgrade()
-            && let Some(project) = project_weak_for_open.upgrade()
-        {
-            let mut controller = controller_for_open.borrow_mut();
-            *controller = Some(FileTreeController::new(root, Some(path.clone())));
-            if let Some(controller) = controller.as_mut() {
-                controller.publish(&project);
-            }
-            api.set_startup_wizard_visible(false);
-            super::super::request_file_tree_preview(&path);
-            true
-        } else {
-            false
-        }
+        let Some(root) = path.parent() else { return false };
+        super::super::request_project_preview(root, &path, None)
     });
 
-    let controller_for_new = controller.clone();
-    let api_weak_for_new = api_weak.clone();
-    let project_weak_for_new = project_weak.clone();
     let window_for_new = editor_ui;
     project.on_create_new_project(move || {
         let window = window_for_new.upgrade().map(|editor_ui| editor_ui.window().window_handle());
@@ -107,26 +82,25 @@ pub fn setup(
             tracing::warn!("Failed to create project file {}: {err}", main_file_path.display());
             return false;
         }
-        if let Some(api) = api_weak_for_new.upgrade()
-            && let Some(project) = project_weak_for_new.upgrade()
-        {
-            let mut controller = controller_for_new.borrow_mut();
-            *controller = Some(FileTreeController::new(path, Some(main_file_path.clone())));
-            if let Some(controller) = controller.as_mut() {
-                controller.publish(&project);
-            }
-            api.set_editor_surface_mode(EditorSurfaceMode::Component);
-            api.set_startup_wizard_visible(false);
-            super::super::request_file_tree_preview(&main_file_path);
-            true
-        } else {
-            false
-        }
+        super::super::request_project_preview(&path, &main_file_path, None)
     });
 
+    project.on_open_recent_project(move |recent_project| {
+        let root = PathBuf::from(recent_project.root_path.as_str());
+        let path = PathBuf::from(recent_project.path.as_str());
+        let component =
+            (!recent_project.component.is_empty()).then(|| recent_project.component.to_string());
+        let requested = super::super::request_project_preview(&root, &path, component);
+        if !requested && (!root.is_dir() || !path.is_file()) {
+            super::super::refresh_visible_recent_projects();
+        }
+        requested
+    });
+
+    let controller_for_toggle = controller.clone();
     api.on_file_tree_toggle(move |path| {
         if let Some(project) = project_weak.upgrade()
-            && let Some(controller) = controller.borrow_mut().as_mut()
+            && let Some(controller) = controller_for_toggle.borrow_mut().as_mut()
         {
             controller.toggle(Path::new(path.as_str()), &project);
         }
@@ -143,20 +117,8 @@ pub fn setup(
             tracing::warn!("Failed to copy nine-slice expression to clipboard: {err}");
         }
     });
-}
 
-fn initial_file_tree_paths() -> Option<(PathBuf, Option<PathBuf>)> {
-    #[cfg(target_arch = "wasm32")]
-    {
-        None
-    }
-
-    #[cfg(not(target_arch = "wasm32"))]
-    {
-        let selected_path = std::fs::canonicalize(std::env::args_os().nth(1)?).ok()?;
-        let root = selected_path.parent()?.to_path_buf();
-        Some((root, Some(selected_path)))
-    }
+    controller
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -228,7 +190,7 @@ fn default_new_project_parent() -> PathBuf {
     std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."))
 }
 
-struct FileTreeController {
+pub(in crate::preview) struct FileTreeController {
     root: PathBuf,
     expanded: HashSet<PathBuf>,
     selected_path: Option<PathBuf>,
@@ -253,20 +215,16 @@ impl FileTreeController {
         Self { root, expanded, selected_path, active_folder_path }
     }
 
-    fn select(&mut self, path: &Path, api: &Api<'_>, project: &Project<'_>) {
+    fn open_from_file_tree(&mut self, path: &Path, api: &Api<'_>, project: &Project<'_>) {
         let Some(path) = self.path_in_root(path) else {
             return;
         };
-        let is_slint_file = is_slint_file(&path);
 
-        self.selected_path = Some(path.clone());
-        self.active_folder_path = active_folder_for_path(&path).unwrap_or(&self.root).to_path_buf();
-        self.publish(project);
-
-        if is_slint_file {
-            api.set_editor_surface_mode(EditorSurfaceMode::Component);
-            super::super::request_file_tree_preview(&path);
+        if is_slint_file(&path) {
+            super::super::request_preview_path(&path, None);
         } else if is_image_file(&path) {
+            self.select(&path);
+            self.publish(project);
             api.set_selected_image_asset(load_image_asset_preview(&self.root, &path));
             api.set_image_nine_slice_top(0);
             api.set_image_nine_slice_right(0);
@@ -274,6 +232,17 @@ impl FileTreeController {
             api.set_image_nine_slice_left(0);
             api.set_editor_surface_mode(EditorSurfaceMode::Image);
         }
+    }
+
+    fn select(&mut self, path: &Path) {
+        self.selected_path = Some(path.to_path_buf());
+        self.active_folder_path = active_folder_for_path(path).unwrap_or(&self.root).to_path_buf();
+    }
+
+    fn open_preview(&mut self, path: &Path) -> bool {
+        let Some(path) = self.path_in_root(path) else { return false };
+        self.select(&path);
+        true
     }
 
     fn toggle(&mut self, path: &Path, project: &Project<'_>) {
@@ -309,6 +278,45 @@ impl FileTreeController {
         let path = std::fs::canonicalize(path).ok()?;
         (path == self.root || path.starts_with(&self.root)).then_some(path)
     }
+}
+
+pub(in crate::preview) fn open_project(
+    controller: &SharedFileTreeController,
+    root: &Url,
+    api: &Api<'_>,
+    project: &Project<'_>,
+) {
+    let Ok(root) = root.to_file_path() else { return };
+    let Ok(root) = std::fs::canonicalize(root) else { return };
+    if !root.is_dir() {
+        return;
+    }
+    *controller.borrow_mut() = Some(FileTreeController::new(root, None));
+
+    if let Some(file_tree) = controller.borrow().as_ref() {
+        file_tree.publish(project);
+    }
+    api.set_editor_surface_mode(EditorSurfaceMode::Component);
+    api.set_startup_wizard_visible(false);
+}
+
+pub(in crate::preview) fn open_preview(
+    controller: &SharedFileTreeController,
+    component: &PreviewComponent,
+    api: &Api<'_>,
+    project: &Project<'_>,
+) {
+    let selected = component
+        .url
+        .to_file_path()
+        .ok()
+        .and_then(|path| controller.borrow_mut().as_mut().map(|tree| tree.open_preview(&path)))
+        .unwrap_or(false);
+    if selected && let Some(file_tree) = controller.borrow().as_ref() {
+        file_tree.publish(project);
+    }
+    api.set_editor_surface_mode(EditorSurfaceMode::Component);
+    api.set_startup_wizard_visible(false);
 }
 
 fn active_folder_for_path(path: &Path) -> Option<&Path> {
@@ -869,5 +877,46 @@ mod tests {
 
         assert!(is_directory(&dir));
         assert!(!is_directory(&file));
+    }
+
+    #[test]
+    fn open_project_replaces_file_tree_root() {
+        let first_tree = TempTree::new();
+        let second_tree = TempTree::new();
+        let first_file = first_tree.file("first.slint");
+        let mut controller =
+            Some(FileTreeController::new(first_tree.root.clone(), Some(first_file)));
+        assert_eq!(
+            controller.as_ref().unwrap().root,
+            std::fs::canonicalize(&first_tree.root).unwrap()
+        );
+
+        controller = Some(FileTreeController::new(second_tree.root.clone(), None));
+        assert_eq!(controller.unwrap().root, std::fs::canonicalize(&second_tree.root).unwrap());
+    }
+
+    #[test]
+    fn open_preview_preserves_file_tree_root() {
+        let tree = TempTree::new();
+        let first_file = tree.file("first.slint");
+        let second_file = std::fs::canonicalize(tree.file("second.slint")).unwrap();
+        let expected_root = std::fs::canonicalize(&tree.root).unwrap();
+        let mut controller = FileTreeController::new(tree.root.clone(), Some(first_file));
+
+        assert!(controller.open_preview(&second_file));
+        assert_eq!(controller.root, expected_root);
+        assert_eq!(controller.selected_path, Some(second_file));
+    }
+
+    #[test]
+    fn open_preview_outside_root_preserves_selection() {
+        let tree = TempTree::new();
+        let outside_tree = TempTree::new();
+        let first_file = std::fs::canonicalize(tree.file("first.slint")).unwrap();
+        let outside_file = std::fs::canonicalize(outside_tree.file("outside.slint")).unwrap();
+        let mut controller = FileTreeController::new(tree.root.clone(), Some(first_file.clone()));
+
+        assert!(!controller.open_preview(&outside_file));
+        assert_eq!(controller.selected_path, Some(first_file));
     }
 }

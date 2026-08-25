@@ -181,14 +181,10 @@ export component EditorUi inherits Window {
                 root.open-project();
             }
             create-new-project => {
-                if Project.create-new-project() {
-                    root.open-project();
-                }
+                Project.create-new-project();
             }
             open-existing-project => {
-                if Project.open-existing-project() {
-                    root.open-project();
-                }
+                Project.open-existing-project();
             }
         }
 

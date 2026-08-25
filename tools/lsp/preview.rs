@@ -130,6 +130,7 @@ pub fn lsp_to_preview(message: LspToPreviewMessage) {
             let _ = slint::quit_event_loop();
         }
         Message::Ping => {}
+        Message::OpenPreview(_) | Message::OpenProject { .. } => {}
     }
 }
 

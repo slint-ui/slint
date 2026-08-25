@@ -841,6 +841,9 @@ async fn handle_preview_to_lsp_message(
             // The remote connector consumes pongs; local previews never send them.
             tracing::debug!("Ignoring unexpected Pong message from a local preview");
         }
+        M::RequestPreview { .. } | M::RequestProject { .. } => {
+            tracing::debug!("Ignoring preview request from a preview client");
+        }
     }
     Ok(())
 }

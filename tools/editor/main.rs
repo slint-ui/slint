@@ -236,16 +236,12 @@ async fn lsp_main(
             .map_err(|err| format!("Failed to determine full path for {file}: {err}"))?;
         let url = Url::from_file_path(full_path.clone())
             .map_err(|_| format!("Failed to convert {file} to URL!"))?;
-        session.show_preview(PreviewComponent { url: url.clone(), component: cli.component });
-
-        // Make sure the document is loaded before we start processing messages from the preview, so
-        // we have the correct state already loaded.
-        // The editor has no LSP client to publish diagnostics to, so they are dropped here.
-        let _diagnostics = session
-            .reload_document(url)
+        let root = project_root_for_path(&full_path)
+            .ok_or_else(|| format!("Failed to determine project root for {file}"))?;
+        open_project(&session, root, &mut project_root, &mut watch_paths_revision)?;
+        open_preview(&mut session, PreviewComponent { url, component: cli.component })
             .await
             .map_err(|err| format!("Failed to load file: {file}: {err}"))?;
-        project_root = project_root_for_path(&full_path).map(Path::to_path_buf);
         sync_file_watcher_if_needed(
             &mut file_watcher,
             &session,
@@ -271,10 +267,7 @@ async fn lsp_main(
             msg = from_preview_rx.recv() => {
                 match msg {
                     Some(msg) => {
-                        if let Some(root) = handle_preview_message(msg, &mut session).await {
-                            project_root = Some(root);
-                            watch_paths_revision = None;
-                        }
+                        handle_preview_message(msg, &mut session, &mut project_root, &mut watch_paths_revision).await;
                     }
                     None => {
                         tracing::debug!("Preview->LSP channel closed, exiting");
@@ -347,27 +340,19 @@ fn sync_file_watcher_if_needed(
 async fn handle_preview_message(
     msg: PreviewToLspMessage,
     session: &mut editor_preview::EditorSession,
-) -> Option<PathBuf> {
+    project_root: &mut Option<PathBuf>,
+    watch_paths_revision: &mut Option<u64>,
+) {
     use PreviewToLspMessage::*;
     match &msg {
         RequestState { files, settings } => {
             tracing::debug!("Preview requested state");
-            let requested_preview = requested_file_tree_preview(files);
-            let requested_project_root = requested_preview
-                .as_ref()
-                .and_then(editor_preview::uri_to_file)
-                .and_then(|path| project_root_for_path(&path).map(Path::to_path_buf));
-            let slint_files: Vec<_> =
-                files.iter().filter(|url| is_slint_url(url)).cloned().collect();
-            for url in slint_files {
-                if let Err(err) = session.reload_document(url.clone()).await {
-                    tracing::error!("Failed document reload requested by preview for {url}: {err}");
-                }
-            }
-            if let Some(url) = requested_preview {
-                session.to_show = Some(PreviewComponent { url, component: None });
-            }
             if files.is_empty() {
+                if let Some(root) = project_root.as_deref()
+                    && let Ok(root) = Url::from_directory_path(root)
+                {
+                    session.to_preview.send(&LspToPreviewMessage::OpenProject { root });
+                }
                 session.send_state_to_preview();
             } else {
                 session.send_files_to_preview(files, |_| true);
@@ -381,7 +366,24 @@ async fn handle_preview_message(
                     });
                 }
             }
-            requested_project_root
+        }
+        RequestPreview { component } => {
+            let Some((component, path)) = canonical_preview_component(component) else {
+                tracing::warn!("Ignoring preview request with an invalid path: {}", component.url);
+                return;
+            };
+            if let Err(err) = open_preview(session, component).await {
+                tracing::error!("Failed to open preview for {}: {err}", path.display());
+            }
+        }
+        RequestProject { root } => {
+            let Some(root) = editor_preview::uri_to_file(root) else {
+                tracing::warn!("Ignoring project request with an invalid path: {root}");
+                return;
+            };
+            if let Err(error) = open_project(session, &root, project_root, watch_paths_revision) {
+                tracing::warn!("Ignoring project request for {}: {error}", root.display());
+            }
         }
         UpdateUserSettings { name, contents } => {
             if let Err(error) =
@@ -389,7 +391,6 @@ async fn handle_preview_message(
             {
                 tracing::warn!("Failed to save preview user settings: {error}");
             }
-            None
         }
         SendShowMessage { message } => {
             match message.typ {
@@ -398,11 +399,9 @@ async fn handle_preview_message(
                 MessageType::LOG => tracing::debug!("Preview: {}", message.message),
                 _ => tracing::info!("Preview: {}", message.message),
             };
-            None
         }
         DebugMessage { location, message } => {
             eprintln!("{}", editor_preview::preview_log_message_to_string(location, message));
-            None
         }
 
         Diagnostics { .. }
@@ -413,29 +412,52 @@ async fn handle_preview_message(
         | DisconnectRemote
         | Pong => {
             tracing::debug!("Ignoring message from preview: {msg:?}");
-            None
         }
         SendWorkspaceEdit { label, edit } => {
             handle_workspace_edit(&session.document_cache, label.as_deref(), edit);
-            None
         }
     }
 }
 
+async fn open_preview(
+    session: &mut editor_preview::EditorSession,
+    component: PreviewComponent,
+) -> Result<()> {
+    let _diagnostics = session.reload_document(component.url.clone()).await?;
+    session.to_show = Some(component.clone());
+    session.to_preview.send(&LspToPreviewMessage::OpenPreview(component));
+    Ok(())
+}
+
+fn open_project(
+    session: &editor_preview::EditorSession,
+    root: &Path,
+    project_root: &mut Option<PathBuf>,
+    watch_paths_revision: &mut Option<u64>,
+) -> Result<()> {
+    let root = std::fs::canonicalize(root)?;
+    if !root.is_dir() {
+        return Err(format!("{} is not a directory", root.display()).into());
+    }
+    let url = Url::from_directory_path(&root)
+        .map_err(|_| format!("Failed to convert {} to URL", root.display()))?;
+    *project_root = Some(root);
+    *watch_paths_revision = None;
+    session.to_preview.send(&LspToPreviewMessage::OpenProject { root: url });
+    Ok(())
+}
+
+fn canonical_preview_component(
+    component: &PreviewComponent,
+) -> Option<(PreviewComponent, PathBuf)> {
+    let path = editor_preview::uri_to_file(&component.url)?;
+    let path = std::fs::canonicalize(path).ok()?;
+    let url = Url::from_file_path(&path).ok()?;
+    Some((PreviewComponent { url, component: component.component.clone() }, path))
+}
+
 fn project_root_for_path(path: &Path) -> Option<&Path> {
     if path.is_dir() { Some(path) } else { path.parent() }
-}
-
-fn requested_file_tree_preview(files: &[Url]) -> Option<Url> {
-    if files.len() == 1 && is_slint_url(&files[0]) { Some(files[0].clone()) } else { None }
-}
-
-fn is_slint_url(url: &Url) -> bool {
-    editor_preview::uri_to_file(url).is_some_and(|path| {
-        path.extension()
-            .and_then(|extension| extension.to_str())
-            .is_some_and(|extension| extension.eq_ignore_ascii_case("slint"))
-    })
 }
 
 fn handle_workspace_edit(

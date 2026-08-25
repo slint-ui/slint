@@ -4,6 +4,7 @@
 import { FileTreeNode } from "api.slint";
 
 export struct RecentProject {
+    root-path: string,
     component: string,
     path: string,
 }
@@ -15,4 +16,5 @@ export global Project {
 
     callback create-new-project() -> bool;
     callback open-existing-project() -> bool;
+    callback open-recent-project(RecentProject) -> bool;
 }
