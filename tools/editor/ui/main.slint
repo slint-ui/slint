@@ -38,7 +38,7 @@ export component EditorUi inherits Window {
     }
 
     function update-status-clickable() -> bool {
-        return false;
+        return show-update-status();
     }
 
     function update-status-label() -> string {
@@ -270,11 +270,7 @@ export component EditorUi inherits Window {
             enabled: root.update-status-clickable();
             mouse-cursor: root.update-status-clickable() ? pointer : default;
             clicked => {
-                if Api.update-state == UpdateState.Available {
-                    Api.download-update();
-                } else if Api.update-state == UpdateState.ReadyToInstall {
-                    Api.install-update();
-                }
+                Api.check-for-update();
             }
         }
     }
