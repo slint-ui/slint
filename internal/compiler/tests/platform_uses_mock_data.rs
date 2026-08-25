@@ -1,9 +1,9 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-//! `Platform.is-app` must be constant-folded at compile time: `false` only when
+//! `Platform.uses-mock-data` must be constant-folded at compile time: `true` only when
 //! `CompilerConfiguration::is_preview` is set (as `slint-viewer` and the LSP/editor preview
-//! do), `true` otherwise — including plain `OutputFormat::Interpreter` compiles such as the
+//! do), `false` otherwise, including plain `OutputFormat::Interpreter` compiles such as the
 //! ones the Node.js and Python APIs perform when dynamically loading a `.slint` file, which
 //! have no other way to distinguish themselves from a preview tool.
 
@@ -13,10 +13,10 @@ use i_slint_compiler::generator::OutputFormat;
 use i_slint_compiler::parser::parse;
 use i_slint_compiler::{CompilerConfiguration, compile_syntax_node};
 
-fn is_app_folds_to(config: CompilerConfiguration, expected: bool) {
+fn uses_mock_data_folds_to(config: CompilerConfiguration, expected: bool) {
     let source = r#"
         component TestCase {
-            out property <bool> test: Platform.is-app;
+            out property <bool> test: Platform.uses-mock-data;
         }
     "#;
     let mut diagnostics = BuildDiagnostics::default();
@@ -31,26 +31,26 @@ fn is_app_folds_to(config: CompilerConfiguration, expected: bool) {
     let folded = binding.expression.ignore_debug_hooks();
     assert!(
         matches!(folded, Expression::BoolLiteral(b) if *b == expected),
-        "Platform.is-app did not fold to a BoolLiteral({expected}), got {folded:?}"
+        "Platform.uses-mock-data did not fold to a BoolLiteral({expected}), got {folded:?}"
     );
 }
 
 #[test]
-fn is_app_true_for_plain_interpreter() {
+fn uses_mock_data_false_for_plain_interpreter() {
     // No other signal distinguishes this from Node.js/Python dynamically loading a .slint
-    // file as part of a real application, so it must default to `true`.
-    is_app_folds_to(CompilerConfiguration::new(OutputFormat::Interpreter), true);
+    // file as part of a real application, so it must default to `false`.
+    uses_mock_data_folds_to(CompilerConfiguration::new(OutputFormat::Interpreter), false);
 }
 
 #[test]
-fn is_app_false_when_marked_preview() {
+fn uses_mock_data_true_when_marked_preview() {
     // What slint-viewer and the LSP/editor preview explicitly opt into.
     let mut config = CompilerConfiguration::new(OutputFormat::Interpreter);
     config.is_preview = true;
-    is_app_folds_to(config, false);
+    uses_mock_data_folds_to(config, true);
 }
 
 #[test]
-fn is_app_true_for_llr() {
-    is_app_folds_to(CompilerConfiguration::new(OutputFormat::Llr), true);
+fn uses_mock_data_false_for_llr() {
+    uses_mock_data_folds_to(CompilerConfiguration::new(OutputFormat::Llr), false);
 }
