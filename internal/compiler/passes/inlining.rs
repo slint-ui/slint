@@ -886,12 +886,12 @@ fn fixup_element_references(expr: &mut Expression, mapping: &Mapping) {
         }
         Expression::SolveFlexboxLayout(layout) => {
             for e in &mut layout.elems {
-                fxe(&mut e.item.element);
+                fxe(&mut e.element);
             }
         }
         Expression::ComputeFlexboxLayoutInfo { layout, cross_axis_size, .. } => {
             for e in &mut layout.elems {
-                fxe(&mut e.item.element);
+                fxe(&mut e.element);
             }
             if let Some(cas) = cross_axis_size {
                 fixup_element_references(cas, mapping);

@@ -652,7 +652,7 @@ fn cell_measure_capability(elem: &ElementRc) -> (bool, bool) {
 /// capable, so a solve or cross-axis info computation needs a measure callback.
 fn flexbox_needs_measure(layout: &crate::layout::FlexboxLayout) -> bool {
     layout.elems.iter().any(|li| {
-        let (h4w, w4h) = cell_measure_capability(&li.item.element);
+        let (h4w, w4h) = cell_measure_capability(&li.element);
         h4w || w4h
     })
 }
@@ -673,7 +673,7 @@ fn measure_cells_for(
         .elems
         .iter()
         .map(|li| {
-            let elem = &li.item.element;
+            let elem = &li.element;
             if elem.borrow().repeated.is_some() {
                 let (h4w, w4h) = cell_measure_capability(elem);
                 let w4h_only = w4h && !h4w;
@@ -701,7 +701,7 @@ fn measure_cells_for(
             let v_info = get_flex_cell_layout_info(
                 elem,
                 ctx,
-                &li.item.constraints,
+                &li.constraints,
                 Orientation::Vertical,
                 v_constraint,
             );
@@ -712,7 +712,7 @@ fn measure_cells_for(
             let h_info = get_flex_cell_layout_info(
                 elem,
                 ctx,
-                &li.item.constraints,
+                &li.constraints,
                 Orientation::Horizontal,
                 h_constraint,
             );
@@ -1020,22 +1020,21 @@ fn flexbox_layout_data(
     };
 
     let repeater_count =
-        layout.elems.iter().filter(|i| i.item.element.borrow().repeated.is_some()).count();
+        layout.elems.iter().filter(|i| i.element.borrow().repeated.is_some()).count();
 
     let cell_ty = crate::typeregister::layout_item_info_type();
     let flex_props_ty = crate::typeregister::flex_item_props_type();
 
     let flex_prop =
-        |li: &crate::layout::FlexboxLayoutItem, ctx: &mut ExpressionLoweringCtx| -> FlexItemProps {
+        |li: &crate::layout::LayoutItem, ctx: &mut ExpressionLoweringCtx| -> FlexItemProps {
             FlexItemProps {
                 align_self: li
-                    .item
                     .cross_axis_self_alignment
                     .as_ref()
                     .map(|nr| llr_Expression::PropertyReference(ctx.map_property_reference(nr)))
                     .unwrap_or(default_align_self().1),
                 order: li
-                    .order
+                    .layout_order
                     .as_ref()
                     .map(|nr| llr_Expression::PropertyReference(ctx.map_property_reference(nr)))
                     .unwrap_or(llr_Expression::NumberLiteral(0.0)),
@@ -1091,11 +1090,11 @@ fn flexbox_layout_data(
                 .elems
                 .iter()
                 .map(|li| {
-                    let constraint = cell_h_constraint(&li.item.element);
+                    let constraint = cell_h_constraint(&li.element);
                     let layout_info_h = get_flex_cell_layout_info(
-                        &li.item.element,
+                        &li.element,
                         ctx,
-                        &li.item.constraints,
+                        &li.constraints,
                         Orientation::Horizontal,
                         constraint,
                     );
@@ -1114,11 +1113,11 @@ fn flexbox_layout_data(
                 .elems
                 .iter()
                 .map(|li| {
-                    let constraint = cell_v_constraint(&li.item.element);
+                    let constraint = cell_v_constraint(&li.element);
                     let layout_info_v = get_flex_cell_layout_info(
-                        &li.item.element,
+                        &li.element,
                         ctx,
-                        &li.item.constraints,
+                        &li.constraints,
                         Orientation::Vertical,
                         constraint,
                     );
@@ -1151,35 +1150,31 @@ fn flexbox_layout_data(
     } else {
         let mut elements = Vec::new();
         for item in &layout.elems {
-            if item.item.element.borrow().repeated.is_some() {
-                let repeater_index = match ctx
-                    .mapping
-                    .element_mapping
-                    .get(&item.item.element.clone().into())
-                    .unwrap()
-                {
-                    LoweredElement::Repeated { repeated_index } => *repeated_index,
-                    _ => panic!(),
-                };
+            if item.element.borrow().repeated.is_some() {
+                let repeater_index =
+                    match ctx.mapping.element_mapping.get(&item.element.clone().into()).unwrap() {
+                        LoweredElement::Repeated { repeated_index } => *repeated_index,
+                        _ => panic!(),
+                    };
                 elements.push(Either::Right(LayoutRepeatedElement {
                     repeater_index,
                     row_child_templates: None,
                 }))
             } else {
                 // For static elements, we need both orientations
-                let h_constraint = cell_h_constraint(&item.item.element);
+                let h_constraint = cell_h_constraint(&item.element);
                 let layout_info_h = get_flex_cell_layout_info(
-                    &item.item.element,
+                    &item.element,
                     ctx,
-                    &item.item.constraints,
+                    &item.constraints,
                     Orientation::Horizontal,
                     h_constraint,
                 );
-                let constraint = cell_v_constraint(&item.item.element);
+                let constraint = cell_v_constraint(&item.element);
                 let layout_info_v = get_flex_cell_layout_info(
-                    &item.item.element,
+                    &item.element,
                     ctx,
-                    &item.item.constraints,
+                    &item.constraints,
                     Orientation::Vertical,
                     constraint,
                 );

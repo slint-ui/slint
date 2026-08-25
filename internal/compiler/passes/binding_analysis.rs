@@ -678,7 +678,7 @@ fn recurse_expression(
                             vis(&nr.clone().into(), P);
                         }
                         visit_layout_items_layoutinfo_cross_axis_dependencies(
-                            layout.elems.iter().map(|fi| &fi.item),
+                            layout.elems.iter(),
                             Orientation::Vertical,
                             vis,
                         );
@@ -688,7 +688,7 @@ fn recurse_expression(
                             vis(&nr.clone().into(), P);
                         }
                         visit_layout_items_layoutinfo_cross_axis_dependencies(
-                            layout.elems.iter().map(|fi| &fi.item),
+                            layout.elems.iter(),
                             Orientation::Horizontal,
                             vis,
                         );
@@ -702,12 +702,12 @@ fn recurse_expression(
                             vis(&nr.clone().into(), P);
                         }
                         visit_layout_items_layoutinfo_cross_axis_dependencies(
-                            layout.elems.iter().map(|fi| &fi.item),
+                            layout.elems.iter(),
                             Orientation::Horizontal,
                             vis,
                         );
                         visit_layout_items_layoutinfo_cross_axis_dependencies(
-                            layout.elems.iter().map(|fi| &fi.item),
+                            layout.elems.iter(),
                             Orientation::Vertical,
                             vis,
                         );
@@ -719,11 +719,7 @@ fn recurse_expression(
                 match layout.axis_relation(orientation) {
                     FlexboxAxisRelation::MainAxis => {
                         // Main axis: only visit same-axis item dependencies
-                        visit_layout_items_dependencies(
-                            layout.elems.iter().map(|fi| &fi.item),
-                            orientation,
-                            vis,
-                        );
+                        visit_layout_items_dependencies(layout.elems.iter(), orientation, vis);
                     }
                     FlexboxAxisRelation::CrossAxis => {
                         // Cross axis: depends on the perpendicular (main-axis)
@@ -745,12 +741,12 @@ fn recurse_expression(
                             vis(&nr.clone().into(), P);
                         }
                         visit_layout_items_dependencies(
-                            layout.elems.iter().map(|fi| &fi.item),
+                            layout.elems.iter(),
                             Orientation::Horizontal,
                             vis,
                         );
                         visit_layout_items_dependencies(
-                            layout.elems.iter().map(|fi| &fi.item),
+                            layout.elems.iter(),
                             Orientation::Vertical,
                             vis,
                         );
@@ -760,12 +756,12 @@ fn recurse_expression(
                         // dependencies but NOT perpendicular dimensions (adding
                         // those leads to binding loops for runtime direction).
                         visit_layout_items_dependencies(
-                            layout.elems.iter().map(|fi| &fi.item),
+                            layout.elems.iter(),
                             Orientation::Horizontal,
                             vis,
                         );
                         visit_layout_items_dependencies(
-                            layout.elems.iter().map(|fi| &fi.item),
+                            layout.elems.iter(),
                             Orientation::Vertical,
                             vis,
                         );
