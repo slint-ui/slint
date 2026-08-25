@@ -5213,7 +5213,6 @@ dependencies = [
  "i-slint-core-macros",
  "itertools 0.15.0",
  "lyon_path",
- "once_cell",
  "smol_str 0.3.6",
  "spin_on",
  "typed-index-collections",
