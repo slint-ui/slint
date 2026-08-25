@@ -198,6 +198,26 @@ impl<T> ItemCache<T> {
     }
 }
 
+// Counts how many items `render_item_children` actually dispatches a draw call for.
+// Used by integration tests to observe occlusion-culling behavior.
+#[cfg(feature = "testing")]
+crate::thread_local!(
+    static RENDERED_ITEM_COUNT: core::cell::Cell<usize> = const { core::cell::Cell::new(0) }
+);
+
+/// Resets the counter returned by [`rendered_item_count`] to zero.
+/// Call this before rendering a frame under test.
+#[cfg(feature = "testing")]
+pub fn reset_rendered_item_count() {
+    RENDERED_ITEM_COUNT.with(|count| count.set(0));
+}
+
+/// Returns the number of items [`render_item_children`] has dispatched a draw call for since the last call to [`reset_rendered_item_count`].
+#[cfg(feature = "testing")]
+pub fn rendered_item_count() -> usize {
+    RENDERED_ITEM_COUNT.with(|count| count.get())
+}
+
 /// Renders the children of the item with the specified index into the renderer.
 pub fn render_item_children(
     renderer: &mut dyn ItemRenderer,
@@ -228,6 +248,8 @@ pub fn render_item_children(
                || ItemRef::downcast_pin::<Opacity>(item).is_some()
                || ItemRef::downcast_pin::<Layer>(item).is_some()
             {
+                #[cfg(feature = "testing")]
+                RENDERED_ITEM_COUNT.with(|count| count.set(count.get() + 1));
                 let size = item_size.unwrap_or_else(|| {
                     crate::properties::evaluate_no_tracking(|| item_rc.geometry()).size
                 });
