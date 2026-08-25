@@ -626,6 +626,8 @@ impl TypeRegister {
         register.elements.remove("ComponentContainer").unwrap();
         register.types.remove("component-factory").unwrap();
 
+        register.types.remove("CrossAxisSelfAlignment").unwrap();
+
         Rc::new(RefCell::new(register))
     }
 

@@ -1,0 +1,25 @@
+---
+title: Cross-Axis Self-Alignment
+description: Experimental per-cell cross-axis-self-alignment property for layout children.
+---
+
+The children of a `FlexboxLayout`, `HorizontalLayout`, or `VerticalLayout` can set
+`cross-axis-self-alignment` to override the container's `cross-axis-alignment` individually.
+CSS Flexbox calls this "align-self".
+
+The property has the type `CrossAxisSelfAlignment`, with the values `auto` (the default),
+`stretch`, `start`, `end`, and `center`. The default value `auto` uses the container's
+`cross-axis-alignment`.
+
+> **Note**: this property is experimental and subject to change.
+> `CrossAxisSelfAlignment` duplicates the `CrossAxisAlignment` enum plus an `auto` value.
+> Once the language has optional types, the property should become an optional
+> `CrossAxisAlignment` instead, and the extra enum should disappear.
+
+```slint no-test
+HorizontalLayout {
+    cross-axis-alignment: start;
+    Rectangle { }
+    Rectangle { cross-axis-self-alignment: stretch; }
+}
+```

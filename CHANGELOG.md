@@ -65,8 +65,6 @@ All notable changes to this project are documented in this file.
 
  - Added the `FlexboxLayout` element, which arranges its children in rows or columns and wraps them
    to the next line when they don't fit.
- - Added the per-item `cross-axis-self-alignment` property: the children of a `FlexboxLayout`,
-   `HorizontalLayout`, or `VerticalLayout` can override the container's `cross-axis-alignment`.
  - Struct fields can now declare a default value: `struct Player { name: string = "unknown" }`.
  - Added `push`, `remove`, and `insert` functions on arrays and models, with matching `Model` API
    additions in every language binding. (#9457)

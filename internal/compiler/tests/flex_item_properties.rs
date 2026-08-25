@@ -1,9 +1,9 @@
 // Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-//! The per-item properties of a `FlexboxLayout` (`layout-order`, `cross-axis-self-alignment`)
-//! are stable API. The syntax tests can't verify that because they always enable the
-//! experimental features, so these tests compile with them disabled.
+//! `layout-order` is stable API while `cross-axis-self-alignment` is experimental.
+//! The syntax tests can't verify that because they always enable the experimental
+//! features, so these tests compile with them disabled.
 
 use i_slint_compiler::diagnostics::{BuildDiagnostics, DiagnosticLevel};
 use i_slint_compiler::generator::OutputFormat;
@@ -52,11 +52,10 @@ fn flex_item_properties_are_stable() {
     }
 }
 
-/// `cross-axis-self-alignment` is usable in a FlexboxLayout and in the box layouts.
+/// `cross-axis-self-alignment` is experimental in every layout, pending optional types.
 #[test]
-fn cross_axis_self_alignment_is_stable() {
-    assert_eq!(in_flexbox("cross-axis-self-alignment: center"), Vec::<String>::new());
-    for layout in ["HorizontalLayout", "VerticalLayout"] {
+fn cross_axis_self_alignment_is_experimental() {
+    for layout in ["FlexboxLayout", "HorizontalLayout", "VerticalLayout"] {
         let source = format!(
             r#"
 export component TestCase inherits Window {{
@@ -66,7 +65,7 @@ export component TestCase inherits Window {{
 }}
 "#
         );
-        assert_eq!(errors(source), Vec::<String>::new());
+        assert_eq!(errors(source), ["'cross-axis-self-alignment' is an experimental feature"]);
     }
 }
 
@@ -125,17 +124,13 @@ export component TestCase inherits Window {{
     }
 }
 
-/// The `CrossAxisSelfAlignment` enum is in the stable type register:
-/// nameable as a type and as a qualified value without experimental features.
+/// The `CrossAxisSelfAlignment` enum is not in the stable type register.
 #[test]
-fn cross_axis_self_alignment_enum_is_stable() {
+fn cross_axis_self_alignment_enum_is_experimental() {
     let source = r#"
 export component TestCase inherits Window {
-    in property <CrossAxisSelfAlignment> a: CrossAxisSelfAlignment.center;
-    FlexboxLayout {
-        Rectangle { cross-axis-self-alignment: root.a; }
-    }
+    in property <CrossAxisSelfAlignment> a;
 }
 "#;
-    assert_eq!(errors(source.into()), Vec::<String>::new());
+    assert_eq!(errors(source.into()), ["Unknown type 'CrossAxisSelfAlignment'"]);
 }

@@ -322,6 +322,10 @@ export default defineConfig({
                                                   label: "Shadowable Members",
                                                   slug: "guide/experimental/shadowable",
                                               },
+                                              {
+                                                  label: "Cross-Axis Self-Alignment",
+                                                  slug: "guide/experimental/cross-axis-self-alignment",
+                                              },
                                           ],
                                       },
                                   ]

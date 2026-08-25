@@ -541,6 +541,7 @@ fn is_reserved_prop_valid(
     prop: &str,
     element_type: &ElementType,
     parent_element_type: Option<&ElementType>,
+    enable_experimental: bool,
 ) -> bool {
     let name_of = |t: &ElementType| -> Option<SmolStr> {
         match t {
@@ -558,10 +559,11 @@ fn is_reserved_prop_valid(
         return matches!(parent_name, Some("GridLayout" | "Row"));
     }
     if prop == "cross-axis-self-alignment" {
-        return matches!(
-            parent_name,
-            Some("FlexboxLayout" | "HorizontalLayout" | "VerticalLayout")
-        );
+        return enable_experimental
+            && matches!(
+                parent_name,
+                Some("FlexboxLayout" | "HorizontalLayout" | "VerticalLayout")
+            );
     }
     if name_in(i_slint_compiler::typeregister::RESERVED_FLEXBOXLAYOUT_PROPERTIES) {
         return parent_name == Some("FlexboxLayout");
@@ -583,6 +585,7 @@ fn properties_for_changed_callbacks(
     mut node: SyntaxNode,
     document_cache: &mut DocumentCache,
 ) -> Option<Vec<CompletionItem>> {
+    let enable_experimental = document_cache.compiler_configuration().enable_experimental;
     let element = loop {
         if let Some(e) = syntax_nodes::Element::new(node.clone()) {
             break e;
@@ -619,7 +622,12 @@ fn properties_for_changed_callbacks(
             if !ty.is_property_type() {
                 return None;
             }
-            if !is_reserved_prop_valid(k, &element_type, parent_element_type.as_ref()) {
+            if !is_reserved_prop_valid(
+                k,
+                &element_type,
+                parent_element_type.as_ref(),
+                enable_experimental,
+            ) {
                 return None;
             }
             let mut c = CompletionItem::new_simple(k.into(), ty.to_string());
@@ -637,6 +645,7 @@ fn resolve_element_scope(
     document_cache: &DocumentCache,
     with_snippets: bool,
 ) -> Option<Vec<CompletionItem>> {
+    let enable_experimental = document_cache.compiler_configuration().enable_experimental;
     let apply_property_ty =
         |c: CompletionItem, ty: &Type, cb_args: Option<&[SmolStr]>| -> CompletionItem {
             if matches!(ty, Type::InferredCallback | Type::Callback { .. }) {
@@ -770,7 +779,12 @@ fn resolve_element_scope(
                     if matches!(ty, Type::Function { .. }) {
                         return None;
                     }
-                    if !is_reserved_prop_valid(k, &element_type, parent_element_type.as_ref()) {
+                    if !is_reserved_prop_valid(
+                        k,
+                        &element_type,
+                        parent_element_type.as_ref(),
+                        enable_experimental,
+                    ) {
                         return None;
                     }
                     let c = CompletionItem::new_simple(k.into(), ty.to_string());
@@ -2925,6 +2939,12 @@ export component Foo {
             results.iter().any(|completion| completion.label == "layout-order"),
             "no 'layout-order' completion"
         );
+        // cross-axis-self-alignment is experimental
+        assert!(
+            !results.iter().any(|completion| completion.label == "cross-axis-self-alignment"),
+            "'cross-axis-self-alignment' offered without experimental features"
+        );
+        let results = get_completions_experimental(source).unwrap();
         assert!(
             results.iter().any(|completion| completion.label == "cross-axis-self-alignment"),
             "no 'cross-axis-self-alignment' completion"
@@ -2945,7 +2965,13 @@ component Foo {{
 }}
 "#
             );
+            // cross-axis-self-alignment is experimental
             let results = get_completions(&source).unwrap();
+            assert!(
+                !results.iter().any(|completion| completion.label == "cross-axis-self-alignment"),
+                "'cross-axis-self-alignment' offered without experimental features in a {layout}"
+            );
+            let results = get_completions_experimental(&source).unwrap();
             assert!(
                 results.iter().any(|completion| completion.label == "cross-axis-self-alignment"),
                 "no 'cross-axis-self-alignment' completion in a {layout}"
