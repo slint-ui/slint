@@ -357,19 +357,30 @@ fn format_default_expr(expr: &i_slint_compiler::expression_tree::Expression) -> 
     }
 }
 
-/// Format a callback or function signature from a `Function` type.
-fn format_signature(func: &i_slint_compiler::langtype::Function) -> String {
+/// Format a callback or function signature from a `Function` type. Pass `None`
+/// for a signature rendered as code: a link doesn't survive backticks.
+fn format_signature(
+    func: &i_slint_compiler::langtype::Function,
+    links: Option<&mdx::TypeLinks>,
+) -> String {
+    let type_name = |ty: &Type| match links {
+        Some(links) => links.linked(&ty.to_string()),
+        None => ty.to_string(),
+    };
     let params: Vec<String> = func
         .arg_names
         .iter()
         .zip(func.args.iter())
         .filter(|(_, ty)| !matches!(ty, Type::ElementReference))
-        .map(|(name, ty)| if name.is_empty() { ty.to_string() } else { format!("{name}: {ty}") })
+        .map(|(name, ty)| {
+            let ty = type_name(ty);
+            if name.is_empty() { ty } else { format!("{name}: {ty}") }
+        })
         .collect();
     let ret = if matches!(func.return_type, Type::Void) {
         String::new()
     } else {
-        format!(" -> {}", func.return_type)
+        format!(" -> {}", type_name(&func.return_type))
     };
     format!("({}){ret}", params.join(", "))
 }
@@ -381,13 +392,13 @@ fn write_mdx_signature_heading(
     markdown_heading: &str,
     name: &str,
     func: &i_slint_compiler::langtype::Function,
+    links: &mdx::TypeLinks,
 ) -> std::io::Result<()> {
-    let sig = format_signature(func);
-    let title = format!("{name}{sig}");
-    if title.contains('{') || title.contains('<') {
-        writeln!(file, "{markdown_heading} `{title}`")?;
+    let sig = format_signature(func, None);
+    if sig.contains('{') || sig.contains('<') {
+        writeln!(file, "{markdown_heading} `{name}{sig}`")?;
     } else {
-        writeln!(file, "{markdown_heading} {title}")?;
+        writeln!(file, "{markdown_heading} {name}{}", format_signature(func, Some(links)))?;
     }
     Ok(())
 }
@@ -475,13 +486,22 @@ fn collect_all_text(builtin: &BuiltinElement, skip_children: bool, sc_only: bool
     text
 }
 
+/// The built-in type names an element's documentation resolves against.
+struct TypeContext<'a> {
+    /// Every built-in enum and struct, whether or not this run documents it: a
+    /// property names the kind of its type either way.
+    enums: HashSet<String>,
+    structs: HashSet<String>,
+    /// The pages this run writes, for the types it links.
+    links: &'a mdx::TypeLinks,
+}
+
 fn write_slint_property(
     file: &mut impl Write,
     name: &str,
     info: &BuiltinPropertyInfo,
     heading: &str,
-    enums: &HashSet<String>,
-    structs: &HashSet<String>,
+    types: &TypeContext,
     sc: &mut ScreenshotCounter,
 ) -> std::io::Result<()> {
     let type_name = info.ty.to_string();
@@ -497,9 +517,9 @@ fn write_slint_property(
         default_value = d;
     }
 
-    let (type_attr, is_enum, is_struct) = if enums.contains(&type_name) {
+    let (type_attr, is_enum, is_struct) = if types.enums.contains(&type_name) {
         ("enum", true, false)
-    } else if structs.contains(&type_name) {
+    } else if types.structs.contains(&type_name) {
         ("struct", false, true)
     } else {
         (type_name.as_str(), false, false)
@@ -540,8 +560,7 @@ fn write_member(
     in_properties: &mut bool,
     in_callbacks: &mut bool,
     in_functions: &mut bool,
-    enums: &HashSet<String>,
-    structs: &HashSet<String>,
+    types: &TypeContext,
     sc: &mut ScreenshotCounter,
 ) -> std::io::Result<()> {
     match &info.ty {
@@ -551,7 +570,7 @@ fn write_member(
                 writeln!(file)?;
                 *in_properties = true;
             }
-            write_slint_property(file, name, info, "###", enums, structs, sc)?;
+            write_slint_property(file, name, info, "###", types, sc)?;
         }
         Type::Callback(func) => {
             if !*in_callbacks {
@@ -559,7 +578,7 @@ fn write_member(
                 writeln!(file)?;
                 *in_callbacks = true;
             }
-            write_mdx_signature_heading(file, "###", name, func)?;
+            write_mdx_signature_heading(file, "###", name, func, types.links)?;
             if let Some(doc) = &info.docs
                 && !doc.is_empty()
             {
@@ -573,7 +592,7 @@ fn write_member(
                 writeln!(file)?;
                 *in_functions = true;
             }
-            write_mdx_signature_heading(file, "###", name, func)?;
+            write_mdx_signature_heading(file, "###", name, func, types.links)?;
             if let Some(doc) = &info.docs {
                 writeln!(file, "{}", transform_code_fences(doc, sc).trim_end())?;
             }
@@ -627,8 +646,7 @@ fn normalize_section_text(text: &str) -> String {
 fn write_members(
     file: &mut impl Write,
     builtin: &BuiltinElement,
-    enums: &HashSet<String>,
-    structs: &HashSet<String>,
+    types: &TypeContext,
     sc: &mut ScreenshotCounter,
     cfg: &Config,
 ) -> std::io::Result<()> {
@@ -681,8 +699,7 @@ fn write_members(
                     &mut in_properties,
                     &mut in_callbacks,
                     &mut in_functions,
-                    enums,
-                    structs,
+                    types,
                     sc,
                 )?;
             }
@@ -693,13 +710,11 @@ fn write_members(
 }
 
 /// Write a sub-element section. Recurse into the sub-element's own children.
-#[allow(clippy::too_many_arguments)]
 fn write_sub_element(
     file: &mut impl Write,
     child_name: &str,
     child: &BuiltinElement,
-    enums: &HashSet<String>,
-    structs: &HashSet<String>,
+    types: &TypeContext,
     seen: &mut HashSet<String>,
     sc: &mut ScreenshotCounter,
     cfg: &Config,
@@ -764,7 +779,7 @@ fn write_sub_element(
             writeln!(file)?;
         }
         for (name, info) in &props {
-            write_slint_property(file, name, info, h, enums, structs, sc)?;
+            write_slint_property(file, name, info, h, types, sc)?;
         }
     }
     if !cbs.is_empty() {
@@ -772,7 +787,7 @@ fn write_sub_element(
         writeln!(file)?;
         for (name, info) in &cbs {
             let Type::Callback(func) = &info.ty else { continue };
-            write_mdx_signature_heading(file, h, name, func)?;
+            write_mdx_signature_heading(file, h, name, func, types.links)?;
             if let Some(doc) = &info.docs
                 && !doc.is_empty()
             {
@@ -786,7 +801,7 @@ fn write_sub_element(
         writeln!(file)?;
         for (name, info) in &fns {
             let Type::Function(func) = &info.ty else { continue };
-            write_mdx_signature_heading(file, h, name, func)?;
+            write_mdx_signature_heading(file, h, name, func, types.links)?;
             if let Some(doc) = &info.docs {
                 writeln!(file, "{}", transform_code_fences(doc, sc).trim_end())?;
             }
@@ -797,7 +812,7 @@ fn write_sub_element(
     // Recurse into grandchildren.
     if !skip_children {
         for (gc_name, gc) in &child.additional_accepted_child_types {
-            write_sub_element(file, gc_name, gc, enums, structs, seen, sc, cfg)?;
+            write_sub_element(file, gc_name, gc, types, seen, sc, cfg)?;
         }
     }
 
@@ -805,7 +820,7 @@ fn write_sub_element(
 }
 
 /// Generate .mdx page files for each exported builtin element.
-pub fn generate(cfg: &Config) -> Result<(), Box<dyn std::error::Error>> {
+pub fn generate(cfg: &Config, links: &mdx::TypeLinks) -> Result<(), Box<dyn std::error::Error>> {
     let register = i_slint_compiler::typeregister::TypeRegister::builtin_experimental(
         &i_slint_compiler::symbol_counters::SymbolCounters::shared(),
     );
@@ -813,12 +828,11 @@ pub fn generate(cfg: &Config) -> Result<(), Box<dyn std::error::Error>> {
     let generated_dir = cfg.reference_dir();
     create_dir_all(&generated_dir)?;
 
-    // Include all types for resolution, regardless of experimental or SC flag,
-    // so property types still resolve their kind even when the target page
-    // isn't generated.
-    let enum_names: HashSet<String> = mdx::extract_enum_docs(true, false).keys().cloned().collect();
-    let struct_names: HashSet<String> =
-        mdx::extract_builtin_structs(true, false).keys().cloned().collect();
+    let types = TypeContext {
+        enums: mdx::extract_enum_docs(true, false).keys().cloned().collect(),
+        structs: mdx::extract_builtin_structs(true, false).keys().cloned().collect(),
+        links,
+    };
 
     // Collect exported elements.
     let mut elements = Vec::new();
@@ -906,7 +920,7 @@ pub fn generate(cfg: &Config) -> Result<(), Box<dyn std::error::Error>> {
             )?;
         }
         let mut extra_imports = Vec::new();
-        for sname in &struct_names {
+        for sname in &types.structs {
             if all_text.contains(&format!("<{sname} />"))
                 || all_text.contains(&format!("<{sname}/>"))
             {
@@ -916,7 +930,7 @@ pub fn generate(cfg: &Config) -> Result<(), Box<dyn std::error::Error>> {
                 ));
             }
         }
-        for ename in &enum_names {
+        for ename in &types.enums {
             if all_text.contains(&format!("<{ename} />"))
                 || all_text.contains(&format!("<{ename}/>"))
             {
@@ -959,7 +973,7 @@ pub fn generate(cfg: &Config) -> Result<(), Box<dyn std::error::Error>> {
         }
 
         // Members.
-        write_members(&mut file, builtin, &enum_names, &struct_names, &mut sc, cfg)?;
+        write_members(&mut file, builtin, &types, &mut sc, cfg)?;
 
         // Sub-elements (recursive, with cycle protection).
         if !skip_children {
@@ -969,8 +983,7 @@ pub fn generate(cfg: &Config) -> Result<(), Box<dyn std::error::Error>> {
                     &mut file,
                     child_name,
                     child,
-                    &enum_names,
-                    &struct_names,
+                    &types,
                     &mut seen_children,
                     &mut sc,
                     cfg,

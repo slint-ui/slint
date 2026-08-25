@@ -33,16 +33,22 @@ pub fn generate(cfg: &Config) -> Result<Vec<String>, Box<dyn std::error::Error>>
         std::fs::remove_dir_all(&cfg.generated_dir)
             .context(format!("error clearing {:?}", cfg.generated_dir))?;
     }
-    // The struct pages link to the type pages, so both are written from the
-    // same maps: a type this run leaves out is never linked to.
+    // The struct and element pages link to the type pages, so all of them are
+    // written from the same maps: a type this run leaves out is never linked to.
     let enums = extract_enum_docs(cfg.include_experimental, cfg.sc_only);
     let structs = extract_builtin_structs(cfg.include_experimental, cfg.sc_only);
+    // The pages of this site can also link the hand-written property-types
+    // pages, unless it's the safety manual: it serves an SC-filtered copy of
+    // those, which drops the sections of the types it doesn't cover. The struct
+    // partials are inlined into both sites, so they never link them.
+    let site_links = TypeLinks::new(&enums, &structs, !cfg.sc_only);
+    let shared_links = TypeLinks::new(&enums, &structs, false);
     write_individual_enum_files(cfg, &enums)?;
-    write_individual_struct_files(cfg, &structs, &enums)?;
+    write_individual_struct_files(cfg, &structs, &shared_links)?;
     if !cfg.sc_only {
         generate_keys_docs(cfg)?;
     }
-    crate::element_docs::generate(cfg)?;
+    crate::element_docs::generate(cfg, &site_links)?;
 
     if !cfg.sc_only || !enums.is_empty() || !structs.is_empty() {
         write_builtin_structs_and_enums(cfg, &structs, &enums)?;
@@ -389,24 +395,87 @@ pub fn extract_builtin_structs(
     structs
 }
 
-/// The section documenting `type_name` on the built-in enums or structs page.
-/// The maps are the ones those pages are written from, so a type left out of
-/// this run gets no link rather than one to a missing anchor.
-/// The link is written from the site root; `remarkBaseLinks` adds the base of
-/// whichever site renders it.
-fn type_href(
-    type_name: &str,
-    enums: &std::collections::BTreeMap<String, EnumDoc>,
-    structs: &std::collections::BTreeMap<String, StructDoc>,
-) -> Option<String> {
-    let page = if enums.contains_key(type_name) && !enum_documented_elsewhere(type_name) {
-        BUILTIN_ENUMS_SLUG
-    } else if structs.contains_key(type_name) {
-        BUILTIN_STRUCTS_SLUG
-    } else {
-        return None;
+/// The documentation of the built-in types, for linking a type named in a
+/// struct field or a callback signature to the section that describes it.
+pub struct TypeLinks {
+    /// The enums and structs this run writes a section for. A type left out of
+    /// it gets no link rather than one to a missing anchor.
+    enums: std::collections::BTreeSet<String>,
+    structs: std::collections::BTreeSet<String>,
+    /// Whether the primitive types link to the hand-written property-types
+    /// pages as well.
+    primitives: bool,
+}
+
+impl TypeLinks {
+    fn new(
+        enums: &std::collections::BTreeMap<String, EnumDoc>,
+        structs: &std::collections::BTreeMap<String, StructDoc>,
+        primitives: bool,
+    ) -> Self {
+        Self {
+            enums: enums.keys().filter(|name| !enum_documented_elsewhere(name)).cloned().collect(),
+            structs: structs.keys().cloned().collect(),
+            primitives,
+        }
+    }
+
+    /// The section documenting `type_name`, or `None` for a type this run
+    /// leaves out. The link is written from the site root; `remarkBaseLinks`
+    /// adds the base of whichever site renders it.
+    fn href(&self, type_name: &str) -> Option<String> {
+        let page = if self.enums.contains(type_name) {
+            BUILTIN_ENUMS_SLUG
+        } else if self.structs.contains(type_name) {
+            BUILTIN_STRUCTS_SLUG
+        } else {
+            return self.primitives.then(|| primitive_href(type_name)).flatten();
+        };
+        Some(format!("/{page}/#{}", type_name.to_lowercase()))
+    }
+
+    /// The documentation of `value` among the values `type_name` can take, or
+    /// `None` for an enum this run leaves out.
+    fn enum_value_href(&self, type_name: &str, value: &str) -> Option<String> {
+        self.enums
+            .contains(type_name)
+            .then(|| format!("/{BUILTIN_ENUMS_SLUG}/#{}", enum_value_anchor(type_name, value)))
+    }
+
+    /// `type_name` as markdown, linked to its documentation when it has any.
+    pub fn linked(&self, type_name: &str) -> String {
+        self.href(type_name)
+            .map_or_else(|| type_name.to_string(), |href| format!("[{type_name}]({href})"))
+    }
+}
+
+/// The section documenting a primitive type, from `link-data.json`: the map
+/// the docs site resolves its own `slint:` links with, so these links follow a
+/// page that moves.
+fn primitive_href(type_name: &str) -> Option<String> {
+    static LINK_MAP: std::sync::LazyLock<serde_json::Value> = std::sync::LazyLock::new(|| {
+        serde_json::from_str(include_str!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../internal/core-macros/link-data.json"
+        )))
+        .expect("failed to parse link-data.json")
+    });
+    // The map keys some of the types under a name of its own.
+    let key = match type_name {
+        "angle" | "bool" | "brush" | "color" | "duration" | "easing" | "float" | "int" | "keys"
+        | "length" | "percent" | "BuiltInMouseCursor" | "MouseCursor" => type_name,
+        "data-transfer" => "data_transfer",
+        "image" => "ImageType",
+        "physical-length" => "physicalLength",
+        "relative-font-size" => "relativeFontSize",
+        "string" => "StringType",
+        "styled-text" => "styled_text",
+        _ => return None,
     };
-    Some(format!("/{page}/#{}", type_name.to_lowercase()))
+    let href = LINK_MAP[key]["href"]
+        .as_str()
+        .unwrap_or_else(|| panic!("link-data.json has no href for {key}"));
+    Some(format!("/{href}"))
 }
 
 /// The id of one value on the page documenting `enum_name`.
@@ -428,25 +497,17 @@ fn declared_default(tokens: &str) -> String {
 
 /// The list entry documenting one field of a struct, with the field's type
 /// linked to its own documentation when it has any.
-fn struct_field_line(
-    field: &StructFieldDoc,
-    enums: &std::collections::BTreeMap<String, EnumDoc>,
-    structs: &std::collections::BTreeMap<String, StructDoc>,
-) -> String {
+fn struct_field_line(field: &StructFieldDoc, links: &TypeLinks) -> String {
     let name = &field.type_name;
-    let type_name = type_href(name, enums, structs)
-        .map_or_else(|| format!("_{name}_"), |href| format!("[_{name}_]({href})"));
+    let type_name =
+        links.href(name).map_or_else(|| format!("_{name}_"), |href| format!("[_{name}_]({href})"));
     let default_value = field.default_value.as_ref().map_or_else(String::new, |value| {
         // An enum value links to its own documentation, next to the values it could
-        // take instead; `type_href` decides whether the enum is documented there.
-        let documented = enums.contains_key(name) && type_href(name, enums, structs).is_some();
-        match documented {
-            true => format!(
-                " Defaults to [`{value}`](/{BUILTIN_ENUMS_SLUG}/#{}).",
-                enum_value_anchor(name, value)
-            ),
-            false => format!(" Defaults to `{value}`."),
-        }
+        // take instead.
+        links.enum_value_href(name, value).map_or_else(
+            || format!(" Defaults to `{value}`."),
+            |href| format!(" Defaults to [`{value}`]({href})."),
+        )
     });
     format!("- **`{}`** ({}): {}{}", field.key, type_name, field.description, default_value)
 }
@@ -454,7 +515,7 @@ fn struct_field_line(
 fn write_individual_struct_files(
     cfg: &Config,
     structs: &std::collections::BTreeMap<String, StructDoc>,
-    enums: &std::collections::BTreeMap<String, EnumDoc>,
+    links: &TypeLinks,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let structs_dir = cfg.reference_dir().join("structs");
     create_dir_all(&structs_dir).context(format!(
@@ -484,7 +545,7 @@ description: {0} content
         )?;
 
         for f in &v.fields {
-            writeln!(file, "{}", struct_field_line(f, enums, structs))?;
+            writeln!(file, "{}", struct_field_line(f, links))?;
         }
 
         file.flush()?;
@@ -553,17 +614,14 @@ fn test_is_generated_dir() {
 }
 
 #[test]
-fn test_type_href() {
-    let enum_doc = || EnumDoc { description: String::new(), values: vec![] };
-    let enums = std::collections::BTreeMap::from([
-        ("CapitalizationMode".to_string(), enum_doc()),
-        ("BuiltInMouseCursor".to_string(), enum_doc()),
-    ]);
-    let structs = std::collections::BTreeMap::from([(
-        "KeyboardModifiers".to_string(),
-        StructDoc { description: String::new(), fields: vec![] },
-    )]);
-    let href = |type_name| type_href(type_name, &enums, &structs);
+fn test_type_links() {
+    let make_links = |primitives| TypeLinks {
+        enums: ["CapitalizationMode".to_string()].into(),
+        structs: ["KeyboardModifiers".to_string()].into(),
+        primitives,
+    };
+    let links = make_links(true);
+    let href = |type_name| links.href(type_name);
 
     assert_eq!(
         href("CapitalizationMode").as_deref(),
@@ -573,9 +631,31 @@ fn test_type_href() {
         href("KeyboardModifiers").as_deref(),
         Some("/reference/property-types/builtin-structs/#keyboardmodifiers")
     );
-    // A type without a section of its own, and one documented elsewhere.
-    assert_eq!(href("int"), None);
-    assert_eq!(href("BuiltInMouseCursor"), None);
+    // The primitive types are documented on the hand-written pages, the mouse
+    // cursor shapes among them.
+    assert_eq!(href("int").as_deref(), Some("/reference/property-types/numeric-types/#int"));
+    assert_eq!(href("string").as_deref(), Some("/reference/property-types/strings/#string"));
+    assert_eq!(
+        href("BuiltInMouseCursor").as_deref(),
+        Some("/reference/property-types/other-types/#mousecursor")
+    );
+    // A type with no documentation of its own.
+    assert_eq!(href("element ref"), None);
+
+    // Content shared with the safety manual links the generated pages only.
+    let shared_links = make_links(false);
+    assert_eq!(shared_links.href("int"), None);
+    assert_eq!(
+        shared_links.href("CapitalizationMode").as_deref(),
+        Some("/reference/property-types/builtin-enums/#capitalizationmode")
+    );
+
+    assert_eq!(
+        links.linked("KeyEvent"),
+        "KeyEvent",
+        "a type this run doesn't document is written plain"
+    );
+    assert_eq!(links.linked("int"), "[int](/reference/property-types/numeric-types/#int)");
 
     let field = StructFieldDoc {
         key: "field".to_string(),
@@ -584,7 +664,7 @@ fn test_type_href() {
         default_value: None,
     };
     assert_eq!(
-        struct_field_line(&field, &enums, &structs),
+        struct_field_line(&field, &links),
         "- **`field`** ([_CapitalizationMode_](/reference/property-types/builtin-enums/#capitalizationmode)): The docs"
     );
     // A declared default value is documented after the description.
@@ -595,9 +675,9 @@ fn test_type_href() {
         default_value: Some(declared_default("(CapitalizationMode::Sentences)")),
     };
     assert_eq!(
-        struct_field_line(&with_default, &enums, &structs),
+        struct_field_line(&with_default, &links),
         "- **`field`** ([_CapitalizationMode_](/reference/property-types/builtin-enums/#capitalizationmode)): The docs Defaults to [`sentences`](/reference/property-types/builtin-enums/#capitalizationmode-sentences)."
     );
-    let field = StructFieldDoc { type_name: "int".to_string(), ..field };
-    assert_eq!(struct_field_line(&field, &enums, &structs), "- **`field`** (_int_): The docs");
+    let field = StructFieldDoc { type_name: "element ref".to_string(), ..field };
+    assert_eq!(struct_field_line(&field, &links), "- **`field`** (_element ref_): The docs");
 }
