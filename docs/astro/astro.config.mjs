@@ -307,7 +307,7 @@ export default defineConfig({
                                                   slug: "guide/experimental/match-elements",
                                               },
                                               {
-                                                  label: "Array Predicates",
+                                                  label: "Array Search Functions",
                                                   slug: "guide/experimental/array-predicates",
                                               },
                                               {

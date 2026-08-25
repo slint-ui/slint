@@ -1,13 +1,27 @@
 ---
-title: Array Predicates
-description: Experimental predicate expressions for the array operations any, all and find-index.
+title: Array Search Functions
+description: Experimental array search functions index-of, any, all and find-index.
 ---
 
-The array operations `any`, `all` and `find-index` test the elements of an array against a
-predicate expression.
+The array function `index-of` looks up a value in an array, and the operations `any`,
+`all` and `find-index` test the elements of an array against a predicate expression.
 
-> **Note**: Array predicates are experimental and subject to change.
+> **Note**: These functions are experimental and subject to change.
+> They report "no match" with a `-1` or `false` result; once the language has optional
+> types, `index-of` and `find-index` should return an optional index instead.
 > Tracking issue: [slint-ui/slint#12777](https://github.com/slint-ui/slint/issues/12777).
+
+## index-of
+
+`array.index-of(value)` reads the index of the first element that equals `value`,
+or `-1` if the array contains no such element.
+
+```slint no-test
+export component Example {
+    in-out property<[string]> names: ["Aardvark", "Beaver"];
+    out property <int> beaver-index: names.index-of("Beaver"); // 1
+}
+```
 
 ## Syntax
 
@@ -29,9 +43,8 @@ and its type is inferred from the array element type.
 `any` returns `false` for an empty array, `all` returns `true` for an empty array, and
 `find-index` returns `-1` for an empty array.
 
-For a plain value-equality lookup, prefer the stable
-[`array.index-of(value)`](../../property-types/arrays-and-models/#operations) over
-`find-index((name) => name == value)`: it needs no predicate and isn't experimental.
+For a plain value-equality lookup, prefer `array.index-of(value)` over
+`find-index((name) => name == value)`: it needs no predicate.
 Reach for `find-index` when the match condition is more than equality against a single value.
 
 ## Example

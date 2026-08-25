@@ -70,7 +70,6 @@ All notable changes to this project are documented in this file.
  - Struct fields can now declare a default value: `struct Player { name: string = "unknown" }`.
  - Added `push`, `remove`, and `insert` functions on arrays and models, with matching `Model` API
    additions in every language binding. (#9457)
- - Added the `array.index-of(value)` function, returning the index of the first equal element. (#12790)
  - Added the `string.starts-with()` and `string.ends-with()` functions. (#9877)
  - Added the `string.replace-all(from, to)` function. (#12782)
  - Added the `WindowMoveArea` element to start an interactive window move, like a native title bar. (#613)

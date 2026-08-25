@@ -82,9 +82,8 @@ export component ComboBoxBase {
 
     // A write to `current-value` (host or declarative) expresses "select the row with this
     // value": look it up in `model` and resolve `current-index` — and, through it,
-    // `current-value` itself — to match, or to "" if not found. Uses the stable `index-of`,
-    // not the experimental `find-index` it lowers to, so ComboBox doesn't depend on an
-    // experimental feature. `current-index` and `current-value` each resolve the other to
+    // `current-value` itself — to match, or to "" if not found.
+    // `current-index` and `current-value` each resolve the other to
     // match on every write, so of two writes made right after each other, whichever came
     // last determines the final state — there's no inherent priority between the two
     // properties.
