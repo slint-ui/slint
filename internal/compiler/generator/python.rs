@@ -343,7 +343,10 @@ pub fn generate_py_module(unit: &llr::CompilationUnit, structs_and_enums: &[Type
 
     let mut aliases: HashMap<&str, Vec<SmolStr>> = Default::default();
     for export in unit.type_exports.iter().filter(|e| e.is_alias()) {
-        aliases.entry(export.internal_name.as_str()).or_default().push(export.exported_name.clone());
+        aliases
+            .entry(export.internal_name.as_str())
+            .or_default()
+            .push(export.exported_name.clone());
     }
     let aliases_of = |name: &str| aliases.get(name).cloned().unwrap_or_default();
 
