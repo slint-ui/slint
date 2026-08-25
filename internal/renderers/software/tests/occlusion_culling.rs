@@ -1,13 +1,14 @@
 // Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company , info@kdab.com, author Robin Cramer <robin.cramer@kdab.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-//! Regression test for opaque occlusion culling. Requires the `testing` feature (for
-//! `rendered_item_count()`) -- run with `--features testing`.
+//! Regression test for opaque occlusion culling. Requires the `occlusion-culling` feature (off
+//! by default) and `testing` (for `rendered_item_count()`) -- run with
+//! `--features testing,occlusion-culling`.
 //!
 //! Counts how many items `render_item_children`'s tree walk dispatches a draw call for, via
 //! `rendered_item_count()`. A scene with many fully hidden siblings behind one opaque covering
 //! rectangle should produce a count far below that.
-#![cfg(feature = "testing")]
+#![cfg(all(feature = "occlusion-culling", feature = "testing"))]
 
 use i_slint_core::platform::{Platform, PlatformError};
 use i_slint_core::window::WindowAdapter;

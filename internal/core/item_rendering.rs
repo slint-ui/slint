@@ -199,29 +199,29 @@ impl<T> ItemCache<T> {
 }
 
 // Counts how many items `render_item_children` actually dispatches a draw call for.
-// Used by integration tests to observe occlusion-culling behavior.
-#[cfg(feature = "testing")]
+// Used by occlusion-culling integration tests.
+// Also gated on `occlusion-culling` since the counter is unused otherwise.
+#[cfg(all(feature = "testing", feature = "occlusion-culling"))]
 crate::thread_local!(
     static RENDERED_ITEM_COUNT: core::cell::Cell<usize> = const { core::cell::Cell::new(0) }
 );
 
-/// Resets the counter returned by [`rendered_item_count`] to zero.
+/// Resets the counter returned by `rendered_item_count` to zero.
 /// Call this before rendering a frame under test.
-#[cfg(feature = "testing")]
+#[cfg(all(feature = "testing", feature = "occlusion-culling"))]
 pub fn reset_rendered_item_count() {
     RENDERED_ITEM_COUNT.with(|count| count.set(0));
 }
 
-/// Returns the number of items [`render_item_children`] has dispatched a draw call for since the last call to [`reset_rendered_item_count`].
-#[cfg(feature = "testing")]
+/// Returns the number of items `render_item_children` has dispatched a draw call for since the last call to `reset_rendered_item_count`.
+#[cfg(all(feature = "testing", feature = "occlusion-culling"))]
 pub fn rendered_item_count() -> usize {
     RENDERED_ITEM_COUNT.with(|count| count.get())
 }
 
 /// Whether `item` is guaranteed to opaquely and fully cover its own geometry rect: an axis-aligned `Rectangle`/`BorderRectangle`
 /// with a fully opaque background, no rounded corners, and either no border or an opaque one.
-///
-/// Used by [`crate::partial_renderer::PartialRenderer::compute_occlusion`] to determine which items can hide others behind them.
+#[cfg(feature = "occlusion-culling")]
 pub(crate) fn is_opaque_covering_rectangle(item: Pin<ItemRef>) -> bool {
     fn border_is_opaque_or_absent(border_width: LogicalLength, border_color: Brush) -> bool {
         border_width <= LogicalLength::default() || border_color.is_opaque()
@@ -275,7 +275,7 @@ pub fn render_item_children(
                || ItemRef::downcast_pin::<Opacity>(item).is_some()
                || ItemRef::downcast_pin::<Layer>(item).is_some()
             {
-                #[cfg(feature = "testing")]
+                #[cfg(all(feature = "testing", feature = "occlusion-culling"))]
                 RENDERED_ITEM_COUNT.with(|count| count.set(count.get() + 1));
                 let size = item_size.unwrap_or_else(|| {
                     crate::properties::evaluate_no_tracking(|| item_rc.geometry()).size

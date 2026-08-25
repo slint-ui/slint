@@ -33,6 +33,7 @@ libm = ["zeno?/libm", "num-traits/libm", "euclid/libm", "i-slint-core/libm", "sw
 experimental = []
 # Exposes additional APIS that aren't public but required for integration testing.
 testing = ["i-slint-core/testing"]
+occlusion-culling = ["i-slint-core/occlusion-culling"]
 default = ["std"]
 
 [dependencies]

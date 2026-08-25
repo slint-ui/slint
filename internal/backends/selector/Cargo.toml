@@ -61,6 +61,12 @@ renderer-software = [
   "i-slint-backend-testing?/renderer-software",
 ]
 renderer-vello = ["i-slint-backend-winit?/renderer-vello", "i-slint-backend-linuxkms?/renderer-vello"]
+occlusion-culling = [
+  "i-slint-core/occlusion-culling",
+  "i-slint-renderer-skia?/occlusion-culling",
+  "i-slint-backend-winit?/occlusion-culling",
+  "i-slint-backend-linuxkms?/occlusion-culling",
+]
 
 rtti = ["i-slint-core/rtti", "i-slint-backend-qt?/rtti"]
 accessibility = ["i-slint-backend-winit?/accessibility"]
