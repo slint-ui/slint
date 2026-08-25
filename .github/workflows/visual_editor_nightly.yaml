@@ -1,0 +1,19 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+# Placeholder so this workflow can be dispatched from a branch.
+#
+name: Visual Editor nightly
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  placeholder:
+    if: false
+    runs-on: ubuntu-latest
+    steps:
+      - run: "true"
