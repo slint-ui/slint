@@ -48,7 +48,7 @@ targets:
         LSMinimumSystemVersion: "12.0"
         NSHighResolutionCapable: true
         SUPublicEDKey: ${EDITOR_SPARKLE_PUBLIC_ED_KEY}
-        SUFeedURL: https://visual-editor.slint.dev/appcast.xml
+        SUFeedURL: ${EDITOR_SPARKLE_FEED_URL}
     sources:
       - path: packaging/macos/AppIcon.icon
         buildPhase: resources
