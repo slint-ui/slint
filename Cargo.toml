@@ -123,7 +123,7 @@ image = { version = "0.25", default-features = false, features = ["png", "jpeg"]
 itertools = { version = "0.15" }
 log = { version = "0.4.17" }
 notify = { version = "8.0.0", default-features = false, features = ["macos_kqueue"] }
-tracing = { version = "0.1" }
+tracing = { version = "0.1", default-features = false, features = ["std"] }
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 tracing-log = { version = "0.2" }
 # `svgz` was unconditional until resvg 0.48 gated it behind a feature. Slint accepts

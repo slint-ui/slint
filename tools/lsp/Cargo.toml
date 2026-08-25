@@ -112,7 +112,7 @@ slint-interpreter = { workspace = true, features = ["compat-1-2", "internal", "i
 nucleo-matcher = "0.3.1"
 futures-util = "0.3.32"
 tokio-tungstenite-wasm = "0.8.2"
-postcard = { version = "1.1.3", features = ["alloc"] }
+postcard = { version = "1.1.3", default-features = false, features = ["alloc"] }
 
 [target.'cfg(not(any(target_os = "openbsd", target_os = "windows", target_arch = "wasm32", all(target_arch = "aarch64", target_os = "linux"))))'.dependencies]
 tikv-jemallocator = { workspace = true }
@@ -129,7 +129,7 @@ crossbeam-channel = "0.5"                                                       
 lsp-server = "0.10"
 tokio = { version = "1.50.0", features = ["rt", "sync", "time", "macros", "io-std", "io-util", "net", "fs", "process"] }
 dashmap = "6.1.0"
-mdns-sd = "0.20.0"
+mdns-sd = { version = "0.20.0", default-features = false }
 # Unicode XID property lookup used by the host-language accessor scanner to
 # tokenize identifiers in Rust/C++ source rather than scanning byte-by-byte.
 icu_properties = { version = "2.2.0", features = ["compiled_data"] }
