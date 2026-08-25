@@ -6,11 +6,14 @@ import { EditorMetrics, StudioTheme } from "common.slint";
 import { MoveResizeFrame } from "move-resize-frame.slint";
 
 export component BorderRadiusFrame inherits MoveResizeFrame {
+    in property <bool> enable-border-radius-edits: true;
     in property <length> top-left-radius;
     in property <length> top-right-radius;
     in property <length> bottom-right-radius;
     in property <length> bottom-left-radius;
     callback radius-changed(CanvasCorner, length, bool);
+
+    private property <[CanvasCorner]> name;
 
     width: 240px;
     height: 96px;
@@ -56,7 +59,11 @@ export component BorderRadiusFrame inherits MoveResizeFrame {
             ? EditorMetrics.radius-handle-inset + radius
             : root.height - EditorMetrics.radius-handle-inset - radius;
 
-        visible: root.active && !root.move-pressed && !root.rotating && (root.frame-hover || root.radius-handle-active);
+        visible: root.enable-border-radius-edits
+            && root.active
+            && !root.move-pressed
+            && !root.rotating
+            && (root.frame-hover || root.radius-handle-active);
         x: handle-center-x - EditorMetrics.radius-handle-size / 2;
         y: handle-center-y - EditorMetrics.radius-handle-size / 2;
         width: EditorMetrics.radius-handle-size;
@@ -66,7 +73,7 @@ export component BorderRadiusFrame inherits MoveResizeFrame {
         border-width: 1px;
         border-color: StudioTheme.accent-strong;
 
-        touch := TouchArea {
+        if root.enable-border-radius-edits: TouchArea {
             mouse-cursor: pointer;
             private property <bool> event-shift-pressed: false;
 
