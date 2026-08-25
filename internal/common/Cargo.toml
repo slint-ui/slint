@@ -32,7 +32,7 @@ locale-decimal-separator = ["dep:icu_decimal", "dep:icu_locale_core", "dep:icu_p
 fontique = { workspace = true, optional = true }
 skrifa = { workspace = true, optional = true }
 resvg = { workspace = true, optional = true }
-pulldown-cmark = { version = "0.13.0", optional = true }
+pulldown-cmark = { version = "0.13.0", optional = true, default-features = false }
 htmlparser = { version = "0.2.1", optional = true }
 derive_more = { workspace = true, optional = true, features = ["error", "display"] }
 icu_decimal = { version = "2", optional = true, features = ["compiled_data"] }
