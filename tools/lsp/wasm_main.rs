@@ -27,7 +27,7 @@ pub use language::{Context, RequestHandler};
 use lsp_types::Url;
 pub use server_notifier::ServerNotifier;
 
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::io::ErrorKind;
 use std::rc::Rc;
 use wasm_bindgen::prelude::*;
@@ -256,6 +256,7 @@ pub fn create(
             init_param,
             server_notifier,
             host_language_rename_dont_ask_again: Default::default(),
+            enable_rust_formatting: Rc::new(Cell::new(true)),
         }),
         rh: Rc::new(rh),
     })
