@@ -20,7 +20,7 @@ path = "src/main.rs"
 
 
 [dependencies]
-float-cmp = "0.10.0"
+float-cmp = { version = "0.10.0", default-features = false }
 clap = { workspace = true }
 # Use the ring rustls provider instead of the default aws-lc-rs, whose C build
 # takes over 10 minutes on Windows.
