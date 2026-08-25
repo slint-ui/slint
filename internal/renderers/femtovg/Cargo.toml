@@ -32,7 +32,6 @@ i-slint-common = { workspace = true, features = ["default", "shared-fontique"] }
 const-field-offset = { version = "0.2", path = "../../../helper_crates/const-field-offset" }
 
 cfg-if = "1"
-derive_more = { workspace = true }
 lyon_path = { workspace = true }
 pin-weak = "1"
 femtovg = { version = "0.26", default-features = false, features = ["swash"] }
