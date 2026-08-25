@@ -222,3 +222,34 @@ impl AsRef<fontique::Blob<u8>> for HashedBlob {
         &self.0
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use skrifa::MetadataProvider;
+
+    // Guards the font subsetting: a freshly downloaded Inter maps hundreds of alternate
+    // glyphs in the Private Use Area and carries an optical-size axis, together more
+    // than 40% of the file size. See the assert messages for how to strip them.
+    #[test]
+    fn embedded_fallback_font_is_subsetted() {
+        let data = include_bytes!("sharedfontique/Inter-VariableFont.ttf");
+        let font = skrifa::FontRef::new(data).unwrap();
+
+        let has_pua = font
+            .charmap()
+            .mappings()
+            .any(|(cp, _)| matches!(cp, 0xE000..=0xF8FF | 0xF0000..=0xFFFFD | 0x100000..=0x10FFFD));
+        assert!(
+            !has_pua,
+            "the embedded font maps codepoints in the Private Use Area; \
+             strip them with:\n  pyftsubset pinned.ttf --unicodes=\"U+0000-DFFF,U+F900-10FFFF\" \
+             --output-file=Inter-VariableFont.ttf"
+        );
+
+        assert!(
+            font.axes().iter().all(|axis| axis.tag() != "opsz"),
+            "the embedded font still has an optical-size axis; pin it with:\n  \
+             fonttools varLib.instancer -o pinned.ttf Inter-VariableFont.ttf opsz=14"
+        );
+    }
+}
