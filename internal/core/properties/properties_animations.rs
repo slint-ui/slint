@@ -280,7 +280,8 @@ impl<T: InterpolatedPropertyValue + Clone> PropertyValueAnimationData<T> {
                                 self.compute_interpolated_value()
                             } else {
                                 let progress = if reversed(current_iteration) { 1. - t } else { t };
-                                (self.from_value.interpolate(&to_value, progress), false)
+                                let val = self.from_value.interpolate(&to_value, progress);
+                                (self.apply_map(val), false)
                             }
                         }
                     } else {
