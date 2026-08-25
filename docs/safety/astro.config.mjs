@@ -58,10 +58,19 @@ export default defineConfig({
             plugins: [
                 slintStarlightLinksValidatorPlugin({
                     errorOnRelativeLinks: true,
-                    // Static assets under public/, not Starlight pages. Matched
+                    // Static assets under public/, not Starlight pages, and the
+                    // built-in type pages, which only the Slint docs site has:
+                    // its generated struct partials link to them and this build
+                    // compiles them all (`generated-reference-markdown.ts`),
+                    // even though no page of the manual renders one. Matched
                     // with a leading `**` because the links carry the base path
                     // the site is deployed under.
-                    exclude: ["**/coverage/**", "**/api/**"],
+                    exclude: [
+                        "**/coverage/**",
+                        "**/api/**",
+                        "**/property-types/builtin-enums/#*",
+                        "**/property-types/builtin-structs/#*",
+                    ],
                 }),
                 // One topic per document of the package. The site is a single
                 // Starlight build; the topics are what make it read as a set,
