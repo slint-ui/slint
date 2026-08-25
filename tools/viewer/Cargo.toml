@@ -106,7 +106,7 @@ tempfile = "3"
 #
 # That's why we chose zeroconf for Apple platforms and mdns-sd for the other platforms.
 [target.'cfg(not(any(target_vendor = "apple", target_arch = "wasm32")))'.dependencies]
-mdns-sd = { version = "0.20.0", default-features = false, features = ["async"], optional = true }
+mdns-sd = { version = "0.20.0", default-features = false, optional = true }
 
 [target.'cfg(target_vendor = "apple")'.dependencies]
 zeroconf = { version = "0.18", optional = true }
