@@ -67,6 +67,9 @@ All notable changes to this project are documented in this file.
    to the next line when they don't fit.
  - Added the per-item `cross-axis-self-alignment` property: the children of a `FlexboxLayout`,
    `HorizontalLayout`, or `VerticalLayout` can override the container's `cross-axis-alignment`.
+ - Added the per-item `layout-order` property: the children of a `FlexboxLayout`, `HorizontalLayout`,
+   or `VerticalLayout` are laid out in ascending `layout-order` value rather than declaration order,
+   children with the same value keeping their declaration order.
  - Struct fields can now declare a default value: `struct Player { name: string = "unknown" }`.
  - Added `push`, `remove`, and `insert` functions on arrays and models, with matching `Model` API
    additions in every language binding. (#9457)

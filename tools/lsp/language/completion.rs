@@ -557,14 +557,13 @@ fn is_reserved_prop_valid(
     if name_in(i_slint_compiler::typeregister::RESERVED_GRIDLAYOUT_PROPERTIES) {
         return matches!(parent_name, Some("GridLayout" | "Row"));
     }
-    if prop == "cross-axis-self-alignment" {
+    if prop == "cross-axis-self-alignment"
+        || name_in(i_slint_compiler::typeregister::RESERVED_LAYOUT_CELL_PROPERTIES)
+    {
         return matches!(
             parent_name,
             Some("FlexboxLayout" | "HorizontalLayout" | "VerticalLayout")
         );
-    }
-    if name_in(i_slint_compiler::typeregister::RESERVED_FLEXBOXLAYOUT_PROPERTIES) {
-        return parent_name == Some("FlexboxLayout");
     }
     if name_in(i_slint_compiler::typeregister::RESERVED_DROP_SHADOW_PROPERTIES)
         || name_in(i_slint_compiler::typeregister::RESERVED_INNER_SHADOW_PROPERTIES)
@@ -2910,30 +2909,8 @@ component Foo {
     }
 
     #[test]
-    fn flex_item_properties_in_flexbox() {
-        let source = r#"
-export component Foo {
-    FlexboxLayout {
-        Rectangle {
-            🔺
-        }
-    }
-}
-"#;
-        let results = get_completions(source).unwrap();
-        assert!(
-            results.iter().any(|completion| completion.label == "layout-order"),
-            "no 'layout-order' completion"
-        );
-        assert!(
-            results.iter().any(|completion| completion.label == "cross-axis-self-alignment"),
-            "no 'cross-axis-self-alignment' completion"
-        );
-    }
-
-    #[test]
-    fn cross_axis_self_alignment_in_box_layouts() {
-        for layout in ["HorizontalLayout", "VerticalLayout"] {
+    fn layout_cell_properties_in_layouts() {
+        for layout in ["FlexboxLayout", "HorizontalLayout", "VerticalLayout"] {
             let source = format!(
                 r#"
 component Foo {{
@@ -2946,10 +2923,12 @@ component Foo {{
 "#
             );
             let results = get_completions(&source).unwrap();
-            assert!(
-                results.iter().any(|completion| completion.label == "cross-axis-self-alignment"),
-                "no 'cross-axis-self-alignment' completion in a {layout}"
-            );
+            for prop in ["layout-order", "cross-axis-self-alignment"] {
+                assert!(
+                    results.iter().any(|completion| completion.label == prop),
+                    "no '{prop}' completion in a {layout}"
+                );
+            }
         }
     }
 

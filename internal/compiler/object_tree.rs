@@ -4940,8 +4940,6 @@ pub fn inject_element_as_repeated_element(repeated_element: &ElementRc, new_root
     // root (now the wrapper). Link them to the inner element that still carries the
     // bindings (and the layout's captured references keeping them alive), rather
     // than moving them, which would leave those references dangling.
-    // cross-axis-self-alignment is read by both the flexbox and the box layout
-    // accessor; layout-order only by the flexbox one.
     for prop in ["layout-order", "cross-axis-self-alignment"].iter() {
         if old_root.borrow().binding(prop).is_some() {
             new_root.borrow_mut().set_binding(

@@ -1696,8 +1696,9 @@ fn lower_box_layout(
     let items: Vec<_> =
         layout_children.iter().map(|child| create_layout_item(child, diag)).collect();
     // A repeated cell needs the layout's orientation: `lower_to_item_tree` uses
-    // it to restrict a `cross-axis-self-alignment` to the cross axis, and to
-    // generate `layout_item_info_at_cross_width` / `_at_cross_height` for a
+    // it to restrict a `cross-axis-self-alignment` to the cross axis and a
+    // `layout-order` to the main axis, and to generate
+    // `layout_item_info_at_cross_width` / `_at_cross_height` for a
     // height-for-width (resp. width-for-height) instance.
     for item in &items {
         if item.repeater_index.is_some() {
@@ -1901,9 +1902,7 @@ fn lower_flexbox_layout(layout_element: &ElementRc, diag: &mut BuildDiagnostics)
                 diag,
             );
         }
-        let mut cell = item.item;
-        cell.layout_order = crate::layout::binding_reference(actual_elem, "layout-order");
-        layout.elems.push(cell);
+        layout.elems.push(item.item);
     }
     layout_element.borrow_mut().children = layout_children;
     let span = layout_element.borrow().to_source_location();
@@ -2277,12 +2276,13 @@ fn create_layout_item(
     let constraints = LayoutConstraints::new(&actual_elem, Some((diag, DiagnosticLevel::Error)));
     let cross_axis_self_alignment =
         crate::layout::binding_reference(&actual_elem, "cross-axis-self-alignment");
+    let layout_order = crate::layout::binding_reference(&actual_elem, "layout-order");
     CreateLayoutItemResult {
         item: LayoutItem {
             element: item_element.clone(),
             constraints,
             cross_axis_self_alignment,
-            layout_order: None,
+            layout_order,
         },
         elem: actual_elem,
         repeater_index,
@@ -2554,10 +2554,7 @@ fn check_no_layout_properties(
         {
             diag.push_error(format!("{prop} used outside of a GridLayout's cell"), &*expr.borrow());
         }
-        if prop == "layout-order" && parent_layout_type.as_deref() != Some("FlexboxLayout") {
-            diag.push_error(format!("{prop} used outside of a FlexboxLayout"), &*expr.borrow());
-        }
-        if prop == "cross-axis-self-alignment"
+        if matches!(prop.as_ref(), "layout-order" | "cross-axis-self-alignment")
             && !matches!(
                 parent_layout_type.as_deref(),
                 Some("FlexboxLayout" | "HorizontalLayout" | "VerticalLayout")

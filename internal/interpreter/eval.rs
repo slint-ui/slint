@@ -1184,6 +1184,11 @@ fn push_repeater_layout_items(
                 ),
             );
         }
+        // Likewise `layout-order`, read back on the main-axis solve.
+        if info.layout_order != 0 {
+            struct_value
+                .set_field("layout-order".to_string(), Value::Number(info.layout_order as f64));
+        }
         cells.push(Value::Struct(struct_value));
     };
     let step = match row_child_templates {

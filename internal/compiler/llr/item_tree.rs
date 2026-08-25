@@ -556,6 +556,12 @@ pub struct SubComponent {
     /// of it. The cross-axis layout-info pass shares that accessor and so also
     /// evaluates it, unlike static cells (`box_layout_info_ortho` ignores it).
     pub cross_axis_self_alignment_for_repeated: Option<(crate::layout::Orientation, MutExpression)>,
+    /// The root's `layout-order` for a repeated element in a box layout,
+    /// returned by the generated `layout_item_info` for the given (main-axis)
+    /// orientation only, so the cross-axis cache stays independent of it. The
+    /// main-axis layout-info pass shares that accessor and so also evaluates
+    /// it, unlike static cells (`box_layout_info` ignores the field).
+    pub layout_order_for_repeated: Option<(crate::layout::Orientation, MutExpression)>,
     /// Vertical `LayoutInfo` for a repeated element, computed with a width
     /// constraint (its preferred width) so a height-for-width instance in a
     /// column FlexboxLayout doesn't read `self.width` and recurse through the
@@ -820,6 +826,9 @@ impl CompilationUnit {
                 visitor(e, ctx);
             }
             if let Some((_, e)) = &sc.cross_axis_self_alignment_for_repeated {
+                visitor(e, ctx);
+            }
+            if let Some((_, e)) = &sc.layout_order_for_repeated {
                 visitor(e, ctx);
             }
             if let Some(e) = &sc.layout_info_v_constrained_for_repeated {

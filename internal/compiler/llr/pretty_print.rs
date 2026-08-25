@@ -193,6 +193,14 @@ impl PrettyPrinter<'_> {
                 DisplayExpression(&e.borrow(), &ctx)
             )?
         }
+        if let Some((main_o, e)) = &sc.layout_order_for_repeated {
+            self.indent()?;
+            writeln!(
+                self.writer,
+                "layout-order-for-repeated ({main_o:?}): {};",
+                DisplayExpression(&e.borrow(), &ctx)
+            )?
+        }
         for (i, c) in sc.grid_layout_children.iter_enumerated() {
             self.indent()?;
             writeln!(

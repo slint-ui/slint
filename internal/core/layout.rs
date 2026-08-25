@@ -1170,6 +1170,12 @@ pub struct LayoutItemInfo {
     /// Per-item cross-axis alignment override for box layouts
     /// (`Auto` = use the container's `cross-axis-alignment`)
     pub cross_axis_self_alignment: CrossAxisSelfAlignment,
+    /// Visual ordering of box layout cells (lower values appear first, default 0).
+    /// Only [`solve_box_layout`] reads it; the cross-axis solve and both
+    /// layout-info functions ignore it. A FlexboxLayout carries it in
+    /// [`FlexItemProps`] instead, and a GridLayout orders its cells with
+    /// `row`/`col`, so both leave this at 0.
+    pub layout_order: i32,
 }
 
 /// The per-item flex properties of a FlexboxLayout cell.
@@ -1203,7 +1209,7 @@ impl From<LayoutItemInfo> for FlexboxLayoutItemInfo {
             constraint: info.constraint,
             props: FlexItemProps {
                 cross_axis_self_alignment: info.cross_axis_self_alignment,
-                ..Default::default()
+                layout_order: info.layout_order,
             },
         }
     }
@@ -1238,6 +1244,19 @@ pub fn solve_box_layout(data: &BoxLayoutData, repeater_indices: Slice<u32>) -> S
             }
         })
         .collect();
+
+    // `layout-order` reorders the cells like the CSS `order` property. Solve on
+    // the reordered list; the results are written back in declaration order
+    // below, as a cell's cache slot is fixed by its declaration index.
+    let order_map: Vec<usize> = if data.cells.iter().any(|c| c.layout_order != 0) {
+        let mut indices: Vec<usize> = (0..layout_data.len()).collect();
+        // sort_by_key is a stable sort, so equal orders keep declaration order
+        indices.sort_by_key(|&i| data.cells[i].layout_order);
+        layout_data = indices.iter().map(|&i| layout_data[i].clone()).collect();
+        indices
+    } else {
+        Vec::new()
+    };
 
     let pref_size: Coord = layout_data.iter().map(|it| it.pref).sum();
 
@@ -1289,8 +1308,19 @@ pub fn solve_box_layout(data: &BoxLayoutData, repeater_indices: Slice<u32>) -> S
     }
 
     let mut generator = LayoutCacheGenerator::new(&repeater_indices, &mut result);
-    for layout in layout_data.iter() {
-        generator.add(layout.pos, layout.size);
+    if order_map.is_empty() {
+        for layout in layout_data.iter() {
+            generator.add(layout.pos, layout.size);
+        }
+    } else {
+        let mut geom = alloc::vec![(0 as Coord, 0 as Coord); layout_data.len()];
+        for (sorted_idx, &declared_idx) in order_map.iter().enumerate() {
+            let layout = &layout_data[sorted_idx];
+            geom[declared_idx] = (layout.pos, layout.size);
+        }
+        for (pos, size) in geom {
+            generator.add(pos, size);
+        }
     }
     result
 }

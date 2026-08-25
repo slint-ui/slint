@@ -1781,6 +1781,18 @@ fn generate_sub_component(
             }
         });
 
+    let layout_order_for_repeated_fn =
+        component.layout_order_for_repeated.as_ref().map(|(_, expr)| {
+            let expr = compile_expression(&expr.borrow(), &ctx);
+            quote! {
+                fn layout_order_for_repeated(self: ::core::pin::Pin<&Self>) -> i32 {
+                    #![allow(unused)]
+                    let _self = self;
+                    #expr
+                }
+            }
+        });
+
     // FIXME! this is only public because of the ComponentHandle::WeakInner. we should find another way
     let visibility = parent_ctx.is_none().then(|| quote!(pub));
 
@@ -1944,6 +1956,8 @@ fn generate_sub_component(
             #flexbox_layout_item_info_for_repeated_fn
 
             #cross_axis_self_alignment_for_repeated_fn
+
+            #layout_order_for_repeated_fn
 
             fn subtree_range(self: ::core::pin::Pin<&Self>, dyn_index: u32) -> sp::IndexRange {
                 #![allow(unused)]
@@ -2857,12 +2871,26 @@ fn generate_repeated_component(
                     ::core::default::Default::default()
                 },)
             });
+        // Likewise `layout-order`, for the main axis only: it just reorders that
+        // solve.
+        let order_field = root_sc.layout_order_for_repeated.as_ref().map(|(main_o, _)| {
+            let main_o = match main_o {
+                Orientation::Horizontal => quote!(sp::Orientation::Horizontal),
+                Orientation::Vertical => quote!(sp::Orientation::Vertical),
+            };
+            quote!(layout_order: if o == #main_o {
+                self.as_ref().layout_order_for_repeated()
+            } else {
+                0
+            },)
+        });
         let layout_item_info_fn = root_sc.child_of_layout.then(|| {
             // Generate layout_item_info (from the RepeatedItemTree trait) in terms of ItemTree::layout_info
             if root_sc.is_repeated_row {
-                // Repeated grid Rows cannot carry cross-axis-self-alignment; the
-                // row-scan literals below default the field.
+                // Repeated grid Rows cannot carry per-item box layout properties;
+                // the row-scan literals below default those fields.
                 debug_assert!(root_sc.cross_axis_self_alignment_for_repeated.is_none());
+                debug_assert!(root_sc.layout_order_for_repeated.is_none());
                 // Create a context with proper global_access for compiling layout info expressions
                 let layout_ctx = EvaluationContext {
                     compilation_unit: unit,
@@ -2938,12 +2966,12 @@ fn generate_repeated_component(
                             #(#scan_steps)*
                             sp::LayoutItemInfo::default()
                         } else {
-                            sp::LayoutItemInfo { constraint: self.as_ref().layout_info(o), #align_self_field ..::core::default::Default::default() }
+                            sp::LayoutItemInfo { constraint: self.as_ref().layout_info(o), #align_self_field #order_field ..::core::default::Default::default() }
                         }
                     }
                 } else {
                     quote! {
-                        sp::LayoutItemInfo { constraint: self.as_ref().layout_info(o), #align_self_field ..::core::default::Default::default() }
+                        sp::LayoutItemInfo { constraint: self.as_ref().layout_info(o), #align_self_field #order_field ..::core::default::Default::default() }
                     }
                 };
 
@@ -2963,7 +2991,7 @@ fn generate_repeated_component(
                         o: sp::Orientation,
                         _child_index: sp::Option<usize>,
                     ) -> sp::LayoutItemInfo {
-                        sp::LayoutItemInfo { constraint: self.as_ref().layout_info(o), #align_self_field ..::core::default::Default::default() }
+                        sp::LayoutItemInfo { constraint: self.as_ref().layout_info(o), #align_self_field #order_field ..::core::default::Default::default() }
                     }
                 }
             }
@@ -3079,12 +3107,20 @@ fn generate_repeated_component(
         // measures like an equivalent static cell. Mirrors the flexbox
         // `flexbox_layout_item_info_at_cross_*` pair; the trait default (the
         // plain `layout_item_info`) covers the other repeated components.
+        // The per-item fields are the same as in `layout_item_info`; `o` is
+        // fixed per accessor, so bind it locally and reuse those guards. Don't
+        // delegate to `layout_item_info` for them: it measures the constraint
+        // through `layout_info`, which is what this accessor exists to avoid.
         let layout_item_info_at_cross_fn =
-            |expr: Option<&llr::MutExpression>, fn_name: &str, param: &str| {
+            |expr: Option<&llr::MutExpression>, fn_name: &str, param: &str, o: Orientation| {
                 expr.filter(|_| root_sc.flexbox_layout_item_info_for_repeated.is_none()).map(|e| {
                 let info = compile_expression(&e.borrow(), &ctx);
                 let fn_name = ident(fn_name);
                 let param = ident(param);
+                let o = match o {
+                    Orientation::Horizontal => quote!(sp::Orientation::Horizontal),
+                    Orientation::Vertical => quote!(sp::Orientation::Vertical),
+                };
                 quote! {
                     fn #fn_name(
                         self: ::core::pin::Pin<&Self>,
@@ -3092,7 +3128,9 @@ fn generate_repeated_component(
                     ) -> sp::LayoutItemInfo {
                         #[allow(unused)]
                         let _self = self.as_ref();
-                        sp::LayoutItemInfo { constraint: #info, ..::core::default::Default::default() }
+                        #[allow(unused)]
+                        let o = #o;
+                        sp::LayoutItemInfo { constraint: #info, #align_self_field #order_field ..::core::default::Default::default() }
                     }
                 }
             })
@@ -3101,11 +3139,13 @@ fn generate_repeated_component(
             root_sc.layout_info_v_at_cross_width_for_repeated.as_ref(),
             "layout_item_info_at_cross_width",
             CROSS_WIDTH_LOCAL,
+            Orientation::Vertical,
         );
         let layout_item_info_at_cross_height_fn = layout_item_info_at_cross_fn(
             root_sc.layout_info_h_at_cross_height_for_repeated.as_ref(),
             "layout_item_info_at_cross_height",
             CROSS_HEIGHT_LOCAL,
+            Orientation::Horizontal,
         );
         quote! {
             #layout_item_info_fn

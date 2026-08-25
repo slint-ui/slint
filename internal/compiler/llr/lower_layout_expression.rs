@@ -1098,7 +1098,7 @@ fn flexbox_layout_data(
                         Orientation::Horizontal,
                         constraint,
                     );
-                    make_layout_cell_data_struct(layout_info_h, None)
+                    make_layout_cell_data_struct(layout_info_h, None, None)
                 })
                 .collect(),
             element_ty: cell_ty.clone(),
@@ -1121,7 +1121,7 @@ fn flexbox_layout_data(
                         Orientation::Vertical,
                         constraint,
                     );
-                    make_layout_cell_data_struct(layout_info_v, None)
+                    make_layout_cell_data_struct(layout_info_v, None, None)
                 })
                 .collect(),
             element_ty: cell_ty,
@@ -1179,8 +1179,8 @@ fn flexbox_layout_data(
                     constraint,
                 );
                 elements.push(Either::Left((
-                    make_layout_cell_data_struct(layout_info_h, None),
-                    make_layout_cell_data_struct(layout_info_v, None),
+                    make_layout_cell_data_struct(layout_info_h, None, None),
+                    make_layout_cell_data_struct(layout_info_v, None, None),
                     make_flex_props_struct(flex_prop(item, ctx)),
                 )));
             }
@@ -1237,16 +1237,21 @@ fn default_align_self() -> (Type, llr_Expression) {
 
 /// Build a LayoutItemInfo struct expression with the canonical (full) field
 /// list as its type, so the generators default the fields that are not set.
-/// `align_self` is only set for a box layout's cross-axis cells.
+/// `align_self` is only set for a box layout's cross-axis cells, `order` only
+/// for its main-axis ones.
 fn make_layout_cell_data_struct(
     layout_info: llr_Expression,
     align_self: Option<llr_Expression>,
+    order: Option<llr_Expression>,
 ) -> llr_Expression {
     let Type::Struct(ty) = crate::typeregister::layout_item_info_type() else { unreachable!() };
     let mut values = BTreeMap::<SmolStr, llr_Expression>::new();
     values.insert("constraint".into(), layout_info);
     if let Some(align_self) = align_self {
         values.insert("cross-axis-self-alignment".into(), align_self);
+    }
+    if let Some(order) = order {
+        values.insert("layout-order".into(), order);
     }
     llr_Expression::Struct { ty, values }
 }
@@ -1303,6 +1308,15 @@ fn box_layout_data(
             .filter(|_| for_solve && orientation != layout.orientation)
             .map(|nr| llr_Expression::PropertyReference(ctx.map_property_reference(nr)))
     };
+    // `layout-order` is the mirror image: it only reorders the main-axis solve,
+    // so keep it out of the cross-axis cache and of the layout-info cells (a
+    // permutation changes neither the sum nor the merge of the constraints).
+    let cell_order = |li: &crate::layout::LayoutItem, ctx: &mut ExpressionLoweringCtx| {
+        li.layout_order
+            .as_ref()
+            .filter(|_| for_solve && orientation == layout.orientation)
+            .map(|nr| llr_Expression::PropertyReference(ctx.map_property_reference(nr)))
+    };
     if repeater_count == 0 {
         let cells = llr_Expression::Array {
             values: layout
@@ -1319,7 +1333,8 @@ fn box_layout_data(
                         for_measure_solve,
                     );
                     let align_self = cell_align_self(li, ctx);
-                    make_layout_cell_data_struct(layout_info, align_self)
+                    let order = cell_order(li, ctx);
+                    make_layout_cell_data_struct(layout_info, align_self, order)
                 })
                 .collect(),
             element_ty,
@@ -1350,7 +1365,12 @@ fn box_layout_data(
                     for_measure_solve,
                 );
                 let align_self = cell_align_self(item, ctx);
-                elements.push(Either::Left(make_layout_cell_data_struct(layout_info, align_self)));
+                let order = cell_order(item, ctx);
+                elements.push(Either::Left(make_layout_cell_data_struct(
+                    layout_info,
+                    align_self,
+                    order,
+                )));
             }
         }
         let cells = llr_Expression::ReadLocalVariable {
@@ -1624,7 +1644,7 @@ fn grid_layout_cell_constraints(
                         None,
                         false,
                     );
-                    make_layout_cell_data_struct(layout_info, None)
+                    make_layout_cell_data_struct(layout_info, None, None)
                 })
                 .collect(),
             output: llr_ArrayOutput::Slice,
@@ -1658,7 +1678,7 @@ fn grid_layout_cell_constraints(
                     None,
                     false,
                 );
-                elements.push(Either::Left(make_layout_cell_data_struct(layout_info, None)));
+                elements.push(Either::Left(make_layout_cell_data_struct(layout_info, None, None)));
             }
         }
         let cells = llr_Expression::ReadLocalVariable {

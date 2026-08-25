@@ -59,6 +59,11 @@ fn to_cells(v: &Value) -> Vec<LayoutItemInfo> {
                     .get_field("cross-axis-self-alignment")
                     .map(to_enum)
                     .unwrap_or_default(),
+                // Only set for a box layout's main-axis cells; absent means 0.
+                layout_order: match s.get_field("layout-order") {
+                    Some(Value::Number(n)) => *n as i32,
+                    _ => 0,
+                },
             })
         })
         .collect()
