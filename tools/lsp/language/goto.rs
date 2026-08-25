@@ -313,3 +313,37 @@ fn test_goto_definition_multi_files() {
     assert_eq!(link.target_uri, url1);
     assert_eq!(link.target_range.start.line, 7);
 }
+
+#[test]
+fn test_goto_definition_expected_type() {
+    fn first_link(def: &GotoDefinitionResponse) -> &LocationLink {
+        let GotoDefinitionResponse::Link(link) = def else { panic!("not a single link {def:?}") };
+        link.first().unwrap()
+    }
+
+    // A bare enum value resolved through the expected type (here the right-hand side of a
+    // comparison, and a call argument) still goes to the value's declaration.
+    let source = r#"
+enum Direction { up, down, forward }
+export component Test {
+    callback cb(Direction);
+    in property <Direction> dir;
+    out property <bool> b: dir == forward;
+    cb2 => { cb(up); }
+    callback cb2;
+}"#;
+    let (mut dc, uri, _) = crate::language::test::loaded_document_cache(source.into());
+    let doc = dc.get_document(&uri).unwrap().node.clone().unwrap();
+
+    let offset: TextSize = (source.find("dir == forward").unwrap() as u32 + 7).into();
+    let token = crate::language::token_at_offset(&doc, offset).unwrap();
+    assert_eq!(token.text(), "forward");
+    let def = goto_definition(&mut dc, token).unwrap();
+    assert_eq!(first_link(&def).target_range.start.line, 1);
+
+    let offset: TextSize = (source.find("cb(up)").unwrap() as u32 + 3).into();
+    let token = crate::language::token_at_offset(&doc, offset).unwrap();
+    assert_eq!(token.text(), "up");
+    let def = goto_definition(&mut dc, token).unwrap();
+    assert_eq!(first_link(&def).target_range.start.line, 1);
+}

@@ -14,7 +14,7 @@ use crate::expression_tree::{
 use crate::langtype::{ElementType, Enumeration, EnumerationValue, PropertyLookupMode, Type};
 use crate::namedreference::NamedReference;
 use crate::object_tree::{ElementRc, PropertyVisibility};
-use crate::parser::NodeOrToken;
+use crate::parser::{NodeOrToken, TextRange, TextSize};
 use crate::symbol_counters::SymbolCounters;
 use crate::typeregister::TypeRegister;
 use smol_str::{SmolStr, format_smolstr};
@@ -61,6 +61,10 @@ pub struct LookupCtx<'a> {
 
     /// A stack of local variable scopes
     pub local_variables: Vec<Vec<(SmolStr, Type)>>,
+
+    /// LSP probe: while resolving, the `Type` is set to the `expected_type` at the innermost
+    /// node containing the offset. `None` during normal compilation.
+    pub expected_type_probe: Option<(TextSize, Type)>,
 }
 
 impl<'a> LookupCtx<'a> {
@@ -82,6 +86,7 @@ impl<'a> LookupCtx<'a> {
             type_loader: None,
             current_token: None,
             local_variables: Default::default(),
+            expected_type_probe: None,
         }
     }
 
@@ -96,6 +101,16 @@ impl<'a> LookupCtx<'a> {
     /// or the builtin widget library, which may use them.
     fn experimental_lookup_enabled(&self) -> bool {
         self.diag.enable_experimental || self.type_register.expose_internal_types
+    }
+
+    /// Record `ty` on the probe when its offset is in `range` — for a slot with no expression
+    /// node (the empty element/argument left by a trailing comma).
+    pub fn record_expected_type_probe(&mut self, range: TextRange, ty: &Type) {
+        if let Some((offset, slot)) = &mut self.expected_type_probe
+            && range.contains_inclusive(*offset)
+        {
+            *slot = ty.clone();
+        }
     }
 
     /// Run `f` with `expected_type` temporarily set to `ty`, restoring it afterwards.

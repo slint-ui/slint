@@ -566,6 +566,29 @@ export component Test { // not docs
     }
 
     #[test]
+    fn test_tooltip_expected_type() {
+        // A bare enum value resolved through the expected type (the comparison's rhs) hovers
+        // as that enum value.
+        let source = r#"
+enum Direction { up, down, forward }
+export component Test {
+    in property <Direction> dir;
+    out property <bool> b: dir == forward;
+}"#;
+        let (mut dc, uri, _) = crate::language::test::loaded_document_cache(source.into());
+        let doc = dc.get_document(&uri).unwrap().node.clone().unwrap();
+        let offset = TextSize::new(source.find("dir == forward").unwrap() as u32 + 7);
+        let token = crate::language::token_at_offset(&doc, offset).unwrap();
+        assert_eq!(token.text(), "forward");
+        match get_tooltip(&mut dc, token).unwrap().contents {
+            HoverContents::Markup(m) => {
+                assert!(m.value.contains("Direction.forward"), "got {:?}", m.value)
+            }
+            x => panic!("Found {x:?}"),
+        }
+    }
+
+    #[test]
     fn test_tooltip_shadowed_member() {
         // `Derived` shadows the `@shadowable` `prop` of `Base`, with a different type. The tooltip
         // for a use must describe the property declared in the same component, under its source name.
