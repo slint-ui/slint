@@ -322,6 +322,10 @@ export default defineConfig({
                                                   label: "Shadowable Members",
                                                   slug: "guide/experimental/shadowable",
                                               },
+                                              {
+                                                  label: "Custom Mouse Cursor",
+                                                  slug: "guide/experimental/custom-mouse-cursor",
+                                              },
                                           ],
                                       },
                                   ]

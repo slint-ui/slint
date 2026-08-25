@@ -911,7 +911,7 @@ struct MouseCursorSpecific;
 impl LookupObject for MouseCursorSpecific {
     fn for_each_entry<R>(
         &self,
-        _ctx: &LookupCtx,
+        ctx: &LookupCtx,
         f: &mut impl FnMut(&SmolStr, LookupResult) -> Option<R>,
     ) -> Option<R> {
         let e = crate::typeregister::BUILTIN.enums.BuiltInMouseCursor.clone();
@@ -923,6 +923,10 @@ impl LookupObject for MouseCursorSpecific {
             }
         }
         r.or_else(|| {
+            // Experimental until the language has enums with data.
+            if !ctx.experimental_lookup_enabled() {
+                return None;
+            }
             f(&SmolStr::new_static("custom"), BuiltinMacroFunction::CustomMouseCursor.into())
         })
     }

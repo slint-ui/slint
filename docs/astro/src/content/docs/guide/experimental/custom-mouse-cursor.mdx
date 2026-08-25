@@ -1,0 +1,20 @@
+---
+title: Custom Mouse Cursor
+description: Experimental MouseCursor.custom() to set a custom mouse cursor from an image.
+---
+
+In addition to the built-in shapes, the `mouse-cursor` property accepts a custom cursor
+created with `MouseCursor.custom(image, hotspot-x, hotspot-y)`.
+
+The hotspot is the point in the image, given in image pixels from the top-left corner,
+that is aligned with the actual pointer position. It is clamped to the image bounds.
+
+> **Note**: `MouseCursor.custom()` is experimental and subject to change.
+> A function on a type namespace is a stand-in for an enum variant with data;
+> once the language has such variants, `custom` should become one.
+
+```slint no-test
+TouchArea {
+    mouse-cursor: MouseCursor.custom(@image-url("cursor.png"), 0, 0);
+}
+```

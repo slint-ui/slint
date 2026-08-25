@@ -74,7 +74,6 @@ All notable changes to this project are documented in this file.
  - Added the `string.replace-all(from, to)` function. (#12782)
  - Added the `WindowMoveArea` element to start an interactive window move, like a native title bar. (#613)
  - Added `angle-at` and `position-at` functions to the `Path` element to support animating objects along a path.
- - Added `MouseCursor.custom()` to set a custom cursor from an image with a hotspot. (#10270)
  - Added the `input-method-hints` property to `TextInput` and `LineEdit` to hint the platform's input method
    about auto-capitalization, auto-correction, and auto-completion. (#9016)
  - Added the `max-lines` property to `Text` and `StyledText` to limit the number of rendered lines.
