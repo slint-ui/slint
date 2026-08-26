@@ -370,7 +370,10 @@ jobs:
     # Compile checks that need cross-compilation toolchains: the mcu backend
     # for no_std targets (ARM and ESP32) and the 32-bit ARM FFI build. They
     # share one job to keep the number of runners a PR occupies down; each
-    # step only runs when its own filter group matched.
+    # step only runs when its own filter group matched. The mcu-embassy
+    # simulator is checked here too, next to its mcu counterpart, even though
+    # it builds for the host; cargo check doesn't link, so it needs no
+    # system libraries.
     cross_compile_checks:
         if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'internal') || contains(fromJSON(inputs.changes), 'examples_mcu') || contains(fromJSON(inputs.changes), 'api_rs') || contains(fromJSON(inputs.changes), 'api_cpp') }}
         env:
@@ -398,6 +401,13 @@ jobs:
               env:
                   RUSTFLAGS: --cfg slint_int_coord -D warnings
               run: cargo check --bin ui_mcu --target=thumbv8m.main-none-eabihf --no-default-features --features="mcu-embassy/mcu" --release
+              working-directory: examples/mcu-embassy
+            - name: Check mcu-embassy simulator
+              if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'examples_mcu') || contains(fromJSON(inputs.changes), 'api_rs') }}
+              env:
+                  RUSTFLAGS: -D warnings
+              # Host target, overriding the embedded default target of this directory's .cargo/config.toml
+              run: cargo check --bin ui_simulator --target=x86_64-unknown-linux-gnu --no-default-features --features=simulator --release
               working-directory: examples/mcu-embassy
             - name: Check all boards
               if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'examples_mcu') }}
