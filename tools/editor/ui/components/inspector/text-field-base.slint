@@ -4,6 +4,7 @@
 import { InspectorTokens } from "tokens.slint";
 
 export component InspectorTextFieldBase inherits Rectangle {
+    in property <string> accessible-name: "";
     in property <string> value;
     in property <bool> enabled: true;
     in property <length> field-padding-left: 8px;
@@ -24,6 +25,15 @@ export component InspectorTextFieldBase inherits Rectangle {
     background: !enabled ? InspectorTokens.field-bg.with-alpha(0.65) : input.has-focus ? InspectorTokens.panel-bg : touch.has-hover ? InspectorTokens.field-bg-hover : InspectorTokens.field-bg;
     border-width: input.has-focus ? 1px : 0px;
     border-color: InspectorTokens.accent;
+    accessible-role: AccessibleRole.text-input;
+    accessible-label: root.accessible-name;
+    accessible-value: input.text;
+    accessible-enabled: root.enabled;
+    accessible-action-set-value(value) => {
+        if root.enabled {
+            root.accept-input(value);
+        }
+    }
 
     changed value => {
         if !input.has-focus {

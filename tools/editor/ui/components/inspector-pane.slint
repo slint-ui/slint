@@ -411,6 +411,10 @@ export component InspectorPane inherits Rectangle {
         return root.property-brush("color", StudioTheme.dark ? #f4f4f4 : #1f2328);
     }
 
+    function text-content-code() -> string {
+        return Api.current-property-value("text", "\"\"");
+    }
+
     function text-font-family-value() -> string {
         return root.property-string("font-family", "Default font");
     }
@@ -701,6 +705,7 @@ export component InspectorPane inherits Rectangle {
                         spacing: InspectorTokens.column-gap;
 
                         InspectorValueField {
+                            accessible-name: "Position X";
                             prefix: "X";
                             value: root.selected-x-label();
                             commit-key: root.field-key("x");
@@ -713,6 +718,7 @@ export component InspectorPane inherits Rectangle {
                         }
 
                         InspectorValueField {
+                            accessible-name: "Position Y";
                             prefix: "Y";
                             value: root.selected-y-label();
                             commit-key: root.field-key("y");
@@ -734,6 +740,7 @@ export component InspectorPane inherits Rectangle {
                         spacing: InspectorTokens.column-gap;
 
                         InspectorValueField {
+                            accessible-name: "Width";
                             prefix: "W";
                             value: root.selected-width-label();
                             commit-key: root.field-key("width");
@@ -746,6 +753,7 @@ export component InspectorPane inherits Rectangle {
                         }
 
                         InspectorValueField {
+                            accessible-name: "Height";
                             prefix: "H";
                             value: root.selected-height-label();
                             commit-key: root.field-key("height");
@@ -767,6 +775,7 @@ export component InspectorPane inherits Rectangle {
                         spacing: InspectorTokens.column-gap;
 
                         if root.is-root-selection(): InspectorColorField {
+                            accessible-name: "Root background";
                             value: root.phone-background-label;
                             swatch: root.phone-background;
                             commit-key: root.field-key("background");
@@ -777,6 +786,7 @@ export component InspectorPane inherits Rectangle {
                         }
 
                         if root.is-rectangle-selection(): InspectorColorField {
+                            accessible-name: "Rectangle background";
                             value: root.rectangle-background-code();
                             swatch: root.rectangle-background-swatch();
                             commit-key: root.field-key("background");
@@ -787,6 +797,7 @@ export component InspectorPane inherits Rectangle {
                         }
 
                         if root.is-text-selection(): InspectorColorField {
+                            accessible-name: "Text color";
                             value: root.text-color-code();
                             swatch: root.text-color-swatch();
                             commit-key: root.field-key("color");
@@ -807,6 +818,7 @@ export component InspectorPane inherits Rectangle {
                         spacing: 8px;
 
                         InspectorComboBox {
+                            accessible-name: "Rectangle effect";
                             value: root.rectangle-effect-value();
                             selected-index: root.rectangle-effect-index();
                             options: root.rectangle-effect-options;
@@ -822,6 +834,7 @@ export component InspectorPane inherits Rectangle {
                             cross-axis-alignment: center;
 
                             InspectorEffectDial {
+                                accessible-name: "Shadow angle";
                                 value: root.shadow-angle();
                                 accepted(angle) => {
                                     return root.commit-shadow-offsets(angle, root.shadow-distance());
@@ -841,6 +854,7 @@ export component InspectorPane inherits Rectangle {
                                 }
 
                                 InspectorColorField {
+                                    accessible-name: "Shadow color";
                                     value: root.shadow-color-code();
                                     swatch: root.shadow-color-swatch();
                                     commit-key: root.field-key(root.current-shadow-prefix() + "color");
@@ -852,6 +866,7 @@ export component InspectorPane inherits Rectangle {
                         }
 
                         if root.rectangle-effect-index() != 0: InspectorEffectSlider {
+                            accessible-name: "Shadow distance";
                             label: "Distance";
                             value: root.shadow-distance();
                             minimum: 0;
@@ -863,6 +878,7 @@ export component InspectorPane inherits Rectangle {
                         }
 
                         if root.rectangle-effect-index() != 0: InspectorEffectSlider {
+                            accessible-name: "Shadow blur";
                             label: "Blur";
                             value: root.shadow-blur();
                             minimum: 0;
@@ -874,6 +890,7 @@ export component InspectorPane inherits Rectangle {
                         }
 
                         if root.rectangle-effect-index() != 0: InspectorEffectSlider {
+                            accessible-name: "Shadow spread";
                             label: "Spread";
                             value: root.shadow-spread();
                             minimum: -64;
@@ -895,6 +912,7 @@ export component InspectorPane inherits Rectangle {
                         spacing: 8px;
 
                         InspectorCodeField {
+                            accessible-name: "Image source";
                             prefix: "Source";
                             value: root.image-source-value();
                             commit-key: root.field-key("source");
@@ -926,6 +944,7 @@ export component InspectorPane inherits Rectangle {
                             }
 
                             InspectorComboBox {
+                                accessible-name: "Image fit";
                                 value: root.image-fit-value();
                                 selected-index: root.image-fit-index();
                                 options: root.image-fit-options;
@@ -941,6 +960,7 @@ export component InspectorPane inherits Rectangle {
                             spacing: InspectorTokens.column-gap;
 
                             InspectorComboBox {
+                                accessible-name: "Image horizontal alignment";
                                 prefix: "H";
                                 value: root.image-horizontal-alignment-value();
                                 selected-index: root.image-horizontal-alignment-index();
@@ -952,6 +972,7 @@ export component InspectorPane inherits Rectangle {
                             }
 
                             InspectorComboBox {
+                                accessible-name: "Image vertical alignment";
                                 prefix: "V";
                                 value: root.image-vertical-alignment-value();
                                 selected-index: root.image-vertical-alignment-index();
@@ -966,6 +987,25 @@ export component InspectorPane inherits Rectangle {
                 }
 
                 if !root.image-mode && root.is-text-selection(): InspectorSection {
+                    title: "Content";
+
+                    HorizontalLayout {
+                        padding-left: InspectorTokens.side-padding;
+                        padding-right: InspectorTokens.side-padding;
+
+                        InspectorCodeField {
+                            accessible-name: "Text content";
+                            prefix: "Text";
+                            value: root.text-content-code();
+                            commit-key: root.field-key("text");
+                            accepted(text) => {
+                                return root.commit-code("text", text);
+                            }
+                        }
+                    }
+                }
+
+                if !root.image-mode && root.is-text-selection(): InspectorSection {
                     title: "Typography";
 
                     VerticalLayout {
@@ -973,6 +1013,7 @@ export component InspectorPane inherits Rectangle {
                         spacing: 8px;
 
                         InspectorEditableField {
+                            accessible-name: "Font family";
                             value: root.text-font-family-value();
                             commit-key: root.field-key("font-family");
                             wide: true;
@@ -985,6 +1026,7 @@ export component InspectorPane inherits Rectangle {
                             spacing: InspectorTokens.column-gap;
 
                             InspectorComboBox {
+                                accessible-name: "Font weight";
                                 value: root.text-font-weight-label();
                                 selected-index: root.text-font-weight-index();
                                 options: root.text-font-weight-options;
@@ -995,6 +1037,7 @@ export component InspectorPane inherits Rectangle {
                             }
 
                             InspectorEditableField {
+                                accessible-name: "Font size";
                                 value: root.text-font-size-value();
                                 commit-key: root.field-key("font-size");
                                 accepted(text) => {
