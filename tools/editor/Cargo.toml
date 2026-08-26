@@ -68,6 +68,7 @@ raw-window-handle = "0.6"
 # D-Bus service.
 [target.'cfg(target_os = "linux")'.dependencies]
 zbus = { version = "5.14.0", default-features = false, features = ["async-io", "blocking-api"] }
+reqwest = { version = "0.13", default-features = false, features = ["blocking", "rustls"] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 mdns-sd = { version = "0.20.0", default-features = false, optional = true }
