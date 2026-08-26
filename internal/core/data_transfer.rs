@@ -325,7 +325,7 @@ impl DataTransfer {
     #[cfg(feature = "std")]
     pub fn file_paths(
         &self,
-    ) -> Result<impl ExactSizeIterator<Item = &std::path::Path> + '_, DataTransferError> {
+    ) -> Result<impl Iterator<Item = &std::path::Path> + '_, DataTransferError> {
         self.inner
             .as_ref()
             .and_then(|inner| inner.file_paths.as_ref())
