@@ -754,28 +754,22 @@ where
         }
 
         let mut removed_rows = Vec::new();
+        let mut mapping = self.mapping.borrow_mut();
 
-        let mut i = 0;
-
-        loop {
-            if i >= self.mapping.borrow().len() {
-                break;
+        // `write` is the position the removed row would have had with one-at-a-time
+        // removal, so the emitted notifications are unchanged.
+        let mut write = 0;
+        for read in 0..mapping.len() {
+            let sort_index = mapping[read];
+            if (index..index + count).contains(&sort_index) {
+                removed_rows.push(write);
+                continue;
             }
-
-            let sort_index = self.mapping.borrow()[i];
-
-            if sort_index >= index {
-                if sort_index < index + count {
-                    removed_rows.push(i);
-                    self.mapping.borrow_mut().remove(i);
-                    continue;
-                } else {
-                    self.mapping.borrow_mut()[i] -= count;
-                }
-            }
-
-            i += 1;
+            mapping[write] = if sort_index >= index { sort_index - count } else { sort_index };
+            write += 1;
         }
+        mapping.truncate(write);
+        drop(mapping);
 
         for removed_row in removed_rows {
             self.notify.row_removed(removed_row, 1);

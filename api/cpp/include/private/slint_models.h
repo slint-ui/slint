@@ -819,18 +819,22 @@ struct SortModelInner : private_api::ModelChangeListener
         std::vector<size_t> removed_rows;
         removed_rows.reserve(count);
 
-        for (auto it = sorted_rows.begin(); it != sorted_rows.end();) {
-            if (*it >= first_removed_row) {
-                if (*it < first_removed_row + count) {
-                    removed_rows.push_back(std::distance(sorted_rows.begin(), it));
-                    it = sorted_rows.erase(it);
+        // `write` is the position the removed row would have had with one-at-a-time
+        // removal, so the emitted notifications are unchanged.
+        size_t write = 0;
+        for (size_t read = 0; read < sorted_rows.size(); ++read) {
+            size_t sort_index = sorted_rows[read];
+            if (sort_index >= first_removed_row) {
+                if (sort_index < first_removed_row + count) {
+                    removed_rows.push_back(write);
                     continue;
-                } else {
-                    *it -= count;
                 }
+                sort_index -= count;
             }
-            ++it;
+            sorted_rows[write] = sort_index;
+            ++write;
         }
+        sorted_rows.resize(write);
 
         for (auto removed_row : removed_rows) {
             target_model.notify_row_removed(removed_row, 1);
