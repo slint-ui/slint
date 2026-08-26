@@ -25,6 +25,12 @@ js_config: &js_config
  - '.npmrc'
  - 'pnpm-lock.yaml'
 
+# Inputs that can require pnpm dedupe to update the lock file.
+pnpm_manifests:
+ - 'package.json'
+ - '**/package.json'
+ - 'pnpm-workspace.yaml'
+
 # The compiler library and i-slint-common, without the language-specific
 # generator backends and the compiler's own test data.
 compiler: &compiler
