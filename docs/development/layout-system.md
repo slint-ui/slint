@@ -89,7 +89,8 @@ When items fit without shrinking, alignment determines positioning:
 
 ### Grid Layout
 
-Grid layouts solve independently for each axis:
+Grid layouts solve each axis on its own, except that the vertical pass measures
+height-for-width cells at the width the horizontal pass solved:
 1. **Organize**: Convert cell definitions to row/column assignments
 2. **Solve horizontal**: Calculate column widths and x positions
 3. **Solve vertical**: Calculate row heights and y positions
@@ -275,6 +276,79 @@ These are represented as `Expression::LayoutCacheAccess` (standard, for box layo
 `Expression::GridRepeaterCacheAccess` (grid repeaters with any repeater structure) in the expression tree, which
 the code generators compile to the appropriate runtime access pattern.
 
+## Measuring repeated cells
+
+Where no cross size is passed in — the GridLayout solve, a `VerticalLayout` main
+pass — a static height-for-width cell (a word-wrapped `Text`, say) sizes itself:
+its `width` is bound to the layout cache, so the `Text` reads the width the
+layout gave it while the layout-info is computed (`text_layout_info` in
+`i-slint-core` treats a cross constraint below zero as "use the current width").
+Other passes hand static cells an explicit constraint.
+
+A repeated cell cannot read its own width that way: the layout asks the whole
+instance for its layout-info, and the instance goes through
+`layoutinfo-v-with-constraint` rather than reading `self.width` (see
+`synthesize_layoutinfo_v_with_constraint`), so it is measured at a fixed cross
+size — the instance's preferred width for the vertical info, an unbounded height
+for the horizontal one. The layout therefore passes the real size in, through
+the accessors on `RepeatedItemTree`:
+
+| Accessor | Backed by | Supplied by |
+|---|---|---|
+| `layout_item_info_at_cross_width(w)` | `SubComponent::layout_info_v_at_cross_width_for_repeated` | any vertical pass at a known width: `VerticalLayout` main pass, `HorizontalLayout` ortho pass, GridLayout vertical pass |
+| `layout_item_info_at_cross_height(h)` | `SubComponent::layout_info_h_at_cross_height_for_repeated` | any horizontal pass at a known height: `HorizontalLayout` main pass, `VerticalLayout` ortho pass |
+| `flexbox_layout_item_info_at_cross_width(w)` / `_height(h)` | the same two expressions | FlexboxLayout solve |
+
+Which accessor is used depends on the orientation being computed, not on the box
+layout's own direction: a `VerticalLayout` calls
+`layout_item_info_at_cross_width` from its main pass and
+`layout_item_info_at_cross_height` from its ortho pass, a `HorizontalLayout` the
+other way around. GridLayout appears in the first row only. It solves horizontal
+first, so measuring a cell at a solved height would make the horizontal solve
+read the vertical cache, which the end of this section explains it must not.
+
+The `SubComponent` fields are in `internal/compiler/llr/item_tree.rs`; the
+generators emit the accessors in `internal/compiler/generator/rust.rs` and
+`generator/cpp.rs`, and the interpreter mirrors them in
+`internal/interpreter/eval_layout.rs` and `instance.rs`.
+
+Where the size comes from differs per layout kind:
+
+- **Box layout, main pass** forwards one size for all cells (the layout's cross
+  content size), in `Expression::WithLayoutItemInfo::repeated_cross_size`.
+- **Box layout, ortho pass** has no single size to forward:
+  `Expression::BoxLayoutInfoOrthoWithMeasure` solves the main axis first, then
+  measures each instance at its *own* solved main size, as a
+  `BoxMeasureCell::Repeated`. `repeated_cross_size` is `None` here.
+- **GridLayout** has one width per column, so it reads each cell's own slot out
+  of `layout-cache-h`: `LayoutRepeatedElement::cross_width`
+  (`internal/compiler/layout.rs`) is the cell's own `width` binding with the
+  repeater index replaced by the `GRID_MEASURE_REPEATER_INDEX_LOCAL` local,
+  which the generated loop binds to the instance index. A *repeated* child of a
+  repeated `Row` uses `SubComponent::grid_row_child_cross_width` instead,
+  addressed by the child's flattened index (`GRID_MEASURE_CHILD_INDEX_LOCAL`).
+  One expression serves every such child, and
+  `RowChildTemplateInfo::Repeated::measure_at_cross_width` records which ones it
+  applies to. A static child of a `Row` keeps its plain, unconstrained
+  layout-info.
+- **FlexboxLayout** passes a size twice: the container's cross width up front,
+  in `Expression::WithFlexboxLayoutItemInfo::repeated_cross_width` (column flex
+  only), and then per cell from taffy's measure callback
+  (`SolveFlexboxLayoutWithMeasure`, `FlexboxLayoutInfoCrossAxisWithMeasure`),
+  which re-measures at the size taffy actually assigns.
+
+Reading the horizontal cache from the vertical pass is only sound while the
+horizontal solve does not read back into the vertical cache. A *repeated*
+width-for-height cell breaks that: the grid measures it through its plain
+`layout_info_h`, which pulls the instance's own height, and that height comes
+from the grid's vertical cache. `mark_grid_h_solve_reads_v_cache` sets
+`GridLayoutCell::h_solve_reads_v_cache` on every cell of such a grid, and the
+vertical pass then falls back to the instance's plain layout-info instead of
+closing a binding loop. Static cells are safe: on the grid solve
+`cell_layout_info` passes no cross size, so a cell with
+`layoutinfo-h-with-constraint` is measured at an unbounded height and one
+without it never reads its own height.
+
 ## Common Modification Patterns
 
 ### Adding a New Layout Property
@@ -302,7 +376,7 @@ the code generators compile to the appropriate runtime access pattern.
 ## Key Concepts for Agents
 
 1. **Two-phase architecture**: Compile-time creates structure, runtime evaluates values
-2. **Independent axis solving**: Horizontal and vertical are solved separately (for horizontal, vertical and grid layouts)
+2. **Independent axis solving**: Horizontal and vertical are solved separately (for horizontal, vertical and grid layouts), except where the vertical pass measures a height-for-width cell at the solved width
 3. **Constraint tightening**: Merging takes the most restrictive bounds
 4. **Stretch factors**: Control how extra space is distributed (0 = don't grow)
 5. **Cache indirection**: Enables repeaters without runtime structure changes

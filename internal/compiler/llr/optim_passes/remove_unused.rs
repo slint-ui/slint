@@ -333,6 +333,7 @@ mod visitor {
             layout_info_v_at_cross_width_for_repeated,
             layout_info_h_constrained_for_repeated,
             layout_info_h_at_cross_height_for_repeated,
+            grid_row_child_cross_width,
             is_repeated_row: _,
             grid_layout_children,
             accessible_prop,
@@ -450,6 +451,9 @@ mod visitor {
             visit_expression(e.get_mut(), &scope, state, visitor);
         }
         if let Some(e) = layout_info_h_at_cross_height_for_repeated {
+            visit_expression(e.get_mut(), &scope, state, visitor);
+        }
+        if let Some(e) = grid_row_child_cross_width {
             visit_expression(e.get_mut(), &scope, state, visitor);
         }
         for child in grid_layout_children {

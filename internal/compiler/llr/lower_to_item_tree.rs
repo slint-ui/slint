@@ -394,6 +394,7 @@ fn lower_sub_component(
         layout_info_v_at_cross_width_for_repeated: None,
         layout_info_h_constrained_for_repeated: None,
         layout_info_h_at_cross_height_for_repeated: None,
+        grid_row_child_cross_width: None,
         is_repeated_row: component
             .root_element
             .borrow()
@@ -845,6 +846,20 @@ fn lower_sub_component(
             .map(Into::into);
     }
 
+    if component.root_element.borrow().grid_layout_cell.is_some() {
+        // A GridLayout measures a height-for-width instance at the column width
+        // it assigns, through `layout_item_info_at_cross_width`; the plain
+        // `layout_info` measures at the instance's preferred width.
+        sub_component.layout_info_v_at_cross_width_for_repeated =
+            super::lower_layout_expression::get_layout_info_v_at_cross_width_for_repeated(
+                &mut ctx,
+                &component.root_element,
+                &component.root_constraints.borrow(),
+                false,
+            )
+            .map(Into::into);
+    }
+
     if let Some(grid_layout_cell) = component.root_element.borrow().grid_layout_cell.as_ref() {
         let grid_cell_ref = grid_layout_cell.borrow();
         sub_component.grid_layout_input_for_repeated = Some(
@@ -885,6 +900,24 @@ fn lower_sub_component(
                             .push(super::RowChildTemplateInfo::Static { child_index });
                     }
                     crate::layout::RowChildTemplate::Repeated { repeated_element, .. } => {
+                        // Measure this child at the column width the grid
+                        // assigns it, unless reading the horizontal cache would
+                        // close a binding loop. The expression is the same for
+                        // every child of the Row, so only the first one that
+                        // needs it builds it.
+                        let cross_width = (!grid_cell_ref.h_solve_reads_v_cache)
+                            .then(|| {
+                                super::lower_layout_expression::grid_measure_cross_width(
+                                    &mut ctx,
+                                    repeated_element,
+                                    super::lower_layout_expression::GridMeasureIndex::RowChild,
+                                )
+                            })
+                            .flatten();
+                        let measure_at_cross_width = cross_width.is_some();
+                        if sub_component.grid_row_child_cross_width.is_none() {
+                            sub_component.grid_row_child_cross_width = cross_width.map(Into::into);
+                        }
                         // Inner repeater: layout_info is computed at runtime per instance.
                         if let Some(super::lower_to_item_tree::LoweredElement::Repeated {
                             repeated_index,
@@ -892,6 +925,7 @@ fn lower_sub_component(
                         {
                             row_child_templates.push(super::RowChildTemplateInfo::Repeated {
                                 repeater_index: *repeated_index,
+                                measure_at_cross_width,
                             });
                         }
                     }

@@ -1373,6 +1373,9 @@ fn row_child_layout_item_info(
 ) -> i_slint_core::layout::LayoutItemInfo {
     use i_slint_compiler::llr::RowChildTemplateInfo;
     use i_slint_core::model::RepeatedItemTree;
+    // `index` is consumed as the walk advances; the cache read below addresses
+    // the child by its flattened index.
+    let flat_index = index;
     for entry in templates {
         match entry {
             RowChildTemplateInfo::Static { child_index } => {
@@ -1395,12 +1398,24 @@ fn row_child_layout_item_info(
                 }
                 index -= 1;
             }
-            RowChildTemplateInfo::Repeated { repeater_index } => {
+            RowChildTemplateInfo::Repeated { repeater_index, measure_at_cross_width } => {
                 let repeater = &this.root_sub_component.repeaters[*repeater_index];
                 repeater.track_instance_changes();
                 let count = repeater.range().len();
                 if index < count {
                     if let Some(inner) = repeater.instance_at(index) {
+                        // A GridLayout measures an inner repeated child at the
+                        // column width it assigns it, like a static child
+                        // measures at its own (lazily pulled) width.
+                        if *measure_at_cross_width
+                            && orientation == i_slint_core::items::Orientation::Vertical
+                            && let Some(w) = row_child_cross_width(this, sc, flat_index)
+                        {
+                            return RepeatedItemTree::layout_item_info_at_cross_width(
+                                inner.as_pin_ref(),
+                                w,
+                            );
+                        }
                         return RepeatedItemTree::layout_item_info(
                             inner.as_pin_ref(),
                             orientation,
@@ -1414,6 +1429,23 @@ fn row_child_layout_item_info(
         }
     }
     i_slint_core::layout::LayoutItemInfo::default()
+}
+
+/// Evaluate a repeated Row's `grid_row_child_cross_width` for one child.
+/// `None` when the Row has no such expression, or on a non-numeric value —
+/// the caller then falls back to the plain layout info rather than measuring
+/// at 0.
+fn row_child_cross_width(
+    this: &Instance,
+    sc: &i_slint_compiler::llr::SubComponent,
+    flat_index: usize,
+) -> Option<f32> {
+    use i_slint_compiler::llr::lower_layout_expression::GRID_MEASURE_CHILD_INDEX_LOCAL;
+    let expr = sc.grid_row_child_cross_width.as_ref()?;
+    let mut ctx = crate::eval::EvalContext::new(this.root_sub_component.clone());
+    ctx.locals
+        .insert(GRID_MEASURE_CHILD_INDEX_LOCAL.into(), crate::Value::Number(flat_index as f64));
+    crate::eval::eval_expression(&mut ctx, &expr.borrow()).try_into().ok()
 }
 
 fn value_to_flexbox_layout_item_info(

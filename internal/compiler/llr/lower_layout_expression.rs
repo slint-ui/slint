@@ -207,6 +207,7 @@ fn box_measure_cells_for(
                 return BoxMeasureCell::Repeated(LayoutRepeatedElement {
                     repeater_index,
                     row_child_templates: None,
+                    cross_width: None,
                 });
             }
             let measure_local = crate::expression_tree::Expression::ReadLocalVariable {
@@ -686,6 +687,7 @@ fn measure_cells_for(
                     kind: FlexboxMeasureCellKind::Repeated(LayoutRepeatedElement {
                         repeater_index,
                         row_child_templates: None,
+                        cross_width: None,
                     }),
                     w4h_only,
                 };
@@ -1164,6 +1166,7 @@ fn flexbox_layout_data(
                 elements.push(Either::Right(LayoutRepeatedElement {
                     repeater_index,
                     row_child_templates: None,
+                    cross_width: None,
                 }))
             } else {
                 // For static elements, we need both orientations
@@ -1343,6 +1346,7 @@ fn box_layout_data(
                 elements.push(Either::Right(LayoutRepeatedElement {
                     repeater_index,
                     row_child_templates: None,
+                    cross_width: None,
                 }))
             } else {
                 let layout_info = cell_layout_info(
@@ -1602,6 +1606,75 @@ struct GridLayoutCellConstraintsResult {
     compute_cells: Option<(String, Vec<Either<llr_Expression, LayoutRepeatedElement>>)>,
 }
 
+/// Name of the local the generated GridLayout vertical pass binds to the index
+/// of the repeated instance it is about to measure.
+pub const GRID_MEASURE_REPEATER_INDEX_LOCAL: &str = "grid_measure_repeater_index";
+
+/// Name of the local the generated repeated-Row `layout_item_info` binds to the
+/// flattened index of the child it is about to measure.
+pub const GRID_MEASURE_CHILD_INDEX_LOCAL: &str = "grid_measure_child_index";
+
+/// Which slot of the cell's cache read the measuring loop fills in, and so
+/// which local it binds. These are the only locals [`grid_measure_cross_width`]
+/// introduces.
+pub enum GridMeasureIndex {
+    /// A repeated cell of the grid, addressed by its repeater index.
+    Instance,
+    /// A child of a repeated Row, addressed by its flattened index within the
+    /// Row. That index is what the cache slot uses, so the expression built
+    /// from one child serves every child that returns `Some` here — which is
+    /// what `RowChildTemplateInfo::Repeated`'s `measure_at_cross_width` records.
+    RowChild,
+}
+
+/// Reads a repeated grid cell's solved column width out of the grid's
+/// horizontal cache: the cell's own `width` binding with `index`'s slot swapped
+/// for a local, so the measuring loop can evaluate it once per instance.
+///
+/// `None` when the instance is not height-for-width (nothing to re-measure) or
+/// when its width is fixed — the grid then never assigns it one, so there is no
+/// cache binding to read.
+pub fn grid_measure_cross_width(
+    ctx: &mut ExpressionLoweringCtx,
+    elem: &ElementRc,
+    index: GridMeasureIndex,
+) -> Option<llr_Expression> {
+    let comp = elem.borrow().base_type.as_component().clone();
+    let root = &comp.root_element;
+    if !root.borrow().has_inherited_layout_info_v_with_constraint() {
+        return None;
+    }
+    let mut width = repeated_cell_width_binding(root)?;
+    let crate::expression_tree::Expression::GridRepeaterCacheAccess {
+        repeater_index,
+        inner_repeater_index,
+        ..
+    } = width.ignore_debug_hooks_mut()
+    else {
+        return None;
+    };
+    let local = |name: &str| crate::expression_tree::Expression::ReadLocalVariable {
+        name: name.into(),
+        ty: Type::Int32,
+    };
+    match index {
+        GridMeasureIndex::Instance => **repeater_index = local(GRID_MEASURE_REPEATER_INDEX_LOCAL),
+        GridMeasureIndex::RowChild => {
+            *inner_repeater_index = Some(Box::new(local(GRID_MEASURE_CHILD_INDEX_LOCAL)))
+        }
+    }
+    Some(super::lower_expression::lower_expression(&width, ctx))
+}
+
+/// The `width` binding a GridLayout gave a repeated cell, followed through
+/// `geometry_props`: an injected wrapper (`Opacity`, `Transform`, …) becomes the
+/// repeated component's root but leaves the binding on the element below it.
+fn repeated_cell_width_binding(root: &ElementRc) -> Option<crate::expression_tree::Expression> {
+    let width = root.borrow().geometry_props.as_ref()?.width.clone();
+    let expr = width.element().borrow().binding(width.name())?.expression.clone();
+    Some(expr)
+}
+
 fn grid_layout_cell_constraints(
     layout: &crate::layout::GridLayout,
     orientation: Orientation,
@@ -1649,9 +1722,28 @@ fn grid_layout_cell_constraints(
                     _ => panic!(),
                 };
                 let row_child_templates = get_row_child_templates(&item.item.element, ctx);
+                // Measure a height-for-width instance at the width the grid
+                // assigns it, instead of its preferred width. Skipped when
+                // reading the horizontal cache would close a binding loop
+                // (`h_solve_reads_v_cache`), and on the
+                // `layoutinfo-v-with-constraint` path, where the caller has
+                // not settled the grid's width yet.
+                let cross_width = (orientation == Orientation::Vertical
+                    && cross_axis_size_override.is_none()
+                    && row_child_templates.is_none()
+                    && !item.cell.borrow().h_solve_reads_v_cache)
+                    .then(|| {
+                        grid_measure_cross_width(
+                            ctx,
+                            &item.item.element,
+                            GridMeasureIndex::Instance,
+                        )
+                    })
+                    .flatten();
                 elements.push(Either::Right(LayoutRepeatedElement {
                     repeater_index,
                     row_child_templates,
+                    cross_width,
                 }));
             } else {
                 let layout_info = cell_layout_info(

@@ -467,6 +467,13 @@ pub struct GridLayoutCell {
     pub colspan_expr: RowColExpr,
     pub rowspan_expr: RowColExpr,
     pub child_items: Option<Vec<RowChildTemplate>>, // for repeated rows
+    /// Set on every cell of a grid whose horizontal solve can read back into
+    /// its vertical cache, i.e. one holding a repeated width-for-height cell.
+    /// The vertical pass must then not measure repeated cells at their solved
+    /// column width, because reading the horizontal cache would close a
+    /// binding loop. Computed by `mark_grid_h_solve_reads_v_cache`, which runs
+    /// once the `layoutinfo-h-with-constraint` functions exist.
+    pub h_solve_reads_v_cache: bool,
 }
 
 impl GridLayoutCell {
