@@ -2257,14 +2257,6 @@ export component HorizontalLayout {
 /// ```
 /// </SlintProperty>
 ///
-/// ## Layout Behavior
-///
-/// The layouting algorithm for FlexboxLayout is entirely implemented by <a href="https://github.com/DioxusLabs/taffy">taffy</a>
-///
-/// You can learn more about the CSS Flexbox specification from
-/// - <a href="https://developer.mozilla.org/en-US/docs/Web/CSS/Guides/Flexible_box_layout/Basic_concepts">the Mozilla developer website</a>
-/// - <a href="https://css-tricks.com/snippets/css/a-guide-to-flexbox/">A Complete Guide To Flexbox by CSS Tricks</a>. This is detailed guide with illustrations and comprehensive written explanation of the different Flexbox properties and how they work.
-///
 /// ## CSS Mapping
 ///
 /// The container properties map to CSS Flexbox as follows:
@@ -2272,7 +2264,7 @@ export component HorizontalLayout {
 /// | CSS               | Slint                                                     |
 /// | ----------------- | --------------------------------------------------------- |
 /// | `flex-direction`  | `flex-direction`                                          |
-/// | `flex-wrap`       | `flex-wrap`, but the default differs: CSS defaults to `nowrap`, Slint to `wrap`. For a non-wrapping row or column, prefer <Link type="HorizontalLayout" /> / <Link type="VerticalLayout" /> |
+/// | `flex-wrap`       | `flex-wrap`, but the default is `wrap` (CSS: `nowrap`)    |
 /// | `justify-content` | `alignment`                                               |
 /// | `align-items`     | `cross-axis-alignment`                                    |
 /// | `align-content`   | `cross-axis-line-alignment`                               |
@@ -2290,6 +2282,15 @@ export component HorizontalLayout {
 /// | `flex-shrink` | nothing to opt into: every item shrinks, in proportion to its preferred size; `min-width` / `min-height` refuses shrinking |
 /// | `flex-basis`  | `preferred-width` (row) / `preferred-height` (column)          |
 /// | `align-self`  | `cross-axis-self-alignment`                                    |
+///
+/// ## Layout Behavior
+///
+/// The layouting algorithm for FlexboxLayout is entirely implemented by <a href="https://github.com/DioxusLabs/taffy">taffy</a>
+///
+/// You can learn more about the CSS Flexbox specification from
+/// - <a href="https://developer.mozilla.org/en-US/docs/Web/CSS/Guides/Flexible_box_layout/Basic_concepts">the Mozilla developer website</a>
+/// - <a href="https://css-tricks.com/snippets/css/a-guide-to-flexbox/">A Complete Guide To Flexbox by CSS Tricks</a>. This is detailed guide with illustrations and comprehensive written explanation of the different Flexbox properties and how they work.
+///
 /// \group:layouts
 export component FlexboxLayout {
     //! ## Spacing Properties
