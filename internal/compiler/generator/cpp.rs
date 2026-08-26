@@ -480,7 +480,8 @@ use crate::langtype::{
 use crate::layout::Orientation;
 use crate::llr::lower_expression::lower_constant_expression;
 use crate::llr::lower_layout_expression::{
-    CROSS_HEIGHT_LOCAL, CROSS_WIDTH_LOCAL, MEASURE_KNOWN_H_LOCAL, MEASURE_KNOWN_W_LOCAL,
+    CROSS_HEIGHT_LOCAL, CROSS_WIDTH_LOCAL, GRID_MEASURE_CHILD_INDEX_LOCAL,
+    GRID_MEASURE_REPEATER_INDEX_LOCAL, MEASURE_KNOWN_H_LOCAL, MEASURE_KNOWN_W_LOCAL,
 };
 use crate::llr::{
     self, EvaluationContext as llr_EvaluationContext, EvaluationScope, ParentScope,
@@ -3023,6 +3024,27 @@ fn generate_layout_item_info_decl(
     let templates = root_sc.row_child_templates.as_ref().unwrap();
     let n = templates.len();
 
+    // A GridLayout measures an inner repeated child at the column width it
+    // assigns it, like the static children measure at their own (lazily
+    // pulled) width.
+    let inner_at_cross_width = |inner_rep_id: &str, measure_at_cross_width: bool| -> String {
+        let Some(e) =
+            root_sc.grid_row_child_cross_width.as_ref().filter(|_| measure_at_cross_width)
+        else {
+            return String::new();
+        };
+        let idx = ident(GRID_MEASURE_CHILD_INDEX_LOCAL);
+        let width = compile_expression(&e.borrow(), ctx);
+        format!(
+            "if (o == slint::cbindgen_private::Orientation::Vertical) {{\n\
+                 if (auto *inner = {inner_rep_id}.typed_instance_at(index - count)) {{\n\
+                     [[maybe_unused]] size_t {idx} = index;\n\
+                     return inner->layout_item_info_at_cross_width(static_cast<float>({width}));\n\
+                 }}\n\
+             }}\n"
+        )
+    };
+
     // Generate a sequential scan through all templates in declaration order.
     // Count up from 0; for Static entries check count == index, for Repeated entries
     // check whether index falls within [count, count + inner_len).
@@ -3049,16 +3071,18 @@ fn generate_layout_item_info_decl(
                 )
                 .unwrap();
             }
-            llr::RowChildTemplateInfo::Repeated { repeater_index } => {
+            llr::RowChildTemplateInfo::Repeated { repeater_index, measure_at_cross_width } => {
                 let inner_rep_id = format!("repeater_{}", usize::from(*repeater_index));
                 let advance =
                     if is_last { String::new() } else { "count += inner_len;\n".to_owned() };
+                let at_cross_width = inner_at_cross_width(&inner_rep_id, *measure_at_cross_width);
                 write!(
                     body,
                     "{{\n\
                      self->{inner_rep_id}.track_instance_changes();\n\
                      size_t inner_len = {inner_rep_id}.len();\n\
                      if (index >= count && index - count < inner_len) {{\n\
+                         {at_cross_width}\
                          if (auto vrc = {inner_rep_id}.instance_at(index - count).lock()) {{\n\
                              auto vref = vrc->borrow();\n\
                              return {{ vref.vtable->layout_info(vref, o), {{}}, {{}} }};\n\
@@ -3325,7 +3349,7 @@ fn generate_grid_layout_input_decl(
                     )
                     .unwrap();
                 }
-                llr::RowChildTemplateInfo::Repeated { repeater_index } => {
+                llr::RowChildTemplateInfo::Repeated { repeater_index, .. } => {
                     let inner_rep_id = format!("repeater_{}", usize::from(*repeater_index));
                     // Let the inner cell report its own col/row/colspan/rowspan.
                     write!(
@@ -5742,7 +5766,7 @@ fn build_inner_ensure_code(templates: &[llr::RowChildTemplateInfo], static_count
     templates
         .iter()
         .filter_map(|e| match e {
-            llr::RowChildTemplateInfo::Repeated { repeater_index } => {
+            llr::RowChildTemplateInfo::Repeated { repeater_index, .. } => {
                 let inner_rep_id = format!("repeater_{}", usize::from(*repeater_index));
                 Some(format!(
                     "sub_comp->{inner_rep_id}.track_instance_changes();\n\
@@ -5818,6 +5842,11 @@ fn generate_with_layout_item_info(
                 let repeater_index = usize::from(repeater.repeater_index);
                 write!(push_code, "self->repeater_{repeater_index}.track_instance_changes();")
                     .unwrap();
+                // A grid measures each instance at its own solved column width,
+                // read from the horizontal cache with the loop counter bound to
+                // `GRID_MEASURE_REPEATER_INDEX_LOCAL`.
+                let grid_cross_width =
+                    repeater.cross_width.as_ref().map(|e| compile_expression(e, ctx));
 
                 if let Some(ri) = &repeated_indices_var_name {
                     write!(
@@ -5867,6 +5896,22 @@ fn generate_with_layout_item_info(
                     |repeater_id, step, is_column_repeater, rs_init| {
                         if step == 0 {
                             rs_init
+                        } else if let Some(width) = &grid_cross_width {
+                            // Grid column-repeater: measure each instance at the
+                            // column width the grid assigns it. `typed_instance_at`
+                            // (unlike `for_each`) keeps the index in step with the
+                            // cache, including not-yet-instantiated slots.
+                            debug_assert!(step == 1 && is_column_repeater);
+                            let idx = ident(GRID_MEASURE_REPEATER_INDEX_LOCAL);
+                            format!(
+                                "{rs_init}for (size_t {idx} = 0; {idx} < self->{repeater_id}.len(); ++{idx}) {{
+                                    if (auto *sub_comp = self->{repeater_id}.typed_instance_at({idx})) {{
+                                        cells_vector.push_back(sub_comp->layout_item_info_at_cross_width(static_cast<float>({width})));
+                                    }} else {{
+                                        cells_vector.push_back({{}});
+                                    }}
+                                }}",
+                            )
                         } else if step == 1 && is_column_repeater {
                             // Column-repeater: each sub-component IS a cell; nullopt returns its own layout_info
                             let item_info = match (repeated_cross_size, orientation) {

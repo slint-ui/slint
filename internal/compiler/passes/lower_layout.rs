@@ -249,6 +249,67 @@ fn rewrite_layoutinfo_h_for_constraint(expr: &mut Expression, height_param: &Exp
 /// horizontal axis. Fires on any element whose `layoutinfo-h` depends
 /// (transitively) on a flex with horizontal cross-axis — directly
 /// (column-direction flex) or via a descendant / base component.
+/// Record on every cell of a GridLayout whether solving that grid's horizontal
+/// axis can read back into its vertical cache — see
+/// [`crate::layout::GridLayoutCell::h_solve_reads_v_cache`].
+///
+/// Only a *repeated* width-for-height cell does that: the grid measures it
+/// through its plain `layout_info_h`, which pulls the instance's own height,
+/// and that height comes from the grid's vertical cache. A static cell is
+/// measured at an unbounded height instead (see `cell_layout_info`), and any
+/// other way for a cell's horizontal info to reach its own height is a binding
+/// loop `binding_analysis` already rejects.
+///
+/// Must run after `synthesize_layoutinfo_h_with_constraint` (the marker it
+/// tests is created there) and after the wrapper-injecting passes (an injected
+/// `Opacity`/`Transform` takes over the cell role).
+pub fn mark_grid_h_solve_reads_v_cache(component: &Rc<Component>) {
+    /// The element carrying the layout-info: a repeated cell moved its body
+    /// into a sub-component.
+    fn measured_element(elem: &ElementRc) -> ElementRc {
+        let elem_b = elem.borrow();
+        match (&elem_b.repeated, &elem_b.base_type) {
+            (Some(_), ElementType::Component(base)) => base.root_element.clone(),
+            _ => elem.clone(),
+        }
+    }
+    fn reads_v_cache(grid: &GridLayout) -> bool {
+        grid.elems.iter().any(|e| {
+            if e.item.element.borrow().repeated.is_none() {
+                return false;
+            }
+            if measured_element(&e.item.element)
+                .borrow()
+                .has_inherited_layout_info_h_with_constraint()
+            {
+                return true;
+            }
+            // A repeated Row measures its children the same unconstrained way.
+            e.cell.borrow().child_items.iter().flatten().any(|c| {
+                measured_element(&c.layout_item().element)
+                    .borrow()
+                    .has_inherited_layout_info_h_with_constraint()
+            })
+        })
+    }
+    // Every binding holds its own clone of the `GridLayout`, so stamp them all
+    // rather than relying on the cells still being shared through their `Rc`.
+    crate::object_tree::visit_all_expressions(component, |expr, _| {
+        expr.visit_recursive_mut(&mut |sub| {
+            let grid = match sub {
+                Expression::OrganizeGridLayout(grid) => grid,
+                Expression::SolveGridLayout { layout, .. } => layout,
+                Expression::ComputeGridLayoutInfo { layout, .. } => layout,
+                _ => return,
+            };
+            let unsafe_h = reads_v_cache(grid);
+            for e in &grid.elems {
+                e.cell.borrow_mut().h_solve_reads_v_cache = unsafe_h;
+            }
+        });
+    });
+}
+
 pub fn synthesize_layoutinfo_h_with_constraint(component: &Rc<Component>) {
     /// Bottom-up walk, returns `true` if the subtree contains an
     /// h-cross-axis dependency (a flex with cross axis on horizontal,
@@ -1071,6 +1132,7 @@ impl GridLayout {
                     colspan_expr: colspan_expr.unwrap_or(RowColExpr::Literal(1)),
                     rowspan_expr: rowspan_expr.unwrap_or(RowColExpr::Literal(1)),
                     child_items: None,
+                    h_solve_reads_v_cache: false,
                 }));
                 // Attach to the element the solver reads: the sub-component root for an inner
                 // repeater (so it reports its own colspan/rowspan), or `child` for a static child.
@@ -1190,6 +1252,7 @@ impl GridLayout {
                 colspan_expr: RowColExpr::Literal(1),
                 rowspan_expr: RowColExpr::Literal(1),
                 child_items: Some(children_layout_items),
+                h_solve_reads_v_cache: false,
             }));
             let grid_layout_element = GridLayoutElement {
                 cell: grid_layout_cell.clone(),
@@ -1261,6 +1324,7 @@ impl GridLayout {
             colspan_expr: expr_or_default(colspan_expr, RowColExpr::Literal(1)),
             rowspan_expr: expr_or_default(rowspan_expr, RowColExpr::Literal(1)),
             child_items: None,
+            h_solve_reads_v_cache: false,
         }));
         let grid_layout_element =
             GridLayoutElement { cell: grid_layout_cell.clone(), item: layout_item.item.clone() };

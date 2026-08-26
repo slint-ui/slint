@@ -1127,6 +1127,7 @@ fn with_layout_item_info(
                     repeater.row_child_templates.as_deref(),
                     orientation,
                     cross_size,
+                    repeater.cross_width.as_ref(),
                     &mut cells,
                 );
                 repeated_indices.push(offset);
@@ -1162,6 +1163,7 @@ fn push_repeater_layout_items(
     row_child_templates: Option<&[i_slint_compiler::llr::RowChildTemplateInfo]>,
     orientation: i_slint_compiler::layout::Orientation,
     cross_size: Option<f32>,
+    grid_cross_width: Option<&Expression>,
     cells: &mut Vec<Value>,
 ) -> (u32, u32) {
     use i_slint_core::model::RepeatedItemTree;
@@ -1196,7 +1198,7 @@ fn push_repeater_layout_items(
             // Column repeater: one cell per instance, asking the sub-component
             // for its own layout info — at the layout's cross size when the
             // main-axis pass forwards one.
-            for instance in &instances {
+            for (i, instance) in instances.iter().enumerate() {
                 let info = match (cross_size, core_orientation) {
                     (Some(cs), i_slint_core::items::Orientation::Vertical) => {
                         RepeatedItemTree::layout_item_info_at_cross_width(instance.as_pin_ref(), cs)
@@ -1207,11 +1209,21 @@ fn push_repeater_layout_items(
                             cs,
                         )
                     }
-                    (None, _) => RepeatedItemTree::layout_item_info(
-                        instance.as_pin_ref(),
-                        core_orientation,
-                        None,
-                    ),
+                    // A grid re-measures each instance at its own solved
+                    // column width instead of one size shared by all cells.
+                    (None, _) => {
+                        match grid_cross_width.and_then(|e| eval_grid_measure_width(ctx, e, i)) {
+                            Some(w) => RepeatedItemTree::layout_item_info_at_cross_width(
+                                instance.as_pin_ref(),
+                                w,
+                            ),
+                            None => RepeatedItemTree::layout_item_info(
+                                instance.as_pin_ref(),
+                                core_orientation,
+                                None,
+                            ),
+                        }
+                    }
                 };
                 push_cell(cells, info);
             }
@@ -1245,6 +1257,20 @@ fn push_repeater_layout_items(
     (instances.len() as u32, step)
 }
 
+/// Evaluate a [`i_slint_compiler::llr::LayoutRepeatedElement::cross_width`]
+/// cache read for one instance. `None` on a non-numeric value, so the caller
+/// falls back to the plain layout info rather than measuring at 0.
+fn eval_grid_measure_width(ctx: &mut EvalContext, expr: &Expression, index: usize) -> Option<f32> {
+    use i_slint_compiler::llr::lower_layout_expression::GRID_MEASURE_REPEATER_INDEX_LOCAL;
+    let prev = ctx.locals.insert(
+        SmolStr::new_static(GRID_MEASURE_REPEATER_INDEX_LOCAL),
+        Value::Number(index as f64),
+    );
+    let value = eval_expression(ctx, expr);
+    restore_local(ctx, GRID_MEASURE_REPEATER_INDEX_LOCAL, prev);
+    value.try_into().ok()
+}
+
 fn total_row_child_count(
     sub: &Pin<std::rc::Rc<crate::instance::SubComponentInstance>>,
     templates: &[i_slint_compiler::llr::RowChildTemplateInfo],
@@ -1252,7 +1278,7 @@ fn total_row_child_count(
     use i_slint_compiler::llr::{RowChildTemplateInfo, static_child_count};
     let mut total = static_child_count(templates);
     for entry in templates {
-        if let RowChildTemplateInfo::Repeated { repeater_index } = entry {
+        if let RowChildTemplateInfo::Repeated { repeater_index, .. } = entry {
             let repeater = &sub.repeaters[*repeater_index];
             repeater.track_instance_changes();
             total += repeater.range().len();
@@ -1564,7 +1590,7 @@ fn push_repeater_grid_input_data(
                         cells.push(v);
                         written += 1;
                     }
-                    RowChildTemplateInfo::Repeated { repeater_index } => {
+                    RowChildTemplateInfo::Repeated { repeater_index, .. } => {
                         let inner_rep = &inner_sub.repeaters[*repeater_index];
                         inner_rep.track_instance_changes();
                         // Let each inner cell report its own

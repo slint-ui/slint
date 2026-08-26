@@ -33,6 +33,8 @@ All notable changes to this project are documented in this file.
  - Fixed a memory leak where a window with a native menu bar was kept alive forever. (#12971)
  - Fixed min/max size constraints on layout cells being ignored when `cross-axis-alignment`
    is not `stretch`, and percentage sizes not applied correctly in states. (#8988)
+ - Fixed rows of a `VerticalLayout` and a `GridLayout` being too short for a repeated cell with
+   word-wrapped text: the cell is now measured at the width the layout assigns it. (#12776)
  - Fixed a code generation error for a conditional `opacity` binding on a repeated `GridLayout` child. (#12442)
  - Fixed a panic when an item is reached through a parent component that was deleted while a callback
    is still running. (#12877)
