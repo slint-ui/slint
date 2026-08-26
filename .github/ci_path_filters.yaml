@@ -61,12 +61,14 @@ slint:
  - 'internal/**'
  - 'tests/screenshots/**'
  - 'tools/compiler/**'
- - 'tools/editor/**'
  - 'tools/figma_import/**'
  - 'tools/lsp/**'
  - 'tools/tr-extractor/**'
  - 'tools/viewer/**'
  - 'xtask/**'
+
+visual_editor:
+ - 'tools/editor/**'
 
 # Qt backend and widget definitions — gates the Qt test step in build_and_test
 qt:
@@ -205,3 +207,4 @@ rust_files:
  - '**/*.rs'
  - '**/Cargo.toml'
  - '.clippy.toml'
+ - '!tools/editor/**'

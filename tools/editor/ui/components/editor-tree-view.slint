@@ -46,6 +46,15 @@ component EditorTreeRow {
 
     vertical-stretch: 0;
     horizontal-stretch: 1;
+    accessible-role: AccessibleRole.list-item;
+    accessible-label: root.row-label;
+    accessible-description: "Hierarchy level \{root.level-safe}";
+    accessible-item-selectable: true;
+    accessible-item-selected: root.current;
+    accessible-action-default => {
+        row-focus.focus();
+        root.select();
+    }
 
     changed row-has-hover => {
         root.row-hover-changed(root.row-index, root.row-has-hover);
@@ -206,6 +215,7 @@ component EditorTreeRow {
                         height: parent.height;
                         mouse-cursor: pointer;
                         clicked => {
+                            row-focus.focus();
                             root.select();
                         }
                     }

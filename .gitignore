@@ -51,6 +51,7 @@ uv.lock
 !api/python/slint/uv.lock
 !api/python/briefcase/uv.lock
 !docs/python/uv.lock
+!tools/editor/ui-tests/uv.lock
 .python-version
 
 MODULE.bazel.lock

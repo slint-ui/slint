@@ -6,6 +6,7 @@ import { CanvasCorner } from "../api.slint";
 import { EditorMetrics, StudioTheme } from "common.slint";
 
 export component MoveResizeFrame inherits Rectangle {
+    in property <string> accessible-prefix: "Selection";
     in property <bool> active;
     in property <bool> shift-pressed: false;
     in property <angle> rotation: 0deg;
@@ -20,6 +21,7 @@ export component MoveResizeFrame inherits Rectangle {
     out property <angle> rotation-tooltip-value: 0deg;
     private property <length> drag-threshold: 2px;
     private property <bool> resize-pressed: false;
+    private property <bool> resize-dragging: false;
     private property <bool> resize-shift-pressed: false;
     private property <CanvasCorner> resize-corner: CanvasCorner.top-left;
     private property <Size> resize-start-size: { width: 0px, height: 0px };
@@ -43,6 +45,19 @@ export component MoveResizeFrame inherits Rectangle {
 
     public pure function corner-on-top(corner: CanvasCorner) -> bool {
         return corner == CanvasCorner.top-left || corner == CanvasCorner.top-right;
+    }
+
+    public pure function corner-name(corner: CanvasCorner) -> string {
+        if corner == CanvasCorner.top-left {
+            return "top-left";
+        }
+        if corner == CanvasCorner.top-right {
+            return "top-right";
+        }
+        if corner == CanvasCorner.bottom-right {
+            return "bottom-right";
+        }
+        return "bottom-left";
     }
 
     pure function corner-resize-cursor-is-forward-diagonal(corner: CanvasCorner) -> bool {
@@ -215,7 +230,7 @@ export component MoveResizeFrame inherits Rectangle {
     }
 
     changed shift-pressed => {
-        if root.resize-pressed {
+        if root.resize-pressed && root.resize-dragging {
             root.resize-shift-pressed = root.shift-pressed;
             root.emit-resize-target();
         }
@@ -231,6 +246,9 @@ export component MoveResizeFrame inherits Rectangle {
             width: root.width;
             height: root.height;
             mouse-cursor: move;
+            accessible-role: AccessibleRole.button;
+            accessible-label: root.accessible-prefix + " move handle";
+            accessible-enabled: root.moveable;
             private property <Point> move-start-position: { x: 0px, y: 0px };
             private property <Point> move-start-pointer: { x: 0px, y: 0px };
 
@@ -316,9 +334,13 @@ export component MoveResizeFrame inherits Rectangle {
 
                 TouchArea {
                     mouse-cursor: root.rotation-cursor-is-forward-diagonal(corner) ? nwse-resize : nesw-resize;
+                    accessible-role: AccessibleRole.button;
+                    accessible-label: root.accessible-prefix + " rotate " + root.corner-name(corner);
+                    accessible-enabled: root.show-rotation-handles;
                     private property <bool> event-shift-pressed: false;
                     private property <angle> start-rotation;
                     private property <angle> start-pointer-angle;
+                    private property <Point> press-position: { x: 0px, y: 0px };
 
                     pointer-event(event) => {
                         self.event-shift-pressed = event.modifiers.shift;
@@ -326,6 +348,7 @@ export component MoveResizeFrame inherits Rectangle {
 
                     changed pressed => {
                         if self.pressed {
+                            self.press-position = { x: self.mouse-x, y: self.mouse-y };
                             let local-point = root.child-local-point(
                                 { x: parent.x, y: parent.y },
                                 { x: self.mouse-x, y: self.mouse-y },
@@ -346,6 +369,14 @@ export component MoveResizeFrame inherits Rectangle {
                     }
 
                     moved => {
+                        if !self.pressed {
+                            return;
+                        }
+                        let moved-far-enough = (self.mouse-x - self.press-position.x).abs() >= root.drag-threshold
+                            || (self.mouse-y - self.press-position.y).abs() >= root.drag-threshold;
+                        if !moved-far-enough {
+                            return;
+                        }
                         let local-point = root.child-local-point(
                             { x: parent.x, y: parent.y },
                             { x: self.mouse-x, y: self.mouse-y },
@@ -381,11 +412,14 @@ export component MoveResizeFrame inherits Rectangle {
                     TouchArea {
                         enabled: root.resizable;
                         mouse-cursor: root.corner-resize-cursor-is-forward-diagonal(corner) ? nwse-resize : nesw-resize;
+                        accessible-role: AccessibleRole.button;
+                        accessible-label: root.accessible-prefix + " resize " + root.corner-name(corner);
+                        accessible-enabled: root.resizable;
                         private property <bool> event-shift-pressed: false;
 
                         pointer-event(event) => {
                             self.event-shift-pressed = event.modifiers.shift;
-                            if root.resize-pressed {
+                            if root.resize-pressed && root.resize-dragging {
                                 root.resize-shift-pressed = event.modifiers.shift;
                                 root.emit-resize-target();
                             }
@@ -399,9 +433,9 @@ export component MoveResizeFrame inherits Rectangle {
                                 ));
 
                                 root.selected();
-                                root.interaction-started();
                                 root.resize-corner = corner;
                                 root.resize-pressed = true;
+                                root.resize-dragging = false;
                                 root.resize-shift-pressed = root.shift-pressed || self.event-shift-pressed;
                                 root.resize-start-size = { width: root.width, height: root.height };
                                 root.resize-start-rotation = root.rotation;
@@ -413,21 +447,39 @@ export component MoveResizeFrame inherits Rectangle {
                                     root.resize-start-rotation,
                                 );
                                 root.store-free-resize-target(pointer);
-                                root.emit-resize-target();
                             } else {
-                                if root.resize-pressed {
+                                if root.resize-pressed && root.resize-dragging {
                                     root.interaction-ended();
                                 }
                                 root.resize-pressed = false;
+                                root.resize-dragging = false;
                                 root.resize-shift-pressed = false;
                             }
                         }
 
                         moved => {
-                            root.store-free-resize-target(root.local-point-to-parent(root.child-local-point(
+                            if !root.resize-pressed {
+                                return;
+                            }
+                            let pointer = root.local-point-to-parent(root.child-local-point(
                                 { x: parent.x, y: parent.y },
                                 { x: self.mouse-x, y: self.mouse-y },
-                            )));
+                            ));
+                            let delta = {
+                                x: pointer.x - root.resize-start-pointer.x,
+                                y: pointer.y - root.resize-start-pointer.y,
+                            };
+                            let moved-far-enough = delta.x.abs() >= root.drag-threshold
+                                || delta.y.abs() >= root.drag-threshold;
+                            if !root.resize-dragging && moved-far-enough {
+                                root.resize-shift-pressed = root.shift-pressed || self.event-shift-pressed;
+                                root.resize-dragging = true;
+                                root.interaction-started();
+                            }
+                            if !root.resize-dragging {
+                                return;
+                            }
+                            root.store-free-resize-target(pointer);
                             root.emit-resize-target();
                         }
                     }
