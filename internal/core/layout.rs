@@ -6,8 +6,8 @@
 // cspell:ignore coord
 
 use crate::items::{
-    CrossAxisAlignment, CrossAxisLineAlignment, CrossAxisSelfAlignment, DialogButtonRole,
-    FlexboxLayoutDirection, FlexboxLayoutWrap, LayoutAlignment,
+    CrossAxisAlignment, CrossAxisSelfAlignment, DialogButtonRole, FlexboxLayoutDirection,
+    FlexboxLayoutWrap, LayoutAlignment,
 };
 use crate::{Coord, SharedVector, slice::Slice};
 use alloc::format;
@@ -1151,7 +1151,7 @@ pub struct FlexboxLayoutData<'a> {
     pub padding_v: Padding,
     pub alignment: LayoutAlignment,
     pub direction: FlexboxLayoutDirection,
-    pub cross_axis_line_alignment: CrossAxisLineAlignment,
+    pub cross_axis_line_alignment: LayoutAlignment,
     pub cross_axis_alignment: CrossAxisAlignment,
     pub flex_wrap: FlexboxLayoutWrap,
     /// Horizontal constraints (width) for each cell
@@ -1388,13 +1388,27 @@ pub fn box_layout_info_ortho(cells: Slice<LayoutItemInfo>, padding: &Padding) ->
 /// Helper module for taffy-based flexbox layout
 mod flexbox_taffy {
     use super::{
-        Coord, CrossAxisAlignment, CrossAxisLineAlignment, CrossAxisSelfAlignment, FlexItemProps,
+        Coord, CrossAxisAlignment, CrossAxisSelfAlignment, FlexItemProps,
         FlexboxLayoutWrap as SlintFlexboxLayoutWrap, LayoutAlignment, LayoutInfo, LayoutItemInfo,
         Padding, Slice,
     };
     use alloc::vec::Vec;
     pub use taffy::prelude::FlexDirection as TaffyFlexDirection;
     use taffy::prelude::*;
+
+    /// Start/End map to FlexStart/FlexEnd to respect the flex direction (including reverse);
+    /// AlignContent::Start/End would ignore the direction and always use the writing mode.
+    fn to_align_content(alignment: LayoutAlignment) -> AlignContent {
+        match alignment {
+            LayoutAlignment::Stretch => AlignContent::Stretch,
+            LayoutAlignment::Start => AlignContent::FlexStart,
+            LayoutAlignment::End => AlignContent::FlexEnd,
+            LayoutAlignment::Center => AlignContent::Center,
+            LayoutAlignment::SpaceBetween => AlignContent::SpaceBetween,
+            LayoutAlignment::SpaceAround => AlignContent::SpaceAround,
+            LayoutAlignment::SpaceEvenly => AlignContent::SpaceEvenly,
+        }
+    }
 
     /// Parameters for FlexboxTaffyBuilder::new
     pub struct FlexboxLayoutParams<'a> {
@@ -1406,7 +1420,7 @@ mod flexbox_taffy {
         pub padding_h: &'a Padding,
         pub padding_v: &'a Padding,
         pub alignment: LayoutAlignment,
-        pub cross_axis_line_alignment: CrossAxisLineAlignment,
+        pub cross_axis_line_alignment: LayoutAlignment,
         pub cross_axis_alignment: CrossAxisAlignment,
         pub flex_wrap: SlintFlexboxLayoutWrap,
         pub flex_direction: TaffyFlexDirection,
@@ -1659,32 +1673,14 @@ mod flexbox_taffy {
                             SlintFlexboxLayoutWrap::NoWrap => FlexWrap::NoWrap,
                             SlintFlexboxLayoutWrap::WrapReverse => FlexWrap::WrapReverse,
                         },
-                        justify_content: Some(match params.alignment {
-                            // Start/End map to FlexStart/FlexEnd to respect flex direction (including reverse)
-                            // AlignContent::Start/End would ignore direction and always use writing mode
-                            LayoutAlignment::Start => AlignContent::FlexStart,
-                            LayoutAlignment::End => AlignContent::FlexEnd,
-                            LayoutAlignment::Center => AlignContent::Center,
-                            LayoutAlignment::Stretch => AlignContent::Stretch,
-                            LayoutAlignment::SpaceBetween => AlignContent::SpaceBetween,
-                            LayoutAlignment::SpaceAround => AlignContent::SpaceAround,
-                            LayoutAlignment::SpaceEvenly => AlignContent::SpaceEvenly,
-                        }),
+                        justify_content: Some(to_align_content(params.alignment)),
                         align_items: Some(match params.cross_axis_alignment {
                             CrossAxisAlignment::Stretch => AlignItems::Stretch,
                             CrossAxisAlignment::Start => AlignItems::FlexStart,
                             CrossAxisAlignment::End => AlignItems::FlexEnd,
                             CrossAxisAlignment::Center => AlignItems::Center,
                         }),
-                        align_content: Some(match params.cross_axis_line_alignment {
-                            CrossAxisLineAlignment::Stretch => AlignContent::Stretch,
-                            CrossAxisLineAlignment::Start => AlignContent::FlexStart,
-                            CrossAxisLineAlignment::End => AlignContent::FlexEnd,
-                            CrossAxisLineAlignment::Center => AlignContent::Center,
-                            CrossAxisLineAlignment::SpaceBetween => AlignContent::SpaceBetween,
-                            CrossAxisLineAlignment::SpaceAround => AlignContent::SpaceAround,
-                            CrossAxisLineAlignment::SpaceEvenly => AlignContent::SpaceEvenly,
-                        }),
+                        align_content: Some(to_align_content(params.cross_axis_line_alignment)),
                         gap: Size {
                             width: LengthPercentage::length(params.spacing_h as _),
                             height: LengthPercentage::length(params.spacing_v as _),
@@ -2233,7 +2229,7 @@ pub fn flexbox_layout_info_cross_axis_with_measure(
         padding_h,
         padding_v,
         alignment,
-        cross_axis_line_alignment: CrossAxisLineAlignment::Stretch,
+        cross_axis_line_alignment: LayoutAlignment::Stretch,
         cross_axis_alignment: CrossAxisAlignment::Stretch,
         flex_wrap,
         flex_direction: taffy_direction,
@@ -3187,7 +3183,7 @@ mod tests {
                     // Stretch: the strongest growing mode, to show the stretch
                     // factors cancel out of the max-content size.
                     alignment: LayoutAlignment::Stretch,
-                    cross_axis_line_alignment: CrossAxisLineAlignment::Stretch,
+                    cross_axis_line_alignment: LayoutAlignment::Stretch,
                     cross_axis_alignment: CrossAxisAlignment::Stretch,
                     flex_wrap: FlexboxLayoutWrap::NoWrap,
                     flex_direction: flexbox_taffy::TaffyFlexDirection::Row,
@@ -3261,7 +3257,7 @@ mod tests {
                     padding_h: &pad,
                     padding_v: &pad,
                     alignment: LayoutAlignment::Stretch,
-                    cross_axis_line_alignment: CrossAxisLineAlignment::Stretch,
+                    cross_axis_line_alignment: LayoutAlignment::Stretch,
                     cross_axis_alignment: CrossAxisAlignment::Stretch,
                     flex_wrap: FlexboxLayoutWrap::NoWrap,
                     flex_direction: flexbox_taffy::TaffyFlexDirection::Column,
@@ -3329,7 +3325,7 @@ mod tests {
                     padding_h: &pad,
                     padding_v: &pad,
                     alignment,
-                    cross_axis_line_alignment: CrossAxisLineAlignment::Stretch,
+                    cross_axis_line_alignment: LayoutAlignment::Stretch,
                     cross_axis_alignment: CrossAxisAlignment::Stretch,
                     flex_wrap: FlexboxLayoutWrap::Wrap,
                     flex_direction: flexbox_taffy::TaffyFlexDirection::Row,
@@ -3413,7 +3409,7 @@ mod tests {
                 padding_h: &pad,
                 padding_v: &pad,
                 alignment: LayoutAlignment::Start,
-                cross_axis_line_alignment: CrossAxisLineAlignment::Stretch,
+                cross_axis_line_alignment: LayoutAlignment::Stretch,
                 cross_axis_alignment: CrossAxisAlignment::Stretch,
                 flex_wrap: FlexboxLayoutWrap::NoWrap,
                 flex_direction: flexbox_taffy::TaffyFlexDirection::Row,
