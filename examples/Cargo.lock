@@ -6025,7 +6025,6 @@ dependencies = [
  "bytemuck",
  "cfg-if",
  "cfg_aliases",
- "derive_more",
  "futures",
  "glutin",
  "glutin-winit",
@@ -6177,7 +6176,6 @@ version = "1.18.0"
 dependencies = [
  "cfg-if",
  "const-field-offset",
- "derive_more",
  "femtovg",
  "glow 0.18.0",
  "i-slint-common",
@@ -6202,7 +6200,6 @@ dependencies = [
  "cfg_aliases",
  "clru",
  "const-field-offset",
- "derive_more",
  "glow 0.18.0",
  "glutin",
  "i-slint-common",
