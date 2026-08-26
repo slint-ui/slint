@@ -522,7 +522,7 @@ pub fn to_kebab_case(str: &str) -> String {
 }
 
 /// The number of arguments taken by the accessibility action of the given name, where the name
-/// is the `AccessibilityAction` variant in pascal case (such as `SetSelection`).
+/// is the `AccessibilityAction` variant in pascal case (such as `SetSelectionOffsets`).
 ///
 /// The `AccessibilityAction` enum of the run-time library mirrors the `accessible-action-*`
 /// callbacks declared in the type register: a variant has one field per callback argument, so

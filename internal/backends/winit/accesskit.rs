@@ -195,7 +195,7 @@ impl AccessKitAdapter {
                     &sel.anchor,
                     &sel.focus,
                 )?;
-                AccessibilityAction::SetSelection(anchor as i32, focus as i32)
+                AccessibilityAction::SetSelectionOffsets(anchor as i32, focus as i32)
             }
             _ => return None,
         };
@@ -592,7 +592,7 @@ impl NodeCollection {
         if emitted_runs
             && item
                 .supported_accessibility_actions()
-                .contains(SupportedAccessibilityAction::SetSelection)
+                .contains(SupportedAccessibilityAction::SetSelectionOffsets)
         {
             wrapper_node.add_action(Action::SetTextSelection);
         }

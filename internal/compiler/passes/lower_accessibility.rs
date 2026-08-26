@@ -118,8 +118,9 @@ fn apply_builtin(e: &ElementRc) {
             });
         }
         {
-            e.borrow_mut().set_binding_if_not_set("accessible-action-set-selection".into(), || {
-                Expression::FunctionCall {
+            e.borrow_mut().set_binding_if_not_set(
+                "accessible-action-set-selection-offsets".into(),
+                || Expression::FunctionCall {
                     function: Callable::Builtin(BuiltinFunction::SetSelectionOffsets),
                     arguments: vec![
                         Expression::ElementReference(Rc::downgrade(e)),
@@ -127,8 +128,8 @@ fn apply_builtin(e: &ElementRc) {
                         Expression::FunctionParameterReference { index: 1, ty: Type::Int32 },
                     ],
                     source_location: None,
-                }
-            });
+                },
+            );
         }
     } else if bty.name == "Image" {
         e.borrow_mut().set_binding_if_not_set("accessible-role".into(), || {

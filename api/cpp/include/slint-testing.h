@@ -409,23 +409,23 @@ public:
 
     /// Selects the text between two UTF-8 offsets.
     ///
-    /// This will invoke the `accessible-action-set-selection` callback.
+    /// This will invoke the `accessible-action-set-selection-offsets` callback.
     void set_accessible_selection(int anchor, int focus) const
     {
         if (inner.element_index != 0)
             return;
         if (auto item = private_api::upgrade_item_weak(inner.item)) {
-            union SetSelectionHelper {
+            union SetSelectionOffsetsHelper {
                 cbindgen_private::AccessibilityAction action;
-                SetSelectionHelper(int anchor, int focus)
+                SetSelectionOffsetsHelper(int anchor, int focus)
                 {
-                    new (&action.set_selection)
-                            cbindgen_private::AccessibilityAction::SetSelection_Body {
-                                cbindgen_private::AccessibilityAction::Tag::SetSelection, anchor,
-                                focus
+                    new (&action.set_selection_offsets)
+                            cbindgen_private::AccessibilityAction::SetSelectionOffsets_Body {
+                                cbindgen_private::AccessibilityAction::Tag::SetSelectionOffsets,
+                                anchor, focus
                             };
                 }
-                ~SetSelectionHelper() { }
+                ~SetSelectionOffsetsHelper() { }
 
             } action(anchor, focus);
             item->item_tree.vtable()->accessibility_action(item->item_tree.borrow(), item->index,
