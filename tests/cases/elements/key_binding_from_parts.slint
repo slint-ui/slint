@@ -58,6 +58,19 @@ assert!(Keys::from_parts(["Ctrl", "P"]).is_err()); // "Ctrl" is not a valid modi
 assert!(Keys::from_parts(["Control"]).is_err());    // no key, only modifier
 assert!(Keys::from_parts(["Shift", "Shift?", "A"]).is_err()); // incompatible modifiers
 
+// Whitespace is significant: parts are not trimmed, so " " is the Space key.
+assert_eq!(
+    Keys::from_parts([" "]).expect("valid shortcut"),
+    Keys::from_parts(["Space"]).expect("valid shortcut")
+);
+
+// to_parts round-trips: re-creating a Keys from its own parts yields an equal Keys.
+for keys in [&ctrl_p, &ctrl_plus, &ctrl_shift_opt_z, &f5, &empty] {
+    let parts = keys.to_parts();
+    let back = Keys::from_parts(parts.iter().map(|p| p.as_str())).expect("valid shortcut");
+    assert_eq!(back, *keys);
+}
+
 // --- Equality with compile-time @keys ---
 let reference = instance.get_reference_shortcut();
 assert_eq!(ctrl_p, reference);
@@ -131,6 +144,20 @@ assert(!slint::Keys::from_parts({"Ctrl", "P"}).has_value());
 assert(!slint::Keys::from_parts({"Control"}).has_value());
 assert(!slint::Keys::from_parts({"Shift", "Shift?", "A"}).has_value());
 
+// Whitespace is significant: parts are not trimmed, so " " is the Space key.
+assert(slint::Keys::from_parts({" "}).value() == slint::Keys::from_parts({"Space"}).value());
+
+// to_parts round-trips: re-creating a Keys from its own parts yields an equal Keys.
+for (const auto &keys :
+     { ctrl_p.value(), ctrl_plus.value(), ctrl_shift_opt_z.value(), f5.value(), empty.value() }) {
+    auto parts = keys.to_parts();
+    std::vector<std::string_view> views;
+    for (std::size_t i = 0; i < parts.size(); ++i) {
+        views.push_back(static_cast<std::string_view>(parts[i]));
+    }
+    assert(slint::Keys::from_parts(views).value() == keys);
+}
+
 // --- Equality with compile-time @keys ---
 assert(ctrl_p.value() == instance.get_reference_shortcut());
 
@@ -190,6 +217,9 @@ assert(ctrl_p.equals(instance.reference_shortcut));
 // Error cases
 assert.throws(() => slintlib.Keys.fromParts(["Ctrl", "P"]));
 assert.throws(() => slintlib.Keys.fromParts(["Control"]));
+
+// Whitespace is significant: parts are not trimmed, so " " is the Space key.
+assert(slintlib.Keys.fromParts([" "]).equals(slintlib.Keys.fromParts(["Space"])));
 
 const KEY_CONTROL = "\u0011";
 const KEY_SHIFT   = "\u0010";
@@ -252,6 +282,9 @@ try:
     assert False, "should have raised"
 except ValueError:
     pass
+
+# Whitespace is significant: parts are not trimmed, so " " is the Space key.
+assert Keys.from_parts([" "]) == Keys.from_parts(["Space"])
 
 # Property assignment round-trip
 instance.shortcut = ctrl_p

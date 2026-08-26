@@ -456,7 +456,7 @@ impl From<InternalKeyboardModifierState> for KeyboardModifiers {
 /// syntax as the macro:
 ///
 /// ```rust
-/// use i_slint_core::input::Keys;
+/// use slint::Keys;
 ///
 /// let save = Keys::from_parts(["Control", "S"])?;
 /// let undo = Keys::from_parts(["Control", "Shift?", "Z"])?;
@@ -592,6 +592,14 @@ pub(crate) mod ffi {
             Err(_) => false,
         }
     }
+
+    #[unsafe(no_mangle)]
+    pub unsafe extern "C" fn slint_keys_to_parts(
+        keys: &Keys,
+        out: &mut crate::SharedVector<SharedString>,
+    ) {
+        *out = keys.to_parts().into_iter().collect();
+    }
 }
 
 /// Normalize a key string: lowercase and NFC-normalize.
@@ -623,7 +631,12 @@ fn keys_from_parts_inner<'a>(
     let mut key_part: Option<&str> = None;
 
     for part in parts {
-        let part = part.trim();
+        // Parts are *not* trimmed: whitespace is significant, so `" "`, `"\t"` and
+        // `"\n"` are valid literal spellings of the Space, Tab and Return keys, the
+        // same way `@keys(" ")` is valid in Slint. Trimming would silently swallow
+        // them and make those keys unreachable through a literal. Empty parts carry
+        // no information and are skipped, which keeps `from_parts([""])` equivalent
+        // to `from_parts([])`.
         if part.is_empty() {
             continue;
         }
@@ -674,7 +687,7 @@ fn keys_from_parts_inner<'a>(
     let key_name = match key_part {
         Some(k) => k,
         None if modifiers == KeyboardModifiers::default() && !ignore_shift && !ignore_alt => {
-            // Empty input (or only whitespace) → Keys::default(), same as @keys()
+            // Empty input (or only empty parts) → Keys::default(), same as @keys()
             return Ok(Keys::default());
         }
         None => return Err(KeysParseErrorInner::NoKey),
@@ -748,7 +761,13 @@ impl Keys {
     /// if not found, treated as a string literal (must be a single lowercase grapheme cluster).
     /// Exactly one non-modifier key must be present.
     ///
-    /// An empty iterator returns `Keys::default()` (same as `@keys()`).
+    /// Parts are taken verbatim — they are not trimmed — so whitespace is significant:
+    /// `" "`, `"\t"` and `"\n"` are literal spellings of the `Space`, `Tab` and `Return`
+    /// keys, just as `@keys(" ")` is valid in Slint. A part must therefore match a
+    /// modifier or key exactly; `" Control "` is not the `Control` modifier.
+    ///
+    /// An empty iterator returns `Keys::default()` (same as `@keys()`). Empty parts are
+    /// skipped, so `from_parts([""])` is also `Keys::default()`.
     ///
     /// See also the Slint documentation on [Key Bindings](slint:KeyBindingOverview).
     ///
@@ -757,6 +776,69 @@ impl Keys {
         parts: impl IntoIterator<Item = &'a str>,
     ) -> Result<Keys, KeysParseError> {
         keys_from_parts(parts.into_iter())
+    }
+
+    #[i_slint_core_macros::slint_doc]
+    /// Decompose this `Keys` value into the list of string parts that
+    /// [`Keys::from_parts`] accepts.
+    ///
+    /// See also the Slint documentation on [Key Bindings](slint:KeyBindingOverview).
+    ///
+    /// A `Keys` value that is converted into parts and then re-created from those parts
+    /// with [`Keys::from_parts`] will be equal to the input `Keys` value:
+    ///
+    /// ```
+    /// use slint::Keys;
+    /// let k = Keys::from_parts(["Control", "Shift?", "Z"])?;
+    /// let parts = k.to_parts();
+    /// let k_from_parts = Keys::from_parts(parts.iter().map(|s| s.as_str()))?;
+    /// assert_eq!(k_from_parts, k);
+    /// # Ok::<(), i_slint_core::input::KeysParseError>(())
+    /// ```
+    ///
+    /// Note that while a round-trip guarantees that the resulting `Keys` instances will
+    /// be equal, the parts returned by `to_parts` can be different from the parts used
+    /// to construct the `Keys` instance with `from_parts`.
+    ///
+    /// A part is not necessarily printable, so a text format storing parts has to quote
+    /// or escape them. The
+    /// [`runtime_key_bindings`](https://github.com/slint-ui/slint/tree/master/examples/runtime_key_bindings)
+    /// example shows one way to persist a user-configured shortcut and restore it.
+    ///
+    /// An empty `Keys` (i.e. [`Keys::default()`]) returns an empty `Vec`.
+    pub fn to_parts(&self) -> alloc::vec::Vec<SharedString> {
+        let inner = &self.inner;
+        if inner.key.is_empty() {
+            return alloc::vec::Vec::new();
+        }
+
+        let mut parts = alloc::vec::Vec::new();
+        // Order matches the `@keys` macro / Debug impl: Meta, Control, Alt, Shift.
+        if inner.modifiers.meta {
+            parts.push("Meta".into());
+        }
+        if inner.modifiers.control {
+            parts.push("Control".into());
+        }
+        if inner.modifiers.alt {
+            parts.push("Alt".into());
+        } else if inner.ignore_alt {
+            parts.push("Alt?".into());
+        }
+        if inner.modifiers.shift {
+            parts.push("Shift".into());
+        } else if inner.ignore_shift {
+            parts.push("Shift?".into());
+        }
+        // The key itself is always emitted as the stored character, never as the
+        // name it may have been created from. Names are not reversed back: a
+        // `LocalizedShiftable` name auto-applies `ignore_shift` on re-parse, so
+        // emitting one would break the round-trip of a literal such as
+        // `["Control", "+"]` (which has `ignore_shift = false`). Emitting the raw
+        // character lets `ignore_shift` be carried explicitly by `Shift?`, so
+        // `@keys(Control + Plus)` comes back as `["Control", "Shift?", "+"]`.
+        parts.push(inner.key.clone());
+        parts
     }
 
     /// Check whether a `Keys` can be triggered by the given `KeyEvent`
@@ -2869,6 +2951,7 @@ mod tests {
     fn test_from_parts_valid() {
         let f5_key = alloc::string::String::from(char::from(key_codes::Key::F5));
         let ret_key = alloc::string::String::from(char::from(key_codes::Key::Return));
+        let pause_key = alloc::string::String::from(char::from(key_codes::Key::Pause));
 
         // (description, input parts, expected key, modifiers, ignore_shift, ignore_alt)
         let cases: &[(&str, &[&str], &str, KeyboardModifiers, bool, bool)] = &[
@@ -2955,6 +3038,63 @@ mod tests {
                 false,
             ),
             ("A alone (named key)", &["A"], "a", KeyboardModifiers::default(), false, false),
+            // The special keys are represented by reserved unicode codepoints. Passing
+            // one of those characters as a literal must produce the same `Keys` as its
+            // name, so `to_parts` output stays acceptable to `from_parts`.
+            (
+                "F5 codepoint literal",
+                &[&f5_key],
+                &f5_key,
+                KeyboardModifiers::default(),
+                false,
+                false,
+            ),
+            (
+                "Pause codepoint literal",
+                &[&pause_key],
+                &pause_key,
+                KeyboardModifiers::default(),
+                false,
+                false,
+            ),
+            (
+                "Control + F5 codepoint literal",
+                &["Control", &f5_key],
+                &f5_key,
+                KeyboardModifiers { control: true, ..Default::default() },
+                false,
+                false,
+            ),
+            // Whitespace is significant: these literals name the Space/Tab/Return keys
+            // and must agree with their named spellings (parts are not trimmed).
+            ("\" \" literal → Space", &[" "], " ", KeyboardModifiers::default(), false, false),
+            ("Space named", &["Space"], " ", KeyboardModifiers::default(), false, false),
+            ("\"\\t\" literal → Tab", &["\t"], "\t", KeyboardModifiers::default(), false, false),
+            ("Tab named", &["Tab"], "\t", KeyboardModifiers::default(), false, false),
+            (
+                "\"\\n\" literal → Return",
+                &["\n"],
+                &ret_key,
+                KeyboardModifiers::default(),
+                false,
+                false,
+            ),
+            (
+                "Control+\" \" (literal space with a modifier)",
+                &["Control", " "],
+                " ",
+                KeyboardModifiers { control: true, ..Default::default() },
+                false,
+                false,
+            ),
+            (
+                "empty part is skipped → Keys::default()",
+                &[""],
+                "",
+                KeyboardModifiers::default(),
+                false,
+                false,
+            ),
             (
                 "a alone (literal fallback, same result as named A)",
                 &["a"],
@@ -2999,6 +3139,25 @@ mod tests {
                 &["Control", "ab"],
                 KeysParseError(KeysParseErrorInner::MultipleGraphemeClusters("ab".into())),
             ),
+            // Parts are not trimmed, so a padded modifier is no longer a modifier: it
+            // falls through to the key branch and fails as a multi-grapheme literal.
+            (
+                "padded modifier ' Control ' alone",
+                &[" Control "],
+                KeysParseError(KeysParseErrorInner::MultipleGraphemeClusters(" Control ".into())),
+            ),
+            (
+                "padded modifier ' Control ' is a key, so 'A' is a second key",
+                &[" Control ", "A"],
+                KeysParseError(KeysParseErrorInner::MultipleKeys),
+            ),
+            (
+                "padded key ' A '",
+                &["Control", " A "],
+                KeysParseError(KeysParseErrorInner::MultipleGraphemeClusters(" A ".into())),
+            ),
+            // Two whitespace literals are two keys, not one trimmed-away key.
+            ("two space literals", &[" ", " "], KeysParseError(KeysParseErrorInner::MultipleKeys)),
             (
                 "lowercase 'return' (not a named key)",
                 &["return"],
@@ -3034,6 +3193,83 @@ mod tests {
             let result = Keys::from_parts(parts.iter().copied());
             assert!(result.is_err(), "{desc}: expected error, got {result:?}");
             assert_eq!(&result.unwrap_err(), expected_err, "{desc}");
+        }
+    }
+
+    #[test]
+    fn test_to_parts_roundtrip() {
+        // Inputs that should round-trip identically through from_parts → to_parts.
+        let inputs: &[&[&str]] = &[
+            &[],
+            &["A"],
+            &["Control", "A"],
+            &["Control", "Shift", "A"],
+            &["Control", "Shift?", "Z"],
+            &["Control", "Alt?", "A"],
+            &["Control", "Alt", "Shift", "Meta", "A"],
+            &["Meta", "Control", "Alt", "Shift", "A"],
+            &["F5"],
+            &["Return"],
+            &["Space"],
+            &[" "],  // literal space: to_parts emits the "Space" name
+            &["\t"], // literal tab: to_parts emits the "Tab" name
+            &["\n"], // literal newline: to_parts emits the "Return" name
+            &["Control", " "],
+            &["Control", "Plus"], // LocalizedShiftable: desugars to ["Control", "Shift?", "+"]
+            &["Control", "+"],    // literal '+': stays ["Control", "+"] (no auto ignore_shift)
+            &["Control", "Digit0"],
+            &["Control", "€"],
+            &["Control", "é"],
+        ];
+        for parts in inputs {
+            let k = Keys::from_parts(parts.iter().copied()).unwrap();
+            let out = k.to_parts();
+            let out_strs: alloc::vec::Vec<&str> = out.iter().map(|s| s.as_str()).collect();
+            let k2 = Keys::from_parts(out_strs.iter().copied()).unwrap();
+            assert_eq!(k, k2, "round-trip mismatch for {parts:?} → {out_strs:?}");
+        }
+    }
+
+    #[test]
+    fn test_to_parts_canonical_form() {
+        // Spot-check the exact strings to lock in the canonical output. Modifiers keep
+        // their names; the key is always the stored character, never a key name.
+        let f5 = alloc::string::String::from(char::from(key_codes::Key::F5));
+        let ret = alloc::string::String::from(char::from(key_codes::Key::Return));
+        let pause = alloc::string::String::from(char::from(key_codes::Key::Pause));
+        let cases: &[(&[&str], &[&str])] = &[
+            (&[], &[]),
+            (&["A"], &["a"]), // named key → its stored character
+            (&["a"], &["a"]),
+            (&["Control", "S"], &["Control", "s"]),
+            (&["Control", "Shift?", "Z"], &["Control", "Shift?", "z"]),
+            (&["Control", "Alt?", "A"], &["Control", "Alt?", "a"]),
+            (&["F5"], &[&f5]),
+            (&[&f5], &[&f5]), // reserved codepoint as a literal
+            (&["Pause"], &[&pause]),
+            (&[&pause], &[&pause]),
+            // Whitespace and control characters are emitted raw, which is why a text
+            // format storing these has to escape them (see the runtime_key_bindings
+            // example). They still round-trip, because from_parts does not trim.
+            (&[" "], &[" "]),
+            (&["Space"], &[" "]),
+            (&["\t"], &["\t"]),
+            (&["Tab"], &["\t"]),
+            (&["\n"], &[&ret]),
+            (&["Return"], &[&ret]),
+            (&["Control", " "], &["Control", " "]),
+            // LocalizedShiftable: the auto ignore_shift is surfaced as Shift? and the
+            // raw character is emitted, so the "Plus" name is not reproduced.
+            (&["Control", "Plus"], &["Control", "Shift?", "+"]),
+            (&["Control", "+"], &["Control", "+"]), // literal '+': no auto ignore_shift
+            (&["Control", "€"], &["Control", "€"]),
+            (&["Meta", "Control", "Alt", "Shift", "A"], &["Meta", "Control", "Alt", "Shift", "a"]),
+        ];
+        for (input, expected) in cases {
+            let k = Keys::from_parts(input.iter().copied()).unwrap();
+            let out = k.to_parts();
+            let out_strs: alloc::vec::Vec<&str> = out.iter().map(|s| s.as_str()).collect();
+            assert_eq!(&out_strs.as_slice(), expected, "for input {input:?}");
         }
     }
 
