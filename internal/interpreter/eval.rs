@@ -2116,7 +2116,7 @@ fn call_builtin_function(
                 _ => panic!("Second argument not an integer: {:?}", arguments[1]),
             };
 
-            model.remove_row(index as isize);
+            i_slint_core::model::model_remove(&model, index as i32);
 
             Value::Void
         }
@@ -2136,7 +2136,7 @@ fn call_builtin_function(
             };
 
             let value = eval_expression(ctx, &arguments[2]);
-            model.insert_row(index as isize, value);
+            i_slint_core::model::model_insert(&model, index as i32, value);
 
             Value::Void
         }

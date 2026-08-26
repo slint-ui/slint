@@ -643,13 +643,13 @@ impl Model for ModelAdaptorWrapper {
         self.0.push_row(val);
     }
 
-    fn remove_row(&self, row: isize) {
-        self.0.remove_row(row);
+    fn remove_row(&self, row: usize) {
+        self.0.remove_row(row as isize);
     }
 
-    fn insert_row(&self, row: isize, data: Value) {
+    fn insert_row(&self, row: usize, data: Value) {
         let val = Box::new(data);
-        self.0.insert_row(row, val);
+        self.0.insert_row(row as isize, val);
     }
 
     fn as_any(&self) -> &dyn core::any::Any {

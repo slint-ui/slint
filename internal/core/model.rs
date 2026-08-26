@@ -180,14 +180,16 @@ pub trait Model {
         );
     }
 
-    /// Remove a row from the model at the specified index.
+    /// Remove the row at the specified index from the model.
+    ///
+    /// This function should be called with `row < row_count()`.
     ///
     /// If the model cannot support data changes, then it is ok to do nothing.
     /// The default implementation will print a warning to stderr.
     ///
     /// If the model can update the data, it should also call [`ModelNotify::row_removed`] on its
     /// internal [`ModelNotify`].
-    fn remove_row(&self, _row: isize) {
+    fn remove_row(&self, _row: usize) {
         #[cfg(feature = "std")]
         crate::debug_log!(
             "Model::remove_row called on a model of type {} which does not re-implement this method. \
@@ -203,7 +205,7 @@ pub trait Model {
     ///
     /// If the model can update the data, it should also call [`ModelNotify::row_added`] on its
     /// internal [`ModelNotify`].
-    fn insert_row(&self, _row: isize, _data: Self::Data) {
+    fn insert_row(&self, _row: usize, _data: Self::Data) {
         #[cfg(feature = "std")]
         crate::debug_log!(
             "Model::insert_row called on a model of type {} which does not re-implement this method. \
@@ -362,6 +364,24 @@ pub trait ModelExt: Model {
 
 impl<T: Model> ModelExt for T {}
 
+/// Removes the row at `index` from the model. A negative index does nothing.
+///
+/// Called by the generated code and the interpreter for the `.slint` `array.remove` function.
+pub fn model_remove<T>(model: &dyn Model<Data = T>, index: i32) {
+    if index >= 0 {
+        model.remove_row(index as usize);
+    }
+}
+
+/// Inserts `data` as a new row at `index`. A negative index does nothing.
+///
+/// Called by the generated code and the interpreter for the `.slint` `array.insert` function.
+pub fn model_insert<T>(model: &dyn Model<Data = T>, index: i32, data: T) {
+    if index >= 0 {
+        model.insert_row(index as usize, data);
+    }
+}
+
 pub fn model_any<T>(model: &dyn Model<Data = T>, mut predicate: impl FnMut(T) -> bool) -> bool {
     let row_count = model.row_count();
     model.model_tracker().track_any_change(row_count, crate::InternalToken);
@@ -453,10 +473,10 @@ impl<M: Model> Model for Rc<M> {
     fn push_row(&self, data: Self::Data) {
         (**self).push_row(data)
     }
-    fn remove_row(&self, row: isize) {
+    fn remove_row(&self, row: usize) {
         (**self).remove_row(row)
     }
-    fn insert_row(&self, row: isize, data: Self::Data) {
+    fn insert_row(&self, row: usize, data: Self::Data) {
         (**self).insert_row(row, data)
     }
 }
@@ -590,15 +610,15 @@ impl<T: Clone + 'static> Model for VecModel<T> {
         self.push(data);
     }
 
-    fn remove_row(&self, row: isize) {
-        if row >= 0 && row < self.row_count() as isize {
-            self.remove(row as usize);
+    fn remove_row(&self, row: usize) {
+        if row < self.row_count() {
+            self.remove(row);
         }
     }
 
-    fn insert_row(&self, row: isize, data: Self::Data) {
-        if row >= 0 && row <= self.row_count() as isize {
-            self.insert(row as usize, data);
+    fn insert_row(&self, row: usize, data: Self::Data) {
+        if row <= self.row_count() {
+            self.insert(row, data);
         }
     }
 
@@ -660,17 +680,17 @@ impl<T: Clone + 'static> Model for SharedVectorModel<T> {
         self.notify.row_added(self.array.borrow().len() - 1, 1);
     }
 
-    fn remove_row(&self, row: isize) {
-        if row >= 0 && row < self.row_count() as isize {
-            self.array.borrow_mut().remove(row as usize);
-            self.notify.row_removed(row as usize, 1);
+    fn remove_row(&self, row: usize) {
+        if row < self.row_count() {
+            self.array.borrow_mut().remove(row);
+            self.notify.row_removed(row, 1);
         }
     }
 
-    fn insert_row(&self, row: isize, data: Self::Data) {
-        if row >= 0 && row <= self.row_count() as isize {
-            self.array.borrow_mut().insert(row as usize, data);
-            self.notify.row_added(row as usize, 1);
+    fn insert_row(&self, row: usize, data: Self::Data) {
+        if row <= self.row_count() {
+            self.array.borrow_mut().insert(row, data);
+            self.notify.row_added(row, 1);
         }
     }
 
@@ -965,13 +985,13 @@ impl<T> Model for ModelRc<T> {
         }
     }
 
-    fn remove_row(&self, row: isize) {
+    fn remove_row(&self, row: usize) {
         if let Some(model) = self.0.as_ref() {
             model.remove_row(row);
         }
     }
 
-    fn insert_row(&self, row: isize, data: Self::Data) {
+    fn insert_row(&self, row: usize, data: Self::Data) {
         if let Some(model) = self.0.as_ref() {
             model.insert_row(row, data);
         }
@@ -1072,9 +1092,7 @@ mod tests {
 
         // Out-of-range operations do nothing and must not notify the views.
         model.remove_row(3);
-        model.remove_row(-1);
         model.insert_row(4, 42);
-        model.insert_row(-1, 42);
         assert!(!tracker.is_dirty());
         assert_eq!(model.row_count(), 3);
         assert_eq!(model.row_data(2), Some(3));

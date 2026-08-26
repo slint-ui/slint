@@ -64,14 +64,14 @@ impl<T: TryFrom<Value> + Into<Value> + 'static> Model for ValueMapModel<T> {
         }
     }
 
-    fn remove_row(&self, row: isize) {
-        if row >= 0 && row < self.0.row_count() as isize {
+    fn remove_row(&self, row: usize) {
+        if row < self.0.row_count() {
             self.0.remove_row(row);
         }
     }
 
-    fn insert_row(&self, row: isize, data: Self::Data) {
-        if row < 0 || row > self.0.row_count() as isize {
+    fn insert_row(&self, row: usize, data: Self::Data) {
+        if row > self.0.row_count() {
             return;
         }
         if let Ok(data) = data.try_into() {
