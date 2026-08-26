@@ -1517,8 +1517,7 @@ impl WindowInner {
         forward: impl Fn(ItemRc) -> ItemRc,
         reason: FocusReason,
     ) -> Option<ItemRc> {
-        let mut current_item = start_item;
-        let mut visited = Vec::new();
+        let mut current_item = start_item.clone();
 
         loop {
             let can_receive_focus = match reason {
@@ -1532,10 +1531,11 @@ impl WindowInner {
             {
                 return Some(current_item); // Item was just published.
             }
-            visited.push(current_item.clone());
             current_item = forward(current_item);
 
-            if visited.contains(&current_item) {
+            // `forward` visits the items in a cycle, so the walk comes back to `start_item`
+            // before revisiting any other item.
+            if current_item == start_item {
                 return None; // Nothing to do: We took the focus_item already
             }
         }
