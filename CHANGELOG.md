@@ -10,6 +10,9 @@ All notable changes to this project are documented in this file.
    `GraphicsAPI::WGPU30`, `BackendSelector::require_wgpu_30()`, and `Image::to_wgpu_30_texture()`.
    The `unstable-wgpu-28` feature was removed. `unstable-wgpu-29` remains available for Skia-based rendering.
  - The FemtoVG WGPU renderer now uses WGPU 30 and works on WebAssembly, using WebGPU with a WebGL fallback.
+ - Added the `wgpu-webgl-fallback` Cargo feature, on by default, which controls whether that WebGL fallback
+   is compiled into WebAssembly builds. Turning it off drops `wgpu_core`, `wgpu_hal` and `naga`, about 700 KB
+   of the gzipped download, for an application that selects its graphics backend itself.
  - WebAssembly: Images are now decoded by the browser instead of bundled Rust decoders, significantly reducing
    the size of wasm binaries. All image formats supported by the browser now work. (Compressed `.svgz` is no
    longer supported on the web.)

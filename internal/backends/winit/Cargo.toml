@@ -58,6 +58,8 @@ renderer-software = [
 accessibility = ["dep:accesskit", "dep:accesskit_winit", "i-slint-core/accessibility-text"]
 raw-window-handle-06 = ["i-slint-core/raw-window-handle-06"]
 unstable-wgpu-29 = ["i-slint-core/unstable-wgpu-29", "i-slint-renderer-skia?/unstable-wgpu-29"]
+wgpu-webgl-fallback = ["i-slint-renderer-femtovg?/wgpu-webgl-fallback"]
+
 unstable-wgpu-30 = [
   "i-slint-core/unstable-wgpu-30",
   "i-slint-renderer-femtovg?/unstable-wgpu-30",

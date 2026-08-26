@@ -72,6 +72,8 @@ unstable-wgpu-29 = [
   "i-slint-backend-linuxkms?/unstable-wgpu-29",
 ]
 
+wgpu-webgl-fallback = ["i-slint-backend-winit?/wgpu-webgl-fallback"]
+
 unstable-wgpu-30 = [
   "i-slint-core/unstable-wgpu-30",
   "i-slint-renderer-skia?/unstable-wgpu-30",
