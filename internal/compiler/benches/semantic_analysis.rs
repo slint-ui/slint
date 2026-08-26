@@ -22,7 +22,7 @@ use i_slint_compiler::diagnostics::{BuildDiagnostics, SourceFile, SourceFileInne
 use i_slint_compiler::object_tree::Document;
 use i_slint_compiler::parser;
 use std::path::PathBuf;
-use std::rc::Rc;
+use std::sync::Arc;
 
 #[global_allocator]
 static ALLOC: divan::AllocProfiler = divan::AllocProfiler::system();
