@@ -163,6 +163,25 @@ pub trait RendererSealed {
             .unwrap_or_default()
     }
 
+    /// The height of one line of text: what a shaped single-line layout reports, without
+    /// shaping. `None` means the caller must measure through [`Self::text_size`].
+    fn text_line_height(
+        &self,
+        font_request: crate::graphics::FontRequest,
+    ) -> Option<LogicalLength> {
+        #[cfg(feature = "shared-parley")]
+        {
+            let ctx = self.slint_context()?;
+            let mut font_ctx = ctx.font_context().borrow_mut();
+            crate::textlayout::sharedparley::text_line_height(&mut font_ctx, &font_request)
+        }
+        #[cfg(not(feature = "shared-parley"))]
+        {
+            let _ = font_request;
+            None
+        }
+    }
+
     /// Returns the (UTF-8) byte offset in the text property that refers to the character that contributed to
     /// the glyph cluster that's visually nearest to the given coordinate. This is used for hit-testing,
     /// for example when receiving a mouse click into a text field. Then this function returns the "cursor"

@@ -899,6 +899,26 @@ impl RendererSealed for SoftwareRenderer {
         })
     }
 
+    // Bitmap fonts fall back to text_size() with the same font.
+    fn text_line_height(
+        &self,
+        font_request: i_slint_core::graphics::FontRequest,
+    ) -> Option<LogicalLength> {
+        #[cfg(feature = "systemfonts")]
+        {
+            let scale_factor = self.scale_factor()?;
+            let slint_ctx = self.slint_context()?;
+            let mut font_ctx = slint_ctx.font_context().borrow_mut();
+            let font = fonts::match_font(&font_request, scale_factor, &mut font_ctx);
+            if uses_parley(&font) {
+                return sharedparley::text_line_height(&mut font_ctx, &font_request);
+            }
+        }
+        #[cfg(not(feature = "systemfonts"))]
+        let _ = font_request;
+        None
+    }
+
     fn char_size(
         &self,
         text_item: Pin<&dyn i_slint_core::item_rendering::HasFont>,

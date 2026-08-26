@@ -638,6 +638,20 @@ impl SimpleText {
     }
 }
 
+/// The height of a plain single-line `NoWrap` text, when it can be computed without shaping.
+fn single_line_height(
+    window_adapter: &Rc<dyn WindowAdapter>,
+    text: PlainOrStyledText,
+    font_request: impl FnOnce() -> crate::graphics::FontRequest,
+) -> Option<Coord> {
+    match text {
+        PlainOrStyledText::Plain(s) if !s.contains('\n') => {
+            window_adapter.renderer().text_line_height(font_request()).map(|h| h.get())
+        }
+        _ => None,
+    }
+}
+
 // The compiler's single-cell box layout lowering relies on text and image
 // items keeping the default stretch of 0 in their layout info.
 fn text_layout_info(
@@ -685,7 +699,10 @@ fn text_layout_info(
         }
         Orientation::Vertical => {
             let h = match text.wrap() {
-                TextWrap::NoWrap => implicit_size(None, TextWrap::NoWrap).height,
+                TextWrap::NoWrap => {
+                    single_line_height(window_adapter, text.text(), || text.font_request(self_rc))
+                        .unwrap_or_else(|| implicit_size(None, TextWrap::NoWrap).height)
+                }
                 wrap @ (TextWrap::WordWrap | TextWrap::CharWrap) => {
                     let w = if cross_axis_constraint >= 0 as Coord {
                         LogicalLength::new(cross_axis_constraint)

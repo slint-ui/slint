@@ -575,6 +575,15 @@ impl RendererSealed for TestingWindow {
         }
     }
 
+    fn text_line_height(
+        &self,
+        font_request: i_slint_core::graphics::FontRequest,
+    ) -> Option<LogicalLength> {
+        let pixel_size = font_request.pixel_size.map_or(10., |s| s.get());
+        is_fixed_test_font(&font_request.family)
+            .then(|| LogicalLength::new(fixed_test_font_line_height(&font_request, pixel_size)))
+    }
+
     fn char_size(
         &self,
         text_item: Pin<&dyn i_slint_core::item_rendering::HasFont>,

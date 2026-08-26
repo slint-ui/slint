@@ -14,13 +14,9 @@ fn layout_text_with_options(text: &str, options: LayoutOptions) -> Layout {
     layout_text_with_builder(text, super::shaping::plain_builder_for_tests(), options)
 }
 
-fn layout_text_with_builder(
-    text: &str,
-    builder: super::shaping::LayoutWithoutLineBreaksBuilder,
-    options: LayoutOptions,
-) -> Layout {
-    // Don't load system fonts: that goes through fontconfig FFI, which Miri
-    // can't execute. Use the bundled Inter font instead.
+// Don't load system fonts: that goes through fontconfig FFI, which Miri
+// can't execute. Use the bundled Inter font instead.
+fn test_font_context() -> parley::FontContext {
     let mut font_ctx = parley::FontContext {
         collection: fontique::Collection::new(fontique::CollectionOptions {
             system_fonts: false,
@@ -34,6 +30,15 @@ fn layout_text_with_builder(
         fontique::GenericFamily::SansSerif,
         families.iter().map(|(id, _)| *id),
     );
+    font_ctx
+}
+
+fn layout_text_with_builder(
+    text: &str,
+    builder: super::shaping::LayoutWithoutLineBreaksBuilder,
+    options: LayoutOptions,
+) -> Layout {
+    let mut font_ctx = test_font_context();
     let paragraphs = create_text_paragraphs(
         &builder,
         &mut font_ctx,
@@ -86,6 +91,31 @@ fn bidi_selection_spans_are_ascending_in_x() {
     }
     // Otherwise the ranges above stopped producing a split line and this proves nothing.
     assert!(saw_line_with_several_spans, "expected a bidi selection to split into spans");
+}
+
+#[test]
+fn test_text_line_height_matches_shaped_single_line() {
+    for (pixel_size, line_height_factor) in [(12.0, None), (25.5, None), (12.0, Some(1.5))] {
+        let font_request = FontRequest {
+            pixel_size: Some(LogicalLength::new(pixel_size)),
+            line_height_factor,
+            ..Default::default()
+        };
+        let builder = super::shaping::LayoutWithoutLineBreaksBuilder::new(
+            Some(font_request.clone()),
+            TextWrap::NoWrap,
+            None,
+            ScaleFactor::new(1.0),
+        );
+        let shaped = layout_text_with_builder("Hello world", builder, LayoutOptions::default());
+        let fast = text_line_height(&mut test_font_context(), &font_request).unwrap();
+        assert!(
+            (shaped.height.get() - fast.get()).abs() < 0.01,
+            "shaped {} != estimated {} (size {pixel_size}, factor {line_height_factor:?})",
+            shaped.height.get(),
+            fast.get(),
+        );
+    }
 }
 
 #[test]
