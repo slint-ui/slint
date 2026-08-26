@@ -9,15 +9,20 @@
 //!    If either the bounding box has changed, or the PropertyTracker that tracks the rendering properties is dirty, then the
 //!    region is marked dirty.
 //!    That pass also register dependencies on every geometry, and on the non-dirty property trackers.
-//! 2. The Renderer calls [`PartialRenderer::filter_item`] For most items.
+//! 2. With the `occlusion-culling` feature, [`PartialRenderingState::apply_dirty_region`] then calls
+//!    [`PartialRenderer::compute_occlusion`] once the dirty region reaches its final value for the frame (after
+//!    `force_screen_refresh` is taken and `dirty_region_of_existing_buffer` is unioned in), marking each item
+//!    fully hidden behind opaque content painted after it. Runs untracked (`evaluate_no_tracking`): it only
+//!    decides what to skip drawing, so its own property reads must not register redraw-tracker dependencies.
+//! 3. The Renderer calls [`PartialRenderer::filter_item`] For most items.
 //!    This assume that the cached geometry was requested in the previous step. So it will not register new dependencies.
-//! 3. Then the renderer calls the rendering function for each item that needs to be rendered.
+//! 4. Then the renderer calls the rendering function for each item that needs to be rendered.
 //!    This register dependencies only on the rendering tracker.
 //!
 
-use crate::Coord;
 #[cfg(feature = "occlusion-culling")]
-use crate::item_rendering::is_opaque_covering_rectangle;
+use crate::Brush;
+use crate::Coord;
 use crate::item_rendering::{
     ItemRenderer, ItemRendererFeatures, RenderBorderRectangle, RenderImage, RenderRectangle,
     RenderText,
@@ -27,7 +32,11 @@ use crate::item_tree::{
 };
 #[cfg(feature = "path")]
 use crate::items::Path;
+#[cfg(feature = "occlusion-culling")]
+use crate::items::{BasicBorderRectangle, BorderRectangle, Rectangle};
 use crate::items::{BoxShadow, Clip, ItemRc, ItemRef, Layer, Opacity, RenderingResult, TextInput};
+#[cfg(feature = "occlusion-culling")]
+use crate::lengths::LogicalLength;
 use crate::lengths::{
     ItemTransform, LogicalBorderRadius, LogicalPoint, LogicalPx, LogicalRect, LogicalSize,
     LogicalVector, ScaleFactor,
@@ -38,6 +47,8 @@ use alloc::boxed::Box;
 use alloc::rc::Rc;
 use core::cell::{Cell, RefCell};
 use core::pin::Pin;
+#[cfg(feature = "occlusion-culling")]
+use euclid::num::Zero;
 use vtable::VRc;
 
 /// This structure must be present in items that are Rendered and contains information.
@@ -210,10 +221,6 @@ struct PartialRenderingCachedData {
     /// descendants this frame; `None` if nothing in the subtree is visible.
     #[cfg(feature = "occlusion-culling")]
     pub subtree_screen_bounds: Option<LogicalRect>,
-    /// The `transform_to_screen` that `compute_dirty_regions_recursive` passed down to this item's children this frame.
-    /// Cached here so `compute_occlusion_recursive` can reuse it instead of re-composing the same matrix a second time in the same frame.
-    #[cfg(feature = "occlusion-culling")]
-    pub child_transform_to_screen: ItemTransform,
 }
 impl PartialRenderingCachedData {
     fn new(data: CachedItemBoundingBoxAndTransform) -> Self {
@@ -224,8 +231,6 @@ impl PartialRenderingCachedData {
             occluded: false,
             #[cfg(feature = "occlusion-culling")]
             subtree_screen_bounds: None,
-            #[cfg(feature = "occlusion-culling")]
-            child_transform_to_screen: ItemTransform::identity(),
         }
     }
 }
@@ -272,39 +277,78 @@ impl PartialRendererCache {
     }
 }
 
-/// Scans `rectangles[..*count]` against `b`: returns `true` if `b` is already fully contained in one of them (nothing to do),
-/// swap-removing along the way any rectangle that `b` itself fully contains (now redundant).
-/// Returns `false` if `b` still needs to be inserted or merged in by the caller, which knows its own overflow policy.
-fn scan_and_collapse(
-    rectangles: &mut [euclid::Box2D<Coord, LogicalPx>],
-    count: &mut usize,
-    b: &euclid::Box2D<Coord, LogicalPx>,
-) -> bool {
-    let mut i = 0;
-    while i < *count {
-        let r = &rectangles[i];
-        if r.contains_box(b) {
-            return true;
-        } else if b.contains_box(r) {
-            rectangles.swap(i, *count - 1);
-            *count -= 1;
-            continue;
-        }
-        i += 1;
-    }
-    false
-}
-
-/// A region composed of a few rectangles that need to be redrawn.
-#[derive(Default, Clone)]
-pub struct DirtyRegion {
-    rectangles: [euclid::Box2D<Coord, LogicalPx>; Self::MAX_COUNT],
+/// A small fixed-capacity set of rectangles with no stored rectangle a subset of another.
+/// `DirtyRegion` and `OccludedRegion` wrap one and differ only in overflow policy: merge
+/// (`DirtyRegion`) vs. drop (`OccludedRegion`).
+#[derive(Clone)]
+struct RectSet<const N: usize> {
+    rectangles: [euclid::Box2D<Coord, LogicalPx>; N],
     count: usize,
 }
 
+impl<const N: usize> Default for RectSet<N> {
+    fn default() -> Self {
+        Self { rectangles: [euclid::Box2D::zero(); N], count: 0 }
+    }
+}
+
+impl<const N: usize> RectSet<N> {
+    /// An iterator over the stored rectangles (they can overlap)
+    fn iter(&self) -> impl Iterator<Item = euclid::Box2D<Coord, LogicalPx>> + '_ {
+        (0..self.count).map(|x| self.rectangles[x])
+    }
+
+    /// Whether `b` is fully contained in a single stored rectangle.
+    #[cfg(feature = "occlusion-culling")]
+    fn contains(&self, b: &euclid::Box2D<Coord, LogicalPx>) -> bool {
+        self.rectangles[..self.count].iter().any(|r| r.contains_box(b))
+    }
+
+    /// Returns `true` if `b` is already contained in a stored rectangle, swap-removing any
+    /// stored rectangle that `b` itself contains along the way. Returns `false` if `b` still
+    /// needs inserting or merging, which is left to the caller's overflow policy.
+    fn scan_and_collapse(&mut self, b: &euclid::Box2D<Coord, LogicalPx>) -> bool {
+        let mut i = 0;
+        while i < self.count {
+            let r = &self.rectangles[i];
+            if r.contains_box(b) {
+                return true;
+            } else if b.contains_box(r) {
+                self.rectangles.swap(i, self.count - 1);
+                self.count -= 1;
+                continue;
+            }
+            i += 1;
+        }
+        false
+    }
+
+    /// Appends `b`. Returns `false` (and leaves `self` unchanged) if the set is already at capacity.
+    fn try_push(&mut self, b: euclid::Box2D<Coord, LogicalPx>) -> bool {
+        if self.count < N {
+            self.rectangles[self.count] = b;
+            self.count += 1;
+            true
+        } else {
+            false
+        }
+    }
+}
+
+/// The maximum number of rectangles that can be stored in a [`DirtyRegion`].
+const DIRTY_REGION_MAX_COUNT: usize = 3;
+
+/// A region composed of a few rectangles that need to be redrawn.
+#[derive(Default, Clone)]
+pub struct DirtyRegion(RectSet<DIRTY_REGION_MAX_COUNT>);
+
+// cbindgen emits associated consts by textually copying their initializer expression, so it can't
+// resolve a reference to another (private) const; keep this in sync with `DirtyRegion::MAX_COUNT`.
+const _: () = assert!(DirtyRegion::MAX_COUNT == DIRTY_REGION_MAX_COUNT);
+
 impl core::fmt::Debug for DirtyRegion {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "{:?}", &self.rectangles[..self.count])
+        write!(f, "{:?}", &self.0.rectangles[..self.0.count])
     }
 }
 
@@ -314,7 +358,7 @@ impl DirtyRegion {
 
     /// An iterator over the part of the region (they can overlap)
     pub fn iter(&self) -> impl Iterator<Item = euclid::Box2D<Coord, LogicalPx>> + '_ {
-        (0..self.count).map(|x| self.rectangles[x])
+        self.0.iter()
     }
 
     /// Add a rectangle to the region.
@@ -331,20 +375,17 @@ impl DirtyRegion {
         if b.is_empty() {
             return;
         }
-        if scan_and_collapse(&mut self.rectangles, &mut self.count, &b) {
+        if self.0.scan_and_collapse(&b) {
             return;
         }
 
-        if self.count < Self::MAX_COUNT {
-            self.rectangles[self.count] = b;
-            self.count += 1;
-        } else {
-            let best_merge = (0..self.count)
-                .map(|i| (i, self.rectangles[i].union(&b).area() - self.rectangles[i].area()))
+        if !self.0.try_push(b) {
+            let best_merge = (0..self.0.count)
+                .map(|i| (i, self.0.rectangles[i].union(&b).area() - self.0.rectangles[i].area()))
                 .min_by(|a, b| PartialOrd::partial_cmp(&a.1, &b.1).unwrap())
                 .expect("There should always be rectangles")
                 .0;
-            self.rectangles[best_merge] = self.rectangles[best_merge].union(&b);
+            self.0.rectangles[best_merge] = self.0.rectangles[best_merge].union(&b);
         }
     }
 
@@ -363,12 +404,12 @@ impl DirtyRegion {
     /// Bounding rectangle of the region.
     #[must_use]
     pub fn bounding_rect(&self) -> LogicalRect {
-        if self.count == 0 {
+        if self.0.count == 0 {
             return Default::default();
         }
-        let mut r = self.rectangles[0];
-        for i in 1..self.count {
-            r = r.union(&self.rectangles[i]);
+        let mut r = self.0.rectangles[0];
+        for i in 1..self.0.count {
+            r = r.union(&self.0.rectangles[i]);
         }
         r.to_rect()
     }
@@ -379,12 +420,12 @@ impl DirtyRegion {
         let mut ret = self.clone();
         let other = other.to_box2d();
         let mut i = 0;
-        while i < ret.count {
-            if let Some(x) = ret.rectangles[i].intersection(&other) {
-                ret.rectangles[i] = x;
+        while i < ret.0.count {
+            if let Some(x) = ret.0.rectangles[i].intersection(&other) {
+                ret.0.rectangles[i] = x;
             } else {
-                ret.count -= 1;
-                ret.rectangles.swap(i, ret.count);
+                ret.0.count -= 1;
+                ret.0.rectangles.swap(i, ret.0.count);
                 continue;
             }
             i += 1;
@@ -410,42 +451,31 @@ impl From<LogicalRect> for DirtyRegion {
 /// built up by [`PartialRenderer::compute_occlusion`] to skip drawing items that can never be visible.
 #[cfg(feature = "occlusion-culling")]
 #[derive(Default)]
-struct OccludedRegion {
-    rectangles: [euclid::Box2D<Coord, LogicalPx>; Self::MAX_COUNT],
-    count: usize,
-}
+struct OccludedRegion(
+    // Larger than `DirtyRegion::MAX_COUNT` (3): a miss here only misses a culling opportunity
+    // (see `contains_rect`), not correctness, so it's worth remembering more opaque covers.
+    RectSet<8>,
+);
 
 #[cfg(feature = "occlusion-culling")]
 impl OccludedRegion {
-    // Larger than `DirtyRegion::MAX_COUNT` (3): a miss here only misses a culling opportunity
-    // (see `contains_rect`), not correctness, so it's worth remembering more opaque covers.
-    const MAX_COUNT: usize = 8;
-
     /// Record `rect` (in screen coordinates) as fully opaquely covered.
     fn add_rect(&mut self, rect: LogicalRect) {
         let b = rect.to_box2d();
         if b.is_empty() {
             return;
         }
-        if scan_and_collapse(&mut self.rectangles, &mut self.count, &b) {
+        if self.0.scan_and_collapse(&b) {
             return;
         }
-
-        if self.count < Self::MAX_COUNT {
-            self.rectangles[self.count] = b;
-            self.count += 1;
-        }
-        // else: silently drop rather than merge
+        // If full, silently drop rather than merge.
+        self.0.try_push(b);
     }
 
     /// Whether `rect` is fully contained in a single recorded rectangle.
     /// Doesn't detect coverage split across multiple rectangles which is a missed optimization, not a soundness issue.
     fn contains_rect(&self, rect: LogicalRect) -> bool {
-        let b = rect.to_box2d();
-        if b.is_empty() {
-            return true;
-        }
-        self.rectangles[..self.count].iter().any(|r| r.contains_box(&b))
+        self.0.contains(&rect.to_box2d())
     }
 }
 
@@ -486,12 +516,40 @@ pub struct PartialRenderer<'a, T> {
 struct ComputeOcclusionState {
     transform_to_screen: ItemTransform,
     clipped: LogicalRect,
-    /// Like `clipped`, but also narrowed to the largest rectangle inscribed in every ancestor `Clip`'s rounded shape,
-    /// not just its rectangular `geometry`.
-    /// Content recorded as occluded must stay within this tighter bound, or rounded-off corners get wrongly culled.
+    /// Like `clipped`, but also narrowed to the corner-inset rectangle approximating every
+    /// ancestor `Clip`'s rounded shape. Occluded content must stay within this tighter bound,
+    /// or rounded-off corners get wrongly culled.
     occluder_clip: LogicalRect,
     /// False once an ancestor makes opaque-coverage claims from descendants unsound
     may_contribute: bool,
+    /// Used to shrink recorded occluder rects to their device-pixel interior (see below).
+    scale_factor: ScaleFactor,
+}
+
+/// Whether `item` is guaranteed to opaquely and fully cover its own geometry rect: an axis-aligned `Rectangle`/`BorderRectangle`
+/// with a fully opaque background, no rounded corners, and either no border or an opaque one.
+#[cfg(feature = "occlusion-culling")]
+fn is_opaque_covering_rectangle(item: Pin<ItemRef>) -> bool {
+    fn border_is_opaque_or_absent(border_width: LogicalLength, border_color: Brush) -> bool {
+        border_width <= LogicalLength::zero() || border_color.is_opaque()
+    }
+
+    if let Some(rect) = ItemRef::downcast_pin::<Rectangle>(item) {
+        rect.background().is_opaque()
+    } else if let Some(rect) = ItemRef::downcast_pin::<BasicBorderRectangle>(item) {
+        rect.background().is_opaque()
+            && rect.border_radius() <= LogicalLength::zero()
+            && border_is_opaque_or_absent(rect.border_width(), rect.border_color())
+    } else if let Some(rect) = ItemRef::downcast_pin::<BorderRectangle>(item) {
+        rect.background().is_opaque()
+            && rect.border_top_left_radius() <= LogicalLength::zero()
+            && rect.border_top_right_radius() <= LogicalLength::zero()
+            && rect.border_bottom_left_radius() <= LogicalLength::zero()
+            && rect.border_bottom_right_radius() <= LogicalLength::zero()
+            && border_is_opaque_or_absent(rect.border_width(), rect.border_color())
+    } else {
+        false
+    }
 }
 
 /// Depth-first, postorder: recurse into `index`'s children before considering whether `index` itself is occluded or contributes to `accumulator`.
@@ -510,14 +568,10 @@ fn compute_occlusion_recursive(
      -> VisitChildrenResult {
         let rendering_data = item.cached_rendering_data_offset();
 
-        let (cached_geom, subtree_bounds, child_transform_to_screen) = {
+        let (cached_geom, subtree_bounds) = {
             let mut cache = cache.borrow_mut();
             match rendering_data.get_entry(&mut cache) {
-                Some(entry) => (
-                    entry.data.clone(),
-                    entry.subtree_screen_bounds,
-                    entry.child_transform_to_screen,
-                ),
+                Some(entry) => (entry.data.clone(), entry.subtree_screen_bounds),
                 // Not in the cache yet (e.g. just created this frame) -- nothing sound to say.
                 None => return VisitChildrenResult::CONTINUE,
             }
@@ -532,9 +586,9 @@ fn compute_occlusion_recursive(
         }
 
         let mut child_state = state;
-        // Reuses the transform compute_dirty_regions_recursive already composed this frame for
-        // the same purpose.
-        child_state.transform_to_screen = child_transform_to_screen;
+        // Recompose from `cached_geom.transform()` and the parent's `transform_to_screen`,
+        // rather than caching a second copy per item.
+        child_state.transform_to_screen = cached_geom.transform().then(&state.transform_to_screen);
         child_state.may_contribute &=
             !matches!(cached_geom, CachedItemBoundingBoxAndTransform::ItemWithTransform { .. });
         if let Some(opacity) = ItemRef::downcast_pin::<Opacity>(item) {
@@ -546,9 +600,9 @@ fn compute_occlusion_recursive(
             child_state.clipped =
                 child_state.clipped.intersection(&screen_clip_rect).unwrap_or_default();
 
-            // Only `Clip` items produce `ClipItem`, so this always downcasts.
-            // Inset by the largest corner radius as an inscribed-rectangle
-            // approximation of the rounded shape.
+            // Inset by the largest corner radius as an inscribed-rectangle approximation of the
+            // rounded shape. Non-`Clip` clippers like `Flickable` also produce `ClipItem` but
+            // have no radius, so `unwrap_or_default()` correctly falls back to a 0 inset.
             let corner_inset = ItemRef::downcast_pin::<Clip>(item)
                 .map(|clip| {
                     let r = clip.logical_border_radius();
@@ -581,16 +635,19 @@ fn compute_occlusion_recursive(
             .cast()
             .intersection(&state.clipped);
 
-        if let Some(visible_rect) = visible_rect {
-            let occluded = accumulator.contains_rect(visible_rect);
+        // Computed whether or not `visible_rect` is `Some`, and always written back below: a
+        // fully-clipped item (`visible_rect` is `None`) must not keep last frame's flag.
+        let occluded =
+            visible_rect.is_some_and(|visible_rect| accumulator.contains_rect(visible_rect));
 
-            {
-                let mut cache = cache.borrow_mut();
-                if let Some(entry) = rendering_data.get_entry(&mut cache) {
-                    entry.occluded = occluded;
-                }
+        {
+            let mut cache = cache.borrow_mut();
+            if let Some(entry) = rendering_data.get_entry(&mut cache) {
+                entry.occluded = occluded;
             }
+        }
 
+        if let Some(visible_rect) = visible_rect {
             // Bounded by `occluder_clip`, not `clipped`: what gets *recorded* as occluded must
             // never over claim past a rounded `Clip` ancestor's actual painted shape.
             if !occluded
@@ -598,7 +655,28 @@ fn compute_occlusion_recursive(
                 && is_opaque_covering_rectangle(item)
                 && let Some(occluder_rect) = visible_rect.intersection(&state.occluder_clip)
             {
-                accumulator.add_rect(occluder_rect);
+                // Anti-aliased rasterization only partially covers a boundary pixel when the
+                // occluder's edge lands off-grid, so shrink to the device-pixel interior before
+                // recording -- otherwise a partially-covered pixel could be treated as opaque.
+                let device_pixel_interior_logical =
+                    (occluder_rect.to_box2d().cast::<f32>() * state.scale_factor).round_in()
+                        / state.scale_factor;
+                #[cfg(not(slint_int_coord))]
+                let device_pixel_interior = device_pixel_interior_logical.cast::<Coord>().to_rect();
+                #[cfg(slint_int_coord)]
+                let device_pixel_interior = {
+                    // `Coord` is `i32` here: a plain f32->i32 cast truncates toward zero, which
+                    // would move the min corner *outward* and undo the shrink above. Round each
+                    // corner away from the interior instead, so narrowing to `Coord` can only
+                    // keep the box the same size or shrink it further.
+                    euclid::Box2D::new(
+                        device_pixel_interior_logical.min.ceil(),
+                        device_pixel_interior_logical.max.floor(),
+                    )
+                    .cast::<Coord>()
+                    .to_rect()
+                };
+                accumulator.add_rect(device_pixel_interior);
             }
         }
 
@@ -665,6 +743,14 @@ fn mark_dirty_rect(
     }
 }
 
+/// Screen-space bounding rect of an item's own rendering plus everything painted by its descendants,
+/// used only to feed `PartialRenderer::compute_occlusion`; a zero-sized no-op when that feature is off,
+/// so the bookkeeping below costs nothing to compile in.
+#[cfg(feature = "occlusion-culling")]
+type SubtreeScreenBounds = Option<LogicalRect>;
+#[cfg(not(feature = "occlusion-culling"))]
+type SubtreeScreenBounds = ();
+
 /// Transform+clip `rect` to screen space like `mark_dirty_rect`, for folding into a subtree's aggregate screen bound.
 /// `None` if `rect` is empty, non-finite, or entirely clipped away.
 #[cfg(feature = "occlusion-culling")]
@@ -672,7 +758,7 @@ fn screen_rect_for(
     rect: &LogicalRect,
     transform: ItemTransform,
     clip_rect: &LogicalRect,
-) -> Option<LogicalRect> {
+) -> SubtreeScreenBounds {
     transformed_and_clipped(rect, transform, clip_rect)
 }
 
@@ -681,20 +767,26 @@ fn screen_rect_for(
     _rect: &LogicalRect,
     _transform: ItemTransform,
     _clip_rect: &LogicalRect,
-) -> Option<LogicalRect> {
-    None
+) -> SubtreeScreenBounds {
 }
 
 /// Union two optional screen rects, treating `None` as "contributes nothing" rather than an empty rect at the origin (which would pull the union toward (0, 0)).
-fn union_opt_rect(a: Option<LogicalRect>, b: Option<LogicalRect>) -> Option<LogicalRect> {
+#[cfg(feature = "occlusion-culling")]
+fn union_opt_rect(a: SubtreeScreenBounds, b: SubtreeScreenBounds) -> SubtreeScreenBounds {
     match (a, b) {
         (None, x) | (x, None) => x,
         (Some(a), Some(b)) => Some(a.union(&b)),
     }
 }
 
+#[cfg(not(feature = "occlusion-culling"))]
+fn union_opt_rect(_a: SubtreeScreenBounds, _b: SubtreeScreenBounds) -> SubtreeScreenBounds {}
+
 /// Depth-first walk that computes dirty regions for `index`'s children
 /// Returns the union of `index`'s children's subtree bounds, or `None` if nothing under `index` is visible this frame.
+// `SubtreeScreenBounds` collapses to `()` without the `occlusion-culling` feature, so this
+// bookkeeping is free in that build; that's also why it trips `let_unit_value` there.
+#[cfg_attr(not(feature = "occlusion-culling"), allow(clippy::let_unit_value))]
 fn compute_dirty_regions_recursive<T: ItemRendererFeatures>(
     component: &ItemTreeRc,
     index: isize,
@@ -711,8 +803,8 @@ fn compute_dirty_regions_recursive<T: ItemRendererFeatures>(
     // changing.
     sibling_counters: &RefCell<alloc::vec::Vec<(u16, u16)>>,
     state: ComputeDirtyRegionState,
-) -> Option<LogicalRect> {
-    let mut aggregate: Option<LogicalRect> = None;
+) -> SubtreeScreenBounds {
+    let mut aggregate: SubtreeScreenBounds = Default::default();
 
     let mut child_visitor = |child_component: &ItemTreeRc,
                              child_index: u32,
@@ -738,7 +830,7 @@ fn compute_dirty_regions_recursive<T: ItemRendererFeatures>(
             CachedItemBoundingBoxAndTransform::new::<T>(&item_rc, window_adapter, my_sibling_index);
 
         let rendering_data = item.cached_rendering_data_offset();
-        let own_screen_rect: Option<LogicalRect>;
+        let own_screen_rect: SubtreeScreenBounds;
         let recurse: Option<ComputeDirtyRegionState>;
 
         {
@@ -930,8 +1022,8 @@ fn compute_dirty_regions_recursive<T: ItemRendererFeatures>(
             }
         }
 
-        let descendants_bounds = recurse.and_then(|child_state| {
-            compute_dirty_regions_recursive::<T>(
+        let descendants_bounds = match recurse {
+            Some(child_state) => compute_dirty_regions_recursive::<T>(
                 child_component,
                 child_index as isize,
                 cache,
@@ -939,8 +1031,9 @@ fn compute_dirty_regions_recursive<T: ItemRendererFeatures>(
                 dirty_region,
                 sibling_counters,
                 child_state,
-            )
-        });
+            ),
+            None => Default::default(),
+        };
 
         let subtree_bounds = union_opt_rect(own_screen_rect, descendants_bounds);
 
@@ -949,7 +1042,6 @@ fn compute_dirty_regions_recursive<T: ItemRendererFeatures>(
             let mut cache_ref = cache.borrow_mut();
             if let Some(entry) = rendering_data.get_entry(&mut cache_ref) {
                 entry.subtree_screen_bounds = subtree_bounds;
-                entry.child_transform_to_screen = new_state.transform_to_screen;
             }
         }
 
@@ -1017,19 +1109,26 @@ impl<'a, T: ItemRenderer + ItemRendererFeatures> PartialRenderer<'a, T> {
     ) {
         let initial_transform = euclid::Transform2D::translation(origin.x as f32, origin.y as f32);
         let mut accumulator = OccludedRegion::default();
-        compute_occlusion_recursive(
-            component,
-            -1,
-            self.cache,
-            &self.dirty_region,
-            &mut accumulator,
-            ComputeOcclusionState {
-                transform_to_screen: initial_transform,
-                clipped: LogicalRect::from_size(size),
-                occluder_clip: LogicalRect::from_size(size),
-                may_contribute: true,
-            },
-        );
+        // Untracked: this pass only decides which already-dirty items to skip drawing, it
+        // doesn't itself determine what's dirty, so its property reads (background, border,
+        // clip radius, opacity, ...) mustn't create redraw-tracker dependencies -- same
+        // rationale as `CachedItemBoundingBoxAndTransform::new` and `filter_item`.
+        crate::properties::evaluate_no_tracking(|| {
+            compute_occlusion_recursive(
+                component,
+                -1,
+                self.cache,
+                &self.dirty_region,
+                &mut accumulator,
+                ComputeOcclusionState {
+                    transform_to_screen: initial_transform,
+                    clipped: LogicalRect::from_size(size),
+                    occluder_clip: LogicalRect::from_size(size),
+                    may_contribute: true,
+                    scale_factor: self.actual_renderer.scale_factor(),
+                },
+            );
+        });
     }
 
     fn do_rendering(
@@ -1251,8 +1350,6 @@ impl PartialRenderingState {
         for (component, origin) in components {
             if let Some(component) = crate::item_tree::ItemTreeWeak::upgrade(component) {
                 partial_renderer.compute_dirty_regions(&component, *origin, logical_window_size);
-                #[cfg(feature = "occlusion-culling")]
-                partial_renderer.compute_occlusion(&component, *origin, logical_window_size);
             }
         }
 
@@ -1269,6 +1366,17 @@ impl PartialRenderingState {
             None => partial_renderer.dirty_region.clone(),
         }
         .intersection(screen_region);
+
+        // Must run after `dirty_region` reaches its final value above: `compute_occlusion` prunes
+        // subtrees outside it, and `filter_item` tests `occluded` against that same region, so a
+        // narrower not-yet-final region would leave stale `occluded` flags on content the wider
+        // region ends up drawing over.
+        #[cfg(feature = "occlusion-culling")]
+        for (component, origin) in components {
+            if let Some(component) = crate::item_tree::ItemTreeWeak::upgrade(component) {
+                partial_renderer.compute_occlusion(&component, *origin, logical_window_size);
+            }
+        }
 
         region_to_repaint
     }

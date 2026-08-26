@@ -47,6 +47,7 @@ renderer-skia-vulkan = ["i-slint-backend-selector/renderer-skia-vulkan", "render
 renderer-vello = ["i-slint-backend-selector/renderer-vello"]
 renderer-software = ["i-slint-backend-selector/renderer-software", "dep:i-slint-renderer-software"]
 software-renderer-path = ["i-slint-renderer-software/path"]
+occlusion-culling = ["i-slint-core/occlusion-culling"]
 gettext = ["i-slint-core/gettext-rs"]
 accessibility = ["i-slint-backend-selector/accessibility"]
 # Enable the `SystemTrayIcon` element (pulls `ksni` on Linux/BSD).

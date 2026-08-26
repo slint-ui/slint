@@ -34,7 +34,6 @@ renderer-vello = [
   "drm",
   "dep:memmap2",
 ]
-occlusion-culling = ["i-slint-renderer-software?/occlusion-culling", "i-slint-renderer-skia?/occlusion-culling"]
 libseat = ["dep:libseat"]
 ## Handle mouse, touch and keyboard input via libinput. Without this feature the
 ## backend renders but receives no input events (and libinput, libudev and

@@ -33,7 +33,6 @@ libm = ["zeno?/libm", "num-traits/libm", "euclid/libm", "i-slint-core/libm", "sw
 experimental = []
 # Exposes additional APIS that aren't public but required for integration testing.
 testing = ["i-slint-core/testing"]
-occlusion-culling = ["i-slint-core/occlusion-culling"]
 default = ["std"]
 
 [dependencies]
@@ -48,10 +47,6 @@ skrifa = { workspace = true, optional = true }
 swash = { workspace = true, optional = true, features = ["scale", "render"] }
 zeno = { version = "0.3.3", optional = true, default-features = false, features = ["eval"] }
 lyon_path = { workspace = true, optional = true }
-
-[dev-dependencies]
-slint-interpreter = { workspace = true, features = ["compat-1-2"] }
-spin_on = { workspace = true }
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ["cfg(cbindgen)", "cfg(slint_nightly_test)"] }

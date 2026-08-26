@@ -56,7 +56,6 @@ renderer-software = [
   "i-slint-renderer-software/std",
   "dep:bytemuck",
 ]
-occlusion-culling = ["i-slint-renderer-software?/occlusion-culling", "i-slint-renderer-skia?/occlusion-culling"]
 accessibility = ["dep:accesskit", "dep:accesskit_winit", "i-slint-core/accessibility-text"]
 raw-window-handle-06 = ["i-slint-core/raw-window-handle-06"]
 unstable-wgpu-29 = ["i-slint-core/unstable-wgpu-29", "i-slint-renderer-skia?/unstable-wgpu-29"]

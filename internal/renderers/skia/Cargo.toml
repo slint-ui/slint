@@ -42,7 +42,6 @@ wgpu-30 = ["i-slint-core/wgpu-30", "dep:wgpu-30", "dep:spin_on", "dep:ash", "dep
 unstable-wgpu-30 = ["i-slint-core/unstable-wgpu-30", "wgpu-30"]
 default = ["softbuffer", "wgpu-30"]
 testing = ["i-slint-core/testing"]
-occlusion-culling = ["i-slint-core/occlusion-culling"]
 
 [dependencies]
 i-slint-core = { workspace = true, features = ["default", "box-shadow-cache", "shared-parley", "image-decoders", "svg"] }
@@ -116,10 +115,6 @@ skia-safe = { version = "0.99.0", features = ["textlayout"] }
 [target.aarch64-apple-ios-sim.dependencies]
 # Disabling encoding assertions until https://github.com/madsmtm/objc2/issues/795 is fixed.
 objc2 = { version = "0.6.0", features = ["disable-encoding-assertions"] }
-
-[dev-dependencies]
-slint-interpreter = { workspace = true, features = ["compat-1-2"] }
-spin_on = { workspace = true }
 
 [build-dependencies]
 cfg_aliases = { workspace = true }

@@ -220,6 +220,8 @@ All notable changes to this project are documented in this file.
    the platform.
  - Fixed a crash when the item tree is walked while a repeated element is being removed, e.g. when
    deleting a model row from its own click handler.
+ - Added the opt-in `SLINT_FEATURE_OCCLUSION_CULLING` CMake option: skips rendering content
+   fully hidden behind opaque items.
 
 ### JavaScript
 
