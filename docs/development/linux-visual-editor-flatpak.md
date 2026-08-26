@@ -1,4 +1,4 @@
-<!-- cspell:ignore awscli flatpakref gpgkey minioadmin ostree untarring -->
+<!-- cspell:ignore awscli flatpakref gpgkey minioadmin ostree sandboxed untarring -->
 
 # Linux Visual Editor Flatpak
 
@@ -193,6 +193,71 @@ itself and looks the id up through `/user/tokens/verify`.
 That lookup only works for user-owned tokens. For an account-owned token, set
 the id in the `VISUAL_EDITOR_R2_TOKEN_ID` repository variable instead: it is an
 identifier rather than a secret, so it does not need to be one.
+
+## Updates
+
+The editor updates itself through `org.freedesktop.portal.Flatpak`, which is
+how a sandboxed app is meant to learn about and install its own updates. It
+needs no `finish-args`: flatpak's session bus proxy already lets every app talk
+to the portals. `tools/editor/flatpak.rs` is the whole of it.
+
+The portal decides two things for us:
+
+* **There is no way to ask it to check.** `CreateUpdateMonitor` arms a timer and
+  nothing else - 30 minutes by default, and no check when the monitor is
+  created - so an update published overnight would go unmentioned for the first
+  half hour of a session, and a shorter session would never hear about it. The
+  editor reads the OSTree ref over HTTPS at startup instead, one 65 byte request
+  for the whole process lifetime, and leaves the rest of the session to the
+  monitor. Failure is silence: offline, a captive portal and a 404 are all none
+  of the editor's business.
+* **`Update` deploys, it does not relaunch.** The running process keeps the old
+  deployment mounted, so a finished update ends at "Restart to update".
+  Clicking that calls `Spawn` with `FLATPAK_SPAWN_FLAGS_LATEST_VERSION`, which
+  starts the app from the new deployment and passes the same argv across.
+  Nothing restarts on its own: the moment to lose a running preview belongs to
+  whoever is using the editor.
+
+The URL comes out of `/.flatpak-info`, so the same binary is right for both
+channels and both architectures:
+
+```text
+https://visual-editor.slint.dev/<branch>/flatpak/refs/heads/app/<app id>/<arch>/<branch>
+```
+
+`SLINT_FLATPAK_BASE_URL` overrides everything up to `/flatpak`, which is what
+the local test below uses.
+
+Two things a user can run into:
+
+* **The portal asks once.** "The application wants to update itself" comes from
+  the portal, not from the editor, and the answer is remembered in the
+  permission store: `flatpak permission-show dev.slint.VisualEditor`.
+* **Signing is not optional for system installs.** The portal refuses automatic
+  updates for system-helper remotes without GPG signatures, so an unsigned
+  channel can only update `--user` installs. Updating an install that came from
+  a single-file bundle fails whatever the signing: the bundle carries no repo
+  URL, so there is no remote to update from, and the error says so.
+
+## Testing updates locally
+
+`scripts/local_flatpak_update_test.sh` runs the whole path against a repository
+on this machine - banner at startup, portal install, restart into the new
+deployment - without publishing anything:
+
+```sh
+scripts/local_flatpak_update_test.sh --bundle slint-visual-editor-x86_64.flatpak
+```
+
+It imports the bundle into a repository, serves it on localhost in the same
+layout as visual-editor.slint.dev, installs it `--user` from a flatpakref so
+the origin remote is the local server, and then makes a second commit from
+identical content with `flatpak build-commit-from --force`, so the app has
+something waiting without being built twice. A repository from an earlier build
+works too, with `--repo`. `--clean` puts everything back.
+
+The `--user` install takes precedence over a system-wide install of the same id
+for as long as the test runs.
 
 ## Local verification
 
