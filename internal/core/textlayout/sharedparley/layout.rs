@@ -323,6 +323,11 @@ impl Layout {
 }
 
 impl Layout {
+    /// Whether an ellipsis may be placed.
+    pub(super) fn is_eliding(&self) -> bool {
+        self.elision_info.is_some()
+    }
+
     /// The paragraphs that have at least one line to show. Only differs from `paragraphs` when a
     /// `max-lines` limit drops lines: paragraphs entirely below the cut don't take part in
     /// hit-testing or selection.
