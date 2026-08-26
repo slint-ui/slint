@@ -3778,7 +3778,6 @@ dependencies = [
  "read-fonts",
  "scoped-tls-hkt",
  "skia-safe",
- "slint-interpreter",
  "softbuffer",
  "spin_on",
  "unicode-segmentation",
@@ -3805,8 +3804,6 @@ dependencies = [
  "lyon_path",
  "num-traits",
  "skrifa",
- "slint-interpreter",
- "spin_on",
  "swash",
  "zeno",
 ]
