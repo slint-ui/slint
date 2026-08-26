@@ -3,9 +3,9 @@
 These tests use the private Python `slint-testing` package to run the visual editor and control it out of process.
 
 The suite covers visual editor startup, source lifecycle, navigation,
-selection, deletion, palette, outline, and canvas behaviors as independent
-pytest cases. Cases that depend on editor functionality not yet available are
-kept collected with explicit skips.
+selection, deletion, palette, outline, canvas, and inspector behaviors as
+independent pytest cases. Cases that depend on editor functionality not yet
+available are kept collected with explicit skips.
 
 Each behavior starts from a fresh source fixture and editor process.
 This prevents one failed interaction from affecting later behavior checks.
@@ -76,8 +76,8 @@ preview implementation:
 - inserting palette elements and exposing valid drop markers through the Rust drop path
 - rejecting descendant cycles and component-root outline drops
 - recovering a deleted root source file without relaunching
-
-Inspector-dependent cases remain collected on this stack layer and become
-runnable on the stacked inspector branch.
+- editing a component-root property from the inspector
+- switching shadow families as one atomic property edit
+- changing both shadow-offset properties atomically through the angle control
 
 Remove a skip when its Rust implementation lands.

@@ -76,6 +76,19 @@ def assert_rendered_element(window: slint_testing.Window, element_id: str) -> No
     )
 
 
+def scroll_to_shadow_details(window: slint_testing.Window) -> None:
+    anchor = inspector_field(
+        window, "Shadow distance", slint_testing.AccessibleRole.Slider
+    )
+    position = slint_testing.LogicalPosition(
+        x=anchor.absolute_position.x + anchor.size.width / 2,
+        y=anchor.absolute_position.y + anchor.size.height / 2,
+    )
+    window.dispatch_event(
+        slint_testing.PointerScrolledEvent(position=position, delta_x=0, delta_y=-320)
+    )
+
+
 @pytest.mark.parametrize(
     ("label", "value", "old", "new"),
     [
@@ -517,4 +530,213 @@ def test_invalid_text_content_does_not_change_source(
         )
         window_element_with_label(
             window, "Inspector text", slint_testing.AccessibleRole.Text
+        )
+
+
+SHADOW_CONTROLS = (
+    ("color", "Shadow color", "#12345678"),
+    ("angle", "Shadow angle", "0"),
+    ("distance", "Shadow distance", "12"),
+    ("blur", "Shadow blur", "24"),
+    ("spread", "Shadow spread", "6"),
+)
+SHADOW_BOUNDARIES = (
+    ("distance", "Shadow distance", "0"),
+    ("distance", "Shadow distance", "96"),
+    ("blur", "Shadow blur", "0"),
+    ("blur", "Shadow blur", "128"),
+    ("spread", "Shadow spread", "-64"),
+    ("spread", "Shadow spread", "64"),
+    ("angle", "Shadow angle", "359"),
+)
+
+
+def shadow_source(baseline: bytes, family: str) -> bytes:
+    return (
+        baseline
+        if family == "drop"
+        else baseline.replace(b"drop-shadow-", b"inner-shadow-")
+    )
+
+
+def shadow_expected(source: bytes, family: str, control: str, value: str) -> bytes:
+    prefix = f"        {family}-shadow-".encode()
+    if control == "color":
+        return replace_once(
+            source,
+            prefix + b"color: #00000040;",
+            prefix + f"color: {value};".encode(),
+        )
+    if control == "angle":
+        return replace_once(
+            source,
+            prefix + b"offset-x: 0px;\n" + prefix + b"offset-y: 8px;",
+            prefix + b"offset-x: 8px;\n" + prefix + b"offset-y: 0px;",
+        )
+    if control == "distance":
+        return replace_once(
+            source,
+            prefix + b"offset-y: 8px;",
+            prefix + f"offset-y: {value}px;".encode(),
+        )
+    old_value = "16" if control == "blur" else "0"
+    return replace_once(
+        source,
+        prefix + f"{control}: {old_value}px;".encode(),
+        prefix + f"{control}: {value}px;".encode(),
+    )
+
+
+@pytest.mark.parametrize("family", ("drop", "inner"))
+@pytest.mark.parametrize(
+    ("control", "label", "value"),
+    SHADOW_CONTROLS,
+    ids=tuple(control for control, _, _ in SHADOW_CONTROLS),
+)
+def test_each_shadow_family_control_writes_exact_source(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+    family: str,
+    control: str,
+    label: str,
+    value: str,
+) -> None:
+    source_file = fixture_project / INSPECTOR_SOURCE
+    starting_source = shadow_source(source_file.read_bytes(), family)
+    source_file.write_bytes(starting_source)
+    snapshot = SourceSnapshot.capture(fixture_project)
+
+    with launch_editor(editor_binary, editor_environment, source_file) as editor:
+        window = first_window(editor)
+        select_element(window, "Rectangle")
+        if control == "angle":
+            pytest.skip("Requires Rust support for atomic shadow-offset edits")
+        if control in {"blur", "spread"}:
+            scroll_to_shadow_details(window)
+        edit_field(window, label, value)
+        snapshot.wait_for_exact(
+            shadow_expected(starting_source, family, control, value),
+            relative_path=INSPECTOR_SOURCE,
+        )
+        assert_rendered_element(window, "InspectorCases::inspect-rectangle")
+
+
+@pytest.mark.parametrize("family", ("drop", "inner"))
+@pytest.mark.parametrize(
+    ("control", "label", "value"),
+    SHADOW_BOUNDARIES,
+    ids=tuple(f"{control}-{value}" for control, _, value in SHADOW_BOUNDARIES),
+)
+def test_shadow_control_boundary_writes_exact_source(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+    family: str,
+    control: str,
+    label: str,
+    value: str,
+) -> None:
+    source_file = fixture_project / INSPECTOR_SOURCE
+    starting_source = shadow_source(source_file.read_bytes(), family)
+    source_file.write_bytes(starting_source)
+    snapshot = SourceSnapshot.capture(fixture_project)
+
+    with launch_editor(editor_binary, editor_environment, source_file) as editor:
+        window = first_window(editor)
+        select_element(window, "Rectangle")
+        if control == "angle":
+            pytest.skip("Requires Rust support for atomic shadow-offset edits")
+        if control in {"blur", "spread"}:
+            scroll_to_shadow_details(window)
+        edit_field(window, label, value)
+        snapshot.wait_for_exact(
+            shadow_expected(starting_source, family, control, value),
+            relative_path=INSPECTOR_SOURCE,
+        )
+        assert_rendered_element(window, "InspectorCases::inspect-rectangle")
+
+
+@pytest.mark.skip(reason="Requires Rust support for atomic multi-property edits")
+@pytest.mark.parametrize("effect", ("none", "drop", "inner"))
+def test_rectangle_effect_value_writes_exact_source(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+    effect: str,
+) -> None:
+    assert editor_binary and editor_environment and fixture_project and effect
+
+
+INVALID_EDITS = (
+    ("invalid-number", "Rectangle", "Position X", "invalid"),
+    ("empty-number", "Rectangle", "Position X", ""),
+    ("empty-family", "Text", "Font family", ""),
+    ("empty-fit", "Image", "Image fit", ""),
+    ("nonnumeric-y", "Rectangle", "Position Y", "invalid"),
+    ("zero-width", "Rectangle", "Width", "0"),
+    ("negative-width", "Rectangle", "Width", "-1"),
+    ("zero-height", "Rectangle", "Height", "0"),
+    ("negative-height", "Rectangle", "Height", "-1"),
+)
+
+
+@pytest.mark.parametrize(
+    ("case", "kind", "label", "value"),
+    INVALID_EDITS,
+    ids=tuple(case for case, _, _, _ in INVALID_EDITS),
+)
+def test_invalid_or_empty_inspector_edit_does_not_change_source(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+    case: str,
+    kind: str,
+    label: str,
+    value: str,
+) -> None:
+    assert case
+    source_file = fixture_project / INSPECTOR_SOURCE
+    snapshot = SourceSnapshot.capture(fixture_project)
+
+    with launch_editor(editor_binary, editor_environment, source_file) as editor:
+        window = first_window(editor)
+        select_element(window, kind)
+        role = slint_testing.AccessibleRole.Combobox if label == "Image fit" else None
+        field = inspector_field(window, label, role)
+        value_before = field.accessible_value
+        edit_field(window, label, value, role)
+        snapshot.assert_unchanged()
+        wait_for_field(window, label, value_before, role)
+        window_element_with_label(
+            window, f"Selected {kind}", slint_testing.AccessibleRole.Region
+        )
+
+
+def test_invalid_rectangle_color_does_not_change_source(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+) -> None:
+    source_file = fixture_project / INSPECTOR_SOURCE
+    snapshot = SourceSnapshot.capture(fixture_project)
+
+    with launch_editor(editor_binary, editor_environment, source_file) as editor:
+        window = first_window(editor)
+        select_element(window, "Rectangle")
+        edit_field(
+            window,
+            "Rectangle background",
+            "not-a-color",
+            slint_testing.AccessibleRole.TextInput,
+        )
+        snapshot.assert_unchanged()
+        wait_for_field(
+            window,
+            "Rectangle background",
+            "#2563eb",
+            slint_testing.AccessibleRole.TextInput,
+        )
+        window_element_with_label(
+            window, "Selected Rectangle", slint_testing.AccessibleRole.Region
         )
