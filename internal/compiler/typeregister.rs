@@ -88,7 +88,7 @@ pub struct BuiltinTypes {
     pub enums: BuiltinEnums,
     pub noarg_callback_type: Type,
     pub strarg_callback_type: Type,
-    pub set_selection_callback_type: Type,
+    pub set_selection_offsets_callback_type: Type,
     pub logical_point_type: Arc<Struct>,
     pub logical_size_type: Arc<Struct>,
     pub font_metrics_type: Type,
@@ -164,7 +164,7 @@ impl BuiltinTypes {
                 args: vec![Type::String],
                 arg_names: Vec::new(),
             })),
-            set_selection_callback_type: Type::Callback(Arc::new(Function {
+            set_selection_offsets_callback_type: Type::Callback(Arc::new(Function {
                 return_type: Type::Void,
                 args: vec![Type::Int32, Type::Int32],
                 arg_names: vec![SmolStr::new_static("anchor"), SmolStr::new_static("focus")],
@@ -266,8 +266,8 @@ fn strarg_callback_type() -> Type {
     BUILTIN.strarg_callback_type.clone()
 }
 
-fn set_selection_callback_type() -> Type {
-    BUILTIN.set_selection_callback_type.clone()
+fn set_selection_offsets_callback_type() -> Type {
+    BUILTIN.set_selection_offsets_callback_type.clone()
 }
 
 pub fn reserved_accessibility_properties() -> impl Iterator<Item = (&'static str, Type)> {
@@ -291,7 +291,7 @@ pub fn reserved_accessibility_properties() -> impl Iterator<Item = (&'static str
         ("accessible-action-increment", noarg_callback_type()),
         ("accessible-action-decrement", noarg_callback_type()),
         ("accessible-action-set-value", strarg_callback_type()),
-        ("accessible-action-set-selection", set_selection_callback_type()),
+        ("accessible-action-set-selection-offsets", set_selection_offsets_callback_type()),
         ("accessible-action-expand", noarg_callback_type()),
         ("accessible-item-selectable", Type::Bool),
         ("accessible-item-selected", Type::Bool),

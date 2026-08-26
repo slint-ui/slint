@@ -499,7 +499,7 @@ fn accessibility_action_name(action: &AccessibilityAction) -> &'static str {
         AccessibilityAction::Expand => "Expand",
         AccessibilityAction::ReplaceSelectedText(_) => "ReplaceSelectedText",
         AccessibilityAction::SetValue(_) => "SetValue",
-        AccessibilityAction::SetSelection(..) => "SetSelection",
+        AccessibilityAction::SetSelectionOffsets(..) => "SetSelectionOffsets",
     }
 }
 
@@ -508,7 +508,7 @@ fn accessibility_action_args(action: &AccessibilityAction) -> Vec<crate::Value> 
         AccessibilityAction::ReplaceSelectedText(s) | AccessibilityAction::SetValue(s) => {
             vec![crate::Value::String(s.clone())]
         }
-        AccessibilityAction::SetSelection(anchor, focus) => {
+        AccessibilityAction::SetSelectionOffsets(anchor, focus) => {
             vec![crate::Value::Number(*anchor as f64), crate::Value::Number(*focus as f64)]
         }
         _ => Vec::new(),
