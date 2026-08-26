@@ -385,5 +385,10 @@ jobs:
           if ($bundles.Count -ne 1) {
             throw "expected exactly one .msixbundle to submit, found $($bundles.Count)"
           }
-          msstore publish $bundles[0].FullName -id ${{ needs.package.outputs.product }}
+          # --uploadTimeout has to be passed even though a default is intended:
+          # omitting it hands 0 to the blob client, which cancels every request
+          # the instant it starts and fails the upload without transferring a
+          # byte. Fixed by msstore-cli#163, unreleased as of v0.4.1, and the
+          # option is harmless to keep once that ships.
+          msstore publish $bundles[0].FullName -id ${{ needs.package.outputs.product }} --uploadTimeout 300
           if ($LASTEXITCODE -ne 0) { throw "msstore publish failed" }
