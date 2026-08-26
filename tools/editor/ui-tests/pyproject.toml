@@ -1,0 +1,17 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+[project]
+name = "slint-editor-ui-tests"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = ["pytest>=9,<10", "pytest-xdist>=3.8,<4", "slint-testing==0.3"]
+
+[tool.uv]
+package = false
+
+[tool.uv.sources]
+slint-testing = { index = "slint-private" }
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

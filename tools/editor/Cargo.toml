@@ -22,6 +22,8 @@ path = "main.rs"
 [features]
 ## Discover preview targets on the local network.
 preview-remote = ["dep:mdns-sd"]
+## Enable the out-of-process system-testing transport.
+system-testing = ["slint/system-testing"]
 
 [dependencies]
 i-slint-backend-selector = { workspace = true }
