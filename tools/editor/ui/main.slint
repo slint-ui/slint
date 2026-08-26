@@ -60,24 +60,15 @@ export component EditorUi inherits Window {
         return "";
     }
 
-    function update-status-background() -> color {
+    function update-status-foreground() -> color {
         if Api.update-state == UpdateState.Error {
-            return #b42318;
+            return StudioTheme.dark ? #ff9a94 : #b42318;
         }
-        if Api.update-state == UpdateState.ReadyToInstall {
-            return #1f7a4d;
+        if Api.update-state == UpdateState.Available
+            || Api.update-state == UpdateState.ReadyToInstall {
+            return StudioTheme.accent;
         }
-        return #3871ea;
-    }
-
-    function update-status-border() -> color {
-        if Api.update-state == UpdateState.Error {
-            return #ffb4ab;
-        }
-        if Api.update-state == UpdateState.ReadyToInstall {
-            return #9bd9b6;
-        }
-        return #6a7fad;
+        return StudioTheme.muted;
     }
 
     function open-startup-wizard() {
@@ -238,29 +229,29 @@ export component EditorUi inherits Window {
     if root.show-update-status(): Rectangle {
         x: 100px;
         y: 16px;
-        width: Api.update-state == UpdateState.Error ? 280px : 150px;
-        height: 24px;
+        width: Api.update-state == UpdateState.Error ? 260px : 132px;
+        height: 20px;
         border-radius: self.height / 2;
         border-width: 1px;
-        border-color: root.update-status-border();
-        background: root.update-status-background();
+        border-color: StudioTheme.border;
+        background: StudioTheme.panel-bg;
         clip: true;
 
         download-progress := Rectangle {
             x: 0px;
-            background: #bfcce9;
+            background: StudioTheme.accent;
             opacity: Api.update-state == UpdateState.Downloading
-                || Api.update-state == UpdateState.Installing ? 0.45 : 0;
+                || Api.update-state == UpdateState.Installing ? 0.18 : 0;
             width: parent.width * Api.update-download-progress;
         }
 
         Text {
-            x: 10px;
-            width: parent.width - 20px;
+            x: 9px;
+            width: parent.width - 18px;
             text: root.update-status-label();
-            color: white;
-            font-size: 12px;
-            font-weight: 700;
+            color: root.update-status-foreground();
+            font-size: 11px;
+            font-weight: 500;
             horizontal-alignment: center;
             vertical-alignment: center;
             overflow: elide;
