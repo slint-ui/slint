@@ -102,7 +102,13 @@ run = "pnpm i --lockfile-only"
 
 ["fix:pnpm:dedupe"]
 description = "Run pnpm dedupe"
-run = "pnpm dedupe"
+run = '''
+if [ "${SLINT_SKIP_PNPM_DEDUPE:-false}" = "true" ]; then
+  echo "Skipping pnpm dedupe because no dependency manifest changed"
+else
+  pnpm dedupe
+fi
+'''
 depends = ["prepare:pnpm-install"]
 
 ["fix:ts:format"]

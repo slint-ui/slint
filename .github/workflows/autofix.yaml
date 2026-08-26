@@ -27,12 +27,13 @@ jobs:
         runs-on: ubuntu-latest
         timeout-minutes: 2
         permissions:
+            contents: read
             pull-requests: read
         outputs:
             changes: ${{ steps.filter.outputs.changes }}
         steps:
-            # paths-filter only reads the filter file from the working tree;
-            # the changed files come from the GitHub API.
+            # paths-filter reads the filter file from the working tree. It gets
+            # PR changes from the GitHub API and compares Git refs for other events.
             - uses: actions/checkout@v7
               with:
                   sparse-checkout: .github/ci_path_filters.yaml
@@ -46,8 +47,16 @@ jobs:
     format_fix:
         runs-on: ubuntu-latest
         timeout-minutes: 5
+        permissions:
+            contents: read
+            pull-requests: read
         steps:
             - uses: actions/checkout@v7
+            - uses: dorny/paths-filter@v4
+              id: filter
+              with:
+                  filters: .github/ci_path_filters.yaml
+                  predicate-quantifier: some-with-excludes
             - uses: jdx/mise-action@v4.2.5
               with:
                 version: 2025.9.18
@@ -55,6 +64,8 @@ jobs:
             - name: Install rust dependencies
               run: rustup toolchain install stable-x86_64-unknown-linux-gnu --profile default
             - name: Run fixes
+              env:
+                  SLINT_SKIP_PNPM_DEDUPE: ${{ steps.filter.outputs.pnpm_manifests != 'true' }}
               run: mise run --force 'ci:autofix:fix'
             - name: Suggest format changes
               uses: autofix-ci/action@c5b2d67aa2274e7b5a18224e8171550871fc7e4a
