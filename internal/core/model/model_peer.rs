@@ -144,7 +144,7 @@ impl ModelTracker for ModelNotify {
         }
     }
 
-    fn track_any_change(&self, _row_count: usize) {
+    fn track_any_change(&self, _row_count: usize, _: crate::InternalToken) {
         self.track_row_count_changes();
         if crate::properties::is_currently_tracking() {
             let inner = self.inner().project_ref();

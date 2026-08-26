@@ -46,7 +46,11 @@ pub trait ModelTracker {
     /// [`Self::track_row_data_changes`] for every row, which is what the default
     /// implementation does, but implementations such as [`ModelNotify`] register a
     /// single dependency whose cost is independent of the number of rows.
-    fn track_any_change(&self, row_count: usize) {
+    ///
+    /// Not part of the public API: the `row_count` parameter only exists for the
+    /// default implementation and may change.
+    #[doc(hidden)]
+    fn track_any_change(&self, row_count: usize, _: crate::InternalToken) {
         self.track_row_count_changes();
         for row in 0..row_count {
             self.track_row_data_changes(row);
@@ -59,7 +63,7 @@ impl ModelTracker for () {
 
     fn track_row_count_changes(&self) {}
     fn track_row_data_changes(&self, _row: usize) {}
-    fn track_any_change(&self, _row_count: usize) {}
+    fn track_any_change(&self, _row_count: usize, _: crate::InternalToken) {}
 }
 
 /// A Model is providing Data for the repeated elements with `for` in the `.slint` language
@@ -360,13 +364,13 @@ impl<T: Model> ModelExt for T {}
 
 pub fn model_any<T>(model: &dyn Model<Data = T>, mut predicate: impl FnMut(T) -> bool) -> bool {
     let row_count = model.row_count();
-    model.model_tracker().track_any_change(row_count);
+    model.model_tracker().track_any_change(row_count, crate::InternalToken);
     (0..row_count).any(|index| model.row_data(index).is_some_and(&mut predicate))
 }
 
 pub fn model_all<T>(model: &dyn Model<Data = T>, mut predicate: impl FnMut(T) -> bool) -> bool {
     let row_count = model.row_count();
-    model.model_tracker().track_any_change(row_count);
+    model.model_tracker().track_any_change(row_count, crate::InternalToken);
     // `is_none_or`, not `is_some_and`: a row without data is skipped, as it is by
     // model_any and model_find_index, rather than failing the whole model.
     (0..row_count).all(|index| model.row_data(index).is_none_or(&mut predicate))
@@ -379,7 +383,7 @@ pub fn model_find_index<T>(
     mut predicate: impl FnMut(T) -> bool,
 ) -> i32 {
     let row_count = model.row_count();
-    model.model_tracker().track_any_change(row_count);
+    model.model_tracker().track_any_change(row_count, crate::InternalToken);
     (0..row_count)
         .find(|index| model.row_data(*index).is_some_and(&mut predicate))
         .map_or(-1, |index| index as i32)
@@ -1219,11 +1223,11 @@ mod tests {
         }
 
         let tracker = RecordingTracker::default();
-        tracker.track_any_change(3);
+        tracker.track_any_change(3, crate::InternalToken);
         assert_eq!(tracker.row_count_calls.get(), 1);
         assert_eq!(*tracker.row_data_calls.borrow(), vec![0, 1, 2]);
 
-        tracker.track_any_change(0);
+        tracker.track_any_change(0, crate::InternalToken);
         assert_eq!(tracker.row_count_calls.get(), 2);
         assert_eq!(*tracker.row_data_calls.borrow(), vec![0, 1, 2]);
     }
