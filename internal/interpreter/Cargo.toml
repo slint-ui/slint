@@ -21,7 +21,15 @@ path = "lib.rs"
 
 [features]
 
-default = ["backend-default", "renderer-femtovg", "renderer-software", "accessibility", "compat-1-2", "system-tray", "wgpu-webgl-fallback"]
+default = [
+  "backend-default",
+  "renderer-femtovg",
+  "renderer-software",
+  "accessibility",
+  "compat-1-2",
+  "system-tray",
+  "wgpu-webgl-fallback",
+]
 
 ## Mandatory feature:
 ## This feature is required to keep the compatibility with Slint 1.2
