@@ -35,7 +35,7 @@ jobs:
       EDITOR_SPARKLE_ED_PRIVATE_KEY: ${{ secrets.EDITOR_SPARKLE_ED_PRIVATE_KEY }}
       EDITOR_SPARKLE_PUBLIC_ED_KEY: ${{ vars.EDITOR_SPARKLE_PUBLIC_ED_KEY }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       # Free space from the image or the build will run out of space
       - name: Free unused macOS runner disk space
@@ -65,7 +65,7 @@ jobs:
       # Cache Homebrew's downloaded bottles only.
       - name: Restore Homebrew downloads
         id: homebrew-cache
-        uses: actions/cache/restore@v5
+        uses: actions/cache/restore@v6
         with:
           path: ~/Library/Caches/Homebrew
           key: ${{ runner.os }}-${{ runner.arch }}-homebrew-macos-dmg-tools-${{ hashFiles('.github/workflows/visual_editor_macos_dmg.yaml') }}
@@ -77,7 +77,7 @@ jobs:
 
       - name: Cache Homebrew downloads
         if: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && steps.homebrew-cache.outputs.cache-hit != 'true' }}
-        uses: actions/cache/save@v5
+        uses: actions/cache/save@v6
         with:
           path: ~/Library/Caches/Homebrew
           key: ${{ steps.homebrew-cache.outputs.cache-primary-key }}
