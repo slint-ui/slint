@@ -56,6 +56,7 @@ slint-build = { workspace = true }
 i-slint-backend-testing = { path = "../../internal/backends/testing" }
 i-slint-editor-preview = { path = "../../internal/editor-preview", features = ["testing"] }
 spin_on = { workspace = true }
+tempfile = "3"
 
 # Used by the visual editor for the auto-updater.
 [target.'cfg(target_os = "macos")'.dependencies]

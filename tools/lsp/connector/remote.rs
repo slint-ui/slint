@@ -705,11 +705,6 @@ mod tests {
                     })
                     .unwrap();
                 viewer
-                    .send(PreviewToLspMessage::RequestProject {
-                        root: lsp_types::Url::parse("file:///project/").unwrap(),
-                    })
-                    .unwrap();
-                viewer
                     .send(PreviewToLspMessage::Diagnostics {
                         uri: lsp_types::Url::parse("file:///test.slint").unwrap(),
                         version: None,
