@@ -15,7 +15,7 @@ use i_slint_compiler::parser::{TextSize, syntax_nodes};
 use i_slint_compiler::{EmbedResourcesKind, diagnostics};
 use i_slint_core::DataTransfer;
 use i_slint_core::component_factory::FactoryContext;
-use i_slint_core::lengths::{LogicalPoint, LogicalRect, LogicalSize};
+use i_slint_core::lengths::{LogicalPoint, LogicalRect, LogicalSize as CoreLogicalSize};
 use i_slint_editor_preview::{
     ElementRcNode,
     component_catalog::{self, ComponentInformation},
@@ -27,7 +27,7 @@ use i_slint_live_preview::protocol::{
     VersionedUrl,
 };
 use lsp_types::Url;
-use slint::{PlatformError, SharedString, ToSharedString};
+use slint::{LogicalPosition, LogicalSize, PlatformError, SharedString, ToSharedString};
 use slint_interpreter::{ComponentDefinition, ComponentHandle, ComponentInstance};
 use smol_str::SmolStr;
 use std::borrow::BorrowMut;
@@ -1020,12 +1020,9 @@ fn drop_component(data: DataTransfer, x: f32, y: f32) {
 
 fn drop_component_with_geometry(
     data: DataTransfer,
-    hit_x: f32,
-    hit_y: f32,
-    x: f32,
-    y: f32,
-    width: f32,
-    height: f32,
+    hit_position: LogicalPosition,
+    position: LogicalPosition,
+    size: LogicalSize,
 ) {
     let Ok(DragItem::NewComponent { index: component_index }) = data.try_into() else {
         return;
@@ -1035,8 +1032,11 @@ fn drop_component_with_geometry(
         return;
     };
 
-    let hit_position = LogicalPoint::new(hit_x, hit_y);
-    let geometry = LogicalRect::new(LogicalPoint::new(x, y), LogicalSize::new(width, height));
+    let hit_position = LogicalPoint::new(hit_position.x, hit_position.y);
+    let geometry = LogicalRect::new(
+        LogicalPoint::new(position.x, position.y),
+        CoreLogicalSize::new(size.width, size.height),
+    );
 
     let Some(component) = PREVIEW_STATE
         .with_borrow(|preview_state| preview_state.known_components.get(component_index).cloned())
@@ -1116,7 +1116,7 @@ fn resize_selected_element(x: f32, y: f32, width: f32, height: f32) {
     let Some((edit, label)) = resize_selected_element_impl(
         &element_node,
         element_selection.instance_index,
-        LogicalRect::new(LogicalPoint::new(x, y), LogicalSize::new(width, height)),
+        LogicalRect::new(LogicalPoint::new(x, y), CoreLogicalSize::new(width, height)),
     ) else {
         return;
     };

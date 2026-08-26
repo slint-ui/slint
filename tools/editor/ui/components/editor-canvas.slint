@@ -84,12 +84,12 @@ export component EditorCanvas inherits Rectangle {
             if preview-inside-content {
                 Api.drop-with-geometry(
                     Api.new-component-data-for-name(component-name),
-                    window-position.x - content-origin.x,
-                    window-position.y - content-origin.y,
-                    geometry-position.x,
-                    geometry-position.y,
-                    AppState.palette-drag-preview-size.width,
-                    AppState.palette-drag-preview-size.height,
+                    {
+                        x: window-position.x - content-origin.x,
+                        y: window-position.y - content-origin.y,
+                    },
+                    geometry-position,
+                    AppState.palette-drag-preview-size,
                 );
             }
         }

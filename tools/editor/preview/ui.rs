@@ -12,7 +12,10 @@ use i_slint_compiler::{expression_tree, langtype};
 
 use i_slint_core::DataTransfer;
 use itertools::Itertools;
-use slint::{ComponentHandle, Model, ModelRc, SharedString, ToSharedString, VecModel};
+use slint::{
+    ComponentHandle, LogicalPosition, LogicalSize, Model, ModelRc, SharedString, ToSharedString,
+    VecModel,
+};
 use slint_interpreter::{DiagnosticLevel, PlatformError};
 use smol_str::SmolStr;
 
@@ -222,18 +225,15 @@ pub fn create_ui(
     let lsp = to_lsp.clone();
     api.on_drop_with_geometry(
         move |data: DataTransfer,
-              hit_x: f32,
-              hit_y: f32,
-              x: f32,
-              y: f32,
-              width: f32,
-              height: f32| {
+              hit_position: LogicalPosition,
+              position: LogicalPosition,
+              size: LogicalSize| {
             lsp.send_telemetry(&mut [(
                 "type".to_string(),
                 serde_json::to_value("component_dropped").unwrap(),
             )])
             .ok();
-            super::drop_component_with_geometry(data, hit_x, hit_y, x, y, width, height)
+            super::drop_component_with_geometry(data, hit_position, position, size)
         },
     );
     api.on_selected_element_resize(super::resize_selected_element);
