@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 import slint_testing
-from source_oracle import SourceSnapshot
+from source_snapshot import SourceSnapshot
 from ui_driver import (
     first_window,
     launch_editor,
@@ -66,6 +66,35 @@ def wait_for_field(
         ),
         timeout=timeout,
     )
+
+
+def open_combo_and_accept(
+    window: slint_testing.Window,
+    label: str,
+    expected_options: tuple[str, ...],
+    value: str,
+) -> None:
+    combo = inspector_field(window, label, slint_testing.AccessibleRole.Combobox)
+    combo.invoke_accessible_expand_action()
+
+    def menu_labels() -> tuple[str, ...] | None:
+        items = (
+            window.root_element.query_descendants()
+            .match_type_name("MenuItem")
+            .find_all()
+        )
+        labels = tuple(
+            text.accessible_label
+            for item in items
+            for text in item.query_descendants()
+            .match_accessible_role(slint_testing.AccessibleRole.Text)
+            .find_all()
+            if text.accessible_label and text.accessible_label != "✓"
+        )
+        return labels if labels == expected_options else None
+
+    wait_until(menu_labels)
+    combo.accessible_value = value
 
 
 def assert_rendered_element(window: slint_testing.Window, element_id: str) -> None:
@@ -423,6 +452,79 @@ def test_each_font_weight_writes_exact_source(
 
 
 @pytest.mark.parametrize(
+    ("kind", "label", "options", "value", "old", "new"),
+    [
+        (
+            "Image",
+            "Image fit",
+            ("fill", "preserve", "contain", "cover"),
+            "cover",
+            b"        image-fit: contain;",
+            b"        image-fit: cover;",
+        ),
+        (
+            "Image",
+            "Image horizontal alignment",
+            ("center", "left", "right"),
+            "left",
+            b"        horizontal-alignment: center;",
+            b"        horizontal-alignment: left;",
+        ),
+        (
+            "Image",
+            "Image vertical alignment",
+            ("center", "top", "bottom"),
+            "top",
+            b"        vertical-alignment: center;",
+            b"        vertical-alignment: top;",
+        ),
+        (
+            "Text",
+            "Font weight",
+            (
+                "Thin",
+                "Extra Light",
+                "Light",
+                "Normal",
+                "Medium",
+                "Semi Bold",
+                "Bold",
+                "Extra Bold",
+                "Black",
+            ),
+            "700",
+            b"        font-weight: 400;",
+            b"        font-weight: 700;",
+        ),
+    ],
+    ids=("image-fit", "horizontal-alignment", "vertical-alignment", "font-weight"),
+)
+def test_combobox_opens_options_and_accepts_accessible_choice(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+    kind: str,
+    label: str,
+    options: tuple[str, ...],
+    value: str,
+    old: bytes,
+    new: bytes,
+) -> None:
+    source_file = fixture_project / INSPECTOR_SOURCE
+    baseline = source_file.read_bytes()
+    snapshot = SourceSnapshot.capture(fixture_project)
+
+    with launch_editor(editor_binary, editor_environment, source_file) as editor:
+        window = first_window(editor)
+        select_element(window, kind)
+        open_combo_and_accept(window, label, options, value)
+        snapshot.wait_for_exact(
+            replace_once(baseline, old, new),
+            relative_path=INSPECTOR_SOURCE,
+        )
+
+
+@pytest.mark.parametrize(
     ("case", "value", "expected"),
     [
         ("numeric", "24", "24px"),
@@ -533,9 +635,17 @@ def test_invalid_text_content_does_not_change_source(
         )
 
 
+ATOMIC_SHADOW_OFFSET_REQUIRED = pytest.mark.skip(
+    reason="Requires Rust support for atomic shadow-offset edits"
+)
 SHADOW_CONTROLS = (
     ("color", "Shadow color", "#12345678"),
-    ("angle", "Shadow angle", "0"),
+    pytest.param(
+        "angle",
+        "Shadow angle",
+        "0",
+        marks=ATOMIC_SHADOW_OFFSET_REQUIRED,
+    ),
     ("distance", "Shadow distance", "12"),
     ("blur", "Shadow blur", "24"),
     ("spread", "Shadow spread", "6"),
@@ -547,7 +657,12 @@ SHADOW_BOUNDARIES = (
     ("blur", "Shadow blur", "128"),
     ("spread", "Shadow spread", "-64"),
     ("spread", "Shadow spread", "64"),
-    ("angle", "Shadow angle", "359"),
+    pytest.param(
+        "angle",
+        "Shadow angle",
+        "359",
+        marks=ATOMIC_SHADOW_OFFSET_REQUIRED,
+    ),
 )
 
 
@@ -591,7 +706,7 @@ def shadow_expected(source: bytes, family: str, control: str, value: str) -> byt
 @pytest.mark.parametrize(
     ("control", "label", "value"),
     SHADOW_CONTROLS,
-    ids=tuple(control for control, _, _ in SHADOW_CONTROLS),
+    ids=("color", "angle", "distance", "blur", "spread"),
 )
 def test_each_shadow_family_control_writes_exact_source(
     editor_binary: Path,
@@ -610,10 +725,13 @@ def test_each_shadow_family_control_writes_exact_source(
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
         window = first_window(editor)
         select_element(window, "Rectangle")
-        if control == "angle":
-            pytest.skip("Requires Rust support for atomic shadow-offset edits")
         if control in {"blur", "spread"}:
             scroll_to_shadow_details(window)
+            inspector_field(
+                window,
+                f"{label} value",
+                slint_testing.AccessibleRole.TextInput,
+            )
         edit_field(window, label, value)
         snapshot.wait_for_exact(
             shadow_expected(starting_source, family, control, value),
@@ -626,7 +744,15 @@ def test_each_shadow_family_control_writes_exact_source(
 @pytest.mark.parametrize(
     ("control", "label", "value"),
     SHADOW_BOUNDARIES,
-    ids=tuple(f"{control}-{value}" for control, _, value in SHADOW_BOUNDARIES),
+    ids=(
+        "distance-0",
+        "distance-96",
+        "blur-0",
+        "blur-128",
+        "spread--64",
+        "spread-64",
+        "angle-359",
+    ),
 )
 def test_shadow_control_boundary_writes_exact_source(
     editor_binary: Path,
@@ -645,10 +771,13 @@ def test_shadow_control_boundary_writes_exact_source(
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
         window = first_window(editor)
         select_element(window, "Rectangle")
-        if control == "angle":
-            pytest.skip("Requires Rust support for atomic shadow-offset edits")
         if control in {"blur", "spread"}:
             scroll_to_shadow_details(window)
+            inspector_field(
+                window,
+                f"{label} value",
+                slint_testing.AccessibleRole.TextInput,
+            )
         edit_field(window, label, value)
         snapshot.wait_for_exact(
             shadow_expected(starting_source, family, control, value),
