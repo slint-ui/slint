@@ -4,7 +4,7 @@
 import "./assets/Inter-VariableFont.ttf";
 
 import { Api, EditorSurfaceMode } from "api.slint";
-import { ProjectKind, StartupWizard } from "startup-wizard.slint";
+import { StartupWizard } from "startup-wizard.slint";
 import { AppState, SidebarToggleButton, StudioTheme } from "components/common.slint";
 import { DragPreview } from "components/drag-preview.slint";
 import { EditorCanvas } from "components/editor-canvas.slint";
@@ -28,7 +28,6 @@ export component EditorUi inherits Window {
 
     property <bool> sidebars-collapsed: false;
     property <length> inspector-scroll-y: 0px;
-    property <ProjectKind> selected-project: ProjectKind.mobile;
 
     function open-startup-wizard() {
         Api.open-startup-wizard();
@@ -168,7 +167,6 @@ export component EditorUi inherits Window {
         }
 
         if Api.startup-wizard-visible: StartupWizard {
-            selected-project <=> root.selected-project;
             opened => {
                 root.open-project();
             }

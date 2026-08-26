@@ -47,6 +47,9 @@ export component EditorCanvas inherits Rectangle {
     private property <bool> selection-rotation-active: false;
     private property <angle> selection-rotation;
 
+    accessible-role: AccessibleRole.main;
+    accessible-label: "Editor canvas";
+
     callback real-element-selected();
 
     horizontal-stretch: 1;
@@ -193,6 +196,8 @@ export component EditorCanvas inherits Rectangle {
                 height: max((drop-mark.y2 - drop-mark.y1).abs(), 2px);
                 border-color: StudioTheme.drop-mark-foreground;
                 background: StudioTheme.drop-mark-background;
+                accessible-role: AccessibleRole.region;
+                accessible-label: "Canvas drop marker";
             }
 
             // Click to select the real previewed element.
@@ -201,6 +206,7 @@ export component EditorCanvas inherits Rectangle {
             selection-area := TouchArea {
                 mouse-cursor: crosshair;
                 clicked => {
+                    Api.unselect();
                     Api.select-at(self.pressed-x, self.pressed-y, false);
                     root.real-element-selected();
                 }

@@ -95,6 +95,8 @@ export component OutlinePane inherits Rectangle {
                         ? EditorTreeTokens.drop-target-bg
                         : transparent;
                     property <bool> drop-allowed: false;
+                    accessible-role: AccessibleRole.list-item;
+                    accessible-label: "Outline root drop target";
 
                     root-drop-area := DropArea {
                         width: parent.width;

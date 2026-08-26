@@ -159,6 +159,8 @@ export component LeftPane inherits Rectangle {
 
     width: EditorMetrics.left-pane-width;
     background: StudioTheme.panel-bg;
+    accessible-role: AccessibleRole.navigation;
+    accessible-label: "Project and elements";
 
     EdgeDivider {
         x: parent.width - self.width;
