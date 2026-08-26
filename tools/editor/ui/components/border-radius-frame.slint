@@ -75,6 +75,8 @@ export component BorderRadiusFrame inherits MoveResizeFrame {
 
         if root.enable-border-radius-edits: TouchArea {
             mouse-cursor: pointer;
+            accessible-role: AccessibleRole.button;
+            accessible-label: root.accessible-prefix + " radius " + root.corner-name(corner);
             private property <bool> event-shift-pressed: false;
 
             pointer-event(event) => {

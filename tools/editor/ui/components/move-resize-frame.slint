@@ -6,6 +6,7 @@ import { CanvasCorner } from "../api.slint";
 import { EditorMetrics, StudioTheme } from "common.slint";
 
 export component MoveResizeFrame inherits Rectangle {
+    in property <string> accessible-prefix: "Selection";
     in property <bool> active;
     in property <bool> shift-pressed: false;
     in property <angle> rotation: 0deg;
@@ -43,6 +44,19 @@ export component MoveResizeFrame inherits Rectangle {
 
     public pure function corner-on-top(corner: CanvasCorner) -> bool {
         return corner == CanvasCorner.top-left || corner == CanvasCorner.top-right;
+    }
+
+    public pure function corner-name(corner: CanvasCorner) -> string {
+        if corner == CanvasCorner.top-left {
+            return "top-left";
+        }
+        if corner == CanvasCorner.top-right {
+            return "top-right";
+        }
+        if corner == CanvasCorner.bottom-right {
+            return "bottom-right";
+        }
+        return "bottom-left";
     }
 
     pure function corner-resize-cursor-is-forward-diagonal(corner: CanvasCorner) -> bool {
@@ -231,6 +245,9 @@ export component MoveResizeFrame inherits Rectangle {
             width: root.width;
             height: root.height;
             mouse-cursor: move;
+            accessible-role: AccessibleRole.button;
+            accessible-label: root.accessible-prefix + " move handle";
+            accessible-enabled: root.moveable;
             private property <Point> move-start-position: { x: 0px, y: 0px };
             private property <Point> move-start-pointer: { x: 0px, y: 0px };
 
@@ -316,6 +333,9 @@ export component MoveResizeFrame inherits Rectangle {
 
                 TouchArea {
                     mouse-cursor: root.rotation-cursor-is-forward-diagonal(corner) ? nwse-resize : nesw-resize;
+                    accessible-role: AccessibleRole.button;
+                    accessible-label: root.accessible-prefix + " rotate " + root.corner-name(corner);
+                    accessible-enabled: root.show-rotation-handles;
                     private property <bool> event-shift-pressed: false;
                     private property <angle> start-rotation;
                     private property <angle> start-pointer-angle;
@@ -381,6 +401,9 @@ export component MoveResizeFrame inherits Rectangle {
                     TouchArea {
                         enabled: root.resizable;
                         mouse-cursor: root.corner-resize-cursor-is-forward-diagonal(corner) ? nwse-resize : nesw-resize;
+                        accessible-role: AccessibleRole.button;
+                        accessible-label: root.accessible-prefix + " resize " + root.corner-name(corner);
+                        accessible-enabled: root.resizable;
                         private property <bool> event-shift-pressed: false;
 
                         pointer-event(event) => {

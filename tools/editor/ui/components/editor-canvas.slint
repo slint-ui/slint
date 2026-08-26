@@ -21,6 +21,8 @@ component PhoneChrome inherits Rectangle {
         y: EditorMetrics.phone-outer-padding;
         width: parent.width - (2 * EditorMetrics.phone-outer-padding);
         height: parent.height - (2 * EditorMetrics.phone-outer-padding);
+        accessible-role: AccessibleRole.region;
+        accessible-label: "Artboard";
 
         @children
     }
@@ -226,6 +228,7 @@ export component EditorCanvas inherits Rectangle {
             width: root.selection-drag-active && primary ? root.selection-drag-size.width : s.width;
             height: root.selection-drag-active && primary ? root.selection-drag-size.height : s.height;
             rotation: root.selection-rotation-active && primary ? root.selection-rotation : s.angle;
+            accessible-prefix: Api.current-element.type-name;
             active: true;
             show-rotation-handles: primary;
             enable-border-radius-edits: Api.current-element.type-name == "Rectangle";
@@ -237,6 +240,8 @@ export component EditorCanvas inherits Rectangle {
             // when the element is not rotated (we don't support rotating + repositioning at once).
             resizable: primary && Api.selection.is-resizable && s.angle == 0deg;
             moveable: primary && Api.selection.is-moveable && s.angle == 0deg;
+            accessible-role: AccessibleRole.region;
+            accessible-label: "Selected " + Api.current-element.type-name;
 
             rotated-to(rotation) => {
                 root.selection-rotation-active = true;
@@ -395,6 +400,9 @@ export component EditorCanvas inherits Rectangle {
             drop-shadow-blur: 12px;
             drop-shadow-offset-y: 4px;
             drop-shadow-color: #33415535;
+            accessible-role: AccessibleRole.text;
+            accessible-label: "Radius value";
+            accessible-value: (root.radius-tooltip-value / 1px).to-fixed(0);
 
             radius-tip := Text {
                 text: "Radius \{(root.radius-tooltip-value / 1px).to-fixed(0)}";
@@ -402,6 +410,7 @@ export component EditorCanvas inherits Rectangle {
                 font-size: 12px;
                 horizontal-alignment: center;
                 vertical-alignment: center;
+                accessible-role: none;
             }
         }
 
@@ -490,6 +499,7 @@ export component EditorCanvas inherits Rectangle {
         }
 
         if root.rotation-tooltip-visible: Rectangle {
+            property <int> display-angle: (root.normalized-angle(root.rotation-tooltip-value) / 1deg).round();
             x: root.rotation-tooltip-position.x - self.width - 12px;
             y: root.rotation-tooltip-position.y - self.height - 12px;
             width: rotation-tip.width + 14px;
@@ -499,13 +509,17 @@ export component EditorCanvas inherits Rectangle {
             drop-shadow-blur: 12px;
             drop-shadow-offset-y: 4px;
             drop-shadow-color: #33415535;
+            accessible-role: AccessibleRole.text;
+            accessible-label: "Rotation angle";
+            accessible-value: "\{self.display-angle}";
 
             rotation-tip := Text {
-                text: "Rotation \{(root.normalized-angle(root.rotation-tooltip-value) / 1deg).round()}°";
+                text: "Rotation \{parent.display-angle}°";
                 color: white;
                 font-size: 12px;
                 horizontal-alignment: center;
                 vertical-alignment: center;
+                accessible-role: none;
             }
         }
     }
