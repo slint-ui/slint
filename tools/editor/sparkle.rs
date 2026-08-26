@@ -21,6 +21,23 @@ use objc2_foundation::{NSBundle, NSError, NSString};
 use slint::ComponentHandle as _;
 use std::rc::Rc;
 
+/// Sparkle reports "there is nothing to install" as an error on the update
+/// cycle, so the one code that actually means success has to be filtered out or
+/// every check finishes looking like a failure.
+/// SUErrors.h: SUNoUpdateError = 1001, in SUSparkleErrorDomain.
+const SU_NO_UPDATE_ERROR: isize = 1001;
+const SU_ERROR_DOMAIN: &str = "SUSparkleErrorDomain";
+
+fn is_no_update(error: &NSError) -> bool {
+    error.code() == SU_NO_UPDATE_ERROR && error.domain().to_string() == SU_ERROR_DOMAIN
+}
+
+/// The message a person should see. `NSError`'s own formatting carries the
+/// domain and code, which is noise in a status banner.
+fn error_message(error: &NSError) -> String {
+    error.localizedDescription().to_string()
+}
+
 /// What the updater is doing, reported from the main thread.
 #[derive(Debug)]
 pub enum Event {
@@ -159,12 +176,15 @@ define_class!(
             _item: &AppcastItem,
             error: &NSError,
         ) {
-            self.emit(Event::Failed { message: error.to_string() });
+            self.emit(Event::Failed { message: error_message(error) });
         }
 
         #[unsafe(method(updater:didAbortWithError:))]
         fn did_abort_with_error(&self, _updater: &NSObject, error: &NSError) {
-            self.emit(Event::Failed { message: error.to_string() });
+            if is_no_update(error) {
+                return;
+            }
+            self.emit(Event::Failed { message: error_message(error) });
         }
 
         #[unsafe(method(updater:didFinishUpdateCycleForUpdateCheck:error:))]
@@ -174,9 +194,13 @@ define_class!(
             _check: isize,
             error: Option<&NSError>,
         ) {
-            if let Some(error) = error {
-                self.emit(Event::Failed { message: error.to_string() });
+            let Some(error) = error else {
+                return;
+            };
+            if is_no_update(error) {
+                return;
             }
+            self.emit(Event::Failed { message: error_message(error) });
         }
     }
 );
