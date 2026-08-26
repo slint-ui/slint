@@ -2234,7 +2234,7 @@ export component HorizontalLayout {
 ///
 /// In row direction, items are placed from left to right. When the available width is exceeded, items automatically wrap to the next row. In column direction, items are placed from top to bottom and wrap to the next column when the available height is exceeded.
 ///
-/// \footer
+\footer
 /// ## Cell elements
 /// Cell elements inside a `FlexboxLayout` obtain the following new properties:
 ///
@@ -2257,16 +2257,6 @@ export component HorizontalLayout {
 /// ```
 /// </SlintProperty>
 ///
-/// The other CSS flexbox properties map as follows:
-///
-/// | CSS           | Slint                                                          |
-/// | ------------- | -------------------------------------------------------------- |
-/// | `flex-wrap`   | `flex-wrap`, but the default differs: CSS defaults to `nowrap`, Slint to `wrap`. For a non-wrapping row or column, prefer `HorizontalLayout` / `VerticalLayout` |
-/// | `flex-grow`   | `alignment: stretch` on the container, weighted per item by `horizontal-stretch` / `vertical-stretch`; `max-width` / `max-height` caps growing (space a capped item cannot take stays free) |
-/// | `flex-shrink` | nothing to opt into: every item shrinks, in proportion to its preferred size; `min-width` / `min-height` refuses shrinking |
-/// | `flex-basis`  | `preferred-width` (row) / `preferred-height` (column)          |
-/// | `align-self`  | `cross-axis-self-alignment`                                    |
-///
 /// ## Layout Behavior
 ///
 /// The layouting algorithm for FlexboxLayout is entirely implemented by <a href="https://github.com/DioxusLabs/taffy">taffy</a>
@@ -2274,6 +2264,32 @@ export component HorizontalLayout {
 /// You can learn more about the CSS Flexbox specification from
 /// - <a href="https://developer.mozilla.org/en-US/docs/Web/CSS/Guides/Flexible_box_layout/Basic_concepts">the Mozilla developer website</a>
 /// - <a href="https://css-tricks.com/snippets/css/a-guide-to-flexbox/">A Complete Guide To Flexbox by CSS Tricks</a>. This is detailed guide with illustrations and comprehensive written explanation of the different Flexbox properties and how they work.
+///
+/// ## CSS Mapping
+///
+/// The container properties map to CSS Flexbox as follows:
+///
+/// | CSS               | Slint                                                     |
+/// | ----------------- | --------------------------------------------------------- |
+/// | `flex-direction`  | `flex-direction`                                          |
+/// | `flex-wrap`       | `flex-wrap`, but the default differs: CSS defaults to `nowrap`, Slint to `wrap`. For a non-wrapping row or column, prefer <Link type="HorizontalLayout" /> / <Link type="VerticalLayout" /> |
+/// | `justify-content` | `alignment`                                               |
+/// | `align-items`     | `cross-axis-alignment`                                    |
+/// | `align-content`   | `cross-axis-line-alignment`                               |
+/// | `gap`             | `spacing`                                                 |
+/// | `column-gap`      | `spacing-horizontal`                                      |
+/// | `row-gap`         | `spacing-vertical`                                        |
+/// | `padding`         | `padding`, `padding-left` / `-right` / `-top` / `-bottom` |
+///
+/// The CSS per-item flexbox properties are expressed with the properties the
+/// other layouts already use:
+///
+/// | CSS           | Slint                                                          |
+/// | ------------- | -------------------------------------------------------------- |
+/// | `flex-grow`   | `alignment: stretch` on the container, weighted per item by `horizontal-stretch` / `vertical-stretch`; `max-width` / `max-height` caps growing (space a capped item cannot take stays free) |
+/// | `flex-shrink` | nothing to opt into: every item shrinks, in proportion to its preferred size; `min-width` / `min-height` refuses shrinking |
+/// | `flex-basis`  | `preferred-width` (row) / `preferred-height` (column)          |
+/// | `align-self`  | `cross-axis-self-alignment`                                    |
 /// \group:layouts
 export component FlexboxLayout {
     //! ## Spacing Properties
@@ -2323,7 +2339,7 @@ export component FlexboxLayout {
     /// The default value is `stretch`.
     in property <CrossAxisLineAlignment> cross-axis-line-alignment;
     /// Set the alignment of individual items along the cross axis within each flex line.
-    /// The default value is `stretch`.
+    /// CSS Flexbox calls this "align-items". The default value is `stretch`.
     in property <CrossAxisAlignment> cross-axis-alignment;
     /// Controls whether flex items wrap onto multiple lines when they don't fit in the container.
     /// The default value is `wrap`, unlike CSS where it is `nowrap`.
