@@ -871,7 +871,12 @@ impl Item for TextInput {
             }
             Orientation::Vertical => {
                 let h = match self.wrap() {
-                    TextWrap::NoWrap => implicit_size(None, TextWrap::NoWrap).height,
+                    TextWrap::NoWrap => {
+                        single_line_height(window_adapter, RenderString::text(self), || {
+                            self.font_request(self_rc)
+                        })
+                        .unwrap_or_else(|| implicit_size(None, TextWrap::NoWrap).height)
+                    }
                     wrap @ (TextWrap::WordWrap | TextWrap::CharWrap) => {
                         let w = if cross_axis_constraint >= 0 as Coord {
                             LogicalLength::new(cross_axis_constraint)
