@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cspell:ignore capitalizationmode keyboardmodifiers
+// cspell:ignore capitalizationmode keyboardmodifiers keyevent
 
 use crate::Config;
 use anyhow::Context;
@@ -423,6 +423,10 @@ impl TypeLinks {
     /// The section documenting `type_name`, or `None` for a type this run
     /// leaves out. The link is written from the site root; `remarkBaseLinks`
     /// adds the base of whichever site renders it.
+    ///
+    /// The generated pages come first: `link-data.json` keys pages of every
+    /// kind, and some of them under the name of a type it documents elsewhere
+    /// (`KeyEvent` points at the keyboard input overview).
     fn href(&self, type_name: &str) -> Option<String> {
         let page = if self.enums.contains(type_name) {
             BUILTIN_ENUMS_SLUG
@@ -451,7 +455,7 @@ impl TypeLinks {
 
 /// The section documenting a primitive type, from `link-data.json`: the map
 /// the docs site resolves its own `slint:` links with, so these links follow a
-/// page that moves.
+/// page that moves. It keys the types by their name in `.slint`.
 fn primitive_href(type_name: &str) -> Option<String> {
     static LINK_MAP: std::sync::LazyLock<serde_json::Value> = std::sync::LazyLock::new(|| {
         serde_json::from_str(include_str!(concat!(
@@ -460,21 +464,9 @@ fn primitive_href(type_name: &str) -> Option<String> {
         )))
         .expect("failed to parse link-data.json")
     });
-    // The map keys some of the types under a name of its own.
-    let key = match type_name {
-        "angle" | "bool" | "brush" | "color" | "duration" | "easing" | "float" | "int" | "keys"
-        | "length" | "percent" | "BuiltInMouseCursor" | "MouseCursor" => type_name,
-        "data-transfer" => "data_transfer",
-        "image" => "ImageType",
-        "physical-length" => "physicalLength",
-        "relative-font-size" => "relativeFontSize",
-        "string" => "StringType",
-        "styled-text" => "styled_text",
-        _ => return None,
-    };
-    let href = LINK_MAP[key]["href"]
+    let href = LINK_MAP.get(type_name)?["href"]
         .as_str()
-        .unwrap_or_else(|| panic!("link-data.json has no href for {key}"));
+        .unwrap_or_else(|| panic!("link-data.json has no href for {type_name}"));
     Some(format!("/{href}"))
 }
 
@@ -617,7 +609,7 @@ fn test_is_generated_dir() {
 fn test_type_links() {
     let make_links = |primitives| TypeLinks {
         enums: ["CapitalizationMode".to_string()].into(),
-        structs: ["KeyboardModifiers".to_string()].into(),
+        structs: ["KeyboardModifiers".to_string(), "KeyEvent".to_string()].into(),
         primitives,
     };
     let links = make_links(true);
@@ -634,13 +626,28 @@ fn test_type_links() {
     // The primitive types are documented on the hand-written pages, the mouse
     // cursor shapes among them.
     assert_eq!(href("int").as_deref(), Some("/reference/property-types/numeric-types/#int"));
-    assert_eq!(href("string").as_deref(), Some("/reference/property-types/strings/#string"));
     assert_eq!(
         href("BuiltInMouseCursor").as_deref(),
         Some("/reference/property-types/other-types/#mousecursor")
     );
-    // A type with no documentation of its own.
-    assert_eq!(href("element ref"), None);
+    // A key spelled otherwise than the type would drop the link, unnoticed.
+    for type_name in [
+        "data-transfer",
+        "enum",
+        "image",
+        "physical-length",
+        "relative-font-size",
+        "string",
+        "struct",
+        "styled-text",
+    ] {
+        assert!(href(type_name).is_some(), "link-data.json has no entry for {type_name}");
+    }
+    // The generated section wins over the map's own `KeyEvent` entry.
+    assert_eq!(
+        href("KeyEvent").as_deref(),
+        Some("/reference/property-types/builtin-structs/#keyevent")
+    );
 
     // Content shared with the safety manual links the generated pages only.
     let shared_links = make_links(false);
@@ -651,9 +658,9 @@ fn test_type_links() {
     );
 
     assert_eq!(
-        links.linked("KeyEvent"),
-        "KeyEvent",
-        "a type this run doesn't document is written plain"
+        links.linked("element ref"),
+        "element ref",
+        "a type with no documentation of its own is written plain"
     );
     assert_eq!(links.linked("int"), "[int](/reference/property-types/numeric-types/#int)");
 
