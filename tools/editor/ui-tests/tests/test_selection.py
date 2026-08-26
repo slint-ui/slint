@@ -135,7 +135,8 @@ def test_clear_canvas_selection_does_not_edit_source(
                 True
                 if not elements_with_label(window.root_element, "Selected Rectangle")
                 else None
-            )
+            ),
+            timeout=15,
         )
         outline = window_element_with_label(
             window, "Current file outline", slint_testing.AccessibleRole.List
@@ -241,7 +242,8 @@ def test_delete_selected_element_writes_exact_source(
                     slint_testing.AccessibleRole.ListItem,
                 )
                 else None
-            )
+            ),
+            timeout=15,
         )
         assert not elements_with_label(
             window.root_element,

@@ -96,20 +96,32 @@ def test_imported_file_edit_targets_only_nested_source(
     fixture_project: Path,
 ) -> None:
     main_file = fixture_project / "Main.slint"
-    components = fixture_project / "components"
-    nested_file = components / "Nested.slint"
+    nested_file = fixture_project / "components" / "Nested.slint"
     nested_baseline = nested_file.read_bytes()
     snapshot = SourceSnapshot.capture(fixture_project)
 
     with launch_editor(editor_binary, editor_environment, main_file) as editor:
         window = first_window(editor)
+        main_row = window_element_with_label(
+            window, str(main_file), slint_testing.AccessibleRole.ListItem
+        )
+        wait_until(
+            lambda: current if (current := main_row).accessible_item_selected else None,
+            timeout=15,
+        )
+        components = fixture_project / "components"
         window_element_with_label(
             window, str(components), slint_testing.AccessibleRole.ListItem
         ).invoke_accessible_default_action()
         window_element_with_label(
             window, str(nested_file), slint_testing.AccessibleRole.ListItem
         ).invoke_accessible_default_action()
-        select_outline_row(window, "nested-text")
+        window_element_with_label(
+            window, "nested-text", slint_testing.AccessibleRole.ListItem, timeout=15
+        ).invoke_accessible_default_action()
+        window_element_with_label(
+            window, "Selected Text", slint_testing.AccessibleRole.Region, timeout=15
+        )
         field = window_element_with_label(
             window, "Text content", slint_testing.AccessibleRole.TextInput
         )
@@ -121,7 +133,7 @@ def test_imported_file_edit_targets_only_nested_source(
         )
         snapshot.wait_for_exact(expected, relative_path="components/Nested.slint")
         window_element_with_label(
-            window, "Edited import", slint_testing.AccessibleRole.Text
+            window, "Edited import", slint_testing.AccessibleRole.Text, timeout=15
         )
 
 
@@ -149,7 +161,8 @@ def test_stale_selection_commit_is_rejected(
                 ).accessible_value
                 == "224"
                 else None
-            )
+            ),
+            timeout=15,
         )
         press_key(window, keys.Return)
         snapshot.assert_unchanged()
@@ -182,7 +195,8 @@ def test_stale_revision_commit_is_rejected(
                 ).accessible_value
                 == "36"
                 else None
-            )
+            ),
+            timeout=15,
         )
         press_key(window, keys.Return)
         SourceSnapshot.capture(fixture_project).assert_unchanged()

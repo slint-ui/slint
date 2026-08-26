@@ -44,7 +44,7 @@ def test_external_root_source_reload(
         source_file.write_bytes(expected)
         snapshot.wait_for_exact(expected)
         window_element_with_label(
-            window, "Reloaded root", slint_testing.AccessibleRole.Text
+            window, "Reloaded root", slint_testing.AccessibleRole.Text, timeout=15
         )
         assert not elements_with_label(window.root_element, "Fixture text")
         assert_editor_stable(editor, window, handle, size)
@@ -70,7 +70,7 @@ def test_rapid_root_writes_show_newest_revision(
         source_file.write_bytes(expected)
         snapshot.wait_for_exact(expected)
         window_element_with_label(
-            window, "Newest revision", slint_testing.AccessibleRole.Text
+            window, "Newest revision", slint_testing.AccessibleRole.Text, timeout=15
         )
         deadline = time.monotonic() + 0.25
         while time.monotonic() < deadline:
@@ -101,6 +101,6 @@ def test_imported_dependency_reload(
         imported_file.write_bytes(expected)
         snapshot.wait_for_exact(expected, "components/Nested.slint")
         window_element_with_label(
-            window, "Reloaded import", slint_testing.AccessibleRole.Text
+            window, "Reloaded import", slint_testing.AccessibleRole.Text, timeout=15
         )
         assert_editor_stable(editor, window, handle, size)

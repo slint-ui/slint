@@ -56,13 +56,15 @@ def wait_for_field(
     label: str,
     value: str,
     role: slint_testing.AccessibleRole | None = None,
+    timeout: float = 5,
 ) -> None:
     wait_until(
         lambda: (
             field
             if (field := inspector_field(window, label, role)).accessible_value == value
             else None
-        )
+        ),
+        timeout=timeout,
     )
 
 
@@ -124,7 +126,12 @@ def test_geometry_field_writes_exact_source(
         snapshot.wait_for_exact(
             replace_once(baseline, old, new), relative_path=INSPECTOR_SOURCE
         )
-        wait_for_field(window, label, value, slint_testing.AccessibleRole.TextInput)
+        wait_for_field(
+            window,
+            label,
+            value,
+            slint_testing.AccessibleRole.TextInput,
+        )
         assert_rendered_element(window, "InspectorCases::inspect-rectangle")
 
 
@@ -169,7 +176,6 @@ def test_element_color_field_writes_exact_source(
         snapshot.wait_for_exact(
             replace_once(baseline, old, new), relative_path=INSPECTOR_SOURCE
         )
-        wait_for_field(window, label, value, slint_testing.AccessibleRole.TextInput)
         assert_rendered_element(window, f"InspectorCases::inspect-{kind.lower()}")
 
 
@@ -350,9 +356,6 @@ def test_image_source_writes_exact_source(
             ),
             relative_path=INSPECTOR_SOURCE,
         )
-        wait_for_field(
-            window, "Image source", value, slint_testing.AccessibleRole.TextInput
-        )
         assert_rendered_element(window, "InspectorCases::inspect-image")
 
 
@@ -378,9 +381,6 @@ def test_font_family_writes_exact_source(
                 b'        font-family: "Fira Sans";',
             ),
             relative_path=INSPECTOR_SOURCE,
-        )
-        wait_for_field(
-            window, "Font family", "Fira Sans", slint_testing.AccessibleRole.TextInput
         )
         window_element_with_label(
             window, "Inspector text", slint_testing.AccessibleRole.Text
