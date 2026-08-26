@@ -360,11 +360,17 @@ macro_rules! for_each_enums {
 
             /// Enum representing the `alignment` property of a
             /// `HorizontalBox`, a `VerticalBox`,
-            /// a `HorizontalLayout`, or `VerticalLayout`.
+            /// a `HorizontalLayout`, a `VerticalLayout`, or a `FlexboxLayout`,
+            /// and the `cross-axis-line-alignment` property of a `FlexboxLayout`.
+            ///
+            /// For `cross-axis-line-alignment`, the values below apply to the flex lines
+            /// instead of the elements.
             #[non_exhaustive]
             enum LayoutAlignment {
-                /// Use the minimum size of all elements in a layout, distribute remaining space
-                /// based on `*-stretch` among all elements.
+                /// For `alignment`: use the minimum size of all elements in a layout, distribute
+                /// remaining space based on `*-stretch` among all elements.
+                /// For `cross-axis-line-alignment`: the flex lines have no stretch factor and
+                /// share the remaining space equally.
                 Stretch,
                 /// Use the preferred size for all elements, distribute remaining space evenly before the
                 /// first and after the last element.
