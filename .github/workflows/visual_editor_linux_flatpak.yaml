@@ -84,7 +84,9 @@ jobs:
 
             - uses: flatpak/flatpak-github-actions/flatpak-builder@v6.7
               with:
-                  bundle: slint-visual-editor-${{ matrix.arch }}.flatpak
+                  # Written below instead: the action's bundle carries no
+                  # repository to update from.
+                  build-bundle: false
                   manifest-path: tools/editor/dev.slint.VisualEditor.yml
                   arch: ${{ matrix.arch }}
                   branch: ${{ inputs.channel || 'nightly' }}
@@ -94,6 +96,14 @@ jobs:
                   # Uploaded below instead, so the bundle and the repository
                   # travel together under one predictable artifact name.
                   upload-artifact: false
+
+            - name: Write the bundle
+              run: >
+                  scripts/publish_visual_editor_flatpak.bash write-bundle
+                  repo-${{ matrix.arch }}
+                  slint-visual-editor-${{ matrix.arch }}.flatpak
+              env:
+                  SLINT_EDITOR_CHANNEL: ${{ inputs.channel || 'nightly' }}
 
             # An archive-mode repository is tens of thousands of small files,
             # and the artifact upload charges per file. One tar is minutes

@@ -305,8 +305,30 @@ publish_flatpakref() {
         --content-type "application/vnd.flatpak.ref"
 }
 
+
 # The single-file bundles are a plain download for anyone who wants to install
-# once, and have nothing to do with the repository above.
+# once. Writing them here rather than letting the flatpak-builder action do it
+# is what gives them somewhere to update from: the action only passes
+# --runtime-repo, and a bundle without a repository URL installs an origin
+# remote that points nowhere, so `flatpak update` has nothing to talk to.
+#
+# No --gpg-keys: build-bundle writes a fresh commit into the bundle and does
+# not carry the repository's signature over, so a bundle that names a key
+# refuses to install at all ("no signatures found"). The remote it creates is
+# therefore unverified, which is the trade for a bundle being installable.
+write_bundle() {
+    require_tools flatpak
+    local repo="${1:-}"
+    local output="${2:-}"
+    [ -d "$repo" ] || die "usage: write-bundle <repo> <output.flatpak>"
+    [ -n "$output" ] || die "usage: write-bundle <repo> <output.flatpak>"
+
+    log "Writing $output, updating from $REPO_URL"
+    flatpak build-bundle "$repo" "$output" "$APP_ID" "$CHANNEL" \
+        --runtime-repo=https://flathub.org/repo/flathub.flatpakrepo \
+        --repo-url="$REPO_URL"
+}
+
 publish_bundles() {
     require_tools aws
     local dir="${1:-$DIST_DIR}"
@@ -375,6 +397,7 @@ case "$COMMAND" in
     merge-repos) merge_repos ;;
     update-repo) update_repo ;;
     write-flatpakref) write_flatpakref ;;
+    write-bundle) write_bundle "${2:-}" "${3:-}" ;;
     publish) publish ;;
     publish-flatpakref) publish_flatpakref ;;
     publish-bundles) publish_bundles "${2:-}" ;;
