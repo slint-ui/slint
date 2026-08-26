@@ -27,7 +27,7 @@ Into the `visual-editor-updates` bucket, which serves `visual-editor.slint.dev`:
 ```text
 nightly/flatpak/                            OSTree repository
 nightly/slint-visual-editor.flatpakref      installs the app and adds the remote
-nightly/slint-visual-editor-x86_64.flatpak  one-off download, no updates
+nightly/slint-visual-editor-x86_64.flatpak  one-off download, updates from the repository above
 nightly/slint-visual-editor-aarch64.flatpak
 ```
 
@@ -233,11 +233,11 @@ Two things a user can run into:
 * **The portal asks once.** "The application wants to update itself" comes from
   the portal, not from the editor, and the answer is remembered in the
   permission store: `flatpak permission-show dev.slint.VisualEditor`.
-* **Signing is not optional for system installs.** The portal refuses automatic
-  updates for system-helper remotes without GPG signatures, so an unsigned
-  channel can only update `--user` installs. Updating an install that came from
-  a single-file bundle fails whatever the signing: the bundle carries no repo
-  URL, so there is no remote to update from, and the error says so.
+* **A bundle install updates, but unverified.** The bundle names the channel's
+  repository, so its origin remote has somewhere to update from. What it cannot
+  carry is the key: `flatpak build-bundle` writes a fresh commit into the bundle
+  without the repository's signature, so a bundle that names a key refuses to
+  install at all. Installing from the flatpakref is the verified path.
 
 ## Testing updates locally
 
