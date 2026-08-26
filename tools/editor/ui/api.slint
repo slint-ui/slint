@@ -625,7 +625,7 @@ export global Api {
     // Add an existing component
     pure callback can-drop(data: data-transfer, x: length, y: length, on-drop-area: bool) -> bool;
     callback drop(data: data-transfer, x: length, y: length);
-    callback drop-with-geometry(data: data-transfer, hit-x: length, hit-y: length, x: length, y: length, width: length, height: length);
+    callback drop-with-geometry(data: data-transfer, hit-position: Point, position: Point, size: Size);
 
     callback rename-component(old-name: string, defined-at: string, new-name: string);
 
