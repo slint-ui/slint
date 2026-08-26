@@ -650,7 +650,7 @@ fn find_element_to_drop_into(
             DropAccept::Maybe => {
                 tmp = tmp.or(Some(element_node.clone()));
             }
-            DropAccept::No => unreachable!("All elements intersect with position"),
+            DropAccept::No => continue,
         }
     }
 
