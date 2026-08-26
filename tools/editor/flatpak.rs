@@ -21,11 +21,14 @@
 //! * `Update` deploys, it does not relaunch. The running process keeps the old
 //!   deployment mounted, so a finished update ends in
 //!   [`ui::UpdateState::RestartRequired`] rather than in anything that claims
-//!   the new version is running.
+//!   the new version is running. Getting out of that state is `Spawn`'s job,
+//!   see [`Updater::restart`].
 
 use crate::preview::ui;
 use slint::ComponentHandle as _;
 use std::collections::HashMap;
+use std::os::fd::AsFd as _;
+use std::os::unix::ffi::OsStrExt as _;
 use std::rc::Rc;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -33,7 +36,7 @@ use std::time::Duration;
 use zbus::MatchRule;
 use zbus::blocking::{Connection, MessageIterator, Proxy};
 use zbus::message::Type as MessageType;
-use zbus::zvariant::{OwnedObjectPath, Value};
+use zbus::zvariant::{Fd, OwnedObjectPath, Value};
 
 const PORTAL_BUS: &str = "org.freedesktop.portal.Flatpak";
 const PORTAL_PATH: &str = "/org/freedesktop/portal/Flatpak";
@@ -48,6 +51,10 @@ const BASE_URL: &str = "https://visual-editor.slint.dev";
 /// How long to wait for the startup check. Nothing depends on the answer, so
 /// there is no reason to wait long for it.
 const CHECK_TIMEOUT: Duration = Duration::from_secs(10);
+
+/// `Spawn` flag `FLATPAK_SPAWN_FLAGS_LATEST_VERSION`: start the newly deployed
+/// version rather than the one this process was launched from.
+const SPAWN_LATEST_VERSION: u32 = 2;
 
 /// The `status` field of the `Progress` signal.
 const STATUS_RUNNING: u32 = 0;
@@ -238,6 +245,63 @@ impl Updater {
             }
         });
     }
+
+    /// Relaunch into the deployment the update produced, and let this instance
+    /// go once the new one is on its way. The portal spawns into the app's own
+    /// sandbox, so this needs no permission the editor does not already have.
+    ///
+    /// Nothing here is automatic: the editor holds at
+    /// [`ui::UpdateState::RestartRequired`] until someone clicks, because the
+    /// moment to lose a running preview is theirs to pick.
+    pub fn restart(&self) {
+        let connection = self.connection.clone();
+        let callback = self.callback.clone();
+
+        // The portal reads these as bytestrings, so they carry their
+        // terminator. The same argv keeps a file the editor was opened with.
+        let cwd = bytestring(std::env::current_dir().unwrap_or_else(|_| "/".into()).as_os_str());
+        let argv: Vec<Vec<u8>> =
+            std::env::args_os().map(|argument| bytestring(&argument)).collect();
+
+        std::thread::spawn(move || {
+            // Handing over the standard descriptors, the way flatpak-spawn
+            // does: a process whose first three descriptors are closed hands
+            // them out again to whatever it opens next.
+            let (stdin, stdout, stderr) = (std::io::stdin(), std::io::stdout(), std::io::stderr());
+            let fds = HashMap::from([
+                (0u32, Fd::from(stdin.as_fd())),
+                (1, Fd::from(stdout.as_fd())),
+                (2, Fd::from(stderr.as_fd())),
+            ]);
+            let environment: HashMap<&str, &str> = HashMap::new();
+            let options: HashMap<&str, Value> = HashMap::new();
+
+            let result = connection.call_method(
+                Some(PORTAL_BUS),
+                PORTAL_PATH,
+                Some(PORTAL_INTERFACE),
+                "Spawn",
+                &(cwd, argv, fds, environment, SPAWN_LATEST_VERSION, options),
+            );
+
+            match result {
+                Ok(_) => {
+                    let _ = slint::invoke_from_event_loop(|| {
+                        let _ = slint::quit_event_loop();
+                    });
+                }
+                Err(error) => callback(Event::Failed { message: call_error(&error) }),
+            }
+        });
+    }
+}
+
+/// A NUL terminated byte array, which is how the portal reads paths and
+/// arguments.
+fn bytestring(value: &std::ffi::OsStr) -> Vec<u8> {
+    let mut bytes = value.as_bytes().to_vec();
+    bytes.push(0);
+    bytes
 }
 
 fn string<'a>(info: &'a HashMap<String, Value>, key: &str) -> Option<&'a str> {
@@ -473,13 +537,15 @@ pub fn connect(editor: &ui::EditorUi) -> Option<Rc<Updater>> {
         let Some(editor) = weak.upgrade() else {
             return;
         };
-        // In every state but one the banner means "install it": `Update` is
-        // also the only way to ask the portal to look at the remote, so it is
-        // the right call whatever the banner currently says.
-        if editor.global::<ui::Api>().get_update_state() == ui::UpdateState::RestartRequired {
-            return;
+        match editor.global::<ui::Api>().get_update_state() {
+            ui::UpdateState::RestartRequired => clicked.restart(),
+            // Already working on it. The portal answers a second `Update` with
+            // "Already installing", which is not news worth putting in a banner.
+            ui::UpdateState::Downloading | ui::UpdateState::Installing => {}
+            // `Update` is also the only way to ask the portal to look at the
+            // remote, so it is the right call in every remaining state.
+            _ => clicked.install(),
         }
-        clicked.install();
     });
 
     Some(updater)
