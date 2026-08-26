@@ -715,7 +715,7 @@ jobs:
                   CFLAGS: -msse2
                   CXXFLAGS: -msse2
               # The excluded crates need a dedicated toolchain or don't cross-compile here.
-              run: cargo xwin build --target i686-pc-windows-msvc --locked --workspace --exclude slint-node --exclude slint-cpp --exclude slint-python --exclude slint-sc --exclude slint-doc-generator --exclude i-slint-renderer-skia
+              run: cargo xwin build --target i686-pc-windows-msvc --locked --workspace --exclude slint-node --exclude slint-cpp --exclude slint-python --exclude slint-sc --exclude slint-doc-generator --exclude i-slint-renderer-skia --exclude slint-editor
 
     qa-tree-sitter-latest:
         if: ${{ inputs.full }}
