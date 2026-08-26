@@ -22,27 +22,16 @@ The item tree is Slint's runtime representation of UI components:
 | `internal/core/item_focus.rs` | Focus chain traversal functions |
 | `internal/core/item_rendering.rs` | ItemCache, rendering infrastructure |
 | `internal/core/window.rs` | WindowInner, input handling |
-| `internal/interpreter/dynamic_item_tree.rs` | Runtime ItemTree for interpreter |
+| `internal/interpreter/instance.rs` | Runtime instance tree for the interpreter |
+| `internal/interpreter/item_tree_vtable.rs` | `ItemTreeVTable` implementation for that instance |
 
 ## Tree Node Structure
 
-Items are stored as a flat array with parent/child indices:
-
-```rust
-pub enum ItemTreeNode {
-    Item {
-        is_accessible: bool,      // Has accessibility info
-        children_count: u32,      // Number of children
-        children_index: u32,      // Index of first child
-        parent_index: u32,        // Parent's index
-        item_array_index: u32,    // Index in item storage
-    },
-    DynamicTree {
-        index: u32,               // Repeater index
-        parent_index: u32,
-    },
-}
-```
+Items are stored as a flat array with parent/child indices. An `ItemTreeNode` is either a
+static `Item` — its parent index, the index and count of its children, its slot in the item
+array, and whether it carries accessibility properties — or a `DynamicTree` placeholder holding
+its parent index and the index passed to the `visit_dynamic` callback.
+See `ItemTreeNode` in `internal/core/item_tree.rs`.
 
 - Root item always at index 0
 - Children stored contiguously
@@ -52,12 +41,8 @@ pub enum ItemTreeNode {
 
 ### ItemRc - Reference to an Item
 
-```rust
-pub struct ItemRc {
-    item_tree: VRc<ItemTreeVTable>,  // Containing tree
-    index: u32,                       // Index within tree
-}
-```
+A strong reference to the containing item tree plus the item's index within it.
+See `ItemRc` in `internal/core/item_tree.rs`.
 
 **Navigation methods:**
 - `parent_item()` - Get parent (with optional popup boundary)
@@ -91,37 +76,31 @@ Both paths implement the same `ItemTreeVTable`:
 
 | Aspect | Compiled | Interpreted |
 |--------|----------|-------------|
-| Tree structure | Compile-time array | `ItemTreeDescription` |
-| Properties | Struct fields | Dynamic offsets |
-| Bindings | Generated code | Runtime evaluation |
-| VTable | Static | `dynamic_item_tree.rs` |
+| Tree structure | Compile-time array | Flat array built at instantiation |
+| Properties | Struct fields | Individually heap-allocated, indexed by LLR index |
+| Bindings | Generated code | Runtime evaluation of the LLR expression |
+| VTable | Generated per component | One static vtable shared by every instance |
 
-**Interpreter key types:**
-- `ItemTreeDescription<'id>` - Component metadata
-- `ItemTreeBox<'id>` - Instance container
-- `InstanceRef<'a, 'id>` - Runtime instance access
+**Interpreter key types** (`internal/interpreter/`):
+- `Instance` (`instance.rs`) - the top-level item tree handed to i-slint-core, owning the flat
+  node array and the tables that map each flat index back to its sub-component
+- `SubComponentInstance` (`instance.rs`) - the runtime instance of one LLR sub-component: its
+  properties, callbacks, items, nested sub-components and repeaters
+- `ComponentDefinitionInner` / `ComponentInstanceInner` (`component.rs`) - what the public
+  `ComponentDefinition` and `ComponentInstance` wrap
 
 ## Tree Traversal
 
 ### Traversal Order
 
-```rust
-pub enum TraversalOrder {
-    BackToFront,  // Rendering (background → foreground)
-    FrontToBack,  // Hit testing (foreground → background)
-}
-```
+`TraversalOrder` is `BackToFront` for rendering (background → foreground) and `FrontToBack` for
+hit testing (foreground → background). See `internal/core/item_tree.rs`.
 
 ### Visitor Pattern
 
-```rust
-pub struct VisitChildrenResult(u64);
-
-impl VisitChildrenResult {
-    pub const CONTINUE: Self;  // Keep traversing
-    pub fn abort(index, repeater_index) -> Self;  // Stop here
-}
-```
+A visitor returns a `VisitChildrenResult`: either the `CONTINUE` constant, or `abort()` with the
+item index and repeater index it stopped at. It is a packed `u64` rather than an enum because
+that crosses the FFI boundary more easily. See `internal/core/item_tree.rs`.
 
 ### Traversal Uses
 
@@ -134,18 +113,11 @@ impl VisitChildrenResult {
 
 ## Focus Management
 
-Focus traversal functions in `item_focus.rs`:
-
-```rust
-// Next item in tab order
-pub fn default_next_in_local_focus_chain(index, item_tree) -> Option<u32>
-
-// Previous item in tab order
-pub fn default_previous_in_local_focus_chain(index, item_tree) -> Option<u32>
-
-// Step out to sibling or parent's sibling
-pub fn step_out_of_node(index, item_tree) -> Option<u32>
-```
+`internal/core/item_focus.rs` has three public functions, all taking an index into an
+`ItemTreeNodeArray` and returning the next index or `None`:
+`default_next_in_local_focus_chain()` (first child, else step out),
+`default_previous_in_local_focus_chain()` (deepest last descendant of the previous sibling, else
+the parent), and `step_out_of_node()`, which walks up until it finds a next sibling.
 
 **Focus on ItemRc:**
 - `next_focus_item()` - Tab key navigation
@@ -155,42 +127,36 @@ pub fn step_out_of_node(index, item_tree) -> Option<u32>
 
 ### Creating a Component
 
-```rust
-// Interpreter path
-pub fn instantiate(
-    description: Rc<ItemTreeDescription>,
-    parent_ctx: Option<ErasedItemTreeBoxWeak>,
-    root: Option<ErasedItemTreeBoxWeak>,
-    window_options: Option<&WindowOptions>,
-    globals: GlobalStorage,
-) -> DynamicComponentVRc
-```
+On the interpreter path, `ComponentDefinition::create_with_options()`
+(`internal/interpreter/api.rs`) dispatches on a `WindowOptions` to one of the three constructors
+on `ComponentDefinitionInner` in `internal/interpreter/component.rs`.
 
 ### Window Options
 
-```rust
-pub enum WindowOptions {
-    CreateNewWindow,                    // New window
-    UseExistingWindow(WindowAdapterRc), // Attach to existing
-    Embed { parent_item_tree, parent_item_tree_index }, // Sub-component
-}
-```
+`WindowOptions` picks how the new instance gets its window: `CreateNewWindow`,
+`UseExistingWindow` with an existing `WindowAdapterRc`, or `Embed` into a parent item tree at a
+given index. See `internal/interpreter/api.rs`.
 
 ### Initialization Sequence
 
-1. Allocate instance memory
-2. Create `ItemTreeBox` wrapper
-3. Initialize properties and bindings
-4. Call `register_item_tree()` to init items
-5. Register with window adapter
+Still on the interpreter path (`Instance::new_with_options()` and `finalize_instance()` in
+`internal/interpreter/instance.rs`):
+
+1. Build the `SubComponentInstance` tree from the LLR
+2. Build the flat `ItemTreeNode` array and the tables mapping each flat index back to the
+   sub-component that owns it
+3. Wrap it in a `VRc<ItemTreeVTable, Instance>` and back-link the weak references
+4. Install the property bindings, and for a top-level instance attach the window adapter — before
+   the init code, so `set_component()` can't clear a focus that `forward-focus` just set
+5. Call `register_item_tree()`, which runs `Item::init()` on every native item and registers the
+   tree with the window adapter
+6. Run the component's `init_code`
 
 ### Cleanup
 
-```rust
-pub fn unregister_item_tree(base, item_tree, item_array, window_adapter)
-```
-- Frees graphics resources
-- Closes dependent popups
+`unregister_item_tree()` (`internal/core/item_tree.rs`) walks the items once to:
+- Free graphics resources
+- Close dependent popups
 
 ## Item VTable
 

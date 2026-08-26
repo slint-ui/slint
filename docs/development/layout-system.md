@@ -32,16 +32,9 @@ Layout types:
 
 ### LayoutInfo (Runtime)
 
-```rust
-pub struct LayoutInfo {
-    pub min: Coord,           // Minimum size
-    pub max: Coord,           // Maximum size
-    pub min_percent: Coord,   // Minimum as % of parent
-    pub max_percent: Coord,   // Maximum as % of parent
-    pub preferred: Coord,     // Preferred size
-    pub stretch: f32,         // Stretch factor (0.0 = don't stretch)
-}
-```
+The constraints for one item along one axis: a min and a max, the same two again as a percentage
+of the parent, a preferred size, and a stretch factor (0.0 means don't stretch). Sizes are
+`Coord`, the stretch is an `f32`. See `LayoutInfo` in `internal/core/layout.rs`.
 
 ### Constraint Merging
 
@@ -142,47 +135,27 @@ Child x/y/width/height bound to cache access expressions
 
 ### Compiler-Side
 
-```rust
-// internal/compiler/layout.rs
+All in `internal/compiler/layout.rs`:
 
-pub struct GridLayout {
-    pub elems: Vec<GridLayoutElement>,  // Cells
-    pub geometry: LayoutGeometry,        // Padding, spacing, alignment
-}
-
-pub struct BoxLayout {
-    pub orientation: Orientation,  // Horizontal or Vertical
-    pub elems: Vec<LayoutItem>,
-    pub geometry: LayoutGeometry,
-}
-
-pub struct LayoutConstraints {
-    pub min_width: Option<NamedReference>,
-    pub max_width: Option<NamedReference>,
-    // ... other constraint properties as references
-}
-```
+- `GridLayout` - the cells plus the `LayoutGeometry` (padding, spacing, alignment). It also
+  carries the button roles when the grid is really a `Dialog`, and whether any row/column
+  expression uses `auto`.
+- `BoxLayout` - the orientation, the items and the same `LayoutGeometry`, plus the
+  `cross-axis-alignment` property if one was set.
+- `LayoutConstraints` - one `Option<NamedReference>` per `min-`/`max-`/`preferred-` width and
+  height and per stretch, the two fixed-size flags, and a `LayoutConstraintLocality` with one bool
+  per named reference recording whether it was set on the element itself rather than inherited
+  from a base component. Inherited ones are already baked into the element's `layoutinfo-*`, so a
+  parent that measured the cell through its layout-info must not re-apply them.
 
 ### Runtime
 
-```rust
-// internal/core/layout.rs
+Both in `internal/core/layout.rs`:
 
-pub struct GridLayoutData {
-    pub size: Coord,
-    pub spacing: Coord,
-    pub padding: Padding,
-    pub organized_data: GridLayoutOrganizedData,
-}
-
-pub struct BoxLayoutData<'a> {
-    pub size: Coord,
-    pub spacing: Coord,
-    pub padding: Padding,
-    pub alignment: LayoutAlignment,
-    pub cells: Slice<'a, LayoutItemInfo>,
-}
-```
+- `GridLayoutData` - the available size, the spacing and padding, and the
+  `GridLayoutOrganizedData` produced by `organize_grid_layout()`.
+- `BoxLayoutData` - the available size, the spacing and padding, the `LayoutAlignment`, and a
+  borrowed slice of `LayoutItemInfo`, one per cell.
 
 ## Layout Cache Formats
 

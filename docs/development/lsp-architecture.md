@@ -107,16 +107,9 @@ The LSP server advertises its capabilities via the `ServerCapabilities` type in 
 
 ### Completion Contexts
 
-The completion system provides different `CompletionItems` based on the context:
-
-```rust
-pub(crate) fn completion_at(
-    document_cache: &mut DocumentCache,
-    token: SyntaxToken,
-    offset: TextSize,
-    client_caps: Option<&CompletionClientCapabilities>,
-) -> Option<Vec<CompletionItem>>;
-```
+`completion_at()` (`tools/lsp/language/completion.rs`) is the entry point: it takes the token and
+offset the cursor is at, plus the client's completion capabilities (to decide whether snippets
+can be used), and returns the `CompletionItem`s for that context.
 
 **Contexts handled:**
 - **String literals**: Path completion for imports and `@image-url`
@@ -127,15 +120,7 @@ pub(crate) fn completion_at(
 
 ### Element Scope Completion
 
-```rust
-fn resolve_element_scope(
-    element: syntax_nodes::Element,
-    document_cache: &DocumentCache,
-    with_snippets: bool,
-) -> Option<Vec<CompletionItem>>;
-```
-
-Suggests:
+`resolve_element_scope()` (same file) takes the `Element` node and suggests:
 - Available child element types
 - Properties from element type
 - Callbacks from element type
@@ -144,15 +129,7 @@ Suggests:
 
 ### Expression Scope Completion
 
-```rust
-fn resolve_expression_scope(
-    lookup_ctx: &LookupCtx,
-    document_cache: &DocumentCache,
-    snippet_support: bool,
-) -> Option<Vec<CompletionItem>>;
-```
-
-Suggests:
+`resolve_expression_scope()` (same file) takes a compiler `LookupCtx` and suggests:
 - Local variables
 - Properties from scope
 - Built-in functions (`Math.*`, `Colors.*`)
@@ -166,14 +143,7 @@ The semantic token types are lookup indices into a legend of `LEGEND_TYPES` and 
 
 ## Go-to-Definition
 
-Navigates to declarations:
-
-```rust
-pub fn goto_definition(
-    document_cache: &mut DocumentCache,
-    token: SyntaxToken,
-) -> Option<GotoDefinitionResponse>;
-```
+`goto_definition()` (`tools/lsp/language/goto.rs`) resolves the token to its declaration.
 
 **Handles:**
 - Element IDs → Element definition
@@ -211,26 +181,21 @@ The LSP communicates with the preview via a protocol defined in the `i-slint-liv
 (`internal/live-preview/protocol/`), which implements the `LspToPreviewMessage` and
 `PreviewToLspMessage` enums used for message traffic.
 
-
 ### Preview State
 
-```rust
-pub struct PreviewState {
-    pub app_window: Option<ui::AppWindow>,
-    pub api: slint::Weak<ui::Api<'static>>,
-    handle: Rc<RefCell<Option<ComponentInstance>>>,
-    document_cache: Rc<RefCell<Option<Rc<DocumentCache>>>>,
-    selected: Option<ElementSelection>,
+`PreviewState` (`tools/lsp/preview.rs`) is everything the preview owns:
 
-    source_code: SourceCodeCache,
-    pub config: PreviewConfig,
-    current_previewed_component: Option<PreviewComponent>,
-    loading_state: PreviewFutureState,
-
-    pub to_lsp: RefCell<Option<Rc<dyn PreviewToLsp>>>,
-    // ... undo/redo, live-data, and dependency-tracking fields
-}
-```
+- The preview's own UI (`app_window` and the `Api` weak handle) and the property declarations it
+  shows
+- The previewed `ComponentInstance` and the `DocumentCache` it was built from
+- The current element selection, plus whether the editor still has to be told about it and
+  whether a workspace edit is already in flight
+- The known components, the currently previewed one, its load behavior, the `PreviewFutureState`
+  of the loading and the timer that delays showing it
+- The source code cache, the resources and dependencies to watch, the `PreviewConfig` and the
+  last user settings synced with the LSP
+- The undo/redo stack, and the initial and current live data
+- `to_lsp`, the channel back to the LSP, and the remote discovery when that feature is on
 
 ### Preview Loading States
 
@@ -271,16 +236,8 @@ Editor                    LSP Server
 
 ### File Watching
 
-The server registers for file change notifications via the editor:
-
-```rust
-let file_system_watcher = DidChangeWatchedFilesRegistrationOptions {
-    watchers: vec![FileSystemWatcher {
-        glob_pattern: GlobPattern::String("**/*".to_string()),
-        kind: Some(WatchKind::Change | WatchKind::Delete | WatchKind::Create),
-    }],
-};
-```
+The server registers a `DidChangeWatchedFilesRegistrationOptions` with the editor, watching
+`**/*` for create, change and delete. See `tools/lsp/language.rs`.
 
 When a file changes on disk:
 1. If the file is not open in the editor, drop it from the cache
@@ -328,15 +285,10 @@ let token = token_at_offset(document.node.as_ref()?, offset)?;
 
 ### Using Lookup Context
 
-```rust
-fn with_lookup_ctx<R>(
-    document_cache: &DocumentCache,
-    node: SyntaxNode,
-    offset: Option<TextSize>,
-    callback: impl FnOnce(&mut LookupCtx) -> R,
-) -> Option<R>;
+`with_lookup_ctx()` (`internal/editor-preview/util.rs`) builds the compiler's `LookupCtx` for a
+syntax node and hands it to a callback:
 
-// Example usage
+```rust
 with_lookup_ctx(document_cache, node, Some(offset), |lookup_context| {
     resolve_expression_scope(lookup_context, document_cache, snippet_support)
 })?
@@ -344,18 +296,9 @@ with_lookup_ctx(document_cache, node, Some(offset), |lookup_context| {
 
 ### Finding Element at Position
 
-`element_at_position` is a method on `DocumentCache`
-(`internal/editor-preview/document_cache.rs`), not a free function:
-
-```rust
-impl DocumentCache {
-    pub fn element_at_position(
-        &self,
-        text_document_uri: &Url,
-        position: &Position,
-    ) -> Option<ElementRcNode>;
-}
-```
+`element_at_position()` is a method on `DocumentCache`
+(`internal/editor-preview/document_cache.rs`), not a free function. Give it a document URI and a
+position and it returns the `ElementRcNode` there.
 
 ### Publishing Diagnostics
 
@@ -381,14 +324,10 @@ RUST_LOG=debug cargo test -p slint-lsp
 
 ### Test Utilities
 
-```rust
-// In language/test.rs
-pub use i_slint_editor_preview::test::{
-    complex_document_cache, empty_document_cache, empty_document_cache_with_experimental, load,
-    loaded_document_cache, loaded_document_cache_with_experimental,
-    loaded_document_cache_with_file_name,
-};
-```
+`tools/lsp/language/test.rs` re-exports the helpers from `i_slint_editor_preview::test` that build
+an empty, loaded or deliberately complex `DocumentCache` for a test to work against, along with
+`load()`, which loads content into an existing `EditorSession` and hands back its URL and
+diagnostics.
 
 ## Debugging Tips
 

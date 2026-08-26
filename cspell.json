@@ -100,7 +100,9 @@
         "TSCHÜSS",
         "ὈΔΥΣΣΕΎΣ",
         "ὀδυσσεύς",
+        "animatable",
         "commonmark",
+        "newtype",
         "strikethroughs",
         "unlocalized",
         "binstall"
