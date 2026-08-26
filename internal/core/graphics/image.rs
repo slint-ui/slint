@@ -862,16 +862,6 @@ impl Image {
         self.render_to_rgba8(None)
     }
 
-    /// Same as [`Self::to_rgba8`], but scalable sources (such as SVGs) are rasterized to
-    /// `target_size` (in physical pixels) instead of their intrinsic size.
-    /// Returns None if the pixels cannot be obtained.
-    pub fn to_rgba8_with_target_size(
-        &self,
-        target_size: IntSize,
-    ) -> Option<SharedPixelBuffer<Rgba8Pixel>> {
-        self.render_to_rgba8(Some(target_size.cast_unit()))
-    }
-
     fn render_to_rgba8(
         &self,
         target_size: Option<euclid::Size2D<u32, PhysicalPx>>,
@@ -1090,6 +1080,16 @@ impl Image {
             _ => None,
         }
     }
+}
+
+/// Like [`Image::to_rgba8`], but scalable sources (such as SVGs) are rasterized to
+/// `target_size` (in physical pixels) instead of their intrinsic size.
+/// Returns None if the pixels cannot be obtained.
+pub fn image_to_rgba8_with_target_size(
+    image: &Image,
+    target_size: IntSize,
+) -> Option<SharedPixelBuffer<Rgba8Pixel>> {
+    image.render_to_rgba8(Some(target_size.cast_unit()))
 }
 
 #[cfg(any(feature = "image-decoders", all(target_arch = "wasm32", feature = "std")))]
