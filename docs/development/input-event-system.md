@@ -28,59 +28,21 @@ Slint's input system handles mouse, touch, keyboard events and focus management.
 
 ### MouseEvent Enum
 
-```rust
-pub enum MouseEvent {
-    /// Mouse/finger pressed
-    Pressed {
-        position: LogicalPoint,
-        button: PointerEventButton,
-        click_count: u8,
-        touch_finger_id: i32,  // Set for touch input, 0 for mouse
-    },
+`MouseEvent` (`internal/core/input.rs`) is what an item's input handlers receive:
 
-    /// Mouse/finger released
-    Released {
-        position: LogicalPoint,
-        button: PointerEventButton,
-        click_count: u8,
-        touch_finger_id: i32,
-    },
-
-    /// Pointer moved
-    Moved { position: LogicalPoint, touch_finger_id: i32 },
-
-    /// Mouse wheel or touchpad scroll
-    Wheel { position: LogicalPoint, delta_x: Coord, delta_y: Coord, phase: TouchPhase },
-
-    /// Drag operation in progress over item
-    DragMove { event: DropEvent, allowed: AllowedDragActions },
-
-    /// Drop occurred on item
-    Drop { event: DropEvent, allowed: AllowedDragActions },
-
-    /// A platform-recognized pinch gesture (macOS/iOS trackpad, Qt)
-    PinchGesture { position: LogicalPoint, delta: f32, phase: TouchPhase },
-
-    /// A platform-recognized rotation gesture (macOS/iOS trackpad, Qt)
-    RotationGesture { position: LogicalPoint, delta: f32, phase: TouchPhase },
-
-    /// Mouse exited the item
-    Exit,
-}
-```
+- `Pressed` and `Released`, with a position, a `PointerEventButton`, the click count, and a touch
+  finger id (set for touch input, 0 for the mouse); `Moved`, with a position and finger id
+- `Wheel` for the mouse wheel or a touchpad scroll: a position, an x and y delta, and a
+  `TouchPhase`
+- `DragMove` and `Drop`, each with the `DropEvent` and the allowed drag actions
+- `PinchGesture` and `RotationGesture`, platform-recognized gestures (macOS/iOS trackpad, Qt),
+  with a position, a delta and a `TouchPhase`
+- `Exit`, when the pointer leaves the item
 
 ### Click Counting
 
-The `ClickState` tracks multi-clicks (double-click, triple-click):
-
-```rust
-pub struct ClickState {
-    click_count_time_stamp: Cell<Option<Instant>>,
-    click_count: Cell<u8>,
-    click_position: Cell<LogicalPoint>,
-    click_button: Cell<PointerEventButton>,
-}
-```
+`ClickState` (`internal/core/input.rs`) tracks multi-clicks (double-click, triple-click) by
+remembering the timestamp, count, position and button of the last press.
 
 **Logic:**
 - If press occurs within `click_interval` of previous press, at same position, with same button → increment `click_count`
@@ -89,29 +51,19 @@ pub struct ClickState {
 
 ### Mouse Input State
 
-Tracks the current state of mouse interaction:
+`MouseInputState` (`internal/core/input.rs`) tracks the current state of mouse interaction:
 
-```rust
-pub struct MouseInputState {
-    /// Stack of items under cursor, with their filter results
-    item_stack: Vec<(ItemWeak, InputEventFilterResult)>,
-
-    /// Offset for popup positioning
-    pub(crate) offset: LogicalPoint,
-
-    /// True if an item has grabbed the mouse
-    grabbed: bool,
-
-    /// Active drag-drop data
-    pub(crate) drag_data: Option<DragData>,
-
-    /// Delayed event (for Flickable touch handling)
-    delayed: Option<(Timer, MouseEvent)>,
-
-    /// Items pending exit events
-    delayed_exit_items: Vec<ItemWeak>,
-}
-```
+- The stack of items containing the cursor (or the grab), each with the last result of its filter
+  function, and whether the top item holds the mouse grab
+- The passive observers that saw the last event without claiming it. They are kept out of the
+  stack so it stays a single root-to-leaf path, and get a synthesized `MouseEvent::Exit` once they
+  stop appearing
+- The offset to apply to the first item of the stack, used when there is a popup
+- The drag-and-drop state: the dragged data, the `DragArea` that started the drag (`None` for a
+  native cross-window drag), and the `DropArea` that accepted the last `DragMove` — on release
+  only that one gets the `Drop`, matching how OS drag-and-drop pipelines behave
+- The delayed event and its timer (for `Flickable` touch handling), the items still owed an exit
+  event, and the current mouse cursor
 
 ## Event Processing Flow
 
@@ -173,68 +125,37 @@ because the backend needs the negotiated `DragAction` back, which the public dis
 
 ### Item Event Handlers
 
-Each item has two event handlers:
+Each item has two event handlers, both taking the `MouseEvent`, the window adapter, the item's
+own `ItemRc`, and the mouse cursor to set: `input_event_filter_before_children()` runs before the
+children and returns an `InputEventFilterResult`; `input_event()` runs after them, unless the
+filter said otherwise, and returns an `InputEventResult`.
 
-```rust
-// Called before children process the event
-fn input_event_filter_before_children(
-    &self,
-    event: &MouseEvent,
-    window_adapter: &Rc<dyn WindowAdapter>,
-    self_rc: &ItemRc,
-) -> InputEventFilterResult;
-
-// Called after children (unless filtered)
-fn input_event(
-    &self,
-    event: &MouseEvent,
-    window_adapter: &Rc<dyn WindowAdapter>,
-    self_rc: &ItemRc,
-) -> InputEventResult;
-```
+They are entries of `ItemVTable` in `internal/core/items.rs`, and the `Item` trait every item
+implements is generated from it by `#[vtable]`. That trait has no defaults: an item that does not
+care still has to write both out, returning `ForwardAndIgnore` and `EventIgnored` — `Empty` in the
+same file is the shortest example.
 
 ### InputEventFilterResult
 
-Controls how events are forwarded:
+Controls how events are forwarded.
+`InputEventFilterResult` (`internal/core/input.rs`) is one of:
 
-```rust
-pub enum InputEventFilterResult {
-    /// Forward to children, then call input_event on self
-    ForwardEvent,
-
-    /// Forward to children, don't call input_event on self
-    ForwardAndIgnore,
-
-    /// Forward, but keep receiving events even if child grabs
-    ForwardAndInterceptGrab,
-
-    /// Don't forward to children, handle here
-    Intercept,
-
-    /// Delay forwarding (for touch scrolling detection)
-    DelayForwarding(u64),  // milliseconds
-}
-```
+- `ForwardEvent` - forward to the children, then call `input_event` on self
+- `ForwardAndIgnore` - forward to the children, don't call `input_event` on self
+- `ForwardAndInterceptGrab` - like `ForwardEvent`, but keep receiving events even if a child grabs
+- `ForwardAndObserve` - like `ForwardAndIgnore`, but still get the `Exit` when the pointer leaves,
+  even if a sibling handled the event in between
+- `Intercept` - don't forward to the children; a child that already had the grab has it cancelled
+  with an `Exit`
+- `DelayForwarding(ms)` - forward after a delay, unless intercepted. Only for press events, and
+  the event is sent early if a release arrives first (this is what `Flickable` uses)
 
 ### InputEventResult
 
-Returned by `input_event`:
-
-```rust
-pub enum InputEventResult {
-    /// Event was handled
-    EventAccepted,
-
-    /// Event was not handled, continue propagation
-    EventIgnored,
-
-    /// Grab all future mouse events until release
-    GrabMouse,
-
-    /// Start drag-drop operation (DragArea only)
-    StartDrag,
-}
-```
+Returned by `input_event`: `EventAccepted` (which may result in further events, e.g. accepting a
+move leads to a later `Exit`), `EventIgnored`, `GrabMouse` to route all further mouse events to
+this item, or `StartDrag`, which only a `DragArea` may return.
+See `InputEventResult` in `internal/core/input.rs`.
 
 ## Mouse Grab
 
@@ -247,22 +168,12 @@ When an item returns `GrabMouse`:
    - Mouse is released
    - An intercepting ancestor calls `Intercept`
 
-```rust
-// In handle_mouse_grab()
-if mouse_input_state.grabbed {
-    // Send event directly to grabber
-    let grabber = mouse_input_state.top_item().unwrap();
-    let result = grabber.input_event(&event, ...);
-
-    match result {
-        InputEventResult::GrabMouse => None,  // Keep grab
-        _ => {
-            mouse_input_state.grabbed = false;
-            Some(MouseEvent::Moved { ... })  // Resume normal processing
-        }
-    }
-}
-```
+`handle_mouse_grab()` (`internal/core/input.rs`) walks the item stack, translating the event into
+each item's coordinates, and delivers it to the grabber. Items that asked for
+`ForwardAndInterceptGrab` or `DelayForwarding` see it on the way down and may intercept, which
+sends an `Exit` to everything below and drops it from the stack. It returns a `MouseGrabResult`:
+the event that still needs normal hit-test dispatch (`None` when the grabber fully handled it),
+and whether the grabber accepted the original event.
 
 ## Drag and Drop
 
@@ -283,8 +194,12 @@ InputEventResult::StartDrag => {
 Items receive `DragMove` events:
 
 ```rust
-MouseEvent::DragMove { event: DropEvent { mime_type, data, position }, allowed }
+MouseEvent::DragMove { event: DropEvent { data, position, proposed_action }, allowed }
 ```
+
+`data` is the `DataTransfer` payload the source set, `position` is in the item's local
+coordinates, and `proposed_action` is the action negotiated from the current modifier state,
+clamped to `allowed`.
 
 Items return `EventAccepted` to indicate they can receive the drop.
 
@@ -293,53 +208,42 @@ Items return `EventAccepted` to indicate they can receive the drop.
 When mouse is released during drag:
 
 ```rust
-MouseEvent::Drop { event: DropEvent { mime_type, data, position }, allowed }
+MouseEvent::Drop { event: DropEvent { data, position, proposed_action }, allowed }
 ```
+
+Only a `DropArea` that accepted the preceding `DragMove` receives it.
 
 ## Keyboard Events
 
 ### KeyEvent Structure
 
-```rust
-pub struct KeyEvent {
-    pub text: SharedString,           // Character or key code
-    pub modifiers: KeyboardModifiers, // Alt, Ctrl, Shift, Meta
-    pub event_type: KeyEventType,
-    // ... IME composition fields
-}
+There are two: the public `KeyEvent` that reaches .slint callbacks, and the runtime's own
+`InternalKeyEvent`.
 
-pub enum KeyEventType {
-    KeyPressed,
-    KeyReleased,
-    UpdateComposition,  // IME pre-edit
-    CommitComposition,  // IME finalized
-}
+`KeyEvent` (`internal/common/builtin_structs.rs`) has just the unicode `text` of the key, the
+`KeyboardModifiers` active at the time, and a `repeat` flag that is true for auto-repeat presses
+and always false for releases.
 
-pub struct KeyboardModifiers {
-    pub alt: bool,
-    pub control: bool,
-    pub meta: bool,
-    pub shift: bool,
-}
-```
+`KeyboardModifiers` (same file) is four bools: `alt`, `control`, `shift` and `meta`. On macOS
+`control` is the Command key (⌘) and `meta` is the Control key; on Windows `meta` is the Windows
+key.
+
+`InternalKeyEvent` (`internal/core/input.rs`) wraps that public event and adds what the runtime
+needs: the `KeyEventType`, the input-method composition fields (the replacement range, the
+pre-edit text and its selection, the cursor and anchor positions) and, on Windows, the text
+without modifiers — needed to tell Ctrl+Alt apart from AltGr.
+
+`KeyEventType` is `KeyPressed`, `KeyReleased`, `UpdateComposition` (the input method updating the
+pre-edit text) or `CommitComposition` (the composition's final result replacing it).
 
 ### Key Codes
 
-Special keys are encoded as Unicode private-use characters:
-
-```rust
-pub mod key_codes {
-    pub const Backspace: char = '\u{0008}';
-    pub const Tab: char = '\u{0009}';
-    pub const Return: char = '\u{000D}';
-    pub const Escape: char = '\u{001B}';
-    pub const LeftArrow: char = '\u{F702}';
-    pub const RightArrow: char = '\u{F703}';
-    pub const UpArrow: char = '\u{F700}';
-    pub const DownArrow: char = '\u{F701}';
-    // ... more in key_codes module
-}
-```
+Special keys are encoded as characters — the control characters where one exists (Backspace, Tab,
+Return, Escape), Unicode private-use characters otherwise (the arrow keys, the function keys,
+...). One table lists them all, along with each key's winit, Qt, xkb and muda name:
+`for_each_keys!` in `internal/common/key_codes.rs`. The `key_codes` module of
+`internal/core/input.rs` expands it into the `char` constants and the public `Key` enum, and each
+backend expands the same table into its own key mapping.
 
 ### Keyboard Event Flow
 
@@ -367,109 +271,48 @@ WindowInner::process_key_input()
 
 ### Shortcuts
 
-```rust
-impl KeyEvent {
-    /// Check for standard shortcuts (Ctrl+C, etc.)
-    pub fn shortcut(&self) -> Option<StandardShortcut>;
+`InternalKeyEvent::shortcut()` recognizes the standard application shortcuts and
+`text_shortcut()` the text-editing ones. Both are in `internal/core/input.rs`, and both are
+platform-aware: Redo is Ctrl+Y on Windows and Ctrl+Shift+Z elsewhere, and the clipboard
+shortcuts are left to the browser on wasm.
 
-    /// Check for text editing shortcuts
-    pub fn text_shortcut(&self) -> Option<TextShortcut>;
-}
+`StandardShortcut` is `Copy`, `Cut`, `Paste`, `SelectAll`, `Find`, `Save`, `Print`, `Undo`,
+`Redo` and `Refresh`.
 
-pub enum StandardShortcut {
-    Copy, Cut, Paste, SelectAll, Find, Save, Print, Undo, Redo, Refresh,
-}
-
-pub enum TextShortcut {
-    Move(TextCursorDirection),
-    DeleteForward, DeleteBackward,
-    DeleteWordForward, DeleteWordBackward,
-    DeleteToStartOfLine,
-}
-```
+`TextShortcut` is `Move(TextCursorDirection)` plus the deletions: `DeleteForward`,
+`DeleteBackward`, `DeleteWordForward`, `DeleteWordBackward` and `DeleteToStartOfLine`.
 
 ## Focus Management
 
 ### Focus State
 
-The window tracks the currently focused item:
-
-```rust
-// In WindowInner
-focus_item: RefCell<crate::item_tree::ItemWeak>,
-```
+The window tracks the currently focused item in `WindowInner::focus_item`, an `ItemWeak`.
 
 ### Setting Focus
 
-```rust
-pub fn set_focus_item(
-    &self,
-    new_focus_item: &ItemRc,
-    set_focus: bool,       // true = focus, false = clear focus
-    reason: FocusReason,
-)
-```
+`WindowInner::set_focus_item()` takes the item, a bool saying whether to focus it or clear the
+focus, and the `FocusReason`. See `internal/core/window.rs`.
 
 ### FocusReason
 
-```rust
-#[non_exhaustive]
-pub enum FocusReason {
-    /// A built-in function invocation caused the event (`.focus()`, `.clear-focus()`)
-    Programmatic,
-    /// Keyboard navigation caused the event (tabbing)
-    TabNavigation,
-    /// A mouse click caused the event
-    PointerClick,
-    /// A popup caused the event
-    PopupActivation,
-    /// The window manager changed the active window and caused the event
-    WindowActivation,
-}
-```
+`FocusReason` (`internal/common/enums.rs`) says what caused the change: `Programmatic` (a
+`.focus()` or `.clear-focus()` call), `TabNavigation`, `PointerClick`, `PopupActivation`, or
+`WindowActivation` when the window manager changed the active window.
 
 ### Focus Events
 
-Items receive focus events:
-
-```rust
-pub enum FocusEvent {
-    FocusIn(FocusReason),
-    FocusOut(FocusReason),
-}
-
-pub enum FocusEventResult {
-    FocusAccepted,
-    FocusIgnored,
-}
-```
+Items receive a `FocusEvent` — `FocusIn` or `FocusOut`, each carrying the `FocusReason` — and
+answer with `FocusEventResult::FocusAccepted` or `FocusIgnored`; an ignored event is offered to
+other items. See `internal/core/input.rs`.
 
 ### Focus Chain Navigation
 
-Tab/Shift+Tab navigation traverses the item tree:
-
-```rust
-// Forward: depth-first, children before siblings
-fn default_next_in_local_focus_chain(index: u32, item_tree: &ItemTreeNodeArray) -> Option<u32> {
-    // First try first child
-    if let Some(child) = item_tree.first_child(index) {
-        return Some(child);
-    }
-    // Then try next sibling, or parent's next sibling
-    step_out_of_node(index, item_tree)
-}
-
-// Backward: reverse of forward
-fn default_previous_in_local_focus_chain(index: u32, item_tree: &ItemTreeNodeArray) -> Option<u32> {
-    // Try previous sibling's deepest descendant
-    if let Some(previous) = item_tree.previous_sibling(index) {
-        Some(step_into_node(item_tree, previous))
-    } else {
-        // Or parent
-        item_tree.parent(index)
-    }
-}
-```
+Tab/Shift+Tab navigation traverses the item tree depth-first, children before siblings. Forward,
+`default_next_in_local_focus_chain()` takes the first child if there is one, otherwise it steps
+out to the next sibling or the nearest ancestor's next sibling. Backward,
+`default_previous_in_local_focus_chain()` takes the deepest last descendant of the previous
+sibling, or the parent when there is no previous sibling.
+See `internal/core/item_focus.rs`, and [item-tree.md](item-tree.md#focus-management).
 
 ### Focus Delegation
 
@@ -484,29 +327,11 @@ component MyInput {
 
 ## Text Cursor Blinker
 
-For text input cursor animation:
-
-```rust
-pub struct TextCursorBlinker {
-    cursor_visible: Property<bool>,
-    cursor_blink_timer: Timer,
-}
-
-impl TextCursorBlinker {
-    /// Create binding that toggles visibility
-    pub fn set_binding(
-        instance: Pin<Rc<TextCursorBlinker>>,
-        prop: &Property<bool>,
-        cycle_duration: Duration,
-    );
-
-    /// Start blinking
-    pub fn start(self: &Pin<Rc<Self>>, cycle_duration: Duration);
-
-    /// Stop blinking (e.g., window loses focus)
-    pub fn stop(&self);
-}
-```
+For text input cursor animation. `TextCursorBlinker` (`internal/core/input.rs`) is a
+`Property<bool>` plus the timer that toggles it. `set_binding()` binds a caller's property to that
+visibility and starts the timer; `start()` and `stop()` control the blinking directly — `stop()`
+is what runs when the window loses focus. `set_binding()` and `start()` both take the
+`SlintContext` and the blink cycle duration; `stop()` takes neither.
 
 ## Delayed Event Handling
 
@@ -532,6 +357,7 @@ fn input_event(
     event: &MouseEvent,
     _window_adapter: &Rc<dyn WindowAdapter>,
     self_rc: &ItemRc,
+    _cursor: &mut MouseCursorInner,
 ) -> InputEventResult {
     match event {
         MouseEvent::Pressed { button: PointerEventButton::Left, .. } => {
@@ -559,6 +385,7 @@ fn input_event_filter_before_children(
     event: &MouseEvent,
     _window_adapter: &Rc<dyn WindowAdapter>,
     _self_rc: &ItemRc,
+    _cursor: &mut MouseCursorInner,
 ) -> InputEventFilterResult {
     if self.should_intercept(event) {
         InputEventFilterResult::Intercept
@@ -616,7 +443,7 @@ fn input_event(...) -> InputEventResult {
 
 ```rust
 // Get current focus item
-let focus = window.focus_item();
+let focus = WindowInner::from_pub(&window).focus_item.borrow().clone();
 if let Some(item) = focus.upgrade() {
     println!("Focused: {:?}", item.index());
 }

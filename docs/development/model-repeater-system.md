@@ -29,75 +29,41 @@ The Model system provides data for repeated elements in Slint's `for` expression
 
 ### The Model Trait
 
-```rust
-pub trait Model {
-    type Data;
+A `Model` has an associated `Data` type and three methods with no default. `row_count()` and
+`row_data()` supply the data — the latter returns `None` past the end and does *not* register a
+dependency, `ModelExt::row_data_tracked()` being the tracking equivalent — and `model_tracker()`
+returns the model's `ModelNotify`, or `&()` for a model that never changes.
 
-    /// Number of rows in the model
-    fn row_count(&self) -> usize;
+The mutating methods — `set_row_data()`, `push_row()`, `remove_row()`, `insert_row()` — all
+default to printing a warning, so a read-only model can leave them out. An implementation that
+does support them must call the matching `ModelNotify` method afterwards.
 
-    /// Get data for a row (None if out of bounds)
-    fn row_data(&self, row: usize) -> Option<Self::Data>;
-
-    /// Set data for a row (optional, default prints warning)
-    fn set_row_data(&self, row: usize, data: Self::Data) { ... }
-
-    /// Return the tracker for change notifications
-    fn model_tracker(&self) -> &dyn ModelTracker;
-
-    /// For downcasting (typically return `self`)
-    fn as_any(&self) -> &dyn core::any::Any { &() }
-}
-```
+`as_any()` defaults to `&()` and should return `self` so a concrete model can be recovered from a
+`ModelRc`. `iter()` is provided.
+See `Model` in `internal/core/model.rs`.
 
 ### ModelTracker
 
-The interface for dependency tracking:
-
-```rust
-pub trait ModelTracker {
-    /// Attach a peer to receive change notifications
-    fn attach_peer(&self, peer: ModelPeer);
-
-    /// Register dependency on row count changes
-    fn track_row_count_changes(&self);
-
-    /// Register dependency on a specific row's data
-    fn track_row_data_changes(&self, row: usize);
-}
-```
+The interface for dependency tracking: `attach_peer()` registers a peer for change
+notifications, and `track_row_count_changes()` / `track_row_data_changes(row)` register the row
+count or one row's data as a dependency of the binding currently being evaluated.
+`track_any_change(row_count)` registers both; its default implementation loops over every row,
+but `ModelNotify` overrides it with a single dependency whose cost does not grow with the model.
+See `ModelTracker` in `internal/core/model.rs`.
 
 ### ModelNotify
 
-The standard implementation of change notifications:
-
-```rust
-pub struct ModelNotify {
-    inner: OnceCell<Pin<Box<ModelNotifyInner>>>,
-}
-
-impl ModelNotify {
-    /// Notify that a row's data changed
-    pub fn row_changed(&self, row: usize);
-
-    /// Notify that rows were inserted
-    pub fn row_added(&self, index: usize, count: usize);
-
-    /// Notify that rows were removed
-    pub fn row_removed(&self, index: usize, count: usize);
-
-    /// Notify that the entire model was reset
-    pub fn reset(&self);
-}
-```
+The standard implementation of change notifications. A model owning one calls `row_changed()`,
+`row_added(index, count)`, `row_removed(index, count)` or `reset()` after mutating its data.
+See `ModelNotify` in `internal/core/model/model_peer.rs`.
 
 ### ModelRc
 
-The standard wrapper for models in Slint's public API:
+The standard wrapper for models in Slint's public API.
+`ModelRc<T>` holds an `Option<Rc<dyn Model<Data = T>>>` — `None` is the empty model, so
+`ModelRc::default()` allocates nothing. See `internal/core/model.rs`.
 
 ```rust
-pub struct ModelRc<T>(Option<Rc<dyn Model<Data = T>>>);
-
 // Construction
 ModelRc::default()                    // Empty model
 ModelRc::new(vec_model)               // From any Model impl
@@ -130,50 +96,25 @@ ModelRc::from(rc_model)              // From Rc<Model>
 
 ### ModelChangeListener
 
-Interface implemented by peers (like Repeater):
-
-```rust
-pub trait ModelChangeListener {
-    fn row_changed(self: Pin<&Self>, row: usize);
-    fn row_added(self: Pin<&Self>, index: usize, count: usize);
-    fn row_removed(self: Pin<&Self>, index: usize, count: usize);
-    fn reset(self: Pin<&Self>);
-}
-```
+Interface implemented by peers such as `RepeaterTracker`: the same four notifications
+`ModelNotify` sends, each taking `self: Pin<&Self>`. A `ModelChangeListenerContainer<T>` wraps an
+implementation and hands out the `ModelPeer` for it.
+See `internal/core/model/model_peer.rs`.
 
 ## Built-in Model Implementations
 
 ### VecModel
 
-The most common mutable model:
-
-```rust
-pub struct VecModel<T> {
-    array: RefCell<Vec<T>>,
-    notify: ModelNotify,
-}
-
-impl<T> VecModel<T> {
-    pub fn push(&self, value: T);
-    pub fn insert(&self, index: usize, value: T);
-    pub fn remove(&self, index: usize) -> T;
-    pub fn set_vec(&self, new: impl Into<Vec<T>>);
-    pub fn extend<I: IntoIterator<Item = T>>(&self, iter: I);
-    pub fn clear(&self);
-    pub fn swap(&self, a: usize, b: usize);
-}
-```
+The most common mutable model: a `RefCell<Vec<T>>` plus a `ModelNotify`. It offers `push()`,
+`insert()`, `remove()`, `swap()`, `clear()`, `set_vec()`, `extend()` and `extend_from_slice()`,
+each notifying as needed. `from_slice()` builds a `ModelRc` directly.
+See `VecModel` in `internal/core/model.rs`.
 
 ### SharedVectorModel
 
-For shared/cloneable vectors:
-
-```rust
-pub struct SharedVectorModel<T> {
-    array: RefCell<SharedVector<T>>,
-    notify: ModelNotify,
-}
-```
+A `SharedVector<T>` plus a `ModelNotify`. Its own API is much smaller than `VecModel`'s: `push()`
+to append, and `shared_vector()` to get a clone of the backing vector out.
+See `SharedVectorModel` in `internal/core/model.rs`.
 
 ### Primitive Models
 
@@ -269,53 +210,29 @@ The `Repeater<C>` manages instantiation of item trees based on model data. It (a
 
 ### Structure
 
-```rust
-pub struct Repeater<C: RepeatedItemTree>(
-    ModelChangeListenerContainer<RepeaterTracker<C>>
-);
+- `Repeater<C>` is a newtype over a `ModelChangeListenerContainer<RepeaterTracker<C>>`.
+- `RepeaterTracker<C>` is what actually listens: the instances, the model property, an `is_dirty`
+  property set when the model becomes dirty, a separate `instance_generation` property marked
+  dirty by `ensure_updated()` once instances have actually been added or removed (layout and
+  visit code depend on that one, so they re-evaluate after the update pass rather than when the
+  model first changes), and a `PropertyTracker` for the ListView geometry.
+- `RepeaterInner<C>` holds the instance vector — each entry a `RepeatedInstanceState` and an
+  optional item tree — plus the `RepeaterLayoutState`.
+- `RepeaterLayoutState` is the persistent ListView layout state: the model row index of the first
+  instance, the cached average item height, the content y from the previous pass (used to tell
+  scroll direction), and the y position of the item at `offset`.
 
-pub struct RepeaterTracker<T: RepeatedItemTree> {
-    inner: RefCell<RepeaterInner<T>>,
-    model: Property<ModelRc<T::Data>>,
-    is_dirty: Property<bool>,
-    /// Marked dirty when instances are added/removed, separately from `is_dirty`.
-    instance_generation: Property<()>,
-    listview_geometry_tracker: PropertyTracker,
-}
-
-struct RepeaterInner<C: RepeatedItemTree> {
-    instances: Vec<(RepeatedInstanceState, Option<ItemTreeRc<C>>)>,
-    /// ListView-specific layout state (offset, cached heights, scroll position).
-    layout_state: RepeaterLayoutState,
-}
-
-/// Persistent layout state for a ListView repeater.
-pub struct RepeaterLayoutState {
-    offset: usize,              // For ListView virtualization
-    cached_item_height: Coord,
-    previous_viewport_y: Coord,
-    anchor_y: Coord,
-}
-```
+All in `internal/core/model/repeater.rs`.
 
 ### RepeatedItemTree Trait
 
-Item trees that can be repeated implement:
-
-```rust
-pub trait RepeatedItemTree: ItemTree + HasStaticVTable<ItemTreeVTable> + 'static {
-    type Data: 'static;
-
-    /// Called when model data changes
-    fn update(&self, index: usize, data: Self::Data);
-
-    /// Called after first instantiation
-    fn init(&self) {}
-
-    /// For ListView layout
-    fn listview_layout(self: Pin<&Self>, offset_y: &mut LogicalLength) -> LogicalLength;
-}
-```
+`RepeatedItemTree` extends `ItemTree` with an associated `Data` type and `update(index, data)`,
+called whenever the model data for that instance changes. `init()` runs once after instantiation
+and the first `update()`. `listview_layout()` places the item and advances `offset_y` to the next
+position, returning the minimum item width for the ListView's content width. `layout_item_info()`
+returns what a surrounding layout needs, taking a child index for the repeated-`Row` case. All
+but `update()` have default implementations.
+See `RepeatedItemTree` in `internal/core/model/repeater.rs`.
 
 ### Update Flow
 
@@ -324,23 +241,12 @@ pub trait RepeatedItemTree: ItemTree + HasStaticVTable<ItemTreeVTable> + 'static
 3. **During rendering** → `ensure_updated()` called
 4. **Repeater** creates/updates/removes instances as needed
 
-```rust
-impl<C: RepeatedItemTree> Repeater<C> {
-    /// Ensure all instances are up-to-date
-    pub fn ensure_updated(self: Pin<&Self>, init: impl Fn() -> ItemTreeRc<C>);
-
-    /// For ListView with virtualization
-    pub fn ensure_updated_listview(
-        self: Pin<&Self>,
-        init: impl Fn() -> ItemTreeRc<C>,
-        viewport_width: Pin<&Property<LogicalLength>>,
-        viewport_height: Pin<&Property<LogicalLength>>,
-        viewport_y: Pin<&Property<LogicalLength>>,
-        listview_width: LogicalLength,
-        listview_height: Pin<&Property<LogicalLength>>,
-    );
-}
-```
+`Repeater::ensure_updated()` takes a closure that instantiates one item tree and brings all
+instances up to date; `ensure_updated_listview()` does the same for the virtualized case, also
+taking the ListView's content size and y properties and its own width and height. Both return
+whether anything changed. `ensure_updated_listview_callback()` is the trait-object variant the
+interpreter uses, for consumers that cannot hand out the content properties directly.
+See `internal/core/model/repeater.rs`.
 
 ### ListView Virtualization
 
@@ -359,14 +265,10 @@ The `offset` tracks which model row corresponds to `instances[0]`.
 
 ## Conditional
 
-For `if` expressions in Slint (0 or 1 instances):
-
-```rust
-pub struct Conditional<C: RepeatedItemTree> {
-    model: Property<bool>,
-    instance: RefCell<Option<ItemTreeRc<C>>>,
-}
-```
+For `if` expressions in Slint (0 or 1 instances): a `bool` property standing in for the model,
+the single optional instance, and the same `instance_generation` property `RepeaterTracker` uses.
+Unlike a repeater it keeps the existing instance while the condition stays true, so no spurious
+re-init happens. See `Conditional` in `internal/core/model/repeater.rs`.
 
 ## Row Data Tracking
 

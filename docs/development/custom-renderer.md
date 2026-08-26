@@ -64,77 +64,39 @@ The drawing interface for all UI elements. Each renderer provides its own implem
 
 ### FemtoVG Pattern: Generic Backend
 
-FemtoVG abstracts over graphics APIs using generics:
-
-```rust
-pub struct FemtoVGRenderer<B: GraphicsBackend> { ... }
-
-pub trait GraphicsBackend {
-    type Renderer: femtovg::Renderer + TextureImporter;
-    type WindowSurface: WindowSurface<Self::Renderer>;
-
-    fn new_suspended() -> Self;
-    fn begin_surface_rendering(&self) -> Result<BeginRendering<Self::WindowSurface>, ...>;
-    fn submit_commands(&self, commands: ...);
-    fn present_surface(&self, surface: Self::WindowSurface) -> Result<(), ...>;
-    fn resize(&self, width: NonZeroU32, height: NonZeroU32) -> Result<(), ...>;
-}
-```
+FemtoVG abstracts over graphics APIs with the `GraphicsBackend` trait: a backend names its
+femtovg renderer and window surface types, creates itself suspended, hands out a surface to draw
+into, submits the command buffer, presents, resizes, and optionally exposes the native graphics
+API and a snapshot path. `FemtoVGRenderer<B>` is generic over it.
+See `GraphicsBackend` in `internal/renderers/femtovg/lib.rs`.
 
 ### Skia Pattern: Trait Object Surfaces
 
-Skia uses trait objects for dynamic surface selection:
+Skia selects its surface dynamically through the `Surface` trait: construct from a window and a
+display handle plus the requested graphics API, render through a callback that gets the Skia
+canvas and direct context, resize, and report the bits per pixel and whether partial rendering is
+available. `render()` returns a `DrawOutcome`, so a surface can say it was occluded or timed out
+instead of drawing. See `Surface` in `internal/renderers/skia/lib.rs`.
 
-```rust
-pub trait Surface {
-    fn new(
-        shared_context: &SkiaSharedContext,
-        window_handle: Arc<dyn HasWindowHandle + Sync + Send>,
-        display_handle: Arc<dyn HasDisplayHandle + Sync + Send>,
-        size: PhysicalWindowSize,
-        requested_graphics_api: Option<RequestedGraphicsAPI>,
-    ) -> Result<Self, PlatformError>;
-
-    fn name(&self) -> &'static str;
-    fn render(&self, window: &Window, size: PhysicalWindowSize,
-              render_callback: &dyn Fn(&Canvas, ...), ...) -> Result<(), ...>;
-    fn resize_event(&self, size: PhysicalWindowSize) -> Result<(), ...>;
-    fn use_partial_rendering(&self) -> bool { false }
-}
-```
-
-Available surface implementations: `OpenGLSurface`, `MetalSurface`, `VulkanSurface`, `D3DSurface`, `SoftwareSurface`
+Available surface implementations: `OpenGLSurface`, `MetalSurface`, `VulkanSurface`, `D3DSurface`,
+`SoftwareSurface`, and one `WGPUSurface` per supported wgpu version.
 
 ### Software Renderer Pattern: Scene Building
 
-The software renderer builds a scene graph then rasterizes:
-
-```rust
-pub struct SoftwareRenderer { ... }
-
-impl SoftwareRenderer {
-    pub fn render(&self, buffer: &mut [impl TargetPixel], pixel_stride: usize) -> PhysicalRegion;
-    pub fn render_by_line(&self, line_buffer: impl LineBufferProvider) -> PhysicalRegion;
-}
-```
-
-Supports memory-constrained devices via line-by-line rendering.
+The software renderer builds a scene graph then rasterizes it. `SoftwareRenderer::render()` draws
+into a whole pixel buffer, while `render_by_line()` drives a `LineBufferProvider` one line at a
+time for memory-constrained devices. Both return the `PhysicalRegion` that was painted.
+See `internal/renderers/software/lib.rs`.
 
 ## Backend Integration
 
 ### WinitCompatibleRenderer (`internal/backends/winit/`)
 
-For winit-based applications, renderers implement:
-
-```rust
-pub trait WinitCompatibleRenderer: std::any::Any {
-    fn render(&self, window: &Window) -> Result<DrawOutcome, PlatformError>;
-    fn as_core_renderer(&self) -> &dyn Renderer;
-    fn suspend(&self) -> Result<(), PlatformError>;
-    fn resume(&self, event_loop: &ActiveEventLoop,
-              attrs: WindowAttributes) -> Result<Arc<winit::window::Window>, ...>;
-}
-```
+For winit-based applications a renderer implements `WinitCompatibleRenderer`: render a frame
+(returning a `DrawOutcome`), expose itself as a core `Renderer`, react to the window becoming
+occluded, and suspend/resume around the winit `Resumed` event — `resume()` is what creates the
+actual `winit::window::Window`.
+See `WinitCompatibleRenderer` in `internal/backends/winit/lib.rs`.
 
 ## Key Supporting Types
 

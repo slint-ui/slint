@@ -91,46 +91,25 @@ pub extern "C" fn slint_run_event_loop(quit_on_last_window_closed: bool) {
 
 ### Opaque Pointer Types
 
-Hide internal Rust types from C++:
+Hide internal Rust types from C++. Each is a `#[repr(C)]` struct of the same size as the type it
+stands for, so C++ can hold it by value without knowing its layout — `PropertyHandleOpaque` wraps
+the real type, the other two are two pointer-sized fields with a static size assertion:
 
-```rust
-/// Opaque type for Rc<dyn WindowAdapter>
-#[repr(C)]
-pub struct WindowAdapterRcOpaque(*const c_void, *const c_void);
-
-/// Opaque type for PropertyHandle
-#[repr(C)]
-pub struct PropertyHandleOpaque(PropertyHandle);
-
-/// Opaque type for callbacks
-#[repr(C)]
-pub struct CallbackOpaque(*const c_void, *const c_void);
-```
+| Opaque type | Stands for | Defined in |
+|-------------|------------|------------|
+| `WindowAdapterRcOpaque` | `Rc<dyn WindowAdapter>` | `internal/core/window.rs` |
+| `PropertyHandleOpaque` | `PropertyHandle` | `internal/core/properties/ffi.rs` |
+| `CallbackOpaque` | `Callback` | `internal/core/callbacks.rs` |
 
 ### cbindgen Code Generation
 
-The `cbindgen.rs` file (900+ lines) generates C++ headers:
-
-```rust
-// api/cpp/cbindgen.rs
-fn enums(include_dir: &Path) {
-    // Generates slint_enums.h and slint_enums_internal.h
-    i_slint_common::for_each_enums!(print_enums);
-}
-
-fn builtin_structs(include_dir: &Path) {
-    // Generates slint_builtin_structs.h
-    i_slint_common::for_each_builtin_structs!(print_structs);
-}
-
-// Type renaming for C++
-config.export.rename = [
-    ("Callback".into(), "private_api::CallbackHelper".into()),
-    ("Coord".into(), "float".into()),
-    ("SharedString".into(), "slint::SharedString".into()),
-    // ... more mappings
-];
-```
+`api/cpp/cbindgen.rs` generates the C++ headers. Enums and built-in structs are not read from
+the Rust source at all: they are printed from the `for_each_enums!` and `for_each_builtin_structs!`
+macros in `i-slint-common`, which are the single definition both the Rust types and the C++
+headers come from. Everything else goes through cbindgen proper, with a rename table mapping Rust
+names to their C++ equivalents (`Coord` to `float`, `StringArg` to `slint::SharedString`, ...) and
+an exclude list for the types the hand-written headers declare themselves, `SharedString` among
+them.
 
 **Generated headers:**
 - `slint_enums.h` / `slint_enums_internal.h` - Public/private enums
@@ -142,17 +121,14 @@ config.export.rename = [
 
 ### CMake Integration
 
-Uses Corrosion to bridge CMake and Cargo:
+Uses Corrosion to bridge CMake and Cargo. `api/cpp/CMakeLists.txt` declares one CMake option per
+Cargo feature with `define_cargo_feature(<cargo-feature> <description> <default>)`, or
+`define_cargo_dependent_feature(...)` with a trailing condition for the ones that only make sense
+in some configurations — most are conditioned on `NOT SLINT_FEATURE_FREESTANDING`, since a
+bare-metal build has no windowing system.
 
-```cmake
-# api/cpp/CMakeLists.txt
-define_cargo_feature(freestanding "Enable freestanding environment" OFF)
-define_cargo_dependent_feature(interpreter "Enable .slint loading" ON)
-define_cargo_feature(backend-winit "Enable winit windowing" ON)
-
-# Feature flags map: CMake options → Cargo features
-# SLINT_FEATURE_BACKEND_WINIT → --features backend-winit
-```
+Each becomes a `SLINT_FEATURE_<FEATURE>` option that maps back to `--features <feature>`, so
+`SLINT_FEATURE_BACKEND_WINIT` turns into `--features backend-winit`.
 
 ### Building C++ Library
 
@@ -189,11 +165,10 @@ api/node/
 
 ### NAPI Function Pattern
 
-```rust
-// api/node/rust/lib.rs
-use napi::{Env, JsFunction};
-extern crate napi_derive;
+A `#[napi]` attribute on a free function exports it to JavaScript, and on an enum or struct
+exports the type:
 
+```rust
 #[napi]
 pub fn mock_elapsed_time(_ms: f64) {
     #[cfg(feature = "testing")]
@@ -205,66 +180,26 @@ pub enum ProcessEventsResult {
     Continue,
     Exited,
 }
-
-#[napi]
-pub fn process_events() -> napi::Result<ProcessEventsResult> {
-    i_slint_backend_selector::with_platform(|b| {
-        b.process_events(Some(std::time::Duration::ZERO), i_slint_core::InternalToken)
-    })
-    .map_err(|e| napi::Error::from_reason(e.to_string()))
-    .map(|result| match result {
-        core::ops::ControlFlow::Continue(()) => ProcessEventsResult::Continue,
-        core::ops::ControlFlow::Break(()) => ProcessEventsResult::Exited,
-    })
-}
 ```
+
+Anything fallible returns `napi::Result` so the error surfaces as a JavaScript exception, which
+means mapping the Rust error through `napi::Error::from_reason` — `process_events()` in the same
+file does both. See `api/node/rust/lib.rs`.
 
 ### Type Bindings
 
-```rust
-// api/node/rust/types/brush.rs
-#[napi(object)]
-pub struct RgbaColor {
-    pub red: f64,
-    pub green: f64,
-    pub blue: f64,
-    pub alpha: Option<f64>,
-}
-
-#[napi]
-pub struct SlintRgbaColor {
-    inner: Color,
-}
-
-#[napi]
-impl SlintRgbaColor {
-    #[napi(constructor)]
-    pub fn new() -> Self { ... }
-
-    #[napi]
-    pub fn red(&self) -> f64 { self.inner.red() as f64 }
-}
-```
+Two shapes appear in `api/node/rust/types/`. A `#[napi(object)]` struct such as `RgbaColor` is a
+plain JavaScript object, converted field by field. A `#[napi]` struct such as `SlintRgbaColor` or
+`SlintBrush` is a JavaScript class wrapping the Rust value, with `#[napi]` methods on its `impl`
+and `From` conversions to and from the core type.
 
 ### Callback Handling
 
-```rust
-#[napi]
-pub fn invoke_from_event_loop(env: Env, callback: JsFunction) -> napi::Result<napi::JsUndefined> {
-    let function_ref = RefCountedReference::new(&env, callback)?;
-    let function_ref = send_wrapper::SendWrapper::new(function_ref);
-
-    i_slint_core::api::invoke_from_event_loop(move || {
-        let guard = function_ref.get();
-        if let Err(e) = guard.call::<JsUnknown>(None, &[]) {
-            eprintln!("Callback error: {:?}", e);
-        }
-    })
-    .map_err(|e| napi::Error::from_reason(e.to_string()))?;
-
-    env.get_undefined()
-}
-```
+A JavaScript function that has to outlive the call cannot be held directly: it must become a
+reference that keeps it alive, and that reference plus the `Env` must be wrapped in a
+`send_wrapper::SendWrapper` to satisfy the `Send` bound of whatever holds it. Calling it back
+means borrowing it against the `Env` again. `invoke_from_event_loop()` in `api/node/rust/lib.rs`
+is the smallest example of the whole shape.
 
 ### Building Node.js Module
 
@@ -293,95 +228,34 @@ api/python/slint/
 
 ### PyO3 Function Pattern
 
-```rust
-// api/python/slint/lib.rs
-use pyo3::prelude::*;
+`#[pyfunction]` exports a function, `#[pymodule]` marks the module initializer, and each class
+and function is registered there with `add_class::<T>()` and `add_function(wrap_pyfunction!(...))`.
+`api/python/slint/lib.rs` has two `#[pymodule]` entry points — one for the released `slint`
+extension and one for the dev distribution — both delegating to the same `register_module()`.
 
-#[gen_stub_pyfunction]
-#[pyfunction]
-fn run_event_loop(py: Python<'_>) -> Result<(), PyErr> {
-    EVENT_LOOP_EXCEPTION.replace(None);
-    EVENT_LOOP_RUNNING.set(true);
-
-    let result = py.allow_threads(|| slint_interpreter::run_event_loop());
-
-    EVENT_LOOP_RUNNING.set(false);
-    result.map_err(|e| errors::PyPlatformError::from(e))?;
-    EVENT_LOOP_EXCEPTION.take().map_or(Ok(()), |err| Err(err))
-}
-
-#[pymodule]
-fn slint(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
-    m.add_class::<Compiler>()?;
-    m.add_class::<CompilationResult>()?;
-    m.add_class::<ComponentInstance>()?;
-    m.add_function(wrap_pyfunction!(run_event_loop, m)?)?;
-    Ok(())
-}
-```
+A function that blocks must release the GIL around the blocking part with `py.detach()`, or other
+Python threads stall for as long as it runs. `run_event_loop()` does that, and stashes any
+exception raised from a callback in a thread-local so it can be re-raised once the loop returns.
 
 ### Class Bindings
 
-```rust
-// api/python/slint/interpreter.rs
-#[gen_stub_pyclass]
-#[pyclass(unsendable)]
-pub struct Compiler {
-    compiler: slint_interpreter::Compiler,
-}
-
-#[gen_stub_pymethods]
-#[pymethods]
-impl Compiler {
-    #[new]
-    fn py_new() -> PyResult<Self> {
-        Ok(Self { compiler: slint_interpreter::Compiler::new() })
-    }
-
-    #[getter]
-    fn get_include_paths(&self) -> PyResult<Vec<PathBuf>> {
-        Ok(self.compiler.include_paths().map(|p| p.to_owned()).collect())
-    }
-
-    #[setter]
-    fn set_include_paths(&mut self, paths: Vec<PathBuf>) {
-        self.compiler.set_include_paths(paths);
-    }
-
-    fn build_from_path(&mut self, py: Python<'_>, path: PathBuf) -> CompilationResult {
-        py.allow_threads(|| {
-            self.compiler.build_from_path(&path).into()
-        })
-    }
-}
-```
+A class is a `#[pyclass]` struct wrapping the Rust type, with its methods in a `#[pymethods]`
+impl: `#[new]` for the constructor, `#[getter]` and `#[setter]` pairs for what looks like an
+attribute from Python. `unsendable` says the object may only be touched from the thread that
+created it, which is what the interpreter types require. `Compiler` in
+`api/python/slint/interpreter.rs` is the model to copy.
 
 ### Value Conversion
 
-```rust
-// api/python/slint/value.rs
-impl<'py> IntoPyObject<'py> for SlintToPyValue {
-    fn into_pyobject(self, py: Python<'py>) -> Result<Self::Output, Self::Error> {
-        match self.slint_value {
-            slint_interpreter::Value::Void => ().into_bound_py_any(py),
-            slint_interpreter::Value::Number(num) => num.into_bound_py_any(py),
-            slint_interpreter::Value::String(str) => str.into_bound_py_any(py),
-            slint_interpreter::Value::Bool(b) => b.into_bound_py_any(py),
-            slint_interpreter::Value::Image(image) => {
-                crate::image::PyImage::from(image).into_bound_py_any(py)
-            }
-            slint_interpreter::Value::Model(model) => {
-                crate::models::PyModelShared::rust_into_py_model(&model, py)
-                    .map_or_else(
-                        || type_collection.model_to_py(&model).into_bound_py_any(py),
-                        |m| Ok(m),
-                    )
-            }
-            // ... more conversions
-        }
-    }
-}
-```
+`api/python/slint/value.rs` converts in both directions. Rust to Python goes through an
+`IntoPyObject` impl for `SlintToPyValue`, which matches on the interpreter `Value` and produces
+the corresponding Python object — a plain `int`, `float`, `str` or `bool` where one fits, and a
+dedicated class (`PyImage`, a model wrapper, `LogicalPosition`, ...) otherwise.
+
+`SlintToPyValue` carries the expected `.slint` type alongside the value, because the `Value` alone
+does not always determine the Python type: a `Value::Number` becomes a Python `int` when the
+property is declared `int` and a `float` otherwise, and a `Value::Model` needs its element type to
+convert its rows.
 
 ### Building Python Module
 
@@ -395,136 +269,47 @@ maturin build    # Release wheel
 
 ### Property FFI (`internal/core/properties/ffi.rs`)
 
-```rust
-#[repr(C)]
-pub struct PropertyHandleOpaque(PropertyHandle);
+Everything here works on a `PropertyHandleOpaque`, the opaque `PropertyHandle`. The
+`slint_property_*` functions cover the whole property lifecycle: `init` and `drop`, `update`, `set_changed`,
+`register_as_dependency`, the binding calls (`set_binding`, `delete_binding`, `evaluate_binding`,
+`intercept_set_binding`), and one `set_animated_value_*` / `set_animated_binding_*` pair per
+animatable type (int, float, color, brush).
 
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn slint_property_init(out: *mut PropertyHandleOpaque) {
-    // Initialize property handle
-}
-
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn slint_property_update(
-    handle: &PropertyHandleOpaque,
-    val: *mut c_void,
-) {
-    // Update property value
-}
-
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn slint_property_set_changed(
-    handle: &PropertyHandleOpaque,
-    value: *const c_void,
-) {
-    // Mark property as changed
-}
-
-// C function binding support
-fn make_c_function_binding(
-    binding: extern "C" fn(*mut c_void, *mut c_void),
-    user_data: *mut c_void,
-    drop_user_data: Option<extern "C" fn(*mut c_void)>,
-    intercept_set: Option<extern "C" fn(*mut c_void, ...) -> bool>,
-) -> impl Fn() -> T {
-    // Creates Rust closure from C function pointers
-}
-```
+`make_c_function_binding()` is what turns the C side into something the property system can hold:
+it takes the binding's function pointer, the user data and its drop function, and the two optional
+interception hooks (one for a value being set, one for a binding being set), and returns an
+`impl BindingCallable<c_void>`.
 
 ### Window FFI (`internal/core/window.rs`, plus `slint_windowrc_init` in `api/cpp/lib.rs`)
 
-```rust
-pub mod ffi {
-    #[repr(C)]
-    pub struct WindowAdapterRcOpaque(*const c_void, *const c_void);
+The `ffi` module of `internal/core/window.rs` defines `WindowAdapterRcOpaque` and some forty
+`slint_windowrc_*` functions — the lifecycle ones (`drop`, `clone`), showing and hiding, the
+scale factor, the focus item and text-input-focused flag, setting the component, the popups, the
+event dispatch entry points, the fullscreen/maximized/minimized state, the rendering notifier and
+close-requested callbacks, `request_redraw`, `take_snapshot`, and the position and size accessors.
+A second module, `ffi_window`, follows it with the ones that work on a `Window` rather than the
+adapter.
 
-    // Defined in api/cpp/lib.rs, not window.rs's ffi module
-    #[unsafe(no_mangle)]
-    pub unsafe extern "C" fn slint_windowrc_init(out: *mut WindowAdapterRcOpaque) { ... }
-
-    #[unsafe(no_mangle)]
-    pub unsafe extern "C" fn slint_windowrc_drop(handle: *mut WindowAdapterRcOpaque) { ... }
-
-    #[unsafe(no_mangle)]
-    pub unsafe extern "C" fn slint_windowrc_clone(
-        source: &WindowAdapterRcOpaque,
-        target: *mut WindowAdapterRcOpaque,
-    ) { ... }
-
-    #[unsafe(no_mangle)]
-    pub unsafe extern "C" fn slint_windowrc_show(handle: *const WindowAdapterRcOpaque) { ... }
-
-    #[unsafe(no_mangle)]
-    pub unsafe extern "C" fn slint_windowrc_hide(handle: &WindowAdapterRcOpaque) { ... }
-}
-```
+`slint_windowrc_init`, which creates the window adapter through the platform, is the exception:
+it lives in `api/cpp/lib.rs`, because that is where the platform is bound.
 
 ### Item Tree VTables (`internal/core/item_tree.rs`)
 
-```rust
-/// VTable for component instances
-pub struct ItemTreeVTable {
-    /// Visit children in traversal order
-    pub visit_children_item: extern "C" fn(
-        Pin<VRef<ItemTreeVTable>>,
-        index: isize,
-        order: TraversalOrder,
-        visitor: VRefMut<ItemVisitorVTable>,
-    ) -> VisitChildrenResult,
-
-    /// Get item reference by index
-    pub get_item_ref: extern "C" fn(
-        Pin<VRef<ItemTreeVTable>>,
-        index: u32,
-    ) -> Pin<VRef<ItemVTable>>,
-
-    /// Get subtree range for repeaters
-    pub get_subtree_range: extern "C" fn(
-        Pin<VRef<ItemTreeVTable>>,
-        index: u32,
-    ) -> IndexRange,
-
-    // ... more vtable entries
-}
-```
+`ItemTreeVTable` is the vtable every component instance provides, on both the Rust and the C++
+side. Its entries are all `extern "C" fn` taking a `Pin<VRef<ItemTreeVTable>>` as the receiver;
+see [item-tree.md](item-tree.md#itemtreevtable) for what they do.
 
 ### Interpreter FFI (`internal/interpreter/ffi.rs`)
 
-```rust
-/// Value type enum for FFI
-#[repr(C)]
-pub enum ValueType {
-    Void, Number, String, Bool, Model, Struct, Brush, Image,
-}
+`Value` crosses the boundary as a `Box<Value>`, so the `slint_interpreter_value_*` functions come
+in sets: a `_new` and a `_new_<kind>` constructor per kind, a `_type` returning the `ValueType`,
+and a `_to_<kind>` accessor. Most of those return `Option<&T>` — `None` when the value holds
+something else — but `_to_struct` and `_to_model` return a raw pointer and `_to_array` writes
+through an out parameter and returns a `bool`.
 
-#[unsafe(no_mangle)]
-pub extern "C" fn slint_interpreter_value_new() -> Box<Value> {
-    Box::new(Value::Void)
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn slint_interpreter_value_new_string(str: &SharedString) -> Box<Value> {
-    Box::new(Value::String(str.clone()))
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn slint_interpreter_value_type(val: &Value) -> ValueType {
-    match val {
-        Value::Void => ValueType::Void,
-        Value::Number(_) => ValueType::Number,
-        Value::String(_) => ValueType::String,
-        // ...
-    }
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn slint_interpreter_value_to_string(val: &Value) -> Option<&SharedString> {
-    match val {
-        Value::String(s) => Some(s),
-        _ => None,
-    }
-}
-```
+`ValueType` (`internal/interpreter/api.rs`, not the ffi module) is `Void`, `Number`, `String`,
+`Bool`, `Model`, `Struct`, `Brush`, `Image`, plus a hidden `Other = -1` for values whose type is
+not part of the public API.
 
 ## Core FFI Patterns
 
@@ -664,7 +449,6 @@ namespace slint {
 
 ```rust
 // api/python/slint/mymodule.rs
-#[gen_stub_pyfunction]
 #[pyfunction]
 fn new_function(param: i32) -> PyResult<ResultType> {
     Ok(internal_function(param))
@@ -688,28 +472,15 @@ pub fn new_function(param: i32) -> napi::Result<ResultType> {
 
 ### Cargo Features
 
-```toml
-# api/cpp/Cargo.toml
-[lib]
-crate-type = ["lib", "cdylib", "staticlib"]
-links = "slint_cpp"
+`api/cpp/Cargo.toml` builds `slint-cpp` as `["lib", "cdylib", "staticlib"]` and sets
+`links = "slint_cpp"` so the build script's metadata reaches the CMake side.
 
-[features]
-# Renderers
-renderer-femtovg = ["i-slint-backend-selector/renderer-femtovg"]
-renderer-skia = ["i-slint-backend-selector/renderer-skia"]
-renderer-software = ["i-slint-backend-selector/renderer-software"]
-
-# Backends
-backend-winit = ["i-slint-backend-selector/backend-winit"]
-backend-qt = ["i-slint-backend-selector/backend-qt"]
-backend-linuxkms = ["i-slint-backend-selector/backend-linuxkms"]
-
-# Other
-freestanding = ["i-slint-core/freestanding"]
-interpreter = ["slint-interpreter"]
-testing = ["i-slint-backend-testing"]
-```
+Two thirds of its features just forward to `i-slint-backend-selector`, one per renderer
+(`renderer-femtovg`, `renderer-skia` and its per-API variants, `renderer-software`) and one per
+backend (`backend-winit` and its X11/Wayland-only variants, `backend-qt`, `backend-linuxkms`).
+The rest are its own: `interpreter` and `live-preview`, `testing`, `gettext`, `system-tray`, and
+the two that decide the environment — `std`, which the default set enables, and `freestanding`
+for bare metal.
 
 ### CMake Feature Mapping
 
@@ -777,8 +548,8 @@ cargo test -p i-slint-core ffi
 | Memory leak | Missing drop_user_data | Ensure cleanup function is called |
 | Type mismatch | cbindgen out of sync | Rebuild the project to regenerate headers |
 | Undefined symbol | FFI function not exported | Add to `config.export.include` |
-| Python crash | GIL issues | Use `py.allow_threads()` for blocking calls |
-| Node crash | Ref counting | Use `RefCountedReference` for callbacks |
+| Python crash | GIL issues | Use `py.detach()` around blocking calls |
+| Node crash | Ref counting | Keep the JS function alive with `create_ref()` |
 
 ### Checking ABI Compatibility
 
@@ -816,42 +587,24 @@ pub extern "C" fn slint_debug_function(param: i32) -> i32 {
 
 ### Private Unstable API
 
-Generated code uses internal helpers:
+Generated code uses the helpers in `api/rs/slint/private_unstable_api.rs`. Its `re_exports`
+module re-exports everything the generated code names — core types, the native widgets, `vtable`,
+`const_field_offset` — so the generated file only ever has to `use` that one module.
 
-```rust
-// api/rs/slint/private_unstable_api.rs
-pub mod re_exports {
-    pub use i_slint_core::{*, properties::*, item_tree::*};
-    pub use vtable::*;
-    pub use pin_weak::rc::PinWeak;
-}
-
-pub fn set_property_binding<T, StrongRef>(
-    property: Pin<&Property<T>>,
-    component_strong: &StrongRef,
-    binding: fn(StrongRef) -> T,
-) {
-    let weak = component_strong.to_weak();
-    property.set_binding(move || {
-        StrongRef::from_weak(&weak).map(binding).unwrap_or_default()
-    })
-}
-```
+Alongside it are the helpers that keep the generated code short, such as
+`set_property_binding()`, which installs a binding that holds only a weak reference to the
+component and falls back to the default value once it is gone.
 
 ### Build Script Support
 
-```rust
-// api/rs/build/lib.rs
-pub struct CompilerConfiguration {
-    pub include_paths: Vec<PathBuf>,
-    pub library_paths: HashMap<String, PathBuf>,
-    pub style: Option<String>,
-}
+`api/rs/build/lib.rs` is what a `build.rs` calls. `compile_with_config()` takes the path of the
+`.slint` file, relative to the crate manifest, and a `CompilerConfiguration`, and writes the
+generated Rust into the build output directory.
 
-pub fn compile_with_config(
-    path: impl AsRef<Path>,
-    config: CompilerConfiguration,
-) -> Result<(), CompileError> {
-    // Compile .slint file and generate Rust code
-}
-```
+`CompilerConfiguration` wraps the compiler's own configuration and is built by chaining consuming
+`with_*` methods: `with_include_paths()`, `with_library_paths()`, `with_style()`,
+`with_scale_factor()`, `with_bundled_translations()`, `with_default_translation_context()`,
+`with_debug_info()`, `with_sdf_fonts()`,
+`as_library()`, `rust_module()`, and `embed_resources()`, which takes an `EmbedResourcesKind`
+saying whether resources are loaded from an absolute path at run-time, embedded as-is, or
+pre-processed into raw pixel data for the software renderer.
