@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { Api, EditorSurfaceMode, ElementInformation, PropertyValueKind, SelectionRectangle } from "../api.slint";
-import { CanvasSelectionKind, EdgeDivider, EditorMetrics, StudioTheme } from "common.slint";
+import { EdgeDivider, EditorMetrics, StudioTheme } from "common.slint";
 import { OutlinePane } from "outline-pane.slint";
 import { InspectorComboOption, InspectorTokens } from "inspector/tokens.slint";
 import { InspectorTooltipBubble } from "inspector/tooltip-bubble.slint";
@@ -22,16 +22,10 @@ import { ScrollView } from "std-widgets.slint";
 
 
 export component InspectorPane inherits Rectangle {
-    in property <CanvasSelectionKind> selection;
-    in property <Point> placed-position;
-    in property <Size> rectangle-size;
-    in property <Size> text-size;
-    in property <Size> image-size;
     in property <color> phone-background;
     in property <string> phone-background-label;
     in property <ElementInformation> element-information;
 
-    callback local-geometry-edited(Point, Size) -> bool;
     callback element-selected();
     callback outline-drag-started();
 
@@ -91,18 +85,15 @@ export component InspectorPane inherits Rectangle {
     }
 
     function is-rectangle-selection() -> bool {
-        return root.selection == CanvasSelectionKind.rectangle
-            || (root.has-backend-rect() && root.element-information.type-name == "Rectangle");
+        return root.has-backend-rect() && root.element-information.type-name == "Rectangle";
     }
 
     function is-text-selection() -> bool {
-        return root.selection == CanvasSelectionKind.text
-            || (root.has-backend-rect() && root.element-information.type-name == "Text");
+        return root.has-backend-rect() && root.element-information.type-name == "Text";
     }
 
     function is-image-selection() -> bool {
-        return root.selection == CanvasSelectionKind.image
-            || (root.has-backend-rect() && root.element-information.type-name == "Image");
+        return root.has-backend-rect() && root.element-information.type-name == "Image";
     }
 
     function has-backend-image-selection() -> bool {
@@ -110,39 +101,33 @@ export component InspectorPane inherits Rectangle {
     }
 
     function is-root-selection() -> bool {
-        return !root.has-backend-rect() && root.selection == CanvasSelectionKind.artboard;
+        return !root.has-backend-rect();
     }
 
     function selected-x() -> length {
         return root.has-backend-rect()
             ? root.selection-rects[Api.selection.highlight-index].x
-            : root.placed-position.x;
+            : 0px;
     }
 
     function selected-y() -> length {
         return root.has-backend-rect()
             ? root.selection-rects[Api.selection.highlight-index].y
-            : root.placed-position.y;
+            : 0px;
     }
 
     function selected-width() -> length {
         if root.has-backend-rect() {
             return root.selection-rects[Api.selection.highlight-index].width;
         }
-        if root.is-image-selection() {
-            return root.image-size.width;
-        }
-        return root.is-text-selection() ? root.text-size.width : root.rectangle-size.width;
+        return 0px;
     }
 
     function selected-height() -> length {
         if root.has-backend-rect() {
             return root.selection-rects[Api.selection.highlight-index].height;
         }
-        if root.is-image-selection() {
-            return root.image-size.height;
-        }
-        return root.is-text-selection() ? root.text-size.height : root.rectangle-size.height;
+        return 0px;
     }
 
     function selected-x-label() -> string {
@@ -184,7 +169,7 @@ export component InspectorPane inherits Rectangle {
             return true;
         }
 
-        return root.local-geometry-edited(new-position, new-size);
+        return false;
     }
 
     function commit-code(property-name: string, value: string) -> bool {

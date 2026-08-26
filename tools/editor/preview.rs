@@ -974,17 +974,7 @@ fn can_drop_component(data: DataTransfer, x: f32, y: f32, on_drop_area: bool) ->
     drop_location::can_drop_at(&document_cache, position, &component)
 }
 
-fn component_name_for_prototype_kind(kind: ui::PrototypeComponentKind) -> Option<&'static str> {
-    match kind {
-        ui::PrototypeComponentKind::Rectangle => Some("Rectangle"),
-        ui::PrototypeComponentKind::Text => Some("Text"),
-        ui::PrototypeComponentKind::Image => Some("Image"),
-        ui::PrototypeComponentKind::None => None,
-    }
-}
-
-fn component_index_for_prototype_kind(kind: ui::PrototypeComponentKind) -> Option<usize> {
-    let name = component_name_for_prototype_kind(kind)?;
+fn component_index_for_name(name: &str) -> Option<usize> {
     PREVIEW_STATE.with_borrow(|preview_state| {
         preview_state
             .known_components
@@ -1056,7 +1046,7 @@ fn drop_component_with_geometry(
 
     let drop_result =
         drop_location::drop_at_with_geometry(&document_cache, hit_position, &component, geometry)
-            .map(|(e, d)| (e, d, component.name.clone()));
+            .map(|(edit, data)| (edit, data, component.name.clone()));
 
     if let Some((edit, drop_data, component_name)) = drop_result {
         element_selection::select_element_at_source_code_position(

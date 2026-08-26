@@ -78,13 +78,6 @@ export enum UpdateState {
     Error,
 }
 
-export enum PrototypeComponentKind {
-    none,
-    rectangle,
-    text,
-    image,
-}
-
 export enum EditorSurfaceMode {
     component,
     image,
@@ -415,7 +408,7 @@ export global Api {
     in-out property <component-factory> preview-area;
 
     pure callback new-component-data(index: int) -> data-transfer;
-    pure callback new-prototype-component-data(kind: PrototypeComponentKind) -> data-transfer;
+    pure callback new-component-data-for-name(name: string) -> data-transfer;
     pure callback move-element-instance-data(component-uri: string, offset: int) -> data-transfer;
 
     // set to true to resize

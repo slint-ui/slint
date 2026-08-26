@@ -5,12 +5,9 @@ import "./assets/Inter-VariableFont.ttf";
 
 import { Api, EditorSurfaceMode, UpdateState } from "api.slint";
 import { ProjectKind, StartupWizard } from "startup-wizard.slint";
-import {
-    AppState, CanvasOrientation, OrientationIconButton, SidebarToggleButton, StudioTheme,
-} from "components/common.slint";
+import { AppState, SidebarToggleButton, StudioTheme } from "components/common.slint";
 import { DragPreview } from "components/drag-preview.slint";
 import { EditorCanvas } from "components/editor-canvas.slint";
-import { EditorState } from "components/editor-state.slint";
 import { EditorTopBar } from "components/top-bar.slint";
 import { ImageAssetEditor } from "components/image-asset-editor.slint";
 import { InspectorPane } from "components/inspector-pane.slint";
@@ -29,9 +26,7 @@ export component EditorUi inherits Window {
     default-font-family: "Inter";
 
     property <bool> sidebars-collapsed: false;
-    property <bool> settings-visible: false;
-    property <bool> device-dark: false;
-    property <int> text-size-index: 2;
+    property <length> inspector-scroll-y: 0px;
     property <ProjectKind> selected-project: ProjectKind.mobile;
 
     function show-update-status() -> bool {
@@ -85,30 +80,16 @@ export component EditorUi inherits Window {
         return #6a7fad;
     }
 
-    function text-scale() -> float {
-        return 0.85 + root.text-size-index * 0.15;
-    }
-
     function open-startup-wizard() {
-        root.settings-visible = false;
         Api.open-startup-wizard();
     }
 
     function close-startup-wizard() {
-        root.settings-visible = false;
         Api.close-startup-wizard();
     }
 
     function open-project() {
-        root.settings-visible = false;
         root.close-startup-wizard();
-        state.open-project();
-    }
-
-    state := EditorState {
-        window-width: root.width;
-        window-height: root.height;
-        sidebars-collapsed: root.sidebars-collapsed;
     }
     Rectangle {
         y: 0;
@@ -143,7 +124,7 @@ export component EditorUi inherits Window {
 
         key-pressed(event) => {
             if event.text == Key.Escape && AppState.has-active-drag() {
-                state.cancel-active-drag();
+                AppState.cancel-active-drags();
                 return accept;
             }
             if (event.text == Key.Delete || event.text == Key.Backspace)
@@ -171,49 +152,22 @@ export component EditorUi inherits Window {
                         can-collapse: true;
                         drag-started(kind, position) => {
                             editor.focus();
-                            state.update-visual-drag(kind, position);
+                            AppState.update-palette-drag(kind, position);
                         }
-                        drag-moved(kind, position) => { state.update-visual-drag(kind, position); }
-                        drag-ended(kind, position) => { state.finish-visual-drag(kind, position); }
+                        drag-moved(kind, position) => {
+                            AppState.update-palette-drag(kind, position);
+                        }
+                        drag-ended(kind, component-name, position) => {
+                            AppState.request-palette-drop(kind, component-name, position);
+                        }
                         panes-collapsed => {
                             root.sidebars-collapsed = true;
                         }
                     }
 
                     if Api.editor-surface-mode == EditorSurfaceMode.component: EditorCanvas {
-                        orientation: state.canvas-orientation;
-                        selection: state.selection;
                         shift-pressed: editor.shift-pressed;
-                        placed-kind: state.placed-kind;
-                        placed-position: state.placed-position;
-                        text-size: state.text-size;
-                        image-size: state.image-size;
-                        rectangle-size: state.rectangle-size;
-                        rectangle-rotation: state.rectangle-rotation;
-                        rectangle-top-left-radius: state.rectangle-top-left-radius;
-                        rectangle-top-right-radius: state.rectangle-top-right-radius;
-                        rectangle-bottom-right-radius: state.rectangle-bottom-right-radius;
-                        rectangle-bottom-left-radius: state.rectangle-bottom-left-radius;
-                        text-rotation: state.text-rotation;
-                        image-rotation: state.image-rotation;
-                        device-dark: root.device-dark;
-                        text-scale: root.text-scale();
-                        selected(kind) => {
-                            state.selection = kind;
-                            editor.focus();
-                        }
                         real-element-selected => { editor.focus(); }
-                        interaction-started => { editor.focus(); }
-                        move-rectangle-to(position) => { state.move-rectangle-to(position); }
-                        resize-rectangle-to(corner, position, size) => { state.resize-rectangle-to(corner, position, size); }
-                        rotate-rectangle-to(rotation) => { state.rotate-rectangle-to(rotation); }
-                        update-rectangle-radius(corner, radius, single-corner) => { state.update-rectangle-radius(corner, radius, single-corner); }
-                        move-text-to(position) => { state.move-text-to(position); }
-                        resize-text-to(corner, position, size) => { state.resize-text-to(corner, position, size); }
-                        rotate-text-to(rotation) => { state.rotate-text-to(rotation); }
-                        move-image-to(position) => { state.move-image-to(position); }
-                        resize-image-to(corner, position, size) => { state.resize-image-to(corner, position, size); }
-                        rotate-image-to(rotation) => { state.rotate-image-to(rotation); }
                     }
 
                     if Api.editor-surface-mode == EditorSurfaceMode.image: ImageAssetEditor {
@@ -221,18 +175,10 @@ export component EditorUi inherits Window {
                     }
 
                     if Api.editor-surface-mode == EditorSurfaceMode.component && !root.sidebars-collapsed: InspectorPane {
-                        selection: state.selection;
-                        placed-position: state.placed-position;
-                        rectangle-size: state.rectangle-size;
-                        text-size: state.text-size;
-                        image-size: state.image-size;
-                        phone-background: root.device-dark ? #111827 : StudioTheme.phone-bg;
-                        phone-background-label: root.device-dark ? "#111827" : (StudioTheme.dark ? "#f7f8fb" : "#ffffff");
+                        phone-background: StudioTheme.phone-bg;
+                        phone-background-label: StudioTheme.dark ? "#f7f8fb" : "#ffffff";
                         element-information: Api.current-element;
-                        inspector-scroll-y <=> state.inspector-scroll-y;
-                        local-geometry-edited(position, size) => {
-                            return state.set-selected-geometry(position, size);
-                        }
+                        inspector-scroll-y <=> root.inspector-scroll-y;
                         element-selected => { editor.focus(); }
                         outline-drag-started => { editor.focus(); }
                     }
@@ -240,12 +186,6 @@ export component EditorUi inherits Window {
             }
 
             DragPreview { }
-
-            if Api.editor-surface-mode == EditorSurfaceMode.component && root.settings-visible: TouchArea {
-                clicked => {
-                    root.settings-visible = false;
-                }
-            }
 
             if root.sidebars-collapsed: Rectangle {
                 x: 18px;
