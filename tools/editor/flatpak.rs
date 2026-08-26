@@ -15,8 +15,9 @@
 //! module follows from them:
 //!
 //! * There is no way to ask for a check. The monitor polls on the portal's own
-//!   timer (30 minutes by default) and never checks when it is created, so
-//!   nothing here reports an available update at launch.
+//!   timer (30 minutes by default) and never checks when it is created, so an
+//!   update waiting at launch is found by reading the remote's ref over HTTPS
+//!   instead, see [`remote_commit`].
 //! * `Update` deploys, it does not relaunch. The running process keeps the old
 //!   deployment mounted, so a finished update ends in
 //!   [`ui::UpdateState::RestartRequired`] rather than in anything that claims
@@ -27,6 +28,8 @@ use slint::ComponentHandle as _;
 use std::collections::HashMap;
 use std::rc::Rc;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::time::Duration;
 use zbus::MatchRule;
 use zbus::blocking::{Connection, MessageIterator, Proxy};
 use zbus::message::Type as MessageType;
@@ -36,6 +39,15 @@ const PORTAL_BUS: &str = "org.freedesktop.portal.Flatpak";
 const PORTAL_PATH: &str = "/org/freedesktop/portal/Flatpak";
 const PORTAL_INTERFACE: &str = "org.freedesktop.portal.Flatpak";
 const MONITOR_INTERFACE: &str = "org.freedesktop.portal.Flatpak.UpdateMonitor";
+
+/// Where the channels publish, from scripts/publish_visual_editor_flatpak.bash.
+/// The branch this instance was installed from picks the channel underneath it,
+/// so a stable build looks at the stable repository without being told.
+const BASE_URL: &str = "https://visual-editor.slint.dev";
+
+/// How long to wait for the startup check. Nothing depends on the answer, so
+/// there is no reason to wait long for it.
+const CHECK_TIMEOUT: Duration = Duration::from_secs(10);
 
 /// The `status` field of the `Progress` signal.
 const STATUS_RUNNING: u32 = 0;
@@ -79,8 +91,10 @@ pub struct Instance {
 /// `/.flatpak-info` exists only inside the sandbox, so this doubles as the test
 /// for "are we packaged", the way `is_bundled()` does for Sparkle.
 pub fn instance() -> Option<Instance> {
-    let info = std::fs::read_to_string("/.flatpak-info").ok()?;
+    parse_instance(&std::fs::read_to_string("/.flatpak-info").ok()?)
+}
 
+fn parse_instance(info: &str) -> Option<Instance> {
     let mut section = String::new();
     let mut app_id = None;
     let mut arch = None;
@@ -117,6 +131,11 @@ pub struct Updater {
     connection: Connection,
     monitor: OwnedObjectPath,
     callback: EventCallback,
+    /// Set once the running commit is known to be behind the remote. It is what
+    /// tells "there is nothing to install because you are current" apart from
+    /// "there is nothing to install because it is already deployed, and you are
+    /// still running the old one".
+    outdated: Arc<AtomicBool>,
 }
 
 impl Updater {
@@ -135,9 +154,10 @@ impl Updater {
             .inspect_err(|error| tracing::warn!("No updates: CreateUpdateMonitor failed: {error}"))
             .ok()?;
 
-        Self::watch(&connection, &monitor, callback.clone())?;
+        let outdated = Arc::new(AtomicBool::new(false));
+        Self::watch(&connection, &monitor, callback.clone(), outdated.clone())?;
 
-        Some(Self { connection, monitor, callback })
+        Some(Self { connection, monitor, callback, outdated })
     }
 
     /// Signals arrive on a thread of their own: the blocking iterator parks
@@ -147,6 +167,7 @@ impl Updater {
         connection: &Connection,
         monitor: &OwnedObjectPath,
         callback: EventCallback,
+        outdated: Arc<AtomicBool>,
     ) -> Option<()> {
         let rule = MatchRule::builder()
             .msg_type(MessageType::Signal)
@@ -171,12 +192,12 @@ impl Updater {
                 match member.as_str() {
                     "UpdateAvailable" => {
                         if let Ok(info) = message.body().deserialize::<HashMap<String, Value>>() {
-                            update_available(&info, &callback);
+                            update_available(&info, &callback, &outdated);
                         }
                     }
                     "Progress" => {
                         if let Ok(info) = message.body().deserialize::<HashMap<String, Value>>() {
-                            progress(&info, &callback);
+                            progress(&info, &callback, &outdated);
                         }
                     }
                     _ => {}
@@ -236,10 +257,16 @@ fn number(info: &HashMap<String, Value>, key: &str) -> Option<u32> {
 /// The three commits tell apart the two ways of being out of date: an update
 /// waiting on the remote, and one already deployed by `flatpak update` while
 /// the editor was running. Only the first is worth downloading.
-fn update_available(info: &HashMap<String, Value>, callback: &EventCallback) {
+fn update_available(
+    info: &HashMap<String, Value>,
+    callback: &EventCallback,
+    outdated: &AtomicBool,
+) {
     let running = string(info, "running-commit").unwrap_or_default();
     let local = string(info, "local-commit").unwrap_or_default();
     let remote = string(info, "remote-commit").unwrap_or_default();
+
+    outdated.store(!remote.is_empty() && remote != running, Ordering::Relaxed);
 
     if !local.is_empty() && local == remote && local != running {
         callback(Event::RestartRequired);
@@ -248,7 +275,7 @@ fn update_available(info: &HashMap<String, Value>, callback: &EventCallback) {
     }
 }
 
-fn progress(info: &HashMap<String, Value>, callback: &EventCallback) {
+fn progress(info: &HashMap<String, Value>, callback: &EventCallback, outdated: &AtomicBool) {
     let status = number(info, "status").unwrap_or(STATUS_RUNNING);
     match status {
         STATUS_RUNNING => {
@@ -261,7 +288,16 @@ fn progress(info: &HashMap<String, Value>, callback: &EventCallback) {
                 callback(Event::Downloading { progress: percent as f32 / 100.0 });
             }
         }
-        STATUS_EMPTY => callback(Event::UpToDate),
+        // Nothing to install, which is only good news if the running process
+        // is the newest thing there is. Somebody else - GNOME Software, a
+        // `flatpak update` in a terminal - may have deployed it already.
+        STATUS_EMPTY => {
+            if outdated.load(Ordering::Relaxed) {
+                callback(Event::RestartRequired)
+            } else {
+                callback(Event::UpToDate)
+            }
+        }
         STATUS_DONE => callback(Event::RestartRequired),
         STATUS_FAILED => callback(Event::Failed { message: progress_error(info) }),
         _ => {}
@@ -308,6 +344,66 @@ fn summarize(message: &str) -> String {
         return line.chars().take(79).chain(['…']).collect();
     }
     line.to_string()
+}
+
+/// The commit the remote would install, read straight out of the OSTree ref
+/// file: 64 hex characters and a newline, one request for the whole process
+/// lifetime.
+///
+/// This exists because the portal cannot be asked to check. Everything else
+/// during the session is the monitor's job, so there is no timer here and no
+/// second request.
+fn remote_commit(instance: &Instance) -> Option<String> {
+    // The local test script points this at its own repository. It carries the
+    // channel, the way SLINT_FLATPAK_BASE_URL does in the publishing script.
+    let base = std::env::var("SLINT_FLATPAK_BASE_URL")
+        .unwrap_or_else(|_| format!("{BASE_URL}/{}", instance.branch));
+    let url = format!(
+        "{base}/flatpak/refs/heads/app/{}/{}/{}",
+        instance.app_id, instance.arch, instance.branch
+    );
+
+    let client = reqwest::blocking::Client::builder().timeout(CHECK_TIMEOUT).build().ok()?;
+    let body = client.get(&url).send().and_then(|response| response.error_for_status()?.bytes());
+
+    let body = match body {
+        Ok(body) => body,
+        Err(error) => {
+            // Offline, a captive portal, a bad gateway: none of it is the
+            // editor's problem, and none of it belongs in the update chrome.
+            tracing::info!("Update check failed: {url}: {error}");
+            return None;
+        }
+    };
+
+    let commit = String::from_utf8_lossy(&body).trim().to_string();
+    if commit.len() != 64 || !commit.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+        tracing::info!("Update check: {url} did not answer with a commit");
+        return None;
+    }
+
+    Some(commit)
+}
+
+/// One request at startup, off the UI thread. The monitor takes over from here.
+fn check_at_startup(instance: Instance, callback: EventCallback, outdated: Arc<AtomicBool>) {
+    std::thread::spawn(move || {
+        let Some(remote) = remote_commit(&instance) else {
+            return;
+        };
+        if remote == instance.commit {
+            tracing::info!("Update check: up to date");
+            return;
+        }
+
+        // Whether this is a download or only a restart is not knowable from
+        // here: the ref says what the remote has, not what is deployed. The
+        // portal settles it, either through UpdateAvailable or by finding
+        // nothing left to install.
+        tracing::info!("Update check: {} is available", short_commit(&remote));
+        outdated.store(true, Ordering::Relaxed);
+        callback(Event::UpdateAvailable { version: short_commit(&remote) });
+    });
 }
 
 /// Push an event into the update chrome. Runs on the UI thread.
@@ -368,6 +464,8 @@ pub fn connect(editor: &ui::EditorUi) -> Option<Rc<Updater>> {
         let _ = weak.upgrade_in_event_loop(move |editor| apply(&editor, event));
     }))?);
 
+    check_at_startup(instance, updater.callback.clone(), updater.outdated.clone());
+
     let api = editor.global::<ui::Api>();
     let clicked = updater.clone();
     let weak = editor.as_weak();
@@ -385,4 +483,53 @@ pub fn connect(editor: &ui::EditorUi) -> Option<Rc<Updater>> {
     });
 
     Some(updater)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Trimmed from a running instance of the nightly.
+    const FLATPAK_INFO: &str = "\
+[Application]
+name=dev.slint.VisualEditor
+runtime=runtime/org.freedesktop.Platform/x86_64/25.08
+
+[Instance]
+instance-id=1181734683
+app-path=/var/lib/flatpak/app/dev.slint.VisualEditor/x86_64/nightly/b2399bb/files
+app-commit=b2399bb0a75e24a247bcd194cff2bd659ebd6226291f12e84c67b3ae9aabfa10
+branch=nightly
+arch=x86_64
+
+[Environment]
+ALSA_CONFIG_DIR=/usr/share/alsa
+";
+
+    #[test]
+    fn parses_the_instance() {
+        let instance = parse_instance(FLATPAK_INFO).unwrap();
+        assert_eq!(instance.app_id, "dev.slint.VisualEditor");
+        assert_eq!(instance.arch, "x86_64");
+        assert_eq!(instance.branch, "nightly");
+        assert_eq!(
+            instance.commit,
+            "b2399bb0a75e24a247bcd194cff2bd659ebd6226291f12e84c67b3ae9aabfa10"
+        );
+    }
+
+    /// `name` appears in more than one section, and only the application's one
+    /// is the app id.
+    #[test]
+    fn ignores_keys_from_other_sections() {
+        let info = FLATPAK_INFO
+            .replace("[Environment]", "[Session Bus Policy]\nname=org.example\n\n[Environment]");
+        assert_eq!(parse_instance(&info).unwrap().app_id, "dev.slint.VisualEditor");
+    }
+
+    #[test]
+    fn rejects_anything_that_is_not_a_flatpak() {
+        assert!(parse_instance("").is_none());
+        assert!(parse_instance("[Application]\nname=dev.slint.VisualEditor\n").is_none());
+    }
 }
