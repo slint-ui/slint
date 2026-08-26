@@ -73,11 +73,15 @@ slint::include_modules!();
 
 pub type PropertyDeclarations = HashMap<SmolStr, PropertyDeclaration>;
 
-pub fn create_ui(
+pub fn create_ui() -> Result<EditorUi, PlatformError> {
+    EditorUi::new()
+}
+
+pub fn initialize_editor(
+    editor_ui: &EditorUi,
     to_lsp: &Rc<dyn i_slint_editor_preview::PreviewToLsp>,
     style: &str,
-) -> Result<EditorUi, PlatformError> {
-    let editor_ui = EditorUi::new()?;
+) {
     let api = editor_ui.global::<Api>();
     let api_weak = <Api as slint::Global<'_, EditorUi>>::as_weak(&api);
     let project = editor_ui.global::<Project>();
@@ -239,20 +243,7 @@ pub fn create_ui(
     brushes::setup(&api);
     log_messages::setup(&api);
     palette::setup(&api);
-    let open_startup_wizard_api_weak = api_weak.clone();
-    api.on_open_startup_wizard(move || {
-        if let Some(api) = open_startup_wizard_api_weak.upgrade() {
-            api.set_startup_wizard_visible(true);
-        }
-    });
-    let close_startup_wizard_api_weak = api_weak.clone();
-    api.on_close_startup_wizard(move || {
-        if let Some(api) = close_startup_wizard_api_weak.upgrade() {
-            api.set_startup_wizard_visible(false);
-        }
-    });
-    let file_tree_controller =
-        file_tree::setup(&api, api_weak.clone(), &project, project_weak, editor_ui.as_weak());
+    let file_tree_controller = file_tree::setup(&api, api_weak.clone(), &project, project_weak);
     preview::set_file_tree_controller(file_tree_controller);
     recent_colors::setup(&api, api_weak.clone());
     super::outline::setup(&api, api_weak.clone());
@@ -271,8 +262,6 @@ pub fn create_ui(
     {
         api.set_control_key_name("command".into());
     }
-
-    Ok(editor_ui)
 }
 
 fn extract_definition_location(ci: &ComponentInformation) -> (SharedString, SharedString) {

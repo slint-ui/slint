@@ -63,10 +63,8 @@ pub enum PreviewToLspMessage {
     /// WebSocket connector.
     Pong,
     /// Ask the LSP to load a component and answer with
-    /// [`super::LspToPreviewMessage::OpenPreview`].
+    /// [`super::LspToPreviewMessage::ShowPreview`].
     RequestPreview { component: PreviewComponent },
-    /// Ask the LSP to switch the active project root.
-    RequestProject { root: Url },
 }
 
 /// One transport from a preview back to the LSP.

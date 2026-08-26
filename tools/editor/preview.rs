@@ -54,60 +54,36 @@ mod properties;
 pub mod remote;
 pub mod ui;
 mod undo_redo;
-mod visual_editor_settings;
+pub(crate) mod visual_editor_settings;
 
 use visual_editor_settings::{
     StoredRecentProject, VISUAL_EDITOR_SETTINGS_FILE, VisualEditorSettings,
 };
 
-#[cfg(not(target_arch = "wasm32"))]
-#[allow(dead_code)]
-pub fn run(
+pub fn initialize(
+    editor_ui: &ui::EditorUi,
     to_lsp: Rc<dyn i_slint_editor_preview::PreviewToLsp>,
-    fullscreen: bool,
-) -> std::result::Result<(), slint::PlatformError> {
-    run_with_ui(ui::create_ui(&to_lsp, "")?, to_lsp, fullscreen)
-}
+    settings: VisualEditorSettings,
+) {
+    PREVIEW_STATE.with_borrow_mut(|preview_state| {
+        *preview_state.to_lsp.borrow_mut() = Some(to_lsp.clone());
+        let api = editor_ui.global::<ui::Api>();
+        preview_state.api = <ui::Api as slint::Global<'_, ui::EditorUi>>::as_weak(&api);
+        preview_state.editor_ui = Some(editor_ui.clone_strong());
+        preview_state.visual_editor_settings = settings;
+    });
 
-/// Hand a window over to the preview engine and run the event loop until it
-/// closes. Applications that add their own chrome create the window with
-/// [`ui::create_ui`] and set it up before calling this.
-#[cfg(not(target_arch = "wasm32"))]
-pub fn run_with_ui(
-    editor_ui: ui::EditorUi,
-    to_lsp: Rc<dyn i_slint_editor_preview::PreviewToLsp>,
-    fullscreen: bool,
-) -> std::result::Result<(), slint::PlatformError> {
     to_lsp
         .send_telemetry(&mut [(
             "type".to_string(),
             serde_json::to_value("preview_opened").unwrap(),
         )])
         .ok();
-    editor_ui.window().set_fullscreen(fullscreen);
 
     tracing::debug!("Preview: requesting state from LSP");
     to_lsp
-        .send(&PreviewToLspMessage::RequestState {
-            files: Vec::new(),
-            settings: vec![VISUAL_EDITOR_SETTINGS_FILE.into()],
-        })
+        .send(&PreviewToLspMessage::RequestState { files: Vec::new(), settings: Vec::new() })
         .unwrap();
-
-    let editor_ui_clone = PREVIEW_STATE.with(move |preview_state| {
-        let mut preview_state = preview_state.borrow_mut();
-        *preview_state.to_lsp.borrow_mut() = Some(to_lsp);
-        let api = editor_ui.global::<ui::Api>();
-        preview_state.api = <ui::Api as slint::Global<'_, ui::EditorUi>>::as_weak(&api);
-        preview_state.editor_ui = Some(editor_ui.clone_strong());
-        editor_ui
-    });
-
-    tracing::debug!("Preview: starting event loop (run)");
-    editor_ui_clone.run()?;
-    tracing::debug!("Preview: event loop exited");
-
-    Ok(())
 }
 
 /// Apply a message from the LSP to the preview. Whatever transport carried the
@@ -128,7 +104,7 @@ pub fn lsp_to_preview(message: LspToPreviewMessage) {
         M::SetUserSettings { name, contents } => {
             set_user_settings(name, contents);
         }
-        M::ShowPreview(preview_component) | M::OpenPreview(preview_component) => {
+        M::ShowPreview(preview_component) => {
             tracing::debug!(
                 "Preview: opening url={}, component={:?}",
                 preview_component.url,
@@ -341,28 +317,20 @@ pub fn set_user_settings(name: String, contents: String) {
             return;
         };
         PREVIEW_STATE.with_borrow_mut(|preview_state| {
-            apply_visible_recent_projects(preview_state.editor_ui.as_ref(), &settings);
+            if let Some(editor_ui) = preview_state.editor_ui.as_ref() {
+                apply_visible_recent_projects(editor_ui, &settings);
+            }
             preview_state.visual_editor_settings = settings;
         });
     }
 }
 
-fn apply_visible_recent_projects(
-    editor_ui: Option<&ui::EditorUi>,
+pub(crate) fn apply_visible_recent_projects(
+    editor_ui: &ui::EditorUi,
     settings: &VisualEditorSettings,
 ) {
-    let Some(editor_ui) = editor_ui else { return };
     let project = editor_ui.global::<ui::Project>();
     project.set_recent(Rc::new(slint::VecModel::from(settings.visible_recent_projects())).into());
-}
-
-fn refresh_visible_recent_projects() {
-    PREVIEW_STATE.with_borrow(|preview_state| {
-        apply_visible_recent_projects(
-            preview_state.editor_ui.as_ref(),
-            &preview_state.visual_editor_settings,
-        );
-    });
 }
 
 fn record_current_project() {
@@ -394,10 +362,9 @@ fn record_current_project() {
         if !preview_state.visual_editor_settings.add_recent_project(project) {
             return None;
         }
-        apply_visible_recent_projects(
-            preview_state.editor_ui.as_ref(),
-            &preview_state.visual_editor_settings,
-        );
+        if let Some(editor_ui) = preview_state.editor_ui.as_ref() {
+            apply_visible_recent_projects(editor_ui, &preview_state.visual_editor_settings);
+        }
         Some(preview_state.visual_editor_settings.serialize())
     });
     let Some(contents) = update else { return };
@@ -525,26 +492,6 @@ pub(super) fn request_preview_path(path: &Path, component: Option<String>) -> bo
     };
     if let Err(err) = to_lsp.send(&PreviewToLspMessage::RequestPreview { component }) {
         tracing::warn!("Failed to request preview for {}: {err}", path.display());
-        return false;
-    }
-    true
-}
-
-pub(super) fn request_project_preview(root: &Path, path: &Path, component: Option<String>) -> bool {
-    let Ok(root) = std::fs::canonicalize(root) else { return false };
-    if !root.is_dir() {
-        return false;
-    }
-    let Ok(root) = Url::from_directory_path(&root) else { return false };
-    let Some(component) = preview_component(path, component) else { return false };
-    let to_lsp = PREVIEW_STATE.with_borrow(|preview_state| preview_state.to_lsp.borrow().clone());
-    let Some(to_lsp) = to_lsp else { return false };
-    if let Err(error) = to_lsp.send(&PreviewToLspMessage::RequestProject { root }) {
-        tracing::warn!("Failed to request project for {}: {error}", path.display());
-        return false;
-    }
-    if let Err(error) = to_lsp.send(&PreviewToLspMessage::RequestPreview { component }) {
-        tracing::warn!("Failed to request preview for {}: {error}", path.display());
         return false;
     }
     true
@@ -2840,31 +2787,6 @@ mod tests {
         ));
 
         let _ = fs::remove_file(path);
-    }
-
-    #[test]
-    fn request_project_preview_requests_project_then_preview() {
-        let messages = Rc::new(RefCell::new(Vec::new()));
-        reset_preview_state(messages.clone());
-        let (root, path) = temp_project("request");
-        let root_url = Url::from_directory_path(std::fs::canonicalize(&root).unwrap()).unwrap();
-        let preview_url = Url::from_file_path(std::fs::canonicalize(&path).unwrap()).unwrap();
-
-        assert!(request_project_preview(&root, &path, Some("MainWindow".into())));
-
-        assert!(matches!(
-            &messages.borrow()[..],
-            [
-                PreviewToLspMessage::RequestProject { root },
-                PreviewToLspMessage::RequestPreview { component },
-            ] if root == &root_url
-                && component == &PreviewComponent {
-                    url: preview_url,
-                    component: Some("MainWindow".into()),
-                }
-        ));
-
-        let _ = fs::remove_dir_all(root);
     }
 
     #[test]

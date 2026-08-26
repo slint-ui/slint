@@ -72,7 +72,6 @@ pub enum LspToPreviewMessage {
     /// A protocol message because the LSP's browser-compatible WebSocket layer
     /// doesn't expose frame-level pings.
     Ping,
-    OpenPreview(PreviewComponent),
     OpenProject {
         root: Url,
     },

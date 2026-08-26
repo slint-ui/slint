@@ -471,8 +471,7 @@ impl Connection {
                                                 "Ignoring unexpected RemoteConnectionState over WebSocket"
                                             );
                                         }
-                                        LspToPreviewMessage::OpenPreview(_)
-                                        | LspToPreviewMessage::OpenProject { .. } => {}
+                                        LspToPreviewMessage::OpenProject { .. } => {}
                                     }
                                 }
                                 Err(err) => {

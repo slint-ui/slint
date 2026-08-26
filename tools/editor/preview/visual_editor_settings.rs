@@ -5,12 +5,12 @@ use std::path::Path;
 
 use super::ui;
 
-pub(super) const VISUAL_EDITOR_SETTINGS_FILE: &str = "visual-editor-user-settings.json";
+pub(crate) const VISUAL_EDITOR_SETTINGS_FILE: &str = "visual-editor-user-settings.json";
 const MAX_RECENT_PROJECTS: usize = 4;
 
 #[derive(Clone, Debug, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub(super) struct StoredRecentProject {
+pub(crate) struct StoredRecentProject {
     pub root: String,
     pub path: String,
     pub component: String,
@@ -18,27 +18,27 @@ pub(super) struct StoredRecentProject {
 
 #[derive(Default, Clone, Debug, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(try_from = "VisualEditorSettingsSerde", into = "VisualEditorSettingsSerde")]
-pub(super) struct VisualEditorSettings {
+pub(crate) struct VisualEditorSettings {
     recent_projects: Vec<StoredRecentProject>,
 }
 
 impl VisualEditorSettings {
     const CURRENT_VERSION: u32 = 1;
 
-    pub fn serialize(&self) -> String {
+    pub(crate) fn serialize(&self) -> String {
         let mut json =
             serde_json::to_string_pretty(self).expect("serializing visual editor settings");
         json.push('\n');
         json
     }
 
-    pub fn deserialize(contents: &str) -> Option<Self> {
+    pub(crate) fn deserialize(contents: &str) -> Option<Self> {
         serde_json::from_str::<VisualEditorSettings>(contents)
             .map_err(|error| tracing::warn!("Ignoring malformed visual editor settings: {error}"))
             .ok()
     }
 
-    pub fn add_recent_project(&mut self, project: StoredRecentProject) -> bool {
+    pub(crate) fn add_recent_project(&mut self, project: StoredRecentProject) -> bool {
         if self.recent_projects.first() == Some(&project) {
             return false;
         }
@@ -48,7 +48,7 @@ impl VisualEditorSettings {
         true
     }
 
-    pub fn visible_recent_projects(&self) -> Vec<ui::RecentProject> {
+    pub(crate) fn visible_recent_projects(&self) -> Vec<ui::RecentProject> {
         self.recent_projects
             .iter()
             .filter(|project| {

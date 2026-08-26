@@ -6,6 +6,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use std::{
+    cell::Cell,
     path::{Path, PathBuf},
     pin::Pin,
     rc::Rc,
@@ -20,6 +21,7 @@ use i_slint_live_preview::protocol::{
     VersionedUrl,
 };
 use lsp_types::{MessageType, Url};
+use slint::ComponentHandle;
 
 #[cfg(target_os = "linux")]
 mod flatpak;
@@ -28,8 +30,9 @@ mod preview;
 mod sparkle;
 #[cfg(target_os = "windows")]
 mod windows;
+mod startup;
 
-fn main() -> std::result::Result<(), slint::PlatformError> {
+fn main() -> Result<()> {
     tracing_subscriber::fmt()
         .with_writer(std::io::stderr)
         .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
@@ -39,19 +42,10 @@ fn main() -> std::result::Result<(), slint::PlatformError> {
 
     let cli = Cli::parse();
 
-    let (to_lsp, from_preview) = crossbeam_channel::unbounded();
-
-    let to_lsp = Rc::new(EmbeddedPreviewToLsp { sender: to_lsp })
-        as Rc<dyn editor_preview::PreviewToLsp + 'static>;
-
     // Set up the Slint backend (installing the macOS unified-title-bar hook)
-    // *before* spawning the LSP thread, so that no other thread can lazily
-    // initialize the default platform first and lose the hook.
     select_backend()?;
 
-    start_lsp_thread(from_preview, cli);
-
-    let editor_ui = preview::ui::create_ui(&to_lsp, "")?;
+    let editor_ui = preview::ui::create_ui()?;
 
     // The updater needs to stay in scope for as long as the window is up.
     #[cfg(target_os = "macos")]
@@ -61,7 +55,33 @@ fn main() -> std::result::Result<(), slint::PlatformError> {
     #[cfg(target_os = "windows")]
     let _updater = windows::connect(&editor_ui);
 
-    preview::run_with_ui(editor_ui, to_lsp, false)
+    let settings = startup::load_settings();
+    if let Some(file) = cli.file {
+        let project = StartupProject::from_file(file, cli.component)?;
+        start_editor_session(&editor_ui, project, settings);
+    } else {
+        let session_started = Rc::new(Cell::new(false));
+        let editor_ui_weak = editor_ui.as_weak();
+        let session_settings = settings.clone();
+        startup::setup(
+            &editor_ui,
+            &settings,
+            Rc::new(move |project| {
+                if session_started.get() {
+                    return false;
+                }
+                let Some(editor_ui) = editor_ui_weak.upgrade() else {
+                    return false;
+                };
+                session_started.set(true);
+                start_editor_session(&editor_ui, project, session_settings.clone());
+                true
+            }),
+        );
+    }
+
+    editor_ui.run()?;
+    Ok(())
 }
 
 /// Set up the editor's macOS chrome: the unified title bar and the Sparkle
@@ -112,6 +132,41 @@ struct Cli {
     component: Option<String>,
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct StartupProject {
+    root: PathBuf,
+    preview: PreviewComponent,
+}
+
+impl StartupProject {
+    fn from_file(path: impl AsRef<Path>, component: Option<String>) -> Result<Self> {
+        let path = std::fs::canonicalize(path.as_ref())?;
+        let root = path
+            .parent()
+            .ok_or_else(|| format!("Failed to determine project root for {}", path.display()))?;
+        Self::from_root(root, &path, component)
+    }
+
+    fn from_root(root: &Path, path: &Path, component: Option<String>) -> Result<Self> {
+        let root = std::fs::canonicalize(root)?;
+        if !root.is_dir() {
+            return Err(format!("{} is not a directory", root.display()).into());
+        }
+        let path = std::fs::canonicalize(path)?;
+        if !path.is_file()
+            || !path
+                .extension()
+                .and_then(|extension| extension.to_str())
+                .is_some_and(|extension| extension.eq_ignore_ascii_case("slint"))
+        {
+            return Err(format!("{} is not a Slint file", path.display()).into());
+        }
+        let url = Url::from_file_path(&path)
+            .map_err(|_| format!("Failed to convert {} to URL", path.display()))?;
+        Ok(Self { root, preview: PreviewComponent { url, component } })
+    }
+}
+
 fn select_backend() -> std::result::Result<(), slint::PlatformError> {
     let headless_requested = std::env::var("SLINT_BACKEND").is_ok_and(|backend| {
         i_slint_backend_selector::parse_backend_env_var(&backend.to_ascii_lowercase()).0
@@ -131,7 +186,23 @@ fn select_backend() -> std::result::Result<(), slint::PlatformError> {
     selector.select()
 }
 
-fn start_lsp_thread(from_preview: crossbeam_channel::Receiver<PreviewToLspMessage>, cli: Cli) {
+fn start_editor_session(
+    editor_ui: &preview::ui::EditorUi,
+    project: StartupProject,
+    settings: preview::visual_editor_settings::VisualEditorSettings,
+) {
+    let (to_lsp, from_preview) = crossbeam_channel::unbounded();
+    let to_lsp = Rc::new(EmbeddedPreviewToLsp { sender: to_lsp })
+        as Rc<dyn editor_preview::PreviewToLsp + 'static>;
+    preview::ui::initialize_editor(editor_ui, &to_lsp, "");
+    preview::initialize(editor_ui, to_lsp, settings);
+    start_lsp_thread(from_preview, project);
+}
+
+fn start_lsp_thread(
+    from_preview: crossbeam_channel::Receiver<PreviewToLspMessage>,
+    project: StartupProject,
+) {
     std::thread::spawn(move || {
         let rt = tokio::runtime::Builder::new_current_thread()
             .enable_io()
@@ -139,7 +210,7 @@ fn start_lsp_thread(from_preview: crossbeam_channel::Receiver<PreviewToLspMessag
             .build()
             .unwrap();
         let local_set = tokio::task::LocalSet::new();
-        if let Err(err) = local_set.block_on(&rt, lsp_main(from_preview, cli)) {
+        if let Err(err) = local_set.block_on(&rt, lsp_main(from_preview, project)) {
             tracing::error!("{err}");
             std::process::exit(1);
         }
@@ -164,7 +235,7 @@ fn bridge_crossbeam_to_tokio(
 
 async fn lsp_main(
     from_preview: crossbeam_channel::Receiver<PreviewToLspMessage>,
-    cli: Cli,
+    project: StartupProject,
 ) -> Result<()> {
     use editor_preview::document_cache::CompilerConfiguration;
 
@@ -227,28 +298,15 @@ async fn lsp_main(
     };
 
     let mut watch_paths_revision = None;
-    let mut project_root = None;
-
-    // Load the initial document through the compiler if the editor was launched
-    // with a file. Finder launches without a file stay on the startup wizard.
-    if let Some(file) = cli.file.as_ref() {
-        let full_path = std::fs::canonicalize(file)
-            .map_err(|err| format!("Failed to determine full path for {file}: {err}"))?;
-        let url = Url::from_file_path(full_path.clone())
-            .map_err(|_| format!("Failed to convert {file} to URL!"))?;
-        let root = project_root_for_path(&full_path)
-            .ok_or_else(|| format!("Failed to determine project root for {file}"))?;
-        open_project(&session, root, &mut project_root, &mut watch_paths_revision)?;
-        open_preview(&mut session, PreviewComponent { url, component: cli.component })
-            .await
-            .map_err(|err| format!("Failed to load file: {file}: {err}"))?;
-        sync_file_watcher_if_needed(
-            &mut file_watcher,
-            &session,
-            project_root.as_deref().unwrap_or(&full_path),
-            &mut watch_paths_revision,
-        )?;
-    }
+    let project_root = project.root;
+    open_project(&session, &project_root)?;
+    open_preview(&mut session, project.preview).await?;
+    sync_file_watcher_if_needed(
+        &mut file_watcher,
+        &session,
+        &project_root,
+        &mut watch_paths_revision,
+    )?;
 
     const RECOMPILE_IDLE_TIMEOUT: Duration = Duration::from_millis(50);
     loop {
@@ -267,7 +325,7 @@ async fn lsp_main(
             msg = from_preview_rx.recv() => {
                 match msg {
                     Some(msg) => {
-                        handle_preview_message(msg, &mut session, &mut project_root, &mut watch_paths_revision).await;
+                        handle_preview_message(msg, &mut session, &project_root).await;
                     }
                     None => {
                         tracing::debug!("Preview->LSP channel closed, exiting");
@@ -287,14 +345,12 @@ async fn lsp_main(
             }
         }
 
-        if let Some(project_root) = project_root.as_deref() {
-            sync_file_watcher_if_needed(
-                &mut file_watcher,
-                &session,
-                project_root,
-                &mut watch_paths_revision,
-            )?;
-        }
+        sync_file_watcher_if_needed(
+            &mut file_watcher,
+            &session,
+            &project_root,
+            &mut watch_paths_revision,
+        )?;
     }
 }
 
@@ -340,17 +396,14 @@ fn sync_file_watcher_if_needed(
 async fn handle_preview_message(
     msg: PreviewToLspMessage,
     session: &mut editor_preview::EditorSession,
-    project_root: &mut Option<PathBuf>,
-    watch_paths_revision: &mut Option<u64>,
+    project_root: &Path,
 ) {
     use PreviewToLspMessage::*;
     match &msg {
         RequestState { files, settings } => {
             tracing::debug!("Preview requested state");
             if files.is_empty() {
-                if let Some(root) = project_root.as_deref()
-                    && let Ok(root) = Url::from_directory_path(root)
-                {
+                if let Ok(root) = Url::from_directory_path(project_root) {
                     session.to_preview.send(&LspToPreviewMessage::OpenProject { root });
                 }
                 session.send_state_to_preview();
@@ -374,15 +427,6 @@ async fn handle_preview_message(
             };
             if let Err(err) = open_preview(session, component).await {
                 tracing::error!("Failed to open preview for {}: {err}", path.display());
-            }
-        }
-        RequestProject { root } => {
-            let Some(root) = editor_preview::uri_to_file(root) else {
-                tracing::warn!("Ignoring project request with an invalid path: {root}");
-                return;
-            };
-            if let Err(error) = open_project(session, &root, project_root, watch_paths_revision) {
-                tracing::warn!("Ignoring project request for {}: {error}", root.display());
             }
         }
         UpdateUserSettings { name, contents } => {
@@ -425,24 +469,17 @@ async fn open_preview(
 ) -> Result<()> {
     let _diagnostics = session.reload_document(component.url.clone()).await?;
     session.to_show = Some(component.clone());
-    session.to_preview.send(&LspToPreviewMessage::OpenPreview(component));
+    session.to_preview.send(&LspToPreviewMessage::ShowPreview(component));
     Ok(())
 }
 
-fn open_project(
-    session: &editor_preview::EditorSession,
-    root: &Path,
-    project_root: &mut Option<PathBuf>,
-    watch_paths_revision: &mut Option<u64>,
-) -> Result<()> {
+fn open_project(session: &editor_preview::EditorSession, root: &Path) -> Result<()> {
     let root = std::fs::canonicalize(root)?;
     if !root.is_dir() {
         return Err(format!("{} is not a directory", root.display()).into());
     }
     let url = Url::from_directory_path(&root)
         .map_err(|_| format!("Failed to convert {} to URL", root.display()))?;
-    *project_root = Some(root);
-    *watch_paths_revision = None;
     session.to_preview.send(&LspToPreviewMessage::OpenProject { root: url });
     Ok(())
 }
@@ -454,10 +491,6 @@ fn canonical_preview_component(
     let path = std::fs::canonicalize(path).ok()?;
     let url = Url::from_file_path(&path).ok()?;
     Some((PreviewComponent { url, component: component.component.clone() }, path))
-}
-
-fn project_root_for_path(path: &Path) -> Option<&Path> {
-    if path.is_dir() { Some(path) } else { path.parent() }
 }
 
 fn handle_workspace_edit(
@@ -490,5 +523,51 @@ fn handle_workspace_edit(
                 label.unwrap_or("(unnamed)")
             );
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::fs;
+
+    use super::*;
+
+    fn project_file(name: &str) -> (PathBuf, PathBuf) {
+        let root =
+            std::env::temp_dir().join(format!("slint-editor-main-{}-{name}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(root.join("ui")).unwrap();
+        let path = root.join("ui/main.slint");
+        fs::write(&path, "export component MainWindow inherits Window {}").unwrap();
+        (root, path)
+    }
+
+    #[test]
+    fn startup_project_from_file_uses_parent_as_root() {
+        let (root, path) = project_file("parent-root");
+
+        let project = StartupProject::from_file(&path, Some("MainWindow".into())).unwrap();
+
+        assert_eq!(project.root, std::fs::canonicalize(root.join("ui")).unwrap());
+        assert_eq!(
+            project.preview.url.to_file_path().unwrap(),
+            std::fs::canonicalize(path).unwrap()
+        );
+        assert_eq!(project.preview.component.as_deref(), Some("MainWindow"));
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn startup_project_from_root_keeps_explicit_root() {
+        let (root, path) = project_file("explicit-root");
+
+        let project = StartupProject::from_root(&root, &path, None).unwrap();
+
+        assert_eq!(project.root, std::fs::canonicalize(&root).unwrap());
+        assert_eq!(
+            project.preview.url.to_file_path().unwrap(),
+            std::fs::canonicalize(path).unwrap()
+        );
+        let _ = fs::remove_dir_all(root);
     }
 }

@@ -9,26 +9,9 @@ use std::rc::Rc;
 use i_slint_core::platform::Clipboard;
 use i_slint_live_preview::protocol::PreviewComponent;
 use lsp_types::Url;
-use slint::{ComponentHandle, Image, ModelRc, SharedString, ToSharedString as _, VecModel};
+use slint::{Image, ModelRc, SharedString, ToSharedString as _, VecModel};
 
-use super::{
-    Api, EditorSurfaceMode, EditorUi, FileTreeNode, FileTreeNodeKind, ImageAssetPreview, Project,
-};
-
-#[cfg(not(target_arch = "wasm32"))]
-const NEW_PROJECT_NAME: &str = "Slint UI Project";
-const NEW_PROJECT_MAIN_FILE: &str = "main.slint";
-const NEW_PROJECT_MAIN_FILE_CONTENTS: &str = r#"export component MainWindow inherits Window {
-    width: 400px;
-    height: 300px;
-
-    Text {
-        text: "Hello from Slint";
-        horizontal-alignment: center;
-        vertical-alignment: center;
-    }
-}
-"#;
+use super::{Api, EditorSurfaceMode, FileTreeNode, FileTreeNodeKind, ImageAssetPreview, Project};
 
 pub(in crate::preview) type SharedFileTreeController = Rc<RefCell<Option<FileTreeController>>>;
 
@@ -37,9 +20,7 @@ pub fn setup(
     api_weak: slint::Weak<Api<'static>>,
     project: &Project<'_>,
     project_weak: slint::Weak<Project<'static>>,
-    editor_ui: slint::Weak<EditorUi>,
 ) -> SharedFileTreeController {
-    api.set_startup_wizard_visible(true);
     project.set_file_tree(Default::default());
     project.set_selected_project_file(Default::default());
 
@@ -55,46 +36,6 @@ pub fn setup(
         {
             controller.open_from_file_tree(Path::new(path.as_str()), &api, &project);
         }
-    });
-
-    let window_for_open = editor_ui.clone();
-    project.on_open_existing_project(move || {
-        let window = window_for_open.upgrade().map(|editor_ui| editor_ui.window().window_handle());
-        let Some(path) = choose_project_file(window) else {
-            return false;
-        };
-        let Some(root) = path.parent() else { return false };
-        super::super::request_project_preview(root, &path, None)
-    });
-
-    let window_for_new = editor_ui;
-    project.on_create_new_project(move || {
-        let window = window_for_new.upgrade().map(|editor_ui| editor_ui.window().window_handle());
-        let Some(path) = choose_new_project_path(window) else {
-            return false;
-        };
-        if let Err(err) = std::fs::create_dir_all(&path) {
-            tracing::warn!("Failed to create project directory {}: {err}", path.display());
-            return false;
-        }
-        let main_file_path = path.join(NEW_PROJECT_MAIN_FILE);
-        if let Err(err) = std::fs::write(&main_file_path, NEW_PROJECT_MAIN_FILE_CONTENTS) {
-            tracing::warn!("Failed to create project file {}: {err}", main_file_path.display());
-            return false;
-        }
-        super::super::request_project_preview(&path, &main_file_path, None)
-    });
-
-    project.on_open_recent_project(move |recent_project| {
-        let root = PathBuf::from(recent_project.root_path.as_str());
-        let path = PathBuf::from(recent_project.path.as_str());
-        let component =
-            (!recent_project.component.is_empty()).then(|| recent_project.component.to_string());
-        let requested = super::super::request_project_preview(&root, &path, component);
-        if !requested && (!root.is_dir() || !path.is_file()) {
-            super::super::refresh_visible_recent_projects();
-        }
-        requested
     });
 
     let controller_for_toggle = controller.clone();
@@ -119,75 +60,6 @@ pub fn setup(
     });
 
     controller
-}
-
-#[cfg(not(target_arch = "wasm32"))]
-fn choose_project_file(window: Option<slint::WindowHandle>) -> Option<PathBuf> {
-    let dialog =
-        rfd::FileDialog::new().set_title("Open Slint File").add_filter("Slint files", &["slint"]);
-    with_parent(dialog, window).pick_file()
-}
-
-#[cfg(target_arch = "wasm32")]
-fn choose_project_file(_window: Option<slint::WindowHandle>) -> Option<PathBuf> {
-    None
-}
-
-#[cfg(not(target_arch = "wasm32"))]
-fn with_parent(dialog: rfd::FileDialog, window: Option<slint::WindowHandle>) -> rfd::FileDialog {
-    match window {
-        Some(window) => dialog.set_parent(&window),
-        None => dialog,
-    }
-}
-
-#[cfg(not(target_arch = "wasm32"))]
-fn unique_new_project_path(parent: &Path) -> PathBuf {
-    let path = parent.join(NEW_PROJECT_NAME);
-    if !path.exists() {
-        return path;
-    }
-
-    for index in 2.. {
-        let path = parent.join(format!("{NEW_PROJECT_NAME} {index}"));
-        if !path.exists() {
-            return path;
-        }
-    }
-
-    unreachable!("unbounded project-name search must find a free path")
-}
-
-#[cfg(not(target_arch = "wasm32"))]
-fn choose_new_project_path(window: Option<slint::WindowHandle>) -> Option<PathBuf> {
-    let parent = default_new_project_parent();
-    let path = unique_new_project_path(&parent);
-    let file_name = path.file_name()?.to_string_lossy();
-
-    let dialog = rfd::FileDialog::new()
-        .set_title("New Slint UI Project")
-        .set_directory(parent)
-        .set_file_name(file_name.as_ref());
-    with_parent(dialog, window).save_file()
-}
-
-#[cfg(target_arch = "wasm32")]
-fn choose_new_project_path(_window: Option<slint::WindowHandle>) -> Option<PathBuf> {
-    None
-}
-
-#[cfg(not(target_arch = "wasm32"))]
-fn default_new_project_parent() -> PathBuf {
-    let home = std::env::var_os("HOME").map(PathBuf::from);
-    if let Some(documents) =
-        home.as_ref().map(|home| home.join("Documents")).filter(|path| path.is_dir())
-    {
-        return documents;
-    }
-    if let Some(home) = home.filter(|path| path.is_dir()) {
-        return home;
-    }
-    std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."))
 }
 
 pub(in crate::preview) struct FileTreeController {
@@ -781,37 +653,6 @@ mod tests {
         assert_eq!(selected_project_file(&tree.root, None), "");
         assert_eq!(selected_project_file(&tree.root, Some(&folder)), "");
         assert_eq!(selected_project_file(&tree.root, Some(&unsupported)), "");
-    }
-
-    #[test]
-    fn unique_new_project_path_uses_base_name_when_free() {
-        let tree = TempTree::new();
-
-        assert_eq!(unique_new_project_path(&tree.root), tree.root.join(NEW_PROJECT_NAME));
-    }
-
-    #[test]
-    fn unique_new_project_path_adds_number_when_base_name_exists() {
-        let tree = TempTree::new();
-        tree.dir(NEW_PROJECT_NAME);
-
-        assert_eq!(unique_new_project_path(&tree.root), tree.root.join("Slint UI Project 2"));
-    }
-
-    #[test]
-    fn unique_new_project_path_skips_existing_numbered_names() {
-        let tree = TempTree::new();
-        tree.dir(NEW_PROJECT_NAME);
-        tree.dir("Slint UI Project 2");
-        tree.file("Slint UI Project 3");
-
-        assert_eq!(unique_new_project_path(&tree.root), tree.root.join("Slint UI Project 4"));
-    }
-
-    #[test]
-    fn new_project_main_file_is_a_window_component() {
-        assert!(NEW_PROJECT_MAIN_FILE_CONTENTS.contains("export component MainWindow"));
-        assert!(NEW_PROJECT_MAIN_FILE_CONTENTS.contains("inherits Window"));
     }
 
     #[test]
