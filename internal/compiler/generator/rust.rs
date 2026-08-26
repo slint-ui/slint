@@ -5098,22 +5098,13 @@ fn compile_builtin_function_call(
         BuiltinFunction::ArrayRemove => {
             let model = a.next().unwrap();
             let index = a.next().unwrap();
-            quote!({
-                let model = &#model;
-                let index = #index;
-                model.remove_row(index as isize);
-            })
+            quote!(sp::model_remove(&#model, #index))
         }
         BuiltinFunction::ArrayInsert => {
             let model = a.next().unwrap();
             let index = a.next().unwrap();
             let value = a.next().unwrap();
-            quote!({
-                let model = &#model;
-                let index = #index;
-                let value = #value;
-                model.insert_row(index as isize, value);
-            })
+            quote!(sp::model_insert(&#model, #index, #value))
         }
         BuiltinFunction::Rgb => {
             let (r, g, b, a) =
