@@ -1,0 +1,43 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component TestCase inherits Window {
+    in-out property <string> result;
+
+    width: 300px;
+    height: 300px;
+
+    ContextMenuArea {
+        Menu {
+            MenuItem {
+                title: "Entry1";
+                activated => { result += "Entry1"; }
+            }
+        }
+
+        TouchArea {
+            pointer-event(event) => {
+                if event.kind == PointerEventKind.down {
+                    result += "Down";
+                }
+            }
+        }
+    }
+
+    out property <bool> test: true;
+}
+
+/*
+```rust
+use slint::{platform::WindowEvent, platform::PointerEventButton, LogicalPosition};
+
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(150.0, 150.0), button: PointerEventButton::Right });
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(150.0, 150.0), button: PointerEventButton::Right });
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(160.0, 160.0), button: PointerEventButton::Left });
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(160.0, 160.0), button: PointerEventButton::Left });
+assert!(instance.get_result().contains("Entry1"), "context menu did not open, result={}", instance.get_result());
+```
+*/
