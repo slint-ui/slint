@@ -78,6 +78,7 @@ export component BorderRadiusFrame inherits MoveResizeFrame {
             accessible-role: AccessibleRole.button;
             accessible-label: root.accessible-prefix + " radius " + root.corner-name(corner);
             private property <bool> event-shift-pressed: false;
+            private property <Point> press-position: { x: 0px, y: 0px };
 
             pointer-event(event) => {
                 self.event-shift-pressed = event.modifiers.shift;
@@ -90,6 +91,7 @@ export component BorderRadiusFrame inherits MoveResizeFrame {
             changed pressed => {
                 root.radius-handle-active = self.has-hover || self.pressed;
                 if self.pressed {
+                    self.press-position = { x: self.mouse-x, y: self.mouse-y };
                     let pointer-x = parent.x + self.mouse-x;
                     let pointer-y = parent.y + self.mouse-y;
                     root.selected();
@@ -104,6 +106,14 @@ export component BorderRadiusFrame inherits MoveResizeFrame {
             }
 
             moved => {
+                if !self.pressed {
+                    return;
+                }
+                let moved-far-enough = (self.mouse-x - self.press-position.x).abs() >= 2px
+                    || (self.mouse-y - self.press-position.y).abs() >= 2px;
+                if !moved-far-enough {
+                    return;
+                }
                 let pointer-x = parent.x + self.mouse-x;
                 let pointer-y = parent.y + self.mouse-y;
                 let radius = root.radius-from-handle(corner, pointer-x, pointer-y);
