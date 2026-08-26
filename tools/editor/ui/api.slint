@@ -75,6 +75,9 @@ export enum UpdateState {
     Downloading,
     ReadyToInstall,
     Installing,
+    // The update is deployed, but the running process still has the old one
+    // mounted: only a fresh launch picks it up.
+    RestartRequired,
     Error,
 }
 

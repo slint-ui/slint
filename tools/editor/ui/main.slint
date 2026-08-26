@@ -34,6 +34,7 @@ export component EditorUi inherits Window {
             || Api.update-state == UpdateState.Downloading
             || Api.update-state == UpdateState.ReadyToInstall
             || Api.update-state == UpdateState.Installing
+            || Api.update-state == UpdateState.RestartRequired
             || Api.update-state == UpdateState.Error;
     }
 
@@ -54,6 +55,9 @@ export component EditorUi inherits Window {
         if Api.update-state == UpdateState.Installing {
             return "Installing";
         }
+        if Api.update-state == UpdateState.RestartRequired {
+            return "Restart to update";
+        }
         if Api.update-state == UpdateState.Error {
             return Api.update-error != "" ? Api.update-error : "Update failed";
         }
@@ -65,7 +69,8 @@ export component EditorUi inherits Window {
             return StudioTheme.dark ? #ff9a94 : #b42318;
         }
         if Api.update-state == UpdateState.Available
-            || Api.update-state == UpdateState.ReadyToInstall {
+            || Api.update-state == UpdateState.ReadyToInstall
+            || Api.update-state == UpdateState.RestartRequired {
             return StudioTheme.accent;
         }
         return StudioTheme.muted;
