@@ -1,7 +1,7 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-# cSpell: ignore nucleo
+# cSpell: ignore nucleo zbus
 
 [package]
 name = "slint-editor"
@@ -63,6 +63,11 @@ objc2-app-kit = { version = "0.3.2", default-features = false, features = ["std"
 objc2-foundation = { version = "0.3.2", default-features = false, features = ["std", "NSString", "NSBundle", "NSError"] }
 objc2 = "0.6"
 raw-window-handle = "0.6"
+
+# Used by the visual editor for the auto-updater: the Flatpak portal is a
+# D-Bus service.
+[target.'cfg(target_os = "linux")'.dependencies]
+zbus = { version = "5.14.0", default-features = false, features = ["async-io", "blocking-api"] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 mdns-sd = { version = "0.20.0", default-features = false, optional = true }

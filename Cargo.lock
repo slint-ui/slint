@@ -7390,6 +7390,7 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "web-sys",
+ "zbus",
 ]
 
 [[package]]

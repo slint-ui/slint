@@ -21,6 +21,8 @@ use i_slint_live_preview::protocol::{
 };
 use lsp_types::{MessageType, Url};
 
+#[cfg(target_os = "linux")]
+mod flatpak;
 mod preview;
 #[cfg(target_os = "macos")]
 mod sparkle;
@@ -52,6 +54,8 @@ fn main() -> std::result::Result<(), slint::PlatformError> {
     // The updater needs to stay in scope for as long as the window is up.
     #[cfg(target_os = "macos")]
     let _updater = setup_macos_chrome(&editor_ui);
+    #[cfg(target_os = "linux")]
+    let _updater = flatpak::connect(&editor_ui);
 
     preview::run_with_ui(editor_ui, to_lsp, false)
 }
