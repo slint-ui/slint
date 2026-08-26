@@ -200,6 +200,47 @@ def test_component_palette_drag_preview_matches_drop_geometry(
         assert f"height: {expected_height}px;".encode() in updated
 
 
+def test_component_palette_drag_over_rotated_element_does_not_crash(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+) -> None:
+    source_file = fixture_project / "RotatedCanvasCases.slint"
+    baseline = source_file.read_bytes()
+    source_file.write_bytes(baseline)
+    with launch_editor(editor_binary, editor_environment, source_file) as editor:
+        window = first_window(editor)
+        select_outline_row(window, "rotated-free-rectangle")
+        rotated_rectangle = window_element_with_label(
+            window, "Selected Rectangle", slint_testing.AccessibleRole.Region
+        )
+        target = center(rotated_rectangle)
+        artboard = window_element_with_label(
+            window, "Artboard", slint_testing.AccessibleRole.Region
+        )
+        outside_artboard = slint_testing.LogicalPosition(
+            x=artboard.absolute_position.x - 20,
+            y=artboard.absolute_position.y,
+        )
+        button = slint_testing.PointerEventButton.Left
+        window.dispatch_event(slint_testing.PointerPressEvent(outside_artboard, button))
+        window.dispatch_event(
+            slint_testing.PointerReleaseEvent(outside_artboard, button)
+        )
+        wait_until(
+            lambda: (
+                True
+                if not elements_with_label(window.root_element, "Selected Rectangle")
+                else None
+            )
+        )
+        begin_palette_drag(window, "Rectangle", target)
+        finish_palette_drag(window, target)
+
+        updated = wait_for_source_change(source_file, baseline)
+        assert updated.count(b"Rectangle {") == baseline.count(b"Rectangle {") + 1
+
+
 def test_image_asset_mode_destroys_canvas_without_replaying_palette_drop(
     editor_binary: Path,
     editor_environment: dict[str, str],
