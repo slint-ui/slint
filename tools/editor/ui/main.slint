@@ -3,7 +3,7 @@
 
 import "./assets/Inter-VariableFont.ttf";
 
-import { Api, EditorSurfaceMode, UpdateState } from "api.slint";
+import { Api, EditorSurfaceMode } from "api.slint";
 import { ProjectKind, StartupWizard } from "startup-wizard.slint";
 import { AppState, SidebarToggleButton, StudioTheme } from "components/common.slint";
 import { DragPreview } from "components/drag-preview.slint";
@@ -13,6 +13,7 @@ import { ImageAssetEditor } from "components/image-asset-editor.slint";
 import { InspectorPane } from "components/inspector-pane.slint";
 import { LeftPane } from "components/left-pane.slint";
 import { EditorMetrics } from "components/common.slint";
+import { UpdateStatus, UpdateStatusBar, UpdateStatusPill } from "components/update-status.slint";
 
 export { Api }
 
@@ -28,53 +29,6 @@ export component EditorUi inherits Window {
     property <bool> sidebars-collapsed: false;
     property <length> inspector-scroll-y: 0px;
     property <ProjectKind> selected-project: ProjectKind.mobile;
-
-    function show-update-status() -> bool {
-        return Api.update-state == UpdateState.Available
-            || Api.update-state == UpdateState.Downloading
-            || Api.update-state == UpdateState.ReadyToInstall
-            || Api.update-state == UpdateState.Installing
-            || Api.update-state == UpdateState.RestartRequired
-            || Api.update-state == UpdateState.Error;
-    }
-
-    function update-status-clickable() -> bool {
-        return show-update-status();
-    }
-
-    function update-status-label() -> string {
-        if Api.update-state == UpdateState.Available {
-            return "Update";
-        }
-        if Api.update-state == UpdateState.Downloading {
-            return "Downloading";
-        }
-        if Api.update-state == UpdateState.ReadyToInstall {
-            return "Update ready";
-        }
-        if Api.update-state == UpdateState.Installing {
-            return "Installing";
-        }
-        if Api.update-state == UpdateState.RestartRequired {
-            return "Restart to update";
-        }
-        if Api.update-state == UpdateState.Error {
-            return Api.update-error != "" ? Api.update-error : "Update failed";
-        }
-        return "";
-    }
-
-    function update-status-foreground() -> color {
-        if Api.update-state == UpdateState.Error {
-            return StudioTheme.dark ? #ff9a94 : #b42318;
-        }
-        if Api.update-state == UpdateState.Available
-            || Api.update-state == UpdateState.ReadyToInstall
-            || Api.update-state == UpdateState.RestartRequired {
-            return StudioTheme.accent;
-        }
-        return StudioTheme.muted;
-    }
 
     function open-startup-wizard() {
         Api.open-startup-wizard();
@@ -93,181 +47,148 @@ export component EditorUi inherits Window {
         WindowMoveArea { }
     }
 
-    if !Api.startup-wizard-visible: editor := FocusScope {
-        width: root.width;
-        height: root.height;
-        property <bool> shift-pressed: false;
+    VerticalLayout {
+        if !Api.startup-wizard-visible: editor := FocusScope {
+            property <bool> shift-pressed: false;
 
-        init => {
-            self.focus();
-        }
-
-        capture-key-pressed(event) => {
-            if event.text == Key.Shift || event.text == Key.ShiftR {
-                self.shift-pressed = true;
-                return accept;
+            init => {
+                self.focus();
             }
-            reject
-        }
 
-        capture-key-released(event) => {
-            if event.text == Key.Shift || event.text == Key.ShiftR {
+            capture-key-pressed(event) => {
+                if event.text == Key.Shift || event.text == Key.ShiftR {
+                    self.shift-pressed = true;
+                    return accept;
+                }
+                reject
+            }
+
+            capture-key-released(event) => {
+                if event.text == Key.Shift || event.text == Key.ShiftR {
+                    self.shift-pressed = false;
+                    return accept;
+                }
+                reject
+            }
+
+            key-pressed(event) => {
+                if event.text == Key.Escape && AppState.has-active-drag() {
+                    AppState.cancel-active-drags();
+                    return accept;
+                }
+                if (event.text == Key.Delete || event.text == Key.Backspace)
+                    && Api.selection.highlight-index >= 0 {
+                    Api.selected-element-delete();
+                    return accept;
+                }
+                reject
+            }
+
+            focus-lost => {
                 self.shift-pressed = false;
-                return accept;
             }
-            reject
-        }
 
-        key-pressed(event) => {
-            if event.text == Key.Escape && AppState.has-active-drag() {
-                AppState.cancel-active-drags();
-                return accept;
-            }
-            if (event.text == Key.Delete || event.text == Key.Backspace)
-                && Api.selection.highlight-index >= 0 {
-                Api.selected-element-delete();
-                return accept;
-            }
-            reject
-        }
+            Rectangle {
+                background: StudioTheme.app-bg;
 
-        focus-lost => {
-            self.shift-pressed = false;
-        }
+                VerticalLayout {
+                    EditorTopBar { }
 
-        Rectangle {
-            background: StudioTheme.app-bg;
+                    HorizontalLayout {
+                        vertical-stretch: 1;
 
-            VerticalLayout {
-                EditorTopBar { }
+                        if !root.sidebars-collapsed: LeftPane {
+                            can-collapse: true;
+                            drag-started => { editor.focus(); }
+                            panes-collapsed => {
+                                root.sidebars-collapsed = true;
+                            }
+                        }
 
-                HorizontalLayout {
-                    vertical-stretch: 1;
+                        if Api.editor-surface-mode == EditorSurfaceMode.component: EditorCanvas {
+                            shift-pressed: editor.shift-pressed;
+                            real-element-selected => { editor.focus(); }
+                        }
 
-                    if !root.sidebars-collapsed: LeftPane {
-                        can-collapse: true;
-                        drag-started => { editor.focus(); }
-                        panes-collapsed => {
-                            root.sidebars-collapsed = true;
+                        if Api.editor-surface-mode == EditorSurfaceMode.image: ImageAssetEditor {
+                            sidebars-collapsed: root.sidebars-collapsed;
+                        }
+
+                        if Api.editor-surface-mode == EditorSurfaceMode.component && !root.sidebars-collapsed: InspectorPane {
+                            phone-background: StudioTheme.phone-bg;
+                            phone-background-label: StudioTheme.dark ? "#f7f8fb" : "#ffffff";
+                            element-information: Api.current-element;
+                            inspector-scroll-y <=> root.inspector-scroll-y;
+                            element-selected => { editor.focus(); }
+                            outline-drag-started => { editor.focus(); }
                         }
                     }
-
-                    if Api.editor-surface-mode == EditorSurfaceMode.component: EditorCanvas {
-                        shift-pressed: editor.shift-pressed;
-                        real-element-selected => { editor.focus(); }
-                    }
-
-                    if Api.editor-surface-mode == EditorSurfaceMode.image: ImageAssetEditor {
-                        sidebars-collapsed: root.sidebars-collapsed;
-                    }
-
-                    if Api.editor-surface-mode == EditorSurfaceMode.component && !root.sidebars-collapsed: InspectorPane {
-                        phone-background: StudioTheme.phone-bg;
-                        phone-background-label: StudioTheme.dark ? "#f7f8fb" : "#ffffff";
-                        element-information: Api.current-element;
-                        inspector-scroll-y <=> root.inspector-scroll-y;
-                        element-selected => { editor.focus(); }
-                        outline-drag-started => { editor.focus(); }
-                    }
                 }
-            }
 
-            DragPreview { }
+                DragPreview { }
 
-            if root.sidebars-collapsed: Rectangle {
-                x: 18px;
-                y: EditorMetrics.top-bar-height + 14px;
-                width: 274px;
-                height: 42px;
-                border-radius: 12px;
-                border-width: 1px;
-                border-color: StudioTheme.dark ? #ffffff18 : #d0d7de;
-                background: StudioTheme.panel-bg.with-alpha(0.92);
-                drop-shadow-blur: 16px;
-                drop-shadow-offset-y: 8px;
-                drop-shadow-color: StudioTheme.dark ? #00000055 : #64748b28;
+                if root.sidebars-collapsed: Rectangle {
+                    x: 18px;
+                    y: EditorMetrics.top-bar-height + 14px;
+                    width: 274px;
+                    height: 42px;
+                    border-radius: 12px;
+                    border-width: 1px;
+                    border-color: StudioTheme.dark ? #ffffff18 : #d0d7de;
+                    background: StudioTheme.panel-bg.with-alpha(0.92);
+                    drop-shadow-blur: 16px;
+                    drop-shadow-offset-y: 8px;
+                    drop-shadow-color: StudioTheme.dark ? #00000055 : #64748b28;
 
-                HorizontalLayout {
-                    padding-left: 12px;
-                    padding-right: 6px;
-                    spacing: 10px;
-                    cross-axis-alignment: center;
+                    HorizontalLayout {
+                        padding-left: 12px;
+                        padding-right: 6px;
+                        spacing: 10px;
+                        cross-axis-alignment: center;
 
-                    Text {
-                        horizontal-stretch: 1;
-                        text: Api.selected-project-file;
-                        color: StudioTheme.text;
-                        font-size: 13px;
-                        font-weight: 800;
-                        vertical-alignment: center;
-                        overflow: elide;
-                    }
+                        Text {
+                            horizontal-stretch: 1;
+                            text: Api.selected-project-file;
+                            color: StudioTheme.text;
+                            font-size: 13px;
+                            font-weight: 800;
+                            vertical-alignment: center;
+                            overflow: elide;
+                        }
 
-                    SidebarToggleButton {
-                        active: true;
-                        clicked => {
-                            root.sidebars-collapsed = false;
+                        SidebarToggleButton {
+                            active: true;
+                            clicked => {
+                                root.sidebars-collapsed = false;
+                            }
                         }
                     }
                 }
             }
         }
-    }
 
-    if Api.startup-wizard-visible: StartupWizard {
-        selected-project <=> root.selected-project;
-        opened => {
-            root.open-project();
-        }
-        create-new-project => {
-            if Api.create-new-project() {
+        if Api.startup-wizard-visible: StartupWizard {
+            selected-project <=> root.selected-project;
+            opened => {
                 root.open-project();
             }
-        }
-        open-existing-project => {
-            if Api.open-existing-project() {
-                root.open-project();
+            create-new-project => {
+                if Api.create-new-project() {
+                    root.open-project();
+                }
+            }
+            open-existing-project => {
+                if Api.open-existing-project() {
+                    root.open-project();
+                }
             }
         }
+
+        if UpdateStatus.shows-bar(): UpdateStatusBar { }
     }
 
-    if root.show-update-status(): Rectangle {
+    if UpdateStatus.in-titlebar() && UpdateStatus.has-news(): UpdateStatusPill {
         x: 100px;
         y: 16px;
-        width: Api.update-state == UpdateState.Error ? 260px : 132px;
-        height: 20px;
-        border-radius: self.height / 2;
-        border-width: 1px;
-        border-color: StudioTheme.border;
-        background: StudioTheme.panel-bg;
-        clip: true;
-
-        download-progress := Rectangle {
-            x: 0px;
-            background: StudioTheme.accent;
-            opacity: Api.update-state == UpdateState.Downloading
-                || Api.update-state == UpdateState.Installing ? 0.18 : 0;
-            width: parent.width * Api.update-download-progress;
-        }
-
-        Text {
-            x: 9px;
-            width: parent.width - 18px;
-            text: root.update-status-label();
-            color: root.update-status-foreground();
-            font-size: 11px;
-            font-weight: 500;
-            horizontal-alignment: center;
-            vertical-alignment: center;
-            overflow: elide;
-        }
-
-        TouchArea {
-            enabled: root.update-status-clickable();
-            mouse-cursor: root.update-status-clickable() ? pointer : default;
-            clicked => {
-                Api.check-for-update();
-            }
-        }
     }
 }
