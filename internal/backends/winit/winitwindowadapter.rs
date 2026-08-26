@@ -1584,7 +1584,9 @@ impl WindowAdapterInternal for WinitWindowAdapter {
                     (source_size.width as f32 * scale) as u32,
                     (source_size.height as f32 * scale) as u32,
                 );
-                if let Some(rgba8) = image.to_rgba8_with_target_size(target_size) {
+                if let Some(rgba8) =
+                    i_slint_core::graphics::image_to_rgba8_with_target_size(image, target_size)
+                {
                     let (width, height) = (rgba8.width(), rgba8.height());
                     // winit rejects a hotspot that lies outside the image, so clamp it inside.
                     let source = CustomCursor::from_rgba(
