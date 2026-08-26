@@ -42,7 +42,6 @@ bytemuck = { workspace = true, features = ["derive"] }
 clru = { workspace = true, optional = true }
 derive_more = { workspace = true, features = ["error"] }
 euclid = { workspace = true }
-integer-sqrt = { version = "0.1.5" }
 num-traits = { version = "0.2", default-features = false }
 skrifa = { workspace = true, optional = true }
 swash = { workspace = true, optional = true, features = ["scale", "render"] }
