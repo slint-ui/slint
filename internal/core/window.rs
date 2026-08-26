@@ -1518,6 +1518,12 @@ impl WindowInner {
         reason: FocusReason,
     ) -> Option<ItemRc> {
         let mut current_item = start_item.clone();
+        // The walk normally comes back to `start_item`, but ends in a cycle that misses it
+        // when the tree changed under it, e.g. when the focus was on a removed item.
+        // Comparing against a checkpoint (Brent's cycle detection) still terminates then.
+        let mut checkpoint = start_item.clone();
+        let mut steps = 0usize;
+        let mut next_checkpoint = 1usize;
 
         loop {
             let can_receive_focus = match reason {
@@ -1533,10 +1539,14 @@ impl WindowInner {
             }
             current_item = forward(current_item);
 
-            // `forward` visits the items in a cycle, so the walk comes back to `start_item`
-            // before revisiting any other item.
-            if current_item == start_item {
+            if current_item == start_item || current_item == checkpoint {
                 return None; // Nothing to do: We took the focus_item already
+            }
+            steps += 1;
+            if steps == next_checkpoint {
+                checkpoint = current_item.clone();
+                steps = 0;
+                next_checkpoint *= 2;
             }
         }
     }
