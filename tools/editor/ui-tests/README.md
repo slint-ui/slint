@@ -2,8 +2,8 @@
 
 These tests use the private Python `slint-testing` package to run the visual editor and control it out of process.
 
-The suite covers 73 canvas manipulation behaviors as independent pytest cases.
-Of these, 42 run and 31 remain skipped until their Rust editor fixes land.
+The suite covers 125 visual editor behaviors as independent pytest cases.
+Of these, 78 run and 47 remain skipped until their editor dependencies land.
 
 Each behavior starts from a fresh source fixture and editor process.
 This prevents one failed interaction from affecting later behavior checks.
@@ -71,5 +71,11 @@ preview implementation:
 - persisting moves of selected Rectangle previews
 - moving selected Text elements beyond the artboard bounds
 - canceling transient preview overrides when the pointer exits
+- inserting palette elements and exposing valid drop markers through the Rust drop path
+- rejecting descendant cycles and component-root outline drops
+- recovering a deleted root source file without relaunching
+
+Inspector-dependent cases remain collected on this stack layer and become
+runnable on the stacked inspector branch.
 
 Remove a skip when its Rust implementation lands.
