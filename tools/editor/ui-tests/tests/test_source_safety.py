@@ -6,8 +6,35 @@ from pathlib import Path
 
 import pytest
 import slint_testing
+from slint_testing import keys
 from source_snapshot import SourceSnapshot
-from ui_driver import first_window, launch_editor, window_element_with_label
+from ui_driver import (
+    first_window,
+    launch_editor,
+    select_outline_row,
+    wait_until,
+    window_element_with_label,
+)
+
+
+def press_key(window: slint_testing.Window, key: str) -> None:
+    window.dispatch_event(slint_testing.KeyPressedEvent(text=key))
+    window.dispatch_event(slint_testing.KeyReleasedEvent(text=key))
+
+
+def stage_field_text(
+    window: slint_testing.Window, label: str, value: str
+) -> slint_testing.Element:
+    field = window_element_with_label(
+        window, label, slint_testing.AccessibleRole.TextInput
+    )
+    current_value = field.accessible_value
+    field.invoke_accessible_default_action()
+    for _ in current_value:
+        press_key(window, keys.Delete)
+    for character in value:
+        press_key(window, character)
+    return wait_until(lambda: field if field.accessible_value == value else None)
 
 
 def test_broken_source_preserves_last_valid_preview(
@@ -63,18 +90,102 @@ def test_repaired_source_recovers_preview(
         assert editor.process.poll() is None
 
 
-@pytest.mark.skip(
-    reason="The Text content inspector field is added by the inspector layer"
-)
 def test_imported_file_edit_targets_only_nested_source(
     editor_binary: Path,
     editor_environment: dict[str, str],
     fixture_project: Path,
 ) -> None:
-    # The stacked inspector branch replaces this skip with the real UI interaction.
-    assert editor_binary
-    assert editor_environment
-    assert fixture_project
+    main_file = fixture_project / "Main.slint"
+    components = fixture_project / "components"
+    nested_file = components / "Nested.slint"
+    nested_baseline = nested_file.read_bytes()
+    snapshot = SourceSnapshot.capture(fixture_project)
+
+    with launch_editor(editor_binary, editor_environment, main_file) as editor:
+        window = first_window(editor)
+        window_element_with_label(
+            window, str(components), slint_testing.AccessibleRole.ListItem
+        ).invoke_accessible_default_action()
+        window_element_with_label(
+            window, str(nested_file), slint_testing.AccessibleRole.ListItem
+        ).invoke_accessible_default_action()
+        select_outline_row(window, "nested-text")
+        field = window_element_with_label(
+            window, "Text content", slint_testing.AccessibleRole.TextInput
+        )
+        field.accessible_value = '"Edited import"'
+        expected = nested_baseline.replace(
+            b'        text: "Imported component";',
+            b'        text: "Edited import";',
+            1,
+        )
+        snapshot.wait_for_exact(expected, relative_path="components/Nested.slint")
+        window_element_with_label(
+            window, "Edited import", slint_testing.AccessibleRole.Text
+        )
+
+
+def test_stale_selection_commit_is_rejected(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+) -> None:
+    source_file = fixture_project / "InspectorCases.slint"
+    snapshot = SourceSnapshot.capture(fixture_project)
+
+    with launch_editor(editor_binary, editor_environment, source_file) as editor:
+        window = first_window(editor)
+        select_outline_row(window, "inspect-rectangle")
+        stage_field_text(window, "Position X", "99")
+        snapshot.assert_unchanged_now()
+        select_outline_row(window, "inspect-text")
+        wait_until(
+            lambda: (
+                field
+                if (
+                    field := window_element_with_label(
+                        window, "Position X", slint_testing.AccessibleRole.TextInput
+                    )
+                ).accessible_value
+                == "224"
+                else None
+            )
+        )
+        press_key(window, keys.Return)
+        snapshot.assert_unchanged()
+
+
+def test_stale_revision_commit_is_rejected(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+) -> None:
+    source_file = fixture_project / "InspectorCases.slint"
+    baseline = source_file.read_bytes()
+    snapshot = SourceSnapshot.capture(fixture_project)
+
+    with launch_editor(editor_binary, editor_environment, source_file) as editor:
+        window = first_window(editor)
+        select_outline_row(window, "inspect-rectangle")
+        stage_field_text(window, "Position X", "99")
+        snapshot.assert_unchanged_now()
+        external = baseline.replace(b"        x: 32px;", b"        x: 36px;", 1)
+        source_file.write_bytes(external)
+        snapshot.wait_for_exact(external, relative_path="InspectorCases.slint")
+        wait_until(
+            lambda: (
+                field
+                if (
+                    field := window_element_with_label(
+                        window, "Position X", slint_testing.AccessibleRole.TextInput
+                    )
+                ).accessible_value
+                == "36"
+                else None
+            )
+        )
+        press_key(window, keys.Return)
+        SourceSnapshot.capture(fixture_project).assert_unchanged()
 
 
 @pytest.mark.skip(reason="Requires a Rust source-watcher recovery fix")

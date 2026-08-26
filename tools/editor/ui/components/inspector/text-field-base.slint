@@ -34,6 +34,11 @@ export component InspectorTextFieldBase inherits Rectangle {
             root.accept-input(value);
         }
     }
+    accessible-action-default => {
+        if root.enabled {
+            input.focus();
+        }
+    }
 
     changed value => {
         if !input.has-focus {

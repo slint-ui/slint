@@ -341,3 +341,180 @@ def test_image_source_writes_exact_source(
             window, "Image source", value, slint_testing.AccessibleRole.TextInput
         )
         assert_rendered_element(window, "InspectorCases::inspect-image")
+
+
+def test_font_family_writes_exact_source(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+) -> None:
+    source_file = fixture_project / INSPECTOR_SOURCE
+    baseline = source_file.read_bytes()
+    snapshot = SourceSnapshot.capture(fixture_project)
+
+    with launch_editor(editor_binary, editor_environment, source_file) as editor:
+        window = first_window(editor)
+        select_element(window, "Text")
+        edit_field(
+            window, "Font family", "Fira Sans", slint_testing.AccessibleRole.TextInput
+        )
+        snapshot.wait_for_exact(
+            replace_once(
+                baseline,
+                b'        font-family: "Inter";',
+                b'        font-family: "Fira Sans";',
+            ),
+            relative_path=INSPECTOR_SOURCE,
+        )
+        wait_for_field(
+            window, "Font family", "Fira Sans", slint_testing.AccessibleRole.TextInput
+        )
+        window_element_with_label(
+            window, "Inspector text", slint_testing.AccessibleRole.Text
+        )
+
+
+@pytest.mark.parametrize("weight", tuple(str(value) for value in range(100, 1000, 100)))
+def test_each_font_weight_writes_exact_source(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+    weight: str,
+) -> None:
+    source_file = fixture_project / INSPECTOR_SOURCE
+    baseline = source_file.read_bytes()
+    initial = "500" if weight == "400" else "400"
+    starting_source = replace_once(
+        baseline,
+        b"        font-weight: 400;",
+        f"        font-weight: {initial};".encode(),
+    )
+    source_file.write_bytes(starting_source)
+    snapshot = SourceSnapshot.capture(fixture_project)
+
+    with launch_editor(editor_binary, editor_environment, source_file) as editor:
+        window = first_window(editor)
+        select_element(window, "Text")
+        edit_field(window, "Font weight", weight, slint_testing.AccessibleRole.Combobox)
+        snapshot.wait_for_exact(
+            replace_once(
+                starting_source,
+                f"        font-weight: {initial};".encode(),
+                f"        font-weight: {weight};".encode(),
+            ),
+            relative_path=INSPECTOR_SOURCE,
+        )
+        window_element_with_label(
+            window, "Inspector text", slint_testing.AccessibleRole.Text
+        )
+
+
+@pytest.mark.parametrize(
+    ("case", "value", "expected"),
+    [
+        ("numeric", "24", "24px"),
+        ("expression", "20px * 1.5", "20px * 1.5"),
+    ],
+    ids=("numeric", "expression"),
+)
+def test_numeric_and_expression_font_sizes_write_exact_source(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+    case: str,
+    value: str,
+    expected: str,
+) -> None:
+    assert case
+    source_file = fixture_project / INSPECTOR_SOURCE
+    baseline = source_file.read_bytes()
+    snapshot = SourceSnapshot.capture(fixture_project)
+
+    with launch_editor(editor_binary, editor_environment, source_file) as editor:
+        window = first_window(editor)
+        select_element(window, "Text")
+        edit_field(window, "Font size", value, slint_testing.AccessibleRole.TextInput)
+        snapshot.wait_for_exact(
+            replace_once(
+                baseline,
+                b"        font-size: 20px;",
+                f"        font-size: {expected};".encode(),
+            ),
+            relative_path=INSPECTOR_SOURCE,
+        )
+        window_element_with_label(
+            window, "Inspector text", slint_testing.AccessibleRole.Text
+        )
+
+
+@pytest.mark.parametrize(
+    ("case", "value", "expected_line", "rendered"),
+    [
+        ("literal", '"Literal content"', '"Literal content"', "Literal content"),
+        (
+            "expression",
+            '"Expression " + "content"',
+            '"Expression " + "content"',
+            "Expression content",
+        ),
+    ],
+    ids=("literal", "expression"),
+)
+def test_text_content_writes_exact_source(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+    case: str,
+    value: str,
+    expected_line: str,
+    rendered: str,
+) -> None:
+    assert case
+    source_file = fixture_project / INSPECTOR_SOURCE
+    baseline = source_file.read_bytes()
+    snapshot = SourceSnapshot.capture(fixture_project)
+
+    with launch_editor(editor_binary, editor_environment, source_file) as editor:
+        window = first_window(editor)
+        select_element(window, "Text")
+        edit_field(
+            window, "Text content", value, slint_testing.AccessibleRole.TextInput
+        )
+        snapshot.wait_for_exact(
+            replace_once(
+                baseline,
+                b'        text: "Inspector text";',
+                f"        text: {expected_line};".encode(),
+            ),
+            relative_path=INSPECTOR_SOURCE,
+        )
+        window_element_with_label(window, rendered, slint_testing.AccessibleRole.Text)
+
+
+def test_invalid_text_content_does_not_change_source(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+) -> None:
+    source_file = fixture_project / INSPECTOR_SOURCE
+    snapshot = SourceSnapshot.capture(fixture_project)
+
+    with launch_editor(editor_binary, editor_environment, source_file) as editor:
+        window = first_window(editor)
+        select_element(window, "Text")
+        edit_field(
+            window,
+            "Text content",
+            "unknown_identifier",
+            slint_testing.AccessibleRole.TextInput,
+        )
+        snapshot.assert_unchanged()
+        wait_for_field(
+            window,
+            "Text content",
+            '"Inspector text"',
+            slint_testing.AccessibleRole.TextInput,
+        )
+        window_element_with_label(
+            window, "Inspector text", slint_testing.AccessibleRole.Text
+        )
