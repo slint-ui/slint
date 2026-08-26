@@ -1,0 +1,31 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component CanvasCases inherits Window {
+    width: 640px;
+    height: 480px;
+    background: #f8fafc;
+
+    prohibited-layout := HorizontalLayout {
+        x: 32px;
+        y: 32px;
+        width: 240px;
+        height: 96px;
+
+        layout-rectangle := Rectangle {
+            background: #f97316;
+        }
+    }
+
+    HorizontalLayout {
+        x: 320px;
+        y: 48px;
+        width: 160px;
+        height: 96px;
+
+        rotated-rectangle := Rectangle {
+            background: #8b5cf6;
+            transform-rotation: 10deg;
+        }
+    }
+}

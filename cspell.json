@@ -378,6 +378,17 @@
   ],
   "overrides": [
     {
+      "filename": "tools/editor/ui-tests/**",
+      "words": [
+        "backslashreplace",
+        "lineterm",
+        "testpaths",
+        "tofile",
+        "worksteal",
+        "xdist"
+      ]
+    },
+    {
       "filename": "demos/printerdemo/lang/fr/**",
       "language": "en,fr",
             "dictionaries": [
