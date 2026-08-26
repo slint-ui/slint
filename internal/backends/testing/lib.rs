@@ -102,12 +102,17 @@ pub fn set_system_accent_color(color: i_slint_core::Color) {
 #[cfg(feature = "internal")]
 pub fn configure_test_fonts() {
     use i_slint_common::sharedfontique::{FALLBACK_FAMILIES, fontique};
-    use include_dir::{Dir, include_dir};
 
-    static FONTS_DIR: Dir = include_dir!("$CARGO_MANIFEST_DIR/../../../tests/screenshots/fonts");
-    // Pin the primary by name so its position in the fallback chain doesn't depend on
-    // filesystem iteration order. NotoSans-Regular wins as the default upright face.
-    const PRIMARY: &str = "NotoSans-Regular.ttf";
+    // Listed explicitly, in the order they take in the fallback chain: NotoSans-Regular is
+    // the default upright face and comes first. Embedding the whole directory instead would
+    // make the chain depend on filesystem iteration order, and would pull in whatever else
+    // lives there - the `.license` files, `convert.sh`, and the gitignored upstream fonts
+    // that script downloads into a subdirectory.
+    static FONTS: &[&[u8]] = &[
+        include_bytes!("../../../tests/screenshots/fonts/NotoSans-Regular.ttf"),
+        include_bytes!("../../../tests/screenshots/fonts/NotoSans-Italic.ttf"),
+        include_bytes!("../../../tests/screenshots/fonts/NotoSansSymbols2-Regular.ttf"),
+    ];
 
     i_slint_core::with_global_context(
         || panic!("platform not set, initialize the testing backend first"),
@@ -120,22 +125,11 @@ pub fn configure_test_fonts() {
             font_context.source_cache = fontique::SourceCache::new_shared();
             font_context.clear_registered_static_fonts();
 
-            let primary =
-                FONTS_DIR.get_file(PRIMARY).expect("primary test font missing from fonts dir");
-            let mut fallback_files: Vec<_> = FONTS_DIR
-                .files()
-                .filter(|f| f.path().extension().is_some_and(|ext| ext == "ttf"))
-                .filter(|f| f.path().file_name().and_then(|n| n.to_str()) != Some(PRIMARY))
-                .collect();
-            // Sort fallbacks lexicographically so the chain is reproducible across platforms.
-            fallback_files.sort_by_key(|f| f.path().to_owned());
-
             let mut chain_families: Vec<fontique::FamilyId> = Vec::new();
-            for file in core::iter::once(primary).chain(fallback_files) {
-                let fonts = font_context.collection.register_fonts(
-                    fontique::Blob::new(std::sync::Arc::new(file.contents())),
-                    None,
-                );
+            for font in FONTS {
+                let fonts = font_context
+                    .collection
+                    .register_fonts(fontique::Blob::new(std::sync::Arc::new(*font)), None);
                 for (family_id, _) in &fonts {
                     if !chain_families.contains(family_id) {
                         chain_families.push(*family_id);
