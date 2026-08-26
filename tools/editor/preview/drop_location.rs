@@ -817,13 +817,13 @@ fn check_can_drop(
 fn check_can_drop_with_properties(
     document_cache: &i_slint_editor_preview::DocumentCache,
     component: &i_slint_editor_preview::component_catalog::ComponentInformation,
-    dm: &DropInformation,
+    drop_information: &DropInformation,
     extra_properties: &[i_slint_editor_preview::editing::PropertyChange],
 ) -> bool {
     if let Some((edit, _)) = create_drop_element_workspace_edit_with_properties(
         document_cache,
         component,
-        dm,
+        drop_information,
         extra_properties,
     ) {
         workspace_edit_compiles(document_cache, &edit) == preview::CompilationResult::ChangeCompiles
@@ -1036,7 +1036,7 @@ pub fn drop_at_with_geometry(
     extend_with_new_properties(
         &mut extra_properties,
         &component.default_properties,
-        prototype_visual_properties_for_geometry_drop(component),
+        visual_properties_for_geometry_drop(component),
     );
 
     if !check_can_drop_with_properties(document_cache, component, &drop_info, &extra_properties) {
@@ -1092,7 +1092,7 @@ fn geometry_properties_for_drop(
     ])
 }
 
-fn prototype_visual_properties_for_geometry_drop(
+fn visual_properties_for_geometry_drop(
     component: &i_slint_editor_preview::component_catalog::ComponentInformation,
 ) -> Vec<i_slint_editor_preview::editing::PropertyChange> {
     match component.name.as_str() {

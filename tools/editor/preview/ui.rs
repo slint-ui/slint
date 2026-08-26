@@ -195,8 +195,8 @@ pub fn create_ui(
         transfer.set_user_data(Rc::new(DragItem::NewComponent { index }));
         transfer
     });
-    api.on_new_prototype_component_data(|kind: PrototypeComponentKind| -> DataTransfer {
-        let Some(index) = super::component_index_for_prototype_kind(kind) else {
+    api.on_new_component_data_for_name(|name: SharedString| -> DataTransfer {
+        let Some(index) = super::component_index_for_name(name.as_str()) else {
             return Default::default();
         };
         let mut transfer = DataTransfer::default();

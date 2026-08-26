@@ -110,7 +110,7 @@ switch renderer or app entry point.
 - For rotated resize, reconstruct the parent/window-space pointer position from
   the rotated handle-local point, then convert that delta into local item axes
   using the press-time rotation.
-- Keep final bounds and minimum-size clamping in `EditorState`.
+- Commit final bounds through `Api.selected-element-resize` so the preview backend writes the source.
 - If a pointer interaction depends on keyboard state, focus the editor
   `FocusScope` when the interaction starts. Use `Key.Shift` and `Key.ShiftR` in
   `capture-key-pressed` / `capture-key-released` for live Shift state.

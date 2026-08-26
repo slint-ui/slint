@@ -20,10 +20,12 @@ from canvas_interactions import (
 )
 from source_oracle import SourceSnapshot
 from ui_driver import (
+    elements_with_label,
     first_window,
     launch_editor,
     select_fixture_element,
     select_outline_row,
+    wait_until,
     window_element_with_label,
 )
 
@@ -60,6 +62,11 @@ THRESHOLD_LABELS = (
     "Rectangle radius top-left",
 )
 DISABLED_IDS = ("layout-rectangle", "rotated-rectangle")
+PALETTE_PREVIEW_SIZES = {
+    "Rectangle": (160, 64),
+    "Text": (220, 40),
+    "Image": (160, 96),
+}
 RUST_FIX_REQUIRED = pytest.mark.skip(
     reason="Requires a Rust visual editor behavior fix"
 )
@@ -68,6 +75,191 @@ RUST_FIX_REQUIRED = pytest.mark.skip(
 def replace_once(source: bytes, old: bytes, new: bytes) -> bytes:
     assert source.count(old) == 1
     return source.replace(old, new, 1)
+
+
+def wait_for_source_change(source_file: Path, baseline: bytes) -> bytes:
+    def changed_source() -> bytes | None:
+        source = source_file.read_bytes()
+        return source if source != baseline else None
+
+    return wait_until(changed_source)
+
+
+def begin_palette_drag(
+    window: slint_testing.Window,
+    kind: str,
+    target: slint_testing.LogicalPosition,
+) -> slint_testing.Element:
+    palette_row = wait_until(
+        lambda: (
+            row
+            if (
+                row := window_element_with_label(
+                    window, kind, slint_testing.AccessibleRole.ListItem
+                )
+            ).accessible_enabled
+            else None
+        )
+    )
+    start = center(palette_row)
+    button = slint_testing.PointerEventButton.Left
+    window.dispatch_event(slint_testing.PointerPressEvent(start, button))
+    window.dispatch_event(
+        slint_testing.PointerMoveEvent(
+            slint_testing.LogicalPosition(x=start.x + 4, y=start.y + 4)
+        )
+    )
+    window.dispatch_event(slint_testing.PointerMoveEvent(target))
+    return window_element_with_label(
+        window, f"{kind} drag preview", slint_testing.AccessibleRole.Region
+    )
+
+
+def finish_palette_drag(
+    window: slint_testing.Window, target: slint_testing.LogicalPosition
+) -> None:
+    window.dispatch_event(
+        slint_testing.PointerReleaseEvent(target, slint_testing.PointerEventButton.Left)
+    )
+
+
+def test_component_palette_preserves_compact_row_layout(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+) -> None:
+    source_file = fixture_project / "Main.slint"
+    with launch_editor(editor_binary, editor_environment, source_file) as editor:
+        window = first_window(editor)
+        section = window_element_with_label(
+            window, "ELEMENTS", slint_testing.AccessibleRole.Text
+        )
+        rows = [
+            window_element_with_label(
+                window, kind, slint_testing.AccessibleRole.ListItem
+            )
+            for kind in PALETTE_PREVIEW_SIZES
+        ]
+
+        assert section.absolute_position.y + section.size.height + 8 == pytest.approx(
+            rows[0].absolute_position.y
+        )
+        assert all(row.size.height == pytest.approx(62) for row in rows)
+        assert all(
+            row.absolute_position.x == rows[0].absolute_position.x for row in rows
+        )
+        assert all(row.size.width == rows[0].size.width for row in rows)
+        assert rows[1].absolute_position.y - rows[
+            0
+        ].absolute_position.y == pytest.approx(70)
+        assert rows[2].absolute_position.y - rows[
+            1
+        ].absolute_position.y == pytest.approx(70)
+
+
+@pytest.mark.parametrize("kind", PALETTE_PREVIEW_SIZES)
+def test_component_palette_drag_preview_matches_drop_geometry(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+    kind: str,
+) -> None:
+    source_file = fixture_project / "PaletteDropCases.slint"
+    baseline = source_file.read_bytes()
+    source_file.write_bytes(baseline)
+    with launch_editor(editor_binary, editor_environment, source_file) as editor:
+        window = first_window(editor)
+        artboard = window_element_with_label(
+            window, "Artboard", slint_testing.AccessibleRole.Region
+        )
+        target = slint_testing.LogicalPosition(
+            x=artboard.absolute_position.x + 260,
+            y=artboard.absolute_position.y + 220,
+        )
+        preview = begin_palette_drag(window, kind, target)
+        expected_width, expected_height = PALETTE_PREVIEW_SIZES[kind]
+        assert preview.size.width == pytest.approx(expected_width)
+        assert preview.size.height == pytest.approx(expected_height)
+        assert preview.absolute_position.x == pytest.approx(
+            target.x - expected_width / 2
+        )
+        assert preview.absolute_position.y == pytest.approx(
+            target.y - expected_height / 2
+        )
+
+        finish_palette_drag(window, target)
+        updated = wait_for_source_change(source_file, baseline)
+        expected_x = round(target.x - artboard.absolute_position.x - expected_width / 2)
+        expected_y = round(
+            target.y - artboard.absolute_position.y - expected_height / 2
+        )
+        assert f"{kind} {{".encode() in updated
+        assert f"x: {expected_x}px;".encode() in updated
+        assert f"y: {expected_y}px;".encode() in updated
+        assert f"width: {expected_width}px;".encode() in updated
+        assert f"height: {expected_height}px;".encode() in updated
+
+
+def test_image_asset_mode_destroys_canvas_without_replaying_palette_drop(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+) -> None:
+    source_file = fixture_project / "PaletteDropCases.slint"
+    asset_directory = fixture_project / "assets"
+    image_file = asset_directory / "checker.svg"
+    baseline = source_file.read_bytes()
+    with launch_editor(editor_binary, editor_environment, source_file) as editor:
+        window = first_window(editor)
+        artboard = window_element_with_label(
+            window, "Artboard", slint_testing.AccessibleRole.Region
+        )
+        target = slint_testing.LogicalPosition(
+            x=artboard.absolute_position.x + 260,
+            y=artboard.absolute_position.y + 220,
+        )
+        begin_palette_drag(window, "Rectangle", target)
+        finish_palette_drag(window, target)
+        wait_for_source_change(source_file, baseline)
+        snapshot = SourceSnapshot.capture(fixture_project)
+
+        asset_directory_row = window_element_with_label(
+            window, str(asset_directory), slint_testing.AccessibleRole.ListItem
+        )
+        asset_directory_row.single_click(slint_testing.PointerEventButton.Left)
+        image_row = window_element_with_label(
+            window, str(image_file), slint_testing.AccessibleRole.ListItem
+        )
+        image_row.single_click(slint_testing.PointerEventButton.Left)
+        preview_tab = window_element_with_label(
+            window, "Preview", slint_testing.AccessibleRole.Button
+        )
+        assert preview_tab.accessible_checked
+        assert not elements_with_label(
+            window.root_element, "Artboard", slint_testing.AccessibleRole.Region
+        )
+        assert (
+            not window.root_element.query_descendants()
+            .match_type_name("EditorCanvas")
+            .find_all()
+        )
+
+        component_row = window_element_with_label(
+            window, str(source_file), slint_testing.AccessibleRole.ListItem
+        )
+        component_row.single_click(slint_testing.PointerEventButton.Left)
+        window_element_with_label(
+            window, "Artboard", slint_testing.AccessibleRole.Region
+        )
+        assert (
+            len(
+                window.root_element.query_descendants()
+                .match_type_name("EditorCanvas")
+                .find_all()
+            )
+            == 1
+        )
+        snapshot.assert_unchanged()
 
 
 def rotated_resize_values(

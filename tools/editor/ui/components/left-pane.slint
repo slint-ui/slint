@@ -2,10 +2,10 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import {
-    BodyLabel, EdgeDivider, EditorMetrics, MutedLabel, PrimerActionListRow, SectionTitle, SidebarToggleButton,
-    StudioTheme,
+    BodyLabel, ComponentPaletteRow, EdgeDivider, EditorMetrics, MutedLabel, PaletteComponentKind, SectionTitle,
+    SidebarToggleButton, StudioTheme,
 } from "common.slint";
-import { Api, EditorSurfaceMode, PrototypeComponentKind } from "../api.slint";
+import { Api, EditorSurfaceMode } from "../api.slint";
 import { FileTreeView } from "file-tree-view.slint";
 
 component ElementsUnavailableNotice inherits Rectangle {
@@ -117,48 +117,52 @@ component FilesUnavailableNotice inherits Rectangle {
 
 component ElementPaletteRows inherits VerticalLayout {
     in property <bool> enabled: true;
-    callback drag-started(PrototypeComponentKind, Point);
-    callback drag-moved(PrototypeComponentKind, Point);
-    callback drag-ended(PrototypeComponentKind, Point);
+    in property <bool> drag-enabled: true;
+    callback drag-started(PaletteComponentKind, Point);
+    callback drag-moved(PaletteComponentKind, Point);
+    callback drag-ended(PaletteComponentKind, string, Point);
 
     spacing: 8px;
 
-    PrimerActionListRow {
+    ComponentPaletteRow {
         enabled: root.enabled;
-        kind: PrototypeComponentKind.rectangle;
+        drag-enabled: root.drag-enabled;
+        kind: PaletteComponentKind.rectangle;
         label: "Rectangle";
         detail: "Shape layer";
         drag-started(kind, position) => { root.drag-started(kind, position); }
         drag-moved(kind, position) => { root.drag-moved(kind, position); }
-        drag-ended(kind, position) => { root.drag-ended(kind, position); }
+        drag-ended(kind, component-name, position) => { root.drag-ended(kind, component-name, position); }
     }
 
-    PrimerActionListRow {
+    ComponentPaletteRow {
         enabled: root.enabled;
-        kind: PrototypeComponentKind.text;
+        drag-enabled: root.drag-enabled;
+        kind: PaletteComponentKind.text;
         label: "Text";
         detail: "Text layer";
         drag-started(kind, position) => { root.drag-started(kind, position); }
         drag-moved(kind, position) => { root.drag-moved(kind, position); }
-        drag-ended(kind, position) => { root.drag-ended(kind, position); }
+        drag-ended(kind, component-name, position) => { root.drag-ended(kind, component-name, position); }
     }
 
-    PrimerActionListRow {
+    ComponentPaletteRow {
         enabled: root.enabled;
-        kind: PrototypeComponentKind.image;
+        drag-enabled: root.drag-enabled;
+        kind: PaletteComponentKind.image;
         label: "Image";
         detail: "Image layer";
         drag-started(kind, position) => { root.drag-started(kind, position); }
         drag-moved(kind, position) => { root.drag-moved(kind, position); }
-        drag-ended(kind, position) => { root.drag-ended(kind, position); }
+        drag-ended(kind, component-name, position) => { root.drag-ended(kind, component-name, position); }
     }
 }
 
 export component LeftPane inherits Rectangle {
     in property <bool> can-collapse: false;
-    callback drag-started(PrototypeComponentKind, Point);
-    callback drag-moved(PrototypeComponentKind, Point);
-    callback drag-ended(PrototypeComponentKind, Point);
+    callback drag-started(PaletteComponentKind, Point);
+    callback drag-moved(PaletteComponentKind, Point);
+    callback drag-ended(PaletteComponentKind, string, Point);
     callback panes-collapsed();
 
     private property <bool> image-mode: Api.editor-surface-mode == EditorSurfaceMode.image;
@@ -218,9 +222,10 @@ export component LeftPane inherits Rectangle {
 
             ElementPaletteRows {
                 enabled: !root.image-mode;
+                drag-enabled: Api.known-components.length > 0;
                 drag-started(kind, position) => { root.drag-started(kind, position); }
                 drag-moved(kind, position) => { root.drag-moved(kind, position); }
-                drag-ended(kind, position) => { root.drag-ended(kind, position); }
+                drag-ended(kind, component-name, position) => { root.drag-ended(kind, component-name, position); }
             }
         }
     }

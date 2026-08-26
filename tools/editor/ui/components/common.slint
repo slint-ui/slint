@@ -2,18 +2,12 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { Palette } from "std-widgets.slint";
-import { PrototypeComponentKind, CanvasCorner } from "../api.slint";
+import { CanvasCorner } from "../api.slint";
 
 export { CanvasCorner }
 
-export enum CanvasOrientation {
-    portrait,
-    landscape,
-}
-
-export enum CanvasSelectionKind {
+export enum PaletteComponentKind {
     none,
-    artboard,
     rectangle,
     text,
     image,
@@ -51,10 +45,7 @@ export global EditorMetrics {
     out property <length> top-bar-height: 54px;
     out property <length> phone-portrait-width: 390px;
     out property <length> phone-portrait-height: 720px;
-    out property <length> phone-landscape-width: 720px;
-    out property <length> phone-landscape-height: 390px;
     out property <length> phone-frame-radius: 34px;
-    out property <length> phone-status-bar-size: 42px;
     out property <length> phone-outer-padding: 1px;
     out property <length> selection-handle-size: 12px;
     out property <length> rotation-zone-size: 22px;
@@ -66,41 +57,6 @@ export global EditorMetrics {
 export component EdgeDivider inherits Rectangle {
     width: 1px;
     background: StudioTheme.border;
-}
-
-export component ImagePlaceholder inherits Rectangle {
-    in property <bool> active: false;
-
-    border-radius: 16px;
-    background: StudioTheme.object-subtle;
-    border-width: root.active ? 2px : 1px;
-    border-color: root.active ? StudioTheme.accent-strong : StudioTheme.object-border;
-
-    Rectangle {
-        width: 48px;
-        height: 36px;
-        border-radius: 6px;
-        border-width: 2px;
-        border-color: StudioTheme.object-muted.with-alpha(0.65);
-
-        Rectangle {
-            x: 30px;
-            y: 8px;
-            width: 7px;
-            height: 7px;
-            border-radius: 3.5px;
-            background: StudioTheme.object-muted.with-alpha(0.7);
-        }
-
-        Rectangle {
-            x: 9px;
-            y: 22px;
-            width: 30px;
-            height: 5px;
-            border-radius: 2.5px;
-            background: StudioTheme.object-muted.with-alpha(0.55);
-        }
-    }
 }
 
 export component BodyLabel inherits Text {
@@ -174,47 +130,6 @@ export component PrimerTextInput inherits Rectangle {
                 font-size: 13px;
                 vertical-alignment: center;
             }
-        }
-    }
-}
-
-export component OrientationIconButton inherits Rectangle {
-    in property <bool> landscape: false;
-    in property <bool> selected: false;
-    callback clicked;
-
-    width: 34px;
-    height: 30px;
-    border-radius: 6px;
-    border-width: 1px;
-    border-color: selected ? StudioTheme.accent-strong : StudioTheme.border;
-    background: selected ? StudioTheme.accent.with-alpha(0.14) : touch.has-hover ? StudioTheme.panel-subtle : StudioTheme.panel-bg;
-    animate background, border-color { duration: 120ms; }
-
-    Rectangle {
-        x: (parent.width - self.width) / 2;
-        y: (parent.height - self.height) / 2;
-        width: root.landscape ? 18px : 12px;
-        height: root.landscape ? 12px : 18px;
-        border-radius: 3px;
-        border-width: 2px;
-        border-color: root.selected ? StudioTheme.accent-strong : StudioTheme.muted;
-        background: transparent;
-
-        Rectangle {
-            x: root.landscape ? parent.width - 5px : (parent.width - 4px) / 2;
-            y: root.landscape ? (parent.height - 4px) / 2 : parent.height - 5px;
-            width: root.landscape ? 2px : 4px;
-            height: root.landscape ? 4px : 2px;
-            border-radius: 1px;
-            background: root.selected ? StudioTheme.accent-strong : StudioTheme.muted;
-        }
-    }
-
-    touch := TouchArea {
-        mouse-cursor: pointer;
-        clicked => {
-            root.clicked();
         }
     }
 }
@@ -295,17 +210,18 @@ export component PrimerNavRow inherits Rectangle {
     }
 }
 
-export component PrimerActionListRow inherits Rectangle {
-    in property <PrototypeComponentKind> kind;
+export component ComponentPaletteRow inherits Rectangle {
+    in property <PaletteComponentKind> kind;
     in property <string> label;
     in property <string> detail;
     in property <bool> enabled: true;
-    callback drag-started(PrototypeComponentKind, Point);
-    callback drag-moved(PrototypeComponentKind, Point);
-    callback drag-ended(PrototypeComponentKind, Point);
+    in property <bool> drag-enabled: true;
+    callback drag-started(PaletteComponentKind, Point);
+    callback drag-moved(PaletteComponentKind, Point);
+    callback drag-ended(PaletteComponentKind, string, Point);
 
     private property <length> drag-threshold: 2px;
-    property <bool> dragging: root.enabled && AppState.dragging-kind == root.kind;
+    property <bool> dragging: root.enabled && root.drag-enabled && AppState.palette-drag-kind == root.kind;
     property <bool> active: root.enabled && (root.dragging || touch.pressed);
     property <bool> hovered: root.enabled && touch.has-hover && !root.dragging;
 
@@ -315,6 +231,9 @@ export component PrimerActionListRow inherits Rectangle {
     border-color: !root.enabled ? StudioTheme.soft-border.with-alpha(0.68) : root.active ? StudioTheme.accent-strong.with-alpha(0.75) : root.hovered ? StudioTheme.border : StudioTheme.soft-border;
     background: !root.enabled ? StudioTheme.panel-subtle.with-alpha(0.58) : root.active ? StudioTheme.accent.with-alpha(0.10) : root.hovered ? StudioTheme.panel-subtle.with-alpha(0.72) : StudioTheme.panel-bg;
     opacity: !root.enabled ? 0.58 : root.dragging ? 0.56 : 1;
+    accessible-role: AccessibleRole.list-item;
+    accessible-label: root.label;
+    accessible-enabled: root.enabled && root.drag-enabled;
     animate background, border-color, opacity { duration: 140ms; easing: ease-out-quad; }
 
     HorizontalLayout {
@@ -327,10 +246,10 @@ export component PrimerActionListRow inherits Rectangle {
             height: 40px;
             border-radius: 8px;
             border-width: 1px;
-            border-color: root.kind == PrototypeComponentKind.rectangle ? #f59e0b : root.kind == PrototypeComponentKind.text ? #38bdf8 : #22c55e;
-            background: root.kind == PrototypeComponentKind.rectangle ? #fff7ed : root.kind == PrototypeComponentKind.text ? #eff6ff : #f0fdf4;
+            border-color: root.kind == PaletteComponentKind.rectangle ? #f59e0b : root.kind == PaletteComponentKind.text ? #38bdf8 : #22c55e;
+            background: root.kind == PaletteComponentKind.rectangle ? #fff7ed : root.kind == PaletteComponentKind.text ? #eff6ff : #f0fdf4;
 
-            if root.kind == PrototypeComponentKind.rectangle: Rectangle {
+            if root.kind == PaletteComponentKind.rectangle: Rectangle {
                 x: 10px;
                 y: 11px;
                 width: 20px;
@@ -341,7 +260,7 @@ export component PrimerActionListRow inherits Rectangle {
                 background: #ffffffa0;
             }
 
-            if root.kind == PrototypeComponentKind.text: Text {
+            if root.kind == PaletteComponentKind.text: Text {
                 text: "T";
                 color: #0369a1;
                 font-size: 18px;
@@ -350,7 +269,7 @@ export component PrimerActionListRow inherits Rectangle {
                 vertical-alignment: center;
             }
 
-            if root.kind == PrototypeComponentKind.image: Rectangle {
+            if root.kind == PaletteComponentKind.image: Rectangle {
                 x: 9px;
                 y: 10px;
                 width: 22px;
@@ -414,32 +333,32 @@ export component PrimerActionListRow inherits Rectangle {
     }
 
     touch := TouchArea {
-        enabled: root.enabled;
-        mouse-cursor: root.enabled ? pointer : default;
+        enabled: root.enabled && root.drag-enabled;
+        mouse-cursor: self.enabled ? pointer : default;
         private property <bool> drag-active: false;
         private property <Point> press-position: { x: 0px, y: 0px };
 
         changed pressed => {
-            if root.enabled {
+            if root.enabled && root.drag-enabled {
                 if self.pressed {
-                    AppState.visual-drag-cancelled = false;
+                    AppState.palette-drag-cancelled = false;
                     self.drag-active = false;
                     self.press-position = { x: self.mouse-x, y: self.mouse-y };
                 } else if self.drag-active {
-                    if !AppState.visual-drag-cancelled {
-                        root.drag-ended(root.kind, {
+                    if !AppState.palette-drag-cancelled {
+                        root.drag-ended(root.kind, root.label, {
                             x: self.absolute-position.x + self.mouse-x,
                             y: self.absolute-position.y + self.mouse-y,
                         });
                     }
-                    AppState.visual-drag-cancelled = false;
+                    AppState.palette-drag-cancelled = false;
                     self.drag-active = false;
                 }
             }
         }
 
         moved => {
-            if root.enabled && !AppState.visual-drag-cancelled {
+            if root.enabled && root.drag-enabled && !AppState.palette-drag-cancelled {
                 let window-position = {
                     x: self.absolute-position.x + self.mouse-x,
                     y: self.absolute-position.y + self.mouse-y,
@@ -448,11 +367,11 @@ export component PrimerActionListRow inherits Rectangle {
                     || (self.mouse-y - self.press-position.y).abs() >= root.drag-threshold;
                 if self.pressed && !self.drag-active && moved-far-enough {
                     self.drag-active = true;
-                    AppState.dragging-kind = root.kind;
+                    AppState.palette-drag-kind = root.kind;
                     root.drag-started(root.kind, window-position);
                 }
                 if self.drag-active {
-                    AppState.dragging-kind = root.kind;
+                    AppState.palette-drag-kind = root.kind;
                     root.drag-moved(root.kind, window-position);
                 }
             }
@@ -461,11 +380,14 @@ export component PrimerActionListRow inherits Rectangle {
 }
 
 export global AppState {
-    in-out property <PrototypeComponentKind> dragging-kind: PrototypeComponentKind.none;
-    in-out property <Point> drag-position: { x: 0px, y: 0px };
-    in-out property <Point> drag-preview-position: { x: 0px, y: 0px };
-    in-out property <Size> drag-preview-size: { width: 96px, height: 48px };
-    in-out property <bool> visual-drag-cancelled: false;
+    in-out property <PaletteComponentKind> palette-drag-kind: PaletteComponentKind.none;
+    in-out property <Point> palette-drag-preview-position: { x: 0px, y: 0px };
+    in-out property <Size> palette-drag-preview-size: { width: 96px, height: 48px };
+    in-out property <bool> palette-drag-cancelled: false;
+    in-out property <int> palette-drop-request: 0;
+    in-out property <PaletteComponentKind> palette-drop-kind: PaletteComponentKind.none;
+    in-out property <string> palette-drop-component-name: "";
+    in-out property <Point> palette-drop-window-position: { x: 0px, y: 0px };
     in-out property <bool> outline-drag-active: false;
     in-out property <bool> outline-drag-cancelled: false;
     in-out property <string> outline-drag-label: "";
@@ -474,13 +396,44 @@ export global AppState {
     in-out property <Size> outline-drag-preview-size: { width: 216px, height: 32px };
 
     public pure function has-active-drag() -> bool {
-        return self.dragging-kind != PrototypeComponentKind.none || self.outline-drag-active;
+        return self.palette-drag-kind != PaletteComponentKind.none || self.outline-drag-active;
     }
 
-    public function cancel-visual-drag() {
-        if self.dragging-kind != PrototypeComponentKind.none {
-            self.visual-drag-cancelled = true;
-            self.dragging-kind = PrototypeComponentKind.none;
+    pure function palette-preview-size(kind: PaletteComponentKind) -> Size {
+        if kind == PaletteComponentKind.rectangle {
+            return { width: 160px, height: 64px };
+        }
+        if kind == PaletteComponentKind.image {
+            return { width: 160px, height: 96px };
+        }
+        if kind == PaletteComponentKind.text {
+            return { width: 220px, height: 40px };
+        }
+        return { width: 96px, height: 48px };
+    }
+
+    public function update-palette-drag(kind: PaletteComponentKind, window-position: Point) {
+        if !self.palette-drag-cancelled {
+            self.palette-drag-kind = kind;
+            self.palette-drag-preview-size = self.palette-preview-size(kind);
+            self.palette-drag-preview-position = {
+                x: window-position.x - self.palette-drag-preview-size.width / 2,
+                y: window-position.y - self.palette-drag-preview-size.height / 2,
+            };
+        }
+    }
+
+    public function request-palette-drop(kind: PaletteComponentKind, component-name: string, window-position: Point) {
+        self.palette-drop-kind = kind;
+        self.palette-drop-component-name = component-name;
+        self.palette-drop-window-position = window-position;
+        self.palette-drop-request += 1;
+    }
+
+    public function cancel-palette-drag() {
+        if self.palette-drag-kind != PaletteComponentKind.none {
+            self.palette-drag-cancelled = true;
+            self.palette-drag-kind = PaletteComponentKind.none;
         }
     }
 
@@ -492,7 +445,7 @@ export global AppState {
     }
 
     public function cancel-active-drags() {
-        self.cancel-visual-drag();
+        self.cancel-palette-drag();
         self.cancel-outline-drag();
     }
 
