@@ -1,0 +1,167 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Api, UpdateState } from "../api.slint";
+import { EditorMetrics, StudioTheme } from "common.slint";
+
+// The updater says the same things whatever the platform; only where they are
+// said differs. macOS has a unified title bar with room beside the traffic
+// lights, so the pill goes there. Everywhere else there is no such room, and a
+// pill floating over the top bar reads as something the window dropped, so the
+// same state goes into a status bar along the bottom edge.
+export global UpdateStatus {
+    public pure function in-titlebar() -> bool {
+        return Platform.os == OperatingSystemType.macos;
+    }
+
+    public pure function has-news() -> bool {
+        return Api.update-state == UpdateState.Available
+            || Api.update-state == UpdateState.Downloading
+            || Api.update-state == UpdateState.ReadyToInstall
+            || Api.update-state == UpdateState.Installing
+            || Api.update-state == UpdateState.RestartRequired
+            || Api.update-state == UpdateState.Error;
+    }
+
+    // The bar is a row of the window rather than an overlay, so anything that
+    // measures the space left for the editor has to know when it is there.
+    public pure function shows-bar() -> bool {
+        return !root.in-titlebar() && root.has-news();
+    }
+
+    public pure function bar-height() -> length {
+        return root.shows-bar() ? EditorMetrics.status-bar-height : 0px;
+    }
+
+    public pure function clickable() -> bool {
+        return root.has-news();
+    }
+
+    public pure function label() -> string {
+        if Api.update-state == UpdateState.Available {
+            return "Install update";
+        }
+        if Api.update-state == UpdateState.Downloading {
+            return "Downloading";
+        }
+        if Api.update-state == UpdateState.ReadyToInstall {
+            return "Update ready";
+        }
+        if Api.update-state == UpdateState.Installing {
+            return "Installing";
+        }
+        if Api.update-state == UpdateState.RestartRequired {
+            return "Restart to update";
+        }
+        if Api.update-state == UpdateState.Error {
+            return Api.update-error != "" ? Api.update-error : "Update failed";
+        }
+        return "";
+    }
+
+    public pure function foreground() -> color {
+        if Api.update-state == UpdateState.Error {
+            return StudioTheme.dark ? #ff9a94 : #b42318;
+        }
+        if Api.update-state == UpdateState.Available
+            || Api.update-state == UpdateState.ReadyToInstall
+            || Api.update-state == UpdateState.RestartRequired {
+            return StudioTheme.accent;
+        }
+        return StudioTheme.muted;
+    }
+
+    // The bar behind the text, filling as the download runs.
+    public pure function progress-opacity() -> float {
+        return Api.update-state == UpdateState.Downloading
+            || Api.update-state == UpdateState.Installing ? 0.18 : 0;
+    }
+}
+
+// Sits in the macOS title bar, past the traffic lights.
+export component UpdateStatusPill inherits Rectangle {
+    width: Api.update-state == UpdateState.Error ? 260px : 132px;
+    height: 20px;
+    border-radius: self.height / 2;
+    border-width: 1px;
+    border-color: StudioTheme.border;
+    background: StudioTheme.panel-bg;
+    clip: true;
+
+    Rectangle {
+        x: 0px;
+        background: StudioTheme.accent;
+        opacity: UpdateStatus.progress-opacity();
+        width: parent.width * Api.update-download-progress;
+    }
+
+    Text {
+        x: 9px;
+        width: parent.width - 18px;
+        text: UpdateStatus.label();
+        color: UpdateStatus.foreground();
+        font-size: 11px;
+        font-weight: 500;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+        overflow: elide;
+    }
+
+    TouchArea {
+        enabled: UpdateStatus.clickable();
+        mouse-cursor: UpdateStatus.clickable() ? pointer : default;
+        clicked => {
+            Api.check-for-update();
+        }
+    }
+}
+
+// The window's bottom edge everywhere else. It is part of the layout rather
+// than an overlay, so the canvas gives up the height instead of being covered.
+export component UpdateStatusBar inherits Rectangle {
+    height: EditorMetrics.status-bar-height;
+    background: StudioTheme.panel-bg;
+    clip: true;
+
+    Rectangle {
+        x: 0px;
+        background: StudioTheme.accent;
+        opacity: UpdateStatus.progress-opacity();
+        width: parent.width * Api.update-download-progress;
+    }
+
+    Rectangle {
+        y: 0px;
+        height: 1px;
+        background: StudioTheme.border;
+    }
+
+    HorizontalLayout {
+        alignment: end;
+        padding-left: 12px;
+        padding-right: 12px;
+
+        // Only the label is the button. The bar runs the width of the window,
+        // so a TouchArea filling it would make the whole bottom edge mean
+        // "install an update" - and the portal remembers its consent, so after
+        // the first yes there is no dialog left to catch a stray click.
+        Rectangle {
+            label := Text {
+                text: UpdateStatus.label();
+                color: UpdateStatus.foreground();
+                font-size: 11px;
+                font-weight: 500;
+                vertical-alignment: center;
+                overflow: elide;
+            }
+
+            TouchArea {
+                enabled: UpdateStatus.clickable();
+                mouse-cursor: UpdateStatus.clickable() ? pointer : default;
+                clicked => {
+                    Api.check-for-update();
+                }
+            }
+        }
+    }
+}
