@@ -41,6 +41,7 @@ jobs:
               id: filter
               with:
                   filters: .github/ci_path_filters.yaml
+                  predicate-quantifier: some-with-excludes
 
     format_fix:
         runs-on: ubuntu-latest
@@ -93,6 +94,7 @@ jobs:
             CLOUDFLARE_API_TOKEN_2: ${{ secrets.CLOUDFLARE_API_TOKEN_2 }}
             CLOUDFLARE_ACCOUNT_ID_2: ${{ secrets.CLOUDFLARE_ACCOUNT_ID_2 }}
             READ_WRITE_PRIVATE_KEY: ${{ secrets.READ_WRITE_PRIVATE_KEY }}
+            SLINT_TESTING_TOKEN: ${{ secrets.SLINT_TESTING_TOKEN }}
 
     done:
         # Note: We use `needs` + `if: always()` here to ensure the "done"

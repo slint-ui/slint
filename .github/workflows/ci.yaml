@@ -38,6 +38,8 @@ on:
           required: true
         READ_WRITE_PRIVATE_KEY:
           required: true
+        SLINT_TESTING_TOKEN:
+          required: true
 
 env:
     MACOSX_DEPLOYMENT_TARGET: "11.0"
@@ -77,6 +79,46 @@ jobs:
             test_rust_driver: ${{ !startsWith(matrix.os, 'macos') || inputs.full || contains(fromJSON(inputs.changes), 'api_rs') || contains(fromJSON(inputs.changes), 'tests') || contains(fromJSON(inputs.changes), 'qt') }}
             build_examples: ${{ inputs.full || contains(fromJSON(inputs.changes), 'integration') || contains(fromJSON(inputs.changes), 'examples') }}
             save_if: ${{ github.ref == 'refs/heads/master' }}
+
+    visual_editor:
+        if: ${{ contains(fromJSON(inputs.changes), 'visual_editor') && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) }}
+        name: Visual Editor
+        runs-on: macos-14
+        timeout-minutes: 120
+        env:
+            RUSTFLAGS: -D warnings
+            SLINT_EMIT_DEBUG_INFO: '1'
+        steps:
+            - uses: actions/checkout@v7
+            - uses: ./.github/actions/install-skia-dependencies
+            - uses: ./.github/actions/setup-rust
+              with:
+                  components: clippy
+                  key: x-visual-editor-v1
+                  save_if: ${{ github.ref == 'refs/heads/master' }}
+            - uses: actions/setup-python@v7
+              with:
+                  python-version: '3.11'
+            - uses: astral-sh/setup-uv@v7
+            - name: Install UI test dependencies
+              working-directory: tools/editor/ui-tests
+              env:
+                  UV_INDEX: slint-private=https://testing.slint.dev/simple/
+                  UV_INDEX_SLINT_PRIVATE_USERNAME: __token__
+                  UV_INDEX_SLINT_PRIVATE_PASSWORD: ${{ secrets.SLINT_TESTING_TOKEN }}
+              run: uv sync --locked
+            - name: Lint the visual editor
+              run: cargo clippy --locked -p slint-editor --all-targets --all-features --features slint/mcp -- -D warnings
+            - name: Test the visual editor
+              run: cargo test --locked -p slint-editor --all-features --features slint/mcp
+            - name: Build the visual editor UI test binary
+              run: cargo build --locked -p slint-editor --all-features --features slint/mcp
+            - name: Run visual editor UI tests
+              working-directory: tools/editor/ui-tests
+              env:
+                  SLINT_BACKEND: headless-skia
+                  SLINT_EDITOR_BINARY: ${{ github.workspace }}/target/debug/slint-editor
+              run: ./run-tests.sh
 
     # For changes to Slint internals, do a quick test on Linux for Node.js only.
     node_test_linux:
