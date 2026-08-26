@@ -493,7 +493,7 @@ pub mod platform {
 #[i_slint_core_macros::slint_doc]
 /// This module contains some of the enums and structs from the Slint language.
 ///
-/// See also the list of [global structs and enums](slint:StructType)
+/// See also the list of [global structs and enums](slint:struct)
 pub mod language {
     macro_rules! export_builtin_structs {
         ($(

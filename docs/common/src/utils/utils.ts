@@ -47,137 +47,46 @@ export interface TypeInfo {
     defaultValue: string;
 }
 
+/** The value a property of each type holds when nothing assigns to it. */
+const defaultValues: Partial<Record<KnownType, string>> = {
+    angle: "0deg",
+    bool: "false",
+    brush: "a transparent brush",
+    callback: '""',
+    color: "a transparent color",
+    "data-transfer": "an empty data-transfer",
+    duration: "0ms",
+    easing: "linear",
+    enum: "the first enum value",
+    float: "0.0",
+    image: "the empty image",
+    int: "0",
+    keys: "@keys()",
+    length: "0px",
+    MouseCursor: "default",
+    percent: "0%",
+    "physical-length": "0phx",
+    Edges: "0px",
+    Point: "(0px, 0px)",
+    Size: "(0px, 0px)",
+    "styled-text": '""',
+    "relative-font-size": "0rem",
+    string: '""',
+    struct: "a struct with all default values",
+};
+
+// `link-data.json` keys the documentation of a type by the type's own name.
 export function getTypeInfo(typeName: KnownType): TypeInfo {
     const baseType = typeName.replace(/[\[\]]/g, "") as KnownType;
-    switch (baseType) {
-        case "angle":
-            return {
-                href: linkMap.angle.href,
-                defaultValue: "0deg",
-            };
-        case "bool":
-            return {
-                href: linkMap.bool.href,
-                defaultValue: "false",
-            };
-        case "brush":
-            return {
-                href: linkMap.brush.href,
-                defaultValue: "a transparent brush",
-            };
-        case "color":
-            return {
-                href: linkMap.color.href,
-                defaultValue: "a transparent color",
-            };
-        case "data-transfer":
-            return {
-                href: linkMap.data_transfer.href,
-                defaultValue: "an empty data-transfer",
-            };
-        case "duration":
-            return {
-                href: linkMap.duration.href,
-                defaultValue: "0ms",
-            };
-        case "easing":
-            return {
-                href: linkMap.easing.href,
-                defaultValue: "linear",
-            };
-        case "enum":
-            return {
-                href: linkMap.EnumType.href,
-                defaultValue: "the first enum value",
-            };
-        case "Edges":
-            return {
-                href: linkMap.Edges.href,
-                defaultValue: "0px",
-            };
-        case "float":
-            return {
-                href: linkMap.float.href,
-                defaultValue: "0.0",
-            };
-        case "image":
-            return {
-                href: linkMap.ImageType.href,
-                defaultValue: "the empty image",
-            };
-        case "keys":
-            return {
-                href: linkMap["keys"].href,
-                defaultValue: "@keys()",
-            };
-        case "int":
-            return {
-                href: linkMap.int.href,
-                defaultValue: "0",
-            };
-        case "length":
-            return {
-                href: linkMap.length.href,
-                defaultValue: "0px",
-            };
-        case "MouseCursor":
-            return {
-                href: linkMap.MouseCursor.href,
-                defaultValue: "default",
-            };
-        case "percent":
-            return {
-                href: linkMap.percent.href,
-                defaultValue: "0%",
-            };
-        case "physical-length":
-            return {
-                href: linkMap.physicalLength.href,
-                defaultValue: "0phx",
-            };
-        case "Point":
-            return {
-                href: linkMap.Point.href,
-                defaultValue: "(0px, 0px)",
-            };
-        case "Size":
-            return {
-                href: linkMap.Size.href,
-                defaultValue: "(0px, 0px)",
-            };
-        case "relative-font-size":
-            return {
-                href: linkMap.relativeFontSize.href,
-                defaultValue: "0rem",
-            };
-        case "string":
-            return {
-                href: linkMap.StringType.href,
-                defaultValue: '""',
-            };
-        case "styled-text":
-            return {
-                href: linkMap.styled_text.href,
-                defaultValue: '""',
-            };
-        case "callback":
-            return {
-                href: linkMap.callback.href,
-                defaultValue: '""',
-            };
-        case "struct":
-            return {
-                href: linkMap.StructType.href,
-                defaultValue: "a struct with all default values",
-            };
-        default: {
-            console.error("Unknown type: ", typeName);
-            return {
-                href: "",
-                defaultValue: "<???>",
-            };
-        }
+    const defaultValue = defaultValues[baseType];
+    if (defaultValue === undefined || !(baseType in linkMap)) {
+        console.error("Unknown type: ", typeName);
+        return {
+            href: "",
+            defaultValue: "<???>",
+        };
     }
+    return { href: linkMap[baseType].href, defaultValue };
 }
 
 export function extractLines(
