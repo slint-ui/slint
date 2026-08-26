@@ -31,6 +31,18 @@ on:
         type: boolean
         default: true
 
+  workflow_call:
+    inputs:
+      channel:
+        description: "Which listing to package for"
+        required: false
+        default: release
+        type: string
+      publish:
+        description: "Submit the package to the Store once it is built"
+        required: false
+        default: false
+        type: boolean
   pull_request:
     branches:
       - visual-editor
