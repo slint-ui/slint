@@ -169,7 +169,7 @@ impl From<NamedReference> for PropertyPath {
 struct AnalysisContext<'a> {
     visited: HashSet<PropertyPath>,
     /// The stack of properties that depends on each other
-    currently_analyzing: linked_hash_set::LinkedHashSet<PropertyPath>,
+    currently_analyzing: indexmap::IndexSet<PropertyPath>,
     /// When set, one of the property in the `currently_analyzing` stack is the window layout property
     /// And we should issue a warning if that's part of a loop instead of an error
     window_layout_property: Option<PropertyPath>,
@@ -316,7 +316,7 @@ fn analyze_binding(
     let mut depends_on_external = DependsOnExternal(false);
     let element = current.prop.element();
     let name = current.prop.name();
-    if (context.currently_analyzing.back() == Some(current))
+    if (context.currently_analyzing.last() == Some(current))
         && !element
             .borrow()
             .binding_cell_including_synthetic(name)
@@ -496,7 +496,7 @@ fn analyze_binding(
         None => (),
     }
 
-    let o = context.currently_analyzing.pop_back();
+    let o = context.currently_analyzing.pop();
     assert_eq!(&o.unwrap(), current);
 
     depends_on_external

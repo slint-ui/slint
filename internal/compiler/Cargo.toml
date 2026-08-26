@@ -78,7 +78,7 @@ lyon_extra = "1.0.1"
 by_address = { workspace = true }
 itertools = { workspace = true }
 url = "2.2.1"
-linked_hash_set = "0.1.4"
+indexmap = "2.14"
 typed-index-collections = { workspace = true }
 
 # for processing and embedding the rendered image (texture)
