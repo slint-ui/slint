@@ -456,7 +456,7 @@ impl From<InternalKeyboardModifierState> for KeyboardModifiers {
 /// syntax as the macro:
 ///
 /// ```rust
-/// use i_slint_core::input::Keys;
+/// use slint::Keys;
 ///
 /// let save = Keys::from_parts(["Control", "S"])?;
 /// let undo = Keys::from_parts(["Control", "Shift?", "Z"])?;
@@ -788,7 +788,7 @@ impl Keys {
     /// with [`Keys::from_parts`] will be equal to the input `Keys` value:
     ///
     /// ```
-    /// use i_slint_core::input::Keys;
+    /// use slint::Keys;
     /// let k = Keys::from_parts(["Control", "Shift?", "Z"])?;
     /// let parts = k.to_parts();
     /// let k_from_parts = Keys::from_parts(parts.iter().map(|s| s.as_str()))?;
