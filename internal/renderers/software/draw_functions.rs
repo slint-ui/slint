@@ -12,7 +12,6 @@ use derive_more::{Add, Mul, Sub};
 use i_slint_core::Color;
 use i_slint_core::graphics::{Rgb8Pixel, TexturePixelFormat};
 use i_slint_core::lengths::{PointLengths, SizeLengths};
-use integer_sqrt::IntegerSquareRoot;
 #[allow(unused_imports)]
 use num_traits::Float;
 
@@ -347,7 +346,7 @@ pub(super) fn draw_rounded_rectangle_line(
         }
         #[inline(always)]
         pub fn sqrt(self) -> Self {
-            Self(self.0.integer_sqrt())
+            Self(self.0.isqrt())
         }
     }
     impl core::ops::Mul for Shifted {
