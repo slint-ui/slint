@@ -19,7 +19,7 @@ path = "lib.rs"
 
 [features]
 # Internal feature that is only enabled for Slint's own tests
-internal = ["include_dir"]
+internal = []
 # ffi for C++ bindings
 ffi = []
 renderer-software = ["dep:i-slint-renderer-software", "i-slint-renderer-software/std"]
@@ -72,7 +72,6 @@ async-net = { version = "2.0.0", optional = true }
 futures-lite = { version = "2.3.0", optional = true }
 byteorder = { version = "1.5.0", optional = true }
 image = { workspace = true, optional = true, features = ["png"] }
-include_dir = { version = "0.7", optional = true }
 i-slint-renderer-software = { workspace = true, optional = true }
 i-slint-renderer-skia = { workspace = true, default-features = false, optional = true }
 
