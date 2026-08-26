@@ -1,14 +1,25 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-# Builds the macOS Visual Editor once a night and publishes it under the
-# nightly prefix of visual-editor.slint.dev.
+# Builds the Visual Editor once a night and publishes it for all three
+# platforms. macOS and Linux go to visual-editor.slint.dev under the nightly
+# prefix; Windows goes to the Store's preview listing, which signs and
+# distributes it, so nothing of it is self-hosted.
 name: Visual Editor nightly
 
 on:
   schedule:
     - cron: "40 3 * * *"
   workflow_dispatch:
+    inputs:
+      submit-windows:
+        # macOS and Linux overwrite objects in a bucket and can be re-run
+        # freely. A Store submission consumes the version it carries for good,
+        # so it is opt-in for anyone dispatching this by hand.
+        description: "Also package the Windows build and submit it to the preview listing"
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -26,6 +37,18 @@ jobs:
     uses: ./.github/workflows/visual_editor_linux_flatpak.yaml
     with:
       channel: nightly
+    secrets: inherit
+
+  # The preview listing is a separate Store product with a date-based version
+  # scheme, so it is already a nightly channel in everything but name. The Store
+  # signs the bundle on ingestion and delivers updates, which is why there is no
+  # publish job here: submitting happens inside the called workflow.
+  build-windows:
+    if: ${{ github.repository == 'slint-ui/slint' && (github.event_name == 'schedule' || inputs.submit-windows) }}
+    uses: ./.github/workflows/visual_editor_windows_msix.yaml
+    with:
+      channel: preview
+      publish: true
     secrets: inherit
 
   publish-macos:
