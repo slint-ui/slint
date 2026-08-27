@@ -519,6 +519,9 @@ macro_rules! for_each_enums {
                 RadioButton,
                 /// The element is a container grouping related `RadioButton`s.
                 RadioGroup,
+                /// The element is a window title bar, typically containing the window title and controls
+                /// such as minimize, maximize, and close.
+                WindowTitleBar,
                 // Landmark roles
                 /// Landmark: the header area of the application, typically containing a logo, title, or global navigation.
                 Banner,
