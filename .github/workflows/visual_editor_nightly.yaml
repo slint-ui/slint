@@ -15,8 +15,9 @@ on:
       submit-windows:
         # macOS and Linux overwrite objects in a bucket and can be re-run
         # freely. A Store submission consumes the version it carries for good,
-        # so it is opt-in for anyone dispatching this by hand.
-        description: "Also package the Windows build and submit it to the preview listing"
+        # so it is opt-in for anyone dispatching this by hand. The bundle is
+        # built either way, so a manual run still says whether it packages.
+        description: "Submit the Windows build to the preview listing as well as packaging it"
         required: false
         default: false
         type: boolean
@@ -44,11 +45,11 @@ jobs:
   # signs the bundle on ingestion and delivers updates, which is why there is no
   # publish job here: submitting happens inside the called workflow.
   build-windows:
-    if: ${{ github.repository == 'slint-ui/slint' && (github.event_name == 'schedule' || inputs.submit-windows) }}
+    if: github.repository == 'slint-ui/slint'
     uses: ./.github/workflows/visual_editor_windows_msix.yaml
     with:
       channel: preview
-      publish: true
+      publish: ${{ github.event_name == 'schedule' || inputs.submit-windows }}
     secrets: inherit
 
   publish-macos:
