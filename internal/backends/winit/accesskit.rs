@@ -731,6 +731,7 @@ impl NodeCollection {
                     i_slint_core::items::AccessibleRole::Image => Role::Image,
                     i_slint_core::items::AccessibleRole::RadioButton => Role::RadioButton,
                     i_slint_core::items::AccessibleRole::RadioGroup => Role::RadioGroup,
+                    i_slint_core::items::AccessibleRole::WindowTitleBar => Role::TitleBar,
                     i_slint_core::items::AccessibleRole::Banner => Role::Banner,
                     i_slint_core::items::AccessibleRole::Complementary => Role::Complementary,
                     i_slint_core::items::AccessibleRole::ContentInfo => Role::ContentInfo,
