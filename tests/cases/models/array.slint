@@ -352,7 +352,8 @@ instance.invoke_push_one(40);
 assert_eq!(instance.get_num_ints(), 3);
 let logs = slint_testing::access_testing_window(instance.window(), |w| w.take_debug_log());
 assert_eq!(logs.len(), 1, "Expected one push_row log, got: {logs:?}");
-assert!(logs[0].contains("Model::push_row called on a model of type"));
+// The default push_row appends via insert_row, so the warning names insert_row.
+assert!(logs[0].contains("Model::insert_row called on a model of type"));
 assert!(logs[0].contains("which does not re-implement this method. This happens when trying to modify a read-only model"));
 
 instance.invoke_remove_one(0);
