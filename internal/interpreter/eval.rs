@@ -2268,13 +2268,13 @@ fn call_builtin_function(
             }
         }
         BuiltinFunction::SetSelectionOffsets => {
-            // (item_ref, start, end) — applied to a TextInput.
+            // (item_ref, anchor, focus) -> applied to a TextInput.
             use i_slint_core::items::TextInput;
-            let [Expression::PropertyReference(mr), start_expr, end_expr] = arguments else {
+            let [Expression::PropertyReference(mr), anchor_expr, focus_expr] = arguments else {
                 return Value::Void;
             };
-            let start: i32 = eval_expression(ctx, start_expr).try_into().unwrap_or(0);
-            let end: i32 = eval_expression(ctx, end_expr).try_into().unwrap_or(0);
+            let anchor: i32 = eval_expression(ctx, anchor_expr).try_into().unwrap_or(0);
+            let focus: i32 = eval_expression(ctx, focus_expr).try_into().unwrap_or(0);
             let Some((parent_inst, flat_idx)) = resolve_item_rc_from_ref(ctx, mr) else {
                 return Value::Void;
             };
@@ -2284,7 +2284,7 @@ fn call_builtin_function(
             let parent_dyn = vtable::VRc::into_dyn(parent_inst);
             let item_rc = i_slint_core::items::ItemRc::new(parent_dyn, flat_idx as u32);
             if let Some(text_input) = vtable::VRef::downcast_pin::<TextInput>(item_rc.borrow()) {
-                text_input.set_selection_offsets(&adapter, &item_rc, start, end);
+                text_input.set_selection_offsets(&adapter, &item_rc, anchor, focus);
             }
             Value::Void
         }

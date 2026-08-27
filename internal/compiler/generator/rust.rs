@@ -4910,15 +4910,15 @@ fn compile_builtin_function_call(
             })
         }
         BuiltinFunction::SetSelectionOffsets => {
-            if let [llr::Expression::PropertyReference(pr), from, to] = arguments {
+            if let [llr::Expression::PropertyReference(pr), anchor_expr, focus_expr] = arguments {
                 let window_adapter_tokens = access_window_adapter_field(ctx);
-                let start = compile_expression(from, ctx);
-                let end = compile_expression(to, ctx);
+                let anchor = compile_expression(anchor_expr, ctx);
+                let focus = compile_expression(focus_expr, ctx);
 
                 item_owner(pr).then(|owner| {
                     let (item, item_rc) = native_item_from_owner(pr, ctx, &owner);
                     quote!(
-                        #item.set_selection_offsets(#window_adapter_tokens, &#item_rc, #start as i32, #end as i32)
+                        #item.set_selection_offsets(#window_adapter_tokens, &#item_rc, #anchor as i32, #focus as i32)
                     )
                 })
             } else {

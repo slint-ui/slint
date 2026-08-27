@@ -21,7 +21,7 @@ export interface LineEdit {
     callback key-pressed(event: KeyEvent) -> EventResult;
     callback key-released(event: KeyEvent) -> EventResult;
 
-    public function set-selection-offsets(start: int, end: int);
+    public function set-selection-offsets(anchor: int, focus: int);
     public function select-all();
     public function clear-selection();
     public function cut();

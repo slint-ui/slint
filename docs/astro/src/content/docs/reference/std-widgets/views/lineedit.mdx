@@ -108,8 +108,8 @@ Call this function to focus the LineEdit and make it receive future keyboard eve
 ### clear-focus()
 Call this function to remove keyboard focus from this `LineEdit` if it currently has the focus. See also <Link type="FocusHandling" />.
 
-### set-selection-offsets(int, int)
-Selects the text between two UTF-8 offsets.
+### set-selection-offsets(anchor: int, focus: int)
+Selects the text between two UTF-8 offsets: `anchor` is the end of the selection that stays put and `focus` the end the cursor moves to, so `focus` may precede `anchor` to select backwards.
 
 ### select-all()
 Selects all text.

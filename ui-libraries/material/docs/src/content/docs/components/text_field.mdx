@@ -75,8 +75,8 @@ An icon displayed at the end of the text input.
 
 ## Functions
 
-### set-selection-offsets(int, int)
-Selects the text between two UTF-8 offsets.
+### set-selection-offsets(anchor: int, focus: int)
+Selects the text between two UTF-8 offsets: `anchor` is the end of the selection that stays put and `focus` the end the cursor moves to, so `focus` may precede `anchor` to select backwards.
 
 ### select-all()
 Selects all text in the text field.

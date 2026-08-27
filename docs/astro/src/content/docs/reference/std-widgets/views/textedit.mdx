@@ -134,7 +134,7 @@ The height of the visible area of the text edit (not including the scrollbar)
 
 -   **`focus()`** Call this function to focus the TextEdit and make it receive future keyboard events.
 -   **`clear-focus()`** Call this function to remove keyboard focus from this `TextEdit` if it currently has the focus. See also <Link type="FocusHandling" label="focus handling" />.
--   **`set-selection-offsets(int, int)`** Selects the text between two UTF-8 offsets.
+-   **`set-selection-offsets(anchor: int, focus: int)`** Selects the text between two UTF-8 offsets: `anchor` is the end of the selection that stays put and `focus` the end the cursor moves to, so `focus` may precede `anchor` to select backwards.
 -   **`select-all()`** Selects all text.
 -   **`clear-selection()`** Clears the selection. This function takes effect regardless of the `read-only` and `enabled` properties.
 -   **`copy()`** Copies the selected text to the clipboard.
