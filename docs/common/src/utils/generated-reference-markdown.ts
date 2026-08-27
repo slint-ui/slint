@@ -67,6 +67,15 @@ export async function getEnumContent(enumName: string | undefined) {
     }
 }
 
+/**
+ * Whether a struct is documented with the widgets that use it rather than on the
+ * Built-in Structs page, which is where a struct type otherwise links to.
+ */
+export function isStdWidgetStruct(structName: string | undefined): boolean {
+    const baseStruct = structName?.replace(/[\[\]]/g, "");
+    return baseStruct === "Time" || baseStruct === "Date";
+}
+
 export async function getStructContent(
     structName: string | undefined,
 ): Promise<string> {
@@ -75,7 +84,7 @@ export async function getStructContent(
     }
     const baseStruct = structName.replace(/[\[\]]/g, "");
 
-    if (baseStruct === "Time" || baseStruct === "Date") {
+    if (isStdWidgetStruct(baseStruct)) {
         const load = findGlobLoader(
             stdWidgetMarkdownLoaders,
             "std-widgets",
