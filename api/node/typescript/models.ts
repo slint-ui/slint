@@ -136,13 +136,12 @@ export abstract class Model<T> implements Iterable<T> {
     }
 
     /**
-     * Implementations of this function must add a line to the model with the provided data.
-     * @param _data new data item to store in a new row.
+     * Adds a line to the model with the provided data.
+     * The default implementation calls {@link Model.insertRow} with the row count.
+     * @param data new data item to store in a new row.
      */
-    pushRow(_data: T): void {
-        console.log(
-            "pushRow called on a model which does not re-implement this method. This happens when trying to modify a read-only model",
-        );
+    pushRow(data: T): void {
+        this.insertRow(this.rowCount(), data);
     }
 
     /**
@@ -257,14 +256,6 @@ export class ArrayModel<T> extends Model<T> {
     setRowData(row: number, data: T) {
         this.#array[row] = data;
         this.notifyRowDataChanged(row);
-    }
-
-    /**
-     * Add a new row to the array backing the model and notifies run-time about the added row.
-     * @param data new data item to store in a new row.
-     */
-    pushRow(data: T) {
-        this.push(data);
     }
 
     /**
