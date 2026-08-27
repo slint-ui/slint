@@ -51,10 +51,21 @@ impl VisualEditorSettings {
     pub(crate) fn visible_recent_projects(&self) -> Vec<ui::RecentProject> {
         self.recent_projects
             .iter()
-            .filter(|project| {
-                Path::new(&project.root).is_dir() && Path::new(&project.path).is_file()
+            .filter_map(|project| {
+                let root_path = Path::new(&project.root);
+                // TODO: This should use the name configured in the project file.
+                let project_name = root_path.file_name();
+                if let Some(project_name) = project_name
+                    && root_path.is_dir()
+                    && Path::new(&project.path).is_file()
+                {
+                    Some((slint::format!("{}", project_name.display()), project))
+                } else {
+                    None
+                }
             })
-            .map(|project| ui::RecentProject {
+            .map(|(name, project)| ui::RecentProject {
+                name,
                 root_path: project.root.clone().into(),
                 component: project.component.clone().into(),
                 path: project.path.clone().into(),
