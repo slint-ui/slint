@@ -5,7 +5,7 @@ import "./assets/Inter-VariableFont.ttf";
 
 import { Api, EditorSurfaceMode } from "api.slint";
 import { StartupWizard } from "startup-wizard.slint";
-import { AppState, SidebarToggleButton, StudioTheme } from "components/common.slint";
+import { AppState, PaletteComponentKind, SidebarToggleButton, StudioTheme } from "components/common.slint";
 import { DragPreview } from "components/drag-preview.slint";
 import { EditorCanvas } from "components/editor-canvas.slint";
 import { EditorTopBar } from "components/top-bar.slint";
@@ -87,8 +87,17 @@ export component EditorUi inherits Window {
                 self.shift-pressed = false;
             }
 
-            Rectangle {
-                background: StudioTheme.app-bg;
+            DropArea {
+                can-drop(event) => {
+                    if AppState.palette-drag-kind != PaletteComponentKind.none {
+                        AppState.update-palette-drag(AppState.palette-drag-kind, event.position);
+                    }
+                    return DragAction.none;
+                }
+
+                Rectangle {
+                    background: StudioTheme.app-bg;
+                }
 
                 VerticalLayout {
                     EditorTopBar { }

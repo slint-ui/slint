@@ -362,7 +362,7 @@ export component ComponentPaletteRow inherits Rectangle {
 export global AppState {
     in-out property <PaletteComponentKind> palette-drag-kind: PaletteComponentKind.none;
     in-out property <Point> palette-drag-preview-position: { x: 0px, y: 0px };
-    in-out property <Size> palette-drag-preview-size: { width: 96px, height: 48px };
+    in-out property <Size> palette-drag-size: { width: 96px, height: 48px };
     in-out property <bool> palette-drag-cancelled: false;
     in-out property <bool> outline-drag-active: false;
     in-out property <bool> outline-drag-cancelled: false;
@@ -375,7 +375,7 @@ export global AppState {
         return self.palette-drag-kind != PaletteComponentKind.none || self.outline-drag-active;
     }
 
-    pure function palette-preview-size(kind: PaletteComponentKind) -> Size {
+    pure function palette-drag-size-for-kind(kind: PaletteComponentKind) -> Size {
         if kind == PaletteComponentKind.rectangle {
             return { width: 160px, height: 64px };
         }
@@ -391,10 +391,10 @@ export global AppState {
     public function update-palette-drag(kind: PaletteComponentKind, window-position: Point) {
         if !self.palette-drag-cancelled {
             self.palette-drag-kind = kind;
-            self.palette-drag-preview-size = self.palette-preview-size(kind);
+            self.palette-drag-size = self.palette-drag-size-for-kind(kind);
             self.palette-drag-preview-position = {
-                x: window-position.x - self.palette-drag-preview-size.width / 2,
-                y: window-position.y - self.palette-drag-preview-size.height / 2,
+                x: window-position.x - self.palette-drag-size.width / 2,
+                y: window-position.y - self.palette-drag-size.height / 2,
             };
         }
     }

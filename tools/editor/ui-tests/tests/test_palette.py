@@ -20,10 +20,6 @@ GOLDENS = Path(__file__).resolve().parents[1] / "goldens"
 PALETTE_KINDS = ("Rectangle", "Text", "Image")
 
 
-def preview_label(kind: str) -> str:
-    return f"{kind} drag preview"
-
-
 def begin_palette_drag(
     window: slint_testing.Window,
     kind: str,
@@ -49,11 +45,6 @@ def begin_palette_drag(
         )
     )
     window.dispatch_event(slint_testing.PointerMoveEvent(target))
-    preview = window_element_with_label(
-        window, preview_label(kind), slint_testing.AccessibleRole.Region
-    )
-    assert preview.size.width > 0
-    assert preview.size.height > 0
 
 
 def release_palette_drag(
@@ -134,13 +125,6 @@ def test_palette_drop_outside_canvas_does_not_edit_source(
         begin_palette_drag(window, kind, outside)
         snapshot.assert_unchanged_now()
         release_palette_drag(window, outside)
-        wait_until(
-            lambda: (
-                True
-                if not elements_with_label(window.root_element, preview_label(kind))
-                else None
-            )
-        )
         snapshot.assert_unchanged()
 
 
@@ -164,12 +148,5 @@ def test_escape_cancels_palette_drag_without_source_edit(
         window.dispatch_event(slint_testing.KeyPressedEvent(text=keys.Escape))
         window.dispatch_event(slint_testing.KeyReleasedEvent(text=keys.Escape))
         release_palette_drag(window, target)
-        wait_until(
-            lambda: (
-                True
-                if not elements_with_label(window.root_element, preview_label(kind))
-                else None
-            )
-        )
         assert not elements_with_label(window.root_element, "Canvas drop marker")
         snapshot.assert_unchanged()

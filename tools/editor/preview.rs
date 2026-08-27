@@ -1588,7 +1588,7 @@ fn move_selected_element(x: f32, y: f32, mouse_x: f32, mouse_y: f32) {
 
     if let Some((edit, drop_data)) = drop_location::move_element_to(
         &document_cache,
-        selected_element_node,
+        selected_element_node.clone(),
         selected.instance_index,
         position,
         mouse_position,
@@ -1604,7 +1604,45 @@ fn move_selected_element(x: f32, y: f32, mouse_x: f32, mouse_y: f32) {
 
         send_workspace_edit("Move element".to_string(), edit, false);
     } else {
-        element_selection::reselect_element();
+        let Some(component_instance) = component_instance() else {
+            element_selection::reselect_element();
+            return;
+        };
+        let Some(parent_node) = selected_element_node.parent() else {
+            element_selection::reselect_element();
+            return;
+        };
+        let Some(element_size) = selected_element_node
+            .geometries(&component_instance)
+            .get(selected.instance_index)
+            .map(|geometry| geometry.rect.size)
+        else {
+            element_selection::reselect_element();
+            return;
+        };
+        let Some((parent_position, parent_angle)) = parent_node
+            .geometries(&component_instance)
+            .get(selected.instance_index)
+            .map(|geometry| (geometry.rect.origin, geometry.angle))
+        else {
+            element_selection::reselect_element();
+            return;
+        };
+        if parent_angle != 0.0 {
+            element_selection::reselect_element();
+            return;
+        }
+        let local_position =
+            LogicalPoint::new(position.x - parent_position.x, position.y - parent_position.y);
+        let Some((edit, label)) = resize_selected_element_impl(
+            &selected_element_node,
+            selected.instance_index,
+            LogicalRect::new(local_position, element_size),
+        ) else {
+            element_selection::reselect_element();
+            return;
+        };
+        send_workspace_edit(label, edit, true);
     }
 }
 
