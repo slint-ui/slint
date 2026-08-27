@@ -190,7 +190,7 @@ pub enum Clipboard {
 ///
 /// This are the implementation details for the function that may need to
 /// communicate with the eventloop from different thread
-pub trait EventLoopProxy: Send + Sync {
+pub trait EventLoopProxy: Send + Sync + core::any::Any {
     /// Exits the event loop.
     ///
     /// This is what is called by [`slint::quit_event_loop()`](crate::api::quit_event_loop)
@@ -224,7 +224,8 @@ static EVENTLOOP_PROXY: OnceCell<Box<dyn EventLoopProxy + 'static>> = OnceCell::
 static EVENTLOOP_PROXY: std::sync::Mutex<Option<Box<dyn EventLoopProxy + 'static>>> =
     std::sync::Mutex::new(None);
 
-pub(crate) fn with_event_loop_proxy<R>(f: impl FnOnce(Option<&dyn EventLoopProxy>) -> R) -> R {
+/// Runs something using the event loop proxy
+pub fn with_event_loop_proxy<R>(f: impl FnOnce(Option<&dyn EventLoopProxy>) -> R) -> R {
     #[cfg(not(target_os = "android"))]
     return f(EVENTLOOP_PROXY.get().map(core::ops::Deref::deref));
     #[cfg(target_os = "android")]
