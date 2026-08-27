@@ -247,6 +247,9 @@ pub struct StructFieldDoc {
     key: String,
     description: String,
     type_name: String,
+    /// The value the field takes when it isn't set, written in `.slint` syntax,
+    /// or `None` for the zero value of the field's type.
+    default_value: Option<String>,
 }
 
 pub struct StructDoc {
@@ -271,11 +274,13 @@ pub fn extract_builtin_structs(
                         key: "x".to_string(),
                         description: String::new(),
                         type_name: "length".to_string(),
+                        default_value: None,
                     },
                     StructFieldDoc {
                         key: "y".to_string(),
                         description: String::new(),
                         type_name: "length".to_string(),
+                        default_value: None,
                     },
                 ],
             },
@@ -289,11 +294,13 @@ pub fn extract_builtin_structs(
                         key: "width".to_string(),
                         description: String::new(),
                         type_name: "length".to_string(),
+                        default_value: None,
                     },
                     StructFieldDoc {
                         key: "height".to_string(),
                         description: String::new(),
                         type_name: "length".to_string(),
+                        default_value: None,
                     },
                 ],
             },
@@ -346,7 +353,10 @@ pub fn extract_builtin_structs(
                     $(
                         f_description += &format!("{}", $field_doc);
                     )*
-                    fields.push(StructFieldDoc { key, description: f_description, type_name });
+                    let default_value =
+                        i_slint_common::builtin_struct_field_default_tokens!($($field_default)?)
+                            .map(declared_default);
+                    fields.push(StructFieldDoc { key, description: f_description, type_name, default_value });
                 )*
                 structs.insert(name, StructDoc { description, fields });
             )*
@@ -391,6 +401,18 @@ fn type_href(
     Some(format!("/{page}/#{}", type_name.to_lowercase()))
 }
 
+/// The `.slint` form of a field default declared in builtin_structs.rs.
+fn declared_default(tokens: &str) -> String {
+    let text: String =
+        tokens.chars().filter(|c| !c.is_whitespace() && *c != '(' && *c != ')').collect();
+    match text.split_once("::") {
+        // Enum values are written in kebab case in .slint
+        Some((_, variant)) => to_kebab_case(variant.trim_start_matches("r#")),
+        // bool and number literals are written the same way
+        None => text,
+    }
+}
+
 /// The list entry documenting one field of a struct, with the field's type
 /// linked to its own documentation when it has any.
 fn struct_field_line(
@@ -401,7 +423,11 @@ fn struct_field_line(
     let name = &field.type_name;
     let type_name = type_href(name, enums, structs)
         .map_or_else(|| format!("_{name}_"), |href| format!("[_{name}_]({href})"));
-    format!("- **`{}`** ({}): {}", field.key, type_name, field.description)
+    let default_value = field
+        .default_value
+        .as_ref()
+        .map_or_else(String::new, |value| format!(" Defaults to `{value}`."));
+    format!("- **`{}`** ({}): {}{}", field.key, type_name, field.description, default_value)
 }
 
 fn write_individual_struct_files(
@@ -534,10 +560,22 @@ fn test_type_href() {
         key: "field".to_string(),
         description: "The docs".to_string(),
         type_name: "CapitalizationMode".to_string(),
+        default_value: None,
     };
     assert_eq!(
         struct_field_line(&field, &enums, &structs),
         "- **`field`** ([_CapitalizationMode_](/reference/property-types/builtin-enums/#capitalizationmode)): The docs"
+    );
+    // A declared default value is documented after the description.
+    let with_default = StructFieldDoc {
+        key: "field".to_string(),
+        description: "The docs".to_string(),
+        type_name: "CapitalizationMode".to_string(),
+        default_value: Some(declared_default("(CapitalizationMode::Sentences)")),
+    };
+    assert_eq!(
+        struct_field_line(&with_default, &enums, &structs),
+        "- **`field`** ([_CapitalizationMode_](/reference/property-types/builtin-enums/#capitalizationmode)): The docs Defaults to `sentences`."
     );
     let field = StructFieldDoc { type_name: "int".to_string(), ..field };
     assert_eq!(struct_field_line(&field, &enums, &structs), "- **`field`** (_int_): The docs");

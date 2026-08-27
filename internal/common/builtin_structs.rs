@@ -31,6 +31,8 @@ macro_rules! builtin_struct_field_default_tokens {
 /// (see [`builtin_struct_field_default_tokens!`](crate::builtin_struct_field_default_tokens))
 /// and fail their build on anything outside the supported subset.
 /// Fields without a default value default to the zero value of their type.
+/// The consumers that generate documentation render the declared value themselves,
+/// so don't mention it in the field's doc comment.
 ///
 /// ## Example
 /// ```rust
@@ -168,13 +170,10 @@ macro_rules! for_each_builtin_structs {
             #[non_exhaustive]
             pub struct InputMethodHints {
                 /// The auto-capitalization behavior that the input method should apply.
-                /// Defaults to sentences.
                 capitalization: CapitalizationMode = (CapitalizationMode::Sentences),
                 /// Hint that the input method may automatically correct spelling mistakes as the user types.
-                /// Defaults to true.
                 auto_correct: bool = true,
                 /// Hint that the input method may offer auto-completion suggestions for the entered text.
-                /// Defaults to true.
                 auto_complete: bool = true,
             }
 

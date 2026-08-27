@@ -56,7 +56,8 @@ fn map_default(ty: &str) -> &str {
 
 /// The Python form of a field default value declared in builtin_structs.rs
 fn declared_default(tokens: &str) -> String {
-    let text: String = tokens.chars().filter(|c| !c.is_whitespace()).collect();
+    let text: String =
+        tokens.chars().filter(|c| !c.is_whitespace() && *c != '(' && *c != ')').collect();
     match text.split_once("::") {
         // Enum members are named after the kebab-case value, with underscores
         Some((enum_name, variant)) => {
@@ -115,7 +116,12 @@ macro_rules! generate_builtin_structs_pyi {
                             .map(declared_default)
                             .unwrap_or_else(|| map_default(stringify!($field_type)).to_string());
                         writeln!(writer, "    {}: {} = {}", stringify!($field), field_type, default).unwrap();
-                        let field_doc_str = vec![$($field_doc),*].join("\n").trim().to_string();
+                        let mut field_doc_str = vec![$($field_doc),*].join("\n").trim().to_string();
+                        // The rendered documentation shows the annotation without the
+                        // default value, so document it in the docstring.
+                        if declared.is_some() {
+                            field_doc_str += &format!("\n\nDefaults to `{default}`.");
+                        }
                         if !field_doc_str.is_empty() {
                             writeln!(writer, "    \"\"\"").unwrap();
                             for line in field_doc_str.lines() {
