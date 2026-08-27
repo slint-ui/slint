@@ -425,8 +425,7 @@ fn take_pending_file_tree_preview(
     preview_state: &mut PreviewState,
     url: &Url,
 ) -> Option<PreviewComponent> {
-    if !preview_state.pending_file_tree_preview.as_ref().is_some_and(|pending| pending.url == *url)
-    {
+    if preview_state.pending_file_tree_preview.as_ref().is_none_or(|pending| pending.url != *url) {
         return None;
     }
     preview_state.pending_file_tree_preview.take()
