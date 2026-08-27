@@ -32,6 +32,8 @@ mod sparkle;
 mod windows;
 mod startup;
 
+use preview::settings::Project;
+
 fn main() -> Result<()> {
     tracing_subscriber::fmt()
         .with_writer(std::io::stderr)
@@ -57,7 +59,7 @@ fn main() -> Result<()> {
 
     let settings = startup::load_settings();
     if let Some(file) = cli.file {
-        let project = StartupProject::from_file(file, cli.component)?;
+        let project = Project::from_file(file, cli.component)?;
         start_editor_session(&editor_ui, project, settings);
     } else {
         let session_started = Rc::new(Cell::new(false));
@@ -132,41 +134,6 @@ struct Cli {
     component: Option<String>,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
-struct StartupProject {
-    root: PathBuf,
-    preview: PreviewComponent,
-}
-
-impl StartupProject {
-    fn from_file(path: impl AsRef<Path>, component: Option<String>) -> Result<Self> {
-        let path = std::fs::canonicalize(path.as_ref())?;
-        let root = path
-            .parent()
-            .ok_or_else(|| format!("Failed to determine project root for {}", path.display()))?;
-        Self::from_root(root, &path, component)
-    }
-
-    fn from_root(root: &Path, path: &Path, component: Option<String>) -> Result<Self> {
-        let root = std::fs::canonicalize(root)?;
-        if !root.is_dir() {
-            return Err(format!("{} is not a directory", root.display()).into());
-        }
-        let path = std::fs::canonicalize(path)?;
-        if !path.is_file()
-            || !path
-                .extension()
-                .and_then(|extension| extension.to_str())
-                .is_some_and(|extension| extension.eq_ignore_ascii_case("slint"))
-        {
-            return Err(format!("{} is not a Slint file", path.display()).into());
-        }
-        let url = Url::from_file_path(&path)
-            .map_err(|_| format!("Failed to convert {} to URL", path.display()))?;
-        Ok(Self { root, preview: PreviewComponent { url, component } })
-    }
-}
-
 fn select_backend() -> std::result::Result<(), slint::PlatformError> {
     let headless_requested = std::env::var("SLINT_BACKEND").is_ok_and(|backend| {
         i_slint_backend_selector::parse_backend_env_var(&backend.to_ascii_lowercase()).0
@@ -188,7 +155,7 @@ fn select_backend() -> std::result::Result<(), slint::PlatformError> {
 
 fn start_editor_session(
     editor_ui: &preview::ui::EditorUi,
-    project: StartupProject,
+    project: Project,
     settings: preview::settings::VisualEditorSettings,
 ) {
     let (to_lsp, from_preview) = crossbeam_channel::unbounded();
@@ -201,7 +168,7 @@ fn start_editor_session(
 
 fn start_lsp_thread(
     from_preview: crossbeam_channel::Receiver<PreviewToLspMessage>,
-    project: StartupProject,
+    project: Project,
 ) {
     std::thread::spawn(move || {
         let rt = tokio::runtime::Builder::new_current_thread()
@@ -235,7 +202,7 @@ fn bridge_crossbeam_to_tokio(
 
 async fn lsp_main(
     from_preview: crossbeam_channel::Receiver<PreviewToLspMessage>,
-    project: StartupProject,
+    project: Project,
 ) -> Result<()> {
     use editor_preview::document_cache::CompilerConfiguration;
 
@@ -523,51 +490,5 @@ fn handle_workspace_edit(
                 label.unwrap_or("(unnamed)")
             );
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use std::fs;
-
-    use super::*;
-
-    fn project_file(name: &str) -> (PathBuf, PathBuf) {
-        let root =
-            std::env::temp_dir().join(format!("slint-editor-main-{}-{name}", std::process::id()));
-        let _ = fs::remove_dir_all(&root);
-        fs::create_dir_all(root.join("ui")).unwrap();
-        let path = root.join("ui/main.slint");
-        fs::write(&path, "export component MainWindow inherits Window {}").unwrap();
-        (root, path)
-    }
-
-    #[test]
-    fn startup_project_from_file_uses_parent_as_root() {
-        let (root, path) = project_file("parent-root");
-
-        let project = StartupProject::from_file(&path, Some("MainWindow".into())).unwrap();
-
-        assert_eq!(project.root, std::fs::canonicalize(root.join("ui")).unwrap());
-        assert_eq!(
-            project.preview.url.to_file_path().unwrap(),
-            std::fs::canonicalize(path).unwrap()
-        );
-        assert_eq!(project.preview.component.as_deref(), Some("MainWindow"));
-        let _ = fs::remove_dir_all(root);
-    }
-
-    #[test]
-    fn startup_project_from_root_keeps_explicit_root() {
-        let (root, path) = project_file("explicit-root");
-
-        let project = StartupProject::from_root(&root, &path, None).unwrap();
-
-        assert_eq!(project.root, std::fs::canonicalize(&root).unwrap());
-        assert_eq!(
-            project.preview.url.to_file_path().unwrap(),
-            std::fs::canonicalize(path).unwrap()
-        );
-        let _ = fs::remove_dir_all(root);
     }
 }

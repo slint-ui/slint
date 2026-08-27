@@ -6,10 +6,9 @@ use std::rc::Rc;
 
 use slint::ComponentHandle;
 
-use crate::StartupProject;
 use crate::preview;
-use crate::preview::settings::{VisualEditorSettings, settings_FILE};
-use crate::preview::ui::{Api, EditorUi, Project};
+use crate::preview::settings::{Project, SETTINGS_FILE, VisualEditorSettings};
+use crate::preview::ui::{Api, EditorUi, Project as ProjectGlobal};
 
 #[cfg(not(target_arch = "wasm32"))]
 const NEW_PROJECT_NAME: &str = "Slint UI Project";
@@ -27,7 +26,7 @@ const NEW_PROJECT_MAIN_FILE_CONTENTS: &str = r#"export component MainWindow inhe
 "#;
 
 pub fn load_settings() -> VisualEditorSettings {
-    i_slint_editor_preview::settings_store::load(settings_FILE)
+    i_slint_editor_preview::settings_store::load(SETTINGS_FILE)
         .and_then(|contents| VisualEditorSettings::deserialize(&contents))
         .unwrap_or_default()
 }
@@ -35,12 +34,12 @@ pub fn load_settings() -> VisualEditorSettings {
 pub fn setup(
     editor_ui: &EditorUi,
     settings: &VisualEditorSettings,
-    start_project: Rc<dyn Fn(StartupProject) -> bool>,
+    start_project: Rc<dyn Fn(Project) -> bool>,
 ) {
     let api = editor_ui.global::<Api>();
     api.set_startup_wizard_visible(true);
 
-    let project = editor_ui.global::<Project>();
+    let project = editor_ui.global::<ProjectGlobal>();
     project.set_file_tree(Default::default());
     project.set_selected_project_file(Default::default());
     preview::apply_visible_recent_projects(editor_ui, settings);
@@ -52,7 +51,7 @@ pub fn setup(
         let Some(path) = choose_project_file(window) else {
             return false;
         };
-        match StartupProject::from_file(path, None) {
+        match Project::from_file(path, None) {
             Ok(project) => start_existing_project(project),
             Err(error) => {
                 tracing::warn!("Failed to open project: {error}");
@@ -77,7 +76,7 @@ pub fn setup(
             tracing::warn!("Failed to create project file {}: {error}", path.display());
             return false;
         }
-        match StartupProject::from_root(&root, &path, None) {
+        match Project::from_root(&root, &path, None) {
             Ok(project) => start_new_project(project),
             Err(error) => {
                 tracing::warn!("Failed to open new project: {error}");
@@ -93,7 +92,7 @@ pub fn setup(
         let path = PathBuf::from(recent_project.path.as_str());
         let component =
             (!recent_project.component.is_empty()).then(|| recent_project.component.to_string());
-        match StartupProject::from_root(&root, &path, component) {
+        match Project::from_root(&root, &path, component) {
             Ok(project) => start_project(project),
             Err(error) => {
                 tracing::warn!("Failed to open recent project: {error}");
