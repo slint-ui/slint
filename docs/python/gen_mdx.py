@@ -417,12 +417,15 @@ def render_class(
     if is_enum(cls):
         lines += ["## Values", ""]
         for m in members:
+            # The manifest points cross-references to a member at this anchor,
+            # so every value carries the id its `<XRef>` links to.
+            value = f'<span id="{m.name}">`{m.name}`</span>'
             if m.docstring:
                 lines.append(
-                    f"- **`{m.name}`** — {docstring_to_mdx(m.docstring.value, manifest)}"
+                    f"- **{value}** — {docstring_to_mdx(m.docstring.value, manifest)}"
                 )
             else:
-                lines.append(f"- **`{m.name}`**")
+                lines.append(f"- **{value}**")
         lines.append("")
         return "\n".join(lines)
 

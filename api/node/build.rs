@@ -181,8 +181,15 @@ fn generate_language_module() {
     for s in &structs {
         write_jsdoc(&mut ts, "    ", &s.docs);
         ts.push_str(&format!("    export type {name} = {{\n", name = s.name));
-        for (field, rust_ty, field_docs, _) in &s.fields {
-            write_jsdoc(&mut ts, "        ", field_docs);
+        for (field, rust_ty, field_docs, declared_default) in &s.fields {
+            let mut docs: Vec<String> = field_docs.iter().map(|s| s.to_string()).collect();
+            if let Some(declared) = declared_default {
+                docs.push(format!(
+                    " Defaults to `{}`.",
+                    field_default(rust_ty, Some(declared), &enum_defaults, &struct_names)
+                ));
+            }
+            write_jsdoc(&mut ts, "        ", &docs);
             ts.push_str(&format!(
                 "        {field}: {ts_ty};\n",
                 ts_ty = map_field_type(rust_ty, &in_language),

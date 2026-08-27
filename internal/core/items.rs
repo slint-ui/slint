@@ -2191,11 +2191,25 @@ macro_rules! builtin_struct_field_default {
     };
 }
 
+/// Expands to the documentation text of a builtin struct field's declared default value,
+/// dropping the parentheses that an enum value needs to be a single token tree.
+macro_rules! builtin_struct_field_default_doc {
+    (($($default:tt)*)) => {
+        builtin_struct_field_default_doc!($($default)*)
+    };
+    ($enum:ident :: $value:ident) => {
+        concat!(stringify!($enum), "::", stringify!($value))
+    };
+    ($default:literal) => {
+        stringify!($default)
+    };
+}
+
 macro_rules! declare_builtin_structs {
     ($(
         $(#[$struct_attr:meta])*
         $vis:vis struct $Name:ident {
-            $( $(#[$field_attr:meta])* $field:ident : $field_type:ident $(= $field_default:expr)?, )*
+            $( $(#[$field_attr:meta])* $field:ident : $field_type:ident $(= $field_default:tt)?, )*
         }
     )*) => {
         $(
@@ -2205,6 +2219,10 @@ macro_rules! declare_builtin_structs {
             pub struct $Name {
                 $(
                     $(#[$field_attr])*
+                    $(
+                        #[doc = ""]
+                        #[doc = concat!("Defaults to `", builtin_struct_field_default_doc!($field_default), "`.")]
+                    )?
                     pub $field : $field_type,
                 )*
             }
