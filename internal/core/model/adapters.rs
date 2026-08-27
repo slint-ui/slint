@@ -979,6 +979,10 @@ where
     }
 
     fn set_row_data(&self, row: usize, data: Self::Data) {
+        // The sort mapping is built lazily (unlike FilterModel's, built eagerly
+        // in `new`); build it here too, or a fresh SortModel that's never had
+        // its rows read yet would index into an empty mapping.
+        self.0.build_mapping_vec();
         let wrapped_row = self.0.mapping.borrow()[row];
         self.0.wrapped_model.set_row_data(wrapped_row, data);
     }

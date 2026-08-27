@@ -180,6 +180,8 @@ All notable changes to this project are documented in this file.
  - The component constructor now accepts property and callback names in both dash and underscore
    spelling. (#12882)
  - Published musl binaries, so `npm install slint-ui` works on Alpine Linux. (#12551)
+ - Added `FilterModel`, `SortModel`, and `ReverseModel`, and made `MapModel` public, along with
+   `Model.map`/`.filter`/`.sort`/`.reverse` shortcuts to create them.
 
 ### Python
 
