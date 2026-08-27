@@ -780,6 +780,10 @@ impl<T: ItemRenderer + ItemRendererFeatures> ItemRenderer for PartialRenderer<'_
         self.actual_renderer.apply_opacity(opacity)
     }
 
+    fn global_alpha_transparent(&self) -> bool {
+        self.actual_renderer.global_alpha_transparent()
+    }
+
     fn save_state(&mut self) {
         self.actual_renderer.save_state()
     }

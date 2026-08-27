@@ -513,6 +513,10 @@ impl<'a> SkiaItemRenderer<'a> {
 }
 
 impl ItemRenderer for SkiaItemRenderer<'_> {
+    fn global_alpha_transparent(&self) -> bool {
+        self.current_state.alpha == 0.0
+    }
+
     fn draw_rectangle(
         &mut self,
         rect: Pin<&dyn i_slint_core::item_rendering::RenderRectangle>,

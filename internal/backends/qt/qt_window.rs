@@ -1269,6 +1269,13 @@ impl ItemRenderer for QtItemRenderer<'_> {
             (*painter)->setOpacity((*painter)->opacity() * opacity);
         }}
     }
+
+    fn global_alpha_transparent(&self) -> bool {
+        let painter: &QPainterPtr = &self.painter;
+        cpp! { unsafe [painter as "const QPainterPtr*"] -> bool as "bool" {
+            return (*painter)->opacity() == 0;
+        }}
+    }
 }
 
 #[derive(Clone)]
