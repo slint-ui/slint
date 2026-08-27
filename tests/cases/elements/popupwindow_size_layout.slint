@@ -1,0 +1,221 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// cSpell: ignore textsize
+// Check that the layout sizes are correct and the popup window adapts to the layout size
+// For the TextInput the textsize must be determining using the scale factor so it is handled differently
+// than a normal rectangle
+
+import { Button, VerticalBox, HorizontalBox } from "std-widgets.slint";
+
+export global Properties {
+    in-out property <bool> popup-initialized: false;
+    in-out property <length> popup-width: -1px;
+    in-out property <length> popup-height: -1px;
+
+    in-out property <bool> button-in-popup-pressed: false;
+    in-out property <bool> button-top-visible: false;
+
+    in-out property <length> button-width: -1px;
+    in-out property <length> button-height: -1px;
+    in-out property <length> text-width: -1px;
+    in-out property <length> text-height: -1px;
+
+}
+export component TestCase {
+    in-out property <bool> show-buttons;
+
+    callback show_popup();
+    show_popup => {
+        popup.show();
+    }
+
+    width: 600px;
+    height: 400px;
+
+    popup := PopupWindow {
+
+        changed width => {
+            Properties.popup-width = self.width;
+        }
+
+        changed height => {
+            Properties.popup-height = self.height;
+        }
+
+        close-policy: PopupClosePolicy.no-auto-close;
+
+        init => {
+            Properties.popup-initialized = true;
+            Properties.popup-width = self.width;
+            Properties.popup-height = self.height;
+        }
+
+
+        VerticalBox {
+            padding: 9px;
+            spacing: 6px;
+            ti:= TextInput {
+                width: 100px;
+                text: "Hello";
+
+                init => {
+                    Properties.text-height = self.preferred-height;
+                    Properties.text-width = self.width;
+                }
+            }
+            if root.show-buttons : HorizontalBox {
+                padding: 9px;
+                spacing: 6px;
+                Button {
+                    text: "Button top";
+                    init => {
+                        Properties.button_top_visible = true;
+                    }
+                }
+
+                Button {
+                    text: "Button top";
+                }
+
+                Button {
+                    text: "Button bottom";
+                }
+            }
+
+            Button {
+                text: root.show-buttons ? "Hide Buttons" : "Show buttons";
+
+                init => {
+                    Properties.button-height = max(self.preferred-height, self.min-height);
+                    Properties.button-width = self.width;
+                }
+
+                clicked => {
+                    Properties.button-in-popup-pressed = true;
+                    root.show-buttons = true;
+                }
+            }
+        }
+    }
+}
+
+/*
+
+```rust
+use slint::*;
+
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.global::<Properties<'_>>().get_popup_height(), -1.);
+assert_eq!(instance.global::<Properties<'_>>().get_popup_initialized(), false);
+assert_eq!(instance.global::<Properties<'_>>().get_button_top_visible(), false);
+
+instance.invoke_show_popup();
+
+assert_eq!(instance.global::<Properties<'_>>().get_popup_initialized(), true);
+assert_eq!(instance.global::<Properties<'_>>().get_button_top_visible(), false);
+
+let padding = 9.;
+let spacing = 6.;
+let button_height = 32.;
+let text_height = 17.;
+assert_eq!(instance.global::<Properties<'_>>().get_text_height(), text_height);
+assert_eq!(instance.global::<Properties<'_>>().get_button_height(), button_height);
+assert_eq!(instance.global::<Properties<'_>>().get_popup_height(), padding + text_height + spacing + button_height + padding);
+
+let width = instance.global::<Properties<'_>>().get_button_width();
+assert_eq!(instance.global::<Properties<'_>>().get_popup_width(), padding + width + padding);
+
+let window = instance.window();
+let pressed_position = LogicalPosition::new(50., 40.);
+window.dispatch_event(platform::WindowEvent::PointerPressed { position: pressed_position, button: platform::PointerEventButton::Left });
+window.dispatch_event(platform::WindowEvent::PointerReleased { position: pressed_position, button: platform::PointerEventButton::Left });
+
+assert_eq!(instance.global::<Properties<'_>>().get_popup_initialized(), true);
+assert_eq!(instance.global::<Properties<'_>>().get_button_in_popup_pressed(), true);
+assert_eq!(instance.global::<Properties<'_>>().get_button_top_visible(), true);
+
+window.dispatch_event(platform::WindowEvent::PointerPressed { position: pressed_position, button: platform::PointerEventButton::Left }); // To trigger recalculation
+slint_testing::mock_elapsed_time(500);
+
+let horizontal_box_height = padding + button_height + padding;
+assert_eq!(instance.global::<Properties<'_>>().get_popup_height(), padding + text_height + spacing + horizontal_box_height + spacing + button_height + padding);
+
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+
+assert_eq(instance.global<Properties>().get_popup_height(), -1.);
+assert_eq(instance.global<Properties>().get_popup_initialized(), false);
+assert_eq(instance.global<Properties>().get_button_top_visible(), false);
+
+instance.invoke_show_popup();
+
+assert_eq(instance.global<Properties>().get_popup_initialized(), true);
+assert_eq(instance.global<Properties>().get_button_top_visible(), false);
+
+float padding = 9.f;
+float spacing = 6.f;
+float button_height = 32.f;
+float text_height = 17.f;
+assert_eq(instance.global<Properties>().get_text_height(), text_height);
+assert_eq(instance.global<Properties>().get_button_height(), button_height);
+assert_eq(instance.global<Properties>().get_popup_height(), padding + text_height + spacing + button_height + padding);
+
+float width = instance.global<Properties>().get_button_width();
+assert_eq(instance.global<Properties>().get_popup_width(), padding + width + padding);
+
+instance.window().dispatch_pointer_press_event(slint::LogicalPosition({50., 40.}), slint::PointerEventButton::Left);
+instance.window().dispatch_pointer_release_event(slint::LogicalPosition({50., 40.}), slint::PointerEventButton::Left);
+
+assert_eq(instance.global<Properties>().get_popup_initialized(), true);
+assert_eq(instance.global<Properties>().get_button_in_popup_pressed(), true);
+assert_eq(instance.global<Properties>().get_button_top_visible(), true);
+
+instance.window().dispatch_pointer_press_event(slint::LogicalPosition({50., 40.}), slint::PointerEventButton::Left); // To trigger recalculation
+slint_testing::mock_elapsed_time(500);
+
+float horizontal_box_height = padding + button_height + padding;
+assert_eq(instance.global<Properties>().get_popup_height(), padding + text_height + spacing + horizontal_box_height + spacing + button_height + padding);
+
+```
+
+```js
+var instance = new slint.TestCase({});
+assert.equal(instance.Properties.popup_height, -1);
+assert.equal(instance.Properties.popup_initialized, false);
+assert.equal(instance.Properties.button_top_visible, false);
+
+instance.show_popup();
+
+assert.equal(instance.Properties.popup_initialized, true);
+assert.equal(instance.Properties.button_top_visible, false);
+
+var padding = 9;
+var spacing = 6;
+var button_height = 32;
+var text_height = instance.Properties.text_height;
+assert(text_height > 0);
+assert.equal(instance.Properties.button_height, button_height);
+assert.equal(instance.Properties.popup_height, padding + text_height + spacing + button_height + padding);
+
+var width = instance.Properties.button_width;
+assert.equal(instance.Properties.popup_width, padding + width + padding);
+
+slintlib.private_api.send_mouse_click(instance, 50., 40.);
+
+assert.equal(instance.Properties.popup_initialized, true);
+assert.equal(instance.Properties.button_in_popup_pressed, true);
+assert.equal(instance.Properties.button_top_visible, true);
+
+slintlib.private_api.send_mouse_click(instance, 50., 40.); // To trigger recalculation
+slintlib.private_api.mock_elapsed_time(500);
+
+var horizontal_box_height = padding + button_height + padding;
+assert.equal(instance.Properties.popup_height, padding + text_height + spacing + horizontal_box_height + spacing + button_height + padding);
+
+```
+
+*/

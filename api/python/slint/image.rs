@@ -1,19 +1,17 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore matplotlib
 use pyo3::prelude::*;
-use pyo3_stub_gen::{derive::gen_stub_pyclass, derive::gen_stub_pymethods};
 use slint_interpreter::SharedPixelBuffer;
 
 /// Image objects can be set on Slint Image elements for display. Use `Image.load_from_path` to construct Image
 /// objects from a path to an image file on disk.
-#[gen_stub_pyclass]
 #[pyclass(unsendable, name = "Image")]
 pub struct PyImage {
     pub image: slint_interpreter::Image,
 }
 
-#[gen_stub_pymethods]
 #[pymethods]
 impl PyImage {
     #[new]
@@ -62,7 +60,7 @@ impl PyImage {
     /// Creates a new image from an array-like object that implements the [Buffer Protocol](https://docs.python.org/3/c-api/buffer.html).
     /// Use this function to import images created by third-party modules such as matplotlib or Pillow.
     ///
-    /// The array must satisfy certain contraints to represent an image:
+    /// The array must satisfy certain constraints to represent an image:
     ///
     ///  - The buffer's format needs to be `B` (unsigned char)
     ///  - The shape must be a tuple of (height, width, bytes-per-pixel)

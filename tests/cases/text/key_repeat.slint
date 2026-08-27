@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-TestCase := Window {
+export component TestCase inherits Window {
     width: 100phx;
     height: 100phx;
     ti := FocusScope {
@@ -17,9 +17,9 @@ TestCase := Window {
         }
     }
 
-    property <bool> input_focused: ti.has_focus;
-    property <bool> pressed;
-    property <bool> repeat;
+    in-out property <bool> input_focused: ti.has_focus;
+    in-out property <bool> pressed;
+    in-out property <bool> repeat;
 }
 
 /*

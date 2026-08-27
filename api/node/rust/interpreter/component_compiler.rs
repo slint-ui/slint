@@ -111,11 +111,11 @@ impl JsComponentCompiler {
                     let name = s.name.slint_name().unwrap();
                     let struct_instance = crate::to_js_unknown(
                         env,
-                        &Value::Struct(slint_interpreter::Struct::from_iter(s.fields.iter().map(
-                            |(name, field_type)| {
+                        &Value::Struct(slint_interpreter::Struct::from_iter(s.fields.keys().map(
+                            |name| {
                                 (
                                     name.to_string(),
-                                    slint_interpreter::default_value_for_type(field_type),
+                                    slint_interpreter::default_value_for_struct_field(s, name),
                                 )
                             },
                         ))),
@@ -161,14 +161,14 @@ impl JsComponentCompiler {
     pub fn set_file_loader(
         &mut self,
         env: &Env,
-        callback: crate::DynFunction<'_>,
+        #[napi(ts_arg_type = "(path: string) => string")] callback: crate::DynFunction<'_>,
     ) -> napi::Result<()> {
-        let stored_fn = std::rc::Rc::new(crate::StoredFunction::new(&callback)?);
+        let func_ref = std::rc::Rc::new(callback.create_ref()?);
         let env = *env;
 
         self.internal.set_file_loader(move |path| {
             let path = PathBuf::from(path);
-            let stored_fn = stored_fn.clone();
+            let func_ref = func_ref.clone();
             Box::pin({
                 async move {
                     let Ok(path_str) = env.create_string(path.display().to_string().as_str())
@@ -178,7 +178,10 @@ impl JsComponentCompiler {
                         )));
                     };
 
-                    let Ok(result) = stored_fn.call(&env, vec![path_str.raw()]) else {
+                    let Ok(result) = func_ref
+                        .borrow_back(&env)
+                        .and_then(|f| f.call(crate::DynArgs(vec![path_str.raw()])))
+                    else {
                         return Some(Err(std::io::Error::other(
                             "Node.js: file loader callback failed.",
                         )));

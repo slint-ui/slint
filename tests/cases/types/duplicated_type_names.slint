@@ -1,0 +1,39 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Two imported files declare an enum and a struct with the same names (SharedEnum, SharedStruct)
+// but different members. The generated code must keep them distinct, otherwise a member of one
+// resolves to the other. #6880 #9358
+// Python is ignored because include paths aren't forwarded in the generated stubs.
+//ignore: pyi
+//include_path: ../../helper_components
+import { DupUserA, SharedStruct } from "duplicated_type_name_a.slint";
+import { DupUserB } from "duplicated_type_name_b.slint";
+
+export component TestCase {
+    a := DupUserA { pick: 1; }
+    b := DupUserB { pick: 2; }
+    // A public property keeps the surviving collision type under its real name (SharedStruct).
+    out property <SharedStruct> sa: a.the-struct;
+    out property <bool> test: a.result == 21 && b.result == 32 && b.struct-ok && sa.a-value == 7;
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+assert(handle->get_test());
+// The surviving collision type keeps its real name and is public.
+assert(handle->get_sa().a_value == 7);
+(void)SharedEnum::AaFirst;
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+// The surviving collision type keeps its real name and is public.
+assert_eq!(instance.get_sa().a_value, 7);
+// SharedEnum is only used on private properties, so it is deprecated in the public API.
+#[expect(deprecated)]
+let _ = SharedEnum::AaFirst;
+```
+*/

@@ -1,0 +1,69 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// The expression forms outside the Slint SC subset are rejected; the literals
+// and property references they contain are accepted.
+
+export component Test inherits Window {
+    property <int> a: 42;
+    // binary expressions and identifier references
+    property <int> b: a + 1;
+    // comparison
+    property <bool> c: a > 0;
+    // conditional (ternary)
+    property <int> d: c ? 1 : 0;
+    // string literals
+    property <string> e: "hello";
+//            >    <error{The type 'string' is not supported in Slint SC}
+//                       >     <^error{String literals are not supported in Slint SC}
+    // string interpolation
+    property <string> f: "val: \{a}";
+//            >    <error{The type 'string' is not supported in Slint SC}
+//                       >         <^error{String interpolation expressions are not supported in Slint SC}
+    // color literals
+    property <color> g: #ff0000;
+    // unary expressions
+    property <int> h: -a;
+    // @image-url of a file on disk, and of nothing, are accepted
+    property <image> i: @image-url("image_2x2.png");
+    property <image> i2: @image-url("");
+    // @image-url of anything but a file on disk is rejected
+    //#sls.expr.image.path-only
+    property <image> i3: @image-url("data:image/png;base64,iVBORw0KGgo=");
+//                       >                                              <error{Data URIs in @image-url() are not supported in Slint SC}
+    property <image> i4: @image-url("https://slint.dev/logo/slint-logo.png");
+//                       >                                                 <error{URLs in @image-url() are not supported in Slint SC}
+    // nine-slice borders are rejected
+    //#sls.expr.image.no-nine-slice
+    property <image> i5: @image-url("image_2x2.png", nine-slice(1 2 3 4));
+//                       >                                              <error{Nine-slice borders in @image-url() are not supported in Slint SC}
+    // @tr
+    property <string> j: @tr("hello");
+//            >    <error{The type 'string' is not supported in Slint SC}
+//                       >          <^error{@tr() expressions are not supported in Slint SC}
+    // @gradient
+    property <brush> k: @linear-gradient(0deg, red, blue);
+//            >   <error{The type 'brush' is not supported in Slint SC}
+//                      >                               <^error{@gradient expressions are not supported in Slint SC}
+//                                       >  <^^error{Number literals with the unit 'deg' are not supported in Slint SC}
+//                                             > <^^^error{Unknown unqualified identifier 'red'}
+//                                                  >  <^^^^error{Unknown unqualified identifier 'blue'}
+    // array expression
+    property <[int]> l: [1, 2, 3];
+//            >   <error{Array types are not supported in Slint SC}
+//                      >       <^error{Array expressions are not supported in Slint SC}
+    // object literal
+    property <{x: int, y: int}> m: { x: 1, y: 2 };
+//            >              <error{Inline struct types are not supported in Slint SC}
+    // member access
+    property <int> n: m.x;
+    // self-assignment (via callback handler context)
+    // index expression
+    property <int> o: l[0];
+//                    >  <error{Index expressions are not supported in Slint SC}
+    // function call
+    property <int> p: Math.max(1, 2);
+//                    >      <error{Cannot access id 'Math'}
+    // code block
+    property <int> q: { 42 };
+}

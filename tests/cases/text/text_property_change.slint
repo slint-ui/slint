@@ -3,13 +3,13 @@
 
 // Test that the
 
-global SomeGlobal := {
-    property <string> intermediate_alias <=> intermediate_prop;
-    property <string> intermediate_prop;
-    property <string> text: intermediate_prop;
+global SomeGlobal  {
+    in-out property <string> intermediate_alias <=> root.intermediate_prop;
+    in-out property <string> intermediate_prop;
+    in-out property <string> text: root.intermediate_prop;
 }
 
-TestCase := Window {
+export component TestCase inherits Window {
     width: 100phx;
     height: 100phx;
     VerticalLayout {
@@ -17,8 +17,8 @@ TestCase := Window {
         spacing: 0;
         ti := TextInput {
             property <string> foo <=> SomeGlobal.intermediate_alias;
-            text <=> foo;
-            property <bool> bar <=> has_focus;
+            text <=> self.foo;
+            property <bool> bar <=> self.has_focus;
 
         }
         t := Text {
@@ -27,8 +27,8 @@ TestCase := Window {
         Rectangle { }
     }
 
-    property <string> text <=> t.text;
-    property <bool> input_focused: ti.bar;
+    in-out property <string> text <=> t.text;
+    in-out property <bool> input_focused: ti.bar;
 }
 
 /*

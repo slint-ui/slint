@@ -7,10 +7,6 @@
 
 namespace slint::cbindgen_private {
 struct PropertyAnimation;
-struct ChangeTracker
-{
-    void *inner;
-};
 }
 
 #include "private/slint_properties_internal.h"
@@ -76,7 +72,7 @@ struct Property
 
     void set(const T &value) const
     {
-        if ((inner._0 & 0b10) == 0b10 || this->value != value) {
+        if ((reinterpret_cast<uintptr_t>(inner._0) & 0b10) == 0b10 || this->value != value) {
             this->value = value;
             cbindgen_private::slint_property_set_changed(&inner, &this->value);
         }
@@ -138,7 +134,7 @@ struct Property
     {
         auto value = p2->get();
         cbindgen_private::PropertyHandleOpaque handle {};
-        if ((p2->inner._0 & 0b10) == 0b10) {
+        if ((reinterpret_cast<uintptr_t>(p2->inner._0) & 0b10) == 0b10) {
             std::swap(handle, const_cast<Property<T> *>(p2)->inner);
         }
         auto common_property = std::make_shared<Property<T>>(handle, std::move(value));
@@ -161,7 +157,7 @@ struct Property
 
         auto value = prop1->get();
         cbindgen_private::PropertyHandleOpaque handle {};
-        if ((prop1->inner._0 & 0b10) == 0b10) {
+        if ((reinterpret_cast<uintptr_t>(prop1->inner._0) & 0b10) == 0b10) {
             std::swap(handle, const_cast<Property<T> *>(prop1)->inner);
         }
         auto common_property = std::make_shared<Property<T>>(handle, std::move(value));
@@ -311,7 +307,9 @@ template<>
 inline void Property<int32_t>::set_animated_value(
         const int32_t &new_value, const cbindgen_private::PropertyAnimation &animation_data) const
 {
-    cbindgen_private::slint_property_set_animated_value_int(&inner, value, new_value,
+    // Use get() (not the raw cached value) so the from-value reflects the binding's
+    // current value even if the binding was never evaluated yet (e.g. set in `init`).
+    cbindgen_private::slint_property_set_animated_value_int(&inner, get(), new_value,
                                                             &animation_data);
 }
 
@@ -320,7 +318,7 @@ inline void
 Property<float>::set_animated_value(const float &new_value,
                                     const cbindgen_private::PropertyAnimation &animation_data) const
 {
-    cbindgen_private::slint_property_set_animated_value_float(&inner, value, new_value,
+    cbindgen_private::slint_property_set_animated_value_float(&inner, get(), new_value,
                                                               &animation_data);
 }
 
@@ -329,7 +327,7 @@ inline void
 Property<Color>::set_animated_value(const Color &new_value,
                                     const cbindgen_private::PropertyAnimation &animation_data) const
 {
-    cbindgen_private::slint_property_set_animated_value_color(&inner, value, new_value,
+    cbindgen_private::slint_property_set_animated_value_color(&inner, get(), new_value,
                                                               &animation_data);
 }
 
@@ -340,6 +338,14 @@ void set_state_binding(const Property<StateInfo> &property, F binding)
             &property.inner,
             [](void *user_data) -> int32_t { return (*reinterpret_cast<F *>(user_data))(); },
             new F(binding), [](void *user_data) { delete reinterpret_cast<F *>(user_data); });
+}
+
+/// \private
+/// Returns true if a binding or a PropertyTracker is currently being evaluated, so that
+/// property accesses register dependencies. Mirrors i_slint_core's is_currently_tracking.
+inline bool is_currently_tracking()
+{
+    return cbindgen_private::slint_property_is_currently_tracking();
 }
 
 /// PropertyTracker allows keeping track of when properties change and lazily evaluate code
@@ -458,7 +464,7 @@ struct ChangeTracker
     }
 
 private:
-    cbindgen_private::ChangeTracker inner;
+    cbindgen_private::ChangeTrackerOpaque inner;
 };
 
 } // namespace slint::private_api

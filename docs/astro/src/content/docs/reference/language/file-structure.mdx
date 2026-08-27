@@ -1,0 +1,109 @@
+---
+title: File Structure
+description: Top-level structure of a Slint source file and the basic form of component definitions.
+SC: true
+---
+
+import SC from '@slint/common-files/src/components/SC.astro';
+import OnlyInSC from '@slint/common-files/src/components/OnlyInSC.astro';
+
+<SC>
+## A Slint Source File
+
+A `.slint` source file is a sequence of zero or more *top-level items*, separated only by whitespace and comments. \{#sls.file.source-file}
+
+A source file that contains only whitespace and comments is well-formed and defines no components. \{#sls.file.source-file.empty}
+
+## Top-Level Items
+
+<OnlyInSC>
+A *top-level item* is a *component definition*, a [struct or enum declaration](../structs-and-enums/),
+an [import statement](../imports/), or an [export statement](../exports/). \{#sls.file.top-level-item}
+</OnlyInSC>
+</SC>
+
+A *top-level item* is a component definition, an [import statement](../imports/), an [export statement](../exports/),
+a [struct or enum declaration](../structs-and-enums/), or a [global declaration](../globals/).
+
+<SC>
+## Component Definitions
+
+A component definition has one of the following two forms: \{#sls.file.component.definition-forms}
+
+```slint no-test
+component Name { /* component body */ }
+component Name inherits Base { /* component body */ }
+```
+
+The identifier following the `component` keyword is the *name* of the component. \{#sls.file.component.name}
+
+The first form defines a component with no explicit base;
+the second form defines a component that *inherits* from the element type named by `Base`. \{#sls.file.component.inherits}
+
+A component that inherits extends its base:
+an instance of the component is an element of type `Base`. \{#sls.file.component.inherits.meaning}
+
+The [bindings](../bindings/) of the component body apply to that element,
+and the elements instantiated in the component body become children of the element. \{#sls.file.component.inherits.body-applies}
+
+The component has the properties of `Base` in addition to those [declared](../properties/) in its body,
+and a binding in the component body may bind them. \{#sls.file.component.inherits.properties}
+
+The identifier `Base` shall resolve to a built-in element, to a component defined earlier in the file, or to an [imported](../imports/) component. \{#sls.file.component.inherits.base}
+
+The braces `{` and `}` delimit the *component body*. \{#sls.file.component.body-braces}
+
+## Component Bodies
+
+A component body is a sequence of zero or more *element instantiations*, [bindings](../bindings/), and [property declarations](../properties/), separated only by whitespace and comments. \{#sls.file.component.body}
+
+A component body that contains no element instantiations is well-formed. \{#sls.file.component.body.empty}
+
+## Element Instantiations
+
+An element instantiation has the form: \{#sls.file.element.instantiation-form}
+
+```slint no-test
+TypeName { /* element body */ }
+```
+
+The identifier `TypeName` shall resolve to a built-in or user-defined component. \{#sls.file.element.instantiation-typename}
+
+An instantiation may be preceded by an *id* and `:=`, as in `foo := Rectangle { }`,
+naming the element within the component,
+so that a [reference](../expressions/#references) can reach its properties. \{#sls.file.element.id}
+
+An id shall be unique within the component. \{#sls.file.element.id.unique}
+
+The names `self`, `parent`, and `root` are reserved and shall not be used as an id. \{#sls.file.element.id.reserved}
+
+<OnlyInSC>
+Neither `Window` nor a component that directly or indirectly inherits `Window` shall be instantiated as an element. \{#sls.file.element.no-window-instantiation}
+</OnlyInSC>
+</SC>
+
+Instantiating `Window`, or a component that inherits `Window`, as an element is deprecated:
+it does not create a separate window.
+
+<SC>
+The braces delimit the *element body*.
+An element body is a sequence of zero or more nested element instantiations and [bindings](../bindings/), separated only by whitespace and comments. \{#sls.file.element.body}
+
+A nested element instantiation is a *child* of the element instantiation in whose body it appears.
+The child relationship forms a tree rooted at the elements that appear directly in a component body. \{#sls.file.element.tree}
+
+## Example
+
+The following is a complete, well-formed `.slint` source file: \{#sls.file.example.intro}
+
+```slint
+export component Hello inherits Window {
+    Rectangle {
+    }
+    Rectangle {
+    }
+}
+```
+
+It exports one component, `Hello`, which inherits from `Window` and whose body contains two top-level `Rectangle` instantiations. \{#sls.file.example.description}
+</SC>

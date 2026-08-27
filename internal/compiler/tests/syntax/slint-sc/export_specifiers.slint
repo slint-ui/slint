@@ -1,0 +1,13 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// An export list exports names already defined in the file. Each bare name,
+// and each name on the left of `as`, must refer to a name defined in the file.
+
+component Foo inherits Window { }
+
+export { Foo }
+
+//#sls.export.left-must-exist
+export { DoesNotExist }
+//       >          <error{'DoesNotExist' not found}

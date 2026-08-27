@@ -59,11 +59,10 @@ export component Button {
                 width: root.icon-size;
                 min-height: root.icon-size;
                 colorize: root.colorize-icon ? root.text-color : transparent;
+                accessible-role: none;
             }
 
             if (root.text != ""): Text {
-                font-size: CosmicFontSettings.body.font-size;
-                font-weight: CosmicFontSettings.body.font-weight;
                 horizontal-alignment: center;
                 vertical-alignment: center;
                 text: root.text;

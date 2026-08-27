@@ -33,7 +33,7 @@ export const footerData = {
         {
             ariaLabel: "Github",
             icon: "tabler:brand-github",
-            href: "https://github.com/slint-ui/material-components",
+            href: "https://github.com/slint-ui/slint/tree/master/ui-libraries/material",
         },
         {
             ariaLabel: "X",

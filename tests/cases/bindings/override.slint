@@ -1,26 +1,27 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-Compo := Text {
-    property <int> prop_a: 10;
-    property <int> prop_b;
+component Compo inherits Text {
+    in-out property <int> prop_a: 10;
+    in-out property <int> prop_b;
     prop_b: 20;
     text: "hello";
 }
 
-TestCase := Rectangle {
-    property <string> text: "ignore_me";
+export component TestCase inherits Rectangle {
+    in-out property <string> text: "ignore_me";
     c := Compo {
+        x:0;y:0;
         prop_a: 1;
         prop_b: 2;
         text: "world";
     }
 
-    property<int> prop_a: c.prop_a;
-    property<int> prop_b: c.prop_b;
-    property<string> prop_text: c.text;
+    in-out property<int> prop_a: c.prop_a;
+    in-out property<int> prop_b: c.prop_b;
+    in-out property<string> prop_text: c.text;
 
-    property<bool> test: prop_a == 1 && prop_b == 2 && prop_text == "world";
+    in-out property<bool> test: prop_a == 1 && prop_b == 2 && prop_text == "world";
 }
 
 /*

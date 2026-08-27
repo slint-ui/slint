@@ -1,7 +1,9 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-use slint::platform::software_renderer::{MinimalSoftwareWindow, Rgb565Pixel, TargetPixel};
+use slint::platform::software_renderer::{
+    MinimalSoftwareWindow, Rgb565BigEndianPixel, Rgb565Pixel, TargetPixel,
+};
 use slint::platform::{PlatformError, WindowAdapter};
 use std::rc::Rc;
 
@@ -60,7 +62,7 @@ fn do_rendering(
 }
 
 #[divan::bench(
-    types = [Rgb565Pixel, slint::Rgb8Pixel],
+    types = [Rgb565Pixel, Rgb565BigEndianPixel, slint::Rgb8Pixel],
     args = [RenderMode::LineByLine, RenderMode::FullBuffer]
 )]
 fn render_only<T: TargetPixel + Default>(bencher: divan::Bencher, mode: RenderMode) {
@@ -82,7 +84,7 @@ fn render_only<T: TargetPixel + Default>(bencher: divan::Bencher, mode: RenderMo
     });
 }
 
-#[divan::bench(types = [Rgb565Pixel, slint::Rgb8Pixel])]
+#[divan::bench(types = [Rgb565Pixel, Rgb565BigEndianPixel, slint::Rgb8Pixel])]
 fn full<T: TargetPixel + Default>(bencher: divan::Bencher) {
     let _ = slint::platform::set_platform(Box::new(BenchPlatform));
     let mut buffer = vec![T::default(); (480 * 320) as usize];

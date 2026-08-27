@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
+// cSpell: ignore mediump
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
 

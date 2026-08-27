@@ -7,7 +7,8 @@
 //! in the calling expression
 
 use crate::expression_tree::{BuiltinFunction, ImageReference};
-use crate::llr::{CompilationUnit, EvaluationContext, Expression};
+use crate::langtype::Type;
+use crate::llr::{CompilationUnit, ContextMap, EvaluationContext, Expression};
 
 const PROPERTY_ACCESS_COST: isize = 1000;
 const ALLOC_COST: isize = 700;
@@ -63,6 +64,7 @@ fn expression_cost(exp: &Expression, ctx: &EvaluationContext) -> isize {
         Expression::Array { .. } => return isize::MAX,
         Expression::Struct { .. } => 1,
         Expression::EasingCurve(_) => 1,
+        Expression::MouseCursor(_) => 1,
         Expression::LinearGradient { .. } => ALLOC_COST,
         Expression::RadialGradient { .. } => ALLOC_COST,
         Expression::ConicGradient { .. } => ALLOC_COST,
@@ -71,11 +73,19 @@ fn expression_cost(exp: &Expression, ctx: &EvaluationContext) -> isize {
         Expression::GridRepeaterCacheAccess { .. } => PROPERTY_ACCESS_COST,
         Expression::WithLayoutItemInfo { .. } => return isize::MAX,
         Expression::WithFlexboxLayoutItemInfo { .. } => return isize::MAX,
+        Expression::SolveFlexboxLayoutWithMeasure { .. } => return isize::MAX,
+        Expression::BoxLayoutInfoOrthoWithMeasure { .. } => return isize::MAX,
+        Expression::FlexboxLayoutInfoCrossAxisWithMeasure { .. } => return isize::MAX,
         Expression::WithGridInputData { .. } => return isize::MAX,
         Expression::MinMax { .. } => 10,
         Expression::EmptyComponentFactory => 10,
         Expression::EmptyDataTransfer => 10,
         Expression::TranslationReference { .. } => PROPERTY_ACCESS_COST + 2 * ALLOC_COST,
+        // The body cost is added by the visit() walk below; returning the body
+        // cost here would double-count it.
+        Expression::Closure { .. } => 0,
+        // Don't inline: that could duplicate or relocate the hook.
+        Expression::DebugHook { .. } => return isize::MAX,
     };
 
     exp.visit(|e| cost = cost.saturating_add(expression_cost(e, ctx)));
@@ -93,6 +103,7 @@ fn builtin_function_cost(function: &BuiltinFunction) -> isize {
         BuiltinFunction::GetWindowScaleFactor => PROPERTY_ACCESS_COST,
         BuiltinFunction::GetWindowDefaultFontSize => PROPERTY_ACCESS_COST,
         BuiltinFunction::AnimationTick => PROPERTY_ACCESS_COST,
+        BuiltinFunction::DecimalSeparator => PROPERTY_ACCESS_COST,
         BuiltinFunction::Debug => isize::MAX,
         BuiltinFunction::Mod => 10,
         BuiltinFunction::Round => 10,
@@ -113,6 +124,7 @@ fn builtin_function_cost(function: &BuiltinFunction) -> isize {
         BuiltinFunction::Exp => 10,
         BuiltinFunction::ToFixed => ALLOC_COST,
         BuiltinFunction::ToPrecision => ALLOC_COST,
+        BuiltinFunction::ToStringUnlocalized => ALLOC_COST,
         BuiltinFunction::SetFocusItem | BuiltinFunction::ClearFocusItem => isize::MAX,
         BuiltinFunction::ShowPopupWindow
         | BuiltinFunction::ClosePopupWindow
@@ -124,7 +136,9 @@ fn builtin_function_cost(function: &BuiltinFunction) -> isize {
         BuiltinFunction::StringIsFloat => 50,
         BuiltinFunction::StringIsEmpty => 50,
         BuiltinFunction::StringCharacterCount => 50,
+        BuiltinFunction::StringStartsWith | BuiltinFunction::StringEndsWith => 50,
         BuiltinFunction::StringToLowercase | BuiltinFunction::StringToUppercase => ALLOC_COST,
+        BuiltinFunction::StringReplaceAll => ALLOC_COST,
         BuiltinFunction::KeysToString => ALLOC_COST,
         BuiltinFunction::ColorRgbaStruct => 50,
         BuiltinFunction::ColorHsvaStruct => 50,
@@ -136,6 +150,9 @@ fn builtin_function_cost(function: &BuiltinFunction) -> isize {
         BuiltinFunction::ColorWithAlpha => 50,
         BuiltinFunction::ImageSize => 50,
         BuiltinFunction::ArrayLength => 50,
+        BuiltinFunction::ArrayPush
+        | BuiltinFunction::ArrayRemove
+        | BuiltinFunction::ArrayInsert => ALLOC_COST,
         BuiltinFunction::Rgb => 50,
         BuiltinFunction::Hsv => 50,
         BuiltinFunction::Oklch => 50,
@@ -166,25 +183,85 @@ fn builtin_function_cost(function: &BuiltinFunction) -> isize {
         BuiltinFunction::RestartTimer => 10,
         BuiltinFunction::ParseMarkdown => isize::MAX,
         BuiltinFunction::StringToStyledText => ALLOC_COST,
+        BuiltinFunction::ColorToStyledText => ALLOC_COST,
         BuiltinFunction::OpenUrl => isize::MAX,
+        BuiltinFunction::MacosBringAllWindowsToFront => isize::MAX,
+        BuiltinFunction::PathPointAt => isize::MAX,
+        BuiltinFunction::PathAngleAt => isize::MAX,
+        // Iterating the model and running the closure is unbounded; never inline.
+        BuiltinFunction::ArrayAny | BuiltinFunction::ArrayAll | BuiltinFunction::ArrayFindIndex => {
+            isize::MAX
+        }
     }
 }
 
 pub fn inline_simple_expressions(root: &CompilationUnit) {
+    // Counter to give each inlined function's argument locals a unique name.
+    let mut counter = 0usize;
     root.for_each_expression(&mut |e, ctx| {
-        inline_simple_expressions_in_expression(&mut e.borrow_mut(), ctx)
+        inline_simple_expressions_in_expression(&mut e.borrow_mut(), ctx, &mut counter)
     })
 }
 
-fn inline_simple_expressions_in_expression(expr: &mut Expression, ctx: &EvaluationContext) {
+fn inline_simple_expressions_in_expression(
+    expr: &mut Expression,
+    ctx: &EvaluationContext,
+    counter: &mut usize,
+) {
+    // Inline a call to a function that is called exactly once: move its body to the call site.
+    if let Expression::FunctionCall { function, .. } = expr {
+        let inline_target = ctx.function_info(function).and_then(|(f, map)| {
+            if f.use_count.get() != 1 || !body_is_inline_safe(&f.code.borrow(), &map) {
+                return None;
+            }
+            f.use_count.set(0);
+            // count_property_use counts the body in the function's context; re-home the use
+            // counts to the call site, where a reference can resolve to a parent-set binding
+            // (e.g. `height: 100%`) that is invisible in the function and so under-counted.
+            adjust_use_count(&f.code.borrow(), &map.map_context(ctx), -1);
+            // Take the body out so it isn't also inlined in place when
+            // `for_each_expression` reaches it, which would double-count uses.
+            let body = f.code.replace(Expression::CodeBlock(Vec::new()));
+            Some((body, f.args.clone(), map))
+        });
+        if let Some((mut body, arg_types, map)) = inline_target {
+            let Expression::FunctionCall { arguments, .. } =
+                std::mem::replace(expr, Expression::CodeBlock(Vec::new()))
+            else {
+                unreachable!()
+            };
+            let uid = *counter;
+            *counter += 1;
+            map.map_expression(&mut body);
+            // Re-count in the call-site context (see above).
+            adjust_use_count(&body, ctx, 1);
+            substitute_function_parameters(&mut body, uid, &arg_types);
+            *expr = if arguments.is_empty() {
+                body
+            } else {
+                let mut stmts = arguments
+                    .into_iter()
+                    .enumerate()
+                    .map(|(i, a)| Expression::StoreLocalVariable {
+                        name: function_arg_local_name(uid, i),
+                        value: Box::new(a),
+                    })
+                    .collect::<Vec<_>>();
+                stmts.push(body);
+                Expression::CodeBlock(stmts)
+            };
+            // Inline further within the freshly inlined body (nested single calls,
+            // constant properties now visible at the call site, ...).
+            inline_simple_expressions_in_expression(expr, ctx, counter);
+            return;
+        }
+    }
+
     if let Expression::PropertyReference(prop) = expr {
         let prop_info = ctx.property_info(prop);
         if prop_info.analysis.as_ref().is_some_and(|a| !a.is_set && !a.is_set_externally) {
             if let Some((binding, map)) = prop_info.binding {
-                if binding.animation.is_none()
-                    // State info binding are special and the binding cannot be inlined or used.
-                    && !binding.is_state_info
-                {
+                if binding.animation.is_none() && binding.kind != super::super::BindingKind::State {
                     let mapped_ctx = map.map_context(ctx);
                     let cost = expression_cost(&binding.expression.borrow(), &mapped_ctx);
                     let use_count = binding.use_count.get();
@@ -220,7 +297,53 @@ fn inline_simple_expressions_in_expression(expr: &mut Expression, ctx: &Evaluati
         }
     };
 
-    expr.visit_mut(|e| inline_simple_expressions_in_expression(e, ctx));
+    expr.visit_mut(|e| inline_simple_expressions_in_expression(e, ctx, counter));
+}
+
+/// Whether a function body can be moved to its single call site through `map`.
+///
+/// Unsafe when it references state that only exists in the declaring component
+/// and cannot be remapped by `ContextMap::map_expression`:
+/// the menu item tree of a popup menu, and `UpdateTimers`,
+/// refer to the enclosing component implicitly,
+/// so they can only move within the same component.
+/// Also unsafe when it reads a parameter more than once:
+/// a real call clones each read (`args.N.clone()`),
+/// but the inlined body reads a local that a second read would move.
+fn body_is_inline_safe(exp: &Expression, map: &ContextMap) -> bool {
+    let mut params = std::collections::HashSet::new();
+    let mut safe = true;
+    exp.visit_recursive(&mut |e| match e {
+        Expression::FunctionParameterReference { index } => safe &= params.insert(*index),
+        Expression::BuiltinFunctionCall { function, .. } => {
+            safe &= match function {
+                BuiltinFunction::ShowPopupMenu
+                | BuiltinFunction::ShowPopupMenuInternal
+                | BuiltinFunction::UpdateTimers => matches!(map, ContextMap::Identity),
+                _ => true,
+            }
+        }
+        _ => {}
+    });
+    safe
+}
+
+/// The local variable name holding argument `index` of the function inlined with `uid`.
+fn function_arg_local_name(uid: usize, index: usize) -> smol_str::SmolStr {
+    smol_str::format_smolstr!("inlined_fn_arg_{uid}_{index}")
+}
+
+/// Replace `FunctionParameterReference` with a read of the local that holds the argument.
+fn substitute_function_parameters(expr: &mut Expression, uid: usize, arg_types: &[Type]) {
+    expr.visit_recursive_mut(&mut |e| {
+        if let Expression::FunctionParameterReference { index } = e {
+            let index = *index;
+            *e = Expression::ReadLocalVariable {
+                name: function_arg_local_name(uid, index),
+                ty: arg_types[index].clone(),
+            };
+        }
+    });
 }
 
 fn adjust_use_count(expr: &Expression, ctx: &EvaluationContext, adjust: isize) {

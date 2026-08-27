@@ -1,27 +1,29 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore blitting
 use std::cell::RefCell;
 use std::pin::Pin;
 use std::rc::Rc;
 
 use euclid::approxeq::ApproxEq;
 use femtovg::Transform2D;
+use i_slint_core::graphics::ResolvedBrush;
 use i_slint_core::graphics::boxshadowcache::BoxShadowCache;
 use i_slint_core::graphics::euclid::num::Zero;
 use i_slint_core::graphics::euclid::{self};
 use i_slint_core::graphics::rendering_metrics_collector::RenderingMetrics;
 use i_slint_core::graphics::{IntRect, Point, Size};
 use i_slint_core::item_rendering::{
-    CachedRenderingData, ItemCache, ItemRenderer, LayerRenderer, RenderBorderRectangle,
-    RenderImage, RenderRectangle, RenderText,
+    BorderRectLayout, CachedRenderingData, ItemCache, ItemRenderer, LayerRenderer,
+    RenderBorderRectangle, RenderImage, RenderRectangle, RenderText,
 };
 use i_slint_core::items::{
     self, Clip, FillRule, ImageRendering, ImageTiling, ItemRc, Layer, Opacity, RenderingResult,
 };
 use i_slint_core::lengths::{
     LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector,
-    RectLengths, ScaleFactor, logical_size_from_api,
+    ScaleFactor, logical_size_from_api,
 };
 use i_slint_core::textlayout::sharedparley::{self, GlyphRenderer, fontique, parley};
 use i_slint_core::{Brush, Color, ImageInner, SharedString};
@@ -32,7 +34,7 @@ use super::PhysicalSize;
 use super::images::{Texture, TextureCacheKey};
 use super::{PhysicalBorderRadius, PhysicalLength, PhysicalPoint, PhysicalRect, font_cache};
 
-type FemtovgBoxShadowCache<R> = BoxShadowCache<ItemGraphicsCacheEntry<R>>;
+pub(super) type FemtovgBoxShadowCache<R> = BoxShadowCache<ItemGraphicsCacheEntry<R>>;
 
 pub use femtovg::Canvas;
 pub type CanvasRc<R> = Rc<RefCell<Canvas<R>>>;
@@ -74,8 +76,6 @@ impl<R: femtovg::Renderer + TextureImporter> ItemGraphicsCacheEntry<R> {
 pub(super) type ItemGraphicsCache<R> = ItemCache<Option<ItemGraphicsCacheEntry<R>>>;
 pub(super) type LayerCache<R> = ItemCache<Option<(PhysicalPoint, Rc<Texture<R>>)>>;
 
-const KAPPA90: f32 = 0.55228;
-
 #[derive(Clone)]
 struct State {
     scissor: LogicalRect,
@@ -87,7 +87,7 @@ pub struct GLItemRenderer<'a, R: femtovg::Renderer + TextureImporter> {
     graphics_cache: &'a ItemGraphicsCache<R>,
     layer_cache: &'a LayerCache<R>,
     texture_cache: &'a RefCell<super::images::TextureCache<R>>,
-    box_shadow_cache: FemtovgBoxShadowCache<R>,
+    box_shadow_cache: &'a FemtovgBoxShadowCache<R>,
     canvas: CanvasRc<R>,
     // Textures from layering or tiling that were scheduled for rendering where we can't delete the femtovg::ImageId yet
     // because that can only happen after calling `flush`. Otherwise femtovg ends up processing
@@ -138,71 +138,17 @@ fn rect_to_path(r: PhysicalRect) -> femtovg::Path {
     rect_with_radius_to_path(r, PhysicalBorderRadius::default())
 }
 
-fn adjust_rect_and_border_for_inner_drawing(
-    rect: &mut PhysicalRect,
-    border_width: &mut PhysicalLength,
-) {
-    // If the border width exceeds the width, just fill the rectangle.
-    *border_width = border_width.min(rect.width_length() / 2.);
-    // adjust the size so that the border is drawn within the geometry
-
-    rect.origin += PhysicalSize::from_lengths(*border_width / 2., *border_width / 2.);
-    rect.size -= PhysicalSize::from_lengths(*border_width, *border_width);
-}
-
-fn path_bounding_box<R: femtovg::Renderer>(
-    canvas: &CanvasRc<R>,
-    path: &femtovg::Path,
-) -> euclid::default::Box2D<f32> {
-    // `canvas.path_bbox()` applies the current transform. However we're not interested in that, since
-    // we operate in item local coordinates with the `path` parameter as well as the resulting
-    // paint.
-    let mut canvas = canvas.borrow_mut();
-    canvas.save();
-    canvas.reset_transform();
-    let bounding_box = canvas.path_bbox(path);
-    canvas.restore();
-    euclid::default::Box2D::new(
-        [bounding_box.minx, bounding_box.miny].into(),
-        [bounding_box.maxx, bounding_box.maxy].into(),
-    )
-}
-
-// Return a femtovg::Path (in physical pixels) that represents the clip_rect, radius and border_width (all logical!)
-fn clip_path_for_rect_alike_item(
-    clip_rect: LogicalRect,
-    mut radius: LogicalBorderRadius,
-    mut border_width: LogicalLength,
-    scale_factor: ScaleFactor,
-) -> femtovg::Path {
-    // Femtovg renders evenly 50% inside and 50% outside of the border width. The
-    // adjust_rect_and_border_for_inner_drawing adjusts the rect so that for drawing it
-    // would be entirely an *inner* border. However for clipping we want the rect that's
-    // entirely inside, hence the doubling of the width and consequently radius adjustment.
-    radius -= LogicalBorderRadius::new_uniform(border_width.get() * KAPPA90);
-    border_width *= 2.;
-
-    // Convert from logical to physical pixels
-    let mut border_width = border_width * scale_factor;
-    let radius = radius * scale_factor;
-    let mut clip_rect = clip_rect * scale_factor;
-
-    adjust_rect_and_border_for_inner_drawing(&mut clip_rect, &mut border_width);
-
-    rect_with_radius_to_path(clip_rect, radius)
-}
-
 impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
-    pub fn global_alpha_transparent(&self) -> bool {
-        self.state.last().unwrap().global_alpha == 0.0
-    }
-
     pub fn metrics(&self) -> RenderingMetrics {
         self.metrics.clone()
     }
 }
 
 impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer<'a, R> {
+    fn global_alpha_transparent(&self) -> bool {
+        self.state.last().unwrap().global_alpha == 0.0
+    }
+
     fn draw_rectangle(
         &mut self,
         rect: Pin<&dyn RenderRectangle>,
@@ -214,12 +160,9 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
         if geometry.is_empty() {
             return;
         }
-        if self.global_alpha_transparent() {
-            return;
-        }
         // TODO: cache path in item to avoid re-tesselation
         let path = rect_to_path(geometry);
-        let paint = match self.brush_to_paint(rect.background(), &path) {
+        let paint = match self.brush_to_paint(rect.background(), geometry.size) {
             Some(paint) => paint,
             None => return,
         }
@@ -236,76 +179,30 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
         size: LogicalSize,
         _: &CachedRenderingData,
     ) {
-        let mut geometry = PhysicalRect::from(size * self.scale_factor);
-        if geometry.is_empty() {
+        let Some(layout) = BorderRectLayout::new(rect, size, self.scale_factor) else {
             return;
-        }
-        if self.global_alpha_transparent() {
-            return;
-        }
-
-        let border_color = rect.border_color();
-        let opaque_border = border_color.is_opaque();
-        let mut border_width = if border_color.is_transparent() {
-            PhysicalLength::new(0.)
-        } else {
-            rect.border_width() * self.scale_factor
         };
 
-        // Radius of rounded rect if we were to just fill the rectangle, without a border.
-        let mut fill_radius = rect.border_radius() * self.scale_factor;
+        let fill_paint = self.brush_to_paint(rect.background(), layout.brush_size);
 
-        // FemtoVG's border radius on stroke is in the middle of the border. But we want it to be the radius of the rectangle itself.
-        // This is incorrect if fill_radius < border_width/2, but this can't be fixed. Better to have a radius a bit too big than no radius at all
-        fill_radius = fill_radius.outer(border_width / 2. + PhysicalLength::new(1.));
-        let stroke_border_radius = fill_radius.inner(border_width / 2.);
-
-        // In case of a transparent border, we want the background to cover the whole rectangle, which is
-        // not how femtovg's stroke works. So fill the background separately in the else branch if the
-        // border is not opaque.
-        let (mut background_path, mut maybe_border_path) = if opaque_border {
-            // In CSS the border is entirely towards the inside of the boundary
-            // geometry, while in femtovg the line with for a stroke is 50% in-
-            // and 50% outwards. We choose the CSS model, so the inner rectangle
-            // is adjusted accordingly.
-            adjust_rect_and_border_for_inner_drawing(&mut geometry, &mut border_width);
-
-            (rect_with_radius_to_path(geometry, stroke_border_radius), None)
-        } else {
-            let background_path = rect_with_radius_to_path(geometry, fill_radius);
-
-            // In CSS the border is entirely towards the inside of the boundary
-            // geometry, while in femtovg the line with for a stroke is 50% in-
-            // and 50% outwards. We choose the CSS model, so the inner rectangle
-            // is adjusted accordingly.
-            adjust_rect_and_border_for_inner_drawing(&mut geometry, &mut border_width);
-
-            let border_path = rect_with_radius_to_path(geometry, stroke_border_radius);
-
-            (background_path, Some(border_path))
-        };
-
-        let fill_paint = self.brush_to_paint(rect.background(), &background_path);
-
-        let border_paint = self
-            .brush_to_paint(
-                rect.border_color(),
-                maybe_border_path.as_ref().unwrap_or(&background_path),
-            )
-            .map(|mut paint| {
-                paint.set_line_width(border_width.get());
+        let border_paint = if layout.border_width.get() > 0.0 {
+            self.brush_to_paint(layout.border_color, layout.brush_size).map(|mut paint| {
+                paint.set_line_width(layout.border_width.get());
                 paint
-            });
+            })
+        } else {
+            None
+        };
 
         let mut canvas = self.canvas.borrow_mut();
         if let Some(paint) = fill_paint {
+            let background_path =
+                rect_with_radius_to_path(layout.background_rect, layout.background_radius);
             canvas.fill_path(&background_path, &paint);
         }
         if let Some(border_paint) = border_paint {
-            canvas.stroke_path(
-                maybe_border_path.as_mut().unwrap_or(&mut background_path),
-                &border_paint,
-            );
+            let border_path = rect_with_radius_to_path(layout.border_rect, layout.border_radius);
+            canvas.stroke_path(&border_path, &border_paint);
         }
     }
 
@@ -316,7 +213,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
         _size: LogicalSize,
         _cache: &CachedRenderingData,
     ) {
-        // register a dependency for the partial renderer's dirty tracker. The actual rendering is done earlier in SkiaRenderer.
+        // Register a dependency for the dirty tracking; the actual rendering is done earlier in FemtoVGRenderer.
         let _ = rect.background();
     }
 
@@ -337,10 +234,6 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
         size: LogicalSize,
         _cache: &CachedRenderingData,
     ) {
-        if self.global_alpha_transparent() {
-            return;
-        }
-
         sharedparley::draw_text(self, text, Some(self_rc), size, Some(self.text_layout_cache));
     }
 
@@ -350,18 +243,10 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
         self_rc: &ItemRc,
         size: LogicalSize,
     ) {
-        if self.global_alpha_transparent() {
-            return;
-        }
-
-        sharedparley::draw_text_input(self, text_input, self_rc, size, None);
+        sharedparley::draw_text_input(self, text_input, self_rc, size, self.text_layout_cache);
     }
 
-    fn draw_path(&mut self, path: Pin<&items::Path>, item_rc: &ItemRc, _size: LogicalSize) {
-        if self.global_alpha_transparent() {
-            return;
-        }
-
+    fn draw_path(&mut self, path: Pin<&items::Path>, item_rc: &ItemRc, size: LogicalSize) {
         let (offset, path_events) = match path.fitted_path_events(item_rc) {
             Some(offset_and_events) => offset_and_events,
             None => return,
@@ -443,31 +328,33 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
 
         let anti_alias = path.anti_alias();
 
-        let fill_paint = self.brush_to_paint(path.fill(), &femtovg_path).map(|mut fill_paint| {
-            fill_paint.set_fill_rule(match path.fill_rule() {
-                FillRule::Evenodd => femtovg::FillRule::EvenOdd,
-                FillRule::Nonzero | _ => femtovg::FillRule::NonZero,
+        let fill_paint =
+            self.brush_to_paint(path.fill(), size * self.scale_factor).map(|mut fill_paint| {
+                fill_paint.set_fill_rule(match path.fill_rule() {
+                    FillRule::Evenodd => femtovg::FillRule::EvenOdd,
+                    FillRule::Nonzero | _ => femtovg::FillRule::NonZero,
+                });
+                fill_paint.set_anti_alias(anti_alias);
+                fill_paint
             });
-            fill_paint.set_anti_alias(anti_alias);
-            fill_paint
-        });
 
-        let border_paint = self.brush_to_paint(path.stroke(), &femtovg_path).map(|mut paint| {
-            paint.set_line_width((path.stroke_width() * self.scale_factor).get());
-            paint.set_line_cap(match path.stroke_line_cap() {
-                items::LineCap::Round => femtovg::LineCap::Round,
-                items::LineCap::Square => femtovg::LineCap::Square,
-                items::LineCap::Butt | _ => femtovg::LineCap::Butt,
+        let border_paint =
+            self.brush_to_paint(path.stroke(), size * self.scale_factor).map(|mut paint| {
+                paint.set_line_width((path.stroke_width() * self.scale_factor).get());
+                paint.set_line_cap(match path.stroke_line_cap() {
+                    items::LineCap::Round => femtovg::LineCap::Round,
+                    items::LineCap::Square => femtovg::LineCap::Square,
+                    items::LineCap::Butt | _ => femtovg::LineCap::Butt,
+                });
+                paint.set_line_join(match path.stroke_line_join() {
+                    items::LineJoin::Round => femtovg::LineJoin::Round,
+                    items::LineJoin::Bevel => femtovg::LineJoin::Bevel,
+                    items::LineJoin::Miter | _ => femtovg::LineJoin::Miter,
+                });
+                paint.set_miter_limit(path.stroke_miter_limit());
+                paint.set_anti_alias(anti_alias);
+                paint
             });
-            paint.set_line_join(match path.stroke_line_join() {
-                items::LineJoin::Round => femtovg::LineJoin::Round,
-                items::LineJoin::Bevel => femtovg::LineJoin::Bevel,
-                items::LineJoin::Miter | _ => femtovg::LineJoin::Miter,
-            });
-            paint.set_miter_limit(path.stroke_miter_limit());
-            paint.set_anti_alias(anti_alias);
-            paint
-        });
 
         self.canvas.borrow_mut().save_with(|canvas| {
             canvas.translate(offset.x, offset.y);
@@ -499,6 +386,13 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
                 && box_shadow.offset_x() == LogicalLength::zero()
                 && box_shadow.offset_y() == LogicalLength::zero())
         {
+            return;
+        }
+        // TODO: implement inset shadows and spread for femtovg, using the shape_size,
+        // outer_radius and inner_radius of the BoxShadowOptions. Until then, skip rendering
+        // inset shadows entirely (otherwise they'd render incorrectly as a drop shadow).
+        // Spread is silently ignored.
+        if box_shadow.inset() {
             return;
         }
 
@@ -543,13 +437,12 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
                         femtovg::Color::rgba(0, 0, 0, 0),
                     );
 
-                    let mut shadow_path = femtovg::Path::new();
-                    shadow_path.rounded_rect(
-                        blur.get(),
-                        blur.get(),
-                        width.get(),
-                        height.get(),
-                        radius.get(),
+                    let shadow_path = rect_with_radius_to_path(
+                        PhysicalRect::new(
+                            shadow_options.shape_origin(),
+                            PhysicalSize::from_lengths(width, height),
+                        ),
+                        radius,
                     );
                     canvas.fill_path(
                         &shadow_path,
@@ -558,8 +451,9 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
                 }
 
                 let shadow_image = if blur.get() > 0. {
-                    let blurred_image = shadow_image
-                        .filter(femtovg::ImageFilter::GaussianBlur { sigma: blur.get() / 2. });
+                    let blurred_image = shadow_image.filter(femtovg::ImageFilter::GaussianBlur {
+                        sigma: shadow_options.blur_sigma(),
+                    });
 
                     self.canvas.borrow_mut().set_render_target(blurred_image.as_render_target());
 
@@ -663,18 +557,19 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
         }
 
         // Note: This is correct, combine_clip and get_current_clip operate on logical coordinates.
-        let geometry = LogicalRect::from(size);
+        let (clip_rect, clip_radius) = i_slint_core::item_rendering::clip_content_box(
+            size,
+            clip_item.logical_border_radius(),
+            clip_item.border_width(),
+        );
 
         // If clipping is enabled but the clip element is outside the visible range, then we don't
         // need to bother doing anything, not even rendering the children.
-        if !self.get_current_clip().intersects(&geometry) {
+        if !self.get_current_clip().intersects(&clip_rect) {
             return RenderingResult::ContinueRenderingWithoutChildren;
         }
 
-        let radius = clip_item.logical_border_radius();
-        let border_width = clip_item.border_width();
-
-        if !radius.is_zero() {
+        if !clip_radius.is_zero() {
             if let Some((layer_origin, layer_image)) =
                 i_slint_core::item_rendering::render_layer(self, item_rc)
                 && let Some(layer_image_size) = layer_image.size()
@@ -691,11 +586,9 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
                     1.0,
                 );
 
-                let layer_path = clip_path_for_rect_alike_item(
-                    geometry,
-                    radius,
-                    border_width,
-                    self.scale_factor,
+                let layer_path = rect_with_radius_to_path(
+                    clip_rect * self.scale_factor,
+                    clip_radius * self.scale_factor,
                 );
 
                 self.canvas.borrow_mut().save_with(|canvas| {
@@ -715,17 +608,12 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
             RenderingResult::ContinueRenderingWithoutChildren
         } else {
             self.layer_cache.release(item_rc);
-            self.combine_clip(geometry, radius, border_width);
+            self.combine_clip(clip_rect, clip_radius);
             RenderingResult::ContinueRenderingChildren
         }
     }
 
-    fn combine_clip(
-        &mut self,
-        clip_rect: LogicalRect,
-        radius: LogicalBorderRadius,
-        border_width: LogicalLength,
-    ) -> bool {
+    fn combine_clip(&mut self, clip_rect: LogicalRect, radius: LogicalBorderRadius) -> bool {
         let clip = &mut self.state.last_mut().unwrap().scissor;
         let clip_region_valid = match clip.intersection(&clip_rect) {
             Some(r) => {
@@ -738,20 +626,16 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
             }
         };
 
-        let clip_path =
-            clip_path_for_rect_alike_item(clip_rect, radius, border_width, self.scale_factor);
-
-        let clip_path_bounds = path_bounding_box(&self.canvas, &clip_path);
-
+        let phys_rect = clip_rect * self.scale_factor;
         self.canvas.borrow_mut().intersect_scissor(
-            clip_path_bounds.min.x,
-            clip_path_bounds.min.y,
-            clip_path_bounds.width(),
-            clip_path_bounds.height(),
+            phys_rect.origin.x,
+            phys_rect.origin.y,
+            phys_rect.size.width,
+            phys_rect.size.height,
         );
 
-        // femtovg only supports rectangular clipping. Non-rectangular clips must be handled via `apply_clip`,
-        // which can render children into a layer.
+        // femtovg only supports rectangular clipping. Non-rectangular clips must be handled via
+        // `visit_clip`, which renders children into a layer.
         debug_assert!(radius.is_zero());
 
         clip_region_valid
@@ -771,8 +655,8 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
         self.canvas.borrow_mut().restore();
     }
 
-    fn scale_factor(&self) -> f32 {
-        self.scale_factor.get()
+    fn scale_factor(&self) -> ScaleFactor {
+        self.scale_factor
     }
 
     fn draw_cached_pixmap(
@@ -816,51 +700,47 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
             self,
             std::pin::pin!((SharedString::from(string), Brush::from(color))),
             None,
-            logical_size_from_api(self.window.size().to_logical(self.scale_factor())),
+            logical_size_from_api(self.window.size().to_logical(self.scale_factor().get())),
             None,
         );
     }
 
     fn draw_image_direct(&mut self, image: i_slint_core::graphics::Image) {
-        let image_size = image.size();
-        let target_width = LogicalLength::new(image_size.width as _);
-        let target_height = LogicalLength::new(image_size.height as _);
-
-        let target_w = target_width * self.scale_factor;
-        let target_h = target_height * self.scale_factor;
-
-        if target_w.get() <= 0. || target_h.get() <= 0. {
+        let target_size = LogicalSize::from_untyped(image.size().cast()) * self.scale_factor;
+        if target_size.is_empty() {
             return;
         }
 
         let image_inner: &ImageInner = (&image).into();
 
-        let Some(cached_image) =
-            TextureCacheKey::new(image_inner, None, Default::default(), Default::default())
-                .and_then(|cache_key| {
-                    self.texture_cache.borrow_mut().lookup_image_in_cache_or_create(
-                        cache_key,
-                        || {
-                            Texture::new_from_image(
-                                image_inner,
-                                &self.canvas,
-                                None,
-                                Default::default(),
-                                Default::default(),
-                            )
-                        },
-                    )
-                })
-                .or_else(|| {
-                    Texture::new_from_image(
-                        image_inner,
-                        &self.canvas,
-                        None,
-                        Default::default(),
-                        Default::default(),
-                    )
-                })
-        else {
+        let target_size_for_scalable_source = image_inner.is_svg().then(|| target_size.cast());
+
+        let Some(cached_image) = TextureCacheKey::new(
+            image_inner,
+            target_size_for_scalable_source,
+            Default::default(),
+            Default::default(),
+        )
+        .and_then(|cache_key| {
+            self.texture_cache.borrow_mut().lookup_image_in_cache_or_create(cache_key, || {
+                Texture::new_from_image(
+                    image_inner,
+                    &self.canvas,
+                    target_size_for_scalable_source,
+                    Default::default(),
+                    Default::default(),
+                )
+            })
+        })
+        .or_else(|| {
+            Texture::new_from_image(
+                image_inner,
+                &self.canvas,
+                target_size_for_scalable_source,
+                Default::default(),
+                Default::default(),
+            )
+        }) else {
             return;
         };
 
@@ -954,8 +834,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GlyphRenderer for GLItemRendere
         brush: Brush,
         size: LogicalSize,
     ) -> Option<Self::PlatformBrush> {
-        let text_path = rect_to_path((size * self.scale_factor).into());
-        self.brush_to_paint(brush, &text_path).map(GlyphBrush::Fill)
+        self.brush_to_paint(brush, size * self.scale_factor).map(GlyphBrush::Fill)
     }
 
     fn platform_brush_for_color(
@@ -975,8 +854,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GlyphRenderer for GLItemRendere
         physical_stroke_width: f32,
         size: LogicalSize,
     ) -> Option<Self::PlatformBrush> {
-        let text_path = rect_to_path((size * self.scale_factor).into());
-        match self.brush_to_paint(stroke_brush.clone(), &text_path) {
+        match self.brush_to_paint(stroke_brush.clone(), size * self.scale_factor) {
             Some(mut paint) => {
                 paint.set_line_width(physical_stroke_width);
                 Some(GlyphBrush::Stroke(paint))
@@ -1022,24 +900,51 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GlyphRenderer for GLItemRendere
         &mut self,
         physical_rect: sharedparley::PhysicalRect,
         brush: Self::PlatformBrush,
+        radius: sharedparley::PhysicalLength,
+        border: Option<sharedparley::RectangleBorder<Self::PlatformBrush>>,
     ) {
-        let paint = match brush {
+        let fill_paint = match brush {
             GlyphBrush::Fill(paint) => paint,
             GlyphBrush::Stroke(paint) => paint,
         };
 
         let mut path = femtovg::Path::new();
-        path.rect(
-            physical_rect.min_x(),
-            physical_rect.min_y(),
-            physical_rect.width(),
-            physical_rect.height(),
-        );
+        if radius.get() > 0.0 {
+            path.rounded_rect(
+                physical_rect.min_x(),
+                physical_rect.min_y(),
+                physical_rect.width(),
+                physical_rect.height(),
+                radius.get(),
+            );
+        } else {
+            path.rect(
+                physical_rect.min_x(),
+                physical_rect.min_y(),
+                physical_rect.width(),
+                physical_rect.height(),
+            );
+        }
+
+        let stroke_paint = border.and_then(|sharedparley::RectangleBorder { brush, width }| {
+            (width.get() > 0.0).then(|| {
+                let mut paint = match brush {
+                    GlyphBrush::Fill(paint) => paint,
+                    GlyphBrush::Stroke(paint) => paint,
+                };
+                paint.set_line_width(width.get());
+                paint.set_anti_alias(true);
+                paint
+            })
+        });
 
         // When rendering text we align to the pixel grid, so do the same for underlines,
         // selection, etc.
         Self::align_canvas_during(&mut *self.canvas.borrow_mut(), |canvas| {
-            canvas.fill_path(&path, &paint)
+            canvas.fill_path(&path, &fill_paint);
+            if let Some(sp) = stroke_paint.as_ref() {
+                canvas.stroke_path(&path, sp);
+            }
         });
     }
 }
@@ -1124,6 +1029,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
         graphics_cache: &'a ItemGraphicsCache<R>,
         layer_cache: &'a LayerCache<R>,
         texture_cache: &'a RefCell<super::images::TextureCache<R>>,
+        box_shadow_cache: &'a FemtovgBoxShadowCache<R>,
         text_layout_cache: &'a sharedparley::TextLayoutCache,
         window: &'a i_slint_core::api::Window,
         width: u32,
@@ -1134,7 +1040,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
             graphics_cache,
             layer_cache,
             texture_cache,
-            box_shadow_cache: Default::default(),
+            box_shadow_cache,
             canvas: canvas.clone(),
             textures_to_delete_after_flush: Default::default(),
             window,
@@ -1155,7 +1061,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
     // In some cases (e.g. when rendering text), the canvas needs to be aligned to the pixel grid.
     // Otherwise, even with nearest-neighbor scaling, the glyphs can have strange artifacts, as
     // the nearest-neighbor algorithm is unstable if the pixel coordinate is at exactly 0.5px,
-    // which is very noticable with text.
+    // which is very noticeable with text.
     //
     // Note that this will currently only align the canvas if it is not rotated and not scaled.
     fn align_canvas_during<Result>(
@@ -1240,10 +1146,11 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
         image_rect.rect(0., 0., image_size.width, image_size.height);
 
         // We fill the entire image, there is no need to apply anti-aliasing around the edges
-        let brush_paint = match self.brush_to_paint(colorize_brush, &image_rect) {
-            Some(paint) => paint.with_anti_alias(false),
-            None => return original_cache_entry,
-        };
+        let brush_paint =
+            match self.brush_to_paint(colorize_brush, PhysicalSize::from_untyped(image_size)) {
+                Some(paint) => paint.with_anti_alias(false),
+                None => return original_cache_entry,
+            };
 
         self.canvas.borrow_mut().save_with(|canvas| {
             canvas.reset();
@@ -1294,23 +1201,13 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
                 let tiling = item.tiling();
 
                 let target_size_for_scalable_source = if image_inner.is_svg() {
-                    let image_size = image.size().cast::<f32>();
-                    if image_size.is_empty() {
-                        return None;
-                    }
-                    let t = item.target_size() * self.scale_factor;
-                    let fit = i_slint_core::graphics::fit(
+                    Some(i_slint_core::graphics::scalable_render_size(
+                        image.size(),
                         item.image_fit(),
-                        t,
-                        IntRect::from_size(image_size.cast()),
+                        item.target_size() * self.scale_factor,
                         self.scale_factor,
-                        Default::default(), // We only care about the size, so alignments don't matter
                         tiling,
-                    );
-                    Some(euclid::size2(
-                        (image_size.width * fit.source_to_target_x) as u32,
-                        (image_size.height * fit.source_to_target_y) as u32,
-                    ))
+                    )?)
                 } else {
                     None
                 };
@@ -1486,83 +1383,49 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
         }
     }
 
-    fn brush_to_paint(&self, brush: Brush, path: &femtovg::Path) -> Option<femtovg::Paint> {
-        if brush.is_transparent() {
-            return None;
-        }
-        Some(match brush {
-            Brush::SolidColor(color) => femtovg::Paint::color(to_femtovg_color(&color)),
-            Brush::LinearGradient(gradient) => {
-                let path_bounds = path_bounding_box(&self.canvas, path);
-
-                let path_width = path_bounds.width();
-                let path_height = path_bounds.height();
-
-                let (start, end) = i_slint_core::graphics::line_for_angle(
-                    gradient.angle(),
-                    [path_width, path_height].into(),
-                );
-
-                let mut stops: Vec<_> = gradient
-                    .stops()
-                    .map(|stop| (stop.position, to_femtovg_color(&stop.color)))
-                    .collect();
-
-                // Add an extra stop at 1.0 with the same color as the last stop
-                if let Some(last_stop) = stops.last().cloned()
-                    && last_stop.0 != 1.0
-                {
-                    stops.push((1.0, last_stop.1));
-                }
-
-                femtovg::Paint::linear_gradient_stops(start.x, start.y, end.x, end.y, stops)
-            }
-            Brush::RadialGradient(gradient) => {
-                let path_bounds = path_bounding_box(&self.canvas, path);
-
-                let path_width = path_bounds.width();
-                let path_height = path_bounds.height();
-
-                let mut stops: Vec<_> = gradient
-                    .stops()
-                    .map(|stop| (stop.position, to_femtovg_color(&stop.color)))
-                    .collect();
-
-                // Add an extra stop at 1.0 with the same color as the last stop
-                if let Some(last_stop) = stops.last().cloned()
-                    && last_stop.0 != 1.0
-                {
-                    stops.push((1.0, last_stop.1));
-                }
-
-                femtovg::Paint::radial_gradient_stops(
-                    path_width / 2.,
-                    path_height / 2.,
-                    0.,
-                    0.5 * (path_width * path_width + path_height * path_height).sqrt(),
-                    stops,
-                )
-            }
-            Brush::ConicGradient(gradient) => {
-                let path_bounds = path_bounding_box(&self.canvas, path);
-
-                let path_width = path_bounds.width();
-                let path_height = path_bounds.height();
-
-                let stops: Vec<_> = gradient
-                    .stops()
-                    .map(|stop| (stop.position, to_femtovg_color(&stop.color)))
-                    .collect();
-
-                femtovg::Paint::conic_gradient_stops(path_width / 2., path_height / 2., stops)
-            }
-            _ => return None,
+    /// Converts the brush into a femtovg paint, with gradients resolved against the
+    /// `size` of the shape's geometry.
+    fn brush_to_paint(&self, brush: Brush, size: PhysicalSize) -> Option<femtovg::Paint> {
+        let resolved = i_slint_core::graphics::resolve_brush(&brush, size, self.scale_factor)?;
+        Some(match resolved {
+            ResolvedBrush::SolidColor(color) => femtovg::Paint::color(to_femtovg_color(&color)),
+            ResolvedBrush::LinearGradient(gradient) => femtovg::Paint::linear_gradient_stops(
+                gradient.start.x,
+                gradient.start.y,
+                gradient.end.x,
+                gradient.end.y,
+                to_femtovg_stops(&gradient.stops),
+            ),
+            ResolvedBrush::RadialGradient(gradient) => femtovg::Paint::radial_gradient_stops(
+                gradient.center.x,
+                gradient.center.y,
+                0.,
+                gradient.radius.get(),
+                to_femtovg_stops(&gradient.stops),
+            ),
+            ResolvedBrush::ConicGradient(gradient) => femtovg::Paint::conic_gradient_stops(
+                gradient.center.x,
+                gradient.center.y,
+                to_femtovg_stops(&gradient.stops),
+            ),
         })
     }
 
     fn current_render_target(&self) -> femtovg::RenderTarget {
         self.state.last().unwrap().current_render_target
     }
+}
+
+fn to_femtovg_stops(stops: &[i_slint_core::graphics::GradientStop]) -> Vec<(f32, femtovg::Color)> {
+    let mut stops: Vec<_> =
+        stops.iter().map(|stop| (stop.position, to_femtovg_color(&stop.color))).collect();
+    // Add an extra stop at 1.0 with the same color as the last stop
+    if let Some(last_stop) = stops.last().cloned()
+        && last_stop.0 != 1.0
+    {
+        stops.push((1.0, last_stop.1));
+    }
+    stops
 }
 
 pub fn to_femtovg_color(col: &Color) -> femtovg::Color {

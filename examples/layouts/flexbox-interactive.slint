@@ -48,16 +48,17 @@ export component MainWindow inherits Window {
         FlexboxLayoutDirection.column,
         FlexboxLayoutDirection.column-reverse
     ];
-    property <[string]> alignment_options: ["Start", "End", "Center", "SpaceBetween", "SpaceAround", "SpaceEvenly"];
+    property <[string]> alignment_options: ["Start", "End", "Center", "Stretch", "SpaceBetween", "SpaceAround", "SpaceEvenly"];
     property <[LayoutAlignment]> alignment_values: [
         LayoutAlignment.start,
         LayoutAlignment.end,
         LayoutAlignment.center,
+        LayoutAlignment.stretch,
         LayoutAlignment.space-between,
         LayoutAlignment.space-around,
         LayoutAlignment.space-evenly
     ];
-    property <[string]> align_content_options: [
+    property <[string]> cross_axis_line_alignment_options: [
         "Stretch",
         "Start",
         "End",
@@ -66,21 +67,21 @@ export component MainWindow inherits Window {
         "Space Around",
         "Space Evenly"
     ];
-    property <[FlexboxLayoutAlignContent]> align_content_values: [
-        FlexboxLayoutAlignContent.stretch,
-        FlexboxLayoutAlignContent.start,
-        FlexboxLayoutAlignContent.end,
-        FlexboxLayoutAlignContent.center,
-        FlexboxLayoutAlignContent.space-between,
-        FlexboxLayoutAlignContent.space-around,
-        FlexboxLayoutAlignContent.space-evenly
+    property <[LayoutAlignment]> cross_axis_line_alignment_values: [
+        LayoutAlignment.stretch,
+        LayoutAlignment.start,
+        LayoutAlignment.end,
+        LayoutAlignment.center,
+        LayoutAlignment.space-between,
+        LayoutAlignment.space-around,
+        LayoutAlignment.space-evenly
     ];
-    property <[string]> align_items_options: ["Stretch", "Start", "End", "Center"];
-    property <[LayoutAlignItems]> align_items_values: [
-        LayoutAlignItems.stretch,
-        LayoutAlignItems.start,
-        LayoutAlignItems.end,
-        LayoutAlignItems.center
+    property <[string]> cross_axis_alignment_options: ["Stretch", "Start", "End", "Center"];
+    property <[CrossAxisAlignment]> cross_axis_alignment_values: [
+        CrossAxisAlignment.stretch,
+        CrossAxisAlignment.start,
+        CrossAxisAlignment.end,
+        CrossAxisAlignment.center
     ];
     property <[string]> flex_wrap_options: ["Wrap", "NoWrap", "WrapReverse"];
     property <[FlexboxLayoutWrap]> flex_wrap_values: [FlexboxLayoutWrap.wrap, FlexboxLayoutWrap.no-wrap, FlexboxLayoutWrap.wrap-reverse];
@@ -125,22 +126,22 @@ export component MainWindow inherits Window {
         HorizontalLayout {
             spacing: 10phx;
             Text {
-                text: "Align Content:";
+                text: "Cross Axis Line Alignment:";
                 vertical-alignment: center;
             }
 
-            align_content_combo := ComboBox {
-                model: align_content_options;
+            cross_axis_line_alignment_combo := ComboBox {
+                model: cross_axis_line_alignment_options;
                 current-index: 0;
             }
 
             Text {
-                text: "Align Items:";
+                text: "Cross Axis Alignment:";
                 vertical-alignment: center;
             }
 
-            align_items_combo := ComboBox {
-                model: align_items_options;
+            cross_axis_alignment_combo := ComboBox {
+                model: cross_axis_alignment_options;
                 current-index: 0;
             }
         }
@@ -154,25 +155,28 @@ export component MainWindow inherits Window {
             FlexboxLayout {
                 flex-direction: direction_values[direction_combo.current-index];
                 alignment: alignment_values[alignment_combo.current-index];
-                align-content: align_content_values[align_content_combo.current-index];
-                align-items: align_items_values[align_items_combo.current-index];
+                cross-axis-line-alignment: cross_axis_line_alignment_values[cross_axis_line_alignment_combo.current-index];
+                cross-axis-alignment: cross_axis_alignment_values[cross_axis_alignment_combo.current-index];
                 flex-wrap: flex_wrap_values[flex_wrap_combo.current-index];
                 padding: 10phx;
                 spacing: 10phx;
 
-                // flex-grow: blue items grow to fill extra space (1× and 2× ratio)
+                // *-stretch: with alignment "Stretch", blue items grow to fill
+                // extra space (1× and 2× ratio)
                 FlexCell {
-                    cell_text: "A grow:1";
-                    flex-grow: 1;
-                    flex-basis: 60phx;
+                    cell_text: "A stretch:1";
+                    horizontal-stretch: 1;
+                    vertical-stretch: 1;
+                    preferred-width: 60phx;
                     min-height: 40phx;
                     background: #4a90d9;
                 }
 
                 FlexCell {
-                    cell_text: "B grow:2";
-                    flex-grow: 2;
-                    flex-basis: 60phx;
+                    cell_text: "B stretch:2";
+                    horizontal-stretch: 2;
+                    vertical-stretch: 2;
+                    preferred-width: 60phx;
                     min-height: 40phx;
                     background: #2e6da4;
                 }
@@ -182,17 +186,22 @@ export component MainWindow inherits Window {
                     width: 80phx;
                     height: 40phx;
                 }
-                // flex-basis: these two have different starting sizes
+                // preferred-width: these two have different starting sizes
+                // (stretch 0: they keep them while A and B grow)
                 FlexCell {
-                    cell_text: "F basis:40";
-                    flex-basis: 40phx;
+                    cell_text: "F pref:40";
+                    preferred-width: 40phx;
+                    horizontal-stretch: 0;
+                    vertical-stretch: 0;
                     min-height: 40phx;
                     background: #27ae60;
                 }
 
                 FlexCell {
-                    cell_text: "G basis:160";
-                    flex-basis: 160phx;
+                    cell_text: "G pref:160";
+                    preferred-width: 160phx;
+                    horizontal-stretch: 0;
+                    vertical-stretch: 0;
                     min-height: 40phx;
                     background: #1e8449;
                 }
@@ -202,19 +211,19 @@ export component MainWindow inherits Window {
                     width: 80phx;
                     height: 40phx;
                 }
-                // flex-shrink: red items shrink when space is tight (try no-wrap with a narrow window)
+                // shrinking needs no opt-in (try no-wrap with a narrow window);
+                // min-width is how the red item refuses to go below 100phx
                 FlexCell {
-                    cell_text: "M shrink:1";
-                    flex-basis: 150phx;
-                    flex-shrink: 1;
+                    cell_text: "M min:100";
+                    preferred-width: 150phx;
+                    min-width: 100phx;
                     min-height: 40phx;
                     background: #d94a4a;
                 }
 
                 FlexCell {
-                    cell_text: "N shrink:3";
-                    flex-basis: 150phx;
-                    flex-shrink: 3;
+                    cell_text: "N shrinks";
+                    preferred-width: 150phx;
                     min-height: 40phx;
                     background: #a93226;
                 }
@@ -224,32 +233,32 @@ export component MainWindow inherits Window {
                     width: 80phx;
                     height: 40phx;
                 }
-                // flex-align-self: orange item overrides the container's align-items
+                // cross-axis-self-alignment: orange item overrides the container's cross-axis-alignment
                 FlexCell {
                     cell_text: "S self:end";
-                    flex-align-self: end;
+                    cross-axis-self-alignment: end;
                     height: 30phx;
                     background: #e67e22;
                 }
 
                 FlexCell {
                     cell_text: "T self:center";
-                    flex-align-self: center;
+                    cross-axis-self-alignment: center;
                     height: 30phx;
                     background: #d35400;
                 }
-                // flex-order: these items appear before/after others despite declaration order
+                // layout-order: these items appear before/after others despite declaration order
                 FlexCell {
-                    cell_text: "U flex-order:-1";
-                    flex-order: -1;
+                    cell_text: "U layout-order:-1";
+                    layout-order: -1;
                     width: 80phx;
                     min-height: 40phx;
                     background: #8e44ad;
                 }
 
                 FlexCell {
-                    cell_text: "V flex-order:99";
-                    flex-order: 99;
+                    cell_text: "V layout-order:99";
+                    layout-order: 99;
                     width: 80phx;
                     min-height: 40phx;
                     background: #6c3483;

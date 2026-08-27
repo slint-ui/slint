@@ -5,7 +5,8 @@ import { LineEditBase, LineEditClearIcon, LineEditPasswordIcon } from "../common
 
 import { LineEditInterface } from "../common/std-widget-interfaces.slint";
 
-export component LineEdit uses { LineEditInterface from inner } {
+export component LineEdit {
+    implement LineEditInterface <=> inner;
 
     accessible-role: text-input;
     accessible-enabled: root.enabled;
@@ -13,6 +14,7 @@ export component LineEdit uses { LineEditInterface from inner } {
     accessible-placeholder-text: placeholder-text;
     accessible-read-only: root.read-only;
     accessible-action-set-value(v) => { text = v; edited(v); }
+    accessible-action-set-selection-offsets(anchor, focus) => { inner.set-selection-offsets(anchor, focus); }
 
     forward-focus: inner;
     horizontal-stretch: 1;

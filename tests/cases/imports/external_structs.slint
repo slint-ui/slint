@@ -6,14 +6,14 @@
 
 //include_path: ../../helper_components
 import { UseStruct , ExportedStruct, ExportEnum , } from "export_structs.slint";
-TestCase := Rectangle {
-    property <ExportedStruct> exp: { d: 3001, e: {a: 2001} };
+export component TestCase inherits Rectangle {
+    in-out property <ExportedStruct> exp: { d: 3001, e: {a: 2001} };
     u := UseStruct {
         exp: { d: 3002, e: {a: 2002} };
         nexp: { b: 3003, c: {a: 2003} };
     }
     out property<bool> xx: ExportEnum.Hello != ExportEnum.Bonjour;
-    property<int> p1: u.nexp.c.a;
+    in-out property<int> p1: u.nexp.c.a;
 }
 /*
 

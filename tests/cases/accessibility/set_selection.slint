@@ -1,0 +1,62 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// C++ live preview: no element search (wrapper has no item tree)
+//ignore: cpp-live-preview
+
+export component TestCase inherits Window {
+    width: 400px;
+    height: 400px;
+
+    out property <int> anchor: ti.anchor-position-byte-offset;
+    out property <int> cursor: ti.cursor-position-byte-offset;
+
+    ti := TextInput {
+        text: "Hello World";
+    }
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+let text_input =
+    slint_testing::ElementHandle::find_by_element_id(&instance, "TestCase::ti").next().unwrap();
+
+text_input.set_accessible_selection(2, 7);
+assert_eq!(instance.get_anchor(), 2);
+assert_eq!(instance.get_cursor(), 7);
+
+// A backwards selection keeps the focus before the anchor.
+text_input.set_accessible_selection(9, 4);
+assert_eq!(instance.get_anchor(), 9);
+assert_eq!(instance.get_cursor(), 4);
+
+// Equal offsets move the cursor without selecting anything.
+text_input.set_accessible_selection(5, 5);
+assert_eq!(instance.get_anchor(), 5);
+assert_eq!(instance.get_cursor(), 5);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+
+auto search = slint::testing::ElementHandle::find_by_element_id(handle, "TestCase::ti");
+assert_eq(search.size(), 1);
+auto text_input = search[0];
+
+text_input.set_accessible_selection(2, 7);
+assert_eq(instance.get_anchor(), 2);
+assert_eq(instance.get_cursor(), 7);
+
+// A backwards selection keeps the focus before the anchor.
+text_input.set_accessible_selection(9, 4);
+assert_eq(instance.get_anchor(), 9);
+assert_eq(instance.get_cursor(), 4);
+
+// Equal offsets move the cursor without selecting anything.
+text_input.set_accessible_selection(5, 5);
+assert_eq(instance.get_anchor(), 5);
+assert_eq(instance.get_cursor(), 5);
+```
+*/

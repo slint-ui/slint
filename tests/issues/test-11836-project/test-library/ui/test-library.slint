@@ -1,0 +1,75 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Button } from "std-widgets.slint";
+
+export enum TestType {
+    test1,
+    test2,
+    test3,
+    test4,
+}
+
+export enum TestAction {
+    test1,
+    test2,
+    test3,
+    test4,
+}
+
+export enum TestType2 {
+    test1,
+    test2,
+    test3,
+    test4,
+}
+
+export struct TestActions {
+    test1: TestAction,
+    test2: TestAction,
+}
+
+export struct TestStruct {
+    test1: TestType,
+    test2: bool,
+}
+
+export global TestGlobal {
+    in-out property <[TestStruct]> test-in-out;
+    callback test-callback(i1: int, s1: TestStruct);
+}
+
+export component TestSubComponent inherits Rectangle {
+    out property <TestType> demo-prop-out: TestType.test1;
+    in-out property <[TestStruct]> test-in-out <=> TestGlobal.test-in-out;
+
+    for btn-config[index] in test-in-out: Rectangle {
+        Button {
+            property <TestType> test-prop: btn-config.test1;
+
+            checked: (demo-prop-out == self.test-prop);
+            clicked => {
+                root.demo-prop-out = self.test-prop;
+            }
+        }
+    }
+}
+
+struct TestStruct1 {
+    test1: TestType,
+    test2-actions: TestActions,
+}
+
+struct TestStruct2 {
+    test-map: [[TestStruct1]],
+}
+
+export component TestComponent {
+    in-out property <TestStruct2> test-configs;
+
+    function do-test-test(test1: TestType) {
+        test-configs.test-map[0][0].test1 = test1;
+    }
+
+    TestSubComponent { }
+}

@@ -32,16 +32,9 @@ Layout types:
 
 ### LayoutInfo (Runtime)
 
-```rust
-pub struct LayoutInfo {
-    pub min: Coord,           // Minimum size
-    pub max: Coord,           // Maximum size
-    pub min_percent: Coord,   // Minimum as % of parent
-    pub max_percent: Coord,   // Maximum as % of parent
-    pub preferred: Coord,     // Preferred size
-    pub stretch: f32,         // Stretch factor (0.0 = don't stretch)
-}
-```
+The constraints for one item along one axis: a min and a max, the same two again as a percentage
+of the parent, a preferred size, and a stretch factor (0.0 means don't stretch). Sizes are
+`Coord`, the stretch is an `f32`. See `LayoutInfo` in `internal/core/layout.rs`.
 
 ### Constraint Merging
 
@@ -68,7 +61,10 @@ Both grid and box layouts use the same core algorithm in `layout_items()`:
 2. Calculate total size needed
 
 3. If total > available space:
-   → Shrink items proportionally (respecting min constraints)
+   → Shrink items weighted by their stretch factors, respecting min constraints.
+     With no stretch factor set anywhere, each item gives up the same number of
+     pixels, so a small item runs out long before a large one. Items that reach
+     their min are frozen and the rest is re-split over the others.
 
 4. If total < available space:
    → Grow items proportionally based on stretch factors
@@ -139,47 +135,27 @@ Child x/y/width/height bound to cache access expressions
 
 ### Compiler-Side
 
-```rust
-// internal/compiler/layout.rs
+All in `internal/compiler/layout.rs`:
 
-pub struct GridLayout {
-    pub elems: Vec<GridLayoutElement>,  // Cells
-    pub geometry: LayoutGeometry,        // Padding, spacing, alignment
-}
-
-pub struct BoxLayout {
-    pub orientation: Orientation,  // Horizontal or Vertical
-    pub elems: Vec<LayoutItem>,
-    pub geometry: LayoutGeometry,
-}
-
-pub struct LayoutConstraints {
-    pub min_width: Option<NamedReference>,
-    pub max_width: Option<NamedReference>,
-    // ... other constraint properties as references
-}
-```
+- `GridLayout` - the cells plus the `LayoutGeometry` (padding, spacing, alignment). It also
+  carries the button roles when the grid is really a `Dialog`, and whether any row/column
+  expression uses `auto`.
+- `BoxLayout` - the orientation, the items and the same `LayoutGeometry`, plus the
+  `cross-axis-alignment` property if one was set.
+- `LayoutConstraints` - one `Option<NamedReference>` per `min-`/`max-`/`preferred-` width and
+  height and per stretch, the two fixed-size flags, and a `LayoutConstraintLocality` with one bool
+  per named reference recording whether it was set on the element itself rather than inherited
+  from a base component. Inherited ones are already baked into the element's `layoutinfo-*`, so a
+  parent that measured the cell through its layout-info must not re-apply them.
 
 ### Runtime
 
-```rust
-// internal/core/layout.rs
+Both in `internal/core/layout.rs`:
 
-pub struct GridLayoutData {
-    pub size: Coord,
-    pub spacing: Coord,
-    pub padding: Padding,
-    pub organized_data: GridLayoutOrganizedData,
-}
-
-pub struct BoxLayoutData<'a> {
-    pub size: Coord,
-    pub spacing: Coord,
-    pub padding: Padding,
-    pub alignment: LayoutAlignment,
-    pub cells: Slice<'a, LayoutItemInfo>,
-}
-```
+- `GridLayoutData` - the available size, the spacing and padding, and the
+  `GridLayoutOrganizedData` produced by `organize_grid_layout()`.
+- `BoxLayoutData` - the available size, the spacing and padding, the `LayoutAlignment`, and a
+  borrowed slice of `LayoutItemInfo`, one per cell.
 
 ## Layout Cache Formats
 
@@ -334,10 +310,15 @@ the code generators compile to the appropriate runtime access pattern.
 
 ## Testing Layout Changes
 
+`test-driver-rust` and `test-driver-interpreter` live in the separate `tests/` Cargo
+workspace, and `gallery` lives in the separate `examples/` workspace, so these need an
+explicit `--manifest-path` when run from the repository root (`tests/run_tests.sh`
+already handles this for you):
+
 ```sh
 # Run all layout-specific tests
-cargo test -p test-driver-rust --test layout
-cargo test -p test-driver-interpreter layout
+cargo test --manifest-path tests/Cargo.toml -p test-driver-rust --test layout
+cargo test --manifest-path tests/Cargo.toml -p test-driver-interpreter layout
 
 # Run a specific test case, filtered by substring (don't prepend sh/bash, run_tests.sh is executable)
 tests/run_tests.sh rust grid_conditional_row
@@ -345,8 +326,8 @@ tests/run_tests.sh interpreter grid_conditional_row
 tests/run_tests.sh cpp grid_conditional_row
 
 # Run all interpreter tests (fast)
-cargo test -p test-driver-interpreter
+cargo test --manifest-path tests/Cargo.toml -p test-driver-interpreter
 
 # Visual verification (for humans)
-cargo run -p gallery
+cargo run --manifest-path examples/Cargo.toml -p gallery
 ```

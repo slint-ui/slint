@@ -46,9 +46,9 @@ fn main() {
 #![doc(html_logo_url = "https://slint.dev/logo/slint-logo-square-light.svg")]
 #![warn(missing_docs)]
 
-#[cfg(not(feature = "default"))]
+#[cfg(not(feature = "compat-1-18"))]
 compile_error!(
-    "The feature `default` must be enabled to ensure \
+    "The feature `compat-1-18` must be enabled to ensure \
     forward compatibility with future version of this crate"
 );
 
@@ -69,18 +69,25 @@ pub struct CompilerConfiguration {
     config: i_slint_compiler::CompilerConfiguration,
 }
 
-/// How should the slint compiler embed images and fonts
+/// How should the Slint compiler embed images and fonts
 ///
 /// Parameter of [`CompilerConfiguration::embed_resources()`]
 #[derive(Clone, PartialEq)]
 pub enum EmbedResourcesKind {
-    /// Paths specified in .slint files are made absolute and the absolute
-    /// paths will be used at run-time to load the resources from the file system.
+    /// Resources are loaded from their absolute path at run-time.
+    ///
+    /// Only useful for debugging, since the files must still be present at the same path on the
+    /// machine running the application.
     AsAbsolutePath,
-    /// The raw files in .slint files are embedded in the application binary.
+    /// The files referenced from .slint files are embedded in the binary as-is (for example
+    /// a PNG stays compressed), and decoded at run-time.
     EmbedFiles,
-    /// File names specified in .slint files will be loaded by the Slint compiler,
-    /// optimized for use with the software renderer and embedded in the application binary.
+    #[cfg(feature = "renderer-software")]
+    /// Images and fonts are pre-processed at compile time and embedded as uncompressed pixel
+    /// data, ready to be drawn by the software renderer without any decoding at run-time.
+    ///
+    /// Useful for MCUs with no file system and little RAM.
+    /// Only the Slint software renderer can use these resources; Skia and FemtoVG can't.
     EmbedForSoftwareRenderer,
 }
 
@@ -163,6 +170,7 @@ impl CompilerConfiguration {
             EmbedResourcesKind::EmbedFiles => {
                 i_slint_compiler::EmbedResourcesKind::EmbedAllResources
             }
+            #[cfg(feature = "renderer-software")]
             EmbedResourcesKind::EmbedForSoftwareRenderer => {
                 i_slint_compiler::EmbedResourcesKind::EmbedTextures
             }

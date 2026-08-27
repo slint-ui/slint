@@ -1,23 +1,25 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use crate::common::{
+use crate::editor_preview::{
     self,
     token_info::{TokenInfo, token_info},
 };
 use crate::util;
-use i_slint_compiler::langtype::{ElementType, Type};
+use i_slint_compiler::doc_comments::ElementDocEntry;
+use i_slint_compiler::langtype::{BuiltinElement, ElementType, Type};
 use i_slint_compiler::object_tree::ElementRc;
 use i_slint_compiler::parser::{SyntaxKind, SyntaxNode, SyntaxToken};
 use itertools::Itertools as _;
 use lsp_types::{Hover, HoverContents, MarkupContent};
 
 pub fn get_tooltip(
-    document_cache: &mut common::DocumentCache,
+    document_cache: &mut editor_preview::DocumentCache,
     token: SyntaxToken,
 ) -> Option<Hover> {
     let token_info = token_info(document_cache, token.clone())?;
-    let documentation = token_info.declaration().and_then(|x| extract_documentation(&x));
+    let documentation =
+        token_info.declaration(document_cache).and_then(|x| extract_documentation(&x));
     let documentation = documentation.as_deref();
     let contents = match token_info {
         TokenInfo::Type(ty) => match ty {
@@ -35,7 +37,16 @@ pub fn get_tooltip(
                     from_slint_code(&format!("component {}", c.id), documentation)
                 }
             }
-            ElementType::Builtin(b) => from_plain_text(format!("{} (builtin)", b.name)),
+            ElementType::Builtin(b) => {
+                let raw = builtin_element_description(&b);
+                let cleaned = clean_builtin_doc(raw);
+                let doc = if cleaned.is_empty() { None } else { Some(cleaned.as_str()) };
+                if b.is_global {
+                    from_slint_code(&format!("global {}", b.name), doc)
+                } else {
+                    from_slint_code(&format!("component {} (builtin)", b.name), doc)
+                }
+            }
             _ => return None,
         },
         TokenInfo::ElementRc(e) => {
@@ -53,7 +64,7 @@ pub fn get_tooltip(
             }
         }
         TokenInfo::NamedReference(nr) => {
-            from_property_in_element(&nr.element(), nr.name(), documentation)?
+            from_named_reference(&nr.element(), nr.name(), documentation)?
         }
         TokenInfo::EnumerationValue(v) => {
             from_slint_code(&format!("{}.{}", v.enumeration.name, v), documentation)
@@ -147,7 +158,8 @@ fn from_property_in_element(
     name: &str,
     documentation: Option<&str>,
 ) -> Option<MarkupContent> {
-    if let Some(decl) = element.borrow().property_declarations.get(name) {
+    let element = element.borrow();
+    if let Some((_, decl)) = element.declaration(name) {
         return property_tooltip(
             &decl.property_type,
             name,
@@ -155,7 +167,104 @@ fn from_property_in_element(
             documentation,
         );
     }
-    from_property_in_type(&element.borrow().base_type, name, documentation)
+    from_property_in_type(&element.base_type, name, documentation)
+}
+
+/// Tooltip for a `NamedReference`, whose name is the member's storage key - a mangled internal name
+/// for a declaration that shadows an inherited member. The member is shown under its source name.
+fn from_named_reference(
+    element: &ElementRc,
+    key: &str,
+    documentation: Option<&str>,
+) -> Option<MarkupContent> {
+    let element = element.borrow();
+    if let Some(decl) = element.property_declarations.get(key) {
+        return property_tooltip(
+            &decl.property_type,
+            decl.shadowed_name.as_deref().unwrap_or(key),
+            decl.pure.unwrap_or(false),
+            documentation,
+        );
+    }
+    match &element.base_type {
+        ElementType::Component(c) => from_named_reference(&c.root_element, key, documentation),
+        other => from_property_in_type(other, key, documentation),
+    }
+}
+
+fn builtin_element_description(b: &BuiltinElement) -> &str {
+    b.docs
+        .iter()
+        .find_map(|e| match e {
+            ElementDocEntry::Text(t) => Some(t.as_str()),
+            _ => None,
+        })
+        .unwrap_or("")
+}
+
+/// Strip a trailing `\{#sls.…}` paragraph-id marker. Those identify normative
+/// paragraphs for the safety manual's traceability matrix and are meaningless
+/// in a tooltip. Mirrors `split_marker` in
+/// docs/slint-doc-generator/traceability.rs.
+fn strip_paragraph_id(line: &str) -> &str {
+    let Some(prefix) = line.trim_end().strip_suffix('}') else { return line };
+    let Some(start) = prefix.rfind("\\{#sls.") else { return line };
+    line[..start].trim_end()
+}
+
+/// Extract the prose description from a raw builtins.slint doc comment,
+/// stripping code fences, `\`-annotations, `\{#sls.…}` paragraph ids, and
+/// `<Component />` MDX tags that don't render well in a tooltip.
+fn clean_builtin_doc(raw: &str) -> String {
+    let mut result = String::new();
+    let mut in_fence = false;
+    let mut in_only_in_sc = false;
+    for line in raw.lines() {
+        let trimmed = line.trim();
+        if trimmed.starts_with("```") || trimmed.starts_with("~~~") || trimmed.starts_with(":::") {
+            in_fence = !in_fence;
+            continue;
+        }
+        if in_fence {
+            continue;
+        }
+        if trimmed.starts_with('\\') {
+            continue;
+        }
+        // `<OnlyInSC>` holds what only holds in Slint SC, so the tooltip drops
+        // it: it would tell a reader of the full language that something they
+        // can write is an error.
+        // TODO: once the LSP serves Slint SC development too, it should show
+        // this text there, and mark what `<NotInSC>` holds as unavailable.
+        if trimmed == "<OnlyInSC>" {
+            in_only_in_sc = true;
+            continue;
+        }
+        if trimmed == "</OnlyInSC>" {
+            in_only_in_sc = false;
+            continue;
+        }
+        if in_only_in_sc {
+            continue;
+        }
+        // A line that is nothing but a tag is markup for the documentation
+        // site, not prose. That covers `<Link … />` as well as the
+        // `<NotInSC>` … `</NotInSC>` pair marking what the safety-certified
+        // subset leaves out, whose text the tooltip keeps: it documents the
+        // full language.
+        if trimmed.starts_with('<') && trimmed.ends_with('>') && !trimmed[1..].contains('<') {
+            continue;
+        }
+        if !result.is_empty() {
+            result.push('\n');
+        }
+        result.push_str(strip_paragraph_id(line));
+    }
+    // Trim trailing blank lines.
+    while result.ends_with('\n') {
+        result.pop();
+    }
+    result
 }
 
 fn from_property_in_type(
@@ -168,7 +277,15 @@ fn from_property_in_type(
         ElementType::Builtin(b) => {
             let resolved_name = b.native_class.lookup_alias(name).unwrap_or(name);
             let info = b.properties.get(resolved_name)?;
-            property_tooltip(&info.ty, name, false, documentation)
+            let cleaned;
+            let builtin_doc = match &info.docs {
+                Some(raw) => {
+                    cleaned = clean_builtin_doc(raw);
+                    if cleaned.is_empty() { None } else { Some(cleaned.as_str()) }
+                }
+                None => None,
+            };
+            property_tooltip(&info.ty, name, false, documentation.or(builtin_doc))
         }
         _ => None,
     }
@@ -214,12 +331,22 @@ fn from_plain_text(value: String) -> MarkupContent {
     MarkupContent { kind: lsp_types::MarkupKind::PlainText, value }
 }
 
+/// Format a tooltip with a Slint code signature and optional documentation.
+/// User-written `//` comments go inside the code fence (they're valid Slint).
+/// Builtin docs (plain prose) go outside as markdown.
 fn from_slint_code(value: &str, documentation: Option<&str>) -> MarkupContent {
-    let documentation = documentation.unwrap_or("");
-    MarkupContent {
-        kind: lsp_types::MarkupKind::Markdown,
-        value: format!("```slint\n{documentation}{value}\n```"),
-    }
+    let doc = documentation.unwrap_or("");
+    let value = if doc.is_empty() {
+        format!("```slint\n{value}\n```")
+    } else if doc.starts_with("//") || doc.starts_with("/*") {
+        // User-written comment — keep inside the code fence.
+        let sep = if doc.ends_with('\n') { "" } else { "\n" };
+        format!("```slint\n{doc}{sep}{value}\n```")
+    } else {
+        // Builtin doc — render as markdown above the code fence.
+        format!("{doc}\n```slint\n{value}\n```")
+    };
+    MarkupContent { kind: lsp_types::MarkupKind::Markdown, value }
 }
 
 #[cfg(test)]
@@ -308,6 +435,18 @@ export component Test { // not docs
             }
         }
 
+        #[track_caller]
+        fn assert_tooltip_contains(h: Option<Hover>, expected: &str) {
+            match h.unwrap().contents {
+                HoverContents::Markup(m) => assert!(
+                    m.value.contains(expected),
+                    "expected tooltip to contain {expected:?} but got {:?}",
+                    m.value
+                ),
+                x => panic!("Found {x:?} ({expected})"),
+            }
+        }
+
         // properties
         assert_tooltip(
             get_tooltip(&mut dc, find_tk("hello: Glob", 0.into())),
@@ -317,10 +456,10 @@ export component Test { // not docs
             get_tooltip(&mut dc, find_tk("Glob.hello_world", 8.into())),
             "```slint\nproperty <{ a: int,b: float,}> hello-world\n```",
         );
-        assert_tooltip(
-            get_tooltip(&mut dc, find_tk("self.enabled", 5.into())),
-            "```slint\nproperty <bool> enabled\n```",
-        );
+        // builtin property: signature + doc from builtins.slint
+        let enabled_tip = get_tooltip(&mut dc, find_tk("self.enabled", 5.into()));
+        assert_tooltip_contains(enabled_tip.clone(), "property <bool> enabled");
+        assert_tooltip_contains(enabled_tip, "TouchArea"); // doc mentions TouchArea
         assert_tooltip(
             get_tooltip(&mut dc, find_tk("fn_glob(local-prop)", 10.into())),
             "```slint\nproperty <int> local-prop\n```",
@@ -329,10 +468,10 @@ export component Test { // not docs
             get_tooltip(&mut dc, find_tk("root-prop.to-float", 1.into())),
             "```slint\n// root-prop is a property\nproperty <string> root-prop\n```",
         );
-        assert_tooltip(
-            get_tooltip(&mut dc, find_tk("background: red", 0.into())),
-            "```slint\nproperty <brush> background\n```",
-        );
+        // builtin property: signature + doc from builtins.slint
+        let bg_tip = get_tooltip(&mut dc, find_tk("background: red", 0.into()));
+        assert_tooltip_contains(bg_tip.clone(), "```slint\nproperty <brush> background\n```");
+        assert_tooltip_contains(bg_tip, "background brush"); // doc text
         // callbacks
         assert_tooltip(
             get_tooltip(&mut dc, find_tk("self.www", 5.into())),
@@ -350,7 +489,7 @@ export component Test { // not docs
             get_tooltip(&mut dc, find_tk("row-pointer-event", 0.into())),
             "```slint\ncallback row-pointer-event(row: int, event: PointerEvent, position: Point)\n```",
         );
-        assert_tooltip(
+        assert_tooltip_contains(
             get_tooltip(&mut dc, find_tk("pointer-event", 5.into())),
             "```slint\ncallback pointer-event(event: PointerEvent)\n```",
         );
@@ -379,9 +518,9 @@ export component Test { // not docs
         );
 
         //components
-        assert_tooltip(
+        assert_tooltip_contains(
             get_tooltip(&mut dc, find_tk("Rectangle {", 8.into())),
-            "Rectangle (builtin)",
+            "component Rectangle (builtin)",
         );
         assert_tooltip(
             get_tooltip(&mut dc, find_tk("the-ta := TA {", 11.into())),
@@ -423,6 +562,78 @@ export component Test { // not docs
         assert_tooltip(
             get_tooltip(&mut dc, find_tk("Eee.E2", 5.into())),
             "```slint\n/// Here some docs for Eee\nEee.E2\n```",
+        );
+    }
+
+    #[test]
+    fn test_tooltip_shadowed_member() {
+        // `Derived` shadows the `@shadowable` `prop` of `Base`, with a different type. The tooltip
+        // for a use must describe the property declared in the same component, under its source name.
+        let source = r#"
+component Base {
+    @shadowable in-out property <int> prop;
+    out property <int> base-out: self.prop;
+}
+component Derived inherits Base {
+    in-out property <string> prop;
+    out property <string> derived-out: self.prop;
+}
+export component Test {
+    Derived { }
+}"#;
+        let (mut dc, uri, _) =
+            crate::language::test::loaded_document_cache_with_experimental(source.into());
+        let doc = dc.get_document(&uri).unwrap().node.clone().unwrap();
+
+        let find_prop = |anchor: &str| {
+            let anchor_pos = source.find(anchor).unwrap();
+            let prop_pos = anchor_pos + source[anchor_pos..].find("self.prop").unwrap() + 5;
+            crate::language::token_at_offset(&doc, TextSize::new(prop_pos as u32)).unwrap()
+        };
+
+        #[track_caller]
+        fn assert_tooltip(h: Option<Hover>, str: &str) {
+            match h.unwrap().contents {
+                HoverContents::Markup(m) => assert_eq!(m.value, str),
+                x => panic!("Found {x:?} ({str})"),
+            }
+        }
+
+        assert_tooltip(
+            get_tooltip(&mut dc, find_prop("base-out: self.prop")),
+            "```slint\nproperty <int> prop\n```",
+        );
+        assert_tooltip(
+            get_tooltip(&mut dc, find_prop("derived-out: self.prop")),
+            "```slint\nproperty <string> prop\n```",
+        );
+    }
+
+    #[test]
+    fn test_clean_builtin_doc() {
+        // What only holds in Slint SC is left out: the tooltip documents the
+        // full language, where the window size is the file's to set.
+        assert_eq!(
+            clean_builtin_doc(
+                "The width of the window. \\{#sls.ref.window.width}\n\
+                 \n\
+                 <OnlyInSC>\n\
+                 Binding it is an error. \\{#sls.ref.window.width-out}\n\
+                 </OnlyInSC>\n\
+                 \\sc"
+            ),
+            "The width of the window."
+        );
+        // What the subset leaves out is kept, tags aside
+        assert_eq!(
+            clean_builtin_doc(
+                "A rectangle.\n\
+                 \n\
+                 <NotInSC>\n\
+                 Its width defaults to that of its parent.\n\
+                 </NotInSC>"
+            ),
+            "A rectangle.\n\nIts width defaults to that of its parent."
         );
     }
 }

@@ -16,6 +16,7 @@ use alloc::boxed::Box;
 use alloc::rc::Rc;
 use alloc::vec::Vec;
 use core::convert::{TryFrom, TryInto};
+use core::ffi::c_void;
 use core::pin::Pin;
 
 macro_rules! declare_ValueType {
@@ -25,7 +26,7 @@ macro_rules! declare_ValueType {
 }
 
 macro_rules! declare_ValueType_2 {
-    ($( $(#[$enum_doc:meta])* enum $Name:ident { $($body:tt)* })*) => {
+    ($( $(#[$enum_doc:meta])* $vis:vis enum $Name:ident { $($body:tt)* })*) => {
         declare_ValueType![
             (),
             bool,
@@ -54,12 +55,14 @@ macro_rules! declare_ValueType_2 {
             crate::component_factory::ComponentFactory,
             crate::api::LogicalPosition,
             crate::items::FontMetrics,
+            crate::items::InputMethodHints,
             crate::items::MenuEntry,
             crate::items::DropEvent,
             crate::model::ModelRc<crate::items::MenuEntry>,
             crate::styled_text::StyledText,
             crate::input::Keys,
             crate::data_transfer::DataTransfer,
+            crate::cursor::MouseCursorInner,
             $(crate::items::$Name,)*
         ];
     };
@@ -138,7 +141,7 @@ pub trait PropertyInfo<Item, Value> {
     /// # Safety
     /// the property2 must be a pinned pointer to a Property of the same type
     #[allow(unsafe_code)]
-    unsafe fn link_two_ways(&self, item: Pin<&Item>, property2: *const ());
+    unsafe fn link_two_ways(&self, item: Pin<&Item>, property2: *const c_void);
 
     /// Set the debug name of this property (only effective with `cfg(slint_debug_property)`)
     #[cfg(slint_debug_property)]
@@ -214,7 +217,7 @@ where
     }
 
     #[allow(unsafe_code)]
-    unsafe fn link_two_ways(&self, item: Pin<&Item>, property2: *const ()) {
+    unsafe fn link_two_ways(&self, item: Pin<&Item>, property2: *const c_void) {
         let p1 = self.apply_pin(item);
         // Safety: that's the invariant of this function
         let p2 = unsafe { Pin::new_unchecked((property2 as *const Property<T>).as_ref().unwrap()) };
@@ -229,15 +232,15 @@ where
             if let Some(cp) = Property::check_common_property(p) {
                 return cp;
             }
-            // link_two_way sets a TwoWayBinding on p, which
-            // check_common_property can find on subsequent calls.
-            // Only safe when p has no binding yet (a pre-existing
-            // binding's intercept_set_binding may not accept this).
-            if !p.has_binding() {
-                let anchor = Rc::pin(Property::<Value>::default());
-                Property::link_two_way(anchor.as_ref(), p);
-                return Property::check_common_property(p).unwrap();
-            }
+            // link_two_way installs a TwoWayBinding on p (moving any
+            // existing binding into the shared common property), which
+            // check_common_property finds on subsequent calls. This keeps
+            // prepare_for_two_way_binding idempotent: when several fields of
+            // the same struct property are two-way bound, they must all share
+            // one common property instead of each creating its own.
+            let anchor = Rc::pin(Property::<Value>::default());
+            Property::link_two_way(anchor.as_ref(), p);
+            return Property::check_common_property(p).unwrap();
         }
 
         let p1 = self.apply_pin(item);
@@ -390,7 +393,7 @@ where
     }
 
     #[allow(unsafe_code)]
-    unsafe fn link_two_ways(&self, item: Pin<&Item>, property2: *const ()) {
+    unsafe fn link_two_ways(&self, item: Pin<&Item>, property2: *const c_void) {
         let p1 = self.apply_pin(item);
         // Safety: that's the invariant of this function
         let p2 = unsafe { Pin::new_unchecked((property2 as *const Property<T>).as_ref().unwrap()) };

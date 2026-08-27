@@ -6,10 +6,10 @@
 
 //include_path: ../../helper_components
 import { UseGlobal } from "export_globals.slint";
-TestCase := Rectangle {
+export component TestCase inherits Rectangle {
     ug := UseGlobal {}
-    property<int> p1: ug.used42;
-    property<int> p2: ug.used44;
+    in-out property<int> p1: ug.used42;
+    in-out property<int> p2: ug.used44;
 }
 /*
 

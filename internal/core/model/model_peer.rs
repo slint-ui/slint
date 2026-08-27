@@ -23,6 +23,30 @@ pub struct ModelPeer<'a> {
     inner: Pin<&'a DependencyNode<*const dyn ModelChangeListener>>,
 }
 
+/// Which rows [`ModelTracker::track_row_data_changes`] and [`ModelTracker::track_any_change`]
+/// have registered a dependency on.
+enum TrackedRows {
+    /// Sorted list of individually tracked rows.
+    Rows(Vec<usize>),
+    /// track_any_change() was called, making every row implicitly tracked.
+    All,
+}
+
+impl Default for TrackedRows {
+    fn default() -> Self {
+        TrackedRows::Rows(Vec::new())
+    }
+}
+
+impl TrackedRows {
+    fn is_tracked(&self, row: usize) -> bool {
+        match self {
+            TrackedRows::Rows(rows) => rows.binary_search(&row).is_ok(),
+            TrackedRows::All => true,
+        }
+    }
+}
+
 #[pin_project]
 #[derive(Default)]
 struct ModelNotifyInner {
@@ -32,71 +56,66 @@ struct ModelNotifyInner {
     model_row_data_dirty_property: Property<()>,
     #[pin]
     peers: DependencyListHead,
-    // Sorted list of rows that track_row_data_changes() was called for
-    tracked_rows: RefCell<Vec<usize>>,
+    tracked_rows: RefCell<TrackedRows>,
 }
 
 /// Dispatch notifications from a [`Model`] to one or several [`ModelPeer`].
 /// Typically, you would want to put this in the implementation of the Model
 #[derive(Default)]
 pub struct ModelNotify {
-    inner: OnceCell<Pin<Box<ModelNotifyInner>>>,
+    inner: Pin<Box<ModelNotifyInner>>,
 }
 
 impl ModelNotify {
     fn inner(&self) -> Pin<&ModelNotifyInner> {
-        self.inner.get_or_init(|| Box::pin(ModelNotifyInner::default())).as_ref()
+        self.inner.as_ref()
     }
 
     /// Notify the peers that a specific row was changed
     pub fn row_changed(&self, row: usize) {
-        if let Some(inner) = self.inner.get() {
-            if inner.tracked_rows.borrow().binary_search(&row).is_ok() {
-                inner.model_row_data_dirty_property.mark_dirty();
-            }
-            inner.as_ref().project_ref().peers.for_each(|p| {
-                // Safety: The peers contain a list of pinned ModelChangedListener
-                unsafe { Pin::new_unchecked(&**p) }.row_changed(row)
-            })
+        let inner = &self.inner;
+        if inner.tracked_rows.borrow().is_tracked(row) {
+            inner.model_row_data_dirty_property.mark_dirty();
         }
+        inner.as_ref().project_ref().peers.for_each(|p| {
+            // Safety: The peers contain a list of pinned ModelChangedListener
+            unsafe { Pin::new_unchecked(&**p) }.row_changed(row)
+        })
     }
     /// Notify the peers that rows were added
     pub fn row_added(&self, index: usize, count: usize) {
-        if let Some(inner) = self.inner.get() {
-            inner.model_row_count_dirty_property.mark_dirty();
-            inner.tracked_rows.borrow_mut().clear();
-            inner.model_row_data_dirty_property.mark_dirty();
-            inner.as_ref().project_ref().peers.for_each(|p| {
-                // Safety: The peers contain a list of pinned ModelChangedListener
-                unsafe { Pin::new_unchecked(&**p) }.row_added(index, count)
-            })
-        }
+        let inner = &self.inner;
+        inner.model_row_count_dirty_property.mark_dirty();
+        *inner.tracked_rows.borrow_mut() = TrackedRows::default();
+        inner.model_row_data_dirty_property.mark_dirty();
+        inner.as_ref().project_ref().peers.for_each(|p| {
+            // Safety: The peers contain a list of pinned ModelChangedListener
+            unsafe { Pin::new_unchecked(&**p) }.row_added(index, count)
+        })
     }
     /// Notify the peers that rows were removed
     pub fn row_removed(&self, index: usize, count: usize) {
-        if let Some(inner) = self.inner.get() {
-            inner.model_row_count_dirty_property.mark_dirty();
-            inner.tracked_rows.borrow_mut().clear();
-            inner.model_row_data_dirty_property.mark_dirty();
-            inner.as_ref().project_ref().peers.for_each(|p| {
-                // Safety: The peers contain a list of pinned ModelChangedListener
-                unsafe { Pin::new_unchecked(&**p) }.row_removed(index, count)
-            })
-        }
+        let inner = &self.inner;
+        inner.model_row_count_dirty_property.mark_dirty();
+        *inner.tracked_rows.borrow_mut() = TrackedRows::default();
+        inner.model_row_data_dirty_property.mark_dirty();
+        inner.as_ref().project_ref().peers.for_each(|p| {
+            // Safety: The peers contain a list of pinned ModelChangedListener
+            unsafe { Pin::new_unchecked(&**p) }.row_removed(index, count)
+        })
     }
 
     /// Notify the peer that the model has been changed in some way and
     /// everything needs to be reloaded
     pub fn reset(&self) {
-        if let Some(inner) = self.inner.get() {
-            inner.model_row_count_dirty_property.mark_dirty();
-            inner.tracked_rows.borrow_mut().clear();
-            inner.model_row_data_dirty_property.mark_dirty();
-            inner.as_ref().project_ref().peers.for_each(|p| {
-                // Safety: The peers contain a list of pinned ModelChangedListener
-                unsafe { Pin::new_unchecked(&**p) }.reset()
-            })
-        }
+        let inner = &self.inner;
+        inner.model_row_count_dirty_property.mark_dirty();
+        *inner.tracked_rows.borrow_mut() = TrackedRows::default();
+        inner.model_row_data_dirty_property.mark_dirty();
+        inner.as_ref().project_ref().peers.for_each(|p| {
+            // Safety: The peers contain a list of pinned ModelChangedListener
+            unsafe { Pin::new_unchecked(&**p) }.reset()
+        })
     }
 }
 
@@ -114,11 +133,23 @@ impl ModelTracker for ModelNotify {
         if crate::properties::is_currently_tracking() {
             let inner = self.inner().project_ref();
 
-            let mut tracked_rows = inner.tracked_rows.borrow_mut();
-            if let Err(insertion_point) = tracked_rows.binary_search(&row) {
-                tracked_rows.insert(insertion_point, row);
+            // Recording the row individually is redundant once every row is tracked.
+            if let TrackedRows::Rows(rows) = &mut *inner.tracked_rows.borrow_mut()
+                && let Err(insertion_point) = rows.binary_search(&row)
+            {
+                rows.insert(insertion_point, row);
             }
 
+            inner.model_row_data_dirty_property.get();
+        }
+    }
+
+    fn track_any_change(&self, _row_count: usize) {
+        self.track_row_count_changes();
+        if crate::properties::is_currently_tracking() {
+            let inner = self.inner().project_ref();
+            // Any individually tracked rows are now subsumed by the whole-model dependency.
+            *inner.tracked_rows.borrow_mut() = TrackedRows::All;
             inner.model_row_data_dirty_property.get();
         }
     }
@@ -175,5 +206,41 @@ impl<T: ModelChangeListener + 'static> ModelChangeListenerContainer<T> {
 
     pub fn get(self: Pin<&Self>) -> Pin<&T> {
         self.project_ref().data
+    }
+}
+
+/// A pinned `ModelChangeListenerContainer` using `NonNull` instead of `Box`
+/// to avoid aliasing issues when the struct is moved into `Rc::new()`.
+pub struct ModelChangeListenerBox<T: ModelChangeListener + 'static> {
+    ptr: core::ptr::NonNull<ModelChangeListenerContainer<T>>,
+}
+
+impl<T: ModelChangeListener + 'static> ModelChangeListenerBox<T> {
+    pub fn new(data: T) -> Self {
+        let container = ModelChangeListenerContainer::new(data);
+        // Safety: Box::into_raw returns a non-null pointer
+        let ptr = unsafe { core::ptr::NonNull::new_unchecked(Box::into_raw(Box::new(container))) };
+        Self { ptr }
+    }
+
+    pub fn as_ref(&self) -> Pin<&ModelChangeListenerContainer<T>> {
+        // Safety: the data is pinned because we never move it or expose &mut to it
+        unsafe { Pin::new_unchecked(self.ptr.as_ref()) }
+    }
+}
+
+impl<T: ModelChangeListener + 'static> core::ops::Deref for ModelChangeListenerBox<T> {
+    type Target = T;
+    fn deref(&self) -> &T {
+        // Safety: ptr is valid for the lifetime of self
+        unsafe { &self.ptr.as_ref().data }
+    }
+}
+
+impl<T: ModelChangeListener + 'static> Drop for ModelChangeListenerBox<T> {
+    fn drop(&mut self) {
+        // Safety: we own the allocation and it was created by Box::new.
+        // Box::from_raw runs PinnedDrop which calls peer.remove().
+        unsafe { drop(Box::from_raw(self.ptr.as_ptr())) }
     }
 }

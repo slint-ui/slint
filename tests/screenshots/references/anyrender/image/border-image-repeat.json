@@ -1,0 +1,596 @@
+[
+  {
+    "Fill": {
+      "brush": {
+        "Image": {
+          "image": 0,
+          "sampler": {
+            "alpha": 1.0,
+            "quality": "Medium",
+            "x_extend": "Repeat",
+            "y_extend": "Repeat"
+          }
+        }
+      },
+      "brush_transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0
+      ],
+      "fill": "NonZero",
+      "shape": "M0,0 L5,0 L5,5 L0,5 Z",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "Fill": {
+      "brush": {
+        "Image": {
+          "image": 1,
+          "sampler": {
+            "alpha": 1.0,
+            "quality": "Medium",
+            "x_extend": "Repeat",
+            "y_extend": "Repeat"
+          }
+        }
+      },
+      "brush_transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        -4.0,
+        0.0
+      ],
+      "fill": "NonZero",
+      "shape": "M0,0 L22,0 L22,5 L0,5 Z",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        5.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "Fill": {
+      "brush": {
+        "Image": {
+          "image": 2,
+          "sampler": {
+            "alpha": 1.0,
+            "quality": "Medium",
+            "x_extend": "Repeat",
+            "y_extend": "Repeat"
+          }
+        }
+      },
+      "brush_transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0
+      ],
+      "fill": "NonZero",
+      "shape": "M0,0 L5,0 L5,5 L0,5 Z",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        27.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "Fill": {
+      "brush": {
+        "Image": {
+          "image": 3,
+          "sampler": {
+            "alpha": 1.0,
+            "quality": "Medium",
+            "x_extend": "Repeat",
+            "y_extend": "Repeat"
+          }
+        }
+      },
+      "brush_transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        -6.0
+      ],
+      "fill": "NonZero",
+      "shape": "M0,0 L5,0 L5,54 L0,54 Z",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        5.0
+      ]
+    }
+  },
+  {
+    "Fill": {
+      "brush": {
+        "Image": {
+          "image": 4,
+          "sampler": {
+            "alpha": 1.0,
+            "quality": "Medium",
+            "x_extend": "Repeat",
+            "y_extend": "Repeat"
+          }
+        }
+      },
+      "brush_transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        -4.0,
+        -6.0
+      ],
+      "fill": "NonZero",
+      "shape": "M0,0 L22,0 L22,54 L0,54 Z",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        5.0,
+        5.0
+      ]
+    }
+  },
+  {
+    "Fill": {
+      "brush": {
+        "Image": {
+          "image": 5,
+          "sampler": {
+            "alpha": 1.0,
+            "quality": "Medium",
+            "x_extend": "Repeat",
+            "y_extend": "Repeat"
+          }
+        }
+      },
+      "brush_transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        -6.0
+      ],
+      "fill": "NonZero",
+      "shape": "M0,0 L5,0 L5,54 L0,54 Z",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        27.0,
+        5.0
+      ]
+    }
+  },
+  {
+    "Fill": {
+      "brush": {
+        "Image": {
+          "image": 6,
+          "sampler": {
+            "alpha": 1.0,
+            "quality": "Medium",
+            "x_extend": "Repeat",
+            "y_extend": "Repeat"
+          }
+        }
+      },
+      "brush_transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0
+      ],
+      "fill": "NonZero",
+      "shape": "M0,0 L5,0 L5,5 L0,5 Z",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        59.0
+      ]
+    }
+  },
+  {
+    "Fill": {
+      "brush": {
+        "Image": {
+          "image": 7,
+          "sampler": {
+            "alpha": 1.0,
+            "quality": "Medium",
+            "x_extend": "Repeat",
+            "y_extend": "Repeat"
+          }
+        }
+      },
+      "brush_transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        -4.0,
+        0.0
+      ],
+      "fill": "NonZero",
+      "shape": "M0,0 L22,0 L22,5 L0,5 Z",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        5.0,
+        59.0
+      ]
+    }
+  },
+  {
+    "Fill": {
+      "brush": {
+        "Image": {
+          "image": 8,
+          "sampler": {
+            "alpha": 1.0,
+            "quality": "Medium",
+            "x_extend": "Repeat",
+            "y_extend": "Repeat"
+          }
+        }
+      },
+      "brush_transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0
+      ],
+      "fill": "NonZero",
+      "shape": "M0,0 L5,0 L5,5 L0,5 Z",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        27.0,
+        59.0
+      ]
+    }
+  },
+  {
+    "Fill": {
+      "brush": {
+        "Image": {
+          "image": 9,
+          "sampler": {
+            "alpha": 1.0,
+            "quality": "Medium",
+            "x_extend": "Repeat",
+            "y_extend": "Repeat"
+          }
+        }
+      },
+      "brush_transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0
+      ],
+      "fill": "NonZero",
+      "shape": "M0,0 L5,0 L5,6 L0,6 Z",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        32.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "Fill": {
+      "brush": {
+        "Image": {
+          "image": 10,
+          "sampler": {
+            "alpha": 1.0,
+            "quality": "Medium",
+            "x_extend": "Repeat",
+            "y_extend": "Repeat"
+          }
+        }
+      },
+      "brush_transform": [
+        1.1,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0
+      ],
+      "fill": "NonZero",
+      "shape": "M0,0 L22,0 L22,6 L0,6 Z",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        37.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "Fill": {
+      "brush": {
+        "Image": {
+          "image": 11,
+          "sampler": {
+            "alpha": 1.0,
+            "quality": "Medium",
+            "x_extend": "Repeat",
+            "y_extend": "Repeat"
+          }
+        }
+      },
+      "brush_transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0
+      ],
+      "fill": "NonZero",
+      "shape": "M0,0 L5,0 L5,6 L0,6 Z",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        59.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "Fill": {
+      "brush": {
+        "Image": {
+          "image": 12,
+          "sampler": {
+            "alpha": 1.0,
+            "quality": "Medium",
+            "x_extend": "Repeat",
+            "y_extend": "Repeat"
+          }
+        }
+      },
+      "brush_transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0833,
+        0.0,
+        0.0
+      ],
+      "fill": "NonZero",
+      "shape": "M0,0 L5,0 L5,52 L0,52 Z",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        32.0,
+        6.0
+      ]
+    }
+  },
+  {
+    "Fill": {
+      "brush": {
+        "Image": {
+          "image": 13,
+          "sampler": {
+            "alpha": 1.0,
+            "quality": "Medium",
+            "x_extend": "Repeat",
+            "y_extend": "Repeat"
+          }
+        }
+      },
+      "brush_transform": [
+        1.1,
+        0.0,
+        0.0,
+        1.0833,
+        0.0,
+        0.0
+      ],
+      "fill": "NonZero",
+      "shape": "M0,0 L22,0 L22,52 L0,52 Z",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        37.0,
+        6.0
+      ]
+    }
+  },
+  {
+    "Fill": {
+      "brush": {
+        "Image": {
+          "image": 14,
+          "sampler": {
+            "alpha": 1.0,
+            "quality": "Medium",
+            "x_extend": "Repeat",
+            "y_extend": "Repeat"
+          }
+        }
+      },
+      "brush_transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0833,
+        0.0,
+        0.0
+      ],
+      "fill": "NonZero",
+      "shape": "M0,0 L5,0 L5,52 L0,52 Z",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        59.0,
+        6.0
+      ]
+    }
+  },
+  {
+    "Fill": {
+      "brush": {
+        "Image": {
+          "image": 15,
+          "sampler": {
+            "alpha": 1.0,
+            "quality": "Medium",
+            "x_extend": "Repeat",
+            "y_extend": "Repeat"
+          }
+        }
+      },
+      "brush_transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0
+      ],
+      "fill": "NonZero",
+      "shape": "M0,0 L5,0 L5,6 L0,6 Z",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        32.0,
+        58.0
+      ]
+    }
+  },
+  {
+    "Fill": {
+      "brush": {
+        "Image": {
+          "image": 16,
+          "sampler": {
+            "alpha": 1.0,
+            "quality": "Medium",
+            "x_extend": "Repeat",
+            "y_extend": "Repeat"
+          }
+        }
+      },
+      "brush_transform": [
+        1.1,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0
+      ],
+      "fill": "NonZero",
+      "shape": "M0,0 L22,0 L22,6 L0,6 Z",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        37.0,
+        58.0
+      ]
+    }
+  },
+  {
+    "Fill": {
+      "brush": {
+        "Image": {
+          "image": 17,
+          "sampler": {
+            "alpha": 1.0,
+            "quality": "Medium",
+            "x_extend": "Repeat",
+            "y_extend": "Repeat"
+          }
+        }
+      },
+      "brush_transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0
+      ],
+      "fill": "NonZero",
+      "shape": "M0,0 L5,0 L5,6 L0,6 Z",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        59.0,
+        58.0
+      ]
+    }
+  }
+]

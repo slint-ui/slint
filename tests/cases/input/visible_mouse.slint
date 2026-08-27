@@ -6,10 +6,10 @@ component Clip {
 }
 
 
-MaybeVisible := Rectangle {
+component MaybeVisible inherits Rectangle {
     width: 10phx;
     height: 10phx;
-    property <int> touch;
+    in-out property <int> touch;
     out property has-hover <=> ta.has-hover;
     Rectangle {
         background: red;
@@ -23,7 +23,7 @@ MaybeVisible := Rectangle {
     }
 }
 
-Invisible := TouchArea {
+component Invisible inherits TouchArea {
     visible: false;
 }
 
@@ -38,12 +38,12 @@ component VisibleAlias {
     }
 }
 
-TestCase := Rectangle {
+export component TestCase inherits Rectangle {
     height: 100phx;
     width: 100phx;
-    property <int> touch1 <=> el1.touch;
-    property <int> touch2 <=> el2.touch;
-    property <bool> el1visible : true;
+    in-out property <int> touch1 <=> el1.touch;
+    in-out property <int> touch2 <=> el2.touch;
+    in-out property <bool> el1visible : true;
     out property el1-has-hover <=> el1.has-hover;
 
     el1 := MaybeVisible {
@@ -63,7 +63,7 @@ TestCase := Rectangle {
     VisibleAlias { v:false; width: 100%; height: 100%; }
 
     test_rect := Rectangle { }
-    property <bool> test: test_rect.visible && !el2.visible && el1.visible;
+    in-out property <bool> test: test_rect.visible && !el2.visible && el1.visible;
 }
 
 /*

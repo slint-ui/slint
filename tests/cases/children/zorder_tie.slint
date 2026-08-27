@@ -1,0 +1,91 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Siblings with an equal (dynamic) z keep their natural order: among the ones with the
+// highest z, the later-declared element is on top, and among a `for`'s instances the
+// higher model index is on top. Siblings with a lower z stay below regardless of order.
+// `shared` is a runtime property so the z is dynamic (sorted on every visit); the outcome
+// must depend only on z and the tiebreak, never on the value of `shared`.
+
+export component TestCase inherits Rectangle {
+    width: 100phx;
+    height: 100phx;
+
+    in-out property <int> clicked-value;
+    in-out property <float> shared: 5;
+
+    // Plain siblings: two at `shared` and two at `shared - 1`. The second `shared` one
+    // (clicked 3) is on top; the later `shared - 1` one (clicked 4) stays below it.
+    Rectangle {
+        x: 0phx;
+        width: 50phx;
+        height: 100phx;
+        TouchArea { width: 100%; height: 100%; z: shared; clicked => { clicked-value = 1; } }
+        TouchArea { width: 100%; height: 100%; z: shared - 1; clicked => { clicked-value = 2; } }
+        TouchArea { width: 100%; height: 100%; z: shared; clicked => { clicked-value = 3; } }
+        TouchArea { width: 100%; height: 100%; z: shared - 1; clicked => { clicked-value = 4; } }
+    }
+
+    // `for` instances alternating between `shared` and `shared + 1`. The last row at the
+    // higher z (i == 3, clicked 13) is on top.
+    Rectangle {
+        x: 50phx;
+        width: 50phx;
+        height: 100phx;
+        for i in [0, 1, 2, 3] : TouchArea {
+            width: 100%;
+            height: 100%;
+            z: shared + mod(i, 2);
+            clicked => { clicked-value = 10 + i; }
+        }
+    }
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+// Plain siblings: the later of the two top-z ones wins, independent of `shared`.
+slint_testing::send_mouse_click(&instance, 25., 50.);
+assert_eq!(instance.get_clicked_value(), 3);
+instance.set_shared(-3.);
+slint_testing::send_mouse_click(&instance, 25., 50.);
+assert_eq!(instance.get_clicked_value(), 3);
+// `for` instances: the last row at the higher z wins.
+slint_testing::send_mouse_click(&instance, 75., 50.);
+assert_eq!(instance.get_clicked_value(), 13);
+instance.set_shared(100.);
+slint_testing::send_mouse_click(&instance, 75., 50.);
+assert_eq!(instance.get_clicked_value(), 13);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+
+slint_testing::send_mouse_click(&instance, 25., 50.);
+assert_eq(instance.get_clicked_value(), 3);
+instance.set_shared(-3.);
+slint_testing::send_mouse_click(&instance, 25., 50.);
+assert_eq(instance.get_clicked_value(), 3);
+slint_testing::send_mouse_click(&instance, 75., 50.);
+assert_eq(instance.get_clicked_value(), 13);
+instance.set_shared(100.);
+slint_testing::send_mouse_click(&instance, 75., 50.);
+assert_eq(instance.get_clicked_value(), 13);
+```
+
+```js
+var instance = new slint.TestCase();
+
+slintlib.private_api.send_mouse_click(instance, 25., 50.);
+assert.equal(instance.clicked_value, 3);
+instance.shared = -3.;
+slintlib.private_api.send_mouse_click(instance, 25., 50.);
+assert.equal(instance.clicked_value, 3);
+slintlib.private_api.send_mouse_click(instance, 75., 50.);
+assert.equal(instance.clicked_value, 13);
+instance.shared = 100.;
+slintlib.private_api.send_mouse_click(instance, 75., 50.);
+assert.equal(instance.clicked_value, 13);
+```
+*/

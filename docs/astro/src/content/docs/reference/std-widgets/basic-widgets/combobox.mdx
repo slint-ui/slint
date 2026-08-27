@@ -40,7 +40,20 @@ ComboBox {
 
 ### current-value
 <SlintProperty propName="current-value" typeName="string" defaultValue='""' propertyVisibility="in-out">
-The currently selected text
+The currently selected text.
+
+:::note
+Writing to `current-value` — from host code (Rust, C++, JavaScript, Python), declaratively
+at instantiation (as in the example above), or imperatively from `.slint` code — looks up
+the written value in `model` and moves `current-index` to the first matching row. If the
+value isn't found in `model`, the selection is cleared (`current-index` becomes `-1`
+and `current-value` becomes `""`), the same as setting `current-index` out of range.
+Prefer writing `current-index` directly when the row's position is already known.
+
+This lookup only runs when the write actually changes `current-value`. Writing the
+value it already holds — including when the model has duplicate entries and a later
+one is currently selected — is a no-op and does not move the selection.
+:::
 </SlintProperty>
 
 ### enabled
@@ -49,7 +62,7 @@ Defaults to true. When false, the combobox can't be interacted with
 </SlintProperty>
 
 ### has-focus
-<SlintProperty propName="has-focus" typeName="bool" defaultValue="false" propertyVisibility="out">
+<SlintProperty propName="has-focus" typeName="bool" propertyVisibility="out">
 Set to true when the combobox has keyboard focus.
 </SlintProperty>
 

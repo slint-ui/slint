@@ -1,109 +1,161 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cspell:ignore capitalizationmode keyboardmodifiers
+
+use crate::Config;
 use anyhow::Context;
 use std::fs::create_dir_all;
 use std::io::{BufWriter, Write};
-use std::path::Path;
 
-/// Generate all markdown/mdx documentation files.
-pub fn generate(include_experimental: bool) -> Result<(), Box<dyn std::error::Error>> {
-    generate_enum_docs(include_experimental)?;
-    generate_builtin_struct_docs(include_experimental)?;
-    generate_keys_docs()?;
-    crate::element_docs::generate()?;
-
-    let root = crate::root_dir();
-    let enums = extract_enum_docs(include_experimental);
-    let structs = extract_builtin_structs(include_experimental);
-    write_global_structs_enums_index(&root, &structs, &enums)?;
-
-    Ok(())
+/// Whether `dir` is the directory this tool generates into, and may therefore
+/// delete wholesale: everything below it is machine-written. A `Config`
+/// pointing anywhere else would take hand-written content with it.
+fn is_generated_dir(dir: &std::path::Path, astro_dir: &std::path::Path) -> bool {
+    dir.starts_with(astro_dir) && dir.file_name().is_some_and(|name| name == "generated")
 }
 
-fn write_global_structs_enums_index(
-    root_dir: &Path,
+/// Generate all markdown/mdx documentation files, and return the gaps the
+/// safety manual shows: the runtime files that aren't completely covered and
+/// the requirement paragraphs that no test declares. Every page is written
+/// first, so a build can publish the manual and act on the gaps afterwards.
+pub fn generate(cfg: &Config) -> Result<Vec<String>, Box<dyn std::error::Error>> {
+    // Start from an empty directory: a page left behind by an earlier run
+    // (of a version that named or grouped it differently) still renders, and
+    // its paragraph ids still count as duplicates of the current ones.
+    assert!(
+        is_generated_dir(&cfg.generated_dir, &cfg.astro_dir),
+        "refusing to clear {:?}: not a `generated` directory inside {:?}",
+        cfg.generated_dir,
+        cfg.astro_dir,
+    );
+    if cfg.generated_dir.exists() {
+        std::fs::remove_dir_all(&cfg.generated_dir)
+            .context(format!("error clearing {:?}", cfg.generated_dir))?;
+    }
+    // The struct pages link to the type pages, so both are written from the
+    // same maps: a type this run leaves out is never linked to.
+    let enums = extract_enum_docs(cfg.include_experimental, cfg.sc_only);
+    let structs = extract_builtin_structs(cfg.include_experimental, cfg.sc_only);
+    write_individual_enum_files(cfg, &enums)?;
+    write_individual_struct_files(cfg, &structs, &enums)?;
+    if !cfg.sc_only {
+        generate_keys_docs(cfg)?;
+    }
+    crate::element_docs::generate(cfg)?;
+
+    if !cfg.sc_only || !enums.is_empty() || !structs.is_empty() {
+        write_builtin_structs_and_enums(cfg, &structs, &enums)?;
+    }
+
+    let mut gaps = Vec::new();
+    if cfg.sc_only {
+        gaps = crate::traceability::generate(cfg)?;
+        gaps.extend(crate::coverage::generate(cfg)?);
+        crate::test_results::generate(cfg)?;
+    }
+
+    Ok(gaps)
+}
+
+/// The pages listing every built-in struct and enum, linked to from the field
+/// documentation of the structs.
+const BUILTIN_STRUCTS_SLUG: &str = "reference/property-types/builtin-structs";
+const BUILTIN_ENUMS_SLUG: &str = "reference/property-types/builtin-enums";
+
+/// An enum documented on its own type page rather than in the Builtin Enums list.
+fn enum_documented_elsewhere(name: &str) -> bool {
+    // `keys.md` is generated separately and documented elsewhere; the mouse
+    // cursor shapes are documented on the MouseCursor type.
+    name == "keys" || name == "BuiltInMouseCursor"
+}
+
+fn write_builtin_structs_and_enums(
+    cfg: &Config,
     structs: &std::collections::BTreeMap<String, StructDoc>,
     enums: &std::collections::BTreeMap<String, EnumDoc>,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let generated_dir = root_dir.join("docs/astro/src/content/docs/reference/generated");
+    let generated_dir = cfg.reference_dir();
     create_dir_all(&generated_dir)?;
-    let path = generated_dir.join("global-structs-enums.mdx");
-    let mut file =
-        BufWriter::new(std::fs::File::create(&path).context(format!("error creating {path:?}"))?);
 
+    let structs_path = generated_dir.join("builtin-structs.mdx");
+    let mut file = BufWriter::new(
+        std::fs::File::create(&structs_path).context(format!("error creating {structs_path:?}"))?,
+    );
     writeln!(
         file,
         r#"---
-title: Global Structs and Enums
-description: Global Structs and Enums
-slug: reference/global-structs-enums
+title: Built-in Structs
+description: The built-in struct types provided by Slint.
+slug: {BUILTIN_STRUCTS_SLUG}
 ---
 "#
     )?;
-
     for name in structs.keys() {
         writeln!(
             file,
-            "import {0} from \"/src/content/docs/reference/generated/structs/{0}.md\"",
-            name
+            "import {0} from \"/src/{1}/reference/structs/_{0}.md\"",
+            name,
+            crate::GENERATED_DIR
         )?;
     }
-
-    if !structs.is_empty() {
+    writeln!(file)?;
+    for name in structs.keys() {
+        writeln!(file, "## {name}")?;
+        writeln!(file, "<{name} />")?;
         writeln!(file)?;
     }
+    file.flush()?;
 
+    let enums_path = generated_dir.join("builtin-enums.mdx");
+    let mut file = BufWriter::new(
+        std::fs::File::create(&enums_path).context(format!("error creating {enums_path:?}"))?,
+    );
+    writeln!(
+        file,
+        r#"---
+title: Built-in Enums
+description: The built-in enumeration types provided by Slint.
+slug: {BUILTIN_ENUMS_SLUG}
+---
+"#
+    )?;
     for name in enums.keys() {
-        // `keys.md` is generated separately and documented elsewhere.
-        if name == "keys" {
+        if enum_documented_elsewhere(name) {
             continue;
         }
         writeln!(
             file,
-            "import {0} from \"/src/content/docs/reference/generated/enums/{0}.md\"",
-            name
+            "import {0} from \"/src/{1}/reference/enums/_{0}.md\"",
+            name,
+            crate::GENERATED_DIR
         )?;
     }
-
     writeln!(file)?;
-    writeln!(file, "## Structs")?;
-    writeln!(file)?;
-
-    for name in structs.keys() {
-        writeln!(file, "### {name}")?;
-        writeln!(file, "<{name} />")?;
-        writeln!(file)?;
-    }
-
-    writeln!(file, "## Enums")?;
-    writeln!(file)?;
-
     for name in enums.keys() {
-        if name == "keys" {
+        if enum_documented_elsewhere(name) {
             continue;
         }
-        writeln!(file, "### {name}")?;
+        writeln!(file, "## {name}")?;
         writeln!(file, "<{name} />")?;
         writeln!(file)?;
     }
-
     file.flush()?;
 
     Ok(())
 }
 
 fn write_individual_enum_files(
-    root_dir: &Path,
+    cfg: &Config,
     enums: &std::collections::BTreeMap<String, EnumDoc>,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let enums_dir = root_dir.join("docs/astro/src/content/docs/reference/generated/enums");
+    let enums_dir = cfg.reference_dir().join("enums");
     create_dir_all(&enums_dir).context(format!(
         "Failed to create folder holding individual enum doc files {enums_dir:?}"
     ))?;
 
     for (k, e) in enums {
-        let path = enums_dir.join(format!("{k}.md"));
+        let path = enums_dir.join(format!("_{k}.md"));
         let mut file = BufWriter::new(
             std::fs::File::create(&path).context(format!("error creating {path:?}"))?,
         );
@@ -113,19 +165,29 @@ fn write_individual_enum_files(
             r#"---
 title: {0}
 description: {0} content
-slug: reference/enums/{0}
 ---
 
 <!-- Generated with slint-doc-generator from internal/commons/enums.rs -->
 
-`{0}`
-
-{1}
 "#,
-            k, e.description
+            k
         )?;
+        // BuiltInMouseCursor is embedded inline in the MouseCursor type documentation, where its
+        // internal name must not appear; emit only the description and the values.
+        if k != "BuiltInMouseCursor" {
+            writeln!(file, "`{k}`\n")?;
+        }
+        writeln!(file, "{}", e.description)?;
         for v in &e.values {
-            writeln!(file, r#"* **`{}`**: {}"#, v.key, v.description)?;
+            // A struct field default links to the value it takes, and every enum
+            // shares the Builtin Enums page, so the id carries the enum name.
+            writeln!(
+                file,
+                r#"* **<span id="{}">`{}`</span>**: {}"#,
+                enum_value_anchor(k, &v.key),
+                v.key,
+                v.description
+            )?;
         }
 
         file.flush()?;
@@ -144,12 +206,13 @@ pub struct EnumDoc {
 }
 
 pub fn extract_enum_docs(
-    include_experimental: bool,
+    _include_experimental: bool,
+    sc_only: bool,
 ) -> std::collections::BTreeMap<String, EnumDoc> {
     let mut enums: std::collections::BTreeMap<String, EnumDoc> = std::collections::BTreeMap::new();
 
     macro_rules! gen_enums {
-        ($( $(#[doc = $enum_doc:literal])* $(#[non_exhaustive])? enum $Name:ident { $( $(#[doc = $value_doc:literal])* $Value:ident,)* })*) => {
+        ($( $(#[doc = $enum_doc:literal])* $(#[non_exhaustive])? $vis:vis enum $Name:ident { $( $(#[doc = $value_doc:literal])* $Value:ident,)* })*) => {
             $(
                 let name = stringify!($Name).to_string();
                 let mut description = String::new();
@@ -175,23 +238,26 @@ pub fn extract_enum_docs(
         i_slint_common::for_each_enums!(gen_enums);
     }
 
-    if !include_experimental {
-        enums.retain(|name, _| !name.starts_with("FlexboxLayout"));
+    if sc_only {
+        enums.retain(|_, e| crate::element_docs::is_sc_covered(&e.description));
+    }
+    for e in enums.values_mut() {
+        e.description = crate::element_docs::strip_sc(&e.description);
+        for v in &mut e.values {
+            v.description = crate::element_docs::strip_sc(&v.description);
+        }
     }
 
     enums
-}
-
-pub fn generate_enum_docs(include_experimental: bool) -> Result<(), Box<dyn std::error::Error>> {
-    let enums = extract_enum_docs(include_experimental);
-    write_individual_enum_files(&crate::root_dir(), &enums)?;
-    Ok(())
 }
 
 pub struct StructFieldDoc {
     key: String,
     description: String,
     type_name: String,
+    /// The value the field takes when it isn't set, written in `.slint` syntax,
+    /// or `None` for the zero value of the field's type.
+    default_value: Option<String>,
 }
 
 pub struct StructDoc {
@@ -200,7 +266,8 @@ pub struct StructDoc {
 }
 
 pub fn extract_builtin_structs(
-    include_experimental: bool,
+    _include_experimental: bool,
+    sc_only: bool,
 ) -> std::collections::BTreeMap<String, StructDoc> {
     // `Point` should be in the documentation, but it's not inside of `for_each_builtin_structs`,
     // so we manually create its entry first.
@@ -215,11 +282,13 @@ pub fn extract_builtin_structs(
                         key: "x".to_string(),
                         description: String::new(),
                         type_name: "length".to_string(),
+                        default_value: None,
                     },
                     StructFieldDoc {
                         key: "y".to_string(),
                         description: String::new(),
                         type_name: "length".to_string(),
+                        default_value: None,
                     },
                 ],
             },
@@ -233,11 +302,13 @@ pub fn extract_builtin_structs(
                         key: "width".to_string(),
                         description: String::new(),
                         type_name: "length".to_string(),
+                        default_value: None,
                     },
                     StructFieldDoc {
                         key: "height".to_string(),
                         description: String::new(),
                         type_name: "length".to_string(),
+                        default_value: None,
                     },
                 ],
             },
@@ -273,14 +344,8 @@ pub fn extract_builtin_structs(
             $(#[doc = $struct_doc:literal])*
             $(#[non_exhaustive])?
             $(#[derive(Copy, Eq)])?
-            struct $Name:ident {
-                @name = $inner_name:expr,
-                export {
-                    $( $(#[doc = $pub_doc:literal])* $pub_field:ident : $pub_type:ident, )*
-                }
-                private {
-                    $( $(#[doc = $pri_doc:literal])* $pri_field:ident : $pri_type:ty, )*
-                }
+            $vis:vis struct $Name:ident {
+                $( $(#[doc = $field_doc:literal])* $field:ident : $field_type:ident $(= $field_default:expr)?, )*
             }
         )*) => {
             $(
@@ -290,13 +355,16 @@ pub fn extract_builtin_structs(
 
                 let mut fields = Vec::new();
                 $(
-                    let key = stringify!($pub_field).to_string();
-                    let type_name = map_type!($pub_type).to_string();
+                    let key = stringify!($field).replace('_', "-");
+                    let type_name = map_type!($field_type).to_string();
                     let mut f_description = String::new();
                     $(
-                        f_description += &format!("{}", $pub_doc);
+                        f_description += &format!("{}", $field_doc);
                     )*
-                    fields.push(StructFieldDoc { key, description: f_description, type_name });
+                    let default_value =
+                        i_slint_common::builtin_struct_field_default_tokens!($($field_default)?)
+                            .map(declared_default);
+                    fields.push(StructFieldDoc { key, description: f_description, type_name, default_value });
                 )*
                 structs.insert(name, StructDoc { description, fields });
             )*
@@ -307,25 +375,94 @@ pub fn extract_builtin_structs(
 
     // Internal type
     structs.remove("MenuEntry");
-    if !include_experimental {
-        // Experimental type
-        structs.remove("DropEvent");
+
+    if sc_only {
+        structs.retain(|_, s| crate::element_docs::is_sc_covered(&s.description));
+    }
+    for s in structs.values_mut() {
+        s.description = crate::element_docs::strip_sc(&s.description);
+        for f in &mut s.fields {
+            f.description = crate::element_docs::strip_sc(&f.description);
+        }
     }
 
     structs
 }
 
+/// The section documenting `type_name` on the built-in enums or structs page.
+/// The maps are the ones those pages are written from, so a type left out of
+/// this run gets no link rather than one to a missing anchor.
+/// The link is written from the site root; `remarkBaseLinks` adds the base of
+/// whichever site renders it.
+fn type_href(
+    type_name: &str,
+    enums: &std::collections::BTreeMap<String, EnumDoc>,
+    structs: &std::collections::BTreeMap<String, StructDoc>,
+) -> Option<String> {
+    let page = if enums.contains_key(type_name) && !enum_documented_elsewhere(type_name) {
+        BUILTIN_ENUMS_SLUG
+    } else if structs.contains_key(type_name) {
+        BUILTIN_STRUCTS_SLUG
+    } else {
+        return None;
+    };
+    Some(format!("/{page}/#{}", type_name.to_lowercase()))
+}
+
+/// The id of one value on the page documenting `enum_name`.
+fn enum_value_anchor(enum_name: &str, value: &str) -> String {
+    format!("{}-{value}", enum_name.to_lowercase())
+}
+
+/// The `.slint` form of a field default declared in builtin_structs.rs.
+fn declared_default(tokens: &str) -> String {
+    let text: String =
+        tokens.chars().filter(|c| !c.is_whitespace() && *c != '(' && *c != ')').collect();
+    match text.split_once("::") {
+        // Enum values are written in kebab case in .slint
+        Some((_, variant)) => to_kebab_case(variant.trim_start_matches("r#")),
+        // bool and number literals are written the same way
+        None => text,
+    }
+}
+
+/// The list entry documenting one field of a struct, with the field's type
+/// linked to its own documentation when it has any.
+fn struct_field_line(
+    field: &StructFieldDoc,
+    enums: &std::collections::BTreeMap<String, EnumDoc>,
+    structs: &std::collections::BTreeMap<String, StructDoc>,
+) -> String {
+    let name = &field.type_name;
+    let type_name = type_href(name, enums, structs)
+        .map_or_else(|| format!("_{name}_"), |href| format!("[_{name}_]({href})"));
+    let default_value = field.default_value.as_ref().map_or_else(String::new, |value| {
+        // An enum value links to its own documentation, next to the values it could
+        // take instead; `type_href` decides whether the enum is documented there.
+        let documented = enums.contains_key(name) && type_href(name, enums, structs).is_some();
+        match documented {
+            true => format!(
+                " Defaults to [`{value}`](/{BUILTIN_ENUMS_SLUG}/#{}).",
+                enum_value_anchor(name, value)
+            ),
+            false => format!(" Defaults to `{value}`."),
+        }
+    });
+    format!("- **`{}`** ({}): {}{}", field.key, type_name, field.description, default_value)
+}
+
 fn write_individual_struct_files(
-    root_dir: &Path,
-    structs: std::collections::BTreeMap<String, StructDoc>,
+    cfg: &Config,
+    structs: &std::collections::BTreeMap<String, StructDoc>,
+    enums: &std::collections::BTreeMap<String, EnumDoc>,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let structs_dir = root_dir.join("docs/astro/src/content/docs/reference/generated/structs");
+    let structs_dir = cfg.reference_dir().join("structs");
     create_dir_all(&structs_dir).context(format!(
         "Failed to create folder holding individual structs doc files {structs_dir:?}"
     ))?;
 
-    for (s, v) in &structs {
-        let path = structs_dir.join(format!("{s}.md"));
+    for (s, v) in structs {
+        let path = structs_dir.join(format!("_{s}.md"));
         let mut file = BufWriter::new(
             std::fs::File::create(&path).context(format!("error creating {path:?}"))?,
         );
@@ -335,7 +472,6 @@ fn write_individual_struct_files(
             r#"---
 title: {0}
 description: {0} content
-slug: reference/structs/{0}
 ---
 
 <!-- Generated with slint-doc-generator from internal/common/builtin_structs.rs -->
@@ -348,20 +484,13 @@ slug: reference/structs/{0}
         )?;
 
         for f in &v.fields {
-            writeln!(file, r#"- **`{}`** (_{}_): {}"#, f.key, f.type_name, f.description)?;
+            writeln!(file, "{}", struct_field_line(f, enums, structs))?;
         }
 
         file.flush()?;
     }
 
     Ok(())
-}
-
-pub fn generate_builtin_struct_docs(
-    include_experimental: bool,
-) -> Result<(), Box<dyn std::error::Error>> {
-    let structs = extract_builtin_structs(include_experimental);
-    write_individual_struct_files(&crate::root_dir(), structs)
 }
 
 /// Convert a ascii pascal case string to kebab case.
@@ -380,20 +509,18 @@ pub fn to_kebab_case(str: &str) -> String {
     String::from_utf8(result).unwrap()
 }
 
-fn generate_keys_docs() -> Result<(), Box<dyn std::error::Error>> {
-    let root_dir = &crate::root_dir();
-    let enums_dir = root_dir.join("docs/astro/src/content/docs/reference/generated/enums");
+fn generate_keys_docs(cfg: &Config) -> Result<(), Box<dyn std::error::Error>> {
+    let enums_dir = cfg.reference_dir().join("enums");
     create_dir_all(&enums_dir).context(format!(
         "Failed to create folder holding individual enum doc files {enums_dir:?}"
     ))?;
 
-    let path = enums_dir.join("keys.md");
+    let path = enums_dir.join("_keys.md");
     let mut file =
         BufWriter::new(std::fs::File::create(&path).context(format!("error creating {path:?}"))?);
 
     writeln!(file, "---")?;
     writeln!(file, "title: keys")?;
-    writeln!(file, "slug: reference/enums/keys")?;
     writeln!(file, "---")?;
     writeln!(file)?;
 
@@ -412,4 +539,65 @@ fn generate_keys_docs() -> Result<(), Box<dyn std::error::Error>> {
     file.flush()?;
 
     Ok(())
+}
+
+#[test]
+fn test_is_generated_dir() {
+    let astro = std::path::Path::new("/repo/docs/astro");
+    assert!(is_generated_dir(&astro.join("src/content/docs/reference/generated"), astro));
+    // Hand-written content, an empty path, and a directory of another
+    // project are all refused.
+    assert!(!is_generated_dir(&astro.join("src/content/docs/reference"), astro));
+    assert!(!is_generated_dir(std::path::Path::new(""), astro));
+    assert!(!is_generated_dir(std::path::Path::new("/elsewhere/generated"), astro));
+}
+
+#[test]
+fn test_type_href() {
+    let enum_doc = || EnumDoc { description: String::new(), values: vec![] };
+    let enums = std::collections::BTreeMap::from([
+        ("CapitalizationMode".to_string(), enum_doc()),
+        ("BuiltInMouseCursor".to_string(), enum_doc()),
+    ]);
+    let structs = std::collections::BTreeMap::from([(
+        "KeyboardModifiers".to_string(),
+        StructDoc { description: String::new(), fields: vec![] },
+    )]);
+    let href = |type_name| type_href(type_name, &enums, &structs);
+
+    assert_eq!(
+        href("CapitalizationMode").as_deref(),
+        Some("/reference/property-types/builtin-enums/#capitalizationmode")
+    );
+    assert_eq!(
+        href("KeyboardModifiers").as_deref(),
+        Some("/reference/property-types/builtin-structs/#keyboardmodifiers")
+    );
+    // A type without a section of its own, and one documented elsewhere.
+    assert_eq!(href("int"), None);
+    assert_eq!(href("BuiltInMouseCursor"), None);
+
+    let field = StructFieldDoc {
+        key: "field".to_string(),
+        description: "The docs".to_string(),
+        type_name: "CapitalizationMode".to_string(),
+        default_value: None,
+    };
+    assert_eq!(
+        struct_field_line(&field, &enums, &structs),
+        "- **`field`** ([_CapitalizationMode_](/reference/property-types/builtin-enums/#capitalizationmode)): The docs"
+    );
+    // A declared default value is documented after the description.
+    let with_default = StructFieldDoc {
+        key: "field".to_string(),
+        description: "The docs".to_string(),
+        type_name: "CapitalizationMode".to_string(),
+        default_value: Some(declared_default("(CapitalizationMode::Sentences)")),
+    };
+    assert_eq!(
+        struct_field_line(&with_default, &enums, &structs),
+        "- **`field`** ([_CapitalizationMode_](/reference/property-types/builtin-enums/#capitalizationmode)): The docs Defaults to [`sentences`](/reference/property-types/builtin-enums/#capitalizationmode-sentences)."
+    );
+    let field = StructFieldDoc { type_name: "int".to_string(), ..field };
+    assert_eq!(struct_field_line(&field, &enums, &structs), "- **`field`** (_int_): The docs");
 }

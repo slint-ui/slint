@@ -5,20 +5,22 @@
 // and succeed in generating code that determines the root correctly,
 // to access global singletons.
 
-Label := Text {
+component Label inherits Text {
 
 }
 
-SubCompo := Rectangle {
+component SubCompo inherits Rectangle {
     for x in 1: Rectangle {
         for y in 1: Label {
+            x:0;y:0;
             for z in 1: Label {
+            x:0;y:0;
             }
         }
     }
 }
 
-TestCase := Rectangle {
+export component TestCase inherits Rectangle {
     width: 300phx;
     height: 300phx;
     SubCompo {}

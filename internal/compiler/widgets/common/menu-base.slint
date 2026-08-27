@@ -103,6 +103,11 @@ export component MenuItemBase {
     in property <int> font-weight <=> label.font-weight;
     in property <length> border-radius <=> background-layer.border-radius;
     in property <bool> is-current;
+    // Time at which the item was created, used to suppress accidental
+    // activation from the mouse-up that opened the menu.
+    property <duration> open-time;
+    property <bool> had-press;
+    init => { open-time = animation-tick(); }
     in property <MenuEntry> entry;
     in property <image> sub-menu-icon;
     in property <length> spacing <=> layout.spacing;
@@ -173,7 +178,11 @@ export component MenuItemBase {
                     root.set-current()
                 } else if event.kind == PointerEventKind.down && entry.has-sub-menu && entry.enabled {
                     activate(entry, self.absolute-position.y);
+                } else if event.kind == PointerEventKind.down {
+                    // A deliberate press always enables activation
+                    root.had-press = true;
                 } else if event.kind == PointerEventKind.up
+                        && (root.had-press || animation-tick() - root.open-time > 300ms)
                         && self.mouse-y > 0 && self.mouse-y < self.height
                         && self.mouse-x > 0 && self.mouse-x < self.width
                         && entry.enabled {

@@ -2,14 +2,14 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 
-TestCase := Window {
+export component TestCase inherits Window {
   width: 500phx;
   height: 500phx;
 
   f1 := Flickable {
     x: 0phx;
     width: 250phx;
-    viewport-height: 800phx;
+    content-height: 800phx;
 
     t1 := TouchArea {
       height: 50phx;
@@ -26,22 +26,23 @@ TestCase := Window {
   Flickable {
     x: 250phx;
     width: 250phx;
-    viewport-width: 800phx;
+    content-width: 800phx;
     y: 0;
     height: 300phx;
 
     t2 := TouchArea {
+      x:0;
       width: 50phx;
       Rectangle { background: parent.has-hover ? green: yellow; }
       pointer-event(event) => {
         if event.kind == PointerEventKind.cancel {
-            root.pointer-events += "C";
+            pointer-events += "C";
         } else if event.kind == PointerEventKind.down {
-            root.pointer-events += "D(" + self.mouse-y/1px + ")";
+            pointer-events += "D(" + self.mouse-y/1px + ")";
         } else if event.kind == PointerEventKind.up {
-            root.pointer-events += "U(" + self.mouse-y/1px + ")";
+            pointer-events += "U(" + self.mouse-y/1px + ")";
         } else if event.kind == PointerEventKind.move {
-            root.pointer-events += "M(" + self.mouse-y/1px + ")";
+            pointer-events += "M(" + self.mouse-y/1px + ")";
         }
         }
     }
@@ -52,7 +53,7 @@ TestCase := Window {
   out property<bool> t2-has-hover: t2.has-hover;
   out property <string> pointer-events;
 
-  in-out property f1_pos <=> f1.viewport_y;
+  in-out property f1_pos <=> f1.content_y;
 }
 
 /*

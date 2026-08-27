@@ -43,11 +43,14 @@ In your build.rs, you must include a call to `slint_build::print_rustc_flags().u
 
 ## Run the demo:
 
+The demo lives in the `demos` workspace, which is separate from the repository's root workspace.
+Run the commands below from the root of the Slint repository.
+
 ### The simulator
 
 
 ```sh
-cargo run -p printerdemo_mcu --features=simulator --release
+cargo run --manifest-path demos/printerdemo_mcu/Cargo.toml --features=simulator --release
 ```
 
 ### On the Raspberry Pi Pico
@@ -55,7 +58,7 @@ cargo run -p printerdemo_mcu --features=simulator --release
 Build the demo with:
 
 ```sh
-cargo build -p printerdemo_mcu --no-default-features --features=mcu-board-support/pico-st7789 --target=thumbv6m-none-eabi --release
+cargo build --manifest-path demos/printerdemo_mcu/Cargo.toml --no-default-features --features=mcu-board-support/pico-st7789 --target=thumbv6m-none-eabi --release
 ```
 
 The resulting file can be flashed conveniently with [elf2uf2-rs](https://github.com/jonil/elf2uf2-rs). Install it using `cargo install`:
@@ -81,7 +84,7 @@ elf2uf2-rs -d target/thumbv6m-none-eabi/release/printerdemo_mcu
 Build the demo with:
 
 ```sh
-cargo build -p printerdemo_mcu --no-default-features --features=mcu-board-support/pico2-st7789 --target=thumbv8m.main-none-eabihf --release
+cargo build --manifest-path demos/printerdemo_mcu/Cargo.toml --no-default-features --features=mcu-board-support/pico2-st7789 --target=thumbv8m.main-none-eabihf --release
 ```
 
 The resulting file can be flashed conveniently with [picotool](https://github.com/raspberrypi/picotool). You should build it from source.
@@ -105,7 +108,7 @@ The [Waveshare Pico2 Touch LCD 2.8](https://www.waveshare.com/product/rp2350-tou
 Build the demo with:
 
 ```sh
-cargo build -p printerdemo_mcu --no-default-features --features=mcu-board-support/pico2-touch-lcd-2-8 --target=thumbv8m.main-none-eabihf --release
+cargo build --manifest-path demos/printerdemo_mcu/Cargo.toml --no-default-features --features=mcu-board-support/pico2-touch-lcd-2-8 --target=thumbv8m.main-none-eabihf --release
 ```
 
 Flash using [picotool](https://github.com/raspberrypi/picotool):
@@ -122,7 +125,7 @@ This requires [probe-rs](https://probe.rs) and to connect the pico via a probe
 Then you can simply run with `cargo run`
 
 ```sh
-CARGO_TARGET_THUMBV6M_NONE_EABI_LINKER="flip-link" CARGO_TARGET_THUMBV6M_NONE_EABI_RUNNER="probe-rs run --chip RP2040" cargo run -p printerdemo_mcu --no-default-features --features=mcu-board-support/pico-st7789 --target=thumbv6m-none-eabi --release
+CARGO_TARGET_THUMBV6M_NONE_EABI_LINKER="flip-link" CARGO_TARGET_THUMBV6M_NONE_EABI_RUNNER="probe-rs run --chip RP2040" cargo run --manifest-path demos/printerdemo_mcu/Cargo.toml --no-default-features --features=mcu-board-support/pico-st7789 --target=thumbv6m-none-eabi --release
 ```
 
 #### Flashing and Debugging the Pico with `probe-rs`'s VSCode Plugin
@@ -138,7 +141,7 @@ Add this build task to your `.vscode/tasks.json`:
 			"type": "cargo",
 			"command": "build",
 			"args": [
-				"--package=printerdemo_mcu",
+				"--manifest-path=demos/printerdemo_mcu/Cargo.toml",
 				"--no-default-features",
 				"--features=mcu-board-support/pico-st7789",
 				"--target=thumbv6m-none-eabi",
@@ -156,7 +159,7 @@ Add this build task to your `.vscode/tasks.json`:
 
 The `release-with-debug` profile is needed, because the debug build does not fit into flash.
 
-You can define it like this in your top level `Cargo.toml`:
+You can define it like this in the `demos/Cargo.toml` workspace manifest:
 
 ```toml
 [profile.release-with-debug]
@@ -202,7 +205,7 @@ This was tested using a second Raspberry Pi Pico programmed as a probe with [Dap
 Using [probe-rs](https://probe.rs).
 
 ```sh
-CARGO_PROFILE_RELEASE_OPT_LEVEL=s CARGO_TARGET_THUMBV7EM_NONE_EABIHF_RUNNER="probe-rs run --chip STM32H735IGKx" cargo run -p printerdemo_mcu --no-default-features  --features=mcu-board-support/stm32h735g --target=thumbv7em-none-eabihf --release
+CARGO_PROFILE_RELEASE_OPT_LEVEL=s CARGO_TARGET_THUMBV7EM_NONE_EABIHF_RUNNER="probe-rs run --chip STM32H735IGKx" cargo run --manifest-path demos/printerdemo_mcu/Cargo.toml --no-default-features  --features=mcu-board-support/stm32h735g --target=thumbv7em-none-eabihf --release
 ```
 
 ### STM32U5G9J-DK2
@@ -210,7 +213,7 @@ CARGO_PROFILE_RELEASE_OPT_LEVEL=s CARGO_TARGET_THUMBV7EM_NONE_EABIHF_RUNNER="pro
 Using [probe-rs](https://probe.rs).
 
 ```sh
-CARGO_PROFILE_RELEASE_OPT_LEVEL=s CARGO_TARGET_THUMBV8M_MAIN_NONE_EABIHF_RUNNER="probe-rs run --chip STM32U5G9ZJTxQ" cargo run -p printerdemo_mcu --no-default-features  --features=mcu-board-support/stm32u5g9j-dk2 --target=thumbv8m.main-none-eabihf --release
+CARGO_PROFILE_RELEASE_OPT_LEVEL=s CARGO_TARGET_THUMBV8M_MAIN_NONE_EABIHF_RUNNER="probe-rs run --chip STM32U5G9ZJTxQ" cargo run --manifest-path demos/printerdemo_mcu/Cargo.toml --no-default-features  --features=mcu-board-support/stm32u5g9j-dk2 --target=thumbv8m.main-none-eabihf --release
 ```
 
 ### ESP32
@@ -234,7 +237,7 @@ The ESP32-S3-Box development board features:
 To compile and run the demo:
 
 ```sh
-CARGO_PROFILE_RELEASE_OPT_LEVEL=s cargo +esp run -p printerdemo_mcu --target xtensa-esp32s3-none-elf --no-default-features --features=mcu-board-support/esp32-s3-box-3 --release --config examples/mcu-board-support/esp32_s3_box_3/cargo-config.toml
+CARGO_PROFILE_RELEASE_OPT_LEVEL=s cargo +esp run --manifest-path demos/printerdemo_mcu/Cargo.toml --target xtensa-esp32s3-none-elf --no-default-features --features=mcu-board-support/esp32-s3-box-3 --release --config examples/mcu-board-support/esp32_s3_box_3/cargo-config.toml
 ```
 
 #### ESP32-S3-LCD-EV-Board
@@ -248,7 +251,7 @@ The ESP32-S3-LCD-EV-Board development board features:
 To compile and run the demo:
 
 ```sh
-CARGO_PROFILE_RELEASE_OPT_LEVEL=s cargo +esp run -p printerdemo_mcu --target xtensa-esp32s3-none-elf --no-default-features --features=mcu-board-support/esp32-s3-lcd-ev-board --release --config examples/mcu-board-support/esp32_s3_lcd_ev_board/cargo-config.toml
+CARGO_PROFILE_RELEASE_OPT_LEVEL=s cargo +esp run --manifest-path demos/printerdemo_mcu/Cargo.toml --target xtensa-esp32s3-none-elf --no-default-features --features=mcu-board-support/esp32-s3-lcd-ev-board --release --config examples/mcu-board-support/esp32_s3_lcd_ev_board/cargo-config.toml
 ```
 
 #### Waveshare ESP32-S3 Touch AMOLED 1.8"
@@ -262,7 +265,7 @@ The Waveshare ESP32-S3 Touch AMOLED 1.8" board features:
 To compile and run the demo:
 
 ```sh
-CARGO_PROFILE_RELEASE_OPT_LEVEL=s cargo +esp run -p printerdemo_mcu --target xtensa-esp32s3-none-elf --no-default-features --features=mcu-board-support/waveshare-esp32-s3-touch-amoled-1-8 --release --config examples/mcu-board-support/waveshare_esp32_s3_touch_amoled_1_8/cargo-config.toml
+CARGO_PROFILE_RELEASE_OPT_LEVEL=s cargo +esp run --manifest-path demos/printerdemo_mcu/Cargo.toml --target xtensa-esp32s3-none-elf --no-default-features --features=mcu-board-support/waveshare-esp32-s3-touch-amoled-1-8 --release --config examples/mcu-board-support/waveshare_esp32_s3_touch_amoled_1_8/cargo-config.toml
 ```
 
 #### M5Stack CoreS3
@@ -284,7 +287,7 @@ The board currently operates in display-only mode.
 To compile and run the demo:
 
 ```sh
-CARGO_PROFILE_RELEASE_OPT_LEVEL=s cargo +esp run -p printerdemo_mcu --target xtensa-esp32s3-none-elf --no-default-features --features=mcu-board-support/m5stack-cores3 --release --config examples/mcu-board-support/m5stack_cores3/cargo-config.toml
+CARGO_PROFILE_RELEASE_OPT_LEVEL=s cargo +esp run --manifest-path demos/printerdemo_mcu/Cargo.toml --target xtensa-esp32s3-none-elf --no-default-features --features=mcu-board-support/m5stack-cores3 --release --config examples/mcu-board-support/m5stack_cores3/cargo-config.toml
 ```
 
 #### ESoPe SLD_C_W_S3
@@ -295,6 +298,6 @@ for use in combination with [Smartwin displays](https://shop.schukat.com/de/de/E
 To compile and run the demo:
 
 ```sh
-CARGO_PROFILE_RELEASE_OPT_LEVEL=s cargo +esp run -p printerdemo_mcu --target xtensa-esp32s3-none-elf --no-default-features --features=mcu-board-support/esope-sld-c-w-s3 --release --config examples/mcu-board-support/esope_sld_c_w_s3/cargo-config.toml
+CARGO_PROFILE_RELEASE_OPT_LEVEL=s cargo +esp run --manifest-path demos/printerdemo_mcu/Cargo.toml --target xtensa-esp32s3-none-elf --no-default-features --features=mcu-board-support/esope-sld-c-w-s3 --release --config examples/mcu-board-support/esope_sld_c_w_s3/cargo-config.toml
 ```
 

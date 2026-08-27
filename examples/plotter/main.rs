@@ -17,8 +17,8 @@ slint::slint! {
 fn pdf(x: f64, y: f64, a: f64) -> f64 {
     const SDX: f64 = 0.1;
     const SDY: f64 = 0.1;
-    let x = x as f64 / 10.0;
-    let y = y as f64 / 10.0;
+    let x = x / 10.0;
+    let y = y / 10.0;
     a * (-x * x / 2.0 / SDX / SDX - y * y / 2.0 / SDY / SDY).exp()
 }
 

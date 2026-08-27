@@ -7,7 +7,7 @@ export component TestCase {
     out property <string> clicked_value;
     l := VerticalLayout {
         for val[i] in [10,20,30] : TouchArea {
-            // issue 4961 was about index, but also add other names that are comonly used
+            // issue 4961 was about index, but also add other names that are commonly used
             property <string> index: "index" + i;
             property <string> model-data: "model-data" + val;
             property <string> model: "model" + val;

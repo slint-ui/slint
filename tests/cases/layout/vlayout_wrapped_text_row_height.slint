@@ -1,0 +1,255 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Issue #12776: in a VerticalLayout of HorizontalLayout rows (the table-row
+// shape), each row's height must be enough for the height its word-wrapped
+// Text needs at the width the row actually assigns to the cell — not the
+// height at whatever width the text had when the constraint was computed.
+//
+// Reading the rendered window: three table blocks, each a caption plus rows of
+// [gray 90phx label column | blue wrapped-text cell]. A too-short row makes
+// the text paint over the next row, and in the repeated blocks it pulls the
+// blue end bar up into the text.
+
+component TableRow inherits HorizontalLayout {
+    in property <string> detail;
+    spacing: 2px;
+    Rectangle {
+        width: 90phx;
+        background: #dcdcdc;
+        border-width: 1px;
+        border-color: #a0a0a0;
+        Text { x: 0px; width: 100%; height: 100%; text: "90phx"; font-size: 10px; color: #333333;
+            horizontal-alignment: center; vertical-alignment: center; }
+    }
+    Rectangle {
+        background: #cce6ff;
+        border-width: 1px;
+        border-color: #5b8db8;
+        VerticalLayout {
+            padding: 8px;
+            Text {
+                text: detail;
+                wrap: word-wrap;
+                color: #003366;
+            }
+        }
+    }
+}
+
+export component TestCase inherits Window {
+    width: 820phx;
+    // Derived from the content so the blocks fit at any font size. Two
+    // columns: static + repeated rows on the left, the TableRow block on the
+    // right.
+    height: max(repeated-rows.y + marker.y + marker.height, component-rows.y + marker2.y + marker2.height) + 40px;
+
+    // Single-line reference for a font-independent line height.
+    ref := Text {
+        x: 300phx;
+        y: 0;
+        text: "Word";
+        color: #555555;
+    }
+
+    // The captions and blocks are chained off each other's actual geometry:
+    // the row heights depend on the font, so fixed positions would overlap.
+    cap1 := Text { x: 4phx; y: 2phx; width: 290phx; font-size: 11px; color: #555555;
+        text: "static rows (row 3: bare text, no wrapper cell)"; wrap: word-wrap; }
+    static-block := VerticalLayout {
+        x: 0;
+        y: cap1.y + cap1.height + 6px;
+        width: 400phx;
+        height: 100px + ref.height * 25;
+        alignment: start;
+        padding: 12px;
+        spacing: 2px;
+
+        row1 := HorizontalLayout {
+            spacing: 2px;
+            Rectangle {
+                width: 90phx;
+                background: #dcdcdc;
+                border-width: 1px;
+                border-color: #a0a0a0;
+                Text { x: 0px; width: 100%; height: 100%; text: "90phx"; font-size: 10px; color: #333333;
+                    horizontal-alignment: center; vertical-alignment: center; }
+            }
+            Rectangle {
+                background: #cce6ff;
+                border-width: 1px;
+                border-color: #5b8db8;
+                VerticalLayout {
+                    padding: 8px;
+                    text1 := Text {
+                        text: "A long wrapped cell: the quick brown fox jumps over the lazy dog again and again and again, until this text clearly needs three or more lines at the second column's final width.";
+                        wrap: word-wrap;
+                        color: #003366;
+                    }
+                }
+            }
+        }
+        row2 := HorizontalLayout {
+            spacing: 2px;
+            Rectangle {
+                width: 90phx;
+                background: #dcdcdc;
+                border-width: 1px;
+                border-color: #a0a0a0;
+                Text { x: 0px; width: 100%; height: 100%; text: "90phx"; font-size: 10px; color: #333333;
+                    horizontal-alignment: center; vertical-alignment: center; }
+            }
+            Rectangle {
+                background: #cce6ff;
+                border-width: 1px;
+                border-color: #5b8db8;
+                VerticalLayout {
+                    padding: 8px;
+                    text2 := Text {
+                        text: "Second row, shorter text.";
+                        wrap: word-wrap;
+                        color: #003366;
+                    }
+                }
+            }
+        }
+        // A wrapped Text directly in the row, without a wrapper cell.
+        row3 := HorizontalLayout {
+            spacing: 2px;
+            Rectangle {
+                width: 90phx;
+                background: #dcdcdc;
+                border-width: 1px;
+                border-color: #a0a0a0;
+                Text { x: 0px; width: 100%; height: 100%; text: "90phx"; font-size: 10px; color: #333333;
+                    horizontal-alignment: center; vertical-alignment: center; }
+            }
+            text3 := Text {
+                text: "Third row, long enough to check that a bare wrapped text cell also gets enough height: pack my box with five dozen liquor jugs, and then a few words more.";
+                wrap: word-wrap;
+                color: #003366;
+            }
+        }
+    }
+
+    // The same table-row shape as above, but with repeated rows like in the
+    // repro of issue #12776: all rows use the same long text, so each repeated row
+    // must get the same height as the equivalent static row above it.
+    cap2 := Text { x: 4phx; y: static-block.y + row3.y + row3.height + 24px; width: 390phx; font-size: 11px; color: #555555;
+        text: "repeated rows (#12776): 3 repeated rows below the static one, all the same height — the blue end bar must sit at 4 × row height"; wrap: word-wrap; }
+    repeated-rows := VerticalLayout {
+        x: 0;
+        y: cap2.y + cap2.height + 6px;
+        width: 400phx;
+        height: 100px + ref.height * 40;
+        alignment: start;
+        padding: 12px;
+        spacing: 2px;
+
+        static-row := HorizontalLayout {
+            spacing: 2px;
+            Rectangle {
+                width: 90phx;
+                background: #dcdcdc;
+                border-width: 1px;
+                border-color: #a0a0a0;
+                Text { x: 0px; width: 100%; height: 100%; text: "90phx"; font-size: 10px; color: #333333;
+                    horizontal-alignment: center; vertical-alignment: center; }
+            }
+            Rectangle {
+                background: #cce6ff;
+                border-width: 1px;
+                border-color: #5b8db8;
+                VerticalLayout {
+                    padding: 8px;
+                    static-text := Text {
+                        text: "A long wrapped cell: the quick brown fox jumps over the lazy dog again and again and again, until this text clearly needs three or more lines at the second column's final width.";
+                        wrap: word-wrap;
+                        color: #003366;
+                    }
+                }
+            }
+        }
+        for i in 3: HorizontalLayout {
+            spacing: 2px;
+            Rectangle {
+                width: 90phx;
+                background: #dcdcdc;
+                border-width: 1px;
+                border-color: #a0a0a0;
+                Text { x: 0px; width: 100%; height: 100%; text: "90phx"; font-size: 10px; color: #333333;
+                    horizontal-alignment: center; vertical-alignment: center; }
+            }
+            Rectangle {
+                background: #cce6ff;
+                border-width: 1px;
+                border-color: #5b8db8;
+                VerticalLayout {
+                    padding: 8px;
+                    Text {
+                        text: "A long wrapped cell: the quick brown fox jumps over the lazy dog again and again and again, until this text clearly needs three or more lines at the second column's final width.";
+                        wrap: word-wrap;
+                        color: #003366;
+                    }
+                }
+            }
+        }
+        marker := Rectangle { height: 10phx; background: #5b8db8; }
+    }
+
+    // The same, with the row behind a component (a different dispatch path
+    // for the repeated instances' layout info).
+    cap3 := Text { x: 424phx; y: 2phx; width: 390phx; font-size: 11px; color: #555555;
+        text: "rows behind a component (TableRow): same, different dispatch path"; wrap: word-wrap; }
+    component-rows := VerticalLayout {
+        x: 420phx;
+        y: cap3.y + cap3.height + 6px;
+        width: 400phx;
+        height: 100px + ref.height * 40;
+        alignment: start;
+        padding: 12px;
+        spacing: 2px;
+
+        static-comp-row := TableRow {
+            detail: "A long wrapped cell: the quick brown fox jumps over the lazy dog again and again and again, until this text clearly needs three or more lines at the second column's final width.";
+        }
+        for i in 3: TableRow {
+            detail: "A long wrapped cell: the quick brown fox jumps over the lazy dog again and again and again, until this text clearly needs three or more lines at the second column's final width.";
+        }
+        marker2 := Rectangle { height: 10phx; background: #5b8db8; }
+    }
+
+    // Sanity: the wrapped texts do wrap at the cell width.
+    out property <bool> test-wraps: text1.preferred-height >= 2 * ref.height && text3.preferred-height >= 2 * ref.height;
+    // Each row must be tall enough for its wrapped text plus the cell padding.
+    out property <bool> test-row1: row1.height >= text1.preferred-height + 16px;
+    out property <bool> test-row2: row2.height >= text2.preferred-height + 16px;
+    out property <bool> test-row3: row3.height >= text3.preferred-height;
+    // The text items themselves get at least the height they need to paint.
+    out property <bool> test-texts-fit: text1.height >= text1.preferred-height && text3.height >= text3.preferred-height;
+    // Each of the 3 repeated rows must be as tall as the identical static row:
+    // marker.y == top padding + 4 rows + 4 spacings. Compare with a tolerance:
+    // the marker position accumulates the row heights one by one, which is not
+    // bit-identical to the multiplication for a fractional row height.
+    out property <bool> test-repeated-rows: abs((marker.y - static-row.y) - 4 * (static-row.height + 2px)) < 1px;
+    out property <bool> test-component-rows: abs((marker2.y - static-comp-row.y) - 4 * (static-comp-row.height + 2px)) < 1px && abs(static-comp-row.height - static-row.height) < 1px;
+
+    out property <bool> test: test-wraps && test-row1 && test-row2 && test-row3 && test-texts-fit && test-repeated-rows && test-component-rows;
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+assert(handle->get_test());
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+```js
+var instance = new slint.TestCase({});
+assert(instance.test);
+```
+*/

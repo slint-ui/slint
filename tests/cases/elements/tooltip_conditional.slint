@@ -1,0 +1,142 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// `if <cond>: Tooltip { ... }` gates the synthesized TooltipArea on the
+// condition: when the condition is false the tooltip does not show on hover.
+
+export component TestCase {
+    width: 200px;
+    height: 100px;
+
+    in-out property <bool> tooltip-enabled: false;
+    in-out property <int> init-count;
+
+    TouchArea {
+        if root.tooltip-enabled: Tooltip {
+            Rectangle {
+                init => { root.init-count += 1; }
+            }
+        }
+    }
+}
+
+/*
+
+```rust
+use slint::{platform::WindowEvent, LogicalPosition};
+
+let instance = TestCase::new().unwrap();
+let inner = slint_testing::WindowInner::from_pub(&instance.window());
+
+// Disabled: hovering and waiting past the show delay does not show the tooltip.
+assert_eq!(instance.get_init_count(), 0);
+instance.window().dispatch_event(WindowEvent::PointerMoved {
+    position: LogicalPosition::new(100.0, 50.0),
+});
+slint_testing::mock_elapsed_time(600);
+assert_eq!(instance.get_init_count(), 0);
+assert_eq!(inner.active_popups.borrow().len(), 0);
+
+// Move the pointer away so re-entering re-arms the hover timer.
+instance.window().dispatch_event(WindowEvent::PointerMoved {
+    position: LogicalPosition::new(-10.0, -10.0),
+});
+slint_testing::mock_elapsed_time(2000);
+
+// Enable and hover again: the tooltip now shows after the delay.
+instance.set_tooltip_enabled(true);
+instance.window().dispatch_event(WindowEvent::PointerMoved {
+    position: LogicalPosition::new(100.0, 50.0),
+});
+assert_eq!(instance.get_init_count(), 0);
+slint_testing::mock_elapsed_time(600);
+assert_eq!(instance.get_init_count(), 1);
+assert_eq!(inner.active_popups.borrow().len(), 1);
+
+// Disable again while the popup is open: the next layout drops the
+// conditional sub-component instance, and `unregister_item_tree` closes the
+// popup because its `parent_item` no longer upgrades.
+instance.set_tooltip_enabled(false);
+slint_testing::mock_elapsed_time(1);
+assert_eq!(inner.active_popups.borrow().len(), 0);
+
+// Move away then back: hover no longer triggers the tooltip.
+instance.window().dispatch_event(WindowEvent::PointerMoved {
+    position: LogicalPosition::new(-10.0, -10.0),
+});
+slint_testing::mock_elapsed_time(2000);
+instance.window().dispatch_event(WindowEvent::PointerMoved {
+    position: LogicalPosition::new(100.0, 50.0),
+});
+slint_testing::mock_elapsed_time(600);
+assert_eq!(instance.get_init_count(), 1);
+assert_eq!(inner.active_popups.borrow().len(), 0);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+
+// Disabled: hovering and waiting past the show delay does not show the tooltip.
+assert_eq(instance.get_init_count(), 0);
+instance.window().dispatch_pointer_move_event(slint::LogicalPosition({100.0, 50.0}));
+slint_testing::mock_elapsed_time(600);
+assert_eq(instance.get_init_count(), 0);
+
+// Move the pointer away so re-entering re-arms the hover timer.
+instance.window().dispatch_pointer_move_event(slint::LogicalPosition({-10.0, -10.0}));
+slint_testing::mock_elapsed_time(2000);
+
+// Enable and hover again: the tooltip now shows after the delay.
+instance.set_tooltip_enabled(true);
+instance.window().dispatch_pointer_move_event(slint::LogicalPosition({100.0, 50.0}));
+assert_eq(instance.get_init_count(), 0);
+slint_testing::mock_elapsed_time(600);
+assert_eq(instance.get_init_count(), 1);
+
+// Disable again while the popup is open: the synthesized area is torn down,
+// which (via unregister_item_tree) closes the popup. Re-enter to confirm
+// hover no longer triggers the tooltip.
+instance.set_tooltip_enabled(false);
+slint_testing::mock_elapsed_time(1);
+instance.window().dispatch_pointer_move_event(slint::LogicalPosition({-10.0, -10.0}));
+slint_testing::mock_elapsed_time(2000);
+instance.window().dispatch_pointer_move_event(slint::LogicalPosition({100.0, 50.0}));
+slint_testing::mock_elapsed_time(600);
+assert_eq(instance.get_init_count(), 1);
+```
+
+```js
+var instance = new slint.TestCase({});
+
+// Disabled: hovering (via the move emitted by send_mouse_click) and waiting past
+// the show delay does not instantiate the tooltip content.
+assert.equal(instance.init_count, 0);
+slintlib.private_api.send_mouse_click(instance, 100., 50.);
+slintlib.private_api.mock_elapsed_time(600);
+assert.equal(instance.init_count, 0);
+
+// Move the pointer away (via a click at a different position) so re-entering
+// re-arms the hover timer.
+slintlib.private_api.send_mouse_click(instance, 0., 0.);
+slintlib.private_api.mock_elapsed_time(2000);
+
+// Enable and hover again: the tooltip now shows after the delay.
+instance.tooltip_enabled = true;
+slintlib.private_api.send_mouse_click(instance, 100., 50.);
+slintlib.private_api.mock_elapsed_time(600);
+assert.equal(instance.init_count, 1);
+
+// Disable again while the popup is open: the next layout tears down the
+// area and closes the popup via unregister_item_tree. Re-enter to confirm
+// hover no longer triggers the tooltip.
+instance.tooltip_enabled = false;
+slintlib.private_api.mock_elapsed_time(1);
+slintlib.private_api.send_mouse_click(instance, 0., 0.);
+slintlib.private_api.mock_elapsed_time(2000);
+slintlib.private_api.send_mouse_click(instance, 100., 50.);
+slintlib.private_api.mock_elapsed_time(600);
+assert.equal(instance.init_count, 1);
+```
+
+*/

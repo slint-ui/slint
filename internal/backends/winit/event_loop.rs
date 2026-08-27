@@ -9,7 +9,7 @@
 */
 use crate::EventResult;
 use crate::drag_resize_window::{handle_cursor_move_for_resize, handle_resize};
-use crate::winitwindowadapter::WindowVisibility;
+use crate::winitwindowadapter::{WindowVisibility, WinitWindowAdapter};
 use crate::{SharedBackendData, SlintEvent};
 use corelib::SharedString;
 use corelib::graphics::euclid;
@@ -89,6 +89,10 @@ pub struct EventLoopState {
     /// Set to true when pumping events for the shortest amount of time possible.
     pumping_events_instantly: bool,
 
+    /// Allocates small i32 finger ids for iOS's pointer-valued touch ids.
+    #[cfg(target_os = "ios")]
+    touch_finger_ids: crate::ios::TouchFingerIdAllocator,
+
     custom_application_handler: Option<Box<dyn crate::CustomApplicationHandler>>,
 }
 
@@ -105,6 +109,8 @@ impl EventLoopState {
             current_resize_direction: Default::default(),
             pending_mouse_move: Default::default(),
             pumping_events_instantly: Default::default(),
+            #[cfg(target_os = "ios")]
+            touch_finger_ids: Default::default(),
             custom_application_handler,
         }
     }
@@ -130,8 +136,9 @@ impl EventLoopState {
         if let Some((window_id, position)) = self.pending_mouse_move.take()
             && let Some(window) = self.shared_backend_data.window_by_id(window_id)
         {
-            let runtime_window = WindowInner::from_pub(window.window());
-            runtime_window.process_mouse_input(MouseEvent::Moved { position, touch_finger_id: 0 });
+            window.window().dispatch_event(corelib::platform::WindowEvent::internal(
+                MouseEvent::Moved { position, touch_finger_id: 0 },
+            ));
         }
     }
 }
@@ -204,7 +211,8 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
         }
 
         let runtime_window = WindowInner::from_pub(window.window());
-        if !matches!(event, WindowEvent::CursorMoved { .. }) {
+        self.maybe_set_custom_cursor(&window, event_loop);
+        if !matches!(event, WindowEvent::CursorMoved { .. } | WindowEvent::AxisMotion { .. }) {
             self.flush_pending_mouse_move();
         }
 
@@ -234,7 +242,7 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
             WindowEvent::CloseRequested => {
                 self.loop_error = window
                     .window()
-                    .try_dispatch_event(corelib::platform::WindowEvent::CloseRequested)
+                    .dispatch_event_with_result(corelib::platform::WindowEvent::CloseRequested)
                     .err();
             }
             WindowEvent::Focused(have_focus) => {
@@ -308,7 +316,11 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
                     // The latter case should be treated as a shortcut, the former should not.
                     let text_without_modifiers =
                         to_slint_key(&event, &event.key_without_modifiers());
-                    if text.is_empty() && !text_without_modifiers.is_empty() {
+                    // Skip the fallback for dead keys so the accent composes instead of being inserted.
+                    if text.is_empty()
+                        && !text_without_modifiers.is_empty()
+                        && !matches!(event.logical_key, winit::keyboard::Key::Dead(_))
+                    {
                         text = text_without_modifiers.clone();
                     }
                     text_without_modifiers
@@ -339,6 +351,7 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
                 };
                 let mut key_event = KeyEvent::default();
                 key_event.text = text;
+                key_event.repeat = event.repeat;
 
                 let event = corelib::input::InternalKeyEvent {
                     key_event,
@@ -348,7 +361,7 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
                     ..Default::default()
                 };
 
-                runtime_window.process_key_input(event);
+                window.window().dispatch_event(corelib::platform::WindowEvent::internal(event));
             }
             WindowEvent::Ime(winit::event::Ime::Preedit(string, preedit_selection)) => {
                 let event = InternalKeyEvent {
@@ -357,7 +370,7 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
                     preedit_selection: preedit_selection.map(|e| e.0 as i32..e.1 as i32),
                     ..Default::default()
                 };
-                runtime_window.process_key_input(event);
+                window.window().dispatch_event(corelib::platform::WindowEvent::internal(event));
             }
             WindowEvent::Ime(winit::event::Ime::Commit(string)) => {
                 let mut key_event = KeyEvent::default();
@@ -367,7 +380,7 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
                     key_event,
                     ..Default::default()
                 };
-                runtime_window.process_key_input(event);
+                window.window().dispatch_event(corelib::platform::WindowEvent::internal(event));
             }
             WindowEvent::CursorMoved { position, .. } => {
                 self.current_resize_direction = handle_cursor_move_for_resize(
@@ -389,7 +402,9 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
                 // On the html canvas, we don't get the mouse move or release event when outside the canvas. So we have no choice but canceling the event
                 if cfg!(target_arch = "wasm32") || !self.pressed {
                     self.pressed = false;
-                    runtime_window.process_mouse_input(MouseEvent::Exit);
+                    window
+                        .window()
+                        .dispatch_event(corelib::platform::WindowEvent::internal(MouseEvent::Exit));
                 }
             }
             WindowEvent::MouseWheel { delta, phase, .. } => {
@@ -406,12 +421,9 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
                     winit::event::TouchPhase::Ended => TouchPhase::Ended,
                     winit::event::TouchPhase::Cancelled => TouchPhase::Cancelled,
                 };
-                runtime_window.process_mouse_input(MouseEvent::Wheel {
-                    position: self.cursor_pos,
-                    delta_x,
-                    delta_y,
-                    phase,
-                });
+                window.window().dispatch_event(corelib::platform::WindowEvent::internal(
+                    MouseEvent::Wheel { position: self.cursor_pos, delta_x, delta_y, phase },
+                ));
             }
             WindowEvent::MouseInput { state, button, .. } => {
                 let button = match button {
@@ -452,24 +464,46 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
                         }
                     }
                 };
-                runtime_window.process_mouse_input(ev);
+                window.window().dispatch_event(corelib::platform::WindowEvent::internal(ev));
             }
             WindowEvent::Touch(touch) => {
                 let location = touch.location.to_logical(runtime_window.scale_factor() as f64);
                 let position = euclid::point2(location.x, location.y);
-                runtime_window.process_touch_input(
-                    touch.id,
-                    position,
-                    winit_touch_phase(touch.phase),
-                );
+                // winit types the touch id as u64, but on all platforms except
+                // iOS it is in fact a small integer that fits in i32. Only iOS
+                // stores a UITouch pointer address in it, which
+                // TouchFingerIdAllocator maps to a small id instead.
+                #[cfg(not(target_os = "ios"))]
+                let finger_id =
+                    Some(i32::try_from(touch.id).expect("winit touch id out of i32 range"));
+                #[cfg(target_os = "ios")]
+                let finger_id = match touch.phase {
+                    winit::event::TouchPhase::Started | winit::event::TouchPhase::Moved => {
+                        self.touch_finger_ids.id_for(touch.id)
+                    }
+                    winit::event::TouchPhase::Ended | winit::event::TouchPhase::Cancelled => {
+                        self.touch_finger_ids.take(touch.id)
+                    }
+                };
+                if let Some(finger_id) = finger_id {
+                    window.window().dispatch_event(corelib::platform::WindowEvent::internal(
+                        corelib::platform::InternalEvent::Touch {
+                            id: finger_id,
+                            position,
+                            phase: winit_touch_phase(touch.phase),
+                        },
+                    ));
+                }
             }
             WindowEvent::ScaleFactorChanged { scale_factor, inner_size_writer: _ } => {
                 if std::env::var("SLINT_SCALE_FACTOR").is_err() {
                     self.loop_error = window
                         .window()
-                        .try_dispatch_event(corelib::platform::WindowEvent::ScaleFactorChanged {
-                            scale_factor: scale_factor as f32,
-                        })
+                        .dispatch_event_with_result(
+                            corelib::platform::WindowEvent::ScaleFactorChanged {
+                                scale_factor: scale_factor as f32,
+                            },
+                        )
                         .err();
                     // TODO: send a resize event or try to keep the logical size the same.
                     //window.resize_event(inner_size_writer.???)?;
@@ -492,22 +526,29 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
             // known cursor position as the best available approximation. On macOS
             // trackpads, CursorMoved events typically precede gesture events.
             WindowEvent::PinchGesture { delta, phase, .. } => {
-                runtime_window.process_mouse_input(corelib::input::MouseEvent::PinchGesture {
-                    position: self.cursor_pos,
-                    delta: delta as f32,
-                    phase: winit_touch_phase(phase),
-                });
+                window.window().dispatch_event(corelib::platform::WindowEvent::internal(
+                    corelib::input::MouseEvent::PinchGesture {
+                        position: self.cursor_pos,
+                        delta: delta as f32,
+                        phase: winit_touch_phase(phase),
+                    },
+                ));
             }
             WindowEvent::RotationGesture { delta, phase, .. } => {
                 // macOS/winit: positive = counterclockwise. Negate to match
                 // Slint convention (positive = clockwise).
-                runtime_window.process_mouse_input(corelib::input::MouseEvent::RotationGesture {
-                    position: self.cursor_pos,
-                    delta: -delta,
-                    phase: winit_touch_phase(phase),
-                });
+                window.window().dispatch_event(corelib::platform::WindowEvent::internal(
+                    corelib::input::MouseEvent::RotationGesture {
+                        position: self.cursor_pos,
+                        delta: -delta,
+                        phase: winit_touch_phase(phase),
+                    },
+                ));
             }
 
+            WindowEvent::AxisMotion { .. } => {
+                // Ignored, but happens often and is also ignored for the purpose of bundling CursorMoved.
+            }
             _ => {}
         }
 
@@ -581,7 +622,7 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
 
         event_loop.set_control_flow(ControlFlow::Wait);
 
-        corelib::platform::update_timers_and_animations();
+        self.shared_backend_data.context().update_timers_and_animations();
     }
 
     fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
@@ -615,7 +656,8 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
         }
 
         if event_loop.control_flow() == ControlFlow::Wait
-            && let Some(next_timer) = corelib::platform::duration_until_next_timer_update()
+            && let Some(next_timer) =
+                self.shared_backend_data.context().duration_until_next_timer_update()
         {
             event_loop.set_control_flow(ControlFlow::wait_duration(next_timer));
         }
@@ -689,6 +731,19 @@ impl EventLoopState {
                 }
                 Ok(self)
             }
+        }
+    }
+
+    /// Sets the cursor to a custom source, if it needs to be set.
+    pub fn maybe_set_custom_cursor(
+        &self,
+        window: &WinitWindowAdapter,
+        event_loop: &ActiveEventLoop,
+    ) {
+        // If there is a new custom cursor, update it.
+        let custom_cursor_source = window.custom_cursor_source.take();
+        if let (Some(source), Some(winit_window)) = (custom_cursor_source, window.winit_window()) {
+            winit_window.set_cursor(event_loop.create_custom_cursor(source));
         }
     }
 

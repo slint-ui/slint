@@ -10,7 +10,7 @@ export component TestCase inherits Window {
     preferred-height: 300px;
 
     in-out property <string> result;
-    in-out property <length> viewport-y <=> lv.viewport-y;
+    in-out property <length> content-y <=> lv.content-y;
 
     lv := ListView {
         mouse-drag-pan-enabled: true;
@@ -65,23 +65,23 @@ send_mouse_press_and_release(&instance, 5., 130., 5., 5.); // Scrolling up. Larg
 // let the animation run for a bit
 slint_testing::mock_elapsed_time(100);
 // Due to the animation the value must be more than the diff of scrolling
-assert!(instance.get_viewport_y() < -125., "Received: {}, Desired: smaller than {}", instance.get_viewport_y(), -125);
+assert!(instance.get_content_y() < -125., "Received: {}, Desired: smaller than {}", instance.get_content_y(), -125);
 
 // Now scrolling up again
-let old_viewport_y = instance.get_viewport_y();
-println!("Old viewport y: {:?}", old_viewport_y);
+let old_content_y = instance.get_content_y();
+println!("Old content y: {:?}", old_content_y);
 send_mouse_press_and_release(&instance, 5., 0., 5., 75.); // Larger y is display bottom (Diff: 75 - 0)
 // let the animation run for a bit
 slint_testing::mock_elapsed_time(100);
-assert!((instance.get_viewport_y() - old_viewport_y) > 75., "Received: {}, Desired: larger than {}", instance.get_viewport_y() - old_viewport_y, 75);
+assert!((instance.get_content_y() - old_content_y) > 75., "Received: {}, Desired: larger than {}", instance.get_content_y() - old_content_y, 75);
 
-// Now scrolling up again but we hit the viewport limit
-let old_viewport_y = instance.get_viewport_y();
-println!("Old viewport y: {:?}", old_viewport_y);
+// Now scrolling up again but we hit the content limit
+let old_content_y = instance.get_content_y();
+println!("Old content y: {:?}", old_content_y);
 send_mouse_press_and_release(&instance, 5., 0., 5., 75.);
 // let the animation run for a bit
 slint_testing::mock_elapsed_time(10000000); // Let the animation finish
-assert_eq!(instance.get_viewport_y(), 0.);
+assert_eq!(instance.get_content_y(), 0.);
 ```
 
 */

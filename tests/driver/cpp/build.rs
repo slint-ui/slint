@@ -42,9 +42,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let mut tests_file = BufWriter::new(std::fs::File::create(&tests_file_path)?);
 
+    let live_preview = std::env::var("SLINT_LIVE_PREVIEW").is_ok();
+    println!("cargo::rerun-if-env-changed=SLINT_LIVE_PREVIEW");
+
     for testcase in test_driver_lib::collect_test_cases("cases")? {
         let test_function_name = testcase.identifier();
-        let ignored = testcase.is_ignored("cpp");
+        let ignored = if testcase.is_ignored("cpp") {
+            "#[ignore = \"testcase ignored for cpp\"]"
+        } else if live_preview
+            && (testcase.is_ignored("live-preview") || testcase.is_ignored("cpp-live-preview"))
+        {
+            "#[ignore = \"testcase ignored in live-preview mode\"]"
+        } else {
+            ""
+        };
 
         write!(
             tests_file,
@@ -60,7 +71,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }}
 
         "##,
-            ignore = if ignored { "#[ignore]" } else { "" },
+            ignore = ignored,
             function_name = test_function_name,
             absolute_path = testcase.absolute_path.to_string_lossy(),
             relative_path = testcase.relative_path.to_string_lossy(),

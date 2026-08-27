@@ -79,19 +79,26 @@ compile_error!(
 );
 
 mod api;
-mod dynamic_item_tree;
-mod dynamic_type;
+mod bindings;
+mod component;
+mod debug_hook;
+mod erased;
 mod eval;
 mod eval_layout;
-#[cfg(feature = "internal-file-watcher")]
-mod file_watcher;
-mod global_component;
+#[cfg(feature = "ffi")]
+#[doc(hidden)]
+pub mod ffi;
+mod globals;
 #[cfg(feature = "internal-highlight")]
 pub mod highlight;
+mod instance;
+mod item_holder;
+mod item_registry;
+mod item_tree_vtable;
 #[cfg(feature = "internal-json")]
 pub mod json;
-#[cfg(feature = "internal-live-preview")]
-pub mod live_preview;
+mod popup;
+mod public_api;
 mod value_model;
 
 #[doc(inline)]
@@ -99,11 +106,7 @@ pub use api::*;
 
 #[cfg(feature = "internal")]
 #[doc(hidden)]
-pub use eval::default_value_for_type;
-
-#[cfg(feature = "internal-file-watcher")]
-#[doc(hidden)]
-pub use file_watcher::{FileChangeKind, FileWatcher, WatchEvent};
+pub use eval::{default_value_for_struct_field, default_value_for_type};
 
 #[cfg(test)]
 mod tests;

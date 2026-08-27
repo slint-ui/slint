@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore CLOEXEC GETFL NOCTTY NONBLOCK
 use std::cell::RefCell;
 #[cfg(not(feature = "libseat"))]
 use std::fs::OpenOptions;
@@ -64,6 +65,7 @@ impl i_slint_core::platform::EventLoopProxy for Proxy {
 }
 
 pub struct Backend {
+    context: std::cell::OnceCell<i_slint_core::SlintContextWeak>,
     #[cfg(feature = "libseat")]
     seat: Rc<RefCell<libseat::Seat>>,
     window: RefCell<Option<Rc<FullscreenWindowAdapter>>>,
@@ -139,6 +141,7 @@ impl Backend {
         }
 
         Ok(Backend {
+            context: Default::default(),
             #[cfg(feature = "libseat")]
             seat: Rc::new(RefCell::new(seat)),
             window: Default::default(),
@@ -154,6 +157,10 @@ impl Backend {
 }
 
 impl i_slint_core::platform::Platform for Backend {
+    fn bind_context(&self, ctx: i_slint_core::SlintContextWeak, _: i_slint_core::InternalToken) {
+        let _ = self.context.set(ctx);
+    }
+
     fn create_window_adapter(
         &self,
     ) -> Result<std::rc::Rc<dyn i_slint_core::window::WindowAdapter>, PlatformError> {
@@ -257,8 +264,14 @@ impl i_slint_core::platform::Platform for Backend {
 
         quit_loop.store(false, std::sync::atomic::Ordering::Release);
 
+        let ctx = self
+            .context
+            .get()
+            .and_then(|ctx| ctx.upgrade())
+            .expect("the event loop runs inside the context that owns this backend");
+
         while !quit_loop.load(std::sync::atomic::Ordering::Acquire) {
-            i_slint_core::platform::update_timers_and_animations();
+            ctx.update_timers_and_animations();
 
             // Only after updating the animation tick, invoke callbacks from invoke_from_event_loop(). They
             // might set animated properties, which requires an up-to-date start time.
@@ -270,7 +283,7 @@ impl i_slint_core::platform::Platform for Backend {
                 adapter.clone().render_if_needed(mouse_position_property.as_ref())?;
             };
 
-            let next_timeout = i_slint_core::platform::duration_until_next_timer_update();
+            let next_timeout = ctx.duration_until_next_timer_update();
             event_loop
                 .dispatch(next_timeout, &mut loop_data)
                 .map_err(|e| format!("Error dispatch events: {e}"))?;

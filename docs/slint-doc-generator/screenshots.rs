@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore slintfoo
 use i_slint_compiler::ComponentSelection;
 use slint_interpreter::ComponentHandle;
 
@@ -387,7 +388,7 @@ fn process_tag(
     let width = attr.get("imageWidth").and_then(|w| w.parse::<usize>().ok());
     let height = attr.get("imageHeight").and_then(|h| h.parse::<usize>().ok());
 
-    let size = width.and_then(|w| height.map(|h| (w, h)));
+    let size = width.zip(height);
 
     let scale_factor = attr.get("scale").and_then(|s| s.parse::<f32>().ok()).unwrap_or(1.0);
 

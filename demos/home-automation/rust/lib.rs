@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
+// cSpell: ignore Timelike
 use chrono::{Datelike, Local, Timelike};
 use slint::{Timer, TimerMode};
 

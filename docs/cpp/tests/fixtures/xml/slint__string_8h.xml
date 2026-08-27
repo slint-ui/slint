@@ -1,0 +1,12 @@
+<?xml version='1.0' encoding='UTF-8' standalone='no'?>
+<!-- SPDX-FileCopyrightText: Copyright © SixtyFPS GmbH <info@slint.dev> -->
+<!-- SPDX-License-Identifier: MIT -->
+<!-- cSpell:ignore compounddef compoundname -->
+<!-- A file compound whose location is under private/, so classes attributed to
+     it must advertise <slint.h> rather than the internal header. -->
+<doxygen version="1.9.8">
+  <compounddef id="slint__string_8h" kind="file" language="C++">
+    <compoundname>slint_string.h</compoundname>
+    <location file="/repo/api/cpp/include/private/slint_string.h"/>
+  </compounddef>
+</doxygen>

@@ -1,0 +1,48 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { BodyLabel, MutedLabel, StudioTheme } from "common.slint";
+
+export component LibraryComponentRow inherits Rectangle {
+    in property <string> label;
+    in property <string> detail;
+
+    height: 70px;
+    border-radius: 8px;
+    border-width: 1px;
+    border-color: StudioTheme.border;
+    background: StudioTheme.panel-bg;
+
+    HorizontalLayout {
+        padding: 12px;
+        spacing: 12px;
+
+        Rectangle {
+            width: 42px;
+            height: 42px;
+            border-radius: 7px;
+            background: #e0e7ff;
+            border-width: 1px;
+            border-color: #a5b4fc;
+
+            Text {
+                text: "C";
+                color: #3730a3;
+                font-size: 13px;
+                font-weight: 900;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+        }
+
+        VerticalLayout {
+            spacing: 3px;
+            alignment: center;
+
+            BodyLabel { text: root.label; }
+            MutedLabel { text: root.detail; }
+        }
+    }
+
+    @children
+}

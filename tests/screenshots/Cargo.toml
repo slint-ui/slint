@@ -1,6 +1,7 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+# cSpell: ignore crossterm
 [package]
 name = "test-driver-screenshots"
 description = "Driver for the tests taking screenshots in Slint"
@@ -17,23 +18,57 @@ publish = false
 path = "main.rs"
 name = "test-driver-screenshot"
 
+[[bin]]
+path = "replay-anyrender.rs"
+name = "replay-anyrender"
+required-features = ["anyrender"]
+
 [features]
-default = ["skia", "software"]
-software = ["slint/renderer-software", "dep:i-slint-compiler"]
+default = ["skia", "software", "software-embed-assets"]
+# The default software driver renders without pre-rendering resources at compile time: vector fonts
+# (parley) and runtime-decoded images. `configure_test_fonts()` makes that deterministic.
+software = ["slint/renderer-software", "dep:i-slint-compiler", "dep:i-slint-backend-testing"]
 skia = ["dep:i-slint-renderer-skia", "dep:slint-interpreter"]
+# Snapshot-tests the command stream recorded by i-slint-renderer-anyrender
+# against JSON goldens in `references/anyrender/`; renders mismatches to PNG
+# via the wgpu-free anyrender_vello_cpu backend.
+anyrender = [
+  "dep:i-slint-renderer-anyrender",
+  "dep:anyrender",
+  "dep:anyrender_serialize",
+  "dep:anyrender_vello_cpu",
+  "dep:kurbo",
+  "dep:peniko",
+  "dep:serde_json",
+  "dep:slint-interpreter",
+  "dep:i-slint-backend-testing",
+]
+# Additionally render cases with everything pre-rendered at compile time: bitmap fonts and
+# pre-decoded textures (the MCU-style `EmbedTextures` path).
+software-embed-assets = ["software"]
 
 [dependencies]
 slint = { workspace = true, features = ["std", "compat-1-2"], optional = true }
 i-slint-core = { workspace = true, features = ["unicode", "std"] }
 
 i-slint-renderer-skia = { workspace = true, optional = true }
+i-slint-renderer-anyrender = { workspace = true, optional = true }
+anyrender = { version = "0.13", optional = true }
+anyrender_serialize = { version = "0.7", optional = true }
+anyrender_vello_cpu = { version = "0.16", optional = true }
+kurbo = { version = "0.13", optional = true }
+peniko = { version = "0.6", optional = true }
+serde_json = { version = "1", optional = true }
 slint-interpreter = { workspace = true, features = ["display-diagnostics", "compat-1-2"], optional = true }
+# Provides `configure_test_fonts()` to register the bundled test fonts at runtime so the default
+# software driver resolves fonts deterministically without importing a .ttf.
+i-slint-backend-testing = { workspace = true, features = ["internal"], optional = true }
 
 image = { workspace = true }
 crossterm = "0.29"
 
 [build-dependencies]
-i-slint-compiler = { workspace = true, features = ["default", "rust", "display-diagnostics", "software-renderer"], optional = true }
+i-slint-compiler = { workspace = true, features = ["default", "rust", "display-diagnostics", "renderer-software"], optional = true }
 walkdir = "2.3"
 spin_on = { workspace = true }
 test_driver_lib = { path = "../driver/driverlib" }

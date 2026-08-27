@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
+// cSpell: ignore tracweswo ccdr CPUID gpioa gpiob GPIOC gpiod gpioe gpiof GPIOG GPIOH GXDI hclk hyperbus hyperram Mbyte octospi pwrcfg smps SYSCFG
+
 extern crate alloc;
 
 use alloc::boxed::Box;
@@ -377,11 +379,13 @@ impl slint::platform::Platform for StmBackend {
                     let is_pointer_release_event =
                         matches!(event, slint::platform::WindowEvent::PointerReleased { .. });
 
-                    window.try_dispatch_event(event)?;
+                    window.dispatch_event_with_result(event)?;
 
                     // removes hover state on widgets
                     if is_pointer_release_event {
-                        window.try_dispatch_event(slint::platform::WindowEvent::PointerExited)?;
+                        window.dispatch_event_with_result(
+                            slint::platform::WindowEvent::PointerExited,
+                        )?;
                     }
                 }
             }

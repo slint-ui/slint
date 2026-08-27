@@ -1,0 +1,120 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+name: Visual Editor Linux package
+
+on:
+    workflow_dispatch:
+        inputs:
+            channel:
+                description: "Publishing prefix under visual-editor.slint.dev, also the OSTree branch"
+                required: false
+                type: choice
+                default: nightly
+                options:
+                    - nightly
+                    - stable
+            save_if:
+                description: "Condition to save the cache"
+                required: false
+                type: boolean
+                default: true
+
+    workflow_call:
+        inputs:
+            channel:
+                description: "Publishing prefix under visual-editor.slint.dev, also the OSTree branch"
+                required: false
+                type: string
+                default: nightly
+
+    pull_request:
+        branches:
+            - visual-editor
+
+permissions:
+    contents: read
+
+env:
+    SLINT_EDITOR_CHANNEL: ${{ inputs.channel || 'nightly' }}
+
+jobs:
+    flatpak:
+        name: Build flatpak ${{ matrix.arch }}
+        strategy:
+            # Report both architectures instead of hiding one behind the
+            # other's failure.
+            fail-fast: false
+            matrix:
+                include:
+                    - arch: x86_64
+                      runner: ubuntu-latest
+                    - arch: aarch64
+                      # arm64 runners are free for public repositories, but the
+                      # label does not resolve in private ones.
+                      runner: ubuntu-24.04-arm
+        runs-on: ${{ matrix.runner }}
+        container:
+            image: ghcr.io/flathub-infra/flatpak-github-actions:freedesktop-25.08
+            options: --privileged
+        timeout-minutes: 120
+        steps:
+            - uses: actions/checkout@v6
+
+            # The checkout is owned by a different uid than the one the container
+            # runs as, and git refuses to look at repositories of other users
+            - name: Mark the checkout safe for git
+              run: git config --global --add safe.directory '*'
+
+            # Only needed for `cargo metadata` in the source generators; the build
+            # itself uses the toolchain of the rust-stable SDK extension
+            - uses: ./.github/actions/setup-rust
+              with:
+                  key: visual-editor-linux-flatpak-rust-${{ matrix.arch }}
+                  save_if: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository || inputs.save_if }}
+
+            - name: Restore flatpak-builder state
+              uses: actions/cache@v4
+              with:
+                  key: slint-visual-editor-linux-flatpak-${{ matrix.arch }}
+                  path: .flatpak-builder
+
+            - name: Generate the flatpak source lists
+              run: scripts/generate_visual_editor_flatpak_sources.bash
+
+            - uses: flatpak/flatpak-github-actions/flatpak-builder@v6.7
+              with:
+                  # Written below instead: the action's bundle carries no
+                  # repository to update from.
+                  build-bundle: false
+                  manifest-path: tools/editor/dev.slint.VisualEditor.yml
+                  arch: ${{ matrix.arch }}
+                  branch: ${{ inputs.channel || 'nightly' }}
+                  repo-dir: repo-${{ matrix.arch }}
+                  cache-key: flatpak-builder-${{ matrix.arch }}-${{ github.sha }}
+                  state-dir: .flatpak-builder
+                  # Uploaded below instead, so the bundle and the repository
+                  # travel together under one predictable artifact name.
+                  upload-artifact: false
+
+            - name: Write the bundle
+              run: >
+                  scripts/publish_visual_editor_flatpak.bash write-bundle
+                  repo-${{ matrix.arch }}
+                  slint-visual-editor-${{ matrix.arch }}.flatpak
+              env:
+                  SLINT_EDITOR_CHANNEL: ${{ inputs.channel || 'nightly' }}
+
+            # An archive-mode repository is tens of thousands of small files,
+            # and the artifact upload charges per file. One tar is minutes
+            # faster and the publish job untars it anyway.
+            - name: Pack the repository
+              run: tar -cf repo-${{ matrix.arch }}.tar repo-${{ matrix.arch }}
+
+            - uses: actions/upload-artifact@v7
+              with:
+                  name: slint-visual-editor-flatpak-${{ matrix.arch }}
+                  path: |
+                      slint-visual-editor-${{ matrix.arch }}.flatpak
+                      repo-${{ matrix.arch }}.tar
+                  if-no-files-found: error

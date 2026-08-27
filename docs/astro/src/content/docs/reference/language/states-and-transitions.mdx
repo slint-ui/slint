@@ -1,0 +1,129 @@
+---
+title: States and Transitions
+description: Declaring states and animating state changes.
+---
+
+A `states` block declares a set of named *states* on an element.
+Each state carries a condition and a set of property values that apply while that state is active:
+
+```slint
+export component Example inherits Window {
+    in-out property <bool> active: true;
+    label := Text { }
+
+    states [
+        active when active: {
+            label.text: "Active";
+            root.background: blue;
+        }
+        inactive when !active: {
+            label.text: "Inactive";
+            root.background: gray;
+        }
+    ]
+}
+```
+
+A `states` block is a single statement inside an element's body, written `states [ ... ]`.
+It may appear on any element — the root, a child, a sub-component's root, or the element of a [`for`](../repetition-and-conditional-elements/) — and each element has its own independent set of states.
+An element may hold more than one `states` block; their entries are combined in source order.
+A [global](../globals/) may not contain a `states` block; doing so is a compile error.
+
+## States
+
+Each entry has a name, an optional `when` condition, and a brace-delimited body:
+
+```slint no-test
+name when condition: {
+    element.property: value;
+    // ...
+}
+```
+
+The name is an identifier local to the element.
+The `when` clause holds an arbitrary boolean expression.
+The condition may reference any property in scope, including properties of other elements (`ta.has-hover`).
+
+At most one state is active at a time.
+When several conditions hold, the state listed first in source order wins.
+When no condition holds, no state is active and the element's normal bindings apply.
+A state written without a `when` clause has no condition and is therefore never selected; it only serves as a name that a transition can refer to.
+
+### Property changes
+
+The body of a state is a list of *property changes*.
+Each change is a qualified name, a colon, and a value:
+
+```slint no-test
+root.background: blue;
+label.text: "Active";
+```
+
+The value is a binding expression, so it may be a single expression or a code block `{ ... }`, and it may reference other properties.
+Property changes are subject to these rules, each enforced by the compiler:
+
+- The qualified name must resolve to a property.
+  An unqualified name refers to a property of the element that owns the `states` block (`background` is the same as `root.background`).
+  A qualified name addresses a descendant by its element id (`label.text`).
+- A name whose element id is unknown, whose member is not found, or that does not name a property is an error.
+- The value's type must be assignable to the property.
+- A property initialized with a [two-way binding](../two-way-bindings/) cannot be changed in a state; doing so is an error.
+
+While a state is active its listed properties take the state's values; a property not listed in the active state keeps its normal binding.
+
+## Transitions
+
+A *transition* binds [animations](../animations/) to the entering or leaving of a state.
+Transitions are declared with `in`, `out`, or `in-out` blocks inside the state they belong to:
+
+```slint
+export component Example inherits Window {
+    in-out property <bool> pressed;
+    in-out property <bool> is-enabled;
+    text := Text { text: "hello"; }
+
+    states [
+        disabled when !root.is-enabled: {
+            background: gray;
+            text.color: white;
+            out {
+                animate * { duration: 800ms; }
+            }
+        }
+        down when pressed: {
+            background: blue;
+            in {
+                animate background { duration: 300ms; }
+            }
+        }
+    ]
+}
+```
+
+The three directions are:
+
+- `in` — animate when entering the state.
+- `out` — animate when leaving the state.
+- `in-out` — animate in both directions. `in_out` is accepted as a spelling of `in-out`.
+
+A direction block sits alongside the property changes in the state body and may be repeated; a state may hold several `in`, `out`, or `in-out` blocks.
+
+### Animations in transitions
+
+The body of a direction block contains only `animate` clauses; anything else is an error.
+Each `animate` clause names one or more properties, or the catch-all `*`, and carries the same fields as an animation elsewhere (see [Animations](../animations/)):
+
+```slint no-test
+in {
+    animate * { duration: 200ms; }
+    animate background, text.color { duration: 100ms; }
+}
+```
+
+- `animate *` matches every property changed by the state.
+  The catch-all is allowed only inside a transition.
+- The properties named must be among those changed by the state the transition belongs to; naming an unchanged property is an error.
+- A property that already has an [`animate`](../animations/) binding of its own cannot also be driven by a transition; that combination is an error.
+
+The standalone `transitions [ ... ]` block from the legacy syntax is no longer supported.
+Declare transitions with `in`, `out`, and `in-out` directly inside the state.

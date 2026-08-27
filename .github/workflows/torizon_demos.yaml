@@ -46,7 +46,7 @@ jobs:
                       build_home_automation_sw_renderer: false
 
         steps:
-            - uses: actions/checkout@v6
+            - uses: actions/checkout@v7
             - name: Set up QEMU
               uses: docker/setup-qemu-action@v4
             - name: Set up Docker Buildx
@@ -70,5 +70,4 @@ jobs:
                       IMAGE_ARCH=${{matrix.image_arch}}
                       RUST_TOOLCHAIN_ARCH=${{matrix.rust_toolchain_arch}}
                       BASE_NAME=wayland-base${{matrix.base_image_suffix}}
-                      WEATHER_API_KEY=${{secrets.WEATHER_API_KEY}}
                       BUILD_HOME_AUTOMATION_SW_RENDERER=${{matrix.build_home_automation_sw_renderer}}

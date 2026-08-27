@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore imgarray listviewitem
 /*!
 
 This module contains all the native Qt widget implementation that forwards to QStyle.
@@ -26,9 +27,7 @@ use i_slint_core::input::{
     FocusEvent, InputEventFilterResult, InputEventResult, KeyEventResult, MouseEvent,
 };
 use i_slint_core::item_rendering::{CachedRenderingData, ItemRenderer};
-use i_slint_core::items::{
-    Item, ItemConsts, ItemRc, ItemVTable, MouseCursor, RenderingResult, VoidArg,
-};
+use i_slint_core::items::{Item, ItemConsts, ItemRc, ItemVTable, RenderingResult, VoidArg};
 use i_slint_core::layout::{LayoutInfo, Orientation};
 use i_slint_core::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalSize};
 #[cfg(feature = "rtti")]
@@ -61,7 +60,7 @@ macro_rules! fn_render {
     ($this:ident $dpr:ident $size:ident $painter:ident $widget:ident $initial_state:ident => $($tt:tt)*) => {
         fn render(self: Pin<&Self>, backend: &mut &mut dyn ItemRenderer, item_rc: &ItemRc, size: LogicalSize) -> RenderingResult {
             self.animation_tracker();
-            let $dpr: f32 = backend.scale_factor();
+            let $dpr: f32 = backend.scale_factor().get();
 
             let active: bool = backend.window().active();
             // This should include self.enabled() as well, but not every native widget
@@ -161,7 +160,7 @@ cpp! {{
 
     using QPainterPtr = std::unique_ptr<QPainter>;
 
-    static bool g_lastWindowClosed = false; // Wohoo, global to track window closure when using processEvents().
+    static bool g_lastWindowClosed = false; // global to track window closure when using processEvents().
 
     /// Make sure there is an instance of QApplication.
     /// The `from_qt_backend` argument specifies if we know that we are running

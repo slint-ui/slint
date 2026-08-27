@@ -30,11 +30,14 @@ Slint is available via NPM, so you can install by running the following command:
 npm install slint-ui
 ```
 
-### Dependencies
+This requires **[Node.js](https://nodejs.org/download/release/)** (v20 or newer). Pre-built binaries are
+included for Linux (x86-64 and ARM64, glibc), macOS (ARM64), and Windows (x86-64 and ARM64).
 
-You need to install the following components:
+### Building from Source
 
-  * **[Node.js](https://nodejs.org/download/release/)** (v20 or newer)
+On platforms without pre-built binaries, build Slint-node from a checkout of this repository by running
+`pnpm install && pnpm build` in `api/node`. You need to install the following components:
+
   * **[pnpm](https://www.pnpm.io/)**
   * **[Rust compiler](https://www.rust-lang.org/tools/install)**
 
@@ -89,7 +92,9 @@ export component MainWindow inherits Window {
 ```
 
 Each exported Window component is exposed as a type constructor. The type constructor takes as parameter
-an object which allow to initialize the value of public properties or callbacks.
+an object which allow to initialize the value of public properties or callbacks. A name declared with a
+dash in `.slint` can be given either as declared (`"my-property"`) or with underscores (`my_property`),
+which is how it is exposed on the instance.
 
 **`main.js`**
 
@@ -190,12 +195,14 @@ The types used for properties in .slint design markup each translate to specific
 | `color` | `RgbaColor` |  |
 | `brush` | `Brush` |  |
 | `image` | `ImageData` |  |
+| `data-transfer` | `DataTransfer` | Drag-and-drop and clipboard payload; usually obtained from a callback parameter. See [Drag and Drop](https://docs.slint.dev/latest/docs/guide/development/drag-and-drop/). |
 | `length` | `Number` | |
 | `physical_length` | `Number` | |
 | `duration` | `Number` | The number of milliseconds |
 | `angle` | `Number` | The angle in degrees |
 | structure | `Object` | Structures are mapped to JavaScript objects where each structure field is a property. |
 | array | `Array` or any implementation of Model | |
+| `styled-text` | `StyledText` | Use `StyledText.fromMarkdown()` or `StyledText.fromPlainText()` to create. |
 | enumeration | `String` | The value of an enum |
 
 ### Arrays and Models
@@ -279,7 +286,7 @@ model.push(4); // this works
 
 ### structs
 
-An exported struct can be created either by defing of an object literal or by using the new keyword.
+An exported struct can be created either by defining an object literal or by using the new keyword.
 
 **`my-component.slint`**
 

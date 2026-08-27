@@ -1,0 +1,94 @@
+---
+title: Shadowable Members
+description: Experimental @shadowable annotation that lets a derived component redeclare an inherited member.
+---
+
+Declaring a property, callback or function whose name already exists in the base component is normally an error:
+
+```slint no-test
+component Base {
+    in-out property <string> name;
+}
+
+component Derived inherits Base {
+    // error: Cannot override property 'name' declared in 'Base'
+    in-out property <string> name;
+}
+```
+
+That makes adding a member to a released component a breaking change: any component out there that already declares
+that name stops compiling. The `@shadowable` annotation lets the author of the base component opt in to being shadowed,
+so such an addition stays backwards compatible.
+
+> **Note**: `@shadowable` is experimental and subject to change.
+
+## Syntax
+
+Prefix a property, callback or function declaration in the base component with `@shadowable`:
+
+```slint no-test
+@shadowable in-out property <string> name: "Hello";
+@shadowable callback activated();
+@shadowable public function describe() -> string { "base" }
+```
+
+A component that inherits from it may then declare a member of the same name. The compiler warns
+(`'name' shadows the inherited property of the same name`) but accepts the declaration.
+
+## Semantics
+
+The two members are entirely separate. Each side keeps using the one it was written against:
+
+- Expressions inside the base component refer to the base's member, with the base's value and type.
+- Expressions inside the derived component, and code that instantiates it, refer to the shadowing declaration.
+- The base member is no longer reachable from the derived component, nor through its public API.
+
+The shadowing member need not match the shadowed one: the type may differ, and a property may shadow a callback
+or a function.
+
+```slint
+component Base {
+    @shadowable in-out property <string> name: "Hello";
+    // Always "Hello", whatever a derived component declares
+    out property <string> greeting: "Hi, " + root.name;
+}
+
+component Derived inherits Base {
+    // Warning: 'name' shadows the inherited property of the same name
+    in-out property <string> name: "Hey";
+    out property <string> own-greeting: "Yo, " + root.name;
+}
+
+export component Example {
+    d := Derived {}
+    // "Hi, Hello"
+    out property <string> from-base: d.greeting;
+    // "Yo, Hey"
+    out property <string> from-derived: d.own-greeting;
+}
+```
+
+## Private members
+
+A `private` member is not visible outside the component that declares it, so a derived component may always
+declare a member of the same name. This needs no annotation and produces no warning.
+
+```slint
+component Base {
+    private property <string> secret: "base";
+}
+
+export component Derived inherits Base {
+    // No error and no warning: Base's 'secret' is invisible here
+    property <string> secret: "derived";
+}
+```
+
+## Rules
+
+- `@shadowable` can be applied to property, callback and function declarations.
+- It goes on the declaration in the *base* component: it says "this member may be shadowed", not "this member shadows".
+- It may be combined with [`@deprecated`](../deprecated/) in either order, but each annotation only once.
+- A shadowing declaration in a derived component may itself be marked `@shadowable` to allow shadowing it further down.
+- Declaring the same name twice on the same element is still an error.
+- Reserved members that exist on every element, such as `x`, `y`, `width` and `height`, can't be shadowed.

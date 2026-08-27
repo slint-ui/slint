@@ -1,0 +1,85 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+component Probe inherits ContextMenuArea {
+    in property <string> name;
+    in-out property <string> result;
+    Menu {
+        MenuItem {
+            title: "Entry " + root.name;
+            activated => { result += root.name; }
+        }
+    }
+}
+
+// Two levels of inheritance: the Menu comes from the base of the base.
+component DeepProbe inherits Probe {
+    Rectangle { background: yellow; }
+}
+
+export component TestCase inherits Window {
+    in-out property <string> result: probe.result + deep.result;
+    width: 700px;
+    height: 700px;
+    probe := Probe {
+        name: "P";
+        x: 0;
+        y: 0;
+        width: 300px;
+        height: 300px;
+    }
+    deep := DeepProbe {
+        name: "D";
+        x: 350px;
+        y: 0;
+        width: 300px;
+        height: 300px;
+    }
+
+    out property <bool> test: true;
+}
+
+/*
+```rust
+use slint::{platform::WindowEvent, platform::PointerEventButton, LogicalPosition};
+
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+
+// right click to open the menu of the derived component
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(15.0, 15.0), button: PointerEventButton::Right });
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(15.0, 15.0), button: PointerEventButton::Right });
+// press on the entry
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(25.0, 25.0), button: PointerEventButton::Left });
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(25.0, 25.0), button: PointerEventButton::Left });
+assert_eq!(instance.get_result(), "P");
+
+// same with the component that inherits the derived component
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(365.0, 15.0), button: PointerEventButton::Right });
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(365.0, 15.0), button: PointerEventButton::Right });
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(375.0, 25.0), button: PointerEventButton::Left });
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(375.0, 25.0), button: PointerEventButton::Left });
+assert_eq!(instance.get_result(), "PD");
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+
+// right click to open the menu of the derived component
+instance.window().dispatch_pointer_press_event(slint::LogicalPosition({15.0, 15.0}), slint::PointerEventButton::Right);
+instance.window().dispatch_pointer_release_event(slint::LogicalPosition({15.0, 15.0}), slint::PointerEventButton::Right);
+// press on the entry
+instance.window().dispatch_pointer_press_event(slint::LogicalPosition({25.0, 25.0}), slint::PointerEventButton::Left);
+instance.window().dispatch_pointer_release_event(slint::LogicalPosition({25.0, 25.0}), slint::PointerEventButton::Left);
+assert_eq(instance.get_result(), "P");
+
+// same with the component that inherits the derived component
+instance.window().dispatch_pointer_press_event(slint::LogicalPosition({365.0, 15.0}), slint::PointerEventButton::Right);
+instance.window().dispatch_pointer_release_event(slint::LogicalPosition({365.0, 15.0}), slint::PointerEventButton::Right);
+instance.window().dispatch_pointer_press_event(slint::LogicalPosition({375.0, 25.0}), slint::PointerEventButton::Left);
+instance.window().dispatch_pointer_release_event(slint::LogicalPosition({375.0, 25.0}), slint::PointerEventButton::Left);
+assert_eq(instance.get_result(), "PD");
+```
+*/

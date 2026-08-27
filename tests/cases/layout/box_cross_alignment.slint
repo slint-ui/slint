@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// Tests for the `align-items` property on HorizontalLayout and VerticalLayout.
+// Tests for the `cross-axis-alignment` property on HorizontalLayout and VerticalLayout.
 
 component TestHStretch inherits Rectangle {
     width: 300phx;
@@ -9,7 +9,7 @@ component TestHStretch inherits Rectangle {
 
     HorizontalLayout {
         padding: 0phx;
-        align-items: stretch;
+        cross-axis-alignment: stretch;
         r1 := Rectangle { background: red; }
         r2 := Rectangle { background: green; }
     }
@@ -25,7 +25,7 @@ component TestHStart inherits Rectangle {
 
     HorizontalLayout {
         padding: 0phx;
-        align-items: start;
+        cross-axis-alignment: start;
         r1 := Rectangle { background: red; preferred-height: 40phx; }
         r2 := Rectangle { background: green; preferred-height: 80phx; }
     }
@@ -41,7 +41,7 @@ component TestHEnd inherits Rectangle {
 
     HorizontalLayout {
         padding: 0phx;
-        align-items: end;
+        cross-axis-alignment: end;
         r1 := Rectangle { background: red; preferred-height: 40phx; }
         r2 := Rectangle { background: green; preferred-height: 80phx; }
     }
@@ -57,7 +57,7 @@ component TestHCenter inherits Rectangle {
 
     HorizontalLayout {
         padding: 0phx;
-        align-items: center;
+        cross-axis-alignment: center;
         r1 := Rectangle { background: red; preferred-height: 40phx; }
         r2 := Rectangle { background: green; preferred-height: 80phx; }
     }
@@ -73,7 +73,7 @@ component TestVStretch inherits Rectangle {
 
     VerticalLayout {
         padding: 0phx;
-        align-items: stretch;
+        cross-axis-alignment: stretch;
         r1 := Rectangle { background: red; }
         r2 := Rectangle { background: green; }
     }
@@ -89,7 +89,7 @@ component TestVStart inherits Rectangle {
 
     VerticalLayout {
         padding: 0phx;
-        align-items: start;
+        cross-axis-alignment: start;
         r1 := Rectangle { background: red; preferred-width: 60phx; }
         r2 := Rectangle { background: green; preferred-width: 120phx; }
     }
@@ -105,7 +105,7 @@ component TestVEnd inherits Rectangle {
 
     VerticalLayout {
         padding: 0phx;
-        align-items: end;
+        cross-axis-alignment: end;
         r1 := Rectangle { background: red; preferred-width: 60phx; }
         r2 := Rectangle { background: green; preferred-width: 120phx; }
     }
@@ -121,7 +121,7 @@ component TestVCenter inherits Rectangle {
 
     VerticalLayout {
         padding: 0phx;
-        align-items: center;
+        cross-axis-alignment: center;
         r1 := Rectangle { background: red; preferred-width: 60phx; }
         r2 := Rectangle { background: green; preferred-width: 120phx; }
     }
@@ -141,7 +141,7 @@ component TestHCenterWithPadding inherits Rectangle {
         padding-bottom: 10phx;
         padding-left: 0phx;
         padding-right: 0phx;
-        align-items: center;
+        cross-axis-alignment: center;
         r1 := Rectangle { background: red; preferred-height: 40phx; }
     }
 
@@ -158,7 +158,7 @@ component TestVEndWithPadding inherits Rectangle {
         padding-right: 20phx;
         padding-top: 0phx;
         padding-bottom: 0phx;
-        align-items: end;
+        cross-axis-alignment: end;
         r1 := Rectangle { background: red; preferred-width: 60phx; }
     }
 
@@ -173,7 +173,7 @@ component TestVCenterMaxWidth inherits Rectangle {
 
     VerticalLayout {
         padding: 0phx;
-        align-items: center;
+        cross-axis-alignment: center;
         r1 := Rectangle {
             background: red;
             preferred-width: 1000phx;
@@ -191,7 +191,7 @@ component TestVStretchMinWidthWins inherits Rectangle {
 
     VerticalLayout {
         padding: 0phx;
-        align-items: stretch;
+        cross-axis-alignment: stretch;
         r1 := Rectangle {
             background: red;
             max-width: 100phx;
@@ -201,7 +201,7 @@ component TestVStretchMinWidthWins inherits Rectangle {
     out property <bool> test: r1.x == 0phx && r1.width == 100phx;
 }
 
-// Inner layout's align-items doesn't affect the outer layout.
+// Inner layout's cross-axis-alignment doesn't affect the outer layout.
 component TestNestedInStretch inherits Rectangle {
     width: 300phx;
     height: 200phx;
@@ -210,7 +210,7 @@ component TestNestedInStretch inherits Rectangle {
         padding: 0phx;
         inner := HorizontalLayout {
             padding: 0phx;
-            align-items: center;
+            cross-axis-alignment: center;
             r1 := Rectangle { background: red; preferred-height: 40phx; }
         }
     }
@@ -224,7 +224,7 @@ component TestNestedOuterCenter inherits Rectangle {
 
     VerticalLayout {
         padding: 0phx;
-        align-items: center;
+        cross-axis-alignment: center;
         inner := HorizontalLayout {
             padding: 0phx;
             spacing: 0phx;
@@ -243,7 +243,7 @@ component TestNestedSameOrientation inherits Rectangle {
 
     HorizontalLayout {
         padding: 0phx;
-        align-items: end;
+        cross-axis-alignment: end;
         spacing: 0phx;
         inner := HorizontalLayout {
             padding: 0phx;
@@ -267,7 +267,7 @@ component TestNestedHInV inherits Rectangle {
 
     VerticalLayout {
         padding: 0phx;
-        align-items: end;
+        cross-axis-alignment: end;
         inner := HorizontalLayout {
             padding: 0phx;
             spacing: 0phx;
@@ -286,12 +286,12 @@ component TestTripleNesting inherits Rectangle {
 
     VerticalLayout {
         padding: 0phx;
-        align-items: stretch;
+        cross-axis-alignment: stretch;
         middle := HorizontalLayout {
             padding: 0phx;
             preferred-height: 100phx;
             max-height: 100phx;
-            align-items: start;
+            cross-axis-alignment: start;
             inner := Rectangle {
                 background: red;
                 preferred-height: 30phx;

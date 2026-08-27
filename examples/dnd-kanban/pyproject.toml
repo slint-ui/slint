@@ -1,0 +1,13 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: MIT
+
+[project]
+name = "dnd-kanban"
+version = "1.17.0"
+description = "Slint drag-and-drop kanban board Python example"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = ["slint"]
+
+[tool.uv.sources]
+slint = { path = "../../api/python/slint", editable = true }

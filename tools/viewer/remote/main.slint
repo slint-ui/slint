@@ -1,0 +1,235 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Palette, Button } from "std-widgets.slint";
+import { LicensesPage, AttributionItem } from "licenses.slint";
+
+export enum RemoteViewerState {
+    /// No editor is connected (startup, and after a disconnect).
+    waiting-for-connection,
+    /// An editor is connected but no preview has been requested yet.
+    connected,
+    /// A user component is shown; this window is hidden.
+    previewing,
+    /// The last build failed; `message` holds the error text.
+    preview-error,
+}
+
+export component RemoteViewerWindow inherits Window {
+    in property <string> name;
+    in property <string> address;
+    in property <string> message;
+    in property <string> slint-version;
+    in property <string> build-info;
+    in property <RemoteViewerState> state;
+    in property <[AttributionItem]> third-party-licenses;
+
+    property <bool> show-licenses: false;
+
+    property <bool> has-name: name != "";
+    property <bool> showing-name: true;
+
+    property <bool> dark-color-scheme: Palette.color-scheme == ColorScheme.dark;
+    property <bool> landscape-layout: root.width > root.height;
+    property <string> toast-message;
+
+    hidden-input := TextInput {
+        enabled: false;
+        visible: false;
+        text: root.address;
+    }
+
+    function show-toast(message: string) {
+        root.toast-message = message;
+        if hide-toast-timer.running == false {
+            hide-toast-timer.start();
+        } else {
+            hide-toast-timer.restart();
+        }
+
+        toast.opacity = 1;
+    }
+
+    function copy-to-clipboard(text: string, toast-message: string) {
+        hidden-input.text = text;
+        hidden-input.select-all();
+        hidden-input.copy();
+        root.show-toast(toast-message);
+    }
+
+    Rectangle {
+        background: root.dark-color-scheme ? @linear-gradient(180deg, #1C1C1C, black) : @linear-gradient(0deg, #D7D9DD, white);
+    }
+
+    if !root.landscape-layout: Image {
+        y: root.height - self.height;
+        width: 100%;
+        source: root.dark-color-scheme ? @image-url("assets/bg-frame.svg") : @image-url("assets/bg-frame-light.svg");
+    }
+
+    if root.landscape-layout: Image {
+        x: root.width - self.width;
+        y: root.height - self.height - root.height * 20%;
+        width: min(root.width * 0.36, 360px);
+        source: root.dark-color-scheme ? @image-url("assets/bg-frame-mark.svg") : @image-url("assets/bg-frame-mark-light.svg");
+    }
+
+    if root.landscape-layout: Image {
+        x: 0px;
+        y: root.height - self.height;
+        width: root.width;
+        source: root.dark-color-scheme ? @image-url("assets/bg-frame-lines.svg") : @image-url("assets/bg-frame-lines-light.svg");
+    }
+
+    TouchArea {
+        y: 0;
+        height: root.safe-area-insets.top + 246px;
+        enabled: root.state != RemoteViewerState.preview-error;
+
+        clicked => {
+            root.showing-name = !root.showing-name;
+            root.copy-to-clipboard(root.address, @tr("IP copied to clipboard"));
+        }
+    }
+
+    TouchArea {
+        enabled: root.state == RemoteViewerState.preview-error && root.message != "";
+
+        clicked => {
+            root.copy-to-clipboard(root.message, @tr("Error copied to clipboard"));
+        }
+    }
+
+    hide-toast-timer := Timer {
+        interval: 2000ms;
+        running: false;
+        triggered => {
+            toast.opacity = 0;
+            self.stop();
+        }
+    }
+
+
+    VerticalLayout {
+        alignment: space-between;
+        padding-left: max(root.safe-area-insets.left, 24px);
+        padding-right: max(root.safe-area-insets.right, 24px);
+        padding-top: root.safe-area-insets.top + 146px;
+        padding-bottom: root.safe-area-insets.bottom;
+        visible: root.state != RemoteViewerState.preview-error;
+        VerticalLayout {
+            alignment: start;
+            spacing: 8px;
+
+            HorizontalLayout {
+                alignment: start;
+                spacing: 2px;
+                cross-axis-alignment: end;
+                opacity: 0.9;
+                Text {
+                    text: "Connect Live Preview to";
+                    font-size: 1.41rem;
+                    font-weight: 100;
+                }
+            }
+
+            Text {
+                text: root.showing-name && root.has-name ? name : address;
+                font-size: 1.41rem;
+                font-weight: 400;
+                wrap: word-wrap;
+            }
+        }
+
+        VerticalLayout {
+            alignment: center;
+            spacing: 8px;
+            Text {
+                text: root.slint-version;
+                font-size: 0.82rem;
+                font-weight: 400;
+            }
+
+            if root.build-info != "": Text {
+                text: root.build-info;
+                font-size: 0.71rem;
+                font-weight: 400;
+            }
+        }
+    }
+
+    // Info button opening the third-party license attribution page. Only the
+    // app-store builds embed attribution data (see build.rs).
+    if root.third-party-licenses.length > 0: info-button := TouchArea {
+        width: 44px;
+        height: 44px;
+        x: root.width - self.width - 8px;
+        y: root.height - root.safe-area-insets.bottom - self.height - 8px;
+
+        clicked => {
+            root.show-licenses = true;
+        }
+
+        accessible-role: button;
+        accessible-label: @tr("Show the licenses of the third-party software used by this application");
+
+        Image {
+            source: @image-url("assets/info.svg");
+            colorize: Palette.foreground;
+            width: 1rem;
+            height: self.width;
+            opacity: info-button.has-hover ? 0.9 : 0.6;
+        }
+    }
+
+    toast := Rectangle {
+        y: root.height - root.safe-area-insets.bottom - self.height - 100px;
+        width: 300px;
+        height: 50px;
+        border-radius: self.height / 2;
+        drop-shadow-color: root.dark-color-scheme ? black : #0000002e;
+        drop-shadow-blur: 30px;
+        drop-shadow-offset-x: 10px;
+        drop-shadow-offset-y: 10px;
+        opacity: 0;
+        animate opacity {
+            duration: 300ms;
+            easing: cubic-bezier(0.33, 1, 0.68, 1);
+        }
+
+        Rectangle {
+            border-radius: parent.border-radius;
+            background: root.dark-color-scheme ? #212121 : #f6f7f8;
+            Text {
+                text: root.toast-message;
+                font-weight: 400;
+            }
+        }
+
+    }
+
+    VerticalLayout {
+        alignment: center;
+        padding-left: max(root.safe-area-insets.left, 24px);
+        padding-right: max(root.safe-area-insets.right, 24px);
+        padding-top: root.safe-area-insets.top;
+        padding-bottom: root.safe-area-insets.bottom;
+
+        if root.state == RemoteViewerState.preview-error && message != "": Text {
+            text: message;
+            horizontal-alignment: center;
+            wrap: word-wrap;
+        }
+    }
+
+    if root.show-licenses: LicensesPage {
+        items: root.third-party-licenses;
+        safe-area-top: root.safe-area-insets.top;
+        safe-area-bottom: root.safe-area-insets.bottom;
+        safe-area-left: root.safe-area-insets.left;
+        safe-area-right: root.safe-area-insets.right;
+        close => {
+            root.show-licenses = false;
+        }
+    }
+}

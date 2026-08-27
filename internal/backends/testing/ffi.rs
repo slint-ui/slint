@@ -5,6 +5,7 @@ use crate::{ElementHandle, ElementRoot, LayoutKind};
 use i_slint_core::item_tree::ItemTreeRc;
 use i_slint_core::slice::Slice;
 use i_slint_core::window::WindowAdapterRc;
+use i_slint_core::window::WindowInner;
 use i_slint_core::{SharedString, SharedVector};
 use std::os::raw::c_void;
 
@@ -68,6 +69,22 @@ pub extern "C" fn slint_send_keyboard_string_sequence(
     window_adapter: &WindowAdapterRc,
 ) {
     crate::testing_backend::send_keyboard_string_sequence(sequence, window_adapter);
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn slint_testing_use_native_popup(window_adapter: &WindowAdapterRc, native: bool) {
+    window_adapter
+        .internal(i_slint_core::InternalToken)
+        .and_then(|wa| {
+            (wa as &dyn core::any::Any).downcast_ref::<crate::testing_backend::TestingWindow>()
+        })
+        .map(|testing_window| testing_window.use_native_popup(native))
+        .expect("slint_testing_use_native_popup called without testing backend/adapter");
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn slint_testing_active_popup_count(window_adapter: &WindowAdapterRc) -> usize {
+    WindowInner::from_pub(window_adapter.window()).active_popups().len()
 }
 
 #[unsafe(no_mangle)]
@@ -164,4 +181,9 @@ pub extern "C" fn slint_testing_element_layout_kind(
     } else {
         false
     }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn slint_testing_set_system_accent_color(argb_encoded: u32) {
+    crate::set_system_accent_color(i_slint_core::Color::from_argb_encoded(argb_encoded));
 }

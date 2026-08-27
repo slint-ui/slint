@@ -13,31 +13,15 @@ use re_exports::*;
 // Helper functions called from generated code to reduce code bloat from
 // extra copies of the original functions for each call site due to
 // the impl Fn() they are taking.
+//
+// The functions generic over `StrongItemTreeRef` serve global components;
+// regular components use the `*_erased` functions from `re_exports`, which
+// are not monomorphized per component.
 
 pub trait StrongItemTreeRef: Sized {
     type Weak: Clone + 'static;
     fn to_weak(&self) -> Self::Weak;
     fn from_weak(weak: &Self::Weak) -> Option<Self>;
-}
-
-impl<C: 'static> StrongItemTreeRef for VRc<ItemTreeVTable, C> {
-    type Weak = VWeak<ItemTreeVTable, C>;
-    fn to_weak(&self) -> Self::Weak {
-        VRc::downgrade(self)
-    }
-    fn from_weak(weak: &Self::Weak) -> Option<Self> {
-        weak.upgrade()
-    }
-}
-
-impl<C: 'static> StrongItemTreeRef for VRcMapped<ItemTreeVTable, C> {
-    type Weak = VWeakMapped<ItemTreeVTable, C>;
-    fn to_weak(&self) -> Self::Weak {
-        VRcMapped::downgrade(self)
-    }
-    fn from_weak(weak: &Self::Weak) -> Option<Self> {
-        weak.upgrade()
-    }
 }
 
 impl<C: 'static> StrongItemTreeRef for Pin<Rc<C>> {
@@ -113,10 +97,11 @@ pub fn set_callback_handler<
 }
 
 pub fn debug(s: SharedString) {
-    #[cfg(feature = "log")]
-    log::debug!("{s}");
-    #[cfg(not(feature = "log"))]
-    i_slint_core::debug_log!("{s}");
+    i_slint_core::debug_log::log_message(i_slint_core::debug_log::LogMessage::new(
+        i_slint_core::debug_log::LogMessageSource::SlintCode,
+        None,
+        format_args!("{s}"),
+    ));
 }
 
 pub fn ensure_backend() -> Result<(), crate::PlatformError> {
@@ -153,6 +138,14 @@ pub fn use_24_hour_format() -> bool {
     i_slint_core::date_time::use_24_hour_format()
 }
 
+/// Runs one chunk of a big array literal, which the generated code splits so that
+/// no function constructs too many elements at once.
+/// Each closure gets its own instantiation, and `inline(never)` keeps them apart.
+#[inline(never)]
+pub fn build_array_chunk(chunk: impl FnOnce()) {
+    chunk()
+}
+
 /// internal re_exports used by the macro generated
 pub mod re_exports {
     pub use alloc::boxed::Box;
@@ -163,11 +156,14 @@ pub mod re_exports {
     pub use core::iter::FromIterator;
     pub use core::option::{Option, Option::*};
     pub use core::result::{Result, Result::*};
-    pub use i_slint_core::styled_text::{StyledText, parse_markdown, string_to_styled_text};
+    pub use i_slint_core::styled_text::{
+        StyledText, color_to_styled_text, parse_markdown, string_to_styled_text,
+    };
     // This one is empty when Qt is not available, which triggers a warning
     pub use euclid::approxeq::ApproxEq;
     #[allow(unused_imports)]
     pub use i_slint_backend_selector::native_widgets::*;
+    pub use i_slint_common::TranslationsBundled;
     pub use i_slint_core::accessibility::{
         AccessibilityAction, AccessibleStringProperty, SupportedAccessibilityAction,
     };
@@ -175,6 +171,7 @@ pub mod re_exports {
     pub use i_slint_core::api::LogicalPosition;
     pub use i_slint_core::callbacks::Callback;
     pub use i_slint_core::context::SlintContext;
+    pub use i_slint_core::cursor::MouseCursorInner;
     pub use i_slint_core::data_transfer::DataTransfer;
     pub use i_slint_core::date_time::*;
     pub use i_slint_core::detect_operating_system;
@@ -184,38 +181,44 @@ pub mod re_exports {
         Keys, MouseEvent, key_codes::Key, make_keys,
     };
     pub use i_slint_core::item_tree::{
-        IndexRange, ItemTree, ItemTreeRefPin, ItemTreeVTable, ItemTreeWeak,
+        IndexRange, ItemTree, ItemTreeRc, ItemTreeRefPin, ItemTreeVTable, ItemTreeWeak,
         ensure_item_tree_instantiated, register_item_tree, unregister_item_tree,
     };
     pub use i_slint_core::item_tree::{
         ItemTreeNode, ItemVisitorRefMut, ItemVisitorVTable, ItemWeak, TraversalOrder,
-        VisitChildrenResult, visit_item_tree,
+        VisitChildrenResult, visit_item_tree, visit_item_tree_z_sorted,
     };
     pub use i_slint_core::items::{Transform, *};
     pub use i_slint_core::layout::*;
     pub use i_slint_core::lengths::{
         LogicalLength, LogicalPoint, LogicalRect, logical_position_to_api,
     };
+    pub use i_slint_core::macos_bring_all_windows_to_front;
     pub use i_slint_core::menus::{Menu, MenuFromItemTree, MenuVTable};
     pub use i_slint_core::model::*;
     pub use i_slint_core::open_url;
     pub use i_slint_core::properties::{
-        ChangeTracker, Property, PropertyTracker, StateInfo, set_state_binding,
+        ChangeTracker, Property, PropertyTracker, StateInfo, change_tracker_init_erased,
+        set_animated_property_binding_erased, set_callback_handler_erased,
+        set_property_binding_erased, set_property_state_binding_erased, set_state_binding,
     };
     pub use i_slint_core::slice::Slice;
     pub use i_slint_core::string::shared_string_from_number;
     pub use i_slint_core::string::shared_string_from_number_fixed;
     pub use i_slint_core::string::shared_string_from_number_precision;
+    pub use i_slint_core::string::shared_string_from_number_unlocalized;
+    pub use i_slint_core::string::shared_string_replace_all;
     pub use i_slint_core::timers::{Timer, TimerMode};
     pub use i_slint_core::translations::{
         set_bundled_languages, translate_from_bundle, translate_from_bundle_with_plural,
     };
     pub use i_slint_core::window::{
-        InputMethodRequest, WindowAdapter, WindowAdapterRc, WindowInner, accent_color,
+        InputMethodRequest, WindowAdapter, WindowAdapterRc, WindowInner, WindowKind, accent_color,
         context_for_root,
     };
     pub use i_slint_core::{
         Color, Coord, SharedString, SharedVector, format, string::ToSharedString,
+        string::string_to_float,
     };
     pub use i_slint_core::{ItemTreeVTable_static, MenuVTable_static};
     pub use num_traits::float::Float;
@@ -227,5 +230,5 @@ pub mod re_exports {
     pub use vtable::{self, *};
 
     #[cfg(feature = "live-preview")]
-    pub use slint_interpreter::live_preview;
+    pub use i_slint_live_preview::live_component as live_preview;
 }

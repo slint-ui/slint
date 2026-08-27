@@ -1,0 +1,160 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+# Builds the Visual Editor once a night and publishes it for all three
+# platforms. macOS and Linux go to visual-editor.slint.dev under the nightly
+# prefix; Windows goes to the Store's preview listing, which signs and
+# distributes it, so nothing of it is self-hosted.
+name: Visual Editor nightly
+
+on:
+  schedule:
+    - cron: "40 3 * * *"
+  workflow_dispatch:
+    inputs:
+      submit-windows:
+        # macOS and Linux overwrite objects in a bucket and can be re-run
+        # freely. A Store submission consumes the version it carries for good,
+        # so it is opt-in for anyone dispatching this by hand. The bundle is
+        # built either way, so a manual run still says whether it packages.
+        description: "Submit the Windows build to the preview listing as well as packaging it"
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+jobs:
+  build-macos:
+    if: github.repository == 'slint-ui/slint'
+    uses: ./.github/workflows/visual_editor_macos_dmg.yaml
+    with:
+      channel: nightly
+    secrets: inherit
+
+  build-linux:
+    if: github.repository == 'slint-ui/slint'
+    uses: ./.github/workflows/visual_editor_linux_flatpak.yaml
+    with:
+      channel: nightly
+    secrets: inherit
+
+  # The preview listing is a separate Store product with a date-based version
+  # scheme, so it is already a nightly channel in everything but name. The Store
+  # signs the bundle on ingestion and delivers updates, which is why there is no
+  # publish job here: submitting happens inside the called workflow.
+  build-windows:
+    if: github.repository == 'slint-ui/slint'
+    uses: ./.github/workflows/visual_editor_windows_msix.yaml
+    with:
+      channel: preview
+      publish: ${{ github.event_name == 'schedule' || inputs.submit-windows }}
+    secrets: inherit
+
+  publish-macos:
+    needs: build-macos
+    runs-on: ubuntu-latest
+    env:
+      # R2 writes are per object, so this only ever touches the two keys below.
+      # Anything else in the bucket, the stable channel included, is untouched.
+      R2_BUCKET: visual-editor-updates
+      CLOUDFLARE_API_TOKEN: ${{ secrets.VISUAL_EDITOR_R2_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: slint-visual-editor-macos
+          path: dist
+
+      # The DMG goes first: the appcast must never name an object that isn't
+      # there yet. Its name carries the build stamp and no later build reuses
+      # it, so it can be cached forever.
+      #
+      # It lives under nightly/builds/ so an R2 lifecycle rule can expire old
+      # builds by prefix without taking nightly/appcast.xml with them.
+      - name: Publish DMG
+        run: |
+          dmg="$(ls dist/*.dmg)"
+          npx --yes wrangler@4 r2 object put "$R2_BUCKET/nightly/builds/$(basename "$dmg")" \
+              --remote \
+              --file="$dmg" \
+              --content-type "application/x-apple-diskimage" \
+              --cache-control "public, max-age=31536000, immutable"
+
+      # Convenience link for the website: the same bytes under a fixed key, so
+      # it revalidates instead of being cached like the immutable copy above.
+      # It sits outside nightly/builds/ so the lifecycle rule that expires old
+      # builds leaves it alone. The appcast keeps pointing at the stamped copy,
+      # never at this one: Sparkle checks its signature against exact bytes, and
+      # a stale cached copy here would read as tampering.
+      - name: Publish fixed-key DMG
+        run: |
+          dmg="$(ls dist/*.dmg)"
+          npx --yes wrangler@4 r2 object put "$R2_BUCKET/nightly/SlintVisualEditor.dmg" \
+              --remote \
+              --file="$dmg" \
+              --content-type "application/x-apple-diskimage" \
+              --content-disposition "attachment; filename=\"$(basename "$dmg")\"" \
+              --cache-control "no-cache"
+
+      # The feed URL is baked into every shipped app, so this key is stable and
+      # its content changes nightly. It must not be cached.
+      - name: Publish appcast
+        run: |
+          npx --yes wrangler@4 r2 object put "$R2_BUCKET/nightly/appcast.xml" \
+              --remote \
+              --file=dist/appcast.xml \
+              --content-type "application/xml" \
+              --cache-control "no-cache"
+
+  # Fedora rather than the image that did the build: merging and signing only
+  # needs flatpak's command line tools, and the build image is a Freedesktop SDK
+  # runtime with no package manager, so the AWS CLI cannot be installed into it.
+  # Separate from the macOS publish so one platform failing doesn't hold back
+  # the other.
+  publish-linux:
+    needs: build-linux
+    runs-on: ubuntu-latest
+    container:
+      image: fedora:41
+    env:
+      SLINT_EDITOR_CHANNEL: nightly
+      R2_BUCKET: visual-editor-updates
+      EDITOR_FLATPAK_GPG_PRIVATE_KEY: ${{ secrets.EDITOR_FLATPAK_GPG_PRIVATE_KEY }}
+      # The same token the macOS job hands to wrangler. R2 derives S3
+      # credentials from it, so publishing needs no second credential.
+      CLOUDFLARE_API_TOKEN: ${{ secrets.VISUAL_EDITOR_R2_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      # Only needed for an account-owned token, whose id cannot be looked up.
+      CLOUDFLARE_R2_TOKEN_ID: ${{ vars.VISUAL_EDITOR_R2_TOKEN_ID }}
+      AWS_DEFAULT_REGION: auto
+    steps:
+      # Before the checkout, which needs git to be present in the container.
+      - name: Install tooling
+        run: dnf -y install flatpak ostree awscli2 gnupg2 git tar jq
+
+      - uses: actions/checkout@v6
+
+      - name: Mark the checkout safe for git
+        run: git config --global --add safe.directory '*'
+
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: slint-visual-editor-flatpak-*
+          path: downloads
+          merge-multiple: true
+
+      - name: Unpack the per-architecture repositories
+        run: |
+          mkdir -p dist/flatpak-arch-repos
+          for tar in downloads/repo-*.tar; do
+              tar -xf "$tar" -C dist/flatpak-arch-repos
+          done
+          ls -d dist/flatpak-arch-repos/*/
+
+      - name: Merge, sign and publish
+        run: ./scripts/publish_visual_editor_flatpak.bash full
+
+      - name: Publish the bundles
+        run: ./scripts/publish_visual_editor_flatpak.bash publish-bundles downloads

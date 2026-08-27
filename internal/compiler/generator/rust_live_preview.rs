@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+use super::accessor_names::{self, AccessorKind};
 use super::rust::{ident, rust_primitive_type};
 use crate::CompilerConfiguration;
 use crate::langtype::{Struct, StructName, Type};
@@ -16,9 +17,6 @@ pub fn generate(
 ) -> std::io::Result<TokenStream> {
     let module_header = super::rust::generate_module_header();
 
-    let (structs_and_enums_ids, inner_module) =
-        super::rust::generate_types(&doc.used_types.borrow().structs_and_enums);
-
     let type_value_conversions =
         generate_value_conversions(&doc.used_types.borrow().structs_and_enums);
 
@@ -27,6 +25,9 @@ pub fn generate(
     if llr.public_components.is_empty() {
         return Ok(Default::default());
     }
+
+    let inner_module =
+        super::rust::generate_types(&doc.used_types.borrow().structs_and_enums, &llr);
 
     let main_file = doc
         .node
@@ -52,13 +53,14 @@ pub fn generate(
     });
     let compo_ids = llr.public_components.iter().map(|c| ident(&c.name));
 
-    let named_exports = super::rust::generate_named_exports(&doc.exports);
     // The inner module was meant to be internal private, but projects have been reaching into it
     // so we can't change the name of this module
     let generated_mod = doc
         .last_exported_component()
         .map(|c| format_ident!("slint_generated{}", ident(&c.id)))
         .unwrap_or_else(|| format_ident!("slint_generated"));
+
+    let (type_reexports, deprecated_type_exports) = super::rust::type_exports(&llr, &generated_mod);
 
     Ok(quote! {
         mod #generated_mod {
@@ -68,8 +70,9 @@ pub fn generate(
             #(#public_components)*
             #type_value_conversions
         }
+        #(#deprecated_type_exports)*
         #[allow(unused_imports)]
-        pub use #generated_mod::{#(#compo_ids,)* #(#structs_and_enums_ids,)* #(#globals_ids,)* #(#named_exports,)*};
+        pub use #generated_mod::{#(#compo_ids,)* #(#type_reexports,)* #(#globals_ids,)*};
         #[allow(unused_imports)]
         pub use slint::{ComponentHandle as _, Global as _, ModelExt as _};
     })
@@ -93,9 +96,8 @@ fn generate_public_component(
     };
 
     let mut property_and_callback_accessors: Vec<TokenStream> = Vec::new();
-    for p in &llr.public_properties {
-        let prop_name = p.name.as_str();
-        let prop_ident = ident(&p.name);
+    for (name, p) in &llr.public_properties {
+        let prop_name = name.as_str();
 
         if let Type::Callback(callback) = &p.ty {
             let callback_args =
@@ -103,7 +105,7 @@ fn generate_public_component(
             let return_type = rust_primitive_type(&callback.return_type).unwrap();
             let args_name =
                 (0..callback.args.len()).map(|i| format_ident!("arg_{}", i)).collect::<Vec<_>>();
-            let caller_ident = format_ident!("invoke_{}", prop_ident);
+            let caller_ident = accessor_names::rust_accessor_ident(name, AccessorKind::Invoker);
             property_and_callback_accessors.push(quote!(
                 #[allow(dead_code)]
                 pub fn #caller_ident(&self, #(#args_name : #callback_args,)*) -> #return_type {
@@ -111,7 +113,7 @@ fn generate_public_component(
                         .try_into().unwrap_or_else(|_| panic!("Invalid return type for callback {}::{}", #component_name, #prop_name))
                 }
             ));
-            let on_ident = format_ident!("on_{}", prop_ident);
+            let on_ident = accessor_names::rust_accessor_ident(name, AccessorKind::Handler);
             property_and_callback_accessors.push(quote!(
                 #[allow(dead_code)]
                 pub fn #on_ident(&self, f: impl FnMut(#(#callback_args),*) -> #return_type + 'static) {
@@ -128,7 +130,7 @@ fn generate_public_component(
             let return_type = rust_primitive_type(&function.return_type).unwrap();
             let args_name =
                 (0..function.args.len()).map(|i| format_ident!("arg_{}", i)).collect::<Vec<_>>();
-            let caller_ident = format_ident!("invoke_{}", prop_ident);
+            let caller_ident = accessor_names::rust_accessor_ident(name, AccessorKind::Invoker);
             property_and_callback_accessors.push(quote!(
                 #[allow(dead_code)]
                 pub fn #caller_ident(&self, #(#args_name : #callback_args,)*) -> #return_type {
@@ -141,7 +143,7 @@ fn generate_public_component(
             let convert_to_value = convert_to_value_fn(&p.ty);
             let convert_from_value = convert_from_value_fn(&p.ty);
 
-            let getter_ident = format_ident!("get_{}", prop_ident);
+            let getter_ident = accessor_names::rust_accessor_ident(name, AccessorKind::Getter);
             property_and_callback_accessors.push(quote!(
                 #[allow(dead_code)]
                 pub fn #getter_ident(&self) -> #rust_property_type {
@@ -150,8 +152,8 @@ fn generate_public_component(
                 }
             ));
 
-            let setter_ident = format_ident!("set_{}", prop_ident);
-            if !p.read_only {
+            let setter_ident = accessor_names::rust_accessor_ident(name, AccessorKind::Setter);
+            if !p.read_only() {
                 property_and_callback_accessors.push(quote!(
                     #[allow(dead_code)]
                     pub fn #setter_ident(&self, value: #rust_property_type) {
@@ -167,7 +169,9 @@ fn generate_public_component(
     }
 
     let include_paths = compiler_config.include_paths.iter().map(|p| p.to_string_lossy());
-    let library_paths = compiler_config.library_paths.iter().map(|(n, p)| {
+    let mut sorted_library_paths: Vec<_> = compiler_config.library_paths.iter().collect();
+    sorted_library_paths.sort_by(|a, b| a.0.cmp(b.0));
+    let library_paths = sorted_library_paths.into_iter().map(|(n, p)| {
         let p = p.to_string_lossy();
         quote!((#n.to_string(), #p.into()))
     });
@@ -187,7 +191,7 @@ fn generate_public_component(
                 #(compiler.set_style(#style.to_string());)*
                 #(compiler.set_translation_domain(#translation_domain.to_string());)*
                 #no_default_translation_context
-                let instance = sp::live_preview::LiveReloadingComponent::new(compiler, #main_file.into(), #component_name.into())?;
+                let instance = sp::live_preview::LiveReloadingComponent::new(compiler, #main_file.into(), Some(#component_name.into()))?;
                 let window_adapter = sp::WindowInner::from_pub(slint::ComponentHandle::window(instance.borrow().instance())).window_adapter();
                 sp::Ok(Self(instance, window_adapter))
             }
@@ -254,9 +258,8 @@ fn generate_global(global: &llr::GlobalComponent, root: &llr::CompilationUnit) -
     }
     let global_name = global.name.as_str();
     let mut property_and_callback_accessors: Vec<TokenStream> = Vec::new();
-    for p in &global.public_properties {
-        let prop_name = p.name.as_str();
-        let prop_ident = ident(&p.name);
+    for (name, p) in &global.public_properties {
+        let prop_name = name.as_str();
 
         if let Type::Callback(callback) = &p.ty {
             let callback_args =
@@ -264,7 +267,7 @@ fn generate_global(global: &llr::GlobalComponent, root: &llr::CompilationUnit) -
             let return_type = rust_primitive_type(&callback.return_type).unwrap();
             let args_name =
                 (0..callback.args.len()).map(|i| format_ident!("arg_{}", i)).collect::<Vec<_>>();
-            let caller_ident = format_ident!("invoke_{}", prop_ident);
+            let caller_ident = accessor_names::rust_accessor_ident(name, AccessorKind::Invoker);
             property_and_callback_accessors.push(quote!(
                 #[allow(dead_code)]
                 pub fn #caller_ident(&self, #(#args_name : #callback_args,)*) -> #return_type {
@@ -272,7 +275,7 @@ fn generate_global(global: &llr::GlobalComponent, root: &llr::CompilationUnit) -
                         .try_into().unwrap_or_else(|_| panic!("Invalid return type for callback {}::{}", #global_name, #prop_name))
                 }
             ));
-            let on_ident = format_ident!("on_{}", prop_ident);
+            let on_ident = accessor_names::rust_accessor_ident(name, AccessorKind::Handler);
             property_and_callback_accessors.push(quote!(
                 #[allow(dead_code)]
                 pub fn #on_ident(&self, f: impl FnMut(#(#callback_args),*) -> #return_type + 'static) {
@@ -289,7 +292,7 @@ fn generate_global(global: &llr::GlobalComponent, root: &llr::CompilationUnit) -
             let return_type = rust_primitive_type(&function.return_type).unwrap();
             let args_name =
                 (0..function.args.len()).map(|i| format_ident!("arg_{}", i)).collect::<Vec<_>>();
-            let caller_ident = format_ident!("invoke_{}", prop_ident);
+            let caller_ident = accessor_names::rust_accessor_ident(name, AccessorKind::Invoker);
             property_and_callback_accessors.push(quote!(
                 #[allow(dead_code)]
                 pub fn #caller_ident(&self, #(#args_name : #callback_args,)*) -> #return_type {
@@ -302,7 +305,7 @@ fn generate_global(global: &llr::GlobalComponent, root: &llr::CompilationUnit) -
             let convert_to_value = convert_to_value_fn(&p.ty);
             let convert_from_value = convert_from_value_fn(&p.ty);
 
-            let getter_ident = format_ident!("get_{}", prop_ident);
+            let getter_ident = accessor_names::rust_accessor_ident(name, AccessorKind::Getter);
             property_and_callback_accessors.push(quote!(
                 #[allow(dead_code)]
                 pub fn #getter_ident(&self) -> #rust_property_type {
@@ -311,8 +314,8 @@ fn generate_global(global: &llr::GlobalComponent, root: &llr::CompilationUnit) -
                 }
             ));
 
-            let setter_ident = format_ident!("set_{}", prop_ident);
-            if !p.read_only {
+            let setter_ident = accessor_names::rust_accessor_ident(name, AccessorKind::Setter);
+            if !p.read_only() {
                 property_and_callback_accessors.push(quote!(
                     #[allow(dead_code)]
                     pub fn #setter_ident(&self, value: #rust_property_type) {

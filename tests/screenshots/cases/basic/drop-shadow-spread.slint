@@ -1,0 +1,52 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// SIZE=160x160
+// BASE_THRESHOLD=3
+//ignore: software
+
+export component TestCase inherits Window {
+    width: 160px;
+    height: 160px;
+    background: white;
+
+    GridLayout {
+        spacing: 8px;
+        padding: 12px;
+        Row {
+            // No spread, classic drop shadow
+            Rectangle {
+                background: skyblue;
+                drop-shadow-color: #000000c0;
+                drop-shadow-blur: 6px;
+                drop-shadow-offset-y: 2px;
+            }
+            // Positive spread grows the shadow shape noticeably
+            Rectangle {
+                background: skyblue;
+                drop-shadow-color: #000000c0;
+                drop-shadow-blur: 6px;
+                drop-shadow-offset-y: 2px;
+                drop-shadow-spread: 6px;
+            }
+        }
+        Row {
+            // Negative spread shrinks the shadow shape
+            Rectangle {
+                background: skyblue;
+                drop-shadow-color: #000000c0;
+                drop-shadow-blur: 8px;
+                drop-shadow-spread: -4px;
+            }
+            // Positive spread combined with rounded corners
+            Rectangle {
+                background: skyblue;
+                border-radius: 10px;
+                drop-shadow-color: #000000c0;
+                drop-shadow-blur: 6px;
+                drop-shadow-offset-y: 3px;
+                drop-shadow-spread: 4px;
+            }
+        }
+    }
+}

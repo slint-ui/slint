@@ -3,12 +3,12 @@
 
 // Verify that the init callback is invoked in the correct order
 
-export global InitOrder := {
-    property <string> observed-order: "start";
+export global InitOrder  {
+    in-out property <string> observed-order: "start";
 }
 
 
-TestCase := Rectangle {
+export component TestCase inherits Rectangle {
     width: 300phx;
     height: 300phx;
     init => {
@@ -25,9 +25,9 @@ TestCase := Rectangle {
         }
     }
 
-    property <string> expected_order: "start|root|hello|world";
+    in-out property <string> expected_order: "start|root|hello|world";
 
-    property <bool> test: root.preferred-width == 20px && InitOrder.observed-order == expected_order;
+    in-out property <bool> test: root.preferred-width == 20px && InitOrder.observed-order == expected_order;
 }
 
 /*

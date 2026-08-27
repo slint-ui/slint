@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore autocapitalize compositionend compositionupdate keyup
 //! Helper for wasm that adds a hidden `<input>`  and process its events
 //!
 //! Without it, the key event are sent to the canvas and processed by winit.
@@ -148,10 +149,22 @@ impl WasmInputHelper {
         });
 
         let win = window_adapter.clone();
-        h.add_event_listener("blur", move |_: web_sys::Event| {
+        h.add_event_listener("blur", move |e: web_sys::FocusEvent| {
             // Make sure that the window gets marked as unfocused when the focus leaves the input
             if let Some(window_adapter) = win.upgrade() {
-                if !canvas.matches(":focus").unwrap_or(false) {
+                let canvas_receiving_focus = e.related_target().is_some_and(|target| {
+                    // related_target is the element receiving focus, see https://developer.mozilla.org/en-US/docs/Web/API/FocusEvent/relatedTarget
+                    target
+                        .dyn_ref::<web_sys::Node>()
+                        .is_some_and(|node| canvas.is_same_node(Some(node)))
+                });
+                // the correct thing to do to see what is focused (or more accurately, *going* to
+                // be focused) during a blur event is to look at relatedTarget. Some old
+                // browsers may not implement relatedTarget correctly, so this falls back to
+                // .matches(), hoping that the browser focuses the target before dispatching
+                // the blur event
+                let canvas_already_focused = canvas.matches(":focus").unwrap_or(false);
+                if !canvas_receiving_focus && !canvas_already_focused {
                     window_adapter.window().dispatch_event(WindowEvent::WindowActiveChanged(false));
                 }
             }
@@ -220,16 +233,14 @@ impl WasmInputHelper {
         let input = h.input.clone();
         h.add_event_listener("compositionend", move |e: web_sys::CompositionEvent| {
             if let (Some(window_adapter), Some(data)) = (win.upgrade(), e.data()) {
-                let window_inner = WindowInner::from_pub(window_adapter.window());
-
                 let mut key_event = KeyEvent::default();
                 key_event.text = data.into();
 
-                window_inner.process_key_input(InternalKeyEvent {
+                window_adapter.window().dispatch_event(WindowEvent::internal(InternalKeyEvent {
                     key_event,
                     event_type: KeyEventType::CommitComposition,
                     ..Default::default()
-                });
+                }));
                 input.set_value("");
             }
         });
@@ -237,12 +248,11 @@ impl WasmInputHelper {
         let win = window_adapter.clone();
         h.add_event_listener("compositionupdate", move |e: web_sys::CompositionEvent| {
             if let (Some(window_adapter), Some(data)) = (win.upgrade(), e.data()) {
-                let window_inner = WindowInner::from_pub(window_adapter.window());
-                window_inner.process_key_input(InternalKeyEvent {
+                window_adapter.window().dispatch_event(WindowEvent::internal(InternalKeyEvent {
                     preedit_text: data.into(),
                     event_type: KeyEventType::UpdateComposition,
                     ..Default::default()
-                });
+                }));
             }
         });
 

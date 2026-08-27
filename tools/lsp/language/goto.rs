@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use crate::common::{
+use crate::editor_preview::{
     self,
     token_info::{TokenInfo, token_info},
 };
@@ -10,14 +10,14 @@ use i_slint_compiler::parser::{SyntaxNode, SyntaxToken};
 use lsp_types::{GotoDefinitionResponse, LocationLink, Position, Range};
 
 #[cfg(target_arch = "wasm32")]
-use crate::wasm_prelude::*;
+use crate::editor_preview::wasm_prelude::*;
 
 pub fn goto_definition(
-    document_cache: &mut common::DocumentCache,
+    document_cache: &mut editor_preview::DocumentCache,
     token: SyntaxToken,
 ) -> Option<GotoDefinitionResponse> {
     let token_info = token_info(document_cache, token.clone())?;
-    if let Some(node) = token_info.declaration() {
+    if let Some(node) = token_info.declaration(document_cache) {
         return goto_node(&node, document_cache.format);
     }
     match token_info {
@@ -44,7 +44,10 @@ pub fn goto_definition(
     }
 }
 
-fn goto_node(node: &SyntaxNode, format: common::ByteFormat) -> Option<GotoDefinitionResponse> {
+fn goto_node(
+    node: &SyntaxNode,
+    format: editor_preview::ByteFormat,
+) -> Option<GotoDefinitionResponse> {
     let (target_uri, range) = crate::util::node_to_url_and_lsp_range(node, format)?;
     let range = Range::new(range.start, range.start); // Shrink range to a position:-)
     Some(GotoDefinitionResponse::Link(vec![LocationLink {
@@ -162,6 +165,48 @@ export component Test {
 }
 
 #[test]
+fn test_goto_definition_shadowed_member() {
+    fn first_link(def: &GotoDefinitionResponse) -> &LocationLink {
+        let GotoDefinitionResponse::Link(link) = def else { panic!("not a single link {def:?}") };
+        link.first().unwrap()
+    }
+
+    // `Derived` shadows the `@shadowable` `prop` of `Base`. Going to the definition from a use must
+    // land on the declaration in the same component, not on the other one.
+    let source = r#"
+component Base {
+    @shadowable in-out property <int> prop;
+    out property <int> base-out: self.prop;
+}
+component Derived inherits Base {
+    in-out property <int> prop;
+    out property <int> derived-out: self.prop;
+}
+export component Test {
+    Derived { }
+}"#;
+
+    let (mut dc, uri, _) =
+        crate::language::test::loaded_document_cache_with_experimental(source.into());
+    let doc = dc.get_document(&uri).unwrap().node.clone().unwrap();
+
+    let mut goto_line = |anchor: &str| {
+        let anchor_pos = source.find(anchor).unwrap();
+        let prop_pos = anchor_pos + source[anchor_pos..].find("self.prop").unwrap() + 5;
+        let offset: TextSize = (prop_pos as u32).into();
+        let token = crate::language::token_at_offset(&doc, offset).unwrap();
+        assert_eq!(token.text(), "prop");
+        let def = goto_definition(&mut dc, token).unwrap();
+        first_link(&def).target_range.start.line
+    };
+
+    // The use in `Base` resolves to `Base::prop` (line 2), the one in `Derived` to `Derived::prop`
+    // (line 6).
+    assert_eq!(goto_line("base-out: self.prop"), 2);
+    assert_eq!(goto_line("derived-out: self.prop"), 6);
+}
+
+#[test]
 fn test_goto_definition_multi_files() {
     fn first_link(def: &GotoDefinitionResponse) -> &LocationLink {
         let GotoDefinitionResponse::Link(link) = def else { panic!("not a single link {def:?}") };
@@ -193,32 +238,37 @@ fn test_goto_definition_multi_files() {
         url1 = url1.to_file_path().unwrap().display()
     );
     let mut ctx = crate::language::Context {
-        document_cache: dc,
-        preview_config: Default::default(),
+        session: editor_preview::EditorSession {
+            document_cache: dc,
+            preview_config: Default::default(),
+            to_show: None,
+            open_urls: Default::default(),
+            to_preview: crate::editor_preview::LspToPreviews::with_one(
+                editor_preview::DummyLspToPreview::default(),
+            ),
+            pending_recompile: Default::default(),
+        },
         server_notifier: crate::ServerNotifier::dummy(),
         init_param: Default::default(),
-        to_show: None,
-        open_urls: Default::default(),
-        to_preview: std::rc::Rc::new(common::DummyLspToPreview::default()),
-        pending_recompile: Default::default(),
+        host_language_rename_dont_ask_again: Default::default(),
     };
-    let (extra_files, diag) = spin_on::spin_on(crate::language::load_document_impl(
-        &mut ctx,
-        source2.clone(),
-        url2.clone(),
-        Some(43),
-    ));
-    let diag = crate::language::convert_diagnostics(&extra_files, diag, common::ByteFormat::Utf8);
+    let (extra_files, diag) =
+        spin_on::spin_on(ctx.session.load_document_impl(source2.clone(), url2.clone(), Some(43)));
+    let diag = editor_preview::editor_session::convert_diagnostics(
+        &extra_files,
+        diag,
+        editor_preview::ByteFormat::Utf8,
+    );
     for (u, ds) in diag {
         assert_eq!(ds, Vec::new(), "errors in {u}");
     }
 
-    let doc2 = ctx.document_cache.get_document(&url2).unwrap().node.clone().unwrap();
+    let doc2 = ctx.session.document_cache.get_document(&url2).unwrap().node.clone().unwrap();
 
     let offset: TextSize = (source2.find("h := Hello").unwrap() as u32).into();
     let token = crate::language::token_at_offset(&doc2, offset + TextSize::new(8)).unwrap();
     assert_eq!(token.text(), "Hello");
-    let def = goto_definition(&mut ctx.document_cache, token).unwrap();
+    let def = goto_definition(&mut ctx.session.document_cache, token).unwrap();
     let link = first_link(&def);
     assert_eq!(link.target_uri, url1);
     assert_eq!(link.target_range.start.line, 1);
@@ -226,7 +276,7 @@ fn test_goto_definition_multi_files() {
     let offset = (source2.find("the_prop: 42").unwrap() as u32).into();
     let token = crate::language::token_at_offset(&doc2, offset).unwrap();
     assert_eq!(token.text(), "the_prop");
-    let def = goto_definition(&mut ctx.document_cache, token).unwrap();
+    let def = goto_definition(&mut ctx.session.document_cache, token).unwrap();
     let link = first_link(&def);
     assert_eq!(link.target_uri, url1);
     assert_eq!(link.target_range.start.line, 2);
@@ -235,14 +285,14 @@ fn test_goto_definition_multi_files() {
     // check the string literal
     let token = crate::language::token_at_offset(&doc2, offset + TextSize::new(20)).unwrap();
     assert_eq!(token.kind(), i_slint_compiler::parser::SyntaxKind::StringLiteral);
-    let def = goto_definition(&mut ctx.document_cache, token).unwrap();
+    let def = goto_definition(&mut ctx.session.document_cache, token).unwrap();
     let link = first_link(&def);
     assert_eq!(link.target_uri, url1);
     assert_eq!(link.target_range.start.line, 0);
     // check the identifier
     let token = crate::language::token_at_offset(&doc2, offset).unwrap();
     assert_eq!(token.text(), "Hello");
-    let def = goto_definition(&mut ctx.document_cache, token).unwrap();
+    let def = goto_definition(&mut ctx.session.document_cache, token).unwrap();
     let link = first_link(&def);
     assert_eq!(link.target_uri, url1);
     assert_eq!(link.target_range.start.line, 1);
@@ -251,14 +301,14 @@ fn test_goto_definition_multi_files() {
     // check the string literal
     let token = crate::language::token_at_offset(&doc2, offset + TextSize::new(25)).unwrap();
     assert_eq!(token.kind(), i_slint_compiler::parser::SyntaxKind::StringLiteral);
-    let def = goto_definition(&mut ctx.document_cache, token).unwrap();
+    let def = goto_definition(&mut ctx.session.document_cache, token).unwrap();
     let link = first_link(&def);
     assert_eq!(link.target_uri, url1);
     assert_eq!(link.target_range.start.line, 0);
     // check the identifier
     let token = crate::language::token_at_offset(&doc2, offset).unwrap();
     assert_eq!(token.text(), "Another");
-    let def = goto_definition(&mut ctx.document_cache, token).unwrap();
+    let def = goto_definition(&mut ctx.session.document_cache, token).unwrap();
     let link = first_link(&def);
     assert_eq!(link.target_uri, url1);
     assert_eq!(link.target_range.start.line, 7);

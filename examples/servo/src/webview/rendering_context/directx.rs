@@ -1,14 +1,15 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
+// cSpell: ignore comptr NTHANDLE
 use euclid::default::Size2D;
 use glow::HasContext;
 use std::cell::RefCell;
 use winit::dpi::PhysicalSize;
 
-use slint::wgpu_28::wgpu::{
+use slint::wgpu_30::wgpu::{
     Device, Extent3d, Texture, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
-    hal, wgc::api::Dx12,
+    TextureUses, hal, wgc::api::Dx12,
 };
 
 use windows::{
@@ -224,6 +225,9 @@ impl super::GPURenderingContext {
                     usage: TextureUsages::TEXTURE_BINDING | TextureUsages::RENDER_ATTACHMENT,
                     view_formats: &[],
                 },
+                // UNINITIALIZED is the tracker state wgpu 29 implicitly assigned to hal-imported
+                // textures; it only seeds barrier tracking and does not cause a zero-init clear.
+                TextureUses::UNINITIALIZED,
             );
 
             (d3d11_dx12_texture, wgpu_texture)

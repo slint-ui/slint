@@ -436,6 +436,58 @@ SCENARIO("Sorted Model Remove")
     REQUIRE(sorted_model->row_data(2) == 3);
 }
 
+class BatchRemoveModel : public slint::Model<int>
+{
+public:
+    BatchRemoveModel(std::vector<int> array) : data(std::move(array)) { }
+    size_t row_count() const override { return data.size(); }
+    std::optional<int> row_data(size_t i) const override
+    {
+        if (i >= data.size())
+            return {};
+        return data[i];
+    }
+    void erase(size_t index, size_t count)
+    {
+        data.erase(data.begin() + index, data.begin() + index + count);
+        this->notify_row_removed(index, count);
+    }
+
+private:
+    std::vector<int> data;
+};
+
+SCENARIO("Sorted Model Batch Remove")
+{
+    auto source_model = std::make_shared<BatchRemoveModel>(std::vector<int> { 3, 4, 1, 2 });
+
+    auto sorted_model = std::make_shared<slint::SortModel<int>>(
+            source_model, [](auto lhs, auto rhs) { return lhs < rhs; });
+
+    auto observer = std::make_shared<ModelObserver>();
+    sorted_model->attach_peer(observer);
+
+    REQUIRE(sorted_model->row_count() == 4);
+    REQUIRE(sorted_model->row_data(0) == 1);
+    REQUIRE(sorted_model->row_data(1) == 2);
+    REQUIRE(sorted_model->row_data(2) == 3);
+    REQUIRE(sorted_model->row_data(3) == 4);
+
+    /// Remove the entries with the values 4 and 1 in one notification
+    source_model->erase(1, 2);
+
+    REQUIRE(observer->added_rows.empty());
+    REQUIRE(observer->changed_rows.empty());
+    REQUIRE(observer->removed_rows.size() == 2);
+    REQUIRE(observer->removed_rows[0] == ModelObserver::Range { 0, 1 });
+    REQUIRE(observer->removed_rows[1] == ModelObserver::Range { 2, 1 });
+    REQUIRE(!observer->model_reset);
+
+    REQUIRE(sorted_model->row_count() == 2);
+    REQUIRE(sorted_model->row_data(0) == 2);
+    REQUIRE(sorted_model->row_data(1) == 3);
+}
+
 SCENARIO("Sorted Model Change")
 {
     auto vec_model = std::make_shared<slint::VectorModel<int>>(std::vector<int> { 3, 4, 1, 2 });
@@ -690,4 +742,211 @@ TEST_CASE("VectorModel clear and replace")
     // Test that taking a vector by value compiles
     std::vector<int> new_data { 5, 6, 7, 8 };
     model->set_vector(new_data);
+}
+
+TEST_CASE("Model any-change tracking")
+{
+    using namespace slint::private_api;
+
+    auto model = std::make_shared<slint::VectorModel<int>>(std::vector<int> { 0, 1, 2, 3, 4 });
+
+    PropertyTracker tracker;
+    auto find_two = [&] {
+        return tracker.evaluate(
+                [&] { return model_find_index(model, [](int x) { return x == 2; }); });
+    };
+
+    REQUIRE(find_two() == 2);
+    REQUIRE(!tracker.is_dirty());
+
+    // Any row change dirties the binding, including rows past the match,
+    // as track_any_change() tracks all rows regardless of short-circuiting.
+    model->set_row_data(4, 42);
+    REQUIRE(tracker.is_dirty());
+    REQUIRE(find_two() == 2);
+    REQUIRE(!tracker.is_dirty());
+
+    model->set_row_data(2, 22);
+    REQUIRE(tracker.is_dirty());
+    REQUIRE(find_two() == -1);
+    REQUIRE(!tracker.is_dirty());
+
+    model->push_back(2);
+    REQUIRE(tracker.is_dirty());
+    REQUIRE(find_two() == 5);
+    REQUIRE(!tracker.is_dirty());
+
+    model->erase(0);
+    REQUIRE(tracker.is_dirty());
+    REQUIRE(find_two() == 4);
+    REQUIRE(!tracker.is_dirty());
+
+    // A row change right after add/remove cleared the tracking state still
+    // dirties the binding, because the re-evaluation re-tracked the model.
+    model->set_row_data(0, 7);
+    REQUIRE(tracker.is_dirty());
+    REQUIRE(find_two() == 4);
+    REQUIRE(!tracker.is_dirty());
+
+    model->set_vector({});
+    REQUIRE(tracker.is_dirty());
+    REQUIRE(find_two() == -1);
+    REQUIRE(!tracker.is_dirty());
+}
+
+TEST_CASE("Model any-change tracking for model_all and model_any")
+{
+    using namespace slint::private_api;
+
+    auto model = std::make_shared<slint::VectorModel<int>>(std::vector<int> { 0, 1, 2, 3, 4 });
+
+    PropertyTracker any_tracker;
+    auto has_two = [&] {
+        return any_tracker.evaluate([&] { return model_any(model, [](int x) { return x == 2; }); });
+    };
+    PropertyTracker all_tracker;
+    auto none_is_two = [&] {
+        return all_tracker.evaluate([&] { return model_all(model, [](int x) { return x != 2; }); });
+    };
+
+    REQUIRE(has_two());
+    REQUIRE(!any_tracker.is_dirty());
+    REQUIRE(!none_is_two());
+    REQUIRE(!all_tracker.is_dirty());
+
+    // Any row change dirties both bindings, including rows past the match,
+    // as track_any_change() tracks all rows regardless of short-circuiting.
+    model->set_row_data(4, 42);
+    REQUIRE(any_tracker.is_dirty());
+    REQUIRE(all_tracker.is_dirty());
+    REQUIRE(has_two());
+    REQUIRE(!none_is_two());
+    REQUIRE(!any_tracker.is_dirty());
+    REQUIRE(!all_tracker.is_dirty());
+
+    model->set_row_data(2, 22);
+    REQUIRE(any_tracker.is_dirty());
+    REQUIRE(all_tracker.is_dirty());
+    REQUIRE(!has_two());
+    REQUIRE(none_is_two());
+    REQUIRE(!any_tracker.is_dirty());
+    REQUIRE(!all_tracker.is_dirty());
+
+    model->push_back(2);
+    REQUIRE(any_tracker.is_dirty());
+    REQUIRE(all_tracker.is_dirty());
+    REQUIRE(has_two());
+    REQUIRE(!none_is_two());
+    REQUIRE(!any_tracker.is_dirty());
+    REQUIRE(!all_tracker.is_dirty());
+
+    model->erase(0);
+    REQUIRE(any_tracker.is_dirty());
+    REQUIRE(all_tracker.is_dirty());
+    REQUIRE(has_two());
+    REQUIRE(!none_is_two());
+    REQUIRE(!any_tracker.is_dirty());
+    REQUIRE(!all_tracker.is_dirty());
+
+    // A row change right after add/remove cleared the tracking state still
+    // dirties both bindings, because the re-evaluation re-tracked the model.
+    model->set_row_data(0, 7);
+    REQUIRE(any_tracker.is_dirty());
+    REQUIRE(all_tracker.is_dirty());
+    REQUIRE(has_two());
+    REQUIRE(!none_is_two());
+    REQUIRE(!any_tracker.is_dirty());
+    REQUIRE(!all_tracker.is_dirty());
+
+    // model_all() is vacuously true over an empty model, unlike model_any().
+    model->set_vector({});
+    REQUIRE(any_tracker.is_dirty());
+    REQUIRE(all_tracker.is_dirty());
+    REQUIRE(!has_two());
+    REQUIRE(none_is_two());
+    REQUIRE(!any_tracker.is_dirty());
+    REQUIRE(!all_tracker.is_dirty());
+}
+
+// A model whose middle row has no data, to pin down how the array predicates treat a
+// row that is in range but unreadable.
+struct AbsentRowModel : slint::Model<int>
+{
+    size_t row_count() const override { return 3; }
+    std::optional<int> row_data(size_t row) const override
+    {
+        switch (row) {
+        case 0:
+            return 1;
+        case 1:
+            return std::nullopt;
+        default:
+            return 3;
+        }
+    }
+};
+
+TEST_CASE("Array predicates skip absent rows")
+{
+    using namespace slint::private_api;
+
+    auto model = std::make_shared<AbsentRowModel>();
+
+    // All three predicates skip the absent row, rather than failing the whole model
+    // or feeding the predicate a default value in its place.
+    REQUIRE(model_all(model, [](int x) { return x > 0; }));
+    REQUIRE(!model_any(model, [](int x) { return x == 0; }));
+    REQUIRE(model_find_index(model, [](int x) { return x == 3; }) == 2);
+}
+
+TEST_CASE("Model any-change tracking outside a binding")
+{
+    using namespace slint::private_api;
+
+    auto model = std::make_shared<slint::VectorModel<int>>(std::vector<int> { 0, 1, 2, 3, 4 });
+
+    PropertyTracker tracker;
+    REQUIRE(tracker.evaluate([&]() {
+        model->track_row_data_changes(1);
+        return model->row_data(1);
+    }) == 1);
+    REQUIRE(!tracker.is_dirty());
+
+    // Evaluating a predicate while no binding is being evaluated — as generated code does
+    // from a callback or function body — registers no dependency, so it must not latch
+    // whole-model tracking and start dirtying bindings that only asked for one row.
+    REQUIRE(model_find_index(model, [](int x) { return x == 2; }) == 2);
+    model->set_row_data(0, 100);
+    REQUIRE(!tracker.is_dirty());
+
+    // The row the tracker did ask for still works.
+    model->set_row_data(1, 100);
+    REQUIRE(tracker.is_dirty());
+}
+
+TEST_CASE("Model any-change tracking subsumes row tracking")
+{
+    using namespace slint::private_api;
+
+    auto model = std::make_shared<slint::VectorModel<int>>(std::vector<int> { 0, 1, 2, 3, 4 });
+
+    // Track the whole model, so that every row is now implicitly tracked.
+    PropertyTracker any_tracker;
+    REQUIRE(any_tracker.evaluate([&] {
+        return model_find_index(model, [](int x) { return x == 2; });
+    }) == 2);
+    REQUIRE(!any_tracker.is_dirty());
+
+    // track_row_data_changes() no longer records the row individually while that
+    // is the case, but a binding tracking a single row must still be notified.
+    PropertyTracker row_tracker;
+    REQUIRE(row_tracker.evaluate([&] {
+        model->track_row_data_changes(0);
+        return model->row_data(0);
+    }) == 0);
+    REQUIRE(!row_tracker.is_dirty());
+
+    model->set_row_data(0, 9);
+    REQUIRE(row_tracker.is_dirty());
+    REQUIRE(any_tracker.is_dirty());
 }

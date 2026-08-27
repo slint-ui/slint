@@ -3,31 +3,32 @@
 
 import { Palette } from "std-widgets.slint";
 
-SubElement := Rectangle {
-    property sub_color <=> sub.color;
-    sub := Text { text: "sub"; }
+component SubElement inherits Rectangle {
+    in-out property sub_color <=> sub.color;
+    sub := Text { x:0;y:0; text: "sub"; }
 }
 
-TestCase := Rectangle {
+export component TestCase inherits Rectangle {
     // This binding allow the test to set the style's default color so that we can compare it
-    property<color> binding_to_default_text_color: Palette.foreground;
+    in-out property<color> binding_to_default_text_color: Palette.foreground;
 
-    default_text := Text { text: "default"; }
+    default_text := Text { x:0;y:0; text: "default"; }
     text_with_color := Text {
+        x:0;y:0;
         text: "yellow";
         color: #ffff00ff;
     }
     text_in_sub_element := SubElement { sub_color: #ff0000; }
-    text_in_state := Text { }
+    text_in_state := Text { x:0;y:0; }
     states [ xx when false: { text_in_state.color: #abc; } ]
 
-    property <color> default_text_color: default_text.color;
-    property <color> color_of_initialized_text: text_with_color.color;
-    property <color> color_of_sub_element_text: text_in_sub_element.sub_color;
-    property <color> color_in_state: text-in-state.color;
+    in-out property <color> default_text_color: default_text.color;
+    in-out property <color> color_of_initialized_text: text_with_color.color;
+    in-out property <color> color_of_sub_element_text: text_in_sub_element.sub_color;
+    in-out property <color> color_in_state: text-in-state.color;
 
-    property <bool> test: default_text_color == Palette.foreground && color-of-initialized-text == #ffff00ff
-        && color_of_sub_element_text == #ff0000 && color-in-state == Palette.foreground;
+    in-out property <bool> test: default_text_color == Palette.foreground && root.color-of-initialized-text == #ffff00ff
+        && color_of_sub_element_text == #ff0000 && root.color-in-state == Palette.foreground;
 }
 
 

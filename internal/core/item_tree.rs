@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell: ignore xffff
+// cSpell: ignore xffff unclipped subchildren subsubtree
 
 //! This module contains the ItemTree and code that helps navigating it
 
@@ -209,27 +209,38 @@ pub fn unregister_item_tree<Base>(
     item_array: &[vtable::VOffset<Base, ItemVTable, vtable::AllowPin>],
     window_adapter: &WindowAdapterRc,
 ) {
-    item_array.iter().for_each(|item| {
-        item.apply_pin(base).as_ref().deinit(window_adapter);
-    });
-    window_adapter.renderer().free_graphics_resources(item_tree, &mut item_array.iter().map(|item| item.apply_pin(base))).expect(
-        "Fatal error encountered when freeing graphics resources while destroying Slint component",
-    );
+    // Only resolving the items via `apply_pin` needs `Base`; keep the rest in a non-generic
+    // helper so it isn't duplicated per component. Each consumer walks the items once.
+    fn unregister_item_tree_impl(
+        item_tree: ItemTreeRef,
+        items_to_deinit: &mut dyn Iterator<Item = Pin<ItemRef<'_>>>,
+        items_to_free: &mut dyn Iterator<Item = Pin<ItemRef<'_>>>,
+        items_to_unregister: &mut dyn Iterator<Item = Pin<ItemRef<'_>>>,
+        window_adapter: &WindowAdapterRc,
+    ) {
+        items_to_deinit.for_each(|item| item.as_ref().deinit(window_adapter));
+        window_adapter.renderer().free_graphics_resources(item_tree, items_to_free).expect(
+            "Fatal error encountered when freeing graphics resources while destroying Slint component",
+        );
 
-    if let Some(w) = window_adapter.internal(crate::InternalToken) {
-        w.unregister_item_tree(item_tree, &mut item_array.iter().map(|item| item.apply_pin(base)));
+        if let Some(w) = window_adapter.internal(crate::InternalToken) {
+            w.unregister_item_tree(item_tree, items_to_unregister);
+        }
+
+        // Close popups that were part of a component that just got deleted
+        let window_inner = crate::window::WindowInner::from_pub(window_adapter.window());
+        let to_close_popups = window_inner
+            .active_popups()
+            .iter()
+            .filter_map(|p| p.parent_item.upgrade().is_none().then_some(p.popup_id))
+            .collect::<Vec<_>>();
+        for popup_id in to_close_popups {
+            window_inner.close_popup(popup_id);
+        }
     }
 
-    // Close popups that were part of a component that just got deleted
-    let window_inner = crate::window::WindowInner::from_pub(window_adapter.window());
-    let to_close_popups = window_inner
-        .active_popups()
-        .iter()
-        .filter_map(|p| p.parent_item.upgrade().is_none().then_some(p.popup_id))
-        .collect::<Vec<_>>();
-    for popup_id in to_close_popups {
-        window_inner.close_popup(popup_id);
-    }
+    let items = || item_array.iter().map(|item| item.apply_pin(base));
+    unregister_item_tree_impl(item_tree, &mut items(), &mut items(), &mut items(), window_adapter)
 }
 
 fn find_sibling_outside_repeater(
@@ -405,6 +416,20 @@ impl ItemRc {
             && clip.max.y >= geometry.min.y
             && clip.min.x <= geometry.max.x
             && clip.min.y <= geometry.max.y
+    }
+
+    pub(crate) fn visibility_clips(&self) -> Vec<VWeakMapped<ItemTreeVTable, crate::items::Clip>> {
+        let mut visibility_clips = Vec::new();
+        let mut current = Some(self.clone());
+        while let Some(item) = current {
+            if let Some(clip) = item.downcast::<crate::items::Clip>()
+                && clip.as_pin_ref().is_visibility_clip()
+            {
+                visibility_clips.push(VRcMapped::downgrade(&clip));
+            }
+            current = item.parent_item(ParentItemTraversalMode::StopAtPopups);
+        }
+        visibility_clips
     }
 
     /// Returns true if this item is visible or only clipped away by a `Flickable`.
@@ -629,11 +654,6 @@ impl ItemRc {
         self.map_to_item_tree_impl(p, |_| false)
     }
 
-    /// Maps a position in window coordinates to the item coordinates
-    pub(crate) fn map_from_window(&self, p: LogicalPoint) -> LogicalPoint {
-        self.map_from_item_tree_impl(p, |_| false)
-    }
-
     /// Returns an absolute position of `p` in the `ItemTree`'s coordinate system
     /// (does not add this item's x and y)
     pub fn map_to_item_tree(
@@ -660,32 +680,6 @@ impl ItemRc {
             return p;
         }
         self.local_to_window_transform(stop_condition).transform_point(p.cast()).cast()
-    }
-
-    fn map_from_item_tree_impl(
-        &self,
-        p: LogicalPoint,
-        stop_condition: impl Fn(&Self) -> bool,
-    ) -> LogicalPoint {
-        if stop_condition(self) {
-            return p;
-        }
-
-        if let Some(transform) = self.local_to_window_transform(&stop_condition).inverse() {
-            return transform.transform_point(p.cast()).cast();
-        }
-
-        let mut current = self.clone();
-        let mut offset = euclid::Vector2D::zero();
-        while let Some(parent) = current.parent_item(ParentItemTraversalMode::StopAtPopups) {
-            if stop_condition(&parent) {
-                break;
-            }
-            offset += parent.geometry().origin.to_vector();
-            current = parent;
-        }
-
-        p - offset
     }
 
     /// Return the index of the item within the ItemTree
@@ -1046,15 +1040,15 @@ impl ItemRc {
                     &[
                         self.map_to_ancestor(
                             LogicalPoint::new(
-                                geo.origin.x - flickable.viewport_x().0,
-                                geo.origin.y - flickable.viewport_y().0,
+                                geo.origin.x - flickable.content_x().0,
+                                geo.origin.y - flickable.content_y().0,
                             ),
                             item_rc,
                         ),
                         self.map_to_ancestor(
                             LogicalPoint::new(
-                                geo.max_x() - flickable.viewport_x().0,
-                                geo.max_y() - flickable.viewport_y().0,
+                                geo.max_x() - flickable.content_x().0,
+                                geo.max_y() - flickable.content_y().0,
                             ),
                             item_rc,
                         ),
@@ -1360,47 +1354,75 @@ fn visit_internal<State>(
     VRc::borrow_pin(item_tree).as_ref().visit_children_item(index, order, actual_visitor)
 }
 
-/// Visit the children within an array of ItemTreeNode
-///
-/// The dynamic visitor is called for the dynamic nodes, its signature is
-/// `fn(base: &Base, visitor: vtable::VRefMut<ItemVisitorVTable>, dyn_index: usize)`
-///
-/// FIXME: the design of this use lots of indirection and stack frame in recursive functions
-/// Need to check if the compiler is able to optimize away some of it.
-/// Possibly we should generate code that directly call the visitor instead
-pub fn visit_item_tree<Base>(
-    base: Pin<&Base>,
+/// One entry in the z-ordered traversal of an element's children: a plain child,
+/// or a single instance of a repeated child.
+#[derive(Clone, Copy, Debug)]
+struct ZSortedChild {
+    /// The z value used for sorting
+    z: f32,
+    /// Offset of the child within the parent's children (relative to children_index)
+    child_offset: u32,
+    /// The repeater instance (a model row index, as accepted by the `get_subtree`
+    /// vtable entry) when the child is a repeated element expanded per instance,
+    /// or `None` to visit the whole child
+    instance: Option<u32>,
+}
+
+/// Visit one child of `index`'s children (an item, or a dynamic node forwarded to
+/// `visit_dynamic`), shared between the sequential and the z-sorted traversal.
+fn visit_child_at_index(
     item_tree: &ItemTreeRc,
     item_tree_array: &[ItemTreeNode],
-    index: isize,
+    idx: u32,
     order: TraversalOrder,
-    mut visitor: vtable::VRefMut<ItemVisitorVTable>,
-    visit_dynamic: impl Fn(
-        Pin<&Base>,
+    visitor: &mut vtable::VRefMut<ItemVisitorVTable>,
+    visit_dynamic: &mut dyn FnMut(
         TraversalOrder,
         vtable::VRefMut<ItemVisitorVTable>,
         u32,
     ) -> VisitChildrenResult,
 ) -> VisitChildrenResult {
-    let mut visit_at_index = |idx: u32| -> VisitChildrenResult {
-        match &item_tree_array[idx as usize] {
-            ItemTreeNode::Item { .. } => {
-                let item = crate::items::ItemRc::new(item_tree.clone(), idx);
-                visitor.visit_item(item_tree, idx, item.borrow())
-            }
-            ItemTreeNode::DynamicTree { index, .. } => {
-                if let Some(sub_idx) =
-                    visit_dynamic(base, order, visitor.borrow_mut(), *index).aborted_index()
-                {
-                    VisitChildrenResult::abort(idx, sub_idx)
-                } else {
-                    VisitChildrenResult::CONTINUE
-                }
+    match &item_tree_array[idx as usize] {
+        ItemTreeNode::Item { .. } => {
+            let item = crate::items::ItemRc::new(item_tree.clone(), idx);
+            visitor.visit_item(item_tree, idx, item.borrow())
+        }
+        ItemTreeNode::DynamicTree { index, .. } => {
+            if let Some(sub_idx) =
+                visit_dynamic(order, visitor.borrow_mut(), *index).aborted_index()
+            {
+                VisitChildrenResult::abort(idx, sub_idx)
+            } else {
+                VisitChildrenResult::CONTINUE
             }
         }
-    };
+    }
+}
+
+/// Visit the children within an array of ItemTreeNode
+///
+/// The dynamic visitor is called for the dynamic nodes, its signature is
+/// `fn(order: TraversalOrder, visitor: vtable::VRefMut<ItemVisitorVTable>, dyn_index: u32)`.
+/// It is a `dyn` callback (capturing the component) rather than generic, so this function is
+/// not duplicated per component type.
+///
+/// FIXME: the design of this use lots of indirection and stack frame in recursive functions
+/// Need to check if the compiler is able to optimize away some of it.
+/// Possibly we should generate code that directly call the visitor instead
+pub fn visit_item_tree(
+    item_tree: &ItemTreeRc,
+    item_tree_array: &[ItemTreeNode],
+    index: isize,
+    order: TraversalOrder,
+    mut visitor: vtable::VRefMut<ItemVisitorVTable>,
+    visit_dynamic: &mut dyn FnMut(
+        TraversalOrder,
+        vtable::VRefMut<ItemVisitorVTable>,
+        u32,
+    ) -> VisitChildrenResult,
+) -> VisitChildrenResult {
     if index == -1 {
-        visit_at_index(0)
+        visit_child_at_index(item_tree, item_tree_array, 0, order, &mut visitor, visit_dynamic)
     } else {
         match &item_tree_array[index as usize] {
             ItemTreeNode::Item { children_index, children_count, .. } => {
@@ -1409,7 +1431,14 @@ pub fn visit_item_tree<Base>(
                         TraversalOrder::BackToFront => *children_index + c,
                         TraversalOrder::FrontToBack => *children_index + *children_count - c - 1,
                     };
-                    let maybe_abort_index = visit_at_index(idx);
+                    let maybe_abort_index = visit_child_at_index(
+                        item_tree,
+                        item_tree_array,
+                        idx,
+                        order,
+                        &mut visitor,
+                        visit_dynamic,
+                    );
                     if maybe_abort_index.has_aborted() {
                         return maybe_abort_index;
                     }
@@ -1419,6 +1448,94 @@ pub fn visit_item_tree<Base>(
         };
         VisitChildrenResult::CONTINUE
     }
+}
+
+/// Visit the children of the node at `index` (which must be an `ItemTreeNode::Item` whose
+/// children have dynamic z-ordering) sorted by their z value.
+///
+/// `collect_z` is invoked once with a `push(child_offset, instance, z)` sink and must push
+/// one entry for every child: either a single entry with `instance == None`, which visits
+/// the whole child (including a repeated child as one block), or one entry per instance of
+/// a repeated child that is expanded and sorted individually (`instance == Some(i)`), so
+/// the entries can outnumber the children. `collect_z` must be side-effect free: it runs on
+/// every children traversal, and property reads in it are what registers the dependencies
+/// that re-trigger rendering when a z value changes.
+///
+/// The entries are sorted by z, ties broken by declaration order (`child_offset`) then
+/// instance, and visited in that order — reversed for `FrontToBack`. An entry with a
+/// specific instance is visited directly through the `get_subtree` vtable entry of
+/// `item_tree` (so the instance index is a model row index, as used by `get_subtree`
+/// and `get_subtree_range`), without going through `visit_dynamic`.
+pub fn visit_item_tree_z_sorted(
+    item_tree: &ItemTreeRc,
+    item_tree_array: &[ItemTreeNode],
+    index: isize,
+    order: TraversalOrder,
+    mut visitor: vtable::VRefMut<ItemVisitorVTable>,
+    visit_dynamic: &mut dyn FnMut(
+        TraversalOrder,
+        vtable::VRefMut<ItemVisitorVTable>,
+        u32,
+    ) -> VisitChildrenResult,
+    collect_z: &mut dyn FnMut(&mut dyn FnMut(u32, Option<u32>, f32)),
+) -> VisitChildrenResult {
+    let ItemTreeNode::Item { children_index, children_count, .. } =
+        &item_tree_array[index as usize]
+    else {
+        panic!("should not be called with dynamic items")
+    };
+    let mut entries = alloc::vec::Vec::with_capacity(*children_count as usize);
+    collect_z(&mut |child_offset, instance, z| {
+        entries.push(ZSortedChild { z, child_offset, instance })
+    });
+    entries.sort_unstable_by(|a: &ZSortedChild, b: &ZSortedChild| {
+        a.z.total_cmp(&b.z)
+            .then(a.child_offset.cmp(&b.child_offset))
+            .then(a.instance.cmp(&b.instance))
+    });
+    for i in 0..entries.len() {
+        let entry = &entries[match order {
+            TraversalOrder::BackToFront => i,
+            TraversalOrder::FrontToBack => entries.len() - 1 - i,
+        }];
+        let idx = *children_index + entry.child_offset;
+        let maybe_abort_index = match (&item_tree_array[idx as usize], entry.instance) {
+            (ItemTreeNode::DynamicTree { index: dyn_index, .. }, Some(instance)) => {
+                // A single expanded instance: reach it through the vtable instead of the
+                // component's dynamic-visit dispatch. An instance that disappeared since
+                // `collect_z` ran is skipped.
+                let mut instance_tree: vtable::VWeak<ItemTreeVTable, Dyn> = Default::default();
+                VRc::borrow_pin(item_tree).as_ref().get_subtree(
+                    *dyn_index,
+                    instance as usize,
+                    &mut instance_tree,
+                );
+                match instance_tree.upgrade() {
+                    Some(t)
+                        if VRc::borrow_pin(&t)
+                            .as_ref()
+                            .visit_children_item(-1, order, visitor.borrow_mut())
+                            .has_aborted() =>
+                    {
+                        VisitChildrenResult::abort(idx, instance as usize)
+                    }
+                    _ => VisitChildrenResult::CONTINUE,
+                }
+            }
+            _ => visit_child_at_index(
+                item_tree,
+                item_tree_array,
+                idx,
+                order,
+                &mut visitor,
+                visit_dynamic,
+            ),
+        };
+        if maybe_abort_index.has_aborted() {
+            return maybe_abort_index;
+        }
+    }
+    VisitChildrenResult::CONTINUE
 }
 
 #[cfg(feature = "ffi")]
@@ -1475,14 +1592,70 @@ pub(crate) mod ffi {
             dyn_index: u32,
         ) -> VisitChildrenResult,
     ) -> VisitChildrenResult {
+        let base = VRc::as_pin_ref(item_tree).get_ref() as *const vtable::Dyn as *const c_void;
         crate::item_tree::visit_item_tree(
-            VRc::as_pin_ref(item_tree),
             item_tree,
             item_tree_array.as_slice(),
             index,
             order,
             visitor,
-            |a, b, c, d| visit_dynamic(a.get_ref() as *const vtable::Dyn as *const c_void, b, c, d),
+            &mut |order, visitor, dyn_index| visit_dynamic(base, order, visitor, dyn_index),
+        )
+    }
+
+    /// Expose `crate::item_tree::visit_item_tree_z_sorted` to C++.
+    ///
+    /// `collect_z` receives the component `base`, an opaque `push_ctx`, and a `push`
+    /// function; it must call `push(push_ctx, child_offset, instance, z)` once per entry,
+    /// with `instance == u32::MAX` for entries that visit the whole child. See
+    /// [`crate::item_tree::visit_item_tree_z_sorted`] for the contract.
+    ///
+    /// Safety: Assume a correct implementation of the item_tree array, and of the
+    /// `visit_dynamic` and `collect_z` callbacks: both must be valid function pointers,
+    /// `collect_z` must forward the given `push_ctx` unchanged to `push` and only call
+    /// `push` for the duration of the `collect_z` call, and it must only push
+    /// `child_offset` values that are within the children of the node at `index`.
+    #[unsafe(no_mangle)]
+    pub unsafe extern "C" fn slint_visit_item_tree_z_sorted(
+        item_tree: &ItemTreeRc,
+        item_tree_array: Slice<ItemTreeNode>,
+        index: isize,
+        order: TraversalOrder,
+        visitor: VRefMut<ItemVisitorVTable>,
+        visit_dynamic: extern "C" fn(
+            base: *const c_void,
+            order: TraversalOrder,
+            visitor: vtable::VRefMut<ItemVisitorVTable>,
+            dyn_index: u32,
+        ) -> VisitChildrenResult,
+        collect_z: extern "C" fn(
+            base: *const c_void,
+            push_ctx: *mut c_void,
+            push: extern "C" fn(push_ctx: *mut c_void, child_offset: u32, instance: u32, z: f32),
+        ),
+    ) -> VisitChildrenResult {
+        let base = VRc::as_pin_ref(item_tree).get_ref() as *const vtable::Dyn as *const c_void;
+        crate::item_tree::visit_item_tree_z_sorted(
+            item_tree,
+            item_tree_array.as_slice(),
+            index,
+            order,
+            visitor,
+            &mut |order, visitor, dyn_index| visit_dynamic(base, order, visitor, dyn_index),
+            &mut |push| {
+                extern "C" fn push_trampoline(
+                    push_ctx: *mut c_void,
+                    child_offset: u32,
+                    instance: u32,
+                    z: f32,
+                ) {
+                    let push =
+                        unsafe { &mut **(push_ctx as *mut &mut dyn FnMut(u32, Option<u32>, f32)) };
+                    push(child_offset, (instance != u32::MAX).then_some(instance), z);
+                }
+                let mut push_ctx: &mut dyn FnMut(u32, Option<u32>, f32) = push;
+                collect_z(base, core::ptr::addr_of_mut!(push_ctx) as *mut c_void, push_trampoline);
+            },
         )
     }
 }
@@ -1542,14 +1715,14 @@ mod tests {
     }
 
     struct TestItemTree {
-        parent_component: Option<ItemTreeRc>,
-        /// First item is always the root, the next ones are the childrens and subchildren and so on
+        parent_component: Option<ItemTreeWeak>,
+        /// First item is always the root, the next ones are the children and subchildren and so on
         item_tree: Vec<ItemTreeNode>,
         /// Contains the trees of the dynamic components
         subtrees: std::cell::RefCell<Vec<Vec<vtable::VRc<ItemTreeVTable, TestItemTree>>>>,
         subtree_index: usize,
 
-        window_adapter: WindowAdapterRc,
+        window_adapter: std::rc::Weak<dyn crate::window::WindowAdapter>,
         window_item: Option<crate::items::WindowItem>,
     }
 
@@ -1580,9 +1753,8 @@ mod tests {
         }
 
         fn parent_node(self: core::pin::Pin<&Self>, result: &mut ItemWeak) {
-            if let Some(parent_item) = self.parent_component.clone() {
-                *result =
-                    ItemRc::new(parent_item.clone(), self.item_tree[0].parent_index()).downgrade();
+            if let Some(parent_item) = self.parent_component.as_ref().and_then(|w| w.upgrade()) {
+                *result = ItemRc::new(parent_item, self.item_tree[0].parent_index()).downgrade();
             }
         }
 
@@ -1667,7 +1839,7 @@ mod tests {
             _do_create: bool,
             result: &mut Option<WindowAdapterRc>,
         ) {
-            *result = Some(self.window_adapter.clone())
+            *result = self.window_adapter.upgrade()
         }
 
         fn item_geometry(self: Pin<&Self>, _: u32) -> LogicalRect {
@@ -1693,9 +1865,8 @@ mod tests {
 
     fn create_one_node_component(
         window_item: Option<WindowItem>,
-    ) -> (std::rc::Weak<WindowAdapter>, VRc<ItemTreeVTable, vtable::Dyn>) {
+    ) -> (std::rc::Rc<WindowAdapter>, VRc<ItemTreeVTable, vtable::Dyn>) {
         let window_adapter = WindowAdapter::new();
-        let weak = Rc::downgrade(&window_adapter);
         let component = VRc::new(TestItemTree {
             parent_component: None,
             item_tree: vec![ItemTreeNode::Item {
@@ -1708,10 +1879,10 @@ mod tests {
             subtrees: std::cell::RefCell::new(Vec::new()),
             subtree_index: usize::MAX,
 
-            window_adapter,
+            window_adapter: Rc::downgrade(&window_adapter) as _,
             window_item,
         });
-        (weak, VRc::into_dyn(component))
+        (window_adapter, VRc::into_dyn(component))
     }
 
     #[test]
@@ -1786,7 +1957,7 @@ mod tests {
             subtrees: std::cell::RefCell::new(Vec::new()),
             subtree_index: usize::MAX,
 
-            window_adapter: WindowAdapter::new(),
+            window_adapter: Rc::downgrade(&WindowAdapter::new()) as _,
             window_item: None,
         });
         VRc::into_dyn(component)
@@ -1899,7 +2070,7 @@ mod tests {
             subtrees: std::cell::RefCell::new(vec![Vec::new()]),
             subtree_index: usize::MAX,
 
-            window_adapter: WindowAdapter::new(),
+            window_adapter: Rc::downgrade(&WindowAdapter::new()) as _,
             window_item: None,
         });
         vtable::VRc::into_dyn(component)
@@ -1943,6 +2114,8 @@ mod tests {
 
     fn create_item_subtree_item() -> VRc<ItemTreeVTable, vtable::Dyn> {
         let window_adapter = WindowAdapter::new();
+        let weak_adapter =
+            Rc::downgrade(&window_adapter) as std::rc::Weak<dyn crate::window::WindowAdapter>;
         let component = VRc::new(TestItemTree {
             parent_component: None,
             item_tree: vec![
@@ -1974,12 +2147,12 @@ mod tests {
             subtrees: std::cell::RefCell::new(Vec::new()),
             subtree_index: usize::MAX,
 
-            window_adapter: window_adapter.clone(),
+            window_adapter: weak_adapter.clone(),
             window_item: None,
         });
 
         component.as_pin_ref().subtrees.replace(vec![vec![VRc::new(TestItemTree {
-            parent_component: Some(VRc::into_dyn(component.clone())),
+            parent_component: Some(VRc::downgrade(&VRc::into_dyn(component.clone()))),
             item_tree: vec![ItemTreeNode::Item {
                 is_accessible: false,
                 children_count: 0,
@@ -1990,7 +2163,7 @@ mod tests {
             subtrees: std::cell::RefCell::new(Vec::new()),
             subtree_index: 0,
 
-            window_adapter,
+            window_adapter: weak_adapter,
             window_item: None,
         })]]);
 
@@ -2081,6 +2254,8 @@ mod tests {
         // sub_component1 as subtree of the main component
 
         let window_adapter = WindowAdapter::new();
+        let weak_adapter =
+            Rc::downgrade(&window_adapter) as std::rc::Weak<dyn crate::window::WindowAdapter>;
 
         let component = VRc::new(TestItemTree {
             parent_component: None,
@@ -2116,12 +2291,12 @@ mod tests {
             subtrees: std::cell::RefCell::new(Vec::new()),
             subtree_index: usize::MAX,
 
-            window_adapter: window_adapter.clone(),
+            window_adapter: weak_adapter.clone(),
             window_item: None,
         });
 
         let sub_component1 = VRc::new(TestItemTree {
-            parent_component: Some(VRc::into_dyn(component.clone())),
+            parent_component: Some(VRc::downgrade(&VRc::into_dyn(component.clone()))),
             item_tree: vec![
                 // Root
                 ItemTreeNode::Item {
@@ -2132,17 +2307,17 @@ mod tests {
                     item_array_index: 0,
                 },
                 // First child
-                // Relates to the first subtree in this component (sub_compnent2, added below)
+                // Relates to the first subtree in this component (sub_component2, added below)
                 ItemTreeNode::DynamicTree { index: 0, parent_index: 0 },
             ],
             subtrees: std::cell::RefCell::new(Vec::new()),
             subtree_index: usize::MAX,
 
-            window_adapter: window_adapter.clone(),
+            window_adapter: weak_adapter.clone(),
             window_item: None,
         });
         let sub_component2 = VRc::new(TestItemTree {
-            parent_component: Some(VRc::into_dyn(sub_component1.clone())),
+            parent_component: Some(VRc::downgrade(&VRc::into_dyn(sub_component1.clone()))),
             item_tree: vec![
                 ItemTreeNode::Item {
                     is_accessible: false,
@@ -2162,7 +2337,7 @@ mod tests {
             subtrees: std::cell::RefCell::new(Vec::new()),
             subtree_index: usize::MAX,
 
-            window_adapter,
+            window_adapter: weak_adapter,
             window_item: None,
         });
 
@@ -2284,6 +2459,8 @@ mod tests {
 
     fn create_subtrees_item() -> VRc<ItemTreeVTable, vtable::Dyn> {
         let window_adapter = WindowAdapter::new();
+        let weak_adapter =
+            Rc::downgrade(&window_adapter) as std::rc::Weak<dyn crate::window::WindowAdapter>;
 
         let component = VRc::new(TestItemTree {
             parent_component: None,
@@ -2307,13 +2484,13 @@ mod tests {
             subtrees: std::cell::RefCell::new(Vec::new()),
             subtree_index: usize::MAX,
 
-            window_adapter: window_adapter.clone(),
+            window_adapter: weak_adapter.clone(),
             window_item: None,
         });
 
         component.as_pin_ref().subtrees.replace(vec![vec![
             VRc::new(TestItemTree {
-                parent_component: Some(VRc::into_dyn(component.clone())),
+                parent_component: Some(VRc::downgrade(&VRc::into_dyn(component.clone()))),
                 item_tree: vec![ItemTreeNode::Item {
                     is_accessible: false,
                     children_count: 0,
@@ -2324,11 +2501,11 @@ mod tests {
                 subtrees: std::cell::RefCell::new(Vec::new()),
                 subtree_index: 0,
 
-                window_adapter: window_adapter.clone(),
+                window_adapter: weak_adapter.clone(),
                 window_item: None,
             }),
             VRc::new(TestItemTree {
-                parent_component: Some(VRc::into_dyn(component.clone())),
+                parent_component: Some(VRc::downgrade(&VRc::into_dyn(component.clone()))),
                 item_tree: vec![ItemTreeNode::Item {
                     is_accessible: false,
                     children_count: 0,
@@ -2339,11 +2516,11 @@ mod tests {
                 subtrees: std::cell::RefCell::new(Vec::new()),
                 subtree_index: 1,
 
-                window_adapter: window_adapter.clone(),
+                window_adapter: weak_adapter.clone(),
                 window_item: None,
             }),
             VRc::new(TestItemTree {
-                parent_component: Some(VRc::into_dyn(component.clone())),
+                parent_component: Some(VRc::downgrade(&VRc::into_dyn(component.clone()))),
                 item_tree: vec![ItemTreeNode::Item {
                     is_accessible: false,
                     children_count: 0,
@@ -2354,7 +2531,7 @@ mod tests {
                 subtrees: std::cell::RefCell::new(Vec::new()),
                 subtree_index: 2,
 
-                window_adapter,
+                window_adapter: weak_adapter,
                 window_item: None,
             }),
         ]]);
@@ -2500,14 +2677,13 @@ mod tests {
     // It does not contain any dynamic elements
     fn create_subsubtree_items(
         window_adapter: Option<std::rc::Rc<WindowAdapter>>,
-    ) -> (std::rc::Weak<WindowAdapter>, VRc<ItemTreeVTable>) {
+    ) -> (std::rc::Rc<WindowAdapter>, VRc<ItemTreeVTable>) {
         let window_adapter = window_adapter.unwrap_or(WindowAdapter::new());
-        let weak = Rc::downgrade(&window_adapter);
         let mut window_item = WindowItem::default();
         window_item.width = Property::new(LogicalLength::new(30.));
         window_item.height = Property::new(LogicalLength::new(30.));
         (
-            weak,
+            window_adapter.clone(),
             VRc::into_dyn(VRc::new(TestItemTree {
                 parent_component: None,
                 item_tree: vec![
@@ -2538,7 +2714,7 @@ mod tests {
                 ],
                 subtrees: std::cell::RefCell::new(Vec::new()),
                 subtree_index: usize::MAX,
-                window_adapter,
+                window_adapter: Rc::downgrade(&window_adapter) as _,
                 window_item: Some(window_item),
             })),
         )
@@ -2547,7 +2723,7 @@ mod tests {
     struct TransformTestItemTree {
         item_tree: Vec<ItemTreeNode>,
         geometries: Vec<LogicalRect>,
-        window_adapter: WindowAdapterRc,
+        window_adapter: std::rc::Weak<dyn crate::window::WindowAdapter>,
         root: WindowItem,
         transform: Transform,
         clip: Clip,
@@ -2636,7 +2812,7 @@ mod tests {
             _do_create: bool,
             result: &mut Option<WindowAdapterRc>,
         ) {
-            *result = Some(self.window_adapter.clone())
+            *result = self.window_adapter.upgrade()
         }
 
         fn item_geometry(self: Pin<&Self>, index: u32) -> LogicalRect {
@@ -2657,7 +2833,7 @@ mod tests {
 
     crate::item_tree::ItemTreeVTable_static!(static TRANSFORM_TEST_COMPONENT_VT for TransformTestItemTree);
 
-    fn create_transform_test_items() -> VRc<ItemTreeVTable> {
+    fn create_transform_test_items() -> (std::rc::Rc<WindowAdapter>, VRc<ItemTreeVTable>) {
         let window_adapter = WindowAdapter::new_with_transformations(true);
 
         let mut transform = Transform::default();
@@ -2669,49 +2845,52 @@ mod tests {
         let mut clip = Clip::default();
         clip.clip = Property::new(true);
 
-        VRc::into_dyn(VRc::new(TransformTestItemTree {
-            item_tree: vec![
-                ItemTreeNode::Item {
-                    is_accessible: false,
-                    children_count: 1,
-                    children_index: 1,
-                    parent_index: 0,
-                    item_array_index: 0,
-                },
-                ItemTreeNode::Item {
-                    is_accessible: false,
-                    children_count: 1,
-                    children_index: 2,
-                    parent_index: 0,
-                    item_array_index: 1,
-                },
-                ItemTreeNode::Item {
-                    is_accessible: false,
-                    children_count: 1,
-                    children_index: 3,
-                    parent_index: 1,
-                    item_array_index: 2,
-                },
-                ItemTreeNode::Item {
-                    is_accessible: false,
-                    children_count: 0,
-                    children_index: 4,
-                    parent_index: 2,
-                    item_array_index: 3,
-                },
-            ],
-            geometries: vec![
-                LogicalRect::new(Point2D::new(0., 0.), LogicalSize::new(100., 100.)),
-                LogicalRect::new(Point2D::new(10., 20.), LogicalSize::new(40., 40.)),
-                LogicalRect::new(Point2D::new(5., 6.), LogicalSize::new(20., 20.)),
-                LogicalRect::new(Point2D::new(8., 4.), LogicalSize::new(10., 10.)),
-            ],
-            window_adapter,
-            root: WindowItem::default(),
-            transform,
-            clip,
-            leaf: WindowItem::default(),
-        }))
+        (
+            window_adapter.clone(),
+            VRc::into_dyn(VRc::new(TransformTestItemTree {
+                item_tree: vec![
+                    ItemTreeNode::Item {
+                        is_accessible: false,
+                        children_count: 1,
+                        children_index: 1,
+                        parent_index: 0,
+                        item_array_index: 0,
+                    },
+                    ItemTreeNode::Item {
+                        is_accessible: false,
+                        children_count: 1,
+                        children_index: 2,
+                        parent_index: 0,
+                        item_array_index: 1,
+                    },
+                    ItemTreeNode::Item {
+                        is_accessible: false,
+                        children_count: 1,
+                        children_index: 3,
+                        parent_index: 1,
+                        item_array_index: 2,
+                    },
+                    ItemTreeNode::Item {
+                        is_accessible: false,
+                        children_count: 0,
+                        children_index: 4,
+                        parent_index: 2,
+                        item_array_index: 3,
+                    },
+                ],
+                geometries: vec![
+                    LogicalRect::new(Point2D::new(0., 0.), LogicalSize::new(100., 100.)),
+                    LogicalRect::new(Point2D::new(10., 20.), LogicalSize::new(40., 40.)),
+                    LogicalRect::new(Point2D::new(5., 6.), LogicalSize::new(20., 20.)),
+                    LogicalRect::new(Point2D::new(8., 4.), LogicalSize::new(10., 10.)),
+                ],
+                window_adapter: Rc::downgrade(&window_adapter) as _,
+                root: WindowItem::default(),
+                transform,
+                clip,
+                leaf: WindowItem::default(),
+            })),
+        )
     }
 
     fn assert_point_approx_eq(actual: LogicalPoint, expected: LogicalPoint) {
@@ -2731,8 +2910,8 @@ mod tests {
     }
 
     #[test]
-    fn test_map_to_anchestor() {
-        let item_tree = create_subsubtree_items(None).1;
+    fn test_map_to_ancestor() {
+        let (_window_adapter, item_tree) = create_subsubtree_items(None);
         let root = ItemRc::new_root(item_tree);
         let first_child = root.first_child().unwrap();
         let first_child_of_first_child = first_child.first_child().unwrap();
@@ -2761,7 +2940,7 @@ mod tests {
 
     #[test]
     fn test_map_to_window() {
-        let item_tree = create_subsubtree_items(None).1;
+        let (_window_adapter, item_tree) = create_subsubtree_items(None);
         let root = ItemRc::new_root(item_tree);
         let first_child = root.first_child().unwrap();
         let first_child_of_first_child = first_child.first_child().unwrap();
@@ -2774,7 +2953,7 @@ mod tests {
 
     #[test]
     fn test_map_to_window_through_transform_roundtrip() {
-        let item_tree = create_transform_test_items();
+        let (_window_adapter, item_tree) = create_transform_test_items();
         let root = ItemRc::new_root(item_tree);
         let transform = root.first_child().unwrap();
         let clip = transform.first_child().unwrap();
@@ -2783,12 +2962,11 @@ mod tests {
         let local_point = Point2D::new(4., 5.);
         let window_point = leaf.map_to_window(local_point);
         assert_point_approx_eq(window_point, Point2D::new(28., 53.));
-        assert_point_approx_eq(leaf.map_from_window(window_point), local_point);
     }
 
     #[test]
     fn test_visibility_with_clip_under_transform() {
-        let item_tree = create_transform_test_items();
+        let (_window_adapter, item_tree) = create_transform_test_items();
         let root = ItemRc::new_root(item_tree);
         let transform = root.first_child().unwrap();
         let clip = transform.first_child().unwrap();
@@ -2809,15 +2987,15 @@ mod tests {
         window_item.width = Property::new(LogicalLength::new(30.));
         window_item.height = Property::new(LogicalLength::new(30.));
         // A popup has it's own ItemTreeVTable
-        let (window_adapter_weak, parent) = create_one_node_component(Some(window_item));
-        let popup_component =
-            create_subsubtree_items(Some(window_adapter_weak.upgrade().unwrap())).1;
-        window_adapter_weak.upgrade().unwrap().window.0.show_popup(
+        let (window_adapter, parent) = create_one_node_component(Some(window_item));
+        let popup_component = create_subsubtree_items(Some(window_adapter.clone())).1;
+        window_adapter.window.0.show_popup(
             &popup_component,
-            POPUP_LOCATION,
+            alloc::boxed::Box::new(move || POPUP_LOCATION),
             crate::items::PopupClosePolicy::NoAutoClose,
             &ItemRc::new_root(parent.clone()),
-            false,
+            crate::window::WindowKind::Popup,
+            alloc::boxed::Box::new(|_| {}),
         );
 
         let root = ItemRc::new_root(popup_component);
@@ -2825,7 +3003,6 @@ mod tests {
         let first_child_of_first_child = first_child.first_child().unwrap();
 
         // Check that we have a ChildWindow popup
-        let window_adapter = window_adapter_weak.upgrade().unwrap();
         let active_popups = window_adapter.window.0.active_popups();
         assert_eq!(active_popups.len(), 1);
         let popup = active_popups.first().unwrap();
@@ -2849,13 +3026,14 @@ mod tests {
     #[test]
     fn test_map_to_window_popup() {
         const POPUP_LOCATION: LogicalPosition = LogicalPosition::new(20., 33.);
-        let (window_adapter_weak, item_tree) = create_subsubtree_items(None);
-        window_adapter_weak.upgrade().unwrap().window.0.show_popup(
+        let (window_adapter, item_tree) = create_subsubtree_items(None);
+        window_adapter.window.0.show_popup(
             &item_tree,
-            POPUP_LOCATION,
+            alloc::boxed::Box::new(move || POPUP_LOCATION),
             crate::items::PopupClosePolicy::NoAutoClose,
             &ItemRc::new_root(item_tree.clone()),
-            false,
+            crate::window::WindowKind::Popup,
+            alloc::boxed::Box::new(|_| {}),
         );
 
         let root = ItemRc::new_root(item_tree);
@@ -2863,7 +3041,6 @@ mod tests {
         let first_child_of_first_child = first_child.first_child().unwrap();
 
         // Check that we have a ChildWindow popup
-        let window_adapter = window_adapter_weak.upgrade().unwrap();
         let active_popups = window_adapter.window.0.active_popups();
         assert_eq!(active_popups.len(), 1);
         let popup = active_popups.first().unwrap();
@@ -2882,6 +3059,8 @@ mod tests {
     fn create_subsubtree_items_dynamic_elements(
         window_adapter: Rc<WindowAdapter>,
     ) -> VRc<ItemTreeVTable> {
+        let weak_adapter =
+            Rc::downgrade(&window_adapter) as std::rc::Weak<dyn crate::window::WindowAdapter>;
         let mut window_item = WindowItem::default();
         window_item.width = Property::new(LogicalLength::new(30.));
         window_item.height = Property::new(LogicalLength::new(30.));
@@ -2902,12 +3081,12 @@ mod tests {
             ],
             subtrees: std::cell::RefCell::new(Vec::new()),
             subtree_index: usize::MAX,
-            window_adapter: window_adapter.clone(),
+            window_adapter: weak_adapter.clone(),
             window_item: Some(window_item),
         });
 
         item_tree.as_pin_ref().subtrees.replace(vec![vec![VRc::new(TestItemTree {
-            parent_component: Some(VRc::into_dyn(item_tree.clone())),
+            parent_component: Some(VRc::downgrade(&VRc::into_dyn(item_tree.clone()))),
             item_tree: vec![
                 // Root
                 ItemTreeNode::Item {
@@ -2929,7 +3108,7 @@ mod tests {
             subtrees: std::cell::RefCell::new(Vec::new()),
             subtree_index: 0,
 
-            window_adapter,
+            window_adapter: weak_adapter,
             window_item: None,
         })]]);
 
@@ -2947,19 +3126,18 @@ mod tests {
         window_item.height = Property::new(LogicalLength::new(30.));
 
         // A popup has it's own ItemTreeVTable
-        let (window_adapter_weak, parent) = create_one_node_component(Some(window_item));
-        let popup_component =
-            create_subsubtree_items_dynamic_elements(window_adapter_weak.upgrade().unwrap());
-        window_adapter_weak.upgrade().unwrap().window.0.show_popup(
+        let (window_adapter, parent) = create_one_node_component(Some(window_item));
+        let popup_component = create_subsubtree_items_dynamic_elements(window_adapter.clone());
+        window_adapter.window.0.show_popup(
             &popup_component,
-            POPUP_LOCATION,
+            alloc::boxed::Box::new(move || POPUP_LOCATION),
             crate::items::PopupClosePolicy::NoAutoClose,
             &ItemRc::new_root(parent.clone()),
-            false,
+            crate::window::WindowKind::Popup,
+            alloc::boxed::Box::new(|_| {}),
         );
 
         // Check that we have a ChildWindow popup, otherwise the popup has its own coordinate system
-        let window_adapter = window_adapter_weak.upgrade().unwrap();
         let active_popups = window_adapter.window.0.active_popups();
         assert_eq!(active_popups.len(), 1);
         let popup = active_popups.first().unwrap();
@@ -3002,10 +3180,6 @@ mod tests {
             LogicalSize::new(5., 10.)
         }
 
-        fn default_font_size(&self) -> LogicalLength {
-            LogicalLength::new(10.)
-        }
-
         fn font_metrics(
             &self,
             _font_request: crate::graphics::FontRequest,
@@ -3022,7 +3196,7 @@ mod tests {
         }
 
         fn mark_dirty_region(&self, _region: crate::partial_renderer::DirtyRegion) {
-            unimplemented!("Not required in this test");
+            // Will be called when showing a popup to mark the previous position dirty
         }
 
         fn register_bitmap_font(&self, _font_data: &'static crate::graphics::BitmapFont) {
@@ -3085,7 +3259,7 @@ mod tests {
             _text_input: Pin<&crate::items::TextInput>,
             _item_rc: &ItemRc,
             _pos: LogicalPoint,
-        ) -> usize {
+        ) -> (usize, crate::items::TextCursorAffinity) {
             unimplemented!("Not required in this test");
         }
 
@@ -3094,6 +3268,7 @@ mod tests {
             _text_input: Pin<&crate::items::TextInput>,
             _item_rc: &ItemRc,
             _byte_offset: usize,
+            _affinity: crate::items::TextCursorAffinity,
         ) -> LogicalRect {
             unimplemented!("Not required in this test");
         }

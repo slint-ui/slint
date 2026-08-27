@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
+// cSpell: ignore glsink glsinkbin
 use std::sync::{Arc, Mutex};
 
 use futures::channel::mpsc::UnboundedSender;

@@ -1,0 +1,71 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// C++ live preview: no element search (wrapper has no item tree)
+//ignore: cpp-live-preview
+
+import { RadioGroup } from "std-widgets.slint";
+
+export component TestCase inherits Window {
+    width: 300px;
+    height: 300px;
+
+    in-out property <[string]> options: ["A", "B", "C"];
+    out property <string> current-value: group.current-value;
+
+    HorizontalLayout {
+        alignment: start;
+        group := RadioGroup {
+            title: "Letters";
+            for opt in root.options: RadioButton { text: opt; }
+        }
+    }
+
+    out property <bool> test: current-value == "";
+}
+
+/*
+```rust
+use slint::SharedString;
+use slint::platform::PointerEventButton;
+
+let instance = TestCase::new().unwrap();
+
+assert_eq!(instance.get_current_value(), SharedString::from(""));
+assert!(instance.get_test());
+
+let a = slint_testing::ElementHandle::find_by_accessible_label(&instance, "A").next().unwrap();
+let b = slint_testing::ElementHandle::find_by_accessible_label(&instance, "B").next().unwrap();
+let c = slint_testing::ElementHandle::find_by_accessible_label(&instance, "C").next().unwrap();
+assert_eq!(a.accessible_item_index(), Some(0));
+assert_eq!(b.accessible_item_index(), Some(1));
+assert_eq!(c.accessible_item_index(), Some(2));
+
+b.mock_single_click(PointerEventButton::Left);
+assert_eq!(instance.get_current_value(), SharedString::from("B"));
+assert_eq!(b.accessible_checked(), Some(true));
+// Exclusivity: only the clicked button is checked.
+assert_eq!(a.accessible_checked(), Some(false));
+assert_eq!(c.accessible_checked(), Some(false));
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+
+assert_eq(instance.get_current_value(), "");
+
+auto a = slint::testing::ElementHandle::find_by_accessible_label(handle, "A")[0];
+auto b = slint::testing::ElementHandle::find_by_accessible_label(handle, "B")[0];
+auto c = slint::testing::ElementHandle::find_by_accessible_label(handle, "C")[0];
+assert_eq(a.accessible_item_index().value(), 0);
+assert_eq(b.accessible_item_index().value(), 1);
+assert_eq(c.accessible_item_index().value(), 2);
+
+b.invoke_accessible_default_action();
+assert_eq(instance.get_current_value(), "B");
+assert_eq(b.accessible_checked().value(), true);
+assert_eq(a.accessible_checked().value(), false);
+assert_eq(c.accessible_checked().value(), false);
+```
+*/

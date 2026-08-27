@@ -1,0 +1,39 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Additional expression types rejected in Slint SC mode.
+
+export component Test inherits Window {
+    // @markdown
+    property <string> a: @markdown("hello");
+//            >    <error{The type 'string' is not supported in Slint SC}
+//                       >                <^error{@markdown() expressions are not supported in Slint SC}
+//                       >                 <^^error{Cannot convert styled-text to string}
+    // @keys (used in key-event-filter context)
+    property <string> b: @keys(Return);
+//            >    <error{The type 'string' is not supported in Slint SC}
+//                       >           <^error{@keys() expressions are not supported in Slint SC}
+//                       >            <^^error{Cannot convert keys to string}
+    // A property of a type outside the subset doesn't resolve, however it
+    // is reached: qualified reads fail like unqualified ones
+    property <int> r1: self.opacity;
+//                          >     <error{Element 'Window' does not have a property 'opacity'}
+    property <length> r2: self.absolute-position.x;
+//                             >               <error{Element 'Window' does not have a property 'absolute-position'}
+    // The color channels of full Slint aren't members in the subset
+    property <color> c1: #123456;
+    property <int> r3: c1.red;
+//                        > <error{Cannot access the field 'red' of color}
+    // Neither are the values of a builtin enum, in any spelling
+    property <bool> r4: ImageFit.fill == ImageFit.cover;
+//                               >  <error{'fill' is not a member of the enum ImageFit}
+//                                                >   <^error{'cover' is not a member of the enum ImageFit}
+    // self-assignment
+    callback clicked();
+    clicked => { self.a += "x"; }
+//  >     <error{A handler for a callback declared on the root element is not supported in Slint SC}
+//               >           <^error{Self-assignment expressions are not supported in Slint SC}
+//                    ^^^error{Element 'Window' does not have a property 'a'}
+//                         > <^^^error{String literals are not supported in Slint SC}
+//  >     <^^^^error{A callback handler body that isn't a callback invocation is not supported in Slint SC}
+}

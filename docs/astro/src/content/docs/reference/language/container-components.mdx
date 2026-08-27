@@ -1,0 +1,52 @@
+---
+title: Container Components
+description: Controlling where child elements are placed with @children.
+---
+
+When a component is used in an element tree, the child elements written inside its use site belong to that component.
+By default they are appended to the children of the component's root element.
+The `@children` expression overrides that placement:
+it marks the single position within the component's own element hierarchy where those use-site children are inserted.
+
+```slint
+component BoxWithLabel inherits GridLayout {
+    Row {
+        Text { text: "label text here"; }
+    }
+    Row {
+        @children
+    }
+}
+
+export component MyApp inherits Window {
+    preferred-height: 100px;
+    BoxWithLabel {
+        Rectangle { background: blue; }
+        Rectangle { background: yellow; }
+    }
+}
+```
+
+`@children` is an expression that stands in for the use-site children, not a macro.
+It takes no arguments and appears on its own where a child element would appear.
+Writing anything other than `children` after `@` is a compile error.
+
+## Placement
+
+`@children` may appear directly inside any element of the component's tree, at the position among that element's children where the use-site children are to be inserted.
+The children are inserted as children of the element that encloses `@children`, at that exact position; siblings written before and after `@children` keep their order around them.
+In the example above the two rectangles become children of the second `Row` rather than direct children of `BoxWithLabel`.
+
+At most one `@children` is allowed across the whole component hierarchy.
+A second `@children` in the same element is a compile error, and a `@children` in one element when another element in the same component already has one is also a compile error.
+
+`@children` cannot appear inside a [repeated element](../repetition-and-conditional-elements/) (`for`), a [conditional element](../repetition-and-conditional-elements/) (`if`), or a `match` element; each is a compile error.
+It also cannot appear inside a `ComponentContainer`.
+
+A component that contains no `@children` still accepts use-site children; they are appended after the root element's own children.
+
+## Layout and parenting
+
+The inserted children participate in the enclosing element exactly as if they had been written there directly.
+When that element is a layout, they become cells of that layout and are laid out by it.
+Their bindings and callbacks are evaluated in the scope of the use site where they were written, not the scope of the component that contains `@children`.

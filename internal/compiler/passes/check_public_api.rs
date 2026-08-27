@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore Slintcomponents
 //! Pass that check that the public api is ok and mark the property as exposed
 
 use std::rc::Rc;
@@ -38,6 +39,15 @@ pub fn check_public_api(
             // Warn about exported non-window (and remove them from the export unless it's the last for compatibility)
             if let Either::Left(c) = &export.1
                 && !c.is_global() && !super::windows::inherits_window(c) {
+                    #[cfg(feature = "slint-sc")]
+                    if diag.slint_sc {
+                        diag.slint_sc_error(
+                            "Exporting a component that doesn't inherit Window is",
+                            &export.0.name_ident,
+                        );
+                        // The error aborts compilation, no need to prune the export
+                        return true;
+                    }
                     let is_last = last.as_ref().is_some_and(|last| !Rc::ptr_eq(last, c));
 
                     if cfg!(feature = "experimental-library-module") && config.library_name.is_some() {
@@ -106,7 +116,7 @@ fn check_public_api_component(root_component: &Rc<Component>, diag: &mut BuildDi
     root_elem.property_declarations.iter_mut().for_each(|(n, d)| {
         if d.property_type.ok_for_public_api() {
             if d.visibility == PropertyVisibility::Private {
-                root_component.private_properties.borrow_mut().push((n.clone(), d.property_type.clone()));
+                root_component.private_properties.borrow_mut().push((d.declared_name(n).clone(), d.property_type.clone()));
             } else {
                 d.expose_in_public_api = true;
                 if d.visibility != PropertyVisibility::Output {

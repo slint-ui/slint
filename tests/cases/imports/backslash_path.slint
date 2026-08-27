@@ -1,0 +1,17 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Python is ignored because include paths aren't forwarded in the generated stubs.
+// The slint! macro is ignored because rust rejects the \i of the import path below as an
+// escape sequence when it tokenizes the macro body.
+//ignore: pyi, rust-macro
+
+// A backslash in an import path is a directory separator, not an escape, so this
+// resolves to helper_components/imported_via_backslash.slint on every platform.
+//include_path: ../..
+import { BackslashHelper } from "helper_components\imported_via_backslash.slint";
+
+export component TestCase inherits Rectangle {
+    h := BackslashHelper {}
+    out property <bool> test: h.value == 42;
+}

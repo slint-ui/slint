@@ -12,7 +12,7 @@ use alloc::vec::Vec;
 use euclid::Length;
 use i_slint_core::Color;
 use i_slint_core::graphics::{SharedImageBuffer, TexturePixelFormat};
-use i_slint_core::lengths::{PointLengths as _, SizeLengths as _};
+use i_slint_core::lengths::{PhysicalPx, PointLengths as _, SizeLengths as _};
 
 #[derive(Default)]
 pub struct SceneVectors {
@@ -232,6 +232,27 @@ impl Scene {
         self.range_valid_until_line = Length::new(validity.unwrap_or_default());
         false
     }
+
+    pub fn is_guaranteed_opaque(&self, command: &SceneCommand) -> bool {
+        match command {
+            SceneCommand::Rectangle { color } => color.alpha == 255,
+            SceneCommand::Texture { texture_index } => {
+                let texture = &self.vectors.textures[*texture_index as usize];
+                // Below alpha 255 an RGB texture blends rather than overwrites (see
+                // draw_texture_line), so it is not opaque.
+                texture.format == TexturePixelFormat::Rgb && texture.extra.alpha == 255
+            }
+            SceneCommand::SharedBuffer { shared_buffer_index } => {
+                let buffer = &self.vectors.shared_buffers[*shared_buffer_index as usize];
+                buffer.extra.alpha == 255
+                    && matches!(
+                        buffer.buffer,
+                        SharedBufferData::SharedImage(SharedImageBuffer::RGB8(_))
+                    )
+            }
+            _ => false,
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -357,14 +378,14 @@ impl SceneTextureExtra {
         texture: &super::target_pixel_buffer::DrawTextureArgs,
         clip: &PhysicalRect,
     ) -> Option<(Self, PhysicalRect)> {
-        let geometry: PhysicalRect = euclid::rect(
-            texture.dst_x as i16,
-            texture.dst_y as i16,
-            texture.dst_width as i16,
-            texture.dst_height as i16,
+        let geometry: euclid::Rect<i32, PhysicalPx> = euclid::rect(
+            texture.dst_x as i32,
+            texture.dst_y as i32,
+            texture.dst_width as i32,
+            texture.dst_height as i32,
         );
         let geometry = geometry.to_box2d();
-        let clipped_geometry = geometry.intersection(&clip.to_box2d())?;
+        let clipped_geometry = geometry.intersection(&clip.cast::<i32>().to_box2d())?;
 
         let mut offset = match texture.rotation {
             RenderingRotation::NoRotation => clipped_geometry.min - geometry.min,
@@ -407,10 +428,10 @@ impl SceneTextureExtra {
                 rotation: texture.rotation,
                 dx: Fixed::try_from_fixed(dx).ok()?,
                 dy: Fixed::try_from_fixed(dy).ok()?,
-                off_x: Fixed::try_from_fixed(dx * offset.x as i32).ok()?,
-                off_y: Fixed::try_from_fixed(dy * offset.y as i32).ok()?,
+                off_x: Fixed::try_from_fixed(dx * offset.x).ok()?,
+                off_y: Fixed::try_from_fixed(dy * offset.y).ok()?,
             },
-            clipped_geometry.to_rect(),
+            clipped_geometry.to_rect().cast(),
         ))
     }
 }
@@ -537,9 +558,12 @@ pub struct LinearGradientCommand {
 pub struct RadialGradientCommand {
     /// The gradient stops (colors and positions)
     pub stops: i_slint_core::SharedVector<i_slint_core::graphics::GradientStop>,
-    /// Center of the gradient relative to the item position
-    pub center_x: PhysicalLength,
-    pub center_y: PhysicalLength,
+    /// Center in physical pixels, relative to the clipped rect's top-left corner.
+    /// Stored as f32 to avoid i16 saturation for off-bbox centers at high scale factors.
+    pub center_x: f32,
+    pub center_y: f32,
+    /// Explicit radius in physical pixels. Always resolved (non-negative) before command construction.
+    pub radius: f32,
 }
 
 /// Conic gradient that interpolates colors around a center point
@@ -553,4 +577,8 @@ pub struct ConicGradientCommand {
     /// The gradient stops (colors and normalized angle positions)
     /// Position 0 = 0 degrees (north), 1 = 360 degrees
     pub stops: i_slint_core::SharedVector<i_slint_core::graphics::GradientStop>,
+    /// Center in physical pixels, relative to the clipped rect's top-left corner.
+    /// Stored as f32 to avoid i16 saturation for off-bbox centers at high scale factors.
+    pub center_x: f32,
+    pub center_y: f32,
 }

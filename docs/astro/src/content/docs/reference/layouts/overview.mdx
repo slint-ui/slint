@@ -11,13 +11,19 @@ import SlintProperty from '@slint/common-files/src/components/SlintProperty.astr
 These properties are valid on all visible items and can be used to specify constraints when used in layouts:
 
 ### col, row
-<SlintProperty propName="col, row" typeName="int" default="0">
+<SlintProperty propName="col, row" typeName="int" defaultValue="0">
 See <Link type="GridLayout" />.
 </SlintProperty>
 
 ### colspan, rowspan
 <SlintProperty propName="colspan, rowspan" typeName="int">
 See <Link type="GridLayout" />.
+</SlintProperty>
+
+### cross-axis-self-alignment
+<SlintProperty propName="cross-axis-self-alignment" typeName="enum" enumName="CrossAxisSelfAlignment" defaultValue="auto">
+Overrides the container's `cross-axis-alignment` for this element.
+Valid on the children of a <Link type="HorizontalLayout" />, <Link type="VerticalLayout" />, or `FlexboxLayout`.
 </SlintProperty>
 
 ### horizontal-stretch, vertical-stretch

@@ -1,6 +1,7 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+# cSpell: ignore libtest linkme
 [package]
 name = "test-backends"
 description = "Tests that are shared between the different backends"
@@ -19,6 +20,7 @@ publish = false
 slint = { workspace = true, default-features = false, features = ["std", "compat-1-2", "renderer-software"] }
 i-slint-backend-winit = { workspace = true, features = ["x11", "wayland", "renderer-software"] }
 i-slint-backend-qt = { workspace = true, features = ["default"] }
+i-slint-core = { workspace = true }
 
 # TODO: Add additional test for LinuxKMS, but that requires root permissions.
 # TODO: Add additional test for Android Activity, but that requires an Android device and the Android SDK setup.

@@ -4,14 +4,15 @@
 
 
 
-TestCase := Rectangle {
+export component TestCase inherits Rectangle {
     width: 100phx;
     height: 100phx;
 
-    property<length> xx: 50phx;
-    property<length> ww <=> first.width;
+    in-out property<length> xx: 50phx;
+    in-out property<length> ww <=> first.width;
 
     first := TouchArea {
+        y:0;
         x <=> parent.xx;
         width: 50phx;
         enabled <=> second.enabled;
@@ -21,13 +22,13 @@ TestCase := Rectangle {
 
     second := TouchArea {
         x <=> parent.xx;
-        width <=> root.ww;
+        width <=> ww;
         height <=> first.height;
         clicked => { result += 300; }
         y: 50phx;
     }
 
-    property <int> result: 5;
+    in-out property <int> result: 5;
 }
 
 

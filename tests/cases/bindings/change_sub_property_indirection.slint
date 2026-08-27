@@ -2,27 +2,28 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 // hello, hello2 and alias are aliases
-SubElem := Rectangle {
-    property <string> hello <=> hello2;
-    property <string> hello2;
+component SubElem inherits Rectangle {
+    in-out property <string> hello <=> hello2;
+    in-out property <string> hello2;
     t := Text {
+        x:0;y:0;
         text <=> hello;
     }
-    property <string> alias <=> t.text;
+    in-out property <string> alias <=> t.text;
 
-    property <string> binding: hello2;
+    in-out property <string> binding: hello2;
 }
 
-TestCase := Rectangle {
-    property <string> public_alias: "ABC";
+export component TestCase inherits Rectangle {
+    in-out property <string> public_alias: "ABC";
 
     sub_alias := SubElem {
         hello <=> public_alias;
-        property <string> indirection: binding;
+        property <string> indirection: self.binding;
     }
 
-    property <string> sub_text <=> sub_alias.indirection;
-    property <bool> test: sub_text == "ABC";
+    in-out property <string> sub_text <=> sub_alias.indirection;
+    in-out property <bool> test: sub_text == "ABC";
 }
 
 

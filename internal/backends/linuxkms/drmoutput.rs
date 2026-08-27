@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore CRTC crtcs htotal vrefresh vtotal
 use std::cell::{Cell, RefCell};
 use std::os::fd::{AsFd, BorrowedFd, OwnedFd};
 use std::rc::Rc;
@@ -158,7 +159,11 @@ impl DrmOutput {
                     std::process::exit(1);
                 }
                 let mode_index: usize =
-                    mode_str.parse().map_err(|_| format!("Invalid mode index {mode_str}"))?;
+                    mode_str.parse().map_err(|_| {
+                        format!(
+                            "Invalid SLINT_DRM_MODE value '{mode_str}': expected a mode index or 'list' to list the available modes"
+                        )
+                    })?;
                 modes_and_index.nth(mode_index).map_or_else(
                     || Err(format!("Mode index is out of bounds: {mode_index}")),
                     |(_, mode)| Ok(mode),
@@ -297,6 +302,7 @@ impl DrmOutput {
     /// Returns the refresh rate in millihertz, computed from the mode's pixel clock
     /// and timing parameters. This matches the precision used by Vulkan's
     /// VkDisplayModeParametersKHR::refreshRate.
+    #[cfg(wgpu_surface)]
     pub fn refresh_rate_millihertz(&self) -> u32 {
         let clock = self.mode.clock() as u64; // in kHz
         let (_, _, htotal) = self.mode.hsync();
@@ -311,20 +317,20 @@ impl DrmOutput {
         ((clock * 1_000_000 + (htotal * vtotal) / 2) / (htotal * vtotal)) as u32
     }
 
-    #[cfg(any(feature = "unstable-wgpu-28", feature = "renderer-femtovg-wgpu"))]
-    /// Creates a wgpu-28 DRM surface target from this output.
-    pub fn wgpu_28_surface_target(
+    #[cfg(skia_wgpu_29)]
+    /// Creates a wgpu-29 DRM surface target from this output.
+    pub fn wgpu_29_surface_target(
         &self,
     ) -> Result<
-        (i_slint_core::graphics::wgpu_28::SurfaceTarget, i_slint_core::api::PhysicalSize),
+        (i_slint_core::graphics::wgpu_29::SurfaceTarget, i_slint_core::api::PhysicalSize),
         PlatformError,
     > {
-        use i_slint_core::graphics::wgpu_28::wgpu;
+        use i_slint_core::graphics::wgpu_29::wgpu;
         use std::os::fd::AsRawFd;
         let plane = self.find_compatible_plane()?;
         let (width, height) = self.size();
         let target =
-            i_slint_core::graphics::wgpu_28::SurfaceTarget::Drm(wgpu::SurfaceTargetUnsafe::Drm {
+            i_slint_core::graphics::wgpu_29::SurfaceTarget::Drm(wgpu::SurfaceTargetUnsafe::Drm {
                 fd: self.drm_device.as_fd().as_raw_fd(),
                 plane: plane.handle().into(),
                 connector_id: self.connector.handle().into(),
@@ -335,20 +341,20 @@ impl DrmOutput {
         Ok((target, i_slint_core::api::PhysicalSize::new(width, height)))
     }
 
-    #[cfg(skia_wgpu_27)]
-    /// Creates a wgpu-27 DRM surface target from this output.
-    pub fn wgpu_27_surface_target(
+    #[cfg(any(feature = "unstable-wgpu-30", feature = "renderer-femtovg-wgpu"))]
+    /// Creates a wgpu-30 DRM surface target from this output.
+    pub fn wgpu_30_surface_target(
         &self,
     ) -> Result<
-        (i_slint_core::graphics::wgpu_27::SurfaceTarget, i_slint_core::api::PhysicalSize),
+        (i_slint_core::graphics::wgpu_30::SurfaceTarget, i_slint_core::api::PhysicalSize),
         PlatformError,
     > {
-        use i_slint_core::graphics::wgpu_27::wgpu;
+        use i_slint_core::graphics::wgpu_30::wgpu;
         use std::os::fd::AsRawFd;
         let plane = self.find_compatible_plane()?;
         let (width, height) = self.size();
         let target =
-            i_slint_core::graphics::wgpu_27::SurfaceTarget::Drm(wgpu::SurfaceTargetUnsafe::Drm {
+            i_slint_core::graphics::wgpu_30::SurfaceTarget::Drm(wgpu::SurfaceTargetUnsafe::Drm {
                 fd: self.drm_device.as_fd().as_raw_fd(),
                 plane: plane.handle().into(),
                 connector_id: self.connector.handle().into(),
@@ -360,6 +366,7 @@ impl DrmOutput {
     }
 
     // Iterate through all planes and collect formats from compatible ones
+    #[cfg(wgpu_surface)]
     pub fn find_compatible_plane(&self) -> Result<drm::control::plane::Info, PlatformError> {
         let _ = self.drm_device.set_client_capability(drm::ClientCapability::UniversalPlanes, true);
         let plane_handles = self

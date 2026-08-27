@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore Rectangel
 
 component Foo {
     background: 0;
@@ -14,9 +15,21 @@ component Bar {
 //      >        <error{'Foo' cannot have children. Only components with @children can have children}
     }
     Foo {
+        Rectangel { }
+//      >        <error{Unknown element 'Rectangel'}
+    }
+    Foo {
         background: 0;
 //      >        <error{Unknown property background in Foo}
         height: self.width;
+    }
+    Foo {
+        // Tooltip is allowed even though Foo has no `@children`.
+        Tooltip { }
+    }
+    Foo {
+        Row { }
+//      >  <error{Row can only be within a GridLayout element}
     }
 
     @children

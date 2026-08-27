@@ -1,14 +1,14 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-TestCase := Rectangle {
-    property<bool> condition;
-    property<color> extra_color;
-    background: condition ? root.extra_color : red;
-    property<string> s1 : condition ? "abc" : 123;
-    property<string> s2 : condition ? 123 : "abc";
+export component TestCase inherits Rectangle {
+    in-out property<bool> condition;
+    in-out property<color> extra_color;
+    background: condition ? extra_color : red;
+    in-out property<string> s1 : condition ? "abc" : 123;
+    in-out property<string> s2 : condition ? 123 : "abc";
 
-    property <bool> test: s1 == "123" && s2 == "abc";
+    in-out property <bool> test: s1 == "123" && s2 == "abc";
 }
 
 

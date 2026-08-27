@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore doesnt
+
 use i_slint_renderer_skia::SkiaRenderer;
 use i_slint_renderer_skia::SkiaSharedContext;
 use i_slint_renderer_skia::skia_safe;
@@ -27,6 +29,8 @@ impl slint::platform::Platform for TestPlatform {
         }))
     }
 }
+
+const BYTES_PER_PIXEL: usize = 4;
 
 #[derive(Clone, Copy, Default)]
 struct TestPixel(bool);
@@ -93,7 +97,7 @@ impl SkiaTestWindow {
 
     fn draw_if_needed(&self) -> bool {
         if self.needs_redraw.replace(false) {
-            self.renderer.render().unwrap();
+            let _ = self.renderer.render().unwrap();
             true
         } else {
             false
@@ -325,6 +329,9 @@ fn if_condition() {
         export component Ui inherits Window {
             in property <bool> c : true;
             background: black;
+            // Static siblings before and after the conditional: toggling the condition
+            // must not repaint them.
+            Rectangle { x: 5px; y: 5px; width: 8px; height: 8px; background: green; }
             if c: Rectangle {
                 x: 45px;
                 y: 45px;
@@ -332,6 +339,7 @@ fn if_condition() {
                 width: 32px;
                 height: 3px;
             }
+            Rectangle { x: 100px; y: 200px; width: 20px; height: 20px; background: blue; }
         }
     }
 
@@ -598,6 +606,281 @@ fn touch_area_doesnt_cause_redraw() {
     assert!(window.draw_if_needed(|renderer| {
         do_test_render_region(renderer, 60, 0, 61, 1);
     }));
+}
+
+#[test]
+/// Regression test for #12173: when an item is rendering-dirty (here a color
+/// change) but keeps its geometry while its parent moves, the old position must
+/// still be cleared. The child is wider than its parent, so its protruding part
+/// is not covered by the parent's repaint and would otherwise leave a ghost.
+fn moving_rendering_dirty_item_clears_old_position() {
+    slint::slint! {
+        export component Ui inherits Window {
+            in property <length> pos;
+            in property <color> c: red;
+            background: black;
+            Rectangle {
+                x: root.pos;
+                y: 50px;
+                width: 20px;
+                height: 20px;
+                background: skyblue;
+                Rectangle {
+                    // Same geometry every frame, but wider than the parent so
+                    // it protrudes onto the window background.
+                    x: 0px;
+                    y: 0px;
+                    width: 100px;
+                    height: 10px;
+                    background: root.c;
+                }
+            }
+        }
+    }
+
+    slint::platform::set_platform(Box::new(TestPlatform)).ok();
+    let ui = Ui::new().unwrap();
+    let window = WINDOW.with(|x| x.clone());
+    window.set_size(slint::PhysicalSize::new(400, 200));
+    ui.set_pos(200.);
+    ui.show().unwrap();
+    assert!(window.draw_if_needed(|renderer| {
+        do_test_render_region(renderer, 0, 0, 400, 200);
+    }));
+    assert!(!window.draw_if_needed(|_| { unreachable!() }));
+
+    // Move the rectangle left and recolor the child. The color change makes the
+    // child rendering-dirty; the move changes its transform. The dirty region
+    // must reach the child's old right edge (200 + 100 = 300), not stop at the
+    // parent's old geometry (220).
+    ui.set_pos(20.);
+    ui.set_c(slint::Color::from_rgb_u8(0, 0, 255));
+    assert!(window.draw_if_needed(|renderer| {
+        do_test_render_region(renderer, 20, 50, 300, 70);
+    }));
+}
+
+#[test]
+/// Two overlapping siblings swapping their dynamic z order must repaint the overlap,
+/// even though nothing but the stacking order changed. See #12397.
+fn dynamic_z_order() {
+    slint::slint! {
+        export component Ui inherits Window {
+            in property <int> z-red: 1;
+            in property <int> z-blue: 2;
+            background: black;
+            // Two fully overlapping rectangles: only the z order decides which is visible.
+            Rectangle {
+                x: 10phx;
+                y: 20phx;
+                width: 30phx;
+                height: 40phx;
+                background: red;
+                z: root.z-red;
+            }
+            Rectangle {
+                x: 10phx;
+                y: 20phx;
+                width: 30phx;
+                height: 40phx;
+                background: blue;
+                z: root.z-blue;
+            }
+        }
+    }
+
+    slint::platform::set_platform(Box::new(TestPlatform)).ok();
+    let ui = Ui::new().unwrap();
+    let window = WINDOW.with(|x| x.clone());
+    window.set_size(slint::PhysicalSize::new(180, 260));
+    ui.show().unwrap();
+    assert!(window.draw_if_needed(|renderer| {
+        do_test_render_region(renderer, 0, 0, 180, 260);
+    }));
+    assert!(!window.draw_if_needed(|_| { unreachable!() }));
+
+    // Bring the red rectangle on top. Nothing moved, but the overlap must be
+    // repainted because the visible pixels there change from blue to red.
+    ui.set_z_red(3);
+    assert!(window.draw_if_needed(|renderer| {
+        do_test_render_region(renderer, 10, 20, 10 + 30, 20 + 40);
+    }));
+    assert!(!window.draw_if_needed(|_| { unreachable!() }));
+
+    // Swapping back must repaint the overlap again.
+    ui.set_z_red(1);
+    assert!(window.draw_if_needed(|renderer| {
+        do_test_render_region(renderer, 10, 20, 10 + 30, 20 + 40);
+    }));
+    assert!(!window.draw_if_needed(|_| { unreachable!() }));
+}
+
+/// Assert that drawing produces no repaint: either no redraw is requested, or the
+/// dirty region is empty.
+#[track_caller]
+fn do_test_no_repaint(window: &MinimalSoftwareWindow) {
+    window.draw_if_needed(|renderer| {
+        let mut buffer = vec![TestPixel(false); 500 * 500];
+        let r = renderer.render(buffer.as_mut_slice(), 500);
+        assert_eq!(r.bounding_box_size(), PhysicalSize::default(), "expected no repaint");
+        assert!(buffer.iter().all(|p| !p.0), "expected no pixel to be written");
+    });
+    assert!(!window.draw_if_needed(|_| { unreachable!() }));
+}
+
+#[test]
+/// Like `dynamic_z_order`, but the reordered siblings are `for` instances whose z comes
+/// from the model. Two spatially separate clusters (kept apart in z so they never
+/// interleave) check that only the reordered cluster repaints, that moving an instance
+/// across several others repaints, and that a z change preserving the order repaints nothing.
+fn dynamic_z_order_repeater() {
+    slint::slint! {
+        struct ZItem { px: length, py: length, z: int }
+        export component Ui inherits Window {
+            in property <[ZItem]> items;
+            background: black;
+            for it in items: Rectangle {
+                x: it.px;
+                y: it.py;
+                width: 40phx;
+                height: 40phx;
+                background: red;
+                z: it.z;
+            }
+        }
+    }
+
+    // Cluster A stacked at (10,20), cluster B at (150,150).
+    let items = std::rc::Rc::new(slint::VecModel::from(vec![
+        ZItem { px: 10., py: 20., z: 10 },
+        ZItem { px: 10., py: 20., z: 20 },
+        ZItem { px: 10., py: 20., z: 30 },
+        ZItem { px: 150., py: 150., z: 110 },
+        ZItem { px: 150., py: 150., z: 120 },
+        ZItem { px: 150., py: 150., z: 130 },
+    ]));
+
+    slint::platform::set_platform(Box::new(TestPlatform)).ok();
+    let ui = Ui::new().unwrap();
+    ui.set_items(items.clone().into());
+    let window = WINDOW.with(|x| x.clone());
+    window.set_size(slint::PhysicalSize::new(300, 300));
+    ui.show().unwrap();
+    assert!(window.draw_if_needed(|renderer| {
+        do_test_render_region(renderer, 0, 0, 300, 300);
+    }));
+    assert!(!window.draw_if_needed(|_| { unreachable!() }));
+
+    let set_z = |i: usize, z: i32| {
+        let mut it = items.row_data(i).unwrap();
+        it.z = z;
+        items.set_row_data(i, it);
+    };
+
+    // Reorder inside cluster A (instance 0 rises above instance 1): only cluster A repaints.
+    set_z(0, 25);
+    assert!(window.draw_if_needed(|renderer| {
+        do_test_render_region(renderer, 10, 20, 10 + 40, 20 + 40);
+    }));
+    assert!(!window.draw_if_needed(|_| { unreachable!() }));
+
+    // A z change that keeps the order (still between 20 and 30): nothing repaints.
+    set_z(0, 27);
+    do_test_no_repaint(&window);
+
+    // Reorder inside cluster B: only cluster B repaints, cluster A stays clean.
+    set_z(3, 125);
+    assert!(window.draw_if_needed(|renderer| {
+        do_test_render_region(renderer, 150, 150, 150 + 40, 150 + 40);
+    }));
+    assert!(!window.draw_if_needed(|_| { unreachable!() }));
+
+    // Move instance 0 across both other cluster-A instances to the top: cluster A repaints.
+    set_z(0, 35);
+    assert!(window.draw_if_needed(|renderer| {
+        do_test_render_region(renderer, 10, 20, 10 + 40, 20 + 40);
+    }));
+    assert!(!window.draw_if_needed(|_| { unreachable!() }));
+}
+
+#[test]
+/// Reversing the z order of three siblings in one frame must repaint the overlap of
+/// every pair whose relative order flipped — including a pair where neither member's
+/// rank *decreased*: here B keeps its middle rank and A only rises, yet A slides on
+/// top of B, so the A∩B overlap must be repainted (via A's rect).
+fn dynamic_z_order_reversal() {
+    slint::slint! {
+        export component Ui inherits Window {
+            in property <bool> rev: false;
+            background: black;
+            // A and B overlap each other; C is far away from both.
+            Rectangle { x: 10phx; y: 10phx; width: 30phx; height: 30phx; background: red; z: rev ? 30 : 10; } // A
+            Rectangle { x: 25phx; y: 25phx; width: 30phx; height: 30phx; background: blue; z: 20; } // B
+            Rectangle { x: 150phx; y: 150phx; width: 30phx; height: 30phx; background: green; z: rev ? 10 : 30; } // C
+        }
+    }
+
+    slint::platform::set_platform(Box::new(TestPlatform)).ok();
+    let ui = Ui::new().unwrap();
+    let window = WINDOW.with(|x| x.clone());
+    window.set_size(slint::PhysicalSize::new(300, 300));
+    ui.show().unwrap();
+    assert!(window.draw_if_needed(|renderer| {
+        do_test_render_region(renderer, 0, 0, 300, 300);
+    }));
+    assert!(!window.draw_if_needed(|_| { unreachable!() }));
+
+    // Reverse the stacking order: A (rank 0→2) and C (rank 2→0) change rank, B stays
+    // at rank 1. The dirty region is A ∪ C, which covers both flipped overlaps
+    // (A∩B is within A, B∩C within C).
+    ui.set_rev(true);
+    assert!(window.draw_if_needed(|renderer| {
+        do_test_render_region(renderer, 10, 10, 180, 180);
+    }));
+    assert!(!window.draw_if_needed(|_| { unreachable!() }));
+
+    // And back.
+    ui.set_rev(false);
+    assert!(window.draw_if_needed(|renderer| {
+        do_test_render_region(renderer, 10, 10, 180, 180);
+    }));
+    assert!(!window.draw_if_needed(|_| { unreachable!() }));
+}
+
+#[test]
+/// A sibling appearing in the same frame as a z swap must not mask the swap: the
+/// conditional element enters the stacking order below everything, shifting the
+/// following ranks up, so the demoted rectangle's rank does not decrease — but the
+/// overlap of the swapped pair must still be repainted.
+fn dynamic_z_order_swap_with_appearing_sibling() {
+    slint::slint! {
+        export component Ui inherits Window {
+            in property <bool> front: false;
+            background: black;
+            // Appears below everything, away from the overlapping pair.
+            if front: Rectangle { x: 140phx; y: 140phx; width: 8phx; height: 8phx; background: green; z: -1; }
+            Rectangle { x: 20phx; y: 20phx; width: 30phx; height: 30phx; background: red; z: front ? 0 : 10; }
+            Rectangle { x: 20phx; y: 20phx; width: 30phx; height: 30phx; background: blue; z: 5; }
+        }
+    }
+
+    slint::platform::set_platform(Box::new(TestPlatform)).ok();
+    let ui = Ui::new().unwrap();
+    let window = WINDOW.with(|x| x.clone());
+    window.set_size(slint::PhysicalSize::new(200, 200));
+    ui.show().unwrap();
+    assert!(window.draw_if_needed(|renderer| {
+        do_test_render_region(renderer, 0, 0, 200, 200);
+    }));
+    assert!(!window.draw_if_needed(|_| { unreachable!() }));
+
+    // One property flip shows the green rectangle and swaps red below blue.
+    // The dirty region is the swapped pair's rect plus the appearing rectangle.
+    ui.set_front(true);
+    assert!(window.draw_if_needed(|renderer| {
+        do_test_render_region(renderer, 20, 20, 148, 148);
+    }));
+    assert!(!window.draw_if_needed(|_| { unreachable!() }));
 }
 
 #[test]
@@ -1249,4 +1532,268 @@ fn layer_visible_after_becoming_non_zero_sized() {
         r > 200 && g < 50 && b < 50,
         "Layer pixel at (16,16) should be red after content-height grew, got rgb=({r},{g},{b})"
     );
+}
+
+#[test]
+fn layer_rendered_at_correct_position() {
+    // Regression test for #11763: render_layer's compute_bounds used
+    // item_rc.geometry() (parent coordinates) instead of a local-coords
+    // rect. Inside a Flickable the parent offset is the content position
+    // (large x), while the clip is in item-local coords. The union mixes
+    // coordinate systems, producing a wrong layer origin when the item is
+    // partially scrolled out of the visible area. This makes the layer
+    // texture miss the left portion of the item.
+    slint::slint! {
+        export component Ui inherits Window {
+            width: 64px;
+            height: 64px;
+            background: white;
+            in-out property <length> vpx: 0px;
+            Flickable {
+                width: 64px;
+                height: 64px;
+                content-width: 200px;
+                content-x <=> root.vpx;
+                interactive: false;
+
+                Rectangle {
+                    cache-rendering-hint: true;
+                    x: 100px;
+                    y: 0px;
+                    width: 40px;
+                    height: 40px;
+                    Rectangle {
+                        background: red;
+                        width: 100%;
+                        height: 100%;
+                    }
+                }
+            }
+        }
+    }
+
+    slint::platform::set_platform(Box::new(TestPlatform)).ok();
+    let window = SKIA_WINDOW.with(|w| w.clone());
+    NEXT_WINDOW_CHOICE.with(|choice| {
+        *choice.borrow_mut() = Some(window.clone());
+    });
+    let ui = Ui::new().unwrap();
+    window.set_size(slint::PhysicalSize::new(64, 64).into());
+    ui.show().unwrap();
+
+    // Frame 1: item partially scrolled off the left edge of the Flickable.
+    // content-x = -120 → visible range 120..184. Item at 100..140.
+    // Item left edge (100) is 20px left of visible start (120).
+    // Only the right 20px are visible in the Flickable.
+    // The layer cache is created with the clip starting at x=20 in local
+    // coords. With the bug, geometry (100,..) makes the union start at 20
+    // instead of 0, so only the right 20px are captured.
+    ui.set_vpx(-120.);
+    assert!(window.draw_if_needed());
+
+    // Frame 2: scroll so the item is fully visible. Do NOT change any
+    // child property, so the layer cache stays valid and reuses the stale
+    // texture from frame 1. With the bug, the stale texture has origin
+    // (20, 0) instead of (0, 0), so 20px on the left are missing.
+    window.render_buffer.pixels.borrow_mut().take(); // force full redraw
+    ui.set_vpx(-60.);
+    assert!(window.draw_if_needed());
+
+    let pixels = window.render_buffer.pixels.borrow();
+    let buf = pixels.as_ref().expect("render buffer should contain pixels");
+    let data = buf.as_bytes();
+    let stride = 64;
+
+    // Item at vpx=-60: window x = 100 + (-60) = 40. Spans 40..80, clipped
+    // at 64, so visible 40..63.
+    // With the bug: stale cache has origin=(20,0), size=(20,40). Drawn at
+    // (40+20, 0) = (60, 0), only 4px visible (60..63). Gap at 40..59.
+    // With the fix: cache has origin=(0,0), size=(40,40). Drawn at (40, 0),
+    // visible 40..63. Correct.
+    // The item should start at window x=40.
+    let off = ((5 * stride + 40) * 4) as usize;
+    let (r, g, b) = (data[off], data[off + 1], data[off + 2]);
+    assert!(
+        r > 200 && g < 50 && b < 50,
+        "Pixel at (40,5) should be red (left edge of cached layer), got rgb=({r},{g},{b})"
+    );
+}
+
+#[test]
+fn partial_rendering_popup_position_size_change() {
+    slint::slint! {
+        global MyProperty {
+            in-out property<length> popup-x: 0px;
+            in-out property<length> popup-y: 0px;
+            in-out property<length> popup-width: 100px;
+            in-out property<length> popup-height: 200px;
+        }
+
+        export component Ui inherits Window {
+            width: 600px;
+            height: 600px;
+            background: red;
+
+            TouchArea {
+                property<bool> was-clicked: false;
+                clicked => {
+                    if !was-clicked {
+                        was-clicked = true;
+                        show_popup();
+                    }
+                }
+            }
+
+            callback show_popup();
+            show_popup() => {
+                popup.show();
+            }
+
+            callback change_popup();
+            change_popup() => {
+                debug("Changing popup properties");
+                MyProperty.popup-x = 10px;
+                MyProperty.popup-y = 20px;
+                MyProperty.popup-width = 150px;
+                MyProperty.popup-height = 30px;
+            }
+
+            popup:= PopupWindow {
+                x: MyProperty.popup-x;
+                y: MyProperty.popup-y;
+                width: MyProperty.popup-width;
+                height: MyProperty.popup-height;
+                close-policy: PopupClosePolicy.no-auto-close;
+
+                TouchArea {
+                    clicked => {
+                        change_popup();
+                    }
+                }
+
+                changed width => {
+                    debug("Width changed");
+                }
+
+                Rectangle {
+                    background: blue;
+                }
+            }
+        }
+    }
+
+    slint::platform::set_platform(Box::new(TestPlatform)).ok();
+    let window = SKIA_WINDOW.with(|w| w.clone());
+    NEXT_WINDOW_CHOICE.with(|choice| {
+        *choice.borrow_mut() = Some(window.clone());
+    });
+    const WINDOW_WIDTH: usize = 600;
+    const WINDOW_HEIGHT: usize = 600;
+    const POPUP_WIDTH: usize = 100;
+    const POPUP_HEIGHT: usize = 200;
+    const RGB_COLOR_WINDOW: (u8, u8, u8) = (255, 0, 0);
+    const RGB_COLOR_POPUP: (u8, u8, u8) = (0, 0, 255);
+
+    let ui = Ui::new().unwrap();
+    // Required otherwise the buffer gets not initialized
+    window.set_size(slint::PhysicalSize::new(WINDOW_WIDTH as u32, WINDOW_HEIGHT as u32).into());
+    ui.show().unwrap();
+
+    assert!(window.draw_if_needed());
+
+    let get_pixel_values = |pixel_index: usize| {
+        let pixels = window.render_buffer.pixels.borrow();
+        let buf = pixels.as_ref().expect("render buffer should contain pixels");
+        let data = buf.as_bytes();
+        let offset = pixel_index * BYTES_PER_PIXEL;
+        (data[offset], data[offset + 1], data[offset + 2])
+    };
+
+    // For debugging. Dump pixels
+    let _dump_pixels = || {
+        for v_pixel in 0..WINDOW_HEIGHT {
+            for h_pixel in 0..WINDOW_WIDTH {
+                let pixel_idx = WINDOW_WIDTH * v_pixel + h_pixel;
+                let rgb = get_pixel_values(pixel_idx);
+                // print!("{r:02x}{g:02x}{b:02x} ", r = rgb.0, g = rgb.1, b = rgb.2);
+                if rgb.0 > 0 {
+                    print!("r");
+                } else if rgb.2 > 0 {
+                    print!("b");
+                } else {
+                    print!("g")
+                }
+            }
+            print!("\n");
+        }
+    };
+
+    {
+        let pixels = window.render_buffer.pixels.borrow();
+        let buf = pixels.as_ref().expect("render buffer should contain pixels");
+        assert_eq!(buf.as_bytes().len(), WINDOW_WIDTH * WINDOW_HEIGHT * BYTES_PER_PIXEL);
+        for pixel_idx in 0..(WINDOW_WIDTH * WINDOW_HEIGHT) {
+            let rgb = get_pixel_values(pixel_idx);
+            assert_eq!(rgb, RGB_COLOR_WINDOW, "Wrong color at pixel index pixel_idx");
+        }
+    }
+
+    ui.invoke_show_popup();
+    assert!(window.draw_if_needed());
+
+    {
+        for v_pixel in 0..WINDOW_HEIGHT {
+            for h_pixel in 0..WINDOW_WIDTH {
+                let pixel_idx = WINDOW_WIDTH * v_pixel + h_pixel;
+
+                if h_pixel < POPUP_WIDTH && v_pixel < POPUP_HEIGHT {
+                    let rgb = get_pixel_values(pixel_idx);
+                    assert_eq!(rgb, RGB_COLOR_POPUP, "Wrong color at pixel ({h_pixel}, {v_pixel})");
+                } else {
+                    let rgb = get_pixel_values(pixel_idx);
+                    assert_eq!(
+                        rgb, RGB_COLOR_WINDOW,
+                        "Wrong color at pixel ({h_pixel}, {v_pixel})"
+                    );
+                }
+            }
+        }
+    }
+
+    ui.invoke_change_popup();
+    // The popup properties change trigger a tracker with a timer we have to process before the next draw.
+    slint::platform::update_timers_and_animations();
+
+    assert!(window.draw_if_needed());
+
+    {
+        // New popup properties
+        const POPUP_POS_X: usize = 10;
+        const POPUP_POS_Y: usize = 20;
+        const POPUP_WIDTH: usize = 150;
+        const POPUP_HEIGHT: usize = 30;
+        for v_pixel in 0..WINDOW_HEIGHT {
+            for h_pixel in 0..WINDOW_WIDTH {
+                let pixel_idx = WINDOW_WIDTH * v_pixel + h_pixel;
+
+                if h_pixel >= POPUP_POS_X
+                    && h_pixel < POPUP_POS_X + POPUP_WIDTH
+                    && v_pixel >= POPUP_POS_Y
+                    && v_pixel < POPUP_POS_Y + POPUP_HEIGHT
+                {
+                    let rgb = get_pixel_values(pixel_idx);
+                    assert_eq!(
+                        rgb, RGB_COLOR_POPUP,
+                        "Wrong color at pixel ({h_pixel}, {v_pixel}). Expected popup color."
+                    );
+                } else {
+                    let rgb = get_pixel_values(pixel_idx);
+                    assert_eq!(
+                        rgb, RGB_COLOR_WINDOW,
+                        "Wrong color at pixel ({h_pixel}, {v_pixel}). Expected window color"
+                    );
+                }
+            }
+        }
+    }
 }

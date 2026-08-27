@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 
-TestCase := Rectangle {
+export component TestCase inherits Rectangle {
 
     width: 100px;
     height: 200px;
@@ -13,7 +13,7 @@ TestCase := Rectangle {
         animate width { duration: 1s; }
     }
 
-    property<bool> test: r.width == 100px && r.height == 200px;
+    in-out property<bool> test: r.width == 100px && r.height == 200px;
 }
 
 /*

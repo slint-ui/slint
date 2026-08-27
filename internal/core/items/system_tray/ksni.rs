@@ -45,7 +45,9 @@ impl ::ksni::Tray for KsniTray {
         let _ = self.event_tx.try_send(Event::Activate(x, y));
     }
 
-    // Slint's `tooltip` is the hover text — it goes into SNI `ToolTip`.
+    // Slint's `tooltip` is the hover text — it goes into SNI `ToolTip.title`,
+    // which is a plain-text field per the spec (the `description` slot is the
+    // one that accepts HTML markup), so no escaping is applied.
     fn tool_tip(&self) -> ::ksni::ToolTip {
         ::ksni::ToolTip { title: self.tooltip.clone(), ..Default::default() }
     }
@@ -98,8 +100,8 @@ fn node_to_ksni(
 
 pub struct PlatformTray {
     // SNI has no hide operation: the only way to make the icon disappear is to
-    // drop the registered handle (which deregisters from the watcher), and the
-    // only way to bring it back is to spawn a new `KsniTray`. The state needed
+    // shut down the registered service (which deregisters from the watcher), and
+    // the only way to bring it back is to spawn a new `KsniTray`. The state needed
     // to rebuild a fresh tray therefore lives on `PlatformTray`, not inside
     // `KsniTray` itself.
     icon: core::cell::RefCell<::ksni::Icon>,
@@ -182,9 +184,12 @@ impl PlatformTray {
                 }
             }
             (false, true) => {
-                // Drop the handle: the ksni service loop tears down and the
+                // The service loop runs detached and outlives dropped handles;
+                // only an explicit shutdown tears it down so the
                 // StatusNotifierWatcher removes the item.
-                slot.take();
+                if let Some(handle) = slot.take() {
+                    handle.shutdown();
+                }
             }
             _ => {}
         }
@@ -224,12 +229,20 @@ impl PlatformTray {
     }
 }
 
+impl Drop for PlatformTray {
+    fn drop(&mut self) {
+        // The service loop would otherwise keep the icon registered until the
+        // process exits.
+        self.set_visible(false);
+    }
+}
+
 fn image_to_argb_icon(image: &Image) -> Result<::ksni::Icon, Error> {
     let pixel_buffer = image.to_rgba8().ok_or(Error::Rgba8)?;
     let mut data = pixel_buffer.as_bytes().to_vec();
     let width = pixel_buffer.width() as i32;
     let height = pixel_buffer.height() as i32;
-    for pixel in data.chunks_exact_mut(4) {
+    for pixel in data.as_chunks_mut::<4>().0 {
         pixel.rotate_right(1) // rgba to argb
     }
     Ok(::ksni::Icon { width, height, data })
@@ -269,7 +282,7 @@ async fn dispatch_loop(rx: async_channel::Receiver<Event>, self_weak: crate::ite
                 }
             }
             Event::Activate(_x, _y) => {
-                tray.activated.call(&());
+                tray.clicked.call(&());
             }
         }
     }

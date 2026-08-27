@@ -9,6 +9,7 @@ namespace slint {
 
 namespace private_api {
 class LinearGradientBrush;
+class RadialGradientBrush;
 class ConicGradientBrush;
 }
 
@@ -251,6 +252,7 @@ public:
 private:
     cbindgen_private::types::Color inner;
     friend class private_api::LinearGradientBrush;
+    friend class private_api::RadialGradientBrush;
     friend class private_api::ConicGradientBrush;
     friend class Brush;
 };

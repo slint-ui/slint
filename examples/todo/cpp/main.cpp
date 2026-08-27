@@ -3,7 +3,11 @@
 
 #include "app.h"
 
+#ifdef __ANDROID__
+extern "C" void slint_main()
+#else
 int main()
+#endif
 {
     auto state = create_ui();
     state.mainWindow->run();

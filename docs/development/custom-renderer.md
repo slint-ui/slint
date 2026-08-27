@@ -64,77 +64,39 @@ The drawing interface for all UI elements. Each renderer provides its own implem
 
 ### FemtoVG Pattern: Generic Backend
 
-FemtoVG abstracts over graphics APIs using generics:
-
-```rust
-pub struct FemtoVGRenderer<B: GraphicsBackend> { ... }
-
-pub trait GraphicsBackend {
-    type Renderer: femtovg::Renderer + TextureImporter;
-    type WindowSurface: WindowSurface<Self::Renderer>;
-
-    fn new_suspended() -> Self;
-    fn begin_surface_rendering(&self) -> Result<Self::WindowSurface, ...>;
-    fn submit_commands(&self, commands: ...);
-    fn present_surface(&self, surface: Self::WindowSurface) -> Result<(), ...>;
-    fn resize(&self, width: NonZeroU32, height: NonZeroU32) -> Result<(), ...>;
-}
-```
+FemtoVG abstracts over graphics APIs with the `GraphicsBackend` trait: a backend names its
+femtovg renderer and window surface types, creates itself suspended, hands out a surface to draw
+into, submits the command buffer, presents, resizes, and optionally exposes the native graphics
+API and a snapshot path. `FemtoVGRenderer<B>` is generic over it.
+See `GraphicsBackend` in `internal/renderers/femtovg/lib.rs`.
 
 ### Skia Pattern: Trait Object Surfaces
 
-Skia uses trait objects for dynamic surface selection:
+Skia selects its surface dynamically through the `Surface` trait: construct from a window and a
+display handle plus the requested graphics API, render through a callback that gets the Skia
+canvas and direct context, resize, and report the bits per pixel and whether partial rendering is
+available. `render()` returns a `DrawOutcome`, so a surface can say it was occluded or timed out
+instead of drawing. See `Surface` in `internal/renderers/skia/lib.rs`.
 
-```rust
-pub trait Surface {
-    fn new(
-        shared_context: &SkiaSharedContext,
-        window_handle: Arc<dyn HasWindowHandle + Sync + Send>,
-        display_handle: Arc<dyn HasDisplayHandle + Sync + Send>,
-        size: PhysicalWindowSize,
-        requested_graphics_api: Option<RequestedGraphicsAPI>,
-    ) -> Result<Self, PlatformError>;
-
-    fn name(&self) -> &'static str;
-    fn render(&self, window: &Window, size: PhysicalWindowSize,
-              render_callback: &dyn Fn(&Canvas, ...), ...) -> Result<(), ...>;
-    fn resize_event(&self, size: PhysicalWindowSize) -> Result<(), ...>;
-    fn use_partial_rendering(&self) -> bool { false }
-}
-```
-
-Available surface implementations: `OpenGLSurface`, `MetalSurface`, `VulkanSurface`, `D3DSurface`, `SoftwareSurface`
+Available surface implementations: `OpenGLSurface`, `MetalSurface`, `VulkanSurface`, `D3DSurface`,
+`SoftwareSurface`, and one `WGPUSurface` per supported wgpu version.
 
 ### Software Renderer Pattern: Scene Building
 
-The software renderer builds a scene graph then rasterizes:
-
-```rust
-pub struct SoftwareRenderer { ... }
-
-impl SoftwareRenderer {
-    pub fn render(&self, buffer: &mut [impl TargetPixel], pixel_stride: usize);
-    pub fn render_by_line(&self, line_callback: impl FnMut(&mut [impl TargetPixel]));
-}
-```
-
-Supports memory-constrained devices via line-by-line rendering.
+The software renderer builds a scene graph then rasterizes it. `SoftwareRenderer::render()` draws
+into a whole pixel buffer, while `render_by_line()` drives a `LineBufferProvider` one line at a
+time for memory-constrained devices. Both return the `PhysicalRegion` that was painted.
+See `internal/renderers/software/lib.rs`.
 
 ## Backend Integration
 
 ### WinitCompatibleRenderer (`internal/backends/winit/`)
 
-For winit-based applications, renderers implement:
-
-```rust
-pub trait WinitCompatibleRenderer: std::any::Any {
-    fn render(&self, window: &Window) -> Result<(), PlatformError>;
-    fn as_core_renderer(&self) -> &dyn Renderer;
-    fn suspend(&self) -> Result<(), PlatformError>;
-    fn resume(&self, event_loop: &ActiveEventLoop,
-              attrs: WindowAttributes) -> Result<Arc<winit::window::Window>, ...>;
-}
-```
+For winit-based applications a renderer implements `WinitCompatibleRenderer`: render a frame
+(returning a `DrawOutcome`), expose itself as a core `Renderer`, react to the window becoming
+occluded, and suspend/resume around the winit `Resumed` event — `resume()` is what creates the
+actual `winit::window::Window`.
+See `WinitCompatibleRenderer` in `internal/backends/winit/lib.rs`.
 
 ## Key Supporting Types
 
@@ -174,15 +136,29 @@ renderer-software = ["i-slint-backend-selector/renderer-software"]
 
 ### Backend Selector
 
-The selector (`internal/backends/selector/lib.rs`) chooses renderer at runtime:
+`create_backend()` (`internal/backends/selector/lib.rs`) chooses the event-loop backend
+(winit/Qt/linuxkms/testing/headless) at runtime:
 
-1. Check `SLINT_BACKEND` environment variable (e.g., `winit-skia`, `winit-femtovg`)
-2. Fall back to compile-time feature priority
+1. Parse the `SLINT_BACKEND` environment variable with `parse_backend_env_var()`, which
+   splits it into an event-loop name and a renderer name (e.g. `winit-skia` → `("winit",
+   "skia")`).
+2. Dispatch to the matching event-loop backend's constructor, passing the renderer name
+   along (e.g. `i_slint_backend_winit::Backend::new_with_renderer_by_name`).
+3. If no backend/renderer was requested (or the requested one isn't compiled in), fall
+   back to `create_default_backend()`'s compile-time feature priority.
+
+The renderer name itself is resolved *inside* each event-loop backend, not in the
+selector. For winit, that's `create_renderer()` in `internal/backends/winit/lib.rs`, which
+matches on the renderer name (`"skia"`, `"software"`, `"gl"`/`"femtovg"`, ...) against the
+renderers compiled in via Cargo features.
 
 To add a new renderer:
-1. Add feature flag to `internal/backends/selector/Cargo.toml`
-2. Update `try_create_renderer()` in `internal/backends/selector/lib.rs`
-3. Wire up in the appropriate backend (e.g., `internal/backends/winit/`)
+1. Add a feature flag to the relevant backend's `Cargo.toml` (e.g.
+   `internal/backends/winit/Cargo.toml`) and to `api/rs/slint/Cargo.toml`.
+2. Add a match arm for its name in that backend's renderer-dispatch function (e.g.
+   `create_renderer()` in `internal/backends/winit/lib.rs`).
+3. Implement `WinitCompatibleRenderer` (or the equivalent trait for other backends) for
+   the new renderer.
 
 ### Runtime Selection
 
@@ -218,12 +194,15 @@ Platform (winit/qt/linuxkms)
 
 ### Screenshot Tests
 
+`test-driver-screenshots` lives in the separate `tests/` Cargo workspace, so these need
+`--manifest-path tests/Cargo.toml` when run from the repository root:
+
 ```sh
 # Run screenshot comparison tests
-cargo test -p test-driver-screenshots
+cargo test --manifest-path tests/Cargo.toml -p test-driver-screenshots
 
 # Generate new reference screenshots (run when intentionally changing rendering)
-SLINT_CREATE_SCREENSHOTS=1 cargo test -p test-driver-screenshots
+SLINT_CREATE_SCREENSHOTS=1 cargo test --manifest-path tests/Cargo.toml -p test-driver-screenshots
 ```
 
 ### Testing Backend
@@ -242,8 +221,8 @@ The testing backend (`internal/backends/testing/`) provides:
 ### Visual Verification
 
 ```sh
-# Run gallery to visually inspect rendering
-cargo run -p gallery
+# Run gallery to visually inspect rendering (in the separate examples/ workspace)
+cargo run --manifest-path examples/Cargo.toml -p gallery
 
 # View specific .slint file with hot reload
 cargo run --bin slint-viewer -- path/to/file.slint
@@ -257,14 +236,19 @@ internal/renderers/
 │   ├── lib.rs           # FemtoVGRenderer, GraphicsBackend trait
 │   ├── itemrenderer.rs  # GLItemRenderer (ItemRenderer impl)
 │   ├── opengl.rs        # OpenGL backend
-│   └── wgpu.rs          # WebGPU backend
+│   ├── wgpu.rs          # WebGPU backend
+│   ├── font_cache.rs
+│   └── images.rs
 ├── skia/
 │   ├── lib.rs           # SkiaRenderer, Surface trait
 │   ├── itemrenderer.rs  # SkiaItemRenderer (ItemRenderer impl)
 │   ├── opengl_surface.rs
 │   ├── metal_surface.rs
 │   ├── vulkan_surface.rs
-│   └── software_surface.rs
+│   ├── d3d_surface.rs
+│   ├── software_surface.rs
+│   ├── wgpu_29_surface.rs / wgpu_30_surface.rs
+│   └── wgpu_renderer.rs
 └── software/
     ├── lib.rs           # SoftwareRenderer, scene building
     ├── scene.rs         # Scene graph structures

@@ -1,0 +1,37 @@
+---
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+//
+// Manual cross-reference to the Slint language docs (the sibling …/docs/slint/
+// site). Mirrors the Python docs' SlintRef: a thin wrapper over the shared Link
+// component that injects this site's Slint-docs base and opens a new tab.
+//
+// Pass `type` to resolve a symbol through the shared linkMap (e.g.
+// `<SlintRef type="Window" />`), or `href` to point at an explicit path under
+// the Slint docs base (e.g. `<SlintRef href="" label="Slint docs" />` for the
+// docs root). `code` renders the label as inline code (the default, suited to
+// type names); pass `code={false}` for prose links.
+import Link from "@slint/common-files/src/components/Link.astro";
+import { slintDocsBase } from "../cpp-site-config.mjs";
+
+interface Props {
+    type?: string;
+    href?: string;
+    label?: string;
+    code?: boolean;
+}
+
+const { type, href, label, code = true } = Astro.props;
+const base = slintDocsBase();
+const displayLabel = label ?? type ?? "";
+---
+
+{
+    type ? (
+        <Link type={type} label={label} docsBase={base} external code={code} />
+    ) : (
+        <a href={`${base}${href ?? ""}`} target="_blank" rel="noopener">
+            {code ? <code>{displayLabel}</code> : <span>{displayLabel}</span>}
+        </a>
+    )
+}

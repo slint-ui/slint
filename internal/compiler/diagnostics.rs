@@ -3,7 +3,7 @@
 
 use std::io::Read;
 use std::path::{Path, PathBuf};
-use std::rc::Rc;
+use std::sync::Arc;
 
 use crate::parser::TextSize;
 use std::collections::BTreeSet;
@@ -73,7 +73,7 @@ pub struct SourceFileInner {
     source: Option<String>,
 
     /// The offset of each linebreak
-    line_offsets: std::cell::OnceCell<Vec<usize>>,
+    line_offsets: std::sync::OnceLock<Vec<usize>>,
 }
 
 impl std::fmt::Debug for SourceFileInner {
@@ -92,19 +92,22 @@ impl SourceFileInner {
     }
 
     /// Create a SourceFile that has just a path, but no contents
-    pub fn from_path_only(path: PathBuf) -> Rc<Self> {
-        Rc::new(Self { path, ..Default::default() })
+    pub fn from_path_only(path: PathBuf) -> Arc<Self> {
+        Arc::new(Self { path, ..Default::default() })
     }
 
     /// Returns a tuple with the line (starting at 1) and column number (starting at 1)
     pub fn line_column(&self, offset: usize, format: ByteFormat) -> (usize, usize) {
         let adjust_utf16 = |line_begin, col| {
-            if format == ByteFormat::Utf8 {
-                col
-            } else {
-                let Some(source) = &self.source else { return col };
-                source[line_begin..][..col].encode_utf16().count()
+            if format == ByteFormat::Utf16
+                && let Some(source) = &self.source
+            {
+                return i_slint_common::unicode_utils::byte_offset_to_utf16_offset(
+                    &source[line_begin..],
+                    col,
+                );
             }
+            col
         };
 
         let line_offsets = self.line_offsets();
@@ -134,19 +137,15 @@ impl SourceFileInner {
     /// Returns the offset that corresponds to the line/column
     pub fn offset(&self, line: usize, column: usize, format: ByteFormat) -> usize {
         let adjust_utf16 = |line_begin, col| {
-            if format == ByteFormat::Utf8 {
-                col
-            } else {
-                let Some(source) = &self.source else { return col };
-                let mut utf16_counter = 0;
-                for (utf8_index, c) in source[line_begin..].char_indices() {
-                    if utf16_counter >= col {
-                        return utf8_index;
-                    }
-                    utf16_counter += c.len_utf16();
-                }
-                col
+            if format == ByteFormat::Utf16
+                && let Some(source) = &self.source
+            {
+                return i_slint_common::unicode_utils::utf16_offset_to_byte_offset_clamped(
+                    &source[line_begin..],
+                    col,
+                );
             }
+            col
         };
 
         let col_offset = column.saturating_sub(1);
@@ -188,7 +187,7 @@ pub enum ByteFormat {
     Utf16,
 }
 
-pub type SourceFile = Rc<SourceFileInner>;
+pub type SourceFile = Arc<SourceFileInner>;
 
 pub fn load_from_path(path: &Path) -> Result<String, Diagnostic> {
     let string = (if path == Path::new("-") {
@@ -365,6 +364,10 @@ pub struct BuildDiagnostics {
     /// When false, throw error for experimental features
     pub enable_experimental: bool,
 
+    /// When true, reject features not supported by the safety-critical subset
+    #[cfg(feature = "slint-sc")]
+    pub slint_sc: bool,
+
     /// This is the list of all loaded files (with or without diagnostic)
     /// does not include the main file.
     /// FIXME: this doesn't really belong in the diagnostics, it should be somehow returned in another way
@@ -415,16 +418,55 @@ impl BuildDiagnostics {
         self.inner.push(error);
     }
 
+    /// Whether the compilation targets the Slint SC subset. Callable without
+    /// the `slint-sc` feature, unlike reading the field, so call sites need
+    /// no `cfg` of their own.
+    pub fn is_slint_sc(&self) -> bool {
+        #[cfg(feature = "slint-sc")]
+        return self.slint_sc;
+        #[cfg(not(feature = "slint-sc"))]
+        false
+    }
+
+    /// If in safety-critical mode, push an error saying that `feature` is not
+    /// supported.
+    ///
+    /// Errors are suppressed for builtin files (paths starting with `builtin:`)
+    /// since those are loaded automatically by the compiler and are not user code.
+    #[cfg(feature = "slint-sc")]
+    pub fn slint_sc_error(&mut self, feature: &str, source: &dyn Spanned) {
+        if self.slint_sc
+            && !source
+                .source_file()
+                .is_some_and(|sf| sf.path().to_string_lossy().starts_with("builtin:"))
+        {
+            self.push_error(format!("{feature} not supported in Slint SC"), source);
+        }
+    }
+
     pub fn push_property_deprecation_warning(
         &mut self,
         old_property: &str,
         new_property: &str,
         source: &dyn Spanned,
     ) {
+        self.push_property_deprecation_warning_with_message(
+            old_property,
+            &format!("Please use '{new_property}' instead"),
+            source,
+        )
+    }
+
+    /// Same as [`Self::push_property_deprecation_warning`], but with a free-form message shown
+    /// after "The property 'xxx' has been deprecated."
+    pub fn push_property_deprecation_warning_with_message(
+        &mut self,
+        old_property: &str,
+        message: &str,
+        source: &dyn Spanned,
+    ) {
         self.push_diagnostic_with_span(
-            format!(
-                "The property '{old_property}' has been deprecated. Please use '{new_property}' instead"
-            ),
+            format!("The property '{old_property}' has been deprecated. {message}"),
             source.to_source_location(),
             crate::diagnostics::DiagnosticLevel::Warning,
         )
@@ -495,9 +537,10 @@ impl BuildDiagnostics {
     #[cfg(feature = "display-diagnostics")]
     /// Print the diagnostics on the console
     pub fn print(self) {
+        use std::io::Write;
         let to_print = self.call_diagnostics(None);
         if !to_print.is_empty() {
-            std::eprintln!("{to_print}");
+            let _ = writeln!(std::io::stderr(), "{to_print}");
         }
     }
 

@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore dumbbuffer
 use std::sync::Arc;
 
 use i_slint_core::platform::PlatformError;
@@ -15,6 +16,12 @@ pub trait SoftwareBufferDisplay {
             drm::buffer::DrmFourcc,
         ) -> Result<(), PlatformError>,
     ) -> Result<(), PlatformError>;
+    /// Returns true if the buffer handed out by `map_back_buffer` is in
+    /// write-combined or otherwise uncached memory, where CPU reads are an
+    /// order of magnitude slower than reads from regular (cached) memory.
+    /// Renderers that read back destination pixels should then render into a
+    /// regular buffer and copy the result into the mapped buffer.
+    fn is_write_combined_memory(&self) -> bool;
     fn as_presenter(self: Arc<Self>) -> Arc<dyn super::Presenter>;
 }
 
@@ -38,6 +45,15 @@ pub fn new(
     if std::env::var_os("SLINT_BACKEND_LINUXFB").is_some() {
         return linuxfb::LinuxFBDisplay::new(device_opener, renderer_formats);
     }
-    dumbbuffer::DumbBufferDisplay::new(device_opener, renderer_formats)
-        .or_else(|_| linuxfb::LinuxFBDisplay::new(device_opener, renderer_formats))
+    dumbbuffer::DumbBufferDisplay::new(device_opener, renderer_formats).or_else(
+        |dumb_buffer_error| {
+            linuxfb::LinuxFBDisplay::new(device_opener, renderer_formats).map_err(
+                |linuxfb_error| {
+                    PlatformError::Other(format!(
+                        "Could not initialize software display.\nError using DRM dumb buffers: {dumb_buffer_error}\nError using legacy framebuffer: {linuxfb_error}"
+                    ))
+                },
+            )
+        },
+    )
 }

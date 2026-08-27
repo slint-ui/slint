@@ -11,7 +11,7 @@
 // Additionally, there are three green rectangles at the bottom placed diagonally
 // using equal spacing and manual calculation, using a repeater.
 
-BlueRect := Rectangle {
+component BlueRect inherits Rectangle {
     background: blue;
     border-radius: 10px;
     drop-shadow-offset-x: 10px;
@@ -22,7 +22,7 @@ BlueRect := Rectangle {
     clip: true;
 }
 
-TestCase := Window {
+export component TestCase inherits Window {
     width: 800px;
     height: 600px;
 

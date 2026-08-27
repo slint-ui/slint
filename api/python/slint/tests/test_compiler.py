@@ -1,9 +1,10 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+from pathlib import Path
+
 from slint import slint as native
 from slint.slint import ValueType
-from pathlib import Path
 
 
 def test_basic_compiler() -> None:
@@ -31,6 +32,7 @@ def test_basic_compiler() -> None:
             in property <image> imgprop;
             in property <brush> brushprop;
             in property <color> colprop;
+            in property <styled-text> styledtextprop;
             in property <[string]> modelprop;
 
             callback test-callback();
@@ -56,6 +58,7 @@ def test_basic_compiler() -> None:
         ("intprop", ValueType.Number),
         ("modelprop", ValueType.Model),
         ("strprop", ValueType.String),
+        ("styledtextprop", ValueType.StyledText),
     ]
 
     assert compdef.callbacks == ["test-callback"]

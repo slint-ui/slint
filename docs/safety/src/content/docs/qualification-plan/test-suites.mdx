@@ -1,0 +1,90 @@
+---
+title: Test Cases
+description: The test suites that verify Slint SC, how their cases are written, and what they establish.
+---
+This chapter describes how Slint SC is tested.
+The [Traceability Matrix](/qualification-report/traceability-matrix/) maps each requirement to the tests that verify it,
+the [Test Results](/qualification-report/test-results/) chapter lists the outcome of running them,
+and the [Test Coverage](/qualification-report/test-coverage/) chapter reports the structural coverage they achieve.
+All three are generated from an actual run of the suites described here.
+
+## The Suites
+
+Three suites run together, each verifying a different part of the toolchain.
+`scripts/slint_sc_test_suite.sh` runs all of them and collects their reports.
+
+### Compiler Syntax Tests
+
+The syntax tests in `internal/compiler/tests/syntax/slint-sc/` run the compiler in SC mode and assert its diagnostics.
+Each file pins the expected message to the exact source span that produces it:
+
+```slint
+import { Button } from "std-widgets.slint";
+//                     >                 <error{Imports are not supported in Slint SC}
+```
+
+These tests carry the weight of the subset.
+Slint SC is defined as much by what it rejects as by what it accepts,
+so each construct outside the subset has a file asserting that the compiler refuses it with a diagnostic the user can act on.
+
+### Runtime Test Cases
+
+The cases in `api/slint-sc/tests/cases/` are `.slint` files that get compiled and executed.
+For each case, the driver in `api/slint-sc/tests/driver.rs`:
+
+1. Compiles the case with `slint-compiler --slint-sc` into Rust.
+2. Extracts the test body from the fenced `rust` blocks in the case's comments.
+3. Compiles the generated code and that body with `rustc`.
+4. Runs the resulting binary.
+5. Compares the screenshots the case took, if it took any, against the PNG references in `api/slint-sc/tests/references/`.
+
+Step 3 is itself a test.
+The runtime is the only `--extern` passed to `rustc`,
+so generated code that reaches for any other crate fails to compile rather than shipping an undeclared dependency.
+
+A block marked `compile_fail` inverts the check: it must fail to compile, with every error named by a `//~ ERROR` line present in the compiler output.
+That's how the API-level negative cases are written, such as a component that isn't exported staying unreachable:
+
+```rust
+let _ = Hidden::new();
+//~ ERROR undeclared type `Hidden`
+```
+
+A case that verifies what the runtime draws calls the `screenshot!` macro, which renders the component into a fixed 64x64 RGB buffer and writes it out for the driver to compare.
+Others assert in Rust alone and take no screenshot.
+The comparison is byte for byte against the reference, with no tolerance threshold,
+which the runtime's determinism makes possible: no dynamic allocation, no external dependencies, and a caller-provided frame buffer.
+A single differing pixel fails the case.
+
+### Runtime Unit Tests
+
+The unit tests in the `slint-sc` crate cover its own API surface, such as color encoding and error formatting.
+They're `no_std` like the crate itself.
+
+## Tagging Requirements
+
+A test declares the requirements it verifies with `//#sls.…` comments naming their identifiers:
+
+```slint
+// A source file with a UTF-8 BOM is well-formed.
+//#sls.source.encoding.bom
+//#sls.source.encoding.utf8
+```
+
+Cases, syntax tests, and the Rust sources of the runtime and the compiler are all scanned for these.
+Where a requirement is enforced by Rust code rather than by a `.slint` case, the comment sits at that code.
+An identifier that matches no requirement paragraph fails the build, so a tag can't outlive the paragraph it names.
+
+## What This Establishes
+
+The evidence runs in two directions, and the build enforces both.
+
+From the requirements down, every requirement paragraph in the specification and the API reference is declared by at least one test.
+A paragraph without one fails the build, so the Traceability Matrix can't develop gaps as the subset grows.
+
+From the code up, every line, function, and code region of the runtime is executed by the suites.
+Coverage is measured on the runtime alone, since that's the code that ships in the product, and the build fails below 100% with no exceptions.
+Nothing reaches a product binary unexercised.
+
+Together they close the loop: the first direction shows the specified behavior is tested,
+the second shows there's no behavior in the runtime beyond what those tests reach.

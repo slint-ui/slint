@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore elemrc
 //! Make sure that the top level element of the component is always a Window
 
 use crate::diagnostics::BuildDiagnostics;
@@ -10,7 +11,6 @@ use crate::namedreference::NamedReference;
 use crate::object_tree::{Component, Element};
 use crate::typeregister::TypeRegister;
 use smol_str::SmolStr;
-use std::cell::RefCell;
 use std::collections::HashSet;
 use std::rc::Rc;
 
@@ -43,21 +43,30 @@ pub fn ensure_window(
         bindings: Default::default(),
         change_callbacks: Default::default(),
         is_component_placeholder: false,
+        is_injected_wrapper_element: false,
         property_analysis: Default::default(),
         children: std::mem::take(&mut win_elem_mut.children),
         enclosing_component: win_elem_mut.enclosing_component.clone(),
         property_declarations: Default::default(),
+        shadowing_members: Default::default(),
         named_references: Default::default(),
         repeated: Default::default(),
         states: Default::default(),
         transitions: Default::default(),
+        match_elements: Default::default(),
         child_of_layout: false,
+        child_of_flexbox: false,
+        parent_box_layout_orientation: None,
         has_popup_child: false,
         layout_info_prop: Default::default(),
+        layout_info_v_with_constraint: Default::default(),
+        layout_info_h_with_constraint: Default::default(),
         default_fill_parent: Default::default(),
         accessibility_props: Default::default(),
         geometry_props: Default::default(),
-        is_flickable_viewport: false,
+        is_flickable_content: false,
+        is_tooltip: false,
+        z_order: None,
         item_index: Default::default(),
         item_index_of_first_children: Default::default(),
         grid_layout_cell: None,
@@ -65,17 +74,19 @@ pub fn ensure_window(
 
         inline_depth: 0,
         is_legacy_syntax: false,
+        slot_target: None,
+        forwarded_slots: Vec::new(),
     };
     let new_root = new_root.make_rc();
     win_elem_mut.children.push(new_root.clone());
     drop(win_elem_mut);
 
     let make_two_way = |name: &'static str| {
-        new_root.borrow_mut().bindings.insert(
+        new_root.borrow_mut().set_binding(
             name.into(),
-            RefCell::new(BindingExpression::new_two_way(
+            BindingExpression::new_two_way(
                 NamedReference::new(&win_elem, SmolStr::new_static(name)).into(),
-            )),
+            ),
         );
     };
     make_two_way("width");
@@ -85,7 +96,7 @@ pub fn ensure_window(
 
     let mut base_props: HashSet<SmolStr> =
         new_root.borrow().base_type.property_list().into_iter().map(|x| x.0).collect();
-    base_props.extend(win_elem.borrow().bindings.keys().cloned());
+    base_props.extend(win_elem.borrow().real_bindings().map(|(name, _)| name.clone()));
     for prop in base_props {
         if prop == "width" || prop == "height" {
             continue;
@@ -97,8 +108,8 @@ pub fn ensure_window(
 
         must_update.insert(NamedReference::new(&win_elem, prop.clone()));
 
-        if let Some(b) = win_elem.borrow_mut().bindings.remove(&prop) {
-            new_root.borrow_mut().bindings.insert(prop.clone(), b);
+        if let Some(b) = win_elem.borrow_mut().take_binding_including_synthetic(&prop) {
+            new_root.borrow_mut().set_binding(prop.clone(), b);
         }
         if let Some(a) = win_elem.borrow().property_analysis.borrow_mut().remove(&prop) {
             new_root.borrow().property_analysis.borrow_mut().insert(prop.clone(), a);
@@ -150,6 +161,42 @@ pub fn inherits_window(component: &Rc<Component>) -> bool {
     })
 }
 
+/// The alpha channel of a color literal, if `expr` is one. A binding whose
+/// value is only known at run time, such as a reference to a property the
+/// application sets, has none.
+#[cfg(feature = "slint-sc")]
+fn literal_alpha(expr: &Expression) -> Option<u8> {
+    match expr.ignore_debug_hooks() {
+        Expression::Cast { from, to: Type::Color | Type::Brush } => literal_alpha(from),
+        // A color literal is a number carrying its channels, alpha highest
+        Expression::NumberLiteral(value, _) => Some((*value as u32 >> 24) as u8),
+        _ => None,
+    }
+}
+
+/// The window background must be a color literal whose alpha channel is 0xff,
+/// so that rendering writes every pixel of the frame buffer. See the
+/// `sls.paint.window-opaque` requirement.
+///
+/// Run this after inlining: a background inherited from a base component only
+/// reaches the root element there, and it's the root the generator compiles.
+#[cfg(feature = "slint-sc")]
+pub fn check_sc_window_background(component: &Rc<Component>, diag: &mut BuildDiagnostics) {
+    // A root that isn't a window was already rejected by check_public_api
+    if !inherits_window(component) {
+        return;
+    }
+    let root = component.root_element.borrow();
+    // Without a binding the background is the opaque black default
+    let Some(binding) = root.binding_cell_including_synthetic("background") else { return };
+    let binding = binding.borrow();
+    match literal_alpha(&binding.expression) {
+        Some(0xff) => {}
+        Some(_) => diag.slint_sc_error("A Window background that isn't fully opaque is", &*binding),
+        None => diag.slint_sc_error("A Window background that isn't a color literal is", &*binding),
+    }
+}
+
 // Note: This pass must run before lower_popups, as that introduces additional Window elements.
 pub fn warn_about_child_windows(doc: &crate::object_tree::Document, diag: &mut BuildDiagnostics) {
     for component in &doc.inner_components {
@@ -173,6 +220,19 @@ pub fn warn_about_child_windows(doc: &crate::object_tree::Document, diag: &mut B
                     "".to_owned()
                 };
                 if matches!(builtin.name.as_str(), "Window" | "WindowItem") {
+                    // The SC generator renders Window only as the root, so
+                    // the compatibility warning is a hard error there.
+                    #[cfg(feature = "slint-sc")]
+                    if diag.slint_sc {
+                        diag.push_error(
+                            format!(
+                                "Instantiating Window as an element is not supported in Slint SC\
+                                {inheritance_hint}"
+                            ),
+                            &*elem,
+                        );
+                        return;
+                    }
                     diag.push_warning(
                         format!(
                             "Window elements as children do not create separate windows (this may change in the future)\n\

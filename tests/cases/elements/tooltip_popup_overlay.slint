@@ -1,0 +1,52 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component TestCase {
+    width: 200phx;
+    height: 200phx;
+    in-out property <int> init-count;
+    Rectangle {
+        x: 0px;
+        y: 0px;
+        width: parent.width;
+        height: parent.height;
+
+        Tooltip {
+            Rectangle {
+                init => {
+                    root.init-count += 1;
+                }
+            }
+        }
+    }
+}
+
+/*
+
+```rust
+use slint::{platform::WindowEvent, LogicalPosition};
+
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.get_init_count(), 0);
+
+// Hover then leave before the delay fires: tooltip must not appear.
+instance.window().dispatch_event(WindowEvent::PointerMoved {
+    position: LogicalPosition::new(50.0, 50.0),
+});
+instance.window().dispatch_event(WindowEvent::PointerMoved {
+    position: LogicalPosition::new(250.0, 250.0),
+});
+slint_testing::mock_elapsed_time(600);
+assert_eq!(instance.get_init_count(), 0);
+
+// Hover and stay: tooltip appears after the delay.
+instance.window().dispatch_event(WindowEvent::PointerMoved {
+    position: LogicalPosition::new(50.0, 50.0),
+});
+assert_eq!(instance.get_init_count(), 0);
+slint_testing::mock_elapsed_time(600);
+assert_eq!(instance.get_init_count(), 1);
+```
+
+*/
+

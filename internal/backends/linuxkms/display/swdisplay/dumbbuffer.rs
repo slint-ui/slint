@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore Uyvy Vyuy Xbgr Yuyv Yvyu
 use std::cell::RefCell;
 use std::sync::Arc;
 
@@ -83,6 +84,11 @@ impl super::SoftwareBufferDisplay for DumbBufferDisplay {
             .map_dumb_buffer(&mut back_buffer.buffer_handle)
             .map_err(|e| PlatformError::Other(format!("Error mapping dumb buffer: {e}")))
             .and_then(|mut buffer| callback(buffer.as_mut(), age, format))
+    }
+
+    fn is_write_combined_memory(&self) -> bool {
+        // The kernel maps dumb buffers write-combined on most architectures.
+        true
     }
 
     fn as_presenter(self: Arc<Self>) -> Arc<dyn crate::display::Presenter> {

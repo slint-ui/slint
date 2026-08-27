@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Slint Visual Editor
+GenericName=UI Designer
+Comment=Design and edit Slint user interfaces
+Exec=slint-visual-editor %F
+Icon=dev.slint.VisualEditor
+Terminal=false
+Categories=Development;GUIDesigner;

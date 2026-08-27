@@ -8,7 +8,7 @@ use crate::{
     item_tree::ItemTreeVTable,
     items::{ItemRc, TextInput},
 };
-use alloc::{vec, vec::Vec};
+use alloc::vec::Vec;
 use bitflags::bitflags;
 use vtable::VRcMapped;
 
@@ -30,7 +30,7 @@ pub enum AccessibleStringProperty {
     ItemSelectable,
     ItemSelected,
     Label,
-    Live,
+    LiveRegion,
     Orientation,
     PlaceholderText,
     ReadOnly,
@@ -41,6 +41,11 @@ pub enum AccessibleStringProperty {
 }
 
 /// The argument of an accessible action.
+///
+/// Every variant mirrors one of the `accessible-action-*` callbacks declared in the compiler's
+/// type register, with one (unnamed) field per callback argument. The generated code relies on
+/// that: it binds the fields positionally, so a new action only needs to be added here and in
+/// the type register.
 #[repr(u32)]
 #[derive(PartialEq, Clone)]
 pub enum AccessibilityAction {
@@ -51,6 +56,9 @@ pub enum AccessibilityAction {
     /// This is currently unused
     ReplaceSelectedText(SharedString),
     SetValue(SharedString),
+    /// Select the text between two UTF-8 offsets into the element's text: the first offset is the
+    /// anchor, the end that stays put, the second one the focus, the end being moved.
+    SetSelectionOffsets(i32, i32),
 }
 
 bitflags! {
@@ -64,6 +72,7 @@ bitflags! {
         const Expand = 1 << 3;
         const ReplaceSelectedText = 1 << 4;
         const SetValue = 1 << 5;
+        const SetSelectionOffsets = 1 << 6;
     }
 }
 
@@ -113,37 +122,25 @@ pub fn accessible_descendents(root_item: &ItemRc) -> impl Iterator<Item = ItemRc
     })
 }
 
-/// Find the first built-in `TextInput` in the descendents of `item`.
+/// Find the first built-in `TextInput` in `item` or its descendents.
 pub fn find_text_input(item: &ItemRc) -> Option<VRcMapped<ItemTreeVTable, TextInput>> {
-    fn try_candidate_or_find_next_descendent(
-        candidate: ItemRc,
-        descendent_candidates: &mut Vec<ItemRc>,
-    ) -> Option<VRcMapped<ItemTreeVTable, TextInput>> {
-        if let Some(input) = candidate.downcast::<TextInput>() {
-            return Some(input);
-        }
+    find_text_input_with_rc(item).map(|(_, input)| input)
+}
 
-        candidate.first_child().and_then(|child| {
-            if let Some(next) = child.next_sibling() {
-                descendent_candidates.push(next);
-            }
-            try_candidate_or_find_next_descendent(child, descendent_candidates)
-        })
+/// Same as [`find_text_input`], but also returns the `TextInput`'s `ItemRc`.
+pub fn find_text_input_with_rc(
+    item: &ItemRc,
+) -> Option<(ItemRc, VRcMapped<ItemTreeVTable, TextInput>)> {
+    if let Some(input) = item.clone().downcast::<TextInput>() {
+        return Some((item.clone(), input));
     }
 
-    let mut descendent_candidates = vec![item.clone()];
-
-    loop {
-        let candidate = descendent_candidates.pop()?;
-
-        if let Some(next_candidate) = candidate.next_sibling() {
-            descendent_candidates.push(next_candidate);
-        }
-
-        if let Some(input) =
-            try_candidate_or_find_next_descendent(candidate, &mut descendent_candidates)
-        {
-            return Some(input);
+    let mut child = item.first_child();
+    while let Some(candidate) = child {
+        child = candidate.next_sibling();
+        if let Some(found) = find_text_input_with_rc(&candidate) {
+            return Some(found);
         }
     }
+    None
 }

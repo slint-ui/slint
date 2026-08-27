@@ -12,6 +12,31 @@ use crate::items::{ItemRc, TextWrap};
 use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalSize, ScaleFactor};
 use crate::window::WindowAdapter;
 
+/// Result of a single rendering attempt. WGPU-backed renderers can report `Occluded`,
+/// `Timeout` or `Skipped` instead of rendering a frame; in those cases the caller should
+/// re-arm a redraw rather than wait for the next external event.
+#[must_use]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DrawOutcome {
+    Success,
+    Occluded,
+    Timeout,
+    /// The renderer wasn't ready to draw yet (e.g. the WGPU surface is still being set up
+    /// asynchronously). No frame was produced; the caller should re-arm a redraw.
+    Skipped,
+}
+
+/// The content widths of a text, as used for its layout constraints.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct ContentWidths {
+    /// The width of the widest chunk that cannot be broken up: the longest word for
+    /// word-wrap. A wrapping text cannot be laid out narrower than this without breaking
+    /// words apart.
+    pub min: LogicalLength,
+    /// The width the text takes without wrapping.
+    pub max: LogicalLength,
+}
+
 /// This trait represents a Renderer that can render a slint scene.
 ///
 /// This trait is [sealed](https://rust-lang.github.io/api-guidelines/future-proofing.html#sealed-traits-protect-against-downstream-implementations-c-sealed),
@@ -24,9 +49,19 @@ impl<T: RendererSealed> Renderer for T {}
 /// trait is not exported in the public API, it is not possible for the
 /// users to re-implement these functions.
 pub trait RendererSealed {
+    /// The cache used by the default implementations of the text related trait functions,
+    /// which lay text out through [`crate::textlayout::sharedparley`]. Renderers using
+    /// those default implementations return their cache here; with the default `None`,
+    /// text layouts are computed without caching.
+    #[cfg(feature = "shared-parley")]
+    fn text_layout_cache(&self) -> Option<&crate::textlayout::sharedparley::TextLayoutCache> {
+        None
+    }
+
     /// Returns the size of the given text in logical pixels.
     /// When set, `max_width` means that one need to wrap the text, so it does not go further than that,
     /// using the wrapping type passed by `text_wrap`.
+    #[cfg(not(feature = "shared-parley"))]
     fn text_size(
         &self,
         text_item: Pin<&dyn crate::item_rendering::RenderString>,
@@ -35,7 +70,53 @@ pub trait RendererSealed {
         text_wrap: TextWrap,
     ) -> LogicalSize;
 
+    /// Returns the size of the given text in logical pixels.
+    /// When set, `max_width` means that one need to wrap the text, so it does not go further than that,
+    /// using the wrapping type passed by `text_wrap`.
+    ///
+    /// The default implementation uses the shared parley text layout with [`Self::text_layout_cache`].
+    #[cfg(feature = "shared-parley")]
+    fn text_size(
+        &self,
+        text_item: Pin<&dyn crate::item_rendering::RenderString>,
+        item_rc: &crate::item_tree::ItemRc,
+        max_width: Option<LogicalLength>,
+        text_wrap: TextWrap,
+    ) -> LogicalSize {
+        crate::textlayout::sharedparley::text_size(
+            self,
+            text_item,
+            item_rc,
+            max_width,
+            text_wrap,
+            self.text_layout_cache(),
+        )
+        .unwrap_or_default()
+    }
+
+    /// Returns the content widths of the text, or None if the renderer can't measure them,
+    /// in which case the caller falls back to `text_size` without a lower bound.
+    ///
+    /// These are intrinsic to the text and don't depend on its `wrap` mode: `min` is the
+    /// longest word, `max` is the unwrapped width.
+    fn text_content_widths(
+        &self,
+        text_item: Pin<&dyn crate::item_rendering::RenderString>,
+        item_rc: &crate::item_tree::ItemRc,
+    ) -> Option<ContentWidths> {
+        #[cfg(feature = "shared-parley")]
+        {
+            crate::textlayout::sharedparley::text_content_widths(self, text_item, item_rc)
+        }
+        #[cfg(not(feature = "shared-parley"))]
+        {
+            let _ = (text_item, item_rc);
+            None
+        }
+    }
+
     /// Returns the size of the individual character in logical pixels.
+    #[cfg(not(feature = "shared-parley"))]
     fn char_size(
         &self,
         text_item: Pin<&dyn crate::item_rendering::HasFont>,
@@ -43,30 +124,144 @@ pub trait RendererSealed {
         ch: char,
     ) -> LogicalSize;
 
+    /// Returns the size of the individual character in logical pixels.
+    ///
+    /// The default implementation measures the character with the shared parley layout.
+    #[cfg(feature = "shared-parley")]
+    fn char_size(
+        &self,
+        text_item: Pin<&dyn crate::item_rendering::HasFont>,
+        item_rc: &crate::item_tree::ItemRc,
+        ch: char,
+    ) -> LogicalSize {
+        self.slint_context()
+            .and_then(|ctx| {
+                let mut font_ctx = ctx.font_context().borrow_mut();
+                crate::textlayout::sharedparley::char_size(&mut font_ctx, text_item, item_rc, ch)
+            })
+            .unwrap_or_default()
+    }
+
     /// Returns the metrics of the given font.
+    #[cfg(not(feature = "shared-parley"))]
     fn font_metrics(&self, font_request: crate::graphics::FontRequest)
     -> crate::items::FontMetrics;
+
+    /// Returns the metrics of the given font.
+    ///
+    /// The default implementation queries the font through the shared fontique collection.
+    #[cfg(feature = "shared-parley")]
+    fn font_metrics(
+        &self,
+        font_request: crate::graphics::FontRequest,
+    ) -> crate::items::FontMetrics {
+        self.slint_context()
+            .map(|ctx| {
+                let mut font_ctx = ctx.font_context().borrow_mut();
+                crate::textlayout::sharedparley::font_metrics(&mut font_ctx, font_request)
+            })
+            .unwrap_or_default()
+    }
+
+    /// The height of one line of text: what a shaped single-line layout reports, without
+    /// shaping. `None` means the caller must measure through [`Self::text_size`].
+    fn text_line_height(
+        &self,
+        font_request: crate::graphics::FontRequest,
+    ) -> Option<LogicalLength> {
+        #[cfg(feature = "shared-parley")]
+        {
+            let ctx = self.slint_context()?;
+            let mut font_ctx = ctx.font_context().borrow_mut();
+            crate::textlayout::sharedparley::text_line_height(&mut font_ctx, &font_request)
+        }
+        #[cfg(not(feature = "shared-parley"))]
+        {
+            let _ = font_request;
+            None
+        }
+    }
 
     /// Returns the (UTF-8) byte offset in the text property that refers to the character that contributed to
     /// the glyph cluster that's visually nearest to the given coordinate. This is used for hit-testing,
     /// for example when receiving a mouse click into a text field. Then this function returns the "cursor"
-    /// position.
+    /// position. The affinity says which visual position was hit (differs only at a soft break).
+    #[cfg(not(feature = "shared-parley"))]
     fn text_input_byte_offset_for_position(
         &self,
         text_input: Pin<&crate::items::TextInput>,
         item_rc: &ItemRc,
         pos: LogicalPoint,
-    ) -> usize;
+    ) -> (usize, crate::items::TextCursorAffinity);
+
+    /// Returns the (UTF-8) byte offset in the text property that refers to the character that contributed to
+    /// the glyph cluster that's visually nearest to the given coordinate. This is used for hit-testing,
+    /// for example when receiving a mouse click into a text field. Then this function returns the "cursor"
+    /// position. The affinity says which visual position was hit (differs only at a soft break).
+    ///
+    /// The default implementation uses the shared parley text layout with [`Self::text_layout_cache`].
+    #[cfg(feature = "shared-parley")]
+    fn text_input_byte_offset_for_position(
+        &self,
+        text_input: Pin<&crate::items::TextInput>,
+        item_rc: &ItemRc,
+        pos: LogicalPoint,
+    ) -> (usize, crate::items::TextCursorAffinity) {
+        crate::textlayout::sharedparley::text_input_byte_offset_for_position(
+            self,
+            text_input,
+            item_rc,
+            pos,
+            self.text_layout_cache(),
+        )
+    }
 
     /// That's the opposite of [`Self::text_input_byte_offset_for_position`]
     /// It takes a (UTF-8) byte offset in the text property, and returns a Rectangle
     /// left to the char. It is one logical pixel wide and ends at the baseline.
+    /// An offset at a soft line break has one rectangle per line; `affinity` picks between them.
+    #[cfg(not(feature = "shared-parley"))]
     fn text_input_cursor_rect_for_byte_offset(
         &self,
         text_input: Pin<&crate::items::TextInput>,
         item_rc: &ItemRc,
         byte_offset: usize,
+        affinity: crate::items::TextCursorAffinity,
     ) -> LogicalRect;
+
+    /// That's the opposite of [`Self::text_input_byte_offset_for_position`]
+    /// It takes a (UTF-8) byte offset in the text property, and returns a Rectangle
+    /// left to the char. It is one logical pixel wide and ends at the baseline.
+    /// An offset at a soft line break has one rectangle per line; `affinity` picks between them.
+    ///
+    /// The default implementation uses the shared parley text layout with [`Self::text_layout_cache`].
+    #[cfg(feature = "shared-parley")]
+    fn text_input_cursor_rect_for_byte_offset(
+        &self,
+        text_input: Pin<&crate::items::TextInput>,
+        item_rc: &ItemRc,
+        byte_offset: usize,
+        affinity: crate::items::TextCursorAffinity,
+    ) -> LogicalRect {
+        crate::textlayout::sharedparley::text_input_cursor_rect_for_byte_offset(
+            self,
+            text_input,
+            item_rc,
+            byte_offset,
+            affinity,
+            self.text_layout_cache(),
+        )
+    }
+
+    /// Whether this renderer lays `text_input`'s text out through parley.
+    #[cfg(feature = "shared-parley")]
+    fn text_input_has_parley_layout(
+        &self,
+        _text_input: Pin<&crate::items::TextInput>,
+        _item_rc: &ItemRc,
+    ) -> bool {
+        true
+    }
 
     /// Clear the caches for the items that are being removed
     fn free_graphics_resources(
@@ -82,7 +277,7 @@ pub trait RendererSealed {
     /// Example: when a PopupWindow disappears, the region under the popup needs to be redrawn
     fn mark_dirty_region(&self, _region: crate::partial_renderer::DirtyRegion) {}
 
-    #[cfg(feature = "std")] // FIXME: just because of the Error
+    #[cfg(all(feature = "std", not(feature = "shared-parley")))] // FIXME: just because of the Error
     /// This function can be used to register a custom TrueType font with Slint,
     /// for use with the `font-family` property. The provided slice must be a valid TrueType
     /// font.
@@ -93,7 +288,22 @@ pub trait RendererSealed {
         Err("This renderer does not support registering custom fonts.".into())
     }
 
-    #[cfg(feature = "std")]
+    #[cfg(all(feature = "std", feature = "shared-parley"))]
+    /// This function can be used to register a custom TrueType font with Slint,
+    /// for use with the `font-family` property. The provided slice must be a valid TrueType
+    /// font.
+    ///
+    /// The default implementation registers the font with the shared fontique collection.
+    fn register_font_from_memory(
+        &self,
+        data: &'static [u8],
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let ctx = self.slint_context().ok_or("slint platform not initialized")?;
+        ctx.font_context().borrow_mut().register_static_font(data);
+        Ok(())
+    }
+
+    #[cfg(all(feature = "std", not(feature = "shared-parley")))]
     /// This function can be used to register a custom TrueType font with Slint,
     /// for use with the `font-family` property. The provided path must refer to a valid TrueType
     /// font.
@@ -102,6 +312,23 @@ pub trait RendererSealed {
         _path: &std::path::Path,
     ) -> Result<(), Box<dyn std::error::Error>> {
         Err("This renderer does not support registering custom fonts.".into())
+    }
+
+    #[cfg(all(feature = "std", feature = "shared-parley"))]
+    /// This function can be used to register a custom TrueType font with Slint,
+    /// for use with the `font-family` property. The provided path must refer to a valid TrueType
+    /// font.
+    ///
+    /// The default implementation registers the font with the shared fontique collection.
+    fn register_font_from_path(
+        &self,
+        path: &std::path::Path,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let requested_path = path.canonicalize().unwrap_or_else(|_| path.into());
+        let contents = std::fs::read(requested_path)?;
+        let ctx = self.slint_context().ok_or("slint platform not initialized")?;
+        ctx.font_context().borrow_mut().collection.register_fonts(contents.into(), None);
+        Ok(())
     }
 
     fn register_bitmap_font(&self, _font_data: &'static crate::graphics::BitmapFont) {
@@ -133,8 +360,6 @@ pub trait RendererSealed {
         self.window_adapter()
             .map(|wa| crate::window::WindowInner::from_pub(wa.window()).context().clone())
     }
-
-    fn default_font_size(&self) -> LogicalLength;
 
     fn resize(&self, _size: crate::api::PhysicalSize) -> Result<(), PlatformError> {
         Ok(())

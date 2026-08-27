@@ -1,7 +1,7 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-# cSpell: ignore libxcb libxkbcommon xfixes
+# cSpell: ignore libxcb libxkbcommon xfixes libgbm
 ---
 name: Install Linux dependencies
 description: Set up Linux dependencies for Slint
@@ -15,30 +15,25 @@ inputs:
         description: 'Force GCC version 10 (default: "no")'
         required: false
         default: "no"
-    old-ubuntu:
-        description: "This is running on an older version of Ubuntu"
-        required: false
-        default: "no"
 
 runs:
     using: composite
     steps:
         - name: Install Linux dependencies
           if: runner.os == 'Linux'
-          run: |
-              sudo apt-get update
-              sudo apt-get install libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev libxkbcommon-x11-dev libudev-dev libinput-dev libfontconfig-dev ${{ inputs.extra-packages }}
           shell: bash
-        - name: Install Linux dependencies
-          if: ${{ runner.os == 'Linux' && (inputs.old-ubuntu != 'true')}}
           run: |
-              sudo apt-get update
-              sudo apt-get install libseat-dev libsystemd-dev
-          shell: bash
+              # Bound apt so a stuck dpkg lock or mirror stall fails in minutes instead of hanging the job.
+              sudo timeout 600 apt-get update
+              # libwayland-dev is for the crates that link libwayland at build
+              # time instead of dlopen'ing it the way our winit backend does.
+              # rfd, which slint-lsp uses for its file dialogs, is one: it pins
+              # wayland-backend's "client_system". The bevy examples need it too.
+              sudo timeout 600 apt-get install -y libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev libxkbcommon-x11-dev libudev-dev libinput-dev libgbm-dev libfontconfig-dev libseat-dev libsystemd-dev libwayland-dev ${{ inputs.extra-packages }}
         - name: Install C++ compiler
           if: ${{ (runner.os == 'Linux') && (inputs.force-gcc-10 == 'true') }}
+          shell: bash
           run: |
-              sudo apt-get install gcc-10 g++-10
+              sudo timeout 600 apt-get install -y gcc-10 g++-10
               echo "CC=gcc-10" >> $GITHUB_ENV
               echo "CXX=g++-10" >> $GITHUB_ENV
-          shell: bash

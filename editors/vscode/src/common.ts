@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell: ignore codespaces
+// cSpell: ignore codespaces aboutslint cmakelists datepickerpopup gridbox standardlistview standardtableview timerpickerpopup
 
 // This file is common code shared by both vscode plugin entry points
 
@@ -134,6 +134,17 @@ export function prepare_client(client: BaseLanguageClient) {
     client.registerFeature(new snippets.SnippetTextEditFeature());
 }
 
+// A `.slint` file, or a Rust file with a `slint!` macro, warrants the language server.
+function documentUsesSlint(document: vscode.TextDocument): boolean {
+    if (document.languageId === "slint") {
+        return true;
+    }
+    if (document.languageId === "rust") {
+        return document.getText().includes("slint!");
+    }
+    return false;
+}
+
 // VSCode Plugin lifecycle related:
 
 export function activate(
@@ -161,7 +172,29 @@ export function activate(
         }
     });
 
-    startClient(client, context);
+    // Spawn the server only once a document uses Slint, not for unrelated Rust/C++ files.
+    let watcher: vscode.Disposable | undefined;
+    const startNow = () => {
+        watcher?.dispose();
+        watcher = undefined;
+        startClient(client, context);
+    };
+
+    if (vscode.workspace.textDocuments.some(documentUsesSlint)) {
+        startClient(client, context);
+    } else {
+        // Watch opens and edits, so typing `slint!` into an already-open Rust file starts it too.
+        const check = (document: vscode.TextDocument) => {
+            if (documentUsesSlint(document)) {
+                startNow();
+            }
+        };
+        watcher = vscode.Disposable.from(
+            vscode.workspace.onDidOpenTextDocument(check),
+            vscode.workspace.onDidChangeTextDocument((e) => check(e.document)),
+        );
+        context.subscriptions.push(watcher);
+    }
 
     context.subscriptions.push(
         vscode.commands.registerCommand("slint.showPreview", async function () {
@@ -211,7 +244,7 @@ export function activate(
         vscode.commands.registerCommand("slint.reload", async function () {
             statusBar.hide();
             await client.stop();
-            startClient(client, context);
+            startNow();
         }),
     );
 

@@ -3,7 +3,13 @@
 
 #pragma once
 #include "private/slint_keys_internal.h"
+#include "private/slint_sharedvector.h"
 #include "private/slint_string.h"
+
+#include <optional>
+#include <span>
+#include <string_view>
+#include <vector>
 
 namespace slint {
 
@@ -33,6 +39,59 @@ public:
     /// Move assignment operator
     slint::Keys &operator=(Keys &&) = default;
 
+    /// Create a `Keys` from a span of string parts, e.g. `{"Control", "Shift?", "Z"}`.
+    ///
+    /// Each element is either a modifier (`Control`, `Shift`, `Alt`, `Meta`, `Shift?`, `Alt?`)
+    /// or a key name from the Key namespace (case-sensitive). If not found, it is treated as
+    /// a string literal (must be a single lowercase grapheme cluster).
+    ///
+    /// Parts are taken verbatim — they are not trimmed — so whitespace is significant:
+    /// `" "`, `"\t"` and `"\n"` are literal spellings of the `Space`, `Tab` and `Return`
+    /// keys. A part must match a modifier or key exactly; `" Control "` is not the
+    /// `Control` modifier. Empty parts are skipped.
+    ///
+    /// Returns `std::nullopt` on parse failure.
+    static std::optional<Keys> from_parts(std::span<const std::string_view> parts)
+    {
+        std::vector<SharedString> converted;
+        converted.reserve(parts.size());
+        for (const auto &sv : parts) {
+            converted.emplace_back(sv);
+        }
+        Keys result;
+        SharedString empty;
+        cbindgen_private::Slice<SharedString> slice { converted.empty() ? &empty : converted.data(),
+                                                      converted.size() };
+        if (cbindgen_private::types::slint_keys_from_parts(slice, &result.data)) {
+            return result;
+        }
+        return std::nullopt;
+    }
+
+    /// \overload
+    static std::optional<Keys> from_parts(std::initializer_list<std::string_view> parts)
+    {
+        return from_parts(std::span<const std::string_view> { parts.begin(), parts.size() });
+    }
+
+    /// Decompose this `Keys` value into a list of string parts that `from_parts` accepts.
+    ///
+    /// A `Keys` value that is converted into parts and then re-created from those parts
+    /// with `from_parts` will be equal to the input `Keys` value. Note that while the
+    /// round-trip guarantees the resulting `Keys` are equal, the parts returned here can
+    /// be different from the parts used to construct the `Keys`.
+    ///
+    /// A part is not necessarily printable, so a text format storing parts has to quote
+    /// or escape them.
+    ///
+    /// An empty `Keys` returns an empty vector.
+    SharedVector<SharedString> to_parts() const
+    {
+        SharedVector<SharedString> out;
+        cbindgen_private::types::slint_keys_to_parts(&data, &out);
+        return out;
+    }
+
     /// Equality operator, returns true if the two `Keys` instances are equal, i.e. they match the
     /// same key events.
     friend bool operator==(const Keys &a, const Keys &b) { return a.data == b.data; }
@@ -59,7 +118,7 @@ public:
 
 private:
     // Use only one instance of the actual Rust struct as the inner data.
-    // This way this class has the same binary representation and can be used interchangibly
+    // This way this class has the same binary representation and can be used interchangeably
     cbindgen_private::types::Keys data;
 
     /// \private

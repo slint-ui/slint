@@ -1,0 +1,24 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: MIT
+
+[package]
+name = "slint-safeui-ffi-simulator"
+version = "1.18.0"
+edition = "2024"
+publish = false
+build = "build.rs"
+license = "MIT"
+
+[features]
+default = []
+pixel-bgra8888 = ["slint-safeui-ffi/pixel-bgra8888"]
+pixel-rgb565 = ["slint-safeui-ffi/pixel-rgb565"]
+pixel-rgb888 = ["slint-safeui-ffi/pixel-rgb888"]
+
+[dependencies]
+bytemuck = "1.24.0"
+critical-section = { version = "1.2.0", features = ["std"] }
+slint = { path = "../../../api/rs/slint" }
+slint-safeui-ffi = { path = "../ffi", default-features = false }
+i-slint-backend-selector = { path = "../../../internal/backends/selector", default-features = false }
+smol = "2.0.0"

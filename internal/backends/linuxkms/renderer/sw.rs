@@ -5,6 +5,7 @@
 
 use i_slint_core::api::PhysicalSize as PhysicalWindowSize;
 use i_slint_core::platform::PlatformError;
+use i_slint_core::renderer::DrawOutcome;
 pub use i_slint_renderer_software::SoftwareRenderer;
 use i_slint_renderer_software::{PremultipliedRgbaColor, RepaintBufferType, TargetPixel};
 use std::sync::Arc;
@@ -181,7 +182,7 @@ impl crate::fullscreenwindowadapter::FullscreenRenderer for SoftwareRendererAdap
         &self,
         rotation: RenderingRotation,
         _draw_mouse_cursor_callback: &dyn Fn(&mut dyn i_slint_core::item_rendering::ItemRenderer),
-    ) -> Result<(), PlatformError> {
+    ) -> Result<DrawOutcome, PlatformError> {
         self.display.map_back_buffer(&mut |pixels, age, format| {
             self.renderer.set_repaint_buffer_type(match age {
                 1 => RepaintBufferType::ReusedBuffer,
@@ -230,7 +231,7 @@ impl crate::fullscreenwindowadapter::FullscreenRenderer for SoftwareRendererAdap
             Ok(())
         })?;
         self.presenter.present()?;
-        Ok(())
+        Ok(DrawOutcome::Success)
     }
 
     fn size(&self) -> i_slint_core::api::PhysicalSize {

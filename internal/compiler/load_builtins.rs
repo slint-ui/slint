@@ -5,15 +5,16 @@
     Parse the contents of builtins.slint and fill the builtin type registry
 */
 
-use smol_str::{SmolStr, ToSmolStr};
+use smol_str::SmolStr;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
+use std::sync::Arc;
 
-use crate::expression_tree::Expression;
+use crate::expression_tree::{BuiltinFunction, Expression};
 use crate::langtype::{
-    BuiltinElement, BuiltinPrivateStruct, BuiltinPropertyDefault, BuiltinPropertyInfo,
-    DefaultSizeBinding, ElementType, Function, NativeClass, Type,
+    BuiltinElement, BuiltinPropertyDefault, BuiltinPropertyInfo, BuiltinStruct, DefaultSizeBinding,
+    ElementType, Function, NativeClass, Type,
 };
 use crate::object_tree::{self, *};
 use crate::parser::{SyntaxKind, SyntaxNode, identifier_text, syntax_nodes};
@@ -22,7 +23,10 @@ use crate::typeregister::TypeRegister;
 /// Parse the contents of builtins.slint and fill the builtin type registry
 /// `register` is the register to fill with the builtin types.
 /// At this point, it really should already contain the basic Types (string, int, ...)
-pub(crate) fn load_builtins(register: &mut TypeRegister) {
+pub(crate) fn load_builtins(
+    register: &mut TypeRegister,
+    symbol_counters: &Rc<crate::symbol_counters::SymbolCounters>,
+) {
     let mut diag = crate::diagnostics::BuildDiagnostics::default();
     let node = crate::parser::parse(include_str!("builtins.slint").into(), None, &mut diag);
     if !diag.is_empty() {
@@ -33,6 +37,33 @@ pub(crate) fn load_builtins(register: &mut TypeRegister) {
     }
 
     assert_eq!(node.kind(), crate::parser::SyntaxKind::Document);
+
+    // A mistyped annotation key would otherwise be silently ignored.
+    const ANNOTATION_KEYS: [&str; 9] = [
+        "accepts_focus",
+        "builtin_struct",
+        "can_be_declared_without_children_slot",
+        "constexpr",
+        "default_size_binding",
+        "disallow_global_types_as_child_elements",
+        "fake",
+        "is_internal",
+        "is_non_item_type",
+    ];
+    if cfg!(debug_assertions) {
+        for token in node.node.descendants_with_tokens().filter_map(|t| t.into_token()) {
+            if token.kind() == SyntaxKind::Comment
+                && let Some(rest) = token.text().strip_prefix("//-")
+            {
+                let key = rest.trim_end().split(':').next().unwrap();
+                assert!(
+                    ANNOTATION_KEYS.contains(&key),
+                    "unknown annotation `//-{key}` in builtins.slint"
+                );
+            }
+        }
+    }
+
     let doc: syntax_nodes::Document = node.into();
 
     let mut natives = HashMap::<SmolStr, Rc<BuiltinElement>>::new();
@@ -93,36 +124,47 @@ pub(crate) fn load_builtins(register: &mut TypeRegister) {
                         }
                     }
 
+                    if member_annotation(&p, "constexpr") {
+                        info.property_visibility = PropertyVisibility::Constexpr;
+                    } else if member_annotation(&p, "fake") {
+                        info.property_visibility = PropertyVisibility::Fake;
+                    }
+
+                    info.set_docs(docs::doc_comment(&p));
+                    info.shadowable = p.ShadowableAttribute().is_some();
+
                     if let Some(e) = p.BindingExpression() {
+                        assert!(!info.shadowable, "shadowable property {id}::{prop_name} can't have a default value as it would end up on the shadowing declaration");
                         let ty = info.ty.clone();
-                        info.default_value = BuiltinPropertyDefault::Expr(compiled(e, register, ty));
+                        info.default_value =
+                            BuiltinPropertyDefault::Expr(compiled(e, register, ty, symbol_counters));
                     }
 
                     (prop_name, info)
                 })
                 .chain(e.CallbackDeclaration().map(|s| {
-                    (
-                        identifier_text(&s.DeclaredIdentifier()).unwrap(),
-                        BuiltinPropertyInfo::new(Type::Callback(Rc::new(Function{
-                            args: s
-                                .CallbackDeclarationParameter()
-                                .map(|a| {
-                                    object_tree::type_from_node(a.Type(), *diag.borrow_mut(), register)
-                                })
-                                .collect(),
-                            return_type: s.ReturnType().map(|a| {
-                                object_tree::type_from_node(
-                                    a.Type(),
-                                    *diag.borrow_mut(),
-                                    register,
-                                )
-                            }).unwrap_or(Type::Void),
-                            arg_names: s
-                                .CallbackDeclarationParameter()
-                                .map(|a| a.DeclaredIdentifier().and_then(|x| identifier_text(&x)).unwrap_or_default())
-                                .collect()
-                        }))),
-                    )
+                    let mut info = BuiltinPropertyInfo::new(Type::Callback(Arc::new(Function{
+                        args: s
+                            .CallbackDeclarationParameter()
+                            .map(|a| {
+                                object_tree::type_from_node(a.Type(), *diag.borrow_mut(), register)
+                            })
+                            .collect(),
+                        return_type: s.ReturnType().map(|a| {
+                            object_tree::type_from_node(
+                                a.Type(),
+                                *diag.borrow_mut(),
+                                register,
+                            )
+                        }).unwrap_or(Type::Void),
+                        arg_names: s
+                            .CallbackDeclarationParameter()
+                            .map(|a| a.DeclaredIdentifier().and_then(|x| identifier_text(&x)).unwrap_or_default())
+                            .collect()
+                    })));
+                    info.set_docs(docs::doc_comment(&s));
+                    info.shadowable = s.ShadowableAttribute().is_some();
+                    (identifier_text(&s.DeclaredIdentifier()).unwrap(), info)
                 }))
         );
         n.deprecated_aliases = e
@@ -130,18 +172,28 @@ pub(crate) fn load_builtins(register: &mut TypeRegister) {
             .flat_map(|p| {
                 if let Some(twb) = p.TwoWayBinding() {
                     let alias_name = identifier_text(&p.DeclaredIdentifier()).unwrap();
+                    debug_assert!(
+                        p.PropertyDeprecation()
+                            .is_some_and(|d| d.child_token(SyntaxKind::StringLiteral).is_none()),
+                        "the alias {id}::{alias_name} must be marked `@deprecated` without a message"
+                    );
                     let alias_target = identifier_text(&twb.Expression().QualifiedName().expect(
                         "internal error: built-in aliases can only be declared within the type",
                     ))
                     .unwrap();
                     Some((alias_name, alias_target))
                 } else {
+                    debug_assert!(
+                        p.PropertyDeprecation().is_none(),
+                        "`@deprecated` on {id}::{} is only for two-way-binding aliases",
+                        identifier_text(&p.DeclaredIdentifier()).unwrap()
+                    );
                     None
                 }
             })
             .collect();
         n.builtin_struct = parse_annotation("builtin_struct", &e)
-            .map(|x| x.unwrap().parse::<BuiltinPrivateStruct>().unwrap());
+            .map(|x| x.unwrap().parse::<BuiltinStruct>().unwrap());
         enum Base {
             None,
             Global,
@@ -173,15 +225,40 @@ pub(crate) fn load_builtins(register: &mut TypeRegister) {
                 args.push(object_tree::type_from_node(a.Type(), *diag.borrow_mut(), register));
                 arg_names.push(identifier_text(&a.DeclaredIdentifier()).unwrap_or_default());
             }
-            (
-                name,
-                BuiltinPropertyInfo::new(Type::Function(
+            let mut info = match builtin_function_body(&f, &id, &name) {
+                Some(function) => {
+                    // The BuiltinFunction type prepends implicit ElementReference arguments.
+                    let ty = function.ty();
+                    let implicit = ty.args.len().saturating_sub(args.len());
+                    debug_assert!(
+                        ty.args.len() >= args.len()
+                            && ty.args[..implicit]
+                                .iter()
+                                .all(|t| matches!(t, Type::ElementReference))
+                            && ty.args[implicit..] == args[..]
+                            && ty.return_type == return_type,
+                        "the declared signature of {id}::{name} doesn't match {function:?}: {ty:?}"
+                    );
+                    let mut merged = (*ty).clone();
+                    merged.arg_names = std::iter::repeat_n(SmolStr::default(), implicit)
+                        .chain(arg_names)
+                        .collect();
+                    let mut info = BuiltinPropertyInfo::from(function);
+                    info.ty = Type::Function(Arc::new(merged));
+                    info
+                }
+                None => BuiltinPropertyInfo::new(Type::Function(
                     Function { return_type, args, arg_names }.into(),
                 )),
-            )
+            };
+            info.set_docs(docs::doc_comment(&f));
+            info.shadowable = f.ShadowableAttribute().is_some();
+            (name, info)
         }));
 
-        let mut builtin = BuiltinElement::new(Rc::new(n));
+        // NativeClass is not Send yet; the Arc is for the shared langtype graph.
+        #[allow(clippy::arc_with_non_send_sync)]
+        let mut builtin = BuiltinElement::new(Arc::new(n));
         builtin.is_global = matches!(base, Base::Global);
         let properties = &mut builtin.properties;
         if let Base::NativeParent(parent) = &base {
@@ -189,11 +266,27 @@ pub(crate) fn load_builtins(register: &mut TypeRegister) {
         }
         properties
             .extend(builtin.native_class.properties.iter().map(|(k, v)| (k.clone(), v.clone())));
+        let entries = docs::element_doc_entries(&c, &e, &mut diag.borrow_mut());
+        let parent_builtin = match &base {
+            Base::NativeParent(p) => Some(p.as_ref()),
+            _ => None,
+        };
+        // Assemble docs as [description, inherited parent body, own body].
+        // docs[0] is always the description so children can skip it
+        // with `parent.docs[1..]`.
+        builtin.docs = docs::assemble(entries, parent_builtin);
+
+        builtin.slint_sc = matches!(
+            builtin.docs.first(),
+            Some(crate::doc_comments::ElementDocEntry::Text(desc)) if has_sc_marker(desc)
+        ) || matches!(&base, Base::NativeParent(p) if p.slint_sc);
 
         builtin.disallow_global_types_as_child_elements =
             parse_annotation("disallow_global_types_as_child_elements", &e).is_some();
         builtin.is_non_item_type = parse_annotation("is_non_item_type", &e).is_some();
         builtin.is_internal = parse_annotation("is_internal", &e).is_some();
+        builtin.can_be_declared_without_children_slot =
+            parse_annotation("can_be_declared_without_children_slot", &e).is_some();
         builtin.accepts_focus = parse_annotation("accepts_focus", &e).is_some();
         builtin.default_size_binding = parse_annotation("default_size_binding", &e)
             .map(|size_type| match size_type.as_deref() {
@@ -254,12 +347,15 @@ fn compiled(
     node: syntax_nodes::BindingExpression,
     type_register: &TypeRegister,
     ty: Type,
+    symbol_counters: &Rc<crate::symbol_counters::SymbolCounters>,
 ) -> Expression {
     let mut diag = crate::diagnostics::BuildDiagnostics::default();
-    let mut ctx = crate::lookup::LookupCtx::empty_context(type_register, &mut diag);
+    let mut ctx =
+        crate::lookup::LookupCtx::empty_context(type_register, &mut diag, symbol_counters.clone());
     ctx.property_type = ty.clone();
+    ctx.expected_type = ty.clone();
     let e = Expression::from_binding_expression_node(node.clone().into(), &mut ctx)
-        .maybe_convert_to(ty, &node, &mut diag);
+        .maybe_convert_to(ty, &node, ctx.diag, &ctx.symbol_counters);
     if diag.has_errors() {
         let vec = diag.to_string_vec();
         #[cfg(feature = "display-diagnostics")]
@@ -267,6 +363,48 @@ fn compiled(
         panic!("Error parsing the builtin elements: {vec:?}");
     }
     e
+}
+
+/// Return true when the member declaration is preceded by a `//-key` comment.
+fn member_annotation(node: &SyntaxNode, key: &str) -> bool {
+    let mut cursor = node.node.prev_sibling_or_token();
+    while let Some(cur) = cursor {
+        match cur.kind() {
+            SyntaxKind::Whitespace => {}
+            SyntaxKind::Comment => {
+                if cur.as_token().unwrap().text().trim_end().strip_prefix("//-") == Some(key) {
+                    return true;
+                }
+            }
+            _ => return false,
+        }
+        cursor = cur.prev_sibling_or_token();
+    }
+    false
+}
+
+/// Return the [`BuiltinFunction`] named by a member function's body, like
+/// `function start() { BuiltinFunction.StartTimer }`. `None` for an empty body.
+fn builtin_function_body(
+    f: &syntax_nodes::Function,
+    id: &SmolStr,
+    name: &SmolStr,
+) -> Option<BuiltinFunction> {
+    let expr = f.CodeBlock()?.Expression().next()?;
+    let function = expr.QualifiedName().and_then(|qn| {
+        match QualifiedTypeName::from_node(qn).members.as_slice() {
+            [namespace, variant] if namespace == "BuiltinFunction" => {
+                variant.parse::<BuiltinFunction>().ok()
+            }
+            _ => None,
+        }
+    });
+    let Some(function) = function else {
+        panic!(
+            "the body of {id}::{name} must name the BuiltinFunction variant that implements it, like `BuiltinFunction.StartTimer`"
+        )
+    };
+    Some(function)
 }
 
 /// Find out if there are comments that starts with `//-key` and returns `None`
@@ -292,3 +430,18 @@ fn parse_annotation(key: &str, node: &SyntaxNode) -> Option<Option<SmolStr>> {
     }
     None
 }
+
+/// Check for standalone `\sc` marker in a doc string, ensuring it is not
+/// followed by an alphanumeric or underscore character (avoids matching
+/// `\score`, `\scale`, etc.).
+pub(crate) fn has_sc_marker(doc: &str) -> bool {
+    doc.match_indices("\\sc").any(|(start, _)| {
+        let end = start + 3;
+        match doc.as_bytes().get(end).copied() {
+            None => true,
+            Some(b) => !b.is_ascii_alphanumeric() && b != b'_',
+        }
+    })
+}
+
+use crate::doc_comments as docs;

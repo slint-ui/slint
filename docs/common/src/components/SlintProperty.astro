@@ -3,10 +3,13 @@
 // SPDX-License-Identifier: MIT
 import "@astrojs/starlight/style/markdown.css";
 import {
-    type KnownType,
-    type PropertyVisibility,
     getEnumContent,
     getStructContent,
+    isStdWidgetStruct,
+} from "../utils/generated-reference-markdown.ts";
+import {
+    type KnownType,
+    type PropertyVisibility,
     getTypeInfo,
 } from "../utils/utils.ts";
 
@@ -58,21 +61,32 @@ if (typeInfo.href !== "") {
     const base = import.meta.env.BASE_URL;
     typeInfo.href = `${base}${typeInfo.href}`;
 
-    // For enums and structs, we can assume they have a permalink to their header on the target page.
-    // (These permalinks are also always lower-case.)
+    // An enum, and a struct documented on the Built-in Structs page, has a
+    // permalink to its header there. (These permalinks are always lower-case.)
     if (typeName === "enum") {
         typeInfo.href += "#" + enumName.toLowerCase();
     } else if (typeName === "struct") {
-        typeInfo.href += "#" + structName.toLowerCase();
+        // A struct documented with its widgets has no section of its own to
+        // link to; its fields are inlined below the property instead.
+        typeInfo.href = isStdWidgetStruct(structName)
+            ? ""
+            : typeInfo.href + "#" + structName.toLowerCase();
     }
 }
 const enumContent = await getEnumContent(enumName);
 const structContent = await getStructContent(structName);
 
-const defaultValue_ = defaultValue ? defaultValue : typeInfo.defaultValue;
+const isOutput = propertyVisibility === "out";
+const defaultValue_ = defaultValue
+    ? defaultValue
+    : isOutput
+      ? ""
+      : typeInfo.defaultValue;
 
-if (!defaultValue_) {
+if (!defaultValue_ && !isOutput) {
     console.error("No defaultValue for:", propName);
+} else if (defaultValue && isOutput) {
+    console.error("defaultValue set on out property:", propName);
 }
 
 if ((enumName || structName) && !Astro.slots.has("default")) {
@@ -93,7 +107,7 @@ if ((enumName || structName) && !Astro.slots.has("default")) {
       </a>
     )}
     {propertyVisibility && <code>{`(${propertyVisibility})`}</code>}
-    <span class="default-value">default: <code class="plain-code" dir="auto">{defaultValue_}</code></span><br>
+    {defaultValue_ && <span class="default-value">default: <code class="plain-code" dir="auto">{defaultValue_}</code></span>}<br>
   </p>
    <slot/>
    {enumName && <Fragment set:html={enumContent}/>}

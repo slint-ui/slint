@@ -55,6 +55,11 @@ export component TestCase inherits Window {
         for person[idx] in model: Row {
             // First column: builtin Text item
             if (idx < 4): name_elem := Text {
+                // Regression test: a transform property on a conditional/repeated element inside a
+                // GridLayout wraps it in a Transform element whose new sub-component root must still
+                // carry the grid_layout_cell (see inject_element_as_repeated_element). 0deg keeps the
+                // layout identical, so the assertions below stay valid, while still exercising the wrap.
+                transform-rotation: 0deg;
                 text: person.name;
                 TouchArea {
                     clicked => {

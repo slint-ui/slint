@@ -1,26 +1,26 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-TestCase := Rectangle {
-    property<physical_length> l1: 12phx;
-    property<physical_length> l2: 12px;
-    property<physical_length> l3: 100phx + 12px;
-    property<physical_length> l4: 120 * 1phx;
+export component TestCase inherits Rectangle {
+    in-out property<physical_length> l1: 12phx;
+    in-out property<physical_length> l2: 12px;
+    in-out property<physical_length> l3: 100phx + 12px;
+    in-out property<physical_length> l4: 120 * 1phx;
 
-    property<length> ll1: 12phx;
-    property<length> ll2: 12px;
-    property<length> ll3: 100phx + 12px;
-    property<length> ll4: 120 * 1phx;
+    in-out property<length> ll1: 12phx;
+    in-out property<length> ll2: 12px;
+    in-out property<length> ll3: 100phx + 12px;
+    in-out property<length> ll4: 120 * 1phx;
 
-    property<bool> value: l1 == 10phx + 2phx;
+    in-out property<bool> value: l1 == 10phx + 2phx;
 
-    property<length> zero1: 0;
-    property<length> zero2: 0 + 1phx - 0 - 1phx;
-    property<bool> test_zero: zero2 == 0;
+    in-out property<length> zero1: 0;
+    in-out property<length> zero2: 0 + 1phx - 0 - 1phx;
+    in-out property<bool> test_zero: zero2 == 0;
 
-    property <float> ratio: 1px / 1phx;
+    in-out property <float> ratio: 1px / 1phx;
 
-    property<bool> test: (8phx * 5px * 3ms / 2phx)  == (8px * (3ms / 2phx) * 5px) / ratio
+    in-out property<bool> test: (8phx * 5px * 3ms / 2phx)  == (8px * (3ms / 2phx) * 5px) / ratio
         && l1*l2 - ll1*ll2 == 0cm*0phx && value;
 
 }

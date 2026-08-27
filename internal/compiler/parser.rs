@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore nodekind
 /*! The Slint Language Parser
 
 This module is responsible to parse a string onto a syntax tree.
@@ -69,6 +70,11 @@ macro_rules! verify_node {
         )*
     };
 
+    // At least one
+    (@check_has_children $node:ident, + $kind:ident) => {
+        let count = $node.children_with_tokens().filter(|n| n.kind() == SyntaxKind::$kind).count();
+        assert!(count >= 1, "Expecting one or more sub-node of type {}, found {}\n{:?}", stringify!($kind), count, $node);
+    };
     // Any number of this kind.
     (@check_has_children $node:ident, * $kind:ident) => {};
     // 1 or 0
@@ -87,11 +93,13 @@ macro_rules! verify_node {
         assert_eq!(count, $count, "Expecting {} sub-node of type {}, found {}\n{:?}", $count, stringify!($kind), count, $node);
     };
 
+    (@extract_kind + $kind:ident) => {SyntaxKind::$kind};
     (@extract_kind * $kind:ident) => {SyntaxKind::$kind};
     (@extract_kind ? $kind:ident) => {SyntaxKind::$kind};
     (@extract_kind $count:literal $kind:ident) => {SyntaxKind::$kind};
     (@extract_kind $kind:ident) => {SyntaxKind::$kind};
 
+    (@extract_type + $kind:ident) => {$crate::parser::syntax_nodes::$kind};
     (@extract_type * $kind:ident) => {$crate::parser::syntax_nodes::$kind};
     (@extract_type ? $kind:ident) => {$crate::parser::syntax_nodes::$kind};
     (@extract_type $count:literal $kind:ident) => {$crate::parser::syntax_nodes::$kind};
@@ -103,7 +111,14 @@ macro_rules! node_accessors {
     ([ $($t1:tt $($t2:ident)?),* ]) => {
         $(node_accessors!{@ $t1 $($t2)*} )*
     };
-
+    (@ + $kind:ident) => {
+        #[allow(non_snake_case)]
+        pub fn $kind(&self) -> impl Iterator<Item = $kind> + use<> {
+            let mut it = self.0.children().filter(|n| n.kind() == SyntaxKind::$kind).map(Into::into).peekable();
+            debug_assert!(it.peek().is_some(), stringify!(Expected at least one $kind));
+            it
+        }
+    };
     (@ * $kind:ident) => {
         #[allow(non_snake_case)]
         pub fn $kind(&self) -> impl Iterator<Item = $kind> + use<> {
@@ -291,6 +306,7 @@ declare_syntax! {
         ColorLiteral -> &crate::lexer::lex_color,
         Identifier -> &crate::lexer::lex_identifier,
         DoubleArrow -> "<=>",
+        DoubleLess -> "<<",
         PlusEqual -> "+=",
         MinusEqual -> "-=",
         StarEqual -> "*=",
@@ -333,26 +349,39 @@ declare_syntax! {
     {
         Document -> [ *Component, *ExportsList, *ImportSpecifier, *StructDeclaration, *EnumDeclaration ],
         /// `DeclaredIdentifier := Element { ... }`
-        Component -> [ DeclaredIdentifier, ?UsesSpecifier, ?ImplementsSpecifier, Element ],
+        Component -> [ DeclaredIdentifier, Element ],
         /// `id := Element { ... }`
         SubElement -> [ Element ],
         Element -> [ ?QualifiedName, *PropertyDeclaration, *Binding, *CallbackConnection,
-                     *CallbackDeclaration, *ConditionalElement, *Function, *SubElement,
+                     *CallbackDeclaration, *ConditionalElement, *MatchElement, *Function, *SubElement,
                      *RepeatedElement, *PropertyAnimation, *PropertyChangedCallback,
-                     *TwoWayBinding, *States, *Transitions, ?ChildrenPlaceholder ],
+                     *TwoWayBinding, *States, *Transitions, *ImplementStatement, ?ChildrenPlaceholder,
+                     *SlotDeclaration, *SlotAssignment, *SlotForwarding ],
         RepeatedElement -> [ ?DeclaredIdentifier, ?RepeatedIndex, Expression , SubElement],
         RepeatedIndex -> [],
         ConditionalElement -> [ Expression , SubElement],
-        CallbackDeclaration -> [ DeclaredIdentifier, *CallbackDeclarationParameter, ?ReturnType, ?TwoWayBinding ],
+        /// match (foo) { 1: Elem { } }
+        MatchElement -> [ Expression , *MatchCase, ?WildcardMatchCase ],
+        /// 1: Elem { }
+        MatchCase -> [ Expression, ?SubElement ],
+        /// *: Elem { }
+        WildcardMatchCase -> [ ?SubElement ],
+        CallbackDeclaration -> [ ?PropertyDeprecation, ?ShadowableAttribute, DeclaredIdentifier, *CallbackDeclarationParameter, ?ReturnType, ?TwoWayBinding ],
         // `foo: type` or just `type`
         CallbackDeclarationParameter -> [ ?DeclaredIdentifier, Type],
-        Function -> [DeclaredIdentifier, *ArgumentDeclaration, ?ReturnType, ?CodeBlock ],
+        Function -> [ ?PropertyDeprecation, ?ShadowableAttribute, DeclaredIdentifier, *ArgumentDeclaration, ?ReturnType, ?CodeBlock ],
         ArgumentDeclaration -> [DeclaredIdentifier, Type],
         /// `-> type`  (but without the ->)
         ReturnType -> [Type],
         CallbackConnection -> [ *DeclaredIdentifier, ?CodeBlock, ?Expression ],
         /// Declaration of a property.
-        PropertyDeclaration-> [ ?Type , DeclaredIdentifier, ?BindingExpression, ?TwoWayBinding ],
+        PropertyDeclaration-> [ ?PropertyDeprecation, ?ShadowableAttribute, ?Type , DeclaredIdentifier, ?BindingExpression, ?TwoWayBinding ],
+        /// `@deprecated` or `@deprecated("message")` prefixing a member declaration.
+        /// The optional message is a StringLiteral token child.
+        PropertyDeprecation -> [],
+        /// `@shadowable` prefixing a property, callback or function declaration: a component
+        /// inheriting from this one may declare a member of the same name, shadowing this one.
+        ShadowableAttribute -> [],
         /// QualifiedName are the properties name
         PropertyAnimation-> [ *QualifiedName, *Binding ],
         /// `changed xxx => {...}`  where `xxx` is the DeclaredIdentifier
@@ -362,9 +391,13 @@ declare_syntax! {
         /// Wraps single identifier (to disambiguate when there are other identifier in the production)
         DeclaredIdentifier -> [],
         ChildrenPlaceholder -> [],
+        SlotAssignment -> [ DeclaredIdentifier, SubElement ],
+        SlotForwarding -> [ DeclaredIdentifier, ?Expression ],
         Binding-> [ BindingExpression ],
         /// `xxx <=> something`
         TwoWayBinding -> [ Expression ],
+        /// `implement Interface <=> target;`
+        ImplementStatement -> [ QualifiedName, DeclaredIdentifier ],
         /// the right-hand-side of a binding
         // Fixme: the test should be a or
         BindingExpression-> [ ?CodeBlock, ?Expression ],
@@ -375,7 +408,7 @@ declare_syntax! {
         Expression-> [ ?Expression, ?FunctionCallExpression, ?IndexExpression, ?SelfAssignment,
                        ?ConditionalExpression, ?QualifiedName, ?BinaryExpression, ?Array, ?ObjectLiteral,
                        ?UnaryOpExpression, ?CodeBlock, ?StringTemplate, ?AtImageUrl, ?AtGradient, ?AtTr,
-                       ?MemberAccess, ?AtKeys ],
+                       ?MemberAccess, ?AtKeys, ?Closure ],
         /// Concatenate the children Expressions and StringLiteral to make a string
         StringTemplate -> [*Expression],
         /// `@image-url("foo.png")`
@@ -385,6 +418,8 @@ declare_syntax! {
         /// `@tr("foo", ...)`  // the string is a StringLiteral
         AtTr -> [?TrContext, ?TrPlural, *Expression],
         AtMarkdown -> [*Expression],
+        /// `slot header;`
+        SlotDeclaration -> [ DeclaredIdentifier ],
         /// `"foo" =>`  in a `AtTr` node
         TrContext -> [],
         /// `| "foo" % n`  in a `AtTr` node
@@ -441,8 +476,8 @@ declare_syntax! {
         Type -> [ ?QualifiedName, ?ObjectType, ?ArrayType ],
         /// `{foo: string, bar: string} `
         ObjectType ->[ *ObjectTypeMember ],
-        /// `foo: type` inside an ObjectType
-        ObjectTypeMember -> [ Type ],
+        /// `foo: type` or `foo: type = default-value` inside an ObjectType
+        ObjectTypeMember -> [ Type, ?Expression ],
         /// `[ type ]`
         ArrayType -> [ Type ],
         /// `struct Foo { ... }`
@@ -453,12 +488,8 @@ declare_syntax! {
         EnumValue -> [],
         /// `@rust-attr(...)`
         AtRustAttr -> [],
-        /// `uses { Foo from Bar, Baz from Qux }`
-        UsesSpecifier -> [ *UsesIdentifier ],
-        /// `Interface.Foo from bar`
-        UsesIdentifier -> [QualifiedName, DeclaredIdentifier],
-        /// `implements Interface.Foo`
-        ImplementsSpecifier -> [ QualifiedName ],
+        /// `(x) => x > 0`
+        Closure -> [DeclaredIdentifier, Expression],
     }
 }
 
@@ -708,7 +739,10 @@ impl Parser for DefaultParser<'_> {
     fn error(&mut self, e: impl Into<String>) {
         let current_token = self.current_token();
         #[allow(unused_mut)]
-        let mut span = crate::diagnostics::Span::new(current_token.offset, current_token.length);
+        let mut span = crate::diagnostics::Span::new(
+            current_token.offset,
+            if current_token.kind == SyntaxKind::DoubleLess { 1 } else { current_token.length },
+        );
         #[cfg(feature = "proc_macro_span")]
         {
             span.span = current_token.span;
@@ -727,7 +761,10 @@ impl Parser for DefaultParser<'_> {
     fn warning(&mut self, e: impl Into<String>) {
         let current_token = self.current_token();
         #[allow(unused_mut)]
-        let mut span = crate::diagnostics::Span::new(current_token.offset, current_token.length);
+        let mut span = crate::diagnostics::Span::new(
+            current_token.offset,
+            if current_token.kind == SyntaxKind::DoubleLess { 1 } else { current_token.length },
+        );
         #[cfg(feature = "proc_macro_span")]
         {
             span.span = current_token.span;
@@ -1032,6 +1069,10 @@ pub fn identifier_text(node: &SyntaxNode) -> Option<SmolStr> {
 }
 
 pub fn normalize_identifier(ident: &str) -> SmolStr {
+    if is_identifier_normalized(ident) {
+        // one bulk copy instead of the char-by-char builder below
+        return SmolStr::new(ident);
+    }
     let mut builder = smol_str::SmolStrBuilder::default();
     for (pos, c) in ident.chars().enumerate() {
         match (pos, c) {
@@ -1041,6 +1082,14 @@ pub fn normalize_identifier(ident: &str) -> SmolStr {
         }
     }
     builder.finish()
+}
+
+/// Returns true if [`normalize_identifier`] would return `ident` unchanged.
+/// Lets callers skip the copy (and heap allocation for long identifiers).
+pub fn is_identifier_normalized(ident: &str) -> bool {
+    // '-' and '_' are ASCII, so a byte scan is UTF-8-safe
+    let b = ident.as_bytes();
+    b.first() != Some(&b'-') && !b[1.min(b.len())..].contains(&b'_')
 }
 
 #[test]
@@ -1057,6 +1106,19 @@ fn test_normalize_identifier() {
     assert_eq!(normalize_identifier("--1--"), SmolStr::new("_-1--"));
 }
 
+#[test]
+fn test_is_identifier_normalized() {
+    for ident in
+        ["true", "foo-bar", "foo_bar", "-foo", "_foo", "foo-bar-", "", "-", "_", "ä_ö", "ä-ö"]
+    {
+        assert_eq!(
+            is_identifier_normalized(ident),
+            normalize_identifier(ident) == ident,
+            "{ident:?}"
+        );
+    }
+}
+
 // Actual parser
 pub fn parse(
     source: String,
@@ -1064,7 +1126,7 @@ pub fn parse(
     build_diagnostics: &mut BuildDiagnostics,
 ) -> SyntaxNode {
     let mut p = DefaultParser::new(&source, build_diagnostics);
-    p.source_file = std::rc::Rc::new(crate::diagnostics::SourceFileInner::new(
+    p.source_file = std::sync::Arc::new(crate::diagnostics::SourceFileInner::new(
         path.map(crate::pathutils::clean_path).unwrap_or_default(),
         source,
     ));

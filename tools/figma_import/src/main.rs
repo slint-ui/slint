@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore figmatypes
 #![allow(non_snake_case)]
 #![allow(non_camel_case_types)]
 #![allow(clippy::upper_case_acronyms)]
@@ -103,6 +104,12 @@ async fn load_from_network(opt: &Opt) -> Result<figmatypes::File, Box<dyn std::e
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // reqwest's rustls is compiled without any crypto provider (see Cargo.toml);
+    // register ring as the process-wide provider before the first Client is built.
+    rustls::crypto::ring::default_provider()
+        .install_default()
+        .expect("failed to install the rustls crypto provider");
+
     let opt = Opt::parse();
 
     let r = if !opt.read_from_cache {

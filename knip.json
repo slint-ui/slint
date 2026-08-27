@@ -3,7 +3,8 @@
   "ignoreExportsUsedInFile": { "interface": true, "type": true },
   "workspaces": {
     ".": {
-      "ignoreBinaries": ["spellcheck", "github-actions-ctrf", "local-package", "test_grammar", "build", "check", "biome"],
+      "ignoreBinaries": ["local-package", "test_grammar", "build", "check", "biome"],
+      "ignoreDependencies": ["@cspell/dict-fr-fr", "cookie"],
       "ignoreFiles": ["editors/tree-sitter-slint/grammar.js"]
     },
     "api/node": {
@@ -34,7 +35,7 @@
       "vite": false,
       "entry": ["src/main.tsx", "src/index-react.tsx", "backend/code.ts", "vite.config.ts", "figma.config.ts"],
       "project": ["src/**/*.{ts,tsx}", "backend/**/*.ts", "tests/**/*.ts"],
-      "ignoreBinaries": ["biome", "cspell"],
+      "ignoreBinaries": ["biome"],
       "ignoreUnresolved": ["plugin-typings"],
       "ignoreDependencies": ["@figma/plugin-typings", "@types/jszip", "@shikijs/types"]
     },
@@ -62,20 +63,29 @@
       ]
     },
     "demos/printerdemo/node": { "ignoreBinaries": ["compile"] },
+    "demos/energy-monitor": { "ignoreBinaries": ["compile"] },
     "demos/home-automation/node": { "ignoreBinaries": ["compile"] },
+    "demos/weather-demo": { "ignoreBinaries": ["compile"] },
     "examples/imagefilter/node": { "ignoreBinaries": ["compile"] },
     "examples/carousel/node": { "ignoreBinaries": ["compile"] },
     "examples/todo/node": { "ignoreBinaries": ["compile"] },
+    "examples/dnd-kanban": { "ignoreBinaries": ["compile"] },
+    "examples/maps": { "ignoreBinaries": ["compile"] },
     "examples/memory": { "ignoreBinaries": ["compile"] },
-    "examples/system_tray": { "ignoreBinaries": ["compile"] },
+    "examples/slide_puzzle": { "ignoreBinaries": ["compile"] },
+    "examples/system-tray": { "ignoreBinaries": ["compile"] },
+    "examples/virtual_keyboard/node": { "ignoreBinaries": ["compile"] },
     "docs/common": {
       "ignoreFiles": [
         "src/styles/starlight-slint-custom.css",
         "src/styles/starlight-slint-theme.css",
+        "src/styles/sls-ids.css",
         "src/components/Banner.astro",
         "src/components/Footer.astro",
         "src/components/Header.astro",
+        "src/components/HeaderCppDocs.astro",
         "src/components/HeaderNodeDocs.astro",
+        "src/components/HeaderPythonDocs.astro",
         "src/components/HeaderSlintDocs.astro",
         "src/components/HeaderVersioned.astro",
         "src/components/ThemeSelect.astro",
@@ -84,6 +94,16 @@
         "src/components/VersionBanner.astro"
       ],
       "ignoreDependencies": ["playwright-ctrf-json-reporter"]
+    },
+    "docs/python": {
+      "ignoreBinaries": ["uv"],
+      "ignoreFiles": ["src/components/Signature.astro"]
+    },
+    "docs/cpp": {
+      "ignoreBinaries": ["doxygen"],
+      "ignoreFiles": [
+        "src/styles/api-signature.css"
+      ]
     }
   },
   "ignoreIssues": {
@@ -107,6 +127,7 @@
     "ui-libraries/material/docs/src/utils/images-optimization.ts": ["exports", "types"],
     "ui-libraries/material/docs/vendor/integration/utils/configBuilder.ts": ["types"],
     "docs/common/src/utils/site-config.ts": ["exports"],
-    "docs/common/src/utils/utils.ts": ["exports", "types"]
+    "docs/common/src/utils/utils.ts": ["exports", "types"],
+    "docs/common/src/utils/generated-reference-markdown.ts": ["exports"]
   }
 }

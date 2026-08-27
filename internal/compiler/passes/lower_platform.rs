@@ -26,6 +26,14 @@ pub fn lower_platform(component: &Rc<Component>, type_loader: &mut crate::typelo
                                 .unwrap_or(&type_loader.resolved_style)
                         });
                     *e = Expression::StringLiteral(style.into());
+                } else if nr.name() == "decimal-separator" {
+                    *e = Expression::FunctionCall {
+                        function: BuiltinFunction::DecimalSeparator.into(),
+                        arguments: Vec::new(),
+                        source_location: None,
+                    }
+                } else if nr.name() == "uses-mock-data" {
+                    *e = Expression::BoolLiteral(type_loader.compiler_config.is_preview);
                 }
             }
             Expression::FunctionCall { function, .. }
@@ -33,6 +41,12 @@ pub fn lower_platform(component: &Rc<Component>, type_loader: &mut crate::typelo
                     if is_platform(nr) && nr.name() == "open-url") =>
             {
                 *function = BuiltinFunction::OpenUrl.into();
+            }
+            Expression::FunctionCall { function, .. }
+                if matches!(&*function, Callable::Function(nr)
+                    if is_platform(nr) && nr.name() == "macos-bring-all-windows-to-front") =>
+            {
+                *function = BuiltinFunction::MacosBringAllWindowsToFront.into();
             }
             _ => {}
         })

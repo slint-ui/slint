@@ -7,6 +7,7 @@ use core::num::NonZeroU32;
 use core::ops::DerefMut;
 use i_slint_core::graphics::Rgb8Pixel;
 use i_slint_core::platform::PlatformError;
+use i_slint_core::renderer::DrawOutcome;
 pub use i_slint_renderer_software::SoftwareRenderer;
 use i_slint_renderer_software::{PremultipliedRgbaColor, RepaintBufferType, TargetPixel};
 use std::cell::RefCell;
@@ -82,19 +83,19 @@ impl WinitSoftwareRenderer {
 }
 
 impl super::WinitCompatibleRenderer for WinitSoftwareRenderer {
-    fn render(&self, window: &i_slint_core::api::Window) -> Result<(), PlatformError> {
+    fn render(&self, window: &i_slint_core::api::Window) -> Result<DrawOutcome, PlatformError> {
         let size = window.size();
 
         let Some((width, height)) = size.width.try_into().ok().zip(size.height.try_into().ok())
         else {
             // Nothing to render
-            return Ok(());
+            return Ok(DrawOutcome::Success);
         };
 
         let mut borrowed_surface = self.surface.borrow_mut();
         let Some(surface) = borrowed_surface.as_mut() else {
             // Nothing to render
-            return Ok(());
+            return Ok(DrawOutcome::Success);
         };
 
         let winit_window = surface.window().clone();
@@ -148,21 +149,24 @@ impl super::WinitCompatibleRenderer for WinitSoftwareRenderer {
             })
         };
 
-        let size = region.bounding_box_size();
-        if let Some((w, h)) = Option::zip(NonZeroU32::new(size.width), NonZeroU32::new(size.height))
-        {
-            winit_window.pre_present_notify();
-            let pos = region.bounding_box_origin();
-            target_buffer
-                .present_with_damage(&[softbuffer::Rect {
-                    width: w,
-                    height: h,
+        let damage = region
+            .iter()
+            .filter_map(|(pos, size)| {
+                Some(softbuffer::Rect {
                     x: pos.x as u32,
                     y: pos.y as u32,
-                }])
+                    width: NonZeroU32::new(size.width)?,
+                    height: NonZeroU32::new(size.height)?,
+                })
+            })
+            .collect::<Vec<_>>();
+        if !damage.is_empty() {
+            winit_window.pre_present_notify();
+            target_buffer
+                .present_with_damage(&damage)
                 .map_err(|e| format!("Error presenting softbuffer buffer: {e}"))?;
         }
-        Ok(())
+        Ok(DrawOutcome::Success)
     }
 
     fn as_core_renderer(&self) -> &dyn i_slint_core::renderer::Renderer {
@@ -179,6 +183,7 @@ impl super::WinitCompatibleRenderer for WinitSoftwareRenderer {
         &self,
         active_event_loop: &ActiveEventLoop,
         window_attributes: winit::window::WindowAttributes,
+        _window_adapter_weak: std::rc::Weak<crate::winitwindowadapter::WinitWindowAdapter>,
     ) -> Result<Arc<winit::window::Window>, PlatformError> {
         let winit_window =
             active_event_loop.create_window(window_attributes).map_err(|winit_os_error| {

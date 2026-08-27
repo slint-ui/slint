@@ -4,6 +4,7 @@
 mod apply_default_properties_from_style;
 mod binding_analysis;
 mod border_radius;
+mod check_drag_area;
 mod check_expressions;
 mod check_public_api;
 mod clip;
@@ -14,11 +15,11 @@ mod collect_libraries;
 mod collect_structs_and_enums;
 mod collect_subcomponents;
 mod compile_paths;
-mod const_propagation;
+pub(crate) mod const_propagation;
 mod deduplicate_property_read;
 mod default_geometry;
 mod deprecated_rotation_origin;
-#[cfg(feature = "software-renderer")]
+#[cfg(feature = "renderer-software")]
 mod embed_glyphs;
 mod embed_images;
 mod flickable;
@@ -26,51 +27,45 @@ mod focus_handling;
 pub mod generate_item_indices;
 pub mod infer_aliases_types;
 mod inject_debug_hooks;
+pub use inject_debug_hooks::property_id;
 mod inlining;
 mod key_bindings;
 mod lower_absolute_coordinates;
 mod lower_accessibility;
 mod lower_component_container;
-mod lower_layout;
+pub(crate) mod lower_layout;
 mod lower_menus;
 mod lower_platform;
 mod lower_popups;
 mod lower_property_to_element;
+mod lower_radiogroup;
 mod lower_repeated_rows;
 mod lower_shadows;
 mod lower_states;
 mod lower_tabwidget;
 mod lower_text_input_interface;
 mod lower_timers;
+mod lower_tooltips;
 pub mod materialize_fake_properties;
 pub mod move_declarations;
 mod optimize_useless_rectangles;
 mod purity_check;
 mod remove_aliases;
+mod remove_constant_conditions;
 mod remove_return;
 mod remove_unused_properties;
 mod repeater_component;
 pub mod resolve_native_classes;
 pub mod resolving;
+mod unique_declared_type_names;
 mod unique_id;
 mod visible;
 mod windows;
 mod z_order;
 
-use crate::expression_tree::Expression;
 use smol_str::SmolStr;
 
 pub use binding_analysis::GlobalAnalysis;
-
-pub fn ignore_debug_hooks(expr: &Expression) -> &Expression {
-    let mut expr = expr;
-    loop {
-        match expr {
-            Expression::DebugHook { expression, .. } => expr = expression.as_ref(),
-            _ => return expr,
-        }
-    }
-}
 
 pub async fn run_passes(
     doc: &mut crate::object_tree::Document,
@@ -101,6 +96,8 @@ pub async fn run_passes(
     };
 
     let global_type_registry = type_loader.global_type_registry.clone();
+    // The shared symbol-name counters, handed to the passes that generate names.
+    let symbol_counters = type_loader.symbol_counters.clone();
 
     run_import_passes(doc, type_loader, diag);
     check_public_api::check_public_api(doc, &type_loader.compiler_config, diag);
@@ -108,9 +105,26 @@ pub async fn run_passes(
     let raw_type_loader =
         keep_raw.then(|| crate::typeloader::snapshot_with_extra_doc(type_loader, doc).unwrap());
 
+    let mut forwarded_references =
+        crate::object_tree::forward_inherited_expression::ForwardedReferenceCache::default();
+
+    // Inject debug hooks early — before any lowering or inlining — so source element identity
+    // is preserved and hooks can be attributed to the correct source location.
+    if let Some(random_state) = &type_loader.compiler_config.debug_hooks {
+        let root_components = doc.exported_roots().collect::<Vec<_>>();
+        inject_debug_hooks::inject_debug_hooks(
+            &root_components,
+            random_state,
+            &symbol_counters,
+            &mut forwarded_references,
+        );
+    }
+
     collect_libraries::collect_libraries(doc);
     collect_subcomponents::collect_subcomponents(doc);
+    lower_tooltips::lower_tooltips(doc, type_loader, diag).await;
     lower_tabwidget::lower_tabwidget(doc, type_loader, diag).await;
+    lower_radiogroup::lower_radiogroup(doc, type_loader, diag).await;
     lower_menus::lower_menus(doc, type_loader, diag).await;
     lower_component_container::lower_component_container(doc, type_loader, diag);
     collect_subcomponents::collect_subcomponents(doc);
@@ -122,14 +136,9 @@ pub async fn run_passes(
             &palette,
             diag,
         );
-        lower_states::lower_states(component, diag);
+        lower_states::lower_states(component, &symbol_counters, &mut forwarded_references, diag);
         lower_text_input_interface::lower_text_input_interface(component);
-        compile_paths::compile_paths(
-            component,
-            &doc.local_registry,
-            type_loader.compiler_config.embed_resources,
-            diag,
-        );
+        compile_paths::compile_paths(component, &doc.local_registry, diag);
         repeater_component::process_repeater_components(component);
         lower_popups::lower_popups(component, &doc.local_registry, diag);
         collect_init_code::collect_init_code(component);
@@ -141,6 +150,13 @@ pub async fn run_passes(
 
     for root_component in doc.exported_roots() {
         focus_handling::call_focus_on_init(&root_component);
+        // Before ensure_window, which gives a non-Window root a synthetic
+        // background from the style, and after inlining, which is what brings
+        // a background inherited from a base component onto the root
+        #[cfg(feature = "slint-sc")]
+        if diag.slint_sc {
+            windows::check_sc_window_background(&root_component, diag);
+        }
         windows::ensure_window(&root_component, &doc.local_registry, &style_metrics, diag);
     }
     if let Some(popup_menu_impl) = &doc.popup_menu_impl {
@@ -149,12 +165,16 @@ pub async fn run_passes(
 
     doc.visit_all_used_components(|component| {
         border_radius::handle_border_radius(component, diag);
+        check_drag_area::check_drag_area(component, diag);
         deprecated_rotation_origin::handle_rotation_origin(component, diag);
         flickable::handle_flickable(component, &global_type_registry.borrow());
         lower_layout::lower_layouts(component, type_loader, &style_metrics, diag);
-        default_geometry::default_geometry(component, diag);
+        default_geometry::default_geometry(component, diag, &symbol_counters);
+        lower_layout::optimize_single_cell_layouts(component);
+        lower_layout::synthesize_layoutinfo_v_with_constraint(component);
+        lower_layout::synthesize_layoutinfo_h_with_constraint(component);
         lower_absolute_coordinates::lower_absolute_coordinates(component);
-        z_order::reorder_by_z_order(component, diag);
+        z_order::reorder_by_z_order(component);
         lower_property_to_element::lower_property_to_element(
             component,
             core::iter::once("opacity"),
@@ -186,11 +206,14 @@ pub async fn run_passes(
         }
         lower_repeated_rows::lower_repeated_rows(component, &global_type_registry.borrow());
         materialize_fake_properties::materialize_fake_properties(component);
+        lower_layout::check_popup_layout(component);
     });
     for root_component in doc.exported_roots() {
         lower_layout::check_window_layout(&root_component);
     }
     collect_globals::collect_globals(doc, diag);
+    // Must be done before passes that rely on `NamedReference::is_constant`.
+    collect_globals::mark_library_globals(doc);
 
     if type_loader.compiler_config.inline_all_elements {
         inlining::inline(doc, inlining::InlineSelection::InlineAllComponents, diag);
@@ -199,7 +222,6 @@ pub async fn run_passes(
 
     let global_analysis =
         binding_analysis::binding_analysis(doc, &type_loader.compiler_config, diag);
-    collect_globals::mark_library_globals(doc);
     unique_id::assign_unique_id(doc);
 
     doc.visit_all_used_components(|component| {
@@ -210,19 +232,24 @@ pub async fn run_passes(
         // item tree ends up with a hierarchy where certain items have children that aren't child elements
         // but siblings or sibling children. We need a new data structure to perform a correct element tree
         // traversal.
-        if !type_loader.compiler_config.debug_info {
+        // Also keep the rectangles when debug hooks are enabled: their (synthetic) hooks are
+        // what makes the elements live-editable, and removing the element would drop them.
+        if !type_loader.compiler_config.debug_info
+            && type_loader.compiler_config.debug_hooks.is_none()
+        {
             optimize_useless_rectangles::optimize_useless_rectangles(component);
         }
         move_declarations::move_declarations(component);
     });
 
     remove_aliases::remove_aliases(doc, diag);
-    remove_return::remove_return(doc);
+    remove_return::remove_return(doc, &symbol_counters);
 
     doc.visit_all_used_components(|component| {
         if !diag.has_errors() {
             // binding loop causes panics in const_propagation
             const_propagation::const_propagation(component, &global_analysis);
+            remove_constant_conditions::remove_constant_conditions(component);
         }
         deduplicate_property_read::deduplicate_property_read(component);
         if !component.is_global() && !component.is_interface() {
@@ -231,8 +258,21 @@ pub async fn run_passes(
     });
 
     remove_unused_properties::remove_unused_properties(doc);
+
+    // With debug hooks enabled, every synthetic hook must by now either have been upgraded
+    // (by a pass computing the property's value or by inlining merging the definition's
+    // default) or sit on a property that exists at runtime. An orphan would abort the
+    // interpreter at instantiation ("unknown property ..."); catch it here with a source
+    // location instead.
+    if type_loader.compiler_config.debug_hooks.is_some() && !diag.has_errors() {
+        doc.visit_all_used_components(|component| {
+            inject_debug_hooks::validate_no_orphan_synthetic_hooks(component);
+        });
+    }
+
     // collect globals once more: After optimizations we might have less globals
     collect_globals::collect_globals(doc, diag);
+    unique_declared_type_names::assign_unique_declared_type_names(doc);
     collect_structs_and_enums::collect_structs_and_enums(doc);
 
     doc.visit_all_used_components(|component| {
@@ -241,11 +281,27 @@ pub async fn run_passes(
         }
     });
 
+    // The fonts (system + imported) used to embed glyphs and rasterize SVG text are
+    // shared between `embed_images` and `embed_glyphs`, so the system is scanned once.
+    #[cfg(feature = "renderer-software")]
+    let font_collection = (type_loader.compiler_config.embed_resources
+        == crate::EmbedResourcesKind::EmbedTextures)
+        .then(|| {
+            let custom = embed_glyphs::read_custom_fonts(
+                std::iter::once(&*doc).chain(type_loader.all_documents()),
+                diag,
+            );
+            embed_glyphs::shared_font_collection(custom)
+        });
+    #[cfg(not(feature = "renderer-software"))]
+    let font_collection: Option<embed_images::SharedFontCollection> = None;
+
     embed_images::embed_images(
         doc,
         type_loader.compiler_config.embed_resources,
         type_loader.compiler_config.const_scale_factor.unwrap_or(1.),
         &type_loader.compiler_config.resource_url_mapper,
+        font_collection.as_ref(),
         diag,
     )
     .await;
@@ -269,7 +325,7 @@ pub async fn run_passes(
     }
 
     match type_loader.compiler_config.embed_resources {
-        #[cfg(feature = "software-renderer")]
+        #[cfg(feature = "renderer-software")]
         crate::EmbedResourcesKind::EmbedTextures => {
             let mut characters_seen = std::collections::HashSet::new();
 
@@ -297,7 +353,7 @@ pub async fn run_passes(
                 font_pixel_sizes,
                 font_weights,
                 characters_seen,
-                std::iter::once(&*doc).chain(type_loader.all_documents()),
+                font_collection.as_ref().expect("EmbedTextures builds the shared font collection"),
                 diag,
             );
         }
@@ -321,8 +377,7 @@ pub fn run_import_passes(
     type_loader: &crate::typeloader::TypeLoader,
     diag: &mut crate::diagnostics::BuildDiagnostics,
 ) {
-    inject_debug_hooks::inject_debug_hooks(doc, type_loader);
-    infer_aliases_types::resolve_aliases(doc, diag);
+    infer_aliases_types::resolve_aliases(doc, diag, &type_loader.symbol_counters);
     resolving::resolve_expressions(doc, type_loader, diag);
     purity_check::purity_check(doc, diag);
     focus_handling::replace_forward_focus_bindings_with_focus_functions(doc, diag);

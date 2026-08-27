@@ -1,0 +1,29 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// "Plaster" (reused from the slide-puzzle example) is on neither the system nor
+// SLINT_FONT_PATH, so SVG text can only resolve it through the imported font.
+import "../../../../examples/slide_puzzle/plaster-font/Plaster-Regular.ttf";
+
+// Regression test:
+// - #12169: SVG <text> was invisible since 1.14 because usvg's font database was
+//   left empty; the glyphs must be rasterized, not blank.
+// - #8927: SVG <text> must use app-imported fonts (Plaster), not only system fonts.
+// - #9475: the skia case decodes the SVG in the interpreter, so the imported font must be
+//   registered before the image is decoded for "AB" to use Plaster rather than a fallback.
+// - An unknown font-family must fall back to a generic font instead of dropping the text:
+//   usvg only consults the per-glyph fallback once a base font resolved, so the last
+//   "Ag" must render like the first one, not stay blank.
+
+// SIZE=64x96
+export component TestCase inherits Window {
+    width: 64px;
+    height: 96px;
+    background: white;
+
+    Image {
+        width: 64px;
+        height: 96px;
+        source: @image-url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='64' height='96'><text x='2' y='28' font-size='26' font-family='sans-serif' fill='black'>Ag</text><text x='2' y='60' font-size='26' font-family='Plaster' fill='black'>AB</text><text x='2' y='92' font-size='26' font-family='NoSuchFontFamily' fill='black'>Ag</text></svg>");
+    }
+}

@@ -11,7 +11,7 @@
 #    a pre-compiled binary package for the specified Slint release, extract it into `${CMAKE_BINARY_DIR}/slint-prebuilt`,
 #    and make it available. If version is unset, download the nightly release.
 #
-# The following variables may be set to affect the behaviour:
+# The following variables may be set to affect the behavior:
 #
 # `SLINT_TARGET_ARCHITECTURE`: Set this to the desired target architecture. The format of this string is matched against
 # the `Slint-cpp-*-$SLINT_TARGET_ARCHITECTURE.tar.gz` pre-built assets on the GitHub releases. For example, if you're targeting

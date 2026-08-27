@@ -1,0 +1,38 @@
+<?xml version='1.0' encoding='UTF-8' standalone='no'?>
+<!-- SPDX-FileCopyrightText: Copyright © SixtyFPS GmbH <info@slint.dev> -->
+<!-- SPDX-License-Identifier: MIT -->
+<!-- cSpell:ignore compounddef compoundname namespaceslint classslint refid kindref -->
+<!-- cSpell:ignore innerclass briefdescription detaileddescription computeroutput -->
+<!-- cSpell:ignore argsstring enumvalue memberdef sectiondef aeventloopmode arun -->
+<doxygen version="1.9.8">
+  <compounddef id="namespaceslint" kind="namespace" language="C++">
+    <compoundname>slint</compoundname>
+    <innerclass refid="classslint_1_1_Color" prot="public">slint::Color</innerclass>
+    <innerclass refid="classslint_1_1_SharedString" prot="public">slint::SharedString</innerclass>
+    <sectiondef kind="enum">
+      <memberdef kind="enum" id="namespaceslint_1aeventloopmode" prot="public" static="no" strong="yes">
+        <name>EventLoopMode</name>
+        <enumvalue id="elm1"><name>QuitOnLastWindowClosed</name><briefdescription><para>Quit when the last window closes.</para></briefdescription></enumvalue>
+        <enumvalue id="elm2"><name>RunUntilQuit</name><briefdescription><para>Keep running until quit.</para></briefdescription></enumvalue>
+        <briefdescription><para>Behavior of the event loop.</para></briefdescription>
+        <detaileddescription></detaileddescription>
+      </memberdef>
+    </sectiondef>
+    <sectiondef kind="func">
+      <memberdef kind="function" id="namespaceslint_1arun_event_loop" prot="public" static="no" const="no">
+        <type>void</type>
+        <definition>void slint::run_event_loop</definition>
+        <argsstring>()</argsstring>
+        <name>run_event_loop</name>
+        <briefdescription><para>Enters the main event loop.</para></briefdescription>
+        <detaileddescription></detaileddescription>
+      </memberdef>
+    </sectiondef>
+    <briefdescription>
+      <para>The Slint C++ API lives in the <computeroutput>slint</computeroutput> namespace.</para>
+    </briefdescription>
+    <detaileddescription>
+      <para>See <ref refid="classslint_1_1_Color" kindref="compound">Color</ref> for an example type.</para>
+    </detaileddescription>
+  </compounddef>
+</doxygen>

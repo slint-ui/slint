@@ -8,7 +8,7 @@ import Link from '@slint/common-files/src/components/Link.astro';
 import { Image } from 'astro:assets';
 
 :::note[Note]
-When developing Slint applications for Android or iOS, you can only use Rust as the programming language for now.
+Slint supports Rust and C++ for Android development. For iOS, only Rust is supported for now.
 :::
 
 While Slint is used in the same way for mobile and desktop applications, there are a few things that have to be kept in
@@ -97,7 +97,7 @@ is detected. This might also change at runtime, for example if the user attaches
 keyboard is visible (in this case, the operating system might hide the virtual keyboard by itself). In any case, if there
 is a non-floating virtual keyboard visible, Slint exposes this to the application.
 
-You can detect if the keyboard is shown by checking whether `virtual-keyboard-width * virtual-keyboard-height` is
+You can detect if the keyboard is shown by checking whether `virtual-keyboard-size.width * virtual-keyboard-size.height` is
 greater than 0.
 
 Some virtual keyboards are translucent, which means that the area below the keyboard can be visible to some extend. So,

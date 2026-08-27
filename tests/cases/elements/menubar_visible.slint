@@ -1,0 +1,75 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component TestCase inherits Window {
+    width: 400px;
+    height: 400px;
+    in-out property <string> result;
+    in-out property <bool> menubar-visible: true;
+
+    MenuBar {
+        visible: menubar-visible;
+        Menu {
+            title: "File";
+            MenuItem {
+                title: "New";
+                shortcut: @keys(Control + N);
+                activated => { result += self.title; }
+            }
+        }
+    }
+
+    Rectangle {
+        background: blue;
+        Text { text: "Content"; }
+    }
+
+    out property <length> main-height: root.height;
+}
+
+/*
+```rust
+use slint::platform::Key;
+let instance = TestCase::new().unwrap();
+let assert_shortcut = |keys: &[Key], expected: &str| {
+    slint_testing::send_key_combo(&instance, keys.iter().copied());
+    assert_eq!(instance.get_result(), expected);
+    instance.set_result("".into());
+};
+
+assert_shortcut(&[Key::Control, Key::N], "New");
+let height_with_menubar = instance.get_main_height();
+
+instance.set_menubar_visible(false);
+slint_testing::mock_elapsed_time(16);
+
+// Shortcut should still work
+assert_shortcut(&[Key::Control, Key::N], "New");
+
+// Content should have more space (root.height is redirected to content height)
+assert!(instance.get_main_height() > height_with_menubar);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+slint::SharedString ctrl(slint::platform::key_codes::Control);
+auto assert_shortcut = [&](const char *key, const char *expected) {
+    slint_testing::send_key_combo(&instance, { ctrl, key });
+    assert_eq(instance.get_result(), expected);
+    instance.set_result("");
+};
+
+assert_shortcut("N", "New");
+auto height_with_menubar = instance.get_main_height();
+
+instance.set_menubar_visible(false);
+slint_testing::mock_elapsed_time(16);
+
+// Shortcut should still work
+assert_shortcut("N", "New");
+
+// Content should have more space (root.height is redirected to content height)
+assert(instance.get_main_height() > height_with_menubar);
+```
+*/

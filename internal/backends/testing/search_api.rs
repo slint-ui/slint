@@ -21,6 +21,43 @@ const DRAG_STEP_DELAY_MS: u64 = 16;
 /// so that every intermediate position is reported to the element.
 const DRAG_STEP_SIZE: f32 = 5.0;
 
+/// Synthesizes a drag from `start` to `end` against `window`: an initial
+/// `PointerMoved`+`PointerPressed`, interpolated `PointerMoved`s sized below the 8 px drag
+/// threshold (with `mock_elapsed_time` between each), and a final `PointerReleased`.
+///
+/// Exposed at module scope so that callers that don't have an `ElementHandle` (e.g. tests
+/// that drive raw window coordinates) can drive the same gesture as
+/// [`ElementHandle::mock_drag`].
+pub(crate) fn mock_drag_window(
+    window: &i_slint_core::api::Window,
+    start: LogicalPosition,
+    end: LogicalPosition,
+    button: PointerEventButton,
+) {
+    window.dispatch_event(WindowEvent::PointerMoved { position: start });
+    window.dispatch_event(WindowEvent::PointerPressed { position: start, button });
+
+    let dx = end.x - start.x;
+    let dy = end.y - start.y;
+    let distance = (dx * dx + dy * dy).sqrt();
+
+    if distance > f32::EPSILON {
+        let steps = ((distance / DRAG_STEP_SIZE).ceil() as usize).max(2);
+
+        for i in 1..steps {
+            let t = i as f32 / steps as f32;
+            let pos = LogicalPosition::new(start.x + dx * t, start.y + dy * t);
+            crate::testing_backend::mock_elapsed_time(DRAG_STEP_DELAY_MS);
+            window.dispatch_event(WindowEvent::PointerMoved { position: pos });
+        }
+
+        crate::testing_backend::mock_elapsed_time(DRAG_STEP_DELAY_MS);
+        window.dispatch_event(WindowEvent::PointerMoved { position: end });
+    }
+
+    window.dispatch_event(WindowEvent::PointerReleased { position: end, button });
+}
+
 fn warn_missing_debug_info() {
     i_slint_core::debug_log!(
         "The use of the ElementHandle API requires the presence of debug info in Slint compiler generated code. Set the `SLINT_EMIT_DEBUG_INFO=1` environment variable at application build time or use `compile_with_config` and `with_debug_info` with `slint_build`'s `CompilerConfiguration`"
@@ -606,6 +643,18 @@ impl ElementHandle {
         }
     }
 
+    /// Selects the text between two UTF-8 offsets, by invoking the element's
+    /// `accessible-action-set-selection-offsets` callback. Note that you can only do this if that callback
+    /// is declared in your Slint code.
+    pub fn set_accessible_selection(&self, anchor: i32, focus: i32) {
+        if self.element_index != 0 {
+            return;
+        }
+        if let Some(item) = self.item.upgrade() {
+            item.accessible_action(&AccessibilityAction::SetSelectionOffsets(anchor, focus))
+        }
+    }
+
     /// Returns the value of the element's `accessible-value-maximum` property, if present.
     pub fn accessible_value_maximum(&self) -> Option<f32> {
         if self.element_index != 0 {
@@ -794,14 +843,14 @@ impl ElementHandle {
             .and_then(|s| s.parse().ok())
     }
 
-    /// Returns the value of the `accessible-live` property, if present.
-    pub fn accessible_live(&self) -> Option<crate::AccessibleLive> {
+    /// Returns the value of the `accessible-live-region` property, if present.
+    pub fn accessible_live_region(&self) -> Option<crate::AccessibleLiveness> {
         if self.element_index != 0 {
             return None;
         }
         self.item
             .upgrade()
-            .and_then(|item| item.accessible_string_property(AccessibleStringProperty::Live))
+            .and_then(|item| item.accessible_string_property(AccessibleStringProperty::LiveRegion))
             .and_then(|s| s.parse().ok())
     }
 
@@ -1019,37 +1068,24 @@ impl ElementHandle {
         let Some(window_adapter) = self.window_adapter() else {
             return;
         };
-        let window = window_adapter.window();
-        let start = self.absolute_center();
-
-        window.dispatch_event(WindowEvent::PointerMoved { position: start });
-        window.dispatch_event(WindowEvent::PointerPressed { position: start, button });
-
-        let dx = target.x - start.x;
-        let dy = target.y - start.y;
-        let distance = (dx * dx + dy * dy).sqrt();
-
-        if distance > f32::EPSILON {
-            let steps = ((distance / DRAG_STEP_SIZE).ceil() as usize).max(2);
-
-            for i in 1..steps {
-                let t = i as f32 / steps as f32;
-                let pos = LogicalPosition::new(start.x + dx * t, start.y + dy * t);
-                crate::testing_backend::mock_elapsed_time(DRAG_STEP_DELAY_MS);
-                window.dispatch_event(WindowEvent::PointerMoved { position: pos });
-            }
-
-            crate::testing_backend::mock_elapsed_time(DRAG_STEP_DELAY_MS);
-            window.dispatch_event(WindowEvent::PointerMoved { position: target });
-        }
-
-        window.dispatch_event(WindowEvent::PointerReleased { position: target, button });
+        mock_drag_window(window_adapter.window(), self.absolute_center(), target, button);
     }
 
+    /// The center of the element in the coordinate system that input events are dispatched in.
+    /// Unlike [`Self::absolute_position()`] this includes the location of an enclosing popup that's
+    /// rendered inside the window, such as a menu.
     fn absolute_center(&self) -> LogicalPosition {
-        let item_pos = self.absolute_position();
-        let item_size = self.size();
-        LogicalPosition::new(item_pos.x + item_size.width / 2., item_pos.y + item_size.height / 2.)
+        let Some(item) = self.item.upgrade() else {
+            return Default::default();
+        };
+        let geometry = item.geometry();
+        let position = i_slint_core::lengths::logical_position_to_api(
+            item.map_to_native_window(geometry.origin),
+        );
+        LogicalPosition::new(
+            position.x + geometry.width() / 2.,
+            position.y + geometry.height() / 2.,
+        )
     }
 
     pub fn scroll(&self, delta_x: f32, delta_y: f32) {

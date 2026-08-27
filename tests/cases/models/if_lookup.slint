@@ -3,23 +3,23 @@
 
 
 
-TestCase := Rectangle {
+export component TestCase inherits Rectangle {
     width: 100phx;
     height: 100phx;
     background: white;
-    property<int> top_level: 42;
+    in-out property<int> top_level: 42;
 
-    property<bool> cond1;
+    in-out property<bool> cond1;
 
     Rectangle {
         property <string> blah: "ddd";
         Rectangle {
             property <bool> cc <=> cond1;
             property <bool> blah: false;
-            if (cc || self.blah) : TouchArea {
+            if (self.cc || self.blah) : TouchArea {
                 property <int> cc: 0;
                 clicked => {
-                    root.top_level += 50;
+                    top_level += 50;
                 }
             }
         }

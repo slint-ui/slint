@@ -1,16 +1,16 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use crate::common::{self, Result};
+use crate::editor_preview::{self, Result};
 use crate::util;
 use i_slint_compiler::diagnostics::Spanned;
 use i_slint_compiler::expression_tree::{Expression, TwoWayBinding, Unit};
-use i_slint_compiler::langtype::{ElementType, Type};
+use i_slint_compiler::langtype::{ElementType, PropertyLookupMode, Type};
 use i_slint_compiler::object_tree::{Element, ElementRc, PropertyDeclaration, PropertyVisibility};
 use i_slint_compiler::parser::{
     SyntaxKind, SyntaxNode, SyntaxToken, TextRange, TextSize, syntax_nodes,
 };
-use i_slint_preview_protocol::SourceFileVersion;
+use i_slint_live_preview::protocol::SourceFileVersion;
 use lsp_types::Url;
 use smol_str::{SmolStr, ToSmolStr};
 
@@ -88,7 +88,7 @@ pub struct ElementInformation {
 
 #[derive(Clone, Debug)]
 pub struct QueryPropertyResponse {
-    pub element_rc_node: common::ElementRcNode,
+    pub element_rc_node: editor_preview::ElementRcNode,
     pub properties: Vec<PropertyInformation>,
     pub element: Option<ElementInformation>,
     pub source_uri: String,
@@ -99,7 +99,7 @@ const HIGH_PRIORITY: u32 = 100;
 const DEFAULT_PRIORITY: u32 = 1000;
 
 // This returns defined reserved properties such as x, y, width, height,
-// accessiblity properties or layout properties
+// accessibility properties or layout properties
 fn get_reserved_properties<'a>(
     group: &'a str,
     group_priority: u32,
@@ -143,10 +143,15 @@ fn add_element_properties(
     group: &str,
     group_priority: u32,
     is_local_element: bool,
+    shadowed: &HashSet<SmolStr>,
     result: &mut Vec<PropertyInformation>,
 ) {
     result.extend(element.property_declarations.iter().filter_map(move |(name, value)| {
         if !property_is_editable(value, is_local_element) {
+            return None;
+        }
+        let name = value.declared_name(name);
+        if shadowed.contains(name) {
             return None;
         }
 
@@ -283,14 +288,18 @@ fn find_code_block_or_expression(
 }
 
 fn find_property_binding_offset(
-    element: &common::ElementRcNode,
+    element: &editor_preview::ElementRcNode,
     property_name: &str,
 ) -> Option<u32> {
     let element_range = element.with_element_node(|node| node.text_range());
 
     let element = element.element.borrow();
 
-    if let Some(v) = element.bindings.get(property_name)
+    // A member that shadows an inherited one is stored under a mangled internal key.
+    let key = element
+        .lookup_property(property_name, PropertyLookupMode::ComponentLocal)
+        .internal_or_resolved_name();
+    if let Some(v) = element.binding_cell_including_synthetic(&key)
         && let Some(span) = &v.borrow().span
     {
         let offset = span.span().offset as u32;
@@ -314,7 +323,7 @@ pub enum LayoutKind {
 }
 
 fn insert_property_definitions(
-    element: &common::ElementRcNode,
+    element: &editor_preview::ElementRcNode,
     mut properties: Vec<PropertyInformation>,
 ) -> Vec<PropertyInformation> {
     fn binding_value(element: &ElementRc, prop: &str, count: &mut usize) -> Expression {
@@ -324,12 +333,17 @@ fn insert_property_definitions(
             return Expression::Invalid;
         }
 
-        if let Some(binding) = element.borrow().bindings.get(prop) {
-            let e = binding.borrow().expression.clone();
+        // A member that shadows an inherited one is stored under a mangled internal key.
+        let key = element
+            .borrow()
+            .lookup_property(prop, PropertyLookupMode::ComponentLocal)
+            .internal_or_resolved_name();
+        if let Some(binding) = element.borrow().binding(&key) {
+            let e = binding.expression.ignore_debug_hooks().clone();
             if !matches!(e, Expression::Invalid) {
                 return e;
             }
-            for twb in &binding.borrow().two_way_bindings {
+            for twb in &binding.two_way_bindings {
                 let (mut e, field_access) = match twb {
                     TwoWayBinding::Property { property, field_access } => {
                         (binding_value(&property.element(), property.name(), count), field_access)
@@ -372,11 +386,15 @@ fn insert_property_definitions(
 }
 
 pub(super) fn get_properties(
-    element: &common::ElementRcNode,
+    element: &editor_preview::ElementRcNode,
     in_layout: LayoutKind,
 ) -> Vec<PropertyInformation> {
     let mut result = Vec::new();
-    add_element_properties(&element.element.borrow(), "", 0, true, &mut result);
+    // A member shadowed by a nearer element is unreachable under that name, so only the
+    // shadowing declaration is listed
+    let mut shadowed = HashSet::new();
+    add_element_properties(&element.element.borrow(), "", 0, true, &shadowed, &mut result);
+    shadowed.extend(element.element.borrow().shadowing_members.keys().cloned());
 
     let mut current_element = element.element.clone();
     let mut depth = 0u32;
@@ -389,7 +407,11 @@ pub(super) fn get_properties(
         match base_type {
             ElementType::Component(c) => {
                 current_element = c.root_element.clone();
-                add_element_properties(&current_element.borrow(), &c.id, depth, false, &mut result);
+                {
+                    let current = current_element.borrow();
+                    add_element_properties(&current, &c.id, depth, false, &shadowed, &mut result);
+                    shadowed.extend(current.visible_shadowing_members().cloned());
+                }
                 continue;
             }
             ElementType::Builtin(b) => {
@@ -569,7 +591,7 @@ pub(super) fn get_properties(
             name: "accessible-role".into(),
             priority: DEFAULT_PRIORITY - 100,
             ty: Type::Enumeration(
-                i_slint_compiler::typeregister::BUILTIN.with(|e| e.enums.AccessibleRole.clone()),
+                i_slint_compiler::typeregister::BUILTIN.enums.AccessibleRole.clone(),
             ),
             visibility: PropertyVisibility::InOut,
             declared_at: None,
@@ -593,7 +615,7 @@ pub(super) fn get_properties(
     insert_property_definitions(element, result)
 }
 
-fn find_block_range(element: &common::ElementRcNode) -> Option<TextRange> {
+fn find_block_range(element: &editor_preview::ElementRcNode) -> Option<TextRange> {
     element.with_element_node(|node| {
         let open_brace = node.child_token(SyntaxKind::LBrace)?;
         let close_brace = node.child_token(SyntaxKind::RBrace)?;
@@ -602,7 +624,7 @@ fn find_block_range(element: &common::ElementRcNode) -> Option<TextRange> {
     })
 }
 
-fn get_element_information(element: &common::ElementRcNode) -> ElementInformation {
+fn get_element_information(element: &editor_preview::ElementRcNode) -> ElementInformation {
     let offset = element.with_element_node(|n| n.text_range().start());
     let e = element.element.borrow();
     let component_name = element.with_element_node(|n| {
@@ -623,7 +645,7 @@ fn get_element_information(element: &common::ElementRcNode) -> ElementInformatio
 pub(crate) fn query_properties(
     uri: &Url,
     source_version: SourceFileVersion,
-    element: &common::ElementRcNode,
+    element: &editor_preview::ElementRcNode,
     in_layout: LayoutKind,
 ) -> Result<QueryPropertyResponse> {
     Ok(QueryPropertyResponse {
@@ -651,12 +673,12 @@ fn create_text_document_edit_for_set_binding_on_existing_property(
     version: SourceFileVersion,
     property: &PropertyInformation,
     new_expression: String,
-    format: common::ByteFormat,
+    format: editor_preview::ByteFormat,
 ) -> Option<lsp_types::TextDocumentEdit> {
     property.defined_at.as_ref().map(|defined_at| {
         let range = util::node_to_lsp_range(&defined_at.code_block_or_expression, format);
         let edit = lsp_types::TextEdit { range, new_text: new_expression };
-        common::create_text_document_edit(uri, version, vec![edit])
+        editor_preview::editing::create_text_document_edit(uri, version, vec![edit])
     })
 }
 
@@ -711,11 +733,11 @@ fn find_insert_range_for_property(
 fn create_text_document_edit_for_set_binding_on_known_property(
     uri: Url,
     version: SourceFileVersion,
-    element: &common::ElementRcNode,
+    element: &editor_preview::ElementRcNode,
     properties: &[PropertyInformation],
     property_name: &str,
     new_expression: &str,
-    format: common::ByteFormat,
+    format: editor_preview::ByteFormat,
 ) -> Option<lsp_types::TextDocumentEdit> {
     let block_range = find_block_range(element);
 
@@ -734,7 +756,7 @@ fn create_text_document_edit_for_set_binding_on_known_property(
                     }
                 },
             };
-            common::create_text_document_edit(uri, version, vec![edit])
+            editor_preview::editing::create_text_document_edit(uri, version, vec![edit])
         },
     )
 }
@@ -742,22 +764,23 @@ fn create_text_document_edit_for_set_binding_on_known_property(
 pub fn set_binding(
     uri: Url,
     version: SourceFileVersion,
-    element: &common::ElementRcNode,
+    element: &editor_preview::ElementRcNode,
     property_name: &str,
     new_expression: String,
-    format: common::ByteFormat,
+    format: editor_preview::ByteFormat,
 ) -> Option<lsp_types::WorkspaceEdit> {
-    set_binding_impl(uri, version, element, property_name, new_expression, format)
-        .map(|edit| common::create_workspace_edit_from_text_document_edits(vec![edit]))
+    set_binding_impl(uri, version, element, property_name, new_expression, format).map(|edit| {
+        editor_preview::editing::create_workspace_edit_from_text_document_edits(vec![edit])
+    })
 }
 
 pub fn set_binding_impl(
     uri: Url,
     version: SourceFileVersion,
-    element: &common::ElementRcNode,
+    element: &editor_preview::ElementRcNode,
     property_name: &str,
     new_expression: String,
-    format: common::ByteFormat,
+    format: editor_preview::ByteFormat,
 ) -> Option<lsp_types::TextDocumentEdit> {
     let properties = get_properties(element, LayoutKind::None);
     let property = get_property_information(&properties, property_name).ok()?;
@@ -789,9 +812,9 @@ pub fn set_binding_impl(
 pub fn set_bindings(
     uri: Url,
     version: SourceFileVersion,
-    element: &common::ElementRcNode,
-    properties: &[crate::common::PropertyChange],
-    format: common::ByteFormat,
+    element: &editor_preview::ElementRcNode,
+    properties: &[crate::editor_preview::editing::PropertyChange],
+    format: editor_preview::ByteFormat,
 ) -> Option<lsp_types::WorkspaceEdit> {
     let edits = properties
         .iter()
@@ -801,14 +824,14 @@ pub fn set_bindings(
         .collect::<Vec<_>>();
 
     (edits.len() == properties.len())
-        .then_some(common::create_workspace_edit_from_text_document_edits(edits))
+        .then_some(editor_preview::editing::create_workspace_edit_from_text_document_edits(edits))
 }
 
 #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
 fn element_at_source_code_position(
-    document_cache: &common::DocumentCache,
-    position: &common::VersionedPosition,
-) -> Result<common::ElementRcNode> {
+    document_cache: &editor_preview::DocumentCache,
+    position: &editor_preview::editing::VersionedPosition,
+) -> Result<editor_preview::ElementRcNode> {
     if &document_cache.document_version(position.url()) != position.version() {
         return Err("Document version mismatch.".into());
     }
@@ -826,15 +849,15 @@ fn element_at_source_code_position(
         util::text_size_to_lsp_position(&source_file, position.offset(), document_cache.format);
 
     Ok(document_cache.element_at_position(position.url(), &element_position).ok_or_else(|| {
-        format!("No element found at the given start position {:?}", &element_position)
+        format!("No element found at the given start position {element_position:?}")
     })?)
 }
 
 #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
 pub fn update_element_properties(
-    document_cache: &common::DocumentCache,
-    position: common::VersionedPosition,
-    properties: Vec<common::PropertyChange>,
+    document_cache: &editor_preview::DocumentCache,
+    position: editor_preview::editing::VersionedPosition,
+    properties: Vec<editor_preview::editing::PropertyChange>,
 ) -> Option<lsp_types::WorkspaceEdit> {
     let element = element_at_source_code_position(document_cache, &position).ok()?;
 
@@ -853,15 +876,15 @@ fn create_workspace_edit_for_remove_binding(
     range: lsp_types::Range,
 ) -> lsp_types::WorkspaceEdit {
     let edit = lsp_types::TextEdit { range, new_text: String::new() };
-    common::create_workspace_edit(uri.clone(), version, vec![edit])
+    editor_preview::editing::create_workspace_edit(uri.clone(), version, vec![edit])
 }
 
 pub fn remove_binding(
     uri: Url,
     version: SourceFileVersion,
-    element: &common::ElementRcNode,
+    element: &editor_preview::ElementRcNode,
     property_name: &str,
-    format: common::ByteFormat,
+    format: editor_preview::ByteFormat,
 ) -> Result<lsp_types::WorkspaceEdit> {
     let source_file = element.with_element_node(|node| node.source_file.clone());
 
@@ -878,14 +901,18 @@ pub fn remove_binding(
                 prop_decl.BindingExpression().ok_or("property declaration has no binding")?;
             let colon = ancestor
                 .child_token(SyntaxKind::Colon)
-                .ok_or("property peclaration has no colon")?;
+                .ok_or("property declaration has no colon")?;
             let start = colon.text_range().start();
             if let Some(semi_colon) = binding.child_token(SyntaxKind::Semicolon) {
                 let end = semi_colon.text_range().start();
                 let range =
                     util::text_range_to_lsp_range(&source_file, TextRange::new(start, end), format);
                 let edit = lsp_types::TextEdit { range, new_text: String::new() };
-                return Ok(common::create_workspace_edit(uri.clone(), version, vec![edit]));
+                return Ok(editor_preview::editing::create_workspace_edit(
+                    uri.clone(),
+                    version,
+                    vec![edit],
+                ));
             } else if let Some(closing_brace) =
                 binding.CodeBlock().and_then(|cb| cb.child_token(SyntaxKind::RBrace))
             {
@@ -893,7 +920,11 @@ pub fn remove_binding(
                 let range =
                     util::text_range_to_lsp_range(&source_file, TextRange::new(start, end), format);
                 let edit = lsp_types::TextEdit { range, new_text: ";".into() };
-                return Ok(common::create_workspace_edit(uri.clone(), version, vec![edit]));
+                return Ok(editor_preview::editing::create_workspace_edit(
+                    uri.clone(),
+                    version,
+                    vec![edit],
+                ));
             } else {
                 return Err("Could not find end of range to delete.".into());
             }
@@ -947,7 +978,9 @@ pub fn remove_binding(
 pub mod tests {
     use super::*;
 
-    use crate::language::test::{complex_document_cache, loaded_document_cache};
+    use crate::language::test::{
+        complex_document_cache, loaded_document_cache, loaded_document_cache_with_experimental,
+    };
 
     fn find_property<'a>(
         properties: &'a [PropertyInformation],
@@ -959,9 +992,9 @@ pub mod tests {
     pub fn properties_at_position_in_cache(
         line: u32,
         character: u32,
-        document_cache: &common::DocumentCache,
+        document_cache: &editor_preview::DocumentCache,
         url: &lsp_types::Url,
-    ) -> Option<(common::ElementRcNode, Vec<PropertyInformation>)> {
+    ) -> Option<(editor_preview::ElementRcNode, Vec<PropertyInformation>)> {
         let element =
             document_cache.element_at_position(url, &lsp_types::Position { line, character })?;
         Some((element.clone(), get_properties(&element, LayoutKind::None)))
@@ -971,9 +1004,9 @@ pub mod tests {
         line: u32,
         character: u32,
     ) -> Option<(
-        common::ElementRcNode,
+        editor_preview::ElementRcNode,
         Vec<PropertyInformation>,
-        common::DocumentCache,
+        editor_preview::DocumentCache,
         lsp_types::Url,
     )> {
         let (dc, url, _) = complex_document_cache();
@@ -995,7 +1028,7 @@ pub mod tests {
         // reserved properties:
         assert_eq!(
             &find_property(&result, "accessible-role").unwrap().ty.to_string(),
-            "enum AccessibleRole"
+            "AccessibleRole"
         );
         // Accessible property should not be present since the role is none
         assert!(find_property(&result, "accessible-label").is_none());
@@ -1023,6 +1056,63 @@ pub mod tests {
         // No callbacks
         assert!(find_property(&result, "accessible-action-default").is_none());
         assert!(find_property(&result, "clicked").is_none());
+    }
+
+    #[test]
+    fn test_get_properties_shadowed_member() {
+        // `Derived` shadows the `@shadowable` `prop` of `Base` with a different type. The property
+        // editor must list the shadow (not the base) and find its binding, which is stored under a
+        // mangled internal key.
+        let (dc, url, _) = loaded_document_cache_with_experimental(
+            r#"
+component Base {
+    @shadowable in-out property <float> prop: 1;
+}
+component Derived inherits Base {
+    in-out property <int> prop: 42;
+}
+export component Main {
+    the-derived := Derived {
+        prop: 7;
+    }
+}
+"#
+            .into(),
+        );
+        let (_, result) = properties_at_position_in_cache(9, 8, &dc, &url).unwrap();
+        let prop = find_property(&result, "prop").unwrap();
+        // The listed property is the shadow, so its type is the derived one.
+        assert_eq!(prop.ty, Type::Int32);
+        // Its binding is found despite the mangled key, so it reads as defined, not as a fresh
+        // property waiting for a value.
+        assert!(prop.defined_at.is_some());
+    }
+
+    #[test]
+    fn test_get_properties_private_shadow_transparent() {
+        // A private declaration shadowing a public `@shadowable` member is invisible from outside
+        // the component, so the property editor lists the inherited public member, under its type.
+        let (dc, url, _) = loaded_document_cache_with_experimental(
+            r#"
+component Base {
+    @shadowable in-out property <int> prop: 1;
+}
+component Derived inherits Base {
+    private property <string> prop: "x";
+}
+export component Main {
+    the-derived := Derived {
+        prop: 5;
+    }
+}
+"#
+            .into(),
+        );
+        let (_, result) = properties_at_position_in_cache(9, 8, &dc, &url).unwrap();
+        let prop = find_property(&result, "prop").expect("'prop' should be listed");
+        assert_eq!(prop.ty, Type::Int32, "should be the inherited public type, not the shadow");
+        // The external binding of the inherited property is found (round-trip works).
+        assert!(prop.defined_at.is_some());
     }
 
     #[test]
@@ -1996,7 +2086,8 @@ component Foo inherits Window {
             .unwrap();
         let edit = remove_binding(uri.clone(), None, &elem, "background", dc.format).unwrap();
 
-        let applied = crate::common::text_edit::apply_workspace_edit(&dc, &edit).unwrap();
+        let applied =
+            crate::editor_preview::editing::text_edit::apply_workspace_edit(&dc, &edit).unwrap();
         assert_eq!(
             applied.first().unwrap().contents,
             r#"
@@ -2012,7 +2103,8 @@ component Foo inherits Window {
             .unwrap();
         let edit = remove_binding(uri.clone(), None, &elem, "background", dc.format).unwrap();
 
-        let applied = crate::common::text_edit::apply_workspace_edit(&dc, &edit).unwrap();
+        let applied =
+            crate::editor_preview::editing::text_edit::apply_workspace_edit(&dc, &edit).unwrap();
         assert_eq!(
             applied.first().unwrap().contents,
             r#"
@@ -2042,7 +2134,8 @@ component Foo inherits Window {
             .element_at_offset(&uri, TextSize::new(source.find("Window").unwrap() as u32))
             .unwrap();
         let edit = remove_binding(uri.clone(), None, &elem, "test1", dc.format).unwrap();
-        let applied = crate::common::text_edit::apply_workspace_edit(&dc, &edit).unwrap();
+        let applied =
+            crate::editor_preview::editing::text_edit::apply_workspace_edit(&dc, &edit).unwrap();
         assert_eq!(
             applied.first().unwrap().contents,
             r#"
@@ -2058,7 +2151,8 @@ component Foo inherits Window {
         );
 
         let edit = remove_binding(uri.clone(), None, &elem, "test2", dc.format).unwrap();
-        let applied = crate::common::text_edit::apply_workspace_edit(&dc, &edit).unwrap();
+        let applied =
+            crate::editor_preview::editing::text_edit::apply_workspace_edit(&dc, &edit).unwrap();
         assert_eq!(
             applied.first().unwrap().contents,
             r#"
@@ -2072,7 +2166,8 @@ component Foo inherits Window {
         );
 
         let edit = remove_binding(uri.clone(), None, &elem, "test3", dc.format).unwrap();
-        let applied = crate::common::text_edit::apply_workspace_edit(&dc, &edit).unwrap();
+        let applied =
+            crate::editor_preview::editing::text_edit::apply_workspace_edit(&dc, &edit).unwrap();
         assert_eq!(
             applied.first().unwrap().contents,
             r#"

@@ -6,7 +6,7 @@ This is a demonstration of the Slint toolkit. This demo can be executed on vario
 
 ## Displaying Real-Time Weather Data
 
-To showcase real-time weather data, you will need an application key from https://www.weatherapi.com/. You can inject the API key by setting the `WEATHER_API` environment variable. The geographical location for the weather data can be set using the `WEATHER_LAT` and `WEATHER_LONG` variables. By default, the location is set to Berlin.
+Real-time weather data is fetched from [Open-Meteo](https://open-meteo.com/). No API key is required. The geographical location can be set using the `WEATHER_LAT` and `WEATHER_LONG` environment variables. By default, the location is set to Berlin.
 
 ## Platform Compatibility
 
@@ -14,7 +14,7 @@ To showcase real-time weather data, you will need an application key from https:
 
 You can run the demo on a desktop or embedded Linux environment with the following command:
 ```sh
-cargo run -p energy-monitor
+cargo run --manifest-path demos/energy-monitor/Cargo.toml
 ```
 
 ### Microcontrollers (MCU)
@@ -24,7 +24,7 @@ Refer to the [MCU backend Readme](../../examples/mcu-board-support) for instruct
 To run the MCU-like code on desktop, use the `--features=simulator`
 
 ```sh
-cargo run -p energy-monitor --no-default-features --features=simulator --release
+cargo run --manifest-path demos/energy-monitor/Cargo.toml --no-default-features --features=simulator --release
 ```
 
 ### Android
@@ -33,8 +33,18 @@ First, [set up your Android environment](https://slint.dev/snapshots/master/docs
 Then, you can run the demo on an Android device with the following command:
 
 ```sh
-cargo apk run -p energy-monitor --target aarch64-linux-android --lib
+cargo apk run --manifest-path demos/energy-monitor/Cargo.toml --target aarch64-linux-android --lib
 ```
+
+### Node.js
+
+```sh
+cd demos/energy-monitor
+pnpm install
+pnpm start
+```
+
+Set `WEATHER_LAT` and `WEATHER_LONG` to change the location (defaults to Berlin).
 
 ### Web
 

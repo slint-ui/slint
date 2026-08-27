@@ -1,0 +1,24 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Redefining a name is allowed, as in regular Slint: a Slint release that
+// adds a built-in element must not break a file already using that name.
+// The later definition wins; the base still resolves to the earlier one.
+
+component Rectangle inherits Rectangle {
+    width: 8px;
+    height: 8px;
+    background: #ff0000;
+}
+
+component Led inherits Rectangle { }
+
+component Led inherits Led {
+//        > <warning{Component 'Led' is replacing a previously defined component with the same name}
+    background: #00ff00;
+}
+
+export component Panel inherits Window {
+    Rectangle { x: 2px; y: 2px; }
+    Led { x: 20px; y: 2px; }
+}

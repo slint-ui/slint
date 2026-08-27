@@ -7,9 +7,9 @@ struct Foo1 { member: int, }
 struct Foo2 { a: Foo1 }
 struct Foo3 { b: int }
 
-TestCase := TouchArea {
+export component TestCase inherits TouchArea {
     // Based on Issue #2655
-    public function fn1(foo2: Foo2) -> Foo3 {
+    pure public function fn1(foo2: Foo2) -> Foo3 {
       return { b: foo2.a.member+1 };
     }
     public function fn2() { fn1({a:{member:456}}); }

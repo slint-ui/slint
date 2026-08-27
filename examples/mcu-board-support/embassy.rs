@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
+// cSpell: ignore wakeups
 use alloc::boxed::Box;
 use alloc::rc::Rc;
 use core::cell::{Cell, RefCell};
@@ -68,7 +69,9 @@ impl<PlatformImpl: PlatformBackend + 'static> slint::platform::Platform
                     &'static EmbassyBackend<PlatformImpl>,
                 >(self)
             };
-            spawner.must_spawn(main_loop_task(Box::pin(this.run_loop())));
+            spawner.spawn(
+                main_loop_task(Box::pin(this.run_loop())).expect("Failed to spawn main loop task"),
+            );
         });
     }
 

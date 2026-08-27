@@ -8,7 +8,8 @@ use i_slint_core::model::{Model, ModelNotify, ModelRc};
 use napi::bindgen_prelude::*;
 use napi::{Env, JsValue, Result, ValueType};
 
-use crate::{RefCountedReference, to_js_unknown, to_value};
+use crate::weak_ref::WeakValueRef;
+use crate::{JsAnchorOwner, to_js_unknown, to_value};
 
 #[napi]
 #[derive(Clone, Default)]
@@ -26,15 +27,31 @@ pub(crate) fn js_into_rust_model(
     env: &Env,
     maybe_js_impl: &Object,
     row_data_type: &Type,
+    anchor_owner: &JsAnchorOwner,
 ) -> Result<ModelRc<slint_interpreter::Value>> {
     let shared_model_notify: ExternalRef<SharedModelNotify> =
         maybe_js_impl.get_named_property("modelNotify")?;
     let shared_model_notify: SharedModelNotify = (*shared_model_notify).clone();
+
+    let anchor_id = anchor_owner.next_anchor_id();
+    let prop_key = format!("__slint_model#{anchor_id}");
+
+    // Register the model as a JS property on the owner so V8 keeps it alive
+    // without creating an independent GC root.
+    if let Some(mut obj) = crate::weak_ref::weak_ref_get_object::<crate::JsComponentInstance>(
+        &anchor_owner.owner_weak,
+        *env,
+    ) {
+        crate::set_hidden_property(&mut obj, &prop_key, maybe_js_impl)?;
+    }
+
     Ok(Rc::new(JsModel {
         shared_model_notify,
         env: *env,
-        js_impl: RefCountedReference::new(env, maybe_js_impl)?,
+        js_impl: WeakValueRef::new(env, maybe_js_impl)?,
         row_data_type: row_data_type.clone(),
+        prop_key,
+        owner: anchor_owner.clone(),
     })
     .into())
 }
@@ -43,17 +60,40 @@ pub(crate) fn rust_into_js_model<'a>(
     env: &'a Env,
     model: &ModelRc<slint_interpreter::Value>,
 ) -> Option<Result<Unknown<'a>>> {
-    model
-        .as_any()
-        .downcast_ref::<JsModel>()
-        .map(|rust_model| rust_model.js_impl.get_unknown()?.into_unknown(env))
+    model.as_any().downcast_ref::<JsModel>().map(|rust_model| {
+        rust_model
+            .js_impl
+            .get_unknown()
+            .ok_or_else(|| napi::Error::from_reason("JS model has been garbage collected"))?
+            .into_unknown(env)
+    })
 }
 
 struct JsModel {
     shared_model_notify: SharedModelNotify,
     env: Env,
-    js_impl: RefCountedReference,
+    js_impl: WeakValueRef,
     row_data_type: Type,
+    prop_key: String,
+    owner: JsAnchorOwner,
+}
+
+impl Drop for JsModel {
+    fn drop(&mut self) {
+        // Pure Rust check (no NAPI calls).
+        // Returns None once the owning JsComponentInstance's anchor_seq
+        // Rc has been dropped,
+        // which happens before `inner` (field declaration order).
+        if self.owner.seq.upgrade().is_none() {
+            return;
+        }
+        if let Some(mut obj) = crate::weak_ref::weak_ref_get_object::<crate::JsComponentInstance>(
+            &self.owner.owner_weak,
+            self.env,
+        ) {
+            let _ = obj.delete_named_property(&self.prop_key);
+        }
+    }
 }
 
 #[napi]
@@ -85,7 +125,7 @@ impl Model for JsModel {
     type Data = slint_interpreter::Value;
 
     fn row_count(&self) -> usize {
-        let Ok(model_unknown) = self.js_impl.get_unknown() else {
+        let Some(model_unknown) = self.js_impl.get_unknown() else {
             eprintln!("Node.js: JavaScript Model<T>'s rowCount threw an exception");
             return 0;
         };
@@ -128,7 +168,7 @@ impl Model for JsModel {
     }
 
     fn row_data(&self, row: usize) -> Option<Self::Data> {
-        let Ok(model_unknown) = self.js_impl.get_unknown() else {
+        let Some(model_unknown) = self.js_impl.get_unknown() else {
             eprintln!("Node.js: JavaScript Model<T>'s rowData threw an exception");
             return None;
         };
@@ -157,7 +197,8 @@ impl Model for JsModel {
             debug_assert!(row >= self.row_count());
             None
         } else {
-            let Ok(js_value) = to_value(&self.env, row_data, &self.row_data_type) else {
+            let Ok(js_value) = to_value(&self.env, row_data, &self.row_data_type, &self.owner)
+            else {
                 eprintln!(
                     "Node.js: JavaScript Model<T>'s rowData function returned data type that cannot be represented in Rust"
                 );
@@ -168,7 +209,7 @@ impl Model for JsModel {
     }
 
     fn set_row_data(&self, row: usize, data: Self::Data) {
-        let Ok(model_unknown) = self.js_impl.get_unknown() else {
+        let Some(model_unknown) = self.js_impl.get_unknown() else {
             eprintln!("Node.js: JavaScript Model<T>'s setRowData threw an exception");
             return;
         };
@@ -199,6 +240,108 @@ impl Model for JsModel {
         if let Err(exception) = set_row_data_fn.apply(model, FnArgs::from((row as f64, js_data))) {
             eprintln!(
                 "Node.js: JavaScript Model<T>'s setRowData function threw an exception: {exception}"
+            );
+        }
+    }
+
+    fn push_row(&self, data: Self::Data) {
+        let Some(model_unknown) = self.js_impl.get_unknown() else {
+            eprintln!("Node.js: JavaScript Model<T>'s pushRow threw an exception");
+            return;
+        };
+
+        let Ok(model) = model_unknown.coerce_to_object() else {
+            eprintln!("Node.js: JavaScript Model<T> is not an object");
+            return;
+        };
+
+        let push_row_fn: Function<Unknown<'_>, Unknown> = match model.get_named_property("pushRow")
+        {
+            Ok(f) => f,
+            Err(e) => {
+                eprintln!("{}", e.to_string());
+                eprintln!(
+                    "Node.js: JavaScript Model<T> implementation is missing pushRow property"
+                );
+                return;
+            }
+        };
+
+        let Ok(js_data) = to_js_unknown(&self.env, &data) else {
+            eprintln!(
+                "Node.js: Model<T>'s push_row called by Rust with data type that can't be represented in JavaScript"
+            );
+            return;
+        };
+
+        if let Err(exception) = push_row_fn.apply(model, js_data) {
+            eprintln!(
+                "Node.js: JavaScript Model<T>'s pushRow function threw an exception: {exception}"
+            );
+        }
+    }
+
+    fn remove_row(&self, row: isize) {
+        let Some(model_unknown) = self.js_impl.get_unknown() else {
+            eprintln!("Node.js: JavaScript Model<T>'s removeRow threw an exception");
+            return;
+        };
+
+        let Ok(model) = model_unknown.coerce_to_object() else {
+            eprintln!("Node.js: JavaScript Model<T> is not an object");
+            return;
+        };
+
+        let remove_row_fn: Function<f64, Unknown> = match model.get_named_property("removeRow") {
+            Ok(f) => f,
+            Err(e) => {
+                eprintln!("{}", e.to_string());
+                eprintln!(
+                    "Node.js: JavaScript Model<T> implementation is missing removeRow property"
+                );
+                return;
+            }
+        };
+
+        if let Err(exception) = remove_row_fn.apply(model, row as f64) {
+            eprintln!(
+                "Node.js: JavaScript Model<T>'s removeRow function threw an exception: {exception}"
+            );
+        }
+    }
+
+    fn insert_row(&self, row: isize, data: Self::Data) {
+        let Some(model_unknown) = self.js_impl.get_unknown() else {
+            eprintln!("Node.js: JavaScript Model<T>'s insertRow threw an exception");
+            return;
+        };
+
+        let Ok(model) = model_unknown.coerce_to_object() else {
+            eprintln!("Node.js: JavaScript Model<T> is not an object");
+            return;
+        };
+
+        let insert_row_fn: Function<FnArgs<(f64, Unknown<'_>)>, Unknown> =
+            match model.get_named_property("insertRow") {
+                Ok(f) => f,
+                Err(_) => {
+                    eprintln!(
+                        "Node.js: JavaScript Model<T> implementation is missing insertRow property"
+                    );
+                    return;
+                }
+            };
+
+        let Ok(js_data) = to_js_unknown(&self.env, &data) else {
+            eprintln!(
+                "Node.js: Model<T>'s insert_row called by Rust with data type that can't be represented in JavaScript"
+            );
+            return;
+        };
+
+        if let Err(exception) = insert_row_fn.apply(model, FnArgs::from((row as f64, js_data))) {
+            eprintln!(
+                "Node.js: JavaScript Model<T>'s insertRow function threw an exception: {exception}"
             );
         }
     }

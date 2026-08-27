@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore menulayout
 //! This pass lowers the `MenuBar` and `ContextMenuArea` as well as all their contents
 //!
 //! We can't have properties of type Model because that is not binary compatible with C++,
@@ -98,7 +99,7 @@
 
 use crate::diagnostics::{BuildDiagnostics, Spanned};
 use crate::expression_tree::{BuiltinFunction, Callable, Expression, NamedReference};
-use crate::langtype::{ElementType, Type};
+use crate::langtype::{ElementType, PropertyLookupMode, Type};
 use crate::object_tree::*;
 use core::cell::RefCell;
 use i_slint_common::MENU_SEPARATOR_PLACEHOLDER_TITLE;
@@ -143,9 +144,9 @@ pub async fn lower_menus(
     let mut build_diags_to_ignore = BuildDiagnostics::default();
 
     let menubar_impl = type_loader
-        .import_component("std-widgets.slint", "MenuBarImpl", &mut build_diags_to_ignore)
+        .import_component("std-widgets-impl.slint", "MenuBarImpl", &mut build_diags_to_ignore)
         .await
-        .expect("MenuBarImpl should be in std-widgets.slint");
+        .expect("MenuBarImpl should be in std-widgets-impl.slint");
 
     let menu_item_element = type_loader
         .global_type_registry
@@ -218,9 +219,9 @@ pub async fn lower_menus(
     }
     if has_menu {
         let popup_menu_impl = type_loader
-            .import_component("std-widgets.slint", "PopupMenuImpl", &mut build_diags_to_ignore)
+            .import_component("std-widgets-impl.slint", "PopupMenuImpl", &mut build_diags_to_ignore)
             .await
-            .expect("PopupMenuImpl should be in std-widgets.slint");
+            .expect("PopupMenuImpl should be in std-widgets-impl.slint");
         {
             let mut root = popup_menu_impl.root_element.borrow_mut();
 
@@ -252,6 +253,22 @@ fn process_context_menu(
     components: &UsefulMenuComponents,
     diag: &mut BuildDiagnostics,
 ) -> bool {
+    // This pass runs before inlining, so a component inheriting ContextMenuArea is lowered
+    // through its own root element, the only one whose base_type is the builtin. Skip the
+    // elements instantiating such a component, however deep the inheritance chain.
+    if !matches!(&context_menu_elem.borrow().base_type, ElementType::Builtin(_)) {
+        // A Menu declared here would be dropped silently.
+        for c in &context_menu_elem.borrow().children {
+            if matches!(&c.borrow().base_type, ElementType::Builtin(b) if b.name == "Menu") {
+                diag.push_error(
+                    "Menu must be declared inside the component inheriting ContextMenuArea".into(),
+                    &*c.borrow(),
+                );
+            }
+        }
+        return false;
+    }
+
     let is_internal = matches!(&context_menu_elem.borrow().base_type, ElementType::Builtin(b) if b.name == "ContextMenuInternal");
 
     if is_internal && context_menu_elem.borrow().property_declarations.contains_key(ENTRIES) {
@@ -352,12 +369,9 @@ fn process_context_menu(
         }
     };
 
-    let old = context_menu_elem
-        .borrow_mut()
-        .bindings
-        .insert(SmolStr::new_static(SHOW), RefCell::new(expr.into()));
+    let old = context_menu_elem.borrow_mut().set_binding(SmolStr::new_static(SHOW), expr.into());
     if let Some(old) = old {
-        diag.push_error("'show' is not a callback in ContextMenuArea".into(), &old.borrow().span);
+        diag.push_error("'show' is not a callback in ContextMenuArea".into(), &old.span);
     }
 
     true
@@ -476,7 +490,7 @@ fn process_window(
     let item_tree_root = Expression::ElementReference(Rc::downgrade(&c.root_element));
 
     if !no_native_menu {
-        let supportes_native_menu_bar = Expression::UnaryOp {
+        let supports_native_menu_bar = Expression::UnaryOp {
             op: '!',
             sub: Expression::FunctionCall {
                 function: BuiltinFunction::SupportsNativeMenuBar.into(),
@@ -488,10 +502,10 @@ fn process_window(
         condition = match condition {
             Some(condition) => Some(Expression::BinaryExpression {
                 lhs: condition.into(),
-                rhs: supportes_native_menu_bar.into(),
+                rhs: supports_native_menu_bar.into(),
                 op: '&',
             }),
-            None => Some(supportes_native_menu_bar),
+            None => Some(supports_native_menu_bar),
         };
     }
 
@@ -527,7 +541,10 @@ fn process_window(
 
     for prop in [ENTRIES, SUB_MENU, ACTIVATED] {
         // materialize the properties and callbacks
-        let ty = components.menubar_impl.lookup_property(prop).property_type;
+        let ty = components
+            .menubar_impl
+            .lookup_property(prop, PropertyLookupMode::ComponentLocal)
+            .property_type;
         assert_ne!(ty, Type::Invalid, "Can't lookup type for {prop}");
         let nr = NamedReference::new(&menu_bar, SmolStr::new_static(prop));
         let forward_expr = if let Type::Callback(cb) = &ty {
@@ -547,7 +564,7 @@ fn process_window(
         } else {
             Expression::PropertyReference(nr)
         };
-        menubar_impl.borrow_mut().bindings.insert(prop.into(), RefCell::new(forward_expr.into()));
+        menubar_impl.borrow_mut().set_binding(prop.into(), forward_expr.into());
         let old = menu_bar
             .borrow_mut()
             .property_declarations
@@ -555,6 +572,14 @@ fn process_window(
         if let Some(old) = old {
             diag.push_error(format!("Cannot re-define internal property '{prop}'"), &old.node);
         }
+    }
+
+    // Transfer the visible binding from MenuBar to MenuBarImpl
+    let visible_binding = menu_bar.borrow_mut().take_binding("visible");
+    if let Some(visible_binding) = &visible_binding {
+        menubar_impl
+            .borrow_mut()
+            .set_binding(SmolStr::new_static("menubar-visible"), visible_binding.clone());
     }
 
     // Transform the MenuBar in a layout
@@ -601,6 +626,14 @@ fn process_window(
 
     if let Some(condition) = original_cond {
         arguments.push(condition);
+    } else {
+        arguments.push(Expression::BoolLiteral(true));
+    }
+
+    if let Some(visible_binding) = visible_binding {
+        arguments.push(visible_binding.expression.clone());
+    } else {
+        arguments.push(Expression::BoolLiteral(true));
     }
 
     let setup_menubar = Expression::FunctionCall {
@@ -639,22 +672,20 @@ fn lower_menu_items(
                 element.borrow_mut().enclosing_component = component_weak.clone();
                 element.borrow_mut().geometry_props = None;
 
-                if !in_menubar && let Some(binding) = element.borrow().bindings.get("shortcut") {
+                if !in_menubar && let Some(binding) = element.borrow().binding("shortcut") {
                     diag.push_error(
                         "MenuItem shortcuts are currently only supported in the MenuBar".into(),
-                        &*binding.borrow(),
+                        &*binding,
                     );
                 }
 
                 if element.borrow().base_type.type_name() == Some("MenuSeparator") {
-                    element.borrow_mut().bindings.insert(
+                    element.borrow_mut().set_binding(
                         "title".into(),
-                        RefCell::new(
-                            Expression::StringLiteral(SmolStr::new_static(
-                                MENU_SEPARATOR_PLACEHOLDER_TITLE,
-                            ))
-                            .into(),
-                        ),
+                        Expression::StringLiteral(SmolStr::new_static(
+                            MENU_SEPARATOR_PLACEHOLDER_TITLE,
+                        ))
+                        .into(),
                     );
                 }
                 // Menu/MenuSeparator -> MenuItem

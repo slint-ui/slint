@@ -36,6 +36,17 @@ SPDX-FileCopyrightText = "Copyright © SixtyFPS GmbH <info@slint.dev>"
 SPDX-License-Identifier = "CC-BY-ND-4.0"
 
 [[annotations]]
+path = ["tools/editor/ui/assets/octicons/*.svg"]
+SPDX-FileCopyrightText = "Copyright © 2026 GitHub Inc."
+SPDX-License-Identifier = "MIT"
+
+[[annotations]]
+path = ["tools/editor/ui-tests/fixtures/editor-project/assets/checker.svg"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Copyright © SixtyFPS GmbH <info@slint.dev>"
+SPDX-License-Identifier = "GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0"
+
+[[annotations]]
 path = [
   "**/.eslintrc.yml",
   "**/.gitignore",
@@ -50,12 +61,15 @@ path = [
   "Cargo.lock",
   "flake.nix",
   "flake.lock",
-  "examples/bevy/Cargo.lock",
-  "examples/servo/Cargo.lock",
+  "examples/Cargo.lock",
+  "demos/Cargo.lock",
+  "tests/Cargo.lock",
+  "**/uv.lock",
   "REUSE.toml",
   "biome.json",
   "knip.json",
   "cspell.json",
+  ".cspell/**",
   "docs/search/scraper-config.json",
   "internal/core-macros/link-data.json",
   "internal/**.md",
@@ -74,9 +88,6 @@ path = [
   ".github/ISSUE_TEMPLATE/3-tracking-issue.md",
   ".github/pull_request_template.md",
 
-  "api/cpp/docs/**/**.css",
-  "api/cpp/docs/**/**.md",
-  "api/cpp/docs/**/**.html",
   "api/cpp/tests/redpixel.png",
 
   "demos/**.md",
@@ -162,7 +173,9 @@ path = [
   "ui-libraries/material/docs/src/config.yaml",
   "ui-libraries/material/examples/gallery/ui/themes/**.json",
 
-  ".claude-plugin/*.json",
+  "ai-plugins/.claude-plugin/*.json",
+  "ai-plugins/.cursor-plugin/*.json",
+  "ai-plugins/**/*.md",
 ]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Copyright © SixtyFPS GmbH <info@slint.dev>"
@@ -178,13 +191,19 @@ path = [
 
   "editors/**.md",
   "editors/sublime/LSP.sublime-settings",
-  "editors/tree-sitter-slint/corpus/**.txt",
+  "editors/tree-sitter-slint/test/corpus/**.txt",
   "editors/tree-sitter-slint/tree-sitter.json",
   "editors/vscode/**.json",
   "editors/vscode/css/**.css",
   "editors/vscode/tests/grammar/**.slint",
 
+  "internal/compiler/tests/syntax/slint-sc/image_2x2.png",
+  "internal/compiler/tests/syntax/slint-sc/image.svg",
+
+  "docs/astro/src/content/docs/reference/language/images/logo.png",
+
   "tests/screenshots/**/**.png",
+  "tests/screenshots/references/anyrender/**.json",
 
   "tools/**.md",
   "tools/slintpad/**.html",
@@ -193,10 +212,31 @@ path = [
   "tools/figma-inspector/**.json",
   "tools/figma-inspector/**.html",
   "tools/figma-inspector/**.css",
+  "tools/viewer/TestFlight/WhatToTest.en-US.txt",
+  "tools/viewer/android/fastlane/metadata/android/**.txt",
+  "tools/viewer/android/fastlane/metadata/android/**.png",
+
+  # Visual editor-related files
+  "tools/editor/packaging/linux/**",
+  "tools/editor/packaging/macos/AppIcon.icon/Assets/icon_backdrop.svg",
+  "tools/editor/packaging/macos/AppIcon.icon/icon.json",
+  "tools/editor/packaging/macos/dmg-background.svg",
+  "tools/editor/packaging/tile-backdrop-wide.svg",
+  "tools/editor/packaging/tile-backdrop.svg",
+  "tools/editor/packaging/windows-appx/Package.appxmanifest.in",
+  "tools/editor/ui/assets/slinterface-*.svg",
+  "tools/editor/ui/visual-editor/example/image.png",
+  "tools/editor/ui/visual-editor/example/title-frame.png",
 ]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Copyright © SixtyFPS GmbH <info@slint.dev>"
 SPDX-License-Identifier = "GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0"
+
+[[annotations]]
+path = ["api/slint-sc/tests/references/**.png", "api/slint-sc/tests/cases/**.png"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Copyright © SixtyFPS GmbH <info@slint.dev>"
+SPDX-License-Identifier = "GPL-3.0-only OR LicenseRef-Slint-Software-3.0"
 
 [[annotations]]
 path = ["demos/weather-demo/ui/assets/icons/**.svg", "examples/memory/icons/**.png", "examples/memory/icons/**.svg"]
@@ -233,6 +273,7 @@ path = [
   "tools/lsp/ui/assets/library.svg",
   "tools/lsp/ui/assets/list-tree.svg",
   "tools/lsp/ui/assets/settings.svg",
+  "tools/viewer/remote/assets/**.svg",
 ]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Codicon Icons <https://github.com/microsoft/vscode-codicons/>"
@@ -324,4 +365,16 @@ SPDX-License-Identifier = "CC-BY-4.0"
 path = ["examples/bevy/bevy-hosts-slint/**.gltf"]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Copyright (c) 2024 e-verse"
+SPDX-License-Identifier = "MIT"
+
+[[annotations]]
+path = ["examples/**/android/**/gradle-wrapper.properties"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Copyright © SixtyFPS GmbH <info@slint.dev>"
+SPDX-License-Identifier = "GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0"
+
+[[annotations]]
+path = ["demos/**/android/**/gradle-wrapper.properties"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Copyright © SixtyFPS GmbH <info@slint.dev>"
 SPDX-License-Identifier = "MIT"

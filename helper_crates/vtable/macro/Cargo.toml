@@ -3,7 +3,7 @@
 
 [package]
 name = "vtable-macro"
-version = "0.4.0"
+version = "0.5.0"
 authors = ["Slint Developers <info@slint.dev>"]
 edition = "2024"
 license = "MIT OR Apache-2.0"
@@ -16,7 +16,7 @@ proc-macro = true
 path = "macro.rs"
 
 [dependencies]
-syn = { version = "2.0", features = ["full"] }
+syn = { version = "3.0", features = ["full"] }
 quote = "1.0"
 proc-macro2 = "1.0"
 

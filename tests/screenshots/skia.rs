@@ -63,6 +63,8 @@ impl WindowAdapter for SkiaScreenshotWindow {
 }
 
 pub fn init_skia() {
+    crate::testing::force_reference_os();
+
     i_slint_core::platform::set_platform(Box::new(SkiaScreenshotBackend::default()))
         .expect("platform already initialized");
 }
@@ -98,8 +100,12 @@ pub fn run_test(testcase: TestCase) -> Result<(), Box<dyn std::error::Error>> {
 
     let screenshot = component.window().take_snapshot().unwrap();
 
-    // Images are rendered a bit differently on macOs
-    let base_threshold = if cfg!(target_os = "macos") { 33. } else { 3. };
+    // Images are rendered a bit differently on macOs.
+    // Elsewhere the tolerance covers a last-bit difference of 2 per channel: tagging the raster
+    // target as sRGB puts Skia on its color managed pipeline, whose float math rounds slightly
+    // differently between the Linux and the Windows build even though every conversion is sRGB to
+    // sRGB and therefore a no-op.
+    let base_threshold = if cfg!(target_os = "macos") { 33. } else { 4. };
 
     crate::testing::compare_images(
         testcase.reference_path.to_str().unwrap(),

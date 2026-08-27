@@ -1,0 +1,32 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component TestCase inherits Window {
+    width: 800px;
+    height: 600px;
+
+    out property <length> inner_x <=> inner.x;
+    out property <length> inner_y <=> inner.y;
+
+    Flickable {
+        viewport-height: 1000px;
+        viewport-width: 1000px;
+
+        inner:= Rectangle {
+            // In this case the 100% should not trigger the optimization of skipping the centering.
+            width: 100%;
+            height: 100%;
+        }
+    }
+}
+
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+instance.show().unwrap();
+
+assert_eq!(instance.get_inner_x(), 100.);
+assert_eq!(instance.get_inner_y(), 200.);
+```
+*/

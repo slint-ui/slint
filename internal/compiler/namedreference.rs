@@ -11,7 +11,8 @@ use std::collections::HashMap;
 use std::hash::Hash;
 use std::rc::{Rc, Weak};
 
-use crate::langtype::{ElementType, Type};
+use crate::expression_tree::Expression;
+use crate::langtype::{ElementType, PropertyLookupMode, Type};
 use crate::object_tree::{Element, ElementRc, PropertyAnalysis, PropertyVisibility};
 
 /// Reference to a property or callback of a given name within an element.
@@ -56,7 +57,20 @@ impl NamedReference {
             .unwrap_or_else(|| panic!("{}: NamedReference to a dead element", self.0.name))
     }
     pub fn ty(&self) -> Type {
-        self.element().borrow().lookup_property(self.name()).property_type
+        self.element()
+            .borrow()
+            .lookup_property(self.name(), PropertyLookupMode::InternalName)
+            .property_type
+    }
+
+    /// The name the member is declared under, un-mangled. [`Self::name`] is the internal name,
+    /// mangled for a member that shadows an inherited one — use this for anything user-facing.
+    pub fn declared_name(&self) -> SmolStr {
+        let elem = self.element();
+        let elem = elem.borrow();
+        elem.property_declarations
+            .get(self.name())
+            .map_or_else(|| self.name().clone(), |d| d.declared_name(self.name()).clone())
     }
 
     /// return true if the property has a constant value for the lifetime of the program
@@ -83,6 +97,11 @@ impl NamedReference {
         if e.property_analysis.borrow().get(self.name()).is_some_and(|a| a.is_set_externally) {
             return false;
         }
+        if e.binding_cell_including_synthetic(self.name()).is_some_and(|binding| {
+            matches!(binding.borrow().expression, Expression::DebugHook { .. })
+        }) {
+            return false;
+        }
         drop(e);
 
         loop {
@@ -92,11 +111,11 @@ impl NamedReference {
                 return false;
             }
 
-            if let Some(b) = e.bindings.get(self.name()) {
-                if check_binding && !b.borrow().analysis.as_ref().is_some_and(|a| a.is_const) {
+            if let Some(binding) = e.binding(self.name()) {
+                if check_binding && !binding.analysis.as_ref().is_some_and(|a| a.is_const) {
                     return false;
                 }
-                if !b.borrow().two_way_bindings.iter().all(|n| n.is_constant()) {
+                if !binding.two_way_bindings.iter().all(|n| n.is_constant()) {
                     return false;
                 }
                 check_binding = false;

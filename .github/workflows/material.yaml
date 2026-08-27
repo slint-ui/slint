@@ -51,18 +51,19 @@ jobs:
         run:
           working-directory: ui-libraries/material
       steps:
-          - uses: actions/checkout@v6
+          - uses: actions/checkout@v7
           - name: Install Linux dependencies
             if: runner.os == 'Linux'
             run: |
-              sudo apt-get update
-              sudo apt-get install libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev libxkbcommon-x11-dev libfontconfig-dev
+              sudo timeout 600 apt-get update
+              sudo timeout 600 apt-get install libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev libxkbcommon-x11-dev libfontconfig-dev
             shell: bash
           - name: Install Rust
             uses: dtolnay/rust-toolchain@stable
           - uses: Swatinem/rust-cache@v2
             with:
                 key: tests
+                save-if: ${{ github.ref == 'refs/heads/master' }}
           - name: Build & run tests
             run: cargo test -p material-gallery
 
@@ -79,27 +80,29 @@ jobs:
         working-directory: ui-libraries/material/docs
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
       - name: Install Linux dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev libxkbcommon-x11-dev libfontconfig-dev
+          sudo timeout 600 apt-get update
+          sudo timeout 600 apt-get install libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev libxkbcommon-x11-dev libfontconfig-dev
         shell: bash
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
-      - uses: pnpm/action-setup@v6.0.3
-        with:
-          version: 10.29.3
-      - uses: actions/setup-node@v6
+      - uses: pnpm/action-setup@v6.0.10
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
           package-manager-cache: false
       - name: Take screenshots
-        run: cargo run -p slint-doc-generator -- screenshots -Lmaterial=$PWD/src/material.slint docs
+        # slint-doc-generator lives in the repository root workspace, not the
+        # material workspace, so point cargo at the root manifest.
+        run: cargo run --manifest-path ../../Cargo.toml -p slint-doc-generator -- screenshots -Lmaterial=$PWD/src/material.slint docs
         working-directory: ui-libraries/material
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       - name: Build
+        env:
+          MATERIAL_DOCS_BASE_PATH: ${{ github.event_name == 'pull_request' && '/material/' || '' }}
         run: pnpm build
       - uses: actions/download-artifact@v8
         with:
@@ -126,7 +129,7 @@ jobs:
             rm -rf material-${MATERIAL_ZIP_VERSION}
       - name: Deploy to materialui (Pages)
         if: github.event_name == 'workflow_dispatch' && github.event.inputs.deploy_production == 'true'
-        uses: cloudflare/wrangler-action@v3
+        uses: cloudflare/wrangler-action@v4
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -137,7 +140,7 @@ jobs:
 
       - name: Deploy to material-staging (Workers production)
         if: (github.event_name != 'workflow_dispatch' || github.event.inputs.deploy_production != 'true') && github.ref == 'refs/heads/master'
-        uses: cloudflare/wrangler-action@v3
+        uses: cloudflare/wrangler-action@v4
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN_2 }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID_2 }}
@@ -146,9 +149,9 @@ jobs:
           packageManager: pnpm
           workingDirectory: ui-libraries/material/docs
 
-      - uses: ./.github/actions/cloudflare-preview-deploy
+      - name: Upload preview artifact
+        if: github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v7
         with:
-          working-directory: ui-libraries/material/docs
-          environment: material-staging
-          cloudflare-api-token: ${{ secrets.CLOUDFLARE_API_TOKEN_2 }}
-          cloudflare-account-id: ${{ secrets.CLOUDFLARE_ACCOUNT_ID_2 }}
+          name: preview-material
+          path: ui-libraries/material/docs/dist/

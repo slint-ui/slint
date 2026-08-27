@@ -1,20 +1,20 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-OpacityTwoWay := Rectangle {
-    property <float> sub_opacity <=> rect.opacity;
+component OpacityTwoWay inherits Rectangle {
+    in-out property <float> sub_opacity <=> rect.opacity;
     rect := Rectangle {
         opacity: 0.75;
     }
 }
 
-Compo := Rectangle {
+component Compo inherits Rectangle {
     preferred-height: 10px;
-    property<int> foo <=> self.bar;
-    property<int> bar: 120;
+    in-out property<int> foo <=> self.bar;
+    in-out property<int> bar: 120;
 }
 
-export TestCase := Window {
+export component TestCase inherits Window {
     compo0 := Compo { foo: compo1.foo + 20; }
     compo1 := Compo {}
     compo2 := Compo { foo: compo1.foo + 10; }
@@ -24,18 +24,18 @@ export TestCase := Window {
         otw2 := OpacityTwoWay { sub_opacity: 0.5; }
     }
 
-    property <int> override_bar: 22;
+    in-out property <int> override_bar: 22;
     force_instance := VerticalLayout {
         if true : Compo { bar <=> override_bar; }
     }
 
-    property <int> compo0_foo: compo0.foo;
-    property <int> compo2_foo: compo2.foo;
-    property <float> otw_opacity <=> otw.sub_opacity;
+    in-out property <int> compo0_foo: compo0.foo;
+    in-out property <int> compo2_foo: compo2.foo;
+    in-out property <float> otw_opacity <=> otw.sub_opacity;
 
-    property <bool> test_override_bar: force_instance.preferred-height == 10px && override_bar == 22;
+    in-out property <bool> test_override_bar: force_instance.preferred-height == 10px && override_bar == 22;
 
-    property <bool> test: compo0_foo == 140 && compo2_foo == 130 && otw_opacity == 0.5 && otw2.sub_opacity == 0.5 && test_override_bar;
+    in-out property <bool> test: compo0_foo == 140 && compo2_foo == 130 && otw_opacity == 0.5 && otw2.sub_opacity == 0.5 && test_override_bar;
 }
 
 /*

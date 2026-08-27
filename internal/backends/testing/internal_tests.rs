@@ -10,7 +10,9 @@ pub use i_slint_core::input::MouseEvent;
 pub use i_slint_core::input::TouchPhase;
 use i_slint_core::item_tree::ItemTreeVTable;
 pub use i_slint_core::lengths::LogicalPoint;
+pub use i_slint_core::platform::InternalEvent;
 use i_slint_core::platform::WindowEvent;
+pub use i_slint_core::window::PopupWindowLocation;
 pub use i_slint_core::window::WindowInner;
 
 /// Simulate a mouse click at `(x, y)` and release after a while at the same position
@@ -117,6 +119,18 @@ pub fn set_window_scale_factor<
     component.window().dispatch_event(WindowEvent::ScaleFactorChanged { scale_factor: factor });
 }
 
+/// Override the locale used for decimal separator detection in the given component's window.
+pub fn set_locale<
+    X: vtable::HasStaticVTable<ItemTreeVTable>,
+    Component: Into<vtable::VRc<ItemTreeVTable, X>> + ComponentHandle,
+>(
+    component: &Component,
+    locale: &str,
+) {
+    let inner = WindowInner::from_pub(component.window());
+    inner.context().set_locale(locale);
+}
+
 /// Send a platform pinch gesture event to the component's window.
 ///
 /// `delta` is the incremental scale change (e.g. 0.0 for start, 0.5 for 50% increase).
@@ -131,14 +145,15 @@ pub fn send_pinch_gesture<
     center_y: f32,
     phase: i_slint_core::input::TouchPhase,
 ) {
-    let inner = WindowInner::from_pub(component.window());
-    inner.process_mouse_input(i_slint_core::input::MouseEvent::PinchGesture {
-        position: i_slint_core::lengths::logical_point_from_api(
-            i_slint_core::api::LogicalPosition::new(center_x, center_y),
-        ),
-        delta,
-        phase,
-    });
+    component.window().dispatch_event(WindowEvent::internal(
+        i_slint_core::input::MouseEvent::PinchGesture {
+            position: i_slint_core::lengths::logical_point_from_api(
+                i_slint_core::api::LogicalPosition::new(center_x, center_y),
+            ),
+            delta,
+            phase,
+        },
+    ));
 }
 
 /// Send a rotation gesture event to the component's window.
@@ -155,14 +170,15 @@ pub fn send_rotation_gesture<
     center_y: f32,
     phase: i_slint_core::input::TouchPhase,
 ) {
-    let inner = WindowInner::from_pub(component.window());
-    inner.process_mouse_input(i_slint_core::input::MouseEvent::RotationGesture {
-        position: i_slint_core::lengths::logical_point_from_api(
-            i_slint_core::api::LogicalPosition::new(center_x, center_y),
-        ),
-        delta,
-        phase,
-    });
+    component.window().dispatch_event(WindowEvent::internal(
+        i_slint_core::input::MouseEvent::RotationGesture {
+            position: i_slint_core::lengths::logical_point_from_api(
+                i_slint_core::api::LogicalPosition::new(center_x, center_y),
+            ),
+            delta,
+            phase,
+        },
+    ));
 }
 
 pub fn access_testing_window<R>(

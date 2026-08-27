@@ -76,14 +76,6 @@ impl PartialEq for StyledTextParseError {
     }
 }
 
-/// Returns true if this is an invalid color error.
-/// Useful for the compiler to skip this during compile-time validation
-/// when color values may come from dynamic interpolation.
-#[cfg(feature = "markdown")]
-pub fn is_invalid_color(error: &StyledTextParseError) -> bool {
-    matches!(error.kind, StyledTextParseErrorKind::InvalidColor(_))
-}
-
 #[cfg(feature = "markdown")]
 #[derive(Debug, derive_more::Display, PartialEq)]
 enum StyledTextParseErrorKind {
@@ -125,6 +117,15 @@ enum StyledTextParseErrorKind {
     /// Invalid color value
     #[display("Invalid color value '{_0}'")]
     InvalidColor(alloc::string::String),
+}
+
+#[cfg(feature = "markdown")]
+/// If this is an `InvalidColor` error, return the color value string.
+pub fn invalid_color_value(error: &StyledTextParseError) -> Option<&str> {
+    match &error.kind {
+        StyledTextParseErrorKind::InvalidColor(v) => Some(v),
+        _ => None,
+    }
 }
 
 #[cfg(feature = "markdown")]

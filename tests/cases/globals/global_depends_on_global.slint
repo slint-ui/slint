@@ -2,33 +2,33 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 
-global Numbers := {
-    property <int> three: 3;
-    property <int> ten: three * Numbers.three + 1;
+global Numbers  {
+    in-out property <int> three: 3;
+    in-out property <int> ten: root.three * Numbers.three + 1;
 }
 
-export global A := {
-    property <int> a_alias <=> a;
-    property <int> a: 3;
-    property <int> b: a + three;
-    property <int> three: Numbers.three;
+export global A  {
+    in-out property <int> a_alias <=> root.a;
+    in-out property <int> a: 3;
+    in-out property <int> b: root.a + root.three;
+    in-out property <int> three: Numbers.three;
 }
 
-export global B := {
+export global B  {
    // property <int> a_alias <=> A.a_alias;
-    property <int> c: {
+    in-out property <int> c: {
         debug(A.b, Numbers.ten);
         A.b + Numbers.ten;
     }
 }
 
-TestCase := Rectangle {
+export component TestCase inherits Rectangle {
     callback set_a(int);
     set_a(a) => {
         A.a_alias = a;
     }
-    property <int> value1: B.c;
-    property <bool> test: value1 == 3 + 13;
+    in-out property <int> value1: B.c;
+    in-out property <bool> test: root.value1 == 3 + 13;
 }
 
 /*

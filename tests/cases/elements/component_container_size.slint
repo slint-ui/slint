@@ -170,6 +170,20 @@ assert_eq!(ei.get_property("embedded-width").unwrap(), instance.get_container_wi
 assert_eq!(ei.get_property("embedded-height").unwrap(), instance.get_container_height().into());
 assert_eq!(ei.get_property("embedded-x").unwrap(), slint_interpreter::Value::Number(0.0));
 assert_eq!(ei.get_property("embedded-y").unwrap(), slint_interpreter::Value::Number(0.0));
+
+// Change the size of the container
+instance.set_container_width(5.0);
+instance.set_container_height(700.0);
+
+assert_eq!(instance.get_container_x(), 15.0);
+assert_eq!(instance.get_container_y(), 20.0);
+assert_eq!(instance.get_container_width(), 5.0);
+assert_eq!(instance.get_container_height(), 700.0);
+
+assert_eq!(ei.get_property("embedded-width").unwrap(), slint_interpreter::Value::Number(100.), "The size of the dynamic object must not change because it is fixed");
+assert_eq!(ei.get_property("embedded-height").unwrap(), slint_interpreter::Value::Number(100.), "The size of the dynamic object must not change because it is fixed");
+assert_eq!(ei.get_property("embedded-x").unwrap(), slint_interpreter::Value::Number(0.0));
+assert_eq!(ei.get_property("embedded-y").unwrap(), slint_interpreter::Value::Number(0.0));
 ```
 
 

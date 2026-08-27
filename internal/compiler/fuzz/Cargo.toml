@@ -1,0 +1,29 @@
+# Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+# This is a standalone cargo project, deliberately kept out of the main Slint
+# workspace so that the libfuzzer-sys dependency is not pulled in for everyone.
+# Build it by running cargo from this directory (or via run_fuzzer.sh).
+[workspace]
+
+[package]
+name = "i-slint-compiler-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2024"
+license = "GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+i-slint-compiler = { path = "..", default-features = false }
+libfuzzer-sys = "0.4"
+spin_on = "0.1"
+
+[[bin]]
+name = "compiler_fuzzing"
+path = "fuzz_targets/compiler_fuzzing.rs"
+test = false
+doc = false
+bench = false

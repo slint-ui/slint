@@ -38,6 +38,27 @@ pub use i_slint_backend_testing;
 #[cfg(feature = "slint-interpreter")]
 pub use slint_interpreter;
 
+#[cfg(feature = "live-preview")]
+pub use i_slint_live_preview;
+
+#[cfg(target_os = "android")]
+mod android {
+    unsafe extern "C" {
+        fn slint_main();
+    }
+
+    #[unsafe(no_mangle)]
+    fn android_main(app: i_slint_backend_android_activity::AndroidApp) {
+        i_slint_core::platform::set_platform(alloc::boxed::Box::new(
+            i_slint_backend_android_activity::AndroidPlatform::new(app),
+        ))
+        .unwrap();
+        #[cfg(any(feature = "mcp", feature = "system-testing"))]
+        i_slint_backend_selector::init_testing_backends();
+        unsafe { slint_main() };
+    }
+}
+
 #[unsafe(no_mangle)]
 pub extern "C" fn slint_context_accent_color(
     root: &i_slint_core::item_tree::ItemTreeRc,
@@ -109,6 +130,11 @@ pub unsafe extern "C" fn slint_post_event(
     unsafe impl Send for UserData {}
     let ud = UserData { user_data, drop_user_data };
 
+    // Install the default platform if none is set yet, so that posting events works even
+    // before the event loop runs. From a non-main thread this errors and the platform
+    // installed by another thread provides the event loop proxy below.
+    let _ = with_platform(|_| Ok(()));
+
     i_slint_core::api::invoke_from_event_loop(move || {
         let ud = &ud;
         event(ud.user_data);
@@ -163,12 +189,11 @@ pub unsafe extern "C" fn slint_register_bitmap_font(
 
 #[unsafe(no_mangle)]
 pub extern "C" fn slint_string_to_float(string: &SharedString, value: &mut f32) -> bool {
-    match string.as_str().parse::<f32>() {
-        Ok(v) => {
-            *value = v;
-            true
-        }
-        Err(_) => false,
+    if let Some(v) = i_slint_core::string::string_to_float(string.as_str()) {
+        *value = v;
+        true
+    } else {
+        false
     }
 }
 
@@ -277,14 +302,24 @@ pub unsafe extern "C" fn slint_open_url(
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn slint_macos_bring_all_windows_to_front() {
+    i_slint_core::macos_bring_all_windows_to_front()
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn slint_string_to_styled_text(text: &SharedString, out: &mut StyledText) {
     *out = i_slint_core::styled_text::string_to_styled_text(text.to_string());
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn slint_color_to_styled_text(color: &i_slint_core::Color, out: &mut StyledText) {
+    *out = i_slint_core::styled_text::color_to_styled_text(*color);
 }
 
 // Translator API is currently considered experimental due to discussions
 // about the returned string type (SharedString vs. Cow<str> etc.). Also it
 // is not available with no_std due to the tr crate.
-// See dicussion in https://github.com/slint-ui/slint/pull/10979.
+// See discussion in https://github.com/slint-ui/slint/pull/10979.
 #[cfg(all(feature = "experimental", feature = "std"))]
 mod translator {
     use crate::SharedString;

@@ -64,8 +64,6 @@ export component ComboBox {
                 horizontal-stretch: 1;
                 horizontal-alignment: left;
                 vertical-alignment: center;
-                font-size: CosmicFontSettings.body.font-size;
-                font-weight: CosmicFontSettings.body.font-weight;
                 color: CosmicPalette.control-foreground;
                 text: root.current-value;
                 overflow: elide;
@@ -113,7 +111,7 @@ export component ComboBox {
 
             MenuBorder {
                 ScrollView {
-                    viewport-y: root.popup-scroll-y;
+                    content-y: root.popup-scroll-y;
                     VerticalLayout {
                         alignment: start;
                         padding: root.popup-padding;

@@ -1,9 +1,9 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-Sub := Rectangle {
-    property <bool> cond;
-    property <float> child_opacity: inner.opacity;
+component Sub inherits Rectangle {
+    in-out property <bool> cond;
+    in-out property <float> child_opacity: inner.opacity;
     inner := Rectangle {
         opacity: cond ? 0 : 1;
         animate opacity { duration: 1s; }
@@ -11,9 +11,9 @@ Sub := Rectangle {
     }
 }
 
-TestCase := Rectangle {
-    property cond <=> s.cond;
-    property val <=> s.child_opacity;
+export component TestCase inherits Rectangle {
+    in-out property cond <=> s.cond;
+    in-out property val <=> s.child_opacity;
     s := Sub {}
 }
 

@@ -1,12 +1,11 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore pycol
 use pyo3::prelude::*;
-use pyo3_stub_gen::{derive::gen_stub_pyclass, derive::gen_stub_pymethods, impl_stub_type};
 
 use crate::errors::PyColorParseError;
 
-#[gen_stub_pyclass]
 #[pyclass]
 #[derive(FromPyObject)]
 struct RgbaColor {
@@ -20,7 +19,6 @@ struct RgbaColor {
     alpha: u8,
 }
 
-#[gen_stub_pyclass]
 #[pyclass]
 #[derive(FromPyObject)]
 struct RgbColor {
@@ -57,20 +55,16 @@ enum PyColorInput {
     },
 }
 
-impl_stub_type!(PyColorInput = String | RgbaColor | RgbColor);
-
 /// A Color object represents a color in the RGB color space with an alpha. Each color channel and the alpha is represented
 /// as an 8-bit integer. The alpha channel is 0 for fully transparent and 255 for fully opaque.
 ///
 /// Construct colors from a CSS color string, or by specifying the red, green, blue, and (optional) alpha channels in a dict.
-#[gen_stub_pyclass]
 #[pyclass(name = "Color", from_py_object)]
 #[derive(Clone)]
 pub struct PyColor {
     pub color: slint_interpreter::Color,
 }
 
-#[gen_stub_pymethods]
 #[pymethods]
 impl PyColor {
     #[new]
@@ -175,21 +169,17 @@ enum PyBrushInput {
     SolidColor(PyColor),
 }
 
-impl_stub_type!(PyBrushInput = PyColor);
-
 /// A brush is a data structure that is used to describe how a shape, such as a rectangle, path or even text,
 /// shall be filled. A brush can also be applied to the outline of a shape, that means the fill of the outline itself.
 ///
 /// Brushes can only be constructed from solid colors.
 ///
-/// **Note:** In future, we plan to reduce this constraint and allow for declaring graidient brushes programmatically.
-#[gen_stub_pyclass]
+/// **Note:** In future, we plan to reduce this constraint and allow for declaring gradient brushes programmatically.
 #[pyclass(name = "Brush")]
 pub struct PyBrush {
     pub brush: slint_interpreter::Brush,
 }
 
-#[gen_stub_pymethods]
 #[pymethods]
 impl PyBrush {
     #[new]

@@ -1,0 +1,63 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Verify that a parent's init callback always fires before its children
+// are instantiated, for both `if` (conditional) and `for` (repeater).
+
+export component TestCase inherits Window {
+    width: 100px;
+    height: 100px;
+    out property <string> log;
+
+    // A conditional whose init must fire before its for-children.
+    if true: Rectangle {
+        init => { log += "if1,"; }
+        for i in [1, 2]: Rectangle {
+            init => { log += "for1." + i + ","; }
+        }
+    }
+
+    // A for-repeater whose children each contain a conditional.
+    for i in [1, 2]: Rectangle {
+        init => { log += "for2." + i + ","; }
+        if true: Rectangle {
+            init => { log += "if2." + i + ","; }
+        }
+    }
+
+    // Nested: for inside if inside for.
+    for i in [1]: Rectangle {
+        init => { log += "outer." + i + ","; }
+        if true: Rectangle {
+            init => { log += "mid." + i + ","; }
+            for j in [1, 2]: Rectangle {
+                init => { log += "inner." + i + "." + j + ","; }
+            }
+        }
+    }
+
+    out property <bool> test: true;
+}
+
+/*
+
+```rust
+let instance = TestCase::new().unwrap();
+slint_testing::mock_elapsed_time(100);
+assert_eq!(instance.get_log(), "if1,for1.1,for1.2,for2.1,if2.1,for2.2,if2.2,outer.1,mid.1,inner.1.1,inner.1.2,");
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+slint_testing::mock_elapsed_time(100);
+assert_eq(instance.get_log(), "if1,for1.1,for1.2,for2.1,if2.1,for2.2,if2.2,outer.1,mid.1,inner.1.1,inner.1.2,");
+```
+
+```js
+var instance = new slint.TestCase({});
+slintlib.private_api.mock_elapsed_time(100);
+assert.equal(instance.log, "if1,for1.1,for1.2,for2.1,if2.1,for2.2,if2.2,outer.1,mid.1,inner.1.1,inner.1.2,");
+```
+
+*/

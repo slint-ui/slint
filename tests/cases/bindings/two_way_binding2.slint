@@ -1,50 +1,53 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-OtherComp := Rectangle {
-    property t <=> text.text;
-    property get_text <=> text.text;
+component OtherComp inherits Rectangle {
+    in-out property t <=> text.text;
+    in-out property get_text <=> text.text;
     text := Text {
+        x:0;y:0;
         text: "to be overridden";
     }
-    property <int> some_value: 42;
-    property some_value_alias <=> some_value;
+    in-out property <int> some_value: 42;
+    in-out property some_value_alias <=> some_value;
 }
 
-TestCase := Rectangle {
+export component TestCase inherits Rectangle {
 
-    property <string> text1: "Hello";
-    property <string> text2: "Blah";
-    property ti1_text <=> ti1.text_alias;
-    property ti2_text <=> ti2.text_alias;
-    property text_item_text <=> text_item.text;
-    property <string> othercomp_t: "real value";
-    property othercomp_get_text <=> other_comp.get_text;
-    property <int> othercomp_some_value;
-    property othercomp_some_value_alias <=> other_comp.some_value_alias;
-    property <int> othercomp_some_value_alias2;
+    in-out property <string> text1: "Hello";
+    in-out property <string> text2: "Blah";
+    in-out property ti1_text <=> ti1.text_alias;
+    in-out property ti2_text <=> ti2.text_alias;
+    in-out property text_item_text <=> text_item.text;
+    in-out property <string> othercomp_t: "real value";
+    in-out property othercomp_get_text <=> other_comp.get_text;
+    in-out property <int> othercomp_some_value;
+    in-out property othercomp_some_value_alias <=> other_comp.some_value_alias;
+    in-out property <int> othercomp_some_value_alias2;
 
     ti1 := TextInput {
-        property text_alias <=> text;
+        property text_alias <=> self.text;
         text <=> text1;
     }
 
     ti2 := TextInput {
-        property text_alias <=> text_alias_indirection;
-        property text_alias_indirection <=> text;
+        property text_alias <=> self.text_alias_indirection;
+        property text_alias_indirection <=> self.text;
         text <=> text_item.text;
     }
 
     text_item := Text {
+        x:0;y:0;
         text: text2;
     }
 
     Text {
+        x:0;y:0;
         text <=> text1;
     }
 
     other_comp := OtherComp {
-        t <=> root.othercomp_t;
+        t <=> othercomp_t;
         some_value <=> othercomp_some_value;
         some_value_alias <=> othercomp_some_value_alias2;
     }

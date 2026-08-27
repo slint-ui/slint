@@ -6,6 +6,7 @@
 #include "private/slint_item_tree.h"
 
 #include <algorithm>
+#include <cstddef>
 #include <functional>
 #include <memory>
 #include <optional>
@@ -48,12 +49,90 @@ long int model_length(const std::shared_ptr<M> &model)
     }
 }
 
+template<typename M, typename ModelData>
+void model_push(const std::shared_ptr<M> &model, const ModelData &value)
+{
+    if (model) {
+        model->push_row(value);
+    }
+}
+
+template<typename M>
+void model_remove(const std::shared_ptr<M> &model, std::ptrdiff_t index)
+{
+    if (model) {
+        model->remove_row(index);
+    }
+}
+
+template<typename M, typename ModelData>
+void model_insert(const std::shared_ptr<M> &model, std::ptrdiff_t index, const ModelData &value)
+{
+    if (model) {
+        model->insert_row(index, value);
+    }
+}
+
+template<typename M, typename P>
+bool model_any(const std::shared_ptr<M> &model, P predicate)
+{
+    if (!model) {
+        return false;
+    }
+    model->track_any_change();
+    long int count = model->row_count();
+
+    for (long int i = 0; i < count; ++i) {
+        if (const auto data = model->row_data(i); data && predicate(*data)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+template<typename M, typename P>
+bool model_all(const std::shared_ptr<M> &model, P predicate)
+{
+    if (!model) {
+        return true;
+    }
+    model->track_any_change();
+    long int count = model->row_count();
+
+    for (long int i = 0; i < count; ++i) {
+        // A row without data is skipped, as it is by model_any and model_find_index,
+        // rather than failing the whole model.
+        if (const auto data = model->row_data(i); data && !predicate(*data)) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+template<typename M, typename P>
+int32_t model_find_index(const std::shared_ptr<M> &model, P predicate)
+{
+    if (!model) {
+        return -1;
+    }
+    model->track_any_change();
+    long int count = model->row_count();
+
+    for (long int i = 0; i < count; ++i) {
+        if (const auto data = model->row_data(i); data && predicate(*data)) {
+            return static_cast<int32_t>(i);
+        }
+    }
+
+    return -1;
+}
+
 } // namespace private_api
 
-/// \rst
-/// A Model is providing Data for Slint |Models|_ or |ListView|_ elements of the
-/// :code:`.slint` language
-/// \endrst
+/// A Model is providing Data for Slint Models or ListView elements of the
+/// `.slint` language
 ///
 /// This is typically used in a `std::shared_ptr<slint::Model>`.
 /// Model is an abstract class and you can derive from it to provide your own data model,
@@ -97,6 +176,46 @@ public:
 #endif
     };
 
+    /// Adds a new row with the given \a data at the end of the model.
+    ///
+    /// If the model cannot support data changes, then it is ok to do nothing.
+    /// The default implementation will print a warning to stderr.
+    ///
+    /// If the model can update the data, it should also call `notify_row_added`
+    virtual void push_row(const ModelData &)
+    {
+#ifndef SLINT_FEATURE_FREESTANDING
+        std::cerr << "Model::push_row was called on a read-only model" << std::endl;
+#endif
+    };
+
+    /// Removes the row at the given \a index from the model.
+    ///
+    /// If the model cannot support data changes, then it is ok to do nothing.
+    /// The default implementation will print a warning to stderr.
+    ///
+    /// If the model can update the data, it should also call `notify_row_removed`
+    virtual void remove_row(std::ptrdiff_t)
+    {
+#ifndef SLINT_FEATURE_FREESTANDING
+        std::cerr << "Model::remove_row was called on a read-only model" << std::endl;
+#endif
+    };
+
+    /// Inserts a new row with the given \a data at the given \a index, shifting the
+    /// following rows by one.
+    ///
+    /// If the model cannot support data changes, then it is ok to do nothing.
+    /// The default implementation will print a warning to stderr.
+    ///
+    /// If the model can update the data, it should also call `notify_row_added`
+    virtual void insert_row(std::ptrdiff_t, const ModelData &)
+    {
+#ifndef SLINT_FEATURE_FREESTANDING
+        std::cerr << "Model::insert_row was called on a read-only model" << std::endl;
+#endif
+    };
+
     /// \private
     /// Internal function called by the view to register itself
     void attach_peer(private_api::ModelPeer p) { peers.push_back(std::move(p)); }
@@ -111,10 +230,37 @@ public:
     /// evaluating dependency and get notified when this model's row data changes.
     void track_row_data_changes(size_t row) const
     {
-        auto it = std::lower_bound(tracked_rows.begin(), tracked_rows.end(), row);
-        if (it == tracked_rows.end() || row < *it) {
-            tracked_rows.insert(it, row);
+        // Outside a binding evaluation there is no dependency to register, and recording
+        // the row would only make later changes to it dirty unrelated bindings.
+        if (!private_api::is_currently_tracking()) {
+            return;
         }
+        // Recording the row individually is redundant once every row is tracked.
+        if (!all_rows_tracked) {
+            auto it = std::lower_bound(tracked_rows.begin(), tracked_rows.end(), row);
+            if (it == tracked_rows.end() || row < *it) {
+                tracked_rows.insert(it, row);
+            }
+        }
+        model_row_data_dirty_property.get();
+    }
+
+    /// \private
+    /// Internal function called from within bindings to register with the currently
+    /// evaluating dependency and get notified of any change to this model: the row
+    /// count as well as the data of any row.
+    void track_any_change() const
+    {
+        track_row_count_changes();
+        // Outside a binding evaluation there is no dependency to register, and latching
+        // all_rows_tracked would make every later row change dirty every row-data
+        // binding on this model until the next add/remove/reset.
+        if (!private_api::is_currently_tracking()) {
+            return;
+        }
+        all_rows_tracked = true;
+        // Any individually tracked rows are now subsumed by the whole-model dependency.
+        tracked_rows.clear();
         model_row_data_dirty_property.get();
     }
 
@@ -133,7 +279,7 @@ protected:
     void notify_row_changed(size_t row)
     {
         private_api::assert_main_thread();
-        if (std::binary_search(tracked_rows.begin(), tracked_rows.end(), row)) {
+        if (all_rows_tracked || std::binary_search(tracked_rows.begin(), tracked_rows.end(), row)) {
             model_row_data_dirty_property.mark_dirty();
         }
         for_each_peers([=](auto peer) { peer->row_changed(row); });
@@ -146,6 +292,7 @@ protected:
         private_api::assert_main_thread();
         model_row_count_dirty_property.mark_dirty();
         tracked_rows.clear();
+        all_rows_tracked = false;
         model_row_data_dirty_property.mark_dirty();
         for_each_peers([=](auto peer) { peer->row_added(index, count); });
     }
@@ -157,6 +304,7 @@ protected:
         private_api::assert_main_thread();
         model_row_count_dirty_property.mark_dirty();
         tracked_rows.clear();
+        all_rows_tracked = false;
         model_row_data_dirty_property.mark_dirty();
         for_each_peers([=](auto peer) { peer->row_removed(index, count); });
     }
@@ -169,6 +317,7 @@ protected:
         private_api::assert_main_thread();
         model_row_count_dirty_property.mark_dirty();
         tracked_rows.clear();
+        all_rows_tracked = false;
         model_row_data_dirty_property.mark_dirty();
         for_each_peers([=](auto peer) { peer->reset(); });
     }
@@ -209,47 +358,10 @@ private:
     private_api::Property<bool> model_row_count_dirty_property;
     private_api::Property<bool> model_row_data_dirty_property;
     mutable std::vector<size_t> tracked_rows;
+    mutable bool all_rows_tracked = false;
 };
 
 namespace private_api {
-/// A Model backed by a std::array of constant size
-/// \private
-template<int Count, typename ModelData>
-class ArrayModel : public Model<ModelData>
-{
-    std::array<ModelData, Count> data;
-
-public:
-    /// Constructs a new ArrayModel by forwarding \a to the std::array constructor.
-    template<typename... A>
-    ArrayModel(A &&...a) : data { std::forward<A>(a)... }
-    {
-    }
-    size_t row_count() const override { return Count; }
-    std::optional<ModelData> row_data(size_t i) const override
-    {
-        if (i >= row_count())
-            return {};
-        return data[i];
-    }
-    void set_row_data(size_t i, const ModelData &value) override
-    {
-        if (i < row_count()) {
-            data[i] = value;
-            this->notify_row_changed(i);
-        }
-    }
-};
-
-// Specialize for the empty array. We can't have a Model<void>, but `int` will work for our purpose
-template<>
-class ArrayModel<0, void> : public Model<int>
-{
-public:
-    size_t row_count() const override { return 0; }
-    std::optional<int> row_data(size_t) const override { return {}; }
-};
-
 /// Model to be used when we just want to repeat without data.
 struct UIntModel : Model<int>
 {
@@ -291,6 +403,22 @@ public:
         if (i < row_count()) {
             data[i] = value;
             this->notify_row_changed(i);
+        }
+    }
+
+    void push_row(const ModelData &value) override { push_back(value); }
+
+    void remove_row(std::ptrdiff_t index) override
+    {
+        if (index >= 0 && index < static_cast<std::ptrdiff_t>(data.size())) {
+            erase(static_cast<size_t>(index));
+        }
+    }
+
+    void insert_row(std::ptrdiff_t index, const ModelData &value) override
+    {
+        if (index >= 0 && index <= static_cast<std::ptrdiff_t>(data.size())) {
+            insert(static_cast<size_t>(index), value);
         }
     }
 
@@ -691,18 +819,22 @@ struct SortModelInner : private_api::ModelChangeListener
         std::vector<size_t> removed_rows;
         removed_rows.reserve(count);
 
-        for (auto it = sorted_rows.begin(); it != sorted_rows.end();) {
-            if (*it >= first_removed_row) {
-                if (*it < first_removed_row + count) {
-                    removed_rows.push_back(std::distance(sorted_rows.begin(), it));
-                    it = sorted_rows.erase(it);
+        // `write` is the position the removed row would have had with one-at-a-time
+        // removal, so the emitted notifications are unchanged.
+        size_t write = 0;
+        for (size_t read = 0; read < sorted_rows.size(); ++read) {
+            size_t sort_index = sorted_rows[read];
+            if (sort_index >= first_removed_row) {
+                if (sort_index < first_removed_row + count) {
+                    removed_rows.push_back(write);
                     continue;
-                } else {
-                    *it -= count;
                 }
+                sort_index -= count;
             }
-            ++it;
+            sorted_rows[write] = sort_index;
+            ++write;
         }
+        sorted_rows.resize(write);
 
         for (auto removed_row : removed_rows) {
             target_model.notify_row_removed(removed_row, 1);
@@ -1036,7 +1168,9 @@ class Repeater
                     }(),
             .init =
                     [](void *ud, uintptr_t instance_idx) {
-                        (*static_cast<Ctx *>(ud)->inner->data[instance_idx].ptr)->init();
+                        auto &c = static_cast<Ctx *>(ud)->inner->data[instance_idx];
+                        (*c.ptr)->init();
+                        (*c.ptr)->ensure_instantiated();
                     },
         };
     }
@@ -1103,9 +1237,9 @@ public:
     /// Returns true if any instance was created or any child changed.
     template<typename Parent>
     bool ensure_updated_listview(const Parent *parent,
-                                 const private_api::Property<float> *viewport_width,
-                                 const private_api::Property<float> *viewport_height,
-                                 const private_api::Property<float> *viewport_y,
+                                 const private_api::Property<float> *content_width,
+                                 const private_api::Property<float> *content_height,
+                                 const private_api::Property<float> *content_y,
                                  float listview_width, float listview_height) const
     {
         refresh_model();
@@ -1122,8 +1256,8 @@ public:
         VTableContext<Parent> ctx { inner.get(), parent };
         auto ops = make_ops(ctx);
         bool changed = cbindgen_private::slint_repeater_ensure_updated_listview(
-                &ops, &inner->layout_state, m->row_count(), viewport_width, viewport_height,
-                viewport_y, listview_width, listview_height);
+                &ops, &inner->layout_state, m->row_count(), content_width, content_height,
+                content_y, listview_width, listview_height);
         if (changed)
             instance_generation.mark_dirty();
         return recurse_ensure_instantiated() || changed;
@@ -1146,24 +1280,22 @@ public:
     /// Register the instance generation as a dependency of the current
     /// tracking scope. Layout code uses this to re-evaluate only after
     /// ensure_updated materializes instance changes.
-    void track_instance_changes() const
-    {
-        if (inner)
-            instance_generation.register_as_dependency();
-    }
+    void track_instance_changes() const { instance_generation.register_as_dependency(); }
 
-    /// Register the ListView viewport properties as dependencies so that
+    /// Register the ListView content properties as dependencies so that
     /// scrolling triggers a redraw.  Model dependencies are registered by
-    /// visit(), so this only covers the viewport geometry.
-    void track_changes_listview(const private_api::Property<float> *viewport_width,
-                                const private_api::Property<float> *viewport_height,
-                                const private_api::Property<float> *viewport_y,
+    /// visit(), so this only covers the content geometry.
+    void track_changes_listview(const private_api::Property<float> *content_width,
+                                const private_api::Property<float> *content_height,
+                                const private_api::Property<float> *content_y,
                                 [[maybe_unused]] float listview_width,
                                 const private_api::Property<float> *listview_height) const
     {
-        viewport_width->register_as_dependency();
-        viewport_height->register_as_dependency();
-        viewport_y->register_as_dependency();
+        if (content_width)
+            content_width->register_as_dependency();
+        if (content_height)
+            content_height->register_as_dependency();
+        content_y->register_as_dependency();
         listview_height->register_as_dependency();
     }
 
@@ -1173,8 +1305,12 @@ public:
     uint64_t visit(TraversalOrder order, private_api::ItemVisitorRefMut visitor) const
     {
         track_model_changes();
+        if (!inner)
+            return std::numeric_limits<uint64_t>::max();
         for (std::size_t i = 0; i < inner->data.size(); ++i) {
             auto index = order == TraversalOrder::BackToFront ? i : inner->data.size() - 1 - i;
+            if (!inner->data[index].ptr)
+                continue;
             auto ref = item_at(index);
             if (ref.vtable->visit_children_item(ref, -1, order, visitor)
                 != std::numeric_limits<uint64_t>::max()) {
@@ -1184,36 +1320,60 @@ public:
         return std::numeric_limits<uint64_t>::max();
     }
 
+    /// Call `cb` with the model row index and the z value of every instance, when the
+    /// repeated element has a dynamic z binding (the generated component has a
+    /// `z_order()` member function). The row index is the one accepted by
+    /// `instance_at` (and thus by the `get_subtree` vtable entry).
+    /// Also registers model dependencies so the current tracking scope is notified
+    /// when the model changes.
+    template<typename F>
+    void for_each_instance_z(F cb) const
+    {
+        track_model_changes();
+        if (!inner)
+            return;
+        const auto offset = inner->layout_state.offset;
+        for (std::size_t i = 0; i < inner->data.size(); ++i) {
+            cb(uint32_t(offset + i), inner->data[i].ptr ? (*inner->data[i].ptr)->z_order() : 0.f);
+        }
+    }
+
     vtable::VWeak<private_api::ItemTreeVTable> instance_at(std::size_t i) const
     {
+        if (!inner)
+            return {};
         const auto offset = inner->layout_state.offset;
         if (i < offset || i - offset >= inner->data.size()) {
             return {};
         }
         const auto &x = inner->data.at(i - offset);
+        if (!x.ptr)
+            return {};
         return vtable::VWeak<private_api::ItemTreeVTable> { x.ptr->into_dyn() };
     }
 
     private_api::IndexRange index_range() const
     {
+        if (!inner)
+            return private_api::IndexRange { 0, 0 };
         const auto offset = inner->layout_state.offset;
         return private_api::IndexRange { offset, offset + inner->data.size() };
     }
 
     std::size_t len() const { return inner ? inner->data.size() : 0; }
 
-    float compute_layout_listview(const private_api::Property<float> *viewport_width,
-                                  float listview_width, float viewport_y) const
+    float compute_layout_listview(const private_api::Property<float> *content_width,
+                                  float listview_width, float content_y) const
     {
-        float offset = viewport_y;
-        auto vp_width = listview_width;
+        float offset = content_y;
+        auto content_width_value = listview_width;
         if (!inner)
             return offset;
         for (auto &x : inner->data) {
-            vp_width = std::max(vp_width, (*x.ptr)->listview_layout(&offset));
+            content_width_value = std::max(content_width_value, (*x.ptr)->listview_layout(&offset));
         }
-        viewport_width->set(vp_width);
-        return offset - viewport_y;
+        content_width->set(content_width_value);
+        return offset - content_y;
     }
 
     void model_set_row_data(size_t row, const ModelData &data) const
@@ -1232,9 +1392,19 @@ public:
     {
         if (inner) {
             for (auto &&x : inner->data) {
-                f(*x.ptr);
+                if (x.ptr)
+                    f(*x.ptr);
             }
         }
+    }
+
+    /// The typed instance at position `i` (`0..len()`), or nullptr if not instantiated.
+    const C *typed_instance_at(std::size_t i) const
+    {
+        if (!inner || i >= inner->data.size())
+            return nullptr;
+        const auto &x = inner->data[i];
+        return x.ptr ? &(**x.ptr) : nullptr;
     }
 
     bool recurse_ensure_instantiated() const
@@ -1314,6 +1484,19 @@ public:
         return std::numeric_limits<uint64_t>::max();
     }
 
+    /// Call `cb` with the index and the z value of the instance if the condition is
+    /// active, when the conditional element has a dynamic z binding (the generated
+    /// component has a `z_order()` member function).
+    /// Also registers the condition as a dependency of the current tracking scope.
+    template<typename F>
+    void for_each_instance_z(F cb) const
+    {
+        track_model_changes();
+        if (instance) {
+            cb(0, (*instance)->z_order());
+        }
+    }
+
     vtable::VWeak<private_api::ItemTreeVTable> instance_at(std::size_t i) const
     {
         if (i != 0 || !instance) {
@@ -1331,6 +1514,12 @@ public:
         if (instance) {
             f(*instance);
         }
+    }
+
+    /// The typed instance at position `i` (`0..len()`), or nullptr if not instantiated.
+    const C *typed_instance_at(std::size_t i) const
+    {
+        return (i == 0 && instance) ? &(**instance) : nullptr;
     }
 
     bool recurse_ensure_instantiated() const

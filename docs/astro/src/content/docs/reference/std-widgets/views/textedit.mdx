@@ -1,8 +1,8 @@
 ---
-// cSpell: ignore Lorem ipsum dolor sit amet consectetur adipisici elit
 title: TextEdit
 description: TextEdit api.
 ---
+{/* cSpell: ignore Lorem ipsum dolor sit amet consectetur adipisici elit */}
 
 import SlintProperty from '@slint/common-files/src/components/SlintProperty.astro';
 import CodeSnippetMD from '@slint/common-files/src/components/CodeSnippetMD.astro';
@@ -65,6 +65,17 @@ Set to true when the widget currently has the focus.
 When false, nothing can be entered.
 </SlintProperty>
 
+### input-method-hints
+<SlintProperty propName="input-method-hints" typeName="struct" structName="InputMethodHints">
+Hints for the platform's input method (such as a soft keyboard), for example to configure auto-capitalization.
+The input method may take these hints into account, but might also ignore them.
+```slint "input-method-hints: { capitalization: CapitalizationMode.words };"
+TextEdit {
+    input-method-hints: { capitalization: CapitalizationMode.words };
+}
+```
+</SlintProperty>
+
 ### read-only
 <SlintProperty propName="read-only" typeName="bool" defaultValue="false" >
 When set to true, text editing via keyboard and mouse is disabled but selecting text is still enabled as well as editing text programmatically.
@@ -81,28 +92,32 @@ The horizontal alignment of the text.
 </SlintProperty>
 
 ### placeholder-text
-<SlintProperty propName="text" typeName="string" propertyVisibility="in" >
+<SlintProperty propName="placeholder-text" typeName="string" propertyVisibility="in" >
 A placeholder text being shown when there is no text in the edit field.
 </SlintProperty>
 
-### viewport-width
-<SlintProperty propName="viewport-width" typeName="length" propertyVisibility="in-out">
-The width of the viewport of the text edit.
+### content-width
+<SlintProperty propName="content-width" typeName="length" propertyVisibility="in-out">
+The width of the scrollable content of the text edit.
+This property was formerly known as `viewport-width`, which is still available as a deprecated alias.
 </SlintProperty>
 
-### viewport-height
-<SlintProperty propName="viewport-height" typeName="length" propertyVisibility="in-out">
-The height of the viewport of the text edit.
+### content-height
+<SlintProperty propName="content-height" typeName="length" propertyVisibility="in-out">
+The height of the scrollable content of the text edit.
+This property was formerly known as `viewport-height`, which is still available as a deprecated alias.
 </SlintProperty>
 
-### viewport-x
-<SlintProperty propName="viewport-x" typeName="length" propertyVisibility="in-out">
-The `x` position of the viewport relative to the text edit. This is usually a negative value.
+### content-x
+<SlintProperty propName="content-x" typeName="length" propertyVisibility="in-out">
+The `x` position of the scrollable content relative to the text edit. This is usually a negative value.
+This property was formerly known as `viewport-x`, which is still available as a deprecated alias.
 </SlintProperty>
 
-### viewport-y
-<SlintProperty propName="viewport-y" typeName="length" propertyVisibility="in-out">
-The `y` position of the viewport relative to the text edit. This is usually a negative value.
+### content-y
+<SlintProperty propName="content-y" typeName="length" propertyVisibility="in-out">
+The `y` position of the scrollable content relative to the text edit. This is usually a negative value.
+This property was formerly known as `viewport-y`, which is still available as a deprecated alias.
 </SlintProperty>
 
 ### visible-width
@@ -119,7 +134,7 @@ The height of the visible area of the text edit (not including the scrollbar)
 
 -   **`focus()`** Call this function to focus the TextEdit and make it receive future keyboard events.
 -   **`clear-focus()`** Call this function to remove keyboard focus from this `TextEdit` if it currently has the focus. See also <Link type="FocusHandling" label="focus handling" />.
--   **`set-selection-offsets(int, int)`** Selects the text between two UTF-8 offsets.
+-   **`set-selection-offsets(anchor: int, focus: int)`** Selects the text between two UTF-8 offsets: `anchor` is the end of the selection that stays put and `focus` the end the cursor moves to, so `focus` may precede `anchor` to select backwards.
 -   **`select-all()`** Selects all text.
 -   **`clear-selection()`** Clears the selection. This function takes effect regardless of the `read-only` and `enabled` properties.
 -   **`copy()`** Copies the selected text to the clipboard.

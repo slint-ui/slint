@@ -496,7 +496,7 @@ fn main() {
         // Chain systems to ensure they run in a deterministic order
         .add_systems(Update, (handle_input, render_slint, rotate_cube).chain())
         // Initialize Slint context as NonSend (must run on main thread)
-        .init_non_send_resource::<SlintContext>()
+        .init_non_send::<SlintContext>()
         .run();
 }
 
@@ -635,13 +635,13 @@ fn setup(
 
     // Load and spawn the cow model
     commands.spawn((
-        SceneRoot(assets.load("cow.gltf#Scene0")),
+        WorldAssetRoot(assets.load("cow.gltf#Scene0")),
         Transform::from_scale(Vec3::splat(4.0)).with_translation(Vec3::new(-2.0, 2.0, -30.0)),
     ));
 
     // Add a point light
     commands.spawn((
-        PointLight { intensity: 2_000_000.0, range: 100.0, shadows_enabled: true, ..default() },
+        PointLight { intensity: 2_000_000.0, range: 100.0, shadow_maps_enabled: true, ..default() },
         Transform::from_xyz(8.0, 16.0, 8.0),
     ));
 
@@ -668,17 +668,17 @@ fn setup(
         .with_children(|parent| {
             parent.spawn((
                 Text::new("Slint + Bevy Integration Demo"),
-                TextFont { font_size: 16.0, ..default() },
+                TextFont { font_size: FontSize::Px(16.0), ..default() },
                 TextColor(Color::WHITE),
             ));
             parent.spawn((
                 Text::new("UI rendered via Slint software renderer"),
-                TextFont { font_size: 12.0, ..default() },
+                TextFont { font_size: FontSize::Px(12.0), ..default() },
                 TextColor(Color::srgb(0.8, 0.8, 0.8)),
             ));
             parent.spawn((
                 Text::new("Use arrow keys to rotate the cube"),
-                TextFont { font_size: 12.0, ..default() },
+                TextFont { font_size: FontSize::Px(12.0), ..default() },
                 TextColor(Color::srgb(0.8, 0.8, 0.8)),
             ));
         });
@@ -729,7 +729,7 @@ fn render_slint(
 
     // Only one SlintScene is spawned, so we use .next() to make this explicit
     let Some(scene) = slint_scenes.iter().next() else { return };
-    let image = images.get_mut(&scene.image).unwrap();
+    let mut image = images.get_mut(&scene.image).unwrap();
 
     let requested_size = slint::PhysicalSize::new(
         image.texture_descriptor.size.width,
@@ -744,13 +744,16 @@ fn render_slint(
 
     // Render the Slint UI directly into the Bevy texture's CPU-side storage.
     // We use bytemuck::cast_slice_mut to safely reinterpret the &mut [u8] as &mut [PremultipliedRgbaColor].
+    // Read the stride before the mutable borrow of `image.data` below.
+    // In Bevy 0.19 `Image::data` is an `Option<Vec<u8>>`, so the mutable
+    // borrow would otherwise conflict with reading the texture descriptor.
+    let stride = image.texture_descriptor.size.width as usize;
     if let Some(data) = image.data.as_mut() {
         // Render the Slint UI into the pixel buffer
         // The second parameter is the stride (pixels per row)
-        adapter.software_renderer.render(
-            bytemuck::cast_slice_mut::<u8, PremultipliedRgbaColor>(data),
-            image.texture_descriptor.size.width as usize,
-        );
+        adapter
+            .software_renderer
+            .render(bytemuck::cast_slice_mut::<u8, PremultipliedRgbaColor>(data), stride);
     }
 
     // WORKAROUND: Force GPU texture re-upload by accessing the material mutably

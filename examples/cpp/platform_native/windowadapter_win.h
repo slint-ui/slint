@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
+// cSpell: ignore LBUTTONDOWN PAINTSTRUCT RBUTTONDOWN XBUTTON XBUTTONDOWN
 #pragma once
 
 #include <optional>

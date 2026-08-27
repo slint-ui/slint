@@ -79,8 +79,6 @@ export component ComboBox {
                 horizontal-stretch: 1;
                 horizontal-alignment: left;
                 vertical-alignment: center;
-                font-size: FluentFontSettings.body.font-size;
-                font-weight: FluentFontSettings.body.font-weight;
                 color: FluentPalette.control-foreground;
                 text: root.current-value;
                 overflow: elide;
@@ -125,7 +123,7 @@ export component ComboBox {
 
             MenuBorder {
                 ScrollView {
-                    viewport-y: root.popup-scroll-y;
+                    content-y: root.popup-scroll-y;
 
                     VerticalLayout {
                         alignment: start;

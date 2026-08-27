@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
+// cSpell: ignore libunwind lunwind mozjs
 use std::env;
 use std::fs::File;
 use std::io::Write;

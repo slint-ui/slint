@@ -54,7 +54,7 @@ Defaults to true. When false, the button cannot be pressed.
 </SlintProperty>
 
 ### has-focus
-<SlintProperty propName="has-focus" typeName="bool" defaultValue="false" propertyVisibility="out">
+<SlintProperty propName="has-focus" typeName="bool" propertyVisibility="out">
 Set to true when the button has keyboard focus
 </SlintProperty>
 
@@ -69,7 +69,7 @@ The size of the icon shown in the button. The default value depends on the style
 </SlintProperty>
 
 ### pressed
-<SlintProperty propName="pressed" typeName="bool" defaultValue="false" propertyVisibility="out">
+<SlintProperty propName="pressed" typeName="bool" propertyVisibility="out">
 Set to true when the button is pressed.
 </SlintProperty>
 

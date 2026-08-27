@@ -3,15 +3,15 @@
 
 //include_path: ../../helper_components
 
-global MyGlobal := {
-    property <int> hello: 42;
+global MyGlobal  {
+    in-out property <int> hello: 42;
 }
 
 export { MyGlobal }
 export { MyGlobal as GlobalAlias }
 
-TestCase := Rectangle {
-    property <bool> test_global_prop_value: MyGlobal.hello == 100;
+export component TestCase inherits Rectangle {
+    in-out property <bool> test_global_prop_value: MyGlobal.hello == 100;
 }
 
 /*

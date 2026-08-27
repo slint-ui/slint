@@ -1,32 +1,32 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-global Glo := {
-    property <int> hello: 42;
+global Glo  {
+    in-out property <int> hello: 42;
     pure callback sum(int, int) -> int;
     pure callback mul(int, int) -> int;
     pure callback calculate_profit() -> int;
     calculate_profit() => { return 1000; }
 }
 
-ExtraComp := Rectangle {
-    property<int> five: Glo.sum(3, 2);
-    property<int> six: Glo.mul(3, 2);
+component ExtraComp inherits Rectangle {
+    in-out property<int> five: Glo.sum(3, 2);
+    in-out property<int> six: Glo.mul(3, 2);
 }
 
 
-TestCase := Window {
+export component TestCase inherits Window {
     pure callback sum <=> Glo.sum;
     pure callback mul <=> Glo.mul;
 
     x := ExtraComp {}
-    property<int> five: x.five;
-    property<int> six: x.six;
+    in-out property<int> five: x.five;
+    in-out property<int> six: x.six;
 
-    property<int> profit: Glo.calculate-profit();
+    in-out property<int> profit: Glo.calculate-profit();
 
     //mul(α, β) => { return α * β; }
-    property<bool> test: five == 0 && profit == 1000; // because the callback is not set
+    in-out property<bool> test: root.five == 0 && root.profit == 1000; // because the callback is not set
 
 }
 

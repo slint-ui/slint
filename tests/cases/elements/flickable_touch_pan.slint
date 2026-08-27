@@ -1,0 +1,92 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Panning with a touch screen or the mouse wheel works even when
+// `mouse-drag-pan-enabled` is false, while `interactive: false` disables
+// both mouse and touch panning.
+
+export component TestCase inherits Window {
+    width: 500phx;
+    height: 500phx;
+
+    f := Flickable {
+        content-width: 2100phx;
+        content-height: 2100phx;
+        mouse-drag-pan-enabled: false;
+
+        flicked => {
+            root.flicked-count += 1;
+        }
+    }
+
+    in-out property <bool> interactive <=> f.interactive;
+    in-out property <length> content-x <=> f.content-x;
+    in-out property <length> content-y <=> f.content-y;
+    in-out property <int> flicked-count;
+}
+
+/*
+
+```rust
+use slint::{platform::WindowEvent, platform::PointerEventButton, LogicalPosition};
+use slint_testing::{InternalEvent, LogicalPoint, TouchPhase};
+let instance = TestCase::new().unwrap();
+
+// Dragging with the mouse doesn't pan
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(300.0, 100.0), button: PointerEventButton::Left });
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(300.0, 100.0) });
+slint_testing::mock_elapsed_time(16);
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(200.0, 50.0) });
+slint_testing::mock_elapsed_time(16);
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(200.0, 50.0), button: PointerEventButton::Left });
+slint_testing::mock_elapsed_time(1000);
+assert_eq!(instance.get_content_x(), 0.);
+assert_eq!(instance.get_content_y(), 0.);
+assert_eq!(instance.get_flicked_count(), 0);
+
+// Scrolling with the mouse wheel pans
+instance.window().dispatch_event(WindowEvent::PointerScrolled { position: LogicalPosition::new(300.0, 100.0), delta_x: -30.0, delta_y: -50.0 });
+assert_eq!(instance.get_content_x(), -30.);
+assert_eq!(instance.get_content_y(), -50.);
+assert_eq!(instance.get_flicked_count(), 1);
+instance.set_content_x(0.);
+instance.set_content_y(0.);
+instance.set_flicked_count(0);
+
+// Dragging with a finger pans
+instance.window().dispatch_event(WindowEvent::internal(InternalEvent::Touch { id: 7, position: LogicalPoint::new(300.0, 100.0), phase: TouchPhase::Started }));
+instance.window().dispatch_event(WindowEvent::internal(InternalEvent::Touch { id: 7, position: LogicalPoint::new(300.0, 100.0), phase: TouchPhase::Moved }));
+assert_eq!(instance.get_content_x(), 0.);
+assert_eq!(instance.get_content_y(), 0.);
+instance.window().dispatch_event(WindowEvent::internal(InternalEvent::Touch { id: 7, position: LogicalPoint::new(200.0, 50.0), phase: TouchPhase::Moved }));
+assert_eq!(instance.get_content_x(), -100.);
+assert_eq!(instance.get_content_y(), -50.);
+assert!(instance.get_flicked_count() > 0);
+// Release long after the last move so no fling animation starts
+slint_testing::mock_elapsed_time(1000);
+instance.window().dispatch_event(WindowEvent::internal(InternalEvent::Touch { id: 7, position: LogicalPoint::new(200.0, 50.0), phase: TouchPhase::Ended }));
+slint_testing::mock_elapsed_time(1000);
+assert_eq!(instance.get_content_x(), -100.);
+assert_eq!(instance.get_content_y(), -50.);
+instance.set_content_x(0.);
+instance.set_content_y(0.);
+instance.set_flicked_count(0);
+
+// interactive: false disables touch panning too
+instance.set_interactive(false);
+instance.window().dispatch_event(WindowEvent::internal(InternalEvent::Touch { id: 8, position: LogicalPoint::new(300.0, 100.0), phase: TouchPhase::Started }));
+instance.window().dispatch_event(WindowEvent::internal(InternalEvent::Touch { id: 8, position: LogicalPoint::new(300.0, 100.0), phase: TouchPhase::Moved }));
+instance.window().dispatch_event(WindowEvent::internal(InternalEvent::Touch { id: 8, position: LogicalPoint::new(200.0, 50.0), phase: TouchPhase::Moved }));
+instance.window().dispatch_event(WindowEvent::internal(InternalEvent::Touch { id: 8, position: LogicalPoint::new(200.0, 50.0), phase: TouchPhase::Ended }));
+slint_testing::mock_elapsed_time(1000);
+assert_eq!(instance.get_content_x(), 0.);
+assert_eq!(instance.get_content_y(), 0.);
+assert_eq!(instance.get_flicked_count(), 0);
+
+// ... but wheel scrolling still works
+instance.window().dispatch_event(WindowEvent::PointerScrolled { position: LogicalPosition::new(300.0, 100.0), delta_x: -30.0, delta_y: -50.0 });
+assert_eq!(instance.get_content_x(), -30.);
+assert_eq!(instance.get_content_y(), -50.);
+```
+
+*/

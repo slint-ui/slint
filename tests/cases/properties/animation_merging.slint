@@ -2,23 +2,23 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 
-AnimatedObject := Rectangle {
-    property <int> animated_prop;
+component AnimatedObject inherits Rectangle {
+    in-out property <int> animated_prop;
     animate animated_prop { duration: aa_duration; }
-    property <duration> aa_duration: 1s;
+    in-out property <duration> aa_duration: 1s;
 }
 
-NotAnimatedObject := Rectangle {
-    property <int> value;
-    property <int> animated_prop: value;
+component NotAnimatedObject inherits Rectangle {
+    in-out property <int> value;
+    in-out property <int> animated_prop: value;
 }
 
-TestCase := Rectangle {
-    property <int> value : 1000;
-    property <int> o1_val: o1.animated_prop;
-    property <int> o2_val: o2.animated_prop;
-    property <int> o3_val: o3.animated_prop;
-    property <int> o4_val: o4.animated_prop;
+export component TestCase inherits Rectangle {
+    in-out property <int> value : 1000;
+    in-out property <int> o1_val: o1.animated_prop;
+    in-out property <int> o2_val: o2.animated_prop;
+    in-out property <int> o3_val: o3.animated_prop;
+    in-out property <int> o4_val: o4.animated_prop;
     o1 := AnimatedObject {
         animated_prop: value;
     }
@@ -31,7 +31,7 @@ TestCase := Rectangle {
         animated_prop: value;
     }
     o4 := NotAnimatedObject {
-        value: root.value;
+        value: value;
         animate animated_prop { duration: 4s; }
     }
 }

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 
+// cSpell: ignore fheight Rippl
 // based on https://github.com/slint-ui/slint/issues/1327#issuecomment-1151244049
 
 export component RipplCircle inherits Rectangle {
@@ -42,7 +43,7 @@ export component InkEffect inherits Rectangle {
     clip: true;
 
     circle1 := RipplCircle {}
-    // un commenting the next line causes macro proc panick
+    // un commenting the next line causes macro proc panic
     circle2 := RipplCircle { background: green; }
 
 

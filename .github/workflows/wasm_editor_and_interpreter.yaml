@@ -6,25 +6,31 @@ name: Build and test the slintpad and required WASM binaries
 
 on:
     workflow_dispatch:
+        inputs:
+            release:
+                type: boolean
+                default: true
+                description: "Build the WASM binaries with the release profile"
     workflow_call:
-      secrets:
-        CLOUDFLARE_ACCOUNT_ID_2:
-          required: true
-        CLOUDFLARE_API_TOKEN_2:
-          required: true
+        inputs:
+            release:
+                type: boolean
+                default: true
 jobs:
     wasm:
         env:
             CARGO_PROFILE_RELEASE_OPT_LEVEL: s
             CARGO_INCREMENTAL: false
+            # Fat LTO minimizes the published WASMs; PR runs use the faster
+            # cargo defaults, still small enough for the preview deployment.
+            CARGO_PROFILE_RELEASE_LTO: ${{ inputs.release && 'fat' || 'false' }}
+            CARGO_PROFILE_RELEASE_CODEGEN_UNITS: ${{ inputs.release && '1' || '16' }}
         runs-on: ubuntu-22.04
         steps:
-            - uses: actions/checkout@v6
+            - uses: actions/checkout@v7
             - uses: ./.github/actions/install-linux-dependencies
-            - uses: pnpm/action-setup@v6.0.3
-              with:
-                version: 10.29.3
-            - uses: actions/setup-node@v6
+            - uses: pnpm/action-setup@v6.0.10
+            - uses: actions/setup-node@v7
               with:
                 node-version: 24
                 package-manager-cache: false
@@ -56,14 +62,12 @@ jobs:
         needs: [wasm]
         runs-on: ubuntu-22.04
         steps:
-            - uses: actions/checkout@v6
-            - uses: actions/setup-node@v6
+            - uses: actions/checkout@v7
+            - uses: actions/setup-node@v7
               with:
                 node-version: 24
                 package-manager-cache: false
-            - uses: pnpm/action-setup@v6.0.3
-              with:
-                version: 10.29.3
+            - uses: pnpm/action-setup@v6.0.10
             - name: Download wasm_lsp Artifacts
               uses: actions/download-artifact@v8
               with:
@@ -97,12 +101,6 @@ jobs:
               with:
                   name: slintpad
                   path: tools/slintpad/dist/
-            - uses: ./.github/actions/cloudflare-preview-deploy
-              with:
-                working-directory: tools/slintpad
-                environment: slintpad-staging
-                cloudflare-api-token: ${{ secrets.CLOUDFLARE_API_TOKEN_2 }}
-                cloudflare-account-id: ${{ secrets.CLOUDFLARE_ACCOUNT_ID_2 }}
 
     # test-slintpad-ff:
     #   needs: [wasm, build-slintpad]
@@ -112,7 +110,7 @@ jobs:
     #     options: --user 1001
     #
     #   steps:
-    #     - uses: actions/checkout@v6
+    #     - uses: actions/checkout@v7
     #     - uses: ./.github/actions/test-slintpad
     #       with:
     #         browser: "firefox"
@@ -127,7 +125,7 @@ jobs:
     #     options: --user 1001
     #
     #   steps:
-    #     - uses: actions/checkout@v6
+    #     - uses: actions/checkout@v7
     #     - uses: ./.github/actions/test-slintpad
     #       with:
     #         browser: "chrome"

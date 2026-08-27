@@ -1,0 +1,26 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author Till Adam <till.adam@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A line dropped by `max-lines` is also dropped from the content widths, so deriving the
+// limit from a width-dependent value is a binding loop too, for both Text and StyledText.
+export component WidthDependentMaxLines inherits Window {
+//                                               >     <warning{The binding for the property 'layoutinfo-h' is part of a binding loop (root.layoutinfo-h -> width -> layout-cache -> width -> max-lines -> layoutinfo-h -> root.layoutinfo-h).↵This was allowed in previous version of Slint, but is deprecated and may cause panic at runtime}
+    HorizontalLayout {
+//  >               <warning{The binding for the property 'width' is part of a binding loop (root.layoutinfo-h -> width -> layout-cache -> width -> max-lines -> layoutinfo-h -> root.layoutinfo-h).↵This was allowed in previous version of Slint, but is deprecated and may cause panic at runtime}
+//  >               <^warning{The binding for the property 'layout-cache' is part of a binding loop (root.layoutinfo-h -> width -> layout-cache -> width -> max-lines -> layoutinfo-h -> root.layoutinfo-h).↵This was allowed in previous version of Slint, but is deprecated and may cause panic at runtime}
+//  >               <^^warning{The binding for the property 'width' is part of a binding loop (root.layoutinfo-h -> width -> layout-cache -> width -> max-lines -> layoutinfo-h -> root.layoutinfo-h).↵This was allowed in previous version of Slint, but is deprecated and may cause panic at runtime}
+//  >               <^^^warning{The binding for the property 'layoutinfo-h' is part of a binding loop (root.layoutinfo-h -> width -> layout-cache -> width -> max-lines -> layoutinfo-h -> root.layoutinfo-h).↵This was allowed in previous version of Slint, but is deprecated and may cause panic at runtime}
+//  >               <^^^^error{The binding for the property 'width' is part of a binding loop (layout-cache -> width -> max-lines -> layout-cache)}
+        Text {
+            text: "One\nTwo";
+            wrap: word-wrap;
+            max-lines: self.width / 100px;
+//                     >                 <warning{The binding for the property 'max-lines' is part of a binding loop (root.layoutinfo-h -> width -> layout-cache -> width -> max-lines -> layoutinfo-h -> root.layoutinfo-h).↵This was allowed in previous version of Slint, but is deprecated and may cause panic at runtime}
+        }
+        StyledText {
+            text: @markdown("One");
+            max-lines: self.width / 100px;
+//                     >                 <error{The binding for the property 'max-lines' is part of a binding loop (layout-cache -> width -> max-lines -> layout-cache)}
+        }
+    }
+}

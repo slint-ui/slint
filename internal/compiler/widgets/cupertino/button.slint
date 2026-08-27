@@ -123,12 +123,11 @@ export component Button {
             min-height: root.icon-size;
             opacity: root.enabled ? 1 : 0.5;
             colorize: root.colorize-icon ? root.text-color : transparent;
+            accessible-role: none;
         }
 
         if (root.text != "") : Text {
             opacity: root.enabled ? 1 : 0.5;
-            font-size: CupertinoFontSettings.body.font-size;
-            font-weight: CupertinoFontSettings.body.font-weight;
             horizontal-alignment: center;
             vertical-alignment: center;
             text: root.text;

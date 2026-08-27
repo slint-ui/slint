@@ -1,0 +1,45 @@
+// SYNTAX TEST "source.slint" "@rust-attr annotation tests"
+
+  // @rust-attr on a struct
+  @rust-attr(derive(Debug, Clone))
+  struct MyStruct {
+//^^^^^^ keyword.declaration.struct.slint
+//       ^^^^^^^^ entity.name.type.struct.slint
+      name: string,
+//    ^^^^ variable.other.struct.field.slint
+//          ^^^^^^ entity.name.type.struct.field.slint
+      value: int,
+//    ^^^^^ variable.other.struct.field.slint
+//           ^^^ entity.name.type.struct.field.slint
+  }
+
+  // @rust-attr on an enum
+  @rust-attr(derive(Debug))
+  enum MyEnum {
+//^^^^ keyword.declaration.enum.slint
+//     ^^^^^^ entity.name.type.enum.slint
+      variant-a, variant-b
+//    ^^^^^^^^^ entity.name.type.enum.value.slint
+//               ^^^^^^^^^ entity.name.type.enum.value.slint
+  }
+
+  // Multiple @rust-attr annotations
+  @rust-attr(derive(Debug))
+  @rust-attr(derive(Clone))
+  struct AnotherStruct {
+//^^^^^^ keyword.declaration.struct.slint
+//       ^^^^^^^^^^^^^ entity.name.type.struct.slint
+      field: int
+//    ^^^^^ variable.other.struct.field.slint
+//           ^^^ entity.name.type.struct.field.slint
+  }
+
+  // @rust-attr with complex content
+  @rust-attr(serde(rename_all = "camelCase"))
+  struct SerdeStruct {
+//^^^^^^ keyword.declaration.struct.slint
+//       ^^^^^^^^^^^ entity.name.type.struct.slint
+      my-field: string
+//    ^^^^^^^^ variable.other.struct.field.slint
+//              ^^^^^^ entity.name.type.struct.field.slint
+  }

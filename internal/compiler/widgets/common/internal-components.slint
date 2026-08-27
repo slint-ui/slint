@@ -88,6 +88,7 @@ export component IconButton {
             x: (parent.width - self.width) / 2;
             width: root.style.icon-size;
             colorize: root.style.foreground;
+            accessible-role: none;
         }
     }
 
@@ -154,6 +155,7 @@ export component SelectionButton {
             font-weight: root.style.font-weight;
             color: root.style.foreground;
             vertical-alignment: center;
+            accessible-role: none;
         }
 
         icon-image := Image {
@@ -161,6 +163,7 @@ export component SelectionButton {
             width: root.style.icon-size;
             colorize: root.style.foreground;
             transform-rotation: root.checked ? 180deg : 0;
+            accessible-role: none;
 
             animate transform-rotation { duration: 250ms; }
         }

@@ -1,18 +1,18 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-global Glob := {
-    property <int> a_alias <=> a;
-    property <int> a: 3;
-    property <int> b: a + 3;
+global Glob  {
+    in-out property <int> a_alias <=> root.a;
+    in-out property <int> a: 3;
+    in-out property <int> b: root.a + 3;
 
 }
 
-TestCase := Rectangle {
+export component TestCase inherits Rectangle {
     callback set_a(int);
     set_a(a) => { Glob.a_alias = a; }
-    property <int> value1: Glob.b;
-    property <bool> test: value1 == 3+3;
+    in-out property <int> value1: Glob.b;
+    in-out property <bool> test: root.value1 == 3+3;
 }
 
 /*

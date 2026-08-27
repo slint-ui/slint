@@ -2,6 +2,9 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 export component CheckBox inherits NativeCheckBox {
+    in property <length> font-size; // not implemented
+    in property <int> font-weight; // not implemented
+
     accessible-enabled: root.enabled;
     accessible-checkable: true;
     accessible-checked <=> root.checked;

@@ -8,17 +8,27 @@ UIs are written in `.slint` markup and connected to Rust, C++, JavaScript, or Py
 ## Build Commands
 
 ### Rust (Primary)
+
+The repository is split into separate workspaces that share one `target/`
+directory (configured in `.cargo/config.toml`): the root workspace holds the
+library and tool crates, while `examples/`, `demos/`, `tests/` and
+`ui-libraries/material/` are each their own workspace. Keeping examples/demos/
+tests out of the root workspace keeps rust-analyzer fast; the shared `target/`
+means the common library crates are only built once across all of them. Select
+a non-root workspace with `--manifest-path <dir>/Cargo.toml`.
+
 ```sh
-cargo build                                    # Build the workspace
+cargo build                                    # Build the root (library/tool) workspace
 cargo build --release                          # Release build (use whenever measuring performance)
-cargo test                                     # Run tests
-cargo build --workspace --exclude uefi-demo    # Build all examples
+cargo test                                     # Run the root workspace tests
+cargo build --manifest-path examples/Cargo.toml --workspace \
+    --exclude mcu-board-support --exclude mcu-embassy --exclude uefi-demo   # Build the examples
 ```
 
 ### Running Examples
 ```sh
-cargo run -p gallery                 # Run the gallery example
-cargo run --bin slint-viewer -- path/to/file.slint  # View a .slint file
+cargo run --manifest-path examples/Cargo.toml -p gallery   # Run the gallery example
+cargo run --bin slint-viewer -- path/to/file.slint         # View a .slint file (root workspace)
 ```
 
 ### C++ Build
@@ -31,7 +41,7 @@ cmake --build .
 
 ### Node.js Build
 ```sh
-cd api/node && pnpm install
+cd api/node && pnpm install && pnpm build
 ```
 
 ## Testing
@@ -39,12 +49,15 @@ cd api/node && pnpm install
 Don't run `cargo build` before `cargo test` — `cargo test` compiles what it needs.
 
 ### Test Drivers
+The integration tests live in the `tests/` workspace, so pass
+`--manifest-path tests/Cargo.toml`:
 ```sh
-cargo test -p test-driver-interpreter         # Fastest: interpreter-based
-cargo test -p test-driver-rust                # Rust API (slow to compile without SLINT_TEST_FILTER)
-cargo test -p test-driver-cpp                 # C++ (build slint-cpp first for the dynamic library)
-cargo test -p test-driver-nodejs              # Node.js
-cargo test -p doctests                        # Documentation snippets
+cargo test --manifest-path tests/Cargo.toml -p test-driver-interpreter   # Fastest: interpreter-based
+cargo test --manifest-path tests/Cargo.toml -p test-driver-rust          # Rust API (slow to compile without SLINT_TEST_FILTER)
+cargo test --manifest-path tests/Cargo.toml -p test-driver-cpp           # C++ (build slint-cpp first for the dynamic library)
+cargo test --manifest-path tests/Cargo.toml -p test-driver-nodejs        # Node.js
+cargo test --manifest-path tests/Cargo.toml -p test-driver-python        # Python
+cargo test --manifest-path tests/Cargo.toml -p doctests                  # Documentation snippets
 ```
 
 ### Filtering .slint Test Cases
@@ -60,8 +73,8 @@ Only drop the filter for a final full-suite run before committing.
 
 ### Writing Slint Test Cases
 
-The `test` property in `tests/cases/*.slint` must be declared `out property<bool> test: ...;`.
-Without `out`, the compiler treats it as private and the driver passes the test vacuously.
+The `test` property in `tests/cases/*.slint` must be declared `out` or `in-out`
+(e.g. `out property<bool> test: ...;`), otherwise the driver passes the test vacuously.
 
 ### Syntax Tests (Compiler Errors)
 ```sh
@@ -69,10 +82,30 @@ cargo test -p i-slint-compiler --features display-diagnostics --test syntax_test
 SLINT_SYNTAX_TEST_UPDATE=1 cargo test -p i-slint-compiler --test syntax_tests  # Update expected errors
 ```
 
+### Slint SC (`api/slint-sc`)
+
+The safety-critical runtime is held to complete coverage and full requirement
+traceability, both enforced in CI:
+
+- Every line, function, and code region of the crate must be covered. No
+  exceptions, no exclusion list, so code no test can reach has to go.
+- Every requirement paragraph (a `{#sls.…}` anchor in an `SC: true` page,
+  inside its `<SC>` block) needs at least one test declaring it with a
+  `//#sls.…` comment. Add the test in the same change as the anchor.
+
+```sh
+scripts/slint_sc_test_suite.sh target/slint-sc-coverage   # Run the suites, measure coverage
+cargo llvm-cov report --summary-only                      # Read the coverage back
+scripts/build_safety_manual_coverage.sh                   # Full check: fails on any gap
+```
+
+The gap check is `slint-doc-generator --slint-sc --fail-on-gaps`, which names
+the source locations that never executed and the requirements without a test.
+
 ### Screenshot Tests
 ```sh
-cargo test -p test-driver-screenshots                    # Compare against references
-SLINT_CREATE_SCREENSHOTS=1 cargo test -p test-driver-screenshots  # Generate references
+cargo test --manifest-path tests/Cargo.toml -p test-driver-screenshots                    # Compare against references
+SLINT_CREATE_SCREENSHOTS=1 cargo test --manifest-path tests/Cargo.toml -p test-driver-screenshots  # Generate references
 ```
 
 ## Architecture
@@ -112,7 +145,7 @@ Rust (`rs/slint/`, `rs/macros/` for `slint!`, `rs/build/`), C++ (`cpp/`, CMake),
 
 ### Tools (`tools/`)
 
-`lsp/` (LSP server), `compiler/` (CLI), `viewer/` (hot-reload `.slint` viewer), `slintpad/` (web playground), `figma_import/`, `tr-extractor/` (i18n), `updater/` (version migration).
+`lsp/` (LSP server), `compiler/` (CLI), `viewer/` (hot-reload `.slint` viewer), `slintpad/` (web playground), `figma_import/` (Figma-to-Slint conversion), `figma-inspector/` (Figma plugin: shows Slint markup for a selected design element), `tr-extractor/` (i18n).
 
 ### Editor Support (`editors/`)
 
@@ -125,10 +158,28 @@ Rust (`rs/slint/`, `rs/macros/` for `slint!`, `rs/build/`), C++ (`cpp/`, CMake),
 - C++ headers generated automatically during the build via `cbindgen` (invoked by `slint-cpp/build.rs`).
 - Extensive Cargo features control renderers (`renderer-femtovg`, `renderer-skia`, `renderer-software`) and backends (`backend-winit`, `backend-qt`)
 
+## Language Design Principles
+
+### CSS Alignment
+
+Slint's `.slint` language intentionally stays close to CSS syntax for visual properties. When adding or extending language features, prefer CSS-compatible syntax and naming so that web developers find familiar patterns and the learning curve stays low.
+
+Examples already in place:
+- **Color literals** follow CSS syntax (`#rrggbb`, `#rgb`, named colors, `rgb()`, `rgba()`, `hsl()`, `hsla()`).
+- **Gradient syntax** mirrors CSS: `@linear-gradient(angle, color stop, ...)`, `@radial-gradient(...)`.
+- **FlexboxLayout** implements the CSS flexbox model (via the `taffy` crate). Its property names follow CSS only where that doesn't clash with Slint's own naming: `gap` is `spacing`, `justify-content` is `alignment`, `align-content` is `cross-axis-line-alignment`.
+- **Filter/shadow properties** (`drop-shadow`, `box-shadow`, `blur`) follow CSS conventions.
+
+When this principle applies: any time you design syntax for a new visual or layout property, check how CSS spells it first. Deviate only when Slint's type system or consistency with existing Slint naming requires it, and document the divergence.
+
 ## Version Control (Git)
 
 - The default git branch is `master`.
 - Prefer linear history — rebase or squash on merge.
+- During review, prefer adding small follow-up commits over amending, so the reviewer can
+  track how feedback was incorporated; squash them once the review is complete. See
+  [`docs/development.md`](docs/development.md#commit-history--code-reviews) for the full
+  fixup-then-squash workflow, and for `mise`-based environment setup.
 
 ## Code Style
 
@@ -137,8 +188,8 @@ Rust (`rs/slint/`, `rs/macros/` for `slint!`, `rs/build/`), C++ (`cpp/`, CMake),
 
 ### Comments and Docs
 
-- Follow `docs/astro/writing-style-guide.md` when writing *new* comments, doc comments, commit messages, or markdown.
-- But don't reformat existing prose to match the style.
+- **Always follow the [Writing Style Guide](docs/internal/writing-style-guide.md) for all new comments, doc comments, commit messages, and markdown.** It applies to code comments (internal and public API) as much as to prose. This is a requirement, not a suggestion.
+- But don't reformat existing prose just to match the style.
 
 ## Platform Prerequisites
 
@@ -161,5 +212,5 @@ Load the relevant file under `docs/development/` when working in the listed area
 - `text-layout.md` — `internal/core/textlayout/`, text rendering: shaping, line breaking, styled text.
 - `window-backend-integration.md` — `internal/core/window.rs`, `internal/backends/`: WindowAdapter, Platform, WindowEvent, popups.
 - `lsp-architecture.md` — `tools/lsp/`, IDE tooling: completion, hover, semantic tokens, live preview.
-- `mcp-server.md` — `internal/backends/testing/mcp_server.rs`, `introspection.rs`: shared introspection layer, handle/arena, HTTP transport, adding tools.
+- `mcp-server.md` — `internal/backends/testing/mcp_server.rs`, `introspection/`: shared introspection layer, handle/arena, HTTP transport, adding tools.
 - `ffi-language-bindings.md` — `api/`, internal FFI: cbindgen, FFI patterns, adding cross-language APIs.

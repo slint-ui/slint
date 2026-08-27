@@ -1,0 +1,65 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component RotatedCanvasCases inherits Window {
+    width: 640px;
+    height: 480px;
+    background: #f8fafc;
+
+    rotated-free-rectangle := Rectangle {
+        x: 64px;
+        y: 56px;
+        width: 140px;
+        height: 96px;
+        background: #2563eb;
+        transform-rotation: 30deg;
+    }
+
+    rotated-free-text := Text {
+        x: 160px;
+        y: 64px;
+        width: 180px;
+        height: 56px;
+        text: "Rotated text";
+        color: #111827;
+        transform-rotation: 30deg;
+    }
+
+    rotated-free-image := Image {
+        x: 200px;
+        y: 208px;
+        width: 144px;
+        height: 96px;
+        source: @image-url("assets/checker.svg");
+        image-fit: contain;
+        transform-rotation: 30deg;
+    }
+
+    nested-outer := Rectangle {
+        x: 360px;
+        y: 80px;
+        width: 220px;
+        height: 260px;
+        background: #e2e8f0;
+        transform-rotation: 30deg;
+
+        nested-middle := Rectangle {
+            x: 30px;
+            y: 40px;
+            width: 160px;
+            height: 180px;
+            background: #cbd5e1;
+            transform-rotation: 60deg;
+
+            nested-rotated-text := Text {
+                x: 44px;
+                y: 52px;
+                width: 100px;
+                height: 40px;
+                text: "Nested rotation";
+                color: #0f172a;
+                transform-rotation: -20deg;
+            }
+        }
+    }
+}

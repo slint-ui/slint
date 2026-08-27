@@ -10,10 +10,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut tests_file = BufWriter::new(std::fs::File::create(&tests_file_path)?);
 
     let prefix = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..").canonicalize()?;
-    for entry in walkdir::WalkDir::new(&prefix)
-        .follow_links(false)
-        .into_iter()
-        .filter_entry(|entry| entry.file_name() != "target")
+    for entry in
+        walkdir::WalkDir::new(&prefix).follow_links(false).into_iter().filter_entry(|entry| {
+            !matches!(entry.file_name().to_str(), Some("target" | "dist" | "node_modules"))
+        })
     {
         let entry = entry?;
         let path = entry.path();
@@ -24,8 +24,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let file = std::fs::read_to_string(path)?;
         let file = file.replace('\r', ""); // Remove \r, because Windows.
 
-        const BEGIN_MARKER: &str = "\n```slint";
-        if !file.contains(BEGIN_MARKER) {
+        if !file.contains("```slint") {
             continue;
         }
 
@@ -39,32 +38,69 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         writeln!(tests_file, "\nmod {stem} {{")?;
 
-        let mut rest = file.as_str();
-        let mut line = 1;
+        // Language Specification examples are additionally compiled in Slint SC
+        // mode when the chapter opts into the certified subset with `SC: true`
+        // in its frontmatter. Only fences inside an <SC>/<OnlyInSC> block are the
+        // certified surface, so a fence in the surrounding full-language prose is
+        // not compiled in SC mode. `no-sc-test` opts an SC fence out on top of that.
+        let sc_chapter = file.starts_with("---\n")
+            && file[4..]
+                .split("\n---\n")
+                .next()
+                .is_some_and(|fm| fm.lines().any(|l| l.trim() == "SC: true"));
+        let language_spec = path
+            .strip_prefix(&prefix)?
+            .starts_with("docs/astro/src/content/docs/reference/language")
+            && sc_chapter;
 
-        while let Some(begin) = rest.find(BEGIN_MARKER) {
-            line += rest[..begin].bytes().filter(|&c| c == b'\n').count() + 1;
-            rest = rest[begin..].strip_prefix(BEGIN_MARKER).unwrap();
-
-            // Permit `slint,no-preview` and `slint,no-auto-preview` but skip `slint,ignore` and others.
-            rest = match rest.split_once('\n') {
-                Some((",ignore", _)) => continue,
-                Some((x, _)) if x.contains("no-test") => continue,
-                Some((_, rest)) => rest,
-                _ => continue,
+        let mut lines = file.lines().enumerate();
+        // Nesting depth of <SC>/<OnlyInSC> blocks, and of any inner <NotInSC>
+        // (which is excluded from the certified surface even inside an <SC>).
+        let mut sc_depth = 0i32;
+        let mut not_in_sc_depth = 0i32;
+        while let Some((n, opening)) = lines.next() {
+            let trimmed = opening.trim_start();
+            match opening.trim() {
+                "<SC>" | "<OnlyInSC>" => sc_depth += 1,
+                "</SC>" | "</OnlyInSC>" => sc_depth -= 1,
+                "<NotInSC>" => not_in_sc_depth += 1,
+                "</NotInSC>" => not_in_sc_depth -= 1,
+                _ => {}
+            }
+            let in_sc_block = sc_depth > 0 && not_in_sc_depth == 0;
+            let Some(info) = trimmed.strip_prefix("```slint") else {
+                continue;
             };
+            // Permit `slint,no-preview` and `slint,no-auto-preview` but skip `slint,ignore` and others.
+            if info == ",ignore" || info.contains("no-test") {
+                continue;
+            }
 
-            let end = rest.find("\n```\n").ok_or_else(|| {
-                format!("Could not find the end of a code snippet in {}", path.display())
-            })?;
-            let snippet = &rest[..end];
+            // The fence can be indented (e.g. inside a list item); strip the
+            // same indentation from the snippet lines.
+            let indent = &opening[..opening.len() - trimmed.len()];
+            let mut snippet_lines = Vec::new();
+            loop {
+                match lines.next() {
+                    None => {
+                        return Err(format!(
+                            "Could not find the end of a code snippet in {}",
+                            path.display()
+                        )
+                        .into());
+                    }
+                    Some((_, l)) if l.trim_start() == "```" => break,
+                    Some((_, l)) => {
+                        snippet_lines.push(l.strip_prefix(indent).unwrap_or(l.trim_start()));
+                    }
+                }
+            }
+            let snippet = snippet_lines.join("\n");
 
             if snippet.starts_with("{{#include") {
                 // Skip non literal slint text
                 continue;
             }
-
-            rest = &rest[end..];
 
             write!(
                 tests_file,
@@ -75,12 +111,26 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }}
 
                 "##,
-                line,
+                n + 1,
                 snippet.escape_default(),
                 path.to_string_lossy().escape_default()
             )?;
 
-            line += snippet.bytes().filter(|&c| c == b'\n').count() + 1;
+            if language_spec && in_sc_block && !info.contains("no-sc-test") {
+                write!(
+                    tests_file,
+                    r##"
+    #[test]
+    fn line_{}_sc() {{
+        crate::do_test_sc("{}", "{}").unwrap();
+    }}
+
+                "##,
+                    n + 1,
+                    snippet.escape_default(),
+                    path.to_string_lossy().escape_default()
+                )?;
+            }
         }
         writeln!(tests_file, "}}")?;
         println!("cargo:rerun-if-changed={}", path.display());

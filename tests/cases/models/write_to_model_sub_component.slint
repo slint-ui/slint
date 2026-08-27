@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 
-SubComponent := Rectangle {
-    property <[int]> m;
+component SubComponent inherits Rectangle {
+    in-out property <[int]> m;
     HorizontalLayout {
         for foo in m: Rectangle {
             if foo < 100 : TouchArea {
@@ -13,10 +13,10 @@ SubComponent := Rectangle {
     }
 }
 
-TestCase := Rectangle {
+export component TestCase inherits Rectangle {
     width: 100px;
     height: 100px;
-    property <[int]> mod;
+    in-out property <[int]> mod;
     SubComponent {
         m: mod;
     }

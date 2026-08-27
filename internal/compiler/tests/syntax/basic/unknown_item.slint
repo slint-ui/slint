@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore efgh
 struct Struct := { def: int, }
 //            ><warning{':=' to declare a struct is deprecated. Remove the ':='}
 
@@ -22,7 +23,7 @@ export SuperSimple := Rectangle {
             background: blue;
             foo_bar: blue;
 //          >     <error{Unknown property foo-bar in Rectangle}
-//                   >  <^error{Unknown unqualified identifier 'blue'}
+//                   >  <^error{Unknown unqualified identifier 'blue'. Did you mean 'Colors.blue'?}
         }
     }
 
@@ -46,7 +47,7 @@ export SuperSimple := Rectangle {
     Rectangle {
         foo_bar: blue;
 //      >     <error{Unknown property foo-bar in Rectangle}
-//               >  <^error{Unknown unqualified identifier 'blue'}
+//               >  <^error{Unknown unqualified identifier 'blue'. Did you mean 'Colors.blue'?}
     }
 
     NativeLineEdit { }

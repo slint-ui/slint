@@ -2,11 +2,13 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 interface TestInterface {
-    in-out property <bool> test: false;
+    in-out property <bool> test;
 }
 
-export component TestCase implements TestInterface inherits Rectangle {
-    test: true;
+export component TestCase inherits Rectangle {
+    implement TestInterface <=> self;
+
+    in-out property <bool> test: true;
     background: Colors.lightblue;
 }
 

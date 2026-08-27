@@ -1,8 +1,9 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-Comp := Rectangle {
+component Comp inherits Rectangle {
     Rectangle {
+        x:0;y:0;
         width: 5%;
         height: 5%;
         background: white;
@@ -11,12 +12,13 @@ Comp := Rectangle {
 }
 
 
-TestCase := Window {
+export component TestCase inherits Window {
     width: 800px;
     height: 600px;
     background: green;
 
     Rectangle {
+        x:0;y:0;
         background: red;
         width: 50%;
         height: 50%;
@@ -31,6 +33,7 @@ TestCase := Window {
         height: 50%;
         opacity: 0.5;
         Rectangle {
+            x:0;y:0;
             width: 10%;
             height: 10%;
             background: yellow;

@@ -1,0 +1,20 @@
+---
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+// The counterpart of NotInSC: documentation that holds for Slint SC alone.
+// The safety manual shows it; every other site omits it, because there it
+// would be wrong -- a rule the certified compiler enforces is often only a
+// deprecation in the full language.
+//
+// The specification chapters are synced into the safety manual verbatim, so
+// both sites import this from the same path and the component has to tell
+// them apart itself: the safety manual sets SLINT_SC_SAFETY_MANUAL in its
+// dev and build scripts.
+//
+// Unlike NotInSC, what this encloses is normative: the paragraphs carry
+// `{#sls.…}` identifiers and the traceability matrix lists them.
+const inSafetyManual = process.env.SLINT_SC_SAFETY_MANUAL === "1";
+---
+
+{inSafetyManual && <slot />}

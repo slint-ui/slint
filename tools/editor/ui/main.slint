@@ -1,0 +1,194 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import "./assets/Inter-VariableFont.ttf";
+
+import { Api, EditorSurfaceMode } from "api.slint";
+import { ProjectKind, StartupWizard } from "startup-wizard.slint";
+import { AppState, SidebarToggleButton, StudioTheme } from "components/common.slint";
+import { DragPreview } from "components/drag-preview.slint";
+import { EditorCanvas } from "components/editor-canvas.slint";
+import { EditorTopBar } from "components/top-bar.slint";
+import { ImageAssetEditor } from "components/image-asset-editor.slint";
+import { InspectorPane } from "components/inspector-pane.slint";
+import { LeftPane } from "components/left-pane.slint";
+import { EditorMetrics } from "components/common.slint";
+import { UpdateStatus, UpdateStatusBar, UpdateStatusPill } from "components/update-status.slint";
+
+export { Api }
+
+export component EditorUi inherits Window {
+    preferred-width: 1360px;
+    preferred-height: 860px;
+    min-width: 1040px;
+    min-height: 680px;
+    title: "Slint Visual Editor";
+    background: StudioTheme.app-bg;
+    default-font-family: "Inter";
+
+    property <bool> sidebars-collapsed: false;
+    property <length> inspector-scroll-y: 0px;
+    property <ProjectKind> selected-project: ProjectKind.mobile;
+
+    function open-startup-wizard() {
+        Api.open-startup-wizard();
+    }
+
+    function close-startup-wizard() {
+        Api.close-startup-wizard();
+    }
+
+    function open-project() {
+        root.close-startup-wizard();
+    }
+    Rectangle {
+        y: 0;
+        height: EditorMetrics.top-bar-height;
+        WindowMoveArea { }
+    }
+
+    VerticalLayout {
+        if !Api.startup-wizard-visible: editor := FocusScope {
+            property <bool> shift-pressed: false;
+
+            init => {
+                self.focus();
+            }
+
+            capture-key-pressed(event) => {
+                if event.text == Key.Shift || event.text == Key.ShiftR {
+                    self.shift-pressed = true;
+                    return accept;
+                }
+                reject
+            }
+
+            capture-key-released(event) => {
+                if event.text == Key.Shift || event.text == Key.ShiftR {
+                    self.shift-pressed = false;
+                    return accept;
+                }
+                reject
+            }
+
+            key-pressed(event) => {
+                if event.text == Key.Escape && AppState.has-active-drag() {
+                    AppState.cancel-active-drags();
+                    return accept;
+                }
+                if (event.text == Key.Delete || event.text == Key.Backspace)
+                    && Api.selection.highlight-index >= 0 {
+                    Api.selected-element-delete();
+                    return accept;
+                }
+                reject
+            }
+
+            focus-lost => {
+                self.shift-pressed = false;
+            }
+
+            Rectangle {
+                background: StudioTheme.app-bg;
+
+                VerticalLayout {
+                    EditorTopBar { }
+
+                    HorizontalLayout {
+                        vertical-stretch: 1;
+
+                        if !root.sidebars-collapsed: LeftPane {
+                            can-collapse: true;
+                            drag-started => { editor.focus(); }
+                            panes-collapsed => {
+                                root.sidebars-collapsed = true;
+                            }
+                        }
+
+                        if Api.editor-surface-mode == EditorSurfaceMode.component: EditorCanvas {
+                            shift-pressed: editor.shift-pressed;
+                            real-element-selected => { editor.focus(); }
+                        }
+
+                        if Api.editor-surface-mode == EditorSurfaceMode.image: ImageAssetEditor {
+                            sidebars-collapsed: root.sidebars-collapsed;
+                        }
+
+                        if Api.editor-surface-mode == EditorSurfaceMode.component && !root.sidebars-collapsed: InspectorPane {
+                            phone-background: StudioTheme.phone-bg;
+                            phone-background-label: StudioTheme.dark ? "#f7f8fb" : "#ffffff";
+                            element-information: Api.current-element;
+                            inspector-scroll-y <=> root.inspector-scroll-y;
+                            element-selected => { editor.focus(); }
+                            outline-drag-started => { editor.focus(); }
+                        }
+                    }
+                }
+
+                DragPreview { }
+
+                if root.sidebars-collapsed: Rectangle {
+                    x: 18px;
+                    y: EditorMetrics.top-bar-height + 14px;
+                    width: 274px;
+                    height: 42px;
+                    border-radius: 12px;
+                    border-width: 1px;
+                    border-color: StudioTheme.dark ? #ffffff18 : #d0d7de;
+                    background: StudioTheme.panel-bg.with-alpha(0.92);
+                    drop-shadow-blur: 16px;
+                    drop-shadow-offset-y: 8px;
+                    drop-shadow-color: StudioTheme.dark ? #00000055 : #64748b28;
+
+                    HorizontalLayout {
+                        padding-left: 12px;
+                        padding-right: 6px;
+                        spacing: 10px;
+                        cross-axis-alignment: center;
+
+                        Text {
+                            horizontal-stretch: 1;
+                            text: Api.selected-project-file;
+                            color: StudioTheme.text;
+                            font-size: 13px;
+                            font-weight: 800;
+                            vertical-alignment: center;
+                            overflow: elide;
+                        }
+
+                        SidebarToggleButton {
+                            active: true;
+                            clicked => {
+                                root.sidebars-collapsed = false;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if Api.startup-wizard-visible: StartupWizard {
+            selected-project <=> root.selected-project;
+            opened => {
+                root.open-project();
+            }
+            create-new-project => {
+                if Api.create-new-project() {
+                    root.open-project();
+                }
+            }
+            open-existing-project => {
+                if Api.open-existing-project() {
+                    root.open-project();
+                }
+            }
+        }
+
+        if UpdateStatus.shows-bar(): UpdateStatusBar { }
+    }
+
+    if UpdateStatus.in-titlebar() && UpdateStatus.has-news(): UpdateStatusPill {
+        x: 100px;
+        y: 16px;
+    }
+}

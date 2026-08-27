@@ -199,10 +199,12 @@ each instance will have their own instance of associated globals singletons.
 #![warn(missing_docs)]
 #![deny(unsafe_code)]
 #![doc(html_logo_url = "https://slint.dev/logo/slint-logo-square-light.svg")]
-#![cfg_attr(not(feature = "std"), no_std)]
+#![no_std]
 #![allow(clippy::needless_doctest_main)] // We document how to write a main function
 
 extern crate alloc;
+#[cfg(feature = "std")]
+extern crate std;
 
 #[cfg(not(feature = "compat-1-2"))]
 compile_error!(
@@ -219,11 +221,20 @@ pub use i_slint_core::api::*;
 pub use i_slint_core::component_factory::ComponentFactory;
 #[cfg(not(target_arch = "wasm32"))]
 pub use i_slint_core::graphics::{BorrowedOpenGLTextureBuilder, BorrowedOpenGLTextureOrigin};
-pub use i_slint_core::items::{StandardListViewItem, TableColumn};
+pub use i_slint_core::input::{Keys, KeysParseError};
+#[doc(hidden)]
+#[deprecated(note = "Use slint::language::StandardListViewItem instead")]
+pub use i_slint_core::items::StandardListViewItem;
+#[doc(hidden)]
+#[deprecated(note = "Use slint::language::TableColumn instead")]
+pub use i_slint_core::items::TableColumn;
 pub use i_slint_core::model::{
     FilterModel, MapModel, Model, ModelExt, ModelNotify, ModelPeer, ModelRc, ModelTracker,
     ReverseModel, SortModel, VecModel,
 };
+pub use i_slint_core::styled_text::StyledText;
+#[cfg(feature = "std")]
+pub use i_slint_core::styled_text::StyledTextFromMarkdownError;
 pub use i_slint_core::timers::{Timer, TimerMode};
 pub use i_slint_core::translations::{SelectBundledTranslationError, select_bundled_translation};
 
@@ -301,34 +312,36 @@ pub fn run_event_loop_until_quit() -> Result<(), PlatformError> {
 /// The following little example demonstrates the use of Tokio's [`TcpStream`](https://docs.rs/tokio/latest/tokio/net/struct.TcpStream.html) to
 /// read from a network socket. The entire future passed to `spawn_local()` is wrapped in `Compat::new()` to make it run:
 ///
-/// ```rust,no_run
+/// ```rust
 /// // A dummy TCP server that once reports "Hello World"
-/// # i_slint_backend_testing::init_integration_test_with_mock_time();
-/// use std::io::Write;
+/// fn main() {
+///     # i_slint_backend_testing::init_integration_test_with_mock_time();
+///     use std::io::Write;
 ///
-/// let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
-/// let local_addr = listener.local_addr().unwrap();
-/// let server = std::thread::spawn(move || {
-///     let mut stream = listener.incoming().next().unwrap().unwrap();
-///     stream.write("Hello World".as_bytes()).unwrap();
-/// });
+///     let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+///     let local_addr = listener.local_addr().unwrap();
+///     let server = std::thread::spawn(move || {
+///         let mut stream = listener.incoming().next().unwrap().unwrap();
+///         stream.write("Hello World".as_bytes()).unwrap();
+///     });
 ///
-/// let slint_future = async move {
-///     use tokio::io::AsyncReadExt;
-///     let mut stream = tokio::net::TcpStream::connect(local_addr).await.unwrap();
-///     let mut data = Vec::new();
-///     stream.read_to_end(&mut data).await.unwrap();
-///     assert_eq!(data, "Hello World".as_bytes());
-///     slint::quit_event_loop().unwrap();
-/// };
+///     let slint_future = async move {
+///         use tokio::io::AsyncReadExt;
+///         let mut stream = tokio::net::TcpStream::connect(local_addr).await.unwrap();
+///         let mut data = Vec::new();
+///         stream.read_to_end(&mut data).await.unwrap();
+///         assert_eq!(data, "Hello World".as_bytes());
+///         slint::quit_event_loop().unwrap();
+///     };
 ///
-/// // Wrap the future that includes Tokio futures in async_compat's `Compat` to ensure
-/// // presence of a Tokio run-time.
-/// slint::spawn_local(async_compat::Compat::new(slint_future)).unwrap();
+///     // Wrap the future that includes Tokio futures in async_compat's `Compat` to ensure
+///     // presence of a Tokio run-time.
+///     slint::spawn_local(async_compat::Compat::new(slint_future)).unwrap();
 ///
-/// slint::run_event_loop_until_quit().unwrap();
+///     slint::run_event_loop_until_quit().unwrap();
 ///
-/// server.join().unwrap();
+///     server.join().unwrap();
+/// }
 /// ```
 ///
 /// The use of `#[tokio::main]` is **not recommended**. If it's necessary to use though, wrap the call to enter the Slint
@@ -399,6 +412,14 @@ macro_rules! init_translations {
     };
 }
 
+/// Forces all the strings that are translated with `@tr(...)` to be re-evaluated.
+/// Call this function after changing the language at run-time and when translating
+/// with either gettext or a custom translator. For bundled translations, there is no need
+/// to call this function.
+pub fn update_all_translations() {
+    i_slint_core::translations::mark_all_translations_dirty();
+}
+
 /// This module contains items that you need to use or implement if you want use Slint in an environment without
 /// one of the supplied platform backends such as qt or winit.
 ///
@@ -408,6 +429,20 @@ macro_rules! init_translations {
 /// The [Slint on Microcontrollers](crate::docs::mcu) documentation has additional examples.
 pub mod platform {
     pub use i_slint_core::platform::*;
+
+    /// Set the Slint platform abstraction.
+    ///
+    /// If the platform abstraction was already set this will return `Err`.
+    pub fn set_platform(
+        platform: alloc::boxed::Box<dyn Platform + 'static>,
+    ) -> Result<(), SetPlatformError> {
+        i_slint_core::platform::set_platform(platform)?;
+        // Custom platforms bypass the backend selector, so start the embedded testing/MCP
+        // backends here to match applications that go through it.
+        #[cfg(any(feature = "mcp", feature = "system-testing"))]
+        i_slint_backend_selector::init_testing_backends();
+        Ok(())
+    }
 
     /// This module contains the [`femtovg_renderer::FemtoVGRenderer`] and related types.
     ///
@@ -420,7 +455,7 @@ pub mod platform {
         #[cfg(feature = "renderer-femtovg")]
         pub use i_slint_renderer_femtovg::FemtoVGOpenGLRenderer as FemtoVGRenderer;
         /// Use this type to render to a WGPU texture using FemtoVG.
-        #[cfg(feature = "unstable-wgpu-28")]
+        #[cfg(feature = "unstable-wgpu-30")]
         pub use i_slint_renderer_femtovg::FemtoVGWGPURenderer;
         #[cfg(feature = "renderer-femtovg")]
         pub use i_slint_renderer_femtovg::opengl::OpenGLInterface;
@@ -430,7 +465,7 @@ pub mod platform {
     ///
     /// It is only enabled when the `renderer-skia` Slint feature is enabled.
     #[cfg(all(
-        feature = "unstable-wgpu-28",
+        any(feature = "unstable-wgpu-29", feature = "unstable-wgpu-30"),
         any(
             feature = "renderer-skia",
             feature = "renderer-skia-opengl",
@@ -438,6 +473,10 @@ pub mod platform {
         )
     ))]
     pub mod skia_renderer {
+        #[cfg(feature = "unstable-wgpu-29")]
+        pub use i_slint_renderer_skia::SkiaWGPU29Renderer;
+        #[cfg(feature = "unstable-wgpu-30")]
+        pub use i_slint_renderer_skia::SkiaWGPU30Renderer;
         pub use i_slint_renderer_skia::SkiaWGPURenderer;
     }
 
@@ -458,29 +497,29 @@ pub mod language {
     macro_rules! export_builtin_structs {
         ($(
             $(#[$attr:meta])*
-            struct $Name:ident {
-                @name = $NameTy:ident :: $NameVariant:ident,
-                export {
-                    $( $(#[$pub_attr:meta])* $pub_field:ident : $pub_type:ty, )*
-                }
-                private {
-                    $( $(#[$pri_attr:meta])* $pri_field:ident : $pri_type:ty, )*
-                }
+            $vis:vis struct $Name:ident {
+                $( $(#[$field_attr:meta])* $field:ident : $field_type:ty $(= $field_default:expr)?, )*
             }
         )*) => {
-            $(
-                export_builtin_structs!(@export $NameTy $Name);
-            )*
+            $( #[allow(unused_imports)] $vis use i_slint_core::items::$Name; )*
         };
-        (@export BuiltinPublicStruct $Name:ident) => {
-            pub use i_slint_core::items::$Name;
-        };
-        (@export BuiltinPrivateStruct $Name:ident) => {};
     }
 
     i_slint_common::for_each_builtin_structs!(export_builtin_structs);
 
-    pub use i_slint_core::items::{ColorScheme, PointerEventButton, PointerEventKind};
+    // `$vis use …;` propagates the enum's declared visibility: `pub enum Foo` becomes a
+    // `pub use`, plain `enum Foo` becomes a private `use` (in-scope only, suppressed by
+    // `#[allow(unused_imports)]`).
+    macro_rules! export_builtin_enums {
+        ($(
+            $(#[$attr:meta])*
+            $vis:vis enum $Name:ident { $($_body:tt)* }
+        )*) => {
+            $( #[allow(unused_imports)] $vis use i_slint_core::items::$Name; )*
+        };
+    }
+
+    i_slint_common::for_each_enums!(export_builtin_enums);
 }
 
 #[cfg(any(
@@ -495,7 +534,7 @@ pub mod android;
 /// Helper type that helps checking that the generated code is generated for the right version
 #[doc(hidden)]
 #[allow(non_camel_case_types)]
-pub struct VersionCheck_1_17_0;
+pub struct VersionCheck_1_18_0;
 
 #[cfg(doctest)]
 mod compile_fail_tests;
@@ -503,105 +542,29 @@ mod compile_fail_tests;
 #[cfg(doc)]
 pub mod docs;
 
-#[cfg(feature = "unstable-wgpu-27")]
-pub mod wgpu_27 {
-    //! WGPU 27.x specific types and re-exports.
+#[cfg(feature = "unstable-wgpu-29")]
+pub mod wgpu_29 {
+    //! WGPU 29.x specific types and re-exports.
     //!
     //! *Note*: This module is behind a feature flag and may be removed or changed in future minor releases,
     //!         as new major WGPU releases become available.
     //!
-    //! Use the types in this module in combination with other APIs to integrate external, WGPU-based rendering engines
-    //! into a UI with Slint.
+    //! This module exists for interoperability with ecosystems that are still on WGPU 29.x, such as bevy 0.19.
     //!
-    //! First, ensure that WGPU is used for rendering with Slint by using [`slint::BackendSelector::require_wgpu_27()`](i_slint_backend_selector::api::BackendSelector::require_wgpu_27()).
-    //! This function accepts a pre-configured WGPU setup or configuration hints such as required features or memory limits.
+    //! See the [`wgpu_30`](crate::wgpu_30) module documentation for usage; the only difference is the
+    //! WGPU major version (29 vs 30) and the corresponding feature/selector/API names (`unstable-wgpu-29`,
+    //! [`slint::BackendSelector::require_wgpu_29()`](i_slint_backend_selector::api::BackendSelector::require_wgpu_29()),
+    //! [`slint::GraphicsAPI::WGPU29`](i_slint_core::api::GraphicsAPI::WGPU29)).
     //!
-    //! For rendering, it's crucial that you're using the same [`wgpu::Device`] and [`wgpu::Queue`] for allocating textures or submitting commands as Slint. Obtain the same queue
-    //! by either using [`WGPUConfiguration::Manual`] to make Slint use an existing WGPU configuration, or use [`slint::Window::set_rendering_notifier()`](i_slint_core::api::Window::set_rendering_notifier())
-    //! to let Slint invoke a callback that provides access device, queue, etc. in [`slint::GraphicsAPI::WGPU27`](i_slint_core::api::GraphicsAPI::WGPU27).
-    //!
-    //! To integrate rendering content into a scene shared with a Slint UI, use either [`slint::Window::set_rendering_notifier()`](i_slint_core::api::Window::set_rendering_notifier()) to render an underlay
-    //! or overlay, or integrate externally produced [`wgpu::Texture`]s using [`slint::Image::try_from<wgpu::Texture>()`](i_slint_core::graphics::Image::try_from).
-    //!
-    //! The following example allocates a [`wgpu::Texture`] and, for the sake of simplicity in this documentation, fills with green as color, and then proceeds to set it as a `slint::Image` in the scene.
-    //!
-    //! `Cargo.toml`:
-    //! ```toml
-    //! slint = { version = "~1.17", features = ["unstable-wgpu-27"] }
-    //! ```
-    //!
-    //! `main.rs`:
-    //!```rust,no_run
-    //!
-    //! use slint::wgpu_27::wgpu;
-    //! use wgpu::util::DeviceExt;
-    //!
-    //!slint::slint!{
-    //!    export component HelloWorld inherits Window {
-    //!        preferred-width: 320px;
-    //!        preferred-height: 300px;
-    //!        in-out property <image> app-texture;
-    //!        VerticalLayout {
-    //!            Text {
-    //!                text: "hello world";
-    //!                color: green;
-    //!            }
-    //!            Image { source: root.app-texture; }
-    //!        }
-    //!    }
-    //!}
-    //!fn main() -> Result<(), Box<dyn std::error::Error>> {
-    //!    slint::BackendSelector::new()
-    //!        .require_wgpu_27(slint::wgpu_27::WGPUConfiguration::default())
-    //!        .select()?;
-    //!    let app = HelloWorld::new()?;
-    //!
-    //!    let app_weak = app.as_weak();
-    //!
-    //!    app.window().set_rendering_notifier(move |state, graphics_api| {
-    //!        let (Some(app), slint::RenderingState::RenderingSetup, slint::GraphicsAPI::WGPU27{ device, queue, ..}) = (app_weak.upgrade(), state, graphics_api) else {
-    //!            return;
-    //!        };
-    //!
-    //!        let mut pixels = slint::SharedPixelBuffer::<slint::Rgba8Pixel>::new(320, 200);
-    //!        pixels.make_mut_slice().fill(slint::Rgba8Pixel {
-    //!            r: 0,
-    //!            g: 255,
-    //!            b :0,
-    //!            a: 255,
-    //!        });
-    //!
-    //!        let texture = device.create_texture_with_data(queue,
-    //!            &wgpu::TextureDescriptor {
-    //!                label: None,
-    //!                size: wgpu::Extent3d { width: 320, height: 200, depth_or_array_layers: 1 },
-    //!                mip_level_count: 1,
-    //!                sample_count: 1,
-    //!                dimension: wgpu::TextureDimension::D2,
-    //!                format: wgpu::TextureFormat::Rgba8Unorm,
-    //!                usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING,
-    //!                view_formats: &[],
-    //!            },
-    //!            wgpu::util::TextureDataOrder::default(),
-    //!            pixels.as_bytes(),
-    //!        );
-    //!
-    //!        let imported_image = slint::Image::try_from(texture).unwrap();
-    //!
-    //!        app.set_app_texture(imported_image);
-    //!    })?;
-    //!
-    //!    app.run()?;
-    //!
-    //!    Ok(())
-    //!}
-    //!```
-    //!
-    pub use i_slint_core::graphics::wgpu_27::api::*;
+    //! When rendering offscreen with the Skia renderer, use `slint::platform::skia_renderer::SkiaWGPU29Renderer`
+    //! to select the wgpu 29 API explicitly, even if `unstable-wgpu-30` also ends up enabled through
+    //! Cargo feature unification.
+    pub use i_slint_core::graphics::wgpu_29::api::*;
 }
-#[cfg(feature = "unstable-wgpu-28")]
-pub mod wgpu_28 {
-    //! WGPU 28.x specific types and re-exports.
+
+#[cfg(feature = "unstable-wgpu-30")]
+pub mod wgpu_30 {
+    //! WGPU 30.x specific types and re-exports.
     //!
     //! *Note*: This module is behind a feature flag and may be removed or changed in future minor releases,
     //!         as new major WGPU releases become available.
@@ -609,12 +572,12 @@ pub mod wgpu_28 {
     //! Use the types in this module in combination with other APIs to integrate external, WGPU-based rendering engines
     //! into a UI with Slint.
     //!
-    //! First, ensure that WGPU is used for rendering with Slint by using [`slint::BackendSelector::require_wgpu_28()`](i_slint_backend_selector::api::BackendSelector::require_wgpu_28()).
+    //! First, ensure that WGPU is used for rendering with Slint by using [`slint::BackendSelector::require_wgpu_30()`](i_slint_backend_selector::api::BackendSelector::require_wgpu_30()).
     //! This function accepts a pre-configured WGPU setup or configuration hints such as required features or memory limits.
     //!
     //! For rendering, it's crucial that you're using the same [`wgpu::Device`] and [`wgpu::Queue`] for allocating textures or submitting commands as Slint. Obtain the same queue
     //! by either using [`WGPUConfiguration::Manual`] to make Slint use an existing WGPU configuration, or use [`slint::Window::set_rendering_notifier()`](i_slint_core::api::Window::set_rendering_notifier())
-    //! to let Slint invoke a callback that provides access device, queue, etc. in [`slint::GraphicsAPI::WGPU28`](i_slint_core::api::GraphicsAPI::WGPU28).
+    //! to let Slint invoke a callback that provides access device, queue, etc. in [`slint::GraphicsAPI::WGPU30`](i_slint_core::api::GraphicsAPI::WGPU30).
     //!
     //! To integrate rendering content into a scene shared with a Slint UI, use either [`slint::Window::set_rendering_notifier()`](i_slint_core::api::Window::set_rendering_notifier()) to render an underlay
     //! or overlay, or integrate externally produced [`wgpu::Texture`]s using [`slint::Image::try_from<wgpu::Texture>()`](i_slint_core::graphics::Image::try_from).
@@ -623,13 +586,13 @@ pub mod wgpu_28 {
     //!
     //! `Cargo.toml`:
     //! ```toml
-    //! slint = { version = "~1.17", features = ["unstable-wgpu-28"] }
+    //! slint = { version = "~1.18", features = ["unstable-wgpu-30"] }
     //! ```
     //!
     //! `main.rs`:
     //!```rust,no_run
     //!
-    //! use slint::wgpu_28::wgpu;
+    //! use slint::wgpu_30::wgpu;
     //! use wgpu::util::DeviceExt;
     //!
     //!slint::slint!{
@@ -648,14 +611,14 @@ pub mod wgpu_28 {
     //!}
     //!fn main() -> Result<(), Box<dyn std::error::Error>> {
     //!    slint::BackendSelector::new()
-    //!        .require_wgpu_28(slint::wgpu_28::WGPUConfiguration::default())
+    //!        .require_wgpu_30(slint::wgpu_30::WGPUConfiguration::default())
     //!        .select()?;
     //!    let app = HelloWorld::new()?;
     //!
     //!    let app_weak = app.as_weak();
     //!
     //!    app.window().set_rendering_notifier(move |state, graphics_api| {
-    //!        let (Some(app), slint::RenderingState::RenderingSetup, slint::GraphicsAPI::WGPU28{ device, queue, ..}) = (app_weak.upgrade(), state, graphics_api) else {
+    //!        let (Some(app), slint::RenderingState::RenderingSetup, slint::GraphicsAPI::WGPU30{ device, queue, ..}) = (app_weak.upgrade(), state, graphics_api) else {
     //!            return;
     //!        };
     //!
@@ -693,7 +656,7 @@ pub mod wgpu_28 {
     //!}
     //!```
     //!
-    pub use i_slint_core::graphics::wgpu_28::api::*;
+    pub use i_slint_core::graphics::wgpu_30::api::*;
 }
 
 #[cfg(feature = "unstable-winit-030")]
@@ -710,7 +673,7 @@ pub mod winit_030 {
     //!
     //! `Cargo.toml`:
     //! ```toml
-    //! slint = { version = "~1.17", features = ["unstable-winit-030"] }
+    //! slint = { version = "~1.18", features = ["unstable-winit-030"] }
     //! ```
     //!
     //! `main.rs`:
@@ -766,9 +729,9 @@ pub mod winit_030 {
     pub type WinitWindowEventResult = EventResult;
 }
 
-#[cfg(feature = "unstable-fontique-09")]
-pub mod fontique_09 {
-    //! Fontique 0.9 specific types and re-exports.
+#[cfg(feature = "unstable-fontique-011")]
+pub mod fontique_011 {
+    //! Fontique 0.11 specific types and re-exports.
     //!
     //! *Note*: This module is behind a feature flag and may be removed or changed in future minor releases,
     //!         as new major Fontique releases become available.
@@ -791,18 +754,18 @@ pub mod fontique_09 {
     ///
     /// `Cargo.toml`:
     /// ```toml
-    /// slint = { version = "~1.17", features = ["unstable-fontique-09"] }
+    /// slint = { version = "~1.18", features = ["unstable-fontique-011"] }
     /// ```
     ///
     /// `main.rs`:
     /// ```rust,no_run
-    /// use slint::fontique_09::fontique;
+    /// use slint::fontique_011::fontique;
     ///
     /// fn main() {
     ///     // ...
     ///     let downloaded_font: Vec<u8> = todo!("Download https://somewebsite.com/font.ttf");
     ///     let blob = fontique::Blob::new(std::sync::Arc::new(downloaded_font));
-    ///     let mut collection = slint::fontique_09::shared_collection();
+    ///     let mut collection = slint::fontique_011::shared_collection();
     ///     let fonts = collection.register_fonts(blob, None);
     ///     collection
     ///         .append_fallbacks(fontique::FallbackKey::new(fontique::Script::from_str_unchecked("Hira"), None), fonts.iter().map(|x| x.0));
@@ -814,10 +777,9 @@ pub mod fontique_09 {
     /// }
     /// ```
     pub fn shared_collection() -> fontique::Collection {
-        i_slint_core::with_global_context(
-            || panic!("slint platform not initialized"),
-            |ctx| ctx.font_context().borrow().collection.clone(),
-        )
+        i_slint_backend_selector::with_global_context(|ctx| {
+            ctx.font_context().borrow().collection.clone()
+        })
         .unwrap()
     }
 }

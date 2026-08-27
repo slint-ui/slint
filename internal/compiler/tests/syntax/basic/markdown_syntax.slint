@@ -1,12 +1,14 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore badcolor
 export component X {
     property <styled-text> t1: @markdown("Foo\invalid");
 //                                           ><error{Unknown escape sequence. Use '\\' to escape a literal backslash}
-    property <styled-text> t2: @markdown("Foo\u{e541}Bar");  // Using the MARKDOWN_INTERPOLATION_PLACEHOLDER cause strange errors
-//                                        >       <error{Argument index 0 out of range: 0 arguments provided}
-//                             >                         <^error{Format string contains 1 placeholders, but 0 arguments were provided}
+    property <styled-text> t2: @markdown("Foo\u{e541}Bar");
+//                                           > <error{\u{e541} is reserved for @markdown interpolation}
+    property <styled-text> t2b: @markdown("Foo\u{e541}Bar \{some-prop}");
+//                                            > <error{\u{e541} is reserved for @markdown interpolation}
     property <styled-text> t3: @markdown("XXX"  "TTT \{12px} ZZZ");
 //                                                     >  <error{Cannot convert length to string. Divide by 1px to convert to a plain number}
     property <styled-text> t9: @markdown("{");
@@ -37,6 +39,8 @@ export component X {
 //                                            >          <error{Unexpected class attribute in html <u class='test'>}
     property <styled-text> t24: @markdown("<font color='#q'>text</font>");
 //                                               >        <error{Invalid color value '#q'}
+    property <styled-text> t24b: @markdown("<font color='zzz'>text</font>");
+//                                                >         <error{Invalid color value 'zzz'}
 
     // --- Comprehensive error location tests ---
 
@@ -97,8 +101,9 @@ export component X {
     property <styled-text> m12: @markdown("<font color='badcolor'>\{some-prop}</font>");
 //                                               >              <error{Invalid color value 'badcolor'}
 
-    // Valid interpolated color (should not report error)
-    property <styled-text> m13: @markdown("<font color='\{some-prop}'>text</font>");
+    // Valid interpolated color with a color property (should not report error)
+    property <color> some-color: red;
+    property <styled-text> m13: @markdown("<font color='\{some-color}'>text</font>");
 
     // Multiple attributes and tags in longer content
     property <styled-text> m14: @markdown("hello *world* "
@@ -111,6 +116,63 @@ export component X {
                                           "<abc>bad</abc>"
 //                                         >  <error{HTML tag <abc> is not supported}
                                           " suffix");
+
+    // --- Color interpolation type checking ---
+
+    // String cannot convert to color
+    property <styled-text> c1: @markdown("<font color='\{some-prop}'>text</font>");
+//                                                       >       <error{Cannot convert string to color}
+
+    // Integer cannot convert to color
+    property <styled-text> c2: @markdown("<font color='\{42}'>text</font>");
+//                                                       ><error{Cannot convert float to color}
+
+    // Length cannot convert to color
+    property <styled-text> c3: @markdown("<font color='\{12px}'>text</font>");
+//                                                       >  <error{Cannot convert length to color}
+
+    // Brush converts to color (narrowing)
+    property <brush> some-brush: red;
+    property <styled-text> c4: @markdown("<font color='\{some-brush}'>text</font>");
+
+    // Color property works
+    property <color> my-color: blue;
+    property <styled-text> c5: @markdown("<font color='\{my-color}'>text</font>");
+
+    // Color literal works
+    property <styled-text> c6: @markdown("<font color='\{Colors.red}'>text</font>");
+
+    // Non-color interpolation still requires string conversion (length fails)
+    property <styled-text> c7: @markdown("value: \{12px}");
+//                                                 >  <error{Cannot convert length to string. Divide by 1px to convert to a plain number}
+
+    // --- Edge cases: interpolation inside HTML tag structure is not allowed ---
+
+    // Interpolated tag name
+    property <styled-text> e1: @markdown("interpolation <\{"u"}>tags</\{"u"}>");
+//                                                      >  <error{Interpolation (`\{}`) is not allowed inside HTML tags}
+
+    // Interpolated whole attribute
+    property <styled-text> e2: @markdown("or argument <font \{"color='blue'"}>xx</font>");
+//                                                    >        <error{Interpolation (`\{}`) is not allowed inside HTML tags}
+
+    // Interpolated attribute name
+    property <styled-text> e3: @markdown("<font \{"color"}='red'>text</font>");
+//                                                >       <error{Interpolation (`\{}`) is not allowed inside HTML tags}
+
+    // Interpolation appended to tag name
+    property <styled-text> e4: @markdown("<u\{""}>xx</u>");
+//                                        >   <error{Interpolation (`\{}`) is not allowed inside HTML tags}
+    // Interpolation in closing tag
+    property <styled-text> e5: @markdown("<u>xx</u \{""}>");
+//                             >                          <error{Unterminated tag}
+    // Interpolation mixed with literal in color value
+    property <styled-text> e6: @markdown("<font color='\{""}blue'>xx</font>");
+//                                              >             <error{Interpolation (`\{}`) is not allowed inside HTML tags}
+    // Extra attribute after color
+    property <styled-text> e7: @markdown("<font color='blue' \{""}>xx</u \{""}>");
+//                                        >                     <error{Interpolation (`\{}`) is not allowed inside HTML tags}
+//                             >                                                <^error{Unterminated tag}
 
     // Interleaved HTML and markdown styles (#11563)
     property <styled-text> t26: @markdown("<u>*</u>*");

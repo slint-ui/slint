@@ -2,16 +2,16 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 //include_path: ../../../demos/printerdemo/ui/images/
-TestCase := Rectangle {
-    property <image> empty_image: @image-url("");
-    property <image> cat: @image-url("cat.jpg");
+export component TestCase inherits Rectangle {
+    in-out property <image> empty_image: @image-url("");
+    in-out property <image> cat: @image-url("cat.jpg");
 
-    property <int> empty_width: empty_image.width;
-    property <int> empty_height: empty_image.height;
-    property <int> cat_width: cat.width;
-    property <int> cat_height: cat.height;
+    in-out property <int> empty_width: empty_image.width;
+    in-out property <int> empty_height: empty_image.height;
+    in-out property <int> cat_width: cat.width;
+    in-out property <int> cat_height: cat.height;
 
-    property <bool> test: empty_width == 0 && empty_height == 0 && cat_width == 320 && cat_height == 480;
+    in-out property <bool> test: empty_width == 0 && empty_height == 0 && cat_width == 320 && cat_height == 480;
 }
 
 /*

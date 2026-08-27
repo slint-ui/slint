@@ -15,18 +15,19 @@ pub fn count_property_use(root: &CompilationUnit) {
     // 1. the public properties
     for c in &root.public_components {
         let root_ctx = EvaluationContext::new_sub_component(root, c.item_tree.root, (), None);
-        for p in c.public_properties.iter().filter(|p| !p.prop.is_function()) {
+        for p in c.public_properties.values() {
+            // A public function can be called from native code, so it is a root.
             visit_property(&p.prop, &root_ctx);
         }
     }
     for (idx, g) in root.globals.iter_enumerated().filter(|(_, g)| g.exported) {
         let ctx = EvaluationContext::new_global(root, idx, ());
-        for p in g.public_properties.iter().filter(|p| !p.prop.is_function()) {
+        for p in g.public_properties.values() {
             visit_property(&p.prop, &ctx);
         }
     }
 
-    root.for_each_sub_components(&mut |sc, ctx| {
+    root.for_each_sub_components(&mut |_, sc, ctx| {
         // 2. the native items and bindings of properties
         for (_, expr) in &sc.property_init {
             let c = expr.use_count.get();
@@ -36,16 +37,20 @@ pub fn count_property_use(root: &CompilationUnit) {
             }
         }
         // 3. the init code
-        for expr in &sc.init_code {
+        for expr in sc.pre_init_code.iter().chain(&sc.init_code) {
             expr.borrow().visit_property_references(ctx, &mut visit_property);
         }
         // 4. the models
         for (idx, r) in sc.repeated.iter_enumerated() {
             r.model.borrow().visit_property_references(ctx, &mut visit_property);
             if let Some(lv) = &r.listview {
-                visit_property(&lv.viewport_y, ctx);
-                visit_property(&lv.viewport_width, ctx);
-                visit_property(&lv.viewport_height, ctx);
+                visit_property(&lv.content_y, ctx);
+                if let Some(content_height) = &lv.content_height {
+                    visit_property(content_height, ctx);
+                }
+                if let Some(content_width) = &lv.content_width {
+                    visit_property(content_width, ctx);
+                }
                 visit_property(&lv.listview_width, ctx);
                 visit_property(&lv.listview_height, ctx);
 
@@ -64,6 +69,16 @@ pub fn count_property_use(root: &CompilationUnit) {
                 let p = &root.sub_components[r.sub_tree.root].properties[*idx];
                 p.use_count.set(2);
             }
+            if let Some(z_idx) = &r.dynamic_z {
+                let parent_ctx = ParentScope::new(ctx, Some(idx));
+                let rep_ctx = EvaluationContext::new_sub_component(
+                    root,
+                    r.sub_tree.root,
+                    (),
+                    Some(&parent_ctx),
+                );
+                visit_property(z_idx, &rep_ctx);
+            }
         }
 
         // 5. the layout info
@@ -73,6 +88,21 @@ pub fn count_property_use(root: &CompilationUnit) {
             e.borrow().visit_property_references(ctx, &mut visit_property);
         }
         if let Some(e) = &sc.flexbox_layout_item_info_for_repeated {
+            e.borrow().visit_property_references(ctx, &mut visit_property);
+        }
+        if let Some((_, e)) = &sc.cross_axis_self_alignment_for_repeated {
+            e.borrow().visit_property_references(ctx, &mut visit_property);
+        }
+        if let Some(e) = &sc.layout_info_v_constrained_for_repeated {
+            e.borrow().visit_property_references(ctx, &mut visit_property);
+        }
+        if let Some(e) = &sc.layout_info_v_at_cross_width_for_repeated {
+            e.borrow().visit_property_references(ctx, &mut visit_property);
+        }
+        if let Some(e) = &sc.layout_info_h_constrained_for_repeated {
+            e.borrow().visit_property_references(ctx, &mut visit_property);
+        }
+        if let Some(e) = &sc.layout_info_h_at_cross_height_for_repeated {
             e.borrow().visit_property_references(ctx, &mut visit_property);
         }
         for child in &sc.grid_layout_children {
@@ -102,10 +132,14 @@ pub fn count_property_use(root: &CompilationUnit) {
             }
         }
 
-        // 8.functions (TODO: only visit used function)
-        for f in &sc.functions {
-            f.code.visit_property_references(ctx, &mut visit_property);
+        // 8. animations (`animate x { … }`): `remove_unused` keeps and remaps these,
+        // so the properties they read must be counted too.
+        for anim in sc.animations.values() {
+            anim.visit_property_references(ctx, &mut visit_property);
         }
+
+        // Function bodies are visited on demand from visit_property when a call to
+        // them is found, so that an unreachable function keeps nothing alive.
 
         // 9. change callbacks
         for (p, e) in &sc.change_callbacks {
@@ -134,10 +168,6 @@ pub fn count_property_use(root: &CompilationUnit) {
 
     for (idx, g) in root.globals.iter_enumerated() {
         let ctx = EvaluationContext::new_global(root, idx, ());
-        // TODO: only visit used function
-        for f in &g.functions {
-            f.code.visit_property_references(&ctx, &mut visit_property);
-        }
 
         for (p, e) in &g.change_callbacks {
             visit_property(&LocalMemberReference::from(*p).into(), &ctx);
@@ -151,6 +181,11 @@ pub fn count_property_use(root: &CompilationUnit) {
         visit_property(&p.sub_menu, &ctx);
         visit_property(&p.activated, &ctx);
     }
+
+    // The z-order expressions are evaluated on every children visit
+    root.for_each_z_order_expression(&mut |e, ctx| {
+        e.borrow().visit_property_references(ctx, &mut visit_property)
+    });
 
     clean_unused_bindings(root);
 }
@@ -168,6 +203,16 @@ fn visit_property(pr: &MemberReference, ctx: &EvaluationContext) {
             visit_binding_expression(binding, &ctx2);
         }
     }
+    // A reference to a function is a call: count it and, the first time, visit
+    // its body so an unreachable function doesn't keep its property reads alive.
+    if let Some((function, map)) = ctx.function_info(pr) {
+        let c = function.use_count.get();
+        function.use_count.set(c + 1);
+        if c == 0 {
+            let ctx2 = map.map_context(ctx);
+            function.code.borrow().visit_property_references(&ctx2, &mut visit_property);
+        }
+    }
 }
 
 fn visit_binding_expression(binding: &BindingExpression, ctx: &EvaluationContext) {
@@ -182,7 +227,7 @@ fn visit_binding_expression(binding: &BindingExpression, ctx: &EvaluationContext
 
 /// Bindings which have a use_count of zero can be cleared so that we won't ever visit them later.
 fn clean_unused_bindings(root: &CompilationUnit) {
-    root.for_each_sub_components(&mut |sc, _| {
+    root.for_each_sub_components(&mut |_, sc, _| {
         for (_, e) in &sc.property_init {
             if e.use_count.get() == 0 {
                 e.expression.replace(Expression::CodeBlock(Vec::new()));

@@ -16,6 +16,11 @@ global Glob := {
     property <relative-font-size> rem_allowed: 42rem;
 }
 
+struct Data {
+    a: string,
+    b: int
+}
+
 export X := Rectangle {
 //       ><warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
 
@@ -46,7 +51,9 @@ export X := Rectangle {
     }
 
     property <{a: string, b: int}> object1: { a: "123", typo: 42};
-//                                          >                    <error{Cannot convert { a: string,typo: float,} to { a: string,b: int,}}
+//                                          >                    <error{Cannot convert { a: string,typo: float,} to { a: string,b: int,}: Field 'typo' not found}
+    property <Data> object2: { a: "123", typo: 42};
+//                           >                    <error{Cannot convert { a: string,typo: float,} to Data: Field 'typo' not found. Available fields: 'a', 'b'}
 
     property <[{a: [int]}]> ccc: [{a: []}, {}, {a: ["123"]}, {a: [123]}]; //  (FIXME: error location)  (FIXME: duplicated)
 //                               >                                      <error{Cannot convert string to int}
@@ -60,7 +67,6 @@ export X := Rectangle {
 
     property <int> arr3: false ? [] : 45;  //(FIXME: error not ideal)
 //                                    ><error{Cannot convert float to [void]}
-//                       >              <^error{Cannot convert void to int}
 
     property <int> to-float: "foobar".to-float;
 //                                    >      <error{Member function must be called. Did you forgot the '()'?}

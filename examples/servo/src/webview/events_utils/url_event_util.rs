@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
+// cSpell: ignore searchpage
 use servo::ServoUrl;
 
 pub fn convert_input_string_to_servo_url(url: &str) -> ServoUrl {

@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
+// cSpell: ignore undoable
+
 use slint::Model;
 use slint::VecModel;
 use std::cell::RefCell;

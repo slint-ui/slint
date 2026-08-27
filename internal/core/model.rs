@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell: ignore vecmodel
+// cSpell: ignore vecmodel doesnt downcasted modeliter modelrc
 
 //! Model and Repeater
 
@@ -23,7 +23,7 @@ mod adapters;
 mod model_peer;
 mod repeater;
 
-pub use repeater::{Conditional, RepeatedItemTree, Repeater, RepeaterTracker};
+pub use repeater::{Conditional, ListViewProperties, RepeatedItemTree, Repeater, RepeaterTracker};
 
 /// This trait defines the interface that users of a model can use to track changes
 /// to a model. It is supplied via [`Model::model_tracker`] and implementation usually
@@ -37,6 +37,21 @@ pub trait ModelTracker {
     /// Register a row as a dependency to the current binding being evaluated, so that
     /// it will be notified when the value of that row changes.
     fn track_row_data_changes(&self, row: usize);
+
+    /// Register the whole model as a dependency to the current binding being evaluated,
+    /// so that it will be notified of any change to the model: the row count as well as
+    /// the data of any of the `row_count` rows.
+    ///
+    /// This is equivalent to calling [`Self::track_row_count_changes`] and then
+    /// [`Self::track_row_data_changes`] for every row, which is what the default
+    /// implementation does, but implementations such as [`ModelNotify`] register a
+    /// single dependency whose cost is independent of the number of rows.
+    fn track_any_change(&self, row_count: usize) {
+        self.track_row_count_changes();
+        for row in 0..row_count {
+            self.track_row_data_changes(row);
+        }
+    }
 }
 
 impl ModelTracker for () {
@@ -44,6 +59,7 @@ impl ModelTracker for () {
 
     fn track_row_count_changes(&self) {}
     fn track_row_data_changes(&self, _row: usize) {}
+    fn track_any_change(&self, _row_count: usize) {}
 }
 
 /// A Model is providing Data for the repeated elements with `for` in the `.slint` language
@@ -144,6 +160,54 @@ pub trait Model {
         );
     }
 
+    /// Add a new row to the model.
+    ///
+    /// If the model cannot support data changes, then it is ok to do nothing.
+    /// The default implementation will print a warning to stderr.
+    ///
+    /// If the model can update the data, it should also call [`ModelNotify::row_added`] on its
+    /// internal [`ModelNotify`].
+    fn push_row(&self, _data: Self::Data) {
+        #[cfg(feature = "std")]
+        crate::debug_log!(
+            "Model::push_row called on a model of type {} which does not re-implement this method. \
+            This happens when trying to modify a read-only model",
+            core::any::type_name::<Self>()
+        );
+    }
+
+    /// Remove a row from the model at the specified index.
+    ///
+    /// If the model cannot support data changes, then it is ok to do nothing.
+    /// The default implementation will print a warning to stderr.
+    ///
+    /// If the model can update the data, it should also call [`ModelNotify::row_removed`] on its
+    /// internal [`ModelNotify`].
+    fn remove_row(&self, _row: isize) {
+        #[cfg(feature = "std")]
+        crate::debug_log!(
+            "Model::remove_row called on a model of type {} which does not re-implement this method. \
+            This happens when trying to modify a read-only model",
+            core::any::type_name::<Self>()
+        );
+    }
+
+    /// Insert a new row at the specified index and move the next rows by 1 step to the right.
+    ///
+    /// If the model cannot support data changes, then it is ok to do nothing.
+    /// The default implementation will print a warning to stderr.
+    ///
+    /// If the model can update the data, it should also call [`ModelNotify::row_added`] on its
+    /// internal [`ModelNotify`].
+    fn insert_row(&self, _row: isize, _data: Self::Data) {
+        #[cfg(feature = "std")]
+        crate::debug_log!(
+            "Model::insert_row called on a model of type {} which does not re-implement this method. \
+            This happens when trying to modify a read-only model",
+            core::any::type_name::<Self>()
+        );
+    }
+
     /// The implementation should return a reference to its [`ModelNotify`] field.
     ///
     /// You can return `&()` if you your `Model` is constant and does not have a ModelNotify field.
@@ -178,7 +242,7 @@ pub trait Model {
     /// ```
     ///
     /// ## Troubleshooting
-    /// A common reason why the dowcast fails at run-time is because of a type-mismatch
+    /// A common reason why the downcast fails at run-time is because of a type-mismatch
     /// between the model created and the model downcasted. To debug this at compile time,
     /// try matching the model type used for the downcast explicitly at model creation time.
     /// In the following example, the downcast fails at run-time:
@@ -294,6 +358,33 @@ pub trait ModelExt: Model {
 
 impl<T: Model> ModelExt for T {}
 
+pub fn model_any<T>(model: &dyn Model<Data = T>, mut predicate: impl FnMut(T) -> bool) -> bool {
+    let row_count = model.row_count();
+    model.model_tracker().track_any_change(row_count);
+    (0..row_count).any(|index| model.row_data(index).is_some_and(&mut predicate))
+}
+
+pub fn model_all<T>(model: &dyn Model<Data = T>, mut predicate: impl FnMut(T) -> bool) -> bool {
+    let row_count = model.row_count();
+    model.model_tracker().track_any_change(row_count);
+    // `is_none_or`, not `is_some_and`: a row without data is skipped, as it is by
+    // model_any and model_find_index, rather than failing the whole model.
+    (0..row_count).all(|index| model.row_data(index).is_none_or(&mut predicate))
+}
+
+/// Returns the index of the first row for which `predicate` returns `true`, or `-1`
+/// if no row matches.
+pub fn model_find_index<T>(
+    model: &dyn Model<Data = T>,
+    mut predicate: impl FnMut(T) -> bool,
+) -> i32 {
+    let row_count = model.row_count();
+    model.model_tracker().track_any_change(row_count);
+    (0..row_count)
+        .find(|index| model.row_data(*index).is_some_and(&mut predicate))
+        .map_or(-1, |index| index as i32)
+}
+
 /// An iterator over the elements of a model.
 /// This struct is created by the [`Model::iter()`] trait function.
 pub struct ModelIterator<'a, T> {
@@ -354,6 +445,15 @@ impl<M: Model> Model for Rc<M> {
     }
     fn set_row_data(&self, row: usize, data: Self::Data) {
         (**self).set_row_data(row, data)
+    }
+    fn push_row(&self, data: Self::Data) {
+        (**self).push_row(data)
+    }
+    fn remove_row(&self, row: isize) {
+        (**self).remove_row(row)
+    }
+    fn insert_row(&self, row: isize, data: Self::Data) {
+        (**self).insert_row(row, data)
     }
 }
 
@@ -482,6 +582,22 @@ impl<T: Clone + 'static> Model for VecModel<T> {
         }
     }
 
+    fn push_row(&self, data: Self::Data) {
+        self.push(data);
+    }
+
+    fn remove_row(&self, row: isize) {
+        if row >= 0 && row < self.row_count() as isize {
+            self.remove(row as usize);
+        }
+    }
+
+    fn insert_row(&self, row: isize, data: Self::Data) {
+        if row >= 0 && row <= self.row_count() as isize {
+            self.insert(row as usize, data);
+        }
+    }
+
     fn model_tracker(&self) -> &dyn ModelTracker {
         &self.notify
     }
@@ -533,6 +649,25 @@ impl<T: Clone + 'static> Model for SharedVectorModel<T> {
     fn set_row_data(&self, row: usize, data: Self::Data) {
         self.array.borrow_mut().make_mut_slice()[row] = data;
         self.notify.row_changed(row);
+    }
+
+    fn push_row(&self, data: Self::Data) {
+        self.array.borrow_mut().push(data);
+        self.notify.row_added(self.array.borrow().len() - 1, 1);
+    }
+
+    fn remove_row(&self, row: isize) {
+        if row >= 0 && row < self.row_count() as isize {
+            self.array.borrow_mut().remove(row as usize);
+            self.notify.row_removed(row as usize, 1);
+        }
+    }
+
+    fn insert_row(&self, row: isize, data: Self::Data) {
+        if row >= 0 && row <= self.row_count() as isize {
+            self.array.borrow_mut().insert(row as usize, data);
+            self.notify.row_added(row as usize, 1);
+        }
     }
 
     fn model_tracker(&self) -> &dyn ModelTracker {
@@ -820,6 +955,24 @@ impl<T> Model for ModelRc<T> {
         }
     }
 
+    fn push_row(&self, data: Self::Data) {
+        if let Some(model) = self.0.as_ref() {
+            model.push_row(data);
+        }
+    }
+
+    fn remove_row(&self, row: isize) {
+        if let Some(model) = self.0.as_ref() {
+            model.remove_row(row);
+        }
+    }
+
+    fn insert_row(&self, row: isize, data: Self::Data) {
+        if let Some(model) = self.0.as_ref() {
+            model.insert_row(row, data);
+        }
+    }
+
     fn model_tracker(&self) -> &dyn ModelTracker {
         self.0.as_ref().map_or(&(), |model| model.model_tracker())
     }
@@ -899,6 +1052,39 @@ mod tests {
     }
 
     #[test]
+    fn test_shared_vector_model_bounds() {
+        let model: Rc<SharedVectorModel<i32>> =
+            Rc::new(SharedVectorModel::from(SharedVector::from_slice(&[1, 2, 3])));
+        let handle = ModelRc::from(model.clone());
+        let tracker = Box::pin(<crate::properties::PropertyTracker>::default());
+        let count = || {
+            tracker.as_ref().evaluate(|| {
+                handle.model_tracker().track_row_count_changes();
+                handle.row_count()
+            })
+        };
+        assert_eq!(count(), 3);
+        assert!(!tracker.is_dirty());
+
+        // Out-of-range operations do nothing and must not notify the views.
+        model.remove_row(3);
+        model.remove_row(-1);
+        model.insert_row(4, 42);
+        model.insert_row(-1, 42);
+        assert!(!tracker.is_dirty());
+        assert_eq!(model.row_count(), 3);
+        assert_eq!(model.row_data(2), Some(3));
+
+        // In-range operations change the data and notify.
+        model.insert_row(3, 4);
+        assert!(tracker.is_dirty());
+        assert_eq!(count(), 4);
+        model.remove_row(0);
+        assert_eq!(model.row_count(), 3);
+        assert_eq!(model.row_data(0), Some(2));
+    }
+
+    #[test]
     fn test_data_tracking() {
         let model: Rc<VecModel<u8>> = Rc::new(VecModel::from(vec![0, 1, 2, 3, 4]));
         let handle = ModelRc::from(model.clone());
@@ -939,6 +1125,158 @@ mod tests {
 
         model.set_vec(Vec::new());
         assert!(tracker.is_dirty());
+    }
+
+    #[test]
+    fn test_data_tracking_outside_a_binding() {
+        let model: Rc<VecModel<u8>> = Rc::new(VecModel::from(vec![0, 1, 2, 3, 4]));
+        let handle = ModelRc::from(model.clone());
+        let tracker = Box::pin(<crate::properties::PropertyTracker>::default());
+        assert_eq!(
+            tracker.as_ref().evaluate(|| {
+                handle.model_tracker().track_row_data_changes(1);
+                handle.row_data(1).unwrap()
+            }),
+            1
+        );
+        assert!(!tracker.is_dirty());
+
+        // Tracking a row while no binding is being evaluated registers no dependency, so it
+        // must not make later changes to that row dirty bindings that never asked for it.
+        handle.model_tracker().track_row_data_changes(0);
+        model.set_row_data(0, 100);
+        assert!(!tracker.is_dirty());
+
+        // The row the tracker did ask for still works.
+        model.set_row_data(1, 100);
+        assert!(tracker.is_dirty());
+    }
+
+    #[test]
+    fn test_any_change_tracking() {
+        let model: Rc<VecModel<u8>> = Rc::new(VecModel::from(vec![0, 1, 2, 3, 4]));
+        let handle = ModelRc::from(model.clone());
+        let tracker = Box::pin(<crate::properties::PropertyTracker>::default());
+        let find_two = || tracker.as_ref().evaluate(|| model_find_index(&handle, |x| x == 2));
+        assert_eq!(find_two(), 2);
+        assert!(!tracker.is_dirty());
+
+        // Any row change dirties the binding, including rows past the match,
+        // as track_any_change() tracks all rows regardless of short-circuiting.
+        model.set_row_data(4, 42);
+        assert!(tracker.is_dirty());
+        assert_eq!(find_two(), 2);
+        assert!(!tracker.is_dirty());
+
+        model.set_row_data(2, 22);
+        assert!(tracker.is_dirty());
+        assert_eq!(find_two(), -1);
+        assert!(!tracker.is_dirty());
+
+        model.push(2);
+        assert!(tracker.is_dirty());
+        assert_eq!(find_two(), 5);
+        assert!(!tracker.is_dirty());
+
+        model.remove(0);
+        assert!(tracker.is_dirty());
+        assert_eq!(find_two(), 4);
+        assert!(!tracker.is_dirty());
+
+        // A row change right after add/remove cleared the tracking state still
+        // dirties the binding, because the re-evaluation re-tracked the model.
+        model.set_row_data(0, 7);
+        assert!(tracker.is_dirty());
+        assert_eq!(find_two(), 4);
+        assert!(!tracker.is_dirty());
+
+        model.set_vec(Vec::new());
+        assert!(tracker.is_dirty());
+        assert_eq!(find_two(), -1);
+        assert!(!tracker.is_dirty());
+    }
+
+    #[test]
+    fn test_track_any_change_default_impl() {
+        // A tracker that doesn't override track_any_change(), to exercise
+        // ModelTracker's default implementation, which must be equivalent to
+        // calling track_row_count_changes() and then track_row_data_changes()
+        // for every row.
+        #[derive(Default)]
+        struct RecordingTracker {
+            row_count_calls: Cell<usize>,
+            row_data_calls: RefCell<Vec<usize>>,
+        }
+
+        impl ModelTracker for RecordingTracker {
+            fn attach_peer(&self, _peer: ModelPeer) {}
+            fn track_row_count_changes(&self) {
+                self.row_count_calls.set(self.row_count_calls.get() + 1);
+            }
+            fn track_row_data_changes(&self, row: usize) {
+                self.row_data_calls.borrow_mut().push(row);
+            }
+        }
+
+        let tracker = RecordingTracker::default();
+        tracker.track_any_change(3);
+        assert_eq!(tracker.row_count_calls.get(), 1);
+        assert_eq!(*tracker.row_data_calls.borrow(), vec![0, 1, 2]);
+
+        tracker.track_any_change(0);
+        assert_eq!(tracker.row_count_calls.get(), 2);
+        assert_eq!(*tracker.row_data_calls.borrow(), vec![0, 1, 2]);
+    }
+
+    /// A model whose middle row has no data, to pin down how the array predicates
+    /// treat a row that is in range but unreadable.
+    struct AbsentRowModel;
+
+    impl Model for AbsentRowModel {
+        type Data = i32;
+        fn row_count(&self) -> usize {
+            3
+        }
+        fn row_data(&self, row: usize) -> Option<i32> {
+            match row {
+                0 => Some(1),
+                1 => None,
+                _ => Some(3),
+            }
+        }
+        fn model_tracker(&self) -> &dyn ModelTracker {
+            &()
+        }
+    }
+
+    #[test]
+    fn test_predicates_skip_absent_rows() {
+        // All three predicates skip the absent row, rather than failing the whole
+        // model or feeding the predicate a default value in its place.
+        assert!(model_all(&AbsentRowModel, |x| x > 0));
+        assert!(!model_any(&AbsentRowModel, |x| x == 0));
+        assert_eq!(model_find_index(&AbsentRowModel, |x| x == 3), 2);
+    }
+
+    #[test]
+    fn test_any_change_subsumes_row_tracking() {
+        let model: Rc<VecModel<u8>> = Rc::new(VecModel::from(vec![0, 1, 2, 3, 4]));
+        let handle = ModelRc::from(model.clone());
+
+        // Track the whole model, so that every row is now implicitly tracked.
+        let any_tracker = Box::pin(<crate::properties::PropertyTracker>::default());
+        any_tracker.as_ref().evaluate(|| model_find_index(&handle, |x| x == 2));
+        assert!(!any_tracker.is_dirty());
+
+        // track_row_data_changes() no longer records the row individually while that
+        // is the case, but a binding tracking a single row must still be notified.
+        let row_tracker = Box::pin(<crate::properties::PropertyTracker>::default());
+        row_tracker.as_ref().evaluate(|| handle.model_tracker().track_row_data_changes(0));
+        assert!(!row_tracker.is_dirty());
+
+        model.set_row_data(0, 9);
+        assert!(row_tracker.is_dirty());
+        assert!(any_tracker.is_dirty());
     }
 
     #[derive(Default)]

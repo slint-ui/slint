@@ -7,7 +7,7 @@
 
 use crate::diagnostics::BuildDiagnostics;
 use crate::expression_tree::{Expression, NamedReference};
-use crate::langtype::{ElementType, Type};
+use crate::langtype::{ElementType, PropertyLookupMode, Type};
 use crate::object_tree::Component;
 use smol_str::SmolStr;
 use std::rc::Rc;
@@ -19,6 +19,12 @@ pub fn apply_default_properties_from_style(
     palette: &Rc<Component>,
     _diag: &mut BuildDiagnostics,
 ) {
+    // There are no styles in Slint SC; the defaults are part of the
+    // generated code
+    #[cfg(feature = "slint-sc")]
+    if _diag.slint_sc {
+        return;
+    }
     crate::object_tree::recurse_elem_including_sub_components(
         root_component,
         &(),
@@ -96,7 +102,7 @@ pub fn apply_default_properties_from_style(
                             style_metrics
                                 .root_element
                                 .borrow()
-                                .lookup_property(property_name)
+                                .lookup_property(property_name, PropertyLookupMode::ComponentLocal)
                                 .property_type,
                             Type::Invalid,
                         ) {

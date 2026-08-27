@@ -1,14 +1,15 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore callbackiter functioniter propiter
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::rc::Rc;
+use std::sync::Arc;
 
 use i_slint_compiler::generator::python::ident;
 use pyo3::IntoPyObjectExt;
-use pyo3_stub_gen::derive::{gen_stub_pyclass, gen_stub_pyclass_enum, gen_stub_pymethods};
 use slint_interpreter::{ComponentHandle, Value};
 
 use i_slint_compiler::langtype::{Function as SlintFunction, Type};
@@ -26,13 +27,11 @@ use crate::errors::{
 };
 use crate::value::{SlintToPyValue, TypeCollection};
 
-#[gen_stub_pyclass]
 #[pyclass(unsendable)]
 pub struct Compiler {
     compiler: slint_interpreter::Compiler,
 }
 
-#[gen_stub_pymethods]
 #[pymethods]
 impl Compiler {
     #[new]
@@ -92,11 +91,9 @@ impl Compiler {
 }
 
 #[derive(Debug, Clone)]
-#[gen_stub_pyclass]
 #[pyclass(unsendable, from_py_object)]
 pub struct PyDiagnostic(slint_interpreter::Diagnostic);
 
-#[gen_stub_pymethods]
 #[pymethods]
 impl PyDiagnostic {
     #[getter]
@@ -134,7 +131,6 @@ impl PyDiagnostic {
     }
 }
 
-#[gen_stub_pyclass_enum]
 #[pyclass(name = "DiagnosticLevel", eq, eq_int)]
 #[derive(PartialEq)]
 pub enum PyDiagnosticLevel {
@@ -143,7 +139,6 @@ pub enum PyDiagnosticLevel {
     Note,
 }
 
-#[gen_stub_pyclass]
 #[pyclass(unsendable)]
 pub struct CompilationResult {
     result: slint_interpreter::CompilationResult,
@@ -158,7 +153,6 @@ impl CompilationResult {
     }
 }
 
-#[gen_stub_pymethods]
 #[pymethods]
 impl CompilationResult {
     #[getter]
@@ -189,14 +183,12 @@ impl CompilationResult {
             match struct_or_enum {
                 Type::Struct(s) if s.node().is_some() => {
                     let struct_instance = self.type_collection.struct_to_py(
-                        slint_interpreter::Struct::from_iter(s.fields.iter().map(
-                            |(name, field_type)| {
-                                (
-                                    ident(&name).into(),
-                                    slint_interpreter::default_value_for_type(field_type),
-                                )
-                            },
-                        )),
+                        slint_interpreter::Struct::from_iter(s.fields.keys().map(|name| {
+                            (
+                                ident(&name).into(),
+                                slint_interpreter::default_value_for_struct_field(s, name),
+                            )
+                        })),
                         None,
                     );
 
@@ -220,36 +212,31 @@ impl CompilationResult {
 
     #[getter]
     fn named_exports(&self) -> Vec<(String, String)> {
-        self.result.named_exports(i_slint_core::InternalToken {}).cloned().collect::<Vec<_>>()
+        let Some(unit) = self.result.compilation_unit(i_slint_core::InternalToken {}) else {
+            return Vec::new();
+        };
+        unit.type_exports
+            .iter()
+            .filter(|e| e.is_alias())
+            .map(|e| (e.internal_name.to_string(), e.exported_name.to_string()))
+            .collect()
     }
 
     #[getter]
     fn generated_api(&self) -> PyResult<PyGeneratedAPI> {
-        let type_loader = self
+        let Some(unit) = self.result.compilation_unit(i_slint_core::InternalToken {}) else {
+            return Err(pyo3::exceptions::PyRuntimeError::new_err(
+                "Cannot generated API for empty slint file",
+            ));
+        };
+        let structs_and_enums = self
             .result
-            .components()
-            .next()
-            .ok_or_else(|| {
-                pyo3::exceptions::PyRuntimeError::new_err(
-                    "Cannot generated API for empty slint file",
-                )
-            })?
-            .type_loader();
-        let doc = type_loader.get_document(&self.path).ok_or_else(|| {
-            pyo3::exceptions::PyRuntimeError::new_err(
-                "Failed to load document from cache for API generation",
-            )
-        })?;
-        i_slint_compiler::generator::python::generate_py_module(
-            doc,
-            &i_slint_compiler::CompilerConfiguration::new(
-                i_slint_compiler::generator::OutputFormat::Python,
-            ),
-        )
-        .map_err(|e| {
-            pyo3::exceptions::PyRuntimeError::new_err(format!("Error generating pymodule: {}", e))
-        })
-        .map(|module| PyGeneratedAPI { path: self.path.clone(), module })
+            .structs_and_enums(i_slint_core::InternalToken {})
+            .cloned()
+            .collect::<Vec<_>>();
+        let module =
+            i_slint_compiler::generator::python::generate_py_module(unit, &structs_and_enums);
+        Ok(PyGeneratedAPI { path: self.path.clone(), module })
     }
 }
 
@@ -258,7 +245,7 @@ impl CompilationResult {
 fn lookup_signature(
     definition: &slint_interpreter::ComponentDefinition,
     name: &str,
-) -> Option<Rc<SlintFunction>> {
+) -> Option<Arc<SlintFunction>> {
     let normalized = normalize_identifier(name);
     definition.properties_and_callbacks().find_map(|(prop_name, (ty, _))| {
         (normalize_identifier(&prop_name) == normalized)
@@ -275,7 +262,7 @@ fn lookup_global_signature(
     definition: &slint_interpreter::ComponentDefinition,
     global_name: &str,
     name: &str,
-) -> Option<Rc<SlintFunction>> {
+) -> Option<Arc<SlintFunction>> {
     let normalized = normalize_identifier(name);
     definition.global_properties_and_callbacks(global_name)?.find_map(|(prop_name, (ty, _))| {
         (normalize_identifier(&prop_name) == normalized)
@@ -311,7 +298,6 @@ fn lookup_global_property_type(
     })
 }
 
-#[gen_stub_pyclass]
 #[pyclass(unsendable)]
 pub struct ComponentDefinition {
     definition: slint_interpreter::ComponentDefinition,
@@ -404,7 +390,6 @@ impl ComponentDefinition {
     }
 }
 
-#[gen_stub_pyclass_enum]
 #[pyclass(name = "ValueType", eq, eq_int)]
 #[derive(PartialEq)]
 pub enum PyValueType {
@@ -416,8 +401,10 @@ pub enum PyValueType {
     Struct,
     Brush,
     Image,
+    StyledText,
     Enumeration,
     Keys,
+    MouseCursor,
 }
 
 impl From<i_slint_compiler::langtype::Type> for PyValueType {
@@ -441,14 +428,15 @@ impl From<i_slint_compiler::langtype::Type> for PyValueType {
             Type::Brush => PyValueType::Brush,
             Type::Color => PyValueType::Brush,
             Type::Image => PyValueType::Image,
+            Type::StyledText => PyValueType::StyledText,
             Type::Enumeration(..) => PyValueType::Enumeration,
             Type::Keys => PyValueType::Keys,
+            Type::MouseCursor => PyValueType::MouseCursor,
             _ => unimplemented!(),
         }
     }
 }
 
-#[gen_stub_pyclass]
 #[pyclass(unsendable, weakref)]
 pub struct ComponentInstance {
     instance: slint_interpreter::ComponentInstance,
@@ -661,7 +649,7 @@ impl GcVisibleCallbacks {
         &self,
         name: String,
         callable: Py<PyAny>,
-        signature: Option<Rc<SlintFunction>>,
+        signature: Option<Arc<SlintFunction>>,
     ) -> impl Fn(&[Value]) -> Value + 'static {
         self.callables.borrow_mut().insert(name.clone(), callable);
 

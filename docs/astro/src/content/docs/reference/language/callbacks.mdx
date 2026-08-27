@@ -1,0 +1,234 @@
+---
+title: Callbacks
+description: Declaring callbacks, setting handlers, aliases, and change callbacks.
+SC: true
+---
+
+import SC from '@slint/common-files/src/components/SC.astro';
+import OnlyInSC from '@slint/common-files/src/components/OnlyInSC.astro';
+import NotInSC from '@slint/common-files/src/components/NotInSC.astro';
+
+<SC>
+A *callback* is a member that carries an invocation from one place to another.
+It's declared with the `callback` keyword, invoked by calling it,
+and reacted to by a handler set with the `=>` arrow. \{#sls.callback.def}
+
+```slint
+export component Example inherits Window {
+    callback hello;
+    TouchArea {
+        clicked => { root.hello(); }
+    }
+}
+```
+</SC>
+
+<NotInSC>
+A callback may be declared in a component, on any element within a component, or in a [global](../globals/).
+</NotInSC>
+
+<SC>
+## Declaration
+
+A *callback declaration* adds a callback to the element in whose body it appears.
+It consists of the keyword `callback`, a name, and `;`. \{#sls.callback.decl.form}
+
+<OnlyInSC>
+A callback shall only be declared on the root element,
+so that every callback of a component is one the application implements. \{#sls.callback.decl.root-only}
+
+A callback shall have neither parameters nor a return value,
+so its declaration carries neither a parameter list nor a `->` return type. \{#sls.callback.decl.no-params}
+
+A callback shall not be declared `pure`, and shall not be declared as an alias. \{#sls.callback.decl.plain}
+</OnlyInSC>
+
+A callback name shall not collide with another member of the same element:
+a declaration whose name matches an existing property, function, or callback is an error. \{#sls.callback.decl.unique}
+</SC>
+
+<NotInSC>
+Between the name and the `;`, a declaration may also carry the callback's parameter types and its
+return type:
+
+```slint
+export component Example {
+    callback plain;                      // no parameters, no return value
+    callback with-args(int, string);     // two parameters
+    callback with-return(int, int) -> int;
+}
+```
+
+The following forms are allowed:
+
+- No parentheses declares a callback with no parameters, as in `callback plain;`.
+- Parentheses list the parameter types, as in `callback with-args(int, string);`.
+  A trailing comma after the last parameter is allowed.
+- A parameter may carry a name, written `name: type`, as in `callback c(foo: int, bar: string)`.
+  Names are optional and may be mixed with unnamed parameters.
+  The name carries no semantic value; a handler names its parameters independently.
+- A return type is written after `->` and requires the parentheses to be present,
+  even when there are no parameters: `callback c() -> int`.
+  Writing `-> type` without parentheses is a compile error.
+
+`pure` may precede `callback` to mark the callback as having no side effects (see [Purity](../evaluation-and-purity/#purity)).
+A `pure` callback may be called from a pure context, and its handler must itself be pure.
+Calling an impure callback from a pure context is a compile error.
+
+A duplicate callback declaration is a compile error.
+</NotInSC>
+
+<SC>
+## Calling
+
+A callback is invoked with call syntax:
+the callback, followed by parentheses holding the arguments. \{#sls.callback.call.form}
+
+Invoking a callback runs its handler.
+A callback without a handler does nothing when invoked. \{#sls.callback.call.handler}
+
+```slint
+export component Example inherits Window {
+    callback acknowledged;
+    TouchArea {
+        clicked => { root.acknowledged(); }
+    }
+}
+```
+</SC>
+
+<NotInSC>
+The number of arguments must match the declaration,
+and a callback with a return type returns the default value of that type when it has no handler:
+
+```slint
+export component Example {
+    pure callback hello(int, int) -> int;
+    property <int> result: hello(1, 2);
+}
+```
+</NotInSC>
+
+<SC>
+## Handlers
+
+A *handler* reacts to a callback's invocation.
+It's written as the callback's name, `=>`, and either a single expression or a code block. \{#sls.callback.handler.form}
+
+A callback has at most one handler;
+setting a second handler for the same callback is an error. \{#sls.callback.handler.one}
+
+A handler may be set on a callback of a child element,
+such as `TouchArea`'s [`clicked`](../../gestures/toucharea/#sls.ref.toucharea.clicked). \{#sls.callback.handler.target}
+
+<OnlyInSC>
+A handler body shall consist of callback invocations and nothing else. \{#sls.callback.handler.body}
+
+A handler shall not be set on a callback declared on the root element:
+the application implements those. \{#sls.callback.handler.not-root}
+
+Each invocation runs the handler of the callback,
+so a cycle of handlers, each invoking the next, is an error. \{#sls.callback.handler.no-cycle}
+</OnlyInSC>
+
+```slint
+export component Example inherits Window {
+    callback first;
+    callback second;
+    TouchArea {
+        clicked => {
+            root.first();
+            root.second();
+        }
+    }
+}
+```
+</SC>
+
+<NotInSC>
+- The handler names its parameters in parentheses.
+  These names are local to the handler body and are independent of any names in the declaration.
+  Parentheses may be omitted when the callback has no parameters.
+- The body's last expression is the return value; its type must match the callback's return type.
+
+```slint
+export component Example {
+    callback sum(int, int) -> int;
+    sum(a, b) => { a + b }
+}
+```
+
+A handler may also be set on a callback declared in the same component.
+
+### The `init` callback
+
+`init` is a built-in callback present on every element.
+Its handler runs once when the element is instantiated.
+`init` handlers run from the outermost component inward, so a component's own `init` runs after
+the `init` of the elements it contains.
+Calling `init` explicitly does nothing and is deprecated.
+
+A [global](../globals/) can neither declare nor handle an `init` callback; both are compile errors.
+
+## Aliases
+
+A callback alias forwards one callback to another, using the same `<=>` syntax as a [two-way binding](../two-way-bindings/):
+
+```slint
+export component Example {
+    callback clicked <=> area.clicked;
+    area := TouchArea {}
+}
+```
+
+- The alias must omit the parameter list; writing parentheses in an aliased declaration is a compile error.
+- Both callbacks must have the same signature.
+- Invoking either callback invokes the other, and a handler set on either responds to both.
+
+An alias may target a [global](../globals/)'s callback, written `Global.callback`.
+A global may alias another global's callback; this is the supported way for one global to implement another's callback.
+A non-global element cannot set a handler on an alias that targets a global's callback,
+because the element may be instantiated many times while the global is a singleton; this is a compile error.
+
+## Change Callbacks
+
+`changed <property> => { ... }` declares a handler that runs when a property's value changes:
+
+```slint
+export component Example inherits Window {
+    in-out property <string> value;
+    changed value => { debug(self.value); }
+}
+```
+
+- The target must be a property that exists on the element; naming a callback, a function,
+  or a nonexistent member is a compile error.
+- A change callback cannot be set on a private property that belongs to another component; this is a compile error.
+- A property has at most one change callback per element; a duplicate is a compile error.
+- The handler body may have side effects; it is not required to be pure.
+
+A change callback is not invoked immediately.
+It is queued and runs in a later iteration of the event loop.
+It runs only if the value actually differs from the value at the previous run:
+multiple changes within one cycle collapse to a single invocation,
+and a value that changes and reverts before the callback runs produces no invocation.
+
+Changing a property from within a change callback in a way that feeds back into the same property is undefined:
+
+```slint
+export component Example {
+    in-out property <int> foo;
+    property <int> bar: foo + 1;
+    changed bar => { foo += 1; }
+}
+```
+
+Such a chain, where one change callback triggers another, does not run unbounded.
+The runtime runs the queued change handlers in a loop that stops after ten passes,
+so a self-perpetuating sequence terminates without invoking the remaining handlers.
+
+A change callback forces the property to be evaluated eagerly rather than [lazily](../evaluation-and-purity/),
+and its side effects make the surrounding bindings impure.
+A declarative [binding](../bindings/) tracks its dependencies automatically and evaluates on demand,
+so a relationship that a binding can express should be expressed as a binding rather than a change callback.
+</NotInSC>

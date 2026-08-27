@@ -1,28 +1,29 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-OtherComp := Rectangle {
-    property <string> t <=> text.text;
-    property <string> get_text <=> text.text;
+component OtherComp inherits Rectangle {
+    in-out property <string> t <=> text.text;
+    in-out property <string> get_text <=> text.text;
     text := Text {
+        x:0;y:0;
         text: "to be overridden";
     }
-    property <int> some_value: 42;
-    property <int> some_value_alias <=> some_value;
+    in-out property <int> some_value: 42;
+    in-out property <int> some_value_alias <=> some_value;
 }
 
-TestCase := Rectangle {
+export component TestCase inherits Rectangle {
 
-    property <string> text1: "Hello";
-    property <string> text2: "Blah";
-    property <string> ti1_text: ti1.text;
-    property <string> ti2_text: ti2.text;
-    property <string> text_item_text: text_item.text;
-    property <string> othercomp_t: "real value";
-    property <string> othercomp_get_text: other_comp.get_text;
-    property <int> othercomp_some_value;
-    property <int> othercomp_some_value_alias <=> other_comp.some_value_alias;
-    property <int> othercomp_some_value_alias2;
+    in-out property <string> text1: "Hello";
+    in-out property <string> text2: "Blah";
+    in-out property <string> ti1_text: ti1.text;
+    in-out property <string> ti2_text: ti2.text;
+    in-out property <string> text_item_text: text_item.text;
+    in-out property <string> othercomp_t: "real value";
+    in-out property <string> othercomp_get_text: other_comp.get_text;
+    in-out property <int> othercomp_some_value;
+    in-out property <int> othercomp_some_value_alias <=> other_comp.some_value_alias;
+    in-out property <int> othercomp_some_value_alias2;
 
     ti1 := TextInput {
         text <=> text1;
@@ -33,15 +34,17 @@ TestCase := Rectangle {
     }
 
     text_item := Text {
+        x:0;y:0;
         text: text2;
     }
 
     Text {
+        x:0;y:0;
         text <=> text1;
     }
 
     other_comp := OtherComp {
-        t <=> root.othercomp_t;
+        t <=> othercomp_t;
         some_value <=> othercomp_some_value;
         some_value_alias <=> othercomp_some_value_alias2;
     }

@@ -12,9 +12,18 @@ import {
     quitEventLoop,
     private_api,
 } from "../dist/index.js";
+import { hasIntegratedEventLoop } from "../binding.cjs";
 
 afterEach(() => {
     quitEventLoop();
+});
+
+test.sequential("integrated event loop is available", () => {
+    // On Windows the IOCP handle is read at a fixed uv_loop_t offset
+    // and validated at runtime; a Node/libuv layout change silently
+    // falls back to 16ms polling. This assertion turns that fallback
+    // into a CI failure.
+    expect(hasIntegratedEventLoop()).toBe(true);
 });
 
 test.sequential("merged event loops with timer", async () => {
@@ -30,7 +39,10 @@ test.sequential("merged event loops with timer", async () => {
 });
 
 test.sequential("merged event loops with networking", async () => {
-    const listener = (request, result) => {
+    const listener = (
+        request: http.IncomingMessage,
+        result: http.ServerResponse,
+    ) => {
         result.writeHead(200);
         result.end("Hello World");
     };
@@ -98,29 +110,26 @@ test.sequential("set property from JS timer mid-run", async () => {
         }, 2);
     });
     expect(app.label).toBe("updated");
-    app.hide();
 });
 
-test.sequential("quit event loop on last window closed with callback", async () => {
-    const compiler = new private_api.ComponentCompiler();
-    const definition = compiler.buildFromSource(
-        `
+test.sequential("slint timer fires through integrated event loop", async () => {
+    const ui = loadSource(
+        `export component App inherits Window {
+            in-out property <int> counter: 0;
+            timer := Timer {
+                interval: 50ms;
+                triggered => { counter += 1; }
+            }
+        }`,
+        "test.slint",
+    ) as any;
+    const app = new ui.App();
+    app.show();
 
-    export component App inherits Window {
-        width: 300px;
-        height: 300px;
-    }`,
-        "",
-    );
-    expect(definition.App).not.toBeNull();
-
-    const instance = definition.App!.create() as any;
-    expect(instance).not.toBeNull();
-
-    instance.window().show();
     await runEventLoop(() => {
         setTimeout(() => {
-            instance.window().hide();
-        }, 2);
+            expect(app.counter).toBeGreaterThanOrEqual(1);
+            quitEventLoop();
+        }, 200);
     });
 });

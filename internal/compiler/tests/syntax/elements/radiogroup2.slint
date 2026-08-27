@@ -1,0 +1,36 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { RadioGroup } from "std-widgets.slint";
+
+export component Test inherits Rectangle {
+    in-out property <[string]> opts: ["A"];
+    in-out property <bool> show: true;
+
+    // `if` is not allowed, on its own…
+    RadioGroup {
+        if root.show: RadioButton { text: "A"; }
+//                    >          <error{`if` is not allowed inside RadioGroup}
+    }
+
+    // …mixed with static siblings…
+    RadioGroup {
+        RadioButton { text: "A"; }
+        if root.show: RadioButton { text: "B"; }
+//                    >          <error{`if` is not allowed inside RadioGroup}
+    }
+
+    // …or next to a `for` loop.
+    RadioGroup {
+        for x in root.opts: RadioButton { text: x; }
+        if root.show: RadioButton { text: "B"; }
+//                    >          <error{`if` is not allowed inside RadioGroup}
+    }
+
+    // A `for` loop must be the only child.
+    RadioGroup {
+        RadioButton { text: "X"; }
+        for x in root.opts: RadioButton { text: x; }
+//                          >          <error{A `for` loop must be the only child of RadioGroup}
+    }
+}

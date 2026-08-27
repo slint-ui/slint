@@ -23,60 +23,44 @@ fn enums(path: &Path) -> anyhow::Result<()> {
     writeln!(enums_pub, "#pragma once")?;
     writeln!(enums_pub, "// This file is auto-generated from {}", file!())?;
     writeln!(enums_pub, "namespace slint {{")?;
-    macro_rules! enum_file {
-        (PointerEventButton) => {{
-            writeln!(enums_priv, "using slint::PointerEventButton;")?;
-            &mut enums_pub
-        }};
-        (PointerEventKind) => {{
-            writeln!(enums_priv, "using slint::PointerEventKind;")?;
-            &mut enums_pub
-        }};
-        (AccessibleRole) => {{
-            writeln!(enums_priv, "using slint::testing::AccessibleRole;")?;
-            &mut enums_pub
-        }};
-        (Orientation) => {{
-            writeln!(enums_priv, "using slint::Orientation;")?;
-            &mut enums_pub
-        }};
-        (AccessibleLive) => {{
-            writeln!(enums_priv, "using slint::AccessibleLive;")?;
-            &mut enums_pub
-        }};
-        ($_:ident) => {
-            &mut enums_priv
-        };
-    }
-    macro_rules! enum_sub_namespace {
-        (AccessibleRole) => {{ Some("testing") }};
-        ($_:ident) => {
-            None
-        };
-    }
+
+    // In-memory section buffers composing the inside of `namespace slint { … }` in
+    // slint_enums.h. We assemble them after the iteration so `namespace language { … }`
+    // can come first, with the source-compat aliases referring back to it.
+    let mut lang_section: Vec<u8> = Vec::new();
+    let mut slint_compat: Vec<u8> = Vec::new();
+
     macro_rules! print_enums {
-         ($( $(#[doc = $enum_doc:literal])* $(#[non_exhaustive])? enum $Name:ident { $( $(#[doc = $value_doc:literal])* $Value:ident,)* })*) => {
-             $(
-                let file = enum_file!($Name);
-                let namespace: Option<&'static str> = enum_sub_namespace!($Name);
-                if let Some(ns) = namespace {
-                    writeln!(file, "namespace {} {{", ns)?;
-                }
-                $(writeln!(file, "///{}", $enum_doc)?;)*
-                writeln!(file, "enum class {} {{", stringify!($Name))?;
+         ($( $(#[doc = $enum_doc:literal])* $(#[non_exhaustive])? $vis:vis enum $Name:ident { $( $(#[doc = $value_doc:literal])* $Value:ident,)* })*) => {
+             $({
+                let target: &mut dyn Write = match stringify!($vis) {
+                    "pub" => {
+                        // body lives in `slint::language`; alias into `cbindgen_private`,
+                        // and (for enums that historically lived in `slint::`) also into `slint::`.
+                        writeln!(enums_priv, "using slint::language::{};", stringify!($Name))?;
+                        if matches!(stringify!($Name), "PointerEventButton" | "PointerEventKind") {
+                            writeln!(slint_compat, "using slint::language::{};", stringify!($Name))?;
+                        }
+                        &mut lang_section
+                    }
+                    _ => &mut enums_priv as &mut dyn Write,
+                };
+                $(writeln!(target, "///{}", $enum_doc)?;)*
+                writeln!(target, "enum class {} {{", stringify!($Name))?;
                 $(
-                    $(writeln!(file, "    ///{}", $value_doc)?;)*
-                    writeln!(file, "    {},", stringify!($Value).trim_start_matches("r#"))?;
+                    $(writeln!(target, "    ///{}", $value_doc)?;)*
+                    writeln!(target, "    {},", stringify!($Value).trim_start_matches("r#"))?;
                 )*
-                writeln!(file, "}};")?;
-                if namespace.is_some() {
-                    writeln!(file, "}}")?;
-                }
-             )*
+                writeln!(target, "}};")?;
+             })*
          }
     }
     i_slint_common::for_each_enums!(print_enums);
 
+    writeln!(enums_pub, "namespace language {{")?;
+    enums_pub.write_all(&lang_section)?;
+    writeln!(enums_pub, "}} // namespace language")?;
+    enums_pub.write_all(&slint_compat)?;
     writeln!(enums_pub, "}}")?;
     writeln!(enums_priv, "}}")?;
 
@@ -122,6 +106,8 @@ fn builtin_structs(path: &Path) -> anyhow::Result<()> {
     writeln!(structs_pub, "#pragma once")?;
     writeln!(structs_pub, "// This file is auto-generated from {}", file!())?;
     writeln!(structs_pub, "#include \"private/slint_enums.h\"")?;
+    writeln!(structs_pub, "#include \"private/slint_point.h\"")?;
+    writeln!(structs_pub, "#include \"private/slint_data_transfer.h\"")?;
     writeln!(structs_pub, "namespace slint::language {{")?;
 
     let mut structs_priv = BufWriter::new(
@@ -138,54 +124,43 @@ fn builtin_structs(path: &Path) -> anyhow::Result<()> {
     writeln!(structs_priv, "#include \"private/slint_keys.h\"")?;
     writeln!(structs_priv, "namespace slint::cbindgen_private {{")?;
     writeln!(structs_priv, "enum class KeyEventType : uint8_t;")?;
-    macro_rules! struct_file {
-        (BuiltinPublicStruct, $Name:ident) => {{
-            writeln!(structs_priv, "using slint::language::{};", stringify!($Name))?;
-            &mut structs_pub
-        }};
-        (BuiltinPrivateStruct, $_:ident) => {
-            &mut structs_priv
-        };
-    }
+
     macro_rules! print_structs {
         ($(
             $(#[doc = $struct_doc:literal])*
             $(#[non_exhaustive])?
             $(#[derive(Copy, Eq)])?
-            struct $Name:ident {
-                @name = $NameTy:ident :: $NameVariant:ident,
-                export {
-                    $( $(#[doc = $pub_doc:literal])* $pub_field:ident : $pub_type:ty, )*
-                }
-                private {
-                    $( $(#[doc = $pri_doc:literal])* $pri_field:ident : $pri_type:ty, )*
-                }
+            $vis:vis struct $Name:ident {
+                $( $(#[doc = $field_doc:literal])* $field:ident : $field_type:ty $(= $field_default:expr)?, )*
             }
         )*) => {
             $(
-                let file = struct_file!($NameTy, $Name);
+                let file: &mut dyn Write = if stringify!($vis) == "pub" {
+                    writeln!(structs_priv, "using slint::language::{};", stringify!($Name))?;
+                    &mut structs_pub
+                } else {
+                    &mut structs_priv
+                };
                 $(writeln!(file, "///{}", $struct_doc)?;)*
                 writeln!(file, "struct {} {{", stringify!($Name))?;
                 $(
-                    $(writeln!(file, "    ///{}", $pub_doc)?;)*
-                    let pub_type = match stringify!($pub_type) {
+                    $(writeln!(file, "    ///{}", $field_doc)?;)*
+                    let field_type = match stringify!($field_type) {
                         "i32" => "int32_t",
                         "f32" | "Coord" => "float",
                         other => other,
                     };
-                    writeln!(file, "    {} {};", pub_type, stringify!($pub_field))?;
-                )*
-                $(
-                    $(writeln!(file, "    ///{}", $pri_doc)?;)*
-                    let pri_type = stringify!($pri_type).replace(' ', "");
-                    let pri_type = match pri_type.as_str() {
-                        "usize" => "uintptr_t",
-                        // This shouldn't be accessed by the C++ anyway, just need to have the same ABI in a struct
-                        "Option<i32>" => "std::pair<int32_t, int32_t>",
-                        "Option<core::ops::Range<i32>>" => "std::tuple<int32_t, int32_t, int32_t>",
-                        other => other,
-                    };
-                    writeln!(file, "    {} {};", pri_type, stringify!($pri_field))?;
+                    // The raw tokens of the default value stringify with spaces, such as
+                    // `CapitalizationMode :: Sentences`; the header reads better without them.
+                    let default_value: String = stringify!($($field_default)*)
+                        .chars().filter(|c| !c.is_whitespace()).collect();
+                    // Doxygen documents the attribute without its initializer, so document
+                    // the default value in the comment too.
+                    if !default_value.is_empty() {
+                        let documented = default_value.trim_matches(|c| c == '(' || c == ')');
+                        writeln!(file, "    /// Defaults to `{documented}`.")?;
+                    }
+                    writeln!(file, "    {} {}{{ {} }};", field_type, stringify!($field), default_value)?;
                 )*
                 writeln!(file, "    /// \\private")?;
                 writeln!(file, "    {}", format!("friend bool operator==(const {name}&, const {name}&) = default;", name = stringify!($Name)))?;
@@ -202,6 +177,144 @@ fn builtin_structs(path: &Path) -> anyhow::Result<()> {
     writeln!(structs_pub, "namespace slint {{ using slint::language::StandardListViewItem; }}")?;
     structs_priv.flush()?;
     structs_pub.flush()?;
+    Ok(())
+}
+
+/// Generate the live-preview `into_slint_value`/`from_slint_value` for the builtin enums and
+/// structs (which aren't in any document), each in its type's namespace so ADL finds it.
+fn live_preview_enums(path: &Path) -> anyhow::Result<()> {
+    let mut file = BufWriter::new(
+        std::fs::File::create(path.join("slint_live_preview_enums.h"))
+            .context("Error creating slint_live_preview_enums.h file")?,
+    );
+    writeln!(file, "#pragma once")?;
+    writeln!(file, "// This file is auto-generated from {}", file!())?;
+
+    // must match the enums' runtime `strum` kebab-case serialization
+    fn to_kebab_case(value: &str) -> String {
+        let mut result = String::with_capacity(value.len());
+        for c in value.chars() {
+            if c.is_ascii_uppercase() {
+                if !result.is_empty() {
+                    result.push('-');
+                }
+                result.push(c.to_ascii_lowercase());
+            } else {
+                result.push(c);
+            }
+        }
+        result
+    }
+
+    // (namespace, type, interpreter name, [(variant, value)]); namespace mirrors enums() for ADL
+    #[allow(clippy::type_complexity)]
+    let mut enums: Vec<(&str, String, String, Vec<(String, String)>)> = Vec::new();
+    macro_rules! collect_enums {
+        ($( $(#[doc = $enum_doc:literal])* $(#[non_exhaustive])? $vis:vis enum $Name:ident { $( $(#[doc = $value_doc:literal])* $Value:ident,)* })*) => {
+            $({
+                let namespace = if stringify!($vis) == "pub" {
+                    "slint::language"
+                } else {
+                    "slint::cbindgen_private"
+                };
+                enums.push((
+                    namespace,
+                    format!("slint::cbindgen_private::{}", stringify!($Name)),
+                    stringify!($Name).replace('_', "-"),
+                    vec![$({
+                        let variant = stringify!($Value).trim_start_matches("r#");
+                        (variant.to_string(), to_kebab_case(variant))
+                    }),*],
+                ));
+            })*
+        };
+    }
+    i_slint_common::for_each_enums!(collect_enums);
+
+    for target_namespace in ["slint::language", "slint::cbindgen_private"] {
+        writeln!(file, "namespace {target_namespace} {{")?;
+        for (_, ty, enum_name, values) in enums.iter().filter(|e| e.0 == target_namespace) {
+            writeln!(
+                file,
+                "inline slint::interpreter::Value into_slint_value([[maybe_unused]] const {ty} &self) {{"
+            )?;
+            writeln!(file, "    switch (self) {{")?;
+            for (variant, value_str) in values {
+                writeln!(
+                    file,
+                    "    case {ty}::{variant}: return slint::private_api::live_preview::LiveReloadingComponent::value_from_enum(\"{enum_name}\", \"{value_str}\");"
+                )?;
+            }
+            writeln!(file, "    }}")?;
+            writeln!(file, "    return {{}};")?;
+            writeln!(file, "}}")?;
+            writeln!(
+                file,
+                "inline {ty} from_slint_value(const slint::interpreter::Value &val, const {ty} *) {{"
+            )?;
+            writeln!(
+                file,
+                "    auto value_str = slint::private_api::live_preview::LiveReloadingComponent::get_enum_value(val);"
+            )?;
+            for (variant, value_str) in values {
+                writeln!(file, "    if (value_str == \"{value_str}\") return {ty}::{variant};")?;
+            }
+            writeln!(file, "    return {{}};")?;
+            writeln!(file, "}}")?;
+        }
+        writeln!(file, "}} // namespace {target_namespace}")?;
+    }
+
+    // The public builtin structs (in slint::language) converted field by field, in their namespace
+    // so ADL finds them. StandardListViewItem is hand-written.
+    let mut structs: Vec<(String, Vec<String>)> = Vec::new();
+    macro_rules! collect_structs {
+        ($( $(#[$attr:meta])* $vis:vis struct $Name:ident {
+            $( $(#[$field_attr:meta])* $field:ident : $ty:ty $(= $field_default:expr)?,)*
+        })*) => {
+            $(
+                if stringify!($vis) == "pub"
+                    && !matches!(stringify!($Name), "StandardListViewItem")
+                {
+                    structs.push((
+                        stringify!($Name).to_string(),
+                        vec![$(stringify!($field).to_string()),*],
+                    ));
+                }
+            )*
+        };
+    }
+    i_slint_common::for_each_builtin_structs!(collect_structs);
+
+    writeln!(file, "namespace slint::language {{")?;
+    for (name, fields) in &structs {
+        let ty = format!("slint::language::{name}");
+        writeln!(file, "inline slint::interpreter::Value into_slint_value(const {ty} &self) {{")?;
+        writeln!(file, "    using slint::private_api::live_preview::into_slint_value;")?;
+        writeln!(file, "    slint::interpreter::Struct s;")?;
+        for field in fields {
+            writeln!(file, "    s.set_field(\"{field}\", into_slint_value(self.{field}));")?;
+        }
+        writeln!(file, "    return s;")?;
+        writeln!(file, "}}")?;
+        writeln!(
+            file,
+            "inline {ty} from_slint_value(const slint::interpreter::Value &val, const {ty} *) {{"
+        )?;
+        writeln!(file, "    auto s = val.to_struct().value();")?;
+        writeln!(file, "    {ty} r;")?;
+        for field in fields {
+            writeln!(
+                file,
+                "    r.{field} = slint::private_api::live_preview::from_slint_value<std::decay_t<decltype(r.{field})>>(s.get_field(\"{field}\").value());"
+            )?;
+        }
+        writeln!(file, "    return r;")?;
+        writeln!(file, "}}")?;
+    }
+    writeln!(file, "}} // namespace slint::language")?;
+
+    file.flush()?;
     Ok(())
 }
 
@@ -234,12 +347,14 @@ fn default_config() -> cbindgen::Config {
     config.export = cbindgen::ExportConfig {
         rename: [
             ("Callback".into(), "private_api::CallbackHelper".into()),
+            ("ChangeTracker".into(), "private_api::ChangeTracker".into()),
             ("VoidArg".into(), "void".into()),
             ("FocusReasonArg".into(), "FocusReason".into()),
             ("StringArg".into(), "slint::SharedString".into()),
             ("KeyEventArg".into(), "KeyEvent".into()),
             ("PointerEventArg".into(), "PointerEvent".into()),
             ("DropEventArg".into(), "DropEvent".into()),
+            ("DragActionArg".into(), "DragAction".into()),
             ("PointerScrollEventArg".into(), "PointerScrollEvent".into()),
             ("PointArg".into(), "slint::LogicalPosition".into()),
             ("FloatArg".into(), "float".into()),
@@ -264,8 +379,8 @@ fn default_config() -> cbindgen::Config {
         ("target_arch = wasm32".into(), "SLINT_TARGET_WASM".into()),
         ("target_os = android".into(), "__ANDROID__".into()),
         // Disable Rust WGPU specific API feature
-        ("feature = unstable-wgpu-27".into(), "SLINT_DISABLED_CODE".into()),
-        ("feature = unstable-wgpu-28".into(), "SLINT_DISABLED_CODE".into()),
+        ("feature = unstable-wgpu-29".into(), "SLINT_DISABLED_CODE".into()),
+        ("feature = unstable-wgpu-30".into(), "SLINT_DISABLED_CODE".into()),
     ]
     .iter()
     .cloned()
@@ -313,9 +428,11 @@ fn gen_corelib(
         "BorderRectangle",
         "DragArea",
         "DropArea",
+        "WindowMoveArea",
         "ImageItem",
         "ClippedImage",
         "TouchArea",
+        "TooltipArea",
         "FocusScope",
         "KeyBinding",
         "SwipeGestureHandler",
@@ -351,19 +468,25 @@ fn gen_corelib(
         "TextWrap",
         "ImageFit",
         "FillRule",
-        "MouseCursor",
+        "MouseCursorInner",
         "InputType",
+        "CapitalizationMode",
         "StandardButtonKind",
         "DialogButtonRole",
         "FocusReason",
+        "DragAction",
         "PointerEventKind",
         "PointerEventButton",
         "PointerEvent",
         "PointerScrollEvent",
         "Rect",
-        "SortOrder",
         "BitmapFont",
         "DataTransferOpaque",
+        // Return type of the ItemTree vtable's flexbox_layout_item_info* methods.
+        // cbindgen can't see those (not extern "C"), and it is no longer reachable
+        // from an FFI function since the bulk cell data was split into
+        // LayoutItemInfo + FlexItemProps, so emit it explicitly.
+        "FlexboxLayoutItemInfo",
     ]
     .iter()
     .chain(items.iter())
@@ -396,6 +519,24 @@ fn gen_corelib(
         "PathElement",
         "Brush",
         "DataTransfer",
+        "PathValueType",
+        "slint_data_transfer_init_default",
+        "slint_data_transfer_drop",
+        "slint_data_transfer_clone",
+        "slint_data_transfer_eq",
+        "slint_data_transfer_set_plain_text",
+        "slint_data_transfer_set_image",
+        "slint_data_transfer_set_file_paths",
+        "slint_data_transfer_has_plain_text",
+        "slint_data_transfer_has_image",
+        "slint_data_transfer_has_file_paths",
+        "slint_data_transfer_is_empty",
+        "slint_data_transfer_plain_text",
+        "slint_data_transfer_image",
+        "slint_data_transfer_file_paths",
+        "slint_data_transfer_set_user_data",
+        "slint_data_transfer_user_data",
+        "slint_data_transfer_clear_user_data",
         "slint_new_path_elements",
         "slint_new_path_events",
         "Property",
@@ -405,13 +546,17 @@ fn gen_corelib(
         "Callback",
         "slint_property_listener_scope_evaluate",
         "slint_property_listener_scope_is_dirty",
+        "PropertyTracker",
         "PropertyTrackerOpaque",
         "CallbackOpaque",
+        "ChangeTracker",
+        "ChangeTrackerOpaque",
         "WindowAdapterRc",
         "VoidArg",
         "StringArg",
         "DropEventArg",
         "FocusReasonArg",
+        "DragActionArg",
         "KeyEventArg",
         "PointerEventArg",
         "PointerScrollEventArg",
@@ -447,7 +592,7 @@ fn gen_corelib(
         .with_src(crate_dir.join("string.rs"))
         .with_src(crate_dir.join("styled_text.rs"))
         .with_src(crate_dir.join("slice.rs"))
-        .with_after_include("namespace slint { struct SharedString; namespace private_api { struct StyledText; } namespace cbindgen_private { using private_api::StyledText; }}")
+        .with_after_include("namespace slint { struct SharedString; struct StyledText; }")
         .generate()
         .context("Unable to generate bindings for slint_string_internal.h")?
         .write_to_file(include_dir.join("slint_string_internal.h"));
@@ -512,6 +657,7 @@ fn gen_corelib(
                 "slint_image_path",
                 "slint_image_load_from_path",
                 "slint_image_load_from_embedded_data",
+                "slint_image_load_from_data",
                 "slint_image_from_embedded_textures",
                 "slint_image_compare_equal",
                 "slint_image_set_nine_slice_edges",
@@ -547,14 +693,51 @@ fn gen_corelib(
         ),
         (
             vec!["Brush", "LinearGradient", "GradientStop", "RadialGradient", "ConicGradientBrush",
-                 "slint_conic_gradient_normalize_stops", "slint_conic_gradient_apply_rotation"],
+                 "slint_conic_gradient_normalize_stops", "slint_conic_gradient_apply_rotation",
+                 "slint_brush_compare_equal"],
             "slint_brush_internal.h",
             "",
         ),
         (
-            vec!["DataTransferOpaque"],
+            vec![
+                "DataTransferOpaque",
+                "slint_data_transfer_init_default",
+                "slint_data_transfer_drop",
+                "slint_data_transfer_clone",
+                "slint_data_transfer_eq",
+                "slint_data_transfer_set_plain_text",
+                "slint_data_transfer_set_image",
+                "slint_data_transfer_set_file_paths",
+                "slint_data_transfer_has_plain_text",
+                "slint_data_transfer_has_image",
+                "slint_data_transfer_has_file_paths",
+                "slint_data_transfer_is_empty",
+                "slint_data_transfer_plain_text",
+                "slint_data_transfer_image",
+                "slint_data_transfer_file_paths",
+                "slint_data_transfer_set_user_data",
+                "slint_data_transfer_user_data",
+                "slint_data_transfer_clear_user_data",
+            ],
             "slint_data_transfer_internal.h",
-            "",
+            "#include \"private/slint_sharedvector.h\"\n\
+            #ifndef SLINT_FEATURE_FREESTANDING\n\
+            #    include <filesystem>\n\
+            #endif\n\
+            namespace slint { struct DataTransfer; struct SharedString; }\n\
+            namespace slint::cbindgen_private::types {\n\
+            #ifndef SLINT_FEATURE_FREESTANDING\n\
+            using PathValueType = std::filesystem::path::value_type;\n\
+            // The Rust side uses u16 path units on Windows and u8 elsewhere.\n\
+            #    ifdef _WIN32\n\
+            static_assert(sizeof(PathValueType) == 2);\n\
+            #    else\n\
+            static_assert(sizeof(PathValueType) == 1);\n\
+            #    endif\n\
+            #else\n\
+            using PathValueType = uint8_t;\n\
+            #endif\n\
+            }",
         ),
         (
             vec!["MouseEvent", "TouchPhase"],
@@ -569,13 +752,13 @@ fn gen_corelib(
             }",
         ),
         (
-            vec!["Keys", "KeysInner", "slint_keys_to_string", "slint_keys"],
+            vec!["Keys", "KeysInner", "slint_keys_to_string", "slint_keys", "slint_keys_from_parts", "slint_keys_to_parts"],
             "slint_keys_internal.h",
             "#include \"private/slint_builtin_structs.h\"\n\
             namespace slint::cbindgen_private::types {\n\
                 using KeyboardModifiers = ::slint::language::KeyboardModifiers;\n\
             }"
-        )
+        ),
 
     ]
     .iter()
@@ -586,6 +769,8 @@ fn gen_corelib(
             "slint_keys_debug_string",
             "slint_keys_to_string",
             "slint_keys",
+            "slint_keys_from_parts",
+            "slint_keys_to_parts",
             "slint_visit_item_tree",
             "slint_windowrc_drop",
             "slint_windowrc_clone",
@@ -601,7 +786,7 @@ fn gen_corelib(
             "slint_windowrc_set_component",
             "slint_windowrc_show_popup",
             "slint_windowrc_close_popup",
-            "slint_windowrc_create_popup_window_adapter",
+            "slint_windowrc_create_child_window_adapter",
             "slint_windowrc_set_rendering_notifier",
             "slint_windowrc_request_redraw",
             "slint_windowrc_on_close_requested",
@@ -635,6 +820,7 @@ fn gen_corelib(
             "ConicGradientBrush",
             "slint_conic_gradient_normalize_stops",
             "slint_conic_gradient_apply_rotation",
+            "slint_brush_compare_equal",
             "PHYSICAL_REGION_MAX_SIZE",
         ]
         .into_iter()
@@ -675,6 +861,7 @@ fn gen_corelib(
             .with_src(crate_dir.join("data_transfer/ffi.rs"))
             .with_src(crate_dir.join("animations.rs"))
             .with_src(crate_dir.join("input.rs"))
+            .with_src(crate_dir.join("items/drag_n_drop.rs"))
             .with_src(crate_dir.join("item_rendering.rs"))
             .with_src(crate_dir.join("window.rs"))
             .with_src(crate_dir.join("../renderers/software/lib.rs"))
@@ -778,6 +965,8 @@ fn gen_corelib(
         .body
         .insert("Flickable".to_owned(), "    inline Flickable(); inline ~Flickable();".into());
     config.export.pre_body.insert("FlickableDataBox".to_owned(), "struct FlickableData;".into());
+    config.export.body.insert("Path".to_owned(), "    inline Path(); inline ~Path();".into());
+    config.export.pre_body.insert("FittedPathBox".to_owned(), "struct FittedPathInner;".into());
     config.export.body.insert(
         "SystemTrayIcon".to_owned(),
         "    inline SystemTrayIcon(); inline ~SystemTrayIcon();".into(),
@@ -786,6 +975,49 @@ fn gen_corelib(
         .export
         .pre_body
         .insert("SystemTrayIconDataBox".to_owned(), "struct SystemTrayIconData;".into());
+    // cbindgen only derives the special member functions and equality for tagged enums in the
+    // separate special-config pass, not for the types generated here, so they are provided by
+    // hand. The `CustomMouseCursor` variant holds a non-trivial `Image`, so the active union
+    // member must be copied, compared and destroyed according to the tag.
+    config.export.body.insert(
+        "MouseCursorInner".to_owned(),
+        "    constexpr MouseCursorInner() : tag(Tag::BuiltIn), built_in{} {}
+    explicit MouseCursorInner(BuiltInMouseCursor cursor) : tag(Tag::BuiltIn), built_in{cursor} {}
+    explicit MouseCursorInner(Image image, int hotspot_x, int hotspot_y) : tag(Tag::CustomMouseCursor), custom_mouse_cursor{image, hotspot_x, hotspot_y} {}
+    MouseCursorInner(const MouseCursorInner &other) : tag(other.tag) {
+        switch (tag) {
+            case Tag::BuiltIn: new (&built_in) BuiltIn_Body(other.built_in); break;
+            case Tag::CustomMouseCursor: new (&custom_mouse_cursor) CustomMouseCursor_Body(other.custom_mouse_cursor); break;
+        }
+    }
+    MouseCursorInner &operator=(const MouseCursorInner &other) {
+        if (this != &other) {
+            this->~MouseCursorInner();
+            new (this) MouseCursorInner(other);
+        }
+        return *this;
+    }
+    ~MouseCursorInner() {
+        if (tag == Tag::CustomMouseCursor) {
+            custom_mouse_cursor.~CustomMouseCursor_Body();
+        }
+    }
+    bool operator==(const MouseCursorInner &other) const {
+        if (tag != other.tag) {
+            return false;
+        }
+        switch (tag) {
+            case Tag::BuiltIn:
+                return built_in._0 == other.built_in._0;
+            case Tag::CustomMouseCursor:
+                return custom_mouse_cursor.image == other.custom_mouse_cursor.image
+                    && custom_mouse_cursor.hotspot_x == other.custom_mouse_cursor.hotspot_x
+                    && custom_mouse_cursor.hotspot_y == other.custom_mouse_cursor.hotspot_y;
+        }
+        return false;
+    }
+        ".into()
+    );
 
     cbindgen::Builder::new()
         .with_config(config)
@@ -817,6 +1049,7 @@ namespace slint {
         using slint::private_api::WindowAdapterRc;
         using namespace vtable;
         using private_api::Property;
+        using private_api::PropertyTracker;
         using private_api::PathData;
         using private_api::Point;
         struct ItemTreeVTable;
@@ -824,6 +1057,15 @@ namespace slint {
         using types::IntRect;
         using types::Size;
         using types::MouseEvent;
+
+        template<typename T> struct Option;
+        // This specialization provides a concrete C++ type for Option types
+        template<typename T>
+        struct Option<T *> {
+            T *ptr = nullptr;
+            Option() noexcept = default;
+            Option(T *p) noexcept : ptr(p) {}
+        };
     }
     template<typename ModelData> class Model;
 }",
@@ -980,9 +1222,19 @@ fn gen_interpreter(
         "PropertyDescriptor",
         "Box",
         "LiveReloadingComponentInner",
+        // Opaque on the C++ side: slint-interpreter.h defines the struct
+        // itself, and the interpreter's `Instance` fields must not leak.
+        "Instance",
+        "ComponentInstanceInner",
     ])
     .map(String::from)
     .collect();
+    // `ComponentInstance.inner` wraps the instance VRc; spell the field
+    // with the VRc type the C++ side expects.
+    config
+        .export
+        .rename
+        .insert("ComponentInstanceInner".into(), "VRc<ItemTreeVTable, Instance>".into());
     let mut crate_dir = root_dir.to_owned();
 
     crate_dir.extend(["internal", "interpreter"].iter());
@@ -1014,9 +1266,14 @@ fn gen_interpreter(
         .context("Unable to generate bindings for slint_interpreter_generated_public.h")?
         .write_to_file(include_dir.join("slint_interpreter_generated_public.h"));
 
+    let mut live_preview_dir = root_dir.to_owned();
+    live_preview_dir.extend(["internal", "live-preview"].iter());
+    ensure_cargo_rerun_for_crate(&live_preview_dir, dependencies)?;
+
     cbindgen::Builder::new()
         .with_config(config)
         .with_crate(crate_dir)
+        .with_src(live_preview_dir.join("live_component.rs"))
         .with_include("private/slint_internal.h")
         .with_include("private/slint_interpreter_generated_public.h")
         .with_after_include(
@@ -1027,6 +1284,7 @@ fn gen_interpreter(
                 using slint::interpreter::PropertyDescriptor;
                 using slint::interpreter::Diagnostic;
                 struct LiveReloadingComponentInner;
+                struct Instance;
                 template <typename T> using Box = T*;
             }",
         )
@@ -1086,6 +1344,7 @@ declare_features! {
     gettext
     accessibility
     system_testing
+    mcp
     freestanding
     experimental
 }
@@ -1114,6 +1373,9 @@ pub fn gen_all(
     }
     if enabled_features.interpreter {
         gen_interpreter(root_dir, &gen_dir, &mut deps)?;
+    }
+    if enabled_features.live_preview {
+        live_preview_enums(&gen_dir)?;
     }
     Ok(deps)
 }

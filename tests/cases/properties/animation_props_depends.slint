@@ -33,7 +33,7 @@ export component Main {
     slider2 := Slider {}
     property <int> value1: slider1.value;
     property <int> value2: slider2.value;
-    public function anunimate() { a1.animate(); }
+    public function animate() { a1.animate(); }
     HorizontalLayout {
         a1 := Animated { ease: ease-out; duration: value1; delay: value2 * 2ms; }
         Animated { ease: ease-in; duration: value1; delay: value2 * 2ms; }

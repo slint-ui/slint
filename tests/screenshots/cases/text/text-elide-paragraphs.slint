@@ -1,0 +1,74 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Regression test for `overflow: elide` across explicit line breaks (`\n`). Each `\n` produces a
+// separate parley paragraph, and the vertical line dropping has to treat the paragraphs as one
+// block: lines below the box are dropped and the ellipsis is placed on the last visible line.
+// Previously every paragraph independently kept its own first line, so paragraphs that fell
+// entirely below the box were still drawn and no ellipsis appeared. The bug reproduces through the
+// parley text layout, so the `software` reference is the meaningful guard; `software_embed_assets`
+// (bitmap) renders it as a baseline. Skia is too platform-dependent.
+//
+// Each Text holds a child Rectangle that fills it with a 1px red border, so the Text geometry is
+// visible. The Rectangle is a child of the Text and does not influence its layout.
+//ignore: skia
+//SIZE=180x176
+
+component TextGeometry inherits Rectangle {
+    border-width: 1px;
+    border-color: red;
+}
+
+export component TestCase inherits Window {
+    default-font-family: "Noto Sans";
+    background: white;
+    width: 180px;
+    height: 176px;
+
+    // Box tall enough for two lines. Four explicit-newline paragraphs: the first two are kept, the
+    // last visible line gets the ellipsis, and the two paragraphs below the box are dropped (not
+    // redrawn one stray first line each, as before the fix).
+    HorizontalLayout {
+        x: 0; y: 0;
+        width: 120px;
+        height: 42px;
+        padding: 3px;
+        Text {
+            overflow: elide;
+            color: black;
+            text: "Line One\nLine Two\nLine Three\nLine Four";
+            TextGeometry {}
+        }
+    }
+
+    // Explicit newlines plus word-wrap. The second paragraph wraps onto several visual lines, so
+    // the height cut and the ellipsis land in the middle of a paragraph rather than on a boundary.
+    HorizontalLayout {
+        x: 0; y: 48px;
+        width: 120px;
+        height: 58px;
+        padding: 3px;
+        Text {
+            overflow: elide;
+            wrap: word-wrap;
+            color: black;
+            text: "First\nSecond paragraph that wraps onto several lines\nThird\nFourth";
+            TextGeometry {}
+        }
+    }
+
+    // Box tall enough for every paragraph: nothing is dropped and no ellipsis appears even though
+    // overflow is elide.
+    HorizontalLayout {
+        x: 0; y: 112px;
+        width: 120px;
+        height: 58px;
+        padding: 3px;
+        Text {
+            overflow: elide;
+            color: black;
+            text: "Alpha\nBeta\nGamma";
+            TextGeometry {}
+        }
+    }
+}

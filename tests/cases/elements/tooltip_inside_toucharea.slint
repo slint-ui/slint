@@ -1,0 +1,108 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A `Tooltip` nested directly inside a `TouchArea` keeps the TouchArea receiving
+// hover and shows the tooltip after the delay. The TouchArea sits at a non-zero offset under
+// two containers, exercising cumulative geometry translation through the routing
+// path on both enter and leave.
+
+export component TestCase {
+    width: 300px;
+    height: 200px;
+
+    in-out property <int> init-count;
+    in-out property <int> move-count;
+    out property <bool> touch-hover <=> ta.has-hover;
+
+    Rectangle {
+        x: 20px;
+        y: 30px;
+        width: 240px;
+        height: 140px;
+
+        Rectangle {
+            x: 15px;
+            y: 25px;
+            width: 200px;
+            height: 90px;
+
+            ta := TouchArea {
+                x: 10px;
+                y: 5px;
+                width: 150px;
+                height: 60px;
+                pointer-event(event) => {
+                    if (event.kind == PointerEventKind.move) {
+                        root.move-count += 1;
+                    }
+                }
+
+                Tooltip {
+                    Rectangle {
+                        init => { root.init-count += 1; }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/*
+
+```rust
+use slint::{platform::WindowEvent, LogicalPosition};
+
+let instance = TestCase::new().unwrap();
+assert!(!instance.get_touch_hover());
+assert_eq!(instance.get_init_count(), 0);
+assert_eq!(instance.get_move_count(), 0);
+
+// TouchArea absolute geometry: x = 20 + 15 + 10 = 45, y = 30 + 25 + 5 = 60,
+// w = 150, h = 60 — spans (45,60) to (195,120). Pointer dispatch is in window
+// coords; the routing has to translate through both Rectangles before TouchArea
+// hit-tests.
+
+// Inside the TouchArea: hover flips on, pointer-event(move) fires.
+instance.window().dispatch_event(WindowEvent::PointerMoved {
+    position: LogicalPosition::new(50.0, 70.0),
+});
+assert!(instance.get_touch_hover());
+assert_eq!(instance.get_move_count(), 1);
+assert_eq!(instance.get_init_count(), 0);
+
+// After the delay, the tooltip popup is shown and init fires.
+slint_testing::mock_elapsed_time(600);
+assert_eq!(instance.get_init_count(), 1);
+
+// (40, 80) is inside both Rectangles but outside the TouchArea — exercises the
+// cumulative-translation Exit path: the outer Rectangle still contains the pointer,
+// the inner Rectangle still contains it, but the TouchArea (in inner-local coords
+// (10..160, 5..65)) no longer does.
+instance.window().dispatch_event(WindowEvent::PointerMoved {
+    position: LogicalPosition::new(40.0, 80.0),
+});
+assert!(!instance.get_touch_hover());
+
+// Re-enter the TouchArea from inside the same parent Rectangle. The routing
+// goes through the two ancestor Rectangles again before reaching the TouchArea.
+instance.window().dispatch_event(WindowEvent::PointerMoved {
+    position: LogicalPosition::new(60.0, 80.0),
+});
+assert!(instance.get_touch_hover());
+assert_eq!(instance.get_move_count(), 2);
+
+// (250, 100) is inside the outer Rectangle but outside the inner one — the
+// cumulative-translation walk drops both the inner Rectangle and the TouchArea.
+instance.window().dispatch_event(WindowEvent::PointerMoved {
+    position: LogicalPosition::new(250.0, 100.0),
+});
+assert!(!instance.get_touch_hover());
+
+// Fully outside the test area — clears everything.
+instance.window().dispatch_event(WindowEvent::PointerMoved {
+    position: LogicalPosition::new(280.0, 190.0),
+});
+assert!(!instance.get_touch_hover());
+```
+
+*/

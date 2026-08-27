@@ -6,7 +6,7 @@ use lsp_types::{
     SemanticToken, SemanticTokenModifier, SemanticTokenType, SemanticTokens, SemanticTokensResult,
 };
 
-use crate::common::DocumentCache;
+use crate::editor_preview::DocumentCache;
 
 /// Give all the used types/modifier a number in an indexed array
 macro_rules! declare_legend {
@@ -164,8 +164,8 @@ pub fn get_semantic_tokens(
         };
         let len = |txt: &str| -> u32 {
             match document_cache.format {
-                crate::common::ByteFormat::Utf8 => txt.len() as u32,
-                crate::common::ByteFormat::Utf16 => txt.encode_utf16().count() as u32,
+                crate::editor_preview::ByteFormat::Utf8 => txt.len() as u32,
+                crate::editor_preview::ByteFormat::Utf16 => txt.encode_utf16().count() as u32,
             }
         };
         if let Some((token_type, token_modifiers_bitset)) = t_m {

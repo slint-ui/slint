@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+// cSpell: ignore vweak
 #![allow(improper_ctypes_definitions)]
 
 use std::rc::Rc;

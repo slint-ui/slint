@@ -3,7 +3,7 @@
 
 // Verify that the init callback is invoked in the correct order
 
-TestCase := Rectangle {
+export component TestCase inherits Rectangle {
     width: 300phx;
     height: 300phx;
 
@@ -11,7 +11,7 @@ TestCase := Rectangle {
 
     popup := PopupWindow {
         init => {
-            root.popup-created += 1;
+            popup-created += 1;
         }
     }
 

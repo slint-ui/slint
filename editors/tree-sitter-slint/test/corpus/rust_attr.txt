@@ -1,0 +1,49 @@
+================================================================================
+rust-attr with nested and multiline arguments
+================================================================================
+
+@rust-attr(derive(
+    serde::Deserialize,
+    serde::Serialize
+))
+export struct MyData {
+    x: int,
+    y: int,
+}
+--------------------------------------------------------------------------------
+
+(sourcefile
+  (rust_attr
+    (exported_definition
+      (struct_definition
+        (user_type_identifier)
+        (struct_block
+          (struct_field_definition
+            (simple_identifier)
+            (type
+              (builtin_type_identifier)))
+          (struct_field_definition
+            (simple_identifier)
+            (type
+              (builtin_type_identifier))))))))
+
+================================================================================
+rust-attr with a string argument containing parentheses
+================================================================================
+
+@rust-attr(doc = "see foo(bar)")
+struct Other {
+    x: int,
+}
+--------------------------------------------------------------------------------
+
+(sourcefile
+  (rust_attr
+    (string_value)
+    (struct_definition
+      (user_type_identifier)
+      (struct_block
+        (struct_field_definition
+          (simple_identifier)
+          (type
+            (builtin_type_identifier)))))))

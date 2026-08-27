@@ -1,11 +1,13 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import pytest
-from slint import _load_file_checked
-from pathlib import Path
 import base64
 import gzip
+from pathlib import Path
+
+import pytest
+
+from slint import _load_file_checked
 
 
 def base_dir() -> Path:
@@ -28,7 +30,7 @@ def test_no_change() -> None:
         base_dir() / "api-match.slint",
         expected_api_base64_compressed=compress_and_encode(r"""
         {
-            "version":"2.0",
+            "version":"2.1",
             "globals":[],
             "components":[
                 {
@@ -54,7 +56,7 @@ def test_incompatible_changes() -> None:
             base_dir() / "api-match.slint",
             expected_api_base64_compressed=compress_and_encode(r"""
             {
-                "version":"2.0",
+                "version":"2.1",
                 "globals":[],
                 "components":[
                     {

@@ -1,0 +1,245 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Check that buttons size adapt to the new window size
+
+import { Button, VerticalBox, HorizontalBox } from "std-widgets.slint";
+
+export global Properties {
+    in-out property <bool> popup-initialized: false;
+    in-out property <length> popup-width: -1px;
+    in-out property <length> popup-height: -1px;
+
+    in-out property <bool> button-in-popup-pressed: false;
+    in-out property <bool> button-top-visible: false;
+
+    in-out property <length> button-width: -1px;
+    in-out property <length> button-height: -1px;
+}
+
+export component TestCase {
+    in-out property <bool> show-buttons;
+
+    callback show_popup();
+    show_popup => {
+        popup.show();
+    }
+
+    width: 600px;
+    height: 400px;
+
+    popup := PopupWindow {
+        width: 600px;
+        height: 300px;
+        changed width => {
+            Properties.popup-width = self.width;
+        }
+
+        changed height => {
+            Properties.popup-height = self.height;
+        }
+
+        close-policy: PopupClosePolicy.no-auto-close;
+
+        init => {
+            Properties.popup-initialized = true;
+            Properties.popup-width = self.width;
+            Properties.popup-height = self.height;
+        }
+
+        VerticalLayout {
+            if root.show-buttons: HorizontalLayout {
+                Button {
+                    text: "Button top";
+                    init => {
+                        Properties.button_top_visible = true;
+                    }
+                }
+
+                Button {
+                    text: "Button top";
+                }
+
+                Button {
+                    text: "Button bottom";
+                }
+            }
+
+            HorizontalLayout {
+                Button {
+                    text: root.show-buttons ? "Hide Buttons" : "Show buttons";
+
+                    init => {
+                        Properties.button-height = self.height;
+                        Properties.button-width = self.width;
+                    }
+
+                    changed height => {
+                        Properties.button-height = self.height;
+                    }
+
+                    changed width => {
+                        Properties.button-width = self.width;
+                    }
+
+                    clicked => {
+                        debug(self.text);
+                        Properties.button-in-popup-pressed = true;
+                        root.show-buttons = true;
+                    }
+                }
+
+                if root.show-buttons: Rectangle {
+                    width: 100px;
+                }
+            }
+        }
+    }
+}
+
+/*
+
+```rust
+use slint::*;
+
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.global::<Properties<'_>>().get_popup_height(), -1.);
+assert_eq!(instance.global::<Properties<'_>>().get_popup_initialized(), false);
+assert_eq!(instance.global::<Properties<'_>>().get_button_top_visible(), false);
+
+instance.invoke_show_popup();
+
+assert_eq!(instance.global::<Properties<'_>>().get_popup_initialized(), true);
+assert_eq!(instance.global::<Properties<'_>>().get_button_top_visible(), false);
+
+let popup_width = 600.;
+let popup_height = 300.;
+
+assert_eq!(instance.global::<Properties<'_>>().get_popup_width(), popup_width);
+assert_eq!(instance.global::<Properties<'_>>().get_button_width(), popup_width);
+assert_eq!(instance.global::<Properties<'_>>().get_popup_height(), popup_height);
+assert_eq!(instance.global::<Properties<'_>>().get_button_height(), popup_height);
+
+
+let window = instance.window();
+let pressed_position = LogicalPosition::new(50., 40.);
+window.dispatch_event(platform::WindowEvent::PointerPressed { position: pressed_position, button: platform::PointerEventButton::Left });
+window.dispatch_event(platform::WindowEvent::PointerReleased { position: pressed_position, button: platform::PointerEventButton::Left });
+
+assert_eq!(instance.global::<Properties<'_>>().get_popup_initialized(), true);
+assert_eq!(instance.global::<Properties<'_>>().get_button_in_popup_pressed(), true);
+assert_eq!(instance.global::<Properties<'_>>().get_button_top_visible(), true);
+
+window.dispatch_event(platform::WindowEvent::PointerPressed { position: pressed_position, button: platform::PointerEventButton::Left }); // To trigger recalculation
+slint_testing::mock_elapsed_time(500);
+
+assert_eq!(instance.global::<Properties<'_>>().get_popup_height(), popup_height);
+assert_eq!(instance.global::<Properties<'_>>().get_button_height(), popup_height / 2., "We have a button + a horizontal layout with buttons, they share equally the complete height");
+
+assert_eq!(instance.global::<Properties<'_>>().get_popup_width(), popup_width);
+assert_eq!(instance.global::<Properties<'_>>().get_button_width(), popup_width - 100.);
+
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+
+assert_eq(instance.global<Properties>().get_popup_height(), -1.);
+assert_eq(instance.global<Properties>().get_popup_initialized(), false);
+assert_eq(instance.global<Properties>().get_button_top_visible(), false);
+
+instance.invoke_show_popup();
+
+assert_eq(instance.global<Properties>().get_popup_initialized(), true);
+assert_eq(instance.global<Properties>().get_button_top_visible(), false);
+
+float popup_width = 600.f;
+float popup_height = 300.f;
+
+assert_eq(instance.global<Properties>().get_popup_width(), popup_width);
+assert_eq(instance.global<Properties>().get_button_width(), popup_width);
+assert_eq(instance.global<Properties>().get_popup_height(), popup_height);
+assert_eq(instance.global<Properties>().get_button_height(), popup_height);
+
+instance.window().dispatch_pointer_press_event(slint::LogicalPosition({50., 40.}), slint::PointerEventButton::Left);
+instance.window().dispatch_pointer_release_event(slint::LogicalPosition({50., 40.}), slint::PointerEventButton::Left);
+
+assert_eq(instance.global<Properties>().get_popup_initialized(), true);
+assert_eq(instance.global<Properties>().get_button_in_popup_pressed(), true);
+assert_eq(instance.global<Properties>().get_button_top_visible(), true);
+
+instance.window().dispatch_pointer_press_event(slint::LogicalPosition({50., 40.}), slint::PointerEventButton::Left); // To trigger recalculation
+slint_testing::mock_elapsed_time(500);
+
+assert_eq(instance.global<Properties>().get_popup_height(), popup_height);
+// We have a button + a horizontal layout with buttons, they share equally the complete height
+assert_eq(instance.global<Properties>().get_button_height(), popup_height / 2.f);
+
+assert_eq(instance.global<Properties>().get_popup_width(), popup_width);
+assert_eq(instance.global<Properties>().get_button_width(), popup_width - 100.f);
+
+```
+
+```js
+var instance = new slint.TestCase({});
+assert.equal(instance.Properties.popup_height, -1);
+assert.equal(instance.Properties.popup_initialized, false);
+assert.equal(instance.Properties.button_top_visible, false);
+
+instance.show_popup();
+
+assert.equal(instance.Properties.popup_initialized, true);
+assert.equal(instance.Properties.button_top_visible, false);
+
+var popup_width = 600;
+var popup_height = 300;
+
+assert.equal(instance.Properties.popup_width, popup_width);
+assert.equal(instance.Properties.button_width, popup_width);
+assert.equal(instance.Properties.popup_height, popup_height);
+assert.equal(instance.Properties.button_height, popup_height);
+
+slintlib.private_api.send_mouse_click(instance, 50., 40.);
+
+assert.equal(instance.Properties.popup_initialized, true);
+assert.equal(instance.Properties.button_in_popup_pressed, true);
+assert.equal(instance.Properties.button_top_visible, true);
+
+slintlib.private_api.send_mouse_click(instance, 50., 40.); // To trigger recalculation
+slintlib.private_api.mock_elapsed_time(500);
+
+assert.equal(instance.Properties.popup_height, popup_height);
+// We have a button + a horizontal layout with buttons, they share equally the complete height
+assert.equal(instance.Properties.button_height, popup_height / 2);
+
+assert.equal(instance.Properties.popup_width, popup_width);
+assert.equal(instance.Properties.button_width, popup_width - 100);
+
+```
+
+```rust
+use slint::*;
+use i_slint_core::api::WindowEventDispatchResult::*;
+
+let instance = TestCase::new().unwrap();
+let window = instance.window();
+
+// Base window has no interactive content
+let res = window.dispatch_event_with_result(platform::WindowEvent::PointerPressed { position: LogicalPosition::new(0., 0.), button: platform::PointerEventButton::Left });
+assert_eq!(res.unwrap(), Ignored);
+let res = window.dispatch_event_with_result(platform::WindowEvent::PointerReleased { position: LogicalPosition::new(0., 0.), button: platform::PointerEventButton::Left });
+assert_eq!(res.unwrap(), Ignored);
+
+// The popup button fills the full area while show-buttons is false
+instance.invoke_show_popup();
+let res = window.dispatch_event_with_result(platform::WindowEvent::PointerPressed { position: LogicalPosition::new(50., 40.), button: platform::PointerEventButton::Left });
+assert_eq!(res.unwrap(), Accepted);
+let res = window.dispatch_event_with_result(platform::WindowEvent::PointerReleased { position: LogicalPosition::new(50., 40.), button: platform::PointerEventButton::Left });
+assert_eq!(res.unwrap(), Accepted);
+
+// Clicking below the popup, should be ignored
+let res = window.dispatch_event_with_result(platform::WindowEvent::PointerPressed { position: LogicalPosition::new(300., 350.), button: platform::PointerEventButton::Left });
+assert_eq!(res.unwrap(), Ignored);
+```
+*/

@@ -1,24 +1,24 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-LineEdit := Rectangle {
-    property <string> text <=> ti.text;
+component LineEdit inherits Rectangle {
+    in-out property <string> text <=> ti.text;
     ti := TextInput {  }
 }
 
-LiTest := Rectangle {
+component LiTest inherits Rectangle {
     li1 := LineEdit { text: "li1"; }
     li2 := LineEdit { text <=> li1.text; }
     li3 := LineEdit { text <=> li4.text; }
     li4 := LineEdit { text: "li4"; }
-    property <bool> test_li: li1.text == "li1" && li3.text == "li4";
+    in-out property <bool> test_li: li1.text == "li1" && li3.text == "li4";
 }
 
-export TestCase := Window {
+export component TestCase inherits Window {
 
     li := LiTest {  }
 
-    property <bool> test: li.test_li;
+    in-out property <bool> test: li.test_li;
 }
 
 /*

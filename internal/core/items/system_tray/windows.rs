@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore BITMAPINFO BITMAPINFOHEADER BOTTOMALIGN Hotspot HSTRING ICONINFO LEFTALIGN NOTIFYICONDATAW PCWSTR RETURNCMD TRAYICON WNDCLASSW
 //! Windows system tray backend using the `Shell_NotifyIconW` API directly.
 //!
 //! Everything here runs on the Slint event-loop thread, which on Windows is the
@@ -78,10 +79,10 @@ impl Inner {
         }
     }
 
-    fn activated(&self) {
+    fn clicked(&self) {
         let Some(item_rc) = self.self_weak.upgrade() else { return };
         let Some(tray) = item_rc.downcast::<super::SystemTrayIcon>() else { return };
-        tray.as_pin_ref().activated.call(&());
+        tray.as_pin_ref().clicked.call(&());
     }
 }
 
@@ -164,7 +165,7 @@ impl PlatformTray {
             hmenu: Cell::new(None),
             tip: RefCell::new(tip),
         });
-        unsafe { SetWindowLongPtrW(inner.hwnd, GWLP_USERDATA, &*inner as *const Inner as isize) };
+        unsafe { SetWindowLongPtrW(inner.hwnd, GWLP_USERDATA, &*inner as *const Inner as _) };
 
         Ok(Self { inner })
     }
@@ -262,7 +263,7 @@ impl Drop for PlatformTray {
 
             // Detach from the window before destroying it so any pending messages
             // resolve through DefWindowProc.
-            SetWindowLongPtrW(self.inner.hwnd, GWLP_USERDATA, 0);
+            SetWindowLongPtrW(self.inner.hwnd, GWLP_USERDATA, 0 as _);
             if let Some(m) = self.inner.hmenu.take() {
                 let _ = DestroyMenu(m);
             }
@@ -294,7 +295,7 @@ unsafe extern "system" fn wnd_proc(
         } else if event == WM_LBUTTONUP {
             let inner_ptr = unsafe { GetWindowLongPtrW(hwnd, GWLP_USERDATA) } as *const Inner;
             if !inner_ptr.is_null() {
-                unsafe { &*inner_ptr }.activated();
+                unsafe { &*inner_ptr }.clicked();
             }
         }
         return LRESULT(0);
@@ -452,18 +453,19 @@ fn create_hicon(icon: &Image) -> Result<HICON, Error> {
 // trailing fields (`szInfo`, `szInfoTitle`, `guidItem`, …) are zero-initialized
 // via `Default::default()`, which also NUL-terminates `szTip` past the copy.
 fn notify_icon_data(hwnd: HWND, hicon: HICON, tip: &[u16]) -> NOTIFYICONDATAW {
-    let mut data = NOTIFYICONDATAW {
+    let mut buf = [0u16; 128];
+    let n = tip.len().min(buf.len() - 1);
+    buf[..n].copy_from_slice(&tip[..n]);
+    NOTIFYICONDATAW {
         cbSize: std::mem::size_of::<NOTIFYICONDATAW>() as u32,
         hWnd: hwnd,
         uID: TRAY_UID,
         uFlags: NIF_MESSAGE | NIF_ICON | NIF_TIP,
         uCallbackMessage: WM_TRAYICON,
         hIcon: hicon,
+        szTip: buf,
         ..Default::default()
-    };
-    let n = tip.len().min(data.szTip.len() - 1);
-    data.szTip[..n].copy_from_slice(&tip[..n]);
-    data
+    }
 }
 
 fn append_menu_entry(

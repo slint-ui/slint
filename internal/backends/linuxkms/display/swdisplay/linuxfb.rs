@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell:ignore mmap fbnum vinfo screeninfo errno fbioget vscreeninfo xres yres mmio finfo fscreeninfo GETSTATE KDGETMODE KDSETMODE xoffset yoffset bitfield nonstd pixclock vmode smem xpanstep ypanstep ywrapstep
+
 use std::cell::{Cell, RefCell};
 use std::fs::OpenOptions;
 use std::io::Write;
@@ -158,7 +160,7 @@ impl LinuxFBDisplay {
             memmap2::MmapOptions::new()
                 .len(fb_size_bytes)
                 .map_mut(&fd)
-                .map_err(|err| format!("Error mmapping framebuffer: {err}"))?
+                .map_err(|err| format!("Error mapping framebuffer: {err}"))?
         };
 
         // Try to hide cursor by setting graphics mode on tty
@@ -301,6 +303,12 @@ impl super::SoftwareBufferDisplay for LinuxFBDisplay {
         self.copy_to_framebuffer();
 
         Ok(())
+    }
+
+    fn is_write_combined_memory(&self) -> bool {
+        // `map_back_buffer` hands out a regular heap buffer; only
+        // `copy_to_framebuffer` touches the mmap'ed frame buffer.
+        false
     }
 
     fn as_presenter(self: Arc<Self>) -> Arc<dyn crate::display::Presenter> {

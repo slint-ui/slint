@@ -1,0 +1,55 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Verify that converting a float to string gives the same result for compile-time
+// constants and for runtime values, in particular around 16777216 where the
+// formatting switches from f32 to f64 precision.
+
+export component TestCase {
+    in-out property <float> v1: 16777216;
+    in-out property <float> v2: 16777218;
+    in-out property <float> v3: -16777218;
+    in-out property <float> v4: 16777215.5;
+    in-out property <float> v5: 4.25;
+    in-out property <float> v6: 42;
+
+    // Converted from a constant
+    out property <string> c1: 16777216;
+    out property <string> c2: 16777218;
+    out property <string> c3: -16777218;
+    out property <string> c4: 16777215.5;
+    out property <string> c5: 4.25;
+    out property <string> c6: 42;
+
+    // Converted at runtime
+    out property <string> r1: v1;
+    out property <string> r2: v2;
+    out property <string> r3: v3;
+    out property <string> r4: v4;
+    out property <string> r5: v5;
+    out property <string> r6: v6;
+
+    out property <bool> test:
+        c1 == r1 && c2 == r2 && c3 == r3 && c4 == r4 && c5 == r5 && c6 == r6
+        && c1 == "16777216" && c2 == "16777218" && c3 == "-16777218"
+        && c4 == "16777216" && c5 == "4.25" && c6 == "42";
+}
+
+/*
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+```
+
+```js
+var instance = new slint.TestCase({});
+assert(instance.test);
+```
+*/

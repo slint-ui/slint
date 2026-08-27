@@ -15,7 +15,7 @@ The consumer writes `import { Foo } from "@libname";` and Cargo's build metadata
 A crate that provides a library compiles its `.slint` entry point in its `build.rs` and marks it as a library.
 This causes Cargo to emit `DEP_*` environment variables that downstream crates can read.
 
-```rust,no_run
+```rust
 // build.rs of the publishing crate
 fn main() {
     let config = slint_build::CompilerConfiguration::new()

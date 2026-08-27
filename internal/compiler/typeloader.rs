@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore importident incdir splitn
 use smol_str::{SmolStr, ToSmolStr};
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
@@ -212,6 +213,9 @@ impl Snapshotter {
             global_type_registry: self.snapshot_type_register(&type_loader.global_type_registry),
             compiler_config: type_loader.compiler_config.clone(),
             resolved_style: type_loader.resolved_style.clone(),
+            revision: type_loader.revision,
+            // Share the counters so names generated after the snapshot stay unique.
+            symbol_counters: type_loader.symbol_counters.clone(),
         })
     }
 
@@ -344,8 +348,9 @@ impl Snapshotter {
                     .collect(),
             );
 
-            let child_insertion_point =
-                RefCell::new(component.child_insertion_point.borrow().clone());
+            let child_insertion_points =
+                RefCell::new(component.child_insertion_points.borrow().clone());
+            let declared_slots = component.declared_slots.clone();
 
             let popup_windows = RefCell::new(
                 component
@@ -371,7 +376,8 @@ impl Snapshotter {
             object_tree::Component {
                 node: component.node.clone(),
                 id: component.id.clone(),
-                child_insertion_point,
+                child_insertion_points,
+                declared_slots,
                 exported_global_names: RefCell::new(
                     component.exported_global_names.borrow().clone(),
                 ),
@@ -480,8 +486,7 @@ impl Snapshotter {
             .collect();
 
         target_element.bindings = elem
-            .bindings
-            .iter()
+            .bindings_including_synthetic()
             .map(|(k, v)| {
                 let bm = v.borrow();
                 let binding = self.snapshot_binding_expression(&bm);
@@ -512,9 +517,9 @@ impl Snapshotter {
                 index_id: r.index_id.clone(),
                 is_conditional_element: r.is_conditional_element,
                 is_listview: r.is_listview.as_ref().map(|lv| object_tree::ListViewInfo {
-                    viewport_y: lv.viewport_y.snapshot(self),
-                    viewport_height: lv.viewport_height.snapshot(self),
-                    viewport_width: lv.viewport_width.snapshot(self),
+                    content_y: lv.content_y.snapshot(self),
+                    content_height: lv.content_height.as_ref().map(|height| height.snapshot(self)),
+                    content_width: lv.content_width.as_ref().map(|width| width.snapshot(self)),
                     listview_height: lv.listview_height.snapshot(self),
                     listview_width: lv.listview_width.snapshot(self),
                 }),
@@ -541,21 +546,27 @@ impl Snapshotter {
                     is_alias: v.is_alias.as_ref().map(|a| a.snapshot(self)),
                     visibility: v.visibility,
                     pure: v.pure,
+                    shadowed_name: v.shadowed_name.clone(),
+                    shadowable: v.shadowable,
+                    moved_to_root: v.moved_to_root,
+                    deprecated: v.deprecated.clone(),
                 };
                 (k.clone(), decl)
             })
             .collect();
+        target_element.shadowing_members = elem.shadowing_members.clone();
         target_element.layout_info_prop =
             elem.layout_info_prop.as_ref().map(|(n1, n2)| (n1.snapshot(self), n2.snapshot(self)));
         target_element.property_analysis = RefCell::new(elem.property_analysis.borrow().clone());
 
         target_element.change_callbacks = elem.change_callbacks.clone();
         target_element.child_of_layout = elem.child_of_layout;
+        target_element.child_of_flexbox = elem.child_of_flexbox;
         target_element.default_fill_parent = elem.default_fill_parent;
         target_element.has_popup_child = elem.has_popup_child;
         target_element.inline_depth = elem.inline_depth;
         target_element.is_component_placeholder = elem.is_component_placeholder;
-        target_element.is_flickable_viewport = elem.is_flickable_viewport;
+        target_element.is_flickable_content = elem.is_flickable_content;
         target_element.is_legacy_syntax = elem.is_legacy_syntax;
         target_element.item_index = elem.item_index.clone();
         target_element.item_index_of_first_children = elem.item_index_of_first_children.clone();
@@ -663,6 +674,8 @@ impl Snapshotter {
             sub_components,
             library_types_imports,
             library_global_imports,
+            deprecated_type_aliases: Vec::new(),
+            collision_renamed_names: Default::default(),
         }
     }
 
@@ -677,6 +690,8 @@ impl Snapshotter {
             y: popup_window.y.snapshot(self),
             close_policy: popup_window.close_policy.clone(),
             parent_element: self.use_element(&popup_window.parent_element),
+            is_tooltip: popup_window.is_tooltip,
+            is_open: popup_window.is_open.as_ref().map(|is_open| is_open.snapshot(self)),
         }
     }
 
@@ -716,6 +731,7 @@ impl Snapshotter {
                 .map(|lc| lc.snapshot(self)),
             fixed_width: layout_constraints.fixed_width,
             fixed_height: layout_constraints.fixed_height,
+            local: layout_constraints.local.clone(),
         }
     }
 
@@ -844,14 +860,21 @@ impl Snapshotter {
                     .map(|(e1, e2)| (self.snapshot_expression(e1), self.snapshot_expression(e2)))
                     .collect(),
             },
-            Expression::RadialGradient { stops } => Expression::RadialGradient {
+            Expression::RadialGradient { center, radius, stops } => Expression::RadialGradient {
+                center: center.as_ref().map(|(cx, cy)| {
+                    (Box::new(self.snapshot_expression(cx)), Box::new(self.snapshot_expression(cy)))
+                }),
+                radius: radius.as_ref().map(|r| Box::new(self.snapshot_expression(r))),
                 stops: stops
                     .iter()
                     .map(|(e1, e2)| (self.snapshot_expression(e1), self.snapshot_expression(e2)))
                     .collect(),
             },
-            Expression::ConicGradient { from_angle, stops } => Expression::ConicGradient {
+            Expression::ConicGradient { from_angle, center, stops } => Expression::ConicGradient {
                 from_angle: Box::new(self.snapshot_expression(from_angle)),
+                center: center.as_ref().map(|(cx, cy)| {
+                    (Box::new(self.snapshot_expression(cx)), Box::new(self.snapshot_expression(cy)))
+                }),
                 stops: stops
                     .iter()
                     .map(|(e1, e2)| (self.snapshot_expression(e1), self.snapshot_expression(e2)))
@@ -909,7 +932,14 @@ pub struct TypeLoader {
     /// The style that was specified in the compiler configuration, but resolved. So "native" for example is resolved to the concrete
     /// style.
     pub resolved_style: String,
+    /// The revision in the TypeLoader marks changes to the TypeLoader.
+    /// Any changes should increase the revision number via [Self::bump_revision]
+    revision: u64,
     all_documents: LoadedDocuments,
+    /// Counters for the deterministic unique symbol names generated by the
+    /// passes. Shared across all documents of the compilation so the names stay
+    /// unique even after inlining merges components from different documents.
+    pub symbol_counters: Rc<crate::symbol_counters::SymbolCounters>,
 }
 
 struct BorrowedTypeLoader<'a> {
@@ -925,15 +955,20 @@ impl TypeLoader {
             style = get_native_style(&mut diag.all_loaded_files);
         }
 
+        // Created up front so the builtin default-value expressions and the
+        // document expressions share one set of counters and never clash.
+        let symbol_counters = crate::symbol_counters::SymbolCounters::shared();
         let myself = Self {
             global_type_registry: if compiler_config.enable_experimental {
-                crate::typeregister::TypeRegister::builtin_experimental()
+                crate::typeregister::TypeRegister::builtin_experimental(&symbol_counters)
             } else {
-                crate::typeregister::TypeRegister::builtin()
+                crate::typeregister::TypeRegister::builtin(&symbol_counters)
             },
             compiler_config,
             resolved_style: style.clone(),
+            revision: 0,
             all_documents: Default::default(),
+            symbol_counters,
         };
 
         let mut known_styles = fileaccess::styles();
@@ -946,7 +981,7 @@ impl TypeLoader {
             diag.push_diagnostic_with_span(
                 format!(
                     "Style {} is not known. Use one of the builtin styles [{}] or make sure your custom style is found in the include directories",
-                    &style,
+                    style,
                     known_styles.join(", ")
                 ),
                 Default::default(),
@@ -957,6 +992,14 @@ impl TypeLoader {
         myself
     }
 
+    fn bump_revision(&mut self) {
+        self.revision = self.revision.wrapping_add(1);
+    }
+
+    pub fn revision(&self) -> u64 {
+        self.revision
+    }
+
     /// Drop a document from the TypeLoader and invalidate all of its dependencies.
     /// Returns the list of all (transitive) dependencies.
     ///
@@ -965,6 +1008,7 @@ impl TypeLoader {
     pub fn drop_document(&mut self, path: &Path) -> Result<HashSet<PathBuf>, std::io::Error> {
         let dependencies = self.invalidate_document(path);
         self.all_documents.docs.remove(path);
+        self.bump_revision();
 
         if self.all_documents.currently_loading.contains_key(path) {
             Err(std::io::Error::new(ErrorKind::InvalidInput, format!("{path:?} is still loading")))
@@ -1012,6 +1056,7 @@ impl TypeLoader {
             extra_deps.extend(self.invalidate_document(dep));
         }
         extra_deps.extend(deps);
+        self.bump_revision();
         extra_deps
     }
 
@@ -1041,6 +1086,41 @@ impl TypeLoader {
         let mut imports = Vec::new();
         let mut dependencies_futures = Vec::new();
         for mut import in Self::collect_dependencies(state, doc) {
+            // The embedded files import each other by that path, so only a
+            // document outside them is rejected.
+            if import.file.starts_with("builtin:")
+                && !import.import_uri_token.source_file.path().starts_with("builtin:")
+            {
+                state.borrow_mut().diag.push_error(
+                    format!(
+                        "Cannot import \"{}\": the files built into the compiler are internal. Import the widgets from \"std-widgets.slint\"",
+                        import.file
+                    ),
+                    &import.import_uri_token,
+                );
+                continue;
+            }
+
+            // The path shapes that don't resolve relative to the importing
+            // file. Rejecting them here, before any search path is consulted,
+            // keeps the Slint SC error the only diagnostic and leaves the
+            // named file unread. No builtin file imports this way, so skipping
+            // the load can't leave a builtin document half-loaded.
+            #[cfg(feature = "slint-sc")]
+            if state.borrow().diag.slint_sc {
+                let rejected = if import.file.starts_with('@') {
+                    Some("Library imports are")
+                } else if crate::pathutils::is_absolute(Path::new(import.file.as_str())) {
+                    Some("Absolute import paths are")
+                } else {
+                    None
+                };
+                if let Some(feature) = rejected {
+                    state.borrow_mut().diag.slint_sc_error(feature, &import.import_uri_token);
+                    continue;
+                }
+            }
+
             if matches!(import.import_kind, ImportKind::FileImport) {
                 if let Some((path, _)) = state.borrow().tl.resolve_import_path(
                     Some(&import.import_uri_token.clone().into()),
@@ -1131,6 +1211,21 @@ impl TypeLoader {
                 let Some(doc) = state.tl.get_document(&doc_path) else {
                     panic!("Just loaded document not available")
                 };
+
+                // The widget library and the styles are built into the
+                // compiler and aren't part of the subset. This catches the
+                // "std-widgets.slint" spelling, which only becomes a builtin
+                // path here; naming the embedded path is rejected earlier, for
+                // every mode. Their own imports reach this too, but the error
+                // is suppressed for a builtin referencing file.
+                #[cfg(feature = "slint-sc")]
+                if doc_path.starts_with("builtin:") {
+                    state.diag.slint_sc_error(
+                        &format!("Importing the builtin file '{}' is", import.file),
+                        &import.import_uri_token,
+                    );
+                }
+
                 match &import.import_kind {
                     ImportKind::ImportList(imported_types) => {
                         let mut imported_types = ImportedName::extract_imported_names(imported_types).peekable();
@@ -1250,7 +1345,7 @@ impl TypeLoader {
         }
     }
 
-    /// Returns whether the file was succesfully loaded.
+    /// Returns whether the file was successfully loaded.
     /// If not, the path that was attempted to be loaded is returned (if any).
     #[allow(clippy::await_holding_refcell_ref)] // false positive: explicit drop() before await
     async fn ensure_document_loaded<'a: 'b, 'b>(
@@ -1385,7 +1480,15 @@ impl TypeLoader {
                 )),
                 Err(err)
                     if !resolved
-                        && matches!(err.kind(), ErrorKind::NotFound | ErrorKind::NotADirectory) =>
+                        && matches!(
+                            err.kind(),
+                            // A path that can't name a file (e.g. one with a character
+                            // Windows forbids) can't be found either, so report it the
+                            // same way rather than leaking the raw OS error.
+                            ErrorKind::NotFound
+                                | ErrorKind::NotADirectory
+                                | ErrorKind::InvalidFilename
+                        ) =>
                 {
                     let import_kind =
                         if file_to_import.starts_with('@') { "library" } else { "include" };
@@ -1515,6 +1618,7 @@ impl TypeLoader {
                 .insert(path.clone());
         }
         state.tl.all_documents.docs.insert(path, (LoadedDocument::Document(doc), parse_errors));
+        state.tl.bump_revision();
     }
 
     async fn load_file_impl<'a>(
@@ -1561,6 +1665,9 @@ impl TypeLoader {
         )
         .await;
 
+        let ignore_missing_font_files =
+            state.borrow().tl.compiler_config.resource_url_mapper.is_some();
+        let symbol_counters = state.borrow().tl.symbol_counters.clone();
         if state.borrow().diag.has_errors() {
             // If there was error (esp parse error) we don't want to report further error in this document.
             // because they might be nonsense (TODO: we should check that the parse error were really in this document).
@@ -1576,6 +1683,8 @@ impl TypeLoader {
                 reexports,
                 &mut ignore_diag,
                 &dependency_registry,
+                ignore_missing_font_files,
+                &symbol_counters,
             );
             return (path.to_owned(), doc);
         }
@@ -1587,6 +1696,8 @@ impl TypeLoader {
             reexports,
             state.diag,
             &dependency_registry,
+            ignore_missing_font_files,
+            &symbol_counters,
         );
         (path.to_owned(), doc)
     }
@@ -1615,7 +1726,11 @@ impl TypeLoader {
                 }
             };
 
-            match imported_type {
+            #[cfg(feature = "slint-sc")]
+            let internal_name = import_name.internal_name.clone();
+
+            #[cfg_attr(not(feature = "slint-sc"), allow(unused_variables))]
+            let inserted = match imported_type {
                 itertools::Either::Left(c) => {
                     registry_to_populate.borrow_mut().add_with_name(import_name.internal_name, c)
                 }
@@ -1623,6 +1738,16 @@ impl TypeLoader {
                     .borrow_mut()
                     .insert_type_with_name(ty, import_name.internal_name),
             };
+
+            // Regular Slint lets a later import replace an earlier one of the
+            // same name; Slint SC requires each name to be introduced once.
+            #[cfg(feature = "slint-sc")]
+            if !inserted {
+                build_diagnostics.slint_sc_error(
+                    &format!("Importing the name '{internal_name}' more than once is"),
+                    &import.import_uri_token,
+                );
+            }
         }
     }
 
@@ -1671,6 +1796,7 @@ impl TypeLoader {
             .chain(
                 (file_to_import == "std-widgets.slint"
                     || (file_to_import == "style-base.slint" && referencing_file.is_none())
+                    || (file_to_import == "std-widgets-impl.slint" && referencing_file.is_none())
                     || referencing_file.is_some_and(|x| x.starts_with("builtin:/")))
                 .then(|| format!("builtin:/{}", self.resolved_style).into()),
             )
@@ -1712,6 +1838,8 @@ impl TypeLoader {
                         return None;
                     }
                 };
+                // The path is taken verbatim: escape sequences aren't decoded, so a
+                // backslash stays a directory separator rather than an escape.
                 let path_to_import = import_uri.text().to_string();
                 let path_to_import = path_to_import.trim_matches('\"').to_string();
 
@@ -1979,6 +2107,58 @@ fn test_dependency_loading_from_rust() {
     assert!(build_diagnostics.is_empty()); // also no warnings
     assert_eq!(foreign_imports.len(), 3);
     assert!(foreign_imports.iter().all(|x| matches!(x.import_kind, ImportKind::ImportList(..))));
+}
+
+#[test]
+fn test_import_path_verbatim() {
+    // The import path is taken verbatim, not unescaped: a literal Unicode or emoji
+    // file name is used as written, and a backslash is a directory separator rather
+    // than an escape, so `sub\comp.slint` names `sub/comp.slint`. An absolute path
+    // with a backslash cleans to a different string, so it must be registered and
+    // looked up under that cleaned path or the type loader panics (#12798).
+    let requested = Rc::new(RefCell::new(Vec::<String>::new()));
+    let requested_ = requested.clone();
+
+    let mut compiler_config =
+        CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
+    compiler_config.style = Some("fluent".into());
+    compiler_config.open_import_callback = Some(Rc::new(move |path| {
+        let requested_ = requested_.clone();
+        Box::pin(async move {
+            requested_.borrow_mut().push(path);
+            Some(Ok("export XX := Rectangle {} ".to_owned()))
+        })
+    }));
+
+    let mut test_diags = crate::diagnostics::BuildDiagnostics::default();
+    let doc_node = crate::parser::parse(
+        r#"
+import { XX as A } from "naïve.slint";
+import { XX as B } from "party🎉.slint";
+import { XX as C } from "sub\comp.slint";
+import { XX as D } from "/ddd\dd.slint";
+export component X { A {} B {} C {} D {} }
+"#
+        .into(),
+        Some(std::path::Path::new("HELLO")),
+        &mut test_diags,
+    );
+
+    let doc_node: syntax_nodes::Document = doc_node.into();
+    let mut build_diagnostics = BuildDiagnostics::default();
+    let mut loader = TypeLoader::new(compiler_config, &mut build_diagnostics);
+    let registry = Rc::new(RefCell::new(TypeRegister::new(&loader.global_type_registry)));
+    spin_on::spin_on(loader.load_dependencies_recursively(
+        &doc_node,
+        &mut build_diagnostics,
+        &registry,
+    ));
+    assert!(!test_diags.has_errors());
+    assert!(!build_diagnostics.has_errors(), "{:?}", build_diagnostics.to_string_vec());
+    let mut requested = requested.borrow().clone();
+    requested.sort();
+    // Unicode names are kept as written; a backslash is normalized to a slash.
+    assert_eq!(requested, ["/ddd/dd.slint", "naïve.slint", "party🎉.slint", "sub/comp.slint"]);
 }
 
 #[test]
@@ -2407,10 +2587,42 @@ fn test_snapshotting() {
     assert_eq!(root_element.borrow().base_type.to_string(), "Rectangle");
 
     let copy = snapshot(&type_loader).unwrap();
+    assert_eq!(copy.revision(), type_loader.revision());
 
     let doc = copy.get_document(&path).unwrap();
     let c = doc.inner_components.first().unwrap();
     assert_eq!(c.id, "Foobar");
     let root_element = c.root_element.clone();
     assert_eq!(root_element.borrow().base_type.to_string(), "Rectangle");
+}
+
+#[test]
+fn test_watch_paths_revision_bumps_on_mutations() {
+    let mut type_loader = TypeLoader::new(
+        crate::CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter),
+        &mut BuildDiagnostics::default(),
+    );
+
+    assert_eq!(type_loader.revision(), 0);
+
+    let path = PathBuf::from("/tmp/test-revision.slint");
+    let mut diag = BuildDiagnostics::default();
+    spin_on::spin_on(type_loader.load_file(
+        &path,
+        &path,
+        "export component Foobar inherits Rectangle { }".to_string(),
+        false,
+        &mut diag,
+    ));
+    assert!(!diag.has_errors());
+    let after_load = type_loader.revision();
+    assert_ne!(after_load, 0);
+
+    type_loader.invalidate_document(&path);
+    let after_invalidate = type_loader.revision();
+    assert_ne!(after_invalidate, after_load);
+
+    type_loader.drop_document(&path).unwrap();
+    let after_drop = type_loader.revision();
+    assert_ne!(after_drop, after_invalidate);
 }

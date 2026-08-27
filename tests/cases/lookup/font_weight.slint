@@ -1,25 +1,26 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-TestCase := Rectangle {
-    property <int> thin: FontWeight.thin;
-    property <int> extra_light: FontWeight.extra-light;
-    property <int> light: FontWeight.light;
-    property <int> normal: FontWeight.normal;
-    property <int> medium: FontWeight.medium;
-    property <int> semi_bold: FontWeight.semi-bold;
-    property <int> bold: FontWeight.bold;
-    property <int> extra_bold: FontWeight.extra-bold;
-    property <int> black: FontWeight.black;
+export component TestCase inherits Rectangle {
+    in-out property <int> thin: FontWeight.thin;
+    in-out property <int> extra_light: FontWeight.extra-light;
+    in-out property <int> light: FontWeight.light;
+    in-out property <int> normal: FontWeight.normal;
+    in-out property <int> medium: FontWeight.medium;
+    in-out property <int> semi_bold: FontWeight.semi-bold;
+    in-out property <int> bold: FontWeight.bold;
+    in-out property <int> extra_bold: FontWeight.extra-bold;
+    in-out property <int> black: FontWeight.black;
 
     Text {
+        x:0;y:0;
         font-weight: FontWeight.bold;
     }
 
-    property <bool> test: thin == 100 && extra_light == 200 && light == 300 && normal == 400 && medium == 500 && semi_bold == 600 && bold == 700 && extra_bold == 800 && black == 900;
+    in-out property <bool> test: thin == 100 && extra_light == 200 && light == 300 && normal == 400 && medium == 500 && semi_bold == 600 && bold == 700 && extra_bold == 800 && black == 900;
 }
 
-/*g
+/*
 ```rust
 let instance = TestCase::new().unwrap();
 assert_eq!(instance.get_thin(), 100);

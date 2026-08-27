@@ -33,7 +33,7 @@ pnpm -C api/node run build
 
 To use Slint with Node.js, ensure the following programs are installed:
 
-  * **[Node.js](https://nodejs.org/download/release/)** (v24 or newer)
+  * **[Node.js](https://nodejs.org/download/release/)** (v20 or newer)
   * **[npm](https://www.npmjs.com/)**
 
 To use Slint with Deno, ensure the following programs are installed:
@@ -245,7 +245,7 @@ let component = new ui.MainWindow({
 
 ### Accessing Properties
 
-[Properties](http://slint.dev/docs/slint/guide/language/coding/properties/) declared as `out` or `in-out` in `.slint` files are visible as JavaScript properties on the component instance.
+[Properties](https://slint.dev/docs/slint/reference/language/properties/) declared as `out` or `in-out` in `.slint` files are visible as JavaScript properties on the component instance.
 
 **`main.slint`**
 
@@ -265,7 +265,7 @@ instance.name = "Joe";
 
 ### Setting and Invoking Callbacks
 
-[Callbacks](http://slint.dev/docs/slint/guide/language/coding/functions-and-callbacks/) declared in `.slint` files are visible as JavaScript function properties on the component instance. Invoke them
+[Callbacks](https://slint.dev/docs/slint/reference/language/callbacks/) declared in `.slint` files are visible as JavaScript function properties on the component instance. Invoke them
 as function to invoke the callback, and assign JavaScript functions to set the callback handler.
 
 **`ui/my-component.slint`**
@@ -307,7 +307,10 @@ The types used for properties in .slint design markup each translate to specific
 | `string` | `String` | |
 | `color` | `RgbaColor` | |
 | `brush` | `Brush` | |
+| `keys` | `Keys` | |
 | `image` | `ImageData` | |
+| `styled-text` | `StyledText` | Styled text parsed from markdown or plain text. Use `StyledText.fromMarkdown()` or `StyledText.fromPlainText()` to create instances. |
+| `data-transfer` | `DataTransfer` | Data associated with a drag-drop transfer. |
 | `length` | `Number` | |
 | `physical_length` | `Number` | |
 | `duration` | `Number` | The number of milliseconds |
@@ -315,10 +318,11 @@ The types used for properties in .slint design markup each translate to specific
 | `relative-font-size` | `Number` | Relative font size factor that is multiplied with the `Window.default-font-size` and can be converted to a `length`. |
 | structure | `Object` | Structures are mapped to JavaScript objects where each structure field is a property. |
 | array | `Model` | |
+| `Point` | `{ x: number; y: number }` | A two-dimensional point with `x` and `y` coordinates. |
 
 ### Arrays and Models
 
-[Array properties](http://slint.dev/docs/slint/guide/language/coding/repetition-and-data-models#arrays-and-models) can be set from JavaScript by passing
+[Array properties](https://slint.dev/docs/slint/reference/property-types/arrays-and-models/) can be set from JavaScript by passing
 either `Array` objects or implementations of the `Model` interface.
 
 When passing a JavaScript `Array` object, the contents of the array are copied. Any changes to the JavaScript afterwards will not be visible on the Slint side.
@@ -405,7 +409,7 @@ component.position = ui.Position.bottom;
 
 ### Globals
 
-You can declare [globally available singletons](http://slint.dev/docs/slint/guide/language/coding/globals) in your
+You can declare [globally available singletons](https://slint.dev/docs/slint/reference/language/globals/) in your
 `.slint` files. If exported, these singletons are accessible as properties on your main
 component instance. Each global singleton is represented by an object with properties and callbacks,
 similar to API that's created for your `.slint` component.
@@ -427,14 +431,10 @@ import * as slint from "slint-ui";
 let ui = slint.loadFile(new URL("ui/my-component.slint", import.meta.url));
 let component = new ui.MyComponent();
 
-component.Logic.to_upper_case = (str) => {
+component.Logic.to_uppercase = (str) => {
     return str.toUpperCase();
 };
 ```
 
 **Note**: Global singletons are instantiated once per component. When declaring multiple components for `export` to JavaScript,
 each instance will have their own instance of associated global singletons.
-
-## Third-Party Licenses
-
-For a list of the third-party licenses of all dependencies, see the separate [Third-Party Licenses page](/thirdparty/).

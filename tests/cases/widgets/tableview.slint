@@ -3,7 +3,7 @@
 
 import { StandardTableView } from "std-widgets.slint";
 
-TestCase := Rectangle {
+export component TestCase inherits Rectangle {
     callback set-current-row(int);
 
     out property <int> row-count: list.rows.length;
@@ -17,7 +17,7 @@ TestCase := Rectangle {
     in-out property <int> current-row <=> list.current-row;
 
     list := StandardTableView {
-        rows: root.rows;
+        rows: rows;
 
         columns: [
            { title: "Items" },
@@ -25,7 +25,7 @@ TestCase := Rectangle {
         ];
 
         current-row-changed(index) => {
-            root.callback-current-row = index;
+            callback-current-row = index;
         }
     }
 

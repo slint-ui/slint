@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
+// cSpell: ignore dummyweather
 use chrono::{Duration, Utc};
 
 use crate::weather::utils::*;

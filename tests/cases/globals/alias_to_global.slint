@@ -3,29 +3,29 @@
 
 import { StyleMetrics } from "std-widgets.slint";
 
-global Glop := {
-    property <int> hello: 42;
-    property <int> second: 88;
-    property <int> third: 102;
+global Glop  {
+    in-out property <int> hello: 42;
+    in-out property <int> second: 88;
+    in-out property <int> third: 102;
 }
 
-global DualBindingGlop := {
-    property third <=> Glop.third;
+global DualBindingGlop  {
+    in-out property third <=> Glop.third;
 }
 
-Widget := Rectangle {
-    property second <=> Glop.second;
+component Widget inherits Rectangle {
+    in-out property second <=> Glop.second;
 }
 
-TestCase := Rectangle {
+export component TestCase inherits Rectangle {
     // This is meant to test an alias to a native global.
     // Unfortunately, this is only a native global with the Qt backend and not with the Test backend
-    property <length> alias_to_native <=> StyleMetrics.text_cursor_width;
-    property <int> alias_to_global <=> Glop.hello;
-    property <bool> test: alias_to_native == StyleMetrics.text_cursor_width && alias_to_global == 42 && indirect == 88;
-    property <int> indirect <=> widget.second;
-    property <int> direct: Glop.second;
-    property <int> dual <=> DualBindingGlop.third;
+    out property <length> alias_to_native <=> StyleMetrics.text_cursor_width;
+    in-out property <int> alias_to_global <=> Glop.hello;
+    in-out property <bool> test: root.alias_to_native == StyleMetrics.text_cursor_width && root.alias_to_global == 42 && root.indirect == 88;
+    in-out property <int> indirect <=> widget.second;
+    in-out property <int> direct: Glop.second;
+    in-out property <int> dual <=> DualBindingGlop.third;
 
     widget := Widget { }
 }
