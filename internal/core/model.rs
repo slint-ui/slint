@@ -164,20 +164,12 @@ pub trait Model {
         );
     }
 
-    /// Add a new row to the model.
+    /// Add a new row at the end of the model.
     ///
-    /// If the model cannot support data changes, then it is ok to do nothing.
-    /// The default implementation will print a warning to stderr.
-    ///
-    /// If the model can update the data, it should also call [`ModelNotify::row_added`] on its
-    /// internal [`ModelNotify`].
-    fn push_row(&self, _data: Self::Data) {
-        #[cfg(feature = "std")]
-        crate::debug_log!(
-            "Model::push_row called on a model of type {} which does not re-implement this method. \
-            This happens when trying to modify a read-only model",
-            core::any::type_name::<Self>()
-        );
+    /// The default implementation inserts the row after the last one with
+    /// [`insert_row`](Self::insert_row).
+    fn push_row(&self, data: Self::Data) {
+        self.insert_row(self.row_count(), data);
     }
 
     /// Remove the row at the specified index from the model.
@@ -606,10 +598,6 @@ impl<T: Clone + 'static> Model for VecModel<T> {
         }
     }
 
-    fn push_row(&self, data: Self::Data) {
-        self.push(data);
-    }
-
     fn remove_row(&self, row: usize) {
         if row < self.row_count() {
             self.remove(row);
@@ -673,11 +661,6 @@ impl<T: Clone + 'static> Model for SharedVectorModel<T> {
     fn set_row_data(&self, row: usize, data: Self::Data) {
         self.array.borrow_mut().make_mut_slice()[row] = data;
         self.notify.row_changed(row);
-    }
-
-    fn push_row(&self, data: Self::Data) {
-        self.array.borrow_mut().push(data);
-        self.notify.row_added(self.array.borrow().len() - 1, 1);
     }
 
     fn remove_row(&self, row: usize) {
