@@ -466,9 +466,8 @@ struct OccludedRegion(
 
 #[cfg(feature = "occlusion-culling")]
 impl OccludedRegion {
-    /// Record `rect` (in screen coordinates) as fully opaquely covered.
-    fn add_rect(&mut self, rect: LogicalRect) {
-        let b = rect.to_box2d();
+    /// Record `b` (in screen coordinates) as fully opaquely covered.
+    fn add_box(&mut self, b: euclid::Box2D<Coord, LogicalPx>) {
         if b.is_empty() {
             return;
         }
@@ -636,11 +635,11 @@ fn compute_occlusion_recursive(
             child_state,
         );
 
-        let visible_rect = state
-            .transform_to_screen
-            .outer_transformed_rect(&cached_geom.bounding_rect().cast())
-            .cast()
-            .intersection(&state.clipped);
+        let visible_rect = transformed_and_clipped(
+            cached_geom.bounding_rect(),
+            state.transform_to_screen,
+            &state.clipped,
+        );
 
         // Computed whether or not `visible_rect` is `Some`, and always written back below: a
         // fully-clipped item (`visible_rect` is `None`) must not keep last frame's flag.
@@ -669,7 +668,7 @@ fn compute_occlusion_recursive(
                     (occluder_rect.to_box2d().cast::<f32>() * state.scale_factor).round_in()
                         / state.scale_factor;
                 #[cfg(not(slint_int_coord))]
-                let device_pixel_interior = device_pixel_interior_logical.cast::<Coord>().to_rect();
+                let device_pixel_interior = device_pixel_interior_logical.cast::<Coord>();
                 #[cfg(slint_int_coord)]
                 let device_pixel_interior = {
                     // `Coord` is `i32` here: a plain f32->i32 cast truncates toward zero, which
@@ -681,9 +680,8 @@ fn compute_occlusion_recursive(
                         device_pixel_interior_logical.max.floor(),
                     )
                     .cast::<Coord>()
-                    .to_rect()
                 };
-                accumulator.add_rect(device_pixel_interior);
+                accumulator.add_box(device_pixel_interior);
             }
         }
 
