@@ -179,7 +179,15 @@ description: {0} content
         }
         writeln!(file, "{}", e.description)?;
         for v in &e.values {
-            writeln!(file, r#"* **`{}`**: {}"#, v.key, v.description)?;
+            // A struct field default links to the value it takes, and every enum
+            // shares the Builtin Enums page, so the id carries the enum name.
+            writeln!(
+                file,
+                r#"* **<span id="{}">`{}`</span>**: {}"#,
+                enum_value_anchor(k, &v.key),
+                v.key,
+                v.description
+            )?;
         }
 
         file.flush()?;
@@ -401,6 +409,11 @@ fn type_href(
     Some(format!("/{page}/#{}", type_name.to_lowercase()))
 }
 
+/// The id of one value on the page documenting `enum_name`.
+fn enum_value_anchor(enum_name: &str, value: &str) -> String {
+    format!("{}-{value}", enum_name.to_lowercase())
+}
+
 /// The `.slint` form of a field default declared in builtin_structs.rs.
 fn declared_default(tokens: &str) -> String {
     let text: String =
@@ -423,10 +436,18 @@ fn struct_field_line(
     let name = &field.type_name;
     let type_name = type_href(name, enums, structs)
         .map_or_else(|| format!("_{name}_"), |href| format!("[_{name}_]({href})"));
-    let default_value = field
-        .default_value
-        .as_ref()
-        .map_or_else(String::new, |value| format!(" Defaults to `{value}`."));
+    let default_value = field.default_value.as_ref().map_or_else(String::new, |value| {
+        // An enum value links to its own documentation, next to the values it could
+        // take instead; `type_href` decides whether the enum is documented there.
+        let documented = enums.contains_key(name) && type_href(name, enums, structs).is_some();
+        match documented {
+            true => format!(
+                " Defaults to [`{value}`](/{BUILTIN_ENUMS_SLUG}/#{}).",
+                enum_value_anchor(name, value)
+            ),
+            false => format!(" Defaults to `{value}`."),
+        }
+    });
     format!("- **`{}`** ({}): {}{}", field.key, type_name, field.description, default_value)
 }
 
@@ -575,7 +596,7 @@ fn test_type_href() {
     };
     assert_eq!(
         struct_field_line(&with_default, &enums, &structs),
-        "- **`field`** ([_CapitalizationMode_](/reference/property-types/builtin-enums/#capitalizationmode)): The docs Defaults to `sentences`."
+        "- **`field`** ([_CapitalizationMode_](/reference/property-types/builtin-enums/#capitalizationmode)): The docs Defaults to [`sentences`](/reference/property-types/builtin-enums/#capitalizationmode-sentences)."
     );
     let field = StructFieldDoc { type_name: "int".to_string(), ..field };
     assert_eq!(struct_field_line(&field, &enums, &structs), "- **`field`** (_int_): The docs");
