@@ -43,6 +43,10 @@ fn main() {
 }
 ```
 */
+#![cfg_attr(
+    feature = "document-features",
+    doc = concat!("## Feature flags\n\n", document_features::document_features!())
+)]
 #![doc(html_logo_url = "https://slint.dev/logo/slint-logo-square-light.svg")]
 #![warn(missing_docs)]
 
