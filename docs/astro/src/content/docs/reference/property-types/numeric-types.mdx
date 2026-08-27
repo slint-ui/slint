@@ -40,6 +40,79 @@ Signed, 32-bit floating point number. Numbers with a `%` suffix are automaticall
 
 `float` and `int` values have the following member functions:
 
+#### round() -> float
+
+Returns the nearest integer to self. If a value is half-way between two integers, round away from 0.0.
+
+This function always returns the precise result.
+
+#### ceil() -> float
+
+Returns the smallest integer that is greater than or equal to self.
+
+This function always returns the precise result.
+
+#### floor() -> float
+
+Returns the largest integer that is less than or equal to self.
+
+This function always returns the precise result.
+
+#### sqrt() -> float
+
+Returns the square root of a number.
+
+Returns NaN if self is a negative number other than -0.0.
+Precision
+
+The result of this operation is guaranteed to be the rounded infinite-precision result. It is specified by IEEE 754 as squareRoot and guaranteed not to change.
+
+#### asin() -> float
+
+Computes the arcsine of a number. Return value is in radians in the range [-pi/2, pi/2] or NaN if the number is outside the range [-1, 1].
+
+**Converts this to degrees!**
+
+#### acos() -> float
+
+Computes the arccosine of a number. Return value is in radians in the range [0, pi] or NaN if the number is outside the range [-1, 1].
+
+**Converts this to degrees!**
+
+#### atan() -> float
+
+Computes the arctangent of a number. Return value is in radians in the range [-pi/2, pi/2];
+
+**Converts this to degrees!**
+
+#### log(base: int or float) -> float
+
+Returns the logarithm of the number with respect to an arbitrary base.
+
+This returns NaN when the number is negative, and negative infinity when number is zero.
+
+The result might not be correctly rounded owing to implementation details; self.log2() can produce more accurate results for base 2, and self.log10() can produce more accurate results for base 10.
+
+#### ln() -> float
+
+Returns the natural logarithm of the number.
+
+This returns NaN when the number is negative, and negative infinity when number is zero.
+
+#### pow(base: int or float) -> float
+
+Raises a number to a floating point power.
+
+Note that this function is special in that it can return non-NaN results for NaN inputs. For example, f32::powf(f32::NAN, 0.0) returns 1.0. However, if an input is a signaling NaN, then the result is non-deterministically either a NaN or the result that the corresponding quiet NaN would produce.
+
+#### exp() -> float
+
+Returns e^(self), (the exponential function).
+
+#### sign() -> int
+
+Returns +1 or -1 depending on whether this numeric type is positive or negative respectively.
+
 #### to-fixed(digits: int) -> string
 
 Returns a string representation of the number with `digits` digits after the decimal point.
