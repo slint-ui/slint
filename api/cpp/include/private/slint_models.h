@@ -27,7 +27,7 @@ struct ModelChangeListener
 using ModelPeer = std::weak_ptr<ModelChangeListener>;
 
 template<typename M>
-auto access_array_index(const std::shared_ptr<M> &model, std::ptrdiff_t index)
+auto access_array_index(const std::shared_ptr<M> &model, int index)
 {
     if (!model || index < 0) {
         return decltype(*model->row_data_tracked(index)) {};
@@ -39,13 +39,13 @@ auto access_array_index(const std::shared_ptr<M> &model, std::ptrdiff_t index)
 }
 
 template<typename M>
-long int model_length(const std::shared_ptr<M> &model)
+int model_length(const std::shared_ptr<M> &model)
 {
     if (!model) {
         return 0;
     } else {
         model->track_row_count_changes();
-        return model->row_count();
+        return static_cast<int>(model->row_count());
     }
 }
 
@@ -58,17 +58,17 @@ void model_push(const std::shared_ptr<M> &model, const ModelData &value)
 }
 
 template<typename M>
-void model_remove(const std::shared_ptr<M> &model, std::ptrdiff_t index)
+void model_remove(const std::shared_ptr<M> &model, int index)
 {
-    if (model) {
+    if (model && index >= 0) {
         model->remove_row(index);
     }
 }
 
 template<typename M, typename ModelData>
-void model_insert(const std::shared_ptr<M> &model, std::ptrdiff_t index, const ModelData &value)
+void model_insert(const std::shared_ptr<M> &model, int index, const ModelData &value)
 {
-    if (model) {
+    if (model && index >= 0) {
         model->insert_row(index, value);
     }
 }
@@ -80,9 +80,9 @@ bool model_any(const std::shared_ptr<M> &model, P predicate)
         return false;
     }
     model->track_any_change();
-    long int count = model->row_count();
+    int count = static_cast<int>(model->row_count());
 
-    for (long int i = 0; i < count; ++i) {
+    for (int i = 0; i < count; ++i) {
         if (const auto data = model->row_data(i); data && predicate(*data)) {
             return true;
         }
@@ -98,9 +98,9 @@ bool model_all(const std::shared_ptr<M> &model, P predicate)
         return true;
     }
     model->track_any_change();
-    long int count = model->row_count();
+    int count = static_cast<int>(model->row_count());
 
-    for (long int i = 0; i < count; ++i) {
+    for (int i = 0; i < count; ++i) {
         // A row without data is skipped, as it is by model_any and model_find_index,
         // rather than failing the whole model.
         if (const auto data = model->row_data(i); data && !predicate(*data)) {
@@ -118,9 +118,9 @@ int32_t model_find_index(const std::shared_ptr<M> &model, P predicate)
         return -1;
     }
     model->track_any_change();
-    long int count = model->row_count();
+    int count = static_cast<int>(model->row_count());
 
-    for (long int i = 0; i < count; ++i) {
+    for (int i = 0; i < count; ++i) {
         if (const auto data = model->row_data(i); data && predicate(*data)) {
             return static_cast<int32_t>(i);
         }
@@ -178,16 +178,9 @@ public:
 
     /// Adds a new row with the given \a data at the end of the model.
     ///
-    /// If the model cannot support data changes, then it is ok to do nothing.
-    /// The default implementation will print a warning to stderr.
-    ///
-    /// If the model can update the data, it should also call `notify_row_added`
-    virtual void push_row(const ModelData &)
-    {
-#ifndef SLINT_FEATURE_FREESTANDING
-        std::cerr << "Model::push_row was called on a read-only model" << std::endl;
-#endif
-    };
+    /// The default implementation inserts the row after the last one with `insert_row`,
+    /// so implementing `insert_row` is enough to support push.
+    virtual void push_row(const ModelData &data) { insert_row(row_count(), data); };
 
     /// Removes the row at the given \a index from the model.
     ///
@@ -195,7 +188,7 @@ public:
     /// The default implementation will print a warning to stderr.
     ///
     /// If the model can update the data, it should also call `notify_row_removed`
-    virtual void remove_row(std::ptrdiff_t)
+    virtual void remove_row(size_t)
     {
 #ifndef SLINT_FEATURE_FREESTANDING
         std::cerr << "Model::remove_row was called on a read-only model" << std::endl;
@@ -209,7 +202,7 @@ public:
     /// The default implementation will print a warning to stderr.
     ///
     /// If the model can update the data, it should also call `notify_row_added`
-    virtual void insert_row(std::ptrdiff_t, const ModelData &)
+    virtual void insert_row(size_t, const ModelData &)
     {
 #ifndef SLINT_FEATURE_FREESTANDING
         std::cerr << "Model::insert_row was called on a read-only model" << std::endl;
@@ -406,19 +399,17 @@ public:
         }
     }
 
-    void push_row(const ModelData &value) override { push_back(value); }
-
-    void remove_row(std::ptrdiff_t index) override
+    void remove_row(size_t index) override
     {
-        if (index >= 0 && index < static_cast<std::ptrdiff_t>(data.size())) {
-            erase(static_cast<size_t>(index));
+        if (index < data.size()) {
+            erase(index);
         }
     }
 
-    void insert_row(std::ptrdiff_t index, const ModelData &value) override
+    void insert_row(size_t index, const ModelData &value) override
     {
-        if (index >= 0 && index <= static_cast<std::ptrdiff_t>(data.size())) {
-            insert(static_cast<size_t>(index), value);
+        if (index <= data.size()) {
+            insert(index, value);
         }
     }
 

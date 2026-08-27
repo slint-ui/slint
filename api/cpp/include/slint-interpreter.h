@@ -484,13 +484,13 @@ inline Value::Value(const std::shared_ptr<slint::Model<Value>> &model)
         Value v(std::move(value));
         reinterpret_cast<ModelWrapper *>(self.instance)->model->push_row(v);
     };
-    auto remove_row = [](VRef<ModelAdaptorVTable> self, intptr_t row) {
-        reinterpret_cast<ModelWrapper *>(self.instance)->model->remove_row(row);
+    auto remove_row = [](VRef<ModelAdaptorVTable> self, uintptr_t row) {
+        reinterpret_cast<ModelWrapper *>(self.instance)->model->remove_row(int(row));
     };
-    auto insert_row = [](VRef<ModelAdaptorVTable> self, intptr_t row,
+    auto insert_row = [](VRef<ModelAdaptorVTable> self, uintptr_t row,
                          slint::cbindgen_private::Value *value) {
         Value v(std::move(value));
-        reinterpret_cast<ModelWrapper *>(self.instance)->model->insert_row(row, v);
+        reinterpret_cast<ModelWrapper *>(self.instance)->model->insert_row(int(row), v);
     };
     auto get_notify =
             [](VRef<ModelAdaptorVTable> self) -> const cbindgen_private::ModelNotifyOpaque * {
