@@ -5,7 +5,7 @@ use std::path::Path;
 
 use super::ui;
 
-pub(crate) const VISUAL_EDITOR_SETTINGS_FILE: &str = "visual-editor-user-settings.json";
+pub(crate) const SETTINGS_FILE: &str = "visual-editor-user-settings.json";
 const MAX_RECENT_PROJECTS: usize = 4;
 
 #[derive(Clone, Debug, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
