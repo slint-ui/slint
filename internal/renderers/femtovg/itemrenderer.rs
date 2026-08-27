@@ -139,16 +139,16 @@ fn rect_to_path(r: PhysicalRect) -> femtovg::Path {
 }
 
 impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
-    pub fn global_alpha_transparent(&self) -> bool {
-        self.state.last().unwrap().global_alpha == 0.0
-    }
-
     pub fn metrics(&self) -> RenderingMetrics {
         self.metrics.clone()
     }
 }
 
 impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer<'a, R> {
+    fn global_alpha_transparent(&self) -> bool {
+        self.state.last().unwrap().global_alpha == 0.0
+    }
+
     fn draw_rectangle(
         &mut self,
         rect: Pin<&dyn RenderRectangle>,
@@ -158,9 +158,6 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
     ) {
         let geometry = PhysicalRect::from(size * self.scale_factor);
         if geometry.is_empty() {
-            return;
-        }
-        if self.global_alpha_transparent() {
             return;
         }
         // TODO: cache path in item to avoid re-tesselation
@@ -185,9 +182,6 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
         let Some(layout) = BorderRectLayout::new(rect, size, self.scale_factor) else {
             return;
         };
-        if self.global_alpha_transparent() {
-            return;
-        }
 
         let fill_paint = self.brush_to_paint(rect.background(), layout.brush_size);
 
@@ -240,10 +234,6 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
         size: LogicalSize,
         _cache: &CachedRenderingData,
     ) {
-        if self.global_alpha_transparent() {
-            return;
-        }
-
         sharedparley::draw_text(self, text, Some(self_rc), size, Some(self.text_layout_cache));
     }
 
@@ -253,18 +243,10 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
         self_rc: &ItemRc,
         size: LogicalSize,
     ) {
-        if self.global_alpha_transparent() {
-            return;
-        }
-
         sharedparley::draw_text_input(self, text_input, self_rc, size, self.text_layout_cache);
     }
 
     fn draw_path(&mut self, path: Pin<&items::Path>, item_rc: &ItemRc, size: LogicalSize) {
-        if self.global_alpha_transparent() {
-            return;
-        }
-
         let (offset, path_events) = match path.fitted_path_events(item_rc) {
             Some(offset_and_events) => offset_and_events,
             None => return,
