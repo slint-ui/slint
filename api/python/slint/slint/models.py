@@ -1,12 +1,20 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import sys
 import typing
 from abc import abstractmethod
 from collections.abc import Iterable, Iterator
-from typing import Any, cast
+from typing import Any
 
 from ._native import native
+
+
+def _read_only_warning(method: str) -> None:
+    print(
+        f"{method} called on a model which does not re-implement this method. This happens when trying to modify a read-only model",
+        file=sys.stderr,
+    )
 
 
 class Model[T](native.PyModelBase, Iterable[T]):
@@ -38,28 +46,34 @@ class Model[T](native.PyModelBase, Iterable[T]):
         """Call this method on mutable models to change the data for the given row.
         The UI will also call this method when modifying a model's data.
         Re-implement this method in a sub-class to handle the change."""
-        super().set_row_data(row, value)
+        _read_only_warning("set_row_data")
+
+    @abstractmethod
+    def row_count(self) -> int:
+        """Returns the number of rows in the model.
+        Re-implement this method in a sub-class to provide the row count."""
+        ...
 
     @abstractmethod
     def row_data(self, row: int) -> T | None:
         """Returns the data for the given row.
         Re-implement this method in a sub-class to provide the data."""
-        return cast(T, super().row_data(row))
+        ...
 
     def append(self, value: T) -> None:
         """Add a new row to the model with the provided value.
-        Re-implement this method in a sub-class to handle the change."""
-        super().append(value)
+        The default implementation calls `insert_row` with the row count."""
+        self.insert_row(self.row_count(), value)
 
     def remove_row(self, row: int) -> None:
         """Remove the row at the given index.
         Re-implement this method in a sub-class to handle the change."""
-        super().remove_row(row)
+        _read_only_warning("remove_row")
 
     def insert_row(self, row: int, value: T) -> None:
         """Insert a new row at the given index.
         Re-implement this method in a sub-class to handle the change."""
-        super().insert_row(row, value)
+        _read_only_warning("insert_row")
 
     def notify_row_changed(self, row: int) -> None:
         """Call this method from a sub-class to notify the views that a row has changed."""
