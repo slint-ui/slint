@@ -117,7 +117,7 @@ component WelcomeAction inherits Rectangle {
     }
 }
 
-component RecentFileRow inherits Rectangle {
+component RecentProjectRow inherits Rectangle {
     in property <string> title;
     in property <string> path;
     in property <bool> selected: false;
@@ -292,8 +292,8 @@ export component StartupWizard inherits Rectangle {
             height: 195px;
             spacing: 5px;
 
-            for project[index] in Project.recent: RecentFileRow {
-                title: project.component;
+            for project[index] in Project.recent: RecentProjectRow {
+                title: project.name;
                 path: project.root-path;
                 selected: index == 0;
                 opened => {
