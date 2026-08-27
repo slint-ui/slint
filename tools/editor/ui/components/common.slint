@@ -2,16 +2,9 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { Palette } from "std-widgets.slint";
-import { Api, CanvasCorner } from "../api.slint";
+import { Api, CanvasCorner, PaletteComponentKind } from "../api.slint";
 
-export { CanvasCorner }
-
-export enum PaletteComponentKind {
-    none,
-    rectangle,
-    text,
-    image,
-}
+export { CanvasCorner, PaletteComponentKind }
 
 export global StudioTheme {
     out property <bool> dark: Palette.color-scheme == ColorScheme.dark;
@@ -339,7 +332,7 @@ export component ComponentPaletteRow inherits Rectangle {
 
     dragger := DragArea {
         enabled: root.enabled && root.drag-enabled && !AppState.palette-drag-cancelled;
-        data: Api.new-component-data-for-name(root.label);
+        data: Api.new-component-data-for-kind(root.kind);
         allow-copy: true;
 
         changed dragging => {

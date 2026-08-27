@@ -914,7 +914,33 @@ enum DragItem {
     /// An existing element instance to be moved.
     MoveElementInstance { uri: SharedString, offset: u32 },
     /// A new component from the palette to be instantiated.
-    NewComponent { index: usize },
+    NewComponent { kind: PaletteComponent },
+}
+
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Hash)]
+enum PaletteComponent {
+    Rectangle,
+    Text,
+    Image,
+}
+
+impl PaletteComponent {
+    fn from_ui(kind: ui::PaletteComponentKind) -> Option<Self> {
+        match kind {
+            ui::PaletteComponentKind::Rectangle => Some(Self::Rectangle),
+            ui::PaletteComponentKind::Text => Some(Self::Text),
+            ui::PaletteComponentKind::Image => Some(Self::Image),
+            ui::PaletteComponentKind::None => None,
+        }
+    }
+
+    fn name(self) -> &'static str {
+        match self {
+            Self::Rectangle => "Rectangle",
+            Self::Text => "Text",
+            Self::Image => "Image",
+        }
+    }
 }
 
 /// Tried to convert a [`DataTransfer`] to a `DragItem`, but the data transfer's user data
@@ -948,7 +974,7 @@ impl From<DragItem> for DataTransfer {
 }
 
 fn can_drop_component(data: DataTransfer, x: f32, y: f32, on_drop_area: bool) -> bool {
-    let Ok(DragItem::NewComponent { index: component_index }) = data.try_into() else {
+    let Ok(DragItem::NewComponent { kind }) = data.try_into() else {
         return false;
     };
 
@@ -963,30 +989,25 @@ fn can_drop_component(data: DataTransfer, x: f32, y: f32, on_drop_area: bool) ->
 
     let position = LogicalPoint::new(x, y);
 
-    let component = PREVIEW_STATE
-        .with_borrow(|preview_state| preview_state.known_components.get(component_index).cloned());
-
-    let Some(component) = component else {
+    let Some(component) = palette_component(kind) else {
         return false;
     };
 
     drop_location::can_drop_at(&document_cache, position, &component)
 }
 
-fn component_index_for_name(name: &str) -> Option<usize> {
+fn palette_component(kind: PaletteComponent) -> Option<ComponentInformation> {
     PREVIEW_STATE.with_borrow(|preview_state| {
         preview_state
             .known_components
             .iter()
-            .position(|component| component.name == name && component.is_builtin)
-            .or_else(|| {
-                preview_state.known_components.iter().position(|component| component.name == name)
-            })
+            .find(|component| component.name == kind.name() && component.is_builtin)
+            .cloned()
     })
 }
 
 fn drop_component(data: DataTransfer, x: f32, y: f32) {
-    let Ok(DragItem::NewComponent { index: component_index }) = data.try_into() else {
+    let Ok(DragItem::NewComponent { kind }) = data.try_into() else {
         return;
     };
 
@@ -996,9 +1017,7 @@ fn drop_component(data: DataTransfer, x: f32, y: f32) {
 
     let position = LogicalPoint::new(x, y);
 
-    let Some(component) = PREVIEW_STATE
-        .with_borrow(|preview_state| preview_state.known_components.get(component_index).cloned())
-    else {
+    let Some(component) = palette_component(kind) else {
         return;
     };
 
@@ -1023,7 +1042,7 @@ fn drop_component_with_geometry(
     position: LogicalPosition,
     size: LogicalSize,
 ) {
-    let Ok(DragItem::NewComponent { index: component_index }) = data.try_into() else {
+    let Ok(DragItem::NewComponent { kind }) = data.try_into() else {
         return;
     };
 
@@ -1037,9 +1056,7 @@ fn drop_component_with_geometry(
         CoreLogicalSize::new(size.width, size.height),
     );
 
-    let Some(component) = PREVIEW_STATE
-        .with_borrow(|preview_state| preview_state.known_components.get(component_index).cloned())
-    else {
+    let Some(component) = palette_component(kind) else {
         return;
     };
 

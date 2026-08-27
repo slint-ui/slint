@@ -380,11 +380,8 @@ fn drop_edit(
                 document_cache.format,
             )?
         }
-        DragItem::NewComponent { index: library_index } => {
-            let component = super::PREVIEW_STATE.with(|preview_state| {
-                let preview_state = preview_state.borrow();
-                preview_state.known_components.get(library_index).cloned()
-            })?;
+        DragItem::NewComponent { kind } => {
+            let component = super::palette_component(kind)?;
             preview::drop_location::create_drop_element_workspace_edit(
                 &document_cache,
                 &component,

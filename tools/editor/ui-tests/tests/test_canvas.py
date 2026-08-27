@@ -29,6 +29,7 @@ from ui_driver import (
     window_element_with_label,
 )
 
+GOLDENS = Path(__file__).resolve().parents[1] / "goldens"
 CORNERS = ["top-left", "top-right", "bottom-right", "bottom-left"]
 OPPOSITE_CORNERS = {
     "top-left": "bottom-right",
@@ -90,17 +91,19 @@ def begin_palette_drag(
     kind: str,
     target: slint_testing.LogicalPosition,
 ) -> None:
-    palette_row = wait_until(
-        lambda: (
+    def leftmost_enabled_row() -> slint_testing.Element | None:
+        rows = [
             row
-            if (
-                row := window_element_with_label(
-                    window, kind, slint_testing.AccessibleRole.ListItem
-                )
-            ).accessible_enabled
-            else None
-        )
-    )
+            for row in elements_with_label(
+                window.root_element,
+                kind,
+                slint_testing.AccessibleRole.ListItem,
+            )
+            if row.accessible_enabled
+        ]
+        return min(rows, key=lambda row: row.absolute_position.x) if rows else None
+
+    palette_row = wait_until(leftmost_enabled_row)
     start = center(palette_row)
     button = slint_testing.PointerEventButton.Left
     window.dispatch_event(slint_testing.PointerPressEvent(start, button))
@@ -241,6 +244,78 @@ def test_palette_preview_follows_rejected_pointer(
         )
         finish_palette_drag(window, second_rejected_position)
         snapshot.assert_unchanged()
+
+
+@pytest.mark.parametrize("kind", PALETTE_DROP_SIZES)
+def test_repeated_palette_drop_preserves_component_kind(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+    kind: str,
+) -> None:
+    source_file = fixture_project / "RepeatedPaletteDrops.slint"
+    snapshot = SourceSnapshot.capture(fixture_project)
+    with launch_editor(editor_binary, editor_environment, source_file) as editor:
+        window = first_window(editor)
+        window_element_with_label(
+            window, "Reload probe", slint_testing.AccessibleRole.Text
+        )
+        select_outline_row(window, "drop-target")
+        x, y, width, height = selection_frame(window, "Rectangle")
+        target = slint_testing.LogicalPosition(x=x + width / 2, y=y + height / 2)
+
+        for step in (1, 2):
+            begin_palette_drag(window, kind, target)
+            finish_palette_drag(window, target)
+            expected = (
+                GOLDENS / f"RepeatedPaletteDrops.{kind.lower()}-{step}.slint"
+            ).read_bytes()
+            snapshot.wait_for_exact(expected, "RepeatedPaletteDrops.slint")
+            reload_label = f"Reload probe {step}"
+            source_file.write_bytes(
+                expected.replace(b"Reload probe", reload_label.encode(), 1)
+            )
+            window_element_with_label(
+                window, reload_label, slint_testing.AccessibleRole.Text
+            )
+            source_file.write_bytes(expected)
+            window_element_with_label(
+                window, "Reload probe", slint_testing.AccessibleRole.Text
+            )
+            wait_until(
+                lambda: (
+                    True
+                    if not elements_with_label(
+                        window.root_element, f"{kind} drag preview"
+                    )
+                    else None
+                )
+            )
+            button = slint_testing.PointerEventButton.Left
+            window.dispatch_event(slint_testing.PointerPressEvent(target, button))
+            window.dispatch_event(slint_testing.PointerReleaseEvent(target, button))
+            window_element_with_label(
+                window,
+                f"Selected {kind}",
+                slint_testing.AccessibleRole.Region,
+                timeout=15,
+            )
+            select_outline_row(window, "drop-target")
+            window_element_with_label(
+                window,
+                "Selected Rectangle",
+                slint_testing.AccessibleRole.Region,
+                timeout=15,
+            )
+
+        element_types = {
+            line.strip().split(maxsplit=1)[0]
+            for line in source_file.read_text().splitlines()
+            if line.strip().endswith("{") and not line.strip().startswith("export ")
+        }
+        assert element_types.isdisjoint(
+            {"Flickable", "Window", "HorizontalLayout", "VerticalLayout", "GridLayout"}
+        )
 
 
 def test_component_palette_drag_over_rotated_element_does_not_crash(
