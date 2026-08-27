@@ -567,6 +567,15 @@ pub fn char_size(
     Some(LogicalSize::from_lengths(advance_width, LogicalLength::new(line_height)))
 }
 
+/// The height of one line of text: what a shaped single-line layout reports.
+pub fn text_line_height(
+    font_ctx: &mut parley::FontContext,
+    font_request: &FontRequest,
+) -> Option<LogicalLength> {
+    let pixel_size = font_request.pixel_size.unwrap_or(DEFAULT_FONT_SIZE);
+    shaping::line_height_ratio(font_ctx, font_request).map(|ratio| pixel_size * ratio)
+}
+
 pub fn font_metrics(
     font_ctx: &mut parley::FontContext,
     font_request: FontRequest,

@@ -41,7 +41,7 @@ pub(super) struct LayoutWithoutLineBreaksBuilder {
 }
 
 impl LayoutWithoutLineBreaksBuilder {
-    fn new(
+    pub(super) fn new(
         font_request: Option<FontRequest>,
         text_wrap: TextWrap,
         stroke: Option<TextStrokeStyle>,
@@ -70,24 +70,9 @@ impl LayoutWithoutLineBreaksBuilder {
     ) -> parley::RangedBuilder<'a, Brush> {
         // Use the requested font's natural line-height ratio for every run so fallback fonts,
         // such as the symbol font used for password characters, don't enlarge the line box.
-        // The line-height factor scales this natural ratio.
         // `FontSizeRelative` scales the result with each styled span's font size.
-        let line_height_ratio = self.font_request.as_ref().and_then(|font_request| {
-            let font = font_request
-                .clone()
-                .query_fontique(&mut font_ctx.collection, &mut font_ctx.source_cache)?;
-            let face = skrifa::FontRef::from_index(font.blob.data(), font.index).ok()?;
-            let location = face.axes().location(font.synthesis.variation_settings());
-            let metrics = face.metrics(skrifa::instance::Size::unscaled(), &location);
-            let units_per_em = metrics.units_per_em as f32;
-            (units_per_em > 0.0)
-                .then(|| (metrics.ascent - metrics.descent + metrics.leading) / units_per_em)
-                .map(|natural_ratio| {
-                    font_request
-                        .line_height_for_natural_height(natural_ratio)
-                        .unwrap_or(natural_ratio)
-                })
-        });
+        let line_height_ratio =
+            self.font_request.as_ref().and_then(|fr| line_height_ratio(font_ctx, fr));
 
         let mut builder = layout_ctx.ranged_builder(font_ctx, text, self.scale_factor.get(), false);
 
@@ -253,6 +238,23 @@ impl LayoutWithoutLineBreaksBuilder {
             builder.build(text)
         })
     }
+}
+
+/// The line-height ratio, relative to the font size, that every shaped line gets.
+pub(super) fn line_height_ratio(
+    font_ctx: &mut parley::FontContext,
+    font_request: &FontRequest,
+) -> Option<f32> {
+    let font = font_request.query_fontique(&mut font_ctx.collection, &mut font_ctx.source_cache)?;
+    let face = skrifa::FontRef::from_index(font.blob.data(), font.index).ok()?;
+    let location = face.axes().location(font.synthesis.variation_settings());
+    let metrics = face.metrics(skrifa::instance::Size::unscaled(), &location);
+    let units_per_em = metrics.units_per_em as f32;
+    (units_per_em > 0.0)
+        .then(|| (metrics.ascent - metrics.descent + metrics.leading) / units_per_em)
+        .map(|natural_ratio| {
+            font_request.line_height_for_natural_height(natural_ratio).unwrap_or(natural_ratio)
+        })
 }
 
 /// Splits plain text into paragraph byte ranges at `'\n'`. The `'\n'` and any preceding `'\r'`
