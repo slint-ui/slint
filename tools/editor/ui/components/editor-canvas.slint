@@ -46,8 +46,6 @@ export component EditorCanvas inherits Rectangle {
     private property <Point> selection-move-pointer;
     private property <bool> selection-rotation-active: false;
     private property <angle> selection-rotation;
-    private property <int> palette-drop-request: AppState.palette-drop-request;
-    private property <int> handled-palette-drop-request: AppState.palette-drop-request;
 
     callback real-element-selected();
 
@@ -62,51 +60,16 @@ export component EditorCanvas inherits Rectangle {
         return EditorMetrics.phone-portrait-height;
     }
 
-    function finish-palette-drag(kind: PaletteComponentKind, component-name: string, window-position: Point) {
-        if !AppState.palette-drag-cancelled {
-            AppState.update-palette-drag(kind, window-position);
-            let content-origin = {
-                x: phone.absolute-position.x + EditorMetrics.phone-outer-padding,
-                y: phone.absolute-position.y + EditorMetrics.phone-outer-padding,
-            };
-            let geometry-position = {
-                x: AppState.palette-drag-preview-position.x - content-origin.x,
-                y: AppState.palette-drag-preview-position.y - content-origin.y,
-            };
-            let content-size = {
-                width: phone.width - 2 * EditorMetrics.phone-outer-padding,
-                height: phone.height - 2 * EditorMetrics.phone-outer-padding,
-            };
-            let preview-inside-content = geometry-position.x >= 0px
-                && geometry-position.y >= 0px
-                && geometry-position.x + AppState.palette-drag-preview-size.width <= content-size.width
-                && geometry-position.y + AppState.palette-drag-preview-size.height <= content-size.height;
-            if preview-inside-content {
-                Api.drop-with-geometry(
-                    Api.new-component-data-for-name(component-name),
-                    {
-                        x: window-position.x - content-origin.x,
-                        y: window-position.y - content-origin.y,
-                    },
-                    geometry-position,
-                    AppState.palette-drag-preview-size,
-                );
-            }
-        }
-        AppState.palette-drag-kind = PaletteComponentKind.none;
-        AppState.palette-drag-cancelled = false;
-    }
-
-    changed palette-drop-request => {
-        if root.palette-drop-request == root.handled-palette-drop-request {
-            return;
-        }
-        root.handled-palette-drop-request = root.palette-drop-request;
-        root.finish-palette-drag(
-            AppState.palette-drop-kind,
-            AppState.palette-drop-component-name,
-            AppState.palette-drop-window-position,
-        );
+    pure function palette-preview-inside-content(position: Point) -> bool {
+        let size = AppState.palette-drag-preview-size;
+        let preview-position = {
+            x: position.x - size.width / 2,
+            y: position.y - size.height / 2,
+        };
+        return preview-position.x >= 0px
+            && preview-position.y >= 0px
+            && preview-position.x + size.width <= phone.width - 2 * EditorMetrics.phone-outer-padding
+            && preview-position.y + size.height <= phone.height - 2 * EditorMetrics.phone-outer-padding;
     }
 
     function phone-canvas-top() -> length {
@@ -183,10 +146,39 @@ export component EditorCanvas inherits Rectangle {
 
             DropArea {
                 can-drop(event) => {
-                    return Api.can-drop(event.data, event.position.x, event.position.y, true) ? DragAction.copy : DragAction.none;
+                    if AppState.palette-drag-cancelled {
+                        return DragAction.none;
+                    }
+                    if AppState.palette-drag-kind != PaletteComponentKind.none {
+                        AppState.update-palette-drag(
+                            AppState.palette-drag-kind,
+                            {
+                                x: self.absolute-position.x + event.position.x,
+                                y: self.absolute-position.y + event.position.y,
+                            },
+                        );
+                        if !root.palette-preview-inside-content(event.position) {
+                            return DragAction.none;
+                        }
+                    }
+                    return Api.can-drop(event.data, event.position.x, event.position.y, true)
+                        ? DragAction.copy : DragAction.none;
                 }
                 dropped(event) => {
-                    Api.drop(event.data, event.position.x, event.position.y);
+                    if AppState.palette-drag-kind != PaletteComponentKind.none {
+                        let size = AppState.palette-drag-preview-size;
+                        Api.drop-with-geometry(
+                            event.data,
+                            event.position,
+                            {
+                                x: event.position.x - size.width / 2,
+                                y: event.position.y - size.height / 2,
+                            },
+                            size,
+                        );
+                    } else {
+                        Api.drop(event.data, event.position.x, event.position.y);
+                    }
                     return event.proposed-action;
                 }
             }

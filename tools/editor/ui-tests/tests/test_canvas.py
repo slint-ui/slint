@@ -106,7 +106,7 @@ def begin_palette_drag(
     window.dispatch_event(slint_testing.PointerPressEvent(start, button))
     window.dispatch_event(
         slint_testing.PointerMoveEvent(
-            slint_testing.LogicalPosition(x=start.x + 4, y=start.y + 4)
+            slint_testing.LogicalPosition(x=start.x + 16, y=start.y + 16)
         )
     )
     window.dispatch_event(slint_testing.PointerMoveEvent(target))
