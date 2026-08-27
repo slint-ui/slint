@@ -66,6 +66,16 @@ raw-window-handle = "0.6"
 
 # Used by the visual editor for the auto-updater: the Flatpak portal is a
 # D-Bus service.
+# Used by the visual editor for the auto-updater: the Store installs updates in
+# the background, and PackageCatalog is how the running process learns that the
+# copy it has mounted is now the old one.
+[target.'cfg(target_os = "windows")'.dependencies]
+windows = { workspace = true, features = ["ApplicationModel", "ApplicationModel_Core", "Services_Store", "Foundation", "Foundation_Collections", "Win32_Foundation", "Win32_UI_Shell"] }
+windows-core = "0.62.2"
+windows-collections = "0.3.2"
+windows-future = "0.3.2"
+raw-window-handle = "0.6"
+
 [target.'cfg(target_os = "linux")'.dependencies]
 zbus = { version = "5.14.0", default-features = false, features = ["async-io", "blocking-api"] }
 reqwest = { version = "0.13", default-features = false, features = ["blocking", "rustls"] }
