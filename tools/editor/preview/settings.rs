@@ -1,7 +1,10 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
+
+use i_slint_live_preview::protocol::PreviewComponent;
+use lsp_types::Url;
 
 use super::ui;
 
@@ -10,16 +13,15 @@ const MAX_RECENT_PROJECTS: usize = 4;
 
 #[derive(Clone, Debug, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub(crate) struct StoredRecentProject {
-    pub root: String,
-    pub path: String,
-    pub component: String,
+pub(crate) struct Project {
+    pub root: PathBuf,
+    pub preview: PreviewComponent,
 }
 
 #[derive(Default, Clone, Debug, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(try_from = "VisualEditorSettingsSerde", into = "VisualEditorSettingsSerde")]
 pub(crate) struct VisualEditorSettings {
-    recent_projects: Vec<StoredRecentProject>,
+    recent_projects: Vec<Project>,
 }
 
 impl VisualEditorSettings {
@@ -38,7 +40,7 @@ impl VisualEditorSettings {
             .ok()
     }
 
-    pub(crate) fn add_recent_project(&mut self, project: StoredRecentProject) -> bool {
+    pub(crate) fn add_recent_project(&mut self, project: Project) -> bool {
         if self.recent_projects.first() == Some(&project) {
             return false;
         }
@@ -52,25 +54,58 @@ impl VisualEditorSettings {
         self.recent_projects
             .iter()
             .filter_map(|project| {
-                let root_path = Path::new(&project.root);
+                let root_path = project.root.as_path();
+                let path = project.preview.url.to_file_path().ok()?;
+                let component = project.preview.component.as_deref()?;
                 // TODO: This should use the name configured in the project file.
-                let project_name = root_path.file_name();
-                if let Some(project_name) = project_name
-                    && root_path.is_dir()
-                    && Path::new(&project.path).is_file()
-                {
-                    Some((slint::format!("{}", project_name.display()), project))
-                } else {
-                    None
+                let project_name = root_path.file_name()?;
+                if !root_path.is_dir() || !path.is_file() {
+                    return None;
                 }
-            })
-            .map(|(name, project)| ui::RecentProject {
-                name,
-                root_path: project.root.clone().into(),
-                component: project.component.clone().into(),
-                path: project.path.clone().into(),
+                Some(ui::RecentProject {
+                    name: slint::format!("{}", project_name.display()),
+                    root_path: project.root.to_string_lossy().as_ref().into(),
+                    component: component.into(),
+                    path: path.to_string_lossy().as_ref().into(),
+                })
             })
             .collect()
+    }
+}
+
+impl Project {
+    pub(crate) fn from_file(
+        path: impl AsRef<Path>,
+        component: Option<String>,
+    ) -> i_slint_editor_preview::Result<Self> {
+        let path = std::fs::canonicalize(path.as_ref())?;
+        let root = path
+            .parent()
+            .ok_or_else(|| format!("Failed to determine project root for {}", path.display()))?;
+        Self::from_root(root, &path, component)
+    }
+
+    pub(crate) fn from_root(
+        root: &Path,
+        path: &Path,
+        component: Option<String>,
+    ) -> i_slint_editor_preview::Result<Self> {
+        let root = std::fs::canonicalize(root)?;
+        if !root.is_dir() {
+            return Err(format!("{} is not a directory", root.display()).into());
+        }
+        let path = std::fs::canonicalize(path)?;
+        if !path.is_file()
+            || !path
+                .extension()
+                .and_then(|extension| extension.to_str())
+                .is_some_and(|extension| extension.eq_ignore_ascii_case("slint"))
+        {
+            return Err(format!("{} is not a Slint file", path.display()).into());
+        }
+        let url = Url::from_file_path(&path)
+            .map_err(|_| format!("Failed to convert {} to URL", path.display()))?;
+        Ok(Self { root, preview: PreviewComponent { url, component } })
     }
 }
 
@@ -82,7 +117,7 @@ impl VisualEditorSettings {
 struct VisualEditorSettingsSerde {
     version: u32,
     #[serde(default)]
-    recent_projects: Vec<StoredRecentProject>,
+    recent_projects: Vec<Project>,
 }
 
 impl TryFrom<VisualEditorSettingsSerde> for VisualEditorSettings {
@@ -115,8 +150,14 @@ mod tests {
 
     use super::*;
 
-    fn recent_project(root: &str, path: &str, component: &str) -> StoredRecentProject {
-        StoredRecentProject { root: root.into(), path: path.into(), component: component.into() }
+    fn recent_project(root: &str, path: &str, component: &str) -> Project {
+        Project {
+            root: root.into(),
+            preview: PreviewComponent {
+                url: Url::from_file_path(path).unwrap(),
+                component: Some(component.into()),
+            },
+        }
     }
 
     #[test]
@@ -124,8 +165,12 @@ mod tests {
         let settings = VisualEditorSettings {
             recent_projects: vec![recent_project("/project", "/project/main.slint", "MainWindow")],
         };
+        let serialized = settings.serialize();
+        let json: serde_json::Value = serde_json::from_str(&serialized).unwrap();
 
-        assert_eq!(VisualEditorSettings::deserialize(&settings.serialize()), Some(settings));
+        assert_eq!(json["recent_projects"][0]["preview"]["component"], "MainWindow");
+        assert!(json["recent_projects"][0].get("path").is_none());
+        assert_eq!(VisualEditorSettings::deserialize(&serialized), Some(settings));
     }
 
     #[test]
@@ -147,8 +192,8 @@ mod tests {
             )));
         }
         assert_eq!(settings.recent_projects.len(), MAX_RECENT_PROJECTS);
-        assert_eq!(settings.recent_projects[0].component, "Component4");
-        assert_eq!(settings.recent_projects[3].component, "Component1");
+        assert_eq!(settings.recent_projects[0].preview.component.as_deref(), Some("Component4"));
+        assert_eq!(settings.recent_projects[3].preview.component.as_deref(), Some("Component1"));
 
         let existing = settings.recent_projects[2].clone();
         assert!(settings.add_recent_project(existing.clone()));
@@ -160,20 +205,22 @@ mod tests {
             "/project/2/other.slint",
             "Other",
         )));
-        assert_eq!(settings.recent_projects[0].root, "/project/2");
-        assert_eq!(settings.recent_projects[0].component, "Other");
+        assert_eq!(settings.recent_projects[0].root, Path::new("/project/2"));
+        assert_eq!(settings.recent_projects[0].preview.component.as_deref(), Some("Other"));
     }
 
     #[test]
     fn missing_recent_projects_stay_stored_but_are_not_visible() {
-        let root = std::env::temp_dir()
-            .join(format!("slint-visual-editor-settings-{}", std::process::id()));
-        fs::create_dir_all(&root).unwrap();
-        let path = root.join("visible.slint");
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("visible.slint");
         fs::write(&path, "").unwrap();
         let settings = VisualEditorSettings {
             recent_projects: vec![
-                recent_project(&root.to_string_lossy(), &path.to_string_lossy(), "Visible"),
+                recent_project(
+                    &directory.path().to_string_lossy(),
+                    &path.to_string_lossy(),
+                    "Visible",
+                ),
                 recent_project("/missing", "/missing/project.slint", "Missing"),
             ],
         };
@@ -182,7 +229,40 @@ mod tests {
         assert_eq!(settings.recent_projects.len(), 2);
         assert_eq!(visible.len(), 1);
         assert_eq!(visible[0].component, "Visible");
+    }
 
-        let _ = fs::remove_dir_all(root);
+    fn project_file() -> (tempfile::TempDir, PathBuf) {
+        let directory = tempfile::tempdir().unwrap();
+        fs::create_dir(directory.path().join("ui")).unwrap();
+        let path = directory.path().join("ui/main.slint");
+        fs::write(&path, "export component MainWindow inherits Window {}").unwrap();
+        (directory, path)
+    }
+
+    #[test]
+    fn project_from_file_uses_parent_as_root() {
+        let (directory, path) = project_file();
+
+        let project = Project::from_file(&path, Some("MainWindow".into())).unwrap();
+
+        assert_eq!(project.root, std::fs::canonicalize(directory.path().join("ui")).unwrap());
+        assert_eq!(
+            project.preview.url.to_file_path().unwrap(),
+            std::fs::canonicalize(path).unwrap()
+        );
+        assert_eq!(project.preview.component.as_deref(), Some("MainWindow"));
+    }
+
+    #[test]
+    fn project_from_root_keeps_explicit_root() {
+        let (directory, path) = project_file();
+
+        let project = Project::from_root(directory.path(), &path, None).unwrap();
+
+        assert_eq!(project.root, std::fs::canonicalize(directory.path()).unwrap());
+        assert_eq!(
+            project.preview.url.to_file_path().unwrap(),
+            std::fs::canonicalize(path).unwrap()
+        );
     }
 }

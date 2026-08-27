@@ -56,7 +56,7 @@ pub(crate) mod settings;
 pub mod ui;
 mod undo_redo;
 
-use settings::{SETTINGS_FILE, StoredRecentProject, VisualEditorSettings};
+use settings::{Project, SETTINGS_FILE, VisualEditorSettings};
 
 pub fn initialize(
     editor_ui: &ui::EditorUi,
@@ -350,12 +350,10 @@ fn record_current_project() {
     if !path.is_file() || !path.starts_with(&root) {
         return;
     }
-    let Some(component) = component.component else { return };
-    let project = StoredRecentProject {
-        root: root.to_string_lossy().into_owned(),
-        path: path.to_string_lossy().into_owned(),
-        component,
-    };
+    let Some(component_name) = component.component else { return };
+    let Ok(url) = Url::from_file_path(path) else { return };
+    let project =
+        Project { root, preview: PreviewComponent { url, component: Some(component_name) } };
     let update = PREVIEW_STATE.with_borrow_mut(|preview_state| {
         if !preview_state.settings.add_recent_project(project) {
             return None;
@@ -2938,7 +2936,7 @@ mod tests {
         let messages = Rc::new(RefCell::new(Vec::new()));
         reset_preview_state(messages.clone());
         let settings = VisualEditorSettings::deserialize(
-            r#"{"version":1,"recent_projects":[{"root":"/missing","path":"/missing/main.slint","component":"MainWindow"}]}"#,
+            r#"{"version":1,"recent_projects":[{"root":"/missing","preview":{"url":"file:///missing/main.slint","component":"MainWindow"}}]}"#,
         )
         .unwrap();
 
