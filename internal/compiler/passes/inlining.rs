@@ -780,6 +780,7 @@ fn duplicate_binding(
         expression: b.expression.clone(),
         span: b.span.clone(),
         priority: b.priority.saturating_add(priority_delta),
+        from_source: b.from_source,
         animation: b
             .animation
             .as_ref()
