@@ -767,6 +767,12 @@ export default defineConfig({
                 // checks that relative links point to existing pages.
                 slintStarlightLinksValidatorPlugin({
                     errorOnRelativeLinks: false,
+                    // The Builtin Enums page imports one `_<Enum>.md` partial
+                    // per enum, and the validator doesn't see the ids inside an
+                    // imported partial. Enum names carry no dash, so this skips
+                    // the value anchors only, and the link carries the base path
+                    // the site is deployed under, hence the leading `**`.
+                    exclude: ["**/property-types/builtin-enums/#*-*"],
                 }),
             ],
             social: slintStarlightSocial,
