@@ -291,6 +291,10 @@ pub fn fractional_scale_factor_source() -> String {
 pub fn assert_fractional_scale_factor_shrink_is_sound(count: usize) {
     // The occluder, the window's own implicit (unoccluded) background, and the sliver probe are
     // drawn; the deep probe is culled.
+    //
+    // Only pins the shrink's direction, not its magnitude: a shrink that gives up more margin
+    // than necessary (but still stays clear of the sliver probe) leaves the same draw count,
+    // so this only catches the shrink going the wrong way, not a wasteful one.
     assert_eq!(
         count, 3,
         "expected the occluder, the window's own background, and the sliver probe sitting in \

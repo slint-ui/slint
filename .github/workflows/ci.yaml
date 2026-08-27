@@ -392,6 +392,11 @@ jobs:
             - uses: ./.github/actions/setup-rust
               with:
                   target: thumbv6m-none-eabi,thumbv7em-none-eabihf,thumbv8m.main-none-eabihf,armv7-unknown-linux-gnueabihf
+            - name: Check occlusion-culling under slint_int_coord
+              if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'internal') || contains(fromJSON(inputs.changes), 'api_rs') }}
+              env:
+                  RUSTFLAGS: --cfg slint_int_coord -D warnings
+              run: cargo check -p i-slint-core --no-default-features --features occlusion-culling,libm,unsafe-single-threaded
             - uses: esp-rs/xtensa-toolchain@v1.7
               if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'examples_mcu') }}
               with:
