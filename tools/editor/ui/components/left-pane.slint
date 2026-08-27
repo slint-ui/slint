@@ -118,9 +118,7 @@ component FilesUnavailableNotice inherits Rectangle {
 component ElementPaletteRows inherits VerticalLayout {
     in property <bool> enabled: true;
     in property <bool> drag-enabled: true;
-    callback drag-started(PaletteComponentKind, Point);
-    callback drag-moved(PaletteComponentKind, Point);
-    callback drag-ended(PaletteComponentKind, string, Point);
+    callback drag-started();
 
     spacing: 8px;
 
@@ -130,9 +128,7 @@ component ElementPaletteRows inherits VerticalLayout {
         kind: PaletteComponentKind.rectangle;
         label: "Rectangle";
         detail: "Shape layer";
-        drag-started(kind, position) => { root.drag-started(kind, position); }
-        drag-moved(kind, position) => { root.drag-moved(kind, position); }
-        drag-ended(kind, component-name, position) => { root.drag-ended(kind, component-name, position); }
+        drag-started => { root.drag-started(); }
     }
 
     ComponentPaletteRow {
@@ -141,9 +137,7 @@ component ElementPaletteRows inherits VerticalLayout {
         kind: PaletteComponentKind.text;
         label: "Text";
         detail: "Text layer";
-        drag-started(kind, position) => { root.drag-started(kind, position); }
-        drag-moved(kind, position) => { root.drag-moved(kind, position); }
-        drag-ended(kind, component-name, position) => { root.drag-ended(kind, component-name, position); }
+        drag-started => { root.drag-started(); }
     }
 
     ComponentPaletteRow {
@@ -152,17 +146,13 @@ component ElementPaletteRows inherits VerticalLayout {
         kind: PaletteComponentKind.image;
         label: "Image";
         detail: "Image layer";
-        drag-started(kind, position) => { root.drag-started(kind, position); }
-        drag-moved(kind, position) => { root.drag-moved(kind, position); }
-        drag-ended(kind, component-name, position) => { root.drag-ended(kind, component-name, position); }
+        drag-started => { root.drag-started(); }
     }
 }
 
 export component LeftPane inherits Rectangle {
     in property <bool> can-collapse: false;
-    callback drag-started(PaletteComponentKind, Point);
-    callback drag-moved(PaletteComponentKind, Point);
-    callback drag-ended(PaletteComponentKind, string, Point);
+    callback drag-started();
     callback panes-collapsed();
 
     private property <bool> image-mode: Api.editor-surface-mode == EditorSurfaceMode.image;
@@ -223,9 +213,7 @@ export component LeftPane inherits Rectangle {
             ElementPaletteRows {
                 enabled: !root.image-mode;
                 drag-enabled: Api.known-components.length > 0;
-                drag-started(kind, position) => { root.drag-started(kind, position); }
-                drag-moved(kind, position) => { root.drag-moved(kind, position); }
-                drag-ended(kind, component-name, position) => { root.drag-ended(kind, component-name, position); }
+                drag-started => { root.drag-started(); }
             }
         }
     }

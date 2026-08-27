@@ -150,16 +150,7 @@ export component EditorUi inherits Window {
 
                     if !root.sidebars-collapsed: LeftPane {
                         can-collapse: true;
-                        drag-started(kind, position) => {
-                            editor.focus();
-                            AppState.update-palette-drag(kind, position);
-                        }
-                        drag-moved(kind, position) => {
-                            AppState.update-palette-drag(kind, position);
-                        }
-                        drag-ended(kind, component-name, position) => {
-                            AppState.request-palette-drop(kind, component-name, position);
-                        }
+                        drag-started => { editor.focus(); }
                         panes-collapsed => {
                             root.sidebars-collapsed = true;
                         }
