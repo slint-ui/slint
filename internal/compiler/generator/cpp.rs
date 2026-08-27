@@ -5538,13 +5538,13 @@ fn compile_builtin_function_call(
             })
         }
         BuiltinFunction::SetSelectionOffsets => {
-            if let [llr::Expression::PropertyReference(pr), from, to] = arguments {
+            if let [llr::Expression::PropertyReference(pr), anchor_expr, focus_expr] = arguments {
                 let window = access_window_field(ctx);
-                let start = compile_expression(from, ctx);
-                let end = compile_expression(to, ctx);
+                let anchor = compile_expression(anchor_expr, ctx);
+                let focus = compile_expression(focus_expr, ctx);
                 item_owner(pr).then(|owner| {
                     let (item, item_rc) = native_item_from_owner(pr, ctx, owner);
-                    format!("slint_textinput_set_selection_offsets(&{item}, &{window}.handle(), &{item_rc}, static_cast<int>({start}), static_cast<int>({end}))")
+                    format!("slint_textinput_set_selection_offsets(&{item}, &{window}.handle(), &{item_rc}, static_cast<int>({anchor}), static_cast<int>({focus}))")
                 })
             } else {
                 panic!("internal error: invalid args to set-selection-offsets {arguments:?}")

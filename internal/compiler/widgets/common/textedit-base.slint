@@ -35,8 +35,8 @@ export component TextEditBase inherits Rectangle {
     callback key-pressed(event: KeyEvent) -> EventResult;
     callback key-released(event: KeyEvent) -> EventResult;
 
-    public function set-selection-offsets(start: int, end: int) {
-        text-input.set-selection-offsets(start, end);
+    public function set-selection-offsets(anchor: int, focus: int) {
+        text-input.set-selection-offsets(anchor, focus);
     }
 
     public function select-all() {

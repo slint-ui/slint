@@ -38,8 +38,8 @@ export component TextEdit {
     accessible-read-only: root.read-only;
     accessible-action-set-selection-offsets(anchor, focus) => { base.set-selection-offsets(anchor, focus); }
 
-    public function set-selection-offsets(start: int, end: int) {
-        base.set-selection-offsets(start, end);
+    public function set-selection-offsets(anchor: int, focus: int) {
+        base.set-selection-offsets(anchor, focus);
     }
 
     public function select-all() {

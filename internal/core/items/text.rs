@@ -1992,16 +1992,16 @@ impl TextInput {
         self: Pin<&Self>,
         window_adapter: &Rc<dyn WindowAdapter>,
         self_rc: &ItemRc,
-        start: i32,
-        end: i32,
+        anchor: i32,
+        focus: i32,
     ) {
         let text = self.text();
-        let safe_start = safe_byte_offset(start, &text);
-        let safe_end = safe_byte_offset(end, &text);
+        let safe_anchor = safe_byte_offset(anchor, &text);
+        let safe_focus = safe_byte_offset(focus, &text);
 
-        self.as_ref().anchor_position_byte_offset.set(safe_start as i32);
+        self.as_ref().anchor_position_byte_offset.set(safe_anchor as i32);
         self.set_cursor_position(
-            safe_end as i32,
+            safe_focus as i32,
             true,
             TextChangeNotify::TriggerCallbacks,
             window_adapter,
@@ -2473,13 +2473,13 @@ pub unsafe extern "C" fn slint_textinput_set_selection_offsets(
     window_adapter: *const crate::window::ffi::WindowAdapterRcOpaque,
     self_component: &vtable::VRc<crate::item_tree::ItemTreeVTable>,
     self_index: u32,
-    start: i32,
-    end: i32,
+    anchor: i32,
+    focus: i32,
 ) {
     unsafe {
         let window_adapter = &*(window_adapter as *const Rc<dyn WindowAdapter>);
         let self_rc = ItemRc::new(self_component.clone(), self_index);
-        text_input.set_selection_offsets(window_adapter, &self_rc, start, end);
+        text_input.set_selection_offsets(window_adapter, &self_rc, anchor, focus);
     }
 }
 
