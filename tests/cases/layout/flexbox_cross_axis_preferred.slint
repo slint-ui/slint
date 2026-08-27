@@ -1,0 +1,49 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A stretched item's cross size is `auto`; the container's intrinsic cross size
+// must still reflect the item's preferred size, not just its minimum.
+
+export component TestCase inherits Window {
+    // Column: cross axis is the width.
+    col-flex := FlexboxLayout {
+        flex-direction: column;
+        Rectangle {
+            min-width: 40px;
+            preferred-width: 90px;
+            min-height: 30px;
+        }
+    }
+
+    // Row: cross axis is the height.
+    row-flex := FlexboxLayout {
+        flex-direction: row;
+        Rectangle {
+            min-height: 40px;
+            preferred-height: 90px;
+            min-width: 30px;
+        }
+    }
+
+    out property <bool> test_column: col-flex.preferred-width == 90px;
+    out property <bool> test_row: row-flex.preferred-height == 90px;
+
+    out property <bool> test: test_column && test_row;
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+assert(handle->get_test());
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+```js
+var instance = new slint.TestCase({});
+assert(instance.test);
+```
+*/

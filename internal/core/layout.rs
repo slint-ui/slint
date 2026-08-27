@@ -2255,17 +2255,29 @@ pub fn flexbox_layout_info_cross_axis_with_measure(
     builder.compute_layout(available_width, available_height, measure.as_mut().map(|m| m as _));
 
     let (total_width, total_height) = builder.container_size();
-    let cross_size = match direction {
-        FlexboxLayoutDirection::Row | FlexboxLayoutDirection::RowReverse => total_height,
-        FlexboxLayoutDirection::Column | FlexboxLayoutDirection::ColumnReverse => total_width,
+    let (cross_size, cross_padding) = match direction {
+        FlexboxLayoutDirection::Row | FlexboxLayoutDirection::RowReverse => (total_height, padding_v),
+        FlexboxLayoutDirection::Column | FlexboxLayoutDirection::ColumnReverse => {
+            (total_width, padding_h)
+        }
     };
+
+    // A stretched item's cross axis is `auto`, so taffy's cross size covers only
+    // the items' min size. Floor the preferred cross size with the widest item's
+    // preferred size plus padding, like a box layout's orthogonal axis.
+    let max_item_cross_preferred = cross_cells
+        .iter()
+        .map(|c| c.constraint.preferred_bounded())
+        .fold(0 as Coord, Coord::max)
+        + cross_padding.begin
+        + cross_padding.end;
 
     LayoutInfo {
         min: cross_size,
         max: Coord::MAX,
         min_percent: 0 as _,
         max_percent: 100 as _,
-        preferred: cross_size,
+        preferred: cross_size.max(max_item_cross_preferred),
         stretch: 0.0,
     }
 }
