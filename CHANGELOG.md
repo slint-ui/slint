@@ -231,6 +231,8 @@ All notable changes to this project are documented in this file.
  - The `debug()` function (with its source location) and runtime warnings now print to `console.log` instead of stderr.
  - The default `Model.setRowData` now throws when a subclass does not override it, instead of logging a message.
  - Published musl binaries, so `npm install slint-ui` works on Alpine Linux. (#12551)
+ - Added `FilterModel`, `SortModel`, and `ReverseModel`, and made `MapModel` public, along with
+   `Model.map`/`.filter`/`.sort`/`.reverse` shortcuts to create them.
 
 ### Python
 
