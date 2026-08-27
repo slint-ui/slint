@@ -52,13 +52,11 @@ mod outline;
 mod properties;
 #[cfg(all(not(target_arch = "wasm32"), feature = "preview-remote"))]
 pub mod remote;
+pub(crate) mod settings;
 pub mod ui;
 mod undo_redo;
-pub(crate) mod visual_editor_settings;
 
-use visual_editor_settings::{
-    StoredRecentProject, VISUAL_EDITOR_SETTINGS_FILE, VisualEditorSettings,
-};
+use settings::{SETTINGS_FILE, StoredRecentProject, VisualEditorSettings};
 
 pub fn initialize(
     editor_ui: &ui::EditorUi,
@@ -70,7 +68,7 @@ pub fn initialize(
         let api = editor_ui.global::<ui::Api>();
         preview_state.api = <ui::Api as slint::Global<'_, ui::EditorUi>>::as_weak(&api);
         preview_state.editor_ui = Some(editor_ui.clone_strong());
-        preview_state.visual_editor_settings = settings;
+        preview_state.settings = settings;
     });
 
     to_lsp
@@ -217,7 +215,7 @@ pub struct PreviewState {
     pub config: PreviewConfig,
     /// The most recent settings synced with the editor, used to suppress
     /// redundant updates when the UI re-reports settings we just applied.
-    visual_editor_settings: VisualEditorSettings,
+    settings: VisualEditorSettings,
     current_previewed_component: Option<PreviewComponent>,
     current_project_root: Option<Url>,
     file_tree_controller: Option<ui::file_tree::SharedFileTreeController>,
@@ -312,7 +310,7 @@ fn delete_document(url: &lsp_types::Url) {
 }
 
 pub fn set_user_settings(name: String, contents: String) {
-    if name.as_str() == VISUAL_EDITOR_SETTINGS_FILE {
+    if name.as_str() == SETTINGS_FILE {
         let Some(settings) = VisualEditorSettings::deserialize(&contents) else {
             return;
         };
@@ -320,7 +318,7 @@ pub fn set_user_settings(name: String, contents: String) {
             if let Some(editor_ui) = preview_state.editor_ui.as_ref() {
                 apply_visible_recent_projects(editor_ui, &settings);
             }
-            preview_state.visual_editor_settings = settings;
+            preview_state.settings = settings;
         });
     }
 }
@@ -359,19 +357,19 @@ fn record_current_project() {
         component,
     };
     let update = PREVIEW_STATE.with_borrow_mut(|preview_state| {
-        if !preview_state.visual_editor_settings.add_recent_project(project) {
+        if !preview_state.settings.add_recent_project(project) {
             return None;
         }
         if let Some(editor_ui) = preview_state.editor_ui.as_ref() {
-            apply_visible_recent_projects(editor_ui, &preview_state.visual_editor_settings);
+            apply_visible_recent_projects(editor_ui, &preview_state.settings);
         }
-        Some(preview_state.visual_editor_settings.serialize())
+        Some(preview_state.settings.serialize())
     });
     let Some(contents) = update else { return };
     PREVIEW_STATE.with_borrow(|preview_state| {
         if let Some(to_lsp) = preview_state.to_lsp.borrow().as_ref()
             && let Err(error) = to_lsp.send(&PreviewToLspMessage::UpdateUserSettings {
-                name: VISUAL_EDITOR_SETTINGS_FILE.into(),
+                name: SETTINGS_FILE.into(),
                 contents,
             })
         {
@@ -2879,7 +2877,7 @@ mod tests {
     }
 
     #[test]
-    fn record_current_project_updates_visual_editor_settings() {
+    fn record_current_project_updates_settings() {
         let messages = Rc::new(RefCell::new(Vec::new()));
         reset_preview_state(messages.clone());
         let (root, path) = temp_project("recent");
@@ -2901,7 +2899,7 @@ mod tests {
         assert!(matches!(
             &messages[0],
             PreviewToLspMessage::UpdateUserSettings { name, contents }
-                if name == VISUAL_EDITOR_SETTINGS_FILE
+                if name == SETTINGS_FILE
                     && VisualEditorSettings::deserialize(contents).is_some_and(|settings| {
                         settings.visible_recent_projects().first().is_some_and(|project| {
                             project.component == "MainWindow"
@@ -2936,7 +2934,7 @@ mod tests {
     }
 
     #[test]
-    fn visual_editor_settings_from_lsp_are_not_sent_back() {
+    fn settings_from_lsp_are_not_sent_back() {
         let messages = Rc::new(RefCell::new(Vec::new()));
         reset_preview_state(messages.clone());
         let settings = VisualEditorSettings::deserialize(
@@ -2944,10 +2942,10 @@ mod tests {
         )
         .unwrap();
 
-        set_user_settings(VISUAL_EDITOR_SETTINGS_FILE.into(), settings.serialize());
+        set_user_settings(SETTINGS_FILE.into(), settings.serialize());
 
         PREVIEW_STATE.with_borrow(|preview_state| {
-            assert_eq!(preview_state.visual_editor_settings, settings);
+            assert_eq!(preview_state.settings, settings);
         });
         assert!(messages.borrow().is_empty());
     }

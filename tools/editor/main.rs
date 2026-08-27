@@ -189,7 +189,7 @@ fn select_backend() -> std::result::Result<(), slint::PlatformError> {
 fn start_editor_session(
     editor_ui: &preview::ui::EditorUi,
     project: StartupProject,
-    settings: preview::visual_editor_settings::VisualEditorSettings,
+    settings: preview::settings::VisualEditorSettings,
 ) {
     let (to_lsp, from_preview) = crossbeam_channel::unbounded();
     let to_lsp = Rc::new(EmbeddedPreviewToLsp { sender: to_lsp })
