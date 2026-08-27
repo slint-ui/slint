@@ -610,8 +610,8 @@ pub struct ModelAdaptorVTable {
     pub row_data: unsafe extern "C" fn(VRef<ModelAdaptorVTable>, row: usize) -> *mut Value,
     pub set_row_data: extern "C" fn(VRef<ModelAdaptorVTable>, row: usize, value: Box<Value>),
     pub push_row: extern "C" fn(VRef<ModelAdaptorVTable>, value: Box<Value>),
-    pub remove_row: extern "C" fn(VRef<ModelAdaptorVTable>, row: isize),
-    pub insert_row: extern "C" fn(VRef<ModelAdaptorVTable>, row: isize, value: Box<Value>),
+    pub remove_row: extern "C" fn(VRef<ModelAdaptorVTable>, row: usize),
+    pub insert_row: extern "C" fn(VRef<ModelAdaptorVTable>, row: usize, value: Box<Value>),
     pub get_notify: extern "C" fn(VRef<'_, ModelAdaptorVTable>) -> &ModelNotifyOpaque,
     pub drop: extern "C" fn(VRefMut<ModelAdaptorVTable>),
 }
@@ -644,12 +644,12 @@ impl Model for ModelAdaptorWrapper {
     }
 
     fn remove_row(&self, row: usize) {
-        self.0.remove_row(row as isize);
+        self.0.remove_row(row);
     }
 
     fn insert_row(&self, row: usize, data: Value) {
         let val = Box::new(data);
-        self.0.insert_row(row as isize, val);
+        self.0.insert_row(row, val);
     }
 
     fn as_any(&self) -> &dyn core::any::Any {
