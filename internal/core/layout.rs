@@ -1751,9 +1751,7 @@ mod flexbox_taffy {
             &mut self,
             available_width: Coord,
             available_height: Coord,
-            mut measure: Option<
-                &mut dyn FnMut(usize, Option<Coord>, Option<Coord>) -> (Coord, Coord),
-            >,
+            measure: &mut dyn FnMut(usize, Option<Coord>, Option<Coord>) -> (Coord, Coord),
         ) {
             let available_space = taffy::prelude::Size {
                 width: if available_width < Coord::MAX {
@@ -1772,16 +1770,14 @@ mod flexbox_taffy {
                     self.container,
                     available_space,
                     |known_dimensions, _available_space, _node_id, node_context, _style| {
-                        if let (Some(measure), Some(&mut child_index)) =
-                            (measure.as_deref_mut(), node_context)
-                        {
-                            let known_w = known_dimensions.width.map(|w| w as Coord);
-                            let known_h = known_dimensions.height.map(|h| h as Coord);
-                            let (w, h) = measure(child_index, known_w, known_h);
-                            taffy::prelude::Size { width: w as f32, height: h as f32 }
-                        } else {
-                            taffy::prelude::Size::ZERO
-                        }
+                        // Only the container node has no context.
+                        let Some(&mut child_index) = node_context else {
+                            return taffy::prelude::Size::ZERO;
+                        };
+                        let known_w = known_dimensions.width.map(|w| w as Coord);
+                        let known_h = known_dimensions.height.map(|h| h as Coord);
+                        let (w, h) = measure(child_index, known_w, known_h);
+                        taffy::prelude::Size { width: w as f32, height: h as f32 }
                     },
                 )
                 .unwrap_or_else(|e| {
@@ -1892,8 +1888,21 @@ impl<'a> FlexboxLayoutCacheGenerator<'a> {
 /// must be a self-consistent pair (each dimension measured at the other):
 /// taffy caches it and reuses one dimension for a later query with the other
 /// one known.
+///
+/// `None` means the caller has no callback of its own and takes the entry
+/// point's default: the item's preferred size for a solve, and nothing (so an
+/// item taffy sizes from its content falls back to its min constraint) for the
+/// cross-axis info. Taffy itself is always given a callback, so a forgotten one
+/// is a compile error rather than a silently zero-sized item.
 pub type FlexboxMeasureFn<'a> =
     Option<&'a mut dyn FnMut(usize, Coord, Coord, bool, bool) -> (Coord, Coord)>;
+
+/// The default measure: report back the sizes `resolve_measure_defaults`
+/// pre-resolved from the cells data, i.e. the item's preferred size for any
+/// dimension taffy has not pinned down.
+fn identity_measure(_: usize, w: Coord, h: Coord, _: bool, _: bool) -> (Coord, Coord) {
+    (w, h)
+}
 
 /// Adapt a [`FlexboxMeasureFn`] to the taffy-facing closure: resolve the
 /// dimensions taffy did not supply to the cell's preferred size, so the
@@ -1918,13 +1927,7 @@ pub fn solve_flexbox_layout(
     data: &FlexboxLayoutData,
     repeater_indices: Slice<u32>,
 ) -> SharedVector<Coord> {
-    // The identity measure callback returns the sizes pre-resolved from the
-    // cells data. The compiler emits this plain entry point only for layouts
-    // without height-for-width cells, so the pre-computed height is correct
-    // for whatever width taffy assigns; layouts with h4w cells go through
-    // a real measure callback instead.
-    let mut measure = |_: usize, w: Coord, h: Coord, _: bool, _: bool| -> (Coord, Coord) { (w, h) };
-    solve_flexbox_layout_with_measure(data, repeater_indices, Some(&mut measure))
+    solve_flexbox_layout_with_measure(data, repeater_indices, None)
 }
 
 /// Solve a FlexboxLayout using Taffy
@@ -1982,8 +1985,13 @@ pub fn solve_flexbox_layout_with_measure(
         }
     };
 
-    let mut measure = measure.map(|m| resolve_measure_defaults(&data.cells_h, &data.cells_v, m));
-    builder.compute_layout(available_width, available_height, measure.as_mut().map(|m| m as _));
+    // The compiler omits the callback only for layouts without
+    // height-for-width cells, so the pre-computed height is correct for
+    // whatever width taffy assigns.
+    let mut identity = identity_measure;
+    let measure = measure.unwrap_or(&mut identity);
+    let mut measure = resolve_measure_defaults(&data.cells_h, &data.cells_v, measure);
+    builder.compute_layout(available_width, available_height, &mut measure);
 
     // Extract results using the cache generator to handle repeaters.
     // If `order` sorting was applied, we need to collect results by original index first,
@@ -2277,8 +2285,18 @@ pub fn flexbox_layout_info_cross_axis_with_measure(
         }
     };
 
-    let mut measure = measure.map(|m| resolve_measure_defaults(&cells_h, &cells_v, m));
-    builder.compute_layout(available_width, available_height, measure.as_mut().map(|m| m as _));
+    // Report nothing for an item taffy sizes from its content, so it falls back
+    // to its min constraint.
+    let mut zero = |_: usize, _: Option<Coord>, _: Option<Coord>| (0 as Coord, 0 as Coord);
+    let mut resolved = measure.map(|m| resolve_measure_defaults(&cells_h, &cells_v, m));
+    builder.compute_layout(
+        available_width,
+        available_height,
+        match resolved.as_mut() {
+            Some(m) => m,
+            None => &mut zero,
+        },
+    );
 
     let (total_width, total_height) = builder.container_size();
     let cross_size = match direction {
@@ -2571,6 +2589,12 @@ pub(crate) mod ffi {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A measure callback that reports nothing, so every `auto` size falls back
+    /// to the item's min constraint.
+    fn measure_zero(_: usize, _: Option<Coord>, _: Option<Coord>) -> (Coord, Coord) {
+        (0 as Coord, 0 as Coord)
+    }
 
     fn collect_from_organized_data(
         organized_data: &GridLayoutOrganizedData,
@@ -3230,7 +3254,7 @@ mod tests {
                     known_h.unwrap_or(0 as Coord),
                 )
             };
-            builder.compute_layout(Coord::MAX, Coord::MAX, Some(&mut measure));
+            builder.compute_layout(Coord::MAX, Coord::MAX, &mut measure);
             builder.container_size().0
         }
 
@@ -3301,7 +3325,7 @@ mod tests {
                     known_h.unwrap_or_else(|| cells[idx].constraint.preferred_bounded()),
                 )
             };
-            builder.compute_layout(Coord::MAX, Coord::MAX, Some(&mut measure));
+            builder.compute_layout(Coord::MAX, Coord::MAX, &mut measure);
             builder.container_size().1
         }
 
@@ -3363,7 +3387,7 @@ mod tests {
                     container_height: None,
                     use_measure_for_cross_axis: false,
                 });
-            builder.compute_layout(400 as Coord, Coord::MAX, None);
+            builder.compute_layout(400 as Coord, Coord::MAX, &mut measure_zero);
             (0..constraints.len()).map(|i| builder.child_geometry(i).2).collect()
         }
 
@@ -3448,7 +3472,7 @@ mod tests {
                 container_height: None,
                 use_measure_for_cross_axis: false,
             });
-        builder.compute_layout(Coord::MAX, Coord::MAX, None);
+        builder.compute_layout(Coord::MAX, Coord::MAX, &mut measure_zero);
         let (_x, _y, w, _h) = builder.child_geometry(0);
         // Without the fix the dropped `50% * MAX` makes this the f32 sentinel
         // (or panics under i32); with it the item just takes its natural size.
