@@ -39,6 +39,7 @@ struct RenderState {
     clip_rect: LogicalRect,
     transform: kurbo::Affine,
     layer_count: usize,
+    alpha: f32,
 }
 
 pub struct AnyrenderItemRenderer<'a, S: PaintScene> {
@@ -102,12 +103,17 @@ impl<'a, S: PaintScene> AnyrenderItemRenderer<'a, S> {
                 ),
                 transform: initial_transform,
                 layer_count: 0,
+                alpha: 1.,
             },
         }
     }
 }
 
 impl<'a, S: PaintScene> ItemRenderer for AnyrenderItemRenderer<'a, S> {
+    fn global_alpha_transparent(&self) -> bool {
+        self.current_state.alpha == 0.0
+    }
+
     fn draw_rectangle(
         &mut self,
         rect: Pin<&dyn RenderRectangle>,
@@ -693,6 +699,7 @@ impl<'a, S: PaintScene> ItemRenderer for AnyrenderItemRenderer<'a, S> {
     }
 
     fn apply_opacity(&mut self, opacity: f32) {
+        self.current_state.alpha *= opacity;
         if opacity < 1.0 {
             // The layer is popped again by restore_state().
             self.push_unclipped_layer(peniko::BlendMode::default(), opacity);
