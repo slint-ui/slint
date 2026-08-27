@@ -245,9 +245,7 @@ pub(super) fn line_height_ratio(
     font_ctx: &mut parley::FontContext,
     font_request: &FontRequest,
 ) -> Option<f32> {
-    let font = font_request
-        .clone()
-        .query_fontique(&mut font_ctx.collection, &mut font_ctx.source_cache)?;
+    let font = font_request.query_fontique(&mut font_ctx.collection, &mut font_ctx.source_cache)?;
     let face = skrifa::FontRef::from_index(font.blob.data(), font.index).ok()?;
     let location = face.axes().location(font.synthesis.variation_settings());
     let metrics = face.metrics(skrifa::instance::Size::unscaled(), &location);
