@@ -26,6 +26,8 @@ mod flatpak;
 mod preview;
 #[cfg(target_os = "macos")]
 mod sparkle;
+#[cfg(target_os = "windows")]
+mod windows;
 
 fn main() -> std::result::Result<(), slint::PlatformError> {
     tracing_subscriber::fmt()
@@ -56,6 +58,8 @@ fn main() -> std::result::Result<(), slint::PlatformError> {
     let _updater = setup_macos_chrome(&editor_ui);
     #[cfg(target_os = "linux")]
     let _updater = flatpak::connect(&editor_ui);
+    #[cfg(target_os = "windows")]
+    let _updater = windows::connect(&editor_ui);
 
     preview::run_with_ui(editor_ui, to_lsp, false)
 }

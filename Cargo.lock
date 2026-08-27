@@ -7516,6 +7516,10 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "web-sys",
+ "windows",
+ "windows-collections",
+ "windows-core",
+ "windows-future",
  "zbus",
 ]
 
