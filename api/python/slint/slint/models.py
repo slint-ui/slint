@@ -28,7 +28,7 @@ class Model[T](native.PyModelBase, Iterable[T]):
         return super().__new__(cls)
 
     def __init__(self) -> None:
-        self.init_self(self)
+        """Kept for backwards compatibility; there is nothing to initialize."""
 
     def __len__(self) -> int:
         return self.row_count()
