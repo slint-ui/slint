@@ -2116,7 +2116,11 @@ fn call_builtin_function(
             };
             let value = eval_expression(ctx, &arguments[1]);
 
-            let _ = model.push_row(value);
+            i_slint_core::model::report_model_error(
+                "push",
+                log_message_location(source_location),
+                model.push_row(value),
+            );
 
             Value::Void
         }
@@ -2134,9 +2138,15 @@ fn call_builtin_function(
                 _ => panic!("Second argument not an integer: {:?}", arguments[1]),
             };
 
-            if let Ok(index) = usize::try_from(index as i64) {
-                let _ = model.remove_row(index);
-            }
+            let result = match usize::try_from(index as i64) {
+                Ok(index) => model.remove_row(index),
+                Err(_) => Err(i_slint_core::model::ModelError::out_of_bounds(model.row_count())),
+            };
+            i_slint_core::model::report_model_error(
+                "remove",
+                log_message_location(source_location),
+                result,
+            );
 
             Value::Void
         }
@@ -2156,9 +2166,15 @@ fn call_builtin_function(
             };
 
             let value = eval_expression(ctx, &arguments[2]);
-            if let Ok(index) = usize::try_from(index as i64) {
-                let _ = model.insert_row(index, value);
-            }
+            let result = match usize::try_from(index as i64) {
+                Ok(index) => model.insert_row(index, value),
+                Err(_) => Err(i_slint_core::model::ModelError::out_of_bounds(model.row_count())),
+            };
+            i_slint_core::model::report_model_error(
+                "insert",
+                log_message_location(source_location),
+                result,
+            );
 
             Value::Void
         }

@@ -497,6 +497,53 @@ export component MainWindow inherits Window {
 }
 
 #[test]
+fn rejected_model_modification_reports_the_source_location() {
+    i_slint_backend_testing::init_no_event_loop();
+    use crate::Compiler;
+    use std::cell::RefCell;
+    use std::rc::Rc;
+
+    let captured = Rc::new(RefCell::new(Vec::new()));
+    let previous = set_global_log_message_handler(Some(Box::new({
+        let captured = captured.clone();
+        move |message: i_slint_core::debug_log::LogMessage<'_>| {
+            let location = message.location().map(|l| (l.path.to_string(), l.line));
+            captured.borrow_mut().push((message.message_arguments().to_string(), location));
+        }
+    })));
+
+    let code = r#"
+export component MainWindow inherits Window {
+    in-out property <[int]> ints: [1, 2, 3];
+    public function remove-one() { ints.remove(42); }
+}
+"#;
+    let mut compiler = Compiler::default();
+    compiler.set_style("fluent".into());
+    let result = spin_on::spin_on(
+        compiler.build_from_source(code.into(), std::path::PathBuf::from("test.slint")),
+    );
+    assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
+    let definition = result.component("MainWindow").unwrap();
+    let instance = definition.create().unwrap();
+    instance.invoke("remove-one", &[]).unwrap();
+
+    {
+        let captured = captured.borrow();
+        assert_eq!(captured.len(), 1, "unexpected messages: {captured:?}");
+        assert_eq!(
+            captured[0].0,
+            "array.remove(): the row index is out of bounds (the model has 3 rows)"
+        );
+        let location = captured[0].1.as_ref().expect("the message has a location");
+        assert_eq!(location.0, "test.slint");
+        assert_eq!(location.1, 4, "the remove call is on line 4");
+    }
+
+    set_global_log_message_handler(previous);
+}
+
+#[test]
 fn platform_debug_handler_is_fallback() {
     i_slint_backend_testing::init_no_event_loop();
     use crate::Compiler;

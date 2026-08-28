@@ -5156,7 +5156,7 @@ fn compile_builtin_function_call(
             quote!({
                 let model = &#model;
                 let value = #value;
-                let _ = model.push_row(value);
+                sp::report_model_error("push", None, model.push_row(value));
             })
         }
         BuiltinFunction::ArrayRemove => {
@@ -5164,9 +5164,11 @@ fn compile_builtin_function_call(
             let index = a.next().unwrap();
             quote!({
                 let model = &#model;
-                if let Ok(index) = usize::try_from(#index) {
-                    let _ = model.remove_row(index);
-                }
+                let result = match usize::try_from(#index) {
+                    Ok(index) => model.remove_row(index),
+                    Err(_) => Err(sp::ModelError::out_of_bounds(model.row_count())),
+                };
+                sp::report_model_error("remove", None, result);
             })
         }
         BuiltinFunction::ArrayInsert => {
@@ -5177,9 +5179,11 @@ fn compile_builtin_function_call(
                 let model = &#model;
                 let index = #index;
                 let value = #value;
-                if let Ok(index) = usize::try_from(index) {
-                    let _ = model.insert_row(index, value);
-                }
+                let result = match usize::try_from(index) {
+                    Ok(index) => model.insert_row(index, value),
+                    Err(_) => Err(sp::ModelError::out_of_bounds(model.row_count())),
+                };
+                sp::report_model_error("insert", None, result);
             })
         }
         BuiltinFunction::Rgb => {

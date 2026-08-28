@@ -371,6 +371,25 @@ pub trait ModelExt: Model {
 
 impl<T: Model> ModelExt for T {}
 
+/// Reports the error of a rejected model modification as a log message.
+///
+/// Called with the result of the `.slint` array functions by the generated code
+/// and the interpreter, which otherwise ignore the error.
+#[doc(hidden)]
+pub fn report_model_error(
+    function: &str,
+    location: Option<crate::debug_log::LogMessageLocation<'_>>,
+    result: Result<(), ModelError>,
+) {
+    if let Err(err) = result {
+        crate::debug_log::log_message(crate::debug_log::LogMessage::new(
+            crate::debug_log::LogMessageSource::SlintCode,
+            location,
+            format_args!("array.{function}(): {err}"),
+        ));
+    }
+}
+
 pub fn model_any<T>(model: &dyn Model<Data = T>, mut predicate: impl FnMut(T) -> bool) -> bool {
     let row_count = model.row_count();
     model.model_tracker().track_any_change(row_count, crate::InternalToken);
