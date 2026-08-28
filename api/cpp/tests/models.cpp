@@ -457,6 +457,37 @@ private:
     std::vector<int> data;
 };
 
+SCENARIO("Sorted Model Insert Adjustment")
+{
+    // Insertions before the end shift the mapping entries above them; appends skip that.
+    for (size_t insert_at : { size_t(0), size_t(3), size_t(7), size_t(10) }) {
+        auto origin = std::make_shared<slint::VectorModel<int>>(
+                std::vector<int> { 50, 10, 40, 20, 30, 90, 60, 80, 70, 0 });
+        auto sorted = std::make_shared<slint::SortModel<int>>(
+                origin, [](auto lhs, auto rhs) { return lhs < rhs; });
+        REQUIRE(sorted->row_count() == 10);
+        origin->insert(insert_at, 35);
+        origin->insert(insert_at, 45);
+        std::vector<int> result;
+        for (size_t i = 0; i < sorted->row_count(); ++i)
+            result.push_back(*sorted->row_data(i));
+        REQUIRE(result == std::vector<int> { 0, 10, 20, 30, 35, 40, 45, 50, 60, 70, 80, 90 });
+    }
+
+    auto origin =
+            std::make_shared<slint::VectorModel<int>>(std::vector<int> { 50, 10, 40, 20, 30 });
+    auto sorted = std::make_shared<slint::SortModel<int>>(
+            origin, [](auto lhs, auto rhs) { return lhs < rhs; });
+    REQUIRE(sorted->row_count() == 5);
+    origin->push_back(35);
+    origin->push_back(5);
+    origin->push_back(100);
+    std::vector<int> result;
+    for (size_t i = 0; i < sorted->row_count(); ++i)
+        result.push_back(*sorted->row_data(i));
+    REQUIRE(result == std::vector<int> { 5, 10, 20, 30, 35, 40, 50, 100 });
+}
+
 SCENARIO("Sorted Model Batch Remove")
 {
     auto source_model = std::make_shared<BatchRemoveModel>(std::vector<int> { 3, 4, 1, 2 });

@@ -748,10 +748,13 @@ struct SortModelInner : private_api::ModelChangeListener
             return;
         }
 
-        // Adjust the existing sorted row indices to match the updated source model
-        for (auto &row : sorted_rows) {
-            if (row >= first_inserted_row)
-                row += count;
+        // Adjust the existing sorted row indices to match the updated source model.
+        // Skipped for an append: every existing index is below `first_inserted_row` then.
+        if (first_inserted_row + count < source_model->row_count()) {
+            for (auto &row : sorted_rows) {
+                if (row >= first_inserted_row)
+                    row += count;
+            }
         }
 
         for (size_t row = first_inserted_row; row < first_inserted_row + count; ++row) {
