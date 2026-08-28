@@ -32,10 +32,8 @@ repository = "https://github.com/slint-ui/slint"
 rust-version = "1.92"
 version = "1.18.0"
 
-# WARNING: keep every `[profile.*]` setting below identical to the root
-# workspace's Cargo.toml. cargo keys its build cache on the profile, so any
-# divergence makes the shared `target/` directory (see `.cargo/config.toml`)
-# rebuild the common library crates for this workspace instead of reusing them.
+# Kept identical to the root Cargo.toml's `[profile.*]`, so that the shared
+# `target/` directory is reused; `cargo xtask check_profiles` enforces it.
 [profile.release]
 panic = "abort"
 
