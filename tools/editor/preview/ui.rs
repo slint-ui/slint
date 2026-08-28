@@ -1620,9 +1620,44 @@ pub fn ui_set_properties(
 mod tests {
     use crate::preview::preview_data;
 
-    use slint::{Model, SharedString, ToSharedString, VecModel};
+    use slint::{
+        ComponentHandle, LogicalPosition, Model, SharedString, ToSharedString, VecModel,
+        platform::{PointerEventButton, WindowEvent},
+    };
 
     use super::{PropertyInformation, PropertyValue, PropertyValueKind};
+
+    #[test]
+    fn title_area_requests_window_move_on_first_drag() {
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::EditorUi::new().unwrap();
+        editor.show().unwrap();
+
+        let title_move_area = i_slint_backend_testing::ElementHandle::find_by_element_id(
+            &editor,
+            "EditorUi::title-move-area",
+        )
+        .next()
+        .expect("the title move area must be inside EditorUi's FocusScope");
+        let position = title_move_area.absolute_position();
+        let size = title_move_area.size();
+        let start =
+            LogicalPosition::new(position.x + size.width / 2., position.y + size.height / 2.);
+        editor.window().dispatch_event(WindowEvent::PointerPressed {
+            position: start,
+            button: PointerEventButton::Left,
+        });
+        editor.window().dispatch_event(WindowEvent::PointerMoved {
+            position: LogicalPosition::new(start.x + 20., start.y),
+        });
+
+        assert_eq!(
+            i_slint_backend_testing::access_testing_window(editor.window(), |window| {
+                window.window_move_request_count()
+            }),
+            1
+        );
+    }
 
     fn create_test_property(name: &str, value: &str) -> PropertyInformation {
         PropertyInformation {

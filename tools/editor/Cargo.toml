@@ -53,7 +53,7 @@ tracing-subscriber = { workspace = true }
 slint-build = { workspace = true }
 
 [dev-dependencies]
-i-slint-backend-testing = { path = "../../internal/backends/testing" }
+i-slint-backend-testing = { path = "../../internal/backends/testing", features = ["internal"] }
 i-slint-editor-preview = { path = "../../internal/editor-preview", features = ["testing"] }
 spin_on = { workspace = true }
 

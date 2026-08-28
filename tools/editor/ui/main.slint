@@ -100,7 +100,11 @@ export component EditorUi inherits Window {
                 }
 
                 VerticalLayout {
-                    EditorTopBar { }
+                    title-move-area := WindowMoveArea {
+                        height: EditorMetrics.top-bar-height;
+
+                        EditorTopBar { }
+                    }
 
                     HorizontalLayout {
                         vertical-stretch: 1;
