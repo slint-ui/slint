@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use crate::api::Value;
-use i_slint_core::model::{Model, ModelRc, ModelTracker};
+use i_slint_core::model::{Model, ModelError, ModelRc, ModelTracker};
 
 /// A number used as a model (`for i in 42`): `n` rows whose data is the row
 /// index. The type-erased equivalent of core's `impl Model for usize`; the
@@ -58,24 +58,21 @@ impl<T: TryFrom<Value> + Into<Value> + 'static> Model for ValueMapModel<T> {
         }
     }
 
-    fn push_row(&self, data: Self::Data) {
-        if let Ok(data) = data.try_into() {
-            self.0.push_row(data)
+    fn push_row(&self, data: Self::Data) -> Result<(), ModelError> {
+        match data.try_into() {
+            Ok(data) => self.0.push_row(data),
+            Err(_) => Err(ModelError::unsupported(self)),
         }
     }
 
-    fn remove_row(&self, row: usize) {
-        if row < self.0.row_count() {
-            self.0.remove_row(row);
-        }
+    fn remove_row(&self, row: usize) -> Result<(), ModelError> {
+        self.0.remove_row(row)
     }
 
-    fn insert_row(&self, row: usize, data: Self::Data) {
-        if row > self.0.row_count() {
-            return;
-        }
-        if let Ok(data) = data.try_into() {
-            self.0.insert_row(row, data);
+    fn insert_row(&self, row: usize, data: Self::Data) -> Result<(), ModelError> {
+        match data.try_into() {
+            Ok(data) => self.0.insert_row(row, data),
+            Err(_) => Err(ModelError::unsupported(self)),
         }
     }
 }

@@ -5,7 +5,7 @@
 
 use super::*;
 use core::ptr::NonNull;
-use i_slint_core::model::{Model, ModelNotify, ModelRc, SharedVectorModel};
+use i_slint_core::model::{Model, ModelError, ModelNotify, ModelRc, SharedVectorModel};
 use i_slint_core::slice::Slice;
 use i_slint_core::window::WindowAdapter;
 use smol_str::SmolStr;
@@ -638,18 +638,21 @@ impl Model for ModelAdaptorWrapper {
         self.0.set_row_data(row, val);
     }
 
-    fn push_row(&self, data: Value) {
+    fn push_row(&self, data: Value) -> Result<(), ModelError> {
         let val = Box::new(data);
         self.0.push_row(val);
+        Ok(())
     }
 
-    fn remove_row(&self, row: usize) {
+    fn remove_row(&self, row: usize) -> Result<(), ModelError> {
         self.0.remove_row(row);
+        Ok(())
     }
 
-    fn insert_row(&self, row: usize, data: Value) {
+    fn insert_row(&self, row: usize, data: Value) -> Result<(), ModelError> {
         let val = Box::new(data);
         self.0.insert_row(row, val);
+        Ok(())
     }
 
     fn as_any(&self) -> &dyn core::any::Any {

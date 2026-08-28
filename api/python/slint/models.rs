@@ -6,7 +6,7 @@ use std::cell::RefCell;
 use std::rc::{Rc, Weak};
 
 use i_slint_compiler::langtype::Type;
-use i_slint_core::model::{Model, ModelNotify, ModelRc};
+use i_slint_core::model::{Model, ModelError, ModelNotify, ModelRc};
 
 use pyo3::PyTraverseError;
 use pyo3::exceptions::PyIndexError;
@@ -228,15 +228,15 @@ impl i_slint_core::model::Model for PyModelShared {
         });
     }
 
-    fn push_row(&self, data: Self::Data) {
+    fn push_row(&self, data: Self::Data) -> Result<(), ModelError> {
         Python::try_attach(|py| {
             let Some(obj) = self.wrapper_obj(py, "push_row") else {
-                return;
+                return Err(ModelError::unsupported(self));
             };
 
             let Some(type_collection) = self.type_collection.borrow().as_ref().cloned() else {
                 eprintln!("Python: Model implementation is lacking type collection (in push_row)");
-                return;
+                return Err(ModelError::unsupported(self));
             };
 
             let element_type = self.element_type.borrow().clone();
@@ -248,14 +248,17 @@ impl i_slint_core::model::Model for PyModelShared {
                     "Python: Model implementation of push_row(), named append(), threw an exception".into(),
                     err,
                 );
+                return Err(ModelError::unsupported(self));
             };
-        });
+            Ok(())
+        })
+        .unwrap_or(Err(ModelError::unsupported(self)))
     }
 
-    fn remove_row(&self, row: usize) {
+    fn remove_row(&self, row: usize) -> Result<(), ModelError> {
         Python::try_attach(|py| {
             let Some(obj) = self.wrapper_obj(py, "remove_row") else {
-                return;
+                return Err(ModelError::unsupported(self));
             };
 
             if let Err(err) = obj.call_method1("remove_row", (row,)) {
@@ -264,21 +267,24 @@ impl i_slint_core::model::Model for PyModelShared {
                     "Python: Model implementation of remove_row() threw an exception".into(),
                     err,
                 );
+                return Err(ModelError::unsupported(self));
             };
-        });
+            Ok(())
+        })
+        .unwrap_or(Err(ModelError::unsupported(self)))
     }
 
-    fn insert_row(&self, row: usize, data: Self::Data) {
+    fn insert_row(&self, row: usize, data: Self::Data) -> Result<(), ModelError> {
         Python::try_attach(|py| {
             let Some(obj) = self.wrapper_obj(py, "insert_row") else {
-                return;
+                return Err(ModelError::unsupported(self));
             };
 
             let Some(type_collection) = self.type_collection.borrow().as_ref().cloned() else {
                 eprintln!(
                     "Python: Model implementation is lacking type collection (in insert_row)"
                 );
-                return;
+                return Err(ModelError::unsupported(self));
             };
 
             let element_type = self.element_type.borrow().clone();
@@ -290,8 +296,11 @@ impl i_slint_core::model::Model for PyModelShared {
                     "Python: Model implementation of insert_row() threw an exception".into(),
                     err,
                 );
+                return Err(ModelError::unsupported(self));
             };
-        });
+            Ok(())
+        })
+        .unwrap_or(Err(ModelError::unsupported(self)))
     }
 
     fn model_tracker(&self) -> &dyn i_slint_core::model::ModelTracker {

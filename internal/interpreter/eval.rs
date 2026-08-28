@@ -2098,7 +2098,7 @@ fn call_builtin_function(
             };
             let value = eval_expression(ctx, &arguments[1]);
 
-            model.push_row(value);
+            let _ = model.push_row(value);
 
             Value::Void
         }
@@ -2117,7 +2117,7 @@ fn call_builtin_function(
             };
 
             if let Ok(index) = usize::try_from(index as i64) {
-                model.remove_row(index);
+                let _ = model.remove_row(index);
             }
 
             Value::Void
@@ -2139,7 +2139,7 @@ fn call_builtin_function(
 
             let value = eval_expression(ctx, &arguments[2]);
             if let Ok(index) = usize::try_from(index as i64) {
-                model.insert_row(index, value);
+                let _ = model.insert_row(index, value);
             }
 
             Value::Void

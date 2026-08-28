@@ -5156,7 +5156,7 @@ fn compile_builtin_function_call(
             quote!({
                 let model = &#model;
                 let value = #value;
-                model.push_row(value);
+                let _ = model.push_row(value);
             })
         }
         BuiltinFunction::ArrayRemove => {
@@ -5165,7 +5165,7 @@ fn compile_builtin_function_call(
             quote!({
                 let model = &#model;
                 if let Ok(index) = usize::try_from(#index) {
-                    model.remove_row(index);
+                    let _ = model.remove_row(index);
                 }
             })
         }
@@ -5178,7 +5178,7 @@ fn compile_builtin_function_call(
                 let index = #index;
                 let value = #value;
                 if let Ok(index) = usize::try_from(index) {
-                    model.insert_row(index, value);
+                    let _ = model.insert_row(index, value);
                 }
             })
         }
