@@ -5,12 +5,7 @@
 name = "slint-editor-ui-tests"
 version = "0.1.0"
 requires-python = ">=3.11"
-dependencies = [
-    "pillow>=11,<13",
-    "pytest>=9,<10",
-    "pytest-xdist>=3.8,<4",
-    "slint-testing==0.3",
-]
+dependencies = ["pillow>=11,<13", "pytest>=9,<10", "pytest-xdist>=3.8,<4", "slint-testing==0.3"]
 
 [dependency-groups]
 dev = ["ruff==0.16.4", "ty==0.0.73"]
