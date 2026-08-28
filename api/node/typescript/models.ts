@@ -152,7 +152,7 @@ export abstract class Model<T> implements Iterable<T> {
      * @param _index index of the row to remove.
      */
     removeRow(_index: number): void {
-        throw new Error("removeRow is not implemented on this model");
+        throw new TypeError("removeRow is not implemented on this model");
     }
 
     /**
@@ -164,7 +164,7 @@ export abstract class Model<T> implements Iterable<T> {
      * @param _data new data item to store in a new row.
      */
     insertRow(_index: number, _data: T): void {
-        throw new Error("insertRow is not implemented on this model");
+        throw new TypeError("insertRow is not implemented on this model");
     }
 
     [Symbol.iterator](): Iterator<T> {
