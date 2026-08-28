@@ -13,6 +13,11 @@
 // The Text with `wrap: no-wrap` is only there to synthesize the cross-axis
 // layout-info accessor on the repeated cell; the assertion checks the marker's
 // position, which reflects the global-driven cell height.
+//
+// The same user component is named `Row` and also placed as a GridLayout cell:
+// GridLayout lowering must treat it as a normal (constrained) cell, not as the
+// builtin grid `Row`. Doing the latter used to steal its children and mark a
+// `Component`-based element as optimized, tripping an `unreachable!` later.
 
 global Metrics {
     in-out property <length> item-height: 40px;
@@ -20,11 +25,12 @@ global Metrics {
 
 component Row inherits Rectangle {
     height: Metrics.item-height;
+    max-width: 50px;
     Text { text: "hello"; wrap: no-wrap; color: black; }
 }
 
 export component TestCase inherits Window {
-    width: 200px;
+    width: 300px;
     height: 300px;
     callback set-h(length);
     set-h(h) => { Metrics.item-height = h; }
@@ -33,7 +39,13 @@ export component TestCase inherits Window {
         for i in 3: Row {}
         marker := Rectangle { height: 10px; }
     }
-    out property <bool> test: marker.y == 3 * 40px;
+    GridLayout {
+        the-cell := Row { }
+    }
+    out property <bool> box-ok: marker.y == 3 * 40px;
+    // The custom `Row` cell honors its own max-width instead of filling the column.
+    out property <bool> grid-ok: the-cell.width == 50px;
+    out property <bool> test: box-ok && grid-ok;
 }
 
 /*
