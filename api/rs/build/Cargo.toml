@@ -27,17 +27,18 @@ default = ["compat-1-18", "renderer-software", "image-default-formats"]
 ## [More info in this blog post](https://slint.dev/blog/rust-adding-default-cargo-feature.html)
 "compat-1-18" = []
 
-## Enable embedding of images and fonts optimized for the software renderer.
-## This enables the `i-slint-compiler/renderer-software` feature.
+## Embed images and fonts in a format optimized for the software renderer.
+## Enables the [`EmbedResourcesKind::EmbedForSoftwareRenderer`] variant.
 renderer-software = ["i-slint-compiler/renderer-software", "dep:fontique"]
-## Enable `image`'s default feature set (additional codecs).
+## Support additional image formats when embedding images for the `renderer-software` feature.
 image-default-formats = ["i-slint-compiler/image-default-formats"]
-## Enable the [`CompilerConfiguration::with_sdf_fonts`] function that encodes the font's glyphs as scalable signed distance fields, to reduce the size.
+## Enable the [`CompilerConfiguration::with_sdf_fonts`] function that encodes the fonts embedded for
+## the software renderer as scalable signed distance fields, to reduce their size.
 sdf-fonts = ["renderer-software", "i-slint-compiler/sdf-fonts"]
-## Enable this feature when building `.slint` libraries.
-## This feature is experimental and may change or be removed in the future,
-## enabling it implies opting out of [semver](https://semver.org).
-## For details of this experiment, see: <https://github.com/slint-ui/slint/issues/7060>
+# Enable this feature when building `.slint` libraries.
+# This feature is experimental and may change or be removed in the future,
+# enabling it implies opting out of semver.
+# For details of this experiment, see: <https://github.com/slint-ui/slint/issues/7060>
 experimental-module-builds = ["i-slint-compiler/experimental-library-module"]
 
 [dependencies]
@@ -47,11 +48,13 @@ spin_on = { workspace = true }
 toml_edit = { workspace = true }
 derive_more = { workspace = true, features = ["std", "error"] }
 
+document-features = { version = "0.2.0", optional = true }
+
 [target.'cfg(target_os = "linux")'.dependencies]
 # Workaround cross compiling on linux where here in slint-build we depend on fontique through the software
 # renderer compiler feature but fontconfig's build script find the target library via pkg-config and causes link errors
 fontique = { workspace = true, features = ["fontconfig-dlopen"], optional = true }
 
 [package.metadata.docs.rs]
-features = ["sdf-fonts"]
+features = ["sdf-fonts", "document-features"]
 rustdoc-args = ["--generate-link-to-definition"]
