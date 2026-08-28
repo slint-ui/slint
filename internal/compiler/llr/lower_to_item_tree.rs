@@ -1025,7 +1025,13 @@ fn lower_geometry(
     super::Expression::Struct { ty: Arc::new(Struct::new(fields, StructName::None)), values }
 }
 
-fn get_property_analysis(elem: &ElementRc, p: &str) -> crate::object_tree::PropertyAnalysis {
+/// The analysis of `p` on `elem`, merged with the base chain and its aliases,
+/// like `inline_expressions` uses to decide whether a binding may stand in for
+/// a property read.
+pub(super) fn get_property_analysis(
+    elem: &ElementRc,
+    p: &str,
+) -> crate::object_tree::PropertyAnalysis {
     let mut a = elem.borrow().property_analysis.borrow().get(p).cloned().unwrap_or_default();
     let mut elem = elem.clone();
     loop {
