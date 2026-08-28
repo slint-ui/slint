@@ -7,13 +7,13 @@ use i_slint_common::unicode_utils::{
     byte_offset_to_utf16_offset, utf16_offset_to_byte_offset_clamped,
 };
 use i_slint_core::SharedString;
-use i_slint_core::api::{PhysicalPosition, PhysicalSize, WindowEventDispatchResult};
+use i_slint_core::api::{PhysicalPosition, PhysicalSize};
 use i_slint_core::graphics::{Color, euclid};
 use i_slint_core::input::{InternalKeyEvent, KeyEvent, KeyEventType};
 use i_slint_core::item_rendering::HasFont;
 use i_slint_core::items::{CapitalizationMode, ColorScheme, InputType};
 use i_slint_core::lengths::{LogicalLength, PhysicalEdges};
-use i_slint_core::platform::{Key, WindowAdapter, WindowEvent};
+use i_slint_core::platform::{Key, WindowAdapter, WindowEvent, WindowEventDispatchResult};
 use jni::objects::{JClass, JClassLoader, JString, LoaderContext};
 use jni::sys::{jfloat, jint};
 use jni::{Env, JavaVM, bind_java_type};

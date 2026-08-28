@@ -155,6 +155,12 @@ export default defineConfig({
                                         {
                                             autogenerate: {
                                                 directory:
+                                                    "api/slint-ui/namespaces/platform/enumerations",
+                                            },
+                                        },
+                                        {
+                                            autogenerate: {
+                                                directory:
                                                     "api/slint-ui/namespaces/platform/interfaces",
                                             },
                                         },

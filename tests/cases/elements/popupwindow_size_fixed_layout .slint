@@ -220,16 +220,16 @@ assert.equal(instance.Properties.button_width, popup_width - 100);
 
 ```rust
 use slint::*;
-use i_slint_core::api::WindowEventDispatchResult::*;
+use i_slint_core::platform::WindowEventDispatchResult::*;
 
 let instance = TestCase::new().unwrap();
 let window = instance.window();
 
 // Base window has no interactive content
 let res = window.dispatch_event_with_result(platform::WindowEvent::PointerPressed { position: LogicalPosition::new(0., 0.), button: platform::PointerEventButton::Left });
-assert_eq!(res.unwrap(), Ignored);
+assert_eq!(res.unwrap(), Rejected);
 let res = window.dispatch_event_with_result(platform::WindowEvent::PointerReleased { position: LogicalPosition::new(0., 0.), button: platform::PointerEventButton::Left });
-assert_eq!(res.unwrap(), Ignored);
+assert_eq!(res.unwrap(), Rejected);
 
 // The popup button fills the full area while show-buttons is false
 instance.invoke_show_popup();
@@ -240,6 +240,6 @@ assert_eq!(res.unwrap(), Accepted);
 
 // Clicking below the popup, should be ignored
 let res = window.dispatch_event_with_result(platform::WindowEvent::PointerPressed { position: LogicalPosition::new(300., 350.), button: platform::PointerEventButton::Left });
-assert_eq!(res.unwrap(), Ignored);
+assert_eq!(res.unwrap(), Rejected);
 ```
 */

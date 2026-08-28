@@ -3,11 +3,7 @@
 
 import { test, expect } from "vitest";
 
-import {
-    language,
-    private_api,
-    WindowEventDispatchResult,
-} from "../dist/index.js";
+import { language, platform, private_api } from "../dist/index.js";
 import type { Window } from "../dist/index.d.ts";
 
 private_api.initTesting();
@@ -258,7 +254,7 @@ test("Window dispatch event result", () => {
     const window = instance!.window() as Window;
 
     expect(window.dispatchEvent({ type: "pointer-exited" })).toBe(
-        WindowEventDispatchResult.Accepted,
+        platform.WindowEventDispatchResult.Accepted,
     );
 
     expect(
@@ -267,7 +263,7 @@ test("Window dispatch event result", () => {
             button: language.PointerEventButton.Left,
             position: { x: 10, y: 10 },
         }),
-    ).toBe(WindowEventDispatchResult.Accepted);
+    ).toBe(platform.WindowEventDispatchResult.Accepted);
     window.dispatchEvent({
         type: "pointer-released",
         button: language.PointerEventButton.Left,
@@ -280,9 +276,9 @@ test("Window dispatch event result", () => {
             button: language.PointerEventButton.Left,
             position: { x: 90, y: 90 },
         }),
-    ).toBe(WindowEventDispatchResult.Ignored);
+    ).toBe(platform.WindowEventDispatchResult.Rejected);
 
     expect(window.dispatchEvent({ type: "key-pressed", text: "a" })).toBe(
-        WindowEventDispatchResult.Ignored,
+        platform.WindowEventDispatchResult.Rejected,
     );
 });

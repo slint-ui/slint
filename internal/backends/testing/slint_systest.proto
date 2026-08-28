@@ -166,7 +166,6 @@ enum RecordedEventResult {
     Unspecified = 0;
     Accepted = 1;
     Rejected = 2;
-    Ignored = 3;
 }
 
 message ElementQueryInstruction {
