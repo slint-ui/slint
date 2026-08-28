@@ -186,6 +186,8 @@ All notable changes to this project are documented in this file.
 
 ### Python
 
+ - Fixed the garbage collector releasing model wrappers that Slint still owns.
+
  - Ctrl-C (SIGINT) now interrupts a running event loop and raises `KeyboardInterrupt`.
  - Fixed memory leaks in the asyncio integration. (#12679)
  - Fixed high CPU usage while an asyncio socket receives data. (#12962)
