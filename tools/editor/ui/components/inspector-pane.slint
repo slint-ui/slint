@@ -5,7 +5,6 @@ import { Api, EditorSurfaceMode, ElementInformation, PropertyValueKind, Selectio
 import { EdgeDivider, EditorMetrics, StudioTheme } from "common.slint";
 import { OutlinePane } from "outline-pane.slint";
 import { InspectorComboOption, InspectorTokens } from "inspector/tokens.slint";
-import { InspectorTooltipBubble } from "inspector/tooltip-bubble.slint";
 import { InspectorInfoIcon } from "inspector/info-icon.slint";
 import { InspectorValueField } from "inspector/value-field.slint";
 import { InspectorEditableField } from "inspector/editable-field.slint";
@@ -42,13 +41,6 @@ export component InspectorPane inherits Rectangle {
         ? Api.highlight-positions(root.element-information.source-uri, root.element-information.offset)
         : [];
     property <bool> image-mode: Api.editor-surface-mode == EditorSurfaceMode.image;
-    property <bool> tooltip-visible: false;
-    property <string> tooltip-key: "";
-    property <string> tooltip-label: "";
-    property <Point> tooltip-position: { x: 0px, y: 0px };
-    property <string> hovered-tooltip-key: "";
-    property <string> hovered-tooltip-label: "";
-    property <Point> hovered-tooltip-position: { x: 0px, y: 0px };
     property <[InspectorComboOption]> image-fit-options: [
         { value: "fill", label: "fill" },
         { value: "preserve", label: "preserve" },
@@ -538,82 +530,6 @@ export component InspectorPane inherits Rectangle {
         );
     }
 
-    function tooltip-position-for(field-position: Point) -> Point {
-        return {
-            x: field-position.x - root.absolute-position.x - root.content-x + (InspectorTokens.column-width - 71px) / 2,
-            y: field-position.y - root.absolute-position.y + InspectorTokens.field-height + 1px,
-        };
-    }
-
-    function show-current-tooltip() {
-        root.tooltip-key = root.hovered-tooltip-key;
-        root.tooltip-label = root.hovered-tooltip-label;
-        root.tooltip-position = root.hovered-tooltip-position;
-        root.tooltip-visible = true;
-    }
-
-    function show-tooltip(key: string, label: string, field-position: Point) {
-        root.hovered-tooltip-key = key;
-        root.hovered-tooltip-label = label;
-        root.hovered-tooltip-position = root.tooltip-position-for(field-position);
-        hide-tooltip-timer.running = false;
-
-        if root.tooltip-visible {
-            show-tooltip-timer.running = false;
-            root.show-current-tooltip();
-        } else {
-            show-tooltip-timer.running = false;
-            show-tooltip-timer.running = true;
-        }
-    }
-
-    function hide-tooltip(key: string) {
-        if key != root.hovered-tooltip-key {
-            return;
-        }
-
-        root.hovered-tooltip-key = "";
-        root.hovered-tooltip-label = "";
-        show-tooltip-timer.running = false;
-
-        if root.tooltip-visible {
-            hide-tooltip-timer.running = false;
-            hide-tooltip-timer.running = true;
-        }
-    }
-
-    function reset-tooltip() {
-        root.tooltip-visible = false;
-        root.tooltip-key = "";
-        root.tooltip-label = "";
-    }
-
-    show-tooltip-timer := Timer {
-        interval: 1500ms;
-        running: false;
-        triggered => {
-            self.running = false;
-
-            if root.hovered-tooltip-key != "" {
-                root.show-current-tooltip();
-            }
-        }
-    }
-
-    hide-tooltip-timer := Timer {
-        interval: 1500ms;
-        running: false;
-        triggered => {
-            self.running = false;
-
-            if root.hovered-tooltip-key == "" {
-                root.reset-tooltip();
-            } else {
-                root.show-current-tooltip();
-            }
-        }
-    }
-
     EdgeDivider {
         x: 0px;
         background: InspectorTokens.divider;
@@ -709,9 +625,6 @@ export component InspectorPane inherits Rectangle {
                             prefix: "X";
                             value: root.selected-x-label();
                             commit-key: root.field-key("x");
-                            tooltip-label: "X-position";
-                            tooltip-hovered(key, label, position) => { root.show-tooltip(key, label, position); }
-                            tooltip-hidden(key) => { root.hide-tooltip(key); }
                             accepted(text) => {
                                 return root.commit-geometry(text, root.selected-y-label(), root.selected-width-label(), root.selected-height-label());
                             }
@@ -722,9 +635,6 @@ export component InspectorPane inherits Rectangle {
                             prefix: "Y";
                             value: root.selected-y-label();
                             commit-key: root.field-key("y");
-                            tooltip-label: "Y-position";
-                            tooltip-hovered(key, label, position) => { root.show-tooltip(key, label, position); }
-                            tooltip-hidden(key) => { root.hide-tooltip(key); }
                             accepted(text) => {
                                 return root.commit-geometry(root.selected-x-label(), text, root.selected-width-label(), root.selected-height-label());
                             }
@@ -744,9 +654,6 @@ export component InspectorPane inherits Rectangle {
                             prefix: "W";
                             value: root.selected-width-label();
                             commit-key: root.field-key("width");
-                            tooltip-label: "Width";
-                            tooltip-hovered(key, label, position) => { root.show-tooltip(key, label, position); }
-                            tooltip-hidden(key) => { root.hide-tooltip(key); }
                             accepted(text) => {
                                 return root.commit-geometry(root.selected-x-label(), root.selected-y-label(), text, root.selected-height-label());
                             }
@@ -757,9 +664,6 @@ export component InspectorPane inherits Rectangle {
                             prefix: "H";
                             value: root.selected-height-label();
                             commit-key: root.field-key("height");
-                            tooltip-label: "Height";
-                            tooltip-hovered(key, label, position) => { root.show-tooltip(key, label, position); }
-                            tooltip-hidden(key) => { root.hide-tooltip(key); }
                             accepted(text) => {
                                 return root.commit-geometry(root.selected-x-label(), root.selected-y-label(), root.selected-width-label(), text);
                             }
@@ -1051,19 +955,6 @@ export component InspectorPane inherits Rectangle {
                     }
                 }
             }
-        }
-    }
-
-    tooltip-layer := Rectangle {
-        x: root.content-x;
-        y: 0px;
-        width: root.width - root.content-x;
-        height: root.inspector-height;
-
-        if root.tooltip-visible: InspectorTooltipBubble {
-            x: root.tooltip-position.x;
-            y: root.tooltip-position.y;
-            label: root.tooltip-label;
         }
     }
 
