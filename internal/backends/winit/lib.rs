@@ -57,6 +57,7 @@ pub type EventLoopBuilder = winit::event_loop::EventLoopBuilder<SlintEvent>;
 
 /// Returned by callbacks passed to [`Window::on_winit_window_event`](WinitWindowAccessor::on_winit_window_event)
 /// to determine if winit events should propagate to the Slint event loop.
+#[derive(Debug)]
 pub enum EventResult {
     /// The winit event should propagate normally.
     Propagate,
