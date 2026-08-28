@@ -17,7 +17,7 @@ use i_slint_core::window::{
 
 use i_slint_core::SharedString;
 use i_slint_core::api::LogicalPosition;
-use i_slint_core::input::MouseEvent;
+use i_slint_core::input::BackendDragEvent;
 use i_slint_core::items::{AllowedDragActions, DragAction, DropEvent, TextWrap};
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
@@ -397,9 +397,9 @@ impl TestingWindow {
         event.proposed_action =
             i_slint_core::items::compute_proposed_action(Default::default(), allowed);
         let event = if drop {
-            MouseEvent::Drop { event, allowed }
+            BackendDragEvent::Drop { event, allowed }
         } else {
-            MouseEvent::DragMove { event, allowed }
+            BackendDragEvent::Move { event, allowed }
         };
         WindowInner::from_pub(target).process_drag_event(event).unwrap_or(DragAction::None)
     }

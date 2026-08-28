@@ -11,9 +11,9 @@ use crate::api::{
 };
 use crate::cursor::MouseCursorInner;
 use crate::input::{
-    ClickState, DragData, FocusEvent, FocusReason, InternalKeyEvent, KeyEventResult, KeyEventType,
-    Keys, MouseEvent, MouseInputState, PointerEventButton, TextCursorBlinker, TouchPhase,
-    TouchState, key_codes,
+    BackendDragEvent, ClickState, DragData, FocusEvent, FocusReason, InternalKeyEvent,
+    KeyEventResult, KeyEventType, Keys, MouseEvent, MouseInputState, PointerEventButton,
+    TextCursorBlinker, TouchPhase, TouchState, key_codes,
 };
 use crate::item_tree::{
     ItemRc, ItemTreeRc, ItemTreeRef, ItemTreeRefPin, ItemTreeVTable, ItemTreeWeak, ItemWeak,
@@ -1087,22 +1087,17 @@ impl WindowInner {
         Some(MouseDispatchResult { drag_action, accepted })
     }
 
-    /// Dispatch a drag and drop event: a `DragMove`, a `Drop`,
-    /// or the `Exit` that ends a drag hovering over the window.
+    /// Dispatch a drag and drop event.
     /// Returns the action negotiated with the accepting `DropArea`, or `None` when none accepted.
     ///
     /// Drag and drop is the one kind of input that backends don't deliver through
     /// [`crate::api::Window::dispatch_event_with_result()`]:
     /// they need the negotiated action back, which [`crate::platform::WindowEventDispatchResult`] can't express,
     /// and a drag leaving the window isn't the pointer leaving the window.
-    /// These events have no [`crate::platform::WindowEvent`] representation either,
-    /// so nothing is lost for the window event hook.
-    pub fn process_drag_event(&self, event: MouseEvent) -> Option<crate::items::DragAction> {
-        debug_assert!(matches!(
-            event,
-            MouseEvent::DragMove { .. } | MouseEvent::Drop { .. } | MouseEvent::Exit
-        ));
-        self.process_mouse_input(event).and_then(|result| result.drag_action)
+    /// [`BackendDragEvent`] keeps this entry point to drag and drop,
+    /// so that nothing else bypasses the window event hook.
+    pub fn process_drag_event(&self, event: BackendDragEvent) -> Option<crate::items::DragAction> {
+        self.process_mouse_input(event.into()).and_then(|result| result.drag_action)
     }
 
     /// Remember (or clear) the in-flight native drag, so a backend can report completion or fall
@@ -2993,13 +2988,11 @@ pub mod ffi {
     #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_windowrc_dispatch_pointer_event(
         handle: *const WindowAdapterRcOpaque,
-        event: &crate::input::MouseEvent,
+        event: &crate::input::BackendMouseEvent,
     ) {
         unsafe {
             let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
-            window_adapter
-                .window()
-                .dispatch_event(crate::platform::WindowEvent::internal(event.clone()));
+            window_adapter.window().dispatch_event(crate::platform::WindowEvent::internal(*event));
         }
     }
 

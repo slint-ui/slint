@@ -1158,7 +1158,9 @@ fn test_accessibility_enum_mapping_complete() {
 #[cfg(test)]
 mod dispatch_result_tests {
     use i_slint_core::api::LogicalPosition;
-    use i_slint_core::input::{InternalKeyEvent, KeyEvent, KeyEventType, MouseEvent, TouchPhase};
+    use i_slint_core::input::{
+        BackendMouseEvent, InternalKeyEvent, KeyEvent, KeyEventType, TouchPhase,
+    };
     use i_slint_core::items::PointerEventButton;
     use i_slint_core::lengths::LogicalPoint;
     use i_slint_core::platform::{InternalEvent, WindowEvent, WindowEventDispatchResult};
@@ -1347,7 +1349,7 @@ mod dispatch_result_tests {
         assert_eq!(
             record_dispatch(
                 app.window(),
-                WindowEvent::internal(MouseEvent::Pressed {
+                WindowEvent::internal(BackendMouseEvent::Pressed {
                     position: LogicalPoint::new(50.0, 50.0),
                     button: PointerEventButton::Left,
                     click_count: 0,
@@ -1375,7 +1377,7 @@ mod dispatch_result_tests {
         }
         let app = App::new().unwrap();
         assert_eq!(
-            record_dispatch(app.window(), WindowEvent::internal(MouseEvent::Exit)),
+            record_dispatch(app.window(), WindowEvent::internal(BackendMouseEvent::Exit)),
             vec![(WindowEvent::PointerExited, WindowEventDispatchResult::Accepted)]
         );
     }
