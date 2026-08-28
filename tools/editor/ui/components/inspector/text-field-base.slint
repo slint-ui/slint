@@ -89,6 +89,7 @@ export component InspectorTextFieldBase inherits Rectangle {
             changed has-focus => {
                 if self.has-focus {
                     root.active-commit-key = root.commit-key;
+                    self.select-all();
                 }
                 if !self.has-focus && self.text != root.value {
                     if !root.accept-input(self.text) {
@@ -102,7 +103,9 @@ export component InspectorTextFieldBase inherits Rectangle {
     touch := TouchArea {
         enabled: root.enabled;
         mouse-cursor: text;
-        clicked => { input.focus(); }
+        clicked => {
+            input.focus();
+        }
 
         changed has-hover => {
             if self.has-hover && root.tooltip-label != "" {

@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 import slint_testing
+from slint_testing import keys
 from source_snapshot import SourceSnapshot
 from ui_driver import (
     first_window,
@@ -49,6 +50,11 @@ def edit_field(
     role: slint_testing.AccessibleRole | None = None,
 ) -> None:
     inspector_field(window, label, role).accessible_value = value
+
+
+def press_key(window: slint_testing.Window, key: str) -> None:
+    window.dispatch_event(slint_testing.KeyPressedEvent(text=key))
+    window.dispatch_event(slint_testing.KeyReleasedEvent(text=key))
 
 
 def wait_for_field(
@@ -162,6 +168,63 @@ def test_geometry_field_writes_exact_source(
             slint_testing.AccessibleRole.TextInput,
         )
         assert_rendered_element(window, "InspectorCases::inspect-rectangle")
+
+
+@pytest.mark.parametrize(
+    ("label", "value", "old", "new"),
+    [
+        ("Position X", "44", b"        x: 32px;", b"        x: 44px;"),
+        (
+            "Rectangle background",
+            "#123456",
+            b"        background: #2563eb;",
+            b"        background: #123456;",
+        ),
+    ],
+    ids=("position", "color"),
+)
+@pytest.mark.parametrize("focus_method", ("pointer", "accessible"))
+def test_focusing_field_replaces_existing_text(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+    label: str,
+    value: str,
+    old: bytes,
+    new: bytes,
+    focus_method: str,
+) -> None:
+    source_file = fixture_project / INSPECTOR_SOURCE
+    baseline = source_file.read_bytes()
+    snapshot = SourceSnapshot.capture(fixture_project)
+
+    with launch_editor(editor_binary, editor_environment, source_file) as editor:
+        window = first_window(editor)
+        select_element(window, "Rectangle")
+        field = inspector_field(window, label, slint_testing.AccessibleRole.TextInput)
+        if focus_method == "pointer":
+            target = slint_testing.LogicalPosition(
+                x=field.absolute_position.x + field.size.width / 2,
+                y=field.absolute_position.y + field.size.height / 2,
+            )
+            button = slint_testing.PointerEventButton.Left
+            window.dispatch_event(slint_testing.PointerPressEvent(target, button))
+            window.dispatch_event(slint_testing.PointerReleaseEvent(target, button))
+        else:
+            field.invoke_accessible_default_action()
+        for character in value:
+            press_key(window, character)
+        press_key(window, keys.Return)
+
+        snapshot.wait_for_exact(
+            replace_once(baseline, old, new), relative_path=INSPECTOR_SOURCE
+        )
+        wait_for_field(
+            window,
+            label,
+            value,
+            slint_testing.AccessibleRole.TextInput,
+        )
 
 
 @pytest.mark.parametrize(
