@@ -1,0 +1,63 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Regression test: a repeated component placed in a box layout, whose size
+// depends on a global property, must generate valid global access in its
+// synthesized cross-axis layout-info accessor.
+//
+// The rust code generator built the repeated component's evaluation context with
+// a global-access of `_self`, so the cross-width accessor emitted
+// `_self.global_Metrics` instead of `_self.globals().global_Metrics` and failed
+// to compile (the repeated-item-tree wrapper has no such field).
+//
+// The Text with `wrap: no-wrap` is only there to synthesize the cross-axis
+// layout-info accessor on the repeated cell; the assertion checks the marker's
+// position, which reflects the global-driven cell height.
+
+global Metrics {
+    in-out property <length> item-height: 40px;
+}
+
+component Row inherits Rectangle {
+    height: Metrics.item-height;
+    Text { text: "hello"; wrap: no-wrap; color: black; }
+}
+
+export component TestCase inherits Window {
+    width: 200px;
+    height: 300px;
+    callback set-h(length);
+    set-h(h) => { Metrics.item-height = h; }
+    VerticalLayout {
+        alignment: start;
+        for i in 3: Row {}
+        marker := Rectangle { height: 10px; }
+    }
+    out property <bool> test: marker.y == 3 * 40px;
+}
+
+/*
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+instance.invoke_set_h(50.0);
+assert!(!instance.get_test());
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+instance.invoke_set_h(50.0);
+assert(!instance.get_test());
+```
+
+```js
+var instance = new slint.TestCase({});
+assert(instance.test);
+instance.set_h(50);
+assert(!instance.test);
+```
+
+*/
