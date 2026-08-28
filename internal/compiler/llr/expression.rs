@@ -128,6 +128,8 @@ pub enum Expression {
     BuiltinFunctionCall {
         function: BuiltinFunction,
         arguments: Vec<Expression>,
+        /// The location of the call in the .slint source, for run-time diagnostics
+        source_location: Option<crate::diagnostics::SourceLocation>,
     },
     CallBackCall {
         callback: MemberReference,
@@ -488,6 +490,7 @@ impl Expression {
             Type::DataTransfer => Expression::EmptyDataTransfer,
             Type::ComponentFactory => Expression::EmptyComponentFactory,
             Type::StyledText => Expression::BuiltinFunctionCall {
+                source_location: None,
                 function: BuiltinFunction::StringToStyledText,
                 arguments: vec![Expression::StringLiteral(SmolStr::default())],
             },

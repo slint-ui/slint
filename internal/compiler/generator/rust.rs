@@ -3712,7 +3712,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             let prop_type = ctx.property_ty(nr);
             primitive_property_value(prop_type, access)
         }
-        Expression::BuiltinFunctionCall { function, arguments } => {
+        Expression::BuiltinFunctionCall { function, arguments, .. } => {
             compile_builtin_function_call(function.clone(), arguments, ctx)
         }
         Expression::CallBackCall { .. } => compile_callback_call(expr, ctx),
