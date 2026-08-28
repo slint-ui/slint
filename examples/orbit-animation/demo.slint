@@ -42,90 +42,62 @@ export component AppWindow inherits Window {
 
 
     if cb.current-value == "Demo 1": Rectangle {
+        Image {
+            source: @image-url("images/sphere.png");
+            width: 200px;
+            z: 0;
+        }
         Orbiter {
-            state: back;
             orbit-rotation: orbit-animation;
             orbit-attack: 45deg;
+            z: self.in-front ? 10 : -10;
         }
     }
 
 
 
     if cb.current-value == "Demo 2": Rectangle {
+        Image {
+            source: @image-url("images/sphere.png");
+            width: 200px;
+            z: 0;
+        }
         for offSet in offSets:  Orbiter {
-            state: back;
             orbit-rotation: orbit-animation;
             offset: offSet;
             orbit-attack: attack-animation;
+            z: self.in-front ? 10 : -10;
         }
     }
 
     if cb.current-value == "Demo 3": Rectangle {
+        Image {
+            source: @image-url("images/sphere.png");
+            width: 200px;
+            z: 0;
+        }
         for attack[index] in attacks:  Orbiter {
-            state: back;
             orbit-rotation: orbit-animation;
             orbit-attack: attack[0];
             offset: attack[1];
+            z: self.in-front ? 10 : -10;
         }
     }
 
     if cb.current-value == "Demo 4": Rectangle {
+        Image {
+            source: slint-logo;
+            width: 200px;
+            colorize: #1161FF;
+            z: 0;
+        }
         for offSet in offSets:  Orbiter {
-            state: back;
             orbit-rotation: orbit-animation;
             offset: offSet;
             orbit-attack: attack-animation;
             source: slint-logo;
             colorize: white.mix(black, self.scale);
-        }
-    }
-
-
-    if cb.current-value != "Demo 4":Image {
-        source: @image-url("images/sphere.png");
-        width: 200px;
-    }
-
-    if cb.current-value == "Demo 4": Image {
-        source: slint-logo;
-        width: 200px;
-        colorize: #1161FF;
-    }
-
-    if cb.current-value == "Demo 1": Rectangle {
-        Orbiter {
-            state: front;
-            orbit-rotation: orbit-animation;
-            orbit-attack: 45deg;
-        }
-    }
-
-    if cb.current-value == "Demo 2": Rectangle {
-        for offSet in offSets:  Orbiter {
-            state: front;
-            orbit-rotation: orbit-animation;
-            offset: offSet;
-            orbit-attack: attack-animation;
-        }
-    }
-
-    if cb.current-value == "Demo 3": Rectangle {
-        for attack in attacks:  Orbiter {
-            state: front;
-            orbit-rotation: orbit-animation;
-            orbit-attack: attack[0];
-            offset: attack[1];
-        }
-    }
-
-    if cb.current-value == "Demo 4": Rectangle {
-        for offSet in offSets:  Orbiter {
-            state: front;
-            orbit-rotation: orbit-animation;
-            offset: offSet;
-            orbit-attack: attack-animation;
-            source: slint-logo;
-            colorize: white.mix(black, self.scale);
+            z: self.in-front ? 10 : -10;
         }
     }
 
