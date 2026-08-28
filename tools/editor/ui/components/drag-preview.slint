@@ -42,10 +42,10 @@ export component DragPreview inherits Rectangle {
     visible: AppState.outline-drag-active || root.palette-drag-active;
     width: AppState.outline-drag-active
         ? AppState.outline-drag-preview-size.width
-        : AppState.palette-drag-preview-size.width;
+        : AppState.palette-drag-size.width;
     height: AppState.outline-drag-active
         ? AppState.outline-drag-preview-size.height
-        : AppState.palette-drag-preview-size.height;
+        : AppState.palette-drag-size.height;
     x: AppState.outline-drag-active
         ? AppState.outline-drag-position.x
         : AppState.palette-drag-preview-position.x;

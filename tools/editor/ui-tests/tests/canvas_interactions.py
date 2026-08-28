@@ -5,7 +5,7 @@ import math
 
 import slint_testing
 from slint_testing import keys
-from source_oracle import SourceSnapshot
+from source_snapshot import SourceSnapshot
 from ui_driver import elements_with_label, wait_until, window_element_with_label
 
 Frame = tuple[float, float, float, float]

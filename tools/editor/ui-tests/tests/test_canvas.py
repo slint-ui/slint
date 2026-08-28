@@ -18,7 +18,7 @@ from canvas_interactions import (
     same_state,
     selection_frame,
 )
-from source_oracle import SourceSnapshot
+from source_snapshot import SourceSnapshot
 from ui_driver import (
     elements_with_label,
     first_window,
@@ -29,6 +29,7 @@ from ui_driver import (
     window_element_with_label,
 )
 
+GOLDENS = Path(__file__).resolve().parents[1] / "goldens"
 CORNERS = ["top-left", "top-right", "bottom-right", "bottom-left"]
 OPPOSITE_CORNERS = {
     "top-left": "bottom-right",
@@ -62,7 +63,7 @@ THRESHOLD_LABELS = (
     "Rectangle radius top-left",
 )
 DISABLED_IDS = ("layout-rectangle", "rotated-rectangle")
-PALETTE_PREVIEW_SIZES = {
+PALETTE_DROP_SIZES = {
     "Rectangle": (160, 64),
     "Text": (220, 40),
     "Image": (160, 96),
@@ -89,18 +90,20 @@ def begin_palette_drag(
     window: slint_testing.Window,
     kind: str,
     target: slint_testing.LogicalPosition,
-) -> slint_testing.Element:
-    palette_row = wait_until(
-        lambda: (
+) -> None:
+    def leftmost_enabled_row() -> slint_testing.Element | None:
+        rows = [
             row
-            if (
-                row := window_element_with_label(
-                    window, kind, slint_testing.AccessibleRole.ListItem
-                )
-            ).accessible_enabled
-            else None
-        )
-    )
+            for row in elements_with_label(
+                window.root_element,
+                kind,
+                slint_testing.AccessibleRole.ListItem,
+            )
+            if row.accessible_enabled
+        ]
+        return min(rows, key=lambda row: row.absolute_position.x) if rows else None
+
+    palette_row = wait_until(leftmost_enabled_row)
     start = center(palette_row)
     button = slint_testing.PointerEventButton.Left
     window.dispatch_event(slint_testing.PointerPressEvent(start, button))
@@ -110,9 +113,6 @@ def begin_palette_drag(
         )
     )
     window.dispatch_event(slint_testing.PointerMoveEvent(target))
-    return window_element_with_label(
-        window, f"{kind} drag preview", slint_testing.AccessibleRole.Region
-    )
 
 
 def finish_palette_drag(
@@ -138,7 +138,7 @@ def test_component_palette_preserves_compact_row_layout(
             window_element_with_label(
                 window, kind, slint_testing.AccessibleRole.ListItem
             )
-            for kind in PALETTE_PREVIEW_SIZES
+            for kind in PALETTE_DROP_SIZES
         ]
 
         assert section.absolute_position.y + section.size.height + 8 == pytest.approx(
@@ -157,47 +157,163 @@ def test_component_palette_preserves_compact_row_layout(
         ].absolute_position.y == pytest.approx(70)
 
 
-@pytest.mark.parametrize("kind", PALETTE_PREVIEW_SIZES)
-def test_component_palette_drag_preview_matches_drop_geometry(
+@pytest.mark.parametrize("kind", PALETTE_DROP_SIZES)
+def test_component_palette_drop_can_extend_outside_artboard(
     editor_binary: Path,
     editor_environment: dict[str, str],
     fixture_project: Path,
     kind: str,
 ) -> None:
     source_file = fixture_project / "PaletteDropCases.slint"
-    baseline = source_file.read_bytes()
-    source_file.write_bytes(baseline)
+    snapshot = SourceSnapshot.capture(fixture_project)
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
         window = first_window(editor)
         artboard = window_element_with_label(
             window, "Artboard", slint_testing.AccessibleRole.Region
         )
         target = slint_testing.LogicalPosition(
-            x=artboard.absolute_position.x + 260,
-            y=artboard.absolute_position.y + 220,
+            x=artboard.absolute_position.x + 8,
+            y=artboard.absolute_position.y + 8,
         )
-        preview = begin_palette_drag(window, kind, target)
-        expected_width, expected_height = PALETTE_PREVIEW_SIZES[kind]
-        assert preview.size.width == pytest.approx(expected_width)
-        assert preview.size.height == pytest.approx(expected_height)
-        assert preview.absolute_position.x == pytest.approx(
-            target.x - expected_width / 2
-        )
-        assert preview.absolute_position.y == pytest.approx(
-            target.y - expected_height / 2
-        )
+        begin_palette_drag(window, kind, target)
+        expected_width, expected_height = PALETTE_DROP_SIZES[kind]
 
-        finish_palette_drag(window, target)
-        updated = wait_for_source_change(source_file, baseline)
         expected_x = round(target.x - artboard.absolute_position.x - expected_width / 2)
         expected_y = round(
             target.y - artboard.absolute_position.y - expected_height / 2
         )
-        assert f"{kind} {{".encode() in updated
-        assert f"x: {expected_x}px;".encode() in updated
-        assert f"y: {expected_y}px;".encode() in updated
-        assert f"width: {expected_width}px;".encode() in updated
-        assert f"height: {expected_height}px;".encode() in updated
+        assert expected_x < 0
+        assert expected_y < 0
+
+        finish_palette_drag(window, target)
+        expected = (
+            GOLDENS / f"PaletteDropCases.outside-{kind.lower()}.slint"
+        ).read_bytes()
+        snapshot.wait_for_exact(expected, "PaletteDropCases.slint")
+
+
+def test_palette_preview_follows_rejected_pointer(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+) -> None:
+    source_file = fixture_project / "PaletteDropCases.slint"
+    snapshot = SourceSnapshot.capture(fixture_project)
+    with launch_editor(editor_binary, editor_environment, source_file) as editor:
+        window = first_window(editor)
+        artboard = window_element_with_label(
+            window, "Artboard", slint_testing.AccessibleRole.Region
+        )
+        first_rejected_position = slint_testing.LogicalPosition(
+            x=artboard.absolute_position.x - 60,
+            y=artboard.absolute_position.y + 180,
+        )
+        second_rejected_position = slint_testing.LogicalPosition(
+            x=artboard.absolute_position.x - 100,
+            y=artboard.absolute_position.y + 280,
+        )
+
+        begin_palette_drag(window, "Rectangle", first_rejected_position)
+        preview = window_element_with_label(
+            window,
+            "Rectangle drag preview",
+            slint_testing.AccessibleRole.Region,
+        )
+        expected_width, expected_height = PALETTE_DROP_SIZES["Rectangle"]
+        assert preview.size.width == pytest.approx(expected_width)
+        assert preview.size.height == pytest.approx(expected_height)
+        assert preview.absolute_position.x == pytest.approx(
+            first_rejected_position.x - expected_width / 2
+        )
+        assert preview.absolute_position.y == pytest.approx(
+            first_rejected_position.y - expected_height / 2
+        )
+
+        window.dispatch_event(slint_testing.PointerMoveEvent(second_rejected_position))
+        wait_until(
+            lambda: (
+                preview
+                if preview.absolute_position.x
+                == pytest.approx(second_rejected_position.x - expected_width / 2)
+                and preview.absolute_position.y
+                == pytest.approx(second_rejected_position.y - expected_height / 2)
+                else None
+            )
+        )
+        finish_palette_drag(window, second_rejected_position)
+        snapshot.assert_unchanged()
+
+
+@pytest.mark.parametrize("kind", PALETTE_DROP_SIZES)
+def test_repeated_palette_drop_preserves_component_kind(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+    kind: str,
+) -> None:
+    source_file = fixture_project / "RepeatedPaletteDrops.slint"
+    snapshot = SourceSnapshot.capture(fixture_project)
+    with launch_editor(editor_binary, editor_environment, source_file) as editor:
+        window = first_window(editor)
+        window_element_with_label(
+            window, "Reload probe", slint_testing.AccessibleRole.Text
+        )
+        select_outline_row(window, "drop-target")
+        x, y, width, height = selection_frame(window, "Rectangle")
+        target = slint_testing.LogicalPosition(x=x + width / 2, y=y + height / 2)
+
+        for step in (1, 2):
+            begin_palette_drag(window, kind, target)
+            finish_palette_drag(window, target)
+            expected = (
+                GOLDENS / f"RepeatedPaletteDrops.{kind.lower()}-{step}.slint"
+            ).read_bytes()
+            snapshot.wait_for_exact(expected, "RepeatedPaletteDrops.slint")
+            reload_label = f"Reload probe {step}"
+            source_file.write_bytes(
+                expected.replace(b"Reload probe", reload_label.encode(), 1)
+            )
+            window_element_with_label(
+                window, reload_label, slint_testing.AccessibleRole.Text
+            )
+            source_file.write_bytes(expected)
+            window_element_with_label(
+                window, "Reload probe", slint_testing.AccessibleRole.Text
+            )
+            wait_until(
+                lambda: (
+                    True
+                    if not elements_with_label(
+                        window.root_element, f"{kind} drag preview"
+                    )
+                    else None
+                )
+            )
+            button = slint_testing.PointerEventButton.Left
+            window.dispatch_event(slint_testing.PointerPressEvent(target, button))
+            window.dispatch_event(slint_testing.PointerReleaseEvent(target, button))
+            window_element_with_label(
+                window,
+                f"Selected {kind}",
+                slint_testing.AccessibleRole.Region,
+                timeout=15,
+            )
+            select_outline_row(window, "drop-target")
+            window_element_with_label(
+                window,
+                "Selected Rectangle",
+                slint_testing.AccessibleRole.Region,
+                timeout=15,
+            )
+
+        element_types = {
+            line.strip().split(maxsplit=1)[0]
+            for line in source_file.read_text().splitlines()
+            if line.strip().endswith("{") and not line.strip().startswith("export ")
+        }
+        assert element_types.isdisjoint(
+            {"Flickable", "Window", "HorizontalLayout", "VerticalLayout", "GridLayout"}
+        )
 
 
 def test_component_palette_drag_over_rotated_element_does_not_crash(
@@ -370,14 +486,14 @@ def outside_move_values(
     _, _, width, height = geometry
     if direction == "top-left":
         return (
-            -OUTSIDE_ARTBOARD_DISTANCE,
-            -OUTSIDE_ARTBOARD_DISTANCE,
+            -OUTSIDE_ARTBOARD_DISTANCE - width // 2,
+            -OUTSIDE_ARTBOARD_DISTANCE - height // 2,
             width,
             height,
         )
     return (
-        BOUNDS_WIDTH + OUTSIDE_ARTBOARD_DISTANCE - width,
-        BOUNDS_HEIGHT + OUTSIDE_ARTBOARD_DISTANCE - height,
+        BOUNDS_WIDTH + OUTSIDE_ARTBOARD_DISTANCE - width // 2,
+        BOUNDS_HEIGHT + OUTSIDE_ARTBOARD_DISTANCE - height // 2,
         width,
         height,
     )
@@ -722,7 +838,6 @@ def run_canvas_boundary_case(
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
         window = first_window(editor)
         select_outline_row(window, element_id)
-        baseline_frame = selection_frame(window, kind)
 
         geometry = geometries[kind]
         artboard = window_element_with_label(
@@ -734,20 +849,21 @@ def run_canvas_boundary_case(
         bottom = top + artboard.size.height
         if operation == "move":
             label = f"{kind} move handle"
-            desired_position = (
+            desired_pointer = (
                 (
                     left - OUTSIDE_ARTBOARD_DISTANCE,
                     top - OUTSIDE_ARTBOARD_DISTANCE,
                 )
                 if target == "top-left"
                 else (
-                    right + OUTSIDE_ARTBOARD_DISTANCE - baseline_frame[2],
-                    bottom + OUTSIDE_ARTBOARD_DISTANCE - baseline_frame[3],
+                    right + OUTSIDE_ARTBOARD_DISTANCE,
+                    bottom + OUTSIDE_ARTBOARD_DISTANCE,
                 )
             )
+            start = center(window_element_with_label(window, label))
             delta = (
-                desired_position[0] - baseline_frame[0],
-                desired_position[1] - baseline_frame[1],
+                desired_pointer[0] - start.x,
+                desired_pointer[1] - start.y,
             )
             expected_geometry = outside_move_values(geometry, target)
         else:

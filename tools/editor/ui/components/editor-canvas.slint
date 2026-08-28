@@ -47,6 +47,9 @@ export component EditorCanvas inherits Rectangle {
     private property <bool> selection-rotation-active: false;
     private property <angle> selection-rotation;
 
+    accessible-role: AccessibleRole.main;
+    accessible-label: "Editor canvas";
+
     callback real-element-selected();
 
     horizontal-stretch: 1;
@@ -58,18 +61,6 @@ export component EditorCanvas inherits Rectangle {
 
     function phone-height() -> length {
         return EditorMetrics.phone-portrait-height;
-    }
-
-    pure function palette-preview-inside-content(position: Point) -> bool {
-        let size = AppState.palette-drag-preview-size;
-        let preview-position = {
-            x: position.x - size.width / 2,
-            y: position.y - size.height / 2,
-        };
-        return preview-position.x >= 0px
-            && preview-position.y >= 0px
-            && preview-position.x + size.width <= phone.width - 2 * EditorMetrics.phone-outer-padding
-            && preview-position.y + size.height <= phone.height - 2 * EditorMetrics.phone-outer-padding;
     }
 
     function phone-canvas-top() -> length {
@@ -157,16 +148,14 @@ export component EditorCanvas inherits Rectangle {
                                 y: self.absolute-position.y + event.position.y,
                             },
                         );
-                        if !root.palette-preview-inside-content(event.position) {
-                            return DragAction.none;
-                        }
+                        return DragAction.copy;
                     }
                     return Api.can-drop(event.data, event.position.x, event.position.y, true)
                         ? DragAction.copy : DragAction.none;
                 }
                 dropped(event) => {
                     if AppState.palette-drag-kind != PaletteComponentKind.none {
-                        let size = AppState.palette-drag-preview-size;
+                        let size = AppState.palette-drag-size;
                         Api.drop-with-geometry(
                             event.data,
                             event.position,
@@ -193,6 +182,8 @@ export component EditorCanvas inherits Rectangle {
                 height: max((drop-mark.y2 - drop-mark.y1).abs(), 2px);
                 border-color: StudioTheme.drop-mark-foreground;
                 background: StudioTheme.drop-mark-background;
+                accessible-role: AccessibleRole.region;
+                accessible-label: "Canvas drop marker";
             }
 
             // Click to select the real previewed element.
@@ -201,6 +192,7 @@ export component EditorCanvas inherits Rectangle {
             selection-area := TouchArea {
                 mouse-cursor: crosshair;
                 clicked => {
+                    Api.unselect();
                     Api.select-at(self.pressed-x, self.pressed-y, false);
                     root.real-element-selected();
                 }
@@ -297,12 +289,16 @@ export component EditorCanvas inherits Rectangle {
                     x: self.move-pointer-position.x - EditorMetrics.phone-outer-padding,
                     y: self.move-pointer-position.y - EditorMetrics.phone-outer-padding,
                 };
+                let pointer-outside-artboard = content-pointer.x < 0px
+                    || content-pointer.y < 0px
+                    || content-pointer.x > phone.width - 2 * EditorMetrics.phone-outer-padding
+                    || content-pointer.y > phone.height - 2 * EditorMetrics.phone-outer-padding;
                 if !Api.selected-element-can-move-to(
                     content-position.x,
                     content-position.y,
                     content-pointer.x,
                     content-pointer.y,
-                ) {
+                ) && !pointer-outside-artboard {
                     return;
                 }
                 root.selection-drag-active = true;

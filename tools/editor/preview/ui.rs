@@ -190,20 +190,12 @@ pub fn create_ui(
     api.on_highlight_positions(super::element_selection::highlight_positions);
     let lsp = to_lsp.clone();
     api.on_can_drop(super::can_drop_component);
-    api.on_new_component_data(|index: i32| -> DataTransfer {
-        let Ok(index) = index.try_into() else {
+    api.on_new_component_data_for_kind(|kind| -> DataTransfer {
+        let Some(kind) = super::PaletteComponent::from_ui(kind) else {
             return Default::default();
         };
         let mut transfer = DataTransfer::default();
-        transfer.set_user_data(Rc::new(DragItem::NewComponent { index }));
-        transfer
-    });
-    api.on_new_component_data_for_name(|name: SharedString| -> DataTransfer {
-        let Some(index) = super::component_index_for_name(name.as_str()) else {
-            return Default::default();
-        };
-        let mut transfer = DataTransfer::default();
-        transfer.set_user_data(Rc::new(DragItem::NewComponent { index }));
+        transfer.set_user_data(Rc::new(DragItem::NewComponent { kind }));
         transfer
     });
     api.on_move_element_instance_data(|uri: SharedString, offset: i32| -> DataTransfer {

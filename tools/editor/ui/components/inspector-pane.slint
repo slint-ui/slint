@@ -31,6 +31,8 @@ export component InspectorPane inherits Rectangle {
 
     width: EditorMetrics.inspector-pane-width;
     background: InspectorTokens.panel-bg;
+    accessible-role: AccessibleRole.complementary;
+    accessible-label: "Inspector and outline";
     property <length> content-x: 1px;
     property <length> split-height: 1px;
     property <length> inspector-height: (root.height - root.split-height) / 2;

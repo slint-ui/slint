@@ -4,8 +4,8 @@
 import "./assets/Inter-VariableFont.ttf";
 
 import { Api, EditorSurfaceMode } from "api.slint";
-import { ProjectKind, StartupWizard } from "startup-wizard.slint";
-import { AppState, SidebarToggleButton, StudioTheme } from "components/common.slint";
+import { StartupWizard } from "startup-wizard.slint";
+import { AppState, PaletteComponentKind, SidebarToggleButton, StudioTheme } from "components/common.slint";
 import { DragPreview } from "components/drag-preview.slint";
 import { EditorCanvas } from "components/editor-canvas.slint";
 import { EditorTopBar } from "components/top-bar.slint";
@@ -28,7 +28,6 @@ export component EditorUi inherits Window {
 
     property <bool> sidebars-collapsed: false;
     property <length> inspector-scroll-y: 0px;
-    property <ProjectKind> selected-project: ProjectKind.mobile;
 
     function open-startup-wizard() {
         Api.open-startup-wizard();
@@ -88,8 +87,17 @@ export component EditorUi inherits Window {
                 self.shift-pressed = false;
             }
 
-            Rectangle {
-                background: StudioTheme.app-bg;
+            DropArea {
+                can-drop(event) => {
+                    if AppState.palette-drag-kind != PaletteComponentKind.none {
+                        AppState.update-palette-drag(AppState.palette-drag-kind, event.position);
+                    }
+                    return DragAction.none;
+                }
+
+                Rectangle {
+                    background: StudioTheme.app-bg;
+                }
 
                 VerticalLayout {
                     EditorTopBar { }
@@ -168,7 +176,6 @@ export component EditorUi inherits Window {
         }
 
         if Api.startup-wizard-visible: StartupWizard {
-            selected-project <=> root.selected-project;
             opened => {
                 root.open-project();
             }
