@@ -245,10 +245,6 @@ fn rewrite_layoutinfo_h_for_constraint(expr: &mut Expression, height_param: &Exp
     });
 }
 
-/// Same as `synthesize_layoutinfo_v_with_constraint`, but for the
-/// horizontal axis. Fires on any element whose `layoutinfo-h` depends
-/// (transitively) on a flex with horizontal cross-axis — directly
-/// (column-direction flex) or via a descendant / base component.
 /// Record on every cell of a GridLayout whether solving that grid's horizontal
 /// axis can read back into its vertical cache — see
 /// [`crate::layout::GridLayoutCell::h_solve_reads_v_cache`].
@@ -310,6 +306,10 @@ pub fn mark_grid_h_solve_reads_v_cache(component: &Rc<Component>) {
     });
 }
 
+/// Same as `synthesize_layoutinfo_v_with_constraint`, but for the
+/// horizontal axis. Fires on any element whose `layoutinfo-h` depends
+/// (transitively) on a flex with horizontal cross-axis — directly
+/// (column-direction flex) or via a descendant / base component.
 pub fn synthesize_layoutinfo_h_with_constraint(component: &Rc<Component>) {
     /// Bottom-up walk, returns `true` if the subtree contains an
     /// h-cross-axis dependency (a flex with cross axis on horizontal,

@@ -3038,7 +3038,7 @@ fn generate_layout_item_info_decl(
         format!(
             "if (o == slint::cbindgen_private::Orientation::Vertical) {{\n\
                  if (auto *inner = {inner_rep_id}.typed_instance_at(index - count)) {{\n\
-                     [[maybe_unused]] size_t {idx} = index;\n\
+                     size_t {idx} = index;\n\
                      return inner->layout_item_info_at_cross_width(static_cast<float>({width}));\n\
                  }}\n\
              }}\n"
