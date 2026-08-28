@@ -356,24 +356,6 @@ pub trait ModelExt: Model {
 
 impl<T: Model> ModelExt for T {}
 
-/// Removes the row at `index` from the model. A negative index does nothing.
-///
-/// Called by the generated code and the interpreter for the `.slint` `array.remove` function.
-pub fn model_remove<T>(model: &dyn Model<Data = T>, index: i32) {
-    if index >= 0 {
-        model.remove_row(index as usize);
-    }
-}
-
-/// Inserts `data` as a new row at `index`. A negative index does nothing.
-///
-/// Called by the generated code and the interpreter for the `.slint` `array.insert` function.
-pub fn model_insert<T>(model: &dyn Model<Data = T>, index: i32, data: T) {
-    if index >= 0 {
-        model.insert_row(index as usize, data);
-    }
-}
-
 pub fn model_any<T>(model: &dyn Model<Data = T>, mut predicate: impl FnMut(T) -> bool) -> bool {
     let row_count = model.row_count();
     model.model_tracker().track_any_change(row_count, crate::InternalToken);

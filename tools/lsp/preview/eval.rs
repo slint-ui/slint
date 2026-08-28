@@ -695,7 +695,9 @@ fn handle_builtin_function(
                 _ => panic!("Second argument not an integer: {:?}", arguments[1]),
             };
 
-            i_slint_core::model::model_remove(&model, index as i32);
+            if let Ok(index) = usize::try_from(index as i64) {
+                model.remove_row(index);
+            }
 
             Value::Void
         }
@@ -714,7 +716,9 @@ fn handle_builtin_function(
             };
 
             let value = eval_expression(&arguments[2], local_context, None);
-            i_slint_core::model::model_insert(&model, index as i32, value);
+            if let Ok(index) = usize::try_from(index as i64) {
+                model.insert_row(index, value);
+            }
 
             Value::Void
         }
