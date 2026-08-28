@@ -39,22 +39,74 @@ def deletion_golden(element_type: str) -> bytes:
     )
 
 
-@pytest.mark.skip(reason="Inspector accessibility is added by the inspector layer")
 def test_outline_selection_synchronizes_canvas_and_inspector(
     editor_binary: Path,
     editor_environment: dict[str, str],
     fixture_project: Path,
 ) -> None:
-    assert editor_binary and editor_environment and fixture_project
+    snapshot = SourceSnapshot.capture(fixture_project)
+    with launch_editor(
+        editor_binary, editor_environment, fixture_project / "Main.slint"
+    ) as editor:
+        window = first_window(editor)
+        select_fixture_element(window, "Rectangle")
+        assert (
+            window_element_with_label(
+                window, "Position X", slint_testing.AccessibleRole.TextInput
+            ).accessible_value
+            == "40"
+        )
+        assert (
+            window_element_with_label(
+                window, "Width", slint_testing.AccessibleRole.TextInput
+            ).accessible_value
+            == "180"
+        )
+        snapshot.assert_unchanged()
 
 
-@pytest.mark.skip(reason="Inspector accessibility is added by the inspector layer")
 def test_canvas_selection_synchronizes_outline_and_inspector(
     editor_binary: Path,
     editor_environment: dict[str, str],
     fixture_project: Path,
 ) -> None:
-    assert editor_binary and editor_environment and fixture_project
+    snapshot = SourceSnapshot.capture(fixture_project)
+    with launch_editor(
+        editor_binary, editor_environment, fixture_project / "Main.slint"
+    ) as editor:
+        window = first_window(editor)
+        text = wait_until(
+            lambda: (
+                element
+                if (
+                    element := next(
+                        iter(window.find_elements_by_id("Main::root-text")), None
+                    )
+                )
+                else None
+            )
+        )
+        target = slint_testing.LogicalPosition(
+            x=text.absolute_position.x + text.size.width / 2,
+            y=text.absolute_position.y + text.size.height / 2,
+        )
+        button = slint_testing.PointerEventButton.Left
+        window.dispatch_event(slint_testing.PointerPressEvent(target, button))
+        window.dispatch_event(slint_testing.PointerReleaseEvent(target, button))
+        row = window_element_with_label(
+            window, "root-text", slint_testing.AccessibleRole.ListItem
+        )
+        wait_until(lambda: row if row.accessible_item_selected else None)
+        window_element_with_label(
+            window, "Selected Text", slint_testing.AccessibleRole.Region
+        )
+        assert (
+            window_element_with_label(
+                window, "Position X", slint_testing.AccessibleRole.TextInput
+            ).accessible_value
+            == "180"
+        )
+        snapshot.assert_unchanged()
 
 
 def test_clear_canvas_selection_does_not_edit_source(
@@ -83,7 +135,8 @@ def test_clear_canvas_selection_does_not_edit_source(
                 True
                 if not elements_with_label(window.root_element, "Selected Rectangle")
                 else None
-            )
+            ),
+            timeout=15,
         )
         outline = window_element_with_label(
             window, "Current file outline", slint_testing.AccessibleRole.List
@@ -129,7 +182,6 @@ def test_delete_without_element_selection_does_not_edit_source(
         snapshot.assert_unchanged()
 
 
-@pytest.mark.skip(reason="Inspector accessibility is added by the inspector layer")
 @pytest.mark.parametrize(
     "key", [keys.Backspace, keys.Delete], ids=["backspace", "delete"]
 )
@@ -139,7 +191,27 @@ def test_focused_inspector_field_consumes_delete_key(
     fixture_project: Path,
     key: str,
 ) -> None:
-    assert editor_binary and editor_environment and fixture_project and key
+    snapshot = SourceSnapshot.capture(fixture_project)
+    with launch_editor(
+        editor_binary, editor_environment, fixture_project / "Main.slint"
+    ) as editor:
+        window = first_window(editor)
+        select_fixture_element(window, "Rectangle")
+        field = window_element_with_label(
+            window, "Position X", slint_testing.AccessibleRole.TextInput
+        )
+        target = slint_testing.LogicalPosition(
+            x=field.absolute_position.x + field.size.width / 2,
+            y=field.absolute_position.y + field.size.height / 2,
+        )
+        button = slint_testing.PointerEventButton.Left
+        window.dispatch_event(slint_testing.PointerPressEvent(target, button))
+        window.dispatch_event(slint_testing.PointerReleaseEvent(target, button))
+        press_key(window, key)
+        window_element_with_label(
+            window, "Selected Rectangle", slint_testing.AccessibleRole.Region
+        )
+        snapshot.assert_unchanged()
 
 
 @pytest.mark.parametrize(
@@ -170,7 +242,8 @@ def test_delete_selected_element_writes_exact_source(
                     slint_testing.AccessibleRole.ListItem,
                 )
                 else None
-            )
+            ),
+            timeout=15,
         )
         assert not elements_with_label(
             window.root_element,
