@@ -179,10 +179,9 @@ fn check_case_value(value: &Expression, node: &SyntaxNode, diag: &mut BuildDiagn
         );
     let is_valid_cast = match value {
         Expression::Cast { from, to: Type::Color, .. } => as_number_literal(from).is_some(),
-        // A float literal can only be cast to an int if it has no fractional part,
-        // otherwise the match would silently compare against a truncated value.
         Expression::Cast { from, to: Type::Int32, .. } => {
-            as_number_literal(from).is_some_and(|(n, _)| n.fract() == 0.0)
+            // 1.0 and 1 parse to the same number literal so the text check is needed
+            as_number_literal(from).is_some() && !node.text().to_string().contains('.')
         }
         _ => false,
     };
@@ -300,8 +299,6 @@ fn check_exhaustiveness(
     }
     let subject_node = match_element.node.Expression();
     let subject_type = match_element.subject.ty();
-    // `expected` must stay an (ordered) Vec, not a HashSet as its declaration order
-    // (enum variant order, or true/false) drives the order of the "missing" list below.
     let expected: Vec<CaseValue> = match &subject_type {
         Type::Bool => vec![CaseValue::Bool(true), CaseValue::Bool(false)],
         Type::Enumeration(enumeration) => (0..enumeration.values.len())
