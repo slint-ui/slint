@@ -373,7 +373,8 @@ async fn handle_preview_message(
                 session.send_files_to_preview(files, |_| true);
             }
             for name in settings {
-                if let Some(contents) = i_slint_editor_preview::settings_store::load(name) {
+                if let Some(contents) = i_slint_editor_preview::settings_store::load("editor", name)
+                {
                     session.to_preview.send(&LspToPreviewMessage::SetUserSettings {
                         name: name.clone(),
                         contents,
@@ -383,7 +384,9 @@ async fn handle_preview_message(
             requested_project_root
         }
         UpdateUserSettings { name, contents } => {
-            if let Err(error) = i_slint_editor_preview::settings_store::save(name, contents) {
+            if let Err(error) =
+                i_slint_editor_preview::settings_store::save("editor", name, contents)
+            {
                 tracing::warn!("Failed to save preview user settings: {error}");
             }
             None

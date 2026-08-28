@@ -14,29 +14,38 @@ use std::{
     path::{Path, PathBuf},
 };
 
-/// Load the raw contents of the settings file `name`, or `None` if it is
+/// Load the raw contents of the `tool_name` settings file `name`, or `None` if it is
 /// missing, unreadable, or no config directory can be determined.
-pub fn load(name: &str) -> Option<String> {
-    let path = settings_path(name)?;
+pub fn load(tool_name: &str, name: &str) -> Option<String> {
+    let path = settings_path(tool_name, name)?;
     load_from_path(&path)
 }
 
-/// Persist `contents` verbatim to the settings file `name`.
-pub fn save(name: &str, contents: &str) -> crate::Result<()> {
-    let path = settings_path(name).ok_or_else(|| {
+/// Persist `contents` verbatim to the `tool_name` settings file `name`.
+pub fn save(tool_name: &str, name: &str, contents: &str) -> crate::Result<()> {
+    let path = settings_path(tool_name, name).ok_or_else(|| {
         std::io::Error::other("cannot determine OS config directory for preview settings")
     })?;
     save_to_path(&path, contents)
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-fn settings_path(name: &str) -> Option<PathBuf> {
-    let project_dirs = directories::ProjectDirs::from("dev", "Slint", "slint-lsp")?;
-    settings_path_from_config_dir(project_dirs.config_dir(), name)
+fn settings_path(tool_name: &str, name: &str) -> Option<PathBuf> {
+    let application = if cfg!(target_os = "linux") { "slint" } else { tool_name };
+    let project_dirs = directories::ProjectDirs::from("dev", "Slint", application)?;
+    let mut config_dir = project_dirs.config_dir().to_owned();
+
+    // On Linux, place everything in a subdirectory of the "slint" config directory.
+    // Linux usually uses ~/.config/[tool_name] without the organization, so add a "slint" prefix
+    // manually.
+    if cfg!(target_os = "linux") {
+        config_dir.push(tool_name);
+    }
+    settings_path_from_config_dir(&config_dir, name)
 }
 
 #[cfg(target_arch = "wasm32")]
-fn settings_path(_name: &str) -> Option<PathBuf> {
+fn settings_path(_tool_name: &str, _name: &str) -> Option<PathBuf> {
     None
 }
 
@@ -92,7 +101,15 @@ mod tests {
 
     /// A not-yet-existing directory, so `save_to_path()` has to create it.
     fn config_dir(parent: &tempfile::TempDir) -> PathBuf {
-        parent.path().join("slint-lsp")
+        parent.path().join("slint").join("lsp")
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn linux_settings_path_uses_tool_subdirectory() {
+        assert!(
+            settings_path("lsp", "settings.json").unwrap().ends_with("slint/lsp/settings.json")
+        );
     }
 
     #[test]
