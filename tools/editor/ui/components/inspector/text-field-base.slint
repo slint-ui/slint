@@ -12,13 +12,9 @@ export component InspectorTextFieldBase inherits Rectangle {
     in property <length> content-spacing: 5px;
     in property <length> input-font-size: 12px;
     in property <color> input-color: root.enabled ? InspectorTokens.text : InspectorTokens.muted;
-    in property <string> tooltip-label: "";
-    in property <string> tooltip-key: tooltip-label;
     in property <string> commit-key: "";
     private property <string> active-commit-key: root.commit-key;
     callback accepted(string) -> bool;
-    callback tooltip-hovered(string, string, Point);
-    callback tooltip-hidden(string);
 
     height: InspectorTokens.field-height;
     border-radius: InspectorTokens.field-radius;
@@ -64,14 +60,6 @@ export component InspectorTextFieldBase inherits Rectangle {
         enabled: root.enabled;
         mouse-cursor: text;
         clicked => { input.focus(); }
-
-        changed has-hover => {
-            if self.has-hover && root.tooltip-label != "" {
-                root.tooltip-hovered(root.tooltip-key, root.tooltip-label, root.absolute-position);
-            } else if root.tooltip-label != "" {
-                root.tooltip-hidden(root.tooltip-key);
-            }
-        }
 
         HorizontalLayout {
             padding-left: root.field-padding-left;
