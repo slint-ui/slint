@@ -9,6 +9,7 @@ use lsp_types::Url;
 use super::ui;
 
 pub(crate) const SETTINGS_FILE: &str = "visual-editor-user-settings.json";
+pub(crate) const TOOL_NAME: &str = "visual-editor";
 const MAX_RECENT_PROJECTS: usize = 4;
 
 #[derive(Clone, Debug, Eq, PartialEq, serde::Serialize, serde::Deserialize)]

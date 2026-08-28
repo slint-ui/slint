@@ -7,7 +7,7 @@ use std::rc::Rc;
 use slint::ComponentHandle;
 
 use crate::preview;
-use crate::preview::settings::{Project, SETTINGS_FILE, VisualEditorSettings};
+use crate::preview::settings::{Project, SETTINGS_FILE, TOOL_NAME, VisualEditorSettings};
 use crate::preview::ui::{Api, EditorUi, Project as ProjectGlobal};
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -26,7 +26,7 @@ const NEW_PROJECT_MAIN_FILE_CONTENTS: &str = r#"export component MainWindow inhe
 "#;
 
 pub fn load_settings() -> VisualEditorSettings {
-    i_slint_editor_preview::settings_store::load(SETTINGS_FILE)
+    i_slint_editor_preview::settings_store::load(TOOL_NAME, SETTINGS_FILE)
         .and_then(|contents| VisualEditorSettings::deserialize(&contents))
         .unwrap_or_default()
 }
