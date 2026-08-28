@@ -60,45 +60,6 @@ export component InspectorTextFieldBase inherits Rectangle {
         return root.accepted(text);
     }
 
-    HorizontalLayout {
-        padding-left: root.field-padding-left;
-        padding-right: root.field-padding-right;
-        spacing: root.content-spacing;
-        cross-axis-alignment: center;
-
-        @children
-
-        input := TextInput {
-            horizontal-stretch: 1;
-            text: root.value;
-            enabled: root.enabled;
-            single-line: true;
-            wrap: no-wrap;
-            color: root.input-color;
-            font-size: root.input-font-size;
-            vertical-alignment: center;
-            selection-background-color: InspectorTokens.accent.with-alpha(0.28);
-            text-cursor-width: 1px;
-
-            accepted => {
-                if !root.accept-input(self.text) {
-                    self.text = root.value;
-                }
-            }
-
-            changed has-focus => {
-                if self.has-focus {
-                    root.active-commit-key = root.commit-key;
-                }
-                if !self.has-focus && self.text != root.value {
-                    if !root.accept-input(self.text) {
-                        self.text = root.value;
-                    }
-                }
-            }
-        }
-    }
-
     touch := TouchArea {
         enabled: root.enabled;
         mouse-cursor: text;
@@ -109,6 +70,46 @@ export component InspectorTextFieldBase inherits Rectangle {
                 root.tooltip-hovered(root.tooltip-key, root.tooltip-label, root.absolute-position);
             } else if root.tooltip-label != "" {
                 root.tooltip-hidden(root.tooltip-key);
+            }
+        }
+
+        HorizontalLayout {
+            padding-left: root.field-padding-left;
+            padding-right: root.field-padding-right;
+            spacing: root.content-spacing;
+            cross-axis-alignment: center;
+
+            @children
+
+            input := TextInput {
+                horizontal-stretch: 1;
+                text: root.value;
+                enabled: root.enabled;
+                single-line: true;
+                wrap: no-wrap;
+                color: root.input-color;
+                font-size: root.input-font-size;
+                vertical-alignment: center;
+                selection-background-color: InspectorTokens.accent.with-alpha(0.28);
+                text-cursor-width: 1px;
+
+                accepted => {
+                    if !root.accept-input(self.text) {
+                        self.text = root.value;
+                    }
+                }
+
+                changed has-focus => {
+                    if self.has-focus {
+                        root.active-commit-key = root.commit-key;
+                        self.select-all();
+                    }
+                    if !self.has-focus && self.text != root.value {
+                        if !root.accept-input(self.text) {
+                            self.text = root.value;
+                        }
+                    }
+                }
             }
         }
     }
