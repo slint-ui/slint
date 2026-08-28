@@ -1,10 +1,12 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+from io import BytesIO
 from pathlib import Path
 
 import pytest
 import slint_testing
+from PIL import Image
 from slint_testing import keys
 from source_snapshot import SourceSnapshot
 from ui_driver import (
@@ -225,6 +227,43 @@ def test_focusing_field_replaces_existing_text(
             value,
             slint_testing.AccessibleRole.TextInput,
         )
+
+
+def test_focused_field_uses_opaque_selection_color(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+) -> None:
+    source_file = fixture_project / INSPECTOR_SOURCE
+
+    with launch_editor(editor_binary, editor_environment, source_file) as editor:
+        window = first_window(editor)
+        select_element(window, "Rectangle")
+        field = inspector_field(
+            window, "Position X", slint_testing.AccessibleRole.TextInput
+        )
+        field.invoke_accessible_default_action()
+
+        screenshot = Image.open(BytesIO(window.grab_window_as_png())).convert("RGB")
+        scale_x = screenshot.width / window.root_element.size.width
+        scale_y = screenshot.height / window.root_element.size.height
+        inset = 3
+        left = round((field.absolute_position.x + inset) * scale_x)
+        top = round((field.absolute_position.y + inset) * scale_y)
+        right = round((field.absolute_position.x + field.size.width - inset) * scale_x)
+        bottom = round(
+            (field.absolute_position.y + field.size.height - inset) * scale_y
+        )
+        accent = (0x0D, 0x99, 0xFF)
+        pixels = screenshot.load()
+        assert pixels is not None
+        accent_pixels = sum(
+            pixels[x, y] == accent
+            for y in range(top, bottom)
+            for x in range(left, right)
+        )
+
+        assert accent_pixels >= 20
 
 
 @pytest.mark.parametrize(
