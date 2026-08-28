@@ -711,7 +711,8 @@ fn lower_grid_layout(
             );
             collected_children.push(layout_child);
             new_row = true;
-        } else if layout_child.borrow().base_type.type_name() == Some("Row") {
+        } else if matches!(&layout_child.borrow().base_type, ElementType::Builtin(b) if b.name == "Row")
+        {
             new_row = true;
             let row_children = std::mem::take(&mut layout_child.borrow_mut().children);
             for row_child in row_children {
