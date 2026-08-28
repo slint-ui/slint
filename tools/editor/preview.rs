@@ -2761,6 +2761,7 @@ mod tests {
         let root = std::env::temp_dir()
             .join(format!("slint-preview-project-{}-{name}", std::process::id()));
         fs::create_dir_all(&root).unwrap();
+        let root = fs::canonicalize(root).unwrap();
         let path = root.join("main.slint");
         fs::write(&path, "").unwrap();
         (root, path)
