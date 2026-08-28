@@ -2727,7 +2727,7 @@ fn generate_repeated_component(
     let ctx = EvaluationContext {
         compilation_unit: unit,
         current_scope: EvaluationScope::SubComponent(repeated.sub_tree.root, Some(parent_ctx)),
-        generator_state: RustGeneratorContext { global_access: quote!(_self) },
+        generator_state: RustGeneratorContext { global_access: quote!(_self.globals()) },
         argument_types: &[],
     };
 
@@ -2871,18 +2871,6 @@ fn generate_repeated_component(
                 // the row-scan literals below default those fields.
                 debug_assert!(root_sc.cross_axis_self_alignment_for_repeated.is_none());
                 debug_assert!(root_sc.layout_order_for_repeated.is_none());
-                // Create a context with proper global_access for compiling layout info expressions
-                let layout_ctx = EvaluationContext {
-                    compilation_unit: unit,
-                    current_scope: EvaluationScope::SubComponent(
-                        repeated.sub_tree.root,
-                        Some(parent_ctx),
-                    ),
-                    generator_state: RustGeneratorContext {
-                        global_access: quote!(_self.globals()),
-                    },
-                    argument_types: &[],
-                };
 
                 // A GridLayout measures an inner repeated child at the column
                 // width it assigns it, like the static children measure at
@@ -2894,7 +2882,7 @@ fn generate_repeated_component(
                         return quote!(inner.as_pin_ref().layout_info(o));
                     };
                     let idx = ident(GRID_MEASURE_CHILD_INDEX_LOCAL);
-                    let w = compile_expression(&e.borrow(), &layout_ctx);
+                    let w = compile_expression(&e.borrow(), &ctx);
                     quote!(match o {
                         sp::Orientation::Vertical => inner
                             .as_pin_ref()
@@ -2917,9 +2905,9 @@ fn generate_repeated_component(
                             llr::RowChildTemplateInfo::Static { child_index } => {
                                 let child = &root_sc.grid_layout_children[*child_index];
                                 let layout_info_h_code =
-                                    compile_expression(&child.layout_info_h.borrow(), &layout_ctx);
+                                    compile_expression(&child.layout_info_h.borrow(), &ctx);
                                 let layout_info_v_code =
-                                    compile_expression(&child.layout_info_v.borrow(), &layout_ctx);
+                                    compile_expression(&child.layout_info_v.borrow(), &ctx);
                                 let advance = (!is_last).then(|| quote! { count += 1; });
                                 quote! {
                                     if count == index {
