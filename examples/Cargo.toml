@@ -36,12 +36,12 @@ members = [
   'bevy/slint-hosts-bevy',
   'bevy/bevy-hosts-slint',
   'bevy/bevy-hosts-slint-gpu',
-  'servo',
 ]
 
-# These keep their own workspace (custom MCU profile, no host build, or
-# conflicting board-HAL riscv-rt versions) and are built separately in CI.
-exclude = ['safe-ui', 'mcu-board-support', 'mcu-embassy', 'uefi-demo']
+# These keep their own workspace (custom MCU profile, no host build,
+# conflicting board-HAL riscv-rt versions, or - for servo - a conflicting
+# native `links` dependency) and are built separately in CI.
+exclude = ['safe-ui', 'mcu-board-support', 'mcu-embassy', 'uefi-demo', 'servo']
 
 resolver = "3"
 
