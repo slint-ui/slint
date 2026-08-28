@@ -720,10 +720,13 @@ where
             return;
         }
 
-        // Adjust the existing sorted row indices to match the updated source model
-        for row in self.mapping.borrow_mut().iter_mut() {
-            if *row >= index {
-                *row += count;
+        // Adjust the existing sorted row indices to match the updated source model.
+        // (Skipped for an append: every existing index is below `index` then.)
+        if index + count < self.wrapped_model.row_count() {
+            for row in self.mapping.borrow_mut().iter_mut() {
+                if *row >= index {
+                    *row += count;
+                }
             }
         }
 
@@ -1551,4 +1554,37 @@ fn test_long_chain_integrity() {
     origin_model.insert(45, 3006);
     origin_model.insert(45, 3007);
     check_all();
+}
+
+#[test]
+fn test_sorted_model_row_added_adjustment() {
+    use tests_helper::*;
+
+    // Insertions before the end still shift the mapping entries above them.
+    for insert_at in [0usize, 3, 7, 10] {
+        let origin = Rc::new(VecModel::from(alloc::vec![50, 10, 40, 20, 30, 90, 60, 80, 70, 0]));
+        let sorted = Rc::new(SortModel::new(origin.clone(), |lhs, rhs| lhs.cmp(rhs)));
+        let checker = ModelChecker::new(sorted.clone());
+        origin.insert(insert_at, 35);
+        origin.insert(insert_at, 45);
+        checker.check();
+        assert_eq!(
+            (0..sorted.row_count()).filter_map(|row| sorted.row_data(row)).collect::<Vec<_>>(),
+            alloc::vec![0, 10, 20, 30, 35, 40, 45, 50, 60, 70, 80, 90],
+            "inserting at {insert_at}"
+        );
+    }
+
+    // Appends take the path that skips the adjustment.
+    let origin = Rc::new(VecModel::from(alloc::vec![50, 10, 40, 20, 30]));
+    let sorted = Rc::new(SortModel::new(origin.clone(), |lhs, rhs| lhs.cmp(rhs)));
+    let checker = ModelChecker::new(sorted.clone());
+    origin.push(35);
+    origin.push(5);
+    origin.push(100);
+    checker.check();
+    assert_eq!(
+        (0..sorted.row_count()).filter_map(|row| sorted.row_data(row)).collect::<Vec<_>>(),
+        alloc::vec![5, 10, 20, 30, 35, 40, 50, 100]
+    );
 }
