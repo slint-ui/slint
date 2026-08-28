@@ -144,6 +144,14 @@ impl<T> ItemCache<T> {
         self.map.borrow().is_empty()
     }
 
+    /// Keeps only the entries for which `f` returns true.
+    pub fn retain(&self, mut f: impl FnMut(&T) -> bool) {
+        self.map.borrow_mut().retain(|_, per_component| {
+            per_component.retain(|_, entry| f(&entry.data));
+            !per_component.is_empty()
+        });
+    }
+
     /// Returns a [`RefMut`](std::cell::RefMut) referencing the cached value associated with
     /// `item_rc`, updating the cache entry first if necessary using `update_fn`.
     ///

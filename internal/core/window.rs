@@ -1767,6 +1767,10 @@ impl WindowInner {
         ) -> T,
     ) -> Option<T> {
         crate::properties::evaluate_no_tracking(|| self.ensure_tree_instantiated());
+        #[cfg(feature = "shared-parley")]
+        if let Some(cache) = self.window_adapter().renderer().text_layout_cache() {
+            cache.begin_frame();
+        }
         let component_weak = ItemTreeRc::downgrade(&self.try_component()?);
         let post_render = |renderer: &mut dyn crate::item_rendering::ItemRenderer| {
             self.render_drag_image_overlay(renderer);
