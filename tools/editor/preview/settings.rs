@@ -151,20 +151,21 @@ mod tests {
 
     use super::*;
 
-    fn recent_project(root: &str, path: &str, component: &str) -> Project {
+    fn recent_project(root: impl Into<PathBuf>, url: Url, component: &str) -> Project {
         Project {
             root: root.into(),
-            preview: PreviewComponent {
-                url: Url::from_file_path(path).unwrap(),
-                component: Some(component.into()),
-            },
+            preview: PreviewComponent { url, component: Some(component.into()) },
         }
     }
 
     #[test]
     fn settings_serialize_and_deserialize() {
         let settings = VisualEditorSettings {
-            recent_projects: vec![recent_project("/project", "/project/main.slint", "MainWindow")],
+            recent_projects: vec![recent_project(
+                "/project",
+                Url::parse("file:///project/main.slint").unwrap(),
+                "MainWindow",
+            )],
         };
         let serialized = settings.serialize();
         let json: serde_json::Value = serde_json::from_str(&serialized).unwrap();
@@ -188,7 +189,7 @@ mod tests {
         for index in 0..5 {
             assert!(settings.add_recent_project(recent_project(
                 &format!("/project/{index}"),
-                &format!("/project/{index}.slint"),
+                Url::parse(&format!("file:///project/{index}.slint")).unwrap(),
                 &format!("Component{index}"),
             )));
         }
@@ -203,7 +204,7 @@ mod tests {
 
         assert!(settings.add_recent_project(recent_project(
             "/project/2",
-            "/project/2/other.slint",
+            Url::parse("file:///project/2/other.slint").unwrap(),
             "Other",
         )));
         assert_eq!(settings.recent_projects[0].root, Path::new("/project/2"));
@@ -217,12 +218,12 @@ mod tests {
         fs::write(&path, "").unwrap();
         let settings = VisualEditorSettings {
             recent_projects: vec![
+                recent_project(directory.path(), Url::from_file_path(&path).unwrap(), "Visible"),
                 recent_project(
-                    &directory.path().to_string_lossy(),
-                    &path.to_string_lossy(),
-                    "Visible",
+                    "/missing",
+                    Url::parse("file:///missing/project.slint").unwrap(),
+                    "Missing",
                 ),
-                recent_project("/missing", "/missing/project.slint", "Missing"),
             ],
         };
 
