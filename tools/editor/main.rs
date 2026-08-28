@@ -28,11 +28,11 @@ mod flatpak;
 mod preview;
 #[cfg(target_os = "macos")]
 mod sparkle;
+mod startup;
 #[cfg(target_os = "windows")]
 mod windows;
-mod startup;
 
-use preview::settings::Project;
+use preview::settings::{Project, TOOL_NAME};
 
 fn main() -> Result<()> {
     tracing_subscriber::fmt()
@@ -378,7 +378,8 @@ async fn handle_preview_message(
                 session.send_files_to_preview(files, |_| true);
             }
             for name in settings {
-                if let Some(contents) = i_slint_editor_preview::settings_store::load("editor", name)
+                if let Some(contents) =
+                    i_slint_editor_preview::settings_store::load(TOOL_NAME, name)
                 {
                     session.to_preview.send(&LspToPreviewMessage::SetUserSettings {
                         name: name.clone(),
@@ -398,7 +399,7 @@ async fn handle_preview_message(
         }
         UpdateUserSettings { name, contents } => {
             if let Err(error) =
-                i_slint_editor_preview::settings_store::save("editor", name, contents)
+                i_slint_editor_preview::settings_store::save(TOOL_NAME, name, contents)
             {
                 tracing::warn!("Failed to save preview user settings: {error}");
             }
