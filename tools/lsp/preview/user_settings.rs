@@ -10,7 +10,7 @@
 
 /// Name of the file the preview stores its settings in. The LSP treats this as
 /// an opaque key.
-pub const PREVIEW_SETTINGS_FILE: &str = "preview-user-settings.json";
+pub const PREVIEW_SETTINGS_FILE: &str = "preview-settings.json";
 
 /// Preview UI state persisted for the local user.
 ///

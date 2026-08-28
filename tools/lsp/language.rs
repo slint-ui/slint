@@ -115,7 +115,7 @@ pub fn send_requested_state_to_preview(
         any(feature = "preview-external", feature = "preview-engine")
     ))]
     for name in settings {
-        if let Some(contents) = i_slint_editor_preview::settings_store::load(name) {
+        if let Some(contents) = i_slint_editor_preview::settings_store::load("lsp", name) {
             ctx.session
                 .to_preview
                 .send(&LspToPreviewMessage::SetUserSettings { name: name.clone(), contents });
@@ -134,7 +134,7 @@ pub fn send_requested_state_to_preview(
 #[cfg(any(feature = "preview-external", feature = "preview-engine", feature = "preview-remote"))]
 pub fn store_user_settings(name: &str, contents: &str) {
     #[cfg(not(target_arch = "wasm32"))]
-    if let Err(err) = i_slint_editor_preview::settings_store::save(name, contents) {
+    if let Err(err) = i_slint_editor_preview::settings_store::save("lsp", name, contents) {
         tracing::warn!("Failed to save preview user settings: {err}");
     }
     #[cfg(target_arch = "wasm32")]
