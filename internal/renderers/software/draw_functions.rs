@@ -209,14 +209,15 @@ pub(super) fn draw_texture_line(
                 if color.alpha() == 0 {
                     for pix in line_buffer {
                         let pos = pos(4).0;
-                        let alpha = ((data[pos + 3] as u16 * alpha as u16) / 255) as u8;
-                        let c = PremultipliedRgbaColor::premultiply(Color::from_argb_u8(
-                            alpha,
-                            data[pos + 0],
-                            data[pos + 1],
-                            data[pos + 2],
-                        ));
-                        pix.blend(c);
+                        let p: &[u8] = &data[pos..pos + 4];
+                        let alpha = ((p[3] as u16 * alpha as u16) / 255) as u8;
+                        if alpha == 0xff {
+                            *pix = TargetPixel::from_rgb(p[0], p[1], p[2]);
+                        } else {
+                            pix.blend(PremultipliedRgbaColor::premultiply(Color::from_argb_u8(
+                                alpha, p[0], p[1], p[2],
+                            )));
+                        }
                     }
                 } else {
                     for pix in line_buffer {
