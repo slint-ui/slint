@@ -4,6 +4,7 @@
 #pragma once
 
 #include "private/slint_item_tree.h"
+#include "private/slint_platform_internal.h"
 
 #include <algorithm>
 #include <cstddef>
@@ -49,27 +50,56 @@ int model_length(const std::shared_ptr<M> &model)
     }
 }
 
+/// Logs that the `.slint` array function \a function was rejected by a model
+/// that does not support the modification.
+inline void log_model_unsupported(std::string_view function)
+{
+    auto message =
+            SharedString("array.") + function + "(): the model does not support this modification";
+    cbindgen_private::slint_debug(&message);
+}
+
+/// Logs that the `.slint` array function \a function was called with a row index
+/// that is out of the bounds of a model with \a row_count rows.
+inline void log_model_out_of_bounds(std::string_view function, size_t row_count)
+{
+    auto message = SharedString("array.") + function
+            + "(): the row index is out of bounds (the model has "
+            + SharedString::from_number(static_cast<double>(row_count)) + " rows)";
+    cbindgen_private::slint_debug(&message);
+}
+
 template<typename M, typename ModelData>
 void model_push(const std::shared_ptr<M> &model, const ModelData &value)
 {
-    if (model) {
-        model->push_row(value);
+    if (model && !model->push_row(value)) {
+        log_model_unsupported("push");
     }
 }
 
 template<typename M>
 void model_remove(const std::shared_ptr<M> &model, int index)
 {
-    if (model && index >= 0) {
-        model->remove_row(index);
+    if (!model) {
+        return;
+    }
+    if (index < 0 || static_cast<size_t>(index) >= model->row_count()) {
+        log_model_out_of_bounds("remove", model->row_count());
+    } else if (!model->remove_row(index)) {
+        log_model_unsupported("remove");
     }
 }
 
 template<typename M, typename ModelData>
 void model_insert(const std::shared_ptr<M> &model, int index, const ModelData &value)
 {
-    if (model && index >= 0) {
-        model->insert_row(index, value);
+    if (!model) {
+        return;
+    }
+    if (index < 0 || static_cast<size_t>(index) > model->row_count()) {
+        log_model_out_of_bounds("insert", model->row_count());
+    } else if (!model->insert_row(index, value)) {
+        log_model_unsupported("insert");
     }
 }
 
@@ -177,37 +207,26 @@ public:
     };
 
     /// Adds a new row with the given \a data at the end of the model.
+    /// Returns true when the row was added, false when the model rejected it.
     ///
     /// The default implementation inserts the row after the last one with `insert_row`,
     /// so implementing `insert_row` is enough to support push.
-    virtual void push_row(const ModelData &data) { insert_row(row_count(), data); };
+    virtual bool push_row(const ModelData &data) { return insert_row(row_count(), data); }
 
     /// Removes the row at the given \a index from the model.
+    /// Returns true when the row was removed, false when the model rejected it.
     ///
-    /// If the model cannot support data changes, then it is ok to do nothing.
-    /// The default implementation will print a warning to stderr.
-    ///
-    /// If the model can update the data, it should also call `notify_row_removed`
-    virtual void remove_row(size_t)
-    {
-#ifndef SLINT_FEATURE_FREESTANDING
-        std::cerr << "Model::remove_row was called on a read-only model" << std::endl;
-#endif
-    };
+    /// The default implementation does nothing and returns false. A model that
+    /// supports removing rows should also call `notify_row_removed`.
+    virtual bool remove_row(size_t) { return false; }
 
     /// Inserts a new row with the given \a data at the given \a index, shifting the
     /// following rows by one.
+    /// Returns true when the row was inserted, false when the model rejected it.
     ///
-    /// If the model cannot support data changes, then it is ok to do nothing.
-    /// The default implementation will print a warning to stderr.
-    ///
-    /// If the model can update the data, it should also call `notify_row_added`
-    virtual void insert_row(size_t, const ModelData &)
-    {
-#ifndef SLINT_FEATURE_FREESTANDING
-        std::cerr << "Model::insert_row was called on a read-only model" << std::endl;
-#endif
-    };
+    /// The default implementation does nothing and returns false. A model that
+    /// supports inserting rows should also call `notify_row_added`.
+    virtual bool insert_row(size_t, const ModelData &) { return false; }
 
     /// \private
     /// Internal function called by the view to register itself
@@ -399,18 +418,22 @@ public:
         }
     }
 
-    void remove_row(size_t index) override
+    bool remove_row(size_t index) override
     {
-        if (index < data.size()) {
-            erase(index);
+        if (index >= data.size()) {
+            return false;
         }
+        erase(index);
+        return true;
     }
 
-    void insert_row(size_t index, const ModelData &value) override
+    bool insert_row(size_t index, const ModelData &value) override
     {
-        if (index <= data.size()) {
-            insert(index, value);
+        if (index > data.size()) {
+            return false;
         }
+        insert(index, value);
+        return true;
     }
 
     /// Append a new row with the given value

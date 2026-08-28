@@ -609,9 +609,9 @@ pub struct ModelAdaptorVTable {
     pub row_count: extern "C" fn(VRef<ModelAdaptorVTable>) -> usize,
     pub row_data: unsafe extern "C" fn(VRef<ModelAdaptorVTable>, row: usize) -> *mut Value,
     pub set_row_data: extern "C" fn(VRef<ModelAdaptorVTable>, row: usize, value: Box<Value>),
-    pub push_row: extern "C" fn(VRef<ModelAdaptorVTable>, value: Box<Value>),
-    pub remove_row: extern "C" fn(VRef<ModelAdaptorVTable>, row: usize),
-    pub insert_row: extern "C" fn(VRef<ModelAdaptorVTable>, row: usize, value: Box<Value>),
+    pub push_row: extern "C" fn(VRef<ModelAdaptorVTable>, value: Box<Value>) -> bool,
+    pub remove_row: extern "C" fn(VRef<ModelAdaptorVTable>, row: usize) -> bool,
+    pub insert_row: extern "C" fn(VRef<ModelAdaptorVTable>, row: usize, value: Box<Value>) -> bool,
     pub get_notify: extern "C" fn(VRef<'_, ModelAdaptorVTable>) -> &ModelNotifyOpaque,
     pub drop: extern "C" fn(VRefMut<ModelAdaptorVTable>),
 }
@@ -639,20 +639,29 @@ impl Model for ModelAdaptorWrapper {
     }
 
     fn push_row(&self, data: Value) -> Result<(), ModelError> {
-        let val = Box::new(data);
-        self.0.push_row(val);
-        Ok(())
+        if self.0.push_row(Box::new(data)) { Ok(()) } else { Err(ModelError::unsupported(self)) }
     }
 
     fn remove_row(&self, row: usize) -> Result<(), ModelError> {
-        self.0.remove_row(row);
-        Ok(())
+        let row_count = self.0.row_count();
+        if row >= row_count {
+            Err(ModelError::out_of_bounds(row_count))
+        } else if self.0.remove_row(row) {
+            Ok(())
+        } else {
+            Err(ModelError::unsupported(self))
+        }
     }
 
     fn insert_row(&self, row: usize, data: Value) -> Result<(), ModelError> {
-        let val = Box::new(data);
-        self.0.insert_row(row, val);
-        Ok(())
+        let row_count = self.0.row_count();
+        if row > row_count {
+            Err(ModelError::out_of_bounds(row_count))
+        } else if self.0.insert_row(row, Box::new(data)) {
+            Ok(())
+        } else {
+            Err(ModelError::unsupported(self))
+        }
     }
 
     fn as_any(&self) -> &dyn core::any::Any {
