@@ -673,15 +673,6 @@ impl SkiaRenderer {
                     buffer_dirty_region,
                 );
 
-                let mut clip_path_builder = skia_safe::PathBuilder::new();
-
-                for dirty_rect in partial_renderer.dirty_region.iter() {
-                    let physical_rect = (dirty_rect * scale_factor).to_rect().round_out();
-                    clip_path_builder.add_rect(to_skia_rect(&physical_rect), None, None);
-                }
-
-                let clip_path = clip_path_builder.detach();
-
                 if matches!(self.dirty_region_debug_mode, DirtyRegionDebugMode::Log) {
                     let area_to_repaint: f32 =
                         partial_renderer.dirty_region.iter().map(|b| b.area()).sum();
@@ -696,10 +687,23 @@ impl SkiaRenderer {
                 dirty_region_history.rotate_right(1);
                 dirty_region_history[0] = dirty_region_for_this_frame;
 
-                skia_canvas.clip_path(&clip_path, None, false);
-
-                if matches!(self.dirty_region_debug_mode, DirtyRegionDebugMode::Visualize) {
-                    dirty_region_to_visualize = Some(clip_path);
+                let visualize =
+                    matches!(self.dirty_region_debug_mode, DirtyRegionDebugMode::Visualize);
+                if !visualize && partial_renderer.dirty_region.iter().count() == 1 {
+                    let dirty_rect = partial_renderer.dirty_region.iter().next().unwrap();
+                    let physical_rect = (dirty_rect * scale_factor).to_rect().round_out();
+                    skia_canvas.clip_rect(to_skia_rect(&physical_rect), None, false);
+                } else {
+                    let mut clip_path_builder = skia_safe::PathBuilder::new();
+                    for dirty_rect in partial_renderer.dirty_region.iter() {
+                        let physical_rect = (dirty_rect * scale_factor).to_rect().round_out();
+                        clip_path_builder.add_rect(to_skia_rect(&physical_rect), None, None);
+                    }
+                    let clip_path = clip_path_builder.detach();
+                    skia_canvas.clip_path(&clip_path, None, false);
+                    if visualize {
+                        dirty_region_to_visualize = Some(clip_path);
+                    }
                 }
 
                 item_renderer = &mut partial_renderer;
