@@ -28,6 +28,37 @@ def test_row_modification_rejection_raises() -> None:
         ReadOnly().append(1)
 
 
+def test_rejected_modification_logs_python_class_name(
+    capfd: pytest.CaptureFixture[str],
+) -> None:
+    compiler = native.Compiler()
+    compdef = compiler.build_from_source(
+        """
+        export component App {
+            in-out property<[int]> ints;
+            public function push-one() { ints.push(4) }
+        }
+        """,
+        Path(""),
+    ).component("App")
+    assert compdef is not None
+    instance = compdef.create()
+    assert instance is not None
+
+    class ReadOnly(models.Model[int]):
+        def row_count(self) -> int:
+            return 1
+
+        def row_data(self, row: int) -> int | None:
+            return 42
+
+    instance.set_property("ints", ReadOnly())
+    instance.invoke("push_one")
+
+    err = capfd.readouterr().err
+    assert "array.push(): the model ReadOnly does not support this modification" in err, err
+
+
 def test_model_notify() -> None:
     compiler = native.Compiler()
 

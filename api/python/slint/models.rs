@@ -317,7 +317,7 @@ impl PyModelShared {
                 Err(ModelError::out_of_bounds(self.row_count()))
             }
             Err(err) if err.is_instance_of::<PyNotImplementedError>(py) => {
-                Err(ModelError::unsupported(self))
+                Err(self.unsupported_error(py))
             }
             Err(err) => {
                 crate::handle_unraisable(
@@ -325,8 +325,21 @@ impl PyModelShared {
                     format!("Python: Model implementation of {function} threw an exception"),
                     err,
                 );
-                Err(ModelError::unsupported(self))
+                Err(self.unsupported_error(py))
             }
+        }
+    }
+
+    /// An unsupported ModelError naming the Python type of the model, falling
+    /// back to the name of this wrapper.
+    fn unsupported_error(&self, py: Python<'_>) -> ModelError {
+        let python_type_name = || -> Option<String> {
+            let obj = self.self_ref.borrow();
+            Some(obj.as_ref()?.bind(py).get_type().name().ok()?.to_string())
+        };
+        match python_type_name() {
+            Some(name) => ModelError::unsupported_by_name(name, i_slint_core::InternalToken),
+            None => ModelError::unsupported(self),
         }
     }
 

@@ -24,6 +24,20 @@ impl core::ops::Deref for SharedModelNotify {
     }
 }
 
+/// An unsupported ModelError naming the JavaScript class of the model, falling
+/// back to the name of the JsModel wrapper.
+fn unsupported_error(js_model: &JsModel, model: &Object) -> ModelError {
+    let class_name = || -> Option<String> {
+        let constructor: Object = model.get_named_property("constructor").ok()?;
+        let name: String = constructor.get_named_property("name").ok()?;
+        (!name.is_empty()).then_some(name)
+    };
+    match class_name() {
+        Some(name) => ModelError::unsupported_by_name(name, i_slint_core::InternalToken),
+        None => ModelError::unsupported(js_model),
+    }
+}
+
 pub(crate) fn js_into_rust_model(
     env: &Env,
     maybe_js_impl: &Object,
@@ -278,7 +292,7 @@ impl Model for JsModel {
         // A rejected modification is reported by throwing.
         match push_row_fn.apply(model, js_data) {
             Ok(_) => Ok(()),
-            Err(_) => Err(ModelError::unsupported(self)),
+            Err(_) => Err(unsupported_error(self, &model)),
         }
     }
 
@@ -312,7 +326,7 @@ impl Model for JsModel {
         // A rejected modification is reported by throwing.
         match remove_row_fn.apply(model, row as f64) {
             Ok(_) => Ok(()),
-            Err(_) => Err(ModelError::unsupported(self)),
+            Err(_) => Err(unsupported_error(self, &model)),
         }
     }
 
@@ -353,7 +367,7 @@ impl Model for JsModel {
         // A rejected modification is reported by throwing.
         match insert_row_fn.apply(model, FnArgs::from((row as f64, js_data))) {
             Ok(_) => Ok(()),
-            Err(_) => Err(ModelError::unsupported(self)),
+            Err(_) => Err(unsupported_error(self, &model)),
         }
     }
 

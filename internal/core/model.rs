@@ -35,7 +35,7 @@ enum ErrorImpl {
     #[display("the row index is out of bounds (the model has {_0} rows)")]
     OutOfBounds(usize),
     #[display("the model {_0} does not support this modification")]
-    Unsupported(&'static str),
+    Unsupported(alloc::borrow::Cow<'static, str>),
 }
 
 impl ModelError {
@@ -46,7 +46,20 @@ impl ModelError {
 
     /// The model does not support this modification.
     pub fn unsupported(model: &(impl Model + ?Sized)) -> Self {
-        Self(ErrorImpl::Unsupported(core::any::type_name_of_val(model)))
+        Self(ErrorImpl::Unsupported(core::any::type_name_of_val(model).into()))
+    }
+
+    /// The model with the given type name does not support this modification.
+    ///
+    /// Not part of the public API: for the bridges to models implemented in
+    /// another language, where the type name of the [`Model`] implementation
+    /// would name the wrapper instead of the model.
+    #[doc(hidden)]
+    pub fn unsupported_by_name(
+        model_type_name: impl Into<alloc::borrow::Cow<'static, str>>,
+        _: crate::InternalToken,
+    ) -> Self {
+        Self(ErrorImpl::Unsupported(model_type_name.into()))
     }
 }
 
