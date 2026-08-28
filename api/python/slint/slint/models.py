@@ -56,25 +56,28 @@ class Model[T](native.PyModelBase, Iterable[T]):
         Re-implement this method in a sub-class to provide the data."""
         ...
 
-    def append(self, value: T) -> bool:
+    def append(self, value: T) -> None:
         """Add a new row to the model with the provided value.
-        Returns True when the row was added, False when the model rejected it.
         The default implementation calls `insert_row` with the row count."""
-        return self.insert_row(self.row_count(), value)
+        self.insert_row(self.row_count(), value)
 
-    def remove_row(self, row: int) -> bool:
+    def remove_row(self, row: int) -> None:
         """Remove the row at the given index.
-        Returns True when the row was removed, False when the model rejected it.
-        The default implementation does nothing and returns False. A model that
+        Raises an exception when the model rejects the modification.
+        The default implementation raises NotImplementedError. A model that
         supports removing rows should also call `notify_row_removed`."""
-        return False
+        raise NotImplementedError(
+            f"{type(self).__name__} does not support removing rows"
+        )
 
-    def insert_row(self, row: int, value: T) -> bool:
+    def insert_row(self, row: int, value: T) -> None:
         """Insert a new row at the given index.
-        Returns True when the row was inserted, False when the model rejected it.
-        The default implementation does nothing and returns False. A model that
+        Raises an exception when the model rejects the modification.
+        The default implementation raises NotImplementedError. A model that
         supports inserting rows should also call `notify_row_added`."""
-        return False
+        raise NotImplementedError(
+            f"{type(self).__name__} does not support inserting rows"
+        )
 
     def notify_row_changed(self, row: int) -> None:
         """Call this method from a sub-class to notify the views that a row has changed."""
@@ -123,18 +126,16 @@ class ListModel[T](Model[T]):
         self.list[row] = value
         super().notify_row_changed(row)
 
-    def remove_row(self, row: int) -> bool:
+    def remove_row(self, row: int) -> None:
         if row < 0 or row >= len(self.list):
-            return False
+            raise IndexError("row index out of range")
         del self.list[row]
         super().notify_row_removed(row, 1)
-        return True
 
-    def insert_row(self, row: int, value: T) -> bool:
+    def insert_row(self, row: int, value: T) -> None:
         if row < 0 or row > len(self.list):
-            return False
+            raise IndexError("row index out of range")
         self.insert(row, value)
-        return True
 
     def __delitem__(self, key: int | slice) -> None:
         if isinstance(key, slice):
@@ -146,12 +147,11 @@ class ListModel[T](Model[T]):
             del self.list[key]
             super().notify_row_removed(key, 1)
 
-    def append(self, value: T) -> bool:
+    def append(self, value: T) -> None:
         """Appends the value to the end of the list."""
         index = len(self.list)
         self.list.append(value)
         super().notify_row_added(index, 1)
-        return True
 
     def insert(self, index: int, value: T) -> None:
         """Inserts the value at the given index. Negative indices and indices

@@ -9,7 +9,7 @@ use i_slint_compiler::langtype::Type;
 use i_slint_core::model::{Model, ModelError, ModelNotify, ModelRc};
 
 use pyo3::PyTraverseError;
-use pyo3::exceptions::PyIndexError;
+use pyo3::exceptions::{PyIndexError, PyNotImplementedError};
 use pyo3::gc::PyVisit;
 use pyo3::prelude::*;
 
@@ -27,12 +27,6 @@ pub struct PyModelShared {
     /// Element type of the model, used in `set_row_data` to preserve `int` vs `float`
     /// when slint code writes a row back into the Python model.
     element_type: RefCell<Option<Type>>,
-}
-
-/// A Python row modification method reports a rejected modification by returning
-/// `False`; any other value (usually `None`) means it was applied.
-fn rejected(returned: &Bound<'_, PyAny>) -> bool {
-    matches!(returned.extract::<bool>(), Ok(false))
 }
 
 impl PyModelShared {
@@ -246,18 +240,9 @@ impl i_slint_core::model::Model for PyModelShared {
             };
 
             let element_type = self.element_type.borrow().clone();
-            match obj.call_method1("append", (type_collection.to_py_value(data, element_type),)) {
-                Ok(returned) if rejected(&returned) => Err(ModelError::unsupported(self)),
-                Ok(_) => Ok(()),
-                Err(err) => {
-                    crate::handle_unraisable(
-                        py,
-                        "Python: Model implementation of push_row(), named append(), threw an exception".into(),
-                        err,
-                    );
-                    Err(ModelError::unsupported(self))
-                }
-            }
+            let result =
+                obj.call_method1("append", (type_collection.to_py_value(data, element_type),));
+            self.map_result(py, result, "push_row(), named append(),")
         })
         .unwrap_or(Err(ModelError::unsupported(self)))
     }
@@ -273,18 +258,8 @@ impl i_slint_core::model::Model for PyModelShared {
                 return Err(ModelError::unsupported(self));
             };
 
-            match obj.call_method1("remove_row", (row,)) {
-                Ok(returned) if rejected(&returned) => Err(ModelError::unsupported(self)),
-                Ok(_) => Ok(()),
-                Err(err) => {
-                    crate::handle_unraisable(
-                        py,
-                        "Python: Model implementation of remove_row() threw an exception".into(),
-                        err,
-                    );
-                    Err(ModelError::unsupported(self))
-                }
-            }
+            let result = obj.call_method1("remove_row", (row,));
+            self.map_result(py, result, "remove_row()")
         })
         .unwrap_or(Err(ModelError::unsupported(self)))
     }
@@ -308,20 +283,9 @@ impl i_slint_core::model::Model for PyModelShared {
             };
 
             let element_type = self.element_type.borrow().clone();
-            match obj
-                .call_method1("insert_row", (row, type_collection.to_py_value(data, element_type)))
-            {
-                Ok(returned) if rejected(&returned) => Err(ModelError::unsupported(self)),
-                Ok(_) => Ok(()),
-                Err(err) => {
-                    crate::handle_unraisable(
-                        py,
-                        "Python: Model implementation of insert_row() threw an exception".into(),
-                        err,
-                    );
-                    Err(ModelError::unsupported(self))
-                }
-            }
+            let result = obj
+                .call_method1("insert_row", (row, type_collection.to_py_value(data, element_type)));
+            self.map_result(py, result, "insert_row()")
         })
         .unwrap_or(Err(ModelError::unsupported(self)))
     }
@@ -336,6 +300,36 @@ impl i_slint_core::model::Model for PyModelShared {
 }
 
 impl PyModelShared {
+    /// Maps the result of calling a Python row modification method to a ModelError.
+    ///
+    /// A rejected modification is reported by raising: IndexError for a row that
+    /// is out of bounds and NotImplementedError for an unsupported modification.
+    /// Unexpected exceptions are also reported through the unraisable hook.
+    fn map_result(
+        &self,
+        py: Python<'_>,
+        result: PyResult<Bound<'_, PyAny>>,
+        function: &str,
+    ) -> Result<(), ModelError> {
+        match result {
+            Ok(_) => Ok(()),
+            Err(err) if err.is_instance_of::<PyIndexError>(py) => {
+                Err(ModelError::out_of_bounds(self.row_count()))
+            }
+            Err(err) if err.is_instance_of::<PyNotImplementedError>(py) => {
+                Err(ModelError::unsupported(self))
+            }
+            Err(err) => {
+                crate::handle_unraisable(
+                    py,
+                    format!("Python: Model implementation of {function} threw an exception"),
+                    err,
+                );
+                Err(ModelError::unsupported(self))
+            }
+        }
+    }
+
     pub fn rust_into_py_model<'py>(
         model: &ModelRc<slint_interpreter::Value>,
         py: Python<'py>,

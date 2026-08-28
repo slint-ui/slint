@@ -4,8 +4,28 @@
 import typing
 from pathlib import Path
 
+import pytest
+
 from slint import models
 from slint import slint as native
+
+
+def test_row_modification_rejection_raises() -> None:
+    model = models.ListModel([1, 2, 3])
+    with pytest.raises(IndexError):
+        model.remove_row(3)
+    with pytest.raises(IndexError):
+        model.insert_row(5, 4)
+
+    class ReadOnly(models.Model[int]):
+        def row_count(self) -> int:
+            return 1
+
+        def row_data(self, row: int) -> int | None:
+            return 42
+
+    with pytest.raises(NotImplementedError):
+        ReadOnly().append(1)
 
 
 def test_model_notify() -> None:
