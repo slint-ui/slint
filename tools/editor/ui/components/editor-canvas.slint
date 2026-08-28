@@ -38,12 +38,9 @@ export component EditorCanvas inherits Rectangle {
         ? Api.highlight-positions(Api.current-element.source-uri, Api.current-element.offset)
         : [];
     // Outline-drag state: while dragging a handle the frame follows the pointer locally
-    // (no disk write); on release we commit once via Api.selected-element-resize.
     private property <bool> selection-drag-active: false;
     private property <Point> selection-drag-position;
     private property <Size> selection-drag-size;
-    private property <bool> selection-move-active: false;
-    private property <Point> selection-move-pointer;
     private property <bool> selection-rotation-active: false;
     private property <angle> selection-rotation;
 
@@ -268,7 +265,6 @@ export component EditorCanvas inherits Rectangle {
 
             resized-to(corner, position, size) => {
                 root.selection-drag-active = true;
-                root.selection-move-active = false;
                 root.selection-drag-position = position;
                 root.selection-drag-size = size;
                 // Push live geometry (content space) so the previewed element follows the
@@ -285,27 +281,9 @@ export component EditorCanvas inherits Rectangle {
                     x: position.x - EditorMetrics.phone-outer-padding,
                     y: position.y - EditorMetrics.phone-outer-padding,
                 };
-                let content-pointer = {
-                    x: self.move-pointer-position.x - EditorMetrics.phone-outer-padding,
-                    y: self.move-pointer-position.y - EditorMetrics.phone-outer-padding,
-                };
-                let pointer-outside-artboard = content-pointer.x < 0px
-                    || content-pointer.y < 0px
-                    || content-pointer.x > phone.width - 2 * EditorMetrics.phone-outer-padding
-                    || content-pointer.y > phone.height - 2 * EditorMetrics.phone-outer-padding;
-                if !Api.selected-element-can-move-to(
-                    content-position.x,
-                    content-position.y,
-                    content-pointer.x,
-                    content-pointer.y,
-                ) && !pointer-outside-artboard {
-                    return;
-                }
                 root.selection-drag-active = true;
-                root.selection-move-active = true;
                 root.selection-drag-position = position;
                 root.selection-drag-size = { width: s.width, height: s.height };
-                root.selection-move-pointer = self.move-pointer-position;
                 Api.override-selected-element-geometry(
                     content-position.x,
                     content-position.y,
@@ -314,23 +292,8 @@ export component EditorCanvas inherits Rectangle {
                 );
             }
             interaction-ended => {
-                if root.selection-move-active {
-                    Api.selected-element-move(
-                        root.selection-drag-position.x - EditorMetrics.phone-outer-padding,
-                        root.selection-drag-position.y - EditorMetrics.phone-outer-padding,
-                        root.selection-move-pointer.x - EditorMetrics.phone-outer-padding,
-                        root.selection-move-pointer.y - EditorMetrics.phone-outer-padding,
-                    );
-                    root.selection-move-active = false;
-                } else if root.selection-drag-active {
-                    // Convert from phone (frame-parent) space back to content space
-                    // by subtracting the 1px phone-outer-padding, then commit once.
-                    Api.selected-element-resize(
-                        root.selection-drag-position.x - EditorMetrics.phone-outer-padding,
-                        root.selection-drag-position.y - EditorMetrics.phone-outer-padding,
-                        root.selection-drag-size.width,
-                        root.selection-drag-size.height,
-                    );
+                if root.selection-drag-active {
+                    Api.persist-selected-element-geometry();
                 }
                 if root.selection-rotation-active {
                     Api.selected-element-rotate(root.selection-rotation);

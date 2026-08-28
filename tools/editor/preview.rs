@@ -1140,6 +1140,21 @@ fn resize_selected_element(x: f32, y: f32, width: f32, height: f32) {
     send_workspace_edit(label, edit, true);
 }
 
+fn persist_selected_element_geometry() {
+    let Some(element_selection) = &selected_element() else {
+        return;
+    };
+    let Some(element_node) = element_selection.as_element_node() else {
+        return;
+    };
+
+    let Some((edit, label)) = persist_selected_element_geometry_impl(&element_node) else {
+        return;
+    };
+
+    send_workspace_edit(label, edit, true);
+}
+
 fn rotate_selected_element(angle: f32) {
     let Some(element_selection) = &selected_element() else { return };
     let Some(element_node) = element_selection.as_element_node() else { return };
@@ -1502,6 +1517,12 @@ fn resize_selected_element_impl(
         rect.height(),
     );
 
+    persist_selected_element_geometry_impl(element_node)
+}
+
+fn persist_selected_element_geometry_impl(
+    element_node: &ElementRcNode,
+) -> Option<(lsp_types::WorkspaceEdit, String)> {
     let element_hash = element_node
         .element
         .borrow()
@@ -1510,14 +1531,12 @@ fn resize_selected_element_impl(
         .map(|d| d.element_hash)
         .unwrap_or(0);
     if element_hash == 0 {
-        tracing::debug!("Element does not have a hash, cannot resize");
+        tracing::debug!("Element does not have a hash, cannot persist geometry");
         return None;
     }
 
-    // They all have the same size anyway:
     let (path, offset) = element_node.path_and_offset();
 
-    // Apply the overrides permanently
     let properties = ["x", "y", "width", "height"];
     let geometry_changes = PREVIEW_STATE.with_borrow(|preview_state| {
         let overrides = (*preview_state.debug_hook_overrides).borrow();
@@ -1566,101 +1585,6 @@ fn resize_selected_element_impl(
         geometry_changes,
     )
     .map(|edit| (edit, "Repositioning element".to_owned()))
-}
-
-fn can_move_selected_element(x: f32, y: f32, mouse_x: f32, mouse_y: f32) -> bool {
-    let position = LogicalPoint::new(x, y);
-    let mouse_position = LogicalPoint::new(mouse_x, mouse_y);
-    let Some(selected) = selected_element() else {
-        return false;
-    };
-    let Some(selected_element_node) = selected.as_element_node() else {
-        return false;
-    };
-    let Some(document_cache) = document_cache() else {
-        return false;
-    };
-
-    drop_location::can_move_to(
-        &document_cache,
-        position,
-        mouse_position,
-        selected_element_node,
-        selected.instance_index,
-    )
-}
-
-fn move_selected_element(x: f32, y: f32, mouse_x: f32, mouse_y: f32) {
-    let position = LogicalPoint::new(x, y);
-    let mouse_position = LogicalPoint::new(mouse_x, mouse_y);
-    let Some(selected) = selected_element() else {
-        return;
-    };
-    let Some(selected_element_node) = selected.as_element_node() else {
-        return;
-    };
-    let Some(document_cache) = document_cache() else {
-        return;
-    };
-
-    if let Some((edit, drop_data)) = drop_location::move_element_to(
-        &document_cache,
-        selected_element_node.clone(),
-        selected.instance_index,
-        position,
-        mouse_position,
-    ) {
-        element_selection::restore_selection(
-            ElementSelection {
-                path: drop_data.path,
-                offset: drop_data.selection_offset,
-                instance_index: selected.instance_index,
-            },
-            SelectionNotification::AfterUpdate,
-        );
-
-        send_workspace_edit("Move element".to_string(), edit, false);
-    } else {
-        let Some(component_instance) = component_instance() else {
-            element_selection::reselect_element();
-            return;
-        };
-        let Some(parent_node) = selected_element_node.parent() else {
-            element_selection::reselect_element();
-            return;
-        };
-        let Some(element_size) = selected_element_node
-            .geometries(&component_instance)
-            .get(selected.instance_index)
-            .map(|geometry| geometry.rect.size)
-        else {
-            element_selection::reselect_element();
-            return;
-        };
-        let Some((parent_position, parent_angle)) = parent_node
-            .geometries(&component_instance)
-            .get(selected.instance_index)
-            .map(|geometry| (geometry.rect.origin, geometry.angle))
-        else {
-            element_selection::reselect_element();
-            return;
-        };
-        if parent_angle != 0.0 {
-            element_selection::reselect_element();
-            return;
-        }
-        let local_position =
-            LogicalPoint::new(position.x - parent_position.x, position.y - parent_position.y);
-        let Some((edit, label)) = resize_selected_element_impl(
-            &selected_element_node,
-            selected.instance_index,
-            LogicalRect::new(local_position, element_size),
-        ) else {
-            element_selection::reselect_element();
-            return;
-        };
-        send_workspace_edit(label, edit, true);
-    }
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
