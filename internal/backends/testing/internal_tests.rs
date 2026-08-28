@@ -6,7 +6,7 @@
 use crate::TestingWindow;
 use i_slint_core::SharedString;
 use i_slint_core::api::ComponentHandle;
-pub use i_slint_core::input::MouseEvent;
+pub use i_slint_core::input::BackendMouseEvent;
 pub use i_slint_core::input::TouchPhase;
 use i_slint_core::item_tree::ItemTreeVTable;
 pub use i_slint_core::lengths::LogicalPoint;
@@ -146,7 +146,7 @@ pub fn send_pinch_gesture<
     phase: i_slint_core::input::TouchPhase,
 ) {
     component.window().dispatch_event(WindowEvent::internal(
-        i_slint_core::input::MouseEvent::PinchGesture {
+        i_slint_core::input::BackendMouseEvent::PinchGesture {
             position: i_slint_core::lengths::logical_point_from_api(
                 i_slint_core::api::LogicalPosition::new(center_x, center_y),
             ),
@@ -171,7 +171,7 @@ pub fn send_rotation_gesture<
     phase: i_slint_core::input::TouchPhase,
 ) {
     component.window().dispatch_event(WindowEvent::internal(
-        i_slint_core::input::MouseEvent::RotationGesture {
+        i_slint_core::input::BackendMouseEvent::RotationGesture {
             position: i_slint_core::lengths::logical_point_from_api(
                 i_slint_core::api::LogicalPosition::new(center_x, center_y),
             ),

@@ -258,12 +258,12 @@ if !cfg!(target_os = "macos") {
 // Test 2b
 // Standalone wheel move events animate without a synthetic settle callback
 use slint::platform::WindowEvent;
-use slint_testing::{LogicalPoint, MouseEvent, TouchPhase};
+use slint_testing::{LogicalPoint, BackendMouseEvent, TouchPhase};
 let instance = TestCase::new().unwrap();
 let window = instance.window();
 
 assert_eq!(instance.get_flicked(), 0);
-window.dispatch_event(WindowEvent::internal(MouseEvent::Wheel {
+window.dispatch_event(WindowEvent::internal(BackendMouseEvent::Wheel {
     position: LogicalPoint::new(175., 175.),
     delta_x: -30.,
     delta_y: -50.,

@@ -740,7 +740,7 @@ fn gen_corelib(
             }",
         ),
         (
-            vec!["MouseEvent", "TouchPhase"],
+            vec!["MouseEvent", "BackendMouseEvent", "TouchPhase"],
             "slint_events_internal.h",
             "#include \"private/slint_point.h\"
             #include \"private/slint_builtin_structs_internal.h\"
@@ -1056,6 +1056,7 @@ namespace slint {
         struct ItemVTable;
         using types::IntRect;
         using types::Size;
+        using types::BackendMouseEvent;
         using types::MouseEvent;
 
         template<typename T> struct Option;

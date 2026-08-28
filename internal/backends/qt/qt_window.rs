@@ -14,7 +14,9 @@ use i_slint_core::graphics::{
     Brush, Color, ImageCacheKey, IntRect, Point, Rgba8Pixel, SharedImageBuffer, SharedPixelBuffer,
     euclid,
 };
-use i_slint_core::input::{InternalKeyEvent, KeyEvent, KeyEventType, MouseEvent, TouchPhase};
+use i_slint_core::input::{
+    BackendDragEvent, BackendMouseEvent, InternalKeyEvent, KeyEvent, KeyEventType, TouchPhase,
+};
 use i_slint_core::item_rendering::{
     CachedRenderingData, ItemCache, ItemRenderer, RenderBorderRectangle, RenderImage,
     RenderRectangle, RenderText,
@@ -209,7 +211,7 @@ cpp! {{
             rust!(Slint_mousePressEvent [rust_window: &QtWindow as "void*", pos: qttypes::QPoint as "QPoint", button: u32 as "int" ] {
                 let position = LogicalPoint::new(pos.x as _, pos.y as _);
                 let button = from_qt_button(button);
-                rust_window.mouse_event(MouseEvent::Pressed{ position, button, click_count: 0, touch_finger_id: 0 })
+                rust_window.mouse_event(BackendMouseEvent::Pressed{ position, button, click_count: 0, touch_finger_id: 0 })
             });
         }
         void mouseReleaseEvent(QMouseEvent *event) override {
@@ -239,7 +241,7 @@ cpp! {{
             rust!(Slint_mouseReleaseEvent [rust_window: &QtWindow as "void*", pos: qttypes::QPoint as "QPoint", button: u32 as "int" ] {
                 let position = LogicalPoint::new(pos.x as _, pos.y as _);
                 let button = from_qt_button(button);
-                rust_window.mouse_event(MouseEvent::Released{ position, button, click_count: 0, touch_finger_id: 0 })
+                rust_window.mouse_event(BackendMouseEvent::Released{ position, button, click_count: 0, touch_finger_id: 0 })
             });
         }
         void mouseMoveEvent(QMouseEvent *event) override {
@@ -248,7 +250,7 @@ cpp! {{
                 return;
             rust!(Slint_mouseMoveEvent [rust_window: &QtWindow as "void*", pos: qttypes::QPoint as "QPoint"] {
                 let position = LogicalPoint::new(pos.x as _, pos.y as _);
-                rust_window.mouse_event(MouseEvent::Moved{position, touch_finger_id: 0})
+                rust_window.mouse_event(BackendMouseEvent::Moved{position, touch_finger_id: 0})
             });
         }
         void wheelEvent(QWheelEvent *event) override {
@@ -275,14 +277,14 @@ cpp! {{
                         TouchPhase::Cancelled
                     },
                 };
-                rust_window.mouse_event(MouseEvent::Wheel{position, delta_x: delta.x as _, delta_y: delta.y as _, phase})
+                rust_window.mouse_event(BackendMouseEvent::Wheel{position, delta_x: delta.x as _, delta_y: delta.y as _, phase})
             });
         }
         void leaveEvent(QEvent *) override {
             if (!rust_window)
                 return;
             rust!(Slint_mouseLeaveEvent [rust_window: &QtWindow as "void*"] {
-                rust_window.mouse_event(MouseEvent::Exit)
+                rust_window.mouse_event(BackendMouseEvent::Exit)
             });
         }
 
@@ -534,7 +536,7 @@ cpp! {{
                             2 => i_slint_core::input::TouchPhase::Ended,
                             _ => i_slint_core::input::TouchPhase::Cancelled,
                         };
-                        rust_window.mouse_event(MouseEvent::PinchGesture {
+                        rust_window.mouse_event(BackendMouseEvent::PinchGesture {
                             position, delta: scale_delta, phase,
                         });
                         if rotation_delta != 0.0 || matches!(phase,
@@ -542,7 +544,7 @@ cpp! {{
                             | i_slint_core::input::TouchPhase::Ended
                             | i_slint_core::input::TouchPhase::Cancelled)
                         {
-                            rust_window.mouse_event(MouseEvent::RotationGesture {
+                            rust_window.mouse_event(BackendMouseEvent::RotationGesture {
                                 position, delta: rotation_delta, phase,
                             });
                         }
@@ -2151,7 +2153,7 @@ impl QtWindow {
         });
     }
 
-    fn mouse_event(&self, event: MouseEvent) {
+    fn mouse_event(&self, event: BackendMouseEvent) {
         self.window.dispatch_event(WindowEvent::internal(event));
         timer_event();
     }
@@ -2159,7 +2161,7 @@ impl QtWindow {
     /// A drag left the window: tear down the hover state like a pointer exit,
     /// but off the `dispatch_event` path, so that it isn't observed as the pointer leaving the window.
     fn drag_leave_event(&self) {
-        WindowInner::from_pub(&self.window).process_drag_event(MouseEvent::Exit);
+        WindowInner::from_pub(&self.window).process_drag_event(BackendDragEvent::Leave);
         timer_event();
     }
 
@@ -2204,12 +2206,12 @@ impl QtWindow {
         drop_event.data = data;
         drop_event.position = position;
         drop_event.proposed_action = qt_drop_action_to_slint(proposed);
-        let mouse_event = if is_drop {
-            MouseEvent::Drop { event: drop_event, allowed: allowed_actions }
+        let drag_event = if is_drop {
+            BackendDragEvent::Drop { event: drop_event, allowed: allowed_actions }
         } else {
-            MouseEvent::DragMove { event: drop_event, allowed: allowed_actions }
+            BackendDragEvent::Move { event: drop_event, allowed: allowed_actions }
         };
-        let chosen = WindowInner::from_pub(&self.window).process_drag_event(mouse_event);
+        let chosen = WindowInner::from_pub(&self.window).process_drag_event(drag_event);
         timer_event();
         chosen.map(slint_drag_action_to_qt).unwrap_or(key_generated::Qt_DropAction_IgnoreAction)
     }

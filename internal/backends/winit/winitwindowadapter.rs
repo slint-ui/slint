@@ -34,7 +34,7 @@ use crate::renderer::WinitCompatibleRenderer;
 use crate::winit_compat::WindowSurfaceSizeExt;
 
 use corelib::SharedString;
-use corelib::input::{InternalKeyEvent, KeyEvent, KeyEventType, MouseEvent};
+use corelib::input::{BackendMouseEvent, InternalKeyEvent, KeyEvent, KeyEventType};
 use corelib::item_tree::ItemTreeRc;
 #[cfg(enable_accesskit)]
 use corelib::item_tree::{ItemTreeRef, ItemTreeRefPin};
@@ -1399,7 +1399,7 @@ impl WinitWindowAdapter {
                 // On the html canvas, we don't get the mouse move or release event when outside the canvas. So we have no choice but canceling the event
                 if cfg!(target_arch = "wasm32") || !self.pressed.get() {
                     self.pressed.set(false);
-                    self.dispatch_internal_event(MouseEvent::Exit);
+                    self.dispatch_internal_event(BackendMouseEvent::Exit);
                 }
             }
             WinitWindowEvent::MouseWheel { delta, phase, .. } => {
@@ -1411,7 +1411,7 @@ impl WinitWindowAdapter {
                     }
                 };
                 let phase = winit_touch_phase(phase);
-                self.dispatch_internal_event(MouseEvent::Wheel {
+                self.dispatch_internal_event(BackendMouseEvent::Wheel {
                     position: self.cursor_pos.get(),
                     delta_x,
                     delta_y,
@@ -1437,7 +1437,7 @@ impl WinitWindowAdapter {
                         }
 
                         self.pressed.set(true);
-                        MouseEvent::Pressed {
+                        BackendMouseEvent::Pressed {
                             position: self.cursor_pos.get(),
                             button,
                             click_count: 0,
@@ -1446,7 +1446,7 @@ impl WinitWindowAdapter {
                     }
                     winit::event::ElementState::Released => {
                         self.pressed.set(false);
-                        MouseEvent::Released {
+                        BackendMouseEvent::Released {
                             position: self.cursor_pos.get(),
                             button,
                             click_count: 0,
@@ -1511,7 +1511,7 @@ impl WinitWindowAdapter {
             // known cursor position as the best available approximation. On macOS
             // trackpads, CursorMoved events typically precede gesture events.
             WinitWindowEvent::PinchGesture { delta, phase, .. } => {
-                self.dispatch_internal_event(MouseEvent::PinchGesture {
+                self.dispatch_internal_event(BackendMouseEvent::PinchGesture {
                     position: self.cursor_pos.get(),
                     delta: delta as f32,
                     phase: winit_touch_phase(phase),
@@ -1520,7 +1520,7 @@ impl WinitWindowAdapter {
             WinitWindowEvent::RotationGesture { delta, phase, .. } => {
                 // macOS/winit: positive = counterclockwise. Negate to match
                 // Slint convention (positive = clockwise).
-                self.dispatch_internal_event(MouseEvent::RotationGesture {
+                self.dispatch_internal_event(BackendMouseEvent::RotationGesture {
                     position: self.cursor_pos.get(),
                     delta: -delta,
                     phase: winit_touch_phase(phase),
