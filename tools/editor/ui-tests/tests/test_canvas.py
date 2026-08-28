@@ -165,8 +165,7 @@ def test_component_palette_drop_can_extend_outside_artboard(
     kind: str,
 ) -> None:
     source_file = fixture_project / "PaletteDropCases.slint"
-    baseline = source_file.read_bytes()
-    source_file.write_bytes(baseline)
+    snapshot = SourceSnapshot.capture(fixture_project)
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
         window = first_window(editor)
         artboard = window_element_with_label(
@@ -179,19 +178,18 @@ def test_component_palette_drop_can_extend_outside_artboard(
         begin_palette_drag(window, kind, target)
         expected_width, expected_height = PALETTE_DROP_SIZES[kind]
 
-        finish_palette_drag(window, target)
-        updated = wait_for_source_change(source_file, baseline)
         expected_x = round(target.x - artboard.absolute_position.x - expected_width / 2)
         expected_y = round(
             target.y - artboard.absolute_position.y - expected_height / 2
         )
         assert expected_x < 0
         assert expected_y < 0
-        assert f"{kind} {{".encode() in updated
-        assert f"x: {expected_x}px;".encode() in updated
-        assert f"y: {expected_y}px;".encode() in updated
-        assert f"width: {expected_width}px;".encode() in updated
-        assert f"height: {expected_height}px;".encode() in updated
+
+        finish_palette_drag(window, target)
+        expected = (
+            GOLDENS / f"PaletteDropCases.outside-{kind.lower()}.slint"
+        ).read_bytes()
+        snapshot.wait_for_exact(expected, "PaletteDropCases.slint")
 
 
 def test_palette_preview_follows_rejected_pointer(
