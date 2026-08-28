@@ -29,6 +29,12 @@ pub struct PyModelShared {
     element_type: RefCell<Option<Type>>,
 }
 
+/// A Python row modification method reports a rejected modification by returning
+/// `False`; any other value (usually `None`) means it was applied.
+fn rejected(returned: &Bound<'_, PyAny>) -> bool {
+    matches!(returned.extract::<bool>(), Ok(false))
+}
+
 impl PyModelShared {
     /// Let the cyclic GC see the wrapper this shared model keeps alive.
     pub fn visit_wrapper(&self, visit: &PyVisit<'_>) -> Result<(), PyTraverseError> {
@@ -240,41 +246,55 @@ impl i_slint_core::model::Model for PyModelShared {
             };
 
             let element_type = self.element_type.borrow().clone();
-            if let Err(err) =
-                obj.call_method1("append", (type_collection.to_py_value(data, element_type),))
-            {
-                crate::handle_unraisable(
-                    py,
-                    "Python: Model implementation of push_row(), named append(), threw an exception".into(),
-                    err,
-                );
-                return Err(ModelError::unsupported(self));
-            };
-            Ok(())
+            match obj.call_method1("append", (type_collection.to_py_value(data, element_type),)) {
+                Ok(returned) if rejected(&returned) => Err(ModelError::unsupported(self)),
+                Ok(_) => Ok(()),
+                Err(err) => {
+                    crate::handle_unraisable(
+                        py,
+                        "Python: Model implementation of push_row(), named append(), threw an exception".into(),
+                        err,
+                    );
+                    Err(ModelError::unsupported(self))
+                }
+            }
         })
         .unwrap_or(Err(ModelError::unsupported(self)))
     }
 
     fn remove_row(&self, row: usize) -> Result<(), ModelError> {
+        let row_count = self.row_count();
+        if row >= row_count {
+            return Err(ModelError::out_of_bounds(row_count));
+        }
+
         Python::try_attach(|py| {
             let Some(obj) = self.wrapper_obj(py, "remove_row") else {
                 return Err(ModelError::unsupported(self));
             };
 
-            if let Err(err) = obj.call_method1("remove_row", (row,)) {
-                crate::handle_unraisable(
-                    py,
-                    "Python: Model implementation of remove_row() threw an exception".into(),
-                    err,
-                );
-                return Err(ModelError::unsupported(self));
-            };
-            Ok(())
+            match obj.call_method1("remove_row", (row,)) {
+                Ok(returned) if rejected(&returned) => Err(ModelError::unsupported(self)),
+                Ok(_) => Ok(()),
+                Err(err) => {
+                    crate::handle_unraisable(
+                        py,
+                        "Python: Model implementation of remove_row() threw an exception".into(),
+                        err,
+                    );
+                    Err(ModelError::unsupported(self))
+                }
+            }
         })
         .unwrap_or(Err(ModelError::unsupported(self)))
     }
 
     fn insert_row(&self, row: usize, data: Self::Data) -> Result<(), ModelError> {
+        let row_count = self.row_count();
+        if row > row_count {
+            return Err(ModelError::out_of_bounds(row_count));
+        }
+
         Python::try_attach(|py| {
             let Some(obj) = self.wrapper_obj(py, "insert_row") else {
                 return Err(ModelError::unsupported(self));
@@ -288,17 +308,20 @@ impl i_slint_core::model::Model for PyModelShared {
             };
 
             let element_type = self.element_type.borrow().clone();
-            if let Err(err) = obj
+            match obj
                 .call_method1("insert_row", (row, type_collection.to_py_value(data, element_type)))
             {
-                crate::handle_unraisable(
-                    py,
-                    "Python: Model implementation of insert_row() threw an exception".into(),
-                    err,
-                );
-                return Err(ModelError::unsupported(self));
-            };
-            Ok(())
+                Ok(returned) if rejected(&returned) => Err(ModelError::unsupported(self)),
+                Ok(_) => Ok(()),
+                Err(err) => {
+                    crate::handle_unraisable(
+                        py,
+                        "Python: Model implementation of insert_row() threw an exception".into(),
+                        err,
+                    );
+                    Err(ModelError::unsupported(self))
+                }
+            }
         })
         .unwrap_or(Err(ModelError::unsupported(self)))
     }
