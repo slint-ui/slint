@@ -2,8 +2,10 @@
 
 These tests use the private Python `slint-testing` package to run the visual editor and control it out of process.
 
-The suite covers 129 visual editor behaviors as independent pytest cases.
-Of these, 82 run and 47 remain skipped until their editor dependencies land.
+The suite covers visual editor startup, source lifecycle, navigation,
+selection, deletion, palette, outline, and canvas behaviors as independent
+pytest cases. Cases that depend on editor functionality not yet available are
+kept collected with explicit skips.
 
 Each behavior starts from a fresh source fixture and editor process.
 This prevents one failed interaction from affecting later behavior checks.

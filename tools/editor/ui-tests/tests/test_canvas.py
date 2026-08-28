@@ -18,7 +18,7 @@ from canvas_interactions import (
     same_state,
     selection_frame,
 )
-from source_oracle import SourceSnapshot
+from source_snapshot import SourceSnapshot
 from ui_driver import (
     elements_with_label,
     first_window,

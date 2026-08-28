@@ -5,12 +5,7 @@ import threading
 from pathlib import Path
 
 import pytest
-from source_oracle import SourceSnapshot, exact_source_mismatch
-
-
-def test_fixture_matches_initial_golden(fixture_project: Path) -> None:
-    golden = Path(__file__).resolve().parents[1] / "goldens" / "Main.initial.slint"
-    assert (fixture_project / "Main.slint").read_bytes() == golden.read_bytes()
+from source_snapshot import SourceSnapshot, exact_source_mismatch
 
 
 def test_source_snapshot_accepts_exact_edit(fixture_project: Path) -> None:

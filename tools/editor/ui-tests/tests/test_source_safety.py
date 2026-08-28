@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 import slint_testing
-from source_oracle import SourceSnapshot
+from source_snapshot import SourceSnapshot
 from ui_driver import first_window, launch_editor, window_element_with_label
 
 
