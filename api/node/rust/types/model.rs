@@ -24,13 +24,6 @@ impl core::ops::Deref for SharedModelNotify {
     }
 }
 
-/// A JavaScript row modification function reports a rejected modification by
-/// returning `false`; any other value (usually `undefined`) means it was applied.
-fn rejected(returned: &Unknown) -> bool {
-    returned.get_type().is_ok_and(|t| t == ValueType::Boolean)
-        && !returned.coerce_to_bool().unwrap_or(true)
-}
-
 pub(crate) fn js_into_rust_model(
     env: &Env,
     maybe_js_impl: &Object,
@@ -282,15 +275,10 @@ impl Model for JsModel {
             return Err(ModelError::unsupported(self));
         };
 
+        // A rejected modification is reported by throwing.
         match push_row_fn.apply(model, js_data) {
-            Ok(returned) if rejected(&returned) => Err(ModelError::unsupported(self)),
             Ok(_) => Ok(()),
-            Err(exception) => {
-                eprintln!(
-                    "Node.js: JavaScript Model<T>'s pushRow function threw an exception: {exception}"
-                );
-                Err(ModelError::unsupported(self))
-            }
+            Err(_) => Err(ModelError::unsupported(self)),
         }
     }
 
@@ -321,15 +309,10 @@ impl Model for JsModel {
             }
         };
 
+        // A rejected modification is reported by throwing.
         match remove_row_fn.apply(model, row as f64) {
-            Ok(returned) if rejected(&returned) => Err(ModelError::unsupported(self)),
             Ok(_) => Ok(()),
-            Err(exception) => {
-                eprintln!(
-                    "Node.js: JavaScript Model<T>'s removeRow function threw an exception: {exception}"
-                );
-                Err(ModelError::unsupported(self))
-            }
+            Err(_) => Err(ModelError::unsupported(self)),
         }
     }
 
@@ -367,15 +350,10 @@ impl Model for JsModel {
             return Err(ModelError::unsupported(self));
         };
 
+        // A rejected modification is reported by throwing.
         match insert_row_fn.apply(model, FnArgs::from((row as f64, js_data))) {
-            Ok(returned) if rejected(&returned) => Err(ModelError::unsupported(self)),
             Ok(_) => Ok(()),
-            Err(exception) => {
-                eprintln!(
-                    "Node.js: JavaScript Model<T>'s insertRow function threw an exception: {exception}"
-                );
-                Err(ModelError::unsupported(self))
-            }
+            Err(_) => Err(ModelError::unsupported(self)),
         }
     }
 

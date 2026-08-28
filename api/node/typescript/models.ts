@@ -137,34 +137,34 @@ export abstract class Model<T> implements Iterable<T> {
 
     /**
      * Adds a line to the model with the provided data.
-     * Returns true when the row was added, false when the model rejected it.
+     * Throws when the model rejects the modification.
      * The default implementation calls {@link Model.insertRow} with the row count.
      * @param data new data item to store in a new row.
      */
-    pushRow(data: T): boolean {
-        return this.insertRow(this.rowCount(), data);
+    pushRow(data: T): void {
+        this.insertRow(this.rowCount(), data);
     }
 
     /**
      * Implementations of this function must remove the row at the specified index.
-     * Returns true when the row was removed, false when the model rejected it.
-     * The default implementation does nothing and returns false.
+     * Throws when the model rejects the modification; the default implementation
+     * always throws.
      * @param _index index of the row to remove.
      */
-    removeRow(_index: number): boolean {
-        return false;
+    removeRow(_index: number): void {
+        throw new Error("removeRow is not implemented on this model");
     }
 
     /**
      * Implementations of this function must add a row at the specified index, pushing all next
      * rows to the right.
-     * Returns true when the row was inserted, false when the model rejected it.
-     * The default implementation does nothing and returns false.
+     * Throws when the model rejects the modification; the default implementation
+     * always throws.
      * @param _index index of the row to insert.
      * @param _data new data item to store in a new row.
      */
-    insertRow(_index: number, _data: T): boolean {
-        return false;
+    insertRow(_index: number, _data: T): void {
+        throw new Error("insertRow is not implemented on this model");
     }
 
     [Symbol.iterator](): Iterator<T> {
@@ -261,29 +261,27 @@ export class ArrayModel<T> extends Model<T> {
 
     /**
      * Remove a row from the array backing the model and notifies run-time about the removed row.
-     * Returns false when the index is out of bounds.
+     * Throws a RangeError when the index is out of bounds.
      * @param index index of the row to remove.
      */
-    removeRow(index: number): boolean {
+    removeRow(index: number): void {
         if (index < 0 || index >= this.#array.length) {
-            return false;
+            throw new RangeError(`row index ${index} is out of bounds`);
         }
         this.remove(index, 1);
-        return true;
     }
 
     /**
      * Insert a new row into the array backing the model at the specified index and notifies run-time about the added row.
-     * Returns false when the index is out of bounds.
+     * Throws a RangeError when the index is out of bounds.
      * @param index index at which to insert the new row.
      * @param data data item to store in the new row.
      */
-    insertRow(index: number, data: T): boolean {
+    insertRow(index: number, data: T): void {
         if (index < 0 || index > this.#array.length) {
-            return false;
+            throw new RangeError(`row index ${index} is out of bounds`);
         }
         this.splice(index, 0, data);
-        return true;
     }
 
     /**
