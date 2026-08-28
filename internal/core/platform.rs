@@ -224,6 +224,7 @@ static EVENTLOOP_PROXY: OnceCell<Box<dyn EventLoopProxy + 'static>> = OnceCell::
 static EVENTLOOP_PROXY: std::sync::Mutex<Option<Box<dyn EventLoopProxy + 'static>>> =
     std::sync::Mutex::new(None);
 
+#[doc(hidden)]
 /// Runs something using the event loop proxy
 pub fn with_event_loop_proxy<R>(f: impl FnOnce(Option<&dyn EventLoopProxy>) -> R) -> R {
     #[cfg(not(target_os = "android"))]
