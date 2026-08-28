@@ -18,7 +18,14 @@ export component Foo {
         0.6: Rectangle { }
 //      > <error{Cannot perform type conversion}
         42.0: Rectangle { }
-//      >  <error{Duplicate case value}
+//      >  <error{Cannot perform type conversion}
+//      >  <^error{Duplicate case value}
+        100%: Rectangle { }
+//      >  <error{Cannot convert percent to int}
+        12px: Rectangle { }
+//      >  <error{Cannot convert length to int. Divide by 1px to convert to a plain number}
+        5.0: Rectangle { }
+//      > <error{Cannot perform type conversion}
     }
 }
 
