@@ -24,6 +24,13 @@ impl core::ops::Deref for SharedModelNotify {
     }
 }
 
+/// A JavaScript row modification function reports a rejected modification by
+/// returning `false`; any other value (usually `undefined`) means it was applied.
+fn rejected(returned: &Unknown) -> bool {
+    returned.get_type().is_ok_and(|t| t == ValueType::Boolean)
+        && !returned.coerce_to_bool().unwrap_or(true)
+}
+
 pub(crate) fn js_into_rust_model(
     env: &Env,
     maybe_js_impl: &Object,
@@ -275,16 +282,24 @@ impl Model for JsModel {
             return Err(ModelError::unsupported(self));
         };
 
-        if let Err(exception) = push_row_fn.apply(model, js_data) {
-            eprintln!(
-                "Node.js: JavaScript Model<T>'s pushRow function threw an exception: {exception}"
-            );
-            return Err(ModelError::unsupported(self));
+        match push_row_fn.apply(model, js_data) {
+            Ok(returned) if rejected(&returned) => Err(ModelError::unsupported(self)),
+            Ok(_) => Ok(()),
+            Err(exception) => {
+                eprintln!(
+                    "Node.js: JavaScript Model<T>'s pushRow function threw an exception: {exception}"
+                );
+                Err(ModelError::unsupported(self))
+            }
         }
-        Ok(())
     }
 
     fn remove_row(&self, row: usize) -> CoreResult<(), ModelError> {
+        let row_count = self.row_count();
+        if row >= row_count {
+            return Err(ModelError::out_of_bounds(row_count));
+        }
+
         let Some(model_unknown) = self.js_impl.get_unknown() else {
             eprintln!("Node.js: JavaScript Model<T>'s removeRow threw an exception");
             return Err(ModelError::unsupported(self));
@@ -306,16 +321,24 @@ impl Model for JsModel {
             }
         };
 
-        if let Err(exception) = remove_row_fn.apply(model, row as f64) {
-            eprintln!(
-                "Node.js: JavaScript Model<T>'s removeRow function threw an exception: {exception}"
-            );
-            return Err(ModelError::unsupported(self));
+        match remove_row_fn.apply(model, row as f64) {
+            Ok(returned) if rejected(&returned) => Err(ModelError::unsupported(self)),
+            Ok(_) => Ok(()),
+            Err(exception) => {
+                eprintln!(
+                    "Node.js: JavaScript Model<T>'s removeRow function threw an exception: {exception}"
+                );
+                Err(ModelError::unsupported(self))
+            }
         }
-        Ok(())
     }
 
     fn insert_row(&self, row: usize, data: Self::Data) -> CoreResult<(), ModelError> {
+        let row_count = self.row_count();
+        if row > row_count {
+            return Err(ModelError::out_of_bounds(row_count));
+        }
+
         let Some(model_unknown) = self.js_impl.get_unknown() else {
             eprintln!("Node.js: JavaScript Model<T>'s insertRow threw an exception");
             return Err(ModelError::unsupported(self));
@@ -344,13 +367,16 @@ impl Model for JsModel {
             return Err(ModelError::unsupported(self));
         };
 
-        if let Err(exception) = insert_row_fn.apply(model, FnArgs::from((row as f64, js_data))) {
-            eprintln!(
-                "Node.js: JavaScript Model<T>'s insertRow function threw an exception: {exception}"
-            );
-            return Err(ModelError::unsupported(self));
+        match insert_row_fn.apply(model, FnArgs::from((row as f64, js_data))) {
+            Ok(returned) if rejected(&returned) => Err(ModelError::unsupported(self)),
+            Ok(_) => Ok(()),
+            Err(exception) => {
+                eprintln!(
+                    "Node.js: JavaScript Model<T>'s insertRow function threw an exception: {exception}"
+                );
+                Err(ModelError::unsupported(self))
+            }
         }
-        Ok(())
     }
 
     fn model_tracker(&self) -> &dyn i_slint_core::model::ModelTracker {
