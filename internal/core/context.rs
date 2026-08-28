@@ -18,7 +18,7 @@ use pin_weak::rc::PinWeak;
 /// Type alias for the closure type installed via [`set_window_event_hook`].
 /// Exposed so callers (notably tests) can save and restore a previously-installed hook.
 pub type WindowEventHook =
-    Box<dyn Fn(&Rc<dyn WindowAdapter>, &WindowEvent, crate::api::WindowEventDispatchResult)>;
+    Box<dyn Fn(&Rc<dyn WindowAdapter>, &WindowEvent, crate::platform::WindowEventDispatchResult)>;
 
 crate::thread_local! {
     pub(crate) static GLOBAL_CONTEXT : once_cell::unsync::OnceCell<SlintContext>

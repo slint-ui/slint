@@ -321,6 +321,35 @@ pub fn duration_until_next_timer_update() -> Option<core::time::Duration> {
 pub use crate::input::PointerEventButton;
 pub use crate::input::key_codes::Key;
 
+/// Result of dispatching a window event through Slint's runtime with
+/// [`Window::dispatch_event_with_result()`](crate::api::Window::dispatch_event_with_result).
+#[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
+pub enum WindowEventDispatchResult {
+    /// The event was handled. For example, a key handler consumed a key press, or
+    /// the window acted on a resize or close request.
+    Accepted,
+    /// The event wasn't handled: no element consumed it, or a handler actively refused it,
+    /// such as a `close-requested` callback returning `reject` to keep the window open.
+    Rejected,
+}
+
+impl From<crate::input::KeyEventResult> for WindowEventDispatchResult {
+    fn from(value: crate::input::KeyEventResult) -> Self {
+        match value {
+            crate::input::KeyEventResult::EventAccepted => Self::Accepted,
+            crate::input::KeyEventResult::EventIgnored => Self::Rejected,
+        }
+    }
+}
+
+impl From<Option<crate::window::MouseDispatchResult>> for WindowEventDispatchResult {
+    /// `None` (no component to dispatch to) and `accepted: false` both map to `Rejected`.
+    fn from(value: Option<crate::window::MouseDispatchResult>) -> Self {
+        if value.is_some_and(|r| r.accepted) { Self::Accepted } else { Self::Rejected }
+    }
+}
+
 /// A event that describes user input or windowing system events.
 ///
 /// Slint backends typically receive events from the windowing system, translate them to this
@@ -359,7 +388,7 @@ pub enum WindowEvent {
     },
     /// The pointer exited the window.
     ///
-    /// Always reported as [`Accepted`](crate::api::WindowEventDispatchResult::Accepted).
+    /// Always reported as [`Accepted`](WindowEventDispatchResult::Accepted).
     PointerExited,
     /// A key was pressed.
     KeyPressed {

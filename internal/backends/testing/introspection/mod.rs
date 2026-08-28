@@ -294,7 +294,7 @@ impl IntrospectionState {
         &self,
         adapter: &Rc<dyn WindowAdapter>,
         event: &i_slint_core::platform::WindowEvent,
-        result: i_slint_core::api::WindowEventDispatchResult,
+        result: i_slint_core::platform::WindowEventDispatchResult,
     ) {
         if !self.recording_enabled.get() {
             return;
@@ -529,17 +529,14 @@ fn convert_pointer_event_button_to_proto(
 }
 
 fn convert_event_dispatch_result(
-    result: i_slint_core::api::WindowEventDispatchResult,
+    result: i_slint_core::platform::WindowEventDispatchResult,
 ) -> proto::RecordedEventResult {
     match result {
-        i_slint_core::api::WindowEventDispatchResult::Accepted => {
+        i_slint_core::platform::WindowEventDispatchResult::Accepted => {
             proto::RecordedEventResult::Accepted
         }
-        i_slint_core::api::WindowEventDispatchResult::Rejected => {
+        i_slint_core::platform::WindowEventDispatchResult::Rejected => {
             proto::RecordedEventResult::Rejected
-        }
-        i_slint_core::api::WindowEventDispatchResult::Ignored => {
-            proto::RecordedEventResult::Ignored
         }
         _ => unreachable!(),
     }
@@ -1010,7 +1007,7 @@ fn test_event_log_filters_since_sequence_and_window() {
         proto::RecordedEvent {
             sequence: 2,
             window_handle: Some(index_to_handle(first_window)),
-            result: proto::RecordedEventResult::Ignored.into(),
+            result: proto::RecordedEventResult::Rejected.into(),
             ..Default::default()
         },
     ]);
@@ -1147,7 +1144,7 @@ fn test_accessibility_enum_mapping_complete() {
 
 // `WindowEventDispatchResult` honesty for pointer events: verify that
 // `Window::dispatch_event_with_result` reports `Accepted` only when an item consumed the
-// event, and `Ignored` otherwise. Tests install the window-event hook directly
+// event, and `Rejected` otherwise. Tests install the window-event hook directly
 // since that's the consumer the public contract is for. The same goes for the events the
 // backends deliver in the internal representation: they're reported as the public event they
 // correspond to, or not at all when there is none.
@@ -1155,11 +1152,10 @@ fn test_accessibility_enum_mapping_complete() {
 #[cfg(test)]
 mod dispatch_result_tests {
     use i_slint_core::api::LogicalPosition;
-    use i_slint_core::api::WindowEventDispatchResult;
     use i_slint_core::input::{InternalKeyEvent, KeyEvent, KeyEventType, MouseEvent, TouchPhase};
     use i_slint_core::items::PointerEventButton;
     use i_slint_core::lengths::LogicalPoint;
-    use i_slint_core::platform::{InternalEvent, WindowEvent};
+    use i_slint_core::platform::{InternalEvent, WindowEvent, WindowEventDispatchResult};
     use std::cell::RefCell;
     use std::rc::Rc;
 
@@ -1237,7 +1233,7 @@ mod dispatch_result_tests {
     }
 
     #[test]
-    fn pointer_pressed_with_no_handler_is_ignored() {
+    fn pointer_pressed_with_no_handler_is_rejected() {
         crate::init_no_event_loop();
         slint::slint! {
             export component App inherits Window {
@@ -1253,7 +1249,7 @@ mod dispatch_result_tests {
                 position: LogicalPosition::new(50.0, 50.0),
                 button: PointerEventButton::Left,
             },
-            WindowEventDispatchResult::Ignored,
+            WindowEventDispatchResult::Rejected,
         );
     }
 
@@ -1401,7 +1397,7 @@ mod dispatch_result_tests {
                     ..Default::default()
                 })
             ),
-            vec![(WindowEvent::KeyPressRepeated { text }, WindowEventDispatchResult::Ignored)]
+            vec![(WindowEvent::KeyPressRepeated { text }, WindowEventDispatchResult::Rejected)]
         );
     }
 
@@ -1457,7 +1453,7 @@ mod dispatch_result_tests {
     }
 
     #[test]
-    fn pointer_scrolled_over_empty_area_is_ignored() {
+    fn pointer_scrolled_over_empty_area_is_rejected() {
         crate::init_no_event_loop();
         slint::slint! {
             export component App inherits Window {
@@ -1474,12 +1470,12 @@ mod dispatch_result_tests {
                 delta_x: 0.0,
                 delta_y: -30.0,
             },
-            WindowEventDispatchResult::Ignored,
+            WindowEventDispatchResult::Rejected,
         );
     }
 
     #[test]
-    fn pointer_moved_over_empty_area_is_ignored() {
+    fn pointer_moved_over_empty_area_is_rejected() {
         crate::init_no_event_loop();
         slint::slint! {
             export component App inherits Window {
@@ -1492,7 +1488,7 @@ mod dispatch_result_tests {
         assert_single_dispatch(
             app.window(),
             WindowEvent::PointerMoved { position: LogicalPosition::new(50.0, 50.0) },
-            WindowEventDispatchResult::Ignored,
+            WindowEventDispatchResult::Rejected,
         );
     }
 
@@ -1595,9 +1591,9 @@ mod dispatch_result_tests {
     }
 
     #[test]
-    fn pointer_released_at_end_of_drag_is_ignored_if_no_droparea_accepted() {
+    fn pointer_released_at_end_of_drag_is_rejected_if_no_droparea_accepted() {
         // Release is rewritten internally to `Exit` (no DropArea accepted the prior
-        // DragMove); the public PointerReleased reports Ignored.
+        // DragMove); the public PointerReleased reports Rejected.
         crate::init_no_event_loop();
         slint::slint! {
             export global Api {
@@ -1629,6 +1625,6 @@ mod dispatch_result_tests {
             .find(|(e, _)| matches!(e, WindowEvent::PointerReleased { .. }))
             .map(|(_, r)| r.clone())
             .expect("PointerReleased recorded");
-        assert_eq!(release, WindowEventDispatchResult::Ignored);
+        assert_eq!(release, WindowEventDispatchResult::Rejected);
     }
 }

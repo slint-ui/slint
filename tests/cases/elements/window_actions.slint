@@ -167,7 +167,7 @@ assert(instance.win_full_screen);
 
 ```rust
 use slint::*;
-use i_slint_core::api::WindowEventDispatchResult::*;
+use i_slint_core::platform::WindowEventDispatchResult::*;
 
 let instance = TestCase::new().unwrap();
 let window = instance.window();
@@ -195,11 +195,11 @@ assert_eq!(res.unwrap(), Accepted);
 let res = window.dispatch_event_with_result(platform::WindowEvent::PointerExited);
 assert_eq!(res.unwrap(), Accepted);
 
-// Ignored for pointer/scroll
+// Rejected for pointer/scroll
 let pos = slint::LogicalPosition::new(200., 150.);
 let res = window.dispatch_event_with_result(platform::WindowEvent::PointerMoved { position: pos });
-assert_eq!(res.unwrap(), Ignored);
+assert_eq!(res.unwrap(), Rejected);
 let res = window.dispatch_event_with_result(platform::WindowEvent::PointerScrolled { position: pos, delta_x: 0., delta_y: -50. });
-assert_eq!(res.unwrap(), Ignored);
+assert_eq!(res.unwrap(), Rejected);
 ```
 */

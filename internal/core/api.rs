@@ -8,6 +8,7 @@ This module contains types that are public and re-exported in the slint-rs as we
 #![warn(missing_docs)]
 
 use crate::input::{InternalKeyEvent, KeyEventType, MouseEvent, TouchPhase};
+use crate::platform::WindowEventDispatchResult;
 use crate::window::{WindowAdapter, WindowInner};
 use alloc::boxed::Box;
 use alloc::string::String;
@@ -22,36 +23,6 @@ pub use crate::graphics::{
 pub use crate::input::Keys;
 pub use crate::sharedvector::SharedVector;
 pub use crate::{format, string::SharedString, string::ToSharedString};
-
-/// Result of dispatching a window event through Slint's runtime with [`Window::dispatch_event_with_result`].
-#[derive(Clone, Debug, PartialEq)]
-#[non_exhaustive]
-pub enum WindowEventDispatchResult {
-    /// The event was handled. For example, a key handler consumed a key press, or
-    /// the window acted on a resize or close request.
-    Accepted,
-    /// The event was actively refused. For example, a `close-requested` callback
-    /// returned `reject` to prevent the window from closing.
-    Rejected,
-    /// The event was not handled by any element.
-    Ignored,
-}
-
-impl From<crate::input::KeyEventResult> for WindowEventDispatchResult {
-    fn from(value: crate::input::KeyEventResult) -> Self {
-        match value {
-            crate::input::KeyEventResult::EventAccepted => Self::Accepted,
-            crate::input::KeyEventResult::EventIgnored => Self::Ignored,
-        }
-    }
-}
-
-impl From<Option<crate::window::MouseDispatchResult>> for WindowEventDispatchResult {
-    /// `None` (no component to dispatch to) and `accepted: false` both map to `Ignored`.
-    fn from(value: Option<crate::window::MouseDispatchResult>) -> Self {
-        if value.is_some_and(|r| r.accepted) { Self::Accepted } else { Self::Ignored }
-    }
-}
 
 /// A position represented in the coordinate space of logical pixels. That is the space before applying
 /// a display device specific scale factor.

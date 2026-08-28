@@ -5,7 +5,6 @@ import * as napi from "../binding.cjs";
 export {
     Diagnostic,
     DiagnosticLevel,
-    WindowEventDispatchResult,
     RgbaColor,
     Brush,
     DataTransfer,
@@ -105,9 +104,11 @@ export interface Window {
     /**
      * Dispatches a window event to the scene.
      *
-     * Returns whether the scene accepted the event, actively rejected it, or left it unhandled.
+     * Returns whether the scene accepted the event or rejected it.
      */
-    dispatchEvent(event: platform.WindowEvent): napi.WindowEventDispatchResult;
+    dispatchEvent(
+        event: platform.WindowEvent,
+    ): platform.WindowEventDispatchResult;
 }
 
 /**

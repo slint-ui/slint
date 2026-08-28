@@ -55,7 +55,7 @@ assert_eq!(instance.get_content_y(), 0.); // The flickable did not move
 
 ```rust
 use slint::*;
-use i_slint_core::api::WindowEventDispatchResult::*;
+use i_slint_core::platform::WindowEventDispatchResult::*;
 
 let instance = TestCase::new().unwrap();
 let window = instance.window();

@@ -1093,7 +1093,7 @@ impl WindowInner {
     ///
     /// Drag and drop is the one kind of input that backends don't deliver through
     /// [`crate::api::Window::dispatch_event_with_result()`]:
-    /// they need the negotiated action back, which [`crate::api::WindowEventDispatchResult`] can't express,
+    /// they need the negotiated action back, which [`crate::platform::WindowEventDispatchResult`] can't express,
     /// and a drag leaving the window isn't the pointer leaving the window.
     /// These events have no [`crate::platform::WindowEvent`] representation either,
     /// so nothing is lost for the window event hook.

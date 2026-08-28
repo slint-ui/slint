@@ -4,6 +4,8 @@
 import type { Size, Point, Window } from "./index.ts";
 import type { language } from "./generated/language";
 
+export { WindowEventDispatchResult } from "../binding.cjs";
+
 /**
  * A pointer was pressed.
  *
@@ -155,7 +157,7 @@ export interface WindowActiveChangedEvent {
  *
  * The `type` field selects the variant and determines which other fields apply.
  * Dispatch an event to a window with `Window.dispatchEvent`,
- * which reports whether the scene accepted, rejected, or ignored it.
+ * which reports whether the scene accepted or rejected it.
  *
  * @example
  * ```js
@@ -167,7 +169,7 @@ export interface WindowActiveChangedEvent {
  *     button: "left",
  * });
  *
- * if (result === slint.WindowEventDispatchResult.Accepted) {
+ * if (result === slint.platform.WindowEventDispatchResult.Accepted) {
  *     console.log("the scene handled the press");
  * }
  * ```
