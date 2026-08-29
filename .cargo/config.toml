@@ -6,10 +6,30 @@
 # cargo discovers this config by walking up from the current directory and a
 # relative `target-dir` is resolved relative to this file, running cargo from
 # any of those workspaces writes to (and reuses) the same `<repo>/target`.
-# Combined with identical `[profile]` settings in every workspace, the common
-# library crates are built once instead of once per workspace.
+# The profiles below are shared the same way: cargo keys its build cache on
+# them, so the workspaces have to agree.
 [build]
 target-dir = "target"
+
+[profile.release]
+panic = "abort"
+
+# Always build resvg and its hot-path dependencies with optimizations,
+# as it otherwise causes freezes to load large SVGs in debug builds.
+[profile.dev.package.resvg]
+opt-level = 3
+[profile.dev.package.usvg]
+opt-level = 3
+[profile.dev.package.tiny-skia]
+opt-level = 3
+[profile.dev.package.rgb]
+opt-level = 3
+
+[profile.package-release]
+inherits = "release"
+lto = "fat"
+strip = "symbols"
+codegen-units = 1
 
 [alias]
 xtask = "run --locked --package xtask --"

@@ -64,18 +64,3 @@ image = { version = "0.25", default-features = false, features = ["png", "jpeg"]
 itertools = { version = "0.15" }
 rayon = { version = "1.10", default-features = false }
 spin_on = { version = "0.1" }
-
-[profile.release]
-panic = "abort"
-
-
-# Always build resvg and its hot-path dependencies with optimizations,
-# as it otherwise causes freezes to load large SVGs in debug builds.
-[profile.dev.package.resvg]
-opt-level = 3
-[profile.dev.package.usvg]
-opt-level = 3
-[profile.dev.package.tiny-skia]
-opt-level = 3
-[profile.dev.package.rgb]
-opt-level = 3

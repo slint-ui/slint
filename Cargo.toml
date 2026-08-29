@@ -176,26 +176,3 @@ objc2 = { version = "0.6.3" }
 
 # Not updated because of https://github.com/gluon-lang/lsp-types/issues/284
 lsp-types = "0.95.0"
-
-# The other workspaces repeat these `[profile.*]` settings so that they share
-# this workspace's `target/`. `cargo xtask check_profiles --fix-it` syncs them.
-[profile.release]
-panic = "abort"
-
-
-# Always build resvg and its hot-path dependencies with optimizations,
-# as it otherwise causes freezes to load large SVGs in debug builds.
-[profile.dev.package.resvg]
-opt-level = 3
-[profile.dev.package.usvg]
-opt-level = 3
-[profile.dev.package.tiny-skia]
-opt-level = 3
-[profile.dev.package.rgb]
-opt-level = 3
-
-[profile.package-release]
-inherits = "release"
-lto = "fat"
-strip = "symbols"
-codegen-units = 1
