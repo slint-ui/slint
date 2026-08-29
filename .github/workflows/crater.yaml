@@ -123,7 +123,7 @@ jobs:
                     - "https://github.com/beac0n/ruroco"
 
                     - "https://github.com/SergioRibera/Simplemoji"
-                    - "https://github.com/Ashintosh/NoPass"
+                    #- "https://github.com/Ashintosh/NoPass" # the crate's own Rust code doesn't match its generated Slint types
                     # - "https://github.com/Gremious/stickerbox" depends on unstable-wgpu-24
                     - "https://github.com/aenriii/rimgv"
                     - "https://github.com/Brayan-724/amosd"
@@ -175,10 +175,9 @@ jobs:
                     - "https://github.com/masak1yu/winxmerge"
                     - "https://github.com/IDE0224/rust-calendar-app"
                     - "https://github.com/ninjitsuytber/Aegis-OTA"
-                    - "https://github.com/TuEmb/can-viewer-rs"
+                    #- "https://github.com/TuEmb/can-viewer-rs" # depends on pcan-basic, which can't be fetched
                     - "https://github.com/tilladam/slint-node-editor"
                     - "https://github.com/xiaoxinghaha/xiaoxingshell"
-                    - "https://github.com/nanowave-player/nanowave-ui"
                     - "https://github.com/owu/aura-factory"
                     - "https://github.com/mdabir1203/ShadowMap"
                     - "https://github.com/okhsunrog/slint_realtime_plotting_experiments"
@@ -186,7 +185,7 @@ jobs:
                     - "https://github.com/PonderForge/LBProxy"
                     - "https://github.com/noooob-coder/Codex-Resume-Loop"
                     - "https://github.com/kirinonakar/rust_upscaler"
-                    - "https://github.com/BitcoinQnA/passport-nostr-signer"
+                    #- "https://github.com/BitcoinQnA/passport-nostr-signer" # a dependency source (getrandom) fails to load
                     - "https://github.com/minavoii/sanctuary-seeder"
                     - "https://github.com/yetalauncher/yetalauncher"
                     - "https://github.com/burumdev/POVVER"
@@ -194,7 +193,7 @@ jobs:
                     - "https://github.com/4acha4a/slint-car-dashboard"
                     - "https://github.com/dfaure/tunecall"
                     - "https://github.com/vlisivka/slint_kanban"
-                    - "https://github.com/bu5hm4nn/gossip-slint"
+                    #- "https://github.com/bu5hm4nn/gossip-slint" # nostr-types pins a lightning-invoice git rev that no longer exists
 
                     # Missing images (hardcoded absolute path)
                     # - "https://github.com/Tricked-dev/stardew-mod-manager"
@@ -259,7 +258,13 @@ jobs:
             - name: Checkout the repo
               run: |
                   cd $HOME
-                  git clone ${{ matrix.git_url }}  the_repo --depth 1
+                  if [ -n "${{ matrix.git_rev }}" ]; then
+                      git init the_repo
+                      git -C the_repo fetch --depth 1 ${{ matrix.git_url }} ${{ matrix.git_rev }}
+                      git -C the_repo checkout FETCH_HEAD
+                  else
+                      git clone ${{ matrix.git_url }} the_repo --depth 1
+                  fi
                   cd the_repo
                   git submodule update --init --recursive || true
             - name: build
@@ -313,6 +318,10 @@ jobs:
                     - git_url: "https://github.com/flukejones/asusctl"
                       sub_path: "rog-control-center"
                       extra_packages: gettext # build.rs runs msgfmt on the .po files
+                      extra_commands: |
+                          # the workspace pins slint-build to =1.17.1, below the patched version
+                          sed -i 's/"=1.17.1"/"*"/g' ../Cargo.toml
+                          cargo update
                     #- git_url: "https://github.com/ellenhp/openlmr"  #doesn't compile
                     #  sub_path: "openlmr-core"
                     #- git_url: "https://github.com/jenkinsmichpa/coconut_crab"
@@ -418,11 +427,11 @@ jobs:
                     - git_url: "https://github.com/RustOtomeLab/RustEng"
                       sub_path: "."
                       extra_packages: alsa-utils libasound2-dev libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev libavfilter-dev libavdevice-dev libpostproc-dev
-                    - git_url: "https://github.com/vonnieda/dimple"
-                      sub_path: "dimple_ui_slint"
-                      # a dependency uses the unstable `c_variadic` feature, so build it with nightly
-                      toolchain: nightly
-                      extra_packages: alsa-utils libasound2-dev
+                    # playback-rs uses VaList::arg, a nightly API that was removed
+                    #- git_url: "https://github.com/vonnieda/dimple"
+                    #  sub_path: "dimple_ui_slint"
+                    #  toolchain: nightly
+                    #  extra_packages: alsa-utils libasound2-dev
                     - git_url: "https://github.com/Danila-Bain/wav-wav"
                       sub_path: "."
                       extra_packages: alsa-utils libasound2-dev libavcodec-dev libavformat-dev libavutil-dev libasound2-dev
@@ -440,14 +449,13 @@ jobs:
                     # - git_url: "https://codeberg.org/psylink/psylink"
                     - git_url: "https://github.com/shuntia/bestest"
                       extra_args: "--features=gui"
-                    - git_url: https://github.com/Konstantin-Dudersky/rsiot
-                      extra_args: "--features=cmp_slint"
-                      # the repo's .cargo/config.toml (which this workflow removes) sets tokio_unstable,
-                      # and the workspace has a path dependency on a ../rsiot-devices directory that is not in the repo
-                      extra_commands: |
-                          export RUSTFLAGS="--cfg tokio_unstable"
-                          cargo new --lib ../rsiot-devices
-                          cargo update
+                    # depends on ws2812-esp32-rmt-driver 0.14, which can't be resolved
+                    #- git_url: https://github.com/Konstantin-Dudersky/rsiot
+                    #  extra_args: "--features=cmp_slint"
+                    #  extra_commands: |
+                    #      export RUSTFLAGS="--cfg tokio_unstable"
+                    #      cargo new --lib ../rsiot-devices
+                    #      cargo update
                     - git_url: https://github.com/maplibre/maplibre-native-slint
                       sub_path: rust
                       extra_packages: glslang-dev glslang-tools libcurl4-openssl-dev libglfw3-dev libicu-dev libjpeg-turbo8-dev libpng-dev libssl-dev libuv1-dev libwebp-dev spirv-tools protobuf-compiler
@@ -484,6 +492,8 @@ jobs:
                       extra_packages: protobuf-compiler
                     - git_url: "https://gitlab.com/floers/ordinary"
                       sub_path: "."
+                      # the last commit mistypes a struct field (icon -> iconName); pin before it
+                      git_rev: 4be6e53798fd13614b0e1ae4916f313fcfbf249b
                       # zip = "*" in its Cargo.toml, but the bundled epub lib needs the old zip API
                       extra_commands: "cargo update && cargo update zip --precise 0.5.13"
                     - git_url: "https://github.com/ChenhuiZhang/envsensor-demo"
@@ -494,16 +504,18 @@ jobs:
                           cargo update
                     - git_url: "https://github.com/borgbase/vykar"
                       sub_path: "crates/vykar-gui"
-                    - git_url: "https://github.com/vicrodh/qbz"
-                      sub_path: "crates/qbz-ui"
+                    # depends on lofty 0.23, which can't be resolved
+                    #- git_url: "https://github.com/vicrodh/qbz"
+                    #  sub_path: "crates/qbz-ui"
                     - git_url: "https://github.com/crabnebula-dev/cargo-packager"
                       sub_path: "examples/slint"
                     - git_url: "https://github.com/ancwrd1/snx-rs"
                       sub_path: "apps/snx-rs-gui"
                     - git_url: "https://github.com/snolab/CapsLockX"
                       sub_path: "rs/tools/clx-prefs-slint"
-                    - git_url: "https://github.com/osvauld/osvauld"
-                      sub_path: "sthalam_shell"
+                    # depends on core2 0.4, which can't be resolved
+                    #- git_url: "https://github.com/osvauld/osvauld"
+                    #  sub_path: "sthalam_shell"
                     - git_url: "https://github.com/PhantomShift/nekotatsu"
                       sub_path: "gui"
                     - git_url: "https://github.com/msupply-foundation/open-msupply"
@@ -542,8 +554,9 @@ jobs:
                     - git_url: "https://github.com/Irminsul-dev/CheshireLane9"
                       sub_path: "crates/cheshire-server-app"
                       extra_packages: protobuf-compiler
-                    - git_url: "https://github.com/The-Geek-Freaks/NEOTH"
-                      sub_path: "SRC/neothd-gui"
+                    # its own code uses a rusqlite API (MappedRows::context) that no longer exists
+                    #- git_url: "https://github.com/The-Geek-Freaks/NEOTH"
+                    #  sub_path: "SRC/neothd-gui"
                     - git_url: "https://github.com/f321x/ntrack"
                       sub_path: "app"
                       extra_args: "--features=desktop"
@@ -561,9 +574,10 @@ jobs:
                     - git_url: "https://github.com/taichi765/TsukuyomiDMX"
                       sub_path: "crates/tsukuyomidmx"
                       extra_packages: protobuf-compiler
-                    - git_url: "https://github.com/PavelLizunov/suflyor"
-                      sub_path: "slint-experiment"
-                      extra_packages: alsa-utils libasound2-dev
+                    # the rfd dependency's build script panics
+                    #- git_url: "https://github.com/PavelLizunov/suflyor"
+                    #  sub_path: "slint-experiment"
+                    #  extra_packages: alsa-utils libasound2-dev
                     - git_url: "https://github.com/crypto-widget/crypto-hud"
                       sub_path: "crates/crypto-hud"
                     - git_url: "https://github.com/sullivant/eightyeighty"
@@ -578,9 +592,19 @@ jobs:
                     - git_url: "https://github.com/BiliRumble/Cloubit"
                       sub_path: "."
                       extra_packages: libasound2-dev
+                    - git_url: "https://github.com/nanowave-player/nanowave-ui"
+                      sub_path: "."
+                      # drop the local patch that points media_source at a missing sibling; use the published crate
+                      extra_commands: |
+                          sed -i '/media_source = { path/d' Cargo.toml
+                          cargo update
                     - git_url: "https://github.com/JeninSutradhar/ffmpeg-VideoPlayer-Rust_Slint"
                       sub_path: "."
                       extra_packages: libasound2-dev libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev libavfilter-dev libavdevice-dev libpostproc-dev
+                      # derive_more 1.0 needs a feature to enable its derives; the last 0.99 doesn't
+                      extra_commands: |
+                          cargo update
+                          cargo update -p derive_more --precise 0.99.20
                     - git_url: "https://github.com/NateAGeek/SenToAni"
                       sub_path: "."
                       extra_packages: libasound2-dev libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev libavfilter-dev libavdevice-dev libpostproc-dev
@@ -605,7 +629,8 @@ jobs:
                       sub_path: "crates/reco-gui"
                       extra_packages: libasound2-dev libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev libavfilter-dev libavdevice-dev libpostproc-dev
                       extra_commands: |
-                          sed -i 's/version = "~1.15"/version = "1.15"/' Cargo.toml
+                          # ~1.15 pins slint below the patched version, and unstable-wgpu-28 no longer exists
+                          sed -i 's/version = "~1.15"/version = "*"/; s/unstable-wgpu-28/unstable-wgpu-29/' Cargo.toml
                           cargo update
                           # rc.13 is a semver compatible update that changes the API
                           cargo update ort --precise 2.0.0-rc.12
@@ -613,14 +638,16 @@ jobs:
                       sub_path: "shell"
                       extra_packages: libdisplay-info-dev
                       extra_commands: |
-                          sed -i 's/version = "=1.7.2"/version = "1.7.2"/' Cargo.toml
+                          # unpin both slint and slint-build so the patched version applies to both
+                          sed -i 's/"=1.7.2"/"*"/g' Cargo.toml
                           cargo update
                     - git_url: "https://github.com/reciperium/temporis"
                       sub_path: "."
                       extra_packages: alsa-utils libasound2-dev
-                    - git_url: "https://github.com/FriederHannenheim/cthulock"
-                      sub_path: "."
-                      extra_packages: llvm-dev libclang-dev libpam0g-dev
+                    # its own code moves a non-Send slint type across threads
+                    #- git_url: "https://github.com/FriederHannenheim/cthulock"
+                    #  sub_path: "."
+                    #  extra_packages: llvm-dev libclang-dev libpam0g-dev
                     - git_url: "https://github.com/jaroslavszkandera/luminous"
                       sub_path: "."
                       extra_packages: libdav1d-dev
@@ -631,11 +658,12 @@ jobs:
                     - git_url: "https://github.com/Arian-p1/p1mplayer"
                       sub_path: "."
                       extra_packages: alsa-utils libasound2-dev
-                    - git_url: "https://github.com/GMAC-pl/gmacFTP"
-                      sub_path: "."
-                      extra_commands: |
-                          sed -i 's/"=1.16.1"/"1.16.1"/g' Cargo.toml
-                          cargo update
+                    # uses the drag crate with a window type incompatible with the current API
+                    #- git_url: "https://github.com/GMAC-pl/gmacFTP"
+                    #  sub_path: "."
+                    #  extra_commands: |
+                    #      sed -i 's/"=1.16.1"/"1.16.1"/g' Cargo.toml
+                    #      cargo update
                     - git_url: "https://github.com/petiaccja/sed-manager-rs"
                       sub_path: "sed_manager_config_ui"
                       extra_commands: |
@@ -672,11 +700,12 @@ jobs:
                     # format_version.pre_release)
                     #- git_url: "https://github.com/holg/gldf-rs"
                     #  sub_path: "crates/gldf-rs-slint"
-                    - git_url: "https://github.com/Decodetalkers/marine_greetdm"
-                      sub_path: "examples/marine_gui"
-                      extra_commands: |
-                          printf '\n[workspace]\n' >> Cargo.toml
-                          cargo update
+                    # its build.rs references an image asset that is not committed to the repo
+                    #- git_url: "https://github.com/Decodetalkers/marine_greetdm"
+                    #  sub_path: "examples/marine_gui"
+                    #  extra_commands: |
+                    #      printf '\n[workspace]\n' >> Cargo.toml
+                    #      cargo update
                     - git_url: "https://github.com/Obsidian-Minecraft-Server-Portal/obsidian-server-panel"
                       sub_path: "crates/installer/app"
                       extra_commands: |
@@ -713,7 +742,13 @@ jobs:
             - name: Checkout the repo
               run: |
                   cd $HOME
-                  git clone ${{ matrix.git_url }}  the_repo --depth 1
+                  if [ -n "${{ matrix.git_rev }}" ]; then
+                      git init the_repo
+                      git -C the_repo fetch --depth 1 ${{ matrix.git_url }} ${{ matrix.git_rev }}
+                      git -C the_repo checkout FETCH_HEAD
+                  else
+                      git clone ${{ matrix.git_url }} the_repo --depth 1
+                  fi
                   cd the_repo
                   git submodule update --init --recursive || true
             - name: build
@@ -747,11 +782,12 @@ jobs:
                     - "https://github.com/zloisupport/vanctrl"
                     - "https://github.com/owu/wsl-dashboard"
                     - "https://github.com/gvastethecreator/panopticon"
-                    - "https://github.com/STanJK/rust-boundary-tool-box"
+                    #- "https://github.com/STanJK/rust-boundary-tool-box" # vnt-core is out of sync with its ipstack dependency
                     - "https://github.com/ahmedmbarektorjmene/PASSX"
                 include:
-                    - git_url: "https://github.com/tadghh/transparent-windows"
-                      toolchain: nightly
+                    # its own code uses let-chains, which need edition 2024
+                    #- git_url: "https://github.com/tadghh/transparent-windows"
+                    #  toolchain: nightly
                     - git_url: "https://github.com/chengbuilds/PetPhrase"
                       sub_path: "app-slint"
                     # servicemanager-win32 has no Linux implementation
@@ -763,6 +799,7 @@ jobs:
                     # dll-syringe only has a windows implementation
                     - git_url: "https://github.com/jcbantuelle/la-mulana-multiworld"
                       sub_path: "launcher"
+                      toolchain: nightly # dll-syringe uses a #![feature]
         runs-on: windows-2022
         steps:
             - uses: actions/checkout@v7
@@ -848,9 +885,9 @@ jobs:
                     # Rust dep tray-item fails to build (TrayItemImpl missing)
                     - git_url: "https://github.com/Maeeen/emoji-picker"
                       files: "ui/emoji-picker.slint"
-                    # Rust dep librespot-core fails to build (vergen trait bound)
-                    - git_url: "https://github.com/karmakarmeghdip/taan"
-                      files: "ui/main.slint"
+                    # genuine circular layout dependency in its own .slint (album art size depends on the container height)
+                    #- git_url: "https://github.com/karmakarmeghdip/taan"
+                    #  files: "ui/main.slint"
                     # source has an unresolved git merge-conflict marker
                     - git_url: "https://github.com/elhijamuhammed/LanChGo"
                       files: "ui/app-window.slint"
@@ -1080,8 +1117,9 @@ jobs:
                     - git_url: "https://github.com/fast-down/gui"
                       files: "ui/app-window.slint"
                     # depends on a Slint fork via git, so the patch does not apply
-                    - git_url: "https://github.com/futo-org/fcast"
-                      files: "senders/android/ui/main.slint"
+                    # the .slint uses a nonexistent 'background-blur' property
+                    #- git_url: "https://github.com/futo-org/fcast"
+                    #  files: "senders/android/ui/main.slint"
                     # build.rs compiles the SameBoy emulator from a submodule
                     - git_url: "https://github.com/nununoisy/gb-presenter-rs"
                       files: "src/gui/slint/main.slint"
