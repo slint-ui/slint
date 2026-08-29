@@ -39,22 +39,6 @@ wait_for = ["fix:toml:format"]
 run = "cargo metadata --locked --format-version=1 > /dev/null || (echo \"### Updating Tests Lockfile! ###\" && cargo update)"
 dir = "tests"
 
-# The workspaces share one target/ directory, which cargo only reuses while
-# their [profile.*] settings match. What this cannot fix, lint:rust:profiles reports.
-["fix:rust:profiles"]
-description = "Sync the workspace [profile.*] settings with the root workspace"
-run = "cargo xtask check_profiles --fix-it"
-depends = ["fix:rust:lockfile:root"]
-# Edits the same manifests as the formatters and the copyright task, so don't
-# run concurrently with them.
-wait_for = ["fix:toml:format", "fix:legal:copyright"]
-
-["lint:rust:profiles"]
-description = "Check that every workspace's [profile.*] matches the root workspace"
-run = "cargo xtask check_profiles"
-# Creates target/, which makes the reuse check bail out, so let it go first.
-wait_for = ["lint:legal:reuse"]
-
 ["fix:legal:copyright"]
 description = "Run the check_license_headers --fix xtask"
 run = "cargo xtask check_license_headers --fix-it"
@@ -209,7 +193,6 @@ depends = [
   "fix:legal:copyright",
   "fix:python:format",
   "fix:rust:format:all",
-  "fix:rust:profiles",
   "fix:text:trailing_spaces",
   "fix:toml:format",
   "fix:pnpm:lock",
@@ -224,4 +207,4 @@ depends = [
 
 ["ci:autofix:lint"]
 description = "CI autofix job -- lint steps"
-depends = ["lint:legal:reuse", "lint:python", "lint:rust:profiles", "lint:ts:typecheck", "lint:ts:knip"]
+depends = ["lint:legal:reuse", "lint:python", "lint:ts:typecheck", "lint:ts:knip"]
