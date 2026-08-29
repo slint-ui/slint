@@ -1626,6 +1626,24 @@ impl Expression {
                             }
                         }
                     }
+                    if !diag.is_slint_sc() {
+                        let extra = left
+                            .fields
+                            .keys()
+                            .filter(|f| !right.fields.contains_key(*f))
+                            .map(|f| format!("'{f}'"))
+                            .collect::<Vec<_>>();
+                        if let Some((last, rest)) = extra.split_last() {
+                            let (noun, list) = match rest {
+                                [] => ("field", last.clone()),
+                                _ => ("fields", format!("{} and {last}", rest.join(", "))),
+                            };
+                            diag.push_warning(
+                                format!("Conversion from {from_ty} to {target_type} ignores the extra {noun} {list}"),
+                                node,
+                            );
+                        }
+                    }
                     if let Expression::Struct { mut values, .. } = self {
                         let mut new_values = BTreeMap::new();
                         for (key, ty) in &right.fields {
