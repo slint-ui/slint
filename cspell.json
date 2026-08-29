@@ -224,6 +224,7 @@
     "tabwidget",
     "testcase",
     "textedit",
+    "threadsafe", // asyncio loop.call_soon_threadsafe()
     "tmpobj",
     "toolchain",
     "toolkit",
