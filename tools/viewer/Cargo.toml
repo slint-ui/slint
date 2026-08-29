@@ -16,6 +16,9 @@ categories = ["gui", "development-tools", "command-line-utilities"]
 keywords = ["viewer", "gui", "ui", "toolkit"]
 
 [features]
+# Enable the embedded MCP server; requires SLINT_MCP_PORT to be set at runtime.
+mcp = ["slint-interpreter/mcp"]
+
 backend-default = ["slint-interpreter/backend-default"]
 backend-qt = ["slint-interpreter/backend-qt"]
 backend-winit = ["slint-interpreter/backend-winit"]
