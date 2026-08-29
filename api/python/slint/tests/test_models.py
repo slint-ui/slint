@@ -56,7 +56,9 @@ def test_rejected_modification_logs_python_class_name(
     instance.invoke("push_one")
 
     err = capfd.readouterr().err
-    assert "array.push(): the model ReadOnly does not support this modification" in err, err
+    assert (
+        "array.push(): the model ReadOnly does not support this modification" in err
+    ), err
 
 
 def test_model_notify() -> None:
