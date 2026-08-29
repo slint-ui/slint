@@ -205,12 +205,6 @@ class SlintEventLoop(asyncio.SelectorEventLoop):
     def is_running(self) -> bool:
         return self._is_running
 
-    def close(self) -> None:
-        super().close()
-
-    def is_closed(self) -> bool:
-        return False
-
     def call_later(self, delay, callback, *args, context=None) -> asyncio.TimerHandle:
         timer = native.Timer()
 
