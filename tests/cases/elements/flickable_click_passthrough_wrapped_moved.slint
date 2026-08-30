@@ -1,0 +1,38 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A vertical-only pannable Flickable wrapped by a TouchArea. A horizontal move (which the
+// Flickable itself ignores, since it can't pan horizontally, but which the enclosing TouchArea's
+// hover tracking accepts) must still prevent the eventual release from replaying the original
+// press as a plain click: the pointer did move, even though not in a direction the Flickable
+// reacts to. See issue #13118.
+
+export component TestCase inherits Window {
+    width: 100px;
+    height: 100px;
+
+    ta := TouchArea {
+        clicked => { root.counter += 1; }
+
+        Flickable {
+            width: 100px;
+            height: 100px;
+            content-width: 100px;
+            content-height: 200px;
+        }
+    }
+
+    out property <int> counter: 0;
+}
+
+/*
+```rust
+use slint::{platform::WindowEvent, platform::PointerEventButton, LogicalPosition};
+let instance = TestCase::new().unwrap();
+
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(50.0, 50.0), button: PointerEventButton::Left });
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(60.0, 50.0) });
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(60.0, 50.0), button: PointerEventButton::Left });
+assert_eq!(instance.get_counter(), 0);
+```
+*/

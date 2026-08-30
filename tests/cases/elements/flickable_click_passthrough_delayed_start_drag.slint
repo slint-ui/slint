@@ -1,0 +1,51 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A press held past Flickable's 100ms forward-delay, but still within the 500ms drag-recognition window,
+// must still let a *later* move start a real drag.
+// The 100ms timer only gives a descendant a chance to show press feedback,
+// it must not itself hand the press to a sibling TouchArea.
+// That would leave the Flickable unable to intercept the later drag-starting move,
+// since a grabbed sibling routes future events to itself, not back through the Flickable.
+// See issue #13118.
+
+export component TestCase inherits Window {
+    width: 100px;
+    height: 100px;
+
+    TouchArea {
+        clicked => { root.counter += 1; }
+    }
+    flick := Flickable {
+        width: 100px;
+        height: 100px;
+        content-width: 100px;
+        content-height: 200px;
+
+        Rectangle {
+            width: 100px;
+            height: 200px;
+            background: gray;
+        }
+    }
+
+    out property <int> counter: 0;
+    out property <length> content-y: flick.content-y;
+}
+
+/*
+```rust
+use slint::{platform::WindowEvent, platform::PointerEventButton, LogicalPosition};
+let instance = TestCase::new().unwrap();
+
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(50.0, 50.0), button: PointerEventButton::Left });
+// Past the 100ms forward-delay timer, still well within the 500ms drag-recognition window.
+slint_testing::mock_elapsed_time(150);
+// Now move past the 8px distance threshold: this must still start a real drag.
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(50.0, 30.0) });
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(50.0, 10.0) });
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(50.0, 10.0), button: PointerEventButton::Left });
+assert_eq!(instance.get_content_y(), -40.);
+assert_eq!(instance.get_counter(), 0);
+```
+*/

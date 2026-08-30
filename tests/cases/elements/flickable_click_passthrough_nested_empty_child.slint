@@ -1,0 +1,46 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A pannable Flickable nested inside another pannable Flickable, with nothing inside the inner one
+// to claim a press, and a `TouchArea` behind the whole outer+inner pair. A plain click (press +
+// release, no drag) must still reach that `TouchArea`: the release-triggered replay must let the
+// unclaimed press bubble past *both* delaying Flickables, not just the outer one. If the inner
+// Flickable were allowed to fall back and grab the mouse for itself (as it correctly does during
+// the *timer*-triggered path, in case it's about to become a drag), release confirms there was
+// never a drag, so it must not have swallowed the press -- reintroducing #13118's bug one level
+// deeper. See issue #13118.
+
+export component TestCase inherits Window {
+    width: 100px;
+    height: 100px;
+
+    TouchArea {
+        clicked => { root.counter += 1; }
+    }
+    Flickable {
+        width: 100px;
+        height: 100px;
+        content-width: 200px;
+        content-height: 100px;
+
+        Flickable {
+            width: 100px;
+            height: 100px;
+            content-width: 100px;
+            content-height: 200px;
+        }
+    }
+
+    out property <int> counter: 0;
+}
+
+/*
+```rust
+use slint::{platform::WindowEvent, platform::PointerEventButton, LogicalPosition};
+let instance = TestCase::new().unwrap();
+
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(50.0, 50.0), button: PointerEventButton::Left });
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(50.0, 50.0), button: PointerEventButton::Left });
+assert_eq!(instance.get_counter(), 1);
+```
+*/

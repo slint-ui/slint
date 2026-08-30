@@ -1,0 +1,54 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// When the delay timer fires while a Flickable nested beneath another positioned ancestor is still
+// holding a press, the stored event must be translated through the *whole* ancestor chain down to the
+// Flickable's own local frame, not just the Flickable's own geometry, or a nested `TouchArea` sees the
+// wrong position and misses press feedback it should get. See issue #13118.
+
+export component TestCase inherits Window {
+    width: 200px;
+    height: 100px;
+
+    Rectangle {
+        x: 60px;
+        y: 0px;
+        width: 100px;
+        height: 100px;
+
+        flick := Flickable {
+            width: 100px;
+            height: 100px;
+            content-width: 150px;
+            content-height: 100px;
+
+            ta := TouchArea {
+                x: 0px;
+                y: 0px;
+                width: 50px;
+                height: 100px;
+            }
+        }
+    }
+
+    out property <bool> ta-pressed: ta.pressed;
+}
+
+/*
+```rust
+use slint::{platform::WindowEvent, platform::PointerEventButton, LogicalPosition};
+let instance = TestCase::new().unwrap();
+
+// Window-frame x=75 maps to x=15 in the Flickable's local frame (75 - the ancestor Rectangle's x=60),
+// which falls inside the TouchArea's 0..50 range.
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(75.0, 50.0), button: PointerEventButton::Left });
+assert_eq!(instance.get_ta_pressed(), false);
+
+// Held past the 100ms delay: the timer-triggered replay must give the TouchArea a chance to show
+// press feedback at the correctly-translated position.
+slint_testing::mock_elapsed_time(150);
+assert_eq!(instance.get_ta_pressed(), true);
+
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(75.0, 50.0), button: PointerEventButton::Left });
+```
+*/
