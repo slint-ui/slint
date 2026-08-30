@@ -229,6 +229,19 @@ message RequestDispatchWindowEvent {
     WindowEvent event = 2;
 }
 
+// Not part of RequestToAUT: moving the pointer, hovering, and clearing a hover
+// all boil down to dispatching a PointerMoveEvent via RequestDispatchWindowEvent,
+// which the wire protocol already supports. These messages exist only to give the
+// move_pointer/hover_element MCP tools their own minimal input schema.
+message RequestMovePointer {
+    Handle window_handle = 1;
+    LogicalPosition position = 2;
+}
+
+message RequestHoverElement {
+    Handle element_handle = 1;
+}
+
 message RequestDispatchKeyEvent {
     Handle window_handle = 1;
     string text = 2;

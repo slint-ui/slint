@@ -926,6 +926,25 @@ pub(crate) mod dispatch {
         Ok(())
     }
 
+    /// Move the pointer to an element's center without pressing any button.
+    ///
+    /// `click` and `drag` both press, so hover-only behavior cannot be reached
+    /// through them.
+    #[cfg(feature = "mcp")]
+    pub(crate) fn move_pointer_to_element(
+        state: &IntrospectionState,
+        element: ArenaIndex,
+    ) -> Result<(), String> {
+        let element = state.element("move_pointer", element)?;
+        let position = element.absolute_center();
+        let window_adapter =
+            element.window_adapter().ok_or_else(|| "element has no window".to_string())?;
+        window_adapter
+            .window()
+            .dispatch_event(i_slint_core::platform::WindowEvent::PointerMoved { position });
+        Ok(())
+    }
+
     pub(crate) async fn drag(
         state: &IntrospectionState,
         element: ArenaIndex,
@@ -972,6 +991,14 @@ fn test_dispatch_click_double_click_stale_handle() {
         .unwrap_err();
         assert!(err.contains("Invalid element handle"), "got: {err}");
     });
+}
+
+#[test]
+#[cfg(feature = "mcp")]
+fn test_dispatch_move_pointer_stale_handle() {
+    let state = IntrospectionState::new();
+    let err = dispatch::move_pointer_to_element(&state, ArenaIndex::default()).unwrap_err();
+    assert!(err.contains("Invalid element handle"), "got: {err}");
 }
 
 #[test]
