@@ -933,7 +933,7 @@ impl ElementHandle {
         }
     }
 
-    fn window_adapter(&self) -> Option<Rc<dyn i_slint_core::window::WindowAdapter>> {
+    pub(crate) fn window_adapter(&self) -> Option<Rc<dyn i_slint_core::window::WindowAdapter>> {
         self.item.upgrade().and_then(|item| item.window_adapter())
     }
 
@@ -1074,7 +1074,7 @@ impl ElementHandle {
     /// The center of the element in the coordinate system that input events are dispatched in.
     /// Unlike [`Self::absolute_position()`] this includes the location of an enclosing popup that's
     /// rendered inside the window, such as a menu.
-    fn absolute_center(&self) -> LogicalPosition {
+    pub(crate) fn absolute_center(&self) -> LogicalPosition {
         let Some(item) = self.item.upgrade() else {
             return Default::default();
         };

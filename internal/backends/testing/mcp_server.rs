@@ -97,6 +97,18 @@ const TOOLS: &[ToolDef] = &[
         optional_fields: &["button"],
     },
     ToolDef {
+        name: "hover_element",
+        description: "Move the mouse pointer to the center of an element without pressing any button. Use this for hover states, tooltips and menu highlighting: click_element and drag_element both press, so they cannot produce a hover on their own. The pointer stays where it is left; move it away with move_pointer to check that a hover is cleared.",
+        request_type: "RequestHoverElement",
+        optional_fields: &[],
+    },
+    ToolDef {
+        name: "move_pointer",
+        description: "Move the mouse pointer to a position in the window, in logical coordinates, without pressing any button. Use hover_element to hover an element by handle; use this to move to an arbitrary point, such as away from an element to check that its hover state is cleared.",
+        request_type: "RequestMovePointer",
+        optional_fields: &[],
+    },
+    ToolDef {
         name: "invoke_accessibility_action",
         description: "Invoke an accessibility action: 'Default_' (activate buttons, toggle checkboxes), 'Increment'/'Decrement' (sliders, spinboxes), 'Expand' (combo boxes). Preferred over click_element when the element's role suggests a semantic action.",
         request_type: "RequestInvokeElementAccessibilityAction",
@@ -350,6 +362,28 @@ async fn handle_tool_call(
                 serde_json::to_value(response).map_err(|e| format!("serialize error: {e}"))?,
             ))
         }
+        "hover_element" => {
+            let p: proto::RequestHoverElement = deserialize_params(args)?;
+            let element_index = handle_to_index(
+                p.element_handle.ok_or_else(|| "missing elementHandle".to_string())?,
+            )?;
+            dispatch::move_pointer_to_element(state, element_index)?;
+            Ok(ToolResult::Json(serde_json::json!({})))
+        }
+        "move_pointer" => {
+            let p: proto::RequestMovePointer = deserialize_params(args)?;
+            let window_index = handle_to_index(
+                p.window_handle.ok_or_else(|| "missing windowHandle".to_string())?,
+            )?;
+            let position = p.position.ok_or_else(|| "missing position".to_string())?;
+            state.dispatch_window_event(
+                window_index,
+                i_slint_core::platform::WindowEvent::PointerMoved {
+                    position: i_slint_core::api::LogicalPosition::new(position.x, position.y),
+                },
+            )?;
+            Ok(ToolResult::Json(serde_json::json!({})))
+        }
         "drag_element" => {
             let p: proto::RequestElementDrag = deserialize_params(args)?;
             let element_index = handle_to_index(
@@ -493,6 +527,9 @@ async fn handle_mcp_request(state: &IntrospectionState, body: &str) -> Option<Va
                     "5. get_element_properties → full details on a specific element\n",
                     "6. take_screenshot → visual snapshot (returned as inline image)\n",
                     "7. Interact: click_element, drag_element, set_element_value, invoke_accessibility_action, dispatch_key_event\n",
+                    "   Hover without pressing: hover_element (an element's center) or move_pointer (a position). ",
+                    "click_element and drag_element both press, so neither can produce a hover on its own. ",
+                    "The pointer stays where it is left, so clear a hover with move_pointer to a point away from the element.\n",
                     "8. start_event_recording → then interact → stop_event_recording to verify the runtime received and processed expected input/window events\n",
                     "9. take_screenshot again to verify the visual effect\n\n",
 
