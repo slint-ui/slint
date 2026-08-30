@@ -6,7 +6,10 @@
 // the same way it already happens for wheel events.
 // See issue #8973.
 //
-// A Flickable that *can* pan must keep intercepting the event as before.
+// A Flickable that *can* pan must forward a plain click (press + release, no drag) the same way,
+// once release confirms the interaction was never a drag.
+// It must still intercept a real drag.
+// See issue #13118.
 
 export component TestCase inherits Window {
     width: 400px;
@@ -27,14 +30,15 @@ export component TestCase inherits Window {
         content-height: self.height;
     }
 
-    // Right half: scrollable Flickable on top of a TouchArea. The click must still be intercepted.
+    // Right half: scrollable Flickable on top of a TouchArea. A plain click passes through,
+    // but a real drag must still pan and must not reach the TouchArea.
     TouchArea {
         x: 200px;
         width: 200px;
         height: 200px;
-        clicked => { root.scrollable-clicked = true; }
+        clicked => { root.scrollable-clicked-count += 1; }
     }
-    Flickable {
+    scrollable-flick := Flickable {
         x: 200px;
         width: 200px;
         height: 200px;
@@ -43,7 +47,8 @@ export component TestCase inherits Window {
     }
 
     out property <bool> non-scrollable-clicked: false;
-    out property <bool> scrollable-clicked: false;
+    out property <int> scrollable-clicked-count: 0;
+    out property <length> scrollable-content-y: scrollable-flick.content-y;
 }
 
 // Reproduction from issue #8973: a non-scrollable Flickable nested inside a TouchArea,
@@ -81,12 +86,22 @@ let instance = TestCase::new().unwrap();
 instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(100.0, 100.0), button: PointerEventButton::Left });
 instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(100.0, 100.0), button: PointerEventButton::Left });
 assert_eq!(instance.get_non_scrollable_clicked(), true);
-assert_eq!(instance.get_scrollable_clicked(), false);
+assert_eq!(instance.get_scrollable_clicked_count(), 0);
 
-// Click into the scrollable Flickable: it can pan, so it keeps intercepting the click as before.
+// A plain click (no drag) into the scrollable Flickable: it can pan, but a plain click was never
+// a drag, so it's forwarded to the TouchArea underneath once release confirms that (issue #13118).
 instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(300.0, 100.0), button: PointerEventButton::Left });
 instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(300.0, 100.0), button: PointerEventButton::Left });
-assert_eq!(instance.get_scrollable_clicked(), false);
+assert_eq!(instance.get_scrollable_clicked_count(), 1);
+assert_eq!(instance.get_scrollable_content_y(), 0.);
+
+// A real drag on the same Flickable must still pan, and must not also reach the TouchArea.
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(300.0, 100.0), button: PointerEventButton::Left });
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(300.0, 50.0) });
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(300.0, 10.0) });
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(300.0, 10.0), button: PointerEventButton::Left });
+assert_eq!(instance.get_scrollable_content_y(), -90.);
+assert_eq!(instance.get_scrollable_clicked_count(), 1);
 ```
 
 ```rust
