@@ -70,15 +70,15 @@ fn render_plot(pitch: f32, yaw: f32, amplitude: f32) -> slint::Image {
 }
 
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen(start))]
-pub fn main() {
+pub fn main() -> Result<(), slint::PlatformError> {
     // This provides better error messages in debug mode.
     // It's disabled in release mode so it doesn't bloat up the file size.
     #[cfg(all(debug_assertions, target_arch = "wasm32"))]
     console_error_panic_hook::set_once();
 
-    let main_window = MainWindow::new().unwrap();
+    let main_window = MainWindow::new()?;
 
     main_window.on_render_plot(render_plot);
 
-    main_window.run().unwrap();
+    main_window.run()
 }

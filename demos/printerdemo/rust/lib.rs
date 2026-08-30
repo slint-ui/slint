@@ -37,13 +37,13 @@ impl PrinterQueueData {
 }
 
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen(start))]
-pub fn main() {
+pub fn main() -> Result<(), slint::PlatformError> {
     // This provides better error messages in debug mode.
     // It's disabled in release mode so it doesn't bloat up the file size.
     #[cfg(all(debug_assertions, target_arch = "wasm32"))]
     console_error_panic_hook::set_once();
 
-    let main_window = MainWindow::new().unwrap();
+    let main_window = MainWindow::new()?;
     main_window.global::<PrinterState>().set_ink_levels(
         [
             InkLevel { color: slint::Color::from_rgb_u8(0, 255, 255), level: 0.40 },
@@ -130,12 +130,12 @@ pub fn main() {
         slint::select_bundled_translation(lang).unwrap();
     });
 
-    main_window.run().unwrap();
+    main_window.run()
 }
 
 #[cfg(target_os = "android")]
 #[unsafe(no_mangle)]
 fn android_main(app: slint::android::AndroidApp) {
     slint::android::init(app).unwrap();
-    main()
+    main().unwrap()
 }

@@ -146,7 +146,9 @@ fn try_create_window_with_fallback_renderer(
     _proxy: &winit::event_loop::EventLoopProxy<SlintEvent>,
     #[cfg(all(muda, target_os = "macos"))] muda_enable_default_menu_bar: bool,
 ) -> Option<Rc<WinitWindowAdapter>> {
-    [
+    let factories: &[fn(
+        &Rc<SharedBackendData>,
+    ) -> Result<Box<dyn WinitCompatibleRenderer>, PlatformError>] = &[
         #[cfg(any(
             feature = "renderer-skia",
             feature = "renderer-skia-opengl",
@@ -161,11 +163,10 @@ fn try_create_window_with_fallback_renderer(
             not(feature = "renderer-femtovg-wgpu")
         ))]
         renderer::femtovg::GlutinFemtoVGRenderer::new_suspended,
-        #[cfg(feature = "renderer-software")]
+        #[cfg(all(feature = "renderer-software", not(target_arch = "wasm32")))]
         renderer::sw::WinitSoftwareRenderer::new_suspended,
-    ]
-    .into_iter()
-    .find_map(|renderer_factory| {
+    ];
+    factories.iter().find_map(|renderer_factory| {
         Some(WinitWindowAdapter::new(
             shared_backend_data.clone(),
             renderer_factory(shared_backend_data).ok()?,
