@@ -1,0 +1,49 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component TestCase {
+    width: 220px;
+    height: 140px;
+
+    in-out property <bool> tooltip-created;
+
+    Rectangle {
+        x: 10px;
+        y: 10px;
+        width: 120px;
+        height: 40px;
+
+        Tooltip {
+            no-frame: true;
+
+            Rectangle {
+                width: 100px;
+                height: 50px;
+                background: #060138;
+                border-radius: 20px;
+
+                init => {
+                    root.tooltip-created = true;
+                }
+            }
+        }
+    }
+}
+
+/*
+
+```rust
+use slint::{platform::WindowEvent, LogicalPosition};
+
+let instance = TestCase::new().unwrap();
+assert!(!instance.get_tooltip_created());
+
+instance.window().dispatch_event(WindowEvent::PointerMoved {
+    position: LogicalPosition::new(20.0, 20.0),
+});
+slint_testing::mock_elapsed_time(600);
+
+assert!(instance.get_tooltip_created());
+```
+
+*/
