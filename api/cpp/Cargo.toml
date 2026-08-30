@@ -47,6 +47,8 @@ gettext = ["i-slint-core/gettext-rs"]
 accessibility = ["i-slint-backend-selector/accessibility"]
 # Enable the `SystemTrayIcon` element (pulls `ksni` on Linux/BSD).
 system-tray = ["i-slint-core/system-tray"]
+# WebGL2 fallback for the FemtoVG WGPU renderer in wasm builds; see the `slint` crate.
+wgpu-webgl-fallback = ["i-slint-backend-selector?/wgpu-webgl-fallback"]
 system-testing = ["i-slint-backend-selector/system-testing"]
 mcp = ["std", "i-slint-backend-selector/mcp"]
 
@@ -65,7 +67,7 @@ std = [
 freestanding = ["i-slint-core/libm", "i-slint-core/unsafe-single-threaded", "i-slint-renderer-software?/libm"]
 experimental = ["i-slint-renderer-software?/experimental"]
 
-default = ["std", "backend-winit", "renderer-femtovg", "system-tray"]
+default = ["std", "backend-winit", "renderer-femtovg", "system-tray", "wgpu-webgl-fallback"]
 
 [dependencies]
 i-slint-backend-selector = { workspace = true, optional = true }

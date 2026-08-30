@@ -28,6 +28,7 @@ default = [
   "accessibility",
   "compat-1-2",
   "system-tray",
+  "wgpu-webgl-fallback",
 ]
 
 ## Mandatory feature:
@@ -253,6 +254,13 @@ unstable-wgpu-29 = [
 ]
 
 ## Enable support for [WGPU](http://wgpu.rs) based rendering and expose WGPU based APIs based on WGPU version 30.x.
+## Compile wgpu's WebGL2 backend into wasm builds, so that the FemtoVG WGPU renderer can
+## fall back to it when the browser offers no WebGPU adapter. It costs about 700 KB of the
+## gzipped download. It is on by default; an application that decides for itself which
+## backend to run on can disable default features and re-enable the ones it needs without
+## `wgpu-webgl-fallback` (keep the mandatory `compat-1-2`).
+wgpu-webgl-fallback = ["i-slint-backend-selector/wgpu-webgl-fallback"]
+
 unstable-wgpu-30 = [
   "i-slint-core/unstable-wgpu-30",
   "i-slint-backend-selector/unstable-wgpu-30",

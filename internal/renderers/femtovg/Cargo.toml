@@ -23,6 +23,11 @@ opengl = []
 wgpu = ["wgpu-30"]
 wgpu-30 = ["dep:wgpu-30", "femtovg/wgpu", "i-slint-core/wgpu-30"]
 unstable-wgpu-30 = ["wgpu-30", "i-slint-core/unstable-wgpu-30"]
+# Compile wgpu-core's WebGL2 backend into wasm builds, so that the wgpu init helper can fall
+# back to it when the browser offers no WebGPU adapter. It costs roughly 700 KB of gzipped
+# wasm — wgpu_core, wgpu_hal and naga — which an application that decides for itself which
+# backend to run on does not need. On by default through the user-facing crates.
+wgpu-webgl-fallback = ["wgpu-30?/webgl"]
 
 [dependencies]
 i-slint-core = { workspace = true, features = ["default", "box-shadow-cache", "shared-fontique", "shared-parley"] }
@@ -45,10 +50,8 @@ wgpu-30 = { workspace = true, optional = true, default-features = true }
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 web-sys = { workspace = true, features = ["console", "WebGlContextAttributes", "CanvasRenderingContext2d", "HtmlInputElement", "HtmlCanvasElement", "Window", "Document"] }
 wasm-bindgen = { version = "0.2" }
-# Enable wgpu-core's WebGL2 backend so the wgpu init helper can fall back to
-# it transparently when no BROWSER_WEBGPU adapter is available (e.g. in
-# headless Chromium without a usable WebGPU device).
-wgpu-30 = { workspace = true, optional = true, features = ["webgl"] }
+# The WebGL2 backend is behind the `wgpu-webgl-fallback` feature above; see it for why.
+wgpu-30 = { workspace = true, optional = true }
 
 # The browser decodes images on the web; decode with the image and resvg crates elsewhere.
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
