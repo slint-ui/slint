@@ -1,0 +1,40 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Reproduction from issue #8973: a non-scrollable Flickable nested inside a TouchArea,
+// with only non-interactive content inside the Flickable.
+// Clicking the Flickable's content must still reach the enclosing TouchArea,
+// since the Flickable can't pan in either direction.
+
+export component TestCase inherits Window {
+    width: 100px;
+    height: 100px;
+
+    TouchArea {
+        clicked => { root.counter += 1; }
+
+        Flickable {
+            width: 50px;
+            height: 50px;
+            content-width: self.width;
+            content-height: self.height;
+
+            Rectangle {
+                background: gray;
+            }
+        }
+    }
+
+    out property <int> counter: 0;
+}
+
+/*
+```rust
+use slint::{platform::WindowEvent, platform::PointerEventButton, LogicalPosition};
+let instance = TestCase::new().unwrap();
+
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(25.0, 25.0), button: PointerEventButton::Left });
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(25.0, 25.0), button: PointerEventButton::Left });
+assert_eq!(instance.get_counter(), 1);
+```
+*/
