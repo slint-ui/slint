@@ -1,0 +1,41 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A pannable Flickable inside a `for`-repeated delegate (its own item-tree instance, not the window's)
+// must still forward a plain click to a TouchArea outside the repeater.
+// Resolving the delayed press must replay from the dispatch's actual root, not from the repeated delegate's own tree.
+// See issue #13118.
+
+export component TestCase inherits Window {
+    width: 100px;
+    height: 300px;
+
+    TouchArea {
+        clicked => { root.counter += 1; }
+    }
+    VerticalLayout {
+        for i in 3: Flickable {
+            height: 100px;
+            content-width: self.width;
+            content-height: 150px;
+
+            Rectangle {
+                background: gray;
+            }
+        }
+    }
+
+    out property <int> counter: 0;
+}
+
+/*
+```rust
+use slint::{platform::WindowEvent, platform::PointerEventButton, LogicalPosition};
+let instance = TestCase::new().unwrap();
+
+// A plain click inside the middle repeated Flickable must reach the TouchArea underneath.
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(50.0, 150.0), button: PointerEventButton::Left });
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(50.0, 150.0), button: PointerEventButton::Left });
+assert_eq!(instance.get_counter(), 1);
+```
+*/

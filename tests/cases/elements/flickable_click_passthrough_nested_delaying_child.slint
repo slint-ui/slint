@@ -1,0 +1,56 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// When an outer Flickable's delay resolves (via the 100ms timer or on release) and its own
+// children are visited, a nested pannable Flickable among those children must still be free to
+// start its own delay, rather than being forced to forward-and-ignore the press itself. Otherwise
+// the press incorrectly bubbles past the nested Flickable to a sibling `TouchArea` behind it, and a
+// real drag on the nested Flickable is lost. See issue #13118.
+
+export component TestCase inherits Window {
+    width: 100px;
+    height: 100px;
+
+    outer := Flickable {
+        width: 100px;
+        height: 100px;
+        content-width: 100px;
+        content-height: 200px;
+
+        ta := TouchArea {
+            width: 100px;
+            height: 100px;
+            clicked => { root.counter += 1; }
+        }
+        inner := Flickable {
+            width: 100px;
+            height: 100px;
+            content-width: 200px;
+            content-height: 100px;
+        }
+    }
+
+    out property <int> counter: 0;
+    out property <length> inner-content-x: inner.content-x;
+    out property <bool> ta-pressed: ta.pressed;
+}
+
+/*
+```rust
+use slint::{platform::WindowEvent, platform::PointerEventButton, LogicalPosition};
+let instance = TestCase::new().unwrap();
+
+// Press over the nested Flickable, held past the 100ms timer: the nested Flickable must still
+// be holding the press provisionally, not the sibling TouchArea behind it.
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(50.0, 50.0), button: PointerEventButton::Left });
+slint_testing::mock_elapsed_time(150);
+assert_eq!(instance.get_ta_pressed(), false);
+
+// A real drag on the nested Flickable still pans it and never reaches the TouchArea.
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(30.0, 50.0) });
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(10.0, 50.0) });
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(10.0, 50.0), button: PointerEventButton::Left });
+assert_eq!(instance.get_inner_content_x(), -40.);
+assert_eq!(instance.get_counter(), 0);
+```
+*/

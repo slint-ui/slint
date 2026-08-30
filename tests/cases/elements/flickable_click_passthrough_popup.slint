@@ -1,0 +1,57 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A pannable Flickable inside a popup must still forward a plain click to a TouchArea inside that same popup.
+// Resolving the delayed press must replay against the popup's own tree and coordinate offset, not the main window's.
+// See issue #13118.
+
+export component TestCase inherits Window {
+    width: 300px;
+    height: 300px;
+
+    popup := PopupWindow {
+        close-policy: no-auto-close;
+        x: 10px;
+        y: 10px;
+        width: 100px;
+        height: 100px;
+
+        TouchArea {
+            clicked => { root.counter += 1; }
+        }
+        Flickable {
+            width: 100px;
+            height: 100px;
+            content-width: 100px;
+            content-height: 200px;
+
+            Rectangle {
+                width: 100px;
+                height: 200px;
+                background: gray;
+            }
+        }
+    }
+
+    TouchArea {
+        clicked => { popup.show(); }
+    }
+
+    out property <int> counter: 0;
+}
+
+/*
+```rust
+use slint::{platform::WindowEvent, platform::PointerEventButton, LogicalPosition};
+let instance = TestCase::new().unwrap();
+
+// Open the popup by clicking the main window's TouchArea.
+slint_testing::send_mouse_click(&instance, 250., 250.);
+assert_eq!(instance.get_counter(), 0);
+
+// A plain click inside the popup's Flickable must reach the TouchArea inside that popup.
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(50.0, 50.0), button: PointerEventButton::Left });
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(50.0, 50.0), button: PointerEventButton::Left });
+assert_eq!(instance.get_counter(), 1);
+```
+*/

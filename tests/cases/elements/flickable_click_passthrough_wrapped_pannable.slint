@@ -1,0 +1,55 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Reproduction from issue #13118 (ubruhin's second SlintPad example): a *pannable* Flickable
+// nested inside a TouchArea, with only non-interactive content inside the Flickable.
+// A plain click (press + release, no drag) on the Flickable's content must still reach the enclosing TouchArea,
+// since a plain click was never a drag.
+// An actual drag must still pan the Flickable and must not also reach the TouchArea.
+
+export component TestCase inherits Window {
+    width: 100px;
+    height: 100px;
+
+    TouchArea {
+        clicked => { root.counter += 1; }
+
+        flick := Flickable {
+            width: 50px;
+            height: 50px;
+            content-width: 60px;
+            content-height: 60px;
+
+            Rectangle {
+                width: 60px;
+                height: 60px;
+                background: gray;
+            }
+        }
+    }
+
+    out property <int> counter: 0;
+    out property <length> content-y: flick.content-y;
+}
+
+/*
+```rust
+use slint::{platform::WindowEvent, platform::PointerEventButton, LogicalPosition};
+let instance = TestCase::new().unwrap();
+
+// A plain click on the pannable Flickable's content reaches the enclosing TouchArea.
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(25.0, 25.0), button: PointerEventButton::Left });
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(25.0, 25.0), button: PointerEventButton::Left });
+assert_eq!(instance.get_counter(), 1);
+assert_eq!(instance.get_content_y(), 0.);
+
+// A real drag still pans the Flickable and does not also reach the TouchArea.
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(25.0, 25.0), button: PointerEventButton::Left });
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(25.0, 15.0) });
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(25.0, 5.0) });
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(25.0, 5.0), button: PointerEventButton::Left });
+// Clamped: content is only 10px taller than the viewport (60px vs. 50px).
+assert_eq!(instance.get_content_y(), -10.);
+assert_eq!(instance.get_counter(), 1);
+```
+*/
