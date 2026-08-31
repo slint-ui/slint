@@ -27,7 +27,7 @@ def test_row_modification_rejection_raises() -> None:
             return 42
 
     with pytest.raises(NotImplementedError):
-        ReadOnly().append(1)
+        ReadOnly().push_row(1)
 
 
 def test_rejected_modification_logs_python_class_name(
@@ -103,7 +103,7 @@ def test_model_notify() -> None:
     assert instance.get_property("layout-height") == 100
     model.set_row_data(1, 50)
     assert instance.get_property("layout-height") == 150
-    model.append(75)
+    model.push_row(75)
     instance._process_pending_events()
     assert instance.get_property("layout-height") == 225
     del model[1:]
@@ -345,3 +345,9 @@ def test_model_modifications() -> None:
     assert len(model) == 0
     instance.invoke("insert_one_empty")
     assert len(model) == 0
+
+
+def test_list_model_append_alias() -> None:
+    model = models.ListModel([1, 2])
+    model.append(3)
+    assert list(model) == [1, 2, 3]
