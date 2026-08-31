@@ -133,6 +133,105 @@ fn llr_compile(code: &str, name: &str) -> crate::component::ComponentInstanceInn
     result.components.get(name).expect("component should compile").create()
 }
 
+#[cfg(feature = "internal")]
+fn compile_motion_test(code: &str, static_preview: bool) -> crate::ComponentInstance {
+    let compiler = crate::Compiler::default();
+    let result = if static_preview {
+        spin_on::spin_on(
+            compiler.build_static_from_source(code.into(), std::path::PathBuf::from("test.slint")),
+        )
+    } else {
+        spin_on::spin_on(
+            compiler.build_from_source(code.into(), std::path::PathBuf::from("test.slint")),
+        )
+    };
+    assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
+    result.component("MotionTest").unwrap().create().unwrap()
+}
+
+#[cfg(feature = "internal")]
+#[test]
+fn static_preview_stops_runtime_motion() {
+    i_slint_backend_testing::init_no_event_loop();
+    use crate::Value;
+
+    let code = r#"
+        export component MotionTest {
+            out property <int> timer-count: 0;
+            out property <int> tick: animation-tick() / 1ms;
+            out property <bool> initialized: false;
+            in-out property <int> animated-value: 0;
+            in-out property <int> active-index: 0;
+            in-out property <int> transitioned-value: 5;
+
+            animate animated-value { duration: 1s; }
+
+            timer := Timer {
+                interval: 100ms;
+                running: true;
+                triggered => { root.timer-count += 1; }
+            }
+
+            states [
+                active when root.active-index == 1: {
+                    transitioned-value: 200;
+                    in {
+                        animate transitioned-value { duration: 1s; }
+                    }
+                }
+            ]
+
+            init => {
+                root.initialized = true;
+                root.animated-value = 100;
+                timer.restart();
+            }
+
+            public function update() {
+                root.animated-value = 200;
+                root.active-index = 1;
+                timer.stop();
+                timer.start();
+                timer.restart();
+            }
+        }
+    "#;
+
+    let static_instance = compile_motion_test(code, true);
+    assert_eq!(static_instance.get_property("initialized"), Ok(Value::Bool(true)));
+    assert_eq!(static_instance.get_property("animated-value"), Ok(Value::Number(100.)));
+    static_instance.invoke("update", &[]).unwrap();
+    for (property_name, expected_value) in
+        [("timer-count", 0.), ("tick", 0.), ("animated-value", 200.), ("transitioned-value", 200.)]
+    {
+        assert_eq!(static_instance.get_property(property_name), Ok(Value::Number(expected_value)));
+    }
+    i_slint_backend_testing::mock_elapsed_time(500);
+    assert_eq!(static_instance.get_property("timer-count"), Ok(Value::Number(0.)));
+    assert_eq!(static_instance.get_property("tick"), Ok(Value::Number(0.)));
+
+    let dynamic_instance = compile_motion_test(code, false);
+    let initial_tick = dynamic_instance.get_property("tick").unwrap();
+    assert_eq!(dynamic_instance.get_property("transitioned-value"), Ok(Value::Number(5.)));
+    dynamic_instance.invoke("update", &[]).unwrap();
+    assert_eq!(dynamic_instance.get_property("transitioned-value"), Ok(Value::Number(5.)));
+    i_slint_backend_testing::mock_elapsed_time(500);
+    let Value::Number(initial_tick) = initial_tick else { unreachable!() };
+    let Ok(Value::Number(dynamic_tick)) = dynamic_instance.get_property("tick") else {
+        unreachable!()
+    };
+    let Ok(Value::Number(timer_count)) = dynamic_instance.get_property("timer-count") else {
+        unreachable!()
+    };
+    let Ok(Value::Number(transitioned_value)) = dynamic_instance.get_property("transitioned-value")
+    else {
+        unreachable!()
+    };
+    assert!(dynamic_tick > initial_tick);
+    assert!(timer_count > 0.);
+    assert!(transitioned_value > 5. && transitioned_value < 200.);
+}
+
 /// Nested sub-component composition.
 #[test]
 fn interpreter_sub_component() {
