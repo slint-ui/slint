@@ -2007,8 +2007,8 @@ fn send_mouse_event_to_item(
         InputEventFilterResult::Intercept => (false, false),
         // See `replaying`'s doc comment above for why this forwards to children without arming a
         // new delay, and why `ignore` differs between the timer- and release-triggered paths.
-        InputEventFilterResult::DelayForwarding(_) if let Some(ignore) = replaying => {
-            (true, ignore)
+        InputEventFilterResult::DelayForwarding(_) if replaying.is_some() => {
+            (true, replaying.unwrap())
         }
         InputEventFilterResult::DelayForwarding(duration) => {
             let timer = WindowInner::from_pub(window_adapter.window()).context().new_timer();
