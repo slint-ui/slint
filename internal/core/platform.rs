@@ -350,6 +350,7 @@ impl From<Option<crate::window::MouseDispatchResult>> for WindowEventDispatchRes
     }
 }
 
+// api/node/build.rs parses this enum to generate the Node.js window event types.
 /// A event that describes user input or windowing system events.
 ///
 /// Slint backends typically receive events from the windowing system, translate them to this
@@ -366,20 +367,26 @@ impl From<Option<crate::window::MouseDispatchResult>> for WindowEventDispatchRes
 pub enum WindowEvent {
     /// A pointer was pressed.
     PointerPressed {
+        /// The position of the pointer, in logical pixels relative to the top left corner of the window.
         position: LogicalPosition,
         /// The button that was pressed.
         button: PointerEventButton,
     },
     /// A pointer was released.
     PointerReleased {
+        /// The position of the pointer, in logical pixels relative to the top left corner of the window.
         position: LogicalPosition,
         /// The button that was released.
         button: PointerEventButton,
     },
     /// The position of the pointer has changed.
-    PointerMoved { position: LogicalPosition },
+    PointerMoved {
+        /// The new position of the pointer, in logical pixels relative to the top left corner of the window.
+        position: LogicalPosition,
+    },
     /// The wheel button of a mouse was rotated to initiate scrolling.
     PointerScrolled {
+        /// The position of the pointer when the scroll occurred.
         position: LogicalPosition,
         /// The amount of logical pixels to scroll in the horizontal direction.
         delta_x: f32,
@@ -437,7 +444,7 @@ pub enum WindowEvent {
     /// The backend must send this event to ensure that the `width` and `height` property of the root Window
     /// element are properly set.
     Resized {
-        /// The new logical size of the window
+        /// The new logical size of the window.
         size: LogicalSize,
     },
     /// The user requested to close the window.
