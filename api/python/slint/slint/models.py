@@ -56,7 +56,7 @@ class Model[T](native.PyModelBase, Iterable[T]):
         Re-implement this method in a sub-class to provide the data."""
         ...
 
-    def append(self, value: T) -> None:
+    def push_row(self, value: T) -> None:
         """Add a new row to the model with the provided value.
         The default implementation calls `insert_row` with the row count."""
         self.insert_row(self.row_count(), value)
@@ -98,8 +98,8 @@ class ListModel[T](Model[T]):
     """ListModel is a `Model` that stores its data in a Python list.
 
     Construct a ListMode from an iterable (such as a list itself).
-    Use `ListModel.append()` to add items to the model, and use the
-    `del` statement to remove items.
+    Use `ListModel.push_row()`, or its `append` alias, to add items to the
+    model, and use the `del` statement to remove items.
 
     Any changes to the model are automatically reflected in the views
     in UI they're used with.
@@ -147,11 +147,15 @@ class ListModel[T](Model[T]):
             del self.list[key]
             super().notify_row_removed(key, 1)
 
-    def append(self, value: T) -> None:
+    def push_row(self, value: T) -> None:
         """Appends the value to the end of the list."""
         index = len(self.list)
         self.list.append(value)
         super().notify_row_added(index, 1)
+
+    def append(self, value: T) -> None:
+        """Appends the value to the end of the list, like `push_row`."""
+        self.push_row(value)
 
     def insert(self, index: int, value: T) -> None:
         """Inserts the value at the given index. Negative indices and indices
