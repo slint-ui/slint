@@ -865,6 +865,11 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GlyphRenderer for GLItemRendere
         }
     }
 
+    fn snaps_text_origin_to_pixel_grid(&self) -> bool {
+        // `draw_glyph_run` below pixel-aligns the canvas transform via `align_canvas_during`.
+        true
+    }
+
     fn draw_glyph_run(
         &mut self,
         font: &parley::FontData,

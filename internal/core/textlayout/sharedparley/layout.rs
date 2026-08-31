@@ -35,6 +35,11 @@ pub(super) struct LayoutOptions {
     pub(super) horizontal_align: TextHorizontalAlignment,
     pub(super) vertical_align: TextVerticalAlignment,
     pub(super) text_overflow: TextOverflow,
+    /// Mirrors `GlyphRenderer::snaps_text_origin_to_pixel_grid` for the renderer this layout is
+    /// being computed for (`false` -- keep exact sub-pixel precision -- when not drawing, e.g.
+    /// for `text_size` or cursor/hit-test queries). See that method and issue #6739 for why this
+    /// has to match the renderer's own origin-snapping instead of always rounding.
+    pub(super) pixel_snap_alignment: bool,
 }
 
 impl LayoutOptions {
@@ -50,6 +55,9 @@ impl LayoutOptions {
             horizontal_align: text_input.horizontal_alignment(),
             vertical_align: text_input.vertical_alignment(),
             text_overflow: TextOverflow::Clip,
+            // Callers that draw set this explicitly (see `draw_text_input`); queries that don't
+            // (cursor/link hit-testing) keep exact sub-pixel precision.
+            pixel_snap_alignment: false,
         }
     }
 }
@@ -121,8 +129,29 @@ pub(super) fn layout(
     options: LayoutOptions,
     line_breaking: Option<RetainedLineBreaking>,
 ) -> Layout {
-    let max_physical_width = options.max_width.map(|max_width| max_width * scale_factor);
-    let max_physical_height = options.max_height.map(|max_height| max_height * scale_factor);
+    // `options.pixel_snap_alignment` mirrors `GlyphRenderer::snaps_text_origin_to_pixel_grid` for
+    // whichever renderer is about to draw this layout (see that method for the full rationale):
+    // renderers that round the item's own screen position to the device-pixel grid before
+    // drawing text (femtovg's `align_canvas_during`, skia's `pixel_align_origin_auto_restore`)
+    // need the box width/height rounded the same way, since it feeds
+    // `TextHorizontalAlignment`/`TextVerticalAlignment`'s `box_size - content_size` offset --
+    // otherwise `round(origin) + box_size` drifts away from `round(origin + box_size)` as
+    // `box_size`'s fractional part changes, even though `origin + box_size` is often an exact,
+    // constant device-pixel value (e.g. an edge pinned via `x: parent.width - self.width`).
+    // Renderers that never round the origin (the software renderer, the interpreter's `anyrender`
+    // command recording) must NOT round here either: origin and box size are already exactly
+    // consistent unrounded, and rounding just one of them would introduce the drift instead of
+    // preventing it. See issue #6739.
+    let snap = |length: LogicalLength| {
+        let physical = length * scale_factor;
+        if options.pixel_snap_alignment {
+            PhysicalLength::new(physical.get().round())
+        } else {
+            physical
+        }
+    };
+    let max_physical_width = options.max_width.map(snap);
+    let max_physical_height = options.max_height.map(snap);
 
     let inputs = LineBreakingInputs::new(&options, max_physical_width);
     if let Some(line_breaking) =

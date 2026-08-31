@@ -293,3 +293,41 @@ fn test_max_lines_caps_height() {
     );
     assert_eq!(limited.height, first_line_bottom);
 }
+
+/// Issue #6739: a right-aligned box whose right edge is pinned via something like
+/// `x: parent.width - self.width` has `origin + max_width` exactly constant regardless of
+/// `max_width`'s fractional part. Renderers that round their own screen position to the
+/// device-pixel grid before drawing text (see `GlyphRenderer::snaps_text_origin_to_pixel_grid`)
+/// need the box width that feeds the alignment offset (`box_width - content_width`) rounded the
+/// same way, or the two roundings drift apart from that constant sum as the fractional part of
+/// `max_width` changes.
+fn right_align_offset(width: f32, pixel_snap_alignment: bool) -> f32 {
+    let layout = layout_text_with_options(
+        "000",
+        LayoutOptions {
+            max_width: Some(LogicalLength::new(width)),
+            horizontal_align: TextHorizontalAlignment::Right,
+            pixel_snap_alignment,
+            ..LayoutOptions::default()
+        },
+    );
+    layout.paragraphs[0].layout.lines().next().unwrap().metrics().offset
+}
+
+#[test]
+fn test_pixel_snap_alignment_rounds_the_alignment_offset_to_the_device_pixel_grid() {
+    // Two widths that round to the same whole device pixel must produce the exact same alignment
+    // offset once snapping is on, matching what a renderer that also rounds its own origin draws.
+    assert_eq!(right_align_offset(30.0, true), right_align_offset(30.25, true));
+    assert_eq!(right_align_offset(30.0, true), right_align_offset(30.49, true));
+    // A width that rounds to the next whole pixel must differ by exactly that: 1 device pixel.
+    // (30.5 is deliberately not used here: it is a rounding tie, where `round(origin) +
+    // round(width)` can land a device pixel off from `round(origin + width)` -- the one
+    // remaining imprecision this fix does not close, noted on `snaps_text_origin_to_pixel_grid`.)
+    assert_eq!(right_align_offset(31.0, true) - right_align_offset(30.0, true), 1.0);
+
+    // With snapping off -- the default, used by renderers that never round their own origin
+    // (e.g. the software renderer, which quantizes into sub-pixel bins instead) -- the offset
+    // instead tracks the exact fractional width, so neighbouring widths produce different offsets.
+    assert_ne!(right_align_offset(30.0, false), right_align_offset(30.25, false));
+}

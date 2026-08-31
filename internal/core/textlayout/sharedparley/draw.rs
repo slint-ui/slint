@@ -40,6 +40,24 @@ pub trait GlyphRenderer: crate::item_rendering::ItemRenderer {
         size: LogicalSize,
     ) -> Option<Self::PlatformBrush>;
 
+    /// Whether this renderer snaps a text item's own screen position to the device-pixel grid
+    /// before drawing its glyphs (typically to avoid blurry nearest-neighbor sampling of a
+    /// rasterized glyph atlas -- see e.g. femtovg's `align_canvas_during` or skia's
+    /// `pixel_align_origin_auto_restore`). Renderers that do this must also snap the box
+    /// width/height that feeds the horizontal/vertical alignment offset (`box_size -
+    /// content_size`) the same way, or `round(origin) + box_size` drifts away from
+    /// `round(origin + box_size)` as the fractional part of `box_size` changes -- even though
+    /// `origin + box_size` is often an exact, constant device-pixel value, e.g. an edge pinned
+    /// via `x: parent.width - self.width`. See issue #6739.
+    ///
+    /// Renderers that never discard the sub-pixel part of a glyph's screen position (e.g. the
+    /// software renderer, which quantizes into sub-pixel bins instead of rounding) must leave
+    /// this `false`: rounding the box size there, without a matching origin snap, would
+    /// introduce the same drift instead of avoiding it.
+    fn snaps_text_origin_to_pixel_grid(&self) -> bool {
+        false
+    }
+
     /// Draws the glyphs provided by glyphs_it with the specified font, font_size, and brush at the
     /// given y offset. The `normalized_coords` are F2Dot14 values in fvar axis order for variable
     /// font rendering. The `synthesis` contains design-space variation settings and faux

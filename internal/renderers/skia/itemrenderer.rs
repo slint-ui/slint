@@ -1076,6 +1076,12 @@ impl GlyphRenderer for SkiaItemRenderer<'_> {
         }
     }
 
+    fn snaps_text_origin_to_pixel_grid(&self) -> bool {
+        // `draw_text`/`draw_text_input` pixel-align the origin via
+        // `save_canvas_and_pixel_align_origin` before drawing any glyphs.
+        true
+    }
+
     fn draw_glyph_run(
         &mut self,
         font: &sharedparley::parley::FontData,

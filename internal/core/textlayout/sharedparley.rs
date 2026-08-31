@@ -190,6 +190,7 @@ pub fn draw_text(
             max_width: Some(max_width),
             max_lines: text.line_limit(),
             text_overflow,
+            pixel_snap_alignment: item_renderer.snaps_text_origin_to_pixel_grid(),
         },
         window_adapter.window(),
         |layout| {
@@ -257,6 +258,8 @@ pub fn link_under_cursor(
             max_width: Some(size.width_length()),
             max_lines: text.line_limit(),
             text_overflow: text.overflow(),
+            // Hit-testing, not drawing: no renderer to match, so keep exact sub-pixel precision.
+            pixel_snap_alignment: false,
         },
         window,
         |layout| link_in_layout(layout, cursor),
@@ -347,7 +350,10 @@ pub fn draw_text_input(
         Some(item_rc),
         text_input,
         &layout_builder,
-        LayoutOptions::new_from_textinput(text_input, Some(width), Some(height)),
+        LayoutOptions {
+            pixel_snap_alignment: item_renderer.snaps_text_origin_to_pixel_grid(),
+            ..LayoutOptions::new_from_textinput(text_input, Some(width), Some(height))
+        },
         window_adapter.window(),
         |layout| {
             item_renderer.save_state();
@@ -475,6 +481,9 @@ fn text_size_impl(
             horizontal_align: TextHorizontalAlignment::Left,
             vertical_align: TextVerticalAlignment::Top,
             text_overflow: TextOverflow::Clip,
+            // Always Left/Top above, so the alignment offset this would affect is always zero;
+            // no renderer to match here anyway (this sizes the item before any renderer draws it).
+            pixel_snap_alignment: false,
         },
         window_adapter.window(),
         |layout| PhysicalSize::from_lengths(layout.max_width, layout.height) / scale_factor,
