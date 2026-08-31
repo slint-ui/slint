@@ -461,7 +461,7 @@ pub mod platform {
         pub use i_slint_renderer_femtovg::opengl::OpenGLInterface;
     }
 
-    /// This module contains the [`skia_renderer::SkiaWGPURenderer`] and related types.
+    /// This module contains the Skia WGPU renderers and related types.
     ///
     /// It is only enabled when the `renderer-skia` Slint feature is enabled.
     #[cfg(all(
@@ -477,6 +477,7 @@ pub mod platform {
         pub use i_slint_renderer_skia::SkiaWGPU29Renderer;
         #[cfg(feature = "unstable-wgpu-30")]
         pub use i_slint_renderer_skia::SkiaWGPU30Renderer;
+        #[allow(deprecated)]
         pub use i_slint_renderer_skia::SkiaWGPURenderer;
     }
 

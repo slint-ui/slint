@@ -43,18 +43,22 @@ pub type SkiaWGPU29Renderer = SkiaWGPURendererGeneric<crate::wgpu_29_surface::WG
 #[cfg(feature = "wgpu-30")]
 pub type SkiaWGPU30Renderer = SkiaWGPURendererGeneric<crate::wgpu_30_surface::WGPUSurface>;
 
-/// Compatibility alias for the newest enabled wgpu version: wgpu 30 when the
+/// Deprecated alias for the newest enabled wgpu version: wgpu 30 when the
 /// `unstable-wgpu-30` feature is enabled, wgpu 29 otherwise.
-/// Prefer the versioned names, `SkiaWGPU29Renderer` or `SkiaWGPU30Renderer`, in new code;
+///
+/// Use the versioned names, `SkiaWGPU29Renderer` or `SkiaWGPU30Renderer`, instead;
 /// they don't change meaning when another `unstable-wgpu-*` feature gets enabled elsewhere
 /// in the dependency graph.
+#[deprecated(since = "1.18.0", note = "Use `SkiaWGPU29Renderer` or `SkiaWGPU30Renderer` instead")]
 #[cfg(feature = "wgpu-30")]
 pub type SkiaWGPURenderer = SkiaWGPU30Renderer;
-/// Compatibility alias for the newest enabled wgpu version: wgpu 30 when the
+/// Deprecated alias for the newest enabled wgpu version: wgpu 30 when the
 /// `unstable-wgpu-30` feature is enabled, wgpu 29 otherwise.
-/// Prefer the versioned names, `SkiaWGPU29Renderer` or `SkiaWGPU30Renderer`, in new code;
+///
+/// Use the versioned names, `SkiaWGPU29Renderer` or `SkiaWGPU30Renderer`, instead;
 /// they don't change meaning when another `unstable-wgpu-*` feature gets enabled elsewhere
 /// in the dependency graph.
+#[deprecated(since = "1.18.0", note = "Use `SkiaWGPU29Renderer` or `SkiaWGPU30Renderer` instead")]
 #[cfg(all(feature = "wgpu-29", not(feature = "wgpu-30")))]
 pub type SkiaWGPURenderer = SkiaWGPU29Renderer;
 
@@ -249,7 +253,7 @@ impl<Surface> RendererSealed for SkiaWGPURendererGeneric<Surface> {
 
 // Assert the consumer-visible signatures of every renderer name. Building the crate only
 // compiles the definitions; these coercions prove the intended calls resolve, in particular
-// that `SkiaWGPURenderer::new` stays unambiguous with both wgpu features enabled.
+// that the deprecated `SkiaWGPURenderer::new` stays unambiguous with both wgpu features enabled.
 #[cfg(test)]
 mod signature_tests {
     use super::*;
@@ -277,6 +281,7 @@ mod signature_tests {
         SkiaWGPU30Renderer::render_to_texture;
 
     #[cfg(feature = "wgpu-30")]
+    #[allow(deprecated)]
     const _: fn(
         wgpu_30::Instance,
         wgpu_30::Adapter,
@@ -284,6 +289,7 @@ mod signature_tests {
         wgpu_30::Queue,
     ) -> Result<SkiaWGPURenderer, PlatformError> = SkiaWGPURenderer::new;
     #[cfg(all(feature = "wgpu-29", not(feature = "wgpu-30")))]
+    #[allow(deprecated)]
     const _: fn(
         wgpu_29::Instance,
         wgpu_29::Adapter,
