@@ -174,19 +174,28 @@ impl WGPUSurface {
     }
 }
 
-/// These resources are cached for the first window and future windows with
-/// matching settings will use them instead of creating new ones. if the
-/// settings don't match, then a newly created window will overwrite the shared
-/// primitives with its own newly-initialized ones
+/// These resources are cached for the first window. Future windows that the shared device can
+/// serve will use them instead of creating new ones, otherwise a newly created window will
+/// overwrite the shared primitives with its own newly-initialized ones
 #[derive(Clone)]
 pub(crate) struct SharedWgpuState {
     instance: wgpu::Instance,
     adapter: wgpu::Adapter,
     device: wgpu::Device,
     queue: wgpu::Queue,
-    // None if default device descriptor was used
-    #[cfg(feature = "unstable-wgpu-30")]
-    settings: Option<i_slint_core::graphics::wgpu_30::api::WGPUSettings>,
+}
+
+/// Whether `device` offers everything `settings` asks of it.
+///
+/// The instance and adapter parts of the settings are covered by
+/// [`adapter_matches_graphics_api_request`].
+#[cfg(feature = "unstable-wgpu-30")]
+fn device_satisfies_settings(
+    device: &wgpu::Device,
+    settings: &i_slint_core::graphics::wgpu_30::api::WGPUSettings,
+) -> bool {
+    device.features().contains(settings.device_required_features)
+        && settings.device_required_limits.check_limits(&device.limits())
 }
 
 fn adapter_matches_graphics_api_request(
@@ -256,7 +265,9 @@ impl crate::Surface for WGPUSurface {
             let shared_state = shared_context.0.wgpu_30_state.borrow().clone();
             if let Some(shared) = shared_state {
                 #[cfg(feature = "unstable-wgpu-30")]
-                let settings_compatible = shared.settings == requested_settings;
+                let settings_compatible = requested_settings
+                    .as_ref()
+                    .is_none_or(|settings| device_satisfies_settings(&shared.device, settings));
                 #[cfg(not(feature = "unstable-wgpu-30"))]
                 let settings_compatible = true;
                 if settings_compatible
@@ -303,14 +314,8 @@ impl crate::Surface for WGPUSurface {
             size,
         )?;
         if !manual_configuration {
-            *shared_context.0.wgpu_30_state.borrow_mut() = Some(SharedWgpuState {
-                instance,
-                adapter,
-                device,
-                queue,
-                #[cfg(feature = "unstable-wgpu-30")]
-                settings: requested_settings,
-            });
+            *shared_context.0.wgpu_30_state.borrow_mut() =
+                Some(SharedWgpuState { instance, adapter, device, queue });
         }
         Ok(new_surface)
     }
