@@ -1078,8 +1078,13 @@ impl GlyphRenderer for SkiaItemRenderer<'_> {
 
     fn snaps_text_origin_to_pixel_grid(&self) -> bool {
         // `draw_text`/`draw_text_input` pixel-align the origin via
-        // `save_canvas_and_pixel_align_origin` before drawing any glyphs.
-        true
+        // `save_canvas_and_pixel_align_origin` before drawing any glyphs, which itself only
+        // snaps under a pure translation -- mirror that condition here (minus its `is_identity`
+        // short-circuit, which is purely a perf optimization: an identity transform's origin is
+        // already an exact, whole-pixel 0, so rounding it is a no-op either way), so a
+        // rotated/scaled item's alignment offset doesn't get a rounding its actual draw call
+        // won't apply.
+        self.canvas.local_to_device_as_3x3().is_translate()
     }
 
     fn draw_glyph_run(

@@ -121,6 +121,46 @@ fn vertical_offset(
     }
 }
 
+/// How much of a box dimension's rounding delta an alignment's offset moves by: `box_size -
+/// content_size` for `End`/`Right`/`Bottom` (the offset tracks the box size 1:1), half that for
+/// `Center` (it's divided by two), and none for `Start`/`Left`/`Top` (the offset is always zero).
+fn alignment_fraction_h(horizontal_align: TextHorizontalAlignment) -> f32 {
+    match horizontal_align {
+        TextHorizontalAlignment::Start | TextHorizontalAlignment::Left => 0.0,
+        TextHorizontalAlignment::Center => 0.5,
+        TextHorizontalAlignment::End | TextHorizontalAlignment::Right => 1.0,
+    }
+}
+
+fn alignment_fraction_v(vertical_align: TextVerticalAlignment) -> f32 {
+    match vertical_align {
+        TextVerticalAlignment::Top => 0.0,
+        TextVerticalAlignment::Center => 0.5,
+        TextVerticalAlignment::Bottom => 1.0,
+    }
+}
+
+/// The correction a snapped alignment offset needs on top of the one computed from the real,
+/// unrounded `raw` dimension: how far `raw`'s *rounding* moves the offset, scaled by how much of
+/// that rounding the alignment passes through (see [`alignment_fraction_h`]/[`alignment_fraction_v`]).
+///
+/// Deliberately never fed into line breaking, elision, or the box's own height-cut logic -- see
+/// [`GlyphRenderer::snaps_text_origin_to_pixel_grid`](super::draw::GlyphRenderer::snaps_text_origin_to_pixel_grid)
+/// and issue #6739 for why an offset needs snapping in the first place, and issue #6739's review
+/// for why nothing else may: wrapping a word that fits the real width, or eliding/clipping text
+/// that fits it, just because the *box* rounded up or down, would trade one pixel-alignment bug
+/// for a content-fit one.
+fn pixel_snap_correction(
+    pixel_snap_alignment: bool,
+    fraction: f32,
+    raw: PhysicalLength,
+) -> PhysicalLength {
+    if !pixel_snap_alignment || fraction == 0.0 {
+        return PhysicalLength::zero();
+    }
+    PhysicalLength::new((raw.get().round() - raw.get()) * fraction)
+}
+
 pub(super) fn layout(
     layout_builder: &LayoutWithoutLineBreaksBuilder,
     font_context: &mut parley::FontContext,
@@ -129,37 +169,39 @@ pub(super) fn layout(
     options: LayoutOptions,
     line_breaking: Option<RetainedLineBreaking>,
 ) -> Layout {
+    // Always the real, unrounded box size: line breaking, elision, and the height-cut all have to
+    // stay exact, or a word that fits the real width could wrap (or overflowing content could
+    // slip past the exact item clip) just because the box's *alignment offset* needed rounding.
+    // See `pixel_snap_correction` for where the rounding that issue #6739 needs instead happens.
+    let max_physical_width = options.max_width.map(|w| w * scale_factor);
+    let max_physical_height = options.max_height.map(|h| h * scale_factor);
+
     // `options.pixel_snap_alignment` mirrors `GlyphRenderer::snaps_text_origin_to_pixel_grid` for
     // whichever renderer is about to draw this layout (see that method for the full rationale):
     // renderers that round the item's own screen position to the device-pixel grid before
     // drawing text (femtovg's `align_canvas_during`, skia's `pixel_align_origin_auto_restore`)
-    // need the box width/height rounded the same way, since it feeds
-    // `TextHorizontalAlignment`/`TextVerticalAlignment`'s `box_size - content_size` offset --
-    // otherwise `round(origin) + box_size` drifts away from `round(origin + box_size)` as
-    // `box_size`'s fractional part changes, even though `origin + box_size` is often an exact,
-    // constant device-pixel value (e.g. an edge pinned via `x: parent.width - self.width`).
-    // Renderers that never round the origin (the software renderer, the interpreter's `anyrender`
-    // command recording) must NOT round here either: origin and box size are already exactly
-    // consistent unrounded, and rounding just one of them would introduce the drift instead of
-    // preventing it. See issue #6739.
-    //
-    // Only round the axis whose alignment actually reads an offset from it: `Start`/`Left` and
-    // `Top` always have a zero offset, so rounding there would just be unnecessary cache churn
-    // (this feeds `LineBreakingInputs`, the line-breaking cache key) and a wrap/elision boundary
-    // shift for no visual benefit -- most text uses those defaults.
-    let snap_width = options.pixel_snap_alignment
-        && !matches!(
-            options.horizontal_align,
-            TextHorizontalAlignment::Start | TextHorizontalAlignment::Left
-        );
-    let snap_height =
-        options.pixel_snap_alignment && options.vertical_align != TextVerticalAlignment::Top;
-    let physical_length = |snap: bool, length: LogicalLength| {
-        let physical = length * scale_factor;
-        if snap { PhysicalLength::new(physical.get().round()) } else { physical }
-    };
-    let max_physical_width = options.max_width.map(|w| physical_length(snap_width, w));
-    let max_physical_height = options.max_height.map(|h| physical_length(snap_height, h));
+    // need the alignment offset (`box_size - content_size`, from `TextHorizontalAlignment`/
+    // `TextVerticalAlignment`) rounded the same way, or `round(origin) + box_size` drifts away
+    // from `round(origin + box_size)` as `box_size`'s fractional part changes, even though
+    // `origin + box_size` is often an exact, constant device-pixel value (e.g. an edge pinned via
+    // `x: parent.width - self.width`). Renderers that never round the origin (the software
+    // renderer, the interpreter's `anyrender` command recording) must NOT round here either:
+    // origin and box size are already exactly consistent unrounded, and rounding just one of them
+    // would introduce the drift instead of avoiding it. See issue #6739.
+    let x_offset = max_physical_width.map_or(PhysicalLength::zero(), |w| {
+        pixel_snap_correction(
+            options.pixel_snap_alignment,
+            alignment_fraction_h(options.horizontal_align),
+            w,
+        )
+    });
+    let y_offset_correction = max_physical_height.map_or(PhysicalLength::zero(), |h| {
+        pixel_snap_correction(
+            options.pixel_snap_alignment,
+            alignment_fraction_v(options.vertical_align),
+            h,
+        )
+    });
 
     let inputs = LineBreakingInputs::new(&options, max_physical_width);
     if let Some(line_breaking) =
@@ -170,7 +212,8 @@ pub(super) fn layout(
                 max_physical_height,
                 options.vertical_align,
                 line_breaking.height,
-            ),
+            ) + y_offset_correction,
+            x_offset,
             paragraphs,
             max_width: line_breaking.max_width,
             height: line_breaking.height,
@@ -263,11 +306,13 @@ pub(super) fn layout(
             .map_or(PhysicalLength::zero(), |p| p.y + PhysicalLength::new(p.layout.height())),
     };
 
-    let y_offset = vertical_offset(max_physical_height, options.vertical_align, height);
+    let y_offset =
+        vertical_offset(max_physical_height, options.vertical_align, height) + y_offset_correction;
 
     Layout {
         paragraphs,
         y_offset,
+        x_offset,
         elision_info,
         max_width,
         height,
@@ -327,6 +372,13 @@ pub(super) struct ElisionCut {
 pub(super) struct Layout {
     pub(super) paragraphs: Vec<TextParagraph>,
     pub(super) y_offset: PhysicalLength,
+    /// The pixel-snap correction from [`pixel_snap_correction`], added to every horizontal
+    /// position a consumer reads out of this layout (glyphs, decoration/selection/inline-code
+    /// rects, cursor and hit-test positions) -- but never fed into line breaking, elision, or the
+    /// alignment offset's own `box_size - content_size` computation, which all stay exact. Zero
+    /// whenever `LayoutOptions::pixel_snap_alignment` is off or the horizontal alignment is
+    /// `Start`/`Left`.
+    pub(super) x_offset: PhysicalLength,
     pub(super) max_width: PhysicalLength,
     pub(super) height: PhysicalLength,
     max_physical_height: Option<PhysicalLength>,
@@ -523,9 +575,12 @@ impl Layout {
         let Some(paragraph) = self.paragraph_by_y(pos.y_length()) else {
             return (0, crate::items::TextCursorAffinity::NextCharacter);
         };
+        // `pos` is in the same (post-snap) coordinate space glyphs are drawn in, but
+        // `paragraph.layout`'s own coordinates never got the snap applied (see `x_offset`'s
+        // doc), so undo it before asking parley to place the point.
         let cursor = parley::editing::Cursor::from_point(
             &paragraph.layout,
-            pos.x,
+            pos.x - self.x_offset.get(),
             (pos.y_length() - self.y_offset - paragraph.y).get(),
         );
         (paragraph.range.start + cursor.index(), cursor.affinity().into())
@@ -551,7 +606,7 @@ impl Layout {
 
         PhysicalRect::new(
             PhysicalPoint::from_lengths(
-                PhysicalLength::new(rect.x0 as _),
+                PhysicalLength::new(rect.x0 as _) + self.x_offset,
                 PhysicalLength::new(rect.y0 as _) + self.y_offset + paragraph.y,
             ),
             PhysicalSize::new(rect.width() as _, rect.height() as _),

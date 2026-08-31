@@ -204,6 +204,10 @@ impl SkiaWGPU30Renderer {
 
 #[doc(hidden)]
 impl<Surface> RendererSealed for SkiaWGPURendererGeneric<Surface> {
+    fn snaps_text_origin_to_pixel_grid(&self) -> bool {
+        RendererSealed::snaps_text_origin_to_pixel_grid(&self.renderer)
+    }
+
     fn text_layout_cache(
         &self,
     ) -> Option<&i_slint_core::textlayout::sharedparley::TextLayoutCache> {

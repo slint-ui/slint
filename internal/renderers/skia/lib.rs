@@ -913,6 +913,13 @@ impl SkiaRenderer {
 }
 
 impl i_slint_core::renderer::RendererSealed for SkiaRenderer {
+    fn snaps_text_origin_to_pixel_grid(&self) -> bool {
+        // Mirrors `SkiaItemRenderer::snaps_text_origin_to_pixel_grid` in itemrenderer.rs, whose
+        // doc has the full rationale -- but statically, since this is queried outside of a draw
+        // pass, with no current transform to check.
+        true
+    }
+
     fn text_layout_cache(&self) -> Option<&sharedparley::TextLayoutCache> {
         Some(&self.text_layout_cache)
     }

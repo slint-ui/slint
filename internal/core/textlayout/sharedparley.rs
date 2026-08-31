@@ -246,6 +246,14 @@ pub fn link_under_cursor(
 
     let (horizontal_align, vertical_align) = text.alignment();
 
+    // Hit-testing, not drawing, so there's no `GlyphRenderer` at hand -- but this still has to
+    // agree with whatever the window's actual renderer draws (see issue #6739's review), which
+    // `RendererSealed::snaps_text_origin_to_pixel_grid` reports independent of an active draw.
+    let pixel_snap_alignment = crate::window::WindowInner::from_pub(window)
+        .window_adapter()
+        .renderer()
+        .snaps_text_origin_to_pixel_grid();
+
     with_text_layout(
         cache,
         Some(item_rc),
@@ -258,8 +266,7 @@ pub fn link_under_cursor(
             max_width: Some(size.width_length()),
             max_lines: text.line_limit(),
             text_overflow: text.overflow(),
-            // Hit-testing, not drawing: no renderer to match, so keep exact sub-pixel precision.
-            pixel_snap_alignment: false,
+            pixel_snap_alignment,
         },
         window,
         |layout| link_in_layout(layout, cursor),
@@ -270,6 +277,9 @@ pub fn link_under_cursor(
 fn link_in_layout(layout: &Layout, cursor: PhysicalPoint) -> Option<std::string::String> {
     layout.paragraph_by_y(cursor.y_length()).and_then(|paragraph| {
         let paragraph_y: f64 = paragraph.y.cast::<f64>().get();
+        // `cursor` is in the same (post-snap) coordinates glyphs are drawn in; undo the snap to
+        // compare against `paragraph.layout`'s own, unshifted coordinates (see `Layout::x_offset`).
+        let cursor_x: f64 = (cursor.x_length() - layout.x_offset).cast::<f64>().get();
 
         paragraph
             .links
@@ -291,9 +301,9 @@ fn link_in_layout(layout: &Layout, cursor: PhysicalPoint) -> Option<std::string:
                     bounding_box.y0 += paragraph_y;
                     bounding_box.y1 += paragraph_y;
                     clicked = bounding_box.union(parley::BoundingBox::new(
-                        cursor.x.into(),
+                        cursor_x,
                         cursor.y.into(),
-                        cursor.x.into(),
+                        cursor_x,
                         cursor.y.into(),
                     )) == bounding_box;
                 });
@@ -376,7 +386,7 @@ pub fn draw_text_input(
                 };
                 // Inside the clip, like the glyphs it sits under: a line box taller than the item
                 // would otherwise paint the highlight over whatever follows the input.
-                for background in selection_spans.backgrounds() {
+                for background in selection_spans.backgrounds(layout.x_offset) {
                     item_renderer.fill_rectangle_with_color(
                         background,
                         text_input.selection_background_color(),
@@ -481,8 +491,10 @@ fn text_size_impl(
             horizontal_align: TextHorizontalAlignment::Left,
             vertical_align: TextVerticalAlignment::Top,
             text_overflow: TextOverflow::Clip,
-            // Always Left/Top above, so the alignment offset this would affect is always zero;
-            // no renderer to match here anyway (this sizes the item before any renderer draws it).
+            // Always Left/Top above, so `alignment_fraction_h`/`_v` are always 0.0 and this flag's
+            // value has no effect on the result either way (it only ever scales an alignment
+            // offset, never the real width/height fed into line breaking). There's also no
+            // renderer to match here (this sizes the item before any renderer draws it).
             pixel_snap_alignment: false,
         },
         window_adapter.window(),
@@ -621,6 +633,7 @@ pub fn text_input_byte_offset_for_position(
     text_input_byte_offset_for_position_impl(
         renderer.scale_factor(),
         renderer.window_adapter(),
+        renderer.snaps_text_origin_to_pixel_grid(),
         text_input,
         item_rc,
         pos,
@@ -631,6 +644,7 @@ pub fn text_input_byte_offset_for_position(
 fn text_input_byte_offset_for_position_impl(
     scale_factor: Option<ScaleFactor>,
     window_adapter: Option<Rc<dyn WindowAdapter>>,
+    pixel_snap_alignment: bool,
     text_input: Pin<&crate::items::TextInput>,
     item_rc: &crate::item_tree::ItemRc,
     pos: LogicalPoint,
@@ -661,7 +675,10 @@ fn text_input_byte_offset_for_position_impl(
         Some(item_rc),
         text_input,
         &layout_builder,
-        LayoutOptions::new_from_textinput(text_input, Some(width), Some(height)),
+        LayoutOptions {
+            pixel_snap_alignment,
+            ..LayoutOptions::new_from_textinput(text_input, Some(width), Some(height))
+        },
         window_adapter.window(),
         |layout| layout.byte_offset_from_point(pos),
     )
@@ -680,6 +697,7 @@ pub fn text_input_cursor_rect_for_byte_offset(
     text_input_cursor_rect_for_byte_offset_impl(
         renderer.scale_factor(),
         renderer.window_adapter(),
+        renderer.snaps_text_origin_to_pixel_grid(),
         text_input,
         item_rc,
         byte_offset,
@@ -691,6 +709,7 @@ pub fn text_input_cursor_rect_for_byte_offset(
 fn text_input_cursor_rect_for_byte_offset_impl(
     scale_factor: Option<ScaleFactor>,
     window_adapter: Option<Rc<dyn WindowAdapter>>,
+    pixel_snap_alignment: bool,
     text_input: Pin<&crate::items::TextInput>,
     item_rc: &crate::item_tree::ItemRc,
     byte_offset: usize,
@@ -727,7 +746,10 @@ fn text_input_cursor_rect_for_byte_offset_impl(
         Some(item_rc),
         text_input,
         &layout_builder,
-        LayoutOptions::new_from_textinput(text_input, Some(width), Some(height)),
+        LayoutOptions {
+            pixel_snap_alignment,
+            ..LayoutOptions::new_from_textinput(text_input, Some(width), Some(height))
+        },
         window_adapter.window(),
         |layout| {
             layout.cursor_rect_for_byte_offset(byte_offset, affinity, cursor_width) / scale_factor
@@ -749,12 +771,13 @@ impl<'a> TextInputLayout<'a> {
     /// The paragraphs, top to bottom. A hard line break separates two of them and belongs to
     /// neither, since Slint splits the text at `\n` before shaping.
     pub(crate) fn paragraphs(&self) -> impl Iterator<Item = TextInputParagraph<'a>> {
-        let (text, y_offset) = (self.text, self.layout.y_offset);
+        let (text, y_offset, x_offset) = (self.text, self.layout.y_offset, self.layout.x_offset);
         self.layout.paragraphs.iter().map(move |para| TextInputParagraph {
             range: para.range.clone(),
             text: &text[para.range.clone()],
             layout: &para.layout,
             y: y_offset + para.y,
+            x: x_offset,
         })
     }
 }
@@ -770,6 +793,10 @@ pub(crate) struct TextInputParagraph<'a> {
     layout: &'a parley::Layout<Brush>,
     /// Physical y of its top edge, relative to the item's.
     y: PhysicalLength,
+    /// The pixel-snap correction (see `Layout::x_offset`) every horizontal position read out of
+    /// `layout` above needs added, e.g. before handing `layout` to something that reports glyph
+    /// geometry such as `parley::LayoutAccessibility::build_nodes`.
+    x: PhysicalLength,
 }
 
 /// Lays `text_input` out the way `renderer` draws it and lends the result to `f`.
@@ -792,6 +819,7 @@ pub fn with_text_input_layout<R>(
     with_text_input_layout_impl(
         renderer.scale_factor(),
         renderer.window_adapter(),
+        renderer.snaps_text_origin_to_pixel_grid(),
         renderer.text_layout_cache(),
         text_input,
         item_rc,
@@ -803,6 +831,7 @@ pub fn with_text_input_layout<R>(
 fn with_text_input_layout_impl<R>(
     scale_factor: Option<ScaleFactor>,
     window_adapter: Option<Rc<dyn WindowAdapter>>,
+    pixel_snap_alignment: bool,
     cache: Option<&TextLayoutCache>,
     text_input: Pin<&crate::items::TextInput>,
     item_rc: &crate::item_tree::ItemRc,
@@ -832,7 +861,10 @@ fn with_text_input_layout_impl<R>(
         Some(item_rc),
         text_input,
         &layout_builder,
-        LayoutOptions::new_from_textinput(text_input, Some(width), Some(height)),
+        LayoutOptions {
+            pixel_snap_alignment,
+            ..LayoutOptions::new_from_textinput(text_input, Some(width), Some(height))
+        },
         window_adapter.window(),
         |layout| f(TextInputLayout { layout, text: &text }),
     )

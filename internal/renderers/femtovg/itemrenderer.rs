@@ -866,8 +866,11 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GlyphRenderer for GLItemRendere
     }
 
     fn snaps_text_origin_to_pixel_grid(&self) -> bool {
-        // `draw_glyph_run` below pixel-aligns the canvas transform via `align_canvas_during`.
-        true
+        // `draw_glyph_run` below pixel-aligns the canvas transform via `align_canvas_during`,
+        // which itself only snaps under a pure translation -- mirror that condition here, so a
+        // rotated/scaled item's alignment offset doesn't get a rounding its actual draw call
+        // won't apply.
+        Self::is_translate_only(&self.canvas.borrow().transform())
     }
 
     fn draw_glyph_run(
@@ -1065,6 +1068,13 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
         }
     }
 
+    // Whether `transform` is a pure translation (no rotation or scale), the precondition
+    // `align_canvas_during` below needs to actually snap the canvas to the pixel grid.
+    fn is_translate_only(transform: &Transform2D) -> bool {
+        let [a, b, c, d, _x, _y] = transform.0;
+        a.approx_eq(&1.) && b.approx_eq(&0.) && c.approx_eq(&0.) && d.approx_eq(&1.)
+    }
+
     // In some cases (e.g. when rendering text), the canvas needs to be aligned to the pixel grid.
     // Otherwise, even with nearest-neighbor scaling, the glyphs can have strange artifacts, as
     // the nearest-neighbor algorithm is unstable if the pixel coordinate is at exactly 0.5px,
@@ -1078,9 +1088,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
         let original_transform = canvas.transform();
         let [a, b, c, d, x, y] = original_transform.0;
 
-        let is_translate_only =
-            a.approx_eq(&1.) && b.approx_eq(&0.) && c.approx_eq(&0.) && d.approx_eq(&1.);
-        if !is_translate_only {
+        if !Self::is_translate_only(&original_transform) {
             return fun(canvas);
         }
 
