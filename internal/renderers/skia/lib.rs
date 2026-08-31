@@ -67,7 +67,10 @@ pub use wgpu_renderer::SkiaWGPU29Renderer;
 #[cfg(feature = "wgpu-30")]
 pub use wgpu_renderer::SkiaWGPU30Renderer;
 #[cfg(any(feature = "wgpu-29", feature = "wgpu-30"))]
-pub use wgpu_renderer::{SkiaWGPURenderer, SkiaWGPURendererGeneric};
+#[allow(deprecated)]
+pub use wgpu_renderer::SkiaWGPURenderer;
+#[cfg(any(feature = "wgpu-29", feature = "wgpu-30"))]
+pub use wgpu_renderer::SkiaWGPURendererGeneric;
 
 use itemrenderer::to_skia_rect;
 pub use skia_safe;
