@@ -5,6 +5,8 @@
 
 extern crate alloc;
 
+esp_bootloader_esp_idf::esp_app_desc!();
+
 // --- Slint platform integration imports ---
 use slint::platform::software_renderer::Rgb565Pixel;
 // --- FT5x06 Touch Controller ---
