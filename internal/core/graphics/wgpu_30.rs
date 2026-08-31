@@ -70,19 +70,6 @@ pub mod api {
         }
     }
 
-    /// We need to check equality between settings so that we can check if some
-    /// cached graphics primitives were created with the same settings as what
-    /// is requested, and return the existing ones
-    ///
-    /// TODO: this is a hack which relies on everything implementing the Debug trait. Replace this
-    /// with a `#[derive(Eq, PartialEq)] when <https://github.com/gfx-rs/wgpu/pull/10040> is merged
-    /// and present in this wgpu version
-    impl PartialEq for WGPUSettings {
-        fn eq(&self, other: &Self) -> bool {
-            alloc::format!("{self:?}") == alloc::format!("{other:?}")
-        }
-    }
-
     /// This enum describes the different ways to configure WGPU for rendering.
     #[derive(Clone, Debug)]
     #[non_exhaustive]
