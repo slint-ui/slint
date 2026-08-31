@@ -4840,7 +4840,6 @@ dependencies = [
  "objc2-quartz-core 0.3.2",
  "pin-weak",
  "raw-window-handle",
- "raw-window-metal",
  "read-fonts 0.41.0",
  "scoped-tls-hkt",
  "skia-safe",
