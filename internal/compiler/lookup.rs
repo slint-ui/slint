@@ -865,7 +865,7 @@ impl LookupObject for Arc<Enumeration> {
         for (value, name) in self.values.iter().enumerate() {
             // Don't offer `auto` in completion for `cross-axis-alignment`, where setting it is an error; `lookup` stays unfiltered.
             if name == "auto"
-                && self.name == "CrossAxisAlignment"
+                && Arc::ptr_eq(self, &crate::typeregister::BUILTIN.enums.CrossAxisAlignment)
                 && ctx.property_name == Some("cross-axis-alignment")
             {
                 continue;
