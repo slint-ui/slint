@@ -1774,7 +1774,7 @@ fn generate_sub_component(
             quote! {
                 fn cross_axis_self_alignment_for_repeated(
                     self: ::core::pin::Pin<&Self>,
-                ) -> sp::CrossAxisSelfAlignment {
+                ) -> sp::CrossAxisAlignment {
                     #![allow(unused)]
                     let _self = self;
                     #expr

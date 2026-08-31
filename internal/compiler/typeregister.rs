@@ -117,7 +117,7 @@ impl BuiltinTypes {
             BuiltinStruct::LayoutInfo,
         ));
         let enums = BuiltinEnums::new();
-        let align_self_type = Type::Enumeration(enums.CrossAxisSelfAlignment.clone());
+        let align_self_type = Type::Enumeration(enums.CrossAxisAlignment.clone());
         // Shared by `flex_item_props_type` and nested as `props` in
         // `flexbox_layout_item_info_type`, so the field list is defined once.
         let flex_item_props_struct = Arc::new(Struct::new(
@@ -189,7 +189,7 @@ impl BuiltinTypes {
                     ("constraint".into(), layout_info_type.clone().into()),
                     (
                         "cross-axis-self-alignment".into(),
-                        Type::Enumeration(enums.CrossAxisSelfAlignment.clone()),
+                        Type::Enumeration(enums.CrossAxisAlignment.clone()),
                     ),
                     ("layout-order".into(), Type::Int32),
                 ])
@@ -334,7 +334,7 @@ pub fn reserved_properties() -> impl Iterator<Item = (&'static str, Type, Proper
         // const array because Type::Enumeration requires a runtime Arc allocation.
         .chain(std::iter::once((
             "cross-axis-self-alignment",
-            Type::Enumeration(BUILTIN.enums.CrossAxisSelfAlignment.clone()),
+            Type::Enumeration(BUILTIN.enums.CrossAxisAlignment.clone()),
             PropertyVisibility::Input,
         )))
         .chain(IntoIterator::into_iter([

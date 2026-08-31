@@ -2973,7 +2973,7 @@ fn repeated_layout_item_fields(
             let cross_o = orientation_name(cross_o);
             format!(
                 "(o == slint::cbindgen_private::Orientation::{cross_o}) ? ({expr}) \
-                 : slint::cbindgen_private::CrossAxisSelfAlignment::Auto"
+                 : slint::cbindgen_private::CrossAxisAlignment::Auto"
             )
         }
         None => "{}".to_owned(),
