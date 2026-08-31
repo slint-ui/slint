@@ -100,9 +100,11 @@ impl PartialOrd for BoxShadowOptions {
 /// shape (see <https://github.com/slint-ui/slint/issues/6581>), so a transparent fill
 /// doesn't get shadow-colored through the middle. Because that knockout position depends
 /// on the offset - which isn't part of this cache key, so the same texture can be reused
-/// across differently offset shadows - each renderer currently applies it itself, at blit
-/// time, rather than baking it into the cached texture. Skia and femtovg both do this;
-/// anyrender's `draw_box_shadow` does not yet and still has the bug.
+/// across differently offset shadows - each renderer applies it itself, at blit time,
+/// rather than baking it into the cached texture: skia and femtovg exclude the region from
+/// the shadow fill directly (a clip and an even-odd sub-path, respectively); anyrender
+/// wraps its (external, unmodified) `PaintScene::draw_box_shadow` call in a `push_clip_layer`
+/// donut shape instead, since it has no lower-level access to that fill.
 impl BoxShadowOptions {
     /// The size of the shadow shape: the element's size grown by the spread on each
     /// side. A negative spread shrinks it, down to nothing.
