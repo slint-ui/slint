@@ -19,6 +19,7 @@ use i_slint_core::lengths::{
 };
 use i_slint_core::textlayout::sharedparley::{self, GlyphRenderer, fontique, parley};
 use i_slint_core::{Brush, Color, ImageInner, SharedString};
+use kurbo::Shape as _;
 
 use super::{PhysicalLength, PhysicalPoint, PhysicalRect, PhysicalSize};
 
@@ -33,6 +34,11 @@ use super::{PhysicalLength, PhysicalPoint, PhysicalRect, PhysicalSize};
 /// but bounding destructive layers stays worthwhile on fixed versions too:
 /// it spares vello_cpu from compositing the entire surface.
 const UNCLIPPED: kurbo::Rect = kurbo::Rect::new(0., 0., 1e9, 1e9);
+
+/// Flattening tolerance (in physical pixels) used when materializing a `Shape` into a
+/// `BezPath` for the box shadow's donut knockout clip. Matches the default the backends
+/// themselves use for the shapes they flatten internally.
+const CLIP_TOLERANCE: f64 = 0.1;
 
 #[derive(Clone, Copy)]
 struct RenderState {
@@ -539,6 +545,25 @@ impl<'a, S: PaintScene> ItemRenderer for AnyrenderItemRenderer<'a, S> {
             return;
         }
 
+        // CSS box-shadow (which drop-shadow-* follows) never paints underneath the casting
+        // element's own, un-offset shape: exclude that area with a clip layer so a
+        // transparent fill doesn't get shadow-colored through the middle. The clip is a
+        // donut - the shadow's own bounds (padded by the blur, so its Gaussian falloff isn't
+        // cut short) with the un-offset, un-spread box shape subtracted - built from two
+        // sub-paths with opposite winding, which is what makes the inner one a hole rather
+        // than just more coverage, under either fill rule. See
+        // https://github.com/slint-ui/slint/issues/6581.
+        let own_shape = RectShape::uniform(
+            kurbo::Rect::new(0., 0., phys_size.width as f64, phys_size.height as f64),
+            base_radius,
+        );
+        let clip_bounds =
+            kurbo::Rect::new(rect.x0 - blur, rect.y0 - blur, rect.x1 + blur, rect.y1 + blur);
+        let mut clip_shape = RectShape::uniform(clip_bounds, radius).to_path(CLIP_TOLERANCE);
+        clip_shape.extend(own_shape.to_path(CLIP_TOLERANCE).reverse_subpaths());
+
+        self.scene.push_clip_layer(self.current_state.transform, &clip_shape);
+
         if blur == 0. {
             // No blur: a plain rounded rectangle fill matches exactly.
             let shape = RectShape::uniform(rect, radius);
@@ -560,6 +585,8 @@ impl<'a, S: PaintScene> ItemRenderer for AnyrenderItemRenderer<'a, S> {
                 blur / 2.,
             );
         }
+
+        self.scene.pop_layer();
     }
 
     fn combine_clip(&mut self, clip_rect: LogicalRect, radius: LogicalBorderRadius) -> bool {
