@@ -116,6 +116,9 @@
     "int": {
         "href": "reference/property-types/numeric-types/#int"
     },
+    "iterations-and-directions": {
+        "href": "reference/language/animations/#iterations-and-directions"
+    },
     "KeyEvent": {
         "href": "reference/keyboard-input/overview/"
     },
@@ -196,6 +199,9 @@
     },
     "Size": {
         "href": "reference/property-types/builtin-structs/#size"
+    },
+    "Spring Animation": {
+        "href": "reference/language/animations/#spring-animations"
     },
     "slintFile": {
         "href": "guide/language/coding/file/"

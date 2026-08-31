@@ -114,6 +114,8 @@ inline bool operator==(const EasingCurve &a, const EasingCurve &b)
         return false;
     } else if (a.tag == EasingCurve::Tag::CubicBezier) {
         return std::equal(a.cubic_bezier._0, a.cubic_bezier._0 + 4, b.cubic_bezier._0);
+    } else if (a.tag == EasingCurve::Tag::Spring) {
+        return a.spring._0 == b.spring._0;
     }
     return true;
 }

@@ -146,6 +146,69 @@ pub fn lower_macro(
 
             expr
         }
+        BuiltinMacroFunction::Spring => {
+            let mut has_error = None;
+            let mut bounce_node = None;
+            let expected_argument_type_error = "Arguments to spring curve must be number literal";
+            let mut a = || match sub_expr.next() {
+                None => 0.,
+                Some((Expression::NumberLiteral(val, Unit::None), n)) => {
+                    bounce_node = n;
+                    val as f32
+                }
+                // handle negative numbers
+                Some((Expression::UnaryOp { sub, op: '-' }, n)) => match *sub {
+                    Expression::NumberLiteral(val, Unit::None) => {
+                        bounce_node = n;
+                        -val as f32
+                    }
+                    _ => {
+                        has_error
+                            .get_or_insert((n.to_source_location(), expected_argument_type_error));
+                        0.
+                    }
+                },
+                // handle positive numbers
+                Some((Expression::UnaryOp { sub, op: '+' }, n)) => match *sub {
+                    Expression::NumberLiteral(val, Unit::None) => {
+                        bounce_node = n;
+                        val as f32
+                    }
+                    _ => {
+                        has_error
+                            .get_or_insert((n.to_source_location(), expected_argument_type_error));
+                        0.
+                    }
+                },
+                Some((_, n)) => {
+                    has_error.get_or_insert((n.to_source_location(), expected_argument_type_error));
+                    0.
+                }
+            };
+            let bounce = a();
+            let bounce = if !(-1.0..=1.0).contains(&bounce) {
+                let loc = bounce_node
+                    .map(|n| n.to_source_location())
+                    .unwrap_or_else(|| n.to_source_location());
+                has_error.get_or_insert((
+                    loc,
+                    "The bounce argument to spring curve must be between -1 and 1",
+                ));
+                0.
+            } else {
+                bounce
+            };
+            let expr = Expression::EasingCurve(EasingCurve::Spring(bounce));
+            if let Some((_, n)) = sub_expr.next() {
+                has_error
+                    .get_or_insert((n.to_source_location(), "Too many argument for spring curve"));
+            }
+            if let Some((n, msg)) = has_error {
+                diag.push_error(msg.into(), &n);
+            }
+
+            expr
+        }
     }
 }
 
