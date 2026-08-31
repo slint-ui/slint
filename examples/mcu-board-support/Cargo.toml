@@ -142,6 +142,7 @@ esp32-s3-lcd-ev-board = [
   "embedded-graphics-core",
   "slint/libm",
   "dep:embedded-graphics-framebuf",
+  "esp-bootloader-esp-idf/esp32s3",
 ]
 esope-sld-c-w-s3 = [
   "slint/unsafe-single-threaded",
@@ -182,6 +183,7 @@ waveshare-esp32-s3-touch-amoled-1-8 = [
   "dep:embedded-graphics-framebuf",
   "dep:sh8601-rs",
   "dep:ft3x68-rs",
+  "esp-bootloader-esp-idf/esp32s3",
 ]
 m5stack-cores3 = [
   "slint/unsafe-single-threaded",
