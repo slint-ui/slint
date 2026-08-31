@@ -1639,7 +1639,9 @@ impl Expression {
                                 _ => ("fields", format!("{} and {last}", rest.join(", "))),
                             };
                             diag.push_warning(
-                                format!("Conversion from {from_ty} to {target_type} ignores the extra {noun} {list}"),
+                                format!(
+                                    "Conversion to {target_type} ignores the extra {noun} {list}"
+                                ),
                                 node,
                             );
                         }
