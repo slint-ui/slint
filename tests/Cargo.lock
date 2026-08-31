@@ -2608,7 +2608,6 @@ dependencies = [
  "objc2-quartz-core 0.3.2",
  "pin-weak",
  "raw-window-handle",
- "raw-window-metal",
  "read-fonts",
  "scoped-tls-hkt",
  "skia-safe",
