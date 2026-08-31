@@ -10,9 +10,9 @@
 //! This pass must be called before the materialize_fake_properties as it going to be generate
 //! binding reference to fake properties
 
-use crate::expression_tree::{BindingExpression, Expression, MinMaxOp, NamedReference};
+use crate::expression_tree::{BindingExpression, Expression, MinMaxOp, NamedReference, Unit};
 use crate::langtype::{ElementType, NativeClass, Type};
-use crate::layout::is_layout;
+use crate::layout::{Orientation, is_layout, repeated_element_layout_info};
 use crate::object_tree::{Component, Element, ElementRc};
 use crate::typeregister::TypeRegister;
 use smol_str::{SmolStr, format_smolstr};
@@ -126,30 +126,88 @@ fn create_content_element(flickable: &ElementRc, native_empty: &Arc<NativeClass>
     flickable.borrow_mut().children.push(content);
 }
 
+/// The scalar `scalar_prop` (e.g. `max-height`) of a `is_layout` child `x` of the
+/// Flickable, for use in `fixup_geometry`'s folds.
+///
+/// A repeated (`if`/`for`) child has no such property of its own — it exists as N
+/// runtime instances — so its merged `LayoutInfo` (issue #407) is synthesized
+/// instead and the matching `struct_field` (`max`, `preferred`, or `min`) is read
+/// back out of it.
+///
+/// A repeater with no live instance merges to `LayoutInfo::default()`, whose
+/// `preferred` is zero. The folds below take the *smallest* preferred size, so
+/// that zero would collapse the Flickable: an `if` whose condition is false would
+/// shrink it to nothing. Zero means "no preference" here, so it is folded as the
+/// identity instead. `max` needs no such care — it defaults to `Coord::MAX`,
+/// already the identity of its own fold.
+fn layout_child_scalar(
+    x: &ElementRc,
+    orientation: Orientation,
+    scalar_prop: &'static str,
+    struct_field: &'static str,
+) -> Expression {
+    if x.borrow().repeated.is_none() {
+        return Expression::PropertyReference(NamedReference::new(
+            x,
+            SmolStr::new_static(scalar_prop),
+        ));
+    }
+    let merged = Expression::StructFieldAccess {
+        base: Box::new(repeated_element_layout_info(x, orientation)),
+        name: SmolStr::new_static(struct_field),
+    };
+    if struct_field != "preferred" {
+        return merged;
+    }
+    let name = SmolStr::new_static("repeated_preferred");
+    let read = || Expression::ReadLocalVariable { name: name.clone(), ty: Type::LogicalLength };
+    Expression::CodeBlock(
+        [
+            Expression::StoreLocalVariable { name: name.clone(), value: Box::new(merged) },
+            Expression::Condition {
+                condition: Box::new(Expression::BinaryExpression {
+                    lhs: Box::new(read()),
+                    rhs: Box::new(Expression::NumberLiteral(0., Unit::Px)),
+                    op: '=',
+                }),
+                true_expr: Box::new(Expression::NumberLiteral(f32::MAX as f64, Unit::Px)),
+                false_expr: Box::new(read()),
+            },
+        ]
+        .into(),
+    )
+}
+
 fn fixup_geometry(flickable_elem: &ElementRc) {
-    let forward_minmax_of = |prop: &'static str, op: MinMaxOp| {
-        set_binding_if_not_explicit(flickable_elem, prop, || {
-            flickable_elem
-                .borrow()
-                .children
-                .iter()
-                .filter(|x| is_layout(&x.borrow().base_type))
-                // FIXME: we should ideally add runtime code to merge layout info of all elements that are repeated (#407)
-                .filter(|x| x.borrow().repeated.is_none())
-                .map(|x| {
-                    Expression::PropertyReference(NamedReference::new(x, SmolStr::new_static(prop)))
-                })
-                .reduce(|lhs, rhs| crate::builtin_macros::min_max_expression(lhs, rhs, op))
-        })
+    // A ListView's repeater only materializes the currently-visible instances
+    // (`ensure_updated_listview`), so folding it here would make the constraint
+    // change as the user scrolls. Any other repeated child is fully
+    // materialized before layout runs and is safe to merge.
+    let is_mergeable = |x: &&ElementRc| {
+        is_layout(&x.borrow().base_type)
+            && x.borrow().repeated.as_ref().is_none_or(|r| r.is_listview.is_none())
     };
 
+    let forward_minmax_of =
+        |prop: &'static str, struct_field: &'static str, orientation: Orientation, op: MinMaxOp| {
+            set_binding_if_not_explicit(flickable_elem, prop, || {
+                flickable_elem
+                    .borrow()
+                    .children
+                    .iter()
+                    .filter(is_mergeable)
+                    .map(|x| layout_child_scalar(x, orientation, prop, struct_field))
+                    .reduce(|lhs, rhs| crate::builtin_macros::min_max_expression(lhs, rhs, op))
+            })
+        };
+
     if !flickable_elem.borrow().is_binding_set("height", false) {
-        forward_minmax_of("max-height", MinMaxOp::Min);
-        forward_minmax_of("preferred-height", MinMaxOp::Min);
+        forward_minmax_of("max-height", "max", Orientation::Vertical, MinMaxOp::Min);
+        forward_minmax_of("preferred-height", "preferred", Orientation::Vertical, MinMaxOp::Min);
     }
     if !flickable_elem.borrow().is_binding_set("width", false) {
-        forward_minmax_of("max-width", MinMaxOp::Min);
-        forward_minmax_of("preferred-width", MinMaxOp::Min);
+        forward_minmax_of("max-width", "max", Orientation::Horizontal, MinMaxOp::Min);
+        forward_minmax_of("preferred-width", "preferred", Orientation::Horizontal, MinMaxOp::Min);
     }
     set_binding_if_not_explicit(flickable_elem, "content-width", || {
         Some(
@@ -157,15 +215,8 @@ fn fixup_geometry(flickable_elem: &ElementRc) {
                 .borrow()
                 .children
                 .iter()
-                .filter(|x| is_layout(&x.borrow().base_type))
-                // FIXME: (#407)
-                .filter(|x| x.borrow().repeated.is_none())
-                .map(|x| {
-                    Expression::PropertyReference(NamedReference::new(
-                        x,
-                        SmolStr::new_static("min-width"),
-                    ))
-                })
+                .filter(is_mergeable)
+                .map(|x| layout_child_scalar(x, Orientation::Horizontal, "min-width", "min"))
                 .fold(
                     Expression::PropertyReference(NamedReference::new(
                         flickable_elem,
@@ -181,15 +232,8 @@ fn fixup_geometry(flickable_elem: &ElementRc) {
                 .borrow()
                 .children
                 .iter()
-                .filter(|x| is_layout(&x.borrow().base_type))
-                // FIXME: (#407)
-                .filter(|x| x.borrow().repeated.is_none())
-                .map(|x| {
-                    Expression::PropertyReference(NamedReference::new(
-                        x,
-                        SmolStr::new_static("min-height"),
-                    ))
-                })
+                .filter(is_mergeable)
+                .map(|x| layout_child_scalar(x, Orientation::Vertical, "min-height", "min"))
                 .fold(
                     Expression::PropertyReference(NamedReference::new(
                         flickable_elem,
