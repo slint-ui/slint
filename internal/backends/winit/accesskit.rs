@@ -160,11 +160,11 @@ impl AccessKitAdapter {
                 let Some(accesskit::ActionData::Value(v)) = request.data else { return None };
                 AccessibilityAction::ReplaceSelectedText(SharedString::from(&*v))
             }
-            Action::SetValue => match request.data.unwrap() {
-                accesskit::ActionData::Value(v) => {
+            Action::SetValue => match request.data {
+                Some(accesskit::ActionData::Value(v)) => {
                     AccessibilityAction::SetValue(SharedString::from(&*v))
                 }
-                accesskit::ActionData::NumericValue(v) => {
+                Some(accesskit::ActionData::NumericValue(v)) => {
                     AccessibilityAction::SetValue(i_slint_core::format!("{v}"))
                 }
                 _ => return None,
@@ -378,6 +378,10 @@ fn is_text_input_role(role: Role) -> bool {
     )
 }
 
+fn wraps_text_input(role: Role) -> bool {
+    is_text_input_role(role) || role == Role::SpinButton
+}
+
 struct NodeCollection {
     next_component_id: u32,
     free_component_ids: Vec<u32>,
@@ -557,7 +561,7 @@ impl NodeCollection {
         text_run_nodes: &mut Vec<(NodeId, Node)>,
         window_adapter: &std::rc::Rc<WinitWindowAdapter>,
     ) {
-        if !is_text_input_role(wrapper_node.role()) {
+        if !wraps_text_input(wrapper_node.role()) {
             return;
         }
         let Some((inner_item_rc, text_input)) = find_text_input_with_rc(item) else {
@@ -852,6 +856,10 @@ impl NodeCollection {
 
         if let Some(value) = item.accessible_string_property(AccessibleStringProperty::Value) {
             match value.parse() {
+                Ok(numeric) if role == Role::SpinButton => {
+                    node.set_numeric_value(numeric);
+                    node.set_value(value.to_string());
+                }
                 Ok(numeric) if !is_text_input_role(role) => node.set_numeric_value(numeric),
                 _ => node.set_value(value.to_string()),
             }

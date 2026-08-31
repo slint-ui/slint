@@ -98,6 +98,9 @@ export component SpinBox {
     accessible-action-decrement => {
         base.decrement();
     }
+    accessible-action-set-selection-offsets(anchor, focus) => {
+        base.set-selection-offsets(anchor, focus);
+    }
 
     states [
         disabled when !root.enabled: {

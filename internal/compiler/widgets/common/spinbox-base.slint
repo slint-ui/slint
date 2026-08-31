@@ -25,6 +25,10 @@ export component SpinBoxBase {
         }
     }
 
+    public function set-selection-offsets(anchor: int, focus: int) {
+        text-input.set-selection-offsets(anchor, focus);
+    }
+
     public function increment() {
         if !root.read-only {
            root.update-value(root.value + root.step-size);
