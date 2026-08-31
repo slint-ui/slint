@@ -103,6 +103,12 @@ impl WGPUSurface {
             .unwrap_or_else(|| swapchain_capabilities.formats[0]);
         surface_config.format = swapchain_format;
 
+        // Prefer FIFO modes over the Mailbox that `get_default_config` picks on some backends
+        // (it takes the first advertised mode, and DX12 lists Mailbox first), for frame pacing
+        // and better energy efficiency. `AutoVsync` falls back to FifoRelaxed and then Fifo, so
+        // it is supported everywhere.
+        surface_config.present_mode = wgpu::PresentMode::AutoVsync;
+
         let error_scope = device.push_error_scope(wgpu::ErrorFilter::Validation);
         surface.configure(&device, &surface_config);
         if let Some(e) = spin_on::spin_on(error_scope.pop()) {
@@ -344,8 +350,6 @@ impl crate::Surface for WGPUSurface {
             gr_context.flush_submit_and_sync_cpu();
         }
 
-        // Prefer FIFO modes over possible Mailbox setting for frame pacing and better energy efficiency.
-        surface_config.present_mode = wgpu::PresentMode::AutoVsync;
         surface_config.width = size.width;
         surface_config.height = size.height;
 
