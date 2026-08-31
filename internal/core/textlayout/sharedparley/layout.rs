@@ -142,16 +142,24 @@ pub(super) fn layout(
     // command recording) must NOT round here either: origin and box size are already exactly
     // consistent unrounded, and rounding just one of them would introduce the drift instead of
     // preventing it. See issue #6739.
-    let snap = |length: LogicalLength| {
+    //
+    // Only round the axis whose alignment actually reads an offset from it: `Start`/`Left` and
+    // `Top` always have a zero offset, so rounding there would just be unnecessary cache churn
+    // (this feeds `LineBreakingInputs`, the line-breaking cache key) and a wrap/elision boundary
+    // shift for no visual benefit -- most text uses those defaults.
+    let snap_width = options.pixel_snap_alignment
+        && !matches!(
+            options.horizontal_align,
+            TextHorizontalAlignment::Start | TextHorizontalAlignment::Left
+        );
+    let snap_height =
+        options.pixel_snap_alignment && options.vertical_align != TextVerticalAlignment::Top;
+    let physical_length = |snap: bool, length: LogicalLength| {
         let physical = length * scale_factor;
-        if options.pixel_snap_alignment {
-            PhysicalLength::new(physical.get().round())
-        } else {
-            physical
-        }
+        if snap { PhysicalLength::new(physical.get().round()) } else { physical }
     };
-    let max_physical_width = options.max_width.map(snap);
-    let max_physical_height = options.max_height.map(snap);
+    let max_physical_width = options.max_width.map(|w| physical_length(snap_width, w));
+    let max_physical_height = options.max_height.map(|h| physical_length(snap_height, h));
 
     let inputs = LineBreakingInputs::new(&options, max_physical_width);
     if let Some(line_breaking) =

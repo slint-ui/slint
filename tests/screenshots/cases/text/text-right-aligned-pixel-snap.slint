@@ -6,11 +6,21 @@
 // column for every `width`, including fractional ones -- the pinned edge never visually moves, so
 // the rendering must not either.
 //
-// Some renderers (skia, femtovg) round a text item's own screen position to the device-pixel grid
-// before drawing glyphs, to avoid blurry nearest-neighbor sampling of the rasterized glyph atlas.
-// They used to leave the box width that feeds the horizontal-alignment offset (`box_width -
-// text_width`) unrounded. Since `x + width` is an exact device-pixel constant here, rounding only
-// one of the two addends broke that invariant: `round(x) + width != round(x + width)` in general.
+// The bug itself was skia/femtovg-only (see `GlyphRenderer::snaps_text_origin_to_pixel_grid` in
+// sharedparley/draw.rs): those renderers round a text item's own screen position to the
+// device-pixel grid before drawing glyphs, to avoid blurry nearest-neighbor sampling of the
+// rasterized glyph atlas, and used to leave the box width feeding the horizontal-alignment offset
+// (`box_width - text_width`) unrounded. Since `x + width` is an exact device-pixel constant here,
+// rounding only one of the two addends broke that invariant: `round(x) + width != round(x +
+// width)` in general.
+//
+// This case runs skia (ignored below) and the interpreter's `anyrender`/`software` backends,
+// neither of which rounds the origin, so it does not exercise the rounding fix itself -- what it
+// pins here is that those renderers keep computing an exact, sub-pixel-precise position (the
+// rounding itself is exercised directly by the `pixel_snap_alignment` unit test in
+// sharedparley/tests.rs). femtovg has no coverage in this screenshot suite at all. The rounding
+// fix itself was verified manually against the real skia software rasterizer at the exact widths
+// from the issue report; see the commit message.
 //
 // Skia font rendering is not consistent across platforms
 //ignore:skia
