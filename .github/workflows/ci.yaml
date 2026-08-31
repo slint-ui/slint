@@ -81,13 +81,17 @@ jobs:
             save_if: ${{ github.ref == 'refs/heads/master' }}
 
     visual_editor:
-        if: ${{ contains(fromJSON(inputs.changes), 'visual_editor') && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) }}
+        if: ${{ contains(fromJSON(inputs.changes), 'visual_editor') }}
         name: Visual Editor
         runs-on: macos-14
         timeout-minutes: 120
         env:
             RUSTFLAGS: -D warnings
             SLINT_EMIT_DEBUG_INFO: '1'
+            # The UI tests need a private package that GitHub doesn't hand the
+            # token for to pull requests from forks. Lint and build the editor
+            # there anyway, and skip only the steps that need the token.
+            UI_TESTS: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
         steps:
             - uses: actions/checkout@v7
             - uses: ./.github/actions/install-skia-dependencies
@@ -101,6 +105,7 @@ jobs:
                   python-version: '3.11'
             - uses: astral-sh/setup-uv@v7
             - name: Install UI test dependencies
+              if: ${{ env.UI_TESTS == 'true' }}
               working-directory: tools/editor/ui-tests
               env:
                   UV_INDEX: slint-private=https://testing.slint.dev/simple/
@@ -114,6 +119,7 @@ jobs:
             - name: Build the visual editor UI test binary
               run: cargo build --locked -p slint-editor --all-features --features slint/mcp
             - name: Run visual editor UI tests
+              if: ${{ env.UI_TESTS == 'true' }}
               working-directory: tools/editor/ui-tests
               env:
                   SLINT_BACKEND: headless-skia
