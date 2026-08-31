@@ -7,9 +7,7 @@ use lsp_types::Url;
 
 use i_slint_live_preview::file_watcher::FileChangeKind;
 
-use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
-use std::rc::Rc;
 
 use crate::editor_preview;
 use crate::editor_preview::LspToPreviews;
@@ -18,48 +16,22 @@ use crate::editor_preview::LspToPreviews;
 pub use i_slint_editor_preview::test::{
     complex_document_cache, empty_document_cache, empty_document_cache_with_experimental, load,
     loaded_document_cache, loaded_document_cache_with_experimental,
-    loaded_document_cache_with_file_name,
+    loaded_document_cache_with_file_name, preview_capture,
 };
 
 use super::Context;
-
-#[cfg(any(feature = "preview-external", feature = "preview-engine"))]
-#[derive(Default)]
-struct CapturePreview {
-    messages: Rc<RefCell<Vec<i_slint_live_preview::protocol::LspToPreviewMessage>>>,
-}
-
-#[cfg(any(feature = "preview-external", feature = "preview-engine"))]
-impl editor_preview::LspToPreview for CapturePreview {
-    fn send(&self, message: &i_slint_live_preview::protocol::LspToPreviewMessage) {
-        self.messages.borrow_mut().push(message.clone());
-    }
-
-    fn preview_target(&self) -> i_slint_live_preview::protocol::PreviewTarget {
-        i_slint_live_preview::protocol::PreviewTarget::Dummy
-    }
-}
-
-#[cfg(any(feature = "preview-external", feature = "preview-engine"))]
-pub(crate) type CapturedPreviewMessages =
-    Rc<RefCell<Vec<i_slint_live_preview::protocol::LspToPreviewMessage>>>;
-
-#[cfg(any(feature = "preview-external", feature = "preview-engine"))]
-pub(crate) fn preview_capture() -> (Rc<LspToPreviews>, CapturedPreviewMessages) {
-    let capture = CapturePreview::default();
-    let messages = capture.messages.clone();
-    (LspToPreviews::with_one(capture), messages)
-}
 
 pub fn mock_context() -> Context {
     crate::language::Context {
         session: editor_preview::EditorSession {
             document_cache: empty_document_cache(),
             preview_config: Default::default(),
-            #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
-            to_show: None,
             open_urls: HashSet::new(),
-            to_preview: LspToPreviews::with_one(editor_preview::DummyLspToPreview::default()),
+            previews: vec![editor_preview::PreviewConnection {
+                to_preview: LspToPreviews::with_one(editor_preview::DummyLspToPreview::default()),
+                #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
+                to_show: None,
+            }],
             pending_recompile: Default::default(),
         },
         server_notifier: crate::ServerNotifier::dummy(),
@@ -203,12 +175,28 @@ fn preview_file_recompiled_when_dependency_changes() {
         r#"import { Dep } from "bar.slint"; export component Main { Dep { } }"#,
     );
 
+    let (secondary_url, _diag) = load(
+        &mut ctx.session,
+        &std::env::current_dir().unwrap().join("xxx/secondary.slint"),
+        r#"import { Dep } from "bar.slint"; export component Secondary { Dep { } }"#,
+    );
+
     // Update context with:
     // - main.slint set as the preview file (to_show)
     // - main.slint NOT in open_urls (simulating it was closed in the editor)
-    ctx.session.to_show = Some(i_slint_live_preview::protocol::PreviewComponent {
-        url: main_url.clone(),
-        component: None,
+    ctx.session.primary_preview_mut().to_show =
+        Some(i_slint_live_preview::protocol::PreviewComponent {
+            url: main_url.clone(),
+            component: None,
+        });
+    ctx.session.previews.push(editor_preview::PreviewConnection {
+        to_preview: editor_preview::LspToPreviews::with_one(
+            editor_preview::DummyLspToPreview::default(),
+        ),
+        to_show: Some(i_slint_live_preview::protocol::PreviewComponent {
+            url: secondary_url.clone(),
+            component: None,
+        }),
     });
 
     spin_on::spin_on(ctx.session.trigger_file_watcher(dep_url.clone(), FileChangeKind::Changed))
@@ -219,6 +207,10 @@ fn preview_file_recompiled_when_dependency_changes() {
     assert!(
         ctx.session.pending_recompile.contains(&main_url),
         "Preview file should be in pending_recompile when its dependency changes"
+    );
+    assert!(
+        ctx.session.pending_recompile.contains(&secondary_url),
+        "Secondary preview file should be in pending_recompile when its dependency changes"
     );
 }
 
@@ -234,7 +226,7 @@ fn request_state_re_sends_only_targeted_files_when_present() {
         r#"export component Main { }"#,
     );
 
-    ctx.session.to_preview = capture;
+    ctx.session.primary_preview_mut().to_preview = capture;
     messages.borrow_mut().clear();
 
     crate::language::send_requested_state_to_preview(&ctx, &[url], &[]);

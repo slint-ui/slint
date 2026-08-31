@@ -248,9 +248,11 @@ pub fn create(
             session: crate::editor_preview::EditorSession {
                 document_cache,
                 preview_config: Default::default(),
-                to_show: Default::default(),
                 open_urls: Default::default(),
-                to_preview,
+                previews: vec![crate::editor_preview::PreviewConnection {
+                    to_preview,
+                    to_show: Default::default(),
+                }],
                 pending_recompile: Default::default(),
             },
             init_param,
@@ -323,6 +325,7 @@ impl SlintServer {
             }
             M::PreviewTypeChanged { target } => {
                 ctx.session
+                    .primary_preview()
                     .to_preview
                     .set_local_target(target)
                     .map_err(|err| js_sys::Error::new(&format!("{err}")))?;

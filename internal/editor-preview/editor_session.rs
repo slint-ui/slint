@@ -24,25 +24,71 @@ use crate::wasm_prelude::*;
 /// Diagnostics paired with the document version for which they were computed.
 pub type VersionedDiagnostics = Vec<(Url, SourceFileVersion, Vec<lsp_types::Diagnostic>)>;
 
+pub struct PreviewConnection {
+    pub to_preview: Rc<crate::LspToPreviews>,
+    /// The last component for which the user clicked "show preview"
+    #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
+    pub to_show: Option<PreviewComponent>,
+}
+
 /// The documents currently being edited, together with the state the preview
 /// needs to follow along.
 pub struct EditorSession {
     pub document_cache: crate::DocumentCache,
     pub preview_config: PreviewConfig,
-    /// The last component for which the user clicked "show preview"
-    #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
-    pub to_show: Option<PreviewComponent>,
     /// File currently open in the editor
     pub open_urls: HashSet<lsp_types::Url>,
-    pub to_preview: Rc<crate::LspToPreviews>,
+    pub previews: Vec<PreviewConnection>,
     /// Files to recompile after all other operations are done
     /// (i.e. recompilations triggered by updates to unopened files)
     pub pending_recompile: HashSet<lsp_types::Url>,
 }
 
 impl EditorSession {
+    pub fn primary_preview(&self) -> &PreviewConnection {
+        self.previews.first().expect("EditorSession must have at least one preview")
+    }
+
+    pub fn primary_preview_mut(&mut self) -> &mut PreviewConnection {
+        self.previews.first_mut().expect("EditorSession must have at least one preview")
+    }
+
+    pub fn preview(&self, preview_index: usize) -> Option<&PreviewConnection> {
+        let preview = self.previews.get(preview_index);
+        if preview.is_none() {
+            tracing::warn!(
+                "Preview index {preview_index} is out of bounds for {} previews",
+                self.previews.len()
+            );
+        }
+        preview
+    }
+
+    pub fn preview_mut(&mut self, preview_index: usize) -> Option<&mut PreviewConnection> {
+        let preview_count = self.previews.len();
+        let preview = self.previews.get_mut(preview_index);
+        if preview.is_none() {
+            tracing::warn!(
+                "Preview index {preview_index} is out of bounds for {preview_count} previews"
+            );
+        }
+        preview
+    }
+
+    pub fn send_to_preview(&self, preview_index: usize, message: &LspToPreviewMessage) {
+        let Some(preview) = self.preview(preview_index) else { return };
+        preview.to_preview.send(message);
+    }
+
+    pub fn send_to_previews(&self, message: &LspToPreviewMessage) {
+        for preview in &self.previews {
+            preview.to_preview.send(message);
+        }
+    }
+
     #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
-    pub fn send_state_to_preview(&self) {
+    pub fn send_state_to_preview(&self, preview_index: usize) {
+        let Some(preview) = self.preview(preview_index) else { return };
         let mut doc_count = 0;
         #[cfg(all(not(target_arch = "wasm32"), feature = "preview-remote"))]
         let mut fonts_sent = HashSet::<PathBuf>::new();
@@ -52,21 +98,26 @@ impl EditorSession {
             }
             let version = self.document_cache.document_version(&url);
 
-            self.to_preview.send(&LspToPreviewMessage::SetContents {
+            preview.to_preview.send(&LspToPreviewMessage::SetContents {
                 url: VersionedUrl::new(url.clone(), version),
                 contents: node.text().to_string().into(),
             });
             #[cfg(all(not(target_arch = "wasm32"), feature = "preview-remote"))]
-            self.send_referenced_fonts(&url, &mut fonts_sent);
+            self.send_referenced_fonts(preview, &url, &mut fonts_sent);
             doc_count += 1;
         }
 
-        self.to_preview
+        preview
+            .to_preview
             .send(&LspToPreviewMessage::SetConfiguration { config: self.preview_config.clone() });
 
-        if let Some(c) = self.to_show.clone() {
-            tracing::debug!("Sending state to preview: {} documents, showing {}", doc_count, c.url);
-            self.to_preview.send(&LspToPreviewMessage::ShowPreview(c));
+        if let Some(component) = preview.to_show.clone() {
+            tracing::debug!(
+                "Sending state to preview: {} documents, showing {}",
+                doc_count,
+                component.url
+            );
+            preview.to_preview.send(&LspToPreviewMessage::ShowPreview(component));
         } else {
             tracing::debug!(
                 "Sending state to preview: {} documents, showing default component",
@@ -81,9 +132,11 @@ impl EditorSession {
     ))]
     pub fn send_files_to_preview(
         &self,
+        preview_index: usize,
         files: &[lsp_types::Url],
         allows_file: impl Fn(&std::path::Path) -> bool,
     ) {
+        let Some(preview) = self.preview(preview_index) else { return };
         #[cfg(feature = "preview-remote")]
         let mut fonts_sent = HashSet::<PathBuf>::new();
         for url in files {
@@ -93,12 +146,12 @@ impl EditorSession {
                 let version = self.document_cache.document_version_by_path(node.source_file.path());
                 let contents = node.text().to_string().into();
                 tracing::debug!("Sending cached file {} to preview", url);
-                self.to_preview.send(&LspToPreviewMessage::SetContents {
+                preview.to_preview.send(&LspToPreviewMessage::SetContents {
                     url: VersionedUrl::new(url.clone(), version),
                     contents,
                 });
                 #[cfg(feature = "preview-remote")]
-                self.send_referenced_fonts(url, &mut fonts_sent);
+                self.send_referenced_fonts(preview, url, &mut fonts_sent);
                 continue;
             }
             let Some(path) = url.to_file_path().ok() else {
@@ -110,20 +163,20 @@ impl EditorSession {
                     "Refusing to send {} to the preview: not a file of the project being previewed",
                     path.display()
                 );
-                self.to_preview.send(&LspToPreviewMessage::ForgetFile { url: url.clone() });
+                preview.to_preview.send(&LspToPreviewMessage::ForgetFile { url: url.clone() });
                 continue;
             }
             match std::fs::read(&path) {
                 Ok(contents) => {
                     tracing::debug!("Sending file {} ({} bytes) to preview", url, contents.len());
-                    self.to_preview.send(&LspToPreviewMessage::SetContents {
+                    preview.to_preview.send(&LspToPreviewMessage::SetContents {
                         url: VersionedUrl::new(url.clone(), None),
                         contents,
                     });
                 }
                 Err(err) => {
                     tracing::warn!("Failed to read file {}: {err}", path.display());
-                    self.to_preview.send(&LspToPreviewMessage::ForgetFile { url: url.clone() });
+                    preview.to_preview.send(&LspToPreviewMessage::ForgetFile { url: url.clone() });
                 }
             }
         }
@@ -136,8 +189,13 @@ impl EditorSession {
     /// (e.g. referenced by an earlier document in the same batch, or sent
     /// before the current edit).
     #[cfg(all(not(target_arch = "wasm32"), feature = "preview-remote"))]
-    fn send_referenced_fonts(&self, doc_url: &Url, sent: &mut HashSet<PathBuf>) {
-        let Some(remote) = self.to_preview.remote() else { return };
+    fn send_referenced_fonts(
+        &self,
+        preview: &PreviewConnection,
+        doc_url: &Url,
+        sent: &mut HashSet<PathBuf>,
+    ) {
+        let Some(remote) = preview.to_preview.remote() else { return };
         let Some(doc) = self.document_cache.get_document(doc_url) else { return };
         // `custom_fonts` holds the resolved path of every font import that
         // passed the compiler's existence check, plus remote URLs.
@@ -173,10 +231,12 @@ impl EditorSession {
     }
 
     #[cfg(any(feature = "preview-builtin", feature = "preview-external"))]
-    pub fn show_preview(&mut self, component: PreviewComponent) {
-        self.pending_recompile.insert(component.url.clone());
-        self.to_show = Some(component.clone());
-        self.to_preview.send(&LspToPreviewMessage::ShowPreview(component));
+    pub fn show_preview(&mut self, preview_index: usize, component: PreviewComponent) {
+        let component_url = component.url.clone();
+        let Some(preview) = self.preview_mut(preview_index) else { return };
+        preview.to_show = Some(component.clone());
+        preview.to_preview.send(&LspToPreviewMessage::ShowPreview(component));
+        self.pending_recompile.insert(component_url);
     }
 
     pub async fn load_document_impl(
@@ -218,7 +278,7 @@ impl EditorSession {
 
         let dependencies = match action {
             FileAction::ProcessContent(content) => {
-                self.to_preview.send(&LspToPreviewMessage::SetContents {
+                self.send_to_previews(&LspToPreviewMessage::SetContents {
                     url: VersionedUrl::new(url.clone(), version),
                     contents: content.clone().into(),
                 });
@@ -226,7 +286,7 @@ impl EditorSession {
                 // already; seed the sent set with them so only fonts added by this
                 // edit are transferred.
                 #[cfg(all(not(target_arch = "wasm32"), feature = "preview-remote"))]
-                let mut fonts_sent: HashSet<PathBuf> = self
+                let fonts_sent: HashSet<PathBuf> = self
                     .document_cache
                     .get_document(&url)
                     .map(|doc| {
@@ -236,12 +296,15 @@ impl EditorSession {
                 let dependencies: HashSet<Url> = self.document_cache.invalidate_url(&url);
                 let _ = self.document_cache.load_url(&url, version, content, &mut diag).await;
                 #[cfg(all(not(target_arch = "wasm32"), feature = "preview-remote"))]
-                self.send_referenced_fonts(&url, &mut fonts_sent);
+                for preview in &self.previews {
+                    let mut fonts_sent_to_preview = fonts_sent.clone();
+                    self.send_referenced_fonts(preview, &url, &mut fonts_sent_to_preview);
+                }
                 dependencies
             }
             FileAction::IgnoreFile => return Default::default(),
             FileAction::InvalidateFile => {
-                self.to_preview.send(&LspToPreviewMessage::ForgetFile { url: url.clone() });
+                self.send_to_previews(&LspToPreviewMessage::ForgetFile { url: url.clone() });
                 self.document_cache.invalidate_url(&url)
             }
         };
@@ -338,13 +401,16 @@ impl EditorSession {
         self.pending_recompile.extend(open_dependencies);
 
         #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
-        if let Some(preview_url) = self.to_show.as_ref().map(|c| c.url.clone()) {
-            // The external preview only has access to the files the LSP recompiled, so we need to
-            // ensure the preview file is recompiled if anything it depends on changes, even if it's
-            // not in the open_urls.
-            if preview_url == url || dependencies.contains(&preview_url) {
-                self.pending_recompile.insert(preview_url);
-            }
+        // The external preview only has access to the files the LSP recompiled, so we need to
+        // ensure the preview file is recompiled if anything it depends on changes, even if it's
+        // not in the open_urls.
+        for preview_url in self
+            .previews
+            .iter()
+            .filter_map(|preview| preview.to_show.as_ref().map(|component| component.url.clone()))
+            .filter(|preview_url| preview_url == &url || dependencies.contains(preview_url))
+        {
+            self.pending_recompile.insert(preview_url);
         }
 
         Ok(())
@@ -353,7 +419,7 @@ impl EditorSession {
     pub async fn drop_document(&mut self, url: lsp_types::Url) -> crate::Result<()> {
         tracing::debug!("Dropping document: {url}");
         // The preview cares about resources and slint files, so forward everything
-        self.to_preview.send(&LspToPreviewMessage::InvalidateContents { url: url.clone() });
+        self.send_to_previews(&LspToPreviewMessage::InvalidateContents { url: url.clone() });
 
         self.drop_document_impl(url)
     }
@@ -364,7 +430,7 @@ impl EditorSession {
     ) -> crate::Result<crate::VersionedDiagnostics> {
         tracing::debug!("Deleting document: {url}");
         // The preview cares about resources and slint files, so forward everything
-        self.to_preview.send(&LspToPreviewMessage::ForgetFile { url: url.clone() });
+        self.send_to_previews(&LspToPreviewMessage::ForgetFile { url: url.clone() });
 
         // The cleared diagnostics below carry the version the document had before the drop.
         let version = self.document_cache.document_version(&url);
@@ -444,4 +510,142 @@ pub fn collect_diagnostics(
             (uri, version, diagnostics)
         })
         .collect()
+}
+
+#[cfg(all(test, any(feature = "preview-external", feature = "preview-engine")))]
+mod tests {
+    use super::*;
+
+    fn session_with_recording_previews()
+    -> (EditorSession, [crate::test::CapturedPreviewMessages; 2]) {
+        let captures = std::array::from_fn(|_| crate::test::preview_capture());
+        let previews = captures
+            .iter()
+            .map(|(to_preview, _)| PreviewConnection {
+                to_preview: to_preview.clone(),
+                to_show: None,
+            })
+            .collect();
+        let messages = captures.map(|(_, messages)| messages);
+        let session = EditorSession {
+            document_cache: crate::test::empty_document_cache(),
+            preview_config: Default::default(),
+            open_urls: Default::default(),
+            previews,
+            pending_recompile: Default::default(),
+        };
+        (session, messages)
+    }
+
+    #[test]
+    fn primary_preview_accessors_return_the_first_connection() {
+        let (mut session, _) = session_with_recording_previews();
+        let component = PreviewComponent {
+            url: Url::parse("file:///primary.slint").unwrap(),
+            component: Some("Primary".into()),
+        };
+
+        session.primary_preview_mut().to_show = Some(component.clone());
+
+        assert_eq!(session.primary_preview().to_show, Some(component));
+        assert!(session.preview(1).unwrap().to_show.is_none());
+    }
+
+    #[test]
+    fn invalid_preview_indexes_are_ignored() {
+        let (mut session, messages) = session_with_recording_previews();
+        let component =
+            PreviewComponent { url: Url::parse("file:///missing.slint").unwrap(), component: None };
+
+        assert!(session.preview(2).is_none());
+        assert!(session.preview_mut(2).is_none());
+        session.send_to_preview(2, &LspToPreviewMessage::Quit);
+        session.send_state_to_preview(2);
+        session.send_files_to_preview(2, &[], |_| true);
+        session.show_preview(2, component);
+
+        assert!(messages.iter().all(|messages| messages.borrow().is_empty()));
+        assert!(session.pending_recompile.is_empty());
+    }
+
+    #[test]
+    fn shared_messages_are_broadcast_to_every_preview() {
+        let (mut session, messages) = session_with_recording_previews();
+        let invalidated_url = Url::parse("file:///invalidated.slint").unwrap();
+        let deleted_url = Url::parse("file:///deleted.slint").unwrap();
+
+        spin_on::spin_on(session.load_document_impl(
+            "export component Shared {}".into(),
+            invalidated_url.clone(),
+            Some(1),
+        ));
+        spin_on::spin_on(session.load_document_impl(
+            "export component Deleted {}".into(),
+            deleted_url.clone(),
+            Some(1),
+        ));
+        session.send_to_previews(&LspToPreviewMessage::SetConfiguration {
+            config: PreviewConfig::default(),
+        });
+        spin_on::spin_on(session.drop_document(invalidated_url)).unwrap();
+        spin_on::spin_on(session.delete_document(deleted_url)).unwrap();
+
+        for messages in messages {
+            let messages = messages.borrow();
+            assert!(
+                messages
+                    .iter()
+                    .any(|message| { matches!(message, LspToPreviewMessage::SetContents { .. }) })
+            );
+            assert!(messages.iter().any(|message| {
+                matches!(message, LspToPreviewMessage::InvalidateContents { .. })
+            }));
+            assert!(
+                messages
+                    .iter()
+                    .any(|message| matches!(message, LspToPreviewMessage::ForgetFile { .. }))
+            );
+            assert!(
+                messages
+                    .iter()
+                    .any(|message| matches!(message, LspToPreviewMessage::SetConfiguration { .. }))
+            );
+        }
+    }
+
+    #[test]
+    fn preview_state_and_files_are_sent_only_to_the_requested_preview() {
+        let (mut session, messages) = session_with_recording_previews();
+        let temp_directory = tempfile::tempdir().unwrap();
+        let path = temp_directory.path().join("requested.slint");
+        std::fs::write(&path, "export component Requested {}").unwrap();
+        let url = Url::from_file_path(path).unwrap();
+        let component = PreviewComponent { url: url.clone(), component: Some("Requested".into()) };
+
+        session.show_preview(1, component.clone());
+        for recorded_messages in &messages {
+            recorded_messages.borrow_mut().clear();
+        }
+
+        session.send_state_to_preview(1);
+        session.send_files_to_preview(1, &[url], |_| true);
+
+        assert!(messages[0].borrow().is_empty());
+        let secondary_messages = messages[1].borrow();
+        assert!(
+            secondary_messages
+                .iter()
+                .any(|message| matches!(message, LspToPreviewMessage::SetConfiguration { .. }))
+        );
+        assert!(secondary_messages.iter().any(|message| {
+            matches!(message, LspToPreviewMessage::ShowPreview(current) if current == &component)
+        }));
+        assert!(
+            secondary_messages
+                .iter()
+                .any(|message| matches!(message, LspToPreviewMessage::SetContents { .. }))
+        );
+        assert!(session.primary_preview().to_show.is_none());
+        assert_eq!(session.preview(1).unwrap().to_show, Some(component));
+    }
 }

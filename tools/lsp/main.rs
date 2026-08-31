@@ -476,10 +476,12 @@ async fn run_main_loop(
         session: crate::editor_preview::EditorSession {
             document_cache: crate::editor_preview::DocumentCache::new(compiler_config),
             preview_config: Default::default(),
-            #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
-            to_show: Default::default(),
             open_urls: Default::default(),
-            to_preview,
+            previews: vec![crate::editor_preview::PreviewConnection {
+                to_preview,
+                #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
+                to_show: Default::default(),
+            }],
             pending_recompile: Default::default(),
         },
         server_notifier,
@@ -796,7 +798,7 @@ async fn handle_preview_to_lsp_message(
         }
         M::PreviewTypeChanged { target } => {
             tracing::debug!("Preview type changed: {target:?}");
-            ctx.session.to_preview.set_local_target(target)?;
+            ctx.session.primary_preview().to_preview.set_local_target(target)?;
         }
         M::RequestState { files, settings } => {
             tracing::debug!("Preview requested state");
@@ -824,7 +826,7 @@ async fn handle_preview_to_lsp_message(
         M::ConnectRemote { addresses, port } => {
             tracing::debug!("Preview asked to connect remote at {addresses:?}:{port}");
             #[cfg(feature = "preview-remote")]
-            if let Some(remote) = ctx.session.to_preview.remote() {
+            if let Some(remote) = ctx.session.primary_preview().to_preview.remote() {
                 // `connect()` owns the dialog state and has the preview
                 // state pushed once connected.
                 crate::editor_preview::spawn_local(remote.connect(addresses, port));
@@ -833,7 +835,7 @@ async fn handle_preview_to_lsp_message(
         M::DisconnectRemote => {
             tracing::debug!("Preview asked to disconnect remote");
             #[cfg(feature = "preview-remote")]
-            if let Some(remote) = ctx.session.to_preview.remote() {
+            if let Some(remote) = ctx.session.primary_preview().to_preview.remote() {
                 crate::editor_preview::spawn_local(remote.disconnect());
             }
         }

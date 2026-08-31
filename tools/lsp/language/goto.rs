@@ -241,11 +241,13 @@ fn test_goto_definition_multi_files() {
         session: editor_preview::EditorSession {
             document_cache: dc,
             preview_config: Default::default(),
-            to_show: None,
             open_urls: Default::default(),
-            to_preview: crate::editor_preview::LspToPreviews::with_one(
-                editor_preview::DummyLspToPreview::default(),
-            ),
+            previews: vec![editor_preview::PreviewConnection {
+                to_preview: crate::editor_preview::LspToPreviews::with_one(
+                    editor_preview::DummyLspToPreview::default(),
+                ),
+                to_show: None,
+            }],
             pending_recompile: Default::default(),
         },
         server_notifier: crate::ServerNotifier::dummy(),

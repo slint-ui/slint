@@ -488,12 +488,17 @@ fn preview_component(path: &Path, component: Option<String>) -> Option<PreviewCo
 
 pub(super) fn request_preview_path(path: &Path, component: Option<String>) -> bool {
     let Some(component) = preview_component(path, component) else { return false };
+    request_preview(component)
+}
+
+fn request_preview(component: PreviewComponent) -> bool {
     let to_lsp = PREVIEW_STATE.with_borrow(|preview_state| preview_state.to_lsp.borrow().clone());
     let Some(to_lsp) = to_lsp else {
         return false;
     };
-    if let Err(err) = to_lsp.send(&PreviewToLspMessage::RequestPreview { component }) {
-        tracing::warn!("Failed to request preview for {}: {err}", path.display());
+    let component_url = component.url.clone();
+    if let Err(error) = to_lsp.send(&PreviewToLspMessage::RequestPreview { component }) {
+        tracing::warn!("Failed to request preview for {component_url}: {error}");
         return false;
     }
     true
@@ -942,9 +947,7 @@ fn show_preview_for(name: slint::SharedString, url: slint::SharedString) {
         return;
     };
 
-    let current = PreviewComponent { url, component: Some(name) };
-
-    load_preview(current, LoadBehavior::Load);
+    request_preview(PreviewComponent { url, component: Some(name) });
 }
 
 /// An item in the preview UI being dragged.
@@ -1879,8 +1882,6 @@ pub enum LoadBehavior {
     /// We reload the preview, most likely because a file has changed
     Reload,
     /// Load the preview and make the window visible if it wasn't already.
-    Load,
-    /// Load the preview and make the window visible if it wasn't already.
     LoadWithoutLiveData,
     /// We show the preview because the user asked for it. The UI should become visible and focused if it wasn't already
     BringWindowToFront,
@@ -1994,9 +1995,7 @@ pub fn load_preview(preview_component: PreviewComponent, behavior: LoadBehavior)
     PREVIEW_STATE.with_borrow_mut(|preview_state| {
         match behavior {
             LoadBehavior::Reload => {}
-            LoadBehavior::Load
-            | LoadBehavior::LoadWithoutLiveData
-            | LoadBehavior::BringWindowToFront => {
+            LoadBehavior::LoadWithoutLiveData | LoadBehavior::BringWindowToFront => {
                 preview_state.set_current_component(preview_component)
             }
         }
