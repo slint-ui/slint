@@ -1,8 +1,6 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cspell:ignore slinterface
-
 import { Palette } from "std-widgets.slint";
 import { Project } from "project.slint";
 
@@ -45,7 +43,7 @@ component BrandMark inherits Rectangle {
     Image {
         width: parent.width * 56%;
         height: parent.height * 56%;
-        source: @image-url("assets/slinterface-mark.svg");
+        source: @image-url("assets/slint-mark.svg");
         colorize: white;
         opacity: 0.94;
     }
@@ -62,8 +60,8 @@ component ActionIcon inherits Rectangle {
         width: 18px;
         height: 18px;
         source: root.folder
-            ? @image-url("assets/slinterface-primer-folder-open.svg")
-            : @image-url("assets/slinterface-primer-plus-circle.svg");
+            ? @image-url("assets/primer-folder-open.svg")
+            : @image-url("assets/primer-plus-circle.svg");
         colorize: WizardTheme.muted;
     }
 }
@@ -148,7 +146,7 @@ component RecentProjectRow inherits Rectangle {
         Image {
             width: 27px;
             height: 27px;
-            source: @image-url("assets/slinterface-primer-file-code.svg");
+            source: @image-url("assets/primer-file-code.svg");
             colorize: root.selected ? white : WizardTheme.accent;
         }
 
@@ -244,7 +242,7 @@ export component StartupWizard inherits Rectangle {
             y: brand.y + brand.height + 18px;
             width: root.main-width;
             height: 37px;
-            text: "Slinterface Pro";
+            text: "Slint Visual Editor";
             color: WizardTheme.text;
             font-size: 34px;
             font-weight: 600;

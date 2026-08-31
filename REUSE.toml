@@ -224,7 +224,7 @@ path = [
   "tools/editor/packaging/tile-backdrop-wide.svg",
   "tools/editor/packaging/tile-backdrop.svg",
   "tools/editor/packaging/windows-appx/Package.appxmanifest.in",
-  "tools/editor/ui/assets/slinterface-*.svg",
+  "tools/editor/ui/assets/**.svg",
   "tools/editor/ui/visual-editor/example/image.png",
   "tools/editor/ui/visual-editor/example/title-frame.png",
 ]
