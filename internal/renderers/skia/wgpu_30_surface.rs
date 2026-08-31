@@ -267,14 +267,23 @@ impl crate::Surface for WGPUSurface {
                     && let Ok(surface) = shared.instance.create_surface(make_target())
                     && shared.adapter.is_surface_supported(&surface)
                 {
-                    return Self::init_with_parts(
+                    match Self::init_with_parts(
                         shared.instance,
                         &shared.adapter,
                         shared.device,
                         shared.queue,
                         surface,
                         size,
-                    );
+                    ) {
+                        Ok(surface) => return Ok(surface),
+                        Err(err) => {
+                            // The shared device may be lost. Drop it and start over.
+                            i_slint_core::debug_log!(
+                                "Failed to reuse the shared WGPU device: {err} . Re-initializing"
+                            );
+                            *shared_context.0.wgpu_30_state.borrow_mut() = None;
+                        }
+                    }
                 }
             }
         }
@@ -285,17 +294,25 @@ impl crate::Surface for WGPUSurface {
                 requested_graphics_api,
                 backends_to_avoid(),
             )?;
+        let new_surface = Self::init_with_parts(
+            instance.clone(),
+            &adapter,
+            device.clone(),
+            queue.clone(),
+            surface,
+            size,
+        )?;
         if !manual_configuration {
             *shared_context.0.wgpu_30_state.borrow_mut() = Some(SharedWgpuState {
-                instance: instance.clone(),
-                adapter: adapter.clone(),
-                device: device.clone(),
-                queue: queue.clone(),
+                instance,
+                adapter,
+                device,
+                queue,
                 #[cfg(feature = "unstable-wgpu-30")]
                 settings: requested_settings,
             });
         }
-        Self::init_with_parts(instance, &adapter, device, queue, surface, size)
+        Ok(new_surface)
     }
 
     fn name(&self) -> &'static str {
