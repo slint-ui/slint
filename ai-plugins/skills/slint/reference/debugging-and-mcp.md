@@ -62,10 +62,6 @@ When the assistant host can display local images inline, include the rendered
 screenshot in the chat. In CLI-only hosts, print the absolute image path and
 summarize what was visually checked.
 
-Commit a screenshot into the repo too and show it in `README.md`. Save the
-render (e.g. `screenshot.png`) and reference it: `![screenshot](screenshot.png)`.
-It shows off the UI to anyone browsing the project.
-
 ## MCP Server for AI-Assisted Debugging
 
 Slint ships an embedded MCP server `(1.17+)`: walk the UI tree, read
