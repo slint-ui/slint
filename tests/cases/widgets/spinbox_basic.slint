@@ -62,6 +62,37 @@ assert_eq!(instance.get_value(), 40);
 assert_eq!(&*edits.borrow(), &[40_i32]);
 edits.borrow_mut().clear();
 
+// Stepping leaves the cursor at the end of the new text, so typing appends to it
+instance.set_value(10);
+mock_elapsed_time(1);
+// Move the cursor to the start
+for _ in 0..4 {
+    slint_testing::send_keyboard_char(&instance, Key::LeftArrow.into(), true);
+}
+edits.borrow_mut().clear();
+
+slint_testing::send_keyboard_char(&instance, Key::DownArrow.into(), true);
+assert_eq!(instance.get_value(), 9);
+slint_testing::send_keyboard_char(&instance, '5', true);
+assert_eq!(instance.get_value(), 95);
+assert_eq!(&*edits.borrow(), &[9_i32, 95_i32]);
+
+// Same, for a value that grows a digit
+instance.set_value(9);
+mock_elapsed_time(1);
+edits.borrow_mut().clear();
+
+slint_testing::send_keyboard_char(&instance, Key::UpArrow.into(), true);
+assert_eq!(instance.get_value(), 10);
+// Backspace at the end of "10" leaves 1; from the middle it would leave 0
+slint_testing::send_keyboard_char(&instance, Key::Backspace.into(), true);
+assert_eq!(instance.get_value(), 1);
+assert_eq!(&*edits.borrow(), &[10_i32, 1_i32]);
+
+instance.set_value(40);
+mock_elapsed_time(1);
+edits.borrow_mut().clear();
+
 // This position happens to work with all styles
 let position = LogicalPosition::new(40.0, 50.0);
 
