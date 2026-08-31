@@ -1,0 +1,32 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Regression test for https://github.com/slint-ui/slint/issues/6581: a drop shadow on a
+// Rectangle with a transparent fill and only a border used to fill the entire, transparent
+// interior with the shadow color instead of leaving it untouched.
+//
+// SIZE=300x300
+// BASE_THRESHOLD=3
+// The software renderer doesn't implement box shadows yet (see the femtovg/software TODO), and
+// the anyrender/vello_cpu backend still has this bug open separately.
+//ignore: software, anyrender, vello_cpu
+
+export component TestCase inherits Window {
+    width: 300px;
+    height: 300px;
+    background: white;
+
+    Rectangle {
+        x: 10px;
+        y: 10px;
+        width: 150px;
+        height: 150px;
+        border-width: 10px;
+        border-color: green;
+
+        drop-shadow-blur: 5px;
+        drop-shadow-offset-x: 10px;
+        drop-shadow-offset-y: 10px;
+        drop-shadow-color: red;
+    }
+}
