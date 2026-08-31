@@ -284,8 +284,7 @@ fn create_default_surface(
         ("software", surface_factory::<software_surface::SoftwareSurface>),
     ];
 
-    let mut last_error =
-        PlatformError::from("No Skia surface implementation was enabled at compile time");
+    let mut errors = Vec::new();
     for (index, (name, factory)) in candidates.iter().enumerate() {
         match factory(
             context,
@@ -306,11 +305,16 @@ fn create_default_surface(
                         ""
                     }
                 );
-                last_error = err;
+                errors.push(format!("{name}: {err}"));
             }
         }
     }
-    Err(last_error)
+
+    Err(if errors.is_empty() {
+        "No Skia surface implementation was enabled at compile time".into()
+    } else {
+        format!("Could not initialize any Skia surface. Tried {}", errors.join(", ")).into()
+    })
 }
 
 enum DirtyRegionDebugMode {
