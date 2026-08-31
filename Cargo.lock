@@ -7679,6 +7679,7 @@ dependencies = [
  "clap",
  "clru",
  "crossbeam-channel",
+ "futures-util",
  "i-slint-backend-selector",
  "i-slint-backend-testing",
  "i-slint-common",

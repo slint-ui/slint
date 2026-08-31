@@ -37,6 +37,7 @@ by_address = { workspace = true }
 clap = { workspace = true }
 clru = { workspace = true }
 crossbeam-channel = "0.5"
+futures-util = "0.3.32"
 itertools = { workspace = true }
 lsp-types = { workspace = true }
 nucleo-matcher = "0.3.1"
