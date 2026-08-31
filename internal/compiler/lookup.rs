@@ -863,6 +863,13 @@ impl LookupObject for Arc<Enumeration> {
             return None;
         }
         for (value, name) in self.values.iter().enumerate() {
+            // Don't offer `auto` in completion for `cross-axis-alignment`, where setting it is an error; `lookup` stays unfiltered.
+            if name == "auto"
+                && self.name == "CrossAxisAlignment"
+                && ctx.property_name == Some("cross-axis-alignment")
+            {
+                continue;
+            }
             if let Some(r) = f(
                 name,
                 Expression::EnumerationValue(EnumerationValue { value, enumeration: self.clone() })
@@ -872,6 +879,18 @@ impl LookupObject for Arc<Enumeration> {
             }
         }
         None
+    }
+
+    fn lookup(&self, ctx: &LookupCtx, name: &SmolStr) -> Option<LookupResult> {
+        // Builtin enums are not in the Slint SC subset.
+        if ctx.diag.is_slint_sc() && self.node.is_none() {
+            return None;
+        }
+        let value = self.values.iter().position(|v| v == name)?;
+        Some(
+            Expression::EnumerationValue(EnumerationValue { value, enumeration: self.clone() })
+                .into(),
+        )
     }
 }
 
