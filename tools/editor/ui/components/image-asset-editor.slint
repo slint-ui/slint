@@ -94,6 +94,9 @@ component FloatingReadOnlyField inherits Rectangle {
     height: 24px;
     border-radius: 4px;
     background: StudioTheme.dark ? #383838aa : #f5f5f5cc;
+    accessible-role: AccessibleRole.text;
+    accessible-label: root.prefix;
+    accessible-value: root.value;
 
     HorizontalLayout {
         padding-left: 8px;
@@ -280,6 +283,9 @@ export component ImageAssetEditor inherits Rectangle {
 
     horizontal-stretch: 1;
     background: StudioTheme.canvas;
+    accessible-role: AccessibleRole.main;
+    accessible-label: "Image asset editor";
+    accessible-description: Api.selected-image-asset.relative-path;
 
     private property <ImageAssetEditorMode> mode: ImageAssetEditorMode.preview;
     private property <string> asset-path: Api.selected-image-asset.path;

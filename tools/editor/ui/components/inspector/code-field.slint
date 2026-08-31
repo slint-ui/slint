@@ -5,6 +5,7 @@ import { InspectorTokens } from "tokens.slint";
 import { InspectorTextFieldBase } from "text-field-base.slint";
 
 export component InspectorCodeField inherits Rectangle {
+    in property <string> accessible-name: "";
     in property <string> prefix: "";
     in property <string> value;
     in property <string> commit-key: "";
@@ -14,6 +15,7 @@ export component InspectorCodeField inherits Rectangle {
     height: InspectorTokens.field-height;
 
     InspectorTextFieldBase {
+        accessible-name: root.accessible-name;
         width: parent.width;
         value: root.value;
         commit-key: root.commit-key;

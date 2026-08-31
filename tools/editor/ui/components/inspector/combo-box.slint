@@ -6,6 +6,7 @@ import { InspectorComboOption, InspectorTokens } from "tokens.slint";
 import { ScrollView } from "std-widgets.slint";
 
 export component InspectorComboBox inherits Rectangle {
+    in property <string> accessible-name: "";
     in property <string> prefix: "";
     in property <string> value;
     in property <int> selected-index: -1;
@@ -22,6 +23,7 @@ export component InspectorComboBox inherits Rectangle {
     border-width: fallback-popup.is-open || combo-focus.has-focus ? 1px : 0px;
     border-color: InspectorTokens.accent;
     accessible-role: AccessibleRole.combobox;
+    accessible-label: root.accessible-name;
     accessible-value: root.value;
     accessible-expanded: fallback-popup.is-open;
     accessible-action-expand => {
@@ -29,6 +31,9 @@ export component InspectorComboBox inherits Rectangle {
     }
     accessible-action-default => {
         root.show-popup();
+    }
+    accessible-action-set-value(value) => {
+        root.accepted(value);
     }
 
     private property <length> row-height: 26px;

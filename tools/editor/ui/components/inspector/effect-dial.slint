@@ -4,6 +4,7 @@
 import { InspectorTokens } from "tokens.slint";
 
 export component InspectorEffectDial inherits Rectangle {
+    in property <string> accessible-name: "";
     in property <angle> value: 90deg;
     callback accepted(angle) -> bool;
 
@@ -17,6 +18,16 @@ export component InspectorEffectDial inherits Rectangle {
     border-width: touch.pressed ? 1px : 0px;
     border-color: InspectorTokens.accent;
     animate background { duration: 120ms; }
+    accessible-role: AccessibleRole.slider;
+    accessible-label: root.accessible-name;
+    accessible-value: "\{root.normalized-angle(root.visual-value()) / 1deg}";
+    accessible-value-minimum: 0;
+    accessible-value-maximum: 359;
+    accessible-action-set-value(value) => {
+        if value.is-float() {
+            root.accepted(value.to-float() * 1deg);
+        }
+    }
 
     pure function normalized-angle(angle: angle) -> angle {
         let value = angle.mod(360deg);

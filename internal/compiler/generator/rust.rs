@@ -19,7 +19,8 @@ use crate::langtype::{DeclNode, Enumeration, EnumerationValue, Struct, StructNam
 use crate::layout::Orientation;
 use crate::llr::lower_expression::lower_constant_expression;
 use crate::llr::lower_layout_expression::{
-    CROSS_HEIGHT_LOCAL, CROSS_WIDTH_LOCAL, MEASURE_KNOWN_H_LOCAL, MEASURE_KNOWN_W_LOCAL,
+    CROSS_HEIGHT_LOCAL, CROSS_WIDTH_LOCAL, GRID_MEASURE_CHILD_INDEX_LOCAL,
+    GRID_MEASURE_REPEATER_INDEX_LOCAL, MEASURE_KNOWN_H_LOCAL, MEASURE_KNOWN_W_LOCAL,
 };
 use crate::llr::{
     self, ArrayOutput, EvaluationContext as llr_EvaluationContext, EvaluationScope, Expression,
@@ -2726,7 +2727,7 @@ fn generate_repeated_component(
     let ctx = EvaluationContext {
         compilation_unit: unit,
         current_scope: EvaluationScope::SubComponent(repeated.sub_tree.root, Some(parent_ctx)),
-        generator_state: RustGeneratorContext { global_access: quote!(_self) },
+        generator_state: RustGeneratorContext { global_access: quote!(_self.globals()) },
         argument_types: &[],
     };
 
@@ -2754,7 +2755,7 @@ fn generate_repeated_component(
                         write_idx += 1;
                         static_idx += 1;
                     },
-                    llr::RowChildTemplateInfo::Repeated { repeater_index } => {
+                    llr::RowChildTemplateInfo::Repeated { repeater_index, .. } => {
                         let inner_rep_id =
                             format_ident!("repeater{}", usize::from(*repeater_index));
                         quote! {
@@ -2870,19 +2871,26 @@ fn generate_repeated_component(
                 // the row-scan literals below default those fields.
                 debug_assert!(root_sc.cross_axis_self_alignment_for_repeated.is_none());
                 debug_assert!(root_sc.layout_order_for_repeated.is_none());
-                // Create a context with proper global_access for compiling layout info expressions
-                let layout_ctx = EvaluationContext {
-                    compilation_unit: unit,
-                    current_scope: EvaluationScope::SubComponent(
-                        repeated.sub_tree.root,
-                        Some(parent_ctx),
-                    ),
-                    generator_state: RustGeneratorContext {
-                        global_access: quote!(_self.globals()),
-                    },
-                    argument_types: &[],
-                };
 
+                // A GridLayout measures an inner repeated child at the column
+                // width it assigns it, like the static children measure at
+                // their own (lazily pulled) width.
+                let inner_constraint = |measure_at_cross_width: bool| {
+                    let Some(e) =
+                        root_sc.grid_row_child_cross_width.as_ref().filter(|_| measure_at_cross_width)
+                    else {
+                        return quote!(inner.as_pin_ref().layout_info(o));
+                    };
+                    let idx = ident(GRID_MEASURE_CHILD_INDEX_LOCAL);
+                    let w = compile_expression(&e.borrow(), &ctx);
+                    quote!(match o {
+                        sp::Orientation::Vertical => inner
+                            .as_pin_ref()
+                            .layout_item_info_at_cross_width(({ let #idx = index; #w }) as f32)
+                            .constraint,
+                        sp::Orientation::Horizontal => inner.as_pin_ref().layout_info(o),
+                    })
+                };
                 let body = if let Some(templates) = &root_sc.row_child_templates {
                     // Generate a sequential scan through all templates in declaration order.
                     // For each Static: check if count == index and return the precomputed info.
@@ -2897,9 +2905,9 @@ fn generate_repeated_component(
                             llr::RowChildTemplateInfo::Static { child_index } => {
                                 let child = &root_sc.grid_layout_children[*child_index];
                                 let layout_info_h_code =
-                                    compile_expression(&child.layout_info_h.borrow(), &layout_ctx);
+                                    compile_expression(&child.layout_info_h.borrow(), &ctx);
                                 let layout_info_v_code =
-                                    compile_expression(&child.layout_info_v.borrow(), &layout_ctx);
+                                    compile_expression(&child.layout_info_v.borrow(), &ctx);
                                 let advance = (!is_last).then(|| quote! { count += 1; });
                                 quote! {
                                     if count == index {
@@ -2914,9 +2922,13 @@ fn generate_repeated_component(
                                     #advance
                                 }
                             }
-                            llr::RowChildTemplateInfo::Repeated { repeater_index } => {
+                            llr::RowChildTemplateInfo::Repeated {
+                                repeater_index,
+                                measure_at_cross_width,
+                            } => {
                                 let inner_rep_id =
                                     format_ident!("repeater{}", usize::from(*repeater_index));
+                                let inner_constraint = inner_constraint(*measure_at_cross_width);
                                 let advance = (!is_last).then(|| quote! { count += inner_len; });
                                 quote! {
                                     {
@@ -2925,7 +2937,7 @@ fn generate_repeated_component(
                                         if index >= count && index - count < inner_len {
                                             if let Some(inner) = _self.#inner_rep_id.instance_at(index - count) {
                                                 return sp::LayoutItemInfo {
-                                                    constraint: inner.as_pin_ref().layout_info(o),
+                                                    constraint: #inner_constraint,
                                                     ..::core::default::Default::default()
                                                 };
                                             }
@@ -3688,7 +3700,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             let prop_type = ctx.property_ty(nr);
             primitive_property_value(prop_type, access)
         }
-        Expression::BuiltinFunctionCall { function, arguments } => {
+        Expression::BuiltinFunctionCall { function, arguments, .. } => {
             compile_builtin_function_call(function.clone(), arguments, ctx)
         }
         Expression::CallBackCall { .. } => compile_callback_call(expr, ctx),
@@ -5132,7 +5144,7 @@ fn compile_builtin_function_call(
             quote!({
                 let model = &#model;
                 let value = #value;
-                model.push_row(value);
+                sp::report_model_error("push", None, model.push_row(value));
             })
         }
         BuiltinFunction::ArrayRemove => {
@@ -5140,8 +5152,11 @@ fn compile_builtin_function_call(
             let index = a.next().unwrap();
             quote!({
                 let model = &#model;
-                let index = #index;
-                model.remove_row(index as isize);
+                let result = match usize::try_from(#index) {
+                    Ok(index) => model.remove_row(index),
+                    Err(_) => Err(sp::ModelError::out_of_bounds(model.row_count())),
+                };
+                sp::report_model_error("remove", None, result);
             })
         }
         BuiltinFunction::ArrayInsert => {
@@ -5152,7 +5167,11 @@ fn compile_builtin_function_call(
                 let model = &#model;
                 let index = #index;
                 let value = #value;
-                model.insert_row(index as isize, value);
+                let result = match usize::try_from(index) {
+                    Ok(index) => model.insert_row(index, value),
+                    Err(_) => Err(sp::ModelError::out_of_bounds(model.row_count())),
+                };
+                sp::report_model_error("insert", None, result);
             })
         }
         BuiltinFunction::Rgb => {
@@ -5589,7 +5608,7 @@ fn build_inner_track_and_len(
     templates
         .iter()
         .filter_map(|e| match e {
-            llr::RowChildTemplateInfo::Repeated { repeater_index } => {
+            llr::RowChildTemplateInfo::Repeated { repeater_index, .. } => {
                 let inner_rep_id = format_ident!("repeater{}", usize::from(*repeater_index));
                 Some(quote! {
                     #row_inner_component_id::FIELD_OFFSETS.#inner_rep_id().apply_pin(pin).track_instance_changes();
@@ -5805,6 +5824,14 @@ fn generate_with_layout_item_info(
                 push_code.push(quote!(items_vec.push(#value);))
             }
             Either::Right(repeater) => {
+                // A grid measures each instance at its own solved column width,
+                // read from the horizontal cache with the loop counter bound to
+                // `GRID_MEASURE_REPEATER_INDEX_LOCAL`.
+                let grid_cross_width = repeater.cross_width.as_ref().map(|e| {
+                    let idx = ident(GRID_MEASURE_REPEATER_INDEX_LOCAL);
+                    let w = compile_expression(e, ctx);
+                    quote!({ let #idx = i; #w })
+                });
                 let repeater_push_code = generate_repeater_push_code(
                     repeater.repeater_index,
                     &repeater.row_child_templates,
@@ -5849,18 +5876,24 @@ fn generate_with_layout_item_info(
                             quote!()
                         } else if step == 1 && is_column_repeater {
                             // Column-repeater: each sub-component IS a cell; None returns its own layout_info
-                            let item_info = match (&cross_size_init, orientation) {
-                                (Some(_), Orientation::Vertical) => quote!(
+                            let item_info = match (&cross_size_init, &grid_cross_width, orientation)
+                            {
+                                (Some(_), _, Orientation::Vertical) => quote!(
                                     sub_comp
                                         .as_pin_ref()
                                         .layout_item_info_at_cross_width(box_cross_size)
                                 ),
-                                (Some(_), Orientation::Horizontal) => quote!(
+                                (Some(_), _, Orientation::Horizontal) => quote!(
                                     sub_comp
                                         .as_pin_ref()
                                         .layout_item_info_at_cross_height(box_cross_size)
                                 ),
-                                (None, _) => quote!(
+                                (None, Some(w), _) => quote!(
+                                    sub_comp
+                                        .as_pin_ref()
+                                        .layout_item_info_at_cross_width((#w) as f32)
+                                ),
+                                (None, None, _) => quote!(
                                     sub_comp.as_pin_ref().layout_item_info(#orientation, None)
                                 ),
                             };

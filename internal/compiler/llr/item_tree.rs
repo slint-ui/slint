@@ -39,7 +39,15 @@ pub enum RowChildTemplateInfo {
     /// A static child. `child_index` is an index into `SubComponent::grid_layout_children`.
     Static { child_index: GridLayoutChildIdx },
     /// An inner repeated child.
-    Repeated { repeater_index: RepeatedElementIdx },
+    Repeated {
+        repeater_index: RepeatedElementIdx,
+        /// Whether this child's width comes from the grid's horizontal cache,
+        /// so `layout_item_info(Vertical, ..)` may measure it at that width
+        /// through `SubComponent::grid_row_child_cross_width`. False for a
+        /// child that is not height-for-width (nothing to re-measure) or that
+        /// has a fixed width (the grid never assigns it one).
+        measure_at_cross_width: bool,
+    },
 }
 
 /// Returns `true` if the optional template list contains at least one inner repeater.
@@ -60,6 +68,13 @@ pub struct LayoutRepeatedElement {
     /// Template of children for a repeated Row (statics and inner repeaters in declaration order).
     /// `None` means a single child per repeater entry (no Row with multiple children).
     pub row_child_templates: Option<Vec<RowChildTemplateInfo>>,
+    /// GridLayout vertical pass only: reads this cell's solved column width out
+    /// of the grid's horizontal cache, once per instance with
+    /// `GRID_MEASURE_REPEATER_INDEX_LOCAL` bound to the instance index. The
+    /// generated code measures each instance through
+    /// `layout_item_info_at_cross_width` at that width, so a height-for-width
+    /// instance wraps like an equivalent static cell. `None` everywhere else.
+    pub cross_width: Option<Expression>,
 }
 
 #[derive(Debug, Clone)]
@@ -586,6 +601,15 @@ pub struct SubComponent {
     /// calls with the height it assigned so a repeated cell resolves to the
     /// same width as an equivalent static cell.
     pub layout_info_h_at_cross_height_for_repeated: Option<MutExpression>,
+    /// GridLayout repeated Row only: reads the solved column width of the child
+    /// at `GRID_MEASURE_CHILD_INDEX_LOCAL` out of the grid's horizontal cache.
+    /// `layout_item_info(Vertical, Some(i))` measures an inner repeated child at
+    /// that width, so it wraps like a static one — which reads its own width
+    /// through its geometry binding. A Row child's cache slot is addressed by
+    /// its flattened index, so this one expression serves every child; which
+    /// children it applies to is `RowChildTemplateInfo::Repeated`'s
+    /// `measure_at_cross_width`. `Some` when at least one of them sets it.
+    pub grid_row_child_cross_width: Option<MutExpression>,
     /// True when this is a repeated Row in a GridLayout, meaning layout_item_info
     /// needs to be able to return layout info for individual children
     pub is_repeated_row: bool,
@@ -841,6 +865,9 @@ impl CompilationUnit {
                 visitor(e, ctx);
             }
             if let Some(e) = &sc.layout_info_h_at_cross_height_for_repeated {
+                visitor(e, ctx);
+            }
+            if let Some(e) = &sc.grid_row_child_cross_width {
                 visitor(e, ctx);
             }
             for e in sc.accessible_prop.values() {

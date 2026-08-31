@@ -51,9 +51,13 @@ component EditorTreeRow {
     accessible-description: "Hierarchy level \{root.level-safe}";
     accessible-item-selectable: true;
     accessible-item-selected: root.current;
+    accessible-expanded: root.node.has-children && root.node.is-expanded;
     accessible-action-default => {
         row-focus.focus();
         root.select();
+    }
+    accessible-action-expand => {
+        root.toggle-expanded();
     }
 
     changed row-has-hover => {

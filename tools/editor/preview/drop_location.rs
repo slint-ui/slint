@@ -674,22 +674,6 @@ fn find_drop_location(
     find_filtered_location(component_instance, position, filter, mark, component_type)
 }
 
-fn find_move_location(
-    component_instance: &ComponentInstance,
-    position: LogicalPoint,
-    selected_element: &i_slint_editor_preview::ElementRcNode,
-    component_type: &str,
-) -> Option<DropInformation> {
-    let se = selected_element.clone();
-    let filter = Box::new(move |e: &i_slint_editor_preview::ElementRcNode| {
-        *e == se || !e.is_same_component_as(&se)
-    });
-    let se = selected_element.clone();
-    let mark = Box::new(move |e: &i_slint_editor_preview::ElementRcNode| *e == se);
-
-    find_filtered_location(component_instance, position, filter, mark, component_type)
-}
-
 fn find_filtered_location(
     component_instance: &ComponentInstance,
     position: LogicalPoint,
@@ -871,75 +855,6 @@ pub fn edited_text_compiles(
     } else {
         preview::CompilationResult::ChangeCompiles
     }
-}
-
-/// Find the Element to insert into. None means we can not insert at this point.
-pub fn can_move_to(
-    document_cache: &i_slint_editor_preview::DocumentCache,
-    position: LogicalPoint,
-    mouse_position: LogicalPoint,
-    element_node: i_slint_editor_preview::ElementRcNode,
-    instance_index: usize,
-) -> bool {
-    let Some(component_instance) = preview::component_instance() else {
-        return false;
-    };
-
-    let component_type = element_node.component_type();
-    let dm =
-        find_move_location(&component_instance, mouse_position, &element_node, &component_type);
-
-    let can_move = if let Some(dm) = &dm {
-        // Cache compilation results:
-        #[derive(Clone, Debug, Hash, Eq, PartialEq)]
-        struct CacheEntry {
-            source_element: by_address::ByAddress<object_tree::ElementRc>,
-            source_node_index: usize,
-            target_element: by_address::ByAddress<object_tree::ElementRc>,
-            target_node_index: usize,
-            child_index: usize,
-        }
-        let cache_entry = CacheEntry {
-            source_element: by_address::ByAddress(element_node.element.clone()),
-            source_node_index: element_node.debug_index,
-            target_element: by_address::ByAddress(dm.target_element_node.element.clone()),
-            target_node_index: dm.target_element_node.debug_index,
-            child_index: dm.child_index,
-        };
-
-        thread_local!(static CACHE: RefCell<clru::CLruCache<CacheEntry, bool>> = RefCell::new(clru::CLruCache::new(NonZeroUsize::new(10).unwrap())));
-        CACHE.with_borrow_mut(|cache| {
-            if let Some(does_compile) = cache.get(&cache_entry) {
-                *does_compile
-            } else {
-                let does_compile = if let Some((edit, _)) = create_move_element_workspace_edit(
-                    &component_instance,
-                    dm,
-                    &element_node,
-                    instance_index,
-                    position,
-                    document_cache.format,
-                ) {
-                    workspace_edit_compiles(document_cache, &edit)
-                        == preview::CompilationResult::ChangeCompiles
-                } else {
-                    false
-                };
-                cache.put(cache_entry, does_compile);
-                does_compile
-            }
-        })
-    } else {
-        false
-    };
-
-    if can_move {
-        preview::set_drop_mark(&dm.unwrap().drop_mark);
-    } else {
-        preview::set_drop_mark(&None);
-    }
-
-    can_move
 }
 
 /// Extra data on an added Element, relevant to the Preview side only.
@@ -1321,54 +1236,6 @@ pub fn create_drop_element_workspace_edit_with_properties(
     ))
 }
 
-pub fn create_move_element_workspace_edit(
-    component_instance: &ComponentInstance,
-    drop_info: &DropInformation,
-    element: &i_slint_editor_preview::ElementRcNode,
-    instance_index: usize,
-    position: LogicalPoint,
-    format: i_slint_editor_preview::ByteFormat,
-) -> Option<(lsp_types::WorkspaceEdit, DropData)> {
-    let parent_of_element = element.parent();
-
-    let placeholder_text = if Some(&drop_info.target_element_node) == parent_of_element.as_ref() {
-        // We are moving within ourselves!
-
-        let size =
-            element.geometries(component_instance).get(instance_index).map(|g| g.rect.size)?;
-
-        if drop_info.target_element_node.layout_kind() == ui::LayoutKind::None {
-            let (edit, _) = preview::resize_selected_element_impl(
-                element,
-                instance_index,
-                LogicalRect::new(position, size),
-            )?;
-            let (path, selection_offset) = element.path_and_offset();
-            return Some((edit, DropData { selection_offset, path }));
-        } else {
-            let children = &drop_info.target_element_node.children();
-            let drop_index = if drop_info.child_index == usize::MAX {
-                children.len() - 1
-            } else {
-                drop_info.child_index
-            };
-            if children.get(drop_index).is_some_and(|c| c == element) {
-                // Dropped onto myself: Ignore the move
-                return None;
-            }
-        }
-
-        /* fall trough to the general case here */
-        String::new()
-    } else if parent_of_element.map(|p| p.children().len()).unwrap_or_default() == 1 {
-        placeholder()
-    } else {
-        String::new()
-    };
-
-    create_swap_element_workspace_edit(drop_info, element, placeholder_text, format)
-}
-
 pub fn create_swap_element_workspace_edit(
     drop_info: &DropInformation,
     element: &i_slint_editor_preview::ElementRcNode,
@@ -1483,41 +1350,6 @@ pub fn create_swap_element_workspace_edit(
         i_slint_editor_preview::editing::create_workspace_edit_from_single_text_edits(edits),
         DropData { selection_offset, path },
     ))
-}
-
-/// Find a location in a file that would be a good place to insert the new component at
-///
-/// Return a WorkspaceEdit to send to the editor and extra info for the live preview in
-/// the DropData struct.
-pub fn move_element_to(
-    document_cache: &i_slint_editor_preview::DocumentCache,
-    element: i_slint_editor_preview::ElementRcNode,
-    instance_index: usize,
-    position: LogicalPoint,
-    mouse_position: LogicalPoint,
-) -> Option<(lsp_types::WorkspaceEdit, DropData)> {
-    let component_instance = preview::component_instance()?;
-    let Some(drop_info) = find_move_location(
-        &component_instance,
-        mouse_position,
-        &element,
-        &element.component_type(),
-    ) else {
-        // Can not drop here: Ignore the move
-        return None;
-    };
-    create_move_element_workspace_edit(
-        &component_instance,
-        &drop_info,
-        &element,
-        instance_index,
-        position,
-        document_cache.format,
-    )
-    .and_then(|(e, d)| {
-        (workspace_edit_compiles(document_cache, &e) == preview::CompilationResult::ChangeCompiles)
-            .then_some((e, d))
-    })
 }
 
 #[cfg(test)]

@@ -676,7 +676,7 @@ fn handle_builtin_function(
             };
             let value = eval_expression(&arguments[1], local_context, None);
 
-            model.push_row(value);
+            let _ = model.push_row(value);
 
             Value::Void
         }
@@ -695,7 +695,9 @@ fn handle_builtin_function(
                 _ => panic!("Second argument not an integer: {:?}", arguments[1]),
             };
 
-            model.remove_row(index as isize);
+            if let Ok(index) = usize::try_from(index as i64) {
+                let _ = model.remove_row(index);
+            }
 
             Value::Void
         }
@@ -714,7 +716,9 @@ fn handle_builtin_function(
             };
 
             let value = eval_expression(&arguments[2], local_context, None);
-            model.insert_row(index as isize, value);
+            if let Ok(index) = usize::try_from(index as i64) {
+                let _ = model.insert_row(index, value);
+            }
 
             Value::Void
         }

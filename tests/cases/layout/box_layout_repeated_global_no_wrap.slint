@@ -1,0 +1,75 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Regression test: a repeated component placed in a box layout, whose size
+// depends on a global property, must generate valid global access in its
+// synthesized cross-axis layout-info accessor.
+//
+// The rust code generator built the repeated component's evaluation context with
+// a global-access of `_self`, so the cross-width accessor emitted
+// `_self.global_Metrics` instead of `_self.globals().global_Metrics` and failed
+// to compile (the repeated-item-tree wrapper has no such field).
+//
+// The Text with `wrap: no-wrap` is only there to synthesize the cross-axis
+// layout-info accessor on the repeated cell; the assertion checks the marker's
+// position, which reflects the global-driven cell height.
+//
+// The same user component is named `Row` and also placed as a GridLayout cell:
+// GridLayout lowering must treat it as a normal (constrained) cell, not as the
+// builtin grid `Row`. Doing the latter used to steal its children and mark a
+// `Component`-based element as optimized, tripping an `unreachable!` later.
+
+global Metrics {
+    in-out property <length> item-height: 40px;
+}
+
+component Row inherits Rectangle {
+    height: Metrics.item-height;
+    max-width: 50px;
+    Text { text: "hello"; wrap: no-wrap; color: black; }
+}
+
+export component TestCase inherits Window {
+    width: 300px;
+    height: 300px;
+    callback set-h(length);
+    set-h(h) => { Metrics.item-height = h; }
+    VerticalLayout {
+        alignment: start;
+        for i in 3: Row {}
+        marker := Rectangle { height: 10px; }
+    }
+    GridLayout {
+        the-cell := Row { }
+    }
+    out property <bool> box-ok: marker.y == 3 * 40px;
+    // The custom `Row` cell honors its own max-width instead of filling the column.
+    out property <bool> grid-ok: the-cell.width == 50px;
+    out property <bool> test: box-ok && grid-ok;
+}
+
+/*
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+instance.invoke_set_h(50.0);
+assert!(!instance.get_test());
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+instance.invoke_set_h(50.0);
+assert(!instance.get_test());
+```
+
+```js
+var instance = new slint.TestCase({});
+assert(instance.test);
+instance.set_h(50);
+assert(!instance.test);
+```
+
+*/

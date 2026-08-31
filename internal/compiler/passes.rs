@@ -211,6 +211,11 @@ pub async fn run_passes(
     for root_component in doc.exported_roots() {
         lower_layout::check_window_layout(&root_component);
     }
+    // After the loop above: needs every component's `layoutinfo-h-with-constraint`
+    // and the wrapper elements the `lower_property_to_element` passes inject.
+    doc.visit_all_used_components(|component| {
+        lower_layout::mark_grid_h_solve_reads_v_cache(component);
+    });
     collect_globals::collect_globals(doc, diag);
     // Must be done before passes that rely on `NamedReference::is_constant`.
     collect_globals::mark_library_globals(doc);

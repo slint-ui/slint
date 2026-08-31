@@ -19,8 +19,7 @@ wait_for = ["fix:toml:format"]
 run = "cargo build --locked -p xtask || (echo \"### Updating Main Lockfile! ###\" && cargo update)"
 
 # The examples, demos and tests workspaces each keep their own committed
-# Cargo.lock (bevy and servo folded into examples/Cargo.lock). Use cargo metadata
-# to test whether each lockfile needs updating.
+# Cargo.lock. Use cargo metadata to test whether each lockfile needs updating.
 # --format-version suppresses "warning: please specify `--format-version` flag explicitly to avoid compatibility problems"
 ["fix:rust:lockfile:examples"]
 description = "Update the examples workspace lockfile (if absolutely necessary)"
@@ -39,6 +38,20 @@ description = "Update the tests workspace lockfile (if absolutely necessary)"
 wait_for = ["fix:toml:format"]
 run = "cargo metadata --locked --format-version=1 > /dev/null || (echo \"### Updating Tests Lockfile! ###\" && cargo update)"
 dir = "tests"
+
+# The workspaces share one target/ directory, which cargo only reuses while
+# their [profile.*] settings match. What this cannot fix, lint:rust:profiles reports.
+["fix:rust:profiles"]
+description = "Sync the workspace [profile.*] settings with the root workspace"
+run = "cargo xtask check_profiles --fix-it"
+depends = ["fix:rust:lockfile:root"]
+# Edits the same manifests as the formatters and the copyright task, so don't
+# run concurrently with them.
+wait_for = ["fix:toml:format", "fix:legal:copyright"]
+
+["lint:rust:profiles"]
+description = "Check that every workspace's [profile.*] matches the root workspace"
+run = "cargo xtask check_profiles"
 
 ["fix:legal:copyright"]
 description = "Run the check_license_headers --fix xtask"
@@ -183,6 +196,7 @@ depends = [
   "fix:legal:copyright",
   "fix:python:format",
   "fix:rust:format:all",
+  "fix:rust:profiles",
   "fix:text:trailing_spaces",
   "fix:toml:format",
   "fix:pnpm:lock",
@@ -197,4 +211,4 @@ depends = [
 
 ["ci:autofix:lint"]
 description = "CI autofix job -- lint steps"
-depends = ["lint:legal:reuse", "lint:ts:typecheck", "lint:ts:knip"]
+depends = ["lint:legal:reuse", "lint:rust:profiles", "lint:ts:typecheck", "lint:ts:knip"]

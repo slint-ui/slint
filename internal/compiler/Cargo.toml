@@ -67,7 +67,7 @@ icu_normalizer = { workspace = true }
 icu_properties = { workspace = true }
 unicode-segmentation = { workspace = true }
 strum = { workspace = true }
-rowan = { version = "0.16.1" }
+rowan = { version = "0.17.0" }
 smol_str = { workspace = true }
 derive_more = { workspace = true }
 annotate-snippets = { version = "0.12.9", optional = true }

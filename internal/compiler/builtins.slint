@@ -1838,6 +1838,7 @@ export component TextInput {
     /// Selects the text between two UTF-8 offsets.
     /// `anchor` is the end of the selection that stays put and `focus` the end the cursor moves to,
     /// so `focus` may precede `anchor` to select backwards.
+    /// Pass the same value for both to place the text cursor at that offset without selecting anything.
     function set-selection-offsets(anchor: int, focus: int) {
         BuiltinFunction.SetSelectionOffsets
     }

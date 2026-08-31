@@ -914,7 +914,33 @@ enum DragItem {
     /// An existing element instance to be moved.
     MoveElementInstance { uri: SharedString, offset: u32 },
     /// A new component from the palette to be instantiated.
-    NewComponent { index: usize },
+    NewComponent { kind: PaletteComponent },
+}
+
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Hash)]
+enum PaletteComponent {
+    Rectangle,
+    Text,
+    Image,
+}
+
+impl PaletteComponent {
+    fn from_ui(kind: ui::PaletteComponentKind) -> Option<Self> {
+        match kind {
+            ui::PaletteComponentKind::Rectangle => Some(Self::Rectangle),
+            ui::PaletteComponentKind::Text => Some(Self::Text),
+            ui::PaletteComponentKind::Image => Some(Self::Image),
+            ui::PaletteComponentKind::None => None,
+        }
+    }
+
+    fn name(self) -> &'static str {
+        match self {
+            Self::Rectangle => "Rectangle",
+            Self::Text => "Text",
+            Self::Image => "Image",
+        }
+    }
 }
 
 /// Tried to convert a [`DataTransfer`] to a `DragItem`, but the data transfer's user data
@@ -948,7 +974,7 @@ impl From<DragItem> for DataTransfer {
 }
 
 fn can_drop_component(data: DataTransfer, x: f32, y: f32, on_drop_area: bool) -> bool {
-    let Ok(DragItem::NewComponent { index: component_index }) = data.try_into() else {
+    let Ok(DragItem::NewComponent { kind }) = data.try_into() else {
         return false;
     };
 
@@ -963,30 +989,25 @@ fn can_drop_component(data: DataTransfer, x: f32, y: f32, on_drop_area: bool) ->
 
     let position = LogicalPoint::new(x, y);
 
-    let component = PREVIEW_STATE
-        .with_borrow(|preview_state| preview_state.known_components.get(component_index).cloned());
-
-    let Some(component) = component else {
+    let Some(component) = palette_component(kind) else {
         return false;
     };
 
     drop_location::can_drop_at(&document_cache, position, &component)
 }
 
-fn component_index_for_name(name: &str) -> Option<usize> {
+fn palette_component(kind: PaletteComponent) -> Option<ComponentInformation> {
     PREVIEW_STATE.with_borrow(|preview_state| {
         preview_state
             .known_components
             .iter()
-            .position(|component| component.name == name && component.is_builtin)
-            .or_else(|| {
-                preview_state.known_components.iter().position(|component| component.name == name)
-            })
+            .find(|component| component.name == kind.name() && component.is_builtin)
+            .cloned()
     })
 }
 
 fn drop_component(data: DataTransfer, x: f32, y: f32) {
-    let Ok(DragItem::NewComponent { index: component_index }) = data.try_into() else {
+    let Ok(DragItem::NewComponent { kind }) = data.try_into() else {
         return;
     };
 
@@ -996,9 +1017,7 @@ fn drop_component(data: DataTransfer, x: f32, y: f32) {
 
     let position = LogicalPoint::new(x, y);
 
-    let Some(component) = PREVIEW_STATE
-        .with_borrow(|preview_state| preview_state.known_components.get(component_index).cloned())
-    else {
+    let Some(component) = palette_component(kind) else {
         return;
     };
 
@@ -1023,7 +1042,7 @@ fn drop_component_with_geometry(
     position: LogicalPosition,
     size: LogicalSize,
 ) {
-    let Ok(DragItem::NewComponent { index: component_index }) = data.try_into() else {
+    let Ok(DragItem::NewComponent { kind }) = data.try_into() else {
         return;
     };
 
@@ -1037,9 +1056,7 @@ fn drop_component_with_geometry(
         CoreLogicalSize::new(size.width, size.height),
     );
 
-    let Some(component) = PREVIEW_STATE
-        .with_borrow(|preview_state| preview_state.known_components.get(component_index).cloned())
-    else {
+    let Some(component) = palette_component(kind) else {
         return;
     };
 
@@ -1117,6 +1134,21 @@ fn resize_selected_element(x: f32, y: f32, width: f32, height: f32) {
         element_selection.instance_index,
         LogicalRect::new(LogicalPoint::new(x, y), CoreLogicalSize::new(width, height)),
     ) else {
+        return;
+    };
+
+    send_workspace_edit(label, edit, true);
+}
+
+fn persist_selected_element_geometry() {
+    let Some(element_selection) = &selected_element() else {
+        return;
+    };
+    let Some(element_node) = element_selection.as_element_node() else {
+        return;
+    };
+
+    let Some((edit, label)) = persist_selected_element_geometry_impl(&element_node) else {
         return;
     };
 
@@ -1485,6 +1517,12 @@ fn resize_selected_element_impl(
         rect.height(),
     );
 
+    persist_selected_element_geometry_impl(element_node)
+}
+
+fn persist_selected_element_geometry_impl(
+    element_node: &ElementRcNode,
+) -> Option<(lsp_types::WorkspaceEdit, String)> {
     let element_hash = element_node
         .element
         .borrow()
@@ -1493,14 +1531,12 @@ fn resize_selected_element_impl(
         .map(|d| d.element_hash)
         .unwrap_or(0);
     if element_hash == 0 {
-        tracing::debug!("Element does not have a hash, cannot resize");
+        tracing::debug!("Element does not have a hash, cannot persist geometry");
         return None;
     }
 
-    // They all have the same size anyway:
     let (path, offset) = element_node.path_and_offset();
 
-    // Apply the overrides permanently
     let properties = ["x", "y", "width", "height"];
     let geometry_changes = PREVIEW_STATE.with_borrow(|preview_state| {
         let overrides = (*preview_state.debug_hook_overrides).borrow();
@@ -1549,63 +1585,6 @@ fn resize_selected_element_impl(
         geometry_changes,
     )
     .map(|edit| (edit, "Repositioning element".to_owned()))
-}
-
-fn can_move_selected_element(x: f32, y: f32, mouse_x: f32, mouse_y: f32) -> bool {
-    let position = LogicalPoint::new(x, y);
-    let mouse_position = LogicalPoint::new(mouse_x, mouse_y);
-    let Some(selected) = selected_element() else {
-        return false;
-    };
-    let Some(selected_element_node) = selected.as_element_node() else {
-        return false;
-    };
-    let Some(document_cache) = document_cache() else {
-        return false;
-    };
-
-    drop_location::can_move_to(
-        &document_cache,
-        position,
-        mouse_position,
-        selected_element_node,
-        selected.instance_index,
-    )
-}
-
-fn move_selected_element(x: f32, y: f32, mouse_x: f32, mouse_y: f32) {
-    let position = LogicalPoint::new(x, y);
-    let mouse_position = LogicalPoint::new(mouse_x, mouse_y);
-    let Some(selected) = selected_element() else {
-        return;
-    };
-    let Some(selected_element_node) = selected.as_element_node() else {
-        return;
-    };
-    let Some(document_cache) = document_cache() else {
-        return;
-    };
-
-    if let Some((edit, drop_data)) = drop_location::move_element_to(
-        &document_cache,
-        selected_element_node,
-        selected.instance_index,
-        position,
-        mouse_position,
-    ) {
-        element_selection::restore_selection(
-            ElementSelection {
-                path: drop_data.path,
-                offset: drop_data.selection_offset,
-                instance_index: selected.instance_index,
-            },
-            SelectionNotification::AfterUpdate,
-        );
-
-        send_workspace_edit("Move element".to_string(), edit, false);
-    } else {
-        element_selection::reselect_element();
-    }
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]

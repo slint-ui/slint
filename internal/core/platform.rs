@@ -492,6 +492,20 @@ impl WindowEvent {
 #[repr(transparent)]
 pub struct InternalEventBox(core::ptr::NonNull<InternalEvent>);
 
+// Safety: the box exclusively owns the event it points to, which the assertion below keeps
+// `Send` and `Sync`.
+#[allow(unsafe_code)]
+unsafe impl Send for InternalEventBox {}
+#[allow(unsafe_code)]
+unsafe impl Sync for InternalEventBox {}
+
+// A backend may build events on one thread and dispatch them from the event loop's thread.
+const _: () = {
+    const fn assert_send_sync<T: Send + Sync>() {}
+    assert_send_sync::<WindowEvent>();
+    assert_send_sync::<InternalEvent>();
+};
+
 #[allow(unsafe_code)]
 impl InternalEventBox {
     fn new(event: InternalEvent) -> Self {
@@ -555,9 +569,8 @@ impl core::fmt::Debug for InternalEventBox {
 #[doc(hidden)]
 #[derive(Debug, Clone, PartialEq)]
 pub enum InternalEvent {
-    /// A pointer event, including the ones that have no public representation,
-    /// such as gestures and drag and drop.
-    Mouse(crate::input::MouseEvent),
+    /// A pointer event, including the ones that have no public representation, such as gestures.
+    Mouse(crate::input::BackendMouseEvent),
     /// A key event, including input method composition updates.
     Key(crate::input::InternalKeyEvent),
     /// A touch point update, which the runtime turns into pointer or gesture events.
@@ -571,8 +584,8 @@ pub enum InternalEvent {
     },
 }
 
-impl From<crate::input::MouseEvent> for InternalEvent {
-    fn from(event: crate::input::MouseEvent) -> Self {
+impl From<crate::input::BackendMouseEvent> for InternalEvent {
+    fn from(event: crate::input::BackendMouseEvent) -> Self {
         Self::Mouse(event)
     }
 }
@@ -589,38 +602,38 @@ impl InternalEvent {
     /// This is what the window event hook observes,
     /// so that hooks only ever see events they could dispatch themselves.
     /// Events without a public representation aren't reported:
-    /// gestures, drag and drop, touch and input method composition.
+    /// gestures, touch and input method composition.
     pub(crate) fn public_representation(&self) -> Option<WindowEvent> {
-        use crate::input::{KeyEventType, MouseEvent};
+        use crate::input::{BackendMouseEvent, KeyEventType};
         use crate::lengths::logical_position_to_api;
 
         match self {
             Self::Mouse(event) => match event {
-                MouseEvent::Pressed { position, button, .. } => Some(WindowEvent::PointerPressed {
-                    position: logical_position_to_api(*position),
-                    button: *button,
-                }),
-                MouseEvent::Released { position, button, .. } => {
+                BackendMouseEvent::Pressed { position, button, .. } => {
+                    Some(WindowEvent::PointerPressed {
+                        position: logical_position_to_api(*position),
+                        button: *button,
+                    })
+                }
+                BackendMouseEvent::Released { position, button, .. } => {
                     Some(WindowEvent::PointerReleased {
                         position: logical_position_to_api(*position),
                         button: *button,
                     })
                 }
-                MouseEvent::Moved { position, .. } => {
+                BackendMouseEvent::Moved { position, .. } => {
                     Some(WindowEvent::PointerMoved { position: logical_position_to_api(*position) })
                 }
-                MouseEvent::Wheel { position, delta_x, delta_y, .. } => {
+                BackendMouseEvent::Wheel { position, delta_x, delta_y, .. } => {
                     Some(WindowEvent::PointerScrolled {
                         position: logical_position_to_api(*position),
                         delta_x: *delta_x as f32,
                         delta_y: *delta_y as f32,
                     })
                 }
-                MouseEvent::Exit => Some(WindowEvent::PointerExited),
-                MouseEvent::DragMove { .. }
-                | MouseEvent::Drop { .. }
-                | MouseEvent::PinchGesture { .. }
-                | MouseEvent::RotationGesture { .. } => None,
+                BackendMouseEvent::Exit => Some(WindowEvent::PointerExited),
+                BackendMouseEvent::PinchGesture { .. }
+                | BackendMouseEvent::RotationGesture { .. } => None,
             },
             Self::Key(event) => {
                 let text = event.key_event.text.clone();
@@ -642,7 +655,9 @@ impl InternalEvent {
     /// The position of the pointer or finger for this event, if any.
     fn position(&self) -> Option<LogicalPosition> {
         match self {
-            Self::Mouse(event) => event.position().map(crate::lengths::logical_position_to_api),
+            Self::Mouse(event) => crate::input::MouseEvent::from(*event)
+                .position()
+                .map(crate::lengths::logical_position_to_api),
             Self::Key(_) => None,
             Self::Touch { position, .. } => {
                 Some(crate::lengths::logical_position_to_api(*position))

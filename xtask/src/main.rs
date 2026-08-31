@@ -5,8 +5,10 @@
 use anyhow::Context;
 use clap::Parser;
 use std::error::Error;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+use std::str::FromStr;
 
+mod check_profiles;
 mod generate_cppdocs_headers;
 mod license;
 mod license_headers_check;
@@ -17,6 +19,8 @@ mod reuse_compliance_check;
 pub enum TaskCommand {
     #[command(name = "check_license_headers")]
     CheckLicenseHeaders(license_headers_check::LicenseHeaderCheck),
+    #[command(name = "check_profiles")]
+    CheckProfiles(check_profiles::ProfilesCheck),
     #[command(name = "generate_cppdocs_headers")]
     GenerateCppDocsHeaders(GenerateCppDocsHeadersCommand),
     #[command(name = "license")]
@@ -46,6 +50,57 @@ fn root_dir() -> PathBuf {
     let mut root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     root.pop(); // $root/xtask -> $root
     root
+}
+
+/// Every file tracked by the repository's VCS, as an absolute path.
+fn collect_files() -> anyhow::Result<Vec<PathBuf>> {
+    let root = root_dir();
+
+    let mut files = Vec::new();
+    let (ls_files_output, split_char) = if root.join(".jj").exists() {
+        (
+            run_command(
+                "jj",
+                &["file", "list"],
+                std::iter::empty::<(std::ffi::OsString, std::ffi::OsString)>(),
+            )?
+            .stdout,
+            b'\n',
+        )
+    } else {
+        (
+            run_command(
+                "git",
+                &["ls-files", "-z"],
+                std::iter::empty::<(std::ffi::OsString, std::ffi::OsString)>(),
+            )?
+            .stdout,
+            b'\0',
+        )
+    };
+
+    for path in ls_files_output.split(|ch| *ch == split_char) {
+        if path.is_empty() {
+            continue;
+        }
+        let path = PathBuf::from_str(
+            std::str::from_utf8(path)
+                .context("Error decoding file list command output from VCS as utf-8")?,
+        )
+        .context("Failed to decide path output in VCS file list")?;
+
+        if !path.is_dir() {
+            files.push(root.join(path));
+        }
+    }
+
+    Ok(files)
+}
+
+/// `path` relative to the repository root, with `/` separators on every
+/// platform so that it can be compared against the paths hardcoded in the tasks.
+fn repo_relative(path: &Path) -> String {
+    path.strip_prefix(root_dir()).unwrap_or(path).to_string_lossy().replace('\\', "/")
 }
 
 struct CommandOutput {
@@ -85,6 +140,7 @@ where
 fn main() -> Result<(), Box<dyn Error>> {
     match ApplicationArguments::parse().command {
         TaskCommand::CheckLicenseHeaders(cmd) => cmd.check_license_headers()?,
+        TaskCommand::CheckProfiles(cmd) => cmd.check_profiles()?,
         TaskCommand::GenerateCppDocsHeaders(cmd) => {
             generate_cppdocs_headers::generate(cmd.experimental)?
         }

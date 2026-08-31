@@ -200,6 +200,86 @@ impl MouseEvent {
     }
 }
 
+/// The mouse events a backend can deliver to the runtime.
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum BackendMouseEvent {
+    /// The mouse or finger was pressed
+    Pressed {
+        position: LogicalPoint,
+        button: PointerEventButton,
+        click_count: u8,
+        touch_finger_id: i32,
+    },
+    /// The mouse or finger was released
+    Released {
+        position: LogicalPoint,
+        button: PointerEventButton,
+        click_count: u8,
+        touch_finger_id: i32,
+    },
+    /// The position of the pointer has changed
+    Moved { position: LogicalPoint, touch_finger_id: i32 },
+    /// Wheel was operated.
+    Wheel { position: LogicalPoint, delta_x: Coord, delta_y: Coord, phase: TouchPhase },
+    /// A platform-recognized pinch gesture (macOS/iOS trackpad, Qt).
+    PinchGesture { position: LogicalPoint, delta: f32, phase: TouchPhase },
+    /// A platform-recognized rotation gesture (macOS/iOS trackpad, Qt).
+    RotationGesture { position: LogicalPoint, delta: f32, phase: TouchPhase },
+    /// The mouse exited the item or component
+    Exit,
+}
+
+impl From<BackendMouseEvent> for MouseEvent {
+    fn from(event: BackendMouseEvent) -> Self {
+        match event {
+            BackendMouseEvent::Pressed { position, button, click_count, touch_finger_id } => {
+                Self::Pressed { position, button, click_count, touch_finger_id }
+            }
+            BackendMouseEvent::Released { position, button, click_count, touch_finger_id } => {
+                Self::Released { position, button, click_count, touch_finger_id }
+            }
+            BackendMouseEvent::Moved { position, touch_finger_id } => {
+                Self::Moved { position, touch_finger_id }
+            }
+            BackendMouseEvent::Wheel { position, delta_x, delta_y, phase } => {
+                Self::Wheel { position, delta_x, delta_y, phase }
+            }
+            BackendMouseEvent::PinchGesture { position, delta, phase } => {
+                Self::PinchGesture { position, delta, phase }
+            }
+            BackendMouseEvent::RotationGesture { position, delta, phase } => {
+                Self::RotationGesture { position, delta, phase }
+            }
+            BackendMouseEvent::Exit => Self::Exit,
+        }
+    }
+}
+
+/// The drag and drop events a backend can deliver, through [`WindowInner::process_drag_event`].
+#[allow(missing_docs)]
+#[derive(Debug, Clone, PartialEq)]
+pub enum BackendDragEvent {
+    /// A drag is hovering over the window.
+    Move { event: DropEvent, allowed: AllowedDragActions },
+    /// A drag was released over the window.
+    Drop { event: DropEvent, allowed: AllowedDragActions },
+    /// A drag left the window, or was cancelled while hovering over it.
+    Leave,
+}
+
+impl From<BackendDragEvent> for MouseEvent {
+    fn from(event: BackendDragEvent) -> Self {
+        match event {
+            BackendDragEvent::Move { event, allowed } => Self::DragMove { event, allowed },
+            BackendDragEvent::Drop { event, allowed } => Self::Drop { event, allowed },
+            // A drag leaving tears down the hover state the same way the pointer leaving does.
+            BackendDragEvent::Leave => Self::Exit,
+        }
+    }
+}
+
 /// Phase of a touch, gesture event or wheel event.
 /// A touchpad is recognized as wheel event and therefore
 /// we need to find out when the touch event starts and ends

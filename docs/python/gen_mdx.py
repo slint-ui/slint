@@ -329,15 +329,15 @@ def class_members(
 
     Includes public members inherited from base classes that live in the
     package (e.g. `Model` inherits `row_count` from the native `PyModelBase`),
-    mirroring the fix-up the old pdoc generator performed by hand. `init_self`
-    and underscore-prefixed names are excluded."""
+    mirroring the fix-up the old pdoc generator performed by hand.
+    Underscore-prefixed names are excluded."""
     seen: set[str] = set()
     members: list[griffe.Object] = []
     for _, m in public_named_members(cls):
         seen.add(m.name)
         members.append(m)
     for name, inherited in cls.inherited_members.items():
-        if name.startswith("_") or name == "init_self" or name in seen:
+        if name.startswith("_") or name in seen:
             continue
         resolved = resolve(inherited)
         if resolved is None or is_private_doc(resolved):

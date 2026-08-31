@@ -28,9 +28,28 @@ component FileTreeRow inherits Rectangle {
     background: node.is-selected ? EditorTreeTokens.row-bg-current : touch.has-hover ? EditorTreeTokens.row-bg-hover : transparent;
     accessible-role: AccessibleRole.list-item;
     accessible-label: root.node.path;
+    accessible-item-selectable: !root.folder;
+    accessible-item-selected: root.node.is-selected;
+    accessible-expanded: root.folder && root.node.is-expanded;
+    accessible-action-default => {
+        root.activate();
+    }
+    accessible-action-expand => {
+        if root.folder {
+            Api.file-tree-toggle(root.node.path);
+        }
+    }
 
     changed row-has-hover => {
         root.row-hover-changed(root.node.path, root.row-has-hover);
+    }
+
+    function activate() {
+        if root.folder {
+            Api.file-tree-toggle(root.node.path);
+        } else {
+            Api.file-tree-select(root.node.path);
+        }
     }
 
     HorizontalLayout {
@@ -105,11 +124,7 @@ component FileTreeRow inherits Rectangle {
     touch := TouchArea {
         mouse-cursor: pointer;
         clicked => {
-            if root.folder {
-                Api.file-tree-toggle(root.node.path);
-            } else {
-                Api.file-tree-select(root.node.path);
-            }
+            root.activate();
         }
     }
 }

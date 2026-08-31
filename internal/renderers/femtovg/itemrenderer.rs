@@ -1416,16 +1416,15 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
     }
 }
 
-fn to_femtovg_stops(stops: &[i_slint_core::graphics::GradientStop]) -> Vec<(f32, femtovg::Color)> {
-    let mut stops: Vec<_> =
-        stops.iter().map(|stop| (stop.position, to_femtovg_color(&stop.color))).collect();
-    // Add an extra stop at 1.0 with the same color as the last stop
-    if let Some(last_stop) = stops.last().cloned()
-        && last_stop.0 != 1.0
-    {
-        stops.push((1.0, last_stop.1));
-    }
-    stops
+fn to_femtovg_stops(
+    stops: &[i_slint_core::graphics::GradientStop],
+) -> impl Iterator<Item = (f32, femtovg::Color)> + '_ {
+    // The extra stop at 1.0 keeps femtovg from extrapolating the last color.
+    let extra = stops
+        .last()
+        .filter(|last| last.position != 1.0)
+        .map(|last| (1.0, to_femtovg_color(&last.color)));
+    stops.iter().map(|stop| (stop.position, to_femtovg_color(&stop.color))).chain(extra)
 }
 
 pub fn to_femtovg_color(col: &Color) -> femtovg::Color {

@@ -1,0 +1,35 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { NestedCard } from "components/Nested.slint";
+
+export component Main inherits Window {
+    width: 640px;
+    height: 480px;
+    background: #f8fafc;
+
+
+    root-text := Text {
+        x: 180px;
+        y: 56px;
+        width: 180px;
+        height: 48px;
+        text: "Fixture text";
+        color: #111827;
+        font-size: 20px;
+    }
+
+    root-image := Image {
+        x: 230px;
+        y: 132px;
+        width: 128px;
+        height: 96px;
+        source: @image-url("assets/checker.svg");
+        image-fit: contain;
+    }
+
+    NestedCard {
+        x: 40px;
+        y: 216px;
+    }
+}

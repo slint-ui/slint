@@ -1,10 +1,11 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import sys
 import typing
 from abc import abstractmethod
 from collections.abc import Iterable, Iterator
-from typing import Any, cast
+from typing import Any
 
 from ._native import native
 
@@ -20,7 +21,7 @@ class Model[T](native.PyModelBase, Iterable[T]):
         return super().__new__(cls)
 
     def __init__(self) -> None:
-        self.init_self(self)
+        """Kept for backwards compatibility; there is nothing to initialize."""
 
     def __len__(self) -> int:
         return self.row_count()
@@ -38,28 +39,45 @@ class Model[T](native.PyModelBase, Iterable[T]):
         """Call this method on mutable models to change the data for the given row.
         The UI will also call this method when modifying a model's data.
         Re-implement this method in a sub-class to handle the change."""
-        super().set_row_data(row, value)
+        print(
+            "set_row_data called on a model which does not re-implement this method. This happens when trying to modify a read-only model",
+            file=sys.stderr,
+        )
+
+    @abstractmethod
+    def row_count(self) -> int:
+        """Returns the number of rows in the model.
+        Re-implement this method in a sub-class to provide the row count."""
+        ...
 
     @abstractmethod
     def row_data(self, row: int) -> T | None:
         """Returns the data for the given row.
         Re-implement this method in a sub-class to provide the data."""
-        return cast(T, super().row_data(row))
+        ...
 
     def append(self, value: T) -> None:
         """Add a new row to the model with the provided value.
-        Re-implement this method in a sub-class to handle the change."""
-        super().append(value)
+        The default implementation calls `insert_row` with the row count."""
+        self.insert_row(self.row_count(), value)
 
     def remove_row(self, row: int) -> None:
         """Remove the row at the given index.
-        Re-implement this method in a sub-class to handle the change."""
-        super().remove_row(row)
+        Raises an exception when the model rejects the modification.
+        The default implementation raises NotImplementedError. A model that
+        supports removing rows should also call `notify_row_removed`."""
+        raise NotImplementedError(
+            f"{type(self).__name__} does not support removing rows"
+        )
 
     def insert_row(self, row: int, value: T) -> None:
         """Insert a new row at the given index.
-        Re-implement this method in a sub-class to handle the change."""
-        super().insert_row(row, value)
+        Raises an exception when the model rejects the modification.
+        The default implementation raises NotImplementedError. A model that
+        supports inserting rows should also call `notify_row_added`."""
+        raise NotImplementedError(
+            f"{type(self).__name__} does not support inserting rows"
+        )
 
     def notify_row_changed(self, row: int) -> None:
         """Call this method from a sub-class to notify the views that a row has changed."""
@@ -110,14 +128,13 @@ class ListModel[T](Model[T]):
 
     def remove_row(self, row: int) -> None:
         if row < 0 or row >= len(self.list):
-            return
+            raise IndexError("row index out of range")
         del self.list[row]
         super().notify_row_removed(row, 1)
 
     def insert_row(self, row: int, value: T) -> None:
-        # Validate index range to follow behavior from other languages implementations.
         if row < 0 or row > len(self.list):
-            return
+            raise IndexError("row index out of range")
         self.insert(row, value)
 
     def __delitem__(self, key: int | slice) -> None:

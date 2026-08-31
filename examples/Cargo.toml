@@ -36,12 +36,12 @@ members = [
   'bevy/slint-hosts-bevy',
   'bevy/bevy-hosts-slint',
   'bevy/bevy-hosts-slint-gpu',
-  'servo',
 ]
 
-# These keep their own workspace (custom MCU profile, no host build, or
-# conflicting board-HAL riscv-rt versions) and are built separately in CI.
-exclude = ['safe-ui', 'mcu-board-support', 'mcu-embassy', 'uefi-demo']
+# These keep their own workspace (custom MCU profile, no host build,
+# conflicting board-HAL riscv-rt versions, or - for servo - a conflicting
+# native `links` dependency) and are built separately in CI.
+exclude = ['safe-ui', 'mcu-board-support', 'mcu-embassy', 'uefi-demo', 'servo']
 
 resolver = "3"
 
@@ -72,10 +72,8 @@ glow = { version = "0.17" }
 image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
 wgpu-30 = { package = "wgpu", version = "30", default-features = false }
 
-# WARNING: keep every `[profile.*]` setting below identical to the root
-# workspace's Cargo.toml. cargo keys its build cache on the profile, so any
-# divergence makes the shared `target/` directory (see `.cargo/config.toml`)
-# rebuild the common library crates for this workspace instead of reusing them.
+# Kept identical to the root Cargo.toml's `[profile.*]`, so that the shared
+# `target/` directory is reused; `cargo xtask check_profiles` enforces it.
 [profile.release]
 panic = "abort"
 

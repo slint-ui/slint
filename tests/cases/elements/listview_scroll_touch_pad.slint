@@ -34,7 +34,7 @@ export component TestCase inherits Window {
 // Because we move with the mouse only straight up
 use slint::*;
 use slint::platform::WindowEvent;
-use slint_testing::{MouseEvent, TouchPhase, LogicalPoint};
+use slint_testing::{BackendMouseEvent, TouchPhase, LogicalPoint};
 
 let instance = TestCase::new().unwrap();
 let window = instance.window();
@@ -43,18 +43,18 @@ assert!(instance.get_content_height() > instance.get_height_(), "{} > {} not ful
 
 // // Scroll down
 let pressed_position = LogicalPoint::new(0., 0.);
-window.dispatch_event(WindowEvent::internal(MouseEvent::Wheel { position: pressed_position, delta_x: 0., delta_y: 0., phase: TouchPhase::Started }));
+window.dispatch_event(WindowEvent::internal(BackendMouseEvent::Wheel { position: pressed_position, delta_x: 0., delta_y: 0., phase: TouchPhase::Started }));
 slint_testing::mock_elapsed_time(1);
-window.dispatch_event(WindowEvent::internal(MouseEvent::Wheel { position: pressed_position, delta_x: 0., delta_y: -10., phase: TouchPhase::Moved }));
+window.dispatch_event(WindowEvent::internal(BackendMouseEvent::Wheel { position: pressed_position, delta_x: 0., delta_y: -10., phase: TouchPhase::Moved }));
 slint_testing::mock_elapsed_time(10000); // No animation shall be triggered
 assert_eq!(instance.get_content_y(), -10.);
-window.dispatch_event(WindowEvent::internal(MouseEvent::Wheel { position: pressed_position, delta_x: 0., delta_y: 0., phase: TouchPhase::Moved })); // To reduce the delta t
+window.dispatch_event(WindowEvent::internal(BackendMouseEvent::Wheel { position: pressed_position, delta_x: 0., delta_y: 0., phase: TouchPhase::Moved })); // To reduce the delta t
 slint_testing::mock_elapsed_time(5);
 assert_eq!(instance.get_content_y(), -10.);
-window.dispatch_event(WindowEvent::internal(MouseEvent::Wheel { position: pressed_position, delta_x: 0., delta_y: -10., phase: TouchPhase::Moved }));
+window.dispatch_event(WindowEvent::internal(BackendMouseEvent::Wheel { position: pressed_position, delta_x: 0., delta_y: -10., phase: TouchPhase::Moved }));
 assert_eq!(instance.get_content_y(), -20.);
 slint_testing::mock_elapsed_time(5);
-window.dispatch_event(WindowEvent::internal(MouseEvent::Wheel { position: pressed_position, delta_x: 0., delta_y: 0., phase: TouchPhase::Ended }));
+window.dispatch_event(WindowEvent::internal(BackendMouseEvent::Wheel { position: pressed_position, delta_x: 0., delta_y: 0., phase: TouchPhase::Ended }));
 slint_testing::mock_elapsed_time(10000000); // Let the animation finish
 assert!(instance.get_content_y() < -20., "Received: {}, Desired: smaller than {}", instance.get_content_y(), -20.);
 
@@ -62,14 +62,14 @@ let content_y = instance.get_content_y();
 println!("Viewport y: {}", content_y);
 
 // // Scroll up again until the limit
-window.dispatch_event(WindowEvent::internal(MouseEvent::Wheel { position: pressed_position, delta_x: 0., delta_y: 0., phase: TouchPhase::Started }));
+window.dispatch_event(WindowEvent::internal(BackendMouseEvent::Wheel { position: pressed_position, delta_x: 0., delta_y: 0., phase: TouchPhase::Started }));
 slint_testing::mock_elapsed_time(1);
-window.dispatch_event(WindowEvent::internal(MouseEvent::Wheel { position: pressed_position, delta_x: 0., delta_y: 10., phase: TouchPhase::Moved }));
+window.dispatch_event(WindowEvent::internal(BackendMouseEvent::Wheel { position: pressed_position, delta_x: 0., delta_y: 10., phase: TouchPhase::Moved }));
 slint_testing::mock_elapsed_time(10000); // No animation shall be triggered
 assert!(instance.get_content_y() == content_y + 10., "Received: {}, Desired: {}", instance.get_content_y(),content_y + 10.);
-window.dispatch_event(WindowEvent::internal(MouseEvent::Wheel { position: pressed_position, delta_x: 0., delta_y: 100., phase: TouchPhase::Moved })); // To reduce the delta t
+window.dispatch_event(WindowEvent::internal(BackendMouseEvent::Wheel { position: pressed_position, delta_x: 0., delta_y: 100., phase: TouchPhase::Moved })); // To reduce the delta t
 slint_testing::mock_elapsed_time(1);
-window.dispatch_event(WindowEvent::internal(MouseEvent::Wheel { position: pressed_position, delta_x: 0., delta_y: 0., phase: TouchPhase::Ended }));
+window.dispatch_event(WindowEvent::internal(BackendMouseEvent::Wheel { position: pressed_position, delta_x: 0., delta_y: 0., phase: TouchPhase::Ended }));
 slint_testing::mock_elapsed_time(10000); // Let the animation finish
 assert!(instance.get_content_y() == 0., "Received: {}, Desired: {}", instance.get_content_y(), 0.);
 ```
@@ -77,7 +77,7 @@ assert!(instance.get_content_y() == 0., "Received: {}, Desired: {}", instance.ge
 ```rust
 // Testing that the application does not crash when flicking with the mouse wheel and an animation is applied
 use slint::*;
-use slint_testing::{MouseEvent, TouchPhase, LogicalPoint};
+use slint_testing::{BackendMouseEvent, TouchPhase, LogicalPoint};
 use slint::{platform::WindowEvent, LogicalPosition};
 
 let instance = TestCase::new().unwrap();
@@ -87,32 +87,32 @@ assert!(instance.get_content_height() > instance.get_height_(), "{} > {} not ful
 
 // Scroll down
 let pressed_position = LogicalPoint::new(0., 0.);
-window.dispatch_event(WindowEvent::internal(MouseEvent::Wheel { position: pressed_position, delta_x: 0., delta_y: 0., phase: TouchPhase::Started }));
+window.dispatch_event(WindowEvent::internal(BackendMouseEvent::Wheel { position: pressed_position, delta_x: 0., delta_y: 0., phase: TouchPhase::Started }));
 slint_testing::mock_elapsed_time(12);
-window.dispatch_event(WindowEvent::internal(MouseEvent::Wheel { position: pressed_position, delta_x: 0., delta_y: -47.164063, phase: TouchPhase::Moved }));
+window.dispatch_event(WindowEvent::internal(BackendMouseEvent::Wheel { position: pressed_position, delta_x: 0., delta_y: -47.164063, phase: TouchPhase::Moved }));
 slint_testing::mock_elapsed_time(14);
-window.dispatch_event(WindowEvent::internal(MouseEvent::Wheel { position: pressed_position, delta_x: 0., delta_y: -43.35547, phase: TouchPhase::Moved }));
+window.dispatch_event(WindowEvent::internal(BackendMouseEvent::Wheel { position: pressed_position, delta_x: 0., delta_y: -43.35547, phase: TouchPhase::Moved }));
 slint_testing::mock_elapsed_time(8);
-window.dispatch_event(WindowEvent::internal(MouseEvent::Wheel { position: pressed_position, delta_x: 0., delta_y: -44.625, phase: TouchPhase::Moved }));
+window.dispatch_event(WindowEvent::internal(BackendMouseEvent::Wheel { position: pressed_position, delta_x: 0., delta_y: -44.625, phase: TouchPhase::Moved }));
 slint_testing::mock_elapsed_time(21);
-window.dispatch_event(WindowEvent::internal(MouseEvent::Wheel { position: pressed_position, delta_x: 0., delta_y: -37.003906, phase: TouchPhase::Moved }));
+window.dispatch_event(WindowEvent::internal(BackendMouseEvent::Wheel { position: pressed_position, delta_x: 0., delta_y: -37.003906, phase: TouchPhase::Moved }));
 slint_testing::mock_elapsed_time(0);
-window.dispatch_event(WindowEvent::internal(MouseEvent::Wheel { position: pressed_position, delta_x: 0., delta_y: -44.441406, phase: TouchPhase::Moved }));
+window.dispatch_event(WindowEvent::internal(BackendMouseEvent::Wheel { position: pressed_position, delta_x: 0., delta_y: -44.441406, phase: TouchPhase::Moved }));
 slint_testing::mock_elapsed_time(4);
-window.dispatch_event(WindowEvent::internal(MouseEvent::Wheel { position: pressed_position, delta_x: 0., delta_y: -38.45703, phase: TouchPhase::Moved }));
+window.dispatch_event(WindowEvent::internal(BackendMouseEvent::Wheel { position: pressed_position, delta_x: 0., delta_y: -38.45703, phase: TouchPhase::Moved }));
 slint_testing::mock_elapsed_time(34);
-window.dispatch_event(WindowEvent::internal(MouseEvent::Wheel { position: pressed_position, delta_x: 0., delta_y: -19.953125, phase: TouchPhase::Moved }));
+window.dispatch_event(WindowEvent::internal(BackendMouseEvent::Wheel { position: pressed_position, delta_x: 0., delta_y: -19.953125, phase: TouchPhase::Moved }));
 slint_testing::mock_elapsed_time(0);
-window.dispatch_event(WindowEvent::internal(MouseEvent::Wheel { position: pressed_position, delta_x: 0., delta_y: 0., phase: TouchPhase::Ended }));
+window.dispatch_event(WindowEvent::internal(BackendMouseEvent::Wheel { position: pressed_position, delta_x: 0., delta_y: 0., phase: TouchPhase::Ended }));
 
 slint_testing::mock_elapsed_time(362);
 
 instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(300.0, 100.0) }); // This move is required to trigger a ensure_updated_listview()
-window.dispatch_event(WindowEvent::internal(MouseEvent::Wheel { position: pressed_position, delta_x: 0., delta_y: 0., phase: TouchPhase::Started }));
+window.dispatch_event(WindowEvent::internal(BackendMouseEvent::Wheel { position: pressed_position, delta_x: 0., delta_y: 0., phase: TouchPhase::Started }));
 slint_testing::mock_elapsed_time(12);
-window.dispatch_event(WindowEvent::internal(MouseEvent::Wheel { position: pressed_position, delta_x: 0., delta_y: 42.085938, phase: TouchPhase::Moved })); // Going up again
+window.dispatch_event(WindowEvent::internal(BackendMouseEvent::Wheel { position: pressed_position, delta_x: 0., delta_y: 42.085938, phase: TouchPhase::Moved })); // Going up again
 slint_testing::mock_elapsed_time(10000); // No animation shall be triggered
-window.dispatch_event(WindowEvent::internal(MouseEvent::Wheel { position: pressed_position, delta_x: 0., delta_y: 0., phase: TouchPhase::Ended }));
+window.dispatch_event(WindowEvent::internal(BackendMouseEvent::Wheel { position: pressed_position, delta_x: 0., delta_y: 0., phase: TouchPhase::Ended }));
 instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(300.0, 100.0) });
 // No crash
 ```

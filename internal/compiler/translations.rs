@@ -378,6 +378,7 @@ mod plural_rule_parser {
             }
             Ok(ParsingState {
                 expr: Expression::BuiltinFunctionCall {
+                    source_location: None,
                     function: crate::expression_tree::BuiltinFunction::Mod,
                     arguments: vec![state.expr, state2.expr],
                 },

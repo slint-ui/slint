@@ -5,7 +5,6 @@ import { Api, EditorSurfaceMode, ElementInformation, PropertyValueKind, Selectio
 import { EdgeDivider, EditorMetrics, StudioTheme } from "common.slint";
 import { OutlinePane } from "outline-pane.slint";
 import { InspectorComboOption, InspectorTokens } from "inspector/tokens.slint";
-import { InspectorTooltipBubble } from "inspector/tooltip-bubble.slint";
 import { InspectorInfoIcon } from "inspector/info-icon.slint";
 import { InspectorValueField } from "inspector/value-field.slint";
 import { InspectorEditableField } from "inspector/editable-field.slint";
@@ -31,6 +30,8 @@ export component InspectorPane inherits Rectangle {
 
     width: EditorMetrics.inspector-pane-width;
     background: InspectorTokens.panel-bg;
+    accessible-role: AccessibleRole.complementary;
+    accessible-label: "Inspector and outline";
     property <length> content-x: 1px;
     property <length> split-height: 1px;
     property <length> inspector-height: (root.height - root.split-height) / 2;
@@ -40,13 +41,6 @@ export component InspectorPane inherits Rectangle {
         ? Api.highlight-positions(root.element-information.source-uri, root.element-information.offset)
         : [];
     property <bool> image-mode: Api.editor-surface-mode == EditorSurfaceMode.image;
-    property <bool> tooltip-visible: false;
-    property <string> tooltip-key: "";
-    property <string> tooltip-label: "";
-    property <Point> tooltip-position: { x: 0px, y: 0px };
-    property <string> hovered-tooltip-key: "";
-    property <string> hovered-tooltip-label: "";
-    property <Point> hovered-tooltip-position: { x: 0px, y: 0px };
     property <[InspectorComboOption]> image-fit-options: [
         { value: "fill", label: "fill" },
         { value: "preserve", label: "preserve" },
@@ -409,6 +403,10 @@ export component InspectorPane inherits Rectangle {
         return root.property-brush("color", StudioTheme.dark ? #f4f4f4 : #1f2328);
     }
 
+    function text-content-code() -> string {
+        return Api.current-property-value("text", "\"\"");
+    }
+
     function text-font-family-value() -> string {
         return root.property-string("font-family", "Default font");
     }
@@ -532,82 +530,6 @@ export component InspectorPane inherits Rectangle {
         );
     }
 
-    function tooltip-position-for(field-position: Point) -> Point {
-        return {
-            x: field-position.x - root.absolute-position.x - root.content-x + (InspectorTokens.column-width - 71px) / 2,
-            y: field-position.y - root.absolute-position.y + InspectorTokens.field-height + 1px,
-        };
-    }
-
-    function show-current-tooltip() {
-        root.tooltip-key = root.hovered-tooltip-key;
-        root.tooltip-label = root.hovered-tooltip-label;
-        root.tooltip-position = root.hovered-tooltip-position;
-        root.tooltip-visible = true;
-    }
-
-    function show-tooltip(key: string, label: string, field-position: Point) {
-        root.hovered-tooltip-key = key;
-        root.hovered-tooltip-label = label;
-        root.hovered-tooltip-position = root.tooltip-position-for(field-position);
-        hide-tooltip-timer.running = false;
-
-        if root.tooltip-visible {
-            show-tooltip-timer.running = false;
-            root.show-current-tooltip();
-        } else {
-            show-tooltip-timer.running = false;
-            show-tooltip-timer.running = true;
-        }
-    }
-
-    function hide-tooltip(key: string) {
-        if key != root.hovered-tooltip-key {
-            return;
-        }
-
-        root.hovered-tooltip-key = "";
-        root.hovered-tooltip-label = "";
-        show-tooltip-timer.running = false;
-
-        if root.tooltip-visible {
-            hide-tooltip-timer.running = false;
-            hide-tooltip-timer.running = true;
-        }
-    }
-
-    function reset-tooltip() {
-        root.tooltip-visible = false;
-        root.tooltip-key = "";
-        root.tooltip-label = "";
-    }
-
-    show-tooltip-timer := Timer {
-        interval: 1500ms;
-        running: false;
-        triggered => {
-            self.running = false;
-
-            if root.hovered-tooltip-key != "" {
-                root.show-current-tooltip();
-            }
-        }
-    }
-
-    hide-tooltip-timer := Timer {
-        interval: 1500ms;
-        running: false;
-        triggered => {
-            self.running = false;
-
-            if root.hovered-tooltip-key == "" {
-                root.reset-tooltip();
-            } else {
-                root.show-current-tooltip();
-            }
-        }
-    }
-
     EdgeDivider {
         x: 0px;
         background: InspectorTokens.divider;
@@ -699,24 +621,20 @@ export component InspectorPane inherits Rectangle {
                         spacing: InspectorTokens.column-gap;
 
                         InspectorValueField {
+                            accessible-name: "Position X";
                             prefix: "X";
                             value: root.selected-x-label();
                             commit-key: root.field-key("x");
-                            tooltip-label: "X-position";
-                            tooltip-hovered(key, label, position) => { root.show-tooltip(key, label, position); }
-                            tooltip-hidden(key) => { root.hide-tooltip(key); }
                             accepted(text) => {
                                 return root.commit-geometry(text, root.selected-y-label(), root.selected-width-label(), root.selected-height-label());
                             }
                         }
 
                         InspectorValueField {
+                            accessible-name: "Position Y";
                             prefix: "Y";
                             value: root.selected-y-label();
                             commit-key: root.field-key("y");
-                            tooltip-label: "Y-position";
-                            tooltip-hovered(key, label, position) => { root.show-tooltip(key, label, position); }
-                            tooltip-hidden(key) => { root.hide-tooltip(key); }
                             accepted(text) => {
                                 return root.commit-geometry(root.selected-x-label(), text, root.selected-width-label(), root.selected-height-label());
                             }
@@ -732,24 +650,20 @@ export component InspectorPane inherits Rectangle {
                         spacing: InspectorTokens.column-gap;
 
                         InspectorValueField {
+                            accessible-name: "Width";
                             prefix: "W";
                             value: root.selected-width-label();
                             commit-key: root.field-key("width");
-                            tooltip-label: "Width";
-                            tooltip-hovered(key, label, position) => { root.show-tooltip(key, label, position); }
-                            tooltip-hidden(key) => { root.hide-tooltip(key); }
                             accepted(text) => {
                                 return root.commit-geometry(root.selected-x-label(), root.selected-y-label(), text, root.selected-height-label());
                             }
                         }
 
                         InspectorValueField {
+                            accessible-name: "Height";
                             prefix: "H";
                             value: root.selected-height-label();
                             commit-key: root.field-key("height");
-                            tooltip-label: "Height";
-                            tooltip-hovered(key, label, position) => { root.show-tooltip(key, label, position); }
-                            tooltip-hidden(key) => { root.hide-tooltip(key); }
                             accepted(text) => {
                                 return root.commit-geometry(root.selected-x-label(), root.selected-y-label(), root.selected-width-label(), text);
                             }
@@ -765,6 +679,7 @@ export component InspectorPane inherits Rectangle {
                         spacing: InspectorTokens.column-gap;
 
                         if root.is-root-selection(): InspectorColorField {
+                            accessible-name: "Root background";
                             value: root.phone-background-label;
                             swatch: root.phone-background;
                             commit-key: root.field-key("background");
@@ -775,6 +690,7 @@ export component InspectorPane inherits Rectangle {
                         }
 
                         if root.is-rectangle-selection(): InspectorColorField {
+                            accessible-name: "Rectangle background";
                             value: root.rectangle-background-code();
                             swatch: root.rectangle-background-swatch();
                             commit-key: root.field-key("background");
@@ -785,6 +701,7 @@ export component InspectorPane inherits Rectangle {
                         }
 
                         if root.is-text-selection(): InspectorColorField {
+                            accessible-name: "Text color";
                             value: root.text-color-code();
                             swatch: root.text-color-swatch();
                             commit-key: root.field-key("color");
@@ -805,6 +722,7 @@ export component InspectorPane inherits Rectangle {
                         spacing: 8px;
 
                         InspectorComboBox {
+                            accessible-name: "Rectangle effect";
                             value: root.rectangle-effect-value();
                             selected-index: root.rectangle-effect-index();
                             options: root.rectangle-effect-options;
@@ -820,6 +738,7 @@ export component InspectorPane inherits Rectangle {
                             cross-axis-alignment: center;
 
                             InspectorEffectDial {
+                                accessible-name: "Shadow angle";
                                 value: root.shadow-angle();
                                 accepted(angle) => {
                                     return root.commit-shadow-offsets(angle, root.shadow-distance());
@@ -839,6 +758,7 @@ export component InspectorPane inherits Rectangle {
                                 }
 
                                 InspectorColorField {
+                                    accessible-name: "Shadow color";
                                     value: root.shadow-color-code();
                                     swatch: root.shadow-color-swatch();
                                     commit-key: root.field-key(root.current-shadow-prefix() + "color");
@@ -850,6 +770,7 @@ export component InspectorPane inherits Rectangle {
                         }
 
                         if root.rectangle-effect-index() != 0: InspectorEffectSlider {
+                            accessible-name: "Shadow distance";
                             label: "Distance";
                             value: root.shadow-distance();
                             minimum: 0;
@@ -861,6 +782,7 @@ export component InspectorPane inherits Rectangle {
                         }
 
                         if root.rectangle-effect-index() != 0: InspectorEffectSlider {
+                            accessible-name: "Shadow blur";
                             label: "Blur";
                             value: root.shadow-blur();
                             minimum: 0;
@@ -872,6 +794,7 @@ export component InspectorPane inherits Rectangle {
                         }
 
                         if root.rectangle-effect-index() != 0: InspectorEffectSlider {
+                            accessible-name: "Shadow spread";
                             label: "Spread";
                             value: root.shadow-spread();
                             minimum: -64;
@@ -893,6 +816,7 @@ export component InspectorPane inherits Rectangle {
                         spacing: 8px;
 
                         InspectorCodeField {
+                            accessible-name: "Image source";
                             prefix: "Source";
                             value: root.image-source-value();
                             commit-key: root.field-key("source");
@@ -924,6 +848,7 @@ export component InspectorPane inherits Rectangle {
                             }
 
                             InspectorComboBox {
+                                accessible-name: "Image fit";
                                 value: root.image-fit-value();
                                 selected-index: root.image-fit-index();
                                 options: root.image-fit-options;
@@ -939,6 +864,7 @@ export component InspectorPane inherits Rectangle {
                             spacing: InspectorTokens.column-gap;
 
                             InspectorComboBox {
+                                accessible-name: "Image horizontal alignment";
                                 prefix: "H";
                                 value: root.image-horizontal-alignment-value();
                                 selected-index: root.image-horizontal-alignment-index();
@@ -950,6 +876,7 @@ export component InspectorPane inherits Rectangle {
                             }
 
                             InspectorComboBox {
+                                accessible-name: "Image vertical alignment";
                                 prefix: "V";
                                 value: root.image-vertical-alignment-value();
                                 selected-index: root.image-vertical-alignment-index();
@@ -964,6 +891,25 @@ export component InspectorPane inherits Rectangle {
                 }
 
                 if !root.image-mode && root.is-text-selection(): InspectorSection {
+                    title: "Content";
+
+                    HorizontalLayout {
+                        padding-left: InspectorTokens.side-padding;
+                        padding-right: InspectorTokens.side-padding;
+
+                        InspectorCodeField {
+                            accessible-name: "Text content";
+                            prefix: "Text";
+                            value: root.text-content-code();
+                            commit-key: root.field-key("text");
+                            accepted(text) => {
+                                return root.commit-code("text", text);
+                            }
+                        }
+                    }
+                }
+
+                if !root.image-mode && root.is-text-selection(): InspectorSection {
                     title: "Typography";
 
                     VerticalLayout {
@@ -971,6 +917,7 @@ export component InspectorPane inherits Rectangle {
                         spacing: 8px;
 
                         InspectorEditableField {
+                            accessible-name: "Font family";
                             value: root.text-font-family-value();
                             commit-key: root.field-key("font-family");
                             wide: true;
@@ -983,6 +930,7 @@ export component InspectorPane inherits Rectangle {
                             spacing: InspectorTokens.column-gap;
 
                             InspectorComboBox {
+                                accessible-name: "Font weight";
                                 value: root.text-font-weight-label();
                                 selected-index: root.text-font-weight-index();
                                 options: root.text-font-weight-options;
@@ -993,6 +941,7 @@ export component InspectorPane inherits Rectangle {
                             }
 
                             InspectorEditableField {
+                                accessible-name: "Font size";
                                 value: root.text-font-size-value();
                                 commit-key: root.field-key("font-size");
                                 accepted(text) => {
@@ -1006,19 +955,6 @@ export component InspectorPane inherits Rectangle {
                     }
                 }
             }
-        }
-    }
-
-    tooltip-layer := Rectangle {
-        x: root.content-x;
-        y: 0px;
-        width: root.width - root.content-x;
-        height: root.inspector-height;
-
-        if root.tooltip-visible: InspectorTooltipBubble {
-            x: root.tooltip-position.x;
-            y: root.tooltip-position.y;
-            label: root.tooltip-label;
         }
     }
 

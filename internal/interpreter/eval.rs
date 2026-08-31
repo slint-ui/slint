@@ -10,6 +10,7 @@
 use crate::Value;
 use crate::globals::{GlobalInstance, GlobalStorage};
 use crate::instance::SubComponentInstance;
+use i_slint_compiler::diagnostics::SourceLocation;
 use i_slint_compiler::expression_tree::{BuiltinFunction, MinMaxOp};
 use i_slint_compiler::langtype::{ConstantExpression, Type};
 use i_slint_compiler::llr::{self, Expression, LocalMemberIndex, MemberReference};
@@ -802,8 +803,8 @@ pub fn eval_expression(ctx: &mut EvalContext, expression: &Expression) -> Value 
             }
             v
         }
-        Expression::BuiltinFunctionCall { function, arguments } => {
-            call_builtin_function(ctx, function.clone(), arguments)
+        Expression::BuiltinFunctionCall { function, arguments, source_location } => {
+            call_builtin_function(ctx, function.clone(), arguments, source_location)
         }
         Expression::CallBackCall { callback, arguments } => {
             let args: Vec<Value> = arguments.iter().map(|e| eval_expression(ctx, e)).collect();
@@ -1127,6 +1128,7 @@ fn with_layout_item_info(
                     repeater.row_child_templates.as_deref(),
                     orientation,
                     cross_size,
+                    repeater.cross_width.as_ref(),
                     &mut cells,
                 );
                 repeated_indices.push(offset);
@@ -1162,6 +1164,7 @@ fn push_repeater_layout_items(
     row_child_templates: Option<&[i_slint_compiler::llr::RowChildTemplateInfo]>,
     orientation: i_slint_compiler::layout::Orientation,
     cross_size: Option<f32>,
+    grid_cross_width: Option<&Expression>,
     cells: &mut Vec<Value>,
 ) -> (u32, u32) {
     use i_slint_core::model::RepeatedItemTree;
@@ -1196,7 +1199,7 @@ fn push_repeater_layout_items(
             // Column repeater: one cell per instance, asking the sub-component
             // for its own layout info — at the layout's cross size when the
             // main-axis pass forwards one.
-            for instance in &instances {
+            for (i, instance) in instances.iter().enumerate() {
                 let info = match (cross_size, core_orientation) {
                     (Some(cs), i_slint_core::items::Orientation::Vertical) => {
                         RepeatedItemTree::layout_item_info_at_cross_width(instance.as_pin_ref(), cs)
@@ -1207,11 +1210,21 @@ fn push_repeater_layout_items(
                             cs,
                         )
                     }
-                    (None, _) => RepeatedItemTree::layout_item_info(
-                        instance.as_pin_ref(),
-                        core_orientation,
-                        None,
-                    ),
+                    // A grid re-measures each instance at its own solved
+                    // column width instead of one size shared by all cells.
+                    (None, _) => {
+                        match grid_cross_width.and_then(|e| eval_grid_measure_width(ctx, e, i)) {
+                            Some(w) => RepeatedItemTree::layout_item_info_at_cross_width(
+                                instance.as_pin_ref(),
+                                w,
+                            ),
+                            None => RepeatedItemTree::layout_item_info(
+                                instance.as_pin_ref(),
+                                core_orientation,
+                                None,
+                            ),
+                        }
+                    }
                 };
                 push_cell(cells, info);
             }
@@ -1245,6 +1258,20 @@ fn push_repeater_layout_items(
     (instances.len() as u32, step)
 }
 
+/// Evaluate a [`i_slint_compiler::llr::LayoutRepeatedElement::cross_width`]
+/// cache read for one instance. `None` on a non-numeric value, so the caller
+/// falls back to the plain layout info rather than measuring at 0.
+fn eval_grid_measure_width(ctx: &mut EvalContext, expr: &Expression, index: usize) -> Option<f32> {
+    use i_slint_compiler::llr::lower_layout_expression::GRID_MEASURE_REPEATER_INDEX_LOCAL;
+    let prev = ctx.locals.insert(
+        SmolStr::new_static(GRID_MEASURE_REPEATER_INDEX_LOCAL),
+        Value::Number(index as f64),
+    );
+    let value = eval_expression(ctx, expr);
+    restore_local(ctx, GRID_MEASURE_REPEATER_INDEX_LOCAL, prev);
+    value.try_into().ok()
+}
+
 fn total_row_child_count(
     sub: &Pin<std::rc::Rc<crate::instance::SubComponentInstance>>,
     templates: &[i_slint_compiler::llr::RowChildTemplateInfo],
@@ -1252,7 +1279,7 @@ fn total_row_child_count(
     use i_slint_compiler::llr::{RowChildTemplateInfo, static_child_count};
     let mut total = static_child_count(templates);
     for entry in templates {
-        if let RowChildTemplateInfo::Repeated { repeater_index } = entry {
+        if let RowChildTemplateInfo::Repeated { repeater_index, .. } = entry {
             let repeater = &sub.repeaters[*repeater_index];
             repeater.track_instance_changes();
             total += repeater.range().len();
@@ -1564,7 +1591,7 @@ fn push_repeater_grid_input_data(
                         cells.push(v);
                         written += 1;
                     }
-                    RowChildTemplateInfo::Repeated { repeater_index } => {
+                    RowChildTemplateInfo::Repeated { repeater_index, .. } => {
                         let inner_rep = &inner_sub.repeaters[*repeater_index];
                         inner_rep.track_instance_changes();
                         // Let each inner cell report its own
@@ -1842,10 +1869,27 @@ fn grid_repeater_cache_access(
 }
 
 /// Dispatch a `BuiltinFunction` call to the corresponding runtime helper.
+/// The location of a builtin function call in the .slint source, in the form
+/// attached to the log messages it emits.
+fn log_message_location(
+    source_location: &Option<SourceLocation>,
+) -> Option<i_slint_core::debug_log::LogMessageLocation<'_>> {
+    let location = source_location.as_ref()?;
+    let source_file = location.source_file.as_ref()?;
+    let (line, column) = source_file
+        .line_column(location.span.offset, i_slint_compiler::diagnostics::ByteFormat::Utf8);
+    Some(i_slint_core::debug_log::LogMessageLocation {
+        path: source_file.path().to_str()?,
+        line,
+        column,
+    })
+}
+
 fn call_builtin_function(
     ctx: &mut EvalContext,
     f: BuiltinFunction,
     arguments: &[Expression],
+    source_location: &Option<SourceLocation>,
 ) -> Value {
     let to_num = |ctx: &mut EvalContext, e: &Expression| -> f64 {
         eval_expression(ctx, e).try_into().unwrap_or_default()
@@ -2072,7 +2116,11 @@ fn call_builtin_function(
             };
             let value = eval_expression(ctx, &arguments[1]);
 
-            model.push_row(value);
+            i_slint_core::model::report_model_error(
+                "push",
+                log_message_location(source_location),
+                model.push_row(value),
+            );
 
             Value::Void
         }
@@ -2090,7 +2138,15 @@ fn call_builtin_function(
                 _ => panic!("Second argument not an integer: {:?}", arguments[1]),
             };
 
-            model.remove_row(index as isize);
+            let result = match usize::try_from(index as i64) {
+                Ok(index) => model.remove_row(index),
+                Err(_) => Err(i_slint_core::model::ModelError::out_of_bounds(model.row_count())),
+            };
+            i_slint_core::model::report_model_error(
+                "remove",
+                log_message_location(source_location),
+                result,
+            );
 
             Value::Void
         }
@@ -2110,7 +2166,15 @@ fn call_builtin_function(
             };
 
             let value = eval_expression(ctx, &arguments[2]);
-            model.insert_row(index as isize, value);
+            let result = match usize::try_from(index as i64) {
+                Ok(index) => model.insert_row(index, value),
+                Err(_) => Err(i_slint_core::model::ModelError::out_of_bounds(model.row_count())),
+            };
+            i_slint_core::model::report_model_error(
+                "insert",
+                log_message_location(source_location),
+                result,
+            );
 
             Value::Void
         }
@@ -2439,13 +2503,13 @@ fn call_builtin_function(
             if let Some(context) = root.as_ref().and_then(i_slint_core::window::context_for_root) {
                 context.dispatch_log_message(LogMessage::new(
                     LogMessageSource::SlintCode,
-                    None,
+                    log_message_location(source_location),
                     format_args!("{msg}"),
                 ));
             } else {
                 log_message(LogMessage::new(
                     LogMessageSource::SlintCode,
-                    None,
+                    log_message_location(source_location),
                     format_args!("{msg}"),
                 ));
             }

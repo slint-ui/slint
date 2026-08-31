@@ -39,6 +39,9 @@ Slint's input system handles mouse, touch, keyboard events and focus management.
   with a position, a delta and a `TouchPhase`
 - `Exit`, when the pointer leaves the item
 
+A backend dispatches a `BackendMouseEvent`: the same variants without `DragMove` and `Drop`,
+so that `WindowEvent` stays `Send` and `Sync`.
+
 ### Click Counting
 
 `ClickState` (`internal/core/input.rs`) tracks multi-clicks (double-click, triple-click) by
@@ -71,7 +74,7 @@ remembering the timestamp, count, position and button of the last press.
 
 Every event a backend delivers goes through `Window::dispatch_event_with_result()`.
 Events that the public `WindowEvent` variants can't express travel as `WindowEvent::Internal(InternalEvent)`,
-a doc-hidden variant that carries the runtime's own `MouseEvent`, `InternalKeyEvent` or touch point.
+a doc-hidden variant that carries the runtime's own `BackendMouseEvent`, `InternalKeyEvent` or touch point.
 The dispatch reports them to the window event hook as the public event they correspond to,
 or not at all when there is none (gestures, touch, input method composition).
 
@@ -79,6 +82,9 @@ or not at all when there is none (gestures, touch, input method composition).
 so backends can't bypass that funnel and each event is observed exactly once.
 Drag and drop is the exception: it uses `WindowInner::process_drag_event()`,
 because the backend needs the negotiated `DragAction` back, which the public dispatch result can't express.
+`WindowEvent` can't carry it anyway, being `Send` and `Sync` while the dragged payload is
+reference counted.
+That entry point takes a `BackendDragEvent`, so drag and drop is the only input that can travel it.
 
 ### Mouse Event Flow
 

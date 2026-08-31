@@ -121,7 +121,6 @@ def test_class_members_inherit_and_hide(sample):
     assert "### greet" in out  # own method
     assert "### shared" in out  # inherited from the in-package base
     assert "### name" in out  # annotated attribute -> property
-    assert "init_self" not in out  # inherited helper excluded by name
     assert "secret" not in out  # @private docstring excluded
     assert "_internal" not in out  # underscore-prefixed excluded
 

@@ -699,6 +699,15 @@ impl<'a, T: ItemRenderer + ItemRendererFeatures> PartialRenderer<'a, T> {
     pub fn into_inner(self) -> T {
         self.actual_renderer
     }
+
+    /// Whether an item with this bounding rect is visible in the clip and dirty region.
+    fn item_is_drawn(&self, item_bounding_rect: &LogicalRect) -> bool {
+        self.get_current_clip().intersection(item_bounding_rect).is_some_and(|clipped_geom| {
+            let screen_geom =
+                self.current_transform().outer_transformed_rect(&clipped_geom.cast()).cast();
+            self.dirty_region.draw_intersects(screen_geom)
+        })
+    }
 }
 
 macro_rules! forward_rendering_call {
@@ -730,30 +739,37 @@ impl<T: ItemRenderer + ItemRendererFeatures> ItemRenderer for PartialRenderer<'_
         &mut self,
         item_rc: &ItemRc,
         window_adapter: &Rc<dyn WindowAdapter>,
-    ) -> (bool, LogicalRect) {
+    ) -> (bool, LogicalPoint, Option<LogicalSize>) {
         let item = item_rc.borrow();
+        let rendering_data = item.cached_rendering_data_offset();
+
+        // The entry is fresh: compute_dirty_regions() refreshes it every frame.
+        let cached = {
+            let mut cache = self.cache.borrow_mut();
+            rendering_data.get_entry(&mut cache).map(|e| {
+                let draw = self.item_is_drawn(e.data.bounding_rect());
+                let offset = match &e.data {
+                    CachedItemBoundingBoxAndTransform::RegularItem { offset, .. } => Some(*offset),
+                    _ => None,
+                };
+                (draw, offset)
+            })
+        };
+
+        // Items that are not drawn only need their origin; this skips e.g. shaping off-screen text.
+        if let Some((false, Some(offset))) = cached {
+            return (false, offset.to_point(), None);
+        }
 
         // Query untracked, as the bounding rect calculation already registers a dependency on the geometry.
         let item_geometry = crate::properties::evaluate_no_tracking(|| item_rc.geometry());
-
-        let rendering_data = item.cached_rendering_data_offset();
-        let mut cache = self.cache.borrow_mut();
-        let item_bounding_rect = match rendering_data.get_entry(&mut cache) {
-            Some(PartialRenderingCachedData { data, tracker: _ }) => *data.bounding_rect(),
-            None => {
-                // This item was created between the computation of the dirty region and the actual rendering.
-                item_rc.bounding_rect(&item_geometry, window_adapter)
-            }
-        };
-
-        let clipped_geom = self.get_current_clip().intersection(&item_bounding_rect);
-        let draw = clipped_geom.is_some_and(|clipped_geom| {
-            let screen_geom =
-                self.current_transform().outer_transformed_rect(&clipped_geom.cast()).cast();
-            self.dirty_region.draw_intersects(screen_geom)
+        let draw = cached.map(|(draw, _)| draw).unwrap_or_else(|| {
+            // The item was created between the computation of the dirty region and the
+            // actual rendering.
+            self.item_is_drawn(&item_rc.bounding_rect(&item_geometry, window_adapter))
         });
 
-        (draw, item_geometry)
+        (draw, item_geometry.origin, Some(item_geometry.size))
     }
 
     forward_rendering_call2!(fn draw_rectangle(dyn RenderRectangle));

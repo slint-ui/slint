@@ -8,6 +8,12 @@ export enum CanvasCorner {
     bottom-left,
 }
 
+export enum PaletteComponentKind {
+    none,
+    rectangle,
+    text,
+    image,
+}
 
 // cSpell: ignore dataonly
 /// Basic information on a known component
@@ -408,8 +414,7 @@ export global Api {
     // The actual preview
     in-out property <component-factory> preview-area;
 
-    pure callback new-component-data(index: int) -> data-transfer;
-    pure callback new-component-data-for-name(name: string) -> data-transfer;
+    pure callback new-component-data-for-kind(kind: PaletteComponentKind) -> data-transfer;
     pure callback move-element-instance-data(component-uri: string, offset: int) -> data-transfer;
 
     // set to true to resize
@@ -630,12 +635,10 @@ export global Api {
 
     callback rename-component(old-name: string, defined-at: string, new-name: string);
 
-    callback selected-element-can-move-to(x: length, y: length, mouse-x: length, mouse-y: length) -> bool;
-    callback selected-element-move(x: length, y: length, mouse-x: length, mouse-y: length);
-
     callback override-selected-element-border-radius(corner: CanvasCorner, radius: length, single-corner: bool);
     callback persist-selected-element-border-radius();
     callback selected-element-resize(x: length, y: length, width: length, height: length);
+    callback persist-selected-element-geometry();
     callback selected-element-rotate(rotation: angle);
     callback override-selected-element-geometry(x: length, y: length, width: length, height: length);
     callback override-selected-element-rotation(rotation: angle);

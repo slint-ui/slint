@@ -4,6 +4,7 @@
 import { InspectorTokens } from "tokens.slint";
 
 export component InspectorTextFieldBase inherits Rectangle {
+    in property <string> accessible-name: "";
     in property <string> value;
     in property <bool> enabled: true;
     in property <length> field-padding-left: 8px;
@@ -11,19 +12,29 @@ export component InspectorTextFieldBase inherits Rectangle {
     in property <length> content-spacing: 5px;
     in property <length> input-font-size: 12px;
     in property <color> input-color: root.enabled ? InspectorTokens.text : InspectorTokens.muted;
-    in property <string> tooltip-label: "";
-    in property <string> tooltip-key: tooltip-label;
     in property <string> commit-key: "";
     private property <string> active-commit-key: root.commit-key;
     callback accepted(string) -> bool;
-    callback tooltip-hovered(string, string, Point);
-    callback tooltip-hidden(string);
 
     height: InspectorTokens.field-height;
     border-radius: InspectorTokens.field-radius;
     background: !enabled ? InspectorTokens.field-bg.with-alpha(0.65) : input.has-focus ? InspectorTokens.panel-bg : touch.has-hover ? InspectorTokens.field-bg-hover : InspectorTokens.field-bg;
     border-width: input.has-focus ? 1px : 0px;
     border-color: InspectorTokens.accent;
+    accessible-role: AccessibleRole.text-input;
+    accessible-label: root.accessible-name;
+    accessible-value: input.text;
+    accessible-enabled: root.enabled;
+    accessible-action-set-value(value) => {
+        if root.enabled {
+            root.accept-input(value);
+        }
+    }
+    accessible-action-default => {
+        if root.enabled {
+            input.focus();
+        }
+    }
 
     changed value => {
         if !input.has-focus {
@@ -45,55 +56,48 @@ export component InspectorTextFieldBase inherits Rectangle {
         return root.accepted(text);
     }
 
-    HorizontalLayout {
-        padding-left: root.field-padding-left;
-        padding-right: root.field-padding-right;
-        spacing: root.content-spacing;
-        cross-axis-alignment: center;
-
-        @children
-
-        input := TextInput {
-            horizontal-stretch: 1;
-            text: root.value;
-            enabled: root.enabled;
-            single-line: true;
-            wrap: no-wrap;
-            color: root.input-color;
-            font-size: root.input-font-size;
-            vertical-alignment: center;
-            selection-background-color: InspectorTokens.accent.with-alpha(0.28);
-            text-cursor-width: 1px;
-
-            accepted => {
-                if !root.accept-input(self.text) {
-                    self.text = root.value;
-                }
-            }
-
-            changed has-focus => {
-                if self.has-focus {
-                    root.active-commit-key = root.commit-key;
-                }
-                if !self.has-focus && self.text != root.value {
-                    if !root.accept-input(self.text) {
-                        self.text = root.value;
-                    }
-                }
-            }
-        }
-    }
-
     touch := TouchArea {
         enabled: root.enabled;
         mouse-cursor: text;
         clicked => { input.focus(); }
 
-        changed has-hover => {
-            if self.has-hover && root.tooltip-label != "" {
-                root.tooltip-hovered(root.tooltip-key, root.tooltip-label, root.absolute-position);
-            } else if root.tooltip-label != "" {
-                root.tooltip-hidden(root.tooltip-key);
+        HorizontalLayout {
+            padding-left: root.field-padding-left;
+            padding-right: root.field-padding-right;
+            spacing: root.content-spacing;
+            cross-axis-alignment: center;
+
+            @children
+
+            input := TextInput {
+                horizontal-stretch: 1;
+                text: root.value;
+                enabled: root.enabled;
+                single-line: true;
+                wrap: no-wrap;
+                color: root.input-color;
+                font-size: root.input-font-size;
+                vertical-alignment: center;
+                selection-background-color: InspectorTokens.accent.with-alpha(0.28);
+                text-cursor-width: 1px;
+
+                accepted => {
+                    if !root.accept-input(self.text) {
+                        self.text = root.value;
+                    }
+                }
+
+                changed has-focus => {
+                    if self.has-focus {
+                        root.active-commit-key = root.commit-key;
+                        self.select-all();
+                    }
+                    if !self.has-focus && self.text != root.value {
+                        if !root.accept-input(self.text) {
+                            self.text = root.value;
+                        }
+                    }
+                }
             }
         }
     }

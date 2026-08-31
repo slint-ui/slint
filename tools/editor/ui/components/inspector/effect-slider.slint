@@ -5,6 +5,7 @@ import { InspectorTokens } from "tokens.slint";
 import { InspectorValueField } from "value-field.slint";
 
 export component InspectorEffectSlider inherits Rectangle {
+    in property <string> accessible-name: "";
     in property <string> label;
     in property <float> value;
     in property <float> minimum: 0;
@@ -18,6 +19,16 @@ export component InspectorEffectSlider inherits Rectangle {
 
     width: InspectorTokens.wide-width;
     height: 34px;
+    accessible-role: AccessibleRole.slider;
+    accessible-label: root.accessible-name;
+    accessible-value: "\{root.visual-value()}";
+    accessible-value-minimum: root.minimum;
+    accessible-value-maximum: root.maximum;
+    accessible-action-set-value(value) => {
+        if value.is-float() {
+            root.accepted(root.clamped(value.to-float()));
+        }
+    }
 
     pure function clamped(value: float) -> float {
         return value.clamp(root.minimum, root.maximum).round();
@@ -114,6 +125,7 @@ export component InspectorEffectSlider inherits Rectangle {
 
     InspectorValueField {
         x: parent.width - self.width - (root.suffix != "" ? 14px : 0px);
+        accessible-name: root.accessible-name + " value";
         prefix: "";
         value: "\{root.visual-value().round()}";
         commit-key: root.commit-key;

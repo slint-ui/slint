@@ -128,6 +128,8 @@ pub enum Expression {
     BuiltinFunctionCall {
         function: BuiltinFunction,
         arguments: Vec<Expression>,
+        /// The location of the call in the .slint source, for run-time diagnostics
+        source_location: Option<crate::diagnostics::SourceLocation>,
     },
     CallBackCall {
         callback: MemberReference,
@@ -488,6 +490,7 @@ impl Expression {
             Type::DataTransfer => Expression::EmptyDataTransfer,
             Type::ComponentFactory => Expression::EmptyComponentFactory,
             Type::StyledText => Expression::BuiltinFunctionCall {
+                source_location: None,
                 function: BuiltinFunction::StringToStyledText,
                 arguments: vec![Expression::StringLiteral(SmolStr::default())],
             },
@@ -683,7 +686,14 @@ macro_rules! visit_impl {
                 if let Some(s) = repeated_cross_size {
                     $visitor(s);
                 }
-                elements.$iter().filter_map(|x| x.$as_ref().left()).for_each($visitor);
+                elements.$iter().for_each(|x| match x.$as_ref() {
+                    Either::Left(e) => $visitor(e),
+                    Either::Right(r) => {
+                        if let Some(w) = r.cross_width.$as_ref() {
+                            $visitor(w);
+                        }
+                    }
+                });
             }
             Expression::WithFlexboxLayoutItemInfo {
                 elements,
@@ -695,27 +705,39 @@ macro_rules! visit_impl {
                 if let Some(w) = repeated_cross_width {
                     $visitor(w);
                 }
-                elements.$iter().filter_map(|x| x.$as_ref().left()).for_each(|(h, v, f)| {
-                    $visitor(h);
-                    $visitor(v);
-                    // Visited even when `flex_props_variable` is `None` and the
-                    // generators skip `f`: this only over-counts property use,
-                    // and the layout's solve binding reads the same properties.
-                    $visitor(f);
+                elements.$iter().for_each(|x| match x.$as_ref() {
+                    Either::Left((h, v, f)) => {
+                        $visitor(h);
+                        $visitor(v);
+                        // Visited even when `flex_props_variable` is `None` and the
+                        // generators skip `f`: this only over-counts property use,
+                        // and the layout's solve binding reads the same properties.
+                        $visitor(f);
+                    }
+                    Either::Right(r) => {
+                        if let Some(w) = r.cross_width.$as_ref() {
+                            $visitor(w);
+                        }
+                    }
                 });
             }
             Expression::SolveFlexboxLayoutWithMeasure { data, repeater_indices, measure_cells } => {
                 $visitor(data);
                 $visitor(repeater_indices);
-                measure_cells.$iter().for_each(|x| {
-                    if let FlexboxMeasureCell {
+                measure_cells.$iter().for_each(|x| match x {
+                    FlexboxMeasureCell {
                         kind: FlexboxMeasureCellKind::Static { h_info, v_info },
                         ..
-                    } = x
-                    {
+                    } => {
                         $visitor(h_info);
                         $visitor(v_info);
                     }
+                    FlexboxMeasureCell { kind: FlexboxMeasureCellKind::Repeated(r), .. } => {
+                        if let Some(w) = r.cross_width.$as_ref() {
+                            $visitor(w);
+                        }
+                    }
+                    FlexboxMeasureCell { kind: FlexboxMeasureCellKind::Fixed, .. } => {}
                 });
             }
             Expression::BoxLayoutInfoOrthoWithMeasure {
@@ -726,9 +748,12 @@ macro_rules! visit_impl {
             } => {
                 $visitor(solve_data);
                 $visitor(padding_ortho);
-                measure_cells.$iter().for_each(|x| {
-                    if let BoxMeasureCell::Static { info } = x {
-                        $visitor(info);
+                measure_cells.$iter().for_each(|x| match x {
+                    BoxMeasureCell::Static { info } => $visitor(info),
+                    BoxMeasureCell::Repeated(r) => {
+                        if let Some(w) = r.cross_width.$as_ref() {
+                            $visitor(w);
+                        }
                     }
                 });
             }

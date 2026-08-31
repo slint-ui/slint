@@ -2,7 +2,31 @@
 # SPDX-License-Identifier: MIT
 
 # cSpell: ignore rustls thiserror
-# This example is part of the examples workspace (examples/Cargo.toml).
+
+# This example has its own workspace: servo's font stack links against a
+# different major version of the native freetype library than `font-kit` (which
+# the `plotter` example pulls in via `plotters`), and cargo allows only one
+# package per resolve graph to set the same `links` value. It is built
+# separately in CI (.github/workflows/servo_example.yaml).
+[workspace]
+resolver = "3"
+
+# Kept identical to the root Cargo.toml's `[profile.*]`, so that the shared
+# `target/` directory is reused; `cargo xtask check_profiles` enforces it.
+[profile.release]
+panic = "abort"
+
+# Always build resvg and its hot-path dependencies with optimizations,
+# as it otherwise causes freezes to load large SVGs in debug builds.
+[profile.dev.package.resvg]
+opt-level = 3
+[profile.dev.package.usvg]
+opt-level = 3
+[profile.dev.package.tiny-skia]
+opt-level = 3
+[profile.dev.package.rgb]
+opt-level = 3
+
 [package]
 name = "servo-example"
 version = "1.18.0"
@@ -39,11 +63,11 @@ termcolor = "1.4.1"
 thiserror = "2.0.17"
 
 surfman = { version = "0.13.0", features = ["chains"] }
-servo = "0.4.0"
+servo = "0.5.0"
 
 [target.'cfg(target_os = "windows")'.dependencies]
 surfman = { version = "0.13.0", features = ["chains", "sm-angle-default"] }
-servo = { version = "0.4.0", features = ["no-wgl"] }
+servo = { version = "0.5.0", features = ["no-wgl"] }
 windows = { version = "0.62.2", features = ["Win32_Graphics_Dxgi", "Win32_Graphics_Direct3D11", "Win32_Graphics_Direct3D12", "Win32_Foundation", "Win32_Graphics_Dxgi_Common"] }
 wio = "0.2"
 

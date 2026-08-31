@@ -310,7 +310,7 @@ public:
     }
 
     /// Send a pointer event to this window
-    void dispatch_pointer_event(const cbindgen_private::MouseEvent &event)
+    void dispatch_pointer_event(const cbindgen_private::BackendMouseEvent &event)
     {
         private_api::assert_main_thread();
         cbindgen_private::slint_windowrc_dispatch_pointer_event(&inner, &event);
@@ -582,8 +582,8 @@ public:
     void dispatch_pointer_press_event(LogicalPosition pos, PointerEventButton button)
     {
         private_api::assert_main_thread();
-        inner.dispatch_pointer_event(
-                slint::cbindgen_private::MouseEvent::Pressed({ pos.x, pos.y }, button, 0, 0));
+        inner.dispatch_pointer_event(slint::cbindgen_private::BackendMouseEvent::Pressed(
+                { pos.x, pos.y }, button, 0, 0));
     }
     /// Dispatches a pointer or mouse release event to the scene.
     ///
@@ -595,8 +595,8 @@ public:
     void dispatch_pointer_release_event(LogicalPosition pos, PointerEventButton button)
     {
         private_api::assert_main_thread();
-        inner.dispatch_pointer_event(
-                slint::cbindgen_private::MouseEvent::Released({ pos.x, pos.y }, button, 0, 0));
+        inner.dispatch_pointer_event(slint::cbindgen_private::BackendMouseEvent::Released(
+                { pos.x, pos.y }, button, 0, 0));
     }
     /// Dispatches a pointer exit event to the scene.
     ///
@@ -607,7 +607,7 @@ public:
     void dispatch_pointer_exit_event()
     {
         private_api::assert_main_thread();
-        inner.dispatch_pointer_event(slint::cbindgen_private::MouseEvent::Exit());
+        inner.dispatch_pointer_event(slint::cbindgen_private::BackendMouseEvent::Exit());
     }
 
     /// Dispatches a pointer move event to the scene.
@@ -620,7 +620,7 @@ public:
     {
         private_api::assert_main_thread();
         inner.dispatch_pointer_event(
-                slint::cbindgen_private::MouseEvent::Moved({ pos.x, pos.y }, 0));
+                slint::cbindgen_private::BackendMouseEvent::Moved({ pos.x, pos.y }, 0));
     }
 
     /// Dispatches a scroll (or wheel) event to the scene.
@@ -638,7 +638,7 @@ public:
                                                slint::cbindgen_private::types::TouchPhase::Moved)
     {
         private_api::assert_main_thread();
-        inner.dispatch_pointer_event(slint::cbindgen_private::MouseEvent::Wheel(
+        inner.dispatch_pointer_event(slint::cbindgen_private::BackendMouseEvent::Wheel(
                 { pos.x, pos.y }, delta_x, delta_y, scroll_phase));
     }
 

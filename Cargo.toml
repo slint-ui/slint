@@ -129,7 +129,6 @@ tracing-log = { version = "0.2" }
 # `svgz` was unconditional until resvg 0.48 gated it behind a feature. Slint accepts
 # compressed SVGs (`.svgz`), so keep it enabled or usvg rejects them at parse time.
 resvg = { version = "0.48.1", default-features = false, features = ["text", "raster-images", "svgz"] }
-rowan = { version = "0.16.1" }
 rustybuzz = { version = "0.20.0" }
 send_wrapper = { version = "0.6.0" }
 serde = { version = "1.0.163", default-features = false, features = ["derive"] }
@@ -178,6 +177,8 @@ objc2 = { version = "0.6.3" }
 # Not updated because of https://github.com/gluon-lang/lsp-types/issues/284
 lsp-types = "0.95.0"
 
+# The other workspaces repeat these `[profile.*]` settings so that they share
+# this workspace's `target/`. `cargo xtask check_profiles --fix-it` syncs them.
 [profile.release]
 panic = "abort"
 

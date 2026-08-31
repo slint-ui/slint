@@ -13,9 +13,11 @@ extern crate alloc;
 use event_loop::{CustomEvent, EventLoopState};
 use i_slint_core::api::EventLoopError;
 use i_slint_core::graphics::RequestedGraphicsAPI;
+use i_slint_core::lengths::LogicalPoint;
 use i_slint_core::platform::{EventLoopProxy, PlatformError};
 use i_slint_core::window::WindowAdapter;
 use renderer::WinitCompatibleRenderer;
+use std::cell::Cell;
 use std::cell::OnceCell;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -55,6 +57,7 @@ pub type EventLoopBuilder = winit::event_loop::EventLoopBuilder<SlintEvent>;
 
 /// Returned by callbacks passed to [`Window::on_winit_window_event`](WinitWindowAccessor::on_winit_window_event)
 /// to determine if winit events should propagate to the Slint event loop.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum EventResult {
     /// The winit event should propagate normally.
     Propagate,
@@ -396,6 +399,14 @@ impl BackendBuilder {
     }
 }
 
+fn dispatch_mouse_move(window: &Weak<WinitWindowAdapter>, position: LogicalPoint) {
+    if let Some(window) = window.upgrade() {
+        window.window().dispatch_event(i_slint_core::platform::WindowEvent::internal(
+            i_slint_core::input::BackendMouseEvent::Moved { position, touch_finger_id: 0 },
+        ));
+    }
+}
+
 pub(crate) struct SharedBackendData {
     context: OnceCell<i_slint_core::SlintContextWeak>,
     /// Allow fallback if the desired renderer is not found
@@ -408,6 +419,10 @@ pub(crate) struct SharedBackendData {
     /// List of visible windows that have been created when without the event loop and
     /// need to be mapped to a winit Window as soon as the event loop becomes active.
     inactive_windows: RefCell<Vec<Weak<WinitWindowAdapter>>>,
+    /// Buffered mouse move event pending dispatch. Consecutive `CursorMoved` events are coalesced,
+    /// as winit sends them so frequently that it can cause performance issues (see #9038 and #10912).
+    /// At most one window buffers a move at a time.
+    pending_mouse_move: Cell<Option<(Weak<WinitWindowAdapter>, LogicalPoint)>>,
     #[cfg(not(target_arch = "wasm32"))]
     clipboard: std::cell::RefCell<clipboard::ClipboardPair>,
     not_running_event_loop: RefCell<Option<winit::event_loop::EventLoop<SlintEvent>>>,
@@ -509,6 +524,7 @@ impl SharedBackendData {
             skia_context: i_slint_renderer_skia::SkiaSharedContext::default(),
             active_windows,
             inactive_windows: Default::default(),
+            pending_mouse_move: Default::default(),
             #[cfg(not(target_arch = "wasm32"))]
             clipboard: RefCell::new(clipboard),
             not_running_event_loop: RefCell::new(Some(event_loop)),
@@ -608,6 +624,28 @@ impl SharedBackendData {
 
     pub fn window_by_id(&self, id: winit::window::WindowId) -> Option<Rc<WinitWindowAdapter>> {
         self.active_windows.borrow().get(&id).and_then(|weakref| weakref.upgrade())
+    }
+
+    /// Buffer a mouse move event for the given window, coalescing it with the previously buffered
+    /// one. A move buffered for another window is dispatched first, to keep the events in order.
+    pub(crate) fn buffer_mouse_move(
+        &self,
+        window: &Weak<WinitWindowAdapter>,
+        position: LogicalPoint,
+    ) {
+        if let Some((pending_window, pending_position)) =
+            self.pending_mouse_move.replace(Some((window.clone(), position)))
+            && !Weak::ptr_eq(&pending_window, window)
+        {
+            dispatch_mouse_move(&pending_window, pending_position);
+        }
+    }
+
+    /// Dispatch the buffered mouse move event, if any.
+    pub(crate) fn flush_pending_mouse_move(&self) {
+        if let Some((window, position)) = self.pending_mouse_move.take() {
+            dispatch_mouse_move(&window, position);
+        }
     }
 }
 

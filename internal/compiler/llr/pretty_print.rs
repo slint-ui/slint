@@ -499,7 +499,7 @@ impl<'a, T> Display for DisplayExpression<'a, T> {
             Expression::CodeBlock(v) => {
                 write!(f, "{{ {} }}", v.iter().map(e).join("; "))
             }
-            Expression::BuiltinFunctionCall { function, arguments } => {
+            Expression::BuiltinFunctionCall { function, arguments, .. } => {
                 write!(f, "{:?}({})", function, arguments.iter().map(e).join(", "))
             }
             Expression::CallBackCall { callback, arguments } => {
@@ -664,8 +664,14 @@ impl<'a, T> Display for DisplayExpression<'a, T> {
                         .iter()
                         .map(|x| match x {
                             Either::Left(x) => e(x).to_string(),
-                            Either::Right(r) =>
-                                format!("@repeater({})", usize::from(r.repeater_index)),
+                            Either::Right(r) => match &r.cross_width {
+                                Some(w) => format!(
+                                    "@repeater({} at cross-width {})",
+                                    usize::from(r.repeater_index),
+                                    e(w)
+                                ),
+                                None => format!("@repeater({})", usize::from(r.repeater_index)),
+                            },
                         })
                         .join(", "),
                     match orientation {
