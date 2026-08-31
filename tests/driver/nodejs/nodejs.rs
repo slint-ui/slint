@@ -30,10 +30,7 @@ static NODE_API_JS_PATH: LazyLock<PathBuf> = LazyLock::new(|| {
         .arg("install")
         .arg("--ignore-scripts")
         .arg("--config.confirmModulesPurge=false") // https://github.com/pnpm/pnpm/issues/9973 (and 7727 for the solution)
-        // As of pnpm 11.17, --config.confirmModulesPurge=false no longer suppresses the
-        // confirmation prompt before removing the modules directory.
-        // The output is piped, so the prompt is invisible and the driver hangs.
-        // CI=true suppresses it.
+        // Prevent the pnpm confirmation prompt for module purge.
         .env("CI", "true")
         .current_dir(node_dir.clone())
         .stdout(std::process::Stdio::piped())
