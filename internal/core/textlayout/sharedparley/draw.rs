@@ -87,11 +87,10 @@ pub(super) fn visible_band(item_renderer: &impl GlyphRenderer) -> Range<Physical
 }
 
 /// The horizontal counterpart of [`visible_band`].
-pub(super) fn visible_columns(item_renderer: &impl GlyphRenderer) -> Range<PhysicalLength> {
+pub(super) fn visible_x_range(item_renderer: &impl GlyphRenderer) -> Range<PhysicalLength> {
     let scale_factor = item_renderer.scale_factor();
-    let clip = item_renderer.get_current_clip();
-    let left = clip.origin.x_length() * scale_factor;
-    left..(left + clip.width_length() * scale_factor)
+    let x_range = item_renderer.get_current_clip().x_length_range();
+    (x_range.start * scale_factor)..(x_range.end * scale_factor)
 }
 
 impl TextParagraph {
@@ -103,7 +102,7 @@ impl TextParagraph {
         visible_extent: Option<ElisionCut>,
         visible_band: &Range<PhysicalLength>,
         // `None` when eliding.
-        visible_columns: Option<&Range<PhysicalLength>>,
+        visible_x_range: Option<&Range<PhysicalLength>>,
         item_renderer: &mut R,
         default_fill_brush: &<R as GlyphRenderer>::PlatformBrush,
         default_stroke_brush: &Option<<R as GlyphRenderer>::PlatformBrush>,
@@ -178,22 +177,22 @@ impl TextParagraph {
             let vertically_truncated = last_line && vertical_truncation;
             let line_spans =
                 selection.map(|selection| selection.spans.for_line(paragraph_index, index));
-            // Padded for ink overhanging the advance, like the vertical cull.
-            let padded_columns = visible_columns
-                .map(|columns| (columns.start - line_height)..(columns.end + line_height));
+            // Padded for ink overhanging the advance, like the vertical filtering of lines.
+            let padded_x_range = visible_x_range
+                .map(|x_range| (x_range.start - line_height)..(x_range.end + line_height));
             for item in line.items() {
                 match item {
                     parley::PositionedLayoutItem::GlyphRun(glyph_run) => {
-                        let mut glyph_columns = None;
-                        if let Some(columns) = &padded_columns {
+                        let mut glyph_x_range = None;
+                        if let Some(x_range) = &padded_x_range {
                             let run_start = PhysicalLength::new(glyph_run.offset());
                             let run_end =
                                 PhysicalLength::new(glyph_run.offset() + glyph_run.advance());
-                            if run_end < columns.start || run_start > columns.end {
+                            if run_end < x_range.start || run_start > x_range.end {
                                 continue;
                             }
-                            if run_start < columns.start || run_end > columns.end {
-                                glyph_columns = Some(columns);
+                            if run_start < x_range.start || run_end > x_range.end {
+                                glyph_x_range = Some(x_range);
                             }
                         }
                         let ellipsis = if last_line {
@@ -209,7 +208,7 @@ impl TextParagraph {
                                 default_fill_brush,
                                 default_stroke_brush,
                                 para_y,
-                                glyph_columns,
+                                glyph_x_range,
                                 &mut truncated_glyphs.into_iter(),
                                 selection.map(|selection| &selection.foreground),
                                 line_spans.unwrap_or_default(),
@@ -222,7 +221,7 @@ impl TextParagraph {
                                 default_fill_brush,
                                 default_stroke_brush,
                                 para_y,
-                                glyph_columns,
+                                glyph_x_range,
                                 &mut glyph_run.positioned_glyphs(),
                                 selection.map(|selection| &selection.foreground),
                                 line_spans.unwrap_or_default(),
@@ -377,7 +376,7 @@ impl TextParagraph {
         default_stroke_brush: &Option<<R as GlyphRenderer>::PlatformBrush>,
         para_y: PhysicalLength,
         // A uniform `no-wrap` line is a single run, so culling whole runs is not enough.
-        visible_columns: Option<&Range<PhysicalLength>>,
+        visible_x_range: Option<&Range<PhysicalLength>>,
         glyphs_it: &mut dyn Iterator<Item = parley::layout::Glyph>,
         // The selection foreground, and the spans it covers on this run's line. Both empty when
         // there is no selection, which `run_coverage` reports as `Unselected`.
@@ -387,12 +386,12 @@ impl TextParagraph {
         let run_x = glyph_run.offset()..glyph_run.offset() + glyph_run.advance();
 
         // Bidirectional text reorders glyphs within a run, so this filters rather than truncating.
-        let columns = visible_columns.cloned();
+        let x_range = visible_x_range.cloned();
         let mut glyphs_it = glyphs_it.filter(move |glyph| {
-            columns.as_ref().is_none_or(|columns| {
+            x_range.as_ref().is_none_or(|x_range| {
                 let start = PhysicalLength::new(glyph.x);
                 let end = PhysicalLength::new(glyph.x + glyph.advance);
-                end >= columns.start && start <= columns.end
+                end >= x_range.start && start <= x_range.end
             })
         });
         let glyphs_it: &mut dyn Iterator<Item = parley::layout::Glyph> = &mut glyphs_it;
@@ -673,7 +672,7 @@ impl Layout {
         // *drawn*; it never influences elision or `max-lines` accounting.
         let visible_band = visible_band(item_renderer);
         // The ellipsis is positioned from the overflowing run, so don't cull while eliding.
-        let visible_columns = (!self.is_eliding()).then(|| visible_columns(item_renderer));
+        let visible_x_range = (!self.is_eliding()).then(|| visible_x_range(item_renderer));
 
         // Paragraphs are stacked in order, so binary-search the first one whose box reaches the
         // band. Start one paragraph earlier and stop one past the band: glyph ink may overhang
@@ -696,7 +695,7 @@ impl Layout {
                 paragraph_index,
                 visible_extent,
                 &visible_band,
-                visible_columns.as_ref(),
+                visible_x_range.as_ref(),
                 item_renderer,
                 &default_fill_brush,
                 &default_stroke_brush,
