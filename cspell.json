@@ -154,6 +154,7 @@
     "grayscale",
     "gridlayout",
     "groupbox",
+    "hardlinks",
     "Hausmann",
     "Helvetica",
     "imagefilter",
@@ -225,6 +226,7 @@
     "testcase",
     "textedit",
     "threadsafe", // asyncio loop.call_soon_threadsafe()
+    "tmpfs",
     "tmpobj",
     "toolchain",
     "toolkit",
