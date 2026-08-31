@@ -1,0 +1,148 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Variants involving a Flickable nested beneath (or containing) another positioned element in
+// the same delayed-press resolution path. See issue #13118.
+
+// When the delay timer fires while a Flickable nested beneath another positioned ancestor is still
+// holding a press, the stored event must be translated through the *whole* ancestor chain down to the
+// Flickable's own local frame, not just the Flickable's own geometry, or a nested `TouchArea` sees the
+// wrong position and misses press feedback it should get.
+export component TestCaseNestedAncestor inherits Window {
+    width: 200px;
+    height: 100px;
+
+    Rectangle {
+        x: 60px;
+        y: 0px;
+        width: 100px;
+        height: 100px;
+
+        flick := Flickable {
+            width: 100px;
+            height: 100px;
+            content-width: 150px;
+            content-height: 100px;
+
+            ta := TouchArea {
+                x: 0px;
+                y: 0px;
+                width: 50px;
+                height: 100px;
+            }
+        }
+    }
+
+    out property <bool> ta-pressed: ta.pressed;
+}
+
+// When an outer Flickable's delay resolves (via the 100ms timer or on release) and its own
+// children are visited, a nested pannable Flickable among those children must still be free to
+// start its own delay, rather than being forced to forward-and-ignore the press itself. Otherwise
+// the press incorrectly bubbles past the nested Flickable to a sibling `TouchArea` behind it, and a
+// real drag on the nested Flickable is lost.
+export component TestCaseNestedDelayingChild inherits Window {
+    width: 100px;
+    height: 100px;
+
+    outer := Flickable {
+        width: 100px;
+        height: 100px;
+        content-width: 100px;
+        content-height: 200px;
+
+        ta := TouchArea {
+            width: 100px;
+            height: 100px;
+            clicked => { root.counter += 1; }
+        }
+        inner := Flickable {
+            width: 100px;
+            height: 100px;
+            content-width: 200px;
+            content-height: 100px;
+        }
+    }
+
+    out property <int> counter: 0;
+    out property <length> inner-content-x: inner.content-x;
+    out property <bool> ta-pressed: ta.pressed;
+}
+
+// A pannable Flickable nested inside another pannable Flickable, with nothing inside the inner one
+// to claim a press, and a `TouchArea` behind the whole outer+inner pair. A plain click (press +
+// release, no drag) must still reach that `TouchArea`: the release-triggered replay must let the
+// unclaimed press bubble past *both* delaying Flickables, not just the outer one. If the inner
+// Flickable were allowed to fall back and grab the mouse for itself (as it correctly does during
+// the *timer*-triggered path, in case it's about to become a drag), release confirms there was
+// never a drag, so it must not have swallowed the press -- reintroducing #13118's bug one level
+// deeper.
+export component TestCaseNestedEmptyChild inherits Window {
+    width: 100px;
+    height: 100px;
+
+    TouchArea {
+        clicked => { root.counter += 1; }
+    }
+    Flickable {
+        width: 100px;
+        height: 100px;
+        content-width: 200px;
+        content-height: 100px;
+
+        Flickable {
+            width: 100px;
+            height: 100px;
+            content-width: 100px;
+            content-height: 200px;
+        }
+    }
+
+    out property <int> counter: 0;
+}
+
+/*
+```rust
+use slint::{platform::WindowEvent, platform::PointerEventButton, LogicalPosition};
+let instance = TestCaseNestedAncestor::new().unwrap();
+
+// Window-frame x=75 maps to x=15 in the Flickable's local frame (75 - the ancestor Rectangle's x=60),
+// which falls inside the TouchArea's 0..50 range.
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(75.0, 50.0), button: PointerEventButton::Left });
+assert_eq!(instance.get_ta_pressed(), false);
+
+// Held past the 100ms delay: the timer-triggered replay must give the TouchArea a chance to show
+// press feedback at the correctly-translated position.
+slint_testing::mock_elapsed_time(150);
+assert_eq!(instance.get_ta_pressed(), true);
+
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(75.0, 50.0), button: PointerEventButton::Left });
+```
+
+```rust
+use slint::{platform::WindowEvent, platform::PointerEventButton, LogicalPosition};
+let instance = TestCaseNestedDelayingChild::new().unwrap();
+
+// Press over the nested Flickable, held past the 100ms timer: the nested Flickable must still
+// be holding the press provisionally, not the sibling TouchArea behind it.
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(50.0, 50.0), button: PointerEventButton::Left });
+slint_testing::mock_elapsed_time(150);
+assert_eq!(instance.get_ta_pressed(), false);
+
+// A real drag on the nested Flickable still pans it and never reaches the TouchArea.
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(30.0, 50.0) });
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(10.0, 50.0) });
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(10.0, 50.0), button: PointerEventButton::Left });
+assert_eq!(instance.get_inner_content_x(), -40.);
+assert_eq!(instance.get_counter(), 0);
+```
+
+```rust
+use slint::{platform::WindowEvent, platform::PointerEventButton, LogicalPosition};
+let instance = TestCaseNestedEmptyChild::new().unwrap();
+
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(50.0, 50.0), button: PointerEventButton::Left });
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(50.0, 50.0), button: PointerEventButton::Left });
+assert_eq!(instance.get_counter(), 1);
+```
+*/
