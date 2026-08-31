@@ -2933,6 +2933,39 @@ component Foo {{
     }
 
     #[test]
+    fn no_auto_completion_for_cross_axis_alignment() {
+        // `auto` cannot be set on `cross-axis-alignment`, so don't offer it there,
+        // neither as a bare value nor after `CrossAxisAlignment.`
+        for (binding, has_auto) in [
+            ("cross-axis-alignment: @value Rectangle {}", false),
+            ("Rectangle { cross-axis-self-alignment: @value }", true),
+        ] {
+            for value in ["🔺", "CrossAxisAlignment.🔺"] {
+                let binding = binding.replace("@value", value);
+                let source = format!(
+                    r#"
+component Foo {{
+    VerticalLayout {{
+        {binding}
+    }}
+}}
+"#
+                );
+                let results = get_completions(&source).unwrap();
+                assert_eq!(
+                    results.iter().any(|completion| completion.label == "auto"),
+                    has_auto,
+                    "wrong 'auto' completion in `{binding}`"
+                );
+                assert!(
+                    results.iter().any(|completion| completion.label == "center"),
+                    "no 'center' completion in `{binding}`"
+                );
+            }
+        }
+    }
+
+    #[test]
     fn interface_keyword_requires_experimental() {
         let sources = ["🔺", "component Foo {}\n🔺"];
         for source in sources {

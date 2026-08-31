@@ -1,0 +1,48 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+component DerivedLayout inherits VerticalLayout { }
+
+component BadLayout inherits VerticalLayout {
+    cross-axis-alignment: auto;
+//                        >   <error{cross-axis-alignment cannot be set to 'auto', which is only valid for cross-axis-self-alignment; the default is 'stretch'}
+}
+
+export component Foo {
+    in property <CrossAxisAlignment> indirect: auto;
+
+    VerticalLayout {
+        cross-axis-alignment: auto;
+//                            >   <error{cross-axis-alignment cannot be set to 'auto', which is only valid for cross-axis-self-alignment; the default is 'stretch'}
+        Rectangle { }
+    }
+    HorizontalLayout {
+        cross-axis-alignment: CrossAxisAlignment.auto;
+//                            >                      <error{cross-axis-alignment cannot be set to 'auto', which is only valid for cross-axis-self-alignment; the default is 'stretch'}
+        Rectangle { }
+    }
+    FlexboxLayout {
+        cross-axis-alignment: auto;
+//                            >   <error{cross-axis-alignment cannot be set to 'auto', which is only valid for cross-axis-self-alignment; the default is 'stretch'}
+        Rectangle { }
+    }
+    // `auto` stays valid for the per-item override, and the other values for the container.
+    VerticalLayout {
+        cross-axis-alignment: center;
+        Rectangle { cross-axis-self-alignment: auto; }
+    }
+    // Only a verbatim `auto` is an error; a value that is `auto` at run-time behaves like `stretch`.
+    VerticalLayout {
+        cross-axis-alignment: root.indirect;
+        Rectangle { }
+    }
+    // The check also applies through a component that derives from a layout.
+    DerivedLayout {
+        cross-axis-alignment: auto;
+//                            >   <error{cross-axis-alignment cannot be set to 'auto', which is only valid for cross-axis-self-alignment; the default is 'stretch'}
+        Rectangle { }
+    }
+    BadLayout {
+        Rectangle { }
+    }
+}

@@ -1228,7 +1228,7 @@ struct BoxLayoutDataResult {
 }
 
 fn default_align_self() -> (Type, llr_Expression) {
-    let e = crate::typeregister::BUILTIN.enums.CrossAxisSelfAlignment.clone();
+    let e = crate::typeregister::BUILTIN.enums.CrossAxisAlignment.clone();
     (
         Type::Enumeration(e.clone()),
         llr_Expression::EnumerationValue(EnumerationValue {

@@ -1071,7 +1071,7 @@ fn repeated_align_self(
     sc: &i_slint_compiler::llr::SubComponent,
     ctx: &mut crate::eval::EvalContext,
     orientation: i_slint_core::items::Orientation,
-) -> i_slint_core::items::CrossAxisSelfAlignment {
+) -> i_slint_core::items::CrossAxisAlignment {
     match &sc.cross_axis_self_alignment_for_repeated {
         Some((cross_o, expr)) if crate::eval::llr_to_core_orientation(*cross_o) == orientation => {
             crate::eval::eval_expression(ctx, &expr.borrow()).try_into().unwrap_or_default()

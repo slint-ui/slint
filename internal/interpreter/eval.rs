@@ -1179,11 +1179,11 @@ fn push_repeater_layout_items(
         struct_value.set_field("constraint".to_string(), info.constraint.into());
         // The cell's `cross-axis-self-alignment` in a box layout; `to_cells`
         // reads it back on the cross-axis solve, an absent field means `auto`.
-        if info.cross_axis_self_alignment != i_slint_core::items::CrossAxisSelfAlignment::Auto {
+        if info.cross_axis_self_alignment != i_slint_core::items::CrossAxisAlignment::Auto {
             struct_value.set_field(
                 "cross-axis-self-alignment".to_string(),
                 Value::EnumerationValue(
-                    "CrossAxisSelfAlignment".to_string(),
+                    "CrossAxisAlignment".to_string(),
                     info.cross_axis_self_alignment.to_string(),
                 ),
             );
@@ -1428,7 +1428,7 @@ fn flex_props_to_value(props: i_slint_core::layout::FlexItemProps) -> Value {
     s.set_field(
         "cross-axis-self-alignment".to_string(),
         Value::EnumerationValue(
-            "CrossAxisSelfAlignment".to_string(),
+            "CrossAxisAlignment".to_string(),
             format!("{:?}", props.cross_axis_self_alignment).to_lowercase(),
         ),
     );

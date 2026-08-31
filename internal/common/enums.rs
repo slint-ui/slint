@@ -404,11 +404,16 @@ macro_rules! for_each_enums {
                 ColumnReverse,
             }
 
-            /// Controls the alignment of individual items along the cross axis of a layout.
+            /// Controls the alignment of items along the cross axis of a layout.
             /// Used as the `cross-axis-alignment` property of `HorizontalLayout`, `VerticalLayout`,
-            /// and `FlexboxLayout`.
+            /// and `FlexboxLayout`, and as the `cross-axis-self-alignment` property of their
+            /// children, which overrides the container's alignment for a single item.
             #[non_exhaustive]
             enum CrossAxisAlignment {
+                /// The default: for `cross-axis-self-alignment`, use the container's
+                /// `cross-axis-alignment` value. For an unset `cross-axis-alignment` it is
+                /// equivalent to `stretch`; it is an error to set it explicitly there.
+                Auto,
                 /// Items are stretched to fill the cross axis.
                 Stretch,
                 /// Items are placed at the start of the cross axis.
@@ -416,23 +421,6 @@ macro_rules! for_each_enums {
                 /// Items are placed at the end of the cross axis.
                 End,
                 /// Items are centered along the cross axis.
-                Center,
-            }
-
-            /// Overrides the container's `cross-axis-alignment` for a single item.
-            /// Used as the `cross-axis-self-alignment` property of the children of a
-            /// `FlexboxLayout`, `HorizontalLayout`, or `VerticalLayout`.
-            #[non_exhaustive]
-            enum CrossAxisSelfAlignment {
-                /// Use the container's `cross-axis-alignment` value (default).
-                Auto,
-                /// The item is stretched to fill the line along the cross axis.
-                Stretch,
-                /// The item is placed at the start of the cross axis.
-                Start,
-                /// The item is placed at the end of the cross axis.
-                End,
-                /// The item is centered along the cross axis.
                 Center,
             }
 
