@@ -1604,6 +1604,42 @@ mod tests {
         );
     }
 
+    #[test]
+    fn canvas_uses_grida_default_cursor() {
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::EditorUi::new().unwrap();
+        editor.show().unwrap();
+
+        let selection_area = i_slint_backend_testing::ElementHandle::find_by_element_id(
+            &editor,
+            "EditorCanvas::selection-area",
+        )
+        .next()
+        .expect("the canvas selection area must be present");
+        let position = selection_area.absolute_position();
+        let size = selection_area.size();
+        let center =
+            LogicalPosition::new(position.x + size.width / 2., position.y + size.height / 2.);
+        editor.window().dispatch_event(WindowEvent::PointerMoved { position: center });
+
+        i_slint_backend_testing::access_testing_window(editor.window(), |window| {
+            let cursor = window.mouse_cursor();
+            match cursor {
+                i_slint_core::cursor::MouseCursorInner::CustomMouseCursor {
+                    image,
+                    hotspot_x,
+                    hotspot_y,
+                } => {
+                    assert_eq!(hotspot_x, 14);
+                    assert_eq!(hotspot_y, 14);
+                    assert_eq!(image.size().width, 32);
+                    assert_eq!(image.size().height, 32);
+                }
+                cursor => panic!("expected the Grida custom cursor, got {cursor:?}"),
+            }
+        });
+    }
+
     fn create_test_property(name: &str, value: &str) -> PropertyInformation {
         PropertyInformation {
             name: name.into(),

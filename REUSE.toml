@@ -41,6 +41,14 @@ SPDX-FileCopyrightText = "Copyright © 2026 GitHub Inc."
 SPDX-License-Identifier = "MIT"
 
 [[annotations]]
+path = [
+  "tools/editor/ui/assets/css-cursors-grida/default-32-x14y14-000000.png",
+  "tools/editor/ui/assets/css-cursors-grida/default-64-x28y28-000000.png",
+]
+SPDX-FileCopyrightText = "Grida <https://github.com/gridaco/grida>"
+SPDX-License-Identifier = "Apache-2.0"
+
+[[annotations]]
 path = ["tools/editor/ui-tests/fixtures/editor-project/assets/checker.svg"]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Copyright © SixtyFPS GmbH <info@slint.dev>"
