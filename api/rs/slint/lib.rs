@@ -229,8 +229,8 @@ pub use i_slint_core::items::StandardListViewItem;
 #[deprecated(note = "Use slint::language::TableColumn instead")]
 pub use i_slint_core::items::TableColumn;
 pub use i_slint_core::model::{
-    FilterModel, MapModel, Model, ModelExt, ModelNotify, ModelPeer, ModelRc, ModelTracker,
-    ReverseModel, SortModel, VecModel,
+    FilterModel, MapModel, Model, ModelError, ModelExt, ModelNotify, ModelPeer, ModelRc,
+    ModelTracker, ReverseModel, SortModel, VecModel,
 };
 pub use i_slint_core::styled_text::StyledText;
 #[cfg(feature = "std")]

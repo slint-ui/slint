@@ -25,6 +25,44 @@ mod repeater;
 
 pub use repeater::{Conditional, ListViewProperties, RepeatedItemTree, Repeater, RepeaterTracker};
 
+/// Error returned by the row mutation functions of [`Model`] when the modification
+/// was not applied.
+#[derive(Debug, Clone, Eq, PartialEq, derive_more::Error, derive_more::Display)]
+pub struct ModelError(#[error(not(source))] ErrorImpl);
+
+#[derive(Debug, Clone, Eq, PartialEq, derive_more::Display)]
+enum ErrorImpl {
+    #[display("the row index is out of bounds (the model has {_0} rows)")]
+    OutOfBounds(usize),
+    #[display("the model {_0} does not support this modification")]
+    Unsupported(alloc::borrow::Cow<'static, str>),
+}
+
+impl ModelError {
+    /// The row index is out of the model's bounds. `row_count` is the model's number of rows.
+    pub fn out_of_bounds(row_count: usize) -> Self {
+        Self(ErrorImpl::OutOfBounds(row_count))
+    }
+
+    /// The model does not support this modification.
+    pub fn unsupported(model: &(impl Model + ?Sized)) -> Self {
+        Self(ErrorImpl::Unsupported(core::any::type_name_of_val(model).into()))
+    }
+
+    /// The model with the given type name does not support this modification.
+    ///
+    /// Not part of the public API: for the bridges to models implemented in
+    /// another language, where the type name of the [`Model`] implementation
+    /// would name the wrapper instead of the model.
+    #[doc(hidden)]
+    pub fn unsupported_by_name(
+        model_type_name: impl Into<alloc::borrow::Cow<'static, str>>,
+        _: crate::InternalToken,
+    ) -> Self {
+        Self(ErrorImpl::Unsupported(model_type_name.into()))
+    }
+}
+
 /// This trait defines the interface that users of a model can use to track changes
 /// to a model. It is supplied via [`Model::model_tracker`] and implementation usually
 /// return a reference to its field of [`ModelNotify`].
@@ -168,42 +206,32 @@ pub trait Model {
     ///
     /// The default implementation inserts the row after the last one with
     /// [`insert_row`](Self::insert_row).
-    fn push_row(&self, data: Self::Data) {
-        self.insert_row(self.row_count(), data);
+    fn push_row(&self, data: Self::Data) -> Result<(), ModelError> {
+        self.insert_row(self.row_count(), data)
     }
 
     /// Remove the row at the specified index from the model.
     ///
     /// This function should be called with `row < row_count()`.
     ///
-    /// If the model cannot support data changes, then it is ok to do nothing.
-    /// The default implementation will print a warning to stderr.
+    /// The default implementation returns [`ModelError::unsupported`]; implementations
+    /// should return [`ModelError::out_of_bounds`] when `row` is out of bounds.
     ///
     /// If the model can update the data, it should also call [`ModelNotify::row_removed`] on its
     /// internal [`ModelNotify`].
-    fn remove_row(&self, _row: usize) {
-        #[cfg(feature = "std")]
-        crate::debug_log!(
-            "Model::remove_row called on a model of type {} which does not re-implement this method. \
-            This happens when trying to modify a read-only model",
-            core::any::type_name::<Self>()
-        );
+    fn remove_row(&self, _row: usize) -> Result<(), ModelError> {
+        Err(ModelError::unsupported(self))
     }
 
     /// Insert a new row at the specified index and move the next rows by 1 step to the right.
     ///
-    /// If the model cannot support data changes, then it is ok to do nothing.
-    /// The default implementation will print a warning to stderr.
+    /// The default implementation returns [`ModelError::unsupported`]; implementations
+    /// should return [`ModelError::out_of_bounds`] when `row` is out of bounds.
     ///
     /// If the model can update the data, it should also call [`ModelNotify::row_added`] on its
     /// internal [`ModelNotify`].
-    fn insert_row(&self, _row: usize, _data: Self::Data) {
-        #[cfg(feature = "std")]
-        crate::debug_log!(
-            "Model::insert_row called on a model of type {} which does not re-implement this method. \
-            This happens when trying to modify a read-only model",
-            core::any::type_name::<Self>()
-        );
+    fn insert_row(&self, _row: usize, _data: Self::Data) -> Result<(), ModelError> {
+        Err(ModelError::unsupported(self))
     }
 
     /// The implementation should return a reference to its [`ModelNotify`] field.
@@ -356,6 +384,25 @@ pub trait ModelExt: Model {
 
 impl<T: Model> ModelExt for T {}
 
+/// Reports the error of a rejected model modification as a log message.
+///
+/// Called with the result of the `.slint` array functions by the generated code
+/// and the interpreter, which otherwise ignore the error.
+#[doc(hidden)]
+pub fn report_model_error(
+    function: &str,
+    location: Option<crate::debug_log::LogMessageLocation<'_>>,
+    result: Result<(), ModelError>,
+) {
+    if let Err(err) = result {
+        crate::debug_log::log_message(crate::debug_log::LogMessage::new(
+            crate::debug_log::LogMessageSource::SlintCode,
+            location,
+            format_args!("array.{function}(): {err}"),
+        ));
+    }
+}
+
 pub fn model_any<T>(model: &dyn Model<Data = T>, mut predicate: impl FnMut(T) -> bool) -> bool {
     let row_count = model.row_count();
     model.model_tracker().track_any_change(row_count, crate::InternalToken);
@@ -444,13 +491,13 @@ impl<M: Model> Model for Rc<M> {
     fn set_row_data(&self, row: usize, data: Self::Data) {
         (**self).set_row_data(row, data)
     }
-    fn push_row(&self, data: Self::Data) {
+    fn push_row(&self, data: Self::Data) -> Result<(), ModelError> {
         (**self).push_row(data)
     }
-    fn remove_row(&self, row: usize) {
+    fn remove_row(&self, row: usize) -> Result<(), ModelError> {
         (**self).remove_row(row)
     }
-    fn insert_row(&self, row: usize, data: Self::Data) {
+    fn insert_row(&self, row: usize, data: Self::Data) -> Result<(), ModelError> {
         (**self).insert_row(row, data)
     }
 }
@@ -580,16 +627,20 @@ impl<T: Clone + 'static> Model for VecModel<T> {
         }
     }
 
-    fn remove_row(&self, row: usize) {
-        if row < self.row_count() {
-            self.remove(row);
+    fn remove_row(&self, row: usize) -> Result<(), ModelError> {
+        if row >= self.row_count() {
+            return Err(ModelError::out_of_bounds(self.row_count()));
         }
+        self.remove(row);
+        Ok(())
     }
 
-    fn insert_row(&self, row: usize, data: Self::Data) {
-        if row <= self.row_count() {
-            self.insert(row, data);
+    fn insert_row(&self, row: usize, data: Self::Data) -> Result<(), ModelError> {
+        if row > self.row_count() {
+            return Err(ModelError::out_of_bounds(self.row_count()));
         }
+        self.insert(row, data);
+        Ok(())
     }
 
     fn model_tracker(&self) -> &dyn ModelTracker {
@@ -645,18 +696,22 @@ impl<T: Clone + 'static> Model for SharedVectorModel<T> {
         self.notify.row_changed(row);
     }
 
-    fn remove_row(&self, row: usize) {
-        if row < self.row_count() {
-            self.array.borrow_mut().remove(row);
-            self.notify.row_removed(row, 1);
+    fn remove_row(&self, row: usize) -> Result<(), ModelError> {
+        if row >= self.row_count() {
+            return Err(ModelError::out_of_bounds(self.row_count()));
         }
+        self.array.borrow_mut().remove(row);
+        self.notify.row_removed(row, 1);
+        Ok(())
     }
 
-    fn insert_row(&self, row: usize, data: Self::Data) {
-        if row <= self.row_count() {
-            self.array.borrow_mut().insert(row, data);
-            self.notify.row_added(row, 1);
+    fn insert_row(&self, row: usize, data: Self::Data) -> Result<(), ModelError> {
+        if row > self.row_count() {
+            return Err(ModelError::out_of_bounds(self.row_count()));
         }
+        self.array.borrow_mut().insert(row, data);
+        self.notify.row_added(row, 1);
+        Ok(())
     }
 
     fn model_tracker(&self) -> &dyn ModelTracker {
@@ -944,21 +999,24 @@ impl<T> Model for ModelRc<T> {
         }
     }
 
-    fn push_row(&self, data: Self::Data) {
-        if let Some(model) = self.0.as_ref() {
-            model.push_row(data);
+    fn push_row(&self, data: Self::Data) -> Result<(), ModelError> {
+        match self.0.as_ref() {
+            Some(model) => model.push_row(data),
+            None => Err(ModelError::unsupported(self)),
         }
     }
 
-    fn remove_row(&self, row: usize) {
-        if let Some(model) = self.0.as_ref() {
-            model.remove_row(row);
+    fn remove_row(&self, row: usize) -> Result<(), ModelError> {
+        match self.0.as_ref() {
+            Some(model) => model.remove_row(row),
+            None => Err(ModelError::unsupported(self)),
         }
     }
 
-    fn insert_row(&self, row: usize, data: Self::Data) {
-        if let Some(model) = self.0.as_ref() {
-            model.insert_row(row, data);
+    fn insert_row(&self, row: usize, data: Self::Data) -> Result<(), ModelError> {
+        match self.0.as_ref() {
+            Some(model) => model.insert_row(row, data),
+            None => Err(ModelError::unsupported(self)),
         }
     }
 
@@ -1055,18 +1113,18 @@ mod tests {
         assert_eq!(count(), 3);
         assert!(!tracker.is_dirty());
 
-        // Out-of-range operations do nothing and must not notify the views.
-        model.remove_row(3);
-        model.insert_row(4, 42);
+        // Out-of-range operations return an error, do nothing, and must not notify the views.
+        assert!(model.remove_row(3).is_err());
+        assert!(model.insert_row(4, 42).is_err());
         assert!(!tracker.is_dirty());
         assert_eq!(model.row_count(), 3);
         assert_eq!(model.row_data(2), Some(3));
 
         // In-range operations change the data and notify.
-        model.insert_row(3, 4);
+        model.insert_row(3, 4).unwrap();
         assert!(tracker.is_dirty());
         assert_eq!(count(), 4);
-        model.remove_row(0);
+        model.remove_row(0).unwrap();
         assert_eq!(model.row_count(), 3);
         assert_eq!(model.row_data(0), Some(2));
     }

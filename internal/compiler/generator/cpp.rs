@@ -4314,7 +4314,7 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
             )
         }
         Expression::PropertyReference(nr) => access_member(nr, ctx).get_property(),
-        Expression::BuiltinFunctionCall { function, arguments } => {
+        Expression::BuiltinFunctionCall { function, arguments, .. } => {
             compile_builtin_function_call(function.clone(), arguments, ctx)
         }
         Expression::CallBackCall { callback, arguments } => {

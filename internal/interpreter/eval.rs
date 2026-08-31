@@ -10,6 +10,7 @@
 use crate::Value;
 use crate::globals::{GlobalInstance, GlobalStorage};
 use crate::instance::SubComponentInstance;
+use i_slint_compiler::diagnostics::SourceLocation;
 use i_slint_compiler::expression_tree::{BuiltinFunction, MinMaxOp};
 use i_slint_compiler::langtype::{ConstantExpression, Type};
 use i_slint_compiler::llr::{self, Expression, LocalMemberIndex, MemberReference};
@@ -802,8 +803,8 @@ pub fn eval_expression(ctx: &mut EvalContext, expression: &Expression) -> Value 
             }
             v
         }
-        Expression::BuiltinFunctionCall { function, arguments } => {
-            call_builtin_function(ctx, function.clone(), arguments)
+        Expression::BuiltinFunctionCall { function, arguments, source_location } => {
+            call_builtin_function(ctx, function.clone(), arguments, source_location)
         }
         Expression::CallBackCall { callback, arguments } => {
             let args: Vec<Value> = arguments.iter().map(|e| eval_expression(ctx, e)).collect();
@@ -1868,10 +1869,27 @@ fn grid_repeater_cache_access(
 }
 
 /// Dispatch a `BuiltinFunction` call to the corresponding runtime helper.
+/// The location of a builtin function call in the .slint source, in the form
+/// attached to the log messages it emits.
+fn log_message_location(
+    source_location: &Option<SourceLocation>,
+) -> Option<i_slint_core::debug_log::LogMessageLocation<'_>> {
+    let location = source_location.as_ref()?;
+    let source_file = location.source_file.as_ref()?;
+    let (line, column) = source_file
+        .line_column(location.span.offset, i_slint_compiler::diagnostics::ByteFormat::Utf8);
+    Some(i_slint_core::debug_log::LogMessageLocation {
+        path: source_file.path().to_str()?,
+        line,
+        column,
+    })
+}
+
 fn call_builtin_function(
     ctx: &mut EvalContext,
     f: BuiltinFunction,
     arguments: &[Expression],
+    source_location: &Option<SourceLocation>,
 ) -> Value {
     let to_num = |ctx: &mut EvalContext, e: &Expression| -> f64 {
         eval_expression(ctx, e).try_into().unwrap_or_default()
@@ -2098,7 +2116,11 @@ fn call_builtin_function(
             };
             let value = eval_expression(ctx, &arguments[1]);
 
-            model.push_row(value);
+            i_slint_core::model::report_model_error(
+                "push",
+                log_message_location(source_location),
+                model.push_row(value),
+            );
 
             Value::Void
         }
@@ -2116,9 +2138,15 @@ fn call_builtin_function(
                 _ => panic!("Second argument not an integer: {:?}", arguments[1]),
             };
 
-            if let Ok(index) = usize::try_from(index as i64) {
-                model.remove_row(index);
-            }
+            let result = match usize::try_from(index as i64) {
+                Ok(index) => model.remove_row(index),
+                Err(_) => Err(i_slint_core::model::ModelError::out_of_bounds(model.row_count())),
+            };
+            i_slint_core::model::report_model_error(
+                "remove",
+                log_message_location(source_location),
+                result,
+            );
 
             Value::Void
         }
@@ -2138,9 +2166,15 @@ fn call_builtin_function(
             };
 
             let value = eval_expression(ctx, &arguments[2]);
-            if let Ok(index) = usize::try_from(index as i64) {
-                model.insert_row(index, value);
-            }
+            let result = match usize::try_from(index as i64) {
+                Ok(index) => model.insert_row(index, value),
+                Err(_) => Err(i_slint_core::model::ModelError::out_of_bounds(model.row_count())),
+            };
+            i_slint_core::model::report_model_error(
+                "insert",
+                log_message_location(source_location),
+                result,
+            );
 
             Value::Void
         }
@@ -2469,13 +2503,13 @@ fn call_builtin_function(
             if let Some(context) = root.as_ref().and_then(i_slint_core::window::context_for_root) {
                 context.dispatch_log_message(LogMessage::new(
                     LogMessageSource::SlintCode,
-                    None,
+                    log_message_location(source_location),
                     format_args!("{msg}"),
                 ));
             } else {
                 log_message(LogMessage::new(
                     LogMessageSource::SlintCode,
-                    None,
+                    log_message_location(source_location),
                     format_args!("{msg}"),
                 ));
             }

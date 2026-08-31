@@ -1,15 +1,15 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell: ignore getitem
+// cSpell: ignore getitem unraisable
 use std::cell::RefCell;
 use std::rc::{Rc, Weak};
 
 use i_slint_compiler::langtype::Type;
-use i_slint_core::model::{Model, ModelNotify, ModelRc};
+use i_slint_core::model::{Model, ModelError, ModelNotify, ModelRc};
 
 use pyo3::PyTraverseError;
-use pyo3::exceptions::PyIndexError;
+use pyo3::exceptions::{PyIndexError, PyNotImplementedError};
 use pyo3::gc::PyVisit;
 use pyo3::prelude::*;
 
@@ -228,70 +228,66 @@ impl i_slint_core::model::Model for PyModelShared {
         });
     }
 
-    fn push_row(&self, data: Self::Data) {
+    fn push_row(&self, data: Self::Data) -> Result<(), ModelError> {
         Python::try_attach(|py| {
             let Some(obj) = self.wrapper_obj(py, "push_row") else {
-                return;
+                return Err(ModelError::unsupported(self));
             };
 
             let Some(type_collection) = self.type_collection.borrow().as_ref().cloned() else {
                 eprintln!("Python: Model implementation is lacking type collection (in push_row)");
-                return;
+                return Err(ModelError::unsupported(self));
             };
 
             let element_type = self.element_type.borrow().clone();
-            if let Err(err) =
-                obj.call_method1("append", (type_collection.to_py_value(data, element_type),))
-            {
-                crate::handle_unraisable(
-                    py,
-                    "Python: Model implementation of push_row(), named append(), threw an exception".into(),
-                    err,
-                );
-            };
-        });
+            let result =
+                obj.call_method1("append", (type_collection.to_py_value(data, element_type),));
+            self.map_result(py, result, "push_row(), named append(),")
+        })
+        .unwrap_or(Err(ModelError::unsupported(self)))
     }
 
-    fn remove_row(&self, row: usize) {
+    fn remove_row(&self, row: usize) -> Result<(), ModelError> {
+        let row_count = self.row_count();
+        if row >= row_count {
+            return Err(ModelError::out_of_bounds(row_count));
+        }
+
         Python::try_attach(|py| {
             let Some(obj) = self.wrapper_obj(py, "remove_row") else {
-                return;
+                return Err(ModelError::unsupported(self));
             };
 
-            if let Err(err) = obj.call_method1("remove_row", (row,)) {
-                crate::handle_unraisable(
-                    py,
-                    "Python: Model implementation of remove_row() threw an exception".into(),
-                    err,
-                );
-            };
-        });
+            let result = obj.call_method1("remove_row", (row,));
+            self.map_result(py, result, "remove_row()")
+        })
+        .unwrap_or(Err(ModelError::unsupported(self)))
     }
 
-    fn insert_row(&self, row: usize, data: Self::Data) {
+    fn insert_row(&self, row: usize, data: Self::Data) -> Result<(), ModelError> {
+        let row_count = self.row_count();
+        if row > row_count {
+            return Err(ModelError::out_of_bounds(row_count));
+        }
+
         Python::try_attach(|py| {
             let Some(obj) = self.wrapper_obj(py, "insert_row") else {
-                return;
+                return Err(ModelError::unsupported(self));
             };
 
             let Some(type_collection) = self.type_collection.borrow().as_ref().cloned() else {
                 eprintln!(
                     "Python: Model implementation is lacking type collection (in insert_row)"
                 );
-                return;
+                return Err(ModelError::unsupported(self));
             };
 
             let element_type = self.element_type.borrow().clone();
-            if let Err(err) = obj
-                .call_method1("insert_row", (row, type_collection.to_py_value(data, element_type)))
-            {
-                crate::handle_unraisable(
-                    py,
-                    "Python: Model implementation of insert_row() threw an exception".into(),
-                    err,
-                );
-            };
-        });
+            let result = obj
+                .call_method1("insert_row", (row, type_collection.to_py_value(data, element_type)));
+            self.map_result(py, result, "insert_row()")
+        })
+        .unwrap_or(Err(ModelError::unsupported(self)))
     }
 
     fn model_tracker(&self) -> &dyn i_slint_core::model::ModelTracker {
@@ -304,6 +300,49 @@ impl i_slint_core::model::Model for PyModelShared {
 }
 
 impl PyModelShared {
+    /// Maps the result of calling a Python row modification method to a ModelError.
+    ///
+    /// A rejected modification is reported by raising: IndexError for a row that
+    /// is out of bounds and NotImplementedError for an unsupported modification.
+    /// Unexpected exceptions are also reported through the unraisable hook.
+    fn map_result(
+        &self,
+        py: Python<'_>,
+        result: PyResult<Bound<'_, PyAny>>,
+        function: &str,
+    ) -> Result<(), ModelError> {
+        match result {
+            Ok(_) => Ok(()),
+            Err(err) if err.is_instance_of::<PyIndexError>(py) => {
+                Err(ModelError::out_of_bounds(self.row_count()))
+            }
+            Err(err) if err.is_instance_of::<PyNotImplementedError>(py) => {
+                Err(self.unsupported_error(py))
+            }
+            Err(err) => {
+                crate::handle_unraisable(
+                    py,
+                    format!("Python: Model implementation of {function} threw an exception"),
+                    err,
+                );
+                Err(self.unsupported_error(py))
+            }
+        }
+    }
+
+    /// An unsupported ModelError naming the Python type of the model, falling
+    /// back to the name of this wrapper.
+    fn unsupported_error(&self, py: Python<'_>) -> ModelError {
+        let python_type_name = || -> Option<String> {
+            let obj = self.self_ref.borrow();
+            Some(obj.as_ref()?.bind(py).get_type().name().ok()?.to_string())
+        };
+        match python_type_name() {
+            Some(name) => ModelError::unsupported_by_name(name, i_slint_core::InternalToken),
+            None => ModelError::unsupported(self),
+        }
+    }
+
     pub fn rust_into_py_model<'py>(
         model: &ModelRc<slint_interpreter::Value>,
         py: Python<'py>,

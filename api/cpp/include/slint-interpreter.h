@@ -480,17 +480,18 @@ inline Value::Value(const std::shared_ptr<slint::Model<Value>> &model)
         Value v(std::move(value));
         reinterpret_cast<ModelWrapper *>(self.instance)->model->set_row_data(int(row), v);
     };
-    auto push_row = [](VRef<ModelAdaptorVTable> self, slint::cbindgen_private::Value *value) {
+    auto push_row = [](VRef<ModelAdaptorVTable> self,
+                       slint::cbindgen_private::Value *value) -> bool {
         Value v(std::move(value));
-        reinterpret_cast<ModelWrapper *>(self.instance)->model->push_row(v);
+        return reinterpret_cast<ModelWrapper *>(self.instance)->model->push_row(v);
     };
-    auto remove_row = [](VRef<ModelAdaptorVTable> self, uintptr_t row) {
-        reinterpret_cast<ModelWrapper *>(self.instance)->model->remove_row(int(row));
+    auto remove_row = [](VRef<ModelAdaptorVTable> self, uintptr_t row) -> bool {
+        return reinterpret_cast<ModelWrapper *>(self.instance)->model->remove_row(int(row));
     };
     auto insert_row = [](VRef<ModelAdaptorVTable> self, uintptr_t row,
-                         slint::cbindgen_private::Value *value) {
+                         slint::cbindgen_private::Value *value) -> bool {
         Value v(std::move(value));
-        reinterpret_cast<ModelWrapper *>(self.instance)->model->insert_row(int(row), v);
+        return reinterpret_cast<ModelWrapper *>(self.instance)->model->insert_row(int(row), v);
     };
     auto get_notify =
             [](VRef<ModelAdaptorVTable> self) -> const cbindgen_private::ModelNotifyOpaque * {
