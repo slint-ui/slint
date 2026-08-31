@@ -11,6 +11,7 @@ fn main() {
        enable_femtovg_renderer: { any(feature = "renderer-femtovg", feature = "renderer-femtovg-wgpu") },
        enable_accesskit: { all(feature = "accessibility", not(target_arch = "wasm32")) },
        supports_opengl: { all(any(feature = "renderer-skia-opengl", feature = "renderer-femtovg"), not(ios_and_friends)) },
+       supports_vulkan: { any(all(target_family = "unix", not(target_vendor = "apple")), all(any(target_vendor = "apple", target_family = "windows"), feature = "renderer-skia-vulkan")) },
        xdg_desktop_settings: { not(any(target_family = "windows", target_vendor = "apple", target_arch = "wasm32", target_os = "android")) },
        muda: { all(feature = "muda", any(target_os = "windows", target_os = "macos")) },
     }

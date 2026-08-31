@@ -129,6 +129,7 @@ pub unsafe fn queue_family_index(device: &wgpu::Device) -> Option<u32> {
     unsafe { Some(device.as_hal::<wgpu::wgc::api::Vulkan>()?.queue_family_index()) }
 }
 
+#[cfg_attr(not(feature = "unstable-wgpu-30"), allow(dead_code))]
 pub unsafe fn import_vulkan_texture(
     canvas: &skia_safe::Canvas,
     texture: wgpu::Texture,
