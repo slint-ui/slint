@@ -79,3 +79,4 @@ windows = { workspace = true, features = ["Wdk_Foundation", "Win32_Foundation", 
 [build-dependencies]
 napi-build = "2"
 i-slint-common = { workspace = true }
+syn = { version = "3.0", features = ["full"] }
