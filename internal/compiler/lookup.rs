@@ -103,6 +103,21 @@ impl<'a> LookupCtx<'a> {
         self.diag.enable_experimental || self.type_register.expose_internal_types
     }
 
+    /// Arm the LSP probe at `offset`, seeded with the current `expected_type` as fallback.
+    pub fn set_expected_type_probe(&mut self, offset: TextSize) {
+        self.expected_type_probe = Some((offset, self.expected_type.clone()));
+    }
+
+    /// The armed probe's offset, or `None` during normal compilation.
+    pub fn expected_type_probe_offset(&self) -> Option<TextSize> {
+        self.expected_type_probe.as_ref().map(|(offset, _)| *offset)
+    }
+
+    /// Disarm the probe and return the type recorded at its offset.
+    pub fn take_expected_type_probe(&mut self) -> Option<Type> {
+        self.expected_type_probe.take().map(|(_, ty)| ty)
+    }
+
     /// Record `ty` on the probe when its offset is in `range` — for a slot with no expression
     /// node (the empty element/argument left by a trailing comma).
     pub fn record_expected_type_probe(&mut self, range: TextRange, ty: &Type) {

@@ -322,9 +322,9 @@ pub fn with_lookup_ctx<R>(
                 None => return Some(f(&mut lookup_context)),
             }
         }
-        lookup_context.expected_type_probe = Some((offset, lookup_context.expected_type.clone()));
+        lookup_context.set_expected_type_probe(offset);
         Expression::from_expression_node(expr, &mut lookup_context);
-        if let Some((_, ty)) = lookup_context.expected_type_probe.take() {
+        if let Some(ty) = lookup_context.take_expected_type_probe() {
             lookup_context.expected_type = ty;
         }
     }

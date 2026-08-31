@@ -18,7 +18,7 @@ use crate::langtype::{
 use crate::lookup::{LookupCtx, LookupObject, LookupResult, LookupResultCallable};
 use crate::object_tree::*;
 use crate::parser::{
-    NodeOrToken, SyntaxKind, SyntaxNode, TextRange, TextSize, identifier_text, syntax_nodes,
+    NodeOrToken, SyntaxKind, SyntaxNode, TextRange, identifier_text, syntax_nodes,
 };
 use crate::symbol_counters::SymbolCounters;
 use crate::typeregister::TypeRegister;
@@ -397,16 +397,10 @@ enum LookupPhase {
     ResolvingTwoWayBindings,
 }
 
-/// Whether the probe `offset` is in `node`, counting the leading whitespace the parser strips
-/// before opening the node — so a cursor in the gap of `x ==  ` maps to the empty rhs slot.
-fn probe_offset_in_node(node: &SyntaxNode, offset: TextSize) -> bool {
+/// The range of `node`, extended to cover any blank space before it so a cursor there
+/// (like the empty rhs of `x ==  `) still resolves to this node.
+fn probe_range(node: &SyntaxNode) -> TextRange {
     let range = node.text_range();
-    if range.start() <= offset && offset <= range.end() {
-        return true;
-    }
-    if offset >= range.start() {
-        return false;
-    }
     let mut start = range.start();
     let mut prev = node.node.prev_sibling_or_token();
     while let Some(rowan::NodeOrToken::Token(t)) = &prev {
@@ -416,7 +410,7 @@ fn probe_offset_in_node(node: &SyntaxNode, offset: TextSize) -> bool {
         start = t.text_range().start();
         prev = t.prev_sibling_or_token();
     }
-    start <= offset
+    TextRange::new(start, range.end())
 }
 
 impl Expression {
@@ -617,10 +611,9 @@ impl Expression {
 
     pub fn from_expression_node(node: syntax_nodes::Expression, ctx: &mut LookupCtx) -> Self {
         // LSP probe: the innermost node containing the offset wins (depth-first descent).
-        if let Some((offset, slot)) = &mut ctx.expected_type_probe
-            && probe_offset_in_node(&node, *offset)
-        {
-            *slot = ctx.expected_type.clone();
+        if ctx.expected_type_probe.is_some() {
+            let ty = ctx.expected_type.clone();
+            ctx.record_expected_type_probe(probe_range(&node), &ty);
         }
 
         // This function recurses for nested expressions. Dispatch with early returns
@@ -1803,7 +1796,7 @@ impl Expression {
         let arg_nodes = sub_expr.collect::<Vec<_>>();
         let convert_args = |ctx: &mut LookupCtx, expected: &[Type]| {
             // Empty trailing-comma argument has no node: record its parameter type for the probe.
-            if let Some((offset, _)) = ctx.expected_type_probe {
+            if let Some(offset) = ctx.expected_type_probe_offset() {
                 let idx = arg_nodes.iter().take_while(|n| n.text_range().end() <= offset).count();
                 if let Some(ty) = expected.get(idx).cloned() {
                     ctx.record_expected_type_probe(args_range, &ty);
