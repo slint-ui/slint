@@ -110,7 +110,8 @@ public:
     ///
     /// \a paths may be any range whose elements are convertible to
     /// `std::filesystem::path`, such as a `std::vector<std::filesystem::path>`.
-    template<std::ranges::input_range R>
+    template<std::ranges::input_range R = std::initializer_list<std::filesystem::path>>
+        // Defaulting R lets a braced call like set_file_paths({}) deduce to initializer_list.
         requires std::convertible_to<std::ranges::range_reference_t<R>, std::filesystem::path>
     void set_file_paths(R &&paths)
     {
@@ -132,13 +133,6 @@ public:
             }
             send_file_paths(owned);
         }
-    }
-
-    /// \overload
-    /// Handles braced initializer lists such as `set_file_paths({})`.
-    void set_file_paths(std::initializer_list<std::filesystem::path> paths)
-    {
-        set_file_paths(std::ranges::subrange(paths.begin(), paths.end()));
     }
 
 private:

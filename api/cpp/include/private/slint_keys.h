@@ -55,7 +55,8 @@ public:
     ///
     /// \a parts may be any range whose elements are convertible to `std::string_view`,
     /// such as a `std::vector<std::string>`.
-    template<std::ranges::input_range R>
+    template<std::ranges::input_range R = std::initializer_list<std::string_view>>
+        // Defaulting R lets a braced call like from_parts({"Control", "C"}) deduce to initializer_list.
         requires std::convertible_to<std::ranges::range_reference_t<R>, std::string_view>
     static std::optional<Keys> from_parts(R &&parts)
     {
@@ -74,13 +75,6 @@ public:
             return result;
         }
         return std::nullopt;
-    }
-
-    /// \overload
-    /// Handles braced initializer lists such as `from_parts({"Control", "C"})`.
-    static std::optional<Keys> from_parts(std::initializer_list<std::string_view> parts)
-    {
-        return from_parts(std::ranges::subrange(parts.begin(), parts.end()));
     }
 
     /// Decompose this `Keys` value into a list of string parts that `from_parts` accepts.
