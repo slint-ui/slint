@@ -101,11 +101,14 @@ pub struct GLItemRenderer<'a, R: femtovg::Renderer + TextureImporter> {
     metrics: RenderingMetrics,
 }
 
-fn rect_with_radius_to_path(
+// Appends a (rounded) rectangle as a new sub-path onto `path`, instead of returning a
+// standalone one. Combined with the even-odd fill rule, two overlapping sub-paths added this
+// way cancel out, which is how `draw_box_shadow` punches a hole into the shadow fill.
+fn append_rect_with_radius(
+    path: &mut femtovg::Path,
     rect: PhysicalRect,
     border_radius: PhysicalBorderRadius,
-) -> femtovg::Path {
-    let mut path = femtovg::Path::new();
+) {
     let x = rect.origin.x;
     let y = rect.origin.y;
     let width = rect.size.width;
@@ -131,6 +134,14 @@ fn rect_with_radius_to_path(
             border_radius.bottom_left,
         );
     }
+}
+
+fn rect_with_radius_to_path(
+    rect: PhysicalRect,
+    border_radius: PhysicalBorderRadius,
+) -> femtovg::Path {
+    let mut path = femtovg::Path::new();
+    append_rect_with_radius(&mut path, rect, border_radius);
     path
 }
 
@@ -397,7 +408,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
         &mut self,
         box_shadow: Pin<&items::BoxShadow>,
         item_rc: &ItemRc,
-        _size: LogicalSize,
+        size: LogicalSize,
     ) {
         if box_shadow.color().alpha() == 0
             || (box_shadow.blur() == LogicalLength::zero()
@@ -513,9 +524,15 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
             None => return,
         };
 
-        // On the paint for the box shadow, we don't need anti-aliasing on the fringes,
-        // since we are just blitting a texture. This saves a triangle strip for the stroke.
-        let shadow_image_paint = shadow_image.as_paint().with_anti_alias(false);
+        // Unlike a plain texture blit, this paint's fill path has a curved knockout sub-path
+        // (see below), so anti-aliasing stays on to keep that edge smooth; the even-odd fill
+        // rule is what makes the knockout actually exclude the overlapping area, instead of
+        // just adding another opaque sub-path.
+        let shadow_image_paint = shadow_image.as_paint().with_fill_rule(femtovg::FillRule::EvenOdd);
+
+        let blur = box_shadow.blur() * self.scale_factor;
+        let offset = LogicalPoint::from_lengths(box_shadow.offset_x(), box_shadow.offset_y())
+            * self.scale_factor;
 
         let mut shadow_image_rect = femtovg::Path::new();
         shadow_image_rect.rect(
@@ -524,12 +541,36 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
             shadow_image_size.width as f32,
             shadow_image_size.height as f32,
         );
+        // CSS box-shadow (which drop-shadow-* follows) never paints underneath the casting
+        // element's own, un-offset shape: cut that area out of the fill so a transparent
+        // fill doesn't get shadow-colored through the middle. The hole is expressed here,
+        // in the texture's own coordinate space (i.e. relative to the translation applied
+        // below), rather than by clearing pixels on the destination canvas, so that content
+        // already painted underneath the shadow (e.g. the window background) is left alone.
+        // See https://github.com/slint-ui/slint/issues/6581.
+        append_rect_with_radius(
+            &mut shadow_image_rect,
+            PhysicalRect::new(
+                PhysicalPoint::new(blur.get() - offset.x, blur.get() - offset.y),
+                size * self.scale_factor,
+            ),
+            box_shadow.logical_border_radius() * self.scale_factor,
+        );
 
         self.canvas.borrow_mut().save_with(|canvas| {
-            let blur = box_shadow.blur() * self.scale_factor;
-            let offset = LogicalPoint::from_lengths(box_shadow.offset_x(), box_shadow.offset_y())
-                * self.scale_factor;
             canvas.translate(offset.x - blur.get(), offset.y - blur.get());
+            // The knockout sub-path above is only meant to subtract from the outer rect; when
+            // the offset exceeds the blur padding, its bounds spill past the outer rect (e.g.
+            // to negative texture coordinates), where even-odd would otherwise fill a sliver
+            // with an out-of-range, wrapped UV sample. Scissor to the outer rect to keep the
+            // fill confined to the actual texture, matching how layer image paints are bounded
+            // elsewhere in this file.
+            canvas.intersect_scissor(
+                0.,
+                0.,
+                shadow_image_size.width as f32,
+                shadow_image_size.height as f32,
+            );
             canvas.fill_path(&shadow_image_rect, &shadow_image_paint);
         });
     }

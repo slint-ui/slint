@@ -94,6 +94,15 @@ impl PartialOrd for BoxShadowOptions {
 /// grown by the spread, its corner radii grow with it, and the texture it is rendered
 /// into is padded by the blur on every side so the Gaussian can fade out to
 /// transparency within it.
+///
+/// One more CSS rule applies to non-inset shadows but isn't captured by this shared
+/// texture: the shadow must never paint underneath the casting element's own, un-offset
+/// shape (see <https://github.com/slint-ui/slint/issues/6581>), so a transparent fill
+/// doesn't get shadow-colored through the middle. Because that knockout position depends
+/// on the offset - which isn't part of this cache key, so the same texture can be reused
+/// across differently offset shadows - each renderer currently applies it itself, at blit
+/// time, rather than baking it into the cached texture. Skia and femtovg both do this;
+/// anyrender's `draw_box_shadow` does not yet and still has the bug.
 impl BoxShadowOptions {
     /// The size of the shadow shape: the element's size grown by the spread on each
     /// side. A negative spread shrinks it, down to nothing.
