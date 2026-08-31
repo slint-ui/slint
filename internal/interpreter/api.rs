@@ -837,7 +837,7 @@ impl ComponentCompiler {
             }
         };
 
-        let r = build_compilation_result(source, path.into(), self.config.clone()).await;
+        let r = build_compilation_result(source, path.into(), self.config.clone(), false).await;
         self.diagnostics = r.diagnostics.into_iter().collect();
         r.components.into_values().next()
     }
@@ -863,7 +863,7 @@ impl ComponentCompiler {
         source_code: String,
         path: PathBuf,
     ) -> Option<ComponentDefinition> {
-        let r = build_compilation_result(source_code, path, self.config.clone()).await;
+        let r = build_compilation_result(source_code, path, self.config.clone(), false).await;
         self.diagnostics = r.diagnostics.into_iter().collect();
         r.components.into_values().next()
     }
@@ -1019,7 +1019,7 @@ impl Compiler {
             }
         };
 
-        build_compilation_result(source, path.into(), self.config.clone()).await
+        build_compilation_result(source, path.into(), self.config.clone(), false).await
     }
 
     /// Compile some .slint code
@@ -1035,7 +1035,18 @@ impl Compiler {
     /// If that is not used, then it is fine to use a very simple executor, such as the one
     /// provided by the `spin_on` crate
     pub async fn build_from_source(&self, source_code: String, path: PathBuf) -> CompilationResult {
-        build_compilation_result(source_code, path, self.config.clone()).await
+        build_compilation_result(source_code, path, self.config.clone(), false).await
+    }
+
+    /// Compile Slint code without timers or animations.
+    #[doc(hidden)]
+    #[cfg(feature = "internal")]
+    pub async fn build_static_from_source(
+        &self,
+        source_code: String,
+        path: PathBuf,
+    ) -> CompilationResult {
+        build_compilation_result(source_code, path, self.config.clone(), true).await
     }
 }
 
@@ -1043,8 +1054,10 @@ async fn build_compilation_result(
     source_code: String,
     path: PathBuf,
     config: i_slint_compiler::CompilerConfiguration,
+    static_preview: bool,
 ) -> CompilationResult {
-    let result = crate::component::build_from_source(source_code, path, config).await;
+    let result =
+        crate::component::build_from_source(source_code, path, config, static_preview).await;
     let components = result
         .components
         .into_iter()
