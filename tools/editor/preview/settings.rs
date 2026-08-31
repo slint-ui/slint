@@ -188,7 +188,7 @@ mod tests {
         let mut settings = VisualEditorSettings::default();
         for index in 0..5 {
             assert!(settings.add_recent_project(recent_project(
-                &format!("/project/{index}"),
+                format!("/project/{index}"),
                 Url::parse(&format!("file:///project/{index}.slint")).unwrap(),
                 &format!("Component{index}"),
             )));
