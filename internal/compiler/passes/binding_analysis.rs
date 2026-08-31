@@ -690,7 +690,13 @@ fn recurse_expression(
             {
                 vis(&nr.clone().into(), P);
             }
-            visit_layout_items_dependencies(l.elems.iter(), *o, CrossAxisSize::ReadByCell, vis);
+            visit_layout_items_dependencies(
+                l.elems.iter(),
+                *o,
+                CrossAxisSize::ReadByCell,
+                l.is_synthesized_repeated_merge,
+                vis,
+            );
 
             // The orthogonal solve depends on `cross-axis-alignment` and on the
             // cells' `cross-axis-self-alignment`.
@@ -795,6 +801,7 @@ fn recurse_expression(
                             layout.elems.iter(),
                             orientation,
                             CrossAxisSize::GivenByLayout,
+                            false,
                             vis,
                         );
                     }
@@ -815,12 +822,14 @@ fn recurse_expression(
                             layout.elems.iter(),
                             Orientation::Horizontal,
                             CrossAxisSize::GivenByLayout,
+                            false,
                             vis,
                         );
                         visit_layout_items_dependencies(
                             layout.elems.iter(),
                             Orientation::Vertical,
                             CrossAxisSize::GivenByLayout,
+                            false,
                             vis,
                         );
                     }
@@ -832,12 +841,14 @@ fn recurse_expression(
                             layout.elems.iter(),
                             Orientation::Horizontal,
                             CrossAxisSize::GivenByLayout,
+                            false,
                             vis,
                         );
                         visit_layout_items_dependencies(
                             layout.elems.iter(),
                             Orientation::Vertical,
                             CrossAxisSize::GivenByLayout,
+                            false,
                             vis,
                         );
                     }
@@ -871,6 +882,7 @@ fn recurse_expression(
                 layout.elems.iter().map(|it| &it.item),
                 *orientation,
                 CrossAxisSize::ReadByCell,
+                false,
                 vis,
             );
             let mut g = layout.geometry.clone();
@@ -957,16 +969,25 @@ fn recurse_expression(
     }
 }
 
+/// `skip_model_dependency` is set for the one-cell `BoxLayout`
+/// [`crate::layout::repeated_element_layout_info`] synthesizes to merge a
+/// repeated element's constraints into a non-layout parent (issue #407) —
+/// see [`crate::layout::BoxLayout::is_synthesized_repeated_merge`] for why a
+/// repeated cell's *model* expression isn't a dependency there, unlike for a
+/// real layout.
 fn visit_layout_items_dependencies<'a>(
     items: impl Iterator<Item = &'a LayoutItem>,
     orientation: Orientation,
     cross_size: CrossAxisSize,
+    skip_model_dependency: bool,
     vis: &mut impl FnMut(&PropertyPath, ReadType),
 ) {
     for it in items {
         let mut element = it.element.clone();
         let cross_size = if let Some(r) = &it.element.borrow().repeated {
-            recurse_expression(&element, &r.model, vis);
+            if !skip_model_dependency {
+                recurse_expression(&element, &r.model, vis);
+            }
             element = it.element.borrow().base_type.as_component().root_element.clone();
             // Conservative for a repeated cell: whether the layout hands the
             // instance its width depends on it (see `cell_is_height_for_width`).
