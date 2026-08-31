@@ -210,9 +210,8 @@ pub fn render_item_children(
             renderer.save_state();
             let item_rc = ItemRc::new(component.clone(), index);
 
-            let (do_draw, item_geometry) = renderer.filter_item(&item_rc, window_adapter);
+            let (do_draw, item_origin, item_size) = renderer.filter_item(&item_rc, window_adapter);
 
-            let item_origin = item_geometry.origin;
             renderer.translate(item_origin.to_vector());
 
             // Don't render items that are clipped, with the exception of the Clip or Flickable since
@@ -229,11 +228,10 @@ pub fn render_item_children(
                || ItemRef::downcast_pin::<Opacity>(item).is_some()
                || ItemRef::downcast_pin::<Layer>(item).is_some()
             {
-                item.as_ref().render(
-                    &mut (renderer as &mut dyn ItemRenderer),
-                    &item_rc,
-                    item_geometry.size,
-                )
+                let size = item_size.unwrap_or_else(|| {
+                    crate::properties::evaluate_no_tracking(|| item_rc.geometry()).size
+                });
+                item.as_ref().render(&mut (renderer as &mut dyn ItemRenderer), &item_rc, size)
             } else {
                 RenderingResult::ContinueRenderingChildren
             };
@@ -703,19 +701,24 @@ pub trait ItemRenderer {
     /// This is called before it is being rendered (before the draw_* function).
     /// Returns
     ///  - if the item needs to be drawn (false means it is clipped or doesn't need to be drawn)
-    ///  - the geometry of the item
+    ///  - the origin of the item
+    ///  - the size of the item, or None if it doesn't need to be drawn and the size wasn't computed
     fn filter_item(
         &mut self,
         item: &ItemRc,
         window_adapter: &WindowAdapterRc,
-    ) -> (bool, LogicalRect) {
+    ) -> (bool, LogicalPoint, Option<LogicalSize>) {
         let item_geometry = item.geometry();
         // Query bounding rect untracked, as properties that affect the bounding rect are already tracked
         // when rendering the item.
         let bounding_rect = crate::properties::evaluate_no_tracking(|| {
             item.bounding_rect(&item_geometry, window_adapter)
         });
-        (self.get_current_clip().intersects(&bounding_rect), item_geometry)
+        (
+            self.get_current_clip().intersects(&bounding_rect),
+            item_geometry.origin,
+            Some(item_geometry.size),
+        )
     }
 
     fn window(&self) -> &crate::window::WindowInner;
