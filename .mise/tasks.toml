@@ -52,6 +52,8 @@ wait_for = ["fix:toml:format", "fix:legal:copyright"]
 ["lint:rust:profiles"]
 description = "Check that every workspace's [profile.*] matches the root workspace"
 run = "cargo xtask check_profiles"
+# Creates target/, which makes the reuse check bail out, so let it go first.
+wait_for = ["lint:legal:reuse"]
 
 ["fix:legal:copyright"]
 description = "Run the check_license_headers --fix xtask"
