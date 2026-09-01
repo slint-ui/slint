@@ -112,7 +112,7 @@ jobs:
       version: ${{ steps.channel.outputs.version }}
       product: ${{ steps.channel.outputs.product }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       # No toolchain is set up here: this job only reads the crate version, and
       # `windows-latest` comes with cargo.
@@ -366,7 +366,7 @@ jobs:
           name: slint-visual-editor-windows-msixbundle
           path: bundle
 
-      - uses: microsoft/microsoft-store-apppublisher@v1.1
+      - uses: microsoft/microsoft-store-apppublisher@v1.4
 
       - name: Configure the Store CLI
         shell: pwsh

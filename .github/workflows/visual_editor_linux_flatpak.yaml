@@ -59,7 +59,7 @@ jobs:
             options: --privileged
         timeout-minutes: 120
         steps:
-            - uses: actions/checkout@v6
+            - uses: actions/checkout@v7
 
             # The checkout is owned by a different uid than the one the container
             # runs as, and git refuses to look at repositories of other users
@@ -74,7 +74,7 @@ jobs:
                   save_if: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository || inputs.save_if }}
 
             - name: Restore flatpak-builder state
-              uses: actions/cache@v4
+              uses: actions/cache@v6
               with:
                   key: slint-visual-editor-linux-flatpak-${{ matrix.arch }}
                   path: .flatpak-builder
