@@ -515,11 +515,15 @@ impl<'a, S: PaintScene> ItemRenderer for AnyrenderItemRenderer<'a, S> {
 
         // anyrender's box shadow takes one uniform corner radius,
         // so approximate per-corner radii with their average
-        // until vello grows support for non-uniform ones (linebender/vello#1245).
-        let radius = box_shadow.logical_border_radius() * sf;
-        let base_radius =
-            (radius.top_left + radius.top_right + radius.bottom_right + radius.bottom_left) as f64
-                / 4.;
+        // until vello grows support for non-uniform ones (linebender/vello#1245). The
+        // knockout below isn't drawn through that primitive, though, so it keeps using the
+        // real per-corner radii to match the casting element's actual silhouette.
+        let per_corner_radius = box_shadow.logical_border_radius() * sf;
+        let base_radius = (per_corner_radius.top_left
+            + per_corner_radius.top_right
+            + per_corner_radius.bottom_right
+            + per_corner_radius.bottom_left) as f64
+            / 4.;
 
         if box_shadow.inset() {
             self.draw_inset_shadow(
@@ -551,12 +555,11 @@ impl<'a, S: PaintScene> ItemRenderer for AnyrenderItemRenderer<'a, S> {
         // donut - the shadow's own bounds (padded by the blur, so its Gaussian falloff isn't
         // cut short) with the un-offset, un-spread box shape subtracted - built from two
         // sub-paths with opposite winding, which is what makes the inner one a hole rather
-        // than just more coverage, under either fill rule. See
+        // than just more coverage, under either fill rule. Unlike the averaged radius used
+        // for the shadow's own (uniform-radius-only) blur primitive above, the hole uses the
+        // real per-corner radii, so it matches the casting element's actual silhouette. See
         // https://github.com/slint-ui/slint/issues/6581.
-        let own_shape = RectShape::uniform(
-            kurbo::Rect::new(0., 0., phys_size.width as f64, phys_size.height as f64),
-            base_radius,
-        );
+        let own_shape = phys_rect_shape(PhysicalRect::from(phys_size), per_corner_radius);
         let clip_bounds =
             kurbo::Rect::new(rect.x0 - blur, rect.y0 - blur, rect.x1 + blur, rect.y1 + blur);
         let mut clip_shape = RectShape::uniform(clip_bounds, radius).to_path(CLIP_TOLERANCE);
