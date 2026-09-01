@@ -7,11 +7,8 @@ All notable changes to this project are documented in this file.
 ### General
 
  - The FemtoVG WGPU renderer now uses WGPU 30 and works on WebAssembly, using WebGPU with a WebGL fallback.
- - Skia: The Direct3D, Metal, and Vulkan surfaces are now provided through WGPU: Direct3D 12 is the default
-   on Windows, Vulkan on Linux, and Metal on macOS, and graphics resources are shared between windows.
-   OpenGL remains available as a fallback.
- - Added an experimental renderer based on Vello, rendering on WGPU (`renderer-vello` Cargo feature and
-   CMake option). It is never selected automatically; choose it with `SLINT_BACKEND=winit-vello` or
+ - Added an experimental renderer based on Vello (`renderer-vello` Cargo feature and
+   CMake option). Select it via the BackendSelector API, via `SLINT_BACKEND=winit-vello`, or
    `SLINT_BACKEND=linuxkms-vello`.
  - WebAssembly: Images are now decoded by the browser instead of bundled Rust decoders, significantly reducing
    the size of wasm binaries. All image formats supported by the browser now work. (Compressed `.svgz` is no
@@ -22,8 +19,6 @@ All notable changes to this project are documented in this file.
  - Qt: Added native drag-and-drop: data from a `DragArea` can be dropped onto other applications.
  - Improved text layout and rendering performance, especially for long texts.
  - The generated code and bundled translations are now deterministic, for reproducible builds. (#12932)
- - The generated code now exports only the types that are reachable from the public API. Types used
-   only privately, and the old name of a renamed export (`export { X as Y }`), remain as deprecated aliases.
  - Accessibility: Exposed the content of text inputs to assistive technologies, including the text selection,
    and let assistive technologies change the selection.
  - Accessibility: Fixed a panic when the accessibility tree is rebuilt for a window without a component. (#12917)
@@ -180,8 +175,10 @@ All notable changes to this project are documented in this file.
  - Added `Image::load_from_data()` to decode an encoded image (PNG, JPEG, SVG, ...) from a memory buffer. (#2624)
  - Added `Rgb565BigEndianPixel` to `slint::platform::software_renderer` for big-endian SPI displays. (#10882)
  - Added `remove` and `insert` functions to `SharedVector`.
- - Added `Keys::from_parts()` and `Keys::to_parts()` to convert keyboard shortcuts to and from a list
-   of strings, e.g. to persist user-configured key bindings. (#12212)
+ - Added `Keys::to_parts()` to convert a keyboard shortcut into the list of strings that
+   `Keys::from_parts()` accepts, e.g. to persist user-configured key bindings. (#12212)
+ - The generated code now re-exports only the types that are reachable from the public API. Types used
+   only privately, and the old name of a renamed export (`export { X as Y }`), remain as deprecated aliases.
  - Deprecated `slint::platform::skia_renderer::SkiaWGPURenderer`; use `SkiaWGPU29Renderer` or
    `SkiaWGPU30Renderer` instead.
  - `DataTransfer` can now carry a list of file paths in addition to text and an image. (#1967)
@@ -200,8 +197,11 @@ All notable changes to this project are documented in this file.
 
  - Added `Image::load_from_data()` to decode an encoded image (PNG, JPEG, SVG, ...) from a memory buffer. (#2624)
  - `DataTransfer` can now carry a list of file paths in addition to text and an image. (#1967)
- - Added `Keys::from_parts()` and `Keys::to_parts()` to convert keyboard shortcuts to and from a list
-   of strings, e.g. to persist user-configured key bindings. (#12212)
+ - Added `Keys::to_parts()` to convert a keyboard shortcut into the list of strings that
+   `Keys::from_parts()` accepts, e.g. to persist user-configured key bindings. (#12212)
+ - `Keys::from_parts()` now accepts any range of strings, not only a `std::span`.
+ - In the generated code, the old name of a renamed export (`export { X as Y }`) is now a deprecated
+   alias; previously both names were exported as equals.
  - Fixed models marking bindings dirty when a model row was read outside of a binding evaluation. (#12806)
  - Reduced the size of the generated code.
  - `CMAKE_INSTALL_LIBDIR` is now honored when installing the library.
