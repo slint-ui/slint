@@ -100,7 +100,7 @@ impl SkiaWGPU29Renderer {
         })?;
 
         Ok(Self::new_with_surface(WGPUSurface::new_offscreen(
-            instance, device, queue, backend, gr_context,
+            instance, adapter, device, queue, backend, gr_context,
         )))
     }
 
@@ -163,7 +163,7 @@ impl SkiaWGPU30Renderer {
         })?;
 
         Ok(Self::new_with_surface(WGPUSurface::new_offscreen(
-            instance, device, queue, backend, gr_context,
+            instance, adapter, device, queue, backend, gr_context,
         )))
     }
 
