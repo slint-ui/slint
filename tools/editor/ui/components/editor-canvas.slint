@@ -348,21 +348,12 @@ export component EditorCanvas inherits Rectangle {
         }
 
         hover-frame := MoveResizeFrame {
-            visible: root.hovered-element.valid
-                && (!root.hovered-element.is-selected || root.hover-press-active);
+            visible: root.hovered-element.valid && !root.hovered-element.is-selected;
             enabled: self.visible;
-            x: root.hover-press-active && root.selection-drag-active
-                ? root.selection-drag-position.x
-                : root.hovered-element.x + EditorMetrics.phone-outer-padding;
-            y: root.hover-press-active && root.selection-drag-active
-                ? root.selection-drag-position.y
-                : root.hovered-element.y + EditorMetrics.phone-outer-padding;
-            width: root.hover-press-active && root.selection-drag-active
-                ? root.selection-drag-size.width
-                : root.hovered-element.width;
-            height: root.hover-press-active && root.selection-drag-active
-                ? root.selection-drag-size.height
-                : root.hovered-element.height;
+            x: root.hovered-element.x + EditorMetrics.phone-outer-padding;
+            y: root.hovered-element.y + EditorMetrics.phone-outer-padding;
+            width: root.hovered-element.width;
+            height: root.hovered-element.height;
             rotation: root.hovered-element.angle;
             active: true;
             moveable: root.hovered-element.angle == 0deg;
@@ -372,6 +363,20 @@ export component EditorCanvas inherits Rectangle {
             accessible-prefix: "Hovered " + root.hovered-element.type-name;
             accessible-role: AccessibleRole.region;
             accessible-label: "Hovered " + root.hovered-element.type-name;
+
+            states [
+                pressed when root.hover-press-active && !root.selection-drag-active: {
+                    visible: root.hovered-element.valid;
+                }
+                dragging when root.hover-press-active && root.selection-drag-active: {
+                    visible: root.hovered-element.valid;
+                    x: root.selection-drag-position.x;
+                    y: root.selection-drag-position.y;
+                    width: root.selection-drag-size.width;
+                    height: root.selection-drag-size.height;
+                }
+            ]
+
             changed frame-hover => {
                 if !self.frame-hover && !selection-area.has-hover && !root.hover-press-active {
                     root.hovered-element = root.empty-hovered-element();
