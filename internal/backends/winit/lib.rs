@@ -424,7 +424,7 @@ pub(crate) struct SharedBackendData {
     renderer_name: Option<String>,
     requested_graphics_api: Option<RequestedGraphicsAPI>,
     #[cfg(enable_skia_renderer)]
-    skia_context: RefCell<i_slint_renderer_skia::SkiaSharedContextWeak>,
+    skia_context: i_slint_renderer_skia::SkiaSharedContext,
     active_windows: Rc<RefCell<HashMap<winit::window::WindowId, Weak<WinitWindowAdapter>>>>,
     /// List of visible windows that have been created when without the event loop and
     /// need to be mapped to a winit Window as soon as the event loop becomes active.
@@ -450,21 +450,6 @@ pub(crate) struct SharedBackendData {
 }
 
 impl SharedBackendData {
-    #[cfg(enable_skia_renderer)]
-    /// If at least one renderer exists this will return an existing skia context, otherwise create
-    /// a new one. Used so that skia renderers can share wgpu primitives
-    pub(crate) fn skia_context(&self) -> i_slint_renderer_skia::SkiaSharedContext {
-        let mut weak = self.skia_context.borrow_mut();
-        match weak.upgrade() {
-            Some(context) => context,
-            None => {
-                let context = i_slint_renderer_skia::SkiaSharedContext::default();
-                *weak = context.downgrade();
-                context
-            }
-        }
-    }
-
     /// Panics if the backend is not bound: an event loop only runs inside a live context.
     pub(crate) fn context(&self) -> i_slint_core::SlintContext {
         self.context

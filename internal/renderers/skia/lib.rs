@@ -346,10 +346,11 @@ fn create_partial_renderer_state(
 
 #[derive(Default)]
 struct SkiaSharedContextInner {
+    // Weak: the surfaces own these, see `SharedWgpuState`.
     #[cfg(feature = "wgpu-29")]
-    wgpu_29_state: RefCell<Option<wgpu_29_surface::SharedWgpuState>>,
+    wgpu_29_state: RefCell<Weak<wgpu_29_surface::SharedWgpuState>>,
     #[cfg(feature = "wgpu-30")]
-    wgpu_30_state: RefCell<Option<wgpu_30_surface::SharedWgpuState>>,
+    wgpu_30_state: RefCell<Weak<wgpu_30_surface::SharedWgpuState>>,
 }
 
 /// This data structure contains data that's intended to be shared across several instances of SkiaRenderer.
@@ -359,27 +360,6 @@ struct SkiaSharedContextInner {
 /// efficient resource usage.
 #[derive(Clone, Default)]
 pub struct SkiaSharedContext(#[allow(dead_code)] Rc<SkiaSharedContextInner>);
-
-impl SkiaSharedContext {
-    pub fn downgrade(&self) -> SkiaSharedContextWeak {
-        SkiaSharedContextWeak(Rc::downgrade(&self.0))
-    }
-}
-
-/// Weak version of SkiaSharedContext which is used by the global context to check if a renderer
-/// exists and, if so, access its shared context, without extending the lifetime of the context
-/// to that of the thread local GLOBAL_CONTEXT.
-/// Necessary because wgpu will crash in debug mode when destroying TLS variables depending on
-/// destruction order. Could potentially be removed if <https://github.com/gfx-rs/wgpu/pull/10030>
-/// is present in all versions of wgpu that slint supports
-#[derive(Clone, Default)]
-pub struct SkiaSharedContextWeak(std::rc::Weak<SkiaSharedContextInner>);
-
-impl SkiaSharedContextWeak {
-    pub fn upgrade(&self) -> Option<SkiaSharedContext> {
-        self.0.upgrade().map(SkiaSharedContext)
-    }
-}
 
 /// Use the SkiaRenderer when implementing a custom Slint platform where you deliver events to
 /// Slint and want the scene to be rendered using Skia as underlying graphics library.

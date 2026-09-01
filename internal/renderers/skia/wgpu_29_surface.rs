@@ -10,6 +10,7 @@ use i_slint_core::platform::PlatformError;
 use i_slint_core::renderer::DrawOutcome;
 
 use std::cell::RefCell;
+use std::rc::Rc;
 use std::sync::Arc;
 
 use wgpu_29 as wgpu;
@@ -42,10 +43,7 @@ pub(crate) fn sampled_texture_color_space(texture: &wgpu::Texture) -> skia_safe:
 /// window surface) and offscreen rendering into caller-provided textures.
 pub struct WGPUSurface {
     pub(crate) gr_context: RefCell<skia_safe::gpu::DirectContext>,
-    #[cfg_attr(not(feature = "unstable-wgpu-29"), allow(dead_code))]
-    instance: wgpu::Instance,
-    device: wgpu::Device,
-    queue: wgpu::Queue,
+    wgpu: Rc<SharedWgpuState>,
     surface_config: RefCell<Option<wgpu::SurfaceConfiguration>>,
     surface: Option<wgpu::Surface<'static>>,
     textures_to_transition_for_sampling: RefCell<Vec<wgpu::Texture>>,
@@ -74,17 +72,19 @@ impl WGPUSurface {
                 requested_graphics_api,
                 backends_to_avoid(),
             )?;
-        Self::init_with_parts(instance, &adapter, device, queue, surface, size)
+        Self::init_with_parts(
+            Rc::new(SharedWgpuState { instance, adapter, device, queue }),
+            surface,
+            size,
+        )
     }
 
     fn init_with_parts(
-        instance: wgpu::Instance,
-        adapter: &wgpu::Adapter,
-        device: wgpu::Device,
-        queue: wgpu::Queue,
+        wgpu: Rc<SharedWgpuState>,
         surface: wgpu::Surface<'static>,
         size: PhysicalWindowSize,
     ) -> Result<Self, PlatformError> {
+        let SharedWgpuState { adapter, device, queue, .. } = &*wgpu;
         #[cfg(target_vendor = "apple")]
         metal::set_layer_contents_gravity(&surface);
 
@@ -110,24 +110,20 @@ impl WGPUSurface {
         surface_config.present_mode = wgpu::PresentMode::AutoVsync;
 
         let error_scope = device.push_error_scope(wgpu::ErrorFilter::Validation);
-        surface.configure(&device, &surface_config);
+        surface.configure(device, &surface_config);
         if let Some(e) = spin_on::spin_on(error_scope.pop()) {
             return Err(PlatformError::from(format!("Error configuring WGPU surface: {e}")));
         }
 
-        let backend = Backend::new(adapter, &device)?;
+        let backend = Backend::new(adapter, device)?;
 
-        let gr_context = backend.make_context(adapter, &device, &queue);
+        let gr_context = backend
+            .make_context(adapter, device, queue)
+            .ok_or_else(|| PlatformError::from("Failed to create Skia context from WGPU"))?;
 
         Ok(Self {
-            gr_context: RefCell::new(
-                gr_context.ok_or_else(|| {
-                    PlatformError::from("Failed to create Skia context from WGPU")
-                })?,
-            ),
-            instance,
-            device,
-            queue,
+            gr_context: gr_context.into(),
+            wgpu,
             surface_config: Some(surface_config).into(),
             surface: Some(surface),
             textures_to_transition_for_sampling: RefCell::new(Vec::new()),
@@ -138,6 +134,7 @@ impl WGPUSurface {
 
     pub(crate) fn new_offscreen(
         instance: wgpu::Instance,
+        adapter: wgpu::Adapter,
         device: wgpu::Device,
         queue: wgpu::Queue,
         backend: Backend,
@@ -145,9 +142,7 @@ impl WGPUSurface {
     ) -> Self {
         Self {
             gr_context: RefCell::new(gr_context),
-            instance,
-            device,
-            queue,
+            wgpu: Rc::new(SharedWgpuState { instance, adapter, device, queue }),
             surface_config: None.into(),
             surface: None,
             textures_to_transition_for_sampling: RefCell::new(Vec::new()),
@@ -162,9 +157,10 @@ impl WGPUSurface {
     pub(crate) fn flush_and_submit(&self, gr_context: &mut skia_safe::gpu::DirectContext) {
         let textures_to_transition = self.textures_to_transition_for_sampling.take();
         if !textures_to_transition.is_empty() {
-            let mut encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                label: Some("Skia texture transition encoder"),
-            });
+            let mut encoder =
+                self.wgpu.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                    label: Some("Skia texture transition encoder"),
+                });
             encoder.transition_resources(
                 std::iter::empty(),
                 textures_to_transition.iter().map(|texture| wgpu::TextureTransition {
@@ -173,17 +169,23 @@ impl WGPUSurface {
                     state: wgpu::TextureUses::RESOURCE,
                 }),
             );
-            self.queue.submit(Some(encoder.finish()));
+            self.wgpu.queue.submit(Some(encoder.finish()));
         }
 
         gr_context.submit(None);
     }
 }
 
-/// These resources are cached for the first window. Future windows that the shared device can
-/// serve will use them instead of creating new ones, otherwise a newly created window will
-/// overwrite the shared primitives with its own newly-initialized ones
-#[derive(Clone)]
+/// The wgpu stack a surface renders with.
+///
+/// [`SkiaSharedContext`] caches the one the first window created, so that later windows it can
+/// serve reuse it instead of creating their own.
+/// That cache holds a weak reference and every surface a strong one, so the resources go away
+/// with the last surface using them.
+/// Were they to outlive the surfaces, they'd be destroyed whenever the last renderer happens to
+/// be dropped, and tearing a wgpu device down from a thread-local destructor aborts the process
+/// on macOS, where the Metal backend needs an autorelease pool that is gone by then.
+/// A window that is still shown owns its surface, so that case remains.
 pub(crate) struct SharedWgpuState {
     instance: wgpu::Instance,
     adapter: wgpu::Adapter,
@@ -268,7 +270,7 @@ impl crate::Surface for WGPUSurface {
         // try to reuse old / shared graphics primitives from previous windows with matching
         // settings
         if !manual_configuration {
-            let shared_state = shared_context.0.wgpu_29_state.borrow().clone();
+            let shared_state = shared_context.0.wgpu_29_state.borrow().upgrade();
             if let Some(shared) = shared_state {
                 #[cfg(feature = "unstable-wgpu-29")]
                 let settings_compatible = requested_settings
@@ -284,21 +286,14 @@ impl crate::Surface for WGPUSurface {
                     && let Ok(surface) = shared.instance.create_surface(make_target())
                     && shared.adapter.is_surface_supported(&surface)
                 {
-                    match Self::init_with_parts(
-                        shared.instance,
-                        &shared.adapter,
-                        shared.device,
-                        shared.queue,
-                        surface,
-                        size,
-                    ) {
+                    match Self::init_with_parts(shared, surface, size) {
                         Ok(surface) => return Ok(surface),
                         Err(err) => {
                             // The shared device may be lost. Drop it and start over.
                             i_slint_core::debug_log!(
                                 "Failed to reuse the shared WGPU device: {err} . Re-initializing"
                             );
-                            *shared_context.0.wgpu_29_state.borrow_mut() = None;
+                            shared_context.0.wgpu_29_state.take();
                         }
                     }
                 }
@@ -311,17 +306,10 @@ impl crate::Surface for WGPUSurface {
                 requested_graphics_api,
                 backends_to_avoid(),
             )?;
-        let new_surface = Self::init_with_parts(
-            instance.clone(),
-            &adapter,
-            device.clone(),
-            queue.clone(),
-            surface,
-            size,
-        )?;
+        let wgpu = Rc::new(SharedWgpuState { instance, adapter, device, queue });
+        let new_surface = Self::init_with_parts(wgpu.clone(), surface, size)?;
         if !manual_configuration {
-            *shared_context.0.wgpu_29_state.borrow_mut() =
-                Some(SharedWgpuState { instance, adapter, device, queue });
+            *shared_context.0.wgpu_29_state.borrow_mut() = Rc::downgrade(&wgpu);
         }
         Ok(new_surface)
     }
@@ -353,7 +341,7 @@ impl crate::Surface for WGPUSurface {
         surface_config.width = size.width;
         surface_config.height = size.height;
 
-        surface.configure(&self.device, surface_config);
+        surface.configure(&self.wgpu.device, surface_config);
         Ok(())
     }
 
@@ -391,7 +379,7 @@ impl crate::Surface for WGPUSurface {
                 // dropped before a new `Surface` is made"), panicking on the first frame on
                 // Wayland. Drop it first. (`Outdated`/`Lost` carry nothing → no-op.)
                 drop(stale);
-                surface.configure(&self.device, surface_config);
+                surface.configure(&self.wgpu.device, surface_config);
                 match surface.get_current_texture() {
                     wgpu::CurrentSurfaceTexture::Success(t) => t,
                     _ => return Ok(DrawOutcome::Occluded),
@@ -411,9 +399,10 @@ impl crate::Surface for WGPUSurface {
         self.flush_and_submit(gr_context);
 
         // Skia drew via the raw queue behind wgpu's back; referencing the frame texture in a submission makes the present semaphore wait for that work.
-        let mut encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-            label: Some("Skia present ordering encoder"),
-        });
+        let mut encoder =
+            self.wgpu.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                label: Some("Skia present ordering encoder"),
+            });
         encoder.transition_resources(
             std::iter::empty(),
             std::iter::once(wgpu::TextureTransition {
@@ -422,7 +411,7 @@ impl crate::Surface for WGPUSurface {
                 state: wgpu::TextureUses::PRESENT,
             }),
         );
-        self.queue.submit(Some(encoder.finish()));
+        self.wgpu.queue.submit(Some(encoder.finish()));
 
         if let Some(pre_present_callback) = pre_present_callback.borrow_mut().as_mut() {
             pre_present_callback();
@@ -451,9 +440,9 @@ impl crate::Surface for WGPUSurface {
     #[cfg(feature = "unstable-wgpu-29")]
     fn with_graphics_api(&self, callback: &mut dyn FnMut(GraphicsAPI<'_>)) {
         let api = i_slint_core::graphics::create_graphics_api_wgpu_29(
-            self.instance.clone(),
-            self.device.clone(),
-            self.queue.clone(),
+            self.wgpu.instance.clone(),
+            self.wgpu.device.clone(),
+            self.wgpu.queue.clone(),
         );
         callback(api)
     }
@@ -493,7 +482,7 @@ impl crate::Surface for WGPUSurface {
                     return Ok(());
                 };
                 surface_config.alpha_mode = mode;
-                surface.configure(&self.device, surface_config);
+                surface.configure(&self.wgpu.device, surface_config);
             }
         }
         Ok(())
