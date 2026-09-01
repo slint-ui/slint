@@ -41,10 +41,7 @@ SPDX-FileCopyrightText = "Copyright © 2026 GitHub Inc."
 SPDX-License-Identifier = "MIT"
 
 [[annotations]]
-path = [
-  "tools/editor/ui/assets/cursors/default-32.png",
-  "tools/editor/ui/assets/cursors/default-64.png",
-]
+path = ["tools/editor/ui/assets/cursors/default-32.png", "tools/editor/ui/assets/cursors/default-64.png"]
 SPDX-FileCopyrightText = "Grida <https://github.com/gridaco/grida>"
 SPDX-License-Identifier = "Apache-2.0"
 
