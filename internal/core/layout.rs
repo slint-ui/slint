@@ -1252,12 +1252,37 @@ pub fn solve_box_layout(data: &BoxLayoutData, repeater_indices: Slice<u32>) -> S
             None
         }
         _ if size_without_padding <= pref_size + spacings => {
+            // Not enough room for every cell's preferred size: shrink the cells toward
+            // their minimum, the same way `Stretch` does. A cell whose minimum equals
+            // its preferred size (a non-wrapping `Text`, for instance) can't shrink at
+            // all and keeps overflowing.
+            //
+            // `Center` and `End` still offset the resulting (possibly still oversized)
+            // block by their alignment formula below, so the overflow spills
+            // symmetrically past both edges (or past the start edge, for `End`)
+            // instead of silently collapsing to start-alignment. This matches the CSS
+            // Box Alignment spec's default ("unsafe") behavior: only `start` and the
+            // `space-*` values fall back to start-alignment when the leftover space is
+            // negative -- `center` and `end` keep applying their offset.
             grid_internal::layout_items(
                 &mut layout_data,
                 data.padding.begin,
                 size_without_padding,
                 data.spacing,
             );
+            if matches!(data.alignment, LayoutAlignment::Center | LayoutAlignment::End) {
+                let actual_size: Coord =
+                    layout_data.iter().map(|it| it.size).fold(0 as Coord, Saturating::add)
+                        + spacings;
+                let offset = match data.alignment {
+                    LayoutAlignment::Center => (size_without_padding - actual_size) / 2 as Coord,
+                    LayoutAlignment::End => size_without_padding - actual_size,
+                    _ => unreachable!(),
+                };
+                for it in &mut layout_data {
+                    it.pos += offset;
+                }
+            }
             None
         }
         LayoutAlignment::Center => Some((

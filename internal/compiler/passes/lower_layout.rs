@@ -1328,11 +1328,12 @@ fn optimize_single_cell_layout(
         // isn't duplicated.
         let cell_size =
             Expression::PropertyReference(NamedReference::new(cell, SmolStr::new_static(size)));
-        let leftover = min_max(
-            MinMaxOp::Max,
-            Expression::NumberLiteral(0., Unit::Px),
-            bin('-', available(), cell_size),
-        );
+        let leftover = bin('-', available(), cell_size);
+        let leftover = if single_cell.clamps_leftover_to_zero {
+            min_max(MinMaxOp::Max, Expression::NumberLiteral(0., Unit::Px), leftover)
+        } else {
+            leftover
+        };
         let factor = Expression::NumberLiteral(single_cell.pos_factor, Unit::None);
         pos_expr = bin('+', pos_expr, bin('*', leftover, factor));
     }
@@ -1374,6 +1375,15 @@ struct SingleCellBoxLayout {
     /// Fraction of the leftover space placed before the cell:
     /// 0 for stretch/start/space-between, ½ for center/space-around/space-evenly, 1 for end.
     pos_factor: f64,
+    /// Whether `leftover` clamps to zero when the cell doesn't fit (`leftover` would
+    /// otherwise be negative), instead of keeping the negative value. Per the CSS Box
+    /// Alignment spec, `start` and the `space-*` values fall back to start-alignment
+    /// when the leftover space is negative; `center` and `end` don't (`false` here),
+    /// so an oversized cell overflows symmetrically (or past the start edge, for
+    /// `end`) rather than snapping to start-alignment. See the matching case in the
+    /// runtime `solve_box_layout` (`internal/core/layout.rs`), which this must stay
+    /// consistent with.
+    clamps_leftover_to_zero: bool,
     /// The `(min, max, preferred)` expressions clamping the size; the preferred
     /// term is `None` when stretching. The whole option is `None` when the size
     /// is fixed by an explicit binding that stays in place.
@@ -1413,11 +1423,12 @@ fn single_cell_box_layout(layout: &BoxLayout) -> Option<SingleCellBoxLayout> {
             Some(ev.enumeration.values[ev.value].clone())
         }
     };
-    let (stretch, pos_factor) = match alignment.as_deref() {
-        None | Some("stretch") => (true, 0.),
-        Some("start" | "space-between") => (false, 0.),
-        Some("center" | "space-around" | "space-evenly") => (false, 0.5),
-        Some("end") => (false, 1.),
+    let (stretch, pos_factor, clamps_leftover_to_zero) = match alignment.as_deref() {
+        None | Some("stretch") => (true, 0., true),
+        Some("start" | "space-between") => (false, 0., true),
+        Some("space-around" | "space-evenly") => (false, 0.5, true),
+        Some("center") => (false, 0.5, false),
+        Some("end") => (false, 1., false),
         _ => return None,
     };
     let c = item.constraints.for_orientation(orientation);
@@ -1426,7 +1437,12 @@ fn single_cell_box_layout(layout: &BoxLayout) -> Option<SingleCellBoxLayout> {
         return None;
     }
     if c.fixed {
-        return Some(SingleCellBoxLayout { stretch, pos_factor, size: None });
+        return Some(SingleCellBoxLayout {
+            stretch,
+            pos_factor,
+            clamps_leftover_to_zero,
+            size: None,
+        });
     }
     let implicit = cell_implicit_info(&item.element, orientation);
     let side = |explicit: &Option<NamedReference>, name: &str| {
@@ -1439,6 +1455,7 @@ fn single_cell_box_layout(layout: &BoxLayout) -> Option<SingleCellBoxLayout> {
     Some(SingleCellBoxLayout {
         stretch,
         pos_factor,
+        clamps_leftover_to_zero,
         size: Some((side(c.min, "min")?, side(c.max, "max")?, pref)),
     })
 }
