@@ -865,12 +865,18 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GlyphRenderer for GLItemRendere
         }
     }
 
-    fn snaps_text_origin_to_pixel_grid(&self) -> bool {
+    fn text_origin_snap_delta(&self) -> PhysicalPoint {
         // `draw_glyph_run` below pixel-aligns the canvas transform via `align_canvas_during`,
-        // which itself only snaps under a pure translation -- mirror that condition here, so a
-        // rotated/scaled item's alignment offset doesn't get a rounding its actual draw call
-        // won't apply.
-        Self::is_translate_only(&self.canvas.borrow().transform())
+        // which runs later than this (once per glyph run, rather than once up front) but reads
+        // the same, still-unsnapped transform this does -- so this can compute the delta live,
+        // unlike skia, which has already snapped its canvas by the time it's asked (see
+        // `SkiaItemRenderer::text_origin_snap_delta`).
+        let transform = self.canvas.borrow().transform();
+        if !Self::is_translate_only(&transform) {
+            return PhysicalPoint::zero();
+        }
+        let [_a, _b, _c, _d, x, y] = transform.0;
+        PhysicalPoint::new(x.round() - x, y.round() - y)
     }
 
     fn draw_glyph_run(

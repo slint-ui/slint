@@ -59,7 +59,7 @@ impl FontContext {
 pub type PhysicalLength = euclid::Length<f32, PhysicalPx>;
 pub type PhysicalRect = euclid::Rect<f32, PhysicalPx>;
 type PhysicalSize = euclid::Size2D<f32, PhysicalPx>;
-type PhysicalPoint = euclid::Point2D<f32, PhysicalPx>;
+pub type PhysicalPoint = euclid::Point2D<f32, PhysicalPx>;
 
 pub use super::DEFAULT_FONT_SIZE;
 
@@ -190,7 +190,7 @@ pub fn draw_text(
             max_width: Some(max_width),
             max_lines: text.line_limit(),
             text_overflow,
-            pixel_snap_alignment: item_renderer.snaps_text_origin_to_pixel_grid(),
+            origin_snap_delta: item_renderer.text_origin_snap_delta(),
         },
         window_adapter.window(),
         |layout| {
@@ -232,6 +232,35 @@ pub fn draw_text(
     );
 }
 
+/// The delta a renderer's own origin-snap would apply to `item_rc`'s screen position, computed
+/// independently of any actual draw call. Query paths (hit-testing, cursor placement,
+/// accessibility) need this to agree with what drawing does, but have no `GlyphRenderer` to ask
+/// directly the way [`draw_text`]/[`draw_text_input`] do via
+/// [`GlyphRenderer::text_origin_snap_delta`] -- so this reconstructs the same thing independently,
+/// via [`crate::item_tree::ItemRc::window_origin_if_translate_only`].
+///
+/// Zero when `renderer_snaps_origin` is `false` (this renderer never snaps the origin at all, per
+/// [`RendererSealed::snaps_text_origin_to_pixel_grid`]), when the accumulated transform up to
+/// `item_rc` isn't a pure translation (matching the condition every per-draw snap itself checks),
+/// or when the origin already sits exactly on a device pixel. See issue #6739's review.
+fn origin_snap_delta_for_query(
+    item_rc: &crate::item_tree::ItemRc,
+    scale_factor: ScaleFactor,
+    renderer_snaps_origin: bool,
+) -> PhysicalPoint {
+    if !renderer_snaps_origin {
+        return PhysicalPoint::zero();
+    }
+    let Some(origin_logical) = item_rc.window_origin_if_translate_only() else {
+        return PhysicalPoint::zero();
+    };
+    let origin_physical: PhysicalPoint = origin_logical * scale_factor;
+    PhysicalPoint::new(
+        origin_physical.x.round() - origin_physical.x,
+        origin_physical.y.round() - origin_physical.y,
+    )
+}
+
 #[cfg(feature = "std")]
 pub fn link_under_cursor(
     scale_factor: ScaleFactor,
@@ -249,10 +278,12 @@ pub fn link_under_cursor(
     // Hit-testing, not drawing, so there's no `GlyphRenderer` at hand -- but this still has to
     // agree with whatever the window's actual renderer draws (see issue #6739's review), which
     // `RendererSealed::snaps_text_origin_to_pixel_grid` reports independent of an active draw.
-    let pixel_snap_alignment = crate::window::WindowInner::from_pub(window)
+    let renderer_snaps_origin = crate::window::WindowInner::from_pub(window)
         .window_adapter()
         .renderer()
         .snaps_text_origin_to_pixel_grid();
+    let origin_snap_delta =
+        origin_snap_delta_for_query(item_rc, scale_factor, renderer_snaps_origin);
 
     with_text_layout(
         cache,
@@ -266,7 +297,7 @@ pub fn link_under_cursor(
             max_width: Some(size.width_length()),
             max_lines: text.line_limit(),
             text_overflow: text.overflow(),
-            pixel_snap_alignment,
+            origin_snap_delta,
         },
         window,
         |layout| link_in_layout(layout, cursor),
@@ -361,7 +392,7 @@ pub fn draw_text_input(
         text_input,
         &layout_builder,
         LayoutOptions {
-            pixel_snap_alignment: item_renderer.snaps_text_origin_to_pixel_grid(),
+            origin_snap_delta: item_renderer.text_origin_snap_delta(),
             ..LayoutOptions::new_from_textinput(text_input, Some(width), Some(height))
         },
         window_adapter.window(),
@@ -491,11 +522,11 @@ fn text_size_impl(
             horizontal_align: TextHorizontalAlignment::Left,
             vertical_align: TextVerticalAlignment::Top,
             text_overflow: TextOverflow::Clip,
-            // Always Left/Top above, so `alignment_fraction_h`/`_v` are always 0.0 and this flag's
-            // value has no effect on the result either way (it only ever scales an alignment
-            // offset, never the real width/height fed into line breaking). There's also no
-            // renderer to match here (this sizes the item before any renderer draws it).
-            pixel_snap_alignment: false,
+            // Always Left/Top above, so `alignment_fraction_h`/`_v` are always 0.0 and this value's
+            // effect would be zero either way (it only ever scales an alignment offset, never the
+            // real width/height fed into line breaking). There's also no renderer to match here
+            // (this sizes the item before any renderer draws it).
+            origin_snap_delta: PhysicalPoint::zero(),
         },
         window_adapter.window(),
         |layout| PhysicalSize::from_lengths(layout.max_width, layout.height) / scale_factor,
@@ -644,7 +675,7 @@ pub fn text_input_byte_offset_for_position(
 fn text_input_byte_offset_for_position_impl(
     scale_factor: Option<ScaleFactor>,
     window_adapter: Option<Rc<dyn WindowAdapter>>,
-    pixel_snap_alignment: bool,
+    renderer_snaps_origin: bool,
     text_input: Pin<&crate::items::TextInput>,
     item_rc: &crate::item_tree::ItemRc,
     pos: LogicalPoint,
@@ -655,6 +686,8 @@ fn text_input_byte_offset_for_position_impl(
         return no_hit;
     };
     let pos: PhysicalPoint = pos * scale_factor;
+    let origin_snap_delta =
+        origin_snap_delta_for_query(item_rc, scale_factor, renderer_snaps_origin);
 
     let width = text_input.width();
     let height = text_input.height();
@@ -676,7 +709,7 @@ fn text_input_byte_offset_for_position_impl(
         text_input,
         &layout_builder,
         LayoutOptions {
-            pixel_snap_alignment,
+            origin_snap_delta,
             ..LayoutOptions::new_from_textinput(text_input, Some(width), Some(height))
         },
         window_adapter.window(),
@@ -709,7 +742,7 @@ pub fn text_input_cursor_rect_for_byte_offset(
 fn text_input_cursor_rect_for_byte_offset_impl(
     scale_factor: Option<ScaleFactor>,
     window_adapter: Option<Rc<dyn WindowAdapter>>,
-    pixel_snap_alignment: bool,
+    renderer_snaps_origin: bool,
     text_input: Pin<&crate::items::TextInput>,
     item_rc: &crate::item_tree::ItemRc,
     byte_offset: usize,
@@ -719,6 +752,8 @@ fn text_input_cursor_rect_for_byte_offset_impl(
     let Some(scale_factor) = scale_factor else {
         return LogicalRect::default();
     };
+    let origin_snap_delta =
+        origin_snap_delta_for_query(item_rc, scale_factor, renderer_snaps_origin);
 
     let layout_builder =
         shaping_builder(text_input, Some(item_rc), text_input.wrap(), scale_factor);
@@ -747,7 +782,7 @@ fn text_input_cursor_rect_for_byte_offset_impl(
         text_input,
         &layout_builder,
         LayoutOptions {
-            pixel_snap_alignment,
+            origin_snap_delta,
             ..LayoutOptions::new_from_textinput(text_input, Some(width), Some(height))
         },
         window_adapter.window(),
@@ -831,7 +866,7 @@ pub fn with_text_input_layout<R>(
 fn with_text_input_layout_impl<R>(
     scale_factor: Option<ScaleFactor>,
     window_adapter: Option<Rc<dyn WindowAdapter>>,
-    pixel_snap_alignment: bool,
+    renderer_snaps_origin: bool,
     cache: Option<&TextLayoutCache>,
     text_input: Pin<&crate::items::TextInput>,
     item_rc: &crate::item_tree::ItemRc,
@@ -840,6 +875,8 @@ fn with_text_input_layout_impl<R>(
 ) -> Option<R> {
     let scale_factor = scale_factor?;
     let window_adapter = window_adapter?;
+    let origin_snap_delta =
+        origin_snap_delta_for_query(item_rc, scale_factor, renderer_snaps_origin);
 
     let width = size.width_length();
     let height = size.height_length();
@@ -862,7 +899,7 @@ fn with_text_input_layout_impl<R>(
         text_input,
         &layout_builder,
         LayoutOptions {
-            pixel_snap_alignment,
+            origin_snap_delta,
             ..LayoutOptions::new_from_textinput(text_input, Some(width), Some(height))
         },
         window_adapter.window(),

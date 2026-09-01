@@ -35,11 +35,18 @@ pub(super) struct LayoutOptions {
     pub(super) horizontal_align: TextHorizontalAlignment,
     pub(super) vertical_align: TextVerticalAlignment,
     pub(super) text_overflow: TextOverflow,
-    /// Mirrors `GlyphRenderer::snaps_text_origin_to_pixel_grid` for the renderer this layout is
-    /// being computed for (`false` -- keep exact sub-pixel precision -- when not drawing, e.g.
-    /// for `text_size` or cursor/hit-test queries). See that method and issue #6739 for why this
-    /// has to match the renderer's own origin-snapping instead of always rounding.
-    pub(super) pixel_snap_alignment: bool,
+    /// How much the renderer's own origin-snap will move this item's screen position -- `round(origin)
+    /// - origin`, in physical pixels -- or zero if this renderer doesn't snap the origin at all, or its
+    /// snap wouldn't move it (already-integral origin), or the transform it would snap under isn't a
+    /// pure translation. Zero when not drawing, e.g. for `text_size` queries, which have no origin.
+    ///
+    /// This is the *actual* delta the renderer's origin-snap applies, not the (unrounded) box
+    /// size's own rounding: origin and box size are independent quantities, so a caller cannot
+    /// infer one's rounding delta from the other in general -- see `pixel_snap_correction` and
+    /// issue #6739's review for why. Draw callers get this from their `GlyphRenderer` (which
+    /// already computes it to align its own canvas transform); query callers reconstruct it via
+    /// `ItemRc::window_origin_if_translate_only`.
+    pub(super) origin_snap_delta: PhysicalPoint,
 }
 
 impl LayoutOptions {
@@ -55,9 +62,9 @@ impl LayoutOptions {
             horizontal_align: text_input.horizontal_alignment(),
             vertical_align: text_input.vertical_alignment(),
             text_overflow: TextOverflow::Clip,
-            // Callers that draw set this explicitly (see `draw_text_input`); queries that don't
-            // (cursor/link hit-testing) keep exact sub-pixel precision.
-            pixel_snap_alignment: false,
+            // Callers set this explicitly from the actual origin-snap delta (see
+            // `draw_text_input` and the query entry points in `sharedparley.rs`).
+            origin_snap_delta: PhysicalPoint::zero(),
         }
     }
 }
@@ -140,25 +147,24 @@ fn alignment_fraction_v(vertical_align: TextVerticalAlignment) -> f32 {
     }
 }
 
-/// The correction a snapped alignment offset needs on top of the one computed from the real,
-/// unrounded `raw` dimension: how far `raw`'s *rounding* moves the offset, scaled by how much of
-/// that rounding the alignment passes through (see [`alignment_fraction_h`]/[`alignment_fraction_v`]).
+/// The correction an aligned edge needs to cancel out (part of) the renderer's own origin-snap:
+/// `origin_snap_delta` is how far that snap moves this item's screen position (see
+/// [`LayoutOptions::origin_snap_delta`]), and since the box's own size is never rounded, that
+/// whole delta also shows up, unchanged, on every edge of the box -- including whichever edge an
+/// alignment is meant to hold in place. `fraction` (see [`alignment_fraction_h`]/
+/// [`alignment_fraction_v`]) is how much of that motion this particular edge must cancel: none
+/// for `Start`/`Left`/`Top` (that edge *is* the origin -- letting it move is the entire point of
+/// snapping it), all of it for `End`/`Right`/`Bottom` (the far edge must not move at all), half
+/// for `Center`.
 ///
 /// Deliberately never fed into line breaking, elision, or the box's own height-cut logic -- see
-/// [`GlyphRenderer::snaps_text_origin_to_pixel_grid`](super::draw::GlyphRenderer::snaps_text_origin_to_pixel_grid)
-/// and issue #6739 for why an offset needs snapping in the first place, and issue #6739's review
-/// for why nothing else may: wrapping a word that fits the real width, or eliding/clipping text
-/// that fits it, just because the *box* rounded up or down, would trade one pixel-alignment bug
-/// for a content-fit one.
-fn pixel_snap_correction(
-    pixel_snap_alignment: bool,
-    fraction: f32,
-    raw: PhysicalLength,
-) -> PhysicalLength {
-    if !pixel_snap_alignment || fraction == 0.0 {
-        return PhysicalLength::zero();
-    }
-    PhysicalLength::new((raw.get().round() - raw.get()) * fraction)
+/// [`GlyphRenderer::text_origin_snap_delta`](super::draw::GlyphRenderer::text_origin_snap_delta)
+/// and issue #6739 for why an offset needs correcting in the first place, and issue #6739's
+/// review for why nothing else may: wrapping a word that fits the real width, or eliding/clipping
+/// text that fits it, just because an *edge* needed correcting, would trade one pixel-alignment
+/// bug for a content-fit one.
+fn pixel_snap_correction(origin_snap_delta: PhysicalLength, fraction: f32) -> PhysicalLength {
+    PhysicalLength::new(-origin_snap_delta.get() * fraction)
 }
 
 pub(super) fn layout(
@@ -176,30 +182,26 @@ pub(super) fn layout(
     let max_physical_width = options.max_width.map(|w| w * scale_factor);
     let max_physical_height = options.max_height.map(|h| h * scale_factor);
 
-    // `options.pixel_snap_alignment` mirrors `GlyphRenderer::snaps_text_origin_to_pixel_grid` for
-    // whichever renderer is about to draw this layout (see that method for the full rationale):
-    // renderers that round the item's own screen position to the device-pixel grid before
-    // drawing text (femtovg's `align_canvas_during`, skia's `pixel_align_origin_auto_restore`)
-    // need the alignment offset (`box_size - content_size`, from `TextHorizontalAlignment`/
-    // `TextVerticalAlignment`) rounded the same way, or `round(origin) + box_size` drifts away
-    // from `round(origin + box_size)` as `box_size`'s fractional part changes, even though
-    // `origin + box_size` is often an exact, constant device-pixel value (e.g. an edge pinned via
-    // `x: parent.width - self.width`). Renderers that never round the origin (the software
-    // renderer, the interpreter's `anyrender` command recording) must NOT round here either:
-    // origin and box size are already exactly consistent unrounded, and rounding just one of them
-    // would introduce the drift instead of avoiding it. See issue #6739.
-    let x_offset = max_physical_width.map_or(PhysicalLength::zero(), |w| {
+    // `options.origin_snap_delta` is the actual delta the renderer's own origin-snap applies to
+    // this item's screen position (see that field's doc for the full rationale and why it can't
+    // be inferred from the box size): renderers that round the item's own screen position to the
+    // device-pixel grid before drawing text (femtovg's `align_canvas_during`, skia's
+    // `pixel_align_origin_auto_restore`) apply that same delta, unrounded, to every edge of the
+    // box -- including whichever edge an alignment other than `Start`/`Left`/`Top` is meant to
+    // hold in place. Only apply a correction when there's an actual box to align within: without
+    // a `max_width`/`max_height`, alignment has nothing to measure against and parley leaves the
+    // line at its natural (Left/Top-equivalent) position regardless of the requested alignment,
+    // so canceling any delta here would be over-correcting. See issue #6739.
+    let x_offset = max_physical_width.map_or(PhysicalLength::zero(), |_| {
         pixel_snap_correction(
-            options.pixel_snap_alignment,
+            options.origin_snap_delta.x_length(),
             alignment_fraction_h(options.horizontal_align),
-            w,
         )
     });
-    let y_offset_correction = max_physical_height.map_or(PhysicalLength::zero(), |h| {
+    let y_offset_correction = max_physical_height.map_or(PhysicalLength::zero(), |_| {
         pixel_snap_correction(
-            options.pixel_snap_alignment,
+            options.origin_snap_delta.y_length(),
             alignment_fraction_v(options.vertical_align),
-            h,
         )
     });
 
@@ -376,8 +378,8 @@ pub(super) struct Layout {
     /// position a consumer reads out of this layout (glyphs, decoration/selection/inline-code
     /// rects, cursor and hit-test positions) -- but never fed into line breaking, elision, or the
     /// alignment offset's own `box_size - content_size` computation, which all stay exact. Zero
-    /// whenever `LayoutOptions::pixel_snap_alignment` is off or the horizontal alignment is
-    /// `Start`/`Left`.
+    /// whenever `LayoutOptions::origin_snap_delta` is zero (no draw call snapped this item's
+    /// origin, or it did but the snap didn't move it) or the horizontal alignment is `Start`/`Left`.
     pub(super) x_offset: PhysicalLength,
     pub(super) max_width: PhysicalLength,
     pub(super) height: PhysicalLength,

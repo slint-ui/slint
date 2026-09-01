@@ -40,22 +40,26 @@ pub trait GlyphRenderer: crate::item_rendering::ItemRenderer {
         size: LogicalSize,
     ) -> Option<Self::PlatformBrush>;
 
-    /// Whether this renderer snaps a text item's own screen position to the device-pixel grid
-    /// before drawing its glyphs (typically to avoid blurry nearest-neighbor sampling of a
-    /// rasterized glyph atlas -- see e.g. femtovg's `align_canvas_during` or skia's
-    /// `pixel_align_origin_auto_restore`). Renderers that do this must also snap the box
-    /// width/height that feeds the horizontal/vertical alignment offset (`box_size -
-    /// content_size`) the same way, or `round(origin) + box_size` drifts away from
-    /// `round(origin + box_size)` as the fractional part of `box_size` changes -- even though
-    /// `origin + box_size` is often an exact, constant device-pixel value, e.g. an edge pinned
-    /// via `x: parent.width - self.width`. See issue #6739.
+    /// The delta this renderer's own origin-snap applies (or would apply) to the current item's
+    /// screen position, in physical pixels -- `round(origin) - origin`, or zero if this renderer
+    /// doesn't snap the item's own screen position to the device-pixel grid before drawing its
+    /// glyphs at all (e.g. the software renderer, which quantizes into sub-pixel bins instead of
+    /// rounding), if the transform it would snap under isn't a pure translation (see e.g.
+    /// femtovg's `align_canvas_during` or skia's `pixel_align_origin_auto_restore`, both of which
+    /// skip snapping under rotation/scale), or if the origin is already exactly on a device pixel.
     ///
-    /// Renderers that never discard the sub-pixel part of a glyph's screen position (e.g. the
-    /// software renderer, which quantizes into sub-pixel bins instead of rounding) must leave
-    /// this `false`: rounding the box size there, without a matching origin snap, would
-    /// introduce the same drift instead of avoiding it.
-    fn snaps_text_origin_to_pixel_grid(&self) -> bool {
-        false
+    /// Queried once per `draw_text`/`draw_text_input` call, so implementations that mutate their
+    /// own canvas's transform to perform the origin-snap (skia) must stash the delta from that
+    /// computation rather than trying to recompute it afterwards from the now-already-snapped
+    /// transform.
+    ///
+    /// The box's own width/height are never snapped -- only its own screen position is -- so this
+    /// same delta also shows up, unchanged, on every edge of the box; a caller that needs an
+    /// alignment offset (`box_size - content_size`) to hold a specific edge in place regardless of
+    /// this snap uses this to correct for it. See issue #6739's review for why that correction has
+    /// to come from the actual origin-snap delta, not from rounding the box size itself.
+    fn text_origin_snap_delta(&self) -> PhysicalPoint {
+        PhysicalPoint::zero()
     }
 
     /// Draws the glyphs provided by glyphs_it with the specified font, font_size, and brush at the
