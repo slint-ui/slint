@@ -696,7 +696,7 @@ impl ItemRc {
             && transform.m12.approx_eq(&0.0)
             && transform.m21.approx_eq(&0.0)
             && transform.m22.approx_eq(&1.0);
-        is_translation.then(|| transform.transform_point(self.geometry().origin))
+        is_translation.then(|| transform.transform_point(self.geometry().origin.cast()).cast())
     }
 
     /// Returns an absolute position of `p` in the `ItemTree`'s coordinate system
