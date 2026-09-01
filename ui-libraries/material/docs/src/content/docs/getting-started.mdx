@@ -3,50 +3,50 @@ title: Getting Started
 description: Getting Started with Slint Material UI.
 ---
 
-import CodeSnippetMD from '@slint/common-files/src/components/CodeSnippetMD.astro';
-import SlintProperty  from '@slint/common-files/src/components/SlintProperty.astro';
-import Link from '@slint/common-files/src/components/Link.astro';
-import { Steps, Tabs, TabItem } from '@astrojs/starlight/components';
+import { CardGrid, LinkButton, LinkCard, Steps, Tabs, TabItem } from '@astrojs/starlight/components';
 
 ![Slint Material UI](~/assets/images/material-tablet.webp)
 
-Welcome to the documentation for the Material 3 Design System for Slint. Learn more about
-Slint [here](https://slint.dev/).
+Slint Material Components bring the Material 3 design system to Slint applications.
 
-To start a project from scratch, follow the instructions from one of our template repositories:
+## Start a new project
+
+Choose a template to create a ready-to-run project in your preferred language.
+
+<CardGrid>
+<LinkCard title="Rust template" description="Create a Material application with Rust." href="https://github.com/slint-ui/material-rust-template" />
+<LinkCard title="C++ template" description="Create a Material application with C++." href="https://github.com/slint-ui/material-cpp-template" />
+<LinkCard title="Node.js template" description="Create a Material application with Node.js." href="https://github.com/slint-ui/material-nodejs-template" />
+<LinkCard title="Python template" description="Create a Material application with Python." href="https://github.com/slint-ui/material-python-template" />
+</CardGrid>
+
+## Add Material to an existing project
+
+<div class="release-picker">
+    <div class="release-picker__latest">
+        <h3>Material Components 1.1.0</h3>
+        <p>Requires Slint 1.18 or newer.</p>
+        <div class="release-picker__actions">
+            <span class="not-content">
+                <LinkButton href="/zip/material-1.1.0.zip">Download ZIP</LinkButton>
+            </span>
+            <a href="/changelog/">View Release Notes</a>
+        </div>
+    </div>
+</div>
+
+<Steps>
+1. Download and extract the current release into your project.
+2. Configure `@material` as a component library using the example for your language below.
+3. Import Material components in your `.slint` files.
+</Steps>
+
+For more information about component-library paths, see the
+[Slint component library documentation](https://docs.slint.dev/latest/docs/slint/guide/language/coding/file/#component-libraries).
+
+### Configure the component library
 
 <Tabs syncKey="dev-language">
-<TabItem label="C++">
-https://github.com/slint-ui/material-cpp-template
-</TabItem>
-<TabItem label="Rust">
-https://github.com/slint-ui/material-rust-template
-</TabItem>
-<TabItem label="NodeJS">
-https://github.com/slint-ui/material-nodejs-template
-</TabItem>
-<TabItem label="Python" >
-https://github.com/slint-ui/material-python-template
-</TabItem>
-</Tabs>
-
-To use the components in your existing project, download the [material component source](/zip/material-1.0.1.zip) and extract it into your repository.
-Then follow the [documentation to configure the use of `@material` as a library](https://docs.slint.dev/latest/docs/slint/guide/language/coding/file/#component-libraries).
-
-Here's an example of how to configure it for different languages:
-
-<Tabs syncKey="dev-language">
-<TabItem label="C++">
-In your `CMakeLists.txt` file, use `LIBRARY_PATHS` in the `slint_target_sources` function.
-
-```cmake
-slint_target_sources(my_application
-    ui/main.slint
-    LIBRARY_PATHS
-    material=${CMAKE_CURRENT_SOURCE_DIR}/material-1.0.1/material.slint
-)
-```
-</TabItem>
 <TabItem label="Rust">
 In your `build.rs`, call `CompilerConfiguration::with_library_paths`
 
@@ -57,11 +57,22 @@ fn main() {
         std::collections::HashMap::from([(
             "material".to_string(),
             std::path::Path::new(&std::env::var_os("CARGO_MANIFEST_DIR").unwrap())
-                .join("material-1.0.1/material.slint"),
+                .join("material-1.1.0/material.slint"),
         )]),
     );
     slint_build::compile_with_config("ui/main.slint", config).unwrap();
 }
+```
+</TabItem>
+<TabItem label="C++">
+In your `CMakeLists.txt` file, use `LIBRARY_PATHS` in the `slint_target_sources` function.
+
+```cmake
+slint_target_sources(my_application
+    ui/main.slint
+    LIBRARY_PATHS
+        material=${CMAKE_CURRENT_SOURCE_DIR}/material-1.1.0/material.slint
+)
 ```
 </TabItem>
 <TabItem label="NodeJS">
@@ -70,7 +81,7 @@ Provide the `libraryPaths` map with `loadFile`:
 ```javascript
 let ui = slint.loadFile("ui/main.slint", {
     libraryPaths: {
-        "material": path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "material-1.0.1", "material.slint")
+        "material": path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "material-1.1.0", "material.slint")
     }
 });
 ```
@@ -82,7 +93,7 @@ Provide the `library_paths` dict with `load_file`:
 ui = slint.load_file(
     Path(__file__).parent / "ui" / "main.slint",
     library_paths={
-        "material": Path(__file__).parent / "material-1.0.1" / "material.slint"
+        "material": Path(__file__).parent / "material-1.1.0" / "material.slint"
     },
 )
 ```
