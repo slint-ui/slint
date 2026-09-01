@@ -42,8 +42,8 @@ SPDX-License-Identifier = "MIT"
 
 [[annotations]]
 path = [
-  "tools/editor/ui/assets/css-cursors-grida/default-32-x14y14-000000.png",
-  "tools/editor/ui/assets/css-cursors-grida/default-64-x28y28-000000.png",
+  "tools/editor/ui/assets/cursors/default-32.png",
+  "tools/editor/ui/assets/cursors/default-64.png",
 ]
 SPDX-FileCopyrightText = "Grida <https://github.com/gridaco/grida>"
 SPDX-License-Identifier = "Apache-2.0"
