@@ -243,6 +243,31 @@ pub fn draw_text(
 /// [`RendererSealed::snaps_text_origin_to_pixel_grid`]), when the accumulated transform up to
 /// `item_rc` isn't a pure translation (matching the condition every per-draw snap itself checks),
 /// or when the origin already sits exactly on a device pixel. See issue #6739's review.
+///
+/// Known, narrow limitation (issue #6739's review, round 3): [`ItemRc::window_origin_if_translate_only`]
+/// only walks the *item tree*'s own ancestor chain (parent geometry and any `Rotate`/`Scale`
+/// element's `children_transform`) -- it cannot see transforms a renderer composes on top of that
+/// at the canvas level, outside of any item. Two concrete cases where that leaves this function
+/// and the draw path's [`GlyphRenderer::text_origin_snap_delta`] looking at different transforms
+/// for the same item:
+/// - A nonzero device/output rotation (`rotation_angle_degrees`, used for e.g. Android/LinuxKMS
+///   screen rotation) is applied once, directly on the renderer's root canvas transform (see
+///   `skia_canvas.rotate`/`femtovg_canvas.rotate` in the renderer crates), never as an item's
+///   `children_transform`. The draw path's canvas is correctly not translate-only there and
+///   returns zero; this function has no way to know about that rotation at all, and can compute a
+///   nonzero delta as if it weren't there.
+/// - Text inside an embedded popup: [`crate::item_rendering::render_component_items`] translates
+///   the renderer's canvas by the popup's `origin` before rendering the popup's own, separate item
+///   tree, but that translation lives outside the item tree (a popup's root has no `parent_item`
+///   connecting it back to the host tree), so it never enters this function's walk either.
+///
+/// Both are narrow (an inactive rotation and an ordinary translation respectively -- neither
+/// breaks the "pure translation" precondition on the draw side, so the draw-side delta itself is
+/// still correct), pre-existing in kind (the same class of gap #6739's original fix already had
+/// wherever a query path couldn't see what a draw call would do), and deliberately not chased
+/// further here: closing them needs the query paths to see the same renderer/component-relative
+/// transform composition the draw path's live canvas does, which none of the query entry points
+/// currently thread through.
 fn origin_snap_delta_for_query(
     item_rc: &crate::item_tree::ItemRc,
     scale_factor: ScaleFactor,
@@ -251,6 +276,8 @@ fn origin_snap_delta_for_query(
     if !renderer_snaps_origin {
         return PhysicalPoint::zero();
     }
+    // See this function's doc for the two cases (device rotation, embedded popups) where the
+    // reconstruction below can disagree with what the renderer's live canvas transform would say.
     let Some(origin_logical) = item_rc.window_origin_if_translate_only() else {
         return PhysicalPoint::zero();
     };

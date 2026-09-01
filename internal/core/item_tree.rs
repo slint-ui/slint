@@ -679,6 +679,15 @@ impl ItemRc {
     /// -- e.g. skia's `local_to_device_as_3x3().is_translate()` check before rounding the origin
     /// to the device-pixel grid -- so the two agree on whether, and where, that origin lands.
     /// See issue #6739's review.
+    ///
+    /// Known, narrow limitation: this only walks the *item tree*'s own ancestor chain, so it
+    /// can't see a transform a renderer composes on top of that at the canvas level, outside of
+    /// any item -- namely a nonzero device/output rotation (`rotation_angle_degrees`, e.g. for
+    /// Android/LinuxKMS screen rotation) and the translation
+    /// [`crate::item_rendering::render_component_items`] applies for an embedded popup's own
+    /// origin (a popup's root has no `parent_item` connecting it back to the host tree). See
+    /// `crate::textlayout::sharedparley::origin_snap_delta_for_query`'s doc for the full
+    /// rationale; not chased further here.
     pub fn window_origin_if_translate_only(&self) -> Option<LogicalPoint> {
         use crate::graphics::euclid::approxeq::ApproxEq;
 
