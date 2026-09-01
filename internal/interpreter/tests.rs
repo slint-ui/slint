@@ -137,9 +137,13 @@ fn llr_compile(code: &str, name: &str) -> crate::component::ComponentInstanceInn
 fn compile_motion_test(code: &str, static_preview: bool) -> crate::ComponentInstance {
     let compiler = crate::Compiler::default();
     let result = if static_preview {
-        spin_on::spin_on(
-            compiler.build_static_from_source(code.into(), std::path::PathBuf::from("test.slint")),
-        )
+        use i_slint_core::InternalToken;
+
+        spin_on::spin_on(compiler.build_static_from_source(
+            code.into(),
+            std::path::PathBuf::from("test.slint"),
+            InternalToken,
+        ))
     } else {
         spin_on::spin_on(
             compiler.build_from_source(code.into(), std::path::PathBuf::from("test.slint")),

@@ -6,9 +6,9 @@
 //! The public API wraps these thin structs so downstream callers never
 //! see the compilation-unit surface directly.
 
-use crate::Value;
 use crate::instance::Instance;
 use crate::public_api;
+use crate::{AnimationMode, Value};
 use i_slint_compiler::expression_tree::BuiltinFunction;
 use i_slint_compiler::langtype::Type as LangType;
 use i_slint_compiler::llr::{CompilationUnit, Expression, GlobalComponent};
@@ -320,11 +320,11 @@ pub fn build_from_document(
     document: &i_slint_compiler::object_tree::Document,
     compiler_config: &i_slint_compiler::CompilerConfiguration,
     mut type_loaders: TypeLoaders,
-    static_preview: bool,
+    animation_mode: AnimationMode,
 ) -> Vec<ComponentDefinitionInner> {
     let mut unit =
         i_slint_compiler::llr::lower_to_item_tree::lower_to_item_tree(document, compiler_config);
-    if static_preview {
+    if matches!(animation_mode, AnimationMode::Static) {
         make_static(&mut unit);
     }
     let unit = Rc::new(unit);
@@ -392,7 +392,7 @@ pub async fn build_from_source(
     source_code: String,
     path: std::path::PathBuf,
     mut config: i_slint_compiler::CompilerConfiguration,
-    static_preview: bool,
+    animation_mode: AnimationMode,
 ) -> BuildResult {
     // If the native style should be used, resolve it here as we know the backend.
     if config.style.as_deref() == Some("native") {
@@ -477,7 +477,7 @@ pub async fn build_from_source(
         }
     };
     let mut components = std::collections::HashMap::new();
-    for def in build_from_document(doc, &config, type_loaders, static_preview) {
+    for def in build_from_document(doc, &config, type_loaders, animation_mode) {
         components.insert(def.name().to_string(), def);
     }
     if components.is_empty() {

@@ -837,7 +837,13 @@ impl ComponentCompiler {
             }
         };
 
-        let r = build_compilation_result(source, path.into(), self.config.clone(), false).await;
+        let r = build_compilation_result(
+            source,
+            path.into(),
+            self.config.clone(),
+            AnimationMode::Running,
+        )
+        .await;
         self.diagnostics = r.diagnostics.into_iter().collect();
         r.components.into_values().next()
     }
@@ -863,7 +869,13 @@ impl ComponentCompiler {
         source_code: String,
         path: PathBuf,
     ) -> Option<ComponentDefinition> {
-        let r = build_compilation_result(source_code, path, self.config.clone(), false).await;
+        let r = build_compilation_result(
+            source_code,
+            path,
+            self.config.clone(),
+            AnimationMode::Running,
+        )
+        .await;
         self.diagnostics = r.diagnostics.into_iter().collect();
         r.components.into_values().next()
     }
@@ -1019,7 +1031,8 @@ impl Compiler {
             }
         };
 
-        build_compilation_result(source, path.into(), self.config.clone(), false).await
+        build_compilation_result(source, path.into(), self.config.clone(), AnimationMode::Running)
+            .await
     }
 
     /// Compile some .slint code
@@ -1035,7 +1048,8 @@ impl Compiler {
     /// If that is not used, then it is fine to use a very simple executor, such as the one
     /// provided by the `spin_on` crate
     pub async fn build_from_source(&self, source_code: String, path: PathBuf) -> CompilationResult {
-        build_compilation_result(source_code, path, self.config.clone(), false).await
+        build_compilation_result(source_code, path, self.config.clone(), AnimationMode::Running)
+            .await
     }
 
     /// Compile Slint code without timers or animations.
@@ -1045,19 +1059,29 @@ impl Compiler {
         &self,
         source_code: String,
         path: PathBuf,
+        _: i_slint_core::InternalToken,
     ) -> CompilationResult {
-        build_compilation_result(source_code, path, self.config.clone(), true).await
+        build_compilation_result(source_code, path, self.config.clone(), AnimationMode::Static)
+            .await
     }
+}
+
+pub(crate) enum AnimationMode {
+    /// In static mode, all timers & animations are disabled.
+    /// The item tree should not update anything without interaction.
+    #[cfg(feature = "internal")]
+    Static,
+    Running,
 }
 
 async fn build_compilation_result(
     source_code: String,
     path: PathBuf,
     config: i_slint_compiler::CompilerConfiguration,
-    static_preview: bool,
+    animation_mode: AnimationMode,
 ) -> CompilationResult {
     let result =
-        crate::component::build_from_source(source_code, path, config, static_preview).await;
+        crate::component::build_from_source(source_code, path, config, animation_mode).await;
     let components = result
         .components
         .into_iter()
