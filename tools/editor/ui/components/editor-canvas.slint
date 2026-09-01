@@ -248,7 +248,7 @@ export component EditorCanvas inherits Rectangle {
             height: root.selection-drag-active && primary ? root.selection-drag-size.height : s.height;
             rotation: root.selection-rotation-active && primary ? root.selection-rotation : s.angle;
             accessible-prefix: Api.current-element.type-name;
-            active: true;
+            active: !root.hover-press-active;
             shift-pressed: root.shift-pressed;
             show-rotation-handles: primary;
             enable-border-radius-edits: Api.current-element.type-name == "Rectangle";
@@ -272,10 +272,12 @@ export component EditorCanvas inherits Rectangle {
                 root.selection-rotation-active = false;
             }
             pointer-moved(position) => {
-                root.update-hover({
-                    x: position.x - EditorMetrics.phone-outer-padding,
-                    y: position.y - EditorMetrics.phone-outer-padding,
-                });
+                if !self.move-pressed {
+                    root.update-hover({
+                        x: position.x - EditorMetrics.phone-outer-padding,
+                        y: position.y - EditorMetrics.phone-outer-padding,
+                    });
+                }
             }
             changed rotation-tooltip-visible => {
                 root.rotation-tooltip-visible = self.rotation-tooltip-visible;
