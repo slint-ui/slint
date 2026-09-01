@@ -119,7 +119,9 @@ See [States and Transitions](../states-and-transitions/) for where transitions a
 
 ## Spring Animations
 
-The `spring` easing curve can be defined as `spring`, `spring()`, and `spring(bounce)` where `spring`, `spring()`, and `spring(0)` are equivalent. `bounce` must be a number literal between `-1` and `1`; any other value is a compile error.
+The `spring` easing curve takes an optional bounce argument, for example `spring(0.4)`.
+The bounce must be a number literal between `-1` and `1`; any other argument is a compile error.
+Writing just `spring` is the same as `spring(0)`.
 
 Since `duration` helps define the spring’s [natural frequency](https://en.wikipedia.org/wiki/Natural_frequency), the animation is not guaranteed to be done after `duration` elapses.
 If `bounce` is close to 0, the animation will be nearly done, however the further from 0 `bounce` is, the longer the animation will take.
