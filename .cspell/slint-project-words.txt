@@ -592,6 +592,7 @@ singlefile
 singleshot
 skrifa
 slintcov
+slnt
 slintlib
 Smartwin
 smol
