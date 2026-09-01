@@ -2982,15 +2982,15 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
 
         let physical_geom_f32 =
             geom.translate(self.current_state.offset.to_vector()).cast() * self.scale_factor;
-        let physical_geom = physical_geom_f32.round().cast().transformed(self.rotation);
+        let rounded_geom = physical_geom_f32.round();
+        let physical_geom = rounded_geom.cast().transformed(self.rotation);
 
         let rotation = RotationInfo {
             orientation: self.rotation.orientation,
-            screen_size: physical_geom.size + euclid::size2(1, 1),
+            screen_size: rounded_geom.size.cast::<i16>() + euclid::size2(1, 1),
         };
 
-        let offset = offset * self.scale_factor
-            + (physical_geom_f32.origin - physical_geom_f32.round().origin);
+        let offset = offset * self.scale_factor + (physical_geom_f32.origin - rounded_geom.origin);
 
         // Convert to zeno commands
         let zeno_commands =
