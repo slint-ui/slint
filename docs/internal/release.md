@@ -10,7 +10,10 @@ This document describes the Slint release process
   - Tree sitter: in `.github/workflows/ci.yaml` for the `tree-sitter` job, bump the `tag`
     to the latest release as per https://github.com/tree-sitter/tree-sitter/releases
 
-* Verify that the list of supported platforms in docs/astro/src/content/docs/guide/platforms/desktop/ matches what we * Publish the helper_crates, if needed
+* Verify that the list of supported platforms in docs/astro/src/content/docs/guide/platforms/desktop/ matches what we
+  test on the CI
+
+* Publish the helper_crates, if needed
 
 * If a new crate was added since the last release, publish a dummy 0.0.0 version manually so
   that the crate exists on crates.io, then configure trusted publishing
