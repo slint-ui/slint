@@ -1,9 +1,10 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Api, CanvasCorner, DropMark, SelectionRectangle } from "../api.slint";
-import { AppState, EditorMetrics, PaletteComponentKind, StudioTheme } from "common.slint";
+import { Api, CanvasCorner, DropMark, HoveredElement, SelectionRectangle } from "../api.slint";
+import { AppState, EditorCursors, EditorMetrics, PaletteComponentKind, StudioTheme } from "common.slint";
 import { BorderRadiusFrame } from "border-radius-frame.slint";
+import { MoveResizeFrame } from "move-resize-frame.slint";
 
 component PhoneChrome inherits Rectangle {
     background: StudioTheme.phone-bg;
@@ -43,6 +44,9 @@ export component EditorCanvas inherits Rectangle {
     private property <Size> selection-drag-size;
     private property <bool> selection-rotation-active: false;
     private property <angle> selection-rotation;
+    private property <HoveredElement> hovered-element: root.empty-hovered-element();
+    private property <Point> hovered-hit-position: { x: 0px, y: 0px };
+    private property <bool> hover-press-active: false;
 
     accessible-role: AccessibleRole.main;
     accessible-label: "Editor canvas";
@@ -78,6 +82,29 @@ export component EditorCanvas inherits Rectangle {
         return corner.code != "" ? corner.value-float * 1px : root.current-length-property("border-radius");
     }
 
+    function update-hover(position: Point) {
+        if root.hover-press-active || root.selection-drag-active || selection-area.pressed {
+            return;
+        }
+        root.hovered-hit-position = position;
+        root.hovered-element = Api.hovered-element-at(position.x, position.y, false);
+    }
+
+    pure function empty-hovered-element() -> HoveredElement {
+        return {
+            valid: false,
+            is-selected: false,
+            element-path: "",
+            element-offset: 0,
+            type-name: "",
+            x: 0px,
+            y: 0px,
+            width: 0px,
+            height: 0px,
+            angle: 0deg,
+        };
+    }
+
     for row in 28: Rectangle {
         y: row * 32px;
         height: 1px;
@@ -93,6 +120,7 @@ export component EditorCanvas inherits Rectangle {
     TouchArea {
         width: root.width;
         height: root.height;
+        mouse-cursor: EditorCursors.canvas-default;
 
         clicked => {
             Api.unselect();
@@ -120,6 +148,7 @@ export component EditorCanvas inherits Rectangle {
         border-color: StudioTheme.border;
 
         touch := TouchArea {
+            mouse-cursor: EditorCursors.canvas-default;
             clicked => {
                 Api.unselect();
             }
@@ -187,18 +216,18 @@ export component EditorCanvas inherits Rectangle {
             // Sits on top of the live preview so it intercepts clicks.
             // pressed-x/y are already in content coordinates, matching what the backend expects.
             selection-area := TouchArea {
-                mouse-cursor: MouseCursor.custom(
-                    @image-url("../assets/cursors/default-32.png"),
-                    14,
-                    14,
-                );
+                mouse-cursor: EditorCursors.canvas-default;
                 clicked => {
                     Api.unselect();
                     Api.select-at(self.pressed-x, self.pressed-y, false);
                     root.real-element-selected();
                 }
+                pointer-event(event) => {
+                    if event.kind == PointerEventKind.move {
+                        root.update-hover({ x: self.mouse-x, y: self.mouse-y });
+                    }
+                }
             }
-
         }
 
         // Selection frame(s) for the currently selected element. Rendered after
@@ -241,6 +270,12 @@ export component EditorCanvas inherits Rectangle {
             }
             interaction-started => {
                 root.selection-rotation-active = false;
+            }
+            pointer-moved(position) => {
+                root.update-hover({
+                    x: position.x - EditorMetrics.phone-outer-padding,
+                    y: position.y - EditorMetrics.phone-outer-padding,
+                });
             }
             changed rotation-tooltip-visible => {
                 root.rotation-tooltip-visible = self.rotation-tooltip-visible;
@@ -306,6 +341,86 @@ export component EditorCanvas inherits Rectangle {
                 root.selection-drag-active = false;
                 if self.radius-tooltip-visible {
                     Api.persist-selected-element-border-radius();
+                }
+            }
+        }
+
+        hover-frame := MoveResizeFrame {
+            visible: root.hovered-element.valid
+                && (!root.hovered-element.is-selected || root.hover-press-active);
+            enabled: self.visible;
+            x: root.hover-press-active && root.selection-drag-active
+                ? root.selection-drag-position.x
+                : root.hovered-element.x + EditorMetrics.phone-outer-padding;
+            y: root.hover-press-active && root.selection-drag-active
+                ? root.selection-drag-position.y
+                : root.hovered-element.y + EditorMetrics.phone-outer-padding;
+            width: root.hover-press-active && root.selection-drag-active
+                ? root.selection-drag-size.width
+                : root.hovered-element.width;
+            height: root.hover-press-active && root.selection-drag-active
+                ? root.selection-drag-size.height
+                : root.hovered-element.height;
+            rotation: root.hovered-element.angle;
+            active: true;
+            moveable: root.hovered-element.angle == 0deg;
+            resizable: false;
+            show-resize-handles: false;
+            show-rotation-handles: false;
+            accessible-prefix: "Hovered " + root.hovered-element.type-name;
+            accessible-role: AccessibleRole.region;
+            accessible-label: "Hovered " + root.hovered-element.type-name;
+            changed frame-hover => {
+                if !self.frame-hover && !selection-area.has-hover && !root.hover-press-active {
+                    root.hovered-element = root.empty-hovered-element();
+                }
+            }
+            selected => {
+                if !root.hover-press-active {
+                    root.hover-press-active = true;
+                    Api.select-element(
+                        root.hovered-element.element-path,
+                        root.hovered-element.element-offset,
+                        root.hovered-hit-position.x,
+                        root.hovered-hit-position.y,
+                    );
+                    root.real-element-selected();
+                }
+            }
+            moved-to(position) => {
+                let content-position = {
+                    x: position.x - EditorMetrics.phone-outer-padding,
+                    y: position.y - EditorMetrics.phone-outer-padding,
+                };
+                root.selection-drag-active = true;
+                root.selection-drag-position = position;
+                root.selection-drag-size = {
+                    width: root.hovered-element.width,
+                    height: root.hovered-element.height,
+                };
+                Api.override-selected-element-geometry(
+                    content-position.x,
+                    content-position.y,
+                    root.hovered-element.width,
+                    root.hovered-element.height,
+                );
+            }
+            move-released => {
+                if root.hover-press-active {
+                    if root.selection-drag-active {
+                        Api.persist-selected-element-geometry();
+                    }
+                    root.selection-drag-active = false;
+                    root.hover-press-active = false;
+                    root.hovered-element = root.empty-hovered-element();
+                }
+            }
+            pointer-moved(position) => {
+                if !root.hover-press-active {
+                    root.update-hover({
+                        x: position.x - EditorMetrics.phone-outer-padding,
+                        y: position.y - EditorMetrics.phone-outer-padding,
+                    });
                 }
             }
         }

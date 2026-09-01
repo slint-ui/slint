@@ -3,13 +3,15 @@
 
 // cspell:ignore nesw
 import { CanvasCorner } from "../api.slint";
-import { EditorMetrics, StudioTheme } from "common.slint";
+import { EditorCursors, EditorMetrics, StudioTheme } from "common.slint";
 
 export component MoveResizeFrame inherits Rectangle {
+    in property <bool> enabled: true;
     in property <string> accessible-prefix: "Selection";
     in property <bool> active;
     in property <bool> shift-pressed: false;
     in property <angle> rotation: 0deg;
+    in property <bool> show-resize-handles: true;
     in property <bool> show-rotation-handles: true;
     out property <bool> frame-hover: move-touch.has-hover;
     out property <bool> move-pressed: move-touch.pressed;
@@ -35,6 +37,8 @@ export component MoveResizeFrame inherits Rectangle {
     callback selected();
     callback interaction-started();
     callback interaction-ended();
+    callback pointer-moved(Point);
+    callback move-released();
     callback moved-to(Point);
     callback resized-to(CanvasCorner, Point, Size);
     callback rotated-to(angle);
@@ -243,9 +247,10 @@ export component MoveResizeFrame inherits Rectangle {
         transform-rotation: root.rotation;
 
         move-touch := TouchArea {
+            enabled: root.enabled;
             width: root.width;
             height: root.height;
-            mouse-cursor: move;
+            mouse-cursor: EditorCursors.canvas-default;
             accessible-role: AccessibleRole.button;
             accessible-label: root.accessible-prefix + " move handle";
             accessible-enabled: root.moveable;
@@ -262,15 +267,25 @@ export component MoveResizeFrame inherits Rectangle {
                     if root.move-dragging {
                         root.interaction-ended();
                     }
+                    root.move-released();
                     root.move-dragging = false;
                 }
             }
 
+            pointer-event(event) => {
+                if event.kind == PointerEventKind.move {
+                    root.pointer-moved(root.local-point-to-parent({
+                        x: self.mouse-x,
+                        y: self.mouse-y,
+                    }));
+                }
+            }
+
             moved => {
+                let pointer = root.local-point-to-parent({ x: self.mouse-x, y: self.mouse-y });
                 if !root.moveable {
                     return;
                 }
-                let pointer = root.local-point-to-parent({ x: self.mouse-x, y: self.mouse-y });
                 let delta = {
                     x: pointer.x - self.move-start-pointer.x,
                     y: pointer.y - self.move-start-pointer.y,
@@ -408,6 +423,7 @@ export component MoveResizeFrame inherits Rectangle {
                     background: white;
                     border-width: 2px;
                     border-color: StudioTheme.accent-strong;
+                    visible: root.show-resize-handles;
 
                     TouchArea {
                         enabled: root.resizable;

@@ -32,6 +32,14 @@ export global EditorIcons {
     out property <image> select-chevron: @image-url("../assets/octicons/select-chevron.svg");
 }
 
+export global EditorCursors {
+    out property <MouseCursor> canvas-default: MouseCursor.custom(
+        @image-url("../assets/cursors/default-32.png"),
+        14,
+        14,
+    );
+}
+
 export global EditorMetrics {
     out property <length> left-pane-width: 286px;
     out property <length> inspector-pane-width: 232px;
