@@ -208,7 +208,13 @@ impl TextParagraph {
                                 &ellipsis_font,
                                 font_size,
                                 run.normalized_coords(),
-                                &run.synthesis(),
+                                // Never synthesize italic for the ellipsis itself: it's a
+                                // narrow, low-value case (a punctuation-like glyph, not a
+                                // language's own text) not worth the complexity of tracking a
+                                // separate font/synthesis for the ellipsis's own standalone
+                                // "…" layout, so it always renders upright regardless of the
+                                // elided run's style.
+                                &fontique::Synthesis::default(),
                                 default_fill_brush.clone(),
                                 para_y,
                                 &mut core::iter::once(ellipsis_glyph),

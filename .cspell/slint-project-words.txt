@@ -572,6 +572,7 @@ SIGUSR
 singlefile
 singleshot
 skrifa
+slnt
 slintlib
 Smartwin
 smol
