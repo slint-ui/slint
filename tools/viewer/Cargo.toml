@@ -77,7 +77,7 @@ i-slint-core = { workspace = true }
 i-slint-renderer-software = { workspace = true, features = ["std"] }
 i-slint-renderer-skia = { workspace = true, optional = true }
 slint = { workspace = true, features = ["compat-1-2"], optional = true }
-slint-interpreter = { workspace = true, features = ["display-diagnostics", "compat-1-2", "internal", "accessibility", "image-default-formats", "internal-json"] }
+slint-interpreter = { workspace = true, features = ["display-diagnostics", "compat-1-2", "internal", "internal-highlight", "accessibility", "image-default-formats", "internal-json"] }
 i-slint-live-preview = { workspace = true, features = ["file-watcher", "live-component"] }
 i-slint-backend-selector = { workspace = true }
 

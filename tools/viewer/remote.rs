@@ -16,6 +16,84 @@ use slint::ComponentHandle as _;
 slint::slint! {
     export { RemoteViewerWindow, RemoteViewerState } from "remote/main.slint";
     export { AttributionItem } from "remote/licenses.slint";
+
+    export struct InspectorHighlight {
+        x: length,
+        y: length,
+        width: length,
+        height: length,
+        angle: angle,
+    }
+
+    export component InspectorOverlay inherits Window {
+        in property <[InspectorHighlight]> highlights;
+
+        background: transparent;
+
+        for highlight in root.highlights: Rectangle {
+            x: highlight.x;
+            y: highlight.y;
+            width: highlight.width;
+            height: highlight.height;
+            transform-rotation: highlight.angle;
+            background: #3584e433;
+            border-color: #3584e4;
+            border-width: 1px;
+        }
+    }
+}
+
+struct Inspector {
+    component: InspectorOverlay,
+    highlights: Rc<slint::VecModel<InspectorHighlight>>,
+}
+
+impl Inspector {
+    fn new(window: &slint::Window) -> anyhow::Result<Self> {
+        let component = InspectorOverlay::new_detached_with_existing_window(window)
+            .map_err(|error| anyhow::anyhow!("Cannot create inspector overlay: {error}"))?;
+        let highlights = Rc::new(slint::VecModel::default());
+        component.set_highlights(slint::ModelRc::new(highlights.clone()));
+        Ok(Self { component, highlights })
+    }
+
+    fn attach(&self) -> anyhow::Result<()> {
+        let window = WindowInner::from_pub(self.component.window());
+        window
+            .add_overlay(&self.component.as_item_tree())
+            .map_err(|error| anyhow::anyhow!("Cannot show inspector overlay: {error}"))
+    }
+
+    fn detach(&self) {
+        WindowInner::from_pub(self.component.window()).clear_overlays();
+        self.highlights.clear();
+    }
+
+    fn update(
+        &self,
+        user_instance: Option<&slint_interpreter::ComponentInstance>,
+        highlight: Option<&(lsp_types::Url, u32)>,
+    ) {
+        let rectangles = user_instance
+            .zip(highlight)
+            .and_then(|(instance, (url, offset))| {
+                url.to_file_path().ok().map(|path| instance.component_positions(&path, *offset))
+            })
+            .unwrap_or_default();
+        self.highlights.set_vec(
+            rectangles
+                .into_iter()
+                .map(|geometry| InspectorHighlight {
+                    x: geometry.rect.origin.x,
+                    y: geometry.rect.origin.y,
+                    width: geometry.rect.size.width,
+                    height: geometry.rect.size.height,
+                    angle: geometry.angle,
+                })
+                .collect::<Vec<_>>(),
+        );
+        self.component.window().request_redraw();
+    }
 }
 
 // CARGO_PKG_VERSION tracks the workspace version, so it is the Slint version.
@@ -133,6 +211,7 @@ async fn run_async(address: Option<SocketAddr>, enable_mdns: bool) -> anyhow::Re
     })?;
 
     let mut placeholder = RemoteViewerWindow::new()?;
+    let inspector = Inspector::new(placeholder.window())?;
 
     #[cfg(not(target_vendor = "apple"))]
     let mdns = enable_mdns.then(mdns_sd::ServiceDaemon::new).transpose()?;
@@ -176,6 +255,7 @@ async fn run_async(address: Option<SocketAddr>, enable_mdns: bool) -> anyhow::Re
     let mut last_connection = None;
     let mut user_instance: Option<slint_interpreter::ComponentInstance> = None;
     let mut current_preview: Option<PreviewComponent> = None;
+    let mut current_highlight: Option<(lsp_types::Url, u32)> = None;
     let mut registered_fonts = HashSet::<lsp_types::Url>::new();
     while let Some(event) = event_receiver.recv().await {
         let msg = match event {
@@ -205,6 +285,8 @@ async fn run_async(address: Option<SocketAddr>, enable_mdns: bool) -> anyhow::Re
                     &preview_component,
                     &mut placeholder,
                     &mut user_instance,
+                    &inspector,
+                    current_highlight.as_ref(),
                     &connection,
                     &address,
                     &connection.device_name(),
@@ -219,13 +301,18 @@ async fn run_async(address: Option<SocketAddr>, enable_mdns: bool) -> anyhow::Re
                     &preview_component,
                     &mut placeholder,
                     &mut user_instance,
+                    &inspector,
+                    current_highlight.as_ref(),
                     &connection,
                     &address,
                     &connection.device_name(),
                 )
                 .await?;
             }
-            ConnectionMessage::HighlightFromEditor { .. } => {}
+            ConnectionMessage::HighlightFromEditor { url, offset } => {
+                current_highlight = url.map(|url| (url, offset));
+                inspector.update(user_instance.as_ref(), current_highlight.as_ref());
+            }
             ConnectionMessage::RegisterFont { url, contents } => {
                 let len = contents.len();
                 if !registered_fonts.insert(url.clone()) {
@@ -251,10 +338,12 @@ async fn run_async(address: Option<SocketAddr>, enable_mdns: bool) -> anyhow::Re
                 if last_connection == Some(remote_addr) {
                     last_connection = None;
                     current_preview = None;
+                    current_highlight = None;
                     connection.set_dependencies(Vec::new());
                     swap_to_placeholder(
                         &mut placeholder,
                         &mut user_instance,
+                        &inspector,
                         &address,
                         &connection.device_name(),
                         "",
@@ -284,6 +373,8 @@ async fn build_and_show(
     preview_component: &PreviewComponent,
     placeholder: &mut RemoteViewerWindow,
     user_instance: &mut Option<slint_interpreter::ComponentInstance>,
+    inspector: &Inspector,
+    current_highlight: Option<&(lsp_types::Url, u32)>,
     connection: &Rc<Connection>,
     address: &str,
     name: &str,
@@ -323,6 +414,7 @@ async fn build_and_show(
         swap_to_placeholder(
             placeholder,
             user_instance,
+            inspector,
             address,
             name,
             &message,
@@ -343,6 +435,7 @@ async fn build_and_show(
         swap_to_placeholder(
             placeholder,
             user_instance,
+            inspector,
             address,
             name,
             "Component not found",
@@ -360,6 +453,8 @@ async fn build_and_show(
 
     new_instance.show().map_err(|err| anyhow::anyhow!("Cannot show component: {err}"))?;
     *user_instance = Some(new_instance);
+    inspector.attach()?;
+    inspector.update(user_instance.as_ref(), current_highlight);
     // The placeholder is hidden now, but keep its state property truthful.
     placeholder.set_state(RemoteViewerState::Previewing);
     Ok(())
@@ -369,11 +464,13 @@ async fn build_and_show(
 fn swap_to_placeholder(
     placeholder: &mut RemoteViewerWindow,
     user_instance: &mut Option<slint_interpreter::ComponentInstance>,
+    inspector: &Inspector,
     address: &str,
     name: &str,
     message: &str,
     state: RemoteViewerState,
 ) -> anyhow::Result<()> {
+    inspector.detach();
     let fresh = RemoteViewerWindow::new_with_existing_window(placeholder.window())
         .map_err(|err| anyhow::anyhow!("Cannot create placeholder: {err}"))?;
     fresh.set_address(SharedString::from(address));
@@ -427,4 +524,87 @@ fn send_diagnostics(
             .collect(),
     };
     connection.send(message).ok();
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use i_slint_renderer_software::{
+        MinimalSoftwareWindow, PremultipliedRgbaColor, RepaintBufferType, TargetPixel,
+    };
+    use slint::platform::{Platform, PlatformError, WindowAdapter};
+
+    slint::slint! {
+        export component TestPreview inherits Window {
+            background: white;
+        }
+    }
+
+    const WIDTH: u32 = 100;
+    const HEIGHT: u32 = 80;
+
+    struct SoftwareRendererPlatform(Rc<MinimalSoftwareWindow>);
+
+    impl Platform for SoftwareRendererPlatform {
+        fn create_window_adapter(&self) -> Result<Rc<dyn WindowAdapter>, PlatformError> {
+            Ok(self.0.clone())
+        }
+    }
+
+    #[derive(Clone, Copy, Default)]
+    struct RgbPixel {
+        red: u8,
+        green: u8,
+        blue: u8,
+    }
+
+    impl TargetPixel for RgbPixel {
+        fn blend(&mut self, color: PremultipliedRgbaColor) {
+            let inverse_alpha = 255u32 - color.alpha as u32;
+            self.red = (color.red as u32 + self.red as u32 * inverse_alpha / 255).min(255) as u8;
+            self.green =
+                (color.green as u32 + self.green as u32 * inverse_alpha / 255).min(255) as u8;
+            self.blue = (color.blue as u32 + self.blue as u32 * inverse_alpha / 255).min(255) as u8;
+        }
+
+        fn from_rgb(red: u8, green: u8, blue: u8) -> Self {
+            Self { red, green, blue }
+        }
+    }
+
+    #[test]
+    fn inspector_overlay_renders_highlight_over_preview() {
+        let window_adapter = MinimalSoftwareWindow::new(RepaintBufferType::NewBuffer);
+        slint::platform::set_platform(Box::new(SoftwareRendererPlatform(window_adapter.clone())))
+            .unwrap();
+        window_adapter.set_size(slint::PhysicalSize::new(WIDTH, HEIGHT));
+
+        let preview = TestPreview::new().unwrap();
+        preview.show().unwrap();
+        let inspector = Inspector::new(preview.window()).unwrap();
+        let preview_item_tree = WindowInner::from_pub(preview.window()).component();
+        assert!(!i_slint_core::item_tree::ItemTreeRc::ptr_eq(
+            &preview_item_tree,
+            &inspector.component.as_item_tree(),
+        ));
+        inspector.highlights.set_vec(vec![InspectorHighlight {
+            x: 20.,
+            y: 20.,
+            width: 30.,
+            height: 20.,
+            angle: 0.,
+        }]);
+        inspector.attach().unwrap();
+
+        let mut pixels = vec![RgbPixel::default(); (WIDTH * HEIGHT) as usize];
+        preview.window().request_redraw();
+        window_adapter.draw_if_needed(|renderer| {
+            renderer.render(pixels.as_mut_slice(), WIDTH as usize);
+        });
+
+        let highlighted = pixels[(25 * WIDTH + 25) as usize];
+        let outside = pixels[(5 * WIDTH + 5) as usize];
+        assert!(highlighted.blue > highlighted.red);
+        assert_eq!((outside.red, outside.green, outside.blue), (255, 255, 255));
+    }
 }

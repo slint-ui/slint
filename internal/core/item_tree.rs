@@ -1686,7 +1686,7 @@ mod tests {
     use crate::lengths::LogicalLength;
     use crate::lengths::LogicalSize;
     use euclid::Point2D;
-    use std::{rc::Rc, vec};
+    use std::{boxed::Box, rc::Rc, vec};
 
     const GEOMETRY_POSITION_X: f32 = 6.;
     const GEOMETRY_POSITION_Y: f32 = 27.;
@@ -1727,6 +1727,14 @@ mod tests {
 
         fn renderer(&self) -> &dyn crate::platform::Renderer {
             &self.renderer
+        }
+    }
+
+    impl crate::platform::Platform for Rc<WindowAdapter> {
+        fn create_window_adapter(
+            &self,
+        ) -> Result<Rc<dyn crate::window::WindowAdapter>, crate::api::PlatformError> {
+            Ok(self.clone())
         }
     }
 
@@ -3066,6 +3074,73 @@ mod tests {
     }
 
     #[test]
+    fn test_window_overlay_renders_above_child_popups_without_joining_popup_stack() {
+        let mut window_item = WindowItem::default();
+        window_item.width = Property::new(LogicalLength::new(30.));
+        window_item.height = Property::new(LogicalLength::new(30.));
+        let (window_adapter, component) = create_one_node_component(Some(window_item));
+        window_adapter
+            .window
+            .0
+            .set_context(crate::SlintContext::new(Box::new(window_adapter.clone())));
+        window_adapter.window.0.set_component(&component);
+
+        let popup = create_subsubtree_items(Some(window_adapter.clone())).1;
+        window_adapter.window.0.show_popup(
+            &popup,
+            alloc::boxed::Box::new(|| LogicalPosition::new(10., 20.)),
+            crate::items::PopupClosePolicy::NoAutoClose,
+            &ItemRc::new_root(component.clone()),
+            crate::window::WindowKind::Popup,
+            alloc::boxed::Box::new(|_| {}),
+        );
+
+        let overlay = create_subsubtree_items(Some(window_adapter.clone())).1;
+        window_adapter.window.0.add_overlay(&overlay).unwrap();
+        let unrelated_overlay = create_subsubtree_items(None).1;
+        assert!(window_adapter.window.0.add_overlay(&unrelated_overlay).is_err());
+
+        let resized = LogicalSize::new(75., 65.);
+        window_adapter.window.0.set_window_item_geometry(resized);
+        let overlay_window = ItemRc::new_root(overlay.clone()).downcast::<WindowItem>().unwrap();
+        assert_eq!(overlay_window.as_pin_ref().width().0, resized.width);
+        assert_eq!(overlay_window.as_pin_ref().height().0, resized.height);
+
+        assert_eq!(window_adapter.window.0.active_popups().len(), 1);
+        let rendered_components = || {
+            window_adapter
+                .window
+                .0
+                .draw_contents(|components, _| {
+                    components
+                        .iter()
+                        .map(|(component, _)| component.upgrade().unwrap())
+                        .collect::<Vec<_>>()
+                })
+                .unwrap()
+        };
+        for (actual, expected) in rendered_components().iter().zip([&component, &popup, &overlay]) {
+            assert!(VRc::ptr_eq(actual, expected));
+        }
+
+        window_adapter.window.0.close_top_popup();
+        assert!(window_adapter.window.0.active_popups().is_empty());
+        let components_without_popup = rendered_components();
+        assert_eq!(components_without_popup.len(), 2);
+        assert!(VRc::ptr_eq(&components_without_popup[1], &overlay));
+
+        window_adapter.window.0.clear_overlays();
+        assert_eq!(rendered_components().len(), 1);
+
+        window_adapter.window.0.add_overlay(&overlay).unwrap();
+        let replacement = create_subsubtree_items(Some(window_adapter.clone())).1;
+        window_adapter.window.0.set_component(&replacement);
+        let components_after_replacement = rendered_components();
+        assert_eq!(components_after_replacement.len(), 1);
+        assert!(VRc::ptr_eq(&components_after_replacement[0], &replacement));
+    }
+
+    #[test]
     fn test_map_to_window_popup() {
         const POPUP_LOCATION: LogicalPosition = LogicalPosition::new(20., 33.);
         let (window_adapter, item_tree) = create_subsubtree_items(None);
@@ -3278,7 +3353,6 @@ mod tests {
             &self,
             _window_adapter: &std::rc::Rc<dyn crate::window::WindowAdapter>,
         ) {
-            unimplemented!("Not required in this test");
         }
 
         fn slint_context(&self) -> Option<crate::SlintContext> {
