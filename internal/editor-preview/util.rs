@@ -171,16 +171,13 @@ pub fn lookup_current_element_type(mut node: SyntaxNode, tr: &TypeRegister) -> O
 }
 
 #[derive(Debug)]
-pub struct ExpressionContextInfo {
+struct ExpressionContextInfo {
     element: syntax_nodes::Element,
     property_name: SmolStr,
     is_animate: bool,
-}
-
-impl ExpressionContextInfo {
-    pub fn new(element: syntax_nodes::Element, property_name: SmolStr, is_animate: bool) -> Self {
-        ExpressionContextInfo { element, property_name, is_animate }
-    }
+    /// Expression to resolve for the probe, with its parent (used only to special-case a typed
+    /// `let`). `None` when the cursor isn't in a resolvable expression.
+    binding_expr: Option<(SyntaxNode, SyntaxNode)>,
 }
 
 /// Run the function with the LookupCtx associated with the token
@@ -190,17 +187,8 @@ pub fn with_lookup_ctx<R>(
     to_offset: Option<TextSize>,
     f: impl FnOnce(&mut LookupCtx) -> R,
 ) -> Option<R> {
-    let expr_context_info = lookup_expression_context(node)?;
-    with_property_lookup_ctx::<R>(document_cache, &expr_context_info, to_offset, f)
-}
-
-/// Run the function with the LookupCtx associated with the token
-pub fn with_property_lookup_ctx<R>(
-    document_cache: &crate::DocumentCache,
-    expr_context_info: &ExpressionContextInfo,
-    to_offset: Option<TextSize>,
-    f: impl FnOnce(&mut LookupCtx) -> R,
-) -> Option<R> {
+    let offset = to_offset.unwrap_or_else(|| node.text_range().start());
+    let expr_context_info = lookup_expression_context(node, offset)?;
     let (element, prop_name, is_animate) = (
         &expr_context_info.element,
         expr_context_info.property_name.as_str(),
@@ -316,6 +304,31 @@ pub fn with_property_lookup_ctx<R>(
         add_codeblock_local_variables(&cb, to_offset, &mut lookup_context);
     }
 
+    // Narrow `expected_type` to the type expected at the cursor (comparison rhs, call argument,
+    // struct field, ...) by resolving the binding expression with the probe set.
+    if let Some((expr, boundary)) = &expr_context_info.binding_expr
+        && let Some(expr) = syntax_nodes::Expression::new(expr.clone())
+    {
+        if boundary.kind() == SyntaxKind::LetStatement {
+            // A `let` with a declared type constrains its value; an untyped one doesn't.
+            match boundary.child_node(SyntaxKind::Type) {
+                Some(t) => {
+                    lookup_context.expected_type = type_from_node(
+                        t.into(),
+                        &mut Default::default(),
+                        lookup_context.type_register,
+                    )
+                }
+                None => return Some(f(&mut lookup_context)),
+            }
+        }
+        lookup_context.set_expected_type_probe(offset);
+        Expression::from_expression_node(expr, &mut lookup_context);
+        if let Some(ty) = lookup_context.take_expected_type_probe() {
+            lookup_context.expected_type = ty;
+        }
+    }
+
     Some(f(&mut lookup_context))
 }
 
@@ -357,9 +370,13 @@ fn add_codeblock_local_variables(
     })
 }
 
-/// Return the element and property name in which we are
-fn lookup_expression_context(mut n: SyntaxNode) -> Option<ExpressionContextInfo> {
+/// The element and property name we are in, plus (from the same walk) the expression to probe.
+fn lookup_expression_context(mut n: SyntaxNode, offset: TextSize) -> Option<ExpressionContextInfo> {
+    let mut binding_expr = None;
     let (element, prop_name, is_animate) = loop {
+        if binding_expr.is_none() {
+            binding_expr = probe_expression(&n, offset);
+        }
         if let Some(decl) = syntax_nodes::PropertyDeclaration::new(n.clone()) {
             let prop_name = i_slint_compiler::parser::identifier_text(&decl.DeclaredIdentifier())?;
             let element = syntax_nodes::Element::new(n.parent()?)?;
@@ -380,7 +397,12 @@ fn lookup_expression_context(mut n: SyntaxNode) -> Option<ExpressionContextInfo>
                         i_slint_compiler::parser::identifier_text(&n).unwrap_or_default();
                     loop {
                         if let Some(element) = syntax_nodes::Element::new(parent.clone()) {
-                            return Some(ExpressionContextInfo::new(element, prop_name, false));
+                            return Some(ExpressionContextInfo {
+                                element,
+                                property_name: prop_name,
+                                is_animate: false,
+                                binding_expr,
+                            });
                         }
                         parent = parent.parent()?;
                     }
@@ -405,7 +427,37 @@ fn lookup_expression_context(mut n: SyntaxNode) -> Option<ExpressionContextInfo>
             _ => n = n.parent()?,
         }
     };
-    Some(ExpressionContextInfo::new(element, prop_name, is_animate))
+    Some(ExpressionContextInfo { element, property_name: prop_name, is_animate, binding_expr })
+}
+
+/// If `n` is a binding / code-block container, the expression holding `offset` to probe, with
+/// its parent (to special-case `let`).
+fn probe_expression(n: &SyntaxNode, offset: TextSize) -> Option<(SyntaxNode, SyntaxNode)> {
+    let container = match n.kind() {
+        SyntaxKind::BindingExpression
+        | SyntaxKind::TwoWayBinding
+        | SyntaxKind::CodeBlock
+        | SyntaxKind::ReturnStatement
+        | SyntaxKind::LetStatement => n.clone(),
+        SyntaxKind::Binding => n.child_node(SyntaxKind::BindingExpression)?,
+        SyntaxKind::CallbackConnection
+        | SyntaxKind::PropertyChangedCallback
+        | SyntaxKind::Function => n.child_node(SyntaxKind::CodeBlock)?,
+        _ => return None,
+    };
+    if container.kind() == SyntaxKind::CodeBlock {
+        let stmt = container.children().find(|c| {
+            matches!(
+                c.kind(),
+                SyntaxKind::Expression | SyntaxKind::ReturnStatement | SyntaxKind::LetStatement
+            ) && c.text_range().contains_inclusive(offset)
+        })?;
+        return match stmt.kind() {
+            SyntaxKind::Expression => Some((stmt, container)),
+            _ => Some((stmt.child_node(SyntaxKind::Expression)?, stmt)),
+        };
+    }
+    Some((container.child_node(SyntaxKind::Expression)?, container))
 }
 
 #[cfg(test)]
