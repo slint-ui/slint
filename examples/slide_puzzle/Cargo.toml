@@ -15,10 +15,13 @@ name = "slide_puzzle"
 
 [dependencies]
 rand = "0.10"
-slint = { path = "../../api/rs/slint" }
+slint = { path = "../../api/rs/slint", default-features = false, features = ["compat-1-18", "std"] }
 
 [build-dependencies]
 slint-build = { path = "../../api/rs/build" }
+
+[features]
+default = ["slint/default"]
 
 # Remove the `#wasm#` to uncomment the wasm build.
 # This is commented out by default because we don't want to build it as a library by default
