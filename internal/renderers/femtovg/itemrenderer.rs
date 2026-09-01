@@ -710,7 +710,11 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
         let fill_paint = femtovg::Paint::image(image_id, 0., 0., width, height, 0.0, 1.0);
         let mut path = femtovg::Path::new();
         path.rect(0., 0., width, height);
-        canvas.fill_path(&path, &fill_paint);
+        // Pixel-align like the other image blits, to avoid blurry resampling at a fractional
+        // device pixel origin (#6455).
+        Self::align_canvas_during(&mut canvas, |canvas| {
+            canvas.fill_path(&path, &fill_paint);
+        });
     }
 
     fn draw_string(&mut self, string: &str, color: Color) {
@@ -1107,6 +1111,31 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
         result
     }
 
+    // Same idea as `align_canvas_during()`, but for call sites that can't hand the canvas to a
+    // single closure (e.g. `draw_image_impl()`'s loop over `fit`s re-borrows `self.canvas` for
+    // temporary render targets while tiling). Returns the original transform if alignment was
+    // applied, which the caller must restore afterwards via `canvas.reset_transform();
+    // canvas.set_transform(&original)`.
+    fn pixel_align_origin(canvas: &mut Canvas<R>) -> Option<Transform2D> {
+        let original_transform = canvas.transform();
+        let [a, b, c, d, x, y] = original_transform.0;
+
+        let is_translate_only =
+            a.approx_eq(&1.) && b.approx_eq(&0.) && c.approx_eq(&0.) && d.approx_eq(&1.);
+        if !is_translate_only {
+            return None;
+        }
+
+        let (rounded_x, rounded_y) = (x.round(), y.round());
+        if rounded_x == x && rounded_y == y {
+            return None;
+        }
+
+        canvas.reset_transform();
+        canvas.set_transform(&Transform2D::new(a, b, c, d, rounded_x, rounded_y));
+        Some(original_transform)
+    }
+
     fn render_and_blend_layer(&mut self, alpha_tint: f32, item_rc: &ItemRc) -> RenderingResult {
         if let Some((layer_origin, layer_image)) =
             i_slint_core::item_rendering::render_layer(self, item_rc)
@@ -1121,7 +1150,12 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
             self.canvas.borrow_mut().save_with(|canvas| {
                 canvas.translate(layer_origin.x, layer_origin.y);
                 layer_path.rect(0., 0., layer_size.width as _, layer_size.height as _);
-                canvas.fill_path(&layer_path, &layer_image_paint);
+                // Layers are blitted as a texture, so pixel-align the origin like we do for
+                // images: otherwise the layer's content (which may include text or an SVG
+                // rendered at high resolution) ends up resampled at a fractional offset (#6455).
+                Self::align_canvas_during(canvas, |canvas| {
+                    canvas.fill_path(&layer_path, &layer_image_paint);
+                });
             });
         }
         RenderingResult::ContinueRenderingWithoutChildren
@@ -1318,6 +1352,16 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
         let scale_w = buf_size.width / orig_size.width;
         let scale_h = buf_size.height / orig_size.height;
 
+        // Pixel-align the item's origin before drawing, unless the current transform involves
+        // rotation or scaling (in which case fractional positioning is unavoidable anyway, so
+        // alignment would serve no purpose). Without this, an image such as a rasterized SVG
+        // icon can end up with its edges straddling two device pixels, which blurs it under
+        // linear sampling (#6455). This mirrors `pixel_align_origin()` in the Skia and Qt
+        // renderers. The loop below re-borrows `self.canvas` for tiled sources, so the alignment
+        // is applied and undone around it via short borrows rather than wrapping it in a single
+        // closure like `align_canvas_during()` does for text.
+        let restore_transform = Self::pixel_align_origin(&mut self.canvas.borrow_mut());
+
         for fit in fits {
             let (image_id, origin, texture_size) =
                 if fit.tiled.is_some() && fit.clip_rect.size.cast() != orig_size {
@@ -1398,6 +1442,12 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
                 canvas.scale(fit.source_to_target_x / scale_w, fit.source_to_target_y / scale_h);
                 canvas.fill_path(&path, &fill_paint);
             })
+        }
+
+        if let Some(original_transform) = restore_transform {
+            let mut canvas = self.canvas.borrow_mut();
+            canvas.reset_transform();
+            canvas.set_transform(&original_transform);
         }
     }
 
