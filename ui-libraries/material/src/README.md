@@ -7,6 +7,8 @@ Welcome to the official Material Design 3 component set for [Slint](https://slin
 The components are intended to use for development of user interfaces with Slint for Android apps, touch friendly interfaces for embedded devices and even for desktop application development.
 Contributions and feedback from the community are welcome.
 
+Material Components 1.1 requires Slint 1.18 or newer.
+See the [changelog](https://material.slint.dev/changelog/) for new features, fixes, and migration notes.
 
 ## Demos
 
@@ -26,4 +28,3 @@ Clone one of our Material Components for Slint templates and follow the instruct
  - C++: https://github.com/slint-ui/material-cpp-template
  - Node.js/Deno: https://github.com/slint-ui/material-nodejs-template
  - Python: https://github.com/slint-ui/material-python-template
-
