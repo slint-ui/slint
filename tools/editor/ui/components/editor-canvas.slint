@@ -187,7 +187,11 @@ export component EditorCanvas inherits Rectangle {
             // Sits on top of the live preview so it intercepts clicks.
             // pressed-x/y are already in content coordinates, matching what the backend expects.
             selection-area := TouchArea {
-                mouse-cursor: crosshair;
+                mouse-cursor: MouseCursor.custom(
+                    @image-url("../assets/cursors/default-32.png"),
+                    14,
+                    14,
+                );
                 clicked => {
                     Api.unselect();
                     Api.select-at(self.pressed-x, self.pressed-y, false);
