@@ -109,9 +109,8 @@ component SecondaryTabItemTemplate inherits BaseNavigationItemTemplate {
 }
 
 export component TabBar inherits BaseNavigation {
+    property <length> indicator_x;
     property <length> indicator_width;
-    property <length> item_width: root.width / root.items.length;
-    property <length> current_x: root.item_width * self.current_index;
 
     min_height: max(MaterialStyleMetrics.size_49, layout.min_height);
 
@@ -130,28 +129,51 @@ export component TabBar inherits BaseNavigation {
 
                 clicked => {
                     root.select(index);
-                    root.set_indicator_width(index, self.label_width);
                 }
 
+                changed selected => {
+                    self.update_indicator();
+                }
+
+                changed x => {
+                    self.update_indicator();
+                }
+
+                changed width => {
+                    self.update_indicator();
+                }
+
+                changed label_width => {
+                    self.update_indicator();
+                }
+
+                // Initial geometry does not emit a change event.
                 Timer {
                     interval: 50ms;
 
                     triggered => {
-                        root.set_indicator_width(index, tab_item.label_width);
+                        tab_item.update_indicator();
                         self.running = false;
+                    }
+                }
+
+                function update_indicator() {
+                    if self.selected {
+                        root.set_indicator(index, self.x, self.width, self.label_width);
                     }
                 }
             }
         }
 
         indicator := Rectangle {
-            x: root.current_x + (root.item_width - self.width) / 2;
+            x: root.indicator_x;
             y: parent.height - self.height;
             width: root.indicator_width;
             height: MaterialStyleMetrics.size_3;
             border_top_left_radius: self.height / 2;
             border_top_right_radius: self.border_top_left_radius;
             background: MaterialPalette.primary;
+            visible: root.current_index >= 0 && root.current_index < root.items.length;
 
             animate x, width {
                 duration: MaterialAnimations.standard_accelerate_duration;
@@ -160,18 +182,19 @@ export component TabBar inherits BaseNavigation {
         }
     }
 
-    function set_indicator_width(index: int, width: length) {
+    function set_indicator(index: int, item_x: length, item_width: length, label_width: length) {
         if index != root.current_index {
             return;
         }
 
-        root.indicator_width = width;
+        root.indicator_x = item_x + (item_width - label_width) / 2;
+        root.indicator_width = label_width;
     }
 }
 
 export component SecondaryTabBar inherits BaseNavigation {
-    property <length> item_width: root.width / root.items.length;
-    property <length> current_x: root.item_width * self.current_index;
+    property <length> indicator_x;
+    property <length> indicator_width;
 
     min_height: max(MaterialStyleMetrics.size_49, layout.min_height);
 
@@ -179,7 +202,7 @@ export component SecondaryTabBar inherits BaseNavigation {
         background: MaterialPalette.surface;
 
         layout := HorizontalLayout {
-            for item[index] in root.items : SecondaryTabItemTemplate {
+            for item[index] in root.items : tab_item := SecondaryTabItemTemplate {
                 icon: item.icon;
                 selected_icon: item.selected_icon;
                 text: item.text;
@@ -191,20 +214,58 @@ export component SecondaryTabBar inherits BaseNavigation {
                 clicked => {
                     root.select(index);
                 }
+
+                changed selected => {
+                    self.update_indicator();
+                }
+
+                changed x => {
+                    self.update_indicator();
+                }
+
+                changed width => {
+                    self.update_indicator();
+                }
+
+                // Initial geometry does not emit a change event.
+                Timer {
+                    interval: 50ms;
+
+                    triggered => {
+                        tab_item.update_indicator();
+                        self.running = false;
+                    }
+                }
+
+                function update_indicator() {
+                    if self.selected {
+                        root.set_indicator(index, self.x, self.width);
+                    }
+                }
             }
         }
 
         indicator := Rectangle {
-            x: root.current_x;
+            x: root.indicator_x;
             y: parent.height - self.height;
-            width: root.item_width;
+            width: root.indicator_width;
             height: MaterialStyleMetrics.size_2;
             background: MaterialPalette.primary;
+            visible: root.current_index >= 0 && root.current_index < root.items.length;
 
-            animate x {
+            animate x, width {
                 duration: MaterialAnimations.standard_accelerate_duration;
                 easing: MaterialAnimations.standard_easing;
             }
         }
+    }
+
+    function set_indicator(index: int, item_x: length, item_width: length) {
+        if index != root.current_index {
+            return;
+        }
+
+        root.indicator_x = item_x;
+        root.indicator_width = item_width;
     }
 }
