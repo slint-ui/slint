@@ -71,24 +71,27 @@ the same combination.
 </TabItem>
 <TabItem label="C++" icon="seti:cpp">
 
-Enable the CMake options for the capabilities you need. `_LIBSEAT` and `_LIBINPUT` each enable the
-backend on their own and combine, so `_MINIMAL` is not a prerequisite:
+`SLINT_FEATURE_BACKEND_LINUXKMS` enables the backend with both libraries and turns either off
+when you don't need it. `_LIBSEAT` and `_LIBINPUT` also enable the backend on their own and
+combine, so `SLINT_FEATURE_BACKEND_LINUXKMS` is not a prerequisite:
 
-| CMake options                                                             | libseat | libinput |
-|---------------------------------------------------------------------------|---------|----------|
-| `SLINT_FEATURE_BACKEND_LINUXKMS_MINIMAL`                                    | no      | no       |
+| CMake options                                                               | libseat | libinput |
+|-----------------------------------------------------------------------------|---------|----------|
+| `SLINT_FEATURE_BACKEND_LINUXKMS`                                            | yes     | yes      |
+| `SLINT_FEATURE_BACKEND_LINUXKMS` and `..._LIBSEAT=OFF`                      | no      | yes      |
+| `SLINT_FEATURE_BACKEND_LINUXKMS` and `..._LIBSEAT=OFF` `..._LIBINPUT=OFF`   | no      | no       |
 | `SLINT_FEATURE_BACKEND_LINUXKMS_LIBSEAT`                                    | yes     | no       |
 | `SLINT_FEATURE_BACKEND_LINUXKMS_LIBINPUT`                                   | no      | yes      |
 | `SLINT_FEATURE_BACKEND_LINUXKMS_LIBSEAT` and `..._LIBINPUT`                 | yes     | yes      |
 
 ```bash
-cmake -DSLINT_FEATURE_BACKEND_LINUXKMS_LIBINPUT=ON ..
+cmake -DSLINT_FEATURE_BACKEND_LINUXKMS=ON ..
 ```
+
+The configure output reports which of the two libraries the build ends up with.
 
 `SLINT_FEATURE_BACKEND_LINUXKMS_NOSEAT` is deprecated; use
 `SLINT_FEATURE_BACKEND_LINUXKMS_LIBINPUT`, which selects the same combination.
-`SLINT_FEATURE_BACKEND_LINUXKMS` is deprecated; use `SLINT_FEATURE_BACKEND_LINUXKMS_LIBSEAT`
-together with `SLINT_FEATURE_BACKEND_LINUXKMS_LIBINPUT`.
 
 </TabItem>
 </Tabs>

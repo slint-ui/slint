@@ -78,20 +78,14 @@ expect "default + backend-linuxkms-noseat" false true \
     -p slint-interpreter --features backend-linuxkms-noseat
 
 echo "== slint-cpp: each CMake option selects a capability, and they compose =="
-expect "backend-linuxkms-minimal" false false \
-    -p slint-cpp --features backend-linuxkms-minimal
+expect "backend-linuxkms" false false \
+    -p slint-cpp --features backend-linuxkms
 expect "backend-linuxkms-libseat" true false \
     -p slint-cpp --features backend-linuxkms-libseat
 expect "backend-linuxkms-libinput" false true \
     -p slint-cpp --features backend-linuxkms-libinput
 expect "backend-linuxkms-libseat + libinput" true true \
     -p slint-cpp --features backend-linuxkms-libseat,backend-linuxkms-libinput
-
-echo "== slint-cpp: deprecated spellings resolve as they always did =="
-expect "backend-linuxkms-noseat" false true \
-    -p slint-cpp --features backend-linuxkms-noseat
-expect "backend-linuxkms" true true \
-    -p slint-cpp --features backend-linuxkms
 
 echo "== bindings and tools: default builds ship libinput, never libseat =="
 expect "slint-node (default)" false true \

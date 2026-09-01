@@ -1336,8 +1336,6 @@ declare_features! {
     backend_winit_x11
     backend_winit_wayland
     backend_linuxkms
-    backend_linuxkms_noseat
-    backend_linuxkms_minimal
     backend_linuxkms_libseat
     backend_linuxkms_libinput
     renderer_femtovg
