@@ -40,17 +40,11 @@ sudo apt install -y libx11-xcb1 libxkbcommon0 libinput10 libgbm1
 
 ```sh
 cargo install slint-lsp
-cargo install slint-viewer
+cargo install slint-viewer --features mcp
 ```
 
 Cargo places binaries in `$HOME/.cargo/bin`, which is on `PATH` when Rust was
 installed via `rustup`. For builds against unreleased `master`, add
 `--git https://github.com/slint-ui/slint`.
-
-The prebuilt binaries above ship with the `mcp` feature built in `(1.18+)` (see [debugging-and-mcp.md](reference/debugging-and-mcp.md)),
-but `cargo install slint-viewer` with no `--features` doesn't include it.
-Pass it explicitly if you're installing from crates.io and need MCP access to a running `.slint` file:
-
-```sh
-cargo install slint-viewer --features mcp
-```
+`--features mcp` `(1.18+)` gives MCP access to a running `.slint` file (see [debugging-and-mcp.md](reference/debugging-and-mcp.md));
+drop it if you don't need that.
