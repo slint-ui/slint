@@ -1069,7 +1069,7 @@ impl Compiler {
 pub(crate) enum AnimationMode {
     /// In static mode, all timers & animations are disabled.
     /// The item tree should not update anything without interaction.
-    #[cfg(feature = "internal")]
+    #[cfg_attr(not(feature = "internal"), allow(dead_code))]
     Static,
     Running,
 }

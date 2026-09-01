@@ -120,7 +120,7 @@ fn llr_compile(code: &str, name: &str) -> crate::component::ComponentInstanceInn
         code.into(),
         Default::default(),
         config,
-        false,
+        crate::AnimationMode::Running,
     ));
     assert!(
         result
@@ -492,7 +492,7 @@ fn interpreter_path_elements() {
         code.into(),
         Default::default(),
         config,
-        false,
+        crate::AnimationMode::Running,
     ));
     assert!(
         result
