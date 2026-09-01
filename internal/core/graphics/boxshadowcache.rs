@@ -104,7 +104,12 @@ impl PartialOrd for BoxShadowOptions {
 /// rather than baking it into the cached texture: skia and femtovg exclude the region from
 /// the shadow fill directly (a clip and an even-odd sub-path, respectively); anyrender
 /// wraps its (external, unmodified) `PaintScene::draw_box_shadow` call in a `push_clip_layer`
-/// donut shape instead, since it has no lower-level access to that fill.
+/// donut shape instead, since it has no lower-level access to that fill. Because that donut's
+/// two sub-paths (an outer bound with the un-offset shape subtracted as a hole) only work as
+/// intended when the outer bound fully contains both the hole and everything the shadow
+/// actually paints, anyrender's outer bound is the union of the un-offset shape's bounds and
+/// the offset/spread-adjusted shape padded by the blur's real rasterized extent (1.25x the
+/// blur radius for vello_cpu's Gaussian, not 1x) rather than either one alone.
 impl BoxShadowOptions {
     /// The size of the shadow shape: the element's size grown by the spread on each
     /// side. A negative spread shrinks it, down to nothing.
