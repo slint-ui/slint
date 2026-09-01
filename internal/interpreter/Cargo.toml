@@ -39,6 +39,15 @@ system-tray = ["i-slint-core/system-tray"]
 ## enable the [`print_diagnostics`] function to show diagnostic in the console output
 display-diagnostics = ["i-slint-compiler/display-diagnostics"]
 
+## Enable the embedded MCP (Model Context Protocol) server.
+##
+## When this feature is enabled and the `SLINT_MCP_PORT` environment variable is set
+## at runtime, the application starts an HTTP server implementing the MCP Streamable HTTP
+## transport. This allows MCP clients to inspect and interact with the running UI.
+##
+## This is a developer/debug feature. It is not recommended to enable it in production builds.
+mcp = ["std", "i-slint-backend-selector/mcp"]
+
 ## Enable the default image formats from the `image` crate, to support additional image formats in [`Image::load_from_path`]
 ## and `@image-url`. When this feature is disabled, only PNG and JPEG are supported. When enabled,
 ## the following image formats are supported:
