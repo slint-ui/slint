@@ -2085,7 +2085,8 @@ async fn parse_source(
             )]),
         );
 
-    let result = builder.build_from_source(source_code, path).await;
+    let result =
+        builder.build_static_from_source(source_code, path, i_slint_core::InternalToken).await;
 
     let compiled = result.components().next();
     (result.diagnostics().collect(), compiled, open_file_fallback, source_file_versions)

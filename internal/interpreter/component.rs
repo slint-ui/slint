@@ -6,11 +6,12 @@
 //! The public API wraps these thin structs so downstream callers never
 //! see the compilation-unit surface directly.
 
-use crate::Value;
 use crate::instance::Instance;
 use crate::public_api;
+use crate::{AnimationMode, Value};
+use i_slint_compiler::expression_tree::BuiltinFunction;
 use i_slint_compiler::langtype::Type as LangType;
-use i_slint_compiler::llr::{CompilationUnit, GlobalComponent};
+use i_slint_compiler::llr::{CompilationUnit, Expression, GlobalComponent};
 use i_slint_compiler::object_tree::PropertyVisibility;
 use i_slint_compiler::parser::normalize_identifier;
 use i_slint_core::item_tree::ItemTreeVTable;
@@ -319,11 +320,14 @@ pub fn build_from_document(
     document: &i_slint_compiler::object_tree::Document,
     compiler_config: &i_slint_compiler::CompilerConfiguration,
     mut type_loaders: TypeLoaders,
+    animation_mode: AnimationMode,
 ) -> Vec<ComponentDefinitionInner> {
-    let unit = Rc::new(i_slint_compiler::llr::lower_to_item_tree::lower_to_item_tree(
-        document,
-        compiler_config,
-    ));
+    let mut unit =
+        i_slint_compiler::llr::lower_to_item_tree::lower_to_item_tree(document, compiler_config);
+    if matches!(animation_mode, AnimationMode::Static) {
+        make_static(&mut unit);
+    }
+    let unit = Rc::new(unit);
     // `lower_to_item_tree` builds `public_components` from `exported_roots()`
     // in iteration order, so the indices line up.
     type_loaders.originals = document.exported_roots().collect();
@@ -334,6 +338,40 @@ pub fn build_from_document(
             type_loaders: type_loaders.clone(),
         })
         .collect()
+}
+
+fn make_static(compilation_unit: &mut CompilationUnit) {
+    fn make_expression_static(expression: &mut Expression) {
+        let replacement = match expression {
+            Expression::BuiltinFunctionCall { function, .. } => match function {
+                BuiltinFunction::AnimationTick => Some(Expression::NumberLiteral(0.)),
+                BuiltinFunction::RestartTimer | BuiltinFunction::UpdateTimers => {
+                    Some(Expression::CodeBlock(Vec::new()))
+                }
+                _ => None,
+            },
+            _ => None,
+        };
+        if let Some(replacement) = replacement {
+            *expression = replacement;
+        }
+    }
+
+    compilation_unit.for_each_expression(&mut |expression, _| {
+        expression.borrow_mut().visit_recursive_mut(&mut make_expression_static);
+    });
+    for sub_component in &compilation_unit.sub_components {
+        for popup in &sub_component.popup_windows {
+            popup.position.borrow_mut().visit_recursive_mut(&mut make_expression_static);
+        }
+    }
+    for sub_component in &mut compilation_unit.sub_components {
+        sub_component.timers.clear();
+        sub_component.animations.clear();
+        for (_, binding) in &mut sub_component.property_init {
+            binding.animation = None;
+        }
+    }
 }
 
 /// What [`build_from_source`] produces: the diagnostics, a map of public
@@ -354,6 +392,7 @@ pub async fn build_from_source(
     source_code: String,
     path: std::path::PathBuf,
     mut config: i_slint_compiler::CompilerConfiguration,
+    animation_mode: AnimationMode,
 ) -> BuildResult {
     // If the native style should be used, resolve it here as we know the backend.
     if config.style.as_deref() == Some("native") {
@@ -438,7 +477,7 @@ pub async fn build_from_source(
         }
     };
     let mut components = std::collections::HashMap::new();
-    for def in build_from_document(doc, &config, type_loaders) {
+    for def in build_from_document(doc, &config, type_loaders, animation_mode) {
         components.insert(def.name().to_string(), def);
     }
     if components.is_empty() {
