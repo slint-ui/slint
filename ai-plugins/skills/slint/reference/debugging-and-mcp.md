@@ -85,12 +85,17 @@ SLINT_EMIT_DEBUG_INFO=1 SLINT_MCP_PORT=9315 cargo run --features slint/mcp
 ```
 
 **slint-viewer** `(1.18+)`: gets MCP access to any `.slint` file without writing app code.
-Neither the prebuilt release binaries nor a plain `cargo install slint-viewer` carry the `mcp` feature — it's opt-in,
-so build/install it explicitly:
+The prebuilt release binaries (see [tools-install.md](../tools-install.md)) ship with the `mcp` feature built in,
+so just set `SLINT_MCP_PORT` at runtime:
+
+```sh
+SLINT_MCP_PORT=9315 slint-viewer ui/main.slint
+```
+
+A plain `cargo install slint-viewer` from crates.io doesn't include `mcp` — pass it explicitly:
 
 ```sh
 cargo install slint-viewer --features mcp
-SLINT_MCP_PORT=9315 slint-viewer ui/main.slint
 ```
 
 (`SLINT_EMIT_DEBUG_INFO` doesn't apply here — the viewer always compiles through the interpreter,
