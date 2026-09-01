@@ -150,6 +150,15 @@ fn test_round_up_logical() {
     assert_eq!(round_up_logical(21., 0.1), 25.);
 }
 
+/// Whether the platform assigns the window its size, so requesting one is pointless.
+///
+/// On iOS and friends the window covers whatever the system hands it, and winit's UIKit
+/// backend ignores resize requests but turns an initial size into the UIWindow's frame,
+/// confining the app to a corner of the screen.
+fn platform_dictates_window_size() -> bool {
+    cfg!(ios_and_friends)
+}
+
 fn apply_scale_factor_to_logical_sizes_in_attributes(
     attributes: &mut WindowAttributes,
     scale_factor: f64,
@@ -572,7 +581,8 @@ impl WinitWindowAdapter {
         // Create the window at its preferred size: the renderer's surface is created together
         // with the window, and on Wayland resizing it afterwards only takes effect after the
         // next present, so the first frame would be rendered at the pre-show size.
-        if !self.has_explicit_size.get()
+        if !platform_dictates_window_size()
+            && !self.has_explicit_size.get()
             && window_attributes.fullscreen.is_none()
             && let Some(preferred_size) = self.preferred_size()
         {
@@ -914,6 +924,11 @@ impl WinitWindowAdapter {
     // Requests for the window to be resized. Returns true if the window was resized immediately,
     // or if it will be resized later (false).
     fn resize_window(&self, size: winit::dpi::Size) -> Result<bool, PlatformError> {
+        if platform_dictates_window_size() {
+            // The platform's size wins: re-announce it so the window item snaps back to it.
+            self.resize_event(physical_size_to_winit(self.size.get()))?;
+            return Ok(true);
+        }
         match &*self.winit_window_or_none.borrow() {
             WinitWindowOrNone::HasWindow { window, .. } => {
                 if let Some(size) = window.request_inner_size(size) {
@@ -1590,7 +1605,8 @@ impl WinitWindowAdapter {
                 }
             }
 
-            if winit_window.fullscreen().is_none()
+            if !platform_dictates_window_size()
+                && winit_window.fullscreen().is_none()
                 && !self.has_explicit_size.get()
                 && preferred_size.width > 0 as Coord
                 && preferred_size.height > 0 as Coord
@@ -1906,9 +1922,9 @@ impl WindowAdapter for WinitWindowAdapter {
             new_constraints.max.map(logical_size_to_winit).map(filter_out_zero_width_or_height);
         winit_window_or_none.set_max_inner_size(winit_max_inner, sf as f64);
 
-        // On ios, etc. apps are fullscreen and need to be responsive.
-        #[cfg(not(ios_and_friends))]
-        adjust_window_size_to_satisfy_constraints(self, winit_min_inner, winit_max_inner);
+        if !platform_dictates_window_size() {
+            adjust_window_size_to_satisfy_constraints(self, winit_min_inner, winit_max_inner);
+        }
 
         // Auto-resize to the preferred size if users (SlintPad) requests it
         #[cfg(target_arch = "wasm32")]
@@ -2218,7 +2234,6 @@ impl Drop for WinitWindowAdapter {
 }
 
 // Winit doesn't automatically resize the window to satisfy constraints. Qt does it though, and so do we here.
-#[cfg(not(ios_and_friends))]
 fn adjust_window_size_to_satisfy_constraints(
     adapter: &WinitWindowAdapter,
     min_size: Option<winit::dpi::LogicalSize<f64>>,
