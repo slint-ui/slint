@@ -19,10 +19,11 @@ path = "lib.rs"
 name = "speedometer_lib"
 
 [dependencies]
-slint = { path = "../../../api/rs/slint" }
+slint = { path = "../../../api/rs/slint", default-features = false, features = ["compat-1-18", "std"] }
 chrono = "0.4"
 
 [features]
+default = ["slint/default"]
 sw-renderer = []
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
