@@ -1605,7 +1605,7 @@ mod tests {
     }
 
     #[test]
-    fn canvas_uses_grida_default_cursor() {
+    fn canvas_uses_default_cursor() {
         i_slint_backend_testing::init_no_event_loop();
         let editor = super::EditorUi::new().unwrap();
         editor.show().unwrap();
@@ -1635,7 +1635,7 @@ mod tests {
                     assert_eq!(image.size().width, 32);
                     assert_eq!(image.size().height, 32);
                 }
-                cursor => panic!("expected the Grida custom cursor, got {cursor:?}"),
+                cursor => panic!("expected the custom cursor, got {cursor:?}"),
             }
         });
     }
