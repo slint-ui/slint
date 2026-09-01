@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell: ignore blitting
+// cSpell: ignore blits blitted blitting
 use std::cell::RefCell;
 use std::pin::Pin;
 use std::rc::Rc;
@@ -1113,10 +1113,18 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
 
     // Same idea as `align_canvas_during()`, but for call sites that can't hand the canvas to a
     // single closure (e.g. `draw_image_impl()`'s loop over `fit`s re-borrows `self.canvas` for
-    // temporary render targets while tiling). Returns the original transform if alignment was
-    // applied, which the caller must restore afterwards via `canvas.reset_transform();
-    // canvas.set_transform(&original)`.
-    fn pixel_align_origin(canvas: &mut Canvas<R>) -> Option<Transform2D> {
+    // temporary render targets while tiling), and that need to align a point that isn't the
+    // canvas's current origin yet: `extra_offset` is a translate the caller is about to apply
+    // (e.g. the centering offset `ImageFit::Contain`/`Preserve` compute) that would otherwise
+    // land back on a fractional device pixel even after the item's own origin was aligned
+    // (#6455). Instead of rounding the current origin, this shifts it so that
+    // `origin + extra_offset` ends up on the device pixel grid. Returns the original transform
+    // if alignment was applied, which the caller must restore afterwards via
+    // `canvas.reset_transform(); canvas.set_transform(&original)`.
+    fn pixel_align_origin(
+        canvas: &mut Canvas<R>,
+        extra_offset: PhysicalPoint,
+    ) -> Option<Transform2D> {
         let original_transform = canvas.transform();
         let [a, b, c, d, x, y] = original_transform.0;
 
@@ -1126,13 +1134,16 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
             return None;
         }
 
-        let (rounded_x, rounded_y) = (x.round(), y.round());
-        if rounded_x == x && rounded_y == y {
+        let (combined_x, combined_y) = (x + extra_offset.x, y + extra_offset.y);
+        let (rounded_x, rounded_y) = (combined_x.round(), combined_y.round());
+        if rounded_x == combined_x && rounded_y == combined_y {
             return None;
         }
 
+        let new_x = x + (rounded_x - combined_x);
+        let new_y = y + (rounded_y - combined_y);
         canvas.reset_transform();
-        canvas.set_transform(&Transform2D::new(a, b, c, d, rounded_x, rounded_y));
+        canvas.set_transform(&Transform2D::new(a, b, c, d, new_x, new_y));
         Some(original_transform)
     }
 
@@ -1352,15 +1363,28 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
         let scale_w = buf_size.width / orig_size.width;
         let scale_h = buf_size.height / orig_size.height;
 
-        // Pixel-align the item's origin before drawing, unless the current transform involves
-        // rotation or scaling (in which case fractional positioning is unavoidable anyway, so
-        // alignment would serve no purpose). Without this, an image such as a rasterized SVG
-        // icon can end up with its edges straddling two device pixels, which blurs it under
-        // linear sampling (#6455). This mirrors `pixel_align_origin()` in the Skia and Qt
-        // renderers. The loop below re-borrows `self.canvas` for tiled sources, so the alignment
-        // is applied and undone around it via short borrows rather than wrapping it in a single
-        // closure like `align_canvas_during()` does for text.
-        let restore_transform = Self::pixel_align_origin(&mut self.canvas.borrow_mut());
+        // Pixel-align the item's final draw origin (its own position plus the first fit's
+        // offset, e.g. the centering offset `ImageFit::Contain`/`Preserve` compute) before
+        // drawing, unless the current transform involves rotation or scaling (in which case
+        // fractional positioning is unavoidable anyway, so alignment would serve no purpose).
+        // Without this, an image such as a rasterized SVG icon can end up with its edges
+        // straddling two device pixels, which blurs it under linear sampling (#6455). This
+        // mirrors `pixel_align_origin()` in the Skia and Qt renderers.
+        //
+        // There's normally only one fit (9-slice is the exception, with one fit per slice); we
+        // align the whole item by whatever shift makes the *first* fit land on the grid, rather
+        // than aligning each fit independently, so multiple fits keep the same relative offsets
+        // they'd have had without this shift. For 9-slice that only guarantees no *new*
+        // misalignment between slices is introduced here; slices 2.. can still land on
+        // fractional pixels the same way they could before this change, since only the first
+        // slice's offset is what alignment is computed against.
+        //
+        // The loop below re-borrows `self.canvas` for tiled sources, so the alignment is applied
+        // and undone around it via short borrows rather than wrapping it in a single closure
+        // like `align_canvas_during()` does for text.
+        let restore_transform = fits.first().and_then(|first_fit| {
+            Self::pixel_align_origin(&mut self.canvas.borrow_mut(), first_fit.offset)
+        });
 
         for fit in fits {
             let (image_id, origin, texture_size) =
