@@ -41,6 +41,37 @@ pub async fn lower_tabwidget(
         return;
     }
 
+    // If an element's base is itself a collected TabWidget that already has its own Tab
+    // children (e.g. `component Xyz inherits TabWidget { Tab { ... } }`), it's just
+    // instantiating Xyz rather than defining new Tabs, so skip lowering it here. Lowering it
+    // too would overwrite its base_type and lose the Tabs already lowered on Xyz (issue
+    // #8394); leaving it alone lets inlining pull Xyz's own Tabs in later.
+    //
+    // Any Tab children or an `orientation` override set directly at such an instantiation
+    // site can't be folded into the base, since that would mean moving elements across
+    // component boundaries. Diagnose both cases instead of silently dropping or ignoring them.
+    let tab_widgets: Vec<_> = tab_widgets
+        .into_iter()
+        .filter(|elem| {
+            if !base_chain_declares_tabs(&elem.borrow().base_type, &seen) {
+                return true;
+            }
+            if !elem.borrow().children.is_empty() {
+                diag.push_error(
+                    "Cannot add Tab elements when instantiating a TabWidget subclass that already declares its own Tab; declare them on the subclass instead".to_owned(),
+                    &*elem.borrow(),
+                );
+            }
+            if let Some(orientation) = elem.borrow().binding("orientation") {
+                diag.push_error(
+                    "Cannot set orientation when instantiating a TabWidget subclass that already declares its own Tab; declare it on the subclass instead".to_owned(),
+                    &orientation.span,
+                );
+            }
+            false
+        })
+        .collect();
+
     // Ignore import errors
     let mut build_diags_to_ignore = BuildDiagnostics::default();
     let tabwidget_impl = type_loader
@@ -79,6 +110,29 @@ pub async fn lower_tabwidget(
             &empty_type,
             diag,
         );
+    }
+}
+
+/// Walks a chain of `component Sub inherits Base { ... }` steps (as `base_type`s of
+/// components collected as TabWidgets), skipping empty pass-through subclasses, to check
+/// whether some component along the way already declares its own Tab children. Stops (and
+/// returns `false`) as soon as the chain leaves the collected TabWidgets, e.g. at the
+/// style-selected builtin TabWidget itself.
+fn base_chain_declares_tabs(
+    base_type: &ElementType,
+    tab_widget_roots: &HashSet<*const std::cell::RefCell<Element>>,
+) -> bool {
+    let mut base_type = base_type.clone();
+    loop {
+        let ElementType::Component(c) = &base_type else { return false };
+        if !tab_widget_roots.contains(&Rc::as_ptr(&c.root_element)) {
+            return false;
+        }
+        if !c.root_element.borrow().children.is_empty() {
+            return true;
+        }
+        let next = c.root_element.borrow().base_type.clone();
+        base_type = next;
     }
 }
 
