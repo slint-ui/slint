@@ -802,7 +802,7 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
             // (rather than e.g. clearing the destination) leaves whatever is already
             // painted there - such as the window background - untouched.
             // See https://github.com/slint-ui/slint/issues/6581.
-            self.canvas.save();
+            let _restore = skia_safe::AutoCanvasRestore::guard(self.canvas, true);
             let own_rrect = to_skia_rrect(
                 &PhysicalRect::from(size * self.scale_factor),
                 &(box_shadow.logical_border_radius() * self.scale_factor),
@@ -814,8 +814,6 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
                 to_skia_point(offset - PhysicalPoint::new(pad, pad).to_vector()),
                 self.default_paint().as_ref(),
             );
-
-            self.canvas.restore();
         }
     }
 

@@ -524,11 +524,13 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
             None => return,
         };
 
-        // Unlike a plain texture blit, this paint's fill path has a curved knockout sub-path
-        // (see below), so anti-aliasing stays on to keep that edge smooth; the even-odd fill
-        // rule is what makes the knockout actually exclude the overlapping area, instead of
-        // just adding another opaque sub-path.
-        let shadow_image_paint = shadow_image.as_paint().with_fill_rule(femtovg::FillRule::EvenOdd);
+        // The knockout sub-path below (see the even-odd fill rule) is only curved when the
+        // shadow has a border radius; a square knockout has no fringe to smooth, so
+        // anti-aliasing - and the triangle strip it costs - is only needed in the rounded case.
+        let shadow_image_paint = shadow_image
+            .as_paint()
+            .with_fill_rule(femtovg::FillRule::EvenOdd)
+            .with_anti_alias(!box_shadow.logical_border_radius().is_zero());
 
         let blur = box_shadow.blur() * self.scale_factor;
         let offset = LogicalPoint::from_lengths(box_shadow.offset_x(), box_shadow.offset_y())
