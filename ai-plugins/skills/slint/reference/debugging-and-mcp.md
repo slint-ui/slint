@@ -84,6 +84,18 @@ in `Cargo.toml`):
 SLINT_EMIT_DEBUG_INFO=1 SLINT_MCP_PORT=9315 cargo run --features slint/mcp
 ```
 
+**slint-viewer** `(1.18+)`: gets MCP access to any `.slint` file without writing app code.
+Neither the prebuilt release binaries nor a plain `cargo install slint-viewer` carry the `mcp` feature — it's opt-in,
+so build/install it explicitly:
+
+```sh
+cargo install slint-viewer --features mcp
+SLINT_MCP_PORT=9315 slint-viewer ui/main.slint
+```
+
+(`SLINT_EMIT_DEBUG_INFO` doesn't apply here — the viewer always compiles through the interpreter,
+which keeps debug info regardless.)
+
 **C++:** released packages don't carry the `mcp` feature — build Slint from
 source with `-DSLINT_FEATURE_MCP=ON`.
 

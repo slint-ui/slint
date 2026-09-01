@@ -46,3 +46,10 @@ cargo install slint-viewer
 Cargo places binaries in `$HOME/.cargo/bin`, which is on `PATH` when Rust was
 installed via `rustup`. For builds against unreleased `master`, add
 `--git https://github.com/slint-ui/slint`.
+
+Neither of the above gives you an MCP-enabled `slint-viewer` — the prebuilt binaries and a plain `cargo install slint-viewer` don't carry the `mcp` feature by default `(1.18+)`.
+Pass it explicitly if you need MCP access to a running `.slint` file (see [debugging-and-mcp.md](reference/debugging-and-mcp.md)):
+
+```sh
+cargo install slint-viewer --features mcp
+```
