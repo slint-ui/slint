@@ -361,6 +361,13 @@ pub struct BorderRectLayout {
     pub border_rect: euclid::Rect<f32, PhysicalPx>,
     /// The corner radii of `border_rect`.
     pub border_radius: PhysicalBorderRadius,
+    /// The outer edge of the border ring: the full border box, with the radii the
+    /// centered stroke around `border_rect` is meant to sweep out. Renderers whose
+    /// stroker can't reproduce that outer radius (see `border_ring` below) fill the
+    /// ring instead of stroking it.
+    pub outer_rect: euclid::Rect<f32, PhysicalPx>,
+    /// The corner radii of `outer_rect`.
+    pub outer_radius: PhysicalBorderRadius,
     /// The stroke width of the border; zero for transparent borders.
     pub border_width: euclid::Length<f32, PhysicalPx>,
     /// The border brush.
@@ -399,6 +406,11 @@ impl BorderRectLayout {
             .outer(border_width / 2. + euclid::Length::new(0.01));
         let border_radius = fill_radius.inner(border_width / 2.);
 
+        // The outer edge of the ring, captured before the geometry is inset onto the
+        // stroke's center line.
+        let outer_rect = geometry;
+        let outer_radius = fill_radius;
+
         let (background_rect, background_radius) = if opaque_border {
             // The fill doesn't need to extend under an opaque border, so fill and
             // stroke share the inset geometry.
@@ -418,9 +430,44 @@ impl BorderRectLayout {
             background_radius,
             border_rect: geometry,
             border_radius,
+            outer_rect,
+            outer_radius,
             border_width,
             border_color,
         })
+    }
+
+    /// The border ring as an outer and an inner rounded rectangle, for renderers that
+    /// fill it rather than stroking `border_rect`.
+    ///
+    /// Stroking the center line only produces the intended outer corner if the stroker
+    /// offsets the path's corner *arc*, growing its radius by half the border width. A
+    /// stroker that flattens the path to a polyline first loses that arc - `border_radius`
+    /// is barely above zero whenever the radius is smaller than half the border width -
+    /// and emits a line join, whose miter or bevel pokes outside the background's corner.
+    /// Filling the ring is equivalent for the strokers that get it right, and correct for
+    /// the ones that don't. See <https://github.com/slint-ui/slint/issues/1988>.
+    pub fn border_ring(
+        &self,
+    ) -> (
+        (euclid::Rect<f32, PhysicalPx>, PhysicalBorderRadius),
+        (euclid::Rect<f32, PhysicalPx>, PhysicalBorderRadius),
+    ) {
+        let w = self.border_width.get();
+        // `adjust_rect_and_border_for_inner_drawing` only clamps the border width against
+        // the width, so a tall thin rectangle can still have a border thicker than half
+        // its height. Clamp to an empty inner rectangle, which fills the ring solid.
+        let inner_rect = euclid::Rect::new(
+            self.outer_rect.origin + euclid::Vector2D::new(w, w),
+            euclid::Size2D::new(
+                (self.outer_rect.size.width - 2. * w).max(0.),
+                (self.outer_rect.size.height - 2. * w).max(0.),
+            ),
+        );
+        (
+            (self.outer_rect, self.outer_radius),
+            (inner_rect, self.outer_radius.inner(self.border_width)),
+        )
     }
 }
 

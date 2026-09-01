@@ -106,6 +106,15 @@ fn rect_with_radius_to_path(
     border_radius: PhysicalBorderRadius,
 ) -> femtovg::Path {
     let mut path = femtovg::Path::new();
+    append_rect_with_radius(&mut path, rect, border_radius);
+    path
+}
+
+fn append_rect_with_radius(
+    path: &mut femtovg::Path,
+    rect: PhysicalRect,
+    border_radius: PhysicalBorderRadius,
+) {
     let x = rect.origin.x;
     let y = rect.origin.y;
     let width = rect.size.width;
@@ -131,11 +140,47 @@ fn rect_with_radius_to_path(
             border_radius.bottom_left,
         );
     }
-    path
 }
 
 fn rect_to_path(r: PhysicalRect) -> femtovg::Path {
     rect_with_radius_to_path(r, PhysicalBorderRadius::default())
+}
+
+/// FemtoVG flattens a path to a polyline before offsetting it for a stroke, so a corner
+/// arc below its tessellation tolerance (`tess_tol`, 0.25 physical pixels) is lost and a
+/// line join takes its place. `BorderRectLayout` leaves exactly such an arc - the 0.01 it
+/// adds to the outer radius - whenever the border radius is smaller than half the border
+/// width, and expects the stroker to grow it back by half the border width. The miter or
+/// bevel that replaces it instead pokes outside the background's corner, so for those
+/// radii we fill the ring rather than stroke the center line.
+///
+/// Corners that are square to begin with stroke correctly, and so do arcs large enough to
+/// survive flattening; both keep the stroke, whose anti-aliasing hugs a straight edge more
+/// tightly than a fill's does. See <https://github.com/slint-ui/slint/issues/1988>.
+fn has_degenerate_corner_arc(border_radius: PhysicalBorderRadius) -> bool {
+    /// Twice FemtoVG's `tess_tol`, to stay clear of the tolerance itself.
+    const MIN_ARC: f32 = 0.5;
+    [
+        border_radius.top_left,
+        border_radius.top_right,
+        border_radius.bottom_right,
+        border_radius.bottom_left,
+    ]
+    .iter()
+    .any(|r| *r > 0. && *r < MIN_ARC)
+}
+
+/// Builds the border ring as a single path: the outer rounded rectangle, with the inner
+/// one subtracted as a hole.
+fn border_ring_to_path(layout: &BorderRectLayout) -> femtovg::Path {
+    let ((outer_rect, outer_radius), (inner_rect, inner_radius)) = layout.border_ring();
+    let mut path = femtovg::Path::new();
+    append_rect_with_radius(&mut path, outer_rect, outer_radius);
+    if !inner_rect.is_empty() {
+        append_rect_with_radius(&mut path, inner_rect, inner_radius);
+        path.solidity(femtovg::Solidity::Hole);
+    }
+    path
 }
 
 impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
@@ -186,10 +231,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
         let fill_paint = self.brush_to_paint(rect.background(), layout.brush_size);
 
         let border_paint = if layout.border_width.get() > 0.0 {
-            self.brush_to_paint(layout.border_color, layout.brush_size).map(|mut paint| {
-                paint.set_line_width(layout.border_width.get());
-                paint
-            })
+            self.brush_to_paint(layout.border_color.clone(), layout.brush_size)
         } else {
             None
         };
@@ -200,9 +242,15 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
                 rect_with_radius_to_path(layout.background_rect, layout.background_radius);
             canvas.fill_path(&background_path, &paint);
         }
-        if let Some(border_paint) = border_paint {
-            let border_path = rect_with_radius_to_path(layout.border_rect, layout.border_radius);
-            canvas.stroke_path(&border_path, &border_paint);
+        if let Some(mut border_paint) = border_paint {
+            if has_degenerate_corner_arc(layout.border_radius) {
+                canvas.fill_path(&border_ring_to_path(&layout), &border_paint);
+            } else {
+                border_paint.set_line_width(layout.border_width.get());
+                let border_path =
+                    rect_with_radius_to_path(layout.border_rect, layout.border_radius);
+                canvas.stroke_path(&border_path, &border_paint);
+            }
         }
     }
 
