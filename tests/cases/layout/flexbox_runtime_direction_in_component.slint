@@ -1,0 +1,57 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A FlexboxLayout whose direction is only known at runtime, wrapped in a
+// reusable component and used as a height-for-width cell. Measuring the cell
+// reaches the flex's `layoutinfo-h-with-constraint` through the component
+// boundary; that reference must resolve through the instance, not point into
+// the component's private scope.
+
+component WrappedFlex {
+    in property <bool> horizontal: true;
+    FlexboxLayout {
+        flex-direction: horizontal ? FlexboxLayoutDirection.row : FlexboxLayoutDirection.column;
+        flex-wrap: wrap;
+
+        Rectangle { min-width: 60px; preferred-width: 60px; min-height: 20px; preferred-height: 20px; }
+        Rectangle { min-width: 60px; preferred-width: 60px; min-height: 20px; preferred-height: 20px; }
+        Rectangle { min-width: 60px; preferred-width: 60px; min-height: 20px; preferred-height: 20px; }
+    }
+}
+
+export component TestCase inherits Window {
+    width: 200px;
+    height: 200px;
+
+    HorizontalLayout {
+        Rectangle { width: 40px; }
+        VerticalLayout {
+            alignment: start;
+            // Required: the repeated sibling makes the VerticalLayout measure
+            // the cell instead of just forwarding its layout info.
+            if false: Rectangle { }
+            wf := WrappedFlex { }
+        }
+    }
+
+    // The 40px sidebar leaves 160px, so two 60px items fit per line and the
+    // three items wrap onto two lines of 20px.
+    out property <bool> test: wf.width == 160px && wf.height == 40px;
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+assert(handle->get_test());
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+```js
+var instance = new slint.TestCase();
+assert(instance.test);
+```
+*/

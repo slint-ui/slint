@@ -1979,12 +1979,15 @@ pub(crate) fn default_cross_axis_constraint(
     // Route through `layoutinfo-h-with-constraint` when available so we
     // don't trigger a `self.height` read (which cycles for column-direction
     // flexes: their layoutinfo-h depends on self.height, itself set by the
-    // parent layout cache). The NR returned by `inherited_*` already points
-    // to the element declaring the function (which, after
-    // `move_declarations` runs, is the enclosing component's root with a
-    // renamed property), so use it as-is — re-anchoring it to `elem` would
-    // break the lookup.
+    // parent layout cache).
     if let Some(constrained_nr) = elem_b.inherited_layout_info_h_with_constraint() {
+        // An NR from the base-component chain must be anchored on `elem` to
+        // resolve through the instance; an own NR must stay as-is.
+        let constrained_nr = if elem_b.layout_info_h_with_constraint.is_some() {
+            constrained_nr
+        } else {
+            NamedReference::new(elem, constrained_nr.name().clone())
+        };
         let call = crate::expression_tree::Expression::FunctionCall {
             function: crate::expression_tree::Callable::Function(constrained_nr),
             arguments: vec![crate::expression_tree::Expression::NumberLiteral(
