@@ -430,6 +430,19 @@ mod grid_internal {
             if cdata.stretch == marker_for_empty {
                 cdata.stretch = 0.;
             }
+            // A row/col's max is the intersection (min) of its cells' own max,
+            // while its min is the union (max) of its cells' own min.
+            // A cell with a fixed zero size (e.g. collapsed via `height: 0px`)
+            // therefore pulls max down to 0, even when another cell sharing the
+            // same row/col has a larger, unrelated minimum.
+            // That leaves max < min, and a later `preferred.min(max).max(min)`
+            // clamp elsewhere silently resolves the inconsistency by favoring
+            // whatever min happens to win downstream (issue #9724), instead of
+            // the real minimum computed here.
+            // The minimum is the hard constraint, so raise max to meet it.
+            if cdata.max < cdata.min {
+                cdata.max = cdata.min;
+            }
         }
         layout_data
     }
