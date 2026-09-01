@@ -115,6 +115,20 @@ export struct SelectionRectangle {
     angle: angle,
 }
 
+/// The topmost selectable element under a canvas position.
+export struct HoveredElement {
+    valid: bool,
+    is-selected: bool,
+    element-path: string,
+    element-offset: int,
+    type-name: string,
+    x: length,
+    y: length,
+    width: length,
+    height: length,
+    angle: angle,
+}
+
 /// A `Selection`
 export struct Selection {
     highlight-index: int,
@@ -407,6 +421,7 @@ export global Api {
     // ## Drawing Area
     // Borders around things
     pure callback highlight-positions(source-uri: string, offset: int) -> [SelectionRectangle];
+    pure callback hovered-element-at(x: length, y: length, enter-component: bool) -> HoveredElement;
     in-out property <Selection> selection;
     in-out property <DropMark> drop-mark;
     // The actual preview
