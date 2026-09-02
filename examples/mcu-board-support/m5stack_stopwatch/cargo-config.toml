@@ -1,0 +1,22 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: MIT
+
+[env]
+ESP_LOG = "INFO"
+
+[target.xtensa-esp32s3-none-elf]
+runner = "espflash flash --monitor"
+rustflags = ["-C", "link-arg=-Wl,-Tlinkall.x"]
+
+[build]
+target = "xtensa-esp32s3-none-elf"
+
+[unstable]
+build-std = ["core", "alloc"]
+
+# The esp toolchain's Xtensa LLVM (rustc 1.94 generation) aborts with
+# "Unexpected node to lower" compiling i-slint-core at opt-level 2 or 3;
+# size optimization avoids the broken path and is the right choice for an
+# MCU anyway.
+[profile.release]
+opt-level = "s"

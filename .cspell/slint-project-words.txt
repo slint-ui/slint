@@ -314,6 +314,7 @@ itertools
 ivars
 Jemalloc
 jemallocator
+jtag
 kateversion
 Kconfig
 KDAB
@@ -513,6 +514,7 @@ pyproject
 pystruct
 pytest
 qskinny
+QSPI
 qtbase
 qtsvg
 qttypes
