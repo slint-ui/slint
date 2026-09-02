@@ -646,7 +646,7 @@ impl ElementHandle {
     /// Selects the text between two UTF-8 offsets, by invoking the element's
     /// `accessible-action-set-selection-offsets` callback. Note that you can only do this if that callback
     /// is declared in your Slint code.
-    pub fn set_accessible_selection(&self, anchor: i32, focus: i32) {
+    pub fn set_accessible_selection_offsets(&self, anchor: i32, focus: i32) {
         if self.element_index != 0 {
             return;
         }
