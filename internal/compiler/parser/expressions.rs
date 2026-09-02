@@ -719,7 +719,7 @@ fn parse_keys(p: &mut impl Parser) {
 /// error message. `which` selects whether the error names a specific argument
 /// (`Some("first"/"second")`, for macros with more than one) or just refers to `function_name`'s
 /// one argument (`None`).
-fn consume_plain_string_literal(
+fn consume_path_plain_string_literal(
     p: &mut impl Parser,
     function_name: &str,
     which: Option<&str>,
@@ -764,7 +764,7 @@ fn parse_image_url(p: &mut impl Parser) {
     if !(p.expect(SyntaxKind::LParent)) {
         return;
     }
-    if !consume_plain_string_literal(&mut *p, "@image-url", None) {
+    if !consume_path_plain_string_literal(&mut *p, "@image-url", None) {
         return;
     }
     if !p.test(SyntaxKind::Comma) {
@@ -835,7 +835,7 @@ fn parse_from_json(p: &mut impl Parser) {
         return;
     }
 
-    if !consume_plain_string_literal(&mut *p, FUNCTION_NAME, Some("first")) {
+    if !consume_path_plain_string_literal(&mut *p, FUNCTION_NAME, Some("first")) {
         return;
     }
     if !p.test(SyntaxKind::Comma) {
@@ -848,7 +848,7 @@ fn parse_from_json(p: &mut impl Parser) {
     if p.test(SyntaxKind::RParent) {
         return;
     }
-    if !consume_plain_string_literal(&mut *p, FUNCTION_NAME, Some("second")) {
+    if !consume_path_plain_string_literal(&mut *p, FUNCTION_NAME, Some("second")) {
         return;
     }
     if !p.expect(SyntaxKind::RParent) {
