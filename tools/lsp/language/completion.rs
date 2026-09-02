@@ -15,7 +15,9 @@ use i_slint_compiler::expression_tree::{Callable, Expression};
 use i_slint_compiler::langtype::{ElementType, PropertyLookupMode, Type};
 use i_slint_compiler::lookup::{LookupCtx, LookupObject, LookupResult, LookupResultCallable};
 use i_slint_compiler::object_tree::ElementRc;
-use i_slint_compiler::parser::{SyntaxKind, SyntaxNode, SyntaxToken, TextSize, syntax_nodes};
+use i_slint_compiler::parser::{
+    SyntaxKind, SyntaxNode, SyntaxToken, TextSize, identifier_text, syntax_nodes,
+};
 use i_slint_compiler::typeregister::TypeRegister;
 use itertools::Itertools;
 use lsp_types::{
@@ -301,6 +303,30 @@ pub(crate) fn completion_at(
     } else if let Some(q) = syntax_nodes::QualifiedName::new(node.clone()) {
         match q.parent()?.kind() {
             SyntaxKind::Element => {
+                let element = q.parent()?;
+                if is_interface_root_element(&element) {
+                    if !enable_experimental {
+                        return None;
+                    }
+
+                    let component = element.parent()?;
+                    if !component
+                        .children_with_tokens()
+                        .any(|c| c.as_token().is_some_and(|t| t.text() == "inherits"))
+                    {
+                        return Some(vec![
+                            CompletionItem::new_simple("inherits".into(), String::new())
+                                .with_kind(CompletionItemKind::KEYWORD),
+                        ]);
+                    }
+                    return resolve_implement_interface_name_scope(
+                        &q,
+                        &token,
+                        document_cache,
+                        snippet_support,
+                    );
+                }
+
                 // auto-complete the components
                 let global_tr = document_cache.global_type_registry();
                 let tr = q
@@ -1095,6 +1121,24 @@ fn complete_path_in_string(
     )
 }
 
+fn is_interface_root_element(element: &SyntaxNode) -> bool {
+    element.parent().is_some_and(|component| {
+        component.kind() == SyntaxKind::Component
+            && component.child_text(SyntaxKind::Identifier).is_some_and(|k| k == "interface")
+    })
+}
+
+fn enclosing_declaration_name(node: &SyntaxNode) -> Option<SmolStr> {
+    let mut candidate = node.clone();
+    let component = loop {
+        if candidate.kind() == SyntaxKind::Component {
+            break candidate;
+        }
+        candidate = candidate.parent()?;
+    };
+    identifier_text(&component.child_node(SyntaxKind::DeclaredIdentifier)?)
+}
+
 fn resolve_implement_interface_name_scope(
     node: &SyntaxNode,
     token: &SyntaxToken,
@@ -1108,17 +1152,20 @@ fn resolve_implement_interface_name_scope(
         .map(|document| &document.local_registry)
         .unwrap_or(&global_type_register);
 
+    let own_name = enclosing_declaration_name(node);
+
     let mut result = type_register
         .all_elements()
         .into_iter()
         .filter_map(|(key, element_type)| {
-            matches!(&element_type, ElementType::Component(component) if component.is_interface())
-                .then(|| {
-                    let mut completion =
-                        CompletionItem::new_simple(key.to_string(), "interface".into());
-                    completion.kind = Some(CompletionItemKind::INTERFACE);
-                    completion
-                })
+            (matches!(&element_type, ElementType::Component(component) if component.is_interface())
+                && Some(&key) != own_name.as_ref())
+            .then(|| {
+                let mut completion =
+                    CompletionItem::new_simple(key.to_string(), "interface".into());
+                completion.kind = Some(CompletionItemKind::INTERFACE);
+                completion
+            })
         })
         .collect::<Vec<_>>();
 
@@ -2390,7 +2437,7 @@ mod tests {
     }
 
     #[test]
-    fn inherits() {
+    fn component_inherits() {
         let sources = [
             "component Bar 🔺",
             "component Bar in🔺",
@@ -2402,14 +2449,48 @@ mod tests {
             "export component Bar in🔺 Window {}",
         ];
         for source in sources {
-            tracing::debug!("Test for inherits in {source:?}");
+            tracing::debug!("Test for component inherits in {source:?}");
             let res = get_completions(source).unwrap();
-            res.iter().find(|ci| ci.label == "inherits").unwrap();
+            assert!(
+                res.iter().any(|ci| ci.label == "inherits"),
+                "completion for {source:?} lacks 'inherits'"
+            );
         }
 
         let sources = ["component 🔺", "component Bar {}🔺", "component Bar inherits 🔺 {}", "🔺"];
         for source in sources {
             let Some(res) = get_completions(source) else { continue };
+            assert!(
+                !res.iter().any(|ci| ci.label == "inherits"),
+                "completion for {source:?} contains 'inherits'"
+            );
+        }
+    }
+
+    #[test]
+    fn interface_inherits() {
+        let sources = [
+            "interface Bar 🔺",
+            "interface Bar in🔺",
+            "interface Bar 🔺 {}",
+            "interface Bar in🔺 Window {}",
+            "export interface Bar 🔺",
+            "export interface Bar in🔺",
+            "export interface Bar 🔺 {}",
+            "export interface Bar in🔺 Window {}",
+        ];
+        for source in sources {
+            tracing::debug!("Test for interface inherits in {source:?}");
+            let res = get_completions_experimental(source).unwrap();
+            assert!(
+                res.iter().any(|ci| ci.label == "inherits"),
+                "completion for {source:?} lacks 'inherits'"
+            );
+        }
+
+        let sources = ["interface 🔺", "interface Bar {}🔺", "interface Bar inherits 🔺 {}", "🔺"];
+        for source in sources {
+            let Some(res) = get_completions_experimental(source) else { continue };
             assert!(
                 !res.iter().any(|ci| ci.label == "inherits"),
                 "completion for {source:?} contains 'inherits'"
@@ -2810,6 +2891,83 @@ export component TestWindow inherits Window {
         let results = get_completions_experimental(source).unwrap();
         let count = results.iter().filter(|c| c.label == "prop").count();
         assert_eq!(count, 1, "'prop' should be completed exactly once");
+    }
+
+    #[test]
+    fn interface_inherits_base_name() {
+        let source = r#"
+            interface MyInterface { property <int> x; }
+            component NotAnInterface { }
+            interface Foo inherits M🔺
+        "#;
+        let results = get_completions_experimental(source).unwrap();
+        let completion =
+            results.iter().find(|completion| completion.label == "MyInterface").unwrap();
+        assert_eq!(completion.kind, Some(CompletionItemKind::INTERFACE));
+        assert!(!results.iter().any(|completion| completion.label == "NotAnInterface"));
+        assert!(!results.iter().any(|completion| completion.label == "Rectangle"));
+    }
+
+    #[test]
+    fn interface_inherits_does_not_offer_itself() {
+        let source = r#"
+            interface Other { property <int> x; }
+            interface Foo inherits F🔺
+        "#;
+        let results = get_completions_experimental(source).unwrap();
+        assert_completion_found(
+            &CompletionItem { label: "Other".into(), ..Default::default() },
+            &results,
+        );
+        assert!(!results.iter().any(|completion| completion.label == "Foo"));
+    }
+
+    #[test]
+    fn component_inherits_offers_elements_not_interfaces() {
+        let source = r#"
+            interface MyInterface { property <int> x; }
+            component Foo inherits M🔺
+        "#;
+        let results = get_completions_experimental(source).unwrap();
+        assert_completion_found(
+            &CompletionItem { label: "Rectangle".into(), ..Default::default() },
+            &results,
+        );
+        assert!(!results.iter().any(|completion| completion.label == "MyInterface"));
+    }
+
+    #[test]
+    fn interface_inherits_base_name_requires_experimental() {
+        assert!(get_completions("interface Foo inherits M🔺").is_none());
+    }
+
+    #[test]
+    fn interface_inherits_base_name_suggests_import() {
+        let types_content = r#"export interface MyInterface { property <int> x; }
+"#;
+        let main_content = r#"interface Foo inherits M🔺
+"#;
+        let results = get_completions_multi_file_experimental(
+            "types.slint",
+            types_content,
+            "main.slint",
+            main_content,
+        )
+        .unwrap();
+
+        assert_completion_found(
+            &CompletionItem {
+                label: "MyInterface (import from \"types.slint\")".into(),
+                insert_text: Some("MyInterface".into()),
+                filter_text: Some("MyInterface".into()),
+                additional_text_edits: Some(vec![TextEdit {
+                    range: Range::new(Position::new(0, 0), Position::new(0, 0)),
+                    new_text: "import { MyInterface } from \"types.slint\";\n".into(),
+                }]),
+                ..Default::default()
+            },
+            &results,
+        );
     }
 
     #[test]
