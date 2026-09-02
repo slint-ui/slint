@@ -57,6 +57,13 @@ component SelectedCanvasFrame inherits Rectangle {
             : Api.current-property-value-data("border-radius").value-float * 1px;
     }
 
+    function has-independent-corner-radii() -> bool {
+        return Api.current-property-value-data("border-top-left-radius").code != ""
+            || Api.current-property-value-data("border-top-right-radius").code != ""
+            || Api.current-property-value-data("border-bottom-right-radius").code != ""
+            || Api.current-property-value-data("border-bottom-left-radius").code != "";
+    }
+
     function preview-geometry(position: Point, size: Size) {
         root.geometry-drag-active = true;
         root.geometry-drag-position = position;
@@ -98,6 +105,7 @@ component SelectedCanvasFrame inherits Rectangle {
         show-resize-handles: root.primary;
         show-rotation-handles: root.primary;
         enable-border-radius-edits: root.primary && Api.current-element.type-name == "Rectangle";
+        independent-corner-radii: root.has-independent-corner-radii();
         top-left-radius: root.current-corner-radius("border-top-left-radius");
         top-right-radius: root.current-corner-radius("border-top-right-radius");
         bottom-right-radius: root.current-corner-radius("border-bottom-right-radius");

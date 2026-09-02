@@ -7,6 +7,7 @@ import { MoveResizeFrame } from "move-resize-frame.slint";
 
 export component BorderRadiusFrame inherits MoveResizeFrame {
     in property <bool> enable-border-radius-edits: true;
+    in property <bool> independent-corner-radii;
     in property <length> top-left-radius;
     in property <length> top-right-radius;
     in property <length> bottom-right-radius;
@@ -109,7 +110,9 @@ export component BorderRadiusFrame inherits MoveResizeFrame {
                     let pointer-y = parent.y + self.mouse-y;
                     root.radius-edit-corner = corner;
                     root.radius-preview = root.corner-radius(corner);
-                    root.radius-single-corner = root.shift-pressed || self.event-shift-pressed;
+                    root.radius-single-corner = root.independent-corner-radii
+                        || root.shift-pressed
+                        || self.event-shift-pressed;
                     root.radius-dragging = false;
                     root.interaction-started();
                     root.radius-tooltip-visible = true;
@@ -136,7 +139,6 @@ export component BorderRadiusFrame inherits MoveResizeFrame {
                 let radius = root.radius-from-handle(corner, pointer-x, pointer-y);
                 root.radius-edit-corner = corner;
                 root.radius-preview = radius;
-                root.radius-single-corner = root.shift-pressed || self.event-shift-pressed;
                 root.radius-dragging = true;
                 root.radius-tooltip-position = { x: pointer-x, y: pointer-y };
                 root.radius-tooltip-value = radius;
