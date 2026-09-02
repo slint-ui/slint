@@ -710,8 +710,6 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
         let fill_paint = femtovg::Paint::image(image_id, 0., 0., width, height, 0.0, 1.0);
         let mut path = femtovg::Path::new();
         path.rect(0., 0., width, height);
-        // Pixel-align like the other image blits, to avoid blurry resampling at a fractional
-        // device pixel origin (#6455).
         Self::align_canvas_during(&mut canvas, |canvas| {
             canvas.fill_path(&path, &fill_paint);
         });
@@ -1111,40 +1109,32 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
         result
     }
 
-    // Same idea as `align_canvas_during()`, but for call sites that can't hand the canvas to a
-    // single closure (e.g. `draw_image_impl()`'s loop over `fit`s re-borrows `self.canvas` for
-    // temporary render targets while tiling), and that need to align a point that isn't the
-    // canvas's current origin yet: `extra_offset` is a translate the caller is about to apply
-    // (e.g. the centering offset `ImageFit::Contain`/`Preserve` compute) that would otherwise
-    // land back on a fractional device pixel even after the item's own origin was aligned
-    // (#6455). Instead of rounding the current origin, this shifts it so that
-    // `origin + extra_offset` ends up on the device pixel grid. Returns the original transform
-    // if alignment was applied, which the caller must restore afterwards via
-    // `canvas.reset_transform(); canvas.set_transform(&original)`.
-    fn pixel_align_origin(
-        canvas: &mut Canvas<R>,
-        extra_offset: PhysicalPoint,
-    ) -> Option<Transform2D> {
-        let original_transform = canvas.transform();
-        let [a, b, c, d, x, y] = original_transform.0;
+    // Aligns the canvas origin so that `origin + extra_offset` will end up on the device pixel
+    // grid. Returns whether alignment was applied, in which case the caller must call
+    // `canvas.restore()` afterwards.
+    //
+    // Note that this will currently only align the canvas if it is not rotated and not scaled.
+    fn pixel_align_origin(canvas: &mut Canvas<R>, extra_offset: PhysicalPoint) -> bool {
+        let [a, b, c, d, x, y] = canvas.transform().0;
 
         let is_translate_only =
             a.approx_eq(&1.) && b.approx_eq(&0.) && c.approx_eq(&0.) && d.approx_eq(&1.);
         if !is_translate_only {
-            return None;
+            return false;
         }
 
         let (combined_x, combined_y) = (x + extra_offset.x, y + extra_offset.y);
         let (rounded_x, rounded_y) = (combined_x.round(), combined_y.round());
         if rounded_x == combined_x && rounded_y == combined_y {
-            return None;
+            return false;
         }
 
         let new_x = x + (rounded_x - combined_x);
         let new_y = y + (rounded_y - combined_y);
+        canvas.save();
         canvas.reset_transform();
         canvas.set_transform(&Transform2D::new(a, b, c, d, new_x, new_y));
-        Some(original_transform)
+        true
     }
 
     fn render_and_blend_layer(&mut self, alpha_tint: f32, item_rc: &ItemRc) -> RenderingResult {
@@ -1161,9 +1151,6 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
             self.canvas.borrow_mut().save_with(|canvas| {
                 canvas.translate(layer_origin.x, layer_origin.y);
                 layer_path.rect(0., 0., layer_size.width as _, layer_size.height as _);
-                // Layers are blitted as a texture, so pixel-align the origin like we do for
-                // images: otherwise the layer's content (which may include text or an SVG
-                // rendered at high resolution) ends up resampled at a fractional offset (#6455).
                 Self::align_canvas_during(canvas, |canvas| {
                     canvas.fill_path(&layer_path, &layer_image_paint);
                 });
@@ -1364,25 +1351,13 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
         let scale_h = buf_size.height / orig_size.height;
 
         // Pixel-align the item's final draw origin (its own position plus the first fit's
-        // offset, e.g. the centering offset `ImageFit::Contain`/`Preserve` compute) before
-        // drawing, unless the current transform involves rotation or scaling (in which case
-        // fractional positioning is unavoidable anyway, so alignment would serve no purpose).
-        // Without this, an image such as a rasterized SVG icon can end up with its edges
-        // straddling two device pixels, which blurs it under linear sampling (#6455). This
-        // mirrors `pixel_align_origin()` in the Skia and Qt renderers.
-        //
-        // There's normally only one fit (9-slice is the exception, with one fit per slice); we
-        // align the whole item by whatever shift makes the *first* fit land on the grid, rather
-        // than aligning each fit independently, so multiple fits keep the same relative offsets
-        // they'd have had without this shift. For 9-slice that only guarantees no *new*
-        // misalignment between slices is introduced here; slices 2.. can still land on
-        // fractional pixels the same way they could before this change, since only the first
-        // slice's offset is what alignment is computed against.
+        // offset) before drawing (#6455). There's normally only one fit; 9-slice is the
+        // exception, with one fit per slice, so slices 2.. can still land on fractional pixels.
         //
         // The loop below re-borrows `self.canvas` for tiled sources, so the alignment is applied
         // and undone around it via short borrows rather than wrapping it in a single closure
         // like `align_canvas_during()` does for text.
-        let restore_transform = fits.first().and_then(|first_fit| {
+        let restore_after_fits = fits.first().is_some_and(|first_fit| {
             Self::pixel_align_origin(&mut self.canvas.borrow_mut(), first_fit.offset)
         });
 
@@ -1468,10 +1443,8 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
             })
         }
 
-        if let Some(original_transform) = restore_transform {
-            let mut canvas = self.canvas.borrow_mut();
-            canvas.reset_transform();
-            canvas.set_transform(&original_transform);
+        if restore_after_fits {
+            self.canvas.borrow_mut().restore();
         }
     }
 
