@@ -826,6 +826,8 @@ fn parse_image_url(p: &mut impl Parser) {
 /// @from_json("data.json")
 /// ```
 fn parse_from_json(p: &mut impl Parser) {
+    const FUNCTION_NAME: &str = "@from-json";
+
     let mut p = p.start_node(SyntaxKind::AtFromJson);
     p.consume(); // "@"
     p.consume(); // "from-json" or "from_json"
@@ -833,7 +835,6 @@ fn parse_from_json(p: &mut impl Parser) {
         return;
     }
 
-    const FUNCTION_NAME: &str = "@from-json";
     if !consume_plain_string_literal(&mut *p, FUNCTION_NAME, Some("first")) {
         return;
     }
