@@ -32,9 +32,12 @@ use core::cell::{Cell, RefCell};
 use core::pin::Pin;
 use euclid::Length;
 use fixed::Fixed;
+#[cfg(feature = "std")]
 use i_slint_core::api::PlatformError;
+#[cfg(feature = "std")]
+use i_slint_core::graphics::Rgba8Pixel;
 use i_slint_core::graphics::rendering_metrics_collector::{RefreshMode, RenderingMetricsCollector};
-use i_slint_core::graphics::{BorderRadius, Rgba8Pixel, SharedImageBuffer, SharedPixelBuffer};
+use i_slint_core::graphics::{BorderRadius, SharedImageBuffer, SharedPixelBuffer};
 use i_slint_core::item_rendering::HasFont;
 use i_slint_core::item_rendering::{
     CachedRenderingData, ItemRenderer, PlainOrStyledText, RenderBorderRectangle, RenderImage,
@@ -1201,6 +1204,8 @@ impl RendererSealed for SoftwareRenderer {
             .and_then(|window_adapter| window_adapter.upgrade())
     }
 
+    // Rendering to a second pixel format monomorphizes the pipeline twice; keep it out of MCU builds.
+    #[cfg(feature = "std")]
     fn take_snapshot(&self) -> Result<SharedPixelBuffer<Rgba8Pixel>, PlatformError> {
         let Some(window_adapter) =
             self.maybe_window_adapter.borrow().as_ref().and_then(|w| w.upgrade())
