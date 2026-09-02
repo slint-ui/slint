@@ -126,13 +126,12 @@ export abstract class Model<T> implements Iterable<T> {
     /**
      * Implementations of this function must store the provided data parameter
      * in the model at the specified row.
+     * The default implementation throws, rejecting the modification.
      * @param _row index in range 0..(rowCount() - 1).
      * @param _data new data item to store on the given row index
      */
     setRowData(_row: number, _data: T): void {
-        console.log(
-            "setRowData called on a model which does not re-implement this method. This happens when trying to modify a read-only model",
-        );
+        throw new TypeError("setRowData is not implemented on this model");
     }
 
     /**
