@@ -32,6 +32,9 @@
     "color": {
         "href": "reference/property-types/colors-and-brushes/#color"
     },
+    "Deprecation": {
+        "href": "guide/language/coding/deprecation/"
+    },
     "DragAndDrop": {
         "href": "guide/development/drag-and-drop/"
     },

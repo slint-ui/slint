@@ -187,6 +187,10 @@ export default defineConfig({
                                                 label: "Structs and Enums",
                                                 slug: "guide/language/coding/structs-and-enums",
                                             },
+                                            {
+                                                label: "Deprecating Members",
+                                                slug: "guide/language/coding/deprecation",
+                                            },
                                         ],
                                     },
                                 ],
@@ -314,10 +318,6 @@ export default defineConfig({
                                               {
                                                   label: "Named Slots",
                                                   slug: "guide/experimental/named-slots",
-                                              },
-                                              {
-                                                  label: "Deprecated Properties",
-                                                  slug: "guide/experimental/deprecated",
                                               },
                                               {
                                                   label: "Shadowable Members",

@@ -76,10 +76,10 @@ export component TextEdit {
     in-out property <length> content-y <=> scroll-view.content-y;
     in-out property <length> content-width <=> scroll-view.content-width;
     in-out property <length> content-height <=> scroll-view.content-height;
-    @deprecated in-out property <length> viewport-width <=> content-width;
-    @deprecated in-out property <length> viewport-height <=> content-height;
-    @deprecated in-out property <length> viewport-x <=> content-x;
-    @deprecated in-out property <length> viewport-y <=> content-y;
+    @deprecated("") in-out property <length> viewport-width <=> content-width;
+    @deprecated("") in-out property <length> viewport-height <=> content-height;
+    @deprecated("") in-out property <length> viewport-x <=> content-x;
+    @deprecated("") in-out property <length> viewport-y <=> content-y;
     in property <string> placeholder-text;
 
     callback edited(text: string);
