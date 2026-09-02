@@ -14,7 +14,7 @@
  * display synchronization. On chips that support several peripherals, such as the ESP32-P4,
  * set the type explicitly if the panel doesn't use the one `Auto` selects.
  */
-enum class SlintPanelType {
+enum class SlintDisplayPanelType {
     /// Select the peripheral based on the chip's capabilities: the MIPI-DSI DPI peripheral if
     /// the chip supports MIPI-DSI, otherwise the parallel RGB LCD peripheral.
     Auto,
@@ -91,7 +91,7 @@ struct SlintPlatformConfiguration
     };
     /// The type of LCD peripheral that drives the panel. Only set this on chips that support
     /// several peripherals, such as the ESP32-P4.
-    SlintPanelType panel_type = SlintPanelType::Auto;
+    SlintDisplayPanelType panel_type = SlintDisplayPanelType::Auto;
 };
 
 template<typename... Args>

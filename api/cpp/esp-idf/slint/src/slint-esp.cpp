@@ -67,7 +67,7 @@ struct EspPlatform : public slint::platform::Platform
 private:
     slint::PhysicalSize size;
     esp_lcd_panel_handle_t panel_handle;
-    SlintPanelType panel_type;
+    SlintDisplayPanelType panel_type;
     esp_lcd_touch_handle_t touch_handle;
     std::optional<std::span<PixelType>> buffer1;
     std::optional<std::span<PixelType>> buffer2;
@@ -192,17 +192,17 @@ void EspPlatform<PixelType>::run_event_loop()
     // The esp_lcd_rgb_panel_* and esp_lcd_dpi_panel_* APIs write through the opaque panel handle
     // assuming their own driver's struct layout, without any run-time type check, so they must
     // only be called on a panel that the matching peripheral drives. The peripheral cannot be
-    // queried from the handle; resolve SlintPanelType::Auto from the chip's capabilities.
+    // queried from the handle; resolve SlintDisplayPanelType::Auto from the chip's capabilities.
 #if SOC_MIPI_DSI_SUPPORTED && ESP_IDF_VERSION_MAJOR >= 5
-    const bool is_dpi_panel =
-            panel_type == SlintPanelType::MipiDsiDpi || panel_type == SlintPanelType::Auto;
+    const bool is_dpi_panel = panel_type == SlintDisplayPanelType::MipiDsiDpi
+            || panel_type == SlintDisplayPanelType::Auto;
 #else
     [[maybe_unused]] const bool is_dpi_panel = false;
 #endif
 
 #if SOC_LCD_RGB_SUPPORTED && ESP_IDF_VERSION_MAJOR >= 5
-    const bool is_rgb_panel = panel_type == SlintPanelType::RgbLcd
-            || (panel_type == SlintPanelType::Auto && !is_dpi_panel);
+    const bool is_rgb_panel = panel_type == SlintDisplayPanelType::RgbLcd
+            || (panel_type == SlintDisplayPanelType::Auto && !is_dpi_panel);
     if (buffer2 && is_rgb_panel) {
         sem_vsync_end = xSemaphoreCreateBinary();
         sem_gui_ready = xSemaphoreCreateBinary();

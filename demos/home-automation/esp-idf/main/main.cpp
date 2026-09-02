@@ -79,7 +79,7 @@ extern "C" void app_main(void)
             .touch_handle = touch_handle,
             .rotation = slint::platform::SoftwareRenderer::RenderingRotation::Rotate90,
             .byte_swap = false,
-            .panel_type = SlintPanelType::MipiDsiDpi,
+            .panel_type = SlintDisplayPanelType::MipiDsiDpi,
     });
 
     auto ui = AppWindow::create();

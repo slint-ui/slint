@@ -38,7 +38,7 @@ If your display controller expects little endian, set the `byte_swap` field in `
 Double buffering synchronizes rendering with the LCD peripheral, so Slint needs to know which peripheral
 drives the panel. On chips that support several, such as the ESP32-P4, Slint assumes MIPI-DSI.
 If your panel uses a different interface, set the `panel_type` field in `SlintPlatformConfiguration`,
-for example to `SlintPanelType::RgbLcd` for a parallel RGB panel.
+for example to `SlintDisplayPanelType::RgbLcd` for a parallel RGB panel.
 
 ## Errors about multiple symbol definitions when linking
 
