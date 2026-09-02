@@ -18,8 +18,7 @@ export component BorderRadiusFrame inherits MoveResizeFrame {
     out property <Point> radius-tooltip-position;
     out property <length> radius-tooltip-value;
     private property <bool> radius-handle-active;
-    private property <CanvasCorner> radius-edit-corner: CanvasCorner.top-left;
-    private property <length> radius-preview;
+    private property <CanvasCorner> radius-edit-corner;
     private property <bool> radius-single-corner;
     private property <bool> radius-dragging;
 
@@ -49,15 +48,8 @@ export component BorderRadiusFrame inherits MoveResizeFrame {
     function preview-radius(corner: CanvasCorner) -> length {
         return root.radius-dragging
             && (!root.radius-single-corner || corner == root.radius-edit-corner)
-            ? root.radius-preview
+            ? root.radius-tooltip-value
             : root.corner-radius(corner);
-    }
-
-    function reset-radius-edit() {
-        root.radius-edit-corner = CanvasCorner.top-left;
-        root.radius-preview = 0px;
-        root.radius-single-corner = false;
-        root.radius-dragging = false;
     }
 
     for corner in [
@@ -109,7 +101,6 @@ export component BorderRadiusFrame inherits MoveResizeFrame {
                     let pointer-x = parent.x + self.mouse-x;
                     let pointer-y = parent.y + self.mouse-y;
                     root.radius-edit-corner = corner;
-                    root.radius-preview = root.corner-radius(corner);
                     root.radius-single-corner = root.independent-corner-radii
                         || root.shift-pressed
                         || self.event-shift-pressed;
@@ -121,7 +112,7 @@ export component BorderRadiusFrame inherits MoveResizeFrame {
                 } else {
                     root.interaction-ended();
                     root.radius-tooltip-visible = false;
-                    root.reset-radius-edit();
+                    root.radius-dragging = false;
                 }
             }
 
@@ -138,7 +129,6 @@ export component BorderRadiusFrame inherits MoveResizeFrame {
                 let pointer-y = parent.y + self.mouse-y;
                 let radius = root.radius-from-handle(corner, pointer-x, pointer-y);
                 root.radius-edit-corner = corner;
-                root.radius-preview = radius;
                 root.radius-dragging = true;
                 root.radius-tooltip-position = { x: pointer-x, y: pointer-y };
                 root.radius-tooltip-value = radius;
