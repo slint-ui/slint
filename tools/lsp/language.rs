@@ -860,13 +860,7 @@ async fn run_host_language_rename_followup(
     info: editor_preview::editing::rename_component::HostLanguageRenameInfo,
     new_name: String,
 ) {
-    use i_slint_compiler::generator::accessor_names::DeclarationKind;
-
-    let kind_label = match info.kind {
-        DeclarationKind::Property => "property",
-        DeclarationKind::Callback => "callback",
-        DeclarationKind::Function => "function",
-    };
+    let kind_label = info.kind.label();
     let message = format!(
         "Slint {kind_label} '{}' is exposed to host language code. \
          Search & Replace the Rust/C++ code with the new accessors? \

@@ -3056,11 +3056,7 @@ impl Element {
         MemberDeclaration::Shadow {
             internal_name: self.unique_member_name(name),
             warning: (!private).then(|| {
-                let kind = match existing.property_type {
-                    Type::Callback { .. } => "callback",
-                    Type::Function { .. } => "function",
-                    _ => "property",
-                };
+                let kind = existing.property_type.member_kind();
                 format!("'{name}' shadows the {origin} {kind} of the same name")
             }),
         }

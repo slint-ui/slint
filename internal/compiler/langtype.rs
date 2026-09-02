@@ -308,11 +308,13 @@ impl Type {
 
     /// The noun for a member of this type in diagnostics.
     pub fn member_kind(&self) -> &'static str {
+        use crate::generator::accessor_names::DeclarationKind;
         match self {
-            Type::Callback { .. } | Type::InferredCallback => "callback",
-            Type::Function { .. } => "function",
-            _ => "property",
+            Type::Callback { .. } | Type::InferredCallback => DeclarationKind::Callback,
+            Type::Function { .. } => DeclarationKind::Function,
+            _ => DeclarationKind::Property,
         }
+        .label()
     }
 
     /// If this is a number type which should be used with an unit, this returns the default unit
