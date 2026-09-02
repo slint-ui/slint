@@ -48,6 +48,7 @@ component SelectedCanvasFrame inherits Rectangle {
     private property <Size> geometry-drag-size;
     private property <bool> rotation-active;
     private property <angle> pending-rotation;
+    private property <bool> radius-drag-active;
 
     function current-corner-radius(property-name: string) -> length {
         let corner = Api.current-property-value-data(property-name);
@@ -70,18 +71,19 @@ component SelectedCanvasFrame inherits Rectangle {
         );
     }
 
-    function finish-interaction(radius-active: bool) {
+    function finish-interaction() {
         if root.geometry-drag-active {
             Api.persist-selected-element-geometry();
         }
         if root.rotation-active {
             Api.selected-element-rotate(root.pending-rotation);
         }
-        if radius-active {
+        if root.radius-drag-active {
             Api.persist-selected-element-border-radius();
         }
         root.geometry-drag-active = false;
         root.rotation-active = false;
+        root.radius-drag-active = false;
     }
 
     frame := BorderRadiusFrame {
@@ -103,7 +105,7 @@ component SelectedCanvasFrame inherits Rectangle {
         shift-pressed: root.shift-pressed;
         show-resize-handles: root.primary;
         show-rotation-handles: root.primary;
-        enable-border-radius-edits: Api.current-element.type-name == "Rectangle";
+        enable-border-radius-edits: root.primary && Api.current-element.type-name == "Rectangle";
         top-left-radius: root.current-corner-radius("border-top-left-radius");
         top-right-radius: root.current-corner-radius("border-top-right-radius");
         bottom-right-radius: root.current-corner-radius("border-bottom-right-radius");
@@ -122,6 +124,7 @@ component SelectedCanvasFrame inherits Rectangle {
         }
         interaction-started => {
             root.rotation-active = false;
+            root.radius-drag-active = false;
             Hover.element = {};
         }
         pointer-moved(position) => {
@@ -130,6 +133,7 @@ component SelectedCanvasFrame inherits Rectangle {
             }
         }
         radius-changed(corner, radius, single-corner) => {
+            root.radius-drag-active = true;
             Api.override-selected-element-border-radius(corner, radius, single-corner);
         }
         resized-to(corner, position, size) => {
@@ -142,7 +146,7 @@ component SelectedCanvasFrame inherits Rectangle {
             });
         }
         interaction-ended => {
-            root.finish-interaction(self.radius-tooltip-visible);
+            root.finish-interaction();
         }
     }
 

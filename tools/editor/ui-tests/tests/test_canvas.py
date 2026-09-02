@@ -20,6 +20,7 @@ from canvas_interactions import (
     same_state,
     selection_frame,
 )
+from slint_testing import keys
 from source_snapshot import SourceSnapshot
 from ui_driver import (
     elements_with_label,
@@ -816,6 +817,15 @@ def radius_handle(window: slint_testing.Window, corner: str) -> slint_testing.El
     return window_element_with_label(window, f"Rectangle radius {corner}")
 
 
+def radius_handle_positions(
+    window: slint_testing.Window,
+) -> dict[str, slint_testing.LogicalPosition]:
+    return {
+        corner: center(window_element_with_label(window, f"Rectangle radius {corner}"))
+        for corner in CORNERS
+    }
+
+
 @pytest.mark.parametrize(
     "kind",
     [pytest.param("Rectangle", marks=RUST_FIX_REQUIRED), "Text", "Image"],
@@ -1337,6 +1347,72 @@ def test_each_radius_handle_writes_exact_source(
         snapshot.wait_for_exact(expected)
 
 
+@pytest.mark.parametrize(
+    ("single", "corner"),
+    [
+        pytest.param(single, corner, id=f"{single}-{corner}")
+        for single in (False, True)
+        for corner in CORNERS
+    ],
+)
+def test_radius_handles_follow_preview_during_drag(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+    single: bool,
+    corner: str,
+) -> None:
+    source_file = fixture_project / "Main.slint"
+    baseline = source_file.read_bytes()
+    source_file.write_bytes(baseline)
+    with launch_editor(editor_binary, editor_environment, source_file) as editor:
+        window = first_window(editor)
+        select_fixture_element(window, "Rectangle")
+        handle = radius_handle(window, corner)
+        initial_positions = radius_handle_positions(window)
+        start = center(handle)
+        end = slint_testing.LogicalPosition(
+            x=start.x + RADIUS_DELTAS[corner][0],
+            y=start.y + RADIUS_DELTAS[corner][1],
+        )
+        button = slint_testing.PointerEventButton.Left
+        snapshot = SourceSnapshot.capture(fixture_project)
+        if single:
+            window.dispatch_event(slint_testing.KeyPressedEvent(text=keys.Shift))
+        window.dispatch_event(slint_testing.PointerPressEvent(start, button))
+        window.dispatch_event(slint_testing.PointerMoveEvent(end))
+
+        wait_until(
+            lambda: (
+                True
+                if float(
+                    window_element_with_label(
+                        window, "Radius value", slint_testing.AccessibleRole.Text
+                    ).accessible_value
+                )
+                == 16
+                else None
+            )
+        )
+        current_positions = radius_handle_positions(window)
+        for name in CORNERS:
+            delta = RADIUS_DELTAS[name]
+            expected_position = (
+                slint_testing.LogicalPosition(
+                    x=initial_positions[name].x + delta[0],
+                    y=initial_positions[name].y + delta[1],
+                )
+                if not single or name == corner
+                else initial_positions[name]
+            )
+            assert position_distance(current_positions[name], expected_position) < 1.5
+        snapshot.assert_unchanged_now()
+
+        window.dispatch_event(slint_testing.PointerReleaseEvent(end, button))
+        if single:
+            window.dispatch_event(slint_testing.KeyReleasedEvent(text=keys.Shift))
+
+
 @RUST_FIX_REQUIRED
 def test_radius_is_clamped_to_half_the_shortest_side(
     editor_binary: Path,
@@ -1451,12 +1527,25 @@ def test_handle_click_below_drag_threshold_does_not_edit_source(
         )
         before = selection_frame(window, "Rectangle")
         start = center(handle)
+        radius_position_before = start if label == "Rectangle radius top-left" else None
         end = slint_testing.LogicalPosition(x=start.x + 1, y=start.y + 1)
         button = slint_testing.PointerEventButton.Left
         window.dispatch_event(slint_testing.PointerPressEvent(start, button))
         window.dispatch_event(slint_testing.PointerMoveEvent(end))
         window.dispatch_event(slint_testing.PointerReleaseEvent(end, button))
         assert same_state(selection_frame(window, "Rectangle"), before)
+        if radius_position_before is not None:
+            assert (
+                position_distance(
+                    center(
+                        window_element_with_label(
+                            window, label, slint_testing.AccessibleRole.Button
+                        )
+                    ),
+                    radius_position_before,
+                )
+                < 1.5
+            )
         snapshot.assert_unchanged()
 
 
