@@ -9,7 +9,7 @@ import { MoveResizeFrame } from "move-resize-frame.slint";
 component CanvasValueTooltip inherits Rectangle {
     in property <string> label;
     in property <string> value;
-    in property <string> raw-value;
+    in property <string> suffix: "";
     in property <string> value-label;
     in property <Point> pointer-position;
 
@@ -24,10 +24,10 @@ component CanvasValueTooltip inherits Rectangle {
     drop-shadow-color: #33415535;
     accessible-role: AccessibleRole.text;
     accessible-label: root.value-label;
-    accessible-value: root.raw-value;
+    accessible-value: root.value;
 
     tip := Text {
-        text: root.label + " " + root.value;
+        text: root.label + " " + root.value + root.suffix;
         color: white;
         font-size: 12px;
         horizontal-alignment: center;
@@ -87,19 +87,11 @@ component SelectedCanvasFrame inherits Rectangle {
     }
 
     frame := BorderRadiusFrame {
-        x: root.geometry-drag-active && root.primary
-            ? root.geometry-drag-position.x
-            : root.selection.x;
-        y: root.geometry-drag-active && root.primary
-            ? root.geometry-drag-position.y
-            : root.selection.y;
-        width: root.geometry-drag-active && root.primary
-            ? root.geometry-drag-size.width
-            : root.selection.width;
-        height: root.geometry-drag-active && root.primary
-            ? root.geometry-drag-size.height
-            : root.selection.height;
-        rotation: root.rotation-active && root.primary ? root.pending-rotation : root.selection.angle;
+        x: root.selection.x;
+        y: root.selection.y;
+        width: root.selection.width;
+        height: root.selection.height;
+        rotation: root.selection.angle;
         accessible-prefix: Api.current-element.type-name;
         active: !root.interaction-disabled;
         shift-pressed: root.shift-pressed;
@@ -150,10 +142,21 @@ component SelectedCanvasFrame inherits Rectangle {
         }
     }
 
+    states [
+        geometry-dragging when root.geometry-drag-active: {
+            frame.x: root.geometry-drag-position.x;
+            frame.y: root.geometry-drag-position.y;
+            frame.width: root.geometry-drag-size.width;
+            frame.height: root.geometry-drag-size.height;
+        }
+        rotation-dragging when root.rotation-active: {
+            frame.rotation: root.pending-rotation;
+        }
+    ]
+
     if frame.radius-tooltip-visible: CanvasValueTooltip {
         label: "Radius";
         value: (frame.radius-tooltip-value / 1px).to-fixed(0);
-        raw-value: self.value;
         value-label: "Radius value";
         pointer-position: {
             x: frame.x + frame.radius-tooltip-position.x,
@@ -167,8 +170,8 @@ component SelectedCanvasFrame inherits Rectangle {
             normalized < 0deg ? normalized + 360deg : normalized
         };
         label: "Rotation";
-        raw-value: "\{(self.normalized-angle / 1deg).round()}";
-        value: self.raw-value + "°";
+        value: "\{(self.normalized-angle / 1deg).round()}";
+        suffix: "°";
         value-label: "Rotation angle";
         pointer-position: frame.rotation-tooltip-position;
     }
@@ -183,9 +186,7 @@ component HoverCanvasFrame inherits MoveResizeFrame {
     callback pointer-hovered(Point);
     callback real-element-selected();
 
-    private property <bool> geometry-drag-active;
     private property <Point> geometry-drag-position;
-    private property <Size> geometry-drag-size;
 
     visible: Hover.element.valid && !Hover.element.is-selected;
     enabled: root.visible
@@ -203,15 +204,10 @@ component HoverCanvasFrame inherits MoveResizeFrame {
     show-rotation-handles: false;
     accessible-prefix: "Hovered " + Hover.element.type-name;
     accessible-role: AccessibleRole.region;
-    accessible-label: "Hovered " + Hover.element.type-name;
+    accessible-label: root.accessible-prefix;
 
     function preview-geometry(position: Point) {
-        root.geometry-drag-active = true;
         root.geometry-drag-position = position;
-        root.geometry-drag-size = {
-            width: root.geometry.width,
-            height: root.geometry.height,
-        };
         Api.override-selected-element-geometry(
             position.x,
             position.y,
@@ -221,10 +217,9 @@ component HoverCanvasFrame inherits MoveResizeFrame {
     }
 
     function finish-interaction() {
-        if root.geometry-drag-active {
+        if root.move-dragging {
             Api.persist-selected-element-geometry();
         }
-        root.geometry-drag-active = false;
         root.gesture-ended();
         Hover.element = {};
     }
@@ -261,11 +256,9 @@ component HoverCanvasFrame inherits MoveResizeFrame {
     }
 
     states [
-        dragging when root.move-pressed && root.geometry-drag-active: {
+        dragging when root.move-dragging: {
             x: root.geometry-drag-position.x;
             y: root.geometry-drag-position.y;
-            width: root.geometry-drag-size.width;
-            height: root.geometry-drag-size.height;
         }
     ]
 }
