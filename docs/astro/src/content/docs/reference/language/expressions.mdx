@@ -171,7 +171,6 @@ Without an element reference, a name may also resolve to a local variable, a cal
 
 A reference may also name an [enumeration](../../property-types/) value or a [global](../globals/)'s property.
 
-<NotInSC>
 ## From JSON
 
 `@from-json("file.json")` reads the JSON file at compile time and looks up a value whose key
@@ -215,7 +214,3 @@ It's an error if the file can't be found, the key or path doesn't resolve to a v
 value's shape doesn't match the property's type. Since the value is read once, at compile time,
 editing the JSON file requires rebuilding the application to see the change reflected (except in
 tools that reload the `.slint` file, such as `slint-viewer` or an editor's live preview).
-
-`@from-json` isn't available in Slint SC, and can't be used when the compiler can't access the
-filesystem directly (for example a purely in-browser environment).
-</NotInSC>
