@@ -170,3 +170,57 @@ Without an element reference, a name may also resolve to a local variable, a cal
 </NotInSC>
 
 A reference may also name an [enumeration](../../property-types/) value or a [global](../globals/)'s property.
+
+## From JSON
+
+`@from-json("file.json")` reads the JSON file at compile time and looks up a value whose key
+matches the name of the property the macro is assigned to.
+
+```slint
+export component Example {
+    // Looks up the "greeting" key at the root of the JSON file
+    property <string> greeting: @from-json("data.json");
+}
+```
+
+`@from-json("file.json", "path/to/value")` instead takes a `/`-separated path of nested object
+keys from the root of the JSON file:
+
+```slint
+export component Example {
+    property <int> count: @from-json("data.json", "stats/visitors/count");
+}
+```
+
+Both the file path and the key/path argument must be plain string literals, without any `\{ }`
+interpolation, since they're resolved entirely at compile time. Relative file paths are resolved
+the same way as `import` paths: relative to the `.slint` file that contains the `@from-json(...)`
+call, then against any configured include paths.
+
+Key lookups (both the implicit property-name key and each segment of an explicit path) match a
+JSON object key exactly first, then fall back to comparing keys with underscores and dashes
+treated as equivalent — so a JSON file can use whichever convention is more natural for the tool
+that generated it.
+
+The JSON value is converted to match the declared type of the property:
+
+| Slint type                                                             | Expected JSON value                                                                                 |
+| ---------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| `bool`                                                                 | a boolean                                                                                           |
+| `int`                                                                  | a whole number                                                                                      |
+| `float`, `percent`                                                     | a number                                                                                            |
+| `length`, `physical-length`, `duration`, `angle`, `relative-font-size` | a number, interpreted in the type's default unit (`px`, `phx`, `ms`, `deg`, or `rem`, respectively) |
+| `string`                                                               | a string                                                                                            |
+| `color`                                                                | a string, e.g. `"#ff0000"` or `"red"`                                                               |
+| an enum                                                                | a string naming one of its values, optionally prefixed with `"EnumName."`                           |
+| an array `[T]`                                                         | an array, each element converted per `T`'s row                                                      |
+| a struct                                                               | an object; each field is looked up by name and converted per its own type, recursively              |
+
+A JSON object being converted to a struct only uses the keys that match a declared field; any
+other keys in that object are ignored. A struct field that's absent from the JSON object takes the
+field's declared default value.
+
+It's an error if the file can't be found, the key or path doesn't resolve to a value, or the JSON
+value's shape doesn't match the property's type. Since the value is read once, at compile time,
+editing the JSON file requires rebuilding the application to see the change reflected (except in
+tools that reload the `.slint` file, such as `slint-viewer` or an editor's live preview).

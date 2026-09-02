@@ -54,3 +54,52 @@ fn uses_mock_data_true_when_marked_preview() {
 fn uses_mock_data_false_for_llr() {
     uses_mock_data_folds_to(CompilerConfiguration::new(OutputFormat::Llr), false);
 }
+
+/// A `states [...]` block lowers its `when` condition into a synthesized integer "state"
+/// property, and rewrites each affected property's binding into
+/// `Condition { condition: state == idx, true_expr: <state's value>, false_expr: <original> }`.
+/// `Platform.uses-mock-data` must still fold away that whole `Condition` (not just the
+/// direct `Platform.uses-mock-data` reference) so mock data assigned in a state never survives
+/// into the compiled output of a real application.
+fn state_with_uses_mock_data_condition_folds_to(config: CompilerConfiguration, expected: &str) {
+    let source = r#"
+        component TestCase {
+            in-out property <string> greeting: "real";
+            states [
+                mock when Platform.uses-mock-data: {
+                    greeting: "mock";
+                }
+            ]
+        }
+    "#;
+    let mut diagnostics = BuildDiagnostics::default();
+    let syntax_node = parse(source.into(), None, &mut diagnostics);
+    let (doc, diagnostics, _loader) =
+        spin_on::spin_on(compile_syntax_node(syntax_node, diagnostics, config));
+    assert!(!diagnostics.has_errors(), "{:?}", diagnostics.to_string_vec());
+
+    let component = doc.inner_components.last().unwrap();
+    let root_element = component.root_element.borrow();
+    let binding = root_element.binding("greeting").unwrap();
+    let folded = binding.expression.ignore_debug_hooks();
+    assert!(
+        matches!(folded, Expression::StringLiteral(s) if s.as_str() == expected),
+        "the state's condition on Platform.uses-mock-data did not fully fold away \
+         (expected a bare StringLiteral({expected:?})), got {folded:?}"
+    );
+}
+
+#[test]
+fn state_with_uses_mock_data_condition_folds_to_real_value_for_llr() {
+    state_with_uses_mock_data_condition_folds_to(
+        CompilerConfiguration::new(OutputFormat::Llr),
+        "real",
+    );
+}
+
+#[test]
+fn state_with_uses_mock_data_condition_folds_to_mock_value_when_marked_preview() {
+    let mut config = CompilerConfiguration::new(OutputFormat::Interpreter);
+    config.is_preview = true;
+    state_with_uses_mock_data_condition_folds_to(config, "mock");
+}

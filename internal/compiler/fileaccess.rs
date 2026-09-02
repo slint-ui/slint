@@ -18,6 +18,15 @@ impl VirtualFile {
         }
     }
 
+    /// Like [`Self::read`], but reports an I/O error instead of panicking (e.g. the path
+    /// exists but isn't readable: a directory, permission denied, ...).
+    pub fn try_read(&self) -> std::io::Result<Cow<'static, [u8]>> {
+        match self.builtin_contents {
+            Some(static_data) => Ok(Cow::Borrowed(static_data)),
+            None => std::fs::read(&self.canon_path).map(Cow::Owned),
+        }
+    }
+
     pub fn is_builtin(&self) -> bool {
         self.builtin_contents.is_some()
     }

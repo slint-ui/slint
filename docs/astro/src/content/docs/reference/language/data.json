@@ -1,0 +1,8 @@
+{
+    "greeting": "Hello, world!",
+    "stats": {
+        "visitors": {
+            "count": 42
+        }
+    }
+}

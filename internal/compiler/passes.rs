@@ -225,13 +225,22 @@ pub async fn run_passes(
         doc.used_types.borrow_mut().sub_components.clear();
     }
 
+    // Must run before `binding_analysis`: it replaces `Platform.uses-mock-data` (and other
+    // `Platform.*` accesses) with literals, including inside bindings `lower_states` has already
+    // synthesized. Running it after `binding_analysis` would let `is_constant` cache `false` for
+    // those bindings (Platform properties are conservatively treated as non-constant native
+    // output properties), which then survives the substitution and blocks `const_propagation`
+    // from folding away the dead branch.
+    doc.visit_all_used_components(|component| {
+        lower_platform::lower_platform(component, type_loader);
+    });
+
     let global_analysis =
         binding_analysis::binding_analysis(doc, &type_loader.compiler_config, diag);
     unique_id::assign_unique_id(doc);
 
     doc.visit_all_used_components(|component| {
         key_bindings::warn_duplicates(component, diag);
-        lower_platform::lower_platform(component, type_loader);
 
         // Don't perform the empty rectangle removal when debug info is requested, because the resulting
         // item tree ends up with a hierarchy where certain items have children that aren't child elements
