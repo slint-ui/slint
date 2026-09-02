@@ -380,10 +380,7 @@ SPDX-FileCopyrightText = "Copyright © SixtyFPS GmbH <info@slint.dev>"
 SPDX-License-Identifier = "MIT"
 
 [[annotations]]
-path = [
-  "internal/compiler/tests/syntax/**.json",
-  "tests/cases/**.json",
-]
+path = ["internal/compiler/tests/syntax/**.json", "tests/cases/**.json"]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Copyright © SixtyFPS GmbH <info@slint.dev>"
 SPDX-License-Identifier = "GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0"

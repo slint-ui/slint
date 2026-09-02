@@ -809,7 +809,9 @@ fn parse_from_json(p: &mut impl Parser) {
     fn consume_plain_string_literal(p: &mut impl Parser, which: &str) -> bool {
         let peek = p.peek();
         if peek.kind() != SyntaxKind::StringLiteral {
-            p.error(format!("@from-json's {which} argument must be a plain path as a string literal"));
+            p.error(format!(
+                "@from-json's {which} argument must be a plain path as a string literal"
+            ));
             p.until(SyntaxKind::RParent);
             return false;
         }

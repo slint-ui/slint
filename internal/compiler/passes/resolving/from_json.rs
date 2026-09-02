@@ -31,12 +31,10 @@ pub fn lower(node: &syntax_nodes::AtFromJson, ctx: &mut LookupCtx) -> Expression
 
     let pointer_token = string_tokens.get(1);
     let pointer_str = match pointer_token {
-        Some(tok) => {
-            match crate::literals::unescape_string_reporting(Some(tok), ctx.diag, node) {
-                Some(s) => Some(s),
-                None => return Expression::Invalid,
-            }
-        }
+        Some(tok) => match crate::literals::unescape_string_reporting(Some(tok), ctx.diag, node) {
+            Some(s) => Some(s),
+            None => return Expression::Invalid,
+        },
         None => None,
     };
     // Where to point path/key-not-found diagnostics: the JSON-path argument if there is
@@ -362,8 +360,14 @@ fn json_to_expression(
                     let expr = match lookup_key(obj, field_name) {
                         Some(v) => {
                             breadcrumb_segments.push(field_name.clone());
-                            let e =
-                                json_to_expression(v, field_ty, breadcrumb_segments, file, node, ctx);
+                            let e = json_to_expression(
+                                v,
+                                field_ty,
+                                breadcrumb_segments,
+                                file,
+                                node,
+                                ctx,
+                            );
                             breadcrumb_segments.pop();
                             e
                         }
