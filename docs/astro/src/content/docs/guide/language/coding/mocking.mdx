@@ -102,3 +102,34 @@ Until a host application sets `contacts`, the preview shows the data from `conta
 it's compiled into a real application, `Platform.uses-mock-data` folds to `false`, the `@from-json`
 call is compiled out together with the branch that contains it, and nothing about `contacts.json`
 ends up in the final binary.
+
+## Mocking several properties at once
+
+Repeating `Platform.uses-mock-data ? ... : ...` on every property that needs placeholder data gets
+noisy once there's more than one or two of them. A [`states`](states/) block is a good fit here
+instead: give every property its real, empty-by-default value as its normal binding, then add a
+single state that overrides all of them together while `Platform.uses-mock-data` is `true`.
+
+```slint
+export struct Contact {
+    name: string,
+    online: bool,
+}
+
+export component Example inherits Window {
+    in-out property <string> heading: "My App";
+    in-out property <[Contact]> contacts: [];
+
+    states [
+        mock-data when Platform.uses-mock-data: {
+            heading: "My App (preview)";
+            contacts: @from-json("contacts.json");
+        }
+    ]
+}
+```
+
+`Platform.uses-mock-data` now appears exactly once, no matter how many properties the `mock-data`
+state sets. Since it's still a compile-time constant, the whole state — and everything it
+references, including the `@from-json` call — is compiled out of the real application, just like
+the ternary form.
