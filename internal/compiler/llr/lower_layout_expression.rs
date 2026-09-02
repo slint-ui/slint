@@ -1982,7 +1982,10 @@ pub(crate) fn default_cross_axis_constraint(
     // parent layout cache).
     if let Some(constrained_nr) = elem_b.inherited_layout_info_h_with_constraint() {
         // An NR from the base-component chain must be anchored on `elem` to
-        // resolve through the instance; an own NR must stay as-is.
+        // resolve through the instance. An own NR must stay as-is:
+        // `move_declarations` may have moved the function onto the enclosing
+        // component's root under a renamed private name, which `elem` itself
+        // does not have.
         let constrained_nr = if elem_b.layout_info_h_with_constraint.is_some() {
             constrained_nr
         } else {
