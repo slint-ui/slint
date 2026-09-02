@@ -166,8 +166,8 @@ pub fn fill_from_brush(brush: slint::Brush) -> ui::FillData {
             let center = g.center_or_default(0., 0.);
             fill.custom_center = center == g.center_or_default(2., 2.);
             (fill.center_x, fill.center_y) = center;
-            fill.radius = g.radius_or_default(0., 0.);
-            fill.custom_radius = fill.radius == g.radius_or_default(2., 2.);
+            fill.radius = g.radius_x_or_default(0., 0.);
+            fill.custom_radius = fill.radius == g.radius_x_or_default(2., 2.);
             g.stops().copied().collect()
         }
         slint::Brush::ConicGradient(g) => {
@@ -197,7 +197,8 @@ pub fn fill_brush(fill: ui::FillData) -> slint::Brush {
                 g = g.with_center(fill.center_x, fill.center_y);
             }
             if fill.custom_radius {
-                g = g.with_radius(fill.radius);
+                g = g.with_radius_x(fill.radius);
+                g = g.with_radius_y(fill.radius);
             }
             slint::Brush::RadialGradient(g)
         }
