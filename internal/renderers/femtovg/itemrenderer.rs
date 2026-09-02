@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell: ignore blits blitted blitting
+// cSpell: ignore blitting
 use std::cell::RefCell;
 use std::pin::Pin;
 use std::rc::Rc;
@@ -1353,10 +1353,6 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
         // Pixel-align the item's final draw origin (its own position plus the first fit's
         // offset) before drawing (#6455). There's normally only one fit; 9-slice is the
         // exception, with one fit per slice, so slices 2.. can still land on fractional pixels.
-        //
-        // The loop below re-borrows `self.canvas` for tiled sources, so the alignment is applied
-        // and undone around it via short borrows rather than wrapping it in a single closure
-        // like `align_canvas_during()` does for text.
         let restore_after_fits = fits.first().is_some_and(|first_fit| {
             Self::pixel_align_origin(&mut self.canvas.borrow_mut(), first_fit.offset)
         });
