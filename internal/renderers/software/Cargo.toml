@@ -16,6 +16,7 @@ version.workspace = true
 path = "lib.rs"
 
 [features]
+image-pixel-format-rgb565 = ["i-slint-core/image-pixel-format-rgb565"]
 systemfonts = [
   "i-slint-core/shared-fontique",
   "i-slint-common/shared-fontique",

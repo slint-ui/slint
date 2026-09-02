@@ -205,6 +205,7 @@ pub(super) fn draw_texture_line(
                     }
                 }
             }
+            #[cfg(feature = "image-pixel-format-rgb565")]
             TexturePixelFormat::Rgb565 => {
                 for pix in line_buffer {
                     let pos = pos(2).0;
@@ -324,6 +325,11 @@ pub(super) fn draw_texture_line(
                     pix.blend(c);
                 }
             }
+            #[cfg(not(feature = "image-pixel-format-rgb565"))]
+            #[allow(unreachable_patterns)]
+            _ => unimplemented!(
+                "RGB565 textures need the image-pixel-format-rgb565 feature of the renderer"
+            ),
         };
     }
 }

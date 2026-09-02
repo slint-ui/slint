@@ -54,6 +54,11 @@ image-decoders = ["dep:image", "dep:clru"]
 image-default-formats = ["image?/default-formats"]
 svg = ["dep:resvg", "i-slint-common/svg-text"]
 
+# Support for images in the RGB565 pixel format, the native format of many
+# embedded displays. Disabled by default so that applications that don't
+# need it don't pay for the extra rendering code.
+image-pixel-format-rgb565 = []
+
 box-shadow-cache = []
 
 testing = []
@@ -185,7 +190,7 @@ web-sys = { workspace = true, features = ["HtmlImageElement", "Navigator", "Blob
 
 
 [dev-dependencies]
-slint = { path = "../../api/rs/slint", default-features = false, features = ["std", "compat-1-2", "renderer-software"] }
+slint = { path = "../../api/rs/slint", default-features = false, features = ["std", "compat-1-2", "renderer-software", "image-pixel-format-rgb565"] }
 i-slint-backend-testing = { path = "../backends/testing", features = ["internal"] }
 rustybuzz = { workspace = true }
 ttf-parser = { workspace = true }

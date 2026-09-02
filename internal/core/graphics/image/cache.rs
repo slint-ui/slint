@@ -20,6 +20,7 @@ impl clru::WeightScale<ImageCacheKey, ImageInner> for ImageWeightInBytes {
                 SharedImageBuffer::RGB8(pixels) => pixels.as_bytes().len(),
                 SharedImageBuffer::RGBA8(pixels) => pixels.as_bytes().len(),
                 SharedImageBuffer::RGBA8Premultiplied(pixels) => pixels.as_bytes().len(),
+                #[cfg(feature = "image-pixel-format-rgb565")]
                 SharedImageBuffer::RGB565(pixels) => pixels.as_bytes().len(),
             },
             #[cfg(feature = "svg")]

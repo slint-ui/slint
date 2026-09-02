@@ -1206,10 +1206,8 @@ fn load_image(
                 ImageVariant::Sized { width: render_size.width, height: render_size.height },
                 || {
                     let pixels = match svg.render(Some(render_size)).ok()? {
-                        SharedImageBuffer::RGB8(_) => unreachable!(),
-                        SharedImageBuffer::RGBA8(_) => unreachable!(),
-                        SharedImageBuffer::RGB565(_) => unreachable!(),
                         SharedImageBuffer::RGBA8Premultiplied(pixels) => pixels,
+                        _ => unreachable!(),
                     };
 
                     let width = pixels.width();
@@ -1314,6 +1312,7 @@ fn image_buffer_to_peniko_image(buffer: &SharedImageBuffer) -> Option<peniko::Im
                 height,
             });
         }
+        #[cfg(feature = "image-pixel-format-rgb565")]
         SharedImageBuffer::RGB565(shared_pixel_buffer) => {
             let rgba: Vec<u8> = shared_pixel_buffer
                 .as_slice()
@@ -1342,6 +1341,9 @@ fn image_buffer_to_peniko_image(buffer: &SharedImageBuffer) -> Option<peniko::Im
             peniko::ImageFormat::Rgba8,
             peniko::ImageAlphaType::AlphaPremultiplied,
         ),
+        #[cfg(not(feature = "image-pixel-format-rgb565"))]
+        #[allow(unreachable_patterns)]
+        _ => return None,
     };
 
     Some(peniko::ImageData {

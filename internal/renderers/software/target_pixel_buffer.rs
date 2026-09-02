@@ -119,6 +119,7 @@ impl DrawTextureArgs {
                             size,
                         )
                     }
+                    #[cfg(feature = "image-pixel-format-rgb565")]
                     SharedBufferData::SharedImage(SharedImageBuffer::RGB565(b)) => {
                         TextureData::new(
                             &b.as_bytes()[start * 2..end * 2],
@@ -132,6 +133,11 @@ impl DrawTextureArgs {
                         TexturePixelFormat::AlphaMap,
                         stride,
                         size,
+                    ),
+                    #[cfg(not(feature = "image-pixel-format-rgb565"))]
+                    #[allow(unreachable_patterns)]
+                    _ => unimplemented!(
+                        "RGB565 images need the image-pixel-format-rgb565 feature of the renderer"
                     ),
                 }
             }

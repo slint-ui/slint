@@ -219,6 +219,9 @@ pub enum SharedImageBuffer {
     RGBA8Premultiplied(SharedPixelBuffer<Rgba8Pixel>),
     /// This variant holds the data for an image where each pixel is 16 bits: 5 red bits,
     /// 6 green bits, and 5 blue bits. This is the native format of many embedded displays.
+    ///
+    /// This variant is only available with the `image-pixel-format-rgb565` feature.
+    #[cfg(feature = "image-pixel-format-rgb565")]
     RGB565(SharedPixelBuffer<Rgb565Pixel>),
 }
 
@@ -230,6 +233,7 @@ impl SharedImageBuffer {
             Self::RGB8(buffer) => buffer.width(),
             Self::RGBA8(buffer) => buffer.width(),
             Self::RGBA8Premultiplied(buffer) => buffer.width(),
+            #[cfg(feature = "image-pixel-format-rgb565")]
             Self::RGB565(buffer) => buffer.width(),
         }
     }
@@ -241,6 +245,7 @@ impl SharedImageBuffer {
             Self::RGB8(buffer) => buffer.height(),
             Self::RGBA8(buffer) => buffer.height(),
             Self::RGBA8Premultiplied(buffer) => buffer.height(),
+            #[cfg(feature = "image-pixel-format-rgb565")]
             Self::RGB565(buffer) => buffer.height(),
         }
     }
@@ -252,6 +257,7 @@ impl SharedImageBuffer {
             Self::RGB8(buffer) => buffer.size(),
             Self::RGBA8(buffer) => buffer.size(),
             Self::RGBA8Premultiplied(buffer) => buffer.size(),
+            #[cfg(feature = "image-pixel-format-rgb565")]
             Self::RGB565(buffer) => buffer.size(),
         }
     }
@@ -269,6 +275,7 @@ impl PartialEq for SharedImageBuffer {
             Self::RGBA8Premultiplied(lhs_buffer) => {
                 matches!(other, Self::RGBA8Premultiplied(rhs_buffer) if lhs_buffer.data.as_ptr().eq(&rhs_buffer.data.as_ptr()))
             }
+            #[cfg(feature = "image-pixel-format-rgb565")]
             Self::RGB565(lhs_buffer) => {
                 matches!(other, Self::RGB565(rhs_buffer) if lhs_buffer.data.as_ptr().eq(&rhs_buffer.data.as_ptr()))
             }
@@ -294,6 +301,9 @@ pub enum TexturePixelFormat {
     /// The array must be width * height +1 bytes long. (the extra bit is read but never used)
     SignedDistanceField,
     /// 16 bits per pixel: 5 red bits, 6 green bits, and 5 blue bits, in native byte order.
+    ///
+    /// This variant is only available with the `image-pixel-format-rgb565` feature.
+    #[cfg(feature = "image-pixel-format-rgb565")]
     Rgb565,
 }
 
@@ -306,6 +316,7 @@ impl TexturePixelFormat {
             TexturePixelFormat::RgbaPremultiplied => 4,
             TexturePixelFormat::AlphaMap => 1,
             TexturePixelFormat::SignedDistanceField => 1,
+            #[cfg(feature = "image-pixel-format-rgb565")]
             TexturePixelFormat::Rgb565 => 2,
         }
     }
@@ -571,6 +582,7 @@ impl ImageInner {
                             TexturePixelFormat::SignedDistanceField => {
                                 todo!("converting from a signed distance field to an image")
                             }
+                            #[cfg(feature = "image-pixel-format-rgb565")]
                             TexturePixelFormat::Rgb565 => {
                                 let mut iter = source.as_chunks::<2>().0.iter().map(|chunk| {
                                     let p = Rgb565Pixel(u16::from_ne_bytes(*chunk));
@@ -914,6 +926,9 @@ impl Image {
     ///
     /// This is the native format of many embedded displays. The software renderer can draw such
     /// images without any pixel conversion when the target is also RGB565.
+    ///
+    /// This function is only available with the `image-pixel-format-rgb565` feature.
+    #[cfg(feature = "image-pixel-format-rgb565")]
     pub fn from_rgb565(buffer: SharedPixelBuffer<Rgb565Pixel>) -> Self {
         Image(ImageInner::EmbeddedImage {
             cache_key: ImageCacheKey::Invalid,
@@ -952,6 +967,7 @@ impl Image {
                 height: buffer.height,
                 data: buffer.data.into_iter().map(Image::premultiplied_rgba_to_rgba).collect(),
             },
+            #[cfg(feature = "image-pixel-format-rgb565")]
             SharedImageBuffer::RGB565(buffer) => SharedPixelBuffer::<Rgba8Pixel> {
                 width: buffer.width,
                 height: buffer.height,
@@ -980,6 +996,7 @@ impl Image {
                 data: buffer.data.into_iter().map(Image::rgba_to_premultiplied_rgba).collect(),
             },
             SharedImageBuffer::RGBA8Premultiplied(buffer) => buffer,
+            #[cfg(feature = "image-pixel-format-rgb565")]
             SharedImageBuffer::RGB565(buffer) => SharedPixelBuffer::<Rgba8Pixel> {
                 width: buffer.width,
                 height: buffer.height,
@@ -1889,7 +1906,9 @@ pub struct BorrowedOpenGLTexture {
 mod tests {
     use crate::graphics::Rgba8Pixel;
 
-    use super::{Image, Rgb565Pixel, SharedPixelBuffer};
+    #[cfg(feature = "image-pixel-format-rgb565")]
+    use super::SharedPixelBuffer;
+    use super::{Image, Rgb565Pixel};
 
     #[test]
     fn test_premultiplied_to_rgb_zero_alpha() {
@@ -1933,6 +1952,7 @@ mod tests {
         assert_eq!(converted, Rgba8Pixel::new(5, 10, 15, 128));
     }
 
+    #[cfg(feature = "image-pixel-format-rgb565")]
     #[test]
     fn test_image_from_rgb565() {
         let mut buffer = SharedPixelBuffer::<Rgb565Pixel>::new(2, 1);

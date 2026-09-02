@@ -273,6 +273,7 @@ TEST_CASE("Image")
         REQUIRE(size.height == 2);
         REQUIRE(!img.path().has_value());
     }
+#ifdef SLINT_FEATURE_IMAGE_PIXEL_FORMAT_RGB565
     auto red565 = Rgb565Pixel(red);
     auto blu565 = Rgb565Pixel(blu);
     Rgb565Pixel some_565_data[] = { red565, red565, blu565, red565, blu565, blu565 };
@@ -287,6 +288,7 @@ TEST_CASE("Image")
         // The conversion truncates the low bits, so 0xff comes back as 0xf8.
         REQUIRE(*rgba8->begin() == Rgba8Pixel { 0xf8, 0, 0, 0xff });
     }
+#endif
 }
 
 TEST_CASE("Image buffer access")

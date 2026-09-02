@@ -19,6 +19,12 @@ build = "build.rs"
 path = "lib.rs"
 
 [features]
+image-pixel-format-rgb565 = [
+  "i-slint-core/image-pixel-format-rgb565",
+  "i-slint-renderer-skia?/image-pixel-format-rgb565",
+  "i-slint-renderer-femtovg?/image-pixel-format-rgb565",
+  "i-slint-renderer-software?/image-pixel-format-rgb565",
+]
 renderer-skia = ["renderer-skia-opengl"]
 renderer-skia-vulkan = ["unstable-wgpu-30", "i-slint-renderer-skia/vulkan"]
 unstable-wgpu-29 = ["i-slint-renderer-skia/wgpu-29", "drm", "dep:memmap2"]

@@ -379,6 +379,10 @@ fn default_config() -> cbindgen::Config {
         ("target_arch = wasm32".into(), "SLINT_TARGET_WASM".into()),
         ("target_os = android".into(), "__ANDROID__".into()),
         // Disable Rust WGPU specific API feature
+        (
+            "feature = image-pixel-format-rgb565".into(),
+            "SLINT_FEATURE_IMAGE_PIXEL_FORMAT_RGB565".into(),
+        ),
         ("feature = unstable-wgpu-29".into(), "SLINT_DISABLED_CODE".into()),
         ("feature = unstable-wgpu-30".into(), "SLINT_DISABLED_CODE".into()),
     ]
@@ -1346,6 +1350,7 @@ declare_features! {
     renderer_skia_vulkan
     renderer_software
     gettext
+    image_pixel_format_rgb565
     accessibility
     system_testing
     mcp
