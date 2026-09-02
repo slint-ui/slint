@@ -36,6 +36,10 @@ Concretely:
      It also makes an overlong sentence obvious: one that fills three lines on its own needs splitting, not rewrapping.
 5. Use American English spelling.
    - Rationale: Slint's API uses American spelling (such as `color`), so the rest of our writing matches.
+6. Keep sentences under about 25 words.
+   - Avoid: reaching for a third clause, a dash, or a parenthetical aside.
+   - Use: a split at the first "and" or ";".
+   - Rationale: A sentence the reader has to take twice costs more than the two sentences it replaces.
 
 ## Code Comments
 
