@@ -2457,10 +2457,13 @@ pub mod ffi {
     #![allow(missing_docs)]
 
     use super::*;
+    #[cfg(feature = "std")]
     use crate::SharedVector;
     use crate::api::{RenderingNotifier, RenderingState, SetRenderingNotifierError};
+    use crate::graphics::IntSize;
+    #[cfg(feature = "std")]
+    use crate::graphics::Rgba8Pixel;
     use crate::graphics::Size;
-    use crate::graphics::{IntSize, Rgba8Pixel};
     use crate::items::WindowItem;
     use core::ffi::c_void;
 
@@ -3072,6 +3075,7 @@ pub mod ffi {
     }
 
     /// Takes a snapshot of the window contents and returns it as RGBA8 encoded pixel buffer.
+    #[cfg(feature = "std")]
     #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_windowrc_take_snapshot(
         handle: *const WindowAdapterRcOpaque,

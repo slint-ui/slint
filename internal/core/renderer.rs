@@ -6,6 +6,7 @@ use alloc::rc::Rc;
 use core::pin::Pin;
 
 use crate::api::PlatformError;
+#[cfg(feature = "std")]
 use crate::graphics::{Rgba8Pixel, SharedPixelBuffer};
 use crate::item_tree::ItemTreeRef;
 use crate::items::{ItemRc, TextWrap};
@@ -367,6 +368,7 @@ pub trait RendererSealed {
 
     /// Re-implement this function to support Window::take_snapshot(), i.e. return
     /// the contents of the window in an image buffer.
+    #[cfg(feature = "std")]
     fn take_snapshot(&self) -> Result<SharedPixelBuffer<Rgba8Pixel>, PlatformError> {
         Err("WindowAdapter::take_snapshot is not implemented by the platform".into())
     }
