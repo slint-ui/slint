@@ -13,7 +13,7 @@ component Inner {
 export component Derived inherits Inner {
     // Accessing a deprecated property from the base component warns:
     in-out property <int> xx: self.old-prop;
-//                                 >      <warning{The property 'old-prop' has been deprecated. Please use 'new-prop' instead}
+//                                 >      <warning{The property 'old-prop' has been deprecated: Please use 'new-prop' instead}
 }
 
 export component Test {
@@ -22,21 +22,21 @@ export component Test {
     }
 
     property <int> qualified: inner.old-prop;
-//                                  >      <warning{The property 'old-prop' has been deprecated. Please use 'new-prop' instead}
+//                                  >      <warning{The property 'old-prop' has been deprecated: Please use 'new-prop' instead}
     property <int> custom-message: inner.older-prop;
-//                                       >        <warning{The property 'older-prop' has been deprecated. Compute it from 'new-prop' instead}
+//                                       >        <warning{The property 'older-prop' has been deprecated: Compute it from 'new-prop' instead}
     property <int> two-way <=> inner.old-prop;
-//                                   >      <warning{The property 'old-prop' has been deprecated. Please use 'new-prop' instead}
+//                                   >      <warning{The property 'old-prop' has been deprecated: Please use 'new-prop' instead}
 
     // Setting a deprecated property as a binding on an element warns too:
     Inner {
         old-prop: 1;
-//      >      <warning{The property 'old-prop' has been deprecated. Please use 'new-prop' instead}
+//      >      <warning{The property 'old-prop' has been deprecated: Please use 'new-prop' instead}
         older-prop: 2;
-//      >        <warning{The property 'older-prop' has been deprecated. Compute it from 'new-prop' instead}
+//      >        <warning{The property 'older-prop' has been deprecated: Compute it from 'new-prop' instead}
 
         // ... and so does animating it:
         animate old-prop { duration: 100ms; }
-//              >       <warning{The property 'old-prop' has been deprecated. Please use 'new-prop' instead}
+//              >       <warning{The property 'old-prop' has been deprecated: Please use 'new-prop' instead}
     }
 }

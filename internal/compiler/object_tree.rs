@@ -810,7 +810,7 @@ pub struct PropertyDeclaration {
     /// inherits from, keeps this `None`.
     pub moved_from: Option<SmolStr>,
     /// Some if the member was declared with `@deprecated`. The string is the message given as
-    /// argument, shown after "The property 'xxx' has been deprecated." in the warning. It is
+    /// argument, shown after "The property 'xxx' has been deprecated:" in the warning. It is
     /// empty when the declaration gives no advice on a replacement, and the warning then stops
     /// after naming the member.
     pub deprecated: Option<SmolStr>,
