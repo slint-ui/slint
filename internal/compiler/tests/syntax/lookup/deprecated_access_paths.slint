@@ -1,0 +1,61 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A `@deprecated` member warns on every way of reaching it from outside the declaring
+// component, whatever its declaration binds to.
+
+component Sub {
+    in-out property <int> inner-property;
+}
+
+component Inner {
+    private property <int> private-prop;
+    in-out property <int> public-prop;
+    in-out property <{ field: int }> a-struct;
+    sub := Sub { }
+
+    callback tapped();
+
+    // The target of the two-way binding is unconstrained: it may be private, on another
+    // element, or a field within a struct.
+    @deprecated("Please use 'public-prop' instead") in-out property <int> to-public <=> public-prop;
+    @deprecated("Please use 'a-struct.field' instead") in-out property <int> to-struct <=> a-struct.field;
+    @deprecated("Use 'private-prop' internally") in-out property <int> to-private <=> private-prop;
+    @deprecated("Set it on the inner element") in-out property <int> to-sub <=> sub.inner-property;
+
+    // An empty message deprecates without advising on a replacement.
+    @deprecated("") in-out property <int> no-advice;
+}
+
+export component Test {
+    in-out property <int> root-prop;
+
+    // @deprecated also applies to a property of a nested element, relative to it.
+    the-rect := Rectangle {
+        in-out property <int> rn;
+        @deprecated("Please use 'rn' instead") in-out property <int> re-ok <=> rn;
+        @deprecated("Use 'root-prop'") in-out property <int> re-root <=> root.root-prop;
+    }
+
+    inner := Inner {
+        // Every way of accessing a deprecated property from outside warns.
+        to-public: 1;
+//      >       <warning{The property 'to-public' has been deprecated. Please use 'public-prop' instead}
+        tapped => { inner.to-public = 2; }
+//                        >       <warning{The property 'to-public' has been deprecated. Please use 'public-prop' instead}
+    }
+    property <int> a: inner.to-public;
+//                          >       <warning{The property 'to-public' has been deprecated. Please use 'public-prop' instead}
+    property <int> b <=> inner.to-public;
+//                             >       <warning{The property 'to-public' has been deprecated. Please use 'public-prop' instead}
+    property <int> c: inner.to-struct;
+//                          >       <warning{The property 'to-struct' has been deprecated. Please use 'a-struct.field' instead}
+    property <int> d: inner.to-private;
+//                          >        <warning{The property 'to-private' has been deprecated. Use 'private-prop' internally}
+    property <int> e: inner.to-sub;
+//                          >    <warning{The property 'to-sub' has been deprecated. Set it on the inner element}
+
+    // An empty message leaves the warning without a replacement hint.
+    property <int> f: inner.no-advice;
+//                          >       <warning{The property 'no-advice' has been deprecated}
+}

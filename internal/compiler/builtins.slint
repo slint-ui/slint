@@ -12,7 +12,8 @@
 
    comments starting by `//-` have some meanings
 
-   Properties with two way bindings (aliases) are deprecated and must be marked `@deprecated("")`
+   Properties with two way bindings (aliases) are deprecated and must be marked `@deprecated("")`.
+   Their warning names the alias target, so the annotation carries no message of its own.
 
    Properties can have default binding which must be an expression without any reference to
    another properties. These binding will be then set by the compiler.

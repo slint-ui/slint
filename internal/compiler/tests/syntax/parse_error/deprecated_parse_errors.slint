@@ -4,7 +4,7 @@
 export component Test {
     // The message is mandatory:
     @deprecated in-out property <int> no-message <=> other;
-//              >    <error{@deprecated requires a message in parentheses. Use '@deprecated("")' to derive the message from the two-way binding target}
+//              >    <error{@deprecated requires a message in parentheses. Use '@deprecated("")' to deprecate without advising on a replacement}
 
     // The message must be a plain string literal:
     @deprecated("foo \{42}") in-out property <int> template-message <=> other;

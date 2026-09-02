@@ -3,7 +3,7 @@
 
 component Inner {
     in-out property <int> new-prop;
-    @deprecated("") in-out property <int> old-prop <=> new-prop;
+    @deprecated("Please use 'new-prop' instead") in-out property <int> old-prop <=> new-prop;
     @deprecated("Compute it from 'new-prop' instead") in-out property <int> older-prop: 42;
 
     // No warning for accesses within the declaring component:

@@ -306,6 +306,15 @@ impl Type {
         }
     }
 
+    /// The noun for a member of this type in diagnostics.
+    pub fn member_kind(&self) -> &'static str {
+        match self {
+            Type::Callback { .. } | Type::InferredCallback => "callback",
+            Type::Function { .. } => "function",
+            _ => "property",
+        }
+    }
+
     /// If this is a number type which should be used with an unit, this returns the default unit
     /// otherwise, returns None
     pub fn default_unit(&self) -> Option<Unit> {
