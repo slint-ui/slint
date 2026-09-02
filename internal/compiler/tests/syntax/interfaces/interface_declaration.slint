@@ -104,3 +104,13 @@ export interface CannotImplementInterface {
     implement Other <=> self;
 //  >                       <error{Interfaces cannot implement another interface}
 }
+
+// An interface may not yet inherit another interface.
+export interface CannotInheritInterface inherits Other {
+//                                               >    <error{Interface inheritance is not supported yet}
+}
+
+// A component cannot inherit an interface; it implements one instead.
+export component ComponentInheritsInterface inherits Other {
+//                                                   >    <error{Components cannot inherit from interfaces}
+}

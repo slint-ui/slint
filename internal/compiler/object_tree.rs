@@ -1586,7 +1586,6 @@ impl Element {
     ) -> ElementRc {
         // A child element's parent_type is the type of its parent; the root
         // gets a sentinel from Component::from_node
-        #[cfg(feature = "slint-sc")]
         let is_component_root =
             !matches!(parent_type, ElementType::Builtin(_) | ElementType::Component(_));
         let base_type = if let Some(base_node) = node.QualifiedName() {
@@ -1598,6 +1597,15 @@ impl Element {
                         "Cannot create an instance of a global component".into(),
                         &base_node,
                     );
+                    ElementType::Error
+                }
+                Ok(ElementType::Component(c)) if c.is_interface() && is_component_root => {
+                    let message = if parent_type == ElementType::Interface {
+                        "Interface inheritance is not supported yet"
+                    } else {
+                        "Components cannot inherit from interfaces"
+                    };
+                    diag.push_error(message.into(), &base_node);
                     ElementType::Error
                 }
                 Ok(ty) => {
