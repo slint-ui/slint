@@ -1682,7 +1682,7 @@ mod tests {
     use crate::Property;
     use crate::api::LogicalPosition;
     use crate::api::Window;
-    use crate::items::{Clip, Transform, WindowItem};
+    use crate::items::{Clip, TouchArea, Transform, WindowItem};
     use crate::lengths::LogicalLength;
     use crate::lengths::LogicalSize;
     use euclid::Point2D;
@@ -2744,6 +2744,151 @@ mod tests {
         )
     }
 
+    struct InputTestItemTree {
+        self_weak: std::cell::OnceCell<ItemTreeWeak>,
+        item_tree: [ItemTreeNode; 2],
+        window_adapter: std::rc::Weak<dyn crate::window::WindowAdapter>,
+        root: WindowItem,
+        touch_area: TouchArea,
+    }
+
+    impl ItemTree for InputTestItemTree {
+        fn visit_children_item(
+            self: Pin<&Self>,
+            index: isize,
+            order: TraversalOrder,
+            visitor: VRefMut<ItemVisitorVTable>,
+        ) -> VisitChildrenResult {
+            let item_tree = self.self_weak.get().unwrap().upgrade().unwrap();
+            visit_item_tree(&item_tree, &self.item_tree, index, order, visitor, &mut |_, _, _| {
+                VisitChildrenResult::CONTINUE
+            })
+        }
+
+        fn get_item_ref(self: Pin<&Self>, index: u32) -> Pin<VRef<'_, ItemVTable>> {
+            let item_tree = self.get_ref();
+            match index {
+                0 => Pin::new(VRef::new(&item_tree.root)),
+                1 => Pin::new(VRef::new(&item_tree.touch_area)),
+                _ => unreachable!(),
+            }
+        }
+
+        fn get_item_tree(self: Pin<&Self>) -> Slice<'_, ItemTreeNode> {
+            Slice::from_slice(&self.get_ref().item_tree)
+        }
+
+        fn parent_node(self: Pin<&Self>, _result: &mut ItemWeak) {}
+
+        fn embed_component(
+            self: Pin<&Self>,
+            _parent_component: &ItemTreeWeak,
+            _item_tree_index: u32,
+        ) -> bool {
+            false
+        }
+
+        fn layout_info(self: Pin<&Self>, _orientation: Orientation) -> LayoutInfo {
+            LayoutInfo { min: 100., max: 100., preferred: 100., ..Default::default() }
+        }
+
+        fn subtree_index(self: Pin<&Self>) -> usize {
+            usize::MAX
+        }
+
+        fn get_subtree_range(self: Pin<&Self>, _subtree_index: u32) -> IndexRange {
+            (0..0).into()
+        }
+
+        fn get_subtree(
+            self: Pin<&Self>,
+            _subtree_index: u32,
+            _component_index: usize,
+            _result: &mut ItemTreeWeak,
+        ) {
+        }
+
+        fn accessible_role(self: Pin<&Self>, _index: u32) -> AccessibleRole {
+            AccessibleRole::None
+        }
+
+        fn accessible_string_property(
+            self: Pin<&Self>,
+            _index: u32,
+            _what: AccessibleStringProperty,
+            _result: &mut SharedString,
+        ) -> bool {
+            false
+        }
+
+        fn item_element_infos(self: Pin<&Self>, _index: u32, _result: &mut SharedString) -> bool {
+            false
+        }
+
+        fn ensure_instantiated(self: Pin<&Self>) -> bool {
+            false
+        }
+
+        fn window_adapter(
+            self: Pin<&Self>,
+            _do_create: bool,
+            result: &mut Option<WindowAdapterRc>,
+        ) {
+            *result = self.window_adapter.upgrade()
+        }
+
+        fn item_geometry(self: Pin<&Self>, _index: u32) -> LogicalRect {
+            LogicalRect::new(LogicalPoint::zero(), LogicalSize::new(100., 100.))
+        }
+
+        fn accessibility_action(self: Pin<&Self>, _index: u32, _action: &AccessibilityAction) {}
+
+        fn supported_accessibility_actions(
+            self: Pin<&Self>,
+            _index: u32,
+        ) -> SupportedAccessibilityAction {
+            SupportedAccessibilityAction::default()
+        }
+    }
+
+    crate::item_tree::ItemTreeVTable_static!(static INPUT_TEST_COMPONENT_VT for InputTestItemTree);
+
+    fn create_input_test_item_tree(
+        window_adapter: &Rc<WindowAdapter>,
+        enabled: bool,
+    ) -> VRc<ItemTreeVTable> {
+        let mut root = WindowItem::default();
+        root.width = Property::new(LogicalLength::new(100.));
+        root.height = Property::new(LogicalLength::new(100.));
+        let mut touch_area = TouchArea::default();
+        touch_area.enabled = Property::new(enabled);
+        let item_tree = VRc::new(InputTestItemTree {
+            self_weak: Default::default(),
+            item_tree: [
+                ItemTreeNode::Item {
+                    is_accessible: false,
+                    children_count: 1,
+                    children_index: 1,
+                    parent_index: 0,
+                    item_array_index: 0,
+                },
+                ItemTreeNode::Item {
+                    is_accessible: false,
+                    children_count: 0,
+                    children_index: 2,
+                    parent_index: 0,
+                    item_array_index: 1,
+                },
+            ],
+            window_adapter: Rc::downgrade(window_adapter) as _,
+            root,
+            touch_area,
+        });
+        let item_tree_dyn = VRc::into_dyn(item_tree.clone());
+        assert!(item_tree.as_pin_ref().self_weak.set(VRc::downgrade(&item_tree_dyn)).is_ok());
+        item_tree_dyn
+    }
+
     struct TransformTestItemTree {
         item_tree: Vec<ItemTreeNode>,
         geometries: Vec<LogicalRect>,
@@ -3074,7 +3219,7 @@ mod tests {
     }
 
     #[test]
-    fn test_window_overlay_renders_above_child_popups_without_joining_popup_stack() {
+    fn test_window_overlay_uses_popup_stack_without_popup_close_behavior() {
         let mut window_item = WindowItem::default();
         window_item.width = Property::new(LogicalLength::new(30.));
         window_item.height = Property::new(LogicalLength::new(30.));
@@ -3100,13 +3245,24 @@ mod tests {
         let unrelated_overlay = create_subsubtree_items(None).1;
         assert!(window_adapter.window.0.add_overlay(&unrelated_overlay).is_err());
 
+        let nested_popup = create_subsubtree_items(Some(window_adapter.clone())).1;
+        window_adapter.window.0.show_popup(
+            &nested_popup,
+            alloc::boxed::Box::new(|| LogicalPosition::new(5., 5.)),
+            crate::items::PopupClosePolicy::NoAutoClose,
+            &ItemRc::new_root(popup.clone()),
+            crate::window::WindowKind::Popup,
+            alloc::boxed::Box::new(|_| {}),
+        );
+
         let resized = LogicalSize::new(75., 65.);
         window_adapter.window.0.set_window_item_geometry(resized);
         let overlay_window = ItemRc::new_root(overlay.clone()).downcast::<WindowItem>().unwrap();
         assert_eq!(overlay_window.as_pin_ref().width().0, resized.width);
         assert_eq!(overlay_window.as_pin_ref().height().0, resized.height);
 
-        assert_eq!(window_adapter.window.0.active_popups().len(), 1);
+        assert_eq!(window_adapter.window.0.active_popups().len(), 2);
+        assert_eq!(window_adapter.window.0.active_popups.borrow().len(), 3);
         let rendered_components = || {
             window_adapter
                 .window
@@ -3119,15 +3275,23 @@ mod tests {
                 })
                 .unwrap()
         };
-        for (actual, expected) in rendered_components().iter().zip([&component, &popup, &overlay]) {
+        for (actual, expected) in
+            rendered_components().iter().zip([&component, &popup, &nested_popup, &overlay])
+        {
             assert!(VRc::ptr_eq(actual, expected));
         }
 
         window_adapter.window.0.close_top_popup();
-        assert!(window_adapter.window.0.active_popups().is_empty());
+        assert_eq!(window_adapter.window.0.active_popups().len(), 1);
         let components_without_popup = rendered_components();
-        assert_eq!(components_without_popup.len(), 2);
-        assert!(VRc::ptr_eq(&components_without_popup[1], &overlay));
+        assert_eq!(components_without_popup.len(), 3);
+        assert!(VRc::ptr_eq(&components_without_popup[2], &overlay));
+
+        window_adapter.window.0.close_all_popups();
+        assert!(window_adapter.window.0.active_popups().is_empty());
+        let components_without_popups = rendered_components();
+        assert_eq!(components_without_popups.len(), 2);
+        assert!(VRc::ptr_eq(&components_without_popups[1], &overlay));
 
         window_adapter.window.0.clear_overlays();
         assert_eq!(rendered_components().len(), 1);
@@ -3138,6 +3302,47 @@ mod tests {
         let components_after_replacement = rendered_components();
         assert_eq!(components_after_replacement.len(), 1);
         assert!(VRc::ptr_eq(&components_after_replacement[0], &replacement));
+    }
+
+    #[test]
+    fn test_window_overlay_input_intercepts_only_when_accepted() {
+        let window_adapter = WindowAdapter::new();
+        let component = create_input_test_item_tree(&window_adapter, true);
+        window_adapter
+            .window
+            .0
+            .set_context(crate::SlintContext::new(Box::new(window_adapter.clone())));
+        window_adapter.window.0.set_component(&component);
+
+        let overlay = create_input_test_item_tree(&window_adapter, false);
+        window_adapter.window.0.add_overlay(&overlay).unwrap();
+        let component_touch_area =
+            ItemRc::new(component.clone(), 1).downcast::<TouchArea>().unwrap();
+        let overlay_touch_area = ItemRc::new(overlay.clone(), 1).downcast::<TouchArea>().unwrap();
+
+        let press = crate::input::MouseEvent::Pressed {
+            position: LogicalPoint::new(10., 10.),
+            button: crate::input::PointerEventButton::Left,
+            click_count: 0,
+            touch_finger_id: 0,
+        };
+        assert!(window_adapter.window.0.process_mouse_input(press.clone()).unwrap().accepted);
+        assert!(component_touch_area.as_pin_ref().pressed());
+        assert!(!overlay_touch_area.as_pin_ref().pressed());
+
+        let release = crate::input::MouseEvent::Released {
+            position: LogicalPoint::new(10., 10.),
+            button: crate::input::PointerEventButton::Left,
+            click_count: 0,
+            touch_finger_id: 0,
+        };
+        window_adapter.window.0.process_mouse_input(release);
+        assert!(!component_touch_area.as_pin_ref().pressed());
+
+        TouchArea::FIELD_OFFSETS.enabled().apply_pin(overlay_touch_area.as_pin_ref()).set(true);
+        assert!(window_adapter.window.0.process_mouse_input(press).unwrap().accepted);
+        assert!(overlay_touch_area.as_pin_ref().pressed());
+        assert!(!component_touch_area.as_pin_ref().pressed());
     }
 
     #[test]

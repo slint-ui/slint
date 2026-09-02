@@ -544,6 +544,19 @@ pub struct PopupWindow {
     is_open_setter: Box<dyn Fn(bool)>,
     // tracks all relevant properties and reacts on changes
     properties_tracker: Pin<Box<PropertyTracker<true, PopupWindowPropertiesTracker>>>,
+    role: PopupWindowRole,
+}
+
+#[derive(Clone, Copy, PartialEq)]
+enum PopupWindowRole {
+    Popup,
+    Overlay,
+}
+
+impl PopupWindow {
+    fn is_overlay(&self) -> bool {
+        self.role == PopupWindowRole::Overlay
+    }
 }
 
 impl Drop for PopupWindow {
@@ -613,7 +626,6 @@ pub struct WindowInner {
     /// Stack of currently active popups
     pub active_popups: RefCell<Vec<PopupWindow>>,
     next_popup_id: Cell<NonZeroU32>,
-    overlays: RefCell<Vec<ItemTreeRc>>,
     had_popup_on_press: Cell<bool>,
     close_requested: Callback<(), CloseRequestResponse>,
     click_state: ClickState,
@@ -680,7 +692,6 @@ impl WindowInner {
             cursor_blinker: Default::default(),
             active_popups: Default::default(),
             next_popup_id: Cell::new(NonZeroU32::MIN),
-            overlays: Default::default(),
             had_popup_on_press: Default::default(),
             close_requested: Default::default(),
             click_state: ClickState::default(),
@@ -747,9 +758,6 @@ impl WindowInner {
             for popup in self.active_popups.borrow().iter() {
                 changed |= crate::item_tree::ensure_item_tree_instantiated(&popup.component);
             }
-            for overlay in self.overlays.borrow().iter() {
-                changed |= crate::item_tree::ensure_item_tree_instantiated(overlay);
-            }
             changed |= crate::properties::ChangeTracker::run_change_handlers_once();
             if !changed {
                 return;
@@ -760,7 +768,71 @@ impl WindowInner {
 
     /// Returns a slice of the active popups.
     pub fn active_popups(&self) -> core::cell::Ref<'_, [PopupWindow]> {
-        core::cell::Ref::map(self.active_popups.borrow(), |v| v.as_slice())
+        let active_popups = self.active_popups.borrow();
+        let popup_count =
+            active_popups.iter().position(PopupWindow::is_overlay).unwrap_or(active_popups.len());
+        core::cell::Ref::map(active_popups, |active_popups| &active_popups[..popup_count])
+    }
+
+    fn dispatch_to_overlay(
+        &self,
+        active_popups: &RefCell<Vec<PopupWindow>>,
+        event: &MouseEvent,
+        window_adapter: &Rc<dyn WindowAdapter>,
+        mouse_input_state: &mut MouseInputState,
+    ) -> Option<MouseInputState> {
+        let overlays = active_popups
+            .borrow()
+            .iter()
+            .rev()
+            .filter(|popup| popup.is_overlay())
+            .filter_map(|popup| match popup.location {
+                PopupWindowLocation::ChildWindow(offset) => Some((popup.component.clone(), offset)),
+                PopupWindowLocation::TopLevel(_) => None,
+            })
+            .collect::<Vec<_>>();
+
+        for (component, offset) in overlays {
+            let geometry = ItemTreeRc::borrow_pin(&component).as_ref().item_geometry(0);
+            if !event
+                .position()
+                .is_none_or(|position| geometry.contains(position - offset.to_vector()))
+            {
+                continue;
+            }
+
+            let tracks_overlay = mouse_input_state.tracks_item_tree(&component);
+            let dispatch_state = if tracks_overlay {
+                core::mem::take(mouse_input_state)
+            } else {
+                mouse_input_state.dispatch_shell()
+            };
+            let mut overlay_event = event.clone();
+            overlay_event.translate(-offset.to_vector());
+            let crate::input::MouseInputResult { mut state, accepted } =
+                crate::input::process_mouse_input(
+                    ItemRc::new_root(component),
+                    &overlay_event,
+                    window_adapter,
+                    dispatch_state,
+                );
+            if accepted {
+                if !tracks_overlay {
+                    crate::input::send_exit_events(
+                        mouse_input_state,
+                        &mut state,
+                        event.position(),
+                        window_adapter,
+                    );
+                }
+                state.offset = offset;
+                return Some(state);
+            }
+            if tracks_overlay {
+                *mouse_input_state = state;
+            }
+        }
+        None
     }
 
     /// Receive a mouse event and pass it to the items of the component to
@@ -904,6 +976,10 @@ impl WindowInner {
             .and_then(|internal| internal.get_parent())
             .unwrap_or_else(|| window_adapter.clone());
         let active_popups = &WindowInner::from_pub(parent_adapter.window()).active_popups;
+        let popup_count = {
+            let active_popups = active_popups.borrow();
+            active_popups.iter().position(PopupWindow::is_overlay).unwrap_or(active_popups.len())
+        };
         let native_popup_index = active_popups.borrow().iter().position(|p| {
             if let PopupWindowLocation::TopLevel(wa) = &p.location {
                 Rc::ptr_eq(wa, &window_adapter)
@@ -913,10 +989,12 @@ impl WindowInner {
         });
 
         if pressed_event {
-            self.had_popup_on_press.set(!active_popups.borrow().is_empty());
+            self.had_popup_on_press.set(popup_count > 0);
         }
 
-        let mut popup_to_close = active_popups.borrow().last().and_then(|popup| {
+        let mut popup_to_close = popup_count.checked_sub(1).and_then(|popup_index| {
+            let active_popups = active_popups.borrow();
+            let popup = &active_popups[popup_index];
             let mouse_inside_popup = || {
                 if let PopupWindowLocation::ChildWindow(coordinates) = &popup.location {
                     event.position().is_none_or(|pos| {
@@ -926,7 +1004,7 @@ impl WindowInner {
                             .contains(pos - coordinates.to_vector())
                     })
                 } else {
-                    native_popup_index.is_some_and(|idx| idx == active_popups.borrow().len() - 1)
+                    native_popup_index.is_some_and(|index| index == popup_count - 1)
                         && event.position().is_none_or(|pos| {
                             ItemTreeRc::borrow_pin(&item_tree)
                                 .as_ref()
@@ -957,74 +1035,89 @@ impl WindowInner {
             // other state, so materialize any pending repeater/conditional
             // changes before hit-testing with the returned event.
             self.ensure_tree_instantiated();
-            let mut item_tree = self.component.borrow().upgrade();
-            let mut offset = LogicalPoint::default();
-            let mut menubar_item = None;
-            for (idx, popup) in active_popups.borrow().iter().enumerate().rev() {
-                if matches!(popup.window_kind, WindowKind::ToolTip) {
-                    continue;
-                }
-                item_tree = None;
-                menubar_item = None;
-                if let PopupWindowLocation::ChildWindow(coordinates) = &popup.location {
-                    let geom = ItemTreeRc::borrow_pin(&popup.component).as_ref().item_geometry(0);
-                    let mouse_inside_popup = event
-                        .position()
-                        .is_none_or(|pos| geom.contains(pos - coordinates.to_vector()));
-                    if mouse_inside_popup {
-                        item_tree = Some(popup.component.clone());
-                        offset = *coordinates;
+            let overlay_state = Rc::ptr_eq(&parent_adapter, &window_adapter).then(|| {
+                self.dispatch_to_overlay(
+                    active_popups,
+                    &event,
+                    &window_adapter,
+                    &mut mouse_input_state,
+                )
+            });
+            if let Some(overlay_state) = overlay_state.flatten() {
+                popup_to_close = None;
+                dispatch_accepted = true;
+                overlay_state
+            } else {
+                let mut item_tree = self.component.borrow().upgrade();
+                let mut offset = LogicalPoint::default();
+                let mut menubar_item = None;
+                for (idx, popup) in active_popups.borrow().iter().enumerate().rev() {
+                    if popup.is_overlay() || matches!(popup.window_kind, WindowKind::ToolTip) {
+                        continue;
+                    }
+                    item_tree = None;
+                    menubar_item = None;
+                    if let PopupWindowLocation::ChildWindow(coordinates) = &popup.location {
+                        let geom =
+                            ItemTreeRc::borrow_pin(&popup.component).as_ref().item_geometry(0);
+                        let mouse_inside_popup = event
+                            .position()
+                            .is_none_or(|pos| geom.contains(pos - coordinates.to_vector()));
+                        if mouse_inside_popup {
+                            item_tree = Some(popup.component.clone());
+                            offset = *coordinates;
+                            break;
+                        }
+                    } else if native_popup_index.is_some_and(|i| i == idx) {
+                        item_tree = self.component.borrow().upgrade();
                         break;
                     }
-                } else if native_popup_index.is_some_and(|i| i == idx) {
-                    item_tree = self.component.borrow().upgrade();
-                    break;
+
+                    if !matches!(popup.window_kind, WindowKind::Menu) {
+                        break;
+                    } else if popup_to_close.is_some() {
+                        // clicking outside of a popup menu should close all the menus
+                        popup_to_close = Some(popup.popup_id);
+                    }
+
+                    menubar_item = popup.parent_item.upgrade();
                 }
 
-                if !matches!(popup.window_kind, WindowKind::Menu) {
-                    break;
-                } else if popup_to_close.is_some() {
-                    // clicking outside of a popup menu should close all the menus
-                    popup_to_close = Some(popup.popup_id);
-                }
+                let root = match menubar_item {
+                    None => item_tree.map(|item_tree| ItemRc::new_root(item_tree.clone())),
+                    Some(menubar_item) => {
+                        event.translate(
+                            menubar_item
+                                .map_to_item_tree(Default::default(), &self.component())
+                                .to_vector(),
+                        );
+                        menubar_item.parent_item(ParentItemTraversalMode::StopAtPopups)
+                    }
+                };
 
-                menubar_item = popup.parent_item.upgrade();
-            }
-
-            let root = match menubar_item {
-                None => item_tree.map(|item_tree| ItemRc::new_root(item_tree.clone())),
-                Some(menubar_item) => {
-                    event.translate(
-                        menubar_item
-                            .map_to_item_tree(Default::default(), &self.component())
-                            .to_vector(),
-                    );
-                    menubar_item.parent_item(ParentItemTraversalMode::StopAtPopups)
-                }
-            };
-
-            if let Some(root) = root {
-                event.translate(-offset.to_vector());
-                let crate::input::MouseInputResult { mut state, accepted } =
-                    crate::input::process_mouse_input(
-                        root,
-                        &event,
+                if let Some(root) = root {
+                    event.translate(-offset.to_vector());
+                    let crate::input::MouseInputResult { mut state, accepted } =
+                        crate::input::process_mouse_input(
+                            root,
+                            &event,
+                            &window_adapter,
+                            mouse_input_state,
+                        );
+                    state.offset = offset;
+                    dispatch_accepted = accepted;
+                    state
+                } else {
+                    // When outside, send exit event
+                    let mut new_input_state = MouseInputState::default();
+                    crate::input::send_exit_events(
+                        &mouse_input_state,
+                        &mut new_input_state,
+                        event.position(),
                         &window_adapter,
-                        mouse_input_state,
                     );
-                state.offset = offset;
-                dispatch_accepted = accepted;
-                state
-            } else {
-                // When outside, send exit event
-                let mut new_input_state = MouseInputState::default();
-                crate::input::send_exit_events(
-                    &mouse_input_state,
-                    &mut new_input_state,
-                    event.position(),
-                    &window_adapter,
-                );
-                new_input_state
+                    new_input_state
+                }
             }
         } else {
             mouse_input_state
@@ -1331,7 +1424,8 @@ impl WindowInner {
             }
             let window = WindowInner::from_pub(adapter.window());
 
-            let close_on_escape = if let Some(popup) = window.active_popups.borrow().last() {
+            let active_popups = window.active_popups();
+            let close_on_escape = if let Some(popup) = active_popups.last() {
                 popup.close_policy == PopupClosePolicy::CloseOnClick
                     || popup.close_policy == PopupClosePolicy::CloseOnClickOutside
             } else {
@@ -1401,7 +1495,7 @@ impl WindowInner {
             return;
         }
 
-        let popup_wa = self.active_popups.borrow().last().and_then(|p| match &p.location {
+        let popup_wa = self.active_popups().last().and_then(|p| match &p.location {
             PopupWindowLocation::TopLevel(wa) => Some(wa.clone()),
             PopupWindowLocation::ChildWindow(..) => None,
         });
@@ -1559,8 +1653,7 @@ impl WindowInner {
             .map(next_focus_item)
             .unwrap_or_else(|| {
                 ItemRc::new(
-                    self.active_popups
-                        .borrow()
+                    self.active_popups()
                         .last()
                         .map_or_else(|| self.component(), |p| p.component.clone()),
                     0,
@@ -1580,8 +1673,7 @@ impl WindowInner {
             self.take_focus_item(&FocusEvent::FocusOut(FocusReason::TabNavigation)).unwrap_or_else(
                 || {
                     ItemRc::new(
-                        self.active_popups
-                            .borrow()
+                        self.active_popups()
                             .last()
                             .map_or_else(|| self.component(), |p| p.component.clone()),
                         0,
@@ -1782,14 +1874,11 @@ impl WindowInner {
                     self.active_popups.borrow().iter().any(|popup| {
                         matches!(popup.location, PopupWindowLocation::ChildWindow(..))
                     });
-                let has_overlay = !self.overlays.borrow().is_empty();
-                if !has_child_popup && !has_overlay {
+                if !has_child_popup {
                     render_components(&[(component_weak, LogicalPoint::default())], &post_render)
                 } else {
                     let active_popups = self.active_popups.borrow();
-                    let overlays = self.overlays.borrow();
-                    let mut item_trees =
-                        Vec::with_capacity(active_popups.len() + overlays.len() + 1);
+                    let mut item_trees = Vec::with_capacity(active_popups.len() + 1);
                     item_trees.push((component_weak, LogicalPoint::default()));
                     for popup in active_popups.iter() {
                         // If the popup is not a real window and does not have its own coordinate system.
@@ -1799,10 +1888,6 @@ impl WindowInner {
                             item_trees.push((ItemTreeRc::downgrade(&popup.component), *location));
                         }
                     }
-                    for overlay in overlays.iter() {
-                        item_trees.push((ItemTreeRc::downgrade(overlay), LogicalPoint::zero()));
-                    }
-                    drop(overlays);
                     drop(active_popups);
                     render_components(&item_trees, &post_render)
                 }
@@ -2009,7 +2094,7 @@ impl WindowInner {
             .active_popups
             .borrow()
             .iter()
-            .filter(|p| p.parent_item == parent_item.downgrade())
+            .filter(|popup| !popup.is_overlay() && popup.parent_item == parent_item.downgrade())
             .map(|p| p.popup_id)
             .collect();
 
@@ -2031,12 +2116,10 @@ impl WindowInner {
         };
 
         let parent_root_item_tree = root_of(parent_item.item_tree().clone());
-        let parent_window_adapter = if let Some(parent_popup) = self
-            .active_popups
-            .borrow()
-            .iter()
-            .find(|p| ItemTreeRc::ptr_eq(&p.component, &parent_root_item_tree))
-        {
+        let parent_window_adapter = if let Some(parent_popup) =
+            self.active_popups.borrow().iter().find(|popup| {
+                !popup.is_overlay() && ItemTreeRc::ptr_eq(&popup.component, &parent_root_item_tree)
+            }) {
             // Popup in a popup
             match &parent_popup.location {
                 PopupWindowLocation::TopLevel(wa) => wa.clone(),
@@ -2109,7 +2192,7 @@ impl WindowInner {
         // `active_popups` while running user-provided code.
         is_open_setter(true);
 
-        self.active_popups.borrow_mut().push(PopupWindow {
+        let popup = PopupWindow {
             popup_id,
             location,
             component: popup_componentrc.clone(),
@@ -2120,7 +2203,13 @@ impl WindowInner {
             position_access: popup_access_position,
             is_open_setter,
             properties_tracker,
-        });
+            role: PopupWindowRole::Popup,
+        };
+        let mut active_popups = self.active_popups.borrow_mut();
+        let insertion_index =
+            active_popups.iter().position(PopupWindow::is_overlay).unwrap_or(active_popups.len());
+        active_popups.insert(insertion_index, popup);
+        drop(active_popups);
 
         self.update_popup_properties(popup_id);
 
@@ -2180,7 +2269,9 @@ impl WindowInner {
     /// Removes the popup matching the given ID.
     pub fn close_popup(&self, popup_id: NonZeroU32) {
         let mut active_popups = self.active_popups.borrow_mut();
-        let maybe_index = active_popups.iter().position(|popup| popup.popup_id == popup_id);
+        let maybe_index = active_popups
+            .iter()
+            .position(|popup| !popup.is_overlay() && popup.popup_id == popup_id);
 
         if let Some(popup_index) = maybe_index {
             let p = active_popups.remove(popup_index);
@@ -2203,14 +2294,30 @@ impl WindowInner {
 
     /// Close all active popups.
     pub fn close_all_popups(&self) {
-        for popup in self.active_popups.take() {
+        let popups = {
+            let mut active_popups = self.active_popups.borrow_mut();
+            let popup_count = active_popups
+                .iter()
+                .position(PopupWindow::is_overlay)
+                .unwrap_or(active_popups.len());
+            active_popups.drain(..popup_count).collect::<Vec<_>>()
+        };
+        for popup in popups {
             self.close_popup_impl(&popup);
         }
     }
 
     /// Close the top-most popup.
     pub fn close_top_popup(&self) {
-        let popup = self.active_popups.borrow_mut().pop();
+        let popup = {
+            let mut active_popups = self.active_popups.borrow_mut();
+            active_popups
+                .iter()
+                .position(PopupWindow::is_overlay)
+                .unwrap_or(active_popups.len())
+                .checked_sub(1)
+                .map(|popup_index| active_popups.remove(popup_index))
+        };
         if let Some(popup) = popup {
             self.close_popup_impl(&popup);
         }
@@ -2219,7 +2326,8 @@ impl WindowInner {
     /// Adds an item tree that renders above the component and embedded popups.
     ///
     /// The item tree must have a `Window` root and use this window's adapter.
-    /// Overlays don't participate in input, focus, popup closing, or accessibility.
+    /// Overlays receive input before popups and the component, with ignored events falling through.
+    /// They don't participate in popup closing, focus navigation, or accessibility.
     #[doc(hidden)]
     pub fn add_overlay(&self, component: &ItemTreeRc) -> Result<(), PlatformError> {
         let mut overlay_window_adapter = None;
@@ -2246,7 +2354,24 @@ impl WindowInner {
         window_item.width.set(size.width_length());
         window_item.height.set(size.height_length());
 
-        self.overlays.borrow_mut().push(component.clone());
+        self.active_popups.borrow_mut().push(PopupWindow {
+            popup_id: NonZeroU32::MAX,
+            location: PopupWindowLocation::ChildWindow(LogicalPoint::zero()),
+            component: component.clone(),
+            close_policy: PopupClosePolicy::NoAutoClose,
+            focus_item_in_parent: ItemWeak::default(),
+            parent_item: ItemWeak::default(),
+            window_kind: WindowKind::Popup,
+            position_access: Box::new(LogicalPosition::default),
+            is_open_setter: Box::new(|_| {}),
+            properties_tracker: Box::pin(PropertyTracker::new_with_dirty_handler(
+                PopupWindowPropertiesTracker {
+                    parent_window_adapter_weak: self.window_adapter_weak.clone(),
+                    popup_id: NonZeroU32::MAX,
+                },
+            )),
+            role: PopupWindowRole::Overlay,
+        });
         self.window_adapter().request_redraw();
         Ok(())
     }
@@ -2254,7 +2379,20 @@ impl WindowInner {
     /// Removes all overlays.
     #[doc(hidden)]
     pub fn clear_overlays(&self) {
-        if self.overlays.take().is_empty() {
+        let removed_overlay = {
+            let mut active_popups = self.active_popups.borrow_mut();
+            let overlay_index = active_popups
+                .iter()
+                .position(PopupWindow::is_overlay)
+                .unwrap_or(active_popups.len());
+            if overlay_index == active_popups.len() {
+                false
+            } else {
+                active_popups.truncate(overlay_index);
+                true
+            }
+        };
+        if !removed_overlay {
             return;
         }
         self.mark_overlay_region_dirty();
@@ -2335,8 +2473,8 @@ impl WindowInner {
         if let Some(component_rc) = self.try_component() {
             Self::set_item_tree_window_geometry(&component_rc, size);
         }
-        for overlay in self.overlays.borrow().iter() {
-            Self::set_item_tree_window_geometry(overlay, size);
+        for overlay in self.active_popups.borrow().iter().filter(|popup| popup.is_overlay()) {
+            Self::set_item_tree_window_geometry(&overlay.component, size);
         }
     }
 

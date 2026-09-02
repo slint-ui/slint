@@ -1469,6 +1469,22 @@ impl MouseInputState {
         self.delayed_exit_items.last().and_then(|x| x.upgrade()).or_else(|| self.top_item())
     }
 
+    pub(crate) fn tracks_item_tree(&self, item_tree: &crate::item_tree::ItemTreeRc) -> bool {
+        self.top_item_including_delayed().is_some_and(|item| {
+            ItemRc::new_root(item_tree.clone()).is_root_item_of(item.item_tree())
+        })
+    }
+
+    pub(crate) fn dispatch_shell(&self) -> Self {
+        Self {
+            drag_data: self.drag_data.clone(),
+            drag_source: self.drag_source.clone(),
+            drop_target: self.drop_target.clone(),
+            cursor: self.cursor.clone(),
+            ..Default::default()
+        }
+    }
+
     /// Returns true if there is a pending delayed event (e.g. from a Flickable)
     pub fn has_delayed_event(&self) -> bool {
         self.delayed.is_some()
@@ -1718,13 +1734,7 @@ pub fn process_mouse_input(
     window_adapter: &Rc<dyn WindowAdapter>,
     mut mouse_input_state: MouseInputState,
 ) -> MouseInputResult {
-    let mut result = MouseInputState {
-        drag_data: mouse_input_state.drag_data.clone(),
-        drag_source: mouse_input_state.drag_source.clone(),
-        drop_target: mouse_input_state.drop_target.clone(),
-        cursor: mouse_input_state.cursor.clone(),
-        ..Default::default()
-    };
+    let mut result = mouse_input_state.dispatch_shell();
     let r = send_mouse_event_to_item(
         mouse_event,
         root.clone(),
