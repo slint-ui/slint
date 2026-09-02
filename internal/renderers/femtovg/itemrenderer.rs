@@ -692,7 +692,9 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
         let fill_paint = femtovg::Paint::image(image_id, 0., 0., width, height, 0.0, 1.0);
         let mut path = femtovg::Path::new();
         path.rect(0., 0., width, height);
-        canvas.fill_path(&path, &fill_paint);
+        Self::align_canvas_during(&mut canvas, |canvas| {
+            canvas.fill_path(&path, &fill_paint);
+        });
     }
 
     fn draw_string(&mut self, string: &str, color: Color) {
@@ -1089,6 +1091,34 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
         result
     }
 
+    // Aligns the canvas origin so that `origin + extra_offset` will end up on the device pixel
+    // grid. Returns whether alignment was applied, in which case the caller must call
+    // `canvas.restore()` afterwards.
+    //
+    // Note that this will currently only align the canvas if it is not rotated and not scaled.
+    fn pixel_align_origin(canvas: &mut Canvas<R>, extra_offset: PhysicalPoint) -> bool {
+        let [a, b, c, d, x, y] = canvas.transform().0;
+
+        let is_translate_only =
+            a.approx_eq(&1.) && b.approx_eq(&0.) && c.approx_eq(&0.) && d.approx_eq(&1.);
+        if !is_translate_only {
+            return false;
+        }
+
+        let (combined_x, combined_y) = (x + extra_offset.x, y + extra_offset.y);
+        let (rounded_x, rounded_y) = (combined_x.round(), combined_y.round());
+        if rounded_x == combined_x && rounded_y == combined_y {
+            return false;
+        }
+
+        let new_x = x + (rounded_x - combined_x);
+        let new_y = y + (rounded_y - combined_y);
+        canvas.save();
+        canvas.reset_transform();
+        canvas.set_transform(&Transform2D::new(a, b, c, d, new_x, new_y));
+        true
+    }
+
     fn render_and_blend_layer(&mut self, alpha_tint: f32, item_rc: &ItemRc) -> RenderingResult {
         if let Some((layer_origin, layer_image)) =
             i_slint_core::item_rendering::render_layer(self, item_rc)
@@ -1103,7 +1133,9 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
             self.canvas.borrow_mut().save_with(|canvas| {
                 canvas.translate(layer_origin.x, layer_origin.y);
                 layer_path.rect(0., 0., layer_size.width as _, layer_size.height as _);
-                canvas.fill_path(&layer_path, &layer_image_paint);
+                Self::align_canvas_during(canvas, |canvas| {
+                    canvas.fill_path(&layer_path, &layer_image_paint);
+                });
             });
         }
         RenderingResult::ContinueRenderingWithoutChildren
@@ -1300,6 +1332,13 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
         let scale_w = buf_size.width / orig_size.width;
         let scale_h = buf_size.height / orig_size.height;
 
+        // Pixel-align the item's final draw origin (its own position plus the first fit's
+        // offset) before drawing (#6455). There's normally only one fit; 9-slice is the
+        // exception, with one fit per slice, so slices 2.. can still land on fractional pixels.
+        let restore_after_fits = fits.first().is_some_and(|first_fit| {
+            Self::pixel_align_origin(&mut self.canvas.borrow_mut(), first_fit.offset)
+        });
+
         for fit in fits {
             let (image_id, origin, texture_size) =
                 if fit.tiled.is_some() && fit.clip_rect.size.cast() != orig_size {
@@ -1380,6 +1419,10 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
                 canvas.scale(fit.source_to_target_x / scale_w, fit.source_to_target_y / scale_h);
                 canvas.fill_path(&path, &fill_paint);
             })
+        }
+
+        if restore_after_fits {
+            self.canvas.borrow_mut().restore();
         }
     }
 
