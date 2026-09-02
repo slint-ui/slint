@@ -114,3 +114,9 @@ export interface CannotInheritInterface inherits Other {
 export component ComponentInheritsInterface inherits Other {
 //                                                   >    <error{Components cannot inherit from interfaces}
 }
+
+// An interface is not an element, so it cannot be instantiated as a child.
+export component ComponentInstantiatesInterface {
+    Other { }
+//  >    <error{Cannot create an instance of an interface; write 'implement Other <=> self;' to implement it}
+}
