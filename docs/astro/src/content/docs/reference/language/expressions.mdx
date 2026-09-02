@@ -202,13 +202,23 @@ JSON object key exactly first, then fall back to comparing keys with underscores
 treated as equivalent — so a JSON file can use whichever convention is more natural for the tool
 that generated it.
 
-The JSON value is converted to match the declared type of the property: numbers become `int`,
-`float`, `percent`, `length`, `duration`, or `angle` values; strings become `string`, `color`
-(e.g. `"#ff0000"` or `"red"`), or enumeration values (matching a value name, optionally prefixed
-with `"EnumName."`); JSON arrays and objects become Slint arrays and structs, recursively. A JSON
-object being converted to a struct only uses the keys that match a declared field; any other keys
-in that object are ignored. A struct field that's absent from the JSON object takes the field's
-declared default value.
+The JSON value is converted to match the declared type of the property:
+
+| Slint type | Expected JSON value |
+| --- | --- |
+| `bool` | a boolean |
+| `int` | a whole number |
+| `float`, `percent` | a number |
+| `length`, `physical-length`, `duration`, `angle`, `relative-font-size` | a number, interpreted in the type's default unit (`px`, `phx`, `ms`, `deg`, or `rem`, respectively) |
+| `string` | a string |
+| `color` | a string, e.g. `"#ff0000"` or `"red"` |
+| an enum | a string naming one of its values, optionally prefixed with `"EnumName."` |
+| an array `[T]` | an array, each element converted per `T`'s row |
+| a struct | an object; each field is looked up by name and converted per its own type, recursively |
+
+A JSON object being converted to a struct only uses the keys that match a declared field; any
+other keys in that object are ignored. A struct field that's absent from the JSON object takes the
+field's declared default value.
 
 It's an error if the file can't be found, the key or path doesn't resolve to a value, or the JSON
 value's shape doesn't match the property's type. Since the value is read once, at compile time,
