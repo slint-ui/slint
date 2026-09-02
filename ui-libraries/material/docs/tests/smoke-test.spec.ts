@@ -129,7 +129,7 @@ test("smoke test", async ({ page }) => {
     await page.goto("./getting-started/");
     await expect(page.locator('[id="_top"]')).toContainText("Getting Started");
     await expect(page.getByRole("main")).toContainText(
-        "Material 3 Design System",
+        "Material 3 design system",
     );
     const base = new URL("../", page.url());
     await expect(
