@@ -45,6 +45,17 @@ For comments in source code — both internal implementation notes and public AP
 2. For public items, document the interface, not the implementation.
    - A comment above a property, function, or type says what it does and why for the caller, not how it works inside.
    - Rationale: Callers shouldn't have to read the implementation, and implementation details in the comment go stale as the code evolves.
+3. Explain a thing once, then cross-reference it.
+   - Avoid: repeating the same rationale on the trait, on each implementation, and again at the call site.
+   - Use: the full explanation where the thing is defined, and "see `foo`" everywhere else.
+   - Rationale: One copy can't drift out of sync with the other three, and a reader who already knows the rationale skips a reference faster than a paragraph.
+4. Never write what the code used to be, or what a review said about it.
+   - Avoid: "the review found this wrong", "this used to be unrounded", "round 3", "see the commit message".
+   - Use: a bare issue reference such as `#6739` when the background is worth chasing.
+   - Rationale: The next reader needs the code's current contract, not the discussion that produced it; `git log` and `git blame` already keep the discussion.
+5. Keep a doc comment under about ten lines.
+   - Use: a page under `docs/development/` for anything longer, linked from the comment.
+   - Rationale: A comment that outgrows the item it describes stops being read.
 
 ## Diagnostics
 
