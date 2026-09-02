@@ -1599,13 +1599,18 @@ impl Element {
                     );
                     ElementType::Error
                 }
-                Ok(ElementType::Component(c)) if c.is_interface() && is_component_root => {
-                    let message = if parent_type == ElementType::Interface {
-                        "Interface inheritance is not supported yet"
+                Ok(ElementType::Component(c)) if c.is_interface() => {
+                    let message = if !is_component_root {
+                        format!(
+                            "Cannot create an instance of an interface; write 'implement {} <=> self;' to implement it",
+                            c.id
+                        )
+                    } else if parent_type == ElementType::Interface {
+                        "Interface inheritance is not supported yet".into()
                     } else {
-                        "Components cannot inherit from interfaces"
+                        "Components cannot inherit from interfaces".into()
                     };
-                    diag.push_error(message.into(), &base_node);
+                    diag.push_error(message, &base_node);
                     ElementType::Error
                 }
                 Ok(ty) => {
