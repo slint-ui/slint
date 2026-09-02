@@ -104,6 +104,7 @@ pub fn parse_document(p: &mut impl Parser) -> bool {
 /// component C { property<int> xx; }
 /// component C inherits D { }
 /// interface I { property<int> xx; }
+/// interface I inherits J { property<int> xx; }
 /// ```
 pub fn parse_component(p: &mut impl Parser) -> bool {
     let simple_component = p.nth(1).kind() == SyntaxKind::ColonEqual;
@@ -135,9 +136,7 @@ pub fn parse_component(p: &mut impl Parser) -> bool {
             p.consume();
         }
         if p.peek().as_str() == "inherits" {
-            p.error("Interface inheritance is not supported");
-            drop(p.start_node(SyntaxKind::Element));
-            return false;
+            p.consume();
         }
     } else if !is_new_component {
         if p.peek().kind() == SyntaxKind::ColonEqual {
